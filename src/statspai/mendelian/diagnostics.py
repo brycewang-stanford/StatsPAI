@@ -36,7 +36,6 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 
-
 __all__ = [
     "HeterogeneityResult",
     "PleiotropyResult",
@@ -151,11 +150,11 @@ def mr_heterogeneity(
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
     sy = np.asarray(se_outcome, dtype=float)
-    w = 1.0 / sy ** 2
+    w = 1.0 / sy**2
 
     if method == "ivw":
         # Fit IVW through origin; compute residuals weighted by 1/sy^2
-        beta_ivw = np.sum(w * bx * by) / np.sum(w * bx ** 2)
+        beta_ivw = np.sum(w * bx * by) / np.sum(w * bx**2)
         Q = float(np.sum(w * (by - beta_ivw * bx) ** 2))
         df = len(bx) - 1
     elif method == "egger":
@@ -167,7 +166,7 @@ def mr_heterogeneity(
         except np.linalg.LinAlgError:
             beta = np.linalg.pinv(X.T @ W @ X) @ X.T @ W @ by
         resid = by - X @ beta
-        Q = float(np.sum(w * resid ** 2))
+        Q = float(np.sum(w * resid**2))
         df = len(bx) - 2
     else:
         raise ValueError("method must be 'ivw' or 'egger'")
@@ -178,6 +177,7 @@ def mr_heterogeneity(
     _result = HeterogeneityResult(Q=Q, Q_df=df, Q_p=p, I2=I2, method=method)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.mendelian.mr_heterogeneity",
@@ -234,8 +234,11 @@ class PleiotropyResult(ResultProtocolMixin):
     p_value: float
 
     def summary(self) -> str:
-        direction = "directional pleiotropy" if self.p_value < 0.05 else \
-            "no evidence of directional pleiotropy"
+        direction = (
+            "directional pleiotropy"
+            if self.p_value < 0.05
+            else "no evidence of directional pleiotropy"
+        )
         return (
             "MR-Egger Intercept Test\n"
             f"  Intercept = {self.intercept:+.4f}   SE = {self.se:.4f}   "
@@ -271,7 +274,7 @@ def mr_pleiotropy_egger(
     bx = np.asarray(beta_exposure, dtype=float)
     by = np.asarray(beta_outcome, dtype=float)
     sy = np.asarray(se_outcome, dtype=float)
-    w = 1.0 / sy ** 2
+    w = 1.0 / sy**2
     n = len(bx)
 
     X = np.column_stack([np.ones(n), bx])
@@ -282,7 +285,7 @@ def mr_pleiotropy_egger(
         XtWX_inv = np.linalg.pinv(X.T @ W @ X)
     beta = XtWX_inv @ X.T @ W @ by
     resid = by - X @ beta
-    sigma2 = float(np.sum(w * resid ** 2)) / max(n - 2, 1)
+    sigma2 = float(np.sum(w * resid**2)) / max(n - 2, 1)
     se = np.sqrt(sigma2 * np.diag(XtWX_inv))
     intercept = float(beta[0])
     intercept_se = float(se[0])
@@ -393,14 +396,16 @@ def mr_leave_one_out(
         se = float(np.sqrt(1.0 / np.sum(w * bx[mask] ** 2)))
         z = beta / se if se > 0 else 0.0
         p = float(2 * (1 - stats.norm.cdf(abs(z))))
-        rows.append(dict(
-            dropped_snp=snp_ids[i],
-            estimate=beta,
-            se=se,
-            ci_lower=beta - z_crit * se,
-            ci_upper=beta + z_crit * se,
-            p_value=p,
-        ))
+        rows.append(
+            dict(
+                dropped_snp=snp_ids[i],
+                estimate=beta,
+                se=se,
+                ci_lower=beta - z_crit * se,
+                ci_upper=beta + z_crit * se,
+                p_value=p,
+            )
+        )
     return LeaveOneOutResult(table=pd.DataFrame(rows))
 
 
@@ -450,9 +455,11 @@ class SteigerResult(ResultProtocolMixin):
     sample_size_outcome: int
 
     def summary(self) -> str:
-        dir_str = ("exposure -> outcome (expected)"
-                   if self.correct_direction
-                   else "outcome -> exposure (reverse!)")
+        dir_str = (
+            "exposure -> outcome (expected)"
+            if self.correct_direction
+            else "outcome -> exposure (reverse!)"
+        )
         return (
             "Steiger Directionality Test\n"
             f"  R^2 (on exposure) = {self.r2_exposure:.4f}\n"
@@ -484,7 +491,7 @@ def _r2_from_beta_se(
         r2 = t2 / (t2 + n - 2)
     else:
         eaf = np.asarray(eaf, dtype=float)
-        r2 = 2 * beta ** 2 * eaf * (1 - eaf)
+        r2 = 2 * beta**2 * eaf * (1 - eaf)
     # Total R^2 across independent SNPs: bounded at 1
     return float(min(1.0, np.sum(r2)))
 
@@ -649,9 +656,9 @@ def _ivw(
     by: np.ndarray,
     sy: np.ndarray,
 ) -> tuple[float, float]:
-    w = 1.0 / sy ** 2
-    beta = float(np.sum(w * bx * by) / np.sum(w * bx ** 2))
-    se = float(np.sqrt(1.0 / np.sum(w * bx ** 2)))
+    w = 1.0 / sy**2
+    beta = float(np.sum(w * bx * by) / np.sum(w * bx**2))
+    se = float(np.sqrt(1.0 / np.sum(w * bx**2)))
     return beta, se
 
 
@@ -706,7 +713,9 @@ def mr_presso(
     n = len(bx)
 
     raw_beta, raw_se = _ivw(bx, by, sy)
-    raw_p = float(2 * (1 - stats.norm.cdf(abs(raw_beta / raw_se)))) if raw_se > 0 else 1.0
+    raw_p = (
+        float(2 * (1 - stats.norm.cdf(abs(raw_beta / raw_se)))) if raw_se > 0 else 1.0
+    )
 
     # Observed residuals and per-SNP RSS contribution (leave-one-out)
     def _rss_components(
@@ -744,11 +753,12 @@ def mr_presso(
     # Matches the convention used by the R ``MR-PRESSO`` package and
     # MCRATs 2003 §3.3.
     p_global = float((np.sum(null_rss >= rss_obs) + 1) / (n_boot + 1))
-    per_snp_p = np.array([
-        (np.sum(null_components[:, i] >= obs_rss_components[i]) + 1)
-        / (n_boot + 1)
-        for i in range(n)
-    ])
+    per_snp_p = np.array(
+        [
+            (np.sum(null_components[:, i] >= obs_rss_components[i]) + 1) / (n_boot + 1)
+            for i in range(n)
+        ]
+    )
     outliers = [int(i) for i in range(n) if per_snp_p[i] < sig_threshold]
 
     if not outliers:
@@ -769,7 +779,7 @@ def mr_presso(
     c_p = float(2 * (1 - stats.norm.cdf(abs(c_beta / c_se)))) if c_se > 0 else 1.0
 
     # Distortion test: how different is corrected from raw?
-    dist_z = (raw_beta - c_beta) / np.sqrt(raw_se ** 2 + c_se ** 2)
+    dist_z = (raw_beta - c_beta) / np.sqrt(raw_se**2 + c_se**2)
     dist_p = float(2 * (1 - stats.norm.cdf(abs(dist_z))))
 
     return MRPressoResult(
@@ -823,7 +833,7 @@ class RadialResult(ResultProtocolMixin):
         "verbanck2018detection",
     )
 
-    table: pd.DataFrame   # columns: snp, W, beta_hat, q_contribution
+    table: pd.DataFrame  # columns: snp, W, beta_hat, q_contribution
     total_Q: float
     Q_pvalue: float
     outliers: list[int]
@@ -876,14 +886,12 @@ def mr_radial(
     sy = np.asarray(se_outcome, dtype=float)
     n = len(bx)
     if n < 2:
-        raise ValueError(
-            "mr_radial requires at least 2 SNPs to compute Cochran Q."
-        )
+        raise ValueError("mr_radial requires at least 2 SNPs to compute Cochran Q.")
     if snp_ids is None:
         snp_ids = [f"SNP_{i}" for i in range(n)]
 
     # Inverse-variance weights
-    W = bx ** 2 / sy ** 2
+    W = bx**2 / sy**2
     # Radial coords: beta_hat_i = by / bx (ratio), weighted by W
     ratio = by / bx
     beta_ivw = float(np.sum(W * ratio) / np.sum(W))
@@ -897,12 +905,14 @@ def mr_radial(
     threshold = stats.chi2.ppf(1 - 0.05 / n, 1)
     outliers = [int(i) for i in range(n) if q_i[i] > threshold]
 
-    table = pd.DataFrame(dict(
-        snp=snp_ids,
-        W=W,
-        beta_hat=ratio,
-        q_contribution=q_i,
-    ))
+    table = pd.DataFrame(
+        dict(
+            snp=snp_ids,
+            W=W,
+            beta_hat=ratio,
+            q_contribution=q_i,
+        )
+    )
     return RadialResult(
         table=table,
         total_Q=total_Q,

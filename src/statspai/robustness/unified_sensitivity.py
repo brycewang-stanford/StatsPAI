@@ -25,7 +25,6 @@ from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
-
 __all__ = ["SensitivityDashboard", "unified_sensitivity"]
 
 
@@ -79,8 +78,7 @@ class SensitivityDashboard:
             )
             if "rv_qa" in self.sensemakr:
                 lines.append(
-                    f"  Sensemakr RV(q=1,a) : "
-                    f"{self.sensemakr['rv_qa']:.4f}"
+                    f"  Sensemakr RV(q=1,a) : " f"{self.sensemakr['rv_qa']:.4f}"
                 )
         if self.breakdown is not None:
             lines.append(
@@ -180,19 +178,22 @@ def _coerce_matched_pairs(mp: Any) -> tuple[np.ndarray, np.ndarray]:
     ``'treated'`` and ``'control'`` entries.
     """
     if isinstance(mp, dict) and "treated" in mp and "control" in mp:
-        return (np.asarray(mp["treated"], dtype=float),
-                np.asarray(mp["control"], dtype=float))
+        return (
+            np.asarray(mp["treated"], dtype=float),
+            np.asarray(mp["control"], dtype=float),
+        )
     if hasattr(mp, "columns"):  # DataFrame-like
         cols = {str(c).lower(): c for c in mp.columns}
         if "treated" in cols and "control" in cols:
-            return (np.asarray(mp[cols["treated"]], dtype=float),
-                    np.asarray(mp[cols["control"]], dtype=float))
+            return (
+                np.asarray(mp[cols["treated"]], dtype=float),
+                np.asarray(mp[cols["control"]], dtype=float),
+            )
         if mp.shape[1] == 2:
             arr = np.asarray(mp, dtype=float)
             return arr[:, 0], arr[:, 1]
     if isinstance(mp, (tuple, list)) and len(mp) == 2:
-        return (np.asarray(mp[0], dtype=float),
-                np.asarray(mp[1], dtype=float))
+        return (np.asarray(mp[0], dtype=float), np.asarray(mp[1], dtype=float))
     arr = np.asarray(mp)
     if arr.ndim == 2 and arr.shape[1] == 2:
         return arr[:, 0].astype(float), arr[:, 1].astype(float)
@@ -297,9 +298,11 @@ def unified_sensitivity(
         else:
             e_point = _float_or_nan(
                 getattr(
-                    ev, "evalue_estimate",
+                    ev,
+                    "evalue_estimate",
                     getattr(
-                        ev, "evalue",
+                        ev,
+                        "evalue",
                         getattr(ev, "e_point", float("nan")),
                     ),
                 )
@@ -314,11 +317,15 @@ def unified_sensitivity(
     # estimate (``beta_uncontrolled``).  Fabricating beta_uncontrolled
     # would produce a meaningless delta, so we skip unless it is supplied.
     oster = None
-    if (include_oster and r2_treated is not None
-            and r2_controlled is not None
-            and beta_uncontrolled is not None):
+    if (
+        include_oster
+        and r2_treated is not None
+        and r2_controlled is not None
+        and beta_uncontrolled is not None
+    ):
         try:
             from ..diagnostics import oster_bounds as _oster_bounds
+
             # sp.oster_bounds signature uses beta_short / beta_long /
             # r2_short / r2_long + r_max.
             od = _oster_bounds(
@@ -350,18 +357,14 @@ def unified_sensitivity(
             else:
                 oster = {
                     "delta": float(getattr(od, "delta", float("nan"))),
-                    "beta_star": float(
-                        getattr(od, "beta_star", float("nan"))
-                    ),
+                    "beta_star": float(getattr(od, "beta_star", float("nan"))),
                 }
         except Exception as exc:
             import warnings as _warnings
+
             _warnings.warn(f"Oster delta skipped: {exc}", stacklevel=2)
             notes.append(f"Oster delta skipped: {exc}")
-    elif (
-        include_oster
-        and (r2_treated is not None or r2_controlled is not None)
-    ):
+    elif include_oster and (r2_treated is not None or r2_controlled is not None):
         notes.append(
             "Oster delta skipped: need r2_treated, r2_controlled, and "
             "beta_uncontrolled (the short-regression estimate)."
@@ -371,17 +374,16 @@ def unified_sensitivity(
     #    result exposes ``matched_pairs`` (see :func:`_coerce_matched_pairs`
     #    for accepted shapes); skipped otherwise.
     rosenbaum = None
-    if include_rosenbaum and getattr(result, "matched_pairs", None) \
-            is not None:
+    if include_rosenbaum and getattr(result, "matched_pairs", None) is not None:
         try:
             from ..diagnostics import rosenbaum_bounds as _rb
-            treated_y, control_y = _coerce_matched_pairs(
-                result.matched_pairs)
-            rb = _rb(treated_y.tolist(), control_y.tolist(),
-                     alternative="two-sided")
+
+            treated_y, control_y = _coerce_matched_pairs(result.matched_pairs)
+            rb = _rb(treated_y.tolist(), control_y.tolist(), alternative="two-sided")
             rosenbaum = {"gamma_critical": float(rb.gamma_critical)}
         except Exception as exc:
             import warnings as _warnings
+
             msg = (
                 f"Rosenbaum Gamma skipped: {exc}. Expose matched_pairs as "
                 "(treated, control) outcome arrays, or call "
@@ -396,8 +398,7 @@ def unified_sensitivity(
     #    (data, y, treat, controls) are supplied explicitly.
     sensemakr = None
     if include_sensemakr:
-        sm_args = {"data": data, "y": y, "treat": treat,
-                   "controls": controls}
+        sm_args = {"data": data, "y": y, "treat": treat, "controls": controls}
         if (
             data is not None
             and y is not None
@@ -407,6 +408,7 @@ def unified_sensitivity(
             controls_list = list(controls)
             try:
                 from ..diagnostics.sensemakr import sensemakr as _sm
+
                 sm = _sm(data, y=y, treat=treat, controls=controls_list)
                 sensemakr = {
                     "rv_q1": float(sm["rv_q"]),
@@ -414,6 +416,7 @@ def unified_sensitivity(
                 }
             except Exception as exc:
                 import warnings as _warnings
+
                 msg = (
                     f"Sensemakr failed: {exc}. Check that data contains "
                     f"numeric columns {[y, treat] + controls_list}, or "
@@ -424,8 +427,9 @@ def unified_sensitivity(
         elif any(v is not None for v in sm_args.values()):
             missing = [k for k, v in sm_args.items() if v is None]
             notes.append(
-                "Sensemakr skipped: missing " + ", ".join(missing) +
-                " (all of data, y, treat, controls are required)."
+                "Sensemakr skipped: missing "
+                + ", ".join(missing)
+                + " (all of data, y, treat, controls are required)."
             )
         else:
             notes.append(

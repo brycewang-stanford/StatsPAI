@@ -23,7 +23,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 
-
 __all__ = [
     "llm_causal_assess",
     "pairwise_causal_benchmark",
@@ -63,6 +62,7 @@ class LLMCausalAssessResult:
     >>> res.level1_accuracy  # doctest: +SKIP
     >>> print(res.summary())  # doctest: +SKIP
     """
+
     level1_accuracy: Optional[float]
     level2_accuracy: Optional[float]
     # columns: id, level, question, truth, pred, correct
@@ -79,14 +79,12 @@ class LLMCausalAssessResult:
         if self.level1_accuracy is not None:
             n1 = (self.per_item["level"] == 1).sum()
             lines.append(
-                f"  Level-1 accuracy   : {self.level1_accuracy:.4f}  "
-                f"(n={n1})"
+                f"  Level-1 accuracy   : {self.level1_accuracy:.4f}  " f"(n={n1})"
             )
         if self.level2_accuracy is not None:
             n2 = (self.per_item["level"] == 2).sum()
             lines.append(
-                f"  Level-2 accuracy   : {self.level2_accuracy:.4f}  "
-                f"(n={n2})"
+                f"  Level-2 accuracy   : {self.level2_accuracy:.4f}  " f"(n={n2})"
             )
         return "\n".join(lines)
 
@@ -120,20 +118,23 @@ class PairwiseBenchmarkResult:
     >>> res.accuracy, res.precision_forward  # doctest: +SKIP
     >>> print(res.summary())  # doctest: +SKIP
     """
+
     accuracy: float
     precision_forward: float
     recall_forward: float
     per_pair: pd.DataFrame
 
     def summary(self) -> str:
-        return "\n".join([
-            "Pairwise Causal Discovery Benchmark",
-            "=" * 60,
-            f"  Accuracy            : {self.accuracy:.4f}",
-            f"  Precision (A -> B)  : {self.precision_forward:.4f}",
-            f"  Recall (A -> B)     : {self.recall_forward:.4f}",
-            f"  # pairs             : {len(self.per_pair)}",
-        ])
+        return "\n".join(
+            [
+                "Pairwise Causal Discovery Benchmark",
+                "=" * 60,
+                f"  Accuracy            : {self.accuracy:.4f}",
+                f"  Precision (A -> B)  : {self.precision_forward:.4f}",
+                f"  Recall (A -> B)     : {self.recall_forward:.4f}",
+                f"  # pairs             : {len(self.per_pair)}",
+            ]
+        )
 
 
 def _parse_yes_no(text: str) -> Optional[bool]:
@@ -155,8 +156,7 @@ def pairwise_causal_benchmark(
     pair_b_col: str = "B",
     truth_col: str = "a_causes_b",
     prompt_template: str = (
-        "Does variable {a} causally influence variable {b}? "
-        "Answer 'yes' or 'no'."
+        "Does variable {a} causally influence variable {b}? " "Answer 'yes' or 'no'."
     ),
 ) -> PairwiseBenchmarkResult:
     """Benchmark an LLM on pairwise causal-direction identification.
@@ -202,28 +202,29 @@ def pairwise_causal_benchmark(
         pred = _parse_yes_no(raw)
         truth = bool(row[truth_col])
         correct = (pred == truth) if pred is not None else False
-        rows.append({
-            "A": row[pair_a_col], "B": row[pair_b_col],
-            "truth": truth, "pred": pred, "correct": correct,
-            "raw_response": raw,
-        })
+        rows.append(
+            {
+                "A": row[pair_a_col],
+                "B": row[pair_b_col],
+                "truth": truth,
+                "pred": pred,
+                "correct": correct,
+                "raw_response": raw,
+            }
+        )
     per_pair = pd.DataFrame(rows)
     acc = float(per_pair["correct"].mean())
     # Precision (forward): of predicted-forward, how many are truly-forward.
     pred_series = per_pair["pred"]
     forward_pred_mask = pred_series.eq(True)
     if forward_pred_mask.any():
-        precision = float(
-            per_pair.loc[forward_pred_mask, "truth"].eq(True).mean()
-        )
+        precision = float(per_pair.loc[forward_pred_mask, "truth"].eq(True).mean())
     else:
         precision = float("nan")
     # Recall (forward): of truly-forward, how many were predicted-forward.
     truly_forward = per_pair["truth"].eq(True)
     if truly_forward.any():
-        recall = float(
-            per_pair.loc[truly_forward, "pred"].eq(True).mean()
-        )
+        recall = float(per_pair.loc[truly_forward, "pred"].eq(True).mean())
     else:
         recall = float("nan")
     return PairwiseBenchmarkResult(
@@ -293,13 +294,16 @@ def llm_causal_assess(
             raw = llm_client(row["question"])
             ans = str(row["answer"]).strip().lower()
             pred_correct = bool(ans and ans in raw.lower())
-            rows.append({
-                "id": i, "level": level,
-                "question": row["question"],
-                "truth": row["answer"],
-                "pred": raw,
-                "correct": pred_correct,
-            })
+            rows.append(
+                {
+                    "id": i,
+                    "level": level,
+                    "question": row["question"],
+                    "truth": row["answer"],
+                    "pred": raw,
+                    "correct": pred_correct,
+                }
+            )
             if pred_correct:
                 correct += 1
         return correct / len(items)

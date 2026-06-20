@@ -28,8 +28,8 @@ import pandas as pd
 #  - 4 = 0.5pt (thin)
 #  - 8 = 1pt (medium)
 #  - 12 = 1.5pt (heavy / book-tab top/bottom)
-TOP_RULE_SZ = "12"     # heavy
-MID_RULE_SZ = "4"      # thin
+TOP_RULE_SZ = "12"  # heavy
+MID_RULE_SZ = "4"  # thin
 BOTTOM_RULE_SZ = "12"  # heavy
 
 DEFAULT_FONT = "Times New Roman"
@@ -119,8 +119,12 @@ def _docx_border_xml(
 
     tc_borders = OxmlElement("w:tcBorders")
     edges = {
-        "top": top, "left": left, "bottom": bottom, "right": right,
-        "insideH": insideH, "insideV": insideV,
+        "top": top,
+        "left": left,
+        "bottom": bottom,
+        "right": right,
+        "insideH": insideH,
+        "insideV": insideV,
     }
     for edge, attrs in edges.items():
         elem = OxmlElement(f"w:{edge}")
@@ -204,10 +208,7 @@ def apply_word_booktab_rules(
         # _set_cell_borders call replaces the entire tcBorders element.
         if body_last_idx == header_top_idx:
             kwargs["top"] = top
-        elif (
-            body_last_idx == header_bot_idx
-            and header_top_idx == header_bot_idx
-        ):
+        elif body_last_idx == header_bot_idx and header_top_idx == header_bot_idx:
             kwargs["top"] = top
             kwargs["bottom"] = mid
         _set_cell_borders(cell, **kwargs)

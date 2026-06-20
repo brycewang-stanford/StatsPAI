@@ -75,9 +75,7 @@ class DIDSummaryResult(CausalResult):
         disp = mi.get("dispersion")
         bd = mi.get("breakdown_m")
 
-        lines = ["=" * 78,
-                 "  DID Method-Robustness Summary",
-                 "=" * 78, ""]
+        lines = ["=" * 78, "  DID Method-Robustness Summary", "=" * 78, ""]
         if fit:
             lines.append(f"  Fitted methods: {', '.join(fit)}")
         if failed:
@@ -134,8 +132,13 @@ def _run_cs(
     from .aggte import aggte
 
     cs = callaway_santanna(
-        data, y=y, g=first_treat, t=time, i=group,
-        x=controls, alpha=alpha,
+        data,
+        y=y,
+        g=first_treat,
+        t=time,
+        i=group,
+        x=controls,
+        alpha=alpha,
     )
     return aggte(cs, type="simple", alpha=alpha, bstrap=False)
 
@@ -153,8 +156,14 @@ def _run_sa(
     from .sun_abraham import sun_abraham
 
     return sun_abraham(
-        data, y=y, g=first_treat, t=time, i=group,
-        covariates=controls, cluster=cluster, alpha=alpha,
+        data,
+        y=y,
+        g=first_treat,
+        t=time,
+        i=group,
+        covariates=controls,
+        cluster=cluster,
+        alpha=alpha,
     )
 
 
@@ -171,8 +180,14 @@ def _run_bjs(
     from .did_imputation import did_imputation
 
     return did_imputation(
-        data, y=y, group=group, time=time, first_treat=first_treat,
-        controls=controls, cluster=cluster, alpha=alpha,
+        data,
+        y=y,
+        group=group,
+        time=time,
+        first_treat=first_treat,
+        controls=controls,
+        cluster=cluster,
+        alpha=alpha,
     )
 
 
@@ -189,8 +204,14 @@ def _run_etwfe(
     from .wooldridge_did import etwfe
 
     return etwfe(
-        data, y=y, group=group, time=time, first_treat=first_treat,
-        controls=controls, cluster=cluster, alpha=alpha,
+        data,
+        y=y,
+        group=group,
+        time=time,
+        first_treat=first_treat,
+        controls=controls,
+        cluster=cluster,
+        alpha=alpha,
     )
 
 
@@ -207,8 +228,14 @@ def _run_stacked(
     from .stacked_did import stacked_did
 
     return stacked_did(
-        data, y=y, group=group, time=time, first_treat=first_treat,
-        controls=controls, cluster=cluster, alpha=alpha,
+        data,
+        y=y,
+        group=group,
+        time=time,
+        first_treat=first_treat,
+        controls=controls,
+        cluster=cluster,
+        alpha=alpha,
     )
 
 
@@ -230,8 +257,7 @@ def _extract(res: CausalResult) -> dict:
     ci_lo = float(ci[0]) if ci[0] is not None else np.nan
     ci_hi = float(ci[1]) if ci[1] is not None else np.nan
     n = int(res.n_obs) if getattr(res, "n_obs", None) else np.nan
-    return dict(estimate=est, se=se, pvalue=p,
-                ci_low=ci_lo, ci_high=ci_hi, n_obs=n)
+    return dict(estimate=est, se=se, pvalue=p, ci_low=ci_lo, ci_high=ci_hi, n_obs=n)
 
 
 def did_summary(
@@ -370,26 +396,46 @@ def did_summary(
             if name == "cs" and include_sensitivity:
                 from .callaway_santanna import callaway_santanna
                 from .aggte import aggte as _aggte
+
                 cs_raw = callaway_santanna(
-                    data, y=y, g=first_treat, t=time, i=group,
-                    x=controls, alpha=alpha,
+                    data,
+                    y=y,
+                    g=first_treat,
+                    t=time,
+                    i=group,
+                    x=controls,
+                    alpha=alpha,
                 )
                 res = _aggte(cs_raw, type="simple", alpha=alpha, bstrap=False)
             else:
                 res = _DISPATCH[name](
-                    data, y, group, time, first_treat, controls, cluster, alpha,
+                    data,
+                    y,
+                    group,
+                    time,
+                    first_treat,
+                    controls,
+                    cluster,
+                    alpha,
                 )
             vals = _extract(res)
             rows.append(dict(method=name, estimator=label, note="", **vals))
             fit.append(name)
         except _expected_exc as exc:
             failed[name] = type(exc).__name__ + ": " + str(exc)[:160]
-            rows.append(dict(
-                method=name, estimator=label,
-                estimate=np.nan, se=np.nan, pvalue=np.nan,
-                ci_low=np.nan, ci_high=np.nan, n_obs=np.nan,
-                note=f"FAILED: {type(exc).__name__}",
-            ))
+            rows.append(
+                dict(
+                    method=name,
+                    estimator=label,
+                    estimate=np.nan,
+                    se=np.nan,
+                    pvalue=np.nan,
+                    ci_low=np.nan,
+                    ci_high=np.nan,
+                    n_obs=np.nan,
+                    note=f"FAILED: {type(exc).__name__}",
+                )
+            )
 
     # Optional Rambachan–Roth breakdown M*
     breakdown_m_value: Optional[float] = None
@@ -397,6 +443,7 @@ def did_summary(
     if include_sensitivity and cs_raw is not None:
         try:
             from .honest_did import breakdown_m
+
             breakdown_m_value = float(breakdown_m(cs_raw, e=0, alpha=alpha))
             # Fill the CS row
             for i, r in enumerate(rows):
@@ -413,10 +460,21 @@ def did_summary(
     for i, r in enumerate(rows):
         r["breakdown_m"] = breakdown_m_col[i]
 
-    detail = pd.DataFrame(rows, columns=[
-        "method", "estimator", "estimate", "se", "pvalue",
-        "ci_low", "ci_high", "n_obs", "breakdown_m", "note",
-    ])
+    detail = pd.DataFrame(
+        rows,
+        columns=[
+            "method",
+            "estimator",
+            "estimate",
+            "se",
+            "pvalue",
+            "ci_low",
+            "ci_high",
+            "n_obs",
+            "breakdown_m",
+            "note",
+        ],
+    )
 
     ests = detail.loc[detail["estimate"].notna(), "estimate"].values
     if len(ests) > 0:
@@ -452,6 +510,7 @@ def did_summary(
 # ═══════════════════════════════════════════════════════════════════════
 #  Export helpers: Markdown / LaTeX from a did_summary
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _ensure_did_summary(result: CausalResult) -> pd.DataFrame:
     """Validate that result came from did_summary() and return its detail."""
@@ -677,9 +736,7 @@ def did_summary_to_latex(
         )
     note_parts.append("$^*p<0.1,\\,^{**}p<0.05,\\,^{***}p<0.01$.")
     if note_parts:
-        lines.append(
-            "\\vspace{0.5ex}\\footnotesize " + " ".join(note_parts)
-        )
+        lines.append("\\vspace{0.5ex}\\footnotesize " + " ".join(note_parts))
     lines.append("\\end{table}")
     return "\n".join(lines)
 
@@ -687,6 +744,7 @@ def did_summary_to_latex(
 # ═══════════════════════════════════════════════════════════════════════
 #  One-call DID bundle report — txt + md + tex + png in a single directory
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def did_report(
     data: pd.DataFrame,
@@ -760,9 +818,17 @@ def did_report(
         print(f"[did_report] fitting methods into {out_dir} ...", flush=True)
 
     result = did_summary(
-        data, y=y, time=time, first_treat=first_treat, group=group,
-        methods=methods, controls=controls, cluster=cluster, alpha=alpha,
-        include_sensitivity=include_sensitivity, verbose=verbose,
+        data,
+        y=y,
+        time=time,
+        first_treat=first_treat,
+        group=group,
+        methods=methods,
+        controls=controls,
+        cluster=cluster,
+        alpha=alpha,
+        include_sensitivity=include_sensitivity,
+        verbose=verbose,
     )
     detail = _ensure_did_summary(result)
 
@@ -771,21 +837,25 @@ def did_report(
 
     # Markdown
     (out_dir / "did_summary.md").write_text(
-        did_summary_to_markdown(result), encoding="utf-8",
+        did_summary_to_markdown(result),
+        encoding="utf-8",
     )
 
     # LaTeX
     (out_dir / "did_summary.tex").write_text(
-        did_summary_to_latex(result), encoding="utf-8",
+        did_summary_to_latex(result),
+        encoding="utf-8",
     )
 
     # PNG (best-effort — skip if matplotlib unavailable)
     try:
         from .plots import did_summary_plot
+
         fig, _ = did_summary_plot(result, sort_by=plot_sort_by)
         fig.savefig(out_dir / "did_summary.png", dpi=150, bbox_inches="tight")
         try:
             import matplotlib.pyplot as plt
+
             plt.close(fig)
         except Exception:
             pass
@@ -805,7 +875,8 @@ def did_report(
         },
     }
     (out_dir / "did_summary.json").write_text(
-        json.dumps(payload, indent=2, default=str), encoding="utf-8",
+        json.dumps(payload, indent=2, default=str),
+        encoding="utf-8",
     )
 
     if verbose:

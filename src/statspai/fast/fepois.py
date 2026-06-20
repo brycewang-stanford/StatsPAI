@@ -30,6 +30,7 @@ What it does NOT (yet) do
   intentionally split off the Phase 2 critical path. The Phase 1 demean
   kernel is exposed so a future Rust IRLS can call it.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -52,6 +53,7 @@ from ._validation import (
 # the dispatcher below routes to it; when not, the pure-NumPy fallback runs.
 try:
     import statspai_hdfe as _rust_hdfe  # type: ignore
+
     _HAS_RUST_HDFE = True
 except ImportError:  # pragma: no cover  - exercised in CI on no-Rust wheels
     _rust_hdfe = None  # type: ignore
@@ -61,6 +63,7 @@ except ImportError:  # pragma: no cover  - exercised in CI on no-Rust wheels
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class FePoisResult:
@@ -96,12 +99,14 @@ class FePoisResult:
         return pd.Series(self.coef_vec, index=self.coef_names, name="Estimate")
 
     def se(self) -> pd.Series:
-        return pd.Series(np.sqrt(np.diag(self.vcov_matrix)),
-                         index=self.coef_names, name="Std. Error")
+        return pd.Series(
+            np.sqrt(np.diag(self.vcov_matrix)), index=self.coef_names, name="Std. Error"
+        )
 
     def vcov(self) -> pd.DataFrame:
-        return pd.DataFrame(self.vcov_matrix, index=self.coef_names,
-                            columns=self.coef_names)
+        return pd.DataFrame(
+            self.vcov_matrix, index=self.coef_names, columns=self.coef_names
+        )
 
     def tidy(self) -> pd.DataFrame:
         b = self.coef_vec
@@ -110,13 +115,17 @@ class FePoisResult:
             t = np.where(s > 0, b / s, np.nan)
         # Two-sided z-test; large-sample for fepois.
         from scipy.stats import norm
+
         p = 2.0 * (1.0 - norm.cdf(np.abs(t)))
-        return pd.DataFrame({
-            "Estimate": b,
-            "Std. Error": s,
-            "z value": t,
-            "Pr(>|z|)": p,
-        }, index=self.coef_names)
+        return pd.DataFrame(
+            {
+                "Estimate": b,
+                "Std. Error": s,
+                "z value": t,
+                "Pr(>|z|)": p,
+            },
+            index=self.coef_names,
+        )
 
     def summary(self) -> str:
         lines: List[str] = []
@@ -132,14 +141,11 @@ class FePoisResult:
         )
         if self.fe_names:
             fe_desc = ", ".join(
-                f"{n}({c:,})"
-                for n, c in zip(self.fe_names, self.fe_cardinality)
+                f"{n}({c:,})" for n, c in zip(self.fe_names, self.fe_cardinality)
             )
             lines.append(f"Fixed effects: {fe_desc}")
         lines.append("")
-        lines.append(
-            str(self.tidy().to_string(float_format=lambda x: f"{x:.6f}"))
-        )
+        lines.append(str(self.tidy().to_string(float_format=lambda x: f"{x:.6f}")))
         lines.append("")
         lines.append(
             f"Deviance: {self.deviance:.4f}    "
@@ -220,6 +226,7 @@ class FePoisResult:
 # Formula parsing  ("y ~ x1 + x2 | fe1 + fe2")
 # ---------------------------------------------------------------------------
 
+
 def _parse_fepois_formula(formula: str) -> Tuple[str, List[str], List[str]]:
     """Split ``y ~ x | fe`` into (lhs, rhs_terms, fe_terms).
 
@@ -251,6 +258,7 @@ def _parse_fepois_formula(formula: str) -> Tuple[str, List[str], List[str]]:
 # Weighted demean (one full sweep over K FEs, in place on a column)
 # ---------------------------------------------------------------------------
 
+
 def _weighted_sweep(
     col: np.ndarray,
     codes: np.ndarray,
@@ -261,19 +269,14 @@ def _weighted_sweep(
 
     ``mean_g(col) = sum_{i in g} w_i * col_i / sum_{i in g} w_i``.
     """
-    weighted_sums = np.bincount(
-        codes, weights=col * weights, minlength=wsum.size
-    )
+    weighted_sums = np.bincount(codes, weights=col * weights, minlength=wsum.size)
     means = np.divide(
-        weighted_sums, wsum,
-        out=np.zeros_like(weighted_sums), where=wsum > 0
+        weighted_sums, wsum, out=np.zeros_like(weighted_sums), where=wsum > 0
     )
     col -= means[codes]
 
 
-def _aitken_extrapolate(
-    x0: np.ndarray, x1: np.ndarray, x2: np.ndarray
-) -> np.ndarray:
+def _aitken_extrapolate(x0: np.ndarray, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
     """Vector Irons-Tuck extrapolation; returns x2 if denominator degenerate.
 
     Identical formula to the Rust ``demean::aitken_step``. Pure NumPy because
@@ -326,9 +329,11 @@ def _weighted_ap_demean_numpy(
     # Pre-compute weighted group sums per FE
     wsum_list: List[np.ndarray] = []
     for k in range(K):
-        wsum_list.append(np.bincount(
-            fe_codes_list[k], weights=weights, minlength=counts_list[k].size
-        ))
+        wsum_list.append(
+            np.bincount(
+                fe_codes_list[k], weights=weights, minlength=counts_list[k].size
+            )
+        )
 
     # K=1 closed form
     if K == 1:
@@ -391,11 +396,11 @@ class _SortedDemeanPlan:
 
     primary_idx: int
     primary_G: int
-    perm: np.ndarray             # int64, length n
-    inv_perm: np.ndarray         # int64, length n
-    primary_starts: np.ndarray   # int64, length primary_G + 1
+    perm: np.ndarray  # int64, length n
+    inv_perm: np.ndarray  # int64, length n
+    primary_starts: np.ndarray  # int64, length primary_G + 1
     secondary_codes_p: List[np.ndarray]  # each int64, in π order
-    secondary_G: List[int]       # cardinality of each non-primary FE
+    secondary_G: List[int]  # cardinality of each non-primary FE
 
 
 # Module-level single-slot fingerprint cache for ``_SortedDemeanPlan``.
@@ -517,9 +522,14 @@ def _weighted_ap_demean(
     K = len(fe_codes_list)
     if not _HAS_RUST_HDFE or K < 2:
         return _weighted_ap_demean_numpy(
-            arr, fe_codes_list, counts_list, weights,
-            max_iter=max_iter, tol=tol,
-            accelerate=accelerate, accel_period=accel_period,
+            arr,
+            fe_codes_list,
+            counts_list,
+            weights,
+            max_iter=max_iter,
+            tol=tol,
+            accelerate=accelerate,
+            accel_period=accel_period,
         )
 
     use_sorted = hasattr(_rust_hdfe, "demean_2d_weighted_sorted")
@@ -541,11 +551,16 @@ def _weighted_ap_demean(
         weights_p = np.ascontiguousarray(weights[plan.perm])
         primary_codes_p = fe_codes_list[plan.primary_idx][plan.perm]
         primary_wsum = np.bincount(
-            primary_codes_p, weights=weights_p, minlength=plan.primary_G,
+            primary_codes_p,
+            weights=weights_p,
+            minlength=plan.primary_G,
         ).astype(np.float64)
         secondary_wsum = [
-            np.bincount(plan.secondary_codes_p[i], weights=weights_p,
-                        minlength=plan.secondary_G[i]).astype(np.float64)
+            np.bincount(
+                plan.secondary_codes_p[i],
+                weights=weights_p,
+                minlength=plan.secondary_G[i],
+            ).astype(np.float64)
             for i in range(len(plan.secondary_codes_p))
         ]
 
@@ -590,9 +605,15 @@ def _weighted_ap_demean(
             for k in range(K)
         ]
         infos = _rust_hdfe.demean_2d_weighted(
-            arr_F, list(fe_codes_list), wsum_list, weights,
-            int(max_iter), 0.0, float(tol),
-            bool(accelerate), int(accel_period),
+            arr_F,
+            list(fe_codes_list),
+            wsum_list,
+            weights,
+            int(max_iter),
+            0.0,
+            float(tol),
+            bool(accelerate),
+            int(accel_period),
         )
 
     iters = max(int(d["iters"]) for d in infos) if infos else 0
@@ -606,6 +627,7 @@ def _weighted_ap_demean(
 # ---------------------------------------------------------------------------
 # Separation detection (Correia 2020 §3.4 informal heuristic)
 # ---------------------------------------------------------------------------
+
 
 def _drop_separation_dispatcher(
     y: np.ndarray,
@@ -638,9 +660,7 @@ def _drop_separation_dispatcher(
     return _drop_separation(y, fe_codes)
 
 
-def _drop_separation(
-    y: np.ndarray, fe_codes_list: List[np.ndarray]
-) -> np.ndarray:
+def _drop_separation(y: np.ndarray, fe_codes_list: List[np.ndarray]) -> np.ndarray:
     """Identify rows in zero-only FE clusters (Poisson separation).
 
     Returns a keep-mask. Iterative: if dropping rows in one FE creates
@@ -674,6 +694,7 @@ def _drop_separation(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def fepois(
     formula: str,
@@ -739,9 +760,7 @@ def fepois(
             f"fepois: vcov={vcov!r}; supported: 'iid', 'hc1', or 'cr1'"
         )
     if vcov == "cr1" and cluster is None:
-        raise MethodIncompatibility(
-            "fepois: vcov='cr1' requires cluster=<column name>"
-        )
+        raise MethodIncompatibility("fepois: vcov='cr1' requires cluster=<column name>")
     if cluster is not None and vcov in ("iid", "hc1"):
         raise MethodIncompatibility(
             f"fepois: cluster={cluster!r} provided but vcov={vcov!r}; "
@@ -767,9 +786,7 @@ def fepois(
         needed_cols = needed_cols + [cluster]
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"fepois: columns missing from data: {missing}"
-        )
+        raise MethodIncompatibility(f"fepois: columns missing from data: {missing}")
 
     n_obs = len(data)
     _nonempty_sample(n_obs, context="fepois")
@@ -788,11 +805,11 @@ def fepois(
             )
         if not np.isfinite(obs_weights).all():
             raise MethodIncompatibility(
-                f"fepois: weights column {weights!r} contains "
-                "non-finite values"
+                f"fepois: weights column {weights!r} contains " "non-finite values"
             )
         _positive_weight_mass(
-            obs_weights, context=f"fepois weights column {weights!r}",
+            obs_weights,
+            context=f"fepois weights column {weights!r}",
         )
     else:
         obs_weights = None
@@ -801,7 +818,9 @@ def fepois(
         cluster_arr_full = data[cluster].to_numpy()
         # Reject NaN: ambiguous treatment, force the user to handle upstream.
         cluster_codes_check, _ = pd.factorize(
-            cluster_arr_full, sort=False, use_na_sentinel=True,
+            cluster_arr_full,
+            sort=False,
+            use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
             raise MethodIncompatibility(
@@ -812,7 +831,8 @@ def fepois(
         cluster_arr_full = None
     X_user = (
         data[rhs_terms].to_numpy(dtype=np.float64).copy()
-        if rhs_terms else np.empty((n_obs, 0), dtype=np.float64)
+        if rhs_terms
+        else np.empty((n_obs, 0), dtype=np.float64)
     )
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
@@ -856,6 +876,7 @@ def fepois(
 
     if drop_singletons and fe_terms:
         from .demean import _detect_singletons as _ds
+
         keep_s = _ds(fe_codes_raw, n_obs)
         n_dropped_singletons = int((~keep_s).sum())
         keep &= keep_s
@@ -897,9 +918,7 @@ def fepois(
             dense = dense.astype(np.int64)
             G = len(uniq)
             fe_codes.append(dense)
-            counts_list.append(
-                np.bincount(dense, minlength=G).astype(np.float64)
-            )
+            counts_list.append(np.bincount(dense, minlength=G).astype(np.float64))
         y = y[keep]
         X = X[keep]
         if obs_weights is not None:
@@ -911,9 +930,7 @@ def fepois(
         counts_list = []
         for codes_k, G in zip(fe_codes_raw, fe_card_raw):
             fe_codes.append(codes_k.copy())
-            counts_list.append(
-                np.bincount(codes_k, minlength=G).astype(np.float64)
-            )
+            counts_list.append(np.bincount(codes_k, minlength=G).astype(np.float64))
 
     # ----- IRLS / PPML-HDFE main loop -----
     # n, p already computed and guarded above; reassign in case X was masked
@@ -935,9 +952,7 @@ def fepois(
     iters_used = 0
 
     use_native_rust_irls = (
-        _HAS_RUST_HDFE
-        and hasattr(_rust_hdfe, "fepois_irls")
-        and len(fe_codes) >= 1
+        _HAS_RUST_HDFE and hasattr(_rust_hdfe, "fepois_irls") and len(fe_codes) >= 1
     )
 
     if use_native_rust_irls:
@@ -987,12 +1002,20 @@ def fepois(
 
             # Weighted within-transform of z and X by FE
             z_tilde, _, _ = _weighted_ap_demean(
-                z, fe_codes, counts_list, w,
-                max_iter=fe_maxiter, tol=fe_tol,
+                z,
+                fe_codes,
+                counts_list,
+                w,
+                max_iter=fe_maxiter,
+                tol=fe_tol,
             )
             X_tilde, _, _ = _weighted_ap_demean(
-                X, fe_codes, counts_list, w,
-                max_iter=fe_maxiter, tol=fe_tol,
+                X,
+                fe_codes,
+                counts_list,
+                w,
+                max_iter=fe_maxiter,
+                tol=fe_tol,
             )
 
             # WLS on demeaned:
@@ -1022,11 +1045,7 @@ def fepois(
             # scalar tracks the actual log-likelihood we're optimising.
             new_dev = _poisson_deviance(y, mu_new, obs_weights)
             halvings = 0
-            while (
-                new_dev > deviance
-                and halvings < 10
-                and np.isfinite(deviance)
-            ):
+            while new_dev > deviance and halvings < 10 and np.isfinite(deviance):
                 eta_new = 0.5 * (eta_new + eta)
                 np.clip(eta_new, -30.0, 30.0, out=eta_new)
                 mu_new = np.exp(eta_new)
@@ -1081,21 +1100,21 @@ def fepois(
         # weights=obs_weights produces obs_weights * (y - μ) * X̃ —
         # exactly the weighted Poisson score row.
         from .inference import crve as _crve
+
         score_weights = (
-            obs_weights if obs_weights is not None
-            else np.ones(n, dtype=np.float64)
+            obs_weights if obs_weights is not None else np.ones(n, dtype=np.float64)
         )
         vcov_mat = _crve(
-            X_tilde, y - mu, cluster_arr_full,
+            X_tilde,
+            y - mu,
+            cluster_arr_full,
             weights=score_weights,
             bread=XtWX_inv,
             type="cr1",
             extra_df=fe_dof,
         )
 
-    log_lik = float(np.sum(obs_weights * (
-        y * np.log(np.maximum(mu, 1e-30)) - mu
-    )))
+    log_lik = float(np.sum(obs_weights * (y * np.log(np.maximum(mu, 1e-30)) - mu)))
 
     return FePoisResult(
         formula=formula,
@@ -1118,7 +1137,9 @@ def fepois(
 
 
 def _poisson_deviance(
-    y: np.ndarray, mu: np.ndarray, weights: Optional[np.ndarray] = None,
+    y: np.ndarray,
+    mu: np.ndarray,
+    weights: Optional[np.ndarray] = None,
 ) -> float:
     """Poisson deviance.
 

@@ -26,12 +26,11 @@ from ..core.results import CausalResult
 from ._core import _kernel_fn, _kernel_mse_constant, _sandwich_variance
 from .rdrobust import _select_bandwidth
 
-
 # ======================================================================
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['rdhte'] = (
+CausalResult._CITATIONS["rdhte"] = (
     "@article{calonico2025rdhte,\n"
     "  title={Treatment Effect Heterogeneity in Regression\n"
     "  Discontinuity Designs},\n"
@@ -47,6 +46,7 @@ CausalResult._CITATIONS['rdhte'] = (
 # Public API
 # ======================================================================
 
+
 def rdhte(
     data: pd.DataFrame,
     y: str,
@@ -56,8 +56,8 @@ def rdhte(
     p: int = 1,
     h: Optional[float] = None,
     b: Optional[float] = None,
-    kernel: str = 'triangular',
-    bwselect: str = 'mserd',
+    kernel: str = "triangular",
+    bwselect: str = "mserd",
     cluster: Optional[str] = None,
     alpha: float = 0.05,
     eval_points: Optional[np.ndarray] = None,
@@ -124,7 +124,7 @@ def rdhte(
     True
     """
     # --- Validate inputs ---
-    if kernel not in ('triangular', 'uniform', 'epanechnikov'):
+    if kernel not in ("triangular", "uniform", "epanechnikov"):
         raise ValueError(  # pragma: no cover
             f"kernel must be 'triangular', 'uniform', or 'epanechnikov', "
             f"got '{kernel}'"
@@ -205,7 +205,7 @@ def rdhte(
             # For multivariate Z: grid over marginal quantiles
             pctiles = np.linspace(10, 90, max(int(n_eval ** (1 / dz)), 3))
             grids = [np.percentile(Z[:, j], pctiles) for j in range(dz)]
-            mesh = np.meshgrid(*grids, indexing='ij')
+            mesh = np.meshgrid(*grids, indexing="ij")
             eval_pts = np.column_stack([m.ravel() for m in mesh])
             # Trim to at most n_eval points (take evenly spaced subset)
             if len(eval_pts) > n_eval:
@@ -216,11 +216,21 @@ def rdhte(
 
     # --- Fit fully interacted model on each side ---
     beta_L, vcov_L, n_eff_L = _interacted_wls(
-        Y[left], X_c[left], Z[left], h, p, kernel,
+        Y[left],
+        X_c[left],
+        Z[left],
+        h,
+        p,
+        kernel,
         cl[left] if cl is not None else None,
     )
     beta_R, vcov_R, n_eff_R = _interacted_wls(
-        Y[right], X_c[right], Z[right], h, p, kernel,
+        Y[right],
+        X_c[right],
+        Z[right],
+        h,
+        p,
+        kernel,
         cl[right] if cl is not None else None,
     )
 
@@ -241,8 +251,7 @@ def rdhte(
     # Difference vector for CATE constant part and Z-coefficients
     diff_alpha = beta_R[idx_intercept] - beta_L[idx_intercept]
     diff_gamma = (
-        beta_R[idx_gamma_start:idx_gamma_end]
-        - beta_L[idx_gamma_start:idx_gamma_end]
+        beta_R[idx_gamma_start:idx_gamma_end] - beta_L[idx_gamma_start:idx_gamma_end]
     )
 
     # Joint variance of the differences (independent sides)
@@ -301,46 +310,48 @@ def rdhte(
     else:
         z_display = [tuple(row) for row in eval_pts]
 
-    detail = pd.DataFrame({
-        'z_value': z_display,
-        'cate': cate_vals,
-        'se': se_vals,
-        'ci_lower': ci_lower_vals,
-        'ci_upper': ci_upper_vals,
-        'pvalue': pv_vals,
-    })
+    detail = pd.DataFrame(
+        {
+            "z_value": z_display,
+            "cate": cate_vals,
+            "se": se_vals,
+            "ci_lower": ci_lower_vals,
+            "ci_upper": ci_upper_vals,
+            "pvalue": pv_vals,
+        }
+    )
 
     # --- Model info ---
     model_info: Dict[str, Any] = {
-        'rd_type': 'Sharp',
-        'polynomial_p': p,
-        'kernel': kernel,
-        'bandwidth_h': round(float(h), 6),
-        'bandwidth_b': round(float(b), 6),
-        'bwselect': bwselect if h_auto else 'manual',
-        'cutoff': c,
-        'z_covariates': z_cols,
-        'n_z': dz,
-        'n_left': n_left,
-        'n_right': n_right,
-        'n_effective_left': n_eff_L,
-        'n_effective_right': n_eff_R,
-        'n_eval_points': n_eval_actual,
-        'ate': ate,
-        'ate_se': ate_se,
-        'ate_pvalue': ate_pv,
-        'ate_ci': ate_ci,
-        'diff_alpha': float(diff_alpha),
-        'diff_gamma': diff_gamma.tolist(),
-        'coefficients_left': beta_L.tolist(),
-        'coefficients_right': beta_R.tolist(),
-        'heterogeneity_test': het_test,
-        'vcov_diff': vcov_diff.tolist(),
+        "rd_type": "Sharp",
+        "polynomial_p": p,
+        "kernel": kernel,
+        "bandwidth_h": round(float(h), 6),
+        "bandwidth_b": round(float(b), 6),
+        "bwselect": bwselect if h_auto else "manual",
+        "cutoff": c,
+        "z_covariates": z_cols,
+        "n_z": dz,
+        "n_left": n_left,
+        "n_right": n_right,
+        "n_effective_left": n_eff_L,
+        "n_effective_right": n_eff_R,
+        "n_eval_points": n_eval_actual,
+        "ate": ate,
+        "ate_se": ate_se,
+        "ate_pvalue": ate_pv,
+        "ate_ci": ate_ci,
+        "diff_alpha": float(diff_alpha),
+        "diff_gamma": diff_gamma.tolist(),
+        "coefficients_left": beta_L.tolist(),
+        "coefficients_right": beta_R.tolist(),
+        "heterogeneity_test": het_test,
+        "vcov_diff": vcov_diff.tolist(),
     }
 
     result = CausalResult(
-        method='RD Heterogeneous Treatment Effects',
-        estimand='CATE',
+        method="RD Heterogeneous Treatment Effects",
+        estimand="CATE",
         estimate=ate,
         se=ate_se,
         pvalue=ate_pv,
@@ -349,7 +360,7 @@ def rdhte(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='rdhte',
+        _citation_key="rdhte",
     )
 
     # Attach plot method
@@ -365,7 +376,7 @@ def rdbwhte(
     z: Union[str, List[str]],
     c: float = 0,
     p: int = 1,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
 ) -> float:
     """
     MSE-optimal bandwidth selection for the fully interacted RD model.
@@ -435,7 +446,7 @@ def rdbwhte(
     right = X_c >= 0
 
     # Step 1: get the standard MSE-optimal bandwidth as a baseline
-    h_base = _select_bandwidth(Y, X_c, left, right, p, kernel, 'mserd')
+    h_base = _select_bandwidth(Y, X_c, left, right, p, kernel, "mserd")
     if isinstance(h_base, tuple):
         h_base = float(np.mean(h_base))
 
@@ -461,9 +472,7 @@ def rdbwhte(
     h_pilot = min(h_hte * 1.5, 0.98 * np.ptp(X_c))
 
     # Pilot fit: residual variance from interacted model on each side
-    sigma2_L = _interacted_residual_var(
-        Y[left], X_c[left], Z[left], h_pilot, p, kernel
-    )
+    sigma2_L = _interacted_residual_var(Y[left], X_c[left], Z[left], h_pilot, p, kernel)
     sigma2_R = _interacted_residual_var(
         Y[right], X_c[right], Z[right], h_pilot, p, kernel
     )
@@ -487,9 +496,7 @@ def rdbwhte(
     if bias_sq < 1e-12:
         h_opt = h_hte
     else:
-        h_opt = (
-            C_K * (sigma2_L + sigma2_R) / (f_c * bias_sq * n)
-        ) ** rate_exponent
+        h_opt = (C_K * (sigma2_L + sigma2_R) / (f_c * bias_sq * n)) ** rate_exponent
 
     h_opt = float(np.clip(h_opt, 0.02 * x_range, 0.98 * x_range))
 
@@ -556,10 +563,10 @@ def rdhte_lincom(
 
     # Recover the structural parameters to build the covariance properly
     mi = result.model_info
-    vcov_diff = np.array(mi['vcov_diff'])
-    diff_alpha = mi['diff_alpha']
-    diff_gamma = np.array(mi['diff_gamma'])
-    dz = mi['n_z']
+    vcov_diff = np.array(mi["vcov_diff"])
+    diff_alpha = mi["diff_alpha"]
+    diff_gamma = np.array(mi["diff_gamma"])
+    dz = mi["n_z"]
 
     # Each eval point i has CATE(z_i) = w_i' * theta where
     # w_i = [1, z_i1, ..., z_idz] and theta = [diff_alpha, diff_gamma]
@@ -568,7 +575,7 @@ def rdhte_lincom(
     # with variance = aggregated_w' * vcov_diff * aggregated_w
 
     # Reconstruct evaluation points from detail
-    z_values = detail['z_value'].values
+    z_values = detail["z_value"].values
     eval_pts: Any
     if dz == 1:
         eval_pts = np.array(z_values, dtype=float).reshape(-1, 1)
@@ -592,16 +599,17 @@ def rdhte_lincom(
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
 
     return {
-        'estimate': estimate,
-        'se': se,
-        'ci': ci,
-        'pvalue': pvalue,
+        "estimate": estimate,
+        "se": se,
+        "ci": ci,
+        "pvalue": pvalue,
     }
 
 
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _build_interacted_design(
     X_c: np.ndarray,
@@ -638,7 +646,7 @@ def _build_interacted_design(
 
     # Running variable polynomial: 1, (X-c), ..., (X-c)^p
     for j in range(p + 1):
-        cols.append(X_c ** j)
+        cols.append(X_c**j)
 
     # Z main effects
     for k in range(dz):
@@ -647,7 +655,7 @@ def _build_interacted_design(
     # Interactions: (X-c)^j * Z_k for j=1..p, k=1..dz
     for j in range(1, p + 1):
         for k in range(dz):
-            cols.append((X_c ** j) * Z[:, k])
+            cols.append((X_c**j) * Z[:, k])
 
     return np.column_stack(cols)
 
@@ -738,9 +746,9 @@ def _heterogeneity_test(
     wald_pv = float(1 - stats.chi2.cdf(wald_stat, df=dz))
 
     return {
-        'statistic': wald_stat,
-        'pvalue': wald_pv,
-        'df': dz,
+        "statistic": wald_stat,
+        "pvalue": wald_pv,
+        "df": dz,
     }
 
 
@@ -774,7 +782,7 @@ def _interacted_residual_var(
     try:
         beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
         resid = y_bw - Xmat @ beta
-        return float(np.average(resid ** 2, weights=w_bw))
+        return float(np.average(resid**2, weights=w_bw))
     except Exception:  # pragma: no cover
         return float(np.var(y_bw))
 
@@ -803,7 +811,7 @@ def _interacted_second_deriv(
     # Fit a local cubic in x with Z controls (no interactions for pilot)
     # y = b0 + b1*x + b2*x^2 + b3*x^3 + Z'*gamma
     dz = Z_bw.shape[1]
-    cols = [x_bw ** j for j in range(4)]
+    cols = [x_bw**j for j in range(4)]
     for k in range(dz):
         cols.append(Z_bw[:, k])
     Xmat = np.column_stack(cols)
@@ -823,15 +831,16 @@ def _interacted_second_deriv(
 # Plot helper
 # ======================================================================
 
+
 def _rdhte_plot(
     result: CausalResult,
     ax: Any = None,
     ci_alpha: float = 0.2,
-    cate_color: str = '#2171B5',
-    ate_color: str = '#CB181D',
-    zero_color: str = 'gray',
+    cate_color: str = "#2171B5",
+    ate_color: str = "#CB181D",
+    zero_color: str = "gray",
     xlabel: Optional[str] = None,
-    ylabel: str = 'CATE',
+    ylabel: str = "CATE",
     title: Optional[str] = None,
     figsize: Tuple[float, float] = (8, 5),
 ) -> Any:
@@ -868,14 +877,16 @@ def _rdhte_plot(
     try:
         import matplotlib.pyplot as plt
     except ImportError:  # pragma: no cover
-        raise ImportError("matplotlib is required for plotting. "  # pragma: no cover
-                          "Install it with: pip install matplotlib")
+        raise ImportError(
+            "matplotlib is required for plotting. "  # pragma: no cover
+            "Install it with: pip install matplotlib"
+        )
 
     detail = result.detail
     if detail is None:
         raise ValueError("rdhte plot requires result.detail.")
     mi = result.model_info
-    dz = mi['n_z']
+    dz = mi["n_z"]
 
     if dz > 1:
         raise NotImplementedError(  # pragma: no cover
@@ -883,11 +894,11 @@ def _rdhte_plot(
             "For multivariate Z, construct custom plots from result.detail."
         )
 
-    z_vals = detail['z_value'].values.astype(float)
-    cate = detail['cate'].values
-    ci_lo = detail['ci_lower'].values
-    ci_hi = detail['ci_upper'].values
-    ate = mi['ate']
+    z_vals = detail["z_value"].values.astype(float)
+    cate = detail["cate"].values
+    ci_lo = detail["ci_lower"].values
+    ci_hi = detail["ci_upper"].values
+    ate = mi["ate"]
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -900,24 +911,28 @@ def _rdhte_plot(
     ci_hi_sorted = ci_hi[order]
 
     # CATE line + CI band
-    ax.plot(z_sorted, cate_sorted, color=cate_color, linewidth=2,
-            label='CATE(z)')
-    ax.fill_between(z_sorted, ci_lo_sorted, ci_hi_sorted,
-                    color=cate_color, alpha=ci_alpha,
-                    label=f'{int((1 - result.alpha) * 100)}% CI')
+    ax.plot(z_sorted, cate_sorted, color=cate_color, linewidth=2, label="CATE(z)")
+    ax.fill_between(
+        z_sorted,
+        ci_lo_sorted,
+        ci_hi_sorted,
+        color=cate_color,
+        alpha=ci_alpha,
+        label=f"{int((1 - result.alpha) * 100)}% CI",
+    )
 
     # Horizontal lines
-    ax.axhline(y=0, color=zero_color, linestyle='--', linewidth=1,
-               label='Zero effect')
-    ax.axhline(y=ate, color=ate_color, linestyle='-.', linewidth=1.5,
-               label=f'ATE = {ate:.3f}')
+    ax.axhline(y=0, color=zero_color, linestyle="--", linewidth=1, label="Zero effect")
+    ax.axhline(
+        y=ate, color=ate_color, linestyle="-.", linewidth=1.5, label=f"ATE = {ate:.3f}"
+    )
 
     # Labels
-    z_names = mi.get('z_covariates', ['Z'])
+    z_names = mi.get("z_covariates", ["Z"])
     ax.set_xlabel(xlabel or z_names[0])
     ax.set_ylabel(ylabel)
-    ax.set_title(title or 'Heterogeneous Treatment Effects in RD')
-    ax.legend(loc='best', framealpha=0.9)
+    ax.set_title(title or "Heterogeneous Treatment Effects in RD")
+    ax.legend(loc="best", framealpha=0.9)
     ax.grid(True, alpha=0.3)
 
     return ax

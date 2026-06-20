@@ -132,7 +132,7 @@ def rank(
     data: pd.DataFrame,
     var: str,
     by: Optional[Union[str, Sequence[str]]] = None,
-    method: str = 'average',
+    method: str = "average",
     ascending: bool = True,
 ) -> pd.Series:
     """
@@ -240,11 +240,11 @@ def outlier_indicator(
         else:
             flag = pd.Series(0, index=col.index, dtype=int)
         flag[~valid] = 0
-        name = f'{v}_outlier'
+        name = f"{v}_outlier"
         df[name] = flag
         flag_cols.append(name)
 
     if combined and flag_cols:
-        df['_outlier_any'] = (df[flag_cols].sum(axis=1) > 0).astype(int)
+        df["_outlier_any"] = (df[flag_cols].sum(axis=1) > 0).astype(int)
 
     return df

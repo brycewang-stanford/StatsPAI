@@ -136,12 +136,13 @@ def bacon_decomposition(
     # Get treatment timing for each unit
     # g_i = first period where treat == 1 (inf for never-treated)
     unit_treat = df.groupby(id)[[treat, time]].apply(
-        lambda grp: grp.loc[grp[treat] == 1, time].min()
-        if (grp[treat] == 1).any() else np.inf
+        lambda grp: (
+            grp.loc[grp[treat] == 1, time].min() if (grp[treat] == 1).any() else np.inf
+        )
     )
 
     _validate_monotone_treatment(df, treat, time, id, unit_treat)
-    df = df.merge(unit_treat.rename('_treat_time'), left_on=id, right_index=True)
+    df = df.merge(unit_treat.rename("_treat_time"), left_on=id, right_index=True)
 
     # Identify groups by treatment timing
     timing_groups = sorted(unit_treat.unique())
@@ -163,78 +164,84 @@ def bacon_decomposition(
                 continue
 
             data_pair = _subset_bacon_dyad(
-                df, treated_group, untreated_group, time, '_treat_time'
+                df, treated_group, untreated_group, time, "_treat_time"
             )
             if data_pair.empty:
                 continue
 
-            wt = _bacon_weight(data_pair, treat, '_treat_time',
-                               treated_group, untreated_group)
+            wt = _bacon_weight(
+                data_pair, treat, "_treat_time", treated_group, untreated_group
+            )
             if not np.isfinite(wt) or abs(wt) < 1e-15:
                 continue
 
             est = _twfe_estimate(data_pair, y, treat, time, id)
 
             if untreated_group == never_treated:
-                comp_type = 'Treated vs Untreated'
-                control = 'Never'
+                comp_type = "Treated vs Untreated"
+                control = "Never"
             elif untreated_group == time_min:
-                comp_type = 'Later vs Always Treated'
+                comp_type = "Later vs Always Treated"
                 control = untreated_group
             elif treated_group > untreated_group:
-                comp_type = 'Later vs Earlier Treated'
+                comp_type = "Later vs Earlier Treated"
                 control = untreated_group
             else:
-                comp_type = 'Earlier vs Later Treated'
+                comp_type = "Earlier vs Later Treated"
                 control = untreated_group
 
-            comparisons.append({
-                'type': comp_type,
-                'treated': treated_group,
-                'control': control,
-                'estimate': est,
-                'weight': wt,
-            })
+            comparisons.append(
+                {
+                    "type": comp_type,
+                    "treated": treated_group,
+                    "control": control,
+                    "estimate": est,
+                    "weight": wt,
+                }
+            )
 
     decomp = pd.DataFrame(comparisons)
 
     if len(decomp) == 0:
         return {
-            'beta_twfe': beta_twfe,
-            'decomposition': decomp,
-            'weighted_sum': 0.0,
-            'n_comparisons': 0,
-            'negative_weight_share': 0.0,
-            'already_treated_control_weight_share': 0.0,
+            "beta_twfe": beta_twfe,
+            "decomposition": decomp,
+            "weighted_sum": 0.0,
+            "n_comparisons": 0,
+            "negative_weight_share": 0.0,
+            "already_treated_control_weight_share": 0.0,
         }
 
     # Normalize weights to sum to 1
-    total_w = decomp['weight'].sum()
+    total_w = decomp["weight"].sum()
     if total_w > 0:
-        decomp['weight'] = decomp['weight'] / total_w
+        decomp["weight"] = decomp["weight"] / total_w
 
-    weighted_sum = float((decomp['estimate'] * decomp['weight']).sum())
+    weighted_sum = float((decomp["estimate"] * decomp["weight"]).sum())
 
-    abs_weight_sum = float(decomp['weight'].abs().sum())
+    abs_weight_sum = float(decomp["weight"].abs().sum())
     if abs_weight_sum > 0:
-        neg_share = float(decomp.loc[decomp['weight'] < 0, 'weight'].abs().sum()
-                          / abs_weight_sum)
+        neg_share = float(
+            decomp.loc[decomp["weight"] < 0, "weight"].abs().sum() / abs_weight_sum
+        )
     else:
         neg_share = 0.0
 
-    forbidden = decomp['type'].isin({
-        'Later vs Earlier Treated',
-        'Later vs Always Treated',
-    })
-    forbidden_share = float(decomp.loc[forbidden, 'weight'].sum())
+    forbidden = decomp["type"].isin(
+        {
+            "Later vs Earlier Treated",
+            "Later vs Always Treated",
+        }
+    )
+    forbidden_share = float(decomp.loc[forbidden, "weight"].sum())
 
     return {
-        'beta_twfe': beta_twfe,
-        'decomposition': decomp,
-        'weighted_sum': weighted_sum,
-        'n_comparisons': len(decomp),
-        'negative_weight_share': neg_share,
-        'already_treated_control_weight_share': forbidden_share,
+        "beta_twfe": beta_twfe,
+        "decomposition": decomp,
+        "weighted_sum": weighted_sum,
+        "n_comparisons": len(decomp),
+        "negative_weight_share": neg_share,
+        "already_treated_control_weight_share": forbidden_share,
     }
 
 
@@ -272,10 +279,7 @@ def _twfe_estimate(
     if valid.sum() < 2 or np.var(d_flat[valid]) < 1e-12:
         return 0.0
 
-    beta = float(
-        np.sum(d_flat[valid] * y_flat[valid])
-        / np.sum(d_flat[valid] ** 2)
-    )
+    beta = float(np.sum(d_flat[valid] * y_flat[valid]) / np.sum(d_flat[valid] ** 2))
     return beta
 
 
@@ -288,14 +292,14 @@ def _validate_monotone_treatment(
 ) -> None:
     """Require absorbing treatment timing."""
     merged = df.merge(
-        unit_treat.rename('_treat_time'),
+        unit_treat.rename("_treat_time"),
         left_on=id_col,
         right_index=True,
     )
     expected = np.where(
-        np.isinf(merged['_treat_time'].to_numpy(dtype=float)),
+        np.isinf(merged["_treat_time"].to_numpy(dtype=float)),
         0,
-        (merged[time].to_numpy() >= merged['_treat_time'].to_numpy()).astype(int),
+        (merged[time].to_numpy() >= merged["_treat_time"].to_numpy()).astype(int),
     )
     observed = merged[treat].to_numpy()
     if not np.array_equal(observed.astype(int), expected.astype(int)):
@@ -340,9 +344,7 @@ def _bacon_weight(
         if n_k + n_u == 0:
             return 0.0
         n_ku = n_k / (n_k + n_u)
-        D_k = float(
-            data_pair.loc[data_pair[treat_time] == treated_group, treat].mean()
-        )
+        D_k = float(data_pair.loc[data_pair[treat_time] == treated_group, treat].mean())
         V_ku = n_ku * (1 - n_ku) * D_k * (1 - D_k)
         return float((n_k + n_u) ** 2 * V_ku)
 
@@ -352,9 +354,7 @@ def _bacon_weight(
         if n_k + n_l == 0:
             return 0.0
         n_kl = n_k / (n_k + n_l)
-        D_k = float(
-            data_pair.loc[data_pair[treat_time] == treated_group, treat].mean()
-        )
+        D_k = float(data_pair.loc[data_pair[treat_time] == treated_group, treat].mean())
         D_l = float(
             data_pair.loc[data_pair[treat_time] == untreated_group, treat].mean()
         )
@@ -369,9 +369,7 @@ def _bacon_weight(
     if n_k + n_l == 0:
         return 0.0
     n_kl = n_k / (n_k + n_l)
-    D_k = float(
-        data_pair.loc[data_pair[treat_time] == untreated_group, treat].mean()
-    )
+    D_k = float(data_pair.loc[data_pair[treat_time] == untreated_group, treat].mean())
     D_l = float(data_pair.loc[data_pair[treat_time] == treated_group, treat].mean())
     if abs(D_k) < 1e-15:
         return 0.0
@@ -380,7 +378,7 @@ def _bacon_weight(
 
 
 # Citation
-CausalResult._CITATIONS['bacon_decomposition'] = (
+CausalResult._CITATIONS["bacon_decomposition"] = (
     "@article{goodmanbacon2021difference,\n"
     "  title={Difference-in-Differences with Variation in Treatment "
     "Timing},\n"

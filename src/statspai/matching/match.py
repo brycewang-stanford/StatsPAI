@@ -53,18 +53,17 @@ from ._matched_frame import (
     COL_WEIGHT,
 )
 
-
 # ======================================================================
 # Legacy method aliases → (distance, method) pairs
 # ======================================================================
 _LEGACY_MAP = {
-    'psm': ('propensity', 'nearest'),
-    'mahalanobis': ('mahalanobis', 'nearest'),
-    'cem': (None, 'cem'),
+    "psm": ("propensity", "nearest"),
+    "mahalanobis": ("mahalanobis", "nearest"),
+    "cem": (None, "cem"),
 }
 
-_VALID_DISTANCES = ('propensity', 'mahalanobis', 'euclidean', 'exact')
-_VALID_METHODS = ('nearest', 'stratify', 'cem', 'kernel', 'radius')
+_VALID_DISTANCES = ("propensity", "mahalanobis", "euclidean", "exact")
+_VALID_METHODS = ("nearest", "stratify", "cem", "kernel", "radius")
 
 # Kernel functions K(u) used by kernel / radius matching, matching the
 # definitions in Stata psmatch2.ado (Leuven & Sianesi 2003).  Each returns
@@ -72,7 +71,7 @@ _VALID_METHODS = ('nearest', 'stratify', 'cem', 'kernel', 'radius')
 # (the 'normal' kernel has unbounded support).  The leading constants
 # (e.g. 0.75 for Epanechnikov) cancel under the per-treated normalisation,
 # so psmatch2 omits them — we follow suit for digit-for-digit parity.
-_VALID_KERNELS = ('epan', 'normal', 'biweight', 'uniform', 'tricube')
+_VALID_KERNELS = ("epan", "normal", "biweight", "uniform", "tricube")
 
 
 def _positive_int(value: Any, *, name: str, context: str) -> int:
@@ -83,9 +82,7 @@ def _positive_int(value: Any, *, name: str, context: str) -> int:
             f"{context}: {name} must be a positive integer"
         ) from exc
     if isinstance(value, bool) or parsed < 1:
-        raise MethodIncompatibility(
-            f"{context}: {name} must be a positive integer"
-        )
+        raise MethodIncompatibility(f"{context}: {name} must be a positive integer")
     return int(parsed)
 
 
@@ -111,9 +108,7 @@ def _positive_float(value: Any, *, name: str, context: str) -> float:
             f"{context}: {name} must be finite and positive"
         ) from exc
     if not np.isfinite(parsed) or parsed <= 0.0:
-        raise MethodIncompatibility(
-            f"{context}: {name} must be finite and positive"
-        )
+        raise MethodIncompatibility(f"{context}: {name} must be finite and positive")
     return parsed
 
 
@@ -137,17 +132,17 @@ def _kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
     """Un-normalised kernel weight K(u); 0 outside [-1, 1] (save 'normal')."""
     au = np.abs(u)
     inside = au <= 1.0
-    if kernel == 'epan':
-        w = np.where(inside, 1.0 - u ** 2, 0.0)
-    elif kernel == 'biweight':
-        w = np.where(inside, (1.0 - u ** 2) ** 2, 0.0)
-    elif kernel == 'uniform':
+    if kernel == "epan":
+        w = np.where(inside, 1.0 - u**2, 0.0)
+    elif kernel == "biweight":
+        w = np.where(inside, (1.0 - u**2) ** 2, 0.0)
+    elif kernel == "uniform":
         w = np.where(inside, 1.0, 0.0)
-    elif kernel == 'tricube':
-        w = np.where(inside, (1.0 - au ** 3) ** 3, 0.0)
-    elif kernel == 'normal':
+    elif kernel == "tricube":
+        w = np.where(inside, (1.0 - au**3) ** 3, 0.0)
+    elif kernel == "normal":
         # standard normal density, unbounded support (no truncation)
-        w = np.exp(-0.5 * u ** 2) / np.sqrt(2.0 * np.pi)
+        w = np.exp(-0.5 * u**2) / np.sqrt(2.0 * np.pi)
     else:  # pragma: no cover — guarded by _validate
         raise MethodIncompatibility(f"unknown kernel '{kernel}'")
     return w
@@ -157,6 +152,7 @@ def _kernel_weight(u: np.ndarray, kernel: str) -> np.ndarray:
 # Public API
 # ======================================================================
 
+
 def match(
     data: pd.DataFrame,
     y: str,
@@ -165,9 +161,9 @@ def match(
     *,
     # --- new orthogonal API ---
     distance: Optional[str] = None,
-    method: str = 'nearest',
+    method: str = "nearest",
     # --- matching parameters ---
-    estimand: str = 'ATT',
+    estimand: str = "ATT",
     n_matches: int = 1,
     caliper: Optional[float] = None,
     replace: bool = True,
@@ -175,11 +171,11 @@ def match(
     # --- propensity score specification ---
     ps_poly: int = 1,
     # --- common support ---
-    common_support: str = 'none',
+    common_support: str = "none",
     # --- kernel / radius matching ---
-    kernel: str = 'epan',
+    kernel: str = "epan",
     bwidth: float = 0.06,
-    se_method: str = 'auto',
+    se_method: str = "auto",
     ai_matches: int = 1,
     # --- stratification parameters ---
     n_strata: int = 5,
@@ -309,34 +305,53 @@ def match(
     ...                   covariates=['age', 'edu'], method='psm')
     """
     estimator = MatchEstimator(
-        data=data, y=y, treat=treat, covariates=covariates,
-        distance=distance, method=method, estimand=estimand,
-        n_matches=n_matches, caliper=caliper, replace=replace,
-        bias_correction=bias_correction, ps_poly=ps_poly,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        distance=distance,
+        method=method,
+        estimand=estimand,
+        n_matches=n_matches,
+        caliper=caliper,
+        replace=replace,
+        bias_correction=bias_correction,
+        ps_poly=ps_poly,
         common_support=common_support,
-        kernel=kernel, bwidth=bwidth, se_method=se_method,
+        kernel=kernel,
+        bwidth=bwidth,
+        se_method=se_method,
         ai_matches=ai_matches,
-        n_strata=n_strata, n_bins=n_bins, alpha=alpha,
+        n_strata=n_strata,
+        n_bins=n_bins,
+        alpha=alpha,
     )
     _result = estimator.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.matching.match",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(estimator.covariates),
-                "distance": distance, "method": method,
+                "distance": distance,
+                "method": method,
                 "estimand": estimand,
-                "n_matches": n_matches, "caliper": caliper,
+                "n_matches": n_matches,
+                "caliper": caliper,
                 "replace": replace,
                 "bias_correction": bias_correction,
                 "ps_poly": ps_poly,
                 "common_support": common_support,
-                "kernel": kernel, "bwidth": bwidth,
-                "se_method": se_method, "ai_matches": ai_matches,
-                "n_strata": n_strata, "n_bins": n_bins,
+                "kernel": kernel,
+                "bwidth": bwidth,
+                "se_method": se_method,
+                "ai_matches": ai_matches,
+                "n_strata": n_strata,
+                "n_bins": n_bins,
                 "alpha": alpha,
             },
             data=data,
@@ -350,6 +365,7 @@ def match(
 # ======================================================================
 # MatchEstimator
 # ======================================================================
+
 
 class MatchEstimator:
     """Unified matching estimator supporting multiple distance × method combinations.
@@ -405,17 +421,17 @@ class MatchEstimator:
         covariates: List[str],
         *,
         distance: Optional[str] = None,
-        method: str = 'nearest',
-        estimand: str = 'ATT',
+        method: str = "nearest",
+        estimand: str = "ATT",
         n_matches: int = 1,
         caliper: Optional[float] = None,
         replace: bool = True,
         bias_correction: bool = False,
         ps_poly: int = 1,
-        common_support: str = 'none',
-        kernel: str = 'epan',
+        common_support: str = "none",
+        kernel: str = "epan",
         bwidth: float = 0.06,
-        se_method: str = 'auto',
+        se_method: str = "auto",
         ai_matches: int = 1,
         n_strata: int = 5,
         n_bins: Optional[int] = None,
@@ -435,14 +451,19 @@ class MatchEstimator:
         self.y = y
         self.treat = treat
         self.covariates = _coerce_column_list(
-            covariates, name="covariates", context=context,
+            covariates,
+            name="covariates",
+            context=context,
         )
         self.estimand = str(estimand).upper()
         self.n_matches = _positive_int(
-            n_matches, name="n_matches", context=context,
+            n_matches,
+            name="n_matches",
+            context=context,
         )
         self.caliper = (
-            None if caliper is None
+            None
+            if caliper is None
             else _positive_float(caliper, name="caliper", context=context)
         )
         self.replace = replace
@@ -453,13 +474,18 @@ class MatchEstimator:
         self.bwidth = _positive_float(bwidth, name="bwidth", context=context)
         self.se_method = str(se_method).lower()
         self.ai_matches = _positive_int(
-            ai_matches, name="ai_matches", context=context,
+            ai_matches,
+            name="ai_matches",
+            context=context,
         )
         self.n_strata = _positive_int(
-            n_strata, name="n_strata", context=context,
+            n_strata,
+            name="n_strata",
+            context=context,
         )
         self.n_bins = (
-            None if n_bins is None
+            None
+            if n_bins is None
             else _positive_int(n_bins, name="n_bins", context=context)
         )
         self.alpha = _open_unit_float(alpha, name="alpha", context=context)
@@ -470,9 +496,7 @@ class MatchEstimator:
         method_lower = str(method).lower()
         if method_lower in _LEGACY_MAP:
             resolved_dist, resolved_method = _LEGACY_MAP[method_lower]
-            self.distance = (
-                resolved_dist if distance is None else str(distance).lower()
-            )
+            self.distance = resolved_dist if distance is None else str(distance).lower()
             self.method = resolved_method
         else:
             self.method = method_lower
@@ -480,9 +504,9 @@ class MatchEstimator:
 
         # Set default distance for methods that need one
         if self.distance is None:
-            if self.method in ('nearest', 'stratify', 'kernel', 'radius'):
-                self.distance = 'propensity'
-            elif self.method == 'cem':
+            if self.method in ("nearest", "stratify", "kernel", "radius"):
+                self.distance = "propensity"
+            elif self.method == "cem":
                 self.distance = None  # CEM doesn't use distance
 
         self._validate()
@@ -509,12 +533,12 @@ class MatchEstimator:
                 f"match: distance must be one of {_VALID_DISTANCES}, "
                 f"got '{self.distance}'"
             )
-        if self.estimand not in ('ATT', 'ATE'):
+        if self.estimand not in ("ATT", "ATE"):
             raise MethodIncompatibility(
                 f"match: estimand must be 'ATT' or 'ATE', got '{self.estimand}'"
             )
 
-        if self.common_support not in ('none', 'minmax'):
+        if self.common_support not in ("none", "minmax"):
             raise MethodIncompatibility(
                 "match: common_support must be 'none' or 'minmax', "
                 f"got '{self.common_support}'"
@@ -534,44 +558,43 @@ class MatchEstimator:
             )
 
         # Exact matching only supports ATT
-        if self.distance == 'exact' and self.estimand == 'ATE':
+        if self.distance == "exact" and self.estimand == "ATE":
             raise MethodIncompatibility(
                 "match: exact matching only supports estimand='ATT'"
             )
 
         # Stratification only works with propensity distance
-        if self.method == 'stratify' and self.distance != 'propensity':
+        if self.method == "stratify" and self.distance != "propensity":
             raise MethodIncompatibility(
                 "match: method='stratify' requires distance='propensity'"
             )
 
         # Kernel / radius matching are propensity-score based.
-        if self.method in ('kernel', 'radius') and self.distance != 'propensity':
+        if self.method in ("kernel", "radius") and self.distance != "propensity":
             raise MethodIncompatibility(
                 f"match: method='{self.method}' requires distance='propensity'"
             )
-        if self.method in ('kernel', 'radius') and self.estimand != 'ATT':
+        if self.method in ("kernel", "radius") and self.estimand != "ATT":
             raise MethodIncompatibility(
                 f"match: method='{self.method}' currently supports "
                 "estimand='ATT' only"
             )
-        if self.method == 'kernel' and self.kernel not in _VALID_KERNELS:
+        if self.method == "kernel" and self.kernel not in _VALID_KERNELS:
             raise MethodIncompatibility(
                 f"match: kernel must be one of {_VALID_KERNELS}, "
                 f"got '{self.kernel}'"
             )
-        if self.method == 'radius' and self.caliper is None:
+        if self.method == "radius" and self.caliper is None:
             raise MethodIncompatibility(
-                "match: radius matching requires caliper > 0 "
-                "(the radius bandwidth)"
+                "match: radius matching requires caliper > 0 " "(the radius bandwidth)"
             )
 
-        if self.se_method not in ('auto', 'ai', 'psmatch2', 'abadie_imbens'):
+        if self.se_method not in ("auto", "ai", "psmatch2", "abadie_imbens"):
             raise MethodIncompatibility(
                 "match: se_method must be 'auto', 'ai', 'psmatch2', or "
                 f"'abadie_imbens', got '{self.se_method}'"
             )
-        if self.estimand != 'ATT' and self.se_method == 'psmatch2':
+        if self.estimand != "ATT" and self.se_method == "psmatch2":
             raise MethodIncompatibility(
                 "match: se_method='psmatch2' is only defined for estimand='ATT'"
             )
@@ -594,6 +617,7 @@ class MatchEstimator:
 
         if len(idx_t) == 0 or len(idx_c) == 0:
             from statspai.exceptions import DataInsufficient
+
             raise DataInsufficient(
                 "Need both treated and control observations",
                 recovery_hint=(
@@ -609,46 +633,47 @@ class MatchEstimator:
 
         # Dispatch — each returns (att, se, balance, extra_info)
         extra_info: dict[str, Any] = {}
-        if self.method == 'cem':
+        if self.method == "cem":
             att, se, balance, extra_info = self._fit_cem(Y, X, T, idx_t, idx_c)
-            method_label = 'Matching (CEM)'
-        elif self.method == 'stratify':
+            method_label = "Matching (CEM)"
+        elif self.method == "stratify":
             att, se, balance, extra_info = self._fit_stratify(Y, X, T, idx_t, idx_c)
-            method_label = 'Matching (PS Stratification)'
-        elif self.method in ('kernel', 'radius'):
+            method_label = "Matching (PS Stratification)"
+        elif self.method in ("kernel", "radius"):
             att, se, balance, extra_info = self._fit_kernel(Y, X, T, idx_t, idx_c)
-            kt = 'Radius' if self.method == 'radius' else f'Kernel:{self.kernel}'
-            method_label = f'Matching ({kt})'
-        elif self.distance == 'exact':
+            kt = "Radius" if self.method == "radius" else f"Kernel:{self.kernel}"
+            method_label = f"Matching ({kt})"
+        elif self.distance == "exact":
             att, se, balance, extra_info = self._fit_exact(Y, X, T, idx_t, idx_c)
-            method_label = 'Matching (Exact)'
+            method_label = "Matching (Exact)"
         else:
             att, se, balance = self._fit_nearest(Y, X, T, idx_t, idx_c, row_order)
             dist_name = str(self.distance).capitalize()
-            bc_tag = ', BC' if self.bias_correction else ''
-            method_label = f'Matching ({dist_name}{bc_tag})'
+            bc_tag = ", BC" if self.bias_correction else ""
+            method_label = f"Matching ({dist_name}{bc_tag})"
 
         # PSM warning
-        if self.distance == 'propensity' and self.method == 'nearest':
+        if self.distance == "propensity" and self.method == "nearest":
             warnings.warn(
                 "PSM can increase imbalance and bias (King & Nielsen 2019). "
                 "Consider distance='mahalanobis' or method='cem'.",
-                UserWarning, stacklevel=3,
+                UserWarning,
+                stacklevel=3,
             )
 
         model_info = {
-            'distance': self.distance,
-            'method': self.method,
-            'estimand': self.estimand,
-            'n_treated': int(len(idx_t)),
-            'n_control': int(len(idx_c)),
-            'n_matches': self.n_matches,
-            'caliper': self.caliper,
-            'replace': self.replace,
-            'bias_correction': self.bias_correction,
-            'ps_poly': self.ps_poly,
-            'common_support': self.common_support,
-            'balance': balance,
+            "distance": self.distance,
+            "method": self.method,
+            "estimand": self.estimand,
+            "n_treated": int(len(idx_t)),
+            "n_control": int(len(idx_c)),
+            "n_matches": self.n_matches,
+            "caliper": self.caliper,
+            "replace": self.replace,
+            "bias_correction": self.bias_correction,
+            "ps_poly": self.ps_poly,
+            "common_support": self.common_support,
+            "balance": balance,
             **extra_info,
         }
 
@@ -658,58 +683,61 @@ class MatchEstimator:
         # estimate.  When ``se_method`` resolves to ``'psmatch2'`` the
         # analytic Lechner SE is read back off this frame.
         matched_data = None
-        if self._assignment is not None and self.estimand == 'ATT':
+        if self._assignment is not None and self.estimand == "ATT":
             a = self._assignment
-            emit_neighbors = a.get('neighbors', True)
+            emit_neighbors = a.get("neighbors", True)
             frame = build_matched_frame(
                 index=clean.index,
-                treated=a['treated'],
-                pscore=a['pscore'],
-                idx_t=a['idx_t'],
-                idx_c=a['idx_c'],
-                matches=a['matches'],
-                weights=a['weights'],
+                treated=a["treated"],
+                pscore=a["pscore"],
+                idx_t=a["idx_t"],
+                idx_c=a["idx_c"],
+                matches=a["matches"],
+                weights=a["weights"],
                 n_matches=self.n_matches,
-                support=a['support'],
-                outcome=a['outcome'],
+                support=a["support"],
+                outcome=a["outcome"],
                 neighbors=emit_neighbors,
             )
             matched_data = attach_matched_frame(self.data, frame)
-            model_info['matched_columns'] = matched_columns(
+            model_info["matched_columns"] = matched_columns(
                 self.n_matches, with_outcome=True, neighbors=emit_neighbors
             )
             # n_on_support = all on-support obs; n_treated_on_support = the
             # treated subset (what the psmatch2 summary reports).
-            model_info['n_on_support'] = int(np.sum(a['support']))
-            model_info['n_treated_on_support'] = int(
-                np.sum(a['support'][a['idx_t']])
-            )
-            model_info['n_matched_treated'] = int(
-                np.sum([len(m) > 0 for m in a['matches']])
+            model_info["n_on_support"] = int(np.sum(a["support"]))
+            model_info["n_treated_on_support"] = int(np.sum(a["support"][a["idx_t"]]))
+            model_info["n_matched_treated"] = int(
+                np.sum([len(m) > 0 for m in a["matches"]])
             )
 
             # Resolve and (optionally) override the SE with the digit-exact
             # Stata psmatch2 analytic / Abadie-Imbens robust standard error.
             se_method = self._resolve_se_method()
-            model_info['se_method'] = se_method
-            if se_method == 'psmatch2':
+            model_info["se_method"] = se_method
+            if se_method == "psmatch2":
                 se_p = psmatch2_se(
-                    a['outcome'], a['treated'], a['support'],
+                    a["outcome"],
+                    a["treated"],
+                    a["support"],
                     frame[COL_WEIGHT].to_numpy(dtype=float),
                 )
                 if np.isfinite(se_p):
                     se = se_p
-            elif se_method == 'abadie_imbens':
-                model_info['ai_matches'] = self.ai_matches
+            elif se_method == "abadie_imbens":
+                model_info["ai_matches"] = self.ai_matches
                 se_ai = abadie_imbens_se(
-                    a['outcome'], a['treated'], a['pscore'], a['support'],
+                    a["outcome"],
+                    a["treated"],
+                    a["pscore"],
+                    a["support"],
                     frame[COL_WEIGHT].to_numpy(dtype=float),
                     n_ai_matches=self.ai_matches,
                 )
                 if np.isfinite(se_ai):
                     se = se_ai
         elif self._assignment is not None:
-            model_info['matched_data_note'] = (
+            model_info["matched_data_note"] = (
                 "psmatch2-style matched_data is omitted for estimand='ATE' "
                 "because Stata psmatch2 variables encode a treated-to-control "
                 "ATT assignment."
@@ -732,13 +760,13 @@ class MatchEstimator:
             n_obs=len(clean),
             detail=balance,
             model_info=model_info,
-            _citation_key='matching',
+            _citation_key="matching",
         )
         # Expose the matched frame both as a convenience attribute and in
         # model_info (the latter survives serialisation / provenance).
         setattr(result, "matched_data", matched_data)
         if matched_data is not None:
-            result.model_info['matched_data'] = matched_data
+            result.model_info["matched_data"] = matched_data
         return result
 
     # ==================================================================
@@ -761,7 +789,8 @@ class MatchEstimator:
         # For propensity distance, estimate PS once with actual treatment
         pscore = (
             self._logit_propensity(X, T, poly=self.ps_poly)
-            if self.distance == 'propensity' else None
+            if self.distance == "propensity"
+            else None
         )
         # PS is always needed downstream (balance table + matched frame +
         # common-support flag), even when the distance metric is not PS.
@@ -776,7 +805,7 @@ class MatchEstimator:
         # Targets actually fed to the matcher.  Under 'minmax' we drop the
         # off-support treated *before* matching so the ATT is taken over the
         # on-support treated (Stata psmatch2 `common`).
-        if self.common_support == 'minmax':
+        if self.common_support == "minmax":
             t_use = idx_t[support[idx_t]]
         else:
             t_use = idx_t
@@ -784,7 +813,7 @@ class MatchEstimator:
         # Build distance matrix for the (used-treated × control) block
         dist_mat = self._compute_distance_matrix(X, t_use, idx_c, pscore)
 
-        if self.estimand == 'ATT':
+        if self.estimand == "ATT":
             matches, weights = self._nn_match_from_dist(
                 dist_mat,
                 self.caliper,
@@ -831,15 +860,15 @@ class MatchEstimator:
             full_weights[k] = assign_weights[j]
 
         self._assignment = {
-            'pscore': pscore,
-            'treated': T,
-            'idx_t': idx_t,
-            'idx_c': idx_c,
-            'matches': full_matches,
-            'weights': full_weights,
-            'support': support,
-            'outcome': Y,
-            'neighbors': True,
+            "pscore": pscore,
+            "treated": T,
+            "idx_t": idx_t,
+            "idx_c": idx_c,
+            "matches": full_matches,
+            "weights": full_weights,
+            "support": support,
+            "outcome": Y,
+            "neighbors": True,
         }
 
         return att, se, balance
@@ -851,11 +880,11 @@ class MatchEstimator:
         matched-pair SE; kernel / radius matching (which has no matched-pair
         structure) uses Stata psmatch2's analytic SE.
         """
-        if self.se_method != 'auto':
+        if self.se_method != "auto":
             return self.se_method
-        if self.method in ('kernel', 'radius'):
-            return 'psmatch2'
-        return 'ai'
+        if self.method in ("kernel", "radius"):
+            return "psmatch2"
+        return "ai"
 
     # ==================================================================
     # Kernel / radius matching (Heckman-Ichimura-Todd 1997; psmatch2)
@@ -891,8 +920,8 @@ class MatchEstimator:
         # Common-support trimming (Stata `common`) precedes kernel matching.
         support = common_support_mask(pscore, T, rule=self.common_support)
 
-        kerneltype = 'uniform' if self.method == 'radius' else self.kernel
-        if self.method == 'radius':
+        kerneltype = "uniform" if self.method == "radius" else self.kernel
+        if self.method == "radius":
             assert self.caliper is not None
             bw = float(self.caliper)
         else:
@@ -938,28 +967,31 @@ class MatchEstimator:
         att = float(np.mean(effects))
         # Placeholder SE; fit() replaces it with the psmatch2 analytic SE
         # (se_method resolves to 'psmatch2' for kernel/radius).
-        se = float(np.std(effects, ddof=1) / np.sqrt(len(effects))) \
-            if len(effects) > 1 else 0.0
+        se = (
+            float(np.std(effects, ddof=1) / np.sqrt(len(effects)))
+            if len(effects) > 1
+            else 0.0
+        )
 
         balance = self._balance_table(X, T, pscore)
 
         self._assignment = {
-            'pscore': pscore,
-            'treated': T,
-            'idx_t': idx_t,
-            'idx_c': idx_c,
-            'matches': full_matches,
-            'weights': full_weights,
-            'support': support,
-            'outcome': Y,
-            'neighbors': False,
+            "pscore": pscore,
+            "treated": T,
+            "idx_t": idx_t,
+            "idx_c": idx_c,
+            "matches": full_matches,
+            "weights": full_weights,
+            "support": support,
+            "outcome": Y,
+            "neighbors": False,
         }
 
         extra = {
-            'kernel': kerneltype,
-            'bwidth': bw,
-            'n_on_support': int(np.sum(support)),
-            'n_matched_treated': int(np.sum([len(m) > 0 for m in full_matches])),
+            "kernel": kerneltype,
+            "bwidth": bw,
+            "n_on_support": int(np.sum(support)),
+            "n_matched_treated": int(np.sum([len(m) > 0 for m in full_matches])),
         }
         return att, se, balance, extra
 
@@ -969,7 +1001,7 @@ class MatchEstimator:
         labels = np.asarray(pd.Index(index))
         n = len(labels)
         try:
-            order = np.argsort(labels, kind='mergesort')
+            order = np.argsort(labels, kind="mergesort")
         except TypeError:
             order = np.array(
                 sorted(
@@ -997,17 +1029,15 @@ class MatchEstimator:
         X_from = X[idx_from]
         X_to = X[idx_to]
 
-        if self.distance == 'propensity':
+        if self.distance == "propensity":
             # Use pre-estimated propensity scores (estimated once with actual T)
             if pscore is None:
-                raise ValueError(
-                    "pscore is required when distance='propensity'"
-                )
+                raise ValueError("pscore is required when distance='propensity'")
             ps_from = pscore[idx_from].reshape(-1, 1)
             ps_to = pscore[idx_to].reshape(-1, 1)
-            return np.asarray(cdist(ps_from, ps_to, metric='euclidean'), dtype=float)
+            return np.asarray(cdist(ps_from, ps_to, metric="euclidean"), dtype=float)
 
-        elif self.distance == 'mahalanobis':
+        elif self.distance == "mahalanobis":
             cov = np.cov(X.T)
             if cov.ndim == 0:
                 cov = np.array([[cov]])
@@ -1016,7 +1046,7 @@ class MatchEstimator:
             except np.linalg.LinAlgError:
                 VI = np.linalg.pinv(cov)
             return np.asarray(
-                cdist(X_from, X_to, metric='mahalanobis', VI=VI),
+                cdist(X_from, X_to, metric="mahalanobis", VI=VI),
                 dtype=float,
             )
 
@@ -1024,7 +1054,7 @@ class MatchEstimator:
             sd = np.std(X, axis=0, ddof=1)
             sd[sd == 0] = 1.0
             return np.asarray(
-                cdist(X_from / sd, X_to / sd, metric='euclidean'),
+                cdist(X_from / sd, X_to / sd, metric="euclidean"),
                 dtype=float,
             )
 
@@ -1073,14 +1103,15 @@ class MatchEstimator:
         att = float(np.mean(effects))
         se = (
             float(np.std(effects, ddof=1) / np.sqrt(n_matched))
-            if n_matched > 1 else 0.0
+            if n_matched > 1
+            else 0.0
         )
 
         pscore = self._logit_propensity(X, T, poly=self.ps_poly)
         balance = self._balance_table(X, T, pscore)
         extra = {
-            'n_matched_treated': n_matched,
-            'n_unmatched_treated': len(keys_t) - n_matched,
+            "n_matched_treated": n_matched,
+            "n_unmatched_treated": len(keys_t) - n_matched,
         }
         return att, se, balance, extra
 
@@ -1135,7 +1166,7 @@ class MatchEstimator:
 
             tau_s = Y[t_in].mean() - Y[c_in].mean()
 
-            if self.estimand == 'ATT':
+            if self.estimand == "ATT":
                 w_s = float(n_t_s)
             else:
                 w_s = float(n_t_s + n_c_s)
@@ -1160,14 +1191,14 @@ class MatchEstimator:
         # SE: sum of weighted within-stratum sampling variances
         within_var = 0.0
         for (_, _, vt, vc), w_s in zip(strata_results, weights):
-            within_var += w_s ** 2 * (vt + vc)
+            within_var += w_s**2 * (vt + vc)
 
         se = float(np.sqrt(within_var))
 
         balance = self._balance_table(X, T, pscore)
         extra = {
-            'n_strata': self.n_strata,
-            'n_effective_strata': len(strata_results),
+            "n_strata": self.n_strata,
+            "n_effective_strata": len(strata_results),
         }
         return att, se, balance, extra
 
@@ -1199,7 +1230,7 @@ class MatchEstimator:
             if j == 0:
                 strata = digitized.astype(str)
             else:
-                strata = np.char.add(np.char.add(strata, '_'), digitized.astype(str))
+                strata = np.char.add(np.char.add(strata, "_"), digitized.astype(str))
 
         # Match within strata
         matched_t = []
@@ -1228,8 +1259,14 @@ class MatchEstimator:
         att = float(np.mean(Y_t) - np.average(Y_c, weights=w_c))
 
         var_t = np.var(Y_t, ddof=1) / len(Y_t) if len(Y_t) > 1 else 0
-        var_c = (np.average((Y_c - np.average(Y_c, weights=w_c)) ** 2, weights=w_c)
-                 / len(Y_c)) if len(Y_c) > 1 else 0
+        var_c = (
+            (
+                np.average((Y_c - np.average(Y_c, weights=w_c)) ** 2, weights=w_c)
+                / len(Y_c)
+            )
+            if len(Y_c) > 1
+            else 0
+        )
         se = float(np.sqrt(var_t + var_c))
 
         pscore = self._logit_propensity(X, T, poly=self.ps_poly)
@@ -1237,10 +1274,10 @@ class MatchEstimator:
 
         n_matched_t = len(set(matched_t))
         extra = {
-            'n_matched_treated': n_matched_t,
-            'n_matched_control': len(set(matched_c)),
-            'n_unmatched_treated': len(idx_t) - n_matched_t,
-            'n_bins': n_bins,
+            "n_matched_treated": n_matched_t,
+            "n_matched_control": len(set(matched_c)),
+            "n_unmatched_treated": len(idx_t) - n_matched_t,
+            "n_bins": n_bins,
         }
         return att, se, balance, extra
 
@@ -1266,7 +1303,7 @@ class MatchEstimator:
         cols = [X]
         n, k = X.shape
         # Squared terms
-        cols.append(X ** 2)
+        cols.append(X**2)
         # Pairwise interactions
         if k > 1:
             for i in range(k):
@@ -1274,7 +1311,7 @@ class MatchEstimator:
                     cols.append((X[:, i] * X[:, j]).reshape(-1, 1))
         # Cubic terms
         if degree >= 3:
-            cols.append(X ** 3)
+            cols.append(X**3)
         return np.asarray(np.column_stack(cols), dtype=float)
 
     @staticmethod
@@ -1352,9 +1389,7 @@ class MatchEstimator:
         """
         n_target = dist.shape[0]
         matches: List[np.ndarray] = [np.array([], dtype=int) for _ in range(n_target)]
-        weights: List[np.ndarray] = [
-            np.array([], dtype=float) for _ in range(n_target)
-        ]
+        weights: List[np.ndarray] = [np.array([], dtype=float) for _ in range(n_target)]
         if target_order is None:
             target_order = np.arange(n_target, dtype=float)
         if pool_order is None:
@@ -1535,24 +1570,28 @@ class MatchEstimator:
             mean_c = np.mean(x_c)
             sd_pool = np.sqrt((np.var(x_t, ddof=1) + np.var(x_c, ddof=1)) / 2)
             smd = (mean_t - mean_c) / sd_pool if sd_pool > 0 else 0
-            rows.append({
-                'variable': name,
-                'mean_treated': round(mean_t, 4),
-                'mean_control': round(mean_c, 4),
-                'smd': round(smd, 4),
-            })
+            rows.append(
+                {
+                    "variable": name,
+                    "mean_treated": round(mean_t, 4),
+                    "mean_control": round(mean_c, 4),
+                    "smd": round(smd, 4),
+                }
+            )
 
         if pscore is not None:
             ps_t = pscore[idx_t]
             ps_c = pscore[idx_c]
             sd_ps = np.sqrt((np.var(ps_t, ddof=1) + np.var(ps_c, ddof=1)) / 2)
             smd_ps = (np.mean(ps_t) - np.mean(ps_c)) / sd_ps if sd_ps > 0 else 0
-            rows.append({
-                'variable': 'propensity_score',
-                'mean_treated': round(float(np.mean(ps_t)), 4),
-                'mean_control': round(float(np.mean(ps_c)), 4),
-                'smd': round(float(smd_ps), 4),
-            })
+            rows.append(
+                {
+                    "variable": "propensity_score",
+                    "mean_treated": round(float(np.mean(ps_t)), 4),
+                    "mean_control": round(float(np.mean(ps_c)), 4),
+                    "smd": round(float(smd_ps), 4),
+                }
+            )
 
         return pd.DataFrame(rows)
 
@@ -1564,6 +1603,7 @@ class MatchEstimator:
 # ------------------------------------------------------------------
 # Plotting
 # ------------------------------------------------------------------
+
 
 def balanceplot(
     result: CausalResult,
@@ -1619,7 +1659,7 @@ def balanceplot(
         raise ImportError("matplotlib required.")
 
     balance = result.detail
-    if balance is None or 'smd' not in balance.columns:
+    if balance is None or "smd" not in balance.columns:
         raise ValueError("No balance table. Use match() result.")
 
     n_vars = len(balance)
@@ -1631,31 +1671,28 @@ def balanceplot(
     else:
         fig = ax.get_figure()
 
-    variables = balance['variable'].values
-    smd = balance['smd'].values
+    variables = balance["variable"].values
+    smd = balance["smd"].values
     y_pos = np.arange(n_vars)
 
     # Color by balance quality
-    colors = ['#27AE60' if abs(s) < threshold else '#E74C3C' for s in smd]
+    colors = ["#27AE60" if abs(s) < threshold else "#E74C3C" for s in smd]
 
-    ax.scatter(smd, y_pos, c=colors, s=60, zorder=5, edgecolors='white',
-               linewidth=0.5)
-    ax.barh(y_pos, smd, height=0.02, color='#BDC3C7', zorder=2)
+    ax.scatter(smd, y_pos, c=colors, s=60, zorder=5, edgecolors="white", linewidth=0.5)
+    ax.barh(y_pos, smd, height=0.02, color="#BDC3C7", zorder=2)
 
     # Threshold lines
-    ax.axvline(x=threshold, color='#E74C3C', linestyle='--', linewidth=0.8,
-               alpha=0.5)
-    ax.axvline(x=-threshold, color='#E74C3C', linestyle='--', linewidth=0.8,
-               alpha=0.5)
-    ax.axvline(x=0, color='gray', linestyle='-', linewidth=0.5)
+    ax.axvline(x=threshold, color="#E74C3C", linestyle="--", linewidth=0.8, alpha=0.5)
+    ax.axvline(x=-threshold, color="#E74C3C", linestyle="--", linewidth=0.8, alpha=0.5)
+    ax.axvline(x=0, color="gray", linestyle="-", linewidth=0.5)
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(variables, fontsize=10)
-    ax.set_xlabel('Standardized Mean Difference (SMD)', fontsize=11)
-    ax.set_title(title or 'Covariate Balance (Love Plot)', fontsize=13)
+    ax.set_xlabel("Standardized Mean Difference (SMD)", fontsize=11)
+    ax.set_title(title or "Covariate Balance (Love Plot)", fontsize=13)
     ax.invert_yaxis()
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
 
     return fig, ax
@@ -1670,8 +1707,8 @@ def psplot(
     ax: Any = None,
     figsize: tuple = (8, 5),
     title: Optional[str] = None,
-    labels: tuple = ('Control', 'Treated'),
-    colors: tuple = ('#3498DB', '#E74C3C'),
+    labels: tuple = ("Control", "Treated"),
+    colors: tuple = ("#3498DB", "#E74C3C"),
     trim: Optional[float] = None,
 ) -> Tuple[Any, Any]:
     """
@@ -1736,33 +1773,53 @@ def psplot(
     bins = np.linspace(0, 1, n_bins + 1)
 
     # Control: mirrored downward
-    ax.hist(ps_c, bins=bins, alpha=0.6, color=colors[0], label=labels[0],
-            density=True, edgecolor='white', linewidth=0.3)
+    ax.hist(
+        ps_c,
+        bins=bins,
+        alpha=0.6,
+        color=colors[0],
+        label=labels[0],
+        density=True,
+        edgecolor="white",
+        linewidth=0.3,
+    )
     # Treated: upward
-    ax.hist(ps_t, bins=bins, alpha=0.6, color=colors[1], label=labels[1],
-            density=True, edgecolor='white', linewidth=0.3)
+    ax.hist(
+        ps_t,
+        bins=bins,
+        alpha=0.6,
+        color=colors[1],
+        label=labels[1],
+        density=True,
+        edgecolor="white",
+        linewidth=0.3,
+    )
 
     # Trimming region
     if trim is not None:
-        ax.axvline(x=trim, color='#8E44AD', linestyle='--', linewidth=1,
-                   alpha=0.7, label=f'Trim [{trim:.2f}, {1-trim:.2f}]')
-        ax.axvline(x=1 - trim, color='#8E44AD', linestyle='--', linewidth=1,
-                   alpha=0.7)
+        ax.axvline(
+            x=trim,
+            color="#8E44AD",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.7,
+            label=f"Trim [{trim:.2f}, {1-trim:.2f}]",
+        )
+        ax.axvline(x=1 - trim, color="#8E44AD", linestyle="--", linewidth=1, alpha=0.7)
 
-    ax.set_xlabel('Propensity Score', fontsize=11)
-    ax.set_ylabel('Density', fontsize=11)
-    ax.set_title(title or 'Propensity Score Distribution (Common Support)',
-                 fontsize=13)
+    ax.set_xlabel("Propensity Score", fontsize=11)
+    ax.set_ylabel("Density", fontsize=11)
+    ax.set_title(title or "Propensity Score Distribution (Common Support)", fontsize=13)
     ax.set_xlim(-0.02, 1.02)
     ax.legend(frameon=False, fontsize=10)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
 
     return fig, ax
 
 
-CausalResult._CITATIONS['matching'] = (
+CausalResult._CITATIONS["matching"] = (
     "@article{abadie2006large,\n"
     "  title={Large Sample Properties of Matching Estimators for "
     "Average Treatment Effects},\n"

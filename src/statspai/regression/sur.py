@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+
 class SURResult:
     """Results from SUR estimation.
 
@@ -89,23 +90,33 @@ class SURResult:
             f"Equations: {self.n_equations}   N obs: {self.n_obs}",
         ]
         if self.breusch_pagan is not None:
-            lines.append(f"Breusch-Pagan χ²({self.breusch_pagan['df']})"
-                         f" = {self.breusch_pagan['chi2']:.3f}"
-                         f" (p = {self.breusch_pagan['p_value']:.4f})")
+            lines.append(
+                f"Breusch-Pagan χ²({self.breusch_pagan['df']})"
+                f" = {self.breusch_pagan['chi2']:.3f}"
+                f" (p = {self.breusch_pagan['p_value']:.4f})"
+            )
         lines.append("")
 
         for eq_name, eq_info in self.equations.items():
             lines.append(f"Equation: {eq_name}  (R² = {eq_info.get('r2', 0):.4f})")
-            lines.append(f"{'Variable':<20s} {'Coef':>10s} {'SE':>10s} "
-                         f"{'t':>8s} {'P>|t|':>8s}")
+            lines.append(
+                f"{'Variable':<20s} {'Coef':>10s} {'SE':>10s} "
+                f"{'t':>8s} {'P>|t|':>8s}"
+            )
             lines.append("-" * 60)
-            params = eq_info['params']
-            se = eq_info['se']
+            params = eq_info["params"]
+            se = eq_info["se"]
             for var in params.index:
                 t_val = params[var] / se[var] if se[var] > 0 else np.nan
-                p_val = 2 * (1 - stats.t.cdf(abs(t_val), self.n_obs)) if np.isfinite(t_val) else np.nan
-                lines.append(f"{var:<20s} {params[var]:>10.4f} {se[var]:>10.4f} "
-                             f"{t_val:>8.3f} {p_val:>8.4f}")
+                p_val = (
+                    2 * (1 - stats.t.cdf(abs(t_val), self.n_obs))
+                    if np.isfinite(t_val)
+                    else np.nan
+                )
+                lines.append(
+                    f"{var:<20s} {params[var]:>10.4f} {se[var]:>10.4f} "
+                    f"{t_val:>8.3f} {p_val:>8.4f}"
+                )
             lines.append("")
 
         lines.append("=" * 65)
@@ -196,7 +207,7 @@ def sureg(
         Y_list.append(y_eq)
         X_list.append(X_eq)
         k_list.append(X_eq.shape[1])
-        var_names_list.append(['_cons'] + list(indep))
+        var_names_list.append(["_cons"] + list(indep))
 
     k_total = sum(k_list)
 
@@ -212,13 +223,13 @@ def sureg(
     E = np.column_stack(resid_ols)  # n x M
     Sigma = E.T @ E / n  # M x M
 
-    if method == 'ols':
+    if method == "ols":
         # Just return OLS results
         beta_all = np.concatenate(beta_ols)
         # SE from OLS
         se_list = []
         for m in range(M):
-            sigma2 = np.sum(resid_ols[m]**2) / (n - k_list[m])
+            sigma2 = np.sum(resid_ols[m] ** 2) / (n - k_list[m])
             se = np.sqrt(sigma2 * np.diag(np.linalg.inv(X_list[m].T @ X_list[m])))
             se_list.append(se)
         se_all = np.concatenate(se_list)
@@ -229,7 +240,7 @@ def sureg(
         except np.linalg.LinAlgError:
             Sigma_inv = np.linalg.pinv(Sigma)
 
-        for iteration in range(maxiter if method == 'iterative' else 1):
+        for iteration in range(maxiter if method == "iterative" else 1):
             # Build block-diagonal X and stacked Y
             # GLS: β = (X' (Σ^{-1} ⊗ I) X)^{-1} X' (Σ^{-1} ⊗ I) Y
             XtSX = np.zeros((k_total, k_total))
@@ -241,14 +252,16 @@ def sureg(
                 for j in range(M):
                     w = Sigma_inv[i, j]
                     XiXj = w * (X_list[i].T @ X_list[j])
-                    XtSX[row_offset:row_offset + k_list[i],
-                          col_offset:col_offset + k_list[j]] = XiXj
+                    XtSX[
+                        row_offset : row_offset + k_list[i],
+                        col_offset : col_offset + k_list[j],
+                    ] = XiXj
                     col_offset += k_list[j]
 
                 XtSY_i = np.zeros(k_list[i])
                 for j in range(M):
                     XtSY_i += Sigma_inv[i, j] * (X_list[i].T @ Y_list[j])
-                XtSY[row_offset:row_offset + k_list[i]] = XtSY_i
+                XtSY[row_offset : row_offset + k_list[i]] = XtSY_i
                 row_offset += k_list[i]
 
             try:
@@ -261,11 +274,11 @@ def sureg(
             offset = 0
             resid_new = []
             for m in range(M):
-                b_m = beta_all[offset:offset + k_list[m]]
+                b_m = beta_all[offset : offset + k_list[m]]
                 resid_new.append(Y_list[m] - X_list[m] @ b_m)
                 offset += k_list[m]
 
-            if method == 'iterative':
+            if method == "iterative":
                 E_new = np.column_stack(resid_new)
                 Sigma_new = E_new.T @ E_new / n
                 if np.max(np.abs(Sigma_new - Sigma)) < tol:
@@ -286,25 +299,31 @@ def sureg(
     eq_results = {}
     offset = 0
     for m, eq_name in enumerate(eq_names):
-        b_m = beta_all[offset:offset + k_list[m]]
-        se_m = se_all[offset:offset + k_list[m]]
+        b_m = beta_all[offset : offset + k_list[m]]
+        se_m = se_all[offset : offset + k_list[m]]
         resid_m = Y_list[m] - X_list[m] @ b_m
-        tss = np.sum((Y_list[m] - Y_list[m].mean())**2)
+        tss = np.sum((Y_list[m] - Y_list[m].mean()) ** 2)
         rss = np.sum(resid_m**2)
         r2 = 1 - rss / tss if tss > 0 else 0
 
         eq_results[eq_name] = {
-            'params': pd.Series(b_m, index=var_names_list[m]),
-            'se': pd.Series(se_m, index=var_names_list[m]),
-            'r2': r2,
-            'dep_var': equations[eq_name][0],
+            "params": pd.Series(b_m, index=var_names_list[m]),
+            "se": pd.Series(se_m, index=var_names_list[m]),
+            "r2": r2,
+            "dep_var": equations[eq_name][0],
         }
         offset += k_list[m]
 
     # Breusch-Pagan test of diagonal Sigma
-    R = np.corrcoef(np.column_stack([Y_list[m] - X_list[m] @ eq_results[eq_names[m]]['params'].values
-                                      for m in range(M)]).T)
-    bp_stat = n * np.sum(np.triu(R, k=1)**2)
+    R = np.corrcoef(
+        np.column_stack(
+            [
+                Y_list[m] - X_list[m] @ eq_results[eq_names[m]]["params"].values
+                for m in range(M)
+            ]
+        ).T
+    )
+    bp_stat = n * np.sum(np.triu(R, k=1) ** 2)
     bp_df = M * (M - 1) // 2
     bp_p = 1 - stats.chi2.cdf(bp_stat, bp_df) if bp_df > 0 else np.nan
 
@@ -316,7 +335,7 @@ def sureg(
         n_obs=n,
         n_equations=M,
         method=method.upper(),
-        breusch_pagan={'chi2': bp_stat, 'df': bp_df, 'p_value': bp_p},
+        breusch_pagan={"chi2": bp_stat, "df": bp_df, "p_value": bp_p},
     )
 
 
@@ -412,9 +431,11 @@ def three_sls(
     for eq_name in eq_names:
         dep, exog, endog = equations[eq_name]
         y_eq = df[dep].values.astype(float)
-        X_eq = np.column_stack([np.ones(n)] +
-                                [df[v].values.astype(float) for v in exog] +
-                                [df[v].values.astype(float) for v in endog])
+        X_eq = np.column_stack(
+            [np.ones(n)]
+            + [df[v].values.astype(float) for v in exog]
+            + [df[v].values.astype(float) for v in endog]
+        )
 
         # Instrument endogenous variables
         X_hat = Pz @ X_eq
@@ -426,7 +447,7 @@ def three_sls(
         Y_list.append(y_eq)
         X_list.append(X_eq)
         k_list.append(X_eq.shape[1])
-        var_names_list.append(['_cons'] + exog + endog)
+        var_names_list.append(["_cons"] + exog + endog)
 
     # Stage 2: Estimate Sigma from 2SLS residuals
     E = np.column_stack(resid_2sls)
@@ -445,14 +466,15 @@ def three_sls(
         col_offset = 0
         for j in range(M):
             w = Sigma_inv[i, j]
-            XtSX[row_offset:row_offset + k_list[i],
-                  col_offset:col_offset + k_list[j]] = w * (X_hat_list[i].T @ X_list[j])
+            XtSX[
+                row_offset : row_offset + k_list[i], col_offset : col_offset + k_list[j]
+            ] = w * (X_hat_list[i].T @ X_list[j])
             col_offset += k_list[j]
 
         XtSY_i = np.zeros(k_list[i])
         for j in range(M):
             XtSY_i += Sigma_inv[i, j] * (X_hat_list[i].T @ Y_list[j])
-        XtSY[row_offset:row_offset + k_list[i]] = XtSY_i
+        XtSY[row_offset : row_offset + k_list[i]] = XtSY_i
         row_offset += k_list[i]
 
     try:
@@ -467,18 +489,18 @@ def three_sls(
     eq_results = {}
     offset = 0
     for m, eq_name in enumerate(eq_names):
-        b_m = beta_all[offset:offset + k_list[m]]
-        se_m = se_all[offset:offset + k_list[m]]
+        b_m = beta_all[offset : offset + k_list[m]]
+        se_m = se_all[offset : offset + k_list[m]]
         resid_m = Y_list[m] - X_list[m] @ b_m
-        tss = np.sum((Y_list[m] - Y_list[m].mean())**2)
+        tss = np.sum((Y_list[m] - Y_list[m].mean()) ** 2)
         rss = np.sum(resid_m**2)
         r2 = 1 - rss / tss if tss > 0 else 0
 
         eq_results[eq_name] = {
-            'params': pd.Series(b_m, index=var_names_list[m]),
-            'se': pd.Series(se_m, index=var_names_list[m]),
-            'r2': r2,
-            'dep_var': equations[eq_name][0],
+            "params": pd.Series(b_m, index=var_names_list[m]),
+            "se": pd.Series(se_m, index=var_names_list[m]),
+            "r2": r2,
+            "dep_var": equations[eq_name][0],
         }
         offset += k_list[m]
 
@@ -489,6 +511,6 @@ def three_sls(
         se_all=se_all,
         n_obs=n,
         n_equations=M,
-        method='3SLS',
+        method="3SLS",
         breusch_pagan=None,
     )

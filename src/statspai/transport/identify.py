@@ -100,6 +100,7 @@ def identify_transport(
     >>> sorted(res.admissible_set)
     ['W']
     """
+
     def _ensure_set(s: str | Iterable[str]) -> set[str]:
         if isinstance(s, str):
             return {s}
@@ -115,13 +116,11 @@ def identify_transport(
     bar_x = _bar(dag, into=X)
     # Try the empty set first, then singletons, then all pairs...
     from itertools import combinations
+
     for k in range(len(candidates) + 1):
         for Z in combinations(sorted(candidates), k):
             Zset = set(Z)
-            ok = all(
-                _d_separated(bar_x, {s}, Y, X | Zset)
-                for s in S
-            )
+            ok = all(_d_separated(bar_x, {s}, Y, X | Zset) for s in S)
             if ok:
                 if Zset:
                     formula = (

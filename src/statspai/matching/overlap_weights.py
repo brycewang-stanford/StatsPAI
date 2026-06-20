@@ -141,7 +141,7 @@ def overlap_weights(
     ci = (est - z * se, est + z * se)
     pval = float(2 * (1 - sp_stats.norm.cdf(abs(est) / se))) if se > 0 else 1.0
 
-    ess = (h.sum()) ** 2 / (h ** 2).sum() if (h ** 2).sum() > 0 else np.nan
+    ess = (h.sum()) ** 2 / (h**2).sum() if (h**2).sum() > 0 else np.nan
     full_weights = T * h / ps + (1 - T) * h / (1 - ps)
     balance = balance_diagnostics(
         df,
@@ -181,6 +181,7 @@ def overlap_weights(
 
 def _logit_pscore(X: np.ndarray, T: np.ndarray) -> np.ndarray:
     from sklearn.linear_model import LogisticRegression
+
     m = LogisticRegression(max_iter=1000, solver="lbfgs", C=1e6)
     m.fit(X, T)
     p = m.predict_proba(X)[:, 1]
@@ -202,9 +203,8 @@ def _tilt(e: np.ndarray, estimand: str) -> np.ndarray:
     if estimand == "MATCHING":
         return np.asarray(np.minimum(e, 1.0 - e), dtype=float)
     if estimand == "ENTROPY":
-        entropy = (
-            e * np.log(np.clip(e, 1e-12, 1))
-            + (1 - e) * np.log(np.clip(1 - e, 1e-12, 1))
+        entropy = e * np.log(np.clip(e, 1e-12, 1)) + (1 - e) * np.log(
+            np.clip(1 - e, 1e-12, 1)
         )
         return np.asarray(-entropy, dtype=float)
     raise ValueError(estimand)

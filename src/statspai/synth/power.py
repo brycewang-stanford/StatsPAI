@@ -47,10 +47,10 @@ import pandas as pd
 
 from .scm import SyntheticControl
 
-
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _build_null_distribution(
     model: SyntheticControl,
@@ -71,9 +71,12 @@ def _build_null_distribution(
     np.ndarray
         Array of RMSPE ratios for each valid placebo unit.
     """
-    all_units = np.column_stack([
-        model.Y_treated[:, np.newaxis], model.Y_donors,
-    ])
+    all_units = np.column_stack(
+        [
+            model.Y_treated[:, np.newaxis],
+            model.Y_donors,
+        ]
+    )
 
     ratios: list[float] = []
 
@@ -97,14 +100,17 @@ def _build_null_distribution(
                     [model.X_treated[:, np.newaxis], model.X_donors]
                 )
                 X_placebo = X_all_pred[:, idx_placebo]
-                X_placebo_donors = X_all_pred[:, [j for j in range(
-                    X_all_pred.shape[1]) if j != idx_placebo]]
+                X_placebo_donors = X_all_pred[
+                    :, [j for j in range(X_all_pred.shape[1]) if j != idx_placebo]
+                ]
             else:
                 X_placebo = Y_pre_p
                 X_placebo_donors = Y_pre_d
             solver_out = model._solve_weights(
-                Y_pre_p, Y_pre_d,
-                X_placebo, X_placebo_donors,
+                Y_pre_p,
+                Y_pre_d,
+                X_placebo,
+                X_placebo_donors,
                 run_nested=model._should_run_nested(),
             )
             w = solver_out["w"]
@@ -180,6 +186,7 @@ def _treated_ratio_with_effect(
 # ======================================================================
 # 1.  synth_power — full power curve
 # ======================================================================
+
 
 def synth_power(
     data: pd.DataFrame,
@@ -270,15 +277,21 @@ def synth_power(
 
     # --- Step 1: baseline SCM fit ---
     model = SyntheticControl(
-        data=data, outcome=outcome, unit=unit, time=time,
-        treated_unit=treated_unit, treatment_time=treatment_time,
+        data=data,
+        outcome=outcome,
+        unit=unit,
+        time=time,
+        treated_unit=treated_unit,
+        treatment_time=treatment_time,
     )
 
     Y_pre_treated = model.Y_treated[model.pre_mask]
     Y_pre_donors = model.Y_donors[model.pre_mask]
     solver_out = model._solve_weights(
-        Y_pre_treated, Y_pre_donors,
-        model.X_treated, model.X_donors,
+        Y_pre_treated,
+        Y_pre_donors,
+        model.X_treated,
+        model.X_donors,
         run_nested=model._should_run_nested(),
     )
     weights = solver_out["w"]
@@ -314,18 +327,24 @@ def synth_power(
         n_reject = 0
         for _ in range(n_simulations):
             ratio = _treated_ratio_with_effect(
-                model, weights, delta, rng, residual_sd,
+                model,
+                weights,
+                delta,
+                rng,
+                residual_sd,
             )
             if ratio >= critical_value:
                 n_reject += 1
 
         power = n_reject / n_simulations
-        records.append({
-            "effect_size": float(delta),
-            "power": power,
-            "n_rejections": n_reject,
-            "n_simulations": n_simulations,
-        })
+        records.append(
+            {
+                "effect_size": float(delta),
+                "power": power,
+                "n_rejections": n_reject,
+                "n_simulations": n_simulations,
+            }
+        )
 
     result_df = pd.DataFrame(records)
 
@@ -342,6 +361,7 @@ def synth_power(
 # ======================================================================
 # 2.  synth_mde — quick MDE extraction
 # ======================================================================
+
 
 def synth_mde(
     data: pd.DataFrame,
@@ -429,6 +449,7 @@ def synth_mde(
 # 3.  synth_power_plot — power curve visualisation
 # ======================================================================
 
+
 def synth_power_plot(
     power_result: pd.DataFrame,
     ax: Any = None,
@@ -484,22 +505,41 @@ def synth_power_plot(
     power = power_result["power"]
 
     # Main power curve
-    ax.plot(effect, power, "o-", color="#2c7bb6", linewidth=2,
-            markersize=6, label="Power", zorder=3)
+    ax.plot(
+        effect,
+        power,
+        "o-",
+        color="#2c7bb6",
+        linewidth=2,
+        markersize=6,
+        label="Power",
+        zorder=3,
+    )
 
     # 80 % reference line
-    ax.axhline(0.80, color="#d7191c", linestyle="--", linewidth=1,
-               alpha=0.7, label="Power = 0.80")
+    ax.axhline(
+        0.80,
+        color="#d7191c",
+        linestyle="--",
+        linewidth=1,
+        alpha=0.7,
+        label="Power = 0.80",
+    )
 
     # MDE vertical line
     mde_rows = power_result[power_result["mde_flag"]]
     if not mde_rows.empty:
         mde_val = float(mde_rows["effect_size"].iloc[0])
         mde_power = float(mde_rows["power"].iloc[0])
-        ax.axvline(mde_val, color="#fdae61", linestyle="--", linewidth=1,
-                   alpha=0.8, label=f"MDE = {mde_val:.2f}")
-        ax.plot(mde_val, mde_power, "D", color="#fdae61", markersize=10,
-                zorder=4)
+        ax.axvline(
+            mde_val,
+            color="#fdae61",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.8,
+            label=f"MDE = {mde_val:.2f}",
+        )
+        ax.plot(mde_val, mde_power, "D", color="#fdae61", markersize=10, zorder=4)
 
     ax.set_xlabel("Effect Size (additive)")
     ax.set_ylabel("Power")

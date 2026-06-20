@@ -40,14 +40,15 @@ if TYPE_CHECKING:
 # Public API
 # ======================================================================
 
+
 def super_learner(
     X: np.ndarray,
     y: np.ndarray,
-    library: 'Optional[List[BaseEstimator]]' = None,
+    library: "Optional[List[BaseEstimator]]" = None,
     n_folds: int = 5,
-    task: str = 'regression',
+    task: str = "regression",
     random_state: int = 42,
-) -> 'SuperLearner':
+) -> "SuperLearner":
     """
     Fit a Super Learner ensemble.
 
@@ -88,8 +89,9 @@ def super_learner(
     >>> sl.predict(X[:5]).shape
     (5,)
     """
-    sl = SuperLearner(library=library, n_folds=n_folds,
-                      task=task, random_state=random_state)
+    sl = SuperLearner(
+        library=library, n_folds=n_folds, task=task, random_state=random_state
+    )
     sl.fit(X, y)
     return sl
 
@@ -97,6 +99,7 @@ def super_learner(
 # ======================================================================
 # Super Learner class
 # ======================================================================
+
 
 class SuperLearner:
     """
@@ -137,9 +140,9 @@ class SuperLearner:
 
     def __init__(
         self,
-        library: 'Optional[List[BaseEstimator]]' = None,
+        library: "Optional[List[BaseEstimator]]" = None,
         n_folds: int = 5,
-        task: str = 'regression',
+        task: str = "regression",
         random_state: int = 42,
     ):
         self.library = library
@@ -178,7 +181,7 @@ class SuperLearner:
         # ``predict_proba(X)[:, 1]`` and would silently drop other class
         # columns for ≥3-class targets. Reject up-front rather than
         # train a learner whose predictions are garbage.
-        if self.task == 'classification':
+        if self.task == "classification":
             uniq = np.unique(y)
             if len(uniq) > 2:
                 raise MethodIncompatibility(
@@ -222,15 +225,17 @@ class SuperLearner:
         # classes (essential when one class is rare); the previous plain
         # KFold could put all positives into a single fold and crash
         # downstream `predict_proba` calls on constant-class folds.
-        if self.task == 'classification':
+        if self.task == "classification":
             splitter = StratifiedKFold(
-                n_splits=self.n_folds, shuffle=True,
+                n_splits=self.n_folds,
+                shuffle=True,
                 random_state=self.random_state,
             )
             split_iter = splitter.split(X, y)
         else:
             splitter = KFold(
-                n_splits=self.n_folds, shuffle=True,
+                n_splits=self.n_folds,
+                shuffle=True,
                 random_state=self.random_state,
             )
             split_iter = splitter.split(X)
@@ -244,7 +249,7 @@ class SuperLearner:
             for k, learner in enumerate(self.library):
                 m = clone(learner)
                 m.fit(X_tr, y_tr)
-                if self.task == 'classification' and hasattr(m, 'predict_proba'):
+                if self.task == "classification" and hasattr(m, "predict_proba"):
                     cv_preds[test_idx, k] = m.predict_proba(X_te)[:, 1]
                 else:
                     cv_preds[test_idx, k] = m.predict(X_te)
@@ -270,12 +275,20 @@ class SuperLearner:
 
         w0 = np.ones(n_learners) / n_learners
         bounds = [(0.0, 1.0)] * n_learners
-        constraints = ({"type": "eq",
-                        "fun": lambda w: float(np.sum(w) - 1.0),
-                        "jac": lambda w: np.ones_like(w)},)
+        constraints = (
+            {
+                "type": "eq",
+                "fun": lambda w: float(np.sum(w) - 1.0),
+                "jac": lambda w: np.ones_like(w),
+            },
+        )
         res = minimize(
-            _obj, w0, jac=_grad, method="SLSQP",
-            bounds=bounds, constraints=constraints,
+            _obj,
+            w0,
+            jac=_grad,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
             options={"ftol": 1e-9, "maxiter": 200},
         )
         if res.success:
@@ -288,6 +301,7 @@ class SuperLearner:
             # callers can investigate. Equal weights are still a valid
             # ensemble — just not the optimum.
             import warnings
+
             warnings.warn(
                 f"SuperLearner: simplex QP failed to converge "
                 f"({res.message!r}); falling back to equal weights.",
@@ -300,9 +314,9 @@ class SuperLearner:
         self.cv_preds_ = cv_preds
 
         # CV risk per learner
-        self.cv_risks_ = np.array([
-            np.mean((y - cv_preds[:, k]) ** 2) for k in range(n_learners)
-        ])
+        self.cv_risks_ = np.array(
+            [np.mean((y - cv_preds[:, k]) ** 2) for k in range(n_learners)]
+        )
 
         # Step 3: Refit all learners on full data
         self._fitted_learners = []
@@ -319,8 +333,7 @@ class SuperLearner:
         """Validate scalar controls before cross-validation starts."""
         if self.task not in {"regression", "classification"}:
             raise MethodIncompatibility(
-                "SuperLearner.fit(): task must be 'regression' or "
-                "'classification'.",
+                "SuperLearner.fit(): task must be 'regression' or " "'classification'.",
                 recovery_hint="Choose task='regression' or task='classification'.",
                 diagnostics={"task": self.task},
             )
@@ -336,9 +349,7 @@ class SuperLearner:
             )
         self.n_folds = int(self.n_folds)
 
-    def _prepare_fit_arrays(
-        self, X: Any, y: Any
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def _prepare_fit_arrays(self, X: Any, y: Any) -> tuple[np.ndarray, np.ndarray]:
         """Coerce and validate fit arrays with clear taxonomy errors."""
         try:
             X_arr = np.asarray(X, dtype=np.float64)
@@ -476,7 +487,7 @@ class SuperLearner:
 
         preds = np.zeros((n, n_learners))
         for k, m in enumerate(self._fitted_learners):
-            if self.task == 'classification' and hasattr(m, 'predict_proba'):
+            if self.task == "classification" and hasattr(m, "predict_proba"):
                 preds[:, k] = m.predict_proba(X)[:, 1]
             else:
                 preds[:, k] = m.predict(X)
@@ -488,7 +499,7 @@ class SuperLearner:
         # asymmetry meant TMLE callers using `sl_g.predict(W)` could
         # get exact 0/1 if every base learner produced exact 0/1
         # (e.g. RandomForest with deterministic terminal nodes).
-        if self.task == 'classification':
+        if self.task == "classification":
             out = np.clip(out, 1e-6, 1 - 1e-6)
         return np.asarray(out)
 
@@ -525,22 +536,31 @@ class SuperLearner:
     def _default_library(self) -> List[Any]:
         """Build a diverse default library of learners."""
         from sklearn.linear_model import (
-            LinearRegression, Ridge, Lasso, LogisticRegression,
+            LinearRegression,
+            Ridge,
+            Lasso,
+            LogisticRegression,
         )
         from sklearn.ensemble import (
-            RandomForestRegressor, RandomForestClassifier,
-            GradientBoostingRegressor, GradientBoostingClassifier,
+            RandomForestRegressor,
+            RandomForestClassifier,
+            GradientBoostingRegressor,
+            GradientBoostingClassifier,
         )
         from sklearn.neighbors import KNeighborsRegressor, KNeighborsClassifier
 
-        if self.task == 'classification':
+        if self.task == "classification":
             return [
                 LogisticRegression(max_iter=1000, random_state=self.random_state),
-                RandomForestClassifier(n_estimators=100, max_depth=5,
-                                       random_state=self.random_state),
-                GradientBoostingClassifier(n_estimators=100, max_depth=3,
-                                           learning_rate=0.1,
-                                           random_state=self.random_state),
+                RandomForestClassifier(
+                    n_estimators=100, max_depth=5, random_state=self.random_state
+                ),
+                GradientBoostingClassifier(
+                    n_estimators=100,
+                    max_depth=3,
+                    learning_rate=0.1,
+                    random_state=self.random_state,
+                ),
                 KNeighborsClassifier(n_neighbors=10),
             ]
         else:
@@ -548,10 +568,14 @@ class SuperLearner:
                 LinearRegression(),
                 Ridge(alpha=1.0),
                 Lasso(alpha=0.1, max_iter=5000),
-                RandomForestRegressor(n_estimators=100, max_depth=5,
-                                      random_state=self.random_state),
-                GradientBoostingRegressor(n_estimators=100, max_depth=3,
-                                          learning_rate=0.1,
-                                          random_state=self.random_state),
+                RandomForestRegressor(
+                    n_estimators=100, max_depth=5, random_state=self.random_state
+                ),
+                GradientBoostingRegressor(
+                    n_estimators=100,
+                    max_depth=3,
+                    learning_rate=0.1,
+                    random_state=self.random_state,
+                ),
                 KNeighborsRegressor(n_neighbors=10),
             ]

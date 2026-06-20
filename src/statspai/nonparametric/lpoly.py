@@ -94,35 +94,47 @@ class LPolyResult:
             fig, ax = plt.subplots(figsize=(8, 5))
 
         if scatter:
-            ax.scatter(self._data_x, self._data_y, alpha=0.3, s=10,
-                       color='gray', label='Data')
+            ax.scatter(
+                self._data_x, self._data_y, alpha=0.3, s=10, color="gray", label="Data"
+            )
 
-        ax.plot(self.grid, self.fitted, color='steelblue', lw=2,
-                label=f'lpoly (degree={self.degree})')
+        ax.plot(
+            self.grid,
+            self.fitted,
+            color="steelblue",
+            lw=2,
+            label=f"lpoly (degree={self.degree})",
+        )
 
         if ci:
-            ax.fill_between(self.grid, self.ci_lower, self.ci_upper,
-                            alpha=0.2, color='steelblue', label='95% CI')
+            ax.fill_between(
+                self.grid,
+                self.ci_lower,
+                self.ci_upper,
+                alpha=0.2,
+                color="steelblue",
+                label="95% CI",
+            )
 
-        ax.set_xlabel(kwargs.get('xlabel', 'X'))
-        ax.set_ylabel(kwargs.get('ylabel', 'Y'))
-        ax.set_title(kwargs.get('title', 'Local Polynomial Regression'))
+        ax.set_xlabel(kwargs.get("xlabel", "X"))
+        ax.set_ylabel(kwargs.get("ylabel", "Y"))
+        ax.set_title(kwargs.get("title", "Local Polynomial Regression"))
         ax.legend()
         return ax
 
 
-def _kernel_fn(u: np.ndarray, kernel: str = 'epanechnikov') -> np.ndarray:
+def _kernel_fn(u: np.ndarray, kernel: str = "epanechnikov") -> np.ndarray:
     """Evaluate kernel function at u."""
-    if kernel == 'epanechnikov':
+    if kernel == "epanechnikov":
         return np.where(np.abs(u) <= 1, 0.75 * (1 - u**2), 0.0)
-    elif kernel == 'gaussian':
+    elif kernel == "gaussian":
         return np.asarray(stats.norm.pdf(u), dtype=float)
-    elif kernel == 'uniform':
+    elif kernel == "uniform":
         return np.where(np.abs(u) <= 1, 0.5, 0.0)
-    elif kernel == 'triangular':
+    elif kernel == "triangular":
         return np.where(np.abs(u) <= 1, 1 - np.abs(u), 0.0)
-    elif kernel == 'biweight':
-        return np.where(np.abs(u) <= 1, (15 / 16) * (1 - u**2)**2, 0.0)
+    elif kernel == "biweight":
+        return np.where(np.abs(u) <= 1, (15 / 16) * (1 - u**2) ** 2, 0.0)
     else:
         raise ValueError(f"Unknown kernel: {kernel}")
 
@@ -302,8 +314,15 @@ def lpoly(
     ci_upper = fitted + z_crit * se
 
     return LPolyResult(
-        grid=grid, fitted=fitted, se=se,
-        ci_lower=ci_lower, ci_upper=ci_upper,
-        bandwidth=bandwidth, degree=degree, kernel=kernel,
-        n=n, data_x=x_data, data_y=y_data,
+        grid=grid,
+        fitted=fitted,
+        se=se,
+        ci_lower=ci_lower,
+        ci_upper=ci_upper,
+        bandwidth=bandwidth,
+        degree=degree,
+        kernel=kernel,
+        n=n,
+        data_x=x_data,
+        data_y=y_data,
     )

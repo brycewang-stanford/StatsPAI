@@ -131,7 +131,9 @@ def _require_int_at_least(value: Any, name: str, minimum: int) -> int:
     return out
 
 
-def _coerce_column_list(value: Any, name: str, *, allow_empty: bool = False) -> List[str]:
+def _coerce_column_list(
+    value: Any, name: str, *, allow_empty: bool = False
+) -> List[str]:
     if isinstance(value, str):
         out = [value]
     else:
@@ -178,13 +180,16 @@ def _require_period_pair(value: Any, name: str) -> Tuple[Any, Any]:
     return out
 
 
-def _raise_missing_columns(data: pd.DataFrame, columns: List[str], context: str) -> None:
+def _raise_missing_columns(
+    data: pd.DataFrame, columns: List[str], context: str
+) -> None:
     missing = [col for col in columns if col not in data.columns]
     if missing:
         raise MethodIncompatibility(
             f"{context} missing columns: {missing}",
             diagnostics={"missing_columns": missing, "context": context},
         )
+
 
 # ====================================================================== #
 #  Kalman filter / smoother for local-level (+ optional linear-trend)
@@ -239,15 +244,15 @@ def _kalman_filter(
 
     # State noise covariance
     Q = np.zeros((dim, dim))
-    Q[0, 0] = sigma_level ** 2
+    Q[0, 0] = sigma_level**2
     if use_trend:
-        Q[1, 1] = sigma_slope ** 2
+        Q[1, 1] = sigma_slope**2
 
     # Observation matrix (maps state to observation, excluding regression)
     H = np.zeros((1, dim))
     H[0, 0] = 1.0
 
-    R = np.array([[sigma_obs ** 2]])  # observation noise variance
+    R = np.array([[sigma_obs**2]])  # observation noise variance
 
     # Initialisation — diffuse prior
     state = np.zeros(dim)
@@ -296,7 +301,7 @@ def _kalman_filter(
             filtered_cov[t] = cov
 
             # Log-likelihood contribution
-            log_lik += -0.5 * (np.log(2 * np.pi * S) + innovation ** 2 / S)
+            log_lik += -0.5 * (np.log(2 * np.pi * S) + innovation**2 / S)
 
         # Carry forward for next iteration
         state = filtered_state[t]
@@ -419,7 +424,7 @@ def _estimate_beta_ridge(
         denom = (1.0 - np.diag(H).mean()) ** 2
         if denom < 1e-12:
             continue  # pragma: no cover
-        gcv = float(np.mean(resid ** 2) / denom)
+        gcv = float(np.mean(resid**2) / denom)
 
         if gcv < best_gcv:
             best_gcv = gcv
@@ -453,7 +458,9 @@ def _neg_log_likelihood(
     sigma_slope = np.exp(params[2]) if use_trend else 0.0
 
     kf = _kalman_filter(
-        y_pre, X_pre, beta,
+        y_pre,
+        X_pre,
+        beta,
         sigma_obs=sigma_obs,
         sigma_level=sigma_level,
         sigma_slope=sigma_slope,
@@ -505,7 +512,9 @@ def _fit_model(
 
     # Final filter + smoother on pre-period
     kf = _kalman_filter(
-        y_pre, X_pre, beta,
+        y_pre,
+        X_pre,
+        beta,
         sigma_obs=sigma_obs,
         sigma_level=sigma_level,
         sigma_slope=sigma_slope,
@@ -573,9 +582,9 @@ def _simulate_counterfactual(
         F[0, 1] = 1.0
 
     Q = np.zeros((dim, dim))
-    Q[0, 0] = sigma_level ** 2
+    Q[0, 0] = sigma_level**2
     if use_trend:
-        Q[1, 1] = sigma_slope ** 2
+        Q[1, 1] = sigma_slope**2
 
     # Last filtered state and covariance from pre-period
     kf_pre = model["kf_pre"]
@@ -795,7 +804,10 @@ def causal_impact(
     # ------------------------------------------------------------------
     rng = np.random.default_rng(seed)
     cf_draws = _simulate_counterfactual(
-        fitted, X_post, n_simulations=n_simulations, rng=rng,
+        fitted,
+        X_post,
+        n_simulations=n_simulations,
+        rng=rng,
     )
 
     cf_mean = cf_draws.mean(axis=0)
@@ -855,28 +867,32 @@ def causal_impact(
     # Detail DataFrame
     # ------------------------------------------------------------------
     post_times = data.index[post_mask]
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "observed": y_post,
-        "counterfactual": cf_mean,
-        "counterfactual_lower": cf_lower,
-        "counterfactual_upper": cf_upper,
-        "effect": effects,
-        "effect_lower": np.percentile(effects_draws, 100 * alpha / 2, axis=0),
-        "effect_upper": np.percentile(effects_draws, 100 * (1 - alpha / 2), axis=0),
-        "cumulative_effect": cum_effects,
-        "cumulative_lower": cum_lower,
-        "cumulative_upper": cum_upper,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "observed": y_post,
+            "counterfactual": cf_mean,
+            "counterfactual_lower": cf_lower,
+            "counterfactual_upper": cf_upper,
+            "effect": effects,
+            "effect_lower": np.percentile(effects_draws, 100 * alpha / 2, axis=0),
+            "effect_upper": np.percentile(effects_draws, 100 * (1 - alpha / 2), axis=0),
+            "cumulative_effect": cum_effects,
+            "cumulative_lower": cum_lower,
+            "cumulative_upper": cum_upper,
+        }
+    )
 
     # Trajectory DataFrame (full series for plotting)
-    trajectory_df = pd.DataFrame({
-        "time": full_times,
-        "observed": full_observed,
-        "counterfactual": full_cf_mean,
-        "counterfactual_lower": full_cf_lower,
-        "counterfactual_upper": full_cf_upper,
-    })
+    trajectory_df = pd.DataFrame(
+        {
+            "time": full_times,
+            "observed": full_observed,
+            "counterfactual": full_cf_mean,
+            "counterfactual_lower": full_cf_lower,
+            "counterfactual_upper": full_cf_upper,
+        }
+    )
 
     # ------------------------------------------------------------------
     # Model info
@@ -886,7 +902,9 @@ def causal_impact(
         "sigma_obs": fitted["sigma_obs"],
         "sigma_level": fitted["sigma_level"],
         "sigma_slope": fitted["sigma_slope"] if use_trend else None,
-        "regression_coefficients": dict(zip(covariates, fitted["beta"])) if covariates else {},
+        "regression_coefficients": (
+            dict(zip(covariates, fitted["beta"])) if covariates else {}
+        ),
         "n_pre_periods": int(pre_mask.sum()),
         "n_post_periods": int(post_mask.sum()),
         "n_covariates": len(covariates),
@@ -1067,7 +1085,10 @@ def bsts_synth(
                     },
                 )
             cov_panel = data.pivot_table(
-                index=time, columns=unit, values=cov, aggfunc="mean",
+                index=time,
+                columns=unit,
+                values=cov,
+                aggfunc="mean",
             ).sort_index()
             # Average across control units
             ctrl_cols = [u for u in cov_panel.columns if u != treated_unit]

@@ -21,7 +21,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 from typing import Any, Sequence
 
-
 _VALID_CONTRASTS = ("ITT", "per-protocol", "as-treated", "observational-analogue")
 
 
@@ -99,9 +98,7 @@ class TargetTrialProtocol:
 
     def __post_init__(self) -> None:
         if len(list(self.treatment_strategies)) < 2:
-            raise ValueError(
-                "treatment_strategies must contain at least 2 arms."
-            )
+            raise ValueError("treatment_strategies must contain at least 2 arms.")
         if self.causal_contrast not in _VALID_CONTRASTS:
             raise ValueError(
                 f"causal_contrast must be one of {_VALID_CONTRASTS}, "

@@ -36,7 +36,6 @@ from scipy import stats
 from ..core.results import EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
 
@@ -94,6 +93,7 @@ def _require_panel_column(data: pd.DataFrame, column: Any, role: str) -> str:
 # ======================================================================
 # PanelResults — extends EconometricResults with panel diagnostics
 # ======================================================================
+
 
 class PanelResults(EconometricResults):
     """
@@ -205,7 +205,12 @@ class PanelResults(EconometricResults):
         from .panel_diagnostics import _hausman_from_data
 
         return _hausman_from_data(
-            panel_data, dep_var, indep_vars, entity, time, alpha,
+            panel_data,
+            dep_var,
+            indep_vars,
+            entity,
+            time,
+            alpha,
         )
 
     # ------------------------------------------------------------------
@@ -230,7 +235,11 @@ class PanelResults(EconometricResults):
         from .panel_diagnostics import _bp_lm_test
 
         return _bp_lm_test(
-            panel_data, dep_var, indep_vars, entity, time,
+            panel_data,
+            dep_var,
+            indep_vars,
+            entity,
+            time,
         )
 
     # ------------------------------------------------------------------
@@ -248,13 +257,15 @@ class PanelResults(EconometricResults):
         dict
             'statistic', 'df1', 'df2', 'pvalue', 'interpretation'
         """
-        panel_data, dep_var, indep_vars, entity, time = self._stored_design(
-            "F-test"
-        )
+        panel_data, dep_var, indep_vars, entity, time = self._stored_design("F-test")
         from .panel_diagnostics import _f_test_effects
 
         return _f_test_effects(
-            panel_data, dep_var, indep_vars, entity, time,
+            panel_data,
+            dep_var,
+            indep_vars,
+            entity,
+            time,
         )
 
     # ------------------------------------------------------------------
@@ -287,7 +298,7 @@ class PanelResults(EconometricResults):
     # Plotting
     # ------------------------------------------------------------------
 
-    def plot(self, type: str = 'coef', **kwargs: Any) -> Any:
+    def plot(self, type: str = "coef", **kwargs: Any) -> Any:
         """
         Generate panel-specific plots.
 
@@ -306,13 +317,14 @@ class PanelResults(EconometricResults):
         (fig, ax)
         """
         from .panel_plots import plot_coef, plot_effects, plot_residuals, plot_hausman
-        if type == 'coef':
+
+        if type == "coef":
             return plot_coef(self, **kwargs)
-        elif type == 'effects':
+        elif type == "effects":
             return plot_effects(self, **kwargs)
-        elif type == 'residuals':
+        elif type == "residuals":
             return plot_residuals(self, **kwargs)
-        elif type == 'hausman':
+        elif type == "hausman":
             return plot_hausman(self, **kwargs)
         else:
             raise _panel_method_error(  # pragma: no cover
@@ -325,21 +337,21 @@ class PanelResults(EconometricResults):
 
     def plot_effects(self, **kwargs: Any) -> Any:
         """Shortcut for ``.plot(type='effects')``. Distribution of entity FE."""
-        return self.plot(type='effects', **kwargs)
+        return self.plot(type="effects", **kwargs)
 
     def plot_residuals(self, **kwargs: Any) -> Any:
         """Shortcut for ``.plot(type='residuals')``. Residual diagnostics (2x2)."""
-        return self.plot(type='residuals', **kwargs)
+        return self.plot(type="residuals", **kwargs)
 
     def plot_hausman(self, **kwargs: Any) -> Any:
         """Shortcut for ``.plot(type='hausman')``. Visual FE vs RE comparison."""
-        return self.plot(type='hausman', **kwargs)
+        return self.plot(type="hausman", **kwargs)
 
     # ------------------------------------------------------------------
     # Compare with another method
     # ------------------------------------------------------------------
 
-    def compare(self, method: str, **kwargs: Any) -> 'PanelCompareResults':
+    def compare(self, method: str, **kwargs: Any) -> "PanelCompareResults":
         """
         Re-estimate with a different method and compare side by side.
 
@@ -366,9 +378,12 @@ class PanelResults(EconometricResults):
                 "by sp.panel().",
             )  # pragma: no cover
         other = panel(
-            data=self._panel_data, formula=self._formula,
-            entity=self._entity, time=self._time,
-            method=method, **kwargs,
+            data=self._panel_data,
+            formula=self._formula,
+            entity=self._entity,
+            time=self._time,
+            method=method,
+            **kwargs,
         )
         return PanelCompareResults(self, other)
 
@@ -407,12 +422,14 @@ class PanelCompareResults:
         self.model_b = model_b
 
     def summary(self) -> str:
-        name_a = self.model_a.model_info.get('model_type', 'Model A')
-        name_b = self.model_b.model_info.get('model_type', 'Model B')
+        name_a = self.model_a.model_info.get("model_type", "Model A")
+        name_b = self.model_b.model_info.get("model_type", "Model B")
 
-        all_vars = list(dict.fromkeys(
-            list(self.model_a.params.index) + list(self.model_b.params.index)
-        ))
+        all_vars = list(
+            dict.fromkeys(
+                list(self.model_a.params.index) + list(self.model_b.params.index)
+            )
+        )
 
         rows = []
         for var in all_vars:
@@ -420,22 +437,26 @@ class PanelCompareResults:
             se_a = self.model_a.std_errors.get(var, np.nan)
             coef_b = self.model_b.params.get(var, np.nan)
             se_b = self.model_b.std_errors.get(var, np.nan)
-            rows.append({
-                'Variable': var,
-                f'{name_a} coef': coef_a, f'{name_a} SE': se_a,
-                f'{name_b} coef': coef_b, f'{name_b} SE': se_b,
-            })
+            rows.append(
+                {
+                    "Variable": var,
+                    f"{name_a} coef": coef_a,
+                    f"{name_a} SE": se_a,
+                    f"{name_b} coef": coef_b,
+                    f"{name_b} SE": se_b,
+                }
+            )
 
-        df_cmp = pd.DataFrame(rows).set_index('Variable')
+        df_cmp = pd.DataFrame(rows).set_index("Variable")
 
         lines = ["=" * 78, f"  Panel Comparison: {name_a} vs {name_b}", "=" * 78, ""]
-        lines.append(df_cmp.to_string(float_format='%.4f'))
+        lines.append(df_cmp.to_string(float_format="%.4f"))
         lines.append("")
 
         # Diagnostics
         for label, model in [(name_a, self.model_a), (name_b, self.model_b)]:
-            r2 = model.diagnostics.get('R-squared', np.nan)
-            nobs = model.data_info.get('nobs', '?')
+            r2 = model.diagnostics.get("R-squared", np.nan)
+            nobs = model.data_info.get("nobs", "?")
             lines.append(f"  {label}: R² = {r2:.4f}, N = {nobs}")
         lines.append("=" * 78)
         return "\n".join(lines)
@@ -449,16 +470,18 @@ class PanelCompareResults:
         (fig, ax)
         """
         from .panel_plots import plot_compare
-        name_a = self.model_a.model_info.get('model_type', 'Model A')
-        name_b = self.model_b.model_info.get('model_type', 'Model B')
+
+        name_a = self.model_a.model_info.get("model_type", "Model A")
+        name_b = self.model_b.model_info.get("model_type", "Model B")
         return plot_compare(
             {name_a: self.model_a, name_b: self.model_b},
-            variables=variables, **kwargs,
+            variables=variables,
+            **kwargs,
         )
 
     def __repr__(self) -> str:
-        name_a = self.model_a.model_info.get('model_type', 'A')
-        name_b = self.model_b.model_info.get('model_type', 'B')
+        name_a = self.model_a.model_info.get("model_type", "A")
+        name_b = self.model_b.model_info.get("model_type", "B")
         return f"<PanelCompareResults: {name_a} vs {name_b}>"
 
     def __str__(self) -> str:
@@ -470,26 +493,41 @@ class PanelCompareResults:
 # ======================================================================
 
 _METHOD_ALIASES = {
-    'fe': 'fe', 'fixed_effects': 'fe', 'within': 'fe',
-    're': 're', 'random_effects': 're',
-    'be': 'be', 'between': 'be',
-    'fd': 'fd', 'first_difference': 'fd',
-    'pooled': 'pooled', 'pols': 'pooled',
-    'twoway': 'twoway', 'two_way': 'twoway', 'twfe': 'twoway',
-    'mundlak': 'mundlak', 'cre': 'mundlak', 'correlated_re': 'mundlak',
-    'chamberlain': 'chamberlain',
-    'ab': 'ab', 'arellano_bond': 'ab', 'diff_gmm': 'ab',
-    'system': 'system', 'blundell_bond': 'system', 'sys_gmm': 'system',
+    "fe": "fe",
+    "fixed_effects": "fe",
+    "within": "fe",
+    "re": "re",
+    "random_effects": "re",
+    "be": "be",
+    "between": "be",
+    "fd": "fd",
+    "first_difference": "fd",
+    "pooled": "pooled",
+    "pols": "pooled",
+    "twoway": "twoway",
+    "two_way": "twoway",
+    "twfe": "twoway",
+    "mundlak": "mundlak",
+    "cre": "mundlak",
+    "correlated_re": "mundlak",
+    "chamberlain": "chamberlain",
+    "ab": "ab",
+    "arellano_bond": "ab",
+    "diff_gmm": "ab",
+    "system": "system",
+    "blundell_bond": "system",
+    "sys_gmm": "system",
 }
 
-_LINEARMODELS_METHODS = {'fe', 're', 'be', 'fd', 'pooled', 'twoway'}
-_GMM_METHODS = {'ab', 'system'}
-_CRE_METHODS = {'mundlak', 'chamberlain'}
+_LINEARMODELS_METHODS = {"fe", "re", "be", "fd", "pooled", "twoway"}
+_GMM_METHODS = {"ab", "system"}
+_CRE_METHODS = {"mundlak", "chamberlain"}
 
 
 # ======================================================================
 # balance_panel — keep only units observed in all time periods
 # ======================================================================
+
 
 def balance_panel(
     data: pd.DataFrame,
@@ -534,7 +572,7 @@ def balance_panel(
     4
     """
     all_periods = data[time].nunique()
-    counts = data.groupby(entity)[time].transform('nunique')
+    counts = data.groupby(entity)[time].transform("nunique")
     balanced = data.loc[counts == all_periods].sort_values([entity, time])
     return balanced.reset_index(drop=True)
 
@@ -544,8 +582,8 @@ def panel(
     formula: str,
     entity: str,
     time: str,
-    method: str = 'fe',
-    robust: str = 'nonrobust',
+    method: str = "fe",
+    robust: str = "nonrobust",
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
     alpha: float = 0.05,
@@ -566,23 +604,38 @@ def panel(
     lives in :func:`_dispatch_panel_impl`.
     """
     _result = _dispatch_panel_impl(
-        data=data, formula=formula, entity=entity, time=time,
-        method=method, robust=robust, cluster=cluster,
-        weights=weights, alpha=alpha, balance=balance,
-        lags=lags, gmm_lags=gmm_lags, twostep=twostep,
+        data=data,
+        formula=formula,
+        entity=entity,
+        time=time,
+        method=method,
+        robust=robust,
+        cluster=cluster,
+        weights=weights,
+        alpha=alpha,
+        balance=balance,
+        lags=lags,
+        gmm_lags=gmm_lags,
+        twostep=twostep,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.panel",
             params={
                 "formula": formula,
-                "entity": entity, "time": time,
-                "method": method, "robust": robust,
-                "cluster": cluster, "weights": weights,
-                "alpha": alpha, "balance": balance,
-                "lags": lags, "gmm_lags": list(gmm_lags),
+                "entity": entity,
+                "time": time,
+                "method": method,
+                "robust": robust,
+                "cluster": cluster,
+                "weights": weights,
+                "alpha": alpha,
+                "balance": balance,
+                "lags": lags,
+                "gmm_lags": list(gmm_lags),
                 "twostep": twostep,
             },
             data=data,
@@ -598,8 +651,8 @@ def _dispatch_panel_impl(
     formula: str,
     entity: str,
     time: str,
-    method: str = 'fe',
-    robust: str = 'nonrobust',
+    method: str = "fe",
+    robust: str = "nonrobust",
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
     alpha: float = 0.05,
@@ -719,7 +772,7 @@ def _dispatch_panel_impl(
             recovery_hint="Pass method='fe', 're', 'pooled', or another "
             "supported panel method.",
         )
-    method_key = method.lower().replace('-', '_').replace(' ', '_')
+    method_key = method.lower().replace("-", "_").replace(" ", "_")
     if method_key not in _METHOD_ALIASES:
         valid = sorted(set(_METHOD_ALIASES.keys()))
         raise _panel_method_error(
@@ -730,20 +783,18 @@ def _dispatch_panel_impl(
     canonical = _METHOD_ALIASES[method_key]
 
     # --- Parse formula ---
-    if not isinstance(formula, str) or '~' not in formula:
+    if not isinstance(formula, str) or "~" not in formula:
         raise _panel_method_error(
             "Formula must contain '~'",
             diagnostics={"formula": repr(formula)},
             recovery_hint="Use a formula like 'y ~ x1 + x2'.",
         )
-    dep, indep = formula.split('~', 1)
+    dep, indep = formula.split("~", 1)
     dep_var = dep.strip()
-    indep_vars = [v.strip() for v in indep.split('+') if v.strip()]
+    indep_vars = [v.strip() for v in indep.split("+") if v.strip()]
 
     dep_var = _require_panel_column(data, dep_var, "dependent variable")
-    indep_vars = [
-        _require_panel_column(data, col, "regressor") for col in indep_vars
-    ]
+    indep_vars = [_require_panel_column(data, col, "regressor") for col in indep_vars]
     entity = _require_panel_column(data, entity, "entity")
     time = _require_panel_column(data, time, "time")
 
@@ -757,8 +808,7 @@ def _dispatch_panel_impl(
                 f"balance=True dropped all units: none of the {n_units} "
                 f"entities appear in all {n_periods} time periods. "
                 "Check data or set balance=False.",
-                recovery_hint="Inspect panel balance or rerun with "
-                "balance=False.",
+                recovery_hint="Inspect panel balance or rerun with " "balance=False.",
                 diagnostics={"n_units": n_units, "n_periods": n_periods},
                 alternative_functions=_PANEL_ALTERNATIVES,
             )
@@ -766,31 +816,53 @@ def _dispatch_panel_impl(
     # --- Route to estimator ---
     if canonical in _GMM_METHODS:
         return _fit_gmm(
-            data=data, dep_var=dep_var, indep_vars=indep_vars,
-            entity=entity, time=time, formula=formula,
-            gmm_method='difference' if canonical == 'ab' else 'system',
-            lags=lags, gmm_lags=gmm_lags, twostep=twostep,
-            robust=(robust != 'nonrobust'), alpha=alpha,
+            data=data,
+            dep_var=dep_var,
+            indep_vars=indep_vars,
+            entity=entity,
+            time=time,
+            formula=formula,
+            gmm_method="difference" if canonical == "ab" else "system",
+            lags=lags,
+            gmm_lags=gmm_lags,
+            twostep=twostep,
+            robust=(robust != "nonrobust"),
+            alpha=alpha,
         )
     elif canonical in _CRE_METHODS:
         return _fit_cre(
-            data=data, dep_var=dep_var, indep_vars=indep_vars,
-            entity=entity, time=time, formula=formula,
-            cre_method=canonical, robust=robust, cluster=cluster,
-            weights=weights, alpha=alpha,
+            data=data,
+            dep_var=dep_var,
+            indep_vars=indep_vars,
+            entity=entity,
+            time=time,
+            formula=formula,
+            cre_method=canonical,
+            robust=robust,
+            cluster=cluster,
+            weights=weights,
+            alpha=alpha,
         )
     else:
         return _fit_linearmodels(
-            data=data, dep_var=dep_var, indep_vars=indep_vars,
-            entity=entity, time=time, formula=formula,
-            method=canonical, robust=robust, cluster=cluster,
-            weights=weights, alpha=alpha,
+            data=data,
+            dep_var=dep_var,
+            indep_vars=indep_vars,
+            entity=entity,
+            time=time,
+            formula=formula,
+            method=canonical,
+            robust=robust,
+            cluster=cluster,
+            weights=weights,
+            alpha=alpha,
         )
 
 
 # ======================================================================
 # linearmodels-based estimators (fe, re, be, fd, pooled, twoway)
 # ======================================================================
+
 
 def _fit_linearmodels(
     data: pd.DataFrame,
@@ -809,8 +881,11 @@ def _fit_linearmodels(
     # import lazily to keep module-import time low, but do not mask a broken
     # install as if it were an optional extra.
     from linearmodels.panel import (
-        PanelOLS, RandomEffects, BetweenOLS,
-        FirstDifferenceOLS, PooledOLS,
+        PanelOLS,
+        RandomEffects,
+        BetweenOLS,
+        FirstDifferenceOLS,
+        PooledOLS,
     )
     from statsmodels.tools import add_constant
 
@@ -819,18 +894,18 @@ def _fit_linearmodels(
     exog = panel_data[indep_vars]
 
     lm_model: Any
-    if method == 'twoway':
+    if method == "twoway":
         # Two-way FE: entity + time effects via PanelOLS
         lm_model = PanelOLS(dep, exog, entity_effects=True, time_effects=True)
-    elif method == 'fe':
+    elif method == "fe":
         lm_model = PanelOLS(dep, exog, entity_effects=True)
-    elif method == 'fd':
+    elif method == "fd":
         lm_model = FirstDifferenceOLS(dep, exog)
-    elif method == 're':
+    elif method == "re":
         lm_model = RandomEffects(dep, add_constant(exog))
-    elif method == 'be':
+    elif method == "be":
         lm_model = BetweenOLS(dep, add_constant(exog))
-    elif method == 'pooled':
+    elif method == "pooled":
         lm_model = PooledOLS(dep, add_constant(exog))
     else:
         raise _panel_method_error(
@@ -843,38 +918,46 @@ def _fit_linearmodels(
     lm_result = lm_model.fit(**cov_kwargs)
 
     return _convert_lm_result(
-        lm_result, method, dep_var, indep_vars, entity, time,
-        formula, robust, cluster, data,
+        lm_result,
+        method,
+        dep_var,
+        indep_vars,
+        entity,
+        time,
+        formula,
+        robust,
+        cluster,
+        data,
     )
 
 
 def _build_cov_kwargs(robust: str, cluster: Optional[str]) -> Dict[str, Any]:
-    if cluster == 'twoway':
-        return {'cov_type': 'clustered', 'cluster_entity': True, 'cluster_time': True}
-    elif cluster == 'entity':
-        return {'cov_type': 'clustered', 'cluster_entity': True}
-    elif cluster == 'time':
-        return {'cov_type': 'clustered', 'cluster_time': True}
+    if cluster == "twoway":
+        return {"cov_type": "clustered", "cluster_entity": True, "cluster_time": True}
+    elif cluster == "entity":
+        return {"cov_type": "clustered", "cluster_entity": True}
+    elif cluster == "time":
+        return {"cov_type": "clustered", "cluster_time": True}
     elif cluster:
-        return {'cov_type': 'clustered', 'cluster_entity': True}
-    elif robust == 'robust':
-        return {'cov_type': 'robust'}
-    elif robust == 'kernel' or robust == 'driscoll-kraay':
-        return {'cov_type': 'kernel'}
-    return {'cov_type': 'unadjusted'}
+        return {"cov_type": "clustered", "cluster_entity": True}
+    elif robust == "robust":
+        return {"cov_type": "robust"}
+    elif robust == "kernel" or robust == "driscoll-kraay":
+        return {"cov_type": "kernel"}
+    return {"cov_type": "unadjusted"}
 
 
 _METHOD_NAMES = {
-    'fe': 'Panel FE (Within)',
-    'twoway': 'Panel Two-way FE',
-    're': 'Panel RE (GLS)',
-    'be': 'Panel Between',
-    'fd': 'Panel First Difference',
-    'pooled': 'Pooled OLS',
-    'mundlak': 'Mundlak CRE',
-    'chamberlain': 'Chamberlain CRE',
-    'ab': 'Arellano-Bond GMM',
-    'system': 'Blundell-Bond System GMM',
+    "fe": "Panel FE (Within)",
+    "twoway": "Panel Two-way FE",
+    "re": "Panel RE (GLS)",
+    "be": "Panel Between",
+    "fd": "Panel First Difference",
+    "pooled": "Pooled OLS",
+    "mundlak": "Mundlak CRE",
+    "chamberlain": "Chamberlain CRE",
+    "ab": "Arellano-Bond GMM",
+    "system": "Blundell-Bond System GMM",
 }
 
 
@@ -894,48 +977,45 @@ def _convert_lm_result(
     std_errors = lm_result.std_errors
 
     model_info = {
-        'model_type': _METHOD_NAMES.get(method, method),
-        'method': method,
-        'robust': robust,
-        'cluster': cluster,
+        "model_type": _METHOD_NAMES.get(method, method),
+        "method": method,
+        "robust": robust,
+        "cluster": cluster,
     }
 
     data_info = {
-        'nobs': int(lm_result.nobs),
-        'df_model': (
+        "nobs": int(lm_result.nobs),
+        "df_model": (
             int(lm_result.df_model)
             if (
-                hasattr(lm_result, 'df_model')
+                hasattr(lm_result, "df_model")
                 and not isinstance(lm_result.df_model, tuple)
             )
             else len(params) - 1
         ),
-        'df_resid': int(lm_result.df_resid),
-        'dependent_var': dep_var,
-        'fitted_values': lm_result.fitted_values.values.ravel(),
-        'residuals': lm_result.resids.values.ravel(),
+        "df_resid": int(lm_result.df_resid),
+        "dependent_var": dep_var,
+        "fitted_values": lm_result.fitted_values.values.ravel(),
+        "residuals": lm_result.resids.values.ravel(),
     }
 
     diagnostics = {
-        'R-squared': float(lm_result.rsquared),
+        "R-squared": float(lm_result.rsquared),
     }
+    if hasattr(lm_result, "rsquared_within") and lm_result.rsquared_within is not None:
+        diagnostics["R-squared (within)"] = float(lm_result.rsquared_within)
     if (
-        hasattr(lm_result, 'rsquared_within')
-        and lm_result.rsquared_within is not None
-    ):
-        diagnostics['R-squared (within)'] = float(lm_result.rsquared_within)
-    if (
-        hasattr(lm_result, 'rsquared_between')
+        hasattr(lm_result, "rsquared_between")
         and lm_result.rsquared_between is not None
     ):
-        diagnostics['R-squared (between)'] = float(lm_result.rsquared_between)
-    if hasattr(lm_result, 'entity_info'):
-        diagnostics['N entities'] = lm_result.entity_info.total
-    if hasattr(lm_result, 'time_info'):
-        diagnostics['N time periods'] = lm_result.time_info.total
-    if hasattr(lm_result, 'f_statistic') and lm_result.f_statistic is not None:
-        diagnostics['F-statistic'] = float(lm_result.f_statistic.stat)
-        diagnostics['F p-value'] = float(lm_result.f_statistic.pval)
+        diagnostics["R-squared (between)"] = float(lm_result.rsquared_between)
+    if hasattr(lm_result, "entity_info"):
+        diagnostics["N entities"] = lm_result.entity_info.total
+    if hasattr(lm_result, "time_info"):
+        diagnostics["N time periods"] = lm_result.time_info.total
+    if hasattr(lm_result, "f_statistic") and lm_result.f_statistic is not None:
+        diagnostics["F-statistic"] = float(lm_result.f_statistic.stat)
+        diagnostics["F p-value"] = float(lm_result.f_statistic.pval)
 
     return PanelResults(
         params=params,
@@ -957,6 +1037,7 @@ def _convert_lm_result(
 # ======================================================================
 # Correlated Random Effects (Mundlak / Chamberlain)
 # ======================================================================
+
 
 def _fit_cre(
     data: pd.DataFrame,
@@ -985,12 +1066,12 @@ def _fit_cre(
 
     df = data.copy()
 
-    if cre_method == 'mundlak':
+    if cre_method == "mundlak":
         # Mundlak: add entity-level means of each X
         mundlak_vars = []
         for var in indep_vars:
-            mean_col = f'_mean_{var}'
-            df[mean_col] = df.groupby(entity)[var].transform('mean')
+            mean_col = f"_mean_{var}"
+            df[mean_col] = df.groupby(entity)[var].transform("mean")
             mundlak_vars.append(mean_col)
         all_exog = indep_vars + mundlak_vars
     else:
@@ -999,16 +1080,15 @@ def _fit_cre(
         chamberlain_vars = []
         time_vals = sorted(df[time].unique())
         for var in indep_vars:
-            mean_col = f'_mean_{var}'
-            df[mean_col] = df.groupby(entity)[var].transform('mean')
+            mean_col = f"_mean_{var}"
+            df[mean_col] = df.groupby(entity)[var].transform("mean")
             chamberlain_vars.append(mean_col)
             # Add time-specific deviations from the entity mean
             for t_val in time_vals[1:]:  # skip first to avoid collinearity
-                t_col = f'_cham_{var}_t{t_val}'
+                t_col = f"_cham_{var}_t{t_val}"
                 df[t_col] = 0.0
                 df.loc[df[time] == t_val, t_col] = (
-                    df.loc[df[time] == t_val, var]
-                    - df.loc[df[time] == t_val, mean_col]
+                    df.loc[df[time] == t_val, var] - df.loc[df[time] == t_val, mean_col]
                 )
                 chamberlain_vars.append(t_col)
         all_exog = indep_vars + chamberlain_vars
@@ -1022,44 +1102,58 @@ def _fit_cre(
     lm_result = lm_model.fit(**cov_kwargs)
 
     result = _convert_lm_result(
-        lm_result, cre_method, dep_var, indep_vars, entity, time,
-        formula, robust, cluster, data,
+        lm_result,
+        cre_method,
+        dep_var,
+        indep_vars,
+        entity,
+        time,
+        formula,
+        robust,
+        cluster,
+        data,
     )
 
     # Test: are the Mundlak terms jointly significant?
     # (equivalent to Hausman test)
-    if cre_method == 'mundlak':
-        mundlak_params = {k: v for k, v in lm_result.params.items()
-                          if k.startswith('_mean_')}
+    if cre_method == "mundlak":
+        mundlak_params = {
+            k: v for k, v in lm_result.params.items() if k.startswith("_mean_")
+        }
         if mundlak_params:
-            result.diagnostics['Mundlak terms'] = len(mundlak_params)
+            result.diagnostics["Mundlak terms"] = len(mundlak_params)
             # Wald test for joint significance of means
             try:
                 mean_coefs = np.array(list(mundlak_params.values()))
-                mean_idx = [i for i, name in enumerate(lm_result.params.index)
-                            if name.startswith('_mean_')]
+                mean_idx = [
+                    i
+                    for i, name in enumerate(lm_result.params.index)
+                    if name.startswith("_mean_")
+                ]
                 vcov = lm_result.cov
                 V_sub = vcov.values[np.ix_(mean_idx, mean_idx)]
                 wald = float(mean_coefs @ np.linalg.pinv(V_sub) @ mean_coefs)
                 wald_df = len(mean_coefs)
                 wald_p = float(1 - stats.chi2.cdf(wald, wald_df))
-                result.diagnostics['CRE Wald chi2'] = wald
-                result.diagnostics['CRE Wald df'] = wald_df
-                result.diagnostics['CRE Wald p-value'] = wald_p
-                result.diagnostics['CRE interpretation'] = (
-                    'Reject H0: use FE' if wald_p < 0.05
-                    else 'Cannot reject H0: RE is efficient'
+                result.diagnostics["CRE Wald chi2"] = wald
+                result.diagnostics["CRE Wald df"] = wald_df
+                result.diagnostics["CRE Wald p-value"] = wald_p
+                result.diagnostics["CRE interpretation"] = (
+                    "Reject H0: use FE"
+                    if wald_p < 0.05
+                    else "Cannot reject H0: RE is efficient"
                 )
             except Exception as exc:
                 # The Mundlak/CRE Wald test IS the FE-vs-RE decision the
                 # user runs CRE for; don't drop it silently (CLAUDE.md §7).
-                result.diagnostics['CRE Wald error'] = f"{type(exc).__name__}: {exc}"
+                result.diagnostics["CRE Wald error"] = f"{type(exc).__name__}: {exc}"
                 warnings.warn(
                     f"CRE/Mundlak Wald test (FE-vs-RE diagnostic) could not "
                     f"be computed ({type(exc).__name__}: {exc}); it is absent "
                     f"from result.diagnostics. The coefficient estimates are "
                     f"unaffected.",
-                    RuntimeWarning, stacklevel=2,
+                    RuntimeWarning,
+                    stacklevel=2,
                 )
 
     return result
@@ -1068,6 +1162,7 @@ def _fit_cre(
 # ======================================================================
 # Dynamic panel GMM (Arellano-Bond / Blundell-Bond)
 # ======================================================================
+
 
 def _fit_gmm(
     data: pd.DataFrame,
@@ -1087,65 +1182,72 @@ def _fit_gmm(
     from ..gmm.arellano_bond import xtabond
 
     causal_result = xtabond(
-        data=data, y=dep_var, x=indep_vars if indep_vars else None,
-        id=entity, time=time, lags=lags, gmm_lags=gmm_lags,
-        method=gmm_method, twostep=twostep, robust=robust, alpha=alpha,
+        data=data,
+        y=dep_var,
+        x=indep_vars if indep_vars else None,
+        id=entity,
+        time=time,
+        lags=lags,
+        gmm_lags=gmm_lags,
+        method=gmm_method,
+        twostep=twostep,
+        robust=robust,
+        alpha=alpha,
     )
 
     # Convert CausalResult detail into PanelResults format
     if (
         causal_result.detail is not None
-        and 'coefficient' in causal_result.detail.columns
+        and "coefficient" in causal_result.detail.columns
     ):
         params = pd.Series(
-            causal_result.detail['coefficient'].values,
-            index=causal_result.detail['variable'].values,
+            causal_result.detail["coefficient"].values,
+            index=causal_result.detail["variable"].values,
         )
         std_errors = pd.Series(
-            causal_result.detail['se'].values,
-            index=causal_result.detail['variable'].values,
+            causal_result.detail["se"].values,
+            index=causal_result.detail["variable"].values,
         )
     else:
         params = causal_result.params
         std_errors = causal_result.std_errors
 
-    method_key = 'ab' if gmm_method == 'difference' else 'system'
+    method_key = "ab" if gmm_method == "difference" else "system"
 
     model_info = {
-        'model_type': _METHOD_NAMES.get(method_key, gmm_method),
-        'method': method_key,
-        'robust': 'robust' if robust else 'nonrobust',
-        'twostep': twostep,
-        'gmm_lags': gmm_lags,
+        "model_type": _METHOD_NAMES.get(method_key, gmm_method),
+        "method": method_key,
+        "robust": "robust" if robust else "nonrobust",
+        "twostep": twostep,
+        "gmm_lags": gmm_lags,
     }
     # Merge in the GMM-specific diagnostics
-    model_info.update({
-        k: v for k, v in causal_result.model_info.items()
-        if k not in model_info
-    })
+    model_info.update(
+        {k: v for k, v in causal_result.model_info.items() if k not in model_info}
+    )
 
     data_info = {
-        'nobs': causal_result.n_obs,
-        'dependent_var': dep_var,
-        'df_resid': max(causal_result.n_obs - len(params), 1),
+        "nobs": causal_result.n_obs,
+        "dependent_var": dep_var,
+        "df_resid": max(causal_result.n_obs - len(params), 1),
     }
 
     diagnostics = {}
     mi = causal_result.model_info
-    if 'ar1_z' in mi:
-        diagnostics['AR(1) z'] = mi['ar1_z']
-        diagnostics['AR(1) p-value'] = mi['ar1_p']
-    if 'ar2_z' in mi:
-        diagnostics['AR(2) z'] = mi['ar2_z']
-        diagnostics['AR(2) p-value'] = mi['ar2_p']
-    if 'hansen_stat' in mi:
-        diagnostics['Hansen J'] = mi['hansen_stat']
-        diagnostics['Hansen df'] = mi['hansen_df']
-        diagnostics['Hansen p-value'] = mi['hansen_p']
-    if 'n_units' in mi:
-        diagnostics['N entities'] = mi['n_units']
-    if 'n_instruments' in mi:
-        diagnostics['N instruments'] = mi['n_instruments']
+    if "ar1_z" in mi:
+        diagnostics["AR(1) z"] = mi["ar1_z"]
+        diagnostics["AR(1) p-value"] = mi["ar1_p"]
+    if "ar2_z" in mi:
+        diagnostics["AR(2) z"] = mi["ar2_z"]
+        diagnostics["AR(2) p-value"] = mi["ar2_p"]
+    if "hansen_stat" in mi:
+        diagnostics["Hansen J"] = mi["hansen_stat"]
+        diagnostics["Hansen df"] = mi["hansen_df"]
+        diagnostics["Hansen p-value"] = mi["hansen_p"]
+    if "n_units" in mi:
+        diagnostics["N entities"] = mi["n_units"]
+    if "n_instruments" in mi:
+        diagnostics["N instruments"] = mi["n_instruments"]
 
     return PanelResults(
         params=params,
@@ -1167,13 +1269,14 @@ def _fit_gmm(
 # panel_compare — multi-method comparison
 # ======================================================================
 
+
 def panel_compare(
     data: pd.DataFrame,
     formula: str,
     entity: str,
     time: str,
     methods: Optional[List[str]] = None,
-    robust: str = 'nonrobust',
+    robust: str = "nonrobust",
     cluster: Optional[str] = None,
     **kwargs: Any,
 ) -> pd.DataFrame:
@@ -1219,13 +1322,21 @@ def panel_compare(
     True
     """
     if methods is None:
-        methods = ['pooled', 'fe', 're', 'twoway', 'mundlak']
+        methods = ["pooled", "fe", "re", "twoway", "mundlak"]
 
     results: Dict[str, Union[PanelResults, str]] = {}
     for m in methods:
         try:
-            r = panel(data, formula, entity, time, method=m,
-                      robust=robust, cluster=cluster, **kwargs)
+            r = panel(
+                data,
+                formula,
+                entity,
+                time,
+                method=m,
+                robust=robust,
+                cluster=cluster,
+                **kwargs,
+            )
             results[_METHOD_NAMES.get(m, m)] = r
         except Exception as e:  # pragma: no cover
             results[_METHOD_NAMES.get(m, m)] = str(e)
@@ -1241,7 +1352,7 @@ def panel_compare(
 
     rows: List[Dict[str, Any]] = []
     for var in all_vars:
-        row = {'Variable': var}
+        row = {"Variable": var}
         for name, entry in results.items():
             if isinstance(entry, PanelResults):
                 coef = entry.params.get(var, np.nan)
@@ -1249,31 +1360,29 @@ def panel_compare(
                 pvals = entry.pvalues
                 if isinstance(pvals, pd.Series):
                     pv = pvals.get(var, np.nan)
-                elif hasattr(pvals, '__getitem__') and var in entry.params.index:
+                elif hasattr(pvals, "__getitem__") and var in entry.params.index:
                     idx = list(entry.params.index).index(var)
                     pv = float(pvals[idx]) if idx < len(pvals) else np.nan
                 else:
                     pv = np.nan
                 if pv < 0.01:
-                    stars = '***'
+                    stars = "***"
                 elif pv < 0.05:
-                    stars = '**'
+                    stars = "**"
                 elif pv < 0.1:
-                    stars = '*'
+                    stars = "*"
                 else:
-                    stars = ''
-                row[name] = f"{coef:.4f}{stars}" if not np.isnan(coef) else ''
-                row[f"{name} (SE)"] = (
-                    f"({se:.4f})" if not np.isnan(se) else ''
-                )
+                    stars = ""
+                row[name] = f"{coef:.4f}{stars}" if not np.isnan(coef) else ""
+                row[f"{name} (SE)"] = f"({se:.4f})" if not np.isnan(se) else ""
             else:
-                row[name] = 'error'
-                row[f"{name} (SE)"] = ''
+                row[name] = "error"
+                row[f"{name} (SE)"] = ""
         rows.append(row)
 
     # Add diagnostics rows
-    for diag_key in ['R-squared', 'N entities', 'N time periods']:
-        row = {'Variable': diag_key}
+    for diag_key in ["R-squared", "N entities", "N time periods"]:
+        row = {"Variable": diag_key}
         for name, entry in results.items():
             if isinstance(entry, PanelResults):
                 val = entry.diagnostics.get(diag_key, np.nan)
@@ -1282,23 +1391,23 @@ def panel_compare(
                 elif isinstance(val, int):
                     row[name] = str(val)
                 else:
-                    row[name] = ''
+                    row[name] = ""
             else:
-                row[name] = ''
-            row[f"{name} (SE)"] = ''
+                row[name] = ""
+            row[f"{name} (SE)"] = ""
         rows.append(row)
 
     # N obs
-    row = {'Variable': 'N obs'}
+    row = {"Variable": "N obs"}
     for name, entry in results.items():
         if isinstance(entry, PanelResults):
-            row[name] = str(entry.data_info.get('nobs', ''))
+            row[name] = str(entry.data_info.get("nobs", ""))
         else:
-            row[name] = ''
-        row[f"{name} (SE)"] = ''
+            row[name] = ""
+        row[f"{name} (SE)"] = ""
     rows.append(row)
 
-    df_out = pd.DataFrame(rows).set_index('Variable')
+    df_out = pd.DataFrame(rows).set_index("Variable")
     # Interleave coef and SE columns
     ordered_cols = []
     for name in results.keys():
@@ -1313,6 +1422,7 @@ def panel_compare(
 # ======================================================================
 # Keep old class name for backward compatibility
 # ======================================================================
+
 
 class PanelRegression:
     """Deprecated: use ``panel()`` directly. Kept for backward compatibility.

@@ -30,6 +30,7 @@ Bergé, L. (2018). Efficient estimation of maximum likelihood models with
 multiple fixed-effects: the R package FENmlm. CREA DP 13.
 Correia, S. (2017). Linear models with high-dimensional fixed effects.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -48,10 +49,10 @@ from ._validation import (
     positive_weight_mass as _positive_weight_mass,
 )
 
-
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class FeolsResult:
@@ -85,12 +86,15 @@ class FeolsResult:
     def se(self) -> pd.Series:
         return pd.Series(
             np.sqrt(np.diag(self.vcov_matrix)),
-            index=self.coef_names, name="Std. Error",
+            index=self.coef_names,
+            name="Std. Error",
         )
 
     def vcov(self) -> pd.DataFrame:
         return pd.DataFrame(
-            self.vcov_matrix, index=self.coef_names, columns=self.coef_names,
+            self.vcov_matrix,
+            index=self.coef_names,
+            columns=self.coef_names,
         )
 
     def tidy(self) -> pd.DataFrame:
@@ -102,14 +106,18 @@ class FeolsResult:
         # approximation otherwise — we still report t-style stats since
         # users will compare to fixest's tidy output)
         from scipy.stats import t as _t
+
         df = max(self.df_resid, 1)
         p = 2.0 * (1.0 - _t.cdf(np.abs(t), df=df))
-        return pd.DataFrame({
-            "Estimate": b,
-            "Std. Error": s,
-            "t value": t,
-            "Pr(>|t|)": p,
-        }, index=self.coef_names)
+        return pd.DataFrame(
+            {
+                "Estimate": b,
+                "Std. Error": s,
+                "t value": t,
+                "Pr(>|t|)": p,
+            },
+            index=self.coef_names,
+        )
 
     def summary(self) -> str:
         lines: List[str] = []
@@ -124,14 +132,11 @@ class FeolsResult:
         )
         if self.fe_names:
             fe_desc = ", ".join(
-                f"{n}({c:,})"
-                for n, c in zip(self.fe_names, self.fe_cardinality)
+                f"{n}({c:,})" for n, c in zip(self.fe_names, self.fe_cardinality)
             )
             lines.append(f"Fixed effects: {fe_desc}")
         lines.append("")
-        lines.append(
-            str(self.tidy().to_string(float_format=lambda x: f"{x:.6f}"))
-        )
+        lines.append(str(self.tidy().to_string(float_format=lambda x: f"{x:.6f}")))
         return "\n".join(lines)
 
     def to_dict(self) -> dict[str, Any]:
@@ -204,6 +209,7 @@ class FeolsResult:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def feols(
     formula: str,
@@ -290,9 +296,7 @@ def feols(
             f"feols: ssc={ssc!r}; supported: 'statspai' or 'fixest'"
         )
     if vcov == "cr1" and cluster is None:
-        raise MethodIncompatibility(
-            "feols: vcov='cr1' requires cluster=<column name>"
-        )
+        raise MethodIncompatibility("feols: vcov='cr1' requires cluster=<column name>")
     if cluster is not None and vcov in ("iid", "hc1"):
         raise MethodIncompatibility(
             f"feols: cluster={cluster!r} provided but vcov={vcov!r}; "
@@ -319,9 +323,7 @@ def feols(
         needed_cols = needed_cols + [cluster]
     missing = [c for c in needed_cols if c not in data.columns]
     if missing:
-        raise MethodIncompatibility(
-            f"feols: columns missing from data: {missing}"
-        )
+        raise MethodIncompatibility(f"feols: columns missing from data: {missing}")
 
     n_obs = len(data)
     _nonempty_sample(n_obs, context="feols")
@@ -332,7 +334,8 @@ def feols(
         )
     X_user = (
         data[rhs_terms].to_numpy(dtype=np.float64).copy()
-        if rhs_terms else np.empty((n_obs, 0), dtype=np.float64)
+        if rhs_terms
+        else np.empty((n_obs, 0), dtype=np.float64)
     )
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
@@ -364,7 +367,8 @@ def feols(
                 f"feols: weights column {weights!r} contains non-finite values"
             )
         _positive_weight_mass(
-            w_full, context=f"feols weights column {weights!r}",
+            w_full,
+            context=f"feols weights column {weights!r}",
         )
     else:
         w_full = None
@@ -373,7 +377,9 @@ def feols(
     if cluster is not None:
         cluster_arr_full = data[cluster].to_numpy()
         cluster_codes_check, _ = pd.factorize(
-            cluster_arr_full, sort=False, use_na_sentinel=True,
+            cluster_arr_full,
+            sort=False,
+            use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
             raise MethodIncompatibility(
@@ -390,9 +396,12 @@ def feols(
             # Unweighted: use the Rust-backed demean kernel (Phase 1).
             stacked = np.column_stack([y, X])
             stacked_dem, info = _demean(
-                stacked, fe_df,
+                stacked,
+                fe_df,
                 drop_singletons=drop_singletons,
-                tol=1e-12, max_iter=fe_maxiter, tol_abs=fe_tol,
+                tol=1e-12,
+                max_iter=fe_maxiter,
+                tol_abs=fe_tol,
             )
             keep_mask = info.keep_mask
             n_kept = info.n_kept
@@ -406,11 +415,14 @@ def feols(
             # the same weighted-AP loop ``fepois`` uses internally.
             from .fepois import _weighted_ap_demean
             from .demean import _detect_singletons as _ds_helper
+
             # Factorise FEs explicitly so we control the singleton path
             fe_codes_raw: List[np.ndarray] = []
             for col in fe_terms:
                 codes, uniq = pd.factorize(
-                    data[col], sort=False, use_na_sentinel=True,
+                    data[col],
+                    sort=False,
+                    use_na_sentinel=True,
                 )
                 if (codes < 0).any():
                     raise MethodIncompatibility(
@@ -419,7 +431,8 @@ def feols(
                 fe_codes_raw.append(codes.astype(np.int64))
             keep_mask = (
                 _ds_helper(fe_codes_raw, n_obs)
-                if drop_singletons else np.ones(n_obs, dtype=bool)
+                if drop_singletons
+                else np.ones(n_obs, dtype=bool)
             )
             n_kept = int(keep_mask.sum())
             n_dropped_singletons = n_obs - n_kept
@@ -433,17 +446,19 @@ def feols(
                 dense = dense.astype(np.int64)
                 G = len(uniq)
                 fe_codes_kept.append(dense)
-                counts_list.append(
-                    np.bincount(dense, minlength=G).astype(np.float64)
-                )
+                counts_list.append(np.bincount(dense, minlength=G).astype(np.float64))
                 weighted_fe_card.append(G)
             y_kept = y[keep_mask]
             X_kept = X[keep_mask]
             w_kept = w_full[keep_mask]
             stacked = np.column_stack([y_kept, X_kept])
             stacked_dem, _, _ = _weighted_ap_demean(
-                stacked, fe_codes_kept, counts_list, w_kept,
-                max_iter=fe_maxiter, tol=fe_tol,
+                stacked,
+                fe_codes_kept,
+                counts_list,
+                w_kept,
+                max_iter=fe_maxiter,
+                tol=fe_tol,
             )
             y_dem = stacked_dem[:, 0]
             X_dem = stacked_dem[:, 1:]
@@ -462,7 +477,8 @@ def feols(
     if w_full is not None:
         w = w_full[keep_mask]
         _positive_weight_mass(
-            w, context=f"feols kept sample weights column {weights!r}",
+            w,
+            context=f"feols kept sample weights column {weights!r}",
         )
     else:
         w = np.ones(n_kept, dtype=np.float64)
@@ -476,7 +492,11 @@ def feols(
         fe_dof = _fixest_fe_dof(fe_card)
         if vcov == "cr1":
             cr1_extra_df = _fixest_cluster_fe_dof(
-                data, fe_terms, fe_card, keep_mask, cluster,
+                data,
+                fe_terms,
+                fe_card,
+                keep_mask,
+                cluster,
             )
         else:
             cr1_extra_df = fe_dof
@@ -485,8 +505,8 @@ def feols(
         cr1_extra_df = fe_dof_statspai
 
     # ---------- WLS solve ----------
-    Xw = X_dem * w[:, None]                     # diag(w) X̃
-    XtWX = X_dem.T @ Xw                         # X̃' diag(w) X̃
+    Xw = X_dem * w[:, None]  # diag(w) X̃
+    XtWX = X_dem.T @ Xw  # X̃' diag(w) X̃
     try:
         XtWX_inv = np.linalg.inv(XtWX)
     except np.linalg.LinAlgError as exc:
@@ -522,15 +542,18 @@ def feols(
         # then scaled by n/(n - p - fe_dof). MacKinnon-White (1985) /
         # fixest convention.
         # Score row: s_i = w_i u_i x̃_i. meat = Σ_i s_i s_i'.
-        u = (resid * w)[:, None] * X_dem        # (n, p)
+        u = (resid * w)[:, None] * X_dem  # (n, p)
         meat = u.T @ u
         vcov_mat = XtWX_inv @ meat @ XtWX_inv
         if df_resid > 0:
             vcov_mat = vcov_mat * (n / df_resid)
     else:  # cr1
         vcov_mat = _crve(
-            X_dem, resid, cluster_arr_kept,
-            weights=w, bread=XtWX_inv,
+            X_dem,
+            resid,
+            cluster_arr_kept,
+            weights=w,
+            bread=XtWX_inv,
             type="cr1",
             extra_df=cr1_extra_df,
         )

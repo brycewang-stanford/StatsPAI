@@ -18,6 +18,7 @@ Layout (sub-package since v1.11):
 
 Public API (unchanged from v1.10):
 """
+
 from __future__ import annotations
 
 # Public surface — these three names are what every external caller
@@ -39,7 +40,6 @@ from ._helpers import (  # noqa: F401
     _default_serializer,
     _identification_serializer,
 )
-
 
 __all__ = [
     "tool_manifest",

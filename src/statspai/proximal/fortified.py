@@ -104,8 +104,11 @@ def fortified_pci(
     with Many Invalid Proxies. arXiv 2506.13152. [@yu2025fortified]
     """
     cov = list(covariates or [])
-    df = data[[y, treat] + list(proxy_z) + list(proxy_w) + cov] \
-        .dropna().reset_index(drop=True)
+    df = (
+        data[[y, treat] + list(proxy_z) + list(proxy_w) + cov]
+        .dropna()
+        .reset_index(drop=True)
+    )
     Y = df[y].to_numpy(float)
     D = df[treat].to_numpy(float)
     Z = df[list(proxy_z)].to_numpy(float)
@@ -115,7 +118,7 @@ def fortified_pci(
 
     # Filled by _fortified_estimate on the point-estimate call only
     # (record=True); the bootstrap replicates reuse the closure silently.
-    fallback_info: Dict[str, Any] = {'outcome_augmentation_fallback': False}
+    fallback_info: Dict[str, Any] = {"outcome_augmentation_fallback": False}
 
     def _fortified_estimate(
         Yi: np.ndarray,
@@ -143,6 +146,7 @@ def fortified_pci(
         # Outcome-regression augmentation: regress Y on (D, Z, X)
         try:
             from sklearn.linear_model import LinearRegression
+
             outcome_X = np.hstack([Di.reshape(-1, 1), Zi, Xi])
             m = LinearRegression().fit(outcome_X, Yi)
             X_d1 = np.hstack([np.ones((len(Yi), 1)), Zi, Xi])
@@ -160,8 +164,8 @@ def fortified_pci(
                     ConvergenceWarning,
                     stacklevel=3,
                 )
-                fallback_info['outcome_augmentation_fallback'] = True
-                fallback_info['outcome_augmentation_error'] = type(exc).__name__
+                fallback_info["outcome_augmentation_fallback"] = True
+                fallback_info["outcome_augmentation_error"] = type(exc).__name__
 
         # Fortification: simple inverse-variance combination
         tau = 0.5 * tau_bridge + 0.5 * tau_outcome
@@ -195,15 +199,15 @@ def fortified_pci(
         alpha=alpha,
         n_obs=n,
         model_info={
-            'estimator': 'fortified_pci',
-            'reference': 'Yu, Shi & Tchetgen Tchetgen (2025), arXiv 2506.13152',
+            "estimator": "fortified_pci",
+            "reference": "Yu, Shi & Tchetgen Tchetgen (2025), arXiv 2506.13152",
             **fallback_info,
         },
-        _citation_key='fortified_pci',
+        _citation_key="fortified_pci",
     )
 
 
-CausalResult._CITATIONS['fortified_pci'] = (
+CausalResult._CITATIONS["fortified_pci"] = (
     "@article{yu2025fortified,\n"
     "  title={Fortified Proximal Causal Inference with "
     "Many Invalid Proxies},\n"

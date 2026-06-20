@@ -54,7 +54,6 @@ from ..exceptions import (
 )
 from .core import FairnessResult
 
-
 __all__ = [
     "evidence_without_injustice",
     "EvidenceWithoutInjusticeResult",
@@ -87,9 +86,7 @@ class EvidenceWithoutInjusticeResult(FairnessResult):
         if self.pvalue is not None:
             extra.append(f"  p-value   : {self.pvalue:.4g}")
         if self.admissible_features:
-            extra.append(
-                f"  admissible: {self.admissible_features}"
-            )
+            extra.append(f"  admissible: {self.admissible_features}")
         return "\n".join([parent, *extra])
 
 
@@ -187,10 +184,7 @@ def _coerce_admissible_features(features: Sequence[str] | str) -> list[str]:
                 recovery_hint="Pass admissible_features=[] or ['credit_score'].",
                 diagnostics={"type": type(features).__name__},
             ) from exc
-    return [
-        _require_column_name(col, argument="admissible_features")
-        for col in out
-    ]
+    return [_require_column_name(col, argument="admissible_features") for col in out]
 
 
 def _coerce_alternative_values(values: Sequence[Any] | Any) -> list[Any]:
@@ -228,8 +222,7 @@ def _predict_vector(
         ) from exc
     if y.shape[0] != n_expected:
         raise MethodIncompatibility(
-            "predictor returned wrong length: "
-            f"{y.shape[0]} vs {n_expected}.",
+            "predictor returned wrong length: " f"{y.shape[0]} vs {n_expected}.",
             recovery_hint="Return exactly one prediction per input row.",
             diagnostics={
                 "context": context,
@@ -263,8 +256,7 @@ def _intervene_frame(
         )
     if len(out) != len(frame):
         raise MethodIncompatibility(
-            "scm_intervention length mismatch "
-            f"({len(out)} vs {len(frame)}).",
+            "scm_intervention length mismatch " f"({len(out)} vs {len(frame)}).",
             recovery_hint="Return one counterfactual row per factual row.",
             diagnostics={"n_counterfactual": len(out), "n_factual": len(frame)},
         )
@@ -362,8 +354,7 @@ def evidence_without_injustice(
         raise MethodIncompatibility(
             "predictor must be callable.",
             recovery_hint=(
-                "Pass a function accepting a DataFrame and returning "
-                "predictions."
+                "Pass a function accepting a DataFrame and returning " "predictions."
             ),
             diagnostics={"type": type(predictor).__name__},
         )

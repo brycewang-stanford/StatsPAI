@@ -15,6 +15,7 @@ Confidence intervals are produced by Monte-Carlo simulation from the
 estimator's asymptotic distribution (multivariate normal centred at the
 point estimate with covariance diag(se²)).
 """
+
 from __future__ import annotations
 
 from typing import Any, List, Optional, Tuple
@@ -26,9 +27,7 @@ from scipy import sparse
 from ...exceptions import NumericalInstability
 
 
-def impacts(
-    result: Any, n_sim: int = 1000, seed: Optional[int] = None
-) -> pd.DataFrame:
+def impacts(result: Any, n_sim: int = 1000, seed: Optional[int] = None) -> pd.DataFrame:
     """Compute direct / indirect / total impacts + simulated SEs.
 
     Parameters
@@ -85,15 +84,19 @@ def impacts(
         covariate_names = [names[i] for i in beta_idx]
     elif model_type == "SAC":
         rho_idx = names.index("rho")
-        beta_idx = [i for i, nm in enumerate(names)
-                    if nm not in {"const", "rho", "lambda"}]
+        beta_idx = [
+            i for i, nm in enumerate(names) if nm not in {"const", "rho", "lambda"}
+        ]
         theta_idx = []
         covariate_names = [names[i] for i in beta_idx]
-    else:    # SDM
+    else:  # SDM
         rho_idx = names.index("rho")
         lag_cols = [i for i, nm in enumerate(names) if nm.startswith("W_")]
-        beta_idx = [i for i, nm in enumerate(names)
-                    if nm not in {"const", "rho"} and not nm.startswith("W_")]
+        beta_idx = [
+            i
+            for i, nm in enumerate(names)
+            if nm not in {"const", "rho"} and not nm.startswith("W_")
+        ]
         theta_idx = lag_cols
         covariate_names = [names[i] for i in beta_idx]
 
@@ -141,7 +144,7 @@ def impacts(
 
     # Monte-Carlo for SEs
     rng = np.random.default_rng(seed)
-    cov = np.diag(se ** 2)                     # diagonal approximation
+    cov = np.diag(se**2)  # diagonal approximation
     draws = rng.multivariate_normal(params, cov, size=n_sim)
     d_draws: List[np.ndarray] = []
     t_draws: List[np.ndarray] = []
@@ -157,23 +160,17 @@ def impacts(
 
     return pd.DataFrame(
         {
-            "Direct":   direct_pt,
+            "Direct": direct_pt,
             "SE_Direct": (
-                d_draws_arr.std(axis=0, ddof=1)
-                if len(d_draws_arr) > 1
-                else np.nan
+                d_draws_arr.std(axis=0, ddof=1) if len(d_draws_arr) > 1 else np.nan
             ),
             "Indirect": indirect_pt,
             "SE_Indirect": (
-                i_draws_arr.std(axis=0, ddof=1)
-                if len(i_draws_arr) > 1
-                else np.nan
+                i_draws_arr.std(axis=0, ddof=1) if len(i_draws_arr) > 1 else np.nan
             ),
-            "Total":    total_pt,
+            "Total": total_pt,
             "SE_Total": (
-                t_draws_arr.std(axis=0, ddof=1)
-                if len(t_draws_arr) > 1
-                else np.nan
+                t_draws_arr.std(axis=0, ddof=1) if len(t_draws_arr) > 1 else np.nan
             ),
         },
         index=covariate_names,

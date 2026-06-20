@@ -36,7 +36,6 @@ from typing import Any, Callable, Dict, List, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-
 __all__ = [
     "assimilative_causal",
     "causal_kalman",
@@ -111,15 +110,17 @@ class AssimilationResult:
 
     def trajectory(self) -> pd.DataFrame:
         """Convert the running posterior to a tidy DataFrame."""
-        return pd.DataFrame({
-            "t": np.arange(len(self.posterior_mean)),
-            "posterior_mean": self.posterior_mean,
-            "posterior_sd": self.posterior_sd,
-            "ci_lower": self.posterior_ci[:, 0],
-            "ci_upper": self.posterior_ci[:, 1],
-            "innovation": self.innovations,
-            "ess": self.ess,
-        })
+        return pd.DataFrame(
+            {
+                "t": np.arange(len(self.posterior_mean)),
+                "posterior_mean": self.posterior_mean,
+                "posterior_sd": self.posterior_sd,
+                "ci_lower": self.posterior_ci[:, 0],
+                "ci_upper": self.posterior_ci[:, 1],
+                "innovation": self.innovations,
+                "ess": self.ess,
+            }
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -163,6 +164,7 @@ def _kalman_filter(
     z = 1.959963984540054  # Φ^{-1}(1 - α/2) with α = 0.05
     if alpha != 0.05:
         from scipy.stats import norm as _norm
+
         z = float(_norm.ppf(1 - alpha / 2))
     sd = np.sqrt(np.maximum(P, 0.0))
     ci = np.column_stack([m - z * sd, m + z * sd])
@@ -177,8 +179,11 @@ def _kalman_filter(
         final_sd=float(sd[-1]) if T > 0 else float(np.sqrt(prior_var)),
         final_ci=(
             (float(ci[-1, 0]), float(ci[-1, 1]))
-            if T > 0 else (prior_mean - z * np.sqrt(prior_var),
-                           prior_mean + z * np.sqrt(prior_var))
+            if T > 0
+            else (
+                prior_mean - z * np.sqrt(prior_var),
+                prior_mean + z * np.sqrt(prior_var),
+            )
         ),
         method="causal_kalman",
         diagnostics={
@@ -244,8 +249,7 @@ def causal_kalman(
     se = np.asarray(standard_errors, dtype=float)
     if theta.shape != se.shape:
         raise ValueError(
-            f"estimates/standard_errors shape mismatch: "
-            f"{theta.shape} vs {se.shape}"
+            f"estimates/standard_errors shape mismatch: " f"{theta.shape} vs {se.shape}"
         )
     if prior_var <= 0:
         raise ValueError("prior_var must be > 0")
@@ -254,7 +258,8 @@ def causal_kalman(
     if np.any(se <= 0):
         raise ValueError("all standard_errors must be > 0")
     return _kalman_filter(
-        theta, se ** 2,
+        theta,
+        se**2,
         prior_mean=prior_mean,
         prior_var=prior_var,
         process_var=process_var,
@@ -325,9 +330,7 @@ def assimilative_causal(
     True
     """
     if backend not in ("kalman", "particle"):
-        raise ValueError(
-            f"backend must be 'kalman' or 'particle'; got {backend!r}."
-        )
+        raise ValueError(f"backend must be 'kalman' or 'particle'; got {backend!r}.")
     estimates: List[float] = []
     ses: List[float] = []
     for b in batches:
@@ -336,15 +339,18 @@ def assimilative_causal(
         ses.append(float(se))
     if backend == "particle":
         from .particle import particle_filter
+
         return particle_filter(
-            estimates, ses,
+            estimates,
+            ses,
             prior_mean=prior_mean,
             prior_var=prior_var,
             process_sd=float(np.sqrt(max(process_var, 0.0))),
             alpha=alpha,
         )
     return causal_kalman(
-        estimates, ses,
+        estimates,
+        ses,
         prior_mean=prior_mean,
         prior_var=prior_var,
         process_var=process_var,

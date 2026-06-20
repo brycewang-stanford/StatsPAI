@@ -58,9 +58,9 @@ def label_var(df: pd.DataFrame, var: str, label: str) -> None:
     if var not in df.columns:
         raise ValueError(f"Column '{var}' not found in DataFrame")
 
-    if '_labels' not in df.attrs:
-        df.attrs['_labels'] = {}
-    df.attrs['_labels'][var] = label
+    if "_labels" not in df.attrs:
+        df.attrs["_labels"] = {}
+    df.attrs["_labels"][var] = label
 
 
 def label_vars(df: pd.DataFrame, labels: Dict[str, str]) -> None:
@@ -117,7 +117,7 @@ def get_label(df: pd.DataFrame, var: str) -> str:
     >>> sp.get_label(df, 'edu')   # unlabeled -> falls back to column name
     'edu'
     """
-    labels = cast(Dict[str, str], df.attrs.get('_labels', {}))
+    labels = cast(Dict[str, str], df.attrs.get("_labels", {}))
     return labels.get(var, var)
 
 
@@ -140,7 +140,7 @@ def get_labels(df: pd.DataFrame) -> Dict[str, str]:
     >>> sp.get_labels(df)
     {'wage': 'Monthly wage (CNY)', 'edu': 'edu'}
     """
-    labels = cast(Dict[str, str], df.attrs.get('_labels', {}))
+    labels = cast(Dict[str, str], df.attrs.get("_labels", {}))
     return {col: labels.get(col, col) for col in df.columns}
 
 
@@ -177,18 +177,20 @@ def describe(
     ['Monthly wage (CNY)', '']
     """
     cols = columns or list(df.columns)
-    labels = cast(Dict[str, str], df.attrs.get('_labels', {}))
+    labels = cast(Dict[str, str], df.attrs.get("_labels", {}))
 
     rows = []
     for col in cols:
         if col not in df.columns:
             continue
-        rows.append({
-            'variable': col,
-            'type': str(df[col].dtype),
-            'n': int(df[col].notna().sum()),
-            'n_missing': int(df[col].isna().sum()),
-            'label': labels.get(col, ''),
-        })
+        rows.append(
+            {
+                "variable": col,
+                "type": str(df[col].dtype),
+                "n": int(df[col].notna().sum()),
+                "n_missing": int(df[col].isna().sum()),
+                "label": labels.get(col, ""),
+            }
+        )
 
     return pd.DataFrame(rows)

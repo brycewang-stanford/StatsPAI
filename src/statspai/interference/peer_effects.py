@@ -202,7 +202,9 @@ def peer_effects(
     resid = Y - full @ beta
     vcov = (
         np.linalg.pinv(X_hat.T @ full)
-        @ X_hat.T @ np.diag(resid ** 2) @ X_hat
+        @ X_hat.T
+        @ np.diag(resid**2)
+        @ X_hat
         @ np.linalg.pinv(X_hat.T @ full).T
     )
     se = np.sqrt(np.diag(vcov))
@@ -238,6 +240,7 @@ def peer_effects(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.interference.peer_effects",

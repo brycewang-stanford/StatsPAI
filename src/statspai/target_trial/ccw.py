@@ -161,9 +161,7 @@ def clone_censor_weight(
 
     if censor_covariates is None:
         censor_covariates = [
-            c
-            for c in data.columns
-            if c not in {id_col, time_col, treatment_col}
+            c for c in data.columns if c not in {id_col, time_col, treatment_col}
         ]
 
     cloned = _compute_ipcw(
@@ -187,14 +185,18 @@ def clone_censor_weight(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.target_trial.clone_censor_weight",
             params={
-                "id_col": id_col, "time_col": time_col,
+                "id_col": id_col,
+                "time_col": time_col,
                 "treatment_col": treatment_col,
                 "strategies": list(strategies.keys()),
-                "censor_covariates": list(censor_covariates) if censor_covariates else None,
+                "censor_covariates": (
+                    list(censor_covariates) if censor_covariates else None
+                ),
                 "stabilize": stabilize,
             },
             data=data,

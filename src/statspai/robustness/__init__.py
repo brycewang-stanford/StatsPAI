@@ -21,10 +21,16 @@ from .sensitivity_frontier import (
 )
 
 __all__ = [
-    "spec_curve", "SpecCurveResult",
-    "robustness_report", "RobustnessResult",
-    "subgroup_analysis", "SubgroupResult",
-    "SensitivityDashboard", "unified_sensitivity",
-    "copula_sensitivity", "survival_sensitivity",
-    "calibrate_confounding_strength", "FrontierSensitivityResult",
+    "spec_curve",
+    "SpecCurveResult",
+    "robustness_report",
+    "RobustnessResult",
+    "subgroup_analysis",
+    "SubgroupResult",
+    "SensitivityDashboard",
+    "unified_sensitivity",
+    "copula_sensitivity",
+    "survival_sensitivity",
+    "calibrate_confounding_strength",
+    "FrontierSensitivityResult",
 ]

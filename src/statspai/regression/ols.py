@@ -17,7 +17,6 @@ from ..exceptions import (
     NumericalInstability,
 )
 
-
 _NORMAL_EQUATION_COND_MAX = 1e8
 _LOW_ORDER_DEP_MAX_WORK = 50_000
 
@@ -40,18 +39,14 @@ def _validate_analytic_weights(
     try:
         w = np.asarray(weights, dtype=float).ravel()
     except (TypeError, ValueError) as exc:
-        raise MethodIncompatibility(
-            f"{context}: weights must be numeric"
-        ) from exc
+        raise MethodIncompatibility(f"{context}: weights must be numeric") from exc
     if w.shape[0] != n:
         raise MethodIncompatibility(
             f"{context}: weights length ({w.shape[0]}) does not match "
             f"the number of observations ({n})."
         )
     if not np.isfinite(w).all():
-        raise DataInsufficient(
-            f"{context}: weights contain NaN or infinite values."
-        )
+        raise DataInsufficient(f"{context}: weights contain NaN or infinite values.")
     if (w <= 0).any():
         raise MethodIncompatibility(
             f"{context}: weights must be strictly positive "
@@ -75,9 +70,7 @@ def _validate_ols_arrays(
             f"{context}: y and X must be numeric arrays"
         ) from exc
     if X_arr.ndim != 2:
-        raise MethodIncompatibility(
-            f"{context}: X must be 2-D, got ndim={X_arr.ndim}"
-        )
+        raise MethodIncompatibility(f"{context}: X must be 2-D, got ndim={X_arr.ndim}")
     if y_arr.shape[0] != X_arr.shape[0]:
         raise MethodIncompatibility(
             f"{context}: y has {y_arr.shape[0]} rows but X has "
@@ -141,10 +134,9 @@ def _centered_intercept_bread(
     """Assemble ``(X'X)^-1`` for ``X=[c, Z]`` from centered slope bread."""
     XtX_inv = np.empty((k, k), dtype=float)
     mean_bread = x_mean @ slope_xtx_inv
-    XtX_inv[const_col, const_col] = (
-        1.0 / (n * const_value * const_value)
-        + float(mean_bread @ x_mean) / (const_value * const_value)
-    )
+    XtX_inv[const_col, const_col] = 1.0 / (n * const_value * const_value) + float(
+        mean_bread @ x_mean
+    ) / (const_value * const_value)
     cross = -mean_bread / const_value
     for pos, j in enumerate(other):
         XtX_inv[const_col, j] = cross[pos]
@@ -261,16 +253,14 @@ def _detect_low_order_linear_dependence(
     if n * k * (k - 1) * (k - 2) // 2 > _LOW_ORDER_DEP_MAX_WORK:
         return
 
-    names = (
-        list(var_names) if var_names is not None else [f"x{i}" for i in range(k)]
-    )
+    names = list(var_names) if var_names is not None else [f"x{i}" for i in range(k)]
     eps = np.finfo(float).eps
     for target in range(k):
         y_col = X[:, target]
         y_norm = float(np.linalg.norm(y_col))
         others = [idx for idx in range(k) if idx != target]
         for first_pos, first in enumerate(others[:-1]):
-            for second in others[first_pos + 1:]:
+            for second in others[first_pos + 1 :]:
                 basis = X[:, [first, second]]
                 coeffs, *_ = np.linalg.lstsq(basis, y_col, rcond=None)
                 fitted = basis @ coeffs
@@ -384,7 +374,9 @@ class OLSEstimator(BaseEstimator):
         X_orig, y_orig, sw = X, y, None
         if weights is not None:
             w = _validate_analytic_weights(
-                weights, n, context="OLS analytic weights",
+                weights,
+                n,
+                context="OLS analytic weights",
             )
             w = w * (n / w.sum())  # Stata aweight normalisation: Σw = n
             sw = np.sqrt(w)
@@ -438,9 +430,7 @@ class OLSEstimator(BaseEstimator):
                     for pos, j in enumerate(other):
                         params[j] = slopes[pos]
                     const_value = float(X[0, const_col])
-                    params[const_col] = (
-                        y_mean - x_mean @ slopes
-                    ) / const_value
+                    params[const_col] = (y_mean - x_mean @ slopes) / const_value
                     fitted_values = y - residuals
                     XtX_inv = _centered_intercept_bread(
                         n=n,
@@ -481,9 +471,7 @@ class OLSEstimator(BaseEstimator):
             except np.linalg.LinAlgError:
                 _detect_low_order_linear_dependence(X, var_names)
                 try:
-                    params, fitted_values, residuals, XtX_inv = (
-                        _qr_fit_with_bread(X, y)
-                    )
+                    params, fitted_values, residuals, XtX_inv = _qr_fit_with_bread(X, y)
                 except np.linalg.LinAlgError:
                     params, fitted_values, residuals = _fast_ols(X, y)
                     XtX_inv = np.linalg.pinv(X.T @ X)
@@ -719,9 +707,7 @@ class OLSRegression(BaseModel):
         """
         if isinstance(weights, str):
             if self.data is None or weights not in self.data.columns:
-                raise ValueError(
-                    f"weights='{weights}' is not a column in the data."
-                )
+                raise ValueError(f"weights='{weights}' is not a column in the data.")
             col = self.data[weights]
             if design_index is not None:
                 col = col.reindex(design_index)
@@ -733,7 +719,9 @@ class OLSRegression(BaseModel):
                 "OLS analytic weights cannot be resolved before y is prepared."
             )
         return _validate_analytic_weights(
-            wv, self.y.shape[0], context="OLS analytic weights",
+            wv,
+            self.y.shape[0],
+            context="OLS analytic weights",
         )
 
     def fit(
@@ -848,16 +836,12 @@ class OLSRegression(BaseModel):
             bic = -np.inf
         else:
             log_likelihood = (
-                -0.5
-                * results["nobs"]
-                * (np.log(2 * np.pi * rss_per_obs) + 1)
+                -0.5 * results["nobs"] * (np.log(2 * np.pi * rss_per_obs) + 1)
             )
-            aic = results["nobs"] * np.log(rss_per_obs) + 2 * (
+            aic = results["nobs"] * np.log(rss_per_obs) + 2 * (results["df_model"] + 1)
+            bic = results["nobs"] * np.log(rss_per_obs) + np.log(results["nobs"]) * (
                 results["df_model"] + 1
             )
-            bic = results["nobs"] * np.log(rss_per_obs) + np.log(
-                results["nobs"]
-            ) * (results["df_model"] + 1)
 
         diagnostics = {
             "R-squared": results["r_squared"],

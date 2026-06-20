@@ -79,9 +79,7 @@ def _coerce_optional_columns(
         except TypeError as exc:
             raise MethodIncompatibility(
                 f"`{argument}` must be a column name or sequence of column names.",
-                recovery_hint=(
-                    f"Pass `{argument}` as 'x' or ['x1', 'x2']."
-                ),
+                recovery_hint=(f"Pass `{argument}` as 'x' or ['x1', 'x2']."),
                 diagnostics={"argument": argument, "type": type(columns).__name__},
             ) from exc
     return [_require_column_name(col, argument=argument) for col in out]
@@ -270,7 +268,9 @@ def callaway_santanna(
     i = _require_column_name(i, argument="i")
     x = _coerce_optional_columns(x, argument="x")
     estimator = _require_string_option(
-        estimator, argument="estimator", valid=("dr", "ipw", "reg"),
+        estimator,
+        argument="estimator",
+        valid=("dr", "ipw", "reg"),
     )
     control_group = _require_string_option(
         control_group,
@@ -278,10 +278,14 @@ def callaway_santanna(
         valid=("nevertreated", "notyettreated"),
     )
     base_period = _require_string_option(
-        base_period, argument="base_period", valid=("universal", "varying"),
+        base_period,
+        argument="base_period",
+        valid=("universal", "varying"),
     )
     anticipation = _require_int_at_least(
-        anticipation, argument="anticipation", minimum=0,
+        anticipation,
+        argument="anticipation",
+        minimum=0,
     )
     alpha = _require_alpha(alpha)
     panel = _require_bool(panel, argument="panel")

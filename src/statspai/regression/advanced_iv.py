@@ -98,13 +98,13 @@ def liml(
     """
     if formula is not None:
         # Parse IV formula
-        parts = formula.replace('(', '|').replace(')', '').replace('~', '|').split('|')
+        parts = formula.replace("(", "|").replace(")", "").replace("~", "|").split("|")
         if len(parts) >= 3:
             y = parts[0].strip()
-            x_exog = [v.strip() for v in parts[1].split('+') if v.strip()]
-            x_endog = [v.strip() for v in parts[2].split('+') if v.strip()]
+            x_exog = [v.strip() for v in parts[1].split("+") if v.strip()]
+            x_endog = [v.strip() for v in parts[2].split("+") if v.strip()]
             if len(parts) >= 4:
-                z = [v.strip() for v in parts[3].split('+') if v.strip()]
+                z = [v.strip() for v in parts[3].split("+") if v.strip()]
 
     if x_exog is None:
         x_exog = []
@@ -113,8 +113,7 @@ def liml(
             "liml requires data, y, x_endog, and z unless all are supplied "
             "by formula",
             recovery_hint=(
-                "Pass data= plus y=, x_endog=, z=, or provide a complete "
-                "IV formula."
+                "Pass data= plus y=, x_endog=, z=, or provide a complete " "IV formula."
             ),
         )
 
@@ -123,7 +122,11 @@ def liml(
 
     Y = df[y].values.astype(float)
     X_endog = df[x_endog].values.astype(float).reshape(n, -1)
-    X_exog = np.column_stack([np.ones(n)] + [df[v].values for v in x_exog]) if x_exog else np.ones((n, 1))
+    X_exog = (
+        np.column_stack([np.ones(n)] + [df[v].values for v in x_exog])
+        if x_exog
+        else np.ones((n, 1))
+    )
     Z_excl = df[z].values.astype(float).reshape(n, -1)
 
     # All instruments: exogenous regressors + excluded instruments
@@ -160,18 +163,22 @@ def liml(
 
     try:
         from scipy.linalg import eigh as _sp_eigh
+
         eigvals = _sp_eigh(S_exog, S_full, eigvals_only=True)
         kappa = float(np.min(eigvals))
         if not np.isfinite(kappa) or kappa < 1 - 1e-8:
             warnings.warn(
                 f"LIML κ = {kappa} outside expected [1, ∞); falling back "
-                "to 2SLS (κ = 1).", RuntimeWarning, stacklevel=2,
+                "to 2SLS (κ = 1).",
+                RuntimeWarning,
+                stacklevel=2,
             )
             kappa = 1.0
     except Exception:
         warnings.warn(
             "LIML generalized eigenvalue solve failed; falling back to 2SLS.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
         kappa = 1.0
 
@@ -191,7 +198,11 @@ def liml(
 
     # Standard errors
     try:
-        XtX_inv = np.linalg.inv(X_all.T @ I_kMz @ X_all) if not np.any(np.isnan(beta)) else np.eye(k)
+        XtX_inv = (
+            np.linalg.inv(X_all.T @ I_kMz @ X_all)
+            if not np.any(np.isnan(beta))
+            else np.eye(k)
+        )
     except np.linalg.LinAlgError:
         XtX_inv = np.linalg.pinv(X_all.T @ I_kMz @ X_all)
 
@@ -212,7 +223,7 @@ def liml(
             meat += np.outer(score, score)
         correction = n_cl / (n_cl - 1) * (n - 1) / (n - k)
         var_cov = correction * XtX_inv @ meat @ XtX_inv
-    elif robust != 'nonrobust':
+    elif robust != "nonrobust":
         Omega = np.diag(resid**2)
         var_cov = XtX_inv @ (AX.T @ Omega @ AX) @ XtX_inv
     else:
@@ -222,53 +233,57 @@ def liml(
     se = np.sqrt(np.diag(var_cov))
 
     # Variable names
-    var_names = ['_cons'] + x_exog + x_endog if x_exog else ['_cons'] + x_endog
+    var_names = ["_cons"] + x_exog + x_endog if x_exog else ["_cons"] + x_endog
 
     params = pd.Series(beta, index=var_names)
     std_errors = pd.Series(se, index=var_names)
 
     # Diagnostics
-    tss = np.sum((Y - Y.mean())**2)
+    tss = np.sum((Y - Y.mean()) ** 2)
     rss = np.sum(resid**2)
     r2 = 1 - rss / tss
 
-    model_name = 'LIML' if fuller is None else f'Fuller (a={fuller})'
+    model_name = "LIML" if fuller is None else f"Fuller (a={fuller})"
 
     _result = EconometricResults(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': model_name,
-            'method': 'Limited Information Maximum Likelihood',
-            'kappa': kappa,
-            'fuller_constant': fuller,
-            'endog_vars': x_endog,
-            'instruments': z,
+            "model_type": model_name,
+            "method": "Limited Information Maximum Likelihood",
+            "kappa": kappa,
+            "fuller_constant": fuller,
+            "endog_vars": x_endog,
+            "instruments": z,
         },
         data_info={
-            'n_obs': n,
-            'df_resid': n - k,
-            'dep_var': y,
+            "n_obs": n,
+            "df_resid": n - k,
+            "dep_var": y,
         },
         diagnostics={
-            'r_squared': r2,
-            'kappa': kappa,
-            'n_instruments': len(z),
-            'n_endogenous': len(x_endog),
+            "r_squared": r2,
+            "kappa": kappa,
+            "n_instruments": len(z),
+            "n_endogenous": len(x_endog),
         },
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.liml",
             params={
                 "formula": formula,
-                "y": y, "x_endog": list(x_endog) if x_endog else None,
+                "y": y,
+                "x_endog": list(x_endog) if x_endog else None,
                 "x_exog": list(x_exog) if x_exog else None,
                 "z": list(z) if z else None,
-                "robust": robust, "cluster": cluster,
-                "fuller": fuller, "alpha": alpha,
+                "robust": robust,
+                "cluster": cluster,
+                "fuller": fuller,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -342,7 +357,11 @@ def jive(
 
     Y = df[y].values.astype(float)
     X_endog = df[x_endog].values.astype(float).reshape(n, -1)
-    X_exog = np.column_stack([np.ones(n)] + [df[v].values for v in x_exog]) if x_exog else np.ones((n, 1))
+    X_exog = (
+        np.column_stack([np.ones(n)] + [df[v].values for v in x_exog])
+        if x_exog
+        else np.ones((n, 1))
+    )
     Z_excl = df[z].values.astype(float).reshape(n, -1)
     Z_all = np.column_stack([X_exog, Z_excl])
 
@@ -356,7 +375,7 @@ def jive(
         x_j = X_endog[:, j]
         fitted = Pz @ x_j  # regular fitted values
 
-        if variant == 'jive1':
+        if variant == "jive1":
             # JIVE1: x̂_i = (fitted_i - h_ii * x_i) / (1 - h_ii)
             X_endog_hat[:, j] = (fitted - h_ii * x_j) / np.maximum(1 - h_ii, 1e-10)
         else:
@@ -397,15 +416,19 @@ def jive(
         var_cov = correction * XhX_inv @ meat @ XhX_inv.T
     else:
         sigma2 = np.sum(resid**2) / (n - k)
-        mid = X_hat.T @ (np.diag(resid**2) if robust != 'nonrobust' else sigma2 * np.eye(n)) @ X_hat
-        if robust != 'nonrobust':
+        mid = (
+            X_hat.T
+            @ (np.diag(resid**2) if robust != "nonrobust" else sigma2 * np.eye(n))
+            @ X_hat
+        )
+        if robust != "nonrobust":
             var_cov = XhX_inv @ mid @ XhX_inv.T
         else:
             var_cov = sigma2 * np.linalg.inv(X_hat.T @ X_all)
 
     se = np.sqrt(np.abs(np.diag(var_cov)))
 
-    var_names = ['_cons'] + x_exog + x_endog if x_exog else ['_cons'] + x_endog
+    var_names = ["_cons"] + x_exog + x_endog if x_exog else ["_cons"] + x_endog
     params = pd.Series(beta, index=var_names)
     std_errors = pd.Series(se, index=var_names)
 
@@ -413,26 +436,30 @@ def jive(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': f'JIVE ({variant.upper()})',
-            'method': 'Jackknife Instrumental Variables',
-            'endog_vars': x_endog,
-            'instruments': z,
-            'variant': variant,
+            "model_type": f"JIVE ({variant.upper()})",
+            "method": "Jackknife Instrumental Variables",
+            "endog_vars": x_endog,
+            "instruments": z,
+            "variant": variant,
         },
-        data_info={'n_obs': n, 'df_resid': n - k, 'dep_var': y},
-        diagnostics={'n_instruments': len(z), 'n_endogenous': len(x_endog)},
+        data_info={"n_obs": n, "df_resid": n - k, "dep_var": y},
+        diagnostics={"n_instruments": len(z), "n_endogenous": len(x_endog)},
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.jive",
             params={
-                "y": y, "x_endog": list(x_endog),
+                "y": y,
+                "x_endog": list(x_endog),
                 "x_exog": list(x_exog) if x_exog else None,
                 "z": list(z) if z else None,
-                "robust": robust, "cluster": cluster,
-                "variant": variant, "alpha": alpha,
+                "robust": robust,
+                "cluster": cluster,
+                "variant": variant,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -509,7 +536,11 @@ def lasso_iv(
     n = len(df)
 
     Z_candidates = df[z].values.astype(float)
-    X_exog_mat = np.column_stack([np.ones(n)] + [df[v].values for v in x_exog]) if x_exog else np.ones((n, 1))
+    X_exog_mat = (
+        np.column_stack([np.ones(n)] + [df[v].values for v in x_exog])
+        if x_exog
+        else np.ones((n, 1))
+    )
 
     # Partial out exogenous regressors from instruments and endogenous vars
     Px = X_exog_mat @ np.linalg.solve(X_exog_mat.T @ X_exog_mat, X_exog_mat.T)
@@ -527,7 +558,7 @@ def lasso_iv(
         # Cross-validated LASSO
         from sklearn.linear_model import LassoCV, Lasso
 
-        if penalty == 'cv':
+        if penalty == "cv":
             lasso = LassoCV(cv=5, max_iter=10000, random_state=42)
             lasso.fit(Z_tilde, x_j)
         else:
@@ -540,9 +571,9 @@ def lasso_iv(
                 lasso_temp = Lasso(alpha=a, max_iter=10000)
                 lasso_temp.fit(Z_tilde, x_j)
                 pred = lasso_temp.predict(Z_tilde)
-                rss = np.sum((x_j - pred)**2)
+                rss = np.sum((x_j - pred) ** 2)
                 k_sel = np.sum(np.abs(lasso_temp.coef_) > 1e-10)
-                if penalty == 'bic':
+                if penalty == "bic":
                     criterion = n * np.log(rss / n) + k_sel * np.log(n)
                 else:
                     criterion = n * np.log(rss / n) + 2 * k_sel
@@ -568,34 +599,38 @@ def lasso_iv(
     # current ``sp.iv`` formula-only API (``y ~ (endog ~ z) + exog``).
     # Map legacy ``robust='robust'`` to the modern HC1 enum.
     from ..regression.iv import iv
+
     endog_str = " + ".join(x_endog)
     z_str = " + ".join(selected_z)
     exog_str = (" + " + " + ".join(x_exog)) if x_exog else ""
     formula = f"{y} ~ ({endog_str} ~ {z_str}){exog_str}"
     iv_robust = "hc1" if robust == "robust" else robust
-    result = iv(formula=formula, data=df,
-                robust=iv_robust, cluster=cluster)
+    result = iv(formula=formula, data=df, robust=iv_robust, cluster=cluster)
 
     # Add LASSO-specific info
-    result.model_info['model_type'] = 'LASSO-IV (2SLS with selected instruments)'
-    result.model_info['method'] = 'Belloni-Chen-Chernozhukov-Hansen (2012)'
-    result.model_info['n_candidate_instruments'] = len(z)
-    result.model_info['n_selected_instruments'] = len(selected_z)
-    result.model_info['selected_instruments'] = selected_z
-    result.model_info['selection_criterion'] = penalty
+    result.model_info["model_type"] = "LASSO-IV (2SLS with selected instruments)"
+    result.model_info["method"] = "Belloni-Chen-Chernozhukov-Hansen (2012)"
+    result.model_info["n_candidate_instruments"] = len(z)
+    result.model_info["n_selected_instruments"] = len(selected_z)
+    result.model_info["selected_instruments"] = selected_z
+    result.model_info["selection_criterion"] = penalty
 
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             result,
             function="sp.iv.lasso_iv",
             params={
-                "y": y, "x_endog": list(x_endog),
+                "y": y,
+                "x_endog": list(x_endog),
                 "x_exog": list(x_exog) if x_exog else None,
                 "z_candidates": list(z),
                 "selected_instruments": list(selected_z),
                 "penalty": penalty,
-                "robust": robust, "cluster": cluster, "alpha": alpha,
+                "robust": robust,
+                "cluster": cluster,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

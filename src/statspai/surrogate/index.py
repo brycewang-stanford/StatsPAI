@@ -37,7 +37,6 @@ from scipy import stats
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
-
 __all__ = [
     "surrogate_index",
     "long_term_from_short",
@@ -417,9 +416,7 @@ def surrogate_index(
     observational = _require_dataframe(observational, "observational")
     treatment = _require_column_name(treatment, "treatment")
     surrogates = _coerce_column_list(surrogates, "surrogates")
-    long_term_outcome = _require_column_name(
-        long_term_outcome, "long_term_outcome"
-    )
+    long_term_outcome = _require_column_name(long_term_outcome, "long_term_outcome")
     cov_list = _coerce_optional_column_list(covariates, "covariates")
     alpha = _require_open_unit_float(alpha, "alpha")
     n_boot = _require_int_at_least(n_boot, "n_boot", 0)
@@ -614,9 +611,7 @@ def long_term_from_short(
     observational = _require_dataframe(observational, "observational")
     treatment = _require_column_name(treatment, "treatment")
     surrogates_waves = _coerce_waves(surrogates_waves)
-    long_term_outcome = _require_column_name(
-        long_term_outcome, "long_term_outcome"
-    )
+    long_term_outcome = _require_column_name(long_term_outcome, "long_term_outcome")
     cov_list = _coerce_optional_column_list(covariates, "covariates")
     alpha = _require_open_unit_float(alpha, "alpha")
     n_boot = _require_int_at_least(n_boot, "n_boot", 50)
@@ -651,7 +646,9 @@ def long_term_from_short(
         # Final: apply wave-1 predictor to experimental sample.
         wave1_cols = list(surrogates_waves[0]) + cov_list
         f1_exp = preds_cache[-1](_as_matrix(exp_df, wave1_cols))
-        T = _require_binary_treatment(exp_df[treatment].to_numpy(dtype=float), treatment)
+        T = _require_binary_treatment(
+            exp_df[treatment].to_numpy(dtype=float), treatment
+        )
         return float(f1_exp[T].mean() - f1_exp[~T].mean())
 
     est = _point_estimate(observational, experimental)
@@ -789,9 +786,7 @@ def proximal_surrogate_index(
     treatment = _require_column_name(treatment, "treatment")
     surrogates = _coerce_column_list(surrogates, "surrogates")
     proxies = _coerce_column_list(proxies, "proxies", allow_empty=True)
-    long_term_outcome = _require_column_name(
-        long_term_outcome, "long_term_outcome"
-    )
+    long_term_outcome = _require_column_name(long_term_outcome, "long_term_outcome")
     cov_list = _coerce_optional_column_list(covariates, "covariates")
     alpha = _require_open_unit_float(alpha, "alpha")
     n_boot = _require_int_at_least(n_boot, "n_boot", 50)
@@ -860,7 +855,9 @@ def proximal_surrogate_index(
         S_e = _as_matrix(exp_df, list(surrogates))
         X_e = _as_matrix(exp_df, cov_list) if cov_list else None
         h_e = predict(S_e, X_e)
-        T = _require_binary_treatment(exp_df[treatment].to_numpy(dtype=float), treatment)
+        T = _require_binary_treatment(
+            exp_df[treatment].to_numpy(dtype=float), treatment
+        )
         return float(h_e[T].mean() - h_e[~T].mean())
 
     est = _point_estimate(observational, experimental)

@@ -60,15 +60,14 @@ class DAGDict(dict):
 
     def _get_adj(self) -> tuple[Any, Any]:
         import pandas as _pd
+
         for k in self._ADJ_KEYS:
             if k in self:
                 v = self[k]
                 if isinstance(v, _pd.DataFrame):
                     return v.values, list(v.index)
                 return v, self.get("variables") or self.get("names")
-        raise KeyError(
-            f"DAGDict has no adjacency under {self._ADJ_KEYS!r}"
-        )
+        raise KeyError(f"DAGDict has no adjacency under {self._ADJ_KEYS!r}")
 
     def _get_names(self, fallback: Any) -> list[str]:
         for k in self._NAME_KEYS:
@@ -139,15 +138,13 @@ def to_networkx(
         import networkx as nx
     except ImportError as e:  # pragma: no cover
         raise ImportError(
-            "networkx required for to_networkx(). Install: "
-            "pip install networkx"
+            "networkx required for to_networkx(). Install: " "pip install networkx"
         ) from e
     A = np.asarray(adjacency, dtype=float)
     G = (nx.DiGraph if directed else nx.Graph)()
     for nm in names:
         G.add_node(nm)
-    for parent, child, w in edge_list(A, names, threshold=threshold,
-                                      directed=directed):
+    for parent, child, w in edge_list(A, names, threshold=threshold, directed=directed):
         G.add_edge(parent, child, weight=w)
     return G
 
@@ -174,15 +171,14 @@ def to_dot(
     lines.append('  node [shape=circle, style=filled, fillcolor="#e8f0fe"];')
     for nm in names:
         lines.append(f'  "{nm}";')
-    for parent, child, w in edge_list(A, names, threshold=threshold,
-                                      directed=directed):
+    for parent, child, w in edge_list(A, names, threshold=threshold, directed=directed):
         style = "solid" if w >= 0 else "dashed"
         color = "#1f77b4" if w >= 0 else "#d62728"
-        label = f'{w:+.{digits}f}'
+        label = f"{w:+.{digits}f}"
         lines.append(
             f'  "{parent}" {sep} "{child}" '
             f'[label="{label}", style={style}, color="{color}", '
-            f'penwidth={1 + min(abs(w) * 2, 3):.2f}];'
+            f"penwidth={1 + min(abs(w) * 2, 3):.2f}];"
         )
     lines.append("}")
     return "\n".join(lines)
@@ -250,6 +246,7 @@ def plot_dag(
     elif layout == "graphviz":
         try:
             from networkx.drawing.nx_agraph import graphviz_layout
+
             pos = graphviz_layout(G, prog="dot")
         except ImportError:
             pos = nx.spring_layout(G, seed=0)
@@ -262,8 +259,13 @@ def plot_dag(
         fig = ax.figure
 
     nx.draw_networkx_nodes(
-        G, pos, node_color=node_color, node_size=1200,
-        edgecolors="#333", linewidths=1.2, ax=ax,
+        G,
+        pos,
+        node_color=node_color,
+        node_size=1200,
+        edgecolors="#333",
+        linewidths=1.2,
+        ax=ax,
     )
     nx.draw_networkx_labels(G, pos, font_size=10, ax=ax)
 
@@ -271,33 +273,40 @@ def plot_dag(
     neg_edges = [(u, v) for u, v, d in G.edges(data=True) if d["weight"] < 0]
 
     def _widths(edges: Sequence[tuple[Any, Any]]) -> list[float]:
-        return [
-            1.0 + min(abs(G[u][v]["weight"]) * 2, 3.0) for (u, v) in edges
-        ]
+        return [1.0 + min(abs(G[u][v]["weight"]) * 2, 3.0) for (u, v) in edges]
 
     if pos_edges:
         nx.draw_networkx_edges(
-            G, pos, edgelist=pos_edges,
-            edge_color=pos_edge_color, width=_widths(pos_edges),
+            G,
+            pos,
+            edgelist=pos_edges,
+            edge_color=pos_edge_color,
+            width=_widths(pos_edges),
             arrowsize=18 if directed else 0,
-            arrows=directed, ax=ax,
+            arrows=directed,
+            ax=ax,
         )
     if neg_edges:
         nx.draw_networkx_edges(
-            G, pos, edgelist=neg_edges,
-            edge_color=neg_edge_color, width=_widths(neg_edges),
+            G,
+            pos,
+            edgelist=neg_edges,
+            edge_color=neg_edge_color,
+            width=_widths(neg_edges),
             style="dashed",
             arrowsize=18 if directed else 0,
-            arrows=directed, ax=ax,
+            arrows=directed,
+            ax=ax,
         )
 
     if edge_labels:
-        labels = {
-            (u, v): f"{G[u][v]['weight']:+.{digits}f}"
-            for u, v in G.edges
-        }
+        labels = {(u, v): f"{G[u][v]['weight']:+.{digits}f}" for u, v in G.edges}
         nx.draw_networkx_edge_labels(
-            G, pos, edge_labels=labels, font_size=8, ax=ax,
+            G,
+            pos,
+            edge_labels=labels,
+            font_size=8,
+            ax=ax,
         )
 
     ax.set_title(title or "Estimated DAG", fontsize=12)
@@ -324,6 +333,6 @@ def shd(
     B = (np.abs(np.asarray(truth)) > threshold).astype(int)
     diff = (A != B).astype(int)
     # Count reversals as one (not two) by halving symmetric disagreements.
-    sym = (diff & diff.T)
+    sym = diff & diff.T
     asym = diff - sym
     return int(asym.sum() + sym.sum() // 2)

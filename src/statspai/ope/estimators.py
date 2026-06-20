@@ -112,9 +112,7 @@ class OPEResult(ResultProtocolMixin):
     @property
     def n_obs(self) -> int:
         """Return ``diagnostics['n']`` or ``diagnostics['n_obs']`` if present."""
-        return int(
-            self.diagnostics.get("n_obs", self.diagnostics.get("n", 0))
-        )
+        return int(self.diagnostics.get("n_obs", self.diagnostics.get("n", 0)))
 
     def summary(self) -> str:
         lo, hi = self.ci
@@ -154,6 +152,7 @@ def direct_method(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.ope.direct_method",
@@ -190,7 +189,7 @@ def ips(
         se=se,
         ci=(val - 1.96 * se, val + 1.96 * se),
         diagnostics={
-            "ess_rho": float(rho.sum() ** 2 / (rho ** 2).sum()),
+            "ess_rho": float(rho.sum() ** 2 / (rho**2).sum()),
             "max_rho": float(rho.max()),
         },
     )
@@ -206,25 +205,21 @@ def snips(
     """Self-Normalized IPS -- reduces variance at small bias cost."""
     a = np.asarray(actions, dtype=int)
     r = np.asarray(rewards, dtype=float)
-    rho = pi_e[np.arange(len(a)), a] / np.clip(
-        pi_b[np.arange(len(a)), a], 1e-6, None
-    )
+    rho = pi_e[np.arange(len(a)), a] / np.clip(pi_b[np.arange(len(a)), a], 1e-6, None)
     if clip is not None:
         rho = np.clip(rho, 0, clip)
     val = float((rho * r).sum() / max(rho.sum(), 1e-12))
     # Delta-method SE for self-normalized estimator
     m2 = rho.mean()
     n = len(a)
-    var = (
-        (1.0 / m2 ** 2) * (rho * r - val * rho).var(ddof=1) / n
-    )
+    var = (1.0 / m2**2) * (rho * r - val * rho).var(ddof=1) / n
     se = float(np.sqrt(var))
     return OPEResult(
         method="SNIPS",
         value=val,
         se=se,
         ci=(val - 1.96 * se, val + 1.96 * se),
-        diagnostics={"ess_rho": float(rho.sum() ** 2 / (rho ** 2).sum())},
+        diagnostics={"ess_rho": float(rho.sum() ** 2 / (rho**2).sum())},
     )
 
 
@@ -263,7 +258,7 @@ def doubly_robust(
         ci=(val - 1.96 * se, val + 1.96 * se),
         diagnostics={
             "max_rho": float(rho.max()),
-            "ess_rho": float(rho.sum() ** 2 / (rho ** 2).sum()),
+            "ess_rho": float(rho.sum() ** 2 / (rho**2).sum()),
         },
     )
 

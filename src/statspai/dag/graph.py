@@ -99,11 +99,7 @@ class DAG:
 
     @property
     def edges(self) -> List[Tuple[str, str]]:
-        return [
-            (p, c)
-            for p, children in self._edges.items()
-            for c in children
-        ]
+        return [(p, c) for p, children in self._edges.items() for c in children]
 
     # ------------------------------------------------------------------ #
     #  Graph queries
@@ -154,17 +150,18 @@ class DAG:
             return False
         prev_node = path[idx - 1]
         next_node = path[idx + 1]
-        return (
-            node in self.children(prev_node)
-            and node in self.children(next_node)
-        )
+        return node in self.children(prev_node) and node in self.children(next_node)
 
     # ------------------------------------------------------------------ #
     #  Path enumeration
     # ------------------------------------------------------------------ #
 
     def all_paths(
-        self, x: str, y: str, *, directed_only: bool = False,
+        self,
+        x: str,
+        y: str,
+        *,
+        directed_only: bool = False,
     ) -> List[List[str]]:
         """
         Enumerate all simple paths between *x* and *y*.
@@ -239,7 +236,9 @@ class DAG:
         return [p for p in all_p if tuple(p) not in causal_p]
 
     def is_path_open(
-        self, path: List[str], conditioned: Optional[Set[str]] = None,
+        self,
+        path: List[str],
+        conditioned: Optional[Set[str]] = None,
     ) -> bool:
         """
         Check if a path is open (active) given a conditioning set.
@@ -259,9 +258,8 @@ class DAG:
             node = path[i]
             prev_node = path[i - 1]
             next_node = path[i + 1]
-            is_coll = (
-                node in self.children(prev_node)
-                and node in self.children(next_node)
+            is_coll = node in self.children(prev_node) and node in self.children(
+                next_node
             )
             if is_coll:
                 # Collider: path blocked unless node/descendant is conditioned.
@@ -299,19 +297,18 @@ class DAG:
          {'path': ['X', 'Z', 'Y'], 'type': 'backdoor', 'open': False}]
         """
         conditioned = conditioned or set()
-        causal_set = {
-            tuple(p)
-            for p in self.causal_paths(exposure, outcome)
-        }
+        causal_set = {tuple(p) for p in self.causal_paths(exposure, outcome)}
         all_p = self.all_paths(exposure, outcome)
         result = []
         for p in all_p:
             ptype = "causal" if tuple(p) in causal_set else "backdoor"
-            result.append({
-                "path": p,
-                "type": ptype,
-                "open": self.is_path_open(p, conditioned),
-            })
+            result.append(
+                {
+                    "path": p,
+                    "type": ptype,
+                    "open": self.is_path_open(p, conditioned),
+                }
+            )
         return result
 
     # ------------------------------------------------------------------ #
@@ -319,7 +316,10 @@ class DAG:
     # ------------------------------------------------------------------ #
 
     def classify_variable(
-        self, node: str, exposure: str, outcome: str,
+        self,
+        node: str,
+        exposure: str,
+        outcome: str,
     ) -> Set[str]:
         """
         Classify the role(s) of *node* relative to *exposure* → *outcome*.
@@ -356,9 +356,8 @@ class DAG:
                 idx = p.index(node)
                 if 0 < idx < len(p) - 1:
                     prev_n, next_n = p[idx - 1], p[idx + 1]
-                    is_coll = (
-                        node in self.children(prev_n)
-                        and node in self.children(next_n)
+                    is_coll = node in self.children(prev_n) and node in self.children(
+                        next_n
                     )
                     if is_coll:
                         roles.add("collider")
@@ -418,17 +417,14 @@ class DAG:
 
             # 1. Descendant of treatment (not mediator)
             if v in descendants_x:
-                on_causal = any(
-                    v in p for p in self.causal_paths(exposure, outcome)
-                )
+                on_causal = any(v in p for p in self.causal_paths(exposure, outcome))
                 if on_causal:
                     reasons.append(
                         "mediator — conditioning blocks indirect causal effect"
                     )
                 else:
                     reasons.append(
-                        "descendant_of_treatment — biases the causal "
-                        "effect estimate"
+                        "descendant_of_treatment — biases the causal " "effect estimate"
                     )
 
             # 2. Collider on a backdoor path
@@ -437,14 +433,12 @@ class DAG:
                     idx = p.index(v)
                     if 0 < idx < len(p) - 1:
                         prev_n, next_n = p[idx - 1], p[idx + 1]
-                        is_coll = (
-                            v in self.children(prev_n)
-                            and v in self.children(next_n)
+                        is_coll = v in self.children(prev_n) and v in self.children(
+                            next_n
                         )
                         if is_coll:
                             reasons.append(
-                                f"collider — conditioning opens "
-                                f"{'→'.join(p)}"
+                                f"collider — conditioning opens " f"{'→'.join(p)}"
                             )
                             break
 
@@ -498,7 +492,9 @@ class DAG:
     # ------------------------------------------------------------------ #
 
     def frontdoor_sets(
-        self, exposure: str, outcome: str,
+        self,
+        exposure: str,
+        outcome: str,
     ) -> List[Set[str]]:
         """
         Find sets satisfying Pearl's **frontdoor criterion**.
@@ -538,7 +534,10 @@ class DAG:
         return valid
 
     def _is_valid_frontdoor(
-        self, exposure: str, outcome: str, m_set: Set[str],
+        self,
+        exposure: str,
+        outcome: str,
+        m_set: Set[str],
     ) -> bool:
         """Check the three frontdoor conditions."""
         # 1. M intercepts all directed (causal) paths from X to Y
@@ -567,7 +566,10 @@ class DAG:
     # ------------------------------------------------------------------ #
 
     def d_separated(
-        self, x: str, y: str, conditioned: Optional[Set[str]] = None,
+        self,
+        x: str,
+        y: str,
+        conditioned: Optional[Set[str]] = None,
     ) -> bool:
         """
         Test if *x* and *y* are d-separated given *conditioned*.
@@ -655,8 +657,7 @@ class DAG:
         """
         if method != "backdoor":
             raise ValueError(
-                "Only 'backdoor' method is currently supported, "
-                f"got {method!r}"
+                "Only 'backdoor' method is currently supported, " f"got {method!r}"
             )
 
         # Candidate nodes: observed and not exposure/outcome/descendant.
@@ -681,7 +682,10 @@ class DAG:
         return valid_sets
 
     def _is_valid_adjustment(
-        self, exposure: str, outcome: str, adj_set: Set[str],
+        self,
+        exposure: str,
+        outcome: str,
+        adj_set: Set[str],
     ) -> bool:
         """Check if adj_set satisfies the backdoor criterion."""
         # Backdoor criterion:
@@ -696,7 +700,10 @@ class DAG:
         return self._d_sep_manipulated(exposure, outcome, adj_set)
 
     def _d_sep_manipulated(
-        self, exposure: str, outcome: str, conditioned: Set[str],
+        self,
+        exposure: str,
+        outcome: str,
+        conditioned: Set[str],
     ) -> bool:
         """d-separation after removing exposure's outgoing edges."""
         # Create a modified DAG without edges from exposure
@@ -812,10 +819,7 @@ class DAG:
             for n in self._nodes:
                 if n not in pos and n.startswith("_L_"):
                     children_of_l = sorted(self._edges.get(n, set()))
-                    if (
-                        len(children_of_l) == 2
-                        and all(c in pos for c in children_of_l)
-                    ):
+                    if len(children_of_l) == 2 and all(c in pos for c in children_of_l):
                         c0, c1 = children_of_l
                         mx = (pos[c0][0] + pos[c1][0]) / 2
                         my = (pos[c0][1] + pos[c1][1]) / 2 + 0.8
@@ -823,13 +827,13 @@ class DAG:
 
         # --- Colour mapping ---
         role_colors = {
-            "exposure": "#2ca02c",     # green
-            "outcome": "#1f77b4",      # blue
-            "confounder": "#ff7f0e",   # orange
-            "mediator": "#9467bd",     # purple
-            "collider": "#d62728",     # red
-            "instrument": "#8c564b",   # brown
-            "default": "#7f7f7f",      # grey
+            "exposure": "#2ca02c",  # green
+            "outcome": "#1f77b4",  # blue
+            "confounder": "#ff7f0e",  # orange
+            "mediator": "#9467bd",  # purple
+            "collider": "#d62728",  # red
+            "instrument": "#8c564b",  # brown
+            "default": "#7f7f7f",  # grey
         }
 
         node_colors: Dict[str, str] = {}
@@ -875,9 +879,7 @@ class DAG:
             if n.startswith("_L_"):
                 children_of_l = sorted(self._edges.get(n, set()))
                 if len(children_of_l) == 2:
-                    bidirected_pairs.append(
-                        (children_of_l[0], children_of_l[1])
-                    )
+                    bidirected_pairs.append((children_of_l[0], children_of_l[1]))
                     latent_nodes_to_skip.add(n)
 
         # --- Draw directed edges ---
@@ -922,7 +924,8 @@ class DAG:
 
             # Draw quadratic bezier as arc
             arrow = FancyArrowPatch(
-                (x0, y0), (x1, y1),
+                (x0, y0),
+                (x1, y1),
                 connectionstyle=f"arc3,rad={0.4}",
                 arrowstyle="<->",
                 color="#d62728",
@@ -966,8 +969,11 @@ class DAG:
             )
             ax.add_patch(circle)
             ax.text(
-                x, y, node,
-                ha="center", va="center",
+                x,
+                y,
+                node,
+                ha="center",
+                va="center",
                 fontsize=font_size,
                 fontweight="bold",
                 color="#222222",
@@ -978,12 +984,16 @@ class DAG:
         if exposure and outcome:
             legend_items = [
                 mpatches.Patch(
-                    facecolor="white", edgecolor=role_colors["exposure"],
-                    lw=2, label="Exposure",
+                    facecolor="white",
+                    edgecolor=role_colors["exposure"],
+                    lw=2,
+                    label="Exposure",
                 ),
                 mpatches.Patch(
-                    facecolor="white", edgecolor=role_colors["outcome"],
-                    lw=2, label="Outcome",
+                    facecolor="white",
+                    edgecolor=role_colors["outcome"],
+                    lw=2,
+                    label="Outcome",
                 ),
             ]
             # Only add roles that are present
@@ -991,35 +1001,63 @@ class DAG:
             for roles in node_roles_map.values():
                 present_roles |= roles
             if "confounder" in present_roles:
-                legend_items.append(mpatches.Patch(
-                    facecolor="white", edgecolor=role_colors["confounder"],
-                    lw=2, label="Confounder",
-                ))
+                legend_items.append(
+                    mpatches.Patch(
+                        facecolor="white",
+                        edgecolor=role_colors["confounder"],
+                        lw=2,
+                        label="Confounder",
+                    )
+                )
             if "mediator" in present_roles:
-                legend_items.append(mpatches.Patch(
-                    facecolor="white", edgecolor=role_colors["mediator"],
-                    lw=2, label="Mediator",
-                ))
+                legend_items.append(
+                    mpatches.Patch(
+                        facecolor="white",
+                        edgecolor=role_colors["mediator"],
+                        lw=2,
+                        label="Mediator",
+                    )
+                )
             if "collider" in present_roles:
-                legend_items.append(mpatches.Patch(
-                    facecolor="white", edgecolor=role_colors["collider"],
-                    lw=2, label="Collider (bad control)",
-                ))
+                legend_items.append(
+                    mpatches.Patch(
+                        facecolor="white",
+                        edgecolor=role_colors["collider"],
+                        lw=2,
+                        label="Collider (bad control)",
+                    )
+                )
             if "instrument" in present_roles:
-                legend_items.append(mpatches.Patch(
-                    facecolor="white", edgecolor=role_colors["instrument"],
-                    lw=2, label="Instrument",
-                ))
+                legend_items.append(
+                    mpatches.Patch(
+                        facecolor="white",
+                        edgecolor=role_colors["instrument"],
+                        lw=2,
+                        label="Instrument",
+                    )
+                )
             if conditioned:
-                legend_items.append(mpatches.Patch(
-                    facecolor="#e0e0e0", edgecolor="#555555",
-                    lw=2, hatch="///", label="Conditioned",
-                ))
+                legend_items.append(
+                    mpatches.Patch(
+                        facecolor="#e0e0e0",
+                        edgecolor="#555555",
+                        lw=2,
+                        hatch="///",
+                        label="Conditioned",
+                    )
+                )
             if bidirected_pairs:
-                legend_items.append(mpatches.FancyArrow(
-                    0, 0, 0.001, 0, color="#d62728",
-                    width=0.001, label="Unobserved (latent)",
-                ))
+                legend_items.append(
+                    mpatches.FancyArrow(
+                        0,
+                        0,
+                        0.001,
+                        0,
+                        color="#d62728",
+                        width=0.001,
+                        label="Unobserved (latent)",
+                    )
+                )
             ax.legend(
                 handles=legend_items,
                 loc="best",
@@ -1056,6 +1094,7 @@ class DAG:
     def _layout(self, seed: int = 42) -> Dict[str, Tuple[float, float]]:
         """Topological depth-based layout with lateral spacing."""
         import numpy as np
+
         rng = np.random.RandomState(seed)
 
         depth: Dict[str, int] = {}
@@ -1184,6 +1223,7 @@ class DAG:
 #  Convenience function
 # ====================================================================== #
 
+
 def dag(spec: str = "") -> DAG:
     """
     Create a causal DAG from a string specification.
@@ -1294,9 +1334,7 @@ _EXAMPLES = {
         "outcome": "Y",
     },
     "bad_control_earnings": {
-        "spec": (
-            "B -> PE; B -> D; PE -> D; PE -> I; I -> D; I -> Y; D -> Y"
-        ),
+        "spec": ("B -> PE; B -> D; PE -> D; PE -> I; I -> D; I -> Y; D -> Y"),
         "description": (
             "College wage premium with unobserved background (Mixtape §3). "
             "B = unobserved family background, PE = parental education, "
@@ -1326,22 +1364,36 @@ _EXAMPLE_POSITIONS: Dict[str, Dict[str, Tuple[float, float]]] = {
     "collider": {"X": (-1.5, 0), "M": (0, -1.5), "Y": (1.5, 0)},
     "mediation": {"X": (-1.5, 0), "M": (0, -1.5), "Y": (1.5, 0)},
     "discrimination": {
-        "D": (-1.8, 0), "A": (1.8, 0), "O": (0, -1.5), "Y": (0, -3),
+        "D": (-1.8, 0),
+        "A": (1.8, 0),
+        "O": (0, -1.5),
+        "Y": (0, -3),
     },
     "movie_star": {
-        "Beauty": (-1.5, 0), "Talent": (1.5, 0), "Star": (0, -1.5),
+        "Beauty": (-1.5, 0),
+        "Talent": (1.5, 0),
+        "Star": (0, -1.5),
     },
     "police": {
-        "D": (-1.8, 0), "U": (1.8, 0), "M": (0, -1.5), "Y": (0, -3),
+        "D": (-1.8, 0),
+        "U": (1.8, 0),
+        "M": (0, -1.5),
+        "Y": (0, -3),
     },
     "frontdoor": {"X": (-1.5, 0), "M": (0, -1.5), "Y": (1.5, 0)},
     "bad_control_earnings": {
-        "B": (-2, 0), "PE": (-0.5, -1.5), "I": (1, -1.5),
-        "D": (-1, -3), "Y": (2, -3),
+        "B": (-2, 0),
+        "PE": (-0.5, -1.5),
+        "I": (1, -1.5),
+        "D": (-1, -3),
+        "Y": (2, -3),
     },
     "m_bias": {
-        "U1": (-1.5, 0), "U2": (1.5, 0), "M": (0, -1.5),
-        "X": (-1.5, -3), "Y": (1.5, -3),
+        "U1": (-1.5, 0),
+        "U2": (1.5, 0),
+        "M": (0, -1.5),
+        "X": (-1.5, -3),
+        "Y": (1.5, -3),
     },
 }
 
@@ -1415,15 +1467,14 @@ def dag_example_positions(name: str) -> Dict[str, Tuple[float, float]]:
     """
     if name not in _EXAMPLE_POSITIONS:
         avail = ", ".join(sorted(_EXAMPLE_POSITIONS.keys()))
-        raise ValueError(
-            f"No hand-tuned positions for '{name}'. Available: {avail}"
-        )
+        raise ValueError(f"No hand-tuned positions for '{name}'. Available: {avail}")
     return dict(_EXAMPLE_POSITIONS[name])
 
 
 # ====================================================================== #
 #  Simulations (Cunningham, The Mixtape, ch. 3)
 # ====================================================================== #
+
 
 def dag_simulate(
     name: str,
@@ -1476,20 +1527,24 @@ def dag_simulate(
         ability = rng.standard_normal(n)
         discrimination = female.copy()
         occupation = (
-            1 + 2 * ability + 0 * female - 2 * discrimination
-            + rng.standard_normal(n)
+            1 + 2 * ability + 0 * female - 2 * discrimination + rng.standard_normal(n)
         )
         wage = (
-            1 - 1 * discrimination + 1 * occupation + 2 * ability
+            1
+            - 1 * discrimination
+            + 1 * occupation
+            + 2 * ability
             + rng.standard_normal(n)
         )
-        return pd.DataFrame({
-            "female": female,
-            "ability": ability,
-            "discrimination": discrimination,
-            "occupation": occupation,
-            "wage": wage,
-        })
+        return pd.DataFrame(
+            {
+                "female": female,
+                "ability": ability,
+                "discrimination": discrimination,
+                "occupation": occupation,
+                "wage": wage,
+            }
+        )
 
     elif name == "movie_star":
         beauty = rng.standard_normal(n)
@@ -1497,12 +1552,14 @@ def dag_simulate(
         score = beauty + talent
         c85 = np.percentile(score, 85)
         star = (score >= c85).astype(int)
-        return pd.DataFrame({
-            "beauty": beauty,
-            "talent": talent,
-            "score": score,
-            "star": star,
-        })
+        return pd.DataFrame(
+            {
+                "beauty": beauty,
+                "talent": talent,
+                "score": score,
+                "star": star,
+            }
+        )
 
     else:
         avail = "'discrimination', 'movie_star'"

@@ -31,6 +31,7 @@ Notes on design
   oracle if the user passes ``dag=`` from a prior
   :func:`sp.llm_dag_constrained` run.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -43,7 +44,6 @@ import pandas as pd
 
 from ..output._lineage import format_provenance, get_provenance
 from ._degradation import WorkflowDegradedWarning, record_degradation
-
 
 __all__ = [
     "paper",
@@ -135,8 +135,7 @@ def parse_question(question: str, columns: List[str]) -> Dict[str, Any]:
 
     # Pattern: "instrument <Z>" / "using <Z> as an instrument"
     m = re.search(
-        r"(?:instrument(?:ing)?|using)\s+([a-z0-9_]+)\s+as\s+(?:an?\s+)?"
-        r"instrument",
+        r"(?:instrument(?:ing)?|using)\s+([a-z0-9_]+)\s+as\s+(?:an?\s+)?" r"instrument",
         q,
     )
     if m and m.group(1) in cols_lower:
@@ -144,9 +143,7 @@ def parse_question(question: str, columns: List[str]) -> Dict[str, Any]:
         out["design"] = "iv"
 
     # Pattern: "discontinuity at <c>" / "threshold <c>"
-    m = re.search(
-        r"(?:discontinuity|threshold|cutoff)\s+(?:at\s+)?(-?\d+\.?\d*)", q
-    )
+    m = re.search(r"(?:discontinuity|threshold|cutoff)\s+(?:at\s+)?(-?\d+\.?\d*)", q)
     if m:
         try:
             out["cutoff"] = float(m.group(1))
@@ -215,6 +212,7 @@ class PaperDraft:
     >>> draft.sections["Results"]    # one rendered section  # doctest: +SKIP
     >>> draft.workflow.result        # underlying CausalResult  # doctest: +SKIP
     """
+
     question: str
     sections: Dict[str, str]
     workflow: Any
@@ -230,9 +228,16 @@ class PaperDraft:
 
     def to_markdown(self) -> str:
         order = [
-            "Question", "Data", "Identification",
-            "Estimator", "Results", "Robustness",
-            "Reviewer Audit", "Pipeline notes", "Causal DAG", "References",
+            "Question",
+            "Data",
+            "Identification",
+            "Estimator",
+            "Results",
+            "Robustness",
+            "Reviewer Audit",
+            "Pipeline notes",
+            "Causal DAG",
+            "References",
         ]
         chunks: List[str] = []
         for title in order:
@@ -259,8 +264,10 @@ class PaperDraft:
             body_lines.append("")
         bib = ""
         if self.citations:
-            bib_items = "\n".join(f"\\bibitem{{r{i}}} {_tex_escape(c)}"
-                                  for i, c in enumerate(self.citations))
+            bib_items = "\n".join(
+                f"\\bibitem{{r{i}}} {_tex_escape(c)}"
+                for i, c in enumerate(self.citations)
+            )
             bib = (
                 "\\begin{thebibliography}{99}\n"
                 f"{bib_items}\n"
@@ -272,10 +279,7 @@ class PaperDraft:
             "\\usepackage{hyperref}\n"
             "\\title{Causal Analysis Draft}\n"
             "\\begin{document}\n"
-            "\\maketitle\n\n"
-            + "\n".join(body_lines)
-            + "\n" + bib +
-            "\\end{document}\n"
+            "\\maketitle\n\n" + "\n".join(body_lines) + "\n" + bib + "\\end{document}\n"
         )
 
     def to_docx(self, path: str) -> None:
@@ -289,10 +293,8 @@ class PaperDraft:
             import docx  # type: ignore
         except ImportError:
             # Fallback: write markdown to disk with a notice.
-            with open(path, 'w', encoding='utf-8') as fh:
-                fh.write(
-                    "# (python-docx not installed; markdown fallback)\n\n"
-                )
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("# (python-docx not installed; markdown fallback)\n\n")
                 fh.write(self.to_markdown())
             return
         doc = docx.Document()
@@ -371,11 +373,9 @@ class PaperDraft:
         yaml_lines: List[str] = ["---", f"title: {_yaml_str(title)}"]
         if author:
             yaml_lines.append(f"author: {_yaml_str(author)}")
-        yaml_lines.append(f"date: \"{_dt.date.today().isoformat()}\"")
+        yaml_lines.append(f'date: "{_dt.date.today().isoformat()}"')
         if self.question:
-            yaml_lines.append(
-                f"subtitle: {_yaml_str(self.question)}"
-            )
+            yaml_lines.append(f"subtitle: {_yaml_str(self.question)}")
         # ``format:`` block.
         if len(formats) == 1:
             yaml_lines.append(f"format: {formats[0]}")
@@ -395,6 +395,7 @@ class PaperDraft:
             # mapping was bypassed.
             try:
                 from ..output._bibliography import csl_filename
+
                 resolved = csl_filename(csl)
             except Exception as exc:
                 record_degradation(
@@ -409,22 +410,25 @@ class PaperDraft:
         prov = self._workflow_provenance()
         if include_provenance and prov is not None:
             yaml_lines.append("statspai:")
-            yaml_lines.append(
-                f"  version: \"{prov.statspai_version}\""
-            )
-            yaml_lines.append(f"  run_id: \"{prov.run_id}\"")
+            yaml_lines.append(f'  version: "{prov.statspai_version}"')
+            yaml_lines.append(f'  run_id: "{prov.run_id}"')
             if prov.data_hash:
-                yaml_lines.append(
-                    f"  data_hash: \"{prov.data_hash}\""
-                )
+                yaml_lines.append(f'  data_hash: "{prov.data_hash}"')
         yaml_lines.append("---")
         yaml = "\n".join(yaml_lines)
 
         # Body — identical section ordering to to_markdown().
         order = [
-            "Question", "Data", "Identification",
-            "Estimator", "Results", "Robustness",
-            "Reviewer Audit", "Pipeline notes", "Causal DAG", "References",
+            "Question",
+            "Data",
+            "Identification",
+            "Estimator",
+            "Results",
+            "Robustness",
+            "Reviewer Audit",
+            "Pipeline notes",
+            "Causal DAG",
+            "References",
         ]
         # When self.dag is set, regenerate the Causal DAG body with the
         # Quarto-native mermaid block instead of the markdown text-art.
@@ -471,16 +475,16 @@ class PaperDraft:
         """Write the draft to disk in the format inferred from the path
         extension (``.md`` / ``.tex`` / ``.docx`` / ``.qmd``)."""
         lower = path.lower()
-        if lower.endswith('.tex'):
-            with open(path, 'w', encoding='utf-8') as fh:
+        if lower.endswith(".tex"):
+            with open(path, "w", encoding="utf-8") as fh:
                 fh.write(self.to_tex())
-        elif lower.endswith('.docx'):
+        elif lower.endswith(".docx"):
             self.to_docx(path)
-        elif lower.endswith('.qmd'):
-            with open(path, 'w', encoding='utf-8') as fh:
+        elif lower.endswith(".qmd"):
+            with open(path, "w", encoding="utf-8") as fh:
                 fh.write(self.to_qmd())
         else:
-            with open(path, 'w', encoding='utf-8') as fh:
+            with open(path, "w", encoding="utf-8") as fh:
                 fh.write(self.to_markdown())
 
     def summary(self) -> str:
@@ -497,12 +501,12 @@ class PaperDraft:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'question': self.question,
-            'sections': dict(self.sections),
-            'parsed_hints': dict(self.parsed_hints),
-            'citations': list(self.citations),
-            'degradations': list(self.degradations),
-            'fmt': self.fmt,
+            "question": self.question,
+            "sections": dict(self.sections),
+            "parsed_hints": dict(self.parsed_hints),
+            "citations": list(self.citations),
+            "degradations": list(self.degradations),
+            "fmt": self.fmt,
         }
 
 
@@ -552,8 +556,7 @@ def _render_dag_section(
     if dag is None:
         return ""
 
-    node_set: Any = (getattr(dag, "observed_nodes", None) or
-                     getattr(dag, "nodes", set()))
+    node_set: Any = getattr(dag, "observed_nodes", None) or getattr(dag, "nodes", set())
     nodes = sorted(node_set)
     edges = list(getattr(dag, "edges", []) or [])
 
@@ -587,8 +590,11 @@ def _render_dag_section(
         lines.append("")
 
     # Latent / unobserved confounders.
-    latent = sorted(n for n in (getattr(dag, "nodes", set()) or set())
-                    if isinstance(n, str) and n.startswith("_L_"))
+    latent = sorted(
+        n
+        for n in (getattr(dag, "nodes", set()) or set())
+        if isinstance(n, str) and n.startswith("_L_")
+    )
     if latent:
         lines.append("**Latent common causes** (unobserved):")
         for n in latent:
@@ -618,9 +624,7 @@ def _render_dag_section(
                 if not s:
                     lines.append("- ∅ (no controls needed)")
                 else:
-                    lines.append(
-                        "- {" + ", ".join(f"`{x}`" for x in sorted(s)) + "}"
-                    )
+                    lines.append("- {" + ", ".join(f"`{x}`" for x in sorted(s)) + "}")
             lines.append("")
         try:
             bd = dag.backdoor_paths(treatment, outcome)
@@ -633,9 +637,7 @@ def _render_dag_section(
             )
             bd = None
         if bd:
-            lines.append(
-                f"**Back-door paths** from `{treatment}` to `{outcome}`:"
-            )
+            lines.append(f"**Back-door paths** from `{treatment}` to `{outcome}`:")
             for path in bd:
                 arrow = " — ".join(f"`{x}`" for x in path)
                 lines.append(f"- {arrow}")
@@ -678,16 +680,18 @@ def _tex_escape(s: str) -> str:
     """Minimal LaTeX-escape for free-form text in section bodies."""
     if not isinstance(s, str):
         s = str(s)
-    out = (s.replace("\\", r"\textbackslash{}")
-           .replace("&", r"\&")
-           .replace("%", r"\%")
-           .replace("$", r"\$")
-           .replace("#", r"\#")
-           .replace("_", r"\_")
-           .replace("{", r"\{")
-           .replace("}", r"\}")
-           .replace("~", r"\textasciitilde{}")
-           .replace("^", r"\textasciicircum{}"))
+    out = (
+        s.replace("\\", r"\textbackslash{}")
+        .replace("&", r"\&")
+        .replace("%", r"\%")
+        .replace("$", r"\$")
+        .replace("#", r"\#")
+        .replace("_", r"\_")
+        .replace("{", r"\{")
+        .replace("}", r"\}")
+        .replace("~", r"\textasciitilde{}")
+        .replace("^", r"\textasciicircum{}")
+    )
     return out
 
 
@@ -742,32 +746,36 @@ def _inline_md_to_tex(text: str) -> str:
     code spans before bold so we don't escape backticks inside code."""
     out = text
     # Code spans `...`
-    out = re.sub(r"`([^`]+)`",
-                 lambda m: r"\texttt{" + _tex_escape(m.group(1)) + "}",
-                 out)
+    out = re.sub(
+        r"`([^`]+)`", lambda m: r"\texttt{" + _tex_escape(m.group(1)) + "}", out
+    )
     # Bold **...**
-    out = re.sub(r"\*\*([^*]+)\*\*",
-                 lambda m: r"\textbf{" + _tex_escape(m.group(1)) + "}",
-                 out)
+    out = re.sub(
+        r"\*\*([^*]+)\*\*", lambda m: r"\textbf{" + _tex_escape(m.group(1)) + "}", out
+    )
     # Italic *...* (after bold so we don't double-match)
-    out = re.sub(r"(?<!\*)\*([^*]+)\*(?!\*)",
-                 lambda m: r"\emph{" + _tex_escape(m.group(1)) + "}",
-                 out)
+    out = re.sub(
+        r"(?<!\*)\*([^*]+)\*(?!\*)",
+        lambda m: r"\emph{" + _tex_escape(m.group(1)) + "}",
+        out,
+    )
     # Anything left is plain text — escape special chars but leave
     # already-emitted LaTeX commands alone. The previous regexes have
     # produced LaTeX commands containing braces / backslashes; do a
     # cheap heuristic: only escape lines that don't already contain
     # ``\textbf`` / ``\texttt`` / ``\emph``.
-    if (r"\textbf" not in out and r"\texttt" not in out
-            and r"\emph" not in out):
+    if r"\textbf" not in out and r"\texttt" not in out and r"\emph" not in out:
         out = _tex_escape(out)
     return out
 
 
-def _eda_block(data: pd.DataFrame, y: Optional[str],
-               treatment: Optional[str],
-               covariates: Optional[List[str]],
-               degradations: Optional[List[Dict[str, Any]]] = None) -> str:
+def _eda_block(
+    data: pd.DataFrame,
+    y: Optional[str],
+    treatment: Optional[str],
+    covariates: Optional[List[str]],
+    degradations: Optional[List[Dict[str, Any]]] = None,
+) -> str:
     """Build a brief EDA markdown section (size, balance, missingness).
 
     Optional ``degradations`` list, when supplied, receives a structured
@@ -814,9 +822,13 @@ def _eda_block(data: pd.DataFrame, y: Optional[str],
                 f"mean={tr.mean():.3f}, sd={tr.std():.3f}."
             )
     # Optional covariate balance — only for binary treatment.
-    if (treatment and treatment in data.columns
-            and covariates and len(covariates) <= 8
-            and data[treatment].nunique() == 2):
+    if (
+        treatment
+        and treatment in data.columns
+        and covariates
+        and len(covariates) <= 8
+        and data[treatment].nunique() == 2
+    ):
         balance_lines: List[str] = []
         try:
             grp = data.groupby(treatment)[covariates].mean()
@@ -824,9 +836,11 @@ def _eda_block(data: pd.DataFrame, y: Optional[str],
                 balance_lines.append("")
                 balance_lines.append("Mean covariates by treatment arm:")
                 balance_lines.append("")
-                balance_lines.append("| covariate | "
-                                     + " | ".join(str(g) for g in grp.index)
-                                     + " | std-diff |")
+                balance_lines.append(
+                    "| covariate | "
+                    + " | ".join(str(g) for g in grp.index)
+                    + " | std-diff |"
+                )
                 balance_lines.append(
                     "|---|" + "|".join(["---"] * grp.shape[0]) + "|---|"
                 )
@@ -883,8 +897,9 @@ def _section_from_workflow(
             lines.append("")
             if diag.findings:
                 for f in diag.findings:
-                    lines.append(f"- [{f.severity.upper()}] *{f.category}* — "
-                                 f"{f.message}")
+                    lines.append(
+                        f"- [{f.severity.upper()}] *{f.category}* — " f"{f.message}"
+                    )
                     if f.suggestion:
                         lines.append(f"    - Fix: {f.suggestion}")
             else:
@@ -910,11 +925,10 @@ def _section_from_workflow(
             top = rec.recommendations[0]
             lines.append(f"- **Method**: {top['method']}")
             lines.append(f"- **Function**: `sp.{top['function']}()`")
-            if top.get('reason'):
+            if top.get("reason"):
                 lines.append(f"- **Rationale**: {top['reason']}")
-            if top.get('assumptions'):
-                lines.append("- **Key assumptions**: "
-                             + ", ".join(top['assumptions']))
+            if top.get("assumptions"):
+                lines.append("- **Key assumptions**: " + ", ".join(top["assumptions"]))
         except Exception as exc:
             lines.append(
                 "Estimator recommendation available but not fully "
@@ -933,7 +947,7 @@ def _section_from_workflow(
     # Results
     r = workflow.result
     lines = []
-    if r is not None and hasattr(r, 'estimate') and hasattr(r, 'se'):
+    if r is not None and hasattr(r, "estimate") and hasattr(r, "se"):
         try:
             est = float(r.estimate)
             se = float(r.se)
@@ -941,7 +955,7 @@ def _section_from_workflow(
                 f"- **{getattr(r, 'estimand', 'Effect')}**: "
                 f"{est:.4f} (SE = {se:.4f})"
             )
-            ci = getattr(r, 'ci', None)
+            ci = getattr(r, "ci", None)
             if ci is not None and not isinstance(ci, (pd.DataFrame, pd.Series)):
                 try:
                     lo, hi = float(ci[0]), float(ci[1])
@@ -953,31 +967,35 @@ def _section_from_workflow(
                         exc=exc,
                         detail=f"ci={ci!r}",
                     )
-            pv = getattr(r, 'pvalue', np.nan)
+            pv = getattr(r, "pvalue", np.nan)
             if pd.notna(pv):
                 lines.append(f"- **p-value**: {float(pv):.4f}")
-            n_obs = getattr(r, 'n_obs', None)
+            n_obs = getattr(r, "n_obs", None)
             if n_obs is not None:
                 lines.append(f"- **N obs**: {int(n_obs)}")
         except Exception as exc:
-            lines.append("Result available but not fully serialisable; "
-                         "see `paper.workflow.result`.")
+            lines.append(
+                "Result available but not fully serialisable; "
+                "see `paper.workflow.result`."
+            )
             record_degradation(
                 degradations,
                 section="Results section serialisation (estimate/se path)",
                 exc=exc,
                 detail=f"result_type={type(r).__name__}",
             )
-    elif r is not None and hasattr(r, 'params'):
+    elif r is not None and hasattr(r, "params"):
         try:
-            main = (workflow.treatment or list(r.params.index)[0])
+            main = workflow.treatment or list(r.params.index)[0]
             if main in r.params.index:
                 est = float(r.params[main])
                 se = float(r.std_errors[main])
                 lines.append(f"- **{main}**: {est:.4f} (SE = {se:.4f})")
             else:
-                lines.append("Coefficient table available; see "
-                             "`paper.workflow.result.params`.")
+                lines.append(
+                    "Coefficient table available; see "
+                    "`paper.workflow.result.params`."
+                )
         except Exception as exc:
             lines.append("Result available but not fully serialisable.")
             record_degradation(
@@ -1013,20 +1031,19 @@ def _section_from_workflow(
             # Strip the ``_findings`` / ``_design`` / ``_notes`` private
             # keys that the new ``to_dict()`` shape adds — they belong in
             # the structured payload, not the human-readable bullet list.
-            flat = {
-                k: v for k, v in findings.items()
-                if not str(k).startswith("_")
-            }
+            flat = {k: v for k, v in findings.items() if not str(k).startswith("_")}
             lines = []
             if flat:
                 for k, v in flat.items():
                     if isinstance(v, (int, float, np.integer, np.floating)):
                         if isinstance(v, (int, np.integer)):
-                            lines.append(f"- {k.replace('_', ' ').title()}: "
-                                         f"{int(v)}")
+                            lines.append(
+                                f"- {k.replace('_', ' ').title()}: " f"{int(v)}"
+                            )
                         else:
-                            lines.append(f"- {k.replace('_', ' ').title()}: "
-                                         f"{float(v):.4f}")
+                            lines.append(
+                                f"- {k.replace('_', ' ').title()}: " f"{float(v):.4f}"
+                            )
                     elif isinstance(v, dict):
                         lines.append(f"- {k.replace('_', ' ').title()}:")
                         for kk, vv in list(v.items())[:8]:
@@ -1065,6 +1082,7 @@ def _reviewer_audit_section(
     if est_name:
         try:
             from ..registry import describe_function
+
             spec = describe_function(est_name)
             lines.append(
                 f"- **Registry**: `sp.{est_name}` is "
@@ -1104,6 +1122,7 @@ def _reviewer_audit_section(
     if target is not None:
         try:
             from ..postestimation import postestimation_contract
+
             contract = postestimation_contract(target)
             available = ", ".join(sorted(contract["available"].keys())[:10])
             lines.append(f"- **Post-estimation surface**: {available}.")
@@ -1153,9 +1172,15 @@ def _reviewer_audit_section(
     lines.append("")
     lines.append("**Reviewer checklist**")
     lines.append("- Re-run the replication script or `sp.replication_pack()` output.")
-    lines.append("- Check identification assumptions against the study design, not only the code.")
-    lines.append("- Inspect overlap, pre-trends, weak instruments, or bandwidth sensitivity when relevant.")
-    lines.append("- Confirm exported tables are generated from `tidy()`/`glance()`/`sp.collect()` artifacts.")
+    lines.append(
+        "- Check identification assumptions against the study design, not only the code."
+    )
+    lines.append(
+        "- Inspect overlap, pre-trends, weak instruments, or bandwidth sensitivity when relevant."
+    )
+    lines.append(
+        "- Confirm exported tables are generated from `tidy()`/`glance()`/`sp.collect()` artifacts."
+    )
     return "\n".join(lines)
 
 
@@ -1183,7 +1208,7 @@ def paper(
     llm: Optional[str] = None,
     llm_client: Any = None,
     llm_domain: str = "",
-    fmt: str = 'markdown',
+    fmt: str = "markdown",
     output_path: Optional[str] = None,
     include_eda: bool = True,
     include_robustness: bool = True,
@@ -1271,7 +1296,7 @@ def paper(
     The question parser is purely additive — explicit kwargs always win.
     Pass everything you know; the parser fills in only what's missing.
     """
-    if fmt not in {'markdown', 'tex', 'docx', 'qmd'}:
+    if fmt not in {"markdown", "tex", "docx", "qmd"}:
         raise ValueError(
             f"Unknown fmt={fmt!r}. Use 'markdown', 'tex', 'docx', or 'qmd'."
         )
@@ -1289,15 +1314,17 @@ def paper(
         _CQ = None  # pragma: no cover — package-internal
     if _CQ is not None and isinstance(data, _CQ):
         if question is None:
-            question = (
-                f"effect of {data.treatment} on {data.outcome}"
-                + (f" in {data.population}" if data.population else "")
+            question = f"effect of {data.treatment} on {data.outcome}" + (
+                f" in {data.population}" if data.population else ""
             )
         return paper_from_question(
-            data, question=question, fmt=fmt,
+            data,
+            question=question,
+            fmt=fmt,
             output_path=output_path,
             include_robustness=include_robustness,
-            cite=cite, dag=dag,
+            cite=cite,
+            dag=dag,
             reviewer_mode=reviewer_mode,
         )
 
@@ -1305,12 +1332,12 @@ def paper(
     parsed = parse_question(question or "", cols)
 
     # Explicit args win; parser fills gaps.
-    y_eff = y or parsed.get('y')
-    t_eff = treatment or parsed.get('treatment')
-    design_eff = design or parsed.get('design')
-    instrument_eff = instrument or parsed.get('instrument')
-    running_var_eff = running_var or parsed.get('running_var')
-    cutoff_eff = cutoff if cutoff is not None else parsed.get('cutoff')
+    y_eff = y or parsed.get("y")
+    t_eff = treatment or parsed.get("treatment")
+    design_eff = design or parsed.get("design")
+    instrument_eff = instrument or parsed.get("instrument")
+    running_var_eff = running_var or parsed.get("running_var")
+    cutoff_eff = cutoff if cutoff is not None else parsed.get("cutoff")
 
     if y_eff is None:
         raise ValueError(
@@ -1333,6 +1360,7 @@ def paper(
             from ..causal_llm._resolver import get_llm_client
             from ..causal_llm.llm_dag import llm_dag_propose
             from ..dag.graph import DAG as _DAG
+
             client = llm_client
             # llm='auto' means "try to resolve a real client; fall back
             # to the heuristic if none can be resolved". llm='heuristic'
@@ -1371,6 +1399,7 @@ def paper(
             dag = None
 
     from .causal_workflow import causal as _causal
+
     workflow = _causal(
         data,
         y=y_eff,
@@ -1398,9 +1427,7 @@ def paper(
         try:
             getattr(workflow, stage)()
         except Exception as exc:  # pragma: no cover (defensive)
-            pipeline_errors.append(
-                f"`{stage}()` failed: {type(exc).__name__}: {exc}"
-            )
+            pipeline_errors.append(f"`{stage}()` failed: {type(exc).__name__}: {exc}")
             break
     if include_robustness:
         if workflow.result is not None:
@@ -1422,6 +1449,7 @@ def paper(
     # preserves their (more specific) record.
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         if workflow.result is not None:
             _attach_prov(
                 workflow.result,
@@ -1449,18 +1477,24 @@ def paper(
     sections: Dict[str, str] = {}
 
     # Question
-    sections["Question"] = (
-        f"> {question.strip() if question else '(no question supplied)'}\n\n"
-        f"- **Outcome**: `{y_eff}`\n"
-        + (f"- **Treatment**: `{t_eff}`\n" if t_eff else "")
-        + (f"- **Design (auto-detected)**: `{workflow.design}`\n"
-           if workflow.design else "")
+    sections[
+        "Question"
+    ] = f"> {question.strip() if question else '(no question supplied)'}\n\n" f"- **Outcome**: `{y_eff}`\n" + (
+        f"- **Treatment**: `{t_eff}`\n" if t_eff else ""
+    ) + (
+        f"- **Design (auto-detected)**: `{workflow.design}`\n"
+        if workflow.design
+        else ""
     )
 
     # Data / EDA
     if include_eda:
         sections["Data"] = _eda_block(
-            data, y_eff, t_eff, covariates, degradations=degradations,
+            data,
+            y_eff,
+            t_eff,
+            covariates,
+            degradations=degradations,
         )
 
     # Identification / Estimator / Results / Robustness
@@ -1476,7 +1510,10 @@ def paper(
     if dag is not None:
         try:
             sections["Causal DAG"] = _render_dag_section(
-                dag, treatment=t_eff, outcome=y_eff, fmt="markdown",
+                dag,
+                treatment=t_eff,
+                outcome=y_eff,
+                fmt="markdown",
                 degradations=degradations,
             )
         except Exception as exc:
@@ -1492,7 +1529,7 @@ def paper(
     # hallucinated one.  Surface the failure rather than swallow it.
     citations: List[str] = []
     if cite and workflow.result is not None:
-        cite_fn = getattr(workflow.result, 'cite', None)
+        cite_fn = getattr(workflow.result, "cite", None)
         if callable(cite_fn):
             try:
                 ref = cite_fn()
@@ -1507,7 +1544,8 @@ def paper(
                 )
     references_body = (
         "\n".join(f"- {c}" for c in citations)
-        if citations else "_(No explicit citations attached — see "
+        if citations
+        else "_(No explicit citations attached — see "
         "`workflow.result.cite()` if available.)_"
     )
 
@@ -1654,9 +1692,7 @@ def paper_from_question(
     degradations: List[Dict[str, Any]] = []
 
     sections: Dict[str, str] = {}
-    eff_question = question or (
-        f"effect of {q.treatment} on {q.outcome}"
-    )
+    eff_question = question or (f"effect of {q.treatment} on {q.outcome}")
 
     # Question section
     bits = [
@@ -1670,13 +1706,9 @@ def paper_from_question(
         f"- **Time structure**: {q.time_structure}",
     ]
     if q.covariates:
-        bits.append(
-            "- **Covariates**: " + ", ".join(f"`{c}`" for c in q.covariates)
-        )
+        bits.append("- **Covariates**: " + ", ".join(f"`{c}`" for c in q.covariates))
     if q.instruments:
-        bits.append(
-            "- **Instruments**: " + ", ".join(f"`{c}`" for c in q.instruments)
-        )
+        bits.append("- **Instruments**: " + ", ".join(f"`{c}`" for c in q.instruments))
     if q.cutoff is not None:
         bits.append(f"- **Cutoff**: {q.cutoff}")
     if q.notes:
@@ -1750,6 +1782,7 @@ def paper_from_question(
     # finding rather than aborting the section.
     if include_robustness:
         from ._robustness import run_robustness_battery
+
         # ``CausalQuestion.estimate`` returns an ``EstimationResult``
         # wrapping the underlying estimator result; the battery wants
         # the underlying object so it can introspect ``.violations()``,
@@ -1794,7 +1827,7 @@ def paper_from_question(
         "\n".join(f"- {c}" for c in citations)
         if citations
         else "_(No explicit citations attached — see "
-             "`result.underlying.cite()` if available.)_"
+        "`result.underlying.cite()` if available.)_"
     )
 
     if reviewer_mode:
@@ -1811,7 +1844,10 @@ def paper_from_question(
     if dag is not None:
         try:
             sections["Causal DAG"] = _render_dag_section(
-                dag, treatment=q.treatment, outcome=q.outcome, fmt="markdown",
+                dag,
+                treatment=q.treatment,
+                outcome=q.outcome,
+                fmt="markdown",
                 degradations=degradations,
             )
         except Exception as exc:
@@ -1846,6 +1882,7 @@ def paper_from_question(
     # downstream replication_pack / Quarto appendix pick it up.
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         target = result.underlying if result.underlying is not None else result
         _attach_prov(
             target,
@@ -1904,4 +1941,6 @@ class _LightweightWorkflowAdapter:
         self.data = q.data
         # Surface the underlying estimator's result so the qmd
         # appendix and replication_pack pick up its _provenance.
-        self.result = estimation.underlying if estimation.underlying is not None else estimation
+        self.result = (
+            estimation.underlying if estimation.underlying is not None else estimation
+        )

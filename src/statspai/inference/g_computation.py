@@ -46,7 +46,7 @@ def g_computation(
     y: str,
     treat: str,
     covariates: List[str],
-    estimand: str = 'ATE',
+    estimand: str = "ATE",
     treat_values: Optional[Sequence[float]] = None,
     ml_Q: Optional[Any] = None,
     n_boot: int = 500,
@@ -135,10 +135,9 @@ def g_computation(
     alternatives, or :func:`sp.dml` with ``model='plr'/'irm'`` for
     ML-based orthogonalization.
     """
-    if estimand not in ('ATE', 'ATT', 'dose_response'):
+    if estimand not in ("ATE", "ATT", "dose_response"):
         raise ValueError(
-            f"estimand must be 'ATE', 'ATT', or 'dose_response'; "
-            f"got '{estimand}'"
+            f"estimand must be 'ATE', 'ATT', or 'dose_response'; " f"got '{estimand}'"
         )
 
     df = data[[y, treat] + list(covariates)].dropna().reset_index(drop=True)
@@ -147,7 +146,7 @@ def g_computation(
     X = df[covariates].values.astype(float)
     n = len(Y)
 
-    if estimand in ('ATE', 'ATT'):
+    if estimand in ("ATE", "ATT"):
         uniq = set(np.unique(D))
         if not uniq.issubset({0, 1}):
             # Truncate the value dump: a continuous treatment can have
@@ -158,13 +157,12 @@ def g_computation(
             # a UserWarning. Filter NaNs before sorting (a lone NaN
             # would sit in a non-deterministic position in Python's
             # sort and omit real values from the preview).
-            finite = [v for v in uniq
-                      if not (isinstance(v, float) and np.isnan(v))]
+            finite = [v for v in uniq if not (isinstance(v, float) and np.isnan(v))]
             has_nan = len(finite) < len(uniq)
             vals = sorted(finite)
-            preview = ', '.join(f'{v:.4g}' for v in vals[:5])
-            tail = f', ... ({len(vals) - 5} more)' if len(vals) > 5 else ''
-            nan_note = ' (plus NaN values present)' if has_nan else ''
+            preview = ", ".join(f"{v:.4g}" for v in vals[:5])
+            tail = f", ... ({len(vals) - 5} more)" if len(vals) > 5 else ""
+            nan_note = " (plus NaN values present)" if has_nan else ""
             raise ValueError(
                 f"estimand='{estimand}' requires binary treatment (0/1); "
                 f"treatment has {len(vals)} unique values "
@@ -190,17 +188,19 @@ def g_computation(
         design = np.column_stack([D_.reshape(-1, 1), X_])
         if ml_Q is None:
             import statsmodels.api as sm
+
             fit = sm.OLS(Y_, sm.add_constant(design)).fit()
             preds = np.empty((X_.shape[0], len(grid_)))
             for k, d_val in enumerate(grid_):
                 d_col = np.full((X_.shape[0], 1), d_val)
                 new_design = np.column_stack([d_col, X_])
                 preds[:, k] = fit.predict(
-                    sm.add_constant(new_design, has_constant='add')
+                    sm.add_constant(new_design, has_constant="add")
                 )
             return preds
         else:
             from sklearn.base import clone
+
             model = clone(ml_Q)
             model.fit(design, Y_)
             preds = np.empty((X_.shape[0], len(grid_)))
@@ -216,15 +216,15 @@ def g_computation(
         X_: np.ndarray,
     ) -> np.ndarray:
         preds = _fit_and_predict(Y_, D_, X_, grid)
-        if estimand == 'ATE':
+        if estimand == "ATE":
             return np.array([float(np.mean(preds[:, 1] - preds[:, 0]))])
-        if estimand == 'ATT':
+        if estimand == "ATT":
             treated_mask = D_ == 1
             if treated_mask.sum() == 0:
                 return np.array([np.nan])
-            return np.array([
-                float(np.mean(preds[treated_mask, 1] - preds[treated_mask, 0]))
-            ])
+            return np.array(
+                [float(np.mean(preds[treated_mask, 1] - preds[treated_mask, 0]))]
+            )
         # dose_response
         return np.asarray(preds.mean(axis=0), dtype=float)
 
@@ -270,38 +270,40 @@ def g_computation(
     ci_hi = np.nanpercentile(boot, hi_q, axis=0)
 
     # Wald p-value on each grid point (dose-response reports a curve)
-    with np.errstate(divide='ignore', invalid='ignore'):
+    with np.errstate(divide="ignore", invalid="ignore"):
         z = np.where(se > 0, point / se, 0.0)
     pvalue = 2 * (1 - stats.norm.cdf(np.abs(z)))
 
     model_info = {
-        'estimator': 'G-computation (parametric g-formula)',
-        'estimand': estimand,
-        'n_boot': n_boot,
-        'n_boot_failed': n_failed,
-        'n_boot_success': n_success,
-        'ml_Q': type(ml_Q).__name__ if ml_Q is not None else 'OLS',
-        'grid': grid.tolist(),
+        "estimator": "G-computation (parametric g-formula)",
+        "estimand": estimand,
+        "n_boot": n_boot,
+        "n_boot_failed": n_failed,
+        "n_boot_success": n_success,
+        "ml_Q": type(ml_Q).__name__ if ml_Q is not None else "OLS",
+        "grid": grid.tolist(),
     }
     if n_failed > 0:
-        model_info['first_bootstrap_error'] = first_err
+        model_info["first_bootstrap_error"] = first_err
 
-    if estimand == 'dose_response':
-        detail = pd.DataFrame({
-            'dose': grid,
-            'estimate': point,
-            'se': se,
-            'ci_lower': ci_lo,
-            'ci_upper': ci_hi,
-            'pvalue': pvalue,
-        })
-        model_info['curve'] = detail.copy()
+    if estimand == "dose_response":
+        detail = pd.DataFrame(
+            {
+                "dose": grid,
+                "estimate": point,
+                "se": se,
+                "ci_lower": ci_lo,
+                "ci_upper": ci_hi,
+                "pvalue": pvalue,
+            }
+        )
+        model_info["curve"] = detail.copy()
         # Report first-dose point as the summary estimate slot
         summary_est = float(point[0])
         summary_se = float(se[0])
         summary_pv = float(pvalue[0])
         summary_ci = (float(ci_lo[0]), float(ci_hi[0]))
-        label = 'E[Y(d)]'
+        label = "E[Y(d)]"
     else:
         detail = None
         summary_est = float(point[0])
@@ -311,7 +313,7 @@ def g_computation(
         label = estimand
 
     _result = CausalResult(
-        method='G-computation',
+        method="G-computation",
         estimand=label,
         estimate=summary_est,
         se=summary_se,
@@ -321,23 +323,24 @@ def g_computation(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='g_computation',
+        _citation_key="g_computation",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.g_computation",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "estimand": estimand,
-                "treat_values": (
-                    list(treat_values) if treat_values else None
-                ),
+                "treat_values": (list(treat_values) if treat_values else None),
                 "ml_Q": type(ml_Q).__name__ if ml_Q is not None else None,
                 "n_boot": n_boot,
-                "alpha": alpha, "seed": seed,
+                "alpha": alpha,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -348,7 +351,7 @@ def g_computation(
 
 
 # Citation
-CausalResult._CITATIONS['g_computation'] = (
+CausalResult._CITATIONS["g_computation"] = (
     "@article{robins1986new,\n"
     "  title={A new approach to causal inference in mortality studies "
     "with a sustained exposure period: application to control of the "

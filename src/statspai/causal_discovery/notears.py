@@ -24,10 +24,10 @@ import pandas as pd
 from scipy.optimize import minimize
 from scipy.linalg import expm
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def notears(
     data: pd.DataFrame,
@@ -96,9 +96,14 @@ def notears(
     True
     """
     est = NOTEARS(
-        data=data, variables=variables, lambda1=lambda1,
-        max_iter=max_iter, h_tol=h_tol, rho_max=rho_max,
-        w_threshold=w_threshold, random_state=random_state,
+        data=data,
+        variables=variables,
+        lambda1=lambda1,
+        max_iter=max_iter,
+        h_tol=h_tol,
+        rho_max=rho_max,
+        w_threshold=w_threshold,
+        random_state=random_state,
     )
     return est.fit()
 
@@ -106,6 +111,7 @@ def notears(
 # ======================================================================
 # NOTEARS Estimator
 # ======================================================================
+
 
 class NOTEARS:
     """
@@ -183,9 +189,7 @@ class NOTEARS:
 
         n, d = X.shape
         if d < 2:
-            raise ValueError(
-                "At least 2 variables are required for DAG learning"
-            )
+            raise ValueError("At least 2 variables are required for DAG learning")
 
         # Standardise
         X = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)
@@ -206,9 +210,7 @@ class NOTEARS:
         for i in range(d):
             for j in range(d):
                 if W_est[i, j] != 0:
-                    edges.append(
-                        (var_names[i], var_names[j], float(W_est[i, j]))
-                    )
+                    edges.append((var_names[i], var_names[j], float(W_est[i, j])))
         edges.sort(key=lambda e: abs(e[2]), reverse=True)
 
         dag_binary = (np.abs(W_est) > 0).astype(int)
@@ -218,17 +220,20 @@ class NOTEARS:
         self._var_names = var_names
 
         from ._viz import DAGDict
-        return DAGDict({
-            'adjacency': adj_df,
-            'edges': edges,
-            'dag': dag_df,
-            'variables': var_names,
-            'h_value': h_val,
-            'n_edges': len(edges),
-            'n_obs': n,
-            'lambda1': self.lambda1,
-            'w_threshold': self.w_threshold,
-        })
+
+        return DAGDict(
+            {
+                "adjacency": adj_df,
+                "edges": edges,
+                "dag": dag_df,
+                "variables": var_names,
+                "h_value": h_val,
+                "n_edges": len(edges),
+                "n_obs": n,
+                "lambda1": self.lambda1,
+                "w_threshold": self.w_threshold,
+            }
+        )
 
     def _notears_linear(
         self,
@@ -290,7 +295,7 @@ class NOTEARS:
 
             # Least-squares loss: 0.5/n * ||X - X@W||_F^2
             R = X - X @ W
-            loss = 0.5 / n * np.sum(R ** 2)
+            loss = 0.5 / n * np.sum(R**2)
 
             # Acyclicity
             h = _h_func(W)
@@ -341,7 +346,7 @@ class NOTEARS:
                 wm = w[d2:].reshape(d, d)
                 W = wp - wm
                 R = X - X @ W
-                loss = 0.5 / n * np.sum(R ** 2)
+                loss = 0.5 / n * np.sum(R**2)
                 h = _h_func(W)
                 l1 = self.lambda1 * (np.sum(wp) + np.sum(wm))
                 return float(loss + alpha * h + 0.5 * rho * h * h + l1)
@@ -364,11 +369,12 @@ class NOTEARS:
                 return np.asarray(grad, dtype=float)
 
             result = minimize(
-                _obj_split, w0,
+                _obj_split,
+                w0,
                 jac=_grad_split,
-                method='L-BFGS-B',
+                method="L-BFGS-B",
                 bounds=bounds,
-                options={'maxiter': 1000, 'ftol': 1e-12},
+                options={"maxiter": 1000, "ftol": 1e-12},
             )
             w_opt = result.x
             W_opt = np.asarray(
@@ -378,10 +384,11 @@ class NOTEARS:
         else:
             w0 = W_init.ravel()
             result = minimize(
-                _objective, w0,
+                _objective,
+                w0,
                 jac=_gradient,
-                method='L-BFGS-B',
-                options={'maxiter': 1000, 'ftol': 1e-12},
+                method="L-BFGS-B",
+                options={"maxiter": 1000, "ftol": 1e-12},
             )
             W_opt = np.asarray(result.x.reshape(d, d), dtype=float)
 
@@ -392,7 +399,7 @@ class NOTEARS:
 
     def summary(self) -> str:
         """Print a summary of the learned DAG."""
-        if not hasattr(self, '_W'):
+        if not hasattr(self, "_W"):
             raise ValueError("Model must be fitted first. Call .fit()")
 
         lines = []
@@ -409,8 +416,9 @@ class NOTEARS:
         for i in range(d):
             for j in range(d):
                 if self._W[i, j] != 0:
-                    edges.append((self._var_names[i], self._var_names[j],
-                                  self._W[i, j]))
+                    edges.append(
+                        (self._var_names[i], self._var_names[j], self._W[i, j])
+                    )
         edges.sort(key=lambda e: abs(e[2]), reverse=True)
 
         lines.append(f"  Edges found: {len(edges)}")
@@ -427,6 +435,7 @@ class NOTEARS:
 # ======================================================================
 # Acyclicity constraint
 # ======================================================================
+
 
 def _h_func(W: np.ndarray) -> float:
     """

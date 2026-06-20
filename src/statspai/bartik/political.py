@@ -47,7 +47,6 @@ from ..core.results import CausalResult, EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from .shift_share import bartik as _bartik_cs
 
-
 __all__ = [
     "shift_share_political",
     "ShiftSharePoliticalResult",
@@ -140,7 +139,11 @@ def _require_dataframe(obj: Any, *, name: str, function: str) -> pd.DataFrame:
         raise MethodIncompatibility(
             f"`{name}` must be a pandas DataFrame, got {type(obj).__name__}.",
             recovery_hint=f"Pass `{name}` as a pandas DataFrame to `{function}`.",
-            diagnostics={"function": function, "argument": name, "type": type(obj).__name__},
+            diagnostics={
+                "function": function,
+                "argument": name,
+                "type": type(obj).__name__,
+            },
         )
     if obj.empty:
         raise DataInsufficient(
@@ -156,7 +159,11 @@ def _require_series(obj: Any, *, name: str, function: str) -> pd.Series:
         raise MethodIncompatibility(
             f"`{name}` must be a pandas Series, got {type(obj).__name__}.",
             recovery_hint=f"Pass `{name}` as a pandas Series indexed by industry.",
-            diagnostics={"function": function, "argument": name, "type": type(obj).__name__},
+            diagnostics={
+                "function": function,
+                "argument": name,
+                "type": type(obj).__name__,
+            },
         )
     if obj.empty:
         raise DataInsufficient(
@@ -177,7 +184,9 @@ def _require_column_name(name: Any, *, argument: str) -> str:
     return name
 
 
-def _require_columns(df: pd.DataFrame, columns: Sequence[str], *, function: str) -> None:
+def _require_columns(
+    df: pd.DataFrame, columns: Sequence[str], *, function: str
+) -> None:
     missing = [col for col in columns if col not in df.columns]
     if missing:
         raise MethodIncompatibility(
@@ -191,7 +200,9 @@ def _require_columns(df: pd.DataFrame, columns: Sequence[str], *, function: str)
         )
 
 
-def _coerce_optional_columns(columns: Optional[Sequence[str] | str], *, argument: str) -> List[str]:
+def _coerce_optional_columns(
+    columns: Optional[Sequence[str] | str], *, argument: str
+) -> List[str]:
     if columns is None:
         return []
     if isinstance(columns, str):
@@ -305,10 +316,12 @@ def _long_to_panel(
     last = panel.groupby(unit).last()
     dy = last[outcome] - first[outcome]
     dx = last[endog] - first[endog]
-    agg = pd.DataFrame({
-        outcome: dy,
-        endog: dx,
-    })
+    agg = pd.DataFrame(
+        {
+            outcome: dy,
+            endog: dx,
+        }
+    )
     agg = agg.join(shares, how="inner")
     return agg
 
@@ -344,7 +357,7 @@ def _share_balance_test(
             continue
         beta, *_ = np.linalg.lstsq(X_design, z, rcond=None)
         resid = z - X_design @ beta
-        rss = float(np.sum(resid ** 2))
+        rss = float(np.sum(resid**2))
         tss = float(np.sum((z - z.mean()) ** 2))
         if tss <= 0 or rss <= 0:
             continue
@@ -352,12 +365,14 @@ def _share_balance_test(
         df1, df2 = k, max(n - k - 1, 1)
         F = (r2 / k) / ((1 - r2) / max(df2, 1)) if r2 < 1 else float("inf")
         pv = float(1 - stats.f.cdf(F, df1, df2)) if np.isfinite(F) else 0.0
-        results.append({
-            "covariate": col,
-            "R2_on_shares": r2,
-            "F": F,
-            "pvalue": pv,
-        })
+        results.append(
+            {
+                "covariate": col,
+                "R2_on_shares": r2,
+                "F": F,
+                "pvalue": pv,
+            }
+        )
     return pd.DataFrame(results)
 
 
@@ -438,7 +453,11 @@ def shift_share_political(
     covariates = _coerce_optional_columns(covariates, argument="covariates")
     alpha = _require_alpha(alpha)
     leave_one_out = _require_bool(leave_one_out, argument="leave_one_out")
-    _require_columns(data, (unit, time, outcome, endog, *covariates), function="shift_share_political")
+    _require_columns(
+        data,
+        (unit, time, outcome, endog, *covariates),
+        function="shift_share_political",
+    )
     shares = _require_dataframe(shares, name="shares", function="shift_share_political")
     shocks = _require_series(shocks, name="shocks", function="shift_share_political")
     _finite_frame(shares, name="shares")
@@ -461,13 +480,20 @@ def shift_share_political(
         raise DataInsufficient(
             "`data` must contain at least two time periods for long-difference shift-share IV.",
             recovery_hint="Provide pre/post or multi-period panel data.",
-            diagnostics={"function": "shift_share_political", "n_periods": int(data[time].nunique())},
+            diagnostics={
+                "function": "shift_share_political",
+                "n_periods": int(data[time].nunique()),
+            },
         )
 
     # --- Build cross-section of long-differences --------------------------
     cs = _long_to_panel(
-        data, shares, unit=unit, time=time,
-        endog=endog, outcome=outcome,
+        data,
+        shares,
+        unit=unit,
+        time=time,
+        endog=endog,
+        outcome=outcome,
     )
     if cs.empty:
         raise DataInsufficient(
@@ -480,8 +506,11 @@ def shift_share_political(
     # mirrors the finite-check the panel sibling already applies.
     _finite_frame(cs[[outcome, endog]], name="shift_share_political outcome/endog")
     cs_with_shares = cs.reset_index()
-    cs_with_shares = cs_with_shares.rename(columns={"index": unit}) \
-        if unit not in cs_with_shares.columns else cs_with_shares
+    cs_with_shares = (
+        cs_with_shares.rename(columns={"index": unit})
+        if unit not in cs_with_shares.columns
+        else cs_with_shares
+    )
 
     # --- Run the shift-share IV -------------------------------------------
     shares_aligned = shares.loc[cs.index]
@@ -522,12 +551,18 @@ def shift_share_political(
     shocks_arr = shocks.to_numpy(dtype=float)
     dx = cs[endog].to_numpy(dtype=float)
     alphas = _rotemberg_weights(shares_arr, shocks_arr, dx)
-    rot_df = pd.DataFrame({
-        "industry": list(shares.columns),
-        "shock": shocks_arr,
-        "rotemberg_weight": alphas,
-        "abs_weight": np.abs(alphas),
-    }).sort_values("abs_weight", ascending=False).reset_index(drop=True)
+    rot_df = (
+        pd.DataFrame(
+            {
+                "industry": list(shares.columns),
+                "shock": shocks_arr,
+                "rotemberg_weight": alphas,
+                "abs_weight": np.abs(alphas),
+            }
+        )
+        .sort_values("abs_weight", ascending=False)
+        .reset_index(drop=True)
+    )
 
     # --- Share-balance diagnostic -----------------------------------------
     if covariates:
@@ -547,10 +582,12 @@ def shift_share_political(
         method="shift_share_political",
         diagnostics={
             "leave_one_out": bool(leave_one_out),
-            "rotemberg_top1_share": float(rot_df.iloc[0]["abs_weight"])
-            if len(rot_df) > 0 else 0.0,
-            "rotemberg_top5_share": float(rot_df.head(5)["abs_weight"].sum())
-            if len(rot_df) >= 5 else 0.0,
+            "rotemberg_top1_share": (
+                float(rot_df.iloc[0]["abs_weight"]) if len(rot_df) > 0 else 0.0
+            ),
+            "rotemberg_top5_share": (
+                float(rot_df.head(5)["abs_weight"].sum()) if len(rot_df) >= 5 else 0.0
+            ),
         },
     )
 
@@ -894,7 +931,8 @@ def shift_share_political_panel(
             diagnostics={"argument": "cluster", "value": cluster},
         )
     _require_columns(
-        data, (unit, time, outcome, endog, *cov_cols),
+        data,
+        (unit, time, outcome, endog, *cov_cols),
         function="shift_share_political_panel",
     )
 
@@ -905,13 +943,19 @@ def shift_share_political_panel(
         raise DataInsufficient(
             "`data` must contain at least two time periods for panel shift-share IV.",
             recovery_hint="Provide multi-period panel data.",
-            diagnostics={"function": "shift_share_political_panel", "n_periods": len(times)},
+            diagnostics={
+                "function": "shift_share_political_panel",
+                "n_periods": len(times),
+            },
         )
     if len(units) < 2:
         raise DataInsufficient(
             "`data` must contain at least two units for panel shift-share IV.",
             recovery_hint="Provide data for at least two units.",
-            diagnostics={"function": "shift_share_political_panel", "n_units": len(units)},
+            diagnostics={
+                "function": "shift_share_political_panel",
+                "n_units": len(units),
+            },
         )
     shares_by_t = _resolve_shares(shares, times, units)
     first_t = times[0]
@@ -919,8 +963,11 @@ def shift_share_political_panel(
     shocks_by_t = _resolve_shocks(shocks, times, industries)
 
     df_iv = _build_bartik_panel(
-        data_sorted, shares_by_t, shocks_by_t,
-        unit=unit, time=time,
+        data_sorted,
+        shares_by_t,
+        shocks_by_t,
+        unit=unit,
+        time=time,
     )
     if df_iv["__bartik_iv__"].isna().any():
         n_missing = int(df_iv["__bartik_iv__"].isna().sum())
@@ -928,7 +975,10 @@ def shift_share_political_panel(
             f"{n_missing} rows have missing Bartik IV — check that "
             "every (unit, time) is covered by shares + shocks.",
             recovery_hint="Ensure every unit and period is covered by the share and shock inputs.",
-            diagnostics={"function": "shift_share_political_panel", "n_missing": n_missing},
+            diagnostics={
+                "function": "shift_share_political_panel",
+                "n_missing": n_missing,
+            },
         )
 
     # --- Within-transformation for FE ------------------------------------
@@ -948,8 +998,7 @@ def shift_share_political_panel(
     D = df_demean[endog].to_numpy(dtype=float)
     Z = df_demean["__bartik_iv__"].to_numpy(dtype=float)
     X_cov = (
-        df_demean[cov_cols].to_numpy(dtype=float)
-        if cov_cols else np.zeros((len(Y), 0))
+        df_demean[cov_cols].to_numpy(dtype=float) if cov_cols else np.zeros((len(Y), 0))
     )
 
     # Stage 1: D ~ Z + X
@@ -996,12 +1045,15 @@ def shift_share_political_panel(
                     continue
                 # shares at (units_in_t, industry=ind).  Reindex by row's
                 # unit to align row-wise with Z_tilde / eps.
-                s_col = shares_t[ind].reindex(unit_vals[mask]).to_numpy(
-                    dtype=float, na_value=0.0,
+                s_col = (
+                    shares_t[ind]
+                    .reindex(unit_vals[mask])
+                    .to_numpy(
+                        dtype=float,
+                        na_value=0.0,
+                    )
                 )
-                contrib += float(np.sum(
-                    s_col * Z_tilde[mask] * eps[mask]
-                ))
+                contrib += float(np.sum(s_col * Z_tilde[mask] * eps[mask]))
             u_k[k_idx] = contrib
         # Denominator: (D_hat' D_tilde) under FE demeaning.
         denom = float(np.dot(D_hat, D_tilde))
@@ -1019,17 +1071,22 @@ def shift_share_political_panel(
                     "denominator": denom,
                 },
             )
-        var_akm = float(np.sum(u_k ** 2) / denom ** 2)
+        var_akm = float(np.sum(u_k**2) / denom**2)
         se = float(np.sqrt(max(var_akm, 0.0)))
         akm_se = se
         cluster_label = "shock (AKM 2019)"
     else:
         # Unit / time / two-way cluster-robust sandwich on stage-2.
         cluster_col = (
-            df_iv[unit].to_numpy() if cluster == "unit"
-            else df_iv[time].to_numpy() if cluster == "time"
-            else (df_iv[unit].astype(str) + "_" +
-                  df_iv[time].astype(str)).to_numpy()
+            df_iv[unit].to_numpy()
+            if cluster == "unit"
+            else (
+                df_iv[time].to_numpy()
+                if cluster == "time"
+                else (
+                    df_iv[unit].astype(str) + "_" + df_iv[time].astype(str)
+                ).to_numpy()
+            )
         )
         bread = np.linalg.pinv(S2.T @ S2)
         meat = np.zeros_like(bread)
@@ -1045,6 +1102,7 @@ def shift_share_political_panel(
         akm_se = None
         cluster_label = cluster
     from scipy.stats import norm as _norm
+
     z = _norm.ppf(1 - alpha / 2)
     ci = (beta - z * se, beta + z * se)
 
@@ -1067,12 +1125,14 @@ def shift_share_political_panel(
         bread_t = np.linalg.pinv(s2.T @ s2)
         meat_t = (s2 * r_t[:, None]).T @ (s2 * r_t[:, None])
         v_t = float((bread_t @ meat_t @ bread_t)[1, 1])
-        per_period_rows.append({
-            "time": t,
-            "estimate": float(b_t[1]),
-            "se": float(np.sqrt(max(v_t, 0.0))),
-            "n": int(n_t),
-        })
+        per_period_rows.append(
+            {
+                "time": t,
+                "estimate": float(b_t[1]),
+                "se": float(np.sqrt(max(v_t, 0.0))),
+                "n": int(n_t),
+            }
+        )
     per_period = pd.DataFrame(per_period_rows)
 
     # --- Rotemberg weights aggregated across periods ---------------------
@@ -1085,9 +1145,11 @@ def shift_share_political_panel(
         aligned = [ind for ind in industries if ind in shocks_t.index]
         if not aligned:
             continue
-        S_aligned = shares_t.loc[sub[unit].astype(int), aligned].to_numpy(dtype=float) \
-            if all(u in shares_t.index for u in sub[unit]) \
+        S_aligned = (
+            shares_t.loc[sub[unit].astype(int), aligned].to_numpy(dtype=float)
+            if all(u in shares_t.index for u in sub[unit])
             else shares_t.reindex(sub[unit])[aligned].to_numpy(dtype=float)
+        )
         g_aligned = shocks_t.loc[aligned].to_numpy(dtype=float)
         alpha_t = g_aligned * (S_aligned.T @ d_c)
         for ind, w in zip(aligned, alpha_t):
@@ -1095,13 +1157,18 @@ def shift_share_political_panel(
     total = sum(abs(v) for v in rot_acc.values())
     rot_rows = []
     for ind, w in rot_acc.items():
-        rot_rows.append({
-            "industry": ind,
-            "rotemberg_weight": (w / total) if total > 0 else 0.0,
-            "abs_weight": abs(w) / total if total > 0 else 0.0,
-        })
-    rot_df = pd.DataFrame(rot_rows).sort_values("abs_weight", ascending=False) \
+        rot_rows.append(
+            {
+                "industry": ind,
+                "rotemberg_weight": (w / total) if total > 0 else 0.0,
+                "abs_weight": abs(w) / total if total > 0 else 0.0,
+            }
+        )
+    rot_df = (
+        pd.DataFrame(rot_rows)
+        .sort_values("abs_weight", ascending=False)
         .reset_index(drop=True)
+    )
 
     # --- Share-balance diagnostic (using time=first share matrix) --------
     if cov_cols:
@@ -1113,9 +1180,7 @@ def shift_share_political_panel(
         cov_df = cov_df.loc[shares_first.index]
         balance = _share_balance_test(shares_first, cov_df)
     else:
-        balance = pd.DataFrame(
-            columns=["covariate", "R2_on_shares", "F", "pvalue"]
-        )
+        balance = pd.DataFrame(columns=["covariate", "R2_on_shares", "F", "pvalue"])
 
     # Translate the FE *mode* into the column-name list that the output
     # layer expects under the canonical ``model_info['fixed_effects']`` key.
@@ -1149,7 +1214,8 @@ def shift_share_political_panel(
             "n_obs": int(len(df_iv)),
             "first_stage_F": float(
                 (D_hat.var() / max(resid.var(), 1e-12))
-                if resid.var() > 0 else float("nan")
+                if resid.var() > 0
+                else float("nan")
             ),
         },
         model_info={

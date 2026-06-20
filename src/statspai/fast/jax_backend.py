@@ -23,6 +23,7 @@ Honest scope (carries through to PHASE7_VERIFY.md):
 Falls back gracefully: if jax is not installed, the backend hook
 raises ``ImportError`` with a clear message.
 """
+
 from __future__ import annotations
 
 from typing import Any, List, Tuple
@@ -31,11 +32,13 @@ import numpy as np
 
 try:
     import jax
+
     # Match StatsPAI's float64 default — XLA truncates to float32 unless
     # explicitly enabled:
     # https://jax.readthedocs.io/en/latest/notebooks/Common_Gotchas_in_JAX.html
     jax.config.update("jax_enable_x64", True)
     import jax.numpy as jnp
+
     _HAS_JAX = True
     _DEFAULT_DEVICE = jax.devices()[0].platform  # 'cpu' / 'gpu' / 'tpu'
 except ImportError:  # pragma: no cover  - exercised on no-jax CI
@@ -48,6 +51,7 @@ except ImportError:  # pragma: no cover  - exercised on no-jax CI
 # ---------------------------------------------------------------------------
 # Pure-JAX kernel
 # ---------------------------------------------------------------------------
+
 
 def _sweep_one_fe_jax(col: Any, codes: Any, group_count: int) -> Any:
     """col -= mean(col | codes); pure-JAX bincount equivalent."""
@@ -156,9 +160,13 @@ def demean_jax(
         jax_dtype = jnp.float64 if X.dtype == np.float64 else jnp.float32
         x_j = jnp.asarray(X[:, j], dtype=jax_dtype)
         x_dem = _demean_one_column_jax(
-            x_j, fe_jnp, group_counts,
-            max_iter=int(max_iter), tol=float(tol),
-            accelerate=bool(accelerate), accel_period=int(accel_period),
+            x_j,
+            fe_jnp,
+            group_counts,
+            max_iter=int(max_iter),
+            tol=float(tol),
+            accelerate=bool(accelerate),
+            accel_period=int(accel_period),
         )
         out_cols.append(np.asarray(x_dem))
         converged.append(True)  # JAX path doesn't surface a convergence flag;

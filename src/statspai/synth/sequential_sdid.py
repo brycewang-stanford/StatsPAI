@@ -29,7 +29,6 @@ from ..core.results import CausalResult
 from .._result_serialize import ResultProtocolMixin
 from .sdid import sdid as _sdid_base
 
-
 __all__ = ["sequential_sdid", "SequentialSDIDResult"]
 
 
@@ -192,8 +191,7 @@ def sequential_sdid(
     df = data.copy()
     # Treated cohorts (sorted in adoption order).
     treated_cohorts = sorted(
-        c for c in df[cohort].unique()
-        if not pd.isna(c) and c != never_treated_value
+        c for c in df[cohort].unique() if not pd.isna(c) and c != never_treated_value
     )
     if not treated_cohorts:
         raise ValueError(
@@ -216,72 +214,86 @@ def sequential_sdid(
         if idx + 1 < len(treated_cohorts):
             # Inclusive upper limit: last period before next cohort enters.
             next_g = treated_cohorts[idx + 1]
-            t_max_g = next_g - 1 if np.issubdtype(type(next_g), np.integer) else (
-                df.loc[df[time] < next_g, time].max()
+            t_max_g = (
+                next_g - 1
+                if np.issubdtype(type(next_g), np.integer)
+                else (df.loc[df[time] < next_g, time].max())
             )
         else:
             t_max_g = max_time
 
         # Donor pool: never-treated + not-yet-treated (cohort > g) restricted
         # to times ≤ t_max_g.
-        donor_mask = (
-            (df[cohort] == never_treated_value) | (df[cohort] > g)
-        ) & (df[time] <= t_max_g)
+        donor_mask = ((df[cohort] == never_treated_value) | (df[cohort] > g)) & (
+            df[time] <= t_max_g
+        )
         treated_mask = (df[cohort] == g) & (df[time] <= t_max_g)
 
-        sub = pd.concat(
-            [df.loc[donor_mask], df.loc[treated_mask]], axis=0
-        ).drop_duplicates(subset=[unit, time]).reset_index(drop=True)
+        sub = (
+            pd.concat([df.loc[donor_mask], df.loc[treated_mask]], axis=0)
+            .drop_duplicates(subset=[unit, time])
+            .reset_index(drop=True)
+        )
 
         treated_units = sub.loc[sub[cohort] == g, unit].unique().tolist()
         if not treated_units:
             continue  # pragma: no cover
         # Need at least 2 pre-periods for SDID time weights.
         pre_times = sub.loc[sub[time] < g, time].unique()
-        post_times = sub.loc[
-            (sub[time] >= g) & (sub[time] <= t_max_g), time
-        ].unique()
+        post_times = sub.loc[(sub[time] >= g) & (sub[time] <= t_max_g), time].unique()
         if pre_times.size < 2 or post_times.size < 1:
-            per_cohort_rows.append({
-                "cohort": g, "treatment_period": g,
-                "att": np.nan, "se": np.nan,
-                "n_treated": len(treated_units),
-                "n_donors": int(
-                    (sub[cohort] != g).sum()
-                    / max(len(sub[time].unique()), 1)
-                ),
-                "note": "insufficient pre/post periods",
-            })
+            per_cohort_rows.append(
+                {
+                    "cohort": g,
+                    "treatment_period": g,
+                    "att": np.nan,
+                    "se": np.nan,
+                    "n_treated": len(treated_units),
+                    "n_donors": int(
+                        (sub[cohort] != g).sum() / max(len(sub[time].unique()), 1)
+                    ),
+                    "note": "insufficient pre/post periods",
+                }
+            )
             continue  # pragma: no cover
 
         try:
             res_g = _sdid_base(
-                sub, outcome=outcome, unit=unit, time=time,
-                treated_unit=treated_units, treatment_time=g,
-                method="sdid", se_method=se_method, n_reps=n_reps,
-                seed=seed, alpha=alpha,
+                sub,
+                outcome=outcome,
+                unit=unit,
+                time=time,
+                treated_unit=treated_units,
+                treatment_time=g,
+                method="sdid",
+                se_method=se_method,
+                n_reps=n_reps,
+                seed=seed,
+                alpha=alpha,
             )
-            per_cohort_rows.append({
-                "cohort": g,
-                "treatment_period": g,
-                "att": float(res_g.estimate),
-                "se": float(res_g.se),
-                "n_treated": len(treated_units),
-                "n_donors": int(
-                    len(sub.loc[sub[cohort] != g, unit].unique())
-                ),
-                "note": "",
-            })
+            per_cohort_rows.append(
+                {
+                    "cohort": g,
+                    "treatment_period": g,
+                    "att": float(res_g.estimate),
+                    "se": float(res_g.se),
+                    "n_treated": len(treated_units),
+                    "n_donors": int(len(sub.loc[sub[cohort] != g, unit].unique())),
+                    "note": "",
+                }
+            )
         except Exception as exc:  # noqa: BLE001  # pragma: no cover
-            per_cohort_rows.append({
-                "cohort": g, "treatment_period": g,
-                "att": np.nan, "se": np.nan,
-                "n_treated": len(treated_units),
-                "n_donors": int(
-                    len(sub.loc[sub[cohort] != g, unit].unique())
-                ),
-                "note": f"SDID failed: {type(exc).__name__}: {exc}",
-            })
+            per_cohort_rows.append(
+                {
+                    "cohort": g,
+                    "treatment_period": g,
+                    "att": np.nan,
+                    "se": np.nan,
+                    "n_treated": len(treated_units),
+                    "n_donors": int(len(sub.loc[sub[cohort] != g, unit].unique())),
+                    "note": f"SDID failed: {type(exc).__name__}: {exc}",
+                }
+            )
 
     per_cohort = pd.DataFrame(per_cohort_rows)
     valid = per_cohort.dropna(subset=["att", "se"]).copy()
@@ -298,15 +310,15 @@ def sequential_sdid(
     w = w / w.sum()
     agg_att = float(np.sum(w * valid["att"].to_numpy()))
     # Independent-cohort SE (conservative): sqrt(sum w^2 * se^2).
-    agg_var = float(np.sum((w ** 2) * (valid["se"].to_numpy() ** 2)))
+    agg_var = float(np.sum((w**2) * (valid["se"].to_numpy() ** 2)))
     agg_se = float(np.sqrt(agg_var))
     # Normal-approx CI
     from scipy import stats as _stats
+
     z = _stats.norm.ppf(1 - alpha / 2)
     agg_ci = (agg_att - z * agg_se, agg_att + z * agg_se)
     pval = (
-        2 * (1 - _stats.norm.cdf(abs(agg_att) / agg_se))
-        if agg_se > 0 else float("nan")
+        2 * (1 - _stats.norm.cdf(abs(agg_att) / agg_se)) if agg_se > 0 else float("nan")
     )
 
     return CausalResult(

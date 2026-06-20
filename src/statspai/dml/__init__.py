@@ -25,28 +25,30 @@ from .irm import DoubleMLIRM
 from .pliv import DoubleMLPLIV
 from .iivm import DoubleMLIIVM
 from .model_averaging import (
-    dml_model_averaging, model_averaging_dml, DMLAveragingResult,
+    dml_model_averaging,
+    model_averaging_dml,
+    DMLAveragingResult,
 )
 from .panel_dml import dml_panel, DMLPanelResult
 from ._sensitivity import dml_sensitivity, DMLSensitivityResult
 from ._diagnostics import dml_diagnostics, DMLDiagnostics
 
 __all__ = [
-    'dml',
-    'DoubleML',
-    'DoubleMLPLR',
-    'DoubleMLIRM',
-    'DoubleMLPLIV',
-    'DoubleMLIIVM',
-    'dml_model_averaging',
-    'model_averaging_dml',
-    'DMLAveragingResult',
+    "dml",
+    "DoubleML",
+    "DoubleMLPLR",
+    "DoubleMLIRM",
+    "DoubleMLPLIV",
+    "DoubleMLIIVM",
+    "dml_model_averaging",
+    "model_averaging_dml",
+    "DMLAveragingResult",
     # v1.7 long-panel DML (Clarke & Polselli 2025)
-    'dml_panel',
-    'DMLPanelResult',
+    "dml_panel",
+    "DMLPanelResult",
     # v1.13 sensitivity + diagnostics (Chernozhukov-Cinelli-Newey 2022)
-    'dml_sensitivity',
-    'DMLSensitivityResult',
-    'dml_diagnostics',
-    'DMLDiagnostics',
+    "dml_sensitivity",
+    "DMLSensitivityResult",
+    "dml_diagnostics",
+    "DMLDiagnostics",
 ]

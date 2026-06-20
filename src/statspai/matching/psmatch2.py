@@ -852,8 +852,7 @@ def psmatch2(
             f"outcome={out_var!r} is also listed in covariates; pass a "
             f"distinct outcome (or outcome=None to only build _weight).",
             diagnostics={"outcome": out_var, "covariates": covariates},
-            recovery_hint="Remove the outcome from covariates or set "
-            "outcome=None.",
+            recovery_hint="Remove the outcome from covariates or set " "outcome=None.",
         )
     k = n_matches if n_matches is not None else neighbor
 
@@ -868,8 +867,7 @@ def psmatch2(
     }
     if method not in _method_map:
         raise _psmatch2_error(
-            "method must be 'neighbor', 'kernel', or 'radius', "
-            f"got {method!r}.",
+            "method must be 'neighbor', 'kernel', or 'radius', " f"got {method!r}.",
             diagnostics={"method": method, "valid_methods": list(_method_map)},
             recovery_hint="Use method='neighbor', 'kernel', or 'radius'.",
         )
@@ -885,8 +883,7 @@ def psmatch2(
         raise _psmatch2_error(
             "se must be 'psmatch2' (or 'stata'), 'ai', or 'abadie_imbens'.",
             diagnostics={"se": se},
-            recovery_hint="Use se='psmatch2', se='ai', or "
-            "se='abadie_imbens'.",
+            recovery_hint="Use se='psmatch2', se='ai', or " "se='abadie_imbens'.",
         )
     if se_key in ("psmatch2", "stata"):
         se_method = "psmatch2"

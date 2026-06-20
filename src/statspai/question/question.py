@@ -20,20 +20,39 @@ if TYPE_CHECKING:
 
 
 __all__ = [
-    "CausalQuestion", "causal_question",
-    "IdentificationPlan", "EstimationResult",
+    "CausalQuestion",
+    "causal_question",
+    "IdentificationPlan",
+    "EstimationResult",
 ]
 
 
 _VALID_ESTIMANDS = ("ATE", "ATT", "ATU", "LATE", "CATE", "ITT")
-_VALID_TIME = ("cross_section", "panel", "repeated_cross_section",
-               "longitudinal", "time_series", "pre_post")
+_VALID_TIME = (
+    "cross_section",
+    "panel",
+    "repeated_cross_section",
+    "longitudinal",
+    "time_series",
+    "pre_post",
+)
 _VALID_DESIGNS = (
-    "auto", "rct", "selection_on_observables", "iv", "natural_experiment",
-    "policy_shock", "regression_discontinuity", "synthetic_control",
-    "did", "event_study", "longitudinal_observational",
+    "auto",
+    "rct",
+    "selection_on_observables",
+    "iv",
+    "natural_experiment",
+    "policy_shock",
+    "regression_discontinuity",
+    "synthetic_control",
+    "did",
+    "event_study",
+    "longitudinal_observational",
     # ML-based selection-on-observables (v1.13+):
-    "dml", "tmle", "metalearner", "causal_forest",
+    "dml",
+    "tmle",
+    "metalearner",
+    "causal_forest",
 )
 
 
@@ -72,7 +91,9 @@ def _require_string_option(value: Any, name: str) -> str:
     return out
 
 
-def _coerce_column_list(value: Any, name: str, *, allow_empty: bool = False) -> List[str]:
+def _coerce_column_list(
+    value: Any, name: str, *, allow_empty: bool = False
+) -> List[str]:
     if isinstance(value, str):
         out = [value]
     else:
@@ -103,7 +124,9 @@ def _coerce_optional_column_list(value: Any, name: str) -> List[str]:
     return _coerce_column_list(value, name, allow_empty=True)
 
 
-def _require_columns_present(data: pd.DataFrame, columns: Sequence[str], context: str) -> None:
+def _require_columns_present(
+    data: pd.DataFrame, columns: Sequence[str], context: str
+) -> None:
     missing = [col for col in columns if col not in data.columns]
     if missing:
         raise MethodIncompatibility(
@@ -278,17 +301,20 @@ class CausalQuestion:
         See :func:`statspai.question.preregister.preregister` for details.
         """
         from .preregister import preregister as _pre
+
         return _pre(self, filename, fmt=fmt, note=note)
 
     @classmethod
     def load(cls, filename: str | Path) -> "CausalQuestion":
         """Load a CausalQuestion from a preregistration file."""
         from .preregister import load_preregister
+
         return load_preregister(filename)
 
     def to_yaml(self) -> str:
         """Render the question as a YAML string (no file I/O)."""
         from .preregister import _yaml_dumps
+
         return _yaml_dumps({"question": self.to_dict()})
 
     # --- Introspection --------------------------------------------------- #
@@ -352,12 +378,16 @@ class CausalQuestion:
 
     # --- Paper builder --------------------------------------------------- #
 
-    def paper(self, *, fmt: str = "markdown",
-              output_path: Optional[str] = None,
-              dag: Any = None,
-              include_robustness: bool = True,
-              cite: bool = True,
-              reviewer_mode: bool = False) -> Any:
+    def paper(
+        self,
+        *,
+        fmt: str = "markdown",
+        output_path: Optional[str] = None,
+        dag: Any = None,
+        include_robustness: bool = True,
+        cite: bool = True,
+        reviewer_mode: bool = False,
+    ) -> Any:
         """Build a full :class:`PaperDraft` from this declared question.
 
         Convenience wrapper around :func:`statspai.paper_from_question`.
@@ -375,6 +405,7 @@ class CausalQuestion:
         >>> draft.write("paper.qmd")
         """
         from ..workflow.paper import paper_from_question
+
         return paper_from_question(
             self,
             fmt=fmt,
@@ -587,8 +618,12 @@ def _pick_plan(q: CausalQuestion) -> IdentificationPlan:
                 "no anticipation",
                 "stable unit composition",
             ],
-            fallback_estimators=["callaway_santanna", "sun_abraham",
-                                 "did_imputation", "honest_did"],
+            fallback_estimators=[
+                "callaway_santanna",
+                "sun_abraham",
+                "did_imputation",
+                "honest_did",
+            ],
         )
     if design == "event_study":
         return IdentificationPlan(
@@ -858,8 +893,15 @@ def _pick_plan(q: CausalQuestion) -> IdentificationPlan:
                 "positivity (overlap in propensity score)",
                 "no interference",
             ],
-            fallback_estimators=["dml", "tmle", "ipw", "regress", "match",
-                                 "ebalance", "causal_forest"],
+            fallback_estimators=[
+                "dml",
+                "tmle",
+                "ipw",
+                "regress",
+                "match",
+                "ebalance",
+                "causal_forest",
+            ],
             warnings=[
                 "estimand='CATE' was requested but no covariates were "
                 "declared as effect modifiers — falling back to ATE via "
@@ -879,8 +921,15 @@ def _pick_plan(q: CausalQuestion) -> IdentificationPlan:
             "positivity (overlap in propensity score)",
             "no interference",
         ],
-        fallback_estimators=["dml", "tmle", "ipw", "regress", "match",
-                             "ebalance", "causal_forest"],
+        fallback_estimators=[
+            "dml",
+            "tmle",
+            "ipw",
+            "regress",
+            "match",
+            "ebalance",
+            "causal_forest",
+        ],
     )
 
 
@@ -913,9 +962,9 @@ def _auto_design(q: CausalQuestion) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def _dispatch_estimator(q: CausalQuestion,
-                        plan: IdentificationPlan,
-                        **kwargs: Any) -> EstimationResult:
+def _dispatch_estimator(
+    q: CausalQuestion, plan: IdentificationPlan, **kwargs: Any
+) -> EstimationResult:
     import statspai as sp
 
     est_name = plan.estimator
@@ -939,9 +988,14 @@ def _dispatch_estimator(q: CausalQuestion,
         ci_lo = float(res.conf_int_lower.get(q.treatment, float("nan")))
         ci_hi = float(res.conf_int_upper.get(q.treatment, float("nan")))
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=(ci_lo, ci_hi),
-            n=n, underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=(ci_lo, ci_hi),
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "aipw":
@@ -954,14 +1008,20 @@ def _dispatch_estimator(q: CausalQuestion,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "iv":
         # 2SLS via formula interface
         from ..iv import fit as _iv_fit
+
         instrs = " + ".join(q.instruments)
         covs = " + " + " + ".join(q.covariates) if q.covariates else ""
         formula = f"{q.outcome} ~ ({q.treatment} ~ {instrs}){covs}"
@@ -976,9 +1036,14 @@ def _dispatch_estimator(q: CausalQuestion,
         else:
             est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "did":
@@ -1001,9 +1066,14 @@ def _dispatch_estimator(q: CausalQuestion,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "rdrobust":
@@ -1028,9 +1098,14 @@ def _dispatch_estimator(q: CausalQuestion,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "synth":
@@ -1052,16 +1127,20 @@ def _dispatch_estimator(q: CausalQuestion,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "longitudinal.analyze":
         if q.id is None or q.time is None:
             raise MethodIncompatibility(
-                "design='longitudinal_observational' requires id=... "
-                "and time=....",
+                "design='longitudinal_observational' requires id=... " "and time=....",
                 diagnostics={"id": q.id, "time": q.time},
             )
         _require_columns_present(
@@ -1070,19 +1149,25 @@ def _dispatch_estimator(q: CausalQuestion,
             "longitudinal.analyze",
         )
         from ..longitudinal import analyze as _long_analyze
+
         res = _long_analyze(
             data=data,
-            id=q.id, time=q.time,
-            treatment=q.treatment, outcome=q.outcome,
+            id=q.id,
+            time=q.time,
+            treatment=q.treatment,
+            outcome=q.outcome,
             time_varying=q.covariates or [],
             **kwargs,
         )
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
+            estimand=plan.estimand,
+            estimator=est_name,
             estimate=float(res.estimate),
             se=float(res.se),
             ci=(float(res.ci[0]), float(res.ci[1])),
-            n=n, underlying=res, plan=plan,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "event_study":
@@ -1096,14 +1181,23 @@ def _dispatch_estimator(q: CausalQuestion,
             data, [q.outcome, treat_time, q.time, q.id], "event_study"
         )
         res = sp.event_study(
-            data=data, y=q.outcome, treat_time=treat_time,
-            time=q.time, unit=q.id, **kwargs,
+            data=data,
+            y=q.outcome,
+            treat_time=treat_time,
+            time=q.time,
+            unit=q.id,
+            **kwargs,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "dml":
@@ -1114,7 +1208,8 @@ def _dispatch_estimator(q: CausalQuestion,
                 diagnostics={"design": "dml", "covariates": q.covariates},
             )
         _reject_reserved_kwargs(
-            kwargs, "dml",
+            kwargs,
+            "dml",
             reserved=("data", "y", "treat", "covariates"),
         )
         # Pick PLR/IRM/PLIV/IIVM from declared fields. Caller can still
@@ -1175,8 +1270,7 @@ def _dispatch_estimator(q: CausalQuestion,
         if is_iv_model:
             instrument = kwargs.pop(
                 "instrument",
-                q.instruments[0] if len(q.instruments) == 1
-                else list(q.instruments),
+                q.instruments[0] if len(q.instruments) == 1 else list(q.instruments),
             )
         else:
             # Non-IV model: drop any incoming instrument (from the
@@ -1195,15 +1289,24 @@ def _dispatch_estimator(q: CausalQuestion,
                 )
             kwargs.pop("instrument", None)
         res = sp.dml(
-            data=data, y=q.outcome, treat=q.treatment,
+            data=data,
+            y=q.outcome,
+            treat=q.treatment,
             covariates=list(q.covariates),
-            model=model, instrument=instrument, **kwargs,
+            model=model,
+            instrument=instrument,
+            **kwargs,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "tmle":
@@ -1214,7 +1317,8 @@ def _dispatch_estimator(q: CausalQuestion,
                 diagnostics={"design": "tmle", "covariates": q.covariates},
             )
         _reject_reserved_kwargs(
-            kwargs, "tmle",
+            kwargs,
+            "tmle",
             reserved=("data", "y", "treat", "covariates"),
         )
         # plan.estimand has already been normalised to ATE/ATT by
@@ -1223,15 +1327,23 @@ def _dispatch_estimator(q: CausalQuestion,
         if tmle_estimand not in ("ATE", "ATT"):
             tmle_estimand = "ATE"
         res = sp.tmle(
-            data=data, y=q.outcome, treat=q.treatment,
+            data=data,
+            y=q.outcome,
+            treat=q.treatment,
             covariates=list(q.covariates),
-            estimand=tmle_estimand, **kwargs,
+            estimand=tmle_estimand,
+            **kwargs,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "metalearner":
@@ -1245,7 +1357,8 @@ def _dispatch_estimator(q: CausalQuestion,
                 },
             )
         _reject_reserved_kwargs(
-            kwargs, "metalearner",
+            kwargs,
+            "metalearner",
             reserved=("data", "y", "treat", "covariates"),
         )
         # sp.metalearner does not accept `random_state` directly. When
@@ -1257,35 +1370,50 @@ def _dispatch_estimator(q: CausalQuestion,
         meta_random_state = kwargs.pop("random_state", None)
         if meta_random_state is not None:
             from sklearn.ensemble import (
-                GradientBoostingRegressor, GradientBoostingClassifier,
+                GradientBoostingRegressor,
+                GradientBoostingClassifier,
             )
+
             kwargs.setdefault(
                 "outcome_model",
                 GradientBoostingRegressor(
-                    n_estimators=200, max_depth=4, learning_rate=0.05,
-                    subsample=0.8, random_state=meta_random_state,
+                    n_estimators=200,
+                    max_depth=4,
+                    learning_rate=0.05,
+                    subsample=0.8,
+                    random_state=meta_random_state,
                 ),
             )
             kwargs.setdefault(
                 "propensity_model",
                 GradientBoostingClassifier(
-                    n_estimators=200, max_depth=4, learning_rate=0.05,
-                    subsample=0.8, random_state=meta_random_state,
+                    n_estimators=200,
+                    max_depth=4,
+                    learning_rate=0.05,
+                    subsample=0.8,
+                    random_state=meta_random_state,
                 ),
             )
         # learner='dr' is sp.metalearner's default; SE comes from the
         # AIPW influence function regardless of learner family
         # (v1.11.4+ behaviour).
         res = sp.metalearner(
-            data=data, y=q.outcome, treat=q.treatment,
+            data=data,
+            y=q.outcome,
+            treat=q.treatment,
             covariates=list(q.covariates),
             **kwargs,
         )
         est, se, ci = _extract_generic(res)
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=est, se=se, ci=ci, n=n,
-            underlying=res, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=est,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=res,
+            plan=plan,
         )
 
     if est_name == "causal_forest":
@@ -1299,7 +1427,8 @@ def _dispatch_estimator(q: CausalQuestion,
                 },
             )
         _reject_reserved_kwargs(
-            kwargs, "causal_forest",
+            kwargs,
+            "causal_forest",
             reserved=("data", "Y", "T", "X", "formula"),
         )
         # AIPW kwargs we recognise (mirrors sp.metalearner). All other
@@ -1350,23 +1479,30 @@ def _dispatch_estimator(q: CausalQuestion,
         # grf::average_treatment_effect uses in R for ATE inference on
         # top of a causal forest.
         ate, se, ci = _ate_inference_aipw(
-            X=X, Y=Y, D=T,
-            n_folds=aipw_n_folds, alpha=alpha,
+            X=X,
+            Y=Y,
+            D=T,
+            n_folds=aipw_n_folds,
+            alpha=alpha,
             random_state=aipw_random_state,
         )
         return EstimationResult(
-            estimand=plan.estimand, estimator=est_name,
-            estimate=ate, se=se, ci=ci, n=n,
-            underlying=cf, plan=plan,
+            estimand=plan.estimand,
+            estimator=est_name,
+            estimate=ate,
+            se=se,
+            ci=ci,
+            n=n,
+            underlying=cf,
+            plan=plan,
         )
 
-    raise NotImplementedError(
-        f"Dispatch for estimator {est_name!r} not implemented."
-    )
+    raise NotImplementedError(f"Dispatch for estimator {est_name!r} not implemented.")
 
 
-def _reject_reserved_kwargs(kwargs: dict[str, Any], design: str, *,
-                            reserved: tuple[str, ...]) -> None:
+def _reject_reserved_kwargs(
+    kwargs: dict[str, Any], design: str, *, reserved: tuple[str, ...]
+) -> None:
     """Raise a clear TypeError if user kwargs collide with positional
     arguments the dispatcher fills from the CausalQuestion fields.
 
@@ -1386,7 +1522,10 @@ def _reject_reserved_kwargs(kwargs: dict[str, Any], design: str, *,
 
 
 def _ate_inference_aipw(
-    *, X: Any, Y: Any, D: Any,
+    *,
+    X: Any,
+    Y: Any,
+    D: Any,
     n_folds: int = 5,
     alpha: float = 0.05,
     random_state: Optional[int] = 42,
@@ -1414,7 +1553,8 @@ def _ate_inference_aipw(
     """
     from ..metalearners.metalearners import _cross_fit_aipw_phi
     from sklearn.ensemble import (
-        GradientBoostingRegressor, GradientBoostingClassifier,
+        GradientBoostingRegressor,
+        GradientBoostingClassifier,
     )
 
     Y = np.asarray(Y).astype(float).ravel()
@@ -1432,19 +1572,27 @@ def _ate_inference_aipw(
     n = len(Y)
 
     outcome_model = GradientBoostingRegressor(
-        n_estimators=200, max_depth=4, learning_rate=0.05,
-        subsample=0.8, random_state=random_state,
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.8,
+        random_state=random_state,
     )
     propensity_model = GradientBoostingClassifier(
-        n_estimators=200, max_depth=4, learning_rate=0.05,
-        subsample=0.8, random_state=random_state,
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.8,
+        random_state=random_state,
     )
 
     # KFold inherits the same seed: passing None → sklearn uses np
     # global state (genuinely random); passing int → deterministic.
     # _cross_fit_aipw_phi accepts None via KFold's standard semantics.
     phi, _diag = _cross_fit_aipw_phi(
-        X=X, Y=Y, D=D,
+        X=X,
+        Y=Y,
+        D=D,
         outcome_model=outcome_model,
         propensity_model=propensity_model,
         n_folds=n_folds,
@@ -1453,6 +1601,7 @@ def _ate_inference_aipw(
     ate = float(np.mean(phi))
     se = float(np.std(phi, ddof=1) / np.sqrt(n))
     from scipy.stats import norm
+
     z = float(norm.ppf(1.0 - alpha / 2.0))
     ci = (ate - z * se, ate + z * se)
     return ate, se, ci

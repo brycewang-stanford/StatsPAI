@@ -16,6 +16,7 @@ Chernozhukov, V., Fernández-Val, I., Melly, B., & Wüthrich, K. (2020).
 "Generic Inference on Quantile and Quantile Effect Functions for
 Discrete Outcomes." *JASA*, 115(529), 123-137. [@chernozhukov2020generic]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,19 +27,12 @@ import pandas as pd
 from scipy import stats
 
 from ._results import DecompResultMixin
-from ._common import (
-    add_constant,
-    bootstrap_ci,
-    logit_fit,
-    logit_predict,
-    prepare_frame,
-    weighted_quantile,
-)
-
+from ._common import add_constant, logit_fit, logit_predict, prepare_frame
 
 # ════════════════════════════════════════════════════════════════════════
 # Distribution regression
 # ════════════════════════════════════════════════════════════════════════
+
 
 def _threshold_grid(y: np.ndarray, n_thresh: int = 40) -> np.ndarray:
     """Evenly-spaced quantiles of y as threshold grid."""
@@ -47,7 +41,9 @@ def _threshold_grid(y: np.ndarray, n_thresh: int = 40) -> np.ndarray:
 
 
 def _fit_dr(
-    y: np.ndarray, X: np.ndarray, thresholds: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
+    thresholds: np.ndarray,
 ) -> np.ndarray:
     """
     Distribution regression: for each threshold t, fit logit(1{y ≤ t} ~ X).
@@ -84,7 +80,9 @@ def _fit_dr(
 
 
 def _counterfactual_cdf(
-    betas: np.ndarray, X_source: np.ndarray, thresholds: np.ndarray,
+    betas: np.ndarray,
+    X_source: np.ndarray,
+    thresholds: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Evaluate F̂_{Y<β|X_source>}(t) = avg_X Λ(X'β(t)).
@@ -118,16 +116,13 @@ def _invert_cdf(thr: np.ndarray, cdf: np.ndarray, taus: np.ndarray) -> np.ndarra
 # Result
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class CFMResult(DecompResultMixin):
     """Chernozhukov-Fernández-Val-Melly counterfactual distribution result."""
 
-    method_name: ClassVar[str] = (
-        "Chernozhukov-Fernandez-Val-Melly (2013) Decomposition"
-    )
-    bib_keys: ClassVar[Tuple[str, ...]] = (
-        "chernozhukov2013inference",
-    )
+    method_name: ClassVar[str] = "Chernozhukov-Fernandez-Val-Melly (2013) Decomposition"
+    bib_keys: ClassVar[Tuple[str, ...]] = ("chernozhukov2013inference",)
 
     quantile_grid: pd.DataFrame
     cdf_grid: pd.DataFrame
@@ -171,6 +166,7 @@ class CFMResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import counterfactual_cdf_plot
+
         return counterfactual_cdf_plot(self, **kwargs)
 
     def to_latex(self) -> str:
@@ -181,8 +177,7 @@ class CFMResult(DecompResultMixin):
         html: str = self.quantile_grid.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
-            "<h3>CFM Counterfactual Decomposition</h3>"
-            + html + "</div>"
+            "<h3>CFM Counterfactual Decomposition</h3>" + html + "</div>"
         )
 
     def __repr__(self) -> str:
@@ -192,6 +187,7 @@ class CFMResult(DecompResultMixin):
 # ════════════════════════════════════════════════════════════════════════
 # Main function
 # ════════════════════════════════════════════════════════════════════════
+
 
 def cfm_decompose(
     data: pd.DataFrame,
@@ -250,9 +246,7 @@ def cfm_decompose(
         raise ValueError("Need ≥20 obs per group for CFM.")
 
     if tau_grid is None:
-        tau_seq: Sequence[float] | np.ndarray = np.round(
-            np.arange(0.1, 0.95, 0.1), 2
-        )
+        tau_seq: Sequence[float] | np.ndarray = np.round(np.arange(0.1, 0.95, 0.1), 2)
     else:
         tau_seq = tau_grid
     tau_eval = np.asarray(tau_seq, dtype=float)
@@ -282,17 +276,25 @@ def cfm_decompose(
         composition = q_cf - q_b
         structure = q_a - q_cf
 
-    grid_df = pd.DataFrame({
-        "tau": tau_eval,
-        "q_a": q_a, "q_b": q_b, "q_cf": q_cf,
-        "gap": gap, "composition": composition, "structure": structure,
-    })
-    cdf_df = pd.DataFrame({
-        "y": thr_a,
-        "cdf_a": cdf_a,
-        "cdf_b": np.interp(thr_a, thr_b, cdf_b),
-        "cdf_cf": np.interp(thr_a, thr_cf, cdf_cf),
-    })
+    grid_df = pd.DataFrame(
+        {
+            "tau": tau_eval,
+            "q_a": q_a,
+            "q_b": q_b,
+            "q_cf": q_cf,
+            "gap": gap,
+            "composition": composition,
+            "structure": structure,
+        }
+    )
+    cdf_df = pd.DataFrame(
+        {
+            "y": thr_a,
+            "cdf_a": cdf_a,
+            "cdf_b": np.interp(thr_a, thr_b, cdf_b),
+            "cdf_cf": np.interp(thr_a, thr_cf, cdf_cf),
+        }
+    )
 
     overall = {
         "mean_gap": float(np.mean(gap)),
@@ -311,8 +313,13 @@ def cfm_decompose(
         ks_p = float(stats.kstwo.sf(ks_stat, n))
 
     return CFMResult(
-        quantile_grid=grid_df, cdf_grid=cdf_df, overall=overall,
-        reference=reference, n_thresh=n_thresh,
-        n_a=int(len(y_a)), n_b=int(len(y_b)),
-        ks_stat=ks_stat, ks_pvalue=ks_p,
+        quantile_grid=grid_df,
+        cdf_grid=cdf_df,
+        overall=overall,
+        reference=reference,
+        n_thresh=n_thresh,
+        n_a=int(len(y_a)),
+        n_b=int(len(y_b)),
+        ks_stat=ks_stat,
+        ks_pvalue=ks_p,
     )

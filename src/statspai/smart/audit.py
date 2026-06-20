@@ -43,7 +43,6 @@ from ..core._agent_summary import (
     _WEAK_IV_F,
 )
 
-
 # ====================================================================== #
 #  Check specification
 # ====================================================================== #
@@ -150,7 +149,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.pretrends_test",
         importance="high",
         rationale="DID identification rests on parallel trends; without "
-                  "a pre-trend test the design is unfalsifiable.",
+        "a pre-trend test the design is unfalsifiable.",
     ),
     _Check(
         name="honest_did",
@@ -162,8 +161,8 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.sensitivity_rr",
         importance="medium",
         rationale="Pre-trend tests are low-power; Rambachan-Roth (2023) "
-                  "honest CIs quantify how much violation the estimate "
-                  "tolerates.",
+        "honest CIs quantify how much violation the estimate "
+        "tolerates.",
     ),
     _Check(
         name="bacon_decomposition",
@@ -175,7 +174,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.bacon_decomposition",
         importance="medium",
         rationale="Goodman-Bacon (2021): staggered-DID TWFE can hide "
-                  "negative weights that flip the sign of the average.",
+        "negative weights that flip the sign of the average.",
     ),
     # --- RD ---------------------------------------------------------- #
     _Check(
@@ -188,7 +187,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.mccrary",
         importance="high",
         rationale="Manipulation of the running variable invalidates the "
-                  "RD identifying assumption.",
+        "RD identifying assumption.",
     ),
     _Check(
         name="bandwidth_sensitivity",
@@ -200,7 +199,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.rd_bandwidth_sensitivity",
         importance="medium",
         rationale="Optimal-bandwidth selection is a researcher degree "
-                  "of freedom; reviewers expect a sensitivity sweep.",
+        "of freedom; reviewers expect a sensitivity sweep.",
     ),
     _Check(
         name="placebo_cutoff",
@@ -212,7 +211,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.rd_placebo",
         importance="medium",
         rationale="A real RD effect should not appear at off-cutoff "
-                  "values; placebos guard against spurious discontinuity.",
+        "values; placebos guard against spurious discontinuity.",
     ),
     # --- IV ---------------------------------------------------------- #
     _Check(
@@ -232,8 +231,8 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function=None,
         importance="high",
         rationale="Stock-Yogo (2005): below F≈10 the 2SLS sampling "
-                  "distribution is far from normal and inference is "
-                  "untrustworthy.",
+        "distribution is far from normal and inference is "
+        "untrustworthy.",
     ),
     _Check(
         name="overid_test",
@@ -248,7 +247,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.hansen_j",
         importance="medium",
         rationale="With ≥2 instruments, a J test rejection is direct "
-                  "evidence one of them is invalid.",
+        "evidence one of them is invalid.",
     ),
     _Check(
         name="anderson_rubin_ci",
@@ -260,7 +259,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.anderson_rubin_ci",
         importance="medium",
         rationale="Anderson-Rubin CIs are valid even under weak "
-                  "instruments — the safe inference to pair with 2SLS.",
+        "instruments — the safe inference to pair with 2SLS.",
     ),
     # --- Matching / IPW --------------------------------------------- #
     _Check(
@@ -273,7 +272,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.overlap_check",
         importance="high",
         rationale="Without common support across treatment arms, IPW / "
-                  "matching extrapolate beyond the data.",
+        "matching extrapolate beyond the data.",
     ),
     _Check(
         name="balance_after",
@@ -285,13 +284,13 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.balance",
         importance="high",
         rationale="Imbalance after matching reintroduces confounding "
-                  "that the design was meant to remove.",
+        "that the design was meant to remove.",
     ),
     # --- Synth ------------------------------------------------------ #
     _Check(
         name="pretreatment_fit",
         question="Is the synthetic control's pre-treatment RMSE small "
-                  "relative to the outcome SD?",
+        "relative to the outcome SD?",
         applies_to=("synth",),
         evidence_paths=_p("pretreatment_rmse_ratio"),
         threshold=0.5,
@@ -299,7 +298,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function=None,
         importance="high",
         rationale="A synth that doesn't match the treated unit pre-period "
-                  "cannot credibly extrapolate the counterfactual.",
+        "cannot credibly extrapolate the counterfactual.",
     ),
     _Check(
         name="placebo_inference",
@@ -311,15 +310,24 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.synth_placebo",
         importance="high",
         rationale="Synth p-values come from ranking treated effect among "
-                  "in-place placebos; without this, the estimate has no "
-                  "inferential statement.",
+        "in-place placebos; without this, the estimate has no "
+        "inferential statement.",
     ),
     # --- Bayesian convergence (any family with MCMC) --------------- #
     _Check(
         name="convergence_rhat",
         question="Has the MCMC sampler converged (max R-hat ≤ 1.01)?",
-        applies_to=("did", "rd", "iv", "matching", "synth", "dml", "hte",
-                    "mediation", "generic"),
+        applies_to=(
+            "did",
+            "rd",
+            "iv",
+            "matching",
+            "synth",
+            "dml",
+            "hte",
+            "mediation",
+            "generic",
+        ),
         evidence_paths=_pp(
             ("rhat_max",),
             ("diagnostics", "rhat_max"),
@@ -328,15 +336,24 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         compare="less_passes",
         suggest_function=None,
         importance="low",  # only "low" because non-Bayes runs legitimately
-                            # have no rhat — high if Bayesian, low if not.
+        # have no rhat — high if Bayesian, low if not.
         rationale="Non-converged chains produce posterior summaries "
-                  "that are not from the target distribution.",
+        "that are not from the target distribution.",
     ),
     _Check(
         name="ess_bulk",
         question="Is the bulk effective sample size adequate (≥ 400)?",
-        applies_to=("did", "rd", "iv", "matching", "synth", "dml", "hte",
-                    "mediation", "generic"),
+        applies_to=(
+            "did",
+            "rd",
+            "iv",
+            "matching",
+            "synth",
+            "dml",
+            "hte",
+            "mediation",
+            "generic",
+        ),
         evidence_paths=_pp(
             ("ess_bulk_min",),
             ("diagnostics", "ess_bulk_min"),
@@ -346,7 +363,7 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function=None,
         importance="low",
         rationale="Small ESS makes MCSE on posterior summaries large "
-                  "enough to swamp the substantive effect.",
+        "enough to swamp the substantive effect.",
     ),
     # --- Universal: omitted-variable bias --------------------------- #
     _Check(
@@ -359,8 +376,8 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.oster",
         importance="medium",
         rationale="Observational designs cannot rule out unobserved "
-                  "confounders; sensitivity bounds tell readers how "
-                  "strong such confounding would have to be.",
+        "confounders; sensitivity bounds tell readers how "
+        "strong such confounding would have to be.",
     ),
 )
 
@@ -376,7 +393,7 @@ _REGRESSION_CHECKS: Tuple[_Check, ...] = (
         suggest_function=None,
         importance="medium",
         rationale="Default homoskedastic SEs are almost never correct; "
-                  "robust or clustered SEs are the modern baseline.",
+        "robust or clustered SEs are the modern baseline.",
     ),
     _Check(
         name="ovb_oster",
@@ -388,7 +405,7 @@ _REGRESSION_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.oster",
         importance="medium",
         rationale="Oster bounds quantify how strong a missing covariate "
-                  "would need to be to nullify the result.",
+        "would need to be to nullify the result.",
     ),
     _Check(
         name="ovb_cinelli_hazlett",
@@ -400,7 +417,7 @@ _REGRESSION_CHECKS: Tuple[_Check, ...] = (
         suggest_function="sp.cinelli_hazlett",
         importance="low",
         rationale="The robustness-value diagnostic complements Oster "
-                  "and is easier to interpret graphically.",
+        "and is easier to interpret graphically.",
     ),
 )
 
@@ -410,8 +427,7 @@ _REGRESSION_CHECKS: Tuple[_Check, ...] = (
 # ====================================================================== #
 
 
-def _resolve_evidence(model_info: Dict[str, Any],
-                       paths: EvidencePaths) -> Any:
+def _resolve_evidence(model_info: Dict[str, Any], paths: EvidencePaths) -> Any:
     """Walk each candidate path in order; return the first resolved value.
 
     Returns ``None`` if no path resolves. Mirrors the multi-alias
@@ -426,8 +442,7 @@ def _resolve_evidence(model_info: Dict[str, Any],
     return None
 
 
-def _evaluate(check: _Check, model_info: Dict[str, Any]
-              ) -> Tuple[str, Any]:
+def _evaluate(check: _Check, model_info: Dict[str, Any]) -> Tuple[str, Any]:
     """Return ``(status, raw_value)`` for one check on this result.
 
     ``status`` is one of ``"passed"`` / ``"failed"`` / ``"missing"``.
@@ -607,22 +622,25 @@ def audit(result: Any) -> Dict[str, Any]:
             # ``severity == "error"`` should not pick up missing items
             # — those go through ``importance``. Use ``"warning"``
             # here to mark missing-but-important consistently.
-            severity_out = (
-                "warning" if chk.importance == "high" else "info"
-            )
+            severity_out = "warning" if chk.importance == "high" else "info"
 
-        checks.append({
-            "name": chk.name,
-            "question": chk.question,
-            "status": status,
-            "severity": severity_out,
-            "importance": chk.importance,
-            "value": value if (isinstance(value, (int, float, str, bool))
-                                or value is None) else str(value),
-            "threshold": chk.threshold,
-            "suggest_function": chk.suggest_function,
-            "rationale": chk.rationale,
-        })
+        checks.append(
+            {
+                "name": chk.name,
+                "question": chk.question,
+                "status": status,
+                "severity": severity_out,
+                "importance": chk.importance,
+                "value": (
+                    value
+                    if (isinstance(value, (int, float, str, bool)) or value is None)
+                    else str(value)
+                ),
+                "threshold": chk.threshold,
+                "suggest_function": chk.suggest_function,
+                "rationale": chk.rationale,
+            }
+        )
 
     n_total = len(checks)
     coverage = (n_passed / n_total) if n_total else 0.0

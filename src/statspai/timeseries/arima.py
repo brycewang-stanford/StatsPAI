@@ -180,8 +180,7 @@ class ARIMAResult(ResultProtocolMixin):
             z = val / s if s and np.isfinite(s) else np.nan
             p = float(pvals.get(nm, np.nan))
             lines.append(
-                f"  {nm:<15s}  {val:>10.4f}  {s:>10.4f}"
-                f"  {z:>8.3f}  {p:>8.3f}"
+                f"  {nm:<15s}  {val:>10.4f}  {s:>10.4f}" f"  {z:>8.3f}  {p:>8.3f}"
             )
         return "\n".join(lines)
 
@@ -264,9 +263,7 @@ def arima(
     elif method_norm in {"css", "css_ml", "conditional", "conditional_mle"}:
         method_norm = "innovations_mle"
     if method_norm not in {"statespace", "innovations_mle"}:
-        raise ValueError(
-            "method must be 'statespace', 'css_ml', or 'innovations_mle'"
-        )
+        raise ValueError("method must be 'statespace', 'css_ml', or 'innovations_mle'")
 
     def _fit(
         order_: Tuple[int, int, int],
@@ -352,9 +349,7 @@ def arima(
             function="sp.timeseries.arima",
             params={
                 "order": list(order),
-                "seasonal_order": (
-                    list(seasonal_order) if seasonal_order else None
-                ),
+                "seasonal_order": (list(seasonal_order) if seasonal_order else None),
                 "auto": auto,
                 "max_p": max_p,
                 "max_q": max_q,

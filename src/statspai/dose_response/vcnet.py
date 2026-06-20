@@ -84,6 +84,7 @@ class VCNetResult:
     >>> res.mu_hat[:3]            # dose-response on the t-grid  # doctest: +SKIP
     >>> print(res.summary())     # tidy curve table  # doctest: +SKIP
     """
+
     t_grid: np.ndarray
     mu_hat: np.ndarray
     se: np.ndarray
@@ -95,13 +96,15 @@ class VCNetResult:
     detail: Dict[str, Any] = field(default_factory=dict)
 
     def summary(self) -> str:  # pragma: no cover
-        df = pd.DataFrame({
-            "t": self.t_grid,
-            "mu_hat": self.mu_hat,
-            "se": self.se,
-            "ci_lo": self.ci_lo,
-            "ci_hi": self.ci_hi,
-        })
+        df = pd.DataFrame(
+            {
+                "t": self.t_grid,
+                "mu_hat": self.mu_hat,
+                "se": self.se,
+                "ci_lo": self.ci_lo,
+                "ci_hi": self.ci_hi,
+            }
+        )
         return "VCNet dose-response curve\n" + str(df.to_string(index=False))
 
     def __repr__(self) -> str:  # pragma: no cover
@@ -119,11 +122,13 @@ def _bspline_basis(t: np.ndarray, n_basis: int = 6, degree: int = 3) -> np.ndarr
         interior = np.linspace(t_min, t_max, n_interior + 2)[1:-1]
     else:
         interior = np.array([])
-    knots = np.concatenate([
-        [t_min] * (degree + 1),
-        interior,
-        [t_max] * (degree + 1),
-    ])
+    knots = np.concatenate(
+        [
+            [t_min] * (degree + 1),
+            interior,
+            [t_max] * (degree + 1),
+        ]
+    )
     basis = np.zeros((len(t), n_basis))
     for b in range(n_basis):
         c = np.zeros(n_basis)
@@ -402,9 +407,7 @@ def vcnet(
         y_boot = Y[idx]
         try:
             beta_b = fit(d_boot, y_boot)
-            boot_curves[b] = predict_curve(
-                beta_b.reshape(n_basis, X_aug.shape[1])
-            )
+            boot_curves[b] = predict_curve(beta_b.reshape(n_basis, X_aug.shape[1]))
         except np.linalg.LinAlgError:
             boot_curves[b] = mu_hat
 
@@ -425,15 +428,20 @@ def vcnet(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.dose_response.vcnet",
             params={
-                "y": y, "treatment": treatment,
+                "y": y,
+                "treatment": treatment,
                 "covariates": list(covariates),
-                "n_basis": n_basis, "spline_degree": spline_degree,
-                "ridge": ridge, "n_bootstrap": n_bootstrap,
-                "alpha": alpha, "random_state": random_state,
+                "n_basis": n_basis,
+                "spline_degree": spline_degree,
+                "ridge": ridge,
+                "n_bootstrap": n_bootstrap,
+                "alpha": alpha,
+                "random_state": random_state,
             },
             data=data,
             overwrite=False,

@@ -46,10 +46,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 # ═══════════════════════════════════════════════════════════════════════
 #  Internal helpers
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _partial_out(X: np.ndarray, W: np.ndarray) -> np.ndarray:
     """Residuals from regressing columns of X on W."""
@@ -85,6 +85,7 @@ def _prep_matrices(
 # ═══════════════════════════════════════════════════════════════════════
 #  1. Olea-Pflueger (2013) effective F — HC-robust
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def effective_f_test(
     data: pd.DataFrame,
@@ -209,7 +210,7 @@ def effective_f_test(
         omega_hat = sigma2_eta * ZtZt
     elif vcov in ("HC0", "HC1"):
         # Σ η̂_i² z_i z_i' = Z' diag(η̂²) Z
-        omega_hat = (Z_t * (eta_hat ** 2)[:, None]).T @ Z_t
+        omega_hat = (Z_t * (eta_hat**2)[:, None]).T @ Z_t
         if vcov == "HC1" and df_resid > 0:
             omega_hat = omega_hat * (n / df_resid)
     else:
@@ -249,30 +250,30 @@ def effective_f_test(
 # Values taken from the paper's published Table 3 panel A (5 % level).
 # For F ≤ approx 3.84 the AR test is strictly preferred (no finite c).
 _LMMP_TABLE_5PCT: List[Tuple[float, float]] = [
-    (  4.00, 18.66),
-    (  5.00,  8.18),
-    (  6.00,  5.40),
-    (  7.00,  4.32),
-    (  8.00,  3.75),
-    (  9.00,  3.40),
-    ( 10.00,  3.16),
-    ( 11.00,  2.98),
-    ( 12.00,  2.83),
-    ( 13.00,  2.72),
-    ( 14.00,  2.62),
-    ( 15.00,  2.54),
-    ( 16.00,  2.47),
-    ( 16.38,  2.44),  # conventional F threshold; c ≈ 1.96*sqrt(1.56)
-    ( 17.00,  2.41),
-    ( 18.00,  2.35),
-    ( 20.00,  2.26),
-    ( 25.00,  2.13),
-    ( 30.00,  2.06),
-    ( 40.00,  2.01),
-    ( 50.00,  1.98),
-    ( 75.00,  1.96),
-    (100.00,  1.96),
-    (142.60,  1.96),
+    (4.00, 18.66),
+    (5.00, 8.18),
+    (6.00, 5.40),
+    (7.00, 4.32),
+    (8.00, 3.75),
+    (9.00, 3.40),
+    (10.00, 3.16),
+    (11.00, 2.98),
+    (12.00, 2.83),
+    (13.00, 2.72),
+    (14.00, 2.62),
+    (15.00, 2.54),
+    (16.00, 2.47),
+    (16.38, 2.44),  # conventional F threshold; c ≈ 1.96*sqrt(1.56)
+    (17.00, 2.41),
+    (18.00, 2.35),
+    (20.00, 2.26),
+    (25.00, 2.13),
+    (30.00, 2.06),
+    (40.00, 2.01),
+    (50.00, 1.98),
+    (75.00, 1.96),
+    (100.00, 1.96),
+    (142.60, 1.96),
 ]
 
 
@@ -342,6 +343,7 @@ def tF_critical_value(first_stage_F: float, alpha: float = 0.05) -> float:
 # ═══════════════════════════════════════════════════════════════════════
 #  3. Anderson-Rubin test (1949) — weak-IV robust
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def anderson_rubin_test(
     data: pd.DataFrame,
@@ -517,8 +519,12 @@ def anderson_rubin_test(
             f"{f_result['strength']}. "
             f"AR test at h0={h0}: F({df1},{df2}) = {ar_f:.2f}, p = {ar_p:.4f}. "
             f"AR {100*(1-alpha):.0f}% CI: [{ar_ci[0]:.4f}, {ar_ci[1]:.4f}]. "
-            + (f"LMMP tF critical value (F = {f_first:.1f}): {tF_c:.2f} "
-               f"(vs. naive 1.96)." if tF_c is not None else "")
+            + (
+                f"LMMP tF critical value (F = {f_first:.1f}): {tF_c:.2f} "
+                f"(vs. naive 1.96)."
+                if tF_c is not None
+                else ""
+            )
         ),
     }
 
@@ -603,24 +609,40 @@ class WeakRobustResult:
         rows = []
         d = self._data
         # Strength diagnostics
-        rows.append(("First-stage F (classical)",
-                     d["first_stage_F"], None, None))
-        rows.append(("Olea–Pflueger effective F",
-                     d["effective_F"], None, None))
+        rows.append(("First-stage F (classical)", d["first_stage_F"], None, None))
+        rows.append(("Olea–Pflueger effective F", d["effective_F"], None, None))
         if d.get("kp_rk_lm") is not None:
-            rows.append(("Kleibergen–Paap rk LM",
-                         d["kp_rk_lm"], d["kp_rk_lm_pvalue"], None))
-            rows.append(("Kleibergen–Paap rk Wald F",
-                         d["kp_rk_f"], None, None))
+            rows.append(
+                ("Kleibergen–Paap rk LM", d["kp_rk_lm"], d["kp_rk_lm_pvalue"], None)
+            )
+            rows.append(("Kleibergen–Paap rk Wald F", d["kp_rk_f"], None, None))
         # Weak-IV-robust inference under H0
-        rows.append((f"Anderson–Rubin at β={self.h0:g}",
-                     d["ar_stat"], d["ar_pvalue"], d["ar_ci"]))
+        rows.append(
+            (
+                f"Anderson–Rubin at β={self.h0:g}",
+                d["ar_stat"],
+                d["ar_pvalue"],
+                d["ar_ci"],
+            )
+        )
         if d.get("clr_stat") is not None:
-            rows.append((f"Moreira CLR at β={self.h0:g}",
-                         d["clr_stat"], d["clr_pvalue"], d.get("clr_ci")))
+            rows.append(
+                (
+                    f"Moreira CLR at β={self.h0:g}",
+                    d["clr_stat"],
+                    d["clr_pvalue"],
+                    d.get("clr_ci"),
+                )
+            )
         if d.get("k_stat") is not None:
-            rows.append((f"Kleibergen K at β={self.h0:g}",
-                         d["k_stat"], d["k_pvalue"], d.get("k_ci")))
+            rows.append(
+                (
+                    f"Kleibergen K at β={self.h0:g}",
+                    d["k_stat"],
+                    d["k_pvalue"],
+                    d.get("k_ci"),
+                )
+            )
         return pd.DataFrame(rows, columns=["statistic", "value", "p_value", "CI"])
 
     def summary(self) -> str:
@@ -790,8 +812,14 @@ def weakrobust(
         exog = [exog]
 
     ar = anderson_rubin_test(
-        data=data, y=y, endog=endog, instruments=instruments, exog=exog,
-        h0=h0, alpha=alpha, vcov=vcov,
+        data=data,
+        y=y,
+        endog=endog,
+        instruments=instruments,
+        exog=exog,
+        h0=h0,
+        alpha=alpha,
+        vcov=vcov,
     )
 
     out: Dict[str, Any] = {
@@ -809,8 +837,13 @@ def weakrobust(
     # ── KP rk LM / Wald F (robust rank test) ──────────────────────────
     try:
         from ..iv.weak_identification import kleibergen_paap_rk
+
         Y, D, Z, W, n_obs = _prep_matrices(
-            data, y, endog, instruments, exog,
+            data,
+            y,
+            endog,
+            instruments,
+            exog,
         )
         W_exog = W[:, 1:] if W.shape[1] > 1 else None
         kp = kleibergen_paap_rk(
@@ -825,17 +858,22 @@ def weakrobust(
         out["kp_rk_f"] = kp.rk_f
     except Exception as exc:  # pragma: no cover
         out["kp_error"] = str(exc)
-        n_obs = len(data.dropna(subset=[y, endog] + list(instruments)
-                                + list(exog or [])))
+        n_obs = len(
+            data.dropna(subset=[y, endog] + list(instruments) + list(exog or []))
+        )
 
     # ── CLR statistic + p-value at H0 (exact via Monte-Carlo) ─────────
     if include_clr:
         try:
             from ..iv.weak_identification import conditional_lr_test
+
             clr_res = conditional_lr_test(
-                y=y, endog=endog, instruments=list(instruments),
+                y=y,
+                endog=endog,
+                instruments=list(instruments),
                 exog=list(exog) if exog else None,
-                data=data, beta0=h0,
+                data=data,
+                beta0=h0,
                 n_simulations=clr_simulations,
                 random_state=random_state,
             )
@@ -848,13 +886,19 @@ def weakrobust(
     if include_clr or include_k:
         try:
             from ..iv.weak_iv_ci import conditional_lr_ci, k_test_ci
+
             level = 1.0 - alpha
             exog_arg = list(exog) if exog else None
             if include_clr:
                 clr_cs = conditional_lr_ci(
-                    y=y, endog=endog, instruments=list(instruments),
-                    exog=exog_arg, data=data, level=level,
-                    n_grid=grid_size, n_sim=max(clr_simulations // 4, 2000),
+                    y=y,
+                    endog=endog,
+                    instruments=list(instruments),
+                    exog=exog_arg,
+                    data=data,
+                    level=level,
+                    n_grid=grid_size,
+                    n_sim=max(clr_simulations // 4, 2000),
                     random_state=random_state,
                 )
                 lo, hi = float(clr_cs.lower), float(clr_cs.upper)
@@ -863,8 +907,12 @@ def weakrobust(
                 out["clr_is_unbounded"] = bool(clr_cs.is_unbounded)
             if include_k:
                 k_cs = k_test_ci(
-                    y=y, endog=endog, instruments=list(instruments),
-                    exog=exog_arg, data=data, level=level,
+                    y=y,
+                    endog=endog,
+                    instruments=list(instruments),
+                    exog=exog_arg,
+                    data=data,
+                    level=level,
                     n_grid=grid_size,
                 )
                 out["k_ci"] = (float(k_cs.lower), float(k_cs.upper))

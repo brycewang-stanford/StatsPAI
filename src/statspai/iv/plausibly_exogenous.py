@@ -59,7 +59,7 @@ class PlausiblyExogenousResult:
             f"[{self.ci_lower:.4f}, {self.ci_upper:.4f}]",
             f"  γ grid size          : {len(self.gamma_grid)}",
         ]
-        if 'gamma_mean' in self.extra:
+        if "gamma_mean" in self.extra:
             lines.append(f"  γ prior mean         : {self.extra['gamma_mean']}")
             lines.append(f"  γ prior variance     : {self.extra['gamma_var']}")
         return "\n".join(lines)
@@ -71,7 +71,12 @@ def _as_matrix(x: Any) -> np.ndarray:
 
 
 def _prep(
-    y: Any, endog: Any, instruments: Any, exog: Any, data: Any, add_const: Any,
+    y: Any,
+    endog: Any,
+    instruments: Any,
+    exog: Any,
+    data: Any,
+    add_const: Any,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     def grab(v: Any, prefix: Any) -> np.ndarray:
         if isinstance(v, str):
@@ -100,7 +105,10 @@ def _prep(
 
 
 def _tsls(
-    Y: np.ndarray, D: np.ndarray, Z: np.ndarray, W: np.ndarray,
+    Y: np.ndarray,
+    D: np.ndarray,
+    Z: np.ndarray,
+    W: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Return (beta_on_D, full_params, var_cov) for 2SLS of Y on [D, W] using [Z, W]."""
     X = np.column_stack([D, W]) if W.size else D
@@ -284,8 +292,14 @@ def plausibly_exogenous_ltz(
         ci_lower=float(ci_lower),
         ci_upper=float(ci_upper),
         ci_level=ci_level,
-        extra={"gamma_mean": gm, "gamma_var": Omega, "beta_ltz": beta_ltz,
-               "se_ltz": se_ltz, "target_col": target_col, "n_endog": p_endog},
+        extra={
+            "gamma_mean": gm,
+            "gamma_var": Omega,
+            "beta_ltz": beta_ltz,
+            "se_ltz": se_ltz,
+            "target_col": target_col,
+            "n_endog": p_endog,
+        },
     )
 
 

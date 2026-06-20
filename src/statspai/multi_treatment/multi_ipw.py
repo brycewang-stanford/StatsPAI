@@ -86,9 +86,14 @@ def multi_treatment(
     [1, 2]
     """
     est = MultiTreatment(
-        data=data, y=y, treat=treat, covariates=covariates,
-        reference=reference, n_bootstrap=n_bootstrap,
-        alpha=alpha, random_state=random_state,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        reference=reference,
+        n_bootstrap=n_bootstrap,
+        alpha=alpha,
+        random_state=random_state,
     )
     return est.fit()
 
@@ -183,7 +188,9 @@ class MultiTreatment:
             mask_k = D == k
             if mask_k.sum() > 0:
                 m = GradientBoostingRegressor(
-                    n_estimators=100, max_depth=3, learning_rate=0.1,
+                    n_estimators=100,
+                    max_depth=3,
+                    learning_rate=0.1,
                     random_state=self.random_state,
                 )
                 m.fit(X[mask_k], Y[mask_k])
@@ -198,9 +205,7 @@ class MultiTreatment:
             e_k = np.clip(gps[:, list(levels).index(k)], 0.01, 0.99)
             mu_k = mu_hats[k]
 
-            ey[k] = float(np.mean(
-                mu_k + d_k * (Y - mu_k) / e_k
-            ))
+            ey[k] = float(np.mean(mu_k + d_k * (Y - mu_k) / e_k))
 
         # Contrasts vs reference
         ref = self.reference
@@ -209,11 +214,13 @@ class MultiTreatment:
             if k == ref:
                 continue
             ate_k = ey[k] - ey[ref]
-            detail_rows.append({
-                'treatment': int(k),
-                'reference': int(ref),
-                'estimate': float(ate_k),
-            })
+            detail_rows.append(
+                {
+                    "treatment": int(k),
+                    "reference": int(ref),
+                    "estimate": float(ate_k),
+                }
+            )
 
         # Bootstrap
         rng = np.random.RandomState(self.random_state)
@@ -230,7 +237,8 @@ class MultiTreatment:
                 mask_k = D_b == k
                 if mask_k.sum() > 2:
                     m = GradientBoostingRegressor(
-                        n_estimators=50, max_depth=3,
+                        n_estimators=50,
+                        max_depth=3,
                         random_state=self.random_state,
                     )
                     m.fit(X_b[mask_k], Y_b[mask_k])
@@ -242,47 +250,45 @@ class MultiTreatment:
             for k in levels:
                 d_k = (D_b == k).astype(float)
                 e_k = np.clip(gps_b[:, list(levels).index(k)], 0.01, 0.99)
-                ey_b[k] = float(np.mean(
-                    mu_b[k] + d_k * (Y_b - mu_b[k]) / e_k
-                ))
+                ey_b[k] = float(np.mean(mu_b[k] + d_k * (Y_b - mu_b[k]) / e_k))
 
             for j, row in enumerate(detail_rows):
-                k = row['treatment']
+                k = row["treatment"]
                 boot_ates[b, j] = ey_b[k] - ey_b[ref]
 
         # Add SE and CI to detail
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
         for j, row in enumerate(detail_rows):
             se = float(np.std(boot_ates[:, j], ddof=1))
-            row['se'] = se
-            z_stat = row['estimate'] / max(se, 1e-10)
+            row["se"] = se
+            z_stat = row["estimate"] / max(se, 1e-10)
             pv = float(2 * (1 - sp_stats.norm.cdf(abs(z_stat))))
-            row['pvalue'] = pv
-            row['ci_lower'] = row['estimate'] - z_crit * se
-            row['ci_upper'] = row['estimate'] + z_crit * se
+            row["pvalue"] = pv
+            row["ci_lower"] = row["estimate"] - z_crit * se
+            row["ci_upper"] = row["estimate"] + z_crit * se
 
         detail = pd.DataFrame(detail_rows)
 
         # Overall F-test-like: is any treatment different from reference?
         if n_contrasts > 0:
-            main_estimate = detail_rows[0]['estimate']
-            main_se = detail_rows[0]['se']
-            main_pvalue = detail_rows[0]['pvalue']
-            main_ci = (detail_rows[0]['ci_lower'], detail_rows[0]['ci_upper'])
+            main_estimate = detail_rows[0]["estimate"]
+            main_se = detail_rows[0]["se"]
+            main_pvalue = detail_rows[0]["pvalue"]
+            main_ci = (detail_rows[0]["ci_lower"], detail_rows[0]["ci_upper"])
         else:
             main_estimate, main_se, main_pvalue = 0.0, 0.0, 1.0
             main_ci = (0.0, 0.0)
 
         model_info = {
-            'treatment_levels': levels.tolist(),
-            'reference': int(ref),
-            'n_levels': K,
-            'potential_outcomes': {int(k): v for k, v in ey.items()},
+            "treatment_levels": levels.tolist(),
+            "reference": int(ref),
+            "n_levels": K,
+            "potential_outcomes": {int(k): v for k, v in ey.items()},
         }
 
         return CausalResult(
-            method='Multi-valued Treatment (AIPW, Cattaneo 2010)',
-            estimand='ATE vs reference',
+            method="Multi-valued Treatment (AIPW, Cattaneo 2010)",
+            estimand="ATE vs reference",
             estimate=main_estimate,
             se=main_se,
             pvalue=main_pvalue,
@@ -291,7 +297,7 @@ class MultiTreatment:
             n_obs=n,
             detail=detail,
             model_info=model_info,
-            _citation_key='multi_treatment',
+            _citation_key="multi_treatment",
         )
 
     def _estimate_gps(
@@ -302,6 +308,7 @@ class MultiTreatment:
     ) -> np.ndarray:
         """Estimate generalized propensity scores via multinomial logit."""
         from sklearn.linear_model import LogisticRegression
+
         lr = LogisticRegression(
             max_iter=1000,
             random_state=self.random_state,
@@ -321,7 +328,7 @@ class MultiTreatment:
         return np.asarray(gps, dtype=float)
 
 
-CausalResult._CITATIONS['multi_treatment'] = (
+CausalResult._CITATIONS["multi_treatment"] = (
     "@article{cattaneo2010efficient,\n"
     "  title={Efficient Semiparametric Estimation of Multi-valued "
     "Treatment Effects under Ignorability},\n"

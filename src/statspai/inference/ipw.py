@@ -193,16 +193,20 @@ def ipw(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.ipw",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "estimand": estimand,
-                "trim": trim, "normalize": normalize,
+                "trim": trim,
+                "normalize": normalize,
                 "n_bootstrap": n_bootstrap,
-                "alpha": alpha, "seed": seed,
+                "alpha": alpha,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -215,6 +219,7 @@ def ipw(
 # ====================================================================== #
 #  Internal helpers
 # ====================================================================== #
+
 
 def _estimate_propensity(X: np.ndarray, T: np.ndarray) -> np.ndarray:
     """Logistic regression propensity score."""

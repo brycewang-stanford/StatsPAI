@@ -69,10 +69,7 @@ class ManyWeakIVResult:
         )
 
     def __repr__(self) -> str:  # pragma: no cover
-        return (
-            f"ManyWeakIVResult({self.estimator}, "
-            f"estimate={self.estimate:+.4f})"
-        )
+        return f"ManyWeakIVResult({self.estimator}, " f"estimate={self.estimate:+.4f})"
 
 
 def jive(
@@ -112,7 +109,13 @@ def jive(
     X2 = np.column_stack([D_jack, np.ones(n), Xc])
     beta = np.linalg.pinv(X2.T @ X2) @ X2.T @ Y
     resid = Y - X2 @ beta
-    vcov = np.linalg.pinv(X2.T @ X2) @ X2.T @ np.diag(resid ** 2) @ X2 @ np.linalg.pinv(X2.T @ X2).T
+    vcov = (
+        np.linalg.pinv(X2.T @ X2)
+        @ X2.T
+        @ np.diag(resid**2)
+        @ X2
+        @ np.linalg.pinv(X2.T @ X2).T
+    )
     se = np.sqrt(np.diag(vcov))
     estimate = float(beta[0])
     se_est = float(se[0])
@@ -129,11 +132,13 @@ def jive(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.many_weak_jive",
             params={
-                "y": y, "endog": endog,
+                "y": y,
+                "endog": endog,
                 "instruments": list(instruments),
                 "exog": list(exog) if exog else None,
                 "alpha": alpha,
@@ -203,7 +208,7 @@ def many_weak_ar(
         resid = Y - b * D
         ZtEps = Z.T @ resid
         # sigma²_b = var(resid); jackknife variance estimator for pivot
-        sigma2 = float(np.mean(resid ** 2))
+        sigma2 = float(np.mean(resid**2))
         if sigma2 <= 0:
             return np.inf  # pragma: no cover
         stat = float(ZtEps @ ZtZ_inv @ ZtEps) / max(sigma2, 1e-12)
@@ -229,11 +234,13 @@ def many_weak_ar(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.many_weak_ar",
             params={
-                "y": y, "endog": endog,
+                "y": y,
+                "endog": endog,
                 "instruments": list(instruments),
                 "exog": list(exog) if exog else None,
                 "alpha": alpha,

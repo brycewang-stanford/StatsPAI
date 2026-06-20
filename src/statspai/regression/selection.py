@@ -129,20 +129,22 @@ def biprobit(
         rho = np.clip(rho, -0.999999, 0.999999)
         base = stats.norm.cdf(h) * stats.norm.cdf(k)
         nodes, weights = np.polynomial.legendre.leggauss(24)
-        s = 0.5 * (nodes + 1.0)        # map [-1, 1] -> [0, 1]
+        s = 0.5 * (nodes + 1.0)  # map [-1, 1] -> [0, 1]
         w = 0.5 * weights
         integral = np.zeros(h.shape)
         for s_j, w_j in zip(s, w):
             r = rho * s_j
             denom = 1.0 - r * r
-            integral += w_j * np.exp(
-                -(h * h - 2.0 * r * h * k + k * k) / (2.0 * denom)
-            ) / (2.0 * np.pi * np.sqrt(denom))
+            integral += (
+                w_j
+                * np.exp(-(h * h - 2.0 * r * h * k + k * k) / (2.0 * denom))
+                / (2.0 * np.pi * np.sqrt(denom))
+            )
         return _as_float_array(base + rho * integral)
 
     def neg_ll(theta: np.ndarray) -> float:
         beta1 = theta[:k1]
-        beta2 = theta[k1:k1+k2]
+        beta2 = theta[k1 : k1 + k2]
         atanh_rho = theta[-1]
         rho = np.tanh(atanh_rho)
 
@@ -167,16 +169,17 @@ def biprobit(
     theta0 = np.concatenate([beta1_init, beta2_init, [0.0]])
 
     try:
-        result = minimize(neg_ll, theta0, method='BFGS',
-                          options={'maxiter': maxiter, 'gtol': tol})
+        result = minimize(
+            neg_ll, theta0, method="BFGS", options={"maxiter": maxiter, "gtol": tol}
+        )
         theta_hat = _as_float_array(result.x)
         converged, grad_norm = robust_convergence(result)
     except Exception:
         theta_hat = theta0
-        converged, grad_norm = False, float('inf')
+        converged, grad_norm = False, float("inf")
 
     beta1 = theta_hat[:k1]
-    beta2 = theta_hat[k1:k1+k2]
+    beta2 = theta_hat[k1 : k1 + k2]
     rho = float(np.tanh(theta_hat[-1]))
 
     # Numerical Hessian for SE
@@ -189,8 +192,8 @@ def biprobit(
         ei[i] = eps
         fp = neg_ll(theta_hat + ei)
         fm = neg_ll(theta_hat - ei)
-        H[i, i] = (fp - 2*f0 + fm) / eps**2
-        for j in range(i+1, k_total):
+        H[i, i] = (fp - 2 * f0 + fm) / eps**2
+        for j in range(i + 1, k_total):
             ej = np.zeros(k_total)
             ej[j] = eps
             fpp = neg_ll(theta_hat + ei + ej)
@@ -208,10 +211,15 @@ def biprobit(
     # Delta method for rho SE
     rho_se = float(se[-1] * (1 - rho**2))  # d(tanh)/d(atanh) = 1-tanh^2
 
-    names = ['eq1._cons'] + [f'eq1.{v}' for v in x1] + \
-            ['eq2._cons'] + [f'eq2.{v}' for v in x2_names] + ['rho']
+    names = (
+        ["eq1._cons"]
+        + [f"eq1.{v}" for v in x1]
+        + ["eq2._cons"]
+        + [f"eq2.{v}" for v in x2_names]
+        + ["rho"]
+    )
     param_vals = np.concatenate([beta1, beta2, [rho]])
-    se_vals = np.concatenate([se[:k1], se[k1:k1+k2], [rho_se]])
+    se_vals = np.concatenate([se[:k1], se[k1 : k1 + k2], [rho_se]])
 
     params = pd.Series(param_vals, index=names)
     std_errors = pd.Series(se_vals, index=names)
@@ -222,26 +230,27 @@ def biprobit(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': 'Bivariate Probit',
-            'converged': converged,
-            'gradient_norm': grad_norm,
-            'rho': rho,
-            'rho_se': rho_se,
-            'rho_test_p': (
+            "model_type": "Bivariate Probit",
+            "converged": converged,
+            "gradient_norm": grad_norm,
+            "rho": rho,
+            "rho_se": rho_se,
+            "rho_test_p": (
                 float(2 * (1 - stats.norm.cdf(abs(rho / rho_se))))
-                if rho_se > 0 else np.nan
+                if rho_se > 0
+                else np.nan
             ),
         },
         data_info={
-            'n_obs': n,
-            'dep_var_1': y1,
-            'dep_var_2': y2,
-            'df_resid': n - k_total,
+            "n_obs": n,
+            "dep_var_1": y1,
+            "dep_var_2": y2,
+            "df_resid": n - k_total,
         },
         diagnostics={
-            'log_likelihood': ll,
-            'aic': -2 * ll + 2 * k_total,
-            'bic': -2 * ll + np.log(n) * k_total,
+            "log_likelihood": ll,
+            "aic": -2 * ll + 2 * k_total,
+            "bic": -2 * ll + np.log(n) * k_total,
         },
     )
 
@@ -324,10 +333,11 @@ def etregress(
     X_out = np.column_stack([np.ones(n), df[x].values.astype(float), D_data])
     k_out = X_out.shape[1]
 
-    if method == 'twostep':
+    if method == "twostep":
         # Two-step (control function approach)
         # Step 1: Probit for D
         from .logit_probit import probit as _probit
+
         probit_result = _probit(data=df, y=treatment, x=z)
         gamma = probit_result.params.values
         xb_sel = np.column_stack([np.ones(n), df[z].values.astype(float)]) @ gamma
@@ -335,7 +345,7 @@ def etregress(
         mills = np.where(
             D_data == 1,
             stats.norm.pdf(xb_sel) / np.clip(stats.norm.cdf(xb_sel), 1e-10, None),
-            -stats.norm.pdf(xb_sel) / np.clip(1 - stats.norm.cdf(xb_sel), 1e-10, None)
+            -stats.norm.pdf(xb_sel) / np.clip(1 - stats.norm.cdf(xb_sel), 1e-10, None),
         )
 
         # Step 2: OLS with Mills ratio
@@ -348,7 +358,7 @@ def etregress(
         var_cov = sigma2 * np.linalg.inv(X_out_mills.T @ X_out_mills)
         se = np.sqrt(np.diag(var_cov))
 
-        out_names = ['_cons'] + x + [treatment, 'mills_lambda']
+        out_names = ["_cons"] + x + [treatment, "mills_lambda"]
         params = pd.Series(beta, index=out_names)
         std_errors = pd.Series(se, index=out_names)
         ate = beta[k_out - 1]  # treatment coefficient
@@ -357,13 +367,14 @@ def etregress(
         # MLE (simplified: control function + joint estimation)
         # Use two-step as approximation for MLE
         from .logit_probit import probit as _probit
+
         probit_result = _probit(data=df, y=treatment, x=z)
         gamma = probit_result.params.values
         xb_sel = np.column_stack([np.ones(n), df[z].values.astype(float)]) @ gamma
         mills = np.where(
             D_data == 1,
             stats.norm.pdf(xb_sel) / np.clip(stats.norm.cdf(xb_sel), 1e-10, None),
-            -stats.norm.pdf(xb_sel) / np.clip(1 - stats.norm.cdf(xb_sel), 1e-10, None)
+            -stats.norm.pdf(xb_sel) / np.clip(1 - stats.norm.cdf(xb_sel), 1e-10, None),
         )
         X_out_mills = np.column_stack([X_out, mills])
         beta = np.linalg.lstsq(X_out_mills, y_data, rcond=None)[0]
@@ -372,7 +383,7 @@ def etregress(
         var_cov = sigma2 * np.linalg.inv(X_out_mills.T @ X_out_mills)
         se = np.sqrt(np.diag(var_cov))
 
-        out_names = ['_cons'] + x + [treatment, 'mills_lambda']
+        out_names = ["_cons"] + x + [treatment, "mills_lambda"]
         params = pd.Series(beta, index=out_names)
         std_errors = pd.Series(se, index=out_names)
         ate = beta[k_out - 1]
@@ -381,21 +392,21 @@ def etregress(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': 'Endogenous Treatment Effects',
-            'method': method,
-            'treatment_effect': ate,
-            'treatment_var': treatment,
+            "model_type": "Endogenous Treatment Effects",
+            "method": method,
+            "treatment_effect": ate,
+            "treatment_var": treatment,
         },
         data_info={
-            'n_obs': n,
-            'dep_var': y,
-            'df_resid': n - len(beta),
+            "n_obs": n,
+            "dep_var": y,
+            "df_resid": n - len(beta),
         },
         diagnostics={
-            'ate': ate,
-            'ate_se': se[k_out - 1] if k_out - 1 < len(se) else np.nan,
-            'mills_coef': beta[-1],
-            'mills_se': se[-1],
-            'selection_corr': beta[-1] / np.sqrt(sigma2) if sigma2 > 0 else np.nan,
+            "ate": ate,
+            "ate_se": se[k_out - 1] if k_out - 1 < len(se) else np.nan,
+            "mills_coef": beta[-1],
+            "mills_se": se[-1],
+            "selection_corr": beta[-1] / np.sqrt(sigma2) if sigma2 > 0 else np.nan,
         },
     )

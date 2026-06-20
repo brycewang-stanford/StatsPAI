@@ -10,7 +10,13 @@ from .attrition import attrition_test, attrition_bounds, AttritionResult
 from .optimal import optimal_design, OptimalDesignResult
 
 __all__ = [
-    "randomize", "RandomizationResult", "balance_check", "BalanceResult",
-    "attrition_test", "attrition_bounds", "AttritionResult",
-    "optimal_design", "OptimalDesignResult",
+    "randomize",
+    "RandomizationResult",
+    "balance_check",
+    "BalanceResult",
+    "attrition_test",
+    "attrition_bounds",
+    "AttritionResult",
+    "optimal_design",
+    "OptimalDesignResult",
 ]

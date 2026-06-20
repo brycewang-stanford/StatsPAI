@@ -105,9 +105,7 @@ class PowerResult:
             lines.append(f"  Effect size  : {float(self.effect_size):.4f}")
         else:
             arr = np.asarray(self.power)
-            lines.append(
-                f"  Power range  : [{arr.min():.4f}, {arr.max():.4f}]"
-            )
+            lines.append(f"  Power range  : [{arr.min():.4f}, {arr.max():.4f}]")
             n_arr = np.asarray(self.n)
             lines.append(
                 f"  N range      : "
@@ -119,8 +117,7 @@ class PowerResult:
                 lines.append(f"  Effect size  : {float(es_arr):.4f}")
             else:
                 lines.append(
-                    f"  Effect range : "
-                    f"[{es_arr.min():.4f}, {es_arr.max():.4f}]"
+                    f"  Effect range : " f"[{es_arr.min():.4f}, {es_arr.max():.4f}]"
                 )
 
         lines.append(f"  Alpha        : {self.params.get('alpha', 0.05)}")
@@ -173,10 +170,7 @@ class PowerResult:
                 ("Power range", f"[{arr.min():.4f}, {arr.max():.4f}]"),
                 (
                     "N range",
-                    (
-                        f"[{self._fmt_n(n_arr.min())}, "
-                        f"{self._fmt_n(n_arr.max())}]"
-                    ),
+                    (f"[{self._fmt_n(n_arr.min())}, " f"{self._fmt_n(n_arr.max())}]"),
                 ),
                 ("Alpha", self.params.get("alpha", 0.05)),
             ]
@@ -186,7 +180,7 @@ class PowerResult:
             '<table style="border-collapse:collapse;">'
             '<caption style="font-weight:bold; font-size:1.1em; '
             'padding-bottom:6px;">'
-            f'Power Analysis &mdash; {self.design.upper()}</caption>'
+            f"Power Analysis &mdash; {self.design.upper()}</caption>"
         )
         for label, val in rows:
             html += (
@@ -340,9 +334,12 @@ def power_rct(
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
-        n=n, effect_size=effect_size, design="rct",
-        params=dict(n=n, effect_size=effect_size, alpha=alpha,
-                    ratio=ratio, sigma=sigma),
+        n=n,
+        effect_size=effect_size,
+        design="rct",
+        params=dict(
+            n=n, effect_size=effect_size, alpha=alpha, ratio=ratio, sigma=sigma
+        ),
     )
 
 
@@ -408,10 +405,18 @@ def power_did(
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
-        n=n, effect_size=effect_size, design="did",
-        params=dict(n=n, effect_size=effect_size, alpha=alpha,
-                    n_periods=n_periods, n_treated_periods=n_treated_periods,
-                    rho=rho, sigma=sigma),
+        n=n,
+        effect_size=effect_size,
+        design="did",
+        params=dict(
+            n=n,
+            effect_size=effect_size,
+            alpha=alpha,
+            n_periods=n_periods,
+            n_treated_periods=n_treated_periods,
+            rho=rho,
+            sigma=sigma,
+        ),
     )
 
 
@@ -489,10 +494,18 @@ def power_rd(
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
-        n=n, effect_size=effect_size, design="rd",
-        params=dict(n=n, effect_size=effect_size, alpha=alpha,
-                    bandwidth=bandwidth, kernel=kernel,
-                    density_at_cutoff=density_at_cutoff, sigma=sigma),
+        n=n,
+        effect_size=effect_size,
+        design="rd",
+        params=dict(
+            n=n,
+            effect_size=effect_size,
+            alpha=alpha,
+            bandwidth=bandwidth,
+            kernel=kernel,
+            density_at_cutoff=density_at_cutoff,
+            sigma=sigma,
+        ),
     )
 
 
@@ -566,9 +579,17 @@ def power_iv(
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
-        n=n, effect_size=effect_size, design="iv",
-        params=dict(n=n, effect_size=effect_size, alpha=alpha,
-                    first_stage_f=first_stage_f, r2_z=r2_z, sigma=sigma),
+        n=n,
+        effect_size=effect_size,
+        design="iv",
+        params=dict(
+            n=n,
+            effect_size=effect_size,
+            alpha=alpha,
+            first_stage_f=first_stage_f,
+            r2_z=r2_z,
+            sigma=sigma,
+        ),
     )
 
 
@@ -625,10 +646,16 @@ def power_cluster_rct(
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
         n=n_clusters,  # report cluster count as the "n"
-        effect_size=effect_size, design="cluster_rct",
-        params=dict(n_clusters=n_clusters, cluster_size=cluster_size,
-                    effect_size=effect_size, icc=icc, alpha=alpha,
-                    sigma=sigma),
+        effect_size=effect_size,
+        design="cluster_rct",
+        params=dict(
+            n_clusters=n_clusters,
+            cluster_size=cluster_size,
+            effect_size=effect_size,
+            icc=icc,
+            alpha=alpha,
+            sigma=sigma,
+        ),
     )
 
 
@@ -683,10 +710,17 @@ def power_ols(
 
     return PowerResult(
         power_val=float(pwr) if pwr.ndim == 0 else pwr,
-        n=n, effect_size=effect_size, design="ols",
-        params=dict(n=n, effect_size=effect_size, alpha=alpha,
-                    n_covariates=n_covariates, r2_other=r2_other,
-                    sigma=sigma),
+        n=n,
+        effect_size=effect_size,
+        design="ols",
+        params=dict(
+            n=n,
+            effect_size=effect_size,
+            alpha=alpha,
+            n_covariates=n_covariates,
+            r2_other=r2_other,
+            sigma=sigma,
+        ),
     )
 
 
@@ -762,9 +796,7 @@ def power(
     design = design.lower().strip()
     if design not in _DESIGN_FUNCTIONS:
         supported = ", ".join(sorted(_DESIGN_FUNCTIONS))
-        raise ValueError(
-            f"Unknown design {design!r}. Supported designs: {supported}"
-        )
+        raise ValueError(f"Unknown design {design!r}. Supported designs: {supported}")
 
     func = _DESIGN_FUNCTIONS[design]
 
@@ -778,9 +810,7 @@ def power(
                 "so that the required sample size can be solved."
             )
         if effect_size is None:
-            raise ValueError(
-                "When solving for n, effect_size must be specified."
-            )
+            raise ValueError("When solving for n, effect_size must be specified.")
         return _solve_for_n(func, effect_size, power_target, design, kwargs)
 
     # ------------------------------------------------------------------

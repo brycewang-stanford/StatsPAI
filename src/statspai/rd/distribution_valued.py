@@ -49,6 +49,7 @@ class DistRDResult:
     >>> bool(res.qte.shape == res.quantiles.shape)
     True
     """
+
     quantiles: np.ndarray
     qte: np.ndarray
     se: np.ndarray
@@ -69,7 +70,7 @@ def rd_distribution(
     cutoff: float = 0.0,
     quantiles: Optional[np.ndarray] = None,
     bandwidth: Optional[float] = None,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     alpha: float = 0.05,
 ) -> DistRDResult:
     """
@@ -126,15 +127,21 @@ def rd_distribution(
         y_q = float(np.quantile(Y, q))
         ind = (Y <= y_q).astype(float)
         try:
-            Xb = np.column_stack([
-                np.ones(mask.sum()), R[mask], treat[mask],
-                R[mask] * treat[mask],
-            ])
+            Xb = np.column_stack(
+                [
+                    np.ones(mask.sum()),
+                    R[mask],
+                    treat[mask],
+                    R[mask] * treat[mask],
+                ]
+            )
             Wd = np.diag(weights[mask])
             beta = np.linalg.solve(Xb.T @ Wd @ Xb, Xb.T @ Wd @ ind[mask])
             resid = ind[mask] - Xb @ beta
-            sigma2 = float((weights[mask] * resid ** 2).sum()
-                           / max(weights[mask].sum() - Xb.shape[1], 1))
+            sigma2 = float(
+                (weights[mask] * resid**2).sum()
+                / max(weights[mask].sum() - Xb.shape[1], 1)
+            )
             cov = sigma2 * np.linalg.pinv(Xb.T @ Wd @ Xb)
             qte[j] = float(beta[2])
             se[j] = float(np.sqrt(max(cov[2, 2], 0.0)))

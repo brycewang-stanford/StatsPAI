@@ -7,6 +7,6 @@ from .results import EconometricResults
 
 __all__ = [
     "BaseModel",
-    "BaseEstimator", 
+    "BaseEstimator",
     "EconometricResults",
 ]

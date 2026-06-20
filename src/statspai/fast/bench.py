@@ -17,6 +17,7 @@ installed, and quietly marked "unavailable" otherwise. This means the
 same command runs on CI where Numba may be missing and on a dev box
 where a future Rust wheel is loaded.
 """
+
 from __future__ import annotations
 
 import time
@@ -30,13 +31,13 @@ from ..exceptions import MethodIncompatibility
 from ._result_protocol import jsonable as _jsonable
 from ._validation import nonnegative_finite_float, positive_int
 
-
 _BackendFn = Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
 
 
 # ---------------------------------------------------------------------------
 # Reference implementation: pure NumPy
 # ---------------------------------------------------------------------------
+
 
 def _sweep_numpy(
     col: np.ndarray,
@@ -49,8 +50,7 @@ def _sweep_numpy(
     col -= means[codes]
 
 
-def _hdfe_numpy(y: np.ndarray, codes: np.ndarray,
-                counts: np.ndarray) -> np.ndarray:
+def _hdfe_numpy(y: np.ndarray, codes: np.ndarray, counts: np.ndarray) -> np.ndarray:
     out = y.astype(np.float64, copy=True)
     _sweep_numpy(out, codes, counts)
     return out
@@ -60,22 +60,23 @@ def _hdfe_numpy(y: np.ndarray, codes: np.ndarray,
 # Backend registry
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class _Backend:
     name: str
     fn: _BackendFn
     available: bool
-    note: str = ''
+    note: str = ""
 
 
 def _detect_backends() -> Dict[str, _Backend]:
     """Probe which implementation paths are usable in the current env."""
     backends: Dict[str, _Backend] = {
-        'numpy': _Backend(
-            name='numpy',
+        "numpy": _Backend(
+            name="numpy",
             fn=_hdfe_numpy,
             available=True,
-            note='pure NumPy bincount (reference)',
+            note="pure NumPy bincount (reference)",
         )
     }
 
@@ -90,21 +91,29 @@ def _detect_backends() -> Dict[str, _Backend]:
             counts: np.ndarray,
         ) -> np.ndarray:
             out = np.ascontiguousarray(y, dtype=np.float64).copy()
-            _numba_sweep(out, np.asarray(codes, dtype=np.int64),
-                         np.asarray(counts, dtype=np.int64))
+            _numba_sweep(
+                out,
+                np.asarray(codes, dtype=np.int64),
+                np.asarray(counts, dtype=np.int64),
+            )
             return out
 
-        backends['numba'] = _Backend(
-            name='numba',
+        backends["numba"] = _Backend(
+            name="numba",
             fn=_hdfe_numba,
             available=bool(_HAS_NUMBA),
-            note=('Numba @njit path (statspai 0.9.3+)' if _HAS_NUMBA
-                  else 'Numba not installed; path falls back to NumPy'),
+            note=(
+                "Numba @njit path (statspai 0.9.3+)"
+                if _HAS_NUMBA
+                else "Numba not installed; path falls back to NumPy"
+            ),
         )
     except ImportError:  # pragma: no cover - defensive
-        backends['numba'] = _Backend(
-            name='numba', fn=_hdfe_numpy, available=False,
-            note='statspai.panel._hdfe_kernels missing',
+        backends["numba"] = _Backend(
+            name="numba",
+            fn=_hdfe_numpy,
+            available=False,
+            note="statspai.panel._hdfe_kernels missing",
         )
 
     # Rust path: present for forward-compat but marked unavailable
@@ -123,19 +132,24 @@ def _detect_backends() -> Dict[str, _Backend]:
             sums = np.zeros(counts.size, dtype=np.float64)
             _rust_group_demean(
                 np.asarray(codes, dtype=np.int64),
-                out, sums,
+                out,
+                sums,
                 np.asarray(counts, dtype=np.int64),
             )
             return out
 
-        backends['rust'] = _Backend(
-            name='rust', fn=_hdfe_rust, available=True,
-            note='PyO3 + Rayon kernel (statspai_hdfe crate)',
+        backends["rust"] = _Backend(
+            name="rust",
+            fn=_hdfe_rust,
+            available=True,
+            note="PyO3 + Rayon kernel (statspai_hdfe crate)",
         )
     except Exception:
-        backends['rust'] = _Backend(
-            name='rust', fn=_hdfe_numpy, available=False,
-            note='Rust kernel not built (expected pre-1.0)',
+        backends["rust"] = _Backend(
+            name="rust",
+            fn=_hdfe_numpy,
+            available=False,
+            note="Rust kernel not built (expected pre-1.0)",
         )
 
     return backends
@@ -144,6 +158,7 @@ def _detect_backends() -> Dict[str, _Backend]:
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class HDFEBenchResult:
@@ -160,27 +175,28 @@ class HDFEBenchResult:
         Name of the reference backend used for correctness comparison
         (always ``'numpy'``).
     """
+
     results: List[Dict[str, Any]]
     backends: Dict[str, _Backend]
-    reference: str = 'numpy'
+    reference: str = "numpy"
 
     def to_dataframe(self) -> pd.DataFrame:
         df = pd.DataFrame(self.results)
         if not df.empty:
-            df = df.sort_values(['n', 'backend']).reset_index(drop=True)
+            df = df.sort_values(["n", "backend"]).reset_index(drop=True)
         return df
 
     def summary(self) -> str:
         df = self.to_dataframe()
         if df.empty:
-            return 'hdfe_bench: no data.'
-        lines = ['hdfe_bench']
+            return "hdfe_bench: no data."
+        lines = ["hdfe_bench"]
         for name, b in self.backends.items():
-            status = 'AVAILABLE' if b.available else 'unavailable'
-            lines.append(f'  [{status:11s}] {name:6s} — {b.note}')
-        lines.append('')
+            status = "AVAILABLE" if b.available else "unavailable"
+            lines.append(f"  [{status:11s}] {name:6s} — {b.note}")
+        lines.append("")
         lines.append(df.to_string(index=False))
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def to_dict(self) -> Dict[str, Any]:
         """Lossless JSON-safe payload for benchmark evidence."""
@@ -204,9 +220,14 @@ class HDFEBenchResult:
             & np.isfinite(df.get("wall_time_s", pd.Series(dtype=float)))
         ]
         if available.empty:
-            best_by_n = pd.DataFrame(columns=[
-                "n", "backend", "wall_time_s", "relative_to_numpy",
-            ])
+            best_by_n = pd.DataFrame(
+                columns=[
+                    "n",
+                    "backend",
+                    "wall_time_s",
+                    "relative_to_numpy",
+                ]
+            )
         else:
             best_by_n = (
                 available.sort_values(["n", "wall_time_s"])
@@ -231,6 +252,7 @@ class HDFEBenchResult:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def _positive_int_sequence(
     value: Sequence[int],
@@ -305,65 +327,71 @@ def hdfe_bench(
         y = rng.normal(size=n).astype(np.float64)
 
         # Reference result for correctness comparison
-        ref_out = backends['numpy'].fn(y, codes, counts)
+        ref_out = backends["numpy"].fn(y, codes, counts)
 
         for name, b in backends.items():
             if not b.available:
-                rows.append({
-                    'backend': name,
-                    'n': n,
-                    'n_groups': n_groups,
-                    'wall_time_s': np.nan,
-                    'relative_to_numpy': np.nan,
-                    'max_abs_err_vs_ref': np.nan,
-                    'available': False,
-                    'note': b.note,
-                })
+                rows.append(
+                    {
+                        "backend": name,
+                        "n": n,
+                        "n_groups": n_groups,
+                        "wall_time_s": np.nan,
+                        "relative_to_numpy": np.nan,
+                        "max_abs_err_vs_ref": np.nan,
+                        "available": False,
+                        "note": b.note,
+                    }
+                )
                 continue
 
-            best = float('inf')
+            best = float("inf")
             max_err = 0.0
             for _ in range(repeat):
                 y_in = y.copy()
                 t0 = time.perf_counter()
                 out = b.fn(y_in, codes, counts)
                 best = min(best, time.perf_counter() - t0)
-                if name != 'numpy':
+                if name != "numpy":
                     err = float(np.max(np.abs(out - ref_out)))
                     max_err = max(max_err, err)
 
-            rows.append({
-                'backend': name,
-                'n': n,
-                'n_groups': n_groups,
-                'wall_time_s': best,
-                'relative_to_numpy': np.nan,  # filled below
-                'max_abs_err_vs_ref': max_err,
-                'available': True,
-                'note': b.note,
-            })
+            rows.append(
+                {
+                    "backend": name,
+                    "n": n,
+                    "n_groups": n_groups,
+                    "wall_time_s": best,
+                    "relative_to_numpy": np.nan,  # filled below
+                    "max_abs_err_vs_ref": max_err,
+                    "available": True,
+                    "note": b.note,
+                }
+            )
 
     # Fill relative_to_numpy column
     df = pd.DataFrame(rows)
     if not df.empty:
-        numpy_times = (df[df['backend'] == 'numpy']
-                       .set_index('n')['wall_time_s'])
+        numpy_times = df[df["backend"] == "numpy"].set_index("n")["wall_time_s"]
         rel = df.apply(
-            lambda r: (r['wall_time_s'] / numpy_times.get(r['n'], np.nan))
-            if np.isfinite(r['wall_time_s']) else np.nan,
+            lambda r: (
+                (r["wall_time_s"] / numpy_times.get(r["n"], np.nan))
+                if np.isfinite(r["wall_time_s"])
+                else np.nan
+            ),
             axis=1,
         )
-        df['relative_to_numpy'] = rel
-        rows = df.to_dict(orient='records')
+        df["relative_to_numpy"] = rel
+        rows = df.to_dict(orient="records")
 
     # Correctness guard — fail loud if a backend drifted outside atol
     for r in rows:
-        if r['available'] and r['backend'] != 'numpy':
-            err = r['max_abs_err_vs_ref']
+        if r["available"] and r["backend"] != "numpy":
+            err = r["max_abs_err_vs_ref"]
             if np.isfinite(err) and err > atol:
                 raise AssertionError(
                     f"Backend '{r['backend']}' drifted {err:.2e} vs "
                     f"numpy reference (atol={atol:.1e}) on n={r['n']}."
                 )
 
-    return HDFEBenchResult(results=rows, backends=backends, reference='numpy')
+    return HDFEBenchResult(results=rows, backends=backends, reference="numpy")

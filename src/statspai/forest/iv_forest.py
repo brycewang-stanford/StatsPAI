@@ -67,7 +67,9 @@ class IVForestResult:
         return f"IVForestResult(LATE={self.late:.4f})"
 
 
-def _forest_weights(forest: RandomForestRegressor, X_test: np.ndarray, X_train: np.ndarray) -> np.ndarray:
+def _forest_weights(
+    forest: RandomForestRegressor, X_test: np.ndarray, X_train: np.ndarray
+) -> np.ndarray:
     """Leaf-match weights w_i(x) for each test row, averaged across trees."""
     n_train = X_train.shape[0]
     n_test = X_test.shape[0]
@@ -131,9 +133,12 @@ def iv_forest(
     # Train on a "gradient" target — here residualised Y ~ f(X) — which is
     # a common implementation shortcut for the honest GRF kernel.
     aux_forest = RandomForestRegressor(
-        n_estimators=n_trees, min_samples_leaf=min_leaf,
-        max_depth=max_depth, random_state=random_state,
-        bootstrap=True, n_jobs=-1,
+        n_estimators=n_trees,
+        min_samples_leaf=min_leaf,
+        max_depth=max_depth,
+        random_state=random_state,
+        bootstrap=True,
+        n_jobs=-1,
     )
     aux_forest.fit(X, Y)
     W = _forest_weights(aux_forest, X, X)
@@ -141,16 +146,22 @@ def iv_forest(
     # Residualise Y, D, Z on X via the same forest (Robinson-style).
     Y_hat = aux_forest.predict(X)
     D_forest = RandomForestRegressor(
-        n_estimators=n_trees, min_samples_leaf=min_leaf,
-        max_depth=max_depth, random_state=random_state + 1,
-        bootstrap=True, n_jobs=-1,
+        n_estimators=n_trees,
+        min_samples_leaf=min_leaf,
+        max_depth=max_depth,
+        random_state=random_state + 1,
+        bootstrap=True,
+        n_jobs=-1,
     )
     D_forest.fit(X, D)
     D_hat = D_forest.predict(X)
     Z_forest = RandomForestRegressor(
-        n_estimators=n_trees, min_samples_leaf=min_leaf,
-        max_depth=max_depth, random_state=random_state + 2,
-        bootstrap=True, n_jobs=-1,
+        n_estimators=n_trees,
+        min_samples_leaf=min_leaf,
+        max_depth=max_depth,
+        random_state=random_state + 2,
+        bootstrap=True,
+        n_jobs=-1,
     )
     Z_forest.fit(X, Z)
     Z_hat = Z_forest.predict(X)
@@ -197,16 +208,21 @@ def iv_forest(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv_forest",
             params={
-                "y": y, "treat": treat, "instrument": instrument,
+                "y": y,
+                "treat": treat,
+                "instrument": instrument,
                 "covariates": list(covariates),
-                "n_trees": n_trees, "min_leaf": min_leaf,
+                "n_trees": n_trees,
+                "min_leaf": min_leaf,
                 "max_depth": max_depth,
                 "n_bootstrap": n_bootstrap,
-                "random_state": random_state, "alpha": alpha,
+                "random_state": random_state,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

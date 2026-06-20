@@ -40,9 +40,12 @@ from .identification import (
 # genuinely zero-overhead at import time, matching the docstring promise.
 
 __all__ = [
-    "recommend", "RecommendationResult",
-    "compare_estimators", "ComparisonResult",
-    "assumption_audit", "AssumptionResult",
+    "recommend",
+    "RecommendationResult",
+    "compare_estimators",
+    "ComparisonResult",
+    "assumption_audit",
+    "AssumptionResult",
     "audit",
     "bib_for",
     "brief",
@@ -51,11 +54,17 @@ __all__ = [
     "preflight",
     "render_citation",
     "session",
-    "sensitivity_dashboard", "SensitivityDashboard",
-    "pub_ready", "PubReadyResult",
-    "replicate", "list_replications",
-    "verify_recommendation", "verify_benchmark",
-    "check_identification", "IdentificationReport", "DiagnosticFinding",
+    "sensitivity_dashboard",
+    "SensitivityDashboard",
+    "pub_ready",
+    "PubReadyResult",
+    "replicate",
+    "list_replications",
+    "verify_recommendation",
+    "verify_benchmark",
+    "check_identification",
+    "IdentificationReport",
+    "DiagnosticFinding",
     "IdentificationError",
 ]
 
@@ -66,10 +75,12 @@ def __getattr__(name: str) -> Any:
     # statspai/__init__.py pattern).
     if name == "verify_recommendation":
         from .verify import verify_recommendation as _vr
+
         globals()["verify_recommendation"] = _vr
         return _vr
     if name == "verify_benchmark":
         from .benchmark import verify_benchmark as _vb
+
         globals()["verify_benchmark"] = _vb
         return _vb
     raise AttributeError(f"module 'statspai.smart' has no attribute {name!r}")

@@ -84,12 +84,14 @@ class CointegrationResult:
             "",
         ]
 
-        if self.test_type == 'Engle-Granger':
+        if self.test_type == "Engle-Granger":
             lines.append(f"ADF test statistic: {self.test_stats:.4f}")
-            lines.append(f"Critical values (1%, 5%, 10%): "
-                         f"{self.critical_values[0]:.3f}, "
-                         f"{self.critical_values[1]:.3f}, "
-                         f"{self.critical_values[2]:.3f}")
+            lines.append(
+                f"Critical values (1%, 5%, 10%): "
+                f"{self.critical_values[0]:.3f}, "
+                f"{self.critical_values[1]:.3f}, "
+                f"{self.critical_values[2]:.3f}"
+            )
             reject = self.test_stats < self.critical_values[1]
             conclusion = "Cointegrated" if reject else "Not cointegrated"
             lines.append(f"Conclusion: {conclusion} at 5%")
@@ -102,13 +104,9 @@ class CointegrationResult:
             for i in range(self.n_vars):
                 ts = self.test_stats[i] if i < len(self.test_stats) else np.nan
                 cv = (
-                    self.critical_values[i]
-                    if i < len(self.critical_values)
-                    else np.nan
+                    self.critical_values[i] if i < len(self.critical_values) else np.nan
                 )
-                reject = (
-                    ts > cv if np.isfinite(ts) and np.isfinite(cv) else False
-                )
+                reject = ts > cv if np.isfinite(ts) and np.isfinite(cv) else False
                 lines.append(
                     f"{'r <= ' + str(i):>12s} {ts:>12.4f}"
                     f" {cv:>10.3f} {'Yes' if reject else 'No':>8s}"
@@ -185,7 +183,7 @@ def engle_granger(
 
     # Step 2: ADF on residuals
     if lags is None:
-        lags = int(np.floor(4 * (n / 100)**0.25))
+        lags = int(np.floor(4 * (n / 100) ** 0.25))
 
     dy = np.diff(residuals)
     y_lag = residuals[:-1]
@@ -196,12 +194,12 @@ def engle_granger(
 
     Y_adf = dy[max_lag:]
     n_adf = len(Y_adf)
-    X_adf = y_lag[max_lag:max_lag + n_adf].reshape(-1, 1)
+    X_adf = y_lag[max_lag : max_lag + n_adf].reshape(-1, 1)
     for j in range(1, max_lag + 1):
-        lag_slice = dy[max_lag - j:max_lag - j + n_adf]
+        lag_slice = dy[max_lag - j : max_lag - j + n_adf]
         X_adf = np.column_stack([X_adf, lag_slice])
 
-    if trend == 'c':
+    if trend == "c":
         X_adf = np.column_stack([X_adf, np.ones(n_adf)])
 
     beta_adf = np.linalg.lstsq(X_adf, Y_adf, rcond=None)[0]
@@ -210,8 +208,9 @@ def engle_granger(
         XtX_inv = np.linalg.inv(X_adf.T @ X_adf)
     except np.linalg.LinAlgError:
         XtX_inv = np.linalg.pinv(X_adf.T @ X_adf)
-    se_rho = np.sqrt(np.sum(resid_adf**2) / max(n_adf - X_adf.shape[1], 1) *
-                     XtX_inv[0, 0])
+    se_rho = np.sqrt(
+        np.sum(resid_adf**2) / max(n_adf - X_adf.shape[1], 1) * XtX_inv[0, 0]
+    )
     adf_stat = beta_adf[0] / se_rho
 
     # Critical values for Engle-Granger (depend on number of variables)
@@ -228,7 +227,7 @@ def engle_granger(
     reject = adf_stat < cvs[1]
 
     _result = CointegrationResult(
-        test_type='Engle-Granger',
+        test_type="Engle-Granger",
         test_stats=adf_stat,
         critical_values=cvs,
         rank=1 if reject else 0,
@@ -240,12 +239,15 @@ def engle_granger(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.timeseries.engle_granger",
             params={
                 "variables": list(variables) if variables else None,
-                "lags": lags, "trend": trend, "alpha": alpha,
+                "lags": lags,
+                "trend": trend,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -330,19 +332,19 @@ def johansen(
     # Lagged differences
     lag_blocks: list[np.ndarray] = []
     for j in range(1, lags + 1):
-        lag_blocks.append(dY[lags - j:T - 1 - j])
+        lag_blocks.append(dY[lags - j : T - 1 - j])
     if lag_blocks:
         Z = np.hstack(lag_blocks)  # T_eff x (k*lags)
     else:
         Z = np.empty((T_eff, 0))
 
-    if trend == 'c':
+    if trend == "c":
         Z = (
             np.column_stack([Z, np.ones(T_eff)])
             if Z.shape[1] > 0
             else np.ones((T_eff, 1))
         )
-    elif trend == 'ct':
+    elif trend == "ct":
         Z = np.column_stack([Z, np.ones(T_eff), np.arange(1, T_eff + 1)])
 
     # Concentrate out Z from dY and Y_lag
@@ -380,19 +382,16 @@ def johansen(
     eigenvalues = np.clip(eigenvalues, 0, 1 - 1e-10)
 
     # Test statistics
-    if test == 'trace':
+    if test == "trace":
         # Trace statistic: -T Σ_{i=r+1}^{k} ln(1-λ_i)
-        trace_stats = np.array([
-            -T_eff * np.sum(np.log(1 - eigenvalues[r:])) for r in range(k)
-        ])
+        trace_stats = np.array(
+            [-T_eff * np.sum(np.log(1 - eigenvalues[r:])) for r in range(k)]
+        )
         test_stats = trace_stats
     else:
         # Max eigenvalue: -T ln(1-λ_{r+1})
         maxeig_stats = np.array(
-            [
-                -T_eff * np.log(1 - eigenvalues[r]) if r < k else 0
-                for r in range(k)
-            ]
+            [-T_eff * np.log(1 - eigenvalues[r]) if r < k else 0 for r in range(k)]
         )
         test_stats = maxeig_stats
 
@@ -415,7 +414,7 @@ def johansen(
         6: [39.37, 33.46, 27.42, 21.12, 14.07, 3.76],
     }
 
-    if test == 'trace':
+    if test == "trace":
         cvs = trace_cv_5.get(k, trace_cv_5[min(k, 6)])
     else:
         cvs = maxeig_cv_5.get(k, maxeig_cv_5[min(k, 6)])
@@ -434,7 +433,7 @@ def johansen(
                 break
 
     _result = CointegrationResult(
-        test_type=f'Johansen ({test})',
+        test_type=f"Johansen ({test})",
         test_stats=test_stats,
         critical_values=cvs,
         rank=rank,
@@ -446,13 +445,16 @@ def johansen(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.timeseries.johansen",
             params={
                 "variables": list(variables) if variables else None,
-                "lags": lags, "trend": trend,
-                "test": test, "alpha": alpha,
+                "lags": lags,
+                "trend": trend,
+                "test": test,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

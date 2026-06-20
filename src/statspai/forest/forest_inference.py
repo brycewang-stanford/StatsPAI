@@ -310,9 +310,7 @@ def _construct_pseudo_outcome(
             (mu1 - mu0) + (T - e_hat) * (Y - mu_T) / (e_hat * (1 - e_hat))
         )
     # Horvitz-Thompson signal (centered on e_hat-adjusted residual)
-    return np.asarray(
-        T * (Y - m_hat) / e_hat - (1 - T) * (Y - m_hat) / (1 - e_hat)
-    )
+    return np.asarray(T * (Y - m_hat) / e_hat - (1 - T) * (Y - m_hat) / (1 - e_hat))
 
 
 def _get_nuisances(
@@ -500,7 +498,7 @@ def rate(
     desc_order = np.argsort(-tau_hat, kind="mergesort")
     rank = np.empty(n, dtype=np.float64)
     rank[desc_order] = np.arange(1, n + 1)  # 1-based rank
-    u = rank / n                             # fractional rank ∈ (0, 1]
+    u = rank / n  # fractional rank ∈ (0, 1]
 
     # Closed-form rank kernels. Derivation (AUTOC): AUTOC_hat rewrites
     # as the mean over k ∈ {1,..,n} of the top-k mean of Ψ minus Ψ̄.
@@ -534,8 +532,7 @@ def rate(
     # denominator for the centred sum of squares.
     phi_centered = phi - phi.mean()
     var_est = (
-        float(phi_centered @ phi_centered) / (n * (n - 1))
-        if n > 1 else float("nan")
+        float(phi_centered @ phi_centered) / (n * (n - 1)) if n > 1 else float("nan")
     )
     se = float(np.sqrt(max(var_est, 0.0)))
     z = stats.norm.ppf(1 - alpha_value / 2)
@@ -729,9 +726,7 @@ def average_treatment_effect(
     except AttributeError as exc:
         raise MethodIncompatibility(
             "average_treatment_effect(): target_sample must be a string.",
-            recovery_hint=(
-                "Use one of 'all', 'treated', 'control', or 'overlap'."
-            ),
+            recovery_hint=("Use one of 'all', 'treated', 'control', or 'overlap'."),
             diagnostics={"target_sample": target_sample},
         ) from exc
     aliases = {
@@ -747,8 +742,7 @@ def average_treatment_effect(
     target = aliases.get(target_key)
     if target is None:
         raise MethodIncompatibility(
-            "target_sample must be one of 'all', 'treated', 'control', "
-            "or 'overlap'",
+            "target_sample must be one of 'all', 'treated', 'control', " "or 'overlap'",
             recovery_hint="Use a supported GRF aggregation target.",
             diagnostics={"target_sample": target_sample},
         )
@@ -905,8 +899,8 @@ def average_treatment_effect(
         psi_pt = tau + (T_ - e_hat) / (e_hat * (1.0 - e_hat)) * (Y_ - m_full)
         estimate = float(np.average(psi_pt, weights=w))
         norm_w = w / w.sum()
-        se = float(np.sqrt(np.sum((norm_w ** 2) * (psi_pt - estimate) ** 2)))
-        ess = float((w.sum() ** 2) / np.sum(w ** 2))
+        se = float(np.sqrt(np.sum((norm_w**2) * (psi_pt - estimate) ** 2)))
+        ess = float((w.sum() ** 2) / np.sum(w**2))
 
     return {
         "estimate": estimate,
@@ -955,9 +949,9 @@ def _plug_in_average(
         )
     estimate = float(np.average(tau, weights=weights))
     norm_w = weights / weights.sum()
-    se = float(np.sqrt(np.sum((norm_w ** 2) * (tau - estimate) ** 2)))
+    se = float(np.sqrt(np.sum((norm_w**2) * (tau - estimate) ** 2)))
     z = float(stats.norm.ppf(1 - alpha / 2))
-    ess = float((weights.sum() ** 2) / np.sum(weights ** 2))
+    ess = float((weights.sum() ** 2) / np.sum(weights**2))
     return {
         "estimate": estimate,
         "se": se,

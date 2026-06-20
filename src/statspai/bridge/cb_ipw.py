@@ -49,6 +49,7 @@ def cb_ipw_bridge(
     # ---------- Path A: classic IPW ATE ---------- #
     def _ipw_ate(Yi: np.ndarray, Di: np.ndarray, Xi: np.ndarray) -> float:
         from sklearn.linear_model import LogisticRegression
+
         # Add intercept implicitly via sklearn
         ps = LogisticRegression(max_iter=1000).fit(Xi, Di).predict_proba(Xi)[:, 1]
         ps = np.clip(ps, 0.02, 0.98)
@@ -84,12 +85,9 @@ def cb_ipw_bridge(
             grad = Xc_centered.T @ w
             if np.linalg.norm(grad) < 1e-7:
                 break
-            H = (Xc_centered * w[:, None]).T @ Xc_centered \
-                - np.outer(grad, grad)
+            H = (Xc_centered * w[:, None]).T @ Xc_centered - np.outer(grad, grad)
             try:
-                step = np.linalg.solve(
-                    H + 1e-6 * np.eye(H.shape[0]), grad
-                )
+                step = np.linalg.solve(H + 1e-6 * np.eye(H.shape[0]), grad)
             except np.linalg.LinAlgError:
                 break
             lam = lam + step
@@ -110,12 +108,14 @@ def cb_ipw_bridge(
         cb_error = f"{type(exc).__name__}: {exc}"
         ate_cb = float("nan")
         import warnings
+
         warnings.warn(
             f"cb_ipw bridge: entropy-balancing (path B) failed on the main "
             f"sample ({cb_error}). The CB estimate, the IPW-vs-CB agreement "
             f"test, and the DR combine are reported as NaN; only the IPW "
             f"estimate (path A) is valid.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
     # ---------- Bootstrap SEs ---------- #
@@ -142,12 +142,8 @@ def cb_ipw_bridge(
         est_dr = se_dr = float("nan")
     else:
         se_cb = _bootstrap_se(boot_cb, n_boot, "cb_ipw entropy-balancing path")
-        diff, diff_se, diff_p = _agreement_test(
-            ate_ipw, se_ipw, ate_cb, se_cb
-        )
-        est_dr, se_dr = _dr_combine(
-            ate_ipw, se_ipw, ate_cb, se_cb, diff_p
-        )
+        diff, diff_se, diff_p = _agreement_test(ate_ipw, se_ipw, ate_cb, se_cb)
+        est_dr, se_dr = _dr_combine(ate_ipw, se_ipw, ate_cb, se_cb, diff_p)
 
     _result = BridgeResult(
         kind="cb_ipw",
@@ -173,13 +169,17 @@ def cb_ipw_bridge(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bridge.cb_ipw_bridge",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
-                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+                "alpha": alpha,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

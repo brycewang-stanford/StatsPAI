@@ -44,6 +44,7 @@ from scipy import stats
 @dataclass
 class PostLassoResult:
     """Return of :func:`bch_post_lasso_iv`."""
+
     beta: pd.Series
     std_errors: pd.Series
     t_stats: pd.Series
@@ -91,6 +92,7 @@ class PostLassoResult:
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _residualize(M: np.ndarray, W: Optional[np.ndarray]) -> np.ndarray:
     if W is None or W.size == 0 or W.shape[1] == 0:
         return M
@@ -123,6 +125,7 @@ def _names(v: Any, prefix: Any, n: Any) -> List[Any]:
 #  Rigorous λ
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def bch_lambda(
     n: int,
     p: int,
@@ -153,6 +156,7 @@ def bch_lambda(
 #  Coordinate-descent Lasso with per-coefficient penalty loadings
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _lasso_with_loadings(
     X: np.ndarray,
     y: np.ndarray,
@@ -170,7 +174,7 @@ def _lasso_with_loadings(
     n, p = X.shape
     beta = np.zeros(p)
     # Precompute column norms
-    col_sq = (X ** 2).sum(axis=0)
+    col_sq = (X**2).sum(axis=0)
     col_sq = np.where(col_sq > 0, col_sq, 1.0)
     r = y.copy()
 
@@ -205,7 +209,7 @@ def _refine_loadings(
 ) -> np.ndarray:
     """Heteroskedastic per-coef loadings:  ψ_j = √{(1/n) Σ_i X_{ij}² ε̂_i²}."""
     r = y - X @ beta
-    psi = np.sqrt((X ** 2 * (r ** 2)[:, None]).mean(axis=0))
+    psi = np.sqrt((X**2 * (r**2)[:, None]).mean(axis=0))
     psi = np.where(psi > 0, psi, 1.0)
     return psi
 
@@ -213,6 +217,7 @@ def _refine_loadings(
 # ═══════════════════════════════════════════════════════════════════════
 #  BCH first-stage selection
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def bch_selected(
     endog: np.ndarray,
@@ -242,7 +247,7 @@ def bch_selected(
 
     # Initial loadings: homoskedastic version
     sigma_hat = float(np.std(endog, ddof=1))
-    psi = sigma_hat * np.sqrt((instruments ** 2).mean(axis=0))
+    psi = sigma_hat * np.sqrt((instruments**2).mean(axis=0))
     psi = np.where(psi > 0, psi, 1.0)
 
     beta_prev = np.zeros(p)
@@ -262,6 +267,7 @@ def bch_selected(
 # ═══════════════════════════════════════════════════════════════════════
 #  Full post-Lasso 2SLS
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def bch_post_lasso_iv(
     y: Union[np.ndarray, pd.Series, str],
@@ -360,7 +366,9 @@ def bch_post_lasso_iv(
     # --- 4. Post-Lasso OLS first stage --------------------------------
     Z_sel = Z_t[:, sel]
     if Z_sel.shape[1] == 0:
-        raise RuntimeError("No instruments could be selected; all weak.")  # pragma: no cover
+        raise RuntimeError(
+            "No instruments could be selected; all weak."
+        )  # pragma: no cover
     # Post-Lasso: OLS of D on Z_sel (already partialled out)
     pi_hat, *_ = np.linalg.lstsq(Z_sel, D_t, rcond=None)
     D_hat = Z_sel @ pi_hat
@@ -384,7 +392,7 @@ def bch_post_lasso_iv(
 
     # --- 6. HC1 standard errors ---------------------------------------
     if robust:
-        meat = float((X_hat ** 2 * y_resid ** 2).sum())
+        meat = float((X_hat**2 * y_resid**2).sum())
         scale = n / max(n - 1, 1)
         var_beta = scale * XhXh_inv * meat * XhXh_inv
     else:
@@ -407,8 +415,9 @@ def bch_post_lasso_iv(
         for nm, val in zip(ctl_names, b_w):
             intercept_and_controls[nm] = float(val)
 
-    endog_name = (endog if isinstance(endog, str)
-                  else getattr(endog, "name", None) or "endog")
+    endog_name = (
+        endog if isinstance(endog, str) else getattr(endog, "name", None) or "endog"
+    )
 
     all_names = [endog_name] + list(intercept_and_controls.keys())
     all_vals = [beta] + list(intercept_and_controls.values())

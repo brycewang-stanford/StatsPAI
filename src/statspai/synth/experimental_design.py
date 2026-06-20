@@ -39,7 +39,6 @@ from ..exceptions import DataInsufficient
 from .._input_validation import require_columns
 from ._core import solve_simplex_weights
 
-
 __all__ = [
     "synth_experimental_design",
     "SynthExperimentalDesignResult",
@@ -181,8 +180,8 @@ def _leave_one_out_sc(
     # where X is (T_pre, n_donors) and y is (T_pre,)
     w = solve_simplex_weights(y_i, donor_matrix, penalization=penalization)
     resid = y_i - donor_matrix @ w
-    mspe = float(np.mean(resid ** 2))
-    herf = float(np.sum(w ** 2))
+    mspe = float(np.mean(resid**2))
+    herf = float(np.sum(w**2))
     eff = float(1.0 / herf) if herf > 0 else float("nan")
     return w, mspe, eff
 
@@ -277,9 +276,7 @@ def synth_experimental_design(
     >>> print(res.summary())  # doctest: +SKIP
     """
     # --- Validation --------------------------------------------------------
-    require_columns(
-        data, [unit, time, outcome], function="synth_experimental_design"
-    )
+    require_columns(data, [unit, time, outcome], function="synth_experimental_design")
     if risk not in ("mspe", "rmse"):
         raise ValueError(f"risk must be 'mspe' or 'rmse', got {risk!r}")
     if concentration_weight < 0:
@@ -353,31 +350,35 @@ def synth_experimental_design(
         else:
             donor_ids = [u for u in fixed_donor_pool if u != i_unit]
         if len(donor_ids) < 2:
-            raise ValueError(f"unit {i_unit!r} has fewer than 2 donors")  # pragma: no cover
+            raise ValueError(
+                f"unit {i_unit!r} has fewer than 2 donors"
+            )  # pragma: no cover
         X = wide.loc[donor_ids].to_numpy(dtype=float).T  # (T_pre, n_donors)
         w, mspe, eff = _leave_one_out_sc(y_i, X, penalization=penalization)
         rmse = float(np.sqrt(mspe))
         loss = mspe if risk == "mspe" else rmse
-        herf = float(np.sum(w ** 2))
+        herf = float(np.sum(w**2))
         risk_score = loss + concentration_weight * herf
-        rows.append({
-            "unit": i_unit,
-            "pre_mspe": mspe,
-            "pre_rmse": rmse,
-            "effective_donors": eff,
-            "herfindahl": herf,
-            "risk_score": risk_score,
-        })
-        weights_map[i_unit] = np.array([w[donor_ids.index(u)] if u in donor_ids else 0.0
-                                        for u in donor_union], dtype=float)
+        rows.append(
+            {
+                "unit": i_unit,
+                "pre_mspe": mspe,
+                "pre_rmse": rmse,
+                "effective_donors": eff,
+                "herfindahl": herf,
+                "risk_score": risk_score,
+            }
+        )
+        weights_map[i_unit] = np.array(
+            [w[donor_ids.index(u)] if u in donor_ids else 0.0 for u in donor_union],
+            dtype=float,
+        )
 
     ranking = pd.DataFrame(rows).sort_values("risk_score").reset_index(drop=True)
     selected = ranking["unit"].iloc[:k].tolist()
     ranking["selected"] = ranking["unit"].isin(selected)
 
-    expected_var = float(
-        ranking.loc[ranking["selected"], "pre_mspe"].sum()
-    )
+    expected_var = float(ranking.loc[ranking["selected"], "pre_mspe"].sum())
 
     # --- Baseline: random k-subset expected sum-MSPE ----------------------
     rng = np.random.default_rng(random_state)

@@ -81,8 +81,13 @@ def neural_causal_plot(
         cate = df["cate"].to_numpy()
         ax.hist(cate, bins=bins, color=color, alpha=alpha, edgecolor="white")
         ax.axvline(np.mean(cate), color="#111827", linewidth=1.5, label="Mean")
-        ax.axvline(np.median(cate), color="#F59E0B", linestyle="--",
-                   linewidth=1.2, label="Median")
+        ax.axvline(
+            np.median(cate),
+            color="#F59E0B",
+            linestyle="--",
+            linewidth=1.2,
+            label="Median",
+        )
         ax.axvline(0, color="#9CA3AF", linestyle=":", linewidth=1)
         ax.set_xlabel("Estimated individual treatment effect")
         ax.set_ylabel("Count")
@@ -93,8 +98,7 @@ def neural_causal_plot(
         ordered = np.sort(df["cate"].to_numpy())
         x = np.arange(1, len(ordered) + 1)
         ax.plot(x, ordered, color=color, linewidth=1.7)
-        ax.axhline(np.mean(ordered), color="#111827", linewidth=1.2,
-                   label="Mean CATE")
+        ax.axhline(np.mean(ordered), color="#111827", linewidth=1.2, label="Mean CATE")
         ax.axhline(0, color="#9CA3AF", linestyle=":", linewidth=1)
         ax.fill_between(x, ordered, np.mean(ordered), color=color, alpha=0.12)
         ax.set_xlabel("Units sorted by estimated effect")
@@ -110,10 +114,22 @@ def neural_causal_plot(
             )
         treated = df.loc[df["treatment"] == 1, "propensity"]
         control = df.loc[df["treatment"] == 0, "propensity"]
-        ax.hist(control, bins=bins, alpha=0.55, color=control_color,
-                label="Control", density=True)
-        ax.hist(treated, bins=bins, alpha=0.55, color=treated_color,
-                label="Treated", density=True)
+        ax.hist(
+            control,
+            bins=bins,
+            alpha=0.55,
+            color=control_color,
+            label="Control",
+            density=True,
+        )
+        ax.hist(
+            treated,
+            bins=bins,
+            alpha=0.55,
+            color=treated_color,
+            label="Treated",
+            density=True,
+        )
         ax.axvline(0.05, color="#9CA3AF", linestyle=":", linewidth=1)
         ax.axvline(0.95, color="#9CA3AF", linestyle=":", linewidth=1)
         ax.set_xlabel("Estimated propensity score")
@@ -125,11 +141,17 @@ def neural_causal_plot(
         hist = neural_training_frame(result)
         if hist.empty:
             raise ValueError("No training history recorded on this result.")
-        ax.plot(hist["epoch"], hist["train_loss"], color=color,
-                linewidth=1.6, label="Train")
+        ax.plot(
+            hist["epoch"], hist["train_loss"], color=color, linewidth=1.6, label="Train"
+        )
         if "val_loss" in hist and hist["val_loss"].notna().any():
-            ax.plot(hist["epoch"], hist["val_loss"], color="#F59E0B",
-                    linewidth=1.6, label="Validation")
+            ax.plot(
+                hist["epoch"],
+                hist["val_loss"],
+                color="#F59E0B",
+                linewidth=1.6,
+                label="Validation",
+            )
         ax.set_xlabel("Epoch")
         ax.set_ylabel("Loss")
         ax.set_title(title or f"{architecture} Training Loss")

@@ -56,8 +56,8 @@ def _parse_inputs(
     """Resolve formula / y+x inputs into variable names."""
     if formula is not None:
         parsed = parse_formula(formula)
-        y_name = str(parsed['dependent'])
-        x_names = [str(name) for name in parsed['exogenous']]
+        y_name = str(parsed["dependent"])
+        x_names = [str(name) for name in parsed["exogenous"]]
     else:
         if y is None or x is None:
             raise ValueError("Provide either 'formula' or both 'y' and 'x'.")
@@ -82,9 +82,10 @@ def _build_matrices(
     df = data[cols].dropna().copy()
     Y = df[y_name].values
     if add_constant:
-        X = np.column_stack([np.ones(len(df))] +
-                            [df[v].values.astype(float) for v in x_names])
-        var_names = ['_cons'] + x_names
+        X = np.column_stack(
+            [np.ones(len(df))] + [df[v].values.astype(float) for v in x_names]
+        )
+        var_names = ["_cons"] + x_names
     else:
         X = np.column_stack([df[v].values.astype(float) for v in x_names])
         var_names = list(x_names)
@@ -114,6 +115,7 @@ def _sandwich_se(score_i: np.ndarray, H_inv: np.ndarray) -> np.ndarray:
     se : ndarray (p,)
     """
     from ..core._vcov import sandwich_vcov
+
     V = sandwich_vcov(H_inv, score_i, correction="none")
     return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
 
@@ -136,6 +138,7 @@ def _clustered_se(
     clusters : ndarray (n,)
     """
     from ..core._vcov import sandwich_vcov
+
     V = sandwich_vcov(H_inv, score_i, clusters=clusters, correction="cr1")
     return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
 
@@ -149,7 +152,7 @@ def _compute_se(
     """Dispatch to the right SE estimator."""
     if cluster_vals is not None:
         return _clustered_se(score_i, H_inv, cluster_vals)
-    elif robust in ('HC1', 'robust', 'hc1'):
+    elif robust in ("HC1", "robust", "hc1"):
         return _sandwich_se(score_i, H_inv)
     else:
         # Model-based SE from Hessian
@@ -177,6 +180,7 @@ def _ordered_probit_pdf(z: np.ndarray) -> np.ndarray:
 # ====================================================================
 # Multinomial Logit
 # ====================================================================
+
 
 def mlogit(
     formula: Optional[str] = None,
@@ -288,7 +292,7 @@ def mlogit(
         """Return (n, J) probability matrix."""
         V = np.zeros((n, J))
         for idx, j in enumerate(non_base):
-            V[:, j] = X @ theta[idx * k:(idx + 1) * k]
+            V[:, j] = X @ theta[idx * k : (idx + 1) * k]
         return _softmax(V)
 
     def neg_loglik(theta: np.ndarray) -> float:
@@ -302,7 +306,7 @@ def mlogit(
         R = Y_oh - P  # (n, J)
         grad = np.zeros(n_params)
         for idx, j in enumerate(non_base):
-            grad[idx * k:(idx + 1) * k] = X.T @ R[:, j]
+            grad[idx * k : (idx + 1) * k] = X.T @ R[:, j]
         return _as_float_array(-grad)
 
     def score_obs(theta: np.ndarray) -> np.ndarray:
@@ -311,14 +315,17 @@ def mlogit(
         R = Y_oh - P
         S = np.zeros((n, n_params))
         for idx, j in enumerate(non_base):
-            S[:, idx * k:(idx + 1) * k] = R[:, [j]] * X
+            S[:, idx * k : (idx + 1) * k] = R[:, [j]] * X
         return _as_float_array(S)
 
     # --- Optimise ---
     theta0 = np.zeros(n_params)
     res = optimize.minimize(
-        neg_loglik, theta0, jac=score, method='BFGS',
-        options={'maxiter': maxiter, 'gtol': tol},
+        neg_loglik,
+        theta0,
+        jac=score,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": tol},
     )
     theta_hat = _as_float_array(res.x)
     ll = float(-res.fun)
@@ -337,6 +344,7 @@ def mlogit(
     # Newton update for driving the optimiser, not a reliable
     # Hessian estimate (parity finding #10 — 2026-05-28).
     from ._optim_helpers import hessian_cov
+
     H_inv = _as_float_array(hessian_cov(neg_loglik, theta_hat))
 
     S_obs = score_obs(theta_hat)
@@ -349,8 +357,8 @@ def mlogit(
     ses: List[float] = []
     for idx, j in enumerate(non_base):
         cat_label = categories[j]
-        beta_j = theta_hat[idx * k:(idx + 1) * k]
-        se_j = se[idx * k:(idx + 1) * k]
+        beta_j = theta_hat[idx * k : (idx + 1) * k]
+        se_j = se[idx * k : (idx + 1) * k]
         for vi, vn in enumerate(var_names):
             param_names.append(f"[{cat_label}]{vn}")
             coefs.append(float(beta_j[vi]))
@@ -374,16 +382,18 @@ def mlogit(
     me_dict: Dict[Any, Dict[str, float]] = {}
     betas_all = np.zeros((J, k))
     for idx, j in enumerate(non_base):
-        betas_all[j] = theta_hat[idx * k:(idx + 1) * k]
+        betas_all[j] = theta_hat[idx * k : (idx + 1) * k]
 
-    beta_bar = np.einsum('nj,jk->nk', P_hat, betas_all)  # (n, k)
+    beta_bar = np.einsum("nj,jk->nk", P_hat, betas_all)  # (n, k)
     for idx, j in enumerate(non_base):
         me_j = (P_hat[:, [j]] * (betas_all[j][np.newaxis, :] - beta_bar)).mean(axis=0)
         me_dict[categories[j]] = {
             name: float(value) for name, value in zip(var_names, me_j)
         }
     # base category
-    me_base = (P_hat[:, [base]] * (betas_all[base][np.newaxis, :] - beta_bar)).mean(axis=0)
+    me_base = (P_hat[:, [base]] * (betas_all[base][np.newaxis, :] - beta_bar)).mean(
+        axis=0
+    )
     me_dict[categories[base]] = {
         name: float(value) for name, value in zip(var_names, me_base)
     }
@@ -412,7 +422,7 @@ def mlogit(
         ) -> float:
             V_r = np.zeros((n_r, J))
             for idx2, j2 in enumerate(nb):
-                V_r[:, j2] = X_r @ theta_r[idx2 * k:(idx2 + 1) * k]
+                V_r[:, j2] = X_r @ theta_r[idx2 * k : (idx2 + 1) * k]
             P_r = _softmax(V_r)
             # Only include restricted cats in likelihood
             ll_r = 0.0
@@ -424,27 +434,39 @@ def mlogit(
         # Warm-start from full model
         for idx2, j2 in enumerate(non_base_r):
             full_idx = non_base.index(j2)
-            theta0_r[idx2 * k:(idx2 + 1) * k] = theta_hat[full_idx * k:(full_idx + 1) * k]
+            theta0_r[idx2 * k : (idx2 + 1) * k] = theta_hat[
+                full_idx * k : (full_idx + 1) * k
+            ]
 
-        res_r = optimize.minimize(neg_ll_r, theta0_r, method='BFGS',
-                                  options={'maxiter': maxiter, 'gtol': tol})
+        res_r = optimize.minimize(
+            neg_ll_r, theta0_r, method="BFGS", options={"maxiter": maxiter, "gtol": tol}
+        )
 
         # Hausman statistic: (b_r - b_f)' [V_r - V_f]^{-1} (b_r - b_f)
         # Simplified: use the restricted params corresponding to non_base_r
         b_r = _as_float_array(res_r.x)
-        b_f = np.concatenate([theta_hat[non_base.index(j2) * k:(non_base.index(j2) + 1) * k]
-                              for j2 in non_base_r])
+        b_f = np.concatenate(
+            [
+                theta_hat[non_base.index(j2) * k : (non_base.index(j2) + 1) * k]
+                for j2 in non_base_r
+            ]
+        )
         diff = b_r - b_f
         df_test = len(diff)
         try:
-            V_r_mat = np.asarray(res_r.hess_inv) if hasattr(res_r, 'hess_inv') else np.eye(n_params_r)
+            V_r_mat = (
+                np.asarray(res_r.hess_inv)
+                if hasattr(res_r, "hess_inv")
+                else np.eye(n_params_r)
+            )
             V_f_sub = np.zeros((n_params_r, n_params_r))
             for i1, j1 in enumerate(non_base_r):
                 for i2, j2 in enumerate(non_base_r):
                     fi1 = non_base.index(j1)
                     fi2 = non_base.index(j2)
-                    V_f_sub[i1*k:(i1+1)*k, i2*k:(i2+1)*k] = \
-                        H_inv[fi1*k:(fi1+1)*k, fi2*k:(fi2+1)*k]
+                    V_f_sub[i1 * k : (i1 + 1) * k, i2 * k : (i2 + 1) * k] = H_inv[
+                        fi1 * k : (fi1 + 1) * k, fi2 * k : (fi2 + 1) * k
+                    ]
             V_diff = V_r_mat - V_f_sub
             eigvals = np.linalg.eigvalsh(V_diff)
             if np.all(eigvals > -1e-6):
@@ -453,7 +475,9 @@ def mlogit(
                 chi2 = max(chi2, 0.0)
                 p_iia = float(1 - stats.chi2.cdf(chi2, df_test))
                 iia_tests[categories[drop_j]] = {
-                    'chi2': chi2, 'df': df_test, 'pvalue': p_iia
+                    "chi2": chi2,
+                    "df": df_test,
+                    "pvalue": p_iia,
                 }
             else:
                 # Hausman regularity (V_r - V_f PSD) failed — common in
@@ -469,40 +493,41 @@ def mlogit(
             f"for category/categories {iia_skipped} (singular or non-PSD "
             f"variance difference). These categories are absent from "
             f"`iia_test`; see model_info['iia_skipped'].",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
     model_info = {
-        'model_type': 'Multinomial Logit',
-        'method': 'MLE (softmax)',
-        'base_category': categories[base],
-        'n_categories': J,
-        'categories': list(categories),
-        'log_likelihood': float(ll),
-        'log_likelihood_0': float(ll_0),
-        'pseudo_r2': float(pseudo_r2),
-        'aic': float(aic),
-        'bic': float(bic),
-        'converged': robust_convergence(res)[0],
-        'rrr': rrr,
-        'robust': robust if cluster is None else f'cluster({cluster})',
-        'iia_skipped': iia_skipped,
+        "model_type": "Multinomial Logit",
+        "method": "MLE (softmax)",
+        "base_category": categories[base],
+        "n_categories": J,
+        "categories": list(categories),
+        "log_likelihood": float(ll),
+        "log_likelihood_0": float(ll_0),
+        "pseudo_r2": float(pseudo_r2),
+        "aic": float(aic),
+        "bic": float(bic),
+        "converged": robust_convergence(res)[0],
+        "rrr": rrr,
+        "robust": robust if cluster is None else f"cluster({cluster})",
+        "iia_skipped": iia_skipped,
     }
 
     data_info = {
-        'dependent_var': y_name,
-        'n_obs': n,
-        'n_params': n_params,
-        'df_resid': n - n_params,
+        "dependent_var": y_name,
+        "n_obs": n,
+        "n_params": n_params,
+        "df_resid": n - n_params,
     }
 
     diagnostics = {
-        'McFadden_pseudo_R2': float(pseudo_r2),
-        'Log-Likelihood': float(ll),
-        'Log-Likelihood_0': float(ll_0),
-        'AIC': float(aic),
-        'BIC': float(bic),
-        'n_obs': n,
+        "McFadden_pseudo_R2": float(pseudo_r2),
+        "Log-Likelihood": float(ll),
+        "Log-Likelihood_0": float(ll_0),
+        "AIC": float(aic),
+        "BIC": float(bic),
+        "n_obs": n,
     }
 
     result = EconometricResults(
@@ -514,9 +539,13 @@ def mlogit(
     )
 
     # Attach extra attributes
-    setattr(result, 'predicted_probs', pd.DataFrame(P_hat, columns=categories, index=df.index))
-    setattr(result, 'marginal_effects', me_dict)
-    setattr(result, 'iia_test', iia_tests)
+    setattr(
+        result,
+        "predicted_probs",
+        pd.DataFrame(P_hat, columns=categories, index=df.index),
+    )
+    setattr(result, "marginal_effects", me_dict)
+    setattr(result, "iia_test", iia_tests)
 
     return result
 
@@ -525,13 +554,14 @@ def mlogit(
 # Ordered Logit / Probit
 # ====================================================================
 
+
 def _ordered_model(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
     y: Optional[str] = None,
     x: Optional[List[str]] = None,
-    link: str = 'logit',
-    robust: str = 'nonrobust',
+    link: str = "logit",
+    robust: str = "nonrobust",
     cluster: Optional[str] = None,
     maxiter: int = 100,
     tol: float = 1e-8,
@@ -547,7 +577,9 @@ def _ordered_model(
     """
     y_name, x_names = _parse_inputs(formula, data, y, x)
     extra = [c for c in [cluster] if c]
-    Y_raw, X_no_const, df, _ = _build_matrices(data, y_name, x_names, add_constant=False, extra_cols=extra)
+    Y_raw, X_no_const, df, _ = _build_matrices(
+        data, y_name, x_names, add_constant=False, extra_cols=extra
+    )
     n, k = X_no_const.shape
     var_names = list(x_names)
 
@@ -565,14 +597,14 @@ def _ordered_model(
     cluster_vals = df[cluster].values if cluster else None
 
     # CDF
-    if link == 'logit':
+    if link == "logit":
         cdf: LinkFunc = _ordered_logit_cdf
         pdf: LinkFunc = _ordered_logit_pdf
-        link_label = 'Ordered Logit'
-    elif link == 'probit':
+        link_label = "Ordered Logit"
+    elif link == "probit":
         cdf = _ordered_probit_cdf
         pdf = _ordered_probit_pdf
-        link_label = 'Ordered Probit'
+        link_label = "Ordered Probit"
     else:
         raise ValueError("link must be 'logit' or 'probit'.")
 
@@ -688,7 +720,7 @@ def _ordered_model(
     kappa_init = np.zeros(n_cuts)
     for j in range(n_cuts):
         p = min(max(freq_cum[j], 0.01), 0.99)
-        if link == 'logit':
+        if link == "logit":
             kappa_init[j] = np.log(p / (1 - p))
         else:
             kappa_init[j] = stats.norm.ppf(p)
@@ -702,8 +734,10 @@ def _ordered_model(
 
     # --- Optimise ---
     res = optimize.minimize(
-        neg_loglik, theta0, method='BFGS',
-        options={'maxiter': maxiter, 'gtol': tol},
+        neg_loglik,
+        theta0,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": tol},
     )
     theta_hat = _as_float_array(res.x)
     beta_hat, kappa_hat = _unpack(theta_hat)
@@ -714,8 +748,12 @@ def _ordered_model(
         theta_null = np.concatenate([np.zeros(k), delta])
         return neg_loglik(theta_null)
 
-    res_null = optimize.minimize(neg_loglik_null, delta_init, method='BFGS',
-                                 options={'maxiter': maxiter, 'gtol': tol})
+    res_null = optimize.minimize(
+        neg_loglik_null,
+        delta_init,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": tol},
+    )
     ll_0 = float(-res_null.fun)
 
     pseudo_r2 = 1.0 - ll / ll_0
@@ -727,6 +765,7 @@ def _ordered_model(
     # mlogit above). Replaces BFGS `hess_inv` which produced the
     # 26 % SE inflation on beta_x flagged in parity finding #11.
     from ._optim_helpers import hessian_cov
+
     H_inv = _as_float_array(hessian_cov(neg_loglik, theta_hat))
 
     S_obs = _score_obs_numerical(theta_hat)
@@ -764,7 +803,9 @@ def _ordered_model(
             f_upper = pdf(kappa_hat[j] - xb)
         else:
             f_upper = np.zeros(n)
-        me_j = np.mean((f_lower - f_upper)[:, np.newaxis] * beta_hat[np.newaxis, :], axis=0)
+        me_j = np.mean(
+            (f_lower - f_upper)[:, np.newaxis] * beta_hat[np.newaxis, :], axis=0
+        )
         me_dict[categories[j]] = {
             name: float(value) for name, value in zip(var_names, me_j)
         }
@@ -796,15 +837,14 @@ def _ordered_model(
                     return float(-np.sum(ll_bin))
 
                 b0 = np.zeros(k + 1)
-                res_bin = optimize.minimize(neg_ll_bin, b0, method='BFGS',
-                                            options={'maxiter': 50})
+                res_bin = optimize.minimize(
+                    neg_ll_bin, b0, method="BFGS", options={"maxiter": 50}
+                )
                 # beta for variable m is at index m+1 (skip intercept)
                 beta_binaries.append(float(res_bin.x[m + 1]))
-                if hasattr(res_bin, 'hess_inv'):
+                if hasattr(res_bin, "hess_inv"):
                     h_bin = np.asarray(res_bin.hess_inv)
-                    se_binaries.append(
-                        float(np.sqrt(max(h_bin[m + 1, m + 1], 1e-20)))
-                    )
+                    se_binaries.append(float(np.sqrt(max(h_bin[m + 1, m + 1], 1e-20))))
                 else:
                     se_binaries.append(np.nan)
 
@@ -820,7 +860,9 @@ def _ordered_model(
                     df_m = n_cuts - 1
                     p_m = float(1 - stats.chi2.cdf(chi2_m, df_m))
                     brant_test[var_names[m]] = {
-                        'chi2': chi2_m, 'df': df_m, 'pvalue': p_m
+                        "chi2": chi2_m,
+                        "df": df_m,
+                        "pvalue": p_m,
                     }
                 chi2_total += chi2_m
                 df_total += df_m
@@ -828,10 +870,10 @@ def _ordered_model(
                 brant_skipped.append(var_names[m])
 
         if df_total > 0:
-            brant_test['_omnibus'] = {
-                'chi2': float(chi2_total),
-                'df': df_total,
-                'pvalue': float(1 - stats.chi2.cdf(chi2_total, df_total)),
+            brant_test["_omnibus"] = {
+                "chi2": float(chi2_total),
+                "df": df_total,
+                "pvalue": float(1 - stats.chi2.cdf(chi2_total, df_total)),
             }
     except Exception as exc:
         # Don't silently drop the whole parallel-regression diagnostic.
@@ -841,19 +883,21 @@ def _ordered_model(
         warnings.warn(
             f"Brant parallel-regression test failed and is omitted from the "
             f"result ({brant_error}). See model_info['brant_error'].",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
     elif brant_skipped:
         warnings.warn(
             f"Brant parallel-regression test skipped for {brant_skipped} "
             f"(non-finite binary-logit SE). These rows are absent from "
             f"`brant_test`; see model_info['brant_skipped'].",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
     # --- Build results ---
     # Params: beta coefficients + cutpoints
-    param_names = var_names + [f'/cut{j+1}' for j in range(n_cuts)]
+    param_names = var_names + [f"/cut{j+1}" for j in range(n_cuts)]
     all_coefs = np.concatenate([beta_hat, kappa_hat])
     all_se = np.concatenate([se_beta, se_kappa])
 
@@ -861,36 +905,38 @@ def _ordered_model(
     se_series = pd.Series(all_se, index=param_names)
 
     model_info = {
-        'model_type': link_label,
-        'method': f'MLE ({link})',
-        'n_categories': J,
-        'categories': list(categories),
-        'cutpoints': dict(zip([f'cut{j+1}' for j in range(n_cuts)], kappa_hat.tolist())),
-        'log_likelihood': float(ll),
-        'log_likelihood_0': float(ll_0),
-        'pseudo_r2': float(pseudo_r2),
-        'aic': float(aic),
-        'bic': float(bic),
-        'converged': robust_convergence(res)[0],
-        'robust': robust if cluster is None else f'cluster({cluster})',
-        'brant_skipped': brant_skipped,
-        'brant_error': brant_error,
+        "model_type": link_label,
+        "method": f"MLE ({link})",
+        "n_categories": J,
+        "categories": list(categories),
+        "cutpoints": dict(
+            zip([f"cut{j+1}" for j in range(n_cuts)], kappa_hat.tolist())
+        ),
+        "log_likelihood": float(ll),
+        "log_likelihood_0": float(ll_0),
+        "pseudo_r2": float(pseudo_r2),
+        "aic": float(aic),
+        "bic": float(bic),
+        "converged": robust_convergence(res)[0],
+        "robust": robust if cluster is None else f"cluster({cluster})",
+        "brant_skipped": brant_skipped,
+        "brant_error": brant_error,
     }
 
     data_info = {
-        'dependent_var': y_name,
-        'n_obs': n,
-        'n_params': n_params,
-        'df_resid': n - n_params,
+        "dependent_var": y_name,
+        "n_obs": n,
+        "n_params": n_params,
+        "df_resid": n - n_params,
     }
 
     diagnostics = {
-        'McFadden_pseudo_R2': float(pseudo_r2),
-        'Log-Likelihood': float(ll),
-        'Log-Likelihood_0': float(ll_0),
-        'AIC': float(aic),
-        'BIC': float(bic),
-        'n_obs': n,
+        "McFadden_pseudo_R2": float(pseudo_r2),
+        "Log-Likelihood": float(ll),
+        "Log-Likelihood_0": float(ll_0),
+        "AIC": float(aic),
+        "BIC": float(bic),
+        "n_obs": n,
     }
 
     result = EconometricResults(
@@ -901,10 +947,14 @@ def _ordered_model(
         diagnostics=diagnostics,
     )
 
-    setattr(result, 'predicted_probs', pd.DataFrame(P_hat, columns=categories, index=df.index))
-    setattr(result, 'marginal_effects', me_dict)
-    setattr(result, 'brant_test', brant_test)
-    setattr(result, 'cutpoints', kappa_hat)
+    setattr(
+        result,
+        "predicted_probs",
+        pd.DataFrame(P_hat, columns=categories, index=df.index),
+    )
+    setattr(result, "marginal_effects", me_dict)
+    setattr(result, "brant_test", brant_test)
+    setattr(result, "cutpoints", kappa_hat)
 
     return result
 
@@ -978,8 +1028,16 @@ def ologit(
     mckelvey1975statistical
     """
     return _ordered_model(
-        formula=formula, data=data, y=y, x=x, link='logit',
-        robust=robust, cluster=cluster, maxiter=maxiter, tol=tol, alpha=alpha,
+        formula=formula,
+        data=data,
+        y=y,
+        x=x,
+        link="logit",
+        robust=robust,
+        cluster=cluster,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
     )
 
 
@@ -1046,14 +1104,23 @@ def oprobit(
     mckelvey1975statistical
     """
     return _ordered_model(
-        formula=formula, data=data, y=y, x=x, link='probit',
-        robust=robust, cluster=cluster, maxiter=maxiter, tol=tol, alpha=alpha,
+        formula=formula,
+        data=data,
+        y=y,
+        x=x,
+        link="probit",
+        robust=robust,
+        cluster=cluster,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
     )
 
 
 # ====================================================================
 # Conditional Logit
 # ====================================================================
+
 
 def clogit(
     formula: Optional[str] = None,
@@ -1168,7 +1235,9 @@ def clogit(
         group_indices[g] = idx
 
     if len(group_indices) == 0:
-        raise ValueError("No valid choice groups (each group needs exactly one chosen alternative).")
+        raise ValueError(
+            "No valid choice groups (each group needs exactly one chosen alternative)."
+        )
 
     n_groups_valid = len(group_indices)
     groups_list = list(group_indices.keys())
@@ -1179,7 +1248,9 @@ def clogit(
             idx = group_indices[g]
             xb = X[idx] @ beta
             chosen_mask = Y[idx] == 1
-            ll += xb[chosen_mask].sum() - np.log(np.sum(np.exp(xb - xb.max())) + np.exp(-xb.max()))
+            ll += xb[chosen_mask].sum() - np.log(
+                np.sum(np.exp(xb - xb.max())) + np.exp(-xb.max())
+            )
             # More stable: logsumexp
         return float(-ll)
 
@@ -1202,7 +1273,9 @@ def clogit(
             exp_xb = np.exp(xb - xb_max)
             probs = exp_xb / exp_xb.sum()
             chosen_mask = Y[idx] == 1
-            g_vec += X[idx][chosen_mask].sum(axis=0) - (probs[:, np.newaxis] * X[idx]).sum(axis=0)
+            g_vec += X[idx][chosen_mask].sum(axis=0) - (
+                probs[:, np.newaxis] * X[idx]
+            ).sum(axis=0)
         return _as_float_array(-g_vec)
 
     def score_obs_clogit(beta: np.ndarray) -> np.ndarray:
@@ -1215,14 +1288,19 @@ def clogit(
             exp_xb = np.exp(xb - xb_max)
             probs = exp_xb / exp_xb.sum()
             chosen_mask = Y[idx] == 1
-            S[gi] = X[idx][chosen_mask].sum(axis=0) - (probs[:, np.newaxis] * X[idx]).sum(axis=0)
+            S[gi] = X[idx][chosen_mask].sum(axis=0) - (
+                probs[:, np.newaxis] * X[idx]
+            ).sum(axis=0)
         return _as_float_array(S)
 
     # --- Optimise ---
     beta0 = np.zeros(k)
     res = optimize.minimize(
-        neg_loglik_stable, beta0, jac=grad, method='BFGS',
-        options={'maxiter': maxiter, 'gtol': tol},
+        neg_loglik_stable,
+        beta0,
+        jac=grad,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": tol},
     )
     beta_hat = _as_float_array(res.x)
     ll = float(-res.fun)
@@ -1239,7 +1317,7 @@ def clogit(
     bic = -2 * ll + np.log(n_groups_valid) * k
 
     # --- Standard errors ---
-    if hasattr(res, 'hess_inv'):
+    if hasattr(res, "hess_inv"):
         H_inv = _as_float_array(res.hess_inv)
     else:
         H_inv = np.eye(k)
@@ -1249,9 +1327,11 @@ def clogit(
     # For clustered SE in clogit, cluster at the group level by default
     if cluster_vals is not None:
         # Map cluster to group-level
-        cluster_group = np.array([cluster_vals[group_indices[g][0]] for g in groups_list])
+        cluster_group = np.array(
+            [cluster_vals[group_indices[g][0]] for g in groups_list]
+        )
         se = _clustered_se(S_obs, H_inv, cluster_group)
-    elif robust in ('HC1', 'robust', 'hc1'):
+    elif robust in ("HC1", "robust", "hc1"):
         se = _sandwich_se(S_obs, H_inv)
     else:
         se = _as_float_array(np.sqrt(np.maximum(np.diag(H_inv), 1e-20)))
@@ -1270,34 +1350,34 @@ def clogit(
     se_series = pd.Series(se, index=var_names)
 
     model_info = {
-        'model_type': 'Conditional Logit',
-        'method': 'MLE (conditional)',
-        'group_var': group_name,
-        'n_groups': n_groups_valid,
-        'log_likelihood': float(ll),
-        'log_likelihood_0': float(ll_0),
-        'pseudo_r2': float(pseudo_r2),
-        'aic': float(aic),
-        'bic': float(bic),
-        'converged': robust_convergence(res)[0],
-        'robust': robust if cluster is None else f'cluster({cluster})',
+        "model_type": "Conditional Logit",
+        "method": "MLE (conditional)",
+        "group_var": group_name,
+        "n_groups": n_groups_valid,
+        "log_likelihood": float(ll),
+        "log_likelihood_0": float(ll_0),
+        "pseudo_r2": float(pseudo_r2),
+        "aic": float(aic),
+        "bic": float(bic),
+        "converged": robust_convergence(res)[0],
+        "robust": robust if cluster is None else f"cluster({cluster})",
     }
 
     data_info = {
-        'dependent_var': y_name,
-        'n_obs': n,
-        'n_params': k,
-        'df_resid': n_groups_valid - k,
+        "dependent_var": y_name,
+        "n_obs": n,
+        "n_params": k,
+        "df_resid": n_groups_valid - k,
     }
 
     diagnostics = {
-        'McFadden_pseudo_R2': float(pseudo_r2),
-        'Log-Likelihood': float(ll),
-        'Log-Likelihood_0': float(ll_0),
-        'AIC': float(aic),
-        'BIC': float(bic),
-        'n_obs': n,
-        'n_groups': n_groups_valid,
+        "McFadden_pseudo_R2": float(pseudo_r2),
+        "Log-Likelihood": float(ll),
+        "Log-Likelihood_0": float(ll_0),
+        "AIC": float(aic),
+        "BIC": float(bic),
+        "n_obs": n,
+        "n_groups": n_groups_valid,
     }
 
     result = EconometricResults(
@@ -1308,6 +1388,6 @@ def clogit(
         diagnostics=diagnostics,
     )
 
-    setattr(result, 'predicted_probs', pd.Series(pred_probs, index=df.index))
+    setattr(result, "predicted_probs", pd.Series(pred_probs, index=df.index))
 
     return result

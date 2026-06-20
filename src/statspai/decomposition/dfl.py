@@ -16,6 +16,7 @@ and the Distribution of Wages, 1973-1992: A Semiparametric Approach."
 Fortin, N., Lemieux, T., & Firpo, S. (2011). "Decomposition Methods in
 Economics." In *Handbook of Labor Economics*, Vol. 4A, Ch. 1. [@fortin2011decomposition]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -31,26 +32,23 @@ from ._common import (
     bootstrap_stat,
     logit_fit,
     logit_predict,
-    parse_formula,
     prepare_frame,
-    sig_stars,
     statistic_value as _statistic_value,
-    weighted_ecdf,
-    weighted_gini as _weighted_gini,
-    weighted_quantile,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Core DFL reweighter
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class DFLResult(DecompResultMixin):
     """Container for DFL reweighting decomposition results."""
+
     method_name: ClassVar[str] = "DFL Reweighting Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = (
-        "dinardo1996labor", "fortin2011decomposition",
+        "dinardo1996labor",
+        "fortin2011decomposition",
     )
 
     gap: float
@@ -60,7 +58,7 @@ class DFLResult(DecompResultMixin):
     tau: float
     stat_a: float
     stat_b: float
-    stat_cf: float            # counterfactual: A's X distribution, B's Y conditional
+    stat_cf: float  # counterfactual: A's X distribution, B's Y conditional
     reference: int
     weights_cf: np.ndarray
     se: Optional[Dict[str, float]] = None
@@ -105,6 +103,7 @@ class DFLResult(DecompResultMixin):
     def plot(self, **kwargs: Any) -> Any:
         """Delegate to plots.dfl_plot()."""
         from .plots import dfl_plot
+
         return dfl_plot(self, **kwargs)
 
     def to_latex(self) -> str:
@@ -149,13 +148,17 @@ class DFLResult(DecompResultMixin):
 
 
 def _dfl_core(
-    y_a: np.ndarray, X_a: np.ndarray, w_a: np.ndarray,
-    y_b: np.ndarray, X_b: np.ndarray, w_b: np.ndarray,
-    stat: str, tau: float, reference: int,
+    y_a: np.ndarray,
+    X_a: np.ndarray,
+    w_a: np.ndarray,
+    y_b: np.ndarray,
+    X_b: np.ndarray,
+    w_b: np.ndarray,
+    stat: str,
+    tau: float,
+    reference: int,
     trim: float = 0.001,
-) -> Tuple[
-    float, float, float, float, float, float, np.ndarray, np.ndarray
-]:
+) -> Tuple[float, float, float, float, float, float, np.ndarray, np.ndarray]:
     """
     Core DFL computation, returning:
       gap, composition, structure, stat_a, stat_b, stat_cf, psi_weights, logit_beta
@@ -175,7 +178,7 @@ def _dfl_core(
     if reference == 0:
         # Counterfactual: B's outcomes reweighted to look like A's X
         # ψ(X) = P(A|X)/P(B|X) · P(B)/P(A)
-        p_b = p_hat[len(X_a):]
+        p_b = p_hat[len(X_a) :]
         psi = (p_b / (1 - p_b)) * ((1 - p_A) / p_A)
         w_cf = w_b * psi
         y_cf = y_b
@@ -323,9 +326,16 @@ def dfl_decompose(
                 return np.array([np.nan, np.nan, np.nan])  # pragma: no cover
             try:
                 _g, _c, _s, *_ = _dfl_core(
-                    y_i[m_a], X_i[m_a], w_i[m_a],
-                    y_i[m_b], X_i[m_b], w_i[m_b],
-                    stat, tau, reference, trim=trim,
+                    y_i[m_a],
+                    X_i[m_a],
+                    w_i[m_a],
+                    y_i[m_b],
+                    X_i[m_b],
+                    w_i[m_b],
+                    stat,
+                    tau,
+                    reference,
+                    trim=trim,
                 )
                 return np.array([_g, _c, _s])
             except Exception:  # noqa: BLE001  # pragma: no cover
@@ -336,11 +346,16 @@ def dfl_decompose(
         if len(boot) > 10:
             point = np.array([gap, comp, struct])
             se_vec, lo, hi = bootstrap_ci(boot, point, alpha=alpha, method="percentile")
-            se = {"gap": float(se_vec[0]), "composition": float(se_vec[1]),
-                  "structure": float(se_vec[2])}
-            ci = {"gap": (float(lo[0]), float(hi[0])),
-                  "composition": (float(lo[1]), float(hi[1])),
-                  "structure": (float(lo[2]), float(hi[2]))}
+            se = {
+                "gap": float(se_vec[0]),
+                "composition": float(se_vec[1]),
+                "structure": float(se_vec[2]),
+            }
+            ci = {
+                "gap": (float(lo[0]), float(hi[0])),
+                "composition": (float(lo[1]), float(hi[1])),
+                "structure": (float(lo[2]), float(hi[2])),
+            }
 
     # Optional quantile process
     qproc_df: Optional[pd.DataFrame] = None
@@ -357,18 +372,35 @@ def dfl_decompose(
                 s_cf_t = _statistic_value(y_a, w_cf, "quantile", t)
                 comp_t = s_a_t - s_cf_t
                 struct_t = s_cf_t - s_b_t
-            rows.append({"tau": t, "gap": s_a_t - s_b_t,
-                         "composition": comp_t, "structure": struct_t,
-                         "stat_a": s_a_t, "stat_b": s_b_t, "stat_cf": s_cf_t})
+            rows.append(
+                {
+                    "tau": t,
+                    "gap": s_a_t - s_b_t,
+                    "composition": comp_t,
+                    "structure": struct_t,
+                    "stat_a": s_a_t,
+                    "stat_b": s_b_t,
+                    "stat_cf": s_cf_t,
+                }
+            )
         qproc_df = pd.DataFrame(rows)
 
     var_names = ["_cons"] + list(x)
     return DFLResult(
-        gap=float(gap), composition=float(comp), structure=float(struct),
-        stat=stat, tau=tau,
-        stat_a=float(s_a), stat_b=float(s_b), stat_cf=float(s_cf),
-        reference=reference, weights_cf=w_cf, se=se, ci=ci,
+        gap=float(gap),
+        composition=float(comp),
+        structure=float(struct),
+        stat=stat,
+        tau=tau,
+        stat_a=float(s_a),
+        stat_b=float(s_b),
+        stat_cf=float(s_cf),
+        reference=reference,
+        weights_cf=w_cf,
+        se=se,
+        ci=ci,
         quantile_grid=qproc_df,
         propensity_coef=pd.Series(beta_ps, index=var_names),
-        n_a=int(len(y_a)), n_b=int(len(y_b)),
+        n_a=int(len(y_a)),
+        n_b=int(len(y_b)),
     )

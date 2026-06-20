@@ -29,10 +29,10 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def mc_panel(
     data: pd.DataFrame,
@@ -102,23 +102,38 @@ def mc_panel(
     True
     """
     est = MCPanel(
-        data=data, y=y, unit=unit, time=time, treat=treat,
-        lambda_reg=lambda_reg, max_rank=max_rank,
-        max_iter=max_iter, tol=tol, n_bootstrap=n_bootstrap,
-        alpha=alpha, random_state=random_state,
+        data=data,
+        y=y,
+        unit=unit,
+        time=time,
+        treat=treat,
+        lambda_reg=lambda_reg,
+        max_rank=max_rank,
+        max_iter=max_iter,
+        tol=tol,
+        n_bootstrap=n_bootstrap,
+        alpha=alpha,
+        random_state=random_state,
     )
     _result = est.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.matrix_completion.mc_panel",
             params={
-                "y": y, "unit": unit, "time": time, "treat": treat,
-                "lambda_reg": lambda_reg, "max_rank": max_rank,
-                "max_iter": max_iter, "tol": tol,
+                "y": y,
+                "unit": unit,
+                "time": time,
+                "treat": treat,
+                "lambda_reg": lambda_reg,
+                "max_rank": max_rank,
+                "max_iter": max_iter,
+                "tol": tol,
                 "n_bootstrap": n_bootstrap,
-                "alpha": alpha, "random_state": random_state,
+                "alpha": alpha,
+                "random_state": random_state,
             },
             data=data,
             overwrite=False,
@@ -131,6 +146,7 @@ def mc_panel(
 # ======================================================================
 # MCPanel class
 # ======================================================================
+
 
 class MCPanel:
     """
@@ -216,12 +232,10 @@ class MCPanel:
 
         # Pivot to matrix form
         Y_mat = df.pivot_table(
-            index=self.unit, columns=self.time,
-            values=self.y, aggfunc='first'
+            index=self.unit, columns=self.time, values=self.y, aggfunc="first"
         )
         W_mat = df.pivot_table(
-            index=self.unit, columns=self.time,
-            values=self.treat, aggfunc='first'
+            index=self.unit, columns=self.time, values=self.treat, aggfunc="first"
         ).fillna(0)
 
         units = Y_mat.index.tolist()
@@ -297,11 +311,13 @@ class MCPanel:
             treated_times = np.where(treated_mask[i])[0]
             if len(treated_times) > 0:
                 tau_u = np.mean(tau_matrix[i, treated_times])
-                unit_atts.append({
-                    'unit': u,
-                    'att': float(tau_u),
-                    'n_treated_periods': len(treated_times),
-                })
+                unit_atts.append(
+                    {
+                        "unit": u,
+                        "att": float(tau_u),
+                        "n_treated_periods": len(treated_times),
+                    }
+                )
 
         detail = pd.DataFrame(unit_atts) if unit_atts else None
 
@@ -310,22 +326,22 @@ class MCPanel:
         effective_rank = int(np.sum(s > 1e-6))
 
         model_info = {
-            'lambda_reg': self.lambda_reg,
-            'effective_rank': effective_rank,
-            'n_units': N,
-            'n_periods': T,
-            'n_treated_cells': int(treated_mask.sum()),
-            'n_control_cells': int(Omega.sum()),
-            'completed_matrix': L,
-            'treatment_effects_matrix': tau_matrix,
+            "lambda_reg": self.lambda_reg,
+            "effective_rank": effective_rank,
+            "n_units": N,
+            "n_periods": T,
+            "n_treated_cells": int(treated_mask.sum()),
+            "n_control_cells": int(Omega.sum()),
+            "completed_matrix": L,
+            "treatment_effects_matrix": tau_matrix,
         }
 
         self._L = L
         self._tau = tau_matrix
 
         return CausalResult(
-            method='Matrix Completion (Athey et al. 2021)',
-            estimand='ATT',
+            method="Matrix Completion (Athey et al. 2021)",
+            estimand="ATT",
             estimate=att,
             se=se,
             pvalue=pvalue,
@@ -334,7 +350,7 @@ class MCPanel:
             n_obs=int(Omega.sum() + treated_mask.sum()),
             detail=detail,
             model_info=model_info,
-            _citation_key='mc_panel',
+            _citation_key="mc_panel",
         )
 
     def _soft_impute(
@@ -366,14 +382,14 @@ class MCPanel:
 
             # Max rank constraint
             if self.max_rank is not None:
-                s_thresh[self.max_rank:] = 0
+                s_thresh[self.max_rank :] = 0
 
             # Reconstruct
             L_new = np.asarray(U * s_thresh @ Vt, dtype=float)
 
             # Check convergence
-            diff = np.linalg.norm(L_new - L, 'fro')
-            norm_L = np.linalg.norm(L_new, 'fro') + 1e-10
+            diff = np.linalg.norm(L_new - L, "fro")
+            norm_L = np.linalg.norm(L_new, "fro") + 1e-10
 
             L = L_new
 
@@ -387,7 +403,7 @@ class MCPanel:
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['mc_panel'] = (
+CausalResult._CITATIONS["mc_panel"] = (
     "@article{athey2021matrix,\n"
     "  title={Matrix Completion Methods for Causal Panel Data Models},\n"
     "  author={Athey, Susan and Bayati, Mohsen and Doudchenko, Nikolay "

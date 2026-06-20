@@ -41,7 +41,6 @@ from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
 from ..core.utils import parse_formula
 
-
 # ---------------------------------------------------------------------------
 # Helper utilities
 # ---------------------------------------------------------------------------
@@ -97,8 +96,8 @@ def _build_matrices(
         raise ValueError("`data` must be provided.")
     if formula is not None:
         parsed = parse_formula(formula)
-        dep_var = str(parsed['dependent'])
-        x_vars = [str(name) for name in parsed['exogenous']]
+        dep_var = str(parsed["dependent"])
+        x_vars = [str(name) for name in parsed["exogenous"]]
     else:
         if y is None or x is None:
             raise ValueError("Provide either `formula` or both `y` and `x`.")
@@ -122,13 +121,13 @@ def _build_matrices(
     X_count = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_vars]
     )
-    count_names = ['const'] + x_vars
+    count_names = ["const"] + x_vars
 
     # Inflate equation design matrix (with constant)
     X_inflate = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in inflate_vars]
     )
-    inflate_names = ['inflate_const'] + [f'inflate_{v}' for v in inflate_vars]
+    inflate_names = ["inflate_const"] + [f"inflate_{v}" for v in inflate_vars]
 
     return Y, X_count, X_inflate, count_names, inflate_names, dep_var, df
 
@@ -140,6 +139,7 @@ def _robust_se(score_obs: np.ndarray, hessian_inv: np.ndarray) -> np.ndarray:
     bread is the MLE inverse-Hessian. Byte-identical to the prior sandwich.
     """
     from ..core._vcov import sandwich_vcov
+
     V = sandwich_vcov(hessian_inv, score_obs, correction="none")
     return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
 
@@ -153,8 +153,8 @@ def _cluster_se(
     the MLE inverse-Hessian. Byte-identical for G >= 2.
     """
     from ..core._vcov import sandwich_vcov
-    V = sandwich_vcov(hessian_inv, score_obs, clusters=clusters,
-                      correction="stacked")
+
+    V = sandwich_vcov(hessian_inv, score_obs, clusters=clusters, correction="stacked")
     return _as_float_array(np.sqrt(np.maximum(np.diag(V), 1e-20)))
 
 
@@ -180,7 +180,9 @@ def _numerical_hessian(
             x_mp[j] += eps
             x_mm[i] -= eps
             x_mm[j] -= eps
-            H[i, j] = (func(x_pp) - func(x_pm) - func(x_mp) + func(x_mm)) / (4 * eps * eps)
+            H[i, j] = (func(x_pp) - func(x_pm) - func(x_mp) + func(x_mm)) / (
+                4 * eps * eps
+            )
             H[j, i] = H[i, j]
     return _as_float_array(H)
 
@@ -226,15 +228,16 @@ def _vuong_test(
     m_bar = m.mean()
     s_m = m.std(ddof=1)
     if s_m < 1e-15:
-        return {'vuong_stat': 0.0, 'vuong_p': 1.0}
+        return {"vuong_stat": 0.0, "vuong_p": 1.0}
     V = np.sqrt(n) * m_bar / s_m
     p = 2 * (1 - stats.norm.cdf(np.abs(V)))
-    return {'vuong_stat': float(V), 'vuong_p': float(p)}
+    return {"vuong_stat": float(V), "vuong_p": float(p)}
 
 
 # ===================================================================
 # ZIP — Zero-Inflated Poisson
 # ===================================================================
+
 
 def zip_model(
     formula: Optional[str] = None,
@@ -335,13 +338,14 @@ def zip_model(
         zero_mask = Y == 0
         ll = np.zeros(n)
         ll[zero_mask] = np.log(
-            np.maximum(pi[zero_mask] + (1 - pi[zero_mask]) * np.exp(-mu[zero_mask]), 1e-20)
+            np.maximum(
+                pi[zero_mask] + (1 - pi[zero_mask]) * np.exp(-mu[zero_mask]), 1e-20
+            )
         )
         # y > 0
         pos_mask = ~zero_mask
-        ll[pos_mask] = (
-            np.log(np.maximum(1 - pi[pos_mask], 1e-20))
-            + _log_poisson_pmf(Y[pos_mask], mu[pos_mask])
+        ll[pos_mask] = np.log(np.maximum(1 - pi[pos_mask], 1e-20)) + _log_poisson_pmf(
+            Y[pos_mask], mu[pos_mask]
         )
         return float(-ll.sum())
 
@@ -354,12 +358,13 @@ def zip_model(
         zero_mask = Y == 0
         ll = np.zeros(n)
         ll[zero_mask] = np.log(
-            np.maximum(pi[zero_mask] + (1 - pi[zero_mask]) * np.exp(-mu[zero_mask]), 1e-20)
+            np.maximum(
+                pi[zero_mask] + (1 - pi[zero_mask]) * np.exp(-mu[zero_mask]), 1e-20
+            )
         )
         pos_mask = ~zero_mask
-        ll[pos_mask] = (
-            np.log(np.maximum(1 - pi[pos_mask], 1e-20))
-            + _log_poisson_pmf(Y[pos_mask], mu[pos_mask])
+        ll[pos_mask] = np.log(np.maximum(1 - pi[pos_mask], 1e-20)) + _log_poisson_pmf(
+            Y[pos_mask], mu[pos_mask]
         )
         return _as_float_array(ll)
 
@@ -372,8 +377,10 @@ def zip_model(
 
     # --- Optimise ---
     result = optimize.minimize(
-        neg_loglik, theta0, method='BFGS',
-        options={'maxiter': maxiter, 'gtol': tol},
+        neg_loglik,
+        theta0,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": tol},
     )
 
     theta_hat = _as_float_array(result.x)
@@ -393,7 +400,8 @@ def zip_model(
         if data is None:
             raise ValueError("`data` must be provided for clustered SEs.")
         clusters = (
-            df[cluster].values if cluster in df.columns
+            df[cluster].values
+            if cluster in df.columns
             else data.loc[df.index, cluster].values
         )
         score_obs = _compute_zip_score_obs(theta_hat, Y, X_count, X_inflate, k_count, n)
@@ -423,39 +431,39 @@ def zip_model(
     std_errors = pd.Series(se, index=all_names)
 
     model_info = {
-        'model_type': 'zip',
-        'method': 'Zero-Inflated Poisson (MLE)',
-        'dependent_var': dep_var,
-        'll': ll_zip,
-        'aic': -2 * ll_zip + 2 * k_total,
-        'bic': -2 * ll_zip + np.log(n) * k_total,
-        'vuong_stat': vuong['vuong_stat'],
-        'vuong_p': vuong['vuong_p'],
-        'converged': robust_convergence(result)[0],
-        'robust': robust if cluster is None else f'cluster({cluster})',
-        'n_zeros': int((Y == 0).sum()),
-        'pct_zeros': float((Y == 0).mean() * 100),
+        "model_type": "zip",
+        "method": "Zero-Inflated Poisson (MLE)",
+        "dependent_var": dep_var,
+        "ll": ll_zip,
+        "aic": -2 * ll_zip + 2 * k_total,
+        "bic": -2 * ll_zip + np.log(n) * k_total,
+        "vuong_stat": vuong["vuong_stat"],
+        "vuong_p": vuong["vuong_p"],
+        "converged": robust_convergence(result)[0],
+        "robust": robust if cluster is None else f"cluster({cluster})",
+        "n_zeros": int((Y == 0).sum()),
+        "pct_zeros": float((Y == 0).mean() * 100),
     }
 
     data_info = {
-        'n_obs': n,
-        'dependent_var': dep_var,
-        'df_resid': n - k_total,
-        'k_count': k_count,
-        'k_inflate': k_inflate,
-        'count_names': count_names,
-        'inflate_names': inflate_names,
+        "n_obs": n,
+        "dependent_var": dep_var,
+        "df_resid": n - k_total,
+        "k_count": k_count,
+        "k_inflate": k_inflate,
+        "count_names": count_names,
+        "inflate_names": inflate_names,
     }
 
     diagnostics = {
-        'predicted_structural_zero': pred_structural_zero,
-        'predicted_count': pred_count,
-        'predicted_overall': pred_overall,
-        'vuong_stat': vuong['vuong_stat'],
-        'vuong_p': vuong['vuong_p'],
-        'll': ll_zip,
-        'aic': model_info['aic'],
-        'bic': model_info['bic'],
+        "predicted_structural_zero": pred_structural_zero,
+        "predicted_count": pred_count,
+        "predicted_overall": pred_overall,
+        "vuong_stat": vuong["vuong_stat"],
+        "vuong_p": vuong["vuong_p"],
+        "ll": ll_zip,
+        "aic": model_info["aic"],
+        "bic": model_info["bic"],
     }
 
     return EconometricResults(
@@ -493,9 +501,8 @@ def _compute_zip_score_obs(
     ll_obs[zero_mask] = np.log(
         np.maximum(pi[zero_mask] + (1 - pi[zero_mask]) * np.exp(-mu[zero_mask]), 1e-20)
     )
-    ll_obs[pos_mask] = (
-        np.log(np.maximum(1 - pi[pos_mask], 1e-20))
-        + _log_poisson_pmf(Y[pos_mask], mu[pos_mask])
+    ll_obs[pos_mask] = np.log(np.maximum(1 - pi[pos_mask], 1e-20)) + _log_poisson_pmf(
+        Y[pos_mask], mu[pos_mask]
     )
 
     for j in range(k_total):
@@ -510,12 +517,14 @@ def _compute_zip_score_obs(
         pi_p = _logit(X_inflate @ gamma_p)
         ll_p = np.zeros(n)
         ll_p[zero_mask] = np.log(
-            np.maximum(pi_p[zero_mask] + (1 - pi_p[zero_mask]) * np.exp(-mu_p[zero_mask]), 1e-20)
+            np.maximum(
+                pi_p[zero_mask] + (1 - pi_p[zero_mask]) * np.exp(-mu_p[zero_mask]),
+                1e-20,
+            )
         )
-        ll_p[pos_mask] = (
-            np.log(np.maximum(1 - pi_p[pos_mask], 1e-20))
-            + _log_poisson_pmf(Y[pos_mask], mu_p[pos_mask])
-        )
+        ll_p[pos_mask] = np.log(
+            np.maximum(1 - pi_p[pos_mask], 1e-20)
+        ) + _log_poisson_pmf(Y[pos_mask], mu_p[pos_mask])
 
         beta_m = theta_m[:k_count]
         gamma_m = theta_m[k_count:]
@@ -523,12 +532,14 @@ def _compute_zip_score_obs(
         pi_m = _logit(X_inflate @ gamma_m)
         ll_m = np.zeros(n)
         ll_m[zero_mask] = np.log(
-            np.maximum(pi_m[zero_mask] + (1 - pi_m[zero_mask]) * np.exp(-mu_m[zero_mask]), 1e-20)
+            np.maximum(
+                pi_m[zero_mask] + (1 - pi_m[zero_mask]) * np.exp(-mu_m[zero_mask]),
+                1e-20,
+            )
         )
-        ll_m[pos_mask] = (
-            np.log(np.maximum(1 - pi_m[pos_mask], 1e-20))
-            + _log_poisson_pmf(Y[pos_mask], mu_m[pos_mask])
-        )
+        ll_m[pos_mask] = np.log(
+            np.maximum(1 - pi_m[pos_mask], 1e-20)
+        ) + _log_poisson_pmf(Y[pos_mask], mu_m[pos_mask])
 
         score[:, j] = (ll_p - ll_m) / (2 * eps)
 
@@ -538,6 +549,7 @@ def _compute_zip_score_obs(
 # ===================================================================
 # ZINB — Zero-Inflated Negative Binomial
 # ===================================================================
+
 
 def zinb(
     formula: Optional[str] = None,
@@ -621,7 +633,7 @@ def zinb(
 
     def neg_loglik(theta: np.ndarray) -> float:
         beta = theta[:k_count]
-        gamma = theta[k_count:k_count + k_inflate]
+        gamma = theta[k_count : k_count + k_inflate]
         log_alpha = theta[-1]
         disp = np.exp(np.clip(log_alpha, -10, 10))
 
@@ -638,15 +650,14 @@ def zinb(
         )
 
         pos_mask = ~zero_mask
-        ll[pos_mask] = (
-            np.log(np.maximum(1 - pi[pos_mask], 1e-20))
-            + _log_nb2_pmf(Y[pos_mask], mu[pos_mask], disp)
+        ll[pos_mask] = np.log(np.maximum(1 - pi[pos_mask], 1e-20)) + _log_nb2_pmf(
+            Y[pos_mask], mu[pos_mask], disp
         )
         return float(-ll.sum())
 
     def neg_loglik_obs(theta: np.ndarray) -> np.ndarray:
         beta = theta[:k_count]
-        gamma = theta[k_count:k_count + k_inflate]
+        gamma = theta[k_count : k_count + k_inflate]
         log_alpha = theta[-1]
         disp = np.exp(np.clip(log_alpha, -10, 10))
         mu = np.exp(np.clip(X_count @ beta, -20, 20))
@@ -658,9 +669,8 @@ def zinb(
             np.maximum(pi[zero_mask] + (1 - pi[zero_mask]) * np.exp(nb_zero), 1e-20)
         )
         pos_mask = ~zero_mask
-        ll[pos_mask] = (
-            np.log(np.maximum(1 - pi[pos_mask], 1e-20))
-            + _log_nb2_pmf(Y[pos_mask], mu[pos_mask], disp)
+        ll[pos_mask] = np.log(np.maximum(1 - pi[pos_mask], 1e-20)) + _log_nb2_pmf(
+            Y[pos_mask], mu[pos_mask], disp
         )
         return _as_float_array(ll)
 
@@ -671,13 +681,15 @@ def zinb(
     theta0 = np.concatenate([beta0, gamma0, log_alpha0])
 
     result = optimize.minimize(
-        neg_loglik, theta0, method='BFGS',
-        options={'maxiter': maxiter, 'gtol': tol},
+        neg_loglik,
+        theta0,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": tol},
     )
 
     theta_hat = _as_float_array(result.x)
     beta_hat = theta_hat[:k_count]
-    gamma_hat = theta_hat[k_count:k_count + k_inflate]
+    gamma_hat = theta_hat[k_count : k_count + k_inflate]
     alpha_hat = float(np.exp(theta_hat[-1]))
     ll_zinb = float(-result.fun)
 
@@ -692,13 +704,34 @@ def zinb(
         if data is None:
             raise ValueError("`data` must be provided for clustered SEs.")
         clusters = (
-            df[cluster].values if cluster in df.columns
+            df[cluster].values
+            if cluster in df.columns
             else data.loc[df.index, cluster].values
         )
-        score_obs = _compute_zi_score_obs(neg_loglik_obs, theta_hat, Y, X_count, X_inflate, k_count, k_inflate, n, nb=True)
+        score_obs = _compute_zi_score_obs(
+            neg_loglik_obs,
+            theta_hat,
+            Y,
+            X_count,
+            X_inflate,
+            k_count,
+            k_inflate,
+            n,
+            nb=True,
+        )
         se = _cluster_se(score_obs, H_inv, clusters)
     elif robust != "nonrobust":
-        score_obs = _compute_zi_score_obs(neg_loglik_obs, theta_hat, Y, X_count, X_inflate, k_count, k_inflate, n, nb=True)
+        score_obs = _compute_zi_score_obs(
+            neg_loglik_obs,
+            theta_hat,
+            Y,
+            X_count,
+            X_inflate,
+            k_count,
+            k_inflate,
+            n,
+            nb=True,
+        )
         se = _robust_se(score_obs, H_inv)
     else:
         se = _as_float_array(np.sqrt(np.maximum(np.diag(H_inv), 1e-20)))
@@ -716,46 +749,46 @@ def zinb(
     pred_overall = (1 - pi_hat) * mu_hat
 
     # Assemble
-    all_names = count_names + inflate_names + ['ln_alpha']
+    all_names = count_names + inflate_names + ["ln_alpha"]
     params = pd.Series(theta_hat, index=all_names)
     std_errors = pd.Series(se, index=all_names)
 
     model_info = {
-        'model_type': 'zinb',
-        'method': 'Zero-Inflated Negative Binomial (MLE)',
-        'dependent_var': dep_var,
-        'll': ll_zinb,
-        'aic': -2 * ll_zinb + 2 * k_total,
-        'bic': -2 * ll_zinb + np.log(n) * k_total,
-        'alpha_dispersion': float(alpha_hat),
-        'vuong_stat': vuong['vuong_stat'],
-        'vuong_p': vuong['vuong_p'],
-        'converged': robust_convergence(result)[0],
-        'robust': robust if cluster is None else f'cluster({cluster})',
-        'n_zeros': int((Y == 0).sum()),
-        'pct_zeros': float((Y == 0).mean() * 100),
+        "model_type": "zinb",
+        "method": "Zero-Inflated Negative Binomial (MLE)",
+        "dependent_var": dep_var,
+        "ll": ll_zinb,
+        "aic": -2 * ll_zinb + 2 * k_total,
+        "bic": -2 * ll_zinb + np.log(n) * k_total,
+        "alpha_dispersion": float(alpha_hat),
+        "vuong_stat": vuong["vuong_stat"],
+        "vuong_p": vuong["vuong_p"],
+        "converged": robust_convergence(result)[0],
+        "robust": robust if cluster is None else f"cluster({cluster})",
+        "n_zeros": int((Y == 0).sum()),
+        "pct_zeros": float((Y == 0).mean() * 100),
     }
 
     data_info = {
-        'n_obs': n,
-        'dependent_var': dep_var,
-        'df_resid': n - k_total,
-        'k_count': k_count,
-        'k_inflate': k_inflate,
-        'count_names': count_names,
-        'inflate_names': inflate_names,
+        "n_obs": n,
+        "dependent_var": dep_var,
+        "df_resid": n - k_total,
+        "k_count": k_count,
+        "k_inflate": k_inflate,
+        "count_names": count_names,
+        "inflate_names": inflate_names,
     }
 
     diagnostics = {
-        'predicted_structural_zero': pred_structural_zero,
-        'predicted_count': pred_count,
-        'predicted_overall': pred_overall,
-        'alpha_dispersion': float(alpha_hat),
-        'vuong_stat': vuong['vuong_stat'],
-        'vuong_p': vuong['vuong_p'],
-        'll': ll_zinb,
-        'aic': model_info['aic'],
-        'bic': model_info['bic'],
+        "predicted_structural_zero": pred_structural_zero,
+        "predicted_count": pred_count,
+        "predicted_overall": pred_overall,
+        "alpha_dispersion": float(alpha_hat),
+        "vuong_stat": vuong["vuong_stat"],
+        "vuong_p": vuong["vuong_p"],
+        "ll": ll_zinb,
+        "aic": model_info["aic"],
+        "bic": model_info["bic"],
     }
 
     return EconometricResults(
@@ -798,6 +831,7 @@ def _compute_zi_score_obs(
 # ===================================================================
 # Hurdle Model
 # ===================================================================
+
 
 def hurdle(
     formula: Optional[str] = None,
@@ -877,8 +911,8 @@ def hurdle(
         raise ValueError("`data` must be provided.")
     if formula is not None:
         parsed = parse_formula(formula)
-        dep_var = str(parsed['dependent'])
-        x_vars = [str(name) for name in parsed['exogenous']]
+        dep_var = str(parsed["dependent"])
+        x_vars = [str(name) for name in parsed["exogenous"]]
     else:
         if y is None or x is None:
             raise ValueError("Provide either `formula` or both `y` and `x`.")
@@ -896,8 +930,8 @@ def hurdle(
     X = np.column_stack(
         [np.ones(len(df))] + [df[v].values.astype(float) for v in x_vars]
     )
-    var_names = ['const'] + x_vars
-    hurdle_names = ['hurdle_const'] + [f'hurdle_{v}' for v in x_vars]
+    var_names = ["const"] + x_vars
+    hurdle_names = ["hurdle_const"] + [f"hurdle_{v}" for v in x_vars]
     n, k = X.shape
 
     zero_mask = Y == 0
@@ -905,7 +939,7 @@ def hurdle(
     Y_pos = Y[pos_mask]
     X_pos = X[pos_mask]
 
-    use_negbin = count_model.lower() in ('negbin', 'nb', 'nbreg')
+    use_negbin = count_model.lower() in ("negbin", "nb", "nbreg")
     # k_hurdle params + k_count params (+ 1 if negbin for log_alpha)
     k_hurdle = k
     k_count = k
@@ -913,7 +947,7 @@ def hurdle(
 
     def neg_loglik(theta: np.ndarray) -> float:
         delta = theta[:k_hurdle]
-        beta = theta[k_hurdle:k_hurdle + k_count]
+        beta = theta[k_hurdle : k_hurdle + k_count]
 
         p = _logit(X @ delta)  # P(Y > 0)
         mu = np.exp(np.clip(X @ beta, -20, 20))
@@ -940,7 +974,7 @@ def hurdle(
 
     def neg_loglik_obs(theta: np.ndarray) -> np.ndarray:
         delta = theta[:k_hurdle]
-        beta = theta[k_hurdle:k_hurdle + k_count]
+        beta = theta[k_hurdle : k_hurdle + k_count]
         p = _logit(X @ delta)
         mu = np.exp(np.clip(X @ beta, -20, 20))
 
@@ -971,13 +1005,15 @@ def hurdle(
         theta0 = np.concatenate([delta0, beta0])
 
     result = optimize.minimize(
-        neg_loglik, theta0, method='BFGS',
-        options={'maxiter': maxiter, 'gtol': tol},
+        neg_loglik,
+        theta0,
+        method="BFGS",
+        options={"maxiter": maxiter, "gtol": tol},
     )
 
     theta_hat = _as_float_array(result.x)
     delta_hat = theta_hat[:k_hurdle]
-    beta_hat = theta_hat[k_hurdle:k_hurdle + k_count]
+    beta_hat = theta_hat[k_hurdle : k_hurdle + k_count]
     ll_hurdle = float(-result.fun)
 
     # Standard errors
@@ -989,7 +1025,8 @@ def hurdle(
 
     if cluster is not None:
         clusters = (
-            df[cluster].values if cluster in df.columns
+            df[cluster].values
+            if cluster in df.columns
             else data.loc[df.index, cluster].values
         )
         score_obs = _compute_hurdle_score_obs(neg_loglik_obs, theta_hat, n)
@@ -1017,49 +1054,49 @@ def hurdle(
     # Assemble names
     all_names = hurdle_names + count_names_from_vars(var_names)
     if use_negbin:
-        all_names.append('ln_alpha')
+        all_names.append("ln_alpha")
 
     params = pd.Series(theta_hat, index=all_names)
     std_errors = pd.Series(se, index=all_names)
 
     model_info = {
-        'model_type': 'hurdle',
-        'method': f'Hurdle ({count_model.title()}, MLE)',
-        'dependent_var': dep_var,
-        'count_dist': count_model,
-        'll': ll_hurdle,
-        'aic': -2 * ll_hurdle + 2 * k_total,
-        'bic': -2 * ll_hurdle + np.log(n) * k_total,
-        'converged': robust_convergence(result)[0],
-        'robust': robust if cluster is None else f'cluster({cluster})',
-        'n_zeros': int(zero_mask.sum()),
-        'pct_zeros': float(zero_mask.mean() * 100),
+        "model_type": "hurdle",
+        "method": f"Hurdle ({count_model.title()}, MLE)",
+        "dependent_var": dep_var,
+        "count_dist": count_model,
+        "ll": ll_hurdle,
+        "aic": -2 * ll_hurdle + 2 * k_total,
+        "bic": -2 * ll_hurdle + np.log(n) * k_total,
+        "converged": robust_convergence(result)[0],
+        "robust": robust if cluster is None else f"cluster({cluster})",
+        "n_zeros": int(zero_mask.sum()),
+        "pct_zeros": float(zero_mask.mean() * 100),
     }
     if use_negbin:
         assert alpha_hat is not None
-        model_info['alpha_dispersion'] = float(alpha_hat)
+        model_info["alpha_dispersion"] = float(alpha_hat)
 
     data_info = {
-        'n_obs': n,
-        'dependent_var': dep_var,
-        'df_resid': n - k_total,
-        'k_hurdle': k_hurdle,
-        'k_count': k_count,
-        'hurdle_names': hurdle_names,
-        'count_names': count_names_from_vars(var_names),
+        "n_obs": n,
+        "dependent_var": dep_var,
+        "df_resid": n - k_total,
+        "k_hurdle": k_hurdle,
+        "k_count": k_count,
+        "hurdle_names": hurdle_names,
+        "count_names": count_names_from_vars(var_names),
     }
 
     diagnostics = {
-        'predicted_hurdle_prob': pred_hurdle_prob,
-        'predicted_count_mean': mu_hat,
-        'predicted_overall': pred_overall,
-        'll': ll_hurdle,
-        'aic': model_info['aic'],
-        'bic': model_info['bic'],
+        "predicted_hurdle_prob": pred_hurdle_prob,
+        "predicted_count_mean": mu_hat,
+        "predicted_overall": pred_overall,
+        "ll": ll_hurdle,
+        "aic": model_info["aic"],
+        "bic": model_info["bic"],
     }
     if use_negbin:
         assert alpha_hat is not None
-        diagnostics['alpha_dispersion'] = float(alpha_hat)
+        diagnostics["alpha_dispersion"] = float(alpha_hat)
 
     return EconometricResults(
         params=params,
@@ -1072,7 +1109,7 @@ def hurdle(
 
 def count_names_from_vars(var_names: List[str]) -> List[str]:
     """Prefix count-equation variable names."""
-    return ['count_' + v for v in var_names]
+    return ["count_" + v for v in var_names]
 
 
 def _compute_hurdle_score_obs(

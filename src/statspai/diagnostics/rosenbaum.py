@@ -100,6 +100,7 @@ class RosenbaumResult(ResultProtocolMixin):
 # Helpers
 # --------------------------------------------------------------------
 
+
 def _normal_sf(z: float) -> float:
     """One-sided upper-tail probability for a standard normal."""
     return float(stats.norm.sf(z))
@@ -132,7 +133,7 @@ def _wilcoxon_bound(
 
     T_obs = float(np.sum(ranks_abs * (signs > 0)))
     mean = p * float(ranks_abs.sum())
-    var = (p * (1.0 - p)) * float(np.sum(ranks_abs ** 2))
+    var = (p * (1.0 - p)) * float(np.sum(ranks_abs**2))
 
     if var <= 0:
         # Degenerate — one-sided p at the corner.
@@ -159,6 +160,7 @@ def _wilcoxon_ranks(diffs: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 # --------------------------------------------------------------------
 # Public API
 # --------------------------------------------------------------------
+
 
 def rosenbaum_bounds(
     treated: Optional[Sequence[float]] = None,

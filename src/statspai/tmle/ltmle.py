@@ -160,6 +160,7 @@ class LTMLEResult(ResultProtocolMixin):
 # Internal helpers
 # --------------------------------------------------------------------
 
+
 def _safe_logit(p: Any, eps: float = 1e-6) -> np.ndarray:
     p = np.clip(p, eps, 1 - eps)
     return np.asarray(logit(p), dtype=float)
@@ -174,13 +175,16 @@ def _fit_logit(X: np.ndarray, y: np.ndarray) -> Any:
                 self.p = p
 
             def predict_proba(self, X: np.ndarray) -> np.ndarray:
-                return np.column_stack([
-                    1 - self.p * np.ones(X.shape[0]),
-                    self.p * np.ones(X.shape[0]),
-                ])
+                return np.column_stack(
+                    [
+                        1 - self.p * np.ones(X.shape[0]),
+                        self.p * np.ones(X.shape[0]),
+                    ]
+                )
 
         return _Const(float(y[0]))
     from sklearn.linear_model import LogisticRegression
+
     lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
     lr.fit(X, y)
     return lr
@@ -194,6 +198,7 @@ def _predict_proba(model: Any, X: np.ndarray) -> np.ndarray:
 
 def _fit_linear(X: np.ndarray, y: np.ndarray) -> Any:
     from sklearn.linear_model import LinearRegression
+
     lr = LinearRegression()
     lr.fit(X, y)
     return lr
@@ -539,9 +544,7 @@ def ltmle(
                 hist_cols += [treatments[j]] + list(covariates_time[j])
             hist_cols += list(covariates_time[k])
             X_k_hist = (
-                df[hist_cols].to_numpy(dtype=float)
-                if hist_cols
-                else np.ones((n, 0))
+                df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
             )
             X_k_hist = np.column_stack([np.ones(n), X_k_hist])
 
@@ -561,7 +564,7 @@ def ltmle(
             # We fall through to a linear regression at earlier steps
             # and clip predictions into (0,1) before the targeting
             # step applies its logit update.
-            at_terminal = (k == K - 1)
+            at_terminal = k == K - 1
             if outcome_type == "binary" and at_terminal:
                 m = _fit_logit(X_q, Q.astype(int))
                 Q_hat_raw = _predict_proba(m, X_q)
@@ -622,8 +625,7 @@ def ltmle(
                     mask = H > 0
                     if mask.sum() > 1 and np.std(H[mask]) > 1e-10:
                         eps = float(
-                            np.sum(H[mask] * resid[mask])
-                            / np.sum(H[mask] ** 2)
+                            np.sum(H[mask] * resid[mask]) / np.sum(H[mask] ** 2)
                         )
                     else:
                         eps = 0.0
@@ -647,10 +649,7 @@ def ltmle(
                 resid = Q - Q_hat_raw
                 mask = H > 0
                 if mask.sum() > 1 and np.std(H[mask]) > 1e-10:
-                    eps = float(
-                        np.sum(H[mask] * resid[mask])
-                        / np.sum(H[mask] ** 2)
-                    )
+                    eps = float(np.sum(H[mask] * resid[mask]) / np.sum(H[mask] ** 2))
                 else:
                     eps = 0.0
                 Q_star_regime = Q_hat_regime + eps * new_cum_weight
@@ -708,6 +707,7 @@ def ltmle(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.tmle.ltmle",

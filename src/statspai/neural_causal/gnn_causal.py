@@ -46,7 +46,6 @@ from sklearn.linear_model import LogisticRegression
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 _GNN_CAUSAL_ALTERNATIVES = [
     "sp.gnn_causal",
     "sp.neural_causal.gnn_causal",
@@ -279,8 +278,11 @@ def gnn_causal(
     # Outcome regression per arm via RF
     def _fit_rf(idx: np.ndarray) -> np.ndarray:
         rf = RandomForestRegressor(
-            n_estimators=n_trees, min_samples_leaf=min_leaf,
-            random_state=random_state, bootstrap=True, n_jobs=-1,
+            n_estimators=n_trees,
+            min_samples_leaf=min_leaf,
+            random_state=random_state,
+            bootstrap=True,
+            n_jobs=-1,
         )
         rf.fit(F[idx], Y[idx])
         return np.asarray(rf.predict(F), dtype=float)
@@ -308,16 +310,20 @@ def gnn_causal(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.neural_causal.gnn_causal",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(cov),
-                "n_layers": n_layers, "n_trees": n_trees,
+                "n_layers": n_layers,
+                "n_trees": n_trees,
                 "min_leaf": min_leaf,
                 "propensity_bounds": list(propensity_bounds),
-                "random_state": random_state, "alpha": alpha,
+                "random_state": random_state,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

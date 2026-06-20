@@ -71,7 +71,7 @@ class BCFLongResult(ResultProtocolMixin):
 
     _citation_keys = ("prevot2025hierarchical",)
 
-    per_time_ate: pd.DataFrame   # columns: time, ate, se, ci_low, ci_high
+    per_time_ate: pd.DataFrame  # columns: time, ate, se, ci_low, ci_high
     average_ate: float
     average_se: float
     average_ci: tuple
@@ -106,11 +106,16 @@ class BCFLongResult(ResultProtocolMixin):
 
 
 def _estimate_propensity(
-    X: np.ndarray, D: np.ndarray, random_state: int,
+    X: np.ndarray,
+    D: np.ndarray,
+    random_state: int,
 ) -> np.ndarray:
     from sklearn.ensemble import GradientBoostingClassifier
+
     clf = GradientBoostingClassifier(
-        n_estimators=100, max_depth=3, random_state=random_state,
+        n_estimators=100,
+        max_depth=3,
+        random_state=random_state,
     )
     clf.fit(X, D)
     p = np.asarray(clf.predict_proba(X)[:, 1], dtype=float)
@@ -118,9 +123,13 @@ def _estimate_propensity(
 
 
 def _fit_mu_tau_at_time(
-    X: np.ndarray, Y: np.ndarray, D: np.ndarray, e: np.ndarray,
+    X: np.ndarray,
+    Y: np.ndarray,
+    D: np.ndarray,
+    e: np.ndarray,
     unit_effect: np.ndarray,
-    n_trees_mu: int = 200, n_trees_tau: int = 50,
+    n_trees_mu: int = 200,
+    n_trees_tau: int = 50,
     random_state: int = 42,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Fit BCF prognostic/treatment forests at a single time point.
@@ -134,18 +143,21 @@ def _fit_mu_tau_at_time(
     * tau(X)    = shrunk forest on mu_1(X,e) - mu_0(X,e).
     """
     from sklearn.ensemble import RandomForestRegressor
+
     X_full = np.column_stack([X, e])
     Y_resid = Y - unit_effect
     treated = D == 1
     control = ~treated
-    rs = int(random_state) % (2 ** 31)
+    rs = int(random_state) % (2**31)
 
     def _fit(mask: np.ndarray) -> Any:
         if mask.sum() < 5:
             return None
         rf = RandomForestRegressor(
-            n_estimators=n_trees_mu, max_depth=None,
-            min_samples_leaf=5, random_state=rs,
+            n_estimators=n_trees_mu,
+            max_depth=None,
+            min_samples_leaf=5,
+            random_state=rs,
         )
         rf.fit(X_full[mask], Y_resid[mask])
         return rf
@@ -164,8 +176,10 @@ def _fit_mu_tau_at_time(
     # Shrinkage forest for tau on the per-unit CATE.
     diff = mu1 - mu0
     rf_tau = RandomForestRegressor(
-        n_estimators=n_trees_tau, max_depth=None,
-        min_samples_leaf=5, random_state=rs,
+        n_estimators=n_trees_tau,
+        max_depth=None,
+        min_samples_leaf=5,
+        random_state=rs,
     )
     rf_tau.fit(X, diff)
     tau_hat = rf_tau.predict(X)
@@ -259,9 +273,7 @@ def bcf_longitudinal(
         )
     df = data.copy()
     if df[[unit, time]].duplicated().any():
-        raise ValueError(
-            f"({unit}, {time}) must be unique per row — found duplicates."
-        )
+        raise ValueError(f"({unit}, {time}) must be unique per row — found duplicates.")
 
     time_vals = sorted(df[time].unique())
     if len(time_vals) < 2:
@@ -293,8 +305,13 @@ def bcf_longitudinal(
                     continue
                 e_t = _estimate_propensity(X_t, D_t, seed + int(hash(t)) % 1000)
                 mu_hat, tau_hat = _fit_mu_tau_at_time(
-                    X_t, Y_t, D_t, e_t, ue_t,
-                    n_trees_mu=n_trees_mu, n_trees_tau=n_trees_tau,
+                    X_t,
+                    Y_t,
+                    D_t,
+                    e_t,
+                    ue_t,
+                    n_trees_mu=n_trees_mu,
+                    n_trees_tau=n_trees_tau,
                     random_state=seed,
                 )
                 mu_panel[t] = mu_hat
@@ -311,10 +328,15 @@ def bcf_longitudinal(
                 mu_hat = mu_panel[t]
                 tau_hat = tau_panel[t]
                 r = Y_t - mu_hat - tau_hat * D_t
-                resid_rows.append(pd.DataFrame({
-                    "unit": slice_t[unit].to_numpy(),
-                    "r": r,
-                }, index=idx))
+                resid_rows.append(
+                    pd.DataFrame(
+                        {
+                            "unit": slice_t[unit].to_numpy(),
+                            "r": r,
+                        },
+                        index=idx,
+                    )
+                )
             rd = pd.concat(resid_rows, axis=0)
             u_effect = rd.groupby("unit")["r"].mean().to_dict()
         return tau_panel, mu_panel, u_effect
@@ -328,16 +350,22 @@ def bcf_longitudinal(
         if slice_t.empty or t not in tau_panel:
             continue
         tau_hat = tau_panel[t]
-        per_time_ate_rows.append({
-            "time": t,
-            "ate_point": float(tau_hat.mean()),
-            "n": int(len(slice_t)),
-        })
-        individual_rows.append(pd.DataFrame({
-            unit: slice_t[unit].to_numpy(),
-            time: t,
-            "cate": tau_hat,
-        }))
+        per_time_ate_rows.append(
+            {
+                "time": t,
+                "ate_point": float(tau_hat.mean()),
+                "n": int(len(slice_t)),
+            }
+        )
+        individual_rows.append(
+            pd.DataFrame(
+                {
+                    unit: slice_t[unit].to_numpy(),
+                    time: t,
+                    "cate": tau_hat,
+                }
+            )
+        )
     per_time_ate = pd.DataFrame(per_time_ate_rows)
     individual_cate = pd.concat(individual_rows, axis=0, ignore_index=True)
 
@@ -406,9 +434,7 @@ def bcf_longitudinal(
     # per-time-point mean) so that average_ate and average_ci are
     # centred on the same sampling distribution.
     headline_avg = (
-        boot_mean
-        if np.isfinite(boot_mean)
-        else float(per_time_ate["ate_point"].mean())
+        boot_mean if np.isfinite(boot_mean) else float(per_time_ate["ate_point"].mean())
     )
 
     return BCFLongResult(
@@ -425,8 +451,7 @@ def bcf_longitudinal(
             "n_trees_tau": n_trees_tau,
             "n_bootstrap_effective": len(boot_point),
             "reference": (
-                "Prevot, Häring, Nichols, Holmes & Ganjgahi "
-                "(arXiv:2508.08418, 2025)"
+                "Prevot, Häring, Nichols, Holmes & Ganjgahi " "(arXiv:2508.08418, 2025)"
             ),
         },
     )

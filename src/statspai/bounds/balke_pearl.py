@@ -41,7 +41,7 @@ equilibrium conditions." *Statistical Science*, 29(4), 363-396. [@richardson2014
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Sequence
+from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -194,11 +194,14 @@ def balke_pearl(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bounds.balke_pearl",
             params={
-                "y": y, "treat": treat, "instrument": instrument,
+                "y": y,
+                "treat": treat,
+                "instrument": instrument,
                 "alpha": alpha,
             },
             data=data,

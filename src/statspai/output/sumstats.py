@@ -18,9 +18,9 @@ def sumstats(
     vars: Optional[List[str]] = None,
     by: Optional[str] = None,
     stats: Optional[List[str]] = None,
-    output: str = 'text',
-    title: str = 'Summary Statistics',
-    fmt: str = '%.3f',
+    output: str = "text",
+    title: str = "Summary Statistics",
+    fmt: str = "%.3f",
     labels: Optional[Dict[str, str]] = None,
     by_labels: Optional[Dict[Any, str]] = None,
 ) -> Union[str, pd.DataFrame]:
@@ -75,19 +75,19 @@ def sumstats(
     if vars is None:
         vars = list(data.select_dtypes(include=[np.number]).columns)
     if stats is None:
-        stats = ['n', 'mean', 'sd', 'min', 'p25', 'median', 'p75', 'max']
+        stats = ["n", "mean", "sd", "min", "p25", "median", "p75", "max"]
 
     stat_funcs = {
-        'n': ('N', lambda s: int(s.count())),
-        'mean': ('Mean', lambda s: s.mean()),
-        'sd': ('Std. Dev.', lambda s: s.std()),
-        'min': ('Min', lambda s: s.min()),
-        'max': ('Max', lambda s: s.max()),
-        'p10': ('P10', lambda s: s.quantile(0.1)),
-        'p25': ('P25', lambda s: s.quantile(0.25)),
-        'median': ('Median', lambda s: s.median()),
-        'p75': ('P75', lambda s: s.quantile(0.75)),
-        'p90': ('P90', lambda s: s.quantile(0.9)),
+        "n": ("N", lambda s: int(s.count())),
+        "mean": ("Mean", lambda s: s.mean()),
+        "sd": ("Std. Dev.", lambda s: s.std()),
+        "min": ("Min", lambda s: s.min()),
+        "max": ("Max", lambda s: s.max()),
+        "p10": ("P10", lambda s: s.quantile(0.1)),
+        "p25": ("P25", lambda s: s.quantile(0.25)),
+        "median": ("Median", lambda s: s.median()),
+        "p75": ("P75", lambda s: s.quantile(0.75)),
+        "p90": ("P90", lambda s: s.quantile(0.9)),
     }
 
     if by is None:
@@ -99,16 +99,16 @@ def sumstats(
             unique_set = set(groups)
             if unique_set <= {0, 1, 0.0, 1.0} and len(unique_set) >= 1:
                 by_labels = {
-                    0: "Control", 1: "Treated",
-                    0.0: "Control", 1.0: "Treated",
+                    0: "Control",
+                    1: "Treated",
+                    0.0: "Control",
+                    1.0: "Treated",
                 }
         panels = {}
         for g in groups:
             label = by_labels.get(g, str(g)) if by_labels else str(g)
             subset = data[data[by] == g]
-            panels[label] = _compute_stats(
-                subset, vars, stats, stat_funcs, fmt, labels
-            )
+            panels[label] = _compute_stats(subset, vars, stats, stat_funcs, fmt, labels)
         # Stack panels
         df_result = pd.concat(panels, axis=1)
 
@@ -138,10 +138,10 @@ def _compute_stats(
             if stat in stat_funcs:
                 label, fn = stat_funcs[stat]
                 val = fn(s)
-                if stat == 'n':
+                if stat == "n":
                     row[label] = str(int(val))
                 else:
-                    row[label] = fmt % val if not np.isnan(val) else ''
+                    row[label] = fmt % val if not np.isnan(val) else ""
         rows[display] = row
     return pd.DataFrame(rows).T
 
@@ -150,11 +150,11 @@ def balance_table(
     data: pd.DataFrame,
     treat: str,
     covariates: List[str],
-    output: str = 'text',
-    title: str = 'Balance Table',
-    fmt: str = '%.3f',
+    output: str = "text",
+    title: str = "Balance Table",
+    fmt: str = "%.3f",
     labels: Optional[Dict[str, str]] = None,
-    test: str = 'ttest',
+    test: str = "ttest",
 ) -> Union[str, pd.DataFrame]:
     """
     Generate a balance table comparing treated and control groups.
@@ -226,35 +226,41 @@ def balance_table(
         smd = (mean_t - mean_c) / sd_pooled if sd_pooled > 0 else 0
 
         # Test
-        if test == 'ttest':
+        if test == "ttest":
             stat, pval = sp_stats.ttest_ind(t_vals, c_vals, equal_var=False)
         else:
             stat, pval = sp_stats.ranksums(t_vals, c_vals)
 
-        rows.append({
-            'Variable': display,
-            'Treated Mean': fmt % mean_t,
-            'Treated SD': fmt % sd_t,
-            'Control Mean': fmt % mean_c,
-            'Control SD': fmt % sd_c,
-            'Diff': fmt % (mean_t - mean_c),
-            'SMD': fmt % smd,
-            'p-value': '%.3f' % pval,
-        })
+        rows.append(
+            {
+                "Variable": display,
+                "Treated Mean": fmt % mean_t,
+                "Treated SD": fmt % sd_t,
+                "Control Mean": fmt % mean_c,
+                "Control SD": fmt % sd_c,
+                "Diff": fmt % (mean_t - mean_c),
+                "SMD": fmt % smd,
+                "p-value": "%.3f" % pval,
+            }
+        )
 
-    df_result = pd.DataFrame(rows).set_index('Variable')
+    df_result = pd.DataFrame(rows).set_index("Variable")
 
     # Add N row
-    n_row = pd.DataFrame([{
-        'Variable': 'N',
-        'Treated Mean': str(len(treated)),
-        'Treated SD': '',
-        'Control Mean': str(len(control)),
-        'Control SD': '',
-        'Diff': '',
-        'SMD': '',
-        'p-value': '',
-    }]).set_index('Variable')
+    n_row = pd.DataFrame(
+        [
+            {
+                "Variable": "N",
+                "Treated Mean": str(len(treated)),
+                "Treated SD": "",
+                "Control Mean": str(len(control)),
+                "Control SD": "",
+                "Diff": "",
+                "SMD": "",
+                "p-value": "",
+            }
+        ]
+    ).set_index("Variable")
     df_result = pd.concat([df_result, n_row])
 
     return _format_output(df_result, output, title, None)
@@ -264,6 +270,7 @@ def balance_table(
 # Output formatting
 # ======================================================================
 
+
 def _format_output(
     df: pd.DataFrame,
     output: str,
@@ -271,17 +278,17 @@ def _format_output(
     stats_list: Optional[List[str]],
 ) -> Union[str, pd.DataFrame]:
     """Route to the appropriate output format."""
-    if output == 'dataframe':
+    if output == "dataframe":
         return df
-    elif output.endswith('.xlsx'):
+    elif output.endswith(".xlsx"):
         _sumstats_to_excel(df, output, title)
         return f"Exported to: {output}"
-    elif output.endswith('.docx'):
+    elif output.endswith(".docx"):
         _sumstats_to_word(df, output, title)
         return f"Exported to: {output}"
-    elif output == 'latex':
+    elif output == "latex":
         return _sumstats_to_latex(df, title)
-    elif output == 'html':
+    elif output == "html":
         return _sumstats_to_html(df, title)
     else:
         return _sumstats_to_text(df, title)
@@ -292,20 +299,20 @@ def _sumstats_to_text(df: pd.DataFrame, title: str) -> str:
     lines = []
     if title:
         lines.append(title)
-    lines.append('=' * 80)
+    lines.append("=" * 80)
     lines.append(df.to_string())
-    lines.append('=' * 80)
-    return '\n'.join(lines)
+    lines.append("=" * 80)
+    return "\n".join(lines)
 
 
 def _sumstats_to_latex(df: pd.DataFrame, title: str) -> str:
     """LaTeX table."""
-    return str(df.to_latex(caption=title, label='tab:sumstats'))
+    return str(df.to_latex(caption=title, label="tab:sumstats"))
 
 
 def _sumstats_to_html(df: pd.DataFrame, title: str) -> str:
     """HTML table."""
-    html = f'<h3>{title}</h3>\n' if title else ''
+    html = f"<h3>{title}</h3>\n" if title else ""
     html += str(df.to_html())
     return html
 
@@ -336,9 +343,7 @@ def _sumstats_to_word(df: pd.DataFrame, filename: str, title: str) -> None:
         from docx.shared import Pt
         from docx.enum.text import WD_ALIGN_PARAGRAPH
     except ImportError:
-        raise ImportError(
-            "python-docx required. Install: pip install python-docx"
-        )
+        raise ImportError("python-docx required. Install: pip install python-docx")
 
     from ._aer_style import (
         apply_word_document_defaults,

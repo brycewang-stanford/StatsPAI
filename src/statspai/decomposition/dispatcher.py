@@ -3,61 +3,47 @@ Unified dispatcher: ``sp.decompose(method=...)``
 
 Single entry point for all decomposition methods in StatsPAI.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict
-
 
 # Lazy import registry: name -> (module_path, function_name)
 _REGISTRY: Dict[str, tuple] = {
     "oaxaca": ("statspai.decomposition.oaxaca", "oaxaca"),
     "blinder_oaxaca": ("statspai.decomposition.oaxaca", "oaxaca"),
     "gelbach": ("statspai.decomposition.oaxaca", "gelbach"),
-
     "rif": ("statspai.decomposition.rif", "rif_decomposition"),
     "rif_decomposition": ("statspai.decomposition.rif", "rif_decomposition"),
-
     "dfl": ("statspai.decomposition.dfl", "dfl_decompose"),
     "dinardo_fortin_lemieux": ("statspai.decomposition.dfl", "dfl_decompose"),
-
     "ffl": ("statspai.decomposition.ffl", "ffl_decompose"),
     "firpo_fortin_lemieux": ("statspai.decomposition.ffl", "ffl_decompose"),
-
     "machado_mata": ("statspai.decomposition.machado_mata", "machado_mata"),
     "mm": ("statspai.decomposition.machado_mata", "machado_mata"),
-
     "melly": ("statspai.decomposition.melly", "melly_decompose"),
-
     "cfm": ("statspai.decomposition.cfm", "cfm_decompose"),
     "chernozhukov_fernandez_val_melly": ("statspai.decomposition.cfm", "cfm_decompose"),
-
     "fairlie": ("statspai.decomposition.nonlinear", "fairlie"),
     "bauer_sinning": ("statspai.decomposition.nonlinear", "bauer_sinning"),
     "yun_nonlinear": ("statspai.decomposition.nonlinear", "bauer_sinning"),
-
     "inequality": ("statspai.decomposition.inequality", "subgroup_decompose"),
     "subgroup": ("statspai.decomposition.inequality", "subgroup_decompose"),
-    "shapley_inequality": ("statspai.decomposition.inequality",
-                           "shapley_inequality"),
+    "shapley_inequality": ("statspai.decomposition.inequality", "shapley_inequality"),
     "gini_source": ("statspai.decomposition.inequality", "source_decompose"),
-
     "kitagawa": ("statspai.decomposition.kitagawa", "kitagawa_decompose"),
     "das_gupta": ("statspai.decomposition.kitagawa", "das_gupta"),
-
     "gap_closing": ("statspai.decomposition.causal", "gap_closing"),
     "lundberg": ("statspai.decomposition.causal", "gap_closing"),
     "mediation": ("statspai.decomposition.causal", "mediation_decompose"),
     "natural_effects": ("statspai.decomposition.causal", "mediation_decompose"),
     "causal_jvw": ("statspai.decomposition.causal", "disparity_decompose"),
-    "jackson_vanderweele": ("statspai.decomposition.causal",
-                            "disparity_decompose"),
+    "jackson_vanderweele": ("statspai.decomposition.causal", "disparity_decompose"),
     "disparity": ("statspai.decomposition.causal", "disparity_decompose"),
-
     # Yu-Elwert (2025) — nonparametric causal decomposition of group
     # disparities into baseline / prevalence / effect / selection.
     "yu_elwert": ("statspai.decomposition.yu_elwert", "yu_elwert_decompose"),
-    "yu_elwert_decompose": ("statspai.decomposition.yu_elwert",
-                            "yu_elwert_decompose"),
+    "yu_elwert_decompose": ("statspai.decomposition.yu_elwert", "yu_elwert_decompose"),
     "cdgd": ("statspai.decomposition.yu_elwert", "yu_elwert_decompose"),
 }
 
@@ -123,16 +109,17 @@ def decompose(method: str, /, **kwargs: Any) -> Any:
     """
     if method not in _REGISTRY:
         raise ValueError(
-            f"Unknown method {method!r}. Available: "
-            + ", ".join(available_methods())
+            f"Unknown method {method!r}. Available: " + ", ".join(available_methods())
         )
     module_path, fn_name = _REGISTRY[method]
     import importlib
+
     mod = importlib.import_module(module_path)
     fn = getattr(mod, fn_name)
     _result = fn(**kwargs)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         # Capture method + the kwargs (data is summarised separately if
         # present). The dispatcher delegates to disparate sub-modules,
         # each returning its own result type — provenance attaches
@@ -143,7 +130,8 @@ def decompose(method: str, /, **kwargs: Any) -> Any:
         safe_kw = {
             k: (list(v) if isinstance(v, (list, tuple)) else v)
             for k, v in kwargs.items()
-            if k != "data" and isinstance(v, (str, int, float, bool, list, tuple, type(None)))
+            if k != "data"
+            and isinstance(v, (str, int, float, bool, list, tuple, type(None)))
         }
         _attach_prov(
             _result,

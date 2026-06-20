@@ -22,13 +22,9 @@ def as_float_arrays(*arrays: object) -> list[np.ndarray]:
     n = len(out[0])
     for a in out[1:]:
         if len(a) != n:
-            raise ValueError(
-                f"length mismatch: {n} vs {len(a)} in mr.frontier inputs"
-            )
+            raise ValueError(f"length mismatch: {n} vs {len(a)} in mr.frontier inputs")
     if n < 3:
-        raise ValueError(
-            f"MR frontier methods require >= 3 SNPs; got {n}"
-        )
+        raise ValueError(f"MR frontier methods require >= 3 SNPs; got {n}")
     return out
 
 

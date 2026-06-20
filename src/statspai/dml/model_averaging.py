@@ -75,7 +75,6 @@ import pandas as pd
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
-
 __all__ = ["dml_model_averaging", "model_averaging_dml", "DMLAveragingResult"]
 
 
@@ -87,10 +86,16 @@ def _default_candidates() -> List[Tuple[Any, Any, str]]:
     return [
         (LassoCV(cv=5), LassoCV(cv=5), "lasso"),
         (RidgeCV(), RidgeCV(), "ridge"),
-        (RandomForestRegressor(n_estimators=200, random_state=0, n_jobs=1),
-         RandomForestRegressor(n_estimators=200, random_state=0, n_jobs=1), "rf"),
-        (GradientBoostingRegressor(n_estimators=200, random_state=0),
-         GradientBoostingRegressor(n_estimators=200, random_state=0), "gbm"),
+        (
+            RandomForestRegressor(n_estimators=200, random_state=0, n_jobs=1),
+            RandomForestRegressor(n_estimators=200, random_state=0, n_jobs=1),
+            "rf",
+        ),
+        (
+            GradientBoostingRegressor(n_estimators=200, random_state=0),
+            GradientBoostingRegressor(n_estimators=200, random_state=0),
+            "gbm",
+        ),
     ]
 
 
@@ -348,6 +353,7 @@ def _fit_candidate_plr(
             clf.fit(Xfit, yfit, sample_weight=wfit)
         except TypeError:  # pragma: no cover
             import warnings  # pragma: no cover
+
             warnings.warn(  # pragma: no cover
                 f"{type(learner).__name__}.fit does not accept "
                 f"sample_weight; falling back to unweighted nuisance fit.",
@@ -368,12 +374,12 @@ def _fit_candidate_plr(
     y_resid = Y - yhat
     d_resid = D - dhat
     if sample_weight is None:
-        mse_g = float(np.mean(y_resid ** 2))
-        mse_m = float(np.mean(d_resid ** 2))
+        mse_g = float(np.mean(y_resid**2))
+        mse_m = float(np.mean(d_resid**2))
     else:
         W = float(np.sum(sample_weight))
-        mse_g = float(np.sum(sample_weight * y_resid ** 2) / W)
-        mse_m = float(np.sum(sample_weight * d_resid ** 2) / W)
+        mse_g = float(np.sum(sample_weight * y_resid**2) / W)
+        mse_m = float(np.sum(sample_weight * d_resid**2) / W)
     return yhat, dhat, y_resid, d_resid, mse_g, mse_m
 
 
@@ -397,7 +403,10 @@ def _solve_cls_weights(
 
     target = _finite_array(target, "target", "_solve_cls_weights", ndim=1)
     predictions = _finite_array(
-        predictions, "predictions", "_solve_cls_weights", ndim=2,
+        predictions,
+        "predictions",
+        "_solve_cls_weights",
+        ndim=2,
     )
     if predictions.shape[0] != len(target) or predictions.shape[1] == 0:
         raise MethodIncompatibility(
@@ -410,7 +419,8 @@ def _solve_cls_weights(
         )
     K = predictions.shape[1]
     sw = (
-        np.ones(len(target)) if sample_weight is None
+        np.ones(len(target))
+        if sample_weight is None
         else _finite_array(sample_weight, "sample_weight", "_solve_cls_weights", 1)
     )
     if len(sw) != len(target):
@@ -442,17 +452,27 @@ def _solve_cls_weights(
 
     w0 = np.full(K, 1.0 / K)
     bounds = [(0.0, 1.0)] * K
-    constraints = [{"type": "eq", "fun": lambda w: float(np.sum(w) - 1.0),
-                    "jac": lambda w: np.ones(K)}]
+    constraints = [
+        {
+            "type": "eq",
+            "fun": lambda w: float(np.sum(w) - 1.0),
+            "jac": lambda w: np.ones(K),
+        }
+    ]
     res = minimize(
-        loss, w0, jac=grad, method="SLSQP", bounds=bounds,
+        loss,
+        w0,
+        jac=grad,
+        method="SLSQP",
+        bounds=bounds,
         constraints=constraints,
         options={"maxiter": 200, "ftol": 1e-10},
     )
     if not res.success:
         # Fallback: pick the column with lowest weighted MSE.
         weighted_sse = np.sum(
-            sw[:, None] * (target[:, None] - predictions) ** 2, axis=0,
+            sw[:, None] * (target[:, None] - predictions) ** 2,
+            axis=0,
         )
         w = np.zeros(K)
         w[int(np.argmin(weighted_sse))] = 1.0
@@ -598,7 +618,10 @@ def dml_model_averaging(
                     },
                 )
             work["__sw__"] = _finite_array(
-                data[sample_weight], "sample_weight", context, 1,
+                data[sample_weight],
+                "sample_weight",
+                context,
+                1,
             )
         else:
             arr = _finite_array(sample_weight, "sample_weight", context, 1)
@@ -677,14 +700,21 @@ def dml_model_averaging(
     labels: List[str] = []
     resids: List[Tuple[np.ndarray, np.ndarray, float]] = []
 
-    for (ml_g, ml_m, label) in cand:
+    for ml_g, ml_m, label in cand:
         yhat, dhat, y_r, d_r, mse_g, mse_m = _fit_candidate_plr(
-            Y, D, X, ml_g, ml_m, n_folds, seed, sample_weight=sw,
+            Y,
+            D,
+            X,
+            ml_g,
+            ml_m,
+            n_folds,
+            seed,
+            sample_weight=sw,
         )
         if sw is None:
-            denom = float(np.sum(d_r ** 2))
+            denom = float(np.sum(d_r**2))
         else:
-            denom = float(np.sum(sw * d_r ** 2))
+            denom = float(np.sum(sw * d_r**2))
         if denom < 1e-12:
             # Candidate produced a degenerate first stage (m̂ ≈ D in
             # mean square). Skip it so it does not poison the stacking
@@ -693,14 +723,14 @@ def dml_model_averaging(
         if sw is None:
             theta_k = float(np.sum(d_r * y_r) / denom)
             psi = (y_r - theta_k * d_r) * d_r
-            J = -np.mean(d_r ** 2)
-            var_k = float(np.mean(psi ** 2) / (J ** 2) / n)
+            J = -np.mean(d_r**2)
+            var_k = float(np.mean(psi**2) / (J**2) / n)
         else:
             theta_k = float(np.sum(sw * d_r * y_r) / denom)
             psi = (y_r - theta_k * d_r) * d_r
             # Weighted Z-estimator variance (sandwich) for candidate k.
-            num = float(np.sum((sw ** 2) * (psi ** 2)))
-            var_k = num / (denom ** 2)
+            num = float(np.sum((sw**2) * (psi**2)))
+            var_k = num / (denom**2)
         ses.append(np.sqrt(max(var_k, 0.0)))
         thetas.append(theta_k)
         mses.append(mse_g + mse_m)
@@ -718,8 +748,8 @@ def dml_model_averaging(
     thetas_arr = np.array(thetas)
     ses_arr = np.array(ses)
     mses_arr = np.array(mses)
-    yhat_arr = np.column_stack(yhat_mat)   # n × K
-    dhat_arr = np.column_stack(dhat_mat)   # n × K
+    yhat_arr = np.column_stack(yhat_mat)  # n × K
+    dhat_arr = np.column_stack(dhat_mat)  # n × K
 
     z = sp_stats.norm.ppf(1 - alpha / 2)
     weights_g: Optional[np.ndarray] = None
@@ -733,9 +763,9 @@ def dml_model_averaging(
         y_resid_stack = Y - yhat_arr @ weights_g
         d_resid_stack = D - dhat_arr @ weights_m
         if sw is None:
-            denom = float(np.sum(d_resid_stack ** 2))
+            denom = float(np.sum(d_resid_stack**2))
         else:
-            denom = float(np.sum(sw * d_resid_stack ** 2))
+            denom = float(np.sum(sw * d_resid_stack**2))
         if denom < 1e-12:
             raise ConvergenceFailure(  # pragma: no cover
                 "short_stacking: stacked first stage is degenerate "
@@ -747,18 +777,19 @@ def dml_model_averaging(
         if sw is None:
             theta_avg = float(np.sum(y_resid_stack * d_resid_stack) / denom)
             psi_stack = (y_resid_stack - theta_avg * d_resid_stack) * d_resid_stack
-            J_stack = -float(np.mean(d_resid_stack ** 2))
+            J_stack = -float(np.mean(d_resid_stack**2))
             var_avg = (
-                float(np.mean(psi_stack ** 2) / (J_stack ** 2) / n)
-                if abs(J_stack) > 1e-10 else float("nan")
+                float(np.mean(psi_stack**2) / (J_stack**2) / n)
+                if abs(J_stack) > 1e-10
+                else float("nan")
             )
         else:
             theta_avg = float(np.sum(sw * y_resid_stack * d_resid_stack) / denom)
             psi_stack = (y_resid_stack - theta_avg * d_resid_stack) * d_resid_stack
             # Weighted Z-estimator variance (sandwich): same recipe as
             # weighted PLR — Σ w² ψ² / (Σ w d²)².
-            num = float(np.sum((sw ** 2) * (psi_stack ** 2)))
-            var_avg = num / (denom ** 2)
+            num = float(np.sum((sw**2) * (psi_stack**2)))
+            var_avg = num / (denom**2)
         se_avg = float(np.sqrt(max(var_avg, 0.0)))
         # Reported "weights" = stacking weights for m (the moment-equation
         # denominator's nuisance) — the more identification-relevant set.
@@ -790,7 +821,7 @@ def dml_model_averaging(
         if sw is None:
             phi_matrix = np.zeros((n, K_cand))
             for k, (y_r, d_r, theta_k) in enumerate(resids):
-                J_k = -np.mean(d_r ** 2)
+                J_k = -np.mean(d_r**2)
                 phi_matrix[:, k] = (y_r - theta_k * d_r) * d_r / (J_k * np.sqrt(n))
             cov_scaled = phi_matrix.T @ phi_matrix
             var_avg = float(w @ cov_scaled @ w) / n
@@ -799,7 +830,7 @@ def dml_model_averaging(
             denoms = np.zeros(K_cand)
             for k, (y_r, d_r, theta_k) in enumerate(resids):
                 psi_matrix[:, k] = (y_r - theta_k * d_r) * d_r
-                denoms[k] = float(np.sum(sw * d_r ** 2))
+                denoms[k] = float(np.sum(sw * d_r**2))
             # Σ_kl = Σ_i sw_i² ψ_k,i ψ_l,i  /  (denom_k · denom_l)
             scaled_psi = (sw[:, None]) * psi_matrix
             sigma_kl = scaled_psi.T @ scaled_psi  # = Σ_i sw_i² ψ_k,i ψ_l,i
@@ -810,7 +841,8 @@ def dml_model_averaging(
     ci = (theta_avg - z * se_avg, theta_avg + z * se_avg)
     pvalue = (
         float(2 * (1 - sp_stats.norm.cdf(abs(theta_avg / se_avg))))
-        if se_avg > 0 else float("nan")
+        if se_avg > 0
+        else float("nan")
     )
 
     model_info: Dict[str, Any] = {

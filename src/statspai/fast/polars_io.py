@@ -23,6 +23,7 @@ Both accept ``polars.DataFrame``, ``polars.LazyFrame`` (lazy inputs are
 collected before column extraction), or ``pyarrow.Table``. We don't fuse
 the demean into Polars' query plan.
 """
+
 from __future__ import annotations
 
 from typing import Any, List, Sequence, Tuple
@@ -32,6 +33,7 @@ import pandas as pd
 
 try:
     import polars as pl  # type: ignore
+
     _HAS_POLARS = True
 except ImportError:  # pragma: no cover
     pl = None  # type: ignore
@@ -39,6 +41,7 @@ except ImportError:  # pragma: no cover
 
 try:
     import pyarrow as pa  # type: ignore
+
     _HAS_ARROW = True
 except ImportError:  # pragma: no cover
     pa = None  # type: ignore
@@ -48,10 +51,10 @@ from ..exceptions import MethodIncompatibility
 from .demean import demean as _fast_demean, DemeanInfo
 from .fepois import fepois as _fast_fepois, FePoisResult
 
-
 # ---------------------------------------------------------------------------
 # Conversion helpers
 # ---------------------------------------------------------------------------
+
 
 def _normalize_columns(cols: Sequence[str] | str, *, name: str) -> List[str]:
     """Return a non-empty list of string column names."""
@@ -185,6 +188,7 @@ def _columns_as_object(df: Any, cols: Sequence[str]) -> List[np.ndarray]:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def demean_polars(
     df: Any,
     X_cols: Sequence[str] | str,
@@ -229,6 +233,7 @@ def fepois_polars(
     df = _ensure_columnar_eager(df)
 
     from .fepois import _parse_fepois_formula
+
     lhs, rhs_terms, fe_terms = _parse_fepois_formula(formula)
     needed = [lhs] + [t for t in rhs_terms if t != "1"] + list(fe_terms)
     needed = list(dict.fromkeys(needed))  # de-dupe, preserve order

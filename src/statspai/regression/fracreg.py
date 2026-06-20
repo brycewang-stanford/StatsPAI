@@ -101,9 +101,10 @@ def fracreg(
     y_data = df[y].values.astype(float)
     X_data = np.column_stack([np.ones(n), df[x_names].values.astype(float)])
     k = X_data.shape[1]
-    var_names = ['_cons'] + x_names
+    var_names = ["_cons"] + x_names
 
-    if link == 'logit':
+    if link == "logit":
+
         def g(xb: np.ndarray) -> np.ndarray:
             xb = np.clip(xb, -500, 500)
             return np.asarray(1 / (1 + np.exp(-xb)), dtype=float)
@@ -111,12 +112,15 @@ def fracreg(
         def g_prime(xb: np.ndarray) -> np.ndarray:
             p = g(xb)
             return np.asarray(p * (1 - p), dtype=float)
-    elif link == 'probit':
+
+    elif link == "probit":
+
         def g(xb: np.ndarray) -> np.ndarray:
             return np.asarray(stats.norm.cdf(xb), dtype=float)
 
         def g_prime(xb: np.ndarray) -> np.ndarray:
             return np.asarray(stats.norm.pdf(xb), dtype=float)
+
     else:
         raise ValueError(f"Unknown link: {link}")
 
@@ -189,19 +193,19 @@ def fracreg(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': f'Fractional {link.title()} (Papke-Wooldridge)',
-            'link': link,
-            'quasi_ll': qll,
+            "model_type": f"Fractional {link.title()} (Papke-Wooldridge)",
+            "link": link,
+            "quasi_ll": qll,
         },
         data_info={
-            'n_obs': n,
-            'dep_var': y,
-            'df_resid': n - k,
+            "n_obs": n,
+            "dep_var": y,
+            "df_resid": n - k,
         },
         diagnostics={
-            'quasi_log_likelihood': qll,
-            'aic': -2 * qll + 2 * k,
-            'bic': -2 * qll + np.log(n) * k,
+            "quasi_log_likelihood": qll,
+            "aic": -2 * qll + 2 * k,
+            "bic": -2 * qll + np.log(n) * k,
         },
     )
 
@@ -278,29 +282,32 @@ def betareg(
 
     X_mean = np.column_stack([np.ones(n), df[x_names].values.astype(float)])
     k_mean = X_mean.shape[1]
-    mean_names = ['_cons'] + x_names
+    mean_names = ["_cons"] + x_names
 
     if z_names:
-        X_prec = np.column_stack(
-            [np.ones(n), df[z_names].values.astype(float)]
-        )
-        prec_names = ['_cons_phi'] + [f'phi_{v}' for v in z_names]
+        X_prec = np.column_stack([np.ones(n), df[z_names].values.astype(float)])
+        prec_names = ["_cons_phi"] + [f"phi_{v}" for v in z_names]
     else:
         X_prec = np.ones((n, 1))
-        prec_names = ['_cons_phi']
+        prec_names = ["_cons_phi"]
     k_prec = X_prec.shape[1]
 
     g: Callable[[np.ndarray], np.ndarray]
-    if link == 'logit':
+    if link == "logit":
+
         def g(xb: np.ndarray) -> np.ndarray:
             return np.asarray(
                 1 / (1 + np.exp(-np.clip(xb, -500, 500))),
                 dtype=float,
             )
-    elif link == 'probit':
+
+    elif link == "probit":
+
         def g(xb: np.ndarray) -> np.ndarray:
             return np.asarray(stats.norm.cdf(xb), dtype=float)
+
     else:
+
         def g(xb: np.ndarray) -> np.ndarray:
             return np.asarray(
                 1 / (1 + np.exp(-np.clip(xb, -500, 500))),
@@ -332,8 +339,12 @@ def betareg(
     theta0[k_mean] = np.log(5)  # initial precision
 
     try:
-        result = minimize(neg_log_lik, theta0, method='BFGS',
-                          options={'maxiter': maxiter, 'gtol': tol})
+        result = minimize(
+            neg_log_lik,
+            theta0,
+            method="BFGS",
+            options={"maxiter": maxiter, "gtol": tol},
+        )
         theta_hat = result.x
         converged, _ = robust_convergence(result)
     except Exception:
@@ -370,20 +381,20 @@ def betareg(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': 'Beta Regression (Ferrari-Cribari-Neto)',
-            'link': link,
-            'n_mean_params': k_mean,
-            'n_precision_params': k_prec,
-            'converged': converged,
+            "model_type": "Beta Regression (Ferrari-Cribari-Neto)",
+            "link": link,
+            "n_mean_params": k_mean,
+            "n_precision_params": k_prec,
+            "converged": converged,
         },
         data_info={
-            'n_obs': n,
-            'dep_var': y,
-            'df_resid': n - k_total,
+            "n_obs": n,
+            "dep_var": y,
+            "df_resid": n - k_total,
         },
         diagnostics={
-            'log_likelihood': ll,
-            'aic': -2 * ll + 2 * k_total,
-            'bic': -2 * ll + np.log(n) * k_total,
+            "log_likelihood": ll,
+            "aic": -2 * ll + 2 * k_total,
+            "bic": -2 * ll + np.log(n) * k_total,
         },
     )

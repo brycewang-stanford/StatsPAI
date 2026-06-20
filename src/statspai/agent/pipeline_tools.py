@@ -34,6 +34,7 @@ Failures in a sub-stage are surfaced (``status: 'failed'`` + the
 exception message) but never abort the pipeline — partial results are
 more useful than a hard crash midway.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -42,15 +43,14 @@ import pandas as pd
 
 from ._result_cache import RESULT_CACHE
 
-
 # ----------------------------------------------------------------------
 # Schema definitions
 # ----------------------------------------------------------------------
 
 PIPELINE_TOOL_SPECS: List[Dict[str, Any]] = [
     {
-        'name': 'pipeline_did',
-        'description': (
+        "name": "pipeline_did",
+        "description": (
             "End-to-end DID workflow: preflight → did/CS estimator → "
             "audit → honest-DID sensitivity → bacon decomposition → "
             "brief. Returns one markdown report + the primary "
@@ -58,81 +58,79 @@ PIPELINE_TOOL_SPECS: List[Dict[str, Any]] = [
             "and asks 'is the effect real?' — the pipeline runs every "
             "diagnostic the literature expects."
         ),
-        'input_schema': {
-            'type': 'object',
-            'properties': {
-                'y': {'type': 'string', 'description': 'Outcome column.'},
-                'treat': {
-                    'type': 'string',
-                    'description': 'Binary treatment indicator.',
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "y": {"type": "string", "description": "Outcome column."},
+                "treat": {
+                    "type": "string",
+                    "description": "Binary treatment indicator.",
                 },
-                'time': {'type': 'string', 'description': 'Time column.'},
-                'id': {
-                    'type': 'string',
-                    'description': (
-                        'Unit id (panel) — required for staggered-DID.'
+                "time": {"type": "string", "description": "Time column."},
+                "id": {
+                    "type": "string",
+                    "description": ("Unit id (panel) — required for staggered-DID."),
+                },
+                "cohort": {
+                    "type": "string",
+                    "description": (
+                        "First-treatment cohort column. "
+                        "When supplied, dispatches "
+                        "callaway_santanna instead of "
+                        "classic 2x2 did."
                     ),
                 },
-                'cohort': {
-                    'type': 'string',
-                    'description': (
-                        'First-treatment cohort column. '
-                        'When supplied, dispatches '
-                        'callaway_santanna instead of '
-                        'classic 2x2 did.'
-                    ),
-                },
-                'covariates': {
-                    'type': 'array',
-                    'items': {'type': 'string'},
+                "covariates": {
+                    "type": "array",
+                    "items": {"type": "string"},
                 },
             },
-            'required': ['y', 'treat', 'time'],
+            "required": ["y", "treat", "time"],
         },
     },
     {
-        'name': 'pipeline_iv',
-        'description': (
+        "name": "pipeline_iv",
+        "description": (
             "End-to-end IV workflow: ivreg → first-stage F (effective + "
             "Olea-Pflueger) → Anderson-Rubin CI → e-value. Returns one "
             "markdown report + result_id."
         ),
-        'input_schema': {
-            'type': 'object',
-            'properties': {
-                'formula': {
-                    'type': 'string',
-                    'description': "'y ~ x_exog + (d_endog ~ z_instrument)' style.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "formula": {
+                    "type": "string",
+                    "description": "'y ~ x_exog + (d_endog ~ z_instrument)' style.",
                 },
             },
-            'required': ['formula'],
+            "required": ["formula"],
         },
     },
     {
-        'name': 'pipeline_rd',
-        'description': (
+        "name": "pipeline_rd",
+        "description": (
             "End-to-end RD workflow: rdrobust → rdplot (PNG image) → "
             "rddensity (McCrary) → rdsensitivity (bandwidth). Returns "
             "one markdown report + result_id + an image content block."
         ),
-        'input_schema': {
-            'type': 'object',
-            'properties': {
-                'y': {'type': 'string'},
-                'x': {'type': 'string',
-                      'description': 'Running variable column.'},
-                'c': {'type': 'number', 'default': 0.0,
-                      'description': 'Cutoff value.'},
-                'fuzzy': {'type': 'string',
-                          'description': 'Treatment column for fuzzy RD (optional).'},
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "y": {"type": "string"},
+                "x": {"type": "string", "description": "Running variable column."},
+                "c": {"type": "number", "default": 0.0, "description": "Cutoff value."},
+                "fuzzy": {
+                    "type": "string",
+                    "description": "Treatment column for fuzzy RD (optional).",
+                },
             },
-            'required': ['y', 'x'],
+            "required": ["y", "x"],
         },
     },
 ]
 
 
-PIPELINE_TOOL_NAMES = frozenset(t['name'] for t in PIPELINE_TOOL_SPECS)
+PIPELINE_TOOL_NAMES = frozenset(t["name"] for t in PIPELINE_TOOL_SPECS)
 
 
 def pipeline_tool_manifest() -> List[Dict[str, Any]]:
@@ -171,6 +169,7 @@ def _short_estimate(obj: Any) -> str:
     """Return a one-line ``estimate (SE) [CI]`` summary for ``obj``."""
     try:
         from .tools import _default_serializer
+
         d = _default_serializer(obj, detail="standard")
     except Exception:
         return ""
@@ -194,6 +193,7 @@ def _short_estimate(obj: Any) -> str:
 # pipeline_did
 # ----------------------------------------------------------------------
 
+
 def _pipeline_did(
     arguments: Dict[str, Any],
     data: Optional[pd.DataFrame],
@@ -202,77 +202,76 @@ def _pipeline_did(
     as_handle: bool,
 ) -> Dict[str, Any]:
     if data is None:
-        return {'error': 'pipeline_did requires data_path'}
+        return {"error": "pipeline_did requires data_path"}
     import statspai as sp
 
-    y = arguments.get('y')
-    treat = arguments.get('treat')
-    time = arguments.get('time')
-    cohort = arguments.get('cohort')
-    unit_id = arguments.get('id')
-    covariates = arguments.get('covariates') or []
+    y = arguments.get("y")
+    treat = arguments.get("treat")
+    time = arguments.get("time")
+    cohort = arguments.get("cohort")
+    unit_id = arguments.get("id")
+    covariates = arguments.get("covariates") or []
     if not (y and treat and time):
-        return {'error': "pipeline_did requires y / treat / time"}
+        return {"error": "pipeline_did requires y / treat / time"}
 
     stages: List[Dict[str, Any]] = []
 
     # Stage 1: preflight
-    preflight_fn = getattr(sp, 'preflight', None)
+    preflight_fn = getattr(sp, "preflight", None)
     if preflight_fn is not None:
-        verdict_args = {'y': y, 'treatment': treat, 'time': time}
+        verdict_args = {"y": y, "treatment": treat, "time": time}
         if unit_id:
-            verdict_args['id'] = unit_id
+            verdict_args["id"] = unit_id
         if covariates:
-            verdict_args['covariates'] = covariates
-        result, err = _safe_call(preflight_fn, data, 'did', **verdict_args)
+            verdict_args["covariates"] = covariates
+        result, err = _safe_call(preflight_fn, data, "did", **verdict_args)
         if err:
-            stages.append(_stage('preflight', 'failed', err))
+            stages.append(_stage("preflight", "failed", err))
         else:
-            verdict = getattr(result, 'verdict', None) or (
-                result.get('verdict') if isinstance(result, dict) else None)
+            verdict = getattr(result, "verdict", None) or (
+                result.get("verdict") if isinstance(result, dict) else None
+            )
             stages.append(
                 _stage(
-                    'preflight',
-                    'ok' if verdict in {'PASS', 'WARN', None} else 'failed',
+                    "preflight",
+                    "ok" if verdict in {"PASS", "WARN", None} else "failed",
                     f"verdict={verdict}",
                 )
             )
     else:
-        stages.append(
-            _stage('preflight', 'skipped', 'sp.preflight not available')
-        )
+        stages.append(_stage("preflight", "skipped", "sp.preflight not available"))
 
     # Stage 2: estimator dispatch
     if cohort and unit_id:
-        fit_fn = getattr(sp, 'callaway_santanna', None)
+        fit_fn = getattr(sp, "callaway_santanna", None)
         if fit_fn is not None:
-            est_args = {'y': y, 'g': cohort, 't': time, 'i': unit_id}
+            est_args = {"y": y, "g": cohort, "t": time, "i": unit_id}
             primary, err = _safe_call(fit_fn, data, **est_args)
-            method = 'callaway_santanna'
+            method = "callaway_santanna"
         else:
-            primary, err = None, 'sp.callaway_santanna not available'
-            method = 'callaway_santanna'
+            primary, err = None, "sp.callaway_santanna not available"
+            method = "callaway_santanna"
     else:
-        fit_fn = getattr(sp, 'did', None)
+        fit_fn = getattr(sp, "did", None)
         if fit_fn is not None:
-            est_args = {'y': y, 'treat': treat, 'time': time}
+            est_args = {"y": y, "treat": treat, "time": time}
             primary, err = _safe_call(fit_fn, data, **est_args)
-            method = 'did'
+            method = "did"
         else:
-            primary, err = None, 'sp.did not available'
-            method = 'did'
+            primary, err = None, "sp.did not available"
+            method = "did"
 
     if err or primary is None:
-        stages.append(_stage('estimate', 'failed', err or 'no result'))
+        stages.append(_stage("estimate", "failed", err or "no result"))
         return {
-            'pipeline': 'pipeline_did',
-            'stages': stages,
-            'error': err or 'estimator failed',
+            "pipeline": "pipeline_did",
+            "stages": stages,
+            "error": err or "estimator failed",
         }
 
     primary_summary = _short_estimate(primary)
     stages.append(
-        _stage('estimate', 'ok', f"{method}: {primary_summary}", method=method)
+        _stage("estimate", "ok", f"{method}: {primary_summary}", method=method)
     )
 
     # Cache the primary result so follow-up tools chain via result_id
@@ -280,36 +279,36 @@ def _pipeline_did(
         primary,
         tool=method,
         arguments={
-            k: v for k, v in arguments.items()
-            if not isinstance(v, pd.DataFrame)
+            k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
         },
     )
 
     # Stage 3: audit
-    audit_fn = getattr(sp, 'audit', None)
+    audit_fn = getattr(sp, "audit", None)
     audit_payload: Dict[str, Any] = {}
     if audit_fn is not None:
         report, err = _safe_call(audit_fn, primary)
         if err:
-            stages.append(_stage('audit', 'failed', err))
+            stages.append(_stage("audit", "failed", err))
         else:
             audit_payload = _audit_to_dict(report)
             n_missing = _count_missing(audit_payload)
             stages.append(
                 _stage(
-                    'audit',
-                    'ok',
+                    "audit",
+                    "ok",
                     f"{n_missing} missing high-importance checks",
                 )
             )
     else:
-        stages.append(_stage('audit', 'skipped', 'sp.audit not available'))
+        stages.append(_stage("audit", "skipped", "sp.audit not available"))
 
     # Stage 4: honest_did sensitivity (best-effort — needs event-study betas)
     honest_payload: Optional[Dict[str, Any]] = None
-    honest_fn = getattr(sp, 'honest_did', None)
+    honest_fn = getattr(sp, "honest_did", None)
     if honest_fn is not None:
         from .workflow_tools import _extract_event_study, _listify_sigma
+
         betas, sigma, n_pre, n_post = _extract_event_study(primary)
         if betas is not None and sigma is not None:
             honest, err = _safe_call(
@@ -318,64 +317,69 @@ def _pipeline_did(
                 sigma=_listify_sigma(sigma),
                 num_pre_periods=int(n_pre),
                 num_post_periods=int(n_post),
-                method='SD',
+                method="SD",
             )
             if err:
-                stages.append(_stage('honest_did', 'failed', err))
+                stages.append(_stage("honest_did", "failed", err))
             else:
                 honest_payload = _light_serialize(honest)
                 stages.append(
                     _stage(
-                        'honest_did',
-                        'ok',
-                        _short_estimate(honest) or 'computed',
+                        "honest_did",
+                        "ok",
+                        _short_estimate(honest) or "computed",
                     )
                 )
         else:
             stages.append(
                 _stage(
-                    'honest_did',
-                    'skipped',
-                    'no event-study betas in primary result',
+                    "honest_did",
+                    "skipped",
+                    "no event-study betas in primary result",
                 )
             )
 
     # Stage 5: Bacon decomposition (only meaningful for staggered TWFE)
     if cohort and unit_id:
-        bacon_fn = getattr(sp, 'bacon_decomposition', None)
+        bacon_fn = getattr(sp, "bacon_decomposition", None)
         if bacon_fn is not None:
             bacon, err = _safe_call(
-                bacon_fn, data, y=y, treat=treat, time=time, id=unit_id,
+                bacon_fn,
+                data,
+                y=y,
+                treat=treat,
+                time=time,
+                id=unit_id,
             )
             if err:
-                stages.append(_stage('bacon_decomposition', 'failed', err))
+                stages.append(_stage("bacon_decomposition", "failed", err))
             else:
                 stages.append(
                     _stage(
-                        'bacon_decomposition',
-                        'ok',
-                        'computed weight decomposition',
+                        "bacon_decomposition",
+                        "ok",
+                        "computed weight decomposition",
                     )
                 )
         else:
             stages.append(
                 _stage(
-                    'bacon_decomposition',
-                    'skipped',
-                    'sp.bacon_decomposition not available',
+                    "bacon_decomposition",
+                    "skipped",
+                    "sp.bacon_decomposition not available",
                 )
             )
 
     # Stage 6: brief
-    brief_fn = getattr(sp, 'brief', None)
-    brief_text = ''
+    brief_fn = getattr(sp, "brief", None)
+    brief_text = ""
     if brief_fn is not None:
         text, err = _safe_call(brief_fn, primary)
         if not err and text:
             brief_text = str(text)
-            stages.append(_stage('brief', 'ok', brief_text))
+            stages.append(_stage("brief", "ok", brief_text))
         else:
-            stages.append(_stage('brief', 'skipped', err or 'no brief'))
+            stages.append(_stage("brief", "skipped", err or "no brief"))
 
     # Compose narrative
     narrative = _did_narrative(
@@ -388,87 +392,97 @@ def _pipeline_did(
     )
 
     out: Dict[str, Any] = {
-        'pipeline': 'pipeline_did',
-        'method': method,
-        'result_id': primary_rid,
-        'result_uri': f"statspai://result/{primary_rid}",
-        'primary_summary': primary_summary,
-        'stages': stages,
-        'audit': audit_payload,
-        'narrative': narrative,
+        "pipeline": "pipeline_did",
+        "method": method,
+        "result_id": primary_rid,
+        "result_uri": f"statspai://result/{primary_rid}",
+        "primary_summary": primary_summary,
+        "stages": stages,
+        "audit": audit_payload,
+        "narrative": narrative,
     }
     if honest_payload is not None:
-        out['honest_did'] = honest_payload
+        out["honest_did"] = honest_payload
 
     # Pre-built next_calls — chain into a paper-style report or further
     # sensitivity work.
-    out['next_calls'] = [
-        {'tool': 'plot_from_result',
-         'arguments': {'result_id': primary_rid, 'kind': 'event_study'},
-         'rationale': 'Event-study plot for the executive summary.'},
-        {'tool': 'sensitivity_from_result',
-         'arguments': {'result_id': primary_rid, 'method': 'evalue'},
-         'rationale': 'E-value bound on omitted-confounder strength.'},
+    out["next_calls"] = [
         {
-            'tool': 'spec_curve',
-            'arguments': {
-                'y': y,
-                'treatment': treat,
-                'covariates': covariates,
-                'model_family': 'did',
+            "tool": "plot_from_result",
+            "arguments": {"result_id": primary_rid, "kind": "event_study"},
+            "rationale": "Event-study plot for the executive summary.",
+        },
+        {
+            "tool": "sensitivity_from_result",
+            "arguments": {"result_id": primary_rid, "method": "evalue"},
+            "rationale": "E-value bound on omitted-confounder strength.",
+        },
+        {
+            "tool": "spec_curve",
+            "arguments": {
+                "y": y,
+                "treatment": treat,
+                "covariates": covariates,
+                "model_family": "did",
             },
-            'rationale': 'Specification curve over researcher degrees of freedom.',
+            "rationale": "Specification curve over researcher degrees of freedom.",
         },
     ]
 
     # Citations from the enrichment layer
     from ._enrichment import build_citations, fetch_bibtex
-    keys = list(dict.fromkeys(  # preserve order, dedupe
-        build_citations(method)
-        + build_citations('honest_did')
-        + build_citations('bacon_decomposition')
-    ))
+
+    keys = list(
+        dict.fromkeys(  # preserve order, dedupe
+            build_citations(method)
+            + build_citations("honest_did")
+            + build_citations("bacon_decomposition")
+        )
+    )
     if keys:
         bib_present = {k: v for k, v in fetch_bibtex(keys).items() if v}
-        out['citations'] = {'keys': keys}
+        out["citations"] = {"keys": keys}
         if bib_present:
-            out['citations']['bibtex'] = bib_present
+            out["citations"]["bibtex"] = bib_present
     return out
 
 
 def _audit_to_dict(report: Any) -> Dict[str, Any]:
     if isinstance(report, dict):
         return dict(report)
-    to_dict = getattr(report, 'to_dict', None)
+    to_dict = getattr(report, "to_dict", None)
     if callable(to_dict):
         out = to_dict()
         if isinstance(out, dict):
             return out
-    if hasattr(report, '__dict__'):
-        return {k: v for k, v in vars(report).items()
-                if not k.startswith('_')}
+    if hasattr(report, "__dict__"):
+        return {k: v for k, v in vars(report).items() if not k.startswith("_")}
     return {}
 
 
 def _count_missing(audit_payload: Dict[str, Any]) -> int:
-    items = audit_payload.get('items') or audit_payload.get('checks') or []
+    items = audit_payload.get("items") or audit_payload.get("checks") or []
     if not isinstance(items, list):
         return 0
-    return sum(1 for it in items
-               if isinstance(it, dict)
-               and it.get('status') == 'missing'
-               and it.get('importance') in {'high', 'critical'})
+    return sum(
+        1
+        for it in items
+        if isinstance(it, dict)
+        and it.get("status") == "missing"
+        and it.get("importance") in {"high", "critical"}
+    )
 
 
 def _light_serialize(obj: Any) -> Dict[str, Any]:
     try:
         from .tools import _default_serializer
+
         d = _default_serializer(obj, detail="standard")
         if isinstance(d, dict):
             return d
     except Exception:
         pass
-    return {'value': str(obj)[:200]}
+    return {"value": str(obj)[:200]}
 
 
 def _did_narrative(
@@ -491,8 +505,9 @@ def _did_narrative(
         lines.append("")
     lines.append("## Stages")
     for s in stages:
-        bullet = "✓" if s['status'] == 'ok' else (
-            "·" if s['status'] == 'skipped' else "✗")
+        bullet = (
+            "✓" if s["status"] == "ok" else ("·" if s["status"] == "skipped" else "✗")
+        )
         lines.append(f"- {bullet} **{s['name']}** — {s.get('summary', '')}")
     lines.append("")
     n_missing = _count_missing(audit_payload)
@@ -514,11 +529,11 @@ def _did_narrative(
 
 
 def _short_estimate_dict(d: Dict[str, Any]) -> str:
-    est = d.get('estimate')
-    lo = d.get('conf_low')
-    hi = d.get('conf_high')
+    est = d.get("estimate")
+    lo = d.get("conf_low")
+    hi = d.get("conf_high")
     if est is None:
-        return ''
+        return ""
     s = f"{est:.4g}"
     if lo is not None and hi is not None:
         s += f" [CI {lo:.3g}, {hi:.3g}]"
@@ -529,6 +544,7 @@ def _short_estimate_dict(d: Dict[str, Any]) -> str:
 # pipeline_iv
 # ----------------------------------------------------------------------
 
+
 def _pipeline_iv(
     arguments: Dict[str, Any],
     data: Optional[pd.DataFrame],
@@ -537,91 +553,94 @@ def _pipeline_iv(
     as_handle: bool,
 ) -> Dict[str, Any]:
     if data is None:
-        return {'error': 'pipeline_iv requires data_path'}
-    formula = arguments.get('formula')
+        return {"error": "pipeline_iv requires data_path"}
+    formula = arguments.get("formula")
     if not formula:
-        return {'error': "pipeline_iv requires `formula`"}
+        return {"error": "pipeline_iv requires `formula`"}
 
     import statspai as sp
 
     stages: List[Dict[str, Any]] = []
 
-    fit_fn = getattr(sp, 'ivreg', None) or getattr(sp, 'iv', None)
+    fit_fn = getattr(sp, "ivreg", None) or getattr(sp, "iv", None)
     if fit_fn is None:
-        return {'error': 'sp.ivreg / sp.iv not available'}
+        return {"error": "sp.ivreg / sp.iv not available"}
 
     primary, err = _safe_call(fit_fn, formula, data=data)
     if err or primary is None:
-        stages.append(_stage('estimate', 'failed', err or 'no result'))
-        return {'pipeline': 'pipeline_iv', 'stages': stages,
-                'error': err or 'estimator failed'}
+        stages.append(_stage("estimate", "failed", err or "no result"))
+        return {
+            "pipeline": "pipeline_iv",
+            "stages": stages,
+            "error": err or "estimator failed",
+        }
     summary = _short_estimate(primary)
-    stages.append(_stage('estimate', 'ok', f"ivreg: {summary}"))
+    stages.append(_stage("estimate", "ok", f"ivreg: {summary}"))
 
-    rid = RESULT_CACHE.put(primary, tool='ivreg', arguments={'formula': formula})
+    rid = RESULT_CACHE.put(primary, tool="ivreg", arguments={"formula": formula})
 
     # Effective F
-    f_fn = getattr(sp, 'effective_f_test', None)
+    f_fn = getattr(sp, "effective_f_test", None)
     fF: Optional[float] = None
     if f_fn is not None:
         ftest, err = _safe_call(f_fn, primary)
         if err:
-            stages.append(_stage('effective_f_test', 'failed', err))
+            stages.append(_stage("effective_f_test", "failed", err))
         else:
             fF = float(
                 getattr(
                     ftest,
-                    'F',
+                    "F",
                     getattr(
                         ftest,
-                        'statistic',
-                        getattr(ftest, 'value', float('nan')),
+                        "statistic",
+                        getattr(ftest, "value", float("nan")),
                     ),
                 )
             )
-            stages.append(_stage('effective_f_test', 'ok', f"F={fF:.2f}"))
+            stages.append(_stage("effective_f_test", "ok", f"F={fF:.2f}"))
     else:
         stages.append(
             _stage(
-                'effective_f_test',
-                'skipped',
-                'sp.effective_f_test unavailable',
+                "effective_f_test",
+                "skipped",
+                "sp.effective_f_test unavailable",
             )
         )
 
     # Anderson-Rubin
-    ar_fn = getattr(sp, 'anderson_rubin_test', None)
+    ar_fn = getattr(sp, "anderson_rubin_test", None)
     ar_payload: Optional[Dict[str, Any]] = None
     if ar_fn is not None:
         ar, err = _safe_call(ar_fn, primary)
         if err:
-            stages.append(_stage('anderson_rubin_test', 'failed', err))
+            stages.append(_stage("anderson_rubin_test", "failed", err))
         else:
             ar_payload = _light_serialize(ar)
-            stages.append(_stage('anderson_rubin_test', 'ok', 'computed'))
+            stages.append(_stage("anderson_rubin_test", "ok", "computed"))
     else:
         stages.append(
             _stage(
-                'anderson_rubin_test',
-                'skipped',
-                'sp.anderson_rubin_test unavailable',
+                "anderson_rubin_test",
+                "skipped",
+                "sp.anderson_rubin_test unavailable",
             )
         )
 
     # E-value
-    ev_fn = getattr(sp, 'evalue_from_result', None) or getattr(sp, 'evalue', None)
+    ev_fn = getattr(sp, "evalue_from_result", None) or getattr(sp, "evalue", None)
     ev_payload: Optional[Dict[str, Any]] = None
     if ev_fn is not None:
         ev, err = _safe_call(ev_fn, primary)
         if err:
-            stages.append(_stage('evalue', 'failed', err))
+            stages.append(_stage("evalue", "failed", err))
         else:
             ev_payload = _light_serialize(ev)
             stages.append(
                 _stage(
-                    'evalue',
-                    'ok',
-                    _short_estimate_dict(ev_payload) or 'computed',
+                    "evalue",
+                    "ok",
+                    _short_estimate_dict(ev_payload) or "computed",
                 )
             )
 
@@ -631,51 +650,59 @@ def _pipeline_iv(
         if fF < 10:
             narrative_lines.append(
                 "Below the Staiger-Stock 10 threshold — 2SLS is biased; "
-                "lean on the Anderson-Rubin CI for inference.")
+                "lean on the Anderson-Rubin CI for inference."
+            )
         narrative_lines.append("")
     narrative_lines.append("## Stages")
     for s in stages:
-        bullet = "✓" if s['status'] == 'ok' else (
-            "·" if s['status'] == 'skipped' else "✗")
+        bullet = (
+            "✓" if s["status"] == "ok" else ("·" if s["status"] == "skipped" else "✗")
+        )
         narrative_lines.append(f"- {bullet} **{s['name']}** — {s.get('summary', '')}")
 
     out: Dict[str, Any] = {
-        'pipeline': 'pipeline_iv',
-        'method': 'ivreg',
-        'result_id': rid,
-        'result_uri': f"statspai://result/{rid}",
-        'primary_summary': summary,
-        'effective_F': fF,
-        'stages': stages,
-        'narrative': "\n".join(narrative_lines).strip(),
-        'next_calls': [
-            {'tool': 'sensitivity_from_result',
-             'arguments': {'result_id': rid, 'method': 'evalue'}},
+        "pipeline": "pipeline_iv",
+        "method": "ivreg",
+        "result_id": rid,
+        "result_uri": f"statspai://result/{rid}",
+        "primary_summary": summary,
+        "effective_F": fF,
+        "stages": stages,
+        "narrative": "\n".join(narrative_lines).strip(),
+        "next_calls": [
+            {
+                "tool": "sensitivity_from_result",
+                "arguments": {"result_id": rid, "method": "evalue"},
+            },
         ],
     }
     if ar_payload:
-        out['anderson_rubin'] = ar_payload
+        out["anderson_rubin"] = ar_payload
     if ev_payload:
-        out['evalue'] = ev_payload
+        out["evalue"] = ev_payload
 
     from ._enrichment import build_citations, fetch_bibtex
-    keys = list(dict.fromkeys(
-        build_citations('ivreg')
-        + build_citations('effective_f_test')
-        + build_citations('anderson_rubin_test')
-        + build_citations('evalue')
-    ))
+
+    keys = list(
+        dict.fromkeys(
+            build_citations("ivreg")
+            + build_citations("effective_f_test")
+            + build_citations("anderson_rubin_test")
+            + build_citations("evalue")
+        )
+    )
     if keys:
         bib_present = {k: v for k, v in fetch_bibtex(keys).items() if v}
-        out['citations'] = {'keys': keys}
+        out["citations"] = {"keys": keys}
         if bib_present:
-            out['citations']['bibtex'] = bib_present
+            out["citations"]["bibtex"] = bib_present
     return out
 
 
 # ----------------------------------------------------------------------
 # pipeline_rd
 # ----------------------------------------------------------------------
+
 
 def _pipeline_rd(
     arguments: Dict[str, Any],
@@ -685,105 +712,107 @@ def _pipeline_rd(
     as_handle: bool,
 ) -> Dict[str, Any]:
     if data is None:
-        return {'error': 'pipeline_rd requires data_path'}
-    y = arguments.get('y')
-    x = arguments.get('x')
+        return {"error": "pipeline_rd requires data_path"}
+    y = arguments.get("y")
+    x = arguments.get("x")
     if not (y and x):
-        return {'error': "pipeline_rd requires y + x (running variable)"}
-    c = arguments.get('c', 0.0)
-    fuzzy = arguments.get('fuzzy')
+        return {"error": "pipeline_rd requires y + x (running variable)"}
+    c = arguments.get("c", 0.0)
+    fuzzy = arguments.get("fuzzy")
 
     import statspai as sp
 
     stages: List[Dict[str, Any]] = []
 
-    fit_fn = getattr(sp, 'rdrobust', None)
+    fit_fn = getattr(sp, "rdrobust", None)
     if fit_fn is None:
-        return {'error': 'sp.rdrobust not available'}
-    kwargs = {'y': y, 'x': x, 'c': c}
+        return {"error": "sp.rdrobust not available"}
+    kwargs = {"y": y, "x": x, "c": c}
     if fuzzy:
-        kwargs['fuzzy'] = fuzzy
+        kwargs["fuzzy"] = fuzzy
     primary, err = _safe_call(fit_fn, data, **kwargs)
     if err or primary is None:
-        stages.append(_stage('estimate', 'failed', err or 'no result'))
-        return {'pipeline': 'pipeline_rd', 'stages': stages,
-                'error': err or 'estimator failed'}
+        stages.append(_stage("estimate", "failed", err or "no result"))
+        return {
+            "pipeline": "pipeline_rd",
+            "stages": stages,
+            "error": err or "estimator failed",
+        }
     summary = _short_estimate(primary)
-    stages.append(_stage('estimate', 'ok', f"rdrobust: {summary}"))
+    stages.append(_stage("estimate", "ok", f"rdrobust: {summary}"))
 
-    rid = RESULT_CACHE.put(primary, tool='rdrobust', arguments=arguments)
+    rid = RESULT_CACHE.put(primary, tool="rdrobust", arguments=arguments)
 
     # rddensity (McCrary)
-    dens_fn = getattr(sp, 'rddensity', None)
+    dens_fn = getattr(sp, "rddensity", None)
     if dens_fn is not None:
         dens, err = _safe_call(dens_fn, data, x=x, c=c)
         if err:
-            stages.append(_stage('rddensity', 'failed', err))
+            stages.append(_stage("rddensity", "failed", err))
         else:
-            p = getattr(dens, 'p_value', getattr(dens, 'pvalue', None))
+            p = getattr(dens, "p_value", getattr(dens, "pvalue", None))
             if p is None and isinstance(dens, dict):
-                p = dens.get('p_value') or dens.get('pvalue')
+                p = dens.get("p_value") or dens.get("pvalue")
             stages.append(
                 _stage(
-                    'rddensity',
-                    'ok',
+                    "rddensity",
+                    "ok",
                     (
                         f"density-discontinuity p={p:.3g}"
-                        if p is not None else "computed"
+                        if p is not None
+                        else "computed"
                     ),
                 )
             )
     else:
-        stages.append(
-            _stage('rddensity', 'skipped', 'sp.rddensity unavailable')
-        )
+        stages.append(_stage("rddensity", "skipped", "sp.rddensity unavailable"))
 
     # rdsensitivity (bandwidth/kernel)
-    sens_fn = getattr(sp, 'rdbwsensitivity', None)
+    sens_fn = getattr(sp, "rdbwsensitivity", None)
     if sens_fn is not None:
         sens, err = _safe_call(sens_fn, data, y=y, x=x, c=c)
         if err:
-            stages.append(_stage('rdbwsensitivity', 'failed', err))
+            stages.append(_stage("rdbwsensitivity", "failed", err))
         else:
-            stages.append(_stage('rdbwsensitivity', 'ok', 'computed'))
+            stages.append(_stage("rdbwsensitivity", "ok", "computed"))
 
     # rdplot — try to render PNG
     plot_png = None
-    plot_fn = getattr(sp, 'rdplot', None)
+    plot_fn = getattr(sp, "rdplot", None)
     if plot_fn is not None:
         try:
             import matplotlib
+
             matplotlib.use("Agg", force=False)
             import matplotlib.pyplot as plt, io  # noqa: E401
+
             fig_or_obj, err = _safe_call(plot_fn, data, y=y, x=x, c=c)
             if not err:
                 from .workflow_tools import _coerce_to_fig
+
                 fig = _coerce_to_fig(fig_or_obj)
                 if fig is not None:
                     buf = io.BytesIO()
-                    fig.savefig(buf, format="png", dpi=120,
-                                bbox_inches="tight")
+                    fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
                     plt.close(fig)
                     plot_png = buf.getvalue()
                     stages.append(
-                        _stage('rdplot', 'ok', f"PNG ({len(plot_png)} bytes)")
+                        _stage("rdplot", "ok", f"PNG ({len(plot_png)} bytes)")
                     )
                 else:
                     stages.append(
                         _stage(
-                            'rdplot',
-                            'skipped',
-                            'plot helper returned no figure',
+                            "rdplot",
+                            "skipped",
+                            "plot helper returned no figure",
                         )
                     )
             else:
-                stages.append(_stage('rdplot', 'failed', err))
+                stages.append(_stage("rdplot", "failed", err))
         except Exception as e:
-            stages.append(
-                _stage('rdplot', 'skipped', f'matplotlib unavailable: {e}')
-            )
+            stages.append(_stage("rdplot", "skipped", f"matplotlib unavailable: {e}"))
     else:
-        stages.append(_stage('rdplot', 'skipped', 'sp.rdplot unavailable'))
+        stages.append(_stage("rdplot", "skipped", "sp.rdplot unavailable"))
 
     narrative_lines = [
         "# RD workflow",
@@ -793,44 +822,46 @@ def _pipeline_rd(
         "## Stages",
     ]
     for s in stages:
-        bullet = "✓" if s['status'] == 'ok' else (
-            "·" if s['status'] == 'skipped' else "✗")
-        narrative_lines.append(
-            f"- {bullet} **{s['name']}** — {s.get('summary', '')}"
+        bullet = (
+            "✓" if s["status"] == "ok" else ("·" if s["status"] == "skipped" else "✗")
         )
+        narrative_lines.append(f"- {bullet} **{s['name']}** — {s.get('summary', '')}")
 
     out: Dict[str, Any] = {
-        'pipeline': 'pipeline_rd',
-        'method': 'rdrobust',
-        'result_id': rid,
-        'result_uri': f"statspai://result/{rid}",
-        'primary_summary': summary,
-        'stages': stages,
-        'narrative': "\n".join(narrative_lines).strip(),
-        'next_calls': [
-            {'tool': 'sensitivity_from_result',
-             'arguments': {'result_id': rid, 'method': 'evalue'}},
+        "pipeline": "pipeline_rd",
+        "method": "rdrobust",
+        "result_id": rid,
+        "result_uri": f"statspai://result/{rid}",
+        "primary_summary": summary,
+        "stages": stages,
+        "narrative": "\n".join(narrative_lines).strip(),
+        "next_calls": [
+            {
+                "tool": "sensitivity_from_result",
+                "arguments": {"result_id": rid, "method": "evalue"},
+            },
         ],
     }
     if plot_png is not None:
-        out['_plot_png'] = plot_png
+        out["_plot_png"] = plot_png
 
     from ._enrichment import build_citations, fetch_bibtex
-    keys = list(dict.fromkeys(
-        build_citations('rdrobust')
-        + build_citations('rddensity')
-    ))
+
+    keys = list(
+        dict.fromkeys(build_citations("rdrobust") + build_citations("rddensity"))
+    )
     if keys:
         bib_present = {k: v for k, v in fetch_bibtex(keys).items() if v}
-        out['citations'] = {'keys': keys}
+        out["citations"] = {"keys": keys}
         if bib_present:
-            out['citations']['bibtex'] = bib_present
+            out["citations"]["bibtex"] = bib_present
     return out
 
 
 # ----------------------------------------------------------------------
 # Dispatch
 # ----------------------------------------------------------------------
+
 
 def execute_pipeline_tool(
     name: str,
@@ -840,21 +871,30 @@ def execute_pipeline_tool(
     detail: str = "agent",
     as_handle: bool = False,
 ) -> Dict[str, Any]:
-    if name == 'pipeline_did':
+    if name == "pipeline_did":
         return _pipeline_did(
-            arguments, data, detail=detail, as_handle=as_handle,
+            arguments,
+            data,
+            detail=detail,
+            as_handle=as_handle,
         )
-    if name == 'pipeline_iv':
+    if name == "pipeline_iv":
         return _pipeline_iv(
-            arguments, data, detail=detail, as_handle=as_handle,
+            arguments,
+            data,
+            detail=detail,
+            as_handle=as_handle,
         )
-    if name == 'pipeline_rd':
+    if name == "pipeline_rd":
         return _pipeline_rd(
-            arguments, data, detail=detail, as_handle=as_handle,
+            arguments,
+            data,
+            detail=detail,
+            as_handle=as_handle,
         )
     return {
-        'error': f"unknown pipeline tool: {name!r}",
-        'available_pipelines': sorted(PIPELINE_TOOL_NAMES),
+        "error": f"unknown pipeline tool: {name!r}",
+        "available_pipelines": sorted(PIPELINE_TOOL_NAMES),
     }
 
 

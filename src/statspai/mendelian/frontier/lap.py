@@ -21,7 +21,6 @@ from scipy import stats
 from ._common import as_float_arrays, harmonize_signs, mean_f_statistic
 from ..._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["MRLapResult", "mr_lap"]
 
 
@@ -66,6 +65,7 @@ class MRLapResult(ResultProtocolMixin):
     >>> bool(np.isfinite(res.estimate))
     True
     """
+
     estimate: float
     se: float
     ci_lower: float
@@ -186,21 +186,15 @@ def mr_lap(
     bx, by = harmonize_signs(bx, by)
 
     if not 0.0 <= overlap_fraction <= 1.0:
-        raise ValueError(
-            f"overlap_fraction must be in [0, 1]; got {overlap_fraction}"
-        )
+        raise ValueError(f"overlap_fraction must be in [0, 1]; got {overlap_fraction}")
     if not -1.0 <= overlap_rho <= 1.0:
-        raise ValueError(
-            f"overlap_rho must be in [-1, 1]; got {overlap_rho}"
-        )
+        raise ValueError(f"overlap_rho must be in [-1, 1]; got {overlap_rho}")
 
     # Naive IVW slope via weighted regression through the origin.
-    w = 1.0 / sy ** 2
-    denom = float(np.sum(w * bx ** 2))
+    w = 1.0 / sy**2
+    denom = float(np.sum(w * bx**2))
     if denom <= 0:
-        raise ValueError(
-            "mr_lap: Σw·βx² is non-positive — check input signs / SEs"
-        )
+        raise ValueError("mr_lap: Σw·βx² is non-positive — check input signs / SEs")
     b_ivw = float(np.sum(w * bx * by) / denom)
     se_ivw = float(np.sqrt(1.0 / denom))
 

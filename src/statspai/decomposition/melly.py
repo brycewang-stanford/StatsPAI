@@ -20,6 +20,7 @@ Quantile Regression." *Labour Economics*, 12(4), 577-590. [@melly2005decompositi
 Melly, B. (2006). "Estimation of Counterfactual Distributions Using
 Quantile Regression." Swiss Institute for International Economics.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -72,6 +73,7 @@ class MellyResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import quantile_process_plot
+
         return quantile_process_plot(self, **kwargs)
 
     def to_latex(self) -> str:
@@ -82,17 +84,18 @@ class MellyResult(DecompResultMixin):
         html: str = self.quantile_grid.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
-            "<h3>Melly Decomposition</h3>"
-            + html + "</div>"
+            "<h3>Melly Decomposition</h3>" + html + "</div>"
         )
 
     def __repr__(self) -> str:
-        return f"MellyResult(n_tau={len(self.quantile_grid)}, reference={self.reference})"
+        return (
+            f"MellyResult(n_tau={len(self.quantile_grid)}, reference={self.reference})"
+        )
 
 
 def _unconditional_quantiles(
-    beta_grid: np.ndarray,   # (J, k)
-    X_source: np.ndarray,    # (n, k)
+    beta_grid: np.ndarray,  # (J, k)
+    X_source: np.ndarray,  # (n, k)
     tau_eval: np.ndarray,
 ) -> np.ndarray:
     """
@@ -168,9 +171,7 @@ def melly_decompose(
         raise ValueError("Need ≥20 obs per group for Melly.")
 
     if tau_grid is None:
-        tau_seq: Sequence[float] | np.ndarray = np.round(
-            np.arange(0.1, 0.95, 0.1), 2
-        )
+        tau_seq: Sequence[float] | np.ndarray = np.round(np.arange(0.1, 0.95, 0.1), 2)
     else:
         tau_seq = tau_grid
     tau_eval = np.asarray(tau_seq, dtype=float)
@@ -194,11 +195,17 @@ def melly_decompose(
         composition = q_cf - q_b
         structure = q_a - q_cf
 
-    grid_df = pd.DataFrame({
-        "tau": tau_eval,
-        "q_a": q_a, "q_b": q_b, "q_cf": q_cf,
-        "gap": gap, "composition": composition, "structure": structure,
-    })
+    grid_df = pd.DataFrame(
+        {
+            "tau": tau_eval,
+            "q_a": q_a,
+            "q_b": q_b,
+            "q_cf": q_cf,
+            "gap": gap,
+            "composition": composition,
+            "structure": structure,
+        }
+    )
 
     overall = {
         "mean_gap": float(np.mean(gap)),
@@ -207,7 +214,10 @@ def melly_decompose(
     }
 
     return MellyResult(
-        quantile_grid=grid_df, overall=overall,
-        reference=reference, n_tau_qr=n_tau_qr,
-        n_a=int(len(y_a)), n_b=int(len(y_b)),
+        quantile_grid=grid_df,
+        overall=overall,
+        reference=reference,
+        n_tau_qr=n_tau_qr,
+        n_a=int(len(y_a)),
+        n_b=int(len(y_b)),
     )

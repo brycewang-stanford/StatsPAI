@@ -37,7 +37,6 @@ from scipy import stats
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient
 
-
 # ======================================================================
 # Public API
 # ======================================================================
@@ -193,9 +192,7 @@ def sdid(
             alpha=alpha,
         )
     if backend_norm != "native":
-        raise ValueError(
-            "Unknown backend. Use 'native', 'synthdid', or 'r'."
-        )
+        raise ValueError("Unknown backend. Use 'native', 'synthdid', or 'r'.")
 
     rng = np.random.default_rng(seed)
 
@@ -435,7 +432,7 @@ def _sdid_r_backend(
     ).astype(int)
     panel_df = panel_df.sort_values([unit_col, time_col]).reset_index(drop=True)
 
-    r_script = r'''
+    r_script = r"""
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 9) {
   stop("expected 9 arguments: input output outcome unit time treatment method se_method alpha_seed")
@@ -504,7 +501,7 @@ jsonlite::write_json(
   na = "null",
   digits = 16
 )
-'''
+"""
 
     rscript = _find_rscript()
     with tempfile.TemporaryDirectory(prefix="statspai_sdid_") as tmp:
@@ -536,8 +533,7 @@ jsonlite::write_json(
         )
         if proc.returncode != 0:
             raise RuntimeError(
-                "R synthdid backend failed. stderr:\n"
-                f"{proc.stderr.strip()}"
+                "R synthdid backend failed. stderr:\n" f"{proc.stderr.strip()}"
             )
         payload = json.loads(out_path.read_text(encoding="utf-8"))
 
@@ -1248,8 +1244,7 @@ def _estimate_tau(
     y_co_pre_omega_lam = float(omega @ (Y_co_pre @ lam))
 
     return float(
-        (y_tr_post_mean - y_co_post_omega)
-        - (y_tr_pre_lam - y_co_pre_omega_lam)
+        (y_tr_post_mean - y_co_post_omega) - (y_tr_pre_lam - y_co_pre_omega_lam)
     )
 
 
@@ -1343,13 +1338,13 @@ def _sc_weight_fw(
         if np.all(direction == 0):
             break
         err_direction = A[:, vertex] - ax
-        denom = float(np.sum(err_direction ** 2) + eta * np.sum(direction ** 2))
+        denom = float(np.sum(err_direction**2) + eta * np.sum(direction**2))
         step = 0.0 if denom <= 0 else -float(half_grad @ direction) / denom
         step = min(1.0, max(0.0, step))
         weights = weights + step * direction
         err = Y_work @ np.r_[weights, -1.0]
-        vals.append(float(zeta ** 2 * np.sum(weights ** 2) + np.sum(err ** 2) / n_rows))
-        if len(vals) >= 2 and vals[-2] - vals[-1] <= min_decrease ** 2:
+        vals.append(float(zeta**2 * np.sum(weights**2) + np.sum(err**2) / n_rows))
+        if len(vals) >= 2 and vals[-2] - vals[-1] <= min_decrease**2:
             break
 
     return weights

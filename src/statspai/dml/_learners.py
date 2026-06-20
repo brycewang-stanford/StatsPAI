@@ -29,20 +29,42 @@ from __future__ import annotations
 
 from typing import Any
 
-
 _REGRESSOR_ALIASES = {
-    "rf", "random_forest", "randomforest",
-    "gbm", "gbr", "gboost", "gradient_boosting", "gradientboosting",
-    "lasso", "ridge", "linear", "ols",
-    "xgb", "xgboost",
-    "lgbm", "lightgbm",
+    "rf",
+    "random_forest",
+    "randomforest",
+    "gbm",
+    "gbr",
+    "gboost",
+    "gradient_boosting",
+    "gradientboosting",
+    "lasso",
+    "ridge",
+    "linear",
+    "ols",
+    "xgb",
+    "xgboost",
+    "lgbm",
+    "lightgbm",
 }
 _CLASSIFIER_ALIASES = {
-    "rf", "random_forest", "randomforest",
-    "gbm", "gbc", "gboost", "gradient_boosting", "gradientboosting",
-    "lasso", "ridge", "linear", "logistic", "logit",
-    "xgb", "xgboost",
-    "lgbm", "lightgbm",
+    "rf",
+    "random_forest",
+    "randomforest",
+    "gbm",
+    "gbc",
+    "gboost",
+    "gradient_boosting",
+    "gradientboosting",
+    "lasso",
+    "ridge",
+    "linear",
+    "logistic",
+    "logit",
+    "xgb",
+    "xgboost",
+    "lgbm",
+    "lightgbm",
 }
 
 
@@ -55,22 +77,32 @@ def _build_regressor(alias: str) -> Any:
     a = alias.lower()
     if a in {"rf", "random_forest", "randomforest"}:
         from sklearn.ensemble import RandomForestRegressor
+
         return RandomForestRegressor(
-            n_estimators=200, random_state=42, n_jobs=1,
+            n_estimators=200,
+            random_state=42,
+            n_jobs=1,
         )
     if a in {"gbm", "gbr", "gboost", "gradient_boosting", "gradientboosting"}:
         from sklearn.ensemble import GradientBoostingRegressor
+
         return GradientBoostingRegressor(
-            n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42,
+            n_estimators=100,
+            max_depth=3,
+            learning_rate=0.1,
+            random_state=42,
         )
     if a == "lasso":
         from sklearn.linear_model import LassoCV
+
         return LassoCV(cv=5, random_state=42)
     if a == "ridge":
         from sklearn.linear_model import RidgeCV
+
         return RidgeCV()
     if a in {"linear", "ols"}:
         from sklearn.linear_model import LinearRegression
+
         return LinearRegression()
     if a in {"xgb", "xgboost"}:
         try:
@@ -81,8 +113,12 @@ def _build_regressor(alias: str) -> Any:
                 "install it via `pip install xgboost`."
             ) from e
         return XGBRegressor(
-            n_estimators=200, max_depth=3, learning_rate=0.1,
-            random_state=42, n_jobs=1, verbosity=0,
+            n_estimators=200,
+            max_depth=3,
+            learning_rate=0.1,
+            random_state=42,
+            n_jobs=1,
+            verbosity=0,
         )
     if a in {"lgbm", "lightgbm"}:
         try:
@@ -93,8 +129,12 @@ def _build_regressor(alias: str) -> Any:
                 "install it via `pip install lightgbm`."
             ) from e
         return LGBMRegressor(
-            n_estimators=200, max_depth=-1, learning_rate=0.1,
-            random_state=42, n_jobs=1, verbosity=-1,
+            n_estimators=200,
+            max_depth=-1,
+            learning_rate=0.1,
+            random_state=42,
+            n_jobs=1,
+            verbosity=-1,
         )
     raise ValueError(_alias_error_message(alias, kind="regressor"))
 
@@ -103,27 +143,43 @@ def _build_classifier(alias: str) -> Any:
     a = alias.lower()
     if a in {"rf", "random_forest", "randomforest"}:
         from sklearn.ensemble import RandomForestClassifier
+
         return RandomForestClassifier(
-            n_estimators=200, random_state=42, n_jobs=1,
+            n_estimators=200,
+            random_state=42,
+            n_jobs=1,
         )
     if a in {"gbm", "gbc", "gboost", "gradient_boosting", "gradientboosting"}:
         from sklearn.ensemble import GradientBoostingClassifier
+
         return GradientBoostingClassifier(
-            n_estimators=100, max_depth=3, learning_rate=0.1, random_state=42,
+            n_estimators=100,
+            max_depth=3,
+            learning_rate=0.1,
+            random_state=42,
         )
     if a == "lasso":
         from sklearn.linear_model import LogisticRegressionCV
+
         return LogisticRegressionCV(
-            cv=5, penalty="l1", solver="liblinear",
-            max_iter=2000, random_state=42,
+            cv=5,
+            penalty="l1",
+            solver="liblinear",
+            max_iter=2000,
+            random_state=42,
         )
     if a == "ridge":
         from sklearn.linear_model import LogisticRegressionCV
+
         return LogisticRegressionCV(
-            cv=5, penalty="l2", max_iter=2000, random_state=42,
+            cv=5,
+            penalty="l2",
+            max_iter=2000,
+            random_state=42,
         )
     if a in {"linear", "logistic", "logit"}:
         from sklearn.linear_model import LogisticRegression
+
         return LogisticRegression(max_iter=2000, random_state=42)
     if a == "ols":
         # OLS-as-classifier doesn't make sense — surface a clear error
@@ -142,9 +198,14 @@ def _build_classifier(alias: str) -> Any:
                 "install it via `pip install xgboost`."
             ) from e
         return XGBClassifier(
-            n_estimators=200, max_depth=3, learning_rate=0.1,
-            random_state=42, n_jobs=1, verbosity=0,
-            use_label_encoder=False, eval_metric="logloss",
+            n_estimators=200,
+            max_depth=3,
+            learning_rate=0.1,
+            random_state=42,
+            n_jobs=1,
+            verbosity=0,
+            use_label_encoder=False,
+            eval_metric="logloss",
         )
     if a in {"lgbm", "lightgbm"}:
         try:
@@ -155,8 +216,12 @@ def _build_classifier(alias: str) -> Any:
                 "install it via `pip install lightgbm`."
             ) from e
         return LGBMClassifier(
-            n_estimators=200, max_depth=-1, learning_rate=0.1,
-            random_state=42, n_jobs=1, verbosity=-1,
+            n_estimators=200,
+            max_depth=-1,
+            learning_rate=0.1,
+            random_state=42,
+            n_jobs=1,
+            verbosity=-1,
         )
     raise ValueError(_alias_error_message(alias, kind="classifier"))
 

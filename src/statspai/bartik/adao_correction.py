@@ -27,10 +27,10 @@ from scipy import stats
 
 from ..core.results import EconometricResults, CausalResult
 
-
 # ======================================================================
 # ssaggregate — full shift-share 2SLS with AKM SEs
 # ======================================================================
+
 
 def ssaggregate(
     data: pd.DataFrame,
@@ -123,9 +123,7 @@ def ssaggregate(
     if S.ndim == 1:
         S = S.reshape(-1, 1)
     if S.shape[0] != n:
-        raise ValueError(
-            f"shares has {S.shape[0]} rows but data has {n} rows"
-        )
+        raise ValueError(f"shares has {S.shape[0]} rows but data has {n} rows")
     K = S.shape[1]
 
     # ------------------------------------------------------------------
@@ -160,10 +158,12 @@ def ssaggregate(
             raise ValueError(f"Control '{c}' not found in data")
 
     if controls:
-        W = np.column_stack([
-            np.ones(n),
-            data[controls].values.astype(float),
-        ])
+        W = np.column_stack(
+            [
+                np.ones(n),
+                data[controls].values.astype(float),
+            ]
+        )
         control_names = ["Intercept"] + controls
     else:
         W = np.ones((n, 1))
@@ -239,7 +239,7 @@ def ssaggregate(
     else:
         denom = np.dot(X_tilde, X_tilde)
 
-    var_akm = np.sum(u_k ** 2) / (denom ** 2)
+    var_akm = np.sum(u_k**2) / (denom**2)
     se_akm = float(np.sqrt(var_akm))
 
     # ------------------------------------------------------------------
@@ -247,9 +247,9 @@ def ssaggregate(
     # ------------------------------------------------------------------
     hc1_scale = n / max(n - W.shape[1] - 1, 1)
     if iv_constructed:
-        var_hc1 = hc1_scale * np.sum((Z_tilde * eps_hat) ** 2) / (denom ** 2)
+        var_hc1 = hc1_scale * np.sum((Z_tilde * eps_hat) ** 2) / (denom**2)
     else:
-        var_hc1 = hc1_scale * np.sum((X_tilde * eps_hat) ** 2) / (denom ** 2)
+        var_hc1 = hc1_scale * np.sum((X_tilde * eps_hat) ** 2) / (denom**2)
     se_hc1 = float(np.sqrt(var_hc1))
 
     # ------------------------------------------------------------------
@@ -276,7 +276,7 @@ def ssaggregate(
     k_params = len(all_names)
 
     # Construct SEs for all parameters (use HC1 for controls, AKM for x)
-    hc1_meat = Xfull.T @ np.diag((n / max(n - k_params, 1)) * eps_full ** 2) @ Xfull
+    hc1_meat = Xfull.T @ np.diag((n / max(n - k_params, 1)) * eps_full**2) @ Xfull
     var_full = XtX_inv @ hc1_meat @ XtX_inv
     se_full = np.sqrt(np.diag(var_full))
     # Override SE for x with AKM
@@ -290,14 +290,15 @@ def ssaggregate(
 
     # R-squared
     tss = np.sum((Y - np.mean(Y)) ** 2)
-    rss = np.sum(eps_full ** 2)
+    rss = np.sum(eps_full**2)
     r_squared = 1 - rss / tss if tss > 0 else np.nan
 
     model_info = {
         "model_type": "Shift-Share IV (AKM 2019)",
         "method": (
             "2SLS with AKM-corrected SEs"
-            if iv_constructed else "OLS with AKM-corrected SEs"
+            if iv_constructed
+            else "OLS with AKM-corrected SEs"
         ),
         "robust": "AKM (shock-level clustering)",
     }
@@ -333,6 +334,7 @@ def ssaggregate(
 # ======================================================================
 # shift_share_se — correct an existing IV result
 # ======================================================================
+
 
 def shift_share_se(
     iv_result: EconometricResults,
@@ -406,9 +408,7 @@ def shift_share_se(
         )
     eps = np.asarray(eps, dtype=float)
     if len(eps) != n:
-        raise ValueError(
-            f"shares has {n} rows but residuals have {len(eps)} elements"
-        )
+        raise ValueError(f"shares has {n} rows but residuals have {len(eps)} elements")
 
     # We need the residualised instrument.  Use fitted values as proxy
     # for the instrument projection.
@@ -439,7 +439,7 @@ def shift_share_se(
     # For the endogenous variable coefficient:
     # The 2SLS denominator is X_hat' X_tilde ≈ Z_tilde' X_tilde
     # We approximate with Z_tilde' Z_tilde (exact if just-identified)
-    var_akm = np.sum(u_k ** 2) / (denom ** 2)
+    var_akm = np.sum(u_k**2) / (denom**2)
     se_akm = float(np.sqrt(var_akm))
 
     # Replace last SE with AKM

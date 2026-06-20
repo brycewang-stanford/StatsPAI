@@ -1,4 +1,5 @@
 """Small JSON-safe helpers for ``sp.fast`` result payloads."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -38,8 +39,8 @@ def jsonable(value: Any) -> Any:
 
 def tidy_records(df: pd.DataFrame) -> list[dict[str, Any]]:
     """Return JSON-safe tidy records from a result table."""
-    records = df.reset_index().rename(columns={"index": "term"}).to_dict(
-        orient="records"
+    records = (
+        df.reset_index().rename(columns={"index": "term"}).to_dict(orient="records")
     )
     return [
         {str(key): jsonable(value) for key, value in record.items()}
@@ -53,19 +54,23 @@ def distribution_summary(values: Any) -> dict[str, Any]:
     finite = arr[np.isfinite(arr)]
     out: dict[str, Any] = {"n": int(arr.size)}
     if finite.size == 0:
-        out.update({
-            "mean": None,
-            "sd": None,
-            "q025": None,
-            "q50": None,
-            "q975": None,
-        })
+        out.update(
+            {
+                "mean": None,
+                "sd": None,
+                "q025": None,
+                "q50": None,
+                "q975": None,
+            }
+        )
         return out
-    out.update({
-        "mean": float(np.mean(finite)),
-        "sd": float(np.std(finite, ddof=1)) if finite.size > 1 else 0.0,
-        "q025": float(np.quantile(finite, 0.025)),
-        "q50": float(np.quantile(finite, 0.5)),
-        "q975": float(np.quantile(finite, 0.975)),
-    })
+    out.update(
+        {
+            "mean": float(np.mean(finite)),
+            "sd": float(np.std(finite, ddof=1)) if finite.size > 1 else 0.0,
+            "q025": float(np.quantile(finite, 0.025)),
+            "q50": float(np.quantile(finite, 0.5)),
+            "q975": float(np.quantile(finite, 0.975)),
+        }
+    )
     return out

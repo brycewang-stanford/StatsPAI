@@ -47,20 +47,26 @@ from .match import match as _match_classical
 from .match import MatchEstimator, balanceplot, psplot
 from .ebalance import ebalance
 from .ps_diagnostics import (
-    propensity_score, overlap_plot, trimming, love_plot,
-    ps_balance, PSBalanceResult,
-    balance_diagnostics, BalanceDiagnosticsResult,
+    propensity_score,
+    overlap_plot,
+    trimming,
+    love_plot,
+    ps_balance,
+    PSBalanceResult,
+    balance_diagnostics,
+    BalanceDiagnosticsResult,
 )
 from .optimal import (
-    optimal_match, cardinality_match,
-    OptimalMatchResult, CardinalityMatchResult,
+    optimal_match,
+    cardinality_match,
+    OptimalMatchResult,
+    CardinalityMatchResult,
 )
 from .overlap_weights import overlap_weights
 from .cbps import cbps
 from .genmatch import genmatch, GenMatchResult
 from .sbw import sbw, SBWResult
 from .psmatch2 import psmatch2, PSMatch2Result
-
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Unified dispatcher — sp.match(..., method=...)
@@ -85,41 +91,66 @@ from .psmatch2 import psmatch2, PSMatch2Result
 # match() implementation.  We strip them before forwarding to
 # advanced estimators so a user explicitly invoking
 # ``method='ebalance'`` doesn't get blamed for unknown kwargs.
-_CLASSICAL_ONLY_KWARGS = frozenset({
-    "distance", "n_matches", "caliper", "replace",
-    "bias_correction", "ps_poly", "n_strata", "n_bins",
-    "common_support", "kernel", "bwidth", "se_method",
-})
+_CLASSICAL_ONLY_KWARGS = frozenset(
+    {
+        "distance",
+        "n_matches",
+        "caliper",
+        "replace",
+        "bias_correction",
+        "ps_poly",
+        "n_strata",
+        "n_bins",
+        "common_support",
+        "kernel",
+        "bwidth",
+        "se_method",
+    }
+)
 
-_CLASSICAL_METHODS = frozenset({
-    "nearest", "stratify", "cem", "psm", "mahalanobis",
-    "kernel", "radius",
-})
+_CLASSICAL_METHODS = frozenset(
+    {
+        "nearest",
+        "stratify",
+        "cem",
+        "psm",
+        "mahalanobis",
+        "kernel",
+        "radius",
+    }
+)
 
 _MATCH_METHOD_ALIASES: Dict[str, str] = {
     # Classical (delegate to original match.py)
     "nearest": "nearest",
-    "stratify": "stratify", "stratification": "stratify",
-    "subclass": "stratify", "subclassification": "stratify",
-    "cem": "cem", "coarsened_exact": "cem",
+    "stratify": "stratify",
+    "stratification": "stratify",
+    "subclass": "stratify",
+    "subclassification": "stratify",
+    "cem": "cem",
+    "coarsened_exact": "cem",
     "psm": "psm",  # legacy alias for nearest+propensity
     "mahalanobis": "mahalanobis",  # legacy alias for nearest+mahalanobis
     "kernel": "kernel",  # kernel propensity-score matching (psmatch2)
     "radius": "radius",  # radius matching = uniform kernel, bw=caliper
-
     # Weighting
-    "ebalance": "ebalance", "entropy_balancing": "ebalance",
+    "ebalance": "ebalance",
+    "entropy_balancing": "ebalance",
     "entropy": "ebalance",
     "cbps": "cbps",
-    "sbw": "sbw", "stable_balancing": "sbw",
-    "overlap": "overlap", "overlap_weights": "overlap", "ow": "overlap",
-
+    "sbw": "sbw",
+    "stable_balancing": "sbw",
+    "overlap": "overlap",
+    "overlap_weights": "overlap",
+    "ow": "overlap",
     # Genetic
-    "genmatch": "genmatch", "genetic": "genmatch",
-
+    "genmatch": "genmatch",
+    "genetic": "genmatch",
     # Optimization
-    "optimal": "optimal", "optimal_match": "optimal",
-    "cardinality": "cardinality", "cardinality_match": "cardinality",
+    "optimal": "optimal",
+    "optimal_match": "optimal",
+    "cardinality": "cardinality",
+    "cardinality_match": "cardinality",
 }
 
 
@@ -221,8 +252,12 @@ def match(
         # Pass the canonical method name (already lowercased) plus all
         # original kwargs.  match.py knows the legacy aliases too.
         return _match_classical(
-            data=data, y=y, treat=treat, covariates=covariates,
-            method=canon, **kwargs,
+            data=data,
+            y=y,
+            treat=treat,
+            covariates=covariates,
+            method=canon,
+            **kwargs,
         )
 
     # ── Advanced: strip classical-only kwargs and forward ────────────
@@ -242,23 +277,37 @@ def match(
         return sbw(data=data, y=y, treat=treat, covariates=covariates, **kwargs)
     if canon == "overlap":
         return overlap_weights(
-            data=data, y=y, treat=treat, covariates=covariates, **kwargs,
+            data=data,
+            y=y,
+            treat=treat,
+            covariates=covariates,
+            **kwargs,
         )
     if canon == "genmatch":
         return genmatch(
-            data=data, y=y, treat=treat, covariates=covariates, **kwargs,
+            data=data,
+            y=y,
+            treat=treat,
+            covariates=covariates,
+            **kwargs,
         )
 
     # optimal_match / cardinality_match use ``treatment``/``outcome``
     # rather than ``treat``/``y``.  Translate.
     if canon == "optimal":
         return optimal_match(
-            data=data, treatment=treat, outcome=y, covariates=covariates,
+            data=data,
+            treatment=treat,
+            outcome=y,
+            covariates=covariates,
             **kwargs,
         )
     if canon == "cardinality":
         return cardinality_match(
-            data=data, treatment=treat, outcome=y, covariates=covariates,
+            data=data,
+            treatment=treat,
+            outcome=y,
+            covariates=covariates,
             **kwargs,
         )
 
@@ -268,15 +317,29 @@ def match(
 
 
 __all__ = [
-    'match', 'MatchEstimator', 'ebalance', 'balanceplot', 'psplot',
-    'propensity_score', 'overlap_plot', 'trimming', 'love_plot',
-    'ps_balance', 'PSBalanceResult',
-    'balance_diagnostics', 'BalanceDiagnosticsResult',
-    'optimal_match', 'cardinality_match',
-    'OptimalMatchResult', 'CardinalityMatchResult',
-    'overlap_weights',
-    'cbps',
-    'genmatch', 'GenMatchResult',
-    'sbw', 'SBWResult',
-    'psmatch2', 'PSMatch2Result',
+    "match",
+    "MatchEstimator",
+    "ebalance",
+    "balanceplot",
+    "psplot",
+    "propensity_score",
+    "overlap_plot",
+    "trimming",
+    "love_plot",
+    "ps_balance",
+    "PSBalanceResult",
+    "balance_diagnostics",
+    "BalanceDiagnosticsResult",
+    "optimal_match",
+    "cardinality_match",
+    "OptimalMatchResult",
+    "CardinalityMatchResult",
+    "overlap_weights",
+    "cbps",
+    "genmatch",
+    "GenMatchResult",
+    "sbw",
+    "SBWResult",
+    "psmatch2",
+    "PSMatch2Result",
 ]

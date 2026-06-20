@@ -34,8 +34,10 @@ from .swig import swig, SWIGGraph
 from .counterfactual import SCM
 from .llm_dag import llm_dag, LLMDAGResult
 from .llm_evaluator import (
-    llm_causal_assess, pairwise_causal_benchmark,
-    LLMCausalAssessResult, PairwiseBenchmarkResult,
+    llm_causal_assess,
+    pairwise_causal_benchmark,
+    LLMCausalAssessResult,
+    PairwiseBenchmarkResult,
 )
 from .recommend import recommend_estimator, EstimatorRecommendation
 
@@ -49,7 +51,9 @@ def _dag_recommend_estimator(
 ) -> EstimatorRecommendation:
     """See :func:`statspai.dag.recommend_estimator`."""
     return recommend_estimator(
-        self, exposure, outcome,
+        self,
+        exposure,
+        outcome,
         candidate_instruments=candidate_instruments,
     )
 
@@ -57,14 +61,28 @@ def _dag_recommend_estimator(
 setattr(DAG, "recommend_estimator", _dag_recommend_estimator)
 
 __all__ = [
-    "DAG", "dag", "dag_example", "dag_examples",
-    "dag_example_positions", "dag_simulate",
-    "identify", "IdentificationResult",
-    "rule1", "rule2", "rule3", "apply_rules", "RuleCheck",
-    "swig", "SWIGGraph",
+    "DAG",
+    "dag",
+    "dag_example",
+    "dag_examples",
+    "dag_example_positions",
+    "dag_simulate",
+    "identify",
+    "IdentificationResult",
+    "rule1",
+    "rule2",
+    "rule3",
+    "apply_rules",
+    "RuleCheck",
+    "swig",
+    "SWIGGraph",
     "SCM",
-    "llm_dag", "LLMDAGResult",
-    "llm_causal_assess", "pairwise_causal_benchmark",
-    "LLMCausalAssessResult", "PairwiseBenchmarkResult",
-    "recommend_estimator", "EstimatorRecommendation",
+    "llm_dag",
+    "LLMDAGResult",
+    "llm_causal_assess",
+    "pairwise_causal_benchmark",
+    "LLMCausalAssessResult",
+    "PairwiseBenchmarkResult",
+    "recommend_estimator",
+    "EstimatorRecommendation",
 ]

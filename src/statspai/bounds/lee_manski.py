@@ -38,10 +38,10 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Lee Bounds
 # ======================================================================
+
 
 def lee_bounds(
     data: pd.DataFrame,
@@ -117,7 +117,7 @@ def lee_bounds(
         raise ValueError("One treatment group has zero retention.")
 
     # Observed outcomes
-    observed = (S == 1)
+    observed = S == 1
     if y not in df.columns:
         raise ValueError(f"Column '{y}' not found in data")
 
@@ -174,19 +174,19 @@ def lee_bounds(
         pvalue = 0.0
 
     model_info = {
-        'lower_bound': float(lb),
-        'upper_bound': float(ub),
-        'bound_width': float(ub - lb),
-        'retention_treated': float(p1),
-        'retention_control': float(p0),
-        'trimming_fraction': float(abs(p1 - p0) / max(p1, p0)),
-        'n_treated_observed': len(Y1),
-        'n_control_observed': len(Y0),
+        "lower_bound": float(lb),
+        "upper_bound": float(ub),
+        "bound_width": float(ub - lb),
+        "retention_treated": float(p1),
+        "retention_control": float(p0),
+        "trimming_fraction": float(abs(p1 - p0) / max(p1, p0)),
+        "n_treated_observed": len(Y1),
+        "n_control_observed": len(Y0),
     }
 
     _result = CausalResult(
-        method='Lee Bounds (Lee 2009)',
-        estimand='ATE (partially identified)',
+        method="Lee Bounds (Lee 2009)",
+        estimand="ATE (partially identified)",
         estimate=midpoint,
         se=se_mid,
         pvalue=pvalue,
@@ -195,15 +195,18 @@ def lee_bounds(
         n_obs=int(np.sum(observed)),
         detail=None,
         model_info=model_info,
-        _citation_key='lee_bounds',
+        _citation_key="lee_bounds",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bounds.lee_bounds",
             params={
-                "y": y, "treat": treat, "selection": selection,
+                "y": y,
+                "treat": treat,
+                "selection": selection,
                 "covariates": list(covariates) if covariates else None,
                 "n_bootstrap": n_bootstrap,
                 "alpha": alpha,
@@ -237,7 +240,7 @@ def _compute_lee_bounds(
         lb = np.mean(Y1_sorted[:k]) - mean_y0 if k > 0 else -np.inf
 
         # Upper bound: trim from bottom (keep highest q fraction)
-        ub = np.mean(Y1_sorted[n1 - k:]) - mean_y0 if k > 0 else np.inf
+        ub = np.mean(Y1_sorted[n1 - k :]) - mean_y0 if k > 0 else np.inf
     elif p0 > p1:
         # Control group has higher retention => trim control
         q = p1 / p0
@@ -246,7 +249,7 @@ def _compute_lee_bounds(
         Y0_sorted = np.sort(Y0)
 
         mean_y1 = np.mean(Y1)
-        lb = mean_y1 - np.mean(Y0_sorted[n0 - k:]) if k > 0 else -np.inf
+        lb = mean_y1 - np.mean(Y0_sorted[n0 - k :]) if k > 0 else -np.inf
         ub = mean_y1 - np.mean(Y0_sorted[:k]) if k > 0 else np.inf
     else:
         # Equal retention: point identified
@@ -260,13 +263,14 @@ def _compute_lee_bounds(
 # Manski Bounds
 # ======================================================================
 
+
 def manski_bounds(
     data: pd.DataFrame,
     y: str,
     treat: str,
     y_lower: Optional[float] = None,
     y_upper: Optional[float] = None,
-    assumption: str = 'none',
+    assumption: str = "none",
     alpha: float = 0.05,
     n_bootstrap: int = 500,
     random_state: int = 42,
@@ -371,20 +375,20 @@ def manski_bounds(
         pvalue = 0.0
 
     model_info = {
-        'lower_bound': float(lb),
-        'upper_bound': float(ub),
-        'bound_width': float(ub - lb),
-        'y_lower': y_lower,
-        'y_upper': y_upper,
-        'assumption': assumption,
-        'p_treated': float(p),
-        'mean_y_treated': float(np.mean(Y1)),
-        'mean_y_control': float(np.mean(Y0)),
+        "lower_bound": float(lb),
+        "upper_bound": float(ub),
+        "bound_width": float(ub - lb),
+        "y_lower": y_lower,
+        "y_upper": y_upper,
+        "assumption": assumption,
+        "p_treated": float(p),
+        "mean_y_treated": float(np.mean(Y1)),
+        "mean_y_control": float(np.mean(Y0)),
     }
 
     _result = CausalResult(
-        method=f'Manski Bounds (assumption={assumption})',
-        estimand='ATE (partially identified)',
+        method=f"Manski Bounds (assumption={assumption})",
+        estimand="ATE (partially identified)",
         estimate=midpoint,
         se=se_mid,
         pvalue=pvalue,
@@ -393,16 +397,19 @@ def manski_bounds(
         n_obs=n,
         detail=None,
         model_info=model_info,
-        _citation_key='manski_bounds',
+        _citation_key="manski_bounds",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bounds.manski_bounds",
             params={
-                "y": y, "treat": treat,
-                "y_lower": y_lower, "y_upper": y_upper,
+                "y": y,
+                "treat": treat,
+                "y_lower": y_lower,
+                "y_upper": y_upper,
                 "assumption": assumption,
                 "alpha": alpha,
                 "n_bootstrap": n_bootstrap,
@@ -428,7 +435,7 @@ def _compute_manski_bounds(
     e1 = np.mean(Y1)  # E[Y|D=1]
     e0 = np.mean(Y0)  # E[Y|D=0]
 
-    if assumption == 'none':
+    if assumption == "none":
         # No-assumption bounds
         lb = (e1 - y_hi) * p + (y_lo - e0) * (1 - p) + (e1 - e0)
         ub = (e1 - y_lo) * p + (y_hi - e0) * (1 - p) + (e1 - e0)
@@ -436,14 +443,14 @@ def _compute_manski_bounds(
         # Actually the standard Manski bounds for ATE:
         lb = p * e1 + (1 - p) * y_lo - (p * y_hi + (1 - p) * e0)
         ub = p * e1 + (1 - p) * y_hi - (p * y_lo + (1 - p) * e0)
-    elif assumption == 'mtr':
+    elif assumption == "mtr":
         # Monotone Treatment Response: Y(1) >= Y(0)
         # Tighter: ATE >= 0
         lb_raw = p * e1 + (1 - p) * y_lo - (p * y_hi + (1 - p) * e0)
         ub_raw = p * e1 + (1 - p) * y_hi - (p * y_lo + (1 - p) * e0)
         lb = max(lb_raw, 0)
         ub = ub_raw
-    elif assumption == 'mts':
+    elif assumption == "mts":
         # Monotone Treatment Selection: E[Y(d)|D=1] >= E[Y(d)|D=0]
         # Implies E[Y|D=1] >= E[Y|D=0] under Y(0)
         lb = 0
@@ -460,7 +467,7 @@ def _compute_manski_bounds(
 # Citations
 # ======================================================================
 
-CausalResult._CITATIONS['lee_bounds'] = (
+CausalResult._CITATIONS["lee_bounds"] = (
     "@article{lee2009training,\n"
     "  title={Training, Wages, and Sample Selection: Estimating Sharp "
     "Bounds on Treatment Effects},\n"
@@ -474,7 +481,7 @@ CausalResult._CITATIONS['lee_bounds'] = (
     "}"
 )
 
-CausalResult._CITATIONS['manski_bounds'] = (
+CausalResult._CITATIONS["manski_bounds"] = (
     "@article{manski1990nonparametric,\n"
     "  title={Nonparametric Bounds on Treatment Effects},\n"
     "  author={Manski, Charles F},\n"

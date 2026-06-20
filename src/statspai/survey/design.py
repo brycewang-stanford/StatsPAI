@@ -111,9 +111,7 @@ class SurveyDesign:
             psu = data[cluster].values
             if nest and strata is not None:
                 # Make PSU ids unique within strata
-                psu = np.array(
-                    [f"{s}__{c}" for s, c in zip(self.strata, psu)]
-                )
+                psu = np.array([f"{s}__{c}" for s, c in zip(self.strata, psu)])
             self.cluster_ids = psu
         else:
             # Each row is its own PSU
@@ -131,7 +129,12 @@ class SurveyDesign:
                 self.fpc_values = raw  # sampling fractions
             else:
                 # Convert population sizes to fractions per stratum
-                strata_n = pd.Series(self.strata).groupby(self.strata).transform("count").values
+                strata_n = (
+                    pd.Series(self.strata)
+                    .groupby(self.strata)
+                    .transform("count")
+                    .values
+                )
                 self.fpc_values = strata_n / raw
         else:
             self.fpc_values = None
@@ -143,13 +146,17 @@ class SurveyDesign:
     # ------------------------------------------------------------------ #
 
     def mean(
-        self, variables: Union[str, List[str]], alpha: float = 0.05,
+        self,
+        variables: Union[str, List[str]],
+        alpha: float = 0.05,
     ) -> SurveyResult:
         """Design-corrected weighted mean(s)."""
         return svymean(variables, design=self, alpha=alpha)
 
     def total(
-        self, variables: Union[str, List[str]], alpha: float = 0.05,
+        self,
+        variables: Union[str, List[str]],
+        alpha: float = 0.05,
     ) -> SurveyResult:
         """Design-corrected weighted total(s)."""
         return svytotal(variables, design=self, alpha=alpha)
@@ -210,6 +217,10 @@ def svydesign(
     >>> g = design.glm('income ~ age')
     """
     return SurveyDesign(
-        data=data, weights=weights, strata=strata,
-        cluster=cluster, fpc=fpc, nest=nest,
+        data=data,
+        weights=weights,
+        strata=strata,
+        cluster=cluster,
+        fpc=fpc,
+        nest=nest,
     )

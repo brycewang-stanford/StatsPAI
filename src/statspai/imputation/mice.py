@@ -45,9 +45,16 @@ class MICEResult:
     True
     """
 
-    def __init__(self, imputed_datasets: Any, n_imputations: Any, n_obs: Any,
-                 n_missing: Any, variables_imputed: Any, methods: Any,
-                 convergence: Any) -> None:
+    def __init__(
+        self,
+        imputed_datasets: Any,
+        n_imputations: Any,
+        n_obs: Any,
+        n_missing: Any,
+        variables_imputed: Any,
+        methods: Any,
+        convergence: Any,
+    ) -> None:
         self.imputed_datasets = imputed_datasets
         self.n_imputations = n_imputations
         self.n_obs = n_obs
@@ -69,7 +76,7 @@ class MICEResult:
         for var in self.variables_imputed:
             n_miss = self.n_missing[var]
             pct = n_miss / self.n_obs * 100
-            method = self.methods.get(var, 'pmm')
+            method = self.methods.get(var, "pmm")
             lines.append(f"{var:<20s} {n_miss:>8d} {pct:>5.1f}% {method:<15s}")
         lines.append("=" * 55)
         return "\n".join(lines)
@@ -101,8 +108,8 @@ def _rubins_rules(estimates: List[Dict[str, Any]]) -> Dict[str, Any]:
         'pvalues', 'fmi' (fraction of missing information).
     """
     m = len(estimates)
-    params_list = [e['params'] for e in estimates]
-    vcov_list = [e['var_cov'] for e in estimates]
+    params_list = [e["params"] for e in estimates]
+    vcov_list = [e["var_cov"] for e in estimates]
 
     # Combined point estimate: mean across imputations
     Q_bar = np.mean(params_list, axis=0)
@@ -115,17 +122,17 @@ def _rubins_rules(estimates: List[Dict[str, Any]]) -> Dict[str, Any]:
     for q in params_list:
         diff = q - Q_bar
         B += np.outer(diff, diff)
-    B /= (m - 1)
+    B /= m - 1
 
     # Total variance
-    T = U_bar + (1 + 1/m) * B
+    T = U_bar + (1 + 1 / m) * B
 
     se = np.sqrt(np.diag(T))
     tvalues = Q_bar / se
 
     # Degrees of freedom (Barnard-Rubin 1999)
-    r = (1 + 1/m) * np.diag(B) / np.diag(U_bar)
-    nu_old = (m - 1) * (1 + 1/r)**2
+    r = (1 + 1 / m) * np.diag(B) / np.diag(U_bar)
+    nu_old = (m - 1) * (1 + 1 / r) ** 2
     # Large sample df
     pvalues = 2 * (1 - stats.t.cdf(np.abs(tvalues), np.maximum(nu_old, 1)))
 
@@ -133,19 +140,17 @@ def _rubins_rules(estimates: List[Dict[str, Any]]) -> Dict[str, Any]:
     fmi = (r + 2 / (nu_old + 3)) / (r + 1)
 
     return {
-        'params': Q_bar,
-        'se': se,
-        'tvalues': tvalues,
-        'pvalues': pvalues,
-        'fmi': fmi,
-        'var_cov': T,
-        'n_imputations': m,
+        "params": Q_bar,
+        "se": se,
+        "tvalues": tvalues,
+        "pvalues": pvalues,
+        "fmi": fmi,
+        "var_cov": T,
+        "n_imputations": m,
     }
 
 
-def _impute_pmm(
-    y_obs: Any, x_obs: Any, x_miss: Any, rng: Any, k: int = 5
-) -> Any:
+def _impute_pmm(y_obs: Any, x_obs: Any, x_miss: Any, rng: Any, k: int = 5) -> Any:
     """Predictive mean matching imputation."""
     n_obs = len(y_obs)
     if n_obs < 2:
@@ -196,7 +201,9 @@ def _impute_norm(y_obs: Any, x_obs: Any, x_miss: Any, rng: Any) -> Any:
         return rng.normal(y_obs.mean(), y_obs.std(), size=len(x_miss))
 
     # Draw from posterior
-    sigma2_star = sigma2 * (n_obs - X_obs.shape[1]) / rng.chisquare(n_obs - X_obs.shape[1])
+    sigma2_star = (
+        sigma2 * (n_obs - X_obs.shape[1]) / rng.chisquare(n_obs - X_obs.shape[1])
+    )
     beta_star = rng.multivariate_normal(beta, sigma2_star * XtX_inv)
 
     X_miss = np.column_stack([np.ones(len(x_miss)), x_miss])
@@ -220,7 +227,7 @@ def _impute_logreg(y_obs: Any, x_obs: Any, x_miss: Any, rng: Any) -> Any:
 
     beta0 = np.zeros(X_obs.shape[1])
     try:
-        result = minimize(neg_ll, beta0, method='BFGS')
+        result = minimize(neg_ll, beta0, method="BFGS")
         beta = result.x
     except Exception:
         p_obs = y_obs.mean()
@@ -312,9 +319,9 @@ def mice(
         methods = {}
         for var in missing_vars:
             if var not in numeric_cols:
-                methods[var] = 'sample'
+                methods[var] = "sample"
             elif df[var].dropna().nunique() == 2:
-                methods[var] = 'logreg'
+                methods[var] = "logreg"
             else:
                 methods[var] = method
     else:
@@ -349,7 +356,9 @@ def mice(
                 if predictors is not None and var in predictors:
                     pred_vars = predictors[var]
                 else:
-                    pred_vars = [c for c in numeric_cols if c != var and c in df_imp.columns]
+                    pred_vars = [
+                        c for c in numeric_cols if c != var and c in df_imp.columns
+                    ]
 
                 if len(pred_vars) == 0:
                     # No predictors: sample from observed
@@ -370,15 +379,15 @@ def mice(
                 x_obs = X_all[~mask.values]
                 x_miss = X_all[mask.values]
 
-                m_method = methods.get(var, 'pmm')
+                m_method = methods.get(var, "pmm")
 
-                if m_method == 'pmm':
+                if m_method == "pmm":
                     imputed = _impute_pmm(y_obs, x_obs, x_miss, rng)
-                elif m_method == 'norm':
+                elif m_method == "norm":
                     imputed = _impute_norm(y_obs, x_obs, x_miss, rng)
-                elif m_method == 'logreg':
+                elif m_method == "logreg":
                     imputed = _impute_logreg(y_obs, x_obs, x_miss, rng)
-                elif m_method == 'sample':
+                elif m_method == "sample":
                     observed = df.loc[~mask, var].values
                     imputed = rng.choice(observed, size=mask.sum())
                 else:
@@ -400,18 +409,19 @@ def mice(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.imputation.mice",
             params={
-                "m": m, "max_iter": max_iter,
-                "method": method if isinstance(method, str)
-                          else dict(method),
+                "m": m,
+                "max_iter": max_iter,
+                "method": method if isinstance(method, str) else dict(method),
                 "predictors": (
-                    {k: list(v) for k, v in predictors.items()}
-                    if predictors else None
+                    {k: list(v) for k, v in predictors.items()} if predictors else None
                 ),
-                "seed": seed, "print_progress": print_progress,
+                "seed": seed,
+                "print_progress": print_progress,
             },
             data=data,
             overwrite=False,
@@ -465,15 +475,17 @@ def mi_estimate(
     for i in range(mice_result.n_imputations):
         df_i = mice_result.complete(i)
         result = estimator(data=df_i, **kwargs)
-        estimates.append({
-            'params': result.params.values,
-            'var_cov': np.diag(result.std_errors.values**2),
-        })
+        estimates.append(
+            {
+                "params": result.params.values,
+                "var_cov": np.diag(result.std_errors.values**2),
+            }
+        )
 
     combined = _rubins_rules(estimates)
     # Add variable names from the first result
     df_0 = mice_result.complete(0)
     first_result = estimator(data=df_0, **kwargs)
-    combined['var_names'] = list(first_result.params.index)
+    combined["var_names"] = list(first_result.params.index)
 
     return combined

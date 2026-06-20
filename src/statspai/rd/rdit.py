@@ -22,18 +22,18 @@ from scipy import stats as sp_stats
 from ..core.results import CausalResult
 from ._core import _kernel_fn
 
-
 # ======================================================================
 # Kernel helpers
 # ======================================================================
 
 # Kernels supported by RDiT. Canonical definitions live in ._core.
 # Validation is done against this tuple; evaluation dispatches to _kernel_fn.
-_SUPPORTED_KERNELS = ('triangular', 'epanechnikov', 'uniform', 'gaussian')
+_SUPPORTED_KERNELS = ("triangular", "epanechnikov", "uniform", "gaussian")
 
 
-def _newey_west_se(X: np.ndarray, residuals: np.ndarray,
-                   weights: np.ndarray, max_lag: int) -> np.ndarray:
+def _newey_west_se(
+    X: np.ndarray, residuals: np.ndarray, weights: np.ndarray, max_lag: int
+) -> np.ndarray:
     """Compute HAC (Newey-West) covariance matrix and return SEs."""
     n, k = X.shape
     W = np.diag(weights)
@@ -64,6 +64,7 @@ def _newey_west_se(X: np.ndarray, residuals: np.ndarray,
 # Optimal bandwidth (IK-style rule of thumb for time)
 # ======================================================================
 
+
 def _optimal_bandwidth(x: np.ndarray, y: np.ndarray) -> float:
     """Simple IK-style bandwidth selector for RDiT."""
     n = len(x)
@@ -87,7 +88,7 @@ def _optimal_bandwidth(x: np.ndarray, y: np.ndarray) -> float:
 
     # IK formula (simplified)
     C_k = 3.4375  # triangular kernel constant
-    h_opt = (C_k * sigma2 / (m2 ** 2 * n)) ** (1 / 5)
+    h_opt = (C_k * sigma2 / (m2**2 * n)) ** (1 / 5)
 
     return float(max(float(h_opt), float(h_pilot) * 0.5))
 
@@ -96,8 +97,8 @@ def _optimal_bandwidth(x: np.ndarray, y: np.ndarray) -> float:
 # Deseasonalisation
 # ======================================================================
 
-def _deseasonalise(y: np.ndarray, time_vals: pd.Series,
-                   method: str) -> np.ndarray:
+
+def _deseasonalise(y: np.ndarray, time_vals: pd.Series, method: str) -> np.ndarray:
     """Remove seasonal component from y."""
     if method == "month":
         groups = pd.to_datetime(time_vals).dt.month
@@ -106,17 +107,19 @@ def _deseasonalise(y: np.ndarray, time_vals: pd.Series,
     elif method == "dow":
         groups = pd.to_datetime(time_vals).dt.dayofweek
     else:
-        raise ValueError(f"Unknown seasonality method: {method!r}. "
-                         "Choose from 'month', 'quarter', 'dow'.")
+        raise ValueError(
+            f"Unknown seasonality method: {method!r}. "
+            "Choose from 'month', 'quarter', 'dow'."
+        )
 
     # Create dummies (drop first to avoid collinearity)
     unique_groups = np.sort(groups.unique())
     if len(unique_groups) <= 1:
         return np.asarray(y, dtype=float)
 
-    dummies = np.column_stack([
-        (groups.values == g).astype(float) for g in unique_groups[1:]
-    ])
+    dummies = np.column_stack(
+        [(groups.values == g).astype(float) for g in unique_groups[1:]]
+    )
     X = np.column_stack([np.ones(len(y)), dummies])
 
     coeffs, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
@@ -127,6 +130,7 @@ def _deseasonalise(y: np.ndarray, time_vals: pd.Series,
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def rdit(
     data: pd.DataFrame,
@@ -223,8 +227,9 @@ def rdit(
     if time not in data.columns:
         raise ValueError(f"Column '{time}' not found in data.")
     if kernel not in _SUPPORTED_KERNELS:
-        raise ValueError(f"Unknown kernel '{kernel}'. "
-                         f"Choose from {list(_SUPPORTED_KERNELS)}.")
+        raise ValueError(
+            f"Unknown kernel '{kernel}'. " f"Choose from {list(_SUPPORTED_KERNELS)}."
+        )
 
     df = data[[time, y]].dropna().copy()
     if cluster is not None:
@@ -291,8 +296,10 @@ def rdit(
     n_eff = int(np.sum(in_bw))
 
     if n_eff < 2 * (p + 1):
-        raise ValueError(f"Only {n_eff} observations within bandwidth "
-                         f"h={h_value:.2f}. Need at least {2*(p+1)}.")
+        raise ValueError(
+            f"Only {n_eff} observations within bandwidth "
+            f"h={h_value:.2f}. Need at least {2*(p+1)}."
+        )
 
     # Kernel weights (canonical definition in ._core)
     w = _kernel_fn(x_bw / h_value, kernel)
@@ -309,10 +316,10 @@ def rdit(
     # Design matrix
     cols = [np.ones(n_eff)]
     for j in range(1, p + 1):
-        cols.append(x_bw ** j)
+        cols.append(x_bw**j)
     cols.append(D)
     for j in range(1, p + 1):
-        cols.append(D * (x_bw ** j))
+        cols.append(D * (x_bw**j))
 
     X = np.column_stack(cols)
 
@@ -371,50 +378,54 @@ def rdit(
         D_g = np.full(len(x_grid), treat_flag)
         cols_g = [np.ones(len(x_grid))]
         for j in range(1, p + 1):
-            cols_g.append(x_grid ** j)
+            cols_g.append(x_grid**j)
         cols_g.append(D_g)
         for j in range(1, p + 1):
-            cols_g.append(D_g * (x_grid ** j))
+            cols_g.append(D_g * (x_grid**j))
         return np.asarray(np.column_stack(cols_g) @ beta, dtype=float)
 
     y_pred_left = _predict(x_grid_left, 0.0)
     y_pred_right = _predict(x_grid_right, 1.0)
 
-    detail = pd.DataFrame({
-        'x_relative': np.concatenate([x_grid_left, x_grid_right]),
-        'y_predicted': np.concatenate([y_pred_left, y_pred_right]),
-        'side': ['left'] * 100 + ['right'] * 100,
-    })
+    detail = pd.DataFrame(
+        {
+            "x_relative": np.concatenate([x_grid_left, x_grid_right]),
+            "y_predicted": np.concatenate([y_pred_left, y_pred_right]),
+            "side": ["left"] * 100 + ["right"] * 100,
+        }
+    )
 
     # Also include the raw data within bandwidth for scatter
-    scatter_df = pd.DataFrame({
-        'x_relative': x_bw,
-        'y_observed': y_bw,
-        'weight': w,
-        'side': np.where(x_bw < 0, 'left', 'right'),
-    })
+    scatter_df = pd.DataFrame(
+        {
+            "x_relative": x_bw,
+            "y_observed": y_bw,
+            "weight": w,
+            "side": np.where(x_bw < 0, "left", "right"),
+        }
+    )
 
     model_info = {
-        'method': 'RDiT (Hausman & Rapson 2018)',
-        'bandwidth': float(h_value),
-        'bandwidth_auto': h_auto,
-        'polynomial_order': p,
-        'kernel': kernel,
-        'donut': donut,
-        'seasonality': seasonality,
-        'n_eff': n_eff,
-        'n_left': int(np.sum(x_bw < 0)),
-        'n_right': int(np.sum(x_bw >= 0)),
-        'max_lag_hac': max_lag,
-        'cutoff': str(cutoff),
-        'coefficients': beta.tolist(),
-        'fitted_curve': detail,
-        'scatter_data': scatter_df,
+        "method": "RDiT (Hausman & Rapson 2018)",
+        "bandwidth": float(h_value),
+        "bandwidth_auto": h_auto,
+        "polynomial_order": p,
+        "kernel": kernel,
+        "donut": donut,
+        "seasonality": seasonality,
+        "n_eff": n_eff,
+        "n_left": int(np.sum(x_bw < 0)),
+        "n_right": int(np.sum(x_bw >= 0)),
+        "max_lag_hac": max_lag,
+        "cutoff": str(cutoff),
+        "coefficients": beta.tolist(),
+        "fitted_curve": detail,
+        "scatter_data": scatter_df,
     }
 
     return CausalResult(
-        method='Regression Discontinuity in Time (RDiT)',
-        estimand='Treatment Effect at Cutoff',
+        method="Regression Discontinuity in Time (RDiT)",
+        estimand="Treatment Effect at Cutoff",
         estimate=tau,
         se=se_tau,
         pvalue=pvalue,
@@ -423,7 +434,7 @@ def rdit(
         n_obs=n_eff,
         detail=detail,
         model_info=model_info,
-        _citation_key='rdit',
+        _citation_key="rdit",
     )
 
 
@@ -431,7 +442,7 @@ def rdit(
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['rdit'] = (
+CausalResult._CITATIONS["rdit"] = (
     "@article{hausman2018regression,\n"
     "  title={Regression Discontinuity in Time: Considerations for "
     "Empirical Applications},\n"

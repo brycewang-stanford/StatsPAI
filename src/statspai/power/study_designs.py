@@ -24,6 +24,7 @@ regression model." *Biometrics*, 39(2), 499-503. [@schoenfeld1983sample]
 Fleiss, J.L., Levin, B. & Paik, M.C. (2003). *Statistical Methods for Rates
 and Proportions*, 3rd ed. Wiley.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Union
@@ -111,7 +112,7 @@ def power_two_proportions(
     """
     z_a = _z_alpha(alpha, alternative)
     delta = abs(p2 - p1)
-    frac1 = 1.0 / (1.0 + ratio)        # share of total n in group 1
+    frac1 = 1.0 / (1.0 + ratio)  # share of total n in group 1
 
     def _power_for_n(n_total: np.ndarray) -> np.ndarray:
         n1 = n_total * frac1
@@ -120,8 +121,7 @@ def power_two_proportions(
         out: np.ndarray = norm.cdf(delta / se - z_a)
         return out
 
-    params = dict(p1=p1, p2=p2, ratio=ratio, alpha=alpha,
-                  alternative=alternative)
+    params = dict(p1=p1, p2=p2, ratio=ratio, alpha=alpha, alternative=alternative)
 
     if n is None:
         if power_target is None:
@@ -131,23 +131,27 @@ def power_two_proportions(
         z_b = norm.ppf(power_target)
         p_bar = (p1 + ratio * p2) / (1 + ratio)
         # closed-form starting point, then refine to the integer n.
-        n1_0 = ((z_a + z_b) ** 2 * (p1 * (1 - p1) + p2 * (1 - p2) / ratio)
-                / delta ** 2)
+        n1_0 = (z_a + z_b) ** 2 * (p1 * (1 - p1) + p2 * (1 - p2) / ratio) / delta**2
         n_total = np.ceil(n1_0 * (1 + ratio))
         while float(_power_for_n(np.array([n_total]))[0]) < power_target:
             n_total += 1
         _ = p_bar  # documented but not needed for the unpooled SE
         return PowerResult(
             power_val=float(_power_for_n(np.array([n_total]))[0]),
-            n=int(n_total), effect_size=delta,
-            design="two_proportions", params=params,
+            n=int(n_total),
+            effect_size=delta,
+            design="two_proportions",
+            params=params,
         )
 
     n_arr = _as_array(n)
     pwr = _power_for_n(n_arr)
     return PowerResult(
-        power_val=_scalarize(pwr), n=_scalarize(n_arr),
-        effect_size=delta, design="two_proportions", params=params,
+        power_val=_scalarize(pwr),
+        n=_scalarize(n_arr),
+        effect_size=delta,
+        design="two_proportions",
+        params=params,
     )
 
 
@@ -211,8 +215,13 @@ def power_logrank(
     z_a = _z_alpha(alpha, alternative)
     p = ratio / (1.0 + ratio)
     log_hr = abs(np.log(hazard_ratio))
-    params = dict(hazard_ratio=hazard_ratio, prob_event=prob_event,
-                  ratio=ratio, alpha=alpha, alternative=alternative)
+    params = dict(
+        hazard_ratio=hazard_ratio,
+        prob_event=prob_event,
+        ratio=ratio,
+        alpha=alpha,
+        alternative=alternative,
+    )
 
     def _power_for_events(d: np.ndarray) -> np.ndarray:
         out: np.ndarray = norm.cdf(np.sqrt(d * p * (1 - p)) * log_hr - z_a)
@@ -222,12 +231,10 @@ def power_logrank(
         if power_target is None:
             raise ValueError("Provide either `n` or `power_target`.")
         z_b = norm.ppf(power_target)
-        d_req = (z_a + z_b) ** 2 / (p * (1 - p) * log_hr ** 2)
+        d_req = (z_a + z_b) ** 2 / (p * (1 - p) * log_hr**2)
         n_total = int(np.ceil(d_req / prob_event))
         return PowerResult(
-            power_val=float(
-                _power_for_events(np.array([n_total * prob_event]))[0]
-            ),
+            power_val=float(_power_for_events(np.array([n_total * prob_event]))[0]),
             n=n_total,
             effect_size=log_hr,
             design="logrank",
@@ -237,8 +244,10 @@ def power_logrank(
     n_arr = _as_array(n)
     pwr = _power_for_events(n_arr * prob_event)
     return PowerResult(
-        power_val=_scalarize(pwr), n=_scalarize(n_arr),
-        effect_size=log_hr, design="logrank",
+        power_val=_scalarize(pwr),
+        n=_scalarize(n_arr),
+        effect_size=log_hr,
+        design="logrank",
         params=dict(params, n_events=_scalarize(n_arr * prob_event)),
     )
 
@@ -306,9 +315,14 @@ def power_case_control(
     p1 = (odds_ratio * p0) / (1 + p0 * (odds_ratio - 1))
     z_a = _z_alpha(alpha, alternative)
     delta = abs(p1 - p0)
-    params = dict(odds_ratio=odds_ratio, exposure_prevalence=p0,
-                  case_exposure_prevalence=p1, ratio=ratio, alpha=alpha,
-                  alternative=alternative)
+    params = dict(
+        odds_ratio=odds_ratio,
+        exposure_prevalence=p0,
+        case_exposure_prevalence=p1,
+        ratio=ratio,
+        alpha=alpha,
+        alternative=alternative,
+    )
 
     def _power_for_cases(nc: np.ndarray) -> np.ndarray:
         n_ctrl = nc * ratio
@@ -320,20 +334,24 @@ def power_case_control(
         if power_target is None:
             raise ValueError("Provide either `n_cases` or `power_target`.")
         z_b = norm.ppf(power_target)
-        nc0 = ((z_a + z_b) ** 2 * (p1 * (1 - p1) + p0 * (1 - p0) / ratio)
-               / delta ** 2)
+        nc0 = (z_a + z_b) ** 2 * (p1 * (1 - p1) + p0 * (1 - p0) / ratio) / delta**2
         nc = np.ceil(nc0)
         while float(_power_for_cases(np.array([nc]))[0]) < power_target:
             nc += 1
         return PowerResult(
             power_val=float(_power_for_cases(np.array([nc]))[0]),
-            n=int(nc), effect_size=delta,
-            design="case_control", params=params,
+            n=int(nc),
+            effect_size=delta,
+            design="case_control",
+            params=params,
         )
 
     nc_arr = _as_array(n_cases)
     pwr = _power_for_cases(nc_arr)
     return PowerResult(
-        power_val=_scalarize(pwr), n=_scalarize(nc_arr),
-        effect_size=delta, design="case_control", params=params,
+        power_val=_scalarize(pwr),
+        n=_scalarize(nc_arr),
+        effect_size=delta,
+        design="case_control",
+        params=params,
     )

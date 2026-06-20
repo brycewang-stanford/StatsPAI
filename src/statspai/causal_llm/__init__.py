@@ -24,22 +24,31 @@ matching and domain heuristics, not silent fabrications.
 
 from .llm_dag import llm_dag_propose, LLMDAGProposal
 from .llm_evalue import (
-    llm_unobserved_confounders, UnobservedConfounderProposal,
+    llm_unobserved_confounders,
+    UnobservedConfounderProposal,
 )
 from .llm_sensitivity import (
-    llm_sensitivity_priors, SensitivityPriorProposal,
+    llm_sensitivity_priors,
+    SensitivityPriorProposal,
 )
 from .causal_mas import causal_mas, CausalMASResult
 from .llm_clients import (
-    LLMClient, openai_client, anthropic_client, echo_client,
+    LLMClient,
+    openai_client,
+    anthropic_client,
+    echo_client,
 )
 from .llm_dag_loop import (
-    llm_dag_constrained, llm_dag_validate,
-    LLMConstrainedDAGResult, DAGValidationResult,
+    llm_dag_constrained,
+    llm_dag_validate,
+    LLMConstrainedDAGResult,
+    DAGValidationResult,
 )
 from ._resolver import (
-    get_llm_client, list_available_providers,
-    configure_llm, LLMConfigurationError,
+    get_llm_client,
+    list_available_providers,
+    configure_llm,
+    LLMConfigurationError,
 )
 from ._config import (
     config_path as llm_config_path,
@@ -48,15 +57,28 @@ from ._config import (
 )
 
 __all__ = [
-    'llm_dag_propose', 'LLMDAGProposal',
-    'llm_unobserved_confounders', 'UnobservedConfounderProposal',
-    'llm_sensitivity_priors', 'SensitivityPriorProposal',
-    'causal_mas', 'CausalMASResult',
-    'LLMClient', 'openai_client', 'anthropic_client', 'echo_client',
-    'llm_dag_constrained', 'llm_dag_validate',
-    'LLMConstrainedDAGResult', 'DAGValidationResult',
+    "llm_dag_propose",
+    "LLMDAGProposal",
+    "llm_unobserved_confounders",
+    "UnobservedConfounderProposal",
+    "llm_sensitivity_priors",
+    "SensitivityPriorProposal",
+    "causal_mas",
+    "CausalMASResult",
+    "LLMClient",
+    "openai_client",
+    "anthropic_client",
+    "echo_client",
+    "llm_dag_constrained",
+    "llm_dag_validate",
+    "LLMConstrainedDAGResult",
+    "DAGValidationResult",
     # v1.7.2: layered config + resolver.
-    'get_llm_client', 'list_available_providers',
-    'configure_llm', 'LLMConfigurationError',
-    'llm_config_path', 'load_llm_config', 'DEFAULT_LLM_MODELS',
+    "get_llm_client",
+    "list_available_providers",
+    "configure_llm",
+    "LLMConfigurationError",
+    "llm_config_path",
+    "load_llm_config",
+    "DEFAULT_LLM_MODELS",
 ]

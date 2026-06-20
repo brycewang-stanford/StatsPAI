@@ -19,6 +19,7 @@ from .themes import set_theme, list_themes, use_chinese, _register_cjk_fallback
 def __getattr__(name: str) -> Any:
     if name in {"interactive", "get_code", "FigureEditor"}:
         from .interactive import FigureEditor, get_code, interactive
+
         bindings = {
             "interactive": interactive,
             "get_code": get_code,
@@ -111,11 +112,11 @@ def _install_cjk_pyplot_hook() -> None:
 _install_cjk_pyplot_hook()
 
 __all__ = [
-    'binscatter',
-    'set_theme',
-    'list_themes',
-    'use_chinese',
-    'interactive',
-    'get_code',
-    'FigureEditor',
+    "binscatter",
+    "set_theme",
+    "list_themes",
+    "use_chinese",
+    "interactive",
+    "get_code",
+    "FigureEditor",
 ]

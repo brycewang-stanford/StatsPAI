@@ -15,6 +15,7 @@ Supported formats: ``.csv`` / ``.tsv`` / ``.txt`` / ``.parquet`` /
 Local loads are LRU-cached by ``(path, mtime, columns_key)`` so
 repeated tools/call invocations on the same file are O(1).
 """
+
 from __future__ import annotations
 
 import functools
@@ -45,13 +46,12 @@ def max_data_bytes() -> int:
 
 
 def is_remote_url(path: str) -> bool:
-    return path.startswith(("s3://", "gs://", "https://", "http://",
-                             "file://"))
+    return path.startswith(("s3://", "gs://", "https://", "http://", "file://"))
 
 
-def load_dataframe(path: str,
-                    columns: Optional[List[str]] = None,
-                    sample_n: Optional[int] = None) -> "pd.DataFrame":
+def load_dataframe(
+    path: str, columns: Optional[List[str]] = None, sample_n: Optional[int] = None
+) -> "pd.DataFrame":
     """Load a DataFrame from a local path or remote URL.
 
     Parameters
@@ -96,7 +96,8 @@ def load_dataframe(path: str,
     else:
         if not os.path.isabs(path):
             raise MethodIncompatibility(
-                f"data_path must be absolute or a URL, got {path!r}")
+                f"data_path must be absolute or a URL, got {path!r}"
+            )
         try:
             stat = os.stat(path)
         except FileNotFoundError:
@@ -127,11 +128,14 @@ def load_dataframe(path: str,
 
 
 @functools.lru_cache(maxsize=8)
-def _load_local_cached(path: str, mtime: float,
-                       columns_key: tuple,  # noqa: ARG001 — mtime invalidates
-                       ) -> "pd.DataFrame":
+def _load_local_cached(
+    path: str,
+    mtime: float,
+    columns_key: tuple,  # noqa: ARG001 — mtime invalidates
+) -> "pd.DataFrame":
     """LRU-cached local loader. ``mtime`` busts the cache on file edits."""
     import pandas as pd
+
     lower = path.lower()
     cols = list(columns_key) or None
     if lower.endswith((".csv", ".tsv", ".txt")):
@@ -160,8 +164,7 @@ def _load_local_cached(path: str, mtime: float,
     )
 
 
-def _load_remote(url: str,
-                 columns: Optional[List[str]] = None) -> "pd.DataFrame":
+def _load_remote(url: str, columns: Optional[List[str]] = None) -> "pd.DataFrame":
     """Load a DataFrame from a remote URL via pandas storage backends.
 
     Pandas dispatches s3:// / gs:// / https:// to fsspec. Authentication
@@ -169,6 +172,7 @@ def _load_remote(url: str,
     we don't smuggle secrets through the MCP layer.
     """
     import pandas as pd
+
     lower = url.split("?", 1)[0].lower()
     cols = list(columns) if columns else None
     if lower.endswith((".csv", ".tsv", ".txt")):

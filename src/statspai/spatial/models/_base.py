@@ -1,4 +1,5 @@
 """Shared plumbing for spatial regression models."""
+
 from __future__ import annotations
 
 from typing import List, Tuple
@@ -8,7 +9,7 @@ import pandas as pd
 
 try:
     import formulaic
-except ImportError as e:                     # pragma: no cover
+except ImportError as e:  # pragma: no cover
     raise ImportError(
         "formulaic is required for spatial regression formulas. "
         "It is already a core StatsPAI dependency — "

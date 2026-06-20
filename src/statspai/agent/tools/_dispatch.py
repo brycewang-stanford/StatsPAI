@@ -4,6 +4,7 @@ Splits cleanly from the spec data so the spec files stay declarative
 and this module owns the runtime concerns (kwargs filtering, error
 envelopes, result-handle caching, output enrichment, manifest merge).
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, cast
@@ -13,10 +14,10 @@ import pandas as pd
 from ._helpers import _default_serializer
 from ._specs import TOOL_REGISTRY
 
-
 # ---------------------------------------------------------------------------
 # Manifest assembly
 # ---------------------------------------------------------------------------
+
 
 def _description_with_validation_tier(
     description: str,
@@ -55,9 +56,7 @@ def _description_with_validation_tier(
         description = f"{description} Validation status: {status}."
 
     if limitations:
-        description = (
-            f"{description} Known limitations: {'; '.join(limitations)}."
-        )
+        description = f"{description} Known limitations: {'; '.join(limitations)}."
     return description
 
 
@@ -87,12 +86,12 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
     """
     curated: List[Dict[str, Any]] = [
         {
-            'name': t['name'],
-            'description': _description_with_validation_tier(
-                t['description'],
-                t.get('statspai_fn', t['name']),
+            "name": t["name"],
+            "description": _description_with_validation_tier(
+                t["description"],
+                t.get("statspai_fn", t["name"]),
             ),
-            'input_schema': t['input_schema'],
+            "input_schema": t["input_schema"],
         }
         for t in TOOL_REGISTRY
     ]
@@ -105,15 +104,16 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
     # the same name resolve to the hand-curated version.
     from ..workflow_tools import workflow_tool_manifest
     from ..pipeline_tools import pipeline_tool_manifest
-    seen = {t['name'] for t in curated}
+
+    seen = {t["name"] for t in curated}
     for wt in workflow_tool_manifest():
-        if wt['name'] not in seen:
+        if wt["name"] not in seen:
             curated.append(wt)
-            seen.add(wt['name'])
+            seen.add(wt["name"])
     for pt in pipeline_tool_manifest():
-        if pt['name'] not in seen:
+        if pt["name"] not in seen:
             curated.append(pt)
-            seen.add(pt['name'])
+            seen.add(pt["name"])
 
     if curated_only:
         return curated
@@ -121,6 +121,7 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
     # Lazy import: auto_tools walks the registry, which can trigger
     # submodule imports — best deferred until someone actually asks.
     from ..auto_tools import merged_tool_manifest
+
     try:
         return merged_tool_manifest(curated)
     except Exception as e:
@@ -128,10 +129,12 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
         # the kind of failure CLAUDE.md §3 #7 prohibits ("失败要响亮").
         # Emit a warning the operator (or CI log scraper) can spot.
         import warnings
+
         warnings.warn(
             f"auto_tool_manifest failed; falling back to curated tools. "
             f"Reason: {type(e).__name__}: {e}",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
         return curated
 
@@ -140,22 +143,26 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
 # Dispatch
 # ---------------------------------------------------------------------------
 
+
 def _resolve_fn(fn_name: str) -> Callable[..., Any]:
     """Import and return the statspai callable for the given name."""
     import statspai as sp
+
     fn = getattr(sp, fn_name, None)
     if fn is None:
         raise ValueError(f"Tool {fn_name!r} not found on statspai.")
     return cast(Callable[..., Any], fn)
 
 
-def execute_tool(name: str,
-                 arguments: Dict[str, Any],
-                 data: Optional[pd.DataFrame] = None,
-                 *,
-                 detail: str = "agent",
-                 result_id: Optional[str] = None,
-                 as_handle: bool = False) -> Dict[str, Any]:
+def execute_tool(
+    name: str,
+    arguments: Dict[str, Any],
+    data: Optional[pd.DataFrame] = None,
+    *,
+    detail: str = "agent",
+    result_id: Optional[str] = None,
+    as_handle: bool = False,
+) -> Dict[str, Any]:
     """Dispatch a tool call to the right StatsPAI function.
 
     Parameters
@@ -196,11 +203,15 @@ def execute_tool(name: str,
         WORKFLOW_TOOL_NAMES,
         execute_workflow_tool,
     )
+
     if name in WORKFLOW_TOOL_NAMES:
         return execute_workflow_tool(
-            name, arguments,
-            data=data, detail=detail,
-            result_id=result_id, as_handle=as_handle,
+            name,
+            arguments,
+            data=data,
+            detail=detail,
+            result_id=result_id,
+            as_handle=as_handle,
         )
 
     # Composite pipeline tools (pipeline_did / pipeline_iv / pipeline_rd
@@ -210,28 +221,38 @@ def execute_tool(name: str,
         PIPELINE_TOOL_NAMES,
         execute_pipeline_tool,
     )
+
     if name in PIPELINE_TOOL_NAMES:
         return execute_pipeline_tool(
-            name, arguments,
-            data=data, detail=detail, as_handle=as_handle,
+            name,
+            arguments,
+            data=data,
+            detail=detail,
+            as_handle=as_handle,
         )
 
-    spec = next((t for t in TOOL_REGISTRY if t['name'] == name), None)
+    spec = next((t for t in TOOL_REGISTRY if t["name"] == name), None)
     if spec is None:
         # Fall back to a registry-driven dispatch so auto-generated
         # tools (the 100+ from auto_tool_manifest) are callable too.
         from ..auto_dispatch import dispatch_registry_tool
+
         try:
             return dispatch_registry_tool(
-                name, arguments,
-                data=data, detail=detail, as_handle=as_handle,
+                name,
+                arguments,
+                data=data,
+                detail=detail,
+                as_handle=as_handle,
             )
         except KeyError:
             return {
-                'error': f"Unknown tool: {name!r}",
-                'available_tools': [t['name'] for t in TOOL_REGISTRY],
-                'hint': ("Read statspai://functions for the full "
-                         "machine-readable index of registered tools."),
+                "error": f"Unknown tool: {name!r}",
+                "available_tools": [t["name"] for t in TOOL_REGISTRY],
+                "hint": (
+                    "Read statspai://functions for the full "
+                    "machine-readable index of registered tools."
+                ),
             }
 
     # Look ``_resolve_fn`` up via the parent package so test fixtures
@@ -240,14 +261,15 @@ def execute_tool(name: str,
     # split would otherwise force every existing fixture to retarget
     # ``agent.tools._dispatch`` instead.
     from . import _resolve_fn as _public_resolve_fn  # re-export pointer
-    fn = _public_resolve_fn(spec['statspai_fn'])
-    serialize = spec.get('serializer', _default_serializer)
+
+    fn = _public_resolve_fn(spec["statspai_fn"])
+    serialize = spec.get("serializer", _default_serializer)
 
     # Most tools take `data=` as first positional (or kwarg).
     # Formula-based ones (regress, ivreg) also take data.
     kwargs = dict(arguments)
     if data is not None:
-        kwargs['data'] = data
+        kwargs["data"] = data
 
     def _serialize(result_obj: Any) -> Any:
         """Invoke ``serialize`` with ``detail=`` when supported.
@@ -262,6 +284,7 @@ def execute_tool(name: str,
         if serialize is _default_serializer:
             return serialize(result_obj, detail=detail)
         import inspect
+
         try:
             params = inspect.signature(serialize).parameters
         except (TypeError, ValueError):
@@ -269,8 +292,8 @@ def execute_tool(name: str,
             # signature — assume it takes only the result.
             return serialize(result_obj)
         if "detail" in params or any(
-                p.kind == inspect.Parameter.VAR_KEYWORD
-                for p in params.values()):
+            p.kind == inspect.Parameter.VAR_KEYWORD for p in params.values()
+        ):
             return serialize(result_obj, detail=detail)
         return serialize(result_obj)
 
@@ -280,13 +303,16 @@ def execute_tool(name: str,
         result = fn(**kwargs)
     except Exception as e:
         from ..remediation import remediate as _remediate
+
         envelope: Dict[str, Any] = {
-            'error': f"{type(e).__name__}: {e}",
-            'tool': name,
-            'arguments': {k: v for k, v in arguments.items()
-                          if not isinstance(v, pd.DataFrame)},
-            'remediation': _remediate(
-                e, context={'tool': name, 'arguments': arguments},
+            "error": f"{type(e).__name__}: {e}",
+            "tool": name,
+            "arguments": {
+                k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+            },
+            "remediation": _remediate(
+                e,
+                context={"tool": name, "arguments": arguments},
             ),
         }
         # Surface the structured StatsPAIError payload alongside the
@@ -296,21 +322,22 @@ def execute_tool(name: str,
         # messages, and read ``recovery_hint`` / ``diagnostics`` /
         # ``alternative_functions`` directly from ``error_payload``.
         from ...exceptions import StatsPAIError
+
         if isinstance(e, StatsPAIError):
             try:
-                envelope['error_kind'] = e.code
-                envelope['error_payload'] = e.to_dict()
+                envelope["error_kind"] = e.code
+                envelope["error_payload"] = e.to_dict()
             except Exception:
                 # Defensive fallback: a malformed diagnostics dict (e.g.
                 # a live DataFrame) shouldn't crash the error handler
                 # and lose the original exception. ``e.code`` is a
                 # class attribute with a string default on every
                 # ``StatsPAIError`` subclass, so reading it cannot fail.
-                envelope['error_kind'] = e.code
-                envelope['error_payload'] = {
-                    'kind': e.code,
-                    'class': type(e).__name__,
-                    'message': str(e),
+                envelope["error_kind"] = e.code
+                envelope["error_payload"] = {
+                    "kind": e.code,
+                    "class": type(e).__name__,
+                    "message": str(e),
                 }
         return envelope
 
@@ -321,15 +348,16 @@ def execute_tool(name: str,
         out = _serialize(result)
     except Exception as e:
         return {
-            'error': f"serializer_error: {type(e).__name__}: {e}",
-            'tool': name,
-            'arguments': {k: v for k, v in arguments.items()
-                          if not isinstance(v, pd.DataFrame)},
-            'stage': 'serializer',
+            "error": f"serializer_error: {type(e).__name__}: {e}",
+            "tool": name,
+            "arguments": {
+                k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+            },
+            "stage": "serializer",
         }
 
     if not isinstance(out, dict):
-        out = {'value': out}
+        out = {"value": out}
 
     # Result-handle caching. When ``as_handle=True`` we stash the live
     # fitted result in the process-local LRU cache and surface a handle
@@ -339,22 +367,31 @@ def execute_tool(name: str,
     rid: Optional[str] = None
     if as_handle:
         from .._result_cache import RESULT_CACHE
+
         rid = RESULT_CACHE.put(
-            result, tool=name,
-            arguments={k: v for k, v in arguments.items()
-                       if not isinstance(v, pd.DataFrame)},
+            result,
+            tool=name,
+            arguments={
+                k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+            },
         )
-        out['result_id'] = rid
-        out['result_uri'] = f"statspai://result/{rid}"
+        out["result_id"] = rid
+        out["result_uri"] = f"statspai://result/{rid}"
 
     # Output enrichment: pre-built next_calls + verified citations +
     # short narrative. Agents on per-call billing get more value per
     # roundtrip; agents on per-token billing can request
     # detail='minimal' to skip these or strip them client-side.
     from .._enrichment import enrich_payload
-    enrich_payload(out, tool_name=name, result_id=rid,
-                   base_args={k: v for k, v in arguments.items()
-                              if not isinstance(v, pd.DataFrame)})
+
+    enrich_payload(
+        out,
+        tool_name=name,
+        result_id=rid,
+        base_args={
+            k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+        },
+    )
 
     return out
 

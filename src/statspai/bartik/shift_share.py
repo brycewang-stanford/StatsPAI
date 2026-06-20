@@ -34,7 +34,7 @@ def bartik(
     covariates: Optional[List[str]] = None,
     leave_one_out: bool = True,
     regional_shocks: Optional[pd.DataFrame] = None,
-    robust: str = 'hc1',
+    robust: str = "hc1",
     alpha: float = 0.05,
 ) -> EconometricResults:
     """
@@ -103,22 +103,31 @@ def bartik(
     >>> _ = result.summary()
     """
     estimator = BartikIV(
-        data=data, y=y, endog=endog, shares=shares, shocks=shocks,
-        covariates=covariates, leave_one_out=leave_one_out,
+        data=data,
+        y=y,
+        endog=endog,
+        shares=shares,
+        shocks=shocks,
+        covariates=covariates,
+        leave_one_out=leave_one_out,
         regional_shocks=regional_shocks,
-        robust=robust, alpha=alpha,
+        robust=robust,
+        alpha=alpha,
     )
     _result = estimator.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bartik",
             params={
-                "y": y, "endog": endog,
+                "y": y,
+                "endog": endog,
                 "covariates": list(covariates) if covariates else None,
                 "leave_one_out": leave_one_out,
-                "robust": robust, "alpha": alpha,
+                "robust": robust,
+                "alpha": alpha,
                 "shares_shape": (
                     list(shares.shape) if hasattr(shares, "shape") else None
                 ),
@@ -176,7 +185,7 @@ class BartikIV:
         covariates: Optional[List[str]] = None,
         leave_one_out: bool = True,
         regional_shocks: Optional[pd.DataFrame] = None,
-        robust: str = 'hc1',
+        robust: str = "hc1",
         alpha: float = 0.05,
     ):
         self.data = data
@@ -264,13 +273,11 @@ class BartikIV:
         G = self.regional_shocks.to_numpy(dtype=float)  # (n, K)
         n = G.shape[0]
         if n < 2:
-            raise ValueError(
-                "leave-one-out requires at least 2 regions"
-            )
+            raise ValueError("leave-one-out requires at least 2 regions")
         # g_k^{-i} = (col_sum_k - G[i,k]) / (n - 1)
-        col_sum = G.sum(axis=0, keepdims=True)        # (1, K)
-        g_loo = (col_sum - G) / (n - 1)                # (n, K)
-        return np.asarray(np.einsum('ij,ij->i', S, g_loo), dtype=float)
+        col_sum = G.sum(axis=0, keepdims=True)  # (1, K)
+        g_loo = (col_sum - G) / (n - 1)  # (n, K)
+        return np.asarray(np.einsum("ij,ij->i", S, g_loo), dtype=float)
 
     def _rotemberg_weights(
         self,
@@ -300,10 +307,12 @@ class BartikIV:
         denominator = B @ Q @ X_endog
 
         if abs(denominator) < 1e-10:
-            return pd.DataFrame({
-                'industry': self.shares.columns,
-                'weight': np.zeros(K),
-            })
+            return pd.DataFrame(
+                {
+                    "industry": self.shares.columns,
+                    "weight": np.zeros(K),
+                }
+            )
 
         for k in range(K):
             s_k = S[:, k]
@@ -312,11 +321,17 @@ class BartikIV:
 
         weights = numerator / denominator
 
-        return pd.DataFrame({
-            'industry': self.shares.columns,
-            'weight': weights,
-            'shock': self.shocks.values,
-        }).sort_values('weight', ascending=False, key=abs).reset_index(drop=True)
+        return (
+            pd.DataFrame(
+                {
+                    "industry": self.shares.columns,
+                    "weight": weights,
+                    "shock": self.shocks.values,
+                }
+            )
+            .sort_values("weight", ascending=False, key=abs)
+            .reset_index(drop=True)
+        )
 
     def fit(self) -> EconometricResults:
         """Fit Bartik IV via 2SLS."""
@@ -328,14 +343,16 @@ class BartikIV:
 
         # Exogenous regressors (constant + covariates)
         if self.covariates:
-            X_exog = np.column_stack([
-                np.ones(n),
-                self.data[self.covariates].values.astype(float),
-            ])
-            exog_names = ['Intercept'] + self.covariates
+            X_exog = np.column_stack(
+                [
+                    np.ones(n),
+                    self.data[self.covariates].values.astype(float),
+                ]
+            )
+            exog_names = ["Intercept"] + self.covariates
         else:
             X_exog = np.ones((n, 1))
-            exog_names = ['Intercept']
+            exog_names = ["Intercept"]
 
         # --- First stage: endog ~ B + exog ---
         Z = np.column_stack([X_exog, B])
@@ -349,13 +366,9 @@ class BartikIV:
         rss_f = resid_full @ resid_full
         rss_r = resid_restricted @ resid_restricted
         df_denom = n - Z.shape[1]
-        f_stat = (
-            ((rss_r - rss_f) / 1) / (rss_f / df_denom)
-            if df_denom > 0 else np.nan
-        )
+        f_stat = ((rss_r - rss_f) / 1) / (rss_f / df_denom) if df_denom > 0 else np.nan
         f_pvalue = (
-            1 - stats.f.cdf(f_stat, 1, df_denom)
-            if not np.isnan(f_stat) else np.nan
+            1 - stats.f.cdf(f_stat, 1, df_denom) if not np.isnan(f_stat) else np.nan
         )
 
         # --- Second stage: Y ~ endog_hat + exog ---
@@ -372,7 +385,7 @@ class BartikIV:
         k = len(all_names)
 
         # Standard errors (HC1)
-        if self.robust != 'nonrobust':
+        if self.robust != "nonrobust":
             weights = (n / (n - k)) * residuals**2
             meat = X_2sls.T @ np.diag(weights) @ X_2sls
             var_cov = XhXh_inv @ meat @ XhXh_inv
@@ -386,7 +399,7 @@ class BartikIV:
         rotemberg = self._rotemberg_weights(B, Y, X_endog, X_exog)
 
         # R-squared
-        tss = np.sum((Y - np.mean(Y))**2)
+        tss = np.sum((Y - np.mean(Y)) ** 2)
         rss = np.sum(residuals**2)
         r_squared = 1 - rss / tss
 
@@ -395,25 +408,25 @@ class BartikIV:
         se_s = pd.Series(std_errors, index=all_names)
 
         model_info = {
-            'model_type': 'Bartik IV (2SLS)',
-            'method': 'Shift-Share IV',
-            'robust': self.robust,
+            "model_type": "Bartik IV (2SLS)",
+            "method": "Shift-Share IV",
+            "robust": self.robust,
         }
 
         data_info = {
-            'nobs': n,
-            'df_model': k - 1,
-            'df_resid': n - k,
-            'dependent_var': self.y,
-            'fitted_values': fitted,
-            'residuals': residuals,
+            "nobs": n,
+            "df_model": k - 1,
+            "df_resid": n - k,
+            "dependent_var": self.y,
+            "fitted_values": fitted,
+            "residuals": residuals,
         }
 
         diagnostics = {
-            'R-squared': r_squared,
-            'First-stage F': f_stat,
-            'First-stage F p-value': f_pvalue,
-            'N industries': self.shares.shape[1],
+            "R-squared": r_squared,
+            "First-stage F": f_stat,
+            "First-stage F p-value": f_pvalue,
+            "N industries": self.shares.shape[1],
         }
 
         # Store Rotemberg weights for programmatic access
@@ -431,13 +444,13 @@ class BartikIV:
     @property
     def rotemberg_weights(self) -> pd.DataFrame:
         """Rotemberg weight decomposition by industry."""
-        if not hasattr(self, '_rotemberg'):
+        if not hasattr(self, "_rotemberg"):
             raise ValueError("Must call fit() first")
         return self._rotemberg
 
 
 # Citation
-CausalResult._CITATIONS['bartik'] = (
+CausalResult._CITATIONS["bartik"] = (
     "@article{goldsmith2020bartik,\n"
     "  title={Bartik Instruments: What, When, Why, and How},\n"
     "  author={Goldsmith-Pinkham, Paul and Sorkin, Isaac and Swift, Henry},\n"

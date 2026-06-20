@@ -74,12 +74,13 @@ class MetafrontierResult:
     >>> bool((res.tgr >= 0).all() and (res.tgr <= 1).all())
     True
     """
+
     beta_meta: pd.Series
     beta_groups: Dict[Any, pd.Series]
     group_frontiers: Dict[Any, FrontierResult]
-    tgr: pd.Series                # technology-gap ratio per obs
-    te_meta: pd.Series            # TE_meta per obs
-    te_group: pd.Series           # TE_group per obs
+    tgr: pd.Series  # technology-gap ratio per obs
+    te_meta: pd.Series  # TE_meta per obs
+    te_group: pd.Series  # TE_group per obs
     data_info: Dict[str, Any]
     lp_status: str
 
@@ -97,11 +98,17 @@ class MetafrontierResult:
         lines.append(self.beta_meta.to_string())
         lines.append("")
         lines.append("Group-specific mean TGR / TE_group / TE_meta:")
-        group_summary = pd.DataFrame({
-            "mean_tgr": self.tgr.groupby(self.data_info["group_vec"]).mean(),
-            "mean_te_group": self.te_group.groupby(self.data_info["group_vec"]).mean(),
-            "mean_te_meta": self.te_meta.groupby(self.data_info["group_vec"]).mean(),
-        })
+        group_summary = pd.DataFrame(
+            {
+                "mean_tgr": self.tgr.groupby(self.data_info["group_vec"]).mean(),
+                "mean_te_group": self.te_group.groupby(
+                    self.data_info["group_vec"]
+                ).mean(),
+                "mean_te_meta": self.te_meta.groupby(
+                    self.data_info["group_vec"]
+                ).mean(),
+            }
+        )
         lines.append(group_summary.round(4).to_string())
         return "\n".join(lines)
 
@@ -200,9 +207,7 @@ def metafrontier(
     p = X.shape[1]
 
     # Each obs i has a group g(i): x_i' beta^{g(i)} is its own-group frontier.
-    own_beta = np.vstack(
-        [beta_groups[g].to_numpy() for g in df[group].to_numpy()]
-    )
+    own_beta = np.vstack([beta_groups[g].to_numpy() for g in df[group].to_numpy()])
     own_frontier = np.einsum("ij,ij->i", X, own_beta)
 
     # Objective: min sum_i (x_i' beta_meta - own_frontier_i).
@@ -210,7 +215,7 @@ def metafrontier(
     if cost:
         c = -X.sum(axis=0)  # maximise x_i' beta_meta, which is min(-c'beta).
     else:
-        c = X.sum(axis=0)         # minimise x_i' beta_meta.
+        c = X.sum(axis=0)  # minimise x_i' beta_meta.
 
     # Constraints: for every i and every group k, x_i' beta_meta  >= x_i' beta^k
     # (flip sign for cost).

@@ -125,7 +125,8 @@ def robust_synth(
 
     # --- Solve weights ---
     weights, intercept_val = _solve_robust_weights(
-        Y_treated[pre_mask], Y_donors[pre_mask],
+        Y_treated[pre_mask],
+        Y_donors[pre_mask],
         variant=variant,
         l1_penalty=l1_penalty,
         l2_penalty=l2_penalty,
@@ -138,7 +139,7 @@ def robust_synth(
     gap_post = gap[post_mask]
     gap_pre = gap[pre_mask]
     att = float(np.mean(gap_post))
-    pre_mspe = float(np.mean(gap_pre ** 2))
+    pre_mspe = float(np.mean(gap_pre**2))
 
     # --- Placebo ---
     placebo_atts = []
@@ -152,8 +153,10 @@ def robust_synth(
             Y_d = all_Y[:, didx]
             try:
                 w_p, int_p = _solve_robust_weights(
-                    Y_p[pre_mask], Y_d[pre_mask],
-                    variant=variant, l1_penalty=l1_penalty,
+                    Y_p[pre_mask],
+                    Y_d[pre_mask],
+                    variant=variant,
+                    l1_penalty=l1_penalty,
                     l2_penalty=l2_penalty,
                     fit_intercept=(intercept and variant != "penalized"),
                 )
@@ -165,10 +168,10 @@ def robust_synth(
                 continue  # pragma: no cover
 
     if len(placebo_atts) > 0:
-        post_mspe = float(np.mean(gap_post ** 2))
+        post_mspe = float(np.mean(gap_post**2))
         ratio_treated = post_mspe / pre_mspe if pre_mspe > 1e-10 else np.inf
         placebo_ratios = [
-            a ** 2 / m if m > 1e-10 else 0
+            a**2 / m if m > 1e-10 else 0
             for a, m in zip(placebo_atts, placebo_pre_mspes)
         ]
         pvalue = float(np.mean(np.array(placebo_ratios) >= ratio_treated))
@@ -181,14 +184,26 @@ def robust_synth(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (att - z_crit * se, att + z_crit * se)
 
-    weight_df = pd.DataFrame({
-        "unit": donor_cols, "weight": weights,
-    }).sort_values("weight", ascending=False, key=abs).reset_index(drop=True)
+    weight_df = (
+        pd.DataFrame(
+            {
+                "unit": donor_cols,
+                "weight": weights,
+            }
+        )
+        .sort_values("weight", ascending=False, key=abs)
+        .reset_index(drop=True)
+    )
 
-    gap_df = pd.DataFrame({
-        "time": times, "treated": Y_treated, "synthetic": Y_synth,
-        "gap": gap, "post_treatment": post_mask,
-    })
+    gap_df = pd.DataFrame(
+        {
+            "time": times,
+            "treated": Y_treated,
+            "synthetic": Y_synth,
+            "gap": gap,
+            "post_treatment": post_mask,
+        }
+    )
 
     variant_labels = {
         "unconstrained": "Unconstrained SCM (Doudchenko & Imbens 2016)",
@@ -290,12 +305,12 @@ def _solve_penalized_constrained(
 
     def objective(w: np.ndarray) -> float:
         r = y - X @ w
-        return float(r @ r
-                     + l2_penalty * (w @ w)
-                     + l1_penalty * np.sum(np.abs(w)))
+        return float(r @ r + l2_penalty * (w @ w) + l1_penalty * np.sum(np.abs(w)))
 
     res = optimize.minimize(
-        objective, np.ones(J) / J, method="SLSQP",
+        objective,
+        np.ones(J) / J,
+        method="SLSQP",
         bounds=[(0, None)] * J,
         constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
         options={"maxiter": 1000, "ftol": 1e-12},
@@ -314,7 +329,7 @@ def _elastic_net_cd(
     """Coordinate descent for elastic net (no constraints)."""
     n, p = X.shape
     beta = np.zeros(p)
-    XtX_diag = np.sum(X ** 2, axis=0)
+    XtX_diag = np.sum(X**2, axis=0)
 
     for _ in range(max_iter):
         beta_old = beta.copy()

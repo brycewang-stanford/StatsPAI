@@ -29,12 +29,14 @@ from .plausibly_exogenous import PlausiblyExogenousResult
 
 def _mpl() -> Any:
     import matplotlib.pyplot as plt  # lazy
+
     return plt
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  First-stage scatter / fit
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def plot_first_stage(
     endog: Union[np.ndarray, pd.Series],
@@ -81,6 +83,7 @@ def plot_first_stage(
     def _resid(M: np.ndarray, X: np.ndarray) -> np.ndarray:
         b, *_ = np.linalg.lstsq(X, M, rcond=None)
         return np.asarray(M - X @ b, dtype=float)
+
     Dt = _resid(D, W)
     Zt = _resid(Z, W)
     pi, *_ = np.linalg.lstsq(Zt, Dt, rcond=None)
@@ -111,21 +114,19 @@ def plot_first_stage(
         0,
         bins - 1,
     )
-    xb = np.array([
-        d_hat_s[idx == b].mean() if (idx == b).any() else np.nan
-        for b in range(bins)
-    ])
-    yb = np.array([
-        Dt_s[idx == b].mean() if (idx == b).any() else np.nan
-        for b in range(bins)
-    ])
+    xb = np.array(
+        [d_hat_s[idx == b].mean() if (idx == b).any() else np.nan for b in range(bins)]
+    )
+    yb = np.array(
+        [Dt_s[idx == b].mean() if (idx == b).any() else np.nan for b in range(bins)]
+    )
 
     ax.scatter(d_hat, Dt, s=6, alpha=0.15, color="0.6")
     ax.scatter(xb, yb, s=36, color="#d62728", zorder=3, label="binned mean")
     ax.axline((0, 0), slope=1, linestyle="--", color="0.3", lw=1)
     ax.set_xlabel(r"First-stage fitted $\hat{D}$ (partialled out)")
     suffix = f" — {endog_name}" if endog_name else ""
-    ax.set_ylabel(fr"Observed $D$ (partialled out){suffix}")
+    ax.set_ylabel(rf"Observed $D$ (partialled out){suffix}")
     ax.set_title(f"First-stage fit   F = {f_stat:.1f}")
     ax.legend(loc="best", framealpha=0.9)
     ax.grid(alpha=0.3)
@@ -138,6 +139,7 @@ def plot_first_stage(
 # ═══════════════════════════════════════════════════════════════════════
 #  Anderson-Rubin confidence set
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def plot_ar_confidence_set(
     y: Union[np.ndarray, pd.Series, str],
@@ -222,20 +224,32 @@ def plot_ar_confidence_set(
         fig, ax = plt.subplots(figsize=(7, 4))
 
     ax.plot(beta_grid, ar_f, color="#1f77b4", lw=1.8, label="AR F-stat")
-    ax.axhline(crit, linestyle="--", color="#d62728",
-               label=f"{int(level*100)}% critical F = {crit:.2f}")
+    ax.axhline(
+        crit,
+        linestyle="--",
+        color="#d62728",
+        label=f"{int(level*100)}% critical F = {crit:.2f}",
+    )
     # Shade the confidence set
     if in_set.any():
-        ax.fill_between(beta_grid, 0, ar_f, where=in_set,
-                        color="#2ca02c", alpha=0.18,
-                        label=f"{int(level*100)}% AR set")
+        ax.fill_between(
+            beta_grid,
+            0,
+            ar_f,
+            where=in_set,
+            color="#2ca02c",
+            alpha=0.18,
+            label=f"{int(level*100)}% AR set",
+        )
         lo, hi = beta_grid[in_set].min(), beta_grid[in_set].max()
         ax.axvline(lo, color="#2ca02c", lw=0.8, linestyle=":")
         ax.axvline(hi, color="#2ca02c", lw=0.8, linestyle=":")
         ax.annotate(
             f"AR CI: [{lo:.3f}, {hi:.3f}]",
-            xy=(0.02, 0.92), xycoords="axes fraction",
-            fontsize=10, color="#2ca02c",
+            xy=(0.02, 0.92),
+            xycoords="axes fraction",
+            fontsize=10,
+            color="#2ca02c",
         )
     ax.set_xlabel(r"candidate $\beta_0$")
     ax.set_ylabel("AR F-statistic")
@@ -252,6 +266,7 @@ def plot_ar_confidence_set(
 #  MTE curve
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def plot_mte_curve(
     result: MTEResult,
     ax: Any = None,
@@ -267,11 +282,22 @@ def plot_mte_curve(
     c = result.mte_curve
     ax.plot(c["u"], c["mte"], color="#1f77b4", lw=2, label=r"$MTE(u \mid \bar X)$")
     if show_ci and "ci_lower" in c.columns:
-        ax.fill_between(c["u"], c["ci_lower"], c["ci_upper"],
-                        color="#1f77b4", alpha=0.18, label="95% CI")
+        ax.fill_between(
+            c["u"],
+            c["ci_lower"],
+            c["ci_upper"],
+            color="#1f77b4",
+            alpha=0.18,
+            label="95% CI",
+        )
     if show_ate:
-        ax.axhline(result.ate, linestyle="--", color="#d62728", lw=1.2,
-                   label=f"ATE = {result.ate:.3f}")
+        ax.axhline(
+            result.ate,
+            linestyle="--",
+            color="#d62728",
+            lw=1.2,
+            label=f"ATE = {result.ate:.3f}",
+        )
     ax.axhline(0, color="0.4", lw=0.8)
     ax.set_xlabel(r"unobserved resistance $u$")
     ax.set_ylabel("Marginal Treatment Effect")
@@ -290,6 +316,7 @@ def plot_mte_curve(
 # ═══════════════════════════════════════════════════════════════════════
 #  Plausibly exogenous sensitivity
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def plot_plausibly_exogenous(
     result: PlausiblyExogenousResult,
@@ -331,14 +358,30 @@ def plot_plausibly_exogenous(
     xs, betas_s, ses_s = xs[order], betas[order], ses[order]
 
     ax.plot(xs, betas_s, color="#1f77b4", lw=1.6, label=r"$\hat\beta(\gamma)$")
-    ax.fill_between(xs, betas_s - 1.96 * ses_s, betas_s + 1.96 * ses_s,
-                    color="#1f77b4", alpha=0.18, label="per-γ 95% CI")
+    ax.fill_between(
+        xs,
+        betas_s - 1.96 * ses_s,
+        betas_s + 1.96 * ses_s,
+        color="#1f77b4",
+        alpha=0.18,
+        label="per-γ 95% CI",
+    )
 
     if show_bounds:
-        ax.axhline(result.ci_lower, color="#d62728", linestyle="--", lw=1.2,
-                   label=f"union lower = {result.ci_lower:.3f}")
-        ax.axhline(result.ci_upper, color="#d62728", linestyle="--", lw=1.2,
-                   label=f"union upper = {result.ci_upper:.3f}")
+        ax.axhline(
+            result.ci_lower,
+            color="#d62728",
+            linestyle="--",
+            lw=1.2,
+            label=f"union lower = {result.ci_lower:.3f}",
+        )
+        ax.axhline(
+            result.ci_upper,
+            color="#d62728",
+            linestyle="--",
+            lw=1.2,
+            label=f"union upper = {result.ci_upper:.3f}",
+        )
 
     ax.axhline(result.beta_hat, color="0.3", lw=0.8, linestyle=":")
     ax.set_xlabel(xlab)
@@ -355,6 +398,7 @@ def plot_plausibly_exogenous(
 # ═══════════════════════════════════════════════════════════════════════
 #  Forest plot of IV estimates across methods (sp.iv.iv_compare output)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def plot_iv_forest(
     table: pd.DataFrame,
@@ -399,12 +443,18 @@ def plot_iv_forest(
     # CI whiskers
     ax.hlines(ys, lows, highs, color="#1f77b4", lw=2.0, alpha=0.85)
     # Point estimates
-    ax.scatter(estimates, ys, s=46, color="#1f77b4", zorder=3,
-               edgecolor="white", linewidth=0.8)
+    ax.scatter(
+        estimates, ys, s=46, color="#1f77b4", zorder=3, edgecolor="white", linewidth=0.8
+    )
 
     if reference is not None and np.isfinite(reference):
-        ax.axvline(reference, color="#d62728", linestyle="--", lw=1.0,
-                   label=f"reference = {reference:.3f}")
+        ax.axvline(
+            reference,
+            color="#d62728",
+            linestyle="--",
+            lw=1.0,
+            label=f"reference = {reference:.3f}",
+        )
         ax.legend(loc="best", frameon=False, fontsize=9)
 
     ax.set_yticks(ys)
@@ -420,6 +470,7 @@ def plot_iv_forest(
 # ═══════════════════════════════════════════════════════════════════════
 #  Forest plot built directly from an IVDiagResult bundle
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def plot_iv_forest_from_diag(
     result: Any,
@@ -444,6 +495,7 @@ def plot_iv_forest_from_diag(
 #  Weak-IV-robust CI overlay (AR / CLR / K)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def plot_weak_iv_ci_overlay(
     result: Any,
     ax: Any = None,
@@ -460,11 +512,13 @@ def plot_weak_iv_ci_overlay(
     if result.k_ci is not None:
         rows.append(("K", *result.k_ci, result.beta_2sls, "#8c564b"))
     if result.bootstrap_ci_pairs is not None:
-        rows.append(("pairs boot", *result.bootstrap_ci_pairs,
-                     result.beta_2sls, "#17becf"))
+        rows.append(
+            ("pairs boot", *result.bootstrap_ci_pairs, result.beta_2sls, "#17becf")
+        )
     if result.bootstrap_ci_wild is not None:
-        rows.append(("wild boot", *result.bootstrap_ci_wild,
-                     result.beta_2sls, "#bcbd22"))
+        rows.append(
+            ("wild boot", *result.bootstrap_ci_wild, result.beta_2sls, "#bcbd22")
+        )
     if result.ltz_ci is not None:
         rows.append(("CHR LTZ", *result.ltz_ci, result.beta_2sls, "#7f7f7f"))
 
@@ -476,15 +530,18 @@ def plot_weak_iv_ci_overlay(
         y = ys[i]
         if not np.isfinite(lo):
             lo = b - 8 * abs(result.se_2sls)
-            ax.annotate("←", xy=(lo, y), fontsize=14, ha="left", va="center",
-                        color=color)
+            ax.annotate(
+                "←", xy=(lo, y), fontsize=14, ha="left", va="center", color=color
+            )
         if not np.isfinite(hi):
             hi = b + 8 * abs(result.se_2sls)
-            ax.annotate("→", xy=(hi, y), fontsize=14, ha="right", va="center",
-                        color=color)
+            ax.annotate(
+                "→", xy=(hi, y), fontsize=14, ha="right", va="center", color=color
+            )
         ax.hlines(y, lo, hi, color=color, lw=2.4, alpha=0.85)
-        ax.scatter([b], [y], s=42, color=color, zorder=3,
-                   edgecolor="white", linewidth=0.8)
+        ax.scatter(
+            [b], [y], s=42, color=color, zorder=3, edgecolor="white", linewidth=0.8
+        )
     ax.set_yticks(ys)
     ax.set_yticklabels([r[0] for r in rows])
     ax.axvline(result.beta_2sls, color="0.4", linestyle=":", lw=1)
@@ -503,6 +560,7 @@ def plot_weak_iv_ci_overlay(
 # ═══════════════════════════════════════════════════════════════════════
 #  2x2 diagnostic panel built from an IVDiagResult
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def plot_iv_diagnostics(
     result: Any,
@@ -526,7 +584,8 @@ def plot_iv_diagnostics(
 
     # 1) first-stage scatter
     plot_first_stage(
-        endog=raw["D"], instruments=raw["Z"],
+        endog=raw["D"],
+        instruments=raw["Z"],
         exog=raw["W_no_const"],
         endog_name=result.endog,
         ax=axes[0][0],
@@ -542,9 +601,13 @@ def plot_iv_diagnostics(
     try:
         # call the legacy plot_ar_confidence_set with the bundled raw arrays
         plot_ar_confidence_set(
-            y=raw["Y"], endog=raw["D"], instruments=raw["Z"],
+            y=raw["Y"],
+            endog=raw["D"],
+            instruments=raw["Z"],
             exog=raw["W_no_const"],
-            beta_grid=grid, level=1.0 - result.alpha, ax=axes[0][1],
+            beta_grid=grid,
+            level=1.0 - result.alpha,
+            ax=axes[0][1],
         )
     except Exception:  # pragma: no cover
         axes[0][1].set_visible(False)
@@ -563,8 +626,13 @@ def plot_iv_diagnostics(
     ax_lev.scatter(leverage, resid, s=8, alpha=0.4, color="0.5")
     high_lev = leverage > 2 * np.mean(leverage)
     if high_lev.any():
-        ax_lev.scatter(leverage[high_lev], resid[high_lev],
-                       s=22, color="#d62728", label="high leverage")
+        ax_lev.scatter(
+            leverage[high_lev],
+            resid[high_lev],
+            s=22,
+            color="#d62728",
+            label="high leverage",
+        )
         ax_lev.legend(loc="best", frameon=False, fontsize=9)
     ax_lev.axhline(0, color="0.4", lw=0.8)
     ax_lev.set_xlabel("hat-matrix leverage on Z + W")

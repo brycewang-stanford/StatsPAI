@@ -180,7 +180,11 @@ def event_study(
         w_arr = None
 
     Y, X_mat, col_names = _demean_twfe(
-        df_clean, y, dummy_cols + cov_cols, "__unit__", "__time_num__",
+        df_clean,
+        y,
+        dummy_cols + cov_cols,
+        "__unit__",
+        "__time_num__",
         w=w_arr,
     )
 
@@ -214,43 +218,52 @@ def event_study(
         coef = float(beta[i])
         se_i = float(se[i])
         t_crit = sp_stats.norm.ppf(1 - alpha / 2)
-        es_rows.append({
-            "relative_time": k_val,
-            # ``att`` is the canonical event-study coefficient name shared by
-            # the whole DID family (see did._core.EVENT_STUDY_COLUMNS); the
-            # downstream plotters / exporters / pretrend tools key on it.
-            # ``estimate`` is kept as a backward-compatible alias.
-            "att": coef,
-            "estimate": coef,
-            "se": se_i,
-            "ci_lower": coef - t_crit * se_i,
-            "ci_upper": coef + t_crit * se_i,
-            "pvalue": (
-                float(2 * (1 - sp_stats.norm.cdf(abs(coef / se_i))))
-                if se_i > 0 else 1.0
-            ),
-        })
+        es_rows.append(
+            {
+                "relative_time": k_val,
+                # ``att`` is the canonical event-study coefficient name shared by
+                # the whole DID family (see did._core.EVENT_STUDY_COLUMNS); the
+                # downstream plotters / exporters / pretrend tools key on it.
+                # ``estimate`` is kept as a backward-compatible alias.
+                "att": coef,
+                "estimate": coef,
+                "se": se_i,
+                "ci_lower": coef - t_crit * se_i,
+                "ci_upper": coef + t_crit * se_i,
+                "pvalue": (
+                    float(2 * (1 - sp_stats.norm.cdf(abs(coef / se_i))))
+                    if se_i > 0
+                    else 1.0
+                ),
+            }
+        )
 
     # Add reference period (zero by definition)
-    es_rows.append({
-        "relative_time": ref_period,
-        "att": 0.0,
-        "estimate": 0.0,
-        "se": 0.0,
-        "ci_lower": 0.0,
-        "ci_upper": 0.0,
-        "pvalue": 1.0,
-    })
+    es_rows.append(
+        {
+            "relative_time": ref_period,
+            "att": 0.0,
+            "estimate": 0.0,
+            "se": 0.0,
+            "ci_lower": 0.0,
+            "ci_upper": 0.0,
+            "pvalue": 1.0,
+        }
+    )
     event_study_df = (
-        pd.DataFrame(es_rows)
-        .sort_values("relative_time")
-        .reset_index(drop=True)
+        pd.DataFrame(es_rows).sort_values("relative_time").reset_index(drop=True)
     )
 
     # --- Pre-trend test (joint F-test on pre-treatment coefficients) ---
     pre_indices = [i for i, k_val in enumerate(rel_periods) if k_val < 0]
     pretrend_result = _joint_f_test(
-        beta, XtX_inv, pre_indices, resid, n, k, w=w_arr,
+        beta,
+        XtX_inv,
+        pre_indices,
+        resid,
+        n,
+        k,
+        w=w_arr,
     )
 
     # --- Overall ATT (average of post-treatment coefficients) ---
@@ -259,12 +272,10 @@ def event_study(
     att = float(post_nonref["estimate"].mean()) if len(post_nonref) > 0 else 0.0
     att_se = (
         float(np.sqrt(np.mean(post_nonref["se"] ** 2) / len(post_nonref)))
-        if len(post_nonref) > 0 else 0.0
+        if len(post_nonref) > 0
+        else 0.0
     )
-    att_p = (
-        float(2 * (1 - sp_stats.norm.cdf(abs(att / att_se))))
-        if att_se > 0 else 1.0
-    )
+    att_p = float(2 * (1 - sp_stats.norm.cdf(abs(att / att_se)))) if att_se > 0 else 1.0
 
     n_clusters = len(np.unique(cluster_ids))
 
@@ -274,8 +285,10 @@ def event_study(
         estimate=att,
         se=att_se,
         pvalue=att_p,
-        ci=(att - sp_stats.norm.ppf(1 - alpha / 2) * att_se,
-            att + sp_stats.norm.ppf(1 - alpha / 2) * att_se),
+        ci=(
+            att - sp_stats.norm.ppf(1 - alpha / 2) * att_se,
+            att + sp_stats.norm.ppf(1 - alpha / 2) * att_se,
+        ),
         alpha=alpha,
         n_obs=n,
         detail=event_study_df,
@@ -292,16 +305,20 @@ def event_study(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.event_study",
             params={
-                "y": y, "treat_time": treat_time,
-                "time": time, "unit": unit,
+                "y": y,
+                "treat_time": treat_time,
+                "time": time,
+                "unit": unit,
                 "window": list(window),
                 "ref_period": ref_period,
                 "covariates": list(covariates) if covariates else None,
-                "cluster": cluster, "alpha": alpha,
+                "cluster": cluster,
+                "alpha": alpha,
                 "weights": weights,
             },
             data=data,
@@ -315,6 +332,7 @@ def event_study(
 # ====================================================================== #
 #  Internal helpers
 # ====================================================================== #
+
 
 def _demean_twfe(
     df: pd.DataFrame,
@@ -388,9 +406,7 @@ def _cluster_se(
     for c in unique_clusters:
         mask = cluster_ids == c
         if w is not None:
-            score_c = (
-                X[mask] * (np.sqrt(w[mask]) * resid[mask])[:, None]
-            ).sum(axis=0)
+            score_c = (X[mask] * (np.sqrt(w[mask]) * resid[mask])[:, None]).sum(axis=0)
         else:
             score_c = (X[mask] * resid[mask, None]).sum(axis=0)
         meat += np.outer(score_c, score_c)
@@ -420,9 +436,9 @@ def _joint_f_test(
     idx = np.array(indices)
     V_sub = XtX_inv[np.ix_(idx, idx)]
     if w is not None:
-        sigma2 = np.sum(w * resid ** 2) / (n - k)
+        sigma2 = np.sum(w * resid**2) / (n - k)
     else:
-        sigma2 = np.sum(resid ** 2) / (n - k)
+        sigma2 = np.sum(resid**2) / (n - k)
 
     try:
         V_inv = np.linalg.inv(sigma2 * V_sub)

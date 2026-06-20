@@ -91,7 +91,7 @@ def jackknife_se(
     wider confidence intervals than asymptotic cluster-robust SEs.
     """
     # Extract formula components from the result
-    formula = result.model_info.get('formula', '')
+    formula = result.model_info.get("formula", "")
 
     # Parse the formula to get y and X variable names
     y_var, x_vars = _parse_formula(formula, result)
@@ -104,7 +104,7 @@ def jackknife_se(
     Y = df[y_var].values.astype(float)
     X_names = [v for v in x_vars if v in df.columns]
     X = np.column_stack([np.ones(len(df)), df[X_names].values.astype(float)])
-    var_names = ['_const'] + X_names
+    var_names = ["_const"] + X_names
 
     cl = df[cluster].values
     unique_cl = np.unique(cl)
@@ -137,9 +137,9 @@ def jackknife_se(
     for i, vn in enumerate(var_names):
         # Match variable name (handle _const vs Intercept)
         matched = None
-        if vn == '_const':
+        if vn == "_const":
             for pn in param_names:
-                if pn.lower() in ('intercept', '_const', 'const', '(intercept)'):
+                if pn.lower() in ("intercept", "_const", "const", "(intercept)"):
                     matched = pn
                     break
         else:
@@ -153,16 +153,16 @@ def jackknife_se(
 
     # Build new result
     model_info = dict(result.model_info)
-    model_info['se_type'] = 'cluster jackknife'
-    model_info['n_clusters'] = G
-    model_info['jackknife_dof'] = df_resid
+    model_info["se_type"] = "cluster jackknife"
+    model_info["n_clusters"] = G
+    model_info["jackknife_dof"] = df_resid
 
     data_info = dict(result.data_info)
-    data_info['df_resid'] = df_resid
+    data_info["df_resid"] = df_resid
 
     diagnostics = dict(result.diagnostics)
-    diagnostics['n_clusters'] = G
-    diagnostics['effective_dof'] = df_resid
+    diagnostics["n_clusters"] = G
+    diagnostics["effective_dof"] = df_resid
 
     _result = EconometricResults(
         params=params_series,
@@ -173,6 +173,7 @@ def jackknife_se(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.inference.jackknife_se",
@@ -244,7 +245,7 @@ def cr2_se(
     >>> cr2.model_info["se_type"]
     'CR2 (Bell-McCaffrey)'
     """
-    y_var, x_vars = _parse_formula(result.model_info.get('formula', ''), result)
+    y_var, x_vars = _parse_formula(result.model_info.get("formula", ""), result)
 
     cols = [y_var] + x_vars + [cluster]
     cols = [c for c in cols if c in data.columns]
@@ -253,7 +254,7 @@ def cr2_se(
     Y = df[y_var].values.astype(float)
     X_names = [v for v in x_vars if v in df.columns]
     X = np.column_stack([np.ones(len(df)), df[X_names].values.astype(float)])
-    var_names = ['_const'] + X_names
+    var_names = ["_const"] + X_names
 
     cl = df[cluster].values
     unique_cl = np.unique(cl)
@@ -305,17 +306,19 @@ def cr2_se(
                 dof_series[matched] = dof[i]
 
     model_info = dict(result.model_info)
-    model_info['se_type'] = 'CR2 (Bell-McCaffrey)'
-    model_info['n_clusters'] = G
+    model_info["se_type"] = "CR2 (Bell-McCaffrey)"
+    model_info["n_clusters"] = G
 
     data_info = dict(result.data_info)
     # Use minimum Satterthwaite DoF across coefficients
     min_dof = float(np.nanmin(dof)) if len(dof) > 0 else G - 1
-    data_info['df_resid'] = min_dof
+    data_info["df_resid"] = min_dof
 
     diagnostics = dict(result.diagnostics)
-    diagnostics['n_clusters'] = G
-    diagnostics['satterthwaite_dof'] = {var_names[i]: float(dof[i]) for i in range(len(dof))}
+    diagnostics["n_clusters"] = G
+    diagnostics["satterthwaite_dof"] = {
+        var_names[i]: float(dof[i]) for i in range(len(dof))
+    }
 
     _result = EconometricResults(
         params=result.params.copy(),
@@ -326,6 +329,7 @@ def cr2_se(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.inference.cr2_se",
@@ -344,7 +348,7 @@ def wild_cluster_boot(
     cluster: str,
     variable: str,
     n_boot: int = 999,
-    weight_type: str = 'rademacher',
+    weight_type: str = "rademacher",
     seed: Optional[int] = None,
     alpha: float = 0.05,
 ) -> Dict[str, Any]:
@@ -421,7 +425,7 @@ def wild_cluster_boot(
 
     rng = np.random.default_rng(seed)
 
-    y_var, x_vars = _parse_formula(result.model_info.get('formula', ''), result)
+    y_var, x_vars = _parse_formula(result.model_info.get("formula", ""), result)
 
     cols = [y_var] + x_vars + [cluster]
     cols = [c for c in cols if c in data.columns]
@@ -430,12 +434,10 @@ def wild_cluster_boot(
     Y = df[y_var].values.astype(float)
     X_names = [v for v in x_vars if v in df.columns]
     X = np.column_stack([np.ones(len(df)), df[X_names].values.astype(float)])
-    var_names = ['_const'] + X_names
+    var_names = ["_const"] + X_names
 
     if variable not in var_names:
-        raise ValueError(
-            f"Variable '{variable}' not found. Available: {var_names}"
-        )
+        raise ValueError(f"Variable '{variable}' not found. Available: {var_names}")
     test_idx = var_names.index(variable)
 
     cl = df[cluster].values
@@ -513,16 +515,16 @@ def wild_cluster_boot(
     )
 
     return {
-        'beta_hat': float(beta_test),
-        'se_cluster': se_cl,
-        't_stat': float(t_stat),
-        'p_boot': p_boot,
-        'ci_boot': ci_boot,
-        't_distribution': t_boot,
-        'n_clusters': G,
-        'n_obs': n,
-        'n_boot': n_boot,
-        'weight_type': weight_type,
+        "beta_hat": float(beta_test),
+        "se_cluster": se_cl,
+        "t_stat": float(t_stat),
+        "p_boot": p_boot,
+        "ci_boot": ci_boot,
+        "t_distribution": t_boot,
+        "n_clusters": G,
+        "n_obs": n,
+        "n_boot": n_boot,
+        "weight_type": weight_type,
     }
 
 
@@ -536,28 +538,32 @@ def _parse_formula(
     result: EconometricResults,
 ) -> Tuple[str, List[str]]:
     """Parse formula or extract variable names from result."""
-    if formula and '~' in formula:
-        lhs, rhs = formula.split('~', 1)
+    if formula and "~" in formula:
+        lhs, rhs = formula.split("~", 1)
         y_var = lhs.strip()
-        x_terms = [t.strip() for t in rhs.split('+')]
-        x_vars = [t for t in x_terms if t and t != '1']
+        x_terms = [t.strip() for t in rhs.split("+")]
+        x_vars = [t for t in x_terms if t and t != "1"]
         return y_var, x_vars
 
     # Fallback: use result parameter names
     param_names = list(result.params.index)
-    y_var = result.data_info.get('dependent_var',
-                result.model_info.get('depvar',
-                    result.data_info.get('y_var', 'y')))
-    x_vars = [p for p in param_names
-              if p.lower() not in ('intercept', '_const', 'const', '(intercept)')]
+    y_var = result.data_info.get(
+        "dependent_var",
+        result.model_info.get("depvar", result.data_info.get("y_var", "y")),
+    )
+    x_vars = [
+        p
+        for p in param_names
+        if p.lower() not in ("intercept", "_const", "const", "(intercept)")
+    ]
     return y_var, x_vars
 
 
 def _match_varname(vn: str, param_names: List[str]) -> Optional[str]:
     """Match a variable name to parameter names (handle _const/Intercept)."""
-    if vn == '_const':
+    if vn == "_const":
         for pn in param_names:
-            if pn.lower() in ('intercept', '_const', 'const', '(intercept)'):
+            if pn.lower() in ("intercept", "_const", "const", "(intercept)"):
                 return pn
         return None
     if vn in param_names:
@@ -571,15 +577,21 @@ def _draw_weights(
     rng: np.random.Generator,
 ) -> np.ndarray:
     """Draw G bootstrap weights from the specified distribution."""
-    if weight_type == 'rademacher':
+    if weight_type == "rademacher":
         return rng.choice([-1.0, 1.0], size=G)
-    elif weight_type == 'webb':
-        vals = np.array([
-            -np.sqrt(1.5), -np.sqrt(1.0), -np.sqrt(0.5),
-             np.sqrt(0.5),  np.sqrt(1.0),  np.sqrt(1.5),
-        ])
+    elif weight_type == "webb":
+        vals = np.array(
+            [
+                -np.sqrt(1.5),
+                -np.sqrt(1.0),
+                -np.sqrt(0.5),
+                np.sqrt(0.5),
+                np.sqrt(1.0),
+                np.sqrt(1.5),
+            ]
+        )
         return rng.choice(vals, size=G)
-    elif weight_type == 'mammen':
+    elif weight_type == "mammen":
         p = (np.sqrt(5) + 1) / (2 * np.sqrt(5))
         vals = np.array([-(np.sqrt(5) - 1) / 2, (np.sqrt(5) + 1) / 2])
         return rng.choice(vals, size=G, p=[p, 1 - p])
@@ -626,8 +638,8 @@ def _satterthwaite_dof(
 
     # Satterthwaite: dof = (sum A_jj)^2 / sum A_jj^2
     sum_A = A_diag.sum(axis=0)
-    sum_A2 = (A_diag ** 2).sum(axis=0)
-    dof = np.where(sum_A2 > 1e-20, sum_A ** 2 / sum_A2, G - 1)
+    sum_A2 = (A_diag**2).sum(axis=0)
+    dof = np.where(sum_A2 > 1e-20, sum_A**2 / sum_A2, G - 1)
 
     return dof
 
@@ -638,7 +650,7 @@ def _satterthwaite_dof(
 
 from ..core.results import CausalResult
 
-CausalResult._CITATIONS['jackknife_cluster'] = (
+CausalResult._CITATIONS["jackknife_cluster"] = (
     "@article{bell2002bias,\n"
     "  title={Bias Reduction in Standard Errors for Linear Regression "
     "with Multi-Stage Samples},\n"

@@ -146,6 +146,7 @@ def gsynth(
 
     if len(pre_times) < 3:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "GSynth needs at least 3 pre-treatment periods",
             recovery_hint=(
@@ -158,6 +159,7 @@ def gsynth(
         )
     if len(post_times) < 1:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "Need at least 1 post-treatment period",
             recovery_hint="Verify treatment_time is within the panel window.",
@@ -167,7 +169,7 @@ def gsynth(
 
     # Separate treated and control
     donors = [u for u in pivot.index if u != treated_unit]
-    Y0_pre = pivot.loc[donors, pre_times].values.astype(np.float64)   # (J, T0)
+    Y0_pre = pivot.loc[donors, pre_times].values.astype(np.float64)  # (J, T0)
     Y0_post = pivot.loc[donors, post_times].values.astype(np.float64)  # (J, T1)
     Y1_pre = pivot.loc[treated_unit, pre_times].values.astype(np.float64)  # (T0,)
     Y1_post = pivot.loc[treated_unit, post_times].values.astype(np.float64)  # (T1,)
@@ -179,8 +181,16 @@ def gsynth(
     beta_X = None
     if covariates:
         Y0_pre, Y1_pre, Y0_post, Y1_post, beta_X = _partial_out_covariates(
-            data, outcome, unit, time, treated_unit, treatment_time,
-            covariates, donors, pre_times, post_times,
+            data,
+            outcome,
+            unit,
+            time,
+            treated_unit,
+            treatment_time,
+            covariates,
+            donors,
+            pre_times,
+            post_times,
         )
 
     Y0_all = np.concatenate([Y0_pre, Y0_post], axis=1)
@@ -226,9 +236,7 @@ def gsynth(
                 Y_ctrl_all = np.concatenate([Y_ctrl_pre, Y_ctrl_post], axis=1)
                 max_rank_p = max(0, min(Y_ctrl_all.shape) - 1)
                 r_p = min(n_factors, max_rank_p)
-                plac_fit = _fit_control_factor_model(
-                    Y_ctrl_all, Y_plac, T0, r_p
-                )
+                plac_fit = _fit_control_factor_model(Y_ctrl_all, Y_plac, T0, r_p)
                 hat_post = np.asarray(plac_fit["treated_counterfactual"])[T0:]
                 placebo_atts.append(float(np.mean(Y_plac_post - hat_post)))
             except Exception:
@@ -246,18 +254,22 @@ def gsynth(
     ci = (att - z_crit * se, att + z_crit * se)
 
     # --- Results ---
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "treated": Y1_post,
-        "counterfactual": Y1_hat_post,
-        "effect": effects,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "treated": Y1_post,
+            "counterfactual": Y1_hat_post,
+            "effect": effects,
+        }
+    )
 
-    trajectory_df = pd.DataFrame({
-        "time": all_times,
-        "treated": np.concatenate([Y1_pre, Y1_post]),
-        "synthetic": np.concatenate([Y1_hat_pre, Y1_hat_post]),
-    })
+    trajectory_df = pd.DataFrame(
+        {
+            "time": all_times,
+            "treated": np.concatenate([Y1_pre, Y1_post]),
+            "synthetic": np.concatenate([Y1_hat_pre, Y1_hat_post]),
+        }
+    )
 
     model_info = {
         "backend": "native",
@@ -357,7 +369,7 @@ def _gsynth_r_backend(
     ).astype(int)
     panel_df = panel_df.sort_values([unit_col, time_col]).reset_index(drop=True)
 
-    r_script = r'''
+    r_script = r"""
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 5) {
   stop("expected 5 arguments: input output treatment_time max_factors seed")
@@ -407,7 +419,7 @@ jsonlite::write_json(
   na = "null",
   digits = 16
 )
-'''
+"""
 
     rscript = _find_rscript()
     with tempfile.TemporaryDirectory(prefix="statspai_gsynth_") as tmp:
@@ -435,8 +447,7 @@ jsonlite::write_json(
         )
         if proc.returncode != 0:
             raise RuntimeError(
-                "R gsynth backend failed. stderr:\n"
-                f"{proc.stderr.strip()}"
+                "R gsynth backend failed. stderr:\n" f"{proc.stderr.strip()}"
             )
         payload = json.loads(out_path.read_text(encoding="utf-8"))
 
@@ -451,7 +462,7 @@ jsonlite::write_json(
         "n_pre_periods": int(payload["n_pre_periods"]),
         "n_post_periods": int(payload["n_post_periods"]),
         "pre_treatment_rmse": pre_rmse,
-        "pre_treatment_mspe": pre_rmse ** 2,
+        "pre_treatment_mspe": pre_rmse**2,
         "treatment_time": treatment_time,
         "treated_unit": treated_unit,
     }
@@ -474,6 +485,7 @@ jsonlite::write_json(
 # ====================================================================== #
 #  Internal helpers
 # ====================================================================== #
+
 
 def _twoway_demean(Y: np.ndarray) -> tuple[Any, Any, Any, Any]:
     """Remove row means, column means, and grand mean."""
@@ -513,10 +525,12 @@ def _fit_control_factor_model(
         control_loadings = U[:, :n_factors] * S_full[:n_factors]
         singular_values = S_full[:n_factors]
 
-        design_pre = np.column_stack([
-            np.ones(n_pre_periods),
-            factors[:n_pre_periods],
-        ])
+        design_pre = np.column_stack(
+            [
+                np.ones(n_pre_periods),
+                factors[:n_pre_periods],
+            ]
+        )
         target_pre = Y1_pre - grand_mean - time_fe[:n_pre_periods]
         coef = np.linalg.lstsq(design_pre, target_pre, rcond=None)[0]
         treated_unit_fe = float(coef[0])
@@ -604,14 +618,19 @@ def _select_factors_cv(
 
 
 def _partial_out_covariates(
-    data: Any, outcome: Any, unit: Any, time: Any, treated_unit: Any,
-    treatment_time: Any, covariates: Any, donors: Any, pre_times: Any,
+    data: Any,
+    outcome: Any,
+    unit: Any,
+    time: Any,
+    treated_unit: Any,
+    treatment_time: Any,
+    covariates: Any,
+    donors: Any,
+    pre_times: Any,
     post_times: Any,
 ) -> tuple[Any, Any, Any, Any, Any]:
     """Partial out covariates via OLS, return residualised outcomes."""
-    pre_ctrl = data[
-        (data[unit].isin(donors)) & (data[time].isin(pre_times))
-    ].copy()
+    pre_ctrl = data[(data[unit].isin(donors)) & (data[time].isin(pre_times))].copy()
 
     X = pre_ctrl[covariates].values
     y = pre_ctrl[outcome].values

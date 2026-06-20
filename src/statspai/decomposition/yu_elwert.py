@@ -40,10 +40,11 @@ Yu, A. & Elwert, F. (2025). Nonparametric causal decomposition of
 group disparities. *Annals of Applied Statistics*, 19(1), 821-845.
 doi:10.1214/24-AOAS1990. R implementation: ``cdgd``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, ClassVar, Dict, Optional, Sequence, Tuple
+from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -54,15 +55,14 @@ from ._common import (
     bootstrap_stat,
     logit_fit,
     logit_predict,
-    prepare_frame,
     wls,
 )
 from ._results import DecompResultMixin
 
-
 # ════════════════════════════════════════════════════════════════════════
 # Result class
 # ════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class YuElwertResult(DecompResultMixin):
@@ -148,6 +148,7 @@ class YuElwertResult(DecompResultMixin):
                 se = self.se[se_key]
                 z = abs(val) / se if se > 0 else 0.0
                 from scipy.stats import norm
+
                 pval = 2 * (1 - norm.cdf(z))
                 line += f"   SE={se:.4f}{sig_stars(pval):<3s}"
                 if self.ci and se_key in self.ci:
@@ -156,8 +157,11 @@ class YuElwertResult(DecompResultMixin):
             return line
 
         residual = (
-            self.disparity - self.baseline - self.prevalence
-            - self.effect - self.selection
+            self.disparity
+            - self.baseline
+            - self.prevalence
+            - self.effect
+            - self.selection
         )
         lines = [
             "━" * 70,
@@ -186,6 +190,7 @@ class YuElwertResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import yu_elwert_mechanisms_plot
+
         return yu_elwert_mechanisms_plot(self, **kwargs)
 
     # ── confint override (the mixin reads from `overall`, but
@@ -199,10 +204,10 @@ class YuElwertResult(DecompResultMixin):
         if not self.se:
             return None
         from scipy.stats import norm
+
         z = float(norm.ppf(1 - alpha / 2))
         out: Dict[str, Tuple[float, float]] = {}
-        for key in ("disparity", "baseline", "prevalence", "effect",
-                    "selection"):
+        for key in ("disparity", "baseline", "prevalence", "effect", "selection"):
             v = getattr(self, key)
             s = self.se.get(key, 0.0)
             if s and s > 0:
@@ -220,8 +225,10 @@ class YuElwertResult(DecompResultMixin):
             ("Selection", self.selection, "selection"),
         ]
         out = [
-            r"\begin{tabular}{lcc}", r"\toprule",
-            r"Component & Estimate & Std.\ Error \\", r"\midrule",
+            r"\begin{tabular}{lcc}",
+            r"\toprule",
+            r"Component & Estimate & Std.\ Error \\",
+            r"\midrule",
         ]
         for label, val, key in rows:
             se = (self.se or {}).get(key, None)
@@ -252,8 +259,12 @@ class YuElwertResult(DecompResultMixin):
 # Internal: plug-in nuisances
 # ════════════════════════════════════════════════════════════════════════
 
+
 def _fit_within_cell_outcome(
-    y: np.ndarray, X: np.ndarray, t: np.ndarray, r: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
+    t: np.ndarray,
+    r: np.ndarray,
 ) -> Tuple[Dict[Tuple[int, int], np.ndarray], int]:
     """Fit four within-cell OLS regressions m_rt(X).
 
@@ -270,9 +281,9 @@ def _fit_within_cell_outcome(
                 grp_mask = r == r_val
                 fallback = np.zeros(k)
                 fallback[0] = (
-                    float(y[mask].mean()) if mask.any()
-                    else float(y[grp_mask].mean()) if grp_mask.any()
-                    else 0.0
+                    float(y[mask].mean())
+                    if mask.any()
+                    else float(y[grp_mask].mean()) if grp_mask.any() else 0.0
                 )
                 out[(r_val, t_val)] = fallback
                 fallback_count += 1
@@ -283,7 +294,9 @@ def _fit_within_cell_outcome(
 
 
 def _fit_within_group_propensity(
-    t: np.ndarray, X: np.ndarray, r: np.ndarray,
+    t: np.ndarray,
+    X: np.ndarray,
+    r: np.ndarray,
 ) -> Dict[int, np.ndarray]:
     """Fit p_r(X) = P(T=1|R=r,X) via within-group logit."""
     out: Dict[int, np.ndarray] = {}
@@ -299,7 +312,10 @@ def _fit_within_group_propensity(
 
 
 def _components_from_nuisance(
-    y: np.ndarray, t: np.ndarray, r: np.ndarray, X: np.ndarray,
+    y: np.ndarray,
+    t: np.ndarray,
+    r: np.ndarray,
+    X: np.ndarray,
     m_coef: Dict[Tuple[int, int], np.ndarray],
     p_coef: Dict[int, np.ndarray],
     *,
@@ -345,19 +361,17 @@ def _components_from_nuisance(
         m_a0_in, m_a1_in = m_a0_all[grp_a], m_a1_all[grp_a]
         m_b0_in, m_b1_in = m_b0_all[grp_b], m_b1_all[grp_b]
 
-        ey0_a = float(np.mean(
-            m_a0_in + (1 - t_a) / (1 - p_a_in) * (y_a - m_a0_in)
-        ))
-        ey0_b = float(np.mean(
-            m_b0_in + (1 - t_b) / (1 - p_b_in) * (y_b - m_b0_in)
-        ))
+        ey0_a = float(np.mean(m_a0_in + (1 - t_a) / (1 - p_a_in) * (y_a - m_a0_in)))
+        ey0_b = float(np.mean(m_b0_in + (1 - t_b) / (1 - p_b_in) * (y_b - m_b0_in)))
         psi_a = (
-            m_a1_in - m_a0_in
+            m_a1_in
+            - m_a0_in
             + t_a / p_a_in * (y_a - m_a1_in)
             - (1 - t_a) / (1 - p_a_in) * (y_a - m_a0_in)
         )
         psi_b = (
-            m_b1_in - m_b0_in
+            m_b1_in
+            - m_b0_in
             + t_b / p_b_in * (y_b - m_b1_in)
             - (1 - t_b) / (1 - p_b_in) * (y_b - m_b0_in)
         )
@@ -383,12 +397,8 @@ def _components_from_nuisance(
     effect = eD_a * (e_tau_a - e_tau_b)
 
     # Selection: Cov_a(T, τ_a) − Cov_b(T, τ_b)
-    cov_a = float(
-        np.mean(t[grp_a] * tau_a_per_obs[grp_a]) - eD_a * e_tau_a
-    )
-    cov_b = float(
-        np.mean(t[grp_b] * tau_b_per_obs[grp_b]) - eD_b * e_tau_b
-    )
+    cov_a = float(np.mean(t[grp_a] * tau_a_per_obs[grp_a]) - eD_a * e_tau_a)
+    cov_b = float(np.mean(t[grp_b] * tau_b_per_obs[grp_b]) - eD_b * e_tau_b)
     selection = cov_a - cov_b
 
     disparity = eY_a - eY_b
@@ -404,6 +414,7 @@ def _components_from_nuisance(
 # ════════════════════════════════════════════════════════════════════════
 # Public API
 # ════════════════════════════════════════════════════════════════════════
+
 
 def yu_elwert_decompose(
     data: pd.DataFrame,
@@ -504,8 +515,7 @@ def yu_elwert_decompose(
     if inference not in ("bootstrap", "none"):
         raise ValueError("inference must be 'bootstrap' or 'none'")
 
-    cols = [y, treatment, group] + list(x) \
-        + ([cluster] if cluster else [])
+    cols = [y, treatment, group] + list(x) + ([cluster] if cluster else [])
     df = data[cols].dropna().copy()
     if df.empty:
         raise ValueError("No complete observations after dropping NA.")
@@ -531,8 +541,14 @@ def yu_elwert_decompose(
         fallback_total[0] += fb
         p_coef = _fit_within_group_propensity(t_, X_, r_)
         return _components_from_nuisance(
-            y_, t_, r_, X_, m_coef, p_coef,
-            efficient=(method == "efficient"), trim=trim,
+            y_,
+            t_,
+            r_,
+            X_,
+            m_coef,
+            p_coef,
+            efficient=(method == "efficient"),
+            trim=trim,
         )
 
     point = _point(None)
@@ -556,10 +572,14 @@ def yu_elwert_decompose(
 
         rng = np.random.default_rng(seed)
         import warnings as _warnings
+
         with _warnings.catch_warnings(record=True) as caught:
             _warnings.simplefilter("always")
             boot = bootstrap_stat(
-                stat_fn, n=len(y_arr), n_boot=n_boot, rng=rng,
+                stat_fn,
+                n=len(y_arr),
+                n_boot=n_boot,
+                rng=rng,
                 clusters=cluster_arr,
             )
         # Re-emit the warning *and* extract the failure count if present.
@@ -576,24 +596,30 @@ def yu_elwert_decompose(
             raise RuntimeError("All bootstrap replications failed.")  # pragma: no cover
         point_arr = np.array([point[k] for k in keys])
         ses, los, his = bootstrap_ci(
-            boot, point_arr, alpha=alpha, method="percentile",
+            boot,
+            point_arr,
+            alpha=alpha,
+            method="percentile",
         )
         se = {k: float(ses[i]) for i, k in enumerate(keys)}
         ci = {k: (float(los[i]), float(his[i])) for i, k in enumerate(keys)}
 
-    detailed = pd.DataFrame([
-        dict(
-            component=k.title(),
-            value=point[k],
-            se=(se or {}).get(k, np.nan),
-            ci_low=(ci or {}).get(k, (np.nan, np.nan))[0],
-            ci_high=(ci or {}).get(k, (np.nan, np.nan))[1],
-        )
-        for k in ("disparity", "baseline", "prevalence", "effect", "selection")
-    ])
+    detailed = pd.DataFrame(
+        [
+            dict(
+                component=k.title(),
+                value=point[k],
+                se=(se or {}).get(k, np.nan),
+                ci_low=(ci or {}).get(k, (np.nan, np.nan))[0],
+                ci_high=(ci or {}).get(k, (np.nan, np.nan))[1],
+            )
+            for k in ("disparity", "baseline", "prevalence", "effect", "selection")
+        ]
+    )
 
     nuisance = dict(
-        n_a=n_a, n_b=n_b,
+        n_a=n_a,
+        n_b=n_b,
         n_treated_a=int(((r_arr == 1) & (t_arr == 1)).sum()),
         n_treated_b=int(((r_arr == 0) & (t_arr == 1)).sum()),
         e_t_a=float(t_arr[r_arr == 1].mean()) if n_a else float("nan"),

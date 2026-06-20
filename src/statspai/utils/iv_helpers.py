@@ -121,7 +121,7 @@ def scalar_iv_projection(
     fitted = pd.Series(np.nan, index=data.index, dtype=float)
     fitted.loc[df.index] = fitted_in_sample
 
-    col_name = new_col or f'{treat}_iv_hat'
+    col_name = new_col or f"{treat}_iv_hat"
     if return_column:
         fitted.name = col_name
         return fitted

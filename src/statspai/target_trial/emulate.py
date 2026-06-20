@@ -90,6 +90,7 @@ class TargetTrialResult(ResultProtocolMixin):
         See :func:`statspai.target_trial.to_paper` for details.
         """
         from .report import to_paper as _to_paper
+
         fmt_lit = cast(
             Literal["markdown", "latex", "text", "target", "jama", "bmj"],
             fmt,
@@ -181,8 +182,8 @@ def emulate(
     m0 = float(np.sum(w * (1 - a) * y) / sum_w0)
     estimate = m1 - m0
 
-    v1 = float(np.sum(w * a * (y - m1) ** 2) / sum_w1 ** 2)
-    v0 = float(np.sum(w * (1 - a) * (y - m0) ** 2) / sum_w0 ** 2)
+    v1 = float(np.sum(w * a * (y - m1) ** 2) / sum_w1**2)
+    v0 = float(np.sum(w * (1 - a) * (y - m0) ** 2) / sum_w0**2)
     se = float(np.sqrt(v1 + v0))
     ci = (estimate - 1.96 * se, estimate + 1.96 * se)
 
@@ -198,6 +199,7 @@ def emulate(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.target_trial.emulate",

@@ -17,6 +17,7 @@ a public-domain CSV bundled in ``statspai/datasets/data/``.  Use this
 for exact paper replication; ``df.attrs['data_source']`` will be set
 to ``'real'`` and ``df.attrs['simulated']`` to ``False``.
 """
+
 from __future__ import annotations
 
 from importlib import resources
@@ -53,6 +54,7 @@ def _load_bundled_csv(name: str) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Callaway-Sant'Anna (2021) — mpdta — teen employment × minimum wage
 # ---------------------------------------------------------------------------
+
 
 def mpdta(seed: int = 42) -> pd.DataFrame:
     """Simulated replica of the ``mpdta`` dataset from R's ``did`` package.
@@ -106,22 +108,24 @@ def mpdta(seed: int = 42) -> pd.DataFrame:
             trend = 0.01 * (t - 2003)
             eps = rng.normal(scale=0.08)
             y = 8.2 + trend + county_fe + te + eps
-            rows.append({
-                'countyreal': c,
-                'year': t,
-                'lemp': y,
-                'first_treat': first_t,
-                'treat': post,
-            })
+            rows.append(
+                {
+                    "countyreal": c,
+                    "year": t,
+                    "lemp": y,
+                    "first_treat": first_t,
+                    "treat": post,
+                }
+            )
 
     df = pd.DataFrame(rows)
-    df.attrs['paper'] = (
+    df.attrs["paper"] = (
         "Callaway & Sant'Anna (2021), 'Difference-in-Differences with "
         "Multiple Time Periods', Journal of Econometrics 225(2), 200-230."
     )
-    df.attrs['expected_simple_att'] = -0.04
-    df.attrs['published_simple_att_original'] = -0.0454
-    df.attrs['notes'] = (
+    df.attrs["expected_simple_att"] = -0.04
+    df.attrs["published_simple_att_original"] = -0.0454
+    df.attrs["notes"] = (
         "Simulated replica matching mpdta structure; "
         "calibrated for ATT ≈ -0.04. Numerical parity with R::did on the "
         "original mpdta is documented in "
@@ -133,6 +137,7 @@ def mpdta(seed: int = 42) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Card (1995) — IV returns to schooling
 # ---------------------------------------------------------------------------
+
 
 def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     """Card (1995) NLS Young Men data — simulated replica or real extract.
@@ -175,24 +180,24 @@ def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     """
     if not simulated:
         df = _load_bundled_csv("card_1995.csv")
-        df.attrs['paper'] = (
+        df.attrs["paper"] = (
             "Card, D. (1995). Using Geographic Variation in College "
             "Proximity to Estimate the Return to Schooling."
         )
-        df.attrs['data_source'] = 'real'
-        df.attrs['simulated'] = False
-        df.attrs['source_origin'] = (
+        df.attrs["data_source"] = "real"
+        df.attrs["simulated"] = False
+        df.attrs["source_origin"] = (
             "R wooldridge::card complete-cases subset on the Card 1995 "
             "modelling variables (lwage, educ, exper, expersq, black, "
             "south, smsa, nearc4, nearc2)."
         )
         # StatsPAI-pinned values on this real extract (regression-test
         # references; verified against R AER::ivreg).
-        df.attrs['statspai_pinned_ols_educ'] = 0.0740
-        df.attrs['statspai_pinned_iv_educ'] = 0.1323
-        df.attrs['published_ols_table2_col2'] = 0.075
-        df.attrs['published_iv_table2_col5'] = 0.132
-        df.attrs['notes'] = (
+        df.attrs["statspai_pinned_ols_educ"] = 0.0740
+        df.attrs["statspai_pinned_iv_educ"] = 0.1323
+        df.attrs["published_ols_table2_col2"] = 0.075
+        df.attrs["published_iv_table2_col5"] = 0.132
+        df.attrs["notes"] = (
             "Real NLSYM extract (n=3010) matching wooldridge::card.  "
             "StatsPAI's HC1-OLS and 2SLS recover the published Card "
             "(1995) Table 2 numbers to 3 decimal places. See "
@@ -203,7 +208,7 @@ def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
 
     rng = np.random.default_rng(seed)
     n = 3010
-    nearc4 = rng.binomial(1, 0.68, n)    # ~68% lived near 4-year college
+    nearc4 = rng.binomial(1, 0.68, n)  # ~68% lived near 4-year college
     black = rng.binomial(1, 0.23, n)
     south = rng.binomial(1, 0.40, n)
     smsa = rng.binomial(1, 0.71, n)
@@ -223,8 +228,8 @@ def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     # Wage equation on TRUE educ (not observed).
     lwage = (
         4.5
-        + 0.132 * true_educ      # structural return (what IV recovers)
-        + 0.35 * u               # ability premium
+        + 0.132 * true_educ  # structural return (what IV recovers)
+        + 0.35 * u  # ability premium
         + 0.03 * exper
         - 0.0005 * exper**2
         - 0.15 * black
@@ -232,27 +237,29 @@ def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
         + 0.10 * smsa
         + rng.normal(scale=0.35, size=n)
     )
-    df = pd.DataFrame({
-        'lwage': lwage,
-        'educ': educ,
-        'exper': exper,
-        'expersq': exper**2,
-        'black': black.astype(int),
-        'south': south.astype(int),
-        'smsa': smsa.astype(int),
-        'nearc4': nearc4.astype(int),
-    })
-    df.attrs['paper'] = (
+    df = pd.DataFrame(
+        {
+            "lwage": lwage,
+            "educ": educ,
+            "exper": exper,
+            "expersq": exper**2,
+            "black": black.astype(int),
+            "south": south.astype(int),
+            "smsa": smsa.astype(int),
+            "nearc4": nearc4.astype(int),
+        }
+    )
+    df.attrs["paper"] = (
         "Card, D. (1995). Using Geographic Variation in College Proximity "
         "to Estimate the Return to Schooling."
     )
     # Calibrated values on this simulated replica (not the original data).
-    df.attrs['expected_ols_educ'] = 0.11
-    df.attrs['expected_iv_educ'] = 0.142
+    df.attrs["expected_ols_educ"] = 0.11
+    df.attrs["expected_iv_educ"] = 0.142
     # Published values on the original NLS Young Men data:
-    df.attrs['published_ols_original'] = 0.075
-    df.attrs['published_iv_original'] = 0.132
-    df.attrs['notes'] = (
+    df.attrs["published_ols_original"] = 0.075
+    df.attrs["published_iv_original"] = 0.132
+    df.attrs["notes"] = (
         "Simulated replica preserving the Card (1995) key pattern: "
         "IV > OLS (the 'Card puzzle').  On this DGP OLS ≈ 0.11, "
         "IV ≈ 0.142; on the original NLSYM data Card reports OLS = 0.075 "
@@ -271,6 +278,7 @@ def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # LaLonde (1986) — NSW experimental
 # ---------------------------------------------------------------------------
+
 
 def nsw_lalonde(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     """LaLonde NSW data — simulated replica or real MatchIt extract.
@@ -303,23 +311,23 @@ def nsw_lalonde(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     """
     if not simulated:
         df = _load_bundled_csv("lalonde_matchit.csv")
-        df.attrs['paper'] = (
+        df.attrs["paper"] = (
             "Dehejia, R. & Wahba, S. (1999). Causal Effects in "
             "Nonexperimental Studies: Reevaluating the Evaluation of "
             "Training Programs."
         )
-        df.attrs['data_source'] = 'real'
-        df.attrs['simulated'] = False
-        df.attrs['source_origin'] = (
+        df.attrs["data_source"] = "real"
+        df.attrs["simulated"] = False
+        df.attrs["source_origin"] = (
             "R MatchIt::lalonde (n=614): 185 NSW treated + 429 PSID-1 "
             "controls.  race factor split into black + hispanic dummies."
         )
         # StatsPAI-pinned values on this real extract.
-        df.attrs['statspai_pinned_naive_ols_att'] = -635.0
-        df.attrs['statspai_pinned_adj_ols_att']   = 1548.2
-        df.attrs['statspai_pinned_psm_att']       = 1963.4
-        df.attrs['published_dehejia_wahba_psm']   = 1794
-        df.attrs['notes'] = (
+        df.attrs["statspai_pinned_naive_ols_att"] = -635.0
+        df.attrs["statspai_pinned_adj_ols_att"] = 1548.2
+        df.attrs["statspai_pinned_psm_att"] = 1963.4
+        df.attrs["published_dehejia_wahba_psm"] = 1794
+        df.attrs["notes"] = (
             "Real MatchIt::lalonde extract (n=614). Naive OLS recovers "
             "-$635 because PSID-1 is truncated to 429 controls; "
             "covariate-adjusted OLS recovers $1,548 and 1:1 NN PSM "
@@ -361,8 +369,7 @@ def _nsw_lalonde_simulated(seed: int = 42) -> pd.DataFrame:
     """
     rng = np.random.default_rng(seed)
     n_t, n_c = 185, 260
-    treat = np.concatenate([np.ones(n_t, dtype=int),
-                            np.zeros(n_c, dtype=int)])
+    treat = np.concatenate([np.ones(n_t, dtype=int), np.zeros(n_c, dtype=int)])
     n = n_t + n_c
 
     age = rng.normal(25.3, 7.2, n).clip(17, 55).astype(int)
@@ -373,44 +380,44 @@ def _nsw_lalonde_simulated(seed: int = 42) -> pd.DataFrame:
     nodegree = (education < 12).astype(int)
     # Pre-treatment earnings (most are zero in real data)
     zero74 = rng.binomial(1, 0.71, n).astype(bool)
-    re74 = np.where(zero74, 0.0,
-                    np.maximum(0.0, rng.normal(2096, 5000, n)))
+    re74 = np.where(zero74, 0.0, np.maximum(0.0, rng.normal(2096, 5000, n)))
     zero75 = rng.binomial(1, 0.60, n).astype(bool)
-    re75 = np.where(zero75, 0.0,
-                    np.maximum(0.0, rng.normal(1532, 3220, n)))
+    re75 = np.where(zero75, 0.0, np.maximum(0.0, rng.normal(1532, 3220, n)))
 
     # Calibrated treatment effect: 1794 on re78, with substantial noise
     re78 = (
         5090.0
-        + 1794.0 * treat                                   # homogeneous ATT
+        + 1794.0 * treat  # homogeneous ATT
         + 0.40 * re75
         + 0.10 * re74
         - 70.0 * nodegree
         - 500.0 * black
         - 200.0 * hispanic
         + 800.0 * married
-        + rng.normal(5300, 6500, n)                        # noisy
+        + rng.normal(5300, 6500, n)  # noisy
     )
     re78 = np.maximum(0.0, re78)
 
-    df = pd.DataFrame({
-        'treat': treat,
-        'age': age,
-        'education': education,
-        'black': black.astype(int),
-        'hispanic': hispanic.astype(int),
-        'married': married.astype(int),
-        'nodegree': nodegree.astype(int),
-        're74': re74,
-        're75': re75,
-        're78': re78,
-    })
-    df.attrs['paper'] = (
+    df = pd.DataFrame(
+        {
+            "treat": treat,
+            "age": age,
+            "education": education,
+            "black": black.astype(int),
+            "hispanic": hispanic.astype(int),
+            "married": married.astype(int),
+            "nodegree": nodegree.astype(int),
+            "re74": re74,
+            "re75": re75,
+            "re78": re78,
+        }
+    )
+    df.attrs["paper"] = (
         "LaLonde (1986); Dehejia & Wahba (1999). NSW experimental subset."
     )
-    df.attrs['expected_experimental_att'] = 1794
-    df.attrs['published_dehejia_wahba_att'] = 1794
-    df.attrs['notes'] = (
+    df.attrs["expected_experimental_att"] = 1794
+    df.attrs["published_dehejia_wahba_att"] = 1794
+    df.attrs["notes"] = (
         "Simulated replica of the 185+260 NSW experimental subset. "
         "ATT calibrated to $1,794 by construction. Use with sp.regress, "
         "sp.match, sp.ebalance — all should recover ~$1,794 ± noise."
@@ -451,10 +458,16 @@ def nsw_dw(seed: int = 42) -> pd.DataFrame:
     hisp_t = rng.binomial(1, 0.10, n_t)
     married_t = rng.binomial(1, 0.17, n_t)
     ndeg_t = (educ_t < 12).astype(int)
-    re74_t = np.where(rng.binomial(1, 0.71, n_t).astype(bool), 0.0,
-                      np.maximum(0.0, rng.normal(2096, 5000, n_t)))
-    re75_t = np.where(rng.binomial(1, 0.60, n_t).astype(bool), 0.0,
-                      np.maximum(0.0, rng.normal(1532, 3220, n_t)))
+    re74_t = np.where(
+        rng.binomial(1, 0.71, n_t).astype(bool),
+        0.0,
+        np.maximum(0.0, rng.normal(2096, 5000, n_t)),
+    )
+    re75_t = np.where(
+        rng.binomial(1, 0.60, n_t).astype(bool),
+        0.0,
+        np.maximum(0.0, rng.normal(1532, 3220, n_t)),
+    )
 
     # Controls = PSID-1 (older, more educated, higher earnings)
     age_c = rng.normal(34.9, 10.4, n_c).clip(17, 55).astype(int)
@@ -479,35 +492,48 @@ def nsw_dw(seed: int = 42) -> pd.DataFrame:
         re75: np.ndarray,
         treat: np.ndarray,
     ) -> np.ndarray:
-        base = (-500 + 40*age + 250*educ - 800*black - 200*hisp
-                + 700*married + 0.25*re74 + 0.22*re75)
+        base = (
+            -500
+            + 40 * age
+            + 250 * educ
+            - 800 * black
+            - 200 * hisp
+            + 700 * married
+            + 0.25 * re74
+            + 0.22 * re75
+        )
         return np.asarray(
-            np.maximum(0.0, base + 1794*treat + rng.normal(0, 5800, len(age))),
+            np.maximum(0.0, base + 1794 * treat + rng.normal(0, 5800, len(age))),
             dtype=float,
         )
 
-    re78_t = _re78(age_t, educ_t, black_t, hisp_t, married_t,
-                   re74_t, re75_t, np.ones(n_t))
-    re78_c = _re78(age_c, educ_c, black_c, hisp_c, married_c,
-                   re74_c, re75_c, np.zeros(n_c))
+    re78_t = _re78(
+        age_t, educ_t, black_t, hisp_t, married_t, re74_t, re75_t, np.ones(n_t)
+    )
+    re78_c = _re78(
+        age_c, educ_c, black_c, hisp_c, married_c, re74_c, re75_c, np.zeros(n_c)
+    )
 
-    df = pd.DataFrame({
-        'treat': np.concatenate([np.ones(n_t, dtype=int),
-                                 np.zeros(n_c, dtype=int)]),
-        'age': np.concatenate([age_t, age_c]),
-        'education': np.concatenate([educ_t, educ_c]),
-        'black': np.concatenate([black_t, black_c]).astype(int),
-        'hispanic': np.concatenate([hisp_t, hisp_c]).astype(int),
-        'married': np.concatenate([married_t, married_c]).astype(int),
-        'nodegree': np.concatenate([ndeg_t, ndeg_c]).astype(int),
-        're74': np.concatenate([re74_t, re74_c]),
-        're75': np.concatenate([re75_t, re75_c]),
-        're78': np.concatenate([re78_t, re78_c]),
-    })
-    df.attrs['paper'] = "Dehejia & Wahba (1999). NSW + PSID-1."
-    df.attrs['expected_naive_ols_att'] = -8498
-    df.attrs['expected_psm_att'] = 1794
-    df.attrs['notes'] = (
+    df = pd.DataFrame(
+        {
+            "treat": np.concatenate(
+                [np.ones(n_t, dtype=int), np.zeros(n_c, dtype=int)]
+            ),
+            "age": np.concatenate([age_t, age_c]),
+            "education": np.concatenate([educ_t, educ_c]),
+            "black": np.concatenate([black_t, black_c]).astype(int),
+            "hispanic": np.concatenate([hisp_t, hisp_c]).astype(int),
+            "married": np.concatenate([married_t, married_c]).astype(int),
+            "nodegree": np.concatenate([ndeg_t, ndeg_c]).astype(int),
+            "re74": np.concatenate([re74_t, re74_c]),
+            "re75": np.concatenate([re75_t, re75_c]),
+            "re78": np.concatenate([re78_t, re78_c]),
+        }
+    )
+    df.attrs["paper"] = "Dehejia & Wahba (1999). NSW + PSID-1."
+    df.attrs["expected_naive_ols_att"] = -8498
+    df.attrs["expected_psm_att"] = 1794
+    df.attrs["notes"] = (
         "Simulated PSID-1 comparison: naive OLS on re78~treat yields "
         "strongly negative (-$8,498) because PSID controls are much "
         "better-off.  Covariate-adjusted / PSM / entropy-balance "
@@ -519,6 +545,7 @@ def nsw_dw(seed: int = 42) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Lee (2008) — US Senate RD
 # ---------------------------------------------------------------------------
+
 
 def lee_2008_senate(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     """Lee (2008) US Senate RD — simulated replica or real extract.
@@ -559,21 +586,21 @@ def lee_2008_senate(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     """
     if not simulated:
         df = _load_bundled_csv("lee_2008_senate.csv")
-        df.attrs['paper'] = (
+        df.attrs["paper"] = (
             "Lee, D. (2008). Randomized experiments from non-random "
             "selection in U.S. House elections."
         )
-        df.attrs['data_source'] = 'real'
-        df.attrs['simulated'] = False
-        df.attrs['source_origin'] = (
+        df.attrs["data_source"] = "real"
+        df.attrs["simulated"] = False
+        df.attrs["source_origin"] = (
             "R rdrobust::rdrobust_RDsenate (n=1390): lagged Democratic "
             "vote margin (x) and current Democratic vote share (y, "
             "percent points 0-100)."
         )
-        df.attrs['statspai_pinned_conv_estimate_cct_bw'] = 7.414
-        df.attrs['statspai_pinned_robust_estimate_cct_bw'] = 7.507
-        df.attrs['published_lee2008_table1'] = 7.99
-        df.attrs['notes'] = (
+        df.attrs["statspai_pinned_conv_estimate_cct_bw"] = 7.414
+        df.attrs["statspai_pinned_robust_estimate_cct_bw"] = 7.507
+        df.attrs["published_lee2008_table1"] = 7.99
+        df.attrs["notes"] = (
             "Real Lee Senate RD panel (n=1390).  Use kernel='triangular' "
             "and bwselect='cct' for R-parity with rdrobust."
         )
@@ -587,15 +614,19 @@ def lee_2008_senate(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     # Voteshare in t+1: continuous in margin + jump at 0 of magnitude 0.08
     voteshare_next = 0.45 + 0.08 * win + 0.35 * margin + rng.normal(0, 0.10, n)
     voteshare_next = np.clip(voteshare_next, 0, 1)
-    df = pd.DataFrame({
-        'voteshare_next': voteshare_next,
-        'margin': margin,
-        'win': win.astype(int),
-    })
-    df.attrs['paper'] = "Lee (2008). Journal of Econometrics 142, 675-697."
-    df.attrs['expected_jump_at_cutoff'] = 0.08
-    df.attrs['published_jump_original'] = 0.077  # Lee (2008) Table 4 incumbency advantage
-    df.attrs['notes'] = (
+    df = pd.DataFrame(
+        {
+            "voteshare_next": voteshare_next,
+            "margin": margin,
+            "win": win.astype(int),
+        }
+    )
+    df.attrs["paper"] = "Lee (2008). Journal of Econometrics 142, 675-697."
+    df.attrs["expected_jump_at_cutoff"] = 0.08
+    df.attrs["published_jump_original"] = (
+        0.077  # Lee (2008) Table 4 incumbency advantage
+    )
+    df.attrs["notes"] = (
         "Simulated replica.  DGP coded a 0.08 jump at margin=0; the "
         "Calonico-Cattaneo-Titiunik (2014) bias-corrected ROBUST estimator "
         "(rdrobust default) returns ~0.062 with SE 0.024 because the "
@@ -611,6 +642,7 @@ def lee_2008_senate(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Angrist-Krueger (1991) — quarter-of-birth IV
 # ---------------------------------------------------------------------------
+
 
 def angrist_krueger_1991(seed: int = 42) -> pd.DataFrame:
     """Simulated replica of Angrist-Krueger (1991) quarter-of-birth IV.
@@ -646,26 +678,38 @@ def angrist_krueger_1991(seed: int = 42) -> pd.DataFrame:
 
     # First stage: quarter shifts educ slightly
     u = rng.normal(scale=1.0, size=n)
-    educ = (13.0 - 0.30 * q1 + 0.05 * q2 + 0.08 * q3 + 0.5 * u +
-            rng.normal(scale=1.8, size=n))
+    educ = (
+        13.0
+        - 0.30 * q1
+        + 0.05 * q2
+        + 0.08 * q3
+        + 0.5 * u
+        + rng.normal(scale=1.8, size=n)
+    )
     educ = np.clip(educ, 0, 20).round().astype(int)
 
     lwage = (
         4.0
-        + 0.10 * educ       # structural return
-        + 0.18 * u          # ability confound (inflates OLS)
+        + 0.10 * educ  # structural return
+        + 0.18 * u  # ability confound (inflates OLS)
         + 0.01 * (year_of_birth - 1930)
         + rng.normal(scale=0.5, size=n)
     )
-    df = pd.DataFrame({
-        'lwage': lwage, 'educ': educ,
-        'q1': q1, 'q2': q2, 'q3': q3, 'q4': q4,
-        'year_of_birth': year_of_birth,
-    })
-    df.attrs['paper'] = "Angrist & Krueger (1991). QJE 106(4), 979-1014."
-    df.attrs['expected_iv_educ'] = 0.10
-    df.attrs['published_iv_original_range'] = (0.08, 0.11)
-    df.attrs['notes'] = (
+    df = pd.DataFrame(
+        {
+            "lwage": lwage,
+            "educ": educ,
+            "q1": q1,
+            "q2": q2,
+            "q3": q3,
+            "q4": q4,
+            "year_of_birth": year_of_birth,
+        }
+    )
+    df.attrs["paper"] = "Angrist & Krueger (1991). QJE 106(4), 979-1014."
+    df.attrs["expected_iv_educ"] = 0.10
+    df.attrs["published_iv_original_range"] = (0.08, 0.11)
+    df.attrs["notes"] = (
         "Simulated QOB IV; n=5000 so the first-stage is moderate. "
         "Use q1/q2/q3 as instruments; IV ≈ 0.10 by construction. "
         "The original AK91 data is publicly available at NBER for "
@@ -677,6 +721,7 @@ def angrist_krueger_1991(seed: int = 42) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # Hernán & Robins — NHEFS — *Causal Inference: What If* (public-health canon)
 # ---------------------------------------------------------------------------
+
 
 def nhefs(complete_case: bool = False) -> pd.DataFrame:
     """NHEFS — the canonical dataset of Hernán & Robins, *Causal Inference:
@@ -756,33 +801,33 @@ def nhefs(complete_case: bool = False) -> pd.DataFrame:
     """
     df = _load_bundled_csv("nhefs.csv")
     if complete_case:
-        df = df[df['wt82_71'].notna()].reset_index(drop=True)
+        df = df[df["wt82_71"].notna()].reset_index(drop=True)
 
-    df.attrs['paper'] = (
+    df.attrs["paper"] = (
         "Hernán, M.A. & Robins, J.M. (2020). Causal Inference: What If. "
         "Boca Raton: Chapman & Hall/CRC."
     )
-    df.attrs['data_source'] = 'real'
-    df.attrs['simulated'] = False
-    df.attrs['source_origin'] = (
+    df.attrs["data_source"] = "real"
+    df.attrs["simulated"] = False
+    df.attrs["source_origin"] = (
         "NHANES I Epidemiologic Followup Study (NHEFS), a US Federal "
         "public-use survey (NCHS/NIH; public domain).  Analytic extract "
         "(n=1629 × 67) as distributed with Hernán & Robins, 'Causal "
         "Inference: What If' and re-packaged in the MIT-licensed "
         "causaldata package; byte-reproducible from causaldata.nhefs."
     )
-    df.attrs['n_complete_case'] = 1566
+    df.attrs["n_complete_case"] = 1566
     # Published reference estimates on this exact data (book Part II):
-    df.attrs['published_crude_wt_diff'] = 2.54        # §12.2
-    df.attrs['published_ipw_att'] = 3.4               # Ch12 MSM (stabilized IPW)
-    df.attrs['published_ipw_att_ci'] = (2.4, 4.5)
-    df.attrs['published_gformula_att'] = 3.5          # Ch13 standardization/g-formula
-    df.attrs['published_gestimation_psi'] = 3.4       # Ch14 SNMM g-estimation
+    df.attrs["published_crude_wt_diff"] = 2.54  # §12.2
+    df.attrs["published_ipw_att"] = 3.4  # Ch12 MSM (stabilized IPW)
+    df.attrs["published_ipw_att_ci"] = (2.4, 4.5)
+    df.attrs["published_gformula_att"] = 3.5  # Ch13 standardization/g-formula
+    df.attrs["published_gestimation_psi"] = 3.4  # Ch14 SNMM g-estimation
     # StatsPAI-pinned values verified on this extract (regression refs):
-    df.attrs['statspai_pinned_crude_wt_diff'] = 2.5406
-    df.attrs['statspai_pinned_ipw_att'] = 3.48        # sp.ipw (Hajek ATE)
-    df.attrs['gold_stabilized_ipw_att'] = 3.44        # statsmodels stabilized MSM
-    df.attrs['notes'] = (
+    df.attrs["statspai_pinned_crude_wt_diff"] = 2.5406
+    df.attrs["statspai_pinned_ipw_att"] = 3.48  # sp.ipw (Hajek ATE)
+    df.attrs["gold_stabilized_ipw_att"] = 3.44  # statsmodels stabilized MSM
+    df.attrs["notes"] = (
         "Real NHEFS extract used throughout Hernán & Robins, 'Causal "
         "Inference: What If' (Part II).  Treatment qsmk (quit smoking), "
         "continuous outcome wt82_71 (10-yr weight change, kg), survival "

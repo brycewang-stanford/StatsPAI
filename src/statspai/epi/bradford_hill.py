@@ -23,7 +23,6 @@ from typing import Dict, Optional
 
 import numpy as np
 
-
 __all__ = [
     "BradfordHillResult",
     "bradford_hill",
@@ -69,8 +68,7 @@ class BradfordHillResult:
         lines.append(f"  Total: {self.total:.2f} / {self.max_total:.2f}")
         if self.missing_prerequisites:
             lines.append(
-                "  Missing prerequisites: "
-                + ", ".join(self.missing_prerequisites)
+                "  Missing prerequisites: " + ", ".join(self.missing_prerequisites)
             )
         lines.append(f"  Verdict: {self.verdict}")
         lines.append(bar)
@@ -145,9 +143,7 @@ def bradford_hill(
     if evidence:
         for k, v in evidence.items():
             if k not in VIEWPOINTS:
-                raise ValueError(
-                    f"Unknown viewpoint {k!r}; valid names: {VIEWPOINTS}"
-                )
+                raise ValueError(f"Unknown viewpoint {k!r}; valid names: {VIEWPOINTS}")
             scores[k] = float(v)
     for k, score in kw_scores.items():
         if score is not None:
@@ -155,11 +151,11 @@ def bradford_hill(
 
     for k, v in scores.items():
         if not 0.0 <= v <= 1.0:
-            raise ValueError(
-                f"Viewpoint {k!r} score must be in [0, 1]; got {v}"
-            )
+            raise ValueError(f"Viewpoint {k!r} score must be in [0, 1]; got {v}")
 
-    assessed = {k: v for k, v in scores.items() if not (isinstance(v, float) and np.isnan(v))}
+    assessed = {
+        k: v for k, v in scores.items() if not (isinstance(v, float) and np.isnan(v))
+    }
     total = float(sum(assessed.values()))
     max_total = float(len(assessed))
 
@@ -191,9 +187,7 @@ def bradford_hill(
     ev_notes = dict(notes or {})
     for k in list(ev_notes):
         if k not in VIEWPOINTS:
-            raise ValueError(
-                f"Unknown viewpoint in notes: {k!r}"
-            )
+            raise ValueError(f"Unknown viewpoint in notes: {k!r}")
 
     _result = BradfordHillResult(
         scores=full_scores,
@@ -205,6 +199,7 @@ def bradford_hill(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.epi.bradford_hill",

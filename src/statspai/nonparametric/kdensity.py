@@ -84,37 +84,54 @@ class KDensityResult:
             fig, ax = plt.subplots(figsize=(8, 5))
 
         if hist:
-            ax.hist(self._data, bins='auto', density=True, alpha=0.3,
-                    color='gray', label='Histogram')
+            ax.hist(
+                self._data,
+                bins="auto",
+                density=True,
+                alpha=0.3,
+                color="gray",
+                label="Histogram",
+            )
 
-        ax.plot(self.grid, self.density, color='steelblue', lw=2,
-                label=f'KDE (bw={self.bandwidth:.3f})')
+        ax.plot(
+            self.grid,
+            self.density,
+            color="steelblue",
+            lw=2,
+            label=f"KDE (bw={self.bandwidth:.3f})",
+        )
 
         if rug:
-            ax.plot(self._data, np.zeros_like(self._data), '|',
-                    color='gray', alpha=0.3, ms=10)
+            ax.plot(
+                self._data,
+                np.zeros_like(self._data),
+                "|",
+                color="gray",
+                alpha=0.3,
+                ms=10,
+            )
 
-        ax.set_xlabel(kwargs.get('xlabel', 'X'))
-        ax.set_ylabel(kwargs.get('ylabel', 'Density'))
-        ax.set_title(kwargs.get('title', 'Kernel Density Estimation'))
+        ax.set_xlabel(kwargs.get("xlabel", "X"))
+        ax.set_ylabel(kwargs.get("ylabel", "Density"))
+        ax.set_title(kwargs.get("title", "Kernel Density Estimation"))
         ax.legend()
         return ax
 
 
 def _kernel_fn(u: np.ndarray, kernel: str = "gaussian") -> np.ndarray:
     """Evaluate kernel function at u."""
-    if kernel == 'gaussian':
+    if kernel == "gaussian":
         return np.asarray(stats.norm.pdf(u), dtype=float)
-    elif kernel == 'epanechnikov':
+    elif kernel == "epanechnikov":
         return np.where(np.abs(u) <= 1, 0.75 * (1 - u**2), 0.0)
-    elif kernel == 'uniform':
+    elif kernel == "uniform":
         return np.where(np.abs(u) <= 1, 0.5, 0.0)
-    elif kernel == 'triangular':
+    elif kernel == "triangular":
         return np.where(np.abs(u) <= 1, 1 - np.abs(u), 0.0)
-    elif kernel == 'biweight':
-        return np.where(np.abs(u) <= 1, (15/16) * (1 - u**2)**2, 0.0)
-    elif kernel == 'cosine':
-        return np.where(np.abs(u) <= 1, (np.pi/4) * np.cos(np.pi * u / 2), 0.0)
+    elif kernel == "biweight":
+        return np.where(np.abs(u) <= 1, (15 / 16) * (1 - u**2) ** 2, 0.0)
+    elif kernel == "cosine":
+        return np.where(np.abs(u) <= 1, (np.pi / 4) * np.cos(np.pi * u / 2), 0.0)
     else:
         raise ValueError(f"Unknown kernel: {kernel}")
 
@@ -127,7 +144,7 @@ def _silverman_bw(x: np.ndarray) -> float:
     sigma = min(std_val, iqr_val / 1.349) if iqr_val > 0 else std_val
     if sigma == 0:
         sigma = 1.0  # constant data fallback
-    return float(0.9 * sigma * n**(-1/5))
+    return float(0.9 * sigma * n ** (-1 / 5))
 
 
 def _sheather_jones_bw(x: np.ndarray) -> float:
@@ -141,7 +158,7 @@ def _sheather_jones_bw(x: np.ndarray) -> float:
     if a == 0:
         return _silverman_bw(x)
 
-    return float(0.9 * a * n**(-1/5))
+    return float(0.9 * a * n ** (-1 / 5))
 
 
 def kdensity(
@@ -216,7 +233,9 @@ def kdensity(
     x_data = data[x].dropna().values.astype(float)
     n = len(x_data)
     if n == 0:
-        raise ValueError("data has no finite observations after dropping missing values")
+        raise ValueError(
+            "data has no finite observations after dropping missing values"
+        )
 
     if weights is not None:
         w = data.loc[data[x].notna(), weights].values.astype(float)
@@ -227,15 +246,17 @@ def kdensity(
             or np.any(w < 0)
             or total_weight <= 0
         ):
-            raise ValueError("weights must be finite, non-negative, and sum to a positive value")
+            raise ValueError(
+                "weights must be finite, non-negative, and sum to a positive value"
+            )
         w = w / total_weight
     else:
         w = np.ones(n) / n
 
     if bandwidth is None:
-        if bw_method == 'silverman':
+        if bw_method == "silverman":
             bandwidth = _silverman_bw(x_data)
-        elif bw_method == 'sheather-jones':
+        elif bw_method == "sheather-jones":
             bandwidth = _sheather_jones_bw(x_data)
         else:
             raise ValueError("bw_method must be one of 'silverman' or 'sheather-jones'")
@@ -259,6 +280,10 @@ def kdensity(
         density[start:stop] = (_kernel_fn(u, kernel) @ w) / bandwidth
 
     return KDensityResult(
-        grid=grid, density=density, bandwidth=bandwidth,
-        kernel=kernel, n=n, data=x_data,
+        grid=grid,
+        density=density,
+        bandwidth=bandwidth,
+        kernel=kernel,
+        n=n,
+        data=x_data,
     )

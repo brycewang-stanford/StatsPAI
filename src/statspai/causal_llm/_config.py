@@ -19,13 +19,13 @@ The resolver in :mod:`statspai.causal_llm._resolver` reads this file
 exactly once per call (no global cache — easier to test, and the
 overhead is negligible compared to an LLM round-trip).
 """
+
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
-
 
 __all__ = [
     "config_path",
@@ -86,8 +86,9 @@ def _parse_toml(text: str) -> Dict[str, Any]:
         if "#" in value and not (value.startswith('"') or value.startswith("'")):
             value = value.split("#", 1)[0].strip()
         # Strip surrounding quotes.
-        if (value.startswith('"') and value.endswith('"')) or \
-           (value.startswith("'") and value.endswith("'")):
+        if (value.startswith('"') and value.endswith('"')) or (
+            value.startswith("'") and value.endswith("'")
+        ):
             value = value[1:-1]
         # Cast booleans / ints minimally — provider+model are strings,
         # but future fields might be bools.

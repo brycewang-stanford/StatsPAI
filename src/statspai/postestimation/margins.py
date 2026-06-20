@@ -26,7 +26,7 @@ def margins(
     data: Optional[pd.DataFrame] = None,
     variables: Optional[List[str]] = None,
     at: Optional[Dict[str, Any]] = None,
-    method: str = 'ame',
+    method: str = "ame",
     eps: float = 1e-5,
     alpha: float = 0.05,
 ) -> pd.DataFrame:
@@ -85,7 +85,7 @@ def margins(
     var_cov = _get_vcov(result)
 
     if variables is None:
-        variables = [v for v in params.index if v != 'Intercept' and v != 'const']
+        variables = [v for v in params.index if v != "Intercept" and v != "const"]
 
     # For linear models, marginal effects are just the coefficients
     # (unless there are interactions or polynomial terms)
@@ -100,9 +100,9 @@ def margins(
 def _is_purely_linear(param_names: Any, variables: List[str]) -> bool:
     """Check if model has interactions or polynomials involving these variables."""
     for name in param_names:
-        if ':' in name:
+        if ":" in name:
             return False
-        if any(f'{v}**' in name or f'I({v}' in name for v in variables):
+        if any(f"{v}**" in name or f"I({v}" in name for v in variables):
             return False
     return True
 
@@ -110,7 +110,7 @@ def _is_purely_linear(param_names: Any, variables: List[str]) -> bool:
 def _get_vcov(result: Any) -> np.ndarray:
     """Extract variance-covariance matrix from result."""
     # Try various locations
-    if hasattr(result, '_results') and hasattr(result._results, 'var_cov'):
+    if hasattr(result, "_results") and hasattr(result._results, "var_cov"):
         return np.asarray(result._results.var_cov, dtype=float)
     # Reconstruct from std_errors (diagonal approximation)
     se = result.std_errors
@@ -136,15 +136,17 @@ def _linear_margins(
         z = dydx / se if se > 0 else 0
         pv = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-        rows.append({
-            'variable': var,
-            'dy/dx': dydx,
-            'se': se,
-            'z': z,
-            'pvalue': pv,
-            'ci_lower': dydx - z_crit * se,
-            'ci_upper': dydx + z_crit * se,
-        })
+        rows.append(
+            {
+                "variable": var,
+                "dy/dx": dydx,
+                "se": se,
+                "z": z,
+                "pvalue": pv,
+                "ci_lower": dydx - z_crit * se,
+                "ci_upper": dydx + z_crit * se,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -180,7 +182,7 @@ def _numerical_margins(
         # Compute dy/dx via finite differences
         dydx_values = _compute_dydx(params, data, var, eps)
 
-        if method == 'ame':
+        if method == "ame":
             dydx = float(np.mean(dydx_values))
         else:  # mem
             dydx = float(dydx_values[len(dydx_values) // 2])  # approximate
@@ -190,15 +192,17 @@ def _numerical_margins(
         z = dydx / se if se > 0 else 0
         pv = float(2 * (1 - stats.norm.cdf(abs(z))))
 
-        rows.append({
-            'variable': var,
-            'dy/dx': dydx,
-            'se': se,
-            'z': z,
-            'pvalue': pv,
-            'ci_lower': dydx - z_crit * se,
-            'ci_upper': dydx + z_crit * se,
-        })
+        rows.append(
+            {
+                "variable": var,
+                "dy/dx": dydx,
+                "se": se,
+                "z": z,
+                "pvalue": pv,
+                "ci_lower": dydx - z_crit * se,
+                "ci_upper": dydx + z_crit * se,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -231,11 +235,11 @@ def _predict_row(
     """Predict y for a single observation, changing one variable."""
     y = 0.0
     for term, coef in params.items():
-        if term in ('Intercept', 'const'):
+        if term in ("Intercept", "const"):
             y += coef
-        elif ':' in term:
+        elif ":" in term:
             # Interaction term
-            parts = term.split(':')
+            parts = term.split(":")
             val = coef
             for p in parts:
                 if p == var_to_change:
@@ -258,7 +262,7 @@ def marginsplot(
     margins_df: pd.DataFrame,
     ax: Any = None,
     figsize: Tuple[float, float] = (8, 5),
-    color: str = '#2C3E50',
+    color: str = "#2C3E50",
     title: Optional[str] = None,
 ) -> Tuple[Any, Any]:
     """
@@ -297,27 +301,33 @@ def marginsplot(
     else:
         fig = ax.get_figure()
 
-    vars = margins_df['variable'].values
-    dydx = margins_df['dy/dx'].values
-    lo = margins_df['ci_lower'].values
-    hi = margins_df['ci_upper'].values
+    vars = margins_df["variable"].values
+    dydx = margins_df["dy/dx"].values
+    lo = margins_df["ci_lower"].values
+    hi = margins_df["ci_upper"].values
 
     y_pos = np.arange(len(vars))
 
     ax.scatter(dydx, y_pos, color=color, s=50, zorder=5)
     ax.errorbar(
-        dydx, y_pos, xerr=[dydx - lo, hi - dydx],
-        fmt='none', color=color, capsize=4, linewidth=1.5, zorder=3,
+        dydx,
+        y_pos,
+        xerr=[dydx - lo, hi - dydx],
+        fmt="none",
+        color=color,
+        capsize=4,
+        linewidth=1.5,
+        zorder=3,
     )
-    ax.axvline(x=0, color='gray', linestyle='--', linewidth=0.8)
+    ax.axvline(x=0, color="gray", linestyle="--", linewidth=0.8)
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(vars)
     ax.invert_yaxis()
-    ax.set_xlabel('Marginal Effect (dy/dx)')
-    ax.set_title(title or 'Average Marginal Effects')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.set_xlabel("Marginal Effect (dy/dx)")
+    ax.set_title(title or "Average Marginal Effects")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
 
     return fig, ax
@@ -326,6 +336,7 @@ def marginsplot(
 # ---------------------------------------------------------------------------
 # margins_at: Predictive margins at specific covariate values
 # ---------------------------------------------------------------------------
+
 
 def margins_at(
     result: Any,
@@ -406,10 +417,12 @@ def margins_at(
             df_mod[var] = val
 
         # Compute predicted y for each observation, then average
-        preds = np.array([
-            _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
-            for i in range(len(df_mod))
-        ])
+        preds = np.array(
+            [
+                _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
+                for i in range(len(df_mod))
+            ]
+        )
         margin = float(np.mean(preds))
 
         # Delta-method SE: gradient of the average prediction w.r.t. beta
@@ -417,12 +430,14 @@ def margins_at(
         se = float(np.sqrt(gradient @ vcov @ gradient))
 
         row = dict(point_dict)
-        row.update({
-            'margin': margin,
-            'se': se,
-            'ci_lower': margin - z_crit * se,
-            'ci_upper': margin + z_crit * se,
-        })
+        row.update(
+            {
+                "margin": margin,
+                "se": se,
+                "ci_lower": margin - z_crit * se,
+                "ci_upper": margin + z_crit * se,
+            }
+        )
         rows.append(row)
 
     return pd.DataFrame(rows)
@@ -437,10 +452,10 @@ def _margin_gradient(params: pd.Series, df_mod: pd.DataFrame) -> np.ndarray:
     for i in range(n):
         row = df_mod.iloc[i]
         for j, (term, _coef) in enumerate(params.items()):
-            if term in ('Intercept', 'const'):
+            if term in ("Intercept", "const"):
                 grad[j] += 1.0
-            elif ':' in term:
-                parts = term.split(':')
+            elif ":" in term:
+                parts = term.split(":")
                 val = 1.0
                 for part in parts:
                     if part in row.index:
@@ -461,6 +476,7 @@ def _margin_gradient(params: pd.Series, df_mod: pd.DataFrame) -> np.ndarray:
 # margins_at_plot: Visualise predictive margins
 # ---------------------------------------------------------------------------
 
+
 def margins_at_plot(
     margins_at_df: pd.DataFrame,
     x: Optional[str] = None,
@@ -469,7 +485,7 @@ def margins_at_plot(
     figsize: Tuple[float, float] = (8, 5),
     title: Optional[str] = None,
     xlabel: Optional[str] = None,
-    ylabel: str = 'Predicted Value',
+    ylabel: str = "Predicted Value",
     palette: Optional[List[str]] = None,
 ) -> Tuple[Any, Any]:
     """
@@ -523,7 +539,7 @@ def margins_at_plot(
         raise ImportError("matplotlib required.  Install: pip install matplotlib")
 
     # Detect at-variable columns (everything except margin/se/ci_*)
-    meta_cols = {'margin', 'se', 'ci_lower', 'ci_upper'}
+    meta_cols = {"margin", "se", "ci_lower", "ci_upper"}
     at_cols = [c for c in margins_at_df.columns if c not in meta_cols]
 
     if x is None:
@@ -541,8 +557,14 @@ def margins_at_plot(
         fig = ax.get_figure()
 
     default_palette = [
-        '#2C3E50', '#E74C3C', '#3498DB', '#2ECC71',
-        '#9B59B6', '#F39C12', '#1ABC9C', '#E67E22',
+        "#2C3E50",
+        "#E74C3C",
+        "#3498DB",
+        "#2ECC71",
+        "#9B59B6",
+        "#F39C12",
+        "#1ABC9C",
+        "#E67E22",
     ]
     colors = palette or default_palette
 
@@ -551,22 +573,23 @@ def margins_at_plot(
         for idx, grp in enumerate(groups):
             sub = margins_at_df[margins_at_df[by] == grp].sort_values(x)
             color = colors[idx % len(colors)]
-            ax.plot(sub[x], sub['margin'], marker='o', color=color,
-                    label=f'{by}={grp}')
-            ax.fill_between(sub[x], sub['ci_lower'], sub['ci_upper'],
-                            alpha=0.15, color=color)
+            ax.plot(sub[x], sub["margin"], marker="o", color=color, label=f"{by}={grp}")
+            ax.fill_between(
+                sub[x], sub["ci_lower"], sub["ci_upper"], alpha=0.15, color=color
+            )
         ax.legend()
     else:
         sub = margins_at_df.sort_values(x)
-        ax.plot(sub[x], sub['margin'], marker='o', color=colors[0])
-        ax.fill_between(sub[x], sub['ci_lower'], sub['ci_upper'],
-                        alpha=0.20, color=colors[0])
+        ax.plot(sub[x], sub["margin"], marker="o", color=colors[0])
+        ax.fill_between(
+            sub[x], sub["ci_lower"], sub["ci_upper"], alpha=0.20, color=colors[0]
+        )
 
     ax.set_xlabel(xlabel or x)
     ax.set_ylabel(ylabel)
-    ax.set_title(title or 'Predictive Margins')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.set_title(title or "Predictive Margins")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
 
     return fig, ax
@@ -576,11 +599,12 @@ def margins_at_plot(
 # contrast: Contrasts of predictive margins
 # ---------------------------------------------------------------------------
 
+
 def contrast(
     result: Any,
     data: pd.DataFrame,
     variable: str,
-    method: str = 'r',
+    method: str = "r",
     reference: Any = None,
     alpha: float = 0.05,
 ) -> pd.DataFrame:
@@ -649,17 +673,19 @@ def contrast(
     for lev in levels:
         df_mod = data.copy()
         df_mod[variable] = lev
-        preds = np.array([
-            _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
-            for i in range(len(df_mod))
-        ])
+        preds = np.array(
+            [
+                _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
+                for i in range(len(df_mod))
+            ]
+        )
         level_margins[lev] = float(np.mean(preds))
         level_grads[lev] = _margin_gradient(params, df_mod)
         level_counts[lev] = int((data[variable] == lev).sum())
 
     # Build contrasts
     rows = []
-    if method == 'r':
+    if method == "r":
         if reference is None:
             reference = levels[0]
         for lev in levels:
@@ -670,17 +696,19 @@ def contrast(
             se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
             z = diff / se if se > 0 else 0.0
             pv = float(2 * (1 - stats.norm.cdf(abs(z))))
-            rows.append({
-                'contrast_label': f'{lev} vs {reference}',
-                'contrast': diff,
-                'se': se,
-                'z': z,
-                'pvalue': pv,
-                'ci_lower': diff - z_crit * se,
-                'ci_upper': diff + z_crit * se,
-            })
+            rows.append(
+                {
+                    "contrast_label": f"{lev} vs {reference}",
+                    "contrast": diff,
+                    "se": se,
+                    "z": z,
+                    "pvalue": pv,
+                    "ci_lower": diff - z_crit * se,
+                    "ci_upper": diff + z_crit * se,
+                }
+            )
 
-    elif method == 'ar':
+    elif method == "ar":
         for i in range(1, len(levels)):
             lev, prev = levels[i], levels[i - 1]
             diff = level_margins[lev] - level_margins[prev]
@@ -688,17 +716,19 @@ def contrast(
             se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
             z = diff / se if se > 0 else 0.0
             pv = float(2 * (1 - stats.norm.cdf(abs(z))))
-            rows.append({
-                'contrast_label': f'{lev} vs {prev}',
-                'contrast': diff,
-                'se': se,
-                'z': z,
-                'pvalue': pv,
-                'ci_lower': diff - z_crit * se,
-                'ci_upper': diff + z_crit * se,
-            })
+            rows.append(
+                {
+                    "contrast_label": f"{lev} vs {prev}",
+                    "contrast": diff,
+                    "se": se,
+                    "z": z,
+                    "pvalue": pv,
+                    "ci_lower": diff - z_crit * se,
+                    "ci_upper": diff + z_crit * se,
+                }
+            )
 
-    elif method == 'gw':
+    elif method == "gw":
         total_n = sum(level_counts.values())
         weights = {lev: level_counts[lev] / total_n for lev in levels}
         grand_margin = sum(weights[lev] * level_margins[lev] for lev in levels)
@@ -710,19 +740,19 @@ def contrast(
             se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
             z = diff / se if se > 0 else 0.0
             pv = float(2 * (1 - stats.norm.cdf(abs(z))))
-            rows.append({
-                'contrast_label': f'{lev} vs grand mean',
-                'contrast': diff,
-                'se': se,
-                'z': z,
-                'pvalue': pv,
-                'ci_lower': diff - z_crit * se,
-                'ci_upper': diff + z_crit * se,
-            })
+            rows.append(
+                {
+                    "contrast_label": f"{lev} vs grand mean",
+                    "contrast": diff,
+                    "se": se,
+                    "z": z,
+                    "pvalue": pv,
+                    "ci_lower": diff - z_crit * se,
+                    "ci_upper": diff + z_crit * se,
+                }
+            )
     else:
-        raise ValueError(
-            f"Unknown contrast method '{method}'. Use 'r', 'ar', or 'gw'."
-        )
+        raise ValueError(f"Unknown contrast method '{method}'. Use 'r', 'ar', or 'gw'.")
 
     return pd.DataFrame(rows)
 
@@ -731,11 +761,12 @@ def contrast(
 # pwcompare: Pairwise comparisons of predictive margins
 # ---------------------------------------------------------------------------
 
+
 def pwcompare(
     result: Any,
     data: pd.DataFrame,
     variable: str,
-    adjust: str = 'none',
+    adjust: str = "none",
     alpha: float = 0.05,
 ) -> pd.DataFrame:
     """
@@ -798,10 +829,12 @@ def pwcompare(
     for lev in levels:
         df_mod = data.copy()
         df_mod[variable] = lev
-        preds = np.array([
-            _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
-            for i in range(len(df_mod))
-        ])
+        preds = np.array(
+            [
+                _predict_row(params, df_mod.iloc[i], var_to_change=None, new_val=None)
+                for i in range(len(df_mod))
+            ]
+        )
         level_margins[lev] = float(np.mean(preds))
         level_grads[lev] = _margin_gradient(params, df_mod)
 
@@ -819,16 +852,18 @@ def pwcompare(
         se = float(np.sqrt(grad_diff @ vcov @ grad_diff))
         z = diff / se if se > 0 else 0.0
         pv = float(2 * (1 - stats.norm.cdf(abs(z))))
-        rows.append({
-            'comparison': f'{lev_b} vs {lev_a}',
-            'diff': diff,
-            'se': se,
-            'z': z,
-            'pvalue': pv,
-        })
+        rows.append(
+            {
+                "comparison": f"{lev_b} vs {lev_a}",
+                "diff": diff,
+                "se": se,
+                "z": z,
+                "pvalue": pv,
+            }
+        )
 
     # Adjust p-values
-    raw_pvals = [r['pvalue'] for r in rows]
+    raw_pvals = [r["pvalue"] for r in rows]
     adj_pvals = _adjust_pvalues(raw_pvals, method=adjust, n_comparisons=n_comp)
 
     # Determine adjusted alpha for CIs
@@ -836,9 +871,9 @@ def pwcompare(
     z_crit = stats.norm.ppf(1 - alpha_adj / 2)
 
     for r, padj in zip(rows, adj_pvals):
-        r['pvalue_adj'] = padj
-        r['ci_lower'] = r['diff'] - z_crit * r['se']
-        r['ci_upper'] = r['diff'] + z_crit * r['se']
+        r["pvalue_adj"] = padj
+        r["ci_lower"] = r["diff"] - z_crit * r["se"]
+        r["ci_upper"] = r["diff"] + z_crit * r["se"]
 
     return pd.DataFrame(rows)
 
@@ -850,19 +885,13 @@ def _adjust_pvalues(
 ) -> List[float]:
     """Apply multiple-comparison correction to p-values."""
     pvals = np.asarray(pvals, dtype=float)
-    if method == 'none':
+    if method == "none":
         return [float(p) for p in pvals.tolist()]
-    elif method == 'bonferroni':
-        return [
-            float(p)
-            for p in np.minimum(pvals * n_comparisons, 1.0).tolist()
-        ]
-    elif method == 'sidak':
-        return [
-            float(p)
-            for p in (1.0 - (1.0 - pvals) ** n_comparisons).tolist()
-        ]
-    elif method == 'holm':
+    elif method == "bonferroni":
+        return [float(p) for p in np.minimum(pvals * n_comparisons, 1.0).tolist()]
+    elif method == "sidak":
+        return [float(p) for p in (1.0 - (1.0 - pvals) ** n_comparisons).tolist()]
+    elif method == "holm":
         n = len(pvals)
         order = np.argsort(pvals)
         adj = np.empty(n)
@@ -883,13 +912,13 @@ def _adjust_pvalues(
 
 def _adjusted_alpha(alpha: float, method: str, n_comparisons: int) -> float:
     """Return adjusted significance level for CI construction."""
-    if method == 'none':
+    if method == "none":
         return alpha
-    elif method == 'bonferroni':
+    elif method == "bonferroni":
         return alpha / n_comparisons
-    elif method == 'sidak':
+    elif method == "sidak":
         return float(1.0 - (1.0 - alpha) ** (1.0 / n_comparisons))
-    elif method == 'holm':
+    elif method == "holm":
         # Conservative: use Bonferroni alpha for CIs
         return alpha / n_comparisons
     else:
@@ -903,6 +932,7 @@ def _adjusted_alpha(alpha: float, method: str, n_comparisons: int) -> float:
 # closes the "estimator → marginal-effects table" gap that previously
 # required users to hand-build add_rows.
 # ---------------------------------------------------------------------------
+
 
 class _MarginsResult:
     """Duck-typed result wrapping a ``margins`` DataFrame.
@@ -932,25 +962,17 @@ class _MarginsResult:
         # discrete change instead — the helper below is defensive.
         col_dydx = "dy/dx" if "dy/dx" in margins_df.columns else "diff"
         col_p = "pvalue_adj" if "pvalue_adj" in margins_df.columns else "pvalue"
-        self.params = pd.Series(
-            margins_df[col_dydx].astype(float).values, index=idx
-        )
-        self.std_errors = pd.Series(
-            margins_df["se"].astype(float).values, index=idx
-        )
+        self.params = pd.Series(margins_df[col_dydx].astype(float).values, index=idx)
+        self.std_errors = pd.Series(margins_df["se"].astype(float).values, index=idx)
         # margins reports z-stat (z under normal); we name it tvalues so
         # the rest of regtable's machinery treats it as a t-style ratio
         # without special-casing.
         z_col = "z" if "z" in margins_df.columns else "t"
         if z_col in margins_df.columns:
-            self.tvalues = pd.Series(
-                margins_df[z_col].astype(float).values, index=idx
-            )
+            self.tvalues = pd.Series(margins_df[z_col].astype(float).values, index=idx)
         else:
             self.tvalues = pd.Series(np.nan, index=idx)
-        self.pvalues = pd.Series(
-            margins_df[col_p].astype(float).values, index=idx
-        )
+        self.pvalues = pd.Series(margins_df[col_p].astype(float).values, index=idx)
         if "ci_lower" in margins_df.columns:
             self.conf_int_lower = pd.Series(
                 margins_df["ci_lower"].astype(float).values, index=idx
@@ -1079,7 +1101,11 @@ def event_study_table(
             except (IndexError, ValueError):
                 continue
             est = float(params.get(name, np.nan))
-            se = float(std_errors.get(name, np.nan)) if name in std_errors.index else np.nan
+            se = (
+                float(std_errors.get(name, np.nan))
+                if name in std_errors.index
+                else np.nan
+            )
             pv = float(pvalues.get(name, np.nan)) if name in pvalues.index else np.nan
             lo = float(ci_lo.get(name, np.nan)) if name in ci_lo.index else np.nan
             hi = float(ci_hi.get(name, np.nan)) if name in ci_hi.index else np.nan
@@ -1099,14 +1125,16 @@ def event_study_table(
 
     rows.sort(key=lambda r: r[0])
     labels = [label_fmt.format(t=t) for t, *_ in rows]
-    df = pd.DataFrame({
-        "variable": labels,
-        "dy/dx": [r[1] for r in rows],
-        "se": [r[2] for r in rows],
-        "ci_lower": [r[3] for r in rows],
-        "ci_upper": [r[4] for r in rows],
-        "pvalue": [r[5] for r in rows],
-    })
+    df = pd.DataFrame(
+        {
+            "variable": labels,
+            "dy/dx": [r[1] for r in rows],
+            "se": [r[2] for r in rows],
+            "ci_lower": [r[3] for r in rows],
+            "ci_upper": [r[4] for r in rows],
+            "pvalue": [r[5] for r in rows],
+        }
+    )
     # Synthesise a z-stat for the ``tvalues`` slot (regtable uses it
     # only when se_type='t', and event studies almost always show
     # estimates with SE — but populate consistently).
@@ -1177,8 +1205,13 @@ def margins_table(
     >>> sp.regtable(mt, output="latex", filename="margins.tex")  # doctest: +SKIP
     """
     df = margins(
-        result, data=data, variables=variables, at=at,
-        method=method, eps=eps, alpha=alpha,
+        result,
+        data=data,
+        variables=variables,
+        at=at,
+        method=method,
+        eps=eps,
+        alpha=alpha,
     )
     n_obs = None
     diag = getattr(result, "diagnostics", {}) or {}

@@ -15,6 +15,7 @@ By centralizing here we keep ``sumstats``, ``tab``, ``collection``,
 ``paper_tables`` and ``modelsummary`` visually identical to
 ``regression_table`` / ``outreg2`` without copy-paste drift.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional, Sequence
@@ -112,9 +113,7 @@ def write_title(ws: Any, row: int, n_cols: int, title: str) -> int:
     cell.font = s["title_font"]
     cell.alignment = s["center"]
     if n_cols > 1:
-        ws.merge_cells(
-            start_row=row, start_column=1, end_row=row, end_column=n_cols
-        )
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=n_cols)
     return row + 1
 
 

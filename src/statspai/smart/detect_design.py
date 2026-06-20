@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
-
 # Heuristic thresholds (literature-free — these are pragmatic
 # defaults, deliberately permissive to avoid silently rejecting real
 # panels with mild imbalance / unusual shapes).
@@ -94,8 +93,9 @@ def _is_time_like(series: pd.Series) -> bool:
     return True
 
 
-def _score_panel_pair(data: pd.DataFrame, unit_col: str, time_col: str
-                       ) -> Optional[Dict[str, Any]]:
+def _score_panel_pair(
+    data: pd.DataFrame, unit_col: str, time_col: str
+) -> Optional[Dict[str, Any]]:
     """Score a candidate ``(unit, time)`` pair as a panel.
 
     Returns a dict with the score and shape stats, or ``None`` if the
@@ -119,7 +119,7 @@ def _score_panel_pair(data: pd.DataFrame, unit_col: str, time_col: str
     expected_balanced = n_units * n_periods
     fill_ratio = n / expected_balanced if expected_balanced else 0.0
     fill_ratio = min(fill_ratio, 1.0)  # clip overcounted (duplicate
-                                       # (unit,time) rows)
+    # (unit,time) rows)
 
     # Duplicate-row penalty: a clean panel has at most one row per
     # (unit, time). Multiple rows usually mean the columns aren't
@@ -145,10 +145,11 @@ def _score_panel_pair(data: pd.DataFrame, unit_col: str, time_col: str
     }
 
 
-def _detect_panel_candidates(data: pd.DataFrame,
-                              hint_unit: Optional[str] = None,
-                              hint_time: Optional[str] = None,
-                              ) -> List[Dict[str, Any]]:
+def _detect_panel_candidates(
+    data: pd.DataFrame,
+    hint_unit: Optional[str] = None,
+    hint_time: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """Enumerate plausible ``(unit, time)`` pairs ranked by score.
 
     Skips columns that look like outcomes (too unique) or constants
@@ -177,8 +178,7 @@ def _detect_panel_candidates(data: pd.DataFrame,
         # mid-range cardinality over extreme values. A simple ranking
         # by descending nunique gets us closest to "50-firm panels"
         # vs "thousands-of-row IDs that are really row indices".
-        ids.sort(key=lambda c: data[c].nunique(dropna=True),
-                 reverse=True)
+        ids.sort(key=lambda c: data[c].nunique(dropna=True), reverse=True)
         unit_candidates = ids[:_PAIR_CANDIDATE_CAP]
 
     if hint_time:
@@ -205,8 +205,7 @@ def _detect_panel_candidates(data: pd.DataFrame,
 
     # Sort: highest score first; on ties, prefer the pair with more
     # units than periods (panels conventionally have N >> T).
-    out.sort(key=lambda r: (-r["score"],
-                              -(r["n_units"] - r["n_periods"])))
+    out.sort(key=lambda r: (-r["score"], -(r["n_units"] - r["n_periods"])))
 
     # Deduplicate symmetric pairs: ``(firm_id, year)`` and
     # ``(year, firm_id)`` shape-score identically when both columns
@@ -224,10 +223,11 @@ def _detect_panel_candidates(data: pd.DataFrame,
     return deduped
 
 
-def _detect_rd_running_var(data: pd.DataFrame,
-                            hint_running: Optional[str] = None,
-                            hint_cutoff: Optional[float] = None,
-                            ) -> Optional[Dict[str, Any]]:
+def _detect_rd_running_var(
+    data: pd.DataFrame,
+    hint_running: Optional[str] = None,
+    hint_cutoff: Optional[float] = None,
+) -> Optional[Dict[str, Any]]:
     """Look for a numeric column that could be an RD running variable.
 
     Heuristic: continuous numeric column (≥ ``_RD_RUNNING_UNIQUE_MIN``
@@ -241,22 +241,23 @@ def _detect_rd_running_var(data: pd.DataFrame,
     if n == 0:
         return None
 
-    cols = [hint_running] if (
-        hint_running and hint_running in data.columns
-    ) else [
-        c for c in data.columns
-        if pd.api.types.is_numeric_dtype(data[c])
-        and data[c].nunique(dropna=False) >= _RD_RUNNING_UNIQUE_MIN
-    ]
+    cols = (
+        [hint_running]
+        if (hint_running and hint_running in data.columns)
+        else [
+            c
+            for c in data.columns
+            if pd.api.types.is_numeric_dtype(data[c])
+            and data[c].nunique(dropna=False) >= _RD_RUNNING_UNIQUE_MIN
+        ]
+    )
 
     best: Optional[Dict[str, Any]] = None
     for c in cols:
         s = data[c].dropna()
         if len(s) == 0:
             continue
-        cutoff = (hint_cutoff
-                  if hint_cutoff is not None
-                  else float(s.median()))
+        cutoff = hint_cutoff if hint_cutoff is not None else float(s.median())
         left = (s < cutoff).mean()
         right = (s >= cutoff).mean()
         if left < _RD_SIDE_MASS_MIN or right < _RD_SIDE_MASS_MIN:
@@ -284,13 +285,14 @@ def _detect_rd_running_var(data: pd.DataFrame,
 # ---------------------------------------------------------------------------
 
 
-def detect_design(data: pd.DataFrame,
-                   *,
-                   unit: Optional[str] = None,
-                   time: Optional[str] = None,
-                   running_var: Optional[str] = None,
-                   cutoff: Optional[float] = None,
-                   ) -> Dict[str, Any]:
+def detect_design(
+    data: pd.DataFrame,
+    *,
+    unit: Optional[str] = None,
+    time: Optional[str] = None,
+    running_var: Optional[str] = None,
+    cutoff: Optional[float] = None,
+) -> Dict[str, Any]:
     """Detect the most plausible study design from a DataFrame.
 
     Heuristic — never definitive. Returns ranked candidates so the
@@ -359,8 +361,7 @@ def detect_design(data: pd.DataFrame,
         Design-level diagnostics for an *already declared* design.
     """
     if not isinstance(data, pd.DataFrame):
-        raise TypeError(
-            f"data must be a pandas DataFrame; got {type(data).__name__}")
+        raise TypeError(f"data must be a pandas DataFrame; got {type(data).__name__}")
     n = len(data)
     if n == 0:
         return {
@@ -372,10 +373,10 @@ def detect_design(data: pd.DataFrame,
             "columns": list(data.columns),
         }
 
-    panel_candidates = _detect_panel_candidates(
-        data, hint_unit=unit, hint_time=time)
+    panel_candidates = _detect_panel_candidates(data, hint_unit=unit, hint_time=time)
     rd_candidate = _detect_rd_running_var(
-        data, hint_running=running_var, hint_cutoff=cutoff)
+        data, hint_running=running_var, hint_cutoff=cutoff
+    )
 
     candidates: List[Dict[str, Any]] = []
 
@@ -394,11 +395,13 @@ def detect_design(data: pd.DataFrame,
             rd_score = min(1.0, rd_candidate["score"] + 0.4)
         else:
             rd_score = min(0.30, rd_candidate["score"])
-        candidates.append({
-            "design": "rd",
-            "confidence": round(rd_score, 3),
-            **rd_candidate,
-        })
+        candidates.append(
+            {
+                "design": "rd",
+                "confidence": round(rd_score, 3),
+                **rd_candidate,
+            }
+        )
 
     panel_score = 0.0
     if panel_candidates:
@@ -407,22 +410,26 @@ def detect_design(data: pd.DataFrame,
         if unit or time:
             panel_score = min(1.0, panel_score + 0.2)
         for p in panel_candidates:
-            candidates.append({
-                "design": "panel",
-                "confidence": round(min(1.0, p["score"]
-                                          + (0.2 if (unit or time)
-                                             else 0.0)), 3),
-                **p,
-            })
+            candidates.append(
+                {
+                    "design": "panel",
+                    "confidence": round(
+                        min(1.0, p["score"] + (0.2 if (unit or time) else 0.0)), 3
+                    ),
+                    **p,
+                }
+            )
 
     # Cross-section is always a fallback candidate.
     cs_score = max(0.0, 1.0 - max(panel_score, rd_score))
-    candidates.append({
-        "design": "cross_section",
-        "confidence": round(cs_score, 3),
-        "n_obs": n,
-        "n_columns": len(data.columns),
-    })
+    candidates.append(
+        {
+            "design": "cross_section",
+            "confidence": round(cs_score, 3),
+            "n_obs": n,
+            "n_columns": len(data.columns),
+        }
+    )
 
     # Pick the winner: highest confidence score across all candidates.
     candidates.sort(key=lambda c: -c["confidence"])

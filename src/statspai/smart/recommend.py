@@ -76,10 +76,12 @@ class RecommendationResult:
             f"  Outcome:     {self._y} ({self.data_profile['y_type']})",
             f"  Treatment:   {self._treatment} ({self.data_profile['treat_type']})",
         ]
-        if self.data_profile.get('panel'):
-            lines.append(f"  Panel:       {self.data_profile['n_units']} units × "
-                         f"{self.data_profile['n_periods']} periods")
-        if self.data_profile.get('missing_pct', 0) > 0:
+        if self.data_profile.get("panel"):
+            lines.append(
+                f"  Panel:       {self.data_profile['n_units']} units × "
+                f"{self.data_profile['n_periods']} periods"
+            )
+        if self.data_profile.get("missing_pct", 0) > 0:
             lines.append(f"  Missing:     {self.data_profile['missing_pct']:.1%}")
 
         lines.append(f"\n  Design:      {self.design.upper()}")
@@ -98,20 +100,20 @@ class RecommendationResult:
             lines.append(f"\n  {star} #{i+1}: {rec['method']}")
             lines.append(f"    Function: sp.{rec['function']}()")
             lines.append(f"    Why: {rec['reason']}")
-            if rec.get('assumptions'):
+            if rec.get("assumptions"):
                 lines.append(f"    Assumptions: {', '.join(rec['assumptions'])}")
-            if rec.get('robustness'):
+            if rec.get("robustness"):
                 lines.append(f"    Robustness: {rec['robustness']}")
-            if rec.get('code'):
+            if rec.get("code"):
                 lines.append(f"    Code: {rec['code']}")
-            v = rec.get('verify')
+            v = rec.get("verify")
             if v:
-                if v.get('error'):
+                if v.get("error"):
                     lines.append(f"    Stability: skipped ({v['error']})")
-                elif np.isfinite(v.get('score', np.nan)):
-                    stab = v.get('stability', {}).get('score', np.nan)
-                    plac = v.get('placebo', {}).get('score', np.nan)
-                    subs = v.get('subsample', {}).get('score', np.nan)
+                elif np.isfinite(v.get("score", np.nan)):
+                    stab = v.get("stability", {}).get("score", np.nan)
+                    plac = v.get("placebo", {}).get("score", np.nan)
+                    subs = v.get("subsample", {}).get("score", np.nan)
                     lines.append(
                         f"    Stability: score={v['score']:.0f}/100  "
                         f"(resample={stab:.0f}, placebo={plac:.0f}, "
@@ -129,8 +131,9 @@ class RecommendationResult:
         lines.append("\n" + "=" * 70)
         return "\n".join(lines)
 
-    def to_latex(self, caption: Optional[str] = None,
-                 label: str = "tab:recommendation") -> str:
+    def to_latex(
+        self, caption: Optional[str] = None, label: str = "tab:recommendation"
+    ) -> str:
         r"""Export recommendations as a booktabs LaTeX table.
 
         If ``verify=True`` was used when calling ``recommend()``, the
@@ -172,15 +175,20 @@ class RecommendationResult:
             )
 
         def _esc(s: str) -> str:
-            return (str(s).replace("\\", r"\textbackslash{}")
-                         .replace("_", r"\_")
-                         .replace("&", r"\&")
-                         .replace("%", r"\%")
-                         .replace("#", r"\#"))
+            return (
+                str(s)
+                .replace("\\", r"\textbackslash{}")
+                .replace("_", r"\_")
+                .replace("&", r"\&")
+                .replace("%", r"\%")
+                .replace("#", r"\#")
+            )
 
         if has_verify:
-            header = (r"Rank & Method & Function & "
-                      r"Stab.\ Score & Resample & Plac. & Subs. \\")
+            header = (
+                r"Rank & Method & Function & "
+                r"Stab.\ Score & Resample & Plac. & Subs. \\"
+            )
             col_spec = "rllrrrr"
         else:
             header = r"Rank & Method & Function & Reason \\"
@@ -210,7 +218,9 @@ class RecommendationResult:
                 err = v.get("error")
 
                 def _fmt(x: Any) -> str:
-                    return f"{x:.0f}" if isinstance(x, float) and np.isfinite(x) else "--"
+                    return (
+                        f"{x:.0f}" if isinstance(x, float) and np.isfinite(x) else "--"
+                    )
 
                 marker = f" {{\\tiny\\textit{{({_esc(err)})}}}}" if err else ""
                 lines.append(
@@ -221,42 +231,53 @@ class RecommendationResult:
                 reason = _esc(rec.get("reason", ""))
                 lines.append(f"{i} & {method} & {func} & {reason} \\\\")
 
-        lines.extend([
-            r"\bottomrule",
-            r"\end{tabular}",
-            r"\begin{tablenotes}",
-            r"\footnotesize",
-        ])
+        lines.extend(
+            [
+                r"\bottomrule",
+                r"\end{tabular}",
+                r"\begin{tablenotes}",
+                r"\footnotesize",
+            ]
+        )
         if has_verify:
-            lines.extend([
-                r"\item \textbf{Stab.\ Score}: weighted composite in [0, 100]"
-                r" measuring estimate \emph{stability} under resampling;"
-                r" \emph{not} a measure of identification validity.",
-                r"\item \textbf{Resample}: bootstrap stability "
-                r"($100 \times (1 - \text{CV})$ of point estimate across $B$ resamples).",
-                r"\item \textbf{Plac.}: permutation placebo pass rate "
-                r"(\% of permuted-treatment runs with $p > 0.10$). "
-                r"Note: unconditional permutation destroys confounder "
-                r"structure and thus has limited power for "
-                r"selection-on-observables designs.",
-                r"\item \textbf{Subs.}: sign agreement across 50\% subsamples.",
-                r"\item \textbf{Caveat}: high stability is necessary but not"
-                r" sufficient; a biased estimator can be perfectly stable.",
-                r"\item Data: " + _esc(f"N={self.data_profile['n_obs']:,}") +
-                (f", {self.data_profile.get('n_units', '?')} units "
-                 f"$\\times$ {self.data_profile.get('n_periods', '?')} periods"
-                 if self.data_profile.get('panel') else "") + ".",
-            ])
+            lines.extend(
+                [
+                    r"\item \textbf{Stab.\ Score}: weighted composite in [0, 100]"
+                    r" measuring estimate \emph{stability} under resampling;"
+                    r" \emph{not} a measure of identification validity.",
+                    r"\item \textbf{Resample}: bootstrap stability "
+                    r"($100 \times (1 - \text{CV})$ of point estimate across $B$ resamples).",
+                    r"\item \textbf{Plac.}: permutation placebo pass rate "
+                    r"(\% of permuted-treatment runs with $p > 0.10$). "
+                    r"Note: unconditional permutation destroys confounder "
+                    r"structure and thus has limited power for "
+                    r"selection-on-observables designs.",
+                    r"\item \textbf{Subs.}: sign agreement across 50\% subsamples.",
+                    r"\item \textbf{Caveat}: high stability is necessary but not"
+                    r" sufficient; a biased estimator can be perfectly stable.",
+                    r"\item Data: "
+                    + _esc(f"N={self.data_profile['n_obs']:,}")
+                    + (
+                        f", {self.data_profile.get('n_units', '?')} units "
+                        f"$\\times$ {self.data_profile.get('n_periods', '?')} periods"
+                        if self.data_profile.get("panel")
+                        else ""
+                    )
+                    + ".",
+                ]
+            )
         else:
             lines.append(
                 r"\item Rankings are rule-based; call with "
                 r"\texttt{verify=True} for empirical scores."
             )
-        lines.extend([
-            r"\end{tablenotes}",
-            r"\end{threeparttable}",
-            r"\end{table}",
-        ])
+        lines.extend(
+            [
+                r"\end{tablenotes}",
+                r"\end{threeparttable}",
+                r"\end{table}",
+            ]
+        )
         return "\n".join(lines)
 
     def _workflow_steps(self) -> List[str]:
@@ -268,12 +289,16 @@ class RecommendationResult:
 
         # Pre-estimation
         steps.append("Run sp.sumstats(df) to check data quality")
-        if self.data_profile.get('missing_pct', 0) > 5:
-            steps.append(f"Handle missing data: sp.mice(df, m=5) — {self.data_profile['missing_pct']:.0%} missing")
+        if self.data_profile.get("missing_pct", 0) > 5:
+            steps.append(
+                f"Handle missing data: sp.mice(df, m=5) — {self.data_profile['missing_pct']:.0%} missing"
+            )
 
         if self._treatment:
-            steps.append(f"Check balance: sp.balance_check(df, treatment='{self._treatment}', "
-                         f"covariates=[...])")
+            steps.append(
+                f"Check balance: sp.balance_check(df, treatment='{self._treatment}', "
+                f"covariates=[...])"
+            )
 
         # Main estimation
         steps.append(f"Estimate: result = {rec['code']}")
@@ -281,12 +306,12 @@ class RecommendationResult:
         # Post-estimation
         steps.append("Diagnostics: sp.diagnose_result(result)")
 
-        if rec['function'] in ['regress', 'iv', 'panel']:
+        if rec["function"] in ["regress", "iv", "panel"]:
             steps.append("Sensitivity: sp.sensemakr(result) or sp.oster_bounds(result)")
-        if rec['function'] in ['did', 'callaway_santanna']:
+        if rec["function"] in ["did", "callaway_santanna"]:
             steps.append("Pre-trends: sp.pretrends_test(result)")
             steps.append("Event study: sp.event_study(df, ...)")
-        if rec['function'] == 'rdrobust':
+        if rec["function"] == "rdrobust":
             steps.append("McCrary test: sp.rddensity(df, x='running_var')")
 
         steps.append("Robustness: sp.robustness_report(result)")
@@ -307,8 +332,8 @@ class RecommendationResult:
         import statspai as sp
 
         rec = self.recommendations[which]
-        func = getattr(sp, rec['function'])
-        params = rec.get('params', {})
+        func = getattr(sp, rec["function"])
+        params = rec.get("params", {})
         params.update(kwargs)
         return func(**params)
 
@@ -317,9 +342,9 @@ class RecommendationResult:
         results = {}
         for i, rec in enumerate(self.recommendations):
             try:
-                results[rec['method']] = self.run(which=i, **kwargs)
+                results[rec["method"]] = self.run(which=i, **kwargs)
             except Exception as e:
-                results[rec['method']] = f"Error: {e}"
+                results[rec["method"]] = f"Error: {e}"
         return results
 
 
@@ -332,47 +357,47 @@ def _profile_data(
 ) -> Dict[str, Any]:
     """Profile the dataset to understand its structure."""
     profile: Dict[str, Any] = {
-        'n_obs': len(data),
-        'n_vars': len(data.columns),
+        "n_obs": len(data),
+        "n_vars": len(data.columns),
     }
 
     # Outcome type
     y_data = data[y].dropna()
     if y_data.nunique() == 2:
-        profile['y_type'] = 'binary'
+        profile["y_type"] = "binary"
     elif pd.api.types.is_integer_dtype(y_data) and y_data.min() >= 0:
         if y_data.max() <= 50:
-            profile['y_type'] = 'count'
+            profile["y_type"] = "count"
         else:
-            profile['y_type'] = 'continuous'
+            profile["y_type"] = "continuous"
     elif len(y_data) > 0 and y_data.min() >= 0 and y_data.max() <= 1:
-        profile['y_type'] = 'fractional'
+        profile["y_type"] = "fractional"
     else:
-        profile['y_type'] = 'continuous'
+        profile["y_type"] = "continuous"
 
     # Treatment type
     if treatment:
         t_data = data[treatment]
         if t_data.nunique() == 2:
-            profile['treat_type'] = 'binary'
+            profile["treat_type"] = "binary"
         elif t_data.nunique() <= 10:
-            profile['treat_type'] = 'categorical'
+            profile["treat_type"] = "categorical"
         else:
-            profile['treat_type'] = 'continuous'
+            profile["treat_type"] = "continuous"
     else:
-        profile['treat_type'] = 'none'
+        profile["treat_type"] = "none"
 
     # Panel structure
     if id_col and time_col:
-        profile['panel'] = True
-        profile['n_units'] = data[id_col].nunique()
-        profile['n_periods'] = data[time_col].nunique()
-        profile['balanced'] = data.groupby(id_col).size().nunique() == 1
+        profile["panel"] = True
+        profile["n_units"] = data[id_col].nunique()
+        profile["n_periods"] = data[time_col].nunique()
+        profile["balanced"] = data.groupby(id_col).size().nunique() == 1
     else:
-        profile['panel'] = False
+        profile["panel"] = False
 
     # Missing data
-    profile['missing_pct'] = data.isna().any(axis=1).mean()
+    profile["missing_pct"] = data.isna().any(axis=1).mean()
 
     return profile
 
@@ -389,21 +414,21 @@ def _detect_design(
 ) -> str:
     """Auto-detect the likely research design."""
     if running_var:
-        return 'rd'
+        return "rd"
     if instrument:
-        return 'iv'
+        return "iv"
     if id_col and time_col and treatment:
         # Check if treatment varies over time → DID
         treat_varies = data.groupby(id_col)[treatment].nunique().max() > 1
         if treat_varies:
-            return 'did'
+            return "did"
         else:
-            return 'panel'
+            return "panel"
     if id_col and time_col:
-        return 'panel'
+        return "panel"
     if treatment:
-        return 'observational'
-    return 'cross-section'
+        return "observational"
+    return "cross-section"
 
 
 def recommend(
@@ -530,15 +555,19 @@ def recommend(
     True
     """
     if covariates is None:
-        covariates = [c for c in data.columns
-                      if c not in [y, treatment, id, time, running_var, instrument]
-                      and pd.api.types.is_numeric_dtype(data[c])]
+        covariates = [
+            c
+            for c in data.columns
+            if c not in [y, treatment, id, time, running_var, instrument]
+            and pd.api.types.is_numeric_dtype(data[c])
+        ]
 
     profile = _profile_data(data, y, treatment, id, time)
 
     if design is None:
-        design = _detect_design(data, y, treatment, id, time,
-                                running_var, instrument, profile)
+        design = _detect_design(
+            data, y, treatment, id, time, running_var, instrument, profile
+        )
 
     warnings_list: List[str] = []
     recommendations: List[Dict[str, Any]] = []
@@ -553,7 +582,8 @@ def recommend(
                 bad = dag.bad_controls(treatment, y)
                 if bad:
                     warnings_list.append(
-                        f"DAG flags bad controls (do NOT include): {bad}")
+                        f"DAG flags bad controls (do NOT include): {bad}"
+                    )
         except Exception as e:
             warnings_list.append(f"DAG analysis failed: {e}")
 
@@ -563,34 +593,43 @@ def recommend(
         ctrl_str += ", ..."
 
     # Missing data warning
-    if profile['missing_pct'] > 0.1:
+    if profile["missing_pct"] > 0.1:
         warnings_list.append(
             f"{profile['missing_pct']:.0%} observations have missing values. "
-            f"Consider sp.mice() before estimation.")
+            f"Consider sp.mice() before estimation."
+        )
 
     # ===== DESIGN-SPECIFIC RECOMMENDATIONS =====
 
-    if design == 'rct':
-        recommendations.append({
-            'method': 'OLS with robust SE (primary)',
-            'function': 'regress',
-            'reason': 'RCT: simple difference in means is unbiased. '
-                      'Add covariates for precision.',
-            'assumptions': ['Random assignment', 'SUTVA', 'No attrition bias'],
-            'robustness': 'Check sp.balance_check() and sp.attrition_test()',
-            'code': f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, robust='hc1')",
-            'params': {'formula': f'{y} ~ {treatment}', 'data': data, 'robust': 'hc1'},
-        })
-        if profile['y_type'] == 'binary':
-            recommendations.append({
-                'method': 'Logit (for binary outcome)',
-                'function': 'logit',
-                'reason': 'Binary outcome → logit for correct functional form.',
-                'code': f"sp.logit(data=df, y='{y}', x=['{treatment}'] + controls)",
-                'params': {'data': data, 'y': y, 'x': [treatment] + controls[:5]},
-            })
+    if design == "rct":
+        recommendations.append(
+            {
+                "method": "OLS with robust SE (primary)",
+                "function": "regress",
+                "reason": "RCT: simple difference in means is unbiased. "
+                "Add covariates for precision.",
+                "assumptions": ["Random assignment", "SUTVA", "No attrition bias"],
+                "robustness": "Check sp.balance_check() and sp.attrition_test()",
+                "code": f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, robust='hc1')",
+                "params": {
+                    "formula": f"{y} ~ {treatment}",
+                    "data": data,
+                    "robust": "hc1",
+                },
+            }
+        )
+        if profile["y_type"] == "binary":
+            recommendations.append(
+                {
+                    "method": "Logit (for binary outcome)",
+                    "function": "logit",
+                    "reason": "Binary outcome → logit for correct functional form.",
+                    "code": f"sp.logit(data=df, y='{y}', x=['{treatment}'] + controls)",
+                    "params": {"data": data, "y": y, "x": [treatment] + controls[:5]},
+                }
+            )
 
-    elif design == 'did':
+    elif design == "did":
         # Staggered vs 2-period
         if time and data[time].nunique() > 2:
             cohort_col = f"_cohort_{treatment}"
@@ -613,63 +652,88 @@ def recommend(
                 return out
 
             did_data = _derive_cohort(data)
-            recommendations.append({
-                'method': 'Callaway-Sant\'Anna (2021) — staggered DID',
-                'function': 'callaway_santanna',
-                'reason': 'Multiple time periods with staggered treatment adoption. '
-                          'Robust to heterogeneous treatment effects (unlike TWFE).',
-                'assumptions': ['Parallel trends', 'No anticipation', 'Staggered adoption'],
-                'robustness': 'Run sp.pretrends_test(), sp.honest_did(), sp.event_study()',
-                'code': f"# Derived cohort column = first period treated\n"
-                        f"sp.callaway_santanna(df, y='{y}', g='{cohort_col}', "
-                        f"t='{time}', i='{id}')",
-                'params': {'data': did_data, 'y': y, 'g': cohort_col,
-                           't': time, 'i': id},
-                'prep': _derive_cohort,
-                'raw_treat': treatment,
-            })
-            recommendations.append({
-                'method': 'Sun-Abraham (2021) — interaction-weighted',
-                'function': 'sun_abraham',
-                'reason': 'Alternative heterogeneity-robust DID estimator.',
-                'code': f"sp.sun_abraham(df, y='{y}', g='{cohort_col}', "
-                        f"t='{time}', i='{id}')",
-                'params': {'data': did_data, 'y': y, 'g': cohort_col,
-                           't': time, 'i': id},
-                'prep': _derive_cohort,
-                'raw_treat': treatment,
-            })
+            recommendations.append(
+                {
+                    "method": "Callaway-Sant'Anna (2021) — staggered DID",
+                    "function": "callaway_santanna",
+                    "reason": "Multiple time periods with staggered treatment adoption. "
+                    "Robust to heterogeneous treatment effects (unlike TWFE).",
+                    "assumptions": [
+                        "Parallel trends",
+                        "No anticipation",
+                        "Staggered adoption",
+                    ],
+                    "robustness": "Run sp.pretrends_test(), sp.honest_did(), sp.event_study()",
+                    "code": f"# Derived cohort column = first period treated\n"
+                    f"sp.callaway_santanna(df, y='{y}', g='{cohort_col}', "
+                    f"t='{time}', i='{id}')",
+                    "params": {
+                        "data": did_data,
+                        "y": y,
+                        "g": cohort_col,
+                        "t": time,
+                        "i": id,
+                    },
+                    "prep": _derive_cohort,
+                    "raw_treat": treatment,
+                }
+            )
+            recommendations.append(
+                {
+                    "method": "Sun-Abraham (2021) — interaction-weighted",
+                    "function": "sun_abraham",
+                    "reason": "Alternative heterogeneity-robust DID estimator.",
+                    "code": f"sp.sun_abraham(df, y='{y}', g='{cohort_col}', "
+                    f"t='{time}', i='{id}')",
+                    "params": {
+                        "data": did_data,
+                        "y": y,
+                        "g": cohort_col,
+                        "t": time,
+                        "i": id,
+                    },
+                    "prep": _derive_cohort,
+                    "raw_treat": treatment,
+                }
+            )
         else:
-            recommendations.append({
-                'method': 'Classic 2×2 DID',
-                'function': 'did',
-                'reason': 'Two groups, two periods — classic DID is appropriate.',
-                'assumptions': ['Parallel trends', 'No anticipation', 'SUTVA'],
-                'code': f"sp.did(df, y='{y}', treat='{treatment}', time='{time}')",
-                'params': {'data': data, 'y': y, 'treat': treatment, 'time': time},
-            })
+            recommendations.append(
+                {
+                    "method": "Classic 2×2 DID",
+                    "function": "did",
+                    "reason": "Two groups, two periods — classic DID is appropriate.",
+                    "assumptions": ["Parallel trends", "No anticipation", "SUTVA"],
+                    "code": f"sp.did(df, y='{y}', treat='{treatment}', time='{time}')",
+                    "params": {"data": data, "y": y, "treat": treatment, "time": time},
+                }
+            )
 
-    elif design == 'rd':
-        rv = running_var or 'running_var'
+    elif design == "rd":
+        rv = running_var or "running_var"
         cutoff_value = cutoff or 0
-        recommendations.append({
-            'method': 'Local polynomial RD (CCT 2014)',
-            'function': 'rdrobust',
-            'reason': 'Sharp/fuzzy RD with MSE-optimal bandwidth and bias correction.',
-            'assumptions': ['Continuity of potential outcomes at cutoff',
-                            'No manipulation of running variable'],
-            'robustness': 'Run sp.rddensity(), sp.rdbwsensitivity(), sp.rdplacebo()',
-            'code': f"sp.rdrobust(df, y='{y}', x='{rv}', c={cutoff_value})",
-            'params': {'data': data, 'y': y, 'x': rv, 'c': cutoff_value},
-        })
+        recommendations.append(
+            {
+                "method": "Local polynomial RD (CCT 2014)",
+                "function": "rdrobust",
+                "reason": "Sharp/fuzzy RD with MSE-optimal bandwidth and bias correction.",
+                "assumptions": [
+                    "Continuity of potential outcomes at cutoff",
+                    "No manipulation of running variable",
+                ],
+                "robustness": "Run sp.rddensity(), sp.rdbwsensitivity(), sp.rdplacebo()",
+                "code": f"sp.rdrobust(df, y='{y}', x='{rv}', c={cutoff_value})",
+                "params": {"data": data, "y": y, "x": rv, "c": cutoff_value},
+            }
+        )
 
-    elif design == 'iv':
-        z = instrument or 'instrument'
+    elif design == "iv":
+        z = instrument or "instrument"
         exog_controls = [c for c in controls if c not in (treatment, z)]
         exog_str = " + ".join(exog_controls[:5]) if exog_controls else ""
         iv_formula = (
             f"{y} ~ {exog_str} + ({treatment} ~ {z})"
-            if exog_str else f"{y} ~ ({treatment} ~ {z})"
+            if exog_str
+            else f"{y} ~ ({treatment} ~ {z})"
         )
 
         # Compute the first-stage F live so the ranking + reasons can
@@ -679,8 +743,7 @@ def recommend(
         first_stage_F: Optional[float] = None
         weak_iv = False
         very_weak_iv = False
-        if (treatment and z and treatment in data.columns
-                and z in data.columns):
+        if treatment and z and treatment in data.columns and z in data.columns:
             try:
                 d_vec = data[treatment].astype(float).to_numpy()
                 z_vec = data[z].astype(float).to_numpy()
@@ -688,35 +751,20 @@ def recommend(
                 for c in exog_controls:
                     if c in data.columns:
                         try:
-                            exog_arrays.append(
-                                data[c].astype(float).to_numpy()
-                            )
+                            exog_arrays.append(data[c].astype(float).to_numpy())
                         except (TypeError, ValueError):
                             pass
                 n_obs = len(d_vec)
                 ones = np.ones(n_obs)
-                X_full = np.column_stack(
-                    [ones, z_vec] + exog_arrays
-                )
+                X_full = np.column_stack([ones, z_vec] + exog_arrays)
                 X_restricted = np.column_stack([ones] + exog_arrays)
-                beta_full, *_ = np.linalg.lstsq(
-                    X_full, d_vec, rcond=None
-                )
-                beta_rest, *_ = np.linalg.lstsq(
-                    X_restricted, d_vec, rcond=None
-                )
-                rss_full = float(
-                    np.sum((d_vec - X_full @ beta_full) ** 2)
-                )
-                rss_rest = float(
-                    np.sum((d_vec - X_restricted @ beta_rest) ** 2)
-                )
+                beta_full, *_ = np.linalg.lstsq(X_full, d_vec, rcond=None)
+                beta_rest, *_ = np.linalg.lstsq(X_restricted, d_vec, rcond=None)
+                rss_full = float(np.sum((d_vec - X_full @ beta_full) ** 2))
+                rss_rest = float(np.sum((d_vec - X_restricted @ beta_rest) ** 2))
                 df_denom = n_obs - X_full.shape[1]
                 if rss_full > 0 and df_denom > 0:
-                    first_stage_F = (
-                        ((rss_rest - rss_full) / 1)
-                        / (rss_full / df_denom)
-                    )
+                    first_stage_F = ((rss_rest - rss_full) / 1) / (rss_full / df_denom)
                     very_weak_iv = first_stage_F < 10.0
                     weak_iv = first_stage_F < 16.38
             except (np.linalg.LinAlgError, ValueError, KeyError, TypeError):
@@ -725,75 +773,69 @@ def recommend(
                 very_weak_iv = False
 
         # Build the 2SLS recommendation with adaptive reason.
-        twoSLS_reason = 'Standard IV estimator for endogenous treatment.'
+        twoSLS_reason = "Standard IV estimator for endogenous treatment."
         twoSLS_assumptions = [
-            'Instrument relevance (F > 10)',
-            'Exclusion restriction',
-            'Monotonicity (for LATE)',
+            "Instrument relevance (F > 10)",
+            "Exclusion restriction",
+            "Monotonicity (for LATE)",
         ]
         if first_stage_F is not None:
-            twoSLS_reason += (
-                f' First-stage F = {first_stage_F:.2f}'
-            )
+            twoSLS_reason += f" First-stage F = {first_stage_F:.2f}"
             if very_weak_iv:
                 twoSLS_reason += (
-                    ' < 10 (Staiger-Stock 1997 rule of thumb): 2SLS '
-                    'biased toward OLS, HC1 SEs ignore weak-IV bias. '
-                    'Prefer LIML and Anderson-Rubin inference below.'
+                    " < 10 (Staiger-Stock 1997 rule of thumb): 2SLS "
+                    "biased toward OLS, HC1 SEs ignore weak-IV bias. "
+                    "Prefer LIML and Anderson-Rubin inference below."
                 )
             elif weak_iv:
                 twoSLS_reason += (
-                    ' < 16.38 (Stock-Yogo 2005 10% max size for 1 '
-                    'endog/1 IV): consider LIML or AR inference.'
+                    " < 16.38 (Stock-Yogo 2005 10% max size for 1 "
+                    "endog/1 IV): consider LIML or AR inference."
                 )
             else:
-                twoSLS_reason += ' (clears Stock-Yogo 10% max size).'
+                twoSLS_reason += " (clears Stock-Yogo 10% max size)."
 
         twoSLS_rec: Dict[str, Any] = {
-            'method': '2SLS (two-stage least squares)',
-            'function': 'ivreg',
-            'reason': twoSLS_reason,
-            'assumptions': twoSLS_assumptions,
-            'robustness': (
-                'Check first-stage F, sp.anderson_rubin_test(), '
-                'sp.kitagawa_test()'
+            "method": "2SLS (two-stage least squares)",
+            "function": "ivreg",
+            "reason": twoSLS_reason,
+            "assumptions": twoSLS_assumptions,
+            "robustness": (
+                "Check first-stage F, sp.anderson_rubin_test(), " "sp.kitagawa_test()"
             ),
-            'code': f"sp.ivreg('{iv_formula}', data=df, robust='hc1')",
-            'params': {'formula': iv_formula, 'data': data,
-                       'robust': 'hc1'},
+            "code": f"sp.ivreg('{iv_formula}', data=df, robust='hc1')",
+            "params": {"formula": iv_formula, "data": data, "robust": "hc1"},
         }
         if first_stage_F is not None:
-            twoSLS_rec['first_stage_F'] = float(first_stage_F)
-            twoSLS_rec['weak_iv'] = bool(weak_iv)
-            twoSLS_rec['very_weak_iv'] = bool(very_weak_iv)
+            twoSLS_rec["first_stage_F"] = float(first_stage_F)
+            twoSLS_rec["weak_iv"] = bool(weak_iv)
+            twoSLS_rec["very_weak_iv"] = bool(very_weak_iv)
 
         liml_reason = (
-            'Limited Information Maximum Likelihood; less biased '
-            'than 2SLS under weak instruments.'
+            "Limited Information Maximum Likelihood; less biased "
+            "than 2SLS under weak instruments."
         )
         if very_weak_iv:
             liml_reason = (
-                f'First-stage F = {first_stage_F:.2f} < 10 '
-                '(Staiger-Stock rule of thumb): LIML is the preferred '
-                'point-estimator under weak IV, with better '
-                'small-sample bias than 2SLS.'
+                f"First-stage F = {first_stage_F:.2f} < 10 "
+                "(Staiger-Stock rule of thumb): LIML is the preferred "
+                "point-estimator under weak IV, with better "
+                "small-sample bias than 2SLS."
             )
         elif weak_iv:
             liml_reason = (
-                f'First-stage F = {first_stage_F:.2f} < 16.38 '
-                '(Stock-Yogo 10% max size): LIML reduces 2SLS '
-                'weak-instrument bias.'
+                f"First-stage F = {first_stage_F:.2f} < 16.38 "
+                "(Stock-Yogo 10% max size): LIML reduces 2SLS "
+                "weak-instrument bias."
             )
         liml_rec: Dict[str, Any] = {
-            'method': 'LIML (robust to weak instruments)',
-            'function': 'liml',
-            'reason': liml_reason,
-            'code': (
-                f"sp.liml(data=df, y='{y}', x_endog=['{treatment}'], "
-                f"z=['{z}'])"
+            "method": "LIML (robust to weak instruments)",
+            "function": "liml",
+            "reason": liml_reason,
+            "code": (
+                f"sp.liml(data=df, y='{y}', x_endog=['{treatment}'], " f"z=['{z}'])"
             ),
-            'params': {'data': data, 'y': y,
-                       'x_endog': [treatment], 'z': [z]},
+            "params": {"data": data, "y": y, "x_endog": [treatment], "z": [z]},
         }
 
         # An Anderson-Rubin confidence interval is robust to weak
@@ -803,22 +845,20 @@ def recommend(
         ar_rec = None
         if very_weak_iv or weak_iv:
             ar_rec = {
-                'method': (
-                    'Anderson-Rubin confidence interval '
-                    '(weak-IV robust inference)'
+                "method": (
+                    "Anderson-Rubin confidence interval " "(weak-IV robust inference)"
                 ),
-                'function': 'anderson_rubin_ci',
-                'reason': (
-                    'AR confidence intervals are valid even when the '
-                    'first-stage F is small; recommended whenever '
-                    '2SLS HC1 SEs cannot be trusted.'
+                "function": "anderson_rubin_ci",
+                "reason": (
+                    "AR confidence intervals are valid even when the "
+                    "first-stage F is small; recommended whenever "
+                    "2SLS HC1 SEs cannot be trusted."
                 ),
-                'code': (
+                "code": (
                     f"sp.anderson_rubin_ci(data=df, y='{y}', "
                     f"d='{treatment}', z=['{z}'])"
                 ),
-                'params': {'data': data, 'y': y,
-                           'd': treatment, 'z': [z]},
+                "params": {"data": data, "y": y, "d": treatment, "z": [z]},
             }
 
         # Ranking: under (very) weak IV, lift LIML and AR above 2SLS so
@@ -857,78 +897,112 @@ def recommend(
                 f"consider method='liml' or sp.anderson_rubin_ci(...)."
             )
 
-    elif design == 'observational':
-        recommendations.append({
-            'method': 'OLS with robust SE (baseline)',
-            'function': 'regress',
-            'reason': 'Start with OLS as baseline. If endogeneity is a concern, '
-                      'follow up with matching or IV.',
-            'assumptions': ['E[ε|X]=0 (exogeneity)', 'Correct functional form'],
-            'robustness': 'Run sp.sensemakr(), sp.oster_bounds(), sp.spec_curve()',
-            'code': f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, robust='hc1')",
-            'params': {'formula': f'{y} ~ {treatment}', 'data': data, 'robust': 'hc1'},
-        })
-        recommendations.append({
-            'method': 'Propensity Score Matching (selection on observables)',
-            'function': 'match',
-            'reason': 'Nonparametric causal effect under unconfoundedness.',
-            'assumptions': ['Unconfoundedness (CIA)', 'Common support (overlap)'],
-            'code': f"sp.match(df, y='{y}', treat='{treatment}', "
-                    f"covariates=[{ctrl_str}])",
-            'params': {'data': data, 'y': y, 'treat': treatment,
-                       'covariates': controls[:10]},
-        })
-        recommendations.append({
-            'method': 'Double ML (high-dimensional controls)',
-            'function': 'dml',
-            'reason': 'Handles many controls without overfitting via cross-fitting.',
-            'code': f"sp.dml(df, y='{y}', treat='{treatment}', "
-                    f"covariates=[{ctrl_str}])",
-            'params': {'data': data, 'y': y, 'treat': treatment,
-                       'covariates': controls[:20]},
-        })
+    elif design == "observational":
+        recommendations.append(
+            {
+                "method": "OLS with robust SE (baseline)",
+                "function": "regress",
+                "reason": "Start with OLS as baseline. If endogeneity is a concern, "
+                "follow up with matching or IV.",
+                "assumptions": ["E[ε|X]=0 (exogeneity)", "Correct functional form"],
+                "robustness": "Run sp.sensemakr(), sp.oster_bounds(), sp.spec_curve()",
+                "code": f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, robust='hc1')",
+                "params": {
+                    "formula": f"{y} ~ {treatment}",
+                    "data": data,
+                    "robust": "hc1",
+                },
+            }
+        )
+        recommendations.append(
+            {
+                "method": "Propensity Score Matching (selection on observables)",
+                "function": "match",
+                "reason": "Nonparametric causal effect under unconfoundedness.",
+                "assumptions": ["Unconfoundedness (CIA)", "Common support (overlap)"],
+                "code": f"sp.match(df, y='{y}', treat='{treatment}', "
+                f"covariates=[{ctrl_str}])",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "covariates": controls[:10],
+                },
+            }
+        )
+        recommendations.append(
+            {
+                "method": "Double ML (high-dimensional controls)",
+                "function": "dml",
+                "reason": "Handles many controls without overfitting via cross-fitting.",
+                "code": f"sp.dml(df, y='{y}', treat='{treatment}', "
+                f"covariates=[{ctrl_str}])",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "covariates": controls[:20],
+                },
+            }
+        )
 
-    elif design == 'panel':
-        panel_rhs = treatment if treatment else '1'
+    elif design == "panel":
+        panel_rhs = treatment if treatment else "1"
         panel_controls = [c for c in controls if c != treatment][:5]
         if panel_controls:
             panel_rhs += " + " + " + ".join(panel_controls)
         panel_formula = f"{y} ~ {panel_rhs}"
-        recommendations.append({
-            'method': 'Panel FE (within estimator)',
-            'function': 'panel',
-            'reason': 'Controls for time-invariant unobservables.',
-            'assumptions': ['Strict exogeneity', 'No time-varying confounders'],
-            'code': f"sp.panel(df, '{panel_formula}', "
-                    f"entity='{id}', time='{time}', method='fe')",
-            'params': {'data': data, 'formula': panel_formula,
-                       'entity': id, 'time': time, 'method': 'fe'},
-        })
-        recommendations.append({
-            'method': 'Correlated Random Effects (Mundlak)',
-            'function': 'panel',
-            'reason': 'Mundlak projection allows RE efficiency with FE consistency.',
-            'code': f"sp.panel(df, '{panel_formula}', "
-                    f"entity='{id}', time='{time}', method='mundlak')",
-            'params': {'data': data, 'formula': panel_formula,
-                       'entity': id, 'time': time, 'method': 'mundlak'},
-        })
+        recommendations.append(
+            {
+                "method": "Panel FE (within estimator)",
+                "function": "panel",
+                "reason": "Controls for time-invariant unobservables.",
+                "assumptions": ["Strict exogeneity", "No time-varying confounders"],
+                "code": f"sp.panel(df, '{panel_formula}', "
+                f"entity='{id}', time='{time}', method='fe')",
+                "params": {
+                    "data": data,
+                    "formula": panel_formula,
+                    "entity": id,
+                    "time": time,
+                    "method": "fe",
+                },
+            }
+        )
+        recommendations.append(
+            {
+                "method": "Correlated Random Effects (Mundlak)",
+                "function": "panel",
+                "reason": "Mundlak projection allows RE efficiency with FE consistency.",
+                "code": f"sp.panel(df, '{panel_formula}', "
+                f"entity='{id}', time='{time}', method='mundlak')",
+                "params": {
+                    "data": data,
+                    "formula": panel_formula,
+                    "entity": id,
+                    "time": time,
+                    "method": "mundlak",
+                },
+            }
+        )
 
     else:
         # Cross-section
         if treatment:
-            formula = f'{y} ~ {treatment}'
+            formula = f"{y} ~ {treatment}"
         elif controls:
-            formula = f'{y} ~ {controls[0]}'
+            formula = f"{y} ~ {controls[0]}"
         else:
-            formula = f'{y} ~ 1'
-        recommendations.append({
-            'method': 'OLS with robust SE',
-            'function': 'regress',
-            'reason': 'Cross-sectional data with continuous outcome.',
-            'code': f"sp.regress('{y} ~ {ctrl_str or '...'}', data=df, robust='hc1')",
-            'params': {'formula': formula, 'data': data, 'robust': 'hc1'},
-        })
+            formula = f"{y} ~ 1"
+        recommendations.append(
+            {
+                "method": "OLS with robust SE",
+                "function": "regress",
+                "reason": "Cross-sectional data with continuous outcome.",
+                "code": f"sp.regress('{y} ~ {ctrl_str or '...'}', data=df, robust='hc1')",
+                "params": {"formula": formula, "data": data, "robust": "hc1"},
+            }
+        )
 
     # ====================================================================== #
     #  Sprint-B causal extensions (0.9.6): opt-in via the new kwargs.        #
@@ -939,203 +1013,294 @@ def recommend(
     # Proximal Causal Inference — unobserved confounding with twin proxies
     if proxy_z and proxy_w and treatment:
         exog = [c for c in (covariates or []) if c not in proxy_z + proxy_w]
-        recommendations.append({
-            'method': 'Proximal Causal Inference (linear bridge 2SLS)',
-            'function': 'proximal',
-            'reason': 'Unmeasured confounder U with a treatment-side '
-                      'proxy Z and outcome-side proxy W available; '
-                      'linear bridge 2SLS identifies ATE under the '
-                      'proxy completeness conditions.',
-            'assumptions': [
-                'Z ⊥ Y | (D, U, X)  — treatment proxy',
-                'W ⊥ D | (U, X)  — outcome proxy',
-                'Linear outcome bridge h(W, D, X) (current release)',
-            ],
-            'robustness': 'Inspect first_stage_F in r.model_info; '
-                          'compare to sp.dml/sp.aipw for sensitivity.',
-            'code': f"sp.proximal(df, y='{y}', treat='{treatment}', "
-                    f"proxy_z={proxy_z!r}, proxy_w={proxy_w!r})",
-            'params': {
-                'data': data, 'y': y, 'treat': treatment,
-                'proxy_z': list(proxy_z), 'proxy_w': list(proxy_w),
-                'covariates': exog,
-            },
-        })
+        recommendations.append(
+            {
+                "method": "Proximal Causal Inference (linear bridge 2SLS)",
+                "function": "proximal",
+                "reason": "Unmeasured confounder U with a treatment-side "
+                "proxy Z and outcome-side proxy W available; "
+                "linear bridge 2SLS identifies ATE under the "
+                "proxy completeness conditions.",
+                "assumptions": [
+                    "Z ⊥ Y | (D, U, X)  — treatment proxy",
+                    "W ⊥ D | (U, X)  — outcome proxy",
+                    "Linear outcome bridge h(W, D, X) (current release)",
+                ],
+                "robustness": "Inspect first_stage_F in r.model_info; "
+                "compare to sp.dml/sp.aipw for sensitivity.",
+                "code": f"sp.proximal(df, y='{y}', treat='{treatment}', "
+                f"proxy_z={proxy_z!r}, proxy_w={proxy_w!r})",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "proxy_z": list(proxy_z),
+                    "proxy_w": list(proxy_w),
+                    "covariates": exog,
+                },
+            }
+        )
 
     # Marginal Structural Model — time-varying treatment + tv confounders
     if tv_confounders and treatment and id and time:
         baseline = [c for c in (covariates or []) if c not in tv_confounders]
-        recommendations.append({
-            'method': 'Marginal Structural Model (stabilized IPTW)',
-            'function': 'msm',
-            'reason': 'Time-varying treatment with time-varying confounders '
-                      'that are themselves affected by past treatment. '
-                      'Standard panel regression blocks a causal path and '
-                      'opens a collider; MSM with stabilized weights '
-                      'recovers the marginal causal parameter.',
-            'assumptions': ['Sequential exchangeability',
-                            'Positivity at every period',
-                            'Consistency / no interference'],
-            'robustness': 'Check sw_mean ≈ 1 and sw_max in model_info; '
-                          'try trim_per_period=True if weights blow up.',
-            'code': (f"sp.msm(panel, y='{y}', treat='{treatment}', "
-                     f"id='{id}', time='{time}', "
-                     f"time_varying={tv_confounders!r}, "
-                     f"baseline={baseline[:3]!r})"),
-            'params': {
-                'data': data, 'y': y, 'treat': treatment,
-                'id': id, 'time': time,
-                'time_varying': list(tv_confounders),
-                'baseline': baseline,
-            },
-        })
+        recommendations.append(
+            {
+                "method": "Marginal Structural Model (stabilized IPTW)",
+                "function": "msm",
+                "reason": "Time-varying treatment with time-varying confounders "
+                "that are themselves affected by past treatment. "
+                "Standard panel regression blocks a causal path and "
+                "opens a collider; MSM with stabilized weights "
+                "recovers the marginal causal parameter.",
+                "assumptions": [
+                    "Sequential exchangeability",
+                    "Positivity at every period",
+                    "Consistency / no interference",
+                ],
+                "robustness": "Check sw_mean ≈ 1 and sw_max in model_info; "
+                "try trim_per_period=True if weights blow up.",
+                "code": (
+                    f"sp.msm(panel, y='{y}', treat='{treatment}', "
+                    f"id='{id}', time='{time}', "
+                    f"time_varying={tv_confounders!r}, "
+                    f"baseline={baseline[:3]!r})"
+                ),
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "id": id,
+                    "time": time,
+                    "time_varying": list(tv_confounders),
+                    "baseline": baseline,
+                },
+            }
+        )
 
     # Principal Stratification — post-treatment strata variable
     if post_treat_strata and treatment:
-        assumps = ['Monotonicity S(1) ≥ S(0)', 'Exclusion restriction']
+        assumps = ["Monotonicity S(1) ≥ S(0)", "Exclusion restriction"]
         rec_args = {
-            'data': data, 'y': y, 'treat': treatment,
-            'strata': post_treat_strata,
+            "data": data,
+            "y": y,
+            "treat": treatment,
+            "strata": post_treat_strata,
         }
         if covariates:
-            rec_args['covariates'] = covariates
-            rec_args['method'] = 'principal_score'
-            method_label = 'Principal stratification (principal score weighting)'
-            function_reason = ('Covariates available — Ding & Lu (2017) '
-                               'principal score point-identifies '
-                               'always-taker / complier / never-taker PCEs '
-                               'under principal ignorability.')
-            assumps.append('Principal ignorability Y(d) ⊥ stratum | X within D=d')
+            rec_args["covariates"] = covariates
+            rec_args["method"] = "principal_score"
+            method_label = "Principal stratification (principal score weighting)"
+            function_reason = (
+                "Covariates available — Ding & Lu (2017) "
+                "principal score point-identifies "
+                "always-taker / complier / never-taker PCEs "
+                "under principal ignorability."
+            )
+            assumps.append("Principal ignorability Y(d) ⊥ stratum | X within D=d")
             code_tail = f", covariates={covariates[:3]!r}, method='principal_score'"
         else:
-            rec_args['method'] = 'monotonicity'
-            method_label = 'Principal stratification (monotonicity + Zhang-Rubin bounds)'
-            function_reason = ('Post-treatment stratum variable present; '
-                               'monotonicity + Zhang-Rubin (2003) sharp '
-                               'bounds on SACE plus complier LATE.')
-            code_tail = ''
-        recommendations.append({
-            'method': method_label,
-            'function': 'principal_strat',
-            'reason': function_reason,
-            'assumptions': assumps,
-            'robustness': 'Inspect mono_violation_frac in model_info; '
-                          'pair with a sensitivity analysis.',
-            'code': (f"sp.principal_strat(df, y='{y}', treat='{treatment}', "
-                     f"strata='{post_treat_strata}'{code_tail})"),
-            'params': rec_args,
-        })
+            rec_args["method"] = "monotonicity"
+            method_label = (
+                "Principal stratification (monotonicity + Zhang-Rubin bounds)"
+            )
+            function_reason = (
+                "Post-treatment stratum variable present; "
+                "monotonicity + Zhang-Rubin (2003) sharp "
+                "bounds on SACE plus complier LATE."
+            )
+            code_tail = ""
+        recommendations.append(
+            {
+                "method": method_label,
+                "function": "principal_strat",
+                "reason": function_reason,
+                "assumptions": assumps,
+                "robustness": "Inspect mono_violation_frac in model_info; "
+                "pair with a sensitivity analysis.",
+                "code": (
+                    f"sp.principal_strat(df, y='{y}', treat='{treatment}', "
+                    f"strata='{post_treat_strata}'{code_tail})"
+                ),
+                "params": rec_args,
+            }
+        )
 
     # Mediation recommendations (natural + interventional + front-door)
     if mediator and treatment:
         # Natural effects (Imai-Keele-Tingley)
-        recommendations.append({
-            'method': 'Causal mediation — natural direct/indirect effects',
-            'function': 'mediate',
-            'reason': 'Decomposes total effect into ACME (indirect via M) '
-                      'and ADE (direct). Uses the product / quasi-Bayesian '
-                      'simulation approach.',
-            'assumptions': ['No unobserved D-Y confounder',
-                            'No unobserved M-Y confounder',
-                            'No treatment-induced M-Y confounder',
-                            'Cross-world independence (natural effects)'],
-            'code': (f"sp.mediate(df, y='{y}', treat='{treatment}', "
-                     f"mediator='{mediator}')"),
-            'params': {'data': data, 'y': y, 'treat': treatment,
-                       'mediator': mediator, 'covariates': covariates},
-        })
+        recommendations.append(
+            {
+                "method": "Causal mediation — natural direct/indirect effects",
+                "function": "mediate",
+                "reason": "Decomposes total effect into ACME (indirect via M) "
+                "and ADE (direct). Uses the product / quasi-Bayesian "
+                "simulation approach.",
+                "assumptions": [
+                    "No unobserved D-Y confounder",
+                    "No unobserved M-Y confounder",
+                    "No treatment-induced M-Y confounder",
+                    "Cross-world independence (natural effects)",
+                ],
+                "code": (
+                    f"sp.mediate(df, y='{y}', treat='{treatment}', "
+                    f"mediator='{mediator}')"
+                ),
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "mediator": mediator,
+                    "covariates": covariates,
+                },
+            }
+        )
         # Interventional effects — appropriate when tv_confounders present
         if tv_confounders:
-            recommendations.append({
-                'method': 'Interventional mediation (VanderWeele 2014)',
-                'function': 'mediate_interventional',
-                'reason': 'Treatment-induced mediator-outcome confounder '
-                          'present — natural effects are not identified; '
-                          'interventional effects are.',
-                'assumptions': ['No unobserved baseline D-Y confounder',
-                                'No unobserved M-Y confounder (given L)'],
-                'code': (f"sp.mediate_interventional(df, y='{y}', "
-                         f"treat='{treatment}', mediator='{mediator}', "
-                         f"tv_confounders={tv_confounders!r})"),
-                'params': {'data': data, 'y': y, 'treat': treatment,
-                           'mediator': mediator,
-                           'covariates': covariates,
-                           'tv_confounders': list(tv_confounders)},
-            })
+            recommendations.append(
+                {
+                    "method": "Interventional mediation (VanderWeele 2014)",
+                    "function": "mediate_interventional",
+                    "reason": "Treatment-induced mediator-outcome confounder "
+                    "present — natural effects are not identified; "
+                    "interventional effects are.",
+                    "assumptions": [
+                        "No unobserved baseline D-Y confounder",
+                        "No unobserved M-Y confounder (given L)",
+                    ],
+                    "code": (
+                        f"sp.mediate_interventional(df, y='{y}', "
+                        f"treat='{treatment}', mediator='{mediator}', "
+                        f"tv_confounders={tv_confounders!r})"
+                    ),
+                    "params": {
+                        "data": data,
+                        "y": y,
+                        "treat": treatment,
+                        "mediator": mediator,
+                        "covariates": covariates,
+                        "tv_confounders": list(tv_confounders),
+                    },
+                }
+            )
         # Front-door — when the mediator is claimed to fully transmit D→Y
-        recommendations.append({
-            'method': 'Front-door adjustment (Pearl 1995)',
-            'function': 'front_door',
-            'reason': 'If an unobserved back-door confounder U blocks the '
-                      'standard adjustment but the mediator M fully '
-                      'transmits D\'s effect on Y, Pearl\'s front-door '
-                      'formula identifies the ATE.',
-            'assumptions': ['No direct D→Y path (all effect via M)',
-                            'No unobserved M-Y confounder',
-                            'Positivity on M | D'],
-            'robustness': 'Verify the DAG assumption with sp.dag; '
-                          'compare to sp.mediate / sp.mediate_interventional.',
-            'code': (f"sp.front_door(df, y='{y}', treat='{treatment}', "
-                     f"mediator='{mediator}')"),
-            'params': {'data': data, 'y': y, 'treat': treatment,
-                       'mediator': mediator, 'covariates': covariates},
-        })
+        recommendations.append(
+            {
+                "method": "Front-door adjustment (Pearl 1995)",
+                "function": "front_door",
+                "reason": "If an unobserved back-door confounder U blocks the "
+                "standard adjustment but the mediator M fully "
+                "transmits D's effect on Y, Pearl's front-door "
+                "formula identifies the ATE.",
+                "assumptions": [
+                    "No direct D→Y path (all effect via M)",
+                    "No unobserved M-Y confounder",
+                    "Positivity on M | D",
+                ],
+                "robustness": "Verify the DAG assumption with sp.dag; "
+                "compare to sp.mediate / sp.mediate_interventional.",
+                "code": (
+                    f"sp.front_door(df, y='{y}', treat='{treatment}', "
+                    f"mediator='{mediator}')"
+                ),
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "mediator": mediator,
+                    "covariates": covariates,
+                },
+            }
+        )
 
     # G-computation as a baseline companion for observational designs
-    if design == 'observational' and treatment and profile['treat_type'] in ('binary', 'continuous'):
-        if profile['treat_type'] == 'binary':
-            estimand_kw = 'ATE'
-            gcomp_reason = ('Parametric g-formula (standardization) — '
-                            'complements matching/DML with a pure-outcome-'
-                            'model baseline; easy-to-audit dose-response '
-                            'slices.')
+    if (
+        design == "observational"
+        and treatment
+        and profile["treat_type"] in ("binary", "continuous")
+    ):
+        if profile["treat_type"] == "binary":
+            estimand_kw = "ATE"
+            gcomp_reason = (
+                "Parametric g-formula (standardization) — "
+                "complements matching/DML with a pure-outcome-"
+                "model baseline; easy-to-audit dose-response "
+                "slices."
+            )
         else:
-            estimand_kw = 'dose_response'
-            gcomp_reason = ('Continuous treatment → g-formula dose-response '
-                            'curve is a natural summary under '
-                            'unconfoundedness.')
-        recommendations.append({
-            'method': f'G-computation ({estimand_kw})',
-            'function': 'g_computation',
-            'reason': gcomp_reason,
-            'assumptions': ['Unconfoundedness (CIA)',
-                            'Correctly-specified outcome model'],
-            'code': (f"sp.g_computation(df, y='{y}', treat='{treatment}', "
-                     f"covariates={(covariates or [])[:3]!r}, "
-                     f"estimand={estimand_kw!r})"),
-            'params': {'data': data, 'y': y, 'treat': treatment,
-                       'covariates': covariates or [],
-                       'estimand': estimand_kw},
-        })
+            estimand_kw = "dose_response"
+            gcomp_reason = (
+                "Continuous treatment → g-formula dose-response "
+                "curve is a natural summary under "
+                "unconfoundedness."
+            )
+        recommendations.append(
+            {
+                "method": f"G-computation ({estimand_kw})",
+                "function": "g_computation",
+                "reason": gcomp_reason,
+                "assumptions": [
+                    "Unconfoundedness (CIA)",
+                    "Correctly-specified outcome model",
+                ],
+                "code": (
+                    f"sp.g_computation(df, y='{y}', treat='{treatment}', "
+                    f"covariates={(covariates or [])[:3]!r}, "
+                    f"estimand={estimand_kw!r})"
+                ),
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "covariates": covariates or [],
+                    "estimand": estimand_kw,
+                },
+            }
+        )
 
     # Outcome-type-specific additions
-    if profile['y_type'] == 'binary' and design not in ['rd', 'did']:
-        recommendations.append({
-            'method': 'Logit (binary outcome)',
-            'function': 'logit',
-            'reason': 'Binary dependent variable → logit for correct likelihood.',
-            'code': f"sp.logit(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
-            'params': {'data': data, 'y': y, 'x': [treatment] + controls[:5]
-                       if treatment else controls[:5]},
-        })
-    elif profile['y_type'] == 'count':
-        recommendations.append({
-            'method': 'Poisson regression (count outcome)',
-            'function': 'poisson',
-            'reason': 'Count outcome → Poisson with robust SE is consistent.',
-            'code': f"sp.poisson(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
-            'params': {'data': data, 'y': y, 'x': [treatment] + controls[:5]
-                       if treatment else controls[:5]},
-        })
-    elif profile['y_type'] == 'fractional':
-        recommendations.append({
-            'method': 'Fractional logit (outcome in [0,1])',
-            'function': 'fracreg',
-            'reason': 'Proportional outcome → fractional logit (Papke-Wooldridge).',
-            'code': f"sp.fracreg(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
-            'params': {'data': data, 'y': y, 'x': [treatment] + controls[:5]
-                       if treatment else controls[:5]},
-        })
+    if profile["y_type"] == "binary" and design not in ["rd", "did"]:
+        recommendations.append(
+            {
+                "method": "Logit (binary outcome)",
+                "function": "logit",
+                "reason": "Binary dependent variable → logit for correct likelihood.",
+                "code": f"sp.logit(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "x": [treatment] + controls[:5] if treatment else controls[:5],
+                },
+            }
+        )
+    elif profile["y_type"] == "count":
+        recommendations.append(
+            {
+                "method": "Poisson regression (count outcome)",
+                "function": "poisson",
+                "reason": "Count outcome → Poisson with robust SE is consistent.",
+                "code": f"sp.poisson(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "x": [treatment] + controls[:5] if treatment else controls[:5],
+                },
+            }
+        )
+    elif profile["y_type"] == "fractional":
+        recommendations.append(
+            {
+                "method": "Fractional logit (outcome in [0,1])",
+                "function": "fracreg",
+                "reason": "Proportional outcome → fractional logit (Papke-Wooldridge).",
+                "code": f"sp.fracreg(data=df, y='{y}', x=['{treatment}'] + controls[:5])",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "x": [treatment] + controls[:5] if treatment else controls[:5],
+                },
+            }
+        )
 
     # Optional empirical verification (Plan 3: rule prior + empirical posterior)
     if verify and recommendations:
@@ -1145,7 +1310,8 @@ def recommend(
         for rec in recommendations[:k]:
             try:
                 rec["verify"] = verify_recommendation(
-                    rec, data,
+                    rec,
+                    data,
                     B=verify_B,
                     budget_s=verify_budget_s,
                 )
@@ -1165,7 +1331,7 @@ def recommend(
             s = v.get("score")
             if s is None or not np.isfinite(s):
                 return float("inf")  # push NaN / missing to the end
-            return -float(s)         # primary: descending score
+            return -float(s)  # primary: descending score
 
         head.sort(key=_sort_key)
         recommendations = head + tail
@@ -1177,8 +1343,11 @@ def recommend(
     # an agent card exists, use its fields even when the hardcoded ones
     # here fall out of date.
     # ------------------------------------------------------------------
-    _enrich_with_agent_cards(recommendations, n_obs=int(profile.get("n_obs", 0) or 0),
-                             warnings_list=warnings_list)
+    _enrich_with_agent_cards(
+        recommendations,
+        n_obs=int(profile.get("n_obs", 0) or 0),
+        warnings_list=warnings_list,
+    )
 
     # ------------------------------------------------------------------
     # Stability gating (v1.13): by default, drop recommendations that
@@ -1224,6 +1393,7 @@ def _filter_unstable_recommendations(
     custom recommendation a downstream caller may have appended.
     """
     from ..registry import _REGISTRY, _ensure_full_registry  # local: avoid cycle
+
     _ensure_full_registry()
     keep: List[Dict[str, Any]] = []
     dropped: List[str] = []
@@ -1277,8 +1447,10 @@ def _enrich_with_agent_cards(
         # populated with agent-native fields.  Plain auto-registered
         # entries contribute nothing useful here.
         card_has_content = (
-            card.get("assumptions") or card.get("failure_modes")
-            or card.get("alternatives") or card.get("pre_conditions")
+            card.get("assumptions")
+            or card.get("failure_modes")
+            or card.get("alternatives")
+            or card.get("pre_conditions")
             or card.get("typical_n_min")
         )
         if not card_has_content:
@@ -1298,8 +1470,11 @@ def _enrich_with_agent_cards(
         # top-level warnings.
         n_min = card.get("typical_n_min")
         if (
-            not first_flagged and n_min is not None
-            and isinstance(n_min, int) and n_obs and n_obs < n_min
+            not first_flagged
+            and n_min is not None
+            and isinstance(n_min, int)
+            and n_obs
+            and n_obs < n_min
         ):
             warnings_list.append(
                 f"Sample size n={n_obs} is below the typical minimum "

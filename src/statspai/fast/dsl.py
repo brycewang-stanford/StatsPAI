@@ -17,6 +17,7 @@ deferred to a later phase. You feed the helpers into the existing
     >>> X = pd.concat([df[['x']], dummies], axis=1)
     >>> sp.fast.fepois('y ~ ' + ' + '.join(X.columns) + ' | firm', data=df.join(dummies))
 """
+
 from __future__ import annotations
 
 from typing import Iterable, List, Optional, Sequence, Union
@@ -50,6 +51,7 @@ def _spec_to_list(spec: Iterable[str]) -> List[str]:
 # ---------------------------------------------------------------------------
 # i() — event-study / interacted dummies
 # ---------------------------------------------------------------------------
+
 
 def i(
     var: Union[pd.Series, np.ndarray],
@@ -114,6 +116,7 @@ def i(
 # ^ operator: FE interactions
 # ---------------------------------------------------------------------------
 
+
 def fe_interact(*cols: Union[pd.Series, np.ndarray, Sequence]) -> np.ndarray:
     """Combine K FE columns into a single int64 code per (c_1, ..., c_K) tuple.
 
@@ -156,7 +159,9 @@ def fe_interact(*cols: Union[pd.Series, np.ndarray, Sequence]) -> np.ndarray:
     # General K-way fallback.
     df = pd.DataFrame({f"_c{i}": a for i, a in enumerate(arrays)})
     codes, _ = pd.factorize(
-        df.apply(tuple, axis=1), sort=False, use_na_sentinel=True,
+        df.apply(tuple, axis=1),
+        sort=False,
+        use_na_sentinel=True,
     )
     return np.asarray(codes.astype(np.int64))
 
@@ -164,6 +169,7 @@ def fe_interact(*cols: Union[pd.Series, np.ndarray, Sequence]) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # sw() / csw() — stepwise spec expansion
 # ---------------------------------------------------------------------------
+
 
 def sw(*specs: Iterable[str]) -> List[List[str]]:
     """Stepwise: each spec emitted independently.

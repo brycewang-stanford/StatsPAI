@@ -99,6 +99,7 @@ def conformal_synth(
 
     if pre_mask.sum() < 2:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "Need at least 2 pre-treatment periods",
             recovery_hint=(
@@ -111,11 +112,10 @@ def conformal_synth(
         )
     if post_mask.sum() < 1:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "Need at least 1 post-treatment period",
-            recovery_hint=(
-                "Verify the treatment_time is before the panel's end."
-            ),
+            recovery_hint=("Verify the treatment_time is before the panel's end."),
             diagnostics={"n_post_periods": int(post_mask.sum())},
             alternative_functions=[],
         )
@@ -137,9 +137,7 @@ def conformal_synth(
     post_indices = np.where(post_mask)[0]
 
     # --- Fit standard SCM for point estimate ---
-    weights = _solve_weights(
-        Y_treated[pre_mask], Y_donors[pre_mask], penalization
-    )
+    weights = _solve_weights(Y_treated[pre_mask], Y_donors[pre_mask], penalization)
     Y_synth = Y_donors @ weights
     gap = Y_treated - Y_synth
     gap_pre = gap[pre_mask]
@@ -173,17 +171,17 @@ def conformal_synth(
         pval_zero = _conformal_pvalue(gap_pre, observed_gap, 0.0)
 
         # Confidence set by test inversion
-        ci_lo, ci_hi = _invert_conformal_test(
-            gap_pre, observed_gap, tau_grid, alpha
-        )
+        ci_lo, ci_hi = _invert_conformal_test(gap_pre, observed_gap, tau_grid, alpha)
 
-        period_results.append({
-            "time": times[t_pos],
-            "effect": float(observed_gap),
-            "pvalue": pval_zero,
-            "ci_lower": ci_lo,
-            "ci_upper": ci_hi,
-        })
+        period_results.append(
+            {
+                "time": times[t_pos],
+                "effect": float(observed_gap),
+                "pvalue": pval_zero,
+                "ci_lower": ci_lo,
+                "ci_upper": ci_hi,
+            }
+        )
 
     period_df = pd.DataFrame(period_results)
 
@@ -207,7 +205,7 @@ def conformal_synth(
         "n_donors": len(donor_cols),
         "n_pre_periods": T0,
         "n_post_periods": T1,
-        "pre_treatment_rmse": round(float(np.sqrt(np.mean(gap_pre ** 2))), 6),
+        "pre_treatment_rmse": round(float(np.sqrt(np.mean(gap_pre**2))), 6),
         "treatment_time": treatment_time,
         "treated_unit": treated_unit,
         "grid_size": grid_size,
@@ -238,11 +236,15 @@ def conformal_synth(
 #  Internal helpers
 # ====================================================================== #
 
+
 def _solve_weights(
-    y: np.ndarray, X: np.ndarray, penalization: float = 0.0,
+    y: np.ndarray,
+    X: np.ndarray,
+    penalization: float = 0.0,
 ) -> np.ndarray:
     """Standard SCM weights: min ||y - Xw||^2 + pen*||w||^2, w>=0, sum=1."""
     from ._core import solve_simplex_weights
+
     return solve_simplex_weights(y, X, penalization=penalization)
 
 
@@ -285,8 +287,7 @@ def _conformal_avg_pvalue(
     :func:`_conformal_pvalue` (the post block contributes the ``+1``).
     """
     post_resid = np.asarray(post_gaps, dtype=float).ravel() - tau0
-    u = np.concatenate([np.asarray(pre_residuals, dtype=float).ravel(),
-                        post_resid])
+    u = np.concatenate([np.asarray(pre_residuals, dtype=float).ravel(), post_resid])
     T = int(u.shape[0])
     stat_obs = abs(float(np.mean(post_resid)))
 
@@ -298,7 +299,7 @@ def _conformal_avg_pvalue(
     # is exactly the observed post-period, so it is always counted.
     ext = np.concatenate([u, u[: T1 - 1]]) if T1 > 1 else u
     csum = np.concatenate([[0.0], np.cumsum(ext)])
-    block_means = (csum[T1:T1 + T] - csum[:T]) / float(T1)
+    block_means = (csum[T1 : T1 + T] - csum[:T]) / float(T1)
     n_extreme = int(np.sum(np.abs(block_means) >= stat_obs - 1e-12))
     return float(n_extreme / T)
 
@@ -349,7 +350,7 @@ CausalResult._CITATIONS["conformal_synth"] = (
     "@article{chernozhukov2021exact,\n"
     "  title={An Exact and Robust Conformal Inference Method for\n"
     "  Counterfactual and Synthetic Controls},\n"
-    "  author={Chernozhukov, Victor and W{\\\"u}thrich, Kaspar "
+    '  author={Chernozhukov, Victor and W{\\"u}thrich, Kaspar '
     "and Zhu, Yinchu},\n"
     "  journal={Journal of the American Statistical Association},\n"
     "  volume={116},\n"

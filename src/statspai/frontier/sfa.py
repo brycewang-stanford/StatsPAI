@@ -180,12 +180,23 @@ class FrontierResult(EconometricResults):
     # to show an SFA-specific block instead of dumping these arrays.
     _ARRAY_DIAGS = frozenset(
         {
-            "sigma_u_i", "sigma_v_i", "mu_i", "eps",
-            "efficiency_bc", "efficiency_jlms", "inefficiency_jlms",
-            "efficiency_index", "a_it", "group_idx", "unit_ids",
-            "efficiency_bc_unit", "efficiency_jlms_unit",
+            "sigma_u_i",
+            "sigma_v_i",
+            "mu_i",
+            "eps",
+            "efficiency_bc",
+            "efficiency_jlms",
+            "inefficiency_jlms",
+            "efficiency_index",
+            "a_it",
+            "group_idx",
+            "unit_ids",
+            "efficiency_bc_unit",
+            "efficiency_jlms_unit",
             "efficiency_bc_unit_mean",
-            "hessian", "vcov", "spec",
+            "hessian",
+            "vcov",
+            "spec",
         }
     )
 
@@ -235,6 +246,7 @@ class FrontierResult(EconometricResults):
         lr = self.diagnostics.get("lr_no_inefficiency")
         if lr is not None:
             from . import _core as _fc
+
             pval = _fc.mixed_chi_bar_pvalue(float(lr), df_boundary=1)
             lines.append("")
             lines.append(
@@ -361,8 +373,11 @@ class FrontierResult(EconometricResults):
             )
         what = what.lower()
         valid = {
-            "frontier", "expected_inefficiency", "expected_efficiency",
-            "conditional_inefficiency", "conditional_efficiency",
+            "frontier",
+            "expected_inefficiency",
+            "expected_efficiency",
+            "conditional_inefficiency",
+            "conditional_efficiency",
         }
         if what not in valid:
             raise MethodIncompatibility(
@@ -386,10 +401,7 @@ class FrontierResult(EconometricResults):
         emean_cols = self.data_info.get("emean_cols") or []
 
         required = (
-            list(regressors)
-            + list(usigma_cols)
-            + list(vsigma_cols)
-            + list(emean_cols)
+            list(regressors) + list(usigma_cols) + list(vsigma_cols) + list(emean_cols)
         )
         needs_y = what.startswith("conditional_")
         if needs_y:
@@ -456,11 +468,10 @@ class FrontierResult(EconometricResults):
         # Canonical constant-name comes from _core.const_name_for so the
         # predict() path never diverges from how parameters were named
         # at fit time by build_optional_design().
-        u_const_name = (
-            _fc.const_name_for("u_") if usigma_cols else "ln_sigma_u"
-        )
+        u_const_name = _fc.const_name_for("u_") if usigma_cols else "ln_sigma_u"
         sigma_u_new = self._eval_sigma(
-            df_new, usigma_cols,
+            df_new,
+            usigma_cols,
             log_sigma_const_name=u_const_name,
             coef_prefix="u_",
         )
@@ -491,11 +502,10 @@ class FrontierResult(EconometricResults):
         if what.startswith("conditional_"):
             y_col = self.data_info.get("dep_var")
             y_new = df_new[y_col].to_numpy(dtype=float)
-            v_const_name = (
-                _fc.const_name_for("v_") if vsigma_cols else "ln_sigma_v"
-            )
+            v_const_name = _fc.const_name_for("v_") if vsigma_cols else "ln_sigma_v"
             sigma_v_new = self._eval_sigma(
-                df_new, vsigma_cols,
+                df_new,
+                vsigma_cols,
                 log_sigma_const_name=v_const_name,
                 coef_prefix="v_",
             )
@@ -517,7 +527,8 @@ class FrontierResult(EconometricResults):
                 return pd.Series(E_u_cond, index=idx, name="conditional_inefficiency")
             return pd.Series(
                 np.clip(TE_bc_cond, 0.0, 1.0),
-                index=idx, name="conditional_efficiency",
+                index=idx,
+                name="conditional_efficiency",
             )
 
         # Marginal E[exp(-u_new)] for each distribution. Route through the
@@ -550,11 +561,7 @@ class FrontierResult(EconometricResults):
         """
         if not cols:
             return np.asarray(
-                np.exp(
-                    np.full(
-                        len(df), float(self.params[log_sigma_const_name])
-                    )
-                ),
+                np.exp(np.full(len(df), float(self.params[log_sigma_const_name]))),
                 dtype=float,
             )
         intercept_name = _fc.const_name_for(coef_prefix)
@@ -629,9 +636,7 @@ class FrontierResult(EconometricResults):
         if at not in {"observation", "mean", "ame"}:
             raise MethodIncompatibility(
                 "Unknown marginal-effects evaluation point.",
-                recovery_hint=(
-                    "Choose at='observation', at='mean', or at='ame'."
-                ),
+                recovery_hint=("Choose at='observation', at='mean', or at='ame'."),
                 diagnostics={
                     "at": at,
                     "valid": ["observation", "mean", "ame"],
@@ -650,17 +655,14 @@ class FrontierResult(EconometricResults):
     def _marginal_effects_emean(self, at: str) -> pd.DataFrame:
         if self.model_info.get("inefficiency_dist") != "truncated-normal":
             raise MethodIncompatibility(
-                "marginal_effects(source='emean') requires "
-                "dist='truncated-normal'.",
+                "marginal_effects(source='emean') requires " "dist='truncated-normal'.",
                 recovery_hint=(
                     "Refit with dist='truncated-normal' and emean=[...] "
                     "before requesting emean marginal effects."
                 ),
                 diagnostics={
                     "source": "emean",
-                    "inefficiency_dist": self.model_info.get(
-                        "inefficiency_dist"
-                    ),
+                    "inefficiency_dist": self.model_info.get("inefficiency_dist"),
                 },
             )
         emean_cols = self.data_info.get("emean_cols")
@@ -682,7 +684,8 @@ class FrontierResult(EconometricResults):
         deltas = np.array([self.params[f"mu_{c}"] for c in emean_cols])
         effects = jac[:, None] * deltas[None, :]
         effects_df = pd.DataFrame(
-            effects, columns=emean_cols,
+            effects,
+            columns=emean_cols,
             index=self.diagnostics.get("efficiency_index"),
         )
         return effects_df.mean(axis=0) if at in {"mean", "ame"} else effects_df
@@ -724,7 +727,8 @@ class FrontierResult(EconometricResults):
         gammas = np.array([self.params[f"u_{c}"] for c in usigma_cols])
         effects = factor[:, None] * gammas[None, :]
         effects_df = pd.DataFrame(
-            effects, columns=usigma_cols,
+            effects,
+            columns=usigma_cols,
             index=self.diagnostics.get("efficiency_index"),
         )
         return effects_df.mean(axis=0) if at in {"mean", "ame"} else effects_df
@@ -773,8 +777,7 @@ class FrontierResult(EconometricResults):
                 raise MethodIncompatibility(
                     f"{v!r} is not a fitted parameter.",
                     recovery_hint=(
-                        "Pass only coefficient names present in "
-                        "result.params."
+                        "Pass only coefficient names present in " "result.params."
                     ),
                     diagnostics={
                         "missing_parameter": v,
@@ -906,10 +909,18 @@ def _refit_bootstrap(
     """
     try:
         res = frontier(
-            df_b, y=y, x=x, dist=dist, cost=cost,
-            usigma=usigma, vsigma=vsigma, emean=emean,
+            df_b,
+            y=y,
+            x=x,
+            dist=dist,
+            cost=cost,
+            usigma=usigma,
+            vsigma=vsigma,
+            emean=emean,
             vce="oim",  # fast SE; we only need the point estimate here
-            maxiter=maxiter, tol=tol, start=start,
+            maxiter=maxiter,
+            tol=tol,
+            start=start,
         )
         return np.asarray(res.params.to_numpy(), dtype=float)
     except Exception:
@@ -941,11 +952,12 @@ def _draw_truncated_normal(
 @dataclass
 class _FrontierSpec:
     """Compact description of the parameter vector layout."""
+
     k_beta: int
     k_gamma_u: int
     k_gamma_v: int
-    k_delta_mu: int                 # 0 if no mu (half-normal / exponential)
-    has_emean: bool                 # True if mu varies with covariates
+    k_delta_mu: int  # 0 if no mu (half-normal / exponential)
+    has_emean: bool  # True if mu varies with covariates
     has_usigma: bool
     has_vsigma: bool
     dist: str
@@ -1094,9 +1106,7 @@ def frontier(
     if emean is not None and dist != "truncated-normal":
         raise MethodIncompatibility(
             "emean=... requires dist='truncated-normal'.",
-            recovery_hint=(
-                "Use dist='truncated-normal' or remove emean=[...]."
-            ),
+            recovery_hint=("Use dist='truncated-normal' or remove emean=[...]."),
             diagnostics={"dist": dist, "emean": emean},
         )
 
@@ -1105,8 +1115,7 @@ def frontier(
         raise MethodIncompatibility(
             f"Unknown vce={vce!r}.",
             recovery_hint=(
-                "Choose vce='oim', vce='opg', vce='robust', or "
-                "vce='bootstrap'."
+                "Choose vce='oim', vce='opg', vce='robust', or " "vce='bootstrap'."
             ),
             diagnostics={
                 "vce": vce,
@@ -1361,8 +1370,18 @@ def frontier(
                 idx_b = rng_boot.integers(0, n_df, n_df)
                 df_b = df.iloc[idx_b].reset_index(drop=True)
                 res_b = _refit_bootstrap(
-                    df_b, y, x, dist, cost, usigma, vsigma, emean,
-                    spec, start=theta_hat, maxiter=maxiter, tol=tol,
+                    df_b,
+                    y,
+                    x,
+                    dist,
+                    cost,
+                    usigma,
+                    vsigma,
+                    emean,
+                    spec,
+                    start=theta_hat,
+                    maxiter=maxiter,
+                    tol=tol,
                 )
                 estimates[b] = res_b
         else:
@@ -1370,11 +1389,22 @@ def frontier(
             clusters = df[cluster].unique()
             for b in range(B):
                 sampled = rng_boot.choice(clusters, size=len(clusters), replace=True)
-                df_b = pd.concat([df[df[cluster] == c] for c in sampled],
-                                 ignore_index=True)
+                df_b = pd.concat(
+                    [df[df[cluster] == c] for c in sampled], ignore_index=True
+                )
                 res_b = _refit_bootstrap(
-                    df_b, y, x, dist, cost, usigma, vsigma, emean,
-                    spec, start=theta_hat, maxiter=maxiter, tol=tol,
+                    df_b,
+                    y,
+                    x,
+                    dist,
+                    cost,
+                    usigma,
+                    vsigma,
+                    emean,
+                    spec,
+                    start=theta_hat,
+                    maxiter=maxiter,
+                    tol=tol,
                 )
                 estimates[b] = res_b
         # Filter failed replicates (all-NaN rows) before computing variance.

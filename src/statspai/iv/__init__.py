@@ -201,53 +201,62 @@ def _load_optional_exports(group: str) -> Dict[str, Any]:
 # canonical name during normalisation.
 _METHOD_ALIASES: Dict[str, str] = {
     # K-class formula path
-    "2sls": "2sls", "tsls": "2sls", "iv": "2sls",
+    "2sls": "2sls",
+    "tsls": "2sls",
+    "iv": "2sls",
     "liml": "liml",
     "fuller": "fuller",
     "gmm": "gmm",
     "jive": "jive",  # AIK 1999 within K-class
-
     # Modern JIVE variants
     "jive1": "jive1",
     "ujive": "ujive",
     "ijive": "ijive",
     "rjive": "rjive",
-
     # Many-weak
-    "jive_mw": "jive_mw", "ms_jive": "jive_mw",
-    "many_weak_ar": "many_weak_ar", "many_weak": "many_weak_ar",
-
+    "jive_mw": "jive_mw",
+    "ms_jive": "jive_mw",
+    "many_weak_ar": "many_weak_ar",
+    "many_weak": "many_weak_ar",
     # Lasso / post-Lasso
-    "lasso": "lasso", "lasso_iv": "lasso",
-    "post_lasso": "post_lasso", "bch": "post_lasso", "bch_lasso": "post_lasso",
-
+    "lasso": "lasso",
+    "lasso_iv": "lasso",
+    "post_lasso": "post_lasso",
+    "bch": "post_lasso",
+    "bch_lasso": "post_lasso",
     # ML / nonparametric
-    "kernel": "kernel", "kernel_iv": "kernel",
-    "npiv": "npiv", "newey_powell": "npiv",
-    "ivdml": "ivdml", "dml": "ivdml",
-    "deepiv": "deepiv", "deep": "deepiv",
-
+    "kernel": "kernel",
+    "kernel_iv": "kernel",
+    "npiv": "npiv",
+    "newey_powell": "npiv",
+    "ivdml": "ivdml",
+    "dml": "ivdml",
+    "deepiv": "deepiv",
+    "deep": "deepiv",
     # Bayesian
-    "bayes": "bayes", "bayesian": "bayes", "bayes_iv": "bayes",
+    "bayes": "bayes",
+    "bayesian": "bayes",
+    "bayes_iv": "bayes",
     "bayesian_iv": "bayes",
-
     # LATE / MTE
-    "continuous_late": "continuous_late", "continuous": "continuous_late",
+    "continuous_late": "continuous_late",
+    "continuous": "continuous_late",
     "mte": "mte",
-    "ivmte_bounds": "ivmte_bounds", "ivmte": "ivmte_bounds",
+    "ivmte_bounds": "ivmte_bounds",
+    "ivmte": "ivmte_bounds",
     "mst_bounds": "ivmte_bounds",
-
     # Quantile IV
-    "ivqreg": "ivqreg", "quantile": "ivqreg",
-
+    "ivqreg": "ivqreg",
+    "quantile": "ivqreg",
     # Plausibly exogenous
-    "plausibly_exog_uci": "plausibly_exog_uci", "uci": "plausibly_exog_uci",
+    "plausibly_exog_uci": "plausibly_exog_uci",
+    "uci": "plausibly_exog_uci",
     "plausibly_exog_ltz": "plausibly_exog_ltz",
     "plausibly_exog": "plausibly_exog_ltz",
     "ltz": "plausibly_exog_ltz",
-
     # Shift-share
-    "shift_share": "shift_share", "bartik": "shift_share",
+    "shift_share": "shift_share",
+    "bartik": "shift_share",
 }
 
 # Methods that consume a Patsy-style ``"y ~ (endog ~ z) + x"`` formula.
@@ -319,17 +328,23 @@ def _dispatch(
         absorb = kwargs.pop("absorb", None)
 
         from ..regression.iv import _normalise_absorb, _iv_absorb_run
+
         absorb_terms = _normalise_absorb(absorb)
         if absorb_terms:
             result, model, _pre = _iv_absorb_run(
-                formula=formula, data=data,
+                formula=formula,
+                data=data,
                 absorb_terms=absorb_terms,
-                method=canon, robust=robust, cluster=cluster,
+                method=canon,
+                robust=robust,
+                cluster=cluster,
                 **kwargs,
             )
         else:
             model = IVRegression(
-                formula=formula, data=data, method=canon,
+                formula=formula,
+                data=data,
+                method=canon,
                 fuller_alpha=fuller_alpha,
             )
             result = model.fit(robust=robust, cluster=cluster, **kwargs)
@@ -340,12 +355,19 @@ def _dispatch(
     # ── 2. Modern JIVE variants (jive1/ujive/ijive/rjive) ────────────
     if canon in {"jive1", "ujive", "ijive", "rjive"}:
         y_, endog_, instruments_, exog_ = _resolve_iv_args(
-            formula, data, kwargs, allow_formula=True,
+            formula,
+            data,
+            kwargs,
+            allow_formula=True,
         )
         fn = {"jive1": jive1, "ujive": ujive, "ijive": ijive, "rjive": rjive}[canon]
         return fn(
-            y=y_, endog=endog_, instruments=instruments_, exog=exog_,
-            data=data, **kwargs,
+            y=y_,
+            endog=endog_,
+            instruments=instruments_,
+            exog=exog_,
+            data=data,
+            **kwargs,
         )
 
     # ── 3. Many-weak inference ───────────────────────────────────────
@@ -361,8 +383,7 @@ def _dispatch(
         # ``endog``/``instruments``/``exog`` aliases, and translate a
         # ``formula`` into those names here (forwarding ``formula=`` verbatim
         # would raise ``TypeError: unexpected keyword argument 'formula'``).
-        _rename(kwargs, {"endog": "x_endog", "instruments": "z",
-                         "exog": "x_exog"})
+        _rename(kwargs, {"endog": "x_endog", "instruments": "z", "exog": "x_exog"})
         if formula is not None and data is not None and "x_endog" not in kwargs:
             y_, endog_, instruments_, exog_ = _formula_to_parts(formula, data)
             kwargs.setdefault("y", y_)
@@ -380,16 +401,17 @@ def _dispatch(
     if canon == "kernel":
         # kernel_iv uses singular ``treat``/``instrument`` — translate
         # and unwrap a singleton list of instruments.
-        _rename(kwargs, {"endog": "treat", "treatment": "treat",
-                         "instruments": "instrument"})
+        _rename(
+            kwargs,
+            {"endog": "treat", "treatment": "treat", "instruments": "instrument"},
+        )
         _unwrap_singleton_str(kwargs, "instrument")
         return kernel_iv(data=data, **kwargs)
     if canon == "npiv":
         return npiv(data=data, **kwargs)
     if canon == "ivdml":
         # ivdml uses ``treat`` for endog and ``covariates`` for exog.
-        _rename(kwargs, {"endog": "treat", "treatment": "treat",
-                         "exog": "covariates"})
+        _rename(kwargs, {"endog": "treat", "treatment": "treat", "exog": "covariates"})
         return ivdml(data=data, **kwargs)
     if canon == "deepiv":
         deepiv_fn = globals().get("deepiv")
@@ -408,8 +430,10 @@ def _dispatch(
 
     # ── 7. LATE / MTE ────────────────────────────────────────────────
     if canon == "continuous_late":
-        _rename(kwargs, {"endog": "treat", "treatment": "treat",
-                         "instruments": "instrument"})
+        _rename(
+            kwargs,
+            {"endog": "treat", "treatment": "treat", "instruments": "instrument"},
+        )
         _unwrap_singleton_str(kwargs, "instrument")
         return continuous_iv_late(data=data, **kwargs)
     if canon == "mte":
@@ -423,6 +447,7 @@ def _dispatch(
     # ── 8. Quantile IV ───────────────────────────────────────────────
     if canon == "ivqreg":
         from ..regression.iv_quantile import ivqreg as _ivqreg
+
         if formula is not None:
             kwargs.setdefault("formula", formula)
         return _ivqreg(data=data, **kwargs)
@@ -462,12 +487,16 @@ def fit(
 ) -> Any:
     """Alias for :func:`_dispatch`.  See ``sp.iv.__doc__`` for usage."""
     return _dispatch(
-        formula=formula, data=data, method=method,
-        augmented_diagnostics=augmented_diagnostics, **kwargs,
+        formula=formula,
+        data=data,
+        method=method,
+        augmented_diagnostics=augmented_diagnostics,
+        **kwargs,
     )
 
 
 # ─── Helpers ────────────────────────────────────────────────────────────
+
 
 def _rename(kwargs: Dict[str, Any], mapping: Dict[str, str]) -> None:
     """Translate alias kwargs to the underlying estimator's expected names.
@@ -537,6 +566,7 @@ def _resolve_iv_args(
 
 def _formula_to_parts(formula: str, data: Any) -> tuple[Any, Any, Any, Any]:
     from ..core.utils import parse_formula
+
     parsed = parse_formula(formula)
     return (
         parsed["dependent"],
@@ -562,8 +592,7 @@ def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
             instruments=Z,
             exog=W[:, 1:] if W.shape[1] > 1 else None,
             add_const=(
-                W.shape[1] >= 1 and np.allclose(W[:, 0], 1.0)
-                if W.shape[1] else True
+                W.shape[1] >= 1 and np.allclose(W[:, 0], 1.0) if W.shape[1] else True
             ),
             cov_type="robust",
         )
@@ -593,15 +622,10 @@ def _attach_augmented_diagnostics(model: Any, result: Any) -> None:
                 )
                 if isinstance(ep, dict):
                     stat = (
-                        ep.get("F_eff")
-                        or ep.get("statistic")
-                        or ep.get("effective_F")
+                        ep.get("F_eff") or ep.get("statistic") or ep.get("effective_F")
                     )
                 else:
-                    stat = (
-                        getattr(ep, "F_eff", None)
-                        or getattr(ep, "statistic", None)
-                    )
+                    stat = getattr(ep, "F_eff", None) or getattr(ep, "statistic", None)
                 if stat is not None:
                     result.diagnostics["Olea-Pflueger effective F"] = float(stat)
             except Exception as e:
@@ -633,6 +657,7 @@ def __getattr__(name: str) -> Any:
 # ``__call__`` — Python's attribute lookup still finds submodules, members
 # and ``__all__`` exactly as before.
 
+
 class _CallableIVModule(ModuleType):
     """A ModuleType subclass that delegates calls to :func:`_dispatch`."""
 
@@ -650,38 +675,74 @@ __all__ = [
     # callable + alias
     "fit",
     # core estimators
-    "iv", "ivreg", "IVRegression", "liml", "jive_legacy", "lasso_iv",
+    "iv",
+    "ivreg",
+    "IVRegression",
+    "liml",
+    "jive_legacy",
+    "lasso_iv",
     # JIVE variants
-    "jive1", "ujive", "ijive", "rjive", "JIVEResult",
+    "jive1",
+    "ujive",
+    "ijive",
+    "rjive",
+    "JIVEResult",
     # weak-ID diagnostics
-    "kleibergen_paap_rk", "sanderson_windmeijer", "conditional_lr_test",
-    "anderson_rubin_test", "effective_f_test", "tF_critical_value",
-    "KleibergenPaapResult", "SandersonWindmeijerResult", "CLRResult",
+    "kleibergen_paap_rk",
+    "sanderson_windmeijer",
+    "conditional_lr_test",
+    "anderson_rubin_test",
+    "effective_f_test",
+    "tF_critical_value",
+    "KleibergenPaapResult",
+    "SandersonWindmeijerResult",
+    "CLRResult",
     # plausibly exogenous
-    "plausibly_exogenous_uci", "plausibly_exogenous_ltz",
+    "plausibly_exogenous_uci",
+    "plausibly_exogenous_ltz",
     "PlausiblyExogenousResult",
     # MTE / IVMTE
-    "mte", "MTEResult",
-    "ivmte_bounds", "IVMTEBounds",
+    "mte",
+    "MTEResult",
+    "ivmte_bounds",
+    "IVMTEBounds",
     # Post-Lasso BCH
-    "bch_post_lasso_iv", "bch_lambda", "bch_selected", "PostLassoResult",
+    "bch_post_lasso_iv",
+    "bch_lambda",
+    "bch_selected",
+    "PostLassoResult",
     # Weak-IV-robust confidence sets
-    "anderson_rubin_ci", "conditional_lr_ci", "k_test_ci",
+    "anderson_rubin_ci",
+    "conditional_lr_ci",
+    "k_test_ci",
     "WeakIVConfidenceSet",
     # Bayesian IV
-    "bayesian_iv", "BayesianIVResult",
+    "bayesian_iv",
+    "BayesianIVResult",
     # NPIV
-    "npiv", "NPIVResult",
+    "npiv",
+    "NPIVResult",
     # Many-weak
-    "jive_mw", "many_weak_ar", "ManyWeakIVResult",
+    "jive_mw",
+    "many_weak_ar",
+    "ManyWeakIVResult",
     # Kernel IV with uniform inference (Lob et al. 2025)
-    "kernel_iv", "KernelIVResult",
+    "kernel_iv",
+    "KernelIVResult",
     # Continuous-instrument LATE (Xie et al. 2025)
-    "continuous_iv_late", "ContinuousLATEResult",
-    "ivdml", "IVDMLResult",
+    "continuous_iv_late",
+    "ContinuousLATEResult",
+    "ivdml",
+    "IVDMLResult",
     # Modern reporting bundle
-    "iv_diag", "iv_compare", "IVDiagResult",
+    "iv_diag",
+    "iv_compare",
+    "IVDiagResult",
     # re-exports
-    "bartik", "shift_share_se", "BartikIV", "ssaggregate",
-    "deepiv", "DeepIV",
+    "bartik",
+    "shift_share_se",
+    "BartikIV",
+    "ssaggregate",
+    "deepiv",
+    "DeepIV",
 ]

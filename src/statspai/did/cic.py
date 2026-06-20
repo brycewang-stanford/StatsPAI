@@ -31,8 +31,8 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ── Helpers ───────────────────────────────────────────────────────────
+
 
 def _ecdf_values(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Return sorted unique values and their empirical CDF."""
@@ -179,6 +179,7 @@ def _counterfactual_quantiles(
 
 # ── Main estimator ────────────────────────────────────────────────────
 
+
 def cic(
     data: pd.DataFrame,
     y: str,
@@ -247,8 +248,12 @@ def cic(
     y10 = yv[(g == 1) & (t == 0)]
     y11 = yv[(g == 1) & (t == 1)]
 
-    for label, arr in [("control-pre", y00), ("control-post", y01),
-                       ("treated-pre", y10), ("treated-post", y11)]:
+    for label, arr in [
+        ("control-pre", y00),
+        ("control-post", y01),
+        ("treated-pre", y10),
+        ("treated-post", y11),
+    ]:
         if len(arr) < 2:
             raise ValueError(
                 f"Too few observations in the {label} cell ({len(arr)}). "
@@ -319,14 +324,16 @@ def cic(
         qte_z = np.where(qte_se > 0, qte_point / qte_se, np.nan)
         qte_pv = 2 * (1 - stats.norm.cdf(np.abs(qte_z)))
 
-        detail = pd.DataFrame({
-            "quantile": qte_taus,
-            "qte": qte_point,
-            "se": qte_se,
-            "ci_lower": qte_ci_lo,
-            "ci_upper": qte_ci_hi,
-            "pvalue": qte_pv,
-        })
+        detail = pd.DataFrame(
+            {
+                "quantile": qte_taus,
+                "qte": qte_point,
+                "se": qte_se,
+                "ci_lower": qte_ci_lo,
+                "ci_upper": qte_ci_hi,
+                "pvalue": qte_pv,
+            }
+        )
         model_info["qte"] = detail
 
     n_obs = len(df)
@@ -356,14 +363,19 @@ def cic(
     }
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             result,
             function="sp.did.cic",
             params={
-                "y": y, "group": group, "time": time,
+                "y": y,
+                "group": group,
+                "time": time,
                 "quantiles": list(quantiles) if quantiles else None,
-                "n_boot": n_boot, "alpha": alpha,
-                "seed": seed, "n_grid": n_grid,
+                "n_boot": n_boot,
+                "alpha": alpha,
+                "seed": seed,
+                "n_grid": n_grid,
             },
             data=data,
             overwrite=False,

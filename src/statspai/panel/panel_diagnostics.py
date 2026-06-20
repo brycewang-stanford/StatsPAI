@@ -24,10 +24,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 # ======================================================================
 # Hausman test: FE vs RE
 # ======================================================================
+
 
 def _hausman_from_data(
     data: pd.DataFrame,
@@ -73,26 +73,27 @@ def _hausman_from_data(
     H = max(H, 0)
     pvalue = float(1 - stats.chi2.cdf(H, k))
     reject_re = pvalue <= alpha
-    recommendation = 'FE' if reject_re else 'RE'
+    recommendation = "FE" if reject_re else "RE"
 
     return {
-        'statistic': H,
-        'df': k,
-        'pvalue': pvalue,
-        'recommendation': recommendation,
-        'beta_fe': pd.Series(beta_fe, index=x),
-        'beta_re': pd.Series(beta_re, index=x),
-            'covariance_reference': 'linearmodels/plm unadjusted FE-RE covariance',
-            'interpretation': (
-                f"chi2({k}) = {H:.4f}, p = {pvalue:.4f}. "
-                f"{'Reject H0: use Fixed Effects.' if reject_re else 'Cannot reject H0: Random Effects is more efficient.'}"
-            ),
-        }
+        "statistic": H,
+        "df": k,
+        "pvalue": pvalue,
+        "recommendation": recommendation,
+        "beta_fe": pd.Series(beta_fe, index=x),
+        "beta_re": pd.Series(beta_re, index=x),
+        "covariance_reference": "linearmodels/plm unadjusted FE-RE covariance",
+        "interpretation": (
+            f"chi2({k}) = {H:.4f}, p = {pvalue:.4f}. "
+            f"{'Reject H0: use Fixed Effects.' if reject_re else 'Cannot reject H0: Random Effects is more efficient.'}"
+        ),
+    }
 
 
 # ======================================================================
 # Breusch-Pagan LM test: Pooled OLS vs RE
 # ======================================================================
+
 
 def _bp_lm_test(
     data: pd.DataFrame,
@@ -142,21 +143,21 @@ def _bp_lm_test(
         sum_ei_sq += (e[mask].sum()) ** 2
 
     # Total sum of squared residuals
-    total_sq = np.sum(e ** 2)
+    total_sq = np.sum(e**2)
 
     # LM statistic (Honda 1985 variant for unbalanced panels)
     ratio = sum_ei_sq / total_sq - 1
-    LM = (nT / (2 * (T_bar - 1))) * ratio ** 2
+    LM = (nT / (2 * (T_bar - 1))) * ratio**2
 
     LM = max(LM, 0)
     pvalue = float(1 - stats.chi2.cdf(LM, 1))
 
     return {
-        'statistic': LM,
-        'df': 1,
-        'pvalue': pvalue,
-        'recommendation': 'RE' if pvalue < 0.05 else 'Pooled OLS',
-        'interpretation': (
+        "statistic": LM,
+        "df": 1,
+        "pvalue": pvalue,
+        "recommendation": "RE" if pvalue < 0.05 else "Pooled OLS",
+        "interpretation": (
             f"LM = {LM:.4f}, p = {pvalue:.4f}. "
             f"{'Reject H0: use Random Effects.' if pvalue < 0.05 else 'Cannot reject H0: Pooled OLS is adequate.'}"
         ),
@@ -166,6 +167,7 @@ def _bp_lm_test(
 # ======================================================================
 # F-test for entity fixed effects
 # ======================================================================
+
 
 def _f_test_effects(
     data: pd.DataFrame,
@@ -216,8 +218,11 @@ def _f_test_effects(
     df2 = n - N - k
     if df2 <= 0 or rss_u <= 0:
         return {  # pragma: no cover
-            'statistic': np.nan, 'df1': df1, 'df2': df2,
-            'pvalue': np.nan, 'interpretation': 'Insufficient degrees of freedom.',
+            "statistic": np.nan,
+            "df1": df1,
+            "df2": df2,
+            "pvalue": np.nan,
+            "interpretation": "Insufficient degrees of freedom.",
         }
 
     F = ((rss_r - rss_u) / df1) / (rss_u / df2)
@@ -225,11 +230,11 @@ def _f_test_effects(
     pvalue = float(1 - stats.f.cdf(F, df1, df2))
 
     return {
-        'statistic': F,
-        'df1': df1,
-        'df2': df2,
-        'pvalue': pvalue,
-        'interpretation': (
+        "statistic": F,
+        "df1": df1,
+        "df2": df2,
+        "pvalue": pvalue,
+        "interpretation": (
             f"F({df1}, {df2}) = {F:.4f}, p = {pvalue:.4f}. "
             f"{'Reject H0: entity effects are significant — use FE.' if pvalue < 0.05 else 'Cannot reject H0: entity effects not significant.'}"
         ),
@@ -239,6 +244,7 @@ def _f_test_effects(
 # ======================================================================
 # Pesaran CD test for cross-sectional dependence
 # ======================================================================
+
 
 def _pesaran_cd(
     resids: pd.Series,
@@ -260,7 +266,7 @@ def _pesaran_cd(
     for uid in unique_ids:
         mask = ids == uid
         resid_dict[uid] = pd.Series(
-            resids.values[mask] if hasattr(resids, 'values') else resids[mask],
+            resids.values[mask] if hasattr(resids, "values") else resids[mask],
             index=data.loc[mask, time_col].values,
         )
     resid_panel = pd.DataFrame(resid_dict)
@@ -269,9 +275,9 @@ def _pesaran_cd(
     T_common = len(resid_panel.dropna())
     if T_common < 3 or N < 2:
         return {  # pragma: no cover
-            'statistic': np.nan,
-            'pvalue': np.nan,
-            'interpretation': 'Insufficient data for CD test.',
+            "statistic": np.nan,
+            "pvalue": np.nan,
+            "interpretation": "Insufficient data for CD test.",
         }
 
     sum_rho = 0.0
@@ -288,18 +294,18 @@ def _pesaran_cd(
 
     if count == 0:
         return {  # pragma: no cover
-            'statistic': np.nan,
-            'pvalue': np.nan,
-            'interpretation': 'No valid pairs for CD test.',
+            "statistic": np.nan,
+            "pvalue": np.nan,
+            "interpretation": "No valid pairs for CD test.",
         }
 
     CD = np.sqrt(2.0 / (N * (N - 1))) * sum_rho
     pvalue = float(2 * (1 - stats.norm.cdf(abs(CD))))
 
     return {
-        'statistic': float(CD),
-        'pvalue': pvalue,
-        'interpretation': (
+        "statistic": float(CD),
+        "pvalue": pvalue,
+        "interpretation": (
             f"CD = {CD:.4f}, p = {pvalue:.4f}. "
             f"{'Reject H0: cross-sectional dependence detected.' if pvalue < 0.05 else 'Cannot reject H0: no cross-sectional dependence.'}"
         ),
@@ -309,6 +315,7 @@ def _pesaran_cd(
 # ======================================================================
 # Internal helpers (from diagnostics/hausman.py)
 # ======================================================================
+
 
 def _within_estimator(
     df: pd.DataFrame, y: str, x: List[str], id_col: str
@@ -337,7 +344,7 @@ def _within_estimator(
 
     resid = Y_dm - X_dm @ beta
     n_groups = len(np.unique(ids))
-    sigma2 = np.sum(resid ** 2) / (n - n_groups - k)
+    sigma2 = np.sum(resid**2) / (n - n_groups - k)
     vcov = sigma2 * np.linalg.pinv(XtX)
 
     return beta, vcov
@@ -367,13 +374,13 @@ def _re_estimator(
     resid_fe = Y_dm - X_dm @ beta_fe
 
     T_bar = n / N
-    sigma2_e = np.sum(resid_fe ** 2) / (n - N - k)
+    sigma2_e = np.sum(resid_fe**2) / (n - N - k)
 
     group_means_y = np.array([Y[ids == uid].mean() for uid in unique_ids])
     group_means_x = np.column_stack(
-        [np.ones(N)] + [np.array([df[v].values[ids == uid].mean()
-                                   for uid in unique_ids])
-                         for v in x])
+        [np.ones(N)]
+        + [np.array([df[v].values[ids == uid].mean() for uid in unique_ids]) for v in x]
+    )
     beta_between = np.linalg.lstsq(group_means_x, group_means_y, rcond=None)[0]
     resid_between = group_means_y - group_means_x @ beta_between
     sigma2_b = max(np.var(resid_between) - sigma2_e / T_bar, 0)

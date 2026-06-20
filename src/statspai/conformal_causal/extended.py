@@ -21,11 +21,10 @@ on a user-supplied scoring function.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import numpy as np
 import pandas as pd
-
 
 __all__ = [
     "conformal_continuous",
@@ -38,6 +37,7 @@ __all__ = [
 @dataclass
 class ContinuousConformalResult:
     """Output of :func:`conformal_continuous`."""
+
     alpha: float
     quantile: float
     predictions: pd.DataFrame  # columns: prediction, lo, hi
@@ -54,27 +54,32 @@ class ContinuousConformalResult:
             f"  # test points  : {len(self.predictions)}",
         ]
         if self.dose_grid is not None:
-            lines.append(f"  dose grid      : [{self.dose_grid[0]:.3f}, {self.dose_grid[-1]:.3f}] ({len(self.dose_grid)} pts)")
+            lines.append(
+                f"  dose grid      : [{self.dose_grid[0]:.3f}, {self.dose_grid[-1]:.3f}] ({len(self.dose_grid)} pts)"
+            )
         return "\n".join(lines)
 
 
 @dataclass
 class InterferenceConformalResult:
     """Output of :func:`conformal_interference`."""
+
     alpha: float
     quantile: float
     predictions: pd.DataFrame  # columns: cluster, prediction, lo, hi
     cluster_scores: pd.Series
 
     def summary(self) -> str:
-        return "\n".join([
-            "Cluster-Exchangeable Conformal Inference on Networks",
-            "=" * 60,
-            f"  alpha            : {self.alpha}",
-            f"  # clusters (cal) : {len(self.cluster_scores)}",
-            f"  # test clusters  : {len(self.predictions)}",
-            f"  calibration q    : {self.quantile:.6f}",
-        ])
+        return "\n".join(
+            [
+                "Cluster-Exchangeable Conformal Inference on Networks",
+                "=" * 60,
+                f"  alpha            : {self.alpha}",
+                f"  # clusters (cal) : {len(self.cluster_scores)}",
+                f"  # test clusters  : {len(self.predictions)}",
+                f"  calibration q    : {self.quantile:.6f}",
+            ]
+        )
 
 
 # -------------------------------------------------------------------------
@@ -148,8 +153,11 @@ def conformal_continuous(
     """
     if estimator is None:
         from sklearn.ensemble import GradientBoostingRegressor
+
         estimator = GradientBoostingRegressor(
-            n_estimators=100, max_depth=3, random_state=random_state,
+            n_estimators=100,
+            max_depth=3,
+            random_state=random_state,
         )
     if not (0 < calibration_frac < 1):
         raise ValueError("`calibration_frac` must be in (0,1).")
@@ -182,11 +190,13 @@ def conformal_continuous(
     # Point + bands for test rows
     X_test = test_data[[treatment] + list(covariates)].to_numpy(dtype=float)
     preds = estimator.predict(X_test)
-    test_out = pd.DataFrame({
-        "prediction": preds,
-        "lo": preds - q,
-        "hi": preds + q,
-    })
+    test_out = pd.DataFrame(
+        {
+            "prediction": preds,
+            "lo": preds - q,
+            "hi": preds + q,
+        }
+    )
 
     curves = None
     dose = np.array(dose_grid, dtype=float) if dose_grid is not None else None
@@ -197,23 +207,34 @@ def conformal_continuous(
             for t in dose:
                 X_design = np.concatenate([[t], cov_row])
                 p = estimator.predict(X_design.reshape(1, -1))[0]
-                curve_rows.append({
-                    "test_idx": i, "dose": t,
-                    "prediction": p, "lo": p - q, "hi": p + q,
-                })
+                curve_rows.append(
+                    {
+                        "test_idx": i,
+                        "dose": t,
+                        "prediction": p,
+                        "lo": p - q,
+                        "hi": p + q,
+                    }
+                )
         curves = pd.DataFrame(curve_rows)
 
     _result = ContinuousConformalResult(
-        alpha=alpha, quantile=q, predictions=test_out,
-        model=estimator, dose_grid=dose, dose_curves=curves,
+        alpha=alpha,
+        quantile=q,
+        predictions=test_out,
+        model=estimator,
+        dose_grid=dose,
+        dose_curves=curves,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.conformal_causal.conformal_continuous",
             params={
-                "y": y, "treatment": treatment,
+                "y": y,
+                "treatment": treatment,
                 "covariates": list(covariates),
                 "alpha": alpha,
                 "calibration_frac": calibration_frac,
@@ -304,8 +325,11 @@ def conformal_interference(
     """
     if estimator is None:
         from sklearn.ensemble import GradientBoostingRegressor
+
         estimator = GradientBoostingRegressor(
-            n_estimators=100, max_depth=3, random_state=random_state,
+            n_estimators=100,
+            max_depth=3,
+            random_state=random_state,
         )
     required = {y, treatment, cluster, *covariates}
     missing = required - set(data.columns)
@@ -339,9 +363,7 @@ def conformal_interference(
     estimator.fit(X_train, y_train)
     cal_pred = estimator.predict(X_cal)
     cal_abs = np.abs(y_cal - cal_pred)
-    cal_scores = (
-        pd.Series(cal_abs).groupby(cal_cluster_series).mean()
-    )
+    cal_scores = pd.Series(cal_abs).groupby(cal_cluster_series).mean()
     n = len(cal_scores)
     q_level = min(1.0, np.ceil((n + 1) * (1 - alpha)) / n)
     q = float(np.quantile(cal_scores.to_numpy(), q_level))
@@ -353,15 +375,18 @@ def conformal_interference(
             raise ValueError(f"Test cluster {cid!r} not found in data.")
         Xc = sub[[treatment] + list(covariates)].to_numpy(dtype=float)
         pred_c = float(estimator.predict(Xc).mean())
-        test_rows.append({
-            "cluster": cid,
-            "prediction": pred_c,
-            "lo": pred_c - q,
-            "hi": pred_c + q,
-        })
+        test_rows.append(
+            {
+                "cluster": cid,
+                "prediction": pred_c,
+                "lo": pred_c - q,
+                "hi": pred_c + q,
+            }
+        )
 
     return InterferenceConformalResult(
-        alpha=alpha, quantile=q,
+        alpha=alpha,
+        quantile=q,
         predictions=pd.DataFrame(test_rows),
         cluster_scores=cal_scores,
     )

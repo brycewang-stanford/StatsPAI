@@ -45,6 +45,7 @@ class RKDResult(CausalResult):
 # Public API
 # ======================================================================
 
+
 def rkd(
     data: pd.DataFrame,
     y: str,
@@ -225,10 +226,7 @@ def rkd(
         # Delta method SE for ratio: Var(a/b) ~ (1/b^2)*Var(a) + (a^2/b^4)*Var(b)
         var_kink_y = V_left_y[1, 1] + V_right_y[1, 1]
         var_kink_t = V_left_t[1, 1] + V_right_t[1, 1]
-        se = np.sqrt(
-            var_kink_y / kink_t**2
-            + (kink_y**2 / kink_t**4) * var_kink_t
-        )
+        se = np.sqrt(var_kink_y / kink_t**2 + (kink_y**2 / kink_t**4) * var_kink_t)
 
         se_slope_left_t = np.sqrt(V_left_t[1, 1])
         se_slope_right_t = np.sqrt(V_right_t[1, 1])
@@ -304,14 +302,20 @@ def rkd(
 
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             result,
             function="sp.rd.rkd",
             params={
-                "y": y, "x": x, "c": c,
+                "y": y,
+                "x": x,
+                "c": c,
                 "treatment": treatment,
-                "h": h, "kernel": kernel, "p": p,
-                "cluster": cluster, "alpha": alpha,
+                "h": h,
+                "kernel": kernel,
+                "p": p,
+                "cluster": cluster,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -324,6 +328,7 @@ def rkd(
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _kernel_weights(u: np.ndarray, kernel: str) -> np.ndarray:
     """Compute kernel weights for scaled distances u = (X - c) / h.
@@ -466,7 +471,7 @@ def _rkd_bandwidth(
     w_pilot = _kernel_weights(u_pilot, kernel)
     active = w_pilot > 0
     if np.any(active):
-        var_est = np.average(Y[active]**2, weights=w_pilot[active])
+        var_est = np.average(Y[active] ** 2, weights=w_pilot[active])
     else:
         var_est = np.var(Y)
 
@@ -504,23 +509,25 @@ def _build_detail_table(model_info: Dict[str, Any], fuzzy: bool) -> pd.DataFrame
         },
     ]
     if fuzzy:
-        rows.extend([
-            {
-                "term": "Slope left (treatment)",
-                "estimate": model_info["slope_left_treatment"],
-                "se": model_info["se_slope_left_treatment"],
-            },
-            {
-                "term": "Slope right (treatment)",
-                "estimate": model_info["slope_right_treatment"],
-                "se": model_info["se_slope_right_treatment"],
-            },
-            {
-                "term": "Kink (treatment)",
-                "estimate": model_info["kink_treatment"],
-                "se": model_info["se_kink_treatment"],
-            },
-        ])
+        rows.extend(
+            [
+                {
+                    "term": "Slope left (treatment)",
+                    "estimate": model_info["slope_left_treatment"],
+                    "se": model_info["se_slope_left_treatment"],
+                },
+                {
+                    "term": "Slope right (treatment)",
+                    "estimate": model_info["slope_right_treatment"],
+                    "se": model_info["se_slope_right_treatment"],
+                },
+                {
+                    "term": "Kink (treatment)",
+                    "estimate": model_info["kink_treatment"],
+                    "se": model_info["se_kink_treatment"],
+                },
+            ]
+        )
     return pd.DataFrame(rows)
 
 
@@ -528,12 +535,12 @@ def _build_detail_table(model_info: Dict[str, Any], fuzzy: bool) -> pd.DataFrame
 # Summary
 # ======================================================================
 
+
 def _rkd_summary(result: CausalResult, alpha: Optional[float] = None) -> str:
     """Formatted RKD summary output."""
     a = alpha if alpha is not None else result.alpha
     z_crit = stats.norm.ppf(1 - a / 2)
-    ci = (result.estimate - z_crit * result.se,
-          result.estimate + z_crit * result.se)
+    ci = (result.estimate - z_crit * result.se, result.estimate + z_crit * result.se)
 
     mi = result.model_info
     stars = CausalResult._stars(result.pvalue)
@@ -551,16 +558,22 @@ def _rkd_summary(result: CausalResult, alpha: Optional[float] = None) -> str:
     lines.append(f"  Robust SE:              {result.se:.4f}")
     lines.append(f"  {pct}% CI:                [{ci[0]:.4f}, {ci[1]:.4f}]")
     lines.append("")
-    lines.append(f"  Slope left of kink:     {mi['slope_left_outcome']:.4f}"
-                 f"  (SE: {mi['se_slope_left_outcome']:.4f})")
-    lines.append(f"  Slope right of kink:    {mi['slope_right_outcome']:.4f}"
-                 f"  (SE: {mi['se_slope_right_outcome']:.4f})")
+    lines.append(
+        f"  Slope left of kink:     {mi['slope_left_outcome']:.4f}"
+        f"  (SE: {mi['se_slope_left_outcome']:.4f})"
+    )
+    lines.append(
+        f"  Slope right of kink:    {mi['slope_right_outcome']:.4f}"
+        f"  (SE: {mi['se_slope_right_outcome']:.4f})"
+    )
     lines.append(f"  Kink (slope change):    {mi['kink_outcome']:.4f}")
 
     if design == "Fuzzy":
         lines.append("")
-        lines.append(f"  First stage kink:       {mi['kink_treatment']:.4f}"
-                     f"  (SE: {mi['se_kink_treatment']:.4f})")
+        lines.append(
+            f"  First stage kink:       {mi['kink_treatment']:.4f}"
+            f"  (SE: {mi['se_kink_treatment']:.4f})"
+        )
 
     lines.append("")
     bw_label = mi.get("bw_type", "manual")
@@ -580,6 +593,7 @@ def _rkd_summary(result: CausalResult, alpha: Optional[float] = None) -> str:
 # ======================================================================
 # Plot
 # ======================================================================
+
 
 def _rkd_plot(result: RKDResult, **kwargs: Any) -> Any:
     """
@@ -611,12 +625,22 @@ def _rkd_plot(result: RKDResult, **kwargs: Any) -> Any:
     # Scatter points within bandwidth
     scatter_alpha = kwargs.get("scatter_alpha", 0.25)
     ax.scatter(
-        X[left_mask], Y[left_mask],
-        c="steelblue", alpha=scatter_alpha, s=8, zorder=1, label=None,
+        X[left_mask],
+        Y[left_mask],
+        c="steelblue",
+        alpha=scatter_alpha,
+        s=8,
+        zorder=1,
+        label=None,
     )
     ax.scatter(
-        X[right_mask], Y[right_mask],
-        c="indianred", alpha=scatter_alpha, s=8, zorder=1, label=None,
+        X[right_mask],
+        Y[right_mask],
+        c="indianred",
+        alpha=scatter_alpha,
+        s=8,
+        zorder=1,
+        label=None,
     )
 
     # Fitted polynomials
@@ -637,7 +661,9 @@ def _rkd_plot(result: RKDResult, **kwargs: Any) -> Any:
     ax.plot(x_right, y_right, color="darkred", linewidth=2, label="Right fit")
 
     # Kink line
-    ax.axvline(c, color="grey", linestyle="--", linewidth=1, alpha=0.7, label="Kink point")
+    ax.axvline(
+        c, color="grey", linestyle="--", linewidth=1, alpha=0.7, label="Kink point"
+    )
 
     title = kwargs.get("title", "Regression Kink Design")
     ax.set_title(title, fontsize=13)

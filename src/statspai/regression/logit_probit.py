@@ -37,6 +37,7 @@ LinkTriplet = Tuple[LinkFunc, LinkFunc, LinkFunc]
 def _as_float_array(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
+
 # =========================================================================
 # Link functions: CDF, PDF, and derivatives
 # =========================================================================

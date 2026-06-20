@@ -174,19 +174,35 @@ def rd_bias_aware_fuzzy(
     right = X >= 0
 
     beta_y_l, vcov_y_l, n_yl = _local_poly_wls(
-        Y[left], X[left], h, p=1, kernel=kernel,
+        Y[left],
+        X[left],
+        h,
+        p=1,
+        kernel=kernel,
         cluster=cl[left] if cl is not None else None,
     )
     beta_y_r, vcov_y_r, n_yr = _local_poly_wls(
-        Y[right], X[right], h, p=1, kernel=kernel,
+        Y[right],
+        X[right],
+        h,
+        p=1,
+        kernel=kernel,
         cluster=cl[right] if cl is not None else None,
     )
     beta_d_l, vcov_d_l, _ = _local_poly_wls(
-        D[left], X[left], h, p=1, kernel=kernel,
+        D[left],
+        X[left],
+        h,
+        p=1,
+        kernel=kernel,
         cluster=cl[left] if cl is not None else None,
     )
     beta_d_r, vcov_d_r, _ = _local_poly_wls(
-        D[right], X[right], h, p=1, kernel=kernel,
+        D[right],
+        X[right],
+        h,
+        p=1,
+        kernel=kernel,
         cluster=cl[right] if cl is not None else None,
     )
 
@@ -217,7 +233,7 @@ def rd_bias_aware_fuzzy(
     else:
         tau_hat = delta_y / delta_d
         se_naive = float(
-            np.sqrt(max(var_dy + tau_hat ** 2 * var_dd - 2 * tau_hat * cov_yd, 0))
+            np.sqrt(max(var_dy + tau_hat**2 * var_dd - 2 * tau_hat * cov_yd, 0))
             / abs(delta_d)
         )
         z = stats.norm.ppf(1 - alpha / 2)
@@ -225,8 +241,8 @@ def rd_bias_aware_fuzzy(
 
     # --- Bias bounds for numerator and denominator -------------------
     Ck = _kernel_bias_constant(kernel)
-    bias_y = Ck * h ** 2 * M_y
-    bias_d = Ck * h ** 2 * M_d
+    bias_y = Ck * h**2 * M_y
+    bias_d = Ck * h**2 * M_d
 
     # --- AR-style inversion -------------------------------------------
     # Build the grid around the naive point estimate when the first
@@ -247,7 +263,7 @@ def rd_bias_aware_fuzzy(
     for i, t0 in enumerate(grid):
         # Numerator-denominator combination
         num = delta_y - t0 * delta_d
-        var = max(var_dy + t0 ** 2 * var_dd - 2 * t0 * cov_yd, 0)
+        var = max(var_dy + t0**2 * var_dd - 2 * t0 * cov_yd, 0)
         se = float(np.sqrt(var))
         if se <= 0:
             continue  # pragma: no cover
@@ -266,7 +282,7 @@ def rd_bias_aware_fuzzy(
         ci_lo = float(grid[idx.min()])
         ci_hi = float(grid[idx.max()])
         # Detect non-convex region (rare under strong first stage)
-        non_convex = not np.all(accept[idx.min(): idx.max() + 1])
+        non_convex = not np.all(accept[idx.min() : idx.max() + 1])
     else:
         ci_lo, ci_hi = float("nan"), float("nan")  # pragma: no cover
         non_convex = False
@@ -275,7 +291,7 @@ def rd_bias_aware_fuzzy(
 
     # --- Power asymmetry diagnostic (KKN 2025) -----------------------
     first_stage_t = abs(delta_d) / np.sqrt(var_dd) if var_dd > 0 else float("inf")
-    first_stage_F = float(first_stage_t ** 2)
+    first_stage_F = float(first_stage_t**2)
     if first_stage_F < 10.0:
         warnings.warn(
             f"rd_bias_aware_fuzzy: first-stage F = {first_stage_F:.2f} < 10. "
@@ -353,13 +369,21 @@ def rd_bias_aware_fuzzy(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             out,
             function="sp.rd.rd_bias_aware_fuzzy",
             params={
-                "y": y, "x": x, "fuzzy": fuzzy, "c": c,
-                "M_y": M_y, "M_d": M_d, "h": h, "kernel": kernel,
-                "alpha": alpha, "cluster": cluster,
+                "y": y,
+                "x": x,
+                "fuzzy": fuzzy,
+                "c": c,
+                "M_y": M_y,
+                "M_d": M_d,
+                "h": h,
+                "kernel": kernel,
+                "alpha": alpha,
+                "cluster": cluster,
             },
             data=data,
             overwrite=False,

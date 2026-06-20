@@ -39,6 +39,7 @@ This module is the foundation that ``sp.replication_pack`` and the
 Quarto emitter both build on — every downstream artifact can read
 ``result._provenance`` to traceably wire a number back to a call.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -47,7 +48,6 @@ import sys
 import uuid
 from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, Mapping, Optional
-
 
 __all__ = [
     "Provenance",
@@ -67,6 +67,7 @@ MAX_HASH_ROWS = 1_000_000
 def _statspai_version() -> str:
     try:
         from .. import __version__
+
         return str(__version__)
     except Exception:  # pragma: no cover — defensive
         return "unknown"
@@ -115,7 +116,8 @@ def compute_data_hash(data: Any, length: int = 12) -> Optional[str]:
             # the digest explicitly so two frames with identical values
             # but different column names hash differently.
             schema = (
-                "|".join(map(str, data.columns)) + "::"
+                "|".join(map(str, data.columns))
+                + "::"
                 + "|".join(str(dt) for dt in data.dtypes)
             ).encode()
             if isinstance(data.index, pd.RangeIndex) and all(
@@ -450,8 +452,11 @@ def format_provenance(prov: Provenance, *, indent: int = 2) -> str:
         f"{pad}StatsPAI v{prov.statspai_version} · Python {prov.python_version}",
     ]
     if prov.data_hash:
-        shape = (f" {prov.data_shape[0]}×{prov.data_shape[1]}"
-                 if prov.data_shape and len(prov.data_shape) == 2 else "")
+        shape = (
+            f" {prov.data_shape[0]}×{prov.data_shape[1]}"
+            if prov.data_shape and len(prov.data_shape) == 2
+            else ""
+        )
         lines.append(f"{pad}data       : SHA256:{prov.data_hash}{shape}")
     if prov.params:
         lines.append(f"{pad}params     :")
@@ -498,9 +503,7 @@ def lineage_summary(*results: Any) -> Dict[str, Any]:
     return {
         "n_runs": len(runs),
         "runs": runs,
-        "data_inputs": [
-            {"hash": h, "consumers": v} for h, v in data_hashes.items()
-        ],
+        "data_inputs": [{"hash": h, "consumers": v} for h, v in data_hashes.items()],
         "statspai_version": _statspai_version(),
         "python_version": _python_version(),
     }

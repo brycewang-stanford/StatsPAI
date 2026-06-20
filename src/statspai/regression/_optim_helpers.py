@@ -112,8 +112,10 @@ def numerical_hessian(
     H = np.zeros((k, k))
     for i in range(k):
         for j in range(i, k):
-            dx_i = np.zeros(k); dx_i[i] = h[i]
-            dx_j = np.zeros(k); dx_j[j] = h[j]
+            dx_i = np.zeros(k)
+            dx_i[i] = h[i]
+            dx_j = np.zeros(k)
+            dx_j[j] = h[j]
             fpp = func(x + dx_i + dx_j)
             fpm = func(x + dx_i - dx_j)
             fmp = func(x - dx_i + dx_j)

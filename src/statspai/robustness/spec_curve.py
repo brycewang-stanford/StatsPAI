@@ -25,9 +25,7 @@ Usage
 
 from __future__ import annotations
 
-from typing import (
-    Any, Callable, Dict, List, Optional, Sequence, Tuple, Union,
-)
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from itertools import product
 from dataclasses import dataclass
 
@@ -38,10 +36,10 @@ from scipy import stats
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Result container
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SpecCurveResult(ResultProtocolMixin):
@@ -129,9 +127,9 @@ class SpecCurveResult(ResultProtocolMixin):
         lines.append("-" * 72)
         for dim in self.choice_dims:
             lines.append(f"\n  Dimension: {dim}")
-            grp = self.results_df.groupby(dim)['estimate']
-            tbl = grp.agg(['count', 'mean', 'median', 'std']).reset_index()
-            tbl.columns = [dim, 'n', 'mean', 'median', 'std']
+            grp = self.results_df.groupby(dim)["estimate"]
+            tbl = grp.agg(["count", "mean", "median", "std"]).reset_index()
+            tbl.columns = [dim, "n", "mean", "median", "std"]
             for _, row in tbl.iterrows():
                 lines.append(
                     f"    {row[dim]:<30s}  "
@@ -280,42 +278,46 @@ class SpecCurveResult(ResultProtocolMixin):
 
         fig = plt.figure(figsize=figsize)
         gs = gridspec.GridSpec(
-            2, 1,
+            2,
+            1,
             height_ratios=[3, max(n_dims, 1)],
             hspace=0.05,
         )
 
         # ---- Top panel: estimates + CIs --------------------------------
         ax_top = fig.add_subplot(gs[0])
-        sig_mask = df['pvalue'] < alpha
+        sig_mask = df["pvalue"] < alpha
 
         xs = np.arange(n)
         for i in range(n):
             c = color_sig if sig_mask.iloc[i] else color_nonsig
             ax_top.plot(
                 [i, i],
-                [df['ci_lower'].iloc[i], df['ci_upper'].iloc[i]],
-                color=c, linewidth=0.6, alpha=0.7,
+                [df["ci_lower"].iloc[i], df["ci_upper"].iloc[i]],
+                color=c,
+                linewidth=0.6,
+                alpha=0.7,
             )
-            ax_top.plot(i, df['estimate'].iloc[i], 'o',
-                        color=c, markersize=2.0)
+            ax_top.plot(i, df["estimate"].iloc[i], "o", color=c, markersize=2.0)
 
-        ax_top.axhline(0, color='black', linewidth=0.5, linestyle='--')
+        ax_top.axhline(0, color="black", linewidth=0.5, linestyle="--")
         ax_top.axhline(
             self.median_estimate,
-            color='#E74C3C', linewidth=0.8, linestyle=':',
-            label=f'Median = {self.median_estimate:.4f}',
+            color="#E74C3C",
+            linewidth=0.8,
+            linestyle=":",
+            label=f"Median = {self.median_estimate:.4f}",
         )
         ax_top.set_ylabel(f"Estimate of '{self.x}'")
         ax_top.set_xlim(-0.5, n - 0.5)
         ax_top.set_xticks([])
-        ax_top.legend(fontsize=8, loc='upper left')
+        ax_top.legend(fontsize=8, loc="upper left")
         if title:
             ax_top.set_title(title, fontsize=12)
         else:
             ax_top.set_title("Specification Curve Analysis", fontsize=12)
 
-        for spine in ['top', 'right', 'bottom']:
+        for spine in ["top", "right", "bottom"]:
             ax_top.spines[spine].set_visible(False)
 
         # ---- Bottom panel: indicator matrix ----------------------------
@@ -332,14 +334,14 @@ class SpecCurveResult(ResultProtocolMixin):
                 row_y = y_offset + cat_idx
                 mask = df[dim].astype(str) == str(cat)
                 idxs = xs[mask]
-                colors = [
-                    color_sig if sig_mask.iloc[i] else color_nonsig
-                    for i in idxs
-                ]
+                colors = [color_sig if sig_mask.iloc[i] else color_nonsig for i in idxs]
                 ax_bot.scatter(
                     idxs,
                     [row_y] * len(idxs),
-                    c=colors, s=4, marker='|', linewidths=0.6,
+                    c=colors,
+                    s=4,
+                    marker="|",
+                    linewidths=0.6,
                 )
                 y_ticks.append(row_y)
                 y_labels.append(str(cat))
@@ -351,7 +353,7 @@ class SpecCurveResult(ResultProtocolMixin):
         ax_bot.invert_yaxis()
         ax_bot.set_xlabel(f"Specifications (sorted by {sort_by})")
 
-        for spine in ['top', 'right']:
+        for spine in ["top", "right"]:
             ax_bot.spines[spine].set_visible(False)
 
         # Add dimension labels on the right
@@ -360,9 +362,14 @@ class SpecCurveResult(ResultProtocolMixin):
             cats = sorted(df[dim].unique(), key=str)
             mid = y_offset_label + (len(cats) - 1) / 2
             ax_bot.text(
-                n + n * 0.01, mid, dim,
-                fontsize=8, fontweight='bold',
-                va='center', ha='left', clip_on=False,
+                n + n * 0.01,
+                mid,
+                dim,
+                fontsize=8,
+                fontweight="bold",
+                va="center",
+                ha="left",
+                clip_on=False,
             )
             y_offset_label += len(cats) + 0.5
 
@@ -376,6 +383,7 @@ class SpecCurveResult(ResultProtocolMixin):
 # ---------------------------------------------------------------------------
 # Internal: run a single OLS specification
 # ---------------------------------------------------------------------------
+
 
 def _run_one_spec(
     data: pd.DataFrame,
@@ -422,10 +430,12 @@ def _run_one_spec(
 
     Y = df_clean[y_col].values.astype(float)
     X_vars = [x] + controls
-    X_mat = np.column_stack([
-        np.ones(len(df_clean)),
-        df_clean[X_vars].values.astype(float),
-    ])
+    X_mat = np.column_stack(
+        [
+            np.ones(len(df_clean)),
+            df_clean[X_vars].values.astype(float),
+        ]
+    )
 
     n, k = X_mat.shape
 
@@ -439,15 +449,15 @@ def _run_one_spec(
     resid = Y - X_mat @ params
 
     # Standard errors
-    if se_type == 'nonrobust':
-        sigma2 = np.sum(resid ** 2) / (n - k)
+    if se_type == "nonrobust":
+        sigma2 = np.sum(resid**2) / (n - k)
         vcov = sigma2 * XtX_inv
-    elif se_type in ('hc1', 'robust'):
+    elif se_type in ("hc1", "robust"):
         # HC1 robust SE
-        u2 = resid ** 2
+        u2 = resid**2
         meat = X_mat.T @ np.diag(u2) @ X_mat * n / (n - k)
         vcov = XtX_inv @ meat @ XtX_inv
-    elif se_type == 'cluster' and cluster_var:
+    elif se_type == "cluster" and cluster_var:
         clusters = df_clean[cluster_var].values
         unique_c = np.unique(clusters)
         G = len(unique_c)
@@ -463,7 +473,7 @@ def _run_one_spec(
         vcov = correction * XtX_inv @ meat @ XtX_inv
     else:
         # Fallback to HC1
-        u2 = resid ** 2
+        u2 = resid**2
         meat = X_mat.T @ np.diag(u2) @ X_mat * n / (n - k)
         vcov = XtX_inv @ meat @ XtX_inv
 
@@ -478,30 +488,31 @@ def _run_one_spec(
     t_crit = stats.t.ppf(0.975, df_resid)
 
     # R-squared
-    ss_res = np.sum(resid ** 2)
+    ss_res = np.sum(resid**2)
     ss_tot = np.sum((Y - Y.mean()) ** 2)
     r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
 
     return {
-        'estimate': beta_x,
-        'se': se_x,
-        'ci_lower': beta_x - t_crit * se_x,
-        'ci_upper': beta_x + t_crit * se_x,
-        'pvalue': p_val,
-        'tstat': t_stat,
-        'nobs': n,
-        'r_squared': r2,
-        'controls': ", ".join(controls) if controls else "(none)",
-        'se_type': se_type,
-        'subset': subset_label,
-        'model': model_type,
-        'y_transform': transform_label,
+        "estimate": beta_x,
+        "se": se_x,
+        "ci_lower": beta_x - t_crit * se_x,
+        "ci_upper": beta_x + t_crit * se_x,
+        "pvalue": p_val,
+        "tstat": t_stat,
+        "nobs": n,
+        "r_squared": r2,
+        "controls": ", ".join(controls) if controls else "(none)",
+        "se_type": se_type,
+        "subset": subset_label,
+        "model": model_type,
+        "y_transform": transform_label,
     }
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def spec_curve(
     data: pd.DataFrame,
@@ -599,26 +610,29 @@ def spec_curve(
     if controls is None:
         controls = [[]]
     if se_types is None:
-        se_types = ['nonrobust', 'hc1']
+        se_types = ["nonrobust", "hc1"]
     if subsets is None:
-        subsets = {'Full Sample': None}
+        subsets = {"Full Sample": None}
     if y_transforms is None:
-        y_transforms = {'Level': None}
+        y_transforms = {"Level": None}
 
     # Auto-add cluster SE type
-    if cluster_var and 'cluster' not in se_types:
-        se_types = list(se_types) + ['cluster']
+    if cluster_var and "cluster" not in se_types:
+        se_types = list(se_types) + ["cluster"]
 
     # Remove 'cluster' if no cluster_var
     if not cluster_var:
-        se_types = [s for s in se_types if s != 'cluster']
+        se_types = [s for s in se_types if s != "cluster"]
 
     # ---- enumerate all combinations -------------------------------------
     all_results = []
     spec_id = 0
 
     for ctrl_set, se_type, (sub_label, sub_mask), (tf_label, tf_func) in product(
-        controls, se_types, subsets.items(), y_transforms.items(),
+        controls,
+        se_types,
+        subsets.items(),
+        y_transforms.items(),
     ):
         res = _run_one_spec(
             data=data,
@@ -629,12 +643,12 @@ def spec_curve(
             cluster_var=cluster_var,
             subset_mask=sub_mask,
             subset_label=sub_label,
-            model_type='OLS',
+            model_type="OLS",
             transform_y=tf_func,
             transform_label=tf_label,
         )
         if res is not None:
-            res['spec_id'] = spec_id
+            res["spec_id"] = spec_id
             all_results.append(res)
             spec_id += 1
 
@@ -647,16 +661,16 @@ def spec_curve(
     results_df = pd.DataFrame(all_results)
 
     # Significance flag
-    results_df['significant'] = results_df['pvalue'] < alpha
+    results_df["significant"] = results_df["pvalue"] < alpha
 
     # ---- determine which choice dimensions vary -------------------------
     choice_dims = []
-    for col in ['controls', 'se_type', 'subset', 'y_transform']:
+    for col in ["controls", "se_type", "subset", "y_transform"]:
         if results_df[col].nunique() > 1:
             choice_dims.append(col)
     # Always show at least controls
     if not choice_dims:
-        choice_dims = ['controls']
+        choice_dims = ["controls"]
 
     n_specs = len(results_df)
 
@@ -665,8 +679,8 @@ def spec_curve(
         x=x,
         y=y,
         n_specs=n_specs,
-        median_estimate=float(results_df['estimate'].median()),
-        share_significant=float(results_df['significant'].mean()),
-        share_positive=float((results_df['estimate'] > 0).mean()),
+        median_estimate=float(results_df["estimate"].median()),
+        share_significant=float(results_df["significant"].mean()),
+        share_positive=float((results_df["estimate"] > 0).mean()),
         choice_dims=choice_dims,
     )

@@ -11,15 +11,29 @@ Equivalent to Stata's ``margins``, ``test``, ``lincom`` commands.
 """
 
 from .margins import (
-    margins, margins_table, event_study_table, marginsplot, margins_at,
-    margins_at_plot, contrast, pwcompare,
+    margins,
+    margins_table,
+    event_study_table,
+    marginsplot,
+    margins_at,
+    margins_at_plot,
+    contrast,
+    pwcompare,
 )
 from .hypothesis import test, lincom
 from .contract import postestimation_contract, postestimation_report
 
 __all__ = [
-    'margins', 'margins_table', 'event_study_table',
-    'marginsplot', 'margins_at', 'margins_at_plot',
-    'contrast', 'pwcompare', 'test', 'lincom',
-    'postestimation_contract', 'postestimation_report',
+    "margins",
+    "margins_table",
+    "event_study_table",
+    "marginsplot",
+    "margins_at",
+    "margins_at_plot",
+    "contrast",
+    "pwcompare",
+    "test",
+    "lincom",
+    "postestimation_contract",
+    "postestimation_report",
 ]

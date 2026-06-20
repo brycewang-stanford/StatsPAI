@@ -11,6 +11,7 @@ Two paths:
   log det(I - rho W)  =  -sum_{k>=1} (rho^k / k) * tr(W^k)
   tr(W^k) approximated by (1/M) sum_m u_m^T W^k u_m with Rademacher u_m.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -31,8 +32,9 @@ def log_det_exact(W: Any, rho: float) -> float:
     return float(np.sum(np.log(np.abs(1.0 - rho * eigvals))))
 
 
-def log_det_approx(W: Any, rho: float, n_draws: int = 50, order: int = 50,
-                   seed: Optional[int] = None) -> float:
+def log_det_approx(
+    W: Any, rho: float, n_draws: int = 50, order: int = 50, seed: Optional[int] = None
+) -> float:
     W = _to_csr(W)
     n = W.shape[0]
     rng = np.random.default_rng(seed)

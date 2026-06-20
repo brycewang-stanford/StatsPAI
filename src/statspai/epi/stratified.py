@@ -27,7 +27,6 @@ from typing import List, Sequence, Union
 import numpy as np
 from scipy import stats
 
-
 __all__ = [
     "MantelHaenszelResult",
     "mantel_haenszel",
@@ -168,19 +167,18 @@ def mantel_haenszel(
         sum_R = R.sum()
         sum_S = S.sum()
         var_log = (
-            np.sum(P * R) / (2 * sum_R ** 2)
+            np.sum(P * R) / (2 * sum_R**2)
             + np.sum(P * S + Q * R) / (2 * sum_R * sum_S)
-            + np.sum(Q * S) / (2 * sum_S ** 2)
+            + np.sum(Q * S) / (2 * sum_S**2)
         )
         se_log = float(np.sqrt(var_log))
         est = float(or_mh)
         log_est = np.log(est) if est > 0 else 0.0
         z = stats.norm.ppf(1 - alpha / 2)
-        ci = (float(np.exp(log_est - z * se_log)),
-              float(np.exp(log_est + z * se_log)))
+        ci = (float(np.exp(log_est - z * se_log)), float(np.exp(log_est + z * se_log)))
         # M-H chi-square test (with continuity correction)
         expected_a = n1 * (a + c) / n
-        var_a = (n1 * n0 * (a + c) * (b + d)) / (n ** 2 * (n - 1 + (n == 1)))
+        var_a = (n1 * n0 * (a + c) * (b + d)) / (n**2 * (n - 1 + (n == 1)))
         chi2_mh = (abs(a.sum() - expected_a.sum()) - 0.5) ** 2 / var_a.sum()
         p = float(1 - stats.chi2.cdf(chi2_mh, 1))
 
@@ -189,15 +187,12 @@ def mantel_haenszel(
         den = np.sum(c * n1 / n)
         rr_mh = num / den if den > 0 else np.inf
         # Greenland-Robins variance for log(RR_MH)
-        var_log = np.sum(
-            (n1 * n0 * (a + c) - a * c * n) / n ** 2
-        ) / (num * den)
+        var_log = np.sum((n1 * n0 * (a + c) - a * c * n) / n**2) / (num * den)
         se_log = float(np.sqrt(var_log)) if var_log > 0 else 0.0
         est = float(rr_mh)
         log_est = np.log(est) if est > 0 else 0.0
         z = stats.norm.ppf(1 - alpha / 2)
-        ci = (float(np.exp(log_est - z * se_log)),
-              float(np.exp(log_est + z * se_log)))
+        ci = (float(np.exp(log_est - z * se_log)), float(np.exp(log_est + z * se_log)))
         # Test via pooled RR == 1
         z_stat = log_est / se_log if se_log > 0 else 0.0
         p = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
@@ -222,8 +217,7 @@ def mantel_haenszel(
         else:  # RR
             # Var(log RR_k) = 1/a - 1/(a+b) + 1/c - 1/(c+d)
             var_log_ks[k] = (
-                1.0 / ak_c - 1.0 / (ak_c + bk_c)
-                + 1.0 / ck_c - 1.0 / (ck_c + dk_c)
+                1.0 / ak_c - 1.0 / (ak_c + bk_c) + 1.0 / ck_c - 1.0 / (ck_c + dk_c)
             )
     w_meta = 1.0 / var_log_ks
     pooled_log = float(np.sum(w_meta * log_ks) / np.sum(w_meta))
@@ -317,7 +311,7 @@ def breslow_day_test(
             if abs(coef_a_sq) < 1e-12:
                 expected_a = -coef_a_c / coef_a_b if coef_a_b else n1 * m1 / n
             else:
-                disc = coef_a_b ** 2 - 4 * coef_a_sq * coef_a_c
+                disc = coef_a_b**2 - 4 * coef_a_sq * coef_a_c
                 disc = max(disc, 0.0)
                 expected_a = (-coef_a_b + np.sqrt(disc)) / (2 * coef_a_sq)
                 if expected_a < 0 or expected_a > min(m1, n1):

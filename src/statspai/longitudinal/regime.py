@@ -30,7 +30,6 @@ from typing import Any, Callable, Dict, Sequence, Union
 import numpy as np
 import pandas as pd
 
-
 __all__ = ["Regime", "regime", "always_treat", "never_treat"]
 
 
@@ -39,15 +38,26 @@ __all__ = ["Regime", "regime", "always_treat", "never_treat"]
 # --------------------------------------------------------------------------- #
 
 _BIN_OPS: Dict[type, Callable[..., Any]] = {
-    ast.Add: op.add, ast.Sub: op.sub, ast.Mult: op.mul, ast.Div: op.truediv,
-    ast.Mod: op.mod, ast.Pow: op.pow, ast.FloorDiv: op.floordiv,
+    ast.Add: op.add,
+    ast.Sub: op.sub,
+    ast.Mult: op.mul,
+    ast.Div: op.truediv,
+    ast.Mod: op.mod,
+    ast.Pow: op.pow,
+    ast.FloorDiv: op.floordiv,
 }
 _UNARY_OPS: Dict[type, Callable[..., Any]] = {
-    ast.UAdd: op.pos, ast.USub: op.neg, ast.Not: op.not_,
+    ast.UAdd: op.pos,
+    ast.USub: op.neg,
+    ast.Not: op.not_,
 }
 _CMP_OPS: Dict[type, Callable[..., Any]] = {
-    ast.Lt: op.lt, ast.LtE: op.le, ast.Gt: op.gt, ast.GtE: op.ge,
-    ast.Eq: op.eq, ast.NotEq: op.ne,
+    ast.Lt: op.lt,
+    ast.LtE: op.le,
+    ast.Gt: op.gt,
+    ast.GtE: op.ge,
+    ast.Eq: op.eq,
+    ast.NotEq: op.ne,
 }
 
 
@@ -97,17 +107,40 @@ def _walk(node: ast.AST, env: Dict[str, Any]) -> Any:
             left = right
         return True
     if isinstance(node, ast.IfExp):
-        return _walk(node.body, env) if _walk(node.test, env) else _walk(node.orelse, env)
+        return (
+            _walk(node.body, env) if _walk(node.test, env) else _walk(node.orelse, env)
+        )
     raise ValueError(f"Unsupported syntax in regime expression: {type(node).__name__}")
 
 
 _ALLOWED_NODE_TYPES = (
-    ast.Expression, ast.Compare, ast.BoolOp, ast.UnaryOp, ast.BinOp,
-    ast.Name, ast.Load, ast.Constant,
-    ast.And, ast.Or, ast.Not,
-    ast.Lt, ast.LtE, ast.Gt, ast.GtE, ast.Eq, ast.NotEq,
-    ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Mod, ast.Pow, ast.FloorDiv,
-    ast.IfExp, ast.USub, ast.UAdd,
+    ast.Expression,
+    ast.Compare,
+    ast.BoolOp,
+    ast.UnaryOp,
+    ast.BinOp,
+    ast.Name,
+    ast.Load,
+    ast.Constant,
+    ast.And,
+    ast.Or,
+    ast.Not,
+    ast.Lt,
+    ast.LtE,
+    ast.Gt,
+    ast.GtE,
+    ast.Eq,
+    ast.NotEq,
+    ast.Add,
+    ast.Sub,
+    ast.Mult,
+    ast.Div,
+    ast.Mod,
+    ast.Pow,
+    ast.FloorDiv,
+    ast.IfExp,
+    ast.USub,
+    ast.UAdd,
 )
 
 
@@ -275,6 +308,7 @@ def _compile_string_regime(text: str, *, name: str) -> Regime:
         return Regime(kind="static", name=name or "never_treat", rule=[0.0])
 
     import re
+
     m = re.match(r"^\s*if\s+(.+?)\s+then\s+(.+?)\s+else\s+(.+)$", s, re.IGNORECASE)
     if m:
         cond_fn = _compile(m.group(1))

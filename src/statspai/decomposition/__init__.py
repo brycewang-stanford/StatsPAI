@@ -62,11 +62,15 @@ Plots share a common palette and minimalist style via
 :mod:`statspai.decomposition.plots` (forest plots, mediation forest,
 Yu-Elwert mechanism plot, RIF heatmap, …).
 """
+
 # Existing (backward-compatible) imports
 from .oaxaca import oaxaca, gelbach, OaxacaResult, GelbachResult
 from .rif import (
-    rifreg, rif_decomposition, rif_values,
-    RIFResult, RIFDecompositionResult,
+    rifreg,
+    rif_decomposition,
+    rif_values,
+    RIFResult,
+    RIFDecompositionResult,
 )
 
 # New tier-C imports
@@ -76,66 +80,108 @@ from .machado_mata import machado_mata, MachadoMataResult
 from .melly import melly_decompose, MellyResult
 from .cfm import cfm_decompose, CFMResult
 from .nonlinear import (
-    fairlie, bauer_sinning, yun_nonlinear,
+    fairlie,
+    bauer_sinning,
+    yun_nonlinear,
     NonlinearDecompResult,
 )
 from .inequality import (
     inequality_index,
-    subgroup_decompose, source_decompose, shapley_inequality,
-    SubgroupDecompResult, SourceDecompResult, ShapleyInequalityResult,
+    subgroup_decompose,
+    source_decompose,
+    shapley_inequality,
+    SubgroupDecompResult,
+    SourceDecompResult,
+    ShapleyInequalityResult,
 )
 from .kitagawa import (
-    kitagawa_decompose, das_gupta,
-    KitagawaResult, DasGuptaResult,
+    kitagawa_decompose,
+    das_gupta,
+    KitagawaResult,
+    DasGuptaResult,
 )
 from .causal import (
-    gap_closing, mediation_decompose, disparity_decompose,
-    GapClosingResult, MediationDecompResult, DisparityDecompResult,
+    gap_closing,
+    mediation_decompose,
+    disparity_decompose,
+    GapClosingResult,
+    MediationDecompResult,
+    DisparityDecompResult,
 )
 from .yu_elwert import yu_elwert_decompose, YuElwertResult
 
 # Unified dispatcher
 from .dispatcher import decompose, available_methods
 
-# Plots and datasets
-from . import plots as _plots_module
-from . import datasets as _datasets_module
+# Plots and datasets — imported for their registration side effect only.
+from . import plots as _plots_module  # noqa: F401
+from . import datasets as _datasets_module  # noqa: F401
 
 # Convenience exports
 from .datasets import (
-    cps_wage, chilean_households, mincer_wage_panel, disparity_panel,
+    cps_wage,
+    chilean_households,
+    mincer_wage_panel,
+    disparity_panel,
 )
 
 __all__ = [
     # Existing (backward compat)
-    'oaxaca', 'gelbach', 'OaxacaResult', 'GelbachResult',
-    'rifreg', 'rif_decomposition', 'rif_values',
-    'RIFResult', 'RIFDecompositionResult',
+    "oaxaca",
+    "gelbach",
+    "OaxacaResult",
+    "GelbachResult",
+    "rifreg",
+    "rif_decomposition",
+    "rif_values",
+    "RIFResult",
+    "RIFDecompositionResult",
     # DFL
-    'dfl_decompose', 'DFLResult',
+    "dfl_decompose",
+    "DFLResult",
     # FFL
-    'ffl_decompose', 'FFLResult',
+    "ffl_decompose",
+    "FFLResult",
     # Quantile family
-    'machado_mata', 'MachadoMataResult',
-    'melly_decompose', 'MellyResult',
-    'cfm_decompose', 'CFMResult',
+    "machado_mata",
+    "MachadoMataResult",
+    "melly_decompose",
+    "MellyResult",
+    "cfm_decompose",
+    "CFMResult",
     # Nonlinear
-    'fairlie', 'bauer_sinning', 'yun_nonlinear',
-    'NonlinearDecompResult',
+    "fairlie",
+    "bauer_sinning",
+    "yun_nonlinear",
+    "NonlinearDecompResult",
     # Inequality
-    'inequality_index',
-    'subgroup_decompose', 'source_decompose', 'shapley_inequality',
-    'SubgroupDecompResult', 'SourceDecompResult',
-    'ShapleyInequalityResult',
+    "inequality_index",
+    "subgroup_decompose",
+    "source_decompose",
+    "shapley_inequality",
+    "SubgroupDecompResult",
+    "SourceDecompResult",
+    "ShapleyInequalityResult",
     # Kitagawa / Das Gupta
-    'kitagawa_decompose', 'das_gupta',
-    'KitagawaResult', 'DasGuptaResult',
+    "kitagawa_decompose",
+    "das_gupta",
+    "KitagawaResult",
+    "DasGuptaResult",
     # Causal
-    'gap_closing', 'mediation_decompose', 'disparity_decompose',
-    'GapClosingResult', 'MediationDecompResult', 'DisparityDecompResult',
-    'yu_elwert_decompose', 'YuElwertResult',
+    "gap_closing",
+    "mediation_decompose",
+    "disparity_decompose",
+    "GapClosingResult",
+    "MediationDecompResult",
+    "DisparityDecompResult",
+    "yu_elwert_decompose",
+    "YuElwertResult",
     # Unified dispatcher
-    'decompose', 'available_methods',
+    "decompose",
+    "available_methods",
     # Datasets
-    'cps_wage', 'chilean_households', 'mincer_wage_panel', 'disparity_panel',
+    "cps_wage",
+    "chilean_households",
+    "mincer_wage_panel",
+    "disparity_panel",
 ]

@@ -16,6 +16,7 @@ Cattaneo, M.D., Titiunik, R. & Vazquez-Bare, G. (2019).
   "Power calculations for regression-discontinuity designs."
   *Stata Journal*, 19(1), 210–245. [@cattaneo2019power]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -33,7 +34,7 @@ class RDPowerResult:
     n_left: int
     n_right: int
     se: float
-    tau: float                       # assumed or hypothesised effect
+    tau: float  # assumed or hypothesised effect
 
     def summary(self) -> str:
         lines = [
@@ -74,9 +75,14 @@ class RDSampSiResult:
         return self.summary()
 
 
-def _rd_se(n_left: int, n_right: int,
-           var_left: float, var_right: float,
-           h_left: float, h_right: float) -> float:
+def _rd_se(
+    n_left: int,
+    n_right: int,
+    var_left: float,
+    var_right: float,
+    h_left: float,
+    h_right: float,
+) -> float:
     """Approximate SE for the RD point estimator (local-linear).
 
     SE ≈ sqrt(C_K * [σ²_L / (n_L h_L) + σ²_R / (n_R h_R)])
@@ -84,8 +90,15 @@ def _rd_se(n_left: int, n_right: int,
     where C_K = ∫K²(u)du is the kernel constant (~0.35 for triangular).
     """
     Ck = 0.35
-    return float(np.sqrt(Ck * (var_left / max(n_left * h_left, 1.0) +
-                                var_right / max(n_right * h_right, 1.0))))
+    return float(
+        np.sqrt(
+            Ck
+            * (
+                var_left / max(n_left * h_left, 1.0)
+                + var_right / max(n_right * h_right, 1.0)
+            )
+        )
+    )
 
 
 def rdpower(
@@ -133,8 +146,11 @@ def rdpower(
     z_alpha = sp_stats.norm.ppf(1 - alpha / 2)
 
     # Power = P(reject | tau)
-    power = float(1.0 - sp_stats.norm.cdf(z_alpha - tau / se)
-                  + sp_stats.norm.cdf(-z_alpha - tau / se))
+    power = float(
+        1.0
+        - sp_stats.norm.cdf(z_alpha - tau / se)
+        + sp_stats.norm.cdf(-z_alpha - tau / se)
+    )
 
     # MDE at 80% power
     z80 = sp_stats.norm.ppf(0.80)
@@ -147,8 +163,13 @@ def rdpower(
         mde = mde_80
 
     return RDPowerResult(
-        power=power, mde=mde, alpha=alpha,
-        n_left=n_left, n_right=n_right, se=se, tau=tau,
+        power=power,
+        mde=mde,
+        alpha=alpha,
+        n_left=n_left,
+        n_right=n_right,
+        se=se,
+        tau=tau,
     )
 
 
@@ -187,13 +208,16 @@ def rdsampsi(
     se_target = abs(tau) / (z_alpha + z_pow)
     # SE² = Ck * (var_L/(n_L h_L) + var_R/(ratio n_L h_R))
     # n_L = Ck * (var_L/h_L + var_R/(ratio h_R)) / SE²_target
-    n_left = int(np.ceil(
-        Ck * (var_left / h_left + var_right / (ratio * h_right)) / se_target ** 2
-    ))
+    n_left = int(
+        np.ceil(Ck * (var_left / h_left + var_right / (ratio * h_right)) / se_target**2)
+    )
     n_right = int(np.ceil(ratio * n_left))
 
     return RDSampSiResult(
-        n_left=n_left, n_right=n_right,
+        n_left=n_left,
+        n_right=n_right,
         n_total=n_left + n_right,
-        tau=tau, target_power=target_power, alpha=alpha,
+        tau=tau,
+        target_power=target_power,
+        alpha=alpha,
     )

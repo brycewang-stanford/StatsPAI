@@ -34,11 +34,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
-
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _fit_scm_core(
     data: pd.DataFrame,
@@ -80,8 +79,12 @@ def _fit_scm_core(
         data = data[data[unit].isin(keep_units)].copy()
 
     model = SyntheticControl(
-        data=data, outcome=outcome, unit=unit, time=time,
-        treated_unit=treated_unit, treatment_time=treatment_time,
+        data=data,
+        outcome=outcome,
+        unit=unit,
+        time=time,
+        treated_unit=treated_unit,
+        treatment_time=treatment_time,
         penalization=penalization,
     )
 
@@ -92,8 +95,10 @@ def _fit_scm_core(
     # matrices the model built and let it pick equal-V vs nested-V.  The
     # solver returns a dict; we want the weight vector.
     solver_out = model._solve_weights(
-        Y_pre_treated, Y_pre_donors,
-        model.X_treated, model.X_donors,
+        Y_pre_treated,
+        Y_pre_donors,
+        model.X_treated,
+        model.X_donors,
         run_nested=model._should_run_nested(),
     )
     weights = solver_out["w"]
@@ -103,7 +108,7 @@ def _fit_scm_core(
     gap_pre = gap[model.pre_mask]
     gap_post = gap[model.post_mask]
 
-    pre_rmse = float(np.sqrt(np.mean(gap_pre ** 2)))
+    pre_rmse = float(np.sqrt(np.mean(gap_pre**2)))
     att = float(np.mean(gap_post))
     se = float(np.std(gap_post)) / max(np.sqrt(len(gap_post)), 1)
 
@@ -125,6 +130,7 @@ def _fit_scm_core(
 # ======================================================================
 # 1.  Leave-One-Out Donors
 # ======================================================================
+
 
 def synth_loo(
     data: pd.DataFrame,
@@ -186,18 +192,26 @@ def synth_loo(
             continue  # pragma: no cover
         try:
             res = _fit_scm_core(
-                data, outcome, unit, time, treated_unit, treatment_time,
-                donor_subset=subset, penalization=penalization,
+                data,
+                outcome,
+                unit,
+                time,
+                treated_unit,
+                treatment_time,
+                donor_subset=subset,
+                penalization=penalization,
             )
             z = res["att"] / res["se"] if res["se"] > 1e-10 else np.inf
             pval = float(2 * (1 - stats.norm.cdf(abs(z))))
-            records.append({
-                "dropped_unit": drop,
-                "att": res["att"],
-                "se": res["se"],
-                "pvalue": pval,
-                "pre_rmse": res["pre_rmse"],
-            })
+            records.append(
+                {
+                    "dropped_unit": drop,
+                    "att": res["att"],
+                    "se": res["se"],
+                    "pvalue": pval,
+                    "pre_rmse": res["pre_rmse"],
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             continue  # pragma: no cover
 
@@ -207,6 +221,7 @@ def synth_loo(
 # ======================================================================
 # 2.  Time Placebos
 # ======================================================================
+
 
 def synth_time_placebo(
     data: pd.DataFrame,
@@ -273,7 +288,9 @@ def synth_time_placebo(
     if n_placebo_times is not None and n_placebo_times < len(candidate_times):
         rng = np.random.default_rng(42)
         candidate_times = rng.choice(
-            candidate_times, size=n_placebo_times, replace=False,
+            candidate_times,
+            size=n_placebo_times,
+            replace=False,
         )
         candidate_times = np.sort(candidate_times)
 
@@ -281,17 +298,24 @@ def synth_time_placebo(
     for pt in candidate_times:
         try:
             res = _fit_scm_core(
-                pre_data, outcome, unit, time, treated_unit, pt,
+                pre_data,
+                outcome,
+                unit,
+                time,
+                treated_unit,
+                pt,
                 penalization=penalization,
             )
             z = res["att"] / res["se"] if res["se"] > 1e-10 else np.inf
             pval = float(2 * (1 - stats.norm.cdf(abs(z))))
-            records.append({
-                "placebo_time": pt,
-                "att": res["att"],
-                "se": res["se"],
-                "pvalue": pval,
-            })
+            records.append(
+                {
+                    "placebo_time": pt,
+                    "att": res["att"],
+                    "se": res["se"],
+                    "pvalue": pval,
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             continue  # pragma: no cover
 
@@ -301,6 +325,7 @@ def synth_time_placebo(
 # ======================================================================
 # 3.  Donor Pool Sensitivity
 # ======================================================================
+
 
 def synth_donor_sensitivity(
     data: pd.DataFrame,
@@ -374,15 +399,23 @@ def synth_donor_sensitivity(
         subset = list(rng.choice(donors, size=k, replace=False))
         try:
             res = _fit_scm_core(
-                data, outcome, unit, time, treated_unit, treatment_time,
-                donor_subset=subset, penalization=penalization,
+                data,
+                outcome,
+                unit,
+                time,
+                treated_unit,
+                treatment_time,
+                donor_subset=subset,
+                penalization=penalization,
             )
-            records.append({
-                "iteration": i,
-                "donors_used": ",".join(str(d) for d in sorted(subset)),
-                "att": res["att"],
-                "pre_rmse": res["pre_rmse"],
-            })
+            records.append(
+                {
+                    "iteration": i,
+                    "donors_used": ",".join(str(d) for d in sorted(subset)),
+                    "att": res["att"],
+                    "pre_rmse": res["pre_rmse"],
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             continue  # pragma: no cover
 
@@ -392,6 +425,7 @@ def synth_donor_sensitivity(
 # ======================================================================
 # 4.  Pre-RMSPE Robustness
 # ======================================================================
+
 
 def synth_rmspe_filter(
     data: pd.DataFrame,
@@ -454,15 +488,21 @@ def synth_rmspe_filter(
 
     # --- Treated unit ---
     treated_res = _fit_scm_core(
-        data, outcome, unit, time, treated_unit, treatment_time,
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
         penalization=penalization,
     )
     treated_pre_rmspe = treated_res["pre_rmse"]
     gap_post_treated = treated_res["gap"][treated_res["post_mask"]]
-    post_mspe_treated = float(np.mean(gap_post_treated ** 2))
+    post_mspe_treated = float(np.mean(gap_post_treated**2))
     ratio_treated = (
         np.sqrt(post_mspe_treated) / treated_pre_rmspe
-        if treated_pre_rmspe > 1e-10 else np.inf
+        if treated_pre_rmspe > 1e-10
+        else np.inf
     )
 
     # --- Placebo units ---
@@ -473,22 +513,28 @@ def synth_rmspe_filter(
             continue  # pragma: no cover
         try:
             pres = _fit_scm_core(
-                data, outcome, unit, time, d, treatment_time,
+                data,
+                outcome,
+                unit,
+                time,
+                d,
+                treatment_time,
                 donor_subset=other_donors + [treated_unit],
                 penalization=penalization,
             )
             gap_post_p = pres["gap"][pres["post_mask"]]
-            post_mspe_p = float(np.mean(gap_post_p ** 2))
+            post_mspe_p = float(np.mean(gap_post_p**2))
             pre_rmspe_p = pres["pre_rmse"]
             ratio_p = (
-                np.sqrt(post_mspe_p) / pre_rmspe_p
-                if pre_rmspe_p > 1e-10 else np.inf
+                np.sqrt(post_mspe_p) / pre_rmspe_p if pre_rmspe_p > 1e-10 else np.inf
             )
-            placebo_info.append({
-                "unit": d,
-                "pre_rmspe": pre_rmspe_p,
-                "ratio": ratio_p,
-            })
+            placebo_info.append(
+                {
+                    "unit": d,
+                    "pre_rmspe": pre_rmspe_p,
+                    "ratio": ratio_p,
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             continue  # pragma: no cover
 
@@ -504,12 +550,14 @@ def synth_rmspe_filter(
             n_extreme = sum(1 for p in kept if p["ratio"] >= ratio_treated)
             # Include treated unit in the ranking
             pval = (n_extreme + 1) / (n_kept + 1)
-        records.append({
-            "threshold": thr,
-            "n_placebos": n_kept,
-            "pvalue": pval,
-            "treated_pre_rmspe": treated_pre_rmspe,
-        })
+        records.append(
+            {
+                "threshold": thr,
+                "n_placebos": n_kept,
+                "pvalue": pval,
+                "treated_pre_rmspe": treated_pre_rmspe,
+            }
+        )
 
     return pd.DataFrame(records)
 
@@ -517,6 +565,7 @@ def synth_rmspe_filter(
 # ======================================================================
 # 5.  Comprehensive Summary
 # ======================================================================
+
 
 def synth_sensitivity(
     data: pd.DataFrame,
@@ -583,26 +632,49 @@ def synth_sensitivity(
     """
     # --- Leave-one-out ---
     loo_df = synth_loo(
-        data, outcome, unit, time, treated_unit, treatment_time,
-        penalization=penalization, alpha=alpha,
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
+        penalization=penalization,
+        alpha=alpha,
     )
 
     # --- Time placebos ---
     tp_df = synth_time_placebo(
-        data, outcome, unit, time, treated_unit, treatment_time,
-        penalization=penalization, alpha=alpha,
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
+        penalization=penalization,
+        alpha=alpha,
     )
 
     # --- Donor sensitivity ---
     ds_df = synth_donor_sensitivity(
-        data, outcome, unit, time, treated_unit, treatment_time,
-        n_samples=n_donor_samples, penalization=penalization,
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
+        n_samples=n_donor_samples,
+        penalization=penalization,
         seed=seed,
     )
 
     # --- RMSPE filter ---
     rp_df = synth_rmspe_filter(
-        data, outcome, unit, time, treated_unit, treatment_time,
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
         penalization=penalization,
     )
 
@@ -616,7 +688,12 @@ def synth_sensitivity(
 
     # Baseline ATT
     base = _fit_scm_core(
-        data, outcome, unit, time, treated_unit, treatment_time,
+        data,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        treatment_time,
         penalization=penalization,
     )
     lines.append(f"  Baseline ATT:  {base['att']:.4f}")
@@ -626,12 +703,11 @@ def synth_sensitivity(
     # LOO
     if len(loo_df) > 0:
         lines.append("--- Leave-One-Out ---")
-        lines.append(f"  ATT range: [{loo_df['att'].min():.4f}, "
-                      f"{loo_df['att'].max():.4f}]")
+        lines.append(
+            f"  ATT range: [{loo_df['att'].min():.4f}, " f"{loo_df['att'].max():.4f}]"
+        )
         lines.append(f"  ATT mean:  {loo_df['att'].mean():.4f}")
-        most_influential = loo_df.loc[
-            (loo_df["att"] - base["att"]).abs().idxmax()
-        ]
+        most_influential = loo_df.loc[(loo_df["att"] - base["att"]).abs().idxmax()]
         lines.append(
             f"  Most influential donor: {most_influential['dropped_unit']} "
             f"(ATT = {most_influential['att']:.4f})"
@@ -643,9 +719,7 @@ def synth_sensitivity(
         n_sig = (tp_df["pvalue"] < alpha).sum()
         lines.append("--- Time Placebos ---")
         lines.append(f"  Placebo times tested: {len(tp_df)}")
-        lines.append(
-            f"  Significant at {alpha:.0%}: {n_sig} / {len(tp_df)}"
-        )
+        lines.append(f"  Significant at {alpha:.0%}: {n_sig} / {len(tp_df)}")
         lines.append(f"  Max |placebo ATT|: {tp_df['att'].abs().max():.4f}")
         lines.append("")
 
@@ -665,8 +739,9 @@ def synth_sensitivity(
     if len(rp_df) > 0:
         lines.append("--- Pre-RMSPE Filtered P-values ---")
         for _, row in rp_df.iterrows():
-            thr_label = (f"{row['threshold']:.0f}x"
-                         if np.isfinite(row["threshold"]) else "all")
+            thr_label = (
+                f"{row['threshold']:.0f}x" if np.isfinite(row["threshold"]) else "all"
+            )
             lines.append(
                 f"  {thr_label:>5s}: p = {row['pvalue']:.3f}  "
                 f"(n = {int(row['n_placebos'])})"
@@ -688,6 +763,7 @@ def synth_sensitivity(
 # ======================================================================
 # 6.  Sensitivity Plot
 # ======================================================================
+
 
 def synth_sensitivity_plot(
     sensitivity_result: Dict[str, Any],
@@ -765,14 +841,30 @@ def synth_sensitivity_plot(
     # ------------------------------------------------------------------
     ax = axes[1, 0]
     if len(ds_df) > 0:
-        ax.hist(ds_df["att"].values, bins=30, color="#55A868", alpha=0.8,
-                edgecolor="white")
-        ax.axvline(ds_df["att"].mean(), color="red", linewidth=1.5,
-                   linestyle="--", label="Mean")
-        ax.axvline(ds_df["att"].quantile(0.025), color="orange",
-                   linewidth=1, linestyle=":", label="2.5%")
-        ax.axvline(ds_df["att"].quantile(0.975), color="orange",
-                   linewidth=1, linestyle=":", label="97.5%")
+        ax.hist(
+            ds_df["att"].values, bins=30, color="#55A868", alpha=0.8, edgecolor="white"
+        )
+        ax.axvline(
+            ds_df["att"].mean(),
+            color="red",
+            linewidth=1.5,
+            linestyle="--",
+            label="Mean",
+        )
+        ax.axvline(
+            ds_df["att"].quantile(0.025),
+            color="orange",
+            linewidth=1,
+            linestyle=":",
+            label="2.5%",
+        )
+        ax.axvline(
+            ds_df["att"].quantile(0.975),
+            color="orange",
+            linewidth=1,
+            linestyle=":",
+            label="97.5%",
+        )
         ax.legend(fontsize=8)
     ax.set_xlabel("ATT")
     ax.set_ylabel("Frequency")
@@ -786,15 +878,18 @@ def synth_sensitivity_plot(
         labels = []
         for _, row in rp_df.iterrows():
             labels.append(
-                f"{row['threshold']:.0f}x"
-                if np.isfinite(row["threshold"]) else "All"
+                f"{row['threshold']:.0f}x" if np.isfinite(row["threshold"]) else "All"
             )
-        ax.plot(labels, rp_df["pvalue"].values, "o-", color="#C44E52",
-                linewidth=2, markersize=8)
-        ax.axhline(0.05, color="gray", linewidth=0.8, linestyle="--",
-                   label="p = 0.05")
-        ax.axhline(0.10, color="gray", linewidth=0.8, linestyle=":",
-                   label="p = 0.10")
+        ax.plot(
+            labels,
+            rp_df["pvalue"].values,
+            "o-",
+            color="#C44E52",
+            linewidth=2,
+            markersize=8,
+        )
+        ax.axhline(0.05, color="gray", linewidth=0.8, linestyle="--", label="p = 0.05")
+        ax.axhline(0.10, color="gray", linewidth=0.8, linestyle=":", label="p = 0.10")
         ax.legend(fontsize=8)
         ax.set_ylim(-0.02, max(1.05, rp_df["pvalue"].max() + 0.05))
     ax.set_xlabel("Pre-RMSPE threshold (x treated)")

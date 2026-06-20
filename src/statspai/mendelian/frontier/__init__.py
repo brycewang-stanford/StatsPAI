@@ -23,7 +23,14 @@ from .cml import MRcMLResult, mr_cml
 from .raps import MRRapsResult, mr_raps
 
 __all__ = [
-    "mr_lap", "mr_clust", "grapple", "mr_cml", "mr_raps",
-    "MRLapResult", "MRClustResult", "GrappleResult",
-    "MRcMLResult", "MRRapsResult",
+    "mr_lap",
+    "mr_clust",
+    "grapple",
+    "mr_cml",
+    "mr_raps",
+    "MRLapResult",
+    "MRClustResult",
+    "GrappleResult",
+    "MRcMLResult",
+    "MRRapsResult",
 ]

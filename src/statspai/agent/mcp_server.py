@@ -161,6 +161,7 @@ def _resolve_server_version() -> str:
     """
     try:
         import statspai as _sp
+
         v = getattr(_sp, "__version__", None)
         if isinstance(v, str) and v:
             return v
@@ -180,12 +181,14 @@ def tool_manifest(*args: Any, **kwargs: Any) -> List[Dict[str, Any]]:
     most MCP clients first need only the static schema snapshot.
     """
     from .tools import tool_manifest as _tool_manifest
+
     return _tool_manifest(*args, **kwargs)
 
 
 def execute_tool(*args: Any, **kwargs: Any) -> Dict[str, Any]:
     """Lazy proxy for runtime tool dispatch."""
     from .tools import execute_tool as _execute_tool
+
     return _execute_tool(*args, **kwargs)
 
 
@@ -193,24 +196,38 @@ def execute_tool(*args: Any, **kwargs: Any) -> Dict[str, Any]:
 #  JSON-RPC helpers
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _jsonrpc_result(request_id: Any, result: Any) -> str:
-    return json.dumps(_clean_floats({
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "result": result,
-    }), default=_json_default, allow_nan=False, separators=(",", ":"))
+    return json.dumps(
+        _clean_floats(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "result": result,
+            }
+        ),
+        default=_json_default,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
 
 
-def _jsonrpc_error(request_id: Any, code: int, message: str,
-                   data: Any = None) -> str:
+def _jsonrpc_error(request_id: Any, code: int, message: str, data: Any = None) -> str:
     err: Dict[str, Any] = {"code": code, "message": message}
     if data is not None:
         err["data"] = data
-    return json.dumps(_clean_floats({
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "error": err,
-    }), default=_json_default, allow_nan=False, separators=(",", ":"))
+    return json.dumps(
+        _clean_floats(
+            {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": err,
+            }
+        ),
+        default=_json_default,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
 
 
 def _jsonrpc_result_preencoded(request_id: Any, result_json: str) -> str:
@@ -243,6 +260,7 @@ def _clean_floats(o: Any) -> Any:
     """
     if isinstance(o, float):
         import math
+
         if math.isnan(o) or math.isinf(o):
             return None
         return o
@@ -278,11 +296,13 @@ def _json_default(o: Any) -> Any:
     # without ``allow_nan=False`` doesn't silently round-trip 'NaN'.
     if isinstance(o, float):
         import math
+
         if math.isnan(o) or math.isinf(o):
             return None
 
     try:
         import numpy as _np
+
         if isinstance(o, _np.bool_):
             return bool(o)
         if isinstance(o, _np.integer):
@@ -290,6 +310,7 @@ def _json_default(o: Any) -> Any:
         if isinstance(o, _np.floating):
             v = float(o)
             import math
+
             return None if (math.isnan(v) or math.isinf(v)) else v
         if isinstance(o, _np.complexfloating):
             return _clean_floats({"real": float(o.real), "imag": float(o.imag)})
@@ -305,6 +326,7 @@ def _json_default(o: Any) -> Any:
 
     try:
         import pandas as _pd
+
         if isinstance(o, _pd.DataFrame):
             return _clean_floats(o.to_dict(orient="list"))
         if isinstance(o, _pd.Series):
@@ -318,9 +340,7 @@ def _json_default(o: Any) -> Any:
         if isinstance(o, _pd.Categorical):
             return _clean_floats(list(o))
         if isinstance(o, _pd.Interval):
-            return _clean_floats(
-                {"left": o.left, "right": o.right, "closed": o.closed}
-            )
+            return _clean_floats({"left": o.left, "right": o.right, "closed": o.closed})
     except ImportError:  # pragma: no cover
         pass
 
@@ -329,15 +349,19 @@ def _json_default(o: Any) -> Any:
     if isinstance(o, bytes):
         # Round-trippable; agents reading JSON shouldn't get garbled UTF-8
         import base64
+
         return {"__bytes_b64__": base64.b64encode(o).decode("ascii")}
 
     from decimal import Decimal
+
     if isinstance(o, Decimal):
         v = float(o)
         import math
+
         return None if (math.isnan(v) or math.isinf(v)) else v
 
     from pathlib import PurePath
+
     if isinstance(o, PurePath):
         # Use POSIX form so JSON output is byte-stable across OSes (Windows
         # would otherwise emit ``\\tmp\\x`` which breaks downstream consumers
@@ -345,14 +369,13 @@ def _json_default(o: Any) -> Any:
         return o.as_posix()
 
     from enum import Enum
+
     if isinstance(o, Enum):
         return _clean_floats(o.value)
 
     # dataclasses (without using asdict, which recurses and re-hits us)
     if hasattr(o, "__dataclass_fields__"):
-        return _clean_floats(
-            {f: getattr(o, f, None) for f in o.__dataclass_fields__}
-        )
+        return _clean_floats({f: getattr(o, f, None) for f in o.__dataclass_fields__})
 
     if hasattr(o, "__dict__"):
         return _clean_floats(
@@ -391,19 +414,21 @@ _DETAIL_LEVELS = ("minimal", "standard", "agent")
 #: hand-curated list only carries entries the registry can't reach
 #: (e.g. tools backed by an auto-generated stub or whose dataframe
 #: dependency was added after the schema was frozen).
-_DATALESS_OVERRIDES = frozenset({
-    "honest_did",
-    "sensitivity",
-    "audit_result",
-    "brief_result",
-    "interpret_result",
-    "sensitivity_from_result",
-    "honest_did_from_result",
-    "plot_from_result",
-    "bibtex",
-    "from_stata",
-    "from_r",
-})
+_DATALESS_OVERRIDES = frozenset(
+    {
+        "honest_did",
+        "sensitivity",
+        "audit_result",
+        "brief_result",
+        "interpret_result",
+        "sensitivity_from_result",
+        "honest_did_from_result",
+        "plot_from_result",
+        "bibtex",
+        "from_stata",
+        "from_r",
+    }
+)
 
 
 #: Backwards-compatible alias for the old hand-curated set. New code
@@ -435,25 +460,38 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
         "(+ `remediation` / `error_kind` / `error_payload`)."
     ),
     "properties": {
-        "estimate": {"type": ["number", "null"],
-                     "description": "Point estimate of the target effect."},
-        "std_error": {"type": ["number", "null"],
-                      "description": "Standard error of the estimate."},
+        "estimate": {
+            "type": ["number", "null"],
+            "description": "Point estimate of the target effect.",
+        },
+        "std_error": {
+            "type": ["number", "null"],
+            "description": "Standard error of the estimate.",
+        },
         "p_value": {"type": ["number", "null"]},
-        "conf_low": {"type": ["number", "null"],
-                     "description": "Lower confidence bound."},
-        "conf_high": {"type": ["number", "null"],
-                      "description": "Upper confidence bound."},
-        "estimand": {"type": "string",
-                     "description": "Target estimand (e.g. ATT, ATE, LATE)."},
-        "method": {"type": "string",
-                   "description": "Estimator / method name."},
-        "n_obs": {"type": ["integer", "null"],
-                  "description": "Number of observations used."},
+        "conf_low": {
+            "type": ["number", "null"],
+            "description": "Lower confidence bound.",
+        },
+        "conf_high": {
+            "type": ["number", "null"],
+            "description": "Upper confidence bound.",
+        },
+        "estimand": {
+            "type": "string",
+            "description": "Target estimand (e.g. ATT, ATE, LATE).",
+        },
+        "method": {"type": "string", "description": "Estimator / method name."},
+        "n_obs": {
+            "type": ["integer", "null"],
+            "description": "Number of observations used.",
+        },
         "coefficients": {
             "type": "object",
-            "description": ("Per-regressor table (regression-style results): "
-                            "name → {estimate, std_error, p_value}."),
+            "description": (
+                "Per-regressor table (regression-style results): "
+                "name → {estimate, std_error, p_value}."
+            ),
             "additionalProperties": True,
         },
         "diagnostics": {
@@ -463,8 +501,10 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
         },
         "violations": {
             "type": "array",
-            "description": ("Assumption violations flagged for this design "
-                            "(present at detail='agent')."),
+            "description": (
+                "Assumption violations flagged for this design "
+                "(present at detail='agent')."
+            ),
             "items": {"type": "object", "additionalProperties": True},
         },
         "warnings": {"type": "array", "items": {"type": "string"}},
@@ -480,8 +520,10 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
         },
         "next_calls": {
             "type": "array",
-            "description": ("Ready-to-dispatch JSON-RPC tools/call payloads "
-                            "for the recommended follow-ups (enrichment)."),
+            "description": (
+                "Ready-to-dispatch JSON-RPC tools/call payloads "
+                "for the recommended follow-ups (enrichment)."
+            ),
             "items": {"type": "object", "additionalProperties": True},
         },
         "citations": {
@@ -489,12 +531,16 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
             "description": "Verified bib keys / BibTeX for the methods used.",
             "items": {"type": ["object", "string"]},
         },
-        "narrative": {"type": "string",
-                      "description": "Short markdown digest of the result."},
+        "narrative": {
+            "type": "string",
+            "description": "Short markdown digest of the result.",
+        },
         "result_id": {
             "type": "string",
-            "description": ("Server-side handle to the fitted result "
-                            "(present when as_handle=true)."),
+            "description": (
+                "Server-side handle to the fitted result "
+                "(present when as_handle=true)."
+            ),
         },
         "result_uri": {
             "type": "string",
@@ -506,10 +552,12 @@ _RESULT_OUTPUT_SCHEMA: Dict[str, Any] = {
         },
         "error_kind": {
             "type": "string",
-            "description": ("Stable StatsPAIError code "
-                            "(e.g. assumption_violation, "
-                            "identification_failure) for programmatic "
-                            "branching."),
+            "description": (
+                "Stable StatsPAIError code "
+                "(e.g. assumption_violation, "
+                "identification_failure) for programmatic "
+                "branching."
+            ),
         },
         "remediation": {
             "type": "object",
@@ -629,7 +677,8 @@ def _snapshot_dataless_tool_names() -> Optional["frozenset[str]"]:
         if isinstance(name, str):
             tool_names.add(name)
     return frozenset(
-        name for name in tool_names
+        name
+        for name in tool_names
         if name in _DATALESS_OVERRIDES or name not in data_bound
     )
 
@@ -649,12 +698,11 @@ def _dataless_tool_names() -> "frozenset[str]":
     derived: "set[str]" = set(_DATALESS_OVERRIDES)
     try:
         from ..registry import _REGISTRY, _ensure_full_registry
+
         _ensure_full_registry()
         for name, spec in _REGISTRY.items():
             params = getattr(spec, "params", None) or []
-            has_required_data = any(
-                p.name == "data" and p.required for p in params
-            )
+            has_required_data = any(p.name == "data" and p.required for p in params)
             if not has_required_data:
                 # No required `data` param → safe to mark dataless. Tools
                 # that take an OPTIONAL data still get data_path injected
@@ -791,13 +839,15 @@ def _build_mcp_tools() -> List[Dict[str, Any]]:
         annotations.setdefault("readOnlyHint", True)
         annotations.setdefault("openWorldHint", False)
 
-        out.append({
-            "name": t["name"],
-            "description": t["description"],
-            "inputSchema": schema,
-            "annotations": annotations,
-            "outputSchema": _RESULT_OUTPUT_SCHEMA_COMPACT,
-        })
+        out.append(
+            {
+                "name": t["name"],
+                "description": t["description"],
+                "inputSchema": schema,
+                "annotations": annotations,
+                "outputSchema": _RESULT_OUTPUT_SCHEMA_COMPACT,
+            }
+        )
     return out
 
 
@@ -900,6 +950,7 @@ def _handle_initialize(params: Dict[str, Any]) -> Dict[str, Any]:
     # default (the LLM helpers fall through to the user-API-key
     # fallback path).
     from . import _sampling
+
     client_caps = (params.get("capabilities") or {}) if isinstance(params, dict) else {}
     has_sampling = isinstance(client_caps, dict) and "sampling" in client_caps
     _sampling.set_capability(has_sampling)
@@ -949,17 +1000,25 @@ def _make_progress_drain() -> Callable[[Dict[str, Any]], None]:
     active stdio sink. Returns a no-op if no sink is registered."""
     sink = _PROGRESS_SINK
     if sink is None:
+
         def _noop(payload: Dict[str, Any]) -> None:
             return None
 
         return _noop
 
     def _drain(payload: Dict[str, Any]) -> None:
-        msg = json.dumps(_clean_floats({
-            "jsonrpc": "2.0",
-            "method": "notifications/progress",
-            "params": payload,
-        }), default=_json_default, allow_nan=False, separators=(",", ":"))
+        msg = json.dumps(
+            _clean_floats(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "notifications/progress",
+                    "params": payload,
+                }
+            ),
+            default=_json_default,
+            allow_nan=False,
+            separators=(",", ":"),
+        )
         try:
             sink.write(msg + "\n")
             sink.flush()
@@ -975,8 +1034,7 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     name = params.get("name")
     arguments = dict(params.get("arguments") or {})
     if not isinstance(name, str):
-        raise _InvalidParamsError(
-            "`name` is required and must be a string")
+        raise _InvalidParamsError("`name` is required and must be a string")
 
     # Server-handled args are stripped before estimator dispatch — the
     # estimator's signature has no ``data_path`` / ``detail`` etc. and
@@ -1057,21 +1115,23 @@ def _handle_tools_call(params: Dict[str, Any]) -> Dict[str, Any]:
     if isinstance(result, dict):
         plot_bytes = result.get("_plot_png")
         if isinstance(plot_bytes, (bytes, bytearray)):
-            result_for_text = {
-                k: v for k, v in result.items() if k != "_plot_png"
-            }
+            result_for_text = {k: v for k, v in result.items() if k != "_plot_png"}
 
-    text = json.dumps(_clean_floats(result_for_text), indent=2,
-                      default=_json_default, allow_nan=False)
+    text = json.dumps(
+        _clean_floats(result_for_text), indent=2, default=_json_default, allow_nan=False
+    )
     content: List[Dict[str, Any]] = [{"type": "text", "text": text}]
 
     if isinstance(plot_bytes, (bytes, bytearray)):
         import base64
-        content.append({
-            "type": "image",
-            "data": base64.b64encode(plot_bytes).decode("ascii"),
-            "mimeType": "image/png",
-        })
+
+        content.append(
+            {
+                "type": "image",
+                "data": base64.b64encode(plot_bytes).decode("ascii"),
+                "mimeType": "image/png",
+            }
+        )
 
     out: Dict[str, Any] = {
         "content": content,
@@ -1152,6 +1212,7 @@ def handle_request(line: str) -> Optional[str]:
     # through to the regular notification-drop path.
     if isinstance(msg, dict) and "method" not in msg and "id" in msg:
         from . import _sampling
+
         if _sampling.route_response(msg):
             return None
 
@@ -1171,8 +1232,7 @@ def handle_request(line: str) -> Optional[str]:
 
     handler = _METHODS.get(method)
     if handler is None:
-        return _jsonrpc_error(
-            request_id, -32601, f"Method not found: {method!r}")
+        return _jsonrpc_error(request_id, -32601, f"Method not found: {method!r}")
 
     try:
         if method == "tools/list":
@@ -1201,7 +1261,9 @@ def handle_request(line: str) -> Optional[str]:
         }:
             data = {"traceback": traceback.format_exc()}
         return _jsonrpc_error(
-            request_id, -32000, f"{type(exc).__name__}: {exc}",
+            request_id,
+            -32000,
+            f"{type(exc).__name__}: {exc}",
             data=data,
         )
     return _jsonrpc_result(request_id, result)
@@ -1210,6 +1272,7 @@ def handle_request(line: str) -> Optional[str]:
 # ═══════════════════════════════════════════════════════════════════════
 #  stdio event loop
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def serve_stdio(
     stdin: Optional[Iterable[str]] = None,

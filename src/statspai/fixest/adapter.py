@@ -88,9 +88,7 @@ def _pyfixest_to_econometric_results(
 
     # --- estimation method label ---
     method = (
-        "High-Dimensional Fixed Effects"
-        if fe_info and fe_info != "None"
-        else "OLS"
+        "High-Dimensional Fixed Effects" if fe_info and fe_info != "None" else "OLS"
     )
 
     model_info: Dict[str, Any] = {

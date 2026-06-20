@@ -137,21 +137,18 @@ def general_bunching(
         )
         counts, edges = np.histogram(running_values, bins=bins)
         centers = 0.5 * (edges[:-1] + edges[1:])
-        excluded = (
-            (centers > cutoff - bin_width)
-            & (centers < cutoff + bin_width)
-        )
+        excluded = (centers > cutoff - bin_width) & (centers < cutoff + bin_width)
         fit_mask = ~excluded
         if fit_mask.sum() < order + 1:
-            return float('nan')
+            return float("nan")
         coef = np.polyfit(centers[fit_mask], counts[fit_mask], order)
         cf = np.polyval(coef, centers)
         excess = float(np.sum(counts[excluded] - cf[excluded]))
         f_at = float(np.mean(counts[fit_mask]) / max(n * bin_width, 1e-9))
         if f_at == 0 or bandwidth == 0:
-            return float('nan')
+            return float("nan")
         # First-order (Saez): elasticity ≈ excess / (n * f * bandwidth^2)
-        eps_first = excess / (n * f_at * bandwidth ** 2)
+        eps_first = excess / (n * f_at * bandwidth**2)
         return float(eps_first)
 
     naive = _elasticity(R, order=2)
@@ -179,14 +176,19 @@ def general_bunching(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bunching.general_bunching",
             params={
-                "running": running, "cutoff": cutoff,
-                "bandwidth": bandwidth, "bin_width": bin_width,
+                "running": running,
+                "cutoff": cutoff,
+                "bandwidth": bandwidth,
+                "bin_width": bin_width,
                 "polynomial_order": polynomial_order,
-                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+                "alpha": alpha,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

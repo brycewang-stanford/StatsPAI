@@ -7,6 +7,7 @@ the posterior level means the resulting posterior on ``late``
 automatically inherits both noise channels and becomes heavy-tailed
 under weak compliance (``itt_D ≈ 0``).
 """
+
 from __future__ import annotations
 
 from typing import Optional, Tuple
@@ -23,15 +24,18 @@ from ._base import (
 
 
 def _local_poly_design(
-    x: np.ndarray, cutoff: float, treated: np.ndarray, poly: int,
+    x: np.ndarray,
+    cutoff: float,
+    treated: np.ndarray,
+    poly: int,
 ) -> np.ndarray:
     """Design matrix for one-side-dependent polynomial in (x - cutoff)."""
     x_c = x - cutoff
     cols = []
     for k in range(1, poly + 1):
-        cols.append(x_c ** k)
+        cols.append(x_c**k)
     for k in range(1, poly + 1):
-        cols.append(treated * (x_c ** k))
+        cols.append(treated * (x_c**k))
     if not cols:
         return np.zeros((len(x), 0))
     return np.column_stack(cols)
@@ -52,7 +56,7 @@ def bayes_fuzzy_rd(
     prior_noise: float = 5.0,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
-    inference: str = 'nuts',
+    inference: str = "nuts",
     advi_iterations: int = 20000,
     draws: int = 2000,
     tune: int = 1000,
@@ -136,8 +140,7 @@ def bayes_fuzzy_rd(
     clean = data[[y, treat, running]].dropna().reset_index(drop=True)
     if len(clean) < 20:
         raise ValueError(
-            f"Need at least 20 observations after dropping NA, "
-            f"got {len(clean)}."
+            f"Need at least 20 observations after dropping NA, " f"got {len(clean)}."
         )
 
     x_full = clean[running].to_numpy(dtype=float)
@@ -170,20 +173,24 @@ def bayes_fuzzy_rd(
 
     with pm.Model() as model:
         # Outcome equation
-        a_Y = pm.Normal('a_Y', mu=0.0, sigma=prior_slope_sigma)
-        itt_Y = pm.Normal('itt_Y', mu=0.0, sigma=prior_slope_sigma)
+        a_Y = pm.Normal("a_Y", mu=0.0, sigma=prior_slope_sigma)
+        itt_Y = pm.Normal("itt_Y", mu=0.0, sigma=prior_slope_sigma)
         # First-stage equation
-        a_D = pm.Normal('a_D', mu=0.0, sigma=prior_slope_sigma)
-        itt_D = pm.Normal('itt_D', mu=0.0, sigma=prior_slope_sigma)
+        a_D = pm.Normal("a_D", mu=0.0, sigma=prior_slope_sigma)
+        itt_D = pm.Normal("itt_D", mu=0.0, sigma=prior_slope_sigma)
 
         if poly_design.shape[1] > 0:
             beta_poly_Y = pm.Normal(
-                'beta_poly_Y', mu=0.0,
-                sigma=prior_slope_sigma, shape=poly_design.shape[1],
+                "beta_poly_Y",
+                mu=0.0,
+                sigma=prior_slope_sigma,
+                shape=poly_design.shape[1],
             )
             beta_poly_D = pm.Normal(
-                'beta_poly_D', mu=0.0,
-                sigma=prior_slope_sigma, shape=poly_design.shape[1],
+                "beta_poly_D",
+                mu=0.0,
+                sigma=prior_slope_sigma,
+                shape=poly_design.shape[1],
             )
             poly_Y = pm.math.dot(poly_design, beta_poly_Y)
             poly_D = pm.math.dot(poly_design, beta_poly_D)
@@ -194,11 +201,11 @@ def bayes_fuzzy_rd(
         mu_Y = a_Y + itt_Y * treated_side + poly_Y
         mu_D = a_D + itt_D * treated_side + poly_D
 
-        sigma_Y = pm.HalfNormal('sigma_Y', sigma=prior_noise)
-        sigma_D = pm.HalfNormal('sigma_D', sigma=prior_noise)
+        sigma_Y = pm.HalfNormal("sigma_Y", sigma=prior_noise)
+        sigma_D = pm.HalfNormal("sigma_D", sigma=prior_noise)
 
-        pm.Normal('y_obs', mu=mu_Y, sigma=sigma_Y, observed=Y)
-        pm.Normal('d_obs', mu=mu_D, sigma=sigma_D, observed=D)
+        pm.Normal("y_obs", mu=mu_Y, sigma=sigma_Y, observed=Y)
+        pm.Normal("d_obs", mu=mu_D, sigma=sigma_D, observed=D)
 
         # Deterministic LATE = itt_Y / itt_D. pm.Deterministic writes
         # it into the trace so the downstream summary machinery picks
@@ -214,7 +221,7 @@ def bayes_fuzzy_rd(
             pm.math.where(itt_D >= 0, eps_floor, -eps_floor),
             itt_D,
         )
-        late = pm.Deterministic('late', itt_Y / safe_denom)
+        late = pm.Deterministic("late", itt_Y / safe_denom)
 
         # Optional soft-prior on the ratio. OFF by default because
         # it stacks on top of the implicit prior through the priors
@@ -226,7 +233,7 @@ def bayes_fuzzy_rd(
         # samples show ratio explosions; leave OFF for honest inference.
         if regularize_late:
             pm.Potential(
-                'late_prior',
+                "late_prior",
                 pm.logp(pm.Normal.dist(mu=mu_late, sigma=sigma_late), late),
             )
 
@@ -243,11 +250,14 @@ def bayes_fuzzy_rd(
     )
 
     summary = _summarise_posterior(
-        trace, 'late', hdi_prob=hdi_prob, rope=rope,
+        trace,
+        "late",
+        hdi_prob=hdi_prob,
+        rope=rope,
     )
 
     # Also summarise the first-stage strength for diagnostics
-    itt_D_post = trace.posterior['itt_D'].values.ravel()
+    itt_D_post = trace.posterior["itt_D"].values.ravel()
     first_stage_mean = float(np.mean(itt_D_post))
     first_stage_sd = float(np.std(itt_D_post, ddof=1))
     first_stage_prob_nonzero = float(
@@ -255,37 +265,37 @@ def bayes_fuzzy_rd(
     )
 
     model_info = {
-        'inference': inference,
-        'draws': draws,
-        'tune': tune,
-        'chains': chains,
-        'target_accept': target_accept,
-        'cutoff': cutoff,
-        'bandwidth': bw,
-        'poly': poly,
-        'n_inside': int(mask.sum()),
-        'n_treated_local': int(D.sum()),
-        'first_stage_mean': first_stage_mean,
-        'first_stage_sd': first_stage_sd,
-        'first_stage_prob_nonzero': first_stage_prob_nonzero,
-        'prior_late': prior_late,
-        'regularize_late': regularize_late,
-        'prior_slope_sigma': prior_slope_sigma,
-        'prior_noise': prior_noise,
+        "inference": inference,
+        "draws": draws,
+        "tune": tune,
+        "chains": chains,
+        "target_accept": target_accept,
+        "cutoff": cutoff,
+        "bandwidth": bw,
+        "poly": poly,
+        "n_inside": int(mask.sum()),
+        "n_treated_local": int(D.sum()),
+        "first_stage_mean": first_stage_mean,
+        "first_stage_sd": first_stage_sd,
+        "first_stage_prob_nonzero": first_stage_prob_nonzero,
+        "prior_late": prior_late,
+        "regularize_late": regularize_late,
+        "prior_slope_sigma": prior_slope_sigma,
+        "prior_noise": prior_noise,
     }
 
     return BayesianCausalResult(
-        method=f'Bayesian fuzzy RD (poly={poly})',
-        estimand='LATE',
-        posterior_mean=summary['posterior_mean'],
-        posterior_median=summary['posterior_median'],
-        posterior_sd=summary['posterior_sd'],
-        hdi_lower=summary['hdi_lower'],
-        hdi_upper=summary['hdi_upper'],
-        prob_positive=summary['prob_positive'],
-        prob_rope=summary.get('prob_rope'),
-        rhat=summary['rhat'],
-        ess=summary['ess'],
+        method=f"Bayesian fuzzy RD (poly={poly})",
+        estimand="LATE",
+        posterior_mean=summary["posterior_mean"],
+        posterior_median=summary["posterior_median"],
+        posterior_sd=summary["posterior_sd"],
+        hdi_lower=summary["hdi_lower"],
+        hdi_upper=summary["hdi_upper"],
+        prob_positive=summary["prob_positive"],
+        prob_rope=summary.get("prob_rope"),
+        rhat=summary["rhat"],
+        ess=summary["ess"],
         n_obs=int(mask.sum()),
         hdi_prob=hdi_prob,
         trace=trace,

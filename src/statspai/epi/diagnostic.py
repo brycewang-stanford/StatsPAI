@@ -35,7 +35,6 @@ from typing import Any, Optional
 import numpy as np
 from scipy import stats
 
-
 __all__ = [
     "DiagnosticTestResult",
     "ROCResult",
@@ -109,9 +108,9 @@ def _wilson_ci(k: int, n: int, alpha: float = 0.05) -> tuple[float, float]:
         return (0.0, 1.0)
     z = float(stats.norm.ppf(1 - alpha / 2))
     phat = k / n
-    denom = 1 + z ** 2 / n
-    centre = (phat + z ** 2 / (2 * n)) / denom
-    half = (z * np.sqrt(phat * (1 - phat) / n + z ** 2 / (4 * n ** 2))) / denom
+    denom = 1 + z**2 / n
+    centre = (phat + z**2 / (2 * n)) / denom
+    half = (z * np.sqrt(phat * (1 - phat) / n + z**2 / (4 * n**2))) / denom
     return float(centre - half), float(centre + half)
 
 
@@ -159,9 +158,7 @@ def sensitivity_specificity(
         fp = int(np.sum((y_pred == 1) & (y_true == 0)))
         tn = int(np.sum((y_pred == 0) & (y_true == 0)))
     elif tp is None or fn is None or fp is None or tn is None:
-        raise ValueError(
-            "Provide (y_true, y_pred) OR all of (tp, fn, fp, tn)."
-        )
+        raise ValueError("Provide (y_true, y_pred) OR all of (tp, fn, fp, tn).")
 
     tp_i = int(tp)
     fn_i = int(fn)
@@ -191,7 +188,10 @@ def sensitivity_specificity(
         lr_pos=float(lr_pos),
         lr_neg=float(lr_neg),
         prevalence=float(prevalence),
-        tp=tp_i, fp=fp_i, fn=fn_i, tn=tn_i,
+        tp=tp_i,
+        fp=fp_i,
+        fn=fn_i,
+        tn=tn_i,
     )
 
 
@@ -308,11 +308,11 @@ def roc_curve(
 
     # Hanley-McNeil SE
     q1 = auc_val / (2 - auc_val)
-    q2 = 2 * auc_val ** 2 / (1 + auc_val)
+    q2 = 2 * auc_val**2 / (1 + auc_val)
     var = (
         auc_val * (1 - auc_val)
-        + (n_pos - 1) * (q1 - auc_val ** 2)
-        + (n_neg - 1) * (q2 - auc_val ** 2)
+        + (n_pos - 1) * (q1 - auc_val**2)
+        + (n_neg - 1) * (q2 - auc_val**2)
     ) / (n_pos * n_neg)
     se = float(np.sqrt(max(var, 0.0)))
     z = float(stats.norm.ppf(1 - alpha / 2))
@@ -453,9 +453,7 @@ def cohen_kappa(
     if a.shape != b.shape:
         raise ValueError("Raters must have the same length.")
     if weights not in ("unweighted", "linear", "quadratic"):
-        raise ValueError(
-            "weights must be 'unweighted', 'linear', or 'quadratic'."
-        )
+        raise ValueError("weights must be 'unweighted', 'linear', or 'quadratic'.")
 
     cats = np.unique(np.concatenate([a, b]))
     K = len(cats)
@@ -481,7 +479,7 @@ def cohen_kappa(
                 if weights == "linear":
                     w[i, j] = diff
                 else:  # quadratic
-                    w[i, j] = diff ** 2
+                    w[i, j] = diff**2
 
     # P_observed and P_expected
     po = 1 - float(np.sum(w * conf) / n)
@@ -500,10 +498,17 @@ def cohen_kappa(
                 if weights == "unweighted":
                     w_bar_i = 1 - marg_a[i] / n
                     w_bar_j = 1 - marg_b[j] / n
-                    var_num += conf[i, j] / n * (
-                        (1 - int(i == j)) - (w_bar_i + w_bar_j) * (1 - kappa)
-                        - kappa + pe
-                    ) ** 2
+                    var_num += (
+                        conf[i, j]
+                        / n
+                        * (
+                            (1 - int(i == j))
+                            - (w_bar_i + w_bar_j) * (1 - kappa)
+                            - kappa
+                            + pe
+                        )
+                        ** 2
+                    )
                 else:
                     w_ij = 1 - w[i, j]
                     w_bar_i = 1 - np.sum(w[i, :] * marg_b) / n

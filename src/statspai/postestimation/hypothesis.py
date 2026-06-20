@@ -71,17 +71,13 @@ def test(
         meat = R @ vcov @ R.T
         wald = float(Rb_minus_r @ np.linalg.solve(meat, Rb_minus_r))
     except np.linalg.LinAlgError:
-        wald = float(
-            Rb_minus_r @ np.linalg.lstsq(meat, Rb_minus_r, rcond=None)[0]
-        )
+        wald = float(Rb_minus_r @ np.linalg.lstsq(meat, Rb_minus_r, rcond=None)[0])
 
     # F-statistic = Wald / q
     f_stat = wald / q
-    data_info = getattr(result, 'data_info', None)
+    data_info = getattr(result, "data_info", None)
     df_resid = (
-        data_info.get('df_resid', np.inf)
-        if isinstance(data_info, dict)
-        else np.inf
+        data_info.get("df_resid", np.inf) if isinstance(data_info, dict) else np.inf
     )
 
     if np.isfinite(df_resid):
@@ -91,11 +87,11 @@ def test(
         pvalue = float(1 - sp_stats.chi2.cdf(wald, q))
 
     return {
-        'statistic': f_stat,
-        'pvalue': pvalue,
-        'df': (q, int(df_resid) if np.isfinite(df_resid) else None),
-        'hypothesis': hypothesis,
-        'chi2': wald,
+        "statistic": f_stat,
+        "pvalue": pvalue,
+        "df": (q, int(df_resid) if np.isfinite(df_resid) else None),
+        "hypothesis": hypothesis,
+        "chi2": wald,
     }
 
 
@@ -156,12 +152,12 @@ def lincom(
     z_crit = sp_stats.norm.ppf(1 - alpha / 2)
 
     return {
-        'estimate': estimate,
-        'se': se,
-        'z': z,
-        'pvalue': pvalue,
-        'ci': (estimate - z_crit * se, estimate + z_crit * se),
-        'expression': expression,
+        "estimate": estimate,
+        "se": se,
+        "z": z,
+        "pvalue": pvalue,
+        "ci": (estimate - z_crit * se, estimate + z_crit * se),
+        "expression": expression,
     }
 
 
@@ -169,12 +165,13 @@ def lincom(
 # Parsing helpers
 # ======================================================================
 
+
 def _get_vcov(result: Any) -> np.ndarray:
     """Extract variance-covariance matrix."""
     se = result.std_errors
     if isinstance(se, pd.Series):
         return np.asarray(np.diag(se.values**2), dtype=float)
-    return np.asarray(np.diag(np.array([se])**2), dtype=float)
+    return np.asarray(np.diag(np.array([se]) ** 2), dtype=float)
 
 
 def _parse_hypothesis(
@@ -191,7 +188,7 @@ def _parse_hypothesis(
         "x1 + x2 = 1" → R = [0, 1, 1, 0, ...], r = [1]
     """
     # Handle "x1 = x2 = 0" (joint test)
-    parts = [p.strip() for p in hypothesis.split('=')]
+    parts = [p.strip() for p in hypothesis.split("=")]
 
     if len(parts) >= 3:
         # Joint test: x1 = x2 = ... = value
@@ -238,13 +235,13 @@ def _parse_lincom(expression: str, params: pd.Series) -> np.ndarray:
     # Tokenize: split on + and -, keeping the sign
     expr = expression.strip()
     # Normalize: ensure leading + or -
-    if not expr.startswith('+') and not expr.startswith('-'):
-        expr = '+' + expr
+    if not expr.startswith("+") and not expr.startswith("-"):
+        expr = "+" + expr
 
     tokens = []
-    current = ''
+    current = ""
     for ch in expr:
-        if ch in '+-' and current.strip():
+        if ch in "+-" and current.strip():
             tokens.append(current.strip())
             current = ch
         else:
@@ -257,15 +254,15 @@ def _parse_lincom(expression: str, params: pd.Series) -> np.ndarray:
         if not token:
             continue
 
-        if '*' in token:
-            parts = token.split('*')
+        if "*" in token:
+            parts = token.split("*")
             coef_str = parts[0].strip()
             var_name = parts[1].strip()
             coef_val = float(coef_str)
         else:
             # Could be "+x1" or "-x1" or just "x1"
-            if token[0] in '+-':
-                sign = -1.0 if token[0] == '-' else 1.0
+            if token[0] in "+-":
+                sign = -1.0 if token[0] == "-" else 1.0
                 var_name = token[1:].strip()
             else:
                 sign = 1.0

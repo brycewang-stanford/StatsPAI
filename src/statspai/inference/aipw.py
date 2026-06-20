@@ -38,7 +38,7 @@ def aipw(
     y: str,
     treat: str,
     covariates: List[str],
-    estimand: str = 'ATE',
+    estimand: str = "ATE",
     n_folds: int = 5,
     alpha: float = 0.05,
     seed: Optional[int] = None,
@@ -130,7 +130,7 @@ def aipw(
     # Cross-fitted predictions
     mu1_hat = np.zeros(n)  # E[Y|X, D=1]
     mu0_hat = np.zeros(n)  # E[Y|X, D=0]
-    e_hat = np.zeros(n)    # P(D=1|X)
+    e_hat = np.zeros(n)  # P(D=1|X)
 
     fold_ids = rng.choice(n_folds, size=n)
 
@@ -145,26 +145,24 @@ def aipw(
         e_hat[test_mask] = _fit_propensity(X_tr, D_tr, X_te)
 
         # Outcome regressions (OLS on treated and control separately)
-        mu1_hat[test_mask] = _fit_outcome(
-            X_tr[D_tr == 1], Y_tr[D_tr == 1], X_te)
-        mu0_hat[test_mask] = _fit_outcome(
-            X_tr[D_tr == 0], Y_tr[D_tr == 0], X_te)
+        mu1_hat[test_mask] = _fit_outcome(X_tr[D_tr == 1], Y_tr[D_tr == 1], X_te)
+        mu0_hat[test_mask] = _fit_outcome(X_tr[D_tr == 0], Y_tr[D_tr == 0], X_te)
 
     # Clip propensity scores
     np.clip(e_hat, 0.01, 0.99, out=e_hat)
 
     # AIPW influence function
-    if estimand == 'ATE':
+    if estimand == "ATE":
         psi = (
-            mu1_hat - mu0_hat
+            mu1_hat
+            - mu0_hat
             + D * (Y - mu1_hat) / e_hat
             - (1 - D) * (Y - mu0_hat) / (1 - e_hat)
         )
-    elif estimand == 'ATT':
+    elif estimand == "ATT":
         p_treat = np.mean(D)
-        psi = (
-            D * (Y - mu0_hat) / p_treat
-            - (1 - D) * e_hat * (Y - mu0_hat) / ((1 - e_hat) * p_treat)
+        psi = D * (Y - mu0_hat) / p_treat - (1 - D) * e_hat * (Y - mu0_hat) / (
+            (1 - e_hat) * p_treat
         )
     else:
         raise ValueError(f"estimand must be 'ATE' or 'ATT', got '{estimand}'")
@@ -178,15 +176,15 @@ def aipw(
     ci = (tau - z_crit * se, tau + z_crit * se)
 
     model_info = {
-        'estimator': 'AIPW (Doubly Robust)',
-        'n_folds': n_folds,
-        'n_treated': int(D.sum()),
-        'n_control': int((1 - D).sum()),
-        'mean_propensity': round(float(e_hat.mean()), 4),
+        "estimator": "AIPW (Doubly Robust)",
+        "n_folds": n_folds,
+        "n_treated": int(D.sum()),
+        "n_control": int((1 - D).sum()),
+        "mean_propensity": round(float(e_hat.mean()), 4),
     }
 
     _result = CausalResult(
-        method='AIPW (Doubly Robust)',
+        method="AIPW (Doubly Robust)",
         estimand=estimand,
         estimate=tau,
         se=se,
@@ -195,19 +193,22 @@ def aipw(
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
-        _citation_key='aipw',
+        _citation_key="aipw",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.aipw",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "estimand": estimand,
                 "n_folds": n_folds,
-                "alpha": alpha, "seed": seed,
+                "alpha": alpha,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -225,6 +226,7 @@ def _fit_propensity(
     """Logistic regression propensity score."""
     try:
         import statsmodels.api as sm
+
         X_tr = sm.add_constant(X_train)
         X_te = sm.add_constant(X_test)
         logit = sm.Logit(D_train, X_tr)
@@ -244,6 +246,7 @@ def _fit_outcome(
         return np.full(len(X_test), np.mean(Y_train) if len(Y_train) > 0 else 0)
     try:
         import statsmodels.api as sm
+
         X_tr = sm.add_constant(X_train)
         X_te = sm.add_constant(X_test)
         ols = sm.OLS(Y_train, X_tr)
@@ -254,7 +257,7 @@ def _fit_outcome(
 
 
 # Citation
-CausalResult._CITATIONS['aipw'] = (
+CausalResult._CITATIONS["aipw"] = (
     "@article{glynn2010introduction,\n"
     "  title={An Introduction to the Augmented Inverse Propensity "
     "Weighted Estimator},\n"

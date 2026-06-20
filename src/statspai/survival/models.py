@@ -15,10 +15,10 @@ from scipy import stats, optimize
 
 from ..core.results import EconometricResults
 
-
 # ---------------------------------------------------------------------------
 # Formula parser (local)
 # ---------------------------------------------------------------------------
+
 
 def _parse_formula(formula: str) -> Tuple[str, List[str]]:
     """Parse 'y ~ x1 + x2' into (y_name, [x1, x2])."""
@@ -34,12 +34,14 @@ def _parse_formula(formula: str) -> Tuple[str, List[str]]:
 # Robust / clustered variance helpers
 # ---------------------------------------------------------------------------
 
+
 def _sandwich_variance(X: Any, hessian_inv: Any, score_i: Any) -> Any:
     """HC0 sandwich variance: H^{-1} (sum s_i s_i') H^{-1}.
 
     Delegates to the canonical ``core._vcov.sandwich_vcov`` (CLAUDE.md §4).
     """
     from ..core._vcov import sandwich_vcov
+
     return sandwich_vcov(hessian_inv, score_i, correction="none")
 
 
@@ -54,13 +56,14 @@ def _cluster_variance(
     Byte-identical to the prior hand-rolled sandwich for G >= 2.
     """
     from ..core._vcov import sandwich_vcov
-    return sandwich_vcov(hessian_inv, score_i, clusters=clusters,
-                         correction="cgm")
+
+    return sandwich_vcov(hessian_inv, score_i, clusters=clusters, correction="cgm")
 
 
 # ===================================================================
 # CoxResult — extends EconometricResults
 # ===================================================================
+
 
 class CoxResult(EconometricResults):
     """
@@ -178,14 +181,13 @@ class CoxResult(EconometricResults):
                 if np.isnan(rho):
                     rho, chi2, pv = 0.0, 0.0, 1.0
                 else:
-                    chi2 = n * rho ** 2
+                    chi2 = n * rho**2
                     pv = 1 - stats.chi2.cdf(chi2, df=1)
             rows.append({"variable": var, "rho": rho, "chi2": chi2, "p_value": pv})
         return pd.DataFrame(rows)
 
     # -- plot ---------------------------------------------------------------
-    def plot(self, kind: str = "survival", ax: Any = None,
-             **kwargs: Any) -> Any:
+    def plot(self, kind: str = "survival", ax: Any = None, **kwargs: Any) -> Any:
         """
         Plot survival-related curves.
 
@@ -231,7 +233,9 @@ class CoxResult(EconometricResults):
             ax.set_xlabel("Hazard Ratio")
             ax.set_title("Hazard Ratios (95% CI)")
         else:
-            raise ValueError(f"Unknown kind={kind!r}. Use 'survival', 'hazard', or 'hr'.")
+            raise ValueError(
+                f"Unknown kind={kind!r}. Use 'survival', 'hazard', or 'hr'."
+            )
 
         plt.tight_layout()
         return ax
@@ -249,6 +253,7 @@ class CoxResult(EconometricResults):
 # ===================================================================
 # KMResult — Kaplan-Meier result
 # ===================================================================
+
 
 class KMResult:
     """
@@ -329,7 +334,11 @@ class KMResult:
             out.append(f"\n{label}")
             out.append(f"  N at risk (start): {n}")
             out.append(f"  Number of events : {n_events}")
-            out.append(f"  Median survival  : {med:.4f}" if not np.isnan(med) else "  Median survival  : not reached")
+            out.append(
+                f"  Median survival  : {med:.4f}"
+                if not np.isnan(med)
+                else "  Median survival  : not reached"
+            )
         out.append("\n" + "=" * 72)
         return "\n".join(out)
 
@@ -351,8 +360,11 @@ class KMResult:
             label = g if len(self._tables) > 1 else "KM estimate"
             ax.step(df["time"], df["survival"], where="post", label=label)
             ax.fill_between(
-                df["time"], df["ci_lower"], df["ci_upper"],
-                step="post", alpha=0.15,
+                df["time"],
+                df["ci_lower"],
+                df["ci_upper"],
+                step="post",
+                alpha=0.15,
             )
 
         ax.set_xlabel("Time")
@@ -375,6 +387,7 @@ class KMResult:
 # ===================================================================
 # Internal: Kaplan-Meier computation
 # ===================================================================
+
 
 def _km_table(durations: Any, events: Any, alpha: float = 0.05) -> pd.DataFrame:
     """Build a KM life table from raw duration/event arrays."""
@@ -403,21 +416,29 @@ def _km_table(durations: Any, events: Any, alpha: float = 0.05) -> pd.DataFrame:
         ci_lo = max(0.0, survival - z * se)
         ci_hi = min(1.0, survival + z * se)
 
-        rows.append({
-            "time": t,
-            "n_risk": int(n_risk),
-            "n_event": int(n_event),
-            "n_censor": int(n_censor),
-            "survival": survival,
-            "std_err": se,
-            "ci_lower": ci_lo,
-            "ci_upper": ci_hi,
-        })
+        rows.append(
+            {
+                "time": t,
+                "n_risk": int(n_risk),
+                "n_event": int(n_event),
+                "n_censor": int(n_censor),
+                "survival": survival,
+                "std_err": se,
+                "ci_lower": ci_lo,
+                "ci_upper": ci_hi,
+            }
+        )
 
     # Prepend time=0 row
     t0 = {
-        "time": 0.0, "n_risk": n_total, "n_event": 0, "n_censor": 0,
-        "survival": 1.0, "std_err": 0.0, "ci_lower": 1.0, "ci_upper": 1.0,
+        "time": 0.0,
+        "n_risk": n_total,
+        "n_event": 0,
+        "n_censor": 0,
+        "survival": 1.0,
+        "std_err": 0.0,
+        "ci_lower": 1.0,
+        "ci_upper": 1.0,
     }
     return pd.DataFrame([t0] + rows)
 
@@ -425,6 +446,7 @@ def _km_table(durations: Any, events: Any, alpha: float = 0.05) -> pd.DataFrame:
 # ===================================================================
 # kaplan_meier()
 # ===================================================================
+
 
 def kaplan_meier(
     data: pd.DataFrame,
@@ -478,17 +500,22 @@ def kaplan_meier(
     else:
         tables = {}
         for g_val, gdf in data.groupby(group):
-            tables[str(g_val)] = _km_table(gdf[duration].values, gdf[event].values, alpha)
+            tables[str(g_val)] = _km_table(
+                gdf[duration].values, gdf[event].values, alpha
+            )
 
     _result = KMResult(tables, alpha=alpha)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.survival.kaplan_meier",
             params={
-                "duration": duration, "event": event,
-                "group": group, "alpha": alpha,
+                "duration": duration,
+                "event": event,
+                "group": group,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -501,6 +528,7 @@ def kaplan_meier(
 # ===================================================================
 # logrank_test()
 # ===================================================================
+
 
 def logrank_test(
     data: pd.DataFrame,
@@ -583,13 +611,16 @@ def logrank_test(
                     gj = groups[j]
                     nj = np.sum((G == gj) & (T >= t))
                     if i == j:
-                        v = (ni * (at_risk_total - ni) * events_total *
-                             (at_risk_total - events_total)) / (
-                            at_risk_total ** 2 * (at_risk_total - 1))
+                        v = (
+                            ni
+                            * (at_risk_total - ni)
+                            * events_total
+                            * (at_risk_total - events_total)
+                        ) / (at_risk_total**2 * (at_risk_total - 1))
                     else:
-                        v = -(ni * nj * events_total *
-                              (at_risk_total - events_total)) / (
-                            at_risk_total ** 2 * (at_risk_total - 1))
+                        v = -(
+                            ni * nj * events_total * (at_risk_total - events_total)
+                        ) / (at_risk_total**2 * (at_risk_total - 1))
                     var_mat[i, j] += v
                     if i != j:
                         var_mat[j, i] += v
@@ -617,6 +648,7 @@ def logrank_test(
 # ===================================================================
 # Internal: Cox partial likelihood helpers
 # ===================================================================
+
 
 def _cox_neg_logpl_efron(
     beta: np.ndarray,
@@ -867,11 +899,18 @@ def _breslow_baseline_hazard(
             d = ((Ts == t) & (Es == 1)).sum()
             risk_sum = np.exp(xbs[at_risk]).sum()
             cumhaz += d / risk_sum
-            rows.append({"time": t, "baseline_cumhaz": cumhaz,
-                         "baseline_survival": np.exp(-cumhaz)})
+            rows.append(
+                {
+                    "time": t,
+                    "baseline_cumhaz": cumhaz,
+                    "baseline_survival": np.exp(-cumhaz),
+                }
+            )
 
     # Prepend t=0
-    df = pd.DataFrame([{"time": 0.0, "baseline_cumhaz": 0.0, "baseline_survival": 1.0}] + rows)
+    df = pd.DataFrame(
+        [{"time": 0.0, "baseline_cumhaz": 0.0, "baseline_survival": 1.0}] + rows
+    )
     return df
 
 
@@ -948,6 +987,7 @@ def _schoenfeld_residuals(
 # ===================================================================
 # cox()
 # ===================================================================
+
 
 def cox(
     formula: Optional[str] = None,
@@ -1157,7 +1197,9 @@ def cox(
         model_info=model_info,
         data_info=data_info,
         diagnostics=diagnostics,
-        _X=X, _durations=T, _events=E,
+        _X=X,
+        _durations=T,
+        _events=E,
         _baseline_hazard_df=bh_df,
         _concordance=c_index,
         _schoenfeld_resid=schoenfeld,
@@ -1167,16 +1209,21 @@ def cox(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.survival.cox",
             params={
                 "formula": formula,
-                "duration": duration, "event": event,
+                "duration": duration,
+                "event": event,
                 "x": list(x) if x else None,
-                "ties": ties, "strata": strata,
-                "robust": robust, "cluster": cluster,
-                "hazard_ratio": hazard_ratio, "alpha": alpha,
+                "ties": ties,
+                "strata": strata,
+                "robust": robust,
+                "cluster": cluster,
+                "hazard_ratio": hazard_ratio,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -1189,6 +1236,7 @@ def cox(
 # ===================================================================
 # Parametric survival / AFT: survreg()
 # ===================================================================
+
 
 def _weibull_loglik(
     params: np.ndarray,
@@ -1226,8 +1274,9 @@ def _lognormal_loglik(
     mu = X @ beta
     z = (np.log(T + 1e-15) - mu) / sigma
 
-    ll = (E * (stats.norm.logpdf(z) - log_sigma - np.log(T + 1e-15)) +
-          (1 - E) * stats.norm.logsf(z))
+    ll = E * (stats.norm.logpdf(z) - log_sigma - np.log(T + 1e-15)) + (
+        1 - E
+    ) * stats.norm.logsf(z)
     return float(-ll.sum())
 
 
@@ -1248,8 +1297,9 @@ def _loglogistic_loglik(
 
     # f(t) = [exp(z) / (sigma * t * (1+exp(z))^2)]
     # S(t) = 1 / (1+exp(z))
-    ll = (E * (z - log_sigma - np.log(T + 1e-15) - 2 * np.log(1 + np.exp(z))) +
-          (1 - E) * (-np.log(1 + np.exp(z))))
+    ll = E * (z - log_sigma - np.log(T + 1e-15) - 2 * np.log(1 + np.exp(z))) + (
+        1 - E
+    ) * (-np.log(1 + np.exp(z)))
     return float(-ll.sum())
 
 
@@ -1340,7 +1390,9 @@ def survreg(
     elif dist_lower == "loglogistic":
         loglik_fn = _loglogistic_loglik
     else:
-        raise ValueError(f"dist must be weibull/exponential/lognormal/loglogistic, got {dist!r}")
+        raise ValueError(
+            f"dist must be weibull/exponential/lognormal/loglogistic, got {dist!r}"
+        )
 
     def neg_ll_wrapper(params: np.ndarray) -> float:
         return loglik_fn(params, X, T, E)
@@ -1351,6 +1403,7 @@ def survreg(
         # Fix sigma=1 => log_sigma=0, only optimize beta
         def neg_ll_exp(beta: np.ndarray) -> float:
             return loglik_fn(np.append(beta, 0.0), X, T, E)
+
         res = optimize.minimize(neg_ll_exp, np.zeros(p), method="L-BFGS-B")
         full_params = np.append(res.x, 0.0)
     else:

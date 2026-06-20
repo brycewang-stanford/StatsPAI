@@ -28,6 +28,7 @@ Yun, M.-S. (2004). "Decomposing Differences in the First Moment."
 Yun, M.-S. (2005). "A Simple Solution to the Identification Problem in
 Detailed Wage Decompositions." *Economic Inquiry*, 43(4), 766-772. [@yun2005simple]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -37,23 +38,19 @@ import numpy as np
 import pandas as pd
 
 from ._results import DecompResultMixin
-from ._common import (
-    add_constant,
-    bootstrap_ci,
-    logit_fit,
-    logit_predict,
-    prepare_frame,
-)
-
+from ._common import add_constant, logit_fit, logit_predict, prepare_frame
 
 # ════════════════════════════════════════════════════════════════════════
 # Probit helpers (optional)
 # ════════════════════════════════════════════════════════════════════════
 
-def _probit_fit(y: np.ndarray, X: np.ndarray,
-                max_iter: int = 100, tol: float = 1e-8) -> Tuple[np.ndarray, np.ndarray]:
+
+def _probit_fit(
+    y: np.ndarray, X: np.ndarray, max_iter: int = 100, tol: float = 1e-8
+) -> Tuple[np.ndarray, np.ndarray]:
     """Probit MLE via Newton-Raphson."""
     from scipy.stats import norm
+
     n, k = X.shape
     beta = np.zeros(k)
     for _ in range(max_iter):
@@ -65,7 +62,7 @@ def _probit_fit(y: np.ndarray, X: np.ndarray,
         lam = phi / Phi * y - phi / (1 - Phi) * (1 - y)
         grad = X.T @ lam
         # Hessian (approximate, expected information)
-        w = phi ** 2 / (Phi * (1 - Phi))
+        w = phi**2 / (Phi * (1 - Phi))
         H = -(X * w[:, None]).T @ X
         try:
             step = np.linalg.solve(H, grad)
@@ -79,7 +76,7 @@ def _probit_fit(y: np.ndarray, X: np.ndarray,
     eta = np.clip(X @ beta, -8, 8)
     phi = norm.pdf(eta)
     Phi = np.clip(norm.cdf(eta), 1e-10, 1 - 1e-10)
-    w = phi ** 2 / (Phi * (1 - Phi))
+    w = phi**2 / (Phi * (1 - Phi))
     info = (X * w[:, None]).T @ X
     try:
         vcov = np.linalg.inv(info)
@@ -90,6 +87,7 @@ def _probit_fit(y: np.ndarray, X: np.ndarray,
 
 def _probit_predict(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
     from scipy.stats import norm
+
     return np.asarray(norm.cdf(np.clip(X @ beta, -8, 8)))
 
 
@@ -97,11 +95,14 @@ def _probit_predict(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
 # Result
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class NonlinearDecompResult(DecompResultMixin):
     method_name: ClassVar[str] = "Nonlinear Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = (
-        "fairlie2005extension", "bauer2008extension", "yun2004decomposing",
+        "fairlie2005extension",
+        "bauer2008extension",
+        "yun2004decomposing",
     )
 
     method: str
@@ -141,34 +142,48 @@ class NonlinearDecompResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
-        return detailed_waterfall(self.detailed, value_col="contribution",
-                                  label_col="variable", **kwargs)
+
+        return detailed_waterfall(
+            self.detailed, value_col="contribution", label_col="variable", **kwargs
+        )
 
     def to_latex(self) -> str:
-        lines = [r"\begin{table}[htbp]", r"\centering",
-                 f"\\caption{{{self.method} Decomposition}}",
-                 r"\begin{tabular}{lc}", r"\toprule",
-                 r"Component & Estimate \\", r"\midrule",
-                 f"Gap & {self.gap:.4f} \\\\",
-                 f"Explained & {self.explained:.4f} \\\\",
-                 f"Unexplained & {self.unexplained:.4f} \\\\",
-                 r"\bottomrule", r"\end{tabular}", r"\end{table}"]
+        lines = [
+            r"\begin{table}[htbp]",
+            r"\centering",
+            f"\\caption{{{self.method} Decomposition}}",
+            r"\begin{tabular}{lc}",
+            r"\toprule",
+            r"Component & Estimate \\",
+            r"\midrule",
+            f"Gap & {self.gap:.4f} \\\\",
+            f"Explained & {self.explained:.4f} \\\\",
+            f"Unexplained & {self.unexplained:.4f} \\\\",
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
+        ]
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
-        return (f"<div style='font-family:monospace;'>"
-                f"<h3>{self.method} Decomposition</h3>"
-                f"<p>Gap={self.gap:.4f}, Explained={self.explained:.4f}, "
-                f"Unexplained={self.unexplained:.4f}</p></div>")
+        return (
+            f"<div style='font-family:monospace;'>"
+            f"<h3>{self.method} Decomposition</h3>"
+            f"<p>Gap={self.gap:.4f}, Explained={self.explained:.4f}, "
+            f"Unexplained={self.unexplained:.4f}</p></div>"
+        )
 
     def __repr__(self) -> str:
-        return (f"NonlinearDecompResult(method={self.method}, "
-                f"model={self.model}, gap={self.gap:.4f})")
+        return (
+            f"NonlinearDecompResult(method={self.method}, "
+            f"model={self.model}, gap={self.gap:.4f})"
+        )
 
 
 # ════════════════════════════════════════════════════════════════════════
 # Fairlie (2005)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def fairlie(
     data: pd.DataFrame,
@@ -262,7 +277,7 @@ def fairlie(
         for j in range(X_raw.shape[1]):
             X_swap[:, j + 1] = X_o[:, j + 1]
             p_new = predict(beta_ref, X_swap).mean()
-            contributions[j] += (p_prev - p_new)
+            contributions[j] += p_prev - p_new
             p_prev = p_new
     contributions = contributions / n_sim
 
@@ -276,24 +291,37 @@ def fairlie(
     if abs(contributions.sum()) > 1e-12:
         contributions = contributions * (explained / contributions.sum())
 
-    detailed = pd.DataFrame({
-        "variable": list(x),
-        "contribution": contributions,
-        "pct_of_explained": contributions / explained * 100
-        if abs(explained) > 1e-12 else np.zeros_like(contributions),
-    })
+    detailed = pd.DataFrame(
+        {
+            "variable": list(x),
+            "contribution": contributions,
+            "pct_of_explained": (
+                contributions / explained * 100
+                if abs(explained) > 1e-12
+                else np.zeros_like(contributions)
+            ),
+        }
+    )
 
     return NonlinearDecompResult(
-        method="Fairlie", model=model, gap=float(gap),
-        explained=float(explained), unexplained=float(unexplained),
-        detailed=detailed, rate_a=rate_a, rate_b=rate_b,
-        reference=reference, n_a=int(len(y_a)), n_b=int(len(y_b)),
+        method="Fairlie",
+        model=model,
+        gap=float(gap),
+        explained=float(explained),
+        unexplained=float(unexplained),
+        detailed=detailed,
+        rate_a=rate_a,
+        rate_b=rate_b,
+        reference=reference,
+        n_a=int(len(y_a)),
+        n_b=int(len(y_b)),
     )
 
 
 # ════════════════════════════════════════════════════════════════════════
 # Bauer-Sinning / Yun nonlinear
 # ════════════════════════════════════════════════════════════════════════
+
 
 def bauer_sinning(
     data: pd.DataFrame,
@@ -366,7 +394,7 @@ def bauer_sinning(
     # Yun weights (first-moment linearisation)
     mean_Xa = X_a.mean(axis=0)
     mean_Xb = X_b.mean(axis=0)
-    delta = (mean_Xa - mean_Xb) * beta_ref   # includes constant
+    delta = (mean_Xa - mean_Xb) * beta_ref  # includes constant
     total = delta.sum()
     if abs(total) > 1e-12:
         weights = delta / total
@@ -374,19 +402,30 @@ def bauer_sinning(
         weights = np.zeros_like(delta)
     contributions = weights * explained
     # Skip constant
-    detailed = pd.DataFrame({
-        "variable": list(x),
-        "contribution": contributions[1:],
-        "pct_of_explained": contributions[1:] / explained * 100
-        if abs(explained) > 1e-12 else np.zeros(len(x)),
-    })
+    detailed = pd.DataFrame(
+        {
+            "variable": list(x),
+            "contribution": contributions[1:],
+            "pct_of_explained": (
+                contributions[1:] / explained * 100
+                if abs(explained) > 1e-12
+                else np.zeros(len(x))
+            ),
+        }
+    )
 
     return NonlinearDecompResult(
-        method="Bauer-Sinning (Yun weights)", model=model,
-        gap=float(gap), explained=float(explained),
-        unexplained=float(unexplained), detailed=detailed,
-        rate_a=float(y_a.mean()), rate_b=float(y_b.mean()),
-        reference=reference, n_a=int(len(y_a)), n_b=int(len(y_b)),
+        method="Bauer-Sinning (Yun weights)",
+        model=model,
+        gap=float(gap),
+        explained=float(explained),
+        unexplained=float(unexplained),
+        detailed=detailed,
+        rate_a=float(y_a.mean()),
+        rate_b=float(y_b.mean()),
+        reference=reference,
+        n_a=int(len(y_a)),
+        n_b=int(len(y_b)),
     )
 
 

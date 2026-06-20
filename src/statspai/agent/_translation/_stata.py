@@ -22,12 +22,12 @@ Design principles
 * **Round-trippable** — the output's ``python_code`` should always
   be valid Python; ``arguments`` should always be JSON-serialisable.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
 from ._stata_lexer import parse as _parse_stata, StataCommand, StataParseError
-
 
 Handler = Callable[[StataCommand], Dict[str, Any]]
 
@@ -36,9 +36,13 @@ Handler = Callable[[StataCommand], Dict[str, Any]]
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _emit(tool: str, arguments: Dict[str, Any],
-           python_code: str,
-           notes: Optional[List[str]] = None) -> Dict[str, Any]:
+
+def _emit(
+    tool: str,
+    arguments: Dict[str, Any],
+    python_code: str,
+    notes: Optional[List[str]] = None,
+) -> Dict[str, Any]:
     return {
         "tool": tool,
         "arguments": dict(arguments),
@@ -118,11 +122,11 @@ def _opt_matches(value: Optional[str], target: str) -> bool:
 # Tier-1 handlers
 # ---------------------------------------------------------------------------
 
+
 def _h_regress(cmd: StataCommand) -> Dict[str, Any]:
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("regress requires an outcome variable",
-                            command="regress")
+        return _emit_error("regress requires an outcome variable", command="regress")
     formula = _build_formula(y, xs)
     cluster = _vce_cluster(cmd)
     robust = _robust_kind(cmd)
@@ -132,14 +136,15 @@ def _h_regress(cmd: StataCommand) -> Dict[str, Any]:
     if cluster:
         args["cluster"] = cluster
     code_kwargs = ", ".join(
-        [f"{k}={v!r}" for k, v in args.items() if k != "formula"]
-        + ["data=df"]
+        [f"{k}={v!r}" for k, v in args.items() if k != "formula"] + ["data=df"]
     )
     python = f"sp.regress({formula!r}, {code_kwargs})"
     notes: List[str] = []
     if cmd.if_cond:
-        notes.append(f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
-                      f"`df = df.query({cmd.if_cond!r})` before calling.")
+        notes.append(
+            f"Stata `if {cmd.if_cond}` dropped — pre-filter df via "
+            f"`df = df.query({cmd.if_cond!r})` before calling."
+        )
     if cmd.in_range:
         notes.append(f"Stata `in {cmd.in_range}` dropped — use df.iloc[...].")
     return _emit("regress", args, python, notes)
@@ -154,7 +159,8 @@ def _h_xtreg(cmd: StataCommand) -> Dict[str, Any]:
         return _emit_error(
             "random-effects xtreg is not supported — use sp.panel(method='re') "
             "directly via the Python API for now.",
-            command="xtreg")
+            command="xtreg",
+        )
 
     # Stata convention: panel id set via ``xtset id [t]``; we can't see
     # that here, so the user must supply ``id`` via the option or we
@@ -170,12 +176,16 @@ def _h_xtreg(cmd: StataCommand) -> Dict[str, Any]:
         args["cluster"] = cluster
     notes: List[str] = []
     if panel_id == "<panel_id>":
-        notes.append("Couldn't recover the panel-id from this command alone "
-                      "(Stata's `xtset id` lives in another line). Replace "
-                      "<panel_id> with the actual unit id column.")
+        notes.append(
+            "Couldn't recover the panel-id from this command alone "
+            "(Stata's `xtset id` lives in another line). Replace "
+            "<panel_id> with the actual unit id column."
+        )
     if "be" in cmd.options or "fd" in cmd.options:
-        notes.append("Between-effects / first-difference variants are not yet "
-                      "translated — use sp.panel(method='be'/'fd') directly.")
+        notes.append(
+            "Between-effects / first-difference variants are not yet "
+            "translated — use sp.panel(method='be'/'fd') directly."
+        )
     fe_repr = args["fe"]
     code_pairs = ["data=df", f"fe={fe_repr!r}"]
     if cluster:
@@ -188,8 +198,7 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
     """``reghdfe y x, absorb(id year) cluster(id)`` → ``sp.fixest``."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("reghdfe requires an outcome variable",
-                            command="reghdfe")
+        return _emit_error("reghdfe requires an outcome variable", command="reghdfe")
     absorb = cmd.options.get("absorb") or ""
     fe_list = [v for v in absorb.split() if v]
     cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
@@ -201,8 +210,10 @@ def _h_reghdfe(cmd: StataCommand) -> Dict[str, Any]:
         args["cluster"] = cluster
     notes: List[str] = []
     if not fe_list:
-        notes.append("reghdfe with no absorb() collapses to OLS — "
-                      "consider sp.regress instead.")
+        notes.append(
+            "reghdfe with no absorb() collapses to OLS — "
+            "consider sp.regress instead."
+        )
     code_pairs = ["data=df", f"fe={fe_list!r}"]
     if cluster:
         code_pairs.append(f"cluster={cluster!r}")
@@ -215,18 +226,18 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
     # Stata's ``ivreg2`` varlist contains parentheses with `d = z`.
     # Re-join the original varlist tokens to recover the parens.
     if not cmd.varlist:
-        return _emit_error("ivreg2 requires an outcome variable",
-                            command="ivreg2")
+        return _emit_error("ivreg2 requires an outcome variable", command="ivreg2")
     joined = " ".join(cmd.varlist)
     # Accept either ``y x (d = z)`` or ``y (d = z)``.
     import re
-    m = re.match(r"^\s*(\S+)\s*(.*?)\s*\(\s*(\S+)\s*=\s*([^)]+?)\s*\)\s*$",
-                 joined)
+
+    m = re.match(r"^\s*(\S+)\s*(.*?)\s*\(\s*(\S+)\s*=\s*([^)]+?)\s*\)\s*$", joined)
     if not m:
         return _emit_error(
             f"could not parse ivreg2 syntax {joined!r}; expected "
             "`y [exog_x...] (endog = instruments...)`",
-            command="ivreg2")
+            command="ivreg2",
+        )
     y, exog_xs, endog, instruments = m.group(1), m.group(2), m.group(3), m.group(4)
     formula_lhs = f"{y} ~ "
     if exog_xs.strip():
@@ -241,12 +252,16 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
         args["robust"] = "hc1"  # ivreg's robust, with cluster handled below
     notes: List[str] = []
     if cluster:
-        notes.append(f"Stata cluster({cluster}) — sp.ivreg currently does "
-                      f"not accept a `cluster=` kwarg; pass via the Python "
-                      f"API: ``sp.ivreg(..., cluster={cluster!r})``.")
+        notes.append(
+            f"Stata cluster({cluster}) — sp.ivreg currently does "
+            f"not accept a `cluster=` kwarg; pass via the Python "
+            f"API: ``sp.ivreg(..., cluster={cluster!r})``."
+        )
     if "first" in cmd.options:
-        notes.append("`first` (first-stage display) not translated; the sp "
-                      "result already exposes first_stage_F via diagnostics.")
+        notes.append(
+            "`first` (first-stage display) not translated; the sp "
+            "result already exposes first_stage_F via diagnostics."
+        )
     code_pairs = ["data=df"]
     if "robust" in args:
         code_pairs.append("robust='hc1'")
@@ -257,25 +272,26 @@ def _h_ivreg2(cmd: StataCommand) -> Dict[str, Any]:
 def _h_csdid(cmd: StataCommand) -> Dict[str, Any]:
     """``csdid y, ivar(id) tvar(t) gvar(g)`` → ``sp.callaway_santanna``."""
     if not cmd.varlist:
-        return _emit_error("csdid requires an outcome variable",
-                            command="csdid")
+        return _emit_error("csdid requires an outcome variable", command="csdid")
     y = cmd.varlist[0]
     i = cmd.options.get("ivar") or cmd.options.get("id")
     t = cmd.options.get("tvar") or cmd.options.get("time")
     g = cmd.options.get("gvar") or cmd.options.get("cohort")
-    missing = [name for name, val in
-               (("ivar", i), ("tvar", t), ("gvar", g)) if not val]
+    missing = [name for name, val in (("ivar", i), ("tvar", t), ("gvar", g)) if not val]
     if missing:
         return _emit_error(
             f"csdid translation needs {missing} option(s); supply them "
             "via Stata's `ivar()` / `tvar()` / `gvar()`.",
-            command="csdid")
+            command="csdid",
+        )
     args: Dict[str, Any] = {"y": y, "i": i, "t": t, "g": g}
     method = cmd.options.get("method", "dr") or "dr"
     if method.lower() in {"dr", "ipw", "reg"}:
         args["estimator"] = method.lower()
-    python = (f"sp.callaway_santanna(data=df, y={y!r}, i={i!r}, t={t!r}, "
-               f"g={g!r}, estimator={args.get('estimator', 'dr')!r})")
+    python = (
+        f"sp.callaway_santanna(data=df, y={y!r}, i={i!r}, t={t!r}, "
+        f"g={g!r}, estimator={args.get('estimator', 'dr')!r})"
+    )
     return _emit("callaway_santanna", args, python)
 
 
@@ -283,14 +299,16 @@ def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
     """``did_imputation y, treatment(treat) horizons(0 1 2)`` →
     ``sp.did_imputation``. Borusyak-Jaravel-Spiess imputation estimator."""
     if not cmd.varlist:
-        return _emit_error("did_imputation requires an outcome variable",
-                            command="did_imputation")
+        return _emit_error(
+            "did_imputation requires an outcome variable", command="did_imputation"
+        )
     y = cmd.varlist[0]
     treat = cmd.options.get("treatment") or cmd.options.get("treat")
     if not treat:
         return _emit_error(
             "did_imputation needs `treatment(<col>)` (treatment indicator).",
-            command="did_imputation")
+            command="did_imputation",
+        )
     args: Dict[str, Any] = {"y": y, "treat": treat}
     horizons = cmd.options.get("horizons")
     if horizons:
@@ -304,9 +322,11 @@ def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
             args["pretrends"] = [int(x) for x in pre.split()]
         except ValueError:
             args["pretrends"] = pre
-    python = (f"sp.did_imputation(data=df, y={y!r}, treat={treat!r}"
-               + (f", horizons={args['horizons']!r}" if "horizons" in args else "")
-               + ")")
+    python = (
+        f"sp.did_imputation(data=df, y={y!r}, treat={treat!r}"
+        + (f", horizons={args['horizons']!r}" if "horizons" in args else "")
+        + ")"
+    )
     return _emit("did_imputation", args, python)
 
 
@@ -317,16 +337,15 @@ def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
     treated unit + treatment period live in options.
     """
     if not cmd.varlist:
-        return _emit_error("synth requires an outcome variable",
-                            command="synth")
+        return _emit_error("synth requires an outcome variable", command="synth")
     outcome = cmd.varlist[0]
     predictors = cmd.varlist[1:]
     trunit = cmd.options.get("trunit") or cmd.options.get("treatedid")
     trperiod = cmd.options.get("trperiod") or cmd.options.get("treatment_time")
     if not (trunit and trperiod):
         return _emit_error(
-            "synth needs `trunit(<id>)` and `trperiod(<year>)`.",
-            command="synth")
+            "synth needs `trunit(<id>)` and `trperiod(<year>)`.", command="synth"
+        )
     unit = cmd.options.get("unit") or "<unit_col>"
     time = cmd.options.get("time") or "<time_col>"
     args: Dict[str, Any] = {
@@ -340,14 +359,18 @@ def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
         args["predictors"] = predictors
     notes: List[str] = []
     if unit == "<unit_col>" or time == "<time_col>":
-        notes.append("Stata `tsset` / `xtset` info isn't visible from the "
-                      "command alone — replace <unit_col>/<time_col> with "
-                      "the panel-id / time columns.")
-    python = (f"sp.synth(data=df, outcome={outcome!r}, unit={unit!r}, "
-               f"time={time!r}, treated_unit={args['treated_unit']!r}, "
-               f"treatment_time={args['treatment_time']!r}"
-               + (f", predictors={predictors!r}" if predictors else "")
-               + ")")
+        notes.append(
+            "Stata `tsset` / `xtset` info isn't visible from the "
+            "command alone — replace <unit_col>/<time_col> with "
+            "the panel-id / time columns."
+        )
+    python = (
+        f"sp.synth(data=df, outcome={outcome!r}, unit={unit!r}, "
+        f"time={time!r}, treated_unit={args['treated_unit']!r}, "
+        f"treatment_time={args['treatment_time']!r}"
+        + (f", predictors={predictors!r}" if predictors else "")
+        + ")"
+    )
     return _emit("synth", args, python, notes)
 
 
@@ -356,7 +379,8 @@ def _h_rdrobust(cmd: StataCommand) -> Dict[str, Any]:
     if len(cmd.varlist) < 2:
         return _emit_error(
             "rdrobust requires y + running variable: `rdrobust y x, c(<v>)`",
-            command="rdrobust")
+            command="rdrobust",
+        )
     y, x = cmd.varlist[0], cmd.varlist[1]
     c_raw = cmd.options.get("c", "0")
     try:
@@ -367,19 +391,25 @@ def _h_rdrobust(cmd: StataCommand) -> Dict[str, Any]:
     if "fuzzy" in cmd.options and cmd.options["fuzzy"]:
         args["fuzzy"] = cmd.options["fuzzy"].split()[0]
     kernel = cmd.options.get("kernel")
-    if kernel and kernel.split()[0].lower() in {"triangular", "uniform",
-                                                  "epanechnikov"}:
+    if kernel and kernel.split()[0].lower() in {
+        "triangular",
+        "uniform",
+        "epanechnikov",
+    }:
         args["kernel"] = kernel.split()[0].lower()
-    python = (f"sp.rdrobust(data=df, y={y!r}, x={x!r}, c={c}"
-               + (f", fuzzy={args['fuzzy']!r}" if "fuzzy" in args else "")
-               + (f", kernel={args['kernel']!r}" if "kernel" in args else "")
-               + ")")
+    python = (
+        f"sp.rdrobust(data=df, y={y!r}, x={x!r}, c={c}"
+        + (f", fuzzy={args['fuzzy']!r}" if "fuzzy" in args else "")
+        + (f", kernel={args['kernel']!r}" if "kernel" in args else "")
+        + ")"
+    )
     return _emit("rdrobust", args, python)
 
 
 # ---------------------------------------------------------------------------
 # Tier-2 handlers — observational + RD ancillary + diagnostics
 # ---------------------------------------------------------------------------
+
 
 def _h_probit(cmd: StataCommand) -> Dict[str, Any]:
     return _h_glm_like(cmd, sp_fn="probit", display_name="probit")
@@ -406,8 +436,7 @@ def _h_xtnbreg(cmd: StataCommand) -> Dict[str, Any]:
     """
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("xtnbreg requires an outcome variable",
-                            command="xtnbreg")
+        return _emit_error("xtnbreg requires an outcome variable", command="xtnbreg")
 
     panel_id = cmd.options.get("i") or cmd.options.get("id") or "<panel_id>"
     model = "fe" if "fe" in cmd.options else "re" if "re" in cmd.options else "re"
@@ -432,17 +461,23 @@ def _h_xtnbreg(cmd: StataCommand) -> Dict[str, Any]:
 
     notes: List[str] = []
     if panel_id == "<panel_id>":
-        notes.append("Couldn't recover the panel-id from this command alone "
-                      "(Stata's `xtset id` lives in another line). Replace "
-                      "<panel_id> with the actual unit id column.")
+        notes.append(
+            "Couldn't recover the panel-id from this command alone "
+            "(Stata's `xtset id` lives in another line). Replace "
+            "<panel_id> with the actual unit id column."
+        )
     if model == "fe":
-        notes.append("StatsPAI fits fixed-effects xtnbreg as an unconditional "
-                      "NB model with explicit panel dummies; this preserves "
-                      "the count likelihood and avoids routing through OLS.")
+        notes.append(
+            "StatsPAI fits fixed-effects xtnbreg as an unconditional "
+            "NB model with explicit panel dummies; this preserves "
+            "the count likelihood and avoids routing through OLS."
+        )
     else:
-        notes.append("No `fe` option detected; StatsPAI maps xtnbreg to a "
-                      "random-intercept NB-2 GLMM (`sp.menbreg`) via "
-                      "`sp.xtnbreg(model='re')`.")
+        notes.append(
+            "No `fe` option detected; StatsPAI maps xtnbreg to a "
+            "random-intercept NB-2 GLMM (`sp.menbreg`) via "
+            "`sp.xtnbreg(model='re')`."
+        )
 
     code_pairs = [
         "data=df",
@@ -461,13 +496,13 @@ def _h_xtnbreg(cmd: StataCommand) -> Dict[str, Any]:
     return _emit("xtnbreg", args, python, notes)
 
 
-def _h_glm_like(cmd: StataCommand, *, sp_fn: str,
-                  display_name: str) -> Dict[str, Any]:
+def _h_glm_like(cmd: StataCommand, *, sp_fn: str, display_name: str) -> Dict[str, Any]:
     """Common scaffold for probit / logit / poisson / nbreg."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error(f"{display_name} requires an outcome variable",
-                            command=display_name)
+        return _emit_error(
+            f"{display_name} requires an outcome variable", command=display_name
+        )
     formula = _build_formula(y, xs)
     cluster = _vce_cluster(cmd)
     robust = _robust_kind(cmd)
@@ -479,8 +514,7 @@ def _h_glm_like(cmd: StataCommand, *, sp_fn: str,
     code_pairs = ["data=df"]
     if cluster:
         code_pairs.append(f"cluster={cluster!r}")
-    python = (f"sp.{sp_fn}({formula!r}, "
-               + ", ".join(code_pairs) + ")")
+    python = f"sp.{sp_fn}({formula!r}, " + ", ".join(code_pairs) + ")"
     return _emit(sp_fn, args, python)
 
 
@@ -488,8 +522,7 @@ def _h_tobit(cmd: StataCommand) -> Dict[str, Any]:
     """``tobit y x, ll(0) ul(100)`` → ``sp.tobit``."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("tobit requires an outcome variable",
-                            command="tobit")
+        return _emit_error("tobit requires an outcome variable", command="tobit")
     args: Dict[str, Any] = {"formula": _build_formula(y, xs)}
     ll = cmd.options.get("ll")
     ul = cmd.options.get("ul")
@@ -516,38 +549,37 @@ def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
     """``heckman y x, select(employed = age kids)`` → ``sp.heckman``."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("heckman requires an outcome variable",
-                            command="heckman")
+        return _emit_error("heckman requires an outcome variable", command="heckman")
     formula = _build_formula(y, xs)
     select = cmd.options.get("select")
     if not select:
         return _emit_error(
-            "heckman needs `select(<eq>)` (selection equation).",
-            command="heckman")
+            "heckman needs `select(<eq>)` (selection equation).", command="heckman"
+        )
     # Stata syntax: ``select(d = z1 z2)`` or just ``select(z1 z2)``
     import re
+
     m = re.match(r"^\s*(\S+)\s*=\s*(.+)$", select)
     if m:
         select_lhs, select_rhs = m.group(1), m.group(2).strip()
         select_formula = f"{select_lhs} ~ {select_rhs.replace(' ', ' + ')}"
     else:
         return _emit_error(
-            "heckman select() must be `selectvar = covariates`",
-            command="heckman")
+            "heckman select() must be `selectvar = covariates`", command="heckman"
+        )
     args: Dict[str, Any] = {
         "formula": formula,
         "select_formula": select_formula,
     }
-    python = (f"sp.heckman({formula!r}, "
-               f"select_formula={select_formula!r}, data=df)")
+    python = f"sp.heckman({formula!r}, " f"select_formula={select_formula!r}, data=df)"
     return _emit("heckman", args, python)
 
 
 def _h_rdplot(cmd: StataCommand) -> Dict[str, Any]:
     if len(cmd.varlist) < 2:
         return _emit_error(
-            "rdplot needs y + running variable: `rdplot y x, c(<v>)`",
-            command="rdplot")
+            "rdplot needs y + running variable: `rdplot y x, c(<v>)`", command="rdplot"
+        )
     y, x = cmd.varlist[0], cmd.varlist[1]
     c_raw = cmd.options.get("c", "0")
     try:
@@ -561,8 +593,7 @@ def _h_rdplot(cmd: StataCommand) -> Dict[str, Any]:
 
 def _h_rddensity(cmd: StataCommand) -> Dict[str, Any]:
     if not cmd.varlist:
-        return _emit_error("rddensity requires a running variable",
-                            command="rddensity")
+        return _emit_error("rddensity requires a running variable", command="rddensity")
     x = cmd.varlist[0]
     c_raw = cmd.options.get("c", "0")
     try:
@@ -584,19 +615,20 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
     """
     raw = cmd.raw or ""
     import re
-    m = re.match(
-        r"^\s*teffects\s+(\w+)\s+\((.+?)\)\s+\((.+?)\)(.*)$",
-        raw, flags=re.I)
+
+    m = re.match(r"^\s*teffects\s+(\w+)\s+\((.+?)\)\s+\((.+?)\)(.*)$", raw, flags=re.I)
     if not m:
         return _emit_error(
             "teffects: expected `teffects <method> (out_eq) (treat_eq) [, opts]`",
-            command="teffects")
+            command="teffects",
+        )
     method = m.group(1).lower()
     out_eq_tokens = m.group(2).split()
     treat_eq_tokens = m.group(3).split()
     if not out_eq_tokens or not treat_eq_tokens:
-        return _emit_error("teffects: outcome / treatment equations are empty",
-                            command="teffects")
+        return _emit_error(
+            "teffects: outcome / treatment equations are empty", command="teffects"
+        )
     y = out_eq_tokens[0]
     out_xs = out_eq_tokens[1:]
     treat = treat_eq_tokens[0]
@@ -605,18 +637,23 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
     # Choose the closest sp helper per teffects method.
     if method in {"ipw", "ipwra"}:
         sp_fn = "ipw"
-        args: Dict[str, Any] = {"y": y, "treat": treat,
-                                  "covariates": treat_xs}
-        python = (f"sp.ipw(data=df, y={y!r}, treat={treat!r}, "
-                   f"covariates={treat_xs!r})")
+        args: Dict[str, Any] = {"y": y, "treat": treat, "covariates": treat_xs}
+        python = (
+            f"sp.ipw(data=df, y={y!r}, treat={treat!r}, " f"covariates={treat_xs!r})"
+        )
     elif method in {"nnmatch", "psmatch", "match"}:
         sp_fn = "match"
-        args = {"y": y, "treat": treat,
-                "covariates": treat_xs or out_xs,
-                "method": ("ps" if method == "psmatch" else "nn")}
-        python = (f"sp.match(data=df, y={y!r}, treat={treat!r}, "
-                   f"covariates={args['covariates']!r}, "
-                   f"method={args['method']!r})")
+        args = {
+            "y": y,
+            "treat": treat,
+            "covariates": treat_xs or out_xs,
+            "method": ("ps" if method == "psmatch" else "nn"),
+        }
+        python = (
+            f"sp.match(data=df, y={y!r}, treat={treat!r}, "
+            f"covariates={args['covariates']!r}, "
+            f"method={args['method']!r})"
+        )
     elif method == "ra":
         sp_fn = "regress"
         formula = _build_formula(y, [treat] + out_xs)
@@ -625,12 +662,15 @@ def _h_teffects(cmd: StataCommand) -> Dict[str, Any]:
     elif method in {"aipw", "drdid"}:
         sp_fn = "aipw"
         args = {"y": y, "treat": treat, "covariates": treat_xs}
-        python = (f"sp.aipw(data=df, y={y!r}, treat={treat!r}, "
-                   f"covariates={treat_xs!r})")
+        python = (
+            f"sp.aipw(data=df, y={y!r}, treat={treat!r}, " f"covariates={treat_xs!r})"
+        )
     else:
-        return _emit_error(f"teffects method {method!r} not supported "
-                            f"(known: ipw / nnmatch / psmatch / ra / aipw)",
-                            command="teffects")
+        return _emit_error(
+            f"teffects method {method!r} not supported "
+            f"(known: ipw / nnmatch / psmatch / ra / aipw)",
+            command="teffects",
+        )
     return _emit(sp_fn, args, python)
 
 
@@ -642,10 +682,15 @@ def _h_margins(cmd: StataCommand) -> Dict[str, Any]:
         args["dydx"] = cmd.options["dydx"].split()
     if "at" in cmd.options:
         args["at"] = cmd.options["at"]
-    python = (f"sp.margins(result, variables={targets!r})"
-               if targets else "sp.margins(result)")
-    notes = ["sp.margins takes a fitted result, not data — pipe the "
-             "previous estimator's result_id (or fit a model first)."]
+    python = (
+        f"sp.margins(result, variables={targets!r})"
+        if targets
+        else "sp.margins(result)"
+    )
+    notes = [
+        "sp.margins takes a fitted result, not data — pipe the "
+        "previous estimator's result_id (or fit a model first)."
+    ]
     return _emit("margins", args, python, notes)
 
 
@@ -654,8 +699,9 @@ def _h_contrast(cmd: StataCommand) -> Dict[str, Any]:
     targets = cmd.varlist or []
     args: Dict[str, Any] = {"terms": targets}
     python = f"sp.contrast(result, terms={targets!r})"
-    notes = ["sp.contrast takes a fitted result; pipe the previous "
-             "estimator's result_id."]
+    notes = [
+        "sp.contrast takes a fitted result; pipe the previous " "estimator's result_id."
+    ]
     return _emit("contrast", args, python, notes)
 
 
@@ -663,27 +709,33 @@ def _h_test(cmd: StataCommand) -> Dict[str, Any]:
     """Stata `test x1 x2` — Wald test of joint significance."""
     args: Dict[str, Any] = {"terms": cmd.varlist}
     python = f"sp.test(result, terms={cmd.varlist!r})"
-    notes = ["sp.test takes a fitted result; pipe the previous "
-             "estimator's result_id."]
+    notes = [
+        "sp.test takes a fitted result; pipe the previous " "estimator's result_id."
+    ]
     return _emit("test", args, python, notes)
 
 
 def _h_xtset(cmd: StataCommand) -> Dict[str, Any]:
     """``xtset id year`` — Stata panel declaration. Pure metadata."""
     if not cmd.varlist:
-        return _emit_error("xtset requires panel id (and optionally time)",
-                            command="xtset")
+        return _emit_error(
+            "xtset requires panel id (and optionally time)", command="xtset"
+        )
     panel_id = cmd.varlist[0]
     panel_time = cmd.varlist[1] if len(cmd.varlist) > 1 else None
-    notes = [(f"sp doesn't need an `xtset`-style declaration — pass "
-                f"id={panel_id!r}"
-                + (f" and time={panel_time!r}" if panel_time else "")
-                + " to estimators directly. This translation is a no-op "
-                "but lets agents acknowledge the panel structure.")]
+    notes = [
+        (
+            f"sp doesn't need an `xtset`-style declaration — pass "
+            f"id={panel_id!r}"
+            + (f" and time={panel_time!r}" if panel_time else "")
+            + " to estimators directly. This translation is a no-op "
+            "but lets agents acknowledge the panel structure."
+        )
+    ]
     args: Dict[str, Any] = {"id": panel_id}
     if panel_time:
         args["time"] = panel_time
-    python = ("# xtset is a no-op in StatsPAI; pass id + time directly to estimators.")
+    python = "# xtset is a no-op in StatsPAI; pass id + time directly to estimators."
     return _emit("xtset", args, python, notes)
 
 
@@ -692,14 +744,14 @@ def _h_xtset(cmd: StataCommand) -> Dict[str, Any]:
 # Poisson HDFE / mi_estimate
 # ---------------------------------------------------------------------------
 
+
 def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
     """``ppmlhdfe y x, absorb(id year) cluster(id)`` → ``sp.ppmlhdfe`` (or
     sp.poisson with FE if ppmlhdfe unavailable). Correia-Guimarães-Zylkin
     Poisson PML with HDFE."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("ppmlhdfe requires an outcome variable",
-                            command="ppmlhdfe")
+        return _emit_error("ppmlhdfe requires an outcome variable", command="ppmlhdfe")
     absorb = cmd.options.get("absorb") or ""
     fe_list = [v for v in absorb.split() if v]
     cluster = _vce_cluster(cmd) or cmd.options.get("cluster")
@@ -715,8 +767,10 @@ def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
     python = f"sp.ppmlhdfe({formula!r}, {', '.join(code_pairs)})"
     notes: List[str] = []
     if not fe_list:
-        notes.append("ppmlhdfe with no absorb() degenerates to "
-                      "sp.poisson — consider using that directly.")
+        notes.append(
+            "ppmlhdfe with no absorb() degenerates to "
+            "sp.poisson — consider using that directly."
+        )
     return _emit("ppmlhdfe", args, python, notes)
 
 
@@ -729,8 +783,7 @@ def _h_mlogit(cmd: StataCommand) -> Dict[str, Any]:
     """
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("mlogit requires an outcome variable",
-                            command="mlogit")
+        return _emit_error("mlogit requires an outcome variable", command="mlogit")
     formula = _build_formula(y, xs)
     args: Dict[str, Any] = {
         "formula": formula,
@@ -739,14 +792,15 @@ def _h_mlogit(cmd: StataCommand) -> Dict[str, Any]:
     base = cmd.options.get("baseoutcome")
     if base is not None:
         args["base_outcome"] = _coerce_scalar(base)
-    notes = ["StatsPAI doesn't ship a dedicated mlogit; "
-             "sp.glm(family='multinomial') is the closest. "
-             "For full diagnostics use statsmodels.MNLogit on the "
-             "fitted result via .raw_model."]
+    notes = [
+        "StatsPAI doesn't ship a dedicated mlogit; "
+        "sp.glm(family='multinomial') is the closest. "
+        "For full diagnostics use statsmodels.MNLogit on the "
+        "fitted result via .raw_model."
+    ]
     code_kwargs = ", ".join(
         ["data=df", "family='multinomial'"]
-        + ([f"base_outcome={args['base_outcome']!r}"]
-            if "base_outcome" in args else [])
+        + ([f"base_outcome={args['base_outcome']!r}"] if "base_outcome" in args else [])
     )
     python = f"sp.glm({formula!r}, {code_kwargs})"
     return _emit("glm", args, python, notes)
@@ -756,16 +810,17 @@ def _h_oprobit(cmd: StataCommand) -> Dict[str, Any]:
     """``oprobit grade x1 x2`` → ordered probit via sp.glm(family='ordered_probit')."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error("oprobit requires an outcome variable",
-                            command="oprobit")
+        return _emit_error("oprobit requires an outcome variable", command="oprobit")
     formula = _build_formula(y, xs)
     args: Dict[str, Any] = {
         "formula": formula,
         "family": "ordered_probit",
     }
-    notes = ["StatsPAI's ordered probit lives behind "
-             "sp.glm(family='ordered_probit'). Use sp.cloglog for "
-             "complementary log-log."]
+    notes = [
+        "StatsPAI's ordered probit lives behind "
+        "sp.glm(family='ordered_probit'). Use sp.cloglog for "
+        "complementary log-log."
+    ]
     python = f"sp.glm({formula!r}, data=df, family='ordered_probit')"
     return _emit("glm", args, python, notes)
 
@@ -776,15 +831,15 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
     ``sp.xtdpdsys``."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
-        return _emit_error(f"{sp_kind} requires an outcome variable",
-                            command=sp_kind)
+        return _emit_error(f"{sp_kind} requires an outcome variable", command=sp_kind)
     panel_id = cmd.options.get("i") or cmd.options.get("id") or "<panel_id>"
     args: Dict[str, Any] = {
         "y": y,
         "x": xs,
         "id": panel_id if panel_id != "<panel_id>" else None,
         "twostep": "twostep" in cmd.options,
-        "robust": "robust" in cmd.options or _opt_matches(cmd.options.get("vce"), "robust"),
+        "robust": "robust" in cmd.options
+        or _opt_matches(cmd.options.get("vce"), "robust"),
     }
     lags_opt = cmd.options.get("lags")
     if lags_opt:
@@ -794,10 +849,13 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
             pass
     notes: List[str] = []
     if panel_id == "<panel_id>":
-        notes.append("Stata's `xtset id [t]` set the panel id; replace "
-                      "<panel_id> with your unit-id column.")
+        notes.append(
+            "Stata's `xtset id [t]` set the panel id; replace "
+            "<panel_id> with your unit-id column."
+        )
     code_pairs = [
-        "data=df", f"y={y!r}",
+        "data=df",
+        f"y={y!r}",
         f"x={xs!r}",
     ]
     if args["id"]:
@@ -822,8 +880,9 @@ def _h_bunching(cmd: StataCommand) -> Dict[str, Any]:
     """``bunching y, c(0) bw(0.05)`` → ``sp.bunching``. Chetty-style
     bunching estimators (Saez 2010, Kleven-Waseem 2013)."""
     if not cmd.varlist:
-        return _emit_error("bunching requires a running-variable column",
-                            command="bunching")
+        return _emit_error(
+            "bunching requires a running-variable column", command="bunching"
+        )
     x = cmd.varlist[0]
     cutoff = cmd.options.get("c", "0")
     try:
@@ -851,13 +910,17 @@ def _h_mi_estimate(cmd: StataCommand) -> Dict[str, Any]:
     grammar; we just emit a hint pointing the agent at sp.mi_estimate
     and ask them to fit the underlying model first.
     """
-    notes = ["Stata's `mi estimate: <cmd>` wraps an inner command — "
-             "translate the inner command first, then wrap with "
-             "sp.mi_estimate(model_fn, data=df_imputed_list)."]
-    return _emit("mi_estimate",
-                  {"hint": "translate inner command first"},
-                  "# sp.mi_estimate wraps a sequence of fits — see docs.",
-                  notes)
+    notes = [
+        "Stata's `mi estimate: <cmd>` wraps an inner command — "
+        "translate the inner command first, then wrap with "
+        "sp.mi_estimate(model_fn, data=df_imputed_list)."
+    ]
+    return _emit(
+        "mi_estimate",
+        {"hint": "translate inner command first"},
+        "# sp.mi_estimate wraps a sequence of fits — see docs.",
+        notes,
+    )
 
 
 def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
@@ -876,8 +939,10 @@ def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
     cluster = cmd.options.get("cluster") or _vce_cluster(cmd)
     if cluster:
         args["cluster"] = cluster.split()[0]
-    notes = ["sp.wild_cluster_bootstrap takes a fitted result as the "
-             "first arg — pipe the previous estimator's result_id."]
+    notes = [
+        "sp.wild_cluster_bootstrap takes a fitted result as the "
+        "first arg — pipe the previous estimator's result_id."
+    ]
     code_pairs = ["result"]
     if "B" in args:
         code_pairs.append(f"B={args['B']}")
@@ -897,10 +962,12 @@ def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
 #: matching at lookup time.
 STATA_COMMAND_MAP: Dict[str, Handler] = {
     # Tier 1 — flagship 8 (60% of econ workflows)
-    "regress": _h_regress, "reg": _h_regress,
+    "regress": _h_regress,
+    "reg": _h_regress,
     "xtreg": _h_xtreg,
     "reghdfe": _h_reghdfe,
-    "ivreg2": _h_ivreg2, "ivregress": _h_ivreg2,  # close-enough mapping
+    "ivreg2": _h_ivreg2,
+    "ivregress": _h_ivreg2,  # close-enough mapping
     "csdid": _h_csdid,
     "did_imputation": _h_did_imputation,
     "synth": _h_synth,
@@ -920,7 +987,8 @@ STATA_COMMAND_MAP: Dict[str, Handler] = {
     "marginsplot": _h_margins,
     "contrast": _h_contrast,
     "test": _h_test,
-    "xtset": _h_xtset, "tsset": _h_xtset,
+    "xtset": _h_xtset,
+    "tsset": _h_xtset,
     # Tier 3 — long-tail (8 handlers)
     "ppmlhdfe": _h_ppmlhdfe,
     "mlogit": _h_mlogit,
@@ -947,6 +1015,7 @@ def _coerce_scalar(s: str) -> Any:
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def from_stata(line: str) -> Dict[str, Any]:
     """Translate a Stata command line to a StatsPAI tool-call payload.
@@ -983,18 +1052,20 @@ def from_stata(line: str) -> Dict[str, Any]:
     try:
         parsed = _parse_stata(line)
     except StataParseError as e:
-        return _emit_error(f"parse_error: {e}", command=None,
-                           suggestions=[])
+        return _emit_error(f"parse_error: {e}", command=None, suggestions=[])
 
     handler = STATA_COMMAND_MAP.get(parsed.command)
     if handler is None:
         from difflib import get_close_matches
-        suggestions = get_close_matches(parsed.command,
-                                          list(STATA_COMMAND_MAP.keys()),
-                                          n=5, cutoff=0.55)
+
+        suggestions = get_close_matches(
+            parsed.command, list(STATA_COMMAND_MAP.keys()), n=5, cutoff=0.55
+        )
         return _emit_error(
             f"unknown / unsupported Stata command {parsed.command!r}",
-            command=parsed.command, suggestions=suggestions)
+            command=parsed.command,
+            suggestions=suggestions,
+        )
 
     return handler(parsed)
 

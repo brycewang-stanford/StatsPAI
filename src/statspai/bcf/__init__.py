@@ -23,8 +23,12 @@ from .ordinal import bcf_ordinal, BCFOrdinalResult
 from .factor_exposure import bcf_factor_exposure, BCFFactorExposureResult
 
 __all__ = [
-    'bcf', 'BayesianCausalForest',
-    'bcf_longitudinal', 'BCFLongResult',
-    'bcf_ordinal', 'BCFOrdinalResult',
-    'bcf_factor_exposure', 'BCFFactorExposureResult',
+    "bcf",
+    "BayesianCausalForest",
+    "bcf_longitudinal",
+    "BCFLongResult",
+    "bcf_ordinal",
+    "BCFOrdinalResult",
+    "bcf_factor_exposure",
+    "BCFFactorExposureResult",
 ]

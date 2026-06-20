@@ -133,7 +133,9 @@ def demeaned_synth(
     elif variant == "detrended":
         # Subtract unit-specific linear trends fit on pre-period
         def _detrend(
-            y: np.ndarray, t_pre: np.ndarray, t_all: np.ndarray,
+            y: np.ndarray,
+            t_pre: np.ndarray,
+            t_all: np.ndarray,
         ) -> tuple[np.ndarray, Any, Any]:
             slope, intercept = np.polyfit(t_pre, y[pre_mask], 1)
             return y - (intercept + slope * t_all), intercept, slope
@@ -170,7 +172,7 @@ def demeaned_synth(
     gap_post = gap[post_mask]
     gap_pre = gap[pre_mask]
     att = float(np.mean(gap_post))
-    pre_mspe = float(np.mean(gap_pre ** 2))
+    pre_mspe = float(np.mean(gap_pre**2))
 
     # --- Placebo inference ---
     placebo_atts = []
@@ -207,10 +209,10 @@ def demeaned_synth(
 
     # --- P-value ---
     if len(placebo_atts) > 0:
-        post_mspe = float(np.mean(gap_post ** 2))
+        post_mspe = float(np.mean(gap_post**2))
         ratio_treated = post_mspe / pre_mspe if pre_mspe > 1e-10 else np.inf
         placebo_ratios = [
-            a ** 2 / m if m > 1e-10 else 0
+            a**2 / m if m > 1e-10 else 0
             for a, m in zip(placebo_atts, placebo_pre_mspes)
         ]
         pvalue = float(np.mean(np.array(placebo_ratios) >= ratio_treated))
@@ -223,15 +225,27 @@ def demeaned_synth(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (att - z_crit * se, att + z_crit * se)
 
-    weight_df = pd.DataFrame({
-        "unit": donor_cols, "weight": weights,
-    }).sort_values("weight", ascending=False).reset_index(drop=True)
+    weight_df = (
+        pd.DataFrame(
+            {
+                "unit": donor_cols,
+                "weight": weights,
+            }
+        )
+        .sort_values("weight", ascending=False)
+        .reset_index(drop=True)
+    )
     weight_df = weight_df[weight_df["weight"] > 1e-6]
 
-    gap_df = pd.DataFrame({
-        "time": times, "treated": Y_treated, "synthetic": Y_synth,
-        "gap": gap, "post_treatment": post_mask,
-    })
+    gap_df = pd.DataFrame(
+        {
+            "time": times,
+            "treated": Y_treated,
+            "synthetic": Y_synth,
+            "gap": gap,
+            "post_treatment": post_mask,
+        }
+    )
 
     variant_label = "De-meaned" if variant == "demeaned" else "De-trended"
 
@@ -296,7 +310,10 @@ def _solve_weights(
         return np.asarray(g)
 
     res = optimize.minimize(
-        objective, np.ones(J) / J, jac=jac, method="SLSQP",
+        objective,
+        np.ones(J) / J,
+        jac=jac,
+        method="SLSQP",
         bounds=[(0, 1)] * J,
         constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
         options={"maxiter": 1000, "ftol": 1e-12},

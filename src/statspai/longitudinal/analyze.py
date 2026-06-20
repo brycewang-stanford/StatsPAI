@@ -26,7 +26,6 @@ from .regime import Regime, regime as _regime
 
 from .._result_serialize import ResultProtocolMixin
 
-
 __all__ = [
     "LongitudinalResult",
     "analyze",
@@ -180,9 +179,7 @@ def analyze(
     True
     """
     if method not in ("auto", "msm", "g-formula", "ipw"):
-        raise ValueError(
-            "method must be one of 'auto', 'msm', 'g-formula', 'ipw'"
-        )
+        raise ValueError("method must be one of 'auto', 'msm', 'g-formula', 'ipw'")
     if not isinstance(regime, Regime):
         regime = _regime(regime)
 
@@ -208,17 +205,45 @@ def analyze(
 
     if resolved == "msm":
         return _run_msm(
-            data, id, time, treatment, outcome,
-            time_varying, baseline, regime, alpha, trim, n, n_periods,
+            data,
+            id,
+            time,
+            treatment,
+            outcome,
+            time_varying,
+            baseline,
+            regime,
+            alpha,
+            trim,
+            n,
+            n_periods,
         )
     if resolved == "g-formula":
         return _run_gformula(
-            data, id, time, treatment, outcome,
-            time_varying, baseline, regime, alpha, n, n_periods,
+            data,
+            id,
+            time,
+            treatment,
+            outcome,
+            time_varying,
+            baseline,
+            regime,
+            alpha,
+            n,
+            n_periods,
         )
     return _run_ipw(
-        data, id, time, treatment, outcome,
-        baseline, regime, alpha, trim, n, n_periods,
+        data,
+        id,
+        time,
+        treatment,
+        outcome,
+        baseline,
+        regime,
+        alpha,
+        trim,
+        n,
+        n_periods,
     )
 
 
@@ -265,8 +290,13 @@ def _run_msm(
     diag: dict = {}
     info = getattr(res, "model_info", None)
     if isinstance(info, dict):
-        for key in ("weight_mean", "weight_min", "weight_max",
-                    "weight_trimmed_frac", "n_clusters"):
+        for key in (
+            "weight_mean",
+            "weight_min",
+            "weight_max",
+            "weight_trimmed_frac",
+            "n_clusters",
+        ):
             if key in info:
                 diag[key] = info[key]
 
@@ -308,9 +338,13 @@ def _run_gformula(
     K = len(periods)
 
     wide = _pivot_panel(
-        data, id_col, time_col,
-        treatment_col, outcome_col,
-        time_varying, baseline,
+        data,
+        id_col,
+        time_col,
+        treatment_col,
+        outcome_col,
+        time_varying,
+        baseline,
         periods,
     )
     treat_cols = [f"A_{t}" for t in range(K)]
@@ -399,6 +433,7 @@ def _pivot_panel(
     n_missing = int(out.isna().sum().sum())
     if n_missing > 0:
         import warnings as _warnings
+
         _warnings.warn(
             f"_pivot_panel: {n_missing} missing (id, period, variable) "
             "cells filled with 0.0 to build the wide panel. For "
@@ -478,7 +513,7 @@ def _run_ipw(
             se = float("nan")
         else:
             estimate = float(np.sum(wm * y[mask]) / wm.sum())
-            se = float(np.sqrt(np.sum(wm ** 2 * (y[mask] - estimate) ** 2)) / wm.sum())
+            se = float(np.sqrt(np.sum(wm**2 * (y[mask] - estimate) ** 2)) / wm.sum())
     else:
         estimate = float(np.mean(y))
         se = float(y.std(ddof=1) / np.sqrt(len(y)))
@@ -579,12 +614,26 @@ def contrast(
     >>> isinstance(res["contrast"], float)
     True
     """
-    a = analyze(data, id=id, time=time, treatment=treatment,
-                outcome=outcome, regime=regime_a, **kwargs)
-    b = analyze(data, id=id, time=time, treatment=treatment,
-                outcome=outcome, regime=regime_b, **kwargs)
+    a = analyze(
+        data,
+        id=id,
+        time=time,
+        treatment=treatment,
+        outcome=outcome,
+        regime=regime_a,
+        **kwargs,
+    )
+    b = analyze(
+        data,
+        id=id,
+        time=time,
+        treatment=treatment,
+        outcome=outcome,
+        regime=regime_b,
+        **kwargs,
+    )
     delta = a.estimate - b.estimate
-    se = float(np.sqrt(a.se ** 2 + b.se ** 2))
+    se = float(np.sqrt(a.se**2 + b.se**2))
     return {
         "regime_a": a.regime_name,
         "regime_b": b.regime_name,

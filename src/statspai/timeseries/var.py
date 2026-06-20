@@ -103,10 +103,7 @@ class VARResult:
             "=" * 60,
             f"Lags: {self.lags:<10d} Variables: {k}",
             f"N obs: {self.n_obs:<10d} Log-lik: {self.log_likelihood:.2f}",
-            (
-                f"AIC: {self.aic:.4f}   BIC: {self.bic:.4f}   "
-                f"HQIC: {self.hqic:.4f}"
-            ),
+            (f"AIC: {self.aic:.4f}   BIC: {self.bic:.4f}   " f"HQIC: {self.hqic:.4f}"),
             "=" * 60,
         ]
         for var_name in self.var_names:
@@ -119,10 +116,8 @@ class VARResult:
             )
             lines.append("-" * 60)
             for idx, row in coef_df.iterrows():
-                t_val = row['coef'] / row['se'] if row['se'] > 0 else np.nan
-                p_val = 2 * (
-                    1 - stats.t.cdf(abs(t_val), self.n_obs - coef_df.shape[0])
-                )
+                t_val = row["coef"] / row["se"] if row["se"] > 0 else np.nan
+                p_val = 2 * (1 - stats.t.cdf(abs(t_val), self.n_obs - coef_df.shape[0]))
                 lines.append(
                     f"{idx:<20s} {row['coef']:>10.4f} "
                     f"{row['se']:>10.4f} {t_val:>8.3f} {p_val:>8.4f}"
@@ -137,8 +132,13 @@ class VARResult:
         orthogonal: bool = True,
     ) -> Dict[str, Any]:
         """Compute impulse response functions."""
-        return irf(self, periods=periods, impulse=impulse, response=response,
-                   orthogonal=orthogonal)
+        return irf(
+            self,
+            periods=periods,
+            impulse=impulse,
+            response=response,
+            orthogonal=orthogonal,
+        )
 
     def granger_test(self, caused: str, causing: str) -> Dict[str, Any]:
         """Test Granger causality."""
@@ -158,19 +158,19 @@ class VARResult:
 
         k = len(self.var_names)
         irf_result = self.irf(periods=periods, orthogonal=orthogonal)
-        irfs = irf_result['irf']
+        irfs = irf_result["irf"]
 
-        fig, axes = plt.subplots(k, k, figsize=(4*k, 3*k), squeeze=False)
+        fig, axes = plt.subplots(k, k, figsize=(4 * k, 3 * k), squeeze=False)
         for i, resp in enumerate(self.var_names):
             for j, imp in enumerate(self.var_names):
                 ax = axes[i][j]
                 key = f"{imp} -> {resp}"
                 if key in irfs:
-                    ax.plot(range(periods + 1), irfs[key], 'b-', lw=1.5)
-                    ax.axhline(0, color='gray', ls='--', lw=0.5)
+                    ax.plot(range(periods + 1), irfs[key], "b-", lw=1.5)
+                    ax.axhline(0, color="gray", ls="--", lw=0.5)
                 ax.set_title(key, fontsize=9)
                 if i == k - 1:
-                    ax.set_xlabel('Period')
+                    ax.set_xlabel("Period")
         plt.tight_layout()
         return fig
 
@@ -181,7 +181,7 @@ def _lag_matrix(data: np.ndarray, lags: int) -> tuple[np.ndarray, np.ndarray]:
     Y = data[lags:]  # dependent (T-p) x k
     X_parts = []
     for lag in range(1, lags + 1):
-        X_parts.append(data[lags - lag:n - lag])
+        X_parts.append(data[lags - lag : n - lag])
     X = np.hstack(X_parts)
     # Add constant
     X = np.column_stack([X, np.ones(X.shape[0])])
@@ -247,9 +247,7 @@ def var(
         variables = data.select_dtypes(include=[np.number]).columns.tolist()
     se_df_key = str(se_df).lower()
     if se_df_key not in {"stata", "ml", "r", "unbiased"}:
-        raise ValueError(
-            "se_df must be one of {'stata', 'ml', 'r', 'unbiased'}"
-        )
+        raise ValueError("se_df must be one of {'stata', 'ml', 'r', 'unbiased'}")
 
     var_data = data[variables].dropna().values.astype(float)
     var_names = list(variables)
@@ -258,9 +256,9 @@ def var(
     Y, X = _lag_matrix(var_data, lags)
     T = Y.shape[0]
 
-    if trend == 'ct':
+    if trend == "ct":
         X = np.column_stack([X, np.arange(1, T + 1)])
-    elif trend == 'n':
+    elif trend == "n":
         X = X[:, :-1]  # remove constant
 
     # OLS for each equation
@@ -281,8 +279,7 @@ def var(
     if se_df_key in {"r", "unbiased"}:
         if T <= n_params:
             raise ValueError(
-                "Cannot use se_df='r'/'unbiased' when T <= number of "
-                "VAR regressors"
+                "Cannot use se_df='r'/'unbiased' when T <= number of " "VAR regressors"
             )
         coef_sigma_u = rss / (T - n_params)
     else:
@@ -297,36 +294,42 @@ def var(
         for lag in range(1, lags + 1):
             for v in var_names:
                 idx_names.append(f"L{lag}.{v}")
-        if trend in ['c', 'ct']:
-            idx_names.append('_cons')
-        if trend == 'ct':
-            idx_names.append('_trend')
+        if trend in ["c", "ct"]:
+            idx_names.append("_cons")
+        if trend == "ct":
+            idx_names.append("_trend")
 
-        coef_df = pd.DataFrame({
-            'coef': B[:, eq_idx],
-            'se': eq_se,
-        }, index=idx_names)
+        coef_df = pd.DataFrame(
+            {
+                "coef": B[:, eq_idx],
+                "se": eq_se,
+            },
+            index=idx_names,
+        )
         coefs[var_name] = coef_df
         se_dict[var_name] = eq_se
 
     # Information criteria
     det_sigma = np.linalg.det(sigma_u)
-    log_lik = (
-        -(T * k / 2) * (1 + np.log(2 * np.pi))
-        - (T / 2) * np.log(det_sigma)
-    )
+    log_lik = -(T * k / 2) * (1 + np.log(2 * np.pi)) - (T / 2) * np.log(det_sigma)
     n_total_params = k * n_params
     aic = -2 * log_lik / T + 2 * n_total_params / T
     bic = -2 * log_lik / T + np.log(T) * n_total_params / T
     hqic = -2 * log_lik / T + 2 * np.log(np.log(T)) * n_total_params / T
 
     result = VARResult(
-        coefs=coefs, se=se_dict,
+        coefs=coefs,
+        se=se_dict,
         residuals=pd.DataFrame(residuals, columns=var_names),
         sigma_u=pd.DataFrame(sigma_u, index=var_names, columns=var_names),
-        var_names=var_names, lags=lags, n_obs=T,
-        aic=aic, bic=bic, hqic=hqic,
-        det_sigma=det_sigma, log_likelihood=log_lik,
+        var_names=var_names,
+        lags=lags,
+        n_obs=T,
+        aic=aic,
+        bic=bic,
+        hqic=hqic,
+        det_sigma=det_sigma,
+        log_likelihood=log_lik,
         se_df=se_df_key,
     )
 
@@ -424,7 +427,7 @@ def granger_causality(
         restrict_indices.append(idx)
 
     coef_df = var_result.coefs[caused]
-    coefs_all = coef_df['coef'].values
+    coefs_all = coef_df["coef"].values
     R = np.zeros((len(restrict_indices), len(coefs_all)))
     for i, ri in enumerate(restrict_indices):
         R[i, ri] = 1
@@ -457,20 +460,16 @@ def granger_causality(
 
     df1 = len(restrict_indices)
     df2 = T - len(coefs_all)
-    p_value = (
-        1 - stats.f.cdf(F_stat, df1, df2)
-        if np.isfinite(F_stat)
-        else np.nan
-    )
+    p_value = 1 - stats.f.cdf(F_stat, df1, df2) if np.isfinite(F_stat) else np.nan
 
     return {
-        'F_stat': F_stat,
-        'p_value': p_value,
-        'df1': df1,
-        'df2': df2,
-        'caused': caused,
-        'causing': causing,
-        'reject': p_value < 0.05 if np.isfinite(p_value) else None,
+        "F_stat": F_stat,
+        "p_value": p_value,
+        "df1": df1,
+        "df2": df2,
+        "caused": caused,
+        "causing": causing,
+        "reject": p_value < 0.05 if np.isfinite(p_value) else None,
     }
 
 
@@ -542,7 +541,7 @@ def irf(
     # Extract autoregressive coefficients (exclude constant/trend)
     A_list = []
     for lag in range(p):
-        A_lag = B[lag * k:(lag + 1) * k, :].T  # k x k
+        A_lag = B[lag * k : (lag + 1) * k, :].T  # k x k
         A_list.append(A_lag)
 
     # Compute MA representation: Φ_s = Σ Φ_{s-j} A_j
@@ -574,9 +573,7 @@ def irf(
         for resp in resp_vars:
             resp_idx = var_names.index(resp)
             key = f"{imp} -> {resp}"
-            irf_values = np.array(
-                [Phi[s] @ P[:, imp_idx] for s in range(periods + 1)]
-            )
+            irf_values = np.array([Phi[s] @ P[:, imp_idx] for s in range(periods + 1)])
             irfs[key] = irf_values[:, resp_idx]
 
-    return {'irf': irfs, 'periods': list(range(periods + 1))}
+    return {"irf": irfs, "periods": list(range(periods + 1))}

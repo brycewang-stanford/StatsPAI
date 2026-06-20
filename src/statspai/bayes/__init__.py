@@ -18,6 +18,7 @@ Available estimators:
 - :func:`bayes_rd` — sharp regression discontinuity with local
   polynomial + Normal prior on the jump.
 """
+
 from __future__ import annotations
 
 from ._base import (
@@ -43,22 +44,22 @@ from .policy_weights import (
 )
 
 __all__ = [
-    'bayes_did',
-    'bayes_rd',
-    'bayes_iv',
-    'bayes_fuzzy_rd',
-    'bayes_hte_iv',
-    'bayes_mte',
-    'bayes_dml',
-    'BayesianDMLResult',
-    'BayesianCausalResult',
-    'BayesianDIDResult',
-    'BayesianHTEIVResult',
-    'BayesianIVResult',
-    'BayesianMTEResult',
-    'policy_weight_ate',
-    'policy_weight_subsidy',
-    'policy_weight_prte',
-    'policy_weight_marginal',
-    'policy_weight_observed_prte',
+    "bayes_did",
+    "bayes_rd",
+    "bayes_iv",
+    "bayes_fuzzy_rd",
+    "bayes_hte_iv",
+    "bayes_mte",
+    "bayes_dml",
+    "BayesianDMLResult",
+    "BayesianCausalResult",
+    "BayesianDIDResult",
+    "BayesianHTEIVResult",
+    "BayesianIVResult",
+    "BayesianMTEResult",
+    "policy_weight_ate",
+    "policy_weight_subsidy",
+    "policy_weight_prte",
+    "policy_weight_marginal",
+    "policy_weight_observed_prte",
 ]

@@ -142,34 +142,68 @@ def continuous_did(
     # Determine pre/post
     if post is None:
         if t_pre is not None and t_post is not None:
-            df['_post'] = (df[time] >= t_post).astype(int)
+            df["_post"] = (df[time] >= t_post).astype(int)
         else:
             times = sorted(df[time].unique())
             mid = len(times) // 2
-            df['_post'] = (df[time] >= times[mid]).astype(int)
-        post_col = '_post'
+            df["_post"] = (df[time] >= times[mid]).astype(int)
+        post_col = "_post"
     else:
         post_col = post
 
-    if method == 'twfe':
+    if method == "twfe":
         return _continuous_did_twfe(
-            df, y, dose, time, id, post_col, controls, cluster, alpha,
+            df,
+            y,
+            dose,
+            time,
+            id,
+            post_col,
+            controls,
+            cluster,
+            alpha,
         )
-    elif method == 'cgs':
+    elif method == "cgs":
         return _continuous_did_cgs(
-            df, y=y, dose=dose, time=time, unit=id,
-            t_pre=t_pre, t_post=t_post, controls=controls,
-            n_boot=n_boot, alpha=alpha, rng=rng,
+            df,
+            y=y,
+            dose=dose,
+            time=time,
+            unit=id,
+            t_pre=t_pre,
+            t_post=t_post,
+            controls=controls,
+            n_boot=n_boot,
+            alpha=alpha,
+            rng=rng,
         )
-    elif method == 'dose_response':
+    elif method == "dose_response":
         return _continuous_did_dose_response(
-            df, y, dose, time, id, post_col,
-            controls, n_quantiles, n_boot, alpha, rng,
+            df,
+            y,
+            dose,
+            time,
+            id,
+            post_col,
+            controls,
+            n_quantiles,
+            n_boot,
+            alpha,
+            rng,
         )
     else:
         return _continuous_did_att_gt(
-            df, y, dose, time, id, post_col,
-            controls, n_quantiles, n_boot, alpha, rng,
+            df,
+            y,
+            dose,
+            time,
+            id,
+            post_col,
+            controls,
+            n_quantiles,
+            n_boot,
+            alpha,
+            rng,
         )
 
 
@@ -186,24 +220,24 @@ def _continuous_did_twfe(
 ) -> CausalResult:
     """TWFE approach: y_it = α_i + λ_t + β·dose_i·post_t + ε_it"""
     # Create interaction
-    df['_dose_post'] = df[dose] * df[post]
+    df["_dose_post"] = df[dose] * df[post]
 
     # Demean (within transformation for FE)
     panel = df.set_index([id, time])
     y_data = panel[y].values.astype(float)
 
     # Unit means
-    unit_means = df.groupby(id)[y].transform('mean').values
-    time_means = df.groupby(time)[y].transform('mean').values
+    unit_means = df.groupby(id)[y].transform("mean").values
+    time_means = df.groupby(time)[y].transform("mean").values
     grand_mean = df[y].mean()
 
     y_demean = y_data - unit_means - time_means + grand_mean
 
     # Demean dose_post similarly
-    dp = df['_dose_post'].values.astype(float)
-    dp_unit = df.groupby(id)['_dose_post'].transform('mean').values
-    dp_time = df.groupby(time)['_dose_post'].transform('mean').values
-    dp_grand = df['_dose_post'].mean()
+    dp = df["_dose_post"].values.astype(float)
+    dp_unit = df.groupby(id)["_dose_post"].transform("mean").values
+    dp_time = df.groupby(time)["_dose_post"].transform("mean").values
+    dp_grand = df["_dose_post"].mean()
     dp_demean = dp - dp_unit - dp_time + dp_grand
 
     # Controls
@@ -211,8 +245,8 @@ def _continuous_did_twfe(
         X_parts = [dp_demean.reshape(-1, 1)]
         for c in controls:
             cv = df[c].values.astype(float)
-            cv_u = df.groupby(id)[c].transform('mean').values
-            cv_t = df.groupby(time)[c].transform('mean').values
+            cv_u = df.groupby(id)[c].transform("mean").values
+            cv_t = df.groupby(time)[c].transform("mean").values
             cv_g = df[c].mean()
             X_parts.append((cv - cv_u - cv_t + cv_g).reshape(-1, 1))
         X = np.column_stack(X_parts)
@@ -254,8 +288,8 @@ def _continuous_did_twfe(
     p_val = 2 * (1 - stats.norm.cdf(abs(tau / se))) if se > 0 else np.nan
 
     return CausalResult(
-        method='Continuous DID (TWFE)',
-        estimand='Dose-response coefficient',
+        method="Continuous DID (TWFE)",
+        estimand="Dose-response coefficient",
         estimate=tau,
         se=se,
         pvalue=p_val,
@@ -263,9 +297,9 @@ def _continuous_did_twfe(
         alpha=alpha,
         n_obs=int(valid.sum()),
         model_info={
-            'dose_variable': dose,
-            'n_units': df[id].nunique(),
-            'n_periods': df[time].nunique(),
+            "dose_variable": dose,
+            "n_units": df[id].nunique(),
+            "n_periods": df[time].nunique(),
         },
     )
 
@@ -301,7 +335,9 @@ def _continuous_did_att_gt(
         quantile_edges = np.array([dose_baseline.min(), dose_baseline.max()])
 
     dose_groups = pd.cut(
-        dose_baseline, bins=quantile_edges, labels=False,
+        dose_baseline,
+        bins=quantile_edges,
+        labels=False,
         include_lowest=True,
     )
 
@@ -359,39 +395,41 @@ def _continuous_did_att_gt(
         se = np.nanstd(boot_atts, ddof=1)
         dose_midpoint = dose_baseline[group_ids].mean()
 
-        results_rows.append({
-            'dose_group': int(g),
-            'dose_midpoint': dose_midpoint,
-            'att': att,
-            'se': se,
-            'ci_lower': att - z_crit * se,
-            'ci_upper': att + z_crit * se,
-            'p_value': (
-                2 * (1 - stats.norm.cdf(abs(att / se)))
-                if se > 0 else np.nan
-            ),
-            'n_treated': len(group_ids),
-            'n_control': len(untreated_ids),
-        })
+        results_rows.append(
+            {
+                "dose_group": int(g),
+                "dose_midpoint": dose_midpoint,
+                "att": att,
+                "se": se,
+                "ci_lower": att - z_crit * se,
+                "ci_upper": att + z_crit * se,
+                "p_value": (
+                    2 * (1 - stats.norm.cdf(abs(att / se))) if se > 0 else np.nan
+                ),
+                "n_treated": len(group_ids),
+                "n_control": len(untreated_ids),
+            }
+        )
 
     results_df = pd.DataFrame(results_rows)
 
     # Aggregate: dose-weighted average
     if len(results_df) > 0:
-        weights = results_df['n_treated'].values / results_df['n_treated'].sum()
-        pooled_att = np.sum(weights * results_df['att'].values)
-        pooled_se = np.sqrt(np.sum(weights**2 * results_df['se'].values**2))
+        weights = results_df["n_treated"].values / results_df["n_treated"].sum()
+        pooled_att = np.sum(weights * results_df["att"].values)
+        pooled_se = np.sqrt(np.sum(weights**2 * results_df["se"].values ** 2))
     else:
         pooled_att, pooled_se = np.nan, np.nan
 
     p_val = (
         2 * (1 - stats.norm.cdf(abs(pooled_att / pooled_se)))
-        if pooled_se > 0 else np.nan
+        if pooled_se > 0
+        else np.nan
     )
 
     return CausalResult(
-        method='Continuous DID (dose-bin heuristic)',
-        estimand='Sample-weighted mean of dose-bin 2x2 DIDs (not CGS 2024 ATT(d|g,t))',
+        method="Continuous DID (dose-bin heuristic)",
+        estimand="Sample-weighted mean of dose-bin 2x2 DIDs (not CGS 2024 ATT(d|g,t))",
         estimate=pooled_att,
         se=pooled_se,
         pvalue=p_val,
@@ -400,9 +438,9 @@ def _continuous_did_att_gt(
         n_obs=len(df),
         detail=results_df if len(results_df) > 0 else None,
         model_info={
-            'dose_variable': dose,
-            'n_dose_groups': len(results_df),
-            'n_units': df[id].nunique(),
+            "dose_variable": dose,
+            "n_dose_groups": len(results_df),
+            "n_units": df[id].nunique(),
         },
     )
 
@@ -436,22 +474,24 @@ def _continuous_did_dose_response(
     from ..nonparametric.lpoly import lpoly as _lpoly
 
     # Create temporary df for lpoly
-    temp_df = pd.DataFrame({'delta_y': delta_y.values, 'dose': dose_vals.values})
+    temp_df = pd.DataFrame({"delta_y": delta_y.values, "dose": dose_vals.values})
     temp_df = temp_df.dropna()
 
     try:
-        lp_result = _lpoly(temp_df, y='delta_y', x='dose', degree=1, n_grid=50)
+        lp_result = _lpoly(temp_df, y="delta_y", x="dose", degree=1, n_grid=50)
     except Exception:
         # Fallback: simple linear
         from scipy.stats import linregress
+
         slope, intercept, _, p_val, se_slope = linregress(
-            dose_vals.dropna(), delta_y.dropna(),
+            dose_vals.dropna(),
+            delta_y.dropna(),
         )
 
         z_crit = stats.norm.ppf(1 - alpha / 2)
         return CausalResult(
-            method='Continuous DID (Dose-Response)',
-            estimand='Average marginal effect',
+            method="Continuous DID (Dose-Response)",
+            estimand="Average marginal effect",
             estimate=slope,
             se=se_slope,
             pvalue=p_val,
@@ -469,8 +509,8 @@ def _continuous_did_dose_response(
     p_val = 2 * (1 - stats.norm.cdf(abs(avg_effect / avg_se))) if avg_se > 0 else np.nan
 
     return CausalResult(
-        method='Continuous DID (Dose-Response)',
-        estimand='Average marginal effect',
+        method="Continuous DID (Dose-Response)",
+        estimand="Average marginal effect",
         estimate=avg_effect,
         se=avg_se,
         pvalue=p_val,
@@ -478,9 +518,9 @@ def _continuous_did_dose_response(
         alpha=alpha,
         n_obs=len(temp_df),
         model_info={
-            'dose_response_grid': lp_result.grid.tolist(),
-            'dose_response_fitted': lp_result.fitted.tolist(),
-            'n_units': len(common_ids),
+            "dose_response_grid": lp_result.grid.tolist(),
+            "dose_response_fitted": lp_result.fitted.tolist(),
+            "n_units": len(common_ids),
         },
     )
 
@@ -488,6 +528,7 @@ def _continuous_did_dose_response(
 # ----------------------------------------------------------------------
 # method='cgs' — Callaway-Goodman-Bacon-Sant'Anna (2024) MVP
 # ----------------------------------------------------------------------
+
 
 def _continuous_did_cgs(
     df: pd.DataFrame,
@@ -547,14 +588,19 @@ def _continuous_did_cgs(
     post = df[df[time] == t_post_val]
     merged = post[[unit, y, dose] + (controls or [])].merge(
         pre[[unit, y]].rename(columns={y: f"{y}_pre"}),
-        on=unit, how="inner",
+        on=unit,
+        how="inner",
     )
     if merged.empty:
         return CausalResult(
             method="Continuous DID (CGS 2024 MVP) [待核验]",
             estimand="ATT(d) averaged over treated dose support",
-            estimate=np.nan, se=np.nan, pvalue=np.nan,
-            ci=(np.nan, np.nan), alpha=alpha, n_obs=0,
+            estimate=np.nan,
+            se=np.nan,
+            pvalue=np.nan,
+            ci=(np.nan, np.nan),
+            alpha=alpha,
+            n_obs=0,
         )
     merged["_dy"] = merged[y] - merged[f"{y}_pre"]
 
@@ -565,8 +611,12 @@ def _continuous_did_cgs(
         return CausalResult(
             method="Continuous DID (CGS 2024 MVP) [待核验]",
             estimand="ATT(d) averaged over treated dose support",
-            estimate=np.nan, se=np.nan, pvalue=np.nan,
-            ci=(np.nan, np.nan), alpha=alpha, n_obs=int(len(merged)),
+            estimate=np.nan,
+            se=np.nan,
+            pvalue=np.nan,
+            ci=(np.nan, np.nan),
+            alpha=alpha,
+            n_obs=int(len(merged)),
             model_info={
                 "warning": "No dose=0 control units; paper requires never-treated.",
             },
@@ -575,8 +625,12 @@ def _continuous_did_cgs(
         return CausalResult(
             method="Continuous DID (CGS 2024 MVP) [待核验]",
             estimand="ATT(d) averaged over treated dose support",
-            estimate=np.nan, se=np.nan, pvalue=np.nan,
-            ci=(np.nan, np.nan), alpha=alpha, n_obs=int(len(merged)),
+            estimate=np.nan,
+            se=np.nan,
+            pvalue=np.nan,
+            ci=(np.nan, np.nan),
+            alpha=alpha,
+            n_obs=int(len(merged)),
             model_info={
                 "warning": "Too few treated units with dose>0 to fit ATT(d).",
             },
@@ -628,7 +682,9 @@ def _continuous_did_cgs(
         order = np.argsort(d_b)
         try:
             curve_b = _local_linear_curve(
-                x=d_b[order], y=ta_b[order], grid=grid,
+                x=d_b[order],
+                y=ta_b[order],
+                grid=grid,
             )
             boot_acrt[b] = float(np.nanmean(np.gradient(curve_b, grid)))
         except Exception:
@@ -637,16 +693,24 @@ def _continuous_did_cgs(
     se_att = float(np.nanstd(boot_att, ddof=1))
     se_acrt = float(np.nanstd(boot_acrt, ddof=1))
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    p_att = (float(2 * (1 - stats.norm.cdf(abs(att_overall / se_att))))
-             if (se_att > 0 and np.isfinite(se_att)) else np.nan)
-    ci_att = (att_overall - z_crit * se_att,
-              att_overall + z_crit * se_att) if se_att > 0 else (np.nan, np.nan)
+    p_att = (
+        float(2 * (1 - stats.norm.cdf(abs(att_overall / se_att))))
+        if (se_att > 0 and np.isfinite(se_att))
+        else np.nan
+    )
+    ci_att = (
+        (att_overall - z_crit * se_att, att_overall + z_crit * se_att)
+        if se_att > 0
+        else (np.nan, np.nan)
+    )
 
-    detail_df = pd.DataFrame({
-        "dose": grid,
-        "att_d": att_curve,
-        "acrt_d": acrt_curve,
-    })
+    detail_df = pd.DataFrame(
+        {
+            "dose": grid,
+            "att_d": att_curve,
+            "acrt_d": acrt_curve,
+        }
+    )
 
     return CausalResult(
         method="Continuous DID (CGS 2024 MVP) [待核验 — OR only, 2-period design]",

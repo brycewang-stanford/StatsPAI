@@ -82,7 +82,7 @@ class SpatialIVResult:
     60
     """
 
-    rho: float          # spatial autoregressive coefficient
+    rho: float  # spatial autoregressive coefficient
     rho_se: float
     coefficients: pd.DataFrame
     n_obs: int
@@ -170,12 +170,20 @@ def spatial_iv(
     >>> res.n_obs
     60
     """
-    df = data[[y] + list(endog) + list(exog) + list(instruments or [])].dropna().reset_index(drop=True)
+    df = (
+        data[[y] + list(endog) + list(exog) + list(instruments or [])]
+        .dropna()
+        .reset_index(drop=True)
+    )
     n = len(df)
     Y = df[y].to_numpy(dtype=float)
     D = df[list(endog)].to_numpy(dtype=float) if endog else np.zeros((n, 0))
     X = df[list(exog)].to_numpy(dtype=float) if exog else np.zeros((n, 0))
-    Z_ex = df[list(instruments or [])].to_numpy(dtype=float) if instruments else np.zeros((n, 0))
+    Z_ex = (
+        df[list(instruments or [])].to_numpy(dtype=float)
+        if instruments
+        else np.zeros((n, 0))
+    )
 
     W_mat = _coerce_W(W)
     if W_mat.shape[0] != n:
@@ -195,23 +203,34 @@ def spatial_iv(
     full_instruments = np.column_stack([included, instr_block])
 
     # 2SLS
-    PZ = full_instruments @ np.linalg.pinv(full_instruments.T @ full_instruments) @ full_instruments.T
+    PZ = (
+        full_instruments
+        @ np.linalg.pinv(full_instruments.T @ full_instruments)
+        @ full_instruments.T
+    )
     X_hat = PZ @ full_design
     beta = np.linalg.pinv(X_hat.T @ full_design) @ X_hat.T @ Y
     resid = Y - full_design @ beta
 
     XtX_inv = np.linalg.pinv(X_hat.T @ full_design)
-    meat = X_hat.T @ np.diag(resid ** 2) @ X_hat
+    meat = X_hat.T @ np.diag(resid**2) @ X_hat
     vcov = XtX_inv @ meat @ XtX_inv.T
     se = np.sqrt(np.diag(vcov))
 
     # Name coefficients
-    names = list(endog) + (["rho (WY)"] if include_WY else []) + ["(Intercept)"] + list(exog)
-    coef_df = pd.DataFrame({
-        "variable": names,
-        "coef": beta,
-        "se": se,
-    })
+    names = (
+        list(endog)
+        + (["rho (WY)"] if include_WY else [])
+        + ["(Intercept)"]
+        + list(exog)
+    )
+    coef_df = pd.DataFrame(
+        {
+            "variable": names,
+            "coef": beta,
+            "se": se,
+        }
+    )
 
     if include_WY:
         rho_idx = len(endog)
@@ -229,6 +248,7 @@ def spatial_iv(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.spatial.spatial_iv",

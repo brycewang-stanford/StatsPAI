@@ -18,7 +18,6 @@ from typing import Sequence
 import numpy as np
 from scipy import stats
 
-
 __all__ = [
     "StandardizedRateResult",
     "SMRResult",
@@ -121,7 +120,7 @@ def direct_standardize(
     w = w_raw / w_raw.sum()
     stratum_rates = e / p
     r_std = float(np.sum(w * stratum_rates))
-    var = float(np.sum(w ** 2 * e / p ** 2))
+    var = float(np.sum(w**2 * e / p**2))
     se = np.sqrt(var)
     z = stats.norm.ppf(1 - alpha / 2)
 
@@ -129,8 +128,10 @@ def direct_standardize(
     if r_std > 0:
         log_rate = np.log(r_std)
         se_log = se / r_std
-        ci = (float(np.exp(log_rate - z * se_log)),
-              float(np.exp(log_rate + z * se_log)))
+        ci = (
+            float(np.exp(log_rate - z * se_log)),
+            float(np.exp(log_rate + z * se_log)),
+        )
     else:
         ci = (0.0, float(z * se))
 

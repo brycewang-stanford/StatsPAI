@@ -60,11 +60,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ..diagnostics.weak_iv import (
-    anderson_rubin_test,
-    effective_f_test,
-    tF_critical_value,
-)
+from ..diagnostics.weak_iv import anderson_rubin_test, tF_critical_value
 
 
 @dataclass
@@ -197,44 +193,101 @@ class IVDiagResult:
         """Return a tidy summary table — one row per estimator/metric."""
         rows: List[Tuple[Any, ...]] = []
         ci_lo, ci_hi = self.ci_analytic_2sls
-        rows.append(("2SLS (analytic)", self.beta_2sls, self.se_2sls,
-                     self.t_2sls, self.p_2sls, ci_lo, ci_hi))
+        rows.append(
+            (
+                "2SLS (analytic)",
+                self.beta_2sls,
+                self.se_2sls,
+                self.t_2sls,
+                self.p_2sls,
+                ci_lo,
+                ci_hi,
+            )
+        )
         if self.bootstrap_ci_pairs is not None:
             lo, hi = self.bootstrap_ci_pairs
-            rows.append(("2SLS (pairs bootstrap)", self.beta_2sls,
-                         self.bootstrap_se_pairs,
-                         np.nan, np.nan, lo, hi))
+            rows.append(
+                (
+                    "2SLS (pairs bootstrap)",
+                    self.beta_2sls,
+                    self.bootstrap_se_pairs,
+                    np.nan,
+                    np.nan,
+                    lo,
+                    hi,
+                )
+            )
         if self.bootstrap_ci_wild is not None:
             lo, hi = self.bootstrap_ci_wild
-            rows.append(("2SLS (wild bootstrap)", self.beta_2sls,
-                         self.bootstrap_se_wild,
-                         np.nan, np.nan, lo, hi))
+            rows.append(
+                (
+                    "2SLS (wild bootstrap)",
+                    self.beta_2sls,
+                    self.bootstrap_se_wild,
+                    np.nan,
+                    np.nan,
+                    lo,
+                    hi,
+                )
+            )
         lo, hi = self.tF_adjusted_ci
-        rows.append(("2SLS (LMMP tF-adjusted)", self.beta_2sls, self.se_2sls,
-                     np.nan, np.nan, lo, hi))
+        rows.append(
+            (
+                "2SLS (LMMP tF-adjusted)",
+                self.beta_2sls,
+                self.se_2sls,
+                np.nan,
+                np.nan,
+                lo,
+                hi,
+            )
+        )
         lo, hi = self.ar_ci
-        rows.append(("Anderson–Rubin set", np.nan, np.nan,
-                     self.ar_stat, self.ar_pvalue, lo, hi))
+        rows.append(
+            ("Anderson–Rubin set", np.nan, np.nan, self.ar_stat, self.ar_pvalue, lo, hi)
+        )
         if self.clr_ci is not None:
             lo, hi = self.clr_ci
-            rows.append(("Moreira CLR set", np.nan, np.nan,
-                         np.nan, np.nan, lo, hi))
+            rows.append(("Moreira CLR set", np.nan, np.nan, np.nan, np.nan, lo, hi))
         if self.k_ci is not None:
             lo, hi = self.k_ci
-            rows.append(("Kleibergen K set", np.nan, np.nan,
-                         np.nan, np.nan, lo, hi))
+            rows.append(("Kleibergen K set", np.nan, np.nan, np.nan, np.nan, lo, hi))
         if self.ltz_ci is not None:
             lo, hi = self.ltz_ci
-            rows.append(("CHR plausibly-exogenous LTZ", self.beta_2sls,
-                         np.nan, np.nan, np.nan, lo, hi))
+            rows.append(
+                (
+                    "CHR plausibly-exogenous LTZ",
+                    self.beta_2sls,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    lo,
+                    hi,
+                )
+            )
         ci_lo, ci_hi = self.ci_ols
-        rows.append(("OLS (comparator, not causal)",
-                     self.beta_ols, self.se_ols, self.t_ols,
-                     self.p_ols, ci_lo, ci_hi))
+        rows.append(
+            (
+                "OLS (comparator, not causal)",
+                self.beta_ols,
+                self.se_ols,
+                self.t_ols,
+                self.p_ols,
+                ci_lo,
+                ci_hi,
+            )
+        )
         return pd.DataFrame(
             rows,
-            columns=["estimator", "estimate", "SE", "stat", "p-value",
-                     "CI lower", "CI upper"],
+            columns=[
+                "estimator",
+                "estimate",
+                "SE",
+                "stat",
+                "p-value",
+                "CI lower",
+                "CI upper",
+            ],
         )
 
     # ---------- summary text ----------------------------------------
@@ -255,20 +308,14 @@ class IVDiagResult:
         lines.append(f"  level                       : {100 * (1 - d.alpha):.0f} %")
         lines.append("-" * 70)
         lines.append("Strength:")
-        lines.append(
-            f"  First-stage F (classical)   : {d.first_stage_F:10.4f}"
-        )
-        lines.append(
-            f"  Olea–Pflueger effective F   : {d.effective_F:10.4f}"
-        )
+        lines.append(f"  First-stage F (classical)   : {d.first_stage_F:10.4f}")
+        lines.append(f"  Olea–Pflueger effective F   : {d.effective_F:10.4f}")
         if d.kp_rk_f is not None:
             lines.append(
                 f"  Kleibergen–Paap rk LM       : {d.kp_rk_lm:10.4f}"
                 f"   p = {d.kp_rk_lm_pvalue:.4f}"
             )
-            lines.append(
-                f"  Kleibergen–Paap rk Wald F   : {d.kp_rk_f:10.4f}"
-            )
+            lines.append(f"  Kleibergen–Paap rk Wald F   : {d.kp_rk_f:10.4f}")
         lines.append(
             f"  LMMP 2022 tF adjusted crit. : {d.tF_critical_value:10.4f}"
             f"   (F = {d.first_stage_F:.2f})"
@@ -286,9 +333,7 @@ class IVDiagResult:
             f"[{ci_lo:.4f}, {ci_hi:.4f}]"
         )
         lo, hi = d.tF_adjusted_ci
-        lines.append(
-            f"  tF-corrected CI             : [{lo:.4f}, {hi:.4f}]"
-        )
+        lines.append(f"  tF-corrected CI             : [{lo:.4f}, {hi:.4f}]")
         if d.bootstrap_ci_pairs is not None:
             lo, hi = d.bootstrap_ci_pairs
             lines.append(
@@ -341,9 +386,7 @@ class IVDiagResult:
             f"  OLS                         : {d.beta_ols:10.4f}"
             f"   SE = {d.se_ols:.4f}   p = {d.p_ols:.4f}"
         )
-        lines.append(
-            f"  CI                          : [{ci_lo:.4f}, {ci_hi:.4f}]"
-        )
+        lines.append(f"  CI                          : [{ci_lo:.4f}, {ci_hi:.4f}]")
         if d.tsls_late_caveat:
             lines.append("=" * 70)
             lines.append("⚠ Interpretation caveat:")
@@ -360,21 +403,31 @@ class IVDiagResult:
         """Return all numeric diagnostics as a flat dict (jsonable)."""
         return dict(self.diagnostics)
 
-    def to_latex(self, caption: Optional[str] = None,
-                 label: Optional[str] = None,
-                 float_format: str = "%.4f") -> str:
+    def to_latex(
+        self,
+        caption: Optional[str] = None,
+        label: Optional[str] = None,
+        float_format: str = "%.4f",
+    ) -> str:
         """Render the summary table as a LaTeX ``tabular`` string."""
         df = self.to_frame()
         try:
-            tex = df.to_latex(index=False, escape=False, na_rep="—",
-                              float_format=float_format)
+            tex = df.to_latex(
+                index=False, escape=False, na_rep="—", float_format=float_format
+            )
         except TypeError:  # pragma: no cover
             # pandas < 1.4 fallback
             tex = df.to_latex(index=False, escape=False, na_rep="—")
         if caption or label:
             cap = f"\\caption{{{caption}}}\n" if caption else ""
             lab = f"\\label{{{label}}}\n" if label else ""
-            tex = "\\begin{table}[!htbp]\n\\centering\n" + cap + lab + tex + "\\end{table}"
+            tex = (
+                "\\begin{table}[!htbp]\n\\centering\n"
+                + cap
+                + lab
+                + tex
+                + "\\end{table}"
+            )
         return str(tex)
 
     def to_excel(self, path: str) -> None:
@@ -401,14 +454,13 @@ class IVDiagResult:
             for j, col in enumerate(df.columns):
                 v = row[col]
                 cell_text = (
-                    "—" if (isinstance(v, float) and not np.isfinite(v))
+                    "—"
+                    if (isinstance(v, float) and not np.isfinite(v))
                     else (f"{v:.4f}" if isinstance(v, float) else str(v))
                 )
                 table.rows[i + 1].cells[j].text = cell_text
         if self.tsls_late_caveat:
-            doc.add_paragraph(
-                "Caveat: " + self.tsls_late_caveat, style="Intense Quote"
-            )
+            doc.add_paragraph("Caveat: " + self.tsls_late_caveat, style="Intense Quote")
         doc.save(path)
 
     def plot(self, kind: str = "diagnostic", **kwargs: Any) -> Any:
@@ -430,8 +482,10 @@ class IVDiagResult:
         if kind == "first_stage":
             raw = self.raw
             return _ivplot.plot_first_stage(
-                endog=raw["D"], instruments=raw["Z"],
-                exog=raw["W_no_const"], endog_name=self.endog,
+                endog=raw["D"],
+                instruments=raw["Z"],
+                exog=raw["W_no_const"],
+                endog_name=self.endog,
                 **kwargs,
             )
         raise ValueError(
@@ -444,6 +498,7 @@ class IVDiagResult:
 #  Internal helpers
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _prep_inputs(
     data: pd.DataFrame,
     y: str,
@@ -451,8 +506,9 @@ def _prep_inputs(
     instruments: Sequence[str],
     exog: Optional[Sequence[str]] = None,
     cluster: Optional[Union[str, np.ndarray]] = None,
-) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-           Optional[np.ndarray]]:
+) -> Tuple[
+    pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]
+]:
     """Listwise-drop, return (df_clean, Y, D, Z, W_with_const, cluster_arr)."""
     instruments = list(instruments)
     exog_l = list(exog) if exog else []
@@ -492,8 +548,9 @@ def _prep_inputs(
     return df, Y, D, Z, W, cluster_arr
 
 
-def _two_sls_point(Y: np.ndarray, D: np.ndarray, Z: np.ndarray,
-                   W: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
+def _two_sls_point(
+    Y: np.ndarray, D: np.ndarray, Z: np.ndarray, W: np.ndarray
+) -> Tuple[float, np.ndarray, np.ndarray]:
     """Return (beta_endog, full coefficient vector, residuals)."""
     Z_full = np.column_stack([Z, W])
     X = np.column_stack([D.reshape(-1, 1), W])
@@ -505,8 +562,9 @@ def _two_sls_point(Y: np.ndarray, D: np.ndarray, Z: np.ndarray,
     return beta, coef, resid
 
 
-def _ols_point(Y: np.ndarray, D: np.ndarray, W: np.ndarray
-               ) -> Tuple[float, float, np.ndarray]:
+def _ols_point(
+    Y: np.ndarray, D: np.ndarray, W: np.ndarray
+) -> Tuple[float, float, np.ndarray]:
     """Return (beta_ols, se_ols, residuals)."""
     n = len(Y)
     X = np.column_stack([D.reshape(-1, 1), W])
@@ -519,10 +577,15 @@ def _ols_point(Y: np.ndarray, D: np.ndarray, W: np.ndarray
     return beta, se, resid
 
 
-def _se_2sls_robust(Y: np.ndarray, D: np.ndarray, Z: np.ndarray,
-                    W: np.ndarray, beta: float,
-                    cluster: Optional[np.ndarray] = None,
-                    vcov: str = "HC1") -> float:
+def _se_2sls_robust(
+    Y: np.ndarray,
+    D: np.ndarray,
+    Z: np.ndarray,
+    W: np.ndarray,
+    beta: float,
+    cluster: Optional[np.ndarray] = None,
+    vcov: str = "HC1",
+) -> float:
     """Heteroskedasticity-/cluster-robust 2SLS SE for the endog coefficient."""
     n = len(Y)
     Z_full = np.column_stack([Z, W])
@@ -551,7 +614,7 @@ def _se_2sls_robust(Y: np.ndarray, D: np.ndarray, Z: np.ndarray,
         groups, _ = np.unique(cluster, return_inverse=True)
         G = len(groups)
         for g in groups:
-            idx = (cluster == g)
+            idx = cluster == g
             sg = (X_hat[idx] * resid[idx, None]).sum(axis=0)
             meat += np.outer(sg, sg)
         meat *= G / max(G - 1, 1) * (n - 1) / max(n - X.shape[1], 1)
@@ -626,7 +689,11 @@ def _bootstrap_se(
         raise ValueError(f"Unknown bootstrap method {method!r}.")
 
     if successes < max(50, n_boot // 4):
-        return (float("nan"), (float("nan"), float("nan")), successes)  # pragma: no cover
+        return (
+            float("nan"),
+            (float("nan"), float("nan")),
+            successes,
+        )  # pragma: no cover
     sample = betas[:successes]
     se_b = float(np.std(sample, ddof=1))
     lo, hi = np.quantile(sample, [alpha / 2, 1 - alpha / 2])
@@ -667,6 +734,7 @@ def _check_tsls_late_caveat(
 # ═══════════════════════════════════════════════════════════════════════
 #  Public entry point
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def iv_diag(
     data: pd.DataFrame,
@@ -792,34 +860,45 @@ def iv_diag(
 
     # ── 2SLS point + analytic SE ──────────────────────────────────────
     beta_2sls, _coef_2sls, resid_2sls = _two_sls_point(Y, D, Z, W)
-    se_2sls = _se_2sls_robust(Y, D, Z, W, beta_2sls,
-                              cluster=cluster_arr, vcov=vcov)
+    se_2sls = _se_2sls_robust(Y, D, Z, W, beta_2sls, cluster=cluster_arr, vcov=vcov)
     from scipy import stats
+
     t_2sls = beta_2sls / se_2sls if se_2sls > 0 else np.nan
-    p_2sls = float(2 * (1 - stats.norm.cdf(abs(t_2sls)))) if np.isfinite(t_2sls) else np.nan
+    p_2sls = (
+        float(2 * (1 - stats.norm.cdf(abs(t_2sls)))) if np.isfinite(t_2sls) else np.nan
+    )
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    ci_analytic_2sls = (beta_2sls - z_crit * se_2sls,
-                        beta_2sls + z_crit * se_2sls)
+    ci_analytic_2sls = (beta_2sls - z_crit * se_2sls, beta_2sls + z_crit * se_2sls)
 
     # ── OLS comparator ────────────────────────────────────────────────
     beta_ols, se_ols, _ = _ols_point(Y, D, W)
     t_ols = beta_ols / se_ols if se_ols > 0 else np.nan
-    p_ols = float(2 * (1 - stats.norm.cdf(abs(t_ols)))) if np.isfinite(t_ols) else np.nan
+    p_ols = (
+        float(2 * (1 - stats.norm.cdf(abs(t_ols)))) if np.isfinite(t_ols) else np.nan
+    )
     ci_ols = (beta_ols - z_crit * se_ols, beta_ols + z_crit * se_ols)
 
     # ── AR / effective F / tF ─────────────────────────────────────────
     ar = anderson_rubin_test(
-        data=df_clean, y=y, endog=endog,
-        instruments=instruments, exog=exog_l or None,
-        h0=h0, alpha=alpha, vcov=vcov,
+        data=df_clean,
+        y=y,
+        endog=endog,
+        instruments=instruments,
+        exog=exog_l or None,
+        h0=h0,
+        alpha=alpha,
+        vcov=vcov,
     )
     first_stage_F = float(ar["first_stage_F"])
     effective_F = float(ar["effective_F"])
     # LMMP (2022) tF table is published only for alpha = 0.05 and F >= 3.84.
     # When either guard fails, the AR / weak-IV-robust set is the right
     # fallback and the t-ratio adjustment is meaningless — store inf.
-    if not np.isclose(alpha, 0.05) or not np.isfinite(first_stage_F) \
-            or first_stage_F < 3.84:
+    if (
+        not np.isclose(alpha, 0.05)
+        or not np.isfinite(first_stage_F)
+        or first_stage_F < 3.84
+    ):
         tF_c = np.inf
         tF_ci = (-np.inf, np.inf)
     else:
@@ -830,8 +909,10 @@ def iv_diag(
     kp_rk_lm = kp_rk_lm_pvalue = kp_rk_f = None
     try:
         from .weak_identification import kleibergen_paap_rk
+
         kp = kleibergen_paap_rk(
-            endog=D.reshape(-1, 1), instruments=Z,
+            endog=D.reshape(-1, 1),
+            instruments=Z,
             exog=W[:, 1:] if W.shape[1] > 1 else None,
             add_const=True,
             cov_type="cluster" if cluster_arr is not None else "robust",
@@ -848,20 +929,30 @@ def iv_diag(
     if include_clr_ci or include_k_ci:
         try:
             from .weak_iv_ci import conditional_lr_ci, k_test_ci
+
             level = 1.0 - alpha
             if include_clr_ci:
                 clr_cs = conditional_lr_ci(
-                    y=y, endog=endog, instruments=instruments,
-                    exog=exog_l or None, data=df_clean,
-                    level=level, n_grid=grid_size,
-                    n_sim=4000, random_state=random_state,
+                    y=y,
+                    endog=endog,
+                    instruments=instruments,
+                    exog=exog_l or None,
+                    data=df_clean,
+                    level=level,
+                    n_grid=grid_size,
+                    n_sim=4000,
+                    random_state=random_state,
                 )
                 clr_ci = (float(clr_cs.lower), float(clr_cs.upper))
             if include_k_ci:
                 k_cs = k_test_ci(
-                    y=y, endog=endog, instruments=instruments,
-                    exog=exog_l or None, data=df_clean,
-                    level=level, n_grid=grid_size,
+                    y=y,
+                    endog=endog,
+                    instruments=instruments,
+                    exog=exog_l or None,
+                    data=df_clean,
+                    level=level,
+                    n_grid=grid_size,
                 )
                 k_ci = (float(k_cs.lower), float(k_cs.upper))
         except Exception:  # pragma: no cover
@@ -875,8 +966,15 @@ def iv_diag(
     if n_boot > 0:
         for m in boot_methods:
             se_b, ci_b, used = _bootstrap_se(
-                Y, D, Z, W, n_boot=n_boot, cluster=cluster_arr, rng=rng,
-                method=m, alpha=alpha,
+                Y,
+                D,
+                Z,
+                W,
+                n_boot=n_boot,
+                cluster=cluster_arr,
+                rng=rng,
+                method=m,
+                alpha=alpha,
             )
             if m == "pairs":
                 se_pairs, ci_pairs, boot_n_pairs = se_b, ci_b, used
@@ -895,9 +993,13 @@ def iv_diag(
     if ltz_gamma_sd is not None:
         try:
             from .plausibly_exogenous import plausibly_exogenous_ltz
+
             ltz = plausibly_exogenous_ltz(
-                y=y, endog=endog, instruments=instruments,
-                exog=exog_l or None, data=df_clean,
+                y=y,
+                endog=endog,
+                instruments=instruments,
+                exog=exog_l or None,
+                data=df_clean,
                 gamma_mean=0.0,
                 gamma_var=float(ltz_gamma_sd) ** 2,
                 ci_level=1.0 - alpha,
@@ -906,8 +1008,11 @@ def iv_diag(
             # CHR (2012) tipping-point: how large would |γ| need to be
             # in standard-deviation units of the prior before the LTZ
             # confidence set crosses 0?  Approximated by |β̂| / σ_γ.
-            tip_sigmas = (abs(beta_2sls) / float(ltz_gamma_sd)
-                          if float(ltz_gamma_sd) > 0 else float("inf"))
+            tip_sigmas = (
+                abs(beta_2sls) / float(ltz_gamma_sd)
+                if float(ltz_gamma_sd) > 0
+                else float("inf")
+            )
             ltz_warning = (
                 f"Sensitivity prior γ ~ N(0, {float(ltz_gamma_sd):g}^2). "
                 f"|β̂_2SLS| = {abs(beta_2sls):.4f} = "
@@ -956,14 +1061,21 @@ def iv_diag(
     }
 
     return IVDiagResult(
-        n=n, n_endog=1, n_instruments=k_z, n_exog=k_w,
-        endog=endog, instruments=instruments, exog=exog_l,
+        n=n,
+        n_endog=1,
+        n_instruments=k_z,
+        n_exog=k_w,
+        endog=endog,
+        instruments=instruments,
+        exog=exog_l,
         alpha=alpha,
-        beta_2sls=beta_2sls, se_2sls=se_2sls,
+        beta_2sls=beta_2sls,
+        se_2sls=se_2sls,
         t_2sls=float(t_2sls) if np.isfinite(t_2sls) else float("nan"),
         p_2sls=float(p_2sls) if np.isfinite(p_2sls) else float("nan"),
         ci_analytic_2sls=ci_analytic_2sls,
-        beta_ols=beta_ols, se_ols=se_ols,
+        beta_ols=beta_ols,
+        se_ols=se_ols,
         t_ols=float(t_ols) if np.isfinite(t_ols) else float("nan"),
         p_ols=float(p_ols) if np.isfinite(p_ols) else float("nan"),
         ci_ols=ci_ols,
@@ -977,17 +1089,22 @@ def iv_diag(
         kp_rk_lm=kp_rk_lm,
         kp_rk_lm_pvalue=kp_rk_lm_pvalue,
         kp_rk_f=kp_rk_f,
-        clr_ci=clr_ci, k_ci=k_ci,
+        clr_ci=clr_ci,
+        k_ci=k_ci,
         bootstrap_n=boot_used,
         bootstrap_se_pairs=se_pairs,
         bootstrap_ci_pairs=ci_pairs,
         bootstrap_se_wild=se_wild,
         bootstrap_ci_wild=ci_wild,
-        ltz_ci=ltz_ci, ltz_warning=ltz_warning,
+        ltz_ci=ltz_ci,
+        ltz_warning=ltz_warning,
         tsls_late_caveat=tsls_caveat,
         diagnostics=diagnostics,
         raw={
-            "Y": Y, "D": D, "Z": Z, "W": W,
+            "Y": Y,
+            "D": D,
+            "Z": Z,
+            "W": W,
             "W_no_const": W[:, 1:] if W.shape[1] > 1 else None,
             "resid_2sls": resid_2sls,
             "cluster": cluster_arr,
@@ -998,6 +1115,7 @@ def iv_diag(
 # ═══════════════════════════════════════════════════════════════════════
 #  Compare-across-methods convenience
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def iv_compare(
     formula: Optional[str] = None,
@@ -1051,6 +1169,7 @@ def iv_compare(
     """
     from . import _dispatch  # late import to avoid circulars
     from scipy import stats
+
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
 
     # Pre-resolve endog name from the formula so we can look it up
@@ -1059,6 +1178,7 @@ def iv_compare(
     if canonical_endog is None and formula is not None and data is not None:
         try:
             from ..core.utils import parse_formula
+
             parsed = parse_formula(formula)
             ends = parsed.get("endogenous") or []
             if ends:
@@ -1071,8 +1191,9 @@ def iv_compare(
         try:
             res = _dispatch(formula=formula, data=data, method=m, **kwargs)
         except Exception as exc:  # pragma: no cover
-            rows.append((m, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-                         f"error: {exc}"))
+            rows.append(
+                (m, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, f"error: {exc}")
+            )
             continue
         # Pull the endogenous-coefficient row
         try:
@@ -1085,12 +1206,15 @@ def iv_compare(
                 for key in diag.keys():
                     k_str = str(key)
                     if k_str.startswith("First-stage F (") and k_str.endswith(")"):
-                        local_endog = k_str[len("First-stage F ("):-1]
+                        local_endog = k_str[len("First-stage F (") : -1]
                         if local_endog in params.index:
                             break
                         local_endog = None
-            if local_endog is None and hasattr(res, "model") and \
-                    hasattr(res.model, "_endog_names"):
+            if (
+                local_endog is None
+                and hasattr(res, "model")
+                and hasattr(res.model, "_endog_names")
+            ):
                 local_endog = res.model._endog_names[0]
             if local_endog is None:
                 # last-resort: pick the LAST non-Intercept param name
@@ -1106,21 +1230,47 @@ def iv_compare(
             lo = beta - z_crit * se
             hi = beta + z_crit * se
             diag = getattr(res, "diagnostics", {}) or {}
-            f_first = diag.get("First-stage F",
-                               diag.get("first_stage_F", np.nan))
-            f_eff = diag.get("Olea-Pflueger effective F",
-                             diag.get("effective_F", np.nan))
-            rows.append((m, beta, se, lo, hi,
-                         float(f_first) if f_first not in (None, np.nan) else np.nan,
-                         float(f_eff) if f_eff not in (None, np.nan) else np.nan,
-                         "ok"))
+            f_first = diag.get("First-stage F", diag.get("first_stage_F", np.nan))
+            f_eff = diag.get(
+                "Olea-Pflueger effective F", diag.get("effective_F", np.nan)
+            )
+            rows.append(
+                (
+                    m,
+                    beta,
+                    se,
+                    lo,
+                    hi,
+                    float(f_first) if f_first not in (None, np.nan) else np.nan,
+                    float(f_eff) if f_eff not in (None, np.nan) else np.nan,
+                    "ok",
+                )
+            )
         except Exception as exc:  # pragma: no cover
-            rows.append((m, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan,
-                         f"summary error: {exc}"))
+            rows.append(
+                (
+                    m,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    f"summary error: {exc}",
+                )
+            )
     return pd.DataFrame(
         rows,
-        columns=["method", "estimate", "SE", "CI lower", "CI upper",
-                 "first_stage_F", "effective_F", "status"],
+        columns=[
+            "method",
+            "estimate",
+            "SE",
+            "CI lower",
+            "CI upper",
+            "first_stage_F",
+            "effective_F",
+            "status",
+        ],
     )
 
 

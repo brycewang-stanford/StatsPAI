@@ -29,6 +29,7 @@ References
 Veitch, V., Sridhar, D., & Blei, D. M. (2019). "Adapting text embeddings
 for causal inference." *UAI*. arXiv:1905.12741.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Union
@@ -41,8 +42,7 @@ from ..core.results import CausalResult
 from ..exceptions import NumericalInstability
 from ._common import embed_texts
 
-
-__all__ = ['text_treatment_effect', 'TextTreatmentResult']
+__all__ = ["text_treatment_effect", "TextTreatmentResult"]
 
 
 class TextTreatmentResult(CausalResult):
@@ -79,9 +79,18 @@ class TextTreatmentResult(CausalResult):
     """
 
     def __init__(
-        self, *, method: str, estimand: str, estimate: float, se: float,
-        pvalue: float, ci: tuple, alpha: float, n_obs: int,
-        embedding_dim: int, embedder_name: str,
+        self,
+        *,
+        method: str,
+        estimand: str,
+        estimate: float,
+        se: float,
+        pvalue: float,
+        ci: tuple,
+        alpha: float,
+        n_obs: int,
+        embedding_dim: int,
+        embedder_name: str,
         diagnostics: Optional[Dict[str, Any]] = None,
         model_info: Optional[Dict[str, Any]] = None,
     ):
@@ -91,17 +100,25 @@ class TextTreatmentResult(CausalResult):
         # kept under `model_info['text_diagnostics']` for callers that
         # want a self-contained sub-dict.
         flat = dict(diagnostics or {})
-        flat.update({
-            'embedding_dim': int(embedding_dim),
-            'embedder_name': str(embedder_name),
-            'status': 'experimental',
-        })
+        flat.update(
+            {
+                "embedding_dim": int(embedding_dim),
+                "embedder_name": str(embedder_name),
+                "status": "experimental",
+            }
+        )
         mi = dict(model_info or {})
         mi.update(flat)
-        mi['text_diagnostics'] = dict(flat)
+        mi["text_diagnostics"] = dict(flat)
         super().__init__(
-            method=method, estimand=estimand, estimate=estimate, se=se,
-            pvalue=pvalue, ci=ci, alpha=alpha, n_obs=n_obs,
+            method=method,
+            estimand=estimand,
+            estimate=estimate,
+            se=se,
+            pvalue=pvalue,
+            ci=ci,
+            alpha=alpha,
+            n_obs=n_obs,
             model_info=mi,
         )
         self.embedding_dim = int(embedding_dim)
@@ -135,7 +152,7 @@ def text_treatment_effect(
     outcome: str,
     treatment: str,
     covariates: Optional[List[str]] = None,
-    embedder: Union[str, Callable] = 'hash',
+    embedder: Union[str, Callable] = "hash",
     n_components: int = 20,
     seed: int = 0,
     alpha: float = 0.05,
@@ -193,6 +210,7 @@ def text_treatment_effect(
     use = use.dropna(subset=[outcome, treatment, *cov])
     if len(use) < max(20, n_components + 4):
         from ..exceptions import DataInsufficient
+
         raise DataInsufficient(
             f"Need at least {max(20, n_components + 4)} non-missing rows "
             f"for n_components={n_components}; got {len(use)}."
@@ -202,7 +220,9 @@ def text_treatment_effect(
     # Embed text.
     Z = embed_texts(
         use[text_col].astype(str).values,
-        embedder=embedder, n_components=n_components, seed=seed,
+        embedder=embedder,
+        n_components=n_components,
+        seed=seed,
     )
     if Z.shape[1] < 1:
         raise ValueError("Embedder returned 0 components.")
@@ -211,16 +231,17 @@ def text_treatment_effect(
     y = use[outcome].astype(np.float64).values
     t = use[treatment].astype(np.float64).values
     n = len(y)
-    cov_mat = (use[cov].astype(np.float64).values if cov
-               else np.zeros((n, 0)))
+    cov_mat = use[cov].astype(np.float64).values if cov else np.zeros((n, 0))
 
     # Build design matrix [intercept, t, cov, Z].
-    X = np.hstack([
-        np.ones((n, 1)),
-        t.reshape(-1, 1),
-        cov_mat,
-        Z,
-    ])
+    X = np.hstack(
+        [
+            np.ones((n, 1)),
+            t.reshape(-1, 1),
+            cov_mat,
+            Z,
+        ]
+    )
     treat_idx = 1  # column index of `treatment` in X
 
     # OLS via lstsq.
@@ -239,7 +260,7 @@ def text_treatment_effect(
     # HC1 sandwich standard errors.
     p = X.shape[1]
     df_resid = max(n - p, 1)
-    Omega = (X.T * (resid ** 2)) @ X
+    Omega = (X.T * (resid**2)) @ X
     cov_hc1 = (n / df_resid) * (XtX_inv @ Omega @ XtX_inv)
     se = np.sqrt(np.maximum(np.diag(cov_hc1), 0.0))
 
@@ -251,16 +272,16 @@ def text_treatment_effect(
     pval = float(2 * (1 - sp_stats.norm.cdf(abs(estimate / se_t))))
 
     diagnostics: Dict[str, Any] = {
-        'n_text_components': int(actual_k),
-        'embedder': embedder if isinstance(embedder, str) else 'callable',
-        'n_obs': int(n),
-        'status': 'experimental',
-        'method_family': 'text-as-treatment (Veitch-Wang-Blei 2020 MVP)',
+        "n_text_components": int(actual_k),
+        "embedder": embedder if isinstance(embedder, str) else "callable",
+        "n_obs": int(n),
+        "status": "experimental",
+        "method_family": "text-as-treatment (Veitch-Wang-Blei 2020 MVP)",
     }
 
     _result = TextTreatmentResult(
-        method='text_treatment_effect',
-        estimand='ATE',
+        method="text_treatment_effect",
+        estimand="ATE",
         estimate=estimate,
         se=se_t,
         ci=(float(ci_lo), float(ci_hi)),
@@ -268,20 +289,24 @@ def text_treatment_effect(
         alpha=alpha,
         n_obs=int(n),
         embedding_dim=int(actual_k),
-        embedder_name=embedder if isinstance(embedder, str) else 'callable',
+        embedder_name=embedder if isinstance(embedder, str) else "callable",
         diagnostics=diagnostics,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_text.text_treatment_effect",
             params={
                 "text_col": text_col,
-                "outcome": outcome, "treatment": treatment,
+                "outcome": outcome,
+                "treatment": treatment,
                 "covariates": list(covariates) if covariates else None,
                 "embedder": embedder if isinstance(embedder, str) else "callable",
-                "n_components": n_components, "seed": seed, "alpha": alpha,
+                "n_components": n_components,
+                "seed": seed,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

@@ -1,4 +1,5 @@
 """Sparse-backed spatial weights object."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Mapping, Optional, Sequence
@@ -97,7 +98,9 @@ class W:
         elif value == "D":
             total = sum(sum(ws) for ws in base_weights.values())
             if total > 0:
-                base_weights = {i: [w / total for w in ws] for i, ws in base_weights.items()}
+                base_weights = {
+                    i: [w / total for w in ws] for i, ws in base_weights.items()
+                }
         self._weights = base_weights
         self._transform = value
         self._sparse = None
@@ -112,9 +115,7 @@ class W:
                     rows.append(row)
                     cols.append(self._id_to_idx[j])
                     data.append(float(w))
-        return sparse.csr_matrix(
-            (data, (rows, cols)), shape=(self.n, self.n)
-        )
+        return sparse.csr_matrix((data, (rows, cols)), shape=(self.n, self.n))
 
     def full(self) -> np.ndarray:
         return np.asarray(self.sparse.toarray(), dtype=float)

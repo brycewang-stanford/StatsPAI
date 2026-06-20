@@ -17,6 +17,7 @@ continues working.
 
 Plan to migrate within one minor cycle.
 """
+
 from __future__ import annotations
 
 import sys
@@ -37,11 +38,18 @@ warnings.warn(
 # submodules into :data:`sys.modules` (forest/__init__.py does
 # ``from .causal_forest import ...`` etc.).
 from ..forest import (  # noqa: F401,E402
-    CausalForest, causal_forest,
-    calibration_test, test_calibration, rate, honest_variance,
-    average_treatment_effect, forest_diagnostics,
-    multi_arm_forest, MultiArmForestResult,
-    iv_forest, IVForestResult,
+    CausalForest,
+    causal_forest,
+    calibration_test,
+    test_calibration,
+    rate,
+    honest_variance,
+    average_treatment_effect,
+    forest_diagnostics,
+    multi_arm_forest,
+    MultiArmForestResult,
+    iv_forest,
+    IVForestResult,
 )
 
 # Alias the deprecated submodule paths to the real forest modules
@@ -50,18 +58,16 @@ from ..forest import (  # noqa: F401,E402
 # After ``from ..forest import ...`` above, every submodule is already
 # in sys.modules; we just point the deprecated paths at the same
 # objects.
-sys.modules["statspai.causal.causal_forest"] = (
-    sys.modules["statspai.forest.causal_forest"]
-)
-sys.modules["statspai.causal.forest_inference"] = (
-    sys.modules["statspai.forest.forest_inference"]
-)
-sys.modules["statspai.causal.iv_forest"] = (
-    sys.modules["statspai.forest.iv_forest"]
-)
-sys.modules["statspai.causal.multi_arm_forest"] = (
-    sys.modules["statspai.forest.multi_arm_forest"]
-)
+sys.modules["statspai.causal.causal_forest"] = sys.modules[
+    "statspai.forest.causal_forest"
+]
+sys.modules["statspai.causal.forest_inference"] = sys.modules[
+    "statspai.forest.forest_inference"
+]
+sys.modules["statspai.causal.iv_forest"] = sys.modules["statspai.forest.iv_forest"]
+sys.modules["statspai.causal.multi_arm_forest"] = sys.modules[
+    "statspai.forest.multi_arm_forest"
+]
 
 
 # Importing this submodule binds ``statspai.causal`` to *this module*,
@@ -79,6 +85,7 @@ class _CausalShimModule(_types.ModuleType):
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         from ..workflow import causal as _workflow_causal
+
         return _workflow_causal(*args, **kwargs)
 
 
@@ -97,6 +104,8 @@ __all__ = [
     "honest_variance",
     "average_treatment_effect",
     "forest_diagnostics",
-    "multi_arm_forest", "MultiArmForestResult",
-    "iv_forest", "IVForestResult",
+    "multi_arm_forest",
+    "MultiArmForestResult",
+    "iv_forest",
+    "IVForestResult",
 ]

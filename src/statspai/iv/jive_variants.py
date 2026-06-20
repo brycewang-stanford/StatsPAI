@@ -145,8 +145,12 @@ def _first_stage_f(D: np.ndarray, Z: np.ndarray, W: np.ndarray) -> float:
 
 
 def _jive_estimate(
-    Y: np.ndarray, D: np.ndarray, Z: np.ndarray, W: np.ndarray,
-    method: str, ridge: float = 0.0,
+    Y: np.ndarray,
+    D: np.ndarray,
+    Z: np.ndarray,
+    W: np.ndarray,
+    method: str,
+    ridge: float = 0.0,
 ) -> dict:
     n = len(Y)
     p = D.shape[1]
@@ -219,7 +223,7 @@ def _jive_estimate(
 
     # HC1 robust standard errors (default — many-IV literature convention)
     n_over = n / max(n - X.shape[1], 1)
-    meat = X_hat.T @ np.diag(resid ** 2 * n_over) @ X_hat
+    meat = X_hat.T @ np.diag(resid**2 * n_over) @ X_hat
     var_cov = XhXh_inv @ meat @ XhXh_inv
     se = np.sqrt(np.maximum(np.diag(var_cov), 0))
 
@@ -264,10 +268,12 @@ def _run(
     pvals = 2 * (1 - stats.norm.cdf(np.abs(tvals.values)))
 
     _result = JIVEResult(
-        method={"jive1": "JIVE1 (AIK 1999)",
-                "ujive": "UJIVE (Kolesár 2013)",
-                "ijive": "IJIVE (Ackerberg-Devereux 2009)",
-                "rjive": f"RJIVE (Hansen-Kozbur 2014, ridge={ridge})"}[method],
+        method={
+            "jive1": "JIVE1 (AIK 1999)",
+            "ujive": "UJIVE (Kolesár 2013)",
+            "ijive": "IJIVE (Ackerberg-Devereux 2009)",
+            "rjive": f"RJIVE (Hansen-Kozbur 2014, ridge={ridge})",
+        }[method],
         params=params,
         std_errors=se,
         t_stats=tvals,
@@ -282,6 +288,7 @@ def _run(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         # The four public entry points (jive1 / ujive / ijive / rjive)
         # all flow through ``_run``; the ``method`` arg discriminates.
         _attach_prov(
@@ -290,8 +297,9 @@ def _run(
             params={
                 "y": y if isinstance(y, str) else None,
                 "endog": endog if isinstance(endog, (str, list)) else None,
-                "instruments": instruments
-                               if isinstance(instruments, (str, list)) else None,
+                "instruments": (
+                    instruments if isinstance(instruments, (str, list)) else None
+                ),
                 "exog": exog if isinstance(exog, (str, list)) else None,
                 "add_const": add_const,
                 "ridge": ridge,
@@ -351,7 +359,9 @@ def rjive(
     ridge: float = 1.0,
 ) -> JIVEResult:
     """Hansen-Kozbur (2014) Ridge JIVE."""
-    return _run("rjive", y, endog, instruments, exog, data, add_const, ridge=float(ridge))
+    return _run(
+        "rjive", y, endog, instruments, exog, data, add_const, ridge=float(ridge)
+    )
 
 
 __all__ = ["jive1", "ujive", "ijive", "rjive", "JIVEResult"]

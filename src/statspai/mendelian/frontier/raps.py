@@ -49,7 +49,6 @@ from scipy.optimize import minimize
 from ._common import as_float_arrays, harmonize_signs
 from ..._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["MRRapsResult", "mr_raps"]
 
 
@@ -88,6 +87,7 @@ class MRRapsResult(ResultProtocolMixin):
     >>> bool(np.isfinite(res.estimate))
     True
     """
+
     estimate: float
     se: float
     ci_lower: float
@@ -103,8 +103,7 @@ class MRRapsResult(ResultProtocolMixin):
         ci = f"[{self.ci_lower:+.4f}, {self.ci_upper:+.4f}]"
         conv = "converged" if self.converged else "DID NOT CONVERGE"
         return (
-            "MR-RAPS (Robust Adjusted Profile Score)\n"
-            + "=" * 62 + "\n"
+            "MR-RAPS (Robust Adjusted Profile Score)\n" + "=" * 62 + "\n"
             f"  n SNPs        : {self.n_snps}\n"
             f"  Tukey c       : {self.tuning_c:.2f}\n"
             f"  causal β      : {self.estimate:+.4f}   SE = {self.se:.4f}\n"
@@ -120,8 +119,8 @@ def _tukey_rho(r: np.ndarray, c: float) -> np.ndarray:
     out = np.zeros_like(r)
     inner = np.abs(r) <= c
     u = r[inner] / c
-    out[inner] = (c ** 2 / 6.0) * (1.0 - (1.0 - u ** 2) ** 3)
-    out[~inner] = c ** 2 / 6.0
+    out[inner] = (c**2 / 6.0) * (1.0 - (1.0 - u**2) ** 3)
+    out[~inner] = c**2 / 6.0
     return out
 
 
@@ -130,7 +129,7 @@ def _tukey_psi(r: np.ndarray, c: float) -> np.ndarray:
     out = np.zeros_like(r)
     inner = np.abs(r) <= c
     u = r[inner] / c
-    out[inner] = r[inner] * (1.0 - u ** 2) ** 2
+    out[inner] = r[inner] * (1.0 - u**2) ** 2
     return out
 
 
@@ -139,14 +138,16 @@ def _tukey_psi_prime(r: np.ndarray, c: float) -> np.ndarray:
     out = np.zeros_like(r)
     inner = np.abs(r) <= c
     u = r[inner] / c
-    out[inner] = (1.0 - u ** 2) ** 2 - 4.0 * (u ** 2) * (1.0 - u ** 2)
+    out[inner] = (1.0 - u**2) ** 2 - 4.0 * (u**2) * (1.0 - u**2)
     return out
 
 
 def _raps_loss(
     params: np.ndarray,
-    bx: np.ndarray, by: np.ndarray,
-    vx: np.ndarray, vy: np.ndarray,
+    bx: np.ndarray,
+    by: np.ndarray,
+    vx: np.ndarray,
+    vy: np.ndarray,
     c: float,
 ) -> float:
     """Robust adjusted profile score objective.
@@ -161,14 +162,12 @@ def _raps_loss(
     """
     beta, log_tau2 = params
     tau2 = float(np.exp(log_tau2))
-    sigma2 = vy + beta ** 2 * vx + tau2
+    sigma2 = vy + beta**2 * vx + tau2
     if np.any(sigma2 <= 0):
         return 1e12
     sigma = np.sqrt(sigma2)
     resid = (by - beta * bx) / sigma
-    return float(
-        np.sum(_tukey_rho(resid, c)) + 0.5 * np.sum(np.log(sigma2))
-    )
+    return float(np.sum(_tukey_rho(resid, c)) + 0.5 * np.sum(np.log(sigma2)))
 
 
 def mr_raps(
@@ -237,8 +236,8 @@ def mr_raps(
         beta_exposure, beta_outcome, se_exposure, se_outcome
     )
     bx, by = harmonize_signs(bx, by)
-    vx = sx ** 2
-    vy = sy ** 2
+    vx = sx**2
+    vy = sy**2
 
     if tuning_c <= 0:
         raise ValueError(f"tuning_c must be > 0; got {tuning_c}")
@@ -246,12 +245,14 @@ def mr_raps(
     # IVW warm start
     if beta_init is None:
         w = 1.0 / vy
-        denom = float(np.sum(w * bx ** 2))
+        denom = float(np.sum(w * bx**2))
         beta_init = float(np.sum(w * bx * by) / denom) if denom > 0 else 0.0
 
     x0 = np.array([beta_init, np.log(max(tau2_init, 1e-10))])
     res = minimize(
-        _raps_loss, x0, args=(bx, by, vx, vy, tuning_c),
+        _raps_loss,
+        x0,
+        args=(bx, by, vx, vy, tuning_c),
         method="L-BFGS-B",
         options={"maxiter": 500, "gtol": 1e-8},
     )
@@ -260,20 +261,17 @@ def mr_raps(
     tau2_hat = float(np.exp(res.x[1]))
 
     # ---- Sandwich SE via M-estimator formula --------------------------
-    sigma2 = vy + beta_hat ** 2 * vx + tau2_hat
+    sigma2 = vy + beta_hat**2 * vx + tau2_hat
     sigma = np.sqrt(sigma2)
     r = (by - beta_hat * bx) / sigma
     # ∂r/∂β at fixed τ²:
     #   r = (by - β bx) / sqrt(vy + β² vx + τ²)
     #   dr/dβ = [-bx * sigma - (by - β bx) * (β vx / sigma)] / sigma²
-    drdb = (
-        -bx * sigma
-        - (by - beta_hat * bx) * (beta_hat * vx / sigma)
-    ) / sigma2
+    drdb = (-bx * sigma - (by - beta_hat * bx) * (beta_hat * vx / sigma)) / sigma2
     psi = _tukey_psi(r, tuning_c)
     psi_prime = _tukey_psi_prime(r, tuning_c)
-    J = float(np.sum(psi_prime * drdb ** 2))
-    V = float(np.sum(psi ** 2 * drdb ** 2))
+    J = float(np.sum(psi_prime * drdb**2))
+    V = float(np.sum(psi**2 * drdb**2))
     if abs(J) > 1e-12 and V > 0:
         se_hat = float(np.sqrt(V) / abs(J))
     else:

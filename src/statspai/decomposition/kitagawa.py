@@ -17,29 +17,30 @@ Kitagawa, E.M. (1955). "Components of a Difference Between Two Rates."
 Das Gupta, P. (1993). "Standardization and Decomposition of Rates: A
 User's Manual." U.S. Bureau of the Census, CDS P23-186.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import permutations
-from typing import (
-    Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union,
-)
+from typing import Any, ClassVar, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from ._results import DecompResultMixin
 
-
 # ════════════════════════════════════════════════════════════════════════
 # Result
 # ════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class KitagawaResult(DecompResultMixin):
     method_name: ClassVar[str] = "Kitagawa Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = (
-        "kitagawa1955components", "kroger2021kitagawa", "oaxaca2025meets",
+        "kitagawa1955components",
+        "kroger2021kitagawa",
+        "oaxaca2025meets",
     )
 
     rate_a: float
@@ -48,8 +49,8 @@ class KitagawaResult(DecompResultMixin):
     rate_effect: float
     composition_effect: float
     interaction: float
-    per_cell: pd.DataFrame   # category, share_a, share_b, rate_a, rate_b,
-                             # rate_contrib, comp_contrib
+    per_cell: pd.DataFrame  # category, share_a, share_b, rate_a, rate_b,
+    # rate_contrib, comp_contrib
     method: str = "kitagawa"
 
     def summary(self) -> str:
@@ -74,6 +75,7 @@ class KitagawaResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
+
         return detailed_waterfall(
             self.per_cell,
             value_col="rate_contrib",
@@ -86,19 +88,24 @@ class KitagawaResult(DecompResultMixin):
         return latex
 
     def _repr_html_(self) -> str:
-        return (f"<div><h3>Kitagawa Decomposition</h3>"
-                f"<p>Gap={self.gap:.4f}, Rate={self.rate_effect:.4f}, "
-                f"Composition={self.composition_effect:.4f}</p></div>")
+        return (
+            f"<div><h3>Kitagawa Decomposition</h3>"
+            f"<p>Gap={self.gap:.4f}, Rate={self.rate_effect:.4f}, "
+            f"Composition={self.composition_effect:.4f}</p></div>"
+        )
 
     def __repr__(self) -> str:
-        return (f"KitagawaResult(gap={self.gap:.4f}, "
-                f"rate_effect={self.rate_effect:.4f}, "
-                f"composition_effect={self.composition_effect:.4f})")
+        return (
+            f"KitagawaResult(gap={self.gap:.4f}, "
+            f"rate_effect={self.rate_effect:.4f}, "
+            f"composition_effect={self.composition_effect:.4f})"
+        )
 
 
 # ════════════════════════════════════════════════════════════════════════
 # Kitagawa (two-factor)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def kitagawa_decompose(
     data: pd.DataFrame,
@@ -165,8 +172,8 @@ def kitagawa_decompose(
     if weights is None:
         agg = (
             df.groupby([group] + by_cols)
-              .agg(rate=(rate, 'mean'), pop=(rate, 'size'))
-              .reset_index()
+            .agg(rate=(rate, "mean"), pop=(rate, "size"))
+            .reset_index()
         )
         rate_col = "rate"
         pop_col = "pop"
@@ -224,21 +231,31 @@ def kitagawa_decompose(
     per_rows = []
     for i, cat in enumerate(all_cats):
         cat_name = str(cat) if not isinstance(cat, tuple) else " × ".join(map(str, cat))
-        per_rows.append({
-            "category": cat_name,
-            "share_a": share_a[i], "share_b": share_b[i],
-            "rate_a": rate_a_cells[i], "rate_b": rate_b_cells[i],
-            "rate_contrib": 0.5 * (share_a[i] + share_b[i])
-                            * (rate_a_cells[i] - rate_b_cells[i]),
-            "comp_contrib": 0.5 * (share_a[i] - share_b[i])
-                            * (rate_a_cells[i] + rate_b_cells[i]),
-        })
+        per_rows.append(
+            {
+                "category": cat_name,
+                "share_a": share_a[i],
+                "share_b": share_b[i],
+                "rate_a": rate_a_cells[i],
+                "rate_b": rate_b_cells[i],
+                "rate_contrib": 0.5
+                * (share_a[i] + share_b[i])
+                * (rate_a_cells[i] - rate_b_cells[i]),
+                "comp_contrib": 0.5
+                * (share_a[i] - share_b[i])
+                * (rate_a_cells[i] + rate_b_cells[i]),
+            }
+        )
     per_cell = pd.DataFrame(per_rows)
 
     return KitagawaResult(
-        rate_a=overall_a, rate_b=overall_b, gap=gap,
-        rate_effect=rate_effect, composition_effect=composition_effect,
-        interaction=float(interaction), per_cell=per_cell,
+        rate_a=overall_a,
+        rate_b=overall_b,
+        gap=gap,
+        rate_effect=rate_effect,
+        composition_effect=composition_effect,
+        interaction=float(interaction),
+        per_cell=per_cell,
         method="kitagawa",
     )
 
@@ -246,6 +263,7 @@ def kitagawa_decompose(
 # ════════════════════════════════════════════════════════════════════════
 # Das Gupta (1993) multi-factor decomposition
 # ════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class DasGuptaResult(DecompResultMixin):
@@ -255,7 +273,7 @@ class DasGuptaResult(DecompResultMixin):
     rate_a: float
     rate_b: float
     gap: float
-    factor_effects: pd.DataFrame   # factor, effect
+    factor_effects: pd.DataFrame  # factor, effect
     method: str = "das_gupta"
 
     def summary(self) -> str:
@@ -276,24 +294,35 @@ class DasGuptaResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
-        return detailed_waterfall(self.factor_effects, value_col="effect",
-                                  label_col="factor", **kwargs)
+
+        return detailed_waterfall(
+            self.factor_effects, value_col="effect", label_col="factor", **kwargs
+        )
 
     def to_latex(self) -> str:
         lines = [
-            r"\begin{table}[htbp]", r"\centering",
+            r"\begin{table}[htbp]",
+            r"\centering",
             r"\caption{Das Gupta Multi-Factor Decomposition}",
-            r"\begin{tabular}{lcc}", r"\toprule",
-            r"Factor & Effect & \% of gap \\", r"\midrule",
+            r"\begin{tabular}{lcc}",
+            r"\toprule",
+            r"Factor & Effect & \% of gap \\",
+            r"\midrule",
         ]
         for _, row in self.factor_effects.iterrows():
             lines.append(
                 f"{row['factor']} & {row['effect']:.4f} & "
                 f"{row['pct_of_gap']:.1f}\\% \\\\"
             )
-        lines.extend([r"\midrule",
-                      f"Total gap & {self.gap:.4f} & 100.0\\% \\\\",
-                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+        lines.extend(
+            [
+                r"\midrule",
+                f"Total gap & {self.gap:.4f} & 100.0\\% \\\\",
+                r"\bottomrule",
+                r"\end{tabular}",
+                r"\end{table}",
+            ]
+        )
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
@@ -302,13 +331,13 @@ class DasGuptaResult(DecompResultMixin):
             "<div style='font-family:monospace;'>"
             f"<h3>Das Gupta Multi-Factor Decomposition</h3>"
             f"<p>Aggregate A = {self.rate_a:.4f}, B = {self.rate_b:.4f}, "
-            f"gap = {self.gap:.4f}</p>"
-            + html
-            + "</div>"
+            f"gap = {self.gap:.4f}</p>" + html + "</div>"
         )
 
     def __repr__(self) -> str:
-        return f"DasGuptaResult(gap={self.gap:.4f}, n_factors={len(self.factor_effects)})"
+        return (
+            f"DasGuptaResult(gap={self.gap:.4f}, n_factors={len(self.factor_effects)})"
+        )
 
 
 def das_gupta(
@@ -380,20 +409,25 @@ def das_gupta(
         # perm[i] takes the diff
         for rank, j in enumerate(perm):
             pre = perm[:rank]
-            post = perm[rank + 1:]
+            post = perm[rank + 1 :]
             contrib = np.prod(va[list(pre)]) if pre else 1.0
-            contrib *= (va[j] - vb[j])
+            contrib *= va[j] - vb[j]
             contrib *= np.prod(vb[list(post)]) if post else 1.0
             effects[j] += contrib
     effects = effects / count
 
-    df_fx = pd.DataFrame({
-        "factor": factors,
-        "effect": effects,
-        "pct_of_gap": effects / gap * 100 if gap != 0 else np.zeros(m),
-    })
+    df_fx = pd.DataFrame(
+        {
+            "factor": factors,
+            "effect": effects,
+            "pct_of_gap": effects / gap * 100 if gap != 0 else np.zeros(m),
+        }
+    )
 
     return DasGuptaResult(
-        rate_a=prod_a, rate_b=prod_b, gap=gap,
-        factor_effects=df_fx, method="das_gupta",
+        rate_a=prod_a,
+        rate_b=prod_b,
+        gap=gap,
+        factor_effects=df_fx,
+        method="das_gupta",
     )

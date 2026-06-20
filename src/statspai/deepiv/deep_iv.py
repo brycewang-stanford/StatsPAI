@@ -79,10 +79,10 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def deepiv(
     data: pd.DataFrame,
@@ -194,16 +194,22 @@ def deepiv(
     ... )
     """
     estimator = DeepIV(
-        data=data, y=y, treat=treat,
-        instruments=instruments, covariates=covariates,
-        n_components=n_components, hidden_layers=hidden_layers,
+        data=data,
+        y=y,
+        treat=treat,
+        instruments=instruments,
+        covariates=covariates,
+        n_components=n_components,
+        hidden_layers=hidden_layers,
         first_stage_epochs=first_stage_epochs,
         second_stage_epochs=second_stage_epochs,
         n_samples=n_samples,
         n_gradient_samples=n_gradient_samples,
         batch_size=batch_size,
-        learning_rate=learning_rate, alpha=alpha,
-        random_state=random_state, verbose=verbose,
+        learning_rate=learning_rate,
+        alpha=alpha,
+        random_state=random_state,
+        verbose=verbose,
     )
     return estimator.fit()
 
@@ -211,6 +217,7 @@ def deepiv(
 # ---------------------------------------------------------------------------
 # Main estimator
 # ---------------------------------------------------------------------------
+
 
 class DeepIV:
     """
@@ -373,6 +380,7 @@ class DeepIV:
         X_s = (X - X_means) / X_stds
 
         from ..utils._torch_device import resolve_torch_device
+
         device = resolve_torch_device()
 
         # ---------------------------------------------------------------
@@ -401,8 +409,10 @@ class DeepIV:
                 opt1.step()
                 epoch_loss += loss.item() * len(t_batch)
             if self.verbose and (epoch + 1) % 20 == 0:
-                print(f"  Stage 1 epoch {epoch+1}/{self.first_stage_epochs}, "
-                      f"loss={epoch_loss/n:.4f}")
+                print(
+                    f"  Stage 1 epoch {epoch+1}/{self.first_stage_epochs}, "
+                    f"loss={epoch_loss/n:.4f}"
+                )
 
         mdn.eval()
 
@@ -455,9 +465,7 @@ class DeepIV:
                         tx_b = torch.cat([t_b, x_batch], dim=1)
                         h_a = response_net(tx_a).squeeze()
                         h_b = response_net(tx_b).squeeze()
-                        loss = loss + torch.mean(
-                            (y_batch - h_a) * (y_batch - h_b)
-                        )
+                        loss = loss + torch.mean((y_batch - h_a) * (y_batch - h_b))
                     loss = loss / n_pairs
                 else:
                     # Single-sample biased estimator (EconML default).
@@ -466,9 +474,7 @@ class DeepIV:
                     # trains ~2x faster and acts as implicit variance
                     # regularization.
                     with torch.no_grad():
-                        t_samples = _sample_mdn(
-                            pi, mu, sigma, self.n_samples
-                        )
+                        t_samples = _sample_mdn(pi, mu, sigma, self.n_samples)
 
                     loss = torch.tensor(0.0, device=device)
                     for s in range(self.n_samples):
@@ -483,8 +489,10 @@ class DeepIV:
                 epoch_loss += loss.item() * len(y_batch)
 
             if self.verbose and (epoch + 1) % 20 == 0:
-                print(f"  Stage 2 epoch {epoch+1}/{self.second_stage_epochs}, "
-                      f"loss={epoch_loss/n:.4f}")
+                print(
+                    f"  Stage 2 epoch {epoch+1}/{self.second_stage_epochs}, "
+                    f"loss={epoch_loss/n:.4f}"
+                )
 
         response_net.eval()
 
@@ -534,32 +542,37 @@ class DeepIV:
                 tv1 = torch.full((n, 1), t_up, dtype=torch.float32, device=device)
                 txv0 = torch.cat([tv0, X_t], dim=1)
                 txv1 = torch.cat([tv1, X_t], dim=1)
-                eff = (response_net(txv1).squeeze().cpu().numpy()
-                       - response_net(txv0).squeeze().cpu().numpy()) * self._y_std
+                eff = (
+                    response_net(txv1).squeeze().cpu().numpy()
+                    - response_net(txv0).squeeze().cpu().numpy()
+                ) * self._y_std
             t_level = self._t_mean + delta_sd * self._t_std
-            detail_rows.append({
-                'treatment_level': round(float(t_level), 4),
-                'marginal_effect': round(float(np.mean(eff)), 6),
-                'std_dev': round(float(np.std(eff, ddof=1)), 6),
-            })
+            detail_rows.append(
+                {
+                    "treatment_level": round(float(t_level), 4),
+                    "marginal_effect": round(float(np.mean(eff)), 6),
+                    "std_dev": round(float(np.std(eff, ddof=1)), 6),
+                }
+            )
 
         detail = pd.DataFrame(detail_rows)
 
         model_info = {
-            'n_components': self.n_components,
-            'hidden_layers': self.hidden_layers,
-            'first_stage_epochs': self.first_stage_epochs,
-            'second_stage_epochs': self.second_stage_epochs,
-            'n_instruments': len(self.instruments),
-            'n_covariates': len(self.covariates),
-            'n_mc_samples': self.n_samples,
-            'n_gradient_samples': self.n_gradient_samples,
-            'gradient_estimator': (
-                'unbiased (paired)' if self.n_gradient_samples > 0
-                else 'single-sample (EconML default)'
+            "n_components": self.n_components,
+            "hidden_layers": self.hidden_layers,
+            "first_stage_epochs": self.first_stage_epochs,
+            "second_stage_epochs": self.second_stage_epochs,
+            "n_instruments": len(self.instruments),
+            "n_covariates": len(self.covariates),
+            "n_mc_samples": self.n_samples,
+            "n_gradient_samples": self.n_gradient_samples,
+            "gradient_estimator": (
+                "unbiased (paired)"
+                if self.n_gradient_samples > 0
+                else "single-sample (EconML default)"
             ),
-            'treatment_baseline': round(float(t0_raw), 4),
-            'treatment_shift': round(float(self._t_std), 4),
+            "treatment_baseline": round(float(t0_raw), 4),
+            "treatment_shift": round(float(self._t_std), 4),
         }
 
         self._mdn = mdn
@@ -570,8 +583,8 @@ class DeepIV:
         self._device = device
 
         return CausalResult(
-            method='DeepIV (Hartford et al. 2017)',
-            estimand='LATE',
+            method="DeepIV (Hartford et al. 2017)",
+            estimand="LATE",
             estimate=ate,
             se=se,
             pvalue=pvalue,
@@ -580,7 +593,7 @@ class DeepIV:
             n_obs=n,
             detail=detail,
             model_info=model_info,
-            _citation_key='deepiv',
+            _citation_key="deepiv",
         )
 
     def effect(
@@ -611,7 +624,7 @@ class DeepIV:
         except ImportError:
             raise ImportError("PyTorch required")
 
-        if not hasattr(self, '_response_net'):
+        if not hasattr(self, "_response_net"):
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X is None:
@@ -634,16 +647,10 @@ class DeepIV:
             tv0 = torch.full((n, 1), t0_s, dtype=torch.float32, device=device)
             tv1 = torch.full((n, 1), t1_s, dtype=torch.float32, device=device)
             y0 = (
-                self._response_net(torch.cat([tv0, X_t], dim=1))
-                .squeeze()
-                .cpu()
-                .numpy()
+                self._response_net(torch.cat([tv0, X_t], dim=1)).squeeze().cpu().numpy()
             )
             y1 = (
-                self._response_net(torch.cat([tv1, X_t], dim=1))
-                .squeeze()
-                .cpu()
-                .numpy()
+                self._response_net(torch.cat([tv1, X_t], dim=1)).squeeze().cpu().numpy()
             )
 
         return np.asarray((y1 - y0) * self._y_std, dtype=float)
@@ -652,6 +659,7 @@ class DeepIV:
 # ---------------------------------------------------------------------------
 # Neural network builders (PyTorch)
 # ---------------------------------------------------------------------------
+
 
 def _build_hidden_layers(
     input_dim: int,
@@ -761,7 +769,7 @@ def _sample_mdn(pi: Any, mu: Any, sigma: Any, n_samples: int) -> Any:
 # Citation
 # ---------------------------------------------------------------------------
 
-CausalResult._CITATIONS['deepiv'] = (
+CausalResult._CITATIONS["deepiv"] = (
     "@inproceedings{hartford2017deep,\n"
     "  title={Deep IV: A Flexible Approach for Counterfactual Prediction},\n"
     "  author={Hartford, Jason and Lewis, Greg and Leyton-Brown, Kevin "

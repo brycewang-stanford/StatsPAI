@@ -26,14 +26,13 @@ and return a tidy :class:`FrontierSensitivityResult`.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Optional, Sequence
+from typing import Optional, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
-
 
 __all__ = [
     "copula_sensitivity",
@@ -59,6 +58,7 @@ class FrontierSensitivityResult(ResultProtocolMixin):
     >>> res.method
     'copula_gaussian'
     """
+
     _citation_keys = (
         "balgi2025sensitivity",
         "hu2025nonparametric",
@@ -67,7 +67,7 @@ class FrontierSensitivityResult(ResultProtocolMixin):
     method: str
     estimate: float
     se: float
-    curve: pd.DataFrame      # columns depend on method
+    curve: pd.DataFrame  # columns depend on method
     breakpoint: Optional[float]
     interpretation: str
 
@@ -154,14 +154,16 @@ def copula_sensitivity(
         bp = float(grid[covers_zero][np.argmin(np.abs(grid[covers_zero]))])
     except ValueError:
         bp = None
-    curve = pd.DataFrame({
-        "rho": grid,
-        "bias": bias,
-        "adjusted_estimate": adjusted,
-        "ci_low": ci_low,
-        "ci_high": ci_high,
-        "significant": (ci_low > 0) | (ci_high < 0),
-    })
+    curve = pd.DataFrame(
+        {
+            "rho": grid,
+            "bias": bias,
+            "adjusted_estimate": adjusted,
+            "ci_low": ci_low,
+            "ci_high": ci_high,
+            "significant": (ci_low > 0) | (ci_high < 0),
+        }
+    )
     if bp is None:
         interpretation = (
             "No correlation in the grid makes the adjusted effect cross zero; "
@@ -248,15 +250,17 @@ def survival_sensitivity(
         bp = float(grid2[covers_zero_worst][np.argmin(grid2[covers_zero_worst])])
     except ValueError:
         bp = None
-    curve = pd.DataFrame({
-        "gamma": grid2,
-        "log_hr_worst": log_hr_worst,
-        "log_hr_best": log_hr_best,
-        "delta_survival_worst": delta_worst,
-        "delta_survival_best": delta_best,
-        "worst_ci_low": ci_low_worst,
-        "worst_ci_high": ci_high_worst,
-    })
+    curve = pd.DataFrame(
+        {
+            "gamma": grid2,
+            "log_hr_worst": log_hr_worst,
+            "log_hr_best": log_hr_best,
+            "delta_survival_worst": delta_worst,
+            "delta_survival_best": delta_best,
+            "worst_ci_low": ci_low_worst,
+            "worst_ci_high": ci_high_worst,
+        }
+    )
     if bp is None:
         interpretation = (
             "No sensitivity parameter Γ in the grid overturns the effect — "
@@ -338,17 +342,19 @@ def calibrate_confounding_strength(
         rd = min(k * observed_r2_treatment, 0.99)
         max_bias = np.sqrt(ry * rd / max(1.0 - rd, 1e-6)) * se
         adjusted = estimate - np.sign(delta) * max_bias
-        rows.append({
-            "multiplier": k,
-            "r2_outcome": ry,
-            "r2_treatment": rd,
-            "max_bias": max_bias,
-            "adjusted_estimate": adjusted,
-            "explains_away": bool(
-                (delta > 0 and adjusted <= target_estimate)
-                or (delta < 0 and adjusted >= target_estimate)
-            ),
-        })
+        rows.append(
+            {
+                "multiplier": k,
+                "r2_outcome": ry,
+                "r2_treatment": rd,
+                "max_bias": max_bias,
+                "adjusted_estimate": adjusted,
+                "explains_away": bool(
+                    (delta > 0 and adjusted <= target_estimate)
+                    or (delta < 0 and adjusted >= target_estimate)
+                ),
+            }
+        )
     curve = pd.DataFrame(rows)
     survivors = curve.loc[curve["explains_away"]]
     bp = float(survivors["multiplier"].min()) if not survivors.empty else None

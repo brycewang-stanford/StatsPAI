@@ -15,29 +15,22 @@ Econometrics*, 20(4), 445-465. [@machado2005counterfactual]
 Albrecht, Björklund, Vroman (2003). "Is There a Glass Ceiling in Sweden?"
 *Journal of Labor Economics*, 21(1), 145-177. [@albrecht2003there]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Dict, Optional, Sequence, Tuple
+from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 
 from ._results import DecompResultMixin
-from ._common import (
-    add_constant,
-    bootstrap_ci,
-    bootstrap_stat,
-    parse_formula,
-    prepare_frame,
-    sig_stars,
-    weighted_quantile,
-)
-
+from ._common import add_constant, prepare_frame
 
 # ════════════════════════════════════════════════════════════════════════
 # Quantile regression via IRLS (Koenker)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def _qreg_irls(
     y: np.ndarray,
@@ -90,17 +83,16 @@ def _qreg_grid(
 # Result
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class MachadoMataResult(DecompResultMixin):
     """Container for Machado-Mata decomposition."""
 
     method_name: ClassVar[str] = "Machado-Mata Quantile Decomposition"
-    bib_keys: ClassVar[Tuple[str, ...]] = (
-        "machado2005counterfactual",
-    )
+    bib_keys: ClassVar[Tuple[str, ...]] = ("machado2005counterfactual",)
 
-    quantile_grid: pd.DataFrame   # τ, q_a, q_b, q_cf, gap, composition, structure
-    overall: Dict[str, float]     # aggregated across grid
+    quantile_grid: pd.DataFrame  # τ, q_a, q_b, q_cf, gap, composition, structure
+    overall: Dict[str, float]  # aggregated across grid
     reference: int
     n_sim: int
     n_a: int
@@ -132,15 +124,20 @@ class MachadoMataResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import quantile_process_plot
+
         return quantile_process_plot(self, **kwargs)
 
     def to_latex(self) -> str:
         g = self.quantile_grid
-        lines = [r"\begin{table}[htbp]", r"\centering",
-                 r"\caption{Machado-Mata Decomposition}",
-                 r"\begin{tabular}{ccccccc}", r"\toprule",
-                 r"$\tau$ & $q_A$ & $q_B$ & $q_{cf}$ & Gap & Comp. & Struct. \\",
-                 r"\midrule"]
+        lines = [
+            r"\begin{table}[htbp]",
+            r"\centering",
+            r"\caption{Machado-Mata Decomposition}",
+            r"\begin{tabular}{ccccccc}",
+            r"\toprule",
+            r"$\tau$ & $q_A$ & $q_B$ & $q_{cf}$ & Gap & Comp. & Struct. \\",
+            r"\midrule",
+        ]
         for _, row in g.iterrows():
             lines.append(
                 f"{row['tau']:.2f} & {row['q_a']:.4f} & {row['q_b']:.4f} & "
@@ -154,9 +151,7 @@ class MachadoMataResult(DecompResultMixin):
         html: str = self.quantile_grid.round(4).to_html(index=False)
         return (
             "<div style='font-family:monospace;'>"
-            "<h3>Machado-Mata Decomposition</h3>"
-            + html
-            + "</div>"
+            "<h3>Machado-Mata Decomposition</h3>" + html + "</div>"
         )
 
     def __repr__(self) -> str:
@@ -169,6 +164,7 @@ class MachadoMataResult(DecompResultMixin):
 # ════════════════════════════════════════════════════════════════════════
 # Core function
 # ════════════════════════════════════════════════════════════════════════
+
 
 def machado_mata(
     data: pd.DataFrame,
@@ -247,9 +243,7 @@ def machado_mata(
         raise ValueError("Need ≥20 obs per group for Machado-Mata.")
 
     if tau_grid is None:
-        tau_src: Sequence[float] | np.ndarray = np.round(
-            np.arange(0.1, 0.95, 0.1), 2
-        )
+        tau_src: Sequence[float] | np.ndarray = np.round(np.arange(0.1, 0.95, 0.1), 2)
     else:
         tau_src = tau_grid
     tau_arr = np.asarray(tau_src, dtype=float)
@@ -260,15 +254,13 @@ def machado_mata(
 
     rng = np.random.default_rng(seed)
 
-    def simulate(
-        beta_grid: np.ndarray, X_source: np.ndarray, n: int
-    ) -> np.ndarray:
+    def simulate(beta_grid: np.ndarray, X_source: np.ndarray, n: int) -> np.ndarray:
         """Draw n times: random τ, random row from X_source, predict y."""
         n_src = X_source.shape[0]
         t_idx = rng.integers(0, len(tau_qr), size=n)
         r_idx = rng.integers(0, n_src, size=n)
-        b = beta_grid[t_idx]        # (n, k)
-        xrow = X_source[r_idx]      # (n, k)
+        b = beta_grid[t_idx]  # (n, k)
+        xrow = X_source[r_idx]  # (n, k)
         return np.asarray(np.sum(b * xrow, axis=1))
 
     # Simulated (marginal) distributions
@@ -289,12 +281,21 @@ def machado_mata(
         gap = q_a - q_b
         if reference == 0:
             composition = q_a - q_cf  # effect of X being A-like vs B-like (A's coefs)
-            structure = q_cf - q_b    # remaining
+            structure = q_cf - q_b  # remaining
         else:
             composition = q_cf - q_b
             structure = q_a - q_cf
-        rows.append({"tau": t, "q_a": q_a, "q_b": q_b, "q_cf": q_cf,
-                     "gap": gap, "composition": composition, "structure": structure})
+        rows.append(
+            {
+                "tau": t,
+                "q_a": q_a,
+                "q_b": q_b,
+                "q_cf": q_cf,
+                "gap": gap,
+                "composition": composition,
+                "structure": structure,
+            }
+        )
     grid_df = pd.DataFrame(rows)
 
     overall = {
@@ -351,14 +352,20 @@ def machado_mata(
         if len(boot_list) > 10:
             gaps_arr = np.array([b[0] for b in boot_list])
             comps_arr = np.array([b[1] for b in boot_list])
-            se_df = pd.DataFrame({
-                "tau": tau_arr,
-                "gap_se": gaps_arr.std(axis=0, ddof=1),
-                "composition_se": comps_arr.std(axis=0, ddof=1),
-            })
+            se_df = pd.DataFrame(
+                {
+                    "tau": tau_arr,
+                    "gap_se": gaps_arr.std(axis=0, ddof=1),
+                    "composition_se": comps_arr.std(axis=0, ddof=1),
+                }
+            )
 
     return MachadoMataResult(
-        quantile_grid=grid_df, overall=overall, reference=reference,
-        n_sim=n_sim, n_a=int(len(y_a)), n_b=int(len(y_b)),
+        quantile_grid=grid_df,
+        overall=overall,
+        reference=reference,
+        n_sim=n_sim,
+        n_a=int(len(y_a)),
+        n_b=int(len(y_b)),
         se=se_df,
     )

@@ -101,9 +101,7 @@ def _standardised_diff(x_t: np.ndarray, x_c: np.ndarray) -> float:
     return float((x_t.mean() - x_c.mean()) / pooled)
 
 
-def _ks_p(
-    x_t: np.ndarray, x_c: np.ndarray, failures: Optional[list] = None
-) -> float:
+def _ks_p(x_t: np.ndarray, x_c: np.ndarray, failures: Optional[list] = None) -> float:
     try:
         return float(stats.ks_2samp(x_t, x_c).pvalue)
     except Exception as exc:
@@ -140,7 +138,10 @@ def _match_with_weights(
 
 
 def _balance_stats(
-    X_t: np.ndarray, X_c: np.ndarray, matches: np.ndarray, names: Sequence[str],
+    X_t: np.ndarray,
+    X_c: np.ndarray,
+    matches: np.ndarray,
+    names: Sequence[str],
     failures: Optional[list] = None,
 ) -> pd.DataFrame:
     rows = []
@@ -151,13 +152,15 @@ def _balance_stats(
         smd_post = _standardised_diff(matched_t, matched_c)
         ks_pre = _ks_p(X_t[:, j], X_c[:, j], failures=failures)
         ks_post = _ks_p(X_t[:, j], matched_c, failures=failures)
-        rows.append({
-            "variable": name,
-            "smd_pre": smd_pre,
-            "smd_post": smd_post,
-            "ks_p_pre": ks_pre,
-            "ks_p_post": ks_post,
-        })
+        rows.append(
+            {
+                "variable": name,
+                "smd_pre": smd_pre,
+                "smd_post": smd_post,
+                "ks_p_pre": ks_pre,
+                "ks_p_post": ks_post,
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -311,11 +314,13 @@ def genmatch(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.matching.genmatch",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "k": k,
                 "population_size": population_size,

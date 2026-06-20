@@ -22,21 +22,22 @@ from typing import Any, Callable, Dict, Tuple
 import numpy as np
 from scipy import stats
 
-
 # Registered bridge implementations. New bridges register themselves at
 # import time by inserting (kind, callable) into _BRIDGES.
-_BRIDGES: Dict[str, Callable[..., 'BridgeResult']] = {}
+_BRIDGES: Dict[str, Callable[..., "BridgeResult"]] = {}
 
 
 def _register(
     kind: str,
-) -> Callable[[Callable[..., 'BridgeResult']], Callable[..., 'BridgeResult']]:
+) -> Callable[[Callable[..., "BridgeResult"]], Callable[..., "BridgeResult"]]:
     """Decorator: register a bridge implementation under ``kind``."""
+
     def deco(
-        fn: Callable[..., 'BridgeResult'],
-    ) -> Callable[..., 'BridgeResult']:
+        fn: Callable[..., "BridgeResult"],
+    ) -> Callable[..., "BridgeResult"]:
         _BRIDGES[kind] = fn
         return fn
+
     return deco
 
 
@@ -142,8 +143,10 @@ class BridgeResult:
 
 
 def _agreement_test(
-    est_a: float, se_a: float,
-    est_b: float, se_b: float,
+    est_a: float,
+    se_a: float,
+    est_b: float,
+    se_b: float,
 ) -> Tuple[float, float, float]:
     """Wald test for H0: est_a == est_b, assuming independence.
 
@@ -160,8 +163,10 @@ def _agreement_test(
 
 
 def _dr_combine(
-    est_a: float, se_a: float,
-    est_b: float, se_b: float,
+    est_a: float,
+    se_a: float,
+    est_b: float,
+    se_b: float,
     diff_p: float,
 ) -> Tuple[float, float]:
     """Precision-weighted combined estimate.
@@ -174,7 +179,8 @@ def _dr_combine(
             f"Bridge paths disagree (p = {diff_p:.3f} ≤ 0.05). "
             f"Returning path A only; investigate which assumption "
             f"is failing.",
-            RuntimeWarning, stacklevel=3,
+            RuntimeWarning,
+            stacklevel=3,
         )
         return float(est_a), float(se_a)
     var_a = max(se_a, 1e-12) ** 2
@@ -232,18 +238,20 @@ def bridge(kind: str, **kwargs: Any) -> BridgeResult:
     >>> bool(result.agreement)
     True
     """
-    # Lazy import: each bridge module registers itself on import.
-    from . import (
-        did_sc as _did_sc,                # noqa: F401
-        ewm_cate as _ewm_cate,            # noqa: F401
-        cb_ipw as _cb_ipw,                # noqa: F401
-        kink_rdd as _kink_rdd,            # noqa: F401
-        dr_calib as _dr_calib,            # noqa: F401
-        surrogate_pci as _surrogate_pci,  # noqa: F401
+    # Lazy import: each bridge module registers itself on import. These names
+    # are bound only for the registration side effect (never referenced), so
+    # F401 is suppressed at the opening line where flake8 reports it.
+    from . import (  # noqa: F401
+        did_sc as _did_sc,
+        ewm_cate as _ewm_cate,
+        cb_ipw as _cb_ipw,
+        kink_rdd as _kink_rdd,
+        dr_calib as _dr_calib,
+        surrogate_pci as _surrogate_pci,
     )
+
     if kind not in _BRIDGES:
         raise ValueError(
-            f"Unknown bridge kind={kind!r}. Available: "
-            f"{sorted(_BRIDGES.keys())}"
+            f"Unknown bridge kind={kind!r}. Available: " f"{sorted(_BRIDGES.keys())}"
         )
     return _BRIDGES[kind](**kwargs)

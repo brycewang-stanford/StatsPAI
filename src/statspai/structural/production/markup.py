@@ -112,7 +112,11 @@ def markup(
     export status. American Economic Review, 102(6), 2437-2471.
     """
     sample = result.sample
-    fform = result.model_info.get("functional_form", "cobb-douglas").lower().replace("_", "-")
+    fform = (
+        result.model_info.get("functional_form", "cobb-douglas")
+        .lower()
+        .replace("_", "-")
+    )
 
     # Resolve theta_v_it: scalar for Cobb-Douglas, firm-time vector for translog.
     if fform in ("cobb-douglas", "cd"):

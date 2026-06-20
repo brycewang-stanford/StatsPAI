@@ -123,7 +123,7 @@ def ddd(
     df = data.copy()
 
     # Validate binary variables
-    for col, label in [(treat, 'Treatment'), (time, 'Time'), (subgroup, 'Subgroup')]:
+    for col, label in [(treat, "Treatment"), (time, "Time"), (subgroup, "Subgroup")]:
         vals = sorted(df[col].dropna().unique())
         if len(vals) != 2:
             raise ValueError(
@@ -165,16 +165,23 @@ def ddd(
     # Build design matrix
     X_parts = [np.ones(len(y_arr)), d, t, g, dt, dg, tg, dtg]
     X_names = [
-        'const', treat, time, subgroup,
-        f'{treat}x{time}', f'{treat}x{subgroup}',
-        f'{time}x{subgroup}', f'{treat}x{time}x{subgroup}',
+        "const",
+        treat,
+        time,
+        subgroup,
+        f"{treat}x{time}",
+        f"{treat}x{subgroup}",
+        f"{time}x{subgroup}",
+        f"{treat}x{time}x{subgroup}",
     ]
 
     if covariates:
         for cov in covariates:
-            X_parts.append(df.loc[valid, cov].values.astype(float)
-                           if isinstance(valid, np.ndarray)
-                           else df[cov].values.astype(float))
+            X_parts.append(
+                df.loc[valid, cov].values.astype(float)
+                if isinstance(valid, np.ndarray)
+                else df[cov].values.astype(float)
+            )
             X_names.append(cov)
 
     X = np.column_stack(X_parts)
@@ -182,7 +189,11 @@ def ddd(
 
     # --- Analytical weights (WLS) ---
     if weights is not None:
-        w_raw = df.loc[valid, weights].values.astype(float) if isinstance(valid, np.ndarray) else df[weights].values.astype(float)
+        w_raw = (
+            df.loc[valid, weights].values.astype(float)
+            if isinstance(valid, np.ndarray)
+            else df[weights].values.astype(float)
+        )
         if np.any(w_raw < 0):
             raise ValueError(f"Weights column '{weights}' contains negative values.")
         w = w_raw * (n / w_raw.sum())
@@ -205,14 +216,20 @@ def ddd(
 
     # Variance-covariance
     if cluster is not None:
-        cl = df.loc[valid, cluster].values if isinstance(valid, np.ndarray) else df[cluster].values
+        cl = (
+            df.loc[valid, cluster].values
+            if isinstance(valid, np.ndarray)
+            else df[cluster].values
+        )
         unique_cl = np.unique(cl)
         n_cl = len(unique_cl)
         meat = np.zeros((k, k))
         for c_val in unique_cl:
             idx = cl == c_val
             if w is not None:
-                score = (Xw[idx] * (sqrt_w[idx] * resid[idx])[:, np.newaxis]).sum(axis=0)
+                score = (Xw[idx] * (sqrt_w[idx] * resid[idx])[:, np.newaxis]).sum(
+                    axis=0
+                )
             else:
                 score = (X[idx] * resid[idx, np.newaxis]).sum(axis=0)
             meat += np.outer(score, score)
@@ -220,22 +237,22 @@ def ddd(
         vcov = correction * XtX_inv @ meat @ XtX_inv
     elif robust:
         if w is not None:
-            hc1_weights = (n / (n - k)) * (w * resid ** 2)
+            hc1_weights = (n / (n - k)) * (w * resid**2)
         else:
-            hc1_weights = (n / (n - k)) * resid ** 2
+            hc1_weights = (n / (n - k)) * resid**2
         meat = X.T @ np.diag(hc1_weights) @ X
         vcov = XtX_inv @ meat @ XtX_inv
     else:
         if w is not None:
-            sigma2 = np.sum(w * resid ** 2) / (n - k)
+            sigma2 = np.sum(w * resid**2) / (n - k)
         else:
-            sigma2 = np.sum(resid ** 2) / (n - k)
+            sigma2 = np.sum(resid**2) / (n - k)
         vcov = sigma2 * XtX_inv
 
     se = np.sqrt(np.diag(vcov))
 
     # DDD coefficient is the triple interaction
-    ddd_idx = X_names.index(f'{treat}x{time}x{subgroup}')
+    ddd_idx = X_names.index(f"{treat}x{time}x{subgroup}")
     estimate = float(beta[ddd_idx])
     est_se = float(se[ddd_idx])
     t_stat = estimate / est_se if est_se > 0 else np.nan
@@ -245,46 +262,48 @@ def ddd(
     ci = (estimate - t_crit * est_se, estimate + t_crit * est_se)
 
     # Also extract the DID coefficient (for comparison)
-    did_idx = X_names.index(f'{treat}x{time}')
+    did_idx = X_names.index(f"{treat}x{time}")
     did_estimate = float(beta[did_idx])
 
     # Full coefficient table
     t_stats_all = beta / se
     pvals_all = 2 * (1 - stats.t.cdf(np.abs(t_stats_all), df_resid))
-    detail = pd.DataFrame({
-        'variable': X_names,
-        'coefficient': beta,
-        'se': se,
-        'tstat': t_stats_all,
-        'pvalue': pvals_all,
-    })
+    detail = pd.DataFrame(
+        {
+            "variable": X_names,
+            "coefficient": beta,
+            "se": se,
+            "tstat": t_stats_all,
+            "pvalue": pvals_all,
+        }
+    )
 
     # R-squared (weighted if applicable)
     if w is not None:
         y_wmean = np.sum(w * y_arr) / np.sum(w)
         tss = np.sum(w * (y_arr - y_wmean) ** 2)
-        rss = np.sum(w * resid ** 2)
+        rss = np.sum(w * resid**2)
     else:
         tss = np.sum((y_arr - np.mean(y_arr)) ** 2)
-        rss = np.sum(resid ** 2)
+        rss = np.sum(resid**2)
     r_squared = 1 - rss / tss if tss > 0 else 0.0
 
     model_info = {
-        'r_squared': round(r_squared, 6),
-        'n_obs': n,
-        'n_treated': int(d.sum()),
-        'n_control': int((1 - d).sum()),
-        'n_subgroup': int(g.sum()),
-        'n_comparison': int((1 - g).sum()),
-        'did_estimate': round(did_estimate, 6),
-        'robust_se': robust,
-        'cluster': cluster,
-        'weights': weights,
+        "r_squared": round(r_squared, 6),
+        "n_obs": n,
+        "n_treated": int(d.sum()),
+        "n_control": int((1 - d).sum()),
+        "n_subgroup": int(g.sum()),
+        "n_comparison": int((1 - g).sum()),
+        "did_estimate": round(did_estimate, 6),
+        "robust_se": robust,
+        "cluster": cluster,
+        "weights": weights,
     }
 
     _result = CausalResult(
-        method='Triple Differences (DDD)',
-        estimand='ATT',
+        method="Triple Differences (DDD)",
+        estimand="ATT",
         estimate=estimate,
         se=est_se,
         pvalue=pvalue,
@@ -293,19 +312,24 @@ def ddd(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='ddd',
+        _citation_key="ddd",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.ddd",
             params={
-                "y": y, "treat": treat, "time": time,
+                "y": y,
+                "treat": treat,
+                "time": time,
                 "subgroup": subgroup,
                 "covariates": list(covariates) if covariates else None,
-                "cluster": cluster, "robust": robust,
-                "alpha": alpha, "weights": weights,
+                "cluster": cluster,
+                "robust": robust,
+                "alpha": alpha,
+                "weights": weights,
             },
             data=data,
             overwrite=False,

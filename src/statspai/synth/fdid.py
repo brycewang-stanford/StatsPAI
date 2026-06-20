@@ -38,7 +38,6 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Internal helpers
 # ======================================================================
@@ -230,9 +229,7 @@ def _forward_select_cv(
                 train_synth = Y0_pre[np.ix_(candidate, np.arange(split))].mean(axis=0)
                 train_y = Y1_pre[:split]
                 bias = train_y.mean() - train_synth.mean()
-                pred = float(
-                    Y0_pre[np.ix_(candidate, np.array([split]))].mean() + bias
-                )
+                pred = float(Y0_pre[np.ix_(candidate, np.array([split]))].mean() + bias)
                 actual = float(Y1_pre[split])
                 cv_errors.append((actual - pred) ** 2)
             cv_rmse = float(np.sqrt(np.mean(cv_errors)))
@@ -365,20 +362,23 @@ def _placebo_inference(
         if len(sel_idx) == 0:
             continue  # pragma: no cover
 
-        p_att, _ = _did_estimate(Y1p_pre, Y1p_post, Y0p_pre, Y0p_post,
-                                 np.array(sel_idx, dtype=int))
+        p_att, _ = _did_estimate(
+            Y1p_pre, Y1p_post, Y0p_pre, Y0p_post, np.array(sel_idx, dtype=int)
+        )
         pre_rmspe = _pre_rmse(Y1p_pre, Y0p_pre, np.array(sel_idx, dtype=int))
         # Post RMSPE (using counterfactual)
         synth_post = Y0p_post[sel_idx].mean(axis=0)
         bias = Y1p_pre.mean() - Y0p_pre[sel_idx].mean(axis=0).mean()
         post_rmspe = float(np.sqrt(np.mean((Y1p_post - (synth_post + bias)) ** 2)))
 
-        records.append({
-            "unit": placebo_unit,
-            "att": p_att,
-            "pre_rmspe": pre_rmspe,
-            "post_rmspe": post_rmspe,
-        })
+        records.append(
+            {
+                "unit": placebo_unit,
+                "att": p_att,
+                "pre_rmspe": pre_rmspe,
+                "post_rmspe": post_rmspe,
+            }
+        )
 
     placebo_df = pd.DataFrame(records)
 
@@ -500,9 +500,7 @@ def fdid(
             raise ValueError(f"Column '{col}' not found in data.")  # pragma: no cover
 
     if treated_unit not in data[unit].values:
-        raise ValueError(
-            f"treated_unit '{treated_unit}' not found in column '{unit}'."
-        )
+        raise ValueError(f"treated_unit '{treated_unit}' not found in column '{unit}'.")
 
     if treatment_time not in data[time].values:
         raise ValueError(
@@ -545,7 +543,10 @@ def fdid(
     }[method]
 
     selected_idx, selection_path = selector(
-        Y1_pre, Y0_pre, donor_names, max_donors,
+        Y1_pre,
+        Y0_pre,
+        donor_names,
+        max_donors,
     )
 
     if len(selected_idx) == 0:
@@ -571,12 +572,14 @@ def fdid(
     # ------------------------------------------------------------------
     # Period-by-period effects
     # ------------------------------------------------------------------
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "treated": Y1_post,
-        "counterfactual": synth_post + bias,
-        "effect": effects,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "treated": Y1_post,
+            "counterfactual": synth_post + bias,
+            "effect": effects,
+        }
+    )
 
     # ------------------------------------------------------------------
     # Inference (placebo permutation)
@@ -588,8 +591,14 @@ def fdid(
 
     if placebo and len(donors) >= 2:
         se, pvalue, placebo_df = _placebo_inference(
-            panel, pre_times, post_times,
-            treated_unit, donors, method, max_donors, att,
+            panel,
+            pre_times,
+            post_times,
+            treated_unit,
+            donors,
+            method,
+            max_donors,
+            att,
         )
         if not np.isnan(se) and se > 0:
             z = stats.norm.ppf(1 - alpha / 2)
@@ -605,7 +614,9 @@ def fdid(
             se = float(np.std(donor_atts, ddof=1) / np.sqrt(len(donor_atts)))
             z = stats.norm.ppf(1 - alpha / 2)
             ci = (att - z * se, att + z * se)
-            pvalue = float(2 * (1 - stats.norm.cdf(abs(att / se)))) if se > 0 else np.nan
+            pvalue = (
+                float(2 * (1 - stats.norm.cdf(abs(att / se)))) if se > 0 else np.nan
+            )
 
     # ------------------------------------------------------------------
     # Selected donor info

@@ -38,7 +38,7 @@ from ._core import _kernel_fn
 # Citations
 # ======================================================================
 
-CausalResult._CITATIONS['rd_forest'] = (
+CausalResult._CITATIONS["rd_forest"] = (
     "@article{athey2019generalized,\n"
     "  title={Generalized random forests},\n"
     "  author={Athey, Susan and Tibshirani, Julie and Wager, Stefan},\n"
@@ -50,7 +50,7 @@ CausalResult._CITATIONS['rd_forest'] = (
     "}"
 )
 
-CausalResult._CITATIONS['rd_boost'] = (
+CausalResult._CITATIONS["rd_boost"] = (
     "@article{athey2019generalized,\n"
     "  title={Generalized random forests},\n"
     "  author={Athey, Susan and Tibshirani, Julie and Wager, Stefan},\n"
@@ -62,7 +62,7 @@ CausalResult._CITATIONS['rd_boost'] = (
     "}"
 )
 
-CausalResult._CITATIONS['rd_lasso'] = (
+CausalResult._CITATIONS["rd_lasso"] = (
     "@article{belloni2014inference,\n"
     "  title={Inference on treatment effects after selection among "
     "high-dimensional controls},\n"
@@ -81,6 +81,7 @@ CausalResult._CITATIONS['rd_lasso'] = (
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _ik_bandwidth_simple(y: np.ndarray, x: np.ndarray, c: float) -> float:
     """
@@ -144,7 +145,9 @@ def _restrict_to_bandwidth(
     """
     if h is None:
         h = _ik_bandwidth_simple(
-            data[y].values, data[x].values, c,
+            data[y].values,
+            data[x].values,
+            c,
         )
     mask = (data[x] >= c - h) & (data[x] <= c + h)
     sub = data.loc[mask].copy()
@@ -153,18 +156,23 @@ def _restrict_to_bandwidth(
             f"Only {len(sub)} observations within bandwidth h={h:.4f}. "
             "Increase h or check data.",
             recovery_hint="Increase `h`, use a denser window near the cutoff, or check the running variable.",
-            diagnostics={"n_bandwidth": int(len(sub)), "h": float(h), "cutoff": float(c)},
+            diagnostics={
+                "n_bandwidth": int(len(sub)),
+                "h": float(h),
+                "cutoff": float(c),
+            },
         )
     return sub, h
 
 
 def _triangular_weights(x_vals: np.ndarray, c: float, h: float) -> np.ndarray:
     """Triangular kernel weights for observations within bandwidth."""
-    return _kernel_fn((x_vals - c) / h, 'triangular')
+    return _kernel_fn((x_vals - c) / h, "triangular")
 
 
 def _validate_covariates(
-    data: pd.DataFrame, covs: Optional[Sequence[str] | str],
+    data: pd.DataFrame,
+    covs: Optional[Sequence[str] | str],
 ) -> List[str]:
     """Return validated covariate list; raise on missing columns."""
     if covs is None:
@@ -192,7 +200,10 @@ def _validate_covariates(
         raise MethodIncompatibility(
             f"Covariates not found in data: {missing}",
             recovery_hint="Check `covs` against the DataFrame columns.",
-            diagnostics={"missing_covariates": missing, "available_columns": list(data.columns)},
+            diagnostics={
+                "missing_covariates": missing,
+                "available_columns": list(data.columns),
+            },
         )  # pragma: no cover
     return cov_list
 
@@ -200,6 +211,7 @@ def _validate_covariates(
 # ======================================================================
 # 1. rd_forest  — Causal Forest for RD
 # ======================================================================
+
 
 def rd_forest(
     data: pd.DataFrame,
@@ -381,9 +393,7 @@ def rd_forest(
     preds_1 = np.column_stack(
         [tree.predict(Z_est) for tree in rf1.estimators_]
     )  # (n_est, n_trees)
-    preds_0 = np.column_stack(
-        [tree.predict(Z_est) for tree in rf0.estimators_]
-    )
+    preds_0 = np.column_stack([tree.predict(Z_est) for tree in rf0.estimators_])
     tau_trees = preds_1 - preds_0  # (n_est, n_trees)
 
     # Infinitesimal jackknife SE per observation
@@ -397,8 +407,7 @@ def rd_forest(
     ate = float(np.mean(cate))
     # SE of the mean: combine within-unit variance and cross-unit variance
     n_est = len(cate)
-    se_ate = float(np.sqrt(np.var(cate, ddof=1) / n_est +
-                           np.mean(cate_var) / n_est))
+    se_ate = float(np.sqrt(np.var(cate, ddof=1) / n_est + np.mean(cate_var) / n_est))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     ci = (ate - z_crit * se_ate, ate + z_crit * se_ate)
@@ -409,43 +418,43 @@ def rd_forest(
     imp0 = rf0.feature_importances_
     avg_importance = (imp1 + imp0) / 2
     var_importance = dict(zip(covs, avg_importance.tolist()))
-    var_importance = dict(
-        sorted(var_importance.items(), key=lambda kv: -kv[1])
-    )
+    var_importance = dict(sorted(var_importance.items(), key=lambda kv: -kv[1]))
 
     # --- OOB score (only meaningful when honesty=False) ---
-    oob1 = getattr(rf1, 'oob_score_', None)
-    oob0 = getattr(rf0, 'oob_score_', None)
+    oob1 = getattr(rf1, "oob_score_", None)
+    oob0 = getattr(rf0, "oob_score_", None)
 
     # --- Detail DataFrame ---
     est_indices = sub.index[idx_est].tolist()
-    detail = pd.DataFrame({
-        'obs_index': est_indices,
-        'cate': cate,
-        'se': cate_se,
-        'ci_lower': cate - z_crit * cate_se,
-        'ci_upper': cate + z_crit * cate_se,
-    })
+    detail = pd.DataFrame(
+        {
+            "obs_index": est_indices,
+            "cate": cate,
+            "se": cate_se,
+            "ci_lower": cate - z_crit * cate_se,
+            "ci_upper": cate + z_crit * cate_se,
+        }
+    )
 
     model_info = {
-        'method': 'rd_forest',
-        'bandwidth': h_used,
-        'cutoff': c,
-        'n_trees': n_trees,
-        'min_leaf': min_leaf,
-        'honesty': honesty,
-        'n_treated': int(n_treated),
-        'n_control': int(n_control),
-        'n_estimation': n_est,
-        'variable_importance': var_importance,
-        'feature_names': covs,
-        'oob_score_treated': oob1,
-        'oob_score_control': oob0,
+        "method": "rd_forest",
+        "bandwidth": h_used,
+        "cutoff": c,
+        "n_trees": n_trees,
+        "min_leaf": min_leaf,
+        "honesty": honesty,
+        "n_treated": int(n_treated),
+        "n_control": int(n_control),
+        "n_estimation": n_est,
+        "variable_importance": var_importance,
+        "feature_names": covs,
+        "oob_score_treated": oob1,
+        "oob_score_control": oob0,
     }
 
     return CausalResult(
-        method='RD Causal Forest (Athey-Wager)',
-        estimand='CATE (avg)',
+        method="RD Causal Forest (Athey-Wager)",
+        estimand="CATE (avg)",
         estimate=ate,
         se=se_ate,
         pvalue=pvalue,
@@ -454,13 +463,14 @@ def rd_forest(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='rd_forest',
+        _citation_key="rd_forest",
     )
 
 
 # ======================================================================
 # 2. rd_boost  — Gradient Boosting for RD
 # ======================================================================
+
 
 def rd_boost(
     data: pd.DataFrame,
@@ -641,35 +651,35 @@ def rd_boost(
     imp0 = gbm0.feature_importances_
     avg_importance = (imp1 + imp0) / 2
     var_importance = dict(zip(covs, avg_importance.tolist()))
-    var_importance = dict(
-        sorted(var_importance.items(), key=lambda kv: -kv[1])
+    var_importance = dict(sorted(var_importance.items(), key=lambda kv: -kv[1]))
+
+    detail = pd.DataFrame(
+        {
+            "obs_index": sub.index.tolist(),
+            "cate": cate,
+            "se": cate_se,
+            "ci_lower": cate - z_crit * cate_se,
+            "ci_upper": cate + z_crit * cate_se,
+        }
     )
 
-    detail = pd.DataFrame({
-        'obs_index': sub.index.tolist(),
-        'cate': cate,
-        'se': cate_se,
-        'ci_lower': cate - z_crit * cate_se,
-        'ci_upper': cate + z_crit * cate_se,
-    })
-
     model_info = {
-        'method': 'rd_boost',
-        'bandwidth': h_used,
-        'cutoff': c,
-        'n_estimators': n_estimators,
-        'max_depth': max_depth,
-        'learning_rate': learning_rate,
-        'n_boot': n_boot,
-        'n_treated': n_treated,
-        'n_control': n_control,
-        'variable_importance': var_importance,
-        'feature_names': covs,
+        "method": "rd_boost",
+        "bandwidth": h_used,
+        "cutoff": c,
+        "n_estimators": n_estimators,
+        "max_depth": max_depth,
+        "learning_rate": learning_rate,
+        "n_boot": n_boot,
+        "n_treated": n_treated,
+        "n_control": n_control,
+        "variable_importance": var_importance,
+        "feature_names": covs,
     }
 
     return CausalResult(
-        method='RD Gradient Boosting',
-        estimand='CATE (avg)',
+        method="RD Gradient Boosting",
+        estimand="CATE (avg)",
         estimate=ate,
         se=se_ate,
         pvalue=pvalue,
@@ -678,13 +688,14 @@ def rd_boost(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='rd_boost',
+        _citation_key="rd_boost",
     )
 
 
 # ======================================================================
 # 3. rd_lasso  — LASSO-assisted RD (post-double-selection)
 # ======================================================================
+
 
 def rd_lasso(
     data: pd.DataFrame,
@@ -693,7 +704,7 @@ def rd_lasso(
     c: float = 0,
     covs: Optional[List[str]] = None,
     h: Optional[float] = None,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     cv_folds: int = 5,
     alpha: float = 0.05,
 ) -> CausalResult:
@@ -821,16 +832,18 @@ def rd_lasso(
 
     # Build design: intercept, D, X_run, D*X_run, selected Z
     ones = np.ones(n)
-    X_design = np.column_stack([
-        ones,
-        D,
-        X_run,
-        D * X_run,
-    ])
+    X_design = np.column_stack(
+        [
+            ones,
+            D,
+            X_run,
+            D * X_run,
+        ]
+    )
     if n_sel > 0:
         X_design = np.column_stack([X_design, Z_sel])
 
-    col_names = ['intercept', 'D', 'X_run', 'D_X_run'] + selected_names
+    col_names = ["intercept", "D", "X_run", "D_X_run"] + selected_names
 
     # WLS: multiply by sqrt(w)
     Xw = X_design * sqrt_w[:, None]
@@ -870,30 +883,32 @@ def rd_lasso(
     pvalue = float(2 * (1 - stats.norm.cdf(abs(tau_hat) / max(se_tau, 1e-15))))
 
     # --- All coefficients ---
-    coef_table = pd.DataFrame({
-        'variable': col_names,
-        'coefficient': beta,
-    })
+    coef_table = pd.DataFrame(
+        {
+            "variable": col_names,
+            "coefficient": beta,
+        }
+    )
 
     model_info = {
-        'method': 'rd_lasso',
-        'bandwidth': h_used,
-        'cutoff': c,
-        'kernel': kernel,
-        'cv_folds': cv_folds,
-        'n_candidate_covariates': len(covs),
-        'selected_covariates': selected_names,
-        'n_selected': n_sel,
-        'selected_from_outcome': [covs[i] for i in sorted(selected_y)],
-        'selected_from_treatment': [covs[i] for i in sorted(selected_d)],
-        'lasso_alpha_y': float(lasso_y.alpha_),
-        'lasso_alpha_d': float(lasso_d.alpha_),
-        'coefficients': coef_table,
+        "method": "rd_lasso",
+        "bandwidth": h_used,
+        "cutoff": c,
+        "kernel": kernel,
+        "cv_folds": cv_folds,
+        "n_candidate_covariates": len(covs),
+        "selected_covariates": selected_names,
+        "n_selected": n_sel,
+        "selected_from_outcome": [covs[i] for i in sorted(selected_y)],
+        "selected_from_treatment": [covs[i] for i in sorted(selected_d)],
+        "lasso_alpha_y": float(lasso_y.alpha_),
+        "lasso_alpha_d": float(lasso_d.alpha_),
+        "coefficients": coef_table,
     }
 
     return CausalResult(
-        method='LASSO-assisted RD (Post-Double-Selection)',
-        estimand='LATE',
+        method="LASSO-assisted RD (Post-Double-Selection)",
+        estimand="LATE",
         estimate=tau_hat,
         se=se_tau,
         pvalue=pvalue,
@@ -902,13 +917,14 @@ def rd_lasso(
         n_obs=n,
         detail=coef_table,
         model_info=model_info,
-        _citation_key='rd_lasso',
+        _citation_key="rd_lasso",
     )
 
 
 # ======================================================================
 # 4. rd_cate_summary  — Unified multi-method CATE comparison
 # ======================================================================
+
 
 def rd_cate_summary(
     data: pd.DataFrame,
@@ -973,9 +989,9 @@ def rd_cate_summary(
     >>> round(float(out["forest"].estimate), 2)
     1.16
     """
-    valid_methods = {'forest', 'boost', 'lasso'}
+    valid_methods = {"forest", "boost", "lasso"}
     if methods is None:
-        methods = ['forest', 'boost', 'lasso']
+        methods = ["forest", "boost", "lasso"]
     else:
         methods = [methods] if isinstance(methods, str) else list(methods)
         unknown = set(methods) - valid_methods
@@ -996,75 +1012,98 @@ def rd_cate_summary(
     if h is None:
         _, h = _restrict_to_bandwidth(data, x, c, None, y, covs)
 
-    if 'forest' in methods:
+    if "forest" in methods:
         try:
             res = rd_forest(
-                data, y, x, c=c, covs=covs, h=h,
-                alpha=alpha, seed=seed,
+                data,
+                y,
+                x,
+                c=c,
+                covs=covs,
+                h=h,
+                alpha=alpha,
+                seed=seed,
             )
-            results['forest'] = res
-            rows.append({
-                'method': 'Causal Forest',
-                'estimate': res.estimate,
-                'se': res.se,
-                'ci_lower': res.ci[0],
-                'ci_upper': res.ci[1],
-                'pvalue': res.pvalue,
-                'n_obs': res.n_obs,
-            })
+            results["forest"] = res
+            rows.append(
+                {
+                    "method": "Causal Forest",
+                    "estimate": res.estimate,
+                    "se": res.se,
+                    "ci_lower": res.ci[0],
+                    "ci_upper": res.ci[1],
+                    "pvalue": res.pvalue,
+                    "n_obs": res.n_obs,
+                }
+            )
         except Exception as e:  # pragma: no cover
-            results['forest_error'] = str(e)
+            results["forest_error"] = str(e)
 
-    if 'boost' in methods:
+    if "boost" in methods:
         try:
             res = rd_boost(
-                data, y, x, c=c, covs=covs, h=h,
-                alpha=alpha, seed=seed,
+                data,
+                y,
+                x,
+                c=c,
+                covs=covs,
+                h=h,
+                alpha=alpha,
+                seed=seed,
             )
-            results['boost'] = res
-            rows.append({
-                'method': 'Gradient Boosting',
-                'estimate': res.estimate,
-                'se': res.se,
-                'ci_lower': res.ci[0],
-                'ci_upper': res.ci[1],
-                'pvalue': res.pvalue,
-                'n_obs': res.n_obs,
-            })
+            results["boost"] = res
+            rows.append(
+                {
+                    "method": "Gradient Boosting",
+                    "estimate": res.estimate,
+                    "se": res.se,
+                    "ci_lower": res.ci[0],
+                    "ci_upper": res.ci[1],
+                    "pvalue": res.pvalue,
+                    "n_obs": res.n_obs,
+                }
+            )
         except Exception as e:  # pragma: no cover
-            results['boost_error'] = str(e)
+            results["boost_error"] = str(e)
 
-    if 'lasso' in methods:
+    if "lasso" in methods:
         try:
             res = rd_lasso(
-                data, y, x, c=c, covs=covs, h=h,
+                data,
+                y,
+                x,
+                c=c,
+                covs=covs,
+                h=h,
                 alpha=alpha,
             )
-            results['lasso'] = res
-            rows.append({
-                'method': 'LASSO RD',
-                'estimate': res.estimate,
-                'se': res.se,
-                'ci_lower': res.ci[0],
-                'ci_upper': res.ci[1],
-                'pvalue': res.pvalue,
-                'n_obs': res.n_obs,
-            })
+            results["lasso"] = res
+            rows.append(
+                {
+                    "method": "LASSO RD",
+                    "estimate": res.estimate,
+                    "se": res.se,
+                    "ci_lower": res.ci[0],
+                    "ci_upper": res.ci[1],
+                    "pvalue": res.pvalue,
+                    "n_obs": res.n_obs,
+                }
+            )
         except Exception as e:  # pragma: no cover
-            results['lasso_error'] = str(e)
+            results["lasso_error"] = str(e)
 
     # --- Comparison table ---
     if rows:
-        results['comparison'] = pd.DataFrame(rows)
+        results["comparison"] = pd.DataFrame(rows)
     else:
-        results['comparison'] = pd.DataFrame()
+        results["comparison"] = pd.DataFrame()
 
     # --- Top heterogeneity drivers from forest ---
-    if 'forest' in results and hasattr(results['forest'], 'model_info'):
-        vi = results['forest'].model_info.get('variable_importance', {})
-        results['heterogeneity_drivers'] = vi
+    if "forest" in results and hasattr(results["forest"], "model_info"):
+        vi = results["forest"].model_info.get("variable_importance", {})
+        results["heterogeneity_drivers"] = vi
     else:
-        results['heterogeneity_drivers'] = {}
+        results["heterogeneity_drivers"] = {}
 
     return results
 
@@ -1072,6 +1111,7 @@ def rd_cate_summary(
 # ======================================================================
 # 5. Variable importance plot
 # ======================================================================
+
 
 def _importance_plot(
     result: CausalResult,
@@ -1101,11 +1141,10 @@ def _importance_plot(
         import matplotlib.pyplot as plt
     except ImportError:  # pragma: no cover
         raise ImportError(  # pragma: no cover
-            "_importance_plot requires matplotlib. "
-            "Install: pip install matplotlib"
+            "_importance_plot requires matplotlib. " "Install: pip install matplotlib"
         )
 
-    vi = result.model_info.get('variable_importance', {})
+    vi = result.model_info.get("variable_importance", {})
     if not vi:
         raise MethodIncompatibility(  # pragma: no cover
             "No variable_importance found in result.model_info. "
@@ -1123,10 +1162,10 @@ def _importance_plot(
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
 
-    ax.barh(names, values, color='#3182bd', edgecolor='white', linewidth=0.5)
-    ax.set_xlabel('Variable Importance')
-    ax.set_title('Heterogeneity Drivers (Variable Importance)')
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.barh(names, values, color="#3182bd", edgecolor="white", linewidth=0.5)
+    ax.set_xlabel("Variable Importance")
+    ax.set_title("Heterogeneity Drivers (Variable Importance)")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     return ax

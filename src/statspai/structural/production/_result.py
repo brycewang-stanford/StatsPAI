@@ -10,10 +10,9 @@ import pandas as pd
 from ...core.results import EconometricResults
 from ...exceptions import MethodIncompatibility
 
-
 _METHOD_REFS: Dict[str, str] = {
-    "op":  "Olley & Pakes (1996, Econometrica)",
-    "lp":  "Levinsohn & Petrin (2003, Review of Economic Studies)",
+    "op": "Olley & Pakes (1996, Econometrica)",
+    "lp": "Levinsohn & Petrin (2003, Review of Economic Studies)",
     "acf": "Ackerberg, Caves & Frazer (2015, Econometrica)",
     "wrdg": "Wooldridge (2009, Economics Letters)",
 }
@@ -97,7 +96,10 @@ class ProductionResult(EconometricResults):
             params=params,
             std_errors=std_errors,
             model_info=info,
-            data_info={"n_obs": int(len(tfp)), "n_firms": int(sample["__panel_id__"].nunique())},
+            data_info={
+                "n_obs": int(len(tfp)),
+                "n_firms": int(sample["__panel_id__"].nunique()),
+            },
             diagnostics=diagnostics or {},
         )
         self.method = method

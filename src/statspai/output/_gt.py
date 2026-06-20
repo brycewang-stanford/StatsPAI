@@ -41,6 +41,7 @@ can compose interactive HTML (``GT.show()``), embed in Quarto
 (``draft.to_qmd()`` already understands gt sources), or apply
 custom :meth:`tab_style` rules the StatsPAI primitives don't surface.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Optional, Sequence, cast
@@ -58,6 +59,7 @@ __all__ = ["to_gt", "is_great_tables_available"]
 # Soft dependency on great_tables
 # ---------------------------------------------------------------------------
 
+
 def is_great_tables_available() -> bool:
     """Return True iff ``great_tables`` can be imported in this env.
 
@@ -72,6 +74,7 @@ def is_great_tables_available() -> bool:
     """
     try:
         import great_tables  # noqa: F401
+
         return True
     except Exception:
         return False
@@ -169,6 +172,7 @@ def _apply_journal_theme(g: Any, template: str) -> "gt_pkg.GT":
 # ---------------------------------------------------------------------------
 # Adapter — entry point dispatch
 # ---------------------------------------------------------------------------
+
 
 def to_gt(
     result: Any,
@@ -270,16 +274,24 @@ def to_gt(
 
     if isinstance(result, RegtableResult):
         return _from_regtable(
-            result, gt=gt,
-            title=title, subtitle=subtitle, notes=notes,
-            template=template, apply_theme=apply_theme,
+            result,
+            gt=gt,
+            title=title,
+            subtitle=subtitle,
+            notes=notes,
+            template=template,
+            apply_theme=apply_theme,
         )
 
     if isinstance(result, PaperTables):
         return _from_paper_tables(
-            result, gt=gt,
-            title=title, subtitle=subtitle, notes=notes,
-            template=template, apply_theme=apply_theme,
+            result,
+            gt=gt,
+            title=title,
+            subtitle=subtitle,
+            notes=notes,
+            template=template,
+            apply_theme=apply_theme,
         )
 
     if isinstance(result, Collection):
@@ -312,24 +324,32 @@ def to_gt(
 
     if isinstance(result, MeanComparisonResult):
         return _from_dataframe(
-            result.to_dataframe(), gt=gt,
+            result.to_dataframe(),
+            gt=gt,
             title=title or "Mean comparison",
-            subtitle=subtitle, notes=notes,
-            template=template, apply_theme=apply_theme,
+            subtitle=subtitle,
+            notes=notes,
+            template=template,
+            apply_theme=apply_theme,
             rowname_col=rowname_col,
         )
 
     if isinstance(result, pd.DataFrame):
         return _from_dataframe(
-            result, gt=gt,
-            title=title, subtitle=subtitle, notes=notes,
-            template=template, apply_theme=apply_theme,
+            result,
+            gt=gt,
+            title=title,
+            subtitle=subtitle,
+            notes=notes,
+            template=template,
+            apply_theme=apply_theme,
             rowname_col=rowname_col,
         )
 
     if hasattr(result, "to_dataframe") and callable(result.to_dataframe):
         return _from_dataframe(
-            result.to_dataframe(), gt=gt,
+            result.to_dataframe(),
+            gt=gt,
             title=title or getattr(result, "title", None),
             subtitle=subtitle,
             notes=notes or getattr(result, "notes", None),
@@ -349,6 +369,7 @@ def to_gt(
 # ---------------------------------------------------------------------------
 # Per-source-type implementations
 # ---------------------------------------------------------------------------
+
 
 def _from_regtable(
     rt: Any,
@@ -403,9 +424,9 @@ def _from_paper_tables(
     for panel_name, panel in panels.items():
         sub = panel.copy()
         sub.insert(0, "_panel", panel_name)
-        frames.append(sub.reset_index().rename(
-            columns={sub.index.name or "index": " "}
-        ))
+        frames.append(
+            sub.reset_index().rename(columns={sub.index.name or "index": " "})
+        )
     long = pd.concat(frames, axis=0, ignore_index=True, sort=False)
     long = long.fillna("")
 
@@ -434,14 +455,10 @@ def _from_dataframe(
     rowname_col: Optional[str],
 ) -> "gt_pkg.GT":
     if not isinstance(df, pd.DataFrame):
-        raise TypeError(
-            f"Expected DataFrame, got {type(df).__name__}"
-        )
-    g = (
-        gt.GT(
-            df.reset_index(drop=False) if rowname_col is None else df,
-            rowname_col=rowname_col,
-        )
+        raise TypeError(f"Expected DataFrame, got {type(df).__name__}")
+    g = gt.GT(
+        df.reset_index(drop=False) if rowname_col is None else df,
+        rowname_col=rowname_col,
     )
     if title:
         g = g.tab_header(title=title, subtitle=subtitle)

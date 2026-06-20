@@ -5,6 +5,7 @@ features.  No heavy dependencies are imported at top level — torch /
 sentence-transformers are pulled in lazily when the user picks an
 embedder that requires them.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -13,10 +14,9 @@ from typing import Callable, Sequence, Union
 
 import numpy as np
 
-
 __all__ = [
-    'hash_embed_texts',
-    'embed_texts',
+    "hash_embed_texts",
+    "embed_texts",
 ]
 
 
@@ -63,7 +63,8 @@ def hash_embed_texts(
     for i, text in enumerate(texts):
         for tok in _tokenize(text):
             h = hashlib.md5(
-                salt + tok.encode("utf-8"), usedforsecurity=False,
+                salt + tok.encode("utf-8"),
+                usedforsecurity=False,
             ).digest()
             bucket = int.from_bytes(h[:4], "little") % n_components
             out[i, bucket] += 1.0
@@ -76,7 +77,7 @@ def hash_embed_texts(
 def embed_texts(
     texts: Sequence[str],
     *,
-    embedder: Union[str, Callable[[Sequence[str]], np.ndarray]] = 'hash',
+    embedder: Union[str, Callable[[Sequence[str]], np.ndarray]] = "hash",
     n_components: int = 32,
     seed: int = 0,
 ) -> np.ndarray:
@@ -111,11 +112,13 @@ def embed_texts(
                 f"{out.shape} (expected first dim = {len(texts)})"
             )
         return out
-    if embedder == 'hash':
+    if embedder == "hash":
         return hash_embed_texts(
-            texts, n_components=n_components, seed=seed,
+            texts,
+            n_components=n_components,
+            seed=seed,
         )
-    if embedder == 'sbert':
+    if embedder == "sbert":
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as exc:  # pragma: no cover (lazy dep)

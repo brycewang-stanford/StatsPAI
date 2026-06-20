@@ -209,10 +209,10 @@ def did(
     time: str,
     id: Optional[str] = None,
     covariates: Optional[Any] = None,
-    method: str = 'auto',
-    estimator: str = 'dr',
-    control_group: str = 'nevertreated',
-    base_period: str = 'universal',
+    method: str = "auto",
+    estimator: str = "dr",
+    control_group: str = "nevertreated",
+    base_period: str = "universal",
     cluster: Optional[str] = None,
     robust: bool = True,
     alpha: float = 0.05,
@@ -222,7 +222,7 @@ def did(
     # SDID-specific
     treat_unit: Any = None,
     treat_time: Any = None,
-    se_method: str = 'placebo',
+    se_method: str = "placebo",
     # CS aggte-dispatch (v0.7.1+)
     aggregation: Optional[str] = None,
     n_boot: int = 1000,
@@ -395,27 +395,27 @@ def did(
     alpha = _require_alpha(alpha)
     n_boot = _require_int_at_least(n_boot, argument="n_boot", minimum=1)
     anticipation = _require_int_at_least(
-        anticipation, argument="anticipation", minimum=0,
+        anticipation,
+        argument="anticipation",
+        minimum=0,
     )
-    required = {'y': y, 'treat': treat, 'time': time}
+    required = {"y": y, "treat": treat, "time": time}
     if id is not None:
-        required['id'] = id
+        required["id"] = id
     if subgroup is not None:
-        required['subgroup'] = subgroup
+        required["subgroup"] = subgroup
     if weights is not None:
-        required['weights'] = weights
+        required["weights"] = weights
     if covariates:
         for c in covariates:
-            required[f'covariate ({c})'] = c
-    missing = {label: col for label, col in required.items()
-               if col not in data.columns}
+            required[f"covariate ({c})"] = c
+    missing = {label: col for label, col in required.items() if col not in data.columns}
     if missing:
-        details = ', '.join(f'{label}={col!r}' for label, col in missing.items())
-        available = ', '.join(sorted(data.columns)[:10])
+        details = ", ".join(f"{label}={col!r}" for label, col in missing.items())
+        available = ", ".join(sorted(data.columns)[:10])
         raise MethodIncompatibility(
             f"Column(s) not found in data: {details}. "
-            f"Available: {available}"
-            + (" ..." if len(data.columns) > 10 else ""),
+            f"Available: {available}" + (" ..." if len(data.columns) > 10 else ""),
             recovery_hint="Check the DID variable names against the DataFrame columns.",
             diagnostics={
                 "missing_columns": dict(missing),
@@ -426,25 +426,23 @@ def did(
     # If estimator-specific aggregation arguments are passed with auto,
     # choose the estimator whose aggregation vocabulary was requested.
     _sa_aggregations = {
-        'event_time',
-        'event_time_equal',
-        'equal_event_time',
-        'fixest',
-        'fixest_att',
-        'treated_cell',
-        'treated_cell_weighted',
+        "event_time",
+        "event_time_equal",
+        "equal_event_time",
+        "fixest",
+        "fixest_att",
+        "treated_cell",
+        "treated_cell_weighted",
     }
-    if aggregation is not None and method == 'auto' and id is not None:
+    if aggregation is not None and method == "auto" and id is not None:
         method = (
-            'sun_abraham'
-            if aggregation in _sa_aggregations
-            else 'callaway_santanna'
+            "sun_abraham" if aggregation in _sa_aggregations else "callaway_santanna"
         )
 
     # Validate that CS-only arguments were not paired with a non-CS
     # method — fail loudly rather than swallow the argument.
-    _cs_methods = {'callaway_santanna', 'cs', 'auto'}
-    _sa_methods = {'sun_abraham', 'sa', 'sunab'}
+    _cs_methods = {"callaway_santanna", "cs", "auto"}
+    _sa_methods = {"sun_abraham", "sa", "sunab"}
     if aggregation is not None and method not in (_cs_methods | _sa_methods):
         raise MethodIncompatibility(
             f"`aggregation={aggregation!r}` is only supported with the "
@@ -452,8 +450,7 @@ def did(
             f"Sun-Abraham estimator (method='sun_abraham'); got "
             f"method={method!r}.",
             recovery_hint=(
-                "Use method='cs' or method='sun_abraham' when passing "
-                "aggregation."
+                "Use method='cs' or method='sun_abraham' when passing " "aggregation."
             ),
             diagnostics={"aggregation": aggregation, "method": method},
         )
@@ -473,17 +470,17 @@ def did(
         )
 
     # Auto-detect if subgroup is provided → DDD
-    if method == 'auto' and subgroup is not None:
-        method = 'ddd'
+    if method == "auto" and subgroup is not None:
+        method = "ddd"
 
     # Auto-detect method
-    if method == 'auto':
+    if method == "auto":
         if id is not None:
-            method = 'callaway_santanna'
+            method = "callaway_santanna"
         else:
             treat_vals = set(data[treat].dropna().unique())
             if treat_vals <= {0, 1, True, False}:
-                method = '2x2'
+                method = "2x2"
             else:
                 shown_vals = sorted(treat_vals, key=repr)
                 raise MethodIncompatibility(
@@ -498,30 +495,36 @@ def did(
                 )
 
     # ── Normalize aliases ─────────────────────────────────────────── #
-    _METHOD_ALIASES = {'did2s': '2x2'}
+    _METHOD_ALIASES = {"did2s": "2x2"}
     method = _METHOD_ALIASES.get(method, method)
 
     # 'classic' / 'twfe': run 2x2 DID.
     # If time has >2 values, collapse into pre/post using median split.
-    if method in ('classic', 'twfe'):
+    if method in ("classic", "twfe"):
         n_time = data[time].nunique()
         if n_time > 2:
             time_mid = data[time].median()
             data = data.copy()
-            data['_post'] = (data[time] >= time_mid).astype(int)
-            time = '_post'
-        method = '2x2'
+            data["_post"] = (data[time] >= time_mid).astype(int)
+            time = "_post"
+        method = "2x2"
 
     # ── Dispatch ───────────────────────────────────────────────────── #
 
-    if method == '2x2':
+    if method == "2x2":
         return did_2x2(
-            data, y=y, treat=treat, time=time,
-            covariates=covariates, cluster=cluster,
-            robust=robust, alpha=alpha, weights=weights,
+            data,
+            y=y,
+            treat=treat,
+            time=time,
+            covariates=covariates,
+            cluster=cluster,
+            robust=robust,
+            alpha=alpha,
+            weights=weights,
         )
 
-    if method == 'ddd':
+    if method == "ddd":
         if subgroup is None:
             raise MethodIncompatibility(
                 "'subgroup' is required for Triple Differences (DDD). "
@@ -531,12 +534,19 @@ def did(
                 diagnostics={"method": method},
             )
         return ddd(
-            data, y=y, treat=treat, time=time, subgroup=subgroup,
-            covariates=covariates, cluster=cluster,
-            robust=robust, alpha=alpha, weights=weights,
+            data,
+            y=y,
+            treat=treat,
+            time=time,
+            subgroup=subgroup,
+            covariates=covariates,
+            cluster=cluster,
+            robust=robust,
+            alpha=alpha,
+            weights=weights,
         )
 
-    if method in ('callaway_santanna', 'cs'):
+    if method in ("callaway_santanna", "cs"):
         if id is None:
             raise MethodIncompatibility(
                 "'id' (unit identifier) is required for staggered DID.",
@@ -544,14 +554,21 @@ def did(
                 diagnostics={"method": method},
             )
         cs_result = callaway_santanna(
-            data, y=y, g=treat, t=time, i=id,
-            x=covariates, estimator=estimator,
+            data,
+            y=y,
+            g=treat,
+            t=time,
+            i=id,
+            x=covariates,
+            estimator=estimator,
             control_group=control_group,
-            base_period=base_period, alpha=alpha,
-            anticipation=anticipation, panel=panel,
+            base_period=base_period,
+            alpha=alpha,
+            anticipation=anticipation,
+            panel=panel,
         )
         if aggregation is not None:
-            if aggregation not in ('simple', 'dynamic', 'group', 'calendar'):
+            if aggregation not in ("simple", "dynamic", "group", "calendar"):
                 raise MethodIncompatibility(
                     f"aggregation must be one of "
                     f"'simple'/'dynamic'/'group'/'calendar', "
@@ -563,12 +580,15 @@ def did(
                     diagnostics={"aggregation": aggregation},
                 )
             return aggte(
-                cs_result, type=aggregation, alpha=alpha,
-                n_boot=n_boot, random_state=random_state,
+                cs_result,
+                type=aggregation,
+                alpha=alpha,
+                n_boot=n_boot,
+                random_state=random_state,
             )
         return cs_result
 
-    if method in ('sun_abraham', 'sa', 'sunab'):
+    if method in ("sun_abraham", "sa", "sunab"):
         if id is None:
             raise MethodIncompatibility(
                 "'id' (unit identifier) is required for Sun-Abraham.",
@@ -576,17 +596,22 @@ def did(
                 diagnostics={"method": method},
             )
         return sun_abraham(
-            data, y=y, g=treat, t=time, i=id,
-            covariates=covariates, cluster=cluster,
-            aggregation=aggregation or 'event_time',
+            data,
+            y=y,
+            g=treat,
+            t=time,
+            i=id,
+            covariates=covariates,
+            cluster=cluster,
+            aggregation=aggregation or "event_time",
             alpha=alpha,
         )
 
     if method in (
-        'bjs',
-        'did_imputation',
-        'borusyak_jaravel_spiess',
-        'borusyak',
+        "bjs",
+        "did_imputation",
+        "borusyak_jaravel_spiess",
+        "borusyak",
     ):
         if id is None:
             raise MethodIncompatibility(
@@ -594,8 +619,8 @@ def did(
                 recovery_hint="Pass id='unit_column' for method='bjs'.",
                 diagnostics={"method": method},
             )
-        horizon = kwargs.pop('horizon', None)
-        event_window = kwargs.pop('event_window', None)
+        horizon = kwargs.pop("horizon", None)
+        event_window = kwargs.pop("event_window", None)
         if horizon is None and event_window is not None:
             lo, hi = int(event_window[0]), int(event_window[1])
             horizon = list(range(lo, hi + 1))
@@ -611,8 +636,9 @@ def did(
             alpha=alpha,
         )
 
-    if method == 'sdid':
+    if method == "sdid":
         from ..synth.sdid import sdid as _sdid
+
         if se_method not in {"placebo", "bootstrap", "jackknife"}:
             raise MethodIncompatibility(
                 "se_method for method='sdid' must be 'placebo', 'bootstrap', "
@@ -638,10 +664,17 @@ def did(
                 _treat_unit = data.loc[treated_mask, id].unique().tolist()
                 _treat_time = int(data.loc[treated_mask, treat].min())
         return _sdid(
-            data, y=y, unit=id, time=time,
-            treat_unit=_treat_unit, treat_time=_treat_time,
-            method='sdid', covariates=covariates,
-            se_method=sdid_se_method, alpha=alpha, **kwargs,
+            data,
+            y=y,
+            unit=id,
+            time=time,
+            treat_unit=_treat_unit,
+            treat_time=_treat_time,
+            method="sdid",
+            covariates=covariates,
+            se_method=sdid_se_method,
+            alpha=alpha,
+            **kwargs,
         )
 
     raise MethodIncompatibility(
@@ -655,64 +688,64 @@ def did(
 
 
 __all__ = [
-    'did',
-    'did_2x2',
-    'overlap_weighted_did',
-    'dl_propensity_score',
-    'ddd',
-    'callaway_santanna',
-    'aggte',
-    'cs_report',
-    'CSReport',
-    'bjs_pretrend_joint',
-    'sun_abraham',
-    'bacon_decomposition',
-    'honest_did',
-    'breakdown_m',
-    'event_study',
-    'did_analysis',
-    'DIDAnalysis',
-    'did_multiplegt',
-    'did_imputation',
-    'bjs',
-    'borusyak_jaravel_spiess',
-    'stacked_did',
-    'gardner_did',
-    'did_2stage',
-    'harvest_did',
-    'HarvestDIDResult',
-    'cic',
+    "did",
+    "did_2x2",
+    "overlap_weighted_did",
+    "dl_propensity_score",
+    "ddd",
+    "callaway_santanna",
+    "aggte",
+    "cs_report",
+    "CSReport",
+    "bjs_pretrend_joint",
+    "sun_abraham",
+    "bacon_decomposition",
+    "honest_did",
+    "breakdown_m",
+    "event_study",
+    "did_analysis",
+    "DIDAnalysis",
+    "did_multiplegt",
+    "did_imputation",
+    "bjs",
+    "borusyak_jaravel_spiess",
+    "stacked_did",
+    "gardner_did",
+    "did_2stage",
+    "harvest_did",
+    "HarvestDIDResult",
+    "cic",
     # Wooldridge / DR-DID / TWFE decomposition
-    'wooldridge_did',
-    'etwfe',
-    'etwfe_emfx',
-    'did_summary',
-    'did_summary_to_markdown',
-    'did_summary_to_latex',
-    'did_report',
-    'drdid',
-    'twfe_decomposition',
+    "wooldridge_did",
+    "etwfe",
+    "etwfe_emfx",
+    "did_summary",
+    "did_summary_to_markdown",
+    "did_summary_to_latex",
+    "did_report",
+    "drdid",
+    "twfe_decomposition",
     # v0.10 staggered DiD frontier
-    'did_bcf',
-    'cohort_anchored_event_study',
-    'design_robust_event_study',
-    'did_misclassified',
+    "did_bcf",
+    "cohort_anchored_event_study",
+    "design_robust_event_study",
+    "did_misclassified",
     # Pre-trends
-    'pretrends_test',
-    'pretrends_power',
-    'sensitivity_rr',
-    'SensitivityResult',
-    'pretrends_summary',
+    "pretrends_test",
+    "pretrends_power",
+    "sensitivity_rr",
+    "SensitivityResult",
+    "pretrends_summary",
     # Plots
-    'parallel_trends_plot',
-    'bacon_plot',
-    'group_time_plot',
-    'did_plot',
-    'enhanced_event_study_plot',
-    'treatment_rollout_plot',
-    'sensitivity_plot',
-    'cohort_event_study_plot',
-    'ggdid',
-    'did_summary_plot',
-    'continuous_did',
+    "parallel_trends_plot",
+    "bacon_plot",
+    "group_time_plot",
+    "did_plot",
+    "enhanced_event_study_plot",
+    "treatment_rollout_plot",
+    "sensitivity_plot",
+    "cohort_event_study_plot",
+    "ggdid",
+    "did_summary_plot",
+    "continuous_did",
 ]

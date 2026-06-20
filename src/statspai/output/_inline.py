@@ -50,11 +50,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats as _sp_stats
 
-
 # Reuse the same star/format helpers that drive the table renderer so the
 # inline output and the in-table cell never disagree.
 from .estimates import _format_stars, _fmt_val
-
 
 _VALID_OUTPUTS = {"text", "latex", "markdown", "md", "html"}
 _VALID_SECOND = {"se", "t", "p", "ci", "none"}
@@ -70,9 +68,7 @@ def _resolve_term(result: Any, term: Optional[str]) -> str:
         params = getattr(result, "params")
         if hasattr(params, "index") and len(params.index) > 0:
             return str(params.index[0])
-    raise ValueError(
-        "Could not infer which term to cite. Pass `term=...` explicitly."
-    )
+    raise ValueError("Could not infer which term to cite. Pass `term=...` explicitly.")
 
 
 def _extract_point(
@@ -105,11 +101,7 @@ def _extract_point(
             else np.nan
         )
         ci_attr = getattr(result, "ci", None)
-        ci = (
-            (float(ci_attr[0]), float(ci_attr[1]))
-            if ci_attr is not None
-            else None
-        )
+        ci = (float(ci_attr[0]), float(ci_attr[1])) if ci_attr is not None else None
         df_resid = None
         mi = getattr(result, "model_info", None) or {}
         if isinstance(mi, dict):
@@ -155,8 +147,10 @@ def _extract_point(
     if ci_hi_raw is not None and not isinstance(ci_hi_raw, pd.Series):
         ci_hi_raw = pd.Series(ci_hi_raw, index=params.index)
     if (
-        ci_lo_raw is not None and ci_hi_raw is not None
-        and term in ci_lo_raw.index and term in ci_hi_raw.index
+        ci_lo_raw is not None
+        and ci_hi_raw is not None
+        and term in ci_lo_raw.index
+        and term in ci_hi_raw.index
     ):
         ci = (float(ci_lo_raw[term]), float(ci_hi_raw[term]))
     else:

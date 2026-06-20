@@ -75,6 +75,7 @@ class ICPResult:
     >>> sorted(res.parents)
     ['X1']
     """
+
     parents: set[str]
     accepted_subsets: list[frozenset]
     rejection_reason: dict[frozenset, str]
@@ -96,8 +97,7 @@ class ICPResult:
         for v, (lo, hi) in self.coefficients.items():
             lines.append(f"  {v}: [{lo:.3f}, {hi:.3f}]")
         lines.append(
-            f"{len(self.accepted_subsets)} subsets accepted by "
-            "invariance test."
+            f"{len(self.accepted_subsets)} subsets accepted by " "invariance test."
         )
         return "\n".join(lines)
 
@@ -165,7 +165,7 @@ def icp(
     if len(env_labels) < 2:
         raise ValueError("ICP needs at least 2 environments.")
 
-    per_subset_alpha = alpha / max(1, 2 ** p - 1)
+    per_subset_alpha = alpha / max(1, 2**p - 1)
 
     if max_subset_size is None:
         max_subset_size = min(p, 6)
@@ -186,8 +186,7 @@ def icp(
                 accepted.append(S)
             else:
                 rejection[S] = (
-                    f"pval={pval:.4g} < alpha/m={per_subset_alpha:.2g}: "
-                    f"{reason}"
+                    f"pval={pval:.4g} < alpha/m={per_subset_alpha:.2g}: " f"{reason}"
                 )
 
     if not accepted:
@@ -235,9 +234,7 @@ def _invariance_test(
 ) -> tuple[float, str]:
     """Return (pvalue, reason) for the null hypothesis of invariance."""
     n = X.shape[0]
-    X_with_const = (
-        np.column_stack([np.ones(n), X]) if X.size else np.ones((n, 1))
-    )
+    X_with_const = np.column_stack([np.ones(n), X]) if X.size else np.ones((n, 1))
 
     beta, *_ = np.linalg.lstsq(X_with_const, y, rcond=None)
     resid = y - X_with_const @ beta
@@ -255,19 +252,16 @@ def _invariance_test(
             vars_.append(r.var(ddof=1))
             ns.append(r.size)
         # Welch-style test for equality of means
-        _, p_mean = stats.f_oneway(
-            *[resid[env == e] for e in env_labels]
-        )
+        _, p_mean = stats.f_oneway(*[resid[env == e] for e in env_labels])
         # Levene-style test for equality of variances
-        _, p_var = stats.levene(
-            *[resid[env == e] for e in env_labels]
-        )
+        _, p_var = stats.levene(*[resid[env == e] for e in env_labels])
         p = min(p_mean, p_var)
         # Bonferroni for two sub-tests:
         return float(min(1.0, 2.0 * p)), "mean/variance invariance"
 
     if method == "nonlinear":
         from scipy.stats import ks_2samp
+
         groups = [resid[env == e] for e in env_labels]
         worst_p = 1.0
         for i in range(len(groups)):

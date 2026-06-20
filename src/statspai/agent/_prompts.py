@@ -10,25 +10,33 @@ dict to :data:`PROMPTS`. Required arguments must declare a
 ``description`` so the schema stays uniform — guarded by
 ``test_each_prompt_has_required_metadata``.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List
 
-
 PROMPTS: List[Dict[str, Any]] = [
     {
         "name": "audit_did_result",
-        "description": ("Run a DID estimator on a CSV, surface the "
-                         "estimate, and walk through every "
-                         "reviewer-checklist gap. Uses pipeline_did "
-                         "to consolidate preflight + estimate + audit "
-                         "+ honest-DID + Bacon into one call."),
+        "description": (
+            "Run a DID estimator on a CSV, surface the "
+            "estimate, and walk through every "
+            "reviewer-checklist gap. Uses pipeline_did "
+            "to consolidate preflight + estimate + audit "
+            "+ honest-DID + Bacon into one call."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
             {"name": "y", "required": True, "description": "Outcome column."},
-            {"name": "treat", "required": True,
-             "description": "Binary 0/1 treatment indicator."},
+            {
+                "name": "treat",
+                "required": True,
+                "description": "Binary 0/1 treatment indicator.",
+            },
             {"name": "time", "required": True, "description": "Time column."},
         ],
         "_template": (
@@ -46,14 +54,22 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "audit_iv_result",
-        "description": ("End-to-end IV workflow: 2SLS + first-stage F + "
-                         "Anderson-Rubin CI + e-value sensitivity, all "
-                         "wrapped in pipeline_iv."),
+        "description": (
+            "End-to-end IV workflow: 2SLS + first-stage F + "
+            "Anderson-Rubin CI + e-value sensitivity, all "
+            "wrapped in pipeline_iv."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "formula", "required": True,
-             "description": "'y ~ x + (d ~ z)' Wilkinson-style."},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
+            {
+                "name": "formula",
+                "required": True,
+                "description": "'y ~ x + (d ~ z)' Wilkinson-style.",
+            },
         ],
         "_template": (
             "Call `pipeline_iv` with data_path={data_path}, "
@@ -68,18 +84,24 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "audit_rd_result",
-        "description": ("End-to-end RD workflow: rdrobust + rdplot "
-                         "(image content) + density test + bandwidth "
-                         "sensitivity via pipeline_rd."),
+        "description": (
+            "End-to-end RD workflow: rdrobust + rdplot "
+            "(image content) + density test + bandwidth "
+            "sensitivity via pipeline_rd."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "y", "required": True,
-             "description": "Outcome column."},
-            {"name": "x", "required": True,
-             "description": "Running variable column."},
-            {"name": "c", "required": False,
-             "description": "Cutoff value (default 0)."},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
+            {"name": "y", "required": True, "description": "Outcome column."},
+            {"name": "x", "required": True, "description": "Running variable column."},
+            {
+                "name": "c",
+                "required": False,
+                "description": "Cutoff value (default 0).",
+            },
         ],
         "_template": (
             "Call `pipeline_rd` with data_path={data_path}, y={y}, "
@@ -92,16 +114,23 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "design_then_estimate",
-        "description": ("Given an unfamiliar CSV, auto-detect the "
-                         "study design, recommend an estimator, run "
-                         "it with diagnostics."),
+        "description": (
+            "Given an unfamiliar CSV, auto-detect the "
+            "study design, recommend an estimator, run "
+            "it with diagnostics."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "outcome", "required": True,
-             "description": "Outcome column."},
-            {"name": "treatment", "required": False,
-             "description": "Treatment column (optional)."},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
+            {"name": "outcome", "required": True, "description": "Outcome column."},
+            {
+                "name": "treatment",
+                "required": False,
+                "description": "Treatment column (optional).",
+            },
         ],
         "_template": (
             "1. Call `detect_design` with data_path={data_path}.\n"
@@ -118,14 +147,20 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "robustness_followup",
-        "description": ("Take an existing fitted result handle and "
-                         "run all high-importance follow-up "
-                         "sensitivities the audit identifies as "
-                         "missing."),
+        "description": (
+            "Take an existing fitted result handle and "
+            "run all high-importance follow-up "
+            "sensitivities the audit identifies as "
+            "missing."
+        ),
         "arguments": [
-            {"name": "result_id", "required": True,
-             "description": ("Handle from an earlier estimator call "
-                              "(as_handle=true).")},
+            {
+                "name": "result_id",
+                "required": True,
+                "description": (
+                    "Handle from an earlier estimator call " "(as_handle=true)."
+                ),
+            },
         ],
         "_template": (
             "1. Call `audit_result` with result_id={result_id}; read "
@@ -142,14 +177,21 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "paper_render",
-        "description": ("Compose a paper-style memo from a fitted "
-                         "result handle: estimate, diagnostics, "
-                         "robustness, BibTeX. The output is a "
-                         "ready-to-paste markdown section."),
+        "description": (
+            "Compose a paper-style memo from a fitted "
+            "result handle: estimate, diagnostics, "
+            "robustness, BibTeX. The output is a "
+            "ready-to-paste markdown section."
+        ),
         "arguments": [
-            {"name": "result_id", "required": True,
-             "description": ("Handle to a fitted result (returned by an "
-                              "earlier estimator call with as_handle=true).")},
+            {
+                "name": "result_id",
+                "required": True,
+                "description": (
+                    "Handle to a fitted result (returned by an "
+                    "earlier estimator call with as_handle=true)."
+                ),
+            },
         ],
         "_template": (
             "Given result_id={result_id}:\n"
@@ -168,17 +210,27 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "compare_methods",
-        "description": ("Run two or more estimators on the same data "
-                         "and compare conclusions side by side."),
+        "description": (
+            "Run two or more estimators on the same data "
+            "and compare conclusions side by side."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "y", "required": True,
-             "description": "Outcome column."},
-            {"name": "treat", "required": True,
-             "description": "Binary treatment indicator."},
-            {"name": "time", "required": False,
-             "description": "Time column for panel methods."},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
+            {"name": "y", "required": True, "description": "Outcome column."},
+            {
+                "name": "treat",
+                "required": True,
+                "description": "Binary treatment indicator.",
+            },
+            {
+                "name": "time",
+                "required": False,
+                "description": "Time column for panel methods.",
+            },
         ],
         "_template": (
             "Run all three: `did`, `callaway_santanna` (if cohort/id "
@@ -191,14 +243,22 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "policy_evaluation",
-        "description": ("Causal-forest-driven policy evaluation: "
-                         "fit causal_forest, summarise CATE, evaluate "
-                         "a candidate policy."),
+        "description": (
+            "Causal-forest-driven policy evaluation: "
+            "fit causal_forest, summarise CATE, evaluate "
+            "a candidate policy."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "formula", "required": True,
-             "description": "'y ~ d | x1 + x2 + ...' (treatment | covariates)"},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
+            {
+                "name": "formula",
+                "required": True,
+                "description": "'y ~ d | x1 + x2 + ...' (treatment | covariates)",
+            },
         ],
         "_template": (
             "1. Call `causal_forest` with formula='{formula}' and "
@@ -213,21 +273,33 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "synth_full",
-        "description": ("End-to-end Synthetic Control workflow: synth "
-                         "fit + placebo + synthdid + permutation."),
+        "description": (
+            "End-to-end Synthetic Control workflow: synth "
+            "fit + placebo + synthdid + permutation."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "outcome", "required": True,
-             "description": "Outcome column."},
-            {"name": "unit", "required": True,
-             "description": "Unit identifier column."},
-            {"name": "time", "required": True,
-             "description": "Time column."},
-            {"name": "treated_unit", "required": True,
-             "description": "Identifier of the treated unit."},
-            {"name": "treatment_time", "required": True,
-             "description": "First post-treatment period."},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
+            {"name": "outcome", "required": True, "description": "Outcome column."},
+            {
+                "name": "unit",
+                "required": True,
+                "description": "Unit identifier column.",
+            },
+            {"name": "time", "required": True, "description": "Time column."},
+            {
+                "name": "treated_unit",
+                "required": True,
+                "description": "Identifier of the treated unit.",
+            },
+            {
+                "name": "treatment_time",
+                "required": True,
+                "description": "First post-treatment period.",
+            },
         ],
         "_template": (
             "1. Call `synth` with the canonical args; as_handle=true.\n"
@@ -241,17 +313,26 @@ PROMPTS: List[Dict[str, Any]] = [
     },
     {
         "name": "decompose_inequality",
-        "description": ("RIF / FFL / Oaxaca-Blinder decomposition of "
-                         "an outcome gap."),
+        "description": (
+            "RIF / FFL / Oaxaca-Blinder decomposition of " "an outcome gap."
+        ),
         "arguments": [
-            {"name": "data_path", "required": True,
-             "description": "Absolute path to the data file."},
-            {"name": "y", "required": True,
-             "description": "Outcome column."},
-            {"name": "group", "required": True,
-             "description": "Binary group indicator (e.g. gender, race)."},
-            {"name": "covariates", "required": False,
-             "description": "Comma-separated covariate columns."},
+            {
+                "name": "data_path",
+                "required": True,
+                "description": "Absolute path to the data file.",
+            },
+            {"name": "y", "required": True, "description": "Outcome column."},
+            {
+                "name": "group",
+                "required": True,
+                "description": "Binary group indicator (e.g. gender, race).",
+            },
+            {
+                "name": "covariates",
+                "required": False,
+                "description": "Comma-separated covariate columns.",
+            },
         ],
         "_template": (
             "Call `decompose` with method='oaxaca' (or method='rif' "
@@ -307,7 +388,8 @@ def handle_prompts_get(
     # Validate required arguments (omit MCP would otherwise leave the
     # template with literal ``{x}`` placeholders).
     missing = [
-        a["name"] for a in spec["arguments"]
+        a["name"]
+        for a in spec["arguments"]
         if a.get("required") and a["name"] not in args
     ]
     if missing:
@@ -326,14 +408,12 @@ def handle_prompts_get(
         rendered = template.format_map(SafeDict(args))
     except Exception as e:
         raise InvalidParamsError(
-            f"Failed to render prompt {name!r}: "
-            f"{type(e).__name__}: {e}"
+            f"Failed to render prompt {name!r}: " f"{type(e).__name__}: {e}"
         )
     return {
         "description": spec["description"],
         "messages": [
-            {"role": "user",
-             "content": {"type": "text", "text": rendered}},
+            {"role": "user", "content": {"type": "text", "text": rendered}},
         ],
     }
 

@@ -50,7 +50,6 @@ import pandas as pd
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 __all__ = ["hal_tmle", "HALRegressor", "HALClassifier"]
 
 
@@ -348,15 +347,19 @@ class HALRegressor(_BaseHAL):
         )
         from sklearn.linear_model import Lasso, LassoCV
         from ..compat.sklearn import lasso_cv_alphas_kwargs
+
         if self.lambda_ is None:
             cv = int(max(2, min(cv, max(2, len(y) // 20))))
             model = LassoCV(
-                cv=cv, random_state=self.random_state,
-                max_iter=5000, **lasso_cv_alphas_kwargs(20),
+                cv=cv,
+                random_state=self.random_state,
+                max_iter=5000,
+                **lasso_cv_alphas_kwargs(20),
             )
         else:
-            model = Lasso(alpha=self.lambda_, max_iter=5000,
-                          random_state=self.random_state)
+            model = Lasso(
+                alpha=self.lambda_, max_iter=5000, random_state=self.random_state
+            )
         model.fit(B, y)
         self._model = model
         self._anchors = anchors
@@ -471,9 +474,13 @@ class HALClassifier(_BaseHAL):
             max_anchors_per_col=max_anchors,
         )
         from sklearn.linear_model import LogisticRegression
+
         model = LogisticRegression(
-            penalty="l1", solver="liblinear", C=self.C,
-            max_iter=2000, random_state=self.random_state,
+            penalty="l1",
+            solver="liblinear",
+            C=self.C,
+            max_iter=2000,
+            random_state=self.random_state,
         )
         model.fit(B, y)
         self._model = model
@@ -632,36 +639,45 @@ def hal_tmle(
     )
 
     result = _tmle(
-        data=data, y=y, treat=treat, covariates=list(covariates),
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=list(covariates),
         outcome_library=[hal_q],
         propensity_library=[hal_g],
-        n_folds=n_folds, estimand=estimand, alpha=alpha,
+        n_folds=n_folds,
+        estimand=estimand,
+        alpha=alpha,
         propensity_bounds=propensity_bounds,
         random_state=random_state,
     )
     # Record HAL-specific metadata
     result.method = f"HAL-TMLE ({variant} variant)"
     info = result.model_info or {}
-    info.update({
-        "nuisance": "Highly Adaptive Lasso (main-effects basis only)",
-        "variant": variant,
-        "max_anchors_per_col": max_anchors_per_col,
-        "citation": (
-            "Li, Y., Qiu, S., Wang, Z. and van der Laan, M. J. (2025). "
-            "Regularized Targeted Maximum Likelihood Estimation in "
-            "Highly Adaptive Lasso Implied Working Models. "
-            "arXiv:2506.17214."
-        ),
-    })
+    info.update(
+        {
+            "nuisance": "Highly Adaptive Lasso (main-effects basis only)",
+            "variant": variant,
+            "max_anchors_per_col": max_anchors_per_col,
+            "citation": (
+                "Li, Y., Qiu, S., Wang, Z. and van der Laan, M. J. (2025). "
+                "Regularized Targeted Maximum Likelihood Estimation in "
+                "Highly Adaptive Lasso Implied Working Models. "
+                "arXiv:2506.17214."
+            ),
+        }
+    )
 
     result.model_info = info
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             result,
             function="sp.tmle.hal_tmle",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "variant": variant,
                 "lambda_outcome": lambda_outcome,

@@ -28,7 +28,6 @@ from typing import List, Dict, Any, Optional
 import numpy as np
 import pandas as pd
 
-
 _SUPF_SEED = 20240601
 
 
@@ -71,11 +70,11 @@ def _supf_null_distribution(
     while done < n_reps:
         c = min(2500, n_reps - done)
         incr = rng.standard_normal((c, N, q)) * np.sqrt(dt)
-        w = np.cumsum(incr, axis=1)              # Brownian motion, (c, N, q)
-        w1 = w[:, -1, :][:, None, :]             # W(1)
-        bb = w[:, midx, :] - lam_m[None, :, None] * w1   # Brownian bridge
-        qproc = (bb ** 2).sum(axis=2) / denom[None, :]   # ||BB||^2 / (l(1-l))
-        sups.append(qproc.max(axis=1) / q)               # F-scale supremum
+        w = np.cumsum(incr, axis=1)  # Brownian motion, (c, N, q)
+        w1 = w[:, -1, :][:, None, :]  # W(1)
+        bb = w[:, midx, :] - lam_m[None, :, None] * w1  # Brownian bridge
+        qproc = (bb**2).sum(axis=2) / denom[None, :]  # ||BB||^2 / (l(1-l))
+        sups.append(qproc.max(axis=1) / q)  # F-scale supremum
         done += c
     return np.sort(np.concatenate(sups))
 
@@ -175,10 +174,10 @@ class StructuralBreakResult:
         for bd in self.break_dates:
             ax.axvline(
                 bd,
-                color='red',
-                ls='--',
+                color="red",
+                ls="--",
                 lw=1.5,
-                label=f'Break at {bd}',
+                label=f"Break at {bd}",
             )
         ax.legend()
         return ax
@@ -276,9 +275,9 @@ def structural_break(
 
     # Full sample RSS
     beta_full = np.linalg.lstsq(X_full, y_data, rcond=None)[0]
-    rss_full = np.sum((y_data - X_full @ beta_full)**2)
+    rss_full = np.sum((y_data - X_full @ beta_full) ** 2)
 
-    if method == 'chow' or method == 'sup-f':
+    if method == "chow" or method == "sup-f":
         # Sup-F test: find the single break maximizing F
         best_f = -np.inf
         best_break = None
@@ -288,12 +287,12 @@ def structural_break(
             # Segment 1
             X1, y1 = X_full[:t], y_data[:t]
             b1 = np.linalg.lstsq(X1, y1, rcond=None)[0]
-            rss1 = np.sum((y1 - X1 @ b1)**2)
+            rss1 = np.sum((y1 - X1 @ b1) ** 2)
 
             # Segment 2
             X2, y2 = X_full[t:], y_data[t:]
             b2 = np.linalg.lstsq(X2, y2, rcond=None)[0]
-            rss2 = np.sum((y2 - X2 @ b2)**2)
+            rss2 = np.sum((y2 - X2 @ b2) ** 2)
 
             rss_break = rss1 + rss2
             denom = rss_break / max(n - 2 * k, 1)
@@ -309,13 +308,11 @@ def structural_break(
         # inflated the false-positive rate to ~35% on white noise.
         p_value = _supf_pvalue(best_f, k, n, min_segment)
         selected_breaks = (
-            [best_break]
-            if p_value < alpha and best_break is not None
-            else []
+            [best_break] if p_value < alpha and best_break is not None else []
         )
 
         return StructuralBreakResult(
-            test_type='Sup-F' if method == 'sup-f' else 'Chow',
+            test_type="Sup-F" if method == "sup-f" else "Chow",
             break_dates=selected_breaks,
             f_stats=best_f,
             p_values=p_value,
@@ -347,7 +344,7 @@ def structural_break(
             X_seg = X_full[start:end]
             y_seg = y_data[start:end]
             b_seg = np.linalg.lstsq(X_seg, y_seg, rcond=None)[0]
-            rss_seg = np.sum((y_seg - X_seg @ b_seg)**2)
+            rss_seg = np.sum((y_seg - X_seg @ b_seg) ** 2)
 
             for t in range(seg_h, seg_len - seg_h):
                 abs_t = start + t
@@ -356,13 +353,9 @@ def structural_break(
 
                 b1 = np.linalg.lstsq(X1, y1, rcond=None)[0]
                 b2 = np.linalg.lstsq(X2, y2, rcond=None)[0]
-                rss_split = np.sum((y1 - X1 @ b1) ** 2) + np.sum(
-                    (y2 - X2 @ b2) ** 2
-                )
+                rss_split = np.sum((y1 - X1 @ b1) ** 2) + np.sum((y2 - X2 @ b2) ** 2)
 
-                f_stat = ((rss_seg - rss_split) / k) / (
-                    rss_split / (seg_len - 2 * k)
-                )
+                f_stat = ((rss_seg - rss_split) / k) / (rss_split / (seg_len - 2 * k))
                 if f_stat > best_f:
                     best_f = f_stat
                     best_break = abs_t
@@ -402,16 +395,16 @@ def structural_break(
     rss_total = 0
     n_params_total = 0
     for i in range(len(segments) - 1):
-        s, e = segments[i], segments[i+1]
+        s, e = segments[i], segments[i + 1]
         Xs, ys = X_full[s:e], y_data[s:e]
         bs = np.linalg.lstsq(Xs, ys, rcond=None)[0]
-        rss_total += np.sum((ys - Xs @ bs)**2)
+        rss_total += np.sum((ys - Xs @ bs) ** 2)
         n_params_total += k
 
     bic_val = n * np.log(rss_total / n) + n_params_total * np.log(n)
 
     return StructuralBreakResult(
-        test_type='Bai-Perron',
+        test_type="Bai-Perron",
         break_dates=break_dates,
         f_stats=step_f_stats if step_f_stats else None,
         p_values=step_p_values if step_p_values else None,
@@ -503,9 +496,9 @@ def cusum_test(
     cv = crit_vals.get(alpha, 1.358)
 
     return {
-        'cusum': cusum,
-        'max_cusum': max_cusum,
-        'critical_value': cv,
-        'reject': max_cusum > cv,
-        'n_obs': n,
+        "cusum": cusum,
+        "max_cusum": max_cusum,
+        "critical_value": cv,
+        "reject": max_cusum > cv,
+        "n_obs": n,
     }

@@ -141,7 +141,7 @@ def a_learning(
 
         # G-estimation moment: sum (A - pi) * H * (Y - A * H psi) = 0
         #   => sum (A-pi) H Y = sum (A-pi) A H H^T psi
-        weight = (A - pi)
+        weight = A - pi
         LHS = (weight * A)[:, None, None] * (H[:, :, None] * H[:, None, :])
         LHS_mat = LHS.sum(axis=0)
         RHS_vec = (weight * Y_tilde)[:, None] * H

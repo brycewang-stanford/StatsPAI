@@ -7,4 +7,4 @@ estimator for longitudinal data with time-varying confounding.
 
 from .msm import msm, MarginalStructuralModel, stabilized_weights
 
-__all__ = ['msm', 'MarginalStructuralModel', 'stabilized_weights']
+__all__ = ["msm", "MarginalStructuralModel", "stabilized_weights"]

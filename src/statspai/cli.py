@@ -15,6 +15,7 @@ All commands ultimately delegate to sp.help / sp.list_functions /
 sp.describe_function / sp.search_functions, so behaviour matches the
 Python API exactly.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -31,17 +32,24 @@ def _make_parser() -> argparse.ArgumentParser:
             "All output mirrors the Python-level sp.help() / sp.list_functions()."
         ),
     )
-    parser.add_argument("--version", "-V", action="store_true",
-                        help="Print StatsPAI version and exit.")
+    parser.add_argument(
+        "--version", "-V", action="store_true", help="Print StatsPAI version and exit."
+    )
 
     sub = parser.add_subparsers(dest="command", metavar="<command>")
 
     # list
     p_list = sub.add_parser("list", help="List registered functions.")
-    p_list.add_argument("--category", "-c", default=None,
-                        help="Filter by category (e.g. causal, panel, spatial).")
     p_list.add_argument(
-        "--stability", "-s", default=None,
+        "--category",
+        "-c",
+        default=None,
+        help="Filter by category (e.g. causal, panel, spatial).",
+    )
+    p_list.add_argument(
+        "--stability",
+        "-s",
+        default=None,
         choices=["stable", "experimental", "deprecated"],
         help=(
             "Filter by API lifecycle tier. 'stable' = public signature "
@@ -50,7 +58,8 @@ def _make_parser() -> argparse.ArgumentParser:
         ),
     )
     p_list.add_argument(
-        "--validation", default=None,
+        "--validation",
+        default=None,
         dest="validation_status",
         choices=["certified", "validated", "api_stable", "experimental", "deprecated"],
         help=(
@@ -58,27 +67,38 @@ def _make_parser() -> argparse.ArgumentParser:
             "cross-language or published-reference parity evidence."
         ),
     )
-    p_list.add_argument("--json", action="store_true",
-                        help="Emit JSON array instead of text.")
+    p_list.add_argument(
+        "--json", action="store_true", help="Emit JSON array instead of text."
+    )
 
     # describe
     p_desc = sub.add_parser("describe", help="Show full metadata for a function.")
     p_desc.add_argument("name", help="Function name, e.g. 'did'.")
-    p_desc.add_argument("--json", action="store_true",
-                        help="Emit JSON object instead of text.")
+    p_desc.add_argument(
+        "--json", action="store_true", help="Emit JSON object instead of text."
+    )
 
     # search
     p_search = sub.add_parser("search", help="Keyword search across function metadata.")
     p_search.add_argument("query", nargs="+", help="One or more keywords.")
-    p_search.add_argument("--json", action="store_true",
-                          help="Emit JSON array instead of text.")
+    p_search.add_argument(
+        "--json", action="store_true", help="Emit JSON array instead of text."
+    )
 
     # help
     p_help = sub.add_parser("help", help="Show help overview, or details for a topic.")
-    p_help.add_argument("topic", nargs="?", default=None,
-                        help="Function name, category, or 'category.name' path.")
-    p_help.add_argument("--verbose", "-v", action="store_true",
-                        help="Append full docstring after registry metadata.")
+    p_help.add_argument(
+        "topic",
+        nargs="?",
+        default=None,
+        help="Function name, category, or 'category.name' path.",
+    )
+    p_help.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Append full docstring after registry metadata.",
+    )
 
     # version
     sub.add_parser("version", help="Print StatsPAI version and exit.")

@@ -25,7 +25,6 @@ from typing import Any, Tuple, Union
 
 from .question import CausalQuestion, causal_question
 
-
 __all__ = [
     "preregister",
     "load_preregister",
@@ -38,8 +37,7 @@ def _to_dict(q: Union[CausalQuestion, dict]) -> dict:
     if isinstance(q, dict):
         return dict(q)
     raise TypeError(
-        "preregister() accepts a CausalQuestion or dict; "
-        f"got {type(q).__name__}"
+        "preregister() accepts a CausalQuestion or dict; " f"got {type(q).__name__}"
     )
 
 
@@ -275,9 +273,20 @@ def load_preregister(filename: Union[str, Path]) -> CausalQuestion:
     # Rebuild CausalQuestion from fields, filtering to the constructor's
     # accepted kwargs
     allowed = {
-        "treatment", "outcome", "population", "estimand", "design",
-        "time_structure", "time", "id", "covariates", "instruments",
-        "running_variable", "cutoff", "cohort", "notes",
+        "treatment",
+        "outcome",
+        "population",
+        "estimand",
+        "design",
+        "time_structure",
+        "time",
+        "id",
+        "covariates",
+        "instruments",
+        "running_variable",
+        "cutoff",
+        "cohort",
+        "notes",
     }
     kwargs = {k: v for k, v in q_fields.items() if k in allowed}
     # Required fields

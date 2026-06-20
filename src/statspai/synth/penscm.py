@@ -107,8 +107,7 @@ def penalized_synth(
     _VALID_PENALTIES = ("pairwise", "max_dev", "l1_pairwise")
     if penalty_type not in _VALID_PENALTIES:
         raise ValueError(
-            f"penalty_type must be one of {_VALID_PENALTIES}, "
-            f"got {penalty_type!r}"
+            f"penalty_type must be one of {_VALID_PENALTIES}, " f"got {penalty_type!r}"
         )
 
     # ------------------------------------------------------------------
@@ -135,22 +134,32 @@ def penalized_synth(
     if len(donors) < 2:
         raise ValueError("Need at least 2 donor units.")
 
-    Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)   # (J, T0)
+    Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)  # (J, T0)
     Y0_post = panel.loc[donors, post_times].values.astype(np.float64)  # (J, T1)
 
     # ------------------------------------------------------------------
     # 2. Covariate matrix for distance computation
     # ------------------------------------------------------------------
     X_treated, X_donors = _build_covariate_matrix(
-        data, panel, outcome, unit, time, treated_unit, donors,
-        pre_times, covariates, predictors,
+        data,
+        panel,
+        outcome,
+        unit,
+        time,
+        treated_unit,
+        donors,
+        pre_times,
+        covariates,
+        predictors,
     )
 
     # ------------------------------------------------------------------
     # 3. Pairwise distances
     # ------------------------------------------------------------------
     distances = _compute_pairwise_distances(
-        X_treated, X_donors, penalty_type,
+        X_treated,
+        X_donors,
+        penalty_type,
     )
 
     # ------------------------------------------------------------------
@@ -159,14 +168,21 @@ def penalized_synth(
     cv_results: Optional[Dict[str, Any]] = None
     if lambda_pen is None:
         lambda_pen, cv_results = _cv_lambda(
-            Y1_pre, Y0_pre, distances, penalty_type,
+            Y1_pre,
+            Y0_pre,
+            distances,
+            penalty_type,
         )
 
     # ------------------------------------------------------------------
     # 5. Solve for penalized weights
     # ------------------------------------------------------------------
     weights = _penalized_weights(
-        Y1_pre, Y0_pre, distances, lambda_pen, penalty_type,
+        Y1_pre,
+        Y0_pre,
+        distances,
+        lambda_pen,
+        penalty_type,
     )
 
     # ------------------------------------------------------------------
@@ -179,18 +195,20 @@ def penalized_synth(
     gap_post = Y1_post - Y_synth_post
     att = float(np.mean(gap_post))
 
-    pre_rmspe = float(np.sqrt(np.mean(gap_pre ** 2)))
-    post_rmspe = float(np.sqrt(np.mean(gap_post ** 2)))
+    pre_rmspe = float(np.sqrt(np.mean(gap_pre**2)))
+    post_rmspe = float(np.sqrt(np.mean(gap_post**2)))
     ratio_treated = post_rmspe / pre_rmspe if pre_rmspe > 1e-10 else np.inf
 
     # Effects by period
-    effects_df = pd.DataFrame({
-        "time": list(pre_times) + list(post_times),
-        "treated": np.concatenate([Y1_pre, Y1_post]),
-        "synthetic": np.concatenate([Y_synth_pre, Y_synth_post]),
-        "effect": np.concatenate([gap_pre, gap_post]),
-        "post_treatment": [False] * len(pre_times) + [True] * len(post_times),
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": list(pre_times) + list(post_times),
+            "treated": np.concatenate([Y1_pre, Y1_post]),
+            "synthetic": np.concatenate([Y_synth_pre, Y_synth_post]),
+            "effect": np.concatenate([gap_pre, gap_post]),
+            "post_treatment": [False] * len(pre_times) + [True] * len(post_times),
+        }
+    )
 
     # ------------------------------------------------------------------
     # 7. Placebo inference
@@ -201,9 +219,19 @@ def penalized_synth(
 
     if placebo and len(donors) >= 2:
         placebo_info = _run_placebos(
-            panel, donors, treated_unit, pre_times, post_times,
-            data, outcome, unit, time, covariates, predictors,
-            lambda_pen, penalty_type,
+            panel,
+            donors,
+            treated_unit,
+            pre_times,
+            post_times,
+            data,
+            outcome,
+            unit,
+            time,
+            covariates,
+            predictors,
+            lambda_pen,
+            penalty_type,
         )
         placebo_atts = placebo_info["atts"]
         placebo_ratios = np.array(placebo_info["ratios"])
@@ -221,9 +249,7 @@ def penalized_synth(
     # ------------------------------------------------------------------
     # 8. Build weight / distance dicts
     # ------------------------------------------------------------------
-    weight_dict = {
-        d: float(w) for d, w in zip(donors, weights) if w > 1e-6
-    }
+    weight_dict = {d: float(w) for d, w in zip(donors, weights) if w > 1e-6}
     distance_dict = {d: float(v) for d, v in zip(donors, distances)}
 
     # ------------------------------------------------------------------
@@ -315,15 +341,15 @@ def _build_covariate_matrix(
         parts_treated.append(
             panel.loc[treated_unit, pre_times].values.astype(np.float64)
         )
-        parts_donors.append(
-            panel.loc[donors, pre_times].values.astype(np.float64)
-        )
+        parts_donors.append(panel.loc[donors, pre_times].values.astype(np.float64))
 
     if predictors is not None and len(predictors) > 0:
         pre_data = data[data[time].isin(pre_times)]
         for pred in predictors:
             if pred not in data.columns:
-                raise ValueError(f"Predictor {pred!r} not found in data.")  # pragma: no cover
+                raise ValueError(
+                    f"Predictor {pred!r} not found in data."
+                )  # pragma: no cover
             pred_means = pre_data.groupby(unit)[pred].mean()
             parts_treated.append(np.array([pred_means.loc[treated_unit]]))
             parts_donors.append(
@@ -331,8 +357,11 @@ def _build_covariate_matrix(
             )
 
     X_treated = np.concatenate(parts_treated).astype(np.float64)
-    X_donors = np.hstack(parts_donors).astype(np.float64) if len(parts_donors) > 1 \
+    X_donors = (
+        np.hstack(parts_donors).astype(np.float64)
+        if len(parts_donors) > 1
         else parts_donors[0].astype(np.float64)
+    )
 
     # Ensure X_donors is 2-D (J, K)
     if X_donors.ndim == 1:
@@ -362,12 +391,12 @@ def _compute_pairwise_distances(
 
     if penalty_type in ("pairwise", "max_dev"):
         # Squared L2 distance
-        distances = np.sum(diff ** 2, axis=1)
+        distances = np.sum(diff**2, axis=1)
     elif penalty_type == "l1_pairwise":
         # L1 distance
         distances = np.sum(np.abs(diff), axis=1)
     else:
-        distances = np.sum(diff ** 2, axis=1)
+        distances = np.sum(diff**2, axis=1)
 
     return np.asarray(distances)
 
@@ -397,7 +426,10 @@ def _penalized_weights(
 
     if penalty_type == "max_dev":
         return _penalized_weights_max_dev(
-            Y1_pre, Y0_pre, distances, lambda_pen,
+            Y1_pre,
+            Y0_pre,
+            distances,
+            lambda_pen,
         )
 
     # ----- Standard QP for pairwise / l1_pairwise -----
@@ -461,7 +493,7 @@ def _penalized_weights_max_dev(
     """
     J = Y0_pre.shape[0]
     H = Y0_pre @ Y0_pre.T  # (J, J)
-    q = -Y0_pre @ Y1_pre   # (J,)
+    q = -Y0_pre @ Y1_pre  # (J,)
 
     def objective(z: np.ndarray) -> float:
         w, t = z[:J], z[J]
@@ -480,10 +512,12 @@ def _penalized_weights_max_dev(
     # t >= w_j * d_j  =>  t - w_j * d_j >= 0
     for j in range(J):
         dj = distances[j]
-        constraints.append({
-            "type": "ineq",
-            "fun": lambda z, _j=j, _d=dj: z[J] - z[_j] * _d,
-        })
+        constraints.append(
+            {
+                "type": "ineq",
+                "fun": lambda z, _j=j, _d=dj: z[J] - z[_j] * _d,
+            }
+        )
 
     bounds = [(0.0, 1.0)] * J + [(0.0, None)]
     z0 = np.zeros(J + 1)
@@ -540,10 +574,12 @@ def _cv_lambda(
     dist_mean = float(np.mean(distances)) if np.mean(distances) > 0 else 1.0
     scale = outcome_var / max(dist_mean, 1e-10)
 
-    lambdas = np.concatenate([
-        [0.0],
-        np.logspace(-4, 2, 20) * scale,
-    ])
+    lambdas = np.concatenate(
+        [
+            [0.0],
+            np.logspace(-4, 2, 20) * scale,
+        ]
+    )
 
     # Rolling-origin splits: train on [0, split_end), validate on [split_end, split_end + h)
     min_train = max(3, T0 // 3)
@@ -572,7 +608,11 @@ def _cv_lambda(
             Y0_val = Y0_pre[:, train_end:val_end]
 
             w = _penalized_weights(
-                Y1_train, Y0_train, distances, lam, penalty_type,
+                Y1_train,
+                Y0_train,
+                distances,
+                lam,
+                penalty_type,
             )
             Y_hat = Y0_val.T @ w
             fold_errors.append(float(np.mean((Y1_val - Y_hat) ** 2)))
@@ -633,16 +673,30 @@ def _run_placebos(
 
         # Build covariate matrix for this placebo
         X_treated_p, X_donors_p = _build_covariate_matrix(
-            data, panel, outcome, unit, time, placebo_unit, p_donors,
-            pre_times, covariates, predictors,
+            data,
+            panel,
+            outcome,
+            unit,
+            time,
+            placebo_unit,
+            p_donors,
+            pre_times,
+            covariates,
+            predictors,
         )
         distances_p = _compute_pairwise_distances(
-            X_treated_p, X_donors_p, penalty_type,
+            X_treated_p,
+            X_donors_p,
+            penalty_type,
         )
 
         try:
             w_p = _penalized_weights(
-                Y1_pre_p, Y0_pre_p, distances_p, lambda_pen, penalty_type,
+                Y1_pre_p,
+                Y0_pre_p,
+                distances_p,
+                lambda_pen,
+                penalty_type,
             )
         except Exception:  # pragma: no cover
             continue  # pragma: no cover
@@ -653,8 +707,8 @@ def _run_placebos(
         gap_pre_p = Y1_pre_p - Y_synth_pre_p
         gap_post_p = Y1_post_p - Y_synth_post_p
 
-        pre_rmspe_p = float(np.sqrt(np.mean(gap_pre_p ** 2)))
-        post_rmspe_p = float(np.sqrt(np.mean(gap_post_p ** 2)))
+        pre_rmspe_p = float(np.sqrt(np.mean(gap_pre_p**2)))
+        post_rmspe_p = float(np.sqrt(np.mean(gap_post_p**2)))
 
         ratio_p = post_rmspe_p / pre_rmspe_p if pre_rmspe_p > 1e-10 else np.inf
 

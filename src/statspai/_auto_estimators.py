@@ -150,24 +150,29 @@ def _candidate_status(candidates: Dict[str, Any]) -> List[Dict[str, Any]]:
     out: List[Dict[str, Any]] = []
     for method, candidate in candidates.items():
         if isinstance(candidate, Exception):
-            out.append({
-                "method": method,
-                "ok": False,
-                "error_type": type(candidate).__name__,
-                "message": str(candidate),
-            })
+            out.append(
+                {
+                    "method": method,
+                    "ok": False,
+                    "error_type": type(candidate).__name__,
+                    "message": str(candidate),
+                }
+            )
         else:
-            out.append({
-                "method": method,
-                "ok": True,
-                "result_type": type(candidate).__name__,
-            })
+            out.append(
+                {
+                    "method": method,
+                    "ok": True,
+                    "result_type": type(candidate).__name__,
+                }
+            )
     return out
 
 
 # =====================================================================
 # Auto-DiD
 # =====================================================================
+
 
 @dataclass
 class AutoDIDResult:
@@ -211,7 +216,8 @@ class AutoDIDResult:
         ]
         lines.append(
             self.leaderboard.to_string(
-                index=False, float_format=lambda x: f"{x:.4f}",
+                index=False,
+                float_format=lambda x: f"{x:.4f}",
             )
         )
         lines.append("")
@@ -223,13 +229,15 @@ class AutoDIDResult:
 
     def to_dict(self) -> Dict[str, Any]:
         """JSON-safe leaderboard and candidate-status payload."""
-        return _jsonable_dict({
-            "kind": "auto_did_result",
-            "selection_rule": self.selection_rule,
-            "winner_method": self._winner_method(),
-            "leaderboard": self.leaderboard.to_dict(orient="records"),
-            "candidate_status": _candidate_status(self.candidates),
-        })
+        return _jsonable_dict(
+            {
+                "kind": "auto_did_result",
+                "selection_rule": self.selection_rule,
+                "winner_method": self._winner_method(),
+                "leaderboard": self.leaderboard.to_dict(orient="records"),
+                "candidate_status": _candidate_status(self.candidates),
+            }
+        )
 
     def to_agent_summary(self, *, max_methods: int = 10) -> Dict[str, Any]:
         """Bounded agent-facing summary of the DiD estimator race."""
@@ -237,16 +245,18 @@ class AutoDIDResult:
         statuses = _candidate_status(self.candidates)
         successes = [row for row in statuses if row["ok"]]
         failures = [row for row in statuses if not row["ok"]]
-        return _jsonable_dict({
-            "kind": "auto_did_agent_summary",
-            "selection_rule": self.selection_rule,
-            "winner_method": self._winner_method(),
-            "leaderboard": self.leaderboard.head(limit).to_dict(orient="records"),
-            "n_methods": int(len(self.leaderboard)),
-            "truncated_methods": max(int(len(self.leaderboard)) - limit, 0),
-            "n_successes": int(len(successes)),
-            "failures": failures,
-        })
+        return _jsonable_dict(
+            {
+                "kind": "auto_did_agent_summary",
+                "selection_rule": self.selection_rule,
+                "winner_method": self._winner_method(),
+                "leaderboard": self.leaderboard.head(limit).to_dict(orient="records"),
+                "n_methods": int(len(self.leaderboard)),
+                "truncated_methods": max(int(len(self.leaderboard)) - limit, 0),
+                "n_successes": int(len(successes)),
+                "failures": failures,
+            }
+        )
 
     def _winner_method(self) -> str:
         # Resolve the winner back to its method label by equality check
@@ -259,8 +269,7 @@ class AutoDIDResult:
     def __repr__(self) -> str:
         # Terse repr for list-of-results / Jupyter cell display.
         # Call `.summary()` explicitly for the full leaderboard.
-        n_ok = sum(1 for v in self.candidates.values()
-                   if not isinstance(v, Exception))
+        n_ok = sum(1 for v in self.candidates.values() if not isinstance(v, Exception))
         return (
             f"<AutoDIDResult: {n_ok}/{len(self.candidates)} ok, "
             f"winner={self._winner_method()} (rule={self.selection_rule})>"
@@ -354,23 +363,40 @@ def auto_did(
     # live module handle lets tests monkeypatch the runner via
     # `statspai.did.callaway_santanna.callaway_santanna = broken`.
     import importlib
+
     _cs_mod = importlib.import_module("statspai.did.callaway_santanna")
     _sa_mod = importlib.import_module("statspai.did.sun_abraham")
     _bjs_mod = importlib.import_module("statspai.did.did_imputation")
 
     runners = {
         "cs": lambda: _cs_mod.callaway_santanna(
-            data=data, y=y, g=g, t=t, i=i, x=x_list or None, alpha=alpha,
+            data=data,
+            y=y,
+            g=g,
+            t=t,
+            i=i,
+            x=x_list or None,
+            alpha=alpha,
         ),
         "sa": lambda: _sa_mod.sun_abraham(
-            data=data, y=y, g=g, t=t, i=i, covariates=x_list or None,
+            data=data,
+            y=y,
+            g=g,
+            t=t,
+            i=i,
+            covariates=x_list or None,
             alpha=alpha,
         ),
         # did_imputation is the BJS name in statspai; keep the mapping
         # explicit here so the leaderboard label stays 'bjs'.
         "bjs": lambda: _bjs_mod.did_imputation(
-            data=data, y=y, group=i, time=t, first_treat=g,
-            controls=x_list or None, alpha=alpha,
+            data=data,
+            y=y,
+            group=i,
+            time=t,
+            first_treat=g,
+            controls=x_list or None,
+            alpha=alpha,
         ),
     }
 
@@ -378,28 +404,44 @@ def auto_did(
         try:
             r = runners[m]()
             candidates[m] = r
-            rows.append((
-                m.upper(),
-                float(r.estimate),
-                float(getattr(r, "se", np.nan)),
-                float(r.ci[0]) if r.ci is not None else np.nan,
-                float(r.ci[1]) if r.ci is not None else np.nan,
-                int(getattr(r, "n_obs", 0) or 0),
-                "ok",
-            ))
+            rows.append(
+                (
+                    m.upper(),
+                    float(r.estimate),
+                    float(getattr(r, "se", np.nan)),
+                    float(r.ci[0]) if r.ci is not None else np.nan,
+                    float(r.ci[1]) if r.ci is not None else np.nan,
+                    int(getattr(r, "n_obs", 0) or 0),
+                    "ok",
+                )
+            )
         except Exception as e:
             # Candidate failure is first-class; see
             # test_auto_did_degrades_when_one_candidate_fails.
             candidates[m] = e
-            rows.append((
-                m.upper(), np.nan, np.nan, np.nan, np.nan, 0,
-                f"FAILED: {type(e).__name__}: {e}",
-            ))
+            rows.append(
+                (
+                    m.upper(),
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    0,
+                    f"FAILED: {type(e).__name__}: {e}",
+                )
+            )
 
     leaderboard = pd.DataFrame(
         rows,
-        columns=["method", "estimate", "std_error",
-                 "ci_lower", "ci_upper", "n_obs", "notes"],
+        columns=[
+            "method",
+            "estimate",
+            "std_error",
+            "ci_lower",
+            "ci_upper",
+            "n_obs",
+            "notes",
+        ],
     )
 
     # --- Winner selection -------------------------------------------------
@@ -421,7 +463,8 @@ def auto_did(
         winner = next(iter(successes.values()))
     elif rule == "median":
         sorted_pairs = sorted(
-            successes.items(), key=lambda kv: float(kv[1].estimate),
+            successes.items(),
+            key=lambda kv: float(kv[1].estimate),
         )
         mid = len(sorted_pairs) // 2
         winner = sorted_pairs[mid][1]
@@ -442,6 +485,7 @@ def auto_did(
 # =====================================================================
 # Auto-IV
 # =====================================================================
+
 
 @dataclass
 class AutoIVResult:
@@ -474,23 +518,28 @@ class AutoIVResult:
         ]
         lines.append(
             self.leaderboard.to_string(
-                index=False, float_format=lambda x: f"{x:.4f}",
+                index=False,
+                float_format=lambda x: f"{x:.4f}",
             )
         )
         lines.append("")
-        lines.append(f"selected winner : {self._winner_method()} "
-                     f"(rule={self.selection_rule})")
+        lines.append(
+            f"selected winner : {self._winner_method()} "
+            f"(rule={self.selection_rule})"
+        )
         return "\n".join(lines)
 
     def to_dict(self) -> Dict[str, Any]:
         """JSON-safe leaderboard and candidate-status payload."""
-        return _jsonable_dict({
-            "kind": "auto_iv_result",
-            "selection_rule": self.selection_rule,
-            "winner_method": self._winner_method(),
-            "leaderboard": self.leaderboard.to_dict(orient="records"),
-            "candidate_status": _candidate_status(self.candidates),
-        })
+        return _jsonable_dict(
+            {
+                "kind": "auto_iv_result",
+                "selection_rule": self.selection_rule,
+                "winner_method": self._winner_method(),
+                "leaderboard": self.leaderboard.to_dict(orient="records"),
+                "candidate_status": _candidate_status(self.candidates),
+            }
+        )
 
     def to_agent_summary(self, *, max_methods: int = 10) -> Dict[str, Any]:
         """Bounded agent-facing summary of the IV estimator race."""
@@ -498,16 +547,18 @@ class AutoIVResult:
         statuses = _candidate_status(self.candidates)
         successes = [row for row in statuses if row["ok"]]
         failures = [row for row in statuses if not row["ok"]]
-        return _jsonable_dict({
-            "kind": "auto_iv_agent_summary",
-            "selection_rule": self.selection_rule,
-            "winner_method": self._winner_method(),
-            "leaderboard": self.leaderboard.head(limit).to_dict(orient="records"),
-            "n_methods": int(len(self.leaderboard)),
-            "truncated_methods": max(int(len(self.leaderboard)) - limit, 0),
-            "n_successes": int(len(successes)),
-            "failures": failures,
-        })
+        return _jsonable_dict(
+            {
+                "kind": "auto_iv_agent_summary",
+                "selection_rule": self.selection_rule,
+                "winner_method": self._winner_method(),
+                "leaderboard": self.leaderboard.head(limit).to_dict(orient="records"),
+                "n_methods": int(len(self.leaderboard)),
+                "truncated_methods": max(int(len(self.leaderboard)) - limit, 0),
+                "n_successes": int(len(successes)),
+                "failures": failures,
+            }
+        )
 
     def _winner_method(self) -> str:
         for k, v in self.candidates.items():
@@ -516,8 +567,7 @@ class AutoIVResult:
         return "<unresolved>"
 
     def __repr__(self) -> str:
-        n_ok = sum(1 for v in self.candidates.values()
-                   if not isinstance(v, Exception))
+        n_ok = sum(1 for v in self.candidates.values() if not isinstance(v, Exception))
         return (
             f"<AutoIVResult: {n_ok}/{len(self.candidates)} ok, "
             f"winner={self._winner_method()} (rule={self.selection_rule})>"
@@ -598,14 +648,21 @@ def auto_iv(
     angrist2009mostly
     """
     instruments_list = _as_string_list(
-        instruments, name="instruments", context="auto_iv",
+        instruments,
+        name="instruments",
+        context="auto_iv",
     )
     exog_list = _as_string_list(
-        exog, name="exog", context="auto_iv", allow_none=True,
+        exog,
+        name="exog",
+        context="auto_iv",
+        allow_none=True,
     )
     valid = {"2sls", "liml", "jive"}
     methods = _normalize_methods(
-        methods, default=["2sls", "liml", "jive"], valid=valid,
+        methods,
+        default=["2sls", "liml", "jive"],
+        valid=valid,
         context="auto_iv",
     )
     alpha = _validate_probability(alpha, name="alpha", context="auto_iv")
@@ -629,17 +686,32 @@ def auto_iv(
 
     runners = {
         "2sls": lambda: iv_regress(
-            formula=formula, data=data, method="2sls",
-            robust=robust, cluster=cluster,
+            formula=formula,
+            data=data,
+            method="2sls",
+            robust=robust,
+            cluster=cluster,
         ),
         "liml": lambda: liml(
-            data=data, y=y, x_endog=[endog], x_exog=exog_list or None,
-            z=instruments_list, robust=robust, cluster=cluster, alpha=alpha,
+            data=data,
+            y=y,
+            x_endog=[endog],
+            x_exog=exog_list or None,
+            z=instruments_list,
+            robust=robust,
+            cluster=cluster,
+            alpha=alpha,
         ),
         "jive": lambda: jive(
-            data=data, y=y, x_endog=[endog], x_exog=exog_list or None,
-            z=instruments_list, robust=robust, cluster=cluster,
-            variant="jive1", alpha=alpha,
+            data=data,
+            y=y,
+            x_endog=[endog],
+            x_exog=exog_list or None,
+            z=instruments_list,
+            robust=robust,
+            cluster=cluster,
+            variant="jive1",
+            alpha=alpha,
         ),
     }
 
@@ -653,6 +725,7 @@ def auto_iv(
             se = _se(r, endog)
             if coef is not None and se is not None and np.isfinite(se):
                 from scipy import stats as _stats
+
                 crit = _stats.norm.ppf(1 - alpha / 2)
                 ci_lo = coef - crit * se
                 ci_hi = coef + crit * se
@@ -669,30 +742,46 @@ def auto_iv(
                     break
             if n_obs == 0:
                 n_obs = int(len(data))
-            rows.append((
-                m.upper(),
-                np.nan if coef is None else coef,
-                np.nan if se is None else se,
-                ci_lo, ci_hi,
-                n_obs,
-                "ok",
-            ))
+            rows.append(
+                (
+                    m.upper(),
+                    np.nan if coef is None else coef,
+                    np.nan if se is None else se,
+                    ci_lo,
+                    ci_hi,
+                    n_obs,
+                    "ok",
+                )
+            )
         except Exception as e:
             # Candidate failure is first-class for the IV race as well.
             candidates[m] = e
-            rows.append((
-                m.upper(), np.nan, np.nan, np.nan, np.nan, 0,
-                f"FAILED: {type(e).__name__}: {e}",
-            ))
+            rows.append(
+                (
+                    m.upper(),
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    0,
+                    f"FAILED: {type(e).__name__}: {e}",
+                )
+            )
 
     leaderboard = pd.DataFrame(
         rows,
-        columns=["method", "estimate", "std_error",
-                 "ci_lower", "ci_upper", "n_obs", "notes"],
+        columns=[
+            "method",
+            "estimate",
+            "std_error",
+            "ci_lower",
+            "ci_upper",
+            "n_obs",
+            "notes",
+        ],
     )
 
-    successes = {k: v for k, v in candidates.items()
-                 if not isinstance(v, Exception)}
+    successes = {k: v for k, v in candidates.items() if not isinstance(v, Exception)}
     if not successes:
         raise RuntimeError("auto_iv: every candidate estimator failed.")
 
@@ -712,22 +801,20 @@ def auto_iv(
         # Exclude NaN-coef successes from the median pool so sorted() is
         # deterministic (NaN compares False both ways under Python's sort).
         sortable = {
-            k: v for k, v in successes.items()
-            if np.isfinite(_coef_or_nan(v, endog))
+            k: v for k, v in successes.items() if np.isfinite(_coef_or_nan(v, endog))
         }
         if not sortable:
             # All successes have NaN coefs; fall back to first_success.
             winner = next(iter(successes.values()))
         else:
             sorted_pairs = sorted(
-                sortable.items(), key=lambda kv: _coef_or_nan(kv[1], endog),
+                sortable.items(),
+                key=lambda kv: _coef_or_nan(kv[1], endog),
             )
             mid = len(sorted_pairs) // 2
             winner = sorted_pairs[mid][1]
     else:
-        raise MethodIncompatibility(
-            f"auto_iv: select_by={select_by!r} not recognised."
-        )
+        raise MethodIncompatibility(f"auto_iv: select_by={select_by!r} not recognised.")
 
     return AutoIVResult(
         leaderboard=leaderboard,

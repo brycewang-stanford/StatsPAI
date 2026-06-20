@@ -95,13 +95,17 @@ class RDMultiResult:
         ]
         for cr in self.cutoff_results:
             ci = f"[{cr['ci_lower']:.4f}, {cr['ci_upper']:.4f}]"
-            lines.append(f"{cr['cutoff']:<10.2f} {cr['n']:>6d} {cr['estimate']:>10.4f} "
-                         f"{cr['se']:>10.4f} {ci:>22s} {cr['p_value']:>10.4f}")
+            lines.append(
+                f"{cr['cutoff']:<10.2f} {cr['n']:>6d} {cr['estimate']:>10.4f} "
+                f"{cr['se']:>10.4f} {ci:>22s} {cr['p_value']:>10.4f}"
+            )
 
         lines.append("-" * 65)
         ci_pooled = f"[{self.pooled_ci[0]:.4f}, {self.pooled_ci[1]:.4f}]"
-        lines.append(f"{'Pooled':<10s} {self.n_total:>6d} {self.pooled_estimate:>10.4f} "
-                     f"{self.pooled_se:>10.4f} {ci_pooled:>22s}")
+        lines.append(
+            f"{'Pooled':<10s} {self.n_total:>6d} {self.pooled_estimate:>10.4f} "
+            f"{self.pooled_se:>10.4f} {ci_pooled:>22s}"
+        )
         lines.append("=" * 65)
         return "\n".join(lines)
 
@@ -113,26 +117,45 @@ class RDMultiResult:
             raise ImportError("matplotlib required for plotting")  # pragma: no cover
 
         if ax is None:
-            fig, ax = plt.subplots(figsize=(8, max(4, len(self.cutoff_results) * 0.5 + 2)))
+            fig, ax = plt.subplots(
+                figsize=(8, max(4, len(self.cutoff_results) * 0.5 + 2))
+            )
 
-        labels = [f"c = {cr['cutoff']:.1f}" for cr in self.cutoff_results] + ['Pooled']
-        estimates = [cr['estimate'] for cr in self.cutoff_results] + [self.pooled_estimate]
-        ci_lowers = [cr['ci_lower'] for cr in self.cutoff_results] + [self.pooled_ci[0]]
-        ci_uppers = [cr['ci_upper'] for cr in self.cutoff_results] + [self.pooled_ci[1]]
+        labels = [f"c = {cr['cutoff']:.1f}" for cr in self.cutoff_results] + ["Pooled"]
+        estimates = [cr["estimate"] for cr in self.cutoff_results] + [
+            self.pooled_estimate
+        ]
+        ci_lowers = [cr["ci_lower"] for cr in self.cutoff_results] + [self.pooled_ci[0]]
+        ci_uppers = [cr["ci_upper"] for cr in self.cutoff_results] + [self.pooled_ci[1]]
 
         y_pos = range(len(labels))
-        errors = [[e - cl for e, cl in zip(estimates, ci_lowers)],
-                  [cu - e for e, cu in zip(estimates, ci_uppers)]]
+        errors = [
+            [e - cl for e, cl in zip(estimates, ci_lowers)],
+            [cu - e for e, cu in zip(estimates, ci_uppers)],
+        ]
 
-        ax.errorbar(estimates, y_pos, xerr=errors, fmt='o', color='steelblue',
-                    capsize=3, elinewidth=1.5)
-        ax.scatter([self.pooled_estimate], [len(labels)-1], color='red', s=80, zorder=5,
-                   marker='D')
-        ax.axvline(0, color='gray', ls='--', lw=0.5)
+        ax.errorbar(
+            estimates,
+            y_pos,
+            xerr=errors,
+            fmt="o",
+            color="steelblue",
+            capsize=3,
+            elinewidth=1.5,
+        )
+        ax.scatter(
+            [self.pooled_estimate],
+            [len(labels) - 1],
+            color="red",
+            s=80,
+            zorder=5,
+            marker="D",
+        )
+        ax.axvline(0, color="gray", ls="--", lw=0.5)
         ax.set_yticks(list(y_pos))
         ax.set_yticklabels(labels)
-        ax.set_xlabel('Treatment Effect')
-        ax.set_title('Multi-Cutoff RD Estimates')
+        ax.set_xlabel("Treatment Effect")
+        ax.set_title("Multi-Cutoff RD Estimates")
         plt.tight_layout()
         return ax
 
@@ -142,7 +165,7 @@ def _local_linear_rd(
     x: np.ndarray,
     c: float,
     h: float,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
 ) -> Tuple[float, float, int]:
     """Local linear RD estimate at cutoff c with bandwidth h."""
     x_centered = x - c
@@ -237,7 +260,7 @@ def rdmc(
     x_data = data[x].values.astype(float)
 
     if bandwidth is None:
-        bandwidth_value = float(1.06 * np.std(x_data) * len(x_data)**(-1/5))
+        bandwidth_value = float(1.06 * np.std(x_data) * len(x_data) ** (-1 / 5))
     else:
         bandwidth_value = float(bandwidth)
 
@@ -245,33 +268,33 @@ def rdmc(
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     for c in cutoffs:
-        tau, se, n_local = _local_linear_rd(
-            y_data, x_data, c, bandwidth_value, kernel
-        )
+        tau, se, n_local = _local_linear_rd(y_data, x_data, c, bandwidth_value, kernel)
         p_val = 2 * (1 - stats.norm.cdf(abs(tau / se))) if se > 0 else np.nan
 
-        cutoff_results.append({
-            'cutoff': c,
-            'estimate': tau,
-            'se': se,
-            'ci_lower': tau - z_crit * se,
-            'ci_upper': tau + z_crit * se,
-            'p_value': p_val,
-            'n': n_local,
-            'bandwidth': bandwidth_value,
-        })
+        cutoff_results.append(
+            {
+                "cutoff": c,
+                "estimate": tau,
+                "se": se,
+                "ci_lower": tau - z_crit * se,
+                "ci_upper": tau + z_crit * se,
+                "p_value": p_val,
+                "n": n_local,
+                "bandwidth": bandwidth_value,
+            }
+        )
 
     # Pool estimates
-    valid = [cr for cr in cutoff_results if np.isfinite(cr['se']) and cr['se'] > 0]
+    valid = [cr for cr in cutoff_results if np.isfinite(cr["se"]) and cr["se"] > 0]
     if len(valid) > 0:
-        if pooling == 'ivw':
-            weights = np.array([1 / cr['se']**2 for cr in valid])
+        if pooling == "ivw":
+            weights = np.array([1 / cr["se"] ** 2 for cr in valid])
             weights /= weights.sum()
-            pooled = sum(w * cr['estimate'] for w, cr in zip(weights, valid))
-            pooled_se = np.sqrt(1 / sum(1 / cr['se']**2 for cr in valid))
+            pooled = sum(w * cr["estimate"] for w, cr in zip(weights, valid))
+            pooled_se = np.sqrt(1 / sum(1 / cr["se"] ** 2 for cr in valid))
         else:
-            pooled = np.mean([cr['estimate'] for cr in valid])
-            pooled_se = np.sqrt(np.mean([cr['se']**2 for cr in valid]) / len(valid))
+            pooled = np.mean([cr["estimate"] for cr in valid])
+            pooled_se = np.sqrt(np.mean([cr["se"] ** 2 for cr in valid]) / len(valid))
     else:
         pooled, pooled_se = np.nan, np.nan  # pragma: no cover
 
@@ -284,7 +307,7 @@ def rdmc(
         pooled_ci=pooled_ci,
         n_cutoffs=len(cutoffs),
         n_total=len(y_data),
-        method='Multi-Cutoff RD (rdmc)',
+        method="Multi-Cutoff RD (rdmc)",
     )
 
 
@@ -357,15 +380,15 @@ def rdms(
     treatment = (x1_data >= 0).astype(float)
 
     if bandwidth is None:
-        bandwidth_value = float(1.06 * np.std(distance) * len(distance)**(-1/5))
+        bandwidth_value = float(1.06 * np.std(distance) * len(distance) ** (-1 / 5))
     else:
         bandwidth_value = float(bandwidth)
 
     # Kernel weights based on distance
     u = distance / bandwidth_value
-    if kernel == 'triangular':
+    if kernel == "triangular":
         w = np.where(u <= 1, 1 - u, 0.0)
-    elif kernel == 'uniform':
+    elif kernel == "uniform":
         w = np.where(u <= 1, 1.0, 0.0)
     else:
         w = np.where(u <= 1, 1 - u, 0.0)
@@ -383,8 +406,7 @@ def rdms(
     w_m = w[mask]
 
     # Local linear with 2D running variable
-    X = np.column_stack([np.ones(n_local), x1_m, x2_m, D_m,
-                         D_m * x1_m, D_m * x2_m])
+    X = np.column_stack([np.ones(n_local), x1_m, x2_m, D_m, D_m * x1_m, D_m * x2_m])
     W = np.diag(w_m)
 
     try:
@@ -405,8 +427,8 @@ def rdms(
     p_val = 2 * (1 - stats.norm.cdf(abs(tau / se))) if se > 0 else np.nan
 
     return CausalResult(
-        method='Geographic RD (rdms)',
-        estimand='ATE at boundary',
+        method="Geographic RD (rdms)",
+        estimand="ATE at boundary",
         estimate=tau,
         se=se,
         pvalue=p_val,
@@ -414,10 +436,10 @@ def rdms(
         alpha=alpha,
         n_obs=len(y_data),
         model_info={
-            'bandwidth': bandwidth_value,
-            'kernel': kernel,
-            'cutoff1': cutoff1,
-            'cutoff2': cutoff2,
-            'n_local': n_local,
+            "bandwidth": bandwidth_value,
+            "kernel": kernel,
+            "cutoff1": cutoff1,
+            "cutoff2": cutoff2,
+            "n_local": n_local,
         },
     )

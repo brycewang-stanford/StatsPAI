@@ -141,8 +141,7 @@ class GARCHResult:
             pr, se = self.params, self.std_errors
             tv, pv = self.tvalues, self.pvalues
             lines.append(
-                f"  {'':<10s}{'coef':>11s}{'std err':>11s}"
-                f"{'z':>9s}{'P>|z|':>9s}"
+                f"  {'':<10s}{'coef':>11s}{'std err':>11s}" f"{'z':>9s}{'P>|z|':>9s}"
             )
             for nm in self.param_names:
                 lines.append(
@@ -215,8 +214,8 @@ def garch(
     def neg_ll(theta: np.ndarray) -> float:
         mu = float(theta[0]) if mean else 0.0
         omega = float(theta[int(mean)])
-        alpha = theta[int(mean) + 1: int(mean) + 1 + q]
-        beta = theta[int(mean) + 1 + q: int(mean) + 1 + q + p]
+        alpha = theta[int(mean) + 1 : int(mean) + 1 + q]
+        beta = theta[int(mean) + 1 + q : int(mean) + 1 + q + p]
         if omega <= 0 or np.any(alpha < 0) or np.any(beta < 0):
             return 1e15
         if alpha.sum() + beta.sum() >= 1.0:
@@ -227,11 +226,7 @@ def garch(
         for t in range(T):
             s2[t] = omega
             for i in range(q):
-                eps_lag = (
-                    eps[t - 1 - i] ** 2
-                    if t - 1 - i >= 0
-                    else s2_init
-                )
+                eps_lag = eps[t - 1 - i] ** 2 if t - 1 - i >= 0 else s2_init
                 s2[t] += alpha[i] * eps_lag
             for j in range(p):
                 s2_lag = s2[t - 1 - j] if t - 1 - j >= 0 else s2_init
@@ -258,8 +253,8 @@ def garch(
     theta = np.asarray(opt.x, dtype=float)
     mu = float(theta[0]) if mean else 0.0
     omega = float(theta[int(mean)])
-    alpha = theta[int(mean) + 1: int(mean) + 1 + q]
-    beta = theta[int(mean) + 1 + q: int(mean) + 1 + q + p]
+    alpha = theta[int(mean) + 1 : int(mean) + 1 + q]
+    beta = theta[int(mean) + 1 + q : int(mean) + 1 + q + p]
 
     eps = y - mu
     s2 = np.empty(T)
@@ -267,11 +262,7 @@ def garch(
     for t in range(T):
         s2[t] = omega
         for i in range(q):
-            eps_lag = (
-                eps[t - 1 - i] ** 2
-                if t - 1 - i >= 0
-                else s2_init
-            )
+            eps_lag = eps[t - 1 - i] ** 2 if t - 1 - i >= 0 else s2_init
             s2[t] += alpha[i] * eps_lag
         for j in range(p):
             s2_lag = s2[t - 1 - j] if t - 1 - j >= 0 else s2_init

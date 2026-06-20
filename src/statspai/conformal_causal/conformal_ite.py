@@ -32,10 +32,10 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def conformal_cate(
     data: pd.DataFrame,
@@ -101,18 +101,25 @@ def conformal_cate(
     True
     """
     est = ConformalCATE(
-        data=data, y=y, treat=treat, covariates=covariates,
-        model=model, alpha=alpha, calib_fraction=calib_fraction,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        model=model,
+        alpha=alpha,
+        calib_fraction=calib_fraction,
         random_state=random_state,
     )
     _result = est.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.conformal_cate",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "model": type(model).__name__ if model is not None else None,
                 "alpha": alpha,
@@ -130,6 +137,7 @@ def conformal_cate(
 # ======================================================================
 # ConformalCATE class
 # ======================================================================
+
 
 class ConformalCATE:
     """
@@ -189,8 +197,11 @@ class ConformalCATE:
         self.treat = treat
         self.covariates = covariates
         self.model = model or GradientBoostingRegressor(
-            n_estimators=200, max_depth=4, learning_rate=0.05,
-            subsample=0.8, random_state=random_state,
+            n_estimators=200,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.8,
+            random_state=random_state,
         )
         self.alpha = alpha
         self.calib_fraction = calib_fraction
@@ -269,10 +280,9 @@ class ConformalCATE:
         interval_width = float(np.mean(cate_upper - cate_lower))
 
         # Bootstrap SE for ATE
-        boot_means = np.array([
-            rng.choice(cate, size=n, replace=True).mean()
-            for _ in range(500)
-        ])
+        boot_means = np.array(
+            [rng.choice(cate, size=n, replace=True).mean() for _ in range(500)]
+        )
         se = float(np.std(boot_means, ddof=1))
 
         if se > 0:
@@ -285,20 +295,20 @@ class ConformalCATE:
         ci = (ate - z_crit * se, ate + z_crit * se)
 
         model_info = {
-            'cate': cate,
-            'cate_lower': cate_lower,
-            'cate_upper': cate_upper,
-            'interval_width': interval_width,
-            'q_treated': q1,
-            'q_control': q0,
-            'calib_fraction': self.calib_fraction,
-            'n_calib': n_calib,
-            'n_train': len(train_idx),
-            'coverage_level': 1 - self.alpha,
-            'cate_mean': float(np.mean(cate)),
-            'cate_std': float(np.std(cate)),
-            'n_treated': int(np.sum(D == 1)),
-            'n_control': int(np.sum(D == 0)),
+            "cate": cate,
+            "cate_lower": cate_lower,
+            "cate_upper": cate_upper,
+            "interval_width": interval_width,
+            "q_treated": q1,
+            "q_control": q0,
+            "calib_fraction": self.calib_fraction,
+            "n_calib": n_calib,
+            "n_train": len(train_idx),
+            "coverage_level": 1 - self.alpha,
+            "cate_mean": float(np.mean(cate)),
+            "cate_std": float(np.std(cate)),
+            "n_treated": int(np.sum(D == 1)),
+            "n_control": int(np.sum(D == 0)),
         }
 
         self._mu1 = mu1
@@ -307,8 +317,8 @@ class ConformalCATE:
         self._q0 = q0
 
         return CausalResult(
-            method='Conformal Causal Inference (Lei & Candes 2021)',
-            estimand='ATE',
+            method="Conformal Causal Inference (Lei & Candes 2021)",
+            estimand="ATE",
             estimate=ate,
             se=se,
             pvalue=pvalue,
@@ -317,7 +327,7 @@ class ConformalCATE:
             n_obs=n,
             detail=None,
             model_info=model_info,
-            _citation_key='conformal_cate',
+            _citation_key="conformal_cate",
         )
 
     def predict(self, X_new: np.ndarray) -> Dict[str, np.ndarray]:
@@ -328,7 +338,7 @@ class ConformalCATE:
         -------
         dict with 'cate', 'lower', 'upper'
         """
-        if not hasattr(self, '_mu1'):
+        if not hasattr(self, "_mu1"):
             raise ValueError("Model must be fitted first.")
 
         X_new = np.asarray(X_new, dtype=np.float64)
@@ -336,14 +346,14 @@ class ConformalCATE:
         lower = cate - (self._q1 + self._q0)
         upper = cate + (self._q1 + self._q0)
 
-        return {'cate': cate, 'lower': lower, 'upper': upper}
+        return {"cate": cate, "lower": lower, "upper": upper}
 
 
 # ======================================================================
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['conformal_cate'] = (
+CausalResult._CITATIONS["conformal_cate"] = (
     "@article{lei2021conformal,\n"
     "  title={Conformal Inference of Counterfactuals and Individual "
     "Treatment Effects},\n"

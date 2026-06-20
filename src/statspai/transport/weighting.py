@@ -134,7 +134,9 @@ def transport_weights(
     dahabreh2020extending
     """
     features = list(features)
-    missing = [c for c in features if c not in source.columns or c not in target.columns]
+    missing = [
+        c for c in features if c not in source.columns or c not in target.columns
+    ]
     if missing:
         raise KeyError(f"Missing features in source or target: {missing}")
 
@@ -142,13 +144,16 @@ def transport_weights(
     target = target.reset_index(drop=True).copy()
     source["_pop"] = 1
     target["_pop"] = 0
-    pooled = pd.concat([source[features + ["_pop"]], target[features + ["_pop"]]], ignore_index=True)
+    pooled = pd.concat(
+        [source[features + ["_pop"]], target[features + ["_pop"]]], ignore_index=True
+    )
 
     X = pooled[features].to_numpy(dtype=float)
     X = np.column_stack([np.ones(len(X)), X])
     y = pooled["_pop"].to_numpy(dtype=float)
 
     from statspai.censoring.ipcw import _fit_logit, _sigmoid
+
     beta = _fit_logit(y, X)
     prob_source = np.clip(_sigmoid(X @ beta), 1e-6, 1 - 1e-6)
 
@@ -178,7 +183,7 @@ def transport_weights(
     v1 = (w1 * (yobs - mt1) ** 2).sum() / max(w1.sum(), 1e-12) ** 2
     v0 = (w0 * (yobs - mt0) ** 2).sum() / max(w0.sum(), 1e-12) ** 2
     se = float(np.sqrt(v1 + v0))
-    ess = float(w.sum() ** 2 / (w ** 2).sum())
+    ess = float(w.sum() ** 2 / (w**2).sum())
 
     _result = TransportWeightResult(
         weights=w,
@@ -190,12 +195,14 @@ def transport_weights(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.transport.transport_weights",
             params={
                 "features": list(features),
-                "treatment": treatment, "outcome": outcome,
+                "treatment": treatment,
+                "outcome": outcome,
                 "truncate": list(truncate) if truncate else None,
                 "n_source": int(len(source)),
                 "n_target": int(len(target)),

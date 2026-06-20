@@ -31,10 +31,10 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 # ====================================================================== #
 #  Public API
 # ====================================================================== #
+
 
 def multi_outcome_synth(
     data: pd.DataFrame,
@@ -151,13 +151,10 @@ def multi_outcome_synth(
     #  Validate inputs
     # ------------------------------------------------------------------
     if not outcomes or len(outcomes) < 2:
-        raise ValueError("Need at least 2 outcome columns for "
-                         "multi-outcome SCM.")
+        raise ValueError("Need at least 2 outcome columns for " "multi-outcome SCM.")
     method = method.lower()
     if method not in ("concatenated", "averaged"):
-        raise ValueError(
-            f"method must be 'concatenated' or 'averaged', got '{method}'"
-        )
+        raise ValueError(f"method must be 'concatenated' or 'averaged', got '{method}'")
     for col in [unit, time] + outcomes:
         if col not in data.columns:
             raise ValueError(f"Column '{col}' not found in data.")
@@ -227,11 +224,17 @@ def multi_outcome_synth(
     # ------------------------------------------------------------------
     if method == "concatenated":
         omega = _concatenated_weights(
-            Y1_pres, Y0_pres, outcomes, penalization,
+            Y1_pres,
+            Y0_pres,
+            outcomes,
+            penalization,
         )
     else:
         omega = _averaged_weights(
-            Y1_pres, Y0_pres, outcomes, penalization,
+            Y1_pres,
+            Y0_pres,
+            outcomes,
+            penalization,
         )
 
     # ------------------------------------------------------------------
@@ -250,7 +253,7 @@ def multi_outcome_synth(
         y0_pre_raw = p.loc[donors, pre_times].values.astype(np.float64)
         y0_post_raw = p.loc[donors, post_times].values.astype(np.float64)
 
-        synth_pre = y0_pre_raw.T @ omega   # (T0,)
+        synth_pre = y0_pre_raw.T @ omega  # (T0,)
         synth_post = y0_post_raw.T @ omega  # (T1,)
 
         gap_pre = y1_pre_raw - synth_pre
@@ -258,12 +261,14 @@ def multi_outcome_synth(
         att_k = float(np.mean(gap_post))
         per_outcome_att[oc] = att_k
 
-        gap_df = pd.DataFrame({
-            "time": all_times,
-            "treated": np.concatenate([y1_pre_raw, y1_post_raw]),
-            "synthetic": np.concatenate([synth_pre, synth_post]),
-            "gap": np.concatenate([gap_pre, gap_post]),
-        })
+        gap_df = pd.DataFrame(
+            {
+                "time": all_times,
+                "treated": np.concatenate([y1_pre_raw, y1_post_raw]),
+                "synthetic": np.concatenate([synth_pre, synth_post]),
+                "gap": np.concatenate([gap_pre, gap_post]),
+            }
+        )
         gap_tables[oc] = gap_df
         Y_synth_dict[oc] = np.concatenate([synth_pre, synth_post])
         Y_treated_dict[oc] = np.concatenate([y1_pre_raw, y1_post_raw])
@@ -313,20 +318,24 @@ def multi_outcome_synth(
                 # Weights for this placebo
                 if method == "concatenated":
                     w_plac = _concatenated_weights(
-                        p_Y1_pres, p_Y0_pres, outcomes, penalization,
+                        p_Y1_pres,
+                        p_Y0_pres,
+                        outcomes,
+                        penalization,
                     )
                 else:
                     w_plac = _averaged_weights(
-                        p_Y1_pres, p_Y0_pres, outcomes, penalization,
+                        p_Y1_pres,
+                        p_Y0_pres,
+                        outcomes,
+                        penalization,
                     )
 
                 # Per-outcome placebo ATTs
                 plac_atts_k: List[float] = []
                 for oc in outcomes:
                     synth_post_plac = p_Y0_posts_raw[oc].T @ w_plac
-                    att_plac_k = float(
-                        np.mean(p_Y1_posts_raw[oc] - synth_post_plac)
-                    )
+                    att_plac_k = float(np.mean(p_Y1_posts_raw[oc] - synth_post_plac))
                     placebo_atts_per_outcome[oc].append(att_plac_k)
                     plac_atts_k.append(att_plac_k)
 
@@ -365,9 +374,11 @@ def multi_outcome_synth(
     # ------------------------------------------------------------------
     #  Joint p-value: Fisher combination of per-outcome p-values
     # ------------------------------------------------------------------
-    valid_pvals = [per_outcome_pval[oc] for oc in outcomes
-                   if np.isfinite(per_outcome_pval[oc])
-                   and per_outcome_pval[oc] > 0]
+    valid_pvals = [
+        per_outcome_pval[oc]
+        for oc in outcomes
+        if np.isfinite(per_outcome_pval[oc]) and per_outcome_pval[oc] > 0
+    ]
     if len(valid_pvals) >= 2:
         # Fisher's method: -2 * sum(log(p_k)) ~ chi2(2K)
         fisher_stat = -2.0 * np.sum(np.log(valid_pvals))
@@ -381,18 +392,19 @@ def multi_outcome_synth(
 
     # Confidence interval
     z_crit = sp_stats.norm.ppf(1 - alpha / 2)
-    ci = (overall_att - z_crit * overall_se,
-          overall_att + z_crit * overall_se)
+    ci = (overall_att - z_crit * overall_se, overall_att + z_crit * overall_se)
 
     # ------------------------------------------------------------------
     #  Assemble results
     # ------------------------------------------------------------------
-    per_outcome_df = pd.DataFrame({
-        "outcome": outcomes,
-        "att": [per_outcome_att[oc] for oc in outcomes],
-        "se": [per_outcome_se[oc] for oc in outcomes],
-        "pvalue": [per_outcome_pval[oc] for oc in outcomes],
-    })
+    per_outcome_df = pd.DataFrame(
+        {
+            "outcome": outcomes,
+            "att": [per_outcome_att[oc] for oc in outcomes],
+            "se": [per_outcome_se[oc] for oc in outcomes],
+            "pvalue": [per_outcome_pval[oc] for oc in outcomes],
+        }
+    )
 
     weights_dict = dict(zip(donors, omega))
 
@@ -441,6 +453,7 @@ def multi_outcome_synth(
 #  Internal helpers
 # ====================================================================== #
 
+
 def _scm_weights(
     y_treated: np.ndarray,
     Y_donors: np.ndarray,
@@ -464,8 +477,11 @@ def _scm_weights(
     w : ndarray, shape (J,)
     """
     from ._core import solve_simplex_weights
+
     return solve_simplex_weights(
-        y_treated, Y_donors.T, penalization=penalization,
+        y_treated,
+        Y_donors.T,
+        penalization=penalization,
     )
 
 
@@ -486,11 +502,11 @@ def _concatenated_weights(
     z_treated_parts = []
     z_donors_parts = []
     for oc in outcomes:
-        z_treated_parts.append(Y1_pres[oc])        # (T0,)
-        z_donors_parts.append(Y0_pres[oc])          # (J, T0)
+        z_treated_parts.append(Y1_pres[oc])  # (T0,)
+        z_donors_parts.append(Y0_pres[oc])  # (J, T0)
 
-    z_treated = np.concatenate(z_treated_parts)           # (K*T0,)
-    z_donors = np.hstack(z_donors_parts)                  # (J, K*T0)
+    z_treated = np.concatenate(z_treated_parts)  # (K*T0,)
+    z_donors = np.hstack(z_donors_parts)  # (J, K*T0)
 
     return _scm_weights(z_treated, z_donors, penalization)
 
@@ -508,8 +524,8 @@ def _averaged_weights(
     This is simpler and faster but may discard information when outcome
     factor loadings differ substantially.
     """
-    y1_avg = np.mean([Y1_pres[oc] for oc in outcomes], axis=0)   # (T0,)
-    Y0_avg = np.mean([Y0_pres[oc] for oc in outcomes], axis=0)   # (J, T0)
+    y1_avg = np.mean([Y1_pres[oc] for oc in outcomes], axis=0)  # (T0,)
+    Y0_avg = np.mean([Y0_pres[oc] for oc in outcomes], axis=0)  # (J, T0)
 
     return _scm_weights(y1_avg, Y0_avg, penalization)
 

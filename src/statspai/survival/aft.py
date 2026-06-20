@@ -21,6 +21,7 @@ Klein, J.P. & Moeschberger, M.L. (2003). *Survival Analysis:
   Techniques for Censored and Truncated Data*, 2nd ed. Springer.
   [@kalbfleisch2002statistical]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -33,13 +34,15 @@ from scipy.optimize import minimize
 
 from .models import _parse_formula
 
-
 AFTFamily = Literal["exponential", "weibull", "lognormal", "loglogistic"]
 
 
 def _aft_log_likelihood(
-    beta: np.ndarray, sigma: float,
-    X: np.ndarray, logT: np.ndarray, E: np.ndarray,
+    beta: np.ndarray,
+    sigma: float,
+    X: np.ndarray,
+    logT: np.ndarray,
+    E: np.ndarray,
     family: AFTFamily,
 ) -> float:
     """AFT log-likelihood with right-censoring."""
@@ -97,9 +100,11 @@ class AFTResult:
         if self.family != "exponential":
             names = names + ["log(sigma)"]
             vals = vals + [
-                float(self.se_log_sigma)
-                if self.se_log_sigma is not None
-                else float("nan")
+                (
+                    float(self.se_log_sigma)
+                    if self.se_log_sigma is not None
+                    else float("nan")
+                )
             ]
         return pd.Series(vals, index=names)
 
@@ -194,15 +199,14 @@ def aft(
 
     beta0 = np.linalg.lstsq(X, logT, rcond=None)[0]
     sigma0 = float(np.std(logT - X @ beta0))
-    x0 = np.concatenate(
-        [beta0, [] if fix_sigma else [np.log(max(sigma0, 0.1))]]
-    )
+    x0 = np.concatenate([beta0, [] if fix_sigma else [np.log(max(sigma0, 0.1))]])
     opt = minimize(neg_ll, x0, method="L-BFGS-B", options={"maxiter": 500})
     beta = opt.x[:k]
     sigma = 1.0 if fix_sigma else float(np.exp(opt.x[k]))
 
     # SE from Hessian
     from scipy.optimize import approx_fprime
+
     n_params = len(opt.x)
     H = np.zeros((n_params, n_params))
     h = 1e-5
@@ -210,8 +214,7 @@ def aft(
         e = np.zeros(n_params)
         e[i] = h
         H[i] = (
-            approx_fprime(opt.x + e, neg_ll, h)
-            - approx_fprime(opt.x - e, neg_ll, h)
+            approx_fprime(opt.x + e, neg_ll, h) - approx_fprime(opt.x - e, neg_ll, h)
         ) / (2 * h)
     try:
         V = np.linalg.inv(H)
@@ -227,14 +230,21 @@ def aft(
     bic = -2 * ll + n_params * np.log(n)
 
     _result = AFTResult(
-        beta=beta, se=se, sigma=sigma,
+        beta=beta,
+        se=se,
+        sigma=sigma,
         var_names=["Intercept"] + covariates,
-        family=family, log_likelihood=ll,
-        aic=aic, bic=bic, n=n, n_events=n_events,
+        family=family,
+        log_likelihood=ll,
+        aic=aic,
+        bic=bic,
+        n=n,
+        n_events=n_events,
         se_log_sigma=se_log_sigma,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.survival.aft",

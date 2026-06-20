@@ -48,6 +48,7 @@ class BeyondAverageResult(ResultProtocolMixin):
     >>> round(res.complier_share, 2)
     0.69
     """
+
     quantiles: np.ndarray
     late_q: np.ndarray
     se_q: np.ndarray
@@ -65,12 +66,9 @@ class BeyondAverageResult(ResultProtocolMixin):
             "  Quantile  LATE      SE       95% CI",
         ]
         for q, l, s, lo, hi in zip(
-            self.quantiles, self.late_q, self.se_q,
-            self.ci_low, self.ci_high
+            self.quantiles, self.late_q, self.se_q, self.ci_low, self.ci_high
         ):
-            rows.append(
-                f"  {q:.2f}     {l:+.4f}  {s:.4f}  [{lo:+.4f}, {hi:+.4f}]"
-            )
+            rows.append(f"  {q:.2f}     {l:+.4f}  {s:.4f}  [{lo:+.4f}, {hi:+.4f}]")
         return "\n".join(rows)
 
 
@@ -153,10 +151,12 @@ def beyond_average_late(
     # ------------------------------------------------------------------ #
 
     def _complier_cdfs(
-        Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray,
+        Yi: np.ndarray,
+        Di: np.ndarray,
+        Zi: np.ndarray,
     ) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """Return (grid, F1_c, F0_c) monotone CDFs on a shared y-grid."""
-        dp = (Di[Zi == 1].mean() - Di[Zi == 0].mean())
+        dp = Di[Zi == 1].mean() - Di[Zi == 0].mean()
         if abs(dp) < 1e-8:
             return None
         # Shared y-grid at unique observed values, sorted.
@@ -182,7 +182,7 @@ def beyond_average_late(
         cum_d0z0 = np.cumsum((d_s == 0) & (z_s == 0))
         cum_d0z1 = np.cumsum((d_s == 0) & (z_s == 1))
         # For each grid value, pick the last-y-index <= grid value
-        idxs = np.searchsorted(y_s, grid, side='right') - 1
+        idxs = np.searchsorted(y_s, grid, side="right") - 1
         idxs = np.clip(idxs, 0, len(y_s) - 1)
         F1_c = (cum_d1z1[idxs] / n_z1 - cum_d1z0[idxs] / n_z0) / dp
         F0_c = (cum_d0z0[idxs] / n_z0 - cum_d0z1[idxs] / n_z1) / dp
@@ -195,12 +195,15 @@ def beyond_average_late(
         """Empirical quantile: smallest y such that F(y) >= q."""
         if not len(grid):
             return np.nan
-        idx = int(np.searchsorted(F, q, side='left'))
+        idx = int(np.searchsorted(F, q, side="left"))
         idx = min(idx, len(grid) - 1)
         return float(grid[idx])
 
     def _late_q(
-        Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray, q: float,
+        Yi: np.ndarray,
+        Di: np.ndarray,
+        Zi: np.ndarray,
+        q: float,
     ) -> float:
         cdfs = _complier_cdfs(Yi, Di, Zi)
         if cdfs is None:
@@ -228,12 +231,14 @@ def beyond_average_late(
     se_q = np.where(np.isfinite(se_q) & (n_finite >= 2), se_q, np.nan)
     if (n_finite < n_boot).any():
         import warnings
+
         n_nan = int((n_finite < 2).sum())
         warnings.warn(
             f"qte beyond-average: LATE-quantile bootstrap failed for some "
             f"quantiles; {n_nan}/{len(quantiles)} quantile SE(s) are NaN "
             f"and remaining SEs use fewer replicates.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
@@ -251,15 +256,22 @@ def beyond_average_late(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.qte.beyond_average_late",
             params={
-                "y": y, "treat": treat, "instrument": instrument,
-                "quantiles": list(quantiles) if quantiles is not None
-                              and hasattr(quantiles, "__iter__") else None,
+                "y": y,
+                "treat": treat,
+                "instrument": instrument,
+                "quantiles": (
+                    list(quantiles)
+                    if quantiles is not None and hasattr(quantiles, "__iter__")
+                    else None
+                ),
                 "alpha": alpha,
-                "n_boot": n_boot, "seed": seed,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

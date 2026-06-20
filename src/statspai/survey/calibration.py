@@ -17,6 +17,7 @@ Three calibration methods:
 - **Post-stratification** — special case where cells are defined
   by the crossing of categorical variables.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

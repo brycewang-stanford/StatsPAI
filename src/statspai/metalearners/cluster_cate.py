@@ -49,7 +49,8 @@ class ClusterCATEResult(ResultProtocolMixin):
     >>> bool(res.n_obs == 400)
     True
     """
-    cluster_table: pd.DataFrame      # cols: cluster, n, cate, se, ci_low, ci_high
+
+    cluster_table: pd.DataFrame  # cols: cluster, n, cate, se, ci_low, ci_high
     n_clusters: int
     n_obs: int
 
@@ -120,8 +121,7 @@ def cluster_cate(
     D = df[treat].to_numpy(int)
     X = df[covariates].to_numpy(float)
 
-    km = KMeans(n_clusters=n_clusters, random_state=seed,
-                n_init=10).fit(X)
+    km = KMeans(n_clusters=n_clusters, random_state=seed, n_init=10).fit(X)
     labels = km.labels_
 
     rows = []
@@ -132,15 +132,23 @@ def cluster_cate(
         treated = Y[mask & (D == 1)]
         control = Y[mask & (D == 0)]
         cate_k = float(treated.mean() - control.mean())
-        se_k = float(np.sqrt(treated.var(ddof=1) / max(len(treated), 1)
-                              + control.var(ddof=1) / max(len(control), 1)))
+        se_k = float(
+            np.sqrt(
+                treated.var(ddof=1) / max(len(treated), 1)
+                + control.var(ddof=1) / max(len(control), 1)
+            )
+        )
         z_crit = float(stats.norm.ppf(1 - alpha / 2))
-        rows.append({
-            'cluster': k, 'n': int(mask.sum()),
-            'cate': cate_k, 'se': se_k,
-            'ci_low': cate_k - z_crit * se_k,
-            'ci_high': cate_k + z_crit * se_k,
-        })
+        rows.append(
+            {
+                "cluster": k,
+                "n": int(mask.sum()),
+                "cate": cate_k,
+                "se": se_k,
+                "ci_low": cate_k - z_crit * se_k,
+                "ci_high": cate_k + z_crit * se_k,
+            }
+        )
 
     return ClusterCATEResult(
         cluster_table=pd.DataFrame(rows),

@@ -36,13 +36,13 @@ from scipy.spatial import cKDTree
 
 from ..core.results import EconometricResults
 
-
 # Earth radius in km
 _EARTH_RADIUS_KM = 6371.0
 
 
-def _haversine_km(lat1: np.ndarray, lon1: np.ndarray,
-                  lat2: np.ndarray, lon2: np.ndarray) -> np.ndarray:
+def _haversine_km(
+    lat1: np.ndarray, lon1: np.ndarray, lat2: np.ndarray, lon2: np.ndarray
+) -> np.ndarray:
     """
     Vectorised Haversine distance in kilometres.
 
@@ -51,10 +51,7 @@ def _haversine_km(lat1: np.ndarray, lon1: np.ndarray,
     lat1, lon1, lat2, lon2 = (np.radians(x) for x in (lat1, lon1, lat2, lon2))
     dlat = lat2 - lat1
     dlon = lon2 - lon1
-    a = (
-        np.sin(dlat / 2) ** 2
-        + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
-    )
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
     return np.asarray(2 * _EARTH_RADIUS_KM * np.arcsin(np.sqrt(a)), dtype=float)
 
 
@@ -133,8 +130,8 @@ def conley(
         raise ValueError(f"kernel must be 'uniform' or 'bartlett', got '{kernel}'")
 
     # --- Extract estimation objects ---
-    X = np.asarray(result.data_info['X'])
-    residuals = np.asarray(result.data_info['residuals'])
+    X = np.asarray(result.data_info["X"])
+    residuals = np.asarray(result.data_info["residuals"])
     n, k = X.shape
 
     lat_vals = data[lat].values.astype(float)
@@ -160,15 +157,16 @@ def conley(
     Omega = Xe.T @ Xe
 
     # Off-diagonal terms: only pairs within cutoff
-    pairs = tree.query_pairs(r=chord_cutoff, output_type='ndarray')
+    pairs = tree.query_pairs(r=chord_cutoff, output_type="ndarray")
 
     if len(pairs) > 0:
         idx_i = pairs[:, 0]
         idx_j = pairs[:, 1]
 
         # Exact Haversine distances for candidate pairs
-        d_ij = _haversine_km(lat_vals[idx_i], lon_vals[idx_i],
-                             lat_vals[idx_j], lon_vals[idx_j])
+        d_ij = _haversine_km(
+            lat_vals[idx_i], lon_vals[idx_i], lat_vals[idx_j], lon_vals[idx_j]
+        )
 
         # Apply distance cutoff (chord approximation may admit a few extras)
         within = d_ij <= dist_cutoff
@@ -197,13 +195,13 @@ def conley(
     df_resid = n - k
 
     model_info = dict(result.model_info)
-    model_info['se_type'] = 'conley_spatial'
-    model_info['dist_cutoff_km'] = dist_cutoff
-    model_info['kernel'] = kernel
+    model_info["se_type"] = "conley_spatial"
+    model_info["dist_cutoff_km"] = dist_cutoff
+    model_info["kernel"] = kernel
 
     data_info = dict(result.data_info)
-    data_info['df_resid'] = df_resid
-    data_info['vcov'] = V
+    data_info["df_resid"] = df_resid
+    data_info["vcov"] = V
 
     new_result = EconometricResults(
         params=result.params.copy(),

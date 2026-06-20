@@ -15,7 +15,6 @@ from .rdmulti import rdmc, rdms, RDMultiResult
 from .rd2d import rd2d
 from .multi_score import rd_multi_score, MultiScoreRDResult
 
-
 __all__ = [
     "multi_cutoff_rd",
     "geographic_rd",

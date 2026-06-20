@@ -17,7 +17,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-
 NodeInput = str | Iterable[str]
 NodeSet = set[str]
 
@@ -100,9 +99,7 @@ def identify(
     >>> "hedge" in res2.estimand
     True
     """
-    X = frozenset(
-        {treatment} if isinstance(treatment, str) else set(treatment)
-    )
+    X = frozenset({treatment} if isinstance(treatment, str) else set(treatment))
     Y = frozenset({outcome} if isinstance(outcome, str) else set(outcome))
 
     V = frozenset(dag._nodes)
@@ -146,6 +143,7 @@ def identify(
 #  Core recursion (Shpitser-Pearl Alg. 1)
 # --------------------------------------------------------------------------- #
 
+
 class _NotIdentifiable(Exception):
     def __init__(self, F: Iterable[str], F_prime: Iterable[str]) -> None:
         self.F = frozenset(F)
@@ -184,7 +182,7 @@ def _ID(
         parts: list[str] = []
         for S in ccs:
             parts.append(_ID(frozenset(S), V - frozenset(S), dag, V))
-        extra = (V - Y - X)
+        extra = V - Y - X
         body = " * ".join(parts)
         if extra:
             return f"sum_{{{_fmt(extra)}}} [{body}]"
@@ -224,6 +222,7 @@ def _ID(
 #  Graph utilities (latent-aware)
 # --------------------------------------------------------------------------- #
 
+
 def _is_latent(node: str) -> bool:
     return node.startswith("_L_") or node.startswith("U_")
 
@@ -238,9 +237,7 @@ def _observed_parents(dag: Any, node: str) -> NodeSet:
 
 def _bidirected_neighbors(dag: Any, node: str) -> NodeSet:
     """Return observed nodes sharing a latent parent with ``node``."""
-    latent_parents = [
-        p for p, ch in dag._edges.items() if node in ch and _is_latent(p)
-    ]
+    latent_parents = [p for p, ch in dag._edges.items() if node in ch and _is_latent(p)]
     out: NodeSet = set()
     for L in latent_parents:
         out |= {v for v in dag._edges.get(L, set()) if not _is_latent(v)}
@@ -289,6 +286,7 @@ def _ancestors_in(
 def _subgraph(dag: Any, V: Iterable[str]) -> Any:
     """Return a fresh DAG restricted to nodes in V (plus relevant latents)."""
     from .graph import DAG as _DAG
+
     sub = _DAG()
     keep_obs = set(V)
     for v in keep_obs:

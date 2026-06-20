@@ -63,8 +63,12 @@ _SCENARIOS: Dict[str, _ScenarioSpec] = {
     },
     "staggered_did": {
         "dgp": "dgp_did",
-        "dgp_kwargs": {"n_units": 200, "n_periods": 5, "effect": 0.5,
-                       "staggered": True},
+        "dgp_kwargs": {
+            "n_units": 200,
+            "n_periods": 5,
+            "effect": 0.5,
+            "staggered": True,
+        },
         "y": "y",
         "treatment": "treated",
         "id": "unit",
@@ -166,27 +170,39 @@ def verify_benchmark(
     for name in scenarios:
         if name not in _SCENARIOS:
             raise ValueError(
-                f"Unknown scenario '{name}'. "
-                f"Available: {list(_SCENARIOS.keys())}"
+                f"Unknown scenario '{name}'. " f"Available: {list(_SCENARIOS.keys())}"
             )
         spec = _SCENARIOS[name]
         spec_values: Mapping[str, object] = spec
         dgp_fn = cast(Callable[..., pd.DataFrame], getattr(sp, spec["dgp"]))
 
         if verbose:
-            print(f"[verify_benchmark] {name}: {spec['dgp']} "
-                  f"(true effect = {spec['true_effect']}, n_reps = {n_reps})")
+            print(
+                f"[verify_benchmark] {name}: {spec['dgp']} "
+                f"(true effect = {spec['true_effect']}, n_reps = {n_reps})"
+            )
 
         for rep in range(n_reps):
             df = dgp_fn(**spec["dgp_kwargs"], seed=seed + rep)
 
             rec_kwargs: Dict[str, object] = {
-                "data": df, "y": spec["y"], "design": spec["design"],
-                "verify": True, "verify_B": verify_B,
-                "verify_budget_s": verify_budget_s, "verify_top_k": 2,
+                "data": df,
+                "y": spec["y"],
+                "design": spec["design"],
+                "verify": True,
+                "verify_B": verify_B,
+                "verify_budget_s": verify_budget_s,
+                "verify_top_k": 2,
             }
-            for k in ("treatment", "id", "time", "running_var", "cutoff",
-                      "instrument", "covariates"):
+            for k in (
+                "treatment",
+                "id",
+                "time",
+                "running_var",
+                "cutoff",
+                "instrument",
+                "covariates",
+            ):
                 if k in spec_values:
                     rec_kwargs[k] = spec_values[k]
 
@@ -194,15 +210,22 @@ def verify_benchmark(
                 recommend_fn = cast(Callable[..., Any], sp.recommend)
                 rec = recommend_fn(**rec_kwargs)
             except Exception as e:
-                rows.append({
-                    "scenario": name, "rep": rep, "method": "ERROR",
-                    "score": np.nan, "stability": np.nan,
-                    "placebo": np.nan, "subsample": np.nan,
-                    "point_estimate": np.nan,
-                    "true_effect": spec["true_effect"],
-                    "bias": np.nan, "elapsed_s": np.nan,
-                    "error": str(e)[:80],
-                })
+                rows.append(
+                    {
+                        "scenario": name,
+                        "rep": rep,
+                        "method": "ERROR",
+                        "score": np.nan,
+                        "stability": np.nan,
+                        "placebo": np.nan,
+                        "subsample": np.nan,
+                        "point_estimate": np.nan,
+                        "true_effect": spec["true_effect"],
+                        "bias": np.nan,
+                        "elapsed_s": np.nan,
+                        "error": str(e)[:80],
+                    }
+                )
                 continue
 
             for r in rec.recommendations[:2]:
@@ -222,25 +245,31 @@ def verify_benchmark(
                         None,
                         section="verify_benchmark: point estimate for bias",
                         exc=e,
-                        detail=f"scenario={name} rep={rep} "
-                               f"method={r['method']}",
+                        detail=f"scenario={name} rep={rep} " f"method={r['method']}",
                     )
                     point = np.nan
-                bias = (point - spec["true_effect"]
-                        if isinstance(point, float) and np.isfinite(point)
-                        else np.nan)
+                bias = (
+                    point - spec["true_effect"]
+                    if isinstance(point, float) and np.isfinite(point)
+                    else np.nan
+                )
 
-                rows.append({
-                    "scenario": name, "rep": rep,
-                    "method": r["method"],
-                    "score": score, "stability": stab,
-                    "placebo": plac, "subsample": subs,
-                    "point_estimate": point,
-                    "true_effect": spec["true_effect"],
-                    "bias": bias,
-                    "elapsed_s": v.get("elapsed_s", np.nan),
-                    "error": v.get("error"),
-                })
+                rows.append(
+                    {
+                        "scenario": name,
+                        "rep": rep,
+                        "method": r["method"],
+                        "score": score,
+                        "stability": stab,
+                        "placebo": plac,
+                        "subsample": subs,
+                        "point_estimate": point,
+                        "true_effect": spec["true_effect"],
+                        "bias": bias,
+                        "elapsed_s": v.get("elapsed_s", np.nan),
+                        "error": v.get("error"),
+                    }
+                )
 
     df_out = pd.DataFrame(rows)
 
@@ -249,12 +278,22 @@ def verify_benchmark(
         top1 = df_out.groupby(["scenario", "rep"]).head(1)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
-            agg = top1.groupby("scenario").agg(
-                score_mean=("score", lambda s: np.nanmean(s)),
-                score_std=("score", lambda s: np.nanstd(s, ddof=1)
-                           if np.sum(np.isfinite(s)) > 1 else np.nan),
-                bias_mean=("bias", lambda s: np.nanmean(np.abs(s))),
-            ).round(2)
+            agg = (
+                top1.groupby("scenario")
+                .agg(
+                    score_mean=("score", lambda s: np.nanmean(s)),
+                    score_std=(
+                        "score",
+                        lambda s: (
+                            np.nanstd(s, ddof=1)
+                            if np.sum(np.isfinite(s)) > 1
+                            else np.nan
+                        ),
+                    ),
+                    bias_mean=("bias", lambda s: np.nanmean(np.abs(s))),
+                )
+                .round(2)
+            )
         print()
         print("=" * 60)
         print("verify_benchmark — calibration summary (top-1 method)")

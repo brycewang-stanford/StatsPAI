@@ -12,19 +12,22 @@ References
 ----------
 Anselin (1988); Ord (1975); LeSage & Pace (2009). [@anselin1988spatial]
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from scipy import sparse, stats as sp_stats  # noqa: F401  (sp_stats reserved for future SE work)
+from scipy import (
+    sparse,
+    stats as sp_stats,
+)  # noqa: F401  (sp_stats reserved for future SE work)
 from scipy.optimize import minimize_scalar
 
 from ...core.results import EconometricResults
 from ..weights.core import W as _W
 from ._logdet import log_det_approx
-
 
 ArrayOrW = Union[np.ndarray, sparse.spmatrix, "_W"]
 
@@ -38,8 +41,10 @@ _EXACT_LOGDET_MAX_N = 5000
 #  Internal helpers
 # ====================================================================== #
 
-def _coerce_W(W: ArrayOrW, n_expected: Optional[int],
-              row_normalize: bool) -> sparse.csr_matrix:
+
+def _coerce_W(
+    W: ArrayOrW, n_expected: Optional[int], row_normalize: bool
+) -> sparse.csr_matrix:
     """Return W as a CSR matrix, optionally row-normalised.
 
     A ``W`` object's ``transform`` attribute already encodes whether it was
@@ -55,9 +60,7 @@ def _coerce_W(W: ArrayOrW, n_expected: Optional[int],
     else:
         M = sparse.csr_matrix(np.asarray(W, dtype=float))
     if n_expected is not None and M.shape != (n_expected, n_expected):
-        raise ValueError(
-            f"W must be ({n_expected}, {n_expected}), got {M.shape}"
-        )
+        raise ValueError(f"W must be ({n_expected}, {n_expected}), got {M.shape}")
     if row_normalize:
         row_sums = np.asarray(M.sum(axis=1)).ravel()
         safe_row_sums = np.where(row_sums == 0, 1.0, row_sums)
@@ -65,8 +68,9 @@ def _coerce_W(W: ArrayOrW, n_expected: Optional[int],
     return M
 
 
-def _parse_formula(formula: str, data: pd.DataFrame
-                   ) -> Tuple[np.ndarray, np.ndarray, str, List[str]]:
+def _parse_formula(
+    formula: str, data: pd.DataFrame
+) -> Tuple[np.ndarray, np.ndarray, str, List[str]]:
     """Legacy-compatible formula parser.
 
     Returns ``(y, X, dep_var, indep_vars)`` where ``X`` includes a leading
@@ -104,8 +108,7 @@ def _rho_bounds(eigvals: Optional[np.ndarray]) -> Tuple[float, float]:
     return float(rho_min), float(rho_max)
 
 
-def _logdet(M: sparse.csr_matrix, rho: float,
-            eigvals: Optional[np.ndarray]) -> float:
+def _logdet(M: sparse.csr_matrix, rho: float, eigvals: Optional[np.ndarray]) -> float:
     """log|I - rho W| via the cached eigenvalues when available."""
     if eigvals is not None:
         return float(np.sum(np.log(np.abs(1.0 - rho * eigvals))))
@@ -113,10 +116,9 @@ def _logdet(M: sparse.csr_matrix, rho: float,
 
 
 def _full_loglik(n: int, sigma2: float, logdet_val: float) -> float:
-    return float(-n / 2.0 * np.log(2.0 * np.pi)
-                 - n / 2.0 * np.log(sigma2)
-                 - n / 2.0
-                 + logdet_val)
+    return float(
+        -n / 2.0 * np.log(2.0 * np.pi) - n / 2.0 * np.log(sigma2) - n / 2.0 + logdet_val
+    )
 
 
 def _make_results(
@@ -173,8 +175,9 @@ def _make_results(
     )
 
 
-def _spatial_se_rho(M: sparse.csr_matrix, X: np.ndarray, beta: np.ndarray,
-                    rho: float, sigma2: float) -> float:
+def _spatial_se_rho(
+    M: sparse.csr_matrix, X: np.ndarray, beta: np.ndarray, rho: float, sigma2: float
+) -> float:
     """Asymptotic SE of the spatial-lag parameter ``rho``.
 
     Uses the SAR information matrix (Ord 1975; Anselin 1988, *Spatial
@@ -202,11 +205,10 @@ def _spatial_se_rho(M: sparse.csr_matrix, X: np.ndarray, beta: np.ndarray,
         Info[:k, :k] = (X.T @ X) / sigma2
         Info[:k, k] = (X.T @ GXb) / sigma2
         Info[k, :k] = Info[:k, k]
-        Info[k, k] = (np.trace(G @ G) + np.trace(G.T @ G)
-                      + float(GXb @ GXb) / sigma2)
+        Info[k, k] = np.trace(G @ G) + np.trace(G.T @ G) + float(GXb @ GXb) / sigma2
         Info[k, k + 1] = np.trace(G) / sigma2
         Info[k + 1, k] = Info[k, k + 1]
-        Info[k + 1, k + 1] = n / (2.0 * sigma2 ** 2)
+        Info[k + 1, k + 1] = n / (2.0 * sigma2**2)
         try:
             return float(np.sqrt(max(np.linalg.inv(Info)[k, k], 1e-12)))
         except np.linalg.LinAlgError:
@@ -217,6 +219,7 @@ def _spatial_se_rho(M: sparse.csr_matrix, X: np.ndarray, beta: np.ndarray,
     m_probes = 30
     A = sparse.eye(n) - rho * M
     from scipy.sparse.linalg import splu
+
     lu = splu(A.tocsc())
 
     def _G(V: np.ndarray) -> np.ndarray:  # rows v_i -> (W A^{-1} v_i)
@@ -252,13 +255,14 @@ def _spatial_se_lambda(M: sparse.csr_matrix, lam: float) -> float:
         W_dense = M.toarray()
         G = W_dense @ np.linalg.inv(np.eye(n) - lam * W_dense)  # W A^{-1}
         trG = np.trace(G)
-        I_lam = np.trace(G @ G) + np.trace(G.T @ G) - 2.0 * trG ** 2 / n
+        I_lam = np.trace(G @ G) + np.trace(G.T @ G) - 2.0 * trG**2 / n
         return float(1.0 / np.sqrt(max(I_lam, 1e-10)))
     # Large-n sparse path. G v = W A^{-1} v.
     rng = np.random.default_rng(0)
     m_probes = 30
     A = sparse.eye(n) - lam * M
     from scipy.sparse.linalg import splu
+
     lu = splu(A.tocsc())
 
     def _G(V: np.ndarray) -> np.ndarray:
@@ -273,7 +277,7 @@ def _spatial_se_lambda(M: sparse.csr_matrix, lam: float) -> float:
     tr_G2 = float(np.mean(np.sum(U * G2U, axis=1)))
     tr_GtG = float(np.mean(np.sum(GU * GU, axis=1)))
     trG = float(np.mean(np.sum(U * GU, axis=1)))
-    I_lam = tr_G2 + tr_GtG - 2.0 * trG ** 2 / n
+    I_lam = tr_G2 + tr_GtG - 2.0 * trG**2 / n
     return float(1.0 / np.sqrt(max(I_lam, 1e-10)))
 
 
@@ -281,8 +285,14 @@ def _spatial_se_lambda(M: sparse.csr_matrix, lam: float) -> float:
 #  SAR
 # ====================================================================== #
 
-def sar(W: ArrayOrW, data: pd.DataFrame, formula: str,
-        row_normalize: bool = True, alpha: float = 0.05) -> EconometricResults:
+
+def sar(
+    W: ArrayOrW,
+    data: pd.DataFrame,
+    formula: str,
+    row_normalize: bool = True,
+    alpha: float = 0.05,
+) -> EconometricResults:
     """Spatial Autoregressive (Lag) Model: ``Y = ρWY + Xβ + ε``.
 
     Parameters
@@ -332,8 +342,7 @@ def sar(W: ArrayOrW, data: pd.DataFrame, formula: str,
         ll += _logdet(M, rho, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max),
-                          method="bounded")
+    opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max), method="bounded")
     rho_hat = float(opt.x)
 
     y_star = y - rho_hat * Wy
@@ -351,11 +360,19 @@ def sar(W: ArrayOrW, data: pd.DataFrame, formula: str,
     log_lik = _full_loglik(n, sigma2, _logdet(M, rho_hat, eigvals))
 
     return _make_results(
-        model_type="sar", spatial_param_name="rho",
+        model_type="sar",
+        spatial_param_name="rho",
         spatial_param_value=rho_hat,
-        var_names=var_names, params_vec=params_vec, se_vec=se_vec,
-        sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
-        log_lik=log_lik, _w_sparse=M,
+        var_names=var_names,
+        params_vec=params_vec,
+        se_vec=se_vec,
+        sigma2=sigma2,
+        resid=e,
+        fitted=fitted,
+        n=n,
+        dep_var=dep_var,
+        log_lik=log_lik,
+        _w_sparse=M,
     )
 
 
@@ -363,8 +380,14 @@ def sar(W: ArrayOrW, data: pd.DataFrame, formula: str,
 #  SEM
 # ====================================================================== #
 
-def sem(W: ArrayOrW, data: pd.DataFrame, formula: str,
-        row_normalize: bool = True, alpha: float = 0.05) -> EconometricResults:
+
+def sem(
+    W: ArrayOrW,
+    data: pd.DataFrame,
+    formula: str,
+    row_normalize: bool = True,
+    alpha: float = 0.05,
+) -> EconometricResults:
     """Spatial Error Model: ``Y = Xβ + u, u = λWu + ε``.
 
     Examples
@@ -409,8 +432,7 @@ def sem(W: ArrayOrW, data: pd.DataFrame, formula: str,
         ll += _logdet(M, lam, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(neg_conc_ll, bounds=(lam_min, lam_max),
-                          method="bounded")
+    opt = minimize_scalar(neg_conc_ll, bounds=(lam_min, lam_max), method="bounded")
     lam_hat = float(opt.x)
 
     y_star = y - lam_hat * (M @ y)
@@ -432,11 +454,19 @@ def sem(W: ArrayOrW, data: pd.DataFrame, formula: str,
     log_lik = _full_loglik(n, sigma2, _logdet(M, lam_hat, eigvals))
 
     return _make_results(
-        model_type="sem", spatial_param_name="lambda",
+        model_type="sem",
+        spatial_param_name="lambda",
         spatial_param_value=lam_hat,
-        var_names=var_names, params_vec=params_vec, se_vec=se_vec,
-        sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
-        log_lik=log_lik, _w_sparse=M,
+        var_names=var_names,
+        params_vec=params_vec,
+        se_vec=se_vec,
+        sigma2=sigma2,
+        resid=e,
+        fitted=fitted,
+        n=n,
+        dep_var=dep_var,
+        log_lik=log_lik,
+        _w_sparse=M,
     )
 
 
@@ -444,8 +474,14 @@ def sem(W: ArrayOrW, data: pd.DataFrame, formula: str,
 #  SDM
 # ====================================================================== #
 
-def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
-        row_normalize: bool = True, alpha: float = 0.05) -> EconometricResults:
+
+def sdm(
+    W: ArrayOrW,
+    data: pd.DataFrame,
+    formula: str,
+    row_normalize: bool = True,
+    alpha: float = 0.05,
+) -> EconometricResults:
     """Spatial Durbin Model: ``Y = ρWY + Xβ + WXθ + ε``.
 
     Reports LeSage & Pace direct / indirect / total effects in the
@@ -496,8 +532,7 @@ def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
         ll += _logdet(M, rho, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max),
-                          method="bounded")
+    opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max), method="bounded")
     rho_hat = float(opt.x)
 
     y_star = y - rho_hat * Wy
@@ -519,7 +554,7 @@ def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
     # the dense regime — at n > 5000 the (I - rho W)^-1 matrix is intractable.
     extra: Dict[str, Any] = {}
     if n <= _EXACT_LOGDET_MAX_N:
-        beta_own = beta_aug[1:k]   # skip constant
+        beta_own = beta_aug[1:k]  # skip constant
         theta = beta_aug[k:]
         S_inv = np.linalg.inv(np.eye(n) - rho_hat * M.toarray())
         direct = np.zeros(len(beta_own))
@@ -538,11 +573,19 @@ def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
         }
 
     return _make_results(
-        model_type="sdm", spatial_param_name="rho",
+        model_type="sdm",
+        spatial_param_name="rho",
         spatial_param_value=rho_hat,
-        var_names=var_names, params_vec=params_vec, se_vec=se_vec,
-        sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
-        log_lik=log_lik, extra_diag=extra,
+        var_names=var_names,
+        params_vec=params_vec,
+        se_vec=se_vec,
+        sigma2=sigma2,
+        resid=e,
+        fitted=fitted,
+        n=n,
+        dep_var=dep_var,
+        log_lik=log_lik,
+        extra_diag=extra,
         _w_sparse=M,
     )
 
@@ -551,8 +594,14 @@ def sdm(W: ArrayOrW, data: pd.DataFrame, formula: str,
 #  SLX:  Y = X β + W X θ + ε   — OLS on augmented design
 # --------------------------------------------------------------------- #
 
-def slx(W: ArrayOrW, data: pd.DataFrame, formula: str,
-        row_normalize: bool = True, alpha: float = 0.05) -> EconometricResults:
+
+def slx(
+    W: ArrayOrW,
+    data: pd.DataFrame,
+    formula: str,
+    row_normalize: bool = True,
+    alpha: float = 0.05,
+) -> EconometricResults:
     """Spatial Lag of X (SLX) model: ``Y = Xβ + WXθ + ε``.
 
     No autoregressive term. Estimated by ordinary least squares on the
@@ -596,16 +645,23 @@ def slx(W: ArrayOrW, data: pd.DataFrame, formula: str,
     var_names = ["const"] + list(indep) + lag_names
     fitted = y - e
     log_lik = (
-        -n / 2 * np.log(2 * np.pi)
-        - n / 2 * np.log(sigma2)
-        - (e @ e) / (2 * sigma2)
+        -n / 2 * np.log(2 * np.pi) - n / 2 * np.log(sigma2) - (e @ e) / (2 * sigma2)
     )
 
     return _make_results(
-        model_type="slx", spatial_param_name="", spatial_param_value=0.0,
-        var_names=var_names, params_vec=beta_aug, se_vec=se_beta,
-        sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
-        log_lik=log_lik, extra_diag={},
+        model_type="slx",
+        spatial_param_name="",
+        spatial_param_value=0.0,
+        var_names=var_names,
+        params_vec=beta_aug,
+        se_vec=se_beta,
+        sigma2=sigma2,
+        resid=e,
+        fitted=fitted,
+        n=n,
+        dep_var=dep_var,
+        log_lik=log_lik,
+        extra_diag={},
         _w_sparse=M,
     )
 
@@ -614,8 +670,14 @@ def slx(W: ArrayOrW, data: pd.DataFrame, formula: str,
 #  SAC / SARAR:  Y = ρ W Y + X β + u,   u = λ W u + ε
 # --------------------------------------------------------------------- #
 
-def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
-        row_normalize: bool = True, alpha: float = 0.05) -> EconometricResults:
+
+def sac(
+    W: ArrayOrW,
+    data: pd.DataFrame,
+    formula: str,
+    row_normalize: bool = True,
+    alpha: float = 0.05,
+) -> EconometricResults:
     """SAC / SARAR: combined spatial lag + spatial error model.
 
     Jointly estimates the autoregressive coefficient ρ (on the dependent
@@ -673,16 +735,26 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
         return float(-ll)
 
     from scipy.optimize import minimize, differential_evolution
+
     # Multi-start: coarse global search via differential evolution, then
     # local polish with Nelder-Mead. Single-start Nelder-Mead gets stuck
     # when ρ and λ are close to zero because the neighbourhood is very flat.
     bounds = [(lo, hi), (lo, hi)]
     de_opt = differential_evolution(
-        neg_conc_ll, bounds=bounds, tol=1e-5, maxiter=60,
-        seed=0, polish=False, popsize=12,
+        neg_conc_ll,
+        bounds=bounds,
+        tol=1e-5,
+        maxiter=60,
+        seed=0,
+        polish=False,
+        popsize=12,
     )
-    opt = minimize(neg_conc_ll, x0=de_opt.x, method="Nelder-Mead",
-                   options={"xatol": 1e-6, "fatol": 1e-8, "maxiter": 500})
+    opt = minimize(
+        neg_conc_ll,
+        x0=de_opt.x,
+        method="Nelder-Mead",
+        options={"xatol": 1e-6, "fatol": 1e-8, "maxiter": 500},
+    )
     rho_hat, lam_hat = float(opt.x[0]), float(opt.x[1])
 
     A_lam = I_n - lam_hat * W_dense
@@ -696,6 +768,7 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
     se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
     # Numerical Hessian for the two spatial params (2x2 block, diagonal used)
     h = 1e-4
+
     def _num_d2(
         f: Callable[[np.ndarray], float],
         x: np.ndarray,
@@ -707,12 +780,10 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
         e_i[i] = h
         e_j[j] = h
         return float(
-            (
-                f(x + e_i + e_j) - f(x + e_i - e_j)
-                - f(x - e_i + e_j) + f(x - e_i - e_j)
-            )
+            (f(x + e_i + e_j) - f(x + e_i - e_j) - f(x - e_i + e_j) + f(x - e_i - e_j))
             / (4 * h * h)
         )
+
     try:
         drr = _num_d2(neg_conc_ll, np.array([rho_hat, lam_hat]), 0, 0)
         dll = _num_d2(neg_conc_ll, np.array([rho_hat, lam_hat]), 1, 1)
@@ -729,10 +800,17 @@ def sac(W: ArrayOrW, data: pd.DataFrame, formula: str,
     ldet_lam = _logdet(M, lam_hat, eigvals)
     log_lik = _full_loglik(n, sigma2, ldet_rho + ldet_lam)
     return _make_results(
-        model_type="sac", spatial_param_name="rho,lambda",
+        model_type="sac",
+        spatial_param_name="rho,lambda",
         spatial_param_value=rho_hat,
-        var_names=var_names, params_vec=params_vec, se_vec=se_vec,
-        sigma2=sigma2, resid=e, fitted=fitted, n=n, dep_var=dep_var,
+        var_names=var_names,
+        params_vec=params_vec,
+        se_vec=se_vec,
+        sigma2=sigma2,
+        resid=e,
+        fitted=fitted,
+        n=n,
+        dep_var=dep_var,
         log_lik=log_lik,
         extra_diag={"lambda_hat": round(lam_hat, 6)},
         _w_sparse=M,

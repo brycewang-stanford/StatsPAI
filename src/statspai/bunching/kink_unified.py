@@ -41,6 +41,7 @@ class KinkUnifiedResult:
     >>> res.n_obs
     400
     """
+
     rdd_effect: float
     rdd_se: float
     rkd_effect: float
@@ -120,24 +121,28 @@ def kink_unified(
         bin_width = bandwidth / 20.0
 
     treat = (R >= 0).astype(float)
-    w = _kernel_fn(R / bandwidth, 'triangular')
+    w = _kernel_fn(R / bandwidth, "triangular")
     mask = w > 0
 
     # ----- RDD + RKD via local linear with treat × {1, R} ----- #
-    Xb = np.column_stack([
-        np.ones(mask.sum()), R[mask], treat[mask], R[mask] * treat[mask],
-    ])
+    Xb = np.column_stack(
+        [
+            np.ones(mask.sum()),
+            R[mask],
+            treat[mask],
+            R[mask] * treat[mask],
+        ]
+    )
     Wd = np.diag(w[mask])
     try:
         beta = np.linalg.solve(Xb.T @ Wd @ Xb, Xb.T @ Wd @ Y[mask])
         resid = Y[mask] - Xb @ beta
-        sigma2 = float((w[mask] * resid ** 2).sum()
-                       / max(w[mask].sum() - Xb.shape[1], 1))
+        sigma2 = float((w[mask] * resid**2).sum() / max(w[mask].sum() - Xb.shape[1], 1))
         cov = sigma2 * np.linalg.pinv(Xb.T @ Wd @ Xb)
         rdd_e, rdd_se = float(beta[2]), float(np.sqrt(max(cov[2, 2], 0.0)))
         rkd_e, rkd_se = float(beta[3]), float(np.sqrt(max(cov[3, 3], 0.0)))
     except np.linalg.LinAlgError:
-        rdd_e = rdd_se = rkd_e = rkd_se = float('nan')
+        rdd_e = rdd_se = rkd_e = rkd_se = float("nan")
 
     # ----- Bunching via mass-excess + density ----- #
     bins = np.arange(-bandwidth, bandwidth + bin_width, bin_width)
@@ -151,30 +156,36 @@ def kink_unified(
         excess = float(np.sum(counts[excluded] - cf[excluded]))
         f_at = float(np.mean(counts[fit_mask]) / max(n * bin_width, 1e-9))
         if f_at > 0 and bandwidth > 0:
-            bunch_e = float(excess / (n * f_at * bandwidth ** 2))
+            bunch_e = float(excess / (n * f_at * bandwidth**2))
             bunch_var = float(np.sum(counts[excluded]))
-            bunch_se = float(np.sqrt(max(bunch_var, 0.0))
-                              / (n * f_at * bandwidth ** 2))
+            bunch_se = float(np.sqrt(max(bunch_var, 0.0)) / (n * f_at * bandwidth**2))
         else:
-            bunch_e = bunch_se = float('nan')
+            bunch_e = bunch_se = float("nan")
     else:
-        bunch_e = bunch_se = float('nan')
+        bunch_e = bunch_se = float("nan")
 
     _result = KinkUnifiedResult(
-        rdd_effect=rdd_e, rdd_se=rdd_se,
-        rkd_effect=rkd_e, rkd_se=rkd_se,
-        bunching_elasticity=bunch_e, bunching_se=bunch_se,
+        rdd_effect=rdd_e,
+        rdd_se=rdd_se,
+        rkd_effect=rkd_e,
+        rkd_se=rkd_se,
+        bunching_elasticity=bunch_e,
+        bunching_se=bunch_se,
         bandwidth=float(bandwidth),
         n_obs=n,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bunching.kink_unified",
             params={
-                "y": y, "running": running, "cutoff": cutoff,
-                "bandwidth": bandwidth, "bin_width": bin_width,
+                "y": y,
+                "running": running,
+                "cutoff": cutoff,
+                "bandwidth": bandwidth,
+                "bin_width": bin_width,
                 "polynomial_order": polynomial_order,
                 "alpha": alpha,
             },

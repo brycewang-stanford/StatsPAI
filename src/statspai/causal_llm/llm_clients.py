@@ -34,7 +34,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-
 __all__ = [
     "LLMClient",
     "openai_client",
@@ -143,13 +142,17 @@ class _OpenAIClient(LLMClient):
                 )
                 text = resp.choices[0].message.content or ""
                 self.history.append(
-                    {"role": role, "prompt": prompt, "response": text,
-                     "model": self.model}
+                    {
+                        "role": role,
+                        "prompt": prompt,
+                        "response": text,
+                        "model": self.model,
+                    }
                 )
                 return text
             except Exception as e:  # pragma: no cover - network dependent
                 err = e
-                time.sleep(min(2 ** attempt, 8))
+                time.sleep(min(2**attempt, 8))
         raise RuntimeError(
             f"OpenAI chat failed after {self.max_retries} attempts: {err}"
         )
@@ -263,10 +266,12 @@ class _AnthropicClient(LLMClient):
                 call_kwargs: Dict[str, Any] = dict(
                     model=self.model,
                     system=self.system_prompt,
-                    messages=[{
-                        "role": "user",
-                        "content": f"[{role}]\n{prompt}",
-                    }],
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": f"[{role}]\n{prompt}",
+                        }
+                    ],
                     max_tokens=self.max_tokens,
                     temperature=self.temperature,
                 )
@@ -285,9 +290,7 @@ class _AnthropicClient(LLMClient):
                 for block in resp.content:
                     block_type = getattr(block, "type", None)
                     if block_type == "thinking":
-                        thinking_parts.append(
-                            getattr(block, "thinking", "")
-                        )
+                        thinking_parts.append(getattr(block, "thinking", ""))
                     elif block_type == "redacted_thinking":
                         thinking_parts.append("<redacted>")
                     else:
@@ -305,7 +308,7 @@ class _AnthropicClient(LLMClient):
                 return text
             except Exception as e:  # pragma: no cover - network dependent
                 err = e
-                time.sleep(min(2 ** attempt, 8))
+                time.sleep(min(2**attempt, 8))
         raise RuntimeError(
             f"Anthropic chat failed after {self.max_retries} attempts: {err}"
         )
@@ -383,8 +386,7 @@ class _EchoClient(LLMClient):
     def chat(self, role: str, prompt: str) -> str:
         text = self.response_fn(role, prompt)
         self.history.append(
-            {"role": role, "prompt": prompt, "response": text,
-             "model": "echo"}
+            {"role": role, "prompt": prompt, "response": text, "model": "echo"}
         )
         return text
 

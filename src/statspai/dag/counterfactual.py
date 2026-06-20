@@ -21,7 +21,6 @@ from typing import Any, Callable
 import numpy as np
 from numpy.typing import NDArray
 
-
 ParentValues = dict[str, float]
 Equation = Callable[[ParentValues, float], float]
 Noise = Callable[[np.random.Generator], float]
@@ -83,6 +82,7 @@ class SCM:
                 if p in self.equations:
                     visit(p)
             order.append(v)
+
         for v in self.equations:
             visit(v)
         return order
@@ -128,15 +128,10 @@ class SCM:
         """
         rng = np.random.default_rng(seed)
         order = self.topo_order()
-        accepted: dict[str, list[float]] = {
-            name: [] for name in self.equations
-        }
+        accepted: dict[str, list[float]] = {name: [] for name in self.equations}
         attempts = 0
         max_attempts = n_samples * 2000
-        while (
-            len(accepted[order[0]]) < n_samples
-            and attempts < max_attempts
-        ):
+        while len(accepted[order[0]]) < n_samples and attempts < max_attempts:
             attempts += 1
             noise: dict[str, float] = {
                 v: self.equations[v]["noise"](rng) for v in self.equations
@@ -145,9 +140,7 @@ class SCM:
             for v in order:
                 parents = {p: factual[p] for p in self.equations[v]["parents"]}
                 factual[v] = self.equations[v]["equation"](parents, noise[v])
-            ok = all(
-                abs(factual[k] - val) < tol for k, val in evidence.items()
-            )
+            ok = all(abs(factual[k] - val) < tol for k, val in evidence.items())
             if not ok:
                 continue
             # Action: override interventions; re-run prediction
@@ -165,6 +158,4 @@ class SCM:
                 "Rejection sampling failed to match evidence. "
                 "Consider loosening `tol` or providing analytical abduction."
             )
-        return {
-            k: np.asarray(v, dtype=np.float64) for k, v in accepted.items()
-        }
+        return {k: np.asarray(v, dtype=np.float64) for k, v in accepted.items()}

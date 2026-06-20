@@ -29,10 +29,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 # ══════════════════════════════════════════════════════════════════════
 #  QTEResult
 # ══════════════════════════════════════════════════════════════════════
+
 
 class QTEResult:
     """Container for quantile treatment effect estimates.
@@ -194,17 +194,28 @@ class QTEResult:
             fig = ax.get_figure()
 
         ax.plot(
-            self.quantiles, self.effects, "o-",
-            color="#2c7bb6", linewidth=2, markersize=5, label="QTE",
+            self.quantiles,
+            self.effects,
+            "o-",
+            color="#2c7bb6",
+            linewidth=2,
+            markersize=5,
+            label="QTE",
         )
         ax.fill_between(
-            self.quantiles, self.ci_lower, self.ci_upper,
-            alpha=0.2, color="#2c7bb6",
+            self.quantiles,
+            self.ci_lower,
+            self.ci_upper,
+            alpha=0.2,
+            color="#2c7bb6",
         )
         ax.axhline(0, color="grey", linestyle="--", linewidth=0.8)
         ax.axhline(
-            self.ate, color="#d7191c", linestyle=":",
-            linewidth=1.2, label=f"ATE = {self.ate:.4f}",
+            self.ate,
+            color="#d7191c",
+            linestyle=":",
+            linewidth=1.2,
+            label=f"ATE = {self.ate:.4f}",
         )
         ax.set_xlabel("Quantile (τ)")
         ax.set_ylabel("Treatment Effect")
@@ -218,6 +229,7 @@ class QTEResult:
 #  Empirical quantile helpers
 # ══════════════════════════════════════════════════════════════════════
 
+
 def _quantile_func(x: np.ndarray, probs: np.ndarray) -> np.ndarray:
     xs = np.sort(x)
     cdf = np.arange(1, len(xs) + 1) / len(xs)
@@ -227,6 +239,7 @@ def _quantile_func(x: np.ndarray, probs: np.ndarray) -> np.ndarray:
 # ══════════════════════════════════════════════════════════════════════
 #  Quantile DID
 # ══════════════════════════════════════════════════════════════════════
+
 
 def qdid(
     data: pd.DataFrame,
@@ -298,14 +311,21 @@ def qdid(
     y10 = yv[(gv == 1) & (tv == 0)]
     y11 = yv[(gv == 1) & (tv == 1)]
 
-    for label, arr in [("control-pre", y00), ("control-post", y01),
-                       ("treated-pre", y10), ("treated-post", y11)]:
+    for label, arr in [
+        ("control-pre", y00),
+        ("control-post", y01),
+        ("treated-pre", y10),
+        ("treated-post", y11),
+    ]:
         if len(arr) < 2:
             raise ValueError(f"Too few observations in {label} cell ({len(arr)}).")
 
     def _point(
-        y00_: np.ndarray, y01_: np.ndarray,
-        y10_: np.ndarray, y11_: np.ndarray, taus_: np.ndarray,
+        y00_: np.ndarray,
+        y01_: np.ndarray,
+        y10_: np.ndarray,
+        y11_: np.ndarray,
+        taus_: np.ndarray,
     ) -> np.ndarray:
         q00 = _quantile_func(y00_, taus_)
         q01 = _quantile_func(y01_, taus_)
@@ -353,8 +373,10 @@ def qdid(
 #  QTE via Quantile Regression (Firpo 2007)
 # ══════════════════════════════════════════════════════════════════════
 
-def _qreg_coef(y: np.ndarray, X: np.ndarray, tau: float,
-               max_iter: int = 500, tol: float = 1e-6) -> np.ndarray:
+
+def _qreg_coef(
+    y: np.ndarray, X: np.ndarray, tau: float, max_iter: int = 500, tol: float = 1e-6
+) -> np.ndarray:
     """Interior-point quantile regression via iteratively reweighted LS.
 
     Minimises  sum rho_tau(y - X beta)  where rho_tau(u) = u*(tau - I(u<0)).
@@ -447,15 +469,26 @@ def qte(
     if method == "quantile_regression":
         return _qte_qreg(df, yv, dv, taus, y, treatment, controls, n_boot, alpha, seed)
     elif method == "distribution":
-        return _qte_distribution(df, yv, dv, taus, y, treatment, controls, n_boot, alpha, seed)
+        return _qte_distribution(
+            df, yv, dv, taus, y, treatment, controls, n_boot, alpha, seed
+        )
     else:
-        raise ValueError(f"Unknown QTE method '{method}'. Use 'quantile_regression' or 'distribution'.")
+        raise ValueError(
+            f"Unknown QTE method '{method}'. Use 'quantile_regression' or 'distribution'."
+        )
 
 
 def _qte_qreg(
-    df: pd.DataFrame, yv: np.ndarray, dv: np.ndarray, taus: np.ndarray,
-    y_col: str, treat_col: str, controls: Optional[List[str]],
-    n_boot: int, alpha: float, seed: int,
+    df: pd.DataFrame,
+    yv: np.ndarray,
+    dv: np.ndarray,
+    taus: np.ndarray,
+    y_col: str,
+    treat_col: str,
+    controls: Optional[List[str]],
+    n_boot: int,
+    alpha: float,
+    seed: int,
 ) -> QTEResult:
     """QTE via quantile regression."""
     # Build design matrix: [intercept, treatment, controls...]
@@ -502,9 +535,16 @@ def _qte_qreg(
 
 
 def _qte_distribution(
-    df: pd.DataFrame, yv: np.ndarray, dv: np.ndarray, taus: np.ndarray,
-    y_col: str, treat_col: str, controls: Optional[List[str]],
-    n_boot: int, alpha: float, seed: int,
+    df: pd.DataFrame,
+    yv: np.ndarray,
+    dv: np.ndarray,
+    taus: np.ndarray,
+    y_col: str,
+    treat_col: str,
+    controls: Optional[List[str]],
+    n_boot: int,
+    alpha: float,
+    seed: int,
 ) -> QTEResult:
     """QTE via propensity-score reweighting (distribution method)."""
     # Estimate propensity score with logistic regression
@@ -530,8 +570,10 @@ def _qte_distribution(
     pscore = np.clip(pscore, 0.01, 0.99)
 
     def _weighted_quantiles(
-        y_: np.ndarray, d_: np.ndarray,
-        ps_: np.ndarray, taus_: np.ndarray,
+        y_: np.ndarray,
+        d_: np.ndarray,
+        ps_: np.ndarray,
+        taus_: np.ndarray,
     ) -> np.ndarray:
         """IPW-based quantile estimates for treated and counterfactual."""
         # Treated quantiles (unweighted among treated)
@@ -550,7 +592,11 @@ def _qte_distribution(
         return np.asarray(q1 - q0)
 
     qte_point = _weighted_quantiles(yv, dv, pscore, taus)
-    ate = float(np.mean(yv[dv == 1]) - np.sum(yv[dv == 0] * pscore[dv == 0] / (1 - pscore[dv == 0])) / np.sum(pscore[dv == 0] / (1 - pscore[dv == 0])))
+    ate = float(
+        np.mean(yv[dv == 1])
+        - np.sum(yv[dv == 0] * pscore[dv == 0] / (1 - pscore[dv == 0]))
+        / np.sum(pscore[dv == 0] / (1 - pscore[dv == 0]))
+    )
 
     # Bootstrap
     rng = np.random.RandomState(seed)
@@ -561,15 +607,14 @@ def _qte_distribution(
         yb = yv[idx]
         db = dv[idx]
         Xpb = Xp[idx]
+
         # Re-estimate propensity score
         def _ll(beta: np.ndarray) -> float:
             z = Xpb @ beta
             z = np.clip(z, -30, 30)
             p = 1 / (1 + np.exp(-z))
             p = np.clip(p, 1e-10, 1 - 1e-10)
-            return float(
-                -np.mean(db * np.log(p) + (1 - db) * np.log(1 - p))
-            )
+            return float(-np.mean(db * np.log(p) + (1 - db) * np.log(1 - p)))
 
         rb = minimize(_ll, res.x, method="BFGS")
         psb = 1 / (1 + np.exp(-np.clip(Xpb @ rb.x, -30, 30)))

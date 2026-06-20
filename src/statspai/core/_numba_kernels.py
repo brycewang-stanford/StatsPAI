@@ -18,7 +18,6 @@ from typing import Any, Callable, TypeVar, cast
 
 import numpy as np
 
-
 _DecoratedFn = TypeVar("_DecoratedFn", bound=Callable[..., Any])
 
 # --------------------------------------------------------------------------- #
@@ -39,8 +38,10 @@ except ImportError:  # pragma: no cover
         **kwargs: Any,
     ) -> Callable[[_DecoratedFn], _DecoratedFn] | _DecoratedFn:
         """Identity decorator when numba is absent."""
+
         def _wrap(fn: _DecoratedFn) -> _DecoratedFn:
             return fn
+
         if args and callable(args[0]):
             return cast(_DecoratedFn, args[0])
         return _wrap
@@ -113,6 +114,7 @@ def ols_fit(
 #  Sandwich (HC) covariance helpers
 # --------------------------------------------------------------------------- #
 
+
 @njit(cache=_NUMBA_CACHE)
 def _sandwich_meat_hc0(X: np.ndarray, residuals: np.ndarray) -> np.ndarray:
     """Meat of HC0 sandwich: X' diag(e^2) X."""
@@ -161,9 +163,9 @@ def sandwich_hc(
     elif hc_type in ("hc2", "hc3"):
         h = np.sum(X * (X @ XtX_inv), axis=1)  # diagonal of hat matrix
         if hc_type == "hc2":
-            w = residuals ** 2 / (1 - h)
+            w = residuals**2 / (1 - h)
         else:
-            w = residuals ** 2 / (1 - h) ** 2
+            w = residuals**2 / (1 - h) ** 2
         meat = (X * w[:, None]).T @ X
     else:
         raise ValueError(f"Unknown hc_type: {hc_type}")
@@ -174,6 +176,7 @@ def sandwich_hc(
 # --------------------------------------------------------------------------- #
 #  Clustered standard errors (fast path)
 # --------------------------------------------------------------------------- #
+
 
 @njit(cache=_NUMBA_CACHE)
 def _cluster_meat_sorted(
@@ -266,6 +269,7 @@ def cluster_meat(
 # --------------------------------------------------------------------------- #
 #  HAC (Newey-West) kernel — vectorised NumPy, no Numba needed
 # --------------------------------------------------------------------------- #
+
 
 def hac_meat(
     X: np.ndarray,

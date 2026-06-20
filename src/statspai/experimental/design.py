@@ -77,15 +77,15 @@ class RandomizationResult:
             f"Method: {self.method}",
         ]
         if self.n_treated is not None and self.n_control is not None:
-            lines.extend([
-                f"Treated: {self.n_treated}   Control: {self.n_control}",
-                f"Total: {self.n_treated + self.n_control}",
-            ])
+            lines.extend(
+                [
+                    f"Treated: {self.n_treated}   Control: {self.n_control}",
+                    f"Total: {self.n_treated + self.n_control}",
+                ]
+            )
         else:
             counts = self.data[self.treatment_col].value_counts().sort_index()
-            count_text = ", ".join(
-                f"{arm}: {count}" for arm, count in counts.items()
-            )
+            count_text = ", ".join(f"{arm}: {count}" for arm, count in counts.items())
             lines.append(f"Arm counts: {count_text}")
             lines.append(f"Total: {len(self.data)}")
         if self.strata_col:
@@ -93,9 +93,7 @@ class RandomizationResult:
         if self.seed is not None:
             lines.append(f"Seed: {self.seed}")
         if self.balance is not None:
-            lines.append(
-                f"\nBalance (F-test p-value): {self.balance['omnibus_p']:.4f}"
-            )
+            lines.append(f"\nBalance (F-test p-value): {self.balance['omnibus_p']:.4f}")
         lines.append("=" * 50)
         return "\n".join(lines)
 
@@ -160,7 +158,7 @@ class BalanceResult:
             "-" * 70,
         ]
         for _, row in self.table.iterrows():
-            norm_diff = row.get('norm_diff', 0)
+            norm_diff = row.get("norm_diff", 0)
             flag = " ***" if abs(norm_diff) > 0.25 else ""
             lines.append(
                 f"{row['variable']:<20s} "
@@ -172,8 +170,7 @@ class BalanceResult:
             )
         lines.append("-" * 70)
         lines.append(
-            "Omnibus F-test: "
-            f"F = {self.omnibus_f:.3f}, p = {self.omnibus_p:.4f}"
+            "Omnibus F-test: " f"F = {self.omnibus_f:.3f}, p = {self.omnibus_p:.4f}"
         )
         lines.append("Note: *** indicates |normalized difference| > 0.25")
         return "\n".join(lines)
@@ -194,17 +191,17 @@ class BalanceResult:
         vals = list(nd.values())
 
         plot_kwargs: Dict[str, Any] = {
-            "color": ['red' if abs(v) > 0.25 else 'steelblue' for v in vals],
+            "color": ["red" if abs(v) > 0.25 else "steelblue" for v in vals],
         }
         plot_kwargs.update(kwargs)
         ax.barh(y_pos, vals, **plot_kwargs)
         ax.set_yticks(y_pos)
         ax.set_yticklabels(vars_)
-        ax.axvline(0, color='black', lw=0.5)
-        ax.axvline(0.25, color='red', ls='--', lw=0.5, alpha=0.5)
-        ax.axvline(-0.25, color='red', ls='--', lw=0.5, alpha=0.5)
-        ax.set_xlabel('Normalized Difference')
-        ax.set_title('Balance: Normalized Differences')
+        ax.axvline(0, color="black", lw=0.5)
+        ax.axvline(0.25, color="red", ls="--", lw=0.5, alpha=0.5)
+        ax.axvline(-0.25, color="red", ls="--", lw=0.5, alpha=0.5)
+        ax.set_xlabel("Normalized Difference")
+        ax.set_title("Balance: Normalized Differences")
         plt.tight_layout()
         return ax
 
@@ -284,11 +281,11 @@ def randomize(
         prob = [1.0 / n_arms] * n_arms
 
     assignments: np.ndarray
-    if method == 'simple' and strata is None and cluster is None:
+    if method == "simple" and strata is None and cluster is None:
         # Complete randomization
         assignments = rng.choice(n_arms, size=n, p=prob)
 
-    elif strata is not None or method == 'stratified':
+    elif strata is not None or method == "stratified":
         # Stratified (block) randomization
         assignments = np.empty(n, dtype=int)
         strata_col = cast(str, strata)
@@ -304,13 +301,13 @@ def randomize(
                 # Find largest count to decrement
                 max_idx = max(range(len(counts)), key=lambda i: counts[i])
                 counts[max_idx] -= 1
-            arm_labels = np.concatenate([
-                np.full(max(c, 0), arm) for arm, c in enumerate(counts)
-            ])
+            arm_labels = np.concatenate(
+                [np.full(max(c, 0), arm) for arm, c in enumerate(counts)]
+            )
             rng.shuffle(arm_labels)
             assignments[idx] = arm_labels[:g_n]
 
-    elif cluster is not None or method == 'cluster':
+    elif cluster is not None or method == "cluster":
         # Cluster randomization
         cluster_col = cast(str, cluster)
         clusters = df[cluster_col].unique()
@@ -343,17 +340,18 @@ def randomize(
     # Check balance
     bal: Optional[BalanceResult] = None
     if balance_vars is not None and n_arms == 2:
-        bal = balance_check(
-            df, treatment=treatment_col, covariates=balance_vars
-        )
+        bal = balance_check(df, treatment=treatment_col, covariates=balance_vars)
 
     n_treated = int((assignments == 1).sum()) if n_arms == 2 else None
     n_control = int((assignments == 0).sum()) if n_arms == 2 else None
 
     return RandomizationResult(
-        data=df, treatment_col=treatment_col,
-        n_treated=n_treated, n_control=n_control,
-        strata_col=strata, method=method,
+        data=df,
+        treatment_col=treatment_col,
+        n_treated=n_treated,
+        n_control=n_control,
+        strata_col=strata,
+        method=method,
         balance=bal.__dict__ if bal else None,
         seed=seed,
     )
@@ -454,10 +452,17 @@ def balance_check(
             treat[var].dropna(), control[var].dropna(), equal_var=False
         )
 
-        rows.append({
-            'variable': var, 'mean_treat': mt, 'mean_control': mc,
-            'diff': diff, 'norm_diff': nd, 't_stat': t_stat, 'p_value': p_val,
-        })
+        rows.append(
+            {
+                "variable": var,
+                "mean_treat": mt,
+                "mean_control": mc,
+                "diff": diff,
+                "norm_diff": nd,
+                "t_stat": t_stat,
+                "p_value": p_val,
+            }
+        )
         norm_diffs[var] = nd
 
     table = pd.DataFrame(rows)
@@ -473,7 +478,7 @@ def balance_check(
         beta = np.linalg.lstsq(X_bal, y_treat, rcond=None)[0]
         resid = y_treat - X_bal @ beta
         rss = np.sum(resid**2)
-        tss = np.sum((y_treat - y_treat.mean())**2)
+        tss = np.sum((y_treat - y_treat.mean()) ** 2)
         k = X_bal.shape[1] - 1
         n_total = len(y_treat)
         f_stat = ((tss - rss) / k) / (rss / (n_total - k - 1))
@@ -488,6 +493,10 @@ def balance_check(
         f_stat, f_p = np.nan, np.nan
 
     return BalanceResult(
-        table=table, omnibus_f=f_stat, omnibus_p=f_p,
-        normalized_diffs=norm_diffs, n_treat=n_t, n_control=n_c,
+        table=table,
+        omnibus_f=f_stat,
+        omnibus_p=f_p,
+        normalized_diffs=norm_diffs,
+        n_treat=n_t,
+        n_control=n_c,
     )

@@ -136,13 +136,17 @@ def overlap_weighted_did(
         T = df[treat].to_numpy(dtype=int)
         if ps_model == "logit":
             from sklearn.linear_model import LogisticRegression
+
             clf = LogisticRegression(max_iter=1000, solver="lbfgs")
             clf.fit(X, T)
             e = clf.predict_proba(X)[:, 1]
         elif ps_model == "gbm":
             from sklearn.ensemble import GradientBoostingClassifier
+
             clf = GradientBoostingClassifier(
-                n_estimators=100, max_depth=3, random_state=0,
+                n_estimators=100,
+                max_depth=3,
+                random_state=0,
             )
             clf.fit(X, T)
             e = clf.predict_proba(X)[:, 1]
@@ -167,8 +171,7 @@ def overlap_weighted_did(
         )
     except KeyError as exc:
         raise ValueError(
-            "Need all 4 (treat, time) cells populated for 2x2 DID; "
-            f"missing {exc}."
+            "Need all 4 (treat, time) cells populated for 2x2 DID; " f"missing {exc}."
         ) from exc
 
     # Cluster-on-unit bootstrap SE (simple: resample rows with weights).
@@ -181,20 +184,14 @@ def overlap_weighted_did(
         gb = sub.groupby([treat, time])
         try:
             m = gb.apply(lambda g: np.sum(g[y] * g["_w"]) / g["_w"].sum())
-            boots[b] = (
-                (m.loc[(1, 1)] - m.loc[(1, 0)])
-                - (m.loc[(0, 1)] - m.loc[(0, 0)])
-            )
+            boots[b] = (m.loc[(1, 1)] - m.loc[(1, 0)]) - (m.loc[(0, 1)] - m.loc[(0, 0)])
         except KeyError:
             boots[b] = np.nan
     boots = boots[~np.isnan(boots)]
     se = float(boots.std(ddof=1)) if boots.size > 10 else float("nan")
     z = stats.norm.ppf(1 - alpha / 2)
     ci = (att - z * se, att + z * se)
-    pval = (
-        2 * (1 - stats.norm.cdf(abs(att) / se))
-        if se > 0 else float("nan")
-    )
+    pval = 2 * (1 - stats.norm.cdf(abs(att) / se)) if se > 0 else float("nan")
     return CausalResult(
         method="overlap_weighted_did",
         estimand="ATT (overlap)",
@@ -208,8 +205,7 @@ def overlap_weighted_did(
             "ps_model": str(ps_model),
             "mean_overlap_weight": float(w.mean()),
             "reference": (
-                "Li, Morgan, Zaslavsky (JASA 2018); "
-                "Econ Letters 2025 overlap DID"
+                "Li, Morgan, Zaslavsky (JASA 2018); " "Econ Letters 2025 overlap DID"
             ),
         },
     )
@@ -267,11 +263,10 @@ def dl_propensity_score(
     Peng, Li, Wu & Li (arXiv:2404.04794, 2024). [@peng2024local]
     """
     from sklearn.neural_network import MLPClassifier
+
     # Validate columns (clear error instead of a bare KeyError). No dropna:
     # the returned score must stay row-aligned with ``data``.
-    require_columns(
-        data, [treatment, *covariates], function="dl_propensity_score"
-    )
+    require_columns(data, [treatment, *covariates], function="dl_propensity_score")
     X = data[list(covariates)].to_numpy(dtype=float)
     T = data[treatment].to_numpy(dtype=int)
     n = len(data)

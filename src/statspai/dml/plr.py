@@ -15,6 +15,7 @@ Weighted variant (with sample_weight w_i):
     Var(theta) = sum( w² * psi_score² ) / ( sum(w * d_tilde²) )²
 where psi_score_i = (y_tilde_i - theta * d_tilde_i) * d_tilde_i.
 """
+
 from __future__ import annotations
 
 from typing import Iterable, Optional, Tuple
@@ -52,8 +53,8 @@ class DoubleMLPLR(_DoubleMLBase):
     True
     """
 
-    _MODEL_TAG = 'PLR'
-    _ESTIMAND = 'ATE'
+    _MODEL_TAG = "PLR"
+    _ESTIMAND = "ATE"
     _REQUIRES_INSTRUMENT = False
     _ML_M_TARGET_BINARY = False  # PLR is agnostic to D type
     _SUPPORTS_SAMPLE_WEIGHT = True
@@ -86,9 +87,7 @@ class DoubleMLPLR(_DoubleMLBase):
         d_resid: np.ndarray = np.zeros(n, dtype=float)
 
         for train_idx, test_idx in splits:
-            w_train = (
-                sample_weight[train_idx] if sample_weight is not None else None
-            )
+            w_train = sample_weight[train_idx] if sample_weight is not None else None
             ml_g = self._fit_weighted(self.ml_g, X[train_idx], Y[train_idx], w_train)
             y_resid[test_idx] = Y[test_idx] - ml_g.predict(X[test_idx])
 
@@ -104,12 +103,9 @@ class DoubleMLPLR(_DoubleMLBase):
             theta = float(np.sum(d_resid * y_resid) / denom)
             psi_inner = y_resid - theta * d_resid
             psi_score = psi_inner * d_resid
-            J = -np.mean(d_resid ** 2)
-            sigma2 = float(np.mean(psi_score ** 2))
-            se = (
-                float(np.sqrt(sigma2 / (J ** 2 * n)))
-                if abs(J) > 1e-10 else 0.0
-            )
+            J = -np.mean(d_resid**2)
+            sigma2 = float(np.mean(psi_score**2))
+            se = float(np.sqrt(sigma2 / (J**2 * n))) if abs(J) > 1e-10 else 0.0
         else:
             w: np.ndarray = sample_weight
             denom = float(np.sum(w * d_resid * d_resid))
@@ -124,7 +120,7 @@ class DoubleMLPLR(_DoubleMLBase):
             # Z-estimator sandwich variance for a weighted moment:
             #     M(θ) = (1/W) Σ w_i ψ_score_i,   W = Σ w_i
             # Var(θ̂) = ( Σ w_i² ψ_score_i² ) / ( Σ w_i d_resid_i² )²
-            num = float(np.sum((w ** 2) * (psi_score ** 2)))
+            num = float(np.sum((w**2) * (psi_score**2)))
             se = float(np.sqrt(num)) / abs(denom) if denom != 0 else 0.0
 
         # Diagnostics: residual scales, partial correlation, and a crude
@@ -138,9 +134,11 @@ class DoubleMLPLR(_DoubleMLBase):
         self._last_rep_diagnostics = {
             "y_resid_std": float(np.std(y_resid)),
             "d_resid_std": float(np.std(d_resid)),
-            "partial_corr_yd": float(
-                np.corrcoef(y_resid, d_resid)[0, 1]
-            ) if (np.std(y_resid) > 0 and np.std(d_resid) > 0) else 0.0,
+            "partial_corr_yd": (
+                float(np.corrcoef(y_resid, d_resid)[0, 1])
+                if (np.std(y_resid) > 0 and np.std(d_resid) > 0)
+                else 0.0
+            ),
             "ml_g_within_r2": (
                 1.0 - float(np.var(y_resid) / var_y) if var_y > 0 else 0.0
             ),

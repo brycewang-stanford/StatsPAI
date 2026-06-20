@@ -7,6 +7,7 @@ Five tests, each distributed χ² under H0:
 - Robust_LM_lag : LM-lag robust to an error misspecification
 - SARMA      : joint test for either lag or error (df = 2)
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Tuple
@@ -76,7 +77,7 @@ def lm_tests(
     LM_err = ((e @ We) / s2) ** 2 / T
 
     # RS_lag: (e' W y / s2)^2 / [(WXb)'(M*WXb)/s2 + T]   with M = I - X(X'X)^-1 X'
-    MW_Xb = Wy_centered                          # residual-ised Wy under OLS
+    MW_Xb = Wy_centered  # residual-ised Wy under OLS
     J = float(MW_Xb @ MW_Xb) / s2 + T
     LM_lag = ((e @ Wy) / s2) ** 2 / J if J > 0 else np.nan
 
@@ -126,6 +127,7 @@ def moran_residuals(
     True
     """
     from ..esda.moran import moran
+
     M = _coerce_W(W, n_expected=len(residuals), row_normalize=row_normalize)
     # Build a lightweight W-like wrapper from the sparse matrix
     res = moran(residuals, _from_sparse(M), permutations=0)
@@ -135,6 +137,7 @@ def moran_residuals(
 def _from_sparse(M: Any) -> Any:
     """Wrap a CSR sparse matrix back into a W-compatible shim for ESDA helpers."""
     from ..weights.core import W as _W
+
     Md = M.toarray()
     n = Md.shape[0]
     neighbors = {i: np.where(Md[i] != 0)[0].tolist() for i in range(n)}

@@ -25,10 +25,10 @@ from scipy import stats as sp_stats
 from .._result_serialize import ResultProtocolMixin
 from ..exceptions import MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Result class
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class SelectionResult(ResultProtocolMixin):
@@ -96,15 +96,13 @@ class SelectionResult(ResultProtocolMixin):
         lines.append("")
         if self.selected:
             lines.append(
-                f"  Selected ({len(self.selected)}): "
-                + ", ".join(self.selected)
+                f"  Selected ({len(self.selected)}): " + ", ".join(self.selected)
             )
         else:
             lines.append("  Selected: (none)")
         if self.dropped:
             lines.append(
-                f"  Dropped  ({len(self.dropped)}): "
-                + ", ".join(self.dropped)
+                f"  Dropped  ({len(self.dropped)}): " + ", ".join(self.dropped)
             )
         else:
             lines.append("  Dropped: (none)")
@@ -151,12 +149,12 @@ class SelectionResult(ResultProtocolMixin):
         fig, ax = plt.subplots(figsize=figsize)
         steps = hist["step"].values
         criterion_col = [
-            c for c in hist.columns
-            if c.lower() in ("aic", "bic", "adjr2", "pvalue")
+            c for c in hist.columns if c.lower() in ("aic", "bic", "adjr2", "pvalue")
         ]
         if not criterion_col:
             criterion_col = [
-                c for c in hist.columns
+                c
+                for c in hist.columns
                 if c not in ("step", "action", "variable", "r_squared")
             ]
         if not criterion_col:
@@ -168,8 +166,11 @@ class SelectionResult(ResultProtocolMixin):
         for _, row in hist.iterrows():
             label = row.get("action", "") + " " + row.get("variable", "")
             ax.annotate(
-                label.strip(), (row["step"], row[col]),
-                textcoords="offset points", xytext=(5, 5), fontsize=8,
+                label.strip(),
+                (row["step"], row[col]),
+                textcoords="offset points",
+                xytext=(5, 5),
+                fontsize=8,
             )
         ax.set_xlabel("Step")
         ax.set_ylabel(col.upper())
@@ -194,7 +195,10 @@ class SelectionResult(ResultProtocolMixin):
             ax.plot(np.log10(lambdas), coefs, label=name)
         ax.axvline(
             np.log10(path.get("lambda_best", lambdas[-1])),
-            color="grey", linestyle="--", linewidth=1, label="selected λ",
+            color="grey",
+            linestyle="--",
+            linewidth=1,
+            label="selected λ",
         )
         ax.set_xlabel("log₁₀(λ)")
         ax.set_ylabel("Coefficient")
@@ -231,6 +235,7 @@ class SelectionResult(ResultProtocolMixin):
 # ---------------------------------------------------------------------------
 # Internal OLS helpers (no sklearn)
 # ---------------------------------------------------------------------------
+
 
 def _ols_fit(
     X: np.ndarray,
@@ -296,6 +301,7 @@ def _build_X(
 # ---------------------------------------------------------------------------
 # Stepwise regression
 # ---------------------------------------------------------------------------
+
 
 def stepwise(
     data: pd.DataFrame,
@@ -363,15 +369,19 @@ def stepwise(
         # lower is better
         def is_better(new: float, old: float) -> bool:
             return new < old
+
         worse_init = np.inf
     elif criterion == "adjr2":
         # higher is better
         def is_better(new: float, old: float) -> bool:
             return new > old
+
         worse_init = -np.inf
     else:  # pvalue — use BIC internally for tie-breaking, but gate on p-value
+
         def is_better(new: float, old: float) -> bool:
             return new < old
+
         worse_init = np.inf
 
     def _criterion_value(st: Optional[Dict[str, Any]]) -> float:
@@ -418,9 +428,11 @@ def stepwise(
         history_rows.append(row)
         if verbose:
             sign = "+" if action == "add" else "-"
-            print(f"Step {step_num}: {sign} {var:20s} "
-                  f"{criterion.upper()} = {crit_val:.1f}   "
-                  f"R² = {r2:.3f}")
+            print(
+                f"Step {step_num}: {sign} {var:20s} "
+                f"{criterion.upper()} = {crit_val:.1f}   "
+                f"R² = {r2:.3f}"
+            )
 
     current_stats = _eval_model(included)
     current_crit = _criterion_value(current_stats)
@@ -465,9 +477,8 @@ def stepwise(
                 if criterion == "pvalue":
                     # Gate removal on the current model's variable p-value.
                     cur_idx = included.index(var) + 1  # +1 for intercept
-                    if (
-                        current_stats is not None
-                        and cur_idx < len(current_stats["pvalues"])
+                    if current_stats is not None and cur_idx < len(
+                        current_stats["pvalues"]
                     ):
                         pval = current_stats["pvalues"][cur_idx]
                         if pval <= alpha_out:
@@ -526,13 +537,17 @@ def stepwise(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.selection.stepwise",
             params={
-                "y": y, "x": list(x),
-                "method": method, "criterion": criterion,
-                "alpha_in": alpha_in, "alpha_out": alpha_out,
+                "y": y,
+                "x": list(x),
+                "method": method,
+                "criterion": criterion,
+                "alpha_in": alpha_in,
+                "alpha_out": alpha_out,
             },
             data=data,
             overwrite=False,
@@ -545,6 +560,7 @@ def stepwise(
 # ---------------------------------------------------------------------------
 # LASSO via coordinate descent
 # ---------------------------------------------------------------------------
+
 
 def _soft_threshold(z: float, lam: float) -> float:
     """Soft-thresholding operator S(z, λ) = sign(z)(|z| - λ)₊."""
@@ -583,7 +599,7 @@ def _lasso_coordinate_descent(
     n, p = X.shape
     beta = warm_start.copy() if warm_start is not None else np.zeros(p)
     # Pre-compute column norms (denominator)
-    col_norm_sq = np.sum(X ** 2, axis=0)  # (p,)
+    col_norm_sq = np.sum(X**2, axis=0)  # (p,)
 
     for _ in range(max_iter):
         beta_old = beta.copy()
@@ -637,8 +653,7 @@ def _lasso_path(
     coef_matrix = np.zeros((n_lambda, p))
     beta = np.zeros(p)
     for i, lam in enumerate(lambdas):
-        beta = _lasso_coordinate_descent(X, y, lam, max_iter, tol,
-                                         warm_start=beta)
+        beta = _lasso_coordinate_descent(X, y, lam, max_iter, tol, warm_start=beta)
         coef_matrix[i] = beta
     return coef_matrix
 
@@ -652,10 +667,10 @@ def _kfold_indices(
     rng = np.random.default_rng(seed)
     indices = rng.permutation(n)
     fold_sizes = np.full(k, n // k, dtype=int)
-    fold_sizes[:n % k] += 1
+    fold_sizes[: n % k] += 1
     current = 0
     for fold_size in fold_sizes:
-        test_idx = indices[current:current + fold_size]
+        test_idx = indices[current : current + fold_size]
         train_idx = np.setdiff1d(indices, test_idx)
         yield train_idx, test_idx
         current += fold_size
@@ -762,10 +777,7 @@ def lasso_select(
             rss = float(resid @ resid)
             k_nonzero = int(np.sum(np.abs(coef_matrix[i]) > 1e-10))
             if method == "bic":
-                scores[i] = (
-                    n * np.log(rss / n + 1e-300)
-                    + k_nonzero * np.log(n)
-                )
+                scores[i] = n * np.log(rss / n + 1e-300) + k_nonzero * np.log(n)
             else:  # aic
                 scores[i] = n * np.log(rss / n + 1e-300) + 2 * k_nonzero
         best_idx = int(np.argmin(scores))
@@ -791,9 +803,7 @@ def lasso_select(
         X_final = np.ones((n, 1))
         final_st = _model_stats(X_final, y_raw)
     if final_st is None:
-        raise MethodIncompatibility(
-            "Final LASSO-selected model is not estimable."
-        )
+        raise MethodIncompatibility("Final LASSO-selected model is not estimable.")
 
     fm = {
         "n": final_st["n"],
@@ -822,12 +832,14 @@ def lasso_select(
         k_nonzero = int(np.sum(np.abs(coef_matrix[i]) > 1e-10))
         resid = y_c - X_sc @ coef_matrix[i]
         rss = float(resid @ resid)
-        history_rows.append({
-            "step": i + 1,
-            "lambda": lam,
-            "n_selected": k_nonzero,
-            "rss": rss,
-        })
+        history_rows.append(
+            {
+                "step": i + 1,
+                "lambda": lam,
+                "n_selected": k_nonzero,
+                "rss": rss,
+            }
+        )
 
     if verbose:
         print(f"LASSO ({method.upper()}): λ = {best_lambda:.6f}")
@@ -855,14 +867,20 @@ def lasso_select(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.selection.lasso_select",
             params={
-                "y": y, "x": list(x),
-                "method": method, "n_folds": n_folds,
-                "n_lambda": n_lambda, "eps": eps,
-                "max_iter": max_iter, "tol": tol, "seed": seed,
+                "y": y,
+                "x": list(x),
+                "method": method,
+                "n_folds": n_folds,
+                "n_lambda": n_lambda,
+                "eps": eps,
+                "max_iter": max_iter,
+                "tol": tol,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

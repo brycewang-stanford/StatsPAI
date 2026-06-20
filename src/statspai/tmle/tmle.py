@@ -45,20 +45,20 @@ if TYPE_CHECKING:
 from ..core.results import CausalResult
 from .super_learner import SuperLearner
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def tmle(
     data: pd.DataFrame,
     y: str,
     treat: str,
     covariates: List[str],
-    outcome_library: 'Optional[List[BaseEstimator]]' = None,
-    propensity_library: 'Optional[List[BaseEstimator]]' = None,
+    outcome_library: "Optional[List[BaseEstimator]]" = None,
+    propensity_library: "Optional[List[BaseEstimator]]" = None,
     n_folds: int = 5,
-    estimand: str = 'ATE',
+    estimand: str = "ATE",
     alpha: float = 0.05,
     propensity_bounds: Tuple[float, float] = (0.025, 0.975),
     random_state: int = 42,
@@ -111,33 +111,43 @@ def tmle(
     >>> print(result.summary())
     """
     est = TMLE(
-        data=data, y=y, treat=treat, covariates=covariates,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
         outcome_library=outcome_library,
         propensity_library=propensity_library,
-        n_folds=n_folds, estimand=estimand, alpha=alpha,
+        n_folds=n_folds,
+        estimand=estimand,
+        alpha=alpha,
         propensity_bounds=propensity_bounds,
         random_state=random_state,
     )
     _result = est.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.tmle",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
-                "n_folds": n_folds, "estimand": estimand,
+                "n_folds": n_folds,
+                "estimand": estimand,
                 "alpha": alpha,
                 "propensity_bounds": list(propensity_bounds),
                 "random_state": random_state,
                 "outcome_library": (
                     [type(m).__name__ for m in outcome_library]
-                    if outcome_library else None
+                    if outcome_library
+                    else None
                 ),
                 "propensity_library": (
                     [type(m).__name__ for m in propensity_library]
-                    if propensity_library else None
+                    if propensity_library
+                    else None
                 ),
             },
             data=data,
@@ -151,6 +161,7 @@ def tmle(
 # ======================================================================
 # TMLE Estimator
 # ======================================================================
+
 
 class TMLE:
     """
@@ -198,10 +209,10 @@ class TMLE:
         y: str,
         treat: str,
         covariates: List[str],
-        outcome_library: 'Optional[List[BaseEstimator]]' = None,
-        propensity_library: 'Optional[List[BaseEstimator]]' = None,
+        outcome_library: "Optional[List[BaseEstimator]]" = None,
+        propensity_library: "Optional[List[BaseEstimator]]" = None,
         n_folds: int = 5,
-        estimand: str = 'ATE',
+        estimand: str = "ATE",
         alpha: float = 0.05,
         propensity_bounds: Tuple[float, float] = (0.025, 0.975),
         random_state: int = 42,
@@ -234,9 +245,7 @@ class TMLE:
 
         unique_a = np.unique(A)
         if not (len(unique_a) == 2 and set(unique_a.astype(int)) == {0, 1}):
-            raise ValueError(
-                f"Treatment must be binary (0/1), got: {unique_a}"
-            )
+            raise ValueError(f"Treatment must be binary (0/1), got: {unique_a}")
 
         # Detect if outcome is binary
         is_binary_outcome = set(np.unique(Y)) <= {0.0, 1.0}
@@ -259,7 +268,7 @@ class TMLE:
         sl_Q = SuperLearner(
             library=self.outcome_library,
             n_folds=self.n_folds,
-            task='classification' if is_binary_outcome else 'regression',
+            task="classification" if is_binary_outcome else "regression",
             random_state=self.random_state,
         )
         sl_Q.fit(AW, Y_scaled)
@@ -282,13 +291,12 @@ class TMLE:
         sl_g = SuperLearner(
             library=self.propensity_library,
             n_folds=self.n_folds,
-            task='classification',
+            task="classification",
             random_state=self.random_state,
         )
         sl_g.fit(W, A)
         g_hat_raw = sl_g.predict(W)
-        g_hat = np.clip(g_hat_raw, self.propensity_bounds[0],
-                        self.propensity_bounds[1])
+        g_hat = np.clip(g_hat_raw, self.propensity_bounds[0], self.propensity_bounds[1])
 
         # Overlap diagnostics + loud warning when many propensities hit
         # the truncation bounds — the AIPW score blows up at e≈0 / e≈1,
@@ -309,6 +317,7 @@ class TMLE:
         }
         if clip_share > 0.05:
             import warnings
+
             warnings.warn(
                 f"sp.tmle: {n_clip_lo + n_clip_hi}/{n} "
                 f"({100 * clip_share:.1f}%) propensity scores hit the "
@@ -327,7 +336,7 @@ class TMLE:
         # ---------------------------------------------------------------
 
         # Clever covariate H(A, W)
-        if self.estimand == 'ATE':
+        if self.estimand == "ATE":
             H_A = A / g_hat - (1 - A) / (1 - g_hat)
             H_1 = 1.0 / g_hat
             H_0 = -1.0 / (1 - g_hat)
@@ -363,7 +372,7 @@ class TMLE:
             Q_star_0_orig = Q_star_0
             Q_star_A_orig = Q_star_A
 
-        if self.estimand == 'ATE':
+        if self.estimand == "ATE":
             psi = float(np.mean(Q_star_1_orig - Q_star_0_orig))
 
             # Efficient influence function
@@ -375,10 +384,12 @@ class TMLE:
             )
         else:  # ATT
             p_treat = np.mean(A)
-            psi = float(np.mean(
-                A * (Y - Q_star_0_orig) / p_treat
-                - (1 - A) * g_hat * (Y - Q_star_0_orig) / ((1 - g_hat) * p_treat)
-            ))
+            psi = float(
+                np.mean(
+                    A * (Y - Q_star_0_orig) / p_treat
+                    - (1 - A) * g_hat * (Y - Q_star_0_orig) / ((1 - g_hat) * p_treat)
+                )
+            )
 
             EIF = (
                 A * (Y - Q_star_0_orig) / p_treat
@@ -400,21 +411,21 @@ class TMLE:
 
         # Model info
         model_info = {
-            'estimand': self.estimand,
-            'epsilon': float(epsilon),
-            'se_method': 'efficient_influence_function',
-            'propensity_mean': float(np.mean(g_hat)),
-            'propensity_std': float(np.std(g_hat)),
-            'propensity_bounds': self.propensity_bounds,
-            'propensity_diagnostics': self._propensity_diagnostics,
-            'outcome_type': 'binary' if is_binary_outcome else 'continuous',
-            'n_folds': self.n_folds,
-            'Q_star_1_mean': float(np.mean(Q_star_1_orig)),
-            'Q_star_0_mean': float(np.mean(Q_star_0_orig)),
-            'n_treated': int(np.sum(A == 1)),
-            'n_control': int(np.sum(A == 0)),
-            'sl_outcome_weights': sl_Q.weights_.tolist(),
-            'sl_propensity_weights': sl_g.weights_.tolist(),
+            "estimand": self.estimand,
+            "epsilon": float(epsilon),
+            "se_method": "efficient_influence_function",
+            "propensity_mean": float(np.mean(g_hat)),
+            "propensity_std": float(np.std(g_hat)),
+            "propensity_bounds": self.propensity_bounds,
+            "propensity_diagnostics": self._propensity_diagnostics,
+            "outcome_type": "binary" if is_binary_outcome else "continuous",
+            "n_folds": self.n_folds,
+            "Q_star_1_mean": float(np.mean(Q_star_1_orig)),
+            "Q_star_0_mean": float(np.mean(Q_star_0_orig)),
+            "n_treated": int(np.sum(A == 1)),
+            "n_control": int(np.sum(A == 0)),
+            "sl_outcome_weights": sl_Q.weights_.tolist(),
+            "sl_propensity_weights": sl_g.weights_.tolist(),
         }
 
         self._sl_Q = sl_Q
@@ -422,7 +433,7 @@ class TMLE:
         self._epsilon = epsilon
 
         return CausalResult(
-            method='TMLE (van der Laan & Rose 2011)',
+            method="TMLE (van der Laan & Rose 2011)",
             estimand=self.estimand,
             estimate=psi,
             se=se,
@@ -432,7 +443,7 @@ class TMLE:
             n_obs=n,
             detail=None,
             model_info=model_info,
-            _citation_key='tmle',
+            _citation_key="tmle",
         )
 
     def _fit_epsilon(
@@ -457,7 +468,7 @@ class TMLE:
             # Score: sum(H * (Y - p))
             score = np.sum(H * (Y - p))
             # Hessian: -sum(H^2 * p * (1-p))
-            hessian = -np.sum(H ** 2 * p * (1 - p))
+            hessian = -np.sum(H**2 * p * (1 - p))
 
             if abs(hessian) < 1e-15:
                 # Singular Hessian — exit but flag.
@@ -478,6 +489,7 @@ class TMLE:
             # rates are good enough, but finite-sample inference may be
             # less reliable. Surface the latest score to help debugging.
             import warnings
+
             final_score = float(np.sum(H * (Y - expit(logit_Q + epsilon * H))))
             warnings.warn(
                 f"TMLE: Newton iteration on the fluctuation parameter "
@@ -498,7 +510,7 @@ class TMLE:
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['tmle'] = (
+CausalResult._CITATIONS["tmle"] = (
     # Kept verbatim in sync with paper.bib (single source of truth per
     # CLAUDE.md §10). Touching this block requires touching paper.bib
     # too. We register all three: the methodology references in the

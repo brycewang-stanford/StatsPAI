@@ -68,7 +68,10 @@ from .dashboard import rd_dashboard, rd_compare, rd_robustness_table
 
 # User-friendly aliases
 from ._aliases import (
-    multi_cutoff_rd, geographic_rd, boundary_rd, multi_score_rd,
+    multi_cutoff_rd,
+    geographic_rd,
+    boundary_rd,
+    multi_score_rd,
 )
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -93,77 +96,88 @@ from typing import Optional as _Optional
 
 from ..exceptions import MethodIncompatibility
 
-
 _RD_METHOD_ALIASES: _Dict[str, str] = {
     # Local-polynomial bias-corrected (default, CCT 2014)
-    "rdrobust": "rdrobust", "local_poly": "rdrobust",
-    "default": "rdrobust", "rd": "rdrobust", "robust": "rdrobust",
-
+    "rdrobust": "rdrobust",
+    "local_poly": "rdrobust",
+    "default": "rdrobust",
+    "rd": "rdrobust",
+    "robust": "rdrobust",
     # Honest CIs (Armstrong-Kolesar 2018, 2020)
-    "honest": "honest", "armstrong_kolesar": "honest", "ak": "honest",
-
+    "honest": "honest",
+    "armstrong_kolesar": "honest",
+    "ak": "honest",
     # Local randomization (Cattaneo-Titiunik-VB 2016)
-    "randinf": "randinf", "random": "randinf",
-    "local_randomization": "randinf", "rdrandinf": "randinf",
-
+    "randinf": "randinf",
+    "random": "randinf",
+    "local_randomization": "randinf",
+    "rdrandinf": "randinf",
     # CATE / heterogeneous effects (Calonico et al. 2025)
-    "hte": "hte", "rdhte": "hte", "cate": "hte",
-
+    "hte": "hte",
+    "rdhte": "hte",
+    "cate": "hte",
     # ML + RD
-    "forest": "forest", "causal_forest": "forest", "rd_forest": "forest",
-    "boost": "boost", "gbm": "boost", "rd_boost": "boost",
-    "lasso": "lasso", "rd_lasso": "lasso",
-
+    "forest": "forest",
+    "causal_forest": "forest",
+    "rd_forest": "forest",
+    "boost": "boost",
+    "gbm": "boost",
+    "rd_boost": "boost",
+    "lasso": "lasso",
+    "rd_lasso": "lasso",
     # Bayesian HTE
-    "bayes_hte": "bayes_hte", "bayes": "bayes_hte",
+    "bayes_hte": "bayes_hte",
+    "bayes": "bayes_hte",
     "rd_bayes_hte": "bayes_hte",
-
     # 2D / boundary RD
-    "rd2d": "rd2d", "2d": "rd2d", "boundary": "rd2d",
-
+    "rd2d": "rd2d",
+    "2d": "rd2d",
+    "boundary": "rd2d",
     # Multi-cutoff
-    "rdmc": "rdmc", "multi_cutoff": "rdmc",
-
+    "rdmc": "rdmc",
+    "multi_cutoff": "rdmc",
     # Multi-score
-    "rdms": "rdms", "multi_score": "rdms", "geographic": "rdms",
-
+    "rdms": "rdms",
+    "multi_score": "rdms",
+    "geographic": "rdms",
     # Kink (RKD)
-    "rkd": "rkd", "kink": "rkd",
-
+    "rkd": "rkd",
+    "kink": "rkd",
     # RD in time
-    "rdit": "rdit", "time": "rdit",
-
+    "rdit": "rdit",
+    "time": "rdit",
     # Extrapolation
-    "extrapolate": "extrapolate", "rd_extrapolate": "extrapolate",
+    "extrapolate": "extrapolate",
+    "rd_extrapolate": "extrapolate",
     "multi_extrapolate": "multi_extrapolate",
     "rd_multi_extrapolate": "multi_extrapolate",
-
     # Spillover / interference
-    "interference": "interference", "spillover": "interference",
+    "interference": "interference",
+    "spillover": "interference",
     "rd_interference": "interference",
-
     # Distributional treatment effects
-    "distribution": "distribution", "distributional": "distribution",
+    "distribution": "distribution",
+    "distributional": "distribution",
     "rd_distribution": "distribution",
     "distributional_design": "distributional_design",
     "rd_distributional_design": "distributional_design",
-
     # External validity
     "external_validity": "external_validity",
     "rd_external_validity": "external_validity",
-
     # v1.15: Flexible covariate adjustment (Noack-Olma-Rothe 2025)
-    "flex": "flex", "rd_flex": "flex",
-    "flexible": "flex", "ml_adjust": "flex",
-
+    "flex": "flex",
+    "rd_flex": "flex",
+    "flexible": "flex",
+    "ml_adjust": "flex",
     # v1.15: Bias-aware fuzzy CI (Noack-Rothe 2024 ECTA)
     "bias_aware": "bias_aware_fuzzy",
     "bias_aware_fuzzy": "bias_aware_fuzzy",
     "noack_rothe": "bias_aware_fuzzy",
-
     # v1.15: Discrete running variable (Kolesár-Rothe 2018 AER)
-    "discrete": "discrete", "rd_discrete": "discrete",
-    "kolesar_rothe": "discrete", "discrete_rv": "discrete",
+    "discrete": "discrete",
+    "rd_discrete": "discrete",
+    "kolesar_rothe": "discrete",
+    "discrete_rv": "discrete",
 }
 
 
@@ -248,8 +262,7 @@ def _rd_dispatch(
     if canon is None:
         valid = sorted(set(_RD_METHOD_ALIASES.values()))
         raise _rd_error(
-            f"Unknown method '{method}' for sp.rd. "
-            f"Choose from: {valid}",
+            f"Unknown method '{method}' for sp.rd. " f"Choose from: {valid}",
             diagnostics={"method": method, "valid_methods": valid},
             recovery_hint="Choose one of the supported RD method strings.",
         )
@@ -285,29 +298,50 @@ def _rd_dispatch(
                 ),
             )
         return rd_bias_aware_fuzzy(
-            data=data, y=y, x=x, c=c, fuzzy=fuzzy, **kwargs,
+            data=data,
+            y=y,
+            x=x,
+            c=c,
+            fuzzy=fuzzy,
+            **kwargs,
         )
 
     # ── Methods that use ``running``/``cutoff`` instead of ``x``/``c``
     if canon == "bayes_hte":
         _rd_rename(kwargs, {"x": "running", "c": "cutoff"})
         return rd_bayes_hte(
-            data=data, y=y, running=x, cutoff=c, **kwargs,
+            data=data,
+            y=y,
+            running=x,
+            cutoff=c,
+            **kwargs,
         )
     if canon == "interference":
         _rd_rename(kwargs, {"x": "running", "c": "cutoff"})
         return rd_interference(
-            data=data, y=y, running=x, cutoff=c, **kwargs,
+            data=data,
+            y=y,
+            running=x,
+            cutoff=c,
+            **kwargs,
         )
     if canon == "distribution":
         _rd_rename(kwargs, {"x": "running", "c": "cutoff"})
         return rd_distribution(
-            data=data, y=y, running=x, cutoff=c, **kwargs,
+            data=data,
+            y=y,
+            running=x,
+            cutoff=c,
+            **kwargs,
         )
     if canon == "distributional_design":
         _rd_rename(kwargs, {"x": "running", "c": "cutoff"})
         return rd_distributional_design(
-            data=data, y=y, running=x, cutoff=c, **kwargs,
+            data=data,
+            y=y,
+            running=x,
+            cutoff=c,
+            **kwargs,
         )
 
     # ── Multi-cutoff: ``cutoffs`` (plural) replaces ``c`` ────────────
@@ -375,59 +409,64 @@ _sys.modules[__name__].__class__ = _CallableRDModule
 
 __all__ = [
     # callable + alias
-    'fit',
+    "fit",
     # v1.15 polish
-    'rd_flex',
-    'rd_bias_aware_fuzzy',
-    'rd_discrete',
-    'rd_dashboard',
-    'rd_compare',
-    'rd_robustness_table',
+    "rd_flex",
+    "rd_bias_aware_fuzzy",
+    "rd_discrete",
+    "rd_dashboard",
+    "rd_compare",
+    "rd_robustness_table",
     # core estimators
-    'rdrobust',
-    'rdplot',
-    'rdplotdensity',
-    'rdbwselect',
-    'rdbwsensitivity',
-    'rdbalance',
-    'rdplacebo',
-    'rdsummary',
-    'rkd',
-    'rd_honest',
-    'rdit',
-    'rdmc',
-    'rdms',
-    'RDMultiResult',
-    'rdpower',
-    'rdsampsi',
-    'RDPowerResult',
-    'RDSampSiResult',
-    'rdrandinf',
-    'rdwinselect',
-    'rdsensitivity',
-    'rdrbounds',
-    'rdhte',
-    'rdbwhte',
-    'rdhte_lincom',
-    'rd2d',
-    'rd2d_bw',
-    'rd2d_plot',
-    'rd_forest',
-    'rd_boost',
-    'rd_lasso',
-    'rd_cate_summary',
-    'rd_extrapolate',
-    'rd_multi_extrapolate',
-    'rd_external_validity',
+    "rdrobust",
+    "rdplot",
+    "rdplotdensity",
+    "rdbwselect",
+    "rdbwsensitivity",
+    "rdbalance",
+    "rdplacebo",
+    "rdsummary",
+    "rkd",
+    "rd_honest",
+    "rdit",
+    "rdmc",
+    "rdms",
+    "RDMultiResult",
+    "rdpower",
+    "rdsampsi",
+    "RDPowerResult",
+    "RDSampSiResult",
+    "rdrandinf",
+    "rdwinselect",
+    "rdsensitivity",
+    "rdrbounds",
+    "rdhte",
+    "rdbwhte",
+    "rdhte_lincom",
+    "rd2d",
+    "rd2d_bw",
+    "rd2d_plot",
+    "rd_forest",
+    "rd_boost",
+    "rd_lasso",
+    "rd_cate_summary",
+    "rd_extrapolate",
+    "rd_multi_extrapolate",
+    "rd_external_validity",
     # v0.10 frontier
-    'rd_interference', 'RDInterferenceResult',
-    'rd_multi_score', 'MultiScoreRDResult',
-    'rd_distribution', 'DistRDResult',
-    'rd_bayes_hte', 'BayesRDHTEResult',
-    'rd_distributional_design', 'DDDResult',
+    "rd_interference",
+    "RDInterferenceResult",
+    "rd_multi_score",
+    "MultiScoreRDResult",
+    "rd_distribution",
+    "DistRDResult",
+    "rd_bayes_hte",
+    "BayesRDHTEResult",
+    "rd_distributional_design",
+    "DDDResult",
     # User-friendly aliases
-    'multi_cutoff_rd',
-    'geographic_rd',
-    'boundary_rd',
-    'multi_score_rd',
+    "multi_cutoff_rd",
+    "geographic_rd",
+    "boundary_rd",
+    "multi_score_rd",
 ]

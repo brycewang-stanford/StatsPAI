@@ -4,6 +4,7 @@ Supports both 2×2 (no unit / time structure) and panel DID with
 hierarchical Gaussian random effects on unit and/or time. The causal
 parameter is the ATT coefficient ``tau`` on ``treat * post``.
 """
+
 from __future__ import annotations
 
 from typing import Any, List, Optional, Sequence, Tuple, Type
@@ -24,7 +25,6 @@ from ..exceptions import (
     NumericalInstability,
     StatsPAIError,
 )
-
 
 _DID_ALTERNATIVES = ["sp.did", "sp.wooldridge_did"]
 
@@ -176,8 +176,7 @@ def _binary_vector(clean: pd.DataFrame, column: str, role: str) -> np.ndarray:
     uniq = np.unique(arr)
     if not np.all(np.isin(uniq, [0.0, 1.0])):
         raise MethodIncompatibility(
-            f"'{role}' must be binary 0/1; got unique values "
-            f"{uniq[:10].tolist()}.",
+            f"'{role}' must be binary 0/1; got unique values " f"{uniq[:10].tolist()}.",
             recovery_hint="Recode the treatment and post indicators to 0/1 "
             "before calling sp.bayes_did().",
             diagnostics={
@@ -315,30 +314,32 @@ def _prepare_did_frame(
 
     X: Optional[np.ndarray] = None
     if covariate_cols:
-        X = np.column_stack([
-            _numeric_vector(
-                clean,
-                covariate,
-                f"covariate '{covariate}'",
-                nonfinite_error=NumericalInstability,
-            )
-            for covariate in covariate_cols
-        ])
+        X = np.column_stack(
+            [
+                _numeric_vector(
+                    clean,
+                    covariate,
+                    f"covariate '{covariate}'",
+                    nonfinite_error=NumericalInstability,
+                )
+                for covariate in covariate_cols
+            ]
+        )
 
     return {
-        'n': n,
-        'Y': Y,
-        'T': T,
-        'P': P,
-        'DID': T * P,
-        'unit_idx': unit_idx,
-        'n_units': n_units,
-        'time_idx': time_idx,
-        'n_times': n_times,
-        'cohort_idx': cohort_codes,
-        'cohort_labels': cohort_labels,
-        'X': X,
-        'covariates': covariate_cols,
+        "n": n,
+        "Y": Y,
+        "T": T,
+        "P": P,
+        "DID": T * P,
+        "unit_idx": unit_idx,
+        "n_units": n_units,
+        "time_idx": time_idx,
+        "n_times": n_times,
+        "cohort_idx": cohort_codes,
+        "cohort_labels": cohort_labels,
+        "X": X,
+        "covariates": covariate_cols,
     }
 
 
@@ -359,7 +360,7 @@ def bayes_did(
     prior_covariate_sigma: float = 10.0,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
-    inference: str = 'nuts',
+    inference: str = "nuts",
     advi_iterations: int = 20000,
     draws: int = 2000,
     tune: int = 1000,
@@ -455,40 +456,49 @@ def bayes_did(
     # arrays whenever `cohort` had NaN rows the other columns did
     # not (not caught by synthetic-data tests that have no NaN).
     prep = _prepare_did_frame(
-        data, y, treat, post, unit, time, covariates, cohort=cohort,
+        data,
+        y,
+        treat,
+        post,
+        unit,
+        time,
+        covariates,
+        cohort=cohort,
     )
     pm, _ = _require_pymc()
-    n = prep['n']
-    Y = prep['Y']
-    T = prep['T']
-    P = prep['P']
-    DID = prep['DID']
-    X = prep['X']
+    n = prep["n"]
+    Y = prep["Y"]
+    T = prep["T"]
+    P = prep["P"]
+    DID = prep["DID"]
+    X = prep["X"]
 
-    use_unit_re = prep['unit_idx'] is not None
-    use_time_re = prep['time_idx'] is not None
+    use_unit_re = prep["unit_idx"] is not None
+    use_time_re = prep["time_idx"] is not None
 
-    cohort_codes = prep['cohort_idx']
-    cohort_labels = prep['cohort_labels']
+    cohort_codes = prep["cohort_idx"]
+    cohort_labels = prep["cohort_labels"]
 
     mu_ate, sigma_ate = prior_ate
 
     with pm.Model() as model:
-        intercept = pm.Normal('intercept', mu=0.0, sigma=prior_covariate_sigma)
+        intercept = pm.Normal("intercept", mu=0.0, sigma=prior_covariate_sigma)
 
         # Main effects: use dummy coefficients when no random effect is used
         if use_unit_re:
-            sigma_unit = pm.HalfNormal('sigma_unit', sigma=prior_unit_sigma)
+            sigma_unit = pm.HalfNormal("sigma_unit", sigma=prior_unit_sigma)
             alpha_unit = pm.Normal(
-                'alpha_unit',
+                "alpha_unit",
                 mu=0.0,
                 sigma=sigma_unit,
-                shape=prep['n_units'],
+                shape=prep["n_units"],
             )
-            unit_effect = alpha_unit[prep['unit_idx']]
+            unit_effect = alpha_unit[prep["unit_idx"]]
             treat_main = 0.0  # absorbed by unit FE for static treat
             beta_treat = pm.Normal(
-                'beta_treat', mu=0.0, sigma=prior_covariate_sigma,
+                "beta_treat",
+                mu=0.0,
+                sigma=prior_covariate_sigma,
             )
             # Keep beta_treat for models where treat varies within unit (rare);
             # if treat is fully collinear with unit, the posterior concentrates
@@ -496,24 +506,28 @@ def bayes_did(
             treat_main = beta_treat * T
         else:
             beta_treat = pm.Normal(
-                'beta_treat', mu=0.0, sigma=prior_covariate_sigma,
+                "beta_treat",
+                mu=0.0,
+                sigma=prior_covariate_sigma,
             )
             treat_main = beta_treat * T
             unit_effect = 0.0
 
         if use_time_re:
-            sigma_time = pm.HalfNormal('sigma_time', sigma=prior_time_sigma)
+            sigma_time = pm.HalfNormal("sigma_time", sigma=prior_time_sigma)
             gamma_time = pm.Normal(
-                'gamma_time',
+                "gamma_time",
                 mu=0.0,
                 sigma=sigma_time,
-                shape=prep['n_times'],
+                shape=prep["n_times"],
             )
-            time_effect = gamma_time[prep['time_idx']]
+            time_effect = gamma_time[prep["time_idx"]]
             post_main = 0.0  # absorbed by time FE
         else:
             beta_post = pm.Normal(
-                'beta_post', mu=0.0, sigma=prior_covariate_sigma,
+                "beta_post",
+                mu=0.0,
+                sigma=prior_covariate_sigma,
             )
             post_main = beta_post * P
             time_effect = 0.0
@@ -523,11 +537,11 @@ def bayes_did(
         #   - vector `tau_cohort` of length n_cohorts when `cohort` is
         #     supplied; per-unit contribution is tau_cohort[c_i] * DID_i
         if cohort_codes is None:
-            tau = pm.Normal('tau', mu=mu_ate, sigma=sigma_ate)
+            tau = pm.Normal("tau", mu=mu_ate, sigma=sigma_ate)
             did_contribution = tau * DID
         else:
             tau_cohort = pm.Normal(
-                'tau_cohort',
+                "tau_cohort",
                 mu=mu_ate,
                 sigma=sigma_ate,
                 shape=len(cohort_labels),
@@ -548,15 +562,15 @@ def bayes_did(
 
         if X is not None:
             beta_cov = pm.Normal(
-                'beta_cov',
+                "beta_cov",
                 mu=0.0,
                 sigma=prior_covariate_sigma,
                 shape=X.shape[1],
             )
             linpred = linpred + pm.math.dot(X, beta_cov)
 
-        sigma = pm.HalfNormal('sigma', sigma=prior_noise)
-        pm.Normal('y_obs', mu=linpred, sigma=sigma, observed=Y)
+        sigma = pm.HalfNormal("sigma", sigma=prior_noise)
+        pm.Normal("y_obs", mu=linpred, sigma=sigma, observed=Y)
 
     trace = _sample_model(
         model,
@@ -570,43 +584,41 @@ def bayes_did(
         advi_iterations=advi_iterations,
     )
 
-    shape_label = (
-        'panel' if (use_unit_re or use_time_re) else '2x2'
-    )
+    shape_label = "panel" if (use_unit_re or use_time_re) else "2x2"
     model_info = {
-        'inference': inference,
-        'draws': draws,
-        'tune': tune,
-        'chains': chains,
-        'target_accept': target_accept,
-        'prior_ate': prior_ate,
-        'prior_unit_sigma': prior_unit_sigma,
-        'prior_time_sigma': prior_time_sigma,
-        'prior_noise': prior_noise,
-        'prior_covariate_sigma': prior_covariate_sigma,
-        'use_unit_re': use_unit_re,
-        'use_time_re': use_time_re,
-        'n_units': prep['n_units'],
-        'n_times': prep['n_times'],
-        'covariates': prep['covariates'],
+        "inference": inference,
+        "draws": draws,
+        "tune": tune,
+        "chains": chains,
+        "target_accept": target_accept,
+        "prior_ate": prior_ate,
+        "prior_unit_sigma": prior_unit_sigma,
+        "prior_time_sigma": prior_time_sigma,
+        "prior_noise": prior_noise,
+        "prior_covariate_sigma": prior_covariate_sigma,
+        "use_unit_re": use_unit_re,
+        "use_time_re": use_time_re,
+        "n_units": prep["n_units"],
+        "n_times": prep["n_times"],
+        "covariates": prep["covariates"],
     }
 
     # Single-τ model: identical to v0.9.15 output.
     if cohort_codes is None:
-        summary = _summarise_posterior(trace, 'tau', hdi_prob=hdi_prob, rope=rope)
+        summary = _summarise_posterior(trace, "tau", hdi_prob=hdi_prob, rope=rope)
         method = f"Bayesian DID ({shape_label})"
         return BayesianDIDResult(
             method=method,
-            estimand='ATT',
-            posterior_mean=summary['posterior_mean'],
-            posterior_median=summary['posterior_median'],
-            posterior_sd=summary['posterior_sd'],
-            hdi_lower=summary['hdi_lower'],
-            hdi_upper=summary['hdi_upper'],
-            prob_positive=summary['prob_positive'],
-            prob_rope=summary.get('prob_rope'),
-            rhat=summary['rhat'],
-            ess=summary['ess'],
+            estimand="ATT",
+            posterior_mean=summary["posterior_mean"],
+            posterior_median=summary["posterior_median"],
+            posterior_sd=summary["posterior_sd"],
+            hdi_lower=summary["hdi_lower"],
+            hdi_upper=summary["hdi_upper"],
+            prob_positive=summary["prob_positive"],
+            prob_rope=summary.get("prob_rope"),
+            rhat=summary["rhat"],
+            ess=summary["ess"],
             n_obs=n,
             hdi_prob=hdi_prob,
             trace=trace,
@@ -617,31 +629,29 @@ def bayes_did(
     # draws, n_cohorts) to build per-cohort summaries AND a
     # treated-size-weighted average as the top-level ATT.
     _, az = _require_pymc()
-    tau_post = trace.posterior['tau_cohort'].values  # (chains, draws, n_c)
-    tau_flat = tau_post.reshape(-1, tau_post.shape[-1])   # (S, n_c)
+    tau_post = trace.posterior["tau_cohort"].values  # (chains, draws, n_c)
+    tau_flat = tau_post.reshape(-1, tau_post.shape[-1])  # (S, n_c)
 
     # Per-cohort summaries keyed by str(label) so tidy() can match a
     # 'cohort:2019' style label without caring about int vs. str.
     cohort_summaries: dict = {}
-    treated_mask = prep['T'] * prep['P'] > 0  # DID==1 indicates treated-post
+    treated_mask = prep["T"] * prep["P"] > 0  # DID==1 indicates treated-post
     treated_counts_per_cohort = np.zeros(len(cohort_labels), dtype=float)
     for idx, label in enumerate(cohort_labels):
         col = tau_flat[:, idx]
         hdi = _az_hdi_compat(col, hdi_prob=hdi_prob)
         cohort_summaries[str(label)] = {
-            'posterior_mean': float(col.mean()),
-            'posterior_median': float(np.median(col)),
-            'posterior_sd': float(col.std(ddof=1)),
-            'hdi_lower': float(hdi[0]),
-            'hdi_upper': float(hdi[1]),
-            'prob_positive': float(np.mean(col > 0)),
+            "posterior_mean": float(col.mean()),
+            "posterior_median": float(np.median(col)),
+            "posterior_sd": float(col.std(ddof=1)),
+            "hdi_lower": float(hdi[0]),
+            "hdi_upper": float(hdi[1]),
+            "prob_positive": float(np.mean(col > 0)),
         }
         # Count units in cohort idx that are treated-post. Gives the
         # treated-unit weighting used for the pooled ATT below.
-        in_cohort = (cohort_codes == idx)
-        treated_counts_per_cohort[idx] = float(
-            (in_cohort & treated_mask).sum()
-        )
+        in_cohort = cohort_codes == idx
+        treated_counts_per_cohort[idx] = float((in_cohort & treated_mask).sum())
 
     # Size-weighted pooled ATT posterior. When no treated-post rows
     # exist (e.g. all cohorts are pure controls), fall back to equal
@@ -651,7 +661,7 @@ def bayes_did(
         w = treated_counts_per_cohort / total_treated
     else:
         w = np.full(len(cohort_labels), 1.0 / len(cohort_labels))
-    pooled_samples = tau_flat @ w        # (S,)
+    pooled_samples = tau_flat @ w  # (S,)
     pooled_hdi = _az_hdi_compat(pooled_samples, hdi_prob=hdi_prob)
     pooled_mean = float(pooled_samples.mean())
     pooled_median = float(np.median(pooled_samples))
@@ -660,33 +670,27 @@ def bayes_did(
     prob_rope = None
     if rope is not None:
         lo, hi = rope
-        prob_rope = float(
-            np.mean((pooled_samples > lo) & (pooled_samples < hi))
-        )
+        prob_rope = float(np.mean((pooled_samples > lo) & (pooled_samples < hi)))
 
     # rhat/ess on the vector of per-cohort τ's; report the worst case.
     try:
-        rhat_series = az.rhat(trace, var_names=['tau_cohort'])[
-            'tau_cohort'
-        ].values
+        rhat_series = az.rhat(trace, var_names=["tau_cohort"])["tau_cohort"].values
         rhat = float(np.nanmax(rhat_series))
     except Exception:
-        rhat = float('nan')
+        rhat = float("nan")
     try:
-        ess_series = az.ess(trace, var_names=['tau_cohort'])[
-            'tau_cohort'
-        ].values
+        ess_series = az.ess(trace, var_names=["tau_cohort"])["tau_cohort"].values
         ess = float(np.nanmin(ess_series))
     except Exception:
-        ess = float('nan')
+        ess = float("nan")
 
-    model_info['cohort_column'] = cohort
-    model_info['n_cohorts'] = len(cohort_labels)
-    model_info['cohort_weights'] = w.tolist()
+    model_info["cohort_column"] = cohort
+    model_info["n_cohorts"] = len(cohort_labels)
+    model_info["cohort_weights"] = w.tolist()
     method = f"Bayesian DID ({shape_label}, {len(cohort_labels)} cohorts)"
     return BayesianDIDResult(
         method=method,
-        estimand='ATT',
+        estimand="ATT",
         posterior_mean=pooled_mean,
         posterior_median=pooled_median,
         posterior_sd=pooled_sd,

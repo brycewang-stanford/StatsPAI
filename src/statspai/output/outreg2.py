@@ -253,6 +253,7 @@ class OutReg2:
         latex = table.to_latex()
         if filename:
             from pathlib import Path
+
             Path(filename).write_text(latex, encoding="utf-8")
             print(f"Regression results exported to: {filename}")
         return latex
@@ -364,6 +365,7 @@ def outreg2(
         out_path = filename if filename.endswith(".tex") else filename + ".tex"
         latex = table.to_latex()
         from pathlib import Path
+
         Path(out_path).write_text(latex, encoding="utf-8")
         print(f"Regression results exported to: {out_path}")
         return latex

@@ -88,19 +88,24 @@ def causal_impact(
     brodersen2015inferring
     """
     estimator = CausalImpactEstimator(
-        data=data, y=y, time=time,
+        data=data,
+        y=y,
+        time=time,
         intervention_time=intervention_time,
-        covariates=covariates, alpha=alpha,
+        covariates=covariates,
+        alpha=alpha,
         n_seasons=n_seasons,
     )
     _result = estimator.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_impact",
             params={
-                "y": y, "time": time,
+                "y": y,
+                "time": time,
                 "intervention_time": intervention_time,
                 "covariates": list(covariates) if covariates else None,
                 "alpha": alpha,
@@ -259,9 +264,7 @@ class CausalImpactEstimator:
         # Relative effect
         post_pred_mean = float(np.mean(Y_pred[self.post_mask]))
         relative_effect = (
-            avg_effect / post_pred_mean
-            if abs(post_pred_mean) > 1e-10
-            else np.nan
+            avg_effect / post_pred_mean if abs(post_pred_mean) > 1e-10 else np.nan
         )
 
         # P-value (two-sided test against zero effect)
@@ -272,44 +275,44 @@ class CausalImpactEstimator:
         ci = (avg_effect - z_crit * se_avg, avg_effect + z_crit * se_avg)
 
         # Build detail table (time series)
-        detail = pd.DataFrame({
-            'time': self.times,
-            'actual': Y_actual,
-            'predicted': Y_pred,
-            'predicted_se': Y_pred_se,
-            'effect': pointwise_effect,
-            'effect_lower': pointwise_lower,
-            'effect_upper': pointwise_upper,
-            'post_intervention': self.post_mask,
-        })
+        detail = pd.DataFrame(
+            {
+                "time": self.times,
+                "actual": Y_actual,
+                "predicted": Y_pred,
+                "predicted_se": Y_pred_se,
+                "effect": pointwise_effect,
+                "effect_lower": pointwise_lower,
+                "effect_upper": pointwise_upper,
+                "post_intervention": self.post_mask,
+            }
+        )
 
         model_info: Dict[str, Any] = {
-            'intervention_time': self.intervention_time,
-            'n_pre': self.n_pre,
-            'n_post': self.n_post,
-            'avg_effect': avg_effect,
-            'total_effect': total_effect,
-            'se_avg': se_avg,
-            'se_total': se_total,
-            'relative_effect': relative_effect,
-            'relative_effect_pct': (
-                relative_effect * 100
-                if not np.isnan(relative_effect)
-                else np.nan
+            "intervention_time": self.intervention_time,
+            "n_pre": self.n_pre,
+            "n_post": self.n_post,
+            "avg_effect": avg_effect,
+            "total_effect": total_effect,
+            "se_avg": se_avg,
+            "se_total": se_total,
+            "relative_effect": relative_effect,
+            "relative_effect_pct": (
+                relative_effect * 100 if not np.isnan(relative_effect) else np.nan
             ),
-            'n_covariates': len(self.covariates),
-            'model_params': model,
-            'Y_pred': Y_pred,
-            'Y_actual': Y_actual,
-            'times': self.times,
-            'pre_mask': self.pre_mask,
-            'post_mask': self.post_mask,
-            'cumulative_effect': cumulative_effect,
+            "n_covariates": len(self.covariates),
+            "model_params": model,
+            "Y_pred": Y_pred,
+            "Y_actual": Y_actual,
+            "times": self.times,
+            "pre_mask": self.pre_mask,
+            "post_mask": self.post_mask,
+            "cumulative_effect": cumulative_effect,
         }
 
         return CausalResult(
-            method='Causal Impact (Structural Time Series)',
-            estimand='Average Causal Effect',
+            method="Causal Impact (Structural Time Series)",
+            estimand="Average Causal Effect",
             estimate=avg_effect,
             se=se_avg,
             pvalue=pvalue,
@@ -318,7 +321,7 @@ class CausalImpactEstimator:
             n_obs=len(self.Y),
             detail=detail,
             model_info=model_info,
-            _citation_key='causal_impact',
+            _citation_key="causal_impact",
         )
 
     # ------------------------------------------------------------------
@@ -369,18 +372,16 @@ class CausalImpactEstimator:
         # Variance decomposition
         sigma_obs = float(np.std(residuals, ddof=1)) if n > 1 else 1.0
         sigma_state = (
-            sigma_obs * np.sqrt(1 - rho**2)
-            if abs(rho) < 1
-            else sigma_obs * 0.1
+            sigma_obs * np.sqrt(1 - rho**2) if abs(rho) < 1 else sigma_obs * 0.1
         )
 
         return {
-            'beta': beta,
-            'rho': rho,
-            'sigma_obs': max(sigma_obs, 1e-10),
-            'sigma_state': max(sigma_state, 1e-10),
-            'last_residual': residuals[-1] if len(residuals) > 0 else 0.0,
-            'n_covariates': X_pre.shape[1] if X_pre is not None else 0,
+            "beta": beta,
+            "rho": rho,
+            "sigma_obs": max(sigma_obs, 1e-10),
+            "sigma_state": max(sigma_state, 1e-10),
+            "last_residual": residuals[-1] if len(residuals) > 0 else 0.0,
+            "n_covariates": X_pre.shape[1] if X_pre is not None else 0,
         }
 
     def _predict(
@@ -394,10 +395,10 @@ class CausalImpactEstimator:
         Returns (Y_pred, Y_pred_se) arrays.
         """
         n = len(self.Y)
-        beta = np.asarray(model['beta'], dtype=float)
-        rho = float(model['rho'])
-        sigma_obs = float(model['sigma_obs'])
-        sigma_state = float(model['sigma_state'])
+        beta = np.asarray(model["beta"], dtype=float)
+        rho = float(model["rho"])
+        sigma_obs = float(model["sigma_obs"])
+        sigma_state = float(model["sigma_state"])
 
         if X_full is not None and X_full.shape[1] > 0:
             X_aug = np.column_stack([np.ones(n), X_full])
@@ -436,9 +437,10 @@ class CausalImpactEstimator:
 # Plotting
 # ------------------------------------------------------------------
 
+
 def impactplot(
     result: CausalResult,
-    type: str = 'all',
+    type: str = "all",
     ax: Any = None,
     figsize: tuple[float, float] = (12, 9),
     title: Optional[str] = None,
@@ -494,18 +496,18 @@ def impactplot(
 
     mi = result.model_info
     detail = result.detail
-    if detail is None or 'actual' not in detail.columns:
+    if detail is None or "actual" not in detail.columns:
         raise ValueError("No detail table. Use causal_impact() result.")
 
-    times = detail['time'].values
-    actual = detail['actual'].values
-    predicted = detail['predicted'].values
-    effect = detail['effect'].values
-    eff_lo = detail['effect_lower'].values
-    eff_hi = detail['effect_upper'].values
-    post = detail['post_intervention'].values
-    intervention_time = mi.get('intervention_time')
-    cum_raw = mi.get('cumulative_effect')
+    times = detail["time"].values
+    actual = detail["actual"].values
+    predicted = detail["predicted"].values
+    effect = detail["effect"].values
+    eff_lo = detail["effect_lower"].values
+    eff_hi = detail["effect_upper"].values
+    post = detail["post_intervention"].values
+    intervention_time = mi.get("intervention_time")
+    cum_raw = mi.get("cumulative_effect")
     if cum_raw is not None and len(cum_raw) < len(times):
         # cumulative_effect only covers post-period; pad pre with zeros
         cumulative = np.zeros(len(times))
@@ -515,15 +517,16 @@ def impactplot(
     else:
         cumulative = np.cumsum(effect * post)
 
-    if type == 'all':
+    if type == "all":
         fig, axes = plt.subplots(3, 1, figsize=figsize, sharex=True)
-        _original_panel(axes[0], times, actual, predicted,
-                        intervention_time, result.alpha)
-        _pointwise_panel(axes[1], times, effect, eff_lo, eff_hi,
-                         post, intervention_time)
-        _cumulative_panel(axes[2], times, cumulative, post,
-                          intervention_time)
-        fig.suptitle(title or 'Causal Impact Analysis', fontsize=14, y=1.01)
+        _original_panel(
+            axes[0], times, actual, predicted, intervention_time, result.alpha
+        )
+        _pointwise_panel(
+            axes[1], times, effect, eff_lo, eff_hi, post, intervention_time
+        )
+        _cumulative_panel(axes[2], times, cumulative, post, intervention_time)
+        fig.suptitle(title or "Causal Impact Analysis", fontsize=14, y=1.01)
         fig.tight_layout()
         return fig, axes
 
@@ -532,16 +535,14 @@ def impactplot(
     else:
         fig = ax.get_figure()
 
-    if type == 'pointwise':
-        _pointwise_panel(ax, times, effect, eff_lo, eff_hi,
-                         post, intervention_time)
-    elif type == 'cumulative':
+    if type == "pointwise":
+        _pointwise_panel(ax, times, effect, eff_lo, eff_hi, post, intervention_time)
+    elif type == "cumulative":
         _cumulative_panel(ax, times, cumulative, post, intervention_time)
     else:
-        _original_panel(ax, times, actual, predicted,
-                        intervention_time, result.alpha)
+        _original_panel(ax, times, actual, predicted, intervention_time, result.alpha)
 
-    ax.set_title(title or f'Causal Impact: {type}', fontsize=13)
+    ax.set_title(title or f"Causal Impact: {type}", fontsize=13)
     fig.tight_layout()
     return fig, ax
 
@@ -554,16 +555,28 @@ def _original_panel(
     t0: Any,
     alpha: float,
 ) -> None:
-    ax.plot(times, actual, color='#2C3E50', linewidth=1.5, label='Observed')
-    ax.plot(times, predicted, color='#3498DB', linewidth=1.5,
-            linestyle='--', label='Counterfactual')
+    ax.plot(times, actual, color="#2C3E50", linewidth=1.5, label="Observed")
+    ax.plot(
+        times,
+        predicted,
+        color="#3498DB",
+        linewidth=1.5,
+        linestyle="--",
+        label="Counterfactual",
+    )
     if t0 is not None:
-        ax.axvline(x=t0, color='#E74C3C', linestyle=':', linewidth=1,
-                   alpha=0.7, label='Intervention')
-    ax.set_ylabel('Value', fontsize=11)
+        ax.axvline(
+            x=t0,
+            color="#E74C3C",
+            linestyle=":",
+            linewidth=1,
+            alpha=0.7,
+            label="Intervention",
+        )
+    ax.set_ylabel("Value", fontsize=11)
     ax.legend(fontsize=9, frameon=False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 
 def _pointwise_panel(
@@ -575,15 +588,14 @@ def _pointwise_panel(
     post: np.ndarray,
     t0: Any,
 ) -> None:
-    ax.plot(times, effect, color='#2C3E50', linewidth=1.5)
-    ax.fill_between(times, lo, hi, alpha=0.15, color='#3498DB')
-    ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+    ax.plot(times, effect, color="#2C3E50", linewidth=1.5)
+    ax.fill_between(times, lo, hi, alpha=0.15, color="#3498DB")
+    ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
     if t0 is not None:
-        ax.axvline(x=t0, color='#E74C3C', linestyle=':', linewidth=1,
-                   alpha=0.7)
-    ax.set_ylabel('Pointwise Effect', fontsize=11)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+        ax.axvline(x=t0, color="#E74C3C", linestyle=":", linewidth=1, alpha=0.7)
+    ax.set_ylabel("Pointwise Effect", fontsize=11)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 
 def _cumulative_panel(
@@ -593,20 +605,19 @@ def _cumulative_panel(
     post: np.ndarray,
     t0: Any,
 ) -> None:
-    ax.plot(times, cumulative, color='#2C3E50', linewidth=1.5)
-    ax.fill_between(times, 0, cumulative, alpha=0.15, color='#3498DB')
-    ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+    ax.plot(times, cumulative, color="#2C3E50", linewidth=1.5)
+    ax.fill_between(times, 0, cumulative, alpha=0.15, color="#3498DB")
+    ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
     if t0 is not None:
-        ax.axvline(x=t0, color='#E74C3C', linestyle=':', linewidth=1,
-                   alpha=0.7)
-    ax.set_xlabel('Time', fontsize=11)
-    ax.set_ylabel('Cumulative Effect', fontsize=11)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+        ax.axvline(x=t0, color="#E74C3C", linestyle=":", linewidth=1, alpha=0.7)
+    ax.set_xlabel("Time", fontsize=11)
+    ax.set_ylabel("Cumulative Effect", fontsize=11)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 
 # Citation
-CausalResult._CITATIONS['causal_impact'] = (
+CausalResult._CITATIONS["causal_impact"] = (
     "@article{brodersen2015inferring,\n"
     "  title={Inferring Causal Impact Using Bayesian Structural "
     "Time-Series Models},\n"

@@ -130,9 +130,12 @@ def multi_arm_forest(
     for k in arms:
         mask = W == k
         rf = RandomForestRegressor(
-            n_estimators=n_trees, min_samples_leaf=min_leaf,
-            max_depth=max_depth, random_state=random_state,
-            bootstrap=True, n_jobs=-1,
+            n_estimators=n_trees,
+            min_samples_leaf=min_leaf,
+            max_depth=max_depth,
+            random_state=random_state,
+            bootstrap=True,
+            n_jobs=-1,
         )
         rf.fit(X[mask], Y[mask])
         mu[k] = rf.predict(X)
@@ -147,12 +150,17 @@ def multi_arm_forest(
         # AIPW pseudo-outcome for tau_k
         ind_k = (W == k).astype(float)
         ind_0 = (W == 0).astype(float)
-        pseudo = (mu[k] - mu[0]) + ind_k * (Y - mu[k]) / pi[k] - ind_0 * (Y - mu[0]) / pi[0]
+        pseudo = (
+            (mu[k] - mu[0]) + ind_k * (Y - mu[k]) / pi[k] - ind_0 * (Y - mu[0]) / pi[0]
+        )
         # CATE forest on pseudo
         rf = RandomForestRegressor(
-            n_estimators=n_trees, min_samples_leaf=min_leaf,
-            max_depth=max_depth, random_state=random_state,
-            bootstrap=True, n_jobs=-1,
+            n_estimators=n_trees,
+            min_samples_leaf=min_leaf,
+            max_depth=max_depth,
+            random_state=random_state,
+            bootstrap=True,
+            n_jobs=-1,
         )
         rf.fit(X, pseudo)
         cate[k] = rf.predict(X)
@@ -169,20 +177,28 @@ def multi_arm_forest(
         ci=ci,
         cate=cate,
         n_obs=n,
-        detail={"propensity_ranges": {k: (float(pi[k].min()), float(pi[k].max())) for k in arms}},
+        detail={
+            "propensity_ranges": {
+                k: (float(pi[k].min()), float(pi[k].max())) for k in arms
+            }
+        },
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.multi_arm_forest",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
-                "n_trees": n_trees, "min_leaf": min_leaf,
+                "n_trees": n_trees,
+                "min_leaf": min_leaf,
                 "max_depth": max_depth,
                 "propensity_bounds": list(propensity_bounds),
-                "random_state": random_state, "alpha": alpha,
+                "random_state": random_state,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

@@ -31,7 +31,6 @@ import pandas as pd
 
 from ..core.results import CausalResult
 
-
 # ====================================================================== #
 #  Colour palette — publication-quality defaults
 # ====================================================================== #
@@ -45,8 +44,14 @@ _PALETTE = {
     "ci_band": "#E74C3C",
     "bar": "#3498DB",
     "cohort_colors": [
-        "#E74C3C", "#3498DB", "#2ECC71", "#9B59B6",
-        "#F39C12", "#1ABC9C", "#E67E22", "#34495E",
+        "#E74C3C",
+        "#3498DB",
+        "#2ECC71",
+        "#9B59B6",
+        "#F39C12",
+        "#1ABC9C",
+        "#E67E22",
+        "#34495E",
     ],
 }
 
@@ -54,6 +59,7 @@ _PALETTE = {
 # ====================================================================== #
 #  Main entry point
 # ====================================================================== #
+
 
 def synthplot(
     result: Union[CausalResult, List[CausalResult]],
@@ -158,8 +164,14 @@ def synthplot(
     # --- Multi-result: compare ---
     if type_ == "compare":
         results = result if isinstance(result, list) else [result]
-        return _plot_compare(results, labels=labels, ax=ax,
-                             figsize=figsize or (11, 7), title=title, **kwargs)
+        return _plot_compare(
+            results,
+            labels=labels,
+            ax=ax,
+            figsize=figsize or (11, 7),
+            title=title,
+            **kwargs,
+        )
 
     # Single result from here
     if isinstance(result, list):
@@ -167,57 +179,59 @@ def synthplot(
 
     # --- Dispatch ---
     if type_ == "both":
-        return _plot_both(result, figsize=figsize or (10, 9),
-                          title=title, **kwargs)
+        return _plot_both(result, figsize=figsize or (10, 9), title=title, **kwargs)
     if type_ == "trajectory":
-        return _plot_trajectory(result, ax=ax,
-                                figsize=figsize or (10, 6.5),
-                                title=title, **kwargs)
+        return _plot_trajectory(
+            result, ax=ax, figsize=figsize or (10, 6.5), title=title, **kwargs
+        )
     if type_ == "gap":
-        return _plot_gap(result, ax=ax, figsize=figsize or (10, 5),
-                         title=title, **kwargs)
+        return _plot_gap(
+            result, ax=ax, figsize=figsize or (10, 5), title=title, **kwargs
+        )
     if type_ == "weights":
-        return _plot_weights(result, top_n=top_n, ax=ax,
-                             figsize=figsize or (8, 5), title=title, **kwargs)
+        return _plot_weights(
+            result, top_n=top_n, ax=ax, figsize=figsize or (8, 5), title=title, **kwargs
+        )
     if type_ in ("placebo", "placebo_dist"):
-        return _plot_placebo(result, ax=ax, figsize=figsize or (9, 6),
-                             title=title, **kwargs)
+        return _plot_placebo(
+            result, ax=ax, figsize=figsize or (9, 6), title=title, **kwargs
+        )
     if type_ == "placebo_gap":
-        return _plot_placebo_gap(result, ax=ax,
-                                 figsize=figsize or (10, 6),
-                                 title=title, **kwargs)
+        return _plot_placebo_gap(
+            result, ax=ax, figsize=figsize or (10, 6), title=title, **kwargs
+        )
     if type_ == "conformal":
-        return _plot_conformal(result, ax=ax,
-                               figsize=figsize or (10, 6),
-                               title=title, **kwargs)
+        return _plot_conformal(
+            result, ax=ax, figsize=figsize or (10, 6), title=title, **kwargs
+        )
     if type_ == "staggered":
-        return _plot_staggered(result, ax=ax,
-                               figsize=figsize or (9, 6),
-                               title=title, **kwargs)
+        return _plot_staggered(
+            result, ax=ax, figsize=figsize or (9, 6), title=title, **kwargs
+        )
     if type_ in ("rmspe", "rmspe_ratio"):
-        return _plot_rmspe(result, ax=ax,
-                           figsize=figsize or (9, 6),
-                           title=title, **kwargs)
+        return _plot_rmspe(
+            result, ax=ax, figsize=figsize or (9, 6), title=title, **kwargs
+        )
     if type_ in ("factors", "loadings"):
-        return _plot_factors(result, ax=ax,
-                             figsize=figsize or (10, 5),
-                             title=title, **kwargs)
+        return _plot_factors(
+            result, ax=ax, figsize=figsize or (10, 5), title=title, **kwargs
+        )
     if type_ in ("distributional", "quantile_effect"):
-        return _plot_distributional(result, ax=ax,
-                                    figsize=figsize or (10, 6),
-                                    title=title, **kwargs)
+        return _plot_distributional(
+            result, ax=ax, figsize=figsize or (10, 6), title=title, **kwargs
+        )
     if type_ == "multi_outcome":
-        return _plot_multi_outcome(result, ax=ax,
-                                   figsize=figsize or (10, 6),
-                                   title=title, **kwargs)
+        return _plot_multi_outcome(
+            result, ax=ax, figsize=figsize or (10, 6), title=title, **kwargs
+        )
     if type_ in ("prediction_interval", "pi"):
-        return _plot_prediction_interval(result, ax=ax,
-                                         figsize=figsize or (10, 6),
-                                         title=title, **kwargs)
+        return _plot_prediction_interval(
+            result, ax=ax, figsize=figsize or (10, 6), title=title, **kwargs
+        )
     if type_ in ("sensitivity", "loo"):
-        return _plot_sensitivity(result, ax=ax,
-                                 figsize=figsize or (10, 8),
-                                 title=title, **kwargs)
+        return _plot_sensitivity(
+            result, ax=ax, figsize=figsize or (10, 8), title=title, **kwargs
+        )
 
     raise ValueError(
         f"Unknown plot type {type_!r}. Choose from: 'trajectory', 'gap', "
@@ -230,6 +244,7 @@ def synthplot(
 # ====================================================================== #
 #  Data extraction — normalise model_info across all variants
 # ====================================================================== #
+
 
 def _extract_trajectories(
     result: CausalResult,
@@ -258,18 +273,32 @@ def _extract_trajectories(
             mi["Y_obs"].values,
             mi["Y_synth"].values,
             mi.get("treat_time"),
-            str(mi.get("treated_units", ["Treated"])[0])
-            if isinstance(mi.get("treated_units"), list)
-            else "Treated",
+            (
+                str(mi.get("treated_units", ["Treated"])[0])
+                if isinstance(mi.get("treated_units"), list)
+                else "Treated"
+            ),
         )
 
     # --- GSynth ---
     if "trajectory" in mi:
         tj = mi["trajectory"]
         return (
-            tj["time"].values if hasattr(tj["time"], "values") else np.array(tj["time"]),
-            tj["treated"].values if hasattr(tj["treated"], "values") else np.array(tj["treated"]),
-            tj["synthetic"].values if hasattr(tj["synthetic"], "values") else np.array(tj["synthetic"]),
+            (
+                tj["time"].values
+                if hasattr(tj["time"], "values")
+                else np.array(tj["time"])
+            ),
+            (
+                tj["treated"].values
+                if hasattr(tj["treated"], "values")
+                else np.array(tj["treated"])
+            ),
+            (
+                tj["synthetic"].values
+                if hasattr(tj["synthetic"], "values")
+                else np.array(tj["synthetic"])
+            ),
             mi.get("treatment_time"),
             mi.get("treated_unit", "Treated"),
         )
@@ -295,7 +324,9 @@ def _extract_trajectories(
             mi.get("treated_unit", "Treated"),
         )
 
-    raise ValueError("Cannot extract trajectory data from this result")  # pragma: no cover
+    raise ValueError(
+        "Cannot extract trajectory data from this result"
+    )  # pragma: no cover
 
 
 def _extract_weights(result: CausalResult) -> tuple[np.ndarray, np.ndarray]:
@@ -312,8 +343,7 @@ def _extract_weights(result: CausalResult) -> tuple[np.ndarray, np.ndarray]:
 
     # Dict
     if isinstance(mi.get("weights"), dict):
-        items = sorted(mi["weights"].items(), key=lambda x: abs(x[1]),
-                       reverse=True)
+        items = sorted(mi["weights"].items(), key=lambda x: abs(x[1]), reverse=True)
         items = [(k, v) for k, v in items if abs(v) > 1e-6]
         if items:
             return (
@@ -327,6 +357,7 @@ def _extract_weights(result: CausalResult) -> tuple[np.ndarray, np.ndarray]:
 # ====================================================================== #
 #  Individual plotters
 # ====================================================================== #
+
 
 def _plot_trajectory(
     result: CausalResult,
@@ -367,13 +398,18 @@ def _plot_trajectory(
     # --- pre-treatment equivalence band (drawn under everything) ---
     if pre_band:
         from .exports import _pre_rmspe
+
         pre = _pre_rmspe(result)
         if not np.isnan(pre):
             band = 1.96 * pre
             ax.fill_between(
-                times, np.asarray(y_syn) - band, np.asarray(y_syn) + band,
-                alpha=0.10, color=_PALETTE["gap_fill"],
-                label=r"$\pm 1.96 \times$pre-RMSPE", zorder=1,
+                times,
+                np.asarray(y_syn) - band,
+                np.asarray(y_syn) + band,
+                alpha=0.10,
+                color=_PALETTE["gap_fill"],
+                label=r"$\pm 1.96 \times$pre-RMSPE",
+                zorder=1,
             )
 
     # --- prediction-interval band around synthetic (post period) ---
@@ -390,38 +426,59 @@ def _plot_trajectory(
             keep = np.array([t in time_to_idx for t in pi_times])
             if keep.any():
                 pi_times_use = pi_times[keep]
-                yt_at = np.array(
-                    [y_tr[time_to_idx[t]] for t in pi_times_use]
-                )
+                yt_at = np.array([y_tr[time_to_idx[t]] for t in pi_times_use])
                 pi_lo = pr["pi_lower"].to_numpy()[keep]
                 pi_hi = pr["pi_upper"].to_numpy()[keep]
-                level_pct = int(round((1 - getattr(result, "alpha", 0.05))
-                                      * 100))
+                level_pct = int(round((1 - getattr(result, "alpha", 0.05)) * 100))
                 ax.fill_between(
                     pi_times_use,
                     yt_at - pi_hi,  # lower bound on synthetic
                     yt_at - pi_lo,  # upper bound on synthetic
-                    alpha=0.18, color=_PALETTE["ci_band"],
+                    alpha=0.18,
+                    color=_PALETTE["ci_band"],
                     label=f"{level_pct}% PI on counterfactual",
                     zorder=2,
                 )
 
-    ax.plot(times, y_tr, color=_PALETTE["treated"], linewidth=2.2,
-            label=str(label), zorder=3)
-    ax.plot(times, y_syn, color=_PALETTE["synthetic"], linewidth=2.2,
-            linestyle="--", label="Synthetic", zorder=3)
+    ax.plot(
+        times,
+        y_tr,
+        color=_PALETTE["treated"],
+        linewidth=2.2,
+        label=str(label),
+        zorder=3,
+    )
+    ax.plot(
+        times,
+        y_syn,
+        color=_PALETTE["synthetic"],
+        linewidth=2.2,
+        linestyle="--",
+        label="Synthetic",
+        zorder=3,
+    )
 
     # Shade post-treatment gap
     if t_time is not None:
         post = np.array([t >= t_time for t in times])
         if post.any() and not pi_band:
             ax.fill_between(
-                np.asarray(times)[post], y_tr[post], y_syn[post],
-                alpha=0.12, color=_PALETTE["ci_band"],
-                label="Treatment effect", zorder=2,
+                np.asarray(times)[post],
+                y_tr[post],
+                y_syn[post],
+                alpha=0.12,
+                color=_PALETTE["ci_band"],
+                label="Treatment effect",
+                zorder=2,
             )
-        ax.axvline(x=t_time, color=_PALETTE["treatment_line"],
-                   linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+        ax.axvline(
+            x=t_time,
+            color=_PALETTE["treatment_line"],
+            linestyle=":",
+            linewidth=1.2,
+            alpha=0.8,
+            zorder=1,
+        )
 
     # SDID time weight shading
     mi = result.model_info
@@ -430,8 +487,9 @@ def _plot_trajectory(
         pre_t = mi["pre_times"]
         max_w = tw.max() if tw.max() > 0 else 1
         for t_val, w_val in zip(pre_t, tw.values):
-            ax.axvspan(t_val - 0.4, t_val + 0.4,
-                       alpha=0.06 * (w_val / max_w), color="blue")
+            ax.axvspan(
+                t_val - 0.4, t_val + 0.4, alpha=0.06 * (w_val / max_w), color="blue"
+            )
 
     att = result.estimate
     method_short = _method_short_label(result)
@@ -475,23 +533,33 @@ def _plot_gap(
 
     if pre_band:
         from .exports import _pre_rmspe
+
         pre = _pre_rmspe(result)
         if not np.isnan(pre):
             band = 1.96 * pre
             ax.fill_between(
-                times, -band, band, alpha=0.10,
+                times,
+                -band,
+                band,
+                alpha=0.10,
                 color=_PALETTE["gap_fill"],
-                label=r"$\pm 1.96 \times$pre-RMSPE", zorder=1,
+                label=r"$\pm 1.96 \times$pre-RMSPE",
+                zorder=1,
             )
 
     ax.plot(times, gap, color=_PALETTE["treated"], linewidth=2, zorder=3)
-    ax.fill_between(times, 0, gap, alpha=0.12, color=_PALETTE["gap_fill"],
-                    zorder=2)
+    ax.fill_between(times, 0, gap, alpha=0.12, color=_PALETTE["gap_fill"], zorder=2)
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
 
     if t_time is not None:
-        ax.axvline(x=t_time, color=_PALETTE["treatment_line"],
-                   linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+        ax.axvline(
+            x=t_time,
+            color=_PALETTE["treatment_line"],
+            linestyle=":",
+            linewidth=1.2,
+            alpha=0.8,
+            zorder=1,
+        )
 
     # Conformal / scpi: per-period CI / PI bands when present
     mi = result.model_info
@@ -507,15 +575,14 @@ def _plot_gap(
             None,
         )
         if lo_col is not None and hi_col is not None:
-            band_label = (
-                "Conformal CI" if "ci_lower" in cols else "Prediction interval"
-            )
+            band_label = "Conformal CI" if "ci_lower" in cols else "Prediction interval"
             level_pct = int(round((1 - getattr(result, "alpha", 0.05)) * 100))
             ax.fill_between(
                 pr["time"].values,
                 pr[lo_col].values,
                 pr[hi_col].values,
-                alpha=0.15, color=_PALETTE["ci_band"],
+                alpha=0.15,
+                color=_PALETTE["ci_band"],
                 label=f"{level_pct}% {band_label}",
                 zorder=2,
             )
@@ -541,8 +608,9 @@ def _plot_both(
 ) -> tuple[Any, Any]:
     import matplotlib.pyplot as plt
 
-    fig, axes = plt.subplots(2, 1, figsize=figsize, sharex=True,
-                             gridspec_kw={"height_ratios": [1.2, 1]})
+    fig, axes = plt.subplots(
+        2, 1, figsize=figsize, sharex=True, gridspec_kw={"height_ratios": [1.2, 1]}
+    )
 
     _plot_trajectory(result, ax=axes[0], **kw)
     _plot_gap(result, ax=axes[1], **kw)
@@ -584,8 +652,9 @@ def _plot_weights(
         fig = ax.get_figure()
 
     colors = [_PALETTE["bar"] if w >= 0 else "#E74C3C" for w in weights]
-    ax.barh([str(n) for n in names], weights, color=colors, edgecolor="white",
-            linewidth=0.5)
+    ax.barh(
+        [str(n) for n in names], weights, color=colors, edgecolor="white", linewidth=0.5
+    )
     ax.axvline(x=0, color="gray", linewidth=0.5, zorder=0)
     ax.set_xlabel("Weight", fontsize=11)
 
@@ -622,12 +691,25 @@ def _plot_placebo(
 
     # Histogram
     n_bins = min(max(len(placebos) // 2, 8), 30)
-    ax.hist(placebos, bins=n_bins, color=_PALETTE["placebo"],
-            edgecolor="white", alpha=0.7, label="Placebo ATTs", zorder=2)
+    ax.hist(
+        placebos,
+        bins=n_bins,
+        color=_PALETTE["placebo"],
+        edgecolor="white",
+        alpha=0.7,
+        label="Placebo ATTs",
+        zorder=2,
+    )
 
     # Treated unit line
-    ax.axvline(x=att, color=_PALETTE["synthetic"], linewidth=2.5,
-               linestyle="--", label=f"Treated: {att:.3f}", zorder=3)
+    ax.axvline(
+        x=att,
+        color=_PALETTE["synthetic"],
+        linewidth=2.5,
+        linestyle="--",
+        label=f"Treated: {att:.3f}",
+        zorder=3,
+    )
 
     # Rank annotation
     rank = int(np.sum(np.abs(placebos) >= abs(att))) + 1
@@ -635,14 +717,14 @@ def _plot_placebo(
     ax.annotate(
         f"Rank: {rank}/{total}\np = {result.pvalue:.3f}",
         xy=(att, ax.get_ylim()[1] * 0.85),
-        fontsize=10, fontweight="bold",
+        fontsize=10,
+        fontweight="bold",
         ha="left" if att > np.median(placebos) else "right",
         color=_PALETTE["synthetic"],
     )
 
     method_short = _method_short_label(result)
-    ax.set_title(title or f"Placebo Distribution ({method_short})",
-                 fontsize=13)
+    ax.set_title(title or f"Placebo Distribution ({method_short})", fontsize=13)
     ax.set_xlabel("ATT", fontsize=11)
     ax.set_ylabel("Count", fontsize=11)
     ax.legend(fontsize=9.5, frameon=False)
@@ -701,36 +783,60 @@ def _plot_placebo_gap(
         for j in range(placebo_gaps.shape[1]):
             if not keep[j]:
                 continue  # pragma: no cover
-            ax.plot(times, placebo_gaps[:, j], color=_PALETTE["placebo"],
-                    linewidth=0.7, alpha=0.4, zorder=1)
+            ax.plot(
+                times,
+                placebo_gaps[:, j],
+                color=_PALETTE["placebo"],
+                linewidth=0.7,
+                alpha=0.4,
+                zorder=1,
+            )
 
         # Label for legend
-        ax.plot([], [], color=_PALETTE["placebo"], linewidth=0.7, alpha=0.4,
-                label=f"Placebos (n={n_shown})")
+        ax.plot(
+            [],
+            [],
+            color=_PALETTE["placebo"],
+            linewidth=0.7,
+            alpha=0.4,
+            label=f"Placebos (n={n_shown})",
+        )
     else:
         # Fallback: show quantile bands from scalar ATTs
         placebos = mi.get("placebo_atts") or mi.get("placebo_distribution")
         if placebos is not None:
             placebos = np.asarray(placebos)
             q25, q75 = np.quantile(placebos, 0.25), np.quantile(placebos, 0.75)
-            ax.axhspan(q25, q75, alpha=0.08, color=_PALETTE["placebo"],
-                       label="Placebo IQR", zorder=1)
+            ax.axhspan(
+                q25,
+                q75,
+                alpha=0.08,
+                color=_PALETTE["placebo"],
+                label="Placebo IQR",
+                zorder=1,
+            )
 
     # Treated gap on top
-    ax.plot(times, gap, color=_PALETTE["treated"], linewidth=2.5,
-            label=str(label), zorder=3)
+    ax.plot(
+        times, gap, color=_PALETTE["treated"], linewidth=2.5, label=str(label), zorder=3
+    )
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
     if t_time is not None:
-        ax.axvline(x=t_time, color=_PALETTE["treatment_line"],
-                   linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+        ax.axvline(
+            x=t_time,
+            color=_PALETTE["treatment_line"],
+            linestyle=":",
+            linewidth=1.2,
+            alpha=0.8,
+            zorder=1,
+        )
 
     method_short = _method_short_label(result)
     suffix = ""
     if rmspe_threshold is not None:
         suffix = f" (pre-RMSPE ≤ {rmspe_threshold}×)"
-    ax.set_title(title or f"Placebo Gaps ({method_short}){suffix}",
-                 fontsize=13)
+    ax.set_title(title or f"Placebo Gaps ({method_short}){suffix}", fontsize=13)
     ax.set_xlabel("Time", fontsize=11)
     ax.set_ylabel("Gap (Treated - Synthetic)", fontsize=11)
     ax.legend(fontsize=9.5, frameon=False)
@@ -772,11 +878,23 @@ def _plot_rmspe(
 
     n_bins = min(max(len(placebo_ratios) // 2, 8), 30)
 
-    ax.hist(placebo_ratios, bins=n_bins, color=_PALETTE["placebo"],
-            edgecolor="white", alpha=0.7, label="Placebos", zorder=2)
-    ax.axvline(x=treated_ratio, color=_PALETTE["synthetic"], linewidth=2.5,
-               linestyle="--",
-               label=f"Treated: {treated_ratio:.2f}", zorder=3)
+    ax.hist(
+        placebo_ratios,
+        bins=n_bins,
+        color=_PALETTE["placebo"],
+        edgecolor="white",
+        alpha=0.7,
+        label="Placebos",
+        zorder=2,
+    )
+    ax.axvline(
+        x=treated_ratio,
+        color=_PALETTE["synthetic"],
+        linewidth=2.5,
+        linestyle="--",
+        label=f"Treated: {treated_ratio:.2f}",
+        zorder=3,
+    )
 
     # Rank annotation
     rank = int(np.sum(placebo_ratios >= treated_ratio)) + 1
@@ -784,7 +902,8 @@ def _plot_rmspe(
     ax.annotate(
         f"Rank: {rank}/{total}\np = {result.pvalue:.3f}",
         xy=(treated_ratio, ax.get_ylim()[1] * 0.85),
-        fontsize=10, fontweight="bold",
+        fontsize=10,
+        fontweight="bold",
         ha="left" if treated_ratio > np.median(placebo_ratios) else "right",
         color=_PALETTE["synthetic"],
     )
@@ -833,15 +952,32 @@ def _plot_conformal(
     # Effect line + markers coloured by significance
     sig = pvals < result.alpha
     ax.plot(times, effects, color=_PALETTE["treated"], linewidth=2, zorder=3)
-    ax.scatter(times[sig], effects[sig], color=_PALETTE["synthetic"],
-               s=50, zorder=4, label=f"p < {result.alpha}")
-    ax.scatter(times[~sig], effects[~sig], color=_PALETTE["placebo"],
-               s=50, zorder=4, label=f"p \u2265 {result.alpha}")
+    ax.scatter(
+        times[sig],
+        effects[sig],
+        color=_PALETTE["synthetic"],
+        s=50,
+        zorder=4,
+        label=f"p < {result.alpha}",
+    )
+    ax.scatter(
+        times[~sig],
+        effects[~sig],
+        color=_PALETTE["placebo"],
+        s=50,
+        zorder=4,
+        label=f"p \u2265 {result.alpha}",
+    )
 
     # CI band
-    ax.fill_between(times, ci_lo, ci_hi, alpha=0.15,
-                    color=_PALETTE["ci_band"],
-                    label=f"{int((1 - result.alpha) * 100)}% Conformal CI")
+    ax.fill_between(
+        times,
+        ci_lo,
+        ci_hi,
+        alpha=0.15,
+        color=_PALETTE["ci_band"],
+        label=f"{int((1 - result.alpha) * 100)}% Conformal CI",
+    )
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
 
@@ -889,27 +1025,38 @@ def _plot_staggered(
         # Bar chart of cohort ATTs
         bar_colors = [colors[i % len(colors)] for i in range(len(cohort_times))]
         ax.bar(
-            [str(t) for t in cohort_times], cohort_atts,
-            color=bar_colors, edgecolor="white", linewidth=0.5, zorder=3,
+            [str(t) for t in cohort_times],
+            cohort_atts,
+            color=bar_colors,
+            edgecolor="white",
+            linewidth=0.5,
+            zorder=3,
         )
 
         # Add unit-level jitter points if available
         if unit_df is not None:
             for i, (ct, _) in enumerate(zip(cohort_times, cohort_atts)):
                 units = unit_df[unit_df["cohort_time"] == ct]
-                x_jitter = np.random.default_rng(42).uniform(
-                    -0.15, 0.15, len(units)
-                )
+                x_jitter = np.random.default_rng(42).uniform(-0.15, 0.15, len(units))
                 ax.scatter(
-                    i + x_jitter, units["att"].values,
-                    color="white", edgecolor=bar_colors[i],
-                    s=40, linewidth=1.2, zorder=4,
+                    i + x_jitter,
+                    units["att"].values,
+                    color="white",
+                    edgecolor=bar_colors[i],
+                    s=40,
+                    linewidth=1.2,
+                    zorder=4,
                 )
 
         # Overall ATT line
-        ax.axhline(y=result.estimate, color=_PALETTE["treated"],
-                   linestyle="--", linewidth=1.5, zorder=2,
-                   label=f"Overall ATT = {result.estimate:.3f}")
+        ax.axhline(
+            y=result.estimate,
+            color=_PALETTE["treated"],
+            linestyle="--",
+            linewidth=1.5,
+            zorder=2,
+            label=f"Overall ATT = {result.estimate:.3f}",
+        )
 
         ax.axhline(y=0, color="gray", linestyle="-", linewidth=0.5, zorder=1)
         ax.set_xlabel("Cohort (adoption time)", fontsize=11)
@@ -922,9 +1069,13 @@ def _plot_staggered(
             unit_df["att"],
             color=_PALETTE["bar"],
         )
-        ax.axvline(x=result.estimate, color=_PALETTE["treated"],
-                   linestyle="--", linewidth=1.5,
-                   label=f"Overall ATT = {result.estimate:.3f}")
+        ax.axvline(
+            x=result.estimate,
+            color=_PALETTE["treated"],
+            linestyle="--",
+            linewidth=1.5,
+            label=f"Overall ATT = {result.estimate:.3f}",
+        )
         ax.set_xlabel("ATT", fontsize=11)
 
     ax.set_title(title or "Staggered SCM: Cohort Effects", fontsize=13)
@@ -969,13 +1120,25 @@ def _plot_factors(
     colors = _PALETTE["cohort_colors"]
     for k in range(n_factors):
         F_all = np.concatenate([F_pre_arr[:, k], F_post_arr[:, k]])
-        ax.plot(all_times, F_all, color=colors[k % len(colors)],
-                linewidth=1.8, label=f"Factor {k + 1}", zorder=3)
+        ax.plot(
+            all_times,
+            F_all,
+            color=colors[k % len(colors)],
+            linewidth=1.8,
+            label=f"Factor {k + 1}",
+            zorder=3,
+        )
 
     t_time = mi.get("treatment_time")
     if t_time is not None:
-        ax.axvline(x=t_time, color=_PALETTE["treatment_line"],
-                   linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+        ax.axvline(
+            x=t_time,
+            color=_PALETTE["treatment_line"],
+            linestyle=":",
+            linewidth=1.2,
+            alpha=0.8,
+            zorder=1,
+        )
 
     ax.set_title(title or f"Latent Factors ({n_factors})", fontsize=13)
     ax.set_xlabel("Time", fontsize=11)
@@ -1014,20 +1177,39 @@ def _plot_compare(
 
         # Plot treated line only once
         if y_treated is None:
-            ax.plot(times, y_tr, color=_PALETTE["treated"], linewidth=2.5,
-                    label=str(unit_label), zorder=4)
+            ax.plot(
+                times,
+                y_tr,
+                color=_PALETTE["treated"],
+                linewidth=2.5,
+                label=str(unit_label),
+                zorder=4,
+            )
             y_treated = y_tr
             t_time = tt
 
         # Plot each synthetic
         c = colors[i % len(colors)]
         att = res.estimate
-        ax.plot(times, y_syn, color=c, linewidth=1.8, linestyle="--",
-                label=f"{lab} (ATT={att:.2f})", zorder=3)
+        ax.plot(
+            times,
+            y_syn,
+            color=c,
+            linewidth=1.8,
+            linestyle="--",
+            label=f"{lab} (ATT={att:.2f})",
+            zorder=3,
+        )
 
     if t_time is not None:
-        ax.axvline(x=t_time, color=_PALETTE["treatment_line"],
-                   linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+        ax.axvline(
+            x=t_time,
+            color=_PALETTE["treatment_line"],
+            linestyle=":",
+            linewidth=1.2,
+            alpha=0.8,
+            zorder=1,
+        )
 
     ax.set_title(title or "Method Comparison", fontsize=13)
     ax.set_xlabel("Time", fontsize=11)
@@ -1041,6 +1223,7 @@ def _plot_compare(
 # ====================================================================== #
 #  Helpers
 # ====================================================================== #
+
 
 def _method_short_label(result: CausalResult) -> str:
     """Extract a short method label from the result."""
@@ -1109,7 +1292,9 @@ def _plot_distributional(
     mi = result.model_info
     qe = mi.get("quantile_effects")
     if qe is None:
-        raise ValueError("No quantile_effects. Use discos() result.")  # pragma: no cover
+        raise ValueError(
+            "No quantile_effects. Use discos() result."
+        )  # pragma: no cover
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -1123,9 +1308,13 @@ def _plot_distributional(
 
     if "ci_lower" in qe.columns and "ci_upper" in qe.columns:
         ax.fill_between(
-            taus, qe["ci_lower"].values, qe["ci_upper"].values,
-            alpha=0.15, color=_PALETTE["ci_band"],
-            label=f"{int((1 - result.alpha) * 100)}% CI", zorder=2,
+            taus,
+            qe["ci_lower"].values,
+            qe["ci_upper"].values,
+            alpha=0.15,
+            color=_PALETTE["ci_band"],
+            label=f"{int((1 - result.alpha) * 100)}% CI",
+            zorder=2,
         )
 
     ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
@@ -1155,7 +1344,9 @@ def _plot_multi_outcome(
     mi = result.model_info
     oe = mi.get("per_outcome_effects")
     if oe is None:
-        raise ValueError("No per_outcome_effects. Use multi_outcome_synth() result.")  # pragma: no cover
+        raise ValueError(
+            "No per_outcome_effects. Use multi_outcome_synth() result."
+        )  # pragma: no cover
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -1170,14 +1361,28 @@ def _plot_multi_outcome(
     y_pos = np.arange(len(outcomes))
     bar_colors = [colors[i % len(colors)] for i in range(len(outcomes))]
 
-    ax.barh(y_pos, atts, xerr=1.96 * ses, color=bar_colors,
-            edgecolor="white", linewidth=0.5, capsize=4, zorder=3)
+    ax.barh(
+        y_pos,
+        atts,
+        xerr=1.96 * ses,
+        color=bar_colors,
+        edgecolor="white",
+        linewidth=0.5,
+        capsize=4,
+        zorder=3,
+    )
     ax.set_yticks(y_pos)
     ax.set_yticklabels(outcomes, fontsize=10)
     ax.axvline(x=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
-    ax.axvline(x=result.estimate, color=_PALETTE["treated"],
-               linestyle="--", linewidth=1.5, alpha=0.7, zorder=2,
-               label=f"Overall: {result.estimate:.3f}")
+    ax.axvline(
+        x=result.estimate,
+        color=_PALETTE["treated"],
+        linestyle="--",
+        linewidth=1.5,
+        alpha=0.7,
+        zorder=2,
+        label=f"Overall: {result.estimate:.3f}",
+    )
     ax.set_xlabel("ATT", fontsize=11)
     ax.set_title(title or "Multi-Outcome SCM: Per-Outcome Effects", fontsize=13)
     ax.legend(fontsize=9.5, frameon=False)
@@ -1212,15 +1417,26 @@ def _plot_prediction_interval(
     times = pr["time"].values
     effects = pr.get("effect", pr.get("gap")).values
 
-    ax.plot(times, effects, color=_PALETTE["treated"], linewidth=2.2,
-            marker="o", markersize=4, zorder=3)
+    ax.plot(
+        times,
+        effects,
+        color=_PALETTE["treated"],
+        linewidth=2.2,
+        marker="o",
+        markersize=4,
+        zorder=3,
+    )
 
     # Prediction interval bands
     if "pi_lower" in pr.columns and "pi_upper" in pr.columns:
         ax.fill_between(
-            times, pr["pi_lower"].values, pr["pi_upper"].values,
-            alpha=0.12, color=_PALETTE["ci_band"],
-            label=f"{int((1 - result.alpha) * 100)}% PI", zorder=2,
+            times,
+            pr["pi_lower"].values,
+            pr["pi_upper"].values,
+            alpha=0.12,
+            color=_PALETTE["ci_band"],
+            label=f"{int((1 - result.alpha) * 100)}% PI",
+            zorder=2,
         )
         ax.legend(fontsize=9.5, frameon=False)
 
@@ -1228,8 +1444,14 @@ def _plot_prediction_interval(
 
     t_time = mi.get("treatment_time")
     if t_time is not None:
-        ax.axvline(x=t_time, color=_PALETTE["treatment_line"],
-                   linestyle=":", linewidth=1.2, alpha=0.8, zorder=1)
+        ax.axvline(
+            x=t_time,
+            color=_PALETTE["treatment_line"],
+            linestyle=":",
+            linewidth=1.2,
+            alpha=0.8,
+            zorder=1,
+        )
 
     method_short = _method_short_label(result)
     ax.set_title(
@@ -1259,7 +1481,9 @@ def _plot_sensitivity(
     elif hasattr(result, "model_info"):
         sens = result.model_info.get("sensitivity")
         if sens is None:
-            raise ValueError("No sensitivity data. Use synth_sensitivity() result.")  # pragma: no cover
+            raise ValueError(
+                "No sensitivity data. Use synth_sensitivity() result."
+            )  # pragma: no cover
     else:
         raise ValueError("Expected dict from synth_sensitivity()")  # pragma: no cover
 
@@ -1269,11 +1493,21 @@ def _plot_sensitivity(
     loo = sens.get("loo")
     if loo is not None and len(loo) > 0:
         loo_atts = loo["att"].values if isinstance(loo, pd.DataFrame) else np.array(loo)
-        axes[0, 0].hist(loo_atts, bins=min(len(loo_atts), 20),
-                        color=_PALETTE["bar"], edgecolor="white", alpha=0.7)
+        axes[0, 0].hist(
+            loo_atts,
+            bins=min(len(loo_atts), 20),
+            color=_PALETTE["bar"],
+            edgecolor="white",
+            alpha=0.7,
+        )
         if "original_att" in sens:
-            axes[0, 0].axvline(x=sens["original_att"], color=_PALETTE["synthetic"],
-                               linewidth=2, linestyle="--", label="Original ATT")
+            axes[0, 0].axvline(
+                x=sens["original_att"],
+                color=_PALETTE["synthetic"],
+                linewidth=2,
+                linestyle="--",
+                label="Original ATT",
+            )
             axes[0, 0].legend(fontsize=8, frameon=False)
         axes[0, 0].set_title("Leave-One-Out ATTs", fontsize=11)
         axes[0, 0].set_xlabel("ATT", fontsize=9)
@@ -1283,8 +1517,12 @@ def _plot_sensitivity(
     tp = sens.get("time_placebos") or sens.get("time_placebo")
     if tp is not None and len(tp) > 0:
         if isinstance(tp, pd.DataFrame):
-            axes[0, 1].bar(tp["placebo_time"].astype(str), tp["att"],
-                           color=_PALETTE["placebo"], edgecolor="white")
+            axes[0, 1].bar(
+                tp["placebo_time"].astype(str),
+                tp["att"],
+                color=_PALETTE["placebo"],
+                edgecolor="white",
+            )
         axes[0, 1].axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
         axes[0, 1].set_title("Time Placebo ATTs", fontsize=11)
         axes[0, 1].set_xlabel("Placebo Treatment Time", fontsize=9)
@@ -1295,11 +1533,20 @@ def _plot_sensitivity(
     dp = sens.get("donor_pool") or sens.get("donor_sensitivity")
     if dp is not None and len(dp) > 0:
         dp_atts = dp["att"].values if isinstance(dp, pd.DataFrame) else np.array(dp)
-        axes[1, 0].hist(dp_atts, bins=min(len(dp_atts), 25),
-                        color=_PALETTE["gap_fill"], edgecolor="white", alpha=0.7)
+        axes[1, 0].hist(
+            dp_atts,
+            bins=min(len(dp_atts), 25),
+            color=_PALETTE["gap_fill"],
+            edgecolor="white",
+            alpha=0.7,
+        )
         if "original_att" in sens:
-            axes[1, 0].axvline(x=sens["original_att"], color=_PALETTE["synthetic"],
-                               linewidth=2, linestyle="--")
+            axes[1, 0].axvline(
+                x=sens["original_att"],
+                color=_PALETTE["synthetic"],
+                linewidth=2,
+                linestyle="--",
+            )
         axes[1, 0].set_title("Donor Pool Sensitivity", fontsize=11)
         axes[1, 0].set_xlabel("ATT", fontsize=9)
     _clean_spines(axes[1, 0])
@@ -1308,13 +1555,20 @@ def _plot_sensitivity(
     rp = sens.get("rmspe_filter")
     if rp is not None and len(rp) > 0:
         if isinstance(rp, pd.DataFrame):
-            axes[1, 1].plot(rp["threshold"], rp["pvalue"],
-                            color=_PALETTE["treated"], linewidth=2, marker="o",
-                            markersize=5)
-            axes[1, 1].axhline(y=0.05, color="gray", linestyle="--",
-                               linewidth=0.8, label="p = 0.05")
-            axes[1, 1].axhline(y=0.10, color="gray", linestyle=":",
-                               linewidth=0.8, label="p = 0.10")
+            axes[1, 1].plot(
+                rp["threshold"],
+                rp["pvalue"],
+                color=_PALETTE["treated"],
+                linewidth=2,
+                marker="o",
+                markersize=5,
+            )
+            axes[1, 1].axhline(
+                y=0.05, color="gray", linestyle="--", linewidth=0.8, label="p = 0.05"
+            )
+            axes[1, 1].axhline(
+                y=0.10, color="gray", linestyle=":", linewidth=0.8, label="p = 0.10"
+            )
             axes[1, 1].legend(fontsize=8, frameon=False)
         axes[1, 1].set_title("RMSPE-Filtered P-values", fontsize=11)
         axes[1, 1].set_xlabel("Pre-RMSPE Threshold (×treated)", fontsize=9)
@@ -1334,9 +1588,9 @@ def _clean_spines(ax: Any) -> None:
 def _ensure_matplotlib() -> None:
     try:
         import importlib
+
         importlib.import_module("matplotlib")
     except ImportError:  # pragma: no cover
         raise ImportError(  # pragma: no cover
-            "matplotlib is required for plotting. "
-            "Install: pip install matplotlib"
+            "matplotlib is required for plotting. " "Install: pip install matplotlib"
         )

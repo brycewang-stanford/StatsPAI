@@ -46,10 +46,10 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def did_multiplegt(
     data: pd.DataFrame,
@@ -181,7 +181,13 @@ def did_multiplegt(
     placebo_results = []
     for lag_idx in range(1, placebo + 1):
         plac = _estimate_placebo(
-            df, y, group, time, treatment, controls, lag=lag_idx,
+            df,
+            y,
+            group,
+            time,
+            treatment,
+            controls,
+            lag=lag_idx,
         )
         placebo_results.append(plac)
 
@@ -189,7 +195,13 @@ def did_multiplegt(
     dynamic_results = []
     for horizon_idx in range(0, dynamic + 1):
         dyn = _estimate_dynamic(
-            df, y, group, time, treatment, controls, horizon=horizon_idx,
+            df,
+            y,
+            group,
+            time,
+            treatment,
+            controls,
+            horizon=horizon_idx,
         )
         dynamic_results.append(dyn)
 
@@ -199,10 +211,7 @@ def did_multiplegt(
     n_clusters = len(clusters)
 
     boot_main = np.full(n_boot, np.nan)
-    boot_placebo = (
-        np.full((n_boot, max(placebo, 0)), np.nan)
-        if placebo > 0 else None
-    )
+    boot_placebo = np.full((n_boot, max(placebo, 0)), np.nan) if placebo > 0 else None
     boot_dynamic = np.full((n_boot, dynamic + 1), np.nan) if dynamic >= 0 else None
 
     for b in range(n_boot):
@@ -217,67 +226,91 @@ def did_multiplegt(
         bdf = pd.concat(frames, ignore_index=True)
 
         b_main = _estimate_did_m(bdf, y, group, time, treatment, controls)
-        boot_main[b] = b_main['did_m']
+        boot_main[b] = b_main["did_m"]
 
         if placebo > 0:
             assert boot_placebo is not None
             for lag_idx in range(1, placebo + 1):
                 plac = _estimate_placebo(
-                    bdf, y, group, time, treatment, controls, lag=lag_idx,
+                    bdf,
+                    y,
+                    group,
+                    time,
+                    treatment,
+                    controls,
+                    lag=lag_idx,
                 )
-                boot_placebo[b, lag_idx - 1] = plac['estimate']
+                boot_placebo[b, lag_idx - 1] = plac["estimate"]
 
         if dynamic >= 0:
             assert boot_dynamic is not None
             for horizon_idx in range(0, dynamic + 1):
                 dyn = _estimate_dynamic(
-                    bdf, y, group, time, treatment, controls,
+                    bdf,
+                    y,
+                    group,
+                    time,
+                    treatment,
+                    controls,
                     horizon=horizon_idx,
                 )
-                boot_dynamic[b, horizon_idx] = dyn['estimate']
+                boot_dynamic[b, horizon_idx] = dyn["estimate"]
 
     # ── Compute SEs, p-values, CIs ───────────────────────────────── #
     se_main = np.nanstd(boot_main, ddof=1)
-    z_main = main['did_m'] / se_main if se_main > 0 else 0.0
+    z_main = main["did_m"] / se_main if se_main > 0 else 0.0
     p_main = 2 * (1 - stats.norm.cdf(abs(z_main)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
-    ci_main = (main['did_m'] - z_crit * se_main,
-               main['did_m'] + z_crit * se_main)
+    ci_main = (main["did_m"] - z_crit * se_main, main["did_m"] + z_crit * se_main)
 
     # Placebo SEs
     placebo_out = []
     for lag_idx in range(placebo):
-        est = placebo_results[lag_idx]['estimate']
+        est = placebo_results[lag_idx]["estimate"]
         se = (
             np.nanstd(boot_placebo[:, lag_idx], ddof=1)
-            if boot_placebo is not None else 0.0
+            if boot_placebo is not None
+            else 0.0
         )
         z = est / se if se > 0 else 0.0
         p = 2 * (1 - stats.norm.cdf(abs(z)))
         ci = (est - z_crit * se, est + z_crit * se)
-        placebo_out.append({
-            'lag': -(lag_idx + 1), 'estimate': est, 'se': se,
-            'pvalue': p, 'ci_lower': ci[0], 'ci_upper': ci[1],
-        })
+        placebo_out.append(
+            {
+                "lag": -(lag_idx + 1),
+                "estimate": est,
+                "se": se,
+                "pvalue": p,
+                "ci_lower": ci[0],
+                "ci_upper": ci[1],
+            }
+        )
 
     # Dynamic SEs
     dynamic_out = []
     for horizon_idx in range(dynamic + 1):
-        est = dynamic_results[horizon_idx]['estimate']
+        est = dynamic_results[horizon_idx]["estimate"]
         se = (
             np.nanstd(boot_dynamic[:, horizon_idx], ddof=1)
-            if boot_dynamic is not None else 0.0
+            if boot_dynamic is not None
+            else 0.0
         )
         z = est / se if se > 0 else 0.0
         p = 2 * (1 - stats.norm.cdf(abs(z)))
         ci = (est - z_crit * se, est + z_crit * se)
-        dynamic_out.append({
-            'horizon': horizon_idx, 'estimate': est, 'se': se,
-            'pvalue': p, 'ci_lower': ci[0], 'ci_upper': ci[1],
-        })
+        dynamic_out.append(
+            {
+                "horizon": horizon_idx,
+                "estimate": est,
+                "se": se,
+                "pvalue": p,
+                "ci_lower": ci[0],
+                "ci_upper": ci[1],
+            }
+        )
 
     # ── Build detail DataFrame ───────────────────────────────────── #
-    detail_rows = main.get('cell_estimates', [])
+    detail_rows = main.get("cell_estimates", [])
     detail_df = pd.DataFrame(detail_rows) if detail_rows else pd.DataFrame()
 
     # ── Event-study DataFrame for plotting ───────────────────────── #
@@ -285,53 +318,59 @@ def did_multiplegt(
     #   relative_time, att, se, pvalue, ci_lower, ci_upper
     es_rows = []
     for p_row in placebo_out:
-        es_rows.append({
-            'relative_time': p_row['lag'],
-            'att': p_row['estimate'],
-            'se': p_row['se'],
-            'pvalue': p_row['pvalue'],
-            'ci_lower': p_row['ci_lower'],
-            'ci_upper': p_row['ci_upper'],
-            'type': 'placebo',
-        })
+        es_rows.append(
+            {
+                "relative_time": p_row["lag"],
+                "att": p_row["estimate"],
+                "se": p_row["se"],
+                "pvalue": p_row["pvalue"],
+                "ci_lower": p_row["ci_lower"],
+                "ci_upper": p_row["ci_upper"],
+                "type": "placebo",
+            }
+        )
     for d_row in dynamic_out:
-        es_rows.append({
-            'relative_time': d_row['horizon'],
-            'att': d_row['estimate'],
-            'se': d_row['se'],
-            'pvalue': d_row['pvalue'],
-            'ci_lower': d_row['ci_lower'],
-            'ci_upper': d_row['ci_upper'],
-            'type': 'dynamic',
-        })
+        es_rows.append(
+            {
+                "relative_time": d_row["horizon"],
+                "att": d_row["estimate"],
+                "se": d_row["se"],
+                "pvalue": d_row["pvalue"],
+                "ci_lower": d_row["ci_lower"],
+                "ci_upper": d_row["ci_upper"],
+                "type": "dynamic",
+            }
+        )
     es_df = pd.DataFrame(es_rows) if es_rows else pd.DataFrame()
 
     # ── Joint placebo test + avg cumulative dynamic effect ───────── #
     joint_placebo = _joint_placebo_test(placebo_results, boot_placebo)
     avg_cumulative = _avg_cumulative_effect(
-        dynamic_results, boot_dynamic, alpha,
+        dynamic_results,
+        boot_dynamic,
+        alpha,
     )
 
     # ── Assemble model_info ──────────────────────────────────────── #
     model_info: Dict[str, Any] = {
-        'estimator': 'de Chaisemartin-D\'Haultfoeuille (2020)',
-        'n_switching_cells': main['n_switching_cells'],
-        'n_switchers': main['n_switchers'],
-        'n_boot': n_boot,
-        'seed': seed,
-        'cluster_var': cluster_var,
-        'controls': controls,
-        'placebo': placebo_out,
-        'dynamic': dynamic_out,
-        'event_study': es_df,
-        'joint_placebo_test': joint_placebo,
-        'avg_cumulative_effect': avg_cumulative,
+        "estimator": "de Chaisemartin-D'Haultfoeuille (2020)",
+        "n_switching_cells": main["n_switching_cells"],
+        "n_switchers": main["n_switchers"],
+        "n_boot": n_boot,
+        "seed": seed,
+        "cluster_var": cluster_var,
+        "controls": controls,
+        "placebo": placebo_out,
+        "dynamic": dynamic_out,
+        "event_study": es_df,
+        "joint_placebo_test": joint_placebo,
+        "avg_cumulative_effect": avg_cumulative,
     }
 
     _result = CausalResult(
         method="de Chaisemartin-D'Haultfoeuille (2020)",
-        estimand='ATT',
-        estimate=float(main['did_m']),
+        estimand="ATT",
+        estimate=float(main["did_m"]),
         se=float(se_main),
         pvalue=float(p_main),
         ci=ci_main,
@@ -339,20 +378,26 @@ def did_multiplegt(
         n_obs=len(data),
         detail=detail_df,
         model_info=model_info,
-        _citation_key='did_multiplegt',
+        _citation_key="did_multiplegt",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.did_multiplegt",
             params={
-                "y": y, "group": group, "time": time,
+                "y": y,
+                "group": group,
+                "time": time,
                 "treatment": treatment,
                 "controls": controls,
-                "placebo": placebo, "dynamic": dynamic,
-                "cluster": cluster, "n_boot": n_boot,
-                "seed": seed, "alpha": alpha,
+                "placebo": placebo,
+                "dynamic": dynamic,
+                "cluster": cluster,
+                "n_boot": n_boot,
+                "seed": seed,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -365,6 +410,7 @@ def did_multiplegt(
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _residualize(dy: np.ndarray, dX: np.ndarray) -> np.ndarray:
     """Residualize dy on dX via OLS."""
@@ -408,38 +454,36 @@ def _estimate_did_m(
         ].copy()
 
         df_prev = df_prev.rename(
-            columns={y: f'{y}_prev', treatment: f'{treatment}_prev'},
+            columns={y: f"{y}_prev", treatment: f"{treatment}_prev"},
         )
         if controls:
-            df_prev = df_prev.rename(columns={c: f'{c}_prev' for c in controls})
+            df_prev = df_prev.rename(columns={c: f"{c}_prev" for c in controls})
 
-        merged = df_curr.merge(df_prev, on=group, how='inner')
+        merged = df_curr.merge(df_prev, on=group, how="inner")
         if merged.empty:
             continue
 
-        merged['_switched'] = merged[treatment] != merged[f'{treatment}_prev']
-        merged['_dy'] = merged[y] - merged[f'{y}_prev']
+        merged["_switched"] = merged[treatment] != merged[f"{treatment}_prev"]
+        merged["_dy"] = merged[y] - merged[f"{y}_prev"]
 
-        switchers = merged[merged['_switched']]
-        stayers = merged[~merged['_switched']]
+        switchers = merged[merged["_switched"]]
+        stayers = merged[~merged["_switched"]]
 
         n_switch = len(switchers)
         if n_switch == 0 or len(stayers) == 0:
             continue
 
-        dy_switch = switchers['_dy'].values.copy()
-        dy_stay = stayers['_dy'].values.copy()
+        dy_switch = switchers["_dy"].values.copy()
+        dy_stay = stayers["_dy"].values.copy()
 
         # Residualize on controls if provided
         if controls:
-            dX_switch = np.column_stack([
-                switchers[c].values - switchers[f'{c}_prev'].values
-                for c in controls
-            ])
-            dX_stay = np.column_stack([
-                stayers[c].values - stayers[f'{c}_prev'].values
-                for c in controls
-            ])
+            dX_switch = np.column_stack(
+                [switchers[c].values - switchers[f"{c}_prev"].values for c in controls]
+            )
+            dX_stay = np.column_stack(
+                [stayers[c].values - stayers[f"{c}_prev"].values for c in controls]
+            )
             # Pool for consistent residualization
             dX_all = np.vstack([dX_switch, dX_stay])
             dy_all = np.concatenate([dy_switch, dy_stay])
@@ -454,37 +498,38 @@ def _estimate_did_m(
 
         did_gt = sign * (np.mean(dy_switch) - np.mean(dy_stay))
 
-        cell_estimates.append({
-            'time': t_curr,
-            'time_prev': t_prev,
-            'n_switchers': n_switch,
-            'n_stayers': len(stayers),
-            'did_gt': did_gt,
-            'mean_dy_switch': float(np.mean(dy_switch)),
-            'mean_dy_stay': float(np.mean(dy_stay)),
-            'direction': 'on' if turned_on else 'off',
-        })
+        cell_estimates.append(
+            {
+                "time": t_curr,
+                "time_prev": t_prev,
+                "n_switchers": n_switch,
+                "n_stayers": len(stayers),
+                "did_gt": did_gt,
+                "mean_dy_switch": float(np.mean(dy_switch)),
+                "mean_dy_stay": float(np.mean(dy_stay)),
+                "direction": "on" if turned_on else "off",
+            }
+        )
         total_switchers += n_switch
 
     if total_switchers == 0:
         return {
-            'did_m': 0.0,
-            'n_switching_cells': 0,
-            'n_switchers': 0,
-            'cell_estimates': [],
+            "did_m": 0.0,
+            "n_switching_cells": 0,
+            "n_switchers": 0,
+            "cell_estimates": [],
         }
 
     # Weighted average
     did_m = sum(
-        ce['did_gt'] * ce['n_switchers'] / total_switchers
-        for ce in cell_estimates
+        ce["did_gt"] * ce["n_switchers"] / total_switchers for ce in cell_estimates
     )
 
     return {
-        'did_m': float(did_m),
-        'n_switching_cells': len(cell_estimates),
-        'n_switchers': total_switchers,
-        'cell_estimates': cell_estimates,
+        "did_m": float(did_m),
+        "n_switching_cells": len(cell_estimates),
+        "n_switchers": total_switchers,
+        "cell_estimates": cell_estimates,
     }
 
 
@@ -514,14 +559,14 @@ def _estimate_placebo(
 
         df_prev = df[df[time] == t_prev][[group, treatment]].copy()
         df_curr = df[df[time] == t_curr][[group, treatment]].copy()
-        df_prev_ren = df_prev.rename(columns={treatment: f'{treatment}_prev'})
-        merged_t = df_curr.merge(df_prev_ren, on=group, how='inner')
+        df_prev_ren = df_prev.rename(columns={treatment: f"{treatment}_prev"})
+        merged_t = df_curr.merge(df_prev_ren, on=group, how="inner")
         if merged_t.empty:
             continue
 
-        merged_t['_switched'] = merged_t[treatment] != merged_t[f'{treatment}_prev']
-        switch_groups = set(merged_t[merged_t['_switched']][group].unique())
-        stay_groups = set(merged_t[~merged_t['_switched']][group].unique())
+        merged_t["_switched"] = merged_t[treatment] != merged_t[f"{treatment}_prev"]
+        switch_groups = set(merged_t[merged_t["_switched"]][group].unique())
+        stay_groups = set(merged_t[~merged_t["_switched"]][group].unique())
 
         if not switch_groups or not stay_groups:
             continue
@@ -540,15 +585,15 @@ def _estimate_placebo(
         df_p_start = df[df[time] == p_start][[group, y]].copy()
         df_p_end = df[df[time] == p_end][[group, y]].copy()
 
-        df_p_start = df_p_start.rename(columns={y: f'{y}_start'})
-        merged_p = df_p_end.merge(df_p_start, on=group, how='inner')
+        df_p_start = df_p_start.rename(columns={y: f"{y}_start"})
+        merged_p = df_p_end.merge(df_p_start, on=group, how="inner")
         if merged_p.empty:
             continue
 
-        merged_p['_dy'] = merged_p[y] - merged_p[f'{y}_start']
+        merged_p["_dy"] = merged_p[y] - merged_p[f"{y}_start"]
 
-        dy_switch = merged_p[merged_p[group].isin(switch_groups)]['_dy'].values
-        dy_stay = merged_p[merged_p[group].isin(stay_groups)]['_dy'].values
+        dy_switch = merged_p[merged_p[group].isin(switch_groups)]["_dy"].values
+        dy_stay = merged_p[merged_p[group].isin(stay_groups)]["_dy"].values
 
         if len(dy_switch) == 0 or len(dy_stay) == 0:
             continue
@@ -559,12 +604,12 @@ def _estimate_placebo(
         weights.append(n_sw)
 
     if not estimates:
-        return {'estimate': 0.0, 'n_cells': 0}
+        return {"estimate": 0.0, "n_cells": 0}
 
     total_w = sum(weights)
     weighted_est = sum(e * w / total_w for e, w in zip(estimates, weights))
 
-    return {'estimate': float(weighted_est), 'n_cells': len(estimates)}
+    return {"estimate": float(weighted_est), "n_cells": len(estimates)}
 
 
 def _estimate_dynamic(
@@ -593,16 +638,19 @@ def _estimate_dynamic(
 
         df_prev = df[df[time] == t_prev][[group, y, treatment]].copy()
         df_curr = df[df[time] == t_curr][[group, treatment]].copy()
-        df_prev_ren = df_prev.rename(columns={
-            treatment: f'{treatment}_prev', y: f'{y}_base',
-        })
-        merged_t = df_curr.merge(df_prev_ren, on=group, how='inner')
+        df_prev_ren = df_prev.rename(
+            columns={
+                treatment: f"{treatment}_prev",
+                y: f"{y}_base",
+            }
+        )
+        merged_t = df_curr.merge(df_prev_ren, on=group, how="inner")
         if merged_t.empty:
             continue
 
-        merged_t['_switched'] = merged_t[treatment] != merged_t[f'{treatment}_prev']
-        switch_groups = set(merged_t[merged_t['_switched']][group].unique())
-        stay_groups = set(merged_t[~merged_t['_switched']][group].unique())
+        merged_t["_switched"] = merged_t[treatment] != merged_t[f"{treatment}_prev"]
+        switch_groups = set(merged_t[merged_t["_switched"]][group].unique())
+        stay_groups = set(merged_t[~merged_t["_switched"]][group].unique())
 
         if not switch_groups or not stay_groups:
             continue
@@ -616,26 +664,26 @@ def _estimate_dynamic(
 
         t_future = periods[future_idx]
         df_future = df[df[time] == t_future][[group, y]].copy()
-        df_future = df_future.rename(columns={y: f'{y}_future'})
+        df_future = df_future.rename(columns={y: f"{y}_future"})
 
         # Base outcome at t-1
         df_base = df[df[time] == t_prev][[group, y]].copy()
-        df_base = df_base.rename(columns={y: f'{y}_base2'})
+        df_base = df_base.rename(columns={y: f"{y}_base2"})
 
-        merged_ld = df_future.merge(df_base, on=group, how='inner')
+        merged_ld = df_future.merge(df_base, on=group, how="inner")
         if merged_ld.empty:
             continue
 
-        merged_ld['_ldy'] = merged_ld[f'{y}_future'] - merged_ld[f'{y}_base2']
+        merged_ld["_ldy"] = merged_ld[f"{y}_future"] - merged_ld[f"{y}_base2"]
 
-        ldy_switch = merged_ld[merged_ld[group].isin(switch_groups)]['_ldy'].values
-        ldy_stay = merged_ld[merged_ld[group].isin(stay_groups)]['_ldy'].values
+        ldy_switch = merged_ld[merged_ld[group].isin(switch_groups)]["_ldy"].values
+        ldy_stay = merged_ld[merged_ld[group].isin(stay_groups)]["_ldy"].values
 
         if len(ldy_switch) == 0 or len(ldy_stay) == 0:
             continue
 
         # Determine sign from switching direction
-        turned_on_mask = merged_t[merged_t['_switched']][treatment].values == 1
+        turned_on_mask = merged_t[merged_t["_switched"]][treatment].values == 1
         turned_on = turned_on_mask.mean() > 0.5
         sign = 1.0 if turned_on else -1.0
 
@@ -645,17 +693,18 @@ def _estimate_dynamic(
         weights.append(n_sw)
 
     if not estimates:
-        return {'estimate': 0.0, 'n_cells': 0}
+        return {"estimate": 0.0, "n_cells": 0}
 
     total_w = sum(weights)
     weighted_est = sum(e * w / total_w for e, w in zip(estimates, weights))
 
-    return {'estimate': float(weighted_est), 'n_cells': len(estimates)}
+    return {"estimate": float(weighted_est), "n_cells": len(estimates)}
 
 
 # ======================================================================
 # Joint inference
 # ======================================================================
+
 
 def _joint_placebo_test(
     placebo_results: List[Dict[str, Any]],
@@ -670,7 +719,7 @@ def _joint_placebo_test(
     if not placebo_results or boot_placebo is None:
         return None
 
-    est = np.array([r['estimate'] for r in placebo_results], dtype=float)
+    est = np.array([r["estimate"] for r in placebo_results], dtype=float)
     boot = np.asarray(boot_placebo, dtype=float)  # (n_boot, k)
     # Drop all-NaN columns / rows before covariance.
     mask_cols = ~np.all(np.isnan(boot), axis=0)
@@ -695,7 +744,7 @@ def _joint_placebo_test(
         W = float(est @ np.linalg.pinv(cov_reg) @ est)
 
     pval = float(1 - stats.chi2.cdf(W, k))
-    return {'statistic': W, 'df': int(k), 'pvalue': pval}
+    return {"statistic": W, "df": int(k), "pvalue": pval}
 
 
 def _avg_cumulative_effect(
@@ -710,7 +759,7 @@ def _avg_cumulative_effect(
     """
     if not dynamic_results or boot_dynamic is None:
         return None
-    est_vec = np.array([r['estimate'] for r in dynamic_results], dtype=float)
+    est_vec = np.array([r["estimate"] for r in dynamic_results], dtype=float)
     avg_est = float(np.mean(est_vec))
 
     boot = np.asarray(boot_dynamic, dtype=float)
@@ -718,19 +767,21 @@ def _avg_cumulative_effect(
     per_draw_avg = per_draw_avg[np.isfinite(per_draw_avg)]
     if per_draw_avg.size < 2:
         return {
-            'estimate': avg_est, 'se': np.nan,
-            'ci_lower': np.nan, 'ci_upper': np.nan,
-            'pvalue': np.nan,
-            'n_horizons': len(est_vec),
+            "estimate": avg_est,
+            "se": np.nan,
+            "ci_lower": np.nan,
+            "ci_upper": np.nan,
+            "pvalue": np.nan,
+            "n_horizons": len(est_vec),
         }
     se = float(np.std(per_draw_avg, ddof=1))
     z_crit = stats.norm.ppf(1 - alpha / 2)
     z = avg_est / se if se > 0 else 0.0
     return {
-        'estimate': avg_est,
-        'se': se,
-        'ci_lower': avg_est - z_crit * se,
-        'ci_upper': avg_est + z_crit * se,
-        'pvalue': float(2 * (1 - stats.norm.cdf(abs(z)))),
-        'n_horizons': int(len(est_vec)),
+        "estimate": avg_est,
+        "se": se,
+        "ci_lower": avg_est - z_crit * se,
+        "ci_upper": avg_est + z_crit * se,
+        "pvalue": float(2 * (1 - stats.norm.cdf(abs(z)))),
+        "n_horizons": int(len(est_vec)),
     }

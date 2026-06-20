@@ -18,7 +18,7 @@ Im, K.S., Pesaran, M.H. & Shin, Y. (2003).
 """
 
 import warnings
-from typing import Optional, List, Any
+from typing import Optional, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -55,9 +55,16 @@ class PanelUnitRootResult:
     True
     """
 
-    def __init__(self, test_type: str, statistic: float, p_value: float,
-                 n_units: int, n_periods: int,
-                 individual_stats: Any, lags: Any) -> None:
+    def __init__(
+        self,
+        test_type: str,
+        statistic: float,
+        p_value: float,
+        n_units: int,
+        n_periods: int,
+        individual_stats: Any,
+        lags: Any,
+    ) -> None:
         self.test_type = test_type
         self.statistic = statistic
         self.p_value = p_value
@@ -84,13 +91,11 @@ class PanelUnitRootResult:
         return "\n".join(lines)
 
 
-def _adf_single(
-    y: Any, lags: Optional[int] = None, trend: str = 'c'
-) -> Any:
+def _adf_single(y: Any, lags: Optional[int] = None, trend: str = "c") -> Any:
     """ADF test for a single series. Returns (t-stat, p-value, lags)."""
     n = len(y)
     if lags is None:
-        lags = int(np.floor(4 * (n / 100)**0.25))
+        lags = int(np.floor(4 * (n / 100) ** 0.25))
     lags = min(lags, n // 3)
 
     dy = np.diff(y)
@@ -103,17 +108,16 @@ def _adf_single(
     Y = dy[lags:]
     X = y_lag[lags:].reshape(-1, 1)
     for j in range(1, lags + 1):
-        X = np.column_stack([X, dy[lags-j:len(dy)-j]])
-    if trend == 'c':
+        X = np.column_stack([X, dy[lags - j : len(dy) - j]])
+    if trend == "c":
         X = np.column_stack([X, np.ones(T)])
-    elif trend == 'ct':
-        X = np.column_stack([X, np.ones(T), np.arange(1, T+1)])
+    elif trend == "ct":
+        X = np.column_stack([X, np.ones(T), np.arange(1, T + 1)])
 
     try:
         beta = np.linalg.lstsq(X, Y, rcond=None)[0]
         resid = Y - X @ beta
-        se = np.sqrt(np.sum(resid**2) / (T - X.shape[1]) *
-                     np.linalg.inv(X.T @ X)[0, 0])
+        se = np.sqrt(np.sum(resid**2) / (T - X.shape[1]) * np.linalg.inv(X.T @ X)[0, 0])
         t_stat = beta[0] / se
     except np.linalg.LinAlgError:  # pragma: no cover
         return np.nan, np.nan, lags
@@ -129,11 +133,11 @@ def _adf_single(
 def panel_unitroot(
     data: pd.DataFrame,
     variable: str,
-    id: str = 'id',
-    time: str = 'time',
-    test: str = 'ips',
+    id: str = "id",
+    time: str = "time",
+    test: str = "ips",
     lags: Optional[int] = None,
-    trend: str = 'c',
+    trend: str = "c",
 ) -> PanelUnitRootResult:
     """
     Panel unit root test.
@@ -195,12 +199,12 @@ def panel_unitroot(
             n_short += 1
             continue  # pragma: no cover
         t_stat, p_val, used_lags = _adf_single(y.astype(float), lags=lags, trend=trend)
-        individual_results.append({
-            'unit': unit, 't_stat': t_stat, 'p_value': p_val, 'lags': used_lags
-        })
+        individual_results.append(
+            {"unit": unit, "t_stat": t_stat, "p_value": p_val, "lags": used_lags}
+        )
 
     ind_df = pd.DataFrame(individual_results)
-    valid = ind_df.dropna(subset=['t_stat']) if len(ind_df) else ind_df
+    valid = ind_df.dropna(subset=["t_stat"]) if len(ind_df) else ind_df
     n_valid = len(valid)
     n_adf_failed = len(ind_df) - n_valid
 
@@ -219,19 +223,20 @@ def panel_unitroot(
             f"Excluded {n_short} unit(s) with <5 periods and {n_adf_failed} "
             f"unit(s) whose ADF regression was singular. The reported "
             f"statistic and n_units reflect only the {n_valid} valid units.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
-    if test == 'ips':
+    if test == "ips":
         # Im-Pesaran-Shin: average of individual ADF t-statistics
-        t_bar = valid['t_stat'].mean()
+        t_bar = valid["t_stat"].mean()
 
         # IPS critical moments (approximate for large T)
         # E[t] ≈ -1.52 for trend='c', Var[t] ≈ 0.77 (from IPS tables)
-        if trend == 'c':
+        if trend == "c":
             E_t = -1.52
             Var_t = 0.77
-        elif trend == 'ct':
+        elif trend == "ct":
             E_t = -2.12
             Var_t = 0.67
         else:
@@ -242,7 +247,7 @@ def panel_unitroot(
         p_value = stats.norm.cdf(W_stat)
 
         return PanelUnitRootResult(
-            test_type='Im-Pesaran-Shin (IPS)',
+            test_type="Im-Pesaran-Shin (IPS)",
             statistic=W_stat,
             p_value=p_value,
             n_units=n_valid,
@@ -251,9 +256,9 @@ def panel_unitroot(
             lags=lags,
         )
 
-    elif test == 'llc':
+    elif test == "llc":
         # Levin-Lin-Chu: pooled t-statistic with bias correction
-        t_bar = valid['t_stat'].mean()
+        t_bar = valid["t_stat"].mean()
         # Simplified LLC: adjusted pooled t
         delta_star = np.sqrt(n_valid) * t_bar
         # Bias correction (approximate)
@@ -263,7 +268,7 @@ def panel_unitroot(
         p_value = stats.norm.cdf(t_star)
 
         return PanelUnitRootResult(
-            test_type='Levin-Lin-Chu (LLC)',
+            test_type="Levin-Lin-Chu (LLC)",
             statistic=t_star,
             p_value=p_value,
             n_units=n_valid,
@@ -272,16 +277,16 @@ def panel_unitroot(
             lags=lags,
         )
 
-    elif test == 'fisher':
+    elif test == "fisher":
         # Fisher-type: combine p-values using -2 Σ ln(p_i) ~ χ²(2N)
-        p_values = valid['p_value'].values
+        p_values = valid["p_value"].values
         p_values = np.clip(p_values, 1e-10, 1 - 1e-10)
         fisher_stat = -2 * np.sum(np.log(p_values))
         df = 2 * n_valid
         p_value = 1 - stats.chi2.cdf(fisher_stat, df)
 
         return PanelUnitRootResult(
-            test_type='Fisher-type ADF',
+            test_type="Fisher-type ADF",
             statistic=fisher_stat,
             p_value=p_value,
             n_units=n_valid,
@@ -290,7 +295,7 @@ def panel_unitroot(
             lags=lags,
         )
 
-    elif test == 'hadri':
+    elif test == "hadri":
         # Hadri (2000) stationarity test
         # H0: stationarity vs H1: unit root in some panels
         lm_stats = []
@@ -299,7 +304,7 @@ def panel_unitroot(
             if len(y) < 5:
                 continue  # pragma: no cover
             T_i = len(y)
-            if trend == 'c':
+            if trend == "c":
                 resid = y - y.mean()
             else:
                 t_vec = np.arange(T_i)
@@ -313,18 +318,20 @@ def panel_unitroot(
                 lm_stats.append(lm_i)
 
         if len(lm_stats) == 0:
-            return PanelUnitRootResult('Hadri', np.nan, np.nan, 0, 0, None, lags)  # pragma: no cover
+            return PanelUnitRootResult(
+                "Hadri", np.nan, np.nan, 0, 0, None, lags
+            )  # pragma: no cover
 
         lm_bar = np.mean(lm_stats)
         # Hadri standardized statistic
         # Under H0: Z ~ N(0,1)
-        mu = 1/6 if trend == 'c' else 1/15
-        sigma2_lm = 1/45 if trend == 'c' else 11/6300
+        mu = 1 / 6 if trend == "c" else 1 / 15
+        sigma2_lm = 1 / 45 if trend == "c" else 11 / 6300
         Z = np.sqrt(n_valid) * (lm_bar - mu) / np.sqrt(sigma2_lm)
         p_value = 1 - stats.norm.cdf(Z)
 
         return PanelUnitRootResult(
-            test_type='Hadri (stationarity)',
+            test_type="Hadri (stationarity)",
             statistic=Z,
             p_value=p_value,
             n_units=len(lm_stats),
@@ -334,4 +341,6 @@ def panel_unitroot(
         )
 
     else:
-        raise ValueError(f"Unknown test: {test}. Use 'ips', 'llc', 'fisher', or 'hadri'.")  # pragma: no cover
+        raise ValueError(
+            f"Unknown test: {test}. Use 'ips', 'llc', 'fisher', or 'hadri'."
+        )  # pragma: no cover

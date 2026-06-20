@@ -98,7 +98,7 @@ class MixedResult(ResultProtocolMixin):
     """
 
     fixed_effects: pd.Series
-    random_effects: pd.DataFrame          # BLUPs, one row per innermost group
+    random_effects: pd.DataFrame  # BLUPs, one row per innermost group
     variance_components: Dict[str, float]
     blups: Dict[Any, np.ndarray]
     n_obs: int
@@ -108,9 +108,7 @@ class MixedResult(ResultProtocolMixin):
 
     # internal bookkeeping --------------------------------------------------
     _se_fixed: pd.Series = field(default=None, repr=False)
-    _cov_fixed: np.ndarray = field(
-        default_factory=lambda: np.empty((0, 0)), repr=False
-    )
+    _cov_fixed: np.ndarray = field(default_factory=lambda: np.empty((0, 0)), repr=False)
     _G: np.ndarray = field(default_factory=lambda: np.empty((0, 0)), repr=False)
     _sigma2: float = field(default=np.nan, repr=False)
     _blocks: List[_GroupBlock] = field(default_factory=list, repr=False)
@@ -535,9 +533,7 @@ class MixedResult(ResultProtocolMixin):
             se = self._se_fixed[var]
             z = b / se if se else float("nan")
             p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else float("nan")
-            lines.append(
-                f"{var} & {b:.4f} & {se:.4f} & {z:.3f} & {p:.4f} \\\\"
-            )
+            lines.append(f"{var} & {b:.4f} & {se:.4f} & {z:.3f} & {p:.4f} \\\\")
         lines.append(r"\midrule")
         lines.append(r"\multicolumn{5}{l}{\textit{Variance components}} \\")
         for name, val in self.variance_components.items():
@@ -610,8 +606,10 @@ class MixedResult(ResultProtocolMixin):
 
     def to_econometric_results(self) -> EconometricResults:
         params = self.fixed_effects
-        se = self._se_fixed if self._se_fixed is not None else pd.Series(
-            np.nan, index=params.index
+        se = (
+            self._se_fixed
+            if self._se_fixed is not None
+            else pd.Series(np.nan, index=params.index)
         )
         model_info = {
             "model_type": "Mixed-effects LMM",
@@ -709,10 +707,7 @@ def _compose_group_key(data: pd.DataFrame, group_cols: Sequence[str]) -> List[An
     """Return an iterable of hashable keys identical to the one used at fit."""
     if len(group_cols) == 1:
         return list(data[group_cols[0]].values)
-    return [
-        tuple(r)
-        for r in data[list(group_cols)].itertuples(index=False, name=None)
-    ]
+    return [tuple(r) for r in data[list(group_cols)].itertuples(index=False, name=None)]
 
 
 # ---------------------------------------------------------------------------
@@ -939,9 +934,7 @@ def _fit_three_level_intercept(
     for y_s, X_s, inner_ids, inner_unique, row_idx in blocks_outer:
         Z_s = np.ones((len(y_s), 1))
         blocks_proxy.append(
-            _GroupBlock(
-                key=None, y=y_s, X=X_s, Z=Z_s, n=len(y_s), row_idx=row_idx
-            )
+            _GroupBlock(key=None, y=y_s, X=X_s, Z=Z_s, n=len(y_s), row_idx=row_idx)
         )
 
     return MixedResult(
@@ -1270,14 +1263,12 @@ def mixed(
     # ICC -----------------------------------------------------------------
     sigma2_u0 = float(G_hat[0, 0])
     icc = (
-        sigma2_u0 / (sigma2_u0 + sigma2_hat)
-        if (sigma2_u0 + sigma2_hat) > 0
-        else np.nan
+        sigma2_u0 / (sigma2_u0 + sigma2_hat) if (sigma2_u0 + sigma2_hat) > 0 else np.nan
     )
 
     # LR test vs. pooled OLS (ML likelihood basis) ---------------------------
     resid_ols = y_all - X_all @ ols_beta
-    s2_ml_ols = float(np.sum(resid_ols ** 2) / n_obs)
+    s2_ml_ols = float(np.sum(resid_ols**2) / n_obs)
     ll_ols = -0.5 * n_obs * (np.log(2 * np.pi * s2_ml_ols) + 1)
     chi2 = max(2.0 * (ll_ml - ll_ols), 0.0)
     lr_test = {

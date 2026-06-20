@@ -30,14 +30,14 @@ Public API
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Sequence
 
 import numpy as np
-
 
 # ---------------------------------------------------------------------------
 # Result-object adapters
 # ---------------------------------------------------------------------------
+
 
 def _is_causal(result: Any) -> bool:
     """Match :class:`statspai.core.results.CausalResult` duck-style."""
@@ -74,6 +74,7 @@ def _diagnostics(result: Any) -> Dict[str, Any]:
 # Cell formatters
 # ---------------------------------------------------------------------------
 
+
 def _yes_no_cell(present: bool) -> str:
     return "Yes" if present else "No"
 
@@ -103,6 +104,7 @@ def _fmt_int(val: Any) -> str:
 # ---------------------------------------------------------------------------
 # Per-row extractors
 # ---------------------------------------------------------------------------
+
 
 def _fe_cell(result: Any) -> str:
     """Return ``"Yes"`` if the model absorbs at least one fixed effect.
@@ -197,6 +199,7 @@ def _cluster_cell(result: Any) -> str:
 
 # ---- IV diagnostics --------------------------------------------------------
 
+
 def _iv_first_stage_F_cell(result: Any) -> str:
     """Return the first-stage F-stat for IV models, or ``""`` if not IV.
 
@@ -215,7 +218,11 @@ def _iv_first_stage_F_cell(result: Any) -> str:
             return _fmt_num(diag[key], "%.2f")
     # Per-endog naming used by sp.regress(method='2sls')
     for key in diag:
-        if isinstance(key, str) and key.startswith("First-stage F (") and not key.endswith("p-value)"):
+        if (
+            isinstance(key, str)
+            and key.startswith("First-stage F (")
+            and not key.endswith("p-value)")
+        ):
             return _fmt_num(diag[key], "%.2f")
     return ""
 
@@ -251,13 +258,11 @@ def _is_iv_result(result: Any) -> bool:
     )
     if any(k in diag for k in iv_keys):
         return True
-    return any(
-        isinstance(k, str) and k.startswith("First-stage F (")
-        for k in diag
-    )
+    return any(isinstance(k, str) and k.startswith("First-stage F (") for k in diag)
 
 
 # ---- DiD diagnostics -------------------------------------------------------
+
 
 def _is_did_result(result: Any) -> bool:
     """Detect a DiD/event-study result via ``method`` only.
@@ -297,6 +302,7 @@ def _did_n_groups_cell(result: Any) -> str:
 
 
 # ---- RD diagnostics --------------------------------------------------------
+
 
 def _is_rd_result(result: Any) -> bool:
     if not _is_causal(result):
@@ -352,6 +358,7 @@ def _rd_polyorder_cell(result: Any) -> str:
 # ---------------------------------------------------------------------------
 # Public extractors
 # ---------------------------------------------------------------------------
+
 
 def extract_fe_cluster_indicators(
     results: Sequence[Any],

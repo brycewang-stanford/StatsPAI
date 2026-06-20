@@ -15,4 +15,4 @@ Hartford, J., Lewis, G., Leyton-Brown, K., & Taddy, M. (2017).
 
 from .deep_iv import deepiv, DeepIV
 
-__all__ = ['deepiv', 'DeepIV']
+__all__ = ["deepiv", "DeepIV"]

@@ -106,9 +106,7 @@ def sparse_synth(
     """
     _VALID_MODES = ("lasso", "constrained_lasso", "joint")
     if mode not in _VALID_MODES:
-        raise ValueError(
-            f"mode must be one of {_VALID_MODES}, got {mode!r}"
-        )
+        raise ValueError(f"mode must be one of {_VALID_MODES}, got {mode!r}")
 
     # ------------------------------------------------------------------
     # 1. Reshape panel
@@ -123,9 +121,7 @@ def sparse_synth(
     if len(post_times) < 1:
         raise ValueError("Need at least 1 post-treatment period.")  # pragma: no cover
     if treated_unit not in panel.index:
-        raise ValueError(
-            f"treated_unit {treated_unit!r} not found in '{unit}' column."
-        )
+        raise ValueError(f"treated_unit {treated_unit!r} not found in '{unit}' column.")
 
     Y1_pre = panel.loc[treated_unit, pre_times].values.astype(np.float64)
     Y1_post = panel.loc[treated_unit, post_times].values.astype(np.float64)
@@ -140,7 +136,9 @@ def sparse_synth(
     # Drop donors with NaN in pre-treatment
     valid_mask = ~np.any(np.isnan(Y0_pre), axis=1)
     if valid_mask.sum() < 2:
-        raise ValueError("Fewer than 2 valid donor units (after dropping NaN).")  # pragma: no cover
+        raise ValueError(
+            "Fewer than 2 valid donor units (after dropping NaN)."
+        )  # pragma: no cover
     Y0_pre = Y0_pre[valid_mask]
     Y0_post = Y0_post[valid_mask]
     donors = [donors[i] for i in range(len(donors)) if valid_mask[i]]
@@ -151,19 +149,33 @@ def sparse_synth(
     # ------------------------------------------------------------------
     if covariates:
         # Average covariates over pre-treatment for each unit
-        cov_treated = np.array([
-            data.loc[
-                (data[unit] == treated_unit) & (data[time] < treatment_time),
-                covariates,
-            ].mean().values
-        ]).ravel().astype(np.float64)
-        cov_donors = np.array([
-            data.loc[
-                (data[unit] == d) & (data[time] < treatment_time),
-                covariates,
-            ].mean().values
-            for d in donors
-        ]).astype(np.float64)  # (J, K)
+        cov_treated = (
+            np.array(
+                [
+                    data.loc[
+                        (data[unit] == treated_unit) & (data[time] < treatment_time),
+                        covariates,
+                    ]
+                    .mean()
+                    .values
+                ]
+            )
+            .ravel()
+            .astype(np.float64)
+        )
+        cov_donors = np.array(
+            [
+                data.loc[
+                    (data[unit] == d) & (data[time] < treatment_time),
+                    covariates,
+                ]
+                .mean()
+                .values
+                for d in donors
+            ]
+        ).astype(
+            np.float64
+        )  # (J, K)
         Y1_pre = np.concatenate([Y1_pre, cov_treated])
         Y0_pre = np.hstack([Y0_pre, cov_donors])
 
@@ -177,7 +189,8 @@ def sparse_synth(
 
     if mode == "joint" and lambda_v is None:
         lambda_v, cv_v_results = _cv_lambda(
-            Y0_pre, mode="lasso",  # reuse lasso CV for V
+            Y0_pre,
+            mode="lasso",  # reuse lasso CV for V
         )
         if cv_results is not None:
             cv_results["lambda_v_curve"] = cv_v_results
@@ -194,7 +207,10 @@ def sparse_synth(
     elif mode == "joint":
         assert lambda_v is not None
         weights, feature_weights = _joint_optimization(
-            Y0_pre, Y1_pre, lambda_w, lambda_v,
+            Y0_pre,
+            Y1_pre,
+            lambda_w,
+            lambda_v,
         )
     else:
         raise ValueError(f"Unknown mode: {mode!r}")  # pragma: no cover
@@ -202,19 +218,21 @@ def sparse_synth(
     # ------------------------------------------------------------------
     # 5. Construct synthetic control and compute effects
     # ------------------------------------------------------------------
-    Y1_synth_pre = Y0_pre[:, :len(pre_times)].T @ weights   # (T_pre,)
-    Y1_synth_post = Y0_post.T @ weights                      # (T_post,)
+    Y1_synth_pre = Y0_pre[:, : len(pre_times)].T @ weights  # (T_pre,)
+    Y1_synth_post = Y0_post.T @ weights  # (T_post,)
     Y_synth = np.concatenate([Y1_synth_pre, Y1_synth_post])
-    Y_treated = np.concatenate([
-        panel.loc[treated_unit, pre_times].values.astype(np.float64),
-        Y1_post,
-    ])
+    Y_treated = np.concatenate(
+        [
+            panel.loc[treated_unit, pre_times].values.astype(np.float64),
+            Y1_post,
+        ]
+    )
     gap = Y_treated - Y_synth
-    gap_pre = gap[:len(pre_times)]
-    gap_post = gap[len(pre_times):]
+    gap_pre = gap[: len(pre_times)]
+    gap_post = gap[len(pre_times) :]
     att = float(np.mean(gap_post))
-    pre_rmspe = float(np.sqrt(np.mean(gap_pre ** 2)))
-    post_rmspe = float(np.sqrt(np.mean(gap_post ** 2)))
+    pre_rmspe = float(np.sqrt(np.mean(gap_pre**2)))
+    post_rmspe = float(np.sqrt(np.mean(gap_post**2)))
 
     # ------------------------------------------------------------------
     # 6. Placebo inference
@@ -224,7 +242,7 @@ def sparse_synth(
 
     if placebo and J >= 2:
         for j in range(J):
-            y_p = Y0_pre[j]               # this donor becomes "treated"
+            y_p = Y0_pre[j]  # this donor becomes "treated"
             idx = [k for k in range(J) if k != j]
             Y_d_pre = Y0_pre[idx]
             Y_d_post = Y0_post[idx]
@@ -237,32 +255,36 @@ def sparse_synth(
                 else:  # joint
                     assert lambda_v is not None
                     w_p, _ = _joint_optimization(
-                        Y_d_pre, y_p, lambda_w, lambda_v,
+                        Y_d_pre,
+                        y_p,
+                        lambda_w,
+                        lambda_v,
                     )
 
-                synth_pre_p = Y_d_pre[:, :len(pre_times)].T @ w_p
+                synth_pre_p = Y_d_pre[:, : len(pre_times)].T @ w_p
                 synth_post_p = Y_d_post.T @ w_p
-                actual_pre_p = Y0_pre[j, :len(pre_times)]
+                actual_pre_p = Y0_pre[j, : len(pre_times)]
                 actual_post_p = Y0_post[j]
 
                 gap_pre_p = actual_pre_p - synth_pre_p
                 gap_post_p = actual_post_p - synth_post_p
                 placebo_atts.append(float(np.mean(gap_post_p)))
-                placebo_pre_mspes.append(float(np.mean(gap_pre_p ** 2)))
+                placebo_pre_mspes.append(float(np.mean(gap_pre_p**2)))
             except Exception:  # pragma: no cover
                 continue  # pragma: no cover
 
     if len(placebo_atts) > 0:
-        pre_mspe_treated = float(np.mean(gap_pre ** 2))
-        post_mspe_treated = float(np.mean(gap_post ** 2))
+        pre_mspe_treated = float(np.mean(gap_pre**2))
+        post_mspe_treated = float(np.mean(gap_post**2))
         ratio_treated = (
-            post_mspe_treated / pre_mspe_treated
-            if pre_mspe_treated > 1e-10 else np.inf
+            post_mspe_treated / pre_mspe_treated if pre_mspe_treated > 1e-10 else np.inf
         )
-        placebo_ratios = np.array([
-            (a ** 2) / m if m > 1e-10 else 0.0
-            for a, m in zip(placebo_atts, placebo_pre_mspes)
-        ])
+        placebo_ratios = np.array(
+            [
+                (a**2) / m if m > 1e-10 else 0.0
+                for a, m in zip(placebo_atts, placebo_pre_mspes)
+            ]
+        )
         pvalue = float(np.mean(placebo_ratios >= ratio_treated))
         pvalue = max(pvalue, 1.0 / (len(placebo_ratios) + 1))
         se = float(np.std(placebo_atts, ddof=0))
@@ -277,15 +299,17 @@ def sparse_synth(
     # 7. Effects by period
     # ------------------------------------------------------------------
     times_all = np.array(all_times)
-    effects_df = pd.DataFrame({
-        "time": times_all,
-        "treated": Y_treated,
-        "synthetic": Y_synth,
-        "effect": gap,
-        "post_treatment": np.array(
-            [False] * len(pre_times) + [True] * len(post_times)
-        ),
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": times_all,
+            "treated": Y_treated,
+            "synthetic": Y_synth,
+            "effect": gap,
+            "post_treatment": np.array(
+                [False] * len(pre_times) + [True] * len(post_times)
+            ),
+        }
+    )
 
     # ------------------------------------------------------------------
     # 8. Weight summary
@@ -295,10 +319,12 @@ def sparse_synth(
     sparsity_ratio = float(1.0 - n_nonzero / J) if J > 0 else 0.0
 
     weight_df = (
-        pd.DataFrame({
-            "unit": donors,
-            "weight": weights,
-        })
+        pd.DataFrame(
+            {
+                "unit": donors,
+                "weight": weights,
+            }
+        )
         .sort_values("weight", ascending=False, key=abs)
         .reset_index(drop=True)
     )
@@ -398,7 +424,7 @@ def _coordinate_descent(
     r = y.copy()  # residual
 
     # Precompute column norms
-    col_norm_sq = np.sum(X ** 2, axis=0)  # (J,)
+    col_norm_sq = np.sum(X**2, axis=0)  # (J,)
 
     for _ in range(max_iter):
         w_old = w.copy()
@@ -409,10 +435,12 @@ def _coordinate_descent(
             r += X[:, j] * w[j]
             # Univariate soft-thresholding
             rho_j = X[:, j] @ r
-            w[j] = float(_soft_threshold(
-                np.array([rho_j / col_norm_sq[j]]),
-                lambda_pen / col_norm_sq[j],
-            )[0])
+            w[j] = float(
+                _soft_threshold(
+                    np.array([rho_j / col_norm_sq[j]]),
+                    lambda_pen / col_norm_sq[j],
+                )[0]
+            )
             # Update residual
             r -= X[:, j] * w[j]
 
@@ -480,7 +508,7 @@ def _constrained_lasso_weights(
     """
     J = Y0_pre.shape[0]
     X = Y0_pre.T  # (P, J)
-    y = Y1_pre    # (P,)
+    y = Y1_pre  # (P,)
 
     def objective(w: np.ndarray) -> float:
         r = y - X @ w
@@ -550,7 +578,7 @@ def _joint_optimization(
         # Rewrite as LASSO: min_w 0.5 ||diag(V)*(y - X*w)||^2 + lambda_w*||w||_1
         # = min_w 0.5 ||V_diag*y - V_diag*X*w||^2 + lambda_w*||w||_1
         V_diag_y = V * Y1_pre
-        V_diag_X = (V[:, np.newaxis] * Y0_pre.T)  # (P, J)
+        V_diag_X = V[:, np.newaxis] * Y0_pre.T  # (P, J)
         w = _coordinate_descent(V_diag_X, V_diag_y, lambda_w)
 
         # --- Step 2: Fix w, solve for V ---
@@ -562,7 +590,7 @@ def _joint_optimization(
         # But this is degenerate — V=0 is always a solution.
         # Instead: solve min_V ||V * resid||^2 + lambda_v ||V||_1  s.t. ||V||_2=1
         # Proximal gradient on the sphere:
-        resid_sq = resid ** 2
+        resid_sq = resid**2
         # Closed form for separable: V_p = max(0, 1 - lambda_v / (2 * resid_p^2))
         # then normalise.
         raw_V = np.maximum(resid_sq - lambda_v * 0.5, 0.0)

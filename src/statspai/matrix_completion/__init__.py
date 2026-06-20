@@ -14,4 +14,4 @@ JASA, 116(536), 1716-1730. [@athey2021matrix]
 
 from .mc_panel import mc_panel, MCPanel
 
-__all__ = ['mc_panel', 'MCPanel']
+__all__ = ["mc_panel", "MCPanel"]

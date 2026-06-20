@@ -48,9 +48,17 @@ class AttritionResult:
     True
     """
 
-    def __init__(self, overall_rate: Any, treat_rate: Any, control_rate: Any,
-                 diff_test_stat: Any, diff_p_value: Any, covariate_tests: Any,
-                 n_total: Any, n_attrit: Any) -> None:
+    def __init__(
+        self,
+        overall_rate: Any,
+        treat_rate: Any,
+        control_rate: Any,
+        diff_test_stat: Any,
+        diff_p_value: Any,
+        covariate_tests: Any,
+        n_total: Any,
+        n_attrit: Any,
+    ) -> None:
         self.overall_rate = overall_rate
         self.treat_rate = treat_rate
         self.control_rate = control_rate
@@ -78,8 +86,10 @@ class AttritionResult:
             lines.append(f"{'Variable':<20s} {'Coef':>10s} {'p-value':>10s}")
             lines.append("-" * 42)
             for _, row in self.covariate_tests.iterrows():
-                lines.append(f"{row['variable']:<20s} {row['coef']:>10.4f} "
-                             f"{row['p_value']:>10.4f}")
+                lines.append(
+                    f"{row['variable']:<20s} {row['coef']:>10.4f} "
+                    f"{row['p_value']:>10.4f}"
+                )
         lines.append("=" * 55)
         return "\n".join(lines)
 
@@ -158,11 +168,12 @@ def attrition_test(
             try:
                 beta = np.linalg.lstsq(X, a_v, rcond=None)[0]
                 resid = a_v - X @ beta
-                se = np.sqrt(np.sum(resid**2) / (len(a_v) - 2) *
-                             np.linalg.inv(X.T @ X)[1, 1])
+                se = np.sqrt(
+                    np.sum(resid**2) / (len(a_v) - 2) * np.linalg.inv(X.T @ X)[1, 1]
+                )
                 t = beta[1] / se
                 p = 2 * (1 - stats.t.cdf(abs(t), len(a_v) - 2))
-                rows.append({'variable': var, 'coef': beta[1], 'se': se, 'p_value': p})
+                rows.append({"variable": var, "coef": beta[1], "se": se, "p_value": p})
             except Exception as e:
                 warnings.warn(
                     f"attrition_test: attrition-predictor regression for "
@@ -171,14 +182,20 @@ def attrition_test(
                     StatsPAIWarning,
                     stacklevel=2,
                 )
-                rows.append({'variable': var, 'coef': np.nan, 'se': np.nan, 'p_value': np.nan})
+                rows.append(
+                    {"variable": var, "coef": np.nan, "se": np.nan, "p_value": np.nan}
+                )
         cov_tests = pd.DataFrame(rows)
 
     return AttritionResult(
-        overall_rate=overall_rate, treat_rate=treat_rate,
-        control_rate=control_rate, diff_test_stat=chi2,
-        diff_p_value=p_val, covariate_tests=cov_tests,
-        n_total=n, n_attrit=int(attrit.sum()),
+        overall_rate=overall_rate,
+        treat_rate=treat_rate,
+        control_rate=control_rate,
+        diff_test_stat=chi2,
+        diff_p_value=p_val,
+        covariate_tests=cov_tests,
+        n_total=n,
+        n_attrit=int(attrit.sum()),
     )
 
 
@@ -236,8 +253,8 @@ def attrition_bounds(
     """
     df = data.copy()
     if observed is None:
-        df['_observed'] = df[y].notna().astype(int)
-        observed = '_observed'
+        df["_observed"] = df[y].notna().astype(int)
+        observed = "_observed"
 
     obs_mask = df[observed] == 1
     treat_mask = df[treatment] == 1
@@ -247,7 +264,7 @@ def attrition_bounds(
     y_control = df.loc[obs_mask & ~treat_mask, y].values
     naive_ate = y_treat.mean() - y_control.mean()
 
-    if method == 'lee':
+    if method == "lee":
         # Lee (2009) trimming bounds
         p_treat = obs_mask[treat_mask].mean()
         p_control = obs_mask[~treat_mask].mean()
@@ -259,7 +276,7 @@ def attrition_bounds(
             n_trim = int(np.ceil(len(y_sorted) * trim_frac))
 
             # Lower bound: trim from top
-            y_trim_low = y_sorted[:len(y_sorted) - n_trim]
+            y_trim_low = y_sorted[: len(y_sorted) - n_trim]
             lower = y_trim_low.mean() - y_control.mean()
 
             # Upper bound: trim from bottom
@@ -273,12 +290,12 @@ def attrition_bounds(
             y_trim_low = y_sorted[n_trim:]
             lower = y_treat.mean() - y_trim_low.mean()
 
-            y_trim_up = y_sorted[:len(y_sorted) - n_trim]
+            y_trim_up = y_sorted[: len(y_sorted) - n_trim]
             upper = y_treat.mean() - y_trim_up.mean()
         else:
             lower = upper = naive_ate
 
-    elif method == 'manski':
+    elif method == "manski":
         # Manski worst-case bounds
         y_all = df.loc[obs_mask, y].values
         y_min, y_max = y_all.min(), y_all.max()
@@ -289,12 +306,18 @@ def attrition_bounds(
         n_control_obs = (obs_mask & ~treat_mask).sum()
 
         # Lower bound: missing treated get y_min, missing control get y_max
-        lower = ((y_treat.sum() + n_treat_miss * y_min) / (n_treat_obs + n_treat_miss) -
-                 (y_control.sum() + n_control_miss * y_max) / (n_control_obs + n_control_miss))
+        lower = (y_treat.sum() + n_treat_miss * y_min) / (
+            n_treat_obs + n_treat_miss
+        ) - (y_control.sum() + n_control_miss * y_max) / (
+            n_control_obs + n_control_miss
+        )
 
         # Upper bound: missing treated get y_max, missing control get y_min
-        upper = ((y_treat.sum() + n_treat_miss * y_max) / (n_treat_obs + n_treat_miss) -
-                 (y_control.sum() + n_control_miss * y_min) / (n_control_obs + n_control_miss))
+        upper = (y_treat.sum() + n_treat_miss * y_max) / (
+            n_treat_obs + n_treat_miss
+        ) - (y_control.sum() + n_control_miss * y_min) / (
+            n_control_obs + n_control_miss
+        )
     else:
         raise ValueError(f"Unknown method: {method}")
 
@@ -302,11 +325,11 @@ def attrition_bounds(
         lower, upper = upper, lower
 
     return {
-        'lower_bound': lower,
-        'upper_bound': upper,
-        'naive_ate': naive_ate,
-        'method': method,
-        'n_obs': obs_mask.sum(),
-        'n_total': len(df),
-        'attrition_rate': 1 - obs_mask.mean(),
+        "lower_bound": lower,
+        "upper_bound": upper,
+        "naive_ate": naive_ate,
+        "method": method,
+        "n_obs": obs_mask.sum(),
+        "n_total": len(df),
+        "attrition_rate": 1 - obs_mask.mean(),
     }

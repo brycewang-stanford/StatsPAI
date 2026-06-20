@@ -10,6 +10,7 @@ eigenvalue-based ML is intractable.
   instruments (columns of ``[X, WX, W²X]``).
 - :func:`sarar_gmm`  — combined lag + error (``GM_Combo`` in spreg).
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -21,10 +22,10 @@ from scipy.optimize import minimize
 from ...core.results import EconometricResults
 from .ml import _coerce_W, _parse_formula
 
-
 # --------------------------------------------------------------------- #
 #  SEM GMM (Kelejian-Prucha 1999)
 # --------------------------------------------------------------------- #
+
 
 def _kp_moment_residuals(
     u: np.ndarray,
@@ -44,14 +45,13 @@ def _kp_moment_residuals(
     w_bar = W @ v
     tr_WtW_over_n = float((W.multiply(W)).sum()) / n
     # Moment 1
-    m1 = (u @ u - 2 * lam * u @ v + lam ** 2 * v @ v) / n - sigma2
+    m1 = (u @ u - 2 * lam * u @ v + lam**2 * v @ v) / n - sigma2
     # Moment 2
     m2 = (
-        (v @ v - 2 * lam * v @ w_bar + lam ** 2 * w_bar @ w_bar) / n
-        - sigma2 * tr_WtW_over_n
-    )
+        v @ v - 2 * lam * v @ w_bar + lam**2 * w_bar @ w_bar
+    ) / n - sigma2 * tr_WtW_over_n
     # Moment 3
-    m3 = (u @ v - lam * (u @ w_bar + v @ v) + lam ** 2 * v @ w_bar) / n
+    m3 = (u @ v - lam * (u @ w_bar + v @ v) + lam**2 * v @ w_bar) / n
     return np.array([m1, m2, m3])
 
 
@@ -109,12 +109,17 @@ def sem_gmm(
         return float(g @ g)
 
     s2_init = float(u @ u) / n
-    opt = minimize(obj, x0=[0.1, s2_init], method="Nelder-Mead",
-                   options={"xatol": 1e-7, "fatol": 1e-10, "maxiter": 600})
+    opt = minimize(
+        obj,
+        x0=[0.1, s2_init],
+        method="Nelder-Mead",
+        options={"xatol": 1e-7, "fatol": 1e-10, "maxiter": 600},
+    )
     lam_hat, sigma2_hat = float(opt.x[0]), float(opt.x[1])
 
     # Stage 3 — feasible GLS using λ̂
     import scipy.sparse as sp
+
     A = sp.eye(n) - lam_hat * M
     Xa = A @ X
     ya = A @ y
@@ -133,14 +138,15 @@ def sem_gmm(
 
     names = ["const"] + list(indep) + ["lambda"]
     params = np.concatenate([beta, [lam_hat]])
-    se = np.concatenate([se_beta, [float("nan")]])     # KP does not return λ̂ SE
+    se = np.concatenate([se_beta, [float("nan")]])  # KP does not return λ̂ SE
 
     return EconometricResults(
         params=pd.Series(params, index=names),
         std_errors=pd.Series(se, index=names),
         model_info={
             "model_type": "SEM-GMM (Kelejian-Prucha 1999"
-                          + (" Het" if robust == "het" else "") + ")",
+            + (" Het" if robust == "het" else "")
+            + ")",
             "method": "Generalized Method of Moments",
             "spatial_param": "lambda",
             "spatial_param_value": lam_hat,
@@ -164,6 +170,7 @@ def sem_gmm(
 # --------------------------------------------------------------------- #
 #  SAR GMM / 2SLS (Kelejian-Prucha 1998)
 # --------------------------------------------------------------------- #
+
 
 def sar_gmm(
     W: Any,
@@ -205,7 +212,7 @@ def sar_gmm(
     M = _coerce_W(W, n_expected=n, row_normalize=row_normalize)
 
     Wy = M @ y
-    X_nc = X[:, 1:]                              # non-constant columns
+    X_nc = X[:, 1:]  # non-constant columns
     # Accumulate spatial lags of X up to order w_lags
     lags = [X_nc]
     current = X_nc
@@ -247,7 +254,8 @@ def sar_gmm(
         std_errors=pd.Series(se, index=names),
         model_info={
             "model_type": "SAR-GMM (Kelejian-Prucha 1998 2SLS"
-                          + (" Het" if robust == "het" else "") + ")",
+            + (" Het" if robust == "het" else "")
+            + ")",
             "method": "Spatial 2SLS",
             "spatial_param": "rho",
             "spatial_param_value": rho,
@@ -270,6 +278,7 @@ def sar_gmm(
 # --------------------------------------------------------------------- #
 #  SARAR GMM = SAR GMM + SEM GMM on residuals (spreg's GM_Combo)
 # --------------------------------------------------------------------- #
+
 
 def sarar_gmm(
     W: Any,
@@ -320,18 +329,22 @@ def sarar_gmm(
         return float(g @ g)
 
     s2_init = float(e1 @ e1) / len(e1)
-    opt = minimize(obj, x0=[0.1, s2_init], method="Nelder-Mead",
-                   options={"xatol": 1e-7, "fatol": 1e-10, "maxiter": 600})
+    opt = minimize(
+        obj,
+        x0=[0.1, s2_init],
+        method="Nelder-Mead",
+        options={"xatol": 1e-7, "fatol": 1e-10, "maxiter": 600},
+    )
     lam_hat = float(opt.x[0])
 
     # Stage 3 — Cochrane-Orcutt-style GLS: filter (y, X, WY) by (I - λ̂ W)
     # and re-run 2SLS to match ``spreg.GM_Combo``'s final estimator.
     import scipy.sparse as _sp
+
     y_full = data[dep].to_numpy(float)
     n_full = len(y_full)
     # Rebuild X and instruments to apply the filter uniformly
-    X_full = np.column_stack([np.ones(n_full),
-                              data[list(indep)].to_numpy(float)])
+    X_full = np.column_stack([np.ones(n_full), data[list(indep)].to_numpy(float)])
     Wy_full = M @ y_full
     A = _sp.eye(n_full) - lam_hat * M
     y_flt = A @ y_full
@@ -351,10 +364,12 @@ def sarar_gmm(
     names = ["const"] + list(indep) + ["rho", "lambda"]
     params = np.concatenate([beta_final, [rho_final, lam_hat]])
     # Keep SE for beta from stage-1 SAR GMM as a serviceable approximation
-    se = np.concatenate([
-        sar_res.std_errors.values[:len(beta_final)],
-        [sar_res.std_errors.values[-1], float("nan")],
-    ])
+    se = np.concatenate(
+        [
+            sar_res.std_errors.values[: len(beta_final)],
+            [sar_res.std_errors.values[-1], float("nan")],
+        ]
+    )
     # Update rho to stage-3 value
     rho_hat = rho_final
     e1 = y_full - X_full @ beta_final - rho_final * Wy_full
@@ -363,8 +378,7 @@ def sarar_gmm(
         params=pd.Series(params, index=names),
         std_errors=pd.Series(se, index=names),
         model_info={
-            "model_type": "SARAR-GMM / GM_Combo"
-                          + (" Het" if robust == "het" else ""),
+            "model_type": "SARAR-GMM / GM_Combo" + (" Het" if robust == "het" else ""),
             "method": "Spatial 2SLS + KP 1999 moments",
             "spatial_param": "rho,lambda",
             "spatial_param_value": rho_hat,

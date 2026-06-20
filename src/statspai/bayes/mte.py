@@ -69,6 +69,7 @@ References:
 - Carneiro, Heckman & Vytlacil (2011). Estimating marginal returns
   to education. *AER*, 101(6), 2754-81.
 """
+
 from __future__ import annotations
 
 from typing import Any, List, Optional, Sequence, Tuple, Union, cast
@@ -98,10 +99,11 @@ def _logit_propensity(
     so the induced quantile function is numerically well-behaved.
     """
     from sklearn.linear_model import LogisticRegression
+
     W = Z.reshape(-1, 1) if Z.ndim == 1 else Z
     if X is not None:
         W = np.hstack([W, X])
-    clf = LogisticRegression(max_iter=500, solver='lbfgs')
+    clf = LogisticRegression(max_iter=500, solver="lbfgs")
     clf.fit(W, D.astype(int))
     ps = clf.predict_proba(W)[:, 1]
     return cast(np.ndarray, np.clip(ps, 1e-4, 1 - 1e-4))
@@ -114,9 +116,9 @@ def bayes_mte(
     instrument: Union[str, Sequence[str]],
     covariates: Optional[List[str]] = None,
     *,
-    first_stage: str = 'plugin',
-    mte_method: str = 'polynomial',
-    selection: str = 'uniform',
+    first_stage: str = "plugin",
+    mte_method: str = "polynomial",
+    selection: str = "uniform",
     u_grid: Optional[np.ndarray] = None,
     poly_u: Optional[int] = None,
     prior_coef_sigma: float = 10.0,
@@ -124,7 +126,7 @@ def bayes_mte(
     prior_noise: float = 5.0,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
-    inference: str = 'nuts',
+    inference: str = "nuts",
     advi_iterations: int = 20000,
     draws: int = 2000,
     tune: int = 1000,
@@ -248,16 +250,10 @@ def bayes_mte(
             raise ValueError(f"Column '{c}' not found in data")
 
     cov_cols = list(covariates) if covariates else []
-    clean = (
-        data[[y, treat] + iv_cols + cov_cols]
-        .dropna()
-        .reset_index(drop=True)
-    )
+    clean = data[[y, treat] + iv_cols + cov_cols].dropna().reset_index(drop=True)
     n = len(clean)
     if n < 50:
-        raise ValueError(
-            f"bayes_mte needs at least 50 observations; got {n}."
-        )
+        raise ValueError(f"bayes_mte needs at least 50 observations; got {n}.")
 
     Y = clean[y].to_numpy(dtype=float)
     D = clean[treat].to_numpy(dtype=float)
@@ -267,23 +263,21 @@ def bayes_mte(
     uniq_D = np.unique(D)
     if not set(uniq_D).issubset({0.0, 1.0}):
         raise ValueError(
-            f"Treatment '{treat}' must be binary 0/1; got unique values "
-            f"{uniq_D}."
+            f"Treatment '{treat}' must be binary 0/1; got unique values " f"{uniq_D}."
         )
 
-    if first_stage not in ('plugin', 'joint'):
+    if first_stage not in ("plugin", "joint"):
         raise ValueError(
             f"first_stage must be 'plugin' or 'joint'; got {first_stage!r}"
         )
-    if mte_method not in ('polynomial', 'hv_latent', 'bivariate_normal'):
+    if mte_method not in ("polynomial", "hv_latent", "bivariate_normal"):
         raise ValueError(
             f"mte_method must be 'polynomial', 'hv_latent' or "
             f"'bivariate_normal'; got {mte_method!r}"
         )
-    if selection not in ('uniform', 'normal'):
+    if selection not in ("uniform", "normal"):
         raise ValueError(
-            f"selection must be 'uniform' or 'normal'; "
-            f"got {selection!r}"
+            f"selection must be 'uniform' or 'normal'; " f"got {selection!r}"
         )
 
     # Resolve `poly_u=None` to the method-appropriate default so that
@@ -291,26 +285,27 @@ def bayes_mte(
     # 'bivariate_normal' stops emitting a spurious "poly_u=2 -> 1"
     # warning on every default-arg call.
     if poly_u is None:
-        poly_u = 1 if mte_method == 'bivariate_normal' else 2
+        poly_u = 1 if mte_method == "bivariate_normal" else 2
 
     # Bivariate-normal HV is inherently a V-scale joint-first-stage
     # model; raise loudly instead of silently mis-specifying. The
     # model also fixes poly_u=1 because MTE(v) is closed-form linear
     # in v under the trivariate-normal assumption; we accept any
     # user-supplied poly_u but override it so `b_mte` stays shape (2,).
-    if mte_method == 'bivariate_normal':
-        if selection != 'normal':
+    if mte_method == "bivariate_normal":
+        if selection != "normal":
             raise ValueError(
                 "mte_method='bivariate_normal' requires selection='normal' "
                 "(the HV trivariate-normal model is on the probit V scale)."
             )
-        if first_stage != 'joint':
+        if first_stage != "joint":
             raise ValueError(
                 "mte_method='bivariate_normal' requires first_stage='joint' "
                 "so the selection latent V is identified."
             )
         if poly_u != 1:
             import warnings
+
             warnings.warn(
                 f"mte_method='bivariate_normal' is inherently linear in V; "
                 f"overriding poly_u={poly_u} -> poly_u=1.",
@@ -322,11 +317,12 @@ def bayes_mte(
     # hv_latent adds a shape-(n,) latent ``raw_U`` whose posterior
     # is stored as (chains, draws, n). Warn the user before they
     # wait 20 minutes to discover it ate 2GB of RAM.
-    if mte_method == 'hv_latent':
+    if mte_method == "hv_latent":
         expected_latent_floats = n * draws * chains
         if expected_latent_floats > 50_000_000:
             import warnings
-            approx_gb = expected_latent_floats * 8 / (1024 ** 3)
+
+            approx_gb = expected_latent_floats * 8 / (1024**3)
             warnings.warn(
                 f"bayes_mte(mte_method='hv_latent') will register a "
                 f"latent of shape (n={n},) whose posterior storage is "
@@ -351,16 +347,13 @@ def bayes_mte(
     # where v ∈ ℝ. We still report the curve indexed by `u` for user
     # convenience (propensity is the natural scale) but the underlying
     # powers sent to PyMC are built on v-space.
-    if selection == 'normal':
+    if selection == "normal":
         from scipy.stats import norm as _norm_dist
-        v_grid = _norm_dist.ppf(u_grid)              # shape (n_grid,)
-        u_grid_powers = np.column_stack(
-            [v_grid ** k for k in range(poly_u + 1)]
-        )
+
+        v_grid = _norm_dist.ppf(u_grid)  # shape (n_grid,)
+        u_grid_powers = np.column_stack([v_grid**k for k in range(poly_u + 1)])
     else:
-        u_grid_powers = np.column_stack(
-            [u_grid ** k for k in range(poly_u + 1)]
-        )
+        u_grid_powers = np.column_stack([u_grid**k for k in range(poly_u + 1)])
 
     # Unit-level propensity lookup for ATT / ATU integrals. In 'plugin'
     # mode we compute this once from a logit MLE. In 'joint' mode we
@@ -370,15 +363,18 @@ def bayes_mte(
     propensity_mle = _logit_propensity(Z, X, D)
 
     with pm.Model() as model:
-        alpha = pm.Normal('alpha', mu=0.0, sigma=prior_coef_sigma)
+        alpha = pm.Normal("alpha", mu=0.0, sigma=prior_coef_sigma)
         # For 'polynomial' and 'hv_latent' modes `b_mte` is the direct
         # polynomial-coefficient latent. For 'bivariate_normal' mode we
         # parameterise with (β_D, σ_0V, σ_1V) and expose `b_mte` as a
         # Deterministic of shape (2,) below so all downstream
         # posterior-summary code paths are untouched.
-        if mte_method != 'bivariate_normal':
+        if mte_method != "bivariate_normal":
             b_mte = pm.Normal(
-                'b_mte', mu=0.0, sigma=prior_mte_sigma, shape=poly_u + 1,
+                "b_mte",
+                mu=0.0,
+                sigma=prior_mte_sigma,
+                shape=poly_u + 1,
             )
 
         # ------------------------------------------------------------------
@@ -387,23 +383,30 @@ def bayes_mte(
         # (joint). In the joint path we also register the Bernoulli
         # likelihood on observed D.
         # ------------------------------------------------------------------
-        if first_stage == 'plugin':
-            p_expr = propensity_mle           # fixed numpy array
+        if first_stage == "plugin":
+            p_expr = propensity_mle  # fixed numpy array
         else:
             pi_intercept = pm.Normal(
-                'pi_intercept', mu=0.0, sigma=prior_coef_sigma,
+                "pi_intercept",
+                mu=0.0,
+                sigma=prior_coef_sigma,
             )
             # pi_Z is a vector of length k_iv. For back-compat with
             # the scalar case, shape=(1,) broadcasts against a (n, 1)
             # Z matrix via pm.math.dot.
             k_iv = Z.shape[1]
             pi_Z = pm.Normal(
-                'pi_Z', mu=0.0, sigma=prior_coef_sigma, shape=k_iv,
+                "pi_Z",
+                mu=0.0,
+                sigma=prior_coef_sigma,
+                shape=k_iv,
             )
             logit = pi_intercept + pm.math.dot(Z, pi_Z)
             if X is not None:
                 pi_X = pm.Normal(
-                    'pi_X', mu=0.0, sigma=prior_coef_sigma,
+                    "pi_X",
+                    mu=0.0,
+                    sigma=prior_coef_sigma,
                     shape=X.shape[1],
                 )
                 logit = logit + pm.math.dot(X, pi_X)
@@ -412,7 +415,7 @@ def bayes_mte(
             # post-hoc from the coefficient posterior when needed for
             # ATT/ATU summaries.
             p_expr = pm.math.sigmoid(logit)
-            pm.Bernoulli('d_obs', p=p_expr, observed=D.astype(int))
+            pm.Bernoulli("d_obs", p=p_expr, observed=D.astype(int))
 
         # ------------------------------------------------------------------
         # MTE contribution: evaluate the polynomial at either the
@@ -430,35 +433,31 @@ def bayes_mte(
             scale when ``selection == 'normal'``; otherwise pass
             through unchanged. Works on numpy arrays and PyMC
             tensors via ``pt.erfinv``."""
-            if selection != 'normal':
+            if selection != "normal":
                 return a_expr
             if is_numpy:
                 from scipy.stats import norm as _norm_dist
-                return _norm_dist.ppf(
-                    np.clip(a_expr, PROBIT_CLIP, 1 - PROBIT_CLIP)
-                )
+
+                return _norm_dist.ppf(np.clip(a_expr, PROBIT_CLIP, 1 - PROBIT_CLIP))
             import pytensor.tensor as pt
+
             a_safe = pm.math.clip(a_expr, PROBIT_CLIP, 1 - PROBIT_CLIP)
             # Φ^{-1}(p) = √2 · erfinv(2p - 1)
             return pt.sqrt(2.0) * pt.erfinv(2.0 * a_safe - 1.0)
 
-        if mte_method == 'polynomial':
-            if first_stage == 'plugin':
+        if mte_method == "polynomial":
+            if first_stage == "plugin":
                 # Closed-form constant powers + dot product with b_mte
                 abscissa = _abscissa(p_expr, is_numpy=True)
-                U_powers = np.column_stack(
-                    [abscissa ** k for k in range(poly_u + 1)]
-                )
+                U_powers = np.column_stack([abscissa**k for k in range(poly_u + 1)])
                 DU_powers = D[:, None] * U_powers
                 mte_contribution = pm.math.dot(DU_powers, b_mte)
             else:
                 abscissa = _abscissa(p_expr, is_numpy=False)
-                u_powers = [abscissa ** k for k in range(poly_u + 1)]
-                mte_i = sum(
-                    b_mte[k] * u_powers[k] for k in range(poly_u + 1)
-                )
+                u_powers = [abscissa**k for k in range(poly_u + 1)]
+                mte_i = sum(b_mte[k] * u_powers[k] for k in range(poly_u + 1))
                 mte_contribution = D * mte_i
-        elif mte_method == 'bivariate_normal':
+        elif mte_method == "bivariate_normal":
             # Full trivariate-normal HV:
             #   Y_1 = μ_1 + U_1,  Y_0 = μ_0 + U_0,  D = 1{Z'π > V}
             #   (U_0, U_1, V) ~ N(0, Σ)
@@ -471,24 +470,23 @@ def bayes_mte(
             # correction terms. MTE on V scale is closed-form linear:
             #   MTE(v) = β_D + (σ_1V - σ_0V) · v   where β_D = μ_1 - μ_0
             import pytensor.tensor as pt
-            beta_D = pm.Normal('beta_D', mu=0.0, sigma=prior_mte_sigma)
-            sigma_0V = pm.Normal('sigma_0V', mu=0.0, sigma=prior_mte_sigma)
-            sigma_1V = pm.Normal('sigma_1V', mu=0.0, sigma=prior_mte_sigma)
+
+            beta_D = pm.Normal("beta_D", mu=0.0, sigma=prior_mte_sigma)
+            sigma_0V = pm.Normal("sigma_0V", mu=0.0, sigma=prior_mte_sigma)
+            sigma_1V = pm.Normal("sigma_1V", mu=0.0, sigma=prior_mte_sigma)
 
             # Expose b_mte as Deterministic for downstream (mte_curve,
             # ATT/ATU, policy_effect) — they only read b_mte from the
             # posterior and never care that it's derived rather than
             # sampled. Shape (2,) matches poly_u=1.
-            b_mte = pm.Deterministic(
-                'b_mte', pt.stack([beta_D, sigma_1V - sigma_0V])
-            )
+            b_mte = pm.Deterministic("b_mte", pt.stack([beta_D, sigma_1V - sigma_0V]))
 
             # Build IMRs from the joint-first-stage p_expr (PyMC tensor).
             p_safe = pm.math.clip(p_expr, PROBIT_CLIP, 1 - PROBIT_CLIP)
             v_i = pt.sqrt(2.0) * pt.erfinv(2.0 * p_safe - 1.0)  # Φ^{-1}(p)
             phi_v = pt.exp(-0.5 * v_i * v_i) / pt.sqrt(2.0 * np.pi)
-            lam1 = phi_v / p_safe           # λ_1(p) = φ(v)/p
-            lam0 = phi_v / (1.0 - p_safe)   # λ_0(p) = φ(v)/(1-p)
+            lam1 = phi_v / p_safe  # λ_1(p) = φ(v)/p
+            lam0 = phi_v / (1.0 - p_safe)  # λ_0(p) = φ(v)/(1-p)
 
             D_float = D.astype(float)
             mte_contribution = (
@@ -504,28 +502,30 @@ def bayes_mte(
             #   D_i = 0: U_D_i = p_i + raw_U_i*(1-p_i) ∈ [p_i, 1]
             # This yields U_D_i | D_i distributed as the correct
             # truncated uniform under the HV-2005 identification.
-            raw_U = pm.Uniform('raw_U', lower=0.0, upper=1.0, shape=n)
+            raw_U = pm.Uniform("raw_U", lower=0.0, upper=1.0, shape=n)
             # Convert observed D into a float array usable in the
             # element-wise expression below.
             D_float = D.astype(float)
-            U_D_i = (
-                D_float * raw_U * p_expr
-                + (1.0 - D_float) * (p_expr + raw_U * (1.0 - p_expr))
+            U_D_i = D_float * raw_U * p_expr + (1.0 - D_float) * (
+                p_expr + raw_U * (1.0 - p_expr)
             )
             abscissa = _abscissa(U_D_i, is_numpy=False)
-            u_powers = [abscissa ** k for k in range(poly_u + 1)]
+            u_powers = [abscissa**k for k in range(poly_u + 1)]
             tau_i = sum(b_mte[k] * u_powers[k] for k in range(poly_u + 1))
             mte_contribution = D_float * tau_i
 
         structural = alpha + mte_contribution
         if X is not None:
             beta_X = pm.Normal(
-                'beta_X', mu=0.0, sigma=prior_coef_sigma, shape=X.shape[1],
+                "beta_X",
+                mu=0.0,
+                sigma=prior_coef_sigma,
+                shape=X.shape[1],
             )
             structural = structural + pm.math.dot(X, beta_X)
 
-        sigma_eps = pm.HalfNormal('sigma_eps', sigma=prior_noise)
-        pm.Normal('y_obs', mu=structural, sigma=sigma_eps, observed=Y)
+        sigma_eps = pm.HalfNormal("sigma_eps", sigma=prior_noise)
+        pm.Normal("y_obs", mu=structural, sigma=sigma_eps, observed=Y)
 
     trace = _sample_model(
         model,
@@ -541,7 +541,7 @@ def bayes_mte(
 
     # MTE posterior on the grid:
     # mte_samples[s, k] = sum_j b_mte[s, j] * u_grid[k]^j
-    b_mte_post = trace.posterior['b_mte'].values.reshape(-1, poly_u + 1)
+    b_mte_post = trace.posterior["b_mte"].values.reshape(-1, poly_u + 1)
     mte_samples = b_mte_post @ u_grid_powers.T  # (S, n_grid)
 
     _, az = _require_pymc()
@@ -550,34 +550,33 @@ def bayes_mte(
     # probit-scale abscissa ``v = Φ^{-1}(u)`` so users who fit in V
     # can plot their posterior on the scale it was fit on, without
     # having to recompute the transform themselves.
-    if selection == 'normal':
+    if selection == "normal":
         from scipy.stats import norm as _norm_dist
-        v_grid_out = _norm_dist.ppf(
-            np.clip(u_grid, PROBIT_CLIP, 1 - PROBIT_CLIP)
-        )
+
+        v_grid_out = _norm_dist.ppf(np.clip(u_grid, PROBIT_CLIP, 1 - PROBIT_CLIP))
     else:
         v_grid_out = None
     for k, u in enumerate(u_grid):
         col = mte_samples[:, k]
         hdi = _az_hdi_compat(col, hdi_prob=hdi_prob)
         row = {
-            'u': float(u),
-            'posterior_mean': float(np.mean(col)),
-            'posterior_sd': float(np.std(col, ddof=1)),
-            'hdi_low': float(hdi[0]),
-            'hdi_high': float(hdi[1]),
-            'prob_positive': float(np.mean(col > 0)),
+            "u": float(u),
+            "posterior_mean": float(np.mean(col)),
+            "posterior_sd": float(np.std(col, ddof=1)),
+            "hdi_low": float(hdi[0]),
+            "hdi_high": float(hdi[1]),
+            "prob_positive": float(np.mean(col > 0)),
         }
         if v_grid_out is not None:
-            row['v'] = float(v_grid_out[k])
+            row["v"] = float(v_grid_out[k])
         curve_rows.append(row)
     mte_curve = pd.DataFrame(curve_rows)
 
     # Integrated summaries (trapezoidal integration over u_grid)
     # ATE = int_0^1 MTE(u) du, approx by grid weights
-    ate_samples = np.trapezoid(
-        mte_samples, x=u_grid, axis=1
-    ) / (u_grid.max() - u_grid.min())
+    ate_samples = np.trapezoid(mte_samples, x=u_grid, axis=1) / (
+        u_grid.max() - u_grid.min()
+    )
 
     # ATT / ATU use the population-level unit propensities to weight
     # MTE over the treated / untreated subpopulations.
@@ -587,30 +586,24 @@ def bayes_mte(
     #   per-unit Deterministic in the trace, which blows up memory
     #   at shape (chains, draws, n)). Using the posterior mean of
     #   the coefficients is a natural point summary.
-    if first_stage == 'joint':
-        pi0_mean = float(trace.posterior['pi_intercept'].values.mean())
+    if first_stage == "joint":
+        pi0_mean = float(trace.posterior["pi_intercept"].values.mean())
         # pi_Z is shape (k_iv,). Collapse (chains, draws, k_iv) to
         # posterior-mean vector of length k_iv.
-        piZ_mean = trace.posterior['pi_Z'].values.reshape(
-            -1, Z.shape[1]
-        ).mean(axis=0)
+        piZ_mean = trace.posterior["pi_Z"].values.reshape(-1, Z.shape[1]).mean(axis=0)
         lin = pi0_mean + Z @ piZ_mean
-        if X is not None and 'pi_X' in trace.posterior:
-            piX_mean = trace.posterior['pi_X'].values.reshape(
-                -1, X.shape[1]
-            ).mean(axis=0)
+        if X is not None and "pi_X" in trace.posterior:
+            piX_mean = (
+                trace.posterior["pi_X"].values.reshape(-1, X.shape[1]).mean(axis=0)
+            )
             lin = lin + X @ piX_mean
         U_pop = 1.0 / (1.0 + np.exp(-lin))
     else:
         U_pop = propensity_mle
     treated_mask = D == 1
     untreated_mask = D == 0
-    U_treated = (
-        U_pop[treated_mask] if treated_mask.sum() > 0 else np.array([])
-    )
-    U_untreated = (
-        U_pop[untreated_mask] if untreated_mask.sum() > 0 else np.array([])
-    )
+    U_treated = U_pop[treated_mask] if treated_mask.sum() > 0 else np.array([])
+    U_untreated = U_pop[untreated_mask] if untreated_mask.sum() > 0 else np.array([])
 
     def _integrated_effect(
         U_population: np.ndarray,
@@ -624,18 +617,17 @@ def bayes_mte(
         ``tidy(terms='atu')``.
         """
         if U_population.size == 0:
-            return (float('nan'),) * 5
-        if selection == 'normal':
+            return (float("nan"),) * 5
+        if selection == "normal":
             from scipy.stats import norm as _norm_dist
+
             pop_abscissa = _norm_dist.ppf(
                 np.clip(U_population, PROBIT_CLIP, 1 - PROBIT_CLIP)
             )
         else:
             pop_abscissa = U_population
-        u_pow_pop = np.column_stack(
-            [pop_abscissa ** k for k in range(poly_u + 1)]
-        )
-        samples = b_mte_post @ u_pow_pop.T   # (S, n_pop)
+        u_pow_pop = np.column_stack([pop_abscissa**k for k in range(poly_u + 1)])
+        samples = b_mte_post @ u_pow_pop.T  # (S, n_pop)
         per_draw_mean = samples.mean(axis=1)  # integrated over population
         hdi = _az_hdi_compat(per_draw_mean, hdi_prob=hdi_prob)
         return (
@@ -646,10 +638,12 @@ def bayes_mte(
             float(np.mean(per_draw_mean > 0)),
         )
 
-    (att_mean, att_sd, att_hdi_lo, att_hdi_hi,
-     att_prob_pos) = _integrated_effect(U_treated)
-    (atu_mean, atu_sd, atu_hdi_lo, atu_hdi_hi,
-     atu_prob_pos) = _integrated_effect(U_untreated)
+    att_mean, att_sd, att_hdi_lo, att_hdi_hi, att_prob_pos = _integrated_effect(
+        U_treated
+    )
+    atu_mean, atu_sd, atu_hdi_lo, atu_hdi_hi, atu_prob_pos = _integrated_effect(
+        U_untreated
+    )
 
     # Primary estimand: average MTE (ATE integral)
     ate_mean = float(ate_samples.mean())
@@ -662,36 +656,36 @@ def bayes_mte(
     # but honest: we take the rhat/ess of the driving coefficients
     # (b_mte) and report the maximum/minimum across them.
     try:
-        rhat_series = az.rhat(trace, var_names=['b_mte'])['b_mte'].values
+        rhat_series = az.rhat(trace, var_names=["b_mte"])["b_mte"].values
         rhat = float(np.nanmax(rhat_series))
     except Exception:
-        rhat = float('nan')
+        rhat = float("nan")
     try:
-        ess_series = az.ess(trace, var_names=['b_mte'])['b_mte'].values
+        ess_series = az.ess(trace, var_names=["b_mte"])["b_mte"].values
         ess = float(np.nanmin(ess_series))
     except Exception:
-        ess = float('nan')
+        ess = float("nan")
 
     model_info = {
-        'inference': inference,
-        'first_stage': first_stage,
-        'mte_method': mte_method,
-        'selection': selection,
-        'draws': draws,
-        'tune': tune,
-        'chains': chains,
-        'target_accept': target_accept,
-        'poly_u': poly_u,
-        'u_grid': u_grid.tolist(),
+        "inference": inference,
+        "first_stage": first_stage,
+        "mte_method": mte_method,
+        "selection": selection,
+        "draws": draws,
+        "tune": tune,
+        "chains": chains,
+        "target_accept": target_accept,
+        "poly_u": poly_u,
+        "u_grid": u_grid.tolist(),
         # `instruments` is always a list regardless of whether the
         # user passed a scalar or list to keep downstream code from
         # branching on type (cf. v0.9.11 round-B review).
-        'instruments': iv_cols,
-        'n_instruments': len(iv_cols),
-        'covariates': cov_cols,
-        'prior_mte_sigma': prior_mte_sigma,
-        'prior_coef_sigma': prior_coef_sigma,
-        'prior_noise': prior_noise,
+        "instruments": iv_cols,
+        "n_instruments": len(iv_cols),
+        "covariates": cov_cols,
+        "prior_mte_sigma": prior_mte_sigma,
+        "prior_coef_sigma": prior_coef_sigma,
+        "prior_noise": prior_noise,
     }
 
     # Method label flags the MTE parameterisation up-front. For
@@ -701,34 +695,30 @@ def bayes_mte(
     # ``hv_latent`` mode we explicitly say "MTE" because the model
     # samples U_D_i per unit so the polynomial is evaluated at the
     # textbook latent variable, not at the propensity.
-    fs_label = 'joint' if first_stage == 'joint' else 'plug-in'
-    scale_label = (
-        'V scale (probit)'
-        if selection == 'normal'
-        else 'U_D scale (uniform)'
-    )
-    if mte_method == 'hv_latent':
+    fs_label = "joint" if first_stage == "joint" else "plug-in"
+    scale_label = "V scale (probit)" if selection == "normal" else "U_D scale (uniform)"
+    if mte_method == "hv_latent":
         method_label = (
-            f'Bayesian HV-latent MTE on {scale_label} '
-            f'(poly_u={poly_u}, {fs_label} first stage)'
+            f"Bayesian HV-latent MTE on {scale_label} "
+            f"(poly_u={poly_u}, {fs_label} first stage)"
         )
-    elif mte_method == 'bivariate_normal':
+    elif mte_method == "bivariate_normal":
         # Textbook Heckman-Vytlacil: full trivariate-normal structural
         # model with closed-form linear MTE on V scale. The method
         # label explicitly says "trivariate-normal" so users reading
         # tables know which structural assumption backs the posterior.
         method_label = (
-            f'Bayesian HV trivariate-normal MTE on {scale_label} '
-            f'(closed-form linear, {fs_label} first stage)'
+            f"Bayesian HV trivariate-normal MTE on {scale_label} "
+            f"(closed-form linear, {fs_label} first stage)"
         )
     else:
         method_label = (
-            f'Bayesian treatment-effect-at-propensity on {scale_label} '
-            f'(poly_u={poly_u}, {fs_label} first stage)'
+            f"Bayesian treatment-effect-at-propensity on {scale_label} "
+            f"(poly_u={poly_u}, {fs_label} first stage)"
         )
     return BayesianMTEResult(
         method=method_label,
-        estimand='ATE (integrated MTE)',
+        estimand="ATE (integrated MTE)",
         posterior_mean=ate_mean,
         posterior_median=ate_median,
         posterior_sd=ate_sd,

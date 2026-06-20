@@ -20,7 +20,6 @@ from .op_lp_acf import (
 )
 from .wooldridge import wooldridge_prod
 
-
 _METHOD_DISPATCH = {
     "op": olley_pakes,
     "olley_pakes": olley_pakes,

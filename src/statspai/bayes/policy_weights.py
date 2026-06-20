@@ -17,6 +17,7 @@ All builders validate their arguments up-front so misuse raises
 immediately rather than silently producing zero-weight grids at
 call time.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -40,8 +41,10 @@ def policy_weight_ate() -> Callable[[np.ndarray], np.ndarray]:
     >>> # Pass to BayesianMTEResult.policy_effect to recover the ATE:
     >>> # res.policy_effect(sp.policy_weight_ate())
     """
+
     def _w(u: np.ndarray) -> np.ndarray:
         return np.ones_like(u, dtype=float)
+
     return _w
 
 
@@ -78,6 +81,7 @@ def policy_weight_subsidy(
 
     def _w(u: np.ndarray) -> np.ndarray:
         return ((u >= u_lo) & (u <= u_hi)).astype(float)
+
     return _w
 
 
@@ -141,9 +145,7 @@ def policy_weight_prte(
     >>> # policy_weight_observed_prte instead of this convenience builder.
     """
     if not (-1.0 < shift < 1.0):
-        raise ValueError(
-            f"shift must be in (-1, 1); got {shift}"
-        )
+        raise ValueError(f"shift must be in (-1, 1); got {shift}")
     if shift == 0.0:
         raise ValueError(
             "shift must be non-zero; shift=0 produces zero-weight "
@@ -156,6 +158,7 @@ def policy_weight_prte(
 
     def _w(u: np.ndarray) -> np.ndarray:
         return ((u >= u_lo) & (u <= u_hi)).astype(float)
+
     return _w
 
 
@@ -198,6 +201,7 @@ def policy_weight_marginal(
 
     def _w(u: np.ndarray) -> np.ndarray:
         return ((u >= u_lo) & (u <= u_hi)).astype(float)
+
     return _w
 
 
@@ -286,18 +290,11 @@ def policy_weight_observed_prte(
             f"{sample.size}."
         )
     if np.any((sample < 0.0) | (sample > 1.0)):
-        raise ValueError(
-            "propensity_sample values must all lie in [0, 1]."
-        )
+        raise ValueError("propensity_sample values must all lie in [0, 1].")
     if not (-1.0 < shift < 1.0):
-        raise ValueError(
-            f"shift must be in (-1, 1); got {shift}"
-        )
+        raise ValueError(f"shift must be in (-1, 1); got {shift}")
     if shift == 0.0:
-        raise ValueError(
-            "shift must be non-zero; shift=0 yields zero-weight "
-            "grids."
-        )
+        raise ValueError("shift must be non-zero; shift=0 yields zero-weight " "grids.")
 
     kde = gaussian_kde(sample, bw_method=bw_method)
     # Force lazy covariance precomputation so subsequent calls from
@@ -323,11 +320,7 @@ def policy_weight_observed_prte(
         # shift ⇒ negative weight ⇒ policy reduction).
         out = np.empty_like(u_arr)
         for i, u_val in enumerate(u_arr):
-            lo, hi = (
-                (u_val - shift, u_val)
-                if shift > 0
-                else (u_val, u_val - shift)
-            )
+            lo, hi = (u_val - shift, u_val) if shift > 0 else (u_val, u_val - shift)
             integral = kde.integrate_box_1d(float(lo), float(hi))
             out[i] = integral / shift
         return out
@@ -336,9 +329,9 @@ def policy_weight_observed_prte(
 
 
 __all__ = [
-    'policy_weight_ate',
-    'policy_weight_subsidy',
-    'policy_weight_prte',
-    'policy_weight_marginal',
-    'policy_weight_observed_prte',
+    "policy_weight_ate",
+    "policy_weight_subsidy",
+    "policy_weight_prte",
+    "policy_weight_marginal",
+    "policy_weight_observed_prte",
 ]

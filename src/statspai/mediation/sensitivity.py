@@ -21,6 +21,7 @@ Imai, K., Keele, L. & Yamamoto, T. (2010). "Identification, Inference
   and Sensitivity Analysis for Causal Mediation Effects." *Stat Sci*,
   25(1), 51–71. [@imai2010general]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -32,14 +33,20 @@ import pandas as pd
 
 @dataclass
 class MediateSensitivityResult:
-    rho_grid: np.ndarray             # (n_grid,)
-    acme_at_rho: np.ndarray          # (n_grid,)
-    rho_at_zero: Optional[float]     # ρ where ACME crosses zero
-    acme_at_zero: float              # ACME at ρ=0 (the baseline)
+    rho_grid: np.ndarray  # (n_grid,)
+    acme_at_rho: np.ndarray  # (n_grid,)
+    rho_at_zero: Optional[float]  # ρ where ACME crosses zero
+    acme_at_zero: float  # ACME at ρ=0 (the baseline)
 
-    def plot(self, ax: Any = None, *, fill: bool = True,
-             annotate: bool = True,
-             figsize: Any = (7.0, 4.5), **kwargs: Any) -> Any:
+    def plot(
+        self,
+        ax: Any = None,
+        *,
+        fill: bool = True,
+        annotate: bool = True,
+        figsize: Any = (7.0, 4.5),
+        **kwargs: Any,
+    ) -> Any:
         """Publication-style sensitivity plot.
 
         Shows ACME(ρ) vs the mediator-outcome confounder strength ρ,
@@ -70,34 +77,57 @@ class MediateSensitivityResult:
         acme = self.acme_at_rho
 
         if fill:
-            ax.fill_between(rho, 0, acme, where=(acme >= 0),
-                            color="#1f77b4", alpha=0.18, label="ACME ≥ 0")
-            ax.fill_between(rho, 0, acme, where=(acme < 0),
-                            color="#d62728", alpha=0.18, label="ACME < 0")
+            ax.fill_between(
+                rho,
+                0,
+                acme,
+                where=(acme >= 0),
+                color="#1f77b4",
+                alpha=0.18,
+                label="ACME ≥ 0",
+            )
+            ax.fill_between(
+                rho,
+                0,
+                acme,
+                where=(acme < 0),
+                color="#d62728",
+                alpha=0.18,
+                label="ACME < 0",
+            )
         ax.plot(rho, acme, color="#1f77b4", lw=1.8)
         ax.axhline(0, color="#333", lw=0.7)
-        ax.axvline(0, color="#333", lw=0.7, ls=":",
-                   label=r"$\rho=0$ (sequential ignorability)")
+        ax.axvline(
+            0, color="#333", lw=0.7, ls=":", label=r"$\rho=0$ (sequential ignorability)"
+        )
 
         # Mark the baseline ACME and ρ_at_zero
-        ax.scatter([0.0], [self.acme_at_zero], color="#1f77b4",
-                   s=60, zorder=5)
+        ax.scatter([0.0], [self.acme_at_zero], color="#1f77b4", s=60, zorder=5)
         if annotate:
             ax.annotate(
                 f"baseline ACME = {self.acme_at_zero:+.3f}",
                 xy=(0.0, self.acme_at_zero),
-                xytext=(8, 8), textcoords="offset points", fontsize=9,
+                xytext=(8, 8),
+                textcoords="offset points",
+                fontsize=9,
             )
 
         if self.rho_at_zero is not None:
-            ax.axvline(self.rho_at_zero, color="#d62728", lw=1.2, ls="--",
-                       label=fr"ACME=0 at $\rho={self.rho_at_zero:.3f}$")
+            ax.axvline(
+                self.rho_at_zero,
+                color="#d62728",
+                lw=1.2,
+                ls="--",
+                label=rf"ACME=0 at $\rho={self.rho_at_zero:.3f}$",
+            )
             if annotate:
                 ax.annotate(
                     "robustness threshold",
                     xy=(self.rho_at_zero, 0),
-                    xytext=(6, -20), textcoords="offset points",
-                    fontsize=8, color="#d62728",
+                    xytext=(6, -20),
+                    textcoords="offset points",
+                    fontsize=8,
+                    color="#d62728",
                 )
 
         ax.set_xlabel(r"$\rho$ — confounder strength on (mediator, outcome) errors")
@@ -186,20 +216,28 @@ def mediate_sensitivity(
     ones = np.ones((n, 1))
 
     # Mediator model: M ~ T + X
-    Xm = np.column_stack([ones, T, X_cov]) if X_cov.shape[1] else np.column_stack([ones, T])
+    Xm = (
+        np.column_stack([ones, T, X_cov])
+        if X_cov.shape[1]
+        else np.column_stack([ones, T])
+    )
     beta_m = np.linalg.lstsq(Xm, M, rcond=None)[0]
     resid_m = M - Xm @ beta_m
     sigma_m = float(resid_m.std())
 
     # Outcome model: Y ~ T + M + X
-    Xy = np.column_stack([ones, T, M, X_cov]) if X_cov.shape[1] else np.column_stack([ones, T, M])
+    Xy = (
+        np.column_stack([ones, T, M, X_cov])
+        if X_cov.shape[1]
+        else np.column_stack([ones, T, M])
+    )
     beta_y = np.linalg.lstsq(Xy, Y, rcond=None)[0]
     resid_y = Y - Xy @ beta_y
     sigma_y = float(resid_y.std())
 
     # Naive ACME = alpha_1 * beta_2 (effect of T on M × effect of M on Y)
-    alpha_1 = float(beta_m[1])         # T → M
-    beta_2 = float(beta_y[2])          # M → Y (controlling for T)
+    alpha_1 = float(beta_m[1])  # T → M
+    beta_2 = float(beta_y[2])  # M → Y (controlling for T)
     acme_naive = alpha_1 * beta_2
 
     # Bias at ρ: Δ(ρ) ≈ ρ · σ_Y · sign(alpha_1)  (simplified linear formula)
@@ -229,13 +267,17 @@ def mediate_sensitivity(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.mediation.mediate_sensitivity",
             params={
-                "y": y, "treat": treat, "mediator": mediator,
+                "y": y,
+                "treat": treat,
+                "mediator": mediator,
                 "covariates": list(covariates) if covariates else None,
-                "rho_range": list(rho_range), "n_grid": n_grid,
+                "rho_range": list(rho_range),
+                "n_grid": n_grid,
             },
             data=data,
             overwrite=False,

@@ -24,10 +24,11 @@ from .sensitivity import mediate_sensitivity, MediateSensitivityResult
 from .four_way import four_way_decomposition, FourWayResult
 
 __all__ = [
-    'mediate',
-    'MediationAnalysis',
-    'mediate_interventional',
-    'mediate_sensitivity',
-    'MediateSensitivityResult',
-    'four_way_decomposition', 'FourWayResult',
+    "mediate",
+    "MediationAnalysis",
+    "mediate_interventional",
+    "mediate_sensitivity",
+    "MediateSensitivityResult",
+    "four_way_decomposition",
+    "FourWayResult",
 ]

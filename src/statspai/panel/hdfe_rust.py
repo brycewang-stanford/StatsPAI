@@ -15,6 +15,7 @@ Contract:
 3. The PyO3 extension never spawns threads without the caller
    explicitly opting in (we hold back Rayon until Phase 3).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -79,4 +80,4 @@ def group_demean_rust(
         y[:] = y_c  # pragma: no cover
 
 
-__all__ = ['HAS_RUST', 'group_demean_rust']
+__all__ = ["HAS_RUST", "group_demean_rust"]

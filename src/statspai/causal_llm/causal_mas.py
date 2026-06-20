@@ -33,7 +33,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .llm_dag import _classify_variable
 
-
 __all__ = ["causal_mas", "CausalMASResult"]
 
 
@@ -92,9 +91,7 @@ class CausalMASResult:
             lines.append(f"    {v:>24s} → {r}")
         lines.append("")
         lines.append("  Top-confidence edges:")
-        ranked = sorted(
-            self.confidence.items(), key=lambda kv: -kv[1]
-        )
+        ranked = sorted(self.confidence.items(), key=lambda kv: -kv[1])
         for (p, c), conf in ranked[:12]:
             mark = "*" if (p, c) in self.edges else " "
             lines.append(f"    [{conf:.2f}] {mark} {p} -> {c}")
@@ -146,7 +143,7 @@ def _critic_heuristic(
     * Critic flags self-loops.
     """
     rej: List[Tuple[str, str]] = []
-    for (p, c) in proposed:
+    for p, c in proposed:
         if p == c:
             rej.append((p, c))
             continue
@@ -165,15 +162,13 @@ def _domain_expert_heuristic(
     """Endorse edges whose parent keyword appears in the domain text."""
     endorsed: List[Tuple[str, str]] = []
     lower = domain.lower() if domain else ""
-    for (p, c) in proposed:
+    for p, c in proposed:
         if not lower or p.lower() in lower or c.lower() in lower:
             endorsed.append((p, c))
     return endorsed
 
 
-def _run_llm_agent(
-    client: Any, role: str, prompt: str
-) -> str:
+def _run_llm_agent(client: Any, role: str, prompt: str) -> str:
     """Adapter to a minimal chat-completion interface."""
     if hasattr(client, "chat"):
         return str(client.chat(role=role, prompt=prompt))
@@ -282,12 +277,14 @@ def causal_mas(
         # 1) Proposer
         if client is None:
             proposed = _proposer_heuristic(variables, domain, roles)
-            transcript.append({
-                "round": r,
-                "agent": "proposer",
-                "action": "propose",
-                "payload": list(proposed),
-            })
+            transcript.append(
+                {
+                    "round": r,
+                    "agent": "proposer",
+                    "action": "propose",
+                    "payload": list(proposed),
+                }
+            )
         else:
             prompt = (
                 f"You are a causal-discovery proposer.  Variables: "
@@ -296,13 +293,15 @@ def causal_mas(
             )
             raw = _run_llm_agent(client, "proposer", prompt)
             proposed = _parse_edges(raw)
-            transcript.append({
-                "round": r,
-                "agent": "proposer",
-                "action": "propose",
-                "payload": list(proposed),
-                "raw": raw,
-            })
+            transcript.append(
+                {
+                    "round": r,
+                    "agent": "proposer",
+                    "action": "propose",
+                    "payload": list(proposed),
+                    "raw": raw,
+                }
+            )
 
         # 2) Critic
         if client is None:
@@ -315,12 +314,14 @@ def causal_mas(
                 "rejections one per line as 'A -> B'."
             )
             rejected = _parse_edges(_run_llm_agent(client, "critic", prompt))
-        transcript.append({
-            "round": r,
-            "agent": "critic",
-            "action": "reject",
-            "payload": list(rejected),
-        })
+        transcript.append(
+            {
+                "round": r,
+                "agent": "critic",
+                "action": "reject",
+                "payload": list(rejected),
+            }
+        )
 
         # 3) Domain expert
         if client is None:
@@ -333,15 +334,15 @@ def causal_mas(
                 f"domain knowledge: {proposed}.  Return endorsements one "
                 "per line as 'A -> B'."
             )
-            endorsed = _parse_edges(
-                _run_llm_agent(client, "domain_expert", prompt)
-            )
-        transcript.append({
-            "round": r,
-            "agent": "domain_expert",
-            "action": "endorse",
-            "payload": list(endorsed),
-        })
+            endorsed = _parse_edges(_run_llm_agent(client, "domain_expert", prompt))
+        transcript.append(
+            {
+                "round": r,
+                "agent": "domain_expert",
+                "action": "endorse",
+                "payload": list(endorsed),
+            }
+        )
 
         # 4) Synthesiser: accept = proposed - rejected, boost endorsed
         surviving = [e for e in proposed if e not in rejected]
@@ -349,15 +350,15 @@ def causal_mas(
             endorsement_counts[e] = endorsement_counts.get(e, 0) + 1
         for e in endorsed:
             # Domain endorsement adds an extra half-vote, capped at rounds.
-            endorsement_counts[e] = min(
-                endorsement_counts.get(e, 0) + 0.5, rounds
-            )
-        transcript.append({
-            "round": r,
-            "agent": "synthesiser",
-            "action": "score",
-            "payload": dict(endorsement_counts),
-        })
+            endorsement_counts[e] = min(endorsement_counts.get(e, 0) + 0.5, rounds)
+        transcript.append(
+            {
+                "round": r,
+                "agent": "synthesiser",
+                "action": "score",
+                "payload": dict(endorsement_counts),
+            }
+        )
 
     # --- Aggregate confidences --------------------------------------------
     confidence: Dict[Tuple[str, str], float] = {
@@ -370,9 +371,7 @@ def causal_mas(
     else:
         # Prefer a short `name` attribute (set by the shipped adapters)
         # over repr() for readability.
-        backend = str(
-            getattr(client, "name", None) or type(client).__name__
-        )
+        backend = str(getattr(client, "name", None) or type(client).__name__)
     return CausalMASResult(
         edges=sorted(set(final_edges)),
         confidence=confidence,

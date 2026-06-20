@@ -117,7 +117,7 @@ def _newey_west_vcov(X: np.ndarray, resid: np.ndarray, L: int) -> np.ndarray:
     for lag in range(L + 1):
         w = 1 - lag / (L + 1.0)
         if lag == 0:
-            sub = X.T @ np.diag(resid ** 2) @ X
+            sub = X.T @ np.diag(resid**2) @ X
         else:
             xe_t = (X[lag:].T * resid[lag:]) @ ((X[:-lag].T * resid[:-lag]).T)
             sub = w * (xe_t + xe_t.T)
@@ -181,9 +181,7 @@ def its(
     # NB: do *not* dropna here — ``intervention`` is an integer row position
     # into the time-ordered series, so removing rows would shift it; instead
     # we fail loudly below if the series is non-finite.
-    require_columns(
-        data, [y] + ([time] if time is not None else []), function="its"
-    )
+    require_columns(data, [y] + ([time] if time is not None else []), function="its")
     df = data.reset_index(drop=True)
     n = len(df)
     n_params = 4 + (
@@ -195,8 +193,7 @@ def its(
         raise DataInsufficient(
             f"its: {n} observation(s) but the segmented regression estimates "
             f"{n_params} parameter(s) — need strictly more.",
-            recovery_hint="Provide a longer series or drop seasonality "
-            "harmonics.",
+            recovery_hint="Provide a longer series or drop seasonality " "harmonics.",
             diagnostics={"n_obs": int(n), "n_params": int(n_params)},
         )
     if not (0 < intervention < n):
@@ -262,12 +259,14 @@ def its(
     p_level = float(2 * stats.norm.sf(abs(level / max(se_level, 1e-12))))
     p_slope = float(2 * stats.norm.sf(abs(slope / max(se_slope, 1e-12))))
 
-    coef_df = pd.DataFrame({
-        "variable": coef_names,
-        "coef": beta,
-        "se": se,
-        "z": beta / np.maximum(se, 1e-12),
-    })
+    coef_df = pd.DataFrame(
+        {
+            "variable": coef_names,
+            "coef": beta,
+            "se": se,
+            "z": beta / np.maximum(se, 1e-12),
+        }
+    )
 
     _result = ITSResult(
         level_change=level,
@@ -284,15 +283,18 @@ def its(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.timeseries.its",
             params={
-                "y": y, "time": time,
+                "y": y,
+                "time": time,
                 "intervention": intervention,
                 "seasonality_period": seasonality_period,
                 "seasonality_harmonics": seasonality_harmonics,
-                "hac_lag": hac_lag, "alpha": alpha,
+                "hac_lag": hac_lag,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

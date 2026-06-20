@@ -163,19 +163,36 @@ class DMLDiagnostics:
         ax_ov.set_xlabel(self._overlap_label)
         ax_ov.set_ylabel("Frequency")
         if self.overlap_warning:
-            ax_ov.text(0.02, 0.98, self.overlap_warning,
-                       transform=ax_ov.transAxes, va="top", fontsize=8,
-                       color="#d62728",
-                       bbox=dict(facecolor="white", alpha=0.8, edgecolor="none"))
+            ax_ov.text(
+                0.02,
+                0.98,
+                self.overlap_warning,
+                transform=ax_ov.transAxes,
+                va="top",
+                fontsize=8,
+                color="#d62728",
+                bbox=dict(facecolor="white", alpha=0.8, edgecolor="none"),
+            )
 
         # Score density + normal overlay
         psi = self._score
         if psi is not None:
-            ax_sc.hist(psi, bins=bins, density=True, color="#2ca02c",
-                       edgecolor="white", alpha=0.7)
+            ax_sc.hist(
+                psi,
+                bins=bins,
+                density=True,
+                color="#2ca02c",
+                edgecolor="white",
+                alpha=0.7,
+            )
             x_grid = np.linspace(np.min(psi), np.max(psi), 200)
-            ax_sc.plot(x_grid, stats.norm.pdf(x_grid, 0, self.score_sd),
-                       color="#1f77b4", lw=1.5, label="N(0, σ̂)")
+            ax_sc.plot(
+                x_grid,
+                stats.norm.pdf(x_grid, 0, self.score_sd),
+                color="#1f77b4",
+                lw=1.5,
+                label="N(0, σ̂)",
+            )
             ax_sc.legend(loc="upper right", fontsize=8)
             ax_sc.set_title("Score density")
             ax_sc.set_xlabel(r"$\psi - \theta$")
@@ -185,14 +202,23 @@ class DMLDiagnostics:
             bal = self.balance_table.set_index("variable")
             x = np.arange(len(bal))
             width = 0.35
-            ax_bal.bar(x - width / 2, bal["corr_d_resid"], width=width,
-                       label=r"corr($X_k$, $\tilde D$)", color="#1f77b4")
-            ax_bal.bar(x + width / 2, bal["corr_y_resid"], width=width,
-                       label=r"corr($X_k$, $\tilde Y$)", color="#ff7f0e")
+            ax_bal.bar(
+                x - width / 2,
+                bal["corr_d_resid"],
+                width=width,
+                label=r"corr($X_k$, $\tilde D$)",
+                color="#1f77b4",
+            )
+            ax_bal.bar(
+                x + width / 2,
+                bal["corr_y_resid"],
+                width=width,
+                label=r"corr($X_k$, $\tilde Y$)",
+                color="#ff7f0e",
+            )
             ax_bal.axhline(0, color="#333", lw=0.6)
             ax_bal.set_xticks(x)
-            ax_bal.set_xticklabels(bal.index, rotation=45, ha="right",
-                                   fontsize=8)
+            ax_bal.set_xticklabels(bal.index, rotation=45, ha="right", fontsize=8)
             ax_bal.set_title("Residual-balance check")
             ax_bal.set_ylabel("Correlation")
             ax_bal.legend(loc="best", fontsize=8)
@@ -270,18 +296,20 @@ def dml_diagnostics(result: Any, clip: float = 0.02) -> DMLDiagnostics:
         overlap_values = pscore
         n_low = int(np.sum(pscore < clip))
         n_high = int(np.sum(pscore > 1 - clip))
-        ov_table = pd.DataFrame({
-            "quantile": ["min", "p1", "p10", "median", "p90", "p99", "max"],
-            "value": [
-                float(np.min(pscore)),
-                float(np.quantile(pscore, 0.01)),
-                float(np.quantile(pscore, 0.10)),
-                float(np.median(pscore)),
-                float(np.quantile(pscore, 0.90)),
-                float(np.quantile(pscore, 0.99)),
-                float(np.max(pscore)),
-            ],
-        })
+        ov_table = pd.DataFrame(
+            {
+                "quantile": ["min", "p1", "p10", "median", "p90", "p99", "max"],
+                "value": [
+                    float(np.min(pscore)),
+                    float(np.quantile(pscore, 0.01)),
+                    float(np.quantile(pscore, 0.10)),
+                    float(np.median(pscore)),
+                    float(np.quantile(pscore, 0.90)),
+                    float(np.quantile(pscore, 0.99)),
+                    float(np.max(pscore)),
+                ],
+            }
+        )
         overlap_warning = None
         if n_low + n_high > 0:
             overlap_warning = (
@@ -293,16 +321,18 @@ def dml_diagnostics(result: Any, clip: float = 0.02) -> DMLDiagnostics:
         overlap_values = np.abs(d_resid)
         n_low = 0
         n_high = 0
-        ov_table = pd.DataFrame({
-            "quantile": ["min", "p10", "median", "p90", "max"],
-            "value": [
-                float(np.min(overlap_values)),
-                float(np.quantile(overlap_values, 0.10)),
-                float(np.median(overlap_values)),
-                float(np.quantile(overlap_values, 0.90)),
-                float(np.max(overlap_values)),
-            ],
-        })
+        ov_table = pd.DataFrame(
+            {
+                "quantile": ["min", "p10", "median", "p90", "max"],
+                "value": [
+                    float(np.min(overlap_values)),
+                    float(np.quantile(overlap_values, 0.10)),
+                    float(np.median(overlap_values)),
+                    float(np.quantile(overlap_values, 0.90)),
+                    float(np.max(overlap_values)),
+                ],
+            }
+        )
         overlap_warning = None
 
     # ---- Score density ----
@@ -339,16 +369,19 @@ def dml_diagnostics(result: Any, clip: float = 0.02) -> DMLDiagnostics:
             xk = X[:, j]
             sd_xk = np.std(xk)
             if sd_xk == 0:
-                rows.append({"variable": name,
-                             "corr_d_resid": 0.0, "corr_y_resid": 0.0})
+                rows.append(
+                    {"variable": name, "corr_d_resid": 0.0, "corr_y_resid": 0.0}
+                )
                 continue  # pragma: no cover
             cd = float(np.corrcoef(xk, d_resid)[0, 1])
             cy = float(np.corrcoef(xk, y_resid)[0, 1])
-            rows.append({
-                "variable": name,
-                "corr_d_resid": cd,
-                "corr_y_resid": cy,
-            })
+            rows.append(
+                {
+                    "variable": name,
+                    "corr_d_resid": cd,
+                    "corr_y_resid": cy,
+                }
+            )
     bal_table = pd.DataFrame(rows)
 
     diag = DMLDiagnostics(

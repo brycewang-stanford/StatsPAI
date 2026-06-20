@@ -24,6 +24,7 @@ Honest scope
   bit-comparable. Pass ``dtype="float32"`` on a GPU to trade ~1 ulp of
   precision for the XLA float32 fast path.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,7 +45,6 @@ from ._validation import (
     positive_int as _positive_int,
     positive_weight_mass as _positive_weight_mass,
 )
-
 
 # ---------------------------------------------------------------------------
 # JAX availability + helpers (mirrors jax_backend.py's policy)
@@ -77,7 +77,9 @@ def _require_dataframe(data: Any, *, context: str) -> None:
 
 
 def _parse_formula_checked(
-    formula: Any, *, context: str,
+    formula: Any,
+    *,
+    context: str,
 ) -> tuple[str, List[str], List[str]]:
     """Parse the fast formula DSL and map syntax errors into the taxonomy."""
     if not isinstance(formula, str):
@@ -122,6 +124,7 @@ def _require_finite_outputs(context: str, **arrays: Any) -> None:
 # ---------------------------------------------------------------------------
 # JIT-compiled core: WLS solve + iid/HC1 sandwich
 # ---------------------------------------------------------------------------
+
 
 def _make_jax_kernels() -> tuple[Any, Any, Any]:
     """Build JIT-compiled solvers lazily so module import is jax-free."""
@@ -175,6 +178,7 @@ def _make_jax_kernels() -> tuple[Any, Any, Any]:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def feols_jax(
     formula: str,
@@ -240,10 +244,14 @@ def feols_jax(
             f"feols_jax: dtype={dtype!r}; supported: 'float64' or 'float32'"
         )
     fe_maxiter = _positive_int(
-        fe_maxiter, name="fe_maxiter", context="feols_jax",
+        fe_maxiter,
+        name="fe_maxiter",
+        context="feols_jax",
     )
     fe_tol = _nonnegative_finite_float(
-        fe_tol, name="fe_tol", context="feols_jax",
+        fe_tol,
+        name="fe_tol",
+        context="feols_jax",
     )
 
     # Lazy imports — keep module-level surface minimal.
@@ -252,7 +260,8 @@ def feols_jax(
 
     # ---------- Formula parsing + data extraction (numpy) ----------
     lhs, rhs_terms, fe_terms = _parse_formula_checked(
-        formula, context="feols_jax",
+        formula,
+        context="feols_jax",
     )
 
     user_intercept = "1" in rhs_terms
@@ -284,7 +293,8 @@ def feols_jax(
         )
     X_user = (
         data[rhs_terms].to_numpy(dtype=np_dtype).copy()
-        if rhs_terms else np.empty((n_obs, 0), dtype=np_dtype)
+        if rhs_terms
+        else np.empty((n_obs, 0), dtype=np_dtype)
     )
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
@@ -315,7 +325,8 @@ def feols_jax(
                 f"feols_jax: weights column {weights!r} contains non-finite values"
             )
         _positive_weight_mass(
-            w_full, context=f"feols_jax weights column {weights!r}",
+            w_full,
+            context=f"feols_jax weights column {weights!r}",
         )
     else:
         w_full = None
@@ -323,7 +334,9 @@ def feols_jax(
     if cluster is not None:
         cluster_arr_full = data[cluster].to_numpy()
         cluster_codes_check, _ = pd.factorize(
-            cluster_arr_full, sort=False, use_na_sentinel=True,
+            cluster_arr_full,
+            sort=False,
+            use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
             raise MethodIncompatibility(
@@ -339,9 +352,12 @@ def feols_jax(
         if w_full is None:
             stacked = np.column_stack([y, X])
             stacked_dem, info = _demean(
-                stacked, fe_df,
+                stacked,
+                fe_df,
                 drop_singletons=drop_singletons,
-                tol=1e-12, max_iter=fe_maxiter, tol_abs=fe_tol,
+                tol=1e-12,
+                max_iter=fe_maxiter,
+                tol_abs=fe_tol,
             )
             keep_mask = info.keep_mask
             n_kept = info.n_kept
@@ -352,10 +368,13 @@ def feols_jax(
         else:
             from .fepois import _weighted_ap_demean
             from .demean import _detect_singletons as _ds_helper
+
             fe_codes_raw: List[np.ndarray] = []
             for col in fe_terms:
                 codes, _uniq = pd.factorize(
-                    data[col], sort=False, use_na_sentinel=True,
+                    data[col],
+                    sort=False,
+                    use_na_sentinel=True,
                 )
                 if (codes < 0).any():
                     raise MethodIncompatibility(
@@ -364,7 +383,8 @@ def feols_jax(
                 fe_codes_raw.append(codes.astype(np.int64))
             keep_mask = (
                 _ds_helper(fe_codes_raw, n_obs)
-                if drop_singletons else np.ones(n_obs, dtype=bool)
+                if drop_singletons
+                else np.ones(n_obs, dtype=bool)
             )
             n_kept = int(keep_mask.sum())
             n_dropped_singletons = n_obs - n_kept
@@ -377,9 +397,7 @@ def feols_jax(
                 dense = dense.astype(np.int64)
                 G = len(uniq)
                 fe_codes_kept.append(dense)
-                counts_list.append(
-                    np.bincount(dense, minlength=G).astype(np.float64)
-                )
+                counts_list.append(np.bincount(dense, minlength=G).astype(np.float64))
                 fe_card.append(G)
             y_kept = y[keep_mask]
             X_kept = X[keep_mask]
@@ -390,8 +408,12 @@ def feols_jax(
             )
             stacked = np.column_stack([y_kept, X_kept])
             stacked_dem, _, _ = _weighted_ap_demean(
-                stacked, fe_codes_kept, counts_list, w_kept,
-                max_iter=fe_maxiter, tol=fe_tol,
+                stacked,
+                fe_codes_kept,
+                counts_list,
+                w_kept,
+                max_iter=fe_maxiter,
+                tol=fe_tol,
             )
             y_dem = stacked_dem[:, 0]
             X_dem = stacked_dem[:, 1:]
@@ -408,7 +430,8 @@ def feols_jax(
     if w_full is not None:
         w = w_full[keep_mask]
         _positive_weight_mass(
-            w, context=f"feols_jax kept sample weights column {weights!r}",
+            w,
+            context=f"feols_jax kept sample weights column {weights!r}",
         )
     else:
         w = np.ones(n_kept, dtype=np_dtype)
@@ -458,8 +481,11 @@ def feols_jax(
             vcov_mat = vcov_mat * (n / df_resid)
     else:  # cr1 → delegate to existing crve (which uses the Phase 2 Rust kernel)
         vcov_mat = _crve(
-            X_dem, resid, cluster_arr_kept,
-            weights=w, bread=XtWX_inv,
+            X_dem,
+            resid,
+            cluster_arr_kept,
+            weights=w,
+            bread=XtWX_inv,
             type="cr1",
             extra_df=fe_dof,
         )
@@ -504,6 +530,7 @@ def feols_jax(
 # convention as fixest's ``boottest``. For small-cluster wild
 # bootstrap (Cameron-Gelbach-Miller 2008), see Phase 4c.
 
+
 @dataclass
 class FeolsBootstrapResult:
     """Outcome of :func:`feols_jax_bootstrap`.
@@ -530,11 +557,11 @@ class FeolsBootstrapResult:
         Always ``'statspai-jax-bootstrap'``.
     """
 
-    coef: 'pd.Series'
-    se_boot: 'pd.Series'
-    ci_lower: 'pd.Series'
-    ci_upper: 'pd.Series'
-    boot_betas: 'pd.DataFrame'
+    coef: "pd.Series"
+    se_boot: "pd.Series"
+    ci_lower: "pd.Series"
+    ci_upper: "pd.Series"
+    boot_betas: "pd.DataFrame"
     n_boot: int
     bootstrap_type: str
     backend: str = "statspai-jax-bootstrap"
@@ -544,20 +571,21 @@ class FeolsBootstrapResult:
         s = self.se_boot.values
         with np.errstate(divide="ignore", invalid="ignore"):
             t = np.where(s > 0, b / s, np.nan)
-        df = pd.DataFrame({
-            "Estimate": b,
-            "SE (boot)": s,
-            "t value": t,
-            "CI lower": self.ci_lower.values,
-            "CI upper": self.ci_upper.values,
-        }, index=self.coef.index)
+        df = pd.DataFrame(
+            {
+                "Estimate": b,
+                "SE (boot)": s,
+                "t value": t,
+                "CI lower": self.ci_lower.values,
+                "CI upper": self.ci_upper.values,
+            },
+            index=self.coef.index,
+        )
         header = (
             f"sp.fast.feols_jax_bootstrap  |  bootstrap={self.bootstrap_type}  |  "
             f"n_boot={self.n_boot}"
         )
-        return header + "\n" + str(
-            df.to_string(float_format=lambda x: f"{x:.6f}")
-        )
+        return header + "\n" + str(df.to_string(float_format=lambda x: f"{x:.6f}"))
 
     def tidy(self) -> pd.DataFrame:
         """Coefficient-level bootstrap table."""
@@ -565,24 +593,31 @@ class FeolsBootstrapResult:
         s = self.se_boot.values
         with np.errstate(divide="ignore", invalid="ignore"):
             t = np.where(s > 0, b / s, np.nan)
-        return pd.DataFrame({
-            "Estimate": b,
-            "SE (boot)": s,
-            "t value": t,
-            "CI lower": self.ci_lower.values,
-            "CI upper": self.ci_upper.values,
-        }, index=self.coef.index)
+        return pd.DataFrame(
+            {
+                "Estimate": b,
+                "SE (boot)": s,
+                "t value": t,
+                "CI lower": self.ci_lower.values,
+                "CI upper": self.ci_upper.values,
+            },
+            index=self.coef.index,
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         """Lossless JSON-safe payload for JAX bootstrap results."""
-        return dict(_jsonable({
-            "kind": "fast_feols_jax_bootstrap_result",
-            "n_boot": self.n_boot,
-            "bootstrap_type": self.bootstrap_type,
-            "backend": self.backend,
-            "coefficients": _tidy_records(self.tidy()),
-            "boot_betas": self.boot_betas.to_dict(orient="records"),
-        }))
+        return dict(
+            _jsonable(
+                {
+                    "kind": "fast_feols_jax_bootstrap_result",
+                    "n_boot": self.n_boot,
+                    "bootstrap_type": self.bootstrap_type,
+                    "backend": self.backend,
+                    "coefficients": _tidy_records(self.tidy()),
+                    "boot_betas": self.boot_betas.to_dict(orient="records"),
+                }
+            )
+        )
 
     def to_agent_summary(self, *, max_terms: int = 10) -> Dict[str, Any]:
         """Bounded agent-facing summary for JAX bootstrap results."""
@@ -592,16 +627,20 @@ class FeolsBootstrapResult:
             str(term): _distribution_summary(self.boot_betas[term].to_numpy())
             for term in self.boot_betas.columns[:limit]
         }
-        return dict(_jsonable({
-            "kind": "fast_feols_jax_bootstrap_agent_summary",
-            "n_boot": self.n_boot,
-            "bootstrap_type": self.bootstrap_type,
-            "backend": self.backend,
-            "coefficients": _tidy_records(self.tidy().head(limit)),
-            "bootstrap_distributions": boot_summaries,
-            "n_terms": n_terms,
-            "truncated_terms": max(n_terms - limit, 0),
-        }))
+        return dict(
+            _jsonable(
+                {
+                    "kind": "fast_feols_jax_bootstrap_agent_summary",
+                    "n_boot": self.n_boot,
+                    "bootstrap_type": self.bootstrap_type,
+                    "backend": self.backend,
+                    "coefficients": _tidy_records(self.tidy().head(limit)),
+                    "bootstrap_distributions": boot_summaries,
+                    "n_terms": n_terms,
+                    "truncated_terms": max(n_terms - limit, 0),
+                }
+            )
+        )
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
         return self.summary()
@@ -653,8 +692,10 @@ def _make_bootstrap_kernels() -> tuple[Any, Any, Any, Any]:
             cluster_codes: Any,
         ) -> Any:
             idx = jax.random.choice(
-                key, n_clusters_int,
-                shape=(n_clusters_int,), replace=True,
+                key,
+                n_clusters_int,
+                shape=(n_clusters_int,),
+                replace=True,
             )
             boot_count = jnp.bincount(idx, length=n_clusters_int)
             boot_w = boot_count[cluster_codes].astype(X.dtype)
@@ -686,9 +727,8 @@ def _make_bootstrap_kernels() -> tuple[Any, Any, Any, Any]:
     ) -> Any:
         """One row-level wild-bootstrap iteration (score form)."""
         n = X.shape[0]
-        eta = (2 * jax.random.bernoulli(key, p=0.5, shape=(n,))
-               .astype(X.dtype) - 1)
-        score = X.T @ (w_base * eta * residuals)        # (p,)
+        eta = 2 * jax.random.bernoulli(key, p=0.5, shape=(n,)).astype(X.dtype) - 1
+        score = X.T @ (w_base * eta * residuals)  # (p,)
         return beta_hat + XtWX_inv @ score
 
     def _build_wild_cluster_boot(n_clusters: int) -> Any:
@@ -707,24 +747,30 @@ def _make_bootstrap_kernels() -> tuple[Any, Any, Any, Any]:
             XtWX_inv: Any,
             cluster_codes: Any,
         ) -> Any:
-            eta_g = (2 * jax.random.bernoulli(
-                key, p=0.5, shape=(n_clusters_int,)
-            ).astype(X.dtype) - 1)
-            eta = eta_g[cluster_codes]                  # (n,)
-            score = X.T @ (w_base * eta * residuals)   # (p,)
+            eta_g = (
+                2
+                * jax.random.bernoulli(key, p=0.5, shape=(n_clusters_int,)).astype(
+                    X.dtype
+                )
+                - 1
+            )
+            eta = eta_g[cluster_codes]  # (n,)
+            score = X.T @ (w_base * eta * residuals)  # (p,)
             return beta_hat + XtWX_inv @ score
 
         return _one_wild_cluster_boot
 
     return (
-        _one_pairs_boot, _build_cluster_boot,
-        _one_wild_boot, _build_wild_cluster_boot,
+        _one_pairs_boot,
+        _build_cluster_boot,
+        _one_wild_boot,
+        _build_wild_cluster_boot,
     )
 
 
 def _jax_prep_inputs(
     formula: str,
-    data: 'pd.DataFrame',
+    data: "pd.DataFrame",
     *,
     weights: Optional[str],
     drop_singletons: bool,
@@ -744,15 +790,20 @@ def _jax_prep_inputs(
     """
     _require_dataframe(data, context="feols_jax_bootstrap")
     fe_maxiter = _positive_int(
-        fe_maxiter, name="fe_maxiter", context="feols_jax_bootstrap",
+        fe_maxiter,
+        name="fe_maxiter",
+        context="feols_jax_bootstrap",
     )
     fe_tol = _nonnegative_finite_float(
-        fe_tol, name="fe_tol", context="feols_jax_bootstrap",
+        fe_tol,
+        name="fe_tol",
+        context="feols_jax_bootstrap",
     )
     from .demean import demean as _demean
 
     lhs, rhs_terms, fe_terms = _parse_formula_checked(
-        formula, context="feols_jax_bootstrap",
+        formula,
+        context="feols_jax_bootstrap",
     )
     user_intercept = "1" in rhs_terms
     rhs_terms = [t for t in rhs_terms if t != "1"]
@@ -780,7 +831,8 @@ def _jax_prep_inputs(
         )
     X_user = (
         data[rhs_terms].to_numpy(dtype=np_dtype).copy()
-        if rhs_terms else np.empty((n_obs, 0), dtype=np_dtype)
+        if rhs_terms
+        else np.empty((n_obs, 0), dtype=np_dtype)
     )
     if X_user.ndim == 1:
         X_user = X_user.reshape(-1, 1)
@@ -814,7 +866,8 @@ def _jax_prep_inputs(
                 "non-finite values"
             )
         _positive_weight_mass(
-            w_full, context=f"feols_jax_bootstrap weights column {weights!r}",
+            w_full,
+            context=f"feols_jax_bootstrap weights column {weights!r}",
         )
     else:
         w_full = None
@@ -824,9 +877,12 @@ def _jax_prep_inputs(
         if w_full is None:
             stacked = np.column_stack([y, X])
             stacked_dem, info = _demean(
-                stacked, fe_df,
+                stacked,
+                fe_df,
                 drop_singletons=drop_singletons,
-                tol=1e-12, max_iter=fe_maxiter, tol_abs=fe_tol,
+                tol=1e-12,
+                max_iter=fe_maxiter,
+                tol_abs=fe_tol,
             )
             keep_mask = info.keep_mask
             n_kept = info.n_kept
@@ -837,10 +893,13 @@ def _jax_prep_inputs(
         else:
             from .fepois import _weighted_ap_demean
             from .demean import _detect_singletons as _ds_helper
+
             fe_codes_raw: List[np.ndarray] = []
             for col in fe_terms:
                 codes, _uniq = pd.factorize(
-                    data[col], sort=False, use_na_sentinel=True,
+                    data[col],
+                    sort=False,
+                    use_na_sentinel=True,
                 )
                 if (codes < 0).any():
                     raise MethodIncompatibility(
@@ -849,7 +908,8 @@ def _jax_prep_inputs(
                 fe_codes_raw.append(codes.astype(np.int64))
             keep_mask = (
                 _ds_helper(fe_codes_raw, n_obs)
-                if drop_singletons else np.ones(n_obs, dtype=bool)
+                if drop_singletons
+                else np.ones(n_obs, dtype=bool)
             )
             n_kept = int(keep_mask.sum())
             n_dropped_singletons = n_obs - n_kept
@@ -862,9 +922,7 @@ def _jax_prep_inputs(
                 dense = dense.astype(np.int64)
                 G = len(uniq)
                 fe_codes_kept.append(dense)
-                counts_list.append(
-                    np.bincount(dense, minlength=G).astype(np.float64)
-                )
+                counts_list.append(np.bincount(dense, minlength=G).astype(np.float64))
                 fe_card.append(G)
             y_kept = y[keep_mask]
             X_kept = X[keep_mask]
@@ -872,14 +930,17 @@ def _jax_prep_inputs(
             _positive_weight_mass(
                 w_kept,
                 context=(
-                    f"feols_jax_bootstrap kept sample weights column "
-                    f"{weights!r}"
+                    f"feols_jax_bootstrap kept sample weights column " f"{weights!r}"
                 ),
             )
             stacked = np.column_stack([y_kept, X_kept])
             stacked_dem, _, _ = _weighted_ap_demean(
-                stacked, fe_codes_kept, counts_list, w_kept,
-                max_iter=fe_maxiter, tol=fe_tol,
+                stacked,
+                fe_codes_kept,
+                counts_list,
+                w_kept,
+                max_iter=fe_maxiter,
+                tol=fe_tol,
             )
             y_dem = stacked_dem[:, 0]
             X_dem = stacked_dem[:, 1:]
@@ -919,11 +980,11 @@ def _jax_prep_inputs(
 
 def feols_jax_bootstrap(
     formula: str,
-    data: 'pd.DataFrame',
+    data: "pd.DataFrame",
     *,
     n_boot: int = 1_000,
     seed: int = 0,
-    bootstrap: str = 'pairs',
+    bootstrap: str = "pairs",
     cluster: Optional[str] = None,
     weights: Optional[str] = None,
     drop_singletons: bool = True,
@@ -931,7 +992,7 @@ def feols_jax_bootstrap(
     fe_maxiter: int = 1_000,
     ci_alpha: float = 0.05,
     vmap_chunk_size: int = 200,
-    dtype: str = 'float64',
+    dtype: str = "float64",
 ) -> FeolsBootstrapResult:
     """JAX-backed pairs / cluster bootstrap for ``feols_jax``.
 
@@ -1007,18 +1068,18 @@ def feols_jax_bootstrap(
             "jax is not installed; pip install jax jaxlib to enable "
             "feols_jax_bootstrap."
         )
-    if bootstrap not in ('pairs', 'cluster', 'wild', 'wild_cluster'):
+    if bootstrap not in ("pairs", "cluster", "wild", "wild_cluster"):
         raise MethodIncompatibility(
             f"feols_jax_bootstrap: bootstrap={bootstrap!r}; supported: "
             f"'pairs', 'cluster', "
             f"'wild', or 'wild_cluster'"
         )
-    if bootstrap in ('cluster', 'wild_cluster') and cluster is None:
+    if bootstrap in ("cluster", "wild_cluster") and cluster is None:
         raise MethodIncompatibility(
             f"feols_jax_bootstrap: bootstrap={bootstrap!r} requires "
             "cluster=<column name>"
         )
-    if dtype not in ('float64', 'float32'):
+    if dtype not in ("float64", "float32"):
         raise MethodIncompatibility(
             f"feols_jax_bootstrap: dtype={dtype!r}; supported: "
             "'float64' or 'float32'"
@@ -1034,16 +1095,24 @@ def feols_jax_bootstrap(
             diagnostics={"n_boot": n_boot},
         )
     vmap_chunk_size = _positive_int(
-        vmap_chunk_size, name="vmap_chunk_size", context="feols_jax_bootstrap",
+        vmap_chunk_size,
+        name="vmap_chunk_size",
+        context="feols_jax_bootstrap",
     )
     ci_alpha = _open_unit_float(
-        ci_alpha, name="ci_alpha", context="feols_jax_bootstrap",
+        ci_alpha,
+        name="ci_alpha",
+        context="feols_jax_bootstrap",
     )
     fe_maxiter = _positive_int(
-        fe_maxiter, name="fe_maxiter", context="feols_jax_bootstrap",
+        fe_maxiter,
+        name="fe_maxiter",
+        context="feols_jax_bootstrap",
     )
     fe_tol = _nonnegative_finite_float(
-        fe_tol, name="fe_tol", context="feols_jax_bootstrap",
+        fe_tol,
+        name="fe_tol",
+        context="feols_jax_bootstrap",
     )
     if cluster is not None and cluster not in data.columns:
         raise MethodIncompatibility(
@@ -1053,9 +1122,12 @@ def feols_jax_bootstrap(
         )
 
     prep = _jax_prep_inputs(
-        formula, data,
-        weights=weights, drop_singletons=drop_singletons,
-        fe_tol=fe_tol, fe_maxiter=fe_maxiter,
+        formula,
+        data,
+        weights=weights,
+        drop_singletons=drop_singletons,
+        fe_tol=fe_tol,
+        fe_maxiter=fe_maxiter,
     )
 
     # Cluster column needs to be aligned with the kept-rows mask; it
@@ -1064,18 +1136,20 @@ def feols_jax_bootstrap(
     if cluster is not None:
         cluster_arr_full = data[cluster].to_numpy()
         cluster_codes_check, _ = pd.factorize(
-            cluster_arr_full, sort=False, use_na_sentinel=True,
+            cluster_arr_full,
+            sort=False,
+            use_na_sentinel=True,
         )
         if (cluster_codes_check < 0).any():
             raise MethodIncompatibility(
                 f"feols_jax_bootstrap: cluster column {cluster!r} contains "
                 "NaN; drop or impute upstream"
             )
-        cluster_kept = cluster_arr_full[prep['keep_mask']]
+        cluster_kept = cluster_arr_full[prep["keep_mask"]]
         cluster_codes_kept, _ = pd.factorize(cluster_kept, sort=False)
         cluster_codes_kept = cluster_codes_kept.astype(np.int32)
         n_clusters = int(cluster_codes_kept.max()) + 1 if cluster_codes_kept.size else 0
-        if n_clusters < 2 and bootstrap in ('cluster', 'wild_cluster'):
+        if n_clusters < 2 and bootstrap in ("cluster", "wild_cluster"):
             raise DataInsufficient(
                 f"feols_jax_bootstrap: bootstrap={bootstrap!r} requires >= 2 clusters; "
                 f"got {n_clusters}"
@@ -1087,9 +1161,9 @@ def feols_jax_bootstrap(
     np_dtype = np.float64
     jax_dtype = jnp.float32 if dtype == "float32" else jnp.float64
 
-    X_j = jnp.asarray(prep['X_dem'], dtype=jax_dtype)
-    y_j = jnp.asarray(prep['y_dem'], dtype=jax_dtype)
-    w_j = jnp.asarray(prep['w'], dtype=jax_dtype)
+    X_j = jnp.asarray(prep["X_dem"], dtype=jax_dtype)
+    y_j = jnp.asarray(prep["y_dem"], dtype=jax_dtype)
+    w_j = jnp.asarray(prep["w"], dtype=jax_dtype)
 
     # Point estimate (single solve). Wild bootstrap variants also need
     # the residuals and bread XtWX_inv from this fit.
@@ -1107,18 +1181,23 @@ def feols_jax_bootstrap(
 
     # Bootstrap.
     (
-        _one_pairs_boot, _build_cluster_boot,
-        _one_wild_boot, _build_wild_cluster_boot,
+        _one_pairs_boot,
+        _build_cluster_boot,
+        _one_wild_boot,
+        _build_wild_cluster_boot,
     ) = _make_bootstrap_kernels()
     key = jax.random.PRNGKey(int(seed))
     keys = jax.random.split(key, int(n_boot))
 
-    if bootstrap == 'pairs':
+    if bootstrap == "pairs":
+
         def _run_chunk(keys_chunk: Any) -> Any:
             return jax.vmap(
-                _one_pairs_boot, in_axes=(0, None, None, None),
+                _one_pairs_boot,
+                in_axes=(0, None, None, None),
             )(keys_chunk, X_j, y_j, w_j)
-    elif bootstrap == 'cluster':
+
+    elif bootstrap == "cluster":
         cluster_codes_j = jnp.asarray(cluster_codes_kept)
         _one_cluster_boot = _build_cluster_boot(n_clusters)
 
@@ -1127,12 +1206,15 @@ def feols_jax_bootstrap(
                 _one_cluster_boot,
                 in_axes=(0, None, None, None, None),
             )(keys_chunk, X_j, y_j, w_j, cluster_codes_j)
-    elif bootstrap == 'wild':
+
+    elif bootstrap == "wild":
+
         def _run_chunk(keys_chunk: Any) -> Any:
             return jax.vmap(
                 _one_wild_boot,
                 in_axes=(0, None, None, None, None, None),
             )(keys_chunk, X_j, w_j, resid_j, beta_point_j, XtWX_inv_j)
+
     else:  # wild_cluster
         cluster_codes_j = jnp.asarray(cluster_codes_kept)
         _one_wild_cluster_boot = _build_wild_cluster_boot(n_clusters)
@@ -1142,7 +1224,12 @@ def feols_jax_bootstrap(
                 _one_wild_cluster_boot,
                 in_axes=(0, None, None, None, None, None, None),
             )(
-                keys_chunk, X_j, w_j, resid_j, beta_point_j, XtWX_inv_j,
+                keys_chunk,
+                X_j,
+                w_j,
+                resid_j,
+                beta_point_j,
+                XtWX_inv_j,
                 cluster_codes_j,
             )
 
@@ -1164,7 +1251,7 @@ def feols_jax_bootstrap(
     ci_lo = np.quantile(boot_betas, lower, axis=0)
     ci_hi = np.quantile(boot_betas, upper, axis=0)
 
-    names = prep['coef_names_full']
+    names = prep["coef_names_full"]
     return FeolsBootstrapResult(
         coef=pd.Series(beta_point, index=names, name="Estimate"),
         se_boot=pd.Series(se_boot, index=names, name="SE (boot)"),

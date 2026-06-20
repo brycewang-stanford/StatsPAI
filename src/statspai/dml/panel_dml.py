@@ -68,7 +68,6 @@ from scipy import stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
-
 __all__ = ["DMLPanelResult", "dml_panel"]
 
 
@@ -157,6 +156,7 @@ class DMLPanelResult:
     >>> res.method
     'dml_panel'
     """
+
     estimate: float
     se: float
     ci_lower: float
@@ -176,8 +176,7 @@ class DMLPanelResult:
         ci = f"[{self.ci_lower:+.4f}, {self.ci_upper:+.4f}]"
         tfe = "Y" if self.include_time_fe else "N"
         return (
-            "Long-panel Double/Debiased ML\n"
-            + "=" * 62 + "\n"
+            "Long-panel Double/Debiased ML\n" + "=" * 62 + "\n"
             f"  n units      : {self.n_units}\n"
             f"  n obs        : {self.n_obs}\n"
             f"  n folds      : {self.n_folds}\n"
@@ -196,8 +195,12 @@ class DMLPanelResult:
 def _default_outcome_learner() -> Any:
     """Gradient boosting for g(X) — same convention as sp.dml PLR."""
     from sklearn.ensemble import GradientBoostingRegressor
+
     return GradientBoostingRegressor(
-        n_estimators=200, max_depth=3, learning_rate=0.05, random_state=0,
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.05,
+        random_state=0,
     )
 
 
@@ -213,14 +216,21 @@ def _default_treatment_learner() -> Any:
     ``binary_treatment=True`` path and was incorrect.
     """
     from sklearn.ensemble import GradientBoostingRegressor
+
     return GradientBoostingRegressor(
-        n_estimators=200, max_depth=3, learning_rate=0.05, random_state=0,
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.05,
+        random_state=0,
     )
 
 
-def _within_transform(values: np.ndarray, unit_idx: np.ndarray,
-                      time_idx: Optional[np.ndarray] = None,
-                      sample_weight: Optional[np.ndarray] = None) -> np.ndarray:
+def _within_transform(
+    values: np.ndarray,
+    unit_idx: np.ndarray,
+    time_idx: Optional[np.ndarray] = None,
+    sample_weight: Optional[np.ndarray] = None,
+) -> np.ndarray:
     """Subtract unit (and optionally time) means from a vector.
 
     When ``sample_weight`` is supplied the unit and time means are the
@@ -241,8 +251,8 @@ def _within_transform(values: np.ndarray, unit_idx: np.ndarray,
         s_v = pd.Series(v * w)
         s_w = pd.Series(w)
         unit_means = (
-            s_v.groupby(unit_idx).transform("sum").to_numpy() /
-            s_w.groupby(unit_idx).transform("sum").to_numpy()
+            s_v.groupby(unit_idx).transform("sum").to_numpy()
+            / s_w.groupby(unit_idx).transform("sum").to_numpy()
         )
     else:
         unit_means = pd.Series(v).groupby(unit_idx).transform("mean").to_numpy()
@@ -253,8 +263,8 @@ def _within_transform(values: np.ndarray, unit_idx: np.ndarray,
             s_v = pd.Series(v * w)
             s_w = pd.Series(w)
             time_means = (
-                s_v.groupby(time_idx).transform("sum").to_numpy() /
-                s_w.groupby(time_idx).transform("sum").to_numpy()
+                s_v.groupby(time_idx).transform("sum").to_numpy()
+                / s_w.groupby(time_idx).transform("sum").to_numpy()
             )
         else:
             time_means = pd.Series(v).groupby(time_idx).transform("mean").to_numpy()
@@ -263,7 +273,9 @@ def _within_transform(values: np.ndarray, unit_idx: np.ndarray,
 
 
 def _cluster_se_from_psi(
-    psi: np.ndarray, J: float, unit_ids: np.ndarray,
+    psi: np.ndarray,
+    J: float,
+    unit_ids: np.ndarray,
     sample_weight: Optional[np.ndarray] = None,
 ) -> tuple:
     """Cluster-robust SE for the (possibly weighted) DML orthogonal score.
@@ -280,19 +292,19 @@ def _cluster_se_from_psi(
     n = len(psi)
     if sample_weight is None:
         s = pd.Series(psi).groupby(unit_ids).sum().to_numpy()
-        omega = float(np.sum(s ** 2) / n)
+        omega = float(np.sum(s**2) / n)
         if abs(J) < 1e-12:
             return float("nan"), omega  # pragma: no cover
-        var_theta = omega / (n * J ** 2)
+        var_theta = omega / (n * J**2)
         return float(np.sqrt(var_theta)), omega
     # Weighted version: J is now the *sum* (not mean) of w·d², and
     # the cluster sum aggregates w·ψ within unit.
     w = np.asarray(sample_weight, dtype=float)
     s = pd.Series(w * psi).groupby(unit_ids).sum().to_numpy()
-    omega = float(np.sum(s ** 2))
+    omega = float(np.sum(s**2))
     if abs(J) < 1e-12:
         return float("nan"), omega  # pragma: no cover
-    var_theta = omega / (J ** 2)
+    var_theta = omega / (J**2)
     return float(np.sqrt(var_theta)), omega
 
 
@@ -472,6 +484,7 @@ def dml_panel(
         )
     if binary_treatment:
         import warnings  # pragma: no cover
+
         d_unique = pd.unique(data[treat].dropna())
         if not set(d_unique.tolist()).issubset({0, 1, 0.0, 1.0}):
             raise MethodIncompatibility(  # pragma: no cover
@@ -595,12 +608,17 @@ def dml_panel(
     # Covariates demeaned the same way so the nuisance learners work on
     # within-variation only — matches Clarke & Polselli (2025) §3.
     if covariates:
-        X_tilde = np.column_stack([
-            _within_transform(
-                X[:, j], unit_ids, time_idx_for_within, sample_weight=w_full,
-            )
-            for j in range(X.shape[1])
-        ])
+        X_tilde = np.column_stack(
+            [
+                _within_transform(
+                    X[:, j],
+                    unit_ids,
+                    time_idx_for_within,
+                    sample_weight=w_full,
+                )
+                for j in range(X.shape[1])
+            ]
+        )
     else:
         X_tilde = X
 
@@ -627,9 +645,7 @@ def dml_panel(
 
     from sklearn.base import clone
 
-    def _maybe_weighted_fit(
-        learner: Any, Xfit: Any, yfit: Any, wfit: Any
-    ) -> Any:
+    def _maybe_weighted_fit(learner: Any, Xfit: Any, yfit: Any, wfit: Any) -> Any:
         clf = clone(learner)
         if wfit is None:
             clf.fit(Xfit, yfit)
@@ -638,6 +654,7 @@ def dml_panel(
             clf.fit(Xfit, yfit, sample_weight=wfit)
         except TypeError:  # pragma: no cover
             import warnings  # pragma: no cover
+
             warnings.warn(  # pragma: no cover
                 f"{type(learner).__name__}.fit does not accept "
                 f"sample_weight; falling back to unweighted nuisance "
@@ -685,11 +702,11 @@ def dml_panel(
     # ---- Cluster-robust SE ---------------------------------------------
     psi = (y_resid - theta * d_resid) * d_resid  # Neyman-orthogonal score
     if w_full is None:
-        J = -float(np.mean(d_resid ** 2))
+        J = -float(np.mean(d_resid**2))
     else:
         # Weighted version of J: minus the *sum* of w·d² (matches the
         # weighted Liang-Zeger derivation in ``_cluster_se_from_psi``).
-        J = -float(np.sum(w_full * d_resid ** 2))
+        J = -float(np.sum(w_full * d_resid**2))
     se, omega = _cluster_se_from_psi(psi, J, unit_ids, sample_weight=w_full)
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -711,9 +728,11 @@ def dml_panel(
     diagnostics = {
         "y_resid_std": float(np.std(y_resid)),
         "d_resid_std": float(np.std(d_resid)),
-        "corr_yd_resid": float(
-            np.corrcoef(y_resid, d_resid)[0, 1]
-        ) if np.std(y_resid) > 0 and np.std(d_resid) > 0 else 0.0,
+        "corr_yd_resid": (
+            float(np.corrcoef(y_resid, d_resid)[0, 1])
+            if np.std(y_resid) > 0 and np.std(d_resid) > 0
+            else 0.0
+        ),
         "within_r2_outcome": within_r2,
         "omega_cluster": omega,
         "weighted": w_full is not None,

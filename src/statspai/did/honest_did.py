@@ -232,8 +232,7 @@ def honest_did(
         raise MethodIncompatibility(
             "backend must be 'native', 'honestdid', or 'r'.",
             recovery_hint=(
-                "Use backend='native' unless exact R HonestDiD parity is "
-                "required."
+                "Use backend='native' unless exact R HonestDiD parity is " "required."
             ),
             diagnostics={"backend": backend},
         )
@@ -342,7 +341,8 @@ def _honest_did_r_backend(
         )
     else:
         honestdid_method = _require_string(
-            honestdid_method, argument="honestdid_method",
+            honestdid_method,
+            argument="honestdid_method",
         )
         method_aliases = {
             "c_lf": "C-LF",
@@ -403,8 +403,7 @@ def _honest_did_r_backend(
         raise DataInsufficient(
             "backend='honestdid' requires at least one pre-treatment period.",
             recovery_hint=(
-                "Use an event study with at least one pre-treatment "
-                "coefficient."
+                "Use an event study with at least one pre-treatment " "coefficient."
             ),
             diagnostics={"backend": "honestdid"},
         )
@@ -665,9 +664,8 @@ def _extract_event_study(result: CausalResult) -> pd.DataFrame:
     es = cast(Optional[pd.DataFrame], info.get("event_study"))
     if es is None and getattr(result, "detail", None) is not None:
         det = result.detail
-        if (
-            isinstance(det, pd.DataFrame)
-            and {"relative_time", "att", "se"}.issubset(det.columns)
+        if isinstance(det, pd.DataFrame) and {"relative_time", "att", "se"}.issubset(
+            det.columns
         ):
             es = det
     if es is None:

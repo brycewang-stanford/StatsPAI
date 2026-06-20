@@ -45,14 +45,15 @@ from scipy import stats
 
 from ..exceptions import IdentificationFailure
 
-
 # ═══════════════════════════════════════════════════════════════════════
 #  Data containers
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class KleibergenPaapResult:
     """Container for Kleibergen-Paap rk test output."""
+
     rk_wald: float
     rk_wald_pvalue: float
     rk_lm: float
@@ -79,6 +80,7 @@ class KleibergenPaapResult:
 @dataclass
 class SandersonWindmeijerResult:
     """Sanderson-Windmeijer conditional F for each endogenous variable."""
+
     endog_names: List[str]
     sw_f: Dict[str, float]
     sw_pvalue: Dict[str, float]
@@ -87,12 +89,15 @@ class SandersonWindmeijerResult:
     partial_r2: Dict[str, float]
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            'SW F': [self.sw_f[n] for n in self.endog_names],
-            'p-value': [self.sw_pvalue[n] for n in self.endog_names],
-            'df_num': [self.df_num[n] for n in self.endog_names],
-            'partial R²': [self.partial_r2[n] for n in self.endog_names],
-        }, index=self.endog_names)
+        return pd.DataFrame(
+            {
+                "SW F": [self.sw_f[n] for n in self.endog_names],
+                "p-value": [self.sw_pvalue[n] for n in self.endog_names],
+                "df_num": [self.df_num[n] for n in self.endog_names],
+                "partial R²": [self.partial_r2[n] for n in self.endog_names],
+            },
+            index=self.endog_names,
+        )
 
     def summary(self) -> str:
         lines = [
@@ -108,6 +113,7 @@ class SandersonWindmeijerResult:
 @dataclass
 class CLRResult:
     """Moreira (2003) CLR test."""
+
     statistic: float
     pvalue: float
     beta0: float
@@ -129,6 +135,7 @@ class CLRResult:
 # ═══════════════════════════════════════════════════════════════════════
 #  Internal helpers
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _residualize(M: np.ndarray, W: Optional[np.ndarray]) -> np.ndarray:
     """Project M onto the orthogonal complement of W."""
@@ -165,7 +172,11 @@ def _extract_exog(
 ) -> np.ndarray:
     if exog is None:
         return np.ones((n, 1)) if add_const else np.empty((n, 0))
-    if isinstance(exog, (list, tuple)) and data is not None and all(isinstance(v, str) for v in exog):
+    if (
+        isinstance(exog, (list, tuple))
+        and data is not None
+        and all(isinstance(v, str) for v in exog)
+    ):
         W = data[list(exog)].values.astype(float)
     else:
         W = _as_matrix(exog)
@@ -177,6 +188,7 @@ def _extract_exog(
 # ═══════════════════════════════════════════════════════════════════════
 #  Kleibergen-Paap rk statistic
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def kleibergen_paap_rk(
     endog: Union[np.ndarray, pd.DataFrame],
@@ -258,8 +270,8 @@ def kleibergen_paap_rk(
         # Robust sandwich: bread = kron(ZZ_inv, I_p) on both sides.
         meat = np.zeros((k * p, k * p))
         for i in range(n):
-            zi = Z_tilde[i]   # (k,)
-            vi = V[i]         # (p,)
+            zi = Z_tilde[i]  # (k,)
+            vi = V[i]  # (p,)
             meat += np.kron(np.outer(zi, zi), np.outer(vi, vi))
         bread = np.kron(ZZ_inv, np.eye(p))
         cov_vec = bread @ meat @ bread
@@ -277,7 +289,7 @@ def kleibergen_paap_rk(
             score_mat = np.zeros((k, p))
             for t in idx:
                 score_mat += np.outer(Z_tilde[t], V[t])
-            v = score_mat.flatten(order='F')  # vec(score) with col-stacking
+            v = score_mat.flatten(order="F")  # vec(score) with col-stacking
             meat += np.outer(v, v)
         meat *= G / max(G - 1, 1)
         bread = np.kron(ZZ_inv, np.eye(p))
@@ -287,7 +299,7 @@ def kleibergen_paap_rk(
         raise ValueError(f"Unknown cov_type: {cov_type}")
 
     # KP rk Wald: vec(Pi)' cov_vec^{-1} vec(Pi)
-    vec_Pi = Pi.flatten(order='F')
+    vec_Pi = Pi.flatten(order="F")
     cov_pinv = np.linalg.pinv(cov_vec)
     rk_wald = float(vec_Pi @ cov_pinv @ vec_Pi)
 
@@ -315,7 +327,7 @@ def kleibergen_paap_rk(
     Ds = D_tilde @ Sigma_half_inv.T  # whitened endog
     A = Zs.T @ Ds / np.sqrt(n)  # k x p
     sv = np.linalg.svd(A, compute_uv=False)
-    rk_lm = float(n * sv[-1] ** 2)   # smallest sv², scaled by n
+    rk_lm = float(n * sv[-1] ** 2)  # smallest sv², scaled by n
     rk_lm_pvalue = float(1 - stats.chi2.cdf(rk_lm, df=(k - p + 1)))
 
     return KleibergenPaapResult(
@@ -341,6 +353,7 @@ def _sqrtm_sym(M: np.ndarray) -> np.ndarray:
 # ═══════════════════════════════════════════════════════════════════════
 #  Sanderson-Windmeijer conditional F
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def sanderson_windmeijer(
     endog: Union[np.ndarray, pd.DataFrame],
@@ -390,7 +403,9 @@ def sanderson_windmeijer(
 
     names = endog_names or _collect_names(endog, prefix="endog")
     if len(names) != p:
-        raise ValueError(f"endog_names length {len(names)} != n_endog {p}")  # pragma: no cover
+        raise ValueError(
+            f"endog_names length {len(names)} != n_endog {p}"
+        )  # pragma: no cover
 
     # Partial out exogenous
     D_tilde = _residualize(D, W)
@@ -434,7 +449,9 @@ def sanderson_windmeijer(
                 f"Not enough instruments: k - (p-1) = {df1} for endogenous '{names[j]}'."
             )
         if df2 <= 0:
-            raise ValueError(f"Not enough observations: df_denom = {df2}.")  # pragma: no cover
+            raise ValueError(
+                f"Not enough observations: df_denom = {df2}."
+            )  # pragma: no cover
 
         if rss > 0 and tss > 0:
             explained = tss - rss
@@ -464,6 +481,7 @@ def sanderson_windmeijer(
 # ═══════════════════════════════════════════════════════════════════════
 #  Moreira CLR test
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def conditional_lr_test(
     y: Union[np.ndarray, pd.Series, str],
@@ -515,9 +533,7 @@ def conditional_lr_test(
         Dv = np.asarray(endog, dtype=float)
     if isinstance(instruments, list) and all(isinstance(v, str) for v in instruments):
         if data is None:
-            raise ValueError(
-                "`data` is required when `instruments` are column names."
-            )
+            raise ValueError("`data` is required when `instruments` are column names.")
         Z = data[instruments].values.astype(float)
     else:
         Z = _as_matrix(instruments)
@@ -526,7 +542,9 @@ def conditional_lr_test(
     Dv = Dv.reshape(-1)
     n = len(Yv)
     if Dv.ndim != 1:
-        raise ValueError("CLR test supports a single endogenous regressor only.")  # pragma: no cover
+        raise ValueError(
+            "CLR test supports a single endogenous regressor only."
+        )  # pragma: no cover
     k = Z.shape[1]
 
     W = _extract_exog(data, exog, n, add_const)
@@ -561,7 +579,7 @@ def conditional_lr_test(
     # T built from d residualised on u direction
     # d_perp = d - (sigma_uv/sigma_uu) * ystar
     d_perp = d_t - (sigma_uv / max(sigma_uu, 1e-12)) * ystar
-    sigma_perp = max(sigma_vv - sigma_uv ** 2 / max(sigma_uu, 1e-12), 1e-12)
+    sigma_perp = max(sigma_vv - sigma_uv**2 / max(sigma_uu, 1e-12), 1e-12)
     T = Zs.T @ d_perp / np.sqrt(sigma_perp)
 
     ar = float(S @ S)  # Anderson-Rubin
@@ -588,14 +606,14 @@ def conditional_lr_test(
     coords = S_sim @ Q  # m x k
     s1 = coords[:, 0]
     s_rest_sq = np.sum(coords[:, 1:] ** 2, axis=1)
-    ar_sim = s1 ** 2 + s_rest_sq
-    lm_sim = s1 ** 2  # because T has norm sqrt(qt); (S.T)^2/qt after cancel
+    ar_sim = s1**2 + s_rest_sq
+    lm_sim = s1**2  # because T has norm sqrt(qt); (S.T)^2/qt after cancel
     # NOTE: conditioning on qt — qt itself cancels in LM because
     # LM = (S'T)^2 / (T'T) = s1^2 * qt / qt = s1^2.
     clr_sim = 0.5 * (
-        ar_sim - qt + np.sqrt(
-            np.maximum((ar_sim + qt) ** 2 - 4 * (ar_sim * qt - lm_sim * qt), 0.0)
-        )
+        ar_sim
+        - qt
+        + np.sqrt(np.maximum((ar_sim + qt) ** 2 - 4 * (ar_sim * qt - lm_sim * qt), 0.0))
     )
     pvalue = float(np.mean(clr_sim >= clr_stat))
 

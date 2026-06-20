@@ -91,7 +91,10 @@ def _get_treat_col(rec: Dict[str, Any], data: pd.DataFrame) -> Optional[str]:
             for t in tokens:
                 if t in data.columns:
                     return str(t)
-        tokens = [t.strip() for t in rhs.replace("+", " ").replace("(", " ").replace(")", " ").split()]
+        tokens = [
+            t.strip()
+            for t in rhs.replace("+", " ").replace("(", " ").replace(")", " ").split()
+        ]
         for t in tokens:
             if t in data.columns:
                 return str(t)
@@ -284,9 +287,7 @@ def _placebo_pass(
     if not treat_col or treat_col not in data.columns:
         # Genuinely not applicable — e.g. RD, where "treatment" isn't a
         # permutable column. Return NaN so the composite drops it.
-        return {
-            "score": np.nan, "passed": 0, "total": 0, "applicable": False
-        }
+        return {"score": np.nan, "passed": 0, "total": 0, "applicable": False}
 
     id_col = _get_id_col(rec)
     n_pass = 0
@@ -295,9 +296,7 @@ def _placebo_pass(
 
     func = getattr(sp, rec["function"], None)
     if func is None:
-        return {
-            "score": np.nan, "passed": 0, "total": 0, "applicable": False
-        }
+        return {"score": np.nan, "passed": 0, "total": 0, "applicable": False}
 
     last_exc: Optional[BaseException] = None
     n_crashes = 0
@@ -309,9 +308,7 @@ def _placebo_pass(
             mapping = dict(zip(units, perm))
             # Shuffle the treatment assignment at the unit level
             unit_treat = permuted.groupby(id_col)[treat_col].first()
-            new_treat = permuted[id_col].map(
-                {u: unit_treat[mapping[u]] for u in units}
-            )
+            new_treat = permuted[id_col].map({u: unit_treat[mapping[u]] for u in units})
             permuted[treat_col] = new_treat.values
         else:
             permuted[treat_col] = rng.permutation(permuted[treat_col].values)
@@ -352,6 +349,7 @@ def _placebo_pass(
         # single degradation warning rather than 5 silent skips.
         if n_crashes == n_reps and last_exc is not None:
             from ..workflow._degradation import record_degradation
+
             record_degradation(
                 None,
                 section="verify_recommendation: placebo all-reps crashed",
@@ -362,7 +360,9 @@ def _placebo_pass(
                 ),
             )
     return {
-        "score": score, "passed": n_pass, "total": n_total,
+        "score": score,
+        "passed": n_pass,
+        "total": n_total,
         "applicable": True,
     }
 
@@ -493,17 +493,15 @@ def verify_recommendation(
     # Combine: weights reflect our confidence in each signal
     weights = []
     scores = []
-    for w, s in [(0.4, stability["score"]),
-                 (0.3, placebo["score"]),
-                 (0.3, subsample["score"])]:
+    for w, s in [
+        (0.4, stability["score"]),
+        (0.3, placebo["score"]),
+        (0.3, subsample["score"]),
+    ]:
         if np.isfinite(s):
             weights.append(w)
             scores.append(s)
-    combined = (
-        float(np.average(scores, weights=weights))
-        if weights
-        else np.nan
-    )
+    combined = float(np.average(scores, weights=weights)) if weights else np.nan
 
     return {
         "score": combined,

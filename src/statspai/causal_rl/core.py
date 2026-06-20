@@ -22,7 +22,6 @@ from typing import Callable, Dict, List, Optional, Sequence
 import numpy as np
 import pandas as pd
 
-
 __all__ = [
     "causal_bandit",
     "counterfactual_policy_optimization",
@@ -68,14 +67,16 @@ class CFPolicyResult:
     n_trajectories: int
 
     def summary(self) -> str:
-        return "\n".join([
-            "Counterfactual Policy Optimisation",
-            "=" * 60,
-            f"  E[V | logged policy]  : {self.expected_value_logged:+.6f}",
-            f"  E[V | target policy]  : {self.expected_value_target:+.6f}",
-            f"  Improvement           : {self.improvement:+.6f}",
-            f"  # trajectories        : {self.n_trajectories}",
-        ])
+        return "\n".join(
+            [
+                "Counterfactual Policy Optimisation",
+                "=" * 60,
+                f"  E[V | logged policy]  : {self.expected_value_logged:+.6f}",
+                f"  E[V | target policy]  : {self.expected_value_target:+.6f}",
+                f"  Improvement           : {self.improvement:+.6f}",
+                f"  # trajectories        : {self.n_trajectories}",
+            ]
+        )
 
 
 @dataclass
@@ -166,9 +167,7 @@ def causal_bandit(
         raise ValueError("Need >= 2 arms.")
     expected = np.zeros(len(arms))
     for i, a in enumerate(arms):
-        draws = np.array([
-            reward_fn(a, context) for _ in range(n_samples)
-        ])
+        draws = np.array([reward_fn(a, context) for _ in range(n_samples)])
         expected[i] = float(draws.mean())
     best = int(expected.argmax())
     _result = CausalBanditResult(
@@ -179,6 +178,7 @@ def causal_bandit(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_rl.causal_bandit",
@@ -363,9 +363,7 @@ def structural_mdp(
             )
     else:
         if time is None:
-            raise ValueError(
-                "Either `next_state_cols` or `time` must be provided."
-            )
+            raise ValueError("Either `next_state_cols` or `time` must be provided.")
         # Construct next-state columns within each trajectory.
         group_cols = [trajectory] if trajectory is not None else []
         df = df.sort_values(group_cols + [time])
@@ -384,9 +382,7 @@ def structural_mdp(
     r = df[reward].to_numpy(dtype=float)
     n = len(df)
     if n < len(state_cols) + len(action_cols) + 5:
-        raise ValueError(
-            f"Too few transitions (n={n}) for SVAR identification."
-        )
+        raise ValueError(f"Too few transitions (n={n}) for SVAR identification.")
 
     # s_{t+1} = A_mat @ s_t + B_mat @ a_t
     #   X has shape (n, ds + da); Sn has shape (n, ds).  lstsq(X, Sn)
@@ -405,12 +401,14 @@ def structural_mdp(
     da = len(action_cols)
     A_mat = AB[:ds, :].T  # shape (ds, ds): s_next = A_mat @ s
     B_mat = AB[ds:, :].T  # shape (ds, da): s_next += B_mat @ a
-    assert A_mat.shape == (ds, ds), (
-        f"A_mat shape mismatch: expected {(ds, ds)}, got {A_mat.shape}"
-    )
-    assert B_mat.shape == (ds, da), (
-        f"B_mat shape mismatch: expected {(ds, da)}, got {B_mat.shape}"
-    )
+    assert A_mat.shape == (
+        ds,
+        ds,
+    ), f"A_mat shape mismatch: expected {(ds, ds)}, got {A_mat.shape}"
+    assert B_mat.shape == (
+        ds,
+        da,
+    ), f"B_mat shape mismatch: expected {(ds, da)}, got {B_mat.shape}"
 
     # r_t = coef @ [s_t; a_t]
     coef, *_ = np.linalg.lstsq(X, r, rcond=None)

@@ -437,7 +437,11 @@ def partial_identification(
 
     method = _require_string_option(method, "method", "partial_identification")
     X_final = _coerce_column_list(
-        X, "X", "partial_identification", allow_none=True, allow_empty=True,
+        X,
+        "X",
+        "partial_identification",
+        allow_none=True,
+        allow_empty=True,
     )
 
     if method == "manski":
@@ -476,7 +480,9 @@ def partial_identification(
                 },
             )
         selection_final = _require_column_name(
-            selection, "selection", "partial_identification",
+            selection,
+            "selection",
+            "partial_identification",
         )
         return _bounds.lee_bounds(
             data=data,
@@ -522,7 +528,9 @@ def partial_identification(
                 diagnostics={"function": "partial_identification", "method": method},
             )
         instrument_final = _require_column_name(
-            instrument, "instrument", "partial_identification",
+            instrument,
+            "instrument",
+            "partial_identification",
         )
         return _bounds.iv_bounds(
             data=data,
@@ -771,9 +779,7 @@ def causal_discovery(
     # kwargs stay clean.  Only notears / pc support a `variables=`
     # kwarg natively; ges / lingam just take the whole frame.
     if variables is not None:
-        data = data[
-            _coerce_column_list(variables, "variables", "causal_discovery")
-        ]
+        data = data[_coerce_column_list(variables, "variables", "causal_discovery")]
 
     if method == "notears":
         return _cd.notears(data=data, **kwargs)
@@ -979,10 +985,16 @@ def policy_tree(
 
     # Resolve X / covariates
     X_final = _coerce_column_list(
-        X, "X", "policy_tree", allow_none=True,
+        X,
+        "X",
+        "policy_tree",
+        allow_none=True,
     )
     covariates_final = _coerce_column_list(
-        covariates, "covariates", "policy_tree", allow_none=True,
+        covariates,
+        "covariates",
+        "policy_tree",
+        allow_none=True,
     )
     if (
         X_final is not None
@@ -992,9 +1004,7 @@ def policy_tree(
         raise MethodIncompatibility(
             "policy_tree: conflicting covariate lists — `X` and "
             "`covariates` must agree if both are given.",
-            recovery_hint=(
-                "Pass covariates through either X or covariates, not both."
-            ),
+            recovery_hint=("Pass covariates through either X or covariates, not both."),
             diagnostics={
                 "function": "policy_tree",
                 "X": X_final,
@@ -1128,7 +1138,10 @@ def dml(
         treat_final = _require_column_name(treat_final, "treat", "dml")
     X_final = _coerce_column_list(X, "X", "dml", allow_none=True)
     covariates_final = _coerce_column_list(
-        covariates, "covariates", "dml", allow_none=True,
+        covariates,
+        "covariates",
+        "dml",
+        allow_none=True,
     )
     if (
         X_final is not None
@@ -1138,9 +1151,7 @@ def dml(
         raise MethodIncompatibility(
             "dml: conflicting covariate lists — `X` and `covariates` "
             "must agree if both are given.",
-            recovery_hint=(
-                "Pass covariates through either X or covariates, not both."
-            ),
+            recovery_hint=("Pass covariates through either X or covariates, not both."),
             diagnostics={
                 "function": "dml",
                 "X": X_final,

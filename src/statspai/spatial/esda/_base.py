@@ -1,4 +1,5 @@
 """Shared ESDA result plumbing."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,7 +21,7 @@ class SpatialStatistic:
     extras: dict = field(default_factory=dict)
 
     @property
-    def I(self) -> float:           # noqa: E741 (Moran convention)
+    def I(self) -> float:  # noqa: E741 (Moran convention)
         return self.value
 
     @property

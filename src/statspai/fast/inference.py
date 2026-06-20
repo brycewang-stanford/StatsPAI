@@ -26,11 +26,12 @@ and Statistics 90(3), 414–427.
 MacKinnon, J. G., Webb, M. D. (2018). The wild bootstrap for few
 (treated) clusters. Econometrics Journal 21(2), 114–135.
 """
+
 from __future__ import annotations
 
 import warnings
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -54,7 +55,9 @@ def _factorize_cluster_labels(
             f"{context}: cluster length {cluster_len} does not match n={n}"
         )
     cluster_codes, _ = pd.factorize(
-        cluster_arr, sort=False, use_na_sentinel=True,
+        cluster_arr,
+        sort=False,
+        use_na_sentinel=True,
     )
     if (cluster_codes < 0).any():
         raise DataInsufficient(
@@ -84,14 +87,11 @@ def _prepare_weights(
         )
     if not np.isfinite(arr).all():
         raise DataInsufficient(
-            f"{context}: weights contain non-finite values; "
-            "drop or impute upstream"
+            f"{context}: weights contain non-finite values; " "drop or impute upstream"
         )
     if strictly_positive:
         if (arr <= 0).any():
-            raise MethodIncompatibility(
-                f"{context}: weights must be strictly positive"
-            )
+            raise MethodIncompatibility(f"{context}: weights must be strictly positive")
     elif (arr < 0).any():
         raise MethodIncompatibility(f"{context}: weights must be non-negative")
     return arr
@@ -100,6 +100,7 @@ def _prepare_weights(
 # ---------------------------------------------------------------------------
 # Cluster-robust variance
 # ---------------------------------------------------------------------------
+
 
 def crve(
     X: np.ndarray,
@@ -214,9 +215,9 @@ def crve(
             evals, evecs = np.linalg.eigh(M)
             # Avoid blowing up on (near-)zero eigenvalues — pin a floor.
             evals = np.maximum(evals, 1e-12)
-            inv_sqrt = (evecs * (evals ** -0.5)) @ evecs.T  # (n_g, n_g)
-            u_adj = inv_sqrt @ u_g                          # adjusted residuals
-            score_g = (X_g * w_g[:, None]).T @ u_adj         # (k,)
+            inv_sqrt = (evecs * (evals**-0.5)) @ evecs.T  # (n_g, n_g)
+            u_adj = inv_sqrt @ u_g  # adjusted residuals
+            score_g = (X_g * w_g[:, None]).T @ u_adj  # (k,)
             meat += np.outer(score_g, score_g)
         return np.asarray(bread @ meat @ bread)
 
@@ -238,17 +239,17 @@ def crve(
             M = np.eye(n_g) - 0.5 * (H_gg + H_gg.T)
             evals, evecs = np.linalg.eigh(M)
             evals = np.maximum(evals, 1e-12)
-            inv = (evecs * (evals ** -1.0)) @ evecs.T
+            inv = (evecs * (evals**-1.0)) @ evecs.T
             u_adj = inv @ u_g
             score_g = (X_g * w_g[:, None]).T @ u_adj
             meat += np.outer(score_g, score_g)
         return np.asarray(bread @ meat @ bread)
 
     # CR1 uses the unadjusted cluster-score sum.
-    score = (residuals * weights)[:, None] * X      # (n, k)
+    score = (residuals * weights)[:, None] * X  # (n, k)
     cluster_score = np.zeros((G, k))
     np.add.at(cluster_score, cluster_codes, score)
-    meat = cluster_score.T @ cluster_score          # (k, k)
+    meat = cluster_score.T @ cluster_score  # (k, k)
     V = bread @ meat @ bread
 
     c = (G / (G - 1.0)) * ((n - 1.0) / max(n - k - extra_df, 1))
@@ -258,6 +259,7 @@ def crve(
 # ---------------------------------------------------------------------------
 # Wild cluster bootstrap
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class BootTestResult:
@@ -321,10 +323,16 @@ def _rademacher_weights(rng: np.random.Generator, n_clusters: int) -> np.ndarray
 
 # Webb 6-point distribution (MacKinnon-Webb 2018):
 # Values: ±sqrt(1.5), ±1, ±sqrt(0.5) (each with prob 1/6).
-_WEBB6 = np.array([
-    -np.sqrt(1.5), -1.0, -np.sqrt(0.5),
-    np.sqrt(0.5), 1.0, np.sqrt(1.5),
-])
+_WEBB6 = np.array(
+    [
+        -np.sqrt(1.5),
+        -1.0,
+        -np.sqrt(0.5),
+        np.sqrt(0.5),
+        1.0,
+        np.sqrt(1.5),
+    ]
+)
 
 
 def _webb6_weights(rng: np.random.Generator, n_clusters: int) -> np.ndarray:
@@ -404,7 +412,9 @@ def boottest(
 
     rng = np.random.default_rng(seed)
     cluster_codes, G = _factorize_cluster_labels(
-        cluster, n, context="boottest",
+        cluster,
+        n,
+        context="boottest",
     )
 
     w = _prepare_weights(obs_weights, n, context="boottest")
@@ -418,7 +428,12 @@ def boottest(
     # Observed t-statistic
     resid_full = y - X @ beta_full
     V_full = crve(
-        X, resid_full, cluster, weights=w, bread=bread, type="cr1",
+        X,
+        resid_full,
+        cluster,
+        weights=w,
+        bread=bread,
+        type="cr1",
         extra_df=extra_df,
     )
     se_obs = float(np.sqrt(V_full[null_coef, null_coef]))
@@ -436,7 +451,7 @@ def boottest(
     XR_tWyR = X_R.T @ (w * y_R)
     beta_R_other = np.linalg.solve(XR_tWXR, XR_tWyR)
     fitted_R = X_R @ beta_R_other + null_value * X[:, null_coef]
-    resid_R = y - fitted_R     # restricted residuals
+    resid_R = y - fitted_R  # restricted residuals
 
     # --- Bootstrap loop ---
     # Hot-path optimisations (Round 3 audit):
@@ -450,29 +465,29 @@ def boottest(
     weight_fn = _rademacher_weights if weights == "rademacher" else _webb6_weights
 
     cr1_factor = (G / (G - 1.0)) * ((n - 1.0) / max(n - k - extra_df, 1))
-    bread_row = bread[null_coef]               # (k,) row of bread for this null
+    bread_row = bread[null_coef]  # (k,) row of bread for this null
 
     # Pre-bake the score basis ``X * w``: doesn't change across B, and
     # multiplying once outside the loop saves O(B·n·k) work. We keep
     # both ``Xw`` and its transpose handy because beta update uses Xw.T
     # and the score formula uses Xw directly.
-    Xw = X * w[:, None]                        # (n, k)
-    XwT = Xw.T                                 # (k, n)
+    Xw = X * w[:, None]  # (n, k)
+    XwT = Xw.T  # (k, n)
 
     for b in range(B):
         v_g = weight_fn(rng, G)
         v_i = v_g[cluster_codes]
-        y_b = fitted_R + v_i * resid_R                   # (n,)
-        beta_b = bread @ (XwT @ y_b)                      # (k,)
-        resid_b = y_b - X @ beta_b                        # (n,)
+        y_b = fitted_R + v_i * resid_R  # (n,)
+        beta_b = bread @ (XwT @ y_b)  # (k,)
+        resid_b = y_b - X @ beta_b  # (n,)
         # Per-row score s_i = w_i * u_i * X_i (uses Xw to avoid re-mul).
-        score_b = resid_b[:, None] * Xw                   # (n, k)
+        score_b = resid_b[:, None] * Xw  # (n, k)
         # Cluster-summed scores via scatter-add. ``np.add.at`` is the
         # fastest path here for G in the typical 10–1000 range; an
         # explicit per-cluster Python loop wins only at very large G.
         cs = np.zeros((G, k))
         np.add.at(cs, cluster_codes, score_b)
-        meat = cs.T @ cs                                  # (k, k)
+        meat = cs.T @ cs  # (k, k)
         var_null = float(bread_row @ meat @ bread_row) * cr1_factor
         if var_null > 0.0:
             boot_t[b] = (beta_b[null_coef] - null_value) / np.sqrt(var_null)
@@ -500,6 +515,7 @@ def boottest(
 # Multi-coefficient joint Wald wild cluster bootstrap
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BootWaldResult:
     """Outcome of :func:`boottest_wald` (joint hypothesis bootstrap)."""
@@ -511,7 +527,7 @@ class BootWaldResult:
     n_boots: int
     weights: str
     boot_wald_dist: np.ndarray
-    df: int                                # rank(R) — number of restrictions
+    df: int  # rank(R) — number of restrictions
 
     def summary(self) -> str:
         return (
@@ -616,13 +632,13 @@ def boottest_wald(
     else:
         r = np.asarray(r, dtype=np.float64).reshape(-1)
         if r.shape[0] != q:
-            raise MethodIncompatibility(
-                f"r has length {r.shape[0]} but R has {q} rows"
-            )
+            raise MethodIncompatibility(f"r has length {r.shape[0]} but R has {q} rows")
 
     rng = np.random.default_rng(seed)
     cluster_codes, G = _factorize_cluster_labels(
-        cluster, n, context="boottest_wald",
+        cluster,
+        n,
+        context="boottest_wald",
     )
 
     w = _prepare_weights(obs_weights, n, context="boottest_wald")
@@ -633,7 +649,12 @@ def boottest_wald(
     beta_full = bread @ (X.T @ (w * y))
     resid_full = y - X @ beta_full
     V_full = crve(
-        X, resid_full, cluster, weights=w, bread=bread, type="cr1",
+        X,
+        resid_full,
+        cluster,
+        weights=w,
+        bread=bread,
+        type="cr1",
         extra_df=extra_df,
     )
     diff = R @ beta_full - r
@@ -649,8 +670,8 @@ def boottest_wald(
     # --- Restricted fit: β_R = β_full - V R' (R V R')^{-1} (R β_full - r) ---
     # NB: V here is the *unweighted* (X'WX)^{-1}; this gives the constrained
     # WLS solution that exactly satisfies R β_R = r (Greene 2003 §6.4).
-    bread_RT = bread @ R.T                                        # (k, q)
-    RbreadRT = R @ bread_RT                                       # (q, q)
+    bread_RT = bread @ R.T  # (k, q)
+    RbreadRT = R @ bread_RT  # (q, q)
     beta_R = beta_full - bread_RT @ np.linalg.solve(RbreadRT, diff)
     fitted_R = X @ beta_R
     resid_R = y - fitted_R
@@ -667,7 +688,7 @@ def boottest_wald(
         y_b = fitted_R + v_i * resid_R
         beta_b = bread @ (XwT @ y_b)
         resid_b = y_b - X @ beta_b
-        score_b = resid_b[:, None] * Xw                            # (n, k)
+        score_b = resid_b[:, None] * Xw  # (n, k)
         cs = np.zeros((G, k))
         np.add.at(cs, cluster_codes, score_b)
         meat = cs.T @ cs
@@ -685,15 +706,21 @@ def boottest_wald(
     pvalue = float(np.mean(boot_wald[finite_mask] >= wald_obs))
 
     return BootWaldResult(
-        R=R, r=r, wald_obs=wald_obs, pvalue=pvalue,
-        n_boots=int(finite_mask.sum()), weights=weights,
-        boot_wald_dist=boot_wald[finite_mask], df=q,
+        R=R,
+        r=r,
+        wald_obs=wald_obs,
+        pvalue=pvalue,
+        n_boots=int(finite_mask.sum()),
+        weights=weights,
+        boot_wald_dist=boot_wald[finite_mask],
+        df=q,
     )
 
 
 # ---------------------------------------------------------------------------
 # Bell-McCaffrey / Imbens-Kolesar Satterthwaite DOF for CR2 t-tests
 # ---------------------------------------------------------------------------
+
 
 def cluster_dof_bm(
     X: np.ndarray,
@@ -793,7 +820,9 @@ def cluster_dof_bm(
     weights = _prepare_weights(weights, n, context="cluster_dof_bm")
 
     cluster_codes, G = _factorize_cluster_labels(
-        cluster, n, context="cluster_dof_bm",
+        cluster,
+        n,
+        context="cluster_dof_bm",
     )
 
     if bread is None:
@@ -802,8 +831,8 @@ def cluster_dof_bm(
 
     # Pre-compute ``X · bread · contrast`` once; per-cluster only needs
     # the subset rows.
-    bread_c = bread @ contrast                    # (k,)
-    Xbc = X @ bread_c                             # (n,)
+    bread_c = bread @ contrast  # (k,)
+    Xbc = X @ bread_c  # (n,)
 
     lambdas = np.zeros(G)
     for g in range(G):
@@ -818,12 +847,12 @@ def cluster_dof_bm(
         M = np.eye(n_g) - 0.5 * (H_gg + H_gg.T)
         evals, evecs = np.linalg.eigh(M)
         evals = np.maximum(evals, 1e-12)
-        inv_sqrt = (evecs * (evals ** -0.5)) @ evecs.T
+        inv_sqrt = (evecs * (evals**-0.5)) @ evecs.T
 
         # λ_g = ||A_g · W_g · v||² with v = X_g · bread · c
-        v = Xbc[mask]                              # (n_g,)
-        Wv = w_g * v                               # (n_g,)
-        AWv = inv_sqrt @ Wv                        # (n_g,)
+        v = Xbc[mask]  # (n_g,)
+        Wv = w_g * v  # (n_g,)
+        AWv = inv_sqrt @ Wv  # (n_g,)
         lambdas[g] = float(AWv @ AWv)
 
     sum_lam = float(lambdas.sum())
@@ -832,7 +861,7 @@ def cluster_dof_bm(
         # Degenerate (all λ_g = 0): contrast lies in the null space of
         # the cluster-score basis. Return G - 1 as a conservative fallback.
         return float(G - 1)
-    return float(sum_lam ** 2 / sum_lam2)
+    return float(sum_lam**2 / sum_lam2)
 
 
 def cluster_dof_wald_bm(
@@ -924,7 +953,9 @@ def cluster_dof_wald_bm(
     weights = _prepare_weights(weights, n, context="cluster_dof_wald_bm")
 
     cluster_codes, G = _factorize_cluster_labels(
-        cluster, n, context="cluster_dof_wald_bm",
+        cluster,
+        n,
+        context="cluster_dof_wald_bm",
     )
     if G <= q:
         raise DataInsufficient(
@@ -944,8 +975,8 @@ def cluster_dof_wald_bm(
     #   ν_W = (Σ_g tr(E_g E_g'))² / Σ_g ||E_g E_g'||_F²
     # where ||·||_F is the Frobenius norm. For q=1 this collapses to
     # (Σ λ_g)² / Σ λ_g² — i.e. exactly :func:`cluster_dof_bm`.
-    sum_tr = 0.0          # Σ_g tr(E_g E_g')   = Σ_g ||E_g||_F²
-    sum_frob2 = 0.0       # Σ_g ||E_g E_g'||_F²  = Σ_g tr((E_g E_g')²)
+    sum_tr = 0.0  # Σ_g tr(E_g E_g')   = Σ_g ||E_g||_F²
+    sum_frob2 = 0.0  # Σ_g ||E_g E_g'||_F²  = Σ_g tr((E_g E_g')²)
 
     for g in range(G):
         mask = cluster_codes == g
@@ -960,15 +991,15 @@ def cluster_dof_wald_bm(
         Msym = np.eye(n_g) - Hsym
         evals, evecs = np.linalg.eigh(Msym)
         evals = np.maximum(evals, 1e-12)
-        inv_sqrt = (evecs * (evals ** -0.5)) @ evecs.T
+        inv_sqrt = (evecs * (evals**-0.5)) @ evecs.T
 
         # E_g = R · bread · X_g'^T · A_g · sqrt(W_g)        (q, n_g)
         sqrt_w = np.sqrt(w_g)
-        RB_Xt = R_bread @ X_g.T              # (q, n_g)
-        RB_Xt_A = RB_Xt @ inv_sqrt           # (q, n_g)
-        E_g = RB_Xt_A * sqrt_w               # (q, n_g)
+        RB_Xt = R_bread @ X_g.T  # (q, n_g)
+        RB_Xt_A = RB_Xt @ inv_sqrt  # (q, n_g)
+        E_g = RB_Xt_A * sqrt_w  # (q, n_g)
 
-        EEt = E_g @ E_g.T                    # (q, q), symmetric PSD
+        EEt = E_g @ E_g.T  # (q, q), symmetric PSD
         sum_tr += float(np.trace(EEt))
         # ||EEt||_F² = sum of squared entries (== tr(EEt²) for symmetric)
         sum_frob2 += float(np.sum(EEt * EEt))
@@ -977,12 +1008,13 @@ def cluster_dof_wald_bm(
         # Degenerate: the contrasts lie outside the cluster-score image.
         # Conservative fallback: ``q · (G - q)`` (a typical IK upper bound).
         return float(q * (G - q))
-    return float(sum_tr ** 2 / sum_frob2)
+    return float(sum_tr**2 / sum_frob2)
 
 
 # ---------------------------------------------------------------------------
 # clubSandwich-equivalent HTZ Wald (Pustejovsky-Tipton 2018, JBES 36(4))
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class WaldTestResult:
@@ -1013,6 +1045,7 @@ class WaldTestResult:
     V_R : ndarray, shape (q, q)
         ``R · V^CR2 · R^T``.
     """
+
     test: str
     q: int
     eta: float
@@ -1032,9 +1065,14 @@ class WaldTestResult:
 
     def to_dict(self) -> dict:
         return {
-            "test": self.test, "q": self.q, "eta": self.eta,
-            "F_stat": self.F_stat, "p_value": self.p_value, "Q": self.Q,
-            "R": self.R.tolist(), "r": self.r.tolist(),
+            "test": self.test,
+            "q": self.q,
+            "eta": self.eta,
+            "F_stat": self.F_stat,
+            "p_value": self.p_value,
+            "Q": self.Q,
+            "R": self.R.tolist(),
+            "r": self.r.tolist(),
             "V_R": self.V_R.tolist(),
         }
 
@@ -1131,7 +1169,10 @@ def _htz_per_cluster_quantities(
         raise MethodIncompatibility("R must have full row rank")
 
     weights = _prepare_weights(
-        weights, n, context="HTZ", strictly_positive=True,
+        weights,
+        n,
+        context="HTZ",
+        strictly_positive=True,
     )
     # Fail fast at the helper boundary rather than after one O(G·n_g²·k)
     # loop: v1 locks Φ = I (HTZ paper-faithful path) and the η formula
@@ -1145,18 +1186,18 @@ def _htz_per_cluster_quantities(
         )
 
     cluster_codes, G_clusters = _factorize_cluster_labels(
-        cluster, n, context="HTZ",
+        cluster,
+        n,
+        context="HTZ",
     )
     if G_clusters <= q:
-        raise DataInsufficient(
-            f"HTZ Wald requires G > q (got G={G_clusters}, q={q})"
-        )
+        raise DataInsufficient(f"HTZ Wald requires G > q (got G={G_clusters}, q={q})")
 
     if bread is None:
         XtWX = X.T @ (X * weights[:, None])
         bread = np.linalg.inv(XtWX)
 
-    R_bread = R @ bread                                  # (q, k)
+    R_bread = R @ bread  # (q, k)
 
     G_list: list = []
     Asw_list: list = []
@@ -1176,24 +1217,24 @@ def _htz_per_cluster_quantities(
                 stacklevel=3,
             )
 
-        Xb = X_g @ bread                                  # (n_g, k)
-        H_gg = Xb @ (X_g * w_g[:, None]).T                # (n_g, n_g)
+        Xb = X_g @ bread  # (n_g, k)
+        H_gg = Xb @ (X_g * w_g[:, None]).T  # (n_g, n_g)
         Hsym = 0.5 * (H_gg + H_gg.T)
         Msym = np.eye(n_g) - Hsym
         evals, evecs = np.linalg.eigh(Msym)
         evals = np.maximum(evals, 1e-12)
-        A_g = (evecs * (evals ** -0.5)) @ evecs.T          # (n_g, n_g)
+        A_g = (evecs * (evals**-0.5)) @ evecs.T  # (n_g, n_g)
 
         sqrt_w = np.sqrt(w_g)
         # G_g = R · bread · X_g^T · diag(√w_g)         (NO A_g)
-        RB_Xt = R_bread @ X_g.T                            # (q, n_g)
-        G_g = RB_Xt * sqrt_w                               # (q, n_g)
+        RB_Xt = R_bread @ X_g.T  # (q, n_g)
+        G_g = RB_Xt * sqrt_w  # (q, n_g)
 
         # A_g_sqrtW = diag(√w_g) · A_g  (applied LEFT-to-RIGHT to residuals)
         # so that v_g = G_g · (A_g_sqrtW · u_g)
         #             = R bread X_g^T √w_g · √w_g A_g u_g
         #             = R bread X_g^T diag(w_g) A_g u_g    ← matches crve.
-        A_g_sqrtW = sqrt_w[:, None] * A_g                  # (n_g, n_g)
+        A_g_sqrtW = sqrt_w[:, None] * A_g  # (n_g, n_g)
 
         G_list.append(G_g)
         Asw_list.append(A_g_sqrtW)
@@ -1207,10 +1248,10 @@ def _htz_per_cluster_quantities(
     return {
         "G_g": G_list,
         "A_g_sqrtW": Asw_list,
-        "A_g_raw": A_raw_list,        # for HTZ η formula (clubSandwich convention)
-        "X_g_list": X_g_list,         # for H_g_cs = G_cs · X_g · L^T
-        "R": R,                       # cached for η helper
-        "weights": weights,           # for η to detect w!=1 (raises in v1)
+        "A_g_raw": A_raw_list,  # for HTZ η formula (clubSandwich convention)
+        "X_g_list": X_g_list,  # for H_g_cs = G_cs · X_g · L^T
+        "R": R,  # cached for η helper
+        "weights": weights,  # for η to detect w!=1 (raises in v1)
         "Omega": Omega,
         "cluster_codes": cluster_codes,
         "G": G_clusters,
@@ -1261,9 +1302,9 @@ def _htz_eta_from_quantities(qty: dict) -> float:
     q = qty["q"]
     # weights uniformity is enforced upstream in
     # :func:`_htz_per_cluster_quantities`; assertion left as a self-check.
-    assert np.allclose(qty["weights"], 1.0), (
-        "internal: helper let non-uniform weights through"
-    )
+    assert np.allclose(
+        qty["weights"], 1.0
+    ), "internal: helper let non-uniform weights through"
 
     # Lower-triangular Cholesky of bread: L · L^T = bread.
     L = np.linalg.cholesky(bread)
@@ -1314,7 +1355,7 @@ def _htz_eta_from_quantities(qty: dict) -> float:
     # Ω_cs^{-1/2} via symmetric eigendecomposition with eigenvalue floor
     # 1e-12 — matches clubSandwich's matrix_power(x, -1/2, tol=-12).
     evals, evecs = np.linalg.eigh(Omega_cs)
-    evals_pow = np.where(evals > 1e-12, evals ** -0.5, 0.0)
+    evals_pow = np.where(evals > 1e-12, evals**-0.5, 0.0)
     Omega_nsqrt = (evecs * evals_pow) @ evecs.T
 
     # B[s, t, k, l] = Σ_{i, j} Ω_nsqrt[s, i] · P[i, j, k, l] · Ω_nsqrt[j, t]
@@ -1393,7 +1434,11 @@ def cluster_dof_wald_htz(
     ``paper.bib`` for the canonical citation.
     """
     qty = _htz_per_cluster_quantities(
-        X, cluster, R=R, weights=weights, bread=bread,
+        X,
+        cluster,
+        R=R,
+        weights=weights,
+        bread=bread,
     )
     eta = _htz_eta_from_quantities(qty)
     if eta <= qty["q"] - 1:
@@ -1423,7 +1468,11 @@ def cluster_wald_htz(
     test="HTZ") to ``rtol < 1e-8`` on the verified fixtures.
     """
     qty = _htz_per_cluster_quantities(
-        X, cluster, R=R, weights=weights, bread=bread,
+        X,
+        cluster,
+        R=R,
+        weights=weights,
+        bread=bread,
     )
     G_list = qty["G_g"]
     Asw_list = qty["A_g_sqrtW"]
@@ -1450,8 +1499,8 @@ def cluster_wald_htz(
     for cg in range(G_clusters):
         mask = cluster_codes == cg
         u_g = residuals[mask]
-        e_tilde = Asw_list[cg] @ u_g                   # (n_g,)
-        v_g = G_list[cg] @ e_tilde                     # (q,)
+        e_tilde = Asw_list[cg] @ u_g  # (n_g,)
+        v_g = G_list[cg] @ e_tilde  # (q,)
         V_R += np.outer(v_g, v_g)
     V_R = 0.5 * (V_R + V_R.T)
 
@@ -1462,7 +1511,7 @@ def cluster_wald_htz(
             f"for Hotelling-T² scaling. Use boottest_wald instead."
         )
 
-    diff = R_arr @ beta - r                            # (q,)
+    diff = R_arr @ beta - r  # (q,)
     # Short-circuit: if V_R is the zero matrix (zero residuals or fully
     # degenerate sandwich), the Wald statistic is 0 by convention iff the
     # diff is also 0; otherwise the test is undefined.
@@ -1480,18 +1529,31 @@ def cluster_wald_htz(
     F_stat = (eta - q + 1) / (eta * q) * Q
 
     from scipy.stats import f as _scipy_f
+
     p_value = float(_scipy_f.sf(F_stat, q, eta - q + 1))
 
     return WaldTestResult(
-        test="HTZ", q=q, eta=float(eta), F_stat=float(F_stat),
-        p_value=p_value, Q=Q, R=R_arr.copy(), r=r.copy(),
+        test="HTZ",
+        q=q,
+        eta=float(eta),
+        F_stat=float(F_stat),
+        p_value=p_value,
+        Q=Q,
+        R=R_arr.copy(),
+        r=r.copy(),
         V_R=V_R,
     )
 
 
 __all__ = [
-    "crve", "boottest", "BootTestResult",
-    "boottest_wald", "BootWaldResult",
-    "cluster_dof_bm", "cluster_dof_wald_bm",
-    "cluster_dof_wald_htz", "cluster_wald_htz", "WaldTestResult",
+    "crve",
+    "boottest",
+    "BootTestResult",
+    "boottest_wald",
+    "BootWaldResult",
+    "cluster_dof_bm",
+    "cluster_dof_wald_bm",
+    "cluster_dof_wald_htz",
+    "cluster_wald_htz",
+    "WaldTestResult",
 ]

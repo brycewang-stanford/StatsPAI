@@ -109,9 +109,7 @@ def heckman(
     n_total = len(df)
 
     # --- Step 1: Probit selection equation ---
-    Z = np.column_stack(
-        [np.ones(n_total)] + [df[v].values.astype(float) for v in z]
-    )
+    Z = np.column_stack([np.ones(n_total)] + [df[v].values.astype(float) for v in z])
     valid_s = np.all(np.isfinite(Z), axis=1) & np.isfinite(D)
     D_v = D[valid_s]
     Z_v = Z[valid_s]
@@ -137,9 +135,7 @@ def heckman(
 
     Y_sel = df_sel[y].values.astype(float)
     X_sel = np.column_stack(
-        [np.ones(n_sel)]
-        + [df_sel[v].values.astype(float) for v in x]
-        + [imr_sel]
+        [np.ones(n_sel)] + [df_sel[v].values.astype(float) for v in x] + [imr_sel]
     )
 
     valid_o = np.all(np.isfinite(X_sel), axis=1) & np.isfinite(Y_sel)
@@ -178,9 +174,9 @@ def heckman(
     # correction is the canonical fix.
     delta_v = imr_v * (imr_v + Zg_v)
     beta_lambda = float(beta[-1])
-    rss = float(np.sum(resid ** 2))
-    sigma2 = rss / n_eff + beta_lambda ** 2 * float(np.mean(delta_v))
-    rho2 = beta_lambda ** 2 / sigma2 if sigma2 > 0 else 0.0
+    rss = float(np.sum(resid**2))
+    sigma2 = rss / n_eff + beta_lambda**2 * float(np.mean(delta_v))
+    rho2 = beta_lambda**2 / sigma2 if sigma2 > 0 else 0.0
 
     XtX_inv = np.linalg.pinv(X_v.T @ X_v)
     # Heteroskedastic contribution  X*'(I − ρ̂² D_δ) X*
@@ -194,17 +190,19 @@ def heckman(
     se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
 
     # Variable names
-    var_names = ['const'] + x + ['lambda (IMR)']
+    var_names = ["const"] + x + ["lambda (IMR)"]
     z_stats = beta / se
     pvals = 2 * (1 - stats.norm.cdf(np.abs(z_stats)))
 
-    detail = pd.DataFrame({
-        'variable': var_names,
-        'coefficient': beta,
-        'se': se,
-        'z': z_stats,
-        'pvalue': pvals,
-    })
+    detail = pd.DataFrame(
+        {
+            "variable": var_names,
+            "coefficient": beta,
+            "se": se,
+            "z": z_stats,
+            "pvalue": pvals,
+        }
+    )
 
     # Lambda coefficient = rho * sigma (selection correction)
     lambda_coef = float(beta[-1])
@@ -221,23 +219,26 @@ def heckman(
     ci = (main_coef - z_crit * main_se, main_coef + z_crit * main_se)
 
     model_info = {
-        'method': 'Heckman Two-Step',
-        'n_total': n_total,
-        'n_selected': int(n_sel),
-        'n_censored': int(n_total - n_sel),
-        'selection_vars': z,
-        'lambda_coef': lambda_coef,
-        'lambda_se': lambda_se,
-        'lambda_pvalue': lambda_p,
-        'selection_bias': 'Yes (lambda significant)' if lambda_p < 0.05
-                          else 'No evidence (lambda not significant)',
-        'sigma': float(np.sqrt(sigma2)),
-        'rho': float(lambda_coef / np.sqrt(sigma2)) if sigma2 > 0 else np.nan,
+        "method": "Heckman Two-Step",
+        "n_total": n_total,
+        "n_selected": int(n_sel),
+        "n_censored": int(n_total - n_sel),
+        "selection_vars": z,
+        "lambda_coef": lambda_coef,
+        "lambda_se": lambda_se,
+        "lambda_pvalue": lambda_p,
+        "selection_bias": (
+            "Yes (lambda significant)"
+            if lambda_p < 0.05
+            else "No evidence (lambda not significant)"
+        ),
+        "sigma": float(np.sqrt(sigma2)),
+        "rho": float(lambda_coef / np.sqrt(sigma2)) if sigma2 > 0 else np.nan,
     }
 
     return LimitedDepResult(
-        method='Heckman (1979) Selection Model',
-        estimand=f'beta_{x[0]}',
+        method="Heckman (1979) Selection Model",
+        estimand=f"beta_{x[0]}",
         estimate=main_coef,
         se=main_se,
         pvalue=main_p,
@@ -246,7 +247,7 @@ def heckman(
         n_obs=n_eff,
         detail=detail,
         model_info=model_info,
-        _citation_key='heckman',
+        _citation_key="heckman",
     )
 
 
@@ -278,7 +279,7 @@ def _probit_fit(
         phi = stats.norm.pdf(Zg)
 
         # Score and Hessian (broadcast avoids allocating diag(w) n×n).
-        w = phi ** 2 / (Phi * (1 - Phi))
+        w = phi**2 / (Phi * (1 - Phi))
         w = np.clip(w, 1e-10, 1e10)
         score = Z.T @ ((D - Phi) * phi / (Phi * (1 - Phi)))
         H = -(Z.T @ (w[:, None] * Z))
@@ -301,7 +302,7 @@ def _probit_fit(
 
 
 # Citation
-CausalResult._CITATIONS['heckman'] = (
+CausalResult._CITATIONS["heckman"] = (
     "@article{heckman1979sample,\n"
     "  title={Sample Selection Bias as a Specification Error},\n"
     "  author={Heckman, James J.},\n"

@@ -22,119 +22,151 @@ Usage
 from typing import Optional, Dict, Any
 
 _THEMES: Dict[str, Dict[str, Any]] = {
-    'academic': {
-        'figure.figsize': (8, 5.5),
-        'figure.dpi': 150,
-        'font.family': 'serif',
-        'font.serif': ['Times New Roman', 'DejaVu Serif', 'serif'],
-        'font.size': 11,
-        'axes.titlesize': 13,
-        'axes.labelsize': 11,
-        'axes.spines.top': False,
-        'axes.spines.right': False,
-        'axes.linewidth': 0.8,
-        'axes.grid': False,
-        'axes.prop_cycle': None,  # set below
-        'xtick.labelsize': 10,
-        'ytick.labelsize': 10,
-        'xtick.direction': 'out',
-        'ytick.direction': 'out',
-        'legend.fontsize': 9,
-        'legend.frameon': False,
-        'lines.linewidth': 1.5,
-        'lines.markersize': 6,
-        'savefig.dpi': 300,
-        'savefig.bbox': 'tight',
-        'savefig.transparent': False,
+    "academic": {
+        "figure.figsize": (8, 5.5),
+        "figure.dpi": 150,
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "DejaVu Serif", "serif"],
+        "font.size": 11,
+        "axes.titlesize": 13,
+        "axes.labelsize": 11,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.linewidth": 0.8,
+        "axes.grid": False,
+        "axes.prop_cycle": None,  # set below
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "xtick.direction": "out",
+        "ytick.direction": "out",
+        "legend.fontsize": 9,
+        "legend.frameon": False,
+        "lines.linewidth": 1.5,
+        "lines.markersize": 6,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
+        "savefig.transparent": False,
     },
-    'aea': {
+    "aea": {
         # American Economic Association style (AER, AEJ, etc.)
-        'figure.figsize': (6.5, 4.5),  # AER column width
-        'figure.dpi': 150,
-        'font.family': 'serif',
-        'font.serif': ['Times New Roman', 'DejaVu Serif'],
-        'font.size': 10,
-        'axes.titlesize': 11,
-        'axes.labelsize': 10,
-        'axes.spines.top': False,
-        'axes.spines.right': False,
-        'axes.linewidth': 0.6,
-        'axes.grid': False,
-        'axes.prop_cycle': None,
-        'xtick.labelsize': 9,
-        'ytick.labelsize': 9,
-        'legend.fontsize': 8,
-        'legend.frameon': False,
-        'lines.linewidth': 1.2,
-        'lines.markersize': 5,
-        'savefig.dpi': 300,
-        'savefig.bbox': 'tight',
+        "figure.figsize": (6.5, 4.5),  # AER column width
+        "figure.dpi": 150,
+        "font.family": "serif",
+        "font.serif": ["Times New Roman", "DejaVu Serif"],
+        "font.size": 10,
+        "axes.titlesize": 11,
+        "axes.labelsize": 10,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.linewidth": 0.6,
+        "axes.grid": False,
+        "axes.prop_cycle": None,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 8,
+        "legend.frameon": False,
+        "lines.linewidth": 1.2,
+        "lines.markersize": 5,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
     },
-    'minimal': {
+    "minimal": {
         # ggplot2 theme_minimal equivalent
-        'figure.figsize': (8, 5.5),
-        'figure.dpi': 150,
-        'font.family': 'sans-serif',
-        'font.sans-serif': ['Helvetica', 'Arial', 'DejaVu Sans'],
-        'font.size': 11,
-        'axes.titlesize': 13,
-        'axes.labelsize': 11,
-        'axes.spines.top': False,
-        'axes.spines.right': False,
-        'axes.spines.left': False,
-        'axes.spines.bottom': False,
-        'axes.linewidth': 0,
-        'axes.grid': True,
-        'axes.grid.which': 'major',
-        'axes.prop_cycle': None,
-        'grid.color': '#E0E0E0',
-        'grid.linewidth': 0.6,
-        'grid.alpha': 1.0,
-        'xtick.labelsize': 10,
-        'ytick.labelsize': 10,
-        'xtick.major.size': 0,
-        'ytick.major.size': 0,
-        'legend.fontsize': 9,
-        'legend.frameon': False,
-        'lines.linewidth': 1.5,
-        'savefig.dpi': 300,
-        'savefig.bbox': 'tight',
+        "figure.figsize": (8, 5.5),
+        "figure.dpi": 150,
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Helvetica", "Arial", "DejaVu Sans"],
+        "font.size": 11,
+        "axes.titlesize": 13,
+        "axes.labelsize": 11,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.spines.left": False,
+        "axes.spines.bottom": False,
+        "axes.linewidth": 0,
+        "axes.grid": True,
+        "axes.grid.which": "major",
+        "axes.prop_cycle": None,
+        "grid.color": "#E0E0E0",
+        "grid.linewidth": 0.6,
+        "grid.alpha": 1.0,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+        "xtick.major.size": 0,
+        "ytick.major.size": 0,
+        "legend.fontsize": 9,
+        "legend.frameon": False,
+        "lines.linewidth": 1.5,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
     },
-    'cn_journal': {
+    "cn_journal": {
         # Chinese journal style (三线表配套)
         # font.serif is set dynamically in set_theme() via _get_cn_serif()
-        'figure.figsize': (8, 5.5),
-        'figure.dpi': 150,
-        'font.family': 'serif',
-        'font.serif': None,  # resolved at runtime
-        'font.size': 10.5,  # 五号字
-        'axes.titlesize': 12,
-        'axes.labelsize': 10.5,
-        'axes.spines.top': False,
-        'axes.spines.right': False,
-        'axes.linewidth': 0.8,
-        'axes.grid': False,
-        'axes.unicode_minus': False,  # 正确显示负号
-        'axes.prop_cycle': None,
-        'xtick.labelsize': 9,
-        'ytick.labelsize': 9,
-        'legend.fontsize': 9,
-        'legend.frameon': False,
-        'savefig.dpi': 300,
-        'savefig.bbox': 'tight',
+        "figure.figsize": (8, 5.5),
+        "figure.dpi": 150,
+        "font.family": "serif",
+        "font.serif": None,  # resolved at runtime
+        "font.size": 10.5,  # 五号字
+        "axes.titlesize": 12,
+        "axes.labelsize": 10.5,
+        "axes.spines.top": False,
+        "axes.spines.right": False,
+        "axes.linewidth": 0.8,
+        "axes.grid": False,
+        "axes.unicode_minus": False,  # 正确显示负号
+        "axes.prop_cycle": None,
+        "xtick.labelsize": 9,
+        "ytick.labelsize": 9,
+        "legend.fontsize": 9,
+        "legend.frameon": False,
+        "savefig.dpi": 300,
+        "savefig.bbox": "tight",
     },
 }
 
 # Academic color palettes
 _PALETTES = {
-    'academic': ['#2C3E50', '#E74C3C', '#3498DB', '#2ECC71',
-                 '#9B59B6', '#F39C12', '#1ABC9C', '#E67E22'],
-    'aea': ['#000000', '#4472C4', '#ED7D31', '#A5A5A5',
-            '#FFC000', '#5B9BD5', '#70AD47', '#264478'],
-    'minimal': ['#4C72B0', '#DD8452', '#55A868', '#C44E52',
-                '#8172B3', '#937860', '#DA8BC3', '#8C8C8C'],
-    'cn_journal': ['#000000', '#E31A1C', '#1F78B4', '#33A02C',
-                   '#FF7F00', '#6A3D9A', '#B15928', '#A6CEE3'],
+    "academic": [
+        "#2C3E50",
+        "#E74C3C",
+        "#3498DB",
+        "#2ECC71",
+        "#9B59B6",
+        "#F39C12",
+        "#1ABC9C",
+        "#E67E22",
+    ],
+    "aea": [
+        "#000000",
+        "#4472C4",
+        "#ED7D31",
+        "#A5A5A5",
+        "#FFC000",
+        "#5B9BD5",
+        "#70AD47",
+        "#264478",
+    ],
+    "minimal": [
+        "#4C72B0",
+        "#DD8452",
+        "#55A868",
+        "#C44E52",
+        "#8172B3",
+        "#937860",
+        "#DA8BC3",
+        "#8C8C8C",
+    ],
+    "cn_journal": [
+        "#000000",
+        "#E31A1C",
+        "#1F78B4",
+        "#33A02C",
+        "#FF7F00",
+        "#6A3D9A",
+        "#B15928",
+        "#A6CEE3",
+    ],
 }
 
 _original_rcparams = None
@@ -148,30 +180,39 @@ def _get_cn_serif_fonts() -> list:
     """Auto-detect the best Chinese serif fonts on this system."""
     try:
         from matplotlib.font_manager import fontManager
+
         available = {f.name for f in fontManager.ttflist}
     except Exception:
         available = set()
 
     candidates = [
         # macOS
-        'Songti SC', 'STSong', 'Hiragino Mincho ProN',
+        "Songti SC",
+        "STSong",
+        "Hiragino Mincho ProN",
         # Windows
-        'SimSun', 'NSimSun', 'FangSong', 'KaiTi',
+        "SimSun",
+        "NSimSun",
+        "FangSong",
+        "KaiTi",
         # Linux (apt install fonts-noto-cjk / fonts-arphic-*)
-        'Noto Serif CJK SC', 'Noto Serif CJK TC',
-        'Noto Serif CJK JP', 'Noto Serif CJK KR',
-        'Source Han Serif SC', 'Source Han Serif CN', 'Source Han Serif',
-        'AR PL UMing CN', 'AR PL UMing HK', 'AR PL UMing TW',
+        "Noto Serif CJK SC",
+        "Noto Serif CJK TC",
+        "Noto Serif CJK JP",
+        "Noto Serif CJK KR",
+        "Source Han Serif SC",
+        "Source Han Serif CN",
+        "Source Han Serif",
+        "AR PL UMing CN",
+        "AR PL UMing HK",
+        "AR PL UMing TW",
     ]
     found = [f for f in candidates if f in available]
     # Substring fallback: any font that looks like a CJK serif
     if not found:
-        _cjk_serif_kws = ('CJK', 'Han Serif', 'Ming', 'Song')
-        found = [
-            n for n in sorted(available)
-            if any(kw in n for kw in _cjk_serif_kws)
-        ]
-    found.extend(['Times New Roman', 'DejaVu Serif'])
+        _cjk_serif_kws = ("CJK", "Han Serif", "Ming", "Song")
+        found = [n for n in sorted(available) if any(kw in n for kw in _cjk_serif_kws)]
+    found.extend(["Times New Roman", "DejaVu Serif"])
     return found
 
 
@@ -179,30 +220,39 @@ def _get_cn_sans_fonts() -> list:
     """Auto-detect the best Chinese sans-serif fonts on this system."""
     try:
         from matplotlib.font_manager import fontManager
+
         available = {f.name for f in fontManager.ttflist}
     except Exception:
         available = set()
 
     candidates = [
         # macOS
-        'PingFang SC', 'PingFang HK', 'Hiragino Sans GB',
-        'Heiti TC', 'STHeiti', 'Hiragino Sans',
+        "PingFang SC",
+        "PingFang HK",
+        "Hiragino Sans GB",
+        "Heiti TC",
+        "STHeiti",
+        "Hiragino Sans",
         # Windows
-        'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei',
+        "Microsoft YaHei",
+        "Microsoft JhengHei",
+        "SimHei",
         # Linux (apt install fonts-noto-cjk / fonts-wqy-*)
-        'Noto Sans CJK SC', 'Noto Sans CJK TC',
-        'Noto Sans CJK JP', 'Noto Sans CJK KR',
-        'WenQuanYi Zen Hei', 'WenQuanYi Micro Hei',
+        "Noto Sans CJK SC",
+        "Noto Sans CJK TC",
+        "Noto Sans CJK JP",
+        "Noto Sans CJK KR",
+        "WenQuanYi Zen Hei",
+        "WenQuanYi Micro Hei",
         # Adobe / Google Source Han (cross-platform, Docker/cloud images)
-        'Source Han Sans SC', 'Source Han Sans CN', 'Source Han Sans',
+        "Source Han Sans SC",
+        "Source Han Sans CN",
+        "Source Han Sans",
     ]
     found = [f for f in candidates if f in available]
     if not found:
-        _cjk_sans_kws = ('CJK', 'Han Sans', 'WenQuanYi', 'YaHei', 'PingFang', 'Heiti')
-        found = [
-            n for n in sorted(available)
-            if any(kw in n for kw in _cjk_sans_kws)
-        ]
+        _cjk_sans_kws = ("CJK", "Han Sans", "WenQuanYi", "YaHei", "PingFang", "Heiti")
+        found = [n for n in sorted(available) if any(kw in n for kw in _cjk_sans_kws)]
     return found
 
 
@@ -255,12 +305,16 @@ def _register_cjk_fallback(force: bool = False) -> Dict[str, Any]:
         return _cjk_fallback_info
 
     import os
-    opt_out = os.environ.get('STATSPAI_NO_AUTO_CJK', '').strip().lower()
-    if opt_out in ('1', 'true', 'yes', 'on'):
+
+    opt_out = os.environ.get("STATSPAI_NO_AUTO_CJK", "").strip().lower()
+    if opt_out in ("1", "true", "yes", "on"):
         _cjk_fallback_registered = True
         _cjk_fallback_info = {
-            'sans': None, 'serif': None, 'appended': [],
-            'skipped': True, 'reason': 'STATSPAI_NO_AUTO_CJK env var set',
+            "sans": None,
+            "serif": None,
+            "appended": [],
+            "skipped": True,
+            "reason": "STATSPAI_NO_AUTO_CJK env var set",
         }
         return _cjk_fallback_info
 
@@ -269,23 +323,27 @@ def _register_cjk_fallback(force: bool = False) -> Dict[str, Any]:
     except ImportError:
         _cjk_fallback_registered = True
         _cjk_fallback_info = {
-            'sans': None, 'serif': None, 'appended': [],
-            'skipped': True, 'reason': 'matplotlib not installed',
+            "sans": None,
+            "serif": None,
+            "appended": [],
+            "skipped": True,
+            "reason": "matplotlib not installed",
         }
         return _cjk_fallback_info
 
     try:
         sans_candidates = _get_cn_sans_fonts()
         serif_candidates = [
-            f for f in _get_cn_serif_fonts()
-            if f not in ('Times New Roman', 'DejaVu Serif')
+            f
+            for f in _get_cn_serif_fonts()
+            if f not in ("Times New Roman", "DejaVu Serif")
         ]
         chosen_sans = sans_candidates[0] if sans_candidates else None
         chosen_serif = serif_candidates[0] if serif_candidates else None
 
         # Normalise font.family to a list (it can be a str like 'sans-serif'
         # or a list).
-        current_family = mpl.rcParams.get('font.family', ['sans-serif'])
+        current_family = mpl.rcParams.get("font.family", ["sans-serif"])
         if isinstance(current_family, str):
             family_list = [current_family]
         else:
@@ -301,37 +359,42 @@ def _register_cjk_fallback(force: bool = False) -> Dict[str, Any]:
                 appended.append(cand)
 
         if appended:
-            mpl.rcParams['font.family'] = family_list
+            mpl.rcParams["font.family"] = family_list
 
         _cjk_fallback_registered = True
         _cjk_fallback_info = {
-            'sans': chosen_sans,
-            'serif': chosen_serif,
-            'appended': appended,
-            'skipped': False,
-            'reason': '' if appended else 'no CJK font found on system',
+            "sans": chosen_sans,
+            "serif": chosen_serif,
+            "appended": appended,
+            "skipped": False,
+            "reason": "" if appended else "no CJK font found on system",
         }
     except Exception as exc:
         # matplotlib is present but registration failed — warn loudly per
         # project policy: silent degradation hides correctness regressions.
         import warnings
+
         warnings.warn(
             f"StatsPAI: CJK font auto-registration failed "
             f"({type(exc).__name__}: {exc}). "
             f"Chinese text in plots may show as boxes. "
             f"Call sp.use_chinese() manually or set STATSPAI_NO_AUTO_CJK=1.",
-            UserWarning, stacklevel=2,
+            UserWarning,
+            stacklevel=2,
         )
         _cjk_fallback_registered = True
         _cjk_fallback_info = {
-            'sans': None, 'serif': None, 'appended': [],
-            'skipped': True, 'reason': f'{type(exc).__name__}: {exc}',
+            "sans": None,
+            "serif": None,
+            "appended": [],
+            "skipped": True,
+            "reason": f"{type(exc).__name__}: {exc}",
         }
 
     return _cjk_fallback_info
 
 
-def use_chinese(style: str = 'auto') -> str:
+def use_chinese(style: str = "auto") -> str:
     """
     One-line fix for Chinese text rendering in matplotlib.
 
@@ -373,37 +436,59 @@ def use_chinese(style: str = 'auto') -> str:
     # on Linux desktops that only ship the JP/TC/KR bundles).
     serif_priority = [
         # macOS
-        'Songti SC', 'STSong', 'Hiragino Mincho ProN',
+        "Songti SC",
+        "STSong",
+        "Hiragino Mincho ProN",
         # Windows
-        'SimSun', 'NSimSun', 'FangSong', 'KaiTi',
+        "SimSun",
+        "NSimSun",
+        "FangSong",
+        "KaiTi",
         # Linux (apt install fonts-noto-cjk)
-        'Noto Serif CJK SC', 'Noto Serif CJK TC',
-        'Noto Serif CJK JP', 'Noto Serif CJK KR',
+        "Noto Serif CJK SC",
+        "Noto Serif CJK TC",
+        "Noto Serif CJK JP",
+        "Noto Serif CJK KR",
         # Adobe / Google Source Han (cross-platform, Docker/cloud images)
-        'Source Han Serif SC', 'Source Han Serif CN', 'Source Han Serif',
+        "Source Han Serif SC",
+        "Source Han Serif CN",
+        "Source Han Serif",
         # arphic fonts on Linux
-        'AR PL UMing CN', 'AR PL UMing HK', 'AR PL UMing TW',
+        "AR PL UMing CN",
+        "AR PL UMing HK",
+        "AR PL UMing TW",
     ]
     sans_priority = [
         # macOS
-        'PingFang SC', 'PingFang HK', 'Hiragino Sans GB',
-        'Heiti TC', 'STHeiti', 'Hiragino Sans',
+        "PingFang SC",
+        "PingFang HK",
+        "Hiragino Sans GB",
+        "Heiti TC",
+        "STHeiti",
+        "Hiragino Sans",
         # Windows
-        'Microsoft YaHei', 'Microsoft JhengHei', 'SimHei',
+        "Microsoft YaHei",
+        "Microsoft JhengHei",
+        "SimHei",
         # Linux (apt install fonts-noto-cjk / fonts-wqy-*)
-        'Noto Sans CJK SC', 'Noto Sans CJK TC',
-        'Noto Sans CJK JP', 'Noto Sans CJK KR',
-        'WenQuanYi Zen Hei', 'WenQuanYi Micro Hei',
+        "Noto Sans CJK SC",
+        "Noto Sans CJK TC",
+        "Noto Sans CJK JP",
+        "Noto Sans CJK KR",
+        "WenQuanYi Zen Hei",
+        "WenQuanYi Micro Hei",
         # Adobe / Google Source Han (cross-platform, Docker/cloud images)
-        'Source Han Sans SC', 'Source Han Sans CN', 'Source Han Sans',
+        "Source Han Sans SC",
+        "Source Han Sans CN",
+        "Source Han Sans",
     ]
-    all_priority = sans_priority + serif_priority + ['Arial Unicode MS']
+    all_priority = sans_priority + serif_priority + ["Arial Unicode MS"]
 
     # Substring heuristics — last-resort fallback when the exact name above
     # doesn't match (e.g. distro ships "Noto Sans CJK" without region suffix,
     # or a custom-built Source Han variant).
-    _sans_kws = ('Han Sans', 'CJK', 'WenQuanYi', 'YaHei', 'PingFang', 'Heiti')
-    _serif_kws = ('Han Serif', 'Mincho', 'Ming', 'Song')
+    _sans_kws = ("Han Sans", "CJK", "WenQuanYi", "YaHei", "PingFang", "Heiti")
+    _serif_kws = ("Han Serif", "Mincho", "Ming", "Song")
 
     def _substring_match(keywords: tuple[str, ...]) -> Optional[str]:
         for name in sorted(available):
@@ -413,21 +498,21 @@ def use_chinese(style: str = 'auto') -> str:
 
     chosen = None
 
-    if style == 'auto':
+    if style == "auto":
         for font in all_priority:
             if font in available:
                 chosen = font
                 break
         if chosen is None:
             chosen = _substring_match(_sans_kws + _serif_kws)
-    elif style == 'serif':
+    elif style == "serif":
         for font in serif_priority:
             if font in available:
                 chosen = font
                 break
         if chosen is None:
             chosen = _substring_match(_serif_kws)
-    elif style == 'sans':
+    elif style == "sans":
         for font in sans_priority:
             if font in available:
                 chosen = font
@@ -442,39 +527,41 @@ def use_chinese(style: str = 'auto') -> str:
 
     if chosen is None:
         import warnings
+
         warnings.warn(
             "No Chinese font found on this system. Install one of:\n"
             "  macOS:   (usually pre-installed — PingFang SC, Songti SC)\n"
             "  Windows: (usually pre-installed — Microsoft YaHei, SimHei)\n"
             "  Linux:   apt install fonts-noto-cjk fonts-wqy-zenhei\n"
             "  Docker:  add `apt install fonts-noto-cjk` to your Dockerfile.",
-            UserWarning, stacklevel=2,
+            UserWarning,
+            stacklevel=2,
         )
-        return ''
+        return ""
 
     # Determine family
-    _serif_names = ('Song', 'Serif', 'Mincho', 'Ming', 'STSong', 'Noto Serif')
+    _serif_names = ("Song", "Serif", "Mincho", "Ming", "STSong", "Noto Serif")
     if any(kw in chosen for kw in _serif_names):
-        mpl.rcParams['font.family'] = 'serif'
-        current = list(mpl.rcParams.get('font.serif', []))
+        mpl.rcParams["font.family"] = "serif"
+        current = list(mpl.rcParams.get("font.serif", []))
         if chosen not in current:
             current.insert(0, chosen)
-        mpl.rcParams['font.serif'] = current
+        mpl.rcParams["font.serif"] = current
     else:
-        mpl.rcParams['font.family'] = 'sans-serif'
-        current = list(mpl.rcParams.get('font.sans-serif', []))
+        mpl.rcParams["font.family"] = "sans-serif"
+        current = list(mpl.rcParams.get("font.sans-serif", []))
         if chosen not in current:
             current.insert(0, chosen)
-        mpl.rcParams['font.sans-serif'] = current
+        mpl.rcParams["font.sans-serif"] = current
 
     # Fix minus sign
-    mpl.rcParams['axes.unicode_minus'] = False
+    mpl.rcParams["axes.unicode_minus"] = False
 
     return chosen
 
 
 def set_theme(
-    name: str = 'academic',
+    name: str = "academic",
     palette: Optional[str] = None,
     font_scale: float = 1.0,
 ) -> None:
@@ -524,7 +611,7 @@ def set_theme(
     if _original_rcparams is None:
         _original_rcparams = mpl.rcParams.copy()
 
-    if name == 'default':
+    if name == "default":
         mpl.rcParams.update(_original_rcparams)
         return
 
@@ -537,21 +624,26 @@ def set_theme(
         theme = _THEMES[name].copy()
 
         # Resolve Chinese fonts at runtime for cn_journal theme
-        if theme.get('font.serif') is None:
-            theme['font.serif'] = _get_cn_serif_fonts()
+        if theme.get("font.serif") is None:
+            theme["font.serif"] = _get_cn_serif_fonts()
 
         # Apply font scaling
         if font_scale != 1.0:
-            for key in ('font.size', 'axes.titlesize', 'axes.labelsize',
-                        'xtick.labelsize', 'ytick.labelsize',
-                        'legend.fontsize'):
+            for key in (
+                "font.size",
+                "axes.titlesize",
+                "axes.labelsize",
+                "xtick.labelsize",
+                "ytick.labelsize",
+                "legend.fontsize",
+            ):
                 if key in theme:
                     theme[key] = theme[key] * font_scale
 
         # Set color cycle
         pal_name = palette or name
-        pal_colors = _PALETTES.get(pal_name, _PALETTES['academic'])
-        theme['axes.prop_cycle'] = cycler('color', pal_colors)
+        pal_colors = _PALETTES.get(pal_name, _PALETTES["academic"])
+        theme["axes.prop_cycle"] = cycler("color", pal_colors)
 
         # Apply
         for key, val in theme.items():
@@ -568,9 +660,14 @@ def set_theme(
         plt.style.use(resolved)
         # Apply font scaling on top of external style
         if font_scale != 1.0:
-            for key in ('font.size', 'axes.titlesize', 'axes.labelsize',
-                        'xtick.labelsize', 'ytick.labelsize',
-                        'legend.fontsize'):
+            for key in (
+                "font.size",
+                "axes.titlesize",
+                "axes.labelsize",
+                "xtick.labelsize",
+                "ytick.labelsize",
+                "legend.fontsize",
+            ):
                 try:
                     current = mpl.rcParams[key]
                     if isinstance(current, (int, float)):
@@ -595,6 +692,7 @@ def _resolve_external_style(name: str) -> Optional[str]:
     and validates against available styles.
     """
     import matplotlib.pyplot as plt
+
     available = plt.style.available
 
     # Direct match
@@ -602,16 +700,16 @@ def _resolve_external_style(name: str) -> Optional[str]:
         return name
 
     # seaborn shorthand: 'seaborn-whitegrid' -> 'seaborn-v0_8-whitegrid'
-    if name.startswith('seaborn-'):
-        suffix = name[len('seaborn-'):]
-        versioned = f'seaborn-v0_8-{suffix}'
+    if name.startswith("seaborn-"):
+        suffix = name[len("seaborn-") :]
+        versioned = f"seaborn-v0_8-{suffix}"
         if versioned in available:
             return versioned
 
     # seaborn bare: 'seaborn' -> 'seaborn-v0_8'
-    if name == 'seaborn':
+    if name == "seaborn":
         for s in available:
-            if s == 'seaborn-v0_8':
+            if s == "seaborn-v0_8":
                 return s
 
     return None
@@ -635,23 +733,24 @@ def list_themes() -> Dict[str, list]:
     ['academic', 'aea', 'minimal', 'cn_journal']
     """
     result = {
-        'statspai': list(_THEMES.keys()),
-        'matplotlib': [],
-        'seaborn': [],
+        "statspai": list(_THEMES.keys()),
+        "matplotlib": [],
+        "seaborn": [],
     }
 
     try:
         import matplotlib.pyplot as plt
+
         for style in sorted(plt.style.available):
-            if style.startswith('_'):
+            if style.startswith("_"):
                 continue  # skip internal styles
-            if style.startswith('seaborn'):
+            if style.startswith("seaborn"):
                 # Show user-friendly names
-                friendly = style.replace('seaborn-v0_8-', 'seaborn-')
-                friendly = friendly.replace('seaborn-v0_8', 'seaborn')
-                result['seaborn'].append(friendly)
+                friendly = style.replace("seaborn-v0_8-", "seaborn-")
+                friendly = friendly.replace("seaborn-v0_8", "seaborn")
+                result["seaborn"].append(friendly)
             else:
-                result['matplotlib'].append(style)
+                result["matplotlib"].append(style)
     except ImportError:
         pass
 

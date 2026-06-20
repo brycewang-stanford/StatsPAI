@@ -114,13 +114,15 @@ class MCGFormulaResult(ResultProtocolMixin):
 #  Internal fitters
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _fit_ols(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     """OLS coefficients with an intercept column assumed in X."""
     return np.asarray(np.linalg.lstsq(X, y, rcond=None)[0])
 
 
-def _fit_logit(X: np.ndarray, y: np.ndarray, max_iter: int = 50,
-               tol: float = 1e-7) -> np.ndarray:
+def _fit_logit(
+    X: np.ndarray, y: np.ndarray, max_iter: int = 50, tol: float = 1e-7
+) -> np.ndarray:
     """Newton-Raphson MLE for binary logistic regression."""
     n, p = X.shape
     beta = np.zeros(p)
@@ -177,12 +179,13 @@ def _is_binary(arr: np.ndarray) -> bool:
 #  Core fitter: one epoch over the wide-format history
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class _FittedModels:
     """Container holding per-timepoint fitted confounder / outcome models."""
 
     def __init__(
         self,
-        conf_models: list,    # list of list of (kind, beta, sd, feature_cols)
+        conf_models: list,  # list of list of (kind, beta, sd, feature_cols)
         outcome_model: tuple,  # (kind, beta, sd, feature_cols)
         conf_cols_by_t: list,  # list of list[str]
         treatment_cols: Sequence[str],
@@ -216,8 +219,11 @@ def _fit_models(
         for cname in conf_list:
             y = df[cname].values.astype(float)
             feat_cols = list(history_cols)
-            X = _design(*(df[c].values.astype(float) for c in feat_cols)) \
-                if feat_cols else np.ones((len(df), 1))
+            X = (
+                _design(*(df[c].values.astype(float) for c in feat_cols))
+                if feat_cols
+                else np.ones((len(df), 1))
+            )
             if _is_binary(y):
                 beta = _fit_logit(X, y)
                 per_t.append(("binary", beta, None, feat_cols))
@@ -259,10 +265,11 @@ def _fit_models(
 #  Simulation under a chosen intervention
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _simulate(
     fitted: _FittedModels,
     strategy: Union[Sequence[float], Callable],
-    seed_df: pd.DataFrame,       # baseline covariates are resampled from here
+    seed_df: pd.DataFrame,  # baseline covariates are resampled from here
     n_sim: int,
     rng: np.random.Generator,
     return_trajectories: bool = False,
@@ -324,6 +331,7 @@ def _simulate(
 # ═══════════════════════════════════════════════════════════════════════
 #  Public API
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def gformula_mc(
     data: pd.DataFrame,
@@ -449,9 +457,7 @@ def gformula_mc(
             f"treatment_cols has {K}."
         )
     if isinstance(strategy, (list, tuple, np.ndarray)) and len(strategy) != K:
-        raise ValueError(
-            f"strategy length {len(strategy)} does not match K={K}."
-        )
+        raise ValueError(f"strategy length {len(strategy)} does not match K={K}.")
 
     # Drop rows with any missing required column
     req = (
@@ -469,12 +475,20 @@ def gformula_mc(
     # Point estimate
     fitted = _fit_models(df, treatment_cols, conf_cols_by_t, outcome_col)
     val_t, traj_t = _simulate(
-        fitted, strategy, df, n_simulations, rng,
+        fitted,
+        strategy,
+        df,
+        n_simulations,
+        rng,
         return_trajectories=return_trajectories,
     )
     if control_strategy is not None:
         val_c, _ = _simulate(
-            fitted, control_strategy, df, n_simulations, rng,
+            fitted,
+            control_strategy,
+            df,
+            n_simulations,
+            rng,
             return_trajectories=False,
         )
         contrast = val_t - val_c
@@ -490,13 +504,20 @@ def gformula_mc(
             b_idx = rng.integers(0, n, size=n)
             df_b = df.iloc[b_idx].reset_index(drop=True)
             fit_b = _fit_models(df_b, treatment_cols, conf_cols_by_t, outcome_col)
-            mt, _ = _simulate(fit_b, strategy, df_b,
-                              max(n_simulations // 4, 500), rng, False)
+            mt, _ = _simulate(
+                fit_b, strategy, df_b, max(n_simulations // 4, 500), rng, False
+            )
             boot_t[b] = mt
             if control_strategy is not None:
                 assert boot_c is not None
-                mc, _ = _simulate(fit_b, control_strategy, df_b,
-                                  max(n_simulations // 4, 500), rng, False)
+                mc, _ = _simulate(
+                    fit_b,
+                    control_strategy,
+                    df_b,
+                    max(n_simulations // 4, 500),
+                    rng,
+                    False,
+                )
                 boot_c[b] = mc
         se_t = float(np.std(boot_t, ddof=1))
         z = float(_stats.norm.ppf(1 - alpha / 2))
@@ -527,22 +548,25 @@ def gformula_mc(
         contrast_ci=(tuple(float(x) for x in ci_c) if ci_c is not None else None),
         strategies={
             "treat": list(strategy) if not callable(strategy) else "callable",
-            "control": (list(control_strategy)
-                        if (control_strategy is not None
-                            and not callable(control_strategy))
-                        else ("callable" if callable(control_strategy) else None)),
+            "control": (
+                list(control_strategy)
+                if (control_strategy is not None and not callable(control_strategy))
+                else ("callable" if callable(control_strategy) else None)
+            ),
         },
         trajectories=traj_t if return_trajectories else None,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.gformula.gformula_mc",
             params={
                 "treatment_cols": list(treatment_cols),
                 "outcome_col": outcome_col,
-                "id_col": id_col, "time_col": time_col,
+                "id_col": id_col,
+                "time_col": time_col,
                 "n_simulations": n_simulations,
                 "bootstrap": bootstrap,
                 "alpha": alpha,

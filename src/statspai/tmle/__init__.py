@@ -27,15 +27,15 @@ from .ltmle_survival import ltmle_survival, LTMLESurvivalResult
 from .hal_tmle import hal_tmle, HALRegressor, HALClassifier
 
 __all__ = [
-    'tmle',
-    'TMLE',
-    'super_learner',
-    'SuperLearner',
-    'ltmle',
-    'LTMLEResult',
-    'ltmle_survival',
-    'LTMLESurvivalResult',
-    'hal_tmle',
-    'HALRegressor',
-    'HALClassifier',
+    "tmle",
+    "TMLE",
+    "super_learner",
+    "SuperLearner",
+    "ltmle",
+    "LTMLEResult",
+    "ltmle_survival",
+    "LTMLESurvivalResult",
+    "hal_tmle",
+    "HALRegressor",
+    "HALClassifier",
 ]

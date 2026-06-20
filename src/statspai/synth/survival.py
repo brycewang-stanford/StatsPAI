@@ -42,7 +42,6 @@ import pandas as pd
 
 from .._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["synth_survival", "SyntheticSurvivalResult"]
 
 
@@ -80,6 +79,7 @@ class SyntheticSurvivalResult(ResultProtocolMixin):
     >>> int(len(r.time_grid))
     13
     """
+
     _citation_keys = ("han2025synthetic",)
     treated_unit: str
     time_grid: np.ndarray
@@ -103,7 +103,11 @@ class SyntheticSurvivalResult(ResultProtocolMixin):
             f"  Treated unit      : {self.treated_unit}",
             f"  Treatment time    : {self.treat_time}",
             f"  N grid points     : {len(self.time_grid)}",
-            f"  Pre-treat RMSE    : {self.pre_rmse:.4f}" if self.pre_rmse is not None else "",
+            (
+                f"  Pre-treat RMSE    : {self.pre_rmse:.4f}"
+                if self.pre_rmse is not None
+                else ""
+            ),
             f"  Mean post-gap S(t): {avg_gap:+.4f}",
             "  Top-5 donor weights:",
         ]
@@ -218,8 +222,7 @@ def synth_survival(
             treated_units = df.loc[df[treated].astype(bool), unit].unique()
         if len(treated_units) != 1:
             raise ValueError(
-                "Exactly one treated unit expected; got "
-                f"{len(treated_units)}."
+                "Exactly one treated unit expected; got " f"{len(treated_units)}."
             )
         treated_unit = str(treated_units[0])
     else:
@@ -239,6 +242,7 @@ def synth_survival(
     donors = [c for c in wide.columns if c != treated_unit]
     if not donors:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "At least one donor unit required",
             recovery_hint=(

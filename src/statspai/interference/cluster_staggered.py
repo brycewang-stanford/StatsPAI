@@ -10,7 +10,6 @@ contamination.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -55,6 +54,7 @@ class StaggeredClusterRCTResult(ResultProtocolMixin):
     >>> res.n_clusters
     12
     """
+
     overall_att: float
     overall_se: float
     event_study: pd.DataFrame
@@ -124,8 +124,9 @@ def cluster_staggered_rollout(
     12
     """
     df = data[[y, cluster, time, first_treat]].dropna().reset_index(drop=True)
-    cl = df.groupby([cluster, time]).agg({y: 'mean', first_treat: 'first'}) \
-        .reset_index()
+    cl = (
+        df.groupby([cluster, time]).agg({y: "mean", first_treat: "first"}).reset_index()
+    )
 
     # Cohort-level event-study atts
     cohorts = sorted(cl.loc[cl[first_treat] > 0, first_treat].unique())
@@ -147,16 +148,20 @@ def cluster_staggered_rollout(
                 continue
             ref = ref.assign(_t=lambda d: d[cluster].isin(cohort_clusters).astype(int))
             try:
-                m = sub.groupby('_t')[y].mean()
-                m_ref = ref.groupby('_t')[y].mean()
+                m = sub.groupby("_t")[y].mean()
+                m_ref = ref.groupby("_t")[y].mean()
                 att = float(
                     (m.get(1, np.nan) - m.get(0, np.nan))
                     - (m_ref.get(1, np.nan) - m_ref.get(0, np.nan))
                 )
                 if np.isfinite(att):
-                    rel_rows.append({
-                        'cohort': c, 'rel_time': k, 'att': att,
-                    })
+                    rel_rows.append(
+                        {
+                            "cohort": c,
+                            "rel_time": k,
+                            "att": att,
+                        }
+                    )
             except Exception:
                 continue
 
@@ -164,7 +169,7 @@ def cluster_staggered_rollout(
     if es_long.empty:
         raise ValueError("Could not estimate any event-time ATTs.")
     # Aggregate per relative time (simple mean across cohorts)
-    es = es_long.groupby('rel_time')['att'].mean().reset_index()
+    es = es_long.groupby("rel_time")["att"].mean().reset_index()
     # SE via cluster bootstrap
     rng = np.random.default_rng(0)
     boot = []
@@ -173,8 +178,9 @@ def cluster_staggered_rollout(
         sample_clusters = rng.choice(
             cl[cluster].unique(), size=n_clusters, replace=True
         )
-        sub_cl = pd.concat([cl[cl[cluster] == cc] for cc in sample_clusters],
-                            ignore_index=True)
+        sub_cl = pd.concat(
+            [cl[cl[cluster] == cc] for cc in sample_clusters], ignore_index=True
+        )
         try:
             inner_atts = []
             for c in cohorts:
@@ -187,13 +193,16 @@ def cluster_staggered_rollout(
                     ref = sub_cl[sub_cl[time] == c - 1]
                     if sub.empty or ref.empty:
                         continue
-                    sub = sub.assign(_t=lambda d: d[cluster].isin(cohort_cls).astype(int))
-                    ref = ref.assign(_t=lambda d: d[cluster].isin(cohort_cls).astype(int))
-                    m = sub.groupby('_t')[y].mean()
-                    mr = ref.groupby('_t')[y].mean()
-                    att = (
-                        (m.get(1, np.nan) - m.get(0, np.nan))
-                        - (mr.get(1, np.nan) - mr.get(0, np.nan))
+                    sub = sub.assign(
+                        _t=lambda d: d[cluster].isin(cohort_cls).astype(int)
+                    )
+                    ref = ref.assign(
+                        _t=lambda d: d[cluster].isin(cohort_cls).astype(int)
+                    )
+                    m = sub.groupby("_t")[y].mean()
+                    mr = ref.groupby("_t")[y].mean()
+                    att = (m.get(1, np.nan) - m.get(0, np.nan)) - (
+                        mr.get(1, np.nan) - mr.get(0, np.nan)
                     )
                     if np.isfinite(att):
                         inner_atts.append(att)
@@ -202,11 +211,11 @@ def cluster_staggered_rollout(
         except Exception:
             continue
     se = float(np.std(boot, ddof=1)) if len(boot) >= 2 else 1e-6
-    overall = float(es.loc[es['rel_time'] >= 0, 'att'].mean())
+    overall = float(es.loc[es["rel_time"] >= 0, "att"].mean())
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    es['se'] = se
-    es['ci_low'] = es['att'] - z_crit * se
-    es['ci_high'] = es['att'] + z_crit * se
+    es["se"] = se
+    es["ci_low"] = es["att"] - z_crit * se
+    es["ci_high"] = es["att"] + z_crit * se
 
     return StaggeredClusterRCTResult(
         overall_att=overall,

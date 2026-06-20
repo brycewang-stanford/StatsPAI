@@ -64,7 +64,6 @@ from sklearn.linear_model import LogisticRegression
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 _SURVIVAL_FOREST_ALTERNATIVES = [
     "sp.survival.causal_survival_forest",
     "sp.causal_survival_forest",
@@ -137,6 +136,7 @@ class CausalSurvivalForestResult:
 # Helpers
 # --------------------------------------------------------------------
 
+
 def _km_survivor(
     times: np.ndarray,
     events: np.ndarray,
@@ -154,11 +154,11 @@ def _km_survivor(
     S_vals = []
     for ut in unique_t:
         # count events and total at ut
-        group = (t_sorted == ut)
+        group = t_sorted == ut
         d = int(np.sum(e_sorted[group]))
         n = n_at_risk
         if n > 0:
-            s_curr *= (1 - d / n)
+            s_curr *= 1 - d / n
         S_vals.append(s_curr)
         n_at_risk -= int(group.sum())
     S_arr = np.asarray(S_vals)
@@ -366,9 +366,13 @@ def causal_survival_forest(
 
     # Outcome regression per arm (on pseudo-outcome)
     rf_forest = RandomForestRegressor(
-        n_estimators=n_trees, min_samples_leaf=min_leaf,
-        max_depth=max_depth, random_state=random_state,
-        bootstrap=True, oob_score=False, n_jobs=-1,
+        n_estimators=n_trees,
+        min_samples_leaf=min_leaf,
+        max_depth=max_depth,
+        random_state=random_state,
+        bootstrap=True,
+        oob_score=False,
+        n_jobs=-1,
     )
     # Fit joint model on (X, W) predicting pseudo
     Xw = np.column_stack([X, W])
@@ -379,11 +383,8 @@ def causal_survival_forest(
     # Double-robust score (analogue of AIPW for RMST)
     # psi_i = mu1 - mu0 + (W_i - e_i) / (e_i(1-e_i)) * (pseudo_i - mu_{W_i}(X_i))
     mu_w = np.where(W == 1, mu1, mu0)
-    psi = (
-        (mu1 - mu0)
-        + (W - e_hat)
-        / np.maximum(e_hat * (1 - e_hat), 1e-6)
-        * (pseudo - mu_w)
+    psi = (mu1 - mu0) + (W - e_hat) / np.maximum(e_hat * (1 - e_hat), 1e-6) * (
+        pseudo - mu_w
     )
 
     ate = float(np.mean(psi))
@@ -411,17 +412,22 @@ def causal_survival_forest(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.survival.causal_survival_forest",
             params={
-                "time": time, "event": event, "treat": treat,
+                "time": time,
+                "event": event,
+                "treat": treat,
                 "covariates": list(covariates),
                 "horizon": horizon,
-                "n_trees": n_trees, "min_leaf": min_leaf,
+                "n_trees": n_trees,
+                "min_leaf": min_leaf,
                 "max_depth": max_depth,
                 "propensity_bounds": list(propensity_bounds),
-                "random_state": random_state, "alpha": alpha,
+                "random_state": random_state,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -436,6 +442,7 @@ causal_survival = causal_survival_forest
 
 
 __all__ = [
-    "causal_survival_forest", "causal_survival",
+    "causal_survival_forest",
+    "causal_survival",
     "CausalSurvivalForestResult",
 ]

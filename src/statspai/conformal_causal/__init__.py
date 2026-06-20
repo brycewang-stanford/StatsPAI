@@ -32,24 +32,36 @@ from .conformal_fair import conformal_fair_ite, FairConformalResult
 
 # v1.0 conformal frontier: continuous-treatment + interference
 from .extended import (
-    conformal_continuous, conformal_interference,
-    ContinuousConformalResult, InterferenceConformalResult,
+    conformal_continuous,
+    conformal_interference,
+    ContinuousConformalResult,
+    InterferenceConformalResult,
 )
 
 # v1.5 unified dispatcher
 from .dispatcher import conformal, available_kinds as conformal_available_kinds
 
 __all__ = [
-    'conformal_cate', 'ConformalCATE',
-    'weighted_conformal_prediction',
-    'conformal_counterfactual', 'ConformalCounterfactualResult',
-    'conformal_ite_interval', 'ConformalITEResult',
-    'conformal_density_ite', 'ConformalDensityResult',
-    'conformal_ite_multidp', 'MultiDPConformalResult',
-    'conformal_debiased_ml', 'DebiasedConformalResult',
-    'conformal_fair_ite', 'FairConformalResult',
-    'conformal_continuous', 'conformal_interference',
-    'ContinuousConformalResult', 'InterferenceConformalResult',
+    "conformal_cate",
+    "ConformalCATE",
+    "weighted_conformal_prediction",
+    "conformal_counterfactual",
+    "ConformalCounterfactualResult",
+    "conformal_ite_interval",
+    "ConformalITEResult",
+    "conformal_density_ite",
+    "ConformalDensityResult",
+    "conformal_ite_multidp",
+    "MultiDPConformalResult",
+    "conformal_debiased_ml",
+    "DebiasedConformalResult",
+    "conformal_fair_ite",
+    "FairConformalResult",
+    "conformal_continuous",
+    "conformal_interference",
+    "ContinuousConformalResult",
+    "InterferenceConformalResult",
     # v1.5 dispatcher
-    'conformal', 'conformal_available_kinds',
+    "conformal",
+    "conformal_available_kinds",
 ]

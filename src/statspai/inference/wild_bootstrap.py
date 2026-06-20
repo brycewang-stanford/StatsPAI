@@ -42,7 +42,7 @@ def wild_cluster_bootstrap(
     test_var: Optional[str] = None,
     h0: float = 0,
     n_boot: int = 999,
-    weight_type: str = 'rademacher',
+    weight_type: str = "rademacher",
     seed: Optional[int] = None,
     alpha: float = 0.05,
 ) -> Dict[str, Any]:
@@ -147,7 +147,7 @@ def wild_cluster_bootstrap(
     Y = df[y].values.astype(float)
     X_df = df[x]
     X = np.column_stack([np.ones(len(df)), X_df.values.astype(float)])
-    var_names = ['_const'] + list(x)
+    var_names = ["_const"] + list(x)
     test_idx = var_names.index(test_var)
     cl = df[cluster].values
     unique_cl, cl_inverse = np.unique(cl, return_inverse=True)
@@ -232,28 +232,34 @@ def wild_cluster_bootstrap(
     )
 
     # --- Recommendation ---
-    if G < 12 and weight_type == 'rademacher':
-        rec = (f"Warning: {G} clusters with Rademacher weights. "
-               f"Consider weight_type='webb' per Webb (2014).")
+    if G < 12 and weight_type == "rademacher":
+        rec = (
+            f"Warning: {G} clusters with Rademacher weights. "
+            f"Consider weight_type='webb' per Webb (2014)."
+        )
     elif G < 20:
-        rec = (f"{G} clusters — wild cluster bootstrap is appropriate. "
-               f"Conventional cluster SEs may over-reject.")
+        rec = (
+            f"{G} clusters — wild cluster bootstrap is appropriate. "
+            f"Conventional cluster SEs may over-reject."
+        )
     else:
-        rec = (f"{G} clusters — both conventional cluster SE and bootstrap "
-               f"should be reliable.")
+        rec = (
+            f"{G} clusters — both conventional cluster SE and bootstrap "
+            f"should be reliable."
+        )
 
     return {
-        'beta_hat': float(beta_test),
-        'se_cluster': se_cl,
-        't_stat': float(t_stat),
-        'p_boot': p_boot,
-        'p_cluster': float(2 * (1 - stats.t.cdf(abs(t_stat), G - 1))),
-        'ci_boot': ci_boot,
-        'n_clusters': G,
-        'n_obs': n,
-        'n_boot': n_boot,
-        'weight_type': weight_type,
-        'recommendation': rec,
+        "beta_hat": float(beta_test),
+        "se_cluster": se_cl,
+        "t_stat": float(t_stat),
+        "p_boot": p_boot,
+        "p_cluster": float(2 * (1 - stats.t.cdf(abs(t_stat), G - 1))),
+        "ci_boot": ci_boot,
+        "n_clusters": G,
+        "n_obs": n,
+        "n_boot": n_boot,
+        "weight_type": weight_type,
+        "recommendation": rec,
     }
 
 
@@ -270,22 +276,28 @@ def _draw_weights(
     rng: np.random.Generator,
 ) -> np.ndarray:
     """Draw G bootstrap weights from the specified distribution."""
-    if weight_type == 'rademacher':
+    if weight_type == "rademacher":
         # ±1 with equal probability (Cameron et al. 2008 default)
         return rng.choice([-1.0, 1.0], size=G)
 
-    elif weight_type == 'webb':
+    elif weight_type == "webb":
         # Webb (2014) 6-point distribution
         # Better for very few clusters (G < 12)
         # Values: ±sqrt(3/2), ±sqrt(2/2), ±sqrt(1/2)
         # each with probability 1/6
-        vals = np.array([
-            -np.sqrt(1.5), -np.sqrt(1.0), -np.sqrt(0.5),
-             np.sqrt(0.5),  np.sqrt(1.0),  np.sqrt(1.5),
-        ])
+        vals = np.array(
+            [
+                -np.sqrt(1.5),
+                -np.sqrt(1.0),
+                -np.sqrt(0.5),
+                np.sqrt(0.5),
+                np.sqrt(1.0),
+                np.sqrt(1.5),
+            ]
+        )
         return rng.choice(vals, size=G)
 
-    elif weight_type == 'mammen':
+    elif weight_type == "mammen":
         # Mammen (1993) 2-point distribution
         # w = -(sqrt(5)-1)/2 with prob (sqrt(5)+1)/(2*sqrt(5))
         #     (sqrt(5)+1)/2  with prob (sqrt(5)-1)/(2*sqrt(5))
@@ -305,7 +317,7 @@ def _draw_weights(
 
 from ..core.results import CausalResult
 
-CausalResult._CITATIONS['wild_cluster_bootstrap'] = (
+CausalResult._CITATIONS["wild_cluster_bootstrap"] = (
     "@article{cameron2008bootstrap,\n"
     "  title={Bootstrap-Based Improvements for Inference with "
     "Clustered Errors},\n"

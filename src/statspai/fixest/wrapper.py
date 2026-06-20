@@ -18,6 +18,7 @@ def _check_pyfixest() -> Any:
     """Import pyfixest or raise a clear error."""
     try:
         import pyfixest as pf
+
         return pf
     except ImportError:
         raise ImportError(
@@ -30,6 +31,7 @@ def _check_pyfixest() -> Any:
 # --------------------------------------------------------------------------- #
 #  feols — OLS / IV with high-dimensional fixed effects
 # --------------------------------------------------------------------------- #
+
 
 def feols(
     fml: str,
@@ -147,6 +149,7 @@ def feols(
 #  fepois — Poisson regression with high-dimensional fixed effects
 # --------------------------------------------------------------------------- #
 
+
 def fepois(
     fml: str,
     data: pd.DataFrame,
@@ -237,6 +240,7 @@ def fepois(
 #  feglm — GLM with high-dimensional fixed effects
 # --------------------------------------------------------------------------- #
 
+
 def feglm(
     fml: str,
     data: pd.DataFrame,
@@ -300,6 +304,7 @@ def feglm(
 #  etable — convenience re-export
 # --------------------------------------------------------------------------- #
 
+
 def etable(
     *results: EconometricResults,
     **kwargs: Any,
@@ -346,8 +351,7 @@ def etable(
     >>> tab = sp.etable(f1, f2)  # doctest: +SKIP
     """
     pf_fits = [
-        getattr(r, "_pyfixest_fit") for r in results
-        if hasattr(r, "_pyfixest_fit")
+        getattr(r, "_pyfixest_fit") for r in results if hasattr(r, "_pyfixest_fit")
     ]
 
     if pf_fits:

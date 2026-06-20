@@ -27,9 +27,7 @@ def _positive_int(value: Any, *, name: str, context: str) -> int:
             f"{context}: {name} must be a positive integer"
         ) from exc
     if isinstance(value, bool) or parsed < 1:
-        raise MethodIncompatibility(
-            f"{context}: {name} must be a positive integer"
-        )
+        raise MethodIncompatibility(f"{context}: {name} must be a positive integer")
     return int(parsed)
 
 
@@ -67,8 +65,8 @@ class _DoubleMLBase:
     """Abstract base: common plumbing for all DML estimators."""
 
     # Overridden by subclasses
-    _MODEL_TAG: str = ''            # short label, used in method= string
-    _ESTIMAND: str = 'ATE'          # 'ATE' or 'LATE'
+    _MODEL_TAG: str = ""  # short label, used in method= string
+    _ESTIMAND: str = "ATE"  # 'ATE' or 'LATE'
     _REQUIRES_INSTRUMENT: bool = False
     # Whether ``ml_m`` / ``ml_r`` model a binary target, i.e. should
     # default to a classifier and accept binary learner aliases. Naming
@@ -121,7 +119,9 @@ class _DoubleMLBase:
         self.y = y
         self.treat = treat
         self.covariates = _coerce_column_list(
-            covariates, name="covariates", context=context,
+            covariates,
+            name="covariates",
+            context=context,
         )
         if instrument is None:
             self.instrument = None
@@ -129,7 +129,9 @@ class _DoubleMLBase:
             self.instrument = [instrument]
         else:
             self.instrument = _coerce_column_list(
-                instrument, name="instrument", context=context,
+                instrument,
+                name="instrument",
+                context=context,
             )
         self.n_folds = _positive_int(n_folds, name="n_folds", context=context)
         self.n_rep = _positive_int(n_rep, name="n_rep", context=context)
@@ -190,10 +192,7 @@ class _DoubleMLBase:
                     f"(matching data); got shape {arr.shape}"
                 )
             self._sample_weight_input = arr
-        if (
-            self._sample_weight_input is not None
-            and not self._SUPPORTS_SAMPLE_WEIGHT
-        ):
+        if self._sample_weight_input is not None and not self._SUPPORTS_SAMPLE_WEIGHT:
             raise MethodIncompatibility(  # pragma: no cover
                 f"{context}: sample_weight is not yet supported for "
                 f"model='{self._MODEL_TAG.lower()}'. Weighted support is "
@@ -204,11 +203,13 @@ class _DoubleMLBase:
         self._validate()
 
         self.ml_g = (
-            self._default_ml_g() if ml_g is None
+            self._default_ml_g()
+            if ml_g is None
             else resolve_learner(ml_g, kind="regressor", role="ml_g")
         )
         self.ml_m = (
-            self._default_ml_m() if ml_m is None
+            self._default_ml_m()
+            if ml_m is None
             else resolve_learner(
                 ml_m,
                 kind="classifier" if self._ML_M_TARGET_BINARY else "regressor",
@@ -216,7 +217,8 @@ class _DoubleMLBase:
             )
         )
         self.ml_r = (
-            self._default_ml_r() if ml_r is None
+            self._default_ml_r()
+            if ml_r is None
             else resolve_learner(
                 ml_r,
                 kind="classifier" if self._ML_R_TARGET_BINARY else "regressor",
@@ -270,16 +272,22 @@ class _DoubleMLBase:
 
     def _default_ml_g(self) -> Any:
         from sklearn.ensemble import GradientBoostingRegressor
+
         return GradientBoostingRegressor(
-            n_estimators=100, max_depth=3, learning_rate=0.1,
+            n_estimators=100,
+            max_depth=3,
+            learning_rate=0.1,
             random_state=42,
         )
 
     def _default_ml_m(self) -> Any:
         if self._ML_M_TARGET_BINARY:
             from sklearn.ensemble import GradientBoostingClassifier
+
             return GradientBoostingClassifier(
-                n_estimators=100, max_depth=3, learning_rate=0.1,
+                n_estimators=100,
+                max_depth=3,
+                learning_rate=0.1,
                 random_state=42,
             )
         return self._default_ml_g()
@@ -287,8 +295,11 @@ class _DoubleMLBase:
     def _default_ml_r(self) -> Any:
         if self._ML_R_TARGET_BINARY:
             from sklearn.ensemble import GradientBoostingClassifier
+
             return GradientBoostingClassifier(
-                n_estimators=100, max_depth=3, learning_rate=0.1,
+                n_estimators=100,
+                max_depth=3,
+                learning_rate=0.1,
                 random_state=42,
             )
         return self._default_ml_g()
@@ -316,7 +327,9 @@ class _DoubleMLBase:
 
     @staticmethod
     def _validate_fold_indices(
-        fold_indices: Any, n: int, n_folds: int,
+        fold_indices: Any,
+        n: int,
+        n_folds: int,
     ) -> np.ndarray:
         raw = np.asarray(fold_indices)
         if raw.ndim != 1 or len(raw) != n:
@@ -330,14 +343,11 @@ class _DoubleMLBase:
         unique = np.unique(codes)
         if len(unique) != n_folds:
             raise MethodIncompatibility(
-                f"fold_indices define {len(unique)} folds, but n_folds="
-                f"{n_folds}"
+                f"fold_indices define {len(unique)} folds, but n_folds=" f"{n_folds}"
             )
         counts = np.bincount(codes, minlength=n_folds)
         if np.any(counts == 0):
-            raise DataInsufficient(
-                "fold_indices must assign at least one row per fold"
-            )
+            raise DataInsufficient("fold_indices must assign at least one row per fold")
         return np.asarray(codes, dtype=int)
 
     # ----- Sample-weight helpers (used by subclasses) -----------------
@@ -356,6 +366,7 @@ class _DoubleMLBase:
         one-time warning if the learner doesn't accept the kwarg.
         """
         from sklearn.base import clone
+
         clf = clone(learner)
         if weights is None:
             clf.fit(X, y)
@@ -367,6 +378,7 @@ class _DoubleMLBase:
             # unweighted fit. The downstream weighted moment / variance
             # is still applied; this only loses efficiency in nuisance.
             import warnings  # pragma: no cover
+
             warnings.warn(  # pragma: no cover
                 f"{type(learner).__name__}.fit does not accept "
                 f"sample_weight; falling back to unweighted nuisance "
@@ -438,7 +450,8 @@ class _DoubleMLBase:
         X = clean[self.covariates].values.astype(float)
         Z = (
             clean[self.instrument[0]].values.astype(float)
-            if self.instrument is not None else None
+            if self.instrument is not None
+            else None
         )
         if "__sw__" in clean.columns:
             sample_weight = clean["__sw__"].values.astype(float)
@@ -447,9 +460,7 @@ class _DoubleMLBase:
                     "sample_weight must be non-negative; got negative entries."
                 )
             if not np.isfinite(sample_weight).all():
-                raise MethodIncompatibility(
-                    "sample_weight contains non-finite values."
-                )
+                raise MethodIncompatibility("sample_weight contains non-finite values.")
             if sample_weight.sum() <= 0:
                 raise DataInsufficient("sample_weight has zero total mass.")
         else:
@@ -466,7 +477,9 @@ class _DoubleMLBase:
             )
         if "__fold__" in clean.columns:
             fold_indices = self._validate_fold_indices(
-                clean["__fold__"].values, n, self.n_folds,
+                clean["__fold__"].values,
+                n,
+                self.n_folds,
             )
             fold_source = "user"
         else:
@@ -481,7 +494,12 @@ class _DoubleMLBase:
             self._last_rep_diagnostics: Dict[str, Any] = {}
             self._last_rep_residuals: Dict[str, np.ndarray] = {}
             theta_r, se_r = self._fit_one_rep(
-                Y, D, X, Z, n, rng_seed=self.random_state + rep,
+                Y,
+                D,
+                X,
+                Z,
+                n,
+                rng_seed=self.random_state + rep,
                 sample_weight=sample_weight,
                 fold_indices=fold_indices,
             )
@@ -514,43 +532,45 @@ class _DoubleMLBase:
         ci = (theta - z_crit * se, theta + z_crit * se)
 
         model_info = {
-            'dml_model': self._MODEL_TAG,
-            'n_folds': self.n_folds,
-            'n_rep': self.n_rep,
-            'ml_g': type(self.ml_g).__name__,
-            'ml_m': type(self.ml_m).__name__,
-            'n_covariates': len(self.covariates),
-            'fold_source': fold_source,
+            "dml_model": self._MODEL_TAG,
+            "n_folds": self.n_folds,
+            "n_rep": self.n_rep,
+            "ml_g": type(self.ml_g).__name__,
+            "ml_m": type(self.ml_m).__name__,
+            "n_covariates": len(self.covariates),
+            "fold_source": fold_source,
         }
         if self._REQUIRES_INSTRUMENT:
             if self.instrument is None:  # pragma: no cover
                 raise MethodIncompatibility(
                     f"dml.{self._MODEL_TAG.lower()}: instrument is required"
                 )
-            model_info['ml_r'] = type(self.ml_r).__name__
-            model_info['instrument'] = self.instrument[0]
+            model_info["ml_r"] = type(self.ml_r).__name__
+            model_info["instrument"] = self.instrument[0]
         if self.n_rep > 1:
-            model_info['theta_all_reps'] = thetas
-            model_info['se_all_reps'] = ses
+            model_info["theta_all_reps"] = thetas
+            model_info["se_all_reps"] = ses
         if per_rep_diags:
-            model_info['diagnostics'] = self._aggregate_diagnostics(per_rep_diags)
+            model_info["diagnostics"] = self._aggregate_diagnostics(per_rep_diags)
         # Stash residuals + design matrix for downstream sensitivity /
         # diagnostics (sp.dml_sensitivity, sp.dml_diagnostics). These are
         # NumPy arrays so they don't serialise in to_dict, but they're
         # available on the in-memory model_info.
         if last_residuals:
-            model_info.update({
-                "_y_resid": last_residuals.get("y_resid"),
-                "_d_resid": last_residuals.get("d_resid"),
-                "_pscore": last_residuals.get("pscore"),
-            })
+            model_info.update(
+                {
+                    "_y_resid": last_residuals.get("y_resid"),
+                    "_d_resid": last_residuals.get("d_resid"),
+                    "_pscore": last_residuals.get("pscore"),
+                }
+            )
         model_info["_X_design"] = X
         model_info["_T"] = D
         model_info["_Y"] = Y
         model_info["_covariate_names"] = list(self.covariates)
 
         return CausalResult(
-            method=f'Double ML ({self._MODEL_TAG})',
+            method=f"Double ML ({self._MODEL_TAG})",
             estimand=self._ESTIMAND,
             estimate=theta,
             se=se,
@@ -560,5 +580,5 @@ class _DoubleMLBase:
             n_obs=n,
             detail=None,
             model_info=model_info,
-            _citation_key='dml',
+            _citation_key="dml",
         )

@@ -30,20 +30,18 @@ silently omits the missing pane. The mixin never overrides an existing
 ``summary``, ``plot``, ``to_latex``, or ``_repr_html_`` defined on the
 subclass; it only fills in the gaps.
 """
+
 from __future__ import annotations
 
 import contextlib
 from dataclasses import is_dataclass, asdict
-from typing import (
-    Any, ClassVar, Dict, Iterable, Mapping, Optional, Tuple, Union,
-)
+from typing import Any, ClassVar, Dict, Mapping, Optional, Tuple, Union
 import io
 import json
 
 import numpy as np
 import pandas as pd
 from scipy import stats
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Shared visual style for every decomposition plot
@@ -54,13 +52,13 @@ from scipy import stats
 #: sign of a contribution; ``a`` / ``b`` mark the two groups; ``cf`` is
 #: the counterfactual; ``accent`` is for total / gap bars.
 DECOMP_PALETTE: Dict[str, str] = {
-    "pos": "#1976D2",       # contribution > 0 (Material blue 700)
-    "neg": "#E53935",       # contribution < 0 (Material red 600)
-    "a": "#1E88E5",         # group A
-    "b": "#FB8C00",         # group B
-    "cf": "#43A047",        # counterfactual
-    "accent": "#37474F",    # total / gap (Material blue-grey 800)
-    "ci": "#90A4AE",        # confidence-interval whiskers
+    "pos": "#1976D2",  # contribution > 0 (Material blue 700)
+    "neg": "#E53935",  # contribution < 0 (Material red 600)
+    "a": "#1E88E5",  # group A
+    "b": "#FB8C00",  # group B
+    "cf": "#43A047",  # counterfactual
+    "accent": "#37474F",  # total / gap (Material blue-grey 800)
+    "ci": "#90A4AE",  # confidence-interval whiskers
     "between": "#1976D2",
     "within": "#E53935",
     "overlap": "#8E24AA",
@@ -291,6 +289,7 @@ _CITATIONS: Dict[str, str] = {
 # Mixin
 # ════════════════════════════════════════════════════════════════════════
 
+
 class DecompResultMixin:
     """Common surface for every decomposition result class.
 
@@ -336,9 +335,17 @@ class DecompResultMixin:
             if "se" not in df.columns:
                 return None
             value_col = next(
-                (c for c in ("contribution", "delta", "composition",
-                             "structure", "value")
-                 if c in df.columns),
+                (
+                    c
+                    for c in (
+                        "contribution",
+                        "delta",
+                        "composition",
+                        "structure",
+                        "value",
+                    )
+                    if c in df.columns
+                ),
                 None,
             )
             if value_col is None:
@@ -386,10 +393,7 @@ class DecompResultMixin:
         if is_dataclass(self):
             base = asdict(self)
         else:
-            base = {
-                k: v for k, v in self.__dict__.items()
-                if not k.startswith("_")
-            }
+            base = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
         coerced: Dict[str, Any] = _coerce_for_json(base)
         return coerced
 
@@ -425,9 +429,7 @@ class DecompResultMixin:
         """
         sheets = self._dataframe_panels()
         if not sheets:
-            raise RuntimeError(
-                "Result has no exportable panels; nothing to write."
-            )
+            raise RuntimeError("Result has no exportable panels; nothing to write.")
         buf: io.BytesIO
         if path is None:
             buf = io.BytesIO()
@@ -461,8 +463,7 @@ class DecompResultMixin:
             from docx.shared import Pt
         except ImportError as err:  # pragma: no cover
             raise ImportError(
-                "to_word requires python-docx. "
-                "Install via: pip install python-docx"
+                "to_word requires python-docx. " "Install via: pip install python-docx"
             ) from err
 
         doc = Document()
@@ -498,8 +499,8 @@ class DecompResultMixin:
                 for i, col in enumerate(df.columns):
                     val = row[col]
                     cells[i].text = (
-                        f"{val:.4f}" if isinstance(val, (int, float))
-                        and not isinstance(val, bool)
+                        f"{val:.4f}"
+                        if isinstance(val, (int, float)) and not isinstance(val, bool)
                         else str(val)
                     )
         cite_obj = self.cite("string") if hasattr(self, "cite") else ""
@@ -530,15 +531,36 @@ class DecompResultMixin:
                 panels["Overall"] = pd.DataFrame(rows)
         # Common dataclass scalars (gap / composition / structure / ...).
         scalar_keys = (
-            "observed_gap", "counterfactual_gap", "closed_gap",
-            "gap", "composition", "structure", "explained", "unexplained",
-            "between", "within", "overlap", "total_change",
-            "total", "nde", "nie", "cde", "total_effect",
-            "controlled_direct", "reference_interaction",
-            "mediated_interaction", "propn_mediated",
-            "total_disparity", "initial_disparity",
-            "mediator_attributable", "propn_mediator",
-            "disparity", "baseline", "prevalence", "effect", "selection",
+            "observed_gap",
+            "counterfactual_gap",
+            "closed_gap",
+            "gap",
+            "composition",
+            "structure",
+            "explained",
+            "unexplained",
+            "between",
+            "within",
+            "overlap",
+            "total_change",
+            "total",
+            "nde",
+            "nie",
+            "cde",
+            "total_effect",
+            "controlled_direct",
+            "reference_interaction",
+            "mediated_interaction",
+            "propn_mediated",
+            "total_disparity",
+            "initial_disparity",
+            "mediator_attributable",
+            "propn_mediator",
+            "disparity",
+            "baseline",
+            "prevalence",
+            "effect",
+            "selection",
         )
         scalar_rows = []
         for k in scalar_keys:
@@ -549,9 +571,15 @@ class DecompResultMixin:
             panels["Overall"] = pd.DataFrame(scalar_rows)
         # Per-method DataFrame attributes.
         candidate_attrs = (
-            "detailed", "decomposition", "detailed_composition",
-            "detailed_structure", "quantile_grid", "cdf_grid",
-            "components", "subgroups", "table",
+            "detailed",
+            "decomposition",
+            "detailed_composition",
+            "detailed_structure",
+            "quantile_grid",
+            "cdf_grid",
+            "components",
+            "subgroups",
+            "table",
         )
         for attr in candidate_attrs:
             df = getattr(self, attr, None)
@@ -563,6 +591,7 @@ class DecompResultMixin:
 # ════════════════════════════════════════════════════════════════════════
 # Helpers
 # ════════════════════════════════════════════════════════════════════════
+
 
 def _coerce_for_json(obj: Any) -> Any:
     """Recursively coerce numpy / pandas types into JSON-friendly forms."""

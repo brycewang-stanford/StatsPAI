@@ -8,27 +8,40 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-
 # Catalogue of common unobserved confounders by domain
 _DOMAIN_CONFOUNDERS = {
     "health": [
-        "patient adherence", "comorbidities", "lifestyle factors",
-        "socioeconomic status", "access to care", "genetic predisposition",
+        "patient adherence",
+        "comorbidities",
+        "lifestyle factors",
+        "socioeconomic status",
+        "access to care",
+        "genetic predisposition",
     ],
     "education": [
-        "parental involvement", "innate ability", "peer effects",
-        "school resources", "neighborhood quality",
+        "parental involvement",
+        "innate ability",
+        "peer effects",
+        "school resources",
+        "neighborhood quality",
     ],
     "labor": [
-        "ability", "motivation", "network effects", "family background",
+        "ability",
+        "motivation",
+        "network effects",
+        "family background",
         "job-search effort",
     ],
     "policy": [
-        "concurrent reforms", "anticipation effects", "selection into program",
+        "concurrent reforms",
+        "anticipation effects",
+        "selection into program",
         "differential reporting",
     ],
     "marketing": [
-        "selection bias", "seasonal trends", "competing campaigns",
+        "selection bias",
+        "seasonal trends",
+        "competing campaigns",
         "platform algorithm changes",
     ],
 }
@@ -61,6 +74,7 @@ class UnobservedConfounderProposal:
     >>> bool(isinstance(prop.summary(), str))
     True
     """
+
     candidates: List[str]
     suggested_evalue_thresholds: List[float]
     domain: str
@@ -130,6 +144,7 @@ def llm_unobserved_confounders(
                 "exposure-outcome pair. Return as a JSON array of strings."
             )
             import json
+
             raw = client.complete(prompt)
             cands = json.loads(raw)
             evals = _suggested_evalues(point_estimate_rr, len(cands))
@@ -143,11 +158,14 @@ def llm_unobserved_confounders(
             pass
 
     # Heuristic backend
-    candidates = _DOMAIN_CONFOUNDERS.get(domain.lower(), [
-        "unmeasured baseline characteristics",
-        "selection into observation",
-        "time-varying confounders",
-    ])
+    candidates = _DOMAIN_CONFOUNDERS.get(
+        domain.lower(),
+        [
+            "unmeasured baseline characteristics",
+            "selection into observation",
+            "time-varying confounders",
+        ],
+    )
     evals = _suggested_evalues(point_estimate_rr, len(candidates))
     return UnobservedConfounderProposal(
         candidates=candidates,

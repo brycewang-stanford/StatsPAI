@@ -19,6 +19,7 @@ This implementation uses the DirectLiNGAM algorithm (Shimizu 2011):
     4. The adjacency matrix B[i, j] of direct effects is then recovered
        by regressing each variable on its predecessors in the ordering.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -27,10 +28,10 @@ from typing import List, Union
 import numpy as np
 import pandas as pd
 
-
 # --------------------------------------------------------------------- #
 #  Helper: pairwise independence measure
 # --------------------------------------------------------------------- #
+
 
 def _negentropy_hyvarinen(x: np.ndarray) -> float:
     """Hyvärinen's approximation of differential entropy / negentropy.
@@ -45,7 +46,7 @@ def _negentropy_hyvarinen(x: np.ndarray) -> float:
     k2a = 1.0 / (2.0 - 6.0 / np.pi)
     gamma = 0.37457
     t1 = k1 * (float(np.mean(np.log(np.cosh(z)))) - gamma) ** 2
-    t2 = k2a * (float(np.mean(z * np.exp(-z ** 2 / 2.0)))) ** 2
+    t2 = k2a * (float(np.mean(z * np.exp(-(z**2) / 2.0)))) ** 2
     return float(t1 + t2)
 
 
@@ -77,6 +78,7 @@ def _mi_quadratic(x: np.ndarray, y: np.ndarray) -> float:
 # --------------------------------------------------------------------- #
 #  Result
 # --------------------------------------------------------------------- #
+
 
 @dataclass
 class LiNGAMResult:
@@ -111,15 +113,13 @@ class LiNGAMResult:
     True
     """
 
-    order: List[int]                 # causal order (most exogenous first)
-    adjacency: np.ndarray            # B[i, j] = direct effect of j on i
+    order: List[int]  # causal order (most exogenous first)
+    adjacency: np.ndarray  # B[i, j] = direct effect of j on i
     names: List[str]
-    residuals: np.ndarray            # (n, k) final residuals
+    residuals: np.ndarray  # (n, k) final residuals
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame(
-            self.adjacency, index=self.names, columns=self.names
-        )
+        return pd.DataFrame(self.adjacency, index=self.names, columns=self.names)
 
     def edges(self, threshold: float = 0.05) -> List[tuple]:
         out = []
@@ -156,6 +156,7 @@ class LiNGAMResult:
 #  Main algorithm
 # --------------------------------------------------------------------- #
 
+
 def _pick_exogenous(X: np.ndarray, remaining: List[int]) -> int:
     """DirectLiNGAM exogeneity test.
 
@@ -183,10 +184,7 @@ def _pick_exogenous(X: np.ndarray, remaining: List[int]) -> int:
             # If i is exogenous, residual r_{j|i} should be independent of x_i
             # so mi(r_{j|i}, x_i) small; mi(r_{i|j}, x_j) large.
             # Diff = mi(r_{j|i}, x_i) - mi(r_{i|j}, x_j) should be ≤ 0.
-            diff = (
-                _mi_quadratic(r_j_given_i, x_i)
-                - _mi_quadratic(r_i_given_j, x_j)
-            )
+            diff = _mi_quadratic(r_j_given_i, x_i) - _mi_quadratic(r_i_given_j, x_j)
             total += min(0.0, diff) ** 2
         scores.append((i, total))
     return min(scores, key=lambda t: t[1])[0]
@@ -282,15 +280,19 @@ def lingam(
         resid = resid_std
 
     _result = LiNGAMResult(
-        order=order, adjacency=B, names=names, residuals=resid,
+        order=order,
+        adjacency=B,
+        names=names,
+        residuals=resid,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_discovery.lingam",
             params={"standardize": standardize},
-            data=data if hasattr(data, 'columns') else None,
+            data=data if hasattr(data, "columns") else None,
             overwrite=False,
         )
     except Exception:  # pragma: no cover

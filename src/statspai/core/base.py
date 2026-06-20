@@ -13,7 +13,7 @@ class BaseModel(ABC):
     """
     Abstract base class for all econometric models
     """
-    
+
     def __init__(self) -> None:
         self.is_fitted = False
         self._results: Optional["EconometricResults"] = None
@@ -22,35 +22,35 @@ class BaseModel(ABC):
     def fit(self, **kwargs: Any) -> "EconometricResults":
         """
         Fit the econometric model
-        
+
         Returns
         -------
         EconometricResults
             Fitted model results
         """
         pass
-    
+
     @abstractmethod
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """
         Generate predictions from the fitted model
-        
+
         Parameters
         ----------
         data : pd.DataFrame, optional
             Data for prediction. If None, uses training data.
-            
+
         Returns
         -------
         np.ndarray
             Predicted values
         """
         pass
-    
+
     def summary(self) -> str:
         """
         Return a summary of the fitted model
-        
+
         Returns
         -------
         str
@@ -66,14 +66,12 @@ class BaseEstimator(ABC):
     """
     Abstract base class for estimation algorithms
     """
-    
+
     @abstractmethod
-    def estimate(
-        self, y: np.ndarray, X: np.ndarray, **kwargs: Any
-    ) -> Dict[str, Any]:
+    def estimate(self, y: np.ndarray, X: np.ndarray, **kwargs: Any) -> Dict[str, Any]:
         """
         Estimate model parameters
-        
+
         Parameters
         ----------
         y : np.ndarray
@@ -82,7 +80,7 @@ class BaseEstimator(ABC):
             Independent variables
         **kwargs
             Additional estimation options
-            
+
         Returns
         -------
         Dict[str, Any]

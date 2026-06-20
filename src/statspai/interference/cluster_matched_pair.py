@@ -10,7 +10,6 @@ its single-variance estimator under the matched-pair design.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -47,6 +46,7 @@ class MatchedPairResult(ResultProtocolMixin):
     >>> res.n_clusters
     40
     """
+
     estimate: float
     se: float
     ci: tuple
@@ -131,9 +131,7 @@ def cluster_matched_pair(
             continue
     pair_diffs = np.array(pair_diff_list)
     if len(pair_diffs) < 2:
-        raise ValueError(
-            f"Need at least 2 valid pairs (got {len(pair_diffs)})."
-        )
+        raise ValueError(f"Need at least 2 valid pairs (got {len(pair_diffs)}).")
     estimate = float(pair_diffs.mean())
     # Bai (2022) single-variance estimator: across-pair variance / n_pairs
     se = float(pair_diffs.std(ddof=1) / np.sqrt(len(pair_diffs)))

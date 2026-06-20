@@ -30,7 +30,7 @@ Usage
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 import numpy as np
@@ -94,7 +94,7 @@ class RobustnessResult(ResultProtocolMixin):
             "-" * 78,
         ]
         for _, row in df.iterrows():
-            stars = _stars(row['pvalue'])
+            stars = _stars(row["pvalue"])
             lines.append(
                 f"  {row['check']:<35s} "
                 f"{row['estimate']:>9.4f}{stars:<3s} "
@@ -105,12 +105,11 @@ class RobustnessResult(ResultProtocolMixin):
         lines.append("-" * 78)
 
         # Stability assessment
-        ests = df['estimate']
-        pct_change = ((ests - self.baseline_estimate) /
-                      abs(self.baseline_estimate) * 100)
+        ests = df["estimate"]
+        pct_change = (ests - self.baseline_estimate) / abs(self.baseline_estimate) * 100
         max_change = pct_change.abs().max()
         all_same_sign = (ests > 0).all() or (ests < 0).all()
-        all_sig = (df['pvalue'] < 0.05).all()
+        all_sig = (df["pvalue"] < 0.05).all()
 
         lines.append("")
         lines.append("  Stability Assessment")
@@ -124,10 +123,7 @@ class RobustnessResult(ResultProtocolMixin):
             f"{'Yes' if all_sig else 'No'} "
             f"({(df['pvalue'] < 0.05).sum()}/{len(df)})"
         )
-        lines.append(
-            f"  - Estimate range: "
-            f"[{ests.min():.4f}, {ests.max():.4f}]"
-        )
+        lines.append(f"  - Estimate range: " f"[{ests.min():.4f}, {ests.max():.4f}]")
         lines.append("=" * 78)
         return "\n".join(lines)
 
@@ -150,7 +146,7 @@ class RobustnessResult(ResultProtocolMixin):
             r"\hline",
         ]
         for _, row in df.iterrows():
-            stars = _stars_latex(row['pvalue'])
+            stars = _stars_latex(row["pvalue"])
             lines.append(
                 f"{row['check']} & "
                 f"{row['estimate']:.4f}{stars} & "
@@ -197,26 +193,32 @@ class RobustnessResult(ResultProtocolMixin):
 
         ys = np.arange(n)
         for i, (_, row) in enumerate(df.iterrows()):
-            c = baseline_color if row['check'] == 'Baseline' else color
+            c = baseline_color if row["check"] == "Baseline" else color
             ax.errorbar(
-                row['estimate'], i,
-                xerr=1.96 * row['se'],
-                fmt='o', color=c, markersize=5,
-                capsize=3, linewidth=1.2,
+                row["estimate"],
+                i,
+                xerr=1.96 * row["se"],
+                fmt="o",
+                color=c,
+                markersize=5,
+                capsize=3,
+                linewidth=1.2,
             )
 
-        ax.axvline(0, color='grey', linewidth=0.5, linestyle='--')
+        ax.axvline(0, color="grey", linewidth=0.5, linestyle="--")
         ax.axvline(
             self.baseline_estimate,
-            color=baseline_color, linewidth=0.8, linestyle=':',
+            color=baseline_color,
+            linewidth=0.8,
+            linestyle=":",
             alpha=0.6,
         )
         ax.set_yticks(ys)
-        ax.set_yticklabels(df['check'], fontsize=9)
+        ax.set_yticklabels(df["check"], fontsize=9)
         ax.invert_yaxis()
         ax.set_xlabel(f"Estimate of '{self.x}'")
         ax.set_title(title or "Robustness Checks", fontsize=12)
-        for spine in ['top', 'right']:
+        for spine in ["top", "right"]:
             ax.spines[spine].set_visible(False)
         plt.tight_layout()
         return fig, ax
@@ -246,12 +248,13 @@ def _stars_latex(p: float) -> str:
 # Internal: quick OLS for a single spec
 # ---------------------------------------------------------------------------
 
+
 def _quick_ols(
     data: pd.DataFrame,
     y_col: str,
     x_col: str,
     control_cols: List[str],
-    se_type: str = 'hc1',
+    se_type: str = "hc1",
     cluster_col: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """Run OLS and return dict with key-variable stats."""
@@ -276,10 +279,10 @@ def _quick_ols(
     params = XtX_inv @ X.T @ Y
     resid = Y - X @ params
 
-    if se_type == 'nonrobust':
-        sigma2 = np.sum(resid ** 2) / (n - k)
+    if se_type == "nonrobust":
+        sigma2 = np.sum(resid**2) / (n - k)
         vcov = sigma2 * XtX_inv
-    elif se_type == 'cluster' and cluster_col:
+    elif se_type == "cluster" and cluster_col:
         clusters = df[cluster_col].values
         unique_c = np.unique(clusters)
         G = len(unique_c)
@@ -296,7 +299,7 @@ def _quick_ols(
         vcov = correction * XtX_inv @ meat @ XtX_inv
     else:
         # HC1
-        u2 = resid ** 2
+        u2 = resid**2
         meat = X.T @ np.diag(u2) @ X * n / (n - k)
         vcov = XtX_inv @ meat @ XtX_inv
 
@@ -307,22 +310,23 @@ def _quick_ols(
     t_stat = beta_x / se_x if se_x > 0 else np.inf
     p_val = 2 * (1 - stats.t.cdf(abs(t_stat), df_resid))
     t_crit = stats.t.ppf(0.975, df_resid)
-    r2 = 1 - np.sum(resid ** 2) / np.sum((Y - Y.mean()) ** 2)
+    r2 = 1 - np.sum(resid**2) / np.sum((Y - Y.mean()) ** 2)
 
     return {
-        'estimate': beta_x,
-        'se': se_x,
-        'ci_lower': beta_x - t_crit * se_x,
-        'ci_upper': beta_x + t_crit * se_x,
-        'pvalue': p_val,
-        'nobs': n,
-        'r_squared': r2,
+        "estimate": beta_x,
+        "se": se_x,
+        "ci_lower": beta_x - t_crit * se_x,
+        "ci_upper": beta_x + t_crit * se_x,
+        "pvalue": p_val,
+        "nobs": n,
+        "r_squared": r2,
     }
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def robustness_report(
     data: pd.DataFrame,
@@ -399,48 +403,52 @@ def robustness_report(
     """
     # Parse formula → y, controls
     from ..core.utils import parse_formula
+
     parsed = parse_formula(formula)
-    y_col = parsed['dependent']
-    all_rhs = parsed['exogenous']
+    y_col = parsed["dependent"]
+    all_rhs = parsed["exogenous"]
 
     # Separate x from controls
     controls_base = [v for v in all_rhs if v != x]
     if x not in all_rhs:
         raise ValueError(
-            f"Key variable '{x}' not found in formula RHS. "
-            f"Found: {all_rhs}"
+            f"Key variable '{x}' not found in formula RHS. " f"Found: {all_rhs}"
         )
 
     rows: List[Dict[str, Any]] = []
 
     # ---- (1) Baseline with HC1 ----------------------------------------
-    res = _quick_ols(data, y_col, x, controls_base, se_type='hc1')
+    res = _quick_ols(data, y_col, x, controls_base, se_type="hc1")
     if res is None:
         raise ValueError("Baseline regression failed. Check data/formula.")
-    res['check'] = 'Baseline'
-    baseline_est = res['estimate']
-    baseline_se = res['se']
+    res["check"] = "Baseline"
+    baseline_est = res["estimate"]
+    baseline_se = res["se"]
     rows.append(res)
 
     # ---- (2) SE variants -----------------------------------------------
     for se_label, se_type, cl in [
-        ('SE: OLS (non-robust)', 'nonrobust', None),
-        ('SE: Robust (HC1)', 'hc1', None),
+        ("SE: OLS (non-robust)", "nonrobust", None),
+        ("SE: Robust (HC1)", "hc1", None),
     ]:
-        if se_label == 'SE: Robust (HC1)':
+        if se_label == "SE: Robust (HC1)":
             continue  # baseline already uses HC1
         r = _quick_ols(data, y_col, x, controls_base, se_type=se_type)
         if r:
-            r['check'] = se_label
+            r["check"] = se_label
             rows.append(r)
 
     if cluster_var:
         r = _quick_ols(
-            data, y_col, x, controls_base,
-            se_type='cluster', cluster_col=cluster_var,
+            data,
+            y_col,
+            x,
+            controls_base,
+            se_type="cluster",
+            cluster_col=cluster_var,
         )
         if r:
-            r['check'] = f'SE: Clustered ({cluster_var})'
+            r["check"] = f"SE: Clustered ({cluster_var})"
             rows.append(r)
 
     # ---- (3) Add controls one-by-one -----------------------------------
@@ -449,10 +457,14 @@ def robustness_report(
             if ctrl in controls_base or ctrl == x or ctrl == y_col:
                 continue
             r = _quick_ols(
-                data, y_col, x, controls_base + [ctrl], se_type='hc1',
+                data,
+                y_col,
+                x,
+                controls_base + [ctrl],
+                se_type="hc1",
             )
             if r:
-                r['check'] = f'+ {ctrl}'
+                r["check"] = f"+ {ctrl}"
                 rows.append(r)
 
     # ---- (4) Drop controls one-by-one ----------------------------------
@@ -461,9 +473,9 @@ def robustness_report(
         if ctrl not in controls_base:
             continue
         reduced = [c for c in controls_base if c != ctrl]
-        r = _quick_ols(data, y_col, x, reduced, se_type='hc1')
+        r = _quick_ols(data, y_col, x, reduced, se_type="hc1")
         if r:
-            r['check'] = f'- {ctrl}'
+            r["check"] = f"- {ctrl}"
             rows.append(r)
 
     # ---- (5) Winsorize Y -----------------------------------------------
@@ -473,9 +485,9 @@ def robustness_report(
             lo = df_w[y_col].quantile(level)
             hi = df_w[y_col].quantile(1 - level)
             df_w[y_col] = df_w[y_col].clip(lo, hi)
-            r = _quick_ols(df_w, y_col, x, controls_base, se_type='hc1')
+            r = _quick_ols(df_w, y_col, x, controls_base, se_type="hc1")
             if r:
-                r['check'] = f'Winsorize Y ({level:.0%})'
+                r["check"] = f"Winsorize Y ({level:.0%})"
                 rows.append(r)
 
     # ---- (6) Trim outliers ---------------------------------------------
@@ -483,19 +495,23 @@ def robustness_report(
         lo = data[y_col].quantile(trim_pct)
         hi = data[y_col].quantile(1 - trim_pct)
         df_t = data[(data[y_col] >= lo) & (data[y_col] <= hi)]
-        r = _quick_ols(df_t, y_col, x, controls_base, se_type='hc1')
+        r = _quick_ols(df_t, y_col, x, controls_base, se_type="hc1")
         if r:
-            r['check'] = f'Trim Y ({trim_pct:.0%} tails)'
+            r["check"] = f"Trim Y ({trim_pct:.0%} tails)"
             rows.append(r)
 
     # ---- (7) Subsamples ------------------------------------------------
     if subsets:
         for label, mask in subsets.items():
             r = _quick_ols(
-                data.loc[mask], y_col, x, controls_base, se_type='hc1',
+                data.loc[mask],
+                y_col,
+                x,
+                controls_base,
+                se_type="hc1",
             )
             if r:
-                r['check'] = f'Sub: {label}'
+                r["check"] = f"Sub: {label}"
                 rows.append(r)
 
     results_df = pd.DataFrame(rows)

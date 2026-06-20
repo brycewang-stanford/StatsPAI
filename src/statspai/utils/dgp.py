@@ -16,10 +16,10 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Difference-in-Differences
 # ---------------------------------------------------------------------------
+
 
 def dgp_did(
     n_units: int = 100,
@@ -98,15 +98,21 @@ def dgp_did(
     for i in range(n_units):
         for t in range(n_periods):
             d = 1.0 if t >= first_treat[i] else 0.0
-            y = (
-                unit_fe[i]
-                + time_fe[t]
-                + unit_effects[i] * d
-                + rng.normal(0, 0.5)
+            y = unit_fe[i] + time_fe[t] + unit_effects[i] * d + rng.normal(0, 0.5)
+            rows.append(
+                (
+                    i,
+                    t,
+                    y,
+                    d,
+                    first_treat[i] if first_treat[i] < np.inf else np.nan,
+                    group[i],
+                )
             )
-            rows.append((i, t, y, d, first_treat[i] if first_treat[i] < np.inf else np.nan, group[i]))
 
-    df = pd.DataFrame(rows, columns=["unit", "time", "y", "treated", "first_treat", "group"])
+    df = pd.DataFrame(
+        rows, columns=["unit", "time", "y", "treated", "first_treat", "group"]
+    )
     df["unit"] = df["unit"].astype(int)
     df["time"] = df["time"].astype(int)
     df["group"] = df["group"].astype(int)
@@ -117,6 +123,7 @@ def dgp_did(
 # ---------------------------------------------------------------------------
 # Regression Discontinuity
 # ---------------------------------------------------------------------------
+
 
 def dgp_rd(
     n: int = 1000,
@@ -168,7 +175,7 @@ def dgp_rd(
         treatment = (x >= cutoff).astype(float)
 
     # Smooth control function
-    f_x = 0.5 * x + 0.3 * x ** 2
+    f_x = 0.5 * x + 0.3 * x**2
     y = f_x + effect * treatment + rng.normal(0, 0.3, size=n)
 
     df = pd.DataFrame({"y": y, "x": x, "treatment": treatment})
@@ -432,6 +439,7 @@ def dgp_rdit(
 # Instrumental Variables
 # ---------------------------------------------------------------------------
 
+
 def dgp_iv(
     n: int = 500,
     effect: float = 0.5,
@@ -501,6 +509,7 @@ def dgp_iv(
 # Randomised Controlled Trial
 # ---------------------------------------------------------------------------
 
+
 def dgp_rct(
     n: int = 500,
     effect: float = 0.3,
@@ -566,6 +575,7 @@ def dgp_rct(
 # Panel Data
 # ---------------------------------------------------------------------------
 
+
 def dgp_panel(
     n_units: int = 100,
     n_periods: int = 20,
@@ -623,12 +633,14 @@ def dgp_panel(
     unit = np.repeat(np.arange(n_units), n_periods)
     time = np.tile(np.arange(n_periods), n_units)
 
-    df = pd.DataFrame({
-        "unit": unit,
-        "time": time,
-        "y": Y.ravel(),
-        "x": X.ravel(),
-    })
+    df = pd.DataFrame(
+        {
+            "unit": unit,
+            "time": time,
+            "y": Y.ravel(),
+            "x": X.ravel(),
+        }
+    )
     df.attrs["true_effect"] = beta
     return df
 
@@ -636,6 +648,7 @@ def dgp_panel(
 # ---------------------------------------------------------------------------
 # Observational / Matching Data
 # ---------------------------------------------------------------------------
+
 
 def dgp_observational(
     n: int = 1000,
@@ -681,13 +694,15 @@ def dgp_observational(
 
     y = effect * treatment + 0.5 * x1 + 0.3 * x2 + rng.normal(0, 1, size=n)
 
-    df = pd.DataFrame({
-        "y": y,
-        "treatment": treatment,
-        "x1": x1,
-        "x2": x2,
-        "propensity_score": propensity,
-    })
+    df = pd.DataFrame(
+        {
+            "y": y,
+            "treatment": treatment,
+            "x1": x1,
+            "x2": x2,
+            "propensity_score": propensity,
+        }
+    )
     df.attrs["true_effect"] = effect
     return df
 
@@ -695,6 +710,7 @@ def dgp_observational(
 # ---------------------------------------------------------------------------
 # Cluster-Randomised Controlled Trial
 # ---------------------------------------------------------------------------
+
 
 def dgp_cluster_rct(
     n_clusters: int = 50,
@@ -762,6 +778,7 @@ def dgp_cluster_rct(
 # Bunching
 # ---------------------------------------------------------------------------
 
+
 def dgp_bunching(
     n: int = 10000,
     kink_point: float = 50000.0,
@@ -798,7 +815,7 @@ def dgp_bunching(
     rng = np.random.default_rng(seed)
 
     # Counterfactual income from log-normal centred near the kink
-    log_mean = np.log(kink_point) - 0.5 * 0.3 ** 2
+    log_mean = np.log(kink_point) - 0.5 * 0.3**2
     z_star = rng.lognormal(mean=log_mean, sigma=0.3, size=n)
 
     # Behavioural response: those above the kink reduce income
@@ -806,10 +823,12 @@ def dgp_bunching(
     above = z_star > kink_point
     income[above] = kink_point + (z_star[above] - kink_point) * (1 - elasticity)
 
-    df = pd.DataFrame({
-        "income": income,
-        "counterfactual_income": z_star,
-    })
+    df = pd.DataFrame(
+        {
+            "income": income,
+            "counterfactual_income": z_star,
+        }
+    )
     df.attrs["true_effect"] = elasticity
     return df
 
@@ -817,6 +836,7 @@ def dgp_bunching(
 # ---------------------------------------------------------------------------
 # Synthetic Control
 # ---------------------------------------------------------------------------
+
 
 def dgp_synth(
     n_units: int = 20,
@@ -880,6 +900,7 @@ def dgp_synth(
 # Shift-Share / Bartik
 # ---------------------------------------------------------------------------
 
+
 def dgp_bartik(
     n_regions: int = 50,
     n_industries: int = 10,
@@ -928,11 +949,13 @@ def dgp_bartik(
 
     y = effect * bartik + rng.normal(0, 1, size=n_regions)
 
-    data = pd.DataFrame({
-        "y": y,
-        "bartik": bartik,
-        "region": np.arange(n_regions),
-    })
+    data = pd.DataFrame(
+        {
+            "y": y,
+            "bartik": bartik,
+            "region": np.arange(n_regions),
+        }
+    )
     data.attrs["true_effect"] = effect
 
     return {"data": data, "shares": shares, "shocks": shocks}

@@ -40,7 +40,6 @@ from . import _core as _fc
 from .sfa import FrontierResult
 from ..exceptions import ConvergenceFailure
 
-
 # ---------------------------------------------------------------------------
 # Zero-Inefficiency SFA
 # ---------------------------------------------------------------------------
@@ -135,7 +134,7 @@ def zisf(
 
     def per_obs_loglik(params: np.ndarray) -> np.ndarray:
         beta = params[:k_beta]
-        theta = params[k_beta:k_beta + k_theta]
+        theta = params[k_beta : k_beta + k_theta]
         ln_sigma_v = params[k_beta + k_theta]
         ln_sigma_u = params[k_beta + k_theta + 1]
         sigma_v = np.exp(ln_sigma_v)
@@ -144,8 +143,8 @@ def zisf(
 
         # log p_i and log(1 - p_i)
         xb = Z_mat @ theta
-        log_p = -np.logaddexp(0.0, -xb)      # log sigmoid(xb)
-        log_1mp = -np.logaddexp(0.0, xb)     # log(1 - sigmoid(xb))
+        log_p = -np.logaddexp(0.0, -xb)  # log sigmoid(xb)
+        log_1mp = -np.logaddexp(0.0, xb)  # log(1 - sigmoid(xb))
 
         # Log density under efficient regime: N(0, sigma_v^2)
         log_f_eff = stats.norm.logpdf(eps, loc=0.0, scale=sigma_v)
@@ -178,20 +177,27 @@ def zisf(
     beta0, _, _, _ = np.linalg.lstsq(X_mat, y_vec, rcond=None)
     resid0 = y_vec - X_mat @ beta0
     sigma0 = max(float(np.std(resid0)), 1e-3)
-    theta0 = np.concatenate([
-        beta0,
-        np.zeros(k_theta),  # logit intercept 0 -> p = 0.5
-        [np.log(sigma0 * 0.5), np.log(sigma0 * 0.5)],
-    ])
+    theta0 = np.concatenate(
+        [
+            beta0,
+            np.zeros(k_theta),  # logit intercept 0 -> p = 0.5
+            [np.log(sigma0 * 0.5), np.log(sigma0 * 0.5)],
+        ]
+    )
 
     bounds = [(-1e6, 1e6)] * k_beta + [(-10.0, 10.0)] * k_theta + [(-12.0, 5.0)] * 2
-    result = minimize(neg_loglik, theta0, method="L-BFGS-B", bounds=bounds,
-                      options={"maxiter": maxiter, "ftol": tol, "gtol": tol})
+    result = minimize(
+        neg_loglik,
+        theta0,
+        method="L-BFGS-B",
+        bounds=bounds,
+        options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
+    )
     theta_hat = result.x
     ll_val = -neg_loglik(theta_hat)
 
     beta_hat = theta_hat[:k_beta]
-    theta_p = theta_hat[k_beta:k_beta + k_theta]
+    theta_p = theta_hat[k_beta : k_beta + k_theta]
     sigma_v = float(np.exp(theta_hat[k_beta + k_theta]))
     sigma_u = float(np.exp(theta_hat[k_beta + k_theta + 1]))
     p_i = 1.0 / (1.0 + np.exp(-(Z_mat @ theta_p)))
@@ -254,9 +260,7 @@ def zisf(
                 "Mixture posterior: p_eff*1 + (1-p_eff)*E[exp(-u)|eps]; "
                 "not the vanilla Battese-Coelli scalar"
             ),
-            "vce": (
-                vce_l if cluster is None else f"cluster({cluster})"
-            ),
+            "vce": (vce_l if cluster is None else f"cluster({cluster})"),
             "has_zprob": zprob is not None,
             "sigma_u_mean": sigma_u,
             "sigma_v_mean": sigma_v,
@@ -386,13 +390,13 @@ def lcsf(
 
     def per_obs_loglik(params: np.ndarray) -> np.ndarray:
         idx = 0
-        beta1 = params[idx:idx + k_beta]
+        beta1 = params[idx : idx + k_beta]
         idx += k_beta
         ln_sv1 = params[idx]
         idx += 1
         ln_su1 = params[idx]
         idx += 1
-        beta2 = params[idx:idx + k_beta]
+        beta2 = params[idx : idx + k_beta]
         idx += k_beta
         ln_sv2 = params[idx]
         idx += 1
@@ -432,8 +436,10 @@ def lcsf(
     sigma0 = max(float(np.std(resid0)), 1e-3)
 
     bounds = (
-        [(-1e6, 1e6)] * k_beta + [(-12.0, 5.0), (-12.0, 5.0)]
-        + [(-1e6, 1e6)] * k_beta + [(-12.0, 5.0), (-12.0, 5.0)]
+        [(-1e6, 1e6)] * k_beta
+        + [(-12.0, 5.0), (-12.0, 5.0)]
+        + [(-1e6, 1e6)] * k_beta
+        + [(-12.0, 5.0), (-12.0, 5.0)]
         + [(-10.0, 10.0)] * k_theta
     )
 
@@ -443,12 +449,14 @@ def lcsf(
     # sigma_u asymmetry and take the best-LL result.
     rng = np.random.default_rng(12345)
     n_starts = 4
-    sigma_asym = np.array([
-        [0.3, 0.6],  # class 1 lower su, class 2 higher
-        [0.5, 0.5],
-        [0.25, 0.75],
-        [0.4, 0.55],
-    ])
+    sigma_asym = np.array(
+        [
+            [0.3, 0.6],  # class 1 lower su, class 2 higher
+            [0.5, 0.5],
+            [0.25, 0.75],
+            [0.4, 0.55],
+        ]
+    )
     best_result = None
     best_fun = np.inf
     for s in range(n_starts):
@@ -456,14 +464,21 @@ def lcsf(
         jitter2 = rng.normal(0.0, 0.3, size=beta0.shape)
         su1_start = np.log(max(sigma0 * sigma_asym[s, 0], 1e-3))
         su2_start = np.log(max(sigma0 * sigma_asym[s, 1], 1e-3))
-        theta_start = np.concatenate([
-            beta0 + jitter1, [np.log(sigma0 * 0.4), su1_start],
-            beta0 + jitter2, [np.log(sigma0 * 0.4), su2_start],
-            np.zeros(k_theta),
-        ])
+        theta_start = np.concatenate(
+            [
+                beta0 + jitter1,
+                [np.log(sigma0 * 0.4), su1_start],
+                beta0 + jitter2,
+                [np.log(sigma0 * 0.4), su2_start],
+                np.zeros(k_theta),
+            ]
+        )
         try:
             r = minimize(
-                neg_loglik, theta_start, method="L-BFGS-B", bounds=bounds,
+                neg_loglik,
+                theta_start,
+                method="L-BFGS-B",
+                bounds=bounds,
                 options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
             )
         except Exception:
@@ -483,22 +498,22 @@ def lcsf(
     _ln_su1 = theta_hat[k_beta + 1]
     _ln_su2 = theta_hat[2 * k_beta + 3]
     if _ln_su1 > _ln_su2:
-        block1 = theta_hat[:k_beta + 2].copy()
-        block2 = theta_hat[k_beta + 2:2 * k_beta + 4].copy()
-        theta_class = theta_hat[2 * k_beta + 4:].copy()
+        block1 = theta_hat[: k_beta + 2].copy()
+        block2 = theta_hat[k_beta + 2 : 2 * k_beta + 4].copy()
+        theta_class = theta_hat[2 * k_beta + 4 :].copy()
         # Swap block1 and block2; flip sign of class logit so that
         # the now-class-1 has the same physical probability.
         theta_hat = np.concatenate([block2, block1, -theta_class])
     ll_val = -neg_loglik(theta_hat)
 
     idx = 0
-    beta1_hat = theta_hat[idx:idx + k_beta]
+    beta1_hat = theta_hat[idx : idx + k_beta]
     idx += k_beta
     ln_sv1 = theta_hat[idx]
     idx += 1
     ln_su1 = theta_hat[idx]
     idx += 1
-    beta2_hat = theta_hat[idx:idx + k_beta]
+    beta2_hat = theta_hat[idx : idx + k_beta]
     idx += k_beta
     ln_sv2 = theta_hat[idx]
     idx += 1
@@ -540,8 +555,10 @@ def lcsf(
     se = np.sqrt(np.clip(np.diag(vcov), 0.0, None))
 
     param_names = (
-        [f"c1:{b}" for b in beta_names] + ["c1:ln_sigma_v", "c1:ln_sigma_u"]
-        + [f"c2:{b}" for b in beta_names] + ["c2:ln_sigma_v", "c2:ln_sigma_u"]
+        [f"c1:{b}" for b in beta_names]
+        + ["c1:ln_sigma_v", "c1:ln_sigma_u"]
+        + [f"c2:{b}" for b in beta_names]
+        + ["c2:ln_sigma_v", "c2:ln_sigma_u"]
         + list(z_class_names)
     )
     params_s = pd.Series(theta_hat, index=param_names)
@@ -552,8 +569,7 @@ def lcsf(
         std_errors=std_errors,
         model_info={
             "model_type": (
-                f"Latent-Class SFA (2 classes, "
-                f"{'Cost' if cost else 'Production'})"
+                f"Latent-Class SFA (2 classes, " f"{'Cost' if cost else 'Production'})"
             ),
             "method": f"LCSF ({dist})",
             "inefficiency_dist": dist,
@@ -564,9 +580,7 @@ def lcsf(
                 "Mixture posterior: p1*E[exp(-u1)|eps] + "
                 "(1-p1)*E[exp(-u2)|eps]; labels canonical by ascending sigma_u"
             ),
-            "vce": (
-                vce_l if cluster is None else f"cluster({cluster})"
-            ),
+            "vce": (vce_l if cluster is None else f"cluster({cluster})"),
             "sigma_u_mean": (su1 + su2) / 2.0,
             "sigma_v_mean": (sv1 + sv2) / 2.0,
             "mean_efficiency_bc": float(np.mean(TE_lcsf)),

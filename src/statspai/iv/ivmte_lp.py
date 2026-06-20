@@ -77,13 +77,16 @@ class IVMTEBounds:
         lines.append(f"  Polynomial degree    : {self.basis_degree}")
         lines.append(f"  IV moments used      : {self.n_moments}")
         lines.append(f"  Shape restrictions   : {self.shape_restrictions or '[none]'}")
-        lines.append(f"  LP solve status      : LB={self.lp_status[0]},  UB={self.lp_status[1]}")
+        lines.append(
+            f"  LP solve status      : LB={self.lp_status[0]},  UB={self.lp_status[1]}"
+        )
         return "\n".join(lines)
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
     if isinstance(v, str):
@@ -110,9 +113,7 @@ def _fit_logit(D: np.ndarray, Z: np.ndarray) -> np.ndarray:
         beta += step
         if np.linalg.norm(step) < 1e-8:
             break
-    return np.asarray(
-        np.clip(1.0 / (1.0 + np.exp(-(Z @ beta))), 1e-4, 1 - 1e-4)
-    )
+    return np.asarray(np.clip(1.0 / (1.0 + np.exp(-(Z @ beta))), 1e-4, 1 - 1e-4))
 
 
 def _poly_u(u: np.ndarray, K: int) -> np.ndarray:
@@ -129,9 +130,13 @@ def _int_poly(a: float, b: float, K: int) -> np.ndarray:
 #  IV moments
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _build_iv_moments(
-    p_hat: np.ndarray, D: np.ndarray, Y: np.ndarray,
-    K: int, n_bins: int = 8,
+    p_hat: np.ndarray,
+    D: np.ndarray,
+    Y: np.ndarray,
+    K: int,
+    n_bins: int = 8,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Construct IV moment constraints using binned propensity-score cells.
@@ -179,9 +184,9 @@ def _build_iv_moments(
         # treated row: coefficient on θ_{1,k} is E[P^{k+1}/(k+1) · 1{P∈b}]
         c1 = np.array([(p_in ** (k + 1)).sum() / (k + 1) / n for k in range(K + 1)])
         # untreated row: coefficient on θ_{0,k} is E[(1 - P^{k+1})/(k+1) · 1{P∈b}]
-        c0 = np.array([
-            ((1 - p_in ** (k + 1)).sum() / (k + 1) / n) for k in range(K + 1)
-        ])
+        c0 = np.array(
+            [((1 - p_in ** (k + 1)).sum() / (k + 1) / n) for k in range(K + 1)]
+        )
 
         if treated.sum() >= 1:
             row = np.zeros(2 * (K + 1))
@@ -190,7 +195,7 @@ def _build_iv_moments(
             rows_b.append(float((Y * treated).sum() / n))
         if untreated.sum() >= 1:
             row = np.zeros(2 * (K + 1))
-            row[K + 1:] = c0
+            row[K + 1 :] = c0
             rows_A.append(row)
             rows_b.append(float((Y * untreated).sum() / n))
 
@@ -203,8 +208,11 @@ def _build_iv_moments(
 #  Target parameter weights
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _target_weights(
-    target: str, K: int, p_hat: np.ndarray,
+    target: str,
+    K: int,
+    p_hat: np.ndarray,
     late_bounds: Optional[Tuple[float, float]] = None,
     policy_prob: Optional[np.ndarray] = None,
 ) -> np.ndarray:
@@ -222,14 +230,14 @@ def _target_weights(
         u_grid = np.linspace(0.01, 0.99, 101)
         w = np.array([(p_hat >= u).mean() for u in u_grid])
         w /= max(np.trapezoid(w, u_grid), 1e-12)
-        wk = np.array([np.trapezoid(u_grid ** k * w, u_grid) for k in range(K + 1)])
+        wk = np.array([np.trapezoid(u_grid**k * w, u_grid) for k in range(K + 1)])
         return np.concatenate([wk, -wk])
 
     if target == "atu":
         u_grid = np.linspace(0.01, 0.99, 101)
         w = np.array([(p_hat <= u).mean() for u in u_grid])
         w /= max(np.trapezoid(w, u_grid), 1e-12)
-        wk = np.array([np.trapezoid(u_grid ** k * w, u_grid) for k in range(K + 1)])
+        wk = np.array([np.trapezoid(u_grid**k * w, u_grid) for k in range(K + 1)])
         return np.concatenate([wk, -wk])
 
     if target == "late":
@@ -251,9 +259,11 @@ def _target_weights(
         diff = f_new - f_old
         denom = np.trapezoid(diff, u_grid)
         if abs(denom) < 1e-8:
-            raise ValueError("PRTE denominator too small; policy shift is negligible.")  # pragma: no cover
+            raise ValueError(
+                "PRTE denominator too small; policy shift is negligible."
+            )  # pragma: no cover
         w = diff / denom
-        wk = np.array([np.trapezoid(u_grid ** k * w, u_grid) for k in range(K + 1)])
+        wk = np.array([np.trapezoid(u_grid**k * w, u_grid) for k in range(K + 1)])
         return np.concatenate([wk, -wk])
 
     raise ValueError(f"Unknown target: {target}")
@@ -262,6 +272,7 @@ def _target_weights(
 # ═══════════════════════════════════════════════════════════════════════
 #  Shape constraint matrices
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _shape_constraints(
     K: int,
@@ -278,7 +289,7 @@ def _shape_constraints(
         lo, hi = bounds_outcome
         # For each u in grid, m_d(u) ≤ hi  and  -m_d(u) ≤ -lo
         for u in u_grid:
-            poly = np.array([u ** k for k in range(K + 1)])
+            poly = np.array([u**k for k in range(K + 1)])
             zeros = np.zeros(K + 1)
             # m_1(u) ≤ hi:       [poly, 0] @ theta ≤ hi
             rows.append(np.concatenate([poly, zeros]))
@@ -295,7 +306,9 @@ def _shape_constraints(
     if decreasing_mte:
         # d/du MTE(u) ≤ 0  ⟺  sum_{k=1} k*u^{k-1} (theta_{1,k} - theta_{0,k}) ≤ 0
         for u in u_grid:
-            dpoly = np.array([0.0 if k == 0 else k * u ** (k - 1) for k in range(K + 1)])
+            dpoly = np.array(
+                [0.0 if k == 0 else k * u ** (k - 1) for k in range(K + 1)]
+            )
             rows.append(np.concatenate([dpoly, -dpoly]))
             rhs.append(0.0)
 
@@ -307,6 +320,7 @@ def _shape_constraints(
 # ═══════════════════════════════════════════════════════════════════════
 #  Public API
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def ivmte_bounds(
     y: Union[np.ndarray, pd.Series, str],
@@ -377,7 +391,11 @@ def ivmte_bounds(
     K = int(basis_degree)
     # Build IV moments
     A_eq, b_eq, edges, counts = _build_iv_moments(
-        p_hat, D, Y, K, n_bins=n_propensity_bins,
+        p_hat,
+        D,
+        Y,
+        K,
+        n_bins=n_propensity_bins,
     )
     n_moments = A_eq.shape[0]
 
@@ -387,12 +405,15 @@ def ivmte_bounds(
     elif target == "atu":
         c = _target_weights("atu", K, p_hat[D == 0])
     else:
-        c = _target_weights(target, K, p_hat,
-                            late_bounds=late_bounds, policy_prob=policy_prob)
+        c = _target_weights(
+            target, K, p_hat, late_bounds=late_bounds, policy_prob=policy_prob
+        )
 
     # Shape constraints
     A_ub, b_ub = _shape_constraints(
-        K, bounds_outcome=bounds_outcome, decreasing_mte=decreasing_mte,
+        K,
+        bounds_outcome=bounds_outcome,
+        decreasing_mte=decreasing_mte,
     )
 
     n_vars = 2 * (K + 1)
@@ -418,7 +439,8 @@ def ivmte_bounds(
         b_ub_full = np.concatenate([b_ub_full, b_ub])
 
     kw = dict(
-        A_ub=A_ub_full, b_ub=b_ub_full,
+        A_ub=A_ub_full,
+        b_ub=b_ub_full,
         bounds=bounds,
         method="highs",
     )
@@ -436,10 +458,20 @@ def ivmte_bounds(
     if include_bmw_point:
         try:
             from .mte import mte
-            m = mte(y=y, treatment=treatment, instruments=instruments, exog=exog,
-                    data=data, poly_degree=K, add_const=add_const)
+
+            m = mte(
+                y=y,
+                treatment=treatment,
+                instruments=instruments,
+                exog=exog,
+                data=data,
+                poly_degree=K,
+                add_const=add_const,
+            )
             bmw_point = {
-                "ate": m.ate, "att": m.att, "atu": m.atu,
+                "ate": m.ate,
+                "att": m.att,
+                "atu": m.atu,
                 "late": m.late_2sls,
             }.get(target, None)
         except Exception:  # pragma: no cover
@@ -460,8 +492,10 @@ def ivmte_bounds(
         n_moments=n_moments,
         n_obs=n,
         shape_restrictions=shape_strs,
-        lp_status=(res_lo.message if not res_lo.success else "optimal",
-                   res_hi.message if not res_hi.success else "optimal"),
+        lp_status=(
+            res_lo.message if not res_lo.success else "optimal",
+            res_hi.message if not res_hi.success else "optimal",
+        ),
         extra={
             "propensity_edges": edges,
             "bin_counts": counts,

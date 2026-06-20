@@ -57,17 +57,20 @@ def _rbf_kernel(X: np.ndarray, Y: np.ndarray, sigma: float) -> np.ndarray:
     X = np.atleast_2d(X)
     Y = np.atleast_2d(Y)
     sq_dists = (
-        np.sum(X ** 2, axis=1, keepdims=True)
+        np.sum(X**2, axis=1, keepdims=True)
         - 2.0 * X @ Y.T
-        + np.sum(Y ** 2, axis=1, keepdims=True).T
+        + np.sum(Y**2, axis=1, keepdims=True).T
     )
     # Clamp negative values from floating-point noise
     sq_dists = np.maximum(sq_dists, 0.0)
-    return np.asarray(np.exp(-sq_dists / (2.0 * sigma ** 2)))
+    return np.asarray(np.exp(-sq_dists / (2.0 * sigma**2)))
 
 
 def _polynomial_kernel(
-    X: np.ndarray, Y: np.ndarray, degree: int = 2, c: float = 1.0,
+    X: np.ndarray,
+    Y: np.ndarray,
+    degree: int = 2,
+    c: float = 1.0,
 ) -> np.ndarray:
     """Polynomial kernel: k(x, y) = (x'y + c)^d.
 
@@ -88,7 +91,9 @@ def _polynomial_kernel(
 
 
 def _laplacian_kernel(
-    X: np.ndarray, Y: np.ndarray, sigma: float,
+    X: np.ndarray,
+    Y: np.ndarray,
+    sigma: float,
 ) -> np.ndarray:
     """Laplacian kernel: k(x, y) = exp(-||x - y||_1 / sigma).
 
@@ -126,9 +131,9 @@ def _median_heuristic(X: np.ndarray) -> float:
     if n < 2:
         return 1.0
     sq_dists = (
-        np.sum(X ** 2, axis=1, keepdims=True)
+        np.sum(X**2, axis=1, keepdims=True)
         - 2.0 * X @ X.T
-        + np.sum(X ** 2, axis=1, keepdims=True).T
+        + np.sum(X**2, axis=1, keepdims=True).T
     )
     sq_dists = np.maximum(sq_dists, 0.0)
     # Extract upper triangle (no diagonal)
@@ -260,8 +265,13 @@ def _reshape_panel(
     treated_unit: Any,
     treatment_time: Any,
 ) -> Tuple[
-    np.ndarray, np.ndarray, np.ndarray, np.ndarray,
-    List, List, List,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    List,
+    List,
+    List,
 ]:
     """Reshape long-format panel into treated/donor matrices.
 
@@ -293,7 +303,7 @@ def _reshape_panel(
             f"Need at least 2 donor units, got {len(donors)}"
         )
 
-    Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)   # (J, T0)
+    Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)  # (J, T0)
     Y0_post = panel.loc[donors, post_times].values.astype(np.float64)  # (J, T1)
 
     return Y1_pre, Y1_post, Y0_pre, Y0_post, donors, pre_times, post_times
@@ -337,17 +347,26 @@ def _placebo_inference(
         if use_ridge:
             K_plac = _compute_kernel_matrix(y0_pre_plac, kernel, sigma, degree)
             k_plac = _compute_kernel_vector(
-                y1_pre_plac, y0_pre_plac, kernel, sigma, degree,
+                y1_pre_plac,
+                y0_pre_plac,
+                kernel,
+                sigma,
+                degree,
             )
             J_plac = K_plac.shape[0]
             beta_plac = np.linalg.solve(
-                K_plac + ridge_lambda * np.eye(J_plac), k_plac,
+                K_plac + ridge_lambda * np.eye(J_plac),
+                k_plac,
             )
             synth_post = y0_post_plac.T @ beta_plac
         else:
             K_plac = _compute_kernel_matrix(y0_pre_plac, kernel, sigma, degree)
             k_plac = _compute_kernel_vector(
-                y1_pre_plac, y0_pre_plac, kernel, sigma, degree,
+                y1_pre_plac,
+                y0_pre_plac,
+                kernel,
+                sigma,
+                degree,
             )
             w_plac = _kernel_weights(K_plac, k_plac)
             synth_post = y0_post_plac.T @ w_plac
@@ -446,8 +465,8 @@ def kernel_synth(
         )
 
     # --- Reshape panel ---
-    Y1_pre, Y1_post, Y0_pre, Y0_post, donors, pre_times, post_times = (
-        _reshape_panel(data, outcome, unit, time, treated_unit, treatment_time)
+    Y1_pre, Y1_post, Y0_pre, Y0_post, donors, pre_times, post_times = _reshape_panel(
+        data, outcome, unit, time, treated_unit, treatment_time
     )
 
     # Append covariates if provided
@@ -475,22 +494,25 @@ def kernel_synth(
     w = _kernel_weights(K, k_vec)
 
     # --- Counterfactual & effects ---
-    synth_pre = Y0_pre[:, :len(pre_times)].T @ w   # (T0,)
-    synth_post = Y0_post.T @ w                       # (T1,)
+    synth_pre = Y0_pre[:, : len(pre_times)].T @ w  # (T0,)
+    synth_post = Y0_post.T @ w  # (T1,)
     # Use only outcome columns for pre-RMSPE (exclude appended covariates)
-    pre_rmspe = float(
-        np.sqrt(np.mean((Y1_pre[:len(pre_times)] - synth_pre) ** 2))
-    )
+    pre_rmspe = float(np.sqrt(np.mean((Y1_pre[: len(pre_times)] - synth_pre) ** 2)))
 
     effects = Y1_post - synth_post
     att = float(np.mean(effects))
-    post_rmspe = float(np.sqrt(np.mean(effects ** 2)))
+    post_rmspe = float(np.sqrt(np.mean(effects**2)))
 
     # --- Inference ---
     if placebo and J >= 3:
         se, pvalue, placebo_effects = _placebo_inference(
-            Y0_pre[:, :len(pre_times)], Y0_post, donors,
-            kernel, sigma, degree, att,
+            Y0_pre[:, : len(pre_times)],
+            Y0_post,
+            donors,
+            kernel,
+            sigma,
+            degree,
+            att,
         )
     else:
         se = 0.0
@@ -501,12 +523,14 @@ def kernel_synth(
     ci = (att - t_crit * se, att + t_crit * se) if se > 0 else (np.nan, np.nan)
 
     # --- Effects DataFrame ---
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "treated": Y1_post,
-        "counterfactual": synth_post,
-        "effect": effects,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "treated": Y1_post,
+            "counterfactual": synth_post,
+            "effect": effects,
+        }
+    )
 
     return CausalResult(
         method="Kernel Synthetic Control",
@@ -620,8 +644,8 @@ def kernel_ridge_synth(
         raise ValueError("ridge_lambda must be positive")
 
     # --- Reshape panel ---
-    Y1_pre, Y1_post, Y0_pre, Y0_post, donors, pre_times, post_times = (
-        _reshape_panel(data, outcome, unit, time, treated_unit, treatment_time)
+    Y1_pre, Y1_post, Y0_pre, Y0_post, donors, pre_times, post_times = _reshape_panel(
+        data, outcome, unit, time, treated_unit, treatment_time
     )
 
     # Append covariates
@@ -648,23 +672,27 @@ def kernel_ridge_synth(
     beta = np.linalg.solve(K + ridge_lambda * np.eye(J), k_vec)
 
     # --- Counterfactual & effects ---
-    synth_pre = Y0_pre[:, :len(pre_times)].T @ beta
+    synth_pre = Y0_pre[:, : len(pre_times)].T @ beta
     synth_post = Y0_post.T @ beta
 
-    pre_rmspe = float(
-        np.sqrt(np.mean((Y1_pre[:len(pre_times)] - synth_pre) ** 2))
-    )
+    pre_rmspe = float(np.sqrt(np.mean((Y1_pre[: len(pre_times)] - synth_pre) ** 2)))
 
     effects = Y1_post - synth_post
     att = float(np.mean(effects))
-    post_rmspe = float(np.sqrt(np.mean(effects ** 2)))
+    post_rmspe = float(np.sqrt(np.mean(effects**2)))
 
     # --- Inference ---
     if placebo and J >= 3:
         se, pvalue, placebo_effects = _placebo_inference(
-            Y0_pre[:, :len(pre_times)], Y0_post, donors,
-            kernel, sigma, degree, att,
-            use_ridge=True, ridge_lambda=ridge_lambda,
+            Y0_pre[:, : len(pre_times)],
+            Y0_post,
+            donors,
+            kernel,
+            sigma,
+            degree,
+            att,
+            use_ridge=True,
+            ridge_lambda=ridge_lambda,
         )
     else:
         se = 0.0
@@ -675,12 +703,14 @@ def kernel_ridge_synth(
     ci = (att - t_crit * se, att + t_crit * se) if se > 0 else (np.nan, np.nan)
 
     # --- Effects DataFrame ---
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "treated": Y1_post,
-        "counterfactual": synth_post,
-        "effect": effects,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "treated": Y1_post,
+            "counterfactual": synth_post,
+            "effect": effects,
+        }
+    )
 
     return CausalResult(
         method="Kernel Ridge Synthetic Control",

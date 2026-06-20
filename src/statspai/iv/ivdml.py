@@ -20,6 +20,7 @@ from scipy import stats
 @dataclass
 class IVDMLResult:
     """Output of IV × DML."""
+
     estimate: float
     se: float
     ci: tuple
@@ -70,8 +71,7 @@ def ivdml(
     from sklearn.model_selection import KFold
 
     cov = list(covariates or [])
-    df = data[[y, treat] + list(instruments) + cov].dropna() \
-        .reset_index(drop=True)
+    df = data[[y, treat] + list(instruments) + cov].dropna().reset_index(drop=True)
     Y = df[y].to_numpy(float)
     D = df[treat].to_numpy(float)
     Z = df[list(instruments)].to_numpy(float)
@@ -107,8 +107,8 @@ def ivdml(
     num = float(np.mean(Y_resid * (D_hat - D_hat.mean())))
     denom = float(np.mean((D_hat - D_hat.mean()) ** 2))
     if abs(denom) < 1e-9:
-        estimate = float('nan')
-        se = float('nan')
+        estimate = float("nan")
+        se = float("nan")
     else:
         estimate = num / denom
         # Influence function SE
@@ -127,16 +127,19 @@ def ivdml(
         df_d = max(n - ZX.shape[1], 1)
         first_F = ((rss_red - rss_full) / q) / (rss_full / df_d)
     except Exception:  # pragma: no cover
-        first_F = float('nan')
+        first_F = float("nan")
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
-    ci = (estimate - z_crit * se, estimate + z_crit * se) \
-        if np.isfinite(se) else (float('nan'), float('nan'))
+    ci = (
+        (estimate - z_crit * se, estimate + z_crit * se)
+        if np.isfinite(se)
+        else (float("nan"), float("nan"))
+    )
 
     return IVDMLResult(
         estimate=estimate,
         se=se,
         ci=ci,
-        first_stage_F=float(first_F) if np.isfinite(first_F) else float('nan'),
+        first_stage_F=float(first_F) if np.isfinite(first_F) else float("nan"),
         n_obs=n,
     )

@@ -30,10 +30,9 @@ from scipy import stats, optimize
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
-_APPROACHES = {'distance', 'location'}
-_KERNELS = {'triangular', 'uniform', 'epanechnikov'}
-_PLOT_TYPES = {'scatter', 'heatmap', 'boundary_effects'}
+_APPROACHES = {"distance", "location"}
+_KERNELS = {"triangular", "uniform", "epanechnikov"}
+_PLOT_TYPES = {"scatter", "heatmap", "boundary_effects"}
 
 
 def _require_dataframe(data: Any) -> None:
@@ -110,7 +109,11 @@ def _require_options(
 
 
 def _numeric_arrays(
-    data: pd.DataFrame, y: str, x1: str, x2: str, treatment: str,
+    data: pd.DataFrame,
+    y: str,
+    x1: str,
+    x2: str,
+    treatment: str,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     try:
         Y = data[y].values.astype(float)
@@ -130,7 +133,7 @@ def _numeric_arrays(
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['rd2d'] = (
+CausalResult._CITATIONS["rd2d"] = (
     "@article{cattaneo2025boundary,\n"
     "  title={Boundary Discontinuity Designs},\n"
     "  author={Cattaneo, Matias D and Titiunik, Roc{\\'\\i}o and Yu, Ruoqi},\n"
@@ -144,6 +147,7 @@ CausalResult._CITATIONS['rd2d'] = (
 # Public API
 # ======================================================================
 
+
 def rd2d(
     data: pd.DataFrame,
     y: str,
@@ -151,11 +155,11 @@ def rd2d(
     x2: str,
     treatment: str,
     boundary: Optional[Callable] = None,
-    approach: str = 'distance',
+    approach: str = "distance",
     p: int = 1,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     h: Optional[float] = None,
-    bwselect: str = 'mserd',
+    bwselect: str = "mserd",
     eval_points: Optional[np.ndarray] = None,
     n_eval: int = 1,
     alpha: float = 0.05,
@@ -280,15 +284,39 @@ def rd2d(
             diagnostics={"n_treated": n_treated, "n_control": n_control},
         )
 
-    if approach == 'distance':
+    if approach == "distance":
         return _rd2d_distance(
-            Y, X1, X2, T, treated, control, boundary, p, kernel,
-            h, bwselect, alpha, n,
+            Y,
+            X1,
+            X2,
+            T,
+            treated,
+            control,
+            boundary,
+            p,
+            kernel,
+            h,
+            bwselect,
+            alpha,
+            n,
         )
     else:  # location
         return _rd2d_location(
-            Y, X1, X2, T, treated, control, boundary, p, kernel,
-            h, bwselect, eval_points, n_eval, alpha, n,
+            Y,
+            X1,
+            X2,
+            T,
+            treated,
+            control,
+            boundary,
+            p,
+            kernel,
+            h,
+            bwselect,
+            eval_points,
+            n_eval,
+            alpha,
+            n,
         )
 
 
@@ -299,9 +327,9 @@ def rd2d_bw(
     x2: str,
     treatment: str,
     boundary: Optional[Callable] = None,
-    approach: str = 'distance',
+    approach: str = "distance",
     p: int = 1,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
 ) -> float:
     """
     Bandwidth selection for 2D boundary RD.
@@ -364,12 +392,11 @@ def rd2d_bw(
     treated = T == 1
     control = T == 0
 
-    if approach == 'distance':
+    if approach == "distance":
         dist = _signed_distance(X1, X2, T, boundary)
         return _bw_mse_optimal_1d(Y, dist, p, kernel)
     else:
-        return _bw_mse_optimal_2d(Y, X1, X2, T, treated, control,
-                                  boundary, p, kernel)
+        return _bw_mse_optimal_2d(Y, X1, X2, T, treated, control, boundary, p, kernel)
 
 
 def rd2d_plot(
@@ -380,7 +407,7 @@ def rd2d_plot(
     treatment: str,
     boundary: Optional[Callable[..., Any]] = None,
     result: Optional[CausalResult] = None,
-    plot_type: str = 'scatter',
+    plot_type: str = "scatter",
     ax: Optional[Any] = None,
     figsize: Tuple[float, float] = (10, 8),
 ) -> Tuple[Any, Any]:
@@ -438,7 +465,9 @@ def rd2d_plot(
         import matplotlib.pyplot as plt
         from matplotlib.colors import Normalize
     except ImportError:  # pragma: no cover
-        raise ImportError("matplotlib required. Install: pip install matplotlib")  # pragma: no cover
+        raise ImportError(
+            "matplotlib required. Install: pip install matplotlib"
+        )  # pragma: no cover
 
     _require_dataframe(data)
     _require_columns(data, [y, x1, x2, treatment])
@@ -470,65 +499,83 @@ def rd2d_plot(
     else:
         x2_boundary = None  # vertical line at x1 = 0
 
-    if plot_type == 'scatter':
+    if plot_type == "scatter":
         treated_mask = T == 1
         control_mask = T == 0
 
-        ax.scatter(X1[control_mask], X2[control_mask],
-                   c='#3498DB', alpha=0.4, s=15, label='Control', zorder=2)
-        ax.scatter(X1[treated_mask], X2[treated_mask],
-                   c='#E74C3C', alpha=0.4, s=15, label='Treated', zorder=2)
+        ax.scatter(
+            X1[control_mask],
+            X2[control_mask],
+            c="#3498DB",
+            alpha=0.4,
+            s=15,
+            label="Control",
+            zorder=2,
+        )
+        ax.scatter(
+            X1[treated_mask],
+            X2[treated_mask],
+            c="#E74C3C",
+            alpha=0.4,
+            s=15,
+            label="Treated",
+            zorder=2,
+        )
 
         # Boundary
         if boundary is not None:
             assert x2_boundary is not None
-            ax.plot(x1_range, x2_boundary, 'k-', linewidth=2,
-                    label='Boundary', zorder=3)
+            ax.plot(
+                x1_range, x2_boundary, "k-", linewidth=2, label="Boundary", zorder=3
+            )
         else:
-            ax.axvline(x=0, color='k', linewidth=2,
-                       label='Boundary (x1=0)', zorder=3)
+            ax.axvline(x=0, color="k", linewidth=2, label="Boundary (x1=0)", zorder=3)
 
         # Bandwidth region
-        if result is not None and 'bandwidth' in result.model_info:
-            bw = result.model_info['bandwidth']
+        if result is not None and "bandwidth" in result.model_info:
+            bw = result.model_info["bandwidth"]
             if boundary is not None:
                 # Draw dashed lines offset from boundary
                 x2_bw_upper = x2_boundary + bw
                 x2_bw_lower = x2_boundary - bw
-                ax.plot(x1_range, x2_bw_upper, 'k--', linewidth=0.8,
-                        alpha=0.5, label=f'h = {bw:.3f}')
-                ax.plot(x1_range, x2_bw_lower, 'k--', linewidth=0.8,
-                        alpha=0.5)
+                ax.plot(
+                    x1_range,
+                    x2_bw_upper,
+                    "k--",
+                    linewidth=0.8,
+                    alpha=0.5,
+                    label=f"h = {bw:.3f}",
+                )
+                ax.plot(x1_range, x2_bw_lower, "k--", linewidth=0.8, alpha=0.5)
             else:
-                ax.axvspan(-bw, bw, alpha=0.08, color='gray',
-                           label=f'h = {bw:.3f}')
+                ax.axvspan(-bw, bw, alpha=0.08, color="gray", label=f"h = {bw:.3f}")
 
         ax.set_xlabel(x1, fontsize=11)
         ax.set_ylabel(x2, fontsize=11)
-        ax.set_title('2D Boundary RD: Treatment Assignment', fontsize=13)
-        ax.legend(fontsize=9, loc='best')
+        ax.set_title("2D Boundary RD: Treatment Assignment", fontsize=13)
+        ax.legend(fontsize=9, loc="best")
 
-    elif plot_type == 'heatmap':
-        norm = Normalize(vmin=np.nanpercentile(Y, 2),
-                         vmax=np.nanpercentile(Y, 98))
-        scatter = ax.scatter(X1, X2, c=Y, cmap='RdYlBu_r', norm=norm,
-                             s=12, alpha=0.7, zorder=2)
+    elif plot_type == "heatmap":
+        norm = Normalize(vmin=np.nanpercentile(Y, 2), vmax=np.nanpercentile(Y, 98))
+        scatter = ax.scatter(
+            X1, X2, c=Y, cmap="RdYlBu_r", norm=norm, s=12, alpha=0.7, zorder=2
+        )
         fig.colorbar(scatter, ax=ax, label=y, shrink=0.8)
 
         if boundary is not None:
             assert x2_boundary is not None
-            ax.plot(x1_range, x2_boundary, 'k-', linewidth=2.5,
-                    label='Boundary', zorder=3)
+            ax.plot(
+                x1_range, x2_boundary, "k-", linewidth=2.5, label="Boundary", zorder=3
+            )
         else:
-            ax.axvline(x=0, color='k', linewidth=2.5,
-                       label='Boundary (x1=0)', zorder=3)
+            ax.axvline(x=0, color="k", linewidth=2.5, label="Boundary (x1=0)", zorder=3)
 
         ax.set_xlabel(x1, fontsize=11)
         ax.set_ylabel(x2, fontsize=11)
-        ax.set_title('2D Boundary RD: Outcome Heatmap', fontsize=13)
-        ax.legend(fontsize=9, loc='best')
+        ax.set_title("2D Boundary RD: Outcome Heatmap", fontsize=13)
+        ax.legend(fontsize=9, loc="best")
 
-    elif plot_type == 'boundary_effects':
+    elif plot_type == "boundary_effects":
         if result is None or result.detail is None:
             raise MethodIncompatibility(  # pragma: no cover
                 "plot_type='boundary_effects' requires a result from "
@@ -539,40 +586,51 @@ def rd2d_plot(
                 diagnostics={"plot_type": plot_type, "has_result": result is not None},
             )
         detail = result.detail
-        if 'eval_x1' not in detail.columns:
+        if "eval_x1" not in detail.columns:
             raise MethodIncompatibility(  # pragma: no cover
                 "Result detail does not contain boundary eval points. "
                 "Use approach='location' with n_eval > 1.",
                 recovery_hint=(
-                    "Re-estimate with rd2d(..., approach='location', "
-                    "n_eval > 1)."
+                    "Re-estimate with rd2d(..., approach='location', " "n_eval > 1)."
                 ),
                 diagnostics={"detail_columns": list(detail.columns)},
             )
 
         ax.errorbar(
-            detail['eval_x1'], detail['estimate'],
-            yerr=[detail['estimate'] - detail['ci_lower'],
-                  detail['ci_upper'] - detail['estimate']],
-            fmt='o-', color='#2C3E50', capsize=4, capthick=1.2,
-            linewidth=1.5, markersize=6, zorder=3,
+            detail["eval_x1"],
+            detail["estimate"],
+            yerr=[
+                detail["estimate"] - detail["ci_lower"],
+                detail["ci_upper"] - detail["estimate"],
+            ],
+            fmt="o-",
+            color="#2C3E50",
+            capsize=4,
+            capthick=1.2,
+            linewidth=1.5,
+            markersize=6,
+            zorder=3,
         )
-        ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8,
-                    alpha=0.7)
+        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, alpha=0.7)
 
         # Mark pooled estimate
         if result.estimate is not None:
-            ax.axhline(y=result.estimate, color='#E74C3C',
-                       linestyle=':', linewidth=1.2, alpha=0.8,
-                       label=f'Pooled = {result.estimate:.4f}')
-            ax.legend(fontsize=9, loc='best')
+            ax.axhline(
+                y=result.estimate,
+                color="#E74C3C",
+                linestyle=":",
+                linewidth=1.2,
+                alpha=0.8,
+                label=f"Pooled = {result.estimate:.4f}",
+            )
+            ax.legend(fontsize=9, loc="best")
 
-        ax.set_xlabel(f'{x1} (along boundary)', fontsize=11)
-        ax.set_ylabel('Treatment Effect', fontsize=11)
-        ax.set_title('2D Boundary RD: Effects Along Boundary', fontsize=13)
+        ax.set_xlabel(f"{x1} (along boundary)", fontsize=11)
+        ax.set_ylabel("Treatment Effect", fontsize=11)
+        ax.set_title("2D Boundary RD: Effects Along Boundary", fontsize=13)
 
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     ax.tick_params(labelsize=10)
     fig.tight_layout()
 
@@ -582,6 +640,7 @@ def rd2d_plot(
 # ======================================================================
 # Distance-based approach
 # ======================================================================
+
 
 def _rd2d_distance(
     Y: np.ndarray,
@@ -604,7 +663,7 @@ def _rd2d_distance(
 
     # Bandwidth selection on the distance variable
     right = dist >= 0  # treated side
-    left = dist < 0    # control side
+    left = dist < 0  # control side
 
     n_left = int(left.sum())
     n_right = int(right.sum())
@@ -625,9 +684,7 @@ def _rd2d_distance(
         h = _bw_mse_optimal_1d(Y, dist, p, kernel)
 
     # Local polynomial RD on distance
-    tau, se, n_eff_l, n_eff_r = _local_poly_rd_1d(
-        Y, dist, left, right, h, p, kernel
-    )
+    tau, se, n_eff_l, n_eff_r = _local_poly_rd_1d(Y, dist, left, right, h, p, kernel)
 
     # Inference
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -635,32 +692,34 @@ def _rd2d_distance(
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z_stat))))
     ci = (tau - z_crit * se, tau + z_crit * se)
 
-    detail = pd.DataFrame({
-        'method': ['Distance-based RD'],
-        'estimate': [tau],
-        'se': [se],
-        'z': [z_stat],
-        'pvalue': [pvalue],
-        'ci_lower': [ci[0]],
-        'ci_upper': [ci[1]],
-    })
+    detail = pd.DataFrame(
+        {
+            "method": ["Distance-based RD"],
+            "estimate": [tau],
+            "se": [se],
+            "z": [z_stat],
+            "pvalue": [pvalue],
+            "ci_lower": [ci[0]],
+            "ci_upper": [ci[1]],
+        }
+    )
 
     model_info: Dict[str, Any] = {
-        'approach': 'distance',
-        'polynomial_p': p,
-        'kernel': kernel,
-        'bandwidth': round(float(h), 6),
-        'bwselect': bwselect if h_auto else 'manual',
-        'n_left': n_left,
-        'n_right': n_right,
-        'n_effective_left': n_eff_l,
-        'n_effective_right': n_eff_r,
-        'boundary': 'x1=0' if boundary is None else 'custom',
+        "approach": "distance",
+        "polynomial_p": p,
+        "kernel": kernel,
+        "bandwidth": round(float(h), 6),
+        "bwselect": bwselect if h_auto else "manual",
+        "n_left": n_left,
+        "n_right": n_right,
+        "n_effective_left": n_eff_l,
+        "n_effective_right": n_eff_r,
+        "boundary": "x1=0" if boundary is None else "custom",
     }
 
     return CausalResult(
-        method='2D Boundary RD (distance-based)',
-        estimand='Boundary RD Effect',
+        method="2D Boundary RD (distance-based)",
+        estimand="Boundary RD Effect",
         estimate=tau,
         se=se,
         pvalue=pvalue,
@@ -669,13 +728,14 @@ def _rd2d_distance(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='rd2d',
+        _citation_key="rd2d",
     )
 
 
 # ======================================================================
 # Location-based approach
 # ======================================================================
+
 
 def _rd2d_location(
     Y: np.ndarray,
@@ -704,8 +764,7 @@ def _rd2d_location(
     # Bandwidth selection
     h_auto = h is None
     if h is None:
-        h = _bw_mse_optimal_2d(Y, X1, X2, T, treated, control,
-                               boundary, p, kernel)
+        h = _bw_mse_optimal_2d(Y, X1, X2, T, treated, control, boundary, p, kernel)
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
@@ -722,26 +781,28 @@ def _rd2d_location(
         pv_k = float(2 * (1 - stats.norm.cdf(abs(z_k))))
         ci_k = (tau_k - z_crit * se_k, tau_k + z_crit * se_k)
 
-        point_results.append({
-            'eval_x1': b1,
-            'eval_x2': b2,
-            'estimate': tau_k,
-            'se': se_k,
-            'z': z_k,
-            'pvalue': pv_k,
-            'ci_lower': ci_k[0],
-            'ci_upper': ci_k[1],
-        })
+        point_results.append(
+            {
+                "eval_x1": b1,
+                "eval_x2": b2,
+                "estimate": tau_k,
+                "se": se_k,
+                "z": z_k,
+                "pvalue": pv_k,
+                "ci_lower": ci_k[0],
+                "ci_upper": ci_k[1],
+            }
+        )
 
     detail = pd.DataFrame(point_results)
 
     # Pool estimates via inverse-variance weighting
     if len(point_results) == 1:
-        tau_pool = point_results[0]['estimate']
-        se_pool = point_results[0]['se']
+        tau_pool = point_results[0]["estimate"]
+        se_pool = point_results[0]["se"]
     else:
         tau_pool, se_pool = _inverse_variance_pool(
-            detail['estimate'].values, detail['se'].values
+            detail["estimate"].values, detail["se"].values
         )
 
     z_pool = tau_pool / se_pool if se_pool > 0 else 0.0
@@ -749,19 +810,19 @@ def _rd2d_location(
     ci_pool = (tau_pool - z_crit * se_pool, tau_pool + z_crit * se_pool)
 
     model_info: Dict[str, Any] = {
-        'approach': 'location',
-        'polynomial_p': p,
-        'kernel': kernel,
-        'bandwidth': round(float(h), 6),
-        'bwselect': bwselect if h_auto else 'manual',
-        'n_eval_points': len(eval_pts),
-        'eval_points': eval_pts.tolist(),
-        'boundary': 'x1=0' if boundary is None else 'custom',
+        "approach": "location",
+        "polynomial_p": p,
+        "kernel": kernel,
+        "bandwidth": round(float(h), 6),
+        "bwselect": bwselect if h_auto else "manual",
+        "n_eval_points": len(eval_pts),
+        "eval_points": eval_pts.tolist(),
+        "boundary": "x1=0" if boundary is None else "custom",
     }
 
     return CausalResult(
-        method='2D Boundary RD (location-based)',
-        estimand='Boundary RD Effect',
+        method="2D Boundary RD (location-based)",
+        estimand="Boundary RD Effect",
         estimate=tau_pool,
         se=se_pool,
         pvalue=pv_pool,
@@ -770,13 +831,14 @@ def _rd2d_location(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='rd2d',
+        _citation_key="rd2d",
     )
 
 
 # ======================================================================
 # Distance computation helpers
 # ======================================================================
+
 
 def _signed_distance(
     X1: np.ndarray,
@@ -853,7 +915,7 @@ def _signed_distance_to_curve(
                 res = optimize.minimize_scalar(
                     sq_dist,
                     bounds=(search_lo, search_hi),
-                    method='bounded',
+                    method="bounded",
                 )
                 if res.fun < best_d2:
                     best_d2 = res.fun
@@ -870,6 +932,7 @@ def _signed_distance_to_curve(
 # ======================================================================
 # Univariate local polynomial RD (for distance approach)
 # ======================================================================
+
 
 def _local_poly_rd_1d(
     Y: np.ndarray,
@@ -902,10 +965,10 @@ def _local_poly_rd_1d(
 # for numerical stability in the HC1 degrees-of-freedom correction).
 from ._core import _local_poly_wls as _wls_local_poly, _sandwich_variance  # noqa: E402
 
-
 # ======================================================================
 # Bivariate local polynomial (for location approach)
 # ======================================================================
+
 
 def _bivariate_local_poly_rd(
     Y: np.ndarray,
@@ -1009,7 +1072,9 @@ def _bivariate_wls(
 
 
 def _bivariate_design_columns(
-    dx1: np.ndarray, dx2: np.ndarray, p: int,
+    dx1: np.ndarray,
+    dx2: np.ndarray,
+    p: int,
 ) -> np.ndarray:
     """
     Build bivariate polynomial design matrix up to order p.
@@ -1025,7 +1090,7 @@ def _bivariate_design_columns(
 
     for order in range(1, p + 1):
         for j in range(order + 1):
-            columns.append(dx1 ** (order - j) * dx2 ** j)
+            columns.append(dx1 ** (order - j) * dx2**j)
 
     return np.column_stack(columns)
 
@@ -1033,6 +1098,7 @@ def _bivariate_design_columns(
 # ======================================================================
 # Bandwidth selection
 # ======================================================================
+
 
 def _bw_mse_optimal_1d(
     Y: np.ndarray,
@@ -1076,8 +1142,7 @@ def _bw_mse_optimal_1d(
     if bias_sq < 1e-12:
         h_opt = h_pilot
     else:
-        h_opt = (C_K * (sigma2_l + sigma2_r) /
-                 (f_c * bias_sq * n)) ** (1 / 5)
+        h_opt = (C_K * (sigma2_l + sigma2_r) / (f_c * bias_sq * n)) ** (1 / 5)
 
     h_opt = np.clip(h_opt, 0.02 * x_range, 0.98 * x_range)
     return float(h_opt)
@@ -1126,7 +1191,7 @@ def _bw_mse_optimal_2d(
 
     for h_cand in h_candidates:
         cv_score = 0.0
-        for side, mask in [('treated', treated), ('control', control)]:
+        for side, mask in [("treated", treated), ("control", control)]:
             y_s = Y[mask]
             x1_s = X1[mask]
             x2_s = X2[mask]
@@ -1165,7 +1230,7 @@ def _bw_mse_optimal_2d(
                 h_diag = np.diag(H)
                 h_diag = np.clip(h_diag, 0, 0.999)
                 loo_resid = resid / (1 - h_diag)
-                cv_score += float(np.mean(loo_resid ** 2))
+                cv_score += float(np.mean(loo_resid**2))
             except np.linalg.LinAlgError:  # pragma: no cover
                 cv_score += 1e10
 
@@ -1179,6 +1244,7 @@ def _bw_mse_optimal_2d(
 # ======================================================================
 # Evaluation point generation
 # ======================================================================
+
 
 def _generate_eval_points(
     X1: np.ndarray,
@@ -1220,6 +1286,7 @@ def _generate_eval_points(
 # Inverse-variance pooling
 # ======================================================================
 
+
 def _inverse_variance_pool(
     estimates: np.ndarray,
     se: np.ndarray,
@@ -1231,7 +1298,7 @@ def _inverse_variance_pool(
     """
     # Guard against zero/tiny SEs
     se = np.maximum(se, 1e-10)
-    weights = 1.0 / se ** 2
+    weights = 1.0 / se**2
     w_sum = weights.sum()
 
     if w_sum < 1e-20:
@@ -1247,8 +1314,12 @@ def _inverse_variance_pool(
 # Bandwidth helpers (univariate)
 # ======================================================================
 
+
 def _residual_variance_1d(
-    y: np.ndarray, x: np.ndarray, h: float, kernel: str,
+    y: np.ndarray,
+    x: np.ndarray,
+    h: float,
+    kernel: str,
 ) -> float:
     """Conditional variance at x=0 from local linear residuals."""
     if len(y) == 0:
@@ -1269,13 +1340,16 @@ def _residual_variance_1d(
     try:
         beta = np.linalg.lstsq(Xw, yw, rcond=None)[0]
         resid = y_bw - X_mat @ beta
-        return float(np.average(resid ** 2, weights=w_bw))
+        return float(np.average(resid**2, weights=w_bw))
     except Exception:  # pragma: no cover
         return float(np.var(y_bw))
 
 
 def _second_deriv_1d(
-    y: np.ndarray, x: np.ndarray, h: float, kernel: str,
+    y: np.ndarray,
+    x: np.ndarray,
+    h: float,
+    kernel: str,
 ) -> float:
     """Estimate m''(0) via local cubic regression."""
     if len(y) == 0:
@@ -1288,7 +1362,7 @@ def _second_deriv_1d(
     y_bw, x_bw = y[in_bw], x[in_bw]
     w_bw = _kernel_fn(u[in_bw], kernel)
 
-    X_mat = np.column_stack([x_bw ** j for j in range(4)])
+    X_mat = np.column_stack([x_bw**j for j in range(4)])
     sqw = np.sqrt(w_bw)
     Xw = X_mat * sqw[:, np.newaxis]
     yw = y_bw * sqw

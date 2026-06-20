@@ -24,7 +24,6 @@ from typing import Any, Callable, TypeVar
 
 import numpy as np
 
-
 _DecoratedFn = TypeVar("_DecoratedFn", bound=Callable[..., Any])
 
 try:  # pragma: no cover — import-time branch
@@ -40,6 +39,7 @@ except Exception:  # pragma: no cover
     ) -> Callable[[_DecoratedFn], _DecoratedFn]:  # type: ignore[misc]
         def deco(fn: _DecoratedFn) -> _DecoratedFn:
             return fn
+
         return deco
 
 

@@ -20,7 +20,6 @@ from scipy.optimize import minimize
 from ._common import as_float_arrays, harmonize_signs
 from ..._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["GrappleResult", "grapple"]
 
 
@@ -60,6 +59,7 @@ class GrappleResult(ResultProtocolMixin):
     >>> bool(np.isfinite(res.estimate))
     True
     """
+
     estimate: float
     se: float
     ci_lower: float
@@ -74,8 +74,7 @@ class GrappleResult(ResultProtocolMixin):
         ci = f"[{self.ci_lower:+.4f}, {self.ci_upper:+.4f}]"
         conv = "converged" if self.converged else "DID NOT CONVERGE"
         return (
-            "GRAPPLE (profile-likelihood MR)\n"
-            + "=" * 62 + "\n"
+            "GRAPPLE (profile-likelihood MR)\n" + "=" * 62 + "\n"
             f"  n SNPs        : {self.n_snps}\n"
             f"  causal β      : {self.estimate:+.4f}   SE = {self.se:.4f}\n"
             f"  95% CI        : {ci}\n"
@@ -98,13 +97,11 @@ def _grapple_nll(
     """
     beta, log_tau2 = params
     tau2 = float(np.exp(log_tau2))
-    sigma2 = vy + beta ** 2 * vx + tau2
+    sigma2 = vy + beta**2 * vx + tau2
     if np.any(sigma2 <= 0):
         return 1e12
     resid = by - beta * bx
-    return 0.5 * float(
-        np.sum(resid ** 2 / sigma2 + np.log(2 * np.pi * sigma2))
-    )
+    return 0.5 * float(np.sum(resid**2 / sigma2 + np.log(2 * np.pi * sigma2)))
 
 
 def grapple(
@@ -177,18 +174,20 @@ def grapple(
         beta_exposure, beta_outcome, se_exposure, se_outcome
     )
     bx, by = harmonize_signs(bx, by)
-    vx = sx ** 2
-    vy = sy ** 2
+    vx = sx**2
+    vy = sy**2
 
     # IVW warm start
     if beta_init is None:
         w = 1.0 / vy
-        denom = float(np.sum(w * bx ** 2))
+        denom = float(np.sum(w * bx**2))
         beta_init = float(np.sum(w * bx * by) / denom) if denom > 0 else 0.0
 
     x0 = np.array([beta_init, np.log(max(tau2_init, 1e-10))])
     res = minimize(
-        _grapple_nll, x0, args=(bx, by, vx, vy),
+        _grapple_nll,
+        x0,
+        args=(bx, by, vx, vy),
         method="L-BFGS-B",
         options={"maxiter": 500, "gtol": 1e-8},
     )
@@ -204,10 +203,8 @@ def grapple(
         return _grapple_nll(np.array([b, np.log(tau2_hat)]), bx, by, vx, vy)
 
     d2 = (
-        _nll_beta(beta_hat + h)
-        - 2 * _nll_beta(beta_hat)
-        + _nll_beta(beta_hat - h)
-    ) / h ** 2
+        _nll_beta(beta_hat + h) - 2 * _nll_beta(beta_hat) + _nll_beta(beta_hat - h)
+    ) / h**2
     se_hat = float(np.sqrt(1.0 / d2)) if d2 > 0 else float("nan")
 
     z_crit = stats.norm.ppf(1 - alpha / 2)

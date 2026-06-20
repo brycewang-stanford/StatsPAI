@@ -27,6 +27,7 @@ These three sit between ``sp.replication_pack`` (which now writes a
 real ``paper.bib`` instead of a free-text dump) and
 ``PaperDraft.to_qmd`` (which now accepts ``csl='aer'`` short names).
 """
+
 from __future__ import annotations
 
 import re
@@ -217,8 +218,7 @@ def csl_filename(name: str) -> str:
     if name and name.endswith(".csl"):
         return name
     raise ValueError(
-        f"Unknown CSL style {name!r}. "
-        f"Available: {', '.join(sorted(CSL_REGISTRY))}."
+        f"Unknown CSL style {name!r}. " f"Available: {', '.join(sorted(CSL_REGISTRY))}."
     )
 
 
@@ -348,8 +348,11 @@ def parse_citation_to_bib(
     ['author', 'journal', 'title', 'year']
     """
     if not citation or not citation.strip():
-        return {"key": key or "anon", "type": "misc",
-                "fields": {"note": "(empty citation)"}}
+        return {
+            "key": key or "anon",
+            "type": "misc",
+            "fields": {"note": "(empty citation)"},
+        }
 
     cleaned = citation.strip().rstrip(",;")
     bib_key = key or make_bib_key(cleaned)

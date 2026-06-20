@@ -47,6 +47,7 @@ class OfflineSafeResult:
     >>> bool(res.expected_cost <= res.cost_threshold)
     True
     """
+
     policy: np.ndarray
     expected_reward: float
     expected_cost: float

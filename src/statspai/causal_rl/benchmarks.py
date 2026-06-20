@@ -17,7 +17,6 @@ policy against the optimal action.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -43,6 +42,7 @@ class BanditBenchmarkResult:
     >>> res.transitions['action'].isin([0, 1]).all().item()
     True
     """
+
     benchmark: str
     transitions: pd.DataFrame
     optimal_policy: np.ndarray
@@ -109,16 +109,23 @@ def causal_rl_benchmark(
     if name == "confounded_bandit":
         U = rng.standard_normal(n_episodes)
         # Behaviour: action depends on U; arm 1 better in expectation
-        A = (rng.uniform(size=n_episodes) < (
-            0.5 + confounding_strength * np.tanh(U)
-        )).astype(int)
-        R = 1.0 + 0.5 * A + confounding_strength * U + rng.standard_normal(n_episodes) * 0.1
-        df = pd.DataFrame({
-            'state': np.zeros(n_episodes, dtype=int),
-            'action': A,
-            'reward': R,
-            'next_state': np.zeros(n_episodes, dtype=int),
-        })
+        A = (
+            rng.uniform(size=n_episodes) < (0.5 + confounding_strength * np.tanh(U))
+        ).astype(int)
+        R = (
+            1.0
+            + 0.5 * A
+            + confounding_strength * U
+            + rng.standard_normal(n_episodes) * 0.1
+        )
+        df = pd.DataFrame(
+            {
+                "state": np.zeros(n_episodes, dtype=int),
+                "action": A,
+                "reward": R,
+                "next_state": np.zeros(n_episodes, dtype=int),
+            }
+        )
         opt_policy = np.array([1])
         opt_value = 1.5
         evaluator = "sp.causal_dqn"
@@ -126,36 +133,58 @@ def causal_rl_benchmark(
         # Discretise dose into 5 levels; reward = inverted U-shape + confounder
         D = rng.integers(0, 5, size=n_episodes)
         U = rng.standard_normal(n_episodes)
-        R = -(D - 2.0) ** 2 + confounding_strength * U + rng.standard_normal(n_episodes) * 0.2
-        df = pd.DataFrame({
-            'state': np.zeros(n_episodes, dtype=int),
-            'action': D, 'reward': R,
-            'next_state': np.zeros(n_episodes, dtype=int),
-        })
+        R = (
+            -((D - 2.0) ** 2)
+            + confounding_strength * U
+            + rng.standard_normal(n_episodes) * 0.2
+        )
+        df = pd.DataFrame(
+            {
+                "state": np.zeros(n_episodes, dtype=int),
+                "action": D,
+                "reward": R,
+                "next_state": np.zeros(n_episodes, dtype=int),
+            }
+        )
         opt_policy = np.array([2])
         opt_value = 0.0
         evaluator = "sp.causal_dqn"
     elif name == "confounded_pricing":
         prices = rng.integers(0, 5, size=n_episodes)
         demand_shock = rng.standard_normal(n_episodes)
-        R = (5 - prices) * (1 + 0.1 * confounding_strength * demand_shock) + 0.1 * rng.standard_normal(n_episodes)
-        df = pd.DataFrame({
-            'state': np.zeros(n_episodes, dtype=int),
-            'action': prices, 'reward': R,
-            'next_state': np.zeros(n_episodes, dtype=int),
-        })
+        R = (5 - prices) * (
+            1 + 0.1 * confounding_strength * demand_shock
+        ) + 0.1 * rng.standard_normal(n_episodes)
+        df = pd.DataFrame(
+            {
+                "state": np.zeros(n_episodes, dtype=int),
+                "action": prices,
+                "reward": R,
+                "next_state": np.zeros(n_episodes, dtype=int),
+            }
+        )
         opt_policy = np.array([0])
         opt_value = 5.0
         evaluator = "sp.causal_dqn or sp.policy_tree"
     elif name == "confounded_targeting":
         X = rng.integers(0, 3, size=n_episodes)
         U = rng.standard_normal(n_episodes)
-        T = (rng.uniform(size=n_episodes) < (0.3 + confounding_strength * (U > 0))).astype(int)
-        R = 0.5 * T * (X == 1) + confounding_strength * U + 0.1 * rng.standard_normal(n_episodes)
-        df = pd.DataFrame({
-            'state': X, 'action': T, 'reward': R,
-            'next_state': X,
-        })
+        T = (
+            rng.uniform(size=n_episodes) < (0.3 + confounding_strength * (U > 0))
+        ).astype(int)
+        R = (
+            0.5 * T * (X == 1)
+            + confounding_strength * U
+            + 0.1 * rng.standard_normal(n_episodes)
+        )
+        df = pd.DataFrame(
+            {
+                "state": X,
+                "action": T,
+                "reward": R,
+                "next_state": X,
+            }
+        )
         opt_policy = np.array([0, 1, 0])  # treat only state==1
         opt_value = 0.5
         evaluator = "sp.policy_tree"
@@ -164,9 +193,14 @@ def causal_rl_benchmark(
         A = rng.integers(0, 2, size=n_episodes)
         Sp = (S + A) % 3
         R = (Sp == 2).astype(float) + 0.1 * rng.standard_normal(n_episodes)
-        df = pd.DataFrame({
-            'state': S, 'action': A, 'reward': R, 'next_state': Sp,
-        })
+        df = pd.DataFrame(
+            {
+                "state": S,
+                "action": A,
+                "reward": R,
+                "next_state": Sp,
+            }
+        )
         opt_policy = np.array([0, 1, 0])
         opt_value = 1.0
         evaluator = "sp.causal_dqn"

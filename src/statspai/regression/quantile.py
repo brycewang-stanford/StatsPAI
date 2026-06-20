@@ -93,9 +93,7 @@ def qreg(
     See Koenker & Bassett (1978, *Econometrica*).
     """
     if not (0 < quantile < 1):
-        raise MethodIncompatibility(
-            f"quantile must be in (0, 1), got {quantile}"
-        )
+        raise MethodIncompatibility(f"quantile must be in (0, 1), got {quantile}")
 
     # Parse inputs
     if formula is not None:
@@ -107,10 +105,11 @@ def qreg(
 
     df = data[[y_name] + x_names].dropna()
     Y = df[y_name].values.astype(float)
-    X = np.column_stack([np.ones(len(df))] +
-                        [df[v].values.astype(float) for v in x_names])
+    X = np.column_stack(
+        [np.ones(len(df))] + [df[v].values.astype(float) for v in x_names]
+    )
     n, k = X.shape
-    var_names = ['const'] + x_names
+    var_names = ["const"] + x_names
 
     # Solve quantile regression via linear programming
     beta = _qreg_fit(Y, X, quantile)
@@ -123,13 +122,15 @@ def qreg(
     pvals = 2 * (1 - stats.norm.cdf(np.abs(z_stats)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
-    detail = pd.DataFrame({
-        'variable': var_names,
-        'coefficient': beta,
-        'se': se,
-        'z': z_stats,
-        'pvalue': pvals,
-    })
+    detail = pd.DataFrame(
+        {
+            "variable": var_names,
+            "coefficient": beta,
+            "se": se,
+            "z": z_stats,
+            "pvalue": pvals,
+        }
+    )
 
     # Main estimate: first regressor (after constant)
     main_coef = float(beta[1])
@@ -138,14 +139,14 @@ def qreg(
     ci = (main_coef - z_crit * main_se, main_coef + z_crit * main_se)
 
     model_info = {
-        'quantile': quantile,
-        'pseudo_r2': _pseudo_r2(Y, resid, quantile),
-        'n_obs': n,
+        "quantile": quantile,
+        "pseudo_r2": _pseudo_r2(Y, resid, quantile),
+        "n_obs": n,
     }
 
     return CausalResult(
-        method=f'Quantile Regression (tau={quantile})',
-        estimand=f'Q({quantile}) {x_names[0]}',
+        method=f"Quantile Regression (tau={quantile})",
+        estimand=f"Q({quantile}) {x_names[0]}",
         estimate=main_coef,
         se=main_se,
         pvalue=main_p,
@@ -154,7 +155,7 @@ def qreg(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='qreg',
+        _citation_key="qreg",
     )
 
 
@@ -202,11 +203,11 @@ def sqreg(
         if not isinstance(detail, pd.DataFrame):
             raise MethodIncompatibility("qreg detail table is unavailable")
         for _, row in detail.iterrows():
-            var = row['variable']
+            var = row["variable"]
             if var not in results:
-                results[var] = {'variable': var}
-            results[var][f'Q({q})'] = round(row['coefficient'], 4)
-            results[var][f'SE({q})'] = round(row['se'], 4)
+                results[var] = {"variable": var}
+            results[var][f"Q({q})"] = round(row["coefficient"], 4)
+            results[var][f"SE({q})"] = round(row["se"], 4)
 
     return pd.DataFrame(list(results.values()))
 
@@ -214,6 +215,7 @@ def sqreg(
 # ======================================================================
 # Internal
 # ======================================================================
+
 
 def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
     """Solve quantile regression via linear programming (interior point)."""
@@ -224,9 +226,7 @@ def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
     # s.t. X β + u - v = Y, u >= 0, v >= 0
     # where u = max(residual, 0) and v = max(-residual, 0)
 
-    c = np.concatenate([np.zeros(k),
-                        tau * np.ones(n),
-                        (1 - tau) * np.ones(n)])
+    c = np.concatenate([np.zeros(k), tau * np.ones(n), (1 - tau) * np.ones(n)])
 
     # Equality: X β + I u - I v = Y
     A_eq = np.hstack([X, np.eye(n), -np.eye(n)])
@@ -236,8 +236,14 @@ def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
     bounds = [(None, None)] * k + [(0, None)] * (2 * n)
 
     try:
-        result = linprog(c, A_eq=A_eq, b_eq=b_eq, bounds=bounds,
-                         method='highs', options={'maxiter': 5000})
+        result = linprog(
+            c,
+            A_eq=A_eq,
+            b_eq=b_eq,
+            bounds=bounds,
+            method="highs",
+            options={"maxiter": 5000},
+        )
         if result.success:
             return _as_float_array(result.x[:k])
     except Exception:
@@ -299,13 +305,14 @@ def _qreg_se(
     # file divided by an extra factor of n, producing SE that were
     # smaller by sqrt(n) (~20x at n=500) and meaningless inference.
     XtX_inv = np.linalg.pinv(X.T @ X)
-    vcov = tau * (1 - tau) / (f0 ** 2) * XtX_inv
+    vcov = tau * (1 - tau) / (f0**2) * XtX_inv
 
     return _as_float_array(np.sqrt(np.maximum(np.diag(vcov), 1e-20)))
 
 
 def _pseudo_r2(Y: np.ndarray, resid: np.ndarray, tau: float) -> float:
     """Koenker-Machado (1999) pseudo R² for quantile regression."""
+
     def rho(u: np.ndarray) -> np.ndarray:
         return _as_float_array(u * (tau - (u < 0)))
 
@@ -316,16 +323,16 @@ def _pseudo_r2(Y: np.ndarray, resid: np.ndarray, tau: float) -> float:
 
 def _parse_formula(formula: str) -> Tuple[str, List[str]]:
     """Parse 'y ~ x1 + x2' into (y, [x1, x2])."""
-    parts = formula.split('~')
+    parts = formula.split("~")
     if len(parts) != 2:
         raise ValueError(f"Invalid formula: {formula}")
     y = parts[0].strip()
-    x = [v.strip() for v in parts[1].split('+') if v.strip()]
+    x = [v.strip() for v in parts[1].split("+") if v.strip()]
     return y, x
 
 
 # Citation
-CausalResult._CITATIONS['qreg'] = (
+CausalResult._CITATIONS["qreg"] = (
     "@article{koenker1978regression,\n"
     "  title={Regression Quantiles},\n"
     "  author={Koenker, Roger and Bassett, Gilbert},\n"

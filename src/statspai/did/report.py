@@ -34,10 +34,10 @@ from .aggte import aggte
 from .callaway_santanna import callaway_santanna
 from .honest_did import breakdown_m
 
-
 # ======================================================================
 # Container
 # ======================================================================
+
 
 @dataclass
 class CSReport:
@@ -114,13 +114,19 @@ class CSReport:
         # Local import to avoid a circular statspai.did.__init__ dependency.
         from .plots import ggdid
 
-        cs_like = _CSReportLike(self.dynamic, {'aggregation': 'dynamic'},
-                                self.overall.get('estimate', 0.0),
-                                self.overall.get('se', 0.0), self.meta)
-        cs_like_group = _CSReportLike(self.group, {'aggregation': 'group'},
-                                      0.0, 0.0, self.meta)
-        cs_like_cal = _CSReportLike(self.calendar, {'aggregation': 'calendar'},
-                                    0.0, 0.0, self.meta)
+        cs_like = _CSReportLike(
+            self.dynamic,
+            {"aggregation": "dynamic"},
+            self.overall.get("estimate", 0.0),
+            self.overall.get("se", 0.0),
+            self.meta,
+        )
+        cs_like_group = _CSReportLike(
+            self.group, {"aggregation": "group"}, 0.0, 0.0, self.meta
+        )
+        cs_like_cal = _CSReportLike(
+            self.calendar, {"aggregation": "calendar"}, 0.0, 0.0, self.meta
+        )
 
         fig, axes = plt.subplots(2, 2, figsize=figsize)
         ggdid(cs_like, ax=axes[0, 0])
@@ -136,24 +142,29 @@ class CSReport:
     def _plot_breakdown(self, ax: Any) -> None:
         """Render the R-R breakdown M* panel (horizontal bars)."""
         import matplotlib.pyplot as plt  # noqa: F401 — caller loaded it
+
         df = self.breakdown
         if len(df) == 0:
-            ax.text(0.5, 0.5, "No post-treatment event times",
-                    ha='center', va='center', transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "No post-treatment event times",
+                ha="center",
+                va="center",
+                transform=ax.transAxes,
+            )
             ax.set_title("Rambachan–Roth breakdown M*")
             return
         y = np.arange(len(df))
-        ax.barh(y, df['breakdown_M_star'].values, color='#2E86AB',
-                alpha=0.85)
+        ax.barh(y, df["breakdown_M_star"].values, color="#2E86AB", alpha=0.85)
         # Reference: one pointwise SE (robust at 1σ threshold).
-        ses = df['se'].values
-        ax.plot(ses, y, 'o', color='#E74C3C',
-                label='1 × SE', markersize=7, zorder=5)
+        ses = df["se"].values
+        ax.plot(ses, y, "o", color="#E74C3C", label="1 × SE", markersize=7, zorder=5)
         ax.set_yticks(y)
-        ax.set_yticklabels([f"e = {int(e)}" for e in df['relative_time']])
+        ax.set_yticklabels([f"e = {int(e)}" for e in df["relative_time"]])
         ax.set_xlabel("Breakdown M* (smoothness bound)")
         ax.set_title("Rambachan–Roth breakdown M*")
-        ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.axvline(0, color="gray", linestyle="--", linewidth=0.8)
         ax.legend(frameon=False, fontsize=9)
 
     # ------------------------------------------------------------------
@@ -212,35 +223,73 @@ class CSReport:
 
         lines.append("### Event study (dynamic aggregation)")
         lines.append("")
-        lines.append(_md(self.dynamic, [
-            "relative_time", "att", "se",
-            "ci_lower", "ci_upper",
-            "cband_lower", "cband_upper", "pvalue",
-        ]))
+        lines.append(
+            _md(
+                self.dynamic,
+                [
+                    "relative_time",
+                    "att",
+                    "se",
+                    "ci_lower",
+                    "ci_upper",
+                    "cband_lower",
+                    "cband_upper",
+                    "pvalue",
+                ],
+            )
+        )
         lines.append("")
         lines.append("### θ(g) — per-cohort aggregation")
         lines.append("")
-        lines.append(_md(self.group, [
-            "group", "att", "se",
-            "ci_lower", "ci_upper",
-            "cband_lower", "cband_upper", "pvalue",
-        ]))
+        lines.append(
+            _md(
+                self.group,
+                [
+                    "group",
+                    "att",
+                    "se",
+                    "ci_lower",
+                    "ci_upper",
+                    "cband_lower",
+                    "cband_upper",
+                    "pvalue",
+                ],
+            )
+        )
         lines.append("")
         lines.append("### θ(t) — per-calendar-time aggregation")
         lines.append("")
-        lines.append(_md(self.calendar, [
-            "time", "att", "se",
-            "ci_lower", "ci_upper",
-            "cband_lower", "cband_upper", "pvalue",
-        ]))
+        lines.append(
+            _md(
+                self.calendar,
+                [
+                    "time",
+                    "att",
+                    "se",
+                    "ci_lower",
+                    "ci_upper",
+                    "cband_lower",
+                    "cband_upper",
+                    "pvalue",
+                ],
+            )
+        )
         lines.append("")
         lines.append("### Rambachan–Roth breakdown M\\*")
         lines.append("")
         if len(self.breakdown):
-            lines.append(_md(self.breakdown, [
-                "relative_time", "att", "se",
-                "breakdown_M_star", "robust_at_1_SE",
-            ]))
+            lines.append(
+                _md(
+                    self.breakdown,
+                    [
+                        "relative_time",
+                        "att",
+                        "se",
+                        "breakdown_M_star",
+                        "robust_at_1_SE",
+                    ],
+                )
+            )
         else:
             lines.append("_No post-treatment event times._")
         lines.append("")
@@ -313,39 +362,51 @@ class CSReport:
         ]
         pt = self.pretrend or {}
         if pt:
-            summary_rows.extend([
-                ("pretrend_chi2", pt.get("statistic")),
-                ("pretrend_df", pt.get("df")),
-                ("pretrend_pvalue", pt.get("pvalue")),
-            ])
+            summary_rows.extend(
+                [
+                    ("pretrend_chi2", pt.get("statistic")),
+                    ("pretrend_df", pt.get("df")),
+                    ("pretrend_pvalue", pt.get("pvalue")),
+                ]
+            )
         summary = pd.DataFrame(summary_rows, columns=["key", "value"])
 
         meta_df = pd.DataFrame(
-            list(m.items()), columns=["key", "value"],
+            list(m.items()),
+            columns=["key", "value"],
         )
 
         writer_kwargs = {"engine": engine} if engine else {}
         with pd.ExcelWriter(path, **writer_kwargs) as w:
-            summary.to_excel(w, sheet_name="Summary",
-                             index=False, float_format=float_format)
-            self.dynamic.to_excel(w, sheet_name="Dynamic",
-                                  index=False, float_format=float_format)
-            self.group.to_excel(w, sheet_name="Group",
-                                index=False, float_format=float_format)
-            self.calendar.to_excel(w, sheet_name="Calendar",
-                                   index=False, float_format=float_format)
-            self.breakdown.to_excel(w, sheet_name="Breakdown",
-                                    index=False, float_format=float_format)
-            meta_df.to_excel(w, sheet_name="Meta",
-                             index=False, float_format=float_format)
+            summary.to_excel(
+                w, sheet_name="Summary", index=False, float_format=float_format
+            )
+            self.dynamic.to_excel(
+                w, sheet_name="Dynamic", index=False, float_format=float_format
+            )
+            self.group.to_excel(
+                w, sheet_name="Group", index=False, float_format=float_format
+            )
+            self.calendar.to_excel(
+                w, sheet_name="Calendar", index=False, float_format=float_format
+            )
+            self.breakdown.to_excel(
+                w, sheet_name="Breakdown", index=False, float_format=float_format
+            )
+            meta_df.to_excel(
+                w, sheet_name="Meta", index=False, float_format=float_format
+            )
         return str(path)
 
     # ------------------------------------------------------------------
     # Export: LaTeX (booktabs)
     # ------------------------------------------------------------------
-    def to_latex(self, float_format: str = "%.4f",
-                 caption: Optional[str] = None,
-                 label: Optional[str] = None) -> str:
+    def to_latex(
+        self,
+        float_format: str = "%.4f",
+        caption: Optional[str] = None,
+        label: Optional[str] = None,
+    ) -> str:
         """Render the report as a LaTeX fragment.
 
         Uses the ``booktabs`` package for each sub-table and wraps the
@@ -393,32 +454,70 @@ class CSReport:
         parts.append("\\par\\noindent" + header + "\\par\\medskip")
 
         parts.append("\\textbf{Event study (dynamic aggregation)}\\par")
-        parts.append(_latex(self.dynamic, [
-            "relative_time", "att", "se",
-            "ci_lower", "ci_upper",
-            "cband_lower", "cband_upper", "pvalue",
-        ]))
+        parts.append(
+            _latex(
+                self.dynamic,
+                [
+                    "relative_time",
+                    "att",
+                    "se",
+                    "ci_lower",
+                    "ci_upper",
+                    "cband_lower",
+                    "cband_upper",
+                    "pvalue",
+                ],
+            )
+        )
 
         parts.append("\\textbf{$\\theta(g)$ --- per-cohort}\\par")
-        parts.append(_latex(self.group, [
-            "group", "att", "se",
-            "ci_lower", "ci_upper",
-            "cband_lower", "cband_upper", "pvalue",
-        ]))
+        parts.append(
+            _latex(
+                self.group,
+                [
+                    "group",
+                    "att",
+                    "se",
+                    "ci_lower",
+                    "ci_upper",
+                    "cband_lower",
+                    "cband_upper",
+                    "pvalue",
+                ],
+            )
+        )
 
         parts.append("\\textbf{$\\theta(t)$ --- per-calendar-time}\\par")
-        parts.append(_latex(self.calendar, [
-            "time", "att", "se",
-            "ci_lower", "ci_upper",
-            "cband_lower", "cband_upper", "pvalue",
-        ]))
+        parts.append(
+            _latex(
+                self.calendar,
+                [
+                    "time",
+                    "att",
+                    "se",
+                    "ci_lower",
+                    "ci_upper",
+                    "cband_lower",
+                    "cband_upper",
+                    "pvalue",
+                ],
+            )
+        )
 
         parts.append("\\textbf{Rambachan--Roth breakdown $M^{*}$}\\par")
         if len(self.breakdown):
-            parts.append(_latex(self.breakdown, [
-                "relative_time", "att", "se",
-                "breakdown_M_star", "robust_at_1_SE",
-            ]))
+            parts.append(
+                _latex(
+                    self.breakdown,
+                    [
+                        "relative_time",
+                        "att",
+                        "se",
+                        "breakdown_M_star",
+                        "robust_at_1_SE",
+                    ],
+                )
+            )
         else:
             parts.append("\\emph{No post-treatment event times.}")
 
@@ -436,15 +535,21 @@ class CSReport:
 
         # Header block
         m = self.meta
-        lines.append(f"Units: {m.get('n_units', '?')}    "
-                     f"Periods: {m.get('n_periods', '?')}    "
-                     f"Cohorts: {m.get('n_cohorts', '?')}    "
-                     f"α = {m.get('alpha', 0.05)}")
-        lines.append(f"Estimator: {m.get('estimator', '?')}    "
-                     f"Control group: {m.get('control_group', '?')}    "
-                     f"Anticipation: {m.get('anticipation', 0)}")
-        lines.append(f"Multiplier bootstrap: B = {m.get('n_boot', '?')}, "
-                     f"seed = {m.get('random_state', '—')}")
+        lines.append(
+            f"Units: {m.get('n_units', '?')}    "
+            f"Periods: {m.get('n_periods', '?')}    "
+            f"Cohorts: {m.get('n_cohorts', '?')}    "
+            f"α = {m.get('alpha', 0.05)}"
+        )
+        lines.append(
+            f"Estimator: {m.get('estimator', '?')}    "
+            f"Control group: {m.get('control_group', '?')}    "
+            f"Anticipation: {m.get('anticipation', 0)}"
+        )
+        lines.append(
+            f"Multiplier bootstrap: B = {m.get('n_boot', '?')}, "
+            f"seed = {m.get('random_state', '—')}"
+        )
 
         # Overall ATT
         lines.append("-" * w)
@@ -483,8 +588,7 @@ class CSReport:
         lines.append("-" * w)
         lines.append(" Rambachan–Roth breakdown M* (smoothness) ".center(w, "-"))
         if len(self.breakdown):
-            lines.append(self.breakdown.to_string(index=False,
-                                                  float_format="%.4f"))
+            lines.append(self.breakdown.to_string(index=False, float_format="%.4f"))
         else:
             lines.append("(no post-treatment event times)")
 
@@ -494,15 +598,31 @@ class CSReport:
     # ------------------------------------------------------------------
     @staticmethod
     def _fmt_event_study(df: pd.DataFrame) -> str:
-        cols = ["relative_time", "att", "se", "ci_lower", "ci_upper",
-                "cband_lower", "cband_upper", "pvalue"]
+        cols = [
+            "relative_time",
+            "att",
+            "se",
+            "ci_lower",
+            "ci_upper",
+            "cband_lower",
+            "cband_upper",
+            "pvalue",
+        ]
         present = [c for c in cols if c in df.columns]
         return str(df[present].to_string(index=False, float_format="%.4f"))
 
     @staticmethod
     def _fmt_aggregation(df: pd.DataFrame, id_col: str) -> str:
-        cols = [id_col, "att", "se", "ci_lower", "ci_upper",
-                "cband_lower", "cband_upper", "pvalue"]
+        cols = [
+            id_col,
+            "att",
+            "se",
+            "ci_lower",
+            "ci_upper",
+            "cband_lower",
+            "cband_upper",
+            "pvalue",
+        ]
         present = [c for c in cols if c in df.columns]
         return str(df[present].to_string(index=False, float_format="%.4f"))
 
@@ -510,6 +630,7 @@ class CSReport:
 # ======================================================================
 # Minimal ggdid-compatible shim
 # ======================================================================
+
 
 class _CSReportLike:
     """Adapter that lets ``ggdid`` draw directly from a CSReport slice.
@@ -519,7 +640,7 @@ class _CSReportLike:
     attributes without recomputing bootstrap draws.
     """
 
-    __slots__ = ('detail', 'model_info', 'estimate', 'se', 'alpha')
+    __slots__ = ("detail", "model_info", "estimate", "se", "alpha")
 
     def __init__(
         self,
@@ -533,12 +654,13 @@ class _CSReportLike:
         self.model_info = {**meta, **model_info}
         self.estimate = float(estimate)
         self.se = float(se)
-        self.alpha = float(meta.get('alpha', 0.05))
+        self.alpha = float(meta.get("alpha", 0.05))
 
 
 # ======================================================================
 # Formatting helpers (Markdown / LaTeX)
 # ======================================================================
+
 
 def _format_numeric_columns(
     df: pd.DataFrame,
@@ -558,8 +680,11 @@ def _format_numeric_columns(
         if pd.api.types.is_float_dtype(s):
             # relative_time / group / time come through as float when mixed
             # with NaN; keep them integer-looking if they truly are ints.
-            if s.dropna().apply(lambda x: float(x).is_integer()).all() and \
-                    col in {"relative_time", "group", "time"}:
+            if s.dropna().apply(lambda x: float(x).is_integer()).all() and col in {
+                "relative_time",
+                "group",
+                "time",
+            }:
                 out[col] = s.astype("Int64")
                 continue
             out[col] = s.apply(
@@ -591,19 +716,20 @@ def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
     # with a lookup table guarantees each input character is escaped
     # exactly once.
     import re as _re
+
     _LATEX_ESCAPES = {
-        '\\': r'\textbackslash{}',
-        '~': r'\textasciitilde{}',
-        '^': r'\textasciicircum{}',
-        '&': r'\&',
-        '%': r'\%',
-        '$': r'\$',
-        '#': r'\#',
-        '_': r'\_',
-        '{': r'\{',
-        '}': r'\}',
+        "\\": r"\textbackslash{}",
+        "~": r"\textasciitilde{}",
+        "^": r"\textasciicircum{}",
+        "&": r"\&",
+        "%": r"\%",
+        "$": r"\$",
+        "#": r"\#",
+        "_": r"\_",
+        "{": r"\{",
+        "}": r"\}",
     }
-    _LATEX_RE = _re.compile(r'[\\~^&%$#_{}]')
+    _LATEX_RE = _re.compile(r"[\\~^&%$#_{}]")
 
     def _escape(v: object) -> str:
         text = "" if (isinstance(v, float) and pd.isna(v)) else str(v)
@@ -630,6 +756,7 @@ def _df_to_booktabs(df: pd.DataFrame, float_format: str = "%.4f") -> str:
 # Public entry point
 # ======================================================================
 
+
 def cs_report(
     data_or_result: Union[pd.DataFrame, CausalResult],
     y: Optional[str] = None,
@@ -637,15 +764,15 @@ def cs_report(
     t: Optional[str] = None,
     i: Optional[str] = None,
     x: Optional[List[str]] = None,
-    estimator: str = 'dr',
-    control_group: str = 'nevertreated',
+    estimator: str = "dr",
+    control_group: str = "nevertreated",
     anticipation: int = 0,
     alpha: float = 0.05,
     n_boot: int = 1000,
     random_state: Optional[int] = 0,
     min_e: float = -np.inf,
     max_e: float = np.inf,
-    rr_method: str = 'smoothness',
+    rr_method: str = "smoothness",
     verbose: bool = True,
     save_to: Optional[str] = None,
 ) -> CSReport:
@@ -716,23 +843,24 @@ def cs_report(
         # a pre-fitted result is passed, which is easy to misread as
         # "the report re-estimated under my new settings".
         import warnings as _warnings
+
         _shadowed: List[str] = []
         if y is not None:
-            _shadowed.append(f'y={y!r}')
+            _shadowed.append(f"y={y!r}")
         if g is not None:
-            _shadowed.append(f'g={g!r}')
+            _shadowed.append(f"g={g!r}")
         if t is not None:
-            _shadowed.append(f't={t!r}')
+            _shadowed.append(f"t={t!r}")
         if i is not None:
-            _shadowed.append(f'i={i!r}')
+            _shadowed.append(f"i={i!r}")
         if x is not None:
-            _shadowed.append(f'x={x!r}')
-        if estimator != 'dr':
-            _shadowed.append(f'estimator={estimator!r}')
-        if control_group != 'nevertreated':
-            _shadowed.append(f'control_group={control_group!r}')
+            _shadowed.append(f"x={x!r}")
+        if estimator != "dr":
+            _shadowed.append(f"estimator={estimator!r}")
+        if control_group != "nevertreated":
+            _shadowed.append(f"control_group={control_group!r}")
         if anticipation != 0:
-            _shadowed.append(f'anticipation={anticipation}')
+            _shadowed.append(f"anticipation={anticipation}")
         if _shadowed:
             _warnings.warn(
                 "cs_report() received a pre-fitted CausalResult together "
@@ -747,7 +875,7 @@ def cs_report(
         # SA / BJS / dCDH use a different layout (relative_time only), so
         # passing one of those here would later fail deep inside aggte with
         # a cryptic KeyError.  Fail fast with an actionable message.
-        required = {'group', 'time', 'att', 'se', 'relative_time'}
+        required = {"group", "time", "att", "se", "relative_time"}
         have = set(cs.detail.columns) if cs.detail is not None else set()
         if not required.issubset(have):
             raise ValueError(
@@ -765,74 +893,87 @@ def cs_report(
             )
         y_col, g_col, t_col, i_col = y, g, t, i
         cs = callaway_santanna(
-            data_or_result, y=y_col, g=g_col, t=t_col, i=i_col, x=x,
-            estimator=estimator, control_group=control_group,
-            anticipation=anticipation, alpha=alpha,
+            data_or_result,
+            y=y_col,
+            g=g_col,
+            t=t_col,
+            i=i_col,
+            x=x,
+            estimator=estimator,
+            control_group=control_group,
+            anticipation=anticipation,
+            alpha=alpha,
         )
 
     # Four aggregations sharing the same seed for internal consistency.
-    simple = aggte(cs, type='simple', alpha=alpha,
-                   n_boot=n_boot, random_state=random_state)
-    dynamic = aggte(cs, type='dynamic', alpha=alpha,
-                    n_boot=n_boot, random_state=random_state,
-                    min_e=min_e, max_e=max_e)
-    group = aggte(cs, type='group', alpha=alpha,
-                  n_boot=n_boot, random_state=random_state)
-    calendar = aggte(cs, type='calendar', alpha=alpha,
-                     n_boot=n_boot, random_state=random_state)
+    simple = aggte(
+        cs, type="simple", alpha=alpha, n_boot=n_boot, random_state=random_state
+    )
+    dynamic = aggte(
+        cs,
+        type="dynamic",
+        alpha=alpha,
+        n_boot=n_boot,
+        random_state=random_state,
+        min_e=min_e,
+        max_e=max_e,
+    )
+    group = aggte(
+        cs, type="group", alpha=alpha, n_boot=n_boot, random_state=random_state
+    )
+    calendar = aggte(
+        cs, type="calendar", alpha=alpha, n_boot=n_boot, random_state=random_state
+    )
 
-    simple_detail = (
-        simple.detail if simple.detail is not None else pd.DataFrame()
-    )
-    dynamic_detail = (
-        dynamic.detail if dynamic.detail is not None else pd.DataFrame()
-    )
+    simple_detail = simple.detail if simple.detail is not None else pd.DataFrame()
+    dynamic_detail = dynamic.detail if dynamic.detail is not None else pd.DataFrame()
     group_detail = group.detail if group.detail is not None else pd.DataFrame()
-    calendar_detail = (
-        calendar.detail if calendar.detail is not None else pd.DataFrame()
-    )
+    calendar_detail = calendar.detail if calendar.detail is not None else pd.DataFrame()
 
     # Breakdown M* for every post-treatment event time in the dynamic frame.
-    if 'relative_time' in dynamic_detail.columns:
-        post_es = dynamic_detail[dynamic_detail['relative_time'] >= 0]
+    if "relative_time" in dynamic_detail.columns:
+        post_es = dynamic_detail[dynamic_detail["relative_time"] >= 0]
     else:  # pragma: no cover - defensive result-protocol fallback
         post_es = dynamic_detail.iloc[0:0]
     rr_rows: List[Dict[str, Any]] = []
     for _, row in post_es.iterrows():
-        e_int = int(row['relative_time'])
+        e_int = int(row["relative_time"])
         try:
-            m_star = breakdown_m(dynamic, e=e_int, method=rr_method,
-                                 alpha=alpha)
+            m_star = breakdown_m(dynamic, e=e_int, method=rr_method, alpha=alpha)
         except Exception:  # pragma: no cover - defensive
-            m_star = float('nan')
-        rr_rows.append({
-            'relative_time': e_int,
-            'att': float(row['att']),
-            'se': float(row['se']),
-            'breakdown_M_star': m_star,
-            'robust_at_1_SE': m_star >= float(row['se']) if row['se'] > 0 else False,
-        })
+            m_star = float("nan")
+        rr_rows.append(
+            {
+                "relative_time": e_int,
+                "att": float(row["att"]),
+                "se": float(row["se"]),
+                "breakdown_M_star": m_star,
+                "robust_at_1_SE": (
+                    m_star >= float(row["se"]) if row["se"] > 0 else False
+                ),
+            }
+        )
     breakdown_df = pd.DataFrame(rr_rows)
 
     overall = {
-        'estimate': float(simple.estimate),
-        'se': float(simple.se),
-        'ci_lower': float(simple.ci[0]),
-        'ci_upper': float(simple.ci[1]),
-        'pvalue': float(simple.pvalue),
+        "estimate": float(simple.estimate),
+        "se": float(simple.se),
+        "ci_lower": float(simple.ci[0]),
+        "ci_upper": float(simple.ci[1]),
+        "pvalue": float(simple.pvalue),
     }
 
     meta = {
-        'n_units': cs.model_info.get('n_units'),
-        'n_periods': cs.model_info.get('n_periods'),
-        'n_cohorts': cs.model_info.get('n_cohorts'),
-        'alpha': alpha,
-        'estimator': cs.model_info.get('estimator'),
-        'control_group': cs.model_info.get('control_group'),
-        'anticipation': cs.model_info.get('anticipation', 0),
-        'n_boot': n_boot,
-        'random_state': random_state,
-        'rr_method': rr_method,
+        "n_units": cs.model_info.get("n_units"),
+        "n_periods": cs.model_info.get("n_periods"),
+        "n_cohorts": cs.model_info.get("n_cohorts"),
+        "alpha": alpha,
+        "estimator": cs.model_info.get("estimator"),
+        "control_group": cs.model_info.get("control_group"),
+        "anticipation": cs.model_info.get("anticipation", 0),
+        "n_boot": n_boot,
+        "random_state": random_state,
+        "rr_method": rr_method,
     }
 
     report = CSReport(
@@ -841,7 +982,7 @@ def cs_report(
         dynamic=dynamic_detail,
         group=group_detail,
         calendar=calendar_detail,
-        pretrend=cs.model_info.get('pretrend_test') or {},
+        pretrend=cs.model_info.get("pretrend_test") or {},
         breakdown=breakdown_df,
         meta=meta,
     )
@@ -904,6 +1045,7 @@ def _save_report_bundle(
 
     try:
         import matplotlib
+
         # Only switch to a non-interactive backend if nothing has been
         # set yet — calling matplotlib.use() after pyplot has been
         # imported is a warning-only no-op in modern matplotlib but
@@ -918,6 +1060,7 @@ def _save_report_bundle(
         fig.savefig(png_path, dpi=110, bbox_inches="tight")
         # Free the figure so callers in a long loop don't accumulate memory.
         import matplotlib.pyplot as plt
+
         plt.close(fig)
         written["png"] = png_path
     except ImportError:

@@ -21,6 +21,9 @@ from .gps import dose_response, DoseResponse
 from .vcnet import vcnet, scigan, VCNetResult
 
 __all__ = [
-    'dose_response', 'DoseResponse',
-    'vcnet', 'scigan', 'VCNetResult',
+    "dose_response",
+    "DoseResponse",
+    "vcnet",
+    "scigan",
+    "VCNetResult",
 ]

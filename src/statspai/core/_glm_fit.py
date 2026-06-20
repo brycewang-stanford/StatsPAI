@@ -33,9 +33,7 @@ def safe_logit_fit(y: Any, X: Any) -> Any:
         import statsmodels.api as sm
 
         design = sm.add_constant(X, has_constant="add")
-        return sm.Logit(y, design).fit(
-            disp=0, maxiter=200, warn_convergence=False
-        )
+        return sm.Logit(y, design).fit(disp=0, maxiter=200, warn_convergence=False)
     except Exception:
         return None
 

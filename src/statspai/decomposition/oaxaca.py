@@ -23,10 +23,10 @@ from ._common import sig_stars as _significance_stars
 from ._common import wls as _ols_wls
 from ._results import DecompResultMixin
 
-
 # ════════════════════════════════════════════════════════════════════════
 # Internal OLS helper (delegates to _common.wls for HC1 + QR stability)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def _ols(
     y: np.ndarray,
@@ -42,6 +42,7 @@ def _ols(
 # ════════════════════════════════════════════════════════════════════════
 # OaxacaResult
 # ════════════════════════════════════════════════════════════════════════
+
 
 class OaxacaResult(DecompResultMixin):
     """
@@ -78,8 +79,12 @@ class OaxacaResult(DecompResultMixin):
 
     method_name = "Oaxaca-Blinder Decomposition"
     bib_keys = (
-        "blinder1973wage", "oaxaca1973male", "neumark1988employers",
-        "cotton1988estimation", "reimers1983labor", "jann2008blinder",
+        "blinder1973wage",
+        "oaxaca1973male",
+        "neumark1988employers",
+        "cotton1988estimation",
+        "reimers1983labor",
+        "jann2008blinder",
         "oaxaca2025meets",
     )
 
@@ -104,19 +109,19 @@ class OaxacaResult(DecompResultMixin):
         o = self.overall
         gs = self.group_stats
 
-        gap = o['gap']
-        expl = o['explained']
-        unex = o['unexplained']
-        expl_se = o['explained_se']
-        unex_se = o['unexplained_se']
+        gap = o["gap"]
+        expl = o["explained"]
+        unex = o["unexplained"]
+        expl_se = o["explained_se"]
+        unex_se = o["unexplained_se"]
 
         expl_z = expl / expl_se if expl_se > 0 else 0.0
         unex_z = unex / unex_se if unex_se > 0 else 0.0
         expl_p = 2 * (1 - stats.norm.cdf(abs(expl_z)))
         unex_p = 2 * (1 - stats.norm.cdf(abs(unex_z)))
 
-        expl_pct = (expl / gap * 100) if gap != 0 else float('nan')
-        unex_pct = (unex / gap * 100) if gap != 0 else float('nan')
+        expl_pct = (expl / gap * 100) if gap != 0 else float("nan")
+        unex_pct = (unex / gap * 100) if gap != 0 else float("nan")
 
         ref_label = (
             f"Group {self.reference}"
@@ -152,9 +157,9 @@ class OaxacaResult(DecompResultMixin):
         )
 
         # Threefold pieces if present
-        if 'unexplained_a' in o and 'unexplained_b' in o:
-            ua = o['unexplained_a']
-            ub = o['unexplained_b']
+        if "unexplained_a" in o and "unexplained_b" in o:
+            ua = o["unexplained_a"]
+            ub = o["unexplained_b"]
             lines.append("")
             lines.append("  Threefold decomposition:")
             lines.append("  " + "─" * (w - 4))
@@ -171,7 +176,7 @@ class OaxacaResult(DecompResultMixin):
                 f"  {'Variable':<20s}{'Contribution':>14s}  {'% of Explained':>14s}"
             )
             for _, row in self.detailed.iterrows():
-                pval_j = row.get('pvalue', 1.0)
+                pval_j = row.get("pvalue", 1.0)
                 stars = _significance_stars(pval_j)
                 pct_str = f"{row['pct_of_explained']:.1f}%"
                 lines.append(
@@ -220,13 +225,18 @@ class OaxacaResult(DecompResultMixin):
                 "palette via statspai.decomposition.plots.DECOMP_PALETTE "
                 "(monkey-patch that mapping if you need a different "
                 "scheme). Ignoring: " + ", ".join(legacy),
-                DeprecationWarning, stacklevel=2,
+                DeprecationWarning,
+                stacklevel=2,
             )
         from .plots import detailed_waterfall, forest_plot
+
         plot_fn = forest_plot if kind == "forest" else detailed_waterfall
         return plot_fn(
-            self.detailed, value_col="contribution", label_col="variable",
-            se_col="se", figsize=figsize,
+            self.detailed,
+            value_col="contribution",
+            label_col="variable",
+            se_col="se",
+            figsize=figsize,
             title="Oaxaca-Blinder: Detailed Decomposition",
             **kwargs,
         )
@@ -244,12 +254,8 @@ class OaxacaResult(DecompResultMixin):
         lines.append(r"\toprule")
         lines.append(r"Component & Estimate & Std.\ Error \\")
         lines.append(r"\midrule")
-        lines.append(
-            f"Raw gap & {o['gap']:.4f} & \\\\"
-        )
-        lines.append(
-            f"Explained & {o['explained']:.4f} & {o['explained_se']:.4f} \\\\"
-        )
+        lines.append(f"Raw gap & {o['gap']:.4f} & \\\\")
+        lines.append(f"Explained & {o['explained']:.4f} & {o['explained_se']:.4f} \\\\")
         lines.append(
             f"Unexplained & {o['unexplained']:.4f} & {o['unexplained_se']:.4f} \\\\"
         )
@@ -273,11 +279,11 @@ class OaxacaResult(DecompResultMixin):
     def _repr_html_(self) -> str:
         o = self.overall
         gs = self.group_stats
-        gap = o['gap']
-        expl = o['explained']
-        unex = o['unexplained']
-        expl_pct = (expl / gap * 100) if gap != 0 else float('nan')
-        unex_pct = (unex / gap * 100) if gap != 0 else float('nan')
+        gap = o["gap"]
+        expl = o["explained"]
+        unex = o["unexplained"]
+        expl_pct = (expl / gap * 100) if gap != 0 else float("nan")
+        unex_pct = (unex / gap * 100) if gap != 0 else float("nan")
 
         html = (
             "<div style='font-family: monospace; padding: 10px;'>"
@@ -327,6 +333,7 @@ class OaxacaResult(DecompResultMixin):
 # ════════════════════════════════════════════════════════════════════════
 # GelbachResult
 # ════════════════════════════════════════════════════════════════════════
+
 
 class GelbachResult(DecompResultMixin):
     """
@@ -387,15 +394,9 @@ class GelbachResult(DecompResultMixin):
         lines.append("━" * w)
         lines.append("  Gelbach (2016) Decomposition")
         lines.append("━" * w)
-        lines.append(
-            f"  Base coefficient on '{self.base_var}':  {self.base_coef:.4f}"
-        )
-        lines.append(
-            f"  Full coefficient on '{self.base_var}':  {self.full_coef:.4f}"
-        )
-        lines.append(
-            f"  Total change (base - full):       {self.total_change:.4f}"
-        )
+        lines.append(f"  Base coefficient on '{self.base_var}':  {self.base_coef:.4f}")
+        lines.append(f"  Full coefficient on '{self.base_var}':  {self.full_coef:.4f}")
+        lines.append(f"  Total change (base - full):       {self.total_change:.4f}")
         lines.append("")
         lines.append("  Decomposition of the change:")
         lines.append("  " + "─" * (w - 4))
@@ -405,7 +406,7 @@ class GelbachResult(DecompResultMixin):
         )
         lines.append("  " + "─" * (w - 4))
         for _, row in self.decomposition.iterrows():
-            pval = row.get('pvalue', 1.0)
+            pval = row.get("pvalue", 1.0)
             stars = _significance_stars(pval)
             pct_str = f"{row['pct_of_change']:.1f}%"
             lines.append(
@@ -462,9 +463,7 @@ class GelbachResult(DecompResultMixin):
                 f"{row['se']:.4f} & {row['pct_of_change']:.1f}\\% \\\\"
             )
         lines.append(r"\midrule")
-        lines.append(
-            f"Total & {self.total_change:.4f} & & 100.0\\% \\\\"
-        )
+        lines.append(f"Total & {self.total_change:.4f} & & 100.0\\% \\\\")
         lines.append(r"\bottomrule")
         lines.append(r"\end{tabular}")
         lines.append(r"\end{table}")
@@ -509,6 +508,7 @@ class GelbachResult(DecompResultMixin):
 # ════════════════════════════════════════════════════════════════════════
 # oaxaca() — Main entry point
 # ════════════════════════════════════════════════════════════════════════
+
 
 def oaxaca(
     data: pd.DataFrame,
@@ -633,16 +633,16 @@ def oaxaca(
     elif reference == 1:
         beta_star = beta_b.copy()
         vcov_star = vcov_b.copy()
-    elif reference == 'pooled':
+    elif reference == "pooled":
         X_all = _add_constant(data[x].values.astype(float))
         y_all = data[y].values.astype(float)
         beta_star, vcov_star, _ = _ols(y_all, X_all)
-    elif reference == 'cotton':
+    elif reference == "cotton":
         w_a = n_a / (n_a + n_b)
         w_b = n_b / (n_a + n_b)
         beta_star = w_a * beta_a + w_b * beta_b
         vcov_star = w_a**2 * vcov_a + w_b**2 * vcov_b
-    elif reference == 'reimers':
+    elif reference == "reimers":
         beta_star = 0.5 * beta_a + 0.5 * beta_b
         vcov_star = 0.25 * vcov_a + 0.25 * vcov_b
     else:
@@ -694,43 +694,45 @@ def oaxaca(
             se_j = abs(diff_X[idx]) * np.sqrt(vcov_star[idx, idx])
             z_j = contrib_j / se_j if se_j > 0 else 0.0
             p_j = 2 * (1 - stats.norm.cdf(abs(z_j)))
-            pct_j = (contrib_j / explained * 100) if explained != 0 else float('nan')
-            contributions.append({
-                'variable': var,
-                'contribution': contrib_j,
-                'se': se_j,
-                'zvalue': z_j,
-                'pvalue': p_j,
-                'pct_of_explained': pct_j,
-            })
+            pct_j = (contrib_j / explained * 100) if explained != 0 else float("nan")
+            contributions.append(
+                {
+                    "variable": var,
+                    "contribution": contrib_j,
+                    "se": se_j,
+                    "zvalue": z_j,
+                    "pvalue": p_j,
+                    "pct_of_explained": pct_j,
+                }
+            )
         detailed_df = pd.DataFrame(contributions)
 
     # ── Group stats ──────────────────────────────────────────────────
-    var_names_full = ['_cons'] + x
+    var_names_full = ["_cons"] + x
     group_stats = {
-        'y_var': y,
-        'group_var': group,
-        'n_a': n_a,
-        'n_b': n_b,
-        'mean_a': mean_y_a,
-        'mean_b': mean_y_b,
-        'beta_a': pd.Series(beta_a, index=var_names_full),
-        'beta_b': pd.Series(beta_b, index=var_names_full),
-        'se_a': pd.Series(np.sqrt(np.diag(vcov_a)), index=var_names_full),
-        'se_b': pd.Series(np.sqrt(np.diag(vcov_b)), index=var_names_full),
-        'beta_star': pd.Series(beta_star, index=var_names_full),
-        'mean_X_a': pd.Series(mean_X_a, index=var_names_full),
-        'mean_X_b': pd.Series(mean_X_b, index=var_names_full),
+        "y_var": y,
+        "group_var": group,
+        "n_a": n_a,
+        "n_b": n_b,
+        "mean_a": mean_y_a,
+        "mean_b": mean_y_b,
+        "beta_a": pd.Series(beta_a, index=var_names_full),
+        "beta_b": pd.Series(beta_b, index=var_names_full),
+        "se_a": pd.Series(np.sqrt(np.diag(vcov_a)), index=var_names_full),
+        "se_b": pd.Series(np.sqrt(np.diag(vcov_b)), index=var_names_full),
+        "beta_star": pd.Series(beta_star, index=var_names_full),
+        "mean_X_a": pd.Series(mean_X_a, index=var_names_full),
+        "mean_X_b": pd.Series(mean_X_b, index=var_names_full),
     }
 
     overall = {
-        'gap': gap,
-        'explained': explained,
-        'unexplained': unexplained,
-        'explained_se': se_explained,
-        'unexplained_se': se_unexplained,
-        'unexplained_a': unexplained_a,
-        'unexplained_b': unexplained_b,
+        "gap": gap,
+        "explained": explained,
+        "unexplained": unexplained,
+        "explained_se": se_explained,
+        "unexplained_se": se_unexplained,
+        "unexplained_a": unexplained_a,
+        "unexplained_b": unexplained_b,
     }
 
     return OaxacaResult(
@@ -745,6 +747,7 @@ def oaxaca(
 # ════════════════════════════════════════════════════════════════════════
 # gelbach() — Gelbach (2016) decomposition
 # ════════════════════════════════════════════════════════════════════════
+
 
 def gelbach(
     data: pd.DataFrame,
@@ -822,15 +825,11 @@ def gelbach(
     if var_of_interest is None:
         var_of_interest = base_x[0]
     if var_of_interest not in base_x:
-        raise ValueError(
-            f"var_of_interest='{var_of_interest}' is not in base_x."
-        )
+        raise ValueError(f"var_of_interest='{var_of_interest}' is not in base_x.")
 
     overlap = set(base_x) & set(added_x)
     if overlap:
-        raise ValueError(
-            f"Variables appear in both base_x and added_x: {overlap}"
-        )
+        raise ValueError(f"Variables appear in both base_x and added_x: {overlap}")
 
     all_x = base_x + added_x
     required_cols = [y] + all_x
@@ -841,9 +840,7 @@ def gelbach(
     data = data[required_cols].dropna()
     n = len(data)
     if n < len(all_x) + 2:
-        raise ValueError(
-            f"Not enough observations ({n}) for {len(all_x)} variables."
-        )
+        raise ValueError(f"Not enough observations ({n}) for {len(all_x)} variables.")
 
     y_vec = data[y].values.astype(float)
     X_base_raw = data[base_x].values.astype(float)
@@ -888,27 +885,26 @@ def gelbach(
         var_beta_full_j = vcov_full[av_idx_full, av_idx_full]
         var_gamma_j = vcov_gamma_j[voi_idx_base, voi_idx_base]
 
-        var_delta_j = (
-            gamma_tilde_j**2 * var_beta_full_j
-            + beta_full_j**2 * var_gamma_j
-        )
+        var_delta_j = gamma_tilde_j**2 * var_beta_full_j + beta_full_j**2 * var_gamma_j
         se_delta_j = np.sqrt(max(var_delta_j, 0.0))
         delta_var[j] = var_delta_j
 
         z_stat = delta_j / se_delta_j if se_delta_j > 0 else 0.0
         p_val = 2 * (1 - stats.norm.cdf(abs(z_stat)))
-        pct = (delta_j / total_change * 100) if total_change != 0 else float('nan')
+        pct = (delta_j / total_change * 100) if total_change != 0 else float("nan")
 
-        decomp_rows.append({
-            'variable': av,
-            'delta': delta_j,
-            'se': se_delta_j,
-            'zvalue': z_stat,
-            'pvalue': p_val,
-            'pct_of_change': pct,
-            'gamma_tilde': gamma_tilde_j,
-            'beta_full': beta_full_j,
-        })
+        decomp_rows.append(
+            {
+                "variable": av,
+                "delta": delta_j,
+                "se": se_delta_j,
+                "zvalue": z_stat,
+                "pvalue": p_val,
+                "pct_of_change": pct,
+                "gamma_tilde": gamma_tilde_j,
+                "beta_full": beta_full_j,
+            }
+        )
 
     decomposition = pd.DataFrame(decomp_rows)
 

@@ -37,6 +37,7 @@ Public surface
   it spots a JSON-RPC reply whose ``id`` matches a pending sampling
   request.
 """
+
 from __future__ import annotations
 
 import itertools
@@ -44,7 +45,6 @@ import json
 import os
 import threading
 from typing import Any, Callable, Dict, List, Optional
-
 
 SAMPLING_TIMEOUT_ENV = "STATSPAI_MCP_SAMPLING_TIMEOUT_SECONDS"
 _DEFAULT_SAMPLING_TIMEOUT = 60.0
@@ -128,6 +128,7 @@ def set_writer(writer: Optional[Callable[[str], None]]) -> None:
 # Server-side sampling request
 # ---------------------------------------------------------------------------
 
+
 def request_sampling(
     messages: List[Dict[str, Any]],
     *,
@@ -176,13 +177,15 @@ def request_sampling(
     if not get_capability():
         raise UnsupportedSamplingError(
             "client did not advertise capabilities.sampling; "
-            "fall back to a user-supplied API key path")
+            "fall back to a user-supplied API key path"
+        )
     with _LOCK:
         writer = _WRITER
     if writer is None:
         raise UnsupportedSamplingError(
             "no MCP stdio writer registered; sampling unavailable "
-            "outside an active server loop")
+            "outside an active server loop"
+        )
 
     request_id = f"sp-sampling-{next(_REQUEST_ID_COUNTER)}"
     params: Dict[str, Any] = {
@@ -202,12 +205,16 @@ def request_sampling(
     with _LOCK:
         _PENDING[request_id] = pending
     try:
-        writer(json.dumps({
-            "jsonrpc": "2.0",
-            "id": request_id,
-            "method": "sampling/createMessage",
-            "params": params,
-        }))
+        writer(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "method": "sampling/createMessage",
+                    "params": params,
+                }
+            )
+        )
         wait_for = timeout if timeout is not None else _sampling_timeout()
         if not pending.event.wait(timeout=wait_for):
             raise SamplingTimeoutError(
@@ -218,7 +225,8 @@ def request_sampling(
         if pending.error is not None:
             raise RuntimeError(
                 f"client returned error for sampling request "
-                f"{request_id}: {pending.error}")
+                f"{request_id}: {pending.error}"
+            )
         return pending.result or {}
     finally:
         with _LOCK:

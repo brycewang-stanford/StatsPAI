@@ -42,7 +42,6 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple, Any
 
 import pandas as pd
 
-
 Edge = Tuple[str, str]
 Oracle = Callable[[Sequence[str], Dict[str, str]], List[Edge]]
 
@@ -78,6 +77,7 @@ class LLMDAGResult:
     >>> res.edges          # final merged edges  # doctest: +SKIP
     >>> res.disagreements  # oracle vs CI-test conflicts  # doctest: +SKIP
     """
+
     edges: List[Edge]
     oracle_edges: List[Edge]
     ci_rejects: List[Edge]
@@ -206,10 +206,7 @@ def llm_dag(
     if merge_strategy == "oracle_only":
         final = list(oracle_set)
     elif merge_strategy == "intersection":
-        final = [
-            e for e in oracle_set
-            if e in ci_set or (e[1], e[0]) in ci_set
-        ]
+        final = [e for e in oracle_set if e in ci_set or (e[1], e[0]) in ci_set]
     elif merge_strategy == "union_with_ci":
         final = list(oracle_set | ci_set)
     else:

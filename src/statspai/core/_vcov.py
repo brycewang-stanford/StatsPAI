@@ -114,6 +114,7 @@ def sandwich_vcov(
 
 def _cluster_labels_array(clusters: np.ndarray, n_obs: int) -> np.ndarray:
     """Return validated one-dimensional cluster labels."""
+
     def _object_label_is_missing(value: object) -> bool:
         if value is None:
             return True
@@ -145,8 +146,9 @@ def _cluster_labels_array(clusters: np.ndarray, n_obs: int) -> np.ndarray:
     return labels
 
 
-def cluster_correction_factor(n_clusters: int, n_obs: int, n_params: int,
-                              correction: str = "stata") -> float:
+def cluster_correction_factor(
+    n_clusters: int, n_obs: int, n_params: int, correction: str = "stata"
+) -> float:
     """Finite-sample correction factor ``c`` for a cluster-robust sandwich."""
     G, N, K = int(n_clusters), int(n_obs), int(n_params)
     corr = correction.lower()
@@ -160,10 +162,10 @@ def cluster_correction_factor(n_clusters: int, n_obs: int, n_params: int,
     if corr == "cgm":
         return g_factor
     if corr in ("stata", "liang_zeger", "liang-zeger"):
-        denom = (N - K)
+        denom = N - K
         return g_factor * ((N - 1.0) / denom) if denom > 0 else g_factor
     if corr == "stacked":
-        denom = (N - K)
+        denom = N - K
         return g_factor * (N / denom) if denom > 0 else g_factor
     if corr == "cr1":
         # Like 'liang_zeger' but with a max(.,1) guard on the dof denominator

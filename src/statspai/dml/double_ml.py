@@ -30,12 +30,11 @@ from .irm import DoubleMLIRM
 from .pliv import DoubleMLPLIV
 from .iivm import DoubleMLIIVM
 
-
 _MODEL_REGISTRY = {
-    'plr': DoubleMLPLR,
-    'irm': DoubleMLIRM,
-    'pliv': DoubleMLPLIV,
-    'iivm': DoubleMLIIVM,
+    "plr": DoubleMLPLR,
+    "irm": DoubleMLIRM,
+    "pliv": DoubleMLPLIV,
+    "iivm": DoubleMLIIVM,
 }
 
 
@@ -44,7 +43,7 @@ def dml(
     y: str,
     treat: str,
     covariates: List[str],
-    model: str = 'plr',
+    model: str = "plr",
     instrument: Optional[Union[str, List[str]]] = None,
     ml_g: Optional[Any] = None,
     ml_m: Optional[Any] = None,
@@ -171,10 +170,17 @@ def dml(
         )
     estimator_cls = _MODEL_REGISTRY[key]
     estimator = estimator_cls(
-        data=data, y=y, treat=treat, covariates=covariates,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
         instrument=instrument,
-        ml_g=ml_g, ml_m=ml_m, ml_r=ml_r,
-        n_folds=n_folds, n_rep=n_rep, alpha=alpha,
+        ml_g=ml_g,
+        ml_m=ml_m,
+        ml_r=ml_r,
+        n_folds=n_folds,
+        n_rep=n_rep,
+        alpha=alpha,
         random_state=random_state,
         sample_weight=sample_weight,
         fold_indices=fold_indices,
@@ -182,18 +188,22 @@ def dml(
     _result = estimator.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.dml",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(estimator.covariates),
                 "model": model,
                 "instrument": (
                     instrument if isinstance(instrument, (str, list)) else None
                 ),
-                "n_folds": n_folds, "n_rep": n_rep,
-                "alpha": alpha, "random_state": int(random_state),
+                "n_folds": n_folds,
+                "n_rep": n_rep,
+                "alpha": alpha,
+                "random_state": int(random_state),
                 "fold_indices": (
                     fold_indices if isinstance(fold_indices, str) else None
                 ),
@@ -255,7 +265,7 @@ class DoubleML:
         y: str,
         treat: str,
         covariates: List[str],
-        model: str = 'plr',
+        model: str = "plr",
         instrument: Optional[Union[str, List[str]]] = None,
         ml_g: Optional[Any] = None,
         ml_m: Optional[Any] = None,
@@ -274,10 +284,17 @@ class DoubleML:
             )
         self.model = key
         self._impl: _DoubleMLBase = _MODEL_REGISTRY[key](
-            data=data, y=y, treat=treat, covariates=covariates,
+            data=data,
+            y=y,
+            treat=treat,
+            covariates=covariates,
             instrument=instrument,
-            ml_g=ml_g, ml_m=ml_m, ml_r=ml_r,
-            n_folds=n_folds, n_rep=n_rep, alpha=alpha,
+            ml_g=ml_g,
+            ml_m=ml_m,
+            ml_r=ml_r,
+            n_folds=n_folds,
+            n_rep=n_rep,
+            alpha=alpha,
             random_state=random_state,
             sample_weight=sample_weight,
             fold_indices=fold_indices,
@@ -333,7 +350,7 @@ class DoubleML:
 
 
 # Citation
-CausalResult._CITATIONS['dml'] = (
+CausalResult._CITATIONS["dml"] = (
     "@article{chernozhukov2018double,\n"
     "  title={Double/Debiased Machine Learning for Treatment and "
     "Structural Parameters},\n"

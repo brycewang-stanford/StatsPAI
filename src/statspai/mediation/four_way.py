@@ -171,7 +171,9 @@ def four_way_decomposition(
 
     # E[M | A=a, C=Cbar]
     Cbar = Xc.mean(axis=0) if Xc.size else np.array([])
-    EM_a0 = beta0 + beta1 * a0 + (Cbar @ mlm.coef_[2:]) if Xc.size else beta0 + beta1 * a0
+    EM_a0 = (
+        beta0 + beta1 * a0 + (Cbar @ mlm.coef_[2:]) if Xc.size else beta0 + beta1 * a0
+    )
 
     # Closed-form from VanderWeele (2014) Table 1:
     cde = (theta1 + theta3 * m0) * (a1 - a0)
@@ -205,13 +207,18 @@ def four_way_decomposition(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.mediation.four_way_decomposition",
             params={
-                "y": y, "treat": treat, "mediator": mediator,
+                "y": y,
+                "treat": treat,
+                "mediator": mediator,
                 "covariates": list(covariates) if covariates else None,
-                "a0": a0, "a1": a1, "m0": m0,
+                "a0": a0,
+                "a1": a1,
+                "m0": m0,
             },
             data=data,
             overwrite=False,

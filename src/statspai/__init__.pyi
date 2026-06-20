@@ -62,7 +62,9 @@ from .bayes.iv import bayes_iv as bayes_iv
 from .bayes.mte import bayes_mte as bayes_mte
 from .bayes.policy_weights import policy_weight_ate as policy_weight_ate
 from .bayes.policy_weights import policy_weight_marginal as policy_weight_marginal
-from .bayes.policy_weights import policy_weight_observed_prte as policy_weight_observed_prte
+from .bayes.policy_weights import (
+    policy_weight_observed_prte as policy_weight_observed_prte,
+)
 from .bayes.policy_weights import policy_weight_prte as policy_weight_prte
 from .bayes.policy_weights import policy_weight_subsidy as policy_weight_subsidy
 from .bayes.rd import bayes_rd as bayes_rd
@@ -116,9 +118,15 @@ from .causal_llm.llm_dag_loop import DAGValidationResult as DAGValidationResult
 from .causal_llm.llm_dag_loop import LLMConstrainedDAGResult as LLMConstrainedDAGResult
 from .causal_llm.llm_dag_loop import llm_dag_constrained as llm_dag_constrained
 from .causal_llm.llm_dag_loop import llm_dag_validate as llm_dag_validate
-from .causal_llm.llm_evalue import UnobservedConfounderProposal as UnobservedConfounderProposal
-from .causal_llm.llm_evalue import llm_unobserved_confounders as llm_unobserved_confounders
-from .causal_llm.llm_sensitivity import SensitivityPriorProposal as SensitivityPriorProposal
+from .causal_llm.llm_evalue import (
+    UnobservedConfounderProposal as UnobservedConfounderProposal,
+)
+from .causal_llm.llm_evalue import (
+    llm_unobserved_confounders as llm_unobserved_confounders,
+)
+from .causal_llm.llm_sensitivity import (
+    SensitivityPriorProposal as SensitivityPriorProposal,
+)
 from .causal_llm.llm_sensitivity import llm_sensitivity_priors as llm_sensitivity_priors
 from .causal_rl.benchmarks import BanditBenchmarkResult as BanditBenchmarkResult
 from .causal_rl.benchmarks import causal_rl_benchmark as causal_rl_benchmark
@@ -133,21 +141,41 @@ from .causal_text.text_treatment import TextTreatmentResult as TextTreatmentResu
 from .causal_text.text_treatment import text_treatment_effect as text_treatment_effect
 from .censoring.ipcw import IPCWResult as IPCWResult
 from .censoring.ipcw import ipcw as ipcw
-from .conformal_causal.conformal_debiased import DebiasedConformalResult as DebiasedConformalResult
-from .conformal_causal.conformal_debiased import conformal_debiased_ml as conformal_debiased_ml
-from .conformal_causal.conformal_density import ConformalDensityResult as ConformalDensityResult
-from .conformal_causal.conformal_density import conformal_density_ite as conformal_density_ite
+from .conformal_causal.conformal_debiased import (
+    DebiasedConformalResult as DebiasedConformalResult,
+)
+from .conformal_causal.conformal_debiased import (
+    conformal_debiased_ml as conformal_debiased_ml,
+)
+from .conformal_causal.conformal_density import (
+    ConformalDensityResult as ConformalDensityResult,
+)
+from .conformal_causal.conformal_density import (
+    conformal_density_ite as conformal_density_ite,
+)
 from .conformal_causal.conformal_fair import FairConformalResult as FairConformalResult
 from .conformal_causal.conformal_fair import conformal_fair_ite as conformal_fair_ite
 from .conformal_causal.conformal_ite import ConformalCATE as ConformalCATE
 from .conformal_causal.conformal_ite import conformal_cate as conformal_cate
-from .conformal_causal.conformal_multidp import MultiDPConformalResult as MultiDPConformalResult
-from .conformal_causal.conformal_multidp import conformal_ite_multidp as conformal_ite_multidp
-from .conformal_causal.counterfactual import ConformalCounterfactualResult as ConformalCounterfactualResult
+from .conformal_causal.conformal_multidp import (
+    MultiDPConformalResult as MultiDPConformalResult,
+)
+from .conformal_causal.conformal_multidp import (
+    conformal_ite_multidp as conformal_ite_multidp,
+)
+from .conformal_causal.counterfactual import (
+    ConformalCounterfactualResult as ConformalCounterfactualResult,
+)
 from .conformal_causal.counterfactual import ConformalITEResult as ConformalITEResult
-from .conformal_causal.counterfactual import conformal_counterfactual as conformal_counterfactual
-from .conformal_causal.counterfactual import conformal_ite_interval as conformal_ite_interval
-from .conformal_causal.counterfactual import weighted_conformal_prediction as weighted_conformal_prediction
+from .conformal_causal.counterfactual import (
+    conformal_counterfactual as conformal_counterfactual,
+)
+from .conformal_causal.counterfactual import (
+    conformal_ite_interval as conformal_ite_interval,
+)
+from .conformal_causal.counterfactual import (
+    weighted_conformal_prediction as weighted_conformal_prediction,
+)
 from .conformal_causal.dispatcher import available_kinds as conformal_available_kinds
 from .conformal_causal.dispatcher import conformal as conformal
 from .core.results import CausalResult as CausalResult
@@ -232,7 +260,9 @@ from .did.bacon import bacon_decomposition as bacon_decomposition
 from .did.bjs_inference import bjs_pretrend_joint as bjs_pretrend_joint
 from .did.callaway_santanna import callaway_santanna as callaway_santanna
 from .did.cic import cic as cic
-from .did.cohort_anchored import cohort_anchored_event_study as cohort_anchored_event_study
+from .did.cohort_anchored import (
+    cohort_anchored_event_study as cohort_anchored_event_study,
+)
 from .did.continuous_did import continuous_did as continuous_did
 from .did.ddd import ddd as ddd
 from .did.ddd_heterogeneous import ddd_heterogeneous as ddd_heterogeneous
@@ -274,7 +304,9 @@ from .did.summary import did_summary as did_summary
 from .did.summary import did_summary_to_latex as did_summary_to_latex
 from .did.summary import did_summary_to_markdown as did_summary_to_markdown
 from .did.sun_abraham import sun_abraham as sun_abraham
-from .did.timevarying_covariates import did_timevarying_covariates as did_timevarying_covariates
+from .did.timevarying_covariates import (
+    did_timevarying_covariates as did_timevarying_covariates,
+)
 from .did.wooldridge_did import drdid as drdid
 from .did.wooldridge_did import etwfe as etwfe
 from .did.wooldridge_did import etwfe_emfx as etwfe_emfx
@@ -344,7 +376,9 @@ from .fixest.wrapper import feols as feols
 from .fixest.wrapper import fepois as fepois
 from .forest.causal_forest import CausalForest as CausalForest
 from .forest.causal_forest import causal_forest as causal_forest
-from .forest.forest_inference import average_treatment_effect as average_treatment_effect
+from .forest.forest_inference import (
+    average_treatment_effect as average_treatment_effect,
+)
 from .forest.forest_inference import calibration_test as calibration_test
 from .forest.forest_inference import calibration_test as test_calibration
 from .forest.forest_inference import forest_diagnostics as forest_diagnostics
@@ -395,19 +429,31 @@ from .inference.randomization import fisher_exact as fisher_exact
 from .inference.randomization import ri_test as ri_test
 from .inference.twoway_cluster import twoway_cluster as twoway_cluster
 from .inference.wild_bootstrap import wild_cluster_bootstrap as wild_cluster_bootstrap
-from .inference.wild_subcluster import subcluster_wild_bootstrap as subcluster_wild_bootstrap
+from .inference.wild_subcluster import (
+    subcluster_wild_bootstrap as subcluster_wild_bootstrap,
+)
 from .inference.wild_subcluster import wild_cluster_ci_inv as wild_cluster_ci_inv
 from .interference.cluster_cross import CrossClusterRCTResult as CrossClusterRCTResult
-from .interference.cluster_cross import cluster_cross_interference as cluster_cross_interference
+from .interference.cluster_cross import (
+    cluster_cross_interference as cluster_cross_interference,
+)
 from .interference.cluster_matched_pair import MatchedPairResult as MatchedPairResult
-from .interference.cluster_matched_pair import cluster_matched_pair as cluster_matched_pair
-from .interference.cluster_staggered import StaggeredClusterRCTResult as StaggeredClusterRCTResult
-from .interference.cluster_staggered import cluster_staggered_rollout as cluster_staggered_rollout
+from .interference.cluster_matched_pair import (
+    cluster_matched_pair as cluster_matched_pair,
+)
+from .interference.cluster_staggered import (
+    StaggeredClusterRCTResult as StaggeredClusterRCTResult,
+)
+from .interference.cluster_staggered import (
+    cluster_staggered_rollout as cluster_staggered_rollout,
+)
 from .interference.dispatcher import available_designs as interference_available_designs
 from .interference.dispatcher import interference as interference
 from .interference.dnc_gnn_did import DNCGNNDiDResult as DNCGNNDiDResult
 from .interference.dnc_gnn_did import dnc_gnn_did as dnc_gnn_did
-from .interference.network_exposure import NetworkExposureResult as NetworkExposureResult
+from .interference.network_exposure import (
+    NetworkExposureResult as NetworkExposureResult,
+)
 from .interference.network_exposure import network_exposure as network_exposure
 from .interference.peer_effects import PeerEffectsResult as PeerEffectsResult
 from .interference.peer_effects import peer_effects as peer_effects
@@ -440,7 +486,9 @@ from .matching.optimal import OptimalMatchResult as OptimalMatchResult
 from .matching.optimal import cardinality_match as cardinality_match
 from .matching.optimal import optimal_match as optimal_match
 from .matching.overlap_weights import overlap_weights as overlap_weights
-from .matching.ps_diagnostics import BalanceDiagnosticsResult as BalanceDiagnosticsResult
+from .matching.ps_diagnostics import (
+    BalanceDiagnosticsResult as BalanceDiagnosticsResult,
+)
 from .matching.ps_diagnostics import PSBalanceResult as PSBalanceResult
 from .matching.ps_diagnostics import balance_diagnostics as balance_diagnostics
 from .matching.ps_diagnostics import love_plot as love_plot
@@ -544,7 +592,9 @@ from .neural_causal.cevae import CEVAEResult as CEVAEResult
 from .neural_causal.cevae import cevae as cevae
 from .neural_causal.exports import neural_causal_to_excel as neural_causal_to_excel
 from .neural_causal.exports import neural_causal_to_html as neural_causal_to_html
-from .neural_causal.exports import neural_causal_to_markdown as neural_causal_to_markdown
+from .neural_causal.exports import (
+    neural_causal_to_markdown as neural_causal_to_markdown,
+)
 from .neural_causal.exports import neural_effects_frame as neural_effects_frame
 from .neural_causal.exports import neural_summary_frame as neural_summary_frame
 from .neural_causal.exports import neural_training_frame as neural_training_frame
@@ -651,9 +701,13 @@ from .power.power import power_rd as power_rd
 from .power.study_designs import power_case_control as power_case_control
 from .power.study_designs import power_logrank as power_logrank
 from .power.study_designs import power_two_proportions as power_two_proportions
-from .principal_strat.principal_strat import PrincipalStratResult as PrincipalStratResult
+from .principal_strat.principal_strat import (
+    PrincipalStratResult as PrincipalStratResult,
+)
 from .principal_strat.principal_strat import principal_strat as principal_strat
-from .principal_strat.principal_strat import survivor_average_causal_effect as survivor_average_causal_effect
+from .principal_strat.principal_strat import (
+    survivor_average_causal_effect as survivor_average_causal_effect,
+)
 from .proximal.bidirectional import bidirectional_pci as bidirectional_pci
 from .proximal.fortified import fortified_pci as fortified_pci
 from .proximal.mtp import pci_mtp as pci_mtp
@@ -697,7 +751,9 @@ from .rd.diagnostics import rdsummary as rdsummary
 from .rd.distribution_valued import DistRDResult as DistRDResult
 from .rd.distribution_valued import rd_distribution as rd_distribution
 from .rd.distributional_design import DDDResult as DDDResult
-from .rd.distributional_design import rd_distributional_design as rd_distributional_design
+from .rd.distributional_design import (
+    rd_distributional_design as rd_distributional_design,
+)
 from .rd.extrapolate import rd_external_validity as rd_external_validity
 from .rd.extrapolate import rd_extrapolate as rd_extrapolate
 from .rd.extrapolate import rd_multi_extrapolate as rd_multi_extrapolate
@@ -779,10 +835,16 @@ from .regression.zeroinflated import zinb as zinb
 from .regression.zeroinflated import zip_model as zip_model
 from .robustness.robustness_report import RobustnessResult as RobustnessResult
 from .robustness.robustness_report import robustness_report as robustness_report
-from .robustness.sensitivity_frontier import FrontierSensitivityResult as FrontierSensitivityResult
-from .robustness.sensitivity_frontier import calibrate_confounding_strength as calibrate_confounding_strength
+from .robustness.sensitivity_frontier import (
+    FrontierSensitivityResult as FrontierSensitivityResult,
+)
+from .robustness.sensitivity_frontier import (
+    calibrate_confounding_strength as calibrate_confounding_strength,
+)
 from .robustness.sensitivity_frontier import copula_sensitivity as copula_sensitivity
-from .robustness.sensitivity_frontier import survival_sensitivity as survival_sensitivity
+from .robustness.sensitivity_frontier import (
+    survival_sensitivity as survival_sensitivity,
+)
 from .robustness.spec_curve import SpecCurveResult as SpecCurveResult
 from .robustness.spec_curve import spec_curve as spec_curve
 from .robustness.subgroup import SubgroupResult as SubgroupResult
@@ -858,7 +920,9 @@ from .structural.production._dispatcher import prod_fn as prod_fn
 from .structural.production._result import ProductionResult as ProductionResult
 from .structural.production.markup import markup as markup
 from .structural.production.op_lp_acf import ackerberg_caves_frazer as acf
-from .structural.production.op_lp_acf import ackerberg_caves_frazer as ackerberg_caves_frazer
+from .structural.production.op_lp_acf import (
+    ackerberg_caves_frazer as ackerberg_caves_frazer,
+)
 from .structural.production.op_lp_acf import levinsohn_petrin as levinsohn_petrin
 from .structural.production.op_lp_acf import levinsohn_petrin as levpet
 from .structural.production.op_lp_acf import olley_pakes as olley_pakes
@@ -954,7 +1018,9 @@ from .timeseries.cointegration import engle_granger as engle_granger
 from .timeseries.cointegration import johansen as johansen
 from .timeseries.garch import GARCHResult as GARCHResult
 from .timeseries.garch import garch as garch
-from .timeseries.local_projections import LocalProjectionsResult as LocalProjectionsResult
+from .timeseries.local_projections import (
+    LocalProjectionsResult as LocalProjectionsResult,
+)
 from .timeseries.local_projections import local_projections as local_projections
 from .timeseries.structural_break import StructuralBreakResult as StructuralBreakResult
 from .timeseries.structural_break import cusum_test as cusum_test
@@ -975,7 +1041,9 @@ from .tmle.tmle import tmle as tmle
 from .transport import generalize as transport_generalize
 from .transport import weights as transport_weights_fn
 from .transport.evidence_synthesis import synthesise_evidence as synthesise_evidence
-from .transport.identify import TransportIdentificationResult as TransportIdentificationResult
+from .transport.identify import (
+    TransportIdentificationResult as TransportIdentificationResult,
+)
 from .transport.identify import identify_transport as identify_transport
 from .transport.weighting import TransportWeightResult as TransportWeightResult
 from .utils.data_tools import pwcorr as pwcorr
@@ -1023,4 +1091,5 @@ __all__: list[str]
 
 # Names without a discoverable source module — declared as Any
 from typing import Any
+
 VALIDATION_STATUSES: Any

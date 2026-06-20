@@ -23,11 +23,11 @@ This is **not** a substitute for raising in the numerical core — it is
 purely for the orchestration glue where best-effort fallback is the
 desired UX.
 """
+
 from __future__ import annotations
 
 import warnings
 from typing import Any, Dict, List, Optional
-
 
 __all__ = [
     "WorkflowDegradedWarning",
@@ -100,10 +100,7 @@ def record_degradation(
         if isinstance(bag, list):
             bag.append(entry)
 
-    msg = (
-        f"Workflow sub-step '{section}' was skipped: "
-        f"{type(exc).__name__}: {exc}"
-    )
+    msg = f"Workflow sub-step '{section}' was skipped: " f"{type(exc).__name__}: {exc}"
     if detail:
         msg = f"{msg} ({detail})"
     warnings.warn(msg, WorkflowDegradedWarning, stacklevel=stacklevel)

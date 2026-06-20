@@ -25,11 +25,10 @@ from typing import Optional, Tuple, cast
 import numpy as np
 from scipy import stats as _sp_stats
 
-
 _KERNEL_TABLE = {
-    'triangular':   {'C_K': 3.4375, 'mu_2': 1 / 6, 'nu_0': 2 / 3},
-    'epanechnikov': {'C_K': 3.0,    'mu_2': 1 / 5, 'nu_0': 3 / 5},
-    'uniform':      {'C_K': 2.7,    'mu_2': 1 / 3, 'nu_0': 1 / 2},
+    "triangular": {"C_K": 3.4375, "mu_2": 1 / 6, "nu_0": 2 / 3},
+    "epanechnikov": {"C_K": 3.0, "mu_2": 1 / 5, "nu_0": 3 / 5},
+    "uniform": {"C_K": 2.7, "mu_2": 1 / 3, "nu_0": 1 / 2},
 }
 
 
@@ -39,13 +38,13 @@ def _kernel_fn(u: np.ndarray, kernel: str) -> np.ndarray:
     on |u| <= 1; gaussian is the standard normal pdf (full support).
     """
     u = np.asarray(u, dtype=float)
-    if kernel == 'triangular':
+    if kernel == "triangular":
         return cast(np.ndarray, np.maximum(1 - np.abs(u), 0))
-    elif kernel == 'uniform':
+    elif kernel == "uniform":
         return cast(np.ndarray, 0.5 * (np.abs(u) <= 1).astype(float))
-    elif kernel == 'epanechnikov':
-        return cast(np.ndarray, 0.75 * np.maximum(1 - u ** 2, 0))
-    elif kernel == 'gaussian':
+    elif kernel == "epanechnikov":
+        return cast(np.ndarray, 0.75 * np.maximum(1 - u**2, 0))
+    elif kernel == "gaussian":
         return cast(np.ndarray, _sp_stats.norm.pdf(u))
     raise ValueError(f"Unknown kernel: {kernel}")  # pragma: no cover
 
@@ -63,7 +62,7 @@ def _kernel_constants(kernel: str) -> dict:
 
 def _kernel_mse_constant(kernel: str) -> float:
     """C_{1,1}: MSE-optimal bandwidth constant for local linear."""
-    return _KERNEL_TABLE.get(kernel, _KERNEL_TABLE['triangular'])['C_K']
+    return _KERNEL_TABLE.get(kernel, _KERNEL_TABLE["triangular"])["C_K"]
 
 
 def _sandwich_variance(
@@ -114,7 +113,7 @@ def _sandwich_variance(
         return cast(np.ndarray, corr * bread @ meat @ bread)
     else:
         corr = n_eff / (n_eff - k) if n_eff > k else 1.0
-        meat = Xw.T @ np.diag(resid ** 2 * corr) @ Xw
+        meat = Xw.T @ np.diag(resid**2 * corr) @ Xw
         return cast(np.ndarray, bread @ meat @ bread)
 
 
@@ -154,7 +153,7 @@ def _local_poly_wls(
     w_bw = w[in_bw]
 
     # Design matrix [1, x, x^2, ..., x^p]
-    X_poly = np.column_stack([x_bw ** j for j in range(k_poly)])
+    X_poly = np.column_stack([x_bw**j for j in range(k_poly)])
 
     # Augment with covariates if provided
     if covs is not None:
@@ -180,9 +179,7 @@ def _local_poly_wls(
     resid = y_bw - X @ beta_full
 
     cl_in_bw = cluster[in_bw] if cluster is not None else None
-    vcov_full = _sandwich_variance(
-        Xw, yw, beta_full, resid, n_eff, k_total, cl_in_bw
-    )
+    vcov_full = _sandwich_variance(Xw, yw, beta_full, resid, n_eff, k_total, cl_in_bw)
 
     # Return only the polynomial part (first k_poly elements)
     beta = beta_full[:k_poly]

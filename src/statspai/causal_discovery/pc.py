@@ -30,17 +30,17 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def pc_algorithm(
     data: pd.DataFrame,
     variables: Optional[List[str]] = None,
     alpha: float = 0.05,
     max_cond_size: Optional[int] = None,
-    ci_test: str = 'fisherz',
+    ci_test: str = "fisherz",
     forbidden: Optional[List[Tuple[str, str]]] = None,
     required: Optional[List[Tuple[str, str]]] = None,
 ) -> Dict[str, Any]:
@@ -109,9 +109,13 @@ def pc_algorithm(
     True
     """
     est = PCAlgorithm(
-        data=data, variables=variables, alpha=alpha,
-        max_cond_size=max_cond_size, ci_test=ci_test,
-        forbidden=forbidden, required=required,
+        data=data,
+        variables=variables,
+        alpha=alpha,
+        max_cond_size=max_cond_size,
+        ci_test=ci_test,
+        forbidden=forbidden,
+        required=required,
     )
     return est.fit()
 
@@ -119,6 +123,7 @@ def pc_algorithm(
 # ======================================================================
 # PC Algorithm Estimator
 # ======================================================================
+
 
 class PCAlgorithm:
     """
@@ -161,7 +166,7 @@ class PCAlgorithm:
         variables: Optional[List[str]] = None,
         alpha: float = 0.05,
         max_cond_size: Optional[int] = None,
-        ci_test: str = 'fisherz',
+        ci_test: str = "fisherz",
         forbidden: Optional[List[Tuple[str, str]]] = None,
         required: Optional[List[Tuple[str, str]]] = None,
     ) -> None:
@@ -246,8 +251,9 @@ class PCAlgorithm:
                     else:
                         directed_edges.append((var_names[i], var_names[j]))
 
-        undirected_edge_names = [(var_names[i], var_names[j])
-                                 for i, j in undirected_edges]
+        undirected_edge_names = [
+            (var_names[i], var_names[j]) for i, j in undirected_edges
+        ]
 
         # Convert sep_sets to use variable names
         sep_sets_named = {}
@@ -268,18 +274,21 @@ class PCAlgorithm:
         self._var_names = var_names
 
         from ._viz import DAGDict
-        return DAGDict({
-            'skeleton': skeleton_df,
-            'cpdag': cpdag_df,
-            'edges': directed_edges,
-            'undirected_edges': undirected_edge_names,
-            'separating_sets': sep_sets_named,
-            'variables': var_names,
-            'n_edges': total_edges,
-            'n_obs': n,
-            'alpha': self.alpha,
-            'ci_test': self.ci_test,
-        })
+
+        return DAGDict(
+            {
+                "skeleton": skeleton_df,
+                "cpdag": cpdag_df,
+                "edges": directed_edges,
+                "undirected_edges": undirected_edge_names,
+                "separating_sets": sep_sets_named,
+                "variables": var_names,
+                "n_edges": total_edges,
+                "n_obs": n,
+                "alpha": self.alpha,
+                "ci_test": self.ci_test,
+            }
+        )
 
     def _learn_skeleton(
         self,
@@ -298,7 +307,7 @@ class PCAlgorithm:
         np.fill_diagonal(adj, 0)
 
         # Apply background-knowledge edge prohibitions up-front.
-        for ia, ib in getattr(self, '_forbidden_idx', set()):
+        for ia, ib in getattr(self, "_forbidden_idx", set()):
             adj[ia, ib] = 0
             adj[ib, ia] = 0
 
@@ -336,7 +345,7 @@ class PCAlgorithm:
                 # we don't waste compute on edges we won't drop.
                 if (i, j) in getattr(
                     self,
-                    '_required_idx_undirected',
+                    "_required_idx_undirected",
                     set(),
                 ):
                     continue
@@ -378,7 +387,7 @@ class PCAlgorithm:
         # orientation. Required edges become a -> b only (forbidden
         # entries on the same pair already had skeleton-level removal
         # rejected upstream because required wins).
-        for ia, ib in getattr(self, '_required_idx_directed', []):
+        for ia, ib in getattr(self, "_required_idx_directed", []):
             cpdag[ia, ib] = 1
             cpdag[ib, ia] = 0
 
@@ -434,8 +443,12 @@ class PCAlgorithm:
                         for k in range(d):
                             if k == i or k == j:
                                 continue
-                            if (cpdag[i, k] == 1 and cpdag[k, i] == 0
-                                    and cpdag[k, j] == 1 and cpdag[j, k] == 0):
+                            if (
+                                cpdag[i, k] == 1
+                                and cpdag[k, i] == 0
+                                and cpdag[k, j] == 1
+                                and cpdag[j, k] == 0
+                            ):
                                 # i -> k -> j
                                 cpdag[j, i] = 0  # orient i -> j
                                 changed = True
@@ -456,16 +469,14 @@ class PCAlgorithm:
 
         Returns p-value.
         """
-        if self.ci_test == 'fisherz':
+        if self.ci_test == "fisherz":
             return _fisher_z_test(X, i, j, S, n)
         else:
-            raise ValueError(
-                f"Unknown CI test: {self.ci_test}. Use 'fisherz'."
-            )
+            raise ValueError(f"Unknown CI test: {self.ci_test}. Use 'fisherz'.")
 
     def summary(self) -> str:
         """Print a summary of the learned structure."""
-        if not hasattr(self, '_cpdag'):
+        if not hasattr(self, "_cpdag"):
             raise ValueError("Model must be fitted first. Call .fit()")
 
         d = len(self._var_names)
@@ -494,17 +505,13 @@ class PCAlgorithm:
             lines.append("  Directed Edges:")
             lines.append("  " + "-" * 40)
             for i, j in directed:
-                lines.append(
-                    f"    {self._var_names[i]} -> {self._var_names[j]}"
-                )
+                lines.append(f"    {self._var_names[i]} -> {self._var_names[j]}")
 
         if undirected:
             lines.append("  Undirected Edges:")
             lines.append("  " + "-" * 40)
             for i, j in undirected:
-                lines.append(
-                    f"    {self._var_names[i]} -- {self._var_names[j]}"
-                )
+                lines.append(f"    {self._var_names[i]} -- {self._var_names[j]}")
 
         lines.append("=" * 60)
         return "\n".join(lines)
@@ -513,6 +520,7 @@ class PCAlgorithm:
 # ======================================================================
 # Conditional Independence Tests
 # ======================================================================
+
 
 def _fisher_z_test(
     X: np.ndarray,

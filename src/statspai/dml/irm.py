@@ -14,6 +14,7 @@ Folds are stratified by D so that each training fold contains both
 arms — without stratification, a small data set or small ``n_folds``
 can produce a degenerate fold whose subgroup-fitted nuisance is junk.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Tuple
@@ -52,10 +53,10 @@ class DoubleMLIRM(_DoubleMLBase):
     True
     """
 
-    _MODEL_TAG = 'IRM'
-    _ESTIMAND = 'ATE'
+    _MODEL_TAG = "IRM"
+    _ESTIMAND = "ATE"
     _REQUIRES_INSTRUMENT = False
-    _ML_M_TARGET_BINARY = True   # ml_m models D ∈ {0, 1}
+    _ML_M_TARGET_BINARY = True  # ml_m models D ∈ {0, 1}
     # Subgroups (rows with D=1 / D=0 in the training fold) below this
     # size fall back to the subgroup mean rather than fitting a flexible
     # GBM. Mirrors the same protection in DoubleMLIIVM — fitting 100
@@ -85,6 +86,7 @@ class DoubleMLIRM(_DoubleMLBase):
 
         if not set(np.unique(D)).issubset({0, 1}):
             from statspai.exceptions import MethodIncompatibility
+
             raise MethodIncompatibility(
                 "model='irm' requires binary treatment (0/1).",
                 recovery_hint=(
@@ -96,6 +98,7 @@ class DoubleMLIRM(_DoubleMLBase):
             )
         if len(np.unique(D)) < 2:
             from statspai.exceptions import IdentificationFailure
+
             raise IdentificationFailure(
                 "model='irm' requires variation in D (both 0 and 1); "
                 "ATE is not identified with a constant treatment.",
@@ -110,6 +113,7 @@ class DoubleMLIRM(_DoubleMLBase):
         n0, n1 = int(np.sum(D == 0)), int(np.sum(D == 1))
         if min(n0, n1) < self.n_folds:
             from statspai.exceptions import IdentificationFailure  # pragma: no cover
+
             raise IdentificationFailure(  # pragma: no cover
                 f"model='irm' with n_folds={self.n_folds} requires at "
                 f"least n_folds rows in each treatment arm; got "
@@ -123,7 +127,9 @@ class DoubleMLIRM(_DoubleMLBase):
             )
 
         skf = StratifiedKFold(
-            n_splits=self.n_folds, shuffle=True, random_state=rng_seed,
+            n_splits=self.n_folds,
+            shuffle=True,
+            random_state=rng_seed,
         )
         psi_scores: np.ndarray = np.zeros(n, dtype=float)
         m_hat_full: np.ndarray = np.zeros(n, dtype=float)
@@ -135,9 +141,7 @@ class DoubleMLIRM(_DoubleMLBase):
             D_tr, D_te = D[train_idx], D[test_idx]
             Y_tr, Y_te = Y[train_idx], Y[test_idx]
             X_tr, X_te = X[train_idx], X[test_idx]
-            w_tr = (
-                sample_weight[train_idx] if sample_weight is not None else None
-            )
+            w_tr = sample_weight[train_idx] if sample_weight is not None else None
 
             mask1 = D_tr == 1
             if mask1.sum() >= min_fit:
@@ -162,6 +166,7 @@ class DoubleMLIRM(_DoubleMLBase):
                 # StratifiedKFold should preclude this — guard anyway.
                 # pragma: no cover
                 from statspai.exceptions import IdentificationFailure
+
                 raise IdentificationFailure(  # pragma: no cover
                     "IRM cross-fit produced a training fold with no D=1 "
                     "rows despite stratification; aborting rather than "
@@ -178,7 +183,10 @@ class DoubleMLIRM(_DoubleMLBase):
             if mask0.sum() >= min_fit:
                 w_sub = w_tr[mask0] if w_tr is not None else None
                 ml_g0 = self._fit_weighted(
-                    self.ml_g, X_tr[mask0], Y_tr[mask0], w_sub,
+                    self.ml_g,
+                    X_tr[mask0],
+                    Y_tr[mask0],
+                    w_sub,
                 )
                 g0_hat = ml_g0.predict(X_te)
             elif mask0.sum() > 0:
@@ -194,6 +202,7 @@ class DoubleMLIRM(_DoubleMLBase):
             else:
                 # pragma: no cover
                 from statspai.exceptions import IdentificationFailure
+
                 raise IdentificationFailure(  # pragma: no cover
                     "IRM cross-fit produced a training fold with no D=0 "
                     "rows despite stratification; aborting rather than "
@@ -207,7 +216,7 @@ class DoubleMLIRM(_DoubleMLBase):
                 )
 
             ml_m = self._fit_weighted(self.ml_m, X_tr, D_tr, w_tr)
-            if hasattr(ml_m, 'predict_proba'):
+            if hasattr(ml_m, "predict_proba"):
                 m_hat = ml_m.predict_proba(X_te)[:, 1]
             else:
                 m_hat = ml_m.predict(X_te)
@@ -215,7 +224,8 @@ class DoubleMLIRM(_DoubleMLBase):
             m_hat = np.clip(m_hat, self._PSCORE_CLIP_LO, self._PSCORE_CLIP_HI)
 
             psi_scores[test_idx] = (
-                g1_hat - g0_hat
+                g1_hat
+                - g0_hat
                 + D_te * (Y_te - g1_hat) / m_hat
                 - (1 - D_te) * (Y_te - g0_hat) / (1 - m_hat)
             )
@@ -229,7 +239,7 @@ class DoubleMLIRM(_DoubleMLBase):
             w = sample_weight
             W = float(np.sum(w))
             theta = float(np.sum(w * psi_scores) / W)
-            num = float(np.sum((w ** 2) * (psi_scores - theta) ** 2))
+            num = float(np.sum((w**2) * (psi_scores - theta) ** 2))
             se = float(np.sqrt(num)) / W
 
         # Overlap diagnostics: how many propensities were clipped, and

@@ -17,6 +17,7 @@ whiskers; otherwise the bars are unadorned.
 Functions degrade gracefully when matplotlib is unavailable: they raise
 a clear ``ImportError`` rather than a deep import-time failure.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional, Sequence
@@ -31,6 +32,7 @@ from ._results import DECOMP_PALETTE, apply_decomp_style
 def _require_mpl() -> Any:
     try:
         import matplotlib.pyplot as plt
+
         return plt
     except ImportError as err:  # pragma: no cover
         raise ImportError(
@@ -39,8 +41,9 @@ def _require_mpl() -> Any:
         ) from err
 
 
-def _ci_whiskers(values: Sequence[float], ses: Sequence[float],
-                 alpha: float = 0.05) -> Optional[np.ndarray]:
+def _ci_whiskers(
+    values: Sequence[float], ses: Sequence[float], alpha: float = 0.05
+) -> Optional[np.ndarray]:
     """Return symmetric whisker half-widths (z * SE) or None."""
     ses_arr = np.asarray(ses, dtype=float)
     if not np.any(ses_arr > 0):
@@ -52,6 +55,7 @@ def _ci_whiskers(values: Sequence[float], ses: Sequence[float],
 # ════════════════════════════════════════════════════════════════════════
 # Generic waterfall (per-variable contributions, signed-colour bars)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def detailed_waterfall(
     df: pd.DataFrame,
@@ -75,15 +79,20 @@ def detailed_waterfall(
     """
     plt = _require_mpl()
     data = df.copy().sort_values(value_col)
-    colors = [DECOMP_PALETTE["pos"] if v >= 0 else DECOMP_PALETTE["neg"]
-              for v in data[value_col]]
+    colors = [
+        DECOMP_PALETTE["pos"] if v >= 0 else DECOMP_PALETTE["neg"]
+        for v in data[value_col]
+    ]
     fig, ax = plt.subplots(figsize=figsize)
     whisker = None
     if se_col and se_col in data.columns:
         whisker = _ci_whiskers(data[value_col], data[se_col], alpha)
     ax.barh(
-        data[label_col].astype(str), data[value_col],
-        color=colors, edgecolor="white", zorder=2,
+        data[label_col].astype(str),
+        data[value_col],
+        color=colors,
+        edgecolor="white",
+        zorder=2,
         xerr=whisker if whisker is not None else None,
         error_kw=dict(ecolor=DECOMP_PALETTE["ci"], capsize=3, lw=1.0),
     )
@@ -98,6 +107,7 @@ def detailed_waterfall(
 # ════════════════════════════════════════════════════════════════════════
 # Forest plot (variable estimates with CIs and a zero reference line)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def forest_plot(
     df: pd.DataFrame,
@@ -118,24 +128,28 @@ def forest_plot(
     plt = _require_mpl()
     data = df.copy().sort_values(value_col).reset_index(drop=True)
     z = float(stats.norm.ppf(1 - alpha / 2))
-    se = data[se_col].to_numpy(dtype=float) if se_col in data.columns \
+    se = (
+        data[se_col].to_numpy(dtype=float)
+        if se_col in data.columns
         else np.zeros(len(data))
+    )
     val = data[value_col].to_numpy(dtype=float)
     lo, hi = val - z * se, val + z * se
 
     sig = (lo > 0) | (hi < 0)
     colors = [
-        DECOMP_PALETTE["pos"] if (s and v >= 0)
-        else DECOMP_PALETTE["neg"] if (s and v < 0)
-        else DECOMP_PALETTE["ci"]
+        (
+            DECOMP_PALETTE["pos"]
+            if (s and v >= 0)
+            else DECOMP_PALETTE["neg"] if (s and v < 0) else DECOMP_PALETTE["ci"]
+        )
         for s, v in zip(sig, val)
     ]
 
     fig, ax = plt.subplots(figsize=figsize)
     y = np.arange(len(data))
     ax.hlines(y, lo, hi, colors=colors, linewidth=2, zorder=2)
-    ax.scatter(val, y, c=colors, s=42, zorder=3, edgecolors="white",
-               linewidth=0.8)
+    ax.scatter(val, y, c=colors, s=42, zorder=3, edgecolors="white", linewidth=0.8)
     ax.axvline(0, color="black", linewidth=0.8, linestyle="--", zorder=1)
     ax.set_yticks(y)
     ax.set_yticklabels(data[label_col].astype(str))
@@ -149,6 +163,7 @@ def forest_plot(
 # ════════════════════════════════════════════════════════════════════════
 # Aggregate decomposition bar chart (gap / composition / structure)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def dfl_plot(
     result: Any,
@@ -167,11 +182,16 @@ def dfl_plot(
     ]
     yerr = errs if any(errs) else None
     fig, ax = plt.subplots(figsize=figsize)
-    colors = [DECOMP_PALETTE["accent"], DECOMP_PALETTE["a"],
-              DECOMP_PALETTE["b"]]
-    ax.bar(labels, values, yerr=yerr, color=colors, capsize=4,
-           edgecolor="white",
-           error_kw=dict(ecolor=DECOMP_PALETTE["ci"]))
+    colors = [DECOMP_PALETTE["accent"], DECOMP_PALETTE["a"], DECOMP_PALETTE["b"]]
+    ax.bar(
+        labels,
+        values,
+        yerr=yerr,
+        color=colors,
+        capsize=4,
+        edgecolor="white",
+        error_kw=dict(ecolor=DECOMP_PALETTE["ci"]),
+    )
     ax.axhline(0, color="black", linewidth=0.8)
     name = getattr(result, "stat", "mean")
     if name == "quantile":
@@ -186,6 +206,7 @@ def dfl_plot(
 # FFL waterfall (composition + structure side by side)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def ffl_waterfall(
     result: Any,
     figsize: tuple[float, float] = (11, 6),
@@ -198,13 +219,17 @@ def ffl_waterfall(
 
     z = float(stats.norm.ppf(0.975))
     comp_se = comp["se"].to_numpy() if "se" in comp.columns else np.zeros(len(comp))
-    struct_se = struct["se"].to_numpy() if "se" in struct.columns \
-        else np.zeros(len(struct))
+    struct_se = (
+        struct["se"].to_numpy() if "se" in struct.columns else np.zeros(len(struct))
+    )
 
     axes[0].barh(
-        comp["variable"], comp["composition"],
-        color=[DECOMP_PALETTE["pos"] if v >= 0 else DECOMP_PALETTE["neg"]
-               for v in comp["composition"]],
+        comp["variable"],
+        comp["composition"],
+        color=[
+            DECOMP_PALETTE["pos"] if v >= 0 else DECOMP_PALETTE["neg"]
+            for v in comp["composition"]
+        ],
         xerr=z * comp_se if comp_se.any() else None,
         error_kw=dict(ecolor=DECOMP_PALETTE["ci"], capsize=3),
         zorder=2,
@@ -213,9 +238,12 @@ def ffl_waterfall(
     axes[0].axvline(0, color="black", linewidth=0.8, zorder=3)
 
     axes[1].barh(
-        struct["variable"], struct["structure"],
-        color=[DECOMP_PALETTE["a"] if v >= 0 else DECOMP_PALETTE["b"]
-               for v in struct["structure"]],
+        struct["variable"],
+        struct["structure"],
+        color=[
+            DECOMP_PALETTE["a"] if v >= 0 else DECOMP_PALETTE["b"]
+            for v in struct["structure"]
+        ],
         xerr=z * struct_se if struct_se.any() else None,
         error_kw=dict(ecolor=DECOMP_PALETTE["ci"], capsize=3),
         zorder=2,
@@ -236,6 +264,7 @@ def ffl_waterfall(
 # ════════════════════════════════════════════════════════════════════════
 # Quantile process plot (Machado-Mata / Melly / CFM / RIF over τ)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def quantile_process_plot(
     result: Any,
@@ -265,14 +294,16 @@ def quantile_process_plot(
         series.append(("structure", "Structure", DECOMP_PALETTE["b"], "^"))
 
     for name, label, color, marker in series:
-        ax.plot(g["tau"], g[name], marker=marker, label=label,
-                color=color, linewidth=2)
+        ax.plot(g["tau"], g[name], marker=marker, label=label, color=color, linewidth=2)
         se_col = f"{name}_se"
         if show_ci and se_col in g.columns and (g[se_col] > 0).any():
             ax.fill_between(
                 g["tau"],
-                g[name] - z * g[se_col], g[name] + z * g[se_col],
-                color=color, alpha=0.18, linewidth=0,
+                g[name] - z * g[se_col],
+                g[name] + z * g[se_col],
+                color=color,
+                alpha=0.18,
+                linewidth=0,
             )
     ax.axhline(0, color="black", linewidth=0.6, linestyle="--")
     ax.set_xlabel("τ (quantile)")
@@ -288,6 +319,7 @@ def quantile_process_plot(
 # Counterfactual CDF (CFM)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def counterfactual_cdf_plot(
     result: Any,
     figsize: tuple[float, float] = (9, 5),
@@ -296,12 +328,28 @@ def counterfactual_cdf_plot(
     plt = _require_mpl()
     c = result.cdf_grid
     fig, ax = plt.subplots(figsize=figsize)
-    ax.step(c["y"], c["cdf_a"], label="F_A (observed)",
-            color=DECOMP_PALETTE["a"], linewidth=1.8)
-    ax.step(c["y"], c["cdf_b"], label="F_B (observed)",
-            color=DECOMP_PALETTE["b"], linewidth=1.8)
-    ax.step(c["y"], c["cdf_cf"], label="F_cf (counterfactual)",
-            color=DECOMP_PALETTE["cf"], linewidth=1.8, linestyle="--")
+    ax.step(
+        c["y"],
+        c["cdf_a"],
+        label="F_A (observed)",
+        color=DECOMP_PALETTE["a"],
+        linewidth=1.8,
+    )
+    ax.step(
+        c["y"],
+        c["cdf_b"],
+        label="F_B (observed)",
+        color=DECOMP_PALETTE["b"],
+        linewidth=1.8,
+    )
+    ax.step(
+        c["y"],
+        c["cdf_cf"],
+        label="F_cf (counterfactual)",
+        color=DECOMP_PALETTE["cf"],
+        linewidth=1.8,
+        linestyle="--",
+    )
     ax.set_xlabel("y")
     ax.set_ylabel("F(y)")
     ax.set_title("Counterfactual CDF Decomposition (CFM)")
@@ -314,6 +362,7 @@ def counterfactual_cdf_plot(
 # ════════════════════════════════════════════════════════════════════════
 # Inequality subgroup plot (between / within / overlap)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def inequality_subgroup_plot(
     result: Any,
@@ -341,6 +390,7 @@ def inequality_subgroup_plot(
 # Gap closing — observed vs counterfactual vs closed (with CI whiskers)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def gap_closing_plot(
     result: Any,
     figsize: tuple[float, float] = (7, 4),
@@ -352,14 +402,20 @@ def gap_closing_plot(
     se = getattr(result, "se", None) or {}
     z = float(stats.norm.ppf(1 - alpha / 2))
     values = [result.observed_gap, result.counterfactual_gap, result.closed_gap]
-    errs = [z * se.get("observed", 0.0), z * se.get("counterfactual", 0.0),
-            z * se.get("closed", 0.0)]
+    errs = [
+        z * se.get("observed", 0.0),
+        z * se.get("counterfactual", 0.0),
+        z * se.get("closed", 0.0),
+    ]
     yerr = errs if any(errs) else None
     ax.bar(
-        ["Observed", "Counterfactual", "Closed"], values, yerr=yerr,
-        color=[DECOMP_PALETTE["accent"], DECOMP_PALETTE["cf"],
-               DECOMP_PALETTE["a"]],
-        edgecolor="white", capsize=4, zorder=2,
+        ["Observed", "Counterfactual", "Closed"],
+        values,
+        yerr=yerr,
+        color=[DECOMP_PALETTE["accent"], DECOMP_PALETTE["cf"], DECOMP_PALETTE["a"]],
+        edgecolor="white",
+        capsize=4,
+        zorder=2,
         error_kw=dict(ecolor=DECOMP_PALETTE["ci"]),
     )
     ax.axhline(0, color="black", linewidth=0.8, zorder=3)
@@ -373,6 +429,7 @@ def gap_closing_plot(
 # Mediation forest (NDE / NIE / total + their CIs)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def mediation_forest(
     result: Any,
     *,
@@ -385,8 +442,8 @@ def mediation_forest(
     rows = []
     for label, key in (
         ("Total", "total_effect"),
-        ("NDE",   "nde"),
-        ("NIE",   "nie"),
+        ("NDE", "nde"),
+        ("NIE", "nie"),
     ):
         v = getattr(result, key, None)
         if v is None:
@@ -405,14 +462,15 @@ def mediation_forest(
     hi = vals + z * ses
     sig = (lo > 0) | (hi < 0)
     colors = [
-        DECOMP_PALETTE["pos"] if (s and v >= 0)
-        else DECOMP_PALETTE["neg"] if (s and v < 0)
-        else DECOMP_PALETTE["ci"]
+        (
+            DECOMP_PALETTE["pos"]
+            if (s and v >= 0)
+            else DECOMP_PALETTE["neg"] if (s and v < 0) else DECOMP_PALETTE["ci"]
+        )
         for s, v in zip(sig, vals)
     ]
     ax.hlines(y, lo, hi, colors=colors, linewidth=2)
-    ax.scatter(vals, y, c=colors, s=42, edgecolors="white", linewidth=0.8,
-               zorder=3)
+    ax.scatter(vals, y, c=colors, s=42, edgecolors="white", linewidth=0.8, zorder=3)
     ax.axvline(0, color="black", linewidth=0.8, linestyle="--", zorder=1)
     ax.set_yticks(y)
     ax.set_yticklabels(labels)
@@ -426,6 +484,7 @@ def mediation_forest(
 # ════════════════════════════════════════════════════════════════════════
 # RIF contribution heatmap (variable × quantile)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def rif_heatmap(
     grid_df: pd.DataFrame,
@@ -442,12 +501,10 @@ def rif_heatmap(
     tau, contribution.
     """
     plt = _require_mpl()
-    pivot = grid_df.pivot(index=variable_col, columns=tau_col,
-                          values=value_col)
+    pivot = grid_df.pivot(index=variable_col, columns=tau_col, values=value_col)
     fig, ax = plt.subplots(figsize=figsize)
     lim = max(abs(pivot.to_numpy()).max(), 1e-6)
-    im = ax.imshow(pivot.to_numpy(), cmap=cmap, aspect="auto",
-                   vmin=-lim, vmax=lim)
+    im = ax.imshow(pivot.to_numpy(), cmap=cmap, aspect="auto", vmin=-lim, vmax=lim)
     ax.set_xticks(range(len(pivot.columns)))
     ax.set_xticklabels([f"{t:.2f}" for t in pivot.columns], rotation=45)
     ax.set_yticks(range(len(pivot.index)))
@@ -464,6 +521,7 @@ def rif_heatmap(
 # Yu-Elwert mechanism plot (prevalence / impact / selection)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def yu_elwert_mechanisms_plot(
     result: Any,
     *,
@@ -478,11 +536,11 @@ def yu_elwert_mechanisms_plot(
     plt = _require_mpl()
     z = float(stats.norm.ppf(1 - alpha / 2))
     components = [
-        ("Disparity",   "disparity"),
-        ("Baseline",    "baseline"),
-        ("Prevalence",  "prevalence"),
-        ("Effect",      "effect"),
-        ("Selection",   "selection"),
+        ("Disparity", "disparity"),
+        ("Baseline", "baseline"),
+        ("Prevalence", "prevalence"),
+        ("Effect", "effect"),
+        ("Selection", "selection"),
     ]
     labels: list[str] = []
     vals: list[float] = []
@@ -498,12 +556,23 @@ def yu_elwert_mechanisms_plot(
         errs.append(z * s)
     yerr = errs if any(errs) else None
     fig, ax = plt.subplots(figsize=figsize)
-    colors = [DECOMP_PALETTE["accent"], DECOMP_PALETTE["ci"],
-              DECOMP_PALETTE["a"], DECOMP_PALETTE["b"],
-              DECOMP_PALETTE["cf"]][: len(labels)]
-    ax.bar(labels, vals, yerr=yerr, color=colors, edgecolor="white",
-           capsize=4, zorder=2,
-           error_kw=dict(ecolor=DECOMP_PALETTE["ci"]))
+    colors = [
+        DECOMP_PALETTE["accent"],
+        DECOMP_PALETTE["ci"],
+        DECOMP_PALETTE["a"],
+        DECOMP_PALETTE["b"],
+        DECOMP_PALETTE["cf"],
+    ][: len(labels)]
+    ax.bar(
+        labels,
+        vals,
+        yerr=yerr,
+        color=colors,
+        edgecolor="white",
+        capsize=4,
+        zorder=2,
+        error_kw=dict(ecolor=DECOMP_PALETTE["ci"]),
+    )
     ax.axhline(0, color="black", linewidth=0.8, zorder=3)
     ax.set_title("Yu–Elwert (2025) Causal Decomposition")
     ax.set_ylabel("Contribution to disparity")

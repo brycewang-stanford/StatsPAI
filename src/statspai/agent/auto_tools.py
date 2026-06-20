@@ -30,26 +30,26 @@ The public entry points are :func:`auto_tool_manifest` and
 :func:`merged_tool_manifest`.  ``tool_manifest()`` in ``tools.py``
 delegates to the latter.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Optional, Set
 
-
 # Categories we want reachable by an agent by default.  See
 # ``statspai.help.CATEGORY_DESCRIPTIONS`` for the full list.
 DEFAULT_WHITELIST: Set[str] = {
-    'causal',
-    'regression',
-    'panel',
-    'inference',
-    'diagnostics',
-    'smart',
-    'decomposition',
-    'robustness',
-    'postestimation',
-    'survival',
-    'bayesian',
-    'timeseries',
+    "causal",
+    "regression",
+    "panel",
+    "inference",
+    "diagnostics",
+    "smart",
+    "decomposition",
+    "robustness",
+    "postestimation",
+    "survival",
+    "bayesian",
+    "timeseries",
 }
 
 # Names we explicitly keep out of the auto manifest.  Reasons vary —
@@ -58,23 +58,23 @@ DEFAULT_WHITELIST: Set[str] = {
 # broader exclusions, adjust the category whitelist instead.
 DEFAULT_EXCLUDE: Set[str] = {
     # Deep-learning — heavy deps (torch / jax)
-    'dragonnet',
-    'deepiv',
-    'tarnet',
-    'cfrnet',
+    "dragonnet",
+    "deepiv",
+    "tarnet",
+    "cfrnet",
     # Neural-causal estimators
-    'neural_causal_forest',
-    'cevae',
-    'ganite',
+    "neural_causal_forest",
+    "cevae",
+    "ganite",
     # Plots that happen to land in a stats category
-    'event_study_plot',
-    'coefplot',
-    'binscatter',
+    "event_study_plot",
+    "coefplot",
+    "binscatter",
     # Misc utilities that slipped into exposed API
-    'describe',
-    'pwcorr',
-    'winsor',
-    'read_data',
+    "describe",
+    "pwcorr",
+    "winsor",
+    "read_data",
 }
 
 # Max length for a tool description sent to the agent.  MCP / Anthropic
@@ -88,6 +88,7 @@ _MAX_DESCRIPTION_LEN = 1200
 # Helpers
 # ----------------------------------------------------------------------
 
+
 def _is_agent_safe(name: str, spec: Any) -> bool:
     """Return True iff ``name``/``spec`` should appear in auto manifest.
 
@@ -98,18 +99,19 @@ def _is_agent_safe(name: str, spec: Any) -> bool:
     * classes (PascalCase names that resolve to a type, not a function);
       agents call functions, not constructors directly
     """
-    if not name or name.startswith('_'):
+    if not name or name.startswith("_"):
         return False
     if name in DEFAULT_EXCLUDE:
         return False
-    tags = getattr(spec, 'tags', []) or []
-    if any(str(t).lower() == 'internal' for t in tags):
+    tags = getattr(spec, "tags", []) or []
+    if any(str(t).lower() == "internal" for t in tags):
         return False
     # Heuristic: PascalCase → class, which shouldn't be a tool.  Verify
     # against statspai to avoid false positives on SCREAMING names.
     if name[:1].isupper():
         import inspect
         import statspai as _sp
+
         obj = getattr(_sp, name, None)
         if obj is not None and inspect.isclass(obj):
             return False
@@ -127,48 +129,46 @@ def _enrich_description(base_desc: str, card: Optional[Dict[str, Any]]) -> str:
         return _ascii_schema_string(str(value).strip())
 
     def fragment(value: Any) -> str:
-        return clean(value).rstrip('.;')
+        return clean(value).rstrip(".;")
 
-    desc = clean(base_desc or '')
+    desc = clean(base_desc or "")
     if not card:
         return desc[:_MAX_DESCRIPTION_LEN]
 
     chunks: List[str] = [desc] if desc else []
 
-    assumptions = card.get('assumptions') or []
+    assumptions = card.get("assumptions") or []
     if assumptions:
-        bullets = '; '.join(fragment(a) for a in assumptions[:3])
+        bullets = "; ".join(fragment(a) for a in assumptions[:3])
         chunks.append(f"Assumptions: {bullets}.")
 
-    pre = card.get('pre_conditions') or []
+    pre = card.get("pre_conditions") or []
     if pre:
-        bullets = '; '.join(fragment(p) for p in pre[:3])
+        bullets = "; ".join(fragment(p) for p in pre[:3])
         chunks.append(f"Pre-conditions: {bullets}.")
 
-    fm = card.get('failure_modes') or []
+    fm = card.get("failure_modes") or []
     if fm:
         pieces = []
         for f in fm[:3]:
-            sym = fragment(f.get('symptom') or '')
-            rem = fragment(f.get('remedy') or '')
+            sym = fragment(f.get("symptom") or "")
+            rem = fragment(f.get("remedy") or "")
             if sym and rem:
                 pieces.append(f"{sym} -> {rem}")
         if pieces:
             chunks.append(f"Failure modes: {'; '.join(pieces)}.")
 
-    alts = card.get('alternatives') or []
+    alts = card.get("alternatives") or []
     if alts:
-        chunks.append(
-            f"Alternatives: {', '.join(f'sp.{a}' for a in alts[:4])}."
-        )
+        chunks.append(f"Alternatives: {', '.join(f'sp.{a}' for a in alts[:4])}.")
 
-    nmin = card.get('typical_n_min')
+    nmin = card.get("typical_n_min")
     if nmin:
         chunks.append(f"Typical minimum N: {nmin}.")
 
-    merged = ' '.join(chunks).strip()
+    merged = " ".join(chunks).strip()
     if len(merged) > _MAX_DESCRIPTION_LEN:
-        merged = merged[:_MAX_DESCRIPTION_LEN - 1].rstrip() + '…'
+        merged = merged[: _MAX_DESCRIPTION_LEN - 1].rstrip() + "…"
     return merged
 
 
@@ -184,8 +184,9 @@ def _json_safe_value(v: Any) -> Any:
         return v
     if isinstance(v, (list, tuple)):
         clean = [_json_safe_value(x) for x in v]
-        return [x for x in clean if x is not None
-                or isinstance(x, (bool, int, float, str))]
+        return [
+            x for x in clean if x is not None or isinstance(x, (bool, int, float, str))
+        ]
     # Anything else — dataclass sentinels, callables, module objects —
     # is unsafe; drop the default entirely.
     return None
@@ -198,18 +199,19 @@ def _clean_properties(props: Dict[str, Any]) -> Dict[str, Any]:
         if not isinstance(v, dict):
             continue
         prop = dict(v)
-        if 'default' in prop:
-            cleaned = _json_safe_value(prop['default'])
-            if cleaned is None and not isinstance(prop['default'], bool):
-                prop.pop('default', None)
+        if "default" in prop:
+            cleaned = _json_safe_value(prop["default"])
+            if cleaned is None and not isinstance(prop["default"], bool):
+                prop.pop("default", None)
             else:
-                prop['default'] = cleaned
+                prop["default"] = cleaned
         out[str(k)] = prop
     return out
 
 
-def _schema_to_mcp_tool(schema: Dict[str, Any],
-                        card: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+def _schema_to_mcp_tool(
+    schema: Dict[str, Any], card: Optional[Dict[str, Any]]
+) -> Dict[str, Any]:
     """Convert an OpenAI-style schema dict to MCP tool-list form.
 
     The OpenAI schema has ``{'name', 'description', 'parameters'}``;
@@ -218,32 +220,33 @@ def _schema_to_mcp_tool(schema: Dict[str, Any],
     ``data_path`` instead — added by the outer MCP wrapper) and enrich
     the description with agent-card content.
     """
-    name = schema.get('name', '')
-    raw_desc = schema.get('description', '')
-    params = dict(schema.get('parameters') or {})
-    props = _clean_properties(params.get('properties') or {})
-    required = list(params.get('required') or [])
+    name = schema.get("name", "")
+    raw_desc = schema.get("description", "")
+    params = dict(schema.get("parameters") or {})
+    props = _clean_properties(params.get("properties") or {})
+    required = list(params.get("required") or [])
     # `data` is injected by the MCP server via data_path/CSV loading;
     # remove from the exposed tool so the agent doesn't try to pass it.
-    props.pop('data', None)
-    required = [r for r in required if r != 'data' and r in props]
+    props.pop("data", None)
+    required = [r for r in required if r != "data" and r in props]
 
     input_schema: Dict[str, Any] = {
-        'type': params.get('type', 'object'),
-        'properties': props,
-        'required': sorted(set(required)),
+        "type": params.get("type", "object"),
+        "properties": props,
+        "required": sorted(set(required)),
     }
 
     return {
-        'name': name,
-        'description': _enrich_description(raw_desc, card),
-        'input_schema': input_schema,
+        "name": name,
+        "description": _enrich_description(raw_desc, card),
+        "input_schema": input_schema,
     }
 
 
 # ----------------------------------------------------------------------
 # Public API
 # ----------------------------------------------------------------------
+
 
 def auto_tool_manifest(
     categories: Optional[Iterable[str]] = None,
@@ -280,8 +283,7 @@ def auto_tool_manifest(
 
     _ensure_full_registry()
 
-    wl: Set[str] = (set(categories) if categories is not None
-                    else set(DEFAULT_WHITELIST))
+    wl: Set[str] = set(categories) if categories is not None else set(DEFAULT_WHITELIST)
     ex: Set[str] = set(DEFAULT_EXCLUDE)
     if exclude:
         ex |= set(exclude)
@@ -310,7 +312,7 @@ def auto_tool_manifest(
             tool = _schema_to_mcp_tool(schema, card)
         except Exception:
             continue
-        if not tool.get('name'):
+        if not tool.get("name"):
             continue
         out.append(tool)
 
@@ -320,15 +322,17 @@ def auto_tool_manifest(
         # real problems (registry growth past the cap, mis-categorised
         # entries flooding the count). Operators want to know.
         import warnings
+
         warnings.warn(
             f"auto_tool_manifest truncated to {len(out)} tools out of "
             f"{eligible_total} eligible (max_tools={max_tools}). "
             f"Raise the cap or narrow the category whitelist.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
     # Stable ordering so downstream diffs are readable.
-    out.sort(key=lambda t: t['name'])
+    out.sort(key=lambda t: t["name"])
     return out
 
 
@@ -348,29 +352,31 @@ def merged_tool_manifest(
     out: List[Dict[str, Any]] = []
 
     for t in hand_curated or []:
-        name = t.get('name')
+        name = t.get("name")
         if not name or name in seen:
             continue
-        out.append({
-            'name': name,
-            'description': t.get('description', ''),
-            'input_schema': t.get('input_schema') or {},
-        })
+        out.append(
+            {
+                "name": name,
+                "description": t.get("description", ""),
+                "input_schema": t.get("input_schema") or {},
+            }
+        )
         seen.add(name)
 
     for t in auto_tool_manifest(categories=categories, exclude=exclude):
-        if t['name'] in seen:
+        if t["name"] in seen:
             continue
         out.append(t)
-        seen.add(t['name'])
+        seen.add(t["name"])
 
-    out.sort(key=lambda t: t['name'])
+    out.sort(key=lambda t: t["name"])
     return out
 
 
 __all__ = [
-    'auto_tool_manifest',
-    'merged_tool_manifest',
-    'DEFAULT_WHITELIST',
-    'DEFAULT_EXCLUDE',
+    "auto_tool_manifest",
+    "merged_tool_manifest",
+    "DEFAULT_WHITELIST",
+    "DEFAULT_EXCLUDE",
 ]

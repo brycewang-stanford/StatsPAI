@@ -32,10 +32,10 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-
 # --------------------------------------------------------------------------- #
 # Result class
 # --------------------------------------------------------------------------- #
+
 
 @dataclass
 class KitagawaResult:
@@ -152,6 +152,7 @@ class KitagawaResult:
 # Core test statistic computation
 # --------------------------------------------------------------------------- #
 
+
 def _compute_test_statistic(
     y: np.ndarray,
     d: np.ndarray,
@@ -208,6 +209,7 @@ def _compute_test_statistic(
 # --------------------------------------------------------------------------- #
 # Main function
 # --------------------------------------------------------------------------- #
+
 
 def kitagawa_test(
     data: pd.DataFrame,

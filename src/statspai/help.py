@@ -17,12 +17,12 @@ Usage
 >>> sp.help(search='treatment')     # keyword search
 >>> sp.help('did', format='dict')   # programmatic access
 """
+
 from __future__ import annotations
 
 import inspect
 import textwrap
 from typing import Any, Dict, List, Optional, Union
-
 
 # ====================================================================== #
 #  Category index — groups of related functions for hierarchical help.
@@ -44,70 +44,51 @@ from typing import Any, Dict, List, Optional, Union
 # blurb in ``sp.help()``.
 
 CATEGORY_DESCRIPTIONS: Dict[str, str] = {
-    "regression": (
-        "OLS / IV / GLM / quantile / Tobit / Heckman / count / survival"
-    ),
+    "regression": ("OLS / IV / GLM / quantile / Tobit / Heckman / count / survival"),
     "causal": (
         "DID, RD, Synth, Matching, DML, IPW, Causal Forest, "
         "Meta-learners, DAG, g-methods"
     ),
     "panel": (
-        "Fixed/random effects, dynamic panel GMM, HDFE, interactive FE, "
-        "unit roots"
+        "Fixed/random effects, dynamic panel GMM, HDFE, interactive FE, " "unit roots"
     ),
     "timeseries": (
-        "VAR, ARIMA, GARCH, local projections, cointegration, "
-        "structural breaks"
+        "VAR, ARIMA, GARCH, local projections, cointegration, " "structural breaks"
     ),
     "spatial": (
-        "SAR/SEM/SDM/SAC, GWR, spatial panels, LISA, Moran's I, "
-        "spatial weights"
+        "SAR/SEM/SDM/SAC, GWR, spatial panels, LISA, Moran's I, " "spatial weights"
     ),
     "survey": "svydesign, svymean/glm, raking, calibration",
     "survival": "Cox, Kaplan-Meier, AFT, frailty, logrank",
-    "decomposition": (
-        "Oaxaca, RIF, DFL, Machado-Mata, Kitagawa, Shapley, Gelbach"
-    ),
+    "decomposition": ("Oaxaca, RIF, DFL, Machado-Mata, Kitagawa, Shapley, Gelbach"),
     "diagnostics": (
-        "Sensitivity (Oster, sensemakr, E-value), specification tests, "
-        "heterogeneity"
+        "Sensitivity (Oster, sensemakr, E-value), specification tests, " "heterogeneity"
     ),
     "robustness": "Spec curve, subgroup analysis, sensitivity dashboards",
-    "inference": (
-        "Bootstrap, wild cluster, Romano-Wolf, conformal, CR2/CR3, Conley"
-    ),
+    "inference": ("Bootstrap, wild cluster, Romano-Wolf, conformal, CR2/CR3, Conley"),
     "output": "outreg2, modelsummary, regtable, paper_tables, coefplot",
     "plots": "binscatter, event-study plots, theme management",
     "smart": (
-        "Recommender, compare_estimators, assumption_audit, pub_ready, "
-        "workflow"
+        "Recommender, compare_estimators, assumption_audit, pub_ready, " "workflow"
     ),
     "power": "Power analysis for RCT/DID/RD/IV/cluster-RCT and MDE",
     "experimental": "Randomization, balance checks, attrition, optimal design",
     "missing": "MICE, multiple imputation, mi_estimate",
-    "bayes": (
-        "bayes_did / bayes_rd / bayes_iv / bayes_mte / BCF / "
-        "policy weights"
-    ),
+    "bayes": ("bayes_did / bayes_rd / bayes_iv / bayes_mte / BCF / " "policy weights"),
     "postestimation": "margins, contrast, pwcompare, test, lincom",
     "agent": "LLM tool-definition surface + JSON schema export",
     "validation": (
         "JSS reproducibility reports, coverage matrices, table regeneration"
     ),
     "utils": "Labels, winsor, DGP simulators, read_data, describe, pwcorr",
-    "datasets": (
-        "Canonical datasets (Prop99, German reunification, CPS wage, ...)"
-    ),
+    "datasets": ("Canonical datasets (Prop99, German reunification, CPS wage, ...)"),
     "epi": (
-        "Epidemiology — diagnostic tests, kappa, ROC/AUC, NNT, "
-        "prevalence ratio"
+        "Epidemiology — diagnostic tests, kappa, ROC/AUC, NNT, " "prevalence ratio"
     ),
     "target_trial": (
         "Target-trial emulation — protocol, CCW, immortal-time diagnostics"
     ),
-    "transport": (
-        "Transportability — identification, weighting, generalization"
-    ),
+    "transport": ("Transportability — identification, weighting, generalization"),
     "longitudinal": (
         "Longitudinal regimes, sequential strategies, time-varying treatment"
     ),
@@ -116,9 +97,7 @@ CATEGORY_DESCRIPTIONS: Dict[str, str] = {
     "bridge": "Bridging functions for transportability and shrinkage",
     "assimilation": "Causal assimilation / data fusion across studies",
     "interference": "Spillover / partial-interference / network exposure",
-    "mendelian": (
-        "Mendelian randomization — IVW / Egger / median / MR-PRESSO / MVMR"
-    ),
+    "mendelian": ("Mendelian randomization — IVW / Egger / median / MR-PRESSO / MVMR"),
     "mediation": "Direct / indirect effects + sensitivity (E-value)",
     "frontier": "Stochastic frontier analysis (SFA, xtfrontier)",
     "structural": "Production functions, markups, demand systems",
@@ -128,9 +107,7 @@ CATEGORY_DESCRIPTIONS: Dict[str, str] = {
     "causal_rl": "Causal reinforcement learning (off-policy, batch)",
     "causal_text": "Text-treatment effects, annotator-bias correction",
     "ope": "Off-policy evaluation (IPS, DR, switch)",
-    "dag": (
-        "DAG inference — d-separation, identification, backdoor / frontdoor"
-    ),
+    "dag": ("DAG inference — d-separation, identification, backdoor / frontdoor"),
     "fairness": "Counterfactual / causal fairness diagnostics",
     "surrogate": "Surrogate-endpoint / proximal-outcome estimators",
     "core": "CausalResult, exception taxonomy, infrastructure primitives",
@@ -288,6 +265,7 @@ class HelpResult:
     def _repr_html_(self) -> str:
         # Minimal Jupyter rendering: wrap text in <pre> for monospace.
         import html
+
         return f"<pre>{html.escape(self.text)}</pre>"
 
 
@@ -315,15 +293,14 @@ def _top_overview() -> str:
     lines.append("-----------")
     lines.append("  >>> import statspai as sp")
     lines.append("  >>> result = sp.regress('y ~ x1 + x2', data=df)")
-    lines.append(
-        "  >>> result = sp.did(df, y='wage', treat='treated', time='post')"
-    )
+    lines.append("  >>> result = sp.did(df, y='wage', treat='treated', time='post')")
     lines.append("  >>> cf = sp.causal_forest('y ~ treat | x1 + x2', data=df)")
     lines.append("")
 
     lines.append("CATEGORIES  (use sp.help('<category>') for details)")
     lines.append("----------")
     from .registry import _ensure_full_registry  # noqa: WPS433
+
     _ensure_full_registry()
     cats = _categories_with_counts()
     width = max(len(c) for c in cats) if cats else 12
@@ -336,8 +313,7 @@ def _top_overview() -> str:
     tiers = _stability_with_counts()
     if tiers:
         lines.append(
-            "STABILITY  (API lifecycle; "
-            "use sp.list_functions(stability='<tier>'))"
+            "STABILITY  (API lifecycle; " "use sp.list_functions(stability='<tier>'))"
         )
         lines.append("---------")
         order = ["stable", "experimental", "deprecated"]
@@ -377,50 +353,28 @@ def _top_overview() -> str:
     lines.append("-----------------")
     lines.append("  sp.help()                      — this overview")
     lines.append(
-        "  sp.help('<name>')              — function detail "
-        "(e.g. sp.help('did'))"
+        "  sp.help('<name>')              — function detail " "(e.g. sp.help('did'))"
     )
-    lines.append(
-        "  sp.help('<category>')          — list functions in a category"
-    )
+    lines.append("  sp.help('<category>')          — list functions in a category")
     lines.append("  sp.help('<category>.<name>')   — scoped function detail")
-    lines.append(
-        "  sp.help(sp.regress)            — Python docstring for a callable"
-    )
+    lines.append("  sp.help(sp.regress)            — Python docstring for a callable")
     lines.append("  sp.help(search='treatment')    — keyword search")
-    lines.append(
-        "  sp.help('<name>', verbose=True)— include full param schema"
-    )
-    lines.append(
-        "  sp.help('<name>', format='dict')— return dict for programmatic use"
-    )
+    lines.append("  sp.help('<name>', verbose=True)— include full param schema")
+    lines.append("  sp.help('<name>', format='dict')— return dict for programmatic use")
     lines.append("")
 
     lines.append("OTHER HELP LAYERS")
     lines.append("-----------------")
+    lines.append("  sp.list_functions(category=None)   Machine-readable function index")
+    lines.append("  sp.describe_function(name)         Full metadata for one function")
+    lines.append("  sp.search_functions(query)         Keyword search (AND logic)")
+    lines.append("  sp.function_schema(name)           OpenAI/Anthropic tool schema")
     lines.append(
-        "  sp.list_functions(category=None)   Machine-readable function index"
+        "  sp.all_schemas()                   " "Bulk schema export for LLM agents"
     )
-    lines.append(
-        "  sp.describe_function(name)         Full metadata for one function"
-    )
-    lines.append(
-        "  sp.search_functions(query)         Keyword search (AND logic)"
-    )
-    lines.append(
-        "  sp.function_schema(name)           OpenAI/Anthropic tool schema"
-    )
-    lines.append(
-        "  sp.all_schemas()                   "
-        "Bulk schema export for LLM agents"
-    )
-    lines.append(
-        "  sp.recommend(data=df, y=..., treat=...)  Method advisor"
-    )
+    lines.append("  sp.recommend(data=df, y=..., treat=...)  Method advisor")
     lines.append("  from statspai.decomposition import available_methods")
-    lines.append(
-        "                                     Sub-module method catalogs"
-    )
+    lines.append("                                     Sub-module method catalogs")
     lines.append("")
     lines.append("CLI")
     lines.append("---")
@@ -455,9 +409,7 @@ def _categories_with_counts() -> Dict[str, int]:
 _STABILITY_BLURBS: Dict[str, str] = {
     "stable": "public signature locked under SemVer minor releases",
     "experimental": "method/API may shift across minor versions",
-    "deprecated": (
-        "scheduled for removal — see MIGRATION.md for the replacement"
-    ),
+    "deprecated": ("scheduled for removal — see MIGRATION.md for the replacement"),
 }
 
 _STABILITY_BADGES: Dict[str, str] = {
@@ -521,6 +473,7 @@ def _category_listing(category: str) -> Optional[str]:
         _ensure_full_registry,
         list_functions,
     )
+
     _ensure_full_registry()
 
     names = list_functions(category=category)
@@ -554,15 +507,14 @@ def _category_listing(category: str) -> Optional[str]:
         lines.append(f"  {name:<{width}}  {short}{marker}")
 
     lines.append("")
-    lines.append(
-        f"Use sp.help('{category}.<name>') or sp.help('<name>') for details."
-    )
+    lines.append(f"Use sp.help('{category}.<name>') or sp.help('<name>') for details.")
     return "\n".join(lines)
 
 
 def _function_detail(name: str, verbose: bool = False) -> Optional[str]:
     """Render function detail from registry. Returns None if unknown."""
     from .registry import _REGISTRY, _ensure_full_registry  # noqa: WPS433
+
     _ensure_full_registry()
 
     if name not in _REGISTRY:
@@ -626,6 +578,7 @@ def _function_detail(name: str, verbose: bool = False) -> Optional[str]:
     if verbose:
         # Append live docstring from the Python object when available.
         import statspai as sp
+
         obj = getattr(sp, name, None)
         if obj is not None and getattr(obj, "__doc__", None):
             lines.append("")
@@ -642,6 +595,7 @@ def _search_results(query: str) -> str:
         _ensure_full_registry,
         search_functions,
     )
+
     _ensure_full_registry()
 
     hits = search_functions(query)
@@ -651,8 +605,7 @@ def _search_results(query: str) -> str:
     lines.append("=" * len(header))
     if not hits:
         lines.append(
-            "(no matches — try sp.search_functions(query) with different "
-            "words)"
+            "(no matches — try sp.search_functions(query) with different " "words)"
         )
         return "\n".join(lines)
 
@@ -660,18 +613,11 @@ def _search_results(query: str) -> str:
     for h in hits[:50]:
         short = h["description"].split(".")[0][:80]
         v = h.get("validation_status", "")
-        suffix = (
-            f" [{v}]" if v in {"certified", "validated", "experimental"}
-            else ""
-        )
-        lines.append(
-            f"  {h['name']:<{width}}  [{h['category']}]  "
-            f"{short}{suffix}"
-        )
+        suffix = f" [{v}]" if v in {"certified", "validated", "experimental"} else ""
+        lines.append(f"  {h['name']:<{width}}  [{h['category']}]  " f"{short}{suffix}")
     if len(hits) > 50:
         lines.append(
-            f"  ... and {len(hits) - 50} more. "
-            "Use sp.search_functions(query)."
+            f"  ... and {len(hits) - 50} more. " "Use sp.search_functions(query)."
         )
     return "\n".join(lines)
 
@@ -698,6 +644,7 @@ def _callable_docstring(obj: Any) -> str:
 # ====================================================================== #
 #  Public API
 # ====================================================================== #
+
 
 def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
     topic: Union[str, Any, None] = None,
@@ -748,6 +695,7 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
         text = _search_results(search)
         if format == "dict":
             from .registry import search_functions
+
             return {"query": search, "results": search_functions(search)}
         return HelpResult(text, data={"kind": "search", "query": search})
 
@@ -775,6 +723,7 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
                     text += "\n\n" + _callable_docstring(topic)
         if format == "dict":
             from .registry import _REGISTRY, _ensure_full_registry
+
             _ensure_full_registry()
             spec = _REGISTRY.get(name) if name else None
             return (
@@ -794,6 +743,7 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
             if detail is not None:
                 if format == "dict":
                     from .registry import _REGISTRY
+
                     return _REGISTRY[fn].to_dict()
                 return HelpResult(
                     detail,
@@ -806,6 +756,7 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
         if detail is not None:
             if format == "dict":
                 from .registry import _REGISTRY
+
                 return _REGISTRY[t].to_dict()
             return HelpResult(detail, data={"kind": "function", "name": t})
 
@@ -814,6 +765,7 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
         if listing is not None:
             if format == "dict":
                 from .registry import list_functions
+
                 return {
                     "kind": "category",
                     "category": t,
@@ -827,6 +779,7 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
         # Unknown — suggest nearest matches
         from difflib import get_close_matches
         from .registry import list_functions, _ensure_full_registry
+
         _ensure_full_registry()
         all_names = list_functions()
         suggestions = get_close_matches(t, all_names, n=5, cutoff=0.6)
@@ -839,8 +792,10 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
         if cat_suggestions:
             lines.append(f"  Or category:  {', '.join(cat_suggestions)}?")
         lines.append("")
-        lines.append("Try sp.help() for the top-level overview, "
-                     "or sp.help(search='<keyword>') for keyword search.")
+        lines.append(
+            "Try sp.help() for the top-level overview, "
+            "or sp.help(search='<keyword>') for keyword search."
+        )
         text = "\n".join(lines)
         if format == "dict":
             return {
@@ -852,6 +807,5 @@ def help(  # noqa: A001 (shadow builtin by design; sp.help is our public API)
         return HelpResult(text, data={"kind": "not_found", "query": topic})
 
     raise TypeError(
-        "sp.help() topic must be str, callable, or None; "
-        f"got {type(topic).__name__}"
+        "sp.help() topic must be str, callable, or None; " f"got {type(topic).__name__}"
     )

@@ -22,11 +22,10 @@ Three primitives:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Sequence
+from typing import Dict, Sequence
 
 import numpy as np
 from scipy import stats
-
 
 __all__ = [
     "synthesise_evidence",
@@ -41,6 +40,7 @@ __all__ = [
 @dataclass
 class EvidenceSynthesisResult:
     """Output of :func:`synthesise_evidence`."""
+
     pooled_estimate: float
     pooled_se: float
     pooled_ci: tuple
@@ -53,53 +53,61 @@ class EvidenceSynthesisResult:
 
     def summary(self) -> str:
         lo, hi = self.pooled_ci
-        return "\n".join([
-            "Next-Generation Evidence Synthesis (RCT + RWD + ML)",
-            "=" * 64,
-            f"  RCT estimate         : {self.rct_estimate:+.6f}  (SE {self.rct_se:.6f})",
-            f"  RWD estimate         : {self.rwd_estimate:+.6f}  (SE {self.rwd_se:.6f})",
-            f"  Transport shift      : {self.transport_shift:+.6f}",
-            f"  Pooled estimate      : {self.pooled_estimate:+.6f}  (SE {self.pooled_se:.6f})",
-            f"  95% pooled CI        : [{lo:+.6f}, {hi:+.6f}]",
-            f"  Weights (RCT / RWD)  : "
-            f"{self.weights['rct']:.3f} / {self.weights['rwd']:.3f}",
-        ])
+        return "\n".join(
+            [
+                "Next-Generation Evidence Synthesis (RCT + RWD + ML)",
+                "=" * 64,
+                f"  RCT estimate         : {self.rct_estimate:+.6f}  (SE {self.rct_se:.6f})",
+                f"  RWD estimate         : {self.rwd_estimate:+.6f}  (SE {self.rwd_se:.6f})",
+                f"  Transport shift      : {self.transport_shift:+.6f}",
+                f"  Pooled estimate      : {self.pooled_estimate:+.6f}  (SE {self.pooled_se:.6f})",
+                f"  95% pooled CI        : [{lo:+.6f}, {hi:+.6f}]",
+                f"  Weights (RCT / RWD)  : "
+                f"{self.weights['rct']:.3f} / {self.weights['rwd']:.3f}",
+            ]
+        )
 
 
 @dataclass
 class HeterogeneityResult:
     """Effect-heterogeneity diagnostic."""
+
     tau2: float  # between-study variance
     q_stat: float
     q_pvalue: float
     i2: float
 
     def summary(self) -> str:
-        return "\n".join([
-            "Effect Heterogeneity (RCT vs RWD)",
-            "=" * 60,
-            f"  tau²      : {self.tau2:.6f}",
-            f"  Q (chi²)  : {self.q_stat:.4f}",
-            f"  p-value   : {self.q_pvalue:.4f}",
-            f"  I²        : {self.i2:.4f}",
-        ])
+        return "\n".join(
+            [
+                "Effect Heterogeneity (RCT vs RWD)",
+                "=" * 60,
+                f"  tau²      : {self.tau2:.6f}",
+                f"  Q (chi²)  : {self.q_stat:.4f}",
+                f"  p-value   : {self.q_pvalue:.4f}",
+                f"  I²        : {self.i2:.4f}",
+            ]
+        )
 
 
 @dataclass
 class ConcordanceResult:
     """RCT-vs-RWD concordance report."""
+
     rwd_inside_rct_ci: bool
     relative_difference: float
     zscore_difference: float
 
     def summary(self) -> str:
-        return "\n".join([
-            "RCT ↔ RWD Concordance Report",
-            "=" * 60,
-            f"  RWD inside RCT 95% CI : {self.rwd_inside_rct_ci}",
-            f"  Relative difference   : {self.relative_difference:+.4f}",
-            f"  z-statistic           : {self.zscore_difference:+.4f}",
-        ])
+        return "\n".join(
+            [
+                "RCT ↔ RWD Concordance Report",
+                "=" * 60,
+                f"  RWD inside RCT 95% CI : {self.rwd_inside_rct_ci}",
+                f"  Relative difference   : {self.relative_difference:+.4f}",
+                f"  z-statistic           : {self.zscore_difference:+.4f}",
+            ]
+        )
 
 
 def synthesise_evidence(
@@ -156,18 +164,18 @@ def synthesise_evidence(
     if weight_mode not in ("inverse_variance", "rct_heavy"):
         raise ValueError(f"Unknown weight_mode {weight_mode!r}.")
     rct_adj = rct_estimate + transport_shift
-    rct_adj_se = np.sqrt(rct_se ** 2 + transport_shift_se ** 2)
+    rct_adj_se = np.sqrt(rct_se**2 + transport_shift_se**2)
     if weight_mode == "inverse_variance":
-        w_rct = 1.0 / rct_adj_se ** 2
-        w_rwd = 1.0 / rwd_se ** 2
+        w_rct = 1.0 / rct_adj_se**2
+        w_rwd = 1.0 / rwd_se**2
     else:  # 'rct_heavy' — trust the RCT twice as much
-        w_rct = 2.0 / rct_adj_se ** 2
-        w_rwd = 1.0 / rwd_se ** 2
+        w_rct = 2.0 / rct_adj_se**2
+        w_rwd = 1.0 / rwd_se**2
     total = w_rct + w_rwd
     w_rct_n = w_rct / total
     w_rwd_n = w_rwd / total
     pooled = w_rct_n * rct_adj + w_rwd_n * rwd_estimate
-    pooled_se = float(np.sqrt(w_rct_n ** 2 * rct_adj_se ** 2 + w_rwd_n ** 2 * rwd_se ** 2))
+    pooled_se = float(np.sqrt(w_rct_n**2 * rct_adj_se**2 + w_rwd_n**2 * rwd_se**2))
     z = stats.norm.ppf(1 - alpha / 2)
     ci = (pooled - z * pooled_se, pooled + z * pooled_se)
     return EvidenceSynthesisResult(
@@ -218,16 +226,19 @@ def heterogeneity_of_effect(
     k = len(theta)
     if k < 2:
         raise ValueError("Need >= 2 studies.")
-    w = 1.0 / s ** 2
+    w = 1.0 / s**2
     theta_hat = float((w * theta).sum() / w.sum())
     q = float((w * (theta - theta_hat) ** 2).sum())
     df = k - 1
-    c = w.sum() - (w ** 2).sum() / w.sum()
+    c = w.sum() - (w**2).sum() / w.sum()
     tau2 = max((q - df) / c, 0.0) if c > 0 else 0.0
     q_p = float(1 - stats.chi2.cdf(q, df))
     i2 = max(0.0, (q - df) / q) if q > 0 else 0.0
     return HeterogeneityResult(
-        tau2=float(tau2), q_stat=q, q_pvalue=q_p, i2=float(i2),
+        tau2=float(tau2),
+        q_stat=q,
+        q_pvalue=q_p,
+        i2=float(i2),
     )
 
 

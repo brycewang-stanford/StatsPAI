@@ -96,7 +96,9 @@ def did_2x2(
             ),
             diagnostics={"treat": treat, "n_unique_values": len(treat_vals)},
             alternative_functions=[
-                "sp.callaway_santanna", "sp.sun_abraham", "sp.did_multiplegt",
+                "sp.callaway_santanna",
+                "sp.sun_abraham",
+                "sp.did_multiplegt",
             ],
         )
     if len(time_vals) != 2:
@@ -109,7 +111,9 @@ def did_2x2(
             ),
             diagnostics={"time": time, "n_unique_values": len(time_vals)},
             alternative_functions=[
-                "sp.callaway_santanna", "sp.event_study", "sp.sun_abraham",
+                "sp.callaway_santanna",
+                "sp.event_study",
+                "sp.sun_abraham",
             ],
         )
 
@@ -131,13 +135,15 @@ def did_2x2(
 
     # Build design matrix: [1, D, T, D×T, covariates...]
     X_parts = [np.ones(len(y_arr)), d, t, dt]
-    X_names = ['const', treat, time, f'{treat}x{time}']
+    X_names = ["const", treat, time, f"{treat}x{time}"]
 
     if covariates:
         for cov in covariates:
-            X_parts.append(df.loc[valid, cov].values.astype(float)
-                           if isinstance(valid, np.ndarray)
-                           else df[cov].values.astype(float))
+            X_parts.append(
+                df.loc[valid, cov].values.astype(float)
+                if isinstance(valid, np.ndarray)
+                else df[cov].values.astype(float)
+            )
             X_names.append(cov)
 
     X = np.column_stack(X_parts)
@@ -145,7 +151,11 @@ def did_2x2(
 
     # --- Analytical weights (WLS) ---
     if weights is not None:
-        w_raw = df.loc[valid, weights].values.astype(float) if isinstance(valid, np.ndarray) else df[weights].values.astype(float)
+        w_raw = (
+            df.loc[valid, weights].values.astype(float)
+            if isinstance(valid, np.ndarray)
+            else df[weights].values.astype(float)
+        )
         if np.any(w_raw < 0):
             raise ValueError(f"Weights column '{weights}' contains negative values.")
         # Normalize so weights sum to n (aweight convention)
@@ -170,14 +180,20 @@ def did_2x2(
 
     # Variance-covariance matrix
     if cluster is not None:
-        cl = df.loc[valid, cluster].values if isinstance(valid, np.ndarray) else df[cluster].values
+        cl = (
+            df.loc[valid, cluster].values
+            if isinstance(valid, np.ndarray)
+            else df[cluster].values
+        )
         unique_cl = np.unique(cl)
         n_cl = len(unique_cl)
         meat = np.zeros((k, k))
         for c_val in unique_cl:
             idx = cl == c_val
             if w is not None:
-                score = (Xw[idx] * (sqrt_w[idx] * resid[idx])[:, np.newaxis]).sum(axis=0)
+                score = (Xw[idx] * (sqrt_w[idx] * resid[idx])[:, np.newaxis]).sum(
+                    axis=0
+                )
             else:
                 score = (X[idx] * resid[idx, np.newaxis]).sum(axis=0)
             meat += np.outer(score, score)
@@ -185,22 +201,22 @@ def did_2x2(
         vcov = correction * XtX_inv @ meat @ XtX_inv
     elif robust:
         if w is not None:
-            hc1_weights = (n / (n - k)) * (w * resid ** 2)
+            hc1_weights = (n / (n - k)) * (w * resid**2)
         else:
-            hc1_weights = (n / (n - k)) * resid ** 2
+            hc1_weights = (n / (n - k)) * resid**2
         meat = X.T @ np.diag(hc1_weights) @ X
         vcov = XtX_inv @ meat @ XtX_inv
     else:
         if w is not None:
-            sigma2 = np.sum(w * resid ** 2) / (n - k)
+            sigma2 = np.sum(w * resid**2) / (n - k)
         else:
-            sigma2 = np.sum(resid ** 2) / (n - k)
+            sigma2 = np.sum(resid**2) / (n - k)
         vcov = sigma2 * XtX_inv
 
     se = np.sqrt(np.diag(vcov))
 
     # DID coefficient is the interaction term
-    did_idx = X_names.index(f'{treat}x{time}')
+    did_idx = X_names.index(f"{treat}x{time}")
     att = float(beta[did_idx])
     att_se = float(se[did_idx])
     t_stat = att / att_se if att_se > 0 else np.nan
@@ -212,38 +228,40 @@ def did_2x2(
     # Full coefficient table for detail
     t_stats_all = beta / se
     pvals_all = 2 * (1 - stats.t.cdf(np.abs(t_stats_all), df_resid))
-    detail = pd.DataFrame({
-        'variable': X_names,
-        'coefficient': beta,
-        'se': se,
-        'tstat': t_stats_all,
-        'pvalue': pvals_all,
-    })
+    detail = pd.DataFrame(
+        {
+            "variable": X_names,
+            "coefficient": beta,
+            "se": se,
+            "tstat": t_stats_all,
+            "pvalue": pvals_all,
+        }
+    )
 
     # R-squared (weighted if applicable)
     if w is not None:
         y_wmean = np.sum(w * y_arr) / np.sum(w)
         tss = np.sum(w * (y_arr - y_wmean) ** 2)
-        rss = np.sum(w * resid ** 2)
+        rss = np.sum(w * resid**2)
     else:
         tss = np.sum((y_arr - np.mean(y_arr)) ** 2)
-        rss = np.sum(resid ** 2)
+        rss = np.sum(resid**2)
     r_squared = 1 - rss / tss if tss > 0 else 0.0
 
     model_info = {
-        'r_squared': round(r_squared, 6),
-        'n_treated': int(d.sum()),
-        'n_control': int((1 - d).sum()),
-        'n_pre': int((1 - t).sum()),
-        'n_post': int(t.sum()),
-        'robust_se': robust,
-        'cluster': cluster,
-        'weights': weights,
+        "r_squared": round(r_squared, 6),
+        "n_treated": int(d.sum()),
+        "n_control": int((1 - d).sum()),
+        "n_pre": int((1 - t).sum()),
+        "n_post": int(t.sum()),
+        "robust_se": robust,
+        "cluster": cluster,
+        "weights": weights,
     }
 
     _result = CausalResult(
-        method='Difference-in-Differences (2x2)',
-        estimand='ATT',
+        method="Difference-in-Differences (2x2)",
+        estimand="ATT",
         estimate=att,
         se=att_se,
         pvalue=pvalue,
@@ -252,17 +270,23 @@ def did_2x2(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='did_2x2',
+        _citation_key="did_2x2",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.did_2x2",
             params={
-                "y": y, "treat": treat, "time": time,
-                "covariates": covariates, "cluster": cluster,
-                "robust": robust, "alpha": alpha, "weights": weights,
+                "y": y,
+                "treat": treat,
+                "time": time,
+                "covariates": covariates,
+                "cluster": cluster,
+                "robust": robust,
+                "alpha": alpha,
+                "weights": weights,
             },
             data=data,
             overwrite=False,

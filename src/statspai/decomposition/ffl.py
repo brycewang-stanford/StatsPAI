@@ -25,6 +25,7 @@ Firpo, S., Fortin, N., & Lemieux, T. (2018). "Decomposing Wage
 Distributions Using Recentered Influence Function Regressions."
 *Econometrics*, 6(2), 28. [@firpo2018decomposing]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -42,35 +43,35 @@ from ._common import (
     logit_fit,
     logit_predict,
     prepare_frame,
-    sig_stars,
     statistic_value as _statistic_value,
-    weighted_quantile,
     wls,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Result container
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class FFLResult(DecompResultMixin):
     """Container for Firpo-Fortin-Lemieux two-step decomposition."""
+
     method_name: ClassVar[str] = "Firpo-Fortin-Lemieux Two-Step Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = (
-        "firpo2018decomposing", "firpo2009unconditional",
+        "firpo2018decomposing",
+        "firpo2009unconditional",
         "fortin2011decomposition",
     )
 
     gap: float
     composition: float
     structure: float
-    spec_error: float      # reweighting / specification error
+    spec_error: float  # reweighting / specification error
     reweight_error: float  # RIF linearisation error
     stat: str
     tau: float
-    detailed_composition: pd.DataFrame   # per-covariate composition
-    detailed_structure: pd.DataFrame     # per-covariate structure
+    detailed_composition: pd.DataFrame  # per-covariate composition
+    detailed_structure: pd.DataFrame  # per-covariate structure
     stat_a: float
     stat_b: float
     stat_cf: float
@@ -115,20 +116,26 @@ class FFLResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import ffl_waterfall
+
         return ffl_waterfall(self, **kwargs)
 
     def to_latex(self) -> str:
         lines = [
-            r"\begin{table}[htbp]", r"\centering",
+            r"\begin{table}[htbp]",
+            r"\centering",
             f"\\caption{{FFL Two-Step Decomposition — {self.stat}}}",
-            r"\begin{tabular}{lc}", r"\toprule",
-            r"Component & Estimate \\", r"\midrule",
+            r"\begin{tabular}{lc}",
+            r"\toprule",
+            r"Component & Estimate \\",
+            r"\midrule",
             f"Total gap & {self.gap:.4f} \\\\",
             f"Composition & {self.composition:.4f} \\\\",
             f"Structure & {self.structure:.4f} \\\\",
             f"Specification error & {self.spec_error:.4f} \\\\",
             f"Reweighting error & {self.reweight_error:.4f} \\\\",
-            r"\bottomrule", r"\end{tabular}", r"\end{table}",
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
         ]
         return "\n".join(lines)
 
@@ -151,8 +158,12 @@ class FFLResult(DecompResultMixin):
 # Helpers
 # ════════════════════════════════════════════════════════════════════════
 
+
 def _rif_for_sample(
-    y: np.ndarray, w: np.ndarray, stat: str, tau: float,
+    y: np.ndarray,
+    w: np.ndarray,
+    stat: str,
+    tau: float,
 ) -> np.ndarray:
     """
     Weighted RIF values — thin delegate to ``_common.influence_function``.
@@ -160,8 +171,9 @@ def _rif_for_sample(
     return influence_function(y, stat, tau=tau, w=w)
 
 
-def _numerical_rif(y: np.ndarray, w: np.ndarray, stat: str,
-                   eps: float = 1e-4) -> np.ndarray:
+def _numerical_rif(
+    y: np.ndarray, w: np.ndarray, stat: str, eps: float = 1e-4
+) -> np.ndarray:
     """Numerical influence function (fallback for stats without closed-form IF).
 
     Computationally O(n²) per call — avoid for production; closed-form
@@ -186,6 +198,7 @@ _statistic_value_generic = _statistic_value
 # ════════════════════════════════════════════════════════════════════════
 # Core FFL
 # ════════════════════════════════════════════════════════════════════════
+
 
 def ffl_decompose(
     data: pd.DataFrame,
@@ -267,7 +280,7 @@ def ffl_decompose(
     p_A = w_a.sum() / (w_a.sum() + w_b.sum())
 
     if reference == 0:
-        p_b_part = p_hat[len(X_a):]
+        p_b_part = p_hat[len(X_a) :]
         psi_b = (p_b_part / (1 - p_b_part)) * ((1 - p_A) / p_A)
         w_cf = w_b * psi_b
         X_cf = X_b
@@ -327,14 +340,18 @@ def ffl_decompose(
 
     # Build detailed tables — include _cons row on both sides so the
     # column totals audit to the overall composition / structure values.
-    det_comp = pd.DataFrame({
-        "variable": list(x) + ["_cons"],
-        "composition": list(composition_vec[1:]) + [composition_vec[0]],
-    })
-    det_struct = pd.DataFrame({
-        "variable": list(x) + ["_cons"],
-        "structure": list(structure_vec[1:]) + [structure_vec[0]],
-    })
+    det_comp = pd.DataFrame(
+        {
+            "variable": list(x) + ["_cons"],
+            "composition": list(composition_vec[1:]) + [composition_vec[0]],
+        }
+    )
+    det_struct = pd.DataFrame(
+        {
+            "variable": list(x) + ["_cons"],
+            "structure": list(structure_vec[1:]) + [structure_vec[0]],
+        }
+    )
 
     # Bootstrap
     se: Optional[Dict[str, float]] = None
@@ -353,12 +370,26 @@ def ffl_decompose(
                 # Propagate per-row weights into the recursive call so
                 # weighted inference survives resampling.
                 tmp_res = ffl_decompose(
-                    sub, y=y, group=group, x=x, stat=stat, tau=tau,
-                    reference=reference, weights=w[idx], trim=trim,
-                    inference="none", seed=None,
+                    sub,
+                    y=y,
+                    group=group,
+                    x=x,
+                    stat=stat,
+                    tau=tau,
+                    reference=reference,
+                    weights=w[idx],
+                    trim=trim,
+                    inference="none",
+                    seed=None,
                 )
-                return np.array([tmp_res.gap, tmp_res.composition,
-                                 tmp_res.structure, tmp_res.spec_error])
+                return np.array(
+                    [
+                        tmp_res.gap,
+                        tmp_res.composition,
+                        tmp_res.structure,
+                        tmp_res.spec_error,
+                    ]
+                )
             except Exception:  # noqa: BLE001  # pragma: no cover
                 return np.array([np.nan] * 4)
 
@@ -367,22 +398,38 @@ def ffl_decompose(
         if len(boot) > 10:
             point = np.array([gap, composition, structure, spec_error])
             se_vec, lo, hi = bootstrap_ci(boot, point, alpha=alpha)
-            se = {"gap": float(se_vec[0]), "composition": float(se_vec[1]),
-                  "structure": float(se_vec[2]), "spec_error": float(se_vec[3])}
-            ci = {"gap": (float(lo[0]), float(hi[0])),
-                  "composition": (float(lo[1]), float(hi[1])),
-                  "structure": (float(lo[2]), float(hi[2])),
-                  "spec_error": (float(lo[3]), float(hi[3]))}
+            se = {
+                "gap": float(se_vec[0]),
+                "composition": float(se_vec[1]),
+                "structure": float(se_vec[2]),
+                "spec_error": float(se_vec[3]),
+            }
+            ci = {
+                "gap": (float(lo[0]), float(hi[0])),
+                "composition": (float(lo[1]), float(hi[1])),
+                "structure": (float(lo[2]), float(hi[2])),
+                "spec_error": (float(lo[3]), float(hi[3])),
+            }
 
     return FFLResult(
-        gap=float(gap), composition=composition, structure=structure,
-        spec_error=spec_error, reweight_error=reweight_error,
-        stat=stat, tau=tau,
-        detailed_composition=det_comp, detailed_structure=det_struct,
-        stat_a=float(stat_a), stat_b=float(stat_b), stat_cf=float(stat_cf),
+        gap=float(gap),
+        composition=composition,
+        structure=structure,
+        spec_error=spec_error,
+        reweight_error=reweight_error,
+        stat=stat,
+        tau=tau,
+        detailed_composition=det_comp,
+        detailed_structure=det_struct,
+        stat_a=float(stat_a),
+        stat_b=float(stat_b),
+        stat_cf=float(stat_cf),
         reference=reference,
         beta_a=pd.Series(beta_a, index=var_names),
         beta_b=pd.Series(beta_b, index=var_names),
         beta_cf=pd.Series(beta_cf, index=var_names),
-        se=se, ci=ci, n_a=int(len(y_a)), n_b=int(len(y_b)),
+        se=se,
+        ci=ci,
+        n_a=int(len(y_a)),
+        n_b=int(len(y_b)),
     )

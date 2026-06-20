@@ -14,6 +14,7 @@ Weighted variant (with sample_weight w_i):
     Var(theta) = sum(w^2 * psi_i^2) / (sum(w * d_tilde * z_tilde))^2
 where psi_i = (y_tilde_i - theta * d_tilde_i) * z_tilde_i.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Tuple
@@ -53,8 +54,8 @@ class DoubleMLPLIV(_DoubleMLBase):
     True
     """
 
-    _MODEL_TAG = 'PLIV'
-    _ESTIMAND = 'LATE'
+    _MODEL_TAG = "PLIV"
+    _ESTIMAND = "LATE"
     _REQUIRES_INSTRUMENT = True
     _ML_M_TARGET_BINARY = False
     _ML_R_TARGET_BINARY = False
@@ -100,21 +101,28 @@ class DoubleMLPLIV(_DoubleMLBase):
         z_resid: np.ndarray = np.zeros(n, dtype=float)
 
         for train_idx, test_idx in kf.split(X):
-            w_train = (
-                w_full[train_idx] if w_full is not None else None
-            )
+            w_train = w_full[train_idx] if w_full is not None else None
             ml_g = self._fit_weighted(
-                self.ml_g, X[train_idx], Y[train_idx], w_train,
+                self.ml_g,
+                X[train_idx],
+                Y[train_idx],
+                w_train,
             )
             y_resid[test_idx] = Y[test_idx] - ml_g.predict(X[test_idx])
 
             ml_m = self._fit_weighted(
-                self.ml_m, X[train_idx], D[train_idx], w_train,
+                self.ml_m,
+                X[train_idx],
+                D[train_idx],
+                w_train,
             )
             d_resid[test_idx] = D[test_idx] - ml_m.predict(X[test_idx])
 
             ml_r = self._fit_weighted(
-                self.ml_r, X[train_idx], Z[train_idx], w_train,
+                self.ml_r,
+                X[train_idx],
+                Z[train_idx],
+                w_train,
             )
             z_resid[test_idx] = Z[test_idx] - ml_r.predict(X[test_idx])
 
@@ -127,8 +135,8 @@ class DoubleMLPLIV(_DoubleMLBase):
 
         W = float(np.sum(w))
         denom = float(np.sum(w * z_resid * d_resid))
-        sum_z2 = float(np.sum(w * (z_resid ** 2)))
-        sum_d2 = float(np.sum(w * (d_resid ** 2)))
+        sum_z2 = float(np.sum(w * (z_resid**2)))
+        sum_d2 = float(np.sum(w * (d_resid**2)))
         scale = float(np.sqrt(max(sum_z2, 0.0) * max(sum_d2, 0.0)))
         partial_corr = denom / scale if scale > 0 else 0.0
         # Two distinct degeneracy modes need separate guards:
@@ -179,18 +187,16 @@ class DoubleMLPLIV(_DoubleMLBase):
             sigma2 = np.mean(psi**2)
             se = float(np.sqrt(sigma2 / (J**2 * n))) if abs(J) > 1e-10 else 0.0
         else:
-            num = float(np.sum((w ** 2) * (psi ** 2)))
+            num = float(np.sum((w**2) * (psi**2)))
             se = float(np.sqrt(num)) / abs(denom) if denom != 0 else 0.0
 
         # Approximate first-stage F (informative weak-IV diagnostic)
         # using the partial correlation: F_partial ≈ (n-K) ρ² / (1-ρ²).
         # K is unknown (ML nuisance has no fixed dof), so we use n as an
         # upper bound on (n - K) — the resulting F is mildly optimistic.
-        rho2 = partial_corr ** 2
+        rho2 = partial_corr**2
         first_stage_F = (
-            float((n) * rho2 / (1.0 - rho2))
-            if rho2 < 1.0 - 1e-12
-            else float("inf")
+            float((n) * rho2 / (1.0 - rho2)) if rho2 < 1.0 - 1e-12 else float("inf")
         )
         self._last_rep_diagnostics = {
             "first_stage_partial_corr": float(partial_corr),

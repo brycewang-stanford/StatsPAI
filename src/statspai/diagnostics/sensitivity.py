@@ -25,10 +25,10 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Oster (2019) Coefficient Stability Bounds
 # ======================================================================
+
 
 def oster_bounds(
     data: Optional[pd.DataFrame] = None,
@@ -128,10 +128,17 @@ def oster_bounds(
     # --- Obtain β and R² ---
     if data is not None and y is not None and treat is not None:
         b_short, r2_s, b_long, r2_l = _run_oster_regressions(
-            data, y, treat, controls or [],
+            data,
+            y,
+            treat,
+            controls or [],
         )
-    elif (beta_short is not None and r2_short is not None
-          and beta_long is not None and r2_long is not None):
+    elif (
+        beta_short is not None
+        and r2_short is not None
+        and beta_long is not None
+        and r2_long is not None
+    ):
         b_short, r2_s = beta_short, r2_short
         b_long, r2_l = beta_long, r2_long
     else:
@@ -149,7 +156,7 @@ def oster_bounds(
     # --- Bias-adjusted coefficient (Oster eq. 4) ---
     # β*(δ, R_max) = β̃ - δ × (β̊ - β̃) × (R̃² - R̊²) / (R_max - R̃²)
     movement = b_short - b_long  # β̊ - β̃
-    r2_gain_obs = r2_l - r2_s    # R̃² - R̊²
+    r2_gain_obs = r2_l - r2_s  # R̃² - R̊²
     r2_gain_unobs = r_max - r2_l  # R_max - R̃²
 
     if abs(r2_gain_unobs) < 1e-12:
@@ -198,17 +205,17 @@ def oster_bounds(
         )
 
     return {
-        'beta_short': b_short,
-        'r2_short': r2_s,
-        'beta_long': b_long,
-        'r2_long': r2_l,
-        'r_max': r_max,
-        'delta': delta,
-        'delta_for_zero': delta_star,
-        'beta_adjusted': beta_adj,
-        'identified_set': id_set,
-        'robust': robust,
-        'interpretation': interp,
+        "beta_short": b_short,
+        "r2_short": r2_s,
+        "beta_long": b_long,
+        "r2_long": r2_l,
+        "r_max": r_max,
+        "delta": delta,
+        "delta_for_zero": delta_star,
+        "beta_adjusted": beta_adj,
+        "identified_set": id_set,
+        "robust": robust,
+        "interpretation": interp,
     }
 
 
@@ -229,14 +236,13 @@ def _run_oster_regressions(
     beta_s = np.linalg.lstsq(X_short, Y, rcond=None)[0]
     resid_s = Y - X_short @ beta_s
     tss = np.sum((Y - Y.mean()) ** 2)
-    r2_s = 1 - np.sum(resid_s ** 2) / tss
+    r2_s = 1 - np.sum(resid_s**2) / tss
 
     # Long regression: Y ~ D + controls
-    X_long = np.column_stack([np.ones(n), D] +
-                             [df[c].values for c in controls])
+    X_long = np.column_stack([np.ones(n), D] + [df[c].values for c in controls])
     beta_l = np.linalg.lstsq(X_long, Y, rcond=None)[0]
     resid_l = Y - X_long @ beta_l
-    r2_l = 1 - np.sum(resid_l ** 2) / tss
+    r2_l = 1 - np.sum(resid_l**2) / tss
 
     # Treatment coefficient is index 1 in both
     return float(beta_s[1]), float(r2_s), float(beta_l[1]), float(r2_l)
@@ -245,6 +251,7 @@ def _run_oster_regressions(
 # ======================================================================
 # McCrary (2008) Density Discontinuity Test
 # ======================================================================
+
 
 def mccrary_test(
     data: pd.DataFrame,
@@ -345,10 +352,18 @@ def mccrary_test(
     # --- Step 2: Local linear smoothing on each side ---
     # Fit local linear to (midpoint, density) within bandwidth of cutoff
     f_left, se_left = _local_linear_density(
-        mid_left, density_left, 0, bw, side='left',
+        mid_left,
+        density_left,
+        0,
+        bw,
+        side="left",
     )
     f_right, se_right = _local_linear_density(
-        mid_right, density_right, 0, bw, side='right',
+        mid_right,
+        density_right,
+        0,
+        bw,
+        side="right",
     )
 
     # Ensure positive densities
@@ -370,20 +385,20 @@ def mccrary_test(
     ci = (theta - z_crit * se_theta, theta + z_crit * se_theta)
 
     model_info = {
-        'density_left': f_left,
-        'density_right': f_right,
-        'log_density_ratio': theta,
-        'bandwidth': bw,
-        'n_bins': n_bins,
-        'bin_width': bin_w,
-        'cutoff': c,
-        'n_left': len(x_left),
-        'n_right': len(x_right),
+        "density_left": f_left,
+        "density_right": f_right,
+        "log_density_ratio": theta,
+        "bandwidth": bw,
+        "n_bins": n_bins,
+        "bin_width": bin_w,
+        "cutoff": c,
+        "n_left": len(x_left),
+        "n_right": len(x_right),
     }
 
     _result = CausalResult(
-        method='McCrary (2008) Density Test',
-        estimand='Log Density Ratio',
+        method="McCrary (2008) Density Test",
+        estimand="Log Density Ratio",
         estimate=theta,
         se=se_theta,
         pvalue=pvalue,
@@ -391,16 +406,20 @@ def mccrary_test(
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
-        _citation_key='mccrary',
+        _citation_key="mccrary",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.diagnostics.mccrary_test",
             params={
-                "x": x, "c": c, "bw": bw,
-                "n_bins": n_bins, "alpha": alpha,
+                "x": x,
+                "c": c,
+                "bw": bw,
+                "n_bins": n_bins,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -415,7 +434,7 @@ def _local_linear_density(
     densities: np.ndarray,
     target: float,
     bw: float,
-    side: str = 'left',
+    side: str = "left",
 ) -> Tuple[float, float]:
     """
     Local linear regression of bin densities on bin midpoints.
@@ -424,7 +443,7 @@ def _local_linear_density(
     Returns (density_estimate, standard_error).
     """
     # Use only bins within bandwidth
-    if side == 'left':
+    if side == "left":
         in_bw = (midpoints >= target - bw) & (midpoints < target)
     else:
         in_bw = (midpoints >= target) & (midpoints <= target + bw)
@@ -435,7 +454,9 @@ def _local_linear_density(
     if len(m) < 2:
         # Fall back: simple average of nearest bins
         if len(d) > 0:
-            return float(d.mean()), float(d.std() / np.sqrt(len(d))) if len(d) > 1 else 0.1
+            return float(d.mean()), (
+                float(d.std() / np.sqrt(len(d))) if len(d) > 1 else 0.1
+            )
         return 0.01, 0.1
 
     # Triangular kernel weights
@@ -455,7 +476,7 @@ def _local_linear_density(
         # SE from weighted residuals
         resid = d - X @ beta
         n_eff = len(m)
-        sigma2 = np.sum(w * resid ** 2) / max(np.sum(w) - 2, 1)
+        sigma2 = np.sum(w * resid**2) / max(np.sum(w) - 2, 1)
         try:
             XtWX_inv = np.linalg.inv(Xw.T @ Xw)
             se_hat = float(np.sqrt(sigma2 * XtWX_inv[0, 0]))
@@ -472,7 +493,7 @@ def _local_linear_density(
 # Citations
 # ======================================================================
 
-CausalResult._CITATIONS['oster'] = (
+CausalResult._CITATIONS["oster"] = (
     "@article{oster2019unobservable,\n"
     "  title={Unobservable Selection and Coefficient Stability: "
     "Theory and Evidence},\n"
@@ -486,7 +507,7 @@ CausalResult._CITATIONS['oster'] = (
     "}"
 )
 
-CausalResult._CITATIONS['mccrary'] = (
+CausalResult._CITATIONS["mccrary"] = (
     "@article{mccrary2008manipulation,\n"
     "  title={Manipulation of the Running Variable in the "
     "Regression Discontinuity Design: A Density Test},\n"

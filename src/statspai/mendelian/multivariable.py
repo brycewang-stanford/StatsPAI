@@ -27,10 +27,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 __all__ = [
-    "mr_multivariable", "mr_mediation", "mr_bma",
-    "MVMRResult", "MediationMRResult", "MRBMAResult",
+    "mr_multivariable",
+    "mr_mediation",
+    "mr_bma",
+    "MVMRResult",
+    "MediationMRResult",
+    "MRBMAResult",
 ]
 
 
@@ -42,6 +45,7 @@ __all__ = [
 @dataclass
 class MVMRResult:
     """Multivariable MR output."""
+
     exposures: List[str]
     # Columns: exposure, estimate, se, ci_low, ci_high, p_value.
     direct_effect: pd.DataFrame
@@ -68,6 +72,7 @@ class MVMRResult:
 @dataclass
 class MediationMRResult:
     """Two-step MR output."""
+
     exposure: str
     mediator: str
     outcome: str
@@ -100,6 +105,7 @@ class MediationMRResult:
 @dataclass
 class MRBMAResult:
     """MR-BMA (Bayesian Model Averaging) output."""
+
     exposures: List[str]
     marginal_inclusion: pd.Series  # P(exposure in the causal set)
     best_models: pd.DataFrame
@@ -136,9 +142,9 @@ def _ivw(
     beta_exposure: np.ndarray,
 ) -> float:
     """Inverse-variance-weighted estimator for a single exposure."""
-    w = 1.0 / (se_outcome ** 2)
+    w = 1.0 / (se_outcome**2)
     numerator = np.sum(w * beta_exposure * beta_outcome)
-    denominator = np.sum(w * beta_exposure ** 2)
+    denominator = np.sum(w * beta_exposure**2)
     return float(numerator / denominator)
 
 
@@ -216,8 +222,11 @@ def mr_multivariable(
     [@sanderson2019examination]
     """
     if exposures is None:
-        exposures = [c for c in snp_associations.columns
-                     if c.startswith("beta_") and c != outcome]
+        exposures = [
+            c
+            for c in snp_associations.columns
+            if c.startswith("beta_") and c != outcome
+        ]
     exposures = list(exposures)
     if len(exposures) < 2:
         raise ValueError(
@@ -226,9 +235,9 @@ def mr_multivariable(
         )
     _check_columns(snp_associations, [outcome, outcome_se] + exposures)
 
-    df = snp_associations.dropna(
-        subset=[outcome, outcome_se] + exposures
-    ).reset_index(drop=True)
+    df = snp_associations.dropna(subset=[outcome, outcome_se] + exposures).reset_index(
+        drop=True
+    )
     n = len(df)
     if n < len(exposures) + 5:
         raise ValueError(
@@ -239,7 +248,7 @@ def mr_multivariable(
     Y = df[outcome].to_numpy(dtype=float)
     se_y = df[outcome_se].to_numpy(dtype=float)
     X = df[list(exposures)].to_numpy(dtype=float)
-    w = 1.0 / (se_y ** 2)
+    w = 1.0 / (se_y**2)
     W = np.diag(w)
     # WLS: alpha_hat = (X' W X)^-1 X' W Y
     XtWX = X.T @ W @ X
@@ -247,7 +256,7 @@ def mr_multivariable(
     alpha_hat = np.linalg.solve(XtWX, XtWY)
     # Sandwich SE
     resid = Y - X @ alpha_hat
-    sigma2 = float(np.sum(w * resid ** 2) / max(n - len(exposures), 1))
+    sigma2 = float(np.sum(w * resid**2) / max(n - len(exposures), 1))
     var_alpha = sigma2 * np.linalg.inv(XtWX)
     se_alpha = np.sqrt(np.diag(var_alpha))
     z = stats.norm.ppf(1 - alpha / 2)
@@ -255,18 +264,18 @@ def mr_multivariable(
     for j, exp in enumerate(exposures):
         est = float(alpha_hat[j])
         se = float(se_alpha[j])
-        rows.append({
-            "exposure": exp,
-            "estimate": est,
-            "se": se,
-            "ci_low": est - z * se,
-            "ci_high": est + z * se,
-            "p_value": (
-                float(2 * (1 - stats.norm.cdf(abs(est) / se)))
-                if se > 0
-                else np.nan
-            ),
-        })
+        rows.append(
+            {
+                "exposure": exp,
+                "estimate": est,
+                "se": se,
+                "ci_low": est - z * se,
+                "ci_high": est + z * se,
+                "p_value": (
+                    float(2 * (1 - stats.norm.cdf(abs(est) / se))) if se > 0 else np.nan
+                ),
+            }
+        )
     direct = pd.DataFrame(rows)
 
     # Conditional F-stats (Sanderson-Windmeijer 2016).  For exposure j,
@@ -290,16 +299,14 @@ def mr_multivariable(
         # WLS: regress sqrt(w) * X[:, j] on sqrt(w) * X[:, others] (with
         # intercept) so the F-stat matches the MVMR weighting scheme.
         y_j = sqrt_w * X[:, j]
-        X_o = sqrt_w[:, None] * np.column_stack([
-            np.ones(n), X[:, others]
-        ])
+        X_o = sqrt_w[:, None] * np.column_stack([np.ones(n), X[:, others]])
         coef, *_ = np.linalg.lstsq(X_o, y_j, rcond=None)
         pred = X_o @ coef
         resid_j = y_j - pred
         # SS explained by full model (weighted): SS_total_centered − SS_resid
         y_mean = float(np.mean(y_j))
         ss_total = float(((y_j - y_mean) ** 2).sum())
-        ss_resid = float((resid_j ** 2).sum())
+        ss_resid = float((resid_j**2).sum())
         # F-stat for "X_j has non-zero explanatory power given others":
         #   F = (SS_total - SS_resid) / 1  ÷  (SS_resid / df2)
         df1 = 1
@@ -392,8 +399,14 @@ def mr_mediation(
     instrumental variables to investigate mediation in causal pathways."
     IJE 44(2). [@burgess2015network]
     """
-    cols = [beta_exposure, se_exposure, beta_mediator, se_mediator,
-            beta_outcome, se_outcome]
+    cols = [
+        beta_exposure,
+        se_exposure,
+        beta_mediator,
+        se_mediator,
+        beta_outcome,
+        se_outcome,
+    ]
     _check_columns(snp_associations, cols)
     df = snp_associations.dropna(subset=cols).reset_index(drop=True)
     n = len(df)
@@ -407,21 +420,21 @@ def mr_mediation(
     seY = df[se_outcome].to_numpy(dtype=float)
 
     # Total effect
-    w = 1.0 / seY ** 2
-    total = float(np.sum(w * bX * bY) / np.sum(w * bX ** 2))
-    total_se = float(np.sqrt(1.0 / np.sum(w * bX ** 2)))
+    w = 1.0 / seY**2
+    total = float(np.sum(w * bX * bY) / np.sum(w * bX**2))
+    total_se = float(np.sqrt(1.0 / np.sum(w * bX**2)))
 
     # Direct effect via MVMR on [β_X, β_M]
-    mvmr_df = df[
-        [beta_outcome, se_outcome, beta_exposure, beta_mediator]
-    ].rename(
+    mvmr_df = df[[beta_outcome, se_outcome, beta_exposure, beta_mediator]].rename(
         columns={
             beta_exposure: "beta_x",
             beta_mediator: "beta_m",
         }
     )
     mv = mr_multivariable(
-        mvmr_df, outcome=beta_outcome, outcome_se=se_outcome,
+        mvmr_df,
+        outcome=beta_outcome,
+        outcome_se=se_outcome,
         exposures=["beta_x", "beta_m"],
     )
     direct = float(
@@ -439,14 +452,19 @@ def mr_mediation(
 
     indirect = total - direct
     # Delta-method SE (approx): Var(A - B) = Var(A) + Var(B) (ignoring cov).
-    indirect_se = float(np.sqrt(total_se ** 2 + direct_se ** 2))
+    indirect_se = float(np.sqrt(total_se**2 + direct_se**2))
     prop_mediated = (indirect / total) if abs(total) > 1e-12 else np.nan
 
     return MediationMRResult(
-        exposure=exposure_name, mediator=mediator_name, outcome=outcome_name,
-        total_effect=total, total_effect_se=total_se,
-        direct_effect=direct, direct_effect_se=direct_se,
-        indirect_effect=indirect, indirect_effect_se=indirect_se,
+        exposure=exposure_name,
+        mediator=mediator_name,
+        outcome=outcome_name,
+        total_effect=total,
+        total_effect_se=total_se,
+        direct_effect=direct,
+        direct_effect_se=direct_se,
+        indirect_effect=indirect,
+        indirect_effect_se=indirect_se,
         proportion_mediated=prop_mediated,
     )
 
@@ -527,7 +545,8 @@ def mr_bma(
     """
     if exposures is None:
         exposures = [
-            c for c in snp_associations.columns
+            c
+            for c in snp_associations.columns
             if c.startswith("beta_") and c != outcome
         ]
     exposures = list(exposures)
@@ -542,16 +561,16 @@ def mr_bma(
     if max_model_size is None:
         max_model_size = k
     _check_columns(snp_associations, [outcome, outcome_se] + exposures)
-    df = snp_associations.dropna(
-        subset=[outcome, outcome_se] + exposures
-    ).reset_index(drop=True)
+    df = snp_associations.dropna(subset=[outcome, outcome_se] + exposures).reset_index(
+        drop=True
+    )
     n = len(df)
     if n < k + 5:
         raise ValueError(f"Need >= {k + 5} SNPs for MR-BMA with k={k}.")
     Y = df[outcome].to_numpy(dtype=float)
     se_y = df[outcome_se].to_numpy(dtype=float)
     X_all = df[list(exposures)].to_numpy(dtype=float)
-    w = 1.0 / se_y ** 2
+    w = 1.0 / se_y**2
     log_n = float(np.log(n))
 
     posterior_scores: List[Tuple[Tuple[int, ...], float, float]] = []
@@ -567,13 +586,12 @@ def mr_bma(
             except np.linalg.LinAlgError:
                 continue
             resid = Y - X_m @ alpha
-            rss = float(np.sum(w * resid ** 2))
+            rss = float(np.sum(w * resid**2))
             # BIC (weighted-least-squares Gaussian approximation)
             bic = n * np.log(rss / n) + size * log_n
             # Beta-Binomial-style prior
-            log_prior = (
-                size * np.log(prior_inclusion)
-                + (k - size) * np.log(1.0 - prior_inclusion)
+            log_prior = size * np.log(prior_inclusion) + (k - size) * np.log(
+                1.0 - prior_inclusion
             )
             posterior_scores.append((combo, bic, log_prior))
 
@@ -597,12 +615,14 @@ def mr_bma(
     rows = []
     for i in best_idx:
         combo = posterior_scores[i][0]
-        rows.append({
-            "model": "+".join(exposures[j] for j in combo),
-            "size": len(combo),
-            "bic": posterior_scores[i][1],
-            "posterior_prob": float(probs[i]),
-        })
+        rows.append(
+            {
+                "model": "+".join(exposures[j] for j in combo),
+                "size": len(combo),
+                "bic": posterior_scores[i][1],
+                "posterior_prob": float(probs[i]),
+            }
+        )
     best_models = pd.DataFrame(rows)
 
     return MRBMAResult(

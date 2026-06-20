@@ -42,7 +42,6 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 __all__ = ["gardner_did", "did_2stage"]
 
 

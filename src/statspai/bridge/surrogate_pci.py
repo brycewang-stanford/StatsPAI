@@ -50,8 +50,11 @@ def surrogate_pci_bridge(
     seed : int
     """
     cov = list(covariates or [])
-    df = data[[long_term, treat] + list(short_term) + cov].dropna() \
+    df = (
+        data[[long_term, treat] + list(short_term) + cov]
+        .dropna()
         .reset_index(drop=True)
+    )
     Y = df[long_term].to_numpy(float)
     D = df[treat].to_numpy(int)
     S = df[list(short_term)].to_numpy(float)
@@ -70,6 +73,7 @@ def surrogate_pci_bridge(
         Xi: np.ndarray,
     ) -> float:
         from sklearn.linear_model import LinearRegression
+
         Z = np.hstack([Si, Xi])
         idx_c = Di == 0
         if idx_c.sum() < Z.shape[1] + 2:
@@ -114,6 +118,7 @@ def surrogate_pci_bridge(
         Xi: np.ndarray,
     ) -> float:
         from sklearn.linear_model import LinearRegression
+
         Z = np.hstack([Si, Xi]) if Xi.shape[1] > 0 else Si
         idx_t = Di == 1
         idx_c = Di == 0
@@ -148,12 +153,8 @@ def surrogate_pci_bridge(
     if np.isnan(att_pci):
         att_pci, se_p = att_surr, se_s
 
-    diff, diff_se, diff_p = _agreement_test(
-        att_surr, se_s, att_pci, se_p
-    )
-    est_dr, se_dr = _dr_combine(
-        att_surr, se_s, att_pci, se_p, diff_p
-    )
+    diff, diff_se, diff_p = _agreement_test(att_surr, se_s, att_pci, se_p)
+    est_dr, se_dr = _dr_combine(att_surr, se_s, att_pci, se_p, diff_p)
 
     return BridgeResult(
         kind="surrogate_pci",

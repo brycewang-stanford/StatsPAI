@@ -63,8 +63,8 @@ def front_door(
     treat: str,
     mediator: str,
     covariates: Optional[List[str]] = None,
-    mediator_type: str = 'auto',
-    integrate_by: str = 'marginal',
+    mediator_type: str = "auto",
+    integrate_by: str = "marginal",
     n_boot: int = 500,
     n_mc: int = 200,
     alpha: float = 0.05,
@@ -161,7 +161,7 @@ def front_door(
     >>> round(result.estimate, 2)  # front-door ATE, vs true 0.69
     0.84
     """
-    if integrate_by not in ('marginal', 'conditional'):
+    if integrate_by not in ("marginal", "conditional"):
         raise ValueError(
             f"integrate_by must be 'marginal' or 'conditional'; "
             f"got '{integrate_by}'"
@@ -187,9 +187,9 @@ def front_door(
             "the standard unconfoundedness assumption."
         )
 
-    if mediator_type == 'auto':
-        mediator_type = 'binary' if set(np.unique(M)).issubset({0, 1}) else 'continuous'
-    if mediator_type not in ('binary', 'continuous'):
+    if mediator_type == "auto":
+        mediator_type = "binary" if set(np.unique(M)).issubset({0, 1}) else "continuous"
+    if mediator_type not in ("binary", "continuous"):
         raise ValueError(
             f"mediator_type must be 'binary' or 'continuous'; got '{mediator_type}'"
         )
@@ -202,9 +202,7 @@ def front_door(
         M_: np.ndarray,
         X_: Optional[np.ndarray],
     ) -> Tuple[float, int]:
-        return _front_door_ate(
-            Y_, D_, M_, X_, mediator_type, n_mc, rng, integrate_by
-        )
+        return _front_door_ate(Y_, D_, M_, X_, mediator_type, n_mc, rng, integrate_by)
 
     point, point_logit_fallback = _point(Y, D, M, X)
 
@@ -268,37 +266,37 @@ def front_door(
     # When there are no covariates (or mediator is binary), the
     # marginal and conditional formulas coincide — record both the
     # user's request and what actually ran so the audit trail is clear.
-    if mediator_type == 'binary':
-        effective = 'n/a (binary mediator — closed-form sum)'
+    if mediator_type == "binary":
+        effective = "n/a (binary mediator — closed-form sum)"
     elif X is None:
-        effective = 'conditional (marginal ≡ conditional when X is empty)'
+        effective = "conditional (marginal ≡ conditional when X is empty)"
     else:
         effective = integrate_by
 
     model_info = {
-        'estimator': 'Front-door adjustment (Pearl 1995)',
-        'mediator': mediator,
-        'mediator_type': mediator_type,
-        'integrate_by': integrate_by,
-        'integrate_by_effective': effective,
-        'n_boot': n_boot,
-        'n_boot_failed': n_failed,
-        'n_boot_success': n_success,
-        'n_treated': int((D == 1).sum()),
-        'n_control': int((D == 0).sum()),
-        'covariates': covariates,
-        'mediator_model_degraded': bool(point_logit_fallback > 0),
-        'mediator_model_fallback_arms': int(point_logit_fallback),
-        'n_boot_mediator_fallback': int(n_boot_logit_fallback),
+        "estimator": "Front-door adjustment (Pearl 1995)",
+        "mediator": mediator,
+        "mediator_type": mediator_type,
+        "integrate_by": integrate_by,
+        "integrate_by_effective": effective,
+        "n_boot": n_boot,
+        "n_boot_failed": n_failed,
+        "n_boot_success": n_success,
+        "n_treated": int((D == 1).sum()),
+        "n_control": int((D == 0).sum()),
+        "covariates": covariates,
+        "mediator_model_degraded": bool(point_logit_fallback > 0),
+        "mediator_model_fallback_arms": int(point_logit_fallback),
+        "n_boot_mediator_fallback": int(n_boot_logit_fallback),
     }
     if n_failed > 0:
-        model_info['first_bootstrap_error'] = first_err
-    if mediator_type == 'continuous':
-        model_info['n_mc'] = n_mc
+        model_info["first_bootstrap_error"] = first_err
+    if mediator_type == "continuous":
+        model_info["n_mc"] = n_mc
 
     _result = CausalResult(
-        method='Front-door adjustment',
-        estimand='ATE',
+        method="Front-door adjustment",
+        estimand="ATE",
         estimate=float(point),
         se=se,
         pvalue=pvalue,
@@ -306,20 +304,25 @@ def front_door(
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
-        _citation_key='front_door',
+        _citation_key="front_door",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.front_door",
             params={
-                "y": y, "treat": treat, "mediator": mediator,
+                "y": y,
+                "treat": treat,
+                "mediator": mediator,
                 "covariates": list(covariates) if covariates else None,
                 "mediator_type": mediator_type,
                 "integrate_by": integrate_by,
-                "n_boot": n_boot, "n_mc": n_mc,
-                "alpha": alpha, "seed": seed,
+                "n_boot": n_boot,
+                "n_mc": n_mc,
+                "alpha": alpha,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -330,7 +333,8 @@ def front_door(
 
 
 def _ols_fit(
-    y: np.ndarray, X: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Minimal OLS with intercept; returns (beta, residuals)."""
     design = np.column_stack([np.ones(len(y)), X])
@@ -351,11 +355,13 @@ def _logit_fit(y: np.ndarray, X: np.ndarray) -> Any:
     (kept as a module-level name so it stays mockable in tests).
     """
     from ..core._glm_fit import safe_logit_fit
+
     return safe_logit_fit(y, X)
 
 
 def _logit_predict(fit: Any, X: np.ndarray, fallback: float) -> np.ndarray:
     from ..core._glm_fit import safe_logit_predict
+
     return np.asarray(safe_logit_predict(fit, X, fallback), dtype=float)
 
 
@@ -367,7 +373,7 @@ def _front_door_ate(
     mediator_type: str,
     n_mc: int,
     rng: np.random.Generator,
-    integrate_by: str = 'marginal',
+    integrate_by: str = "marginal",
 ) -> Tuple[float, int]:
     """
     Compute front-door ATE on a single (bootstrap or original) sample.
@@ -381,18 +387,16 @@ def _front_door_ate(
     # Build feature matrices for outcome and mediator regressions.
     feat_ym: np.ndarray
     if X is None:
-        feat_ym = M.reshape(-1, 1)            # outcome regression features: M
+        feat_ym = M.reshape(-1, 1)  # outcome regression features: M
     else:
-        feat_ym = np.column_stack([M, X])     # outcome regression: M, X
+        feat_ym = np.column_stack([M, X])  # outcome regression: M, X
 
     # Outcome model: Y ~ M (+ X) separately for D=0 and D=1, so we can
     # evaluate E[Y|D=d', M=m, X] at each (d', m, x).
     mask1 = D == 1
     mask0 = D == 0
     if mask1.sum() < 2 or mask0.sum() < 2:
-        raise RuntimeError(
-            "Insufficient support on D=0 or D=1 for outcome regression."
-        )
+        raise RuntimeError("Insufficient support on D=0 or D=1 for outcome regression.")
 
     beta_y1, _, _ = _ols_fit(Y[mask1], feat_ym[mask1])
     beta_y0, _, _ = _ols_fit(Y[mask0], feat_ym[mask0])
@@ -420,7 +424,7 @@ def _front_door_ate(
     # report a covariate-adjusted ATE that is actually unadjusted.
     n_logit_fallback = 0
 
-    if mediator_type == 'binary':
+    if mediator_type == "binary":
         # For each observation i, compute ATE contribution in closed form:
         #   ATE = E_x[ [P(M=1|D=1,x) - P(M=1|D=0,x)] * (μ(1) - μ(0)) ]
         # where μ(m) = p_d0 * E[Y|D=0,M=m,x] + p_d1 * E[Y|D=1,M=m,x].
@@ -487,7 +491,7 @@ def _front_door_ate(
     #   'marginal'     — Pearl (1995) aggregate: for each MC draw, both X and
     #                    M are re-sampled from the population, so the outer
     #                    expectation integrates over baseline covariates via MC.
-    if integrate_by == 'conditional' or X is None:
+    if integrate_by == "conditional" or X is None:
         # Per-observation MC: m draw uses unit's own (μ_d, σ_d); X stays at x_i
         X_rep = None if X is None else np.repeat(X, n_mc, axis=0)
         mean_m1_rep = np.repeat(mean_m1, n_mc)
@@ -530,7 +534,7 @@ def _front_door_ate(
 
 
 # Citation
-CausalResult._CITATIONS['front_door'] = (
+CausalResult._CITATIONS["front_door"] = (
     "@article{pearl1995causal,\n"
     "  title={Causal Diagrams for Empirical Research},\n"
     "  author={Pearl, Judea},\n"

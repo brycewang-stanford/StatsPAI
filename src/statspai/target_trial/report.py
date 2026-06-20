@@ -14,7 +14,6 @@ from typing import Literal, Optional
 from .protocol import TargetTrialProtocol
 from .emulate import TargetTrialResult
 
-
 __all__ = ["to_paper", "target_checklist", "TARGET_ITEMS"]
 
 ProtocolRow = tuple[str, str]
@@ -28,32 +27,60 @@ ProtocolRow = tuple[str, str]
 #: grouped by section. Labels follow the published supplementary checklist.
 TARGET_ITEMS = [
     # Title & abstract
-    ("1",  "Title",                 "Identify the study as a target-trial-emulation observational study."),
-    ("2",  "Abstract",              "Provide a structured abstract of the causal question and design."),
+    (
+        "1",
+        "Title",
+        "Identify the study as a target-trial-emulation observational study.",
+    ),
+    (
+        "2",
+        "Abstract",
+        "Provide a structured abstract of the causal question and design.",
+    ),
     # Introduction
-    ("3",  "Background / rationale", "State the causal question and the absence of a feasible RCT."),
-    ("4",  "Target trial specification", "Describe the target trial being emulated."),
+    (
+        "3",
+        "Background / rationale",
+        "State the causal question and the absence of a feasible RCT.",
+    ),
+    ("4", "Target trial specification", "Describe the target trial being emulated."),
     # Methods
-    ("5",  "Study design",          "Observational study emulating the target trial."),
-    ("6",  "Data source",           "Describe the data source and its provenance."),
-    ("7",  "Eligibility criteria",  "Eligibility criteria identical to the target trial."),
-    ("8",  "Treatment strategies",  "Define the treatment strategies being contrasted."),
-    ("9",  "Assignment procedures", "Describe how treatment is assigned (observational)."),
-    ("10", "Follow-up",             "Time zero, start and end of follow-up."),
-    ("11", "Outcome",               "Primary and secondary outcomes with measurement."),
-    ("12", "Causal contrast",       "Identify the contrast (ITT / per-protocol)."),
-    ("13", "Analysis plan",         "Estimation strategy aligning emulation with the target trial."),
-    ("14", "Variables",             "Confounders, effect modifiers, mediators."),
+    ("5", "Study design", "Observational study emulating the target trial."),
+    ("6", "Data source", "Describe the data source and its provenance."),
+    (
+        "7",
+        "Eligibility criteria",
+        "Eligibility criteria identical to the target trial.",
+    ),
+    ("8", "Treatment strategies", "Define the treatment strategies being contrasted."),
+    (
+        "9",
+        "Assignment procedures",
+        "Describe how treatment is assigned (observational).",
+    ),
+    ("10", "Follow-up", "Time zero, start and end of follow-up."),
+    ("11", "Outcome", "Primary and secondary outcomes with measurement."),
+    ("12", "Causal contrast", "Identify the contrast (ITT / per-protocol)."),
+    (
+        "13",
+        "Analysis plan",
+        "Estimation strategy aligning emulation with the target trial.",
+    ),
+    ("14", "Variables", "Confounders, effect modifiers, mediators."),
     # Results
-    ("15", "Participants",          "Numbers eligible, included, excluded (with reasons)."),
-    ("16", "Descriptive data",      "Baseline characteristics by treatment strategy."),
-    ("17", "Outcome data",          "Events / outcomes by strategy."),
-    ("18", "Main results",          "Primary causal-contrast estimate with 95% CI."),
-    ("19", "Other analyses",        "Subgroup, sensitivity, and secondary analyses."),
+    ("15", "Participants", "Numbers eligible, included, excluded (with reasons)."),
+    ("16", "Descriptive data", "Baseline characteristics by treatment strategy."),
+    ("17", "Outcome data", "Events / outcomes by strategy."),
+    ("18", "Main results", "Primary causal-contrast estimate with 95% CI."),
+    ("19", "Other analyses", "Subgroup, sensitivity, and secondary analyses."),
     # Discussion
-    ("20", "Discussion",            "Interpretation, limitations relative to the target trial."),
+    ("20", "Discussion", "Interpretation, limitations relative to the target trial."),
     # Other information
-    ("21", "Additional information", "Funding, registrations, data / code availability."),
+    (
+        "21",
+        "Additional information",
+        "Funding, registrations, data / code availability.",
+    ),
 ]
 
 
@@ -114,20 +141,25 @@ def target_checklist(
     est = f"{result.estimate:+.4f} (95% CI [{lo:+.4f}, {hi:+.4f}], SE {result.se:.4f})"
     # AUTO-filled mapping of item number → value.
     auto = {
-        "4":  f"Target trial: {p.assignment or 'observational emulation'}; "
-              f"contrast = {p.causal_contrast}.",
-        "6":  "(Specify data source — e.g. insurance claims / EHR / registry.)",
-        "7":  _stringify(p.eligibility),
-        "8":  ", ".join(p.treatment_strategies),
-        "9":  p.assignment,
+        "4": f"Target trial: {p.assignment or 'observational emulation'}; "
+        f"contrast = {p.causal_contrast}.",
+        "6": "(Specify data source — e.g. insurance claims / EHR / registry.)",
+        "7": _stringify(p.eligibility),
+        "8": ", ".join(p.treatment_strategies),
+        "9": p.assignment,
         "10": f"Time zero: {p.time_zero}; follow-up end: {p.followup_end}.",
         "11": p.outcome,
         "12": p.causal_contrast,
         "13": p.analysis_plan,
         "14": (
-            "Baseline: " + (", ".join(p.baseline_covariates) if p.baseline_covariates else "—")
+            "Baseline: "
+            + (", ".join(p.baseline_covariates) if p.baseline_covariates else "—")
             + "; time-varying: "
-            + (", ".join(p.time_varying_covariates) if p.time_varying_covariates else "—")
+            + (
+                ", ".join(p.time_varying_covariates)
+                if p.time_varying_covariates
+                else "—"
+            )
         ),
         "15": (
             f"n eligible = {result.n_eligible}; "
@@ -417,28 +449,35 @@ def _render_jama(
     lines.append("## Structured Abstract  \\[TARGET #2\\]")
     lines.append("")
     abstract = [
-        ("Importance",
-         _placeholder(background,
-                      "State the clinical / policy importance of the causal question.")),
-        ("Objective",
-         f"To emulate a target trial comparing "
-         f"{', '.join(p.treatment_strategies)} on {p.outcome}."),
-        ("Design, Setting, and Participants",
-         f"Observational emulation via {p.analysis_plan}. "
-         f"Eligibility: {_stringify(p.eligibility)}. "
-         f"Time zero: {p.time_zero}; follow-up through {p.followup_end}. "
-         f"{result.n_eligible} of {total} screened participants were "
-         f"included; {result.n_excluded_immortal} excluded to prevent "
-         f"immortal-time bias."),
-        ("Exposures",
-         "; ".join(p.treatment_strategies)),
-        ("Main Outcomes and Measures",
-         p.outcome),
-        ("Results",
-         f"The estimated {p.causal_contrast} effect was {est_str}."),
-        ("Conclusions and Relevance",
-         "(Supply conclusions grounded in the causal estimand and its "
-         "sensitivity to protocol assumptions.)"),
+        (
+            "Importance",
+            _placeholder(
+                background,
+                "State the clinical / policy importance of the causal question.",
+            ),
+        ),
+        (
+            "Objective",
+            f"To emulate a target trial comparing "
+            f"{', '.join(p.treatment_strategies)} on {p.outcome}.",
+        ),
+        (
+            "Design, Setting, and Participants",
+            f"Observational emulation via {p.analysis_plan}. "
+            f"Eligibility: {_stringify(p.eligibility)}. "
+            f"Time zero: {p.time_zero}; follow-up through {p.followup_end}. "
+            f"{result.n_eligible} of {total} screened participants were "
+            f"included; {result.n_excluded_immortal} excluded to prevent "
+            f"immortal-time bias.",
+        ),
+        ("Exposures", "; ".join(p.treatment_strategies)),
+        ("Main Outcomes and Measures", p.outcome),
+        ("Results", f"The estimated {p.causal_contrast} effect was {est_str}."),
+        (
+            "Conclusions and Relevance",
+            "(Supply conclusions grounded in the causal estimand and its "
+            "sensitivity to protocol assumptions.)",
+        ),
     ]
     for label, body in abstract:
         lines.append(f"**{label}.** {body}")
@@ -449,11 +488,13 @@ def _render_jama(
     # ------------------------------------------------------------------ #
     lines.append("## Introduction  \\[TARGET #3–4\\]")
     lines.append("")
-    lines.append(_placeholder(
-        background,
-        "Motivate the causal question, explain why a randomized trial is "
-        "infeasible, and describe the target trial being emulated.",
-    ))
+    lines.append(
+        _placeholder(
+            background,
+            "Motivate the causal question, explain why a randomized trial is "
+            "infeasible, and describe the target trial being emulated.",
+        )
+    )
     lines.append("")
     lines.append("### Target Trial Specification")
     lines.append("")
@@ -474,24 +515,35 @@ def _render_jama(
     lines.append("")
     method_rows = [
         ("Study design (5)", "Observational cohort emulating the target trial."),
-        ("Data source (6)", _placeholder(
-            None,
-            "Specify the database / registry / EHR, accrual window, and "
-            "data linkage procedures.")),
+        (
+            "Data source (6)",
+            _placeholder(
+                None,
+                "Specify the database / registry / EHR, accrual window, and "
+                "data linkage procedures.",
+            ),
+        ),
         ("Eligibility (7)", _stringify(p.eligibility)),
         ("Treatment strategies (8)", "; ".join(p.treatment_strategies)),
         ("Assignment procedures (9)", p.assignment),
-        ("Time zero & follow-up (10)",
-         f"Time zero = {p.time_zero}; follow-up end = {p.followup_end}."),
+        (
+            "Time zero & follow-up (10)",
+            f"Time zero = {p.time_zero}; follow-up end = {p.followup_end}.",
+        ),
         ("Outcome (11)", p.outcome),
         ("Causal contrast (12)", p.causal_contrast),
         ("Analysis plan (13)", p.analysis_plan),
-        ("Variables (14)",
-         "Baseline: "
-         + (", ".join(p.baseline_covariates) if p.baseline_covariates else "—")
-         + "; time-varying: "
-         + (", ".join(p.time_varying_covariates)
-            if p.time_varying_covariates else "—")),
+        (
+            "Variables (14)",
+            "Baseline: "
+            + (", ".join(p.baseline_covariates) if p.baseline_covariates else "—")
+            + "; time-varying: "
+            + (
+                ", ".join(p.time_varying_covariates)
+                if p.time_varying_covariates
+                else "—"
+            ),
+        ),
     ]
     lines.append("| Component | Specification |")
     lines.append("|---|---|")
@@ -542,12 +594,14 @@ def _render_jama(
     # ------------------------------------------------------------------ #
     lines.append("## Discussion  \\[TARGET #20\\]")
     lines.append("")
-    lines.append(_placeholder(
-        limitations,
-        "Interpret the estimate in light of (a) residual confounding, "
-        "(b) positivity violations, (c) imperfect measurement of time-"
-        "varying covariates, and (d) any known emulation-vs-trial gaps.",
-    ))
+    lines.append(
+        _placeholder(
+            limitations,
+            "Interpret the estimate in light of (a) residual confounding, "
+            "(b) positivity violations, (c) imperfect measurement of time-"
+            "varying covariates, and (d) any known emulation-vs-trial gaps.",
+        )
+    )
     lines.append("")
 
     # ------------------------------------------------------------------ #

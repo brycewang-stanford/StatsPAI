@@ -98,7 +98,7 @@ def sensemakr(
     Z_full = np.column_stack([np.ones(n), D, X])
     beta_full = np.linalg.lstsq(Z_full, Y, rcond=None)[0]
     resid_full = Y - Z_full @ beta_full
-    rss_full = np.sum(resid_full ** 2)
+    rss_full = np.sum(resid_full**2)
     k_full = Z_full.shape[1]
 
     # Treatment coefficient and SE
@@ -132,42 +132,47 @@ def sensemakr(
         r2_yv = _partial_r2_of(Y, var, df, controls, treat=treat)
         r2_dv = _partial_r2_of(D, var, df, controls, treat=None)
         r2dz_x, r2yz_dx = _sensemakr_bound_scale(r2_dv, r2_yv)
-        bench_rows.append({
-            'variable': var,
-            'partial_r2_Y': round(r2_yv, 4),
-            'partial_r2_D': round(r2_dv, 4),
-            'r2dz_x': float(r2dz_x),
-            'r2yz_dx': float(r2yz_dx),
-        })
+        bench_rows.append(
+            {
+                "variable": var,
+                "partial_r2_Y": round(r2_yv, 4),
+                "partial_r2_D": round(r2_dv, 4),
+                "r2dz_x": float(r2dz_x),
+                "r2yz_dx": float(r2yz_dx),
+            }
+        )
 
     bench_df = pd.DataFrame(bench_rows) if bench_rows else pd.DataFrame()
 
     # --- Interpretation ---
     if rv_qa > 0.10:
         robustness = "ROBUST"
-        detail = (f"An unobserved confounder would need to explain "
-                  f">{rv_qa:.0%} of the residual variance of both "
-                  f"treatment and outcome to render the result insignificant.")
+        detail = (
+            f"An unobserved confounder would need to explain "
+            f">{rv_qa:.0%} of the residual variance of both "
+            f"treatment and outcome to render the result insignificant."
+        )
     elif rv_qa > 0.01:
         robustness = "MODERATELY ROBUST"
-        detail = (f"An unobserved confounder explaining {rv_qa:.0%} of "
-                  f"residual variance would suffice to make result insignificant.")
+        detail = (
+            f"An unobserved confounder explaining {rv_qa:.0%} of "
+            f"residual variance would suffice to make result insignificant."
+        )
     else:
         robustness = "FRAGILE"
         detail = "Even a weak confounder could invalidate this result."
 
     return {
-        'beta_treat': beta_treat,
-        'se_treat': se_treat,
-        't_treat': float(t_treat),
-        'partial_r2_yd': float(partial_r2_yd),
-        'rv_q': rv_q,
-        'rv_qa': rv_qa,
-        'robustness': robustness,
-        'benchmark_table': bench_df,
-        'interpretation': (
-            f"{robustness}: RV_q = {rv_q:.1%}, "
-            f"RV_{{q,α}} = {rv_qa:.1%}. {detail}"
+        "beta_treat": beta_treat,
+        "se_treat": se_treat,
+        "t_treat": float(t_treat),
+        "partial_r2_yd": float(partial_r2_yd),
+        "rv_q": rv_q,
+        "rv_qa": rv_qa,
+        "robustness": robustness,
+        "benchmark_table": bench_df,
+        "interpretation": (
+            f"{robustness}: RV_q = {rv_q:.1%}, " f"RV_{{q,α}} = {rv_qa:.1%}. {detail}"
         ),
     }
 
@@ -219,12 +224,11 @@ def _sensemakr_bound_scale(
     if denom <= 0:
         r2zxj_xd = 1.0
     else:
-        r2zxj_xd = kd * (r2dxj_x ** 2) / denom
+        r2zxj_xd = kd * (r2dxj_x**2) / denom
     r2zxj_xd = float(np.clip(r2zxj_xd, 0.0, 1.0 - 1e-15))
 
-    r2yz_dx = (
-        ((np.sqrt(ky) + np.sqrt(r2zxj_xd)) / np.sqrt(1.0 - r2zxj_xd)) ** 2
-        * (r2yxj_dx / (1.0 - r2yxj_dx))
+    r2yz_dx = ((np.sqrt(ky) + np.sqrt(r2zxj_xd)) / np.sqrt(1.0 - r2zxj_xd)) ** 2 * (
+        r2yxj_dx / (1.0 - r2yxj_dx)
     )
     r2yz_dx = float(np.clip(r2yz_dx, 0.0, 1.0))
     return float(r2dz_x), r2yz_dx
@@ -251,10 +255,10 @@ def _robustness_value(
     if fqa < 0:
         return 0.0
 
-    rv_binding = 0.0 if fqa == 0 else 2.0 / (1.0 + np.sqrt(1.0 + 4.0 / (fqa ** 2)))
+    rv_binding = 0.0 if fqa == 0 else 2.0 / (1.0 + np.sqrt(1.0 + 4.0 / (fqa**2)))
 
-    fq2 = fq ** 2
-    f_crit2 = f_crit ** 2
+    fq2 = fq**2
+    f_crit2 = f_crit**2
     xf1, xf2 = (f_crit2, fq2) if invert else (fq2, f_crit2)
     xrv = (xf1 - xf2) / (1.0 + xf1) if xf1 > xf2 else 0.0
     is_xrv = f2 != 0 and fqa > 0 and f1 > 1.0 / f2
@@ -262,7 +266,7 @@ def _robustness_value(
 
 
 # Citation
-CausalResult._CITATIONS['sensemakr'] = (
+CausalResult._CITATIONS["sensemakr"] = (
     "@article{cinelli2020making,\n"
     "  title={Making Sense of Sensitivity: Extending Omitted Variable Bias},\n"
     "  author={Cinelli, Carlos and Hazlett, Chad},\n"

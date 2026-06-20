@@ -29,10 +29,11 @@ from sklearn.tree import DecisionTreeClassifier
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 __all__ = [
-    "sharp_ope_unobserved", "causal_policy_forest",
-    "SharpOPEResult", "CausalPolicyForestResult",
+    "sharp_ope_unobserved",
+    "causal_policy_forest",
+    "SharpOPEResult",
+    "CausalPolicyForestResult",
 ]
 
 _OPE_ALTERNATIVES = [
@@ -112,27 +113,31 @@ def _normalize_covariates(covariates: Sequence[str] | str) -> List[str]:
 @dataclass
 class SharpOPEResult:
     """Output of :func:`sharp_ope_unobserved`."""
+
     gamma: float
-    point_estimate: float     # the IPS point estimate
+    point_estimate: float  # the IPS point estimate
     lower_bound: float
     upper_bound: float
     n: int
 
     def summary(self) -> str:
-        return "\n".join([
-            "Sharp OPE under Unobserved Confounding (Kallus-Mao-Uehara 2025)",
-            "=" * 64,
-            f"  Gamma (sensitivity) : {self.gamma}",
-            f"  IPS point estimate  : {self.point_estimate:+.6f}",
-            f"  Sharp lower bound   : {self.lower_bound:+.6f}",
-            f"  Sharp upper bound   : {self.upper_bound:+.6f}",
-            f"  n logged obs        : {self.n}",
-        ])
+        return "\n".join(
+            [
+                "Sharp OPE under Unobserved Confounding (Kallus-Mao-Uehara 2025)",
+                "=" * 64,
+                f"  Gamma (sensitivity) : {self.gamma}",
+                f"  IPS point estimate  : {self.point_estimate:+.6f}",
+                f"  Sharp lower bound   : {self.lower_bound:+.6f}",
+                f"  Sharp upper bound   : {self.upper_bound:+.6f}",
+                f"  n logged obs        : {self.n}",
+            ]
+        )
 
 
 @dataclass
 class CausalPolicyForestResult:
     """Output of :func:`causal_policy_forest`."""
+
     policy_value: float
     policy_value_se: float
     assignments: np.ndarray  # assigned action per unit
@@ -141,15 +146,17 @@ class CausalPolicyForestResult:
     depth: int
 
     def summary(self) -> str:
-        return "\n".join([
-            "Causal-Policy Forest (Kato 2025, arXiv:2512.22846)",
-            "=" * 60,
-            "  Policy value       : "
-            f"{self.policy_value:+.6f}  (SE {self.policy_value_se:.6f})",
-            f"  Trees              : {self.n_trees}",
-            f"  Max depth          : {self.depth}",
-            f"  Action assignments : {self.action_counts}",
-        ])
+        return "\n".join(
+            [
+                "Causal-Policy Forest (Kato 2025, arXiv:2512.22846)",
+                "=" * 60,
+                "  Policy value       : "
+                f"{self.policy_value:+.6f}  (SE {self.policy_value_se:.6f})",
+                f"  Trees              : {self.n_trees}",
+                f"  Max depth          : {self.depth}",
+                f"  Action assignments : {self.action_counts}",
+            ]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -239,8 +246,9 @@ def sharp_ope_unobserved(
     R = data[rewards].to_numpy(dtype=float)
     e_hat = data[logging_prob].to_numpy(dtype=float)
     pi = data[target_prob].to_numpy(dtype=float)
-    if not (np.isfinite(R).all() and np.isfinite(e_hat).all()
-            and np.isfinite(pi).all()):
+    if not (
+        np.isfinite(R).all() and np.isfinite(e_hat).all() and np.isfinite(pi).all()
+    ):
         raise _ope_contract_error(
             "sharp_ope_unobserved requires finite rewards and probabilities.",
             diagnostics={
@@ -291,12 +299,15 @@ def sharp_ope_unobserved(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.ope.sharp_ope_unobserved",
             params={
-                "actions": actions, "rewards": rewards,
-                "logging_prob": logging_prob, "target_prob": target_prob,
+                "actions": actions,
+                "rewards": rewards,
+                "logging_prob": logging_prob,
+                "target_prob": target_prob,
                 "gamma": gamma,
             },
             data=data,
@@ -467,14 +478,18 @@ def causal_policy_forest(
         if mask.sum() < 5:
             continue
         reg = GradientBoostingRegressor(
-            n_estimators=80, max_depth=3, random_state=random_state,
+            n_estimators=80,
+            max_depth=3,
+            random_state=random_state,
         )
         reg.fit(X[mask], R[mask])
         m_hat[:, a] = reg.predict(X)
     # One-vs-rest classifier for e_a
     if n_actions <= 10:
         clf = GradientBoostingClassifier(
-            n_estimators=80, max_depth=3, random_state=random_state,
+            n_estimators=80,
+            max_depth=3,
+            random_state=random_state,
         )
         clf.fit(X, A)
         probs = clf.predict_proba(X)
@@ -502,7 +517,8 @@ def causal_policy_forest(
     for b in range(n_trees):
         sample_idx = rng.choice(n, size=n_sub, replace=False)
         clf = DecisionTreeClassifier(
-            max_depth=depth, random_state=random_state + b,
+            max_depth=depth,
+            random_state=random_state + b,
         )
         clf.fit(X[sample_idx], labels[sample_idx])
         preds[b] = clf.predict(X)

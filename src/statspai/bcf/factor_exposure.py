@@ -35,7 +35,6 @@ import pandas as pd
 from .bcf import bcf as _bcf_binary
 from .._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["bcf_factor_exposure", "BCFFactorExposureResult"]
 
 
@@ -103,9 +102,7 @@ class BCFFactorExposureResult(ResultProtocolMixin):
         return "\n".join(lines)
 
 
-def _svd_factors(
-    Z: np.ndarray, n_factors: int
-) -> tuple:
+def _svd_factors(Z: np.ndarray, n_factors: int) -> tuple:
     """PCA via SVD: return (scores, loadings, explained_var_ratio).
 
     ``scores`` is (n, K); ``loadings`` is (p, K); columns are orthonormal
@@ -115,8 +112,8 @@ def _svd_factors(
     U, s, Vt = np.linalg.svd(Z_c, full_matrices=False)
     K = min(n_factors, len(s))
     scores = U[:, :K] * s[:K]  # n × K
-    loadings = Vt[:K].T        # p × K
-    total_var = float((s ** 2).sum())
+    loadings = Vt[:K].T  # p × K
+    total_var = float((s**2).sum())
     if total_var > 0:
         evr = (s[:K] ** 2) / total_var
     else:
@@ -228,9 +225,7 @@ def bcf_factor_exposure(
     else:
         if isinstance(loadings, pd.DataFrame):
             if list(loadings.index) != list(exposures):
-                raise ValueError(
-                    "loadings.index must equal `exposures` list."
-                )
+                raise ValueError("loadings.index must equal `exposures` list.")
             L = loadings.to_numpy(dtype=float)
             factor_names = list(loadings.columns)
         else:
@@ -243,10 +238,12 @@ def bcf_factor_exposure(
             factor_names = [f"F{k + 1}" for k in range(L.shape[1])]
         Z_c = Z - Z.mean(axis=0, keepdims=True)
         scores = Z_c @ L  # n × K
-        evr = np.array([
-            float(np.var(scores[:, k]) / max(np.sum(np.var(Z_c, axis=0)), 1e-12))
-            for k in range(scores.shape[1])
-        ])
+        evr = np.array(
+            [
+                float(np.var(scores[:, k]) / max(np.sum(np.var(Z_c, axis=0)), 1e-12))
+                for k in range(scores.shape[1])
+            ]
+        )
 
     loadings_df = pd.DataFrame(L, index=list(exposures), columns=factor_names)
     scores_df = pd.DataFrame(scores, index=data.index, columns=factor_names)
@@ -273,7 +270,9 @@ def bcf_factor_exposure(
         sub = data.copy()
         sub["__Fk__"] = T
         step = _bcf_binary(
-            sub, y=y, treat="__Fk__",
+            sub,
+            y=y,
+            treat="__Fk__",
             covariates=list(covariates),
             n_trees_mu=n_trees_mu,
             n_trees_tau=n_trees_tau,
@@ -290,19 +289,22 @@ def bcf_factor_exposure(
             if sd > 0:
                 est_k /= sd
                 se_k /= sd
-        records.append({
-            "factor": fname,
-            "explained_var_ratio": float(evr[k]),
-            "ate": est_k,
-            "se": se_k,
-            "ci_lower": est_k - 1.96 * se_k,
-            "ci_upper": est_k + 1.96 * se_k,
-        })
+        records.append(
+            {
+                "factor": fname,
+                "explained_var_ratio": float(evr[k]),
+                "ate": est_k,
+                "se": se_k,
+                "ci_lower": est_k - 1.96 * se_k,
+                "ci_upper": est_k + 1.96 * se_k,
+            }
+        )
         total_ate += est_k
-        total_var += se_k ** 2
+        total_var += se_k**2
 
     per_factor = pd.DataFrame(records).set_index("factor")
     from scipy.stats import norm as _norm
+
     z = _norm.ppf(1 - alpha / 2)
     total_se = float(np.sqrt(max(total_var, 0.0)))
     total_ci = (total_ate - z * total_se, total_ate + z * total_se)

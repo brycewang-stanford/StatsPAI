@@ -24,7 +24,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any
 
-
 NodeInput = str | Iterable[str] | None
 NodeSet = set[str]
 
@@ -87,7 +86,8 @@ def rule1(
     mutilated = _bar(dag, into=X)
     ok = _d_separated(mutilated, Y, Z, X | W)
     reason = (
-        "(Y ⊥ Z | X,W) in G_{bar X}" if ok
+        "(Y ⊥ Z | X,W) in G_{bar X}"
+        if ok
         else "Y and Z are NOT d-separated given X,W in G_{bar X}"
     )
     transformed = (
@@ -130,7 +130,8 @@ def rule2(
     mutilated = _bar(_underline(dag, out_of=Z), into=X)
     ok = _d_separated(mutilated, Y, Z, X | W)
     reason = (
-        "(Y ⊥ Z | X,W) in G_{bar X, underline Z}" if ok
+        "(Y ⊥ Z | X,W) in G_{bar X, underline Z}"
+        if ok
         else "Y and Z not d-separated in G_{bar X, underline Z}"
     )
     transformed = (
@@ -178,7 +179,8 @@ def rule3(
     ok = _d_separated(mutilated, Y, Z, X | W)
     reason = (
         f"(Y ⊥ Z | X,W) in G_{{bar X, bar Z(W)}}, Z(W) = {sorted(Z_W)}"
-        if ok else "Y,Z not d-separated in G_{bar X, bar Z(W)}"
+        if ok
+        else "Y,Z not d-separated in G_{bar X, bar Z(W)}"
     )
     transformed = (
         f"P({_s(Y)} | do({_s(X)}), {_s(W)})"
@@ -223,9 +225,11 @@ def apply_rules(
 #  Graph mutilation helpers
 # --------------------------------------------------------------------------- #
 
+
 def _bar(dag: Any, into: Iterable[str]) -> Any:
     """G_{bar S}: remove all edges INTO nodes in S."""
     from .graph import DAG as _DAG
+
     S = set(into)
     new = _DAG()
     new._nodes = set(dag._nodes)
@@ -240,6 +244,7 @@ def _bar(dag: Any, into: Iterable[str]) -> Any:
 def _underline(dag: Any, out_of: Iterable[str]) -> Any:
     """G_{underline S}: remove all edges OUT of nodes in S."""
     from .graph import DAG as _DAG
+
     S = set(out_of)
     new = _DAG()
     new._nodes = set(dag._nodes)
@@ -343,6 +348,7 @@ def _standardize(
         if isinstance(s, str):
             return {s}
         return set(s)
+
     return _mk(Y), _mk(X), _mk(Z), _mk(W)
 
 

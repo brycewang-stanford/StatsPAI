@@ -46,6 +46,7 @@ def __getattr__(name: str) -> Any:
     """Load sklearn-backed sharp OPE extensions only on first use."""
     if name in _SHARP_EXPORTS:
         from . import sharp_confounding as _sharp
+
         obj = getattr(_sharp, name)
         globals()[name] = obj
         return obj

@@ -100,7 +100,7 @@ def bjs_pretrend_joint(
     >>> jt['method']
     'cluster-bootstrap'
     """
-    es = result.model_info.get('event_study') if result.model_info else None
+    es = result.model_info.get("event_study") if result.model_info else None
     if es is None or len(es) == 0:
         raise ValueError(
             "result is missing an event-study table.  Re-run "
@@ -108,23 +108,21 @@ def bjs_pretrend_joint(
         )
 
     if horizon is None:
-        horizon = sorted(es['relative_time'].astype(int).tolist())
+        horizon = sorted(es["relative_time"].astype(int).tolist())
 
-    pre_rows = es[es['relative_time'] < 0].sort_values('relative_time')
+    pre_rows = es[es["relative_time"] < 0].sort_values("relative_time")
     if len(pre_rows) == 0:
         raise ValueError(
             "No pre-treatment horizons found in the event study — "
             "cannot run a pre-trend test."
         )
-    pre_k = pre_rows['relative_time'].astype(int).to_numpy()
-    pre_att = pre_rows['att'].astype(float).to_numpy()
+    pre_k = pre_rows["relative_time"].astype(int).to_numpy()
+    pre_att = pre_rows["att"].astype(float).to_numpy()
     K = len(pre_k)
 
     cluster_col = cluster if cluster is not None else group
     if cluster_col not in data.columns:
-        raise ValueError(
-            f"Cluster column '{cluster_col}' not found in data."
-        )
+        raise ValueError(f"Cluster column '{cluster_col}' not found in data.")
 
     clusters = pd.Index(data[cluster_col].unique())
     G = len(clusters)
@@ -146,9 +144,14 @@ def bjs_pretrend_joint(
         bdf = pd.concat(frames, ignore_index=True)
         try:
             r_b = did_imputation(
-                bdf, y=y, group=group, time=time,
-                first_treat=first_treat, controls=controls,
-                horizon=horizon, cluster=cluster_col,
+                bdf,
+                y=y,
+                group=group,
+                time=time,
+                first_treat=first_treat,
+                controls=controls,
+                horizon=horizon,
+                cluster=cluster_col,
             )
         except (ValueError, RuntimeError, np.linalg.LinAlgError):
             # Expected failures on pathological resamples (e.g. a draw
@@ -160,26 +163,26 @@ def bjs_pretrend_joint(
             last_unexpected = exc
             continue
 
-        es_b = r_b.model_info.get('event_study')
+        es_b = r_b.model_info.get("event_study")
         if es_b is None or len(es_b) == 0:
             continue
-        sub = es_b[es_b['relative_time'].isin(pre_k)].sort_values(
-            'relative_time',
+        sub = es_b[es_b["relative_time"].isin(pre_k)].sort_values(
+            "relative_time",
         )
         if len(sub) == K:
-            boot_mat[b] = sub['att'].to_numpy()
+            boot_mat[b] = sub["att"].to_numpy()
 
     valid = ~np.any(np.isnan(boot_mat), axis=1)
     if valid.sum() < K + 1:
         extra = (
             f"  Last unexpected error: {type(last_unexpected).__name__}: "
             f"{last_unexpected}"
-            if last_unexpected is not None else ""
+            if last_unexpected is not None
+            else ""
         )
         raise RuntimeError(
             f"Only {int(valid.sum())} / {n_boot} bootstrap replications "
-            f"succeeded — not enough to estimate the {K}×{K} covariance."
-            + extra
+            f"succeeded — not enough to estimate the {K}×{K} covariance." + extra
         )
     boot_valid = boot_mat[valid]
     # Centre around the bootstrap mean so the cov estimator is unbiased
@@ -196,10 +199,10 @@ def bjs_pretrend_joint(
     pval = float(1 - stats.chi2.cdf(W, K))
 
     return {
-        'statistic': W,
-        'df': int(K),
-        'pvalue': pval,
-        'method': 'cluster-bootstrap',
-        'n_boot': int(valid.sum()),
-        'pre_cov': cov,
+        "statistic": W,
+        "df": int(K),
+        "pvalue": pval,
+        "method": "cluster-bootstrap",
+        "n_boot": int(valid.sum()),
+        "pre_cov": cov,
     }

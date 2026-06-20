@@ -82,7 +82,7 @@ class MLBoundsResult:
     y_range: Tuple[float, float]
     manski_lower: float
     manski_upper: float
-    adaptive_lower: float   # raw plug-in (no CI inflation)
+    adaptive_lower: float  # raw plug-in (no CI inflation)
     adaptive_upper: float
     n_obs: int
     alpha: float
@@ -136,9 +136,15 @@ class MLBoundsResult:
 #  Core estimator
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _cross_fit_mu(
-    X: np.ndarray, Y: np.ndarray, T: np.ndarray, a: int,
-    base: BaseEstimator, n_splits: int, rng: np.random.Generator,
+    X: np.ndarray,
+    Y: np.ndarray,
+    T: np.ndarray,
+    a: int,
+    base: BaseEstimator,
+    n_splits: int,
+    rng: np.random.Generator,
 ) -> np.ndarray:
     """
     Cross-fit μ_a(x) = E[Y|A=a, X=x] on the full covariate matrix.
@@ -146,11 +152,12 @@ def _cross_fit_mu(
     """
     n = len(Y)
     pred: np.ndarray = np.full(n, np.nan)
-    kf = KFold(n_splits=n_splits, shuffle=True,
-               random_state=int(rng.integers(0, 2**31 - 1)))
+    kf = KFold(
+        n_splits=n_splits, shuffle=True, random_state=int(rng.integers(0, 2**31 - 1))
+    )
     idx_all = np.arange(n)
     for train_idx, test_idx in kf.split(idx_all):
-        mask = (T[train_idx] == a)
+        mask = T[train_idx] == a
         if mask.sum() < 5:
             # Too few arm-a units IN THIS FOLD — fall back to the
             # in-fold arm-a mean (preserving cross-fitting honesty
@@ -175,15 +182,18 @@ def _cross_fit_mu(
 
 
 def _cross_fit_pi(
-    X: np.ndarray, T: np.ndarray,
-    n_splits: int, rng: np.random.Generator,
+    X: np.ndarray,
+    T: np.ndarray,
+    n_splits: int,
+    rng: np.random.Generator,
     clip: Tuple[float, float] = (0.01, 0.99),
 ) -> np.ndarray:
     """Cross-fit propensity π(x) = P(A=1 | X=x)."""
     n = len(T)
     pred: np.ndarray = np.full(n, np.nan)
-    kf = KFold(n_splits=n_splits, shuffle=True,
-               random_state=int(rng.integers(0, 2**31 - 1)))
+    kf = KFold(
+        n_splits=n_splits, shuffle=True, random_state=int(rng.integers(0, 2**31 - 1))
+    )
     for train_idx, test_idx in kf.split(np.arange(n)):
         if np.unique(T[train_idx]).size < 2:
             pred[test_idx] = float(np.mean(T[train_idx]))
@@ -288,13 +298,15 @@ def ml_bounds(
         lname = type(base).__name__
     elif learner == "random_forest":
         base = RandomForestRegressor(
-            n_estimators=200, min_samples_leaf=5,
+            n_estimators=200,
+            min_samples_leaf=5,
             random_state=random_state,
         )
         lname = "RandomForestRegressor"
     elif learner == "gradient_boosting":
         base = GradientBoostingRegressor(
-            n_estimators=200, max_depth=3,
+            n_estimators=200,
+            max_depth=3,
             random_state=random_state,
         )
         lname = "GradientBoostingRegressor"
@@ -311,10 +323,8 @@ def ml_bounds(
     # ── Pointwise bounds on τ(x) (Kennedy et al. 2024 Eq. 2) ─────────
     # Observed-arm prediction is trusted; counterfactual is filled with
     # the worst-case support.
-    L_x = pi_x * mu1 + (1 - pi_x) * y_lo \
-        - (pi_x * y_hi + (1 - pi_x) * mu0)
-    U_x = pi_x * mu1 + (1 - pi_x) * y_hi \
-        - (pi_x * y_lo + (1 - pi_x) * mu0)
+    L_x = pi_x * mu1 + (1 - pi_x) * y_lo - (pi_x * y_hi + (1 - pi_x) * mu0)
+    U_x = pi_x * mu1 + (1 - pi_x) * y_hi - (pi_x * y_lo + (1 - pi_x) * mu0)
 
     adaptive_lower = float(np.mean(L_x))
     adaptive_upper = float(np.mean(U_x))
@@ -323,10 +333,16 @@ def ml_bounds(
     mu1_marg = float(np.mean(Y[T == 1])) if (T == 1).any() else y_lo
     mu0_marg = float(np.mean(Y[T == 0])) if (T == 0).any() else y_hi
     p_treated = float(np.mean(T))
-    manski_lower = (p_treated * mu1_marg + (1 - p_treated) * y_lo
-                    - (p_treated * y_hi + (1 - p_treated) * mu0_marg))
-    manski_upper = (p_treated * mu1_marg + (1 - p_treated) * y_hi
-                    - (p_treated * y_lo + (1 - p_treated) * mu0_marg))
+    manski_lower = (
+        p_treated * mu1_marg
+        + (1 - p_treated) * y_lo
+        - (p_treated * y_hi + (1 - p_treated) * mu0_marg)
+    )
+    manski_upper = (
+        p_treated * mu1_marg
+        + (1 - p_treated) * y_hi
+        - (p_treated * y_lo + (1 - p_treated) * mu0_marg)
+    )
 
     # ── Bootstrap inflation for finite-sample coverage ────────────────
     if n_bootstrap > 0:

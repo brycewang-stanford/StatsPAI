@@ -40,7 +40,6 @@ from scipy.special import logsumexp
 from . import _core as _fc
 from .sfa import FrontierResult, frontier as _cs_frontier
 
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -172,19 +171,35 @@ def xtfrontier(
 
     if model == "tfe":
         return _fit_tfe(
-            data, y, x, id_col=id, time_col=time,
-            dist=dist, cost=cost,
-            vce=vce, cluster=cluster,
+            data,
+            y,
+            x,
+            id_col=id,
+            time_col=time,
+            dist=dist,
+            cost=cost,
+            vce=vce,
+            cluster=cluster,
             bias_correct=bias_correct,
-            maxiter=maxiter, tol=tol, alpha=alpha,
+            maxiter=maxiter,
+            tol=tol,
+            alpha=alpha,
         )
     if model == "tre":
         return _fit_tre(
-            data, y, x, id_col=id, time_col=time,
-            dist=dist, cost=cost,
-            vce=vce, cluster=cluster,
+            data,
+            y,
+            x,
+            id_col=id,
+            time_col=time,
+            dist=dist,
+            cost=cost,
+            vce=vce,
+            cluster=cluster,
             n_quad=n_quad,
-            maxiter=maxiter, tol=tol, alpha=alpha,
+            maxiter=maxiter,
+            tol=tol,
+            alpha=alpha,
         )
     if model == "bc95":
         if emean is None:
@@ -192,19 +207,36 @@ def xtfrontier(
         # Default BC95 cluster is the panel id (standard for applied papers).
         cl = cluster if cluster is not None else (id if vce != "oim" else None)
         return _fit_bc95(
-            data, y, x, id_col=id, time_col=time, emean=emean,
-            cost=cost, maxiter=maxiter, tol=tol, alpha=alpha,
-            vce=vce, cluster=cl,
+            data,
+            y,
+            x,
+            id_col=id,
+            time_col=time,
+            emean=emean,
+            cost=cost,
+            maxiter=maxiter,
+            tol=tol,
+            alpha=alpha,
+            vce=vce,
+            cluster=cl,
         )
     if dist not in {"half-normal", "truncated-normal"}:
         raise ValueError(f"dist={dist!r} not supported for panel model.")
 
     return _fit_ti_tvd(
-        data, y, x,
-        id_col=id, time_col=time,
-        model=model, dist=dist, cost=cost,
-        vce=vce, cluster=cluster,
-        maxiter=maxiter, tol=tol, alpha=alpha,
+        data,
+        y,
+        x,
+        id_col=id,
+        time_col=time,
+        model=model,
+        dist=dist,
+        cost=cost,
+        vce=vce,
+        cluster=cluster,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
     )
 
 
@@ -294,8 +326,8 @@ def _fit_ti_tvd(
     if cluster is not None and vce == "oim":
         vce = "robust"
     # Default cluster for panel: the panel unit id (groups are units).
-    cluster_effective = cluster if cluster is not None else (
-        id_col if vce != "oim" else None
+    cluster_effective = (
+        cluster if cluster is not None else (id_col if vce != "oim" else None)
     )
     sign = 1 if cost else -1
     has_mu = dist == "truncated-normal"
@@ -475,8 +507,8 @@ def _fit_ti_tvd(
     bounds = []
     for _ in range(k_beta):
         bounds.append((-1e6, 1e6))
-    bounds.append((-12.0, 5.0))   # ln_sigma_v
-    bounds.append((-12.0, 5.0))   # ln_sigma_u
+    bounds.append((-12.0, 5.0))  # ln_sigma_v
+    bounds.append((-12.0, 5.0))  # ln_sigma_u
     if has_mu:
         bounds.append((-50.0, 50.0))
     if has_eta:
@@ -500,10 +532,12 @@ def _fit_ti_tvd(
     # highest log-likelihood. This closes the gap to Stata's
     # xtfrontier ti on the parity DGP (tests/r_parity/29_panel_sfa).
     if model == "ti" and not (has_mu or has_eta):
-        for alt_ln_su in (np.log(sigma0 * 0.25),
-                          np.log(sigma0 * 1.0),
-                          np.log(sigma0 * 2.0),
-                          np.log(max(sigma0, 0.5) * 2.5)):
+        for alt_ln_su in (
+            np.log(sigma0 * 0.25),
+            np.log(sigma0 * 1.0),
+            np.log(sigma0 * 2.0),
+            np.log(max(sigma0, 0.5) * 2.5),
+        ):
             alt_theta0 = theta0.copy()
             alt_theta0[idx_ln_su] = float(alt_ln_su)
             try:
@@ -546,7 +580,7 @@ def _fit_ti_tvd(
             OPG = group_scores.T @ group_scores
             vcov = _fc.safe_invert_hessian(OPG)
         else:  # robust or cluster
-            if (cluster_effective is None or cluster_effective == id_col):
+            if cluster_effective is None or cluster_effective == id_col:
                 # Groups already = panel units; score summation is identity.
                 vcov = _fc.robust_vcov(H, group_scores, cluster_idx=None)
             else:
@@ -635,13 +669,14 @@ def _fit_ti_tvd(
             "bic": float(-2.0 * ll_val + np.log(n) * k_total),
             "sigma_u": sigma_u,
             "sigma_v": sigma_v,
-            "efficiency_bc": TE_bc_obs,            # per observation
+            "efficiency_bc": TE_bc_obs,  # per observation
             "efficiency_jlms": TE_jlms_obs,
             "inefficiency_jlms": E_u_obs,
             "efficiency_bc_unit": pd.Series(TE_bc_i, index=unique_ids, name="te_bc"),
             "efficiency_jlms_unit": pd.Series(
                 np.clip(np.exp(-E_u_i), 0.0, 1.0),
-                index=unique_ids, name="te_jlms",
+                index=unique_ids,
+                name="te_jlms",
             ),
             "unit_ids": np.asarray(unique_ids),
             "group_idx": group_idx,
@@ -761,6 +796,7 @@ def _fit_tfe(
     min_t2 = int(t_per_unit_2.min()) if len(t_per_unit_2) else 0
     if min_t1 < 2 or min_t2 < 2:
         import warnings as _warnings
+
         _warnings.warn(
             f"bias_correct=True: at least one unit has T_i<2 in a "
             f"half-panel (min_T first={min_t1}, second={min_t2}); "
@@ -769,20 +805,36 @@ def _fit_tfe(
             RuntimeWarning,
             stacklevel=2,
         )
-        res.model_info["bias_correct"] = (
-            "skipped (degenerate half-panel, min_T<2)"
-        )
+        res.model_info["bias_correct"] = "skipped (degenerate half-panel, min_T<2)"
         return res
 
     df1 = df_ext[mask1.values].reset_index(drop=True)
     df2 = df_ext[mask2.values].reset_index(drop=True)
     # Refit on each half.
-    res1 = _cs_frontier(df1, y=y, x=extended_x, dist=dist, cost=cost,
-                        vce="oim", cluster=None,
-                        maxiter=maxiter, tol=tol, alpha=alpha)
-    res2 = _cs_frontier(df2, y=y, x=extended_x, dist=dist, cost=cost,
-                        vce="oim", cluster=None,
-                        maxiter=maxiter, tol=tol, alpha=alpha)
+    res1 = _cs_frontier(
+        df1,
+        y=y,
+        x=extended_x,
+        dist=dist,
+        cost=cost,
+        vce="oim",
+        cluster=None,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
+    )
+    res2 = _cs_frontier(
+        df2,
+        y=y,
+        x=extended_x,
+        dist=dist,
+        cost=cost,
+        vce="oim",
+        cluster=None,
+        maxiter=maxiter,
+        tol=tol,
+        alpha=alpha,
+    )
     # Guard against degenerate splits: if either half's ln_sigma parameter
     # sits on *either* optimizer bound, BC on that parameter is untrustworthy
     # (documented DJ caveat for very short T). Upper bound catches the
@@ -810,9 +862,8 @@ def _fit_tfe(
     # Overwrite in-place (keep SE from full-panel numerical Hessian).
     for k, v in corrected.items():
         res.params[k] = v
-    res.model_info["bias_correct"] = (
-        "Dhaene-Jochmans 2015 split-panel jackknife"
-        + ("" if sigmas_ok else " (sigmas skipped: split on bound)")
+    res.model_info["bias_correct"] = "Dhaene-Jochmans 2015 split-panel jackknife" + (
+        "" if sigmas_ok else " (sigmas skipped: split on bound)"
     )
     return res
 
@@ -892,9 +943,7 @@ def _fit_tre(
         sigma_u_grid = np.full(eps_shifted.shape, sigma_u, dtype=float)
 
         if dist == "half-normal":
-            log_f = _fc.loglik_halfnormal(
-                eps_shifted, sigma_v_grid, sigma_u_grid, sign
-            )
+            log_f = _fc.loglik_halfnormal(eps_shifted, sigma_v_grid, sigma_u_grid, sign)
         else:
             log_f = _fc.loglik_exponential(
                 eps_shifted, sigma_v_grid, sigma_u_grid, sign
@@ -902,9 +951,7 @@ def _fit_tre(
         # Sum log-f within each group, per quadrature node → (n_quad, N).
         log_f_group = np.zeros((n_quad, N))
         for k in range(n_quad):
-            log_f_group[k] = np.bincount(
-                group_idx, weights=log_f[k], minlength=N
-            )
+            log_f_group[k] = np.bincount(group_idx, weights=log_f[k], minlength=N)
         log_contrib = np.log(weights)[:, None] + log_f_group  # (n_quad, N)
         # scipy logsumexp handles the all-(-inf) corner (returns -inf rather
         # than NaN from exp(-inf - (-inf)) = exp(nan) in a hand-rolled form).
@@ -942,7 +989,10 @@ def _fit_tre(
     bounds = [(-1e6, 1e6)] * k_beta + [(-12.0, 5.0)] * 3
 
     result = minimize(
-        neg_loglik, theta0, method="L-BFGS-B", bounds=bounds,
+        neg_loglik,
+        theta0,
+        method="L-BFGS-B",
+        bounds=bounds,
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
     theta_hat = result.x
@@ -968,6 +1018,7 @@ def _fit_tre(
     heterogeneity_large = het_ratio > 5.0 and n_quad < 48
     if geometry_tight or heterogeneity_large:
         import warnings as _warnings
+
         _warnings.warn(
             f"TRE Gauss-Hermite quadrature may be under-resolved: "
             f"n_quad={n_quad}, coverage={tail_span_sigma_alpha:.1f} "
@@ -1013,6 +1064,7 @@ def _fit_tre(
     TE_jlms_obs = np.full(n, np.exp(-E_u_marg))
     if dist == "half-normal":
         from scipy import stats as _st
+
         TE_bc_obs = 2.0 * np.exp(sigma_u**2 / 2.0) * _st.norm.cdf(-sigma_u)
     else:
         TE_bc_obs = 1.0 / (1.0 + sigma_u)
@@ -1045,7 +1097,8 @@ def _fit_tre(
             "mean_efficiency_jlms": float(np.mean(TE_jlms_obs)),
             "converged": bool(result.success),
             "vce": (
-                vce_l if (cluster is None or cluster == id_col)
+                vce_l
+                if (cluster is None or cluster == id_col)
                 else f"cluster({cluster})"
             ),
             # Tell FrontierResult.efficiency() / summary() that per-obs

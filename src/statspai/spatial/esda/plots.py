@@ -1,4 +1,5 @@
 """Visualisations for ESDA."""
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -29,6 +30,7 @@ def moran_plot(y: Any, w: W, ax: Optional[Any] = None) -> Any:
     >>> ax.figure.savefig("moran.png")  # doctest: +SKIP
     """
     import matplotlib.pyplot as plt
+
     y = np.asarray(y, dtype=float).ravel()
     z = y - y.mean()
     Wz = w.sparse @ z
@@ -37,8 +39,7 @@ def moran_plot(y: Any, w: W, ax: Optional[Any] = None) -> Any:
         _, ax = plt.subplots(figsize=(5, 5))
     ax.scatter(z, Wz, s=18, alpha=0.7)
     xs = np.linspace(z.min(), z.max(), 50)
-    ax.plot(xs, res.I * xs, "-", color="C3", linewidth=1.5,
-            label=f"I = {res.I:.3f}")
+    ax.plot(xs, res.I * xs, "-", color="C3", linewidth=1.5, label=f"I = {res.I:.3f}")
     ax.axvline(0, color="grey", linewidth=0.5)
     ax.axhline(0, color="grey", linewidth=0.5)
     ax.set_xlabel("z (centered)")
@@ -81,6 +82,7 @@ def lisa_cluster_map(
             "Install with `pip install geopandas`."
         )
     import matplotlib.pyplot as plt
+
     y = np.asarray(y, dtype=float).ravel()
     z = y - y.mean()
     Wz = w.sparse @ z
@@ -94,8 +96,13 @@ def lisa_cluster_map(
         labels[(p <= p_threshold) & ~hi_z & ~hi_lag] = "LL"
         labels[(p <= p_threshold) & hi_z & ~hi_lag] = "HL"
         labels[(p <= p_threshold) & ~hi_z & hi_lag] = "LH"
-    cmap = {"HH": "#d62728", "LL": "#1f77b4", "HL": "#ff9896",
-            "LH": "#9ecae1", "NS": "#d9d9d9"}
+    cmap = {
+        "HH": "#d62728",
+        "LL": "#1f77b4",
+        "HL": "#ff9896",
+        "LH": "#9ecae1",
+        "NS": "#d9d9d9",
+    }
     colours = [cmap[lab] for lab in labels]
     if ax is None:
         _, ax = plt.subplots(figsize=(7, 7))

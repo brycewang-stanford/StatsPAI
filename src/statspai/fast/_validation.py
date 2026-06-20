@@ -1,4 +1,5 @@
 """Private validation helpers shared by native fast estimators."""
+
 from __future__ import annotations
 
 import operator
@@ -18,9 +19,7 @@ def positive_int(value: Any, *, name: str, context: str) -> int:
             f"{context}: {name} must be a positive integer"
         ) from exc
     if isinstance(value, bool) or parsed < 1:
-        raise MethodIncompatibility(
-            f"{context}: {name} must be a positive integer"
-        )
+        raise MethodIncompatibility(f"{context}: {name} must be a positive integer")
     return int(parsed)
 
 

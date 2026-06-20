@@ -82,10 +82,12 @@ class SensitivityDashboard:
             lines.append(f"  Sign stable: {dim['sign_stable']:.0%}")
             lines.append(f"  Sig. stable: {dim['sig_stable']:.0%}")
 
-            status = "✓" if dim['stable'] else "✗"
-            lines.append(f"  Status: {status} {'Stable' if dim['stable'] else 'SENSITIVE'}")
+            status = "✓" if dim["stable"] else "✗"
+            lines.append(
+                f"  Status: {status} {'Stable' if dim['stable'] else 'SENSITIVE'}"
+            )
 
-            if not dim['stable']:
+            if not dim["stable"]:
                 lines.append(f"  → {dim['remedy']}")
 
         lines.append(f"\n{'=' * 70}")
@@ -177,32 +179,39 @@ def sensitivity_dashboard(
     # represents; it is set only on the regression (``.params``) paths so the
     # subsample / outlier dimensions can re-fit *the same* coefficient.
     baseline_key: Optional[str] = None
-    if hasattr(result, 'estimate') and not isinstance(
-        getattr(result, 'estimate', None), pd.Series
+    if hasattr(result, "estimate") and not isinstance(
+        getattr(result, "estimate", None), pd.Series
     ):
         baseline_est = float(result.estimate)
-        baseline_se = float(getattr(result, 'se', 0.0))
-    elif type(result).__name__ == 'PrincipalStratResult':
+        baseline_se = float(getattr(result, "se", 0.0))
+    elif type(result).__name__ == "PrincipalStratResult":
         # Use the complier row explicitly (LATE) rather than
         # .iloc[0], which depends on the effects DataFrame ordering
         # and would silently select an always-taker effect if the
         # table is ever sorted differently upstream.
-        effects = getattr(result, 'effects', None)
+        effects = getattr(result, "effects", None)
         if effects is not None and len(effects):
-            _complier_mask = effects['stratum'].astype(str).str.lower().str.contains('complier')
-            _row = effects[_complier_mask].iloc[0] if _complier_mask.any() else effects.iloc[0]
-            baseline_est = float(_row['estimate'])
-            baseline_se = float(_row['se']) if 'se' in effects.columns else 0.0
+            _complier_mask = (
+                effects["stratum"].astype(str).str.lower().str.contains("complier")
+            )
+            _row = (
+                effects[_complier_mask].iloc[0]
+                if _complier_mask.any()
+                else effects.iloc[0]
+            )
+            baseline_est = float(_row["estimate"])
+            baseline_se = float(_row["se"]) if "se" in effects.columns else 0.0
         else:
             baseline_est, baseline_se = 0.0, 0.0
-    elif hasattr(result, 'params') and len(result.params) > 1:
+    elif hasattr(result, "params") and len(result.params) > 1:
         # Use first non-constant coefficient. Exclude every common intercept
         # name — Stata's ``_cons``, patsy's ``Intercept`` and statsmodels'
         # ``const`` — so the dashboard analyses the first real regressor
         # (e.g. the treatment) rather than the intercept.
         non_const = [
-            k for k in result.params.index
-            if str(k) not in ('_cons', 'Intercept', 'const')
+            k
+            for k in result.params.index
+            if str(k) not in ("_cons", "Intercept", "const")
         ]
         if non_const:
             key = non_const[0]
@@ -220,11 +229,15 @@ def sensitivity_dashboard(
 
     z_crit = 1.96
     baseline = {
-        'estimate': baseline_est,
-        'se': baseline_se,
-        'ci': (baseline_est - z_crit * baseline_se,
-               baseline_est + z_crit * baseline_se),
-        'significant': abs(baseline_est / baseline_se) > z_crit if baseline_se > 0 else False,
+        "estimate": baseline_est,
+        "se": baseline_se,
+        "ci": (
+            baseline_est - z_crit * baseline_se,
+            baseline_est + z_crit * baseline_se,
+        ),
+        "significant": (
+            abs(baseline_est / baseline_se) > z_crit if baseline_se > 0 else False
+        ),
     }
 
     # Real OLS re-fit support for the subsample / outlier dimensions. We can
@@ -255,39 +268,37 @@ def sensitivity_dashboard(
     # PrincipalStratResult likewise has a ``.method`` ('monotonicity'
     # or 'principal_score') plus an 'estimator' label in model_info;
     # prefer the latter because it's more descriptive.
-    _model_info = getattr(result, 'model_info', {}) or {}
-    if type(result).__name__ == 'PrincipalStratResult':
+    _model_info = getattr(result, "model_info", {}) or {}
+    if type(result).__name__ == "PrincipalStratResult":
         # PrincipalStratResult: prefer the verbose estimator label.
         method = (
-            str(_model_info.get('estimator', '') or '')
-            or 'Principal Stratification'
+            str(_model_info.get("estimator", "") or "") or "Principal Stratification"
         )
     else:
         method = (
-            str(getattr(result, 'method', '') or '')
-            or str(_model_info.get('model_type', '') or '')
-            or str(_model_info.get('estimator', '') or '')
-            or 'Unknown'
+            str(getattr(result, "method", "") or "")
+            or str(_model_info.get("model_type", "") or "")
+            or str(_model_info.get("estimator", "") or "")
+            or "Unknown"
         )
     dim_results = []
 
     if dimensions is None:
-        dimensions = ['sample', 'outliers', 'unobservables']
+        dimensions = ["sample", "outliers", "unobservables"]
         # Auto-append Sprint-B-specific dimensions when the result
         # type matches. Users who pass an explicit ``dimensions=``
         # list opt out of this expansion; the explicit list is taken
         # verbatim.
         _ml_lower = method.lower()
-        if 'proximal' in _ml_lower:
-            dimensions.append('first_stage_f')
-        if 'marginal structural' in _ml_lower:
-            dimensions.append('trim_sweep')
-        if (type(result).__name__ == 'PrincipalStratResult'
-                or 'principal' in _ml_lower):
-            dimensions.append('monotonicity')
+        if "proximal" in _ml_lower:
+            dimensions.append("first_stage_f")
+        if "marginal structural" in _ml_lower:
+            dimensions.append("trim_sweep")
+        if type(result).__name__ == "PrincipalStratResult" or "principal" in _ml_lower:
+            dimensions.append("monotonicity")
 
     if data is not None:
-        if 'sample' in dimensions and _refit_j is not None:
+        if "sample" in dimensions and _refit_j is not None:
             # Subsample sensitivity via a *genuine* OLS re-fit of the headline
             # coefficient on 20 draws of 80% of the rows. Only runs when the
             # result exposes a plain linear design (see the ``_refit_j`` guard);
@@ -306,22 +317,27 @@ def sensitivity_dashboard(
             if subsample_ests:
                 ests = np.array(subsample_ests)
                 mean_abs = max(abs(float(np.mean(ests))), 1e-10)
-                dim_results.append({
-                    'dimension': 'Sample stability (80% subsamples)',
-                    'n_variations': len(ests),
-                    'min_est': float(ests.min()),
-                    'max_est': float(ests.max()),
-                    'sign_stable': float(
-                        np.mean(np.sign(ests) == np.sign(baseline_est))),
-                    'sig_stable': float(
-                        np.mean(np.abs(ests / baseline_se) > z_crit)
-                    ) if baseline_se > 0 else 0.0,
-                    'stable': bool(float(np.std(ests)) / mean_abs < 0.5),
-                    'remedy': 'Results are sample-dependent. Consider a '
-                              'larger sample or bootstrap CI.',
-                })
+                dim_results.append(
+                    {
+                        "dimension": "Sample stability (80% subsamples)",
+                        "n_variations": len(ests),
+                        "min_est": float(ests.min()),
+                        "max_est": float(ests.max()),
+                        "sign_stable": float(
+                            np.mean(np.sign(ests) == np.sign(baseline_est))
+                        ),
+                        "sig_stable": (
+                            float(np.mean(np.abs(ests / baseline_se) > z_crit))
+                            if baseline_se > 0
+                            else 0.0
+                        ),
+                        "stable": bool(float(np.std(ests)) / mean_abs < 0.5),
+                        "remedy": "Results are sample-dependent. Consider a "
+                        "larger sample or bootstrap CI.",
+                    }
+                )
 
-        if 'outliers' in dimensions and _refit_j is not None:
+        if "outliers" in dimensions and _refit_j is not None:
             # Outcome-outlier sensitivity via a *genuine* OLS re-fit after
             # trimming the outcome's tails at 1 / 2 / 5%. Only runs with a
             # plain linear design; skipped (not applicable) otherwise.
@@ -338,39 +354,47 @@ def sensitivity_dashboard(
             if outlier_ests:
                 ests = np.array(outlier_ests)
                 mean_abs = max(abs(float(np.mean(ests))), 1e-10)
-                dim_results.append({
-                    'dimension': 'Outlier sensitivity (trimming)',
-                    'n_variations': len(ests),
-                    'min_est': float(min(ests.min(), baseline_est)),
-                    'max_est': float(max(ests.max(), baseline_est)),
-                    'sign_stable': float(
-                        np.mean(np.sign(ests) == np.sign(baseline_est))),
-                    'sig_stable': float(
-                        np.mean(np.abs(ests / baseline_se) > z_crit)
-                    ) if baseline_se > 0 else 0.0,
-                    'stable': bool(float(np.std(ests)) / mean_abs < 0.5),
-                    'remedy': 'Use sp.winsor() to winsorize outliers.',
-                })
+                dim_results.append(
+                    {
+                        "dimension": "Outlier sensitivity (trimming)",
+                        "n_variations": len(ests),
+                        "min_est": float(min(ests.min(), baseline_est)),
+                        "max_est": float(max(ests.max(), baseline_est)),
+                        "sign_stable": float(
+                            np.mean(np.sign(ests) == np.sign(baseline_est))
+                        ),
+                        "sig_stable": (
+                            float(np.mean(np.abs(ests / baseline_se) > z_crit))
+                            if baseline_se > 0
+                            else 0.0
+                        ),
+                        "stable": bool(float(np.std(ests)) / mean_abs < 0.5),
+                        "remedy": "Use sp.winsor() to winsorize outliers.",
+                    }
+                )
 
-    if 'unobservables' in dimensions:
+    if "unobservables" in dimensions:
         # Oster-style sensitivity
         try:
             import statspai as sp
+
             oster = sp.oster_bounds(result)
-            delta = oster.get('delta', oster.get('oster_delta', np.nan))
+            delta = oster.get("delta", oster.get("oster_delta", np.nan))
             if np.isfinite(delta):
-                dim_results.append({
-                    'dimension': 'Unobservable confounders (Oster)',
-                    'n_variations': 1,
-                    'min_est': baseline_est if delta > 1 else 0,
-                    'max_est': baseline_est,
-                    'sign_stable': 1.0 if delta > 1 else 0.5,
-                    'sig_stable': 1.0 if delta > 1 else 0.0,
-                    'stable': abs(delta) > 1,
-                    'remedy': f'Oster δ = {delta:.2f}. If < 1, selection on '
-                              f'unobservables could explain the result. '
-                              f'Try sp.sensemakr() for more detail.',
-                })
+                dim_results.append(
+                    {
+                        "dimension": "Unobservable confounders (Oster)",
+                        "n_variations": 1,
+                        "min_est": baseline_est if delta > 1 else 0,
+                        "max_est": baseline_est,
+                        "sign_stable": 1.0 if delta > 1 else 0.5,
+                        "sig_stable": 1.0 if delta > 1 else 0.0,
+                        "stable": abs(delta) > 1,
+                        "remedy": f"Oster δ = {delta:.2f}. If < 1, selection on "
+                        f"unobservables could explain the result. "
+                        f"Try sp.sensemakr() for more detail.",
+                    }
+                )
         except Exception as exc:
             record_degradation(
                 None,
@@ -391,32 +415,35 @@ def sensitivity_dashboard(
     # Proximal: report first-stage F as its own sensitivity dimension.
     # The F is already computed at fit time (cost 0 to surface it here)
     # and is the canonical weak-IV health check for proximal.
-    if 'proximal' in _method_low and (
-        'first_stage_f' in dimensions or dimensions is None
-        or 'proximal' in dimensions
+    if "proximal" in _method_low and (
+        "first_stage_f" in dimensions or dimensions is None or "proximal" in dimensions
     ):
-        fs_F = _info.get('first_stage_F')
+        fs_F = _info.get("first_stage_F")
         if fs_F is not None:
             # Stability = F >= 10 (Stock-Yogo rule of thumb). Reporting
             # only a single value, not a sweep, because the F is
             # deterministic given the data + proxy specification.
-            dim_results.append({
-                'dimension': 'Proximal first-stage F (weak-IV)',
-                'n_variations': 1,
-                'min_est': baseline_est,
-                'max_est': baseline_est,
-                'sign_stable': 1.0,
-                'sig_stable': 1.0,
-                'stable': float(fs_F) >= 10.0,
-                'remedy': (
-                    f'First-stage F = {float(fs_F):.2f}. '
-                    + ('F ≥ 10 → proxy is sufficiently strong.'
-                       if float(fs_F) >= 10.0
-                       else 'F < 10 → WEAK proxy; find a stronger Z '
-                            'or use weak-IV-robust inference '
-                            '(sp.anderson_rubin_test).')
-                ),
-            })
+            dim_results.append(
+                {
+                    "dimension": "Proximal first-stage F (weak-IV)",
+                    "n_variations": 1,
+                    "min_est": baseline_est,
+                    "max_est": baseline_est,
+                    "sign_stable": 1.0,
+                    "sig_stable": 1.0,
+                    "stable": float(fs_F) >= 10.0,
+                    "remedy": (
+                        f"First-stage F = {float(fs_F):.2f}. "
+                        + (
+                            "F ≥ 10 → proxy is sufficiently strong."
+                            if float(fs_F) >= 10.0
+                            else "F < 10 → WEAK proxy; find a stronger Z "
+                            "or use weak-IV-robust inference "
+                            "(sp.anderson_rubin_test)."
+                        )
+                    ),
+                }
+            )
 
     # MSM: sweep trim quantile and report how the marginal coefficient
     # MSM: report a weight-POSITIVITY readiness check. This is a positivity
@@ -425,73 +452,84 @@ def sensitivity_dashboard(
     # the result object does not carry enough state to reproduce. We therefore
     # surface only the real, already-computed ``sw_max`` signal and tie every
     # reported flag to it, rather than fabricating a coefficient sweep.
-    if 'marginal structural' in _method_low and (
-        'trim_sweep' in dimensions or dimensions is None or 'msm' in dimensions
+    if "marginal structural" in _method_low and (
+        "trim_sweep" in dimensions or dimensions is None or "msm" in dimensions
     ):
-        _id = _info.get('cluster_var')
+        _id = _info.get("cluster_var")
         if _id and data is not None:
-            sw_max = float(_info.get('sw_max', 0.0))
+            sw_max = float(_info.get("sw_max", 0.0))
             _positivity_ok = sw_max < 50.0
-            dim_results.append({
-                'dimension': 'MSM weight stability (trim readiness)',
-                'n_variations': 1,
-                'min_est': baseline_est,
-                'max_est': baseline_est,
-                'sign_stable': 1.0 if _positivity_ok else 0.0,
-                'sig_stable': 1.0 if _positivity_ok else 0.0,
-                'stable': _positivity_ok,
-                'remedy': (
-                    f'Positivity check only (no coefficient sweep): max '
-                    f'stabilized weight = {sw_max:.2f}. '
-                    + ('Weights well-behaved.' if _positivity_ok
-                       else 'Extreme weight — re-fit with trim_per_period=True '
-                            'and compare estimates manually.')
-                ),
-            })
+            dim_results.append(
+                {
+                    "dimension": "MSM weight stability (trim readiness)",
+                    "n_variations": 1,
+                    "min_est": baseline_est,
+                    "max_est": baseline_est,
+                    "sign_stable": 1.0 if _positivity_ok else 0.0,
+                    "sig_stable": 1.0 if _positivity_ok else 0.0,
+                    "stable": _positivity_ok,
+                    "remedy": (
+                        f"Positivity check only (no coefficient sweep): max "
+                        f"stabilized weight = {sw_max:.2f}. "
+                        + (
+                            "Weights well-behaved."
+                            if _positivity_ok
+                            else "Extreme weight — re-fit with trim_per_period=True "
+                            "and compare estimates manually."
+                        )
+                    ),
+                }
+            )
 
     # Principal stratification: flag monotonicity violation fraction
     # as its own sensitivity dimension (diagnostic-style, not a sweep).
-    if ('principal' in _method_low or
-        type(result).__name__ == 'PrincipalStratResult') and (
-        'monotonicity' in dimensions or dimensions is None
-        or 'principal_strat' in dimensions
+    if (
+        "principal" in _method_low or type(result).__name__ == "PrincipalStratResult"
+    ) and (
+        "monotonicity" in dimensions
+        or dimensions is None
+        or "principal_strat" in dimensions
     ):
-        viol = _info.get('mono_violation_frac')
+        viol = _info.get("mono_violation_frac")
         if viol is not None:
-            dim_results.append({
-                'dimension': 'Principal-strat monotonicity violation',
-                'n_variations': 1,
-                'min_est': baseline_est,
-                'max_est': baseline_est,
-                'sign_stable': 1.0,
-                'sig_stable': 1.0,
-                'stable': float(viol) <= 0.05,
-                'remedy': (
-                    f'Fitted p11(x) < p10(x) for {float(viol):.1%} of '
-                    f'units. '
-                    + ('Within 5% tolerance (clipping absorbs it).'
-                       if float(viol) <= 0.05
-                       else 'Monotonicity concern — pair with sensitivity '
-                            'analysis.')
-                ),
-            })
+            dim_results.append(
+                {
+                    "dimension": "Principal-strat monotonicity violation",
+                    "n_variations": 1,
+                    "min_est": baseline_est,
+                    "max_est": baseline_est,
+                    "sign_stable": 1.0,
+                    "sig_stable": 1.0,
+                    "stable": float(viol) <= 0.05,
+                    "remedy": (
+                        f"Fitted p11(x) < p10(x) for {float(viol):.1%} of "
+                        f"units. "
+                        + (
+                            "Within 5% tolerance (clipping absorbs it)."
+                            if float(viol) <= 0.05
+                            else "Monotonicity concern — pair with sensitivity "
+                            "analysis."
+                        )
+                    ),
+                }
+            )
 
     # Overall stability grade
     if dim_results:
-        n_stable = sum(1 for d in dim_results if d['stable'])
+        n_stable = sum(1 for d in dim_results if d["stable"])
         frac_stable = n_stable / len(dim_results)
         if frac_stable >= 0.9:
-            grade = 'A'
+            grade = "A"
         elif frac_stable >= 0.7:
-            grade = 'B'
+            grade = "B"
         elif frac_stable >= 0.5:
-            grade = 'C'
+            grade = "C"
         elif frac_stable >= 0.3:
-            grade = 'D'
+            grade = "D"
         else:
-            grade = 'F'
+            grade = "F"
     else:
-        grade = '?'
+        grade = "?"
 
     dash = SensitivityDashboard(
         baseline=baseline,

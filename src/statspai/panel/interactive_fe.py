@@ -22,7 +22,7 @@ Moon, H.R. & Weidner, M. (2015).
 Interactive Fixed Effects." *Econometrica*, 83(4), 1543-1579. [@moon2015linear]
 """
 
-from typing import Optional, List, Dict
+from typing import List
 import numpy as np
 import pandas as pd
 

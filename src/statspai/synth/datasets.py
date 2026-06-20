@@ -55,10 +55,23 @@ def german_reunification() -> pd.DataFrame:
     rng = np.random.default_rng(1990)
 
     countries = [
-        "West Germany", "USA", "UK", "Austria", "Belgium",
-        "Denmark", "France", "Greece", "Italy", "Japan",
-        "Luxembourg", "Netherlands", "Norway", "Portugal",
-        "Spain", "Sweden", "Switzerland",
+        "West Germany",
+        "USA",
+        "UK",
+        "Austria",
+        "Belgium",
+        "Denmark",
+        "France",
+        "Greece",
+        "Italy",
+        "Japan",
+        "Luxembourg",
+        "Netherlands",
+        "Norway",
+        "Portugal",
+        "Spain",
+        "Sweden",
+        "Switzerland",
     ]
 
     years = list(range(1960, 2004))
@@ -67,22 +80,44 @@ def german_reunification() -> pd.DataFrame:
 
     # Country-specific base GDP per capita circa 1960 (thousands, then *1000)
     base_map = {
-        "West Germany": 12000, "USA": 15000, "UK": 11500,
-        "Austria": 10500, "Belgium": 11000, "Denmark": 12500,
-        "France": 11000, "Greece": 6000, "Italy": 8500,
-        "Japan": 5500, "Luxembourg": 16000, "Netherlands": 12000,
-        "Norway": 12500, "Portugal": 4000, "Spain": 6500,
-        "Sweden": 13000, "Switzerland": 16500,
+        "West Germany": 12000,
+        "USA": 15000,
+        "UK": 11500,
+        "Austria": 10500,
+        "Belgium": 11000,
+        "Denmark": 12500,
+        "France": 11000,
+        "Greece": 6000,
+        "Italy": 8500,
+        "Japan": 5500,
+        "Luxembourg": 16000,
+        "Netherlands": 12000,
+        "Norway": 12500,
+        "Portugal": 4000,
+        "Spain": 6500,
+        "Sweden": 13000,
+        "Switzerland": 16500,
     }
 
     # Annual growth rates (percent, roughly calibrated)
     growth_map = {
-        "West Germany": 2.8, "USA": 2.3, "UK": 2.2,
-        "Austria": 3.1, "Belgium": 2.7, "Denmark": 2.4,
-        "France": 2.6, "Greece": 3.5, "Italy": 3.0,
-        "Japan": 4.5, "Luxembourg": 3.0, "Netherlands": 2.5,
-        "Norway": 2.9, "Portugal": 3.6, "Spain": 3.4,
-        "Sweden": 2.3, "Switzerland": 1.8,
+        "West Germany": 2.8,
+        "USA": 2.3,
+        "UK": 2.2,
+        "Austria": 3.1,
+        "Belgium": 2.7,
+        "Denmark": 2.4,
+        "France": 2.6,
+        "Greece": 3.5,
+        "Italy": 3.0,
+        "Japan": 4.5,
+        "Luxembourg": 3.0,
+        "Netherlands": 2.5,
+        "Norway": 2.9,
+        "Portugal": 3.6,
+        "Spain": 3.4,
+        "Sweden": 2.3,
+        "Switzerland": 1.8,
     }
 
     rows: list[dict] = []
@@ -103,12 +138,16 @@ def german_reunification() -> pd.DataFrame:
                 # Gradual divergence that stabilises around -1500
                 gdp -= 1500 * (1 - np.exp(-0.4 * (post_t + 1)))
 
-            rows.append({
-                "country": country,
-                "year": yr,
-                "gdppc": round(max(gdp, 1000), 1),
-                "treated": 1 if country == "West Germany" and yr >= treat_year else 0,
-            })
+            rows.append(
+                {
+                    "country": country,
+                    "year": yr,
+                    "gdppc": round(max(gdp, 1000), 1),
+                    "treated": (
+                        1 if country == "West Germany" and yr >= treat_year else 0
+                    ),
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -149,11 +188,23 @@ def basque_terrorism() -> pd.DataFrame:
     rng = np.random.default_rng(1970)
 
     regions = [
-        "Basque Country", "Cataluna", "Madrid", "Andalucia",
-        "Aragon", "Asturias", "Baleares", "Canarias",
-        "Cantabria", "Castilla y Leon", "Castilla-La Mancha",
-        "Extremadura", "Galicia", "Murcia", "Navarra",
-        "Rioja", "Valencia",
+        "Basque Country",
+        "Cataluna",
+        "Madrid",
+        "Andalucia",
+        "Aragon",
+        "Asturias",
+        "Baleares",
+        "Canarias",
+        "Cantabria",
+        "Castilla y Leon",
+        "Castilla-La Mancha",
+        "Extremadura",
+        "Galicia",
+        "Murcia",
+        "Navarra",
+        "Rioja",
+        "Valencia",
     ]
 
     years = list(range(1955, 1998))
@@ -162,22 +213,44 @@ def basque_terrorism() -> pd.DataFrame:
 
     # Base GDP per capita circa 1955 (thousands of 1986 USD)
     base_map = {
-        "Basque Country": 3.8, "Cataluna": 3.6, "Madrid": 4.0,
-        "Andalucia": 2.0, "Aragon": 2.8, "Asturias": 2.9,
-        "Baleares": 3.2, "Canarias": 2.3, "Cantabria": 2.7,
-        "Castilla y Leon": 2.2, "Castilla-La Mancha": 1.8,
-        "Extremadura": 1.5, "Galicia": 2.0, "Murcia": 2.1,
-        "Navarra": 3.0, "Rioja": 2.8, "Valencia": 2.7,
+        "Basque Country": 3.8,
+        "Cataluna": 3.6,
+        "Madrid": 4.0,
+        "Andalucia": 2.0,
+        "Aragon": 2.8,
+        "Asturias": 2.9,
+        "Baleares": 3.2,
+        "Canarias": 2.3,
+        "Cantabria": 2.7,
+        "Castilla y Leon": 2.2,
+        "Castilla-La Mancha": 1.8,
+        "Extremadura": 1.5,
+        "Galicia": 2.0,
+        "Murcia": 2.1,
+        "Navarra": 3.0,
+        "Rioja": 2.8,
+        "Valencia": 2.7,
     }
 
     # Growth rates (percent per year, roughly calibrated to Spanish miracle)
     growth_map = {
-        "Basque Country": 4.0, "Cataluna": 3.9, "Madrid": 4.2,
-        "Andalucia": 3.5, "Aragon": 3.7, "Asturias": 3.3,
-        "Baleares": 4.1, "Canarias": 3.8, "Cantabria": 3.5,
-        "Castilla y Leon": 3.4, "Castilla-La Mancha": 3.3,
-        "Extremadura": 3.2, "Galicia": 3.4, "Murcia": 3.6,
-        "Navarra": 3.9, "Rioja": 3.7, "Valencia": 3.8,
+        "Basque Country": 4.0,
+        "Cataluna": 3.9,
+        "Madrid": 4.2,
+        "Andalucia": 3.5,
+        "Aragon": 3.7,
+        "Asturias": 3.3,
+        "Baleares": 4.1,
+        "Canarias": 3.8,
+        "Cantabria": 3.5,
+        "Castilla y Leon": 3.4,
+        "Castilla-La Mancha": 3.3,
+        "Extremadura": 3.2,
+        "Galicia": 3.4,
+        "Murcia": 3.6,
+        "Navarra": 3.9,
+        "Rioja": 3.7,
+        "Valencia": 3.8,
     }
 
     rows: list[dict] = []
@@ -199,14 +272,16 @@ def basque_terrorism() -> pd.DataFrame:
                 gap_frac = 0.10 * (1 - np.exp(-0.08 * (post_t + 1)))
                 gdp -= counterfactual * gap_frac
 
-            rows.append({
-                "region": region,
-                "year": yr,
-                "gdppc": round(max(gdp, 0.5), 3),
-                "treated": (
-                    1 if region == "Basque Country" and yr >= treat_year else 0
-                ),
-            })
+            rows.append(
+                {
+                    "region": region,
+                    "year": yr,
+                    "gdppc": round(max(gdp, 0.5), 3),
+                    "treated": (
+                        1 if region == "Basque Country" and yr >= treat_year else 0
+                    ),
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -257,15 +332,45 @@ def california_tobacco() -> pd.DataFrame:
     rng = np.random.default_rng(1989)
 
     states = [
-        "Alabama", "Arkansas", "Colorado", "Connecticut", "Delaware",
-        "Georgia", "Idaho", "Illinois", "Indiana", "Iowa",
-        "Kansas", "Kentucky", "Louisiana", "Maine", "Minnesota",
-        "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
-        "New Hampshire", "New Mexico", "North Carolina", "North Dakota",
-        "Ohio", "Oklahoma", "Pennsylvania", "Rhode Island",
-        "South Carolina", "South Dakota", "Tennessee", "Texas",
-        "Utah", "Vermont", "Virginia", "West Virginia",
-        "Wisconsin", "Wyoming", "California",
+        "Alabama",
+        "Arkansas",
+        "Colorado",
+        "Connecticut",
+        "Delaware",
+        "Georgia",
+        "Idaho",
+        "Illinois",
+        "Indiana",
+        "Iowa",
+        "Kansas",
+        "Kentucky",
+        "Louisiana",
+        "Maine",
+        "Minnesota",
+        "Mississippi",
+        "Missouri",
+        "Montana",
+        "Nebraska",
+        "Nevada",
+        "New Hampshire",
+        "New Mexico",
+        "North Carolina",
+        "North Dakota",
+        "Ohio",
+        "Oklahoma",
+        "Pennsylvania",
+        "Rhode Island",
+        "South Carolina",
+        "South Dakota",
+        "Tennessee",
+        "Texas",
+        "Utah",
+        "Vermont",
+        "Virginia",
+        "West Virginia",
+        "Wisconsin",
+        "Wyoming",
+        "California",
     ]
 
     years = list(range(1970, 2001))
@@ -316,11 +421,7 @@ def california_tobacco() -> pd.DataFrame:
             t = yr - 1970
 
             # Cigarette sales
-            cig = (
-                base_cig[i]
-                + (nat_trend_cig + state_trend_cig[i]) * t
-                + cig_cum[j]
-            )
+            cig = base_cig[i] + (nat_trend_cig + state_trend_cig[i]) * t + cig_cum[j]
 
             # California treatment: ~25 pack additional decline post-1989
             if st == "California" and yr >= treat_year:
@@ -345,21 +446,19 @@ def california_tobacco() -> pd.DataFrame:
             )
 
             # Beer consumption
-            beer = (
-                base_beer[i]
-                + nat_trend_beer * t
-                + rng.normal(0, 0.4)
-            )
+            beer = base_beer[i] + nat_trend_beer * t + rng.normal(0, 0.4)
 
-            rows.append({
-                "state": st,
-                "year": yr,
-                "cigsale": round(max(cig, 5.0), 1),
-                "retprice": round(max(price, 20.0), 1),
-                "lnincome": round(lninc, 4),
-                "age15to24": round(max(youth, 8.0), 2),
-                "beer": round(max(beer, 10.0), 2),
-                "treated": 1 if st == "California" and yr >= treat_year else 0,
-            })
+            rows.append(
+                {
+                    "state": st,
+                    "year": yr,
+                    "cigsale": round(max(cig, 5.0), 1),
+                    "retprice": round(max(price, 20.0), 1),
+                    "lnincome": round(lninc, 4),
+                    "age15to24": round(max(youth, 8.0), 2),
+                    "beer": round(max(beer, 10.0), 2),
+                    "treated": 1 if st == "California" and yr >= treat_year else 0,
+                }
+            )
 
     return pd.DataFrame(rows)

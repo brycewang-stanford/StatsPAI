@@ -92,8 +92,8 @@ class SubgroupResult(ResultProtocolMixin):
             "",
         ]
 
-        for gvar in self.results_df['group_var'].unique():
-            sub = self.results_df[self.results_df['group_var'] == gvar]
+        for gvar in self.results_df["group_var"].unique():
+            sub = self.results_df[self.results_df["group_var"] == gvar]
             lines.append("-" * 72)
             lines.append(f"  Subgroups by: {gvar}")
             lines.append(
@@ -102,7 +102,7 @@ class SubgroupResult(ResultProtocolMixin):
             )
             lines.append("-" * 72)
             for _, row in sub.iterrows():
-                stars = _stars(row['pvalue'])
+                stars = _stars(row["pvalue"])
                 lines.append(
                     f"  {str(row['group_val']):<25s} "
                     f"{row['estimate']:>9.4f}{stars:<3s} "
@@ -118,14 +118,10 @@ class SubgroupResult(ResultProtocolMixin):
                     f"chi2({ht['df']:.0f}) = {ht['chi2']:.3f}, "
                     f"p = {ht['pvalue']:.4f}"
                 )
-                if ht['pvalue'] < 0.05:
-                    lines.append(
-                        "  → Significant heterogeneity detected (p<0.05)"
-                    )
+                if ht["pvalue"] < 0.05:
+                    lines.append("  → Significant heterogeneity detected (p<0.05)")
                 else:
-                    lines.append(
-                        "  → No significant heterogeneity (p≥0.05)"
-                    )
+                    lines.append("  → No significant heterogeneity (p≥0.05)")
             lines.append("")
 
         lines.append("=" * 72)
@@ -147,15 +143,14 @@ class SubgroupResult(ResultProtocolMixin):
             r"\label{tab:heterogeneity}",
             r"\begin{tabular}{llcccr}",
             r"\hline\hline",
-            r"Dimension & Subgroup & Estimate & Std.\ Error "
-            r"& 95\% CI & N \\",
+            r"Dimension & Subgroup & Estimate & Std.\ Error " r"& 95\% CI & N \\",
             r"\hline",
         ]
-        for gvar in df['group_var'].unique():
-            sub = df[df['group_var'] == gvar]
+        for gvar in df["group_var"].unique():
+            sub = df[df["group_var"] == gvar]
             first = True
             for _, row in sub.iterrows():
-                stars = _stars_latex(row['pvalue'])
+                stars = _stars_latex(row["pvalue"])
                 dim_col = gvar if first else ""
                 first = False
                 lines.append(
@@ -208,7 +203,7 @@ class SubgroupResult(ResultProtocolMixin):
             raise ImportError("matplotlib required. pip install matplotlib")
 
         df = self.results_df
-        groups = df['group_var'].unique()
+        groups = df["group_var"].unique()
 
         # Build label list with section headers
         labels: List[Any] = []
@@ -231,14 +226,14 @@ class SubgroupResult(ResultProtocolMixin):
             colors.append(None)
             pos += 1
 
-            sub = df[df['group_var'] == gvar]
+            sub = df[df["group_var"] == gvar]
             for _, row in sub.iterrows():
                 labels.append(f"  {row['group_val']}")
                 positions.append(pos)
                 is_header.append(False)
-                estimates.append(row['estimate'])
-                ci_lo.append(row['ci_lower'])
-                ci_hi.append(row['ci_upper'])
+                estimates.append(row["estimate"])
+                ci_lo.append(row["ci_lower"])
+                ci_hi.append(row["ci_upper"])
                 colors.append(color)
                 pos += 1
             pos += 0.5  # gap between groups
@@ -263,23 +258,31 @@ class SubgroupResult(ResultProtocolMixin):
             if is_header[i]:
                 ax.text(
                     ax.get_xlim()[0] if ax.get_xlim()[0] != 0 else -0.5,
-                    positions[i], labels[i],
-                    fontsize=9, fontweight='bold', va='center',
+                    positions[i],
+                    labels[i],
+                    fontsize=9,
+                    fontweight="bold",
+                    va="center",
                 )
             else:
                 ax.errorbar(
-                    estimates[i], positions[i],
+                    estimates[i],
+                    positions[i],
                     xerr=[[estimates[i] - ci_lo[i]], [ci_hi[i] - estimates[i]]],
-                    fmt='D' if labels[i] == "Overall" else 'o',
+                    fmt="D" if labels[i] == "Overall" else "o",
                     color=colors[i],
                     markersize=6 if labels[i] == "Overall" else 5,
-                    capsize=3, linewidth=1.2,
+                    capsize=3,
+                    linewidth=1.2,
                 )
 
-        ax.axvline(0, color='grey', linewidth=0.5, linestyle='--')
+        ax.axvline(0, color="grey", linewidth=0.5, linestyle="--")
         ax.axvline(
-            self.overall_estimate, color=overall_color,
-            linewidth=0.6, linestyle=':', alpha=0.5,
+            self.overall_estimate,
+            color=overall_color,
+            linewidth=0.6,
+            linestyle=":",
+            alpha=0.5,
         )
 
         ax.set_yticks(positions)
@@ -287,9 +290,10 @@ class SubgroupResult(ResultProtocolMixin):
         ax.invert_yaxis()
         ax.set_xlabel(f"Estimate of '{self.x}'")
         ax.set_title(
-            title or "Subgroup Heterogeneity Analysis", fontsize=12,
+            title or "Subgroup Heterogeneity Analysis",
+            fontsize=12,
         )
-        for spine in ['top', 'right']:
+        for spine in ["top", "right"]:
             ax.spines[spine].set_visible(False)
         plt.tight_layout()
         return fig, ax
@@ -341,7 +345,7 @@ def _quick_ols_full(
     resid = Y - X @ params
 
     # HC1
-    u2 = resid ** 2
+    u2 = resid**2
     meat = X.T @ np.diag(u2) @ X * n / (n - k)
     vcov = XtX_inv @ meat @ XtX_inv
 
@@ -353,12 +357,12 @@ def _quick_ols_full(
     p_val = 2 * (1 - stats.t.cdf(abs(beta_x / se_x), df_resid))
 
     return {
-        'estimate': beta_x,
-        'se': se_x,
-        'ci_lower': beta_x - t_crit * se_x,
-        'ci_upper': beta_x + t_crit * se_x,
-        'pvalue': p_val,
-        'nobs': n,
+        "estimate": beta_x,
+        "se": se_x,
+        "ci_lower": beta_x - t_crit * se_x,
+        "ci_upper": beta_x + t_crit * se_x,
+        "pvalue": p_val,
+        "nobs": n,
     }
 
 
@@ -408,7 +412,7 @@ def _interaction_het_test(
     resid = Y - X @ params
 
     # HC1 vcov
-    u2 = resid ** 2
+    u2 = resid**2
     meat = X.T @ np.diag(u2) @ X * n / (n - k)
     vcov = XtX_inv @ meat @ XtX_inv
 
@@ -428,19 +432,20 @@ def _interaction_het_test(
     df_test = n_int
     p_val = 1 - stats.chi2.cdf(chi2, df_test)
 
-    return {'chi2': chi2, 'pvalue': p_val, 'df': float(df_test)}
+    return {"chi2": chi2, "pvalue": p_val, "df": float(df_test)}
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def subgroup_analysis(
     data: pd.DataFrame,
     formula: str,
     x: str,
     by: Dict[str, str],
-    robust: str = 'hc1',
+    robust: str = "hc1",
 ) -> SubgroupResult:
     """
     Run subgroup heterogeneity analysis with forest plot.
@@ -497,9 +502,10 @@ def subgroup_analysis(
     'SubgroupResult'
     """
     from ..core.utils import parse_formula
+
     parsed = parse_formula(formula)
-    y_col = parsed['dependent']
-    all_rhs = parsed['exogenous']
+    y_col = parsed["dependent"]
+    all_rhs = parsed["exogenous"]
     controls_base = [v for v in all_rhs if v != x]
 
     # Overall estimate
@@ -524,14 +530,18 @@ def subgroup_analysis(
             sub_data = data.loc[mask]
             res = _quick_ols_full(sub_data, y_col, x, ctrl_clean)
             if res is not None:
-                res['group_var'] = display_name
-                res['group_val'] = str(g)
-                res['label'] = f"{display_name}: {g}"
+                res["group_var"] = display_name
+                res["group_val"] = str(g)
+                res["label"] = f"{display_name}: {g}"
                 rows.append(res)
 
         # Heterogeneity test
         ht = _interaction_het_test(
-            data, y_col, x, ctrl_clean, col_name,
+            data,
+            y_col,
+            x,
+            ctrl_clean,
+            col_name,
         )
         if ht is not None:
             het_tests[display_name] = ht
@@ -544,7 +554,7 @@ def subgroup_analysis(
     return SubgroupResult(
         results_df=results_df,
         x=x,
-        overall_estimate=overall['estimate'],
-        overall_se=overall['se'],
+        overall_estimate=overall["estimate"],
+        overall_se=overall["se"],
         het_tests=het_tests,
     )

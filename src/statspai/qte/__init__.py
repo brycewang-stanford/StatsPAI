@@ -26,9 +26,16 @@ from .hd_panel import qte_hd_panel, HDPanelQTEResult
 from .beyond_average import beyond_average_late, BeyondAverageResult
 
 __all__ = [
-    "qdid", "qte", "QTEResult",
-    "distributional_te", "DTEResult",
-    "dist_iv", "kan_dlate", "DistIVResult",
-    "qte_hd_panel", "HDPanelQTEResult",
-    "beyond_average_late", "BeyondAverageResult",
+    "qdid",
+    "qte",
+    "QTEResult",
+    "distributional_te",
+    "DTEResult",
+    "dist_iv",
+    "kan_dlate",
+    "DistIVResult",
+    "qte_hd_panel",
+    "HDPanelQTEResult",
+    "beyond_average_late",
+    "BeyondAverageResult",
 ]

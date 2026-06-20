@@ -18,64 +18,68 @@ Examples
 
 A fully runnable example appears in :func:`statspai.interference` below.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Tuple
-
 
 _REGISTRY: Dict[str, Tuple[str, str]] = {
     # -- Partial interference (Hudgens-Halloran / Aronow-Samii 2017) #
     "partial": ("statspai.interference.spillover", "spillover"),
     "spillover": ("statspai.interference.spillover", "spillover"),
     "hudgens_halloran": ("statspai.interference.spillover", "spillover"),
-
     # -- Network interference ------------------------------------- #
-    "network_exposure": ("statspai.interference.network_exposure",
-                         "network_exposure"),
-    "aronow_samii": ("statspai.interference.network_exposure",
-                     "network_exposure"),
+    "network_exposure": ("statspai.interference.network_exposure", "network_exposure"),
+    "aronow_samii": ("statspai.interference.network_exposure", "network_exposure"),
     "as": ("statspai.interference.network_exposure", "network_exposure"),
-    "horvitz_thompson": ("statspai.interference.network_exposure",
-                         "network_exposure"),
-
+    "horvitz_thompson": ("statspai.interference.network_exposure", "network_exposure"),
     "peer_effects": ("statspai.interference.peer_effects", "peer_effects"),
     "linear_in_means": ("statspai.interference.peer_effects", "peer_effects"),
     "manski": ("statspai.interference.peer_effects", "peer_effects"),
     "bramoulle": ("statspai.interference.peer_effects", "peer_effects"),
-
     "network_hte": ("statspai.interference.orthogonal", "network_hte"),
     "orthogonal": ("statspai.interference.orthogonal", "network_hte"),
     "parmigiani": ("statspai.interference.orthogonal", "network_hte"),
-
-    "inward_outward": ("statspai.interference.orthogonal",
-                       "inward_outward_spillover"),
-    "inward_outward_spillover": ("statspai.interference.orthogonal",
-                                 "inward_outward_spillover"),
-    "directed": ("statspai.interference.orthogonal",
-                 "inward_outward_spillover"),
-
+    "inward_outward": ("statspai.interference.orthogonal", "inward_outward_spillover"),
+    "inward_outward_spillover": (
+        "statspai.interference.orthogonal",
+        "inward_outward_spillover",
+    ),
+    "directed": ("statspai.interference.orthogonal", "inward_outward_spillover"),
     # -- Cluster RCTs with interference --------------------------- #
-    "cluster_matched_pair": ("statspai.interference.cluster_matched_pair",
-                             "cluster_matched_pair"),
-    "matched_pair": ("statspai.interference.cluster_matched_pair",
-                     "cluster_matched_pair"),
-    "bai": ("statspai.interference.cluster_matched_pair",
-            "cluster_matched_pair"),
-
-    "cluster_cross": ("statspai.interference.cluster_cross",
-                      "cluster_cross_interference"),
-    "cluster_cross_interference": ("statspai.interference.cluster_cross",
-                                   "cluster_cross_interference"),
-    "cross_interference": ("statspai.interference.cluster_cross",
-                           "cluster_cross_interference"),
-
-    "cluster_staggered": ("statspai.interference.cluster_staggered",
-                          "cluster_staggered_rollout"),
-    "cluster_staggered_rollout": ("statspai.interference.cluster_staggered",
-                                  "cluster_staggered_rollout"),
-    "staggered_cluster": ("statspai.interference.cluster_staggered",
-                          "cluster_staggered_rollout"),
-
+    "cluster_matched_pair": (
+        "statspai.interference.cluster_matched_pair",
+        "cluster_matched_pair",
+    ),
+    "matched_pair": (
+        "statspai.interference.cluster_matched_pair",
+        "cluster_matched_pair",
+    ),
+    "bai": ("statspai.interference.cluster_matched_pair", "cluster_matched_pair"),
+    "cluster_cross": (
+        "statspai.interference.cluster_cross",
+        "cluster_cross_interference",
+    ),
+    "cluster_cross_interference": (
+        "statspai.interference.cluster_cross",
+        "cluster_cross_interference",
+    ),
+    "cross_interference": (
+        "statspai.interference.cluster_cross",
+        "cluster_cross_interference",
+    ),
+    "cluster_staggered": (
+        "statspai.interference.cluster_staggered",
+        "cluster_staggered_rollout",
+    ),
+    "cluster_staggered_rollout": (
+        "statspai.interference.cluster_staggered",
+        "cluster_staggered_rollout",
+    ),
+    "staggered_cluster": (
+        "statspai.interference.cluster_staggered",
+        "cluster_staggered_rollout",
+    ),
     "dnc_gnn": ("statspai.interference.dnc_gnn_did", "dnc_gnn_did"),
     "dnc_gnn_did": ("statspai.interference.dnc_gnn_did", "dnc_gnn_did"),
     "dnc": ("statspai.interference.dnc_gnn_did", "dnc_gnn_did"),
@@ -144,6 +148,7 @@ def interference(design: str = "partial", /, **kwargs: Any) -> Any:
 
     module_path, fn_name = _REGISTRY[design]
     import importlib
+
     mod = importlib.import_module(module_path)
     fn = getattr(mod, fn_name)
     return fn(**kwargs)

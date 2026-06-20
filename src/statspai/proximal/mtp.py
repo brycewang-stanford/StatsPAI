@@ -77,8 +77,11 @@ def pci_mtp(
     olivas2025proximal
     """
     cov = list(covariates or [])
-    df = data[[y, treat] + list(proxy_z) + list(proxy_w) + cov] \
-        .dropna().reset_index(drop=True)
+    df = (
+        data[[y, treat] + list(proxy_z) + list(proxy_w) + cov]
+        .dropna()
+        .reset_index(drop=True)
+    )
     Y = df[y].to_numpy(float)
     D = df[treat].to_numpy(float)
     Z = df[list(proxy_z)].to_numpy(float)
@@ -109,7 +112,10 @@ def pci_mtp(
             # MTP effect = γ_D * δ for linear bridge
             return gamma_d * delta
         except np.linalg.LinAlgError:
-            return float(np.mean(Yi[Di > Di.mean()]) - np.mean(Yi[Di <= Di.mean()])) * delta
+            return (
+                float(np.mean(Yi[Di > Di.mean()]) - np.mean(Yi[Di <= Di.mean()]))
+                * delta
+            )
 
     tau = _mtp(Y, D, Z, W, X, delta)
 
@@ -138,23 +144,28 @@ def pci_mtp(
         alpha=alpha,
         n_obs=n,
         model_info={
-            'estimator': 'pci_mtp',
-            'delta': delta,
-            'reference': 'Olivas-Martinez, Gilbert & Rotnitzky (2025), arXiv 2512.12038',
+            "estimator": "pci_mtp",
+            "delta": delta,
+            "reference": "Olivas-Martinez, Gilbert & Rotnitzky (2025), arXiv 2512.12038",
         },
-        _citation_key='pci_mtp',
+        _citation_key="pci_mtp",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.proximal.pci_mtp",
             params={
-                "y": y, "treat": treat,
-                "proxy_z": list(proxy_z), "proxy_w": list(proxy_w),
+                "y": y,
+                "treat": treat,
+                "proxy_z": list(proxy_z),
+                "proxy_w": list(proxy_w),
                 "delta": delta,
                 "covariates": list(covariates) if covariates else None,
-                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+                "alpha": alpha,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -164,7 +175,7 @@ def pci_mtp(
     return _result
 
 
-CausalResult._CITATIONS['pci_mtp'] = (
+CausalResult._CITATIONS["pci_mtp"] = (
     "@article{olivas2025proximal,\n"
     "  title={Proximal Causal Inference for Modified Treatment Policies},\n"
     "  author={Olivas-Martinez, Antonio and Gilbert, Peter B. and Rotnitzky, Andrea},\n"

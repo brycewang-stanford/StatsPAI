@@ -118,13 +118,17 @@ class Collection:
 
     def __repr__(self) -> str:
         kinds = [it.kind for it in self.items]
-        return (f"<Collection title={self.title!r} template={self.template!r} "
-                f"items={len(self)} kinds={kinds}>")
+        return (
+            f"<Collection title={self.title!r} template={self.template!r} "
+            f"items={len(self)} kinds={kinds}>"
+        )
 
     def list(self) -> pd.DataFrame:
         """Return a DataFrame summary (name / kind / title) for inspection."""
-        rows = [{"name": it.name, "kind": it.kind, "title": it.title or ""}
-                for it in self.items]
+        rows = [
+            {"name": it.name, "kind": it.kind, "title": it.title or ""}
+            for it in self.items
+        ]
         return pd.DataFrame(rows, columns=["name", "kind", "title"])
 
     def to_frame(self, *, include_text: bool = False) -> pd.DataFrame:
@@ -152,21 +156,23 @@ class Collection:
         for item_index, it in enumerate(self.items):
             if it.kind in {"text", "heading"}:
                 if include_text:
-                    rows.append({
-                        "collection": self.title or "",
-                        "item": it.name,
-                        "item_index": item_index,
-                        "kind": it.kind,
-                        "title": it.title or "",
-                        "panel": it.options.get("panel", ""),
-                        "model": "",
-                        "term": "",
-                        "statistic": "text",
-                        "column": "",
-                        "value": pd.NA,
-                        "formatted": str(it.payload),
-                        "source": type(it.payload).__name__,
-                    })
+                    rows.append(
+                        {
+                            "collection": self.title or "",
+                            "item": it.name,
+                            "item_index": item_index,
+                            "kind": it.kind,
+                            "title": it.title or "",
+                            "panel": it.options.get("panel", ""),
+                            "model": "",
+                            "term": "",
+                            "statistic": "text",
+                            "column": "",
+                            "value": pd.NA,
+                            "formatted": str(it.payload),
+                            "source": type(it.payload).__name__,
+                        }
+                    )
                 continue
 
             df = self._item_to_dataframe(it)
@@ -179,26 +185,39 @@ class Collection:
                     if it.kind == "regtable":
                         model = str(col)
                         statistic = self._infer_regtable_statistic(str(term), str(cell))
-                    rows.append({
-                        "collection": self.title or "",
-                        "item": it.name,
-                        "item_index": item_index,
-                        "kind": it.kind,
-                        "title": it.title or "",
-                        "panel": it.options.get("panel", ""),
-                        "model": model,
-                        "term": str(term),
-                        "term_index": row_pos,
-                        "statistic": statistic,
-                        "column": str(col),
-                        "value": self._coerce_numeric(cell),
-                        "formatted": "" if pd.isna(cell) else str(cell),
-                        "source": type(it.payload).__name__,
-                    })
+                    rows.append(
+                        {
+                            "collection": self.title or "",
+                            "item": it.name,
+                            "item_index": item_index,
+                            "kind": it.kind,
+                            "title": it.title or "",
+                            "panel": it.options.get("panel", ""),
+                            "model": model,
+                            "term": str(term),
+                            "term_index": row_pos,
+                            "statistic": statistic,
+                            "column": str(col),
+                            "value": self._coerce_numeric(cell),
+                            "formatted": "" if pd.isna(cell) else str(cell),
+                            "source": type(it.payload).__name__,
+                        }
+                    )
         columns = [
-            "collection", "item", "item_index", "kind", "title", "panel",
-            "model", "term", "term_index", "statistic", "column",
-            "value", "formatted", "source",
+            "collection",
+            "item",
+            "item_index",
+            "kind",
+            "title",
+            "panel",
+            "model",
+            "term",
+            "term_index",
+            "statistic",
+            "column",
+            "value",
+            "formatted",
+            "source",
         ]
         return pd.DataFrame(rows, columns=columns)
 
@@ -221,6 +240,7 @@ class Collection:
         (NaN → null); text / heading carry their string.
         """
         import json
+
         p = it.payload
         if isinstance(p, RegtableResult):
             return p.to_dict()
@@ -272,6 +292,7 @@ class Collection:
     def to_json(self, *, indent: Optional[int] = None) -> str:
         """Serialise :meth:`to_dict` via ``json.dumps``."""
         import json
+
         return json.dumps(self.to_dict(), indent=indent, default=str)
 
     def get(self, name: str) -> CollectionItem:
@@ -300,12 +321,7 @@ class Collection:
         s = str(value).strip()
         # Keep stars, parentheses, and thousands separators from blocking
         # numeric access to the underlying table cell.
-        s = (
-            s.replace(",", "")
-            .replace("*", "")
-            .replace("(", "")
-            .replace(")", "")
-        )
+        s = s.replace(",", "").replace("*", "").replace("(", "").replace(")", "")
         try:
             return float(s)
         except ValueError:
@@ -380,9 +396,7 @@ class Collection:
                 "add_table expects a RegtableResult or MeanComparisonResult; "
                 f"got {type(result).__name__}"
             )
-        kind: ItemKind = (
-            "regtable" if isinstance(result, RegtableResult) else "balance"
-        )
+        kind: ItemKind = "regtable" if isinstance(result, RegtableResult) else "balance"
         nm = name or self._gen_name(kind)
         self._check_name(nm)
         if title and getattr(result, "title", None) in (None, ""):
@@ -420,10 +434,15 @@ class Collection:
         )
         nm = name or self._gen_name("summary")
         self._check_name(nm)
-        self.items.append(CollectionItem(
-            nm, "summary", title, df,
-            options={"labels": labels or {}},
-        ))
+        self.items.append(
+            CollectionItem(
+                nm,
+                "summary",
+                title,
+                df,
+                options={"labels": labels or {}},
+            )
+        )
         return self
 
     def add_balance(
@@ -480,9 +499,9 @@ class Collection:
             raise ValueError("heading level must be 1, 2, or 3")
         nm = name or self._gen_name("heading")
         self._check_name(nm)
-        self.items.append(CollectionItem(
-            nm, "heading", text, text, options={"level": level}
-        ))
+        self.items.append(
+            CollectionItem(nm, "heading", text, text, options={"level": level})
+        )
         return self
 
     # ------------------------------------------------------------------
@@ -544,11 +563,13 @@ class Collection:
         parts: List[str] = ["<html><head><meta charset='utf-8'>"]
         if self.title:
             parts.append(f"<title>{self.title}</title>")
-        parts.append("<style>body{font-family:'Times New Roman',serif;}"
-                     "table{border-collapse:collapse;margin:1em 0;}"
-                     "th,td{padding:4px 10px;}"
-                     "table{border-top:2px solid #000;border-bottom:2px solid #000;}"
-                     "th{border-bottom:1px solid #000;}</style></head><body>")
+        parts.append(
+            "<style>body{font-family:'Times New Roman',serif;}"
+            "table{border-collapse:collapse;margin:1em 0;}"
+            "th,td{padding:4px 10px;}"
+            "table{border-top:2px solid #000;border-bottom:2px solid #000;}"
+            "th{border-bottom:1px solid #000;}</style></head><body>"
+        )
         if self.title:
             parts.append(f"<h1>{self.title}</h1>")
         for it in self.items:

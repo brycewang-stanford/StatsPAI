@@ -49,8 +49,8 @@ design doc; ``regtable`` is the canonical one):
 # ── Regression-table renderers ──────────────────────────────────────────
 from .regression_table import regtable, RegtableResult
 from .estimates import eststo, estclear, esttab, EstimateTableResult
-from .modelsummary import modelsummary, coefplot, coefplot_tikz
-from .outreg2 import OutReg2, outreg2
+from .modelsummary import modelsummary, coefplot, coefplot_tikz  # noqa: F401
+from .outreg2 import OutReg2, outreg2  # noqa: F401
 
 # ── Single-table helpers ────────────────────────────────────────────────
 from .sumstats import sumstats, balance_table
@@ -98,7 +98,6 @@ from ._bibliography import (
     citations_to_bib_entries,
     write_bib,
 )
-
 
 __all__ = [
     # Regression-table renderers (canonical first)

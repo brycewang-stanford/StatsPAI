@@ -63,8 +63,33 @@ def _as_float_array(value: Any) -> np.ndarray:
 # Halton sequence (with scrambling, Bhat 2003)
 # ---------------------------------------------------------------------------
 
-_PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47,
-           53, 59, 61, 67, 71, 73, 79, 83, 89, 97]
+_PRIMES = [
+    2,
+    3,
+    5,
+    7,
+    11,
+    13,
+    17,
+    19,
+    23,
+    29,
+    31,
+    37,
+    41,
+    43,
+    47,
+    53,
+    59,
+    61,
+    67,
+    71,
+    73,
+    79,
+    83,
+    89,
+    97,
+]
 
 
 def _halton(n: int, base: int, skip: int = 10) -> np.ndarray:
@@ -83,8 +108,7 @@ def _halton(n: int, base: int, skip: int = 10) -> np.ndarray:
     return out[skip:]
 
 
-def _halton_draws(n_draws: int, n_dim: int, n_ind: int,
-                  seed: int = 0) -> np.ndarray:
+def _halton_draws(n_draws: int, n_dim: int, n_ind: int, seed: int = 0) -> np.ndarray:
     """
     Halton draws reshaped to ``(n_ind, n_draws, n_dim)``.
 
@@ -117,6 +141,7 @@ def _halton_draws(n_draws: int, n_dim: int, n_ind: int,
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def mixlogit(
     data: pd.DataFrame,
@@ -217,12 +242,22 @@ def mixlogit(
     >>> summary_text = result.summary()
     """
     fit = _MixedLogitFitter(
-        data=data, y=y, alt=alt, chid=chid,
-        x_fixed=x_fixed or [], x_random=x_random or [],
-        random_dist=random_dist or {}, panel_id=panel_id,
-        n_draws=n_draws, correlated=correlated, robust=robust,
-        alpha=alpha, maxiter=maxiter, tol=tol,
-        halton_seed=halton_seed, verbose=verbose,
+        data=data,
+        y=y,
+        alt=alt,
+        chid=chid,
+        x_fixed=x_fixed or [],
+        x_random=x_random or [],
+        random_dist=random_dist or {},
+        panel_id=panel_id,
+        n_draws=n_draws,
+        correlated=correlated,
+        robust=robust,
+        alpha=alpha,
+        maxiter=maxiter,
+        tol=tol,
+        halton_seed=halton_seed,
+        verbose=verbose,
     )
     return fit.run()
 
@@ -230,6 +265,7 @@ def mixlogit(
 # ---------------------------------------------------------------------------
 # Fitter
 # ---------------------------------------------------------------------------
+
 
 class _MixedLogitFitter:
 
@@ -280,14 +316,14 @@ class _MixedLogitFitter:
         if self.panel_id is not None and self.panel_id not in self.data.columns:
             raise ValueError(f"panel_id '{self.panel_id}' not in data")
         for name, d in (self.random_dist or {}).items():
-            if d not in ('normal', 'lognormal', 'triangular'):
+            if d not in ("normal", "lognormal", "triangular"):
                 raise ValueError(f"distribution '{d}' not supported")
             if name not in self.x_random:
                 raise ValueError(f"random_dist key '{name}' not in x_random")
         if self.correlated:
             for name in self.x_random:
-                dist = (self.random_dist or {}).get(name, 'normal')
-                if dist != 'normal':
+                dist = (self.random_dist or {}).get(name, "normal")
+                if dist != "normal":
                     raise ValueError(
                         f"correlated=True requires all random coefficients to be "
                         f"'normal'; got '{dist}' for '{name}'. Set correlated=False "
@@ -300,9 +336,7 @@ class _MixedLogitFitter:
         # Sort rows so each ``chid`` is contiguous. Using a stable sort
         # preserves the within-chid alternative ordering.
         sort_cols = [self.panel_id, self.chid] if self.panel_id else [self.chid]
-        df = (self.data
-              .sort_values(sort_cols, kind='mergesort')
-              .reset_index(drop=True))
+        df = self.data.sort_values(sort_cols, kind="mergesort").reset_index(drop=True)
 
         # Encode chid / panel_id via ``pd.factorize(sort=False)`` which
         # assigns integer codes in FIRST-APPEARANCE order. Because the
@@ -338,20 +372,25 @@ class _MixedLogitFitter:
                 f"chosen alternative (y==1). First offender index: {int(bad[0])}."
             )
 
-        Xf = (df[self.x_fixed].values.astype(float)
-              if self.x_fixed else np.empty((len(df), 0)))
+        Xf = (
+            df[self.x_fixed].values.astype(float)
+            if self.x_fixed
+            else np.empty((len(df), 0))
+        )
         Xr = df[self.x_random].values.astype(float)
 
         return {
-            'Xf': Xf, 'Xr': Xr, 'y': y_arr,
-            'sit_idx': sit_idx,           # row → situation index (monotone)
-            'sit_sizes': sit_sizes,       # situation → #alts
-            'sit_starts': sit_starts,     # cumulative row starts (n_sit+1,)
-            'sit_to_ind': sit_to_ind,     # situation → individual index
-            'ind_of_row': ind_of_row,     # row → individual index
-            'n_ind': n_ind,
-            'n_sit': n_sit,
-            'n_rows': len(df),
+            "Xf": Xf,
+            "Xr": Xr,
+            "y": y_arr,
+            "sit_idx": sit_idx,  # row → situation index (monotone)
+            "sit_sizes": sit_sizes,  # situation → #alts
+            "sit_starts": sit_starts,  # cumulative row starts (n_sit+1,)
+            "sit_to_ind": sit_to_ind,  # situation → individual index
+            "ind_of_row": ind_of_row,  # row → individual index
+            "n_ind": n_ind,
+            "n_sit": n_sit,
+            "n_rows": len(df),
         }
 
     # ------------------- log-likelihood helpers -----------------------
@@ -369,8 +408,8 @@ class _MixedLogitFitter:
         ``n_scale`` = kr (diagonal) OR kr*(kr+1)/2 (full Cholesky).
         """
         bf = theta[:kf]
-        mu = theta[kf:kf + kr]
-        sc = theta[kf + kr:]
+        mu = theta[kf : kf + kr]
+        sc = theta[kf + kr :]
         return bf, mu, sc
 
     def _apply_draws(
@@ -405,22 +444,22 @@ class _MixedLogitFitter:
 
         # Diagonal: transform each dim independently
         beta = np.empty_like(zR)
-        sig = np.abs(sc) + 1e-8                        # (kr,)
+        sig = np.abs(sc) + 1e-8  # (kr,)
         for k, name in enumerate(self.x_random):
-            dist = (self.random_dist or {}).get(name, 'normal')
+            dist = (self.random_dist or {}).get(name, "normal")
             z_k = zR[..., k]
-            if dist == 'normal':
+            if dist == "normal":
                 beta[..., k] = mu[k] + sig[k] * z_k
-            elif dist == 'lognormal':
+            elif dist == "lognormal":
                 beta[..., k] = np.exp(mu[k] + sig[k] * z_k)
-            elif dist == 'triangular':
+            elif dist == "triangular":
                 # Map standard-normal draw to Unif(0,1) via Φ, then apply
                 # the inverse CDF of Triangular(-1, 0, 1), then shift-scale.
                 u = stats.norm.cdf(z_k)
                 t = np.where(
                     u < 0.5,
                     -1.0 + np.sqrt(2.0 * np.clip(u, 0, 1)),
-                     1.0 - np.sqrt(2.0 * np.clip(1.0 - u, 0, 1)),
+                    1.0 - np.sqrt(2.0 * np.clip(1.0 - u, 0, 1)),
                 )
                 beta[..., k] = mu[k] + sig[k] * t
             else:  # pragma: no cover — validated in __init__
@@ -459,25 +498,23 @@ class _MixedLogitFitter:
     ) -> np.ndarray:
         bf, mu, sc = self._unpack(theta, kf, kr)
 
-        Xr = _as_float_array(D['Xr'])             # (N_rows, kr)
-        Xf = _as_float_array(D['Xf'])             # (N_rows, kf)
-        y = _as_float_array(D['y'])
-        ind_of_row = np.asarray(D['ind_of_row'], dtype=np.int64)
-        sit_starts = np.asarray(D['sit_starts'], dtype=np.int64)
-        sit_to_ind = np.asarray(D['sit_to_ind'], dtype=np.int64)
-        n_sit = int(D['n_sit'])
-        n_ind = int(D['n_ind'])
+        Xr = _as_float_array(D["Xr"])  # (N_rows, kr)
+        Xf = _as_float_array(D["Xf"])  # (N_rows, kf)
+        y = _as_float_array(D["y"])
+        ind_of_row = np.asarray(D["ind_of_row"], dtype=np.int64)
+        sit_starts = np.asarray(D["sit_starts"], dtype=np.int64)
+        sit_to_ind = np.asarray(D["sit_to_ind"], dtype=np.int64)
+        n_sit = int(D["n_sit"])
+        n_ind = int(D["n_ind"])
         R = draws.shape[1]
 
-        beta_draws = self._apply_draws(draws, mu, sc, kr)     # (n_ind, R, kr)
+        beta_draws = self._apply_draws(draws, mu, sc, kr)  # (n_ind, R, kr)
 
         # Utility from random coefs for each row × draw
-        Xr_beta = np.einsum(
-            'nk,nrk->nr', Xr, beta_draws[ind_of_row]
-        )                                                     # (N_rows, R)
+        Xr_beta = np.einsum("nk,nrk->nr", Xr, beta_draws[ind_of_row])  # (N_rows, R)
 
         if kf > 0:
-            util = (Xf @ bf)[:, None] + Xr_beta               # (N_rows, R)
+            util = (Xf @ bf)[:, None] + Xr_beta  # (N_rows, R)
         else:
             util = Xr_beta
 
@@ -487,13 +524,13 @@ class _MixedLogitFitter:
         chosen_row = np.empty(n_sit, dtype=np.int64)
         for s in range(n_sit):
             a, b = sit_starts[s], sit_starts[s + 1]
-            block = util[a:b]                         # (n_alt_s, R)
+            block = util[a:b]  # (n_alt_s, R)
             m = block.max(axis=0, keepdims=True)
             lse[s] = m.ravel() + np.log(np.sum(np.exp(block - m), axis=0))
             # Chosen alternative (exactly one validated in _prepare)
             rel = np.argmax(y[a:b])
             chosen_row[s] = a + rel
-        logP_sit = util[chosen_row] - lse             # (n_sit, R)
+        logP_sit = util[chosen_row] - lse  # (n_sit, R)
 
         # For each individual, simulated likelihood = mean over draws of
         # product over their situations.
@@ -524,20 +561,20 @@ class _MixedLogitFitter:
         kf = len(self.x_fixed)
         kr = len(self.x_random)
 
-        n_ind = int(D['n_ind'])
-        n_sit = int(D['n_sit'])
-        n_rows = int(D['n_rows'])
+        n_ind = int(D["n_ind"])
+        n_sit = int(D["n_sit"])
+        n_rows = int(D["n_rows"])
 
-        draws = _halton_draws(self.n_draws, kr, n_ind,
-                              seed=self.halton_seed)
+        draws = _halton_draws(self.n_draws, kr, n_ind, seed=self.halton_seed)
 
         # Initial values: zero fixed, zero means, unit scales
-        theta0 = np.concatenate([
-            np.zeros(kf),
-            np.zeros(kr),
-            (np.eye(kr)[np.tril_indices(kr)]
-             if self.correlated else np.ones(kr)),
-        ])
+        theta0 = np.concatenate(
+            [
+                np.zeros(kf),
+                np.zeros(kr),
+                (np.eye(kr)[np.tril_indices(kr)] if self.correlated else np.ones(kr)),
+            ]
+        )
 
         def neg_ll(theta: np.ndarray) -> float:
             ll_i = self._loglik_per_ind(theta, D, kf, kr, draws)
@@ -547,9 +584,10 @@ class _MixedLogitFitter:
             return val
 
         opt = optimize.minimize(
-            neg_ll, theta0, method='BFGS',
-            options={'maxiter': self.maxiter, 'gtol': self.tol,
-                     'disp': self.verbose},
+            neg_ll,
+            theta0,
+            method="BFGS",
+            options={"maxiter": self.maxiter, "gtol": self.tol, "disp": self.verbose},
         )
         theta_hat = _as_float_array(opt.x)
         ll_hat = float(-opt.fun)
@@ -575,13 +613,13 @@ class _MixedLogitFitter:
             th_plus[j] += eps
             th_minus = theta_hat.copy()
             th_minus[j] -= eps
-            ll_p = self._loglik_per_ind(th_plus,  D, kf, kr, draws)
+            ll_p = self._loglik_per_ind(th_plus, D, kf, kr, draws)
             ll_m = self._loglik_per_ind(th_minus, D, kf, kr, draws)
             scores[:, j] = (ll_p - ll_m) / (2.0 * eps)
 
-        B = scores.T @ scores                # outer-product-of-gradients
+        B = scores.T @ scores  # outer-product-of-gradients
         # Numerical Hessian via finite differences on the total log-lik
-        grad_plus  = np.zeros((p, p))
+        grad_plus = np.zeros((p, p))
         grad_minus = np.zeros((p, p))
         for j in range(p):
             th_plus = theta_hat.copy()
@@ -589,10 +627,10 @@ class _MixedLogitFitter:
             th_minus = theta_hat.copy()
             th_minus[j] -= eps
             # reuse central-difference gradient of full LL (sum over i)
-            grad_plus[j]  = self._grad_ll(th_plus,  D, kf, kr, draws, eps)
+            grad_plus[j] = self._grad_ll(th_plus, D, kf, kr, draws, eps)
             grad_minus[j] = self._grad_ll(th_minus, D, kf, kr, draws, eps)
-        H = -(grad_plus - grad_minus) / (2.0 * eps)          # -∂²ℓ/∂θ∂θ'
-        H = 0.5 * (H + H.T)                                  # symmetrize
+        H = -(grad_plus - grad_minus) / (2.0 * eps)  # -∂²ℓ/∂θ∂θ'
+        H = 0.5 * (H + H.T)  # symmetrize
         try:
             H_inv = _as_float_array(np.linalg.inv(H + 1e-8 * np.eye(p)))
         except np.linalg.LinAlgError:
@@ -611,39 +649,43 @@ class _MixedLogitFitter:
         ci_hi = _as_float_array(theta_hat + zcrit * se)
 
         # Parameter names
-        names = (list(self.x_fixed)
-                 + [f"mean_{x}" for x in self.x_random]
-                 + ([f"L[{i},{j}]" for i, j in zip(*np.tril_indices(kr))]
-                    if self.correlated
-                    else [f"sd_{x}" for x in self.x_random]))
+        names = (
+            list(self.x_fixed)
+            + [f"mean_{x}" for x in self.x_random]
+            + (
+                [f"L[{i},{j}]" for i, j in zip(*np.tril_indices(kr))]
+                if self.correlated
+                else [f"sd_{x}" for x in self.x_random]
+            )
+        )
 
         model_info = {
-            'model_type': 'Mixed Logit',
-            'method': 'Simulated Maximum Likelihood (Halton)',
-            'n_draws': self.n_draws,
-            'correlated': self.correlated,
-            'robust_se': self.robust,
-            'log_likelihood': float(ll_hat),
-            'converged': bool(opt.success),
-            'iterations': int(opt.nit) if hasattr(opt, 'nit') else None,
-            'citation_key': 'mixlogit',
-            '_citation_key': 'mixlogit',
+            "model_type": "Mixed Logit",
+            "method": "Simulated Maximum Likelihood (Halton)",
+            "n_draws": self.n_draws,
+            "correlated": self.correlated,
+            "robust_se": self.robust,
+            "log_likelihood": float(ll_hat),
+            "converged": bool(opt.success),
+            "iterations": int(opt.nit) if hasattr(opt, "nit") else None,
+            "citation_key": "mixlogit",
+            "_citation_key": "mixlogit",
         }
         data_info = {
-            'n_obs': n_rows,
-            'n_individuals': n_ind,
-            'n_choice_situations': n_sit,
-            'n_fixed': kf,
-            'n_random': kr,
+            "n_obs": n_rows,
+            "n_individuals": n_ind,
+            "n_choice_situations": n_sit,
+            "n_fixed": kf,
+            "n_random": kr,
         }
         diagnostics = {
-            'log_likelihood': float(ll_hat),
-            'AIC': float(2 * len(theta_hat) - 2 * ll_hat),
-            'BIC': float(np.log(n_sit) * len(theta_hat) - 2 * ll_hat),
-            'ci_lower': pd.Series(ci_lo, index=names),
-            'ci_upper': pd.Series(ci_hi, index=names),
-            'z': pd.Series(t_stat, index=names),
-            'pvalue': pd.Series(pvals, index=names),
+            "log_likelihood": float(ll_hat),
+            "AIC": float(2 * len(theta_hat) - 2 * ll_hat),
+            "BIC": float(np.log(n_sit) * len(theta_hat) - 2 * ll_hat),
+            "ci_lower": pd.Series(ci_lo, index=names),
+            "ci_upper": pd.Series(ci_hi, index=names),
+            "z": pd.Series(t_stat, index=names),
+            "pvalue": pd.Series(pvals, index=names),
         }
 
         return EconometricResults(
@@ -659,7 +701,7 @@ class _MixedLogitFitter:
 # Citation
 # ---------------------------------------------------------------------------
 
-CausalResult._CITATIONS['mixlogit'] = (
+CausalResult._CITATIONS["mixlogit"] = (
     "@book{train2009discrete,\n"
     "  title={Discrete Choice Methods with Simulation},\n"
     "  author={Train, Kenneth E.},\n"

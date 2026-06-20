@@ -34,32 +34,44 @@ from scipy import stats
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 # ======================================================================
 # Helpers
 # ======================================================================
 
+
 def _default_outcome_model() -> Any:
     from sklearn.ensemble import GradientBoostingRegressor
+
     return GradientBoostingRegressor(
-        n_estimators=200, max_depth=4, learning_rate=0.05,
-        subsample=0.8, random_state=42,
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.8,
+        random_state=42,
     )
 
 
 def _default_propensity_model() -> Any:
     from sklearn.ensemble import GradientBoostingClassifier
+
     return GradientBoostingClassifier(
-        n_estimators=200, max_depth=4, learning_rate=0.05,
-        subsample=0.8, random_state=42,
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.05,
+        subsample=0.8,
+        random_state=42,
     )
 
 
 def _default_cate_model() -> Any:
     from sklearn.ensemble import GradientBoostingRegressor
+
     return GradientBoostingRegressor(
-        n_estimators=200, max_depth=3, learning_rate=0.05,
-        subsample=0.8, random_state=42,
+        n_estimators=200,
+        max_depth=3,
+        learning_rate=0.05,
+        subsample=0.8,
+        random_state=42,
     )
 
 
@@ -69,7 +81,7 @@ def _get_propensity(
     clip: Tuple[float, float] = (0.01, 0.99),
 ) -> np.ndarray:
     """Return P(D=1|X), clipped for stability."""
-    if hasattr(model, 'predict_proba'):
+    if hasattr(model, "predict_proba"):
         p = model.predict_proba(X)[:, 1]
     else:
         p = model.predict(X)
@@ -139,17 +151,18 @@ def _cross_fit_predict(
     X: np.ndarray,
     y: np.ndarray,
     n_folds: int,
-    method: str = 'predict',
+    method: str = "predict",
 ) -> np.ndarray:
     """Out-of-fold predictions via cross-fitting."""
     from sklearn.base import clone
     from sklearn.model_selection import KFold
+
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
     preds = np.zeros(len(y), dtype=float)
     for train_idx, test_idx in kf.split(X):
         m = clone(model)
         m.fit(X[train_idx], y[train_idx])
-        if method == 'predict_proba':
+        if method == "predict_proba":
             preds[test_idx] = m.predict_proba(X[test_idx])[:, 1]
         else:
             preds[test_idx] = m.predict(X[test_idx])
@@ -206,6 +219,7 @@ def _cross_fit_aipw_phi(
     """
     from sklearn.base import clone
     from sklearn.model_selection import KFold
+
     n = len(Y)
     mu1_hat = np.zeros(n, dtype=float)
     mu0_hat = np.zeros(n, dtype=float)
@@ -239,7 +253,8 @@ def _cross_fit_aipw_phi(
     n_clip_lo = int(np.sum(e_hat < clip[0]))
     n_clip_hi = int(np.sum(e_hat > clip[1]))
     phi = (
-        mu1_hat - mu0_hat
+        mu1_hat
+        - mu0_hat
         + D * (Y - mu1_hat) / e_clip
         - (1 - D) * (Y - mu0_hat) / (1 - e_clip)
     )
@@ -257,6 +272,7 @@ def _cross_fit_aipw_phi(
 # ======================================================================
 # S-Learner
 # ======================================================================
+
 
 class SLearner:
     """
@@ -299,6 +315,7 @@ class SLearner:
     def fit(self, X: Any, Y: Any, D: Any) -> "SLearner":
         """Fit mu(X, D)."""
         from sklearn.base import clone
+
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         XD = np.column_stack([X, D])
         self._model = clone(self.model)
@@ -312,13 +329,15 @@ class SLearner:
         X = _prepare_effect_matrix(self, X, context="SLearner.effect()")
         X1 = np.column_stack([X, np.ones(len(X))])
         X0 = np.column_stack([X, np.zeros(len(X))])
-        return np.asarray(self._model.predict(X1) - self._model.predict(X0),
-                          dtype=float)
+        return np.asarray(
+            self._model.predict(X1) - self._model.predict(X0), dtype=float
+        )
 
 
 # ======================================================================
 # T-Learner
 # ======================================================================
+
 
 class TLearner:
     """
@@ -358,12 +377,14 @@ class TLearner:
 
     def __init__(self, model_0: Any = None, model_1: Any = None) -> None:
         from sklearn.base import clone
+
         self.model_0 = model_0 if model_0 is not None else _default_outcome_model()
         self.model_1 = model_1 if model_1 is not None else clone(self.model_0)
         self._fitted = False
 
     def fit(self, X: Any, Y: Any, D: Any) -> "TLearner":
         from sklearn.base import clone
+
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         mask1 = D == 1
         mask0 = D == 0
@@ -378,13 +399,13 @@ class TLearner:
 
     def effect(self, X: Any) -> np.ndarray:
         X = _prepare_effect_matrix(self, X, context="TLearner.effect()")
-        return np.asarray(self._mu1.predict(X) - self._mu0.predict(X),
-                          dtype=float)
+        return np.asarray(self._mu1.predict(X) - self._mu0.predict(X), dtype=float)
 
 
 # ======================================================================
 # X-Learner
 # ======================================================================
+
 
 class XLearner:
     """
@@ -444,23 +465,25 @@ class XLearner:
         propensity_model: Any = None,
     ) -> None:
         from sklearn.base import clone
+
         self.model_0 = model_0 if model_0 is not None else _default_outcome_model()
         self.model_1 = model_1 if model_1 is not None else clone(self.model_0)
         self.cate_model_0 = (
             cate_model_0 if cate_model_0 is not None else _default_cate_model()
         )
         self.cate_model_1 = (
-            cate_model_1 if cate_model_1 is not None
-            else clone(self.cate_model_0)
+            cate_model_1 if cate_model_1 is not None else clone(self.cate_model_0)
         )
         self.propensity_model = (
-            propensity_model if propensity_model is not None
+            propensity_model
+            if propensity_model is not None
             else _default_propensity_model()
         )
         self._fitted = False
 
     def fit(self, X: Any, Y: Any, D: Any) -> "XLearner":
         from sklearn.base import clone
+
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         mask1 = D == 1
         mask0 = D == 0
@@ -473,7 +496,7 @@ class XLearner:
 
         # Stage 2: imputed treatment effects
         D1 = Y[mask1] - self._mu0.predict(X[mask1])  # treated imputation
-        D0 = self._mu1.predict(X[mask0]) - Y[mask0]   # control imputation
+        D0 = self._mu1.predict(X[mask0]) - Y[mask0]  # control imputation
 
         self._tau1 = clone(self.cate_model_1)
         self._tau0 = clone(self.cate_model_0)
@@ -499,6 +522,7 @@ class XLearner:
 # ======================================================================
 # R-Learner
 # ======================================================================
+
 
 class RLearner:
     """
@@ -552,11 +576,11 @@ class RLearner:
         n_folds: int = 5,
     ) -> None:
         self.outcome_model = (
-            outcome_model if outcome_model is not None
-            else _default_outcome_model()
+            outcome_model if outcome_model is not None else _default_outcome_model()
         )
         self.propensity_model = (
-            propensity_model if propensity_model is not None
+            propensity_model
+            if propensity_model is not None
             else _default_propensity_model()
         )
         self.cate_model = (
@@ -567,12 +591,13 @@ class RLearner:
 
     def fit(self, X: Any, Y: Any, D: Any) -> "RLearner":
         from sklearn.base import clone
+
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
 
         # Cross-fit nuisance
         m_hat = _cross_fit_predict(self.outcome_model, X, Y, self.n_folds)
         e_hat = _cross_fit_predict(
-            self.propensity_model, X, D, self.n_folds, method='predict_proba'
+            self.propensity_model, X, D, self.n_folds, method="predict_proba"
         )
         e_hat = np.asarray(np.clip(e_hat, 0.01, 0.99), dtype=float)
 
@@ -584,7 +609,7 @@ class RLearner:
         # Weighted regression: minimise sum (Y_res - tau(X)*D_res)^2
         # Equivalent to fitting tau(X) on pseudo_Y = Y_res / D_res
         # with sample weights w = D_res^2
-        weights = D_res ** 2
+        weights = D_res**2
         pseudo_Y = np.where(np.abs(D_res) > 1e-6, Y_res / D_res, 0.0)
 
         self._cate = clone(self.cate_model)
@@ -602,6 +627,7 @@ class RLearner:
 # ======================================================================
 # DR-Learner
 # ======================================================================
+
 
 class DRLearner:
     """
@@ -656,11 +682,11 @@ class DRLearner:
         n_folds: int = 5,
     ) -> None:
         self.outcome_model = (
-            outcome_model if outcome_model is not None
-            else _default_outcome_model()
+            outcome_model if outcome_model is not None else _default_outcome_model()
         )
         self.propensity_model = (
-            propensity_model if propensity_model is not None
+            propensity_model
+            if propensity_model is not None
             else _default_propensity_model()
         )
         self.cate_model = (
@@ -672,6 +698,7 @@ class DRLearner:
     def fit(self, X: Any, Y: Any, D: Any) -> "DRLearner":
         from sklearn.base import clone
         from sklearn.model_selection import KFold
+
         X, Y, D = np.asarray(X), np.asarray(Y).ravel(), np.asarray(D).ravel()
         n = len(Y)
 
@@ -711,7 +738,8 @@ class DRLearner:
         n_clip_lo = int(np.sum(e_hat <= 0.01 + 1e-12))
         n_clip_hi = int(np.sum(e_hat >= 0.99 - 1e-12))
         phi = (
-            mu1_hat - mu0_hat
+            mu1_hat
+            - mu0_hat
             + D * (Y - mu1_hat) / e_hat
             - (1 - D) * (Y - mu0_hat) / (1 - e_hat)
         )
@@ -746,12 +774,13 @@ class DRLearner:
 # High-level API
 # ======================================================================
 
+
 def metalearner(
     data: pd.DataFrame,
     y: str,
     treat: str,
     covariates: List[str],
-    learner: str = 'dr',
+    learner: str = "dr",
     outcome_model: Optional[Any] = None,
     propensity_model: Optional[Any] = None,
     cate_model: Optional[Any] = None,
@@ -849,6 +878,7 @@ def metalearner(
     True
     """
     from sklearn.base import clone
+
     Y, D, X, n = _prepare_data(data, y, treat, covariates)
 
     # Validate binary treatment
@@ -859,22 +889,20 @@ def metalearner(
         )
 
     learner = learner.lower()
-    valid = {'s', 't', 'x', 'r', 'dr'}
+    valid = {"s", "t", "x", "r", "dr"}
     if learner not in valid:
-        raise ValueError(
-            f"learner must be one of {valid}, got '{learner}'"
-        )
+        raise ValueError(f"learner must be one of {valid}, got '{learner}'")
 
     # Build and fit the learner
     est: Any
-    if learner == 's':
+    if learner == "s":
         est = SLearner(model=outcome_model)
-    elif learner == 't':
+    elif learner == "t":
         est = TLearner(
             model_0=outcome_model,
             model_1=clone(outcome_model) if outcome_model is not None else None,
         )
-    elif learner == 'x':
+    elif learner == "x":
         est = XLearner(
             model_0=outcome_model,
             model_1=clone(outcome_model) if outcome_model is not None else None,
@@ -882,7 +910,7 @@ def metalearner(
             cate_model_1=clone(cate_model) if cate_model is not None else None,
             propensity_model=propensity_model,
         )
-    elif learner == 'r':
+    elif learner == "r":
         est = RLearner(
             outcome_model=outcome_model,
             propensity_model=propensity_model,
@@ -910,24 +938,29 @@ def metalearner(
     # under-estimates the SE.  We now reuse DR-Learner's own pseudo
     # outcomes when available (avoids a second cross-fit) and otherwise
     # build them via :func:`_cross_fit_aipw_phi`.
-    if learner == 'dr' and hasattr(est, '_pseudo_outcomes'):
+    if learner == "dr" and hasattr(est, "_pseudo_outcomes"):
         phi = np.asarray(est._pseudo_outcomes, dtype=float)
-        aipw_diag: dict[str, Any] = getattr(est, '_pseudo_diag', {}) or {}
+        aipw_diag: dict[str, Any] = getattr(est, "_pseudo_diag", {}) or {}
     else:
         # Use the user-supplied or default outcome / propensity models
         # for a clean, learner-independent AIPW fit.  Without explicit
         # user models this matches the DR-Learner default exactly so
         # results are reproducible across learner= choices.
         _outcome = (
-            outcome_model if outcome_model is not None
-            else _default_outcome_model()
+            outcome_model if outcome_model is not None else _default_outcome_model()
         )
         _prop = (
-            propensity_model if propensity_model is not None
+            propensity_model
+            if propensity_model is not None
             else _default_propensity_model()
         )
         phi, aipw_diag = _cross_fit_aipw_phi(
-            X, Y, D, _outcome, _prop, n_folds=n_folds,
+            X,
+            Y,
+            D,
+            _outcome,
+            _prop,
+            n_folds=n_folds,
         )
     ate = float(np.mean(phi))
     se = float(np.std(phi, ddof=1) / np.sqrt(n))
@@ -943,8 +976,11 @@ def metalearner(
     ci = (ate - z_crit * se, ate + z_crit * se)
 
     learner_names = {
-        's': 'S-Learner', 't': 'T-Learner', 'x': 'X-Learner',
-        'r': 'R-Learner', 'dr': 'DR-Learner',
+        "s": "S-Learner",
+        "t": "T-Learner",
+        "x": "X-Learner",
+        "r": "R-Learner",
+        "dr": "DR-Learner",
     }
 
     # Overlap diagnostics + warning when many propensities were clipped
@@ -955,6 +991,7 @@ def metalearner(
     clip_share = (n_clip_lo + n_clip_hi) / n if n > 0 else 0.0
     if clip_share > 0.05:
         import warnings
+
         warnings.warn(
             f"sp.metalearner: {n_clip_lo + n_clip_hi}/{n} "
             f"({100 * clip_share:.1f}%) propensity scores hit the "
@@ -968,37 +1005,37 @@ def metalearner(
         )
 
     model_info = {
-        'learner': learner_names[learner],
-        'n_covariates': len(covariates),
-        'n_folds': n_folds if learner in ('r', 'dr') else None,
-        'n_bootstrap': n_bootstrap,
+        "learner": learner_names[learner],
+        "n_covariates": len(covariates),
+        "n_folds": n_folds if learner in ("r", "dr") else None,
+        "n_bootstrap": n_bootstrap,
         # All learners now use AIPW (DR pseudo-outcome) for ATE + SE —
         # the chosen learner only governs CATE prediction. See the
         # ``ate_method`` note in the docstring + the v1.11.x migration
         # guide.
-        'se_method': 'aipw_influence_function',
-        'ate_method': 'aipw_dr_pseudo_outcome',
-        'covariates': covariates,
-        '_estimator': est,
-        'cate': cate,
-        'cate_mean': float(np.mean(cate)),
-        'cate_median': float(np.median(cate)),
-        'cate_std': float(np.std(cate)),
-        'cate_q25': float(np.percentile(cate, 25)),
-        'cate_q75': float(np.percentile(cate, 75)),
-        'n_treated': int(np.sum(D == 1)),
-        'n_control': int(np.sum(D == 0)),
-        'aipw_diagnostics': {
-            'n_clipped_below': n_clip_lo,
-            'n_clipped_above': n_clip_hi,
-            'clip_share': float(clip_share),
-            'clip': aipw_diag.get('clip', (0.01, 0.99)),
+        "se_method": "aipw_influence_function",
+        "ate_method": "aipw_dr_pseudo_outcome",
+        "covariates": covariates,
+        "_estimator": est,
+        "cate": cate,
+        "cate_mean": float(np.mean(cate)),
+        "cate_median": float(np.median(cate)),
+        "cate_std": float(np.std(cate)),
+        "cate_q25": float(np.percentile(cate, 25)),
+        "cate_q75": float(np.percentile(cate, 75)),
+        "n_treated": int(np.sum(D == 1)),
+        "n_control": int(np.sum(D == 0)),
+        "aipw_diagnostics": {
+            "n_clipped_below": n_clip_lo,
+            "n_clipped_above": n_clip_hi,
+            "clip_share": float(clip_share),
+            "clip": aipw_diag.get("clip", (0.01, 0.99)),
         },
     }
 
     _result = CausalResult(
-        method=f'Meta-Learner ({learner_names[learner]})',
-        estimand='ATE',
+        method=f"Meta-Learner ({learner_names[learner]})",
+        estimand="ATE",
         estimate=ate,
         se=se,
         pvalue=pvalue,
@@ -1007,28 +1044,28 @@ def metalearner(
         n_obs=n,
         detail=None,
         model_info=model_info,
-        _citation_key='metalearner',
+        _citation_key="metalearner",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         outcome_model_name = (
             type(outcome_model).__name__ if outcome_model is not None else None
         )
         propensity_model_name = (
-            type(propensity_model).__name__
-            if propensity_model is not None else None
+            type(propensity_model).__name__ if propensity_model is not None else None
         )
-        cate_model_name = (
-            type(cate_model).__name__ if cate_model is not None else None
-        )
+        cate_model_name = type(cate_model).__name__ if cate_model is not None else None
         _attach_prov(
             _result,
             function="sp.metalearner",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "learner": learner,
-                "n_folds": n_folds, "n_bootstrap": n_bootstrap,
+                "n_folds": n_folds,
+                "n_bootstrap": n_bootstrap,
                 "alpha": alpha,
                 "outcome_model": outcome_model_name,
                 "propensity_model": propensity_model_name,
@@ -1046,11 +1083,11 @@ def metalearner(
 # of truth per CLAUDE.md §10).  Touching this block requires touching
 # paper.bib too; the BibTeX strings below are byte-identical to the entries
 # under bib keys @kunzel2019metalearners, @nie2021quasi, @kennedy2023towards.
-CausalResult._CITATIONS['metalearner'] = (
+CausalResult._CITATIONS["metalearner"] = (
     "@article{kunzel2019metalearners,\n"
     "  title={Metalearners for estimating heterogeneous treatment effects "
     "using machine learning},\n"
-    "  author={K{\\\"u}nzel, S{\\\"o}ren R. and Sekhon, Jasjeet S. and "
+    '  author={K{\\"u}nzel, S{\\"o}ren R. and Sekhon, Jasjeet S. and '
     "Bickel, Peter J. and Yu, Bin},\n"
     "  journal={Proceedings of the National Academy of Sciences},\n"
     "  volume={116},\n"

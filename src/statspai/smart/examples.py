@@ -21,7 +21,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-
 # ---------------------------------------------------------------------------
 #  Curated runnable snippets
 # ---------------------------------------------------------------------------
@@ -260,6 +259,7 @@ def examples(name: str) -> Dict[str, Any]:
     known = False
     try:
         from ..registry import describe_function as _describe
+
         try:
             record = _describe(key) or {}
             known = True
@@ -274,12 +274,16 @@ def examples(name: str) -> Dict[str, Any]:
     if not snippets:
         registry_example = (record.get("example") or "").strip()
         if registry_example:
-            snippets.append({
-                "title": "Registry quick-start",
-                "code": (f"import statspai as sp\n"
-                         f"# (replace df / column names with your data)\n"
-                         f"{registry_example}"),
-            })
+            snippets.append(
+                {
+                    "title": "Registry quick-start",
+                    "code": (
+                        f"import statspai as sp\n"
+                        f"# (replace df / column names with your data)\n"
+                        f"{registry_example}"
+                    ),
+                }
+            )
 
     return {
         "name": key,

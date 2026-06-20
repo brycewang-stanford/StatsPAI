@@ -50,10 +50,10 @@ from scipy.optimize import minimize
 
 from ..core.results import CausalResult
 
-
 # ====================================================================== #
 #  Public API
 # ====================================================================== #
+
 
 def discos(
     data: pd.DataFrame,
@@ -170,7 +170,9 @@ def discos(
         raise ValueError("Need at least 2 control (donor) units")
 
     # --- Quantile grid ---
-    tau_grid = np.linspace(1 / (n_quantiles + 1), n_quantiles / (n_quantiles + 1), n_quantiles)
+    tau_grid = np.linspace(
+        1 / (n_quantiles + 1), n_quantiles / (n_quantiles + 1), n_quantiles
+    )
 
     # --- Build quantile matrices for pre- and post-treatment ---
     # Q_treated_pre[t, q]: treated unit's q-th quantile at pre-period t
@@ -182,22 +184,18 @@ def discos(
 
     Y_treated_pre = pivot.loc[treated_unit, pre_times].values.astype(np.float64)
     Y_treated_post = pivot.loc[treated_unit, post_times].values.astype(np.float64)
-    Y_donors_pre = pivot.loc[donors, pre_times].values.astype(np.float64)   # (J, T0)
+    Y_donors_pre = pivot.loc[donors, pre_times].values.astype(np.float64)  # (J, T0)
     Y_donors_post = pivot.loc[donors, post_times].values.astype(np.float64)  # (J, T1)
 
     # Empirical quantile functions from the pre-treatment time-series
-    Q_treated_pre = _empirical_quantile_function(Y_treated_pre, tau_grid)    # (n_q,)
+    Q_treated_pre = _empirical_quantile_function(Y_treated_pre, tau_grid)  # (n_q,)
     Q_treated_post = _empirical_quantile_function(Y_treated_post, tau_grid)  # (n_q,)
 
-    Q_donors_pre = np.zeros((J, n_quantiles))   # (J, n_q)
+    Q_donors_pre = np.zeros((J, n_quantiles))  # (J, n_q)
     Q_donors_post = np.zeros((J, n_quantiles))  # (J, n_q)
     for j in range(J):
-        Q_donors_pre[j] = _empirical_quantile_function(
-            Y_donors_pre[j], tau_grid
-        )
-        Q_donors_post[j] = _empirical_quantile_function(
-            Y_donors_post[j], tau_grid
-        )
+        Q_donors_pre[j] = _empirical_quantile_function(Y_donors_pre[j], tau_grid)
+        Q_donors_post[j] = _empirical_quantile_function(Y_donors_post[j], tau_grid)
 
     # --- Fit weights ---
     if method == "mixture":
@@ -207,7 +205,7 @@ def discos(
 
     # --- Counterfactual quantile function (post-treatment) ---
     Q_counterfactual_post = weights @ Q_donors_post  # (n_q,)
-    Q_counterfactual_pre = weights @ Q_donors_pre    # (n_q,)
+    Q_counterfactual_pre = weights @ Q_donors_pre  # (n_q,)
 
     # --- Distributional treatment effects ---
     quantile_effects = Q_treated_post - Q_counterfactual_post  # (n_q,)
@@ -215,7 +213,7 @@ def discos(
 
     # Pre-treatment fit
     pre_residuals = Q_treated_pre - Q_counterfactual_pre
-    pre_rmsqe = float(np.sqrt(np.mean(pre_residuals ** 2)))
+    pre_rmsqe = float(np.sqrt(np.mean(pre_residuals**2)))
 
     # --- Placebo inference ---
     placebo_avg_qtes: List[float] = []
@@ -245,15 +243,13 @@ def discos(
     # --- Standard errors and p-value ---
     if len(placebo_avg_qtes) > 0:
         se = float(np.std(placebo_avg_qtes, ddof=1))
-        pvalue = float(
-            np.mean(np.abs(placebo_avg_qtes) >= abs(avg_qte))
-        )
+        pvalue = float(np.mean(np.abs(placebo_avg_qtes) >= abs(avg_qte)))
         pvalue = max(pvalue, 1 / (len(placebo_avg_qtes) + 1))
 
         # Quantile-level CIs from placebo distribution
         if len(placebo_quantile_effects) > 0:
             plac_q_arr = np.array(placebo_quantile_effects)  # (n_plac, n_q)
-            q_se = np.std(plac_q_arr, axis=0, ddof=1)        # (n_q,)
+            q_se = np.std(plac_q_arr, axis=0, ddof=1)  # (n_q,)
         else:
             q_se = np.full(n_quantiles, np.nan)  # pragma: no cover
     else:
@@ -268,33 +264,39 @@ def discos(
     q_ci_lower = quantile_effects - z_crit * q_se
     q_ci_upper = quantile_effects + z_crit * q_se
 
-    quantile_effects_df = pd.DataFrame({
-        "quantile": tau_grid,
-        "effect": quantile_effects,
-        "ci_lower": q_ci_lower,
-        "ci_upper": q_ci_upper,
-    })
+    quantile_effects_df = pd.DataFrame(
+        {
+            "quantile": tau_grid,
+            "effect": quantile_effects,
+            "ci_lower": q_ci_lower,
+            "ci_upper": q_ci_upper,
+        }
+    )
 
     # --- Gap table (period-level, using raw outcomes) ---
-    Y_synth_pre = weights @ Y_donors_pre   # (T0,)
+    Y_synth_pre = weights @ Y_donors_pre  # (T0,)
     Y_synth_post = weights @ Y_donors_post  # (T1,)
     Y_synth = np.concatenate([Y_synth_pre, Y_synth_post])
     Y_treated = np.concatenate([Y_treated_pre, Y_treated_post])
 
-    gap_df = pd.DataFrame({
-        "time": all_times,
-        "treated": Y_treated,
-        "synthetic": Y_synth,
-        "gap": Y_treated - Y_synth,
-    })
+    gap_df = pd.DataFrame(
+        {
+            "time": all_times,
+            "treated": Y_treated,
+            "synthetic": Y_synth,
+            "gap": Y_treated - Y_synth,
+        }
+    )
 
     # --- Effects by period ---
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "treated": Y_treated_post,
-        "counterfactual": Y_synth_post,
-        "effect": Y_treated_post - Y_synth_post,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "treated": Y_treated_post,
+            "counterfactual": Y_synth_post,
+            "effect": Y_treated_post - Y_synth_post,
+        }
+    )
 
     # --- Build model_info ---
     model_info: Dict[str, Any] = {
@@ -322,9 +324,7 @@ def discos(
         model_info["placebo_atts"] = placebo_avg_qtes
         model_info["n_placebos"] = len(placebo_avg_qtes)
     if len(placebo_quantile_effects) > 0:
-        model_info["placebo_quantile_effects"] = np.array(
-            placebo_quantile_effects
-        )
+        model_info["placebo_quantile_effects"] = np.array(placebo_quantile_effects)
 
     return CausalResult(
         method="Distributional Synthetic Controls (Gunsilius 2023)",
@@ -423,6 +423,7 @@ def qqsynth(
 #  Post-estimation: testing
 # ====================================================================== #
 
+
 def discos_test(
     result: CausalResult,
     test: str = "ks",
@@ -472,8 +473,7 @@ def discos_test(
         return _stochastic_dominance_test(Q_treated, Q_counterfactual, mi, alpha)
     else:
         raise ValueError(
-            f"test must be 'ks', 'cvm', or 'stochastic_dominance', "
-            f"got '{test}'"
+            f"test must be 'ks', 'cvm', or 'stochastic_dominance', " f"got '{test}'"
         )
 
 
@@ -529,6 +529,7 @@ def stochastic_dominance(
 #  Post-estimation: plotting
 # ====================================================================== #
 
+
 def discos_plot(
     result: CausalResult,
     type: str = "quantile_effect",
@@ -582,8 +583,7 @@ def discos_plot(
         import matplotlib.pyplot as plt
     except ImportError:  # pragma: no cover
         raise ImportError(  # pragma: no cover
-            "matplotlib required for plotting. "
-            "Install: pip install matplotlib"
+            "matplotlib required for plotting. " "Install: pip install matplotlib"
         )
 
     mi = result.model_info
@@ -600,12 +600,24 @@ def discos_plot(
         ci_lo = qte["ci_lower"].values
         ci_hi = qte["ci_upper"].values
 
-        ax.fill_between(tau, ci_lo, ci_hi, alpha=ci_alpha, color=color,
-                        label=f"{int(100*(1-result.alpha))}% CI")
+        ax.fill_between(
+            tau,
+            ci_lo,
+            ci_hi,
+            alpha=ci_alpha,
+            color=color,
+            label=f"{int(100*(1-result.alpha))}% CI",
+        )
         ax.plot(tau, eff, color=color, linewidth=1.5, label="Δ(τ)")
         ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
-        ax.axhline(y=result.estimate, color="#E74C3C", linestyle=":",
-                   linewidth=1, alpha=0.6, label=f"Mean = {result.estimate:.4f}")
+        ax.axhline(
+            y=result.estimate,
+            color="#E74C3C",
+            linestyle=":",
+            linewidth=1,
+            alpha=0.6,
+            label=f"Mean = {result.estimate:.4f}",
+        )
         ax.set_xlabel("Quantile (τ)", fontsize=11)
         ax.set_ylabel("Treatment Effect Δ(τ)", fontsize=11)
         ax.set_title(
@@ -619,10 +631,15 @@ def discos_plot(
         Q_tr = mi["treated_quantiles"]
         Q_cf = mi["counterfactual_quantiles"]
 
-        ax.plot(tau, Q_tr, color=color, linewidth=1.5,
-                label="Treated (observed)")
-        ax.plot(tau, Q_cf, color="#E74C3C", linewidth=1.5,
-                linestyle="--", label="Counterfactual (DiSCo)")
+        ax.plot(tau, Q_tr, color=color, linewidth=1.5, label="Treated (observed)")
+        ax.plot(
+            tau,
+            Q_cf,
+            color="#E74C3C",
+            linewidth=1.5,
+            linestyle="--",
+            label="Counterfactual (DiSCo)",
+        )
         ax.set_xlabel("Quantile (τ)", fontsize=11)
         ax.set_ylabel("Outcome", fontsize=11)
         ax.set_title(
@@ -637,11 +654,16 @@ def discos_plot(
         gaps = gap["gap"].values
         treatment_time = mi["treatment_time"]
 
-        ax.plot(times, gaps, color=color, linewidth=1.5, marker="o",
-                markersize=4)
+        ax.plot(times, gaps, color=color, linewidth=1.5, marker="o", markersize=4)
         ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
-        ax.axvline(x=treatment_time, color="#E74C3C", linestyle=":",
-                   linewidth=1, alpha=0.6, label="Treatment onset")
+        ax.axvline(
+            x=treatment_time,
+            color="#E74C3C",
+            linestyle=":",
+            linewidth=1,
+            alpha=0.6,
+            label="Treatment onset",
+        )
         ax.set_xlabel("Time", fontsize=11)
         ax.set_ylabel("Gap (Treated - Synthetic)", fontsize=11)
         ax.set_title(title or "Gap Plot", fontsize=13)
@@ -653,8 +675,7 @@ def discos_plot(
         # Show donors with weight > 0.001
         sorted_w = [(k, v) for k, v in sorted_w if v > 0.001]
         if not sorted_w:
-            sorted_w = sorted(weights.items(), key=lambda x: x[1],
-                              reverse=True)[:10]
+            sorted_w = sorted(weights.items(), key=lambda x: x[1], reverse=True)[:10]
 
         labels, vals = zip(*sorted_w)
         y_pos = np.arange(len(labels))
@@ -682,6 +703,7 @@ def discos_plot(
 # ====================================================================== #
 #  Internal helpers
 # ====================================================================== #
+
 
 def _empirical_quantile_function(
     y: np.ndarray,
@@ -739,7 +761,7 @@ def _mixture_weights(
 
     def objective(w: np.ndarray) -> float:
         residual = Q_treated - w @ Q_donors
-        return float(np.sum(residual ** 2))
+        return float(np.sum(residual**2))
 
     constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1.0}
     bounds = [(0.0, 1.0)] * J
@@ -777,7 +799,7 @@ def _quantile_weights(
     # OLS: w = (Q Q')^{-1} Q y
     # Q_donors: (J, n_q), Q_treated: (n_q,)
     QQt = Q_donors @ Q_donors.T  # (J, J)
-    Qy = Q_donors @ Q_treated    # (J,)
+    Qy = Q_donors @ Q_treated  # (J,)
     # Ridge regularisation for numerical stability
     lam = 1e-8 * np.trace(QQt) / max(QQt.shape[0], 1)
     w = np.linalg.solve(QQt + lam * np.eye(QQt.shape[0]), Qy)
@@ -828,13 +850,16 @@ def _cvm_test(
     # Placebo-based p-value
     if "placebo_quantile_effects" in model_info:
         plac_arr = model_info["placebo_quantile_effects"]  # (n_plac, n_q)
-        plac_cvm = np.mean(plac_arr ** 2, axis=1)
+        plac_cvm = np.mean(plac_arr**2, axis=1)
         pval = float(np.mean(plac_cvm >= cvm_stat))
         pval = max(pval, 1 / (len(plac_cvm) + 1))
     else:
         # Asymptotic: treat as chi-squared approximation
         # Under H0, n_q * CvM ~ sum of squared normals
-        pval = float(1.0 - sp_stats.chi2.cdf(n_q * cvm_stat / max(np.var(Q_treated), 1e-10), df=n_q))
+        pval = float(
+            1.0
+            - sp_stats.chi2.cdf(n_q * cvm_stat / max(np.var(Q_treated), 1e-10), df=n_q)
+        )
 
     return {
         "test": "Cramer-von Mises",
@@ -873,8 +898,9 @@ def _stochastic_dominance_test(
         pval = max(pval, 1 / (len(plac_min_gaps) + 1))
     else:
         # Approximate: use KS test as fallback
-        ks_stat, pval = sp_stats.ks_2samp(Q_treated, Q_counterfactual,
-                                           alternative="less")
+        ks_stat, pval = sp_stats.ks_2samp(
+            Q_treated, Q_counterfactual, alternative="less"
+        )
         pval = float(pval)
 
     return {

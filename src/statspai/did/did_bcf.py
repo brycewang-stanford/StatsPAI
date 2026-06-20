@@ -98,35 +98,31 @@ def did_bcf(
     is_treated_unit = treat_vals > 0
     median_t = float(df[time].median())
     cohort = np.where(is_treated_unit, treat_vals.astype(float), median_t)
-    df['_cohort'] = cohort
-    df['_post'] = (df[time] >= df['_cohort']).astype(int)
+    df["_cohort"] = cohort
+    df["_post"] = (df[time] >= df["_cohort"]).astype(int)
 
     # Compute mean Y per (id, _post) and difference
-    agg = (df.groupby([id, '_post', '_cohort'])[y]
-           .mean()
-           .unstack('_post'))
-    agg.columns = ['y_pre', 'y_post']
-    agg['delta_y'] = agg['y_post'] - agg['y_pre']
+    agg = df.groupby([id, "_post", "_cohort"])[y].mean().unstack("_post")
+    agg.columns = ["y_pre", "y_post"]
+    agg["delta_y"] = agg["y_post"] - agg["y_pre"]
     agg = agg.reset_index()
     # Merge covariates (use unit-mean if time-varying)
     if cov:
         cov_means = df.groupby(id)[cov].mean().reset_index()
-        agg = agg.merge(cov_means, on=id, how='left')
+        agg = agg.merge(cov_means, on=id, how="left")
 
     # Treated indicator at the unit level
     treat_per_unit = (df.groupby(id)[treat].max() > 0).astype(int)
-    agg = agg.merge(
-        treat_per_unit.rename('_D').reset_index(), on=id, how='left'
-    )
-    agg = agg.dropna(subset=['delta_y']).reset_index(drop=True)
+    agg = agg.merge(treat_per_unit.rename("_D").reset_index(), on=id, how="left")
+    agg = agg.dropna(subset=["delta_y"]).reset_index(drop=True)
 
-    Y = agg['delta_y'].to_numpy(float)
-    D = agg['_D'].to_numpy(int)
+    Y = agg["delta_y"].to_numpy(float)
+    D = agg["_D"].to_numpy(int)
     if cov:
         X = agg[cov].to_numpy(float)
     else:
         X = np.zeros((len(agg), 0))
-    cohort_arr = agg['_cohort'].to_numpy(float)
+    cohort_arr = agg["_cohort"].to_numpy(float)
     n = len(agg)
 
     # Fit BCF on the differenced outcome via the existing module
@@ -145,8 +141,7 @@ def did_bcf(
             sample = rng.choice(ids, size=n, replace=True)
             try:
                 boot[b] = (
-                    Y[sample][D[sample] == 1].mean()
-                    - Y[sample][D[sample] == 0].mean()
+                    Y[sample][D[sample] == 1].mean() - Y[sample][D[sample] == 0].mean()
                 )
             except Exception:
                 pass
@@ -155,26 +150,29 @@ def did_bcf(
             mask = (cohort_arr == c) & (D == 1)
             ctrl_mask = D == 0
             if mask.sum() > 0:
-                catt_by_cohort[float(c)] = float(
-                    Y[mask].mean() - Y[ctrl_mask].mean()
-                )
+                catt_by_cohort[float(c)] = float(Y[mask].mean() - Y[ctrl_mask].mean())
     else:
         try:
             # Build a minimal DataFrame for the bcf API
             bcf_df = pd.DataFrame(X, columns=cov)
-            bcf_df['_dy'] = Y
-            bcf_df['_d'] = D
+            bcf_df["_dy"] = Y
+            bcf_df["_d"] = D
             bcf_res = bcf_fit(
-                data=bcf_df, y='_dy', treat='_d', covariates=cov,
-                n_trees_tau=n_trees, n_bootstrap=100, n_folds=3,
+                data=bcf_df,
+                y="_dy",
+                treat="_d",
+                covariates=cov,
+                n_trees_tau=n_trees,
+                n_bootstrap=100,
+                n_folds=3,
                 random_state=seed,
             )
-            tau_hat = np.asarray(bcf_res.model_info.get('cate', []), dtype=float)
+            tau_hat = np.asarray(bcf_res.model_info.get("cate", []), dtype=float)
             if tau_hat.size != n:
                 raise RuntimeError("BCF returned mismatched cate size")
             att = float(tau_hat[D == 1].mean())
             cate_sd = np.asarray(
-                bcf_res.model_info.get('cate_sd', np.zeros(n)), dtype=float
+                bcf_res.model_info.get("cate_sd", np.zeros(n)), dtype=float
             )
             # ATT SE via average per-unit posterior SD on treated
             treated_count = max((D == 1).sum(), 1)
@@ -190,23 +188,22 @@ def did_bcf(
         except Exception as e:
             # Fallback to OLS-style DiD per cohort
             att = float(Y[D == 1].mean() - Y[D == 0].mean())
-            se = float(
-                np.std(Y[D == 1], ddof=1) / np.sqrt(max((D == 1).sum(), 1))
-            )
+            se = float(np.std(Y[D == 1], ddof=1) / np.sqrt(max((D == 1).sum(), 1)))
             fallback_reason = f"{type(e).__name__}: {e}"
 
     from scipy import stats
+
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (att - z_crit * se, att + z_crit * se)
     z = att / se if se > 0 else 0.0
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
     model_info: dict[str, Any] = {
-        'estimator': 'DiD-BCF',
-        'n_trees': n_trees,
-        'n_covariates': len(cov),
-        'catt_by_cohort': catt_by_cohort,
-        'reference': 'Souto & Neto (2025), arXiv 2505.09706',
+        "estimator": "DiD-BCF",
+        "n_trees": n_trees,
+        "n_covariates": len(cov),
+        "catt_by_cohort": catt_by_cohort,
+        "reference": "Souto & Neto (2025), arXiv 2505.09706",
     }
     if fallback_reason is not None:
         model_info["fallback_reason"] = fallback_reason
@@ -221,17 +218,23 @@ def did_bcf(
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
-        _citation_key='did_bcf',
+        _citation_key="did_bcf",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.did_bcf",
             params={
-                "y": y, "treat": treat, "time": time, "id": id,
+                "y": y,
+                "treat": treat,
+                "time": time,
+                "id": id,
                 "covariates": list(covariates) if covariates else None,
-                "n_trees": n_trees, "alpha": alpha, "seed": seed,
+                "n_trees": n_trees,
+                "alpha": alpha,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -242,7 +245,7 @@ def did_bcf(
 
 
 # Citation
-CausalResult._CITATIONS['did_bcf'] = (
+CausalResult._CITATIONS["did_bcf"] = (
     "@article{souto2025forests,\n"
     "  title={Forests for Differences: Robust Causal Inference Beyond "
     "Parametric DiD},\n"

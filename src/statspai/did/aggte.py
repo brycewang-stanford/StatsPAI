@@ -37,20 +37,20 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API
 # ======================================================================
 
+
 def aggte(
     result: CausalResult,
-    type: str = 'simple',
+    type: str = "simple",
     balance_e: Optional[int] = None,
     min_e: float = -np.inf,
     max_e: float = np.inf,
     na_rm: bool = True,
     bstrap: bool = True,
-    boot_type: str = 'multiplier',
+    boot_type: str = "multiplier",
     n_boot: int = 1000,
     cband: bool = True,
     alpha: float = 0.05,
@@ -121,22 +121,21 @@ def aggte(
     >>> bool('group' in grp.detail.columns)  # one row per cohort
     True
     """
-    if type not in ('simple', 'dynamic', 'group', 'calendar'):
+    if type not in ("simple", "dynamic", "group", "calendar"):
         raise ValueError(
             f"type must be one of 'simple', 'dynamic', 'group', 'calendar', "
             f"got {type!r}"
         )
-    if boot_type != 'multiplier':
+    if boot_type != "multiplier":
         raise NotImplementedError(
-            "only boot_type='multiplier' is currently supported "
-            "(csdid parity)"
+            "only boot_type='multiplier' is currently supported " "(csdid parity)"
         )
 
     detail = result.detail
     inf_matrix = result._influence_funcs
     model_info = result.model_info or {}
-    cohort_sizes = model_info.get('cohort_sizes')
-    n_units = model_info.get('n_units', result.n_obs)
+    cohort_sizes = model_info.get("cohort_sizes")
+    n_units = model_info.get("n_units", result.n_obs)
 
     if detail is None or len(detail) == 0:
         raise ValueError(
@@ -145,7 +144,7 @@ def aggte(
         )
     # aggte needs the CS (g, t) grid; SA / BJS / dCDH event studies don't
     # carry it and would otherwise crash deep inside the weight builders.
-    _required_cols = {'group', 'time', 'att', 'se', 'relative_time'}
+    _required_cols = {"group", "time", "att", "se", "relative_time"}
     _have = set(detail.columns)
     if not _required_cols.issubset(_have):
         raise ValueError(
@@ -160,29 +159,29 @@ def aggte(
 
     # Optional pre-filter: drop NA ATT(g, t) before aggregating.
     if na_rm:
-        finite = np.isfinite(detail['att'].values) & np.isfinite(detail['se'].values)
+        finite = np.isfinite(detail["att"].values) & np.isfinite(detail["se"].values)
         if not finite.all():
             detail = detail.loc[finite].reset_index(drop=True)
             if inf_matrix is not None:
                 inf_matrix = inf_matrix[:, finite]
 
     # Optional balancing for event study (Callaway-Sant'Anna 2021, eq. 3.8).
-    if type == 'dynamic' and balance_e is not None:
+    if type == "dynamic" and balance_e is not None:
         detail, inf_matrix = _apply_balance_e(detail, inf_matrix, balance_e)
 
     # Build the weight matrix W: rows = reported cells, cols = ATT(g, t).
-    if type == 'simple':
+    if type == "simple":
         labels, W = _weights_simple(detail, cohort_sizes)
-        dim_name = 'overall'
-    elif type == 'dynamic':
+        dim_name = "overall"
+    elif type == "dynamic":
         labels, W = _weights_dynamic(detail, cohort_sizes, min_e, max_e)
-        dim_name = 'relative_time'
-    elif type == 'group':
+        dim_name = "relative_time"
+    elif type == "group":
         labels, W = _weights_group(detail, cohort_sizes)
-        dim_name = 'group'
+        dim_name = "group"
     else:  # 'calendar'
         labels, W = _weights_calendar(detail, cohort_sizes)
-        dim_name = 'time'
+        dim_name = "time"
 
     if W.shape[0] == 0:
         raise ValueError(
@@ -190,13 +189,18 @@ def aggte(
             "filtering — check min_e / max_e / balance_e"
         )
 
-    att_vec = detail['att'].values
+    att_vec = detail["att"].values
     est_cells = W @ att_vec  # shape (K,)
 
     # SE + CI per cell, plus uniform band if requested.
     if bstrap and inf_matrix is not None:
         se_cells, crit_unif = _multiplier_bootstrap(
-            W, inf_matrix, n_units, alpha, n_boot, random_state,
+            W,
+            inf_matrix,
+            n_units,
+            alpha,
+            n_boot,
+            random_state,
         )
     else:
         se_cells = _analytic_se(W, detail)
@@ -206,18 +210,20 @@ def aggte(
     denom = np.where(se_cells > 0, se_cells, np.nan)
     pval = 2 * (1 - stats.norm.cdf(np.abs(est_cells / denom)))
 
-    out = pd.DataFrame({
-        dim_name: labels,
-        'att': est_cells,
-        'se': se_cells,
-        'ci_lower': est_cells - z_point * se_cells,
-        'ci_upper': est_cells + z_point * se_cells,
-        'pvalue': pval,
-    })
-    if cband and type != 'simple':
-        out['cband_lower'] = est_cells - crit_unif * se_cells
-        out['cband_upper'] = est_cells + crit_unif * se_cells
-        out['crit_val_uniform'] = crit_unif
+    out = pd.DataFrame(
+        {
+            dim_name: labels,
+            "att": est_cells,
+            "se": se_cells,
+            "ci_lower": est_cells - z_point * se_cells,
+            "ci_upper": est_cells + z_point * se_cells,
+            "pvalue": pval,
+        }
+    )
+    if cband and type != "simple":
+        out["cband_lower"] = est_cells - crit_unif * se_cells
+        out["cband_upper"] = est_cells + crit_unif * se_cells
+        out["crit_val_uniform"] = crit_unif
 
     # "Overall" summary — matches R's did::aggte print() convention:
     #   simple   : the single cohort-share-weighted overall ATT
@@ -228,11 +234,11 @@ def aggte(
     #              construction of the θ(g) weights)
     #   calendar : simple average across calendar times (all post-treatment
     #              by construction)
-    if type == 'simple':
+    if type == "simple":
         overall_est = float(est_cells[0])
         overall_se = float(se_cells[0])
     else:
-        if type == 'dynamic':
+        if type == "dynamic":
             post_mask_agg = np.asarray(labels, dtype=float) >= 0
             if not post_mask_agg.any():
                 # No post-treatment cells survived the min_e / max_e filter
@@ -247,11 +253,9 @@ def aggte(
         overall_est = float(w_overall @ est_cells)
         if bstrap and inf_matrix is not None:
             agg_inf = (w_overall @ W) @ inf_matrix.T
-            overall_se = float(np.sqrt(np.mean(agg_inf ** 2) / n_units))
+            overall_se = float(np.sqrt(np.mean(agg_inf**2) / n_units))
         else:
-            overall_se = float(
-                np.sqrt(np.sum((w_overall ** 2) * se_cells ** 2))
-            )
+            overall_se = float(np.sqrt(np.sum((w_overall**2) * se_cells**2)))
 
     overall_z = overall_est / overall_se if overall_se > 0 else 0.0
     overall_pval = float(2 * (1 - stats.norm.cdf(abs(overall_z))))
@@ -261,21 +265,21 @@ def aggte(
     )
 
     agg_info = {
-        'aggregation': type,
-        'balance_e': balance_e,
-        'min_e': min_e,
-        'max_e': max_e,
-        'bstrap': bstrap,
-        'n_boot': n_boot if bstrap else 0,
-        'cband': cband and type != 'simple',
-        'crit_val_uniform': float(crit_unif),
-        'n_units': n_units,
-        'source_method': result.method,
+        "aggregation": type,
+        "balance_e": balance_e,
+        "min_e": min_e,
+        "max_e": max_e,
+        "bstrap": bstrap,
+        "n_boot": n_boot if bstrap else 0,
+        "cband": cband and type != "simple",
+        "crit_val_uniform": float(crit_unif),
+        "n_units": n_units,
+        "source_method": result.method,
     }
 
     _result = CausalResult(
         method=f"Callaway and Sant'Anna (2021) — aggte[{type}]",
-        estimand='ATT',
+        estimand="ATT",
         estimate=overall_est,
         se=overall_se,
         pvalue=overall_pval,
@@ -285,10 +289,11 @@ def aggte(
         detail=out,
         model_info=agg_info,
         _influence_funcs=inf_matrix,
-        _citation_key='callaway_santanna',
+        _citation_key="callaway_santanna",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov, get_provenance
+
         upstream = get_provenance(result)
         _attach_prov(
             _result,
@@ -322,6 +327,7 @@ def aggte(
 # Weight builders
 # ======================================================================
 
+
 def _cohort_weight_series(
     detail: pd.DataFrame,
     cohort_sizes: Optional[pd.Series],
@@ -332,7 +338,7 @@ def _cohort_weight_series(
     back to equal weights if unavailable.  Keys are aligned to the unique
     cohorts present in ``detail``.
     """
-    cohorts = sorted(detail['group'].unique())
+    cohorts = sorted(detail["group"].unique())
     if cohort_sizes is None:
         sizes = pd.Series({g: 1.0 for g in cohorts})
     else:
@@ -349,16 +355,16 @@ def _weights_simple(
     cohort_sizes: Optional[pd.Series],
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Weights for the 'simple' aggregation (CS2021 eq. 3.6)."""
-    post = (detail['relative_time'] >= 0).values
+    post = (detail["relative_time"] >= 0).values
     if not post.any():
-        return np.array(['overall']), np.zeros((0, len(detail)))
+        return np.array(["overall"]), np.zeros((0, len(detail)))
     shares = _cohort_weight_series(detail, cohort_sizes)
-    raw = np.where(post, detail['group'].map(shares).values.astype(float), 0.0)
+    raw = np.where(post, detail["group"].map(shares).values.astype(float), 0.0)
     s = raw.sum()
     if s <= 0:
-        return np.array(['overall']), np.zeros((0, len(detail)))
+        return np.array(["overall"]), np.zeros((0, len(detail)))
     W = (raw / s).reshape(1, -1)
-    return np.array(['overall']), W
+    return np.array(["overall"]), W
 
 
 def _weights_dynamic(
@@ -369,7 +375,7 @@ def _weights_dynamic(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Event-study weights (CS2021 eq. 3.7)."""
     shares = _cohort_weight_series(detail, cohort_sizes)
-    rel = detail['relative_time'].values
+    rel = detail["relative_time"].values
     keep = (rel >= min_e) & (rel <= max_e)
     labels = sorted({int(e) for e, ok in zip(rel, keep) if ok})
     W = np.zeros((len(labels), len(detail)))
@@ -377,7 +383,7 @@ def _weights_dynamic(
         mask = (rel == e) & keep
         if not mask.any():
             continue
-        w_raw = np.where(mask, detail['group'].map(shares).values.astype(float), 0.0)
+        w_raw = np.where(mask, detail["group"].map(shares).values.astype(float), 0.0)
         s = w_raw.sum()
         if s > 0:
             W[row] = w_raw / s
@@ -389,12 +395,12 @@ def _weights_group(
     cohort_sizes: Optional[pd.Series],
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Per-cohort aggregation θ(g) (CS2021 eq. 3.9 applied within g)."""
-    cohorts = sorted(detail['group'].unique())
-    post = (detail['relative_time'] >= 0).values
+    cohorts = sorted(detail["group"].unique())
+    post = (detail["relative_time"] >= 0).values
     rows = []
     labels = []
     for g in cohorts:
-        mask = (detail['group'].values == g) & post
+        mask = (detail["group"].values == g) & post
         if not mask.any():
             continue
         w_raw = mask.astype(float)
@@ -412,15 +418,15 @@ def _weights_calendar(
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Per-calendar-time aggregation θ(t) (CS2021 eq. 3.10)."""
     shares = _cohort_weight_series(detail, cohort_sizes)
-    times = sorted(detail['time'].unique())
-    post = (detail['relative_time'] >= 0).values
+    times = sorted(detail["time"].unique())
+    post = (detail["relative_time"] >= 0).values
     rows = []
     labels = []
     for t in times:
-        mask = (detail['time'].values == t) & post
+        mask = (detail["time"].values == t) & post
         if not mask.any():
             continue
-        w_raw = np.where(mask, detail['group'].map(shares).values.astype(float), 0.0)
+        w_raw = np.where(mask, detail["group"].map(shares).values.astype(float), 0.0)
         s = w_raw.sum()
         if s <= 0:
             continue
@@ -443,13 +449,13 @@ def _apply_balance_e(
     """
     required = set(range(0, balance_e + 1))
     good = []
-    for g, sub in detail.groupby('group'):
-        present = set(sub.loc[sub['relative_time'] >= 0, 'relative_time'].astype(int))
+    for g, sub in detail.groupby("group"):
+        present = set(sub.loc[sub["relative_time"] >= 0, "relative_time"].astype(int))
         if required.issubset(present):
             good.append(g)
     keep = (
-        detail['group'].isin(good).values
-        & (detail['relative_time'] <= balance_e).values
+        detail["group"].isin(good).values
+        & (detail["relative_time"] <= balance_e).values
     )
     new_detail = detail.loc[keep].reset_index(drop=True)
     new_inf = inf_matrix[:, keep] if inf_matrix is not None else None
@@ -460,10 +466,11 @@ def _apply_balance_e(
 # Inference
 # ======================================================================
 
+
 def _analytic_se(W: np.ndarray, detail: pd.DataFrame) -> np.ndarray:
     """Conservative SE assuming independence across (g, t)."""
-    v = detail['se'].values ** 2
-    return np.asarray(np.sqrt((W ** 2) @ v), dtype=float)
+    v = detail["se"].values ** 2
+    return np.asarray(np.sqrt((W**2) @ v), dtype=float)
 
 
 def _multiplier_bootstrap(

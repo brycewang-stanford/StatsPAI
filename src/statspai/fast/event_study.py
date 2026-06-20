@@ -31,6 +31,7 @@ References
 de Chaisemartin, C., D'Haultfœuille, X. (2020). Two-way fixed effects
 estimators with heterogeneous treatment effects. AER 110(9): 2964–2996.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -65,13 +66,15 @@ class EventStudyResult:
     reference_event_time: int
 
     def tidy(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "event_time": self.event_times,
-            "Estimate": self.coefs,
-            "Std. Error": self.ses,
-            "ci_lower": self.coefs - 1.96 * self.ses,
-            "ci_upper": self.coefs + 1.96 * self.ses,
-        })
+        return pd.DataFrame(
+            {
+                "event_time": self.event_times,
+                "Estimate": self.coefs,
+                "Std. Error": self.ses,
+                "ci_lower": self.coefs - 1.96 * self.ses,
+                "ci_upper": self.coefs + 1.96 * self.ses,
+            }
+        )
 
     def plot(self, ax: Any = None) -> Any:  # pragma: no cover  - cosmetic
         try:
@@ -82,8 +85,11 @@ class EventStudyResult:
             _, ax = plt.subplots(figsize=(8, 4))
         td = self.tidy()
         ax.errorbar(
-            td["event_time"], td["Estimate"],
-            yerr=1.96 * td["Std. Error"], fmt="o-", capsize=3,
+            td["event_time"],
+            td["Estimate"],
+            yerr=1.96 * td["Std. Error"],
+            fmt="o-",
+            capsize=3,
         )
         ax.axhline(0, color="black", linewidth=0.5)
         ax.axvline(-0.5, color="grey", linestyle="--", linewidth=0.5)
@@ -187,18 +193,12 @@ def event_study(
     EventStudyResult
     """
     if not isinstance(data, pd.DataFrame):
-        raise MethodIncompatibility(
-            "fast.event_study: data must be a DataFrame"
-        )
+        raise MethodIncompatibility("fast.event_study: data must be a DataFrame")
     if len(data) < 1:
-        raise DataInsufficient(
-            "fast.event_study: data must contain at least one row"
-        )
+        raise DataInsufficient("fast.event_study: data must contain at least one row")
     roles = {"y": y, "unit": unit, "time": time, "event_time": event_time}
     bad_roles = [
-        name
-        for name, col in roles.items()
-        if not isinstance(col, str) or not col
+        name for name, col in roles.items() if not isinstance(col, str) or not col
     ]
     if bad_roles:
         raise MethodIncompatibility(
@@ -236,13 +236,11 @@ def event_study(
             raise MethodIncompatibility(
                 "fast.event_study: window must be a (lo, hi) pair"
             )
-        if (
-            not isinstance(lo, (int, np.integer))
-            or not isinstance(hi, (int, np.integer))
+        if not isinstance(lo, (int, np.integer)) or not isinstance(
+            hi, (int, np.integer)
         ):
             raise MethodIncompatibility(
-                "fast.event_study: window bounds must be integer "
-                "event-time offsets"
+                "fast.event_study: window bounds must be integer " "event-time offsets"
             )
         lo = int(lo)
         hi = int(hi)
@@ -288,7 +286,8 @@ def event_study(
         lo, hi = window
         et_int = np.where(
             finite & (et_int >= lo) & (et_int <= hi),
-            et_int, np.iinfo(np.int64).min,
+            et_int,
+            np.iinfo(np.int64).min,
         )
         finite &= (et_int >= lo) & (et_int <= hi)
 
@@ -299,10 +298,10 @@ def event_study(
             "fast.event_study: no event-time dummies after filtering; "
             "check event_time / window"
         )
-    dummies = pd.DataFrame({
-        f"et_{lv}": ((et_int == lv) & finite).astype(np.float64)
-        for lv in levels
-    }, index=df.index)
+    dummies = pd.DataFrame(
+        {f"et_{lv}": ((et_int == lv) & finite).astype(np.float64) for lv in levels},
+        index=df.index,
+    )
     dummy_cols = list(dummies.columns)
     df_aug = pd.concat([df, dummies], axis=1)
 
@@ -332,15 +331,16 @@ def event_study(
     cluster_arr = df_aug.loc[wt.keep_mask, cluster_col].to_numpy()
     fe_dof = sum(int(g) - 1 for g in wt.n_fe)
     V = _crve(
-        X_dem, resid, cluster_arr,
-        bread=bread, type="cr1", extra_df=fe_dof,
+        X_dem,
+        resid,
+        cluster_arr,
+        bread=bread,
+        type="cr1",
+        extra_df=fe_dof,
     )
     se = np.sqrt(np.diag(V))
 
-    formula = (
-        f"{y} ~ event_time | {unit} + {time}  "
-        f"(cluster: {cluster_col})"
-    )
+    formula = f"{y} ~ event_time | {unit} + {time}  " f"(cluster: {cluster_col})"
     return EventStudyResult(
         formula=formula,
         event_times=np.asarray(levels),

@@ -4,6 +4,7 @@ Lives in its own module so `_resources` / `_prompts` / future split
 files can raise the same typed errors without forming an import cycle
 through `mcp_server`.
 """
+
 from __future__ import annotations
 
 

@@ -51,7 +51,6 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 
-
 # --------------------------------------------------------------------
 # Result container
 # --------------------------------------------------------------------
@@ -117,6 +116,7 @@ class NetworkExposureResult(ResultProtocolMixin):
 # Adjacency helpers
 # --------------------------------------------------------------------
 
+
 def _to_adj(adj_or_edges: Any, n: Optional[int] = None) -> np.ndarray:
     """Coerce adjacency input (matrix or edge list) into a binary numpy matrix."""
     if isinstance(adj_or_edges, np.ndarray):
@@ -159,7 +159,8 @@ def _as4_mapping(Z: np.ndarray, A: np.ndarray) -> np.ndarray:
 
 
 def _fraction_mapping(
-    Z: np.ndarray, A: np.ndarray,
+    Z: np.ndarray,
+    A: np.ndarray,
     thresholds: Tuple[float, ...] = (0.0, 0.5),
 ) -> np.ndarray:
     """Bin own treatment x fraction of treated neighbours."""
@@ -197,8 +198,11 @@ def _exposure_probabilities(
 
 
 def _ht_estimate(
-    Y: np.ndarray, exposures: np.ndarray, probs: Dict[str, np.ndarray],
-    levels: List[str], min_pi: float = 1e-3,
+    Y: np.ndarray,
+    exposures: np.ndarray,
+    probs: Dict[str, np.ndarray],
+    levels: List[str],
+    min_pi: float = 1e-3,
 ) -> pd.DataFrame:
     n = Y.shape[0]
     rows = []
@@ -212,18 +216,20 @@ def _ht_estimate(
         # The prior ``var = ...`` line (pre-v1.5) was dead code — its
         # own return value was overwritten by the next line and the
         # formula itself was dimensionally inconsistent.  Removed.
-        var_as = float(np.sum((Y ** 2) * (1 - pi) / np.maximum(pi ** 2, 1e-12)) / n ** 2)
+        var_as = float(np.sum((Y**2) * (1 - pi) / np.maximum(pi**2, 1e-12)) / n**2)
         se = float(np.sqrt(max(var_as, 0.0)))
         ci_lo = mu - 1.96 * se
         ci_hi = mu + 1.96 * se
-        rows.append({
-            "exposure": lev,
-            "mean_Y(d)": mu,
-            "se": se,
-            "ci_lo": ci_lo,
-            "ci_hi": ci_hi,
-            "n_at_level": int((exposures == lev).sum()),
-        })
+        rows.append(
+            {
+                "exposure": lev,
+                "mean_Y(d)": mu,
+                "se": se,
+                "ci_lo": ci_lo,
+                "ci_hi": ci_hi,
+                "n_at_level": int((exposures == lev).sum()),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -360,14 +366,16 @@ def network_exposure(
             if d is None:
                 continue
             est_d, se_d, p = d
-            contrasts_rows.append({
-                "contrast": label,
-                "estimate": est_d,
-                "se": se_d,
-                "pvalue": p,
-                "ci_lo": est_d - 1.96 * se_d,
-                "ci_hi": est_d + 1.96 * se_d,
-            })
+            contrasts_rows.append(
+                {
+                    "contrast": label,
+                    "estimate": est_d,
+                    "se": se_d,
+                    "pvalue": p,
+                    "ci_lo": est_d - 1.96 * se_d,
+                    "ci_hi": est_d + 1.96 * se_d,
+                }
+            )
 
     contrasts = pd.DataFrame(contrasts_rows)
 
@@ -383,6 +391,7 @@ def network_exposure(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.interference.network_exposure",
@@ -390,7 +399,8 @@ def network_exposure(
                 "mapping": mapping,
                 "p_treat": p_treat,
                 "design": design,
-                "n_sim": n_sim, "seed": seed,
+                "n_sim": n_sim,
+                "seed": seed,
             },
             data=None,
             overwrite=False,

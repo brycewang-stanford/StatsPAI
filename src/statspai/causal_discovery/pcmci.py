@@ -47,13 +47,15 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 # ═══════════════════════════════════════════════════════════════════════
 #  Conditional-independence test (default: partial correlation)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def partial_corr_pvalue(
-    x: np.ndarray, y: np.ndarray, Z: Optional[np.ndarray] = None,
+    x: np.ndarray,
+    y: np.ndarray,
+    Z: Optional[np.ndarray] = None,
 ) -> float:
     """
     Partial-correlation p-value for H0: ``X ⟂ Y | Z``.
@@ -114,6 +116,7 @@ def partial_corr_pvalue(
 #  Lag-matrix helpers
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _make_lagged(X: np.ndarray, tau_max: int) -> Tuple[np.ndarray, np.ndarray]:
     """
     Given X of shape (T, d), return (target_mat, lagged_mat) where:
@@ -126,13 +129,11 @@ def _make_lagged(X: np.ndarray, tau_max: int) -> Tuple[np.ndarray, np.ndarray]:
     if tau_max < 1:
         raise ValueError("tau_max must be >= 1")
     if T <= tau_max + 1:
-        raise ValueError(
-            f"Need at least tau_max+2 = {tau_max+2} time points."
-        )
+        raise ValueError(f"Need at least tau_max+2 = {tau_max+2} time points.")
     Y = X[tau_max:]  # (T - tau_max, d)
     blocks = []
     for lag in range(1, tau_max + 1):
-        blocks.append(X[tau_max - lag: T - lag])
+        blocks.append(X[tau_max - lag : T - lag])
     lagged = np.hstack(blocks)  # (T - tau_max, d * tau_max)
     return Y, lagged
 
@@ -145,6 +146,7 @@ def _coord(var: int, lag: int, d: int) -> int:
 # ═══════════════════════════════════════════════════════════════════════
 #  Result container
 # ═══════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class PCMCIResult:
@@ -203,13 +205,15 @@ class PCMCIResult:
                 for j in range(d):
                     if not self.adjacency[lag, i, j]:
                         continue
-                    rows.append({
-                        "source": self.variables[i],
-                        "target": self.variables[j],
-                        "lag": lag,
-                        "partial_corr": float(self.val_matrix[lag, i, j]),
-                        "p_value": float(self.p_matrix[lag, i, j]),
-                    })
+                    rows.append(
+                        {
+                            "source": self.variables[i],
+                            "target": self.variables[j],
+                            "lag": lag,
+                            "partial_corr": float(self.val_matrix[lag, i, j]),
+                            "p_value": float(self.p_matrix[lag, i, j]),
+                        }
+                    )
         out = pd.DataFrame(rows)
         if len(out):
             out = out.sort_values(
@@ -235,6 +239,7 @@ class PCMCIResult:
 # ═══════════════════════════════════════════════════════════════════════
 #  Main entry point
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def pcmci(
     data: pd.DataFrame,
@@ -315,7 +320,7 @@ def pcmci(
 
         # Marginal test to seed ordering
         marg_pvals = {}
-        for (i, tau) in cand:
+        for i, tau in cand:
             p = ci(L[:, _coord(i, tau, d)], Y[:, j], None)
             marg_pvals[(i, tau)] = p
         cand = [c for c in cand if marg_pvals[c] < pc_alpha]
@@ -339,9 +344,7 @@ def pcmci(
                     cond = cond[:max_conds_dim]
                 if not cond:
                     break
-                Z = np.column_stack(
-                    [L[:, _coord(i, t, d)] for (i, t) in cond]
-                )
+                Z = np.column_stack([L[:, _coord(i, t, d)] for (i, t) in cond])
                 p = ci(L[:, _coord(c[0], c[1], d)], Y[:, j], Z)
                 if p >= pc_alpha:
                     cand.remove(c)
@@ -366,12 +369,9 @@ def pcmci(
             for tau in range(1, tau_max + 1):
                 # Conditioning: parents(j) ∪ shifted parents(i by τ)
                 cond_coords: List[Tuple[int, int]] = list(parents[j])
-                for (k, sigma) in parents[i]:
+                for k, sigma in parents[i]:
                     new_lag = sigma + tau
-                    if (
-                        1 <= new_lag <= tau_max
-                        and (k, new_lag) not in cond_coords
-                    ):
+                    if 1 <= new_lag <= tau_max and (k, new_lag) not in cond_coords:
                         cond_coords.append((k, new_lag))
                 # Remove the candidate itself if it slipped in
                 cond_coords = [c for c in cond_coords if c != (i, tau)]

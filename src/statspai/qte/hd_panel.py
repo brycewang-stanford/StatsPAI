@@ -53,6 +53,7 @@ class HDPanelQTEResult(ResultProtocolMixin):
     >>> res.n_obs
     360
     """
+
     quantiles: np.ndarray
     qte: np.ndarray
     se: np.ndarray
@@ -72,9 +73,7 @@ class HDPanelQTEResult(ResultProtocolMixin):
         for q, t, s, lo, hi in zip(
             self.quantiles, self.qte, self.se, self.ci_low, self.ci_high
         ):
-            rows.append(
-                f"  {q:.2f}     {t:+.4f}  {s:.4f}  [{lo:+.4f}, {hi:+.4f}]"
-            )
+            rows.append(f"  {q:.2f}     {t:+.4f}  {s:.4f}  [{lo:+.4f}, {hi:+.4f}]")
         return "\n".join(rows)
 
 
@@ -152,6 +151,7 @@ def qte_hd_panel(
     # Step 1: LASSO to select controls (regress Y on X, keep non-zero)
     try:
         from sklearn.linear_model import Lasso
+
         lasso = Lasso(alpha=lasso_alpha, max_iter=2000).fit(X, Y)
         selected_idx = np.where(np.abs(lasso.coef_) > 1e-6)[0]
         if len(selected_idx) == 0:
@@ -164,19 +164,20 @@ def qte_hd_panel(
 
     # Unit / time dummies (within-transform via demean)
     # For simplicity, just regress Y and D on unit/time FE + X_sel, take residuals
-    uid = pd.Series(df[unit].astype('category').cat.codes.values)
-    tid = pd.Series(df[time].astype('category').cat.codes.values)
+    uid = pd.Series(df[unit].astype("category").cat.codes.values)
+    tid = pd.Series(df[time].astype("category").cat.codes.values)
     # Demean by unit then time (5 passes)
     Y_d = Y.copy()
     D_d = D.copy()
     for _ in range(5):
         for g in [uid, tid]:
-            Y_d = Y_d - pd.Series(Y_d).groupby(g).transform('mean').values
-            D_d = D_d - pd.Series(D_d).groupby(g).transform('mean').values
+            Y_d = Y_d - pd.Series(Y_d).groupby(g).transform("mean").values
+            D_d = D_d - pd.Series(D_d).groupby(g).transform("mean").values
 
     # QTE at each quantile via quantile regression of Y_d on D_d + X_sel
     try:
         import statsmodels.regression.quantile_regression as qreg
+
         qte_list: List[float] = []
         se_list: List[float] = []
         for q in quantiles:
@@ -197,10 +198,12 @@ def qte_hd_panel(
         se_arr = np.array(se_list)
     except ImportError:
         # Minimal fallback
-        qte_arr = np.array([
-            float(np.quantile(Y_d[D_d > 0], q) - np.quantile(Y_d[D_d <= 0], q))
-            for q in quantiles
-        ])
+        qte_arr = np.array(
+            [
+                float(np.quantile(Y_d[D_d > 0], q) - np.quantile(Y_d[D_d <= 0], q))
+                for q in quantiles
+            ]
+        )
         se_arr = np.full(len(quantiles), 0.1)
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
@@ -218,15 +221,21 @@ def qte_hd_panel(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.qte.qte_hd_panel",
             params={
-                "y": y, "treat": treat,
-                "unit": unit, "time": time,
+                "y": y,
+                "treat": treat,
+                "unit": unit,
+                "time": time,
                 "covariates": list(covariates),
-                "quantiles": list(quantiles) if quantiles is not None
-                              and hasattr(quantiles, "__iter__") else None,
+                "quantiles": (
+                    list(quantiles)
+                    if quantiles is not None and hasattr(quantiles, "__iter__")
+                    else None
+                ),
                 "alpha": alpha,
                 "lasso_alpha": lasso_alpha,
                 "seed": seed,

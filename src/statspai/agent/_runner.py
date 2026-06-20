@@ -47,6 +47,7 @@ Public surface
   whether to emit progress.
 * :data:`TOOL_TIMEOUT_ENV` — env var read by :func:`tool_timeout`.
 """
+
 from __future__ import annotations
 
 import os
@@ -54,7 +55,6 @@ import queue
 import threading
 import time
 from typing import Any, Callable, Dict, Optional, Tuple
-
 
 #: Env var: hard timeout (seconds) per ``tools/call``. ``0`` ⇒ disabled.
 TOOL_TIMEOUT_ENV = "STATSPAI_MCP_TOOL_TIMEOUT_SECONDS"
@@ -92,8 +92,7 @@ def _clear_progress_channel() -> None:
         del _THREAD_LOCAL.progress_queue
 
 
-def progress(value: float, total: Optional[float] = None,
-             *, message: str = "") -> None:
+def progress(value: float, total: Optional[float] = None, *, message: str = "") -> None:
     """Tool-side helper: emit a ``notifications/progress``.
 
     Idempotent and safe to call from any tool: when no channel is
@@ -106,8 +105,7 @@ def progress(value: float, total: Optional[float] = None,
     q = getattr(_THREAD_LOCAL, "progress_queue", None)
     if token is None or q is None:
         return
-    payload = {"progressToken": token,
-               "progress": float(value)}
+    payload = {"progressToken": token, "progress": float(value)}
     if total is not None:
         payload["total"] = float(total)
     if message:
@@ -121,6 +119,7 @@ def progress(value: float, total: Optional[float] = None,
 # ---------------------------------------------------------------------------
 # The runner
 # ---------------------------------------------------------------------------
+
 
 def run_with_progress(
     work: Callable[[], Any],
@@ -218,8 +217,7 @@ def run_with_progress(
             _clear_progress_channel()
             _put_done()
 
-    t = threading.Thread(target=_runner, name="statspai-mcp-tool",
-                          daemon=True)
+    t = threading.Thread(target=_runner, name="statspai-mcp-tool", daemon=True)
     t.start()
     deadline = time.monotonic() + timeout if timeout else None
 
@@ -231,8 +229,7 @@ def run_with_progress(
             # back to Python won't honour this — that's the cost of
             # not ripping out the synchronous tool API.
             return False, TimeoutError(
-                f"tool exceeded {timeout:.0f}s timeout "
-                f"(env: {TOOL_TIMEOUT_ENV})"
+                f"tool exceeded {timeout:.0f}s timeout " f"(env: {TOOL_TIMEOUT_ENV})"
             )
 
         try:

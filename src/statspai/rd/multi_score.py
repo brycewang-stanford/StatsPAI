@@ -83,7 +83,7 @@ def rd_multi_score(
     running_vars: List[str],
     cutoffs: List[float],
     bandwidth: Optional[float] = None,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     alpha: float = 0.05,
 ) -> MultiScoreRDResult:
     """
@@ -130,8 +130,7 @@ def rd_multi_score(
     """
     if len(running_vars) != len(cutoffs):
         raise ValueError(
-            f"len(running_vars)={len(running_vars)} != "
-            f"len(cutoffs)={len(cutoffs)}"
+            f"len(running_vars)={len(running_vars)} != " f"len(cutoffs)={len(cutoffs)}"
         )
     df = data[[y] + list(running_vars)].dropna().reset_index(drop=True)
     Y = df[y].to_numpy(float)
@@ -139,10 +138,14 @@ def rd_multi_score(
     n = len(df)
 
     if bandwidth is None:
-        bandwidth = float(np.median([
-            np.subtract(*np.percentile(R[:, j], [75, 25]))
-            for j in range(R.shape[1])
-        ]))
+        bandwidth = float(
+            np.median(
+                [
+                    np.subtract(*np.percentile(R[:, j], [75, 25]))
+                    for j in range(R.shape[1])
+                ]
+            )
+        )
 
     # Distance to boundary = max(distance to each cutoff)
     dist = np.max(R, axis=1)  # negative when not all crossed
@@ -167,16 +170,17 @@ def rd_multi_score(
     try:
         beta = np.linalg.solve(Xd.T @ Wd @ Xd, Xd.T @ Wd @ Y[mask])
         resid = Y[mask] - Xd @ beta
-        sigma2 = float((weights[mask] * resid ** 2).sum()
-                       / max(weights[mask].sum() - Xd.shape[1], 1))
+        sigma2 = float(
+            (weights[mask] * resid**2).sum() / max(weights[mask].sum() - Xd.shape[1], 1)
+        )
         cov = sigma2 * np.linalg.pinv(Xd.T @ Wd @ Xd)
         # Treatment coefficient is at index 1 + R.shape[1]
         idx_treat = 1 + R.shape[1]
         effect = float(beta[idx_treat])
         se = float(np.sqrt(max(cov[idx_treat, idx_treat], 0.0)))
     except np.linalg.LinAlgError:  # pragma: no cover
-        effect = float('nan')  # pragma: no cover
-        se = float('nan')  # pragma: no cover
+        effect = float("nan")  # pragma: no cover
+        se = float("nan")  # pragma: no cover
 
     return MultiScoreRDResult(
         boundary_effect=effect,

@@ -23,7 +23,8 @@ from .core import BridgeResult, _agreement_test, _dr_combine, _register
 def _isotonic_calibrate(scores: np.ndarray, target: np.ndarray) -> np.ndarray:
     """Pool-Adjacent-Violators isotonic regression — calibration."""
     from sklearn.isotonic import IsotonicRegression
-    iso = IsotonicRegression(out_of_bounds='clip')
+
+    iso = IsotonicRegression(out_of_bounds="clip")
     iso.fit(scores, target)
     return np.asarray(iso.predict(scores), dtype=float)
 
@@ -56,14 +57,14 @@ def dr_calib_bridge(
         calibrate: bool = False,
     ) -> float:
         from sklearn.linear_model import LinearRegression, LogisticRegression
+
         # Outcome models
         m1 = LinearRegression().fit(Xi[Di == 1], Yi[Di == 1])
         m0 = LinearRegression().fit(Xi[Di == 0], Yi[Di == 0])
         mu1 = m1.predict(Xi)
         mu0 = m0.predict(Xi)
         # Propensity
-        ps = (LogisticRegression(max_iter=1000)
-              .fit(Xi, Di).predict_proba(Xi)[:, 1])
+        ps = LogisticRegression(max_iter=1000).fit(Xi, Di).predict_proba(Xi)[:, 1]
         ps = np.clip(ps, 0.02, 0.98)
         if calibrate:
             # Isotonic calibration of (mu1 + (Y-mu1)/ps) on Y for treated
@@ -79,11 +80,7 @@ def dr_calib_bridge(
                 mu1_cal, mu0_cal, ps_cal = mu1, mu0, ps
             mu1, mu0, ps = mu1_cal, mu0_cal, ps_cal
         # AIPW score
-        score = (
-            mu1 - mu0
-            + Di * (Yi - mu1) / ps
-            - (1 - Di) * (Yi - mu0) / (1 - ps)
-        )
+        score = mu1 - mu0 + Di * (Yi - mu1) / ps - (1 - Di) * (Yi - mu0) / (1 - ps)
         return float(np.mean(score))
 
     ate_aipw = _aipw_one(Y, D, X, calibrate=False)
@@ -127,13 +124,17 @@ def dr_calib_bridge(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bridge.dr_calib_bridge",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
-                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+                "alpha": alpha,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

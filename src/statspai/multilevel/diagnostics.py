@@ -87,8 +87,10 @@ def icc(
 
     key = f"var({component})"
     if key not in result.variance_components:
-        raise KeyError(f"variance component {key!r} not found; "
-                       f"available: {list(result.variance_components)}")
+        raise KeyError(
+            f"variance component {key!r} not found; "
+            f"available: {list(result.variance_components)}"
+        )
 
     var_u = float(result.variance_components[key])
     var_e = float(result.variance_components.get("var(Residual)", np.nan))

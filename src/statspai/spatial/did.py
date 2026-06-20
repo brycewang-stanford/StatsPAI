@@ -49,7 +49,6 @@ from scipy import stats
 from ..core.results import SummaryText, _to_jsonable
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 _EPS = 1e-12
 _EARTH_RADIUS_KM = 6371.0
 _SE_TYPES = {"cluster", "robust", "conley"}
@@ -229,9 +228,13 @@ class SpatialDiDResult:
         if diagnostics:
             lines.extend(["", "  Diagnostics", "  " + "-" * 24])
             for key in (
-                "n_units", "n_periods", "treated_observation_share",
-                "control_spillover_exposure_share", "corr_treat_spillover",
-                "condition_number", "mean_residual_moran_i",
+                "n_units",
+                "n_periods",
+                "treated_observation_share",
+                "control_spillover_exposure_share",
+                "corr_treat_spillover",
+                "condition_number",
+                "mean_residual_moran_i",
             ):
                 if key in diagnostics:
                     val = diagnostics[key]
@@ -250,10 +253,17 @@ class SpatialDiDResult:
         es = self.detail.get("event_study")
         if isinstance(es, pd.DataFrame) and len(es) > 0:
             lines.extend(["", "-" * 78, "  Spatial Event Study", "-" * 78])
-            compact = es[[
-                "effect", "relative_time", "estimate", "se",
-                "ci_lower", "ci_upper", "pvalue",
-            ]].copy()
+            compact = es[
+                [
+                    "effect",
+                    "relative_time",
+                    "estimate",
+                    "se",
+                    "ci_lower",
+                    "ci_upper",
+                    "pvalue",
+                ]
+            ].copy()
             lines.append(compact.to_string(index=False, float_format="%.4f"))
 
         pt = self.detail.get("pretrend_test")
@@ -281,8 +291,11 @@ class SpatialDiDResult:
                 "term": "direct",
                 "estimate": self.direct_effect,
                 "std_error": self.se_direct,
-                "statistic": self.direct_effect / self.se_direct
-                if self.se_direct > 0 else np.nan,
+                "statistic": (
+                    self.direct_effect / self.se_direct
+                    if self.se_direct > 0
+                    else np.nan
+                ),
                 "p_value": self.pvalue_direct,
                 "conf_low": self.direct_effect - crit * self.se_direct,
                 "conf_high": self.direct_effect + crit * self.se_direct,
@@ -292,8 +305,11 @@ class SpatialDiDResult:
                 "term": "spillover",
                 "estimate": self.spillover_effect,
                 "std_error": self.se_spillover,
-                "statistic": self.spillover_effect / self.se_spillover
-                if self.se_spillover > 0 else np.nan,
+                "statistic": (
+                    self.spillover_effect / self.se_spillover
+                    if self.se_spillover > 0
+                    else np.nan
+                ),
                 "p_value": self.pvalue_spillover,
                 "conf_low": self.spillover_effect - crit * self.se_spillover,
                 "conf_high": self.spillover_effect + crit * self.se_spillover,
@@ -303,8 +319,9 @@ class SpatialDiDResult:
                 "term": "total",
                 "estimate": self.total_effect,
                 "std_error": self.se_total,
-                "statistic": self.total_effect / self.se_total
-                if self.se_total > 0 else np.nan,
+                "statistic": (
+                    self.total_effect / self.se_total if self.se_total > 0 else np.nan
+                ),
                 "p_value": self.pvalue_total,
                 "conf_low": self.total_effect - crit * self.se_total,
                 "conf_high": self.total_effect + crit * self.se_total,
@@ -316,17 +333,20 @@ class SpatialDiDResult:
             es = self.detail.get("event_study")
             if isinstance(es, pd.DataFrame) and len(es) > 0:
                 for _, r in es.iterrows():
-                    rows.append({
-                        "term": f"{r['effect']}_event_{int(r['relative_time']):+d}",
-                        "estimate": r["estimate"],
-                        "std_error": r["se"],
-                        "statistic": r["estimate"] / r["se"]
-                        if r["se"] > 0 else np.nan,
-                        "p_value": r["pvalue"],
-                        "conf_low": r["estimate"] - crit * r["se"],
-                        "conf_high": r["estimate"] + crit * r["se"],
-                        "type": "event_study",
-                    })
+                    rows.append(
+                        {
+                            "term": f"{r['effect']}_event_{int(r['relative_time']):+d}",
+                            "estimate": r["estimate"],
+                            "std_error": r["se"],
+                            "statistic": (
+                                r["estimate"] / r["se"] if r["se"] > 0 else np.nan
+                            ),
+                            "p_value": r["pvalue"],
+                            "conf_low": r["estimate"] - crit * r["se"],
+                            "conf_high": r["estimate"] + crit * r["se"],
+                            "type": "event_study",
+                        }
+                    )
 
         return pd.DataFrame(rows)
 
@@ -350,7 +370,9 @@ class SpatialDiDResult:
     def to_dataframe(self, **kwargs: Any) -> pd.DataFrame:
         return self.tidy(**kwargs)
 
-    def to_dict(self, *, detail: str = "standard", detail_head: int = 20) -> Dict[str, Any]:
+    def to_dict(
+        self, *, detail: str = "standard", detail_head: int = 20
+    ) -> Dict[str, Any]:
         if detail not in {"minimal", "standard", "agent"}:
             raise MethodIncompatibility(
                 "detail must be 'minimal', 'standard', or 'agent'",
@@ -433,13 +455,15 @@ class SpatialDiDResult:
         **kwargs: Any,
     ) -> str:
         table = self.tidy(**kwargs)
-        latex = str(table.to_latex(
-            index=False,
-            float_format="%.4f",
-            caption=caption or "Spatial difference-in-differences estimates.",
-            label=label or "tab:spatial-did",
-            escape=True,
-        ))
+        latex = str(
+            table.to_latex(
+                index=False,
+                float_format="%.4f",
+                caption=caption or "Spatial difference-in-differences estimates.",
+                label=label or "tab:spatial-did",
+                escape=True,
+            )
+        )
         if path is not None:
             Path(path).write_text(latex, encoding="utf-8")
         return latex
@@ -476,13 +500,17 @@ class SpatialDiDResult:
                 fig = ax.get_figure()
             y = np.arange(len(tab))
             ax.errorbar(
-                tab["estimate"], y,
+                tab["estimate"],
+                y,
                 xerr=[
                     tab["estimate"] - tab["conf_low"],
                     tab["conf_high"] - tab["estimate"],
                 ],
-                fmt="o", color="#1F4E79", ecolor="#6B8EAD",
-                capsize=4, linewidth=1.2,
+                fmt="o",
+                color="#1F4E79",
+                ecolor="#6B8EAD",
+                capsize=4,
+                linewidth=1.2,
             )
             ax.axvline(0, color="0.4", linestyle="--", linewidth=0.9)
             ax.set_yticks(y)
@@ -536,18 +564,28 @@ class SpatialDiDResult:
                     diagnostics={"kind": kind, "event_study": False},
                 )
             if ax is None:
-                fig, axes = plt.subplots(1, 2, figsize=kwargs.pop("figsize", (11, 4)), sharey=True)
+                fig, axes = plt.subplots(
+                    1, 2, figsize=kwargs.pop("figsize", (11, 4)), sharey=True
+                )
             else:
                 axes = np.atleast_1d(ax)
                 fig = axes[0].get_figure()
             for axis, effect in zip(axes, ["direct", "spillover"]):
                 sub = es[es["effect"] == effect].sort_values("relative_time")
                 axis.fill_between(
-                    sub["relative_time"], sub["ci_lower"], sub["ci_upper"],
-                    color="#D6E3F0", alpha=0.8,
+                    sub["relative_time"],
+                    sub["ci_lower"],
+                    sub["ci_upper"],
+                    color="#D6E3F0",
+                    alpha=0.8,
                 )
-                axis.plot(sub["relative_time"], sub["estimate"], marker="o",
-                          color="#1F4E79", linewidth=1.5)
+                axis.plot(
+                    sub["relative_time"],
+                    sub["estimate"],
+                    marker="o",
+                    color="#1F4E79",
+                    linewidth=1.5,
+                )
                 axis.axhline(0, color="0.4", linestyle="--", linewidth=0.8)
                 axis.axvline(-0.5, color="#9A3412", linestyle=":", linewidth=1.0)
                 axis.set_title(effect.title())
@@ -626,8 +664,10 @@ def _resolve_unit_order(
     unit_order: Optional[Sequence[Any]],
 ) -> list:
     units = list(pd.unique(df[unit]))
-    order = list(unit_order) if unit_order is not None else (
-        list(W_id_order) if W_id_order is not None else units
+    order = (
+        list(unit_order)
+        if unit_order is not None
+        else (list(W_id_order) if W_id_order is not None else units)
     )
     if not units:
         raise DataInsufficient(
@@ -697,11 +737,10 @@ def _cluster_vcov(X: np.ndarray, resid: np.ndarray, cluster: np.ndarray) -> np.n
     # (G/max(G-1,1))*((n-1)/max(n-k,1)). pinv bread preserved.
     # Byte-identical to the prior hand-rolled sandwich for G >= 2.
     from ..core._vcov import sandwich_vcov
+
     XtX_inv = np.linalg.pinv(X.T @ X)
     return np.asarray(
-        sandwich_vcov(
-            XtX_inv, X * resid[:, None], clusters=cluster, correction="cr1"
-        ),
+        sandwich_vcov(XtX_inv, X * resid[:, None], clusters=cluster, correction="cr1"),
         dtype=float,
     )
 
@@ -709,7 +748,7 @@ def _cluster_vcov(X: np.ndarray, resid: np.ndarray, cluster: np.ndarray) -> np.n
 def _hc1_vcov(X: np.ndarray, resid: np.ndarray) -> np.ndarray:
     n, k = X.shape
     XtX_inv = np.linalg.pinv(X.T @ X)
-    meat = X.T @ ((resid ** 2)[:, None] * X)
+    meat = X.T @ ((resid**2)[:, None] * X)
     return np.asarray((n / max(n - k, 1)) * XtX_inv @ meat @ XtX_inv, dtype=float)
 
 
@@ -726,8 +765,7 @@ def _haversine_unit_distances(
         raise DataInsufficient(
             "Each unit must have non-missing latitude/longitude",
             recovery_hint=(
-                "Provide complete coordinates for every unit or use "
-                "distance_matrix."
+                "Provide complete coordinates for every unit or use " "distance_matrix."
             ),
             diagnostics={"lat": lat, "lon": lon},
         )
@@ -743,8 +781,7 @@ def _haversine_unit_distances(
     dlon = lon_vals[:, None] - lon_vals[None, :]
     a = (
         np.sin(dlat / 2) ** 2
-        + np.cos(lat_vals[:, None]) * np.cos(lat_vals[None, :])
-        * np.sin(dlon / 2) ** 2
+        + np.cos(lat_vals[:, None]) * np.cos(lat_vals[None, :]) * np.sin(dlon / 2) ** 2
     )
     return np.asarray(
         2 * _EARTH_RADIUS_KM * np.arcsin(np.sqrt(np.minimum(a, 1.0))),
@@ -824,20 +861,24 @@ def _vcov(
                 "se_type='conley' requires conley_cutoff and either "
                 "coords=(lat, lon), lat/lon, or distance_matrix",
                 recovery_hint=(
-                    "Provide conley_cutoff plus coordinates or a distance "
-                    "matrix."
+                    "Provide conley_cutoff plus coordinates or a distance " "matrix."
                 ),
                 diagnostics={"se_type": se_type, "conley_cutoff": conley_cutoff},
             )
         return _conley_spatial_vcov(
-            X, resid, df, unit, time, unit_index, unit_distances,
-            conley_cutoff, conley_kernel,
+            X,
+            resid,
+            df,
+            unit,
+            time,
+            unit_index,
+            unit_distances,
+            conley_cutoff,
+            conley_kernel,
         )
     raise MethodIncompatibility(
         "se_type must be 'cluster', 'robust', or 'conley'",
-        recovery_hint=(
-            "Use se_type='cluster', se_type='robust', or se_type='conley'."
-        ),
+        recovery_hint=("Use se_type='cluster', se_type='robust', or se_type='conley'."),
         diagnostics={"se_type": se_type},
     )
 
@@ -851,20 +892,24 @@ def _effect_stats(
     crit = stats.norm.ppf(1 - alpha / 2)
     z = beta / np.where(se > 0, se, np.nan)
     p = 2 * stats.norm.sf(np.abs(z))
-    coef_df = pd.DataFrame({
-        "coef": beta,
-        "estimate": beta,
-        "se": se,
-        "statistic": z,
-        "pvalue": p,
-        "ci_lower": beta - crit * se,
-        "ci_upper": beta + crit * se,
-    })
+    coef_df = pd.DataFrame(
+        {
+            "coef": beta,
+            "estimate": beta,
+            "se": se,
+            "statistic": z,
+            "pvalue": p,
+            "ci_lower": beta - crit * se,
+            "ci_upper": beta + crit * se,
+        }
+    )
     total = float(beta[0] + beta[1])
     total_var = float(V[0, 0] + V[1, 1] + 2 * V[0, 1])
     se_total = float(np.sqrt(max(total_var, 0.0)))
     ci_total = (total - crit * se_total, total + crit * se_total)
-    p_total = float(2 * stats.norm.sf(abs(total / se_total))) if se_total > 0 else np.nan
+    p_total = (
+        float(2 * stats.norm.sf(abs(total / se_total))) if se_total > 0 else np.nan
+    )
     return coef_df, total, se_total, ci_total, p_total
 
 
@@ -902,11 +947,7 @@ def _event_time(
         time_lookup = {v: i for i, v in enumerate(ordered)}
     tmp = df[[unit, time, treat]].copy()
     tmp["_time_num"] = tmp[time].map(time_lookup).astype(float)
-    first = (
-        tmp.loc[tmp[treat] > 0]
-        .groupby(unit, sort=False)["_time_num"]
-        .min()
-    )
+    first = tmp.loc[tmp[treat] > 0].groupby(unit, sort=False)["_time_num"].min()
     rel = tmp["_time_num"] - tmp[unit].map(first)
     return rel.where(tmp[unit].isin(first.index), np.nan)
 
@@ -959,7 +1000,13 @@ def _spatial_event_study(
         w_col = f"_WE_{k}"
         es_df[d_col] = (es_df["_rel_time"] == k).astype(float)
         es_df[w_col] = _build_spatial_lags(
-            es_df, d_col, time, unit, W_norm, unit_order, w_col,
+            es_df,
+            d_col,
+            time,
+            unit,
+            W_norm,
+            unit_order,
+            w_col,
         )
         direct_cols.append(d_col)
         spill_cols.append(w_col)
@@ -969,9 +1016,17 @@ def _spatial_event_study(
     beta, resid, X = _linear_fit(es_df, y, x_cols, unit, time)
     unit_index = {u: i for i, u in enumerate(unit_order)}
     V = _vcov(
-        X=X, resid=resid, df=es_df, unit=unit, time=time, cluster=cluster,
-        se_type=se_type, unit_index=unit_index, unit_distances=unit_distances,
-        conley_cutoff=conley_cutoff, conley_kernel=conley_kernel,
+        X=X,
+        resid=resid,
+        df=es_df,
+        unit=unit,
+        time=time,
+        cluster=cluster,
+        se_type=se_type,
+        unit_index=unit_index,
+        unit_distances=unit_distances,
+        conley_cutoff=conley_cutoff,
+        conley_kernel=conley_kernel,
     )
     se = np.sqrt(np.maximum(np.diag(V), 0.0))
     crit = stats.norm.ppf(1 - alpha / 2)
@@ -982,15 +1037,17 @@ def _spatial_event_study(
         for effect, idx in (("direct", direct_idx), ("spillover", spill_idx)):
             b = float(beta[idx])
             s = float(se[idx])
-            rows.append({
-                "effect": effect,
-                "relative_time": int(k),
-                "estimate": b,
-                "se": s,
-                "ci_lower": b - crit * s,
-                "ci_upper": b + crit * s,
-                "pvalue": float(2 * stats.norm.sf(abs(b / s))) if s > 0 else np.nan,
-            })
+            rows.append(
+                {
+                    "effect": effect,
+                    "relative_time": int(k),
+                    "estimate": b,
+                    "se": s,
+                    "ci_lower": b - crit * s,
+                    "ci_upper": b + crit * s,
+                    "pvalue": float(2 * stats.norm.sf(abs(b / s))) if s > 0 else np.nan,
+                }
+            )
 
     lead_times = [k for k in event_times if k < 0]
     pretrend: Dict[str, Any] = {}
@@ -1064,16 +1121,23 @@ def _spatial_diagnostics(
         "w_islands": int(np.sum(np.isclose(W_mat.sum(axis=1), 0.0))),
         "treated_observation_share": float(np.mean(treated)),
         "mean_spillover_exposure": float(np.mean(WD)),
-        "control_spillover_exposure_share": float(np.mean(WD[controls] > 0))
-        if controls.any() else np.nan,
-        "treated_spillover_exposure_share": float(np.mean(WD[treated] > 0))
-        if treated.any() else np.nan,
+        "control_spillover_exposure_share": (
+            float(np.mean(WD[controls] > 0)) if controls.any() else np.nan
+        ),
+        "treated_spillover_exposure_share": (
+            float(np.mean(WD[treated] > 0)) if treated.any() else np.nan
+        ),
         "mean_wd_control": float(np.mean(WD[controls])) if controls.any() else np.nan,
         "mean_wd_treated": float(np.mean(WD[treated])) if treated.any() else np.nan,
         "corr_treat_spillover": float(corr) if pd.notna(corr) else np.nan,
         "condition_number": float(np.linalg.cond(X.T @ X)),
         "mean_residual_moran_i": _residual_moran_by_time(
-            df, resid, unit, time, W_norm, unit_order,
+            df,
+            resid,
+            unit,
+            time,
+            W_norm,
+            unit_order,
         ),
     }
     return diagnostics
@@ -1270,7 +1334,11 @@ def spatial_did(
             )
         event_window = (int(event_window_values[0]), int(event_window_values[1]))
     extra_keep = [cluster] if cluster not in {y, treat, unit, time, *cov} else []
-    coord_keep = [c for c in (lat, lon) if c is not None and c not in {y, treat, unit, time, *cov, *extra_keep}]
+    coord_keep = [
+        c
+        for c in (lat, lon)
+        if c is not None and c not in {y, treat, unit, time, *cov, *extra_keep}
+    ]
     keep = [y, treat, unit, time] + cov + extra_keep + coord_keep
     missing_cols = [c for c in keep if c not in data.columns]
     if missing_cols:
@@ -1329,14 +1397,18 @@ def spatial_did(
             "Panel is unbalanced; missing neighbors' treatment is treated as 0 "
             "when constructing WD for that period."
         )
-    non_binary = not set(pd.unique(df[treat].dropna())).issubset({0, 1, 0.0, 1.0, True, False})
+    non_binary = not set(pd.unique(df[treat].dropna())).issubset(
+        {0, 1, 0.0, 1.0, True, False}
+    )
     if non_binary:
         warnings.append(
             "Treatment is not binary; direct and spillover coefficients are "
             "marginal effects on the supplied treatment scale."
         )
 
-    df["_WD"] = _build_spatial_lags(df, treat, time, unit, W_norm, resolved_order, "_WD")
+    df["_WD"] = _build_spatial_lags(
+        df, treat, time, unit, W_norm, resolved_order, "_WD"
+    )
 
     x_cols = [treat, "_WD"] + cov
     beta, resid, X = _linear_fit(df, y, x_cols, unit, time)
@@ -1367,9 +1439,17 @@ def spatial_did(
         se_type = "conley"
 
     V = _vcov(
-        X=X, resid=resid, df=df, unit=unit, time=time, cluster=cluster,
-        se_type=se_type, unit_index=unit_index, unit_distances=unit_distances,
-        conley_cutoff=conley_cutoff, conley_kernel=conley_kernel,
+        X=X,
+        resid=resid,
+        df=df,
+        unit=unit,
+        time=time,
+        cluster=cluster,
+        se_type=se_type,
+        unit_index=unit_index,
+        unit_distances=unit_distances,
+        conley_cutoff=conley_cutoff,
+        conley_kernel=conley_kernel,
     )
     coef_stats, total, se_total, ci_total, p_total = _effect_stats(beta, V, alpha)
     coef_stats.insert(0, "variable", [treat, f"W_{treat}"] + cov)
@@ -1384,14 +1464,29 @@ def spatial_did(
     ci_d = (float(coef_stats.loc[0, "ci_lower"]), float(coef_stats.loc[0, "ci_upper"]))
     ci_s = (float(coef_stats.loc[1, "ci_lower"]), float(coef_stats.loc[1, "ci_upper"]))
 
-    diagnostics = _spatial_diagnostics(df, treat, unit, time, W_mat, W_norm, resid, X, resolved_order)
+    diagnostics = _spatial_diagnostics(
+        df, treat, unit, time, W_mat, W_norm, resid, X, resolved_order
+    )
     event_df = pd.DataFrame()
     pretrend: Dict[str, Any] = {}
     if event_study:
         event_df, pretrend = _spatial_event_study(
-            df, y, treat, unit, time, W_norm, resolved_order, cov, alpha,
-            event_window, event_base, se_type, cluster, unit_distances,
-            conley_cutoff, conley_kernel,
+            df,
+            y,
+            treat,
+            unit,
+            time,
+            W_norm,
+            resolved_order,
+            cov,
+            alpha,
+            event_window,
+            event_base,
+            se_type,
+            cluster,
+            unit_distances,
+            conley_cutoff,
+            conley_kernel,
         )
 
     exposure_frame = df[[unit, time, treat, "_WD"]].rename(
@@ -1455,14 +1550,22 @@ def spatial_did(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             result,
             function="sp.spatial.spatial_did",
             params={
-                "y": y, "treat": treat, "unit": unit, "time": time,
-                "covariates": cov or None, "cluster": cluster,
-                "alpha": alpha, "se_type": se_type,
-                "coords": coords, "lat": lat, "lon": lon,
+                "y": y,
+                "treat": treat,
+                "unit": unit,
+                "time": time,
+                "covariates": cov or None,
+                "cluster": cluster,
+                "alpha": alpha,
+                "se_type": se_type,
+                "coords": coords,
+                "lat": lat,
+                "lon": lon,
                 "conley_cutoff": conley_cutoff,
                 "conley_kernel": conley_kernel,
                 "event_study": event_study,

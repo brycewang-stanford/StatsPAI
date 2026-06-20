@@ -47,7 +47,6 @@ from .hdfe import Absorber, demean, absorb_ols
 from .feols import feols as hdfe_feols, hdfe_ols, FEOLSResult
 from ..exceptions import MethodIncompatibility
 
-
 # ═══════════════════════════════════════════════════════════════════════
 #  Unified dispatcher — sp.panel(..., method=...)
 # ═══════════════════════════════════════════════════════════════════════
@@ -69,34 +68,64 @@ from ..exceptions import MethodIncompatibility
 
 _PANEL_METHOD_ALIASES: Dict[str, str] = {
     # --- Static models ---
-    "fe": "fe", "fixed": "fe", "fixed_effects": "fe", "within": "fe",
-    "re": "re", "random": "re", "random_effects": "re",
-    "be": "be", "between": "be", "between_effects": "be",
-    "fd": "fd", "first_difference": "fd", "first_diff": "fd",
-    "pooled": "pooled", "pooled_ols": "pooled", "pols": "pooled",
+    "fe": "fe",
+    "fixed": "fe",
+    "fixed_effects": "fe",
+    "within": "fe",
+    "re": "re",
+    "random": "re",
+    "random_effects": "re",
+    "be": "be",
+    "between": "be",
+    "between_effects": "be",
+    "fd": "fd",
+    "first_difference": "fd",
+    "first_diff": "fd",
+    "pooled": "pooled",
+    "pooled_ols": "pooled",
+    "pols": "pooled",
     "ols": "pooled",
-    "twoway": "twoway", "two_way": "twoway", "two_way_fe": "twoway",
-    "twoway_fe": "twoway", "2way": "twoway",
-
+    "twoway": "twoway",
+    "two_way": "twoway",
+    "two_way_fe": "twoway",
+    "twoway_fe": "twoway",
+    "2way": "twoway",
     # --- Correlated random effects ---
-    "mundlak": "mundlak", "mundlak_cre": "mundlak",
-    "chamberlain": "chamberlain", "chamberlain_cre": "chamberlain",
-
+    "mundlak": "mundlak",
+    "mundlak_cre": "mundlak",
+    "chamberlain": "chamberlain",
+    "chamberlain_cre": "chamberlain",
     # --- Dynamic panel (GMM) ---
-    "ab": "ab", "arellano_bond": "ab", "gmm": "ab", "diff_gmm": "ab",
+    "ab": "ab",
+    "arellano_bond": "ab",
+    "gmm": "ab",
+    "diff_gmm": "ab",
     "difference_gmm": "ab",
-    "system": "system", "system_gmm": "system",
-    "blundell_bond": "system", "bb": "system",
-
+    "system": "system",
+    "system_gmm": "system",
+    "blundell_bond": "system",
+    "bb": "system",
     # --- HDFE absorption (new in v1.10) ---
-    "hdfe": "hdfe", "feols": "hdfe", "reghdfe": "hdfe",
+    "hdfe": "hdfe",
+    "feols": "hdfe",
+    "reghdfe": "hdfe",
     "absorbed_ols": "hdfe",
 }
 
-_CLASSICAL_PANEL_METHODS = frozenset({
-    "fe", "re", "be", "fd", "pooled", "twoway",
-    "mundlak", "chamberlain", "ab", "system",
-})
+_CLASSICAL_PANEL_METHODS = frozenset(
+    {
+        "fe",
+        "re",
+        "be",
+        "fd",
+        "pooled",
+        "twoway",
+        "mundlak",
+        "chamberlain",
+        "ab",
+        "system",
+    }
+)
 
 
 def panel(
@@ -211,8 +240,12 @@ def panel(
                 f"missing: {', '.join(missing)}."
             )
         return _panel_classical(
-            data=data, formula=formula, entity=entity, time=time,
-            method=canon, **kwargs,
+            data=data,
+            formula=formula,
+            entity=entity,
+            time=time,
+            method=canon,
+            **kwargs,
         )
 
     # ── HDFE absorption: route to feols.hdfe_ols ─────────────────────
@@ -237,20 +270,20 @@ def panel(
 
 
 __all__ = [
-    'panel',
-    'panel_compare',
-    'balance_panel',
-    'PanelResults',
-    'PanelCompareResults',
-    'PanelRegression',
-    'panel_logit',
-    'panel_probit',
-    'plot_within_between',
+    "panel",
+    "panel_compare",
+    "balance_panel",
+    "PanelResults",
+    "PanelCompareResults",
+    "PanelRegression",
+    "panel_logit",
+    "panel_probit",
+    "plot_within_between",
     # HDFE primitives (native Python)
-    'Absorber',
-    'demean',
-    'absorb_ols',
-    'hdfe_feols',
-    'hdfe_ols',
-    'FEOLSResult',
+    "Absorber",
+    "demean",
+    "absorb_ols",
+    "hdfe_feols",
+    "hdfe_ols",
+    "FEOLSResult",
 ]

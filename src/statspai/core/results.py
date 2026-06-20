@@ -13,6 +13,7 @@ from ..exceptions import MethodIncompatibility
 def _scipy_stats() -> Any:
     """Lazily import ``scipy.stats`` for result-time inference only."""
     from scipy import stats as _stats
+
     return _stats
 
 
@@ -37,7 +38,7 @@ class SummaryText(str):
     def _repr_html_(self) -> str:  # Jupyter HTML rendering
         return (
             "<pre style=\"font-family: 'SFMono-Regular', Menlo, Consolas, "
-            "monospace; line-height: 1.35; white-space: pre;\">"
+            'monospace; line-height: 1.35; white-space: pre;">'
             f"{_html_escape(str(self))}"
             "</pre>"
         )
@@ -49,6 +50,7 @@ class SummaryText(str):
 # through json.dumps without raising — numpy scalars, pandas objects,
 # tuples, and numpy arrays all need primitive-form conversion.
 # ----------------------------------------------------------------------
+
 
 def _to_jsonable(value: Any, *, _depth: int = 0, _max_depth: int = 6) -> Any:
     """Return a JSON-safe representation of ``value``.
@@ -75,8 +77,7 @@ def _to_jsonable(value: Any, *, _depth: int = 0, _max_depth: int = 6) -> Any:
     if isinstance(value, (list, tuple)):
         return [_to_jsonable(v, _depth=_depth + 1) for v in value]
     if isinstance(value, dict):
-        return {str(k): _to_jsonable(v, _depth=_depth + 1)
-                for k, v in value.items()}
+        return {str(k): _to_jsonable(v, _depth=_depth + 1) for k, v in value.items()}
     if isinstance(value, np.ndarray):
         return _to_jsonable(value.tolist(), _depth=_depth + 1)
     if isinstance(value, pd.Series):
@@ -84,8 +85,7 @@ def _to_jsonable(value: Any, *, _depth: int = 0, _max_depth: int = 6) -> Any:
     if isinstance(value, pd.DataFrame):
         # Keep the payload bounded — agents don't need full detail tables.
         head = value.head(20)
-        return _to_jsonable(head.to_dict(orient='records'),
-                            _depth=_depth + 1)
+        return _to_jsonable(head.to_dict(orient="records"), _depth=_depth + 1)
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
     # Last resort: stringify so json.dumps doesn't blow up.
@@ -127,7 +127,7 @@ def _validate_probability(value: Any, *, name: str) -> float:
 class EconometricResults:
     """
     Unified results class for econometric models
-    
+
     This class provides a consistent interface for accessing results
     from different econometric estimators, similar to R's broom package.
 
@@ -152,11 +152,11 @@ class EconometricResults:
         std_errors: pd.Series,
         model_info: Dict[str, Any],
         data_info: Optional[Dict[str, Any]] = None,
-        diagnostics: Optional[Dict[str, Any]] = None
+        diagnostics: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Initialize results object
-        
+
         Parameters
         ----------
         params : pd.Series
@@ -175,10 +175,10 @@ class EconometricResults:
         self.model_info = model_info
         self.data_info = data_info or {}
         self.diagnostics = diagnostics or {}
-        
+
         # Compute derived statistics
         self._compute_statistics()
-    
+
     def _compute_statistics(self) -> None:
         """Compute t-statistics, p-values, and confidence intervals"""
         stats = _scipy_stats()
@@ -187,25 +187,25 @@ class EconometricResults:
         std_errors = self.std_errors.to_numpy(dtype=float, copy=False)
         with np.errstate(divide="ignore", invalid="ignore"):
             tvalues = params / std_errors
-        df_resid = self.data_info.get('df_resid', np.inf)
+        df_resid = self.data_info.get("df_resid", np.inf)
         self.tvalues = pd.Series(tvalues, index=index)
         self.pvalues = 2 * (1 - stats.t.cdf(np.abs(tvalues), df_resid))
-        
+
         # 95% confidence intervals by default
         alpha = 0.05
-        t_crit = stats.t.ppf(1 - alpha/2, df_resid)
+        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
         self.conf_int_lower = pd.Series(params - t_crit * std_errors, index=index)
         self.conf_int_upper = pd.Series(params + t_crit * std_errors, index=index)
-    
+
     def summary(self, alpha: float = 0.05) -> str:
         """
         Generate a summary table of results
-        
+
         Parameters
         ----------
         alpha : float, default 0.05
             Significance level for confidence intervals
-            
+
         Returns
         -------
         str
@@ -213,27 +213,29 @@ class EconometricResults:
         """
         alpha = _validate_probability(alpha, name="alpha")
         # Create coefficients table
-        coef_table = pd.DataFrame({
-            'Coefficient': self.params,
-            'Std. Error': self.std_errors,
-            't-statistic': self.tvalues,
-            'P>|t|': self.pvalues,
-            f'[{alpha/2:.3f}': self.conf_int_lower,
-            f'{1-alpha/2:.3f}]': self.conf_int_upper
-        })
-        
+        coef_table = pd.DataFrame(
+            {
+                "Coefficient": self.params,
+                "Std. Error": self.std_errors,
+                "t-statistic": self.tvalues,
+                "P>|t|": self.pvalues,
+                f"[{alpha/2:.3f}": self.conf_int_lower,
+                f"{1-alpha/2:.3f}]": self.conf_int_upper,
+            }
+        )
+
         # Format the output
         output = []
         output.append("=" * 80)
         output.append(f"Model: {self.model_info.get('model_type', 'Unknown')}")
         output.append(f"Method: {self.model_info.get('method', 'Unknown')}")
-        if 'dependent_var' in self.data_info:
+        if "dependent_var" in self.data_info:
             output.append(f"Dependent Variable: {self.data_info['dependent_var']}")
         output.append("=" * 80)
-        
+
         # Add coefficient table
-        output.append(coef_table.to_string(float_format='%.4f'))
-        
+        output.append(coef_table.to_string(float_format="%.4f"))
+
         # Add model diagnostics
         if self.diagnostics:
             output.append("")
@@ -244,19 +246,19 @@ class EconometricResults:
                     output.append(f"{key:20s}: {value:.4f}")
                 else:
                     output.append(f"{key:20s}: {value}")
-        
+
         output.append("=" * 80)
         return SummaryText("\n".join(output))
 
     def conf_int(self, alpha: float = 0.05) -> pd.DataFrame:
         """
         Return confidence intervals for parameters
-        
+
         Parameters
         ----------
         alpha : float, default 0.05
             Significance level
-            
+
         Returns
         -------
         pd.DataFrame
@@ -264,15 +266,15 @@ class EconometricResults:
         """
         alpha = _validate_probability(alpha, name="alpha")
         stats = _scipy_stats()
-        t_crit = stats.t.ppf(1 - alpha/2, self.data_info.get('df_resid', np.inf))
+        t_crit = stats.t.ppf(1 - alpha / 2, self.data_info.get("df_resid", np.inf))
         lower = self.params - t_crit * self.std_errors
         upper = self.params + t_crit * self.std_errors
-        
-        return pd.DataFrame({
-            f'{alpha/2:.3f}': lower,
-            f'{1-alpha/2:.3f}': upper
-        }, index=self.params.index)
-    
+
+        return pd.DataFrame(
+            {f"{alpha/2:.3f}": lower, f"{1-alpha/2:.3f}": upper},
+            index=self.params.index,
+        )
+
     # ------------------------------------------------------------------
     # NOTE on cross-estimator tidy surface
     # ------------------------------------------------------------------
@@ -322,24 +324,26 @@ class EconometricResults:
         """
         conf_level = _validate_probability(conf_level, name="conf_level")
         alpha = 1 - conf_level
-        df_resid = self.data_info.get('df_resid', np.inf)
+        df_resid = self.data_info.get("df_resid", np.inf)
         stats = _scipy_stats()
-        t_crit = stats.t.ppf(1 - alpha/2, df_resid)
+        t_crit = stats.t.ppf(1 - alpha / 2, df_resid)
         lo = self.params - t_crit * self.std_errors
         hi = self.params + t_crit * self.std_errors
 
         def _arr(x: Any) -> np.ndarray:
-            return np.asarray(x.values if hasattr(x, 'values') else x)
+            return np.asarray(x.values if hasattr(x, "values") else x)
 
-        return pd.DataFrame({
-            'term': list(self.params.index),
-            'estimate': _arr(self.params),
-            'std_error': _arr(self.std_errors),
-            'statistic': _arr(self.tvalues),
-            'p_value': _arr(self.pvalues),
-            'conf_low': _arr(lo),
-            'conf_high': _arr(hi),
-        })
+        return pd.DataFrame(
+            {
+                "term": list(self.params.index),
+                "estimate": _arr(self.params),
+                "std_error": _arr(self.std_errors),
+                "statistic": _arr(self.tvalues),
+                "p_value": _arr(self.pvalues),
+                "conf_low": _arr(lo),
+                "conf_high": _arr(hi),
+            }
+        )
 
     def glance(self) -> pd.DataFrame:
         """Return a 1-row DataFrame of model-level statistics, broom-style.
@@ -361,33 +365,35 @@ class EconometricResults:
         tidy : long-format coefficient table.
         """
         g: Dict[str, Any] = {}
-        g['method'] = self.model_info.get('method', self.model_info.get('model_type', ''))
-        if 'nobs' in self.data_info:
-            g['nobs'] = int(self.data_info['nobs'])
+        g["method"] = self.model_info.get(
+            "method", self.model_info.get("model_type", "")
+        )
+        if "nobs" in self.data_info:
+            g["nobs"] = int(self.data_info["nobs"])
         key_map = {
-            'R-squared': 'r_squared',
-            'Adj R-squared': 'adj_r_squared',
-            'F-statistic': 'f_statistic',
-            'F p-value': 'f_p_value',
-            'Prob (F-statistic)': 'f_p_value',
-            'AIC': 'aic',
-            'BIC': 'bic',
-            'Log-Likelihood': 'log_likelihood',
+            "R-squared": "r_squared",
+            "Adj R-squared": "adj_r_squared",
+            "F-statistic": "f_statistic",
+            "F p-value": "f_p_value",
+            "Prob (F-statistic)": "f_p_value",
+            "AIC": "aic",
+            "BIC": "bic",
+            "Log-Likelihood": "log_likelihood",
         }
         for src, dst in key_map.items():
             if src in self.diagnostics and dst not in g:
                 v = self.diagnostics[src]
                 if isinstance(v, (int, float, np.integer, np.floating)):
                     g[dst] = float(v)
-        if 'df_resid' in self.data_info:
-            dr = self.data_info['df_resid']
+        if "df_resid" in self.data_info:
+            dr = self.data_info["df_resid"]
             # Cox / parametric-survival results store df_resid = inf to flag a
             # large-sample (normal) reference distribution; int(inf) raises
             # OverflowError, so pass non-finite degrees of freedom through.
-            g['df_resid'] = int(dr) if np.isfinite(dr) else float(dr)
-        if 'df_model' in self.data_info:
-            dm = self.data_info['df_model']
-            g['df_model'] = int(dm) if np.isfinite(dm) else float(dm)
+            g["df_resid"] = int(dr) if np.isfinite(dr) else float(dr)
+        if "df_model" in self.data_info:
+            dm = self.data_info["df_model"]
+            g["df_model"] = int(dm) if np.isfinite(dm) else float(dm)
         return pd.DataFrame([g])
 
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
@@ -407,7 +413,7 @@ class EconometricResults:
         """
         # In-sample: return fitted values if available
         if data is None:
-            fv = self.data_info.get('fitted_values')
+            fv = self.data_info.get("fitted_values")
             if fv is not None:
                 return np.asarray(fv)
             raise NotImplementedError(
@@ -427,17 +433,18 @@ class EconometricResults:
                     diagnostics={"data_type": data.__class__.__name__},
                 )
             var_names = list(self.params.index)
-            has_intercept = 'Intercept' in var_names
+            has_intercept = "Intercept" in var_names
 
             # Identify derived terms (interactions, categoricals, transforms)
-            X_cols = [v for v in var_names if v != 'Intercept']
+            X_cols = [v for v in var_names if v != "Intercept"]
             missing = [c for c in X_cols if c not in data.columns]
             if missing:
                 # Check if these are formula-derived terms
                 import re
-                derived = [c for c in missing
-                           if ':' in c or '[' in c
-                           or re.search(r'[()]', c)]
+
+                derived = [
+                    c for c in missing if ":" in c or "[" in c or re.search(r"[()]", c)
+                ]
                 if derived:
                     raise MethodIncompatibility(
                         f"Out-of-sample prediction is not supported for "
@@ -475,37 +482,35 @@ class EconometricResults:
             if has_intercept:
                 ones = np.ones((X.shape[0], 1))
                 X = np.column_stack([ones, X])
-                ordered = ['Intercept'] + X_cols
+                ordered = ["Intercept"] + X_cols
             else:
                 ordered = X_cols
             beta = np.array([self.params[v] for v in ordered])
             return np.asarray(X @ beta)
 
-        raise NotImplementedError(
-            "Prediction not available for this model type."
-        )
-    
+        raise NotImplementedError("Prediction not available for this model type.")
+
     def residuals(self) -> Optional[np.ndarray]:
         """
         Return model residuals if available
-        
+
         Returns
         -------
         np.ndarray or None
             Residuals
         """
-        return self.data_info.get('residuals')
-    
+        return self.data_info.get("residuals")
+
     def fitted_values(self) -> Optional[np.ndarray]:
         """
         Return fitted values if available
-        
+
         Returns
         -------
         np.ndarray or None
             Fitted values
         """
-        return self.data_info.get('fitted_values')
+        return self.data_info.get("fitted_values")
 
     def next_steps(self, print_result: bool = True) -> List[Dict[str, str]]:
         """
@@ -531,6 +536,7 @@ class EconometricResults:
         >>> result.next_steps()
         """
         from .next_steps import econometric_next_steps, _format_steps
+
         steps = econometric_next_steps(self)
         if print_result:
             print(_format_steps(steps))
@@ -538,6 +544,7 @@ class EconometricResults:
 
     def _next_steps_html(self) -> str:
         from .next_steps import econometric_next_steps, _steps_repr_html
+
         return _steps_repr_html(econometric_next_steps(self))
 
     def violations(self) -> List[Dict[str, Any]]:
@@ -562,6 +569,7 @@ class EconometricResults:
         ...         print(v['recovery_hint'])
         """
         from ._agent_summary import econometric_violations
+
         return econometric_violations(self)
 
     def to_agent_summary(self) -> Dict[str, Any]:
@@ -597,6 +605,7 @@ class EconometricResults:
         >>> agent_payload = json.dumps(result.to_agent_summary())
         """
         from ._agent_summary import econometric_agent_summary
+
         return econometric_agent_summary(self)
 
     def to_docx(self, filename: str, title: Optional[str] = None) -> None:
@@ -637,6 +646,7 @@ class EconometricResults:
         module-level import here would create a circular import.
         """
         from ..output import regtable
+
         if title is None:
             title = kwargs.pop("title", None)
         else:
@@ -727,6 +737,7 @@ class EconometricResults:
             latex = self._inject_latex_label(latex, label)
         if path is not None:
             from pathlib import Path
+
             Path(path).write_text(latex, encoding="utf-8")
         return latex
 
@@ -740,6 +751,7 @@ class EconometricResults:
         html = cast(str, self._as_regtable(**kwargs).to_html())
         if path is not None:
             from pathlib import Path
+
             Path(path).write_text(html, encoding="utf-8")
         return html
 
@@ -760,6 +772,7 @@ class EconometricResults:
         md = cast(str, self._as_regtable(**kwargs).to_markdown(quarto=quarto))
         if path is not None:
             from pathlib import Path
+
             Path(path).write_text(md, encoding="utf-8")
         return md
 
@@ -829,8 +842,7 @@ class EconometricResults:
         """
         if detail not in ("minimal", "standard", "agent"):
             raise ValueError(
-                "detail must be 'minimal', 'standard', or 'agent'; "
-                f"got {detail!r}"
+                "detail must be 'minimal', 'standard', or 'agent'; " f"got {detail!r}"
             )
 
         try:
@@ -839,30 +851,38 @@ class EconometricResults:
             glance_row = {}
 
         base: Dict[str, Any] = {
-            'method': str(self.model_info.get(
-                'method', self.model_info.get('model_type', ''))),
-            'model_type': str(self.model_info.get('model_type', '')),
-            'dependent_var': _to_jsonable(
-                self.data_info.get('dependent_var')),
-            'n_obs': _to_jsonable(self.data_info.get('nobs')),
+            "method": str(
+                self.model_info.get("method", self.model_info.get("model_type", ""))
+            ),
+            "model_type": str(self.model_info.get("model_type", "")),
+            "dependent_var": _to_jsonable(self.data_info.get("dependent_var")),
+            "n_obs": _to_jsonable(self.data_info.get("nobs")),
         }
 
         if detail == "minimal":
             # Compact subset of glance fit stats so agents can decide
             # whether to drill in (low R² → call diagnostics).
             fit_keys = (
-                'r_squared', 'r.squared', 'r2',
-                'adj_r_squared', 'adj.r.squared',
-                'f_statistic', 'f.statistic',
-                'aic', 'AIC', 'bic', 'BIC',
-                'log_likelihood', 'logLik',
+                "r_squared",
+                "r.squared",
+                "r2",
+                "adj_r_squared",
+                "adj.r.squared",
+                "f_statistic",
+                "f.statistic",
+                "aic",
+                "AIC",
+                "bic",
+                "BIC",
+                "log_likelihood",
+                "logLik",
             )
             fit_stats: Dict[str, Any] = {}
             for k in fit_keys:
                 if k in glance_row:
                     fit_stats[k] = _to_jsonable(glance_row[k])
             if fit_stats:
-                base['fit_stats'] = fit_stats
+                base["fit_stats"] = fit_stats
             return base
 
         # standard: + full coefficient table + diagnostics + glance
@@ -883,21 +903,23 @@ class EconometricResults:
 
             for i, term in enumerate(terms):
                 coefs[str(term)] = {
-                    'estimate': _to_jsonable(self.params.iloc[i]),
-                    'std_error': _to_jsonable(self.std_errors.iloc[i]),
-                    't_statistic': _to_jsonable(_iget(self.tvalues, i)),
-                    'p_value': _to_jsonable(_iget(self.pvalues, i)),
-                    'conf_low': _to_jsonable(self.conf_int_lower.iloc[i]),
-                    'conf_high': _to_jsonable(self.conf_int_upper.iloc[i]),
+                    "estimate": _to_jsonable(self.params.iloc[i]),
+                    "std_error": _to_jsonable(self.std_errors.iloc[i]),
+                    "t_statistic": _to_jsonable(_iget(self.tvalues, i)),
+                    "p_value": _to_jsonable(_iget(self.pvalues, i)),
+                    "conf_low": _to_jsonable(self.conf_int_lower.iloc[i]),
+                    "conf_high": _to_jsonable(self.conf_int_upper.iloc[i]),
                 }
         except Exception:
             coefs = {}
 
-        base.update({
-            'coefficients': coefs,
-            'diagnostics': _filter_jsonable_scalars(self.diagnostics),
-            'glance': _to_jsonable(glance_row),
-        })
+        base.update(
+            {
+                "coefficients": coefs,
+                "diagnostics": _filter_jsonable_scalars(self.diagnostics),
+                "glance": _to_jsonable(glance_row),
+            }
+        )
 
         if detail == "standard":
             return base
@@ -907,9 +929,7 @@ class EconometricResults:
             viols = self.violations() or []
         except Exception:
             viols = []
-        warns: List[str] = [
-            v.get('message', '') for v in viols if v.get('message')
-        ]
+        warns: List[str] = [v.get("message", "") for v in viols if v.get("message")]
 
         try:
             steps = self.next_steps(print_result=False) or []
@@ -918,20 +938,22 @@ class EconometricResults:
 
         suggested: List[str] = []
         for s in steps:
-            fn = s.get('suggest_function') or s.get('function')
+            fn = s.get("suggest_function") or s.get("function")
             if fn and fn not in suggested:
                 suggested.append(fn)
         for v in viols:
-            for alt in v.get('alternatives', []) or []:
+            for alt in v.get("alternatives", []) or []:
                 if alt and alt not in suggested:
                     suggested.append(alt)
 
-        base.update({
-            'violations': _to_jsonable(viols),
-            'warnings': warns,
-            'next_steps': steps[:8],
-            'suggested_functions': suggested,
-        })
+        base.update(
+            {
+                "violations": _to_jsonable(viols),
+                "warnings": warns,
+                "next_steps": steps[:8],
+                "suggested_functions": suggested,
+            }
+        )
         return base
 
     def cite(self, format: str = "bibtex") -> Any:
@@ -965,7 +987,8 @@ class EconometricResults:
         """
         if format not in ("bibtex", "apa", "json"):
             raise ValueError(
-                f"format must be 'bibtex', 'apa' or 'json'; got {format!r}")
+                f"format must be 'bibtex', 'apa' or 'json'; got {format!r}"
+            )
 
         raw_key = (
             self.model_info.get("citation_key")
@@ -987,12 +1010,18 @@ class EconometricResults:
             )
             placeholder = f"% No citation registered for method: {label}"
             if format == "json":
-                return {"type": None, "key": None, "authors": [],
-                        "fields": {}, "raw": placeholder,
-                        "note": "no citation registered"}
+                return {
+                    "type": None,
+                    "key": None,
+                    "authors": [],
+                    "fields": {},
+                    "raw": placeholder,
+                    "note": "no citation registered",
+                }
             return placeholder
 
         from ..smart.citations import render_citation
+
         return render_citation(bibtex, fmt=format)
 
     def for_agent(self) -> Dict[str, Any]:
@@ -1012,22 +1041,24 @@ class EconometricResults:
         finding without paying a full ``to_dict`` round-trip.
         """
         from ..smart.brief import brief as _brief
+
         return _brief(self)
 
     def to_json(self, indent: Optional[int] = None) -> str:
         """Serialise :meth:`to_dict` via ``json.dumps``."""
         import json
-        return json.dumps(self.to_dict(), indent=indent,
-                          default=_to_jsonable)
+
+        return json.dumps(self.to_dict(), indent=indent, default=_to_jsonable)
 
     def _repr_html_(self) -> str:
         """Rich HTML display for Jupyter notebooks."""
-        model_type = self.model_info.get('model_type', 'Unknown')
-        method = self.model_info.get('method', '')
-        dep_var = self.data_info.get('dependent_var', '')
-        n_obs = self.data_info.get('nobs', '?')
-        r2 = self.diagnostics.get('R-squared', None)
-        f_stat = self.diagnostics.get('F-statistic', None)
+        model_type = self.model_info.get("model_type", "Unknown")
+        method = self.model_info.get("method", "")
+        dep_var = self.data_info.get("dependent_var", "")
+        n_obs = self.data_info.get("nobs", "?")
+        r2 = self.diagnostics.get("R-squared", None)
+        f_stat = self.diagnostics.get("F-statistic", None)
+
         def _safe(v: Any) -> str:
             return _html_escape(str(v))
 
@@ -1038,119 +1069,167 @@ class EconometricResults:
 
         def _s(pv: Any) -> str:
             if pd.isna(pv):
-                return ''
+                return ""
             if pv < 0.01:
                 return '<span style="color:#E74C3C;">***</span>'
             if pv < 0.05:
                 return '<span style="color:#E67E22;">**</span>'
             if pv < 0.1:
                 return '<span style="color:#F39C12;">*</span>'
-            return ''
+            return ""
 
         def _val(v: Any) -> str:
             if isinstance(v, (int, float, np.integer, np.floating)) and not pd.isna(v):
-                return f'{v:.4f}'
+                return f"{v:.4f}"
             return _safe(v)
 
         # CSS
-        S = ('<style scoped>'
-             '.sp-box{font-family:"Helvetica Neue",Arial,sans-serif;max-width:720px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin:6px 0}'
-             '.sp-hdr{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:12px 16px}'
-             '.sp-hdr h3{margin:0;font-size:15px;font-weight:600;letter-spacing:0.3px}'
-             '.sp-hdr .sp-sub{font-size:11px;color:#94A3B8;margin-top:2px}'
-             '.sp-metrics{display:flex;gap:0;border-bottom:1px solid #E5E7EB}'
-             '.sp-metric{flex:1;padding:10px 14px;text-align:center;border-right:1px solid #E5E7EB}'
-             '.sp-metric:last-child{border-right:none}'
-             '.sp-metric .sp-val{font-size:18px;font-weight:700;color:#1a1a2e}'
-             '.sp-metric .sp-lab{font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}'
-             'table.sp-coef{width:100%;border-collapse:collapse;font-size:12px}'
-             'table.sp-coef th{padding:6px 10px;text-align:right;font-weight:600;color:#64748B;border-bottom:2px solid #E5E7EB;font-size:11px}'
-             'table.sp-coef th:first-child{text-align:left}'
-             'table.sp-coef td{padding:5px 10px;text-align:right;border-bottom:1px solid #F1F5F9}'
-             'table.sp-coef td:first-child{text-align:left;font-weight:500;color:#1a1a2e}'
-             'table.sp-coef tr:hover{background:#F8FAFC}'
-             '.sp-diag{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid #E5E7EB;font-size:11px}'
-             '.sp-diag-item{padding:4px 14px;display:flex;justify-content:space-between;border-bottom:1px solid #F8FAFC}'
-             '.sp-diag-item:nth-child(odd){border-right:1px solid #F1F5F9}'
-             '.sp-diag-k{color:#94A3B8}.sp-diag-v{color:#334155;font-weight:500}'
-             '.sp-foot{padding:6px 14px;font-size:10px;color:#94A3B8;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between}'
-             '</style>')
+        S = (
+            "<style scoped>"
+            '.sp-box{font-family:"Helvetica Neue",Arial,sans-serif;max-width:720px;border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin:6px 0}'
+            ".sp-hdr{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:12px 16px}"
+            ".sp-hdr h3{margin:0;font-size:15px;font-weight:600;letter-spacing:0.3px}"
+            ".sp-hdr .sp-sub{font-size:11px;color:#94A3B8;margin-top:2px}"
+            ".sp-metrics{display:flex;gap:0;border-bottom:1px solid #E5E7EB}"
+            ".sp-metric{flex:1;padding:10px 14px;text-align:center;border-right:1px solid #E5E7EB}"
+            ".sp-metric:last-child{border-right:none}"
+            ".sp-metric .sp-val{font-size:18px;font-weight:700;color:#1a1a2e}"
+            ".sp-metric .sp-lab{font-size:10px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-top:2px}"
+            "table.sp-coef{width:100%;border-collapse:collapse;font-size:12px}"
+            "table.sp-coef th{padding:6px 10px;text-align:right;font-weight:600;color:#64748B;border-bottom:2px solid #E5E7EB;font-size:11px}"
+            "table.sp-coef th:first-child{text-align:left}"
+            "table.sp-coef td{padding:5px 10px;text-align:right;border-bottom:1px solid #F1F5F9}"
+            "table.sp-coef td:first-child{text-align:left;font-weight:500;color:#1a1a2e}"
+            "table.sp-coef tr:hover{background:#F8FAFC}"
+            ".sp-diag{display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:1px solid #E5E7EB;font-size:11px}"
+            ".sp-diag-item{padding:4px 14px;display:flex;justify-content:space-between;border-bottom:1px solid #F8FAFC}"
+            ".sp-diag-item:nth-child(odd){border-right:1px solid #F1F5F9}"
+            ".sp-diag-k{color:#94A3B8}.sp-diag-v{color:#334155;font-weight:500}"
+            ".sp-foot{padding:6px 14px;font-size:10px;color:#94A3B8;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between}"
+            "</style>"
+        )
 
         h = [S, '<div class="sp-box">']
 
         # --- Header ---
         sub_parts = []
         if dep_var:
-            sub_parts.append(f'Y = {_safe(dep_var)}')
+            sub_parts.append(f"Y = {_safe(dep_var)}")
         if method:
             sub_parts.append(_safe(method))
         h.append(f'<div class="sp-hdr"><h3>{_safe(model_type)}</h3>')
         if sub_parts:
             h.append(f'<div class="sp-sub">{" · ".join(sub_parts)}</div>')
-        h.append('</div>')
+        h.append("</div>")
 
         # --- Key Metrics Bar ---
         h.append('<div class="sp-metrics">')
         if r2 is not None:
-            h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(r2, ".4f")}</div><div class="sp-lab">R-squared</div></div>')
+            h.append(
+                f'<div class="sp-metric"><div class="sp-val">{_fmt(r2, ".4f")}</div><div class="sp-lab">R-squared</div></div>'
+            )
         if f_stat is not None:
-            h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(f_stat, ".1f")}</div><div class="sp-lab">F-statistic</div></div>')
-        h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(n_obs, ",")}</div><div class="sp-lab">Observations</div></div>')
-        h.append(f'<div class="sp-metric"><div class="sp-val">{len(self.params)}</div><div class="sp-lab">Parameters</div></div>')
-        h.append('</div>')
+            h.append(
+                f'<div class="sp-metric"><div class="sp-val">{_fmt(f_stat, ".1f")}</div><div class="sp-lab">F-statistic</div></div>'
+            )
+        h.append(
+            f'<div class="sp-metric"><div class="sp-val">{_fmt(n_obs, ",")}</div><div class="sp-lab">Observations</div></div>'
+        )
+        h.append(
+            f'<div class="sp-metric"><div class="sp-val">{len(self.params)}</div><div class="sp-lab">Parameters</div></div>'
+        )
+        h.append("</div>")
 
         # --- Coefficient Table ---
         h.append('<table class="sp-coef"><tr>')
-        for col in ['', 'Coefficient', 'Std. Error', 't-stat', 'P&gt;|t|', '95% CI']:
-            h.append(f'<th>{col}</th>')
-        h.append('</tr>')
+        for col in ["", "Coefficient", "Std. Error", "t-stat", "P&gt;|t|", "95% CI"]:
+            h.append(f"<th>{col}</th>")
+        h.append("</tr>")
 
         for i, var in enumerate(self.params.index):
             coef = self.params.iloc[i]
             se = self.std_errors.iloc[i]
-            t = self.tvalues.iloc[i] if isinstance(self.tvalues, pd.Series) else self.tvalues[i]
-            pv = self.pvalues.iloc[i] if isinstance(self.pvalues, pd.Series) else self.pvalues[i]
-            lo = self.conf_int_lower.iloc[i] if isinstance(self.conf_int_lower, pd.Series) else self.conf_int_lower[i]
-            hi = self.conf_int_upper.iloc[i] if isinstance(self.conf_int_upper, pd.Series) else self.conf_int_upper[i]
-            pv_color = '#DC2626' if pv < 0.01 else ('#EA580C' if pv < 0.05 else ('#D97706' if pv < 0.1 else '#64748B'))
-            h.append(f'<tr><td>{_safe(var)}</td>')
-            h.append(f'<td>{coef:.4f} {_s(pv)}</td>')
+            t = (
+                self.tvalues.iloc[i]
+                if isinstance(self.tvalues, pd.Series)
+                else self.tvalues[i]
+            )
+            pv = (
+                self.pvalues.iloc[i]
+                if isinstance(self.pvalues, pd.Series)
+                else self.pvalues[i]
+            )
+            lo = (
+                self.conf_int_lower.iloc[i]
+                if isinstance(self.conf_int_lower, pd.Series)
+                else self.conf_int_lower[i]
+            )
+            hi = (
+                self.conf_int_upper.iloc[i]
+                if isinstance(self.conf_int_upper, pd.Series)
+                else self.conf_int_upper[i]
+            )
+            pv_color = (
+                "#DC2626"
+                if pv < 0.01
+                else (
+                    "#EA580C" if pv < 0.05 else ("#D97706" if pv < 0.1 else "#64748B")
+                )
+            )
+            h.append(f"<tr><td>{_safe(var)}</td>")
+            h.append(f"<td>{coef:.4f} {_s(pv)}</td>")
             h.append(f'<td style="color:#94A3B8;">({se:.4f})</td>')
-            h.append(f'<td>{t:.2f}</td>')
+            h.append(f"<td>{t:.2f}</td>")
             h.append(f'<td style="color:{pv_color};font-weight:600;">{pv:.4f}</td>')
             h.append(f'<td style="color:#94A3B8;">[{lo:.3f}, {hi:.3f}]</td></tr>')
-        h.append('</table>')
+        h.append("</table>")
 
         # --- Diagnostics Grid ---
-        diag_items = [(k, v) for k, v in self.diagnostics.items()
-                      if isinstance(v, (int, float, str)) and k not in ('R-squared', 'F-statistic', 'F p-value', 'Prob (F-statistic)')]
+        diag_items = [
+            (k, v)
+            for k, v in self.diagnostics.items()
+            if isinstance(v, (int, float, str))
+            and k not in ("R-squared", "F-statistic", "F p-value", "Prob (F-statistic)")
+        ]
         if diag_items:
             h.append('<div class="sp-diag">')
             for k, v in diag_items:
-                h.append(f'<div class="sp-diag-item"><span class="sp-diag-k">{_safe(k)}</span><span class="sp-diag-v">{_val(v)}</span></div>')
-            h.append('</div>')
+                h.append(
+                    f'<div class="sp-diag-item"><span class="sp-diag-k">{_safe(k)}</span><span class="sp-diag-v">{_val(v)}</span></div>'
+                )
+            h.append("</div>")
 
         # --- IV-specific: First-stage diagnostics ---
-        iv_keys = [k for k in self.diagnostics if 'First-stage' in k or 'Hausman' in k or 'Partial' in k or 'Sargan' in k]
+        iv_keys = [
+            k
+            for k in self.diagnostics
+            if "First-stage" in k or "Hausman" in k or "Partial" in k or "Sargan" in k
+        ]
         if iv_keys:
-            h.append('<details open style="border-top:1px solid #E5E7EB;"><summary style="padding:6px 14px;font-size:12px;'
-                     'font-weight:600;color:#1a1a2e;cursor:pointer;">IV Diagnostics</summary>')
+            h.append(
+                '<details open style="border-top:1px solid #E5E7EB;"><summary style="padding:6px 14px;font-size:12px;'
+                'font-weight:600;color:#1a1a2e;cursor:pointer;">IV Diagnostics</summary>'
+            )
             h.append('<div class="sp-diag">')
             for k in iv_keys:
                 v = self.diagnostics[k]
-                h.append(f'<div class="sp-diag-item"><span class="sp-diag-k">{_safe(k)}</span><span class="sp-diag-v">{_val(v)}</span></div>')
-            h.append('</div></details>')
+                h.append(
+                    f'<div class="sp-diag-item"><span class="sp-diag-k">{_safe(k)}</span><span class="sp-diag-v">{_val(v)}</span></div>'
+                )
+            h.append("</div></details>")
 
         # --- Footer ---
-        h.append(f'<div class="sp-foot"><span>N = {_fmt(n_obs, ",")}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>')
-        h.append('</div>')
-        return '\n'.join(h)
+        h.append(
+            f'<div class="sp-foot"><span>N = {_fmt(n_obs, ",")}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>'
+        )
+        h.append("</div>")
+        return "\n".join(h)
 
     def __repr__(self) -> str:
         """String representation of results"""
-        model_type = self.model_info.get('model_type', 'Unknown')
+        model_type = self.model_info.get("model_type", "Unknown")
         n_params = len(self.params)
-        n_obs = self.data_info.get('nobs', 'Unknown')
+        n_obs = self.data_info.get("nobs", "Unknown")
         return f"<EconometricResults: {model_type}, {n_params} parameters, {n_obs} observations>"
 
     def sensitivity(self, **kwargs: Any) -> Any:
@@ -1159,6 +1238,7 @@ class EconometricResults:
         See :func:`statspai.robustness.unified_sensitivity`.
         """
         from ..robustness.unified_sensitivity import unified_sensitivity
+
         # Expose a 1-entry "estimate" view for compatibility
         class _View:
             estimate: float
@@ -1166,11 +1246,14 @@ class EconometricResults:
             ci: tuple[float, float]
             params: pd.Series
             std_errors: pd.Series
+
         view = _View()
         view.estimate = float(self.params.iloc[0])
         view.se = float(self.std_errors.iloc[0])
-        view.ci = (float(self.conf_int_lower.iloc[0]),
-                   float(self.conf_int_upper.iloc[0]))
+        view.ci = (
+            float(self.conf_int_lower.iloc[0]),
+            float(self.conf_int_upper.iloc[0]),
+        )
         view.params = self.params
         view.std_errors = self.std_errors
         return unified_sensitivity(view, **kwargs)
@@ -1230,15 +1313,15 @@ class CausalResult:
     """
 
     _CITATIONS: Dict[str, str] = {
-        'did_2x2': (
+        "did_2x2": (
             "@book{angrist2009mostly,\n"
             "  title={Mostly Harmless Econometrics: An Empiricist's Companion},\n"
-            "  author={Angrist, Joshua D and Pischke, J{\\\"o}rn-Steffen},\n"
+            '  author={Angrist, Joshua D and Pischke, J{\\"o}rn-Steffen},\n'
             "  year={2009},\n"
             "  publisher={Princeton University Press}\n"
             "}"
         ),
-        'callaway_santanna': (
+        "callaway_santanna": (
             "@article{callaway2021difference,\n"
             "  title={Difference-in-differences with multiple time periods},\n"
             "  author={Callaway, Brantly and Sant'Anna, Pedro H.C.},\n"
@@ -1250,7 +1333,7 @@ class CausalResult:
             "  publisher={Elsevier}\n"
             "}"
         ),
-        'sun_abraham': (
+        "sun_abraham": (
             "@article{sun2021estimating,\n"
             "  title={Estimating dynamic treatment effects in event studies "
             "with heterogeneous treatment effects},\n"
@@ -1263,7 +1346,7 @@ class CausalResult:
             "  publisher={Elsevier}\n"
             "}"
         ),
-        'rdrobust': (
+        "rdrobust": (
             "@article{calonico2014robust,\n"
             "  title={Robust nonparametric confidence intervals for "
             "regression-discontinuity designs},\n"
@@ -1277,7 +1360,7 @@ class CausalResult:
             "  publisher={Wiley}\n"
             "}"
         ),
-        'zubizarreta_2015_sbw': (
+        "zubizarreta_2015_sbw": (
             "@article{zubizarreta2015stable,\n"
             "  title={Stable weights that balance covariates for "
             "estimation with incomplete outcome data},\n"
@@ -1291,7 +1374,7 @@ class CausalResult:
             "  publisher={Taylor \\& Francis}\n"
             "}"
         ),
-        'bacon_decomposition': (
+        "bacon_decomposition": (
             "@article{goodmanbacon2021difference,\n"
             "  title={Difference-in-differences with variation in treatment timing},\n"
             "  author={Goodman-Bacon, Andrew},\n"
@@ -1303,7 +1386,7 @@ class CausalResult:
             "  publisher={Elsevier}\n"
             "}"
         ),
-        'did_multiplegt': (
+        "did_multiplegt": (
             "@article{dechaisemartin2020two,\n"
             "  title={Two-Way Fixed Effects Estimators with "
             "Heterogeneous Treatment Effects},\n"
@@ -1316,7 +1399,7 @@ class CausalResult:
             "  year={2020}\n"
             "}"
         ),
-        'stacked_did': (
+        "stacked_did": (
             "@article{cengiz2019effect,\n"
             "  title={The Effect of Minimum Wages on Low-Wage Jobs},\n"
             "  author={Cengiz, Doruk and Dube, Arindrajit and "
@@ -1329,7 +1412,7 @@ class CausalResult:
             "  publisher={Oxford University Press}\n"
             "}"
         ),
-        'wooldridge_twfe': (
+        "wooldridge_twfe": (
             "@unpublished{wooldridge2021two,\n"
             "  title={Two-Way Fixed Effects, the Two-Way Mundlak Regression, "
             "and Difference-in-Differences Estimators},\n"
@@ -1338,7 +1421,7 @@ class CausalResult:
             "  note={Working paper, Michigan State University}\n"
             "}"
         ),
-        'drdid': (
+        "drdid": (
             "@article{santanna2020doubly,\n"
             "  title={Doubly Robust Difference-in-Differences Estimators},\n"
             "  author={Sant'Anna, Pedro H.C. and Zhao, Jun},\n"
@@ -1350,7 +1433,7 @@ class CausalResult:
             "  publisher={Elsevier}\n"
             "}"
         ),
-        'twfe_decomposition': (
+        "twfe_decomposition": (
             "@article{goodmanbacon2021difference,\n"
             "  title={Difference-in-differences with variation in treatment timing},\n"
             "  author={Goodman-Bacon, Andrew},\n"
@@ -1431,7 +1514,7 @@ class CausalResult:
 
     @property
     def data_info(self) -> Dict[str, Any]:
-        return {'nobs': self.n_obs}
+        return {"nobs": self.n_obs}
 
     # ------------------------------------------------------------------
     # Helpers
@@ -1489,50 +1572,72 @@ class CausalResult:
         # (rel_time, estimate) convention emitted by wooldridge_did /
         # etwfe. Skip the block silently when neither pair is present so a
         # bare-minimum result object still summarises cleanly.
-        if 'event_study' in self.model_info:
-            es = self.model_info['event_study']
+        if "event_study" in self.model_info:
+            es = self.model_info["event_study"]
             time_col = (
-                'relative_time' if 'relative_time' in es.columns
-                else ('rel_time' if 'rel_time' in es.columns else None)
+                "relative_time"
+                if "relative_time" in es.columns
+                else ("rel_time" if "rel_time" in es.columns else None)
             )
             est_col = (
-                'att' if 'att' in es.columns
-                else ('estimate' if 'estimate' in es.columns else None)
+                "att"
+                if "att" in es.columns
+                else ("estimate" if "estimate" in es.columns else None)
             )
-            if time_col and est_col and 'se' in es.columns:
+            if time_col and est_col and "se" in es.columns:
                 lines.append("-" * 78)
                 lines.append("  Event Study Coefficients")
                 lines.append("-" * 78)
                 for _, row in es.iterrows():
                     e = int(row[time_col])
                     att = row[est_col]
-                    se_v = row['se']
-                    pv = row.get('pvalue', np.nan)
+                    se_v = row["se"]
+                    pv = row.get("pvalue", np.nan)
                     s = self._stars(pv)
-                    lines.append(
-                        f"  e = {e:>3d}  |  {att:>10.4f}  ({se_v:.4f}) {s}"
-                    )
+                    lines.append(f"  e = {e:>3d}  |  {att:>10.4f}  ({se_v:.4f}) {s}")
                 lines.append("")
 
         # Detailed estimates
         if self.detail is not None and len(self.detail) > 0:
-            if 'att' in self.detail.columns:
+            if "att" in self.detail.columns:
                 # Causal inference format (group-time ATTs)
-                cols = [c for c in ['group', 'time', 'att', 'se',
-                                    'ci_lower', 'ci_upper', 'pvalue']
-                        if c in self.detail.columns]
+                cols = [
+                    c
+                    for c in [
+                        "group",
+                        "time",
+                        "att",
+                        "se",
+                        "ci_lower",
+                        "ci_upper",
+                        "pvalue",
+                    ]
+                    if c in self.detail.columns
+                ]
                 title_str = "Group-Time ATT Estimates"
-            elif 'method' in self.detail.columns and 'estimate' in self.detail.columns:
+            elif "method" in self.detail.columns and "estimate" in self.detail.columns:
                 # RD-style inference table
-                cols = [c for c in ['method', 'estimate', 'se', 'z',
-                                    'pvalue', 'ci_lower', 'ci_upper']
-                        if c in self.detail.columns]
+                cols = [
+                    c
+                    for c in [
+                        "method",
+                        "estimate",
+                        "se",
+                        "z",
+                        "pvalue",
+                        "ci_lower",
+                        "ci_upper",
+                    ]
+                    if c in self.detail.columns
+                ]
                 title_str = "Inference"
-            elif 'coefficient' in self.detail.columns:
+            elif "coefficient" in self.detail.columns:
                 # Regression format (variable / coefficient / se)
-                cols = [c for c in ['variable', 'coefficient', 'se',
-                                    'tstat', 'pvalue']
-                        if c in self.detail.columns]
+                cols = [
+                    c
+                    for c in ["variable", "coefficient", "se", "tstat", "pvalue"]
+                    if c in self.detail.columns
+                ]
                 title_str = "Regression Coefficients"
             else:
                 cols = list(self.detail.columns)
@@ -1540,14 +1645,12 @@ class CausalResult:
             lines.append("-" * 78)
             lines.append(f"  {title_str}")
             lines.append("-" * 78)
-            lines.append(
-                self.detail[cols].to_string(index=False, float_format='%.4f')
-            )
+            lines.append(self.detail[cols].to_string(index=False, float_format="%.4f"))
             lines.append("")
 
         # Pre-trend test
-        if 'pretrend_test' in self.model_info:
-            pt = self.model_info['pretrend_test']
+        if "pretrend_test" in self.model_info:
+            pt = self.model_info["pretrend_test"]
             lines.append("-" * 78)
             lines.append(
                 f"  Pre-trend Test: chi2({pt['df']}) = {pt['statistic']:.4f}, "
@@ -1558,14 +1661,19 @@ class CausalResult:
         # Model info footer
         lines.append("-" * 78)
         lines.append(f"  Observations:    {self.n_obs:,}")
-        _skip = {'event_study', 'pretrend_test', 'aggregations',
-                 'cohort_sizes', 'influence_funcs_matrix',
-                 'conventional', 'robust'}
+        _skip = {
+            "event_study",
+            "pretrend_test",
+            "aggregations",
+            "cohort_sizes",
+            "influence_funcs_matrix",
+            "conventional",
+            "robust",
+        }
         for key, val in self.model_info.items():
-            if key in _skip or isinstance(val, (pd.DataFrame, np.ndarray,
-                                                dict, list)):
+            if key in _skip or isinstance(val, (pd.DataFrame, np.ndarray, dict, list)):
                 continue
-            label = key.replace('_', ' ').title()
+            label = key.replace("_", " ").title()
             lines.append(f"  {label}:    {val}")
         lines.append("=" * 78)
         lines.append("  * p<0.1, ** p<0.05, *** p<0.01")
@@ -1607,64 +1715,71 @@ class CausalResult:
             # when df_resid is recorded (small-sample correctness);
             # fall back to normal only when no df is available (e.g. CS /
             # synth results where influence-function SEs are asymptotic).
-            df_resid = self.model_info.get('df_resid', None)
+            df_resid = self.model_info.get("df_resid", None)
             stats = _scipy_stats()
             if df_resid is not None and np.isfinite(df_resid) and df_resid > 0:
-                crit = stats.t.ppf(1 - alpha/2, df_resid)
+                crit = stats.t.ppf(1 - alpha / 2, df_resid)
             else:
-                crit = stats.norm.ppf(1 - alpha/2)
-            lo, hi = (self.estimate - crit * self.se,
-                      self.estimate + crit * self.se)
+                crit = stats.norm.ppf(1 - alpha / 2)
+            lo, hi = (self.estimate - crit * self.se, self.estimate + crit * self.se)
         else:
             lo, hi = self.ci
         main_row = {
-            'term': self.estimand,
-            'estimate': self.estimate,
-            'std_error': self.se,
-            'statistic': self.estimate / self.se if self.se > 0 else np.nan,
-            'p_value': self.pvalue,
-            'conf_low': lo,
-            'conf_high': hi,
-            'type': 'main',
+            "term": self.estimand,
+            "estimate": self.estimate,
+            "std_error": self.se,
+            "statistic": self.estimate / self.se if self.se > 0 else np.nan,
+            "p_value": self.pvalue,
+            "conf_low": lo,
+            "conf_high": hi,
+            "type": "main",
         }
         rows = [main_row]
 
         # Event study coefficients
-        es = self.model_info.get('event_study')
+        es = self.model_info.get("event_study")
         if isinstance(es, pd.DataFrame) and len(es) > 0:
             for _, r in es.iterrows():
-                e = r.get('relative_time')
-                att = r.get('att')
-                se = r.get('se')
-                pv = r.get('pvalue', np.nan)
-                lo_r = r.get('ci_lower', att - 1.96 * se if pd.notna(att) else np.nan)
-                hi_r = r.get('ci_upper', att + 1.96 * se if pd.notna(att) else np.nan)
-                rows.append({
-                    'term': f'event_{int(e):+d}' if pd.notna(e) else 'event',
-                    'estimate': att, 'std_error': se,
-                    'statistic': att / se if pd.notna(se) and se > 0 else np.nan,
-                    'p_value': pv,
-                    'conf_low': lo_r, 'conf_high': hi_r,
-                    'type': 'event_study',
-                })
+                e = r.get("relative_time")
+                att = r.get("att")
+                se = r.get("se")
+                pv = r.get("pvalue", np.nan)
+                lo_r = r.get("ci_lower", att - 1.96 * se if pd.notna(att) else np.nan)
+                hi_r = r.get("ci_upper", att + 1.96 * se if pd.notna(att) else np.nan)
+                rows.append(
+                    {
+                        "term": f"event_{int(e):+d}" if pd.notna(e) else "event",
+                        "estimate": att,
+                        "std_error": se,
+                        "statistic": att / se if pd.notna(se) and se > 0 else np.nan,
+                        "p_value": pv,
+                        "conf_low": lo_r,
+                        "conf_high": hi_r,
+                        "type": "event_study",
+                    }
+                )
 
         # Group-time ATTs
-        if self.detail is not None and 'att' in getattr(self.detail, 'columns', []):
+        if self.detail is not None and "att" in getattr(self.detail, "columns", []):
             for _, r in self.detail.iterrows():
-                g = r.get('group', '')
-                t = r.get('time', '')
-                rows.append({
-                    'term': f'att(g={g},t={t})',
-                    'estimate': r.get('att'),
-                    'std_error': r.get('se'),
-                    'statistic': (r.get('att') / r.get('se')
-                                  if pd.notna(r.get('se')) and r.get('se', 0) > 0
-                                  else np.nan),
-                    'p_value': r.get('pvalue', np.nan),
-                    'conf_low': r.get('ci_lower', np.nan),
-                    'conf_high': r.get('ci_upper', np.nan),
-                    'type': 'group_time',
-                })
+                g = r.get("group", "")
+                t = r.get("time", "")
+                rows.append(
+                    {
+                        "term": f"att(g={g},t={t})",
+                        "estimate": r.get("att"),
+                        "std_error": r.get("se"),
+                        "statistic": (
+                            r.get("att") / r.get("se")
+                            if pd.notna(r.get("se")) and r.get("se", 0) > 0
+                            else np.nan
+                        ),
+                        "p_value": r.get("pvalue", np.nan),
+                        "conf_low": r.get("ci_lower", np.nan),
+                        "conf_high": r.get("ci_upper", np.nan),
+                        "type": "group_time",
+                    }
+                )
 
         return pd.DataFrame(rows)
 
@@ -1678,31 +1793,31 @@ class CausalResult:
         n_periods (if applicable), pretrend_pvalue (if applicable).
         """
         g: Dict[str, Any] = {
-            'method': self.method,
-            'estimand': self.estimand,
-            'estimate': self.estimate,
-            'std_error': self.se,
-            'p_value': self.pvalue,
-            'conf_low': self.ci[0],
-            'conf_high': self.ci[1],
-            'nobs': int(self.n_obs) if pd.notna(self.n_obs) else np.nan,
-            'alpha': self.alpha,
+            "method": self.method,
+            "estimand": self.estimand,
+            "estimate": self.estimate,
+            "std_error": self.se,
+            "p_value": self.pvalue,
+            "conf_low": self.ci[0],
+            "conf_high": self.ci[1],
+            "nobs": int(self.n_obs) if pd.notna(self.n_obs) else np.nan,
+            "alpha": self.alpha,
         }
         # Method-specific extras
-        if 'n_groups' in self.model_info:
-            g['n_groups'] = int(self.model_info['n_groups'])
-        if 'n_periods' in self.model_info:
-            g['n_periods'] = int(self.model_info['n_periods'])
-        pt = self.model_info.get('pretrend_test')
-        if isinstance(pt, dict) and 'pvalue' in pt:
-            g['pretrend_pvalue'] = float(pt['pvalue'])
+        if "n_groups" in self.model_info:
+            g["n_groups"] = int(self.model_info["n_groups"])
+        if "n_periods" in self.model_info:
+            g["n_periods"] = int(self.model_info["n_periods"])
+        pt = self.model_info.get("pretrend_test")
+        if isinstance(pt, dict) and "pvalue" in pt:
+            g["pretrend_pvalue"] = float(pt["pvalue"])
         # SC-specific
-        if 'pre_treatment_rmse' in self.model_info:
-            g['pre_treatment_rmse'] = float(self.model_info['pre_treatment_rmse'])
+        if "pre_treatment_rmse" in self.model_info:
+            g["pre_treatment_rmse"] = float(self.model_info["pre_treatment_rmse"])
         # RD-specific
-        if 'bandwidth_h' in self.model_info:
+        if "bandwidth_h" in self.model_info:
             try:
-                g['bandwidth'] = float(self.model_info['bandwidth_h'])
+                g["bandwidth"] = float(self.model_info["bandwidth_h"])
             except (TypeError, ValueError):
                 pass
         return pd.DataFrame([g])
@@ -1715,7 +1830,7 @@ class CausalResult:
         self,
         ax: Any = None,
         title: Optional[str] = None,
-        color: str = '#2C3E50',
+        color: str = "#2C3E50",
         ci_alpha: float = 0.15,
         figsize: tuple[float, float] = (10, 6),
         **kwargs: Any,
@@ -1739,53 +1854,59 @@ class CausalResult:
             import matplotlib.pyplot as plt
         except ImportError:
             raise ImportError(
-                "matplotlib required for plotting. "
-                "Install: pip install matplotlib"
+                "matplotlib required for plotting. " "Install: pip install matplotlib"
             )
 
-        if 'event_study' not in self.model_info:
-            raise ValueError(
-                "No event study estimates. Use a staggered DID method."
-            )
+        if "event_study" not in self.model_info:
+            raise ValueError("No event study estimates. Use a staggered DID method.")
 
-        es = self.model_info['event_study'].copy()
+        es = self.model_info["event_study"].copy()
 
         if ax is None:
             fig, ax = plt.subplots(figsize=figsize)
         else:
             fig = ax.get_figure()
 
-        e = es['relative_time'].values
-        att = es['att'].values
-        lo = es['ci_lower'].values
-        hi = es['ci_upper'].values
+        e = es["relative_time"].values
+        att = es["att"].values
+        lo = es["ci_lower"].values
+        hi = es["ci_upper"].values
 
         ax.fill_between(e, lo, hi, alpha=ci_alpha, color=color)
         ax.scatter(e, att, color=color, s=40, zorder=5)
         ax.plot(e, att, color=color, linewidth=1, alpha=0.7, zorder=4)
         ax.errorbar(
-            e, att,
+            e,
+            att,
             yerr=[att - lo, hi - att],
-            fmt='none', color=color, capsize=3, linewidth=1, zorder=3,
+            fmt="none",
+            color=color,
+            capsize=3,
+            linewidth=1,
+            zorder=3,
         )
 
-        ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
         ax.axvline(
-            x=-0.5, color='#E74C3C', linestyle=':',
-            linewidth=1, alpha=0.5, label='Treatment onset',
+            x=-0.5,
+            color="#E74C3C",
+            linestyle=":",
+            linewidth=1,
+            alpha=0.5,
+            label="Treatment onset",
         )
 
-        ax.set_xlabel('Periods Relative to Treatment', fontsize=11)
-        ax.set_ylabel('Estimated Effect', fontsize=11)
-        ax.set_title(title or f'Event Study: {self.method}', fontsize=13)
+        ax.set_xlabel("Periods Relative to Treatment", fontsize=11)
+        ax.set_ylabel("Estimated Effect", fontsize=11)
+        ax.set_title(title or f"Event Study: {self.method}", fontsize=13)
         ax.tick_params(labelsize=10)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         ax.legend(fontsize=9, frameon=False)
         fig.tight_layout()
         return fig, ax
 
-    def plot(self, type: str = 'auto', **kwargs: Any) -> Any:
+    def plot(self, type: str = "auto", **kwargs: Any) -> Any:
         """
         Generate appropriate visualisation based on model type.
 
@@ -1820,58 +1941,76 @@ class CausalResult:
 
         # All synth-related plot types handled by unified synthplot
         _synth_types = {
-            'trajectory', 'gap', 'both', 'weights', 'placebo',
-            'placebo_gap', 'placebo_dist', 'conformal', 'staggered',
-            'factors', 'loadings', 'compare',
+            "trajectory",
+            "gap",
+            "both",
+            "weights",
+            "placebo",
+            "placebo_gap",
+            "placebo_dist",
+            "conformal",
+            "staggered",
+            "factors",
+            "loadings",
+            "compare",
         }
 
-        if type == 'auto':
+        if type == "auto":
             # Event study (DID)
-            if 'event_study' in self.model_info:
+            if "event_study" in self.model_info:
                 return self.event_study_plot(**kwargs)
 
             # Synthetic Control — detect ALL variants
             if self._is_synth_result():
                 from ..synth.plots import synthplot
+
                 # Pick best auto type based on variant
-                if 'period_results' in self.model_info:
-                    return synthplot(self, type='conformal', **kwargs)
-                if 'cohort_effects' in self.model_info:
-                    return synthplot(self, type='staggered', **kwargs)
-                return synthplot(self, type='both', **kwargs)
+                if "period_results" in self.model_info:
+                    return synthplot(self, type="conformal", **kwargs)
+                if "cohort_effects" in self.model_info:
+                    return synthplot(self, type="staggered", **kwargs)
+                return synthplot(self, type="both", **kwargs)
 
             # Causal Impact
-            if 'causal impact' in method_lower or \
-               'intervention_time' in self.model_info:
+            if (
+                "causal impact" in method_lower
+                or "intervention_time" in self.model_info
+            ):
                 from ..causal_impact.impact import impactplot
-                return impactplot(self, type='all', **kwargs)
+
+                return impactplot(self, type="all", **kwargs)
 
             # Matching (has balance/SMD table)
-            if self.detail is not None and 'smd' in getattr(
-                    self.detail, 'columns', []):
+            if self.detail is not None and "smd" in getattr(self.detail, "columns", []):
                 from ..matching.match import balanceplot
+
                 return balanceplot(self, **kwargs)
 
-            if self.model_info.get('neural_causal'):
+            if self.model_info.get("neural_causal"):
                 from ..neural_causal.plots import neural_causal_plot
-                return neural_causal_plot(self, type='cate', **kwargs)
+
+                return neural_causal_plot(self, type="cate", **kwargs)
 
             return self._coefplot(**kwargs)
 
         # Explicit type overrides
-        if type == 'event_study':
+        if type == "event_study":
             return self.event_study_plot(**kwargs)
         if type in _synth_types:
             from ..synth.plots import synthplot
+
             return synthplot(self, type=type, **kwargs)
-        if type in ('original', 'pointwise', 'cumulative', 'all'):
+        if type in ("original", "pointwise", "cumulative", "all"):
             from ..causal_impact.impact import impactplot
+
             return impactplot(self, type=type, **kwargs)
-        if type == 'balance':
+        if type == "balance":
             from ..matching.match import balanceplot
+
             return balanceplot(self, **kwargs)
-        if type in ('cate', 'ite', 'effects', 'propensity', 'overlap', 'loss'):
+        if type in ("cate", "ite", "effects", "propensity", "overlap", "loss"):
             from ..neural_causal.plots import neural_causal_plot
+
             return neural_causal_plot(self, type=type, **kwargs)
         return self._coefplot(**kwargs)
 
@@ -1880,25 +2019,38 @@ class CausalResult:
         mi = self.model_info
         # Direct markers from various synth variants
         synth_keys = {
-            'gap_table',        # classic, demeaned, robust
-            'Y_obs',            # sdid
-            'trajectory',       # gsynth
-            'factors_pre',      # gsynth
-            'cohort_effects',   # staggered
-            'period_results',   # conformal
+            "gap_table",  # classic, demeaned, robust
+            "Y_obs",  # sdid
+            "trajectory",  # gsynth
+            "factors_pre",  # gsynth
+            "cohort_effects",  # staggered
+            "period_results",  # conformal
         }
         if synth_keys & set(mi.keys()):
             return True
         # Augmented SCM
-        if mi.get('model_type', '').startswith('Synthetic'):
+        if mi.get("model_type", "").startswith("Synthetic"):
             return True
         # Method name check
         m = self.method.lower()
-        return any(kw in m for kw in (
-            'synthetic', 'synth', 'sdid', 'gsynth', 'staggered',
-            'conformal', 'augmented', 'ascm', 'demeaned', 'de-meaned',
-            'de-trended', 'unconstrained', 'factor',
-        ))
+        return any(
+            kw in m
+            for kw in (
+                "synthetic",
+                "synth",
+                "sdid",
+                "gsynth",
+                "staggered",
+                "conformal",
+                "augmented",
+                "ascm",
+                "demeaned",
+                "de-meaned",
+                "de-trended",
+                "unconstrained",
+                "factor",
+            )
+        )
 
     def _coefplot(
         self,
@@ -1917,18 +2069,22 @@ class CausalResult:
             fig = ax.get_figure()
 
         ax.errorbar(
-            0, self.estimate,
+            0,
+            self.estimate,
             yerr=[[self.estimate - self.ci[0]], [self.ci[1] - self.estimate]],
-            fmt='o', color='#2C3E50', capsize=5, markersize=8,
+            fmt="o",
+            color="#2C3E50",
+            capsize=5,
+            markersize=8,
         )
-        ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
         ax.set_xlim(-1, 1)
         ax.set_xticks([0])
         ax.set_xticklabels([self.estimand])
-        ax.set_ylabel('Estimated Effect')
-        ax.set_title(f'{self.method}: {self.estimand}')
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.set_ylabel("Estimated Effect")
+        ax.set_title(f"{self.method}: {self.estimand}")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         fig.tight_layout()
         return fig, ax
 
@@ -1936,8 +2092,7 @@ class CausalResult:
     # Export
     # ------------------------------------------------------------------
 
-    def to_markdown(self, path: Optional[str] = None,
-                    digits: int = 4) -> str:
+    def to_markdown(self, path: Optional[str] = None, digits: int = 4) -> str:
         """Render the causal result as Markdown.
 
         Neural causal results delegate to the richer neural exporter,
@@ -1945,8 +2100,9 @@ class CausalResult:
         Other causal results render the broom-style tidy table plus
         scalar diagnostics.
         """
-        if self.model_info.get('neural_causal'):
+        if self.model_info.get("neural_causal"):
             from ..neural_causal.exports import neural_causal_to_markdown
+
             return neural_causal_to_markdown(self, path=path, digits=digits)
 
         tidy = self.tidy().round(digits)
@@ -1961,22 +2117,25 @@ class CausalResult:
             glance.to_markdown(index=False),
         ]
         if self.detail is not None and len(self.detail) > 0:
-            parts.extend([
-                "",
-                "## Detail",
-                self.detail.round(digits).to_markdown(index=False),
-            ])
+            parts.extend(
+                [
+                    "",
+                    "## Detail",
+                    self.detail.round(digits).to_markdown(index=False),
+                ]
+            )
         text = "\n".join(parts) + "\n"
         if path is not None:
             from pathlib import Path
+
             Path(path).write_text(text, encoding="utf-8")
         return text
 
-    def to_html(self, path: Optional[str] = None,
-                digits: int = 4) -> str:
+    def to_html(self, path: Optional[str] = None, digits: int = 4) -> str:
         """Render the causal result as an HTML report."""
-        if self.model_info.get('neural_causal'):
+        if self.model_info.get("neural_causal"):
             from ..neural_causal.exports import neural_causal_to_html
+
             return neural_causal_to_html(self, path=path, digits=digits)
 
         tidy = self.tidy().round(digits)
@@ -1990,21 +2149,25 @@ class CausalResult:
             glance.to_html(index=False),
         ]
         if self.detail is not None and len(self.detail) > 0:
-            blocks.extend([
-                "<h2>Detail</h2>",
-                self.detail.round(digits).to_html(index=False),
-            ])
+            blocks.extend(
+                [
+                    "<h2>Detail</h2>",
+                    self.detail.round(digits).to_html(index=False),
+                ]
+            )
         blocks.append("</body></html>")
         html = "\n".join(blocks)
         if path is not None:
             from pathlib import Path
+
             Path(path).write_text(html, encoding="utf-8")
         return html
 
     def to_excel(self, path: str, digits: int = 6) -> str:
         """Write a multi-sheet Excel workbook for the causal result."""
-        if self.model_info.get('neural_causal'):
+        if self.model_info.get("neural_causal"):
             from ..neural_causal.exports import neural_causal_to_excel
+
             return neural_causal_to_excel(self, path, digits=digits)
 
         with pd.ExcelWriter(path) as writer:
@@ -2091,17 +2254,21 @@ class CausalResult:
                         cell_text = str(val)
                     table.rows[i + 1].cells[j].text = cell_text
             style_word_table_typography(
-                table, header_rows=(0,),
-                header_pt=10, body_pt=9,
-                align_first_col="left", align_data_cols="center",
+                table,
+                header_rows=(0,),
+                header_pt=10,
+                body_pt=9,
+                align_first_col="left",
+                align_data_cols="center",
             )
             apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
 
         # Estimates block — always present
-        tidy = self.tidy().round(digits).set_index(
-            self.tidy().columns[0]
-        ) if "term" in self.tidy().columns or "estimand" in self.tidy().columns else \
-            self.tidy().round(digits)
+        tidy = (
+            self.tidy().round(digits).set_index(self.tidy().columns[0])
+            if "term" in self.tidy().columns or "estimand" in self.tidy().columns
+            else self.tidy().round(digits)
+        )
         _write_df_to_table(tidy)
 
         # Detail block — group/time ATTs, etc.
@@ -2123,79 +2290,101 @@ class CausalResult:
         doc.save(path)
         return path
 
-    def to_latex(self, caption: Optional[str] = None,
-                 label: Optional[str] = None) -> str:
+    def to_latex(
+        self, caption: Optional[str] = None, label: Optional[str] = None
+    ) -> str:
         """Generate a LaTeX table of the results."""
-        caption = caption or f'{self.method} Results'
-        label = label or 'tab:causal_result'
+        caption = caption or f"{self.method} Results"
+        label = label or "tab:causal_result"
 
         lines = [
-            '\\begin{table}[htbp]',
-            '\\centering',
-            f'\\caption{{{caption}}}',
-            f'\\label{{{label}}}',
+            "\\begin{table}[htbp]",
+            "\\centering",
+            f"\\caption{{{caption}}}",
+            f"\\label{{{label}}}",
         ]
 
         if self.detail is not None and len(self.detail) > 0:
             # Detect table format: causal (group/time/att) vs regression (variable/coefficient)
-            if 'att' in self.detail.columns:
-                cols = [c for c in ['group', 'time', 'att', 'se', 'pvalue']
-                        if c in self.detail.columns]
-                star_col = 'att'
-            elif 'method' in self.detail.columns and 'estimate' in self.detail.columns:
-                cols = [c for c in ['method', 'estimate', 'se', 'pvalue']
-                        if c in self.detail.columns]
-                star_col = 'estimate'
-            elif 'coefficient' in self.detail.columns:
-                cols = [c for c in ['variable', 'coefficient', 'se', 'pvalue']
-                        if c in self.detail.columns]
-                star_col = 'coefficient'
+            if "att" in self.detail.columns:
+                cols = [
+                    c
+                    for c in ["group", "time", "att", "se", "pvalue"]
+                    if c in self.detail.columns
+                ]
+                star_col = "att"
+            elif "method" in self.detail.columns and "estimate" in self.detail.columns:
+                cols = [
+                    c
+                    for c in ["method", "estimate", "se", "pvalue"]
+                    if c in self.detail.columns
+                ]
+                star_col = "estimate"
+            elif "coefficient" in self.detail.columns:
+                cols = [
+                    c
+                    for c in ["variable", "coefficient", "se", "pvalue"]
+                    if c in self.detail.columns
+                ]
+                star_col = "coefficient"
             else:
                 cols = list(self.detail.columns)
                 star_col = None
 
             n_cols = len(cols)
-            spec = 'l' + 'c' * (n_cols - 1)
-            lines.append(f'\\begin{{tabular}}{{{spec}}}')
-            lines.append('\\hline\\hline')
-            hdr = {'group': 'Group', 'time': 'Time', 'att': 'ATT',
-                   'se': 'Std.\\ Error', 'pvalue': 'P-value',
-                   'variable': 'Variable', 'coefficient': 'Coefficient',
-                   'tstat': 't-stat'}
-            lines.append(' & '.join(hdr.get(c, c) for c in cols) + ' \\\\')
-            lines.append('\\hline')
+            spec = "l" + "c" * (n_cols - 1)
+            lines.append(f"\\begin{{tabular}}{{{spec}}}")
+            lines.append("\\hline\\hline")
+            hdr = {
+                "group": "Group",
+                "time": "Time",
+                "att": "ATT",
+                "se": "Std.\\ Error",
+                "pvalue": "P-value",
+                "variable": "Variable",
+                "coefficient": "Coefficient",
+                "tstat": "t-stat",
+            }
+            lines.append(" & ".join(hdr.get(c, c) for c in cols) + " \\\\")
+            lines.append("\\hline")
             for _, row in self.detail.iterrows():
                 vals = []
                 for c in cols:
                     v = row[c]
                     if isinstance(v, float):
-                        s = self._stars(row.get('pvalue', np.nan)) if c == star_col else ''
-                        vals.append(f'{v:.4f}{s}')
+                        s = (
+                            self._stars(row.get("pvalue", np.nan))
+                            if c == star_col
+                            else ""
+                        )
+                        vals.append(f"{v:.4f}{s}")
                     else:
-                        vals.append(str(int(v)) if isinstance(v, (int, np.integer)) else str(v))
-                lines.append(' & '.join(vals) + ' \\\\')
+                        vals.append(
+                            str(int(v)) if isinstance(v, (int, np.integer)) else str(v)
+                        )
+                lines.append(" & ".join(vals) + " \\\\")
         else:
-            lines.append('\\begin{tabular}{lc}')
-            lines.append('\\hline\\hline')
+            lines.append("\\begin{tabular}{lc}")
+            lines.append("\\hline\\hline")
             lines.append(
-                f'{self.estimand} & '
-                f'{self.estimate:.4f}{self._stars(self.pvalue)} \\\\'
+                f"{self.estimand} & "
+                f"{self.estimate:.4f}{self._stars(self.pvalue)} \\\\"
             )
-            lines.append(f'& ({self.se:.4f}) \\\\')
+            lines.append(f"& ({self.se:.4f}) \\\\")
 
         lines += [
-            '\\hline',
-            f'Observations & {self.n_obs:,} \\\\',
-            '\\hline\\hline',
-            '\\end{tabular}',
-            '\\begin{tablenotes}',
-            '\\footnotesize',
-            '\\item Standard errors in parentheses.',
-            '\\item * p<0.1, ** p<0.05, *** p<0.01',
-            '\\end{tablenotes}',
-            '\\end{table}',
+            "\\hline",
+            f"Observations & {self.n_obs:,} \\\\",
+            "\\hline\\hline",
+            "\\end{tabular}",
+            "\\begin{tablenotes}",
+            "\\footnotesize",
+            "\\item Standard errors in parentheses.",
+            "\\item * p<0.1, ** p<0.05, *** p<0.01",
+            "\\end{tablenotes}",
+            "\\end{table}",
         ]
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def cite(self, format: str = "bibtex") -> Any:
         """Return the canonical citation for this estimator.
@@ -2226,7 +2415,7 @@ class CausalResult:
         that single source — never by generating new bibliographic
         facts.
         """
-        key = self._citation_key or self.method.lower().replace(' ', '_')
+        key = self._citation_key or self.method.lower().replace(" ", "_")
         bibtex: Optional[str] = None
         if key in self._CITATIONS:
             bibtex = self._CITATIONS[key]
@@ -2236,29 +2425,32 @@ class CausalResult:
                     bibtex = v
                     break
         if bibtex is None:
-            placeholder = (
-                f"% No citation registered for method: {self.method}"
-            )
+            placeholder = f"% No citation registered for method: {self.method}"
             if format == "bibtex":
                 return placeholder
             if format == "apa":
                 return placeholder
             if format == "json":
-                return {"type": None, "key": None, "authors": [],
-                        "fields": {}, "raw": placeholder,
-                        "note": "no citation registered"}
+                return {
+                    "type": None,
+                    "key": None,
+                    "authors": [],
+                    "fields": {},
+                    "raw": placeholder,
+                    "note": "no citation registered",
+                }
             raise ValueError(
-                f"format must be 'bibtex', 'apa' or 'json'; "
-                f"got {format!r}"
+                f"format must be 'bibtex', 'apa' or 'json'; " f"got {format!r}"
             )
         from ..smart.citations import render_citation
+
         return render_citation(bibtex, fmt=format)
 
     def pretrend_test(self) -> Dict[str, Any]:
         """Return pre-trend test results (DID methods)."""
-        if 'pretrend_test' not in self.model_info:
+        if "pretrend_test" not in self.model_info:
             raise ValueError("Pre-trend test not available for this method.")
-        return cast(Dict[str, Any], self.model_info['pretrend_test'])
+        return cast(Dict[str, Any], self.model_info["pretrend_test"])
 
     def next_steps(self, print_result: bool = True) -> List[Dict[str, str]]:
         """
@@ -2283,6 +2475,7 @@ class CausalResult:
         >>> result.next_steps()
         """
         from .next_steps import causal_next_steps, _format_steps
+
         steps = causal_next_steps(self)
         if print_result:
             print(_format_steps(steps))
@@ -2290,6 +2483,7 @@ class CausalResult:
 
     def _next_steps_html(self) -> str:
         from .next_steps import causal_next_steps, _steps_repr_html
+
         return _steps_repr_html(causal_next_steps(self))
 
     def violations(self) -> List[Dict[str, Any]]:
@@ -2316,6 +2510,7 @@ class CausalResult:
         ['pretrend']
         """
         from ._agent_summary import causal_violations
+
         return causal_violations(self)
 
     def to_agent_summary(self) -> Dict[str, Any]:
@@ -2352,10 +2547,12 @@ class CausalResult:
         >>> print(json.dumps(r.to_agent_summary(), indent=2, default=str))
         """
         from ._agent_summary import causal_agent_summary
+
         return causal_agent_summary(self)
 
-    def to_dict(self, *, detail_head: int = 5,
-                detail: str = "standard") -> Dict[str, Any]:
+    def to_dict(
+        self, *, detail_head: int = 5, detail: str = "standard"
+    ) -> Dict[str, Any]:
         """Return a JSON-safe flat dict representation of the causal result.
 
         Parameters
@@ -2398,14 +2595,16 @@ class CausalResult:
         """
         if detail not in ("minimal", "standard", "agent"):
             raise ValueError(
-                "detail must be 'minimal', 'standard', or 'agent'; "
-                f"got {detail!r}"
+                "detail must be 'minimal', 'standard', or 'agent'; " f"got {detail!r}"
             )
 
         ci = self.ci
-        if (ci is not None
-                and not isinstance(ci, (pd.Series, pd.DataFrame))
-                and hasattr(ci, '__len__') and len(ci) == 2):
+        if (
+            ci is not None
+            and not isinstance(ci, (pd.Series, pd.DataFrame))
+            and hasattr(ci, "__len__")
+            and len(ci) == 2
+        ):
             ci_out: Optional[List[Optional[float]]] = [
                 _to_jsonable(ci[0]),
                 _to_jsonable(ci[1]),
@@ -2414,27 +2613,26 @@ class CausalResult:
             ci_out = None
 
         out: Dict[str, Any] = {
-            'method': str(self.method),
-            'estimand': str(self.estimand),
-            'estimate': _to_jsonable(self.estimate),
-            'se': _to_jsonable(self.se),
-            'pvalue': _to_jsonable(self.pvalue),
-            'ci': ci_out,
-            'alpha': _to_jsonable(self.alpha),
-            'n_obs': _to_jsonable(self.n_obs),
-            'citation_key': _to_jsonable(self._citation_key),
+            "method": str(self.method),
+            "estimand": str(self.estimand),
+            "estimate": _to_jsonable(self.estimate),
+            "se": _to_jsonable(self.se),
+            "pvalue": _to_jsonable(self.pvalue),
+            "ci": ci_out,
+            "alpha": _to_jsonable(self.alpha),
+            "n_obs": _to_jsonable(self.n_obs),
+            "citation_key": _to_jsonable(self._citation_key),
         }
 
         if detail == "minimal":
             return out
 
         # standard: + scalar diagnostics + detail_head rows
-        out['diagnostics'] = _filter_jsonable_scalars(self.model_info)
+        out["diagnostics"] = _filter_jsonable_scalars(self.model_info)
         if detail_head and self.detail is not None:
             try:
                 head = self.detail.head(int(detail_head))
-                out['detail_head'] = _to_jsonable(
-                    head.to_dict(orient='records'))
+                out["detail_head"] = _to_jsonable(head.to_dict(orient="records"))
             except Exception:
                 pass
 
@@ -2446,9 +2644,7 @@ class CausalResult:
             viols = self.violations() or []
         except Exception:
             viols = []
-        warns: List[str] = [
-            v.get('message', '') for v in viols if v.get('message')
-        ]
+        warns: List[str] = [v.get("message", "") for v in viols if v.get("message")]
 
         try:
             steps = self.next_steps(print_result=False) or []
@@ -2457,20 +2653,22 @@ class CausalResult:
 
         suggested: List[str] = []
         for s in steps:
-            fn = s.get('suggest_function') or s.get('function')
+            fn = s.get("suggest_function") or s.get("function")
             if fn and fn not in suggested:
                 suggested.append(fn)
         for v in viols:
-            for alt in v.get('alternatives', []) or []:
+            for alt in v.get("alternatives", []) or []:
                 if alt and alt not in suggested:
                     suggested.append(alt)
 
-        out.update({
-            'violations': _to_jsonable(viols),
-            'warnings': warns,
-            'next_steps': steps[:8],
-            'suggested_functions': suggested,
-        })
+        out.update(
+            {
+                "violations": _to_jsonable(viols),
+                "warnings": warns,
+                "next_steps": steps[:8],
+                "suggested_functions": suggested,
+            }
+        )
         return out
 
     def for_agent(self, detail_head: int = 5) -> Dict[str, Any]:
@@ -2490,12 +2688,13 @@ class CausalResult:
         agent dashboards or ``for r in results: print(r.brief())``.
         """
         from ..smart.brief import brief as _brief
+
         return _brief(self)
 
-    def to_json(self, indent: Optional[int] = None,
-                 detail_head: int = 5) -> str:
+    def to_json(self, indent: Optional[int] = None, detail_head: int = 5) -> str:
         """Serialise :meth:`to_dict` via ``json.dumps``."""
         import json
+
         return json.dumps(
             self.to_dict(detail_head=detail_head),
             indent=indent,
@@ -2531,296 +2730,440 @@ class CausalResult:
 
         def _td(v: Any) -> str:
             if isinstance(v, (int, float, np.integer, np.floating)) and not pd.isna(v):
-                return f'<td>{v:.4f}</td>'
-            return f'<td>{_safe(v)}</td>'
+                return f"<td>{v:.4f}</td>"
+            return f"<td>{_safe(v)}</td>"
 
         def _s(pv: Any) -> str:
             if pd.isna(pv):
-                return ''
+                return ""
             if pv < 0.01:
                 return '<span style="color:#DC2626">***</span>'
             if pv < 0.05:
                 return '<span style="color:#EA580C">**</span>'
             if pv < 0.1:
                 return '<span style="color:#D97706">*</span>'
-            return ''
+            return ""
 
         # Significance-based accent color
         if self.pvalue < 0.01:
-            accent, accent_bg = '#059669', '#ECFDF5'  # green
+            accent, accent_bg = "#059669", "#ECFDF5"  # green
         elif self.pvalue < 0.05:
-            accent, accent_bg = '#2563EB', '#EFF6FF'  # blue
+            accent, accent_bg = "#2563EB", "#EFF6FF"  # blue
         elif self.pvalue < 0.1:
-            accent, accent_bg = '#D97706', '#FFFBEB'  # amber
+            accent, accent_bg = "#D97706", "#FFFBEB"  # amber
         else:
-            accent, accent_bg = '#64748B', '#F8FAFC'  # gray
+            accent, accent_bg = "#64748B", "#F8FAFC"  # gray
 
         # Shared CSS (scoped)
-        S = ('<style scoped>'
-             '.sp-box{font-family:"Helvetica Neue",Arial,sans-serif;max-width:720px;'
-             'border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin:6px 0}'
-             '.sp-hdr{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:12px 16px}'
-             '.sp-hdr h3{margin:0;font-size:15px;font-weight:600;letter-spacing:0.3px}'
-             '.sp-hdr .sp-sub{font-size:11px;color:#94A3B8;margin-top:2px}'
-             '.sp-effect{display:flex;align-items:center;gap:16px;padding:14px 16px;border-bottom:1px solid #E5E7EB}'
-             '.sp-effect-num{font-size:28px;font-weight:700;letter-spacing:-0.5px}'
-             '.sp-effect-meta{font-size:12px;color:#64748B;line-height:1.6}'
-             '.sp-effect-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px}'
-             '.sp-metrics{display:flex;gap:0;border-bottom:1px solid #E5E7EB}'
-             '.sp-metric{flex:1;padding:8px 12px;text-align:center;border-right:1px solid #E5E7EB}'
-             '.sp-metric:last-child{border-right:none}'
-             '.sp-metric .sp-val{font-size:15px;font-weight:700;color:#1a1a2e}'
-             '.sp-metric .sp-lab{font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-top:1px}'
-             '.sp-section{border-top:1px solid #E5E7EB}'
-             '.sp-section summary{padding:8px 14px;font-size:12px;font-weight:600;color:#1a1a2e;cursor:pointer;'
-             'list-style:none;display:flex;align-items:center;gap:6px}'
-             '.sp-section summary::before{content:"\\25B6";font-size:8px;color:#94A3B8;transition:transform 0.2s}'
-             '.sp-section[open] summary::before{transform:rotate(90deg)}'
-             'table.sp-tbl{width:100%;border-collapse:collapse;font-size:11px}'
-             'table.sp-tbl th{padding:4px 10px;text-align:right;font-weight:600;color:#64748B;border-bottom:1px solid #E5E7EB;font-size:10px}'
-             'table.sp-tbl th:first-child{text-align:left}'
-             'table.sp-tbl td{padding:4px 10px;text-align:right;border-bottom:1px solid #F8FAFC}'
-             'table.sp-tbl td:first-child{text-align:left;font-weight:500;color:#334155}'
-             'table.sp-tbl tr:hover{background:#F8FAFC}'
-             '.sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;font-size:11px}'
-             '.sp-grid-item{padding:4px 14px;display:flex;justify-content:space-between;border-bottom:1px solid #F8FAFC}'
-             '.sp-grid-item:nth-child(odd){border-right:1px solid #F1F5F9}'
-             '.sp-gk{color:#94A3B8}.sp-gv{color:#334155;font-weight:500}'
-             '.sp-bar{height:6px;border-radius:3px;margin-top:2px}'
-             '.sp-foot{padding:6px 14px;font-size:10px;color:#94A3B8;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between}'
-             '</style>')
+        S = (
+            "<style scoped>"
+            '.sp-box{font-family:"Helvetica Neue",Arial,sans-serif;max-width:720px;'
+            "border:1px solid #E5E7EB;border-radius:8px;overflow:hidden;margin:6px 0}"
+            ".sp-hdr{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);color:#fff;padding:12px 16px}"
+            ".sp-hdr h3{margin:0;font-size:15px;font-weight:600;letter-spacing:0.3px}"
+            ".sp-hdr .sp-sub{font-size:11px;color:#94A3B8;margin-top:2px}"
+            ".sp-effect{display:flex;align-items:center;gap:16px;padding:14px 16px;border-bottom:1px solid #E5E7EB}"
+            ".sp-effect-num{font-size:28px;font-weight:700;letter-spacing:-0.5px}"
+            ".sp-effect-meta{font-size:12px;color:#64748B;line-height:1.6}"
+            ".sp-effect-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600;letter-spacing:0.3px}"
+            ".sp-metrics{display:flex;gap:0;border-bottom:1px solid #E5E7EB}"
+            ".sp-metric{flex:1;padding:8px 12px;text-align:center;border-right:1px solid #E5E7EB}"
+            ".sp-metric:last-child{border-right:none}"
+            ".sp-metric .sp-val{font-size:15px;font-weight:700;color:#1a1a2e}"
+            ".sp-metric .sp-lab{font-size:9px;color:#94A3B8;text-transform:uppercase;letter-spacing:0.5px;margin-top:1px}"
+            ".sp-section{border-top:1px solid #E5E7EB}"
+            ".sp-section summary{padding:8px 14px;font-size:12px;font-weight:600;color:#1a1a2e;cursor:pointer;"
+            "list-style:none;display:flex;align-items:center;gap:6px}"
+            '.sp-section summary::before{content:"\\25B6";font-size:8px;color:#94A3B8;transition:transform 0.2s}'
+            ".sp-section[open] summary::before{transform:rotate(90deg)}"
+            "table.sp-tbl{width:100%;border-collapse:collapse;font-size:11px}"
+            "table.sp-tbl th{padding:4px 10px;text-align:right;font-weight:600;color:#64748B;border-bottom:1px solid #E5E7EB;font-size:10px}"
+            "table.sp-tbl th:first-child{text-align:left}"
+            "table.sp-tbl td{padding:4px 10px;text-align:right;border-bottom:1px solid #F8FAFC}"
+            "table.sp-tbl td:first-child{text-align:left;font-weight:500;color:#334155}"
+            "table.sp-tbl tr:hover{background:#F8FAFC}"
+            ".sp-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;font-size:11px}"
+            ".sp-grid-item{padding:4px 14px;display:flex;justify-content:space-between;border-bottom:1px solid #F8FAFC}"
+            ".sp-grid-item:nth-child(odd){border-right:1px solid #F1F5F9}"
+            ".sp-gk{color:#94A3B8}.sp-gv{color:#334155;font-weight:500}"
+            ".sp-bar{height:6px;border-radius:3px;margin-top:2px}"
+            ".sp-foot{padding:6px 14px;font-size:10px;color:#94A3B8;border-top:1px solid #E5E7EB;display:flex;justify-content:space-between}"
+            "</style>"
+        )
 
         h = [S, '<div class="sp-box">']
 
         # ── Header ──
         h.append(f'<div class="sp-hdr"><h3>{_safe(self.method)}</h3>')
         sub_parts = [self.estimand]
-        if mi.get('rd_type'):
+        if mi.get("rd_type"):
             sub_parts.append(f'{mi["rd_type"]} RD')
-        elif mi.get('distance'):
+        elif mi.get("distance"):
             sub_parts.append(f'{mi["distance"]} {mi.get("method", "")}')
         sub = _safe(" · ".join(str(p) for p in sub_parts if p is not None))
         h.append(f'<div class="sp-sub">{sub}</div></div>')
 
         # ── Main Effect Card ──
-        sig_label = '< 0.01' if self.pvalue < 0.01 else ('< 0.05' if self.pvalue < 0.05 else ('< 0.10' if self.pvalue < 0.1 else f'= {self.pvalue:.3f}'))
+        sig_label = (
+            "< 0.01"
+            if self.pvalue < 0.01
+            else (
+                "< 0.05"
+                if self.pvalue < 0.05
+                else ("< 0.10" if self.pvalue < 0.1 else f"= {self.pvalue:.3f}")
+            )
+        )
         h.append(f'<div class="sp-effect" style="background:{accent_bg};">')
-        h.append(f'<div class="sp-effect-num" style="color:{accent};">{self.estimate:.4f}</div>')
+        h.append(
+            f'<div class="sp-effect-num" style="color:{accent};">{self.estimate:.4f}</div>'
+        )
         h.append('<div class="sp-effect-meta">')
-        h.append(f'<span class="sp-effect-badge" style="background:{accent};color:white;">{stars_raw or "n.s."}</span> &nbsp; p {sig_label}<br>')
-        h.append(f'SE = {self.se:.4f} &nbsp;&nbsp; {pct}% CI [{self.ci[0]:.4f}, {self.ci[1]:.4f}]')
-        h.append('</div></div>')
+        h.append(
+            f'<span class="sp-effect-badge" style="background:{accent};color:white;">{stars_raw or "n.s."}</span> &nbsp; p {sig_label}<br>'
+        )
+        h.append(
+            f"SE = {self.se:.4f} &nbsp;&nbsp; {pct}% CI [{self.ci[0]:.4f}, {self.ci[1]:.4f}]"
+        )
+        h.append("</div></div>")
 
         # ── Model-Specific Metric Bars ──
         h.append('<div class="sp-metrics">')
-        h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(self.n_obs, ",")}</div><div class="sp-lab">Observations</div></div>')
+        h.append(
+            f'<div class="sp-metric"><div class="sp-val">{_fmt(self.n_obs, ",")}</div><div class="sp-lab">Observations</div></div>'
+        )
 
         if self._is_synth_result():
             # SC metrics
-            for key, label in [('n_donors', 'Donors'), ('n_pre_periods', 'Pre-periods'), ('n_post_periods', 'Post-periods')]:
+            for key, label in [
+                ("n_donors", "Donors"),
+                ("n_pre_periods", "Pre-periods"),
+                ("n_post_periods", "Post-periods"),
+            ]:
                 if key in mi:
-                    h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(mi[key])}</div><div class="sp-lab">{label}</div></div>')
-            if 'pre_treatment_rmse' in mi:
-                h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(mi["pre_treatment_rmse"], ".3f")}</div><div class="sp-lab">Pre-RMSE</div></div>')
-        elif mi.get('rd_type') is not None:
+                    h.append(
+                        f'<div class="sp-metric"><div class="sp-val">{_fmt(mi[key])}</div><div class="sp-lab">{label}</div></div>'
+                    )
+            if "pre_treatment_rmse" in mi:
+                h.append(
+                    f'<div class="sp-metric"><div class="sp-val">{_fmt(mi["pre_treatment_rmse"], ".3f")}</div><div class="sp-lab">Pre-RMSE</div></div>'
+                )
+        elif mi.get("rd_type") is not None:
             # RD metrics
-            for key, label in [('n_effective_left', 'N Left (eff.)'), ('n_effective_right', 'N Right (eff.)'),
-                               ('bandwidth_h', 'Bandwidth')]:
+            for key, label in [
+                ("n_effective_left", "N Left (eff.)"),
+                ("n_effective_right", "N Right (eff.)"),
+                ("bandwidth_h", "Bandwidth"),
+            ]:
                 if key in mi:
                     v = mi[key]
                     vs = _fmt(v, ".3f")
-                    h.append(f'<div class="sp-metric"><div class="sp-val">{vs}</div><div class="sp-lab">{label}</div></div>')
-        elif self.detail is not None and 'smd' in getattr(self.detail, 'columns', []):
+                    h.append(
+                        f'<div class="sp-metric"><div class="sp-val">{vs}</div><div class="sp-lab">{label}</div></div>'
+                    )
+        elif self.detail is not None and "smd" in getattr(self.detail, "columns", []):
             # Matching metrics
-            for key, label in [('n_treated', 'Treated'), ('n_control', 'Control'), ('n_matches', 'Matches')]:
+            for key, label in [
+                ("n_treated", "Treated"),
+                ("n_control", "Control"),
+                ("n_matches", "Matches"),
+            ]:
                 if key in mi:
-                    h.append(f'<div class="sp-metric"><div class="sp-val">{_fmt(mi[key])}</div><div class="sp-lab">{label}</div></div>')
-        h.append('</div>')
+                    h.append(
+                        f'<div class="sp-metric"><div class="sp-val">{_fmt(mi[key])}</div><div class="sp-lab">{label}</div></div>'
+                    )
+        h.append("</div>")
 
         # ── SC: Donor Weights ──
-        if self._is_synth_result() and self.detail is not None and 'weight' in getattr(self.detail, 'columns', []):
-            weights_df = self.detail[self.detail['weight'] > 0.001].sort_values('weight', ascending=False)
+        if (
+            self._is_synth_result()
+            and self.detail is not None
+            and "weight" in getattr(self.detail, "columns", [])
+        ):
+            weights_df = self.detail[self.detail["weight"] > 0.001].sort_values(
+                "weight", ascending=False
+            )
             if len(weights_df) > 0:
-                max_w = weights_df['weight'].max()
-                h.append('<details class="sp-section" open><summary>Donor Weights</summary>')
+                max_w = weights_df["weight"].max()
+                h.append(
+                    '<details class="sp-section" open><summary>Donor Weights</summary>'
+                )
                 h.append('<div style="padding:4px 14px 8px;">')
                 for _, row in weights_df.iterrows():
-                    unit_name = row.get('unit', row.iloc[0])
-                    w = row['weight']
+                    unit_name = row.get("unit", row.iloc[0])
+                    w = row["weight"]
                     pct_w = (w / max_w) * 100
-                    h.append(f'<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:11px;">'
-                             f'<span style="width:60px;color:#334155;font-weight:500;">Unit {_safe(unit_name)}</span>'
-                             f'<div style="flex:1;background:#F1F5F9;border-radius:3px;height:8px;">'
-                             f'<div class="sp-bar" style="width:{pct_w:.0f}%;background:{accent};"></div></div>'
-                             f'<span style="width:50px;text-align:right;color:#64748B;">{w:.3f}</span></div>')
-                h.append('</div></details>')
+                    h.append(
+                        f'<div style="display:flex;align-items:center;gap:8px;margin:3px 0;font-size:11px;">'
+                        f'<span style="width:60px;color:#334155;font-weight:500;">Unit {_safe(unit_name)}</span>'
+                        f'<div style="flex:1;background:#F1F5F9;border-radius:3px;height:8px;">'
+                        f'<div class="sp-bar" style="width:{pct_w:.0f}%;background:{accent};"></div></div>'
+                        f'<span style="width:50px;text-align:right;color:#64748B;">{w:.3f}</span></div>'
+                    )
+                h.append("</div></details>")
 
         # ── SC: Gap Table ──
-        if 'gap_table' in mi and isinstance(mi['gap_table'], pd.DataFrame):
-            gap = mi['gap_table']
-            h.append('<details class="sp-section"><summary>Period-by-Period Effects</summary>')
+        if "gap_table" in mi and isinstance(mi["gap_table"], pd.DataFrame):
+            gap = mi["gap_table"]
+            h.append(
+                '<details class="sp-section"><summary>Period-by-Period Effects</summary>'
+            )
             h.append('<table class="sp-tbl"><tr>')
             for c in gap.columns:
-                h.append(f'<th>{_safe(c)}</th>')
-            h.append('</tr>')
+                h.append(f"<th>{_safe(c)}</th>")
+            h.append("</tr>")
             for _, row in gap.iterrows():
-                h.append('<tr>')
+                h.append("<tr>")
                 for c in gap.columns:
                     h.append(_td(row[c]))
-                h.append('</tr>')
-            h.append('</table></details>')
+                h.append("</tr>")
+            h.append("</table></details>")
 
         # ── RD: Conventional vs Robust Inference ──
-        if self.detail is not None and 'method' in getattr(self.detail, 'columns', []) and 'estimate' in getattr(self.detail, 'columns', []):
-            h.append('<details class="sp-section" open><summary>Inference Comparison</summary>')
+        if (
+            self.detail is not None
+            and "method" in getattr(self.detail, "columns", [])
+            and "estimate" in getattr(self.detail, "columns", [])
+        ):
+            h.append(
+                '<details class="sp-section" open><summary>Inference Comparison</summary>'
+            )
             h.append('<table class="sp-tbl"><tr>')
-            for col in ['Method', 'Estimate', 'Std. Err.', 'z', 'p-value', 'CI']:
-                h.append(f'<th>{col}</th>')
-            h.append('</tr>')
+            for col in ["Method", "Estimate", "Std. Err.", "z", "p-value", "CI"]:
+                h.append(f"<th>{col}</th>")
+            h.append("</tr>")
             for _, row in self.detail.iterrows():
-                meth = row.get('method', '')
-                est = row.get('estimate', np.nan)
-                se_v = row.get('se', np.nan)
-                z_v = row.get('z', np.nan)
-                pv = row.get('pvalue', np.nan)
-                lo = row.get('ci_lower', np.nan)
-                hi = row.get('ci_upper', np.nan)
-                pvc = '#DC2626' if pv < 0.01 else ('#EA580C' if pv < 0.05 else ('#D97706' if pv < 0.1 else '#64748B'))
-                bold = 'font-weight:600;' if 'Robust' in str(meth) else ''
+                meth = row.get("method", "")
+                est = row.get("estimate", np.nan)
+                se_v = row.get("se", np.nan)
+                z_v = row.get("z", np.nan)
+                pv = row.get("pvalue", np.nan)
+                lo = row.get("ci_lower", np.nan)
+                hi = row.get("ci_upper", np.nan)
+                pvc = (
+                    "#DC2626"
+                    if pv < 0.01
+                    else (
+                        "#EA580C"
+                        if pv < 0.05
+                        else ("#D97706" if pv < 0.1 else "#64748B")
+                    )
+                )
+                bold = "font-weight:600;" if "Robust" in str(meth) else ""
                 h.append(f'<tr style="{bold}">')
-                h.append(f'<td>{_safe(meth)}</td><td>{est:.4f} {_s(pv)}</td>')
-                h.append(f'<td style="color:#94A3B8;">({se_v:.4f})</td><td>{z_v:.2f}</td>')
+                h.append(f"<td>{_safe(meth)}</td><td>{est:.4f} {_s(pv)}</td>")
+                h.append(
+                    f'<td style="color:#94A3B8;">({se_v:.4f})</td><td>{z_v:.2f}</td>'
+                )
                 h.append(f'<td style="color:{pvc};font-weight:600;">{pv:.4f}</td>')
                 h.append(f'<td style="color:#94A3B8;">[{lo:.4f}, {hi:.4f}]</td></tr>')
-            h.append('</table></details>')
+            h.append("</table></details>")
 
         # ── RD: Design Parameters ──
-        if mi.get('rd_type') is not None:
-            h.append('<details class="sp-section"><summary>Design Parameters</summary><div class="sp-grid">')
-            rd_params = [('cutoff', 'Cutoff'), ('polynomial_p', 'Poly Order (p)'), ('polynomial_q', 'Bias Poly (q)'),
-                         ('kernel', 'Kernel'), ('bwselect', 'BW Selection'), ('bandwidth_h', 'Bandwidth (h)'),
-                         ('bandwidth_b', 'Bias BW (b)'), ('n_left', 'N Left'), ('n_right', 'N Right'),
-                         ('n_effective_left', 'N Eff. Left'), ('n_effective_right', 'N Eff. Right')]
+        if mi.get("rd_type") is not None:
+            h.append(
+                '<details class="sp-section"><summary>Design Parameters</summary><div class="sp-grid">'
+            )
+            rd_params = [
+                ("cutoff", "Cutoff"),
+                ("polynomial_p", "Poly Order (p)"),
+                ("polynomial_q", "Bias Poly (q)"),
+                ("kernel", "Kernel"),
+                ("bwselect", "BW Selection"),
+                ("bandwidth_h", "Bandwidth (h)"),
+                ("bandwidth_b", "Bias BW (b)"),
+                ("n_left", "N Left"),
+                ("n_right", "N Right"),
+                ("n_effective_left", "N Eff. Left"),
+                ("n_effective_right", "N Eff. Right"),
+            ]
             for key, label in rd_params:
                 if key in mi:
                     v = mi[key]
                     vs = _fmt(v, ".4f")
-                    h.append(f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>')
-            h.append('</div></details>')
+                    h.append(
+                        f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>'
+                    )
+            h.append("</div></details>")
 
         # ── Matching: Covariate Balance ──
-        if self.detail is not None and 'smd' in getattr(self.detail, 'columns', []):
-            h.append('<details class="sp-section" open><summary>Covariate Balance</summary>')
+        if self.detail is not None and "smd" in getattr(self.detail, "columns", []):
+            h.append(
+                '<details class="sp-section" open><summary>Covariate Balance</summary>'
+            )
             h.append('<table class="sp-tbl"><tr>')
-            for col in ['Variable', 'Treated', 'Control', 'SMD', '']:
-                h.append(f'<th>{col}</th>')
-            h.append('</tr>')
+            for col in ["Variable", "Treated", "Control", "SMD", ""]:
+                h.append(f"<th>{col}</th>")
+            h.append("</tr>")
             for _, row in self.detail.iterrows():
-                var = row.get('variable', row.iloc[0])
-                mt = row.get('mean_treated', np.nan)
-                mc = row.get('mean_control', np.nan)
-                smd = row.get('smd', np.nan)
+                var = row.get("variable", row.iloc[0])
+                mt = row.get("mean_treated", np.nan)
+                mc = row.get("mean_control", np.nan)
+                smd = row.get("smd", np.nan)
                 smd_abs = abs(smd) if not pd.isna(smd) else 0
-                bar_color = '#059669' if smd_abs < 0.1 else ('#D97706' if smd_abs < 0.25 else '#DC2626')
+                bar_color = (
+                    "#059669"
+                    if smd_abs < 0.1
+                    else ("#D97706" if smd_abs < 0.25 else "#DC2626")
+                )
                 bar_w = min(smd_abs / 0.5 * 100, 100)
-                h.append(f'<tr><td>{_safe(var)}</td>')
-                h.append(f'<td>{mt:.2f}</td><td>{mc:.2f}</td>')
-                h.append(f'<td style="color:{bar_color};font-weight:600;">{smd:.3f}</td>')
-                h.append(f'<td style="width:80px;"><div style="background:#F1F5F9;border-radius:3px;height:6px;">'
-                         f'<div style="width:{bar_w:.0f}%;height:6px;border-radius:3px;background:{bar_color};"></div>'
-                         f'</div></td></tr>')
-            h.append('</table>')
+                h.append(f"<tr><td>{_safe(var)}</td>")
+                h.append(f"<td>{mt:.2f}</td><td>{mc:.2f}</td>")
+                h.append(
+                    f'<td style="color:{bar_color};font-weight:600;">{smd:.3f}</td>'
+                )
+                h.append(
+                    f'<td style="width:80px;"><div style="background:#F1F5F9;border-radius:3px;height:6px;">'
+                    f'<div style="width:{bar_w:.0f}%;height:6px;border-radius:3px;background:{bar_color};"></div>'
+                    f"</div></td></tr>"
+                )
+            h.append("</table>")
             # Balance threshold annotation
-            h.append('<div style="padding:4px 10px;font-size:10px;color:#94A3B8;">'
-                     'SMD: <span style="color:#059669">|d|&lt;0.1 balanced</span> · '
-                     '<span style="color:#D97706">0.1-0.25 borderline</span> · '
-                     '<span style="color:#DC2626">&gt;0.25 imbalanced</span></div>')
-            h.append('</details>')
+            h.append(
+                '<div style="padding:4px 10px;font-size:10px;color:#94A3B8;">'
+                'SMD: <span style="color:#059669">|d|&lt;0.1 balanced</span> · '
+                '<span style="color:#D97706">0.1-0.25 borderline</span> · '
+                '<span style="color:#DC2626">&gt;0.25 imbalanced</span></div>'
+            )
+            h.append("</details>")
 
         # ── Matching: Design info ──
-        if mi.get('distance') and 'smd' in getattr(self.detail, 'columns', []) if self.detail is not None else False:
-            h.append('<details class="sp-section"><summary>Matching Parameters</summary><div class="sp-grid">')
-            match_params = [('distance', 'Distance'), ('method', 'Method'), ('estimand', 'Estimand'),
-                            ('n_treated', 'N Treated'), ('n_control', 'N Control'), ('n_matches', 'Matches'),
-                            ('caliper', 'Caliper'), ('replace', 'With Replacement'), ('bias_correction', 'Bias Correction')]
+        if (
+            mi.get("distance") and "smd" in getattr(self.detail, "columns", [])
+            if self.detail is not None
+            else False
+        ):
+            h.append(
+                '<details class="sp-section"><summary>Matching Parameters</summary><div class="sp-grid">'
+            )
+            match_params = [
+                ("distance", "Distance"),
+                ("method", "Method"),
+                ("estimand", "Estimand"),
+                ("n_treated", "N Treated"),
+                ("n_control", "N Control"),
+                ("n_matches", "Matches"),
+                ("caliper", "Caliper"),
+                ("replace", "With Replacement"),
+                ("bias_correction", "Bias Correction"),
+            ]
             for key, label in match_params:
                 if key in mi:
                     v = mi[key]
                     vs = _fmt(v, ".4f")
-                    h.append(f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>')
-            h.append('</div></details>')
+                    h.append(
+                        f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>'
+                    )
+            h.append("</div></details>")
 
         # ── Event study coefficients ──
-        if 'event_study' in mi:
-            es = mi['event_study']
-            h.append('<details class="sp-section" open><summary>Event Study Coefficients</summary>')
+        if "event_study" in mi:
+            es = mi["event_study"]
+            h.append(
+                '<details class="sp-section" open><summary>Event Study Coefficients</summary>'
+            )
             h.append('<table class="sp-tbl"><tr>')
-            for col in ['Period', 'ATT', 'Std. Err.', 'CI', 'p-value']:
-                h.append(f'<th>{col}</th>')
-            h.append('</tr>')
+            for col in ["Period", "ATT", "Std. Err.", "CI", "p-value"]:
+                h.append(f"<th>{col}</th>")
+            h.append("</tr>")
             for _, row in es.iterrows():
-                e = int(row['relative_time'])
-                att = row['att']
-                se_v = row['se']
-                pv = row.get('pvalue', np.nan)
-                lo = row.get('ci_lower', np.nan)
-                hi = row.get('ci_upper', np.nan)
-                pvc = '#DC2626' if pv < 0.01 else ('#EA580C' if pv < 0.05 else ('#D97706' if pv < 0.1 else '#64748B'))
-                bg = 'background:#FFFBEB;' if e == 0 else ''
+                e = int(row["relative_time"])
+                att = row["att"]
+                se_v = row["se"]
+                pv = row.get("pvalue", np.nan)
+                lo = row.get("ci_lower", np.nan)
+                hi = row.get("ci_upper", np.nan)
+                pvc = (
+                    "#DC2626"
+                    if pv < 0.01
+                    else (
+                        "#EA580C"
+                        if pv < 0.05
+                        else ("#D97706" if pv < 0.1 else "#64748B")
+                    )
+                )
+                bg = "background:#FFFBEB;" if e == 0 else ""
                 h.append(f'<tr style="{bg}">')
                 h.append(f'<td style="font-weight:600;">e = {e}</td>')
-                h.append(f'<td>{att:.4f} {_s(pv)}</td>')
+                h.append(f"<td>{att:.4f} {_s(pv)}</td>")
                 h.append(f'<td style="color:#94A3B8;">({se_v:.4f})</td>')
-                ci_str = f'[{lo:.4f}, {hi:.4f}]' if not pd.isna(lo) else ''
+                ci_str = f"[{lo:.4f}, {hi:.4f}]" if not pd.isna(lo) else ""
                 h.append(f'<td style="color:#94A3B8;">{ci_str}</td>')
-                pv_str = f'{pv:.4f}' if not pd.isna(pv) else ''
+                pv_str = f"{pv:.4f}" if not pd.isna(pv) else ""
                 h.append(f'<td style="color:{pvc};font-weight:600;">{pv_str}</td></tr>')
-            h.append('</table></details>')
+            h.append("</table></details>")
 
         # ── Generic detail table (group-time ATTs, etc.) ──
-        if (self.detail is not None and len(self.detail) > 0
-                and 'event_study' not in mi
-                and 'smd' not in getattr(self.detail, 'columns', [])
-                and not ('method' in getattr(self.detail, 'columns', []) and 'estimate' in getattr(self.detail, 'columns', []))
-                and not ('weight' in getattr(self.detail, 'columns', []) and self._is_synth_result())):
-            if 'att' in self.detail.columns:
-                cols = [c for c in ['group', 'time', 'att', 'se', 'pvalue'] if c in self.detail.columns]
-                title_str = 'Group-Time ATT Estimates'
+        if (
+            self.detail is not None
+            and len(self.detail) > 0
+            and "event_study" not in mi
+            and "smd" not in getattr(self.detail, "columns", [])
+            and not (
+                "method" in getattr(self.detail, "columns", [])
+                and "estimate" in getattr(self.detail, "columns", [])
+            )
+            and not (
+                "weight" in getattr(self.detail, "columns", [])
+                and self._is_synth_result()
+            )
+        ):
+            if "att" in self.detail.columns:
+                cols = [
+                    c
+                    for c in ["group", "time", "att", "se", "pvalue"]
+                    if c in self.detail.columns
+                ]
+                title_str = "Group-Time ATT Estimates"
             else:
                 cols = list(self.detail.columns)
-                title_str = 'Detail'
-            h.append(f'<details class="sp-section"><summary>{_safe(title_str)}</summary>')
+                title_str = "Detail"
+            h.append(
+                f'<details class="sp-section"><summary>{_safe(title_str)}</summary>'
+            )
             h.append('<table class="sp-tbl"><tr>')
             for c in cols:
-                h.append(f'<th>{_safe(c)}</th>')
-            h.append('</tr>')
+                h.append(f"<th>{_safe(c)}</th>")
+            h.append("</tr>")
             max_rows = 20
             for _, row in self.detail[cols].head(max_rows).iterrows():
-                h.append('<tr>')
+                h.append("<tr>")
                 for c in cols:
                     h.append(_td(row[c]))
-                h.append('</tr>')
+                h.append("</tr>")
             if len(self.detail) > max_rows:
-                h.append(f'<tr><td colspan="{len(cols)}" style="text-align:center;color:#94A3B8;">... {len(self.detail)-max_rows} more</td></tr>')
-            h.append('</table></details>')
+                h.append(
+                    f'<tr><td colspan="{len(cols)}" style="text-align:center;color:#94A3B8;">... {len(self.detail)-max_rows} more</td></tr>'
+                )
+            h.append("</table></details>")
 
         # ── SC: Model metadata ──
         if self._is_synth_result():
-            h.append('<details class="sp-section"><summary>Model Parameters</summary><div class="sp-grid">')
-            sc_params = [('treatment_time', 'Treatment Time'), ('treated_unit', 'Treated Unit'),
-                         ('penalization', 'Penalization'), ('pre_treatment_mspe', 'Pre-MSPE'),
-                         ('pre_treatment_rmse', 'Pre-RMSE'), ('n_placebos', 'Placebo Tests')]
+            h.append(
+                '<details class="sp-section"><summary>Model Parameters</summary><div class="sp-grid">'
+            )
+            sc_params = [
+                ("treatment_time", "Treatment Time"),
+                ("treated_unit", "Treated Unit"),
+                ("penalization", "Penalization"),
+                ("pre_treatment_mspe", "Pre-MSPE"),
+                ("pre_treatment_rmse", "Pre-RMSE"),
+                ("n_placebos", "Placebo Tests"),
+            ]
             for key, label in sc_params:
                 if key in mi:
                     v = mi[key]
                     vs = _fmt(v, ".4f")
-                    h.append(f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>')
-            h.append('</div></details>')
+                    h.append(
+                        f'<div class="sp-grid-item"><span class="sp-gk">{label}</span><span class="sp-gv">{vs}</span></div>'
+                    )
+            h.append("</div></details>")
 
         # ── Footer ──
-        h.append(f'<div class="sp-foot"><span>N = {_fmt(self.n_obs, ",")}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>')
-        h.append('</div>')
-        return '\n'.join(h)
+        h.append(
+            f'<div class="sp-foot"><span>N = {_fmt(self.n_obs, ",")}</span><span>* p&lt;0.1 &nbsp; ** p&lt;0.05 &nbsp; *** p&lt;0.01</span></div>'
+        )
+        h.append("</div>")
+        return "\n".join(h)
 
     def __repr__(self) -> str:
         s = self._stars(self.pvalue)
@@ -2838,12 +3181,14 @@ class CausalResult:
         See :func:`statspai.robustness.unified_sensitivity`.
         """
         from ..robustness.unified_sensitivity import unified_sensitivity
+
         return unified_sensitivity(self, **kwargs)
 
 
 # ======================================================================
 # Shared Word export helper
 # ======================================================================
+
 
 def _result_to_docx(
     result: Any,
@@ -2863,18 +3208,19 @@ def _result_to_docx(
         from docx.enum.table import WD_TABLE_ALIGNMENT
     except ImportError:
         raise ImportError(
-            "python-docx required for Word export. "
-            "Install: pip install python-docx"
+            "python-docx required for Word export. " "Install: pip install python-docx"
         )
 
-    if not filename.endswith('.docx'):
-        filename += '.docx'
+    if not filename.endswith(".docx"):
+        filename += ".docx"
 
     doc = Document()
 
     # Title
     if title is None:
-        title = getattr(result, 'method', None) or result.model_info.get('model_type', 'Results')
+        title = getattr(result, "method", None) or result.model_info.get(
+            "model_type", "Results"
+        )
     p = doc.add_paragraph()
     run = p.add_run(str(title))
     run.bold = True
@@ -2884,18 +3230,18 @@ def _result_to_docx(
     # Build rows from result
     params = result.params
     std_errors = result.std_errors
-    pvalues = result.pvalues if hasattr(result, 'pvalues') else None
+    pvalues = result.pvalues if hasattr(result, "pvalues") else None
 
     def _stars(pv: Any) -> str:
         if pv is None or (isinstance(pv, float) and np.isnan(pv)):
-            return ''
+            return ""
         if pv < 0.01:
-            return '***'
+            return "***"
         if pv < 0.05:
-            return '**'
+            return "**"
         if pv < 0.1:
-            return '*'
-        return ''
+            return "*"
+        return ""
 
     # Table: Variable | Coefficient | SE
     rows_data = []
@@ -2903,18 +3249,22 @@ def _result_to_docx(
         for var in params.index:
             coef = params[var]
             se = std_errors[var] if var in std_errors.index else np.nan
-            if pvalues is not None and isinstance(pvalues, pd.Series) and var in pvalues.index:
+            if (
+                pvalues is not None
+                and isinstance(pvalues, pd.Series)
+                and var in pvalues.index
+            ):
                 pv = float(pvalues[var])
             else:
                 pv = np.nan
-            rows_data.append((str(var), f'{coef:.4f}{_stars(pv)}', f'({se:.4f})'))
+            rows_data.append((str(var), f"{coef:.4f}{_stars(pv)}", f"({se:.4f})"))
 
     # Actually: each variable gets 2 rows (coef, SE)
     table = doc.add_table(rows=1 + len(rows_data) * 2, cols=2)
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
 
     # Header
-    table.rows[0].cells[0].text = ''
+    table.rows[0].cells[0].text = ""
     table.rows[0].cells[1].text = title
     for cell in table.rows[0].cells:
         for para in cell.paragraphs:
@@ -2931,13 +3281,17 @@ def _result_to_docx(
         table.rows[row_idx].cells[1].text = coef_str
         for cell in table.rows[row_idx].cells:
             for para in cell.paragraphs:
-                para.alignment = WD_ALIGN_PARAGRAPH.CENTER if cell == table.rows[row_idx].cells[1] else WD_ALIGN_PARAGRAPH.LEFT
+                para.alignment = (
+                    WD_ALIGN_PARAGRAPH.CENTER
+                    if cell == table.rows[row_idx].cells[1]
+                    else WD_ALIGN_PARAGRAPH.LEFT
+                )
                 for run in para.runs:
                     run.font.size = Pt(9)
         row_idx += 1
 
         # SE row
-        table.rows[row_idx].cells[0].text = ''
+        table.rows[row_idx].cells[0].text = ""
         table.rows[row_idx].cells[1].text = se_str
         for para in table.rows[row_idx].cells[1].paragraphs:
             para.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -2946,30 +3300,32 @@ def _result_to_docx(
         row_idx += 1
 
     # Diagnostics as additional paragraph
-    diag = getattr(result, 'diagnostics', {})
+    diag = getattr(result, "diagnostics", {})
     n_obs = None
-    if hasattr(result, 'data_info') and isinstance(result.data_info, dict):
-        n_obs = result.data_info.get('nobs')
-    if hasattr(result, 'n_obs'):
+    if hasattr(result, "data_info") and isinstance(result.data_info, dict):
+        n_obs = result.data_info.get("nobs")
+    if hasattr(result, "n_obs"):
         n_obs = result.n_obs
 
     diag_lines = []
     if n_obs is not None:
-        diag_lines.append(f'Observations: {n_obs:,}')
+        diag_lines.append(f"Observations: {n_obs:,}")
     if isinstance(diag, dict):
         for k, v in diag.items():
             if isinstance(v, (int, float)) and not isinstance(v, bool):
-                diag_lines.append(f'{k}: {v:.4f}' if isinstance(v, float) else f'{k}: {v:,}')
+                diag_lines.append(
+                    f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v:,}"
+                )
 
     if diag_lines:
         dp = doc.add_paragraph()
         for line in diag_lines:
-            run = dp.add_run(line + '\n')
+            run = dp.add_run(line + "\n")
             run.font.size = Pt(8)
 
     # Significance note
     np_ = doc.add_paragraph()
-    run = np_.add_run('* p<0.1, ** p<0.05, *** p<0.01')
+    run = np_.add_run("* p<0.1, ** p<0.05, *** p<0.01")
     run.italic = True
     run.font.size = Pt(8)
 

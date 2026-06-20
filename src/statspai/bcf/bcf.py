@@ -33,10 +33,10 @@ from scipy import stats as sp_stats
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def bcf(
     data: pd.DataFrame,
@@ -96,19 +96,27 @@ def bcf(
     >>> cate = result.model_info["cate"]        # individual effects
     """
     est = BayesianCausalForest(
-        data=data, y=y, treat=treat, covariates=covariates,
-        n_trees_mu=n_trees_mu, n_trees_tau=n_trees_tau,
-        n_bootstrap=n_bootstrap, n_folds=n_folds,
-        alpha=alpha, random_state=random_state,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        n_trees_mu=n_trees_mu,
+        n_trees_tau=n_trees_tau,
+        n_bootstrap=n_bootstrap,
+        n_folds=n_folds,
+        alpha=alpha,
+        random_state=random_state,
     )
     _result = est.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bcf",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "n_trees_mu": n_trees_mu,
                 "n_trees_tau": n_trees_tau,
@@ -128,6 +136,7 @@ def bcf(
 # ======================================================================
 # BayesianCausalForest class
 # ======================================================================
+
 
 class BayesianCausalForest:
     """
@@ -236,8 +245,7 @@ class BayesianCausalForest:
 
         for train_idx, test_idx in kf.split(X):
             prop = GradientBoostingClassifier(
-                n_estimators=100, max_depth=3,
-                random_state=self.random_state
+                n_estimators=100, max_depth=3, random_state=self.random_state
             )
             prop.fit(X[train_idx], D[train_idx])
             e_hat[test_idx] = np.clip(
@@ -248,8 +256,10 @@ class BayesianCausalForest:
         X_aug = np.column_stack([X, e_hat])
 
         mu_model = RandomForestRegressor(
-            n_estimators=self.n_trees_mu, max_depth=6,
-            min_samples_leaf=5, random_state=self.random_state,
+            n_estimators=self.n_trees_mu,
+            max_depth=6,
+            min_samples_leaf=5,
+            random_state=self.random_state,
         )
         # Fit mu on control observations
         mask0 = D == 0
@@ -262,8 +272,10 @@ class BayesianCausalForest:
         residuals_1 = Y[mask1] - mu_hat[mask1]
 
         tau_model = GradientBoostingRegressor(
-            n_estimators=self.n_trees_tau, max_depth=3,
-            learning_rate=0.05, subsample=0.8,
+            n_estimators=self.n_trees_tau,
+            max_depth=3,
+            learning_rate=0.05,
+            subsample=0.8,
             min_samples_leaf=10,
             random_state=self.random_state,
         )
@@ -317,20 +329,20 @@ class BayesianCausalForest:
         ci = (ate - z_crit * se, ate + z_crit * se)
 
         model_info = {
-            'architecture': 'BCF',
-            'n_trees_mu': self.n_trees_mu,
-            'n_trees_tau': self.n_trees_tau,
-            'n_bootstrap': self.n_bootstrap,
-            'propensity_mean': float(np.mean(e_hat)),
-            'cate': cate,
-            'cate_sd': cate_sd,
-            'cate_lower': cate_lower,
-            'cate_upper': cate_upper,
-            'cate_mean': float(np.mean(cate)),
-            'cate_median': float(np.median(cate)),
-            'cate_std': float(np.std(cate)),
-            'n_treated': int(np.sum(D == 1)),
-            'n_control': int(np.sum(D == 0)),
+            "architecture": "BCF",
+            "n_trees_mu": self.n_trees_mu,
+            "n_trees_tau": self.n_trees_tau,
+            "n_bootstrap": self.n_bootstrap,
+            "propensity_mean": float(np.mean(e_hat)),
+            "cate": cate,
+            "cate_sd": cate_sd,
+            "cate_lower": cate_lower,
+            "cate_upper": cate_upper,
+            "cate_mean": float(np.mean(cate)),
+            "cate_median": float(np.median(cate)),
+            "cate_std": float(np.std(cate)),
+            "n_treated": int(np.sum(D == 1)),
+            "n_control": int(np.sum(D == 0)),
         }
 
         self._mu_model = mu_model
@@ -339,8 +351,8 @@ class BayesianCausalForest:
         self._n_features = X.shape[1]
 
         return CausalResult(
-            method='BCF (Hahn, Murray, Carvalho 2020)',
-            estimand='ATE',
+            method="BCF (Hahn, Murray, Carvalho 2020)",
+            estimand="ATE",
             estimate=ate,
             se=se,
             pvalue=pvalue,
@@ -349,12 +361,12 @@ class BayesianCausalForest:
             n_obs=n,
             detail=None,
             model_info=model_info,
-            _citation_key='bcf',
+            _citation_key="bcf",
         )
 
     def effect(self, X_new: Optional[np.ndarray] = None) -> np.ndarray:
         """Predict CATE for new observations."""
-        if not hasattr(self, '_tau_model'):
+        if not hasattr(self, "_tau_model"):
             raise MethodIncompatibility(
                 "BayesianCausalForest.effect() requires a fitted model.",
                 recovery_hint="Call fit() before requesting CATE predictions.",
@@ -417,7 +429,7 @@ class BayesianCausalForest:
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['bcf'] = (
+CausalResult._CITATIONS["bcf"] = (
     "@article{hahn2020bayesian,\n"
     "  title={Bayesian Regression Tree Models for Causal Inference: "
     "Regularization, Confounding, and Heterogeneous Effects},\n"

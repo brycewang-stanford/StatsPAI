@@ -58,11 +58,13 @@ from typing import Any, Iterator, Optional
 
 
 @contextlib.contextmanager
-def session(seed: Optional[int] = None,
-            *,
-            torch: bool = True,
-            jax: bool = True,
-            pythonhashseed: bool = False) -> Iterator[Any]:
+def session(
+    seed: Optional[int] = None,
+    *,
+    torch: bool = True,
+    jax: bool = True,
+    pythonhashseed: bool = False,
+) -> Iterator[Any]:
     """Set every reachable RNG to a known seed for the duration of the
     ``with`` block, then restore the prior state on exit.
 
@@ -135,6 +137,7 @@ def session(seed: Optional[int] = None,
     # leaking when they call ``np.random.randn()``.
     try:
         import numpy as np
+
         snapshots["numpy_legacy"] = np.random.get_state()
     except ImportError:  # pragma: no cover — numpy is a hard dep
         np = None  # type: ignore[assignment]
@@ -144,14 +147,13 @@ def session(seed: Optional[int] = None,
 
     # PyTorch — snapshot only if already imported.
     import sys
+
     if torch and "torch" in sys.modules:
         try:
             _torch = sys.modules["torch"]
             snapshots["torch_cpu"] = _torch.random.get_rng_state()
-            if (hasattr(_torch, "cuda")
-                    and _torch.cuda.is_available()):
-                snapshots["torch_cuda"] = (
-                    _torch.cuda.get_rng_state_all())
+            if hasattr(_torch, "cuda") and _torch.cuda.is_available():
+                snapshots["torch_cuda"] = _torch.cuda.get_rng_state_all()
         except Exception:
             pass
 
@@ -166,8 +168,7 @@ def session(seed: Optional[int] = None,
             try:
                 _torch = sys.modules["torch"]
                 _torch.manual_seed(seed)
-                if (hasattr(_torch, "cuda")
-                        and _torch.cuda.is_available()):
+                if hasattr(_torch, "cuda") and _torch.cuda.is_available():
                     _torch.cuda.manual_seed_all(seed)
             except Exception:
                 pass

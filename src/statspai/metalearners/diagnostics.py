@@ -55,18 +55,18 @@ def cate_summary(result: CausalResult) -> pd.DataFrame:
     cate = _extract_cate(result)
 
     summary = {
-        'Mean (ATE)': np.mean(cate),
-        'Std. Dev.': np.std(cate, ddof=1),
-        'Min': np.min(cate),
-        'Q25': np.percentile(cate, 25),
-        'Median': np.median(cate),
-        'Q75': np.percentile(cate, 75),
-        'Max': np.max(cate),
-        'Frac. Positive': np.mean(cate > 0),
-        'IQR': np.percentile(cate, 75) - np.percentile(cate, 25),
-        'N': len(cate),
+        "Mean (ATE)": np.mean(cate),
+        "Std. Dev.": np.std(cate, ddof=1),
+        "Min": np.min(cate),
+        "Q25": np.percentile(cate, 25),
+        "Median": np.median(cate),
+        "Q75": np.percentile(cate, 75),
+        "Max": np.max(cate),
+        "Frac. Positive": np.mean(cate > 0),
+        "IQR": np.percentile(cate, 75) - np.percentile(cate, 25),
+        "N": len(cate),
     }
-    return pd.DataFrame(summary, index=['CATE']).T
+    return pd.DataFrame(summary, index=["CATE"]).T
 
 
 def cate_by_group(
@@ -123,15 +123,15 @@ def cate_by_group(
     """
     cate = _extract_cate(result)
 
-    if by == 'cate':
-        labels = pd.qcut(cate, q=n_groups, labels=False, duplicates='drop')
-        group_name = 'CATE Quartile'
+    if by == "cate":
+        labels = pd.qcut(cate, q=n_groups, labels=False, duplicates="drop")
+        group_name = "CATE Quartile"
     else:
         if by not in data.columns:
             raise ValueError(f"Column '{by}' not found in data")
-        col = data[by].values[:len(cate)]
+        col = data[by].values[: len(cate)]
         if pd.api.types.is_numeric_dtype(col) and len(np.unique(col)) > n_groups:
-            labels = pd.qcut(col, q=n_groups, labels=False, duplicates='drop')
+            labels = pd.qcut(col, q=n_groups, labels=False, duplicates="drop")
         else:
             labels = col
         group_name = by
@@ -144,14 +144,16 @@ def cate_by_group(
         n = len(c)
         m = float(np.mean(c))
         se = float(np.std(c, ddof=1) / np.sqrt(n)) if n > 1 else 0.0
-        rows.append({
-            'group': g,
-            'n': n,
-            'mean_cate': m,
-            'se': se,
-            'ci_lower': m - z * se,
-            'ci_upper': m + z * se,
-        })
+        rows.append(
+            {
+                "group": g,
+                "n": n,
+                "mean_cate": m,
+                "se": se,
+                "ci_lower": m - z * se,
+                "ci_upper": m + z * se,
+            }
+        )
 
     df = pd.DataFrame(rows)
     df.index.name = group_name
@@ -160,10 +162,10 @@ def cate_by_group(
 
 def cate_plot(
     result: CausalResult,
-    kind: str = 'hist',
+    kind: str = "hist",
     ax: Any = None,
     figsize: tuple = (8, 5),
-    color: str = '#2C3E50',
+    color: str = "#2C3E50",
     title: Optional[str] = None,
     **kwargs: Any,
 ) -> Tuple[Any, Any]:
@@ -213,28 +215,37 @@ def cate_plot(
     else:
         fig = ax.get_figure()
 
-    if kind in ('hist', 'both'):
-        ax.hist(cate, bins=kwargs.get('bins', 40), density=True,
-                alpha=0.6, color=color, edgecolor='white', linewidth=0.5)
-    if kind in ('kde', 'both'):
+    if kind in ("hist", "both"):
+        ax.hist(
+            cate,
+            bins=kwargs.get("bins", 40),
+            density=True,
+            alpha=0.6,
+            color=color,
+            edgecolor="white",
+            linewidth=0.5,
+        )
+    if kind in ("kde", "both"):
         from scipy.stats import gaussian_kde
+
         xs = np.linspace(cate.min(), cate.max(), 300)
         kde = gaussian_kde(cate)
         ax.plot(xs, kde(xs), color=color, linewidth=2)
 
     # Mark ATE
     ate = np.mean(cate)
-    ax.axvline(ate, color='#E74C3C', linestyle='--', linewidth=1.5,
-               label=f'ATE = {ate:.3f}')
-    ax.axvline(0, color='gray', linestyle=':', linewidth=1, alpha=0.6)
+    ax.axvline(
+        ate, color="#E74C3C", linestyle="--", linewidth=1.5, label=f"ATE = {ate:.3f}"
+    )
+    ax.axvline(0, color="gray", linestyle=":", linewidth=1, alpha=0.6)
 
-    learner_name = result.model_info.get('learner', 'Meta-Learner')
-    ax.set_xlabel('Conditional Average Treatment Effect (CATE)', fontsize=11)
-    ax.set_ylabel('Density', fontsize=11)
-    ax.set_title(title or f'CATE Distribution ({learner_name})', fontsize=13)
+    learner_name = result.model_info.get("learner", "Meta-Learner")
+    ax.set_xlabel("Conditional Average Treatment Effect (CATE)", fontsize=11)
+    ax.set_ylabel("Density", fontsize=11)
+    ax.set_title(title or f"CATE Distribution ({learner_name})", fontsize=13)
     ax.legend(fontsize=9, frameon=False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
     return fig, ax
 
@@ -243,7 +254,7 @@ def cate_group_plot(
     group_df: pd.DataFrame,
     ax: Any = None,
     figsize: tuple = (8, 5),
-    color: str = '#2C3E50',
+    color: str = "#2C3E50",
     title: Optional[str] = None,
 ) -> Tuple[Any, Any]:
     """
@@ -289,24 +300,30 @@ def cate_group_plot(
     else:
         fig = ax.get_figure()
 
-    groups = group_df['group'].values
-    means = group_df['mean_cate'].values
-    ci_lo = group_df['ci_lower'].values
-    ci_hi = group_df['ci_upper'].values
+    groups = group_df["group"].values
+    means = group_df["mean_cate"].values
+    ci_lo = group_df["ci_lower"].values
+    ci_hi = group_df["ci_upper"].values
 
     x = np.arange(len(groups))
-    ax.bar(x, means, color=color, alpha=0.7, edgecolor='white')
-    ax.errorbar(x, means,
-                yerr=[means - ci_lo, ci_hi - means],
-                fmt='none', color='black', capsize=4, linewidth=1.2)
+    ax.bar(x, means, color=color, alpha=0.7, edgecolor="white")
+    ax.errorbar(
+        x,
+        means,
+        yerr=[means - ci_lo, ci_hi - means],
+        fmt="none",
+        color="black",
+        capsize=4,
+        linewidth=1.2,
+    )
 
-    ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+    ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)
     ax.set_xticks(x)
     ax.set_xticklabels([str(g) for g in groups])
-    ax.set_ylabel('Mean CATE', fontsize=11)
-    ax.set_title(title or 'Group-Level Treatment Effects', fontsize=13)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.set_ylabel("Mean CATE", fontsize=11)
+    ax.set_title(title or "Group-Level Treatment Effects", fontsize=13)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
     return fig, ax
 
@@ -403,8 +420,11 @@ def blp_test(
 
     # Cross-fit propensity score
     from sklearn.ensemble import GradientBoostingClassifier
+
     prop_model = GradientBoostingClassifier(
-        n_estimators=100, max_depth=3, random_state=42,
+        n_estimators=100,
+        max_depth=3,
+        random_state=42,
     )
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=42)
     e_hat: np.ndarray = np.zeros(n, dtype=float)
@@ -419,13 +439,15 @@ def blp_test(
     S_centered = cate - np.mean(cate)
 
     # Y = alpha + beta1 * (D - e(X)) + beta2 * (D - e(X)) * (S(X) - S_bar) + eps
-    Z = np.column_stack([
-        np.ones(n),
-        D_centered,
-        D_centered * S_centered,
-    ])
+    Z = np.column_stack(
+        [
+            np.ones(n),
+            D_centered,
+            D_centered * S_centered,
+        ]
+    )
 
-    ols = sm.OLS(Y, Z).fit(cov_type='HC1')
+    ols = sm.OLS(Y, Z).fit(cov_type="HC1")
 
     beta1 = float(ols.params[1])
     beta1_se = float(ols.bse[1])
@@ -435,13 +457,13 @@ def blp_test(
     beta2_pv = float(ols.pvalues[2])
 
     return {
-        'beta1': beta1,
-        'beta1_se': beta1_se,
-        'beta1_pvalue': beta1_pv,
-        'beta2': beta2,
-        'beta2_se': beta2_se,
-        'beta2_pvalue': beta2_pv,
-        'heterogeneity_significant': beta2_pv < alpha,
+        "beta1": beta1,
+        "beta1_se": beta1_se,
+        "beta1_pvalue": beta1_pv,
+        "beta2": beta2,
+        "beta2_se": beta2_se,
+        "beta2_pvalue": beta2_pv,
+        "heterogeneity_significant": beta2_pv < alpha,
     }
 
 
@@ -503,12 +525,12 @@ def gate_test(
     gate_df = cate_by_group(result, data, by=by, n_groups=n_groups, alpha=alpha)
 
     # Omnibus: one-way ANOVA across groups
-    if by == 'cate':
-        labels = pd.qcut(cate, q=n_groups, labels=False, duplicates='drop')
+    if by == "cate":
+        labels = pd.qcut(cate, q=n_groups, labels=False, duplicates="drop")
     else:
-        col = data[by].values[:len(cate)]
+        col = data[by].values[: len(cate)]
         if pd.api.types.is_numeric_dtype(col) and len(np.unique(col)) > n_groups:
-            labels = pd.qcut(col, q=n_groups, labels=False, duplicates='drop')
+            labels = pd.qcut(col, q=n_groups, labels=False, duplicates="drop")
         else:
             labels = col
 
@@ -519,11 +541,11 @@ def gate_test(
         f_stat, f_pvalue = np.nan, np.nan
 
     # Top vs bottom group
-    sorted_gate = gate_df.sort_values('mean_cate')
+    sorted_gate = gate_df.sort_values("mean_cate")
     bottom = sorted_gate.iloc[0]
     top = sorted_gate.iloc[-1]
-    diff = top['mean_cate'] - bottom['mean_cate']
-    se_diff = np.sqrt(top['se'] ** 2 + bottom['se'] ** 2)
+    diff = top["mean_cate"] - bottom["mean_cate"]
+    se_diff = np.sqrt(top["se"] ** 2 + bottom["se"] ** 2)
     if se_diff > 0:
         z = diff / se_diff
         tvb_pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
@@ -531,12 +553,12 @@ def gate_test(
         tvb_pvalue = np.nan
 
     return {
-        'gate_table': gate_df,
-        'omnibus_F': float(f_stat),
-        'omnibus_pvalue': float(f_pvalue),
-        'top_vs_bottom_diff': float(diff),
-        'top_vs_bottom_se': float(se_diff),
-        'top_vs_bottom_pvalue': float(tvb_pvalue),
+        "gate_table": gate_df,
+        "omnibus_F": float(f_stat),
+        "omnibus_pvalue": float(f_pvalue),
+        "top_vs_bottom_diff": float(diff),
+        "top_vs_bottom_se": float(se_diff),
+        "top_vs_bottom_pvalue": float(tvb_pvalue),
     }
 
 
@@ -595,36 +617,45 @@ def compare_metalearners(
     from .metalearners import metalearner as _metalearner
 
     if learners is None:
-        learners = ['s', 't', 'x', 'r', 'dr']
+        learners = ["s", "t", "x", "r", "dr"]
 
     learner_names = {
-        's': 'S-Learner', 't': 'T-Learner', 'x': 'X-Learner',
-        'r': 'R-Learner', 'dr': 'DR-Learner',
+        "s": "S-Learner",
+        "t": "T-Learner",
+        "x": "X-Learner",
+        "r": "R-Learner",
+        "dr": "DR-Learner",
     }
 
     rows = []
     for lr in learners:
         result = _metalearner(
-            data, y=y, treat=treat, covariates=covariates,
-            learner=lr, **kwargs,
+            data,
+            y=y,
+            treat=treat,
+            covariates=covariates,
+            learner=lr,
+            **kwargs,
         )
-        cate = result.model_info['cate']
-        rows.append({
-            'learner': learner_names.get(lr, lr),
-            'ate': result.estimate,
-            'se': result.se,
-            'ci_lower': result.ci[0],
-            'ci_upper': result.ci[1],
-            'pvalue': result.pvalue,
-            # Default updated v1.11.4 — every learner now uses the AIPW
-            # influence-function SE; the legacy 'bootstrap' fallback was
-            # statistically invalid for non-DR learners.
-            'se_method': result.model_info.get(
-                'se_method', 'aipw_influence_function'
-            ),
-            'cate_std': float(np.std(cate)),
-            'cate_iqr': float(np.percentile(cate, 75) - np.percentile(cate, 25)),
-        })
+        cate = result.model_info["cate"]
+        rows.append(
+            {
+                "learner": learner_names.get(lr, lr),
+                "ate": result.estimate,
+                "se": result.se,
+                "ci_lower": result.ci[0],
+                "ci_upper": result.ci[1],
+                "pvalue": result.pvalue,
+                # Default updated v1.11.4 — every learner now uses the AIPW
+                # influence-function SE; the legacy 'bootstrap' fallback was
+                # statistically invalid for non-DR learners.
+                "se_method": result.model_info.get(
+                    "se_method", "aipw_influence_function"
+                ),
+                "cate_std": float(np.std(cate)),
+                "cate_iqr": float(np.percentile(cate, 75) - np.percentile(cate, 25)),
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -671,14 +702,14 @@ def predict_cate(
     True
     """
     model_info = getattr(result, "model_info", None)
-    if not isinstance(model_info, dict) or '_estimator' not in model_info:
+    if not isinstance(model_info, dict) or "_estimator" not in model_info:
         raise ValueError(
             "Result does not contain a fitted estimator. predict_cate() "
             "expects a metalearner() result; got "
             f"{type(result).__name__}. Use sp.metalearner(...) (or another "
             "CATE estimator that stores '_estimator' in model_info)."
         )
-    covariates = result.model_info.get('covariates')
+    covariates = result.model_info.get("covariates")
     if covariates is None:
         raise ValueError("Result does not contain covariate names.")
     covariate_names = list(covariates)
@@ -687,7 +718,7 @@ def predict_cate(
             raise ValueError(f"Column '{c}' not found in new_data")
 
     X_new = new_data[covariate_names].values.astype(float)
-    est = result.model_info['_estimator']
+    est = result.model_info["_estimator"]
     return np.asarray(est.effect(X_new), dtype=float)
 
 
@@ -695,11 +726,12 @@ def predict_cate(
 # Internal
 # ======================================================================
 
+
 def _extract_cate(result: CausalResult) -> np.ndarray:
     """Extract CATE array from CausalResult."""
-    if not hasattr(result, 'model_info') or 'cate' not in result.model_info:
+    if not hasattr(result, "model_info") or "cate" not in result.model_info:
         raise ValueError(
             "Result does not contain CATE estimates. "
             "Use metalearner() to produce a result with individual effects."
         )
-    return np.asarray(result.model_info['cate'])
+    return np.asarray(result.model_info["cate"])

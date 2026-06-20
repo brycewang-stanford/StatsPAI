@@ -10,6 +10,7 @@ Contents (v1.8 / Phase 1+):
 The module exposes building blocks that Phase 2+ (PPML / GLM HDFE),
 Phase 3 (`sp.within`), and Phase 5 (Polars/Arrow direct) sit on top of.
 """
+
 from .bench import hdfe_bench, HDFEBenchResult
 from .demean import demean, DemeanInfo
 from .fepois import fepois, FePoisResult
@@ -35,8 +36,10 @@ from .etable import etable
 try:
     from .jax_backend import jax_device_info  # noqa: F401
 except ImportError:  # pragma: no cover
+
     def jax_device_info() -> str:
         return "jax: not installed"
+
 
 # JAX-backed end-to-end feols (Phase 4). Drops in for sp.fast.feols on
 # CUDA/TPU; CPU JAX path is correctness-grade but typically slower than
@@ -47,17 +50,19 @@ try:
         feols_jax_bootstrap,
         FeolsBootstrapResult,
     )
+
     _HAS_JAX_FEOLS = True
 except ImportError:  # pragma: no cover
     # Re-export the stubs from a dedicated module so ``feols_jax`` &c. stay
     # single-binding import-aliases (not an alias shadowed by a same-name
     # ``def``). The shadowing form trips griffe's alias resolver and breaks
     # ``mkdocs build --strict``; behaviour is byte-identical either way.
-    from ._jax_fallback import (  # noqa: F401
+    from ._jax_fallback import (  # type: ignore[assignment]  # noqa: F401
         feols_jax,
         feols_jax_bootstrap,
         FeolsBootstrapResult,
     )
+
     _HAS_JAX_FEOLS = False
 
 # Torch device diagnostic — mirrors jax_device_info for the optional
@@ -68,6 +73,7 @@ from ..utils._torch_device import torch_device_info  # noqa: F401
 # Polars / Arrow direct path is optional; only loaded if polars is installed.
 try:
     from .polars_io import demean_polars, fepois_polars  # noqa: F401
+
     _HAS_POLARS_IO = True
 except ImportError:  # pragma: no cover
     demean_polars = None  # type: ignore
@@ -75,38 +81,38 @@ except ImportError:  # pragma: no cover
     _HAS_POLARS_IO = False
 
 __all__ = [
-    'hdfe_bench',
-    'HDFEBenchResult',
-    'demean',
-    'DemeanInfo',
-    'fepois',
-    'FePoisResult',
-    'feols',
-    'FeolsResult',
-    'within',
-    'WithinTransformer',
-    'i',
-    'fe_interact',
-    'sw',
-    'csw',
-    'crve',
-    'boottest',
-    'BootTestResult',
-    'boottest_wald',
-    'BootWaldResult',
-    'cluster_dof_bm',
-    'cluster_dof_wald_bm',
-    'cluster_dof_wald_htz',
-    'cluster_wald_htz',
-    'WaldTestResult',
-    'event_study',
-    'EventStudyResult',
-    'jax_device_info',
-    'torch_device_info',
-    'feols_jax',
-    'feols_jax_bootstrap',
-    'FeolsBootstrapResult',
-    'etable',
-    'demean_polars',
-    'fepois_polars',
+    "hdfe_bench",
+    "HDFEBenchResult",
+    "demean",
+    "DemeanInfo",
+    "fepois",
+    "FePoisResult",
+    "feols",
+    "FeolsResult",
+    "within",
+    "WithinTransformer",
+    "i",
+    "fe_interact",
+    "sw",
+    "csw",
+    "crve",
+    "boottest",
+    "BootTestResult",
+    "boottest_wald",
+    "BootWaldResult",
+    "cluster_dof_bm",
+    "cluster_dof_wald_bm",
+    "cluster_dof_wald_htz",
+    "cluster_wald_htz",
+    "WaldTestResult",
+    "event_study",
+    "EventStudyResult",
+    "jax_device_info",
+    "torch_device_info",
+    "feols_jax",
+    "feols_jax_bootstrap",
+    "FeolsBootstrapResult",
+    "etable",
+    "demean_polars",
+    "fepois_polars",
 ]

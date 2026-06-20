@@ -59,21 +59,21 @@ def read_data(
     p = Path(path)
     ext = p.suffix.lower()
 
-    if ext == '.dta':
+    if ext == ".dta":
         df = _read_stata(path, **kwargs)
-    elif ext in ('.csv', '.tsv'):
+    elif ext in (".csv", ".tsv"):
         df = pd.read_csv(path, encoding=encoding, **kwargs)
-    elif ext in ('.xlsx', '.xls'):
+    elif ext in (".xlsx", ".xls"):
         df = pd.read_excel(path, **kwargs)
-    elif ext == '.parquet':
+    elif ext == ".parquet":
         df = pd.read_parquet(path, **kwargs)
-    elif ext == '.feather':
+    elif ext == ".feather":
         df = pd.read_feather(path, **kwargs)
-    elif ext == '.json':
+    elif ext == ".json":
         df = pd.read_json(path, **kwargs)
-    elif ext == '.sas7bdat':
+    elif ext == ".sas7bdat":
         df = _read_sas(path, **kwargs)
-    elif ext == '.sav':
+    elif ext == ".sav":
         df = _read_spss(path, **kwargs)
     else:
         raise ValueError(
@@ -92,17 +92,19 @@ def _read_stata(path: str, **kwargs: Any) -> pd.DataFrame:
         df, meta = pyreadstat.read_dta(path, **kwargs)
         # Store variable labels
         if meta.column_names_to_labels:
-            df.attrs['_labels'] = {
-                k: v for k, v in meta.column_names_to_labels.items()
+            df.attrs["_labels"] = {
+                k: v
+                for k, v in meta.column_names_to_labels.items()
                 if v  # skip empty labels
             }
         # Store value labels
         if meta.variable_value_labels:
-            df.attrs['_value_labels'] = meta.variable_value_labels
+            df.attrs["_value_labels"] = meta.variable_value_labels
         return df
     except ImportError:
         # Fallback to pandas (loses labels)
         import warnings
+
         warnings.warn(
             "pyreadstat not installed. Variable labels from .dta will be lost. "
             "Install: pip install pyreadstat",
@@ -115,9 +117,10 @@ def _read_sas(path: str, **kwargs: Any) -> pd.DataFrame:
     """Read SAS .sas7bdat with labels."""
     try:
         import pyreadstat
+
         df, meta = pyreadstat.read_sas7bdat(path, **kwargs)
         if meta.column_names_to_labels:
-            df.attrs['_labels'] = {
+            df.attrs["_labels"] = {
                 k: v for k, v in meta.column_names_to_labels.items() if v
             }
         return df
@@ -129,9 +132,10 @@ def _read_spss(path: str, **kwargs: Any) -> pd.DataFrame:
     """Read SPSS .sav with labels."""
     try:
         import pyreadstat
+
         df, meta = pyreadstat.read_sav(path, **kwargs)
         if meta.column_names_to_labels:
-            df.attrs['_labels'] = {
+            df.attrs["_labels"] = {
                 k: v for k, v in meta.column_names_to_labels.items() if v
             }
         return df

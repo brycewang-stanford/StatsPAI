@@ -169,23 +169,13 @@ def cbps(
     z = sp_stats.norm.ppf(1 - alpha / 2)
     ci = (est - z * se, est + z * se) if np.isfinite(se) else (np.nan, np.nan)
     pval = (
-        float(2 * (1 - sp_stats.norm.cdf(abs(est) / se)))
-        if se and se > 0
-        else np.nan
+        float(2 * (1 - sp_stats.norm.cdf(abs(est) / se))) if se and se > 0 else np.nan
     )
 
     # Balance diagnostics: std mean difference after weighting
-    mean_t = (
-        (X[T == 1] * w1[T == 1, None]).sum(axis=0)
-        / max(w1[T == 1].sum(), 1e-12)
-    )
-    mean_c = (
-        (X[T == 0] * w0[T == 0, None]).sum(axis=0)
-        / max(w0[T == 0].sum(), 1e-12)
-    )
-    pooled_sd = np.sqrt(
-        0.5 * (X[T == 1].var(axis=0) + X[T == 0].var(axis=0)) + 1e-12
-    )
+    mean_t = (X[T == 1] * w1[T == 1, None]).sum(axis=0) / max(w1[T == 1].sum(), 1e-12)
+    mean_c = (X[T == 0] * w0[T == 0, None]).sum(axis=0) / max(w0[T == 0].sum(), 1e-12)
+    pooled_sd = np.sqrt(0.5 * (X[T == 1].var(axis=0) + X[T == 0].var(axis=0)) + 1e-12)
     smd = (mean_t - mean_c) / pooled_sd
     balance_labels = (
         ["_intercept"] + list(covariates) if add_intercept else list(covariates)
@@ -295,9 +285,11 @@ def _fit_cbps(
     beta0 = _warm_start_logit(X, T)
 
     if variant == "exact":
+
         def obj(b: np.ndarray) -> float:
             g = _balance_only(b, X, T, estimand)
             return float(g @ g)
+
         res = optimize.minimize(obj, beta0, method="BFGS", options={"maxiter": 200})
         beta = np.asarray(res.x, dtype=float)
         converged = bool(res.success)
@@ -307,6 +299,7 @@ def _fit_cbps(
         def obj1(b: np.ndarray) -> float:
             g = _score_and_balance(b, X, T, estimand)
             return float(g @ g)
+
         res1 = optimize.minimize(obj1, beta0, method="BFGS", options={"maxiter": 200})
         beta1 = np.asarray(res1.x, dtype=float)
 
@@ -333,6 +326,7 @@ def _fit_cbps(
         def obj2(b: np.ndarray) -> float:
             g = _score_and_balance(b, X, T, estimand)
             return float(g @ W @ g)
+
         res2 = optimize.minimize(obj2, beta1, method="BFGS", options={"maxiter": 200})
         beta = np.asarray(res2.x, dtype=float)
         converged = bool(res2.success)

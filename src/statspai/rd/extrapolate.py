@@ -34,12 +34,11 @@ from scipy import stats as sp_stats
 from ..core.results import CausalResult
 from .rdrobust import rdrobust
 
-
 # ======================================================================
 # Citations
 # ======================================================================
 
-CausalResult._CITATIONS['rd_extrapolate'] = (
+CausalResult._CITATIONS["rd_extrapolate"] = (
     "@article{angrist2015wanna,\n"
     "  title={Wanna get away? Regression discontinuity estimation\n"
     "  of exam school effects away from the cutoff},\n"
@@ -53,7 +52,7 @@ CausalResult._CITATIONS['rd_extrapolate'] = (
     "}"
 )
 
-CausalResult._CITATIONS['rd_multi_extrapolate'] = (
+CausalResult._CITATIONS["rd_multi_extrapolate"] = (
     "@article{cattaneo2021extrapolating,\n"
     "  title={Extrapolating treatment effects in multi-cutoff\n"
     "  regression discontinuity designs},\n"
@@ -73,6 +72,7 @@ CausalResult._CITATIONS['rd_multi_extrapolate'] = (
 # Internal helpers
 # ======================================================================
 
+
 def _ols_fit(
     X: np.ndarray,
     y: np.ndarray,
@@ -84,17 +84,17 @@ def _ols_fit(
     """
     n, k = X.shape
     try:
-        Q, R = np.linalg.qr(X, mode='reduced')
+        Q, R = np.linalg.qr(X, mode="reduced")
         beta = np.linalg.solve(R, Q.T @ y)
         resid = y - X @ beta
-        sigma2 = np.sum(resid ** 2) / max(n - k, 1)
+        sigma2 = np.sum(resid**2) / max(n - k, 1)
         R_inv = np.linalg.inv(R)
         vcov = sigma2 * (R_inv @ R_inv.T)
     except np.linalg.LinAlgError:  # pragma: no cover
         # Fallback for singular/near-singular design matrices
         beta, _, _, _ = np.linalg.lstsq(X, y, rcond=None)
         resid = y - X @ beta
-        sigma2 = np.sum(resid ** 2) / max(n - k, 1)
+        sigma2 = np.sum(resid**2) / max(n - k, 1)
         XtX_inv = np.linalg.pinv(X.T @ X)
         vcov = sigma2 * XtX_inv
     return beta, resid, vcov
@@ -123,12 +123,12 @@ def _partial_f_test(
     # Restricted model: Y ~ Z (with intercept)
     X_r = _add_intercept(Z)
     beta_r, resid_r, _ = _ols_fit(X_r, y)
-    ssr_r = np.sum(resid_r ** 2)
+    ssr_r = np.sum(resid_r**2)
 
     # Unrestricted model: Y ~ Z + x_running
     X_u = np.hstack([X_r, x_running.reshape(-1, 1)])
     beta_u, resid_u, _ = _ols_fit(X_u, y)
-    ssr_u = np.sum(resid_u ** 2)
+    ssr_u = np.sum(resid_u**2)
 
     n, k_u = X_u.shape
     q = 1  # one restriction (coefficient on x_running = 0)
@@ -210,11 +210,11 @@ def _bootstrap_cate(
             boot_cates[:, b] = np.nan
             continue  # pragma: no cover
 
-        if method == 'ols':
+        if method == "ols":
             cate_b = _cate_ols(y_b, Z_b, D_b, eval_Z)
-        elif method == 'ipw':
+        elif method == "ipw":
             cate_b = _cate_ipw(y_b, Z_b, D_b, eval_Z)
-        elif method == 'doubly_robust':
+        elif method == "doubly_robust":
             cate_b = _cate_dr(y_b, Z_b, D_b, eval_Z)
         else:
             cate_b = _cate_ols(y_b, Z_b, D_b, eval_Z)
@@ -272,7 +272,7 @@ def _cate_ipw(
     for i in range(n_eval):
         # Gaussian kernel weights
         diff = (Z_2d - eval_2d[i]) / h_bw
-        kern = np.exp(-0.5 * np.sum(diff ** 2, axis=1))
+        kern = np.exp(-0.5 * np.sum(diff**2, axis=1))
 
         w1 = kern * D / ps
         w0 = kern * (1 - D) / (1 - ps)
@@ -331,7 +331,7 @@ def _cate_dr(
     cate = np.empty(n_eval)
     for i in range(n_eval):
         diff = (Z_2d - eval_2d[i]) / h_bw
-        kern = np.exp(-0.5 * np.sum(diff ** 2, axis=1))
+        kern = np.exp(-0.5 * np.sum(diff**2, axis=1))
 
         # AIPW score
         aipw_1 = kern * (D * (y - mu1_hat) / ps + mu1_hat)
@@ -350,6 +350,7 @@ def _cate_dr(
 # Public API
 # ======================================================================
 
+
 def rd_extrapolate(
     data: pd.DataFrame,
     y: str,
@@ -359,7 +360,7 @@ def rd_extrapolate(
     treatment: Optional[str] = None,
     eval_points: Optional[np.ndarray] = None,
     n_eval: int = 20,
-    method: str = 'ols',
+    method: str = "ols",
     h_local: Optional[float] = None,
     alpha: float = 0.05,
 ) -> CausalResult:
@@ -440,7 +441,7 @@ def rd_extrapolate(
             "covs is required for Angrist-Rokkanen extrapolation. "
             "Conditional independence Y(d) ⊥ X | Z requires covariates Z."
         )
-    if method not in ('ols', 'ipw', 'doubly_robust'):
+    if method not in ("ols", "ipw", "doubly_robust"):
         raise ValueError(
             f"method must be 'ols', 'ipw', or 'doubly_robust', got '{method}'"
         )
@@ -464,9 +465,9 @@ def rd_extrapolate(
     # ------------------------------------------------------------------
     rd_kwargs = dict(data=df, y=y, x=x, c=c, alpha=alpha)
     if h_local is not None:
-        rd_kwargs['h'] = h_local
+        rd_kwargs["h"] = h_local
     if treatment is not None:
-        rd_kwargs['fuzzy'] = treatment
+        rd_kwargs["fuzzy"] = treatment
 
     local_rd = rdrobust(**rd_kwargs)
     local_est = local_rd.estimate
@@ -493,9 +494,9 @@ def rd_extrapolate(
     )
 
     ci_test = {
-        'control_side': {'f_stat': f_control, 'p_value': p_control},
-        'treated_side': {'f_stat': f_treated, 'p_value': p_treated},
-        'ci_holds': bool(p_control > alpha and p_treated > alpha),
+        "control_side": {"f_stat": f_control, "p_value": p_control},
+        "treated_side": {"f_stat": f_treated, "p_value": p_treated},
+        "ci_holds": bool(p_control > alpha and p_treated > alpha),
     }
 
     # ------------------------------------------------------------------
@@ -517,11 +518,11 @@ def rd_extrapolate(
     # ------------------------------------------------------------------
     # Step 4: Estimate CATE at eval_points
     # ------------------------------------------------------------------
-    if method == 'ols':
+    if method == "ols":
         cate_hat = _cate_ols(Y_arr, Z_arr, D_arr, eval_Z)
-    elif method == 'ipw':
+    elif method == "ipw":
         cate_hat = _cate_ipw(Y_arr, Z_arr, D_arr, eval_Z)
-    elif method == 'doubly_robust':
+    elif method == "doubly_robust":
         cate_hat = _cate_dr(Y_arr, Z_arr, D_arr, eval_Z)
 
     # ------------------------------------------------------------------
@@ -529,8 +530,14 @@ def rd_extrapolate(
     # ------------------------------------------------------------------
     rng = np.random.default_rng(42)
     boot_cates = _bootstrap_cate(
-        Y_arr, Z_arr, X_arr, D_arr, eval_Z, method,
-        n_boot=200, rng=rng,
+        Y_arr,
+        Z_arr,
+        X_arr,
+        D_arr,
+        eval_Z,
+        method,
+        n_boot=200,
+        rng=rng,
     )
     # SE = std of bootstrap distribution (dropping NaN columns)
     valid_boot = ~np.isnan(boot_cates)
@@ -547,13 +554,15 @@ def rd_extrapolate(
     # ------------------------------------------------------------------
     # Assemble results
     # ------------------------------------------------------------------
-    detail = pd.DataFrame({
-        'x_value': eval_points,
-        'cate': cate_hat,
-        'se': se_hat,
-        'ci_lower': ci_lower,
-        'ci_upper': ci_upper,
-    })
+    detail = pd.DataFrame(
+        {
+            "x_value": eval_points,
+            "cate": cate_hat,
+            "se": se_hat,
+            "ci_lower": ci_lower,
+            "ci_upper": ci_upper,
+        }
+    )
 
     # Average treatment effect across evaluation points
     valid = ~np.isnan(cate_hat)
@@ -563,23 +572,23 @@ def rd_extrapolate(
     ate_ci = (ate - z_crit * ate_se, ate + z_crit * ate_se)
 
     model_info = {
-        'method': method,
-        'cutoff': c,
-        'n_control': int(control.sum()),
-        'n_treated': int(treated.sum()),
-        'covariates': covs,
-        'conditional_independence_test': ci_test,
-        'local_rd_estimate': {
-            'estimate': local_est,
-            'se': local_se,
-            'ci': local_ci,
+        "method": method,
+        "cutoff": c,
+        "n_control": int(control.sum()),
+        "n_treated": int(treated.sum()),
+        "covariates": covs,
+        "conditional_independence_test": ci_test,
+        "local_rd_estimate": {
+            "estimate": local_est,
+            "se": local_se,
+            "ci": local_ci,
         },
-        'n_eval_points': n_ep,
+        "n_eval_points": n_ep,
     }
 
     return CausalResult(
-        method='RD Extrapolation (Angrist-Rokkanen 2015)',
-        estimand='ATE (extrapolated)',
+        method="RD Extrapolation (Angrist-Rokkanen 2015)",
+        estimand="ATE (extrapolated)",
         estimate=ate,
         se=ate_se,
         pvalue=ate_pv,
@@ -588,7 +597,7 @@ def rd_extrapolate(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='rd_extrapolate',
+        _citation_key="rd_extrapolate",
     )
 
 
@@ -598,7 +607,7 @@ def rd_multi_extrapolate(
     x: str,
     cutoffs: List[float],
     eval_points: Optional[np.ndarray] = None,
-    method: str = 'linear',
+    method: str = "linear",
     alpha: float = 0.05,
 ) -> CausalResult:
     """
@@ -665,7 +674,7 @@ def rd_multi_extrapolate(
         raise ValueError(
             "At least 2 cutoffs are required for multi-cutoff extrapolation."
         )
-    if method not in ('linear', 'polynomial', 'weighted'):
+    if method not in ("linear", "polynomial", "weighted"):
         raise ValueError(
             f"method must be 'linear', 'polynomial', or 'weighted', got '{method}'"
         )
@@ -680,14 +689,16 @@ def rd_multi_extrapolate(
     for ci in cutoffs:
         try:
             res_i = rdrobust(df, y=y, x=x, c=ci, alpha=alpha)
-            cutoff_estimates.append({
-                'cutoff': ci,
-                'estimate': res_i.estimate,
-                'se': res_i.se,
-                'ci_lower': res_i.ci[0],
-                'ci_upper': res_i.ci[1],
-                'n_obs': res_i.n_obs,
-            })
+            cutoff_estimates.append(
+                {
+                    "cutoff": ci,
+                    "estimate": res_i.estimate,
+                    "se": res_i.se,
+                    "ci_lower": res_i.ci[0],
+                    "ci_upper": res_i.ci[1],
+                    "n_obs": res_i.n_obs,
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             # Skip cutoffs with insufficient data
             continue  # pragma: no cover
@@ -698,9 +709,9 @@ def rd_multi_extrapolate(
             f"Successfully estimated at {len(cutoff_estimates)}/{len(cutoffs)} cutoffs."
         )
 
-    c_vals = np.array([e['cutoff'] for e in cutoff_estimates])
-    tau_vals = np.array([e['estimate'] for e in cutoff_estimates])
-    se_vals = np.array([e['se'] for e in cutoff_estimates])
+    c_vals = np.array([e["cutoff"] for e in cutoff_estimates])
+    tau_vals = np.array([e["estimate"] for e in cutoff_estimates])
+    se_vals = np.array([e["se"] for e in cutoff_estimates])
 
     # ------------------------------------------------------------------
     # Step 2: Fit tau(x) through the (cutoff, tau_hat) pairs
@@ -714,16 +725,16 @@ def rd_multi_extrapolate(
     n_ep = len(eval_points)
     k = len(cutoff_estimates)
 
-    if method == 'linear':
+    if method == "linear":
         degree = 1
-    elif method == 'polynomial':
+    elif method == "polynomial":
         degree = min(k - 1, 3)
     else:  # weighted
         degree = 1
 
     # Weights for WLS
-    if method == 'weighted':
-        weights = 1.0 / (se_vals ** 2)
+    if method == "weighted":
+        weights = 1.0 / (se_vals**2)
     else:
         weights = np.ones(k)
 
@@ -746,10 +757,10 @@ def rd_multi_extrapolate(
     tau_fitted = V @ beta_fit
     residuals = tau_vals - tau_fitted
     if k > degree + 1:
-        sigma2 = np.sum(weights * residuals ** 2) / (k - degree - 1)
+        sigma2 = np.sum(weights * residuals**2) / (k - degree - 1)
     else:
         # Just-identified: use average SE^2 from local estimates
-        sigma2 = np.mean(se_vals ** 2)
+        sigma2 = np.mean(se_vals**2)
 
     vcov_beta = sigma2 * A_inv
 
@@ -772,17 +783,17 @@ def rd_multi_extrapolate(
     # ------------------------------------------------------------------
     if k >= 2:
         # Inverse-variance weighted mean (GLS-optimal for Wald test)
-        iv_weights = 1.0 / (se_vals ** 2)
+        iv_weights = 1.0 / (se_vals**2)
         tau_wbar = np.sum(iv_weights * tau_vals) / iv_weights.sum()
         # Wald statistic: sum of (tau_j - tau_wbar)^2 / se_j^2
         wald_stat = np.sum(iv_weights * (tau_vals - tau_wbar) ** 2)
         wald_df = k - 1
         wald_pval = 1.0 - sp_stats.chi2.cdf(wald_stat, wald_df)
         heterogeneity_test = {
-            'wald_statistic': float(wald_stat),
-            'df': wald_df,
-            'p_value': float(wald_pval),
-            'heterogeneous': bool(wald_pval < alpha),
+            "wald_statistic": float(wald_stat),
+            "df": wald_df,
+            "p_value": float(wald_pval),
+            "heterogeneous": bool(wald_pval < alpha),
         }
     else:
         heterogeneity_test = None
@@ -790,34 +801,36 @@ def rd_multi_extrapolate(
     # ------------------------------------------------------------------
     # Assemble results
     # ------------------------------------------------------------------
-    detail = pd.DataFrame({
-        'x_value': eval_points,
-        'cate_extrapolated': tau_pred,
-        'se': se_pred,
-        'ci_lower': ci_lower,
-        'ci_upper': ci_upper,
-    })
+    detail = pd.DataFrame(
+        {
+            "x_value": eval_points,
+            "cate_extrapolated": tau_pred,
+            "se": se_pred,
+            "ci_lower": ci_lower,
+            "ci_upper": ci_upper,
+        }
+    )
 
     ate = float(np.mean(tau_pred))
-    ate_se = float(np.sqrt(np.mean(se_pred ** 2) / n_ep))
+    ate_se = float(np.sqrt(np.mean(se_pred**2) / n_ep))
     ate_pv = float(2 * (1 - sp_stats.norm.cdf(abs(ate) / max(ate_se, 1e-20))))
     ate_ci = (ate - z_crit * ate_se, ate + z_crit * ate_se)
 
     cutoff_detail = pd.DataFrame(cutoff_estimates)
 
     model_info = {
-        'method': method,
-        'degree': degree,
-        'coefficients': beta_fit.tolist(),
-        'cutoff_estimates': cutoff_detail,
-        'heterogeneity_test': heterogeneity_test,
-        'n_cutoffs': k,
-        'n_eval_points': n_ep,
+        "method": method,
+        "degree": degree,
+        "coefficients": beta_fit.tolist(),
+        "cutoff_estimates": cutoff_detail,
+        "heterogeneity_test": heterogeneity_test,
+        "n_cutoffs": k,
+        "n_eval_points": n_ep,
     }
 
     return CausalResult(
-        method='Multi-Cutoff RD Extrapolation (Cattaneo et al. 2021)',
-        estimand='ATE (multi-cutoff extrapolated)',
+        method="Multi-Cutoff RD Extrapolation (Cattaneo et al. 2021)",
+        estimand="ATE (multi-cutoff extrapolated)",
         estimate=ate,
         se=ate_se,
         pvalue=ate_pv,
@@ -826,7 +839,7 @@ def rd_multi_extrapolate(
         n_obs=len(df),
         detail=detail,
         model_info=model_info,
-        _citation_key='rd_multi_extrapolate',
+        _citation_key="rd_multi_extrapolate",
     )
 
 
@@ -922,9 +935,9 @@ def rd_external_validity(
             f_c, p_c = _partial_f_test(Y_arr[control], Z_arr[control], X_arr_c[control])
             f_t, p_t = _partial_f_test(Y_arr[treated], Z_arr[treated], X_arr_c[treated])
             ci_test = {
-                'control_side': {'f_stat': f_c, 'p_value': p_c},
-                'treated_side': {'f_stat': f_t, 'p_value': p_t},
-                'ci_holds': bool(p_c > alpha and p_t > alpha),
+                "control_side": {"f_stat": f_c, "p_value": p_c},
+                "treated_side": {"f_stat": f_t, "p_value": p_t},
+                "ci_holds": bool(p_c > alpha and p_t > alpha),
             }
 
     # ------------------------------------------------------------------
@@ -939,11 +952,11 @@ def rd_external_validity(
             Z_arr = Z_arr.reshape(-1, 1)
 
         # Get bandwidth from local RD for cutoff neighborhood definition
-        h_bw = local_rd.model_info.get('h_left', None)
+        h_bw = local_rd.model_info.get("h_left", None)
         if h_bw is None:
-            h_bw = local_rd.model_info.get('bandwidth', {})
+            h_bw = local_rd.model_info.get("bandwidth", {})
             if isinstance(h_bw, dict):
-                h_bw = h_bw.get('h_left', np.std(X_arr_c) * 0.2)
+                h_bw = h_bw.get("h_left", np.std(X_arr_c) * 0.2)
             if h_bw is None:
                 h_bw = np.std(X_arr_c) * 0.2
 
@@ -962,9 +975,7 @@ def rd_external_validity(
                 z_tgt = Z_target[:, j]
 
                 # Standardized mean difference
-                pooled_sd = np.sqrt(
-                    (np.var(z_loc, ddof=1) + np.var(z_tgt, ddof=1)) / 2
-                )
+                pooled_sd = np.sqrt((np.var(z_loc, ddof=1) + np.var(z_tgt, ddof=1)) / 2)
                 if pooled_sd < 1e-10:
                     smd = 0.0
                 else:
@@ -986,31 +997,37 @@ def rd_external_validity(
                 overlap_coeff = float(np.sum(np.minimum(h_loc, h_tgt)) * bin_w)
 
                 overlap_stats[cov_name] = {
-                    'std_mean_diff': float(smd),
-                    'ks_statistic': float(ks_stat),
-                    'ks_pvalue': float(ks_pval),
-                    'overlap_coefficient': overlap_coeff,
-                    'local_mean': float(np.mean(z_loc)),
-                    'target_mean': float(np.mean(z_tgt)),
+                    "std_mean_diff": float(smd),
+                    "ks_statistic": float(ks_stat),
+                    "ks_pvalue": float(ks_pval),
+                    "overlap_coefficient": overlap_coeff,
+                    "local_mean": float(np.mean(z_loc)),
+                    "target_mean": float(np.mean(z_tgt)),
                 }
 
             overlap = {
-                'n_local': int(near_cutoff.sum()),
-                'n_target': int(in_target.sum()),
-                'bandwidth_used': float(h_bw),
-                'covariate_diagnostics': overlap_stats,
+                "n_local": int(near_cutoff.sum()),
+                "n_target": int(in_target.sum()),
+                "bandwidth_used": float(h_bw),
+                "covariate_diagnostics": overlap_stats,
             }
 
     # ------------------------------------------------------------------
     # 4. Extrapolated estimate (if CI test passes)
     # ------------------------------------------------------------------
     extrapolated = None
-    if ci_test is not None and ci_test['ci_holds'] and covs is not None:
+    if ci_test is not None and ci_test["ci_holds"] and covs is not None:
         target_eval = np.linspace(target_x_range[0], target_x_range[1], 20)
         try:
             extrapolated = rd_extrapolate(
-                data=data, y=y, x=x, c=c, covs=covs,
-                eval_points=target_eval, method='ols', alpha=alpha,
+                data=data,
+                y=y,
+                x=x,
+                c=c,
+                covs=covs,
+                eval_points=target_eval,
+                method="ols",
+                alpha=alpha,
             )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             extrapolated = None
@@ -1021,11 +1038,11 @@ def rd_external_validity(
     recommendation = _build_recommendation(ci_test, overlap, alpha)
 
     return {
-        'local_estimate': local_rd,
-        'ci_test': ci_test,
-        'overlap': overlap,
-        'extrapolated_estimate': extrapolated,
-        'recommendation': recommendation,
+        "local_estimate": local_rd,
+        "ci_test": ci_test,
+        "overlap": overlap,
+        "extrapolated_estimate": extrapolated,
+        "recommendation": recommendation,
     }
 
 
@@ -1042,9 +1059,9 @@ def _build_recommendation(
             "No covariates provided: conditional independence cannot be tested. "
             "Extrapolation is not recommended without covariates."
         )
-        return ' '.join(lines)
+        return " ".join(lines)
 
-    ci_pass = ci_test['ci_holds']
+    ci_pass = ci_test["ci_holds"]
     if ci_pass:
         lines.append(
             "Conditional independence test PASSED on both sides of the cutoff "
@@ -1053,36 +1070,34 @@ def _build_recommendation(
         )
     else:
         failed_sides = []
-        if ci_test['control_side']['p_value'] <= alpha:
+        if ci_test["control_side"]["p_value"] <= alpha:
             failed_sides.append(
                 f"control (F={ci_test['control_side']['f_stat']:.2f}, "
                 f"p={ci_test['control_side']['p_value']:.4f})"
             )
-        if ci_test['treated_side']['p_value'] <= alpha:
+        if ci_test["treated_side"]["p_value"] <= alpha:
             failed_sides.append(
                 f"treated (F={ci_test['treated_side']['f_stat']:.2f}, "
                 f"p={ci_test['treated_side']['p_value']:.4f})"
             )
         lines.append(
-            "Conditional independence test FAILED on: "
-            + ', '.join(failed_sides) + ". "
+            "Conditional independence test FAILED on: " + ", ".join(failed_sides) + ". "
             "The running variable retains predictive power for the outcome "
             "after conditioning on covariates. Extrapolation may not be valid."
         )
 
     if overlap is not None:
-        cov_diag = overlap.get('covariate_diagnostics', {})
+        cov_diag = overlap.get("covariate_diagnostics", {})
         poor_overlap = []
         for cname, cstats in cov_diag.items():
-            if abs(cstats['std_mean_diff']) > 0.25:
-                poor_overlap.append(
-                    f"{cname} (SMD={cstats['std_mean_diff']:.3f})"
-                )
+            if abs(cstats["std_mean_diff"]) > 0.25:
+                poor_overlap.append(f"{cname} (SMD={cstats['std_mean_diff']:.3f})")
         if poor_overlap:
             lines.append(
                 "Covariate balance concern: large standardized mean differences "
                 "between cutoff neighborhood and target for: "
-                + ', '.join(poor_overlap) + "."
+                + ", ".join(poor_overlap)
+                + "."
             )
         else:
             lines.append(
@@ -1090,10 +1105,13 @@ def _build_recommendation(
                 "cutoff neighborhood and target population."
             )
 
-    if ci_pass and (overlap is None or not any(
-        abs(s['std_mean_diff']) > 0.25
-        for s in (overlap or {}).get('covariate_diagnostics', {}).values()
-    )):
+    if ci_pass and (
+        overlap is None
+        or not any(
+            abs(s["std_mean_diff"]) > 0.25
+            for s in (overlap or {}).get("covariate_diagnostics", {}).values()
+        )
+    ):
         lines.append(
             "RECOMMENDATION: Extrapolation appears credible. The Angrist-Rokkanen "
             "conditional independence assumption is supported by the data."
@@ -1105,12 +1123,13 @@ def _build_recommendation(
             "treatment effect estimates away from the cutoff."
         )
 
-    return ' '.join(lines)
+    return " ".join(lines)
 
 
 # ======================================================================
 # Plot helper
 # ======================================================================
+
 
 def _extrapolation_plot(
     result: CausalResult,
@@ -1119,8 +1138,8 @@ def _extrapolation_plot(
     ax: Any = None,
     figsize: Tuple[int, int] = (10, 7),
     title: Optional[str] = None,
-    xlabel: str = 'Running Variable (X)',
-    ylabel: str = 'Treatment Effect',
+    xlabel: str = "Running Variable (X)",
+    ylabel: str = "Treatment Effect",
     show_ci: bool = True,
     ci_alpha: float = 0.15,
     **kwargs: Any,
@@ -1168,51 +1187,51 @@ def _extrapolation_plot(
     detail = result.detail
 
     # Determine column names (rd_extrapolate vs rd_multi_extrapolate)
-    if 'cate' in detail.columns:
-        cate_col = 'cate'
-    elif 'cate_extrapolated' in detail.columns:
-        cate_col = 'cate_extrapolated'
+    if "cate" in detail.columns:
+        cate_col = "cate"
+    elif "cate_extrapolated" in detail.columns:
+        cate_col = "cate_extrapolated"
     else:
         raise ValueError(
             "Cannot find CATE column in detail DataFrame."
         )  # pragma: no cover
 
-    x_vals = detail['x_value'].values
+    x_vals = detail["x_value"].values
     cate_vals = detail[cate_col].values
 
     # Auto-extract from model_info
     mi = result.model_info or {}
     if local_estimate is None:
-        local_info = mi.get('local_rd_estimate')
+        local_info = mi.get("local_rd_estimate")
         if local_info is not None:
-            local_estimate = local_info.get('estimate')
+            local_estimate = local_info.get("estimate")
 
     if cutoffs is None:
         # From single-cutoff extrapolation
-        if 'cutoff' in mi:
-            cutoffs = [mi['cutoff']]
+        if "cutoff" in mi:
+            cutoffs = [mi["cutoff"]]
         # From multi-cutoff
-        ce = mi.get('cutoff_estimates')
-        if ce is not None and hasattr(ce, 'cutoff'):
-            cutoffs = ce['cutoff'].tolist()
+        ce = mi.get("cutoff_estimates")
+        if ce is not None and hasattr(ce, "cutoff"):
+            cutoffs = ce["cutoff"].tolist()
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
 
     # Main CATE curve
-    line_kw = dict(color='#2166ac', linewidth=2, label='Extrapolated CATE(x)')
+    line_kw = dict(color="#2166ac", linewidth=2, label="Extrapolated CATE(x)")
     line_kw.update(kwargs)
     ax.plot(x_vals, cate_vals, **line_kw)
 
     # Confidence band
-    if show_ci and 'ci_lower' in detail.columns and 'ci_upper' in detail.columns:
+    if show_ci and "ci_lower" in detail.columns and "ci_upper" in detail.columns:
         ax.fill_between(
             x_vals,
-            detail['ci_lower'].values,
-            detail['ci_upper'].values,
+            detail["ci_lower"].values,
+            detail["ci_upper"].values,
             alpha=ci_alpha,
-            color='#2166ac',
-            label=f'{(1 - result.alpha) * 100:.0f}% CI',
+            color="#2166ac",
+            label=f"{(1 - result.alpha) * 100:.0f}% CI",
         )
 
     # Shade interpolation vs extrapolation regions
@@ -1222,21 +1241,29 @@ def _extrapolation_plot(
         interp_mask = (x_vals >= c_min) & (x_vals <= c_max)
         if interp_mask.any():
             ax.axvspan(
-                x_vals[interp_mask].min(), x_vals[interp_mask].max(),
-                alpha=0.05, color='green', label='Interpolation region',
+                x_vals[interp_mask].min(),
+                x_vals[interp_mask].max(),
+                alpha=0.05,
+                color="green",
+                label="Interpolation region",
             )
         # Extrapolation regions
         extrap_left = x_vals < c_min
         extrap_right = x_vals > c_max
         if extrap_left.any():
             ax.axvspan(
-                x_vals[extrap_left].min(), c_min,
-                alpha=0.05, color='red', label='Extrapolation region',
+                x_vals[extrap_left].min(),
+                c_min,
+                alpha=0.05,
+                color="red",
+                label="Extrapolation region",
             )
         if extrap_right.any():
             ax.axvspan(
-                c_max, x_vals[extrap_right].max(),
-                alpha=0.05, color='red',
+                c_max,
+                x_vals[extrap_right].max(),
+                alpha=0.05,
+                color="red",
             )
 
     # Mark cutoffs with diamonds
@@ -1245,27 +1272,36 @@ def _extrapolation_plot(
             # Find nearest eval point or interpolate
             idx_near = np.argmin(np.abs(x_vals - ci))
             tau_at_c = cate_vals[idx_near]
-            label = 'Cutoff RD estimate' if i == 0 else None
+            label = "Cutoff RD estimate" if i == 0 else None
             ax.plot(
-                ci, tau_at_c, marker='D', markersize=10,
-                color='#b2182b', zorder=5, label=label,
+                ci,
+                tau_at_c,
+                marker="D",
+                markersize=10,
+                color="#b2182b",
+                zorder=5,
+                label=label,
             )
 
     # Local estimate reference line
     if local_estimate is not None:
         ax.axhline(
-            local_estimate, linestyle='--', color='#b2182b',
-            alpha=0.6, linewidth=1.2, label=f'Local RD = {local_estimate:.3f}',
+            local_estimate,
+            linestyle="--",
+            color="#b2182b",
+            alpha=0.6,
+            linewidth=1.2,
+            label=f"Local RD = {local_estimate:.3f}",
         )
 
     # Zero reference
-    ax.axhline(0, linestyle=':', color='grey', alpha=0.5, linewidth=0.8)
+    ax.axhline(0, linestyle=":", color="grey", alpha=0.5, linewidth=0.8)
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax.set_title(title or 'RD Treatment Effect Extrapolation')
+    ax.set_title(title or "RD Treatment Effect Extrapolation")
     ax.legend(frameon=True, framealpha=0.9)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
     return ax

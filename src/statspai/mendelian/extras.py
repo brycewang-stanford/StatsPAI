@@ -34,7 +34,6 @@ from scipy import stats
 
 from .._result_serialize import ResultProtocolMixin
 
-
 __all__ = [
     "ModeBasedResult",
     "FStatisticResult",
@@ -115,15 +114,13 @@ def _silverman_bandwidth(x: np.ndarray, weights: Optional[np.ndarray] = None) ->
     return float(0.9 * scale * n ** (-1 / 5))
 
 
-def _weighted_mode(
-    ratios: np.ndarray, weights: np.ndarray, bandwidth: float
-) -> float:
+def _weighted_mode(ratios: np.ndarray, weights: np.ndarray, bandwidth: float) -> float:
     """Gaussian-kernel weighted mode of the Wald-ratio distribution."""
     grid = np.linspace(ratios.min(), ratios.max(), 1024)
     if bandwidth <= 0:
         return float(ratios[np.argmax(weights)])
     diffs = (grid[:, None] - ratios[None, :]) / bandwidth
-    kernel = np.exp(-0.5 * diffs ** 2) / (bandwidth * np.sqrt(2 * np.pi))
+    kernel = np.exp(-0.5 * diffs**2) / (bandwidth * np.sqrt(2 * np.pi))
     density = (kernel * weights[None, :]).sum(axis=1)
     return float(grid[np.argmax(density)])
 
@@ -179,7 +176,7 @@ def mr_mode(
     ratios = by / bx
     ratio_se = sy / np.abs(bx)
     if method == "weighted":
-        w = 1.0 / ratio_se ** 2
+        w = 1.0 / ratio_se**2
     else:
         w = np.ones_like(ratios)
     w = w / w.sum()
@@ -195,7 +192,7 @@ def mr_mode(
         r_b = by_b / bx_b
         rs_b = sy / np.abs(bx_b)
         if method == "weighted":
-            w_b = 1.0 / rs_b ** 2
+            w_b = 1.0 / rs_b**2
         else:
             w_b = np.ones_like(r_b)
         w_b = w_b / w_b.sum()
@@ -219,11 +216,13 @@ def mr_mode(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.mendelian.mr_mode",
             params={
-                "method": method, "bandwidth": bandwidth,
+                "method": method,
+                "bandwidth": bandwidth,
                 "n_snps": len(bx),
             },
             data=None,
@@ -272,8 +271,11 @@ class FStatisticResult(ResultProtocolMixin):
     per_snp_F: np.ndarray
 
     def summary(self) -> str:
-        flag = ("⚠ WEAK INSTRUMENT RISK" if self.weak_instrument_risk
-                else "OK — instruments strong")
+        flag = (
+            "⚠ WEAK INSTRUMENT RISK"
+            if self.weak_instrument_risk
+            else "OK — instruments strong"
+        )
         return (
             "MR Instrument-Strength Diagnostic\n"
             f"  Mean per-SNP F       = {self.f_mean:.2f}\n"
@@ -386,13 +388,18 @@ def mr_funnel_plot(
     if ax is None:
         fig, ax = plt.subplots(figsize=(7, 6))
     ax.scatter(ratio, precision, s=40, alpha=0.7, edgecolors="black")
-    ax.axvline(ivw_est, color="red", ls="--", lw=1.5,
-               label=f"IVW = {ivw_est:.3f}")
+    ax.axvline(ivw_est, color="red", ls="--", lw=1.5, label=f"IVW = {ivw_est:.3f}")
     ax.axvline(0, color="gray", ls=":", lw=0.8)
     if snp_ids is not None:
         for xi, yi, name in zip(ratio, precision, snp_ids):
-            ax.annotate(name, (xi, yi), fontsize=8, alpha=0.6,
-                        xytext=(3, 3), textcoords="offset points")
+            ax.annotate(
+                name,
+                (xi, yi),
+                fontsize=8,
+                alpha=0.6,
+                xytext=(3, 3),
+                textcoords="offset points",
+            )
     ax.set_xlabel("SNP-specific Wald ratio (β_Y / β_X)")
     ax.set_ylabel("Precision  |β_X| / SE(β_Y)")
     ax.set_title("MR Funnel Plot (asymmetry → directional pleiotropy)")
@@ -433,8 +440,8 @@ def mr_scatter_plot(
     sx = np.asarray(se_exposure, dtype=float)
     sy = np.asarray(se_outcome, dtype=float)
 
-    w = 1.0 / sy ** 2
-    ivw = float(np.sum(w * bx * by) / np.sum(w * bx ** 2))
+    w = 1.0 / sy**2
+    ivw = float(np.sum(w * bx * by) / np.sum(w * bx**2))
 
     X = np.column_stack([np.ones(len(bx)), bx])
     W = np.diag(w)
@@ -446,14 +453,18 @@ def mr_scatter_plot(
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(7, 6))
-    ax.errorbar(bx, by, xerr=sx, yerr=sy,
-                fmt="o", capsize=2, alpha=0.7, color="tab:blue")
+    ax.errorbar(
+        bx, by, xerr=sx, yerr=sy, fmt="o", capsize=2, alpha=0.7, color="tab:blue"
+    )
     xs = np.linspace(min(0, float(bx.min())), float(bx.max()), 50)
-    ax.plot(xs, ivw * xs, "r--", lw=1.5,
-            label=f"IVW slope = {ivw:.3f}")
-    ax.plot(xs, egger_intercept + egger_slope * xs,
-            "g-.", lw=1.5,
-            label=f"MR-Egger: {egger_intercept:+.3f} + {egger_slope:.3f}β_X")
+    ax.plot(xs, ivw * xs, "r--", lw=1.5, label=f"IVW slope = {ivw:.3f}")
+    ax.plot(
+        xs,
+        egger_intercept + egger_slope * xs,
+        "g-.",
+        lw=1.5,
+        label=f"MR-Egger: {egger_intercept:+.3f} + {egger_slope:.3f}β_X",
+    )
     ax.axhline(0, color="gray", lw=0.5)
     ax.axvline(0, color="gray", lw=0.5)
     ax.set_xlabel("SNP effect on exposure (β_X)")

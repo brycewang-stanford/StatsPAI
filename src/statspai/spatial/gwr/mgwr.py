@@ -10,6 +10,7 @@ uses the same golden-section AICc selector as our standard GWR. For
 tight numerical parity with the mgwr package on the Georgia benchmark
 you may want to compare against mgwr.MGWR directly after calling this.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -23,10 +24,10 @@ from .bandwidth import gwr_bandwidth
 
 @dataclass
 class MGWRResult:
-    params: np.ndarray           # (n, k)
-    predicted: np.ndarray        # (n,)
-    residuals: np.ndarray        # (n,)
-    bws: List[float]             # one per coefficient
+    params: np.ndarray  # (n, k)
+    predicted: np.ndarray  # (n,)
+    residuals: np.ndarray  # (n,)
+    bws: List[float]  # one per coefficient
     kernel: KernelName
     fixed: bool
     R2: float
@@ -52,9 +53,7 @@ class MGWRResult:
         lines += ["", "Local coefficient summary:"]
         for j in range(self.k):
             col = self.params[:, j]
-            lines.append(
-                f"  β{j}  mean={col.mean(): .4f}  std={col.std(): .4f}"
-            )
+            lines.append(f"  β{j}  mean={col.mean(): .4f}  std={col.std(): .4f}")
         return "\n".join(lines)
 
     def __repr__(self) -> str:
@@ -109,33 +108,53 @@ def mgwr(
     # Initial standard GWR for a decent warm start
     if bw_init is None:
         bw_init = gwr_bandwidth(
-            coords, y, X[:, 1:] if add_constant else X,
-            kernel=kernel, fixed=fixed,
+            coords,
+            y,
+            X[:, 1:] if add_constant else X,
+            kernel=kernel,
+            fixed=fixed,
             add_constant=add_constant,
         )
-    init = gwr(coords, y, X[:, 1:] if add_constant else X, bw_init,
-               kernel=kernel, fixed=fixed, add_constant=add_constant)
+    init = gwr(
+        coords,
+        y,
+        X[:, 1:] if add_constant else X,
+        bw_init,
+        kernel=kernel,
+        fixed=fixed,
+        add_constant=add_constant,
+    )
 
     # Partial predictors f_j(x_j) = β_j(i) * x_{ij}
-    f = init.params * X                           # shape (n, k)
+    f = init.params * X  # shape (n, k)
     bws: List[float] = [bw_init] * k
 
     for iteration in range(max_iter):
         max_delta = 0.0
         for j in range(k):
             partial = y - (f.sum(axis=1) - f[:, j])
-            xj = X[:, j:j + 1]
+            xj = X[:, j : j + 1]
             # Select bw for this covariate alone
             try:
                 bw_j = gwr_bandwidth(
-                    coords, partial, xj,
-                    kernel=kernel, fixed=fixed,
+                    coords,
+                    partial,
+                    xj,
+                    kernel=kernel,
+                    fixed=fixed,
                     add_constant=False,
                 )
             except Exception:
                 bw_j = bws[j]
-            res_j = gwr(coords, partial, xj, bw_j,
-                        kernel=kernel, fixed=fixed, add_constant=False)
+            res_j = gwr(
+                coords,
+                partial,
+                xj,
+                bw_j,
+                kernel=kernel,
+                fixed=fixed,
+                add_constant=False,
+            )
             new_f_j = res_j.params.ravel() * X[:, j]
             delta = float(np.abs(new_f_j - f[:, j]).max())
             max_delta = max(max_delta, delta)

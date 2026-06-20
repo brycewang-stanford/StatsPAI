@@ -113,7 +113,7 @@ def gmm(
         gb = g_bar(theta)
         return float(gb @ W_mat @ gb)
 
-    if method == 'cue':
+    if method == "cue":
         # Continuously Updated Estimator
         def cue_objective(theta: np.ndarray) -> float:
             G = G_mat(theta)
@@ -125,8 +125,12 @@ def gmm(
                 S_inv = np.eye(q)
             return float(gb @ S_inv @ gb)
 
-        result = minimize(cue_objective, theta0, method='BFGS',
-                          options={'maxiter': maxiter, 'gtol': tol})
+        result = minimize(
+            cue_objective,
+            theta0,
+            method="BFGS",
+            options={"maxiter": maxiter, "gtol": tol},
+        )
         theta_hat = result.x
         G_hat = G_mat(theta_hat)
         S_hat = G_hat.T @ G_hat / n
@@ -141,11 +145,15 @@ def gmm(
         else:
             W1 = W
 
-        result1 = minimize(lambda t: objective(t, W1), theta0, method='BFGS',
-                           options={'maxiter': maxiter, 'gtol': tol})
+        result1 = minimize(
+            lambda t: objective(t, W1),
+            theta0,
+            method="BFGS",
+            options={"maxiter": maxiter, "gtol": tol},
+        )
         theta1 = result1.x
 
-        if method == 'onestep':
+        if method == "onestep":
             theta_hat = theta1
             W_opt = W1
         else:
@@ -157,11 +165,15 @@ def gmm(
             except np.linalg.LinAlgError:
                 W_opt = np.eye(q)
 
-            result2 = minimize(lambda t: objective(t, W_opt), theta1, method='BFGS',
-                               options={'maxiter': maxiter, 'gtol': tol})
+            result2 = minimize(
+                lambda t: objective(t, W_opt),
+                theta1,
+                method="BFGS",
+                options={"maxiter": maxiter, "gtol": tol},
+            )
             theta_hat = result2.x
 
-            if method == 'iterative':
+            if method == "iterative":
                 for _ in range(maxiter):
                     theta_old = theta_hat.copy()
                     G_iter = G_mat(theta_hat)
@@ -170,8 +182,12 @@ def gmm(
                         W_opt = np.linalg.inv(S_iter)
                     except np.linalg.LinAlgError:
                         break
-                    result_iter = minimize(lambda t: objective(t, W_opt), theta_hat,
-                                           method='BFGS', options={'maxiter': 50})
+                    result_iter = minimize(
+                        lambda t: objective(t, W_opt),
+                        theta_hat,
+                        method="BFGS",
+                        options={"maxiter": 50},
+                    )
                     theta_hat = result_iter.x
                     if np.max(np.abs(theta_hat - theta_old)) < tol:
                         break
@@ -196,7 +212,7 @@ def gmm(
     except np.linalg.LinAlgError:
         DtWD_inv = np.eye(k)
 
-    if se == 'robust':
+    if se == "robust":
         V = DtWD_inv @ DtW @ S_hat @ DtW.T @ DtWD_inv / n
     else:
         V = DtWD_inv / n
@@ -209,7 +225,7 @@ def gmm(
     J_p = 1 - stats.chi2.cdf(J_stat, J_df) if J_df > 0 else np.nan
 
     if param_names is None:
-        param_names = [f'theta_{i}' for i in range(k)]
+        param_names = [f"theta_{i}" for i in range(k)]
 
     params = pd.Series(theta_hat, index=param_names)
     std_errors = pd.Series(se_hat, index=param_names)
@@ -218,19 +234,19 @@ def gmm(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': f'GMM ({method})',
-            'n_moments': q,
-            'n_params': k,
-            'overidentified': q > k,
+            "model_type": f"GMM ({method})",
+            "n_moments": q,
+            "n_params": k,
+            "overidentified": q > k,
         },
         data_info={
-            'n_obs': n,
-            'df_resid': n - k,
+            "n_obs": n,
+            "df_resid": n - k,
         },
         diagnostics={
-            'J_stat': J_stat,
-            'J_df': J_df,
-            'J_p': J_p,
-            'gmm_objective': objective(theta_hat, W_opt),
+            "J_stat": J_stat,
+            "J_df": J_df,
+            "J_p": J_p,
+            "gmm_objective": objective(theta_hat, W_opt),
         },
     )

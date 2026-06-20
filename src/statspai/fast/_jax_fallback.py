@@ -10,6 +10,7 @@ alias resolver and breaks ``mkdocs build --strict`` (the stub's own
 parameter annotations become unresolvable). Behaviour is identical: each
 symbol raises a helpful ``ImportError`` pointing at ``pip install jax``.
 """
+
 from __future__ import annotations
 
 from typing import Any, Optional
@@ -64,6 +65,5 @@ def feols_jax_bootstrap(
     dtype: str = "float64",
 ) -> "FeolsBootstrapResult":
     raise ImportError(
-        "jax is not installed; pip install jax jaxlib to enable "
-        "feols_jax_bootstrap."
+        "jax is not installed; pip install jax jaxlib to enable " "feols_jax_bootstrap."
     )

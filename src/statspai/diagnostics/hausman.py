@@ -108,7 +108,7 @@ def hausman_test(
     H = max(H, 0)  # chi² must be non-negative
     pvalue = float(1 - stats.chi2.cdf(H, k))
 
-    recommendation = 'FE' if pvalue < alpha else 'RE'
+    recommendation = "FE" if pvalue < alpha else "RE"
     recommendation_detail = (
         "Reject H0: use Fixed Effects."
         if pvalue < alpha
@@ -116,15 +116,14 @@ def hausman_test(
     )
 
     return {
-        'statistic': H,
-        'df': k,
-        'pvalue': pvalue,
-        'recommendation': recommendation,
-        'beta_fe': pd.Series(beta_fe, index=x),
-        'beta_re': pd.Series(beta_re, index=x),
-        'interpretation': (
-            f"chi2({k}) = {H:.4f}, p = {pvalue:.4f}. "
-            f"{recommendation_detail}"
+        "statistic": H,
+        "df": k,
+        "pvalue": pvalue,
+        "recommendation": recommendation,
+        "beta_fe": pd.Series(beta_fe, index=x),
+        "beta_re": pd.Series(beta_re, index=x),
+        "interpretation": (
+            f"chi2({k}) = {H:.4f}, p = {pvalue:.4f}. " f"{recommendation_detail}"
         ),
     }
 
@@ -161,7 +160,7 @@ def _within_estimator(
 
     resid = Y_dm - X_dm @ beta
     n_groups = len(np.unique(ids))
-    sigma2 = np.sum(resid ** 2) / (n - n_groups - k)
+    sigma2 = np.sum(resid**2) / (n - n_groups - k)
     vcov = sigma2 * np.linalg.pinv(XtX)
 
     return np.asarray(beta, dtype=float), np.asarray(vcov, dtype=float)
@@ -196,27 +195,20 @@ def _re_estimator(
 
     # Variance components
     T_bar = n / N  # average T
-    sigma2_e = np.sum(resid_fe ** 2) / (n - N - k)
+    sigma2_e = np.sum(resid_fe**2) / (n - N - k)
 
     # Between estimator residuals
     group_means_y = np.array([Y[ids == uid].mean() for uid in unique_ids])
     group_means_x = np.column_stack(
         [np.ones(N)]
-        + [
-            np.array([df[v].values[ids == uid].mean() for uid in unique_ids])
-            for v in x
-        ]
+        + [np.array([df[v].values[ids == uid].mean() for uid in unique_ids]) for v in x]
     )
     beta_between = np.linalg.lstsq(group_means_x, group_means_y, rcond=None)[0]
     resid_between = group_means_y - group_means_x @ beta_between
     sigma2_b = max(np.var(resid_between) - sigma2_e / T_bar, 0)
 
     # GLS transformation: θ = 1 - sqrt(σ²_e / (T*σ²_α + σ²_e))
-    theta = (
-        1 - np.sqrt(sigma2_e / (T_bar * sigma2_b + sigma2_e))
-        if sigma2_b > 0
-        else 0
-    )
+    theta = 1 - np.sqrt(sigma2_e / (T_bar * sigma2_b + sigma2_e)) if sigma2_b > 0 else 0
 
     # Quasi-demean
     Y_gls = Y.copy()
@@ -235,7 +227,7 @@ def _re_estimator(
         beta_full = np.linalg.lstsq(XtX, XtY, rcond=None)[0]
 
     resid_gls = Y_gls - X_gls @ beta_full
-    sigma2_gls = np.sum(resid_gls ** 2) / (n - k - 1)
+    sigma2_gls = np.sum(resid_gls**2) / (n - k - 1)
     vcov_full = sigma2_gls * np.linalg.pinv(XtX)
 
     # Return only slopes (exclude constant)
@@ -246,7 +238,7 @@ def _re_estimator(
 
 
 # Citation
-CausalResult._CITATIONS['hausman'] = (
+CausalResult._CITATIONS["hausman"] = (
     "@article{hausman1978specification,\n"
     "  title={Specification Tests in Econometrics},\n"
     "  author={Hausman, Jerry A.},\n"

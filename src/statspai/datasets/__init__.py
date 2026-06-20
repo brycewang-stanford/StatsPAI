@@ -52,9 +52,9 @@ Public health / epidemiology (REAL data)
                                   canon: quit-smoking → weight / mortality)
     ``load_nhefs()``            — alias of ``nhefs()``
 """
+
 from __future__ import annotations
 
-from typing import Dict, Any, List
 import pandas as pd
 
 from ._canonical import (
@@ -114,23 +114,23 @@ def california_prop99(simulated: bool = True) -> pd.DataFrame:
     df = _load_bundled_csv("california_prop99.csv")
     # The bundled real CSV does not carry a 'treated' indicator; derive
     # it so downstream callers (synth, synthdid, plotting) work uniformly.
-    if 'treated' not in df.columns:
+    if "treated" not in df.columns:
         df = df.copy()
-        df['treated'] = (
-            (df['state'] == 'California') & (df['year'] >= 1989)
-        ).astype(int)
-    df.attrs['paper'] = (
+        df["treated"] = ((df["state"] == "California") & (df["year"] >= 1989)).astype(
+            int
+        )
+    df.attrs["paper"] = (
         "Abadie, A., Diamond, A. & Hainmueller, J. (2010). "
         "Synthetic Control Methods for Comparative Case Studies. "
         "JASA 105(490), 493-505."
     )
-    df.attrs['data_source'] = 'real'
-    df.attrs['simulated'] = False
-    df.attrs['source_origin'] = (
+    df.attrs["data_source"] = "real"
+    df.attrs["simulated"] = False
+    df.attrs["source_origin"] = (
         "Public-domain ADH (2010) California Prop 99 panel; "
         "byte-identical to tidysynth's smoking dataset (1970-2000)."
     )
-    df.attrs['notes'] = (
+    df.attrs["notes"] = (
         "Real ADH panel for exact paper replication.  Use the full "
         "ADH (2010) predictor recipe via sp.synth(method='classic', "
         "special_predictors=...) for canonical numbers; the headline "
@@ -138,6 +138,7 @@ def california_prop99(simulated: bool = True) -> pd.DataFrame:
         "(2010) Figure 2."
     )
     return df
+
 
 # Convenience alias
 teen_employment = mpdta
@@ -161,59 +162,105 @@ def list_datasets() -> pd.DataFrame:
     """
     registry = [
         # (name, design, n_obs, paper, paper_original, expected_main)
-        ('mpdta', 'DID', 2500,
-         "Callaway-Sant'Anna (2021)",
-         "Simple ATT ≈ -0.0454 (R did::att_gt on original mpdta)",
-         "Simple ATT ≈ -0.033, dynamic ATT ≈ -0.034 on this replica"),
-        ('card_1995', 'IV', 3010,
-         "Card (1995)",
-         "IV β_educ ≈ 0.132, OLS ≈ 0.075 (Table 3, NLSYM)",
-         "IV β_educ ≈ 0.142, OLS ≈ 0.110 on this replica"),
-        ('nsw_lalonde', 'RCT / matching', 445,
-         "LaLonde (1986) / Dehejia-Wahba (1999)",
-         "Experimental ATT ≈ $1,794 (DW 1999, re78)",
-         "Naive OLS ≈ $1,556 on this replica (calibrated to $1,794)"),
-        ('nsw_dw', 'SOO', 2675,
-         "Dehejia-Wahba (1999)",
-         "Naive OLS ≈ -$8,498; PSM ≈ $1,794 (DW 1999)",
-         "Naive OLS ≈ -$8,387; covariate-adjusted ≈ $2,313 on replica"),
-        ('lee_2008_senate', 'RD', 6558,
-         "Lee (2008)",
-         "Incumbent advantage ≈ 0.077 voteshare pts (Table 4)",
-         "Conventional ≈ 0.073, CCT robust ≈ 0.062 on this replica"),
-        ('angrist_krueger_1991', 'IV', 5000,
-         "Angrist-Krueger (1991)",
-         "QOB IV β_educ ≈ 0.08–0.11 (Table V, range)",
-         "IV β_educ ≈ 0.10 by construction on this replica"),
-        ('california_prop99', 'SCM', 1200,
-         "Abadie-Diamond-Hainmueller (2010)",
-         "Mean 1989-2000 ATT ≈ -19 packs/capita (JASA Fig. 2)",
-         "Classic ADH ≈ -13.1, ASCM ≈ -13.3 packs/capita on this replica"),
-        ('basque_terrorism', 'SCM', 774,
-         "Abadie-Gardeazabal (2003)",
-         "GDP gap ≈ -0.855 (mean 1975-1997)",
-         "GDP gap ≈ -0.855 on this replica (calibrated)"),
-        ('german_reunification', 'SCM', 748,
-         "Abadie-Diamond-Hainmueller (2015)",
-         "West Germany GDPpc gap ≈ -1,500 (post-1990)",
-         "GDPpc gap ≈ -1,500 on this replica (calibrated)"),
-        ('nhefs', 'g-methods (real)', 1629,
-         "Hernán & Robins (2020), Causal Inference: What If",
-         "Quit-smoking IP-weighted ATT ≈ 3.4 kg, 95% CI (2.4, 4.5) (Ch12)",
-         "REAL data: StatsPAI reproduces 3.4-3.5 kg across Ch12-14 g-methods"),
+        (
+            "mpdta",
+            "DID",
+            2500,
+            "Callaway-Sant'Anna (2021)",
+            "Simple ATT ≈ -0.0454 (R did::att_gt on original mpdta)",
+            "Simple ATT ≈ -0.033, dynamic ATT ≈ -0.034 on this replica",
+        ),
+        (
+            "card_1995",
+            "IV",
+            3010,
+            "Card (1995)",
+            "IV β_educ ≈ 0.132, OLS ≈ 0.075 (Table 3, NLSYM)",
+            "IV β_educ ≈ 0.142, OLS ≈ 0.110 on this replica",
+        ),
+        (
+            "nsw_lalonde",
+            "RCT / matching",
+            445,
+            "LaLonde (1986) / Dehejia-Wahba (1999)",
+            "Experimental ATT ≈ $1,794 (DW 1999, re78)",
+            "Naive OLS ≈ $1,556 on this replica (calibrated to $1,794)",
+        ),
+        (
+            "nsw_dw",
+            "SOO",
+            2675,
+            "Dehejia-Wahba (1999)",
+            "Naive OLS ≈ -$8,498; PSM ≈ $1,794 (DW 1999)",
+            "Naive OLS ≈ -$8,387; covariate-adjusted ≈ $2,313 on replica",
+        ),
+        (
+            "lee_2008_senate",
+            "RD",
+            6558,
+            "Lee (2008)",
+            "Incumbent advantage ≈ 0.077 voteshare pts (Table 4)",
+            "Conventional ≈ 0.073, CCT robust ≈ 0.062 on this replica",
+        ),
+        (
+            "angrist_krueger_1991",
+            "IV",
+            5000,
+            "Angrist-Krueger (1991)",
+            "QOB IV β_educ ≈ 0.08–0.11 (Table V, range)",
+            "IV β_educ ≈ 0.10 by construction on this replica",
+        ),
+        (
+            "california_prop99",
+            "SCM",
+            1200,
+            "Abadie-Diamond-Hainmueller (2010)",
+            "Mean 1989-2000 ATT ≈ -19 packs/capita (JASA Fig. 2)",
+            "Classic ADH ≈ -13.1, ASCM ≈ -13.3 packs/capita on this replica",
+        ),
+        (
+            "basque_terrorism",
+            "SCM",
+            774,
+            "Abadie-Gardeazabal (2003)",
+            "GDP gap ≈ -0.855 (mean 1975-1997)",
+            "GDP gap ≈ -0.855 on this replica (calibrated)",
+        ),
+        (
+            "german_reunification",
+            "SCM",
+            748,
+            "Abadie-Diamond-Hainmueller (2015)",
+            "West Germany GDPpc gap ≈ -1,500 (post-1990)",
+            "GDPpc gap ≈ -1,500 on this replica (calibrated)",
+        ),
+        (
+            "nhefs",
+            "g-methods (real)",
+            1629,
+            "Hernán & Robins (2020), Causal Inference: What If",
+            "Quit-smoking IP-weighted ATT ≈ 3.4 kg, 95% CI (2.4, 4.5) (Ch12)",
+            "REAL data: StatsPAI reproduces 3.4-3.5 kg across Ch12-14 g-methods",
+        ),
     ]
-    return pd.DataFrame(registry,
-                        columns=['name', 'design', 'n_obs', 'paper',
-                                 'paper_original', 'expected_main'])
+    return pd.DataFrame(
+        registry,
+        columns=["name", "design", "n_obs", "paper", "paper_original", "expected_main"],
+    )
 
 
 __all__ = [
-    'mpdta', 'teen_employment',
-    'card_1995',
-    'nsw_lalonde', 'nsw_dw',
-    'lee_2008_senate',
-    'angrist_krueger_1991',
-    'california_prop99', 'basque_terrorism', 'german_reunification',
-    'nhefs', 'load_nhefs',
-    'list_datasets',
+    "mpdta",
+    "teen_employment",
+    "card_1995",
+    "nsw_lalonde",
+    "nsw_dw",
+    "lee_2008_senate",
+    "angrist_krueger_1991",
+    "california_prop99",
+    "basque_terrorism",
+    "german_reunification",
+    "nhefs",
+    "load_nhefs",
+    "list_datasets",
 ]

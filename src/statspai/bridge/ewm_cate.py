@@ -71,6 +71,7 @@ def ewm_cate_bridge(
         Xi: np.ndarray,
     ) -> np.ndarray:
         from sklearn.linear_model import LinearRegression
+
         m1 = LinearRegression().fit(Xi[Di == 1], Yi[Di == 1])
         m0 = LinearRegression().fit(Xi[Di == 0], Yi[Di == 0])
         return np.asarray(m1.predict(Xi) - m0.predict(Xi), dtype=float)
@@ -80,12 +81,8 @@ def ewm_cate_bridge(
     # Estimate value of pi_cate via doubly-robust IPW score
     # (Athey-Wager 2021 score).
     p_treat = float(np.mean(D))
-    weights = np.where(D == 1, 1.0 / max(p_treat, 1e-3),
-                       1.0 / max(1 - p_treat, 1e-3))
-    score_cate = (
-        cate
-        + (Y - (D * cate)) * (2 * pi_cate - 1) * weights * (D == pi_cate)
-    )
+    weights = np.where(D == 1, 1.0 / max(p_treat, 1e-3), 1.0 / max(1 - p_treat, 1e-3))
+    score_cate = cate + (Y - (D * cate)) * (2 * pi_cate - 1) * weights * (D == pi_cate)
     value_cate = float(np.mean(score_cate))
 
     # ---------- Path A: EWM (linear threshold over X) ---------- #
@@ -127,11 +124,11 @@ def ewm_cate_bridge(
         try:
             cb = _t_learner_cate(Y[idx], D[idx], X[idx])
             pi_b = (cb > 0).astype(int)
-            wb = np.where(D[idx] == 1, 1.0 / max(p_treat, 1e-3),
-                          1.0 / max(1 - p_treat, 1e-3))
-            sc_b = (
-                cb + (Y[idx] - (D[idx] * cb)) * (2 * pi_b - 1)
-                * wb * (D[idx] == pi_b)
+            wb = np.where(
+                D[idx] == 1, 1.0 / max(p_treat, 1e-3), 1.0 / max(1 - p_treat, 1e-3)
+            )
+            sc_b = cb + (Y[idx] - (D[idx] * cb)) * (2 * pi_b - 1) * wb * (
+                D[idx] == pi_b
             )
             boot_cate[b] = np.mean(sc_b)
             # EWM path bootstrap uses the IPW-only score (no CATE
@@ -139,20 +136,14 @@ def ewm_cate_bridge(
             # SE tracks the correct sampling variance.
             pi_e = best_pi[idx]
             match_e = (D[idx] == pi_e).astype(float)
-            boot_ewm[b] = float(np.mean(
-                (2 * pi_e - 1) * Y[idx] * match_e * wb
-            ))
+            boot_ewm[b] = float(np.mean((2 * pi_e - 1) * Y[idx] * match_e * wb))
         except Exception:
             continue
     se_cate = _bootstrap_se(boot_cate, label="bridge.ewm_cate")
     se_ewm = _bootstrap_se(boot_ewm, label="bridge.ewm_cate")
 
-    diff, diff_se, diff_p = _agreement_test(
-        value_ewm, se_ewm, value_cate, se_cate
-    )
-    est_dr, se_dr = _dr_combine(
-        value_ewm, se_ewm, value_cate, se_cate, diff_p
-    )
+    diff, diff_se, diff_p = _agreement_test(value_ewm, se_ewm, value_cate, se_cate)
+    est_dr, se_dr = _dr_combine(value_ewm, se_ewm, value_cate, se_cate, diff_p)
 
     return BridgeResult(
         kind="ewm_cate",

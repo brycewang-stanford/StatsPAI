@@ -65,11 +65,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 _LN_2PI = np.log(2.0 * np.pi)
 _LOG_TWO = np.log(2.0)
-_LOG_EPS = 1e-300          # floor for log(Phi) to avoid -inf
-_PHI_FLOOR = 1e-300        # floor for Phi denominator in Jondrow
+_LOG_EPS = 1e-300  # floor for log(Phi) to avoid -inf
+_PHI_FLOOR = 1e-300  # floor for Phi denominator in Jondrow
 
 
 # ---------------------------------------------------------------------------

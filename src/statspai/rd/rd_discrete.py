@@ -147,9 +147,7 @@ def rd_discrete(
 
     n_bins = len(unique_x)
     if n_bins < 4:
-        raise ValueError(
-            f"rd_discrete requires ≥4 distinct mass points; got {n_bins}."
-        )
+        raise ValueError(f"rd_discrete requires ≥4 distinct mass points; got {n_bins}.")
 
     bin_means = np.zeros(n_bins)
     bin_var = np.zeros(n_bins)
@@ -161,7 +159,8 @@ def rd_discrete(
             bin_means[j] = float(np.mean(Y[ix]))
             bin_var[j] = (
                 float(np.var(Y[ix], ddof=1) / bin_n[j])
-                if bin_n[j] > 1 else float(np.var(Y) / bin_n[j])
+                if bin_n[j] > 1
+                else float(np.var(Y) / bin_n[j])
             )
         else:  # pragma: no cover
             bin_means[j] = np.nan
@@ -177,10 +176,16 @@ def rd_discrete(
         )
 
     mu_l, slope_l, var_mu_l, w_l = _ll_on_bins(
-        unique_x[left] - c, bin_means[left], bin_var[left], bin_n[left],
+        unique_x[left] - c,
+        bin_means[left],
+        bin_var[left],
+        bin_n[left],
     )
     mu_r, slope_r, var_mu_r, w_r = _ll_on_bins(
-        unique_x[right] - c, bin_means[right], bin_var[right], bin_n[right],
+        unique_x[right] - c,
+        bin_means[right],
+        bin_var[right],
+        bin_n[right],
     )
     tau_hat = float(mu_r - mu_l)
     se = float(np.sqrt(var_mu_l + var_mu_r))
@@ -203,13 +208,16 @@ def rd_discrete(
         M_value = float(max(M, 1e-12))
         x_l_centered = unique_x[left] - c
         x_r_centered = unique_x[right] - c
-        bias_bound = 0.5 * M_value * (
-            float(np.sum(np.abs(w_l) * x_l_centered ** 2))
-            + float(np.sum(np.abs(w_r) * x_r_centered ** 2))
+        bias_bound = (
+            0.5
+            * M_value
+            * (
+                float(np.sum(np.abs(w_l) * x_l_centered**2))
+                + float(np.sum(np.abs(w_r) * x_r_centered**2))
+            )
         )
         smoothness_label = (
-            f"M = {M_value:.4g}"
-            f"{' (estimated)' if M_estimated else ' (supplied)'}"
+            f"M = {M_value:.4g}" f"{' (estimated)' if M_estimated else ' (supplied)'}"
         )
     else:  # bm
         K_estimated = K is None
@@ -218,12 +226,9 @@ def rd_discrete(
         K_value = float(max(K, 1e-12))
         # Worst-case bias is K · ∑ |w_j| on each side ≥ K (Kolesár-Rothe
         # 2018, eq. 5).  Use the exact weight-based bound.
-        bias_bound = K_value * (
-            float(np.sum(np.abs(w_l))) + float(np.sum(np.abs(w_r)))
-        )
+        bias_bound = K_value * (float(np.sum(np.abs(w_l))) + float(np.sum(np.abs(w_r))))
         smoothness_label = (
-            f"K = {K_value:.4g}"
-            f"{' (estimated)' if K_estimated else ' (supplied)'}"
+            f"K = {K_value:.4g}" f"{' (estimated)' if K_estimated else ' (supplied)'}"
         )
 
     # --- Honest CI (Armstrong-Kolesár FLCI critical value) -----------
@@ -242,10 +247,7 @@ def rd_discrete(
     )
 
     # --- p-value -----------------------------------------------------
-    pvalue = (
-        2 * (1 - stats.norm.cdf(abs(tau_hat) / se))
-        if se > 0 else float("nan")
-    )
+    pvalue = 2 * (1 - stats.norm.cdf(abs(tau_hat) / se)) if se > 0 else float("nan")
 
     summary = (
         "\n"
@@ -295,13 +297,19 @@ def rd_discrete(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             out,
             function="sp.rd.rd_discrete",
             params={
-                "y": y, "x": x, "c": c,
-                "M": M_value, "K": K_value, "method": method,
-                "h": h, "alpha": alpha,
+                "y": y,
+                "x": x,
+                "c": c,
+                "M": M_value,
+                "K": K_value,
+                "method": method,
+                "h": h,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -314,6 +322,7 @@ def rd_discrete(
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _ll_on_bins(
     x_bins: np.ndarray,
@@ -358,15 +367,16 @@ def _estimate_M_discrete(unique_x: np.ndarray, bin_means: np.ndarray) -> float:
         return 1.0
     dx = np.diff(unique_x)
     # Only valid where consecutive spacings exist
-    second = (
-        (bin_means[2:] - 2 * bin_means[1:-1] + bin_means[:-2])
-        / np.maximum(dx[1:] * dx[:-1], 1e-12)
+    second = (bin_means[2:] - 2 * bin_means[1:-1] + bin_means[:-2]) / np.maximum(
+        dx[1:] * dx[:-1], 1e-12
     )
     return float(np.max(np.abs(second))) if len(second) else 1.0
 
 
 def _estimate_K_bm(
-    unique_x: np.ndarray, bin_means: np.ndarray, c: float,
+    unique_x: np.ndarray,
+    bin_means: np.ndarray,
+    c: float,
 ) -> float:
     """Estimate the worst-case linear-approximation bias per side as
     the maximum residual from a global linear fit on each side.

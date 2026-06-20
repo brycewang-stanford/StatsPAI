@@ -26,10 +26,10 @@ from scipy.optimize import minimize_scalar
 
 from ...core.results import EconometricResults
 
-
 # ====================================================================== #
 #  Public API
 # ====================================================================== #
+
 
 def sar(
     W: np.ndarray,
@@ -64,17 +64,20 @@ def sar(
     >>> result = sp.sar(W, data=df, formula='crime ~ income + education')
     >>> print(result.summary())
     """
-    model = SpatialModel(W, data, formula, model_type="sar",
-                         row_normalize=row_normalize, alpha=alpha)
+    model = SpatialModel(
+        W, data, formula, model_type="sar", row_normalize=row_normalize, alpha=alpha
+    )
     _result = model.fit()
     try:
         from ...output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.spatial.sar",
             params={
                 "formula": formula,
-                "row_normalize": row_normalize, "alpha": alpha,
+                "row_normalize": row_normalize,
+                "alpha": alpha,
                 "W_shape": list(W.shape) if hasattr(W, "shape") else None,
             },
             data=data,
@@ -104,17 +107,20 @@ def sem(
     EconometricResults
         Includes spatial error parameter λ (lambda).
     """
-    model = SpatialModel(W, data, formula, model_type="sem",
-                         row_normalize=row_normalize, alpha=alpha)
+    model = SpatialModel(
+        W, data, formula, model_type="sem", row_normalize=row_normalize, alpha=alpha
+    )
     _result = model.fit()
     try:
         from ...output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.spatial.sem",
             params={
                 "formula": formula,
-                "row_normalize": row_normalize, "alpha": alpha,
+                "row_normalize": row_normalize,
+                "alpha": alpha,
                 "W_shape": list(W.shape) if hasattr(W, "shape") else None,
             },
             data=data,
@@ -148,17 +154,20 @@ def sdm(
         Includes ρ (rho), β (own effects), θ (spatial lag effects),
         and direct/indirect/total effect decomposition.
     """
-    model = SpatialModel(W, data, formula, model_type="sdm",
-                         row_normalize=row_normalize, alpha=alpha)
+    model = SpatialModel(
+        W, data, formula, model_type="sdm", row_normalize=row_normalize, alpha=alpha
+    )
     _result = model.fit()
     try:
         from ...output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.spatial.sdm",
             params={
                 "formula": formula,
-                "row_normalize": row_normalize, "alpha": alpha,
+                "row_normalize": row_normalize,
+                "alpha": alpha,
                 "W_shape": list(W.shape) if hasattr(W, "shape") else None,
             },
             data=data,
@@ -172,6 +181,7 @@ def sdm(
 # ====================================================================== #
 #  SpatialModel class
 # ====================================================================== #
+
 
 class SpatialModel:
     """
@@ -292,8 +302,9 @@ class SpatialModel:
             ll += np.sum(np.log(np.abs(1 - rho * self._eigenvalues)))
             return float(-ll)
 
-        result = minimize_scalar(neg_conc_ll, bounds=(self._rho_min, self._rho_max),
-                                 method="bounded")
+        result = minimize_scalar(
+            neg_conc_ll, bounds=(self._rho_min, self._rho_max), method="bounded"
+        )
         rho = float(result.x)
 
         # Recover β, σ²
@@ -333,8 +344,9 @@ class SpatialModel:
             ll += np.sum(np.log(np.abs(1 - lam * self._eigenvalues)))
             return float(-ll)
 
-        result = minimize_scalar(neg_conc_ll, bounds=(self._rho_min, self._rho_max),
-                                 method="bounded")
+        result = minimize_scalar(
+            neg_conc_ll, bounds=(self._rho_min, self._rho_max), method="bounded"
+        )
         lam = float(result.x)
 
         # Recover β
@@ -385,8 +397,9 @@ class SpatialModel:
             ll += np.sum(np.log(np.abs(1 - rho * self._eigenvalues)))
             return float(-ll)
 
-        result = minimize_scalar(neg_conc_ll, bounds=(self._rho_min, self._rho_max),
-                                 method="bounded")
+        result = minimize_scalar(
+            neg_conc_ll, bounds=(self._rho_min, self._rho_max), method="bounded"
+        )
         rho = float(result.x)
 
         y_star = y - rho * Wy
@@ -404,8 +417,8 @@ class SpatialModel:
         result_obj = self._make_results(all_params, all_se, all_names, sigma2, rho, e)
 
         # Direct / indirect / total effects (LeSage & Pace 2009)
-        beta_own = beta_aug[1:self.k]  # skip constant
-        theta = beta_aug[self.k:]
+        beta_own = beta_aug[1 : self.k]  # skip constant
+        theta = beta_aug[self.k :]
         effects = self._compute_effects(rho, beta_own, theta)
         result_obj.diagnostics.update(effects)
 
@@ -449,7 +462,7 @@ class SpatialModel:
         A_inv_W = np.linalg.solve(np.eye(n) - lam * W, W)
         tr2 = np.trace(A_inv_W @ A_inv_W)
         tr1 = np.trace(A_inv_W)
-        I_lam = tr2 + tr1 ** 2 / n
+        I_lam = tr2 + tr1**2 / n
         return float(1.0 / np.sqrt(max(I_lam, 1e-10)))
 
     def _compute_effects(
@@ -499,9 +512,12 @@ class SpatialModel:
         param_name: str = "rho",
     ) -> EconometricResults:
         """Build EconometricResults."""
-        model_names = {"sar": "SAR (Spatial Lag)", "sem": "SEM (Spatial Error)",
-                       "sdm": "SDM (Spatial Durbin)"}
-        fitted = self.y - resid[:len(self.y)] if len(resid) == self.n else None
+        model_names = {
+            "sar": "SAR (Spatial Lag)",
+            "sem": "SEM (Spatial Error)",
+            "sdm": "SDM (Spatial Durbin)",
+        }
+        fitted = self.y - resid[: len(self.y)] if len(resid) == self.n else None
 
         return EconometricResults(
             params=pd.Series(params, index=names),
@@ -518,7 +534,7 @@ class SpatialModel:
                 "df_resid": self.n - len(names),
                 "dependent_var": self._dep_var,
                 "fitted_values": fitted if fitted is not None else np.zeros(self.n),
-                "residuals": resid[:self.n],
+                "residuals": resid[: self.n],
             },
             diagnostics={
                 "sigma2": round(sigma2, 6),

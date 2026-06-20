@@ -26,9 +26,11 @@ _FloatArray = NDArray[np.float64]
 
 try:
     from sklearn.base import BaseEstimator, RegressorMixin  # type: ignore[import-untyped]
+
     HAS_SKLEARN = True
 except ImportError:
     HAS_SKLEARN = False
+
     # Provide stubs so the module can be imported even without sklearn
     class BaseEstimator:  # type: ignore[no-redef]
         pass
@@ -339,9 +341,9 @@ class SklearnCausalForest(BaseEstimator, RegressorMixin):
             min_samples_leaf=self.min_leaf_size,
         )
         self.results_ = self.cf_.fit(formula=formula, data=df)
-        self.coef_ = np.array([
-            float(self.cf_.diagnostics.get("average_treatment_effect", 0.0))
-        ])
+        self.coef_ = np.array(
+            [float(self.cf_.diagnostics.get("average_treatment_effect", 0.0))]
+        )
         self.intercept_ = 0.0
         return self
 

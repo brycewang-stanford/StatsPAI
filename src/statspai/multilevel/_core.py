@@ -22,10 +22,10 @@ from typing import List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Grouping utilities
 # ---------------------------------------------------------------------------
+
 
 def _as_str_list(x: Optional[str | Sequence[str]]) -> List[str]:
     """Normalise a column spec to a list of strings."""
@@ -56,6 +56,7 @@ def _build_group_keys(df: pd.DataFrame, groups: Sequence[str]) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # Covariance parameterisation
 # ---------------------------------------------------------------------------
+
 
 def _n_cov_params(q: int, cov_type: str) -> int:
     """Number of free parameters for the chosen covariance structure."""
@@ -131,6 +132,7 @@ def _initial_theta(q: int, cov_type: str, s2_init: float) -> np.ndarray:
 # Per-group pre-processed block
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class _GroupBlock:
     """
@@ -145,10 +147,11 @@ class _GroupBlock:
     ``predict(data=None)`` return predictions aligned with that
     dataframe rather than the group-iteration order.
     """
+
     key: object
-    y: np.ndarray               # (n_j,)
-    X: np.ndarray               # (n_j, p)
-    Z: np.ndarray               # (n_j, q)  (intercept-first ordering)
+    y: np.ndarray  # (n_j,)
+    X: np.ndarray  # (n_j, p)
+    Z: np.ndarray  # (n_j, q)  (intercept-first ordering)
     n: int
     row_idx: Optional[np.ndarray] = None  # positions into original df
 
@@ -195,6 +198,7 @@ def _group_blocks(
 # Marginal-covariance Cholesky helper
 # ---------------------------------------------------------------------------
 
+
 def _solve_V(V: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, float]:
     """
     Solve V x = B via Cholesky and return (x, log|V|).
@@ -212,6 +216,7 @@ def _solve_V(V: np.ndarray, B: np.ndarray) -> Tuple[np.ndarray, float]:
 # ---------------------------------------------------------------------------
 # Formula helpers (intercept handling)
 # ---------------------------------------------------------------------------
+
 
 def _prepare_frame(
     data: pd.DataFrame,

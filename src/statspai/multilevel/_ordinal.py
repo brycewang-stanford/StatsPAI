@@ -59,7 +59,6 @@ from ._core import (
 )
 from .glmm import MEGLMResult, _gh_nodes
 
-
 _LOG_2PI = float(np.log(2.0 * np.pi))
 _EPS = 1e-12
 
@@ -146,8 +145,12 @@ def _ordinal_pieces(
     a = upper_kappa - eta  # for k < K
     b = lower_kappa - eta  # for k > 1
 
-    F_a = np.where(np.isinf(a) & (a > 0), 1.0, _logistic_cdf(np.where(np.isinf(a), 0.0, a)))
-    F_b = np.where(np.isinf(b) & (b < 0), 0.0, _logistic_cdf(np.where(np.isinf(b), 0.0, b)))
+    F_a = np.where(
+        np.isinf(a) & (a > 0), 1.0, _logistic_cdf(np.where(np.isinf(a), 0.0, a))
+    )
+    F_b = np.where(
+        np.isinf(b) & (b < 0), 0.0, _logistic_cdf(np.where(np.isinf(b), 0.0, b))
+    )
 
     p_obs = np.clip(F_a - F_b, _EPS, 1.0)
 
@@ -162,32 +165,30 @@ def _ordinal_pieces(
     # Need full per-obs cumulative CDFs at the K-1 thresholds.
     # Vectorised: F_k = F(κ_k - η_i) shape (n, K-1).
     eta_col = eta[:, None]
-    cdf_args = kappa[None, :] - eta_col           # (n, K-1)
-    Fk = _logistic_cdf(cdf_args)                  # (n, K-1)
-    fk = Fk * (1.0 - Fk)                          # (n, K-1)
+    cdf_args = kappa[None, :] - eta_col  # (n, K-1)
+    Fk = _logistic_cdf(cdf_args)  # (n, K-1)
+    fk = Fk * (1.0 - Fk)  # (n, K-1)
     # P_k for k=1..K, and Δf_k = f_{k-1}(t) - f_k(t).
     # Build (n, K) probabilities with sentinel 0/1 at the boundaries.
     F_full = np.concatenate(
         [np.zeros((n, 1)), Fk, np.ones((n, 1))], axis=1
-    )                                              # (n, K+1) where col0=0, colK=1
+    )  # (n, K+1) where col0=0, colK=1
     # P_k = F_full[:, k] - F_full[:, k-1] for k=1..K (1-indexed), so columns 1..K
-    Pk_all = np.diff(F_full, axis=1)               # (n, K)
+    Pk_all = np.diff(F_full, axis=1)  # (n, K)
     Pk_all = np.clip(Pk_all, _EPS, 1.0)
 
     # f columns boundary-padded: f_0 = 0, f_K = 0
     fk_full = np.concatenate(
         [np.zeros((n, 1)), fk, np.zeros((n, 1))], axis=1
-    )                                              # (n, K+1)
-    df_k = fk_full[:, :-1] - fk_full[:, 1:]        # (n, K) is f_{k-1}-f_k
-    fisher_w = np.sum(df_k ** 2 / Pk_all, axis=1)
+    )  # (n, K+1)
+    df_k = fk_full[:, :-1] - fk_full[:, 1:]  # (n, K) is f_{k-1}-f_k
+    fisher_w = np.sum(df_k**2 / Pk_all, axis=1)
 
     log_p_obs = np.log(p_obs)
     return p_obs, score_eta, fisher_w, log_p_obs
 
 
-def _ordinal_log_lik(
-    y_codes: np.ndarray, eta: np.ndarray, kappa: np.ndarray
-) -> float:
+def _ordinal_log_lik(y_codes: np.ndarray, eta: np.ndarray, kappa: np.ndarray) -> float:
     _, _, _, log_p = _ordinal_pieces(y_codes, eta, kappa)
     return float(np.sum(log_p))
 
@@ -299,14 +300,13 @@ def _ordinal_nll(
             for k, u_k in enumerate(u_grid):
                 eta_k = block.X @ beta + block.Z[:, 0] * u_k + off
                 log_lik_vals[k] = _ordinal_log_lik(y_c, eta_k, kappa)
-            log_prior = (
-                -0.5 * (_LOG_2PI + np.log(max(sigma2, _EPS)))
-                - 0.5 * u_grid ** 2 / max(sigma2, _EPS)
-            )
+            log_prior = -0.5 * (
+                _LOG_2PI + np.log(max(sigma2, _EPS))
+            ) - 0.5 * u_grid**2 / max(sigma2, _EPS)
             log_terms = (
                 log_lik_vals
                 + log_prior
-                + aghq_nodes ** 2
+                + aghq_nodes**2
                 + aghq_log_weights
                 + 0.5 * (np.log(2.0) + 2.0 * np.log(sigma_hat))
             )
@@ -326,8 +326,12 @@ def _ordinal_nll(
 
 
 def _ordinal_glm_init(
-    X: np.ndarray, y_codes: np.ndarray, K: int, off: np.ndarray,
-    maxiter: int = 30, tol: float = 1e-6,
+    X: np.ndarray,
+    y_codes: np.ndarray,
+    K: int,
+    off: np.ndarray,
+    maxiter: int = 30,
+    tol: float = 1e-6,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Plain ordinal logit (no random effects) for warm start."""
     p = X.shape[1]
@@ -343,7 +347,9 @@ def _ordinal_glm_init(
         return -_ordinal_log_lik(y_codes, eta, kap)
 
     res = minimize(
-        _nll, theta, method="L-BFGS-B",
+        _nll,
+        theta,
+        method="L-BFGS-B",
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
     )
     return res.x[:p], res.x[p:]
@@ -435,15 +441,13 @@ def meologit(
         levels = sorted(y_raw.dropna().unique().tolist())
     K = len(levels)
     if K < 3:
-        raise ValueError(
-            f"meologit() requires at least 3 outcome categories; got {K}."
-        )
+        raise ValueError(f"meologit() requires at least 3 outcome categories; got {K}.")
     code_map = {lvl: k + 1 for k, lvl in enumerate(levels)}
     df = df.copy()
     df[y] = df[y].map(code_map).astype(int)
 
     # Build per-group blocks.  meologit has NO intercept in β: drop it from X.
-    p_fixed = len(x_fixed)              # no intercept
+    p_fixed = len(x_fixed)  # no intercept
     q_random = 1 + len(x_random_cols)
     n_cov_pars = _n_cov_params(q_random, cov_type)
 
@@ -465,8 +469,11 @@ def meologit(
             Z_j = sub[["__intercept__"] + list(x_random_cols)].to_numpy(dtype=float)
         else:
             Z_j = sub[["__intercept__"]].to_numpy(dtype=float)
-        blocks.append(_GroupBlock(key=key, y=y_c.astype(float),
-                                   X=X_j, Z=Z_j, n=len(sub), row_idx=idx))
+        blocks.append(
+            _GroupBlock(
+                key=key, y=y_c.astype(float), X=X_j, Z=Z_j, n=len(sub), row_idx=idx
+            )
+        )
         y_codes_list.append(y_c)
         if offset:
             offsets_list.append(sub[offset].to_numpy(dtype=float))
@@ -490,11 +497,20 @@ def meologit(
         gh_log_weights = np.log(weights)
 
     res = minimize(
-        _ordinal_nll, theta0,
+        _ordinal_nll,
+        theta0,
         args=(
-            blocks, y_codes_list, offsets_list,
-            p_fixed, q_random, K, cov_type, u_cache,
-            nAGQ, gh_nodes, gh_log_weights,
+            blocks,
+            y_codes_list,
+            offsets_list,
+            p_fixed,
+            q_random,
+            K,
+            cov_type,
+            u_cache,
+            nAGQ,
+            gh_nodes,
+            gh_log_weights,
         ),
         method="L-BFGS-B",
         options={"maxiter": maxiter, "ftol": tol, "gtol": tol},
@@ -570,8 +586,11 @@ def meologit(
     method = "laplace" if nAGQ == 1 else f"AGHQ(nAGQ={nAGQ})"
 
     return MEGLMResult(
-        fixed_effects=pd.Series(beta_hat, index=fixed_names) if p_fixed
-                        else pd.Series(dtype=float),
+        fixed_effects=(
+            pd.Series(beta_hat, index=fixed_names)
+            if p_fixed
+            else pd.Series(dtype=float)
+        ),
         random_effects=random_effects_df,
         variance_components=vc,
         blups=blup_dict,
@@ -580,8 +599,9 @@ def meologit(
         log_likelihood=float(-res.fun),
         family="ordinal",
         link="logit",
-        _se_fixed=pd.Series(se_beta, index=fixed_names) if p_fixed
-                    else pd.Series(dtype=float),
+        _se_fixed=(
+            pd.Series(se_beta, index=fixed_names) if p_fixed else pd.Series(dtype=float)
+        ),
         _cov_fixed=cov_beta,
         _G=G_hat,
         _x_fixed=x_fixed,

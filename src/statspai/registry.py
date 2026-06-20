@@ -689,9 +689,19 @@ def _build_registry() -> None:
             description="Quantile regression at specified quantile(s).",
             params=[
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("formula", "str", False, None, "'y ~ x1 + x2' (alternative to y/x)"),
-                ParamSpec("y", "str", False, None, "Outcome column (alternative to formula)"),
-                ParamSpec("x", "list", False, None, "Regressor columns (alternative to formula)"),
+                ParamSpec(
+                    "formula", "str", False, None, "'y ~ x1 + x2' (alternative to y/x)"
+                ),
+                ParamSpec(
+                    "y", "str", False, None, "Outcome column (alternative to formula)"
+                ),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    None,
+                    "Regressor columns (alternative to formula)",
+                ),
                 ParamSpec("quantile", "float", False, 0.5, "Quantile (0-1)"),
             ],
             returns="EconometricResults",
@@ -755,9 +765,23 @@ def _build_registry() -> None:
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Censored outcome variable"),
                 ParamSpec("x", "list", True, description="Regressors"),
-                ParamSpec("ll", "float", False, 0.0, "Lower censoring limit (set -inf for none)"),
-                ParamSpec("ul", "float", False, None, "Upper censoring limit (default: none)"),
-                ParamSpec("alpha", "float", False, 0.05, "Significance level for confidence intervals"),
+                ParamSpec(
+                    "ll",
+                    "float",
+                    False,
+                    0.0,
+                    "Lower censoring limit (set -inf for none)",
+                ),
+                ParamSpec(
+                    "ul", "float", False, None, "Upper censoring limit (default: none)"
+                ),
+                ParamSpec(
+                    "alpha",
+                    "float",
+                    False,
+                    0.05,
+                    "Significance level for confidence intervals",
+                ),
             ],
             returns="EconometricResults",
             example='sp.tobit(df, y="hours", x=["wage", "kids"], ll=0)',
@@ -1184,8 +1208,12 @@ def _build_registry() -> None:
                     "fuzzy", "str", False, None, "Treatment variable for fuzzy RD"
                 ),
                 ParamSpec("deriv", "int", False, 0, "Derivative order (0=RD, 1=RKD)"),
-                ParamSpec("p", "int", False, 1, "Polynomial order for point estimation"),
-                ParamSpec("q", "int", False, None, "Polynomial order for bias correction"),
+                ParamSpec(
+                    "p", "int", False, 1, "Polynomial order for point estimation"
+                ),
+                ParamSpec(
+                    "q", "int", False, None, "Polynomial order for bias correction"
+                ),
                 ParamSpec(
                     "bwselect",
                     "str",
@@ -1208,9 +1236,13 @@ def _build_registry() -> None:
                     ],
                 ),
                 ParamSpec("h", "float", False, None, "Manual estimation bandwidth"),
-                ParamSpec("b", "float", False, None, "Manual bias-correction bandwidth"),
+                ParamSpec(
+                    "b", "float", False, None, "Manual bias-correction bandwidth"
+                ),
                 ParamSpec("rho", "float", False, None, "Ratio h/b for bias correction"),
-                ParamSpec("covs", "list", False, None, "Covariate names for adjusted RD"),
+                ParamSpec(
+                    "covs", "list", False, None, "Covariate names for adjusted RD"
+                ),
                 ParamSpec("cluster", "str", False, None, "Cluster variable for SEs"),
                 ParamSpec("donut", "float", False, 0.0, "Donut-hole radius"),
                 ParamSpec(
@@ -1788,7 +1820,9 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("treat", "str", True, description="Binary treatment column (0/1)"),
+                ParamSpec(
+                    "treat", "str", True, description="Binary treatment column (0/1)"
+                ),
                 ParamSpec("covariates", "list", True),
                 ParamSpec(
                     "learner",
@@ -1927,29 +1961,68 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
-                ParamSpec("treat", "str", True, description="Binary treatment column (0/1)"),
-                ParamSpec("covariates", "list", True),
-                ParamSpec("outcome", "str", False, None, "Outcome variable (Stata outcome(); optional)"),
                 ParamSpec(
-                    "method", "str", False, "neighbor",
-                    "Matching algorithm", ["neighbor", "kernel", "radius"],
+                    "treat", "str", True, description="Binary treatment column (0/1)"
                 ),
-                ParamSpec("neighbor", "int", False, 1, "Number of nearest neighbours k"),
-                ParamSpec("caliper", "float", False, None, "Max PS distance / radius bandwidth"),
+                ParamSpec("covariates", "list", True),
                 ParamSpec(
-                    "kernel", "str", False, "epan",
+                    "outcome",
+                    "str",
+                    False,
+                    None,
+                    "Outcome variable (Stata outcome(); optional)",
+                ),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "neighbor",
+                    "Matching algorithm",
+                    ["neighbor", "kernel", "radius"],
+                ),
+                ParamSpec(
+                    "neighbor", "int", False, 1, "Number of nearest neighbours k"
+                ),
+                ParamSpec(
+                    "caliper",
+                    "float",
+                    False,
+                    None,
+                    "Max PS distance / radius bandwidth",
+                ),
+                ParamSpec(
+                    "kernel",
+                    "str",
+                    False,
+                    "epan",
                     "Kernel type (method='kernel')",
                     ["epan", "normal", "biweight", "uniform", "tricube"],
                 ),
-                ParamSpec("bwidth", "float", False, 0.06, "Kernel bandwidth (method='kernel')"),
                 ParamSpec(
-                    "se", "str", False, "psmatch2",
-                    "Standard-error estimator", ["psmatch2", "ai", "abadie_imbens"],
+                    "bwidth", "float", False, 0.06, "Kernel bandwidth (method='kernel')"
                 ),
-                ParamSpec("ai", "int", False, 0, "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))"),
                 ParamSpec(
-                    "common_support", "str", False, "none",
-                    "Common-support trimming", ["none", "minmax"],
+                    "se",
+                    "str",
+                    False,
+                    "psmatch2",
+                    "Standard-error estimator",
+                    ["psmatch2", "ai", "abadie_imbens"],
+                ),
+                ParamSpec(
+                    "ai",
+                    "int",
+                    False,
+                    0,
+                    "Abadie-Imbens (2006) robust SE with J within-arm matches (Stata ai(J))",
+                ),
+                ParamSpec(
+                    "common_support",
+                    "str",
+                    False,
+                    "none",
+                    "Common-support trimming",
+                    ["none", "minmax"],
                 ),
             ],
             returns="PSMatch2Result (.matched_data / .balance() / .psplot() / .psm_did())",
@@ -1997,7 +2070,9 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True),
-                ParamSpec("treat", "str", True, description="Binary treatment column (0/1)"),
+                ParamSpec(
+                    "treat", "str", True, description="Binary treatment column (0/1)"
+                ),
                 ParamSpec("covariates", "list", True),
                 ParamSpec("estimand", "str", False, "ATE", "Target estimand"),
             ],
@@ -2660,8 +2735,12 @@ def _build_registry() -> None:
             params=[
                 ParamSpec("data", "DataFrame", True),
                 ParamSpec("y", "str", True, description="Outcome column"),
-                ParamSpec("treat", "str", True, description="Treatment column of interest"),
-                ParamSpec("controls", "list", True, description="Observed control variables"),
+                ParamSpec(
+                    "treat", "str", True, description="Treatment column of interest"
+                ),
+                ParamSpec(
+                    "controls", "list", True, description="Observed control variables"
+                ),
                 ParamSpec(
                     "benchmark",
                     "list",
@@ -3352,7 +3431,9 @@ def _build_registry() -> None:
                 ParamSpec(
                     "covariates", "list", False, description="Pre-treatment confounders"
                 ),
-                ParamSpec("n_boot", "int", False, 1000, "Bootstrap reps for NDE/NIE CIs"),
+                ParamSpec(
+                    "n_boot", "int", False, 1000, "Bootstrap reps for NDE/NIE CIs"
+                ),
                 ParamSpec("alpha", "float", False, 0.05),
             ],
             returns="MediationAnalysis with .NDE, .NIE, .total, .proportion_mediated",
@@ -3438,7 +3519,7 @@ def _build_registry() -> None:
             returns="BartikIV result",
             example=(
                 'sp.bartik(df, y="wage_growth", endog="emp_growth", '
-                'shares=share_matrix, shocks=industry_shocks)'
+                "shares=share_matrix, shocks=industry_shocks)"
             ),
             tags=["bartik", "shift-share", "iv", "causal", "labor", "trade"],
             reference="Adão, Kolesár & Morales (2019) QJE; Borusyak, Hull & Jaravel (2022) ReStud",
@@ -3877,11 +3958,28 @@ def _build_registry() -> None:
                 "diagnostics."
             ),
             params=[
-                ParamSpec("method", "str", True, description="OPE estimator name (ips, snips, dr, switch_dr, dm)"),
+                ParamSpec(
+                    "method",
+                    "str",
+                    True,
+                    description="OPE estimator name (ips, snips, dr, switch_dr, dm)",
+                ),
                 ParamSpec("value", "float", True, description="Estimated policy value"),
-                ParamSpec("se", "float", True, description="Standard error of the value estimate"),
-                ParamSpec("ci", "tuple", True, description="Confidence interval (lo, hi)"),
-                ParamSpec("diagnostics", "dict", True, description="Importance-ratio diagnostics"),
+                ParamSpec(
+                    "se",
+                    "float",
+                    True,
+                    description="Standard error of the value estimate",
+                ),
+                ParamSpec(
+                    "ci", "tuple", True, description="Confidence interval (lo, hi)"
+                ),
+                ParamSpec(
+                    "diagnostics",
+                    "dict",
+                    True,
+                    description="Importance-ratio diagnostics",
+                ),
             ],
             returns="OPEResult",
             tags=["ope", "contextual_bandits", "rl"],
@@ -6462,7 +6560,9 @@ def _build_registry() -> None:
                 ParamSpec("state", "str", True, description="State column(s)"),
                 ParamSpec("action", "str", True),
                 ParamSpec("reward", "str", True),
-                ParamSpec("next_state", "str", True, description="Next-state column(s)"),
+                ParamSpec(
+                    "next_state", "str", True, description="Next-state column(s)"
+                ),
                 ParamSpec("discount", "float", False, 0.95, "Discount factor"),
                 ParamSpec("n_iter", "int", False, 100, "Fitted-Q iterations"),
             ],
@@ -12669,20 +12769,17 @@ def _json_schema_type(type_name: str) -> str:
         "set",
     )
     container_positions = [
-        pos
-        for tok in container_tokens
-        if (pos := lower.find(tok)) >= 0
+        pos for tok in container_tokens if (pos := lower.find(tok)) >= 0
     ]
-    first_container_pos = (
-        min(container_positions) if container_positions else -1
-    )
-    if unionish and bool_pos >= 0 and (
-        first_container_pos < 0 or bool_pos < first_container_pos
+    first_container_pos = min(container_positions) if container_positions else -1
+    if (
+        unionish
+        and bool_pos >= 0
+        and (first_container_pos < 0 or bool_pos < first_container_pos)
     ):
         return "boolean"
     if any(
-        token in lower
-        for token in ("list", "sequence", "iterable", "tuple", "set")
+        token in lower for token in ("list", "sequence", "iterable", "tuple", "set")
     ):
         return "array"
     if any(token in lower for token in ("dict", "mapping")):

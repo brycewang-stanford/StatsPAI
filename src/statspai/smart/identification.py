@@ -48,6 +48,7 @@ Usage
 >>> print(diag.summary())
 >>> diag.verdict   # 'OK' | 'WARNINGS' | 'BLOCKERS'
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -58,10 +59,10 @@ import pandas as pd
 
 from ..workflow._degradation import record_degradation
 
-
 # ---------------------------------------------------------------------------
 # Exception type for strict mode
 # ---------------------------------------------------------------------------
+
 
 class IdentificationError(Exception):
     """Raised by ``check_identification(strict=True)`` when a blocker is found.
@@ -84,19 +85,21 @@ class IdentificationError(Exception):
     'BLOCKERS'
     """
 
-    def __init__(self, report: 'IdentificationReport'):
+    def __init__(self, report: "IdentificationReport"):
         self.report = report
-        blockers = [f for f in report.findings if f.severity == 'blocker']
-        header = (f"Identification has {len(blockers)} blocker(s) "
-                  f"({report.design} design, N={report.n_obs})")
-        body = '\n'.join(f'  - {f.category}: {f.message}'
-                         for f in blockers)
+        blockers = [f for f in report.findings if f.severity == "blocker"]
+        header = (
+            f"Identification has {len(blockers)} blocker(s) "
+            f"({report.design} design, N={report.n_obs})"
+        )
+        body = "\n".join(f"  - {f.category}: {f.message}" for f in blockers)
         super().__init__(f"{header}\n{body}" if body else header)
 
 
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class DiagnosticFinding:
@@ -119,6 +122,7 @@ class DiagnosticFinding:
     >>> f.icon
     '[!]'
     """
+
     severity: str  # 'blocker' | 'warning' | 'info'
     category: str  # 'bad_controls' | 'overlap' | 'power' | 'variation' | 'clustering'
     message: str
@@ -127,8 +131,9 @@ class DiagnosticFinding:
 
     @property
     def icon(self) -> str:
-        return {'blocker': '[X]', 'warning': '[!]', 'info': '[i]'}.get(
-            self.severity, '[?]')
+        return {"blocker": "[X]", "warning": "[!]", "info": "[i]"}.get(
+            self.severity, "[?]"
+        )
 
 
 @dataclass
@@ -158,63 +163,69 @@ class IdentificationReport:
     >>> bool("Identification Diagnostics" in rep.summary())
     True
     """
+
     findings: List[DiagnosticFinding] = field(default_factory=list)
-    design: str = ''
+    design: str = ""
     n_obs: int = 0
     n_units: Optional[int] = None
 
     @property
     def verdict(self) -> str:
         """Overall verdict: BLOCKERS | WARNINGS | OK."""
-        if any(f.severity == 'blocker' for f in self.findings):
-            return 'BLOCKERS'
-        if any(f.severity == 'warning' for f in self.findings):
-            return 'WARNINGS'
-        return 'OK'
+        if any(f.severity == "blocker" for f in self.findings):
+            return "BLOCKERS"
+        if any(f.severity == "warning" for f in self.findings):
+            return "WARNINGS"
+        return "OK"
 
     def by_category(self, category: str) -> List[DiagnosticFinding]:
         return [f for f in self.findings if f.category == category]
 
     def summary(self) -> str:
         lines = [
-            '=' * 70,
-            'Identification Diagnostics',
-            '=' * 70,
-            f'  Design:    {self.design}',
-            f'  N obs:     {self.n_obs:,}',
+            "=" * 70,
+            "Identification Diagnostics",
+            "=" * 70,
+            f"  Design:    {self.design}",
+            f"  N obs:     {self.n_obs:,}",
         ]
         if self.n_units is not None:
-            lines.append(f'  N units:   {self.n_units:,}')
-        lines.extend([
-            f'  Verdict:   {self.verdict}',
-            '-' * 70,
-        ])
+            lines.append(f"  N units:   {self.n_units:,}")
+        lines.extend(
+            [
+                f"  Verdict:   {self.verdict}",
+                "-" * 70,
+            ]
+        )
         if not self.findings:
-            lines.append('  No issues detected.')
+            lines.append("  No issues detected.")
         else:
             # Order: blockers first, then warnings, then info
-            order = {'blocker': 0, 'warning': 1, 'info': 2}
+            order = {"blocker": 0, "warning": 1, "info": 2}
             findings = sorted(self.findings, key=lambda f: order.get(f.severity, 3))
             for f in findings:
-                lines.append(f'  {f.icon} [{f.category.upper()}] {f.message}')
+                lines.append(f"  {f.icon} [{f.category.upper()}] {f.message}")
                 if f.suggestion:
-                    lines.append(f'     -> {f.suggestion}')
-        lines.append('=' * 70)
-        return '\n'.join(lines)
+                    lines.append(f"     -> {f.suggestion}")
+        lines.append("=" * 70)
+        return "\n".join(lines)
 
     def __repr__(self) -> str:
         counts = {
-            'blocker': sum(1 for f in self.findings if f.severity == 'blocker'),
-            'warning': sum(1 for f in self.findings if f.severity == 'warning'),
-            'info': sum(1 for f in self.findings if f.severity == 'info'),
+            "blocker": sum(1 for f in self.findings if f.severity == "blocker"),
+            "warning": sum(1 for f in self.findings if f.severity == "warning"),
+            "info": sum(1 for f in self.findings if f.severity == "info"),
         }
-        return (f"<IdentificationReport {self.design}: {self.verdict}, "
-                f"B{counts['blocker']} W{counts['warning']} I{counts['info']}>")
+        return (
+            f"<IdentificationReport {self.design}: {self.verdict}, "
+            f"B{counts['blocker']} W{counts['warning']} I{counts['info']}>"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Core checks
 # ---------------------------------------------------------------------------
+
 
 def _check_bad_controls(
     data: pd.DataFrame,
@@ -230,11 +241,11 @@ def _check_bad_controls(
     # Heuristic 1: covariate's correlation with TREATMENT is suspiciously
     # high — it may be a mediator.  Flag when |corr| > 0.5.
     if treatment in data.columns:
-        t_series = pd.to_numeric(data[treatment], errors='coerce')
+        t_series = pd.to_numeric(data[treatment], errors="coerce")
         for c in covariates:
             if c not in data.columns or c == treatment:
                 continue
-            c_series = pd.to_numeric(data[c], errors='coerce')
+            c_series = pd.to_numeric(data[c], errors="coerce")
             if c_series.isna().all():
                 continue
             try:
@@ -242,16 +253,18 @@ def _check_bad_controls(
             except Exception:
                 continue
             if pd.notna(corr) and abs(corr) > 0.5:
-                findings.append(DiagnosticFinding(
-                    severity='warning',
-                    category='bad_controls',
-                    message=f"Covariate '{c}' has |corr| = {abs(corr):.2f} "
-                            f"with treatment '{treatment}'; may be a "
-                            f"mediator (bad control).",
-                    suggestion=f"Verify '{c}' is pre-treatment. If it is "
-                               f"determined AFTER treatment, drop it.",
-                    evidence={'covariate': c, 'corr_with_treatment': float(corr)},
-                ))
+                findings.append(
+                    DiagnosticFinding(
+                        severity="warning",
+                        category="bad_controls",
+                        message=f"Covariate '{c}' has |corr| = {abs(corr):.2f} "
+                        f"with treatment '{treatment}'; may be a "
+                        f"mediator (bad control).",
+                        suggestion=f"Verify '{c}' is pre-treatment. If it is "
+                        f"determined AFTER treatment, drop it.",
+                        evidence={"covariate": c, "corr_with_treatment": float(corr)},
+                    )
+                )
 
     # Heuristic 2: panel data with time — check for post-treatment
     # covariates by comparing pre vs post treatment-period variance
@@ -276,16 +289,21 @@ def _check_overlap(
     try:
         from sklearn.linear_model import LogisticRegression
     except ImportError:
-        findings.append(DiagnosticFinding(
-            severity='info',
-            category='overlap',
-            message='scikit-learn not installed; skipping PS overlap check.',
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="info",
+                category="overlap",
+                message="scikit-learn not installed; skipping PS overlap check.",
+            )
+        )
         return
 
     # Build design matrix
-    ok_cov = [c for c in covariates if c in data.columns
-              and pd.api.types.is_numeric_dtype(data[c])]
+    ok_cov = [
+        c
+        for c in covariates
+        if c in data.columns and pd.api.types.is_numeric_dtype(data[c])
+    ]
     if not ok_cov:
         return
     X = data[ok_cov].fillna(data[ok_cov].median())
@@ -306,41 +324,50 @@ def _check_overlap(
             exc=exc,
             detail=f"covariates={ok_cov}",
         )
-        findings.append(DiagnosticFinding(
-            severity='info',
-            category='overlap',
-            message=(
-                f"Propensity-score overlap check skipped: logistic fit "
-                f"failed ({type(exc).__name__}: {exc}). Cannot assess "
-                f"common support automatically."
-            ),
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="info",
+                category="overlap",
+                message=(
+                    f"Propensity-score overlap check skipped: logistic fit "
+                    f"failed ({type(exc).__name__}: {exc}). Cannot assess "
+                    f"common support automatically."
+                ),
+            )
+        )
         return
 
     frac_extreme = ((ps < 0.02) | (ps > 0.98)).mean()
     min_p, max_p = ps.min(), ps.max()
 
     if frac_extreme > 0.05:
-        findings.append(DiagnosticFinding(
-            severity='warning',
-            category='overlap',
-            message=f'{frac_extreme:.1%} of units have propensity scores '
-                    f'outside [0.02, 0.98] (min={min_p:.3f}, max={max_p:.3f}).',
-            suggestion='Trim extreme PS units or use sp.overlap_weights '
-                       '(ATO) for a well-defined estimand.',
-            evidence={'frac_extreme_ps': float(frac_extreme),
-                      'min_ps': float(min_p), 'max_ps': float(max_p)},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="warning",
+                category="overlap",
+                message=f"{frac_extreme:.1%} of units have propensity scores "
+                f"outside [0.02, 0.98] (min={min_p:.3f}, max={max_p:.3f}).",
+                suggestion="Trim extreme PS units or use sp.overlap_weights "
+                "(ATO) for a well-defined estimand.",
+                evidence={
+                    "frac_extreme_ps": float(frac_extreme),
+                    "min_ps": float(min_p),
+                    "max_ps": float(max_p),
+                },
+            )
+        )
     if min_p < 1e-3 or max_p > 1 - 1e-3:
-        findings.append(DiagnosticFinding(
-            severity='blocker',
-            category='overlap',
-            message=f'Near-perfect separation (PS min={min_p:.4f}, '
-                    f'max={max_p:.4f}). ATE/ATT are not identified.',
-            suggestion='Check for deterministic treatment rules; restrict '
-                       'the sample to a region of common support.',
-            evidence={'min_ps': float(min_p), 'max_ps': float(max_p)},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="blocker",
+                category="overlap",
+                message=f"Near-perfect separation (PS min={min_p:.4f}, "
+                f"max={max_p:.4f}). ATE/ATT are not identified.",
+                suggestion="Check for deterministic treatment rules; restrict "
+                "the sample to a region of common support.",
+                evidence={"min_ps": float(min_p), "max_ps": float(max_p)},
+            )
+        )
 
 
 def _check_treatment_variation(
@@ -358,23 +385,27 @@ def _check_treatment_variation(
     if len(uniq) == 2:
         frac_t = (t == max(uniq)).mean()
         if frac_t < 0.05:
-            findings.append(DiagnosticFinding(
-                severity='warning',
-                category='variation',
-                message=f'Only {frac_t:.1%} of units are treated.  Power '
-                        f'will be limited; SEs will be large.',
-                suggestion='Consider oversampling controls or using '
-                           'entropy balancing for efficiency.',
-                evidence={'frac_treated': float(frac_t)},
-            ))
+            findings.append(
+                DiagnosticFinding(
+                    severity="warning",
+                    category="variation",
+                    message=f"Only {frac_t:.1%} of units are treated.  Power "
+                    f"will be limited; SEs will be large.",
+                    suggestion="Consider oversampling controls or using "
+                    "entropy balancing for efficiency.",
+                    evidence={"frac_treated": float(frac_t)},
+                )
+            )
         elif frac_t > 0.95:
-            findings.append(DiagnosticFinding(
-                severity='warning',
-                category='variation',
-                message=f'{frac_t:.1%} of units are treated. Very few '
-                        f'controls; consider reversing treatment definition.',
-                evidence={'frac_treated': float(frac_t)},
-            ))
+            findings.append(
+                DiagnosticFinding(
+                    severity="warning",
+                    category="variation",
+                    message=f"{frac_t:.1%} of units are treated. Very few "
+                    f"controls; consider reversing treatment definition.",
+                    evidence={"frac_treated": float(frac_t)},
+                )
+            )
 
 
 def _check_did_cohort_sizes(
@@ -401,29 +432,34 @@ def _check_did_cohort_sizes(
     frac_never = never / total
 
     if frac_never < 0.1:
-        findings.append(DiagnosticFinding(
-            severity='warning',
-            category='variation',
-            message=f'Only {frac_never:.1%} of units are never-treated '
-                    f'(n={never}).  Callaway-Sant\'Anna with '
-                    f'control_group="nevertreated" may be noisy.',
-            suggestion='Use control_group="notyettreated" for more '
-                       'comparisons.',
-            evidence={'frac_never_treated': float(frac_never),
-                      'n_never_treated': int(never)},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="warning",
+                category="variation",
+                message=f"Only {frac_never:.1%} of units are never-treated "
+                f"(n={never}).  Callaway-Sant'Anna with "
+                f'control_group="nevertreated" may be noisy.',
+                suggestion='Use control_group="notyettreated" for more ' "comparisons.",
+                evidence={
+                    "frac_never_treated": float(frac_never),
+                    "n_never_treated": int(never),
+                },
+            )
+        )
 
     small_cohorts = counts[(counts < 10) & (counts.index != 0)]
     if len(small_cohorts) > 0:
-        findings.append(DiagnosticFinding(
-            severity='warning',
-            category='variation',
-            message=f'Small treatment cohorts detected: '
-                    f'{dict(small_cohorts.astype(int))} (units < 10 each).',
-            suggestion='Cohort-level ATTs will be noisy.  Aggregate to '
-                       'broader cohorts or report simple ATT only.',
-            evidence={'small_cohorts': dict(small_cohorts.astype(int))},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="warning",
+                category="variation",
+                message=f"Small treatment cohorts detected: "
+                f"{dict(small_cohorts.astype(int))} (units < 10 each).",
+                suggestion="Cohort-level ATTs will be noisy.  Aggregate to "
+                "broader cohorts or report simple ATT only.",
+                evidence={"small_cohorts": dict(small_cohorts.astype(int))},
+            )
+        )
 
 
 def _check_power(
@@ -445,8 +481,8 @@ def _check_power(
     except ImportError:
         return
 
-    t = pd.to_numeric(data[treatment], errors='coerce')
-    y = pd.to_numeric(data[outcome], errors='coerce')
+    t = pd.to_numeric(data[treatment], errors="coerce")
+    y = pd.to_numeric(data[outcome], errors="coerce")
     mask = ~(t.isna() | y.isna())
     t, y = t[mask], y[mask]
     if len(t) == 0:
@@ -462,35 +498,45 @@ def _check_power(
         return
 
     sigma = float(y.std())
-    z_a = sps.norm.ppf(1 - alpha/2)
+    z_a = sps.norm.ppf(1 - alpha / 2)
     z_b = sps.norm.ppf(power)
-    mde = (z_a + z_b) * sigma * np.sqrt(1/n_t + 1/n_c)
+    mde = (z_a + z_b) * sigma * np.sqrt(1 / n_t + 1 / n_c)
 
     # Compare to observed effect if possible
     mean_diff = float(y[t == max(uniq)].mean() - y[t == min(uniq)].mean())
 
     if abs(mean_diff) < 0.5 * mde:
-        findings.append(DiagnosticFinding(
-            severity='warning',
-            category='power',
-            message=f'Observed raw mean-diff ({mean_diff:.3f}) is less '
-                    f'than half the MDE ({mde:.3f}).  Underpowered for the '
-                    f'observed effect.',
-            suggestion='Increase sample size, reduce noise, or revise '
-                       'hypothesised effect.',
-            evidence={'mde_80pct_power': float(mde),
-                      'observed_raw_diff': float(mean_diff),
-                      'n_treated': n_t, 'n_control': n_c},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="warning",
+                category="power",
+                message=f"Observed raw mean-diff ({mean_diff:.3f}) is less "
+                f"than half the MDE ({mde:.3f}).  Underpowered for the "
+                f"observed effect.",
+                suggestion="Increase sample size, reduce noise, or revise "
+                "hypothesised effect.",
+                evidence={
+                    "mde_80pct_power": float(mde),
+                    "observed_raw_diff": float(mean_diff),
+                    "n_treated": n_t,
+                    "n_control": n_c,
+                },
+            )
+        )
     else:
-        findings.append(DiagnosticFinding(
-            severity='info',
-            category='power',
-            message=f'MDE at 80% power: {mde:.4f} (raw units); '
-                    f'n_treated={n_t}, n_control={n_c}.',
-            evidence={'mde_80pct_power': float(mde),
-                      'n_treated': n_t, 'n_control': n_c},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="info",
+                category="power",
+                message=f"MDE at 80% power: {mde:.4f} (raw units); "
+                f"n_treated={n_t}, n_control={n_c}.",
+                evidence={
+                    "mde_80pct_power": float(mde),
+                    "n_treated": n_t,
+                    "n_control": n_c,
+                },
+            )
+        )
 
 
 def _check_clustering(
@@ -502,27 +548,31 @@ def _check_clustering(
 ) -> None:
     if cluster is None and unit is not None and unit in data.columns:
         # Panel data without explicit clustering
-        findings.append(DiagnosticFinding(
-            severity='info',
-            category='clustering',
-            message=f"Panel data detected with unit='{unit}'.  "
-                    f"Cluster-robust SEs at the unit level are standard.",
-            suggestion=f"Pass cluster='{unit}' to the estimator; "
-                       f"if there's a higher level (e.g. firm, state), "
-                       f"consider two-way clustering.",
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="info",
+                category="clustering",
+                message=f"Panel data detected with unit='{unit}'.  "
+                f"Cluster-robust SEs at the unit level are standard.",
+                suggestion=f"Pass cluster='{unit}' to the estimator; "
+                f"if there's a higher level (e.g. firm, state), "
+                f"consider two-way clustering.",
+            )
+        )
     if cluster is not None and unit is not None and cluster == unit:
         n_clusters = data[cluster].nunique()
         if n_clusters < 30:
-            findings.append(DiagnosticFinding(
-                severity='warning',
-                category='clustering',
-                message=f"Only {n_clusters} clusters; asymptotic "
-                        f"cluster-robust SEs may be unreliable.",
-                suggestion="Use sp.wild_cluster_bootstrap for valid "
-                           "inference with few clusters.",
-                evidence={'n_clusters': int(n_clusters)},
-            ))
+            findings.append(
+                DiagnosticFinding(
+                    severity="warning",
+                    category="clustering",
+                    message=f"Only {n_clusters} clusters; asymptotic "
+                    f"cluster-robust SEs may be unreliable.",
+                    suggestion="Use sp.wild_cluster_bootstrap for valid "
+                    "inference with few clusters.",
+                    evidence={"n_clusters": int(n_clusters)},
+                )
+            )
 
 
 def _check_dag_bad_controls(
@@ -544,27 +594,33 @@ def _check_dag_bad_controls(
     try:
         dag_bad = dag.bad_controls(treatment, outcome)
     except Exception as e:
-        findings.append(DiagnosticFinding(
-            severity='info',
-            category='bad_controls',
-            message=f'DAG bad-control analysis skipped ({e}).',
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="info",
+                category="bad_controls",
+                message=f"DAG bad-control analysis skipped ({e}).",
+            )
+        )
         return
 
     requested = set(covariates or [])
     hit = {v: r for v, r in dag_bad.items() if v in requested}
     if hit:
         for v, reasons in hit.items():
-            findings.append(DiagnosticFinding(
-                severity='blocker',
-                category='bad_controls',
-                message=(f"Covariate '{v}' is a DAG-flagged bad control: "
-                         f"{'; '.join(reasons)}."),
-                suggestion=f"Remove '{v}' from the covariate set; use "
-                           f"DAG.adjustment_sets('{treatment}', "
-                           f"'{outcome}') for a valid alternative.",
-                evidence={'covariate': v, 'reasons': reasons},
-            ))
+            findings.append(
+                DiagnosticFinding(
+                    severity="blocker",
+                    category="bad_controls",
+                    message=(
+                        f"Covariate '{v}' is a DAG-flagged bad control: "
+                        f"{'; '.join(reasons)}."
+                    ),
+                    suggestion=f"Remove '{v}' from the covariate set; use "
+                    f"DAG.adjustment_sets('{treatment}', "
+                    f"'{outcome}') for a valid alternative.",
+                    evidence={"covariate": v, "reasons": reasons},
+                )
+            )
 
     # Also check that covariates form a valid adjustment set
     try:
@@ -578,26 +634,33 @@ def _check_dag_bad_controls(
             section="check_identification: DAG adjustment sets",
             exc=exc,
         )
-        findings.append(DiagnosticFinding(
-            severity='info',
-            category='bad_controls',
-            message=f'DAG adjustment-set check skipped ({exc}).',
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="info",
+                category="bad_controls",
+                message=f"DAG adjustment-set check skipped ({exc}).",
+            )
+        )
         adj_sets = []
     if adj_sets:
         valid = any(set(a).issubset(requested) for a in adj_sets)
         if not valid and requested:
             shortest = min(adj_sets, key=len)
-            findings.append(DiagnosticFinding(
-                severity='warning',
-                category='bad_controls',
-                message=('Covariate set does not satisfy any DAG '
-                         'adjustment criterion; backdoor paths may be '
-                         'open.'),
-                suggestion=f'Use adjustment set: {sorted(shortest)}.',
-                evidence={'valid_adjustment_sets': [sorted(s)
-                                                    for s in adj_sets[:3]]},
-            ))
+            findings.append(
+                DiagnosticFinding(
+                    severity="warning",
+                    category="bad_controls",
+                    message=(
+                        "Covariate set does not satisfy any DAG "
+                        "adjustment criterion; backdoor paths may be "
+                        "open."
+                    ),
+                    suggestion=f"Use adjustment set: {sorted(shortest)}.",
+                    evidence={
+                        "valid_adjustment_sets": [sorted(s) for s in adj_sets[:3]]
+                    },
+                )
+            )
 
 
 def _check_iv_strength(
@@ -632,13 +695,16 @@ def _check_iv_strength(
     # leaking a type error from a diagnostic helper.
     cov_cols: List[str] = []
     if covariates:
-        cov_cols = [c for c in covariates
-                    if c in data.columns
-                    and c not in (treatment, instrument)
-                    and pd.api.types.is_numeric_dtype(data[c])]
+        cov_cols = [
+            c
+            for c in covariates
+            if c in data.columns
+            and c not in (treatment, instrument)
+            and pd.api.types.is_numeric_dtype(data[c])
+        ]
 
     needed = [treatment, instrument] + cov_cols
-    sub = data[needed].apply(pd.to_numeric, errors='coerce').dropna()
+    sub = data[needed].apply(pd.to_numeric, errors="coerce").dropna()
     n = len(sub)
     if n < 20:
         return  # too small to say anything useful
@@ -666,20 +732,22 @@ def _check_iv_strength(
         z_res = z_vec - z_vec.mean()
         k_controls = 1  # intercept only
 
-    denom = float((z_res ** 2).sum())
+    denom = float((z_res**2).sum())
     if denom <= 0 or not np.isfinite(denom):
-        findings.append(DiagnosticFinding(
-            severity='blocker',
-            category='variation',
-            message=f"Instrument '{instrument}' has no residual variance "
-                    f"after partialling out covariates; first stage is "
-                    f"undefined.",
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="blocker",
+                category="variation",
+                message=f"Instrument '{instrument}' has no residual variance "
+                f"after partialling out covariates; first stage is "
+                f"undefined.",
+            )
+        )
         return
 
     b = float((z_res * t_res).sum() / denom)
     resid = t_res - b * z_res
-    ss_res = float((resid ** 2).sum())
+    ss_res = float((resid**2).sum())
     df_resid = n - k_controls - 1  # controls + intercept + instrument
     if df_resid <= 0:
         return
@@ -687,37 +755,43 @@ def _check_iv_strength(
     var_b = sigma2 / denom
     if var_b <= 0 or not np.isfinite(var_b):
         return
-    f_stat = float((b ** 2) / var_b)
+    f_stat = float((b**2) / var_b)
 
     if f_stat < 5.0:
-        findings.append(DiagnosticFinding(
-            severity='blocker',
-            category='variation',
-            message=f"Weak instrument: first-stage F = {f_stat:.2f} "
-                    f"(< 5). Point identification effectively fails.",
-            suggestion="Use weak-IV-robust inference "
-                       "(statspai.iv.anderson_rubin_ci / conditional_lr_ci) "
-                       "or find a stronger instrument.",
-            evidence={'first_stage_F': f_stat},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="blocker",
+                category="variation",
+                message=f"Weak instrument: first-stage F = {f_stat:.2f} "
+                f"(< 5). Point identification effectively fails.",
+                suggestion="Use weak-IV-robust inference "
+                "(statspai.iv.anderson_rubin_ci / conditional_lr_ci) "
+                "or find a stronger instrument.",
+                evidence={"first_stage_F": f_stat},
+            )
+        )
     elif f_stat < 10.0:
-        findings.append(DiagnosticFinding(
-            severity='warning',
-            category='variation',
-            message=f"Weak instrument: first-stage F = {f_stat:.2f} "
-                    f"(< 10, Staiger-Stock 1997 rule).",
-            suggestion="Use LIML / Fuller or weak-IV-robust CIs "
-                       "(statspai.iv.anderson_rubin_ci) instead of 2SLS.",
-            evidence={'first_stage_F': f_stat},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="warning",
+                category="variation",
+                message=f"Weak instrument: first-stage F = {f_stat:.2f} "
+                f"(< 10, Staiger-Stock 1997 rule).",
+                suggestion="Use LIML / Fuller or weak-IV-robust CIs "
+                "(statspai.iv.anderson_rubin_ci) instead of 2SLS.",
+                evidence={"first_stage_F": f_stat},
+            )
+        )
     elif f_stat < 30.0:
-        findings.append(DiagnosticFinding(
-            severity='info',
-            category='variation',
-            message=f"First-stage F = {f_stat:.2f} "
-                    f"(moderate instrument strength).",
-            evidence={'first_stage_F': f_stat},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="info",
+                category="variation",
+                message=f"First-stage F = {f_stat:.2f} "
+                f"(moderate instrument strength).",
+                evidence={"first_stage_F": f_stat},
+            )
+        )
 
 
 def _check_rd_density(
@@ -728,18 +802,20 @@ def _check_rd_density(
 ) -> None:
     if running_var not in data.columns:
         return
-    x = pd.to_numeric(data[running_var], errors='coerce').dropna()
+    x = pd.to_numeric(data[running_var], errors="coerce").dropna()
     if len(x) == 0:
         return
     left = (x < cutoff).sum()
     right = (x >= cutoff).sum()
     if left == 0 or right == 0:
-        findings.append(DiagnosticFinding(
-            severity='blocker',
-            category='variation',
-            message=f'No observations on {"left" if left == 0 else "right"} '
-                    f'of cutoff {cutoff}. RD is not identified.',
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="blocker",
+                category="variation",
+                message=f'No observations on {"left" if left == 0 else "right"} '
+                f"of cutoff {cutoff}. RD is not identified.",
+            )
+        )
         return
     # Local window density check (±10% of range)
     rng = x.max() - x.min()
@@ -747,23 +823,28 @@ def _check_rd_density(
     near_left = ((x >= cutoff - w) & (x < cutoff)).sum()
     near_right = ((x >= cutoff) & (x < cutoff + w)).sum()
     if near_left < 20 or near_right < 20:
-        findings.append(DiagnosticFinding(
-            severity='warning',
-            category='variation',
-            message=f'Sparse observations near cutoff: '
-                    f'{near_left} on left / {near_right} on right '
-                    f'within ±{w:.2g} of cutoff.',
-            suggestion='RD estimates will have wide CIs. Consider '
-                       'collecting more data near the cutoff or using '
-                       'sp.rdpower for explicit power analysis.',
-            evidence={'n_near_left': int(near_left),
-                      'n_near_right': int(near_right)},
-        ))
+        findings.append(
+            DiagnosticFinding(
+                severity="warning",
+                category="variation",
+                message=f"Sparse observations near cutoff: "
+                f"{near_left} on left / {near_right} on right "
+                f"within ±{w:.2g} of cutoff.",
+                suggestion="RD estimates will have wide CIs. Consider "
+                "collecting more data near the cutoff or using "
+                "sp.rdpower for explicit power analysis.",
+                evidence={
+                    "n_near_left": int(near_left),
+                    "n_near_right": int(near_right),
+                },
+            )
+        )
 
 
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def check_identification(
     data: pd.DataFrame,
@@ -867,49 +948,45 @@ def check_identification(
     # Auto-detect design
     if design is None:
         if running_var is not None:
-            design = 'rd'
+            design = "rd"
         elif instrument is not None:
-            design = 'iv'
+            design = "iv"
         elif id is not None and time is not None and treatment is not None:
-            design = 'did'
+            design = "did"
         elif id is not None and time is not None:
-            design = 'panel'
+            design = "panel"
         elif treatment is not None:
-            design = 'observational'
+            design = "observational"
         else:
-            design = 'cross-section'
+            design = "cross-section"
 
     n_units = None
     if id is not None and id in data.columns:
         n_units = int(data[id].nunique())
-    report = IdentificationReport(design=design, n_obs=len(data),
-                                  n_units=n_units)
+    report = IdentificationReport(design=design, n_obs=len(data), n_units=n_units)
     findings = report.findings
 
     if treatment is not None:
-        _check_bad_controls(data, treatment, covariates, y, time,
-                            findings=findings)
+        _check_bad_controls(data, treatment, covariates, y, time, findings=findings)
         if dag is not None:
-            _check_dag_bad_controls(dag, treatment, y, covariates,
-                                    findings=findings)
+            _check_dag_bad_controls(dag, treatment, y, covariates, findings=findings)
         _check_treatment_variation(data, treatment, findings)
         if covariates:
             _check_overlap(data, treatment, covariates, findings)
         _check_power(data, treatment, y, findings)
 
-    if design == 'did' and cohort is not None:
+    if design == "did" and cohort is not None:
         _check_did_cohort_sizes(data, cohort, id, findings)
 
-    if design == 'rd' and running_var is not None:
+    if design == "rd" and running_var is not None:
         _check_rd_density(data, running_var, cutoff or 0.0, findings)
 
-    if design == 'iv' and instrument is not None and treatment is not None:
-        _check_iv_strength(data, treatment, instrument, findings,
-                           covariates=covariates)
+    if design == "iv" and instrument is not None and treatment is not None:
+        _check_iv_strength(data, treatment, instrument, findings, covariates=covariates)
 
     _check_clustering(data, id, time, cluster, findings)
 
-    if strict and report.verdict == 'BLOCKERS':
+    if strict and report.verdict == "BLOCKERS":
         raise IdentificationError(report)
 
     return report

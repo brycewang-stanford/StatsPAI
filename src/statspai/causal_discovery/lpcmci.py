@@ -30,7 +30,6 @@ import pandas as pd
 
 from .pcmci import partial_corr_pvalue
 
-
 __all__ = ["lpcmci", "LPCMCIResult"]
 
 
@@ -59,6 +58,7 @@ class LPCMCIResult:
     >>> list(res.to_frame().columns)
     ['lag', 'from', 'to', 'type', 'p_value']
     """
+
     variables: List[str]
     tau_max: int
     alpha: float
@@ -80,9 +80,7 @@ class LPCMCIResult:
         n_d = int((self.edge_types == "-->").sum())
         n_b = int((self.edge_types == "<->").sum())
         n_u = int(np.isin(self.edge_types, ["o->", "o-o"]).sum())
-        lines.append(
-            f"  edges     : directed={n_d}, bidirected={n_b}, uncertain={n_u}"
-        )
+        lines.append(f"  edges     : directed={n_d}, bidirected={n_b}, uncertain={n_u}")
         return "\n".join(lines)
 
     def to_frame(self) -> pd.DataFrame:
@@ -94,13 +92,15 @@ class LPCMCIResult:
                 for j in range(N):
                     et = self.edge_types[lag, i, j]
                     if et:
-                        rows.append({
-                            "lag": lag,
-                            "from": self.variables[i],
-                            "to": self.variables[j],
-                            "type": et,
-                            "p_value": float(self.p_values[lag, i, j]),
-                        })
+                        rows.append(
+                            {
+                                "lag": lag,
+                                "from": self.variables[i],
+                                "to": self.variables[j],
+                                "type": et,
+                                "p_value": float(self.p_values[lag, i, j]),
+                            }
+                        )
         return pd.DataFrame(rows)
 
 
@@ -194,10 +194,7 @@ def lpcmci(
         # np.number)``) so a pandas extension dtype — e.g. a ``StringDtype``
         # column under pandas>=3.0 — is excluded rather than raising TypeError.
         # Identical column selection for numpy numeric dtypes.
-        variables = [
-            c for c in data.columns
-            if pd.api.types.is_numeric_dtype(data[c])
-        ]
+        variables = [c for c in data.columns if pd.api.types.is_numeric_dtype(data[c])]
     variables = list(variables)
     if len(variables) < 2:
         raise ValueError("Need at least 2 variables for LPCMCI.")
@@ -214,16 +211,12 @@ def lpcmci(
     # Stage 1: PC1 parent selection (like PCMCI but simplified).
     parents: Dict[str, List[tuple]] = {v: [] for v in variables}
     for j, vj in enumerate(variables):
-        candidates = [
-            (i, tau)
-            for tau in range(1, tau_max + 1)
-            for i in range(N)
-        ]
+        candidates = [(i, tau) for tau in range(1, tau_max + 1) for i in range(N)]
         # Marginal screening
         kept = []
-        for (i, tau) in candidates:
-            x = _lag_matrix(X[:, i:i + 1], tau).ravel()
-            y = _present(X[:, j:j + 1], tau).ravel()
+        for i, tau in candidates:
+            x = _lag_matrix(X[:, i : i + 1], tau).ravel()
+            y = _present(X[:, j : j + 1], tau).ravel()
             p = float(ci_test(x, y, None))
             if p < alpha:
                 kept.append(((i, tau), p))
@@ -232,7 +225,7 @@ def lpcmci(
         current = [k for k, _ in kept]
         for depth in range(1, max_cond_dim + 1):
             new_current = []
-            for (i, tau) in current:
+            for i, tau in current:
                 # Build conditioning set from top-depth other parents
                 others = [c for c in current if c != (i, tau)][:depth]
                 if not others:
@@ -240,11 +233,10 @@ def lpcmci(
                     continue
                 lag_max_used = max(tau, *(o[1] for o in others))
                 y = X[lag_max_used:, j]
-                x = X[lag_max_used - tau: T - tau, i]
-                Z = np.column_stack([
-                    X[lag_max_used - ot: T - ot, oi]
-                    for (oi, ot) in others
-                ])
+                x = X[lag_max_used - tau : T - tau, i]
+                Z = np.column_stack(
+                    [X[lag_max_used - ot : T - ot, oi] for (oi, ot) in others]
+                )
                 p = float(ci_test(x, y, Z))
                 if p < alpha:
                     new_current.append((i, tau))
@@ -272,15 +264,15 @@ def lpcmci(
                     continue
                 y = X[lag_max_used:, j]
                 x = (
-                    X[lag_max_used - tau: T - tau, i]
-                    if tau > 0 else X[lag_max_used:, i]
+                    X[lag_max_used - tau : T - tau, i]
+                    if tau > 0
+                    else X[lag_max_used:, i]
                 )
                 Z_cond: Optional[np.ndarray]
                 if Z_parents:
-                    Z_cond = np.column_stack([
-                        X[lag_max_used - pt: T - pt, pi]
-                        for (pi, pt) in Z_parents
-                    ])
+                    Z_cond = np.column_stack(
+                        [X[lag_max_used - pt : T - pt, pi] for (pi, pt) in Z_parents]
+                    )
                 else:
                     Z_cond = None
                 p = float(ci_test(x, y, Z_cond))

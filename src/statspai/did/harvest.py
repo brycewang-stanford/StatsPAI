@@ -38,7 +38,6 @@ import pandas as pd
 
 from ..core.results import CausalResult
 
-
 __all__ = [
     "harvest_did",
     "HarvestDIDResult",
@@ -111,7 +110,11 @@ class HarvestDIDResult:
 
 
 def _cell_means(
-    df: pd.DataFrame, *, unit: str, time: str, outcome: str,
+    df: pd.DataFrame,
+    *,
+    unit: str,
+    time: str,
+    outcome: str,
 ) -> pd.DataFrame:
     """Compute Ȳ(i, t), Ȳ variance, and n for each (unit, time) cell."""
     grp = df.groupby([unit, time])[outcome]
@@ -122,8 +125,13 @@ def _cell_means(
 
 
 def _build_cohort(
-    df: pd.DataFrame, *, unit: str, time: str, treat: str,
-    cohort: Optional[str] = None, never_value: Any = 0,
+    df: pd.DataFrame,
+    *,
+    unit: str,
+    time: str,
+    treat: str,
+    cohort: Optional[str] = None,
+    never_value: Any = 0,
 ) -> pd.DataFrame:
     """Return (unit -> treatment time) mapping.  ``never_value`` signals
     'never treated'.
@@ -320,15 +328,20 @@ def harvest_did(
         )
 
     cohort_map = _build_cohort(
-        data, unit=unit, time=time,
+        data,
+        unit=unit,
+        time=time,
         treat=treat or "__unused__",
-        cohort=cohort, never_value=never_value,
+        cohort=cohort,
+        never_value=never_value,
     )
     means = _cell_means(data, unit=unit, time=time, outcome=outcome)
 
     records = _harvest_comparisons(
-        means, cohort_map,
-        unit=unit, time=time,
+        means,
+        cohort_map,
+        unit=unit,
+        time=time,
         never_value=never_value,
         horizons=horizons,
         reference=reference,
@@ -342,6 +355,7 @@ def harvest_did(
 
     # --- Per-horizon event-study aggregation ------------------------------
     from scipy.stats import norm as _norm
+
     event_rows = []
     for e in sorted(tbl["horizon"].unique()):
         sub = tbl[tbl["horizon"] == e]
@@ -349,18 +363,19 @@ def harvest_did(
         att_e = float(np.average(sub["att"], weights=w))
         # Variance of weighted mean with weights summing to 1
         w_n = w / w.sum() if w.sum() > 0 else w
-        var_e = float(np.sum((w_n ** 2) * (sub["se"].to_numpy() ** 2)))
+        var_e = float(np.sum((w_n**2) * (sub["se"].to_numpy() ** 2)))
         se_e = float(np.sqrt(max(var_e, 0.0)))
         pv_e = (
-            float(2 * (1 - _norm.cdf(abs(att_e) / se_e)))
-            if se_e > 0 else float("nan")
+            float(2 * (1 - _norm.cdf(abs(att_e) / se_e))) if se_e > 0 else float("nan")
         )
         event_rows.append(
-            dict(relative_time=int(e),
-                 att=att_e,
-                 se=se_e,
-                 pvalue=pv_e,
-                 n_comparisons=int(len(sub)))
+            dict(
+                relative_time=int(e),
+                att=att_e,
+                se=se_e,
+                pvalue=pv_e,
+                n_comparisons=int(len(sub)),
+            )
         )
     event_study = pd.DataFrame(event_rows)
 
@@ -373,7 +388,7 @@ def harvest_did(
     w_post = 1.0 / np.maximum(post["se"].to_numpy() ** 2, 1e-12)
     agg = float(np.average(post["att"], weights=w_post))
     w_post_n = w_post / w_post.sum()
-    agg_var = float(np.sum((w_post_n ** 2) * (post["se"].to_numpy() ** 2)))
+    agg_var = float(np.sum((w_post_n**2) * (post["se"].to_numpy() ** 2)))
     agg_se = float(np.sqrt(max(agg_var, 0.0)))
 
     # --- Pre-trend joint test (Wald of horizon<0 ATTs) --------------------
@@ -381,6 +396,7 @@ def harvest_did(
     if len(pre) > 0 and (pre["se"] > 0).all():
         chi2 = float(np.sum((pre["att"] / pre["se"]) ** 2))
         from scipy.stats import chi2 as _chi2
+
         pv = float(1 - _chi2.cdf(chi2, df=len(pre)))
         pretrend = {"chi2": chi2, "df": int(len(pre)), "pvalue": pv}
     else:
@@ -388,6 +404,7 @@ def harvest_did(
 
     # --- CI / p-value -----------------------------------------------------
     from scipy.stats import norm
+
     z = norm.ppf(1 - alpha / 2)
     ci = (agg - z * agg_se, agg + z * agg_se)
     pval = 2 * (1 - norm.cdf(abs(agg) / agg_se)) if agg_se > 0 else float("nan")
@@ -414,12 +431,16 @@ def harvest_did(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.harvest_did",
             params={
-                "unit": unit, "time": time, "outcome": outcome,
-                "treat": treat, "cohort": cohort,
+                "unit": unit,
+                "time": time,
+                "outcome": outcome,
+                "treat": treat,
+                "cohort": cohort,
                 "never_value": never_value,
                 "horizons": list(horizons) if horizons else None,
                 "reference": int(reference),

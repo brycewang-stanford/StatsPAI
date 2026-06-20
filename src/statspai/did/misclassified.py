@@ -92,6 +92,7 @@ def did_misclassified(
     cohorts = sorted(df.loc[treat_arr > 0, treat].unique())
     if not cohorts:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "No treated cohorts found.",
             recovery_hint=(
@@ -104,6 +105,7 @@ def did_misclassified(
     control_units = df.loc[df[treat] == 0, id].unique()
     if len(control_units) == 0:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "No never-treated control units; misclassified DID requires them.",
             recovery_hint=(
@@ -128,10 +130,16 @@ def did_misclassified(
         post = sub[sub[time] == post_periods[0]]
         pre = sub[sub[time] == c - 1]
         try:
-            post_g = post.assign(_t=lambda d: d[id].isin(cohort_units).astype(int)) \
-                .groupby('_t')[y].mean()
-            pre_g = pre.assign(_t=lambda d: d[id].isin(cohort_units).astype(int)) \
-                .groupby('_t')[y].mean()
+            post_g = (
+                post.assign(_t=lambda d: d[id].isin(cohort_units).astype(int))
+                .groupby("_t")[y]
+                .mean()
+            )
+            pre_g = (
+                pre.assign(_t=lambda d: d[id].isin(cohort_units).astype(int))
+                .groupby("_t")[y]
+                .mean()
+            )
             att_c = float(
                 (post_g.get(1, np.nan) - post_g.get(0, np.nan))
                 - (pre_g.get(1, np.nan) - pre_g.get(0, np.nan))
@@ -147,20 +155,30 @@ def did_misclassified(
                 if t_lead in pre_periods:
                     sub_lead = sub[sub[time] == t_lead]
                     try:
-                        m = sub_lead.assign(
-                            _t=lambda d: d[id].isin(cohort_units).astype(int)
-                        ).groupby('_t')[y].mean()
+                        m = (
+                            sub_lead.assign(
+                                _t=lambda d: d[id].isin(cohort_units).astype(int)
+                            )
+                            .groupby("_t")[y]
+                            .mean()
+                        )
                         # Compare to t = c - anticipation_periods - 1 if available
                         ref_period = c - anticipation_periods - 1
                         if ref_period in pre_periods:
                             sub_ref = sub[sub[time] == ref_period]
-                            mref = sub_ref.assign(
-                                _t=lambda d: d[id].isin(cohort_units).astype(int)
-                            ).groupby('_t')[y].mean()
-                            anticip_leads.append(float(
-                                (m.get(1, np.nan) - m.get(0, np.nan))
-                                - (mref.get(1, np.nan) - mref.get(0, np.nan))
-                            ))
+                            mref = (
+                                sub_ref.assign(
+                                    _t=lambda d: d[id].isin(cohort_units).astype(int)
+                                )
+                                .groupby("_t")[y]
+                                .mean()
+                            )
+                            anticip_leads.append(
+                                float(
+                                    (m.get(1, np.nan) - m.get(0, np.nan))
+                                    - (mref.get(1, np.nan) - mref.get(0, np.nan))
+                                )
+                            )
                     except Exception:
                         continue
 
@@ -187,9 +205,7 @@ def did_misclassified(
     boot = np.full(200, np.nan)
     for b in range(200):
         sample = rng.choice(units, size=len(units), replace=True)
-        sub = pd.concat(
-            [df[df[id] == u] for u in sample], ignore_index=True
-        )
+        sub = pd.concat([df[df[id] == u] for u in sample], ignore_index=True)
         try:
             inner_atts = []
             for c in cohorts:
@@ -203,22 +219,23 @@ def did_misclassified(
                     continue
                 post = ssub[ssub[time] == post_periods[0]]
                 pre = ssub[ssub[time] == c - 1]
-                m_post = post.assign(
-                    _t=lambda d: d[id].isin(cohort_units).astype(int)
-                ).groupby('_t')[y].mean()
-                m_pre = pre.assign(
-                    _t=lambda d: d[id].isin(cohort_units).astype(int)
-                ).groupby('_t')[y].mean()
-                att_c = (
-                    (m_post.get(1, np.nan) - m_post.get(0, np.nan))
-                    - (m_pre.get(1, np.nan) - m_pre.get(0, np.nan))
+                m_post = (
+                    post.assign(_t=lambda d: d[id].isin(cohort_units).astype(int))
+                    .groupby("_t")[y]
+                    .mean()
+                )
+                m_pre = (
+                    pre.assign(_t=lambda d: d[id].isin(cohort_units).astype(int))
+                    .groupby("_t")[y]
+                    .mean()
+                )
+                att_c = (m_post.get(1, np.nan) - m_post.get(0, np.nan)) - (
+                    m_pre.get(1, np.nan) - m_pre.get(0, np.nan)
                 )
                 if np.isfinite(att_c):
                     inner_atts.append(att_c)
             if inner_atts:
-                boot[b] = (
-                    (np.mean(inner_atts) - anticip_offset) * misclass_factor
-                )
+                boot[b] = (np.mean(inner_atts) - anticip_offset) * misclass_factor
         except Exception:
             continue
     se = _bootstrap_se(boot, label="did.misclassified")
@@ -238,26 +255,31 @@ def did_misclassified(
         alpha=alpha,
         n_obs=n,
         model_info={
-            'estimator': 'did_misclassified',
-            'naive_att': naive_att,
-            'anticipation_offset': anticip_offset,
-            'misclass_factor': misclass_factor,
-            'pi_misclass': pi_misclass,
-            'anticipation_periods': anticipation_periods,
-            'reference': 'arXiv 2507.20415 (2025)',
+            "estimator": "did_misclassified",
+            "naive_att": naive_att,
+            "anticipation_offset": anticip_offset,
+            "misclass_factor": misclass_factor,
+            "pi_misclass": pi_misclass,
+            "anticipation_periods": anticipation_periods,
+            "reference": "arXiv 2507.20415 (2025)",
         },
-        _citation_key='did_misclassified',
+        _citation_key="did_misclassified",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.did_misclassified",
             params={
-                "y": y, "treat": treat, "time": time, "id": id,
+                "y": y,
+                "treat": treat,
+                "time": time,
+                "id": id,
                 "pi_misclass": pi_misclass,
                 "anticipation_periods": anticipation_periods,
-                "cluster": cluster, "alpha": alpha,
+                "cluster": cluster,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -267,7 +289,7 @@ def did_misclassified(
     return _result
 
 
-CausalResult._CITATIONS['did_misclassified'] = (
+CausalResult._CITATIONS["did_misclassified"] = (
     "@article{did_misclassified2025,\n"
     "  title={Staggered Adoption DiD Designs with Misclassification "
     "and Anticipation},\n"

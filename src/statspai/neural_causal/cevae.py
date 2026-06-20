@@ -62,16 +62,20 @@ class CEVAEResult:
 
     def tidy(self) -> pd.DataFrame:
         """Return a one-row CEVAE ATE table."""
-        return pd.DataFrame([{
-            "term": "ATE",
-            "estimate": self.ate,
-            "backend": self.backend,
-            "ite_mean": float(np.mean(self.ite)),
-            "ite_std": float(np.std(self.ite)),
-            "ite_q25": float(np.percentile(self.ite, 25)),
-            "ite_median": float(np.median(self.ite)),
-            "ite_q75": float(np.percentile(self.ite, 75)),
-        }])
+        return pd.DataFrame(
+            [
+                {
+                    "term": "ATE",
+                    "estimate": self.ate,
+                    "backend": self.backend,
+                    "ite_mean": float(np.mean(self.ite)),
+                    "ite_std": float(np.std(self.ite)),
+                    "ite_q25": float(np.percentile(self.ite, 25)),
+                    "ite_median": float(np.median(self.ite)),
+                    "ite_q75": float(np.percentile(self.ite, 75)),
+                }
+            ]
+        )
 
     def effects_frame(self) -> pd.DataFrame:
         """Return unit-level ITE estimates."""
@@ -79,10 +83,12 @@ class CEVAEResult:
 
     def training_frame(self) -> pd.DataFrame:
         """Return per-epoch CEVAE loss history."""
-        return pd.DataFrame({
-            "epoch": np.arange(1, len(self.loss_history) + 1),
-            "loss": self.loss_history,
-        })
+        return pd.DataFrame(
+            {
+                "epoch": np.arange(1, len(self.loss_history) + 1),
+                "loss": self.loss_history,
+            }
+        )
 
     def to_markdown(self, path: str | None = None, digits: int = 4) -> str:
         parts = [
@@ -96,27 +102,33 @@ class CEVAEResult:
         ]
         training = self.training_frame().round(digits)
         if not training.empty:
-            parts.extend(["", "## Training Diagnostics", training.to_markdown(index=False)])
+            parts.extend(
+                ["", "## Training Diagnostics", training.to_markdown(index=False)]
+            )
         text = "\n".join(parts) + "\n"
         if path is not None:
             from pathlib import Path
+
             Path(path).write_text(text, encoding="utf-8")
         return text
 
     def to_html(self, path: str | None = None, digits: int = 4) -> str:
-        html = "\n".join([
-            "<html><body>",
-            "<h1>CEVAE</h1>",
-            "<h2>Summary</h2>",
-            self.tidy().round(digits).to_html(index=False),
-            "<h2>Unit-Level Effects</h2>",
-            self.effects_frame().head(50).round(digits).to_html(index=False),
-            "<h2>Training Diagnostics</h2>",
-            self.training_frame().round(digits).to_html(index=False),
-            "</body></html>",
-        ])
+        html = "\n".join(
+            [
+                "<html><body>",
+                "<h1>CEVAE</h1>",
+                "<h2>Summary</h2>",
+                self.tidy().round(digits).to_html(index=False),
+                "<h2>Unit-Level Effects</h2>",
+                self.effects_frame().head(50).round(digits).to_html(index=False),
+                "<h2>Training Diagnostics</h2>",
+                self.training_frame().round(digits).to_html(index=False),
+                "</body></html>",
+            ]
+        )
         if path is not None:
             from pathlib import Path
+
             Path(path).write_text(html, encoding="utf-8")
         return html
 
@@ -155,8 +167,7 @@ class CEVAEResult:
             fig = ax.get_figure()
         typ = type.lower()
         if typ in {"ite", "cate", "effects", "distribution"}:
-            ax.hist(self.ite, bins=bins, color="#2563EB", alpha=0.72,
-                    edgecolor="white")
+            ax.hist(self.ite, bins=bins, color="#2563EB", alpha=0.72, edgecolor="white")
             ax.axvline(self.ate, color="#111827", linewidth=1.5, label="ATE")
             ax.axvline(0, color="#9CA3AF", linestyle=":", linewidth=1)
             ax.set_xlabel("Estimated individual treatment effect")
@@ -226,15 +237,14 @@ class CEVAE:
         return self._fit_numpy(X, t, y)
 
     # --------- Torch path (preferred) ---------
-    def _fit_torch(
-        self, X: np.ndarray, t: np.ndarray, y: np.ndarray
-    ) -> CEVAEResult:
+    def _fit_torch(self, X: np.ndarray, t: np.ndarray, y: np.ndarray) -> CEVAEResult:
         import torch
         import torch.nn as nn
         import torch.nn.functional as F
 
         torch.manual_seed(self.seed or 0)
         from ..utils._torch_device import resolve_torch_device
+
         device = resolve_torch_device()
 
         Xt = torch.tensor(X, dtype=torch.float32, device=device)
@@ -260,7 +270,9 @@ class CEVAE:
                 super().__init__()
                 self.x_head = nn.Sequential(nn.Linear(Z, H), nn.ELU(), nn.Linear(H, d))
                 self.t_head = nn.Sequential(nn.Linear(Z, H), nn.ELU(), nn.Linear(H, 1))
-                self.y_head = nn.Sequential(nn.Linear(Z + 1, H), nn.ELU(), nn.Linear(H, 1))
+                self.y_head = nn.Sequential(
+                    nn.Linear(Z + 1, H), nn.ELU(), nn.Linear(H, 1)
+                )
 
             def forward(self, z: Any, t: Any) -> Any:
                 x_hat = self.x_head(z)
@@ -270,7 +282,9 @@ class CEVAE:
                 return x_hat, t_logit, y_hat
 
         enc, dec = Enc().to(device), Dec().to(device)
-        opt = torch.optim.Adam(list(enc.parameters()) + list(dec.parameters()), lr=self.lr)
+        opt = torch.optim.Adam(
+            list(enc.parameters()) + list(dec.parameters()), lr=self.lr
+        )
 
         history = []
         for epoch in range(self.n_epochs):
@@ -304,9 +318,7 @@ class CEVAE:
         )
 
     # --------- Numpy fallback ---------
-    def _fit_numpy(
-        self, X: np.ndarray, t: np.ndarray, y: np.ndarray
-    ) -> CEVAEResult:
+    def _fit_numpy(self, X: np.ndarray, t: np.ndarray, y: np.ndarray) -> CEVAEResult:
         """Linear-Gaussian variational approximation. Fits:
             z ~ N(A X, 1),  t | z ~ Bern(sigmoid(c^T z)),
             y | z, t ~ N(b1 z * t + b0 z * (1-t), sigma^2)
@@ -377,6 +389,7 @@ def cevae(
 def _try_import_torch() -> bool:
     try:
         import torch  # noqa: F401
+
         return True
     except Exception:
         return False

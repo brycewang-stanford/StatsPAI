@@ -123,6 +123,7 @@ def _as_float_array(value: Any) -> np.ndarray:
 # Link functions
 # ---------------------------------------------------------------------------
 
+
 class LinkFunction:
     """Base class for GLM link functions."""
 
@@ -206,7 +207,7 @@ class InverseLink(LinkFunction):
         return _as_float_array(1.0 / np.clip(eta, 1e-20, None))
 
     def deriv(self, mu: np.ndarray) -> np.ndarray:
-        return _as_float_array(-1.0 / np.clip(mu ** 2, 1e-40, None))
+        return _as_float_array(-1.0 / np.clip(mu**2, 1e-40, None))
 
 
 class CLogLogLink(LinkFunction):
@@ -278,6 +279,7 @@ LINK_FUNCTIONS: Dict[str, Type[LinkFunction]] = {
 # Family distributions
 # ---------------------------------------------------------------------------
 
+
 class Family:
     """Base class for exponential family distributions."""
 
@@ -302,8 +304,9 @@ class Family:
         d = self.deviance_residuals(y, mu, weights)
         return float(np.sum(weights * d))
 
-    def log_likelihood(self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray,
-                       scale: float) -> float:
+    def log_likelihood(
+        self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray, scale: float
+    ) -> float:
         """Log-likelihood (may be overridden for exact form)."""
         raise NotImplementedError
 
@@ -311,8 +314,9 @@ class Family:
         """Starting values for mu."""
         return y.copy()
 
-    def dispersion(self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray,
-                   df_resid: int) -> float:
+    def dispersion(
+        self, y: np.ndarray, mu: np.ndarray, weights: np.ndarray, df_resid: int
+    ) -> float:
         """Estimate dispersion (phi). 1.0 for binomial/poisson."""
         return float(self.deviance(y, mu, weights) / df_resid)
 
@@ -342,10 +346,7 @@ class Gaussian(Family):
         n = len(y)
         return float(
             -0.5
-            * (
-                n * np.log(2 * np.pi * scale)
-                + np.sum(weights * (y - mu) ** 2) / scale
-            )
+            * (n * np.log(2 * np.pi * scale) + np.sum(weights * (y - mu) ** 2) / scale)
         )
 
 
@@ -367,8 +368,9 @@ class Binomial(Family):
         # Use safe log to avoid 0*log(0) warnings
         y_safe = np.clip(y, 1e-15, None)
         omy_safe = np.clip(1 - y, 1e-15, None)
-        d = np.where(y > 0, 2 * y * np.log(y_safe / mu), 0.0) + \
-            np.where(y < 1, 2 * (1 - y) * np.log(omy_safe / (1 - mu)), 0.0)
+        d = np.where(y > 0, 2 * y * np.log(y_safe / mu), 0.0) + np.where(
+            y < 1, 2 * (1 - y) * np.log(omy_safe / (1 - mu)), 0.0
+        )
         return _as_float_array(d)
 
     def log_likelihood(
@@ -379,9 +381,7 @@ class Binomial(Family):
         scale: float,
     ) -> float:
         mu = np.clip(mu, 1e-15, 1 - 1e-15)
-        return float(
-            np.sum(weights * (y * np.log(mu) + (1 - y) * np.log(1 - mu)))
-        )
+        return float(np.sum(weights * (y * np.log(mu) + (1 - y) * np.log(1 - mu))))
 
     def initialize_mu(self, y: np.ndarray) -> np.ndarray:
         return np.clip((y + 0.5) / 2.0, 0.01, 0.99)
@@ -422,9 +422,7 @@ class Poisson(Family):
         scale: float,
     ) -> float:
         mu = np.clip(mu, 1e-20, None)
-        return float(
-            np.sum(weights * (y * np.log(mu) - mu - special.gammaln(y + 1)))
-        )
+        return float(np.sum(weights * (y * np.log(mu) - mu - special.gammaln(y + 1))))
 
     def initialize_mu(self, y: np.ndarray) -> np.ndarray:
         return np.clip(y, 0.1, None)
@@ -498,7 +496,7 @@ class InverseGaussian(Family):
     ) -> np.ndarray:
         mu = np.clip(mu, 1e-20, None)
         y = np.clip(y, 1e-20, None)
-        return _as_float_array((y - mu) ** 2 / (y * mu ** 2))
+        return _as_float_array((y - mu) ** 2 / (y * mu**2))
 
     def log_likelihood(
         self,
@@ -514,8 +512,8 @@ class InverseGaussian(Family):
             np.sum(
                 weights
                 * (
-                    0.5 * np.log(lam / (2 * np.pi * y ** 3))
-                    - lam * (y - mu) ** 2 / (2 * mu ** 2 * y)
+                    0.5 * np.log(lam / (2 * np.pi * y**3))
+                    - lam * (y - mu) ** 2 / (2 * mu**2 * y)
                 )
             )
         )
@@ -531,6 +529,7 @@ class NegativeBinomial(Family):
     Variance = mu + alpha * mu^2 where alpha is the overdispersion parameter.
     Alpha is estimated via MLE as part of the fitting procedure.
     """
+
     name = "negative_binomial"
     canonical_link = "log"
 
@@ -539,7 +538,7 @@ class NegativeBinomial(Family):
 
     def variance(self, mu: np.ndarray) -> np.ndarray:
         mu = np.clip(mu, 1e-20, None)
-        return mu + self.alpha * mu ** 2
+        return mu + self.alpha * mu**2
 
     def deviance_residuals(
         self,
@@ -644,6 +643,7 @@ def _get_link(link: Optional[str], family: Family) -> LinkFunction:
 # ---------------------------------------------------------------------------
 # GLM Estimator
 # ---------------------------------------------------------------------------
+
 
 class GLMEstimator(BaseEstimator):
     """
@@ -752,7 +752,7 @@ class GLMEstimator(BaseEstimator):
             g_prime = link.deriv(mu)  # d eta / d mu
 
             # Working weight and working response (IRLS)
-            W = weights / (V * g_prime ** 2)
+            W = weights / (V * g_prime**2)
             W = np.clip(W, 1e-20, 1e20)
             z = (eta - offset) + (y - mu) * g_prime  # working / pseudo response
 
@@ -791,7 +791,9 @@ class GLMEstimator(BaseEstimator):
                     break
             elif params_old is not None:
                 # Fallback: parameter convergence (useful when first deviance is inf)
-                param_change = np.max(np.abs(params - params_old)) / (np.max(np.abs(params)) + 1e-10)
+                param_change = np.max(np.abs(params - params_old)) / (
+                    np.max(np.abs(params)) + 1e-10
+                )
                 if param_change < tol:
                     converged = True
                     break
@@ -800,7 +802,11 @@ class GLMEstimator(BaseEstimator):
             params_old = params.copy()
 
             # --- NB2: update alpha via MLE profile ---
-            if isinstance(family, NegativeBinomial) and iteration > 0 and iteration % 5 == 0:
+            if (
+                isinstance(family, NegativeBinomial)
+                and iteration > 0
+                and iteration % 5 == 0
+            ):
                 family.alpha = self._estimate_nb_alpha(y, mu, weights, family.alpha)
 
         if not converged:
@@ -818,7 +824,7 @@ class GLMEstimator(BaseEstimator):
         # ----------------------------------------------------------------
         V = family.variance(mu)
         g_prime = link.deriv(mu)
-        W = weights / (V * g_prime ** 2)
+        W = weights / (V * g_prime**2)
         W = np.clip(W, 1e-20, 1e20)
 
         # (X' W X)^{-1}
@@ -837,7 +843,9 @@ class GLMEstimator(BaseEstimator):
         phi = family.dispersion(y, mu, weights, df_resid)
 
         if cluster is not None:
-            var_cov = self._cluster_cov(X, y, mu, V, g_prime, weights, XtWX_inv, cluster, n, k)
+            var_cov = self._cluster_cov(
+                X, y, mu, V, g_prime, weights, XtWX_inv, cluster, n, k
+            )
         elif robust == "nonrobust":
             var_cov = phi * XtWX_inv
         elif robust in ("hc0", "hc1", "hc2", "hc3"):
@@ -851,8 +859,7 @@ class GLMEstimator(BaseEstimator):
             raise MethodIncompatibility(
                 f"Unknown robust option: {robust}",
                 recovery_hint=(
-                    "Use robust='nonrobust', 'hc0', 'hc1', 'hc2', "
-                    "'hc3', or 'hac'."
+                    "Use robust='nonrobust', 'hc0', 'hc1', 'hc2', " "'hc3', or 'hac'."
                 ),
                 diagnostics={
                     "robust": robust,
@@ -882,7 +889,7 @@ class GLMEstimator(BaseEstimator):
         aic = -2 * ll + 2 * k
         bic = -2 * ll + np.log(n) * k
         pseudo_r2 = 1.0 - deviance / null_dev if null_dev > 0 else np.nan
-        pearson_chi2 = np.sum(weights * pearson_resid ** 2)
+        pearson_chi2 = np.sum(weights * pearson_resid**2)
 
         return {
             "params": params,
@@ -948,13 +955,13 @@ class GLMEstimator(BaseEstimator):
             meat = (n / (n - k)) * S.T @ S
         elif robust_type == "hc2":
             XtWX_inv = bread
-            W_diag = weights / (V * g_prime ** 2)
+            W_diag = weights / (V * g_prime**2)
             h = np.sum((X * W_diag[:, np.newaxis]) * (X @ XtWX_inv), axis=1)
             S_adj = S / np.sqrt(np.clip(1 - h, 1e-10, None))[:, np.newaxis]
             meat = S_adj.T @ S_adj
         elif robust_type == "hc3":
             XtWX_inv = bread
-            W_diag = weights / (V * g_prime ** 2)
+            W_diag = weights / (V * g_prime**2)
             h = np.sum((X * W_diag[:, np.newaxis]) * (X @ XtWX_inv), axis=1)
             S_adj = S / np.clip(1 - h, 1e-10, None)[:, np.newaxis]
             meat = S_adj.T @ S_adj
@@ -1033,16 +1040,20 @@ class GLMEstimator(BaseEstimator):
         alpha_init: float,
     ) -> float:
         """Profile MLE for NB2 overdispersion parameter alpha."""
+
         def neg_ll(log_alpha: float) -> float:
             alpha = np.exp(log_alpha)
             inv_a = 1.0 / alpha
-            ll = np.sum(weights * (
-                special.gammaln(y + inv_a)
-                - special.gammaln(inv_a)
-                - special.gammaln(y + 1)
-                + inv_a * np.log(inv_a / (inv_a + mu))
-                + y * np.log(mu / (inv_a + mu))
-            ))
+            ll = np.sum(
+                weights
+                * (
+                    special.gammaln(y + inv_a)
+                    - special.gammaln(inv_a)
+                    - special.gammaln(y + 1)
+                    + inv_a * np.log(inv_a / (inv_a + mu))
+                    + y * np.log(mu / (inv_a + mu))
+                )
+            )
             return float(-ll)
 
         try:
@@ -1059,6 +1070,7 @@ class GLMEstimator(BaseEstimator):
 # ---------------------------------------------------------------------------
 # GLM Model class
 # ---------------------------------------------------------------------------
+
 
 class GLMRegression(BaseModel):
     """
@@ -1255,8 +1267,7 @@ class GLMRegression(BaseModel):
             w = _aligned_numeric_column(weights, "weights")
             if (w < 0).any() or not (w > 0).any():
                 raise MethodIncompatibility(
-                    "weights must be non-negative with at least one positive "
-                    "value.",
+                    "weights must be non-negative with at least one positive " "value.",
                     diagnostics={"column": weights},
                 )
 
@@ -1296,8 +1307,7 @@ class GLMRegression(BaseModel):
                 )
             if len(pd.unique(cluster_var)) < 2:
                 raise MethodIncompatibility(
-                    "cluster-robust GLM inference requires at least two "
-                    "clusters.",
+                    "cluster-robust GLM inference requires at least two " "clusters.",
                     diagnostics={"column": cluster},
                 )
 
@@ -1326,7 +1336,9 @@ class GLMRegression(BaseModel):
         params = pd.Series(results["params"], index=self.var_names)
         std_errors = pd.Series(results["std_errors"], index=self.var_names)
 
-        se_label = robust if robust != "nonrobust" else ("cluster" if cluster else "nonrobust")
+        se_label = (
+            robust if robust != "nonrobust" else ("cluster" if cluster else "nonrobust")
+        )
 
         model_info = {
             "model_type": "GLM",
@@ -1417,8 +1429,7 @@ class GLMRegression(BaseModel):
         valid_types = {"response", "link", "variance"}
         if not isinstance(type, str) or type not in valid_types:
             raise MethodIncompatibility(
-                "`type` must be 'response', 'link', or 'variance'; "
-                f"got {type!r}.",
+                "`type` must be 'response', 'link', or 'variance'; " f"got {type!r}.",
                 recovery_hint="Choose one of: response, link, variance.",
                 diagnostics={"type": repr(type), "valid": sorted(valid_types)},
             )
@@ -1500,8 +1511,7 @@ class GLMRegression(BaseModel):
         params = np.asarray(self._results.params)
         if X_pred.shape[1] != params.shape[0]:
             raise MethodIncompatibility(
-                "Prediction design matrix shape does not match model "
-                "parameters.",
+                "Prediction design matrix shape does not match model " "parameters.",
                 recovery_hint="Refit the model or pass formula-compatible data.",
                 diagnostics={
                     "n_columns": int(X_pred.shape[1]),
@@ -1525,8 +1535,7 @@ class GLMRegression(BaseModel):
                 raise MethodIncompatibility(
                     "Prediction offset length does not match prediction rows.",
                     recovery_hint=(
-                        "Pass one offset value for each row in the prediction "
-                        "data."
+                        "Pass one offset value for each row in the prediction " "data."
                     ),
                     diagnostics={
                         "offset_length": int(offset_arr.shape[0]),
@@ -1583,6 +1592,7 @@ class GLMRegression(BaseModel):
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def glm(
     formula: Optional[str] = None,

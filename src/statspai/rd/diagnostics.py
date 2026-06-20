@@ -20,10 +20,10 @@ from typing import Optional, List, Dict, Any, Tuple
 import numpy as np
 import pandas as pd
 
-
 # ======================================================================
 # Bandwidth sensitivity
 # ======================================================================
+
 
 def rdbwsensitivity(
     data: pd.DataFrame,
@@ -32,7 +32,7 @@ def rdbwsensitivity(
     c: float = 0,
     fuzzy: Optional[str] = None,
     p: int = 1,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     bw_grid: Optional[List[float]] = None,
     n_grid: int = 15,
     bw_range: Tuple[float, float] = (0.5, 2.0),
@@ -95,9 +95,8 @@ def rdbwsensitivity(
     from .rdrobust import rdrobust
 
     # Get optimal bandwidth
-    base = rdrobust(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel,
-                    alpha=alpha)
-    h_opt = base.model_info['bandwidth_h']
+    base = rdrobust(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, alpha=alpha)
+    h_opt = base.model_info["bandwidth_h"]
 
     if bw_grid is None:
         lo, hi = bw_range
@@ -106,16 +105,19 @@ def rdbwsensitivity(
     rows = []
     for bw in bw_grid:
         try:
-            r = rdrobust(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p,
-                         kernel=kernel, h=bw, alpha=alpha)
-            rows.append({
-                'bandwidth': bw,
-                'estimate': r.estimate,
-                'se': r.se,
-                'ci_lower': r.ci[0],
-                'ci_upper': r.ci[1],
-                'pvalue': r.pvalue,
-            })
+            r = rdrobust(
+                data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, h=bw, alpha=alpha
+            )
+            rows.append(
+                {
+                    "bandwidth": bw,
+                    "estimate": r.estimate,
+                    "se": r.se,
+                    "ci_lower": r.ci[0],
+                    "ci_upper": r.ci[1],
+                    "pvalue": r.pvalue,
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             continue  # pragma: no cover
 
@@ -130,20 +132,35 @@ def rdbwsensitivity(
         else:
             fig = ax.get_figure()
 
-        ax.errorbar(result['bandwidth'], result['estimate'],
-                    yerr=[result['estimate'] - result['ci_lower'],
-                          result['ci_upper'] - result['estimate']],
-                    fmt='o-', color='#2C3E50', markersize=4, linewidth=1,
-                    capsize=3, alpha=0.8)
-        ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
-        ax.axvline(x=h_opt, color='#E74C3C', linestyle='--', linewidth=0.8,
-                   alpha=0.7, label=f'Optimal h = {h_opt:.3f}')
-        ax.set_xlabel('Bandwidth', fontsize=11)
-        ax.set_ylabel('RD Estimate', fontsize=11)
-        ax.set_title('Bandwidth Sensitivity', fontsize=13)
+        ax.errorbar(
+            result["bandwidth"],
+            result["estimate"],
+            yerr=[
+                result["estimate"] - result["ci_lower"],
+                result["ci_upper"] - result["estimate"],
+            ],
+            fmt="o-",
+            color="#2C3E50",
+            markersize=4,
+            linewidth=1,
+            capsize=3,
+            alpha=0.8,
+        )
+        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
+        ax.axvline(
+            x=h_opt,
+            color="#E74C3C",
+            linestyle="--",
+            linewidth=0.8,
+            alpha=0.7,
+            label=f"Optimal h = {h_opt:.3f}",
+        )
+        ax.set_xlabel("Bandwidth", fontsize=11)
+        ax.set_ylabel("RD Estimate", fontsize=11)
+        ax.set_title("Bandwidth Sensitivity", fontsize=13)
         ax.legend(fontsize=10)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         fig.tight_layout()
     except ImportError:  # pragma: no cover
         pass  # pragma: no cover
@@ -155,13 +172,14 @@ def rdbwsensitivity(
 # Covariate balance test
 # ======================================================================
 
+
 def rdbalance(
     data: pd.DataFrame,
     x: str,
     c: float = 0,
     covs: Optional[List[str]] = None,
     p: int = 1,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     h: Optional[float] = None,
     alpha: float = 0.05,
 ) -> pd.DataFrame:
@@ -213,31 +231,35 @@ def rdbalance(
     from .rdrobust import rdrobust
 
     if covs is None:
-        covs = [col for col in data.select_dtypes(include=[np.number]).columns
-                if col != x]
+        covs = [
+            col for col in data.select_dtypes(include=[np.number]).columns if col != x
+        ]
 
     rows = []
     for cov in covs:
         try:
-            r = rdrobust(data, y=cov, x=x, c=c, p=p, kernel=kernel,
-                         h=h, alpha=alpha)
-            rows.append({
-                'covariate': cov,
-                'estimate': r.estimate,
-                'se': r.se,
-                'z': r.estimate / r.se if r.se > 0 else 0,
-                'pvalue': r.pvalue,
-                'significant': r.pvalue < alpha,
-            })
+            r = rdrobust(data, y=cov, x=x, c=c, p=p, kernel=kernel, h=h, alpha=alpha)
+            rows.append(
+                {
+                    "covariate": cov,
+                    "estimate": r.estimate,
+                    "se": r.se,
+                    "z": r.estimate / r.se if r.se > 0 else 0,
+                    "pvalue": r.pvalue,
+                    "significant": r.pvalue < alpha,
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
-            rows.append({
-                'covariate': cov,
-                'estimate': np.nan,
-                'se': np.nan,
-                'z': np.nan,
-                'pvalue': np.nan,
-                'significant': np.nan,
-            })
+            rows.append(
+                {
+                    "covariate": cov,
+                    "estimate": np.nan,
+                    "se": np.nan,
+                    "z": np.nan,
+                    "pvalue": np.nan,
+                    "significant": np.nan,
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -246,6 +268,7 @@ def rdbalance(
 # Placebo cutoff test
 # ======================================================================
 
+
 def rdplacebo(
     data: pd.DataFrame,
     y: str,
@@ -253,10 +276,10 @@ def rdplacebo(
     c: float = 0,
     placebo_cutoffs: Optional[List[float]] = None,
     n_placebo: int = 10,
-    side: str = 'both',
+    side: str = "both",
     fuzzy: Optional[str] = None,
     p: int = 1,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     alpha: float = 0.05,
     ax: Optional[Any] = None,
     figsize: Tuple[float, float] = (10, 6),
@@ -325,7 +348,7 @@ def rdplacebo(
 
     rows = []
     for cutoff in all_cutoffs:
-        is_true = (cutoff == c)
+        is_true = cutoff == c
 
         if is_true:
             subset = data
@@ -338,17 +361,20 @@ def rdplacebo(
             continue  # pragma: no cover
 
         try:
-            r = rdrobust(subset, y=y, x=x, c=cutoff, fuzzy=fuzzy,
-                         p=p, kernel=kernel, alpha=alpha)
-            rows.append({
-                'cutoff': cutoff,
-                'estimate': r.estimate,
-                'se': r.se,
-                'ci_lower': r.ci[0],
-                'ci_upper': r.ci[1],
-                'pvalue': r.pvalue,
-                'is_true_cutoff': is_true,
-            })
+            r = rdrobust(
+                subset, y=y, x=x, c=cutoff, fuzzy=fuzzy, p=p, kernel=kernel, alpha=alpha
+            )
+            rows.append(
+                {
+                    "cutoff": cutoff,
+                    "estimate": r.estimate,
+                    "se": r.se,
+                    "ci_lower": r.ci[0],
+                    "ci_upper": r.ci[1],
+                    "pvalue": r.pvalue,
+                    "is_true_cutoff": is_true,
+                }
+            )
         except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
             continue  # pragma: no cover
 
@@ -363,32 +389,43 @@ def rdplacebo(
         else:
             fig = ax.get_figure()
 
-        true_mask = result['is_true_cutoff']
+        true_mask = result["is_true_cutoff"]
         placebo_mask = ~true_mask
 
         if placebo_mask.any():
             pr = result[placebo_mask]
-            ax.errorbar(pr['cutoff'], pr['estimate'],
-                        yerr=[pr['estimate'] - pr['ci_lower'],
-                              pr['ci_upper'] - pr['estimate']],
-                        fmt='o', color='#95A5A6', markersize=5, capsize=3,
-                        label='Placebo')
+            ax.errorbar(
+                pr["cutoff"],
+                pr["estimate"],
+                yerr=[pr["estimate"] - pr["ci_lower"], pr["ci_upper"] - pr["estimate"]],
+                fmt="o",
+                color="#95A5A6",
+                markersize=5,
+                capsize=3,
+                label="Placebo",
+            )
 
         if true_mask.any():
             tr = result[true_mask]
-            ax.errorbar(tr['cutoff'], tr['estimate'],
-                        yerr=[tr['estimate'] - tr['ci_lower'],
-                              tr['ci_upper'] - tr['estimate']],
-                        fmt='D', color='#E74C3C', markersize=8, capsize=4,
-                        label='True cutoff', zorder=5)
+            ax.errorbar(
+                tr["cutoff"],
+                tr["estimate"],
+                yerr=[tr["estimate"] - tr["ci_lower"], tr["ci_upper"] - tr["estimate"]],
+                fmt="D",
+                color="#E74C3C",
+                markersize=8,
+                capsize=4,
+                label="True cutoff",
+                zorder=5,
+            )
 
-        ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
-        ax.set_xlabel('Cutoff', fontsize=11)
-        ax.set_ylabel('RD Estimate', fontsize=11)
-        ax.set_title('Placebo Cutoff Test', fontsize=13)
+        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
+        ax.set_xlabel("Cutoff", fontsize=11)
+        ax.set_ylabel("RD Estimate", fontsize=11)
+        ax.set_title("Placebo Cutoff Test", fontsize=13)
         ax.legend(fontsize=10)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         fig.tight_layout()
     except ImportError:  # pragma: no cover
         pass  # pragma: no cover
@@ -397,20 +434,23 @@ def rdplacebo(
 
 
 def _auto_placebo_cutoffs(
-    X: np.ndarray, c: float, n: int, side: str,
+    X: np.ndarray,
+    c: float,
+    n: int,
+    side: str,
 ) -> List[float]:
     """Generate evenly-spaced placebo cutoffs from data quantiles."""
     left_x = X[X < c]
     right_x = X[X >= c]
 
     cutoffs = []
-    if side in ('left', 'both') and len(left_x) > 20:
+    if side in ("left", "both") and len(left_x) > 20:
         # Use 10th to 90th percentile of left side
-        qs = np.linspace(10, 90, n // 2 if side == 'both' else n)
+        qs = np.linspace(10, 90, n // 2 if side == "both" else n)
         cutoffs.extend(np.percentile(left_x, qs).tolist())
 
-    if side in ('right', 'both') and len(right_x) > 20:
-        qs = np.linspace(10, 90, n // 2 if side == 'both' else n)
+    if side in ("right", "both") and len(right_x) > 20:
+        qs = np.linspace(10, 90, n // 2 if side == "both" else n)
         cutoffs.extend(np.percentile(right_x, qs).tolist())
 
     # Remove any that are too close to the true cutoff
@@ -423,6 +463,7 @@ def _auto_placebo_cutoffs(
 # One-stop diagnostic summary
 # ======================================================================
 
+
 def rdsummary(
     data: pd.DataFrame,
     y: str,
@@ -431,7 +472,7 @@ def rdsummary(
     fuzzy: Optional[str] = None,
     covs: Optional[List[str]] = None,
     p: int = 1,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     alpha: float = 0.05,
     verbose: bool = True,
     plot: bool = False,
@@ -512,36 +553,36 @@ def rdsummary(
     results: Dict[str, Any] = {}
 
     # 1. Main estimate
-    est = rdrobust(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p,
-                   kernel=kernel, alpha=alpha)
-    results['estimate'] = est
+    est = rdrobust(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, alpha=alpha)
+    results["estimate"] = est
 
     # 2. Density test
     try:
         density = rddensity(data, x=x, c=c, alpha=alpha)
-        results['density_test'] = density
+        results["density_test"] = density
     except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
-        results['density_test'] = None
+        results["density_test"] = None
 
     # 3. Covariate balance
     if covs:
-        bal = rdbalance(data, x=x, c=c, covs=covs, p=p, kernel=kernel,
-                        alpha=alpha)
-        results['balance'] = bal
+        bal = rdbalance(data, x=x, c=c, covs=covs, p=p, kernel=kernel, alpha=alpha)
+        results["balance"] = bal
     else:
-        results['balance'] = None
+        results["balance"] = None
 
     # 4. Bandwidth sensitivity
     import matplotlib
+
     backend = matplotlib.get_backend()
     if not plot:
-        matplotlib.use('Agg')
+        matplotlib.use("Agg")
     try:
-        bws = rdbwsensitivity(data, y=y, x=x, c=c, fuzzy=fuzzy, p=p,
-                              kernel=kernel, n_grid=7, alpha=alpha)
-        results['bw_sensitivity'] = bws
+        bws = rdbwsensitivity(
+            data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, n_grid=7, alpha=alpha
+        )
+        results["bw_sensitivity"] = bws
     except Exception:  # pragma: no cover
-        results['bw_sensitivity'] = None
+        results["bw_sensitivity"] = None
     finally:
         if not plot:
             matplotlib.use(backend)
@@ -551,46 +592,61 @@ def rdsummary(
         # 5. Honest CI
         try:
             from .honest_ci import rd_honest
+
             honest = rd_honest(data, y=y, x=x, c=c, kernel=kernel, alpha=alpha)
-            results['honest_ci'] = honest
+            results["honest_ci"] = honest
         except Exception:  # pragma: no cover
-            results['honest_ci'] = None
+            results["honest_ci"] = None
 
         # 6. Power analysis
         try:
             from .rdpower import rdpower as _rdpower
+
             mi = est.model_info
-            n_l = mi.get('n_left', 500)
-            n_r = mi.get('n_right', 500)
-            bw_h = mi.get('bandwidth_h', 0.5)
+            n_l = mi.get("n_left", 500)
+            n_r = mi.get("n_right", 500)
+            bw_h = mi.get("bandwidth_h", 0.5)
             if isinstance(bw_h, tuple):
                 bw_h = bw_h[0]
             power_res = _rdpower(
                 tau=est.estimate,
-                n_left=n_l, n_right=n_r,
-                h_left=bw_h, h_right=bw_h,
+                n_left=n_l,
+                n_right=n_r,
+                h_left=bw_h,
+                h_right=bw_h,
                 alpha=alpha,
             )
-            results['power'] = power_res
+            results["power"] = power_res
         except Exception:  # pragma: no cover
-            results['power'] = None
+            results["power"] = None
 
         # 7. Placebo cutoff tests
         try:
-            placebos = rdplacebo(data, y=y, x=x, c=c, fuzzy=fuzzy,
-                                n_placebo=10, p=p, kernel=kernel, alpha=alpha)
-            results['placebos'] = placebos
+            placebos = rdplacebo(
+                data,
+                y=y,
+                x=x,
+                c=c,
+                fuzzy=fuzzy,
+                n_placebo=10,
+                p=p,
+                kernel=kernel,
+                alpha=alpha,
+            )
+            results["placebos"] = placebos
         except Exception:  # pragma: no cover
-            results['placebos'] = None
+            results["placebos"] = None
 
         # 8. Bandwidth comparison across methods
         try:
             from .bandwidth import rdbwselect
-            bw_comp = rdbwselect(data, y=y, x=x, c=c, fuzzy=fuzzy,
-                                p=p, kernel=kernel, all=True)
-            results['bandwidth_comparison'] = bw_comp
+
+            bw_comp = rdbwselect(
+                data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel, all=True
+            )
+            results["bandwidth_comparison"] = bw_comp
         except Exception:  # pragma: no cover
-            results['bandwidth_comparison'] = None
+            results["bandwidth_comparison"] = None
 
     # Print summary
     if verbose:
@@ -600,17 +656,16 @@ def rdsummary(
     if plot:
         try:
             fig = _rd_diagnostic_plot(data, y, x, c, results, alpha)
-            results['figure'] = fig
+            results["figure"] = fig
         except Exception:  # pragma: no cover
-            results['figure'] = None
+            results["figure"] = None
 
     return results
 
 
-def _print_rdsummary(results: Dict[str, Any], alpha: float,
-                     full: bool = False) -> None:
+def _print_rdsummary(results: Dict[str, Any], alpha: float, full: bool = False) -> None:
     """Pretty-print the RD summary."""
-    est = results['estimate']
+    est = results["estimate"]
     mi = est.model_info
 
     print("=" * 60)
@@ -622,17 +677,19 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
     print(f"{'Robust SE':>20s}: {est.se:.4f}")
     print(f"{'95% CI':>20s}: [{est.ci[0]:.4f}, {est.ci[1]:.4f}]")
     print(f"{'p-value':>20s}: {est.pvalue:.4f}")
-    bw = mi['bandwidth_h']
+    bw = mi["bandwidth_h"]
     if isinstance(bw, tuple):
         print(f"{'Bandwidth (L/R)':>20s}: {bw[0]:.4f} / {bw[1]:.4f}")
     else:
         print(f"{'Bandwidth':>20s}: {bw:.4f}")
     print(f"{'N (left/right)':>20s}: {mi['n_left']} / {mi['n_right']}")
-    print(f"{'N eff (left/right)':>20s}: {mi['n_effective_left']} / "
-          f"{mi['n_effective_right']}")
+    print(
+        f"{'N eff (left/right)':>20s}: {mi['n_effective_left']} / "
+        f"{mi['n_effective_right']}"
+    )
 
     # Density test
-    dt = results.get('density_test')
+    dt = results.get("density_test")
     if dt is not None:
         sig = "*" if dt.pvalue < alpha else ""
         print("\n--- Density Manipulation Test (CJM 2020) ---")
@@ -643,63 +700,72 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
             print("  No evidence of manipulation.")
 
     # Balance
-    bal = results.get('balance')
+    bal = results.get("balance")
     if bal is not None:
         print("\n--- Covariate Balance at Cutoff ---")
-        n_sig = bal['significant'].sum()
-        print(bal[['covariate', 'estimate', 'pvalue', 'significant']]
-              .to_string(index=False))
+        n_sig = bal["significant"].sum()
+        print(
+            bal[["covariate", "estimate", "pvalue", "significant"]].to_string(
+                index=False
+            )
+        )
         if n_sig > 0:
-            print(f"  WARNING: {n_sig} covariate(s) show significant "
-                  f"imbalance at cutoff.")
+            print(
+                f"  WARNING: {n_sig} covariate(s) show significant "
+                f"imbalance at cutoff."
+            )
         else:
             print("  All covariates balanced.")
 
     # BW sensitivity
-    bws = results.get('bw_sensitivity')
+    bws = results.get("bw_sensitivity")
     if bws is not None:
         print("\n--- Bandwidth Sensitivity ---")
-        print(bws[['bandwidth', 'estimate', 'pvalue']].to_string(index=False))
-        all_sig = (bws['pvalue'] < alpha).all()
+        print(bws[["bandwidth", "estimate", "pvalue"]].to_string(index=False))
+        all_sig = (bws["pvalue"] < alpha).all()
         print(f"  {'Robust' if all_sig else 'NOT robust'} across bandwidths.")
 
     # Extended diagnostics
     if full:
         # Honest CI
-        honest = results.get('honest_ci')
+        honest = results.get("honest_ci")
         if honest is not None:
             h_mi = honest.model_info
             print("\n--- Honest CI (Armstrong-Kolesar 2020) ---")
             print(f"  Honest 95% CI:  [{honest.ci[0]:.4f}, {honest.ci[1]:.4f}]")
-            print(f"  Naive 95% CI:   [{h_mi['naive_ci'][0]:.4f}, "
-                  f"{h_mi['naive_ci'][1]:.4f}]")
+            print(
+                f"  Naive 95% CI:   [{h_mi['naive_ci'][0]:.4f}, "
+                f"{h_mi['naive_ci'][1]:.4f}]"
+            )
             print(f"  Smoothness M:   {h_mi['M']:.4g}")
             print(f"  Bias bound:     {h_mi['bias_bound']:.4f}")
 
         # Power
-        power = results.get('power')
+        power = results.get("power")
         if power is not None:
             print("\n--- Power Analysis ---")
             print(f"  Power (current): {power.power:.2%}")
             print(f"  MDE (80% power): {power.mde:.4f}")
 
         # Placebos
-        placebos = results.get('placebos')
+        placebos = results.get("placebos")
         if placebos is not None:
             print("\n--- Placebo Cutoff Tests ---")
-            n_placebo_sig = placebos.loc[
-                ~placebos['is_true_cutoff'], 'pvalue'
-            ].lt(alpha).sum()
-            n_placebos = (~placebos['is_true_cutoff']).sum()
-            print(f"  {n_placebo_sig}/{n_placebos} placebo cutoffs "
-                  f"significant at {alpha:.0%}")
+            n_placebo_sig = (
+                placebos.loc[~placebos["is_true_cutoff"], "pvalue"].lt(alpha).sum()
+            )
+            n_placebos = (~placebos["is_true_cutoff"]).sum()
+            print(
+                f"  {n_placebo_sig}/{n_placebos} placebo cutoffs "
+                f"significant at {alpha:.0%}"
+            )
             if n_placebo_sig > 0:
                 print("  WARNING: Significant placebo effects detected.")
             else:
                 print("  No significant placebo effects. Design looks valid.")
 
         # Bandwidth comparison
-        bw_comp = results.get('bandwidth_comparison')
+        bw_comp = results.get("bandwidth_comparison")
         if bw_comp is not None:
             print("\n--- Bandwidth Comparison ---")
             print(bw_comp.to_string(index=False))
@@ -709,7 +775,9 @@ def _print_rdsummary(results: Dict[str, Any], alpha: float,
 
 def _rd_diagnostic_plot(
     data: pd.DataFrame,
-    y: str, x: str, c: float,
+    y: str,
+    x: str,
+    c: float,
     results: Dict[str, Any],
     alpha: float,
 ) -> Any:
@@ -720,96 +788,128 @@ def _rd_diagnostic_plot(
 
     # Panel 1: RD Plot
     from .rdrobust import rdplot
+
     try:
-        rdplot(data, y=y, x=x, c=c, ax=axes[0, 0], show_bw=True,
-               title='RD Plot with Bandwidth')
+        rdplot(
+            data,
+            y=y,
+            x=x,
+            c=c,
+            ax=axes[0, 0],
+            show_bw=True,
+            title="RD Plot with Bandwidth",
+        )
     except Exception:  # pragma: no cover
-        axes[0, 0].set_title('RD Plot (failed)')
+        axes[0, 0].set_title("RD Plot (failed)")
 
     # Panel 2: Density at cutoff
     from .rdrobust import rdplotdensity
+
     try:
-        rdplotdensity(data, x=x, c=c, ax=axes[0, 1],
-                      title='Density at Cutoff')
+        rdplotdensity(data, x=x, c=c, ax=axes[0, 1], title="Density at Cutoff")
     except Exception:  # pragma: no cover
-        axes[0, 1].set_title('Density Plot (failed)')
+        axes[0, 1].set_title("Density Plot (failed)")
 
     # Panel 3: Bandwidth sensitivity
-    bws = results.get('bw_sensitivity')
+    bws = results.get("bw_sensitivity")
     if bws is not None and len(bws) > 0:
         ax3 = axes[1, 0]
-        est = results['estimate']
+        est = results["estimate"]
         mi = est.model_info
-        h_opt = mi.get('bandwidth_h', None)
+        h_opt = mi.get("bandwidth_h", None)
 
-        ax3.errorbar(bws['bandwidth'], bws['estimate'],
-                     yerr=[bws['estimate'] - bws['ci_lower'],
-                           bws['ci_upper'] - bws['estimate']],
-                     fmt='o-', color='#2C3E50', markersize=4,
-                     linewidth=1, capsize=3, alpha=0.8)
-        ax3.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
+        ax3.errorbar(
+            bws["bandwidth"],
+            bws["estimate"],
+            yerr=[bws["estimate"] - bws["ci_lower"], bws["ci_upper"] - bws["estimate"]],
+            fmt="o-",
+            color="#2C3E50",
+            markersize=4,
+            linewidth=1,
+            capsize=3,
+            alpha=0.8,
+        )
+        ax3.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
         if h_opt is not None:
             bw_val = h_opt[0] if isinstance(h_opt, tuple) else h_opt
-            ax3.axvline(x=bw_val, color='#E74C3C', linestyle='--',
-                        linewidth=0.8, alpha=0.7)
-        ax3.set_xlabel('Bandwidth')
-        ax3.set_ylabel('RD Estimate')
-        ax3.set_title('Bandwidth Sensitivity')
-        ax3.spines['top'].set_visible(False)
-        ax3.spines['right'].set_visible(False)
+            ax3.axvline(
+                x=bw_val, color="#E74C3C", linestyle="--", linewidth=0.8, alpha=0.7
+            )
+        ax3.set_xlabel("Bandwidth")
+        ax3.set_ylabel("RD Estimate")
+        ax3.set_title("Bandwidth Sensitivity")
+        ax3.spines["top"].set_visible(False)
+        ax3.spines["right"].set_visible(False)
     else:
-        axes[1, 0].set_title('Bandwidth Sensitivity (N/A)')
+        axes[1, 0].set_title("Bandwidth Sensitivity (N/A)")
 
     # Panel 4: Covariate balance or placebo cutoffs
-    bal = results.get('balance')
-    placebos = results.get('placebos')
+    bal = results.get("balance")
+    placebos = results.get("placebos")
     ax4 = axes[1, 1]
 
     if bal is not None and len(bal) > 0:
         # Covariate balance plot
         y_pos = range(len(bal))
-        colors = ['#E74C3C' if s else '#2ECC71'
-                  for s in bal['significant']]
-        ax4.barh(list(y_pos), bal['estimate'], color=colors, alpha=0.7)
+        colors = ["#E74C3C" if s else "#2ECC71" for s in bal["significant"]]
+        ax4.barh(list(y_pos), bal["estimate"], color=colors, alpha=0.7)
         ax4.set_yticks(list(y_pos))
-        ax4.set_yticklabels(bal['covariate'], fontsize=9)
-        ax4.axvline(x=0, color='gray', linestyle='--', linewidth=0.8)
-        ax4.set_xlabel('Discontinuity in Covariate')
-        ax4.set_title('Covariate Balance at Cutoff')
-        ax4.spines['top'].set_visible(False)
-        ax4.spines['right'].set_visible(False)
+        ax4.set_yticklabels(bal["covariate"], fontsize=9)
+        ax4.axvline(x=0, color="gray", linestyle="--", linewidth=0.8)
+        ax4.set_xlabel("Discontinuity in Covariate")
+        ax4.set_title("Covariate Balance at Cutoff")
+        ax4.spines["top"].set_visible(False)
+        ax4.spines["right"].set_visible(False)
     elif placebos is not None and len(placebos) > 0:
         # Placebo cutoff plot
-        true_mask = placebos['is_true_cutoff']
+        true_mask = placebos["is_true_cutoff"]
         placebo_mask = ~true_mask
         if placebo_mask.any():
             pr = placebos[placebo_mask]
-            ax4.errorbar(pr['cutoff'], pr['estimate'],
-                         yerr=[pr['estimate'] - pr['ci_lower'],
-                               pr['ci_upper'] - pr['estimate']],
-                         fmt='o', color='#95A5A6', markersize=5,
-                         capsize=3, label='Placebo')
+            ax4.errorbar(
+                pr["cutoff"],
+                pr["estimate"],
+                yerr=[pr["estimate"] - pr["ci_lower"], pr["ci_upper"] - pr["estimate"]],
+                fmt="o",
+                color="#95A5A6",
+                markersize=5,
+                capsize=3,
+                label="Placebo",
+            )
         if true_mask.any():
             tr = placebos[true_mask]
-            ax4.errorbar(tr['cutoff'], tr['estimate'],
-                         yerr=[tr['estimate'] - tr['ci_lower'],
-                               tr['ci_upper'] - tr['estimate']],
-                         fmt='D', color='#E74C3C', markersize=8,
-                         capsize=4, label='True cutoff', zorder=5)
-        ax4.axhline(y=0, color='gray', linestyle='--', linewidth=0.8)
-        ax4.set_xlabel('Cutoff')
-        ax4.set_ylabel('RD Estimate')
-        ax4.set_title('Placebo Cutoff Tests')
+            ax4.errorbar(
+                tr["cutoff"],
+                tr["estimate"],
+                yerr=[tr["estimate"] - tr["ci_lower"], tr["ci_upper"] - tr["estimate"]],
+                fmt="D",
+                color="#E74C3C",
+                markersize=8,
+                capsize=4,
+                label="True cutoff",
+                zorder=5,
+            )
+        ax4.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)
+        ax4.set_xlabel("Cutoff")
+        ax4.set_ylabel("RD Estimate")
+        ax4.set_title("Placebo Cutoff Tests")
         ax4.legend(fontsize=9)
-        ax4.spines['top'].set_visible(False)
-        ax4.spines['right'].set_visible(False)
+        ax4.spines["top"].set_visible(False)
+        ax4.spines["right"].set_visible(False)
     else:
-        ax4.set_title('Additional Diagnostics (N/A)')
-        ax4.text(0.5, 0.5, 'No covariates\nprovided',
-                 ha='center', va='center', transform=ax4.transAxes,
-                 fontsize=12, color='gray')
+        ax4.set_title("Additional Diagnostics (N/A)")
+        ax4.text(
+            0.5,
+            0.5,
+            "No covariates\nprovided",
+            ha="center",
+            va="center",
+            transform=ax4.transAxes,
+            fontsize=12,
+            color="gray",
+        )
 
-    fig.suptitle('RD Diagnostic Dashboard', fontsize=14, fontweight='bold')
+    fig.suptitle("RD Diagnostic Dashboard", fontsize=14, fontweight="bold")
     fig.tight_layout(rect=(0, 0, 1, 0.96))
 
     return fig

@@ -70,7 +70,7 @@ def proximal(
     proxy_z: List[str],
     proxy_w: List[str],
     covariates: Optional[List[str]] = None,
-    bridge: str = 'linear',
+    bridge: str = "linear",
     n_boot: int = 0,
     alpha: float = 0.05,
     seed: Optional[int] = None,
@@ -143,7 +143,7 @@ def proximal(
     >>> res.estimand
     'ATE'
     """
-    if bridge != 'linear':
+    if bridge != "linear":
         raise NotImplementedError(
             f"bridge='{bridge}' is not yet implemented. Only bridge='linear' "
             f"(Cui et al. 2024 linear 2SLS) is available in this release. "
@@ -174,9 +174,9 @@ def proximal(
     # Endogenous block: W
     # Excluded instruments: Z (one per W ideally)
     const = np.ones((n, 1))
-    X_exog = np.hstack([const, D, X_cov])                # (n, 2 + p_x)
-    instruments = np.hstack([X_exog, Z])                 # (n, 2 + p_x + p_z)
-    regressors = np.hstack([X_exog, W])                  # (n, 2 + p_x + p_w)
+    X_exog = np.hstack([const, D, X_cov])  # (n, 2 + p_x)
+    instruments = np.hstack([X_exog, Z])  # (n, 2 + p_x + p_z)
+    regressors = np.hstack([X_exog, W])  # (n, 2 + p_x + p_w)
 
     # Order-condition check: need #instruments >= #regressors
     k_exog = X_exog.shape[1]
@@ -190,9 +190,7 @@ def proximal(
         )
 
     try:
-        beta, vcov, first_stage_F = _linear_iv_fit(
-            Y, regressors, instruments, k_exog
-        )
+        beta, vcov, first_stage_F = _linear_iv_fit(Y, regressors, instruments, k_exog)
     except np.linalg.LinAlgError as e:
         raise NumericalInstability(
             f"Proximal 2SLS failed: {e}. Possible rank deficiency in "
@@ -228,13 +226,15 @@ def proximal(
                     f"Proximal: {boot_failed}/{n_boot} bootstrap "
                     f"replications failed. SE from {n_boot - boot_failed} "
                     f"successes. First error: {first_err}.",
-                    RuntimeWarning, stacklevel=2,
+                    RuntimeWarning,
+                    stacklevel=2,
                 )
         else:
             warnings.warn(
                 f"Proximal bootstrap failed on {boot_failed}/{n_boot} "
                 f"replications; falling back to closed-form SE.",
-                RuntimeWarning, stacklevel=2,
+                RuntimeWarning,
+                stacklevel=2,
             )
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -243,19 +243,22 @@ def proximal(
     pvalue = float(2 * (1 - stats.norm.cdf(abs(z))))
 
     model_info = {
-        'estimator': 'Proximal 2SLS (linear bridge)',
-        'bridge': bridge,
-        'n_proxy_z': k_z,
-        'n_proxy_w': k_w,
-        'n_covariates': len(covariates),
-        'first_stage_F': float(first_stage_F) if first_stage_F is not None else None,
-        'se_method': 'bootstrap' if n_boot and (n_boot - boot_failed) >= 2 else '2sls_sandwich',
+        "estimator": "Proximal 2SLS (linear bridge)",
+        "bridge": bridge,
+        "n_proxy_z": k_z,
+        "n_proxy_w": k_w,
+        "n_covariates": len(covariates),
+        "first_stage_F": float(first_stage_F) if first_stage_F is not None else None,
+        "se_method": (
+            "bootstrap" if n_boot and (n_boot - boot_failed) >= 2 else "2sls_sandwich"
+        ),
     }
     if first_stage_F is not None and first_stage_F < 10:
         warnings.warn(
             f"Proximal: first-stage F = {first_stage_F:.2f} < 10. "
             f"Z is a weak instrument for W; estimates may be unreliable.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
     elif first_stage_F is None and k_w > 1:
         warnings.warn(
@@ -263,17 +266,18 @@ def proximal(
             f"endogenous proxy (k_w=1); got k_w={k_w}. For multiple W "
             f"the Cragg-Donald/Kleibergen-Paap minimum-eigenvalue "
             f"statistic is required and is not yet implemented.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
     if n_boot and n_boot > 0:
-        model_info['n_boot'] = n_boot
-        model_info['n_boot_failed'] = boot_failed
+        model_info["n_boot"] = n_boot
+        model_info["n_boot_failed"] = boot_failed
         if boot_failed > 0 and first_err:
-            model_info['first_bootstrap_error'] = first_err
+            model_info["first_bootstrap_error"] = first_err
 
     _result = CausalResult(
-        method='Proximal Causal Inference (linear 2SLS)',
-        estimand='ATE',
+        method="Proximal Causal Inference (linear 2SLS)",
+        estimand="ATE",
         estimate=tau,
         se=se,
         pvalue=pvalue,
@@ -281,19 +285,24 @@ def proximal(
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
-        _citation_key='proximal',
+        _citation_key="proximal",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.proximal.proximal",
             params={
-                "y": y, "treat": treat,
-                "proxy_z": list(proxy_z), "proxy_w": list(proxy_w),
+                "y": y,
+                "treat": treat,
+                "proxy_z": list(proxy_z),
+                "proxy_w": list(proxy_w),
                 "covariates": list(covariates) if covariates else None,
-                "bridge": bridge, "n_boot": n_boot,
-                "alpha": alpha, "seed": seed,
+                "bridge": bridge,
+                "n_boot": n_boot,
+                "alpha": alpha,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -337,7 +346,7 @@ class ProximalCausalInference:
         self._kwargs = kwargs
         self.result_: Optional[CausalResult] = None
 
-    def fit(self, data: pd.DataFrame) -> 'ProximalCausalInference':
+    def fit(self, data: pd.DataFrame) -> "ProximalCausalInference":
         self.result_ = proximal(data=data, **self._kwargs)
         return self
 
@@ -367,8 +376,8 @@ def _linear_iv_fit(
         ZZ_inv = np.linalg.pinv(ZZ)
     except np.linalg.LinAlgError:
         raise np.linalg.LinAlgError("Singular Z'Z in proximal 2SLS first stage")
-    Pi = ZZ_inv @ Zmat.T @ X               # (k_inst, k)
-    X_hat = Zmat @ Pi                       # projected regressors
+    Pi = ZZ_inv @ Zmat.T @ X  # (k_inst, k)
+    X_hat = Zmat @ Pi  # projected regressors
 
     # Second stage: OLS of y on X_hat
     beta = np.linalg.pinv(X_hat.T @ X_hat) @ X_hat.T @ y
@@ -400,12 +409,10 @@ def _linear_iv_fit(
             b_u = np.linalg.pinv(full.T @ full) @ full.T @ wj
             r_u = wj - full @ b_u
             rss_full = float(r_u @ r_u)
-            q = full.shape[1] - ex.shape[1]      # # excluded instruments
+            q = full.shape[1] - ex.shape[1]  # # excluded instruments
             df_denom = n - full.shape[1]
             if rss_full > 0 and q > 0 and df_denom > 0:
-                first_stage_F = (
-                    (rss_restr - rss_full) / q
-                ) / (rss_full / df_denom)
+                first_stage_F = ((rss_restr - rss_full) / q) / (rss_full / df_denom)
         except Exception:
             first_stage_F = None
 
@@ -413,7 +420,7 @@ def _linear_iv_fit(
 
 
 # Citation
-CausalResult._CITATIONS['proximal'] = (
+CausalResult._CITATIONS["proximal"] = (
     "@article{tchetgen2020introduction,\n"
     "  title={An Introduction to Proximal Causal Learning},\n"
     "  author={Tchetgen Tchetgen, Eric J. and Ying, Andrew and "

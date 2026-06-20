@@ -72,7 +72,9 @@ def _build_problem(
     P_t, terms = polynomial_basis(Z_h_t, degree=polynomial_degree)
 
     # Lagged versions for the Markov equation.
-    Z_h_lag = df[[f"__lag1__{proxy}", *[f"__lag1__{s}" for s in state]]].to_numpy(dtype=float)
+    Z_h_lag = df[[f"__lag1__{proxy}", *[f"__lag1__{s}" for s in state]]].to_numpy(
+        dtype=float
+    )
     P_lag, _ = polynomial_basis(Z_h_lag, degree=polynomial_degree)
 
     # Inputs (free + state).
@@ -130,8 +132,8 @@ def _wooldridge_residuals(
     Q, _ = polynomial_basis(h_lag.reshape(-1, 1), degree=productivity_degree)
     g_lag = Q @ delta
 
-    eta = y - X @ beta - h_t                 # eq A residual
-    eta_plus_xi = y - X @ beta - g_lag       # eq B residual
+    eta = y - X @ beta - h_t  # eq A residual
+    eta_plus_xi = y - X @ beta - g_lag  # eq B residual
     return eta, eta_plus_xi, h_t, h_lag, g_lag
 
 
@@ -148,10 +150,14 @@ def _wooldridge_objective(
     """Sum of squared residuals across both equations (one-step GMM, I=I)."""
     eta, eta_plus_xi, *_ = _wooldridge_residuals(
         theta,
-        y=y, X=X, P_t=P_t, P_lag=P_lag,
-        productivity_degree=productivity_degree, n_basis_h=n_basis_h,
+        y=y,
+        X=X,
+        P_t=P_t,
+        P_lag=P_lag,
+        productivity_degree=productivity_degree,
+        n_basis_h=n_basis_h,
     )
-    return float(np.mean(eta ** 2) + np.mean(eta_plus_xi ** 2))
+    return float(np.mean(eta**2) + np.mean(eta_plus_xi**2))
 
 
 def wooldridge_prod(
@@ -242,7 +248,9 @@ def wooldridge_prod(
         )
 
     free = ["l"] if free is None else ([free] if isinstance(free, str) else list(free))
-    state = ["k"] if state is None else ([state] if isinstance(state, str) else list(state))
+    state = (
+        ["k"] if state is None else ([state] if isinstance(state, str) else list(state))
+    )
 
     cols = list({output, *free, *state, proxy, panel_id, time})
     df = data[cols].dropna().sort_values([panel_id, time]).reset_index(drop=True).copy()
@@ -252,8 +260,13 @@ def wooldridge_prod(
         df[f"__lag1__{c}"] = panel_lag(df, c, panel_id, time, lag=1)
 
     prob = _build_problem(
-        df, output, free, state, proxy,
-        polynomial_degree, productivity_degree,
+        df,
+        output,
+        free,
+        state,
+        proxy,
+        polynomial_degree,
+        productivity_degree,
     )
     if prob["X"].shape[0] < 10:
         raise ValueError(
@@ -276,8 +289,12 @@ def wooldridge_prod(
     res = optimize.minimize(
         lambda th: _wooldridge_objective(
             th,
-            y=prob["y"], X=prob["X"], P_t=prob["P_t"], P_lag=prob["P_lag"],
-            productivity_degree=productivity_degree, n_basis_h=n_basis_h,
+            y=prob["y"],
+            X=prob["X"],
+            P_t=prob["P_t"],
+            P_lag=prob["P_lag"],
+            productivity_degree=productivity_degree,
+            n_basis_h=n_basis_h,
         ),
         theta0,
         method="L-BFGS-B",
@@ -288,15 +305,19 @@ def wooldridge_prod(
     beta_hat = theta_hat[:n_inputs]
     # gamma block (theta_hat[n_inputs : n_inputs + n_basis_h]) is re-sliced
     # inside _wooldridge_residuals below to form omega = h(m,k); no local needed.
-    delta_hat = theta_hat[n_inputs + n_basis_h:]
+    delta_hat = theta_hat[n_inputs + n_basis_h :]
 
     # Recover productivity & innovations.
     eta, eta_plus_xi, h_t, h_lag, g_lag = _wooldridge_residuals(
         theta_hat,
-        y=prob["y"], X=prob["X"], P_t=prob["P_t"], P_lag=prob["P_lag"],
-        productivity_degree=productivity_degree, n_basis_h=n_basis_h,
+        y=prob["y"],
+        X=prob["X"],
+        P_t=prob["P_t"],
+        P_lag=prob["P_lag"],
+        productivity_degree=productivity_degree,
+        n_basis_h=n_basis_h,
     )
-    omega = h_t                  # by construction in Wooldridge: omega = h(m,k)
+    omega = h_t  # by construction in Wooldridge: omega = h(m,k)
     xi = eta_plus_xi - eta
     rho = float(delta_hat[1]) if len(delta_hat) > 1 else float("nan")
     sigma_xi = float(np.std(xi, ddof=1))
@@ -312,16 +333,23 @@ def wooldridge_prod(
             try:
                 df_b = df.iloc[idx].reset_index(drop=True)
                 prob_b = _build_problem(
-                    df_b, output, free, state, proxy,
-                    polynomial_degree, productivity_degree,
+                    df_b,
+                    output,
+                    free,
+                    state,
+                    proxy,
+                    polynomial_degree,
+                    productivity_degree,
                 )
                 if prob_b["X"].shape[0] < 10:
                     continue
                 res_b = optimize.minimize(
                     lambda th: _wooldridge_objective(
                         th,
-                        y=prob_b["y"], X=prob_b["X"],
-                        P_t=prob_b["P_t"], P_lag=prob_b["P_lag"],
+                        y=prob_b["y"],
+                        X=prob_b["X"],
+                        P_t=prob_b["P_t"],
+                        P_lag=prob_b["P_lag"],
                         productivity_degree=productivity_degree,
                         n_basis_h=prob_b["n_basis_h"],
                     ),
@@ -345,14 +373,16 @@ def wooldridge_prod(
                     f"Wooldridge production-function bootstrap: {n_fail}/"
                     f"{int(boot_reps)} replications failed; SE computed over "
                     f"{n_success} successes.",
-                    RuntimeWarning, stacklevel=2,
+                    RuntimeWarning,
+                    stacklevel=2,
                 )
         else:
             warnings.warn(
                 f"Wooldridge production-function bootstrap: only {n_success}/"
                 f"{int(boot_reps)} replications succeeded (need >1); standard "
                 f"errors are NaN.",
-                RuntimeWarning, stacklevel=2,
+                RuntimeWarning,
+                stacklevel=2,
             )
 
     inputs = prob["inputs"]

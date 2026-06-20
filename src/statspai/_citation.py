@@ -127,6 +127,5 @@ def citation(format: str = "bibtex") -> str:
             )
         return cff
     raise ValueError(
-        f"format={format!r} invalid; choose from "
-        "'bibtex', 'apa', 'plain', 'cff'."
+        f"format={format!r} invalid; choose from " "'bibtex', 'apa', 'plain', 'cff'."
     )

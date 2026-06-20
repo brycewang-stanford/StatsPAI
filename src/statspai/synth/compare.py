@@ -25,7 +25,6 @@ import pandas as pd
 from ..core.results import CausalResult
 from .scm import synth
 
-
 # ====================================================================== #
 #  Method registry
 # ====================================================================== #
@@ -61,6 +60,7 @@ _SIMPLICITY = {m: r for m, r in _METHOD_REGISTRY}
 # ====================================================================== #
 #  Helpers
 # ====================================================================== #
+
 
 def _extract_pre_rmspe(result: CausalResult) -> float:
     """Extract pre-treatment RMSPE from a CausalResult.
@@ -98,6 +98,7 @@ def _extract_n_effective_donors(result: CausalResult) -> int:
 # ====================================================================== #
 #  SynthComparison
 # ====================================================================== #
+
 
 class SynthComparison:
     """Structured container for multi-method SCM comparison results.
@@ -169,18 +170,23 @@ class SynthComparison:
 
         # Format the table
         display_cols = [
-            "rank", "method", "att", "se", "pvalue",
-            "ci_lower", "ci_upper", "pre_rmspe",
-            "n_effective_donors", "time_seconds",
+            "rank",
+            "method",
+            "att",
+            "se",
+            "pvalue",
+            "ci_lower",
+            "ci_upper",
+            "pre_rmspe",
+            "n_effective_donors",
+            "time_seconds",
         ]
         cols = [c for c in display_cols if c in self.comparison_table.columns]
         tbl = self.comparison_table[cols].to_string(index=False, float_format="%.4f")
         lines.append(tbl)
         lines.append("-" * 72)
         lines.append("")
-        lines.append(
-            f"* Recommended method '{self.recommended}' is highlighted."
-        )
+        lines.append(f"* Recommended method '{self.recommended}' is highlighted.")
         lines.append("=" * 72)
         return "\n".join(lines)
 
@@ -235,6 +241,7 @@ class SynthComparison:
         str
         """
         from .exports import synth_to_latex
+
         return synth_to_latex(self, **kwargs)
 
     def to_markdown(self, **kwargs: Any) -> str:
@@ -243,6 +250,7 @@ class SynthComparison:
         Forwards to :func:`statspai.synth.exports.synth_to_markdown`.
         """
         from .exports import synth_to_markdown
+
         return synth_to_markdown(self, **kwargs)
 
     def to_excel(self, path: str, **kwargs: Any) -> str:
@@ -252,12 +260,14 @@ class SynthComparison:
         Returns the absolute path of the file written.
         """
         from .exports import synth_to_excel
+
         return synth_to_excel(self, path, **kwargs)
 
 
 # ====================================================================== #
 #  Recommendation algorithm
 # ====================================================================== #
+
 
 def _recommend(table: pd.DataFrame) -> Tuple[str, str]:
     """Pick the best method from a comparison table.
@@ -319,8 +329,7 @@ def _recommend(table: pd.DataFrame) -> Tuple[str, str]:
     n_good_fit = fit_mask.sum()
     if n_good_fit > 1:
         parts.append(
-            f"chosen over {n_good_fit - 1} other well-fitting method(s) "
-            "by parsimony"
+            f"chosen over {n_good_fit - 1} other well-fitting method(s) " "by parsimony"
         )
     reason = "; ".join(parts) + "."
 
@@ -330,6 +339,7 @@ def _recommend(table: pd.DataFrame) -> Tuple[str, str]:
 # ====================================================================== #
 #  synth_compare
 # ====================================================================== #
+
 
 def synth_compare(
     data: pd.DataFrame,
@@ -431,22 +441,24 @@ def synth_compare(
         se = getattr(res, "se", np.nan)
         pval = getattr(res, "pvalue", np.nan)
         ci = getattr(res, "ci", (np.nan, np.nan))
-        ci_lo, ci_hi = (ci if ci is not None else (np.nan, np.nan))
+        ci_lo, ci_hi = ci if ci is not None else (np.nan, np.nan)
         pre_rmspe = _extract_pre_rmspe(res)
         n_eff = _extract_n_effective_donors(res)
 
-        rows.append({
-            "method": method_name,
-            "att": att,
-            "se": se,
-            "pvalue": pval,
-            "ci_lower": ci_lo,
-            "ci_upper": ci_hi,
-            "pre_rmspe": pre_rmspe,
-            "n_effective_donors": n_eff,
-            "simplicity_rank": _SIMPLICITY.get(method_name, 99),
-            "time_seconds": round(elapsed, 3),
-        })
+        rows.append(
+            {
+                "method": method_name,
+                "att": att,
+                "se": se,
+                "pvalue": pval,
+                "ci_lower": ci_lo,
+                "ci_upper": ci_hi,
+                "pre_rmspe": pre_rmspe,
+                "n_effective_donors": n_eff,
+                "simplicity_rank": _SIMPLICITY.get(method_name, 99),
+                "time_seconds": round(elapsed, 3),
+            }
+        )
 
     # Build comparison table sorted by pre-treatment fit
     comparison_table = pd.DataFrame(rows)
@@ -470,6 +482,7 @@ def synth_compare(
 # ====================================================================== #
 #  synth_recommend
 # ====================================================================== #
+
 
 def synth_recommend(
     data: pd.DataFrame,

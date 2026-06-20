@@ -38,7 +38,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, Tuple
 
-
 # ---------------------------------------------------------------------------
 # Journal preset registry
 # ---------------------------------------------------------------------------
@@ -159,6 +158,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
 # Public helpers
 # ---------------------------------------------------------------------------
 
+
 def list_templates() -> Tuple[str, ...]:
     """Return the canonical names of every registered journal preset.
 
@@ -221,7 +221,6 @@ def star_note_for(star_levels: Tuple[float, ...]) -> str:
     levels_strict_first = sorted(star_levels)
     n = len(levels_strict_first)
     pieces = [
-        f"{'*' * (n - i)} p<{lev:.2f}"
-        for i, lev in enumerate(levels_strict_first)
+        f"{'*' * (n - i)} p<{lev:.2f}" for i, lev in enumerate(levels_strict_first)
     ]
     return ", ".join(pieces)

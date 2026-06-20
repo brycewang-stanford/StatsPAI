@@ -25,10 +25,11 @@ Jackson, J.W. & VanderWeele, T.J. (2018). "Decomposition Analysis to
 Identify Intervention Targets for Reducing Disparities." *Epidemiology*,
 29(6), 825-835. [@jackson2018decomposition]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple
+from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
@@ -44,10 +45,10 @@ from ._common import (
     wls,
 )
 
-
 # ════════════════════════════════════════════════════════════════════════
 # Gap-closing (Lundberg 2021)
 # ════════════════════════════════════════════════════════════════════════
+
 
 @dataclass
 class GapClosingResult(DecompResultMixin):
@@ -57,8 +58,8 @@ class GapClosingResult(DecompResultMixin):
     observed_gap: float
     counterfactual_gap: float
     closed_gap: float
-    method: str      # 'ipw', 'regression', 'aipw'
-    estimator: str   # name of underlying model
+    method: str  # 'ipw', 'regression', 'aipw'
+    estimator: str  # name of underlying model
     se: Optional[Dict[str, float]] = None
     ci: Optional[Dict[str, Tuple[float, float]]] = None
     n_a: int = 0
@@ -89,33 +90,47 @@ class GapClosingResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import gap_closing_plot
+
         return gap_closing_plot(self, **kwargs)
 
     def to_latex(self) -> str:
-        lines = [r"\begin{tabular}{lc}", r"\toprule",
-                 r"Quantity & Estimate \\", r"\midrule",
-                 f"Observed gap & {self.observed_gap:.4f} \\\\",
-                 f"Counterfactual gap & {self.counterfactual_gap:.4f} \\\\",
-                 f"Closed gap & {self.closed_gap:.4f} \\\\",
-                 r"\bottomrule", r"\end{tabular}"]
+        lines = [
+            r"\begin{tabular}{lc}",
+            r"\toprule",
+            r"Quantity & Estimate \\",
+            r"\midrule",
+            f"Observed gap & {self.observed_gap:.4f} \\\\",
+            f"Counterfactual gap & {self.counterfactual_gap:.4f} \\\\",
+            f"Closed gap & {self.closed_gap:.4f} \\\\",
+            r"\bottomrule",
+            r"\end{tabular}",
+        ]
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
-        return (f"<div><h3>Gap Closing</h3>"
-                f"<p>Observed={self.observed_gap:.4f}, "
-                f"Counterfactual={self.counterfactual_gap:.4f}, "
-                f"Closed={self.closed_gap:.4f}</p></div>")
+        return (
+            f"<div><h3>Gap Closing</h3>"
+            f"<p>Observed={self.observed_gap:.4f}, "
+            f"Counterfactual={self.counterfactual_gap:.4f}, "
+            f"Closed={self.closed_gap:.4f}</p></div>"
+        )
 
     def __repr__(self) -> str:
-        return (f"GapClosingResult(method={self.method}, "
-                f"observed={self.observed_gap:.4f}, "
-                f"counterfactual={self.counterfactual_gap:.4f}, "
-                f"closed={self.closed_gap:.4f})")
+        return (
+            f"GapClosingResult(method={self.method}, "
+            f"observed={self.observed_gap:.4f}, "
+            f"counterfactual={self.counterfactual_gap:.4f}, "
+            f"closed={self.closed_gap:.4f})"
+        )
 
 
 def _gap_closing_core(
-    y: np.ndarray, g: np.ndarray, X: np.ndarray, method: str,
-    trim: float, target_dist: int,
+    y: np.ndarray,
+    g: np.ndarray,
+    X: np.ndarray,
+    method: str,
+    trim: float,
+    target_dist: int,
 ) -> Tuple[float, float]:
     """Core gap-closing computation; returns (observed, counterfactual)."""
     mask_a = g == 0
@@ -169,16 +184,16 @@ def _gap_closing_core(
             # Weight A obs by (1-p)/p, and evaluate m_a under B
             resid_a = y_a - m_a_all[mask_a]
             dr_A = m_a_all[mask_b].mean() + np.mean(
-                ((1 - p_hat[mask_a]) / p_hat[mask_a]
-                 * p_group / (1 - p_group)) * resid_a
+                ((1 - p_hat[mask_a]) / p_hat[mask_a] * p_group / (1 - p_group))
+                * resid_a
             )
             ey_a = float(dr_A)
             ey_b = float(y_b.mean())
         else:
             resid_b = y_b - m_b_all[mask_b]
             dr_B = m_b_all[mask_a].mean() + np.mean(
-                (p_hat[mask_b] / (1 - p_hat[mask_b])
-                 * (1 - p_group) / p_group) * resid_b
+                (p_hat[mask_b] / (1 - p_hat[mask_b]) * (1 - p_group) / p_group)
+                * resid_b
             )
             ey_a = float(y_a.mean())
             ey_b = float(dr_B)
@@ -265,7 +280,9 @@ def gap_closing(
 
         def stat_fn(idx: np.ndarray) -> np.ndarray:
             try:
-                g_i = g[idx]; y_i = y_vec[idx]; X_i = X[idx]
+                g_i = g[idx]
+                y_i = y_vec[idx]
+                X_i = X[idx]
                 if (g_i == 0).sum() < 10 or (g_i == 1).sum() < 10:
                     return np.array([np.nan, np.nan, np.nan])  # pragma: no cover
                 o, c = _gap_closing_core(y_i, g_i, X_i, method, trim, target_dist)
@@ -278,16 +295,27 @@ def gap_closing(
         if len(boot) > 10:
             point = np.array([obs, cf, closed])
             se_vec, lo, hi = bootstrap_ci(boot, point, alpha=alpha)
-            se = {"observed": float(se_vec[0]), "counterfactual": float(se_vec[1]),
-                  "closed": float(se_vec[2])}
-            ci = {"observed": (float(lo[0]), float(hi[0])),
-                  "counterfactual": (float(lo[1]), float(hi[1])),
-                  "closed": (float(lo[2]), float(hi[2]))}
+            se = {
+                "observed": float(se_vec[0]),
+                "counterfactual": float(se_vec[1]),
+                "closed": float(se_vec[2]),
+            }
+            ci = {
+                "observed": (float(lo[0]), float(hi[0])),
+                "counterfactual": (float(lo[1]), float(hi[1])),
+                "closed": (float(lo[2]), float(hi[2])),
+            }
 
     return GapClosingResult(
-        observed_gap=float(obs), counterfactual_gap=float(cf),
-        closed_gap=float(closed), method=method, estimator=method,
-        se=se, ci=ci, n_a=n_a, n_b=n_b,
+        observed_gap=float(obs),
+        counterfactual_gap=float(cf),
+        closed_gap=float(closed),
+        method=method,
+        estimator=method,
+        se=se,
+        ci=ci,
+        n_a=n_a,
+        n_b=n_b,
     )
 
 
@@ -295,17 +323,16 @@ def gap_closing(
 # Natural direct/indirect (VanderWeele mediation)
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class MediationDecompResult(DecompResultMixin):
     method_name: ClassVar[str] = "Causal Mediation Decomposition"
-    bib_keys: ClassVar[Tuple[str, ...]] = (
-        "vanderweele2014unification",
-    )
+    bib_keys: ClassVar[Tuple[str, ...]] = ("vanderweele2014unification",)
 
     total: float = 0.0
-    nde: float = 0.0    # natural direct effect
-    nie: float = 0.0    # natural indirect effect
-    cde: float = 0.0    # controlled direct effect
+    nde: float = 0.0  # natural direct effect
+    nie: float = 0.0  # natural indirect effect
+    cde: float = 0.0  # controlled direct effect
     propn_mediated: float = 0.0
     se: Optional[Dict[str, float]] = None
     ci: Optional[Dict[str, Tuple[float, float]]] = None
@@ -337,25 +364,37 @@ class MediationDecompResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
-        df = pd.DataFrame({
-            "component": ["NDE", "NIE"],
-            "effect": [self.nde, self.nie],
-        })
-        return detailed_waterfall(df, value_col="effect",
-                                  label_col="component",
-                                  title="Mediation Decomposition", **kwargs)
+
+        df = pd.DataFrame(
+            {
+                "component": ["NDE", "NIE"],
+                "effect": [self.nde, self.nie],
+            }
+        )
+        return detailed_waterfall(
+            df,
+            value_col="effect",
+            label_col="component",
+            title="Mediation Decomposition",
+            **kwargs,
+        )
 
     def to_latex(self) -> str:
         lines = [
-            r"\begin{table}[htbp]", r"\centering",
+            r"\begin{table}[htbp]",
+            r"\centering",
             r"\caption{Mediation Decomposition (VanderWeele)}",
-            r"\begin{tabular}{lc}", r"\toprule",
-            r"Component & Estimate \\", r"\midrule",
+            r"\begin{tabular}{lc}",
+            r"\toprule",
+            r"Component & Estimate \\",
+            r"\midrule",
             f"Total effect & {self.total:.4f} \\\\",
             f"NDE (direct) & {self.nde:.4f} \\\\",
             f"NIE (indirect) & {self.nie:.4f} \\\\",
             f"Proportion mediated & {self.propn_mediated:.1%} \\\\",
-            r"\bottomrule", r"\end{tabular}", r"\end{table}",
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
         ]
         return "\n".join(lines)
 
@@ -369,8 +408,10 @@ class MediationDecompResult(DecompResultMixin):
         )
 
     def __repr__(self) -> str:
-        return (f"MediationDecompResult(total={self.total:.4f}, "
-                f"nde={self.nde:.4f}, nie={self.nie:.4f})")
+        return (
+            f"MediationDecompResult(total={self.total:.4f}, "
+            f"nde={self.nde:.4f}, nie={self.nie:.4f})"
+        )
 
 
 def mediation_decompose(
@@ -459,18 +500,18 @@ def mediation_decompose(
     AM = A * M
     Xy = add_constant(np.column_stack([A, M, AM] + ([C] if cov else [])))
     beta_y, vcov_y, _ = wls(Y, Xy)
-    theta1 = beta_y[1]       # A
-    theta2 = beta_y[2]       # M
-    theta3 = beta_y[3]       # AM
+    theta1 = beta_y[1]  # A
+    theta2 = beta_y[2]  # M
+    theta3 = beta_y[3]  # AM
 
     # Mean mediator at A=0
     m_bar_0 = float(M[A == 0].mean()) if (A == 0).any() else float(M.mean())
 
     # Natural effects (under linearity, VanderWeele 2014)
     nde = theta1 + theta3 * m_bar_0
-    nie = alpha_a * (theta2 + theta3)   # using A=1 for CDE mode
+    nie = alpha_a * (theta2 + theta3)  # using A=1 for CDE mode
     total = nde + nie
-    cde = theta1 + theta3 * m_bar_0     # CDE at M = m*  (same as NDE here if m*=m_bar_0)
+    cde = theta1 + theta3 * m_bar_0  # CDE at M = m*  (same as NDE here if m*=m_bar_0)
     pm = nie / total if abs(total) > 1e-12 else float("nan")
 
     se = None
@@ -480,14 +521,19 @@ def mediation_decompose(
 
         def stat_fn(idx: np.ndarray) -> np.ndarray:
             try:
-                Ai = A[idx]; Mi = M[idx]; Yi = Y[idx]
+                Ai = A[idx]
+                Mi = M[idx]
+                Yi = Y[idx]
                 Ci = C[idx] if cov else np.empty((len(idx), 0))
                 Xmi = add_constant(np.column_stack([Ai] + ([Ci] if cov else [])))
                 bmi, _, _ = wls(Mi, Xmi)
-                Xyi = add_constant(np.column_stack(
-                    [Ai, Mi, Ai * Mi] + ([Ci] if cov else [])))
+                Xyi = add_constant(
+                    np.column_stack([Ai, Mi, Ai * Mi] + ([Ci] if cov else []))
+                )
                 byi, _, _ = wls(Yi, Xyi)
-                m0_i = float(Mi[Ai == 0].mean()) if (Ai == 0).any() else float(Mi.mean())
+                m0_i = (
+                    float(Mi[Ai == 0].mean()) if (Ai == 0).any() else float(Mi.mean())
+                )
                 nde_i = byi[1] + byi[3] * m0_i
                 nie_i = bmi[1] * (byi[2] + byi[3])
                 return np.array([nde_i + nie_i, nde_i, nie_i])
@@ -499,16 +545,27 @@ def mediation_decompose(
         if len(boot) > 10:
             pt = np.array([total, nde, nie])
             sev, lo, hi = bootstrap_ci(boot, pt, alpha=alpha)
-            se = {"total": float(sev[0]), "nde": float(sev[1]),
-                  "nie": float(sev[2]), "cde": float(sev[1])}
-            ci = {"total": (float(lo[0]), float(hi[0])),
-                  "nde": (float(lo[1]), float(hi[1])),
-                  "nie": (float(lo[2]), float(hi[2]))}
+            se = {
+                "total": float(sev[0]),
+                "nde": float(sev[1]),
+                "nie": float(sev[2]),
+                "cde": float(sev[1]),
+            }
+            ci = {
+                "total": (float(lo[0]), float(hi[0])),
+                "nde": (float(lo[1]), float(hi[1])),
+                "nie": (float(lo[2]), float(hi[2])),
+            }
 
     return MediationDecompResult(
-        total=float(total), nde=float(nde), nie=float(nie),
-        cde=float(cde), propn_mediated=float(pm),
-        se=se, ci=ci, method="linear_nested",
+        total=float(total),
+        nde=float(nde),
+        nie=float(nie),
+        cde=float(cde),
+        propn_mediated=float(pm),
+        se=se,
+        ci=ci,
+        method="linear_nested",
     )
 
 
@@ -516,13 +573,13 @@ def mediation_decompose(
 # Jackson-VanderWeele (2018) disparity decomposition
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class DisparityDecompResult(DecompResultMixin):
-    method_name: ClassVar[str] = (
-        "Jackson-VanderWeele Causal Disparity Decomposition"
-    )
+    method_name: ClassVar[str] = "Jackson-VanderWeele Causal Disparity Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = (
-        "jackson2018decomposition", "park2024choosing",
+        "jackson2018decomposition",
+        "park2024choosing",
     )
 
     total_disparity: float
@@ -551,26 +608,37 @@ class DisparityDecompResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
-        df = pd.DataFrame({
-            "component": ["Initial disparity", "Mediator-attributable"],
-            "effect": [self.initial_disparity, self.mediator_attributable],
-        })
-        return detailed_waterfall(df, value_col="effect",
-                                  label_col="component",
-                                  title="Jackson-VanderWeele Disparity Decomposition",
-                                  **kwargs)
+
+        df = pd.DataFrame(
+            {
+                "component": ["Initial disparity", "Mediator-attributable"],
+                "effect": [self.initial_disparity, self.mediator_attributable],
+            }
+        )
+        return detailed_waterfall(
+            df,
+            value_col="effect",
+            label_col="component",
+            title="Jackson-VanderWeele Disparity Decomposition",
+            **kwargs,
+        )
 
     def to_latex(self) -> str:
         lines = [
-            r"\begin{table}[htbp]", r"\centering",
+            r"\begin{table}[htbp]",
+            r"\centering",
             r"\caption{Jackson-VanderWeele Causal Disparity Decomposition}",
-            r"\begin{tabular}{lc}", r"\toprule",
-            r"Component & Estimate \\", r"\midrule",
+            r"\begin{tabular}{lc}",
+            r"\toprule",
+            r"Component & Estimate \\",
+            r"\midrule",
             f"Total disparity & {self.total_disparity:.4f} \\\\",
             f"Initial disparity & {self.initial_disparity:.4f} \\\\",
             f"Mediator-attributable & {self.mediator_attributable:.4f} \\\\",
             f"Proportion via mediator & {self.propn_mediator:.1%} \\\\",
-            r"\bottomrule", r"\end{tabular}", r"\end{table}",
+            r"\bottomrule",
+            r"\end{tabular}",
+            r"\end{table}",
         ]
         return "\n".join(lines)
 
@@ -585,8 +653,10 @@ class DisparityDecompResult(DecompResultMixin):
         )
 
     def __repr__(self) -> str:
-        return (f"DisparityDecompResult(total={self.total_disparity:.4f}, "
-                f"initial={self.initial_disparity:.4f})")
+        return (
+            f"DisparityDecompResult(total={self.total_disparity:.4f}, "
+            f"initial={self.initial_disparity:.4f})"
+        )
 
 
 def disparity_decompose(
@@ -650,14 +720,14 @@ def disparity_decompose(
 
     # Outcome model: Y ~ G + M + G*M + C
     GM = G * M
-    X = add_constant(np.column_stack([G.astype(float), M, GM.astype(float)]
-                                     + ([C] if cov else [])))
+    X = add_constant(
+        np.column_stack([G.astype(float), M, GM.astype(float)] + ([C] if cov else []))
+    )
     beta, _, _ = wls(Y, X)
 
     # Predict under counterfactual: all observations as if in group 1, with M = m_star
     def pred(g_val: float, m_val: np.ndarray, c: np.ndarray) -> np.ndarray:
-        cols = [np.ones(len(m_val)), np.full(len(m_val), g_val), m_val,
-                g_val * m_val]
+        cols = [np.ones(len(m_val)), np.full(len(m_val), g_val), m_val, g_val * m_val]
         if c.shape[1] > 0:
             cols.append(c)
         Xnew = np.column_stack(cols)

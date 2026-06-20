@@ -52,6 +52,7 @@ class DDDResult:
     >>> bool(res.rdd_effect.shape == res.quantiles.shape)
     True
     """
+
     quantiles: np.ndarray
     rdd_effect: np.ndarray
     rkd_effect: np.ndarray
@@ -77,7 +78,7 @@ def rd_distributional_design(
     cutoff: float = 0.0,
     quantiles: Optional[np.ndarray] = None,
     bandwidth: Optional[float] = None,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
 ) -> DDDResult:
     """
     Joint RDD + RKD on the conditional distribution of Y.
@@ -135,9 +136,14 @@ def rd_distributional_design(
         y_q = float(np.quantile(Y, q))
         ind = (Y_m <= y_q).astype(float)
         # Local linear in R, with treat × {1, R} interaction
-        Xb = np.column_stack([
-            np.ones_like(R_m), R_m, treat_m, treat_m * R_m,
-        ])
+        Xb = np.column_stack(
+            [
+                np.ones_like(R_m),
+                R_m,
+                treat_m,
+                treat_m * R_m,
+            ]
+        )
         Wd = np.diag(w_m)
         try:
             beta = np.linalg.solve(Xb.T @ Wd @ Xb, Xb.T @ Wd @ ind)

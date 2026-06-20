@@ -59,13 +59,13 @@ from typing import Any, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
-
 _VALID_SOLVERS = ("map", "lsmr", "lsqr")
 
 
 def _hdfe_kernels() -> Any:
     """Load Numba HDFE kernels on first HDFE use, not on package import."""
     from . import _hdfe_kernels as _kernels
+
     return _kernels
 
 
@@ -82,7 +82,9 @@ def _factorize(fe: np.ndarray) -> Tuple[np.ndarray, int]:
     """
     codes, uniq = pd.factorize(fe, sort=False, use_na_sentinel=True)
     if (codes < 0).any():
-        raise ValueError("HDFE: NaN values in fixed-effect column are not allowed.")  # pragma: no cover
+        raise ValueError(
+            "HDFE: NaN values in fixed-effect column are not allowed."
+        )  # pragma: no cover
     return codes.astype(np.int64), len(uniq)
 
 
@@ -318,7 +320,9 @@ class Absorber:
 
         n, K = fe_arr.shape
         if K == 0:
-            raise ValueError("HDFE: at least one fixed-effect column required.")  # pragma: no cover
+            raise ValueError(
+                "HDFE: at least one fixed-effect column required."
+            )  # pragma: no cover
 
         # Factorize each FE column
         fe_codes_raw: List[np.ndarray] = []
@@ -424,7 +428,13 @@ class Absorber:
 
         # K=1: closed-form
         if K == 1:
-            _group_mean_sweep(x, fe_codes[0], counts_list[0], weights, wsum_list[0] if wsum_list else None)
+            _group_mean_sweep(
+                x,
+                fe_codes[0],
+                counts_list[0],
+                weights,
+                wsum_list[0] if wsum_list else None,
+            )
             self._converged = True
             self._iters = 1
             return x.ravel() if squeeze else x
@@ -637,8 +647,12 @@ def demean(
     >>> print(abs(xw.mean()) < 1e-8)      # True — FE means swept out
     """
     ab = Absorber(
-        fe, weights=weights, drop_singletons=drop_singletons,
-        tol=tol, maxiter=maxiter, solver=solver,
+        fe,
+        weights=weights,
+        drop_singletons=drop_singletons,
+        tol=tol,
+        maxiter=maxiter,
+        solver=solver,
     )
     xw = ab.demean(x)
     return xw, ab.keep_mask
@@ -724,8 +738,12 @@ def absorb_ols(
         raise ValueError("y and X length mismatch.")  # pragma: no cover
 
     ab = Absorber(
-        fe, weights=weights, drop_singletons=drop_singletons,
-        tol=tol, maxiter=maxiter, solver=solver,
+        fe,
+        weights=weights,
+        drop_singletons=drop_singletons,
+        tol=tol,
+        maxiter=maxiter,
+        solver=solver,
     )
     yw = ab.demean(y)
     Xw = ab.demean(X)
@@ -758,11 +776,11 @@ def absorb_ols(
 
     # Within R² (FE already swept)
     if w is None:
-        ss_res = float((resid ** 2).sum())
+        ss_res = float((resid**2).sum())
         y_demeaned = yw - yw.mean()
-        ss_tot = float((y_demeaned ** 2).sum())
+        ss_tot = float((y_demeaned**2).sum())
     else:
-        ss_res = float((resid ** 2 * w).sum())
+        ss_res = float((resid**2 * w).sum())
         y_bar_w = (yw * w).sum() / w.sum()
         ss_tot = float(((yw - y_bar_w) ** 2 * w).sum())
     r2_within = 1.0 - ss_res / ss_tot if ss_tot > 0 else np.nan
@@ -782,8 +800,14 @@ def absorb_ols(
         else:
             cluster_sub = np.asarray(cluster)[keep]
         vcov = _cluster_sandwich(
-            Xw, resid, coef, XtX_inv, cluster_sub, df_resid=df_resid,
-            weights=w, n_absorbed=dof_fe + p,
+            Xw,
+            resid,
+            coef,
+            XtX_inv,
+            cluster_sub,
+            df_resid=df_resid,
+            weights=w,
+            n_absorbed=dof_fe + p,
         )
     se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
 
@@ -846,6 +870,7 @@ def _cluster_sandwich(
     else:
         # N-way CGM via inclusion-exclusion over all non-empty subsets.
         from itertools import combinations
+
         V = np.zeros((k, k))
         M = len(clusters_list)
         for r in range(1, M + 1):

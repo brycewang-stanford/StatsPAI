@@ -74,13 +74,14 @@ def _as_float_array(value: Any) -> np.ndarray:
 #  K-class estimator (unifies 2SLS, LIML, Fuller, and user-specified k)
 # ====================================================================== #
 
+
 def _k_class_fit(
     y: np.ndarray,
     X_exog: np.ndarray,
     X_endog: np.ndarray,
     Z: np.ndarray,
     kappa: float,
-    robust: str = 'nonrobust',
+    robust: str = "nonrobust",
     cluster: Optional[pd.Series] = None,
 ) -> Dict[str, Any]:
     """
@@ -95,6 +96,7 @@ def _k_class_fit(
 
     if m < k2:
         from statspai.exceptions import MethodIncompatibility
+
         raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
             f"variables. Need at least {k2} instruments.",
@@ -115,7 +117,11 @@ def _k_class_fit(
     P_W = W @ WtW_inv @ W.T
 
     first_stage_results = _first_stage_diagnostics(
-        X_exog, X_endog, W, n, m,
+        X_exog,
+        X_endog,
+        W,
+        n,
+        m,
     )
 
     # --- K-class second stage ---
@@ -134,6 +140,7 @@ def _k_class_fit(
         XAX_inv = np.linalg.inv(XAX)
     except np.linalg.LinAlgError as exc:
         from statspai.exceptions import NumericalInstability
+
         raise NumericalInstability(
             "Singular matrix in k-class estimation. Check for collinearity.",
             recovery_hint=(
@@ -163,10 +170,10 @@ def _k_class_fit(
     AX = A @ X_actual
     if cluster is not None:
         var_cov = _cluster_cov(AX, A, residuals, XAX_inv, cluster)
-    elif robust != 'nonrobust':
+    elif robust != "nonrobust":
         var_cov = _robust_cov(AX, A, residuals, XAX_inv, robust, n, k)
     else:
-        sigma2 = np.sum(residuals ** 2) / (n - k)
+        sigma2 = np.sum(residuals**2) / (n - k)
         var_cov = sigma2 * XAX_inv
 
     std_errors = np.sqrt(np.maximum(np.diag(var_cov), 0))
@@ -174,7 +181,7 @@ def _k_class_fit(
     # --- Model diagnostics ---
     y_bar = np.mean(y)
     tss = np.sum((y - y_bar) ** 2)
-    rss = np.sum(residuals ** 2)
+    rss = np.sum(residuals**2)
     r_squared = 1 - rss / tss
 
     # Sargan/Hansen overidentification test (if over-identified)
@@ -184,29 +191,30 @@ def _k_class_fit(
     hausman = _hausman_test(y, X_exog, X_endog, W)
 
     return {
-        'params': params,
-        'std_errors': std_errors,
-        'var_cov': var_cov,
-        'fitted_values': fitted_values,
-        'residuals': residuals,
-        'r_squared': r_squared,
-        'nobs': n,
-        'df_model': k - 1,
-        'df_resid': n - k,
-        'rss': rss,
-        'tss': tss,
-        'first_stage': first_stage_results,
-        'sargan': sargan,
-        'hausman': hausman,
-        'n_instruments': m,
-        'n_endogenous': k2,
-        'kappa': float(kappa),
+        "params": params,
+        "std_errors": std_errors,
+        "var_cov": var_cov,
+        "fitted_values": fitted_values,
+        "residuals": residuals,
+        "r_squared": r_squared,
+        "nobs": n,
+        "df_model": k - 1,
+        "df_resid": n - k,
+        "rss": rss,
+        "tss": tss,
+        "first_stage": first_stage_results,
+        "sargan": sargan,
+        "hausman": hausman,
+        "n_instruments": m,
+        "n_endogenous": k2,
+        "kappa": float(kappa),
     }
 
 
 # ====================================================================== #
 #  LIML eigenvalue computation
 # ====================================================================== #
+
 
 def _liml_kappa(
     y: np.ndarray,
@@ -251,6 +259,7 @@ def _liml_kappa(
     # eigendecomposition via ``scipy.linalg.eigh(B, A)``.
     try:
         from scipy.linalg import eigh as _sp_eigh
+
         eigvals = _sp_eigh(B, A, eigvals_only=True)
         kappa = float(np.min(eigvals))
         if not np.isfinite(kappa) or kappa < 1 - 1e-8:
@@ -258,13 +267,15 @@ def _liml_kappa(
             # demonstrably wrong kappa.
             warnings.warn(
                 f"LIML kappa computation returned {kappa}; falling back to 2SLS.",
-                RuntimeWarning, stacklevel=2,
+                RuntimeWarning,
+                stacklevel=2,
             )
             kappa = 1.0
     except Exception:
         warnings.warn(
             "LIML generalized eigenvalue solve failed; falling back to 2SLS.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
         kappa = 1.0
 
@@ -275,12 +286,13 @@ def _liml_kappa(
 #  GMM estimator
 # ====================================================================== #
 
+
 def _gmm_fit(
     y: np.ndarray,
     X_exog: np.ndarray,
     X_endog: np.ndarray,
     Z: np.ndarray,
-    robust: str = 'nonrobust',
+    robust: str = "nonrobust",
     cluster: Optional[pd.Series] = None,
 ) -> Dict[str, Any]:
     """
@@ -298,6 +310,7 @@ def _gmm_fit(
 
     if m < k2:
         from statspai.exceptions import MethodIncompatibility
+
         raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
             f"variables. Need at least {k2} instruments.",
@@ -333,12 +346,12 @@ def _gmm_fit(
             moments_c = (W[idx] * resid_init[idx, np.newaxis]).sum(axis=0)
             S += np.outer(moments_c, moments_c)
         S /= n
-    elif robust != 'nonrobust':
+    elif robust != "nonrobust":
         # Heteroskedasticity-robust weighting matrix
         S = (W * resid_init[:, np.newaxis]).T @ (W * resid_init[:, np.newaxis]) / n
     else:
         # Homoskedastic weighting matrix
-        sigma2 = np.sum(resid_init ** 2) / n
+        sigma2 = np.sum(resid_init**2) / n
         S = sigma2 * (W.T @ W) / n
 
     try:
@@ -373,7 +386,7 @@ def _gmm_fit(
     # Diagnostics
     y_bar = np.mean(y)
     tss = np.sum((y - y_bar) ** 2)
-    rss = np.sum(residuals ** 2)
+    rss = np.sum(residuals**2)
     r_squared = 1 - rss / tss
 
     first_stage_results = _first_stage_diagnostics(X_exog, X_endog, W, n, m)
@@ -384,30 +397,30 @@ def _gmm_fit(
         j_stat = float(n * g_bar @ S_inv @ g_bar)
         j_df = m - k2
         j_pvalue = float(1 - stats.chi2.cdf(j_stat, j_df))
-        hansen_j = {'statistic': j_stat, 'pvalue': j_pvalue, 'df': j_df}
+        hansen_j = {"statistic": j_stat, "pvalue": j_pvalue, "df": j_df}
     else:
         hansen_j = None
 
     hausman = _hausman_test(y, X_exog, X_endog, W)
 
     return {
-        'params': params,
-        'std_errors': std_errors,
-        'var_cov': var_cov,
-        'fitted_values': fitted_values,
-        'residuals': residuals,
-        'r_squared': r_squared,
-        'nobs': n,
-        'df_model': k - 1,
-        'df_resid': n - k,
-        'rss': rss,
-        'tss': tss,
-        'first_stage': first_stage_results,
-        'sargan': hansen_j,  # Hansen J generalises Sargan
-        'hausman': hausman,
-        'n_instruments': m,
-        'n_endogenous': k2,
-        'kappa': None,
+        "params": params,
+        "std_errors": std_errors,
+        "var_cov": var_cov,
+        "fitted_values": fitted_values,
+        "residuals": residuals,
+        "r_squared": r_squared,
+        "nobs": n,
+        "df_model": k - 1,
+        "df_resid": n - k,
+        "rss": rss,
+        "tss": tss,
+        "first_stage": first_stage_results,
+        "sargan": hansen_j,  # Hansen J generalises Sargan
+        "hausman": hausman,
+        "n_instruments": m,
+        "n_endogenous": k2,
+        "kappa": None,
     }
 
 
@@ -415,12 +428,13 @@ def _gmm_fit(
 #  JIVE estimator
 # ====================================================================== #
 
+
 def _jive_fit(
     y: np.ndarray,
     X_exog: np.ndarray,
     X_endog: np.ndarray,
     Z: np.ndarray,
-    robust: str = 'nonrobust',
+    robust: str = "nonrobust",
     cluster: Optional[pd.Series] = None,
 ) -> Dict[str, Any]:
     """
@@ -438,6 +452,7 @@ def _jive_fit(
 
     if m < k2:
         from statspai.exceptions import MethodIncompatibility
+
         raise MethodIncompatibility(
             f"Under-identified: {m} instruments for {k2} endogenous "
             f"variables. Need at least {k2} instruments.",
@@ -464,9 +479,7 @@ def _jive_fit(
     X_endog_hat_full = P_W @ X_endog
     X_endog_jive = np.empty_like(X_endog)
     for j in range(k2):
-        X_endog_jive[:, j] = (
-            (X_endog_hat_full[:, j] - h * X_endog[:, j]) / (1 - h)
-        )
+        X_endog_jive[:, j] = (X_endog_hat_full[:, j] - h * X_endog[:, j]) / (1 - h)
 
     # Second stage with JIVE fitted values
     X_hat_jive = np.column_stack([X_exog, X_endog_jive])
@@ -479,10 +492,10 @@ def _jive_fit(
     # Standard errors (HC1-style with JIVE bread)
     if cluster is not None:
         var_cov = _cluster_cov(X_hat_jive, np.eye(n), residuals, XhXh_inv, cluster)
-    elif robust != 'nonrobust':
+    elif robust != "nonrobust":
         var_cov = _robust_cov(X_hat_jive, np.eye(n), residuals, XhXh_inv, robust, n, k)
     else:
-        sigma2 = np.sum(residuals ** 2) / (n - k)
+        sigma2 = np.sum(residuals**2) / (n - k)
         var_cov = sigma2 * XhXh_inv
 
     std_errors = np.sqrt(np.maximum(np.diag(var_cov), 0))
@@ -490,36 +503,37 @@ def _jive_fit(
     # Diagnostics
     y_bar = np.mean(y)
     tss = np.sum((y - y_bar) ** 2)
-    rss = np.sum(residuals ** 2)
+    rss = np.sum(residuals**2)
 
     first_stage_results = _first_stage_diagnostics(X_exog, X_endog, W, n, m)
     sargan = _sargan_test(residuals, W, m, k2) if m > k2 else None
     hausman = _hausman_test(y, X_exog, X_endog, W)
 
     return {
-        'params': params,
-        'std_errors': std_errors,
-        'var_cov': var_cov,
-        'fitted_values': fitted_values,
-        'residuals': residuals,
-        'r_squared': 1 - rss / tss,
-        'nobs': n,
-        'df_model': k - 1,
-        'df_resid': n - k,
-        'rss': rss,
-        'tss': tss,
-        'first_stage': first_stage_results,
-        'sargan': sargan,
-        'hausman': hausman,
-        'n_instruments': m,
-        'n_endogenous': k2,
-        'kappa': None,
+        "params": params,
+        "std_errors": std_errors,
+        "var_cov": var_cov,
+        "fitted_values": fitted_values,
+        "residuals": residuals,
+        "r_squared": 1 - rss / tss,
+        "nobs": n,
+        "df_model": k - 1,
+        "df_resid": n - k,
+        "rss": rss,
+        "tss": tss,
+        "first_stage": first_stage_results,
+        "sargan": sargan,
+        "hausman": hausman,
+        "n_instruments": m,
+        "n_endogenous": k2,
+        "kappa": None,
     }
 
 
 # ====================================================================== #
 #  Shared diagnostic helpers
 # ====================================================================== #
+
 
 def _first_stage_diagnostics(
     X_exog: np.ndarray,
@@ -552,11 +566,15 @@ def _first_stage_diagnostics(
         else:
             f_stat = f_pvalue = np.nan
 
-        results.append({
-            'f_statistic': f_stat,
-            'f_pvalue': f_pvalue,
-            'partial_r_squared': 1 - rss_full / rss_restricted if rss_restricted > 0 else np.nan,
-        })
+        results.append(
+            {
+                "f_statistic": f_stat,
+                "f_pvalue": f_pvalue,
+                "partial_r_squared": (
+                    1 - rss_full / rss_restricted if rss_restricted > 0 else np.nan
+                ),
+            }
+        )
 
     return results
 
@@ -571,14 +589,14 @@ def _normalize_robust(robust: Any) -> str:
     error for anything else instead of failing deep inside the sandwich kernel.
     """
     if robust is None or robust is False:
-        return 'nonrobust'
+        return "nonrobust"
     if robust is True:
-        return 'hc1'  # Stata `robust` ≡ HC1
+        return "hc1"  # Stata `robust` ≡ HC1
     if isinstance(robust, str):
         key = robust.strip().lower()
-        aliases = {'robust': 'hc1', 'white': 'hc0'}
+        aliases = {"robust": "hc1", "white": "hc0"}
         key = aliases.get(key, key)
-        if key in ('nonrobust', 'hc0', 'hc1', 'hc2', 'hc3'):
+        if key in ("nonrobust", "hc0", "hc1", "hc2", "hc3"):
             return key
     raise MethodIncompatibility(
         f"Unknown robust option: {robust!r}. Use one of 'nonrobust', "
@@ -601,17 +619,17 @@ def _robust_cov(
     k: int,
 ) -> np.ndarray:
     """Heteroskedasticity-robust covariance (sandwich)."""
-    if robust_type == 'hc0':
-        weights = residuals ** 2
-    elif robust_type == 'hc1':
-        weights = (n / (n - k)) * residuals ** 2
-    elif robust_type in ('hc2', 'hc3'):
+    if robust_type == "hc0":
+        weights = residuals**2
+    elif robust_type == "hc1":
+        weights = (n / (n - k)) * residuals**2
+    elif robust_type in ("hc2", "hc3"):
         h = np.diag(X_hat @ bread @ X_hat.T)
         h = np.clip(h, 0, 1 - 1e-8)
-        if robust_type == 'hc2':
-            weights = residuals ** 2 / (1 - h)
+        if robust_type == "hc2":
+            weights = residuals**2 / (1 - h)
         else:
-            weights = residuals ** 2 / (1 - h) ** 2
+            weights = residuals**2 / (1 - h) ** 2
     else:
         raise ValueError(f"Unknown robust type: {robust_type}")
 
@@ -658,7 +676,7 @@ def _sargan_test(
     df = n_excluded - n_endog
     pvalue = 1 - stats.chi2.cdf(stat, df) if df > 0 else np.nan
 
-    return {'statistic': stat, 'pvalue': pvalue, 'df': df}
+    return {"statistic": stat, "pvalue": pvalue, "df": df}
 
 
 def _hausman_test(
@@ -702,12 +720,13 @@ def _hausman_test(
     except np.linalg.LinAlgError:
         f_stat = f_pvalue = np.nan
 
-    return {'statistic': f_stat, 'pvalue': f_pvalue, 'df': k2}
+    return {"statistic": f_stat, "pvalue": f_pvalue, "df": k2}
 
 
 # ====================================================================== #
 #  Legacy IVEstimator (kept for backward compat)
 # ====================================================================== #
+
 
 class IVEstimator(BaseEstimator):
     """
@@ -722,7 +741,7 @@ class IVEstimator(BaseEstimator):
         X: np.ndarray,
         X_endog: Optional[np.ndarray] = None,
         Z: Optional[np.ndarray] = None,
-        robust: Any = 'nonrobust',
+        robust: Any = "nonrobust",
         cluster: Optional[pd.Series] = None,
         **kwargs: Any,
     ) -> Dict[str, Any]:
@@ -754,25 +773,26 @@ class IVEstimator(BaseEstimator):
 # ====================================================================== #
 
 _METHOD_LABELS = {
-    '2sls': 'IV-2SLS',
-    'liml': 'IV-LIML',
-    'fuller': 'IV-Fuller',
-    'gmm': 'IV-GMM (2-step)',
-    'jive': 'IV-JIVE',
+    "2sls": "IV-2SLS",
+    "liml": "IV-LIML",
+    "fuller": "IV-Fuller",
+    "gmm": "IV-GMM (2-step)",
+    "jive": "IV-JIVE",
 }
 
 _METHOD_DESCRIPTIONS = {
-    '2sls': 'Two-Stage Least Squares',
-    'liml': 'Limited Information Maximum Likelihood',
-    'fuller': 'Fuller Modified LIML',
-    'gmm': 'Efficient Two-Step GMM',
-    'jive': 'Jackknife Instrumental Variables',
+    "2sls": "Two-Stage Least Squares",
+    "liml": "Limited Information Maximum Likelihood",
+    "fuller": "Fuller Modified LIML",
+    "gmm": "Efficient Two-Step GMM",
+    "jive": "Jackknife Instrumental Variables",
 }
 
 
 # ====================================================================== #
 #  IVRegression model class
 # ====================================================================== #
+
 
 class IVRegression(BaseModel):
     """
@@ -815,7 +835,7 @@ class IVRegression(BaseModel):
         self,
         formula: Optional[str] = None,
         data: Optional[pd.DataFrame] = None,
-        method: str = '2sls',
+        method: str = "2sls",
         fuller_alpha: float = 1.0,
         y: Optional[np.ndarray] = None,
         X_exog: Optional[np.ndarray] = None,
@@ -848,7 +868,7 @@ class IVRegression(BaseModel):
         self.Z = Z
         self.var_names = var_names
 
-        if self.method not in ('2sls', 'liml', 'fuller', 'gmm', 'jive'):
+        if self.method not in ("2sls", "liml", "fuller", "gmm", "jive"):
             raise MethodIncompatibility(
                 f"Unknown IV method '{method}'. "
                 f"Choose from: 2sls, liml, fuller, gmm, jive",
@@ -874,20 +894,18 @@ class IVRegression(BaseModel):
         data = self.data
         parsed = parse_formula(self.formula)
 
-        if not parsed['endogenous'] or not parsed['instruments']:
+        if not parsed["endogenous"] or not parsed["instruments"]:
             raise MethodIncompatibility(
                 "IV formula must specify endogenous variables and instruments. "
-                "Use syntax: \"y ~ (endog ~ z1 + z2) + exog\"",
-                recovery_hint=(
-                    "Write the endogenous block as (endog ~ instrument)."
-                ),
+                'Use syntax: "y ~ (endog ~ z1 + z2) + exog"',
+                recovery_hint=("Write the endogenous block as (endog ~ instrument)."),
                 diagnostics={"formula": self.formula},
             )
 
-        self.dependent_var = parsed['dependent']
-        exog_names = parsed['exogenous']
-        endog_names = parsed['endogenous']
-        instrument_names = parsed['instruments']
+        self.dependent_var = parsed["dependent"]
+        exog_names = parsed["exogenous"]
+        endog_names = parsed["endogenous"]
+        instrument_names = parsed["instruments"]
 
         all_vars = [self.dependent_var] + exog_names + endog_names + instrument_names
         missing = [v for v in all_vars if v not in data.columns]
@@ -907,21 +925,20 @@ class IVRegression(BaseModel):
             raise DataInsufficient(
                 "No rows remain after dropping NaNs.",
                 recovery_hint=(
-                    "Provide at least one complete row for the IV formula "
-                    "variables."
+                    "Provide at least one complete row for the IV formula " "variables."
                 ),
                 diagnostics={"required_columns": all_vars},
             )
 
         self.y = clean[self.dependent_var].values
 
-        if parsed['has_constant']:
+        if parsed["has_constant"]:
             const = np.ones((len(clean), 1))
             if exog_names:
                 self.X_exog = np.column_stack([const, clean[exog_names].values])
             else:
                 self.X_exog = const
-            self._exog_names = ['Intercept'] + exog_names
+            self._exog_names = ["Intercept"] + exog_names
         else:
             self.X_exog = clean[exog_names].values
             self._exog_names = exog_names
@@ -935,7 +952,7 @@ class IVRegression(BaseModel):
 
     def fit(
         self,
-        robust: Any = 'nonrobust',
+        robust: Any = "nonrobust",
         cluster: Optional[str] = None,
         **kwargs: Any,
     ) -> EconometricResults:
@@ -966,13 +983,16 @@ class IVRegression(BaseModel):
 
         if self.formula is not None and self.data is not None:
             self._prepare_from_formula()
-        elif not (self.y is not None and self.X_exog is not None
-                  and self.X_endog is not None and self.Z is not None):
+        elif not (
+            self.y is not None
+            and self.X_exog is not None
+            and self.X_endog is not None
+            and self.Z is not None
+        ):
             raise MethodIncompatibility(
                 "Provide either (formula, data) or (y, X_exog, X_endog, Z).",
                 recovery_hint=(
-                    "Pass a formula with a DataFrame, or pass all four raw "
-                    "arrays."
+                    "Pass a formula with a DataFrame, or pass all four raw " "arrays."
                 ),
                 diagnostics={
                     "has_formula": self.formula is not None,
@@ -1002,46 +1022,40 @@ class IVRegression(BaseModel):
                         "has_X_endog": X_endog_arr is not None,
                         "has_Z": Z_arr is not None,
                     },
-            )
+                )
             self._exog_names = (
                 self.var_names.get(
-                    'exog',
-                    [f'exog{i}' for i in range(X_exog_arr.shape[1])],
+                    "exog",
+                    [f"exog{i}" for i in range(X_exog_arr.shape[1])],
                 )
                 if self.var_names
-                else [f'exog{i}' for i in range(X_exog_arr.shape[1])]
+                else [f"exog{i}" for i in range(X_exog_arr.shape[1])]
             )
             self._endog_names = (
                 self.var_names.get(
-                    'endog',
-                    [f'endog{i}' for i in range(X_endog_arr.shape[1])],
+                    "endog",
+                    [f"endog{i}" for i in range(X_endog_arr.shape[1])],
                 )
                 if self.var_names
-                else [f'endog{i}' for i in range(X_endog_arr.shape[1])]
+                else [f"endog{i}" for i in range(X_endog_arr.shape[1])]
             )
             self._instrument_names = (
                 self.var_names.get(
-                    'instruments',
-                    [f'z{i}' for i in range(Z_arr.shape[1])],
+                    "instruments",
+                    [f"z{i}" for i in range(Z_arr.shape[1])],
                 )
                 if self.var_names
-                else [f'z{i}' for i in range(Z_arr.shape[1])]
+                else [f"z{i}" for i in range(Z_arr.shape[1])]
             )
             self.dependent_var = (
-                self.var_names.get('dependent', 'y')
-                if self.var_names else 'y'
+                self.var_names.get("dependent", "y") if self.var_names else "y"
             )
 
         y_fit = self.y
         X_exog_fit = self.X_exog
         X_endog_fit = self.X_endog
         Z_fit = self.Z
-        if (
-            y_fit is None
-            or X_exog_fit is None
-            or X_endog_fit is None
-            or Z_fit is None
-        ):
+        if y_fit is None or X_exog_fit is None or X_endog_fit is None or Z_fit is None:
             raise MethodIncompatibility(
                 "IV design arrays are unavailable after preparation.",
                 diagnostics={
@@ -1056,13 +1070,12 @@ class IVRegression(BaseModel):
         cluster_var = None
         if cluster and self.data is not None:
             cluster = _require_string(cluster, "cluster")
-            if hasattr(self, '_clean_data'):
+            if hasattr(self, "_clean_data"):
                 if cluster not in self._clean_data.columns:
                     raise MethodIncompatibility(
                         f"Cluster variable not found in data: {cluster!r}",
                         recovery_hint=(
-                            "Pass a cluster column present in the formula "
-                            "data."
+                            "Pass a cluster column present in the formula " "data."
                         ),
                         diagnostics={"cluster": cluster},
                     )
@@ -1081,10 +1094,10 @@ class IVRegression(BaseModel):
         # --- Dispatch to estimation method ---
         method = self.method
 
-        if method in ('2sls', 'liml', 'fuller'):
-            if method == '2sls':
+        if method in ("2sls", "liml", "fuller"):
+            if method == "2sls":
                 kappa = 1.0
-            elif method == 'liml':
+            elif method == "liml":
                 kappa = _liml_kappa(y_fit, X_exog_fit, X_endog_fit, Z_fit)
             else:  # fuller
                 kappa_liml = _liml_kappa(
@@ -1098,64 +1111,77 @@ class IVRegression(BaseModel):
                 kappa = kappa_liml - self.fuller_alpha / (n - K)
 
             results = _k_class_fit(
-                y_fit, X_exog_fit, X_endog_fit, Z_fit,
-                kappa=kappa, robust=robust, cluster=cluster_var,
+                y_fit,
+                X_exog_fit,
+                X_endog_fit,
+                Z_fit,
+                kappa=kappa,
+                robust=robust,
+                cluster=cluster_var,
             )
 
-        elif method == 'gmm':
+        elif method == "gmm":
             results = _gmm_fit(
-                y_fit, X_exog_fit, X_endog_fit, Z_fit,
-                robust=robust, cluster=cluster_var,
+                y_fit,
+                X_exog_fit,
+                X_endog_fit,
+                Z_fit,
+                robust=robust,
+                cluster=cluster_var,
             )
 
-        elif method == 'jive':
+        elif method == "jive":
             results = _jive_fit(
-                y_fit, X_exog_fit, X_endog_fit, Z_fit,
-                robust=robust, cluster=cluster_var,
+                y_fit,
+                X_exog_fit,
+                X_endog_fit,
+                Z_fit,
+                robust=robust,
+                cluster=cluster_var,
             )
 
         # Build results object
         all_names = self._exog_names + self._endog_names
-        params = pd.Series(results['params'], index=all_names)
-        std_errors = pd.Series(results['std_errors'], index=all_names)
+        params = pd.Series(results["params"], index=all_names)
+        std_errors = pd.Series(results["std_errors"], index=all_names)
 
         method_label = _METHOD_LABELS.get(method, method.upper())
         method_desc = _METHOD_DESCRIPTIONS.get(method, method)
 
         model_info = {
-            'model_type': method_label,
-            'method': method_desc,
-            'robust': robust,
-            'cluster': cluster,
+            "model_type": method_label,
+            "method": method_desc,
+            "robust": robust,
+            "cluster": cluster,
         }
-        if results.get('kappa') is not None:
-            model_info['kappa'] = results['kappa']
+        if results.get("kappa") is not None:
+            model_info["kappa"] = results["kappa"]
 
         data_info = {
-            'nobs': results['nobs'],
-            'df_model': results['df_model'],
-            'df_resid': results['df_resid'],
-            'dependent_var': self.dependent_var,
-            'fitted_values': results['fitted_values'],
-            'residuals': results['residuals'],
+            "nobs": results["nobs"],
+            "df_model": results["df_model"],
+            "df_resid": results["df_resid"],
+            "dependent_var": self.dependent_var,
+            "fitted_values": results["fitted_values"],
+            "residuals": results["residuals"],
         }
 
         # Build diagnostics dict
         diagnostics = {
-            'R-squared': results['r_squared'],
-            'N instruments': results['n_instruments'],
-            'N endogenous': results['n_endogenous'],
+            "R-squared": results["r_squared"],
+            "N instruments": results["n_instruments"],
+            "N endogenous": results["n_endogenous"],
         }
 
-        for j, fs in enumerate(results['first_stage']):
+        for j, fs in enumerate(results["first_stage"]):
             endog_name = self._endog_names[j]
-            diagnostics[f'First-stage F ({endog_name})'] = fs['f_statistic']
-            diagnostics[f'First-stage F p-value ({endog_name})'] = fs['f_pvalue']
-            diagnostics[f'Partial R² ({endog_name})'] = fs['partial_r_squared']
+            diagnostics[f"First-stage F ({endog_name})"] = fs["f_statistic"]
+            diagnostics[f"First-stage F p-value ({endog_name})"] = fs["f_pvalue"]
+            diagnostics[f"Partial R² ({endog_name})"] = fs["partial_r_squared"]
 
         # Weak instrument warning
-        for j, fs in enumerate(results['first_stage']):
-            if fs['f_statistic'] < 10:
+        for j, fs in enumerate(results["first_stage"]):
+            if fs["f_statistic"] < 10:
                 endog_name = self._endog_names[j]
                 warnings.warn(
                     f"Weak instrument warning: First-stage F-statistic for "
@@ -1165,22 +1191,22 @@ class IVRegression(BaseModel):
                     stacklevel=2,
                 )
 
-        if results['sargan'] is not None:
-            test_name = 'Hansen J' if method == 'gmm' else 'Sargan'
-            diagnostics[f'{test_name} statistic'] = results['sargan']['statistic']
-            diagnostics[f'{test_name} p-value'] = results['sargan']['pvalue']
-            diagnostics[f'{test_name} df'] = results['sargan']['df']
+        if results["sargan"] is not None:
+            test_name = "Hansen J" if method == "gmm" else "Sargan"
+            diagnostics[f"{test_name} statistic"] = results["sargan"]["statistic"]
+            diagnostics[f"{test_name} p-value"] = results["sargan"]["pvalue"]
+            diagnostics[f"{test_name} df"] = results["sargan"]["df"]
 
-        if results['hausman'] is not None:
-            diagnostics['Hausman F-stat'] = results['hausman']['statistic']
-            diagnostics['Hausman p-value'] = results['hausman']['pvalue']
+        if results["hausman"] is not None:
+            diagnostics["Hausman F-stat"] = results["hausman"]["statistic"]
+            diagnostics["Hausman p-value"] = results["hausman"]["pvalue"]
 
         # Store for programmatic access
-        self._first_stage = [dict(fs) for fs in results['first_stage']]
+        self._first_stage = [dict(fs) for fs in results["first_stage"]]
         self._sargan = (
-            dict(results['sargan']) if results['sargan'] is not None else None
+            dict(results["sargan"]) if results["sargan"] is not None else None
         )
-        self._hausman = dict(results['hausman'])
+        self._hausman = dict(results["hausman"])
         self._instruments = self._instrument_names
         self._raw_results = results
 
@@ -1261,9 +1287,11 @@ class IVRegression(BaseModel):
             )
 
         params = _as_float_array(self._results.params)
-        names = list(self._results.params.index) if hasattr(
-            self._results.params, "index"
-        ) else list(self._exog_names) + list(self._endog_names)
+        names = (
+            list(self._results.params.index)
+            if hasattr(self._results.params, "index")
+            else list(self._exog_names) + list(self._endog_names)
+        )
 
         n_new = len(data)
         X_new_cols = []
@@ -1324,6 +1352,7 @@ class IVRegression(BaseModel):
 #  Absorb (HDFE) preprocessing for sp.iv(..., absorb=...)
 # ====================================================================== #
 
+
 def _normalise_absorb(absorb: Optional[Union[str, List[str]]]) -> List[str]:
     """Normalise an ``absorb=`` argument to a list of column names.
 
@@ -1332,7 +1361,7 @@ def _normalise_absorb(absorb: Optional[Union[str, List[str]]]) -> List[str]:
     if absorb is None:
         return []
     if isinstance(absorb, str):
-        return [t.strip() for t in absorb.split('+') if t.strip()]
+        return [t.strip() for t in absorb.split("+") if t.strip()]
     return [str(t) for t in absorb]
 
 
@@ -1357,18 +1386,18 @@ def _iv_absorb_preprocess(
     from ..fast.demean import demean as _demean
 
     parsed = parse_formula(formula)
-    if not parsed['endogenous'] or not parsed['instruments']:
+    if not parsed["endogenous"] or not parsed["instruments"]:
         raise MethodIncompatibility(
             "IV formula must specify endogenous variables and instruments. "
-            "Use syntax: \"y ~ (endog ~ z1 + z2) + exog\"",
+            'Use syntax: "y ~ (endog ~ z1 + z2) + exog"',
             recovery_hint="Write the endogenous block as (endog ~ instrument).",
             diagnostics={"formula": formula},
         )
 
-    dependent = parsed['dependent']
-    exog_names = parsed['exogenous']
-    endog_names = parsed['endogenous']
-    instrument_names = parsed['instruments']
+    dependent = parsed["dependent"]
+    exog_names = parsed["exogenous"]
+    endog_names = parsed["endogenous"]
+    instrument_names = parsed["instruments"]
 
     needed = [dependent] + exog_names + endog_names + instrument_names
     needed += list(absorb_terms)
@@ -1398,8 +1427,7 @@ def _iv_absorb_preprocess(
         raise DataInsufficient(
             "No rows remain after dropping NaNs.",
             recovery_hint=(
-                "Provide complete rows for formula, absorb, and cluster "
-                "columns."
+                "Provide complete rows for formula, absorb, and cluster " "columns."
             ),
             diagnostics={"required_columns": needed},
         )
@@ -1407,7 +1435,8 @@ def _iv_absorb_preprocess(
     y = clean[dependent].to_numpy(dtype=np.float64)
     X_exog = (
         clean[exog_names].to_numpy(dtype=np.float64)
-        if exog_names else np.empty((n_obs, 0), dtype=np.float64)
+        if exog_names
+        else np.empty((n_obs, 0), dtype=np.float64)
     )
     if X_exog.ndim == 1:
         X_exog = X_exog.reshape(-1, 1)
@@ -1427,9 +1456,12 @@ def _iv_absorb_preprocess(
     stacked = np.column_stack([y, X_exog, X_endog, Z])
     fe_df = clean[absorb_terms]
     stacked_dem, info = _demean(
-        stacked, fe_df,
+        stacked,
+        fe_df,
         drop_singletons=True,
-        tol=1e-12, max_iter=fe_maxiter, tol_abs=fe_tol,
+        tol=1e-12,
+        max_iter=fe_maxiter,
+        tol_abs=fe_tol,
     )
 
     keep_mask = info.keep_mask
@@ -1441,11 +1473,11 @@ def _iv_absorb_preprocess(
     # Slice out columns from the stacked residualised matrix.
     y_dem = stacked_dem[:, 0]
     col = 1
-    X_exog_dem = stacked_dem[:, col:col + n_exog]
+    X_exog_dem = stacked_dem[:, col : col + n_exog]
     col += n_exog
-    X_endog_dem = stacked_dem[:, col:col + n_endog]
+    X_endog_dem = stacked_dem[:, col : col + n_endog]
     col += n_endog
-    Z_dem = stacked_dem[:, col:col + n_z]
+    Z_dem = stacked_dem[:, col : col + n_z]
 
     # Subset cluster column to kept rows so downstream ``_cluster_cov``
     # sees aligned data.
@@ -1458,25 +1490,25 @@ def _iv_absorb_preprocess(
     # the constant. ``var_names`` mirrors the keys IVRegression uses
     # when invoked via the matrix interface.
     var_names = {
-        'dependent': dependent,
-        'exog': list(exog_names),
-        'endog': list(endog_names),
-        'instruments': list(instrument_names),
+        "dependent": dependent,
+        "exog": list(exog_names),
+        "endog": list(endog_names),
+        "instruments": list(instrument_names),
     }
 
     return {
-        'y': y_dem,
-        'X_exog': X_exog_dem,
-        'X_endog': X_endog_dem,
-        'Z': Z_dem,
-        'cluster_series': cluster_kept,
-        'var_names': var_names,
-        'n_obs': int(n_obs),
-        'n_kept': n_kept,
-        'n_dropped': n_dropped,
-        'fe_dof': int(fe_dof),
-        'fe_cardinality': fe_card,
-        'absorb_terms': list(absorb_terms),
+        "y": y_dem,
+        "X_exog": X_exog_dem,
+        "X_endog": X_endog_dem,
+        "Z": Z_dem,
+        "cluster_series": cluster_kept,
+        "var_names": var_names,
+        "n_obs": int(n_obs),
+        "n_kept": n_kept,
+        "n_dropped": n_dropped,
+        "fe_dof": int(fe_dof),
+        "fe_cardinality": fe_card,
+        "absorb_terms": list(absorb_terms),
     }
 
 
@@ -1499,7 +1531,7 @@ def _iv_absorb_run(
     Restricted to ``method='2sls'`` for now — LIML/Fuller/GMM/JIVE need
     their kappa / weighting reformulated in residualised space (Phase 3b).
     """
-    if method != '2sls':
+    if method != "2sls":
         raise NotImplementedError(
             f"absorb= is currently only wired for method='2sls'; got "
             f"method={method!r}. LIML/Fuller/GMM/JIVE need a kappa / "
@@ -1508,39 +1540,42 @@ def _iv_absorb_run(
         )
 
     pre = _iv_absorb_preprocess(
-        formula=formula, data=data,
+        formula=formula,
+        data=data,
         absorb_terms=absorb_terms,
         cluster_name=cluster,
     )
-    if pre['cluster_series'] is not None:
-        cluster_df = pd.DataFrame({cluster: pre['cluster_series']})
+    if pre["cluster_series"] is not None:
+        cluster_df = pd.DataFrame({cluster: pre["cluster_series"]})
     else:
         cluster_df = None
 
     model = IVRegression(
-        method='2sls',
-        y=pre['y'],
-        X_exog=pre['X_exog'],
-        X_endog=pre['X_endog'],
-        Z=pre['Z'],
-        var_names=pre['var_names'],
+        method="2sls",
+        y=pre["y"],
+        X_exog=pre["X_exog"],
+        X_endog=pre["X_endog"],
+        Z=pre["Z"],
+        var_names=pre["var_names"],
     )
     # Inject cluster_df so fit()'s ``cluster_var = self.data[cluster]``
     # branch finds the kept-rows cluster series.
     model.data = cluster_df
     result = model.fit(robust=robust, cluster=cluster, **kwargs)
 
-    k_total = pre['X_exog'].shape[1] + pre['X_endog'].shape[1]
+    k_total = pre["X_exog"].shape[1] + pre["X_endog"].shape[1]
     _scale_vcov_for_fe_dof(
-        result, fe_dof=pre['fe_dof'],
-        n_kept=pre['n_kept'], k=k_total,
+        result,
+        fe_dof=pre["fe_dof"],
+        n_kept=pre["n_kept"],
+        k=k_total,
     )
 
-    if hasattr(result, 'model_info') and isinstance(result.model_info, dict):
-        result.model_info['absorb'] = list(absorb_terms)
-        result.model_info['fe_cardinality'] = list(pre['fe_cardinality'])
-        result.model_info['fe_dof'] = int(pre['fe_dof'])
-        result.model_info['n_dropped_singletons'] = int(pre['n_dropped'])
+    if hasattr(result, "model_info") and isinstance(result.model_info, dict):
+        result.model_info["absorb"] = list(absorb_terms)
+        result.model_info["fe_cardinality"] = list(pre["fe_cardinality"])
+        result.model_info["fe_dof"] = int(pre["fe_dof"])
+        result.model_info["n_dropped_singletons"] = int(pre["n_dropped"])
 
     return result, model, pre
 
@@ -1567,19 +1602,19 @@ def _scale_vcov_for_fe_dof(
     # ``EconometricResults`` stores SE as a Series and exposes the raw
     # var_cov via ``_var_cov`` (private). We touch both so any consumer
     # downstream sees a consistent view.
-    if hasattr(result, '_var_cov') and result._var_cov is not None:
+    if hasattr(result, "_var_cov") and result._var_cov is not None:
         result._var_cov = result._var_cov * factor
-    if hasattr(result, 'std_errors') and result.std_errors is not None:
+    if hasattr(result, "std_errors") and result.std_errors is not None:
         result.std_errors = result.std_errors * sqrt_factor
-    if hasattr(result, 'data_info') and isinstance(result.data_info, dict):
-        result.data_info['df_resid'] = int(df_resid_new)
+    if hasattr(result, "data_info") and isinstance(result.data_info, dict):
+        result.data_info["df_resid"] = int(df_resid_new)
 
 
 def iv(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
-    method: str = '2sls',
-    robust: str = 'nonrobust',
+    method: str = "2sls",
+    robust: str = "nonrobust",
     cluster: Optional[str] = None,
     fuller_alpha: float = 1.0,
     absorb: Optional[Union[str, List[str]]] = None,
@@ -1701,28 +1736,32 @@ def iv(
             raise MethodIncompatibility(
                 "absorb= requires (formula, data) — matrix mode is not "
                 "supported. Build the formula and pass the DataFrame.",
-                recovery_hint=(
-                    "Use formula/data mode when requesting absorbed IV."
-                ),
+                recovery_hint=("Use formula/data mode when requesting absorbed IV."),
                 diagnostics={
                     "has_formula": formula is not None,
                     "has_data": data is not None,
                 },
             )
         _result, _model, _pre = _iv_absorb_run(
-            formula=formula, data=data,
+            formula=formula,
+            data=data,
             absorb_terms=absorb_terms,
-            method=method, robust=robust, cluster=cluster,
+            method=method,
+            robust=robust,
+            cluster=cluster,
             **kwargs,
         )
     else:
         model = IVRegression(
-            formula=formula, data=data, method=method,
+            formula=formula,
+            data=data,
+            method=method,
             fuller_alpha=fuller_alpha,
         )
         _result = model.fit(robust=robust, cluster=cluster, **kwargs)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv",
@@ -1733,8 +1772,11 @@ def iv(
                 "cluster": cluster,
                 "fuller_alpha": fuller_alpha,
                 "absorb": list(absorb_terms) if absorb_terms else None,
-                **{k: v for k, v in kwargs.items()
-                   if k in ("weights", "se_type", "vcov")},
+                **{
+                    k: v
+                    for k, v in kwargs.items()
+                    if k in ("weights", "se_type", "vcov")
+                },
             },
             data=data,
             overwrite=False,
@@ -1748,10 +1790,11 @@ def iv(
 #  Legacy alias (backward compatibility)
 # ====================================================================== #
 
+
 def ivreg(
     formula: str,
     data: pd.DataFrame,
-    robust: str = 'nonrobust',
+    robust: str = "nonrobust",
     cluster: Optional[str] = None,
     **kwargs: Any,
 ) -> EconometricResults:
@@ -1792,6 +1835,5 @@ def ivreg(
     >>> # Preferred modern entry point:
     >>> result = sp.iv("y ~ (x ~ z)", data=df, method='2sls')
     """
-    kwargs.setdefault('method', '2sls')
-    return iv(formula=formula, data=data,
-              robust=robust, cluster=cluster, **kwargs)
+    kwargs.setdefault("method", "2sls")
+    return iv(formula=formula, data=data, robust=robust, cluster=cluster, **kwargs)

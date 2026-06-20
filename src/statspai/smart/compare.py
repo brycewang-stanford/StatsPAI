@@ -88,10 +88,20 @@ class ComparisonResult:
         ]
         for _, row in self.estimates_table.iterrows():
             ci = f"[{row['ci_lower']:.4f}, {row['ci_upper']:.4f}]"
-            sig = "***" if row['p_value'] < 0.01 else "**" if row['p_value'] < 0.05 else "*" if row['p_value'] < 0.1 else ""
-            lines.append(f"{row['method']:<25s} {row['estimate']:>10.4f} "
-                         f"{row['se']:>10.4f} {ci:>22s} "
-                         f"{row['p_value']:>9.4f}{sig}")
+            sig = (
+                "***"
+                if row["p_value"] < 0.01
+                else (
+                    "**"
+                    if row["p_value"] < 0.05
+                    else "*" if row["p_value"] < 0.1 else ""
+                )
+            )
+            lines.append(
+                f"{row['method']:<25s} {row['estimate']:>10.4f} "
+                f"{row['se']:>10.4f} {ci:>22s} "
+                f"{row['p_value']:>9.4f}{sig}"
+            )
 
         lines.append("─" * 70)
 
@@ -99,18 +109,24 @@ class ComparisonResult:
         lines.append("\nAGREEMENT DIAGNOSTICS")
         lines.append(f"  Sign agreement:        {self.agreement['sign_agree']:.0%}")
         lines.append(f"  Significance agreement: {self.agreement['sig_agree']:.0%}")
-        lines.append(f"  Estimate range:        [{self.agreement['min_est']:.4f}, "
-                     f"{self.agreement['max_est']:.4f}]")
+        lines.append(
+            f"  Estimate range:        [{self.agreement['min_est']:.4f}, "
+            f"{self.agreement['max_est']:.4f}]"
+        )
         lines.append(f"  Coefficient of variation: {self.agreement['cv']:.2f}")
 
-        if self.agreement['cv'] < 0.25:
+        if self.agreement["cv"] < 0.25:
             lines.append("\n  ✓ ROBUST: Estimates are stable across methods.")
-        elif self.agreement['cv'] < 0.5:
-            lines.append("\n  ~ MODERATE: Some variation across methods. "
-                         "Investigate assumptions.")
+        elif self.agreement["cv"] < 0.5:
+            lines.append(
+                "\n  ~ MODERATE: Some variation across methods. "
+                "Investigate assumptions."
+            )
         else:
-            lines.append("\n  ✗ FRAGILE: Large variation across methods. "
-                         "Results are sensitive to identification strategy.")
+            lines.append(
+                "\n  ✗ FRAGILE: Large variation across methods. "
+                "Results are sensitive to identification strategy."
+            )
 
         lines.append("\n" + "=" * 70)
         return "\n".join(lines)
@@ -125,24 +141,34 @@ class ComparisonResult:
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, max(3, len(self.estimates_table) * 0.6)))
 
-        df = self.estimates_table.sort_values('estimate')
+        df = self.estimates_table.sort_values("estimate")
         y_pos = range(len(df))
 
-        ax.errorbar(df['estimate'].values, y_pos,
-                     xerr=[df['estimate'].values - df['ci_lower'].values,
-                           df['ci_upper'].values - df['estimate'].values],
-                     fmt='o', capsize=4, color='steelblue', elinewidth=2, markersize=8)
+        ax.errorbar(
+            df["estimate"].values,
+            y_pos,
+            xerr=[
+                df["estimate"].values - df["ci_lower"].values,
+                df["ci_upper"].values - df["estimate"].values,
+            ],
+            fmt="o",
+            capsize=4,
+            color="steelblue",
+            elinewidth=2,
+            markersize=8,
+        )
         ax.set_yticks(list(y_pos))
-        ax.set_yticklabels(df['method'].values)
-        ax.axvline(0, color='gray', ls='--', lw=0.5)
+        ax.set_yticklabels(df["method"].values)
+        ax.axvline(0, color="gray", ls="--", lw=0.5)
 
         # Shade the range of estimates
-        ax.axvspan(df['estimate'].min(), df['estimate'].max(),
-                    alpha=0.1, color='orange')
+        ax.axvspan(
+            df["estimate"].min(), df["estimate"].max(), alpha=0.1, color="orange"
+        )
 
-        ax.set_xlabel('Treatment Effect Estimate')
-        ax.set_title('Multi-Estimator Comparison')
-        tight_layout = getattr(ax.get_figure(), 'tight_layout', None)
+        ax.set_xlabel("Treatment Effect Estimate")
+        ax.set_title("Multi-Estimator Comparison")
+        tight_layout = getattr(ax.get_figure(), "tight_layout", None)
         if callable(tight_layout):
             tight_layout()
         return ax
@@ -239,14 +265,17 @@ def compare_estimators(
     import statspai as sp
 
     if covariates is None:
-        covariates = [c for c in data.columns
-                      if c not in [y, treatment, id, time, instrument]
-                      and pd.api.types.is_numeric_dtype(data[c])]
+        covariates = [
+            c
+            for c in data.columns
+            if c not in [y, treatment, id, time, instrument]
+            and pd.api.types.is_numeric_dtype(data[c])
+        ]
 
     if methods is None:
-        methods = ['ols', 'matching', 'ipw']
+        methods = ["ols", "matching", "ipw"]
         if len(covariates) > 5:
-            methods.append('dml')
+            methods.append("dml")
 
     df = data.dropna(subset=[y, treatment] + covariates)
     n = len(df)
@@ -288,7 +317,8 @@ def compare_estimators(
                     f"compare_estimators: method_hints['{method_name}']"
                     f"['{k}'] overrides the shared {k}={shared_kwargs[k]!r} "
                     f"with {v!r}.",
-                    UserWarning, stacklevel=2,
+                    UserWarning,
+                    stacklevel=2,
                 )
             merged[k] = v
         return merged
@@ -299,40 +329,37 @@ def compare_estimators(
     for method in methods:
         try:
             r: Any
-            if method == 'ols':
+            if method == "ols":
                 x_vars = [treatment] + covariates[:10]
                 formula = f"{y} ~ {' + '.join(x_vars)}"
-                r = sp.regress(formula, data=df, robust='hc1')
+                r = sp.regress(formula, data=df, robust="hc1")
                 est = r.params[treatment]
                 se = r.std_errors[treatment]
-                results['OLS'] = r
-                name = 'OLS (robust SE)'
+                results["OLS"] = r
+                name = "OLS (robust SE)"
 
-            elif method == 'matching':
-                r = sp.match(df, y=y, treatment=treatment,
-                             covariates=covariates[:10])
+            elif method == "matching":
+                r = sp.match(df, y=y, treatment=treatment, covariates=covariates[:10])
                 est = r.estimate
                 se = r.se
-                results['Matching'] = r
-                name = 'Propensity Score Matching'
+                results["Matching"] = r
+                name = "Propensity Score Matching"
 
-            elif method == 'ipw':
-                r = sp.ipw(df, y=y, treat=treatment,
-                           covariates=covariates[:10])
-                est = r.estimate if hasattr(r, 'estimate') else r.params.iloc[0]
-                se = r.se if hasattr(r, 'se') else r.std_errors.iloc[0]
-                results['IPW'] = r
-                name = 'Inverse Probability Weighting'
+            elif method == "ipw":
+                r = sp.ipw(df, y=y, treat=treatment, covariates=covariates[:10])
+                est = r.estimate if hasattr(r, "estimate") else r.params.iloc[0]
+                se = r.se if hasattr(r, "se") else r.std_errors.iloc[0]
+                results["IPW"] = r
+                name = "Inverse Probability Weighting"
 
-            elif method == 'aipw':
-                r = sp.aipw(df, y=y, treat=treatment,
-                            covariates=covariates[:10])
-                est = r.estimate if hasattr(r, 'estimate') else r.params.iloc[0]
-                se = r.se if hasattr(r, 'se') else r.std_errors.iloc[0]
-                results['AIPW'] = r
-                name = 'Augmented IPW (DR)'
+            elif method == "aipw":
+                r = sp.aipw(df, y=y, treat=treatment, covariates=covariates[:10])
+                est = r.estimate if hasattr(r, "estimate") else r.params.iloc[0]
+                se = r.se if hasattr(r, "se") else r.std_errors.iloc[0]
+                results["AIPW"] = r
+                name = "Augmented IPW (DR)"
 
-            elif method == 'g_computation':
+            elif method == "g_computation":
                 # sp.g_computation uses the 'treat=' kwarg (not
                 # 'treatment=') to match the rest of the Sprint-B
                 # causal-inference surface. Handle that mapping here
@@ -353,44 +380,50 @@ def compare_estimators(
                         f"Use estimand='dose_response' directly via "
                         f"sp.g_computation() for continuous D."
                     )
-                r = sp.g_computation(df, y=y, treat=treatment,
-                                     covariates=covariates[:10],
-                                     seed=0)
+                r = sp.g_computation(
+                    df, y=y, treat=treatment, covariates=covariates[:10], seed=0
+                )
                 est = r.estimate
                 se = r.se
-                results['G-computation'] = r
-                name = 'G-computation (parametric g-formula)'
+                results["G-computation"] = r
+                name = "G-computation (parametric g-formula)"
 
-            elif method == 'dml':
-                r = sp.dml(df, y=y, treatment=treatment,
-                           covariates=covariates[:20])
+            elif method == "dml":
+                r = sp.dml(df, y=y, treatment=treatment, covariates=covariates[:20])
                 est = r.estimate
                 se = r.se
-                results['DML'] = r
-                name = 'Double/Debiased ML'
+                results["DML"] = r
+                name = "Double/Debiased ML"
 
-            elif method == 'causal_forest':
-                r = sp.causal_forest(data=df, y=y, treatment=treatment,
-                                     covariates=covariates[:20])
-                est = r.estimate if hasattr(r, 'estimate') else r.ate
-                se = r.se if hasattr(r, 'se') else r.ate_se
-                results['Causal Forest'] = r
-                name = 'Causal Forest (GRF)'
+            elif method == "causal_forest":
+                r = sp.causal_forest(
+                    data=df, y=y, treatment=treatment, covariates=covariates[:20]
+                )
+                est = r.estimate if hasattr(r, "estimate") else r.ate
+                se = r.se if hasattr(r, "se") else r.ate_se
+                results["Causal Forest"] = r
+                name = "Causal Forest (GRF)"
 
-            elif method == 'panel_fe' and id and time:
-                r = sp.panel(df, y=y, x=[treatment] + covariates[:5],
-                             id=id, time=time, method='fe')
+            elif method == "panel_fe" and id and time:
+                r = sp.panel(
+                    df,
+                    y=y,
+                    x=[treatment] + covariates[:5],
+                    id=id,
+                    time=time,
+                    method="fe",
+                )
                 est = r.params[treatment]
                 se = r.std_errors[treatment]
-                results['Panel FE'] = r
-                name = 'Panel Fixed Effects'
+                results["Panel FE"] = r
+                name = "Panel Fixed Effects"
 
-            elif method == 'did' and id and time:
+            elif method == "did" and id and time:
                 r = sp.did(df, y=y, treat=treatment, time=time, id=id)
                 est = r.estimate
                 se = r.se
-                results['DID'] = r
-                name = 'Difference-in-Differences'
+                results["DID"] = r
+                name = "Difference-in-Differences"
 
             # ----- Sprint-B hint-driven branches -------------------- #
             # Each requires per-method kwargs supplied via
@@ -398,126 +431,179 @@ def compare_estimators(
             # mandatory hint is missing so the outer try/except turns
             # it into a compact UserWarning rather than silent skip.
 
-            elif method == 'proximal':
-                hint = method_hints.get('proximal', {}) or {}
-                proxy_z = hint.get('proxy_z')
-                proxy_w = hint.get('proxy_w')
+            elif method == "proximal":
+                hint = method_hints.get("proximal", {}) or {}
+                proxy_z = hint.get("proxy_z")
+                proxy_w = hint.get("proxy_w")
                 if not proxy_z or not proxy_w:
                     raise ValueError(
                         "method='proximal' requires "
                         "method_hints['proximal']={'proxy_z': [...], "
                         "'proxy_w': [...]}."
                     )
-                merged = _resolve_hints('proximal', {
-                    'covariates': [c for c in covariates[:10]
-                                   if c not in proxy_z + proxy_w],
-                })
-                r = sp.proximal(df, y=y, treat=treatment,
-                                proxy_z=list(proxy_z),
-                                proxy_w=list(proxy_w),
-                                covariates=merged['covariates'])
+                merged = _resolve_hints(
+                    "proximal",
+                    {
+                        "covariates": [
+                            c for c in covariates[:10] if c not in proxy_z + proxy_w
+                        ],
+                    },
+                )
+                r = sp.proximal(
+                    df,
+                    y=y,
+                    treat=treatment,
+                    proxy_z=list(proxy_z),
+                    proxy_w=list(proxy_w),
+                    covariates=merged["covariates"],
+                )
                 est = r.estimate
                 se = r.se
-                results['Proximal'] = r
-                name = 'Proximal Causal Inference (bridge 2SLS)'
+                results["Proximal"] = r
+                name = "Proximal Causal Inference (bridge 2SLS)"
 
-            elif method == 'msm':
-                hint = method_hints.get('msm', {}) or {}
-                tv = hint.get('time_varying')
+            elif method == "msm":
+                hint = method_hints.get("msm", {}) or {}
+                tv = hint.get("time_varying")
                 if not tv or not id or not time:
                     raise ValueError(
                         "method='msm' requires id + time + "
                         "method_hints['msm']={'time_varying': [...]}."
                     )
-                merged = _resolve_hints('msm', {
-                    'baseline': [c for c in covariates[:5] if c not in tv],
-                })
-                r = sp.msm(df, y=y, treat=treatment, id=id, time=time,
-                           time_varying=list(tv),
-                           baseline=merged.get('baseline'))
+                merged = _resolve_hints(
+                    "msm",
+                    {
+                        "baseline": [c for c in covariates[:5] if c not in tv],
+                    },
+                )
+                r = sp.msm(
+                    df,
+                    y=y,
+                    treat=treatment,
+                    id=id,
+                    time=time,
+                    time_varying=list(tv),
+                    baseline=merged.get("baseline"),
+                )
                 est = r.estimate
                 se = r.se
-                results['MSM'] = r
-                name = 'Marginal Structural Model (IPTW)'
+                results["MSM"] = r
+                name = "Marginal Structural Model (IPTW)"
 
-            elif method == 'principal_strat':
-                hint = method_hints.get('principal_strat', {}) or {}
-                strata = hint.get('strata')
+            elif method == "principal_strat":
+                hint = method_hints.get("principal_strat", {}) or {}
+                strata = hint.get("strata")
                 if not strata:
                     raise ValueError(
                         "method='principal_strat' requires "
                         "method_hints['principal_strat']={'strata': <col>}."
                     )
-                merged = _resolve_hints('principal_strat', {
-                    'covariates': covariates[:10],
-                    'method': 'principal_score' if covariates else 'monotonicity',
-                })
+                merged = _resolve_hints(
+                    "principal_strat",
+                    {
+                        "covariates": covariates[:10],
+                        "method": "principal_score" if covariates else "monotonicity",
+                    },
+                )
                 r = sp.principal_strat(
-                    df, y=y, treat=treatment, strata=strata,
-                    covariates=merged['covariates'] if merged['method'] == 'principal_score' else None,
-                    method=merged['method'],
+                    df,
+                    y=y,
+                    treat=treatment,
+                    strata=strata,
+                    covariates=(
+                        merged["covariates"]
+                        if merged["method"] == "principal_score"
+                        else None
+                    ),
+                    method=merged["method"],
                 )
                 # PrincipalStratResult is not a CausalResult; pull
                 # the complier PCE (= LATE) by stratum NAME rather
                 # than .iloc[0] so an upstream reordering of the
                 # effects table can't silently make us report the
                 # always-taker effect instead.
-                effects = getattr(r, 'effects', None)
+                effects = getattr(r, "effects", None)
                 if effects is not None and len(effects):
-                    _complier = effects['stratum'].astype(str).str.lower().str.contains('complier')
-                    _row = effects[_complier].iloc[0] if _complier.any() else effects.iloc[0]
-                    est = float(_row['estimate'])
-                    se = float(_row['se']) if 'se' in effects.columns else 0.0
+                    _complier = (
+                        effects["stratum"]
+                        .astype(str)
+                        .str.lower()
+                        .str.contains("complier")
+                    )
+                    _row = (
+                        effects[_complier].iloc[0]
+                        if _complier.any()
+                        else effects.iloc[0]
+                    )
+                    est = float(_row["estimate"])
+                    se = float(_row["se"]) if "se" in effects.columns else 0.0
                 else:
                     est, se = np.nan, np.nan
-                results['Principal Strat'] = r
-                name = 'Principal Stratification (complier PCE)'
+                results["Principal Strat"] = r
+                name = "Principal Stratification (complier PCE)"
 
-            elif method == 'front_door':
-                hint = method_hints.get('front_door', {}) or {}
-                mediator = hint.get('mediator')
+            elif method == "front_door":
+                hint = method_hints.get("front_door", {}) or {}
+                mediator = hint.get("mediator")
                 if not mediator:
                     raise ValueError(
                         "method='front_door' requires "
                         "method_hints['front_door']={'mediator': <col>}."
                     )
-                merged = _resolve_hints('front_door', {
-                    'covariates': [c for c in covariates[:10] if c != mediator],
-                })
-                r = sp.front_door(df, y=y, treat=treatment,
-                                  mediator=mediator,
-                                  covariates=merged['covariates'])
+                merged = _resolve_hints(
+                    "front_door",
+                    {
+                        "covariates": [c for c in covariates[:10] if c != mediator],
+                    },
+                )
+                r = sp.front_door(
+                    df,
+                    y=y,
+                    treat=treatment,
+                    mediator=mediator,
+                    covariates=merged["covariates"],
+                )
                 est = r.estimate
                 se = r.se
-                results['Front-door'] = r
-                name = 'Front-door adjustment'
+                results["Front-door"] = r
+                name = "Front-door adjustment"
 
-            elif method in ('mediate', 'mediate_interventional'):
+            elif method in ("mediate", "mediate_interventional"):
                 hint = method_hints.get(method, {}) or {}
-                mediator = hint.get('mediator')
+                mediator = hint.get("mediator")
                 if not mediator:
                     raise ValueError(
                         f"method='{method}' requires "
                         f"method_hints['{method}']={{'mediator': <col>}}."
                     )
-                merged = _resolve_hints(method, {
-                    'covariates': [c for c in covariates[:10] if c != mediator],
-                })
-                if method == 'mediate':
-                    r = sp.mediate(df, y=y, treat=treatment,
-                                   mediator=mediator,
-                                   covariates=merged['covariates'] or None)
-                    label = 'Causal Mediation (ACME)'
-                    key = 'Mediation (natural)'
+                merged = _resolve_hints(
+                    method,
+                    {
+                        "covariates": [c for c in covariates[:10] if c != mediator],
+                    },
+                )
+                if method == "mediate":
+                    r = sp.mediate(
+                        df,
+                        y=y,
+                        treat=treatment,
+                        mediator=mediator,
+                        covariates=merged["covariates"] or None,
+                    )
+                    label = "Causal Mediation (ACME)"
+                    key = "Mediation (natural)"
                 else:
-                    tv_c = hint.get('tv_confounders')
+                    tv_c = hint.get("tv_confounders")
                     r = sp.mediate_interventional(
-                        df, y=y, treat=treatment, mediator=mediator,
-                        covariates=merged['covariates'] or None,
+                        df,
+                        y=y,
+                        treat=treatment,
+                        mediator=mediator,
+                        covariates=merged["covariates"] or None,
                         tv_confounders=list(tv_c) if tv_c else None,
                     )
-                    label = 'Interventional Mediation (IIE)'
-                    key = 'Mediation (interventional)'
+                    label = "Interventional Mediation (IIE)"
+                    key = "Mediation (interventional)"
                 est = r.estimate
                 se = r.se
                 results[key] = r
@@ -527,14 +613,16 @@ def compare_estimators(
                 continue
 
             p_val = 2 * (1 - stats.norm.cdf(abs(est / se))) if se > 0 else np.nan
-            rows.append({
-                'method': name,
-                'estimate': est,
-                'se': se,
-                'ci_lower': est - z_crit * se,
-                'ci_upper': est + z_crit * se,
-                'p_value': p_val,
-            })
+            rows.append(
+                {
+                    "method": name,
+                    "estimate": est,
+                    "se": se,
+                    "ci_lower": est - z_crit * se,
+                    "ci_upper": est + z_crit * se,
+                    "p_value": p_val,
+                }
+            )
 
         except Exception as e:
             warnings.warn(f"{method} failed: {e}")
@@ -543,8 +631,8 @@ def compare_estimators(
 
     # Agreement metrics
     if len(rows) > 1:
-        ests = np.array([r['estimate'] for r in rows])
-        pvals = np.array([r['p_value'] for r in rows])
+        ests = np.array([r["estimate"] for r in rows])
+        pvals = np.array([r["p_value"] for r in rows])
 
         sign_agree = np.mean(np.sign(ests) == np.sign(ests[0]))
         sig_agree = np.mean((pvals < 0.05) == (pvals[0] < 0.05))
@@ -553,17 +641,24 @@ def compare_estimators(
         cv = np.std(ests) / abs(mean_est) if abs(mean_est) > 1e-10 else np.inf
 
         agreement = {
-            'sign_agree': sign_agree,
-            'sig_agree': sig_agree,
-            'min_est': ests.min(),
-            'max_est': ests.max(),
-            'range': est_range,
-            'mean': mean_est,
-            'cv': cv,
+            "sign_agree": sign_agree,
+            "sig_agree": sig_agree,
+            "min_est": ests.min(),
+            "max_est": ests.max(),
+            "range": est_range,
+            "mean": mean_est,
+            "cv": cv,
         }
     else:
-        agreement = {'sign_agree': 1, 'sig_agree': 1, 'min_est': 0,
-                     'max_est': 0, 'range': 0, 'mean': 0, 'cv': 0}
+        agreement = {
+            "sign_agree": 1,
+            "sig_agree": 1,
+            "min_est": 0,
+            "max_est": 0,
+            "range": 0,
+            "mean": 0,
+            "cv": 0,
+        }
 
     return ComparisonResult(
         results=results,

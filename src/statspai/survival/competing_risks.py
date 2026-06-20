@@ -36,6 +36,7 @@ Fine, J.P. & Gray, R.J. (1999). "A proportional hazards model for the
 subdistribution of a competing risk." *Journal of the American Statistical
 Association*, 94(446), 496-509. [@fine1999proportional]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -44,7 +45,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
-
 
 __all__ = [
     "CumIncResult",
@@ -112,12 +112,17 @@ class CumIncResult:
                 cdf = gdf[(gdf["cause"] == c) & (gdf["time"] <= time)]
                 if len(cdf):
                     last = cdf.iloc[-1]
-                    rows.append({
-                        "group": g, "cause": c, "time": time,
-                        "cif": last["cif"], "se": last["se"],
-                        "ci_lower": last["ci_lower"],
-                        "ci_upper": last["ci_upper"],
-                    })
+                    rows.append(
+                        {
+                            "group": g,
+                            "cause": c,
+                            "time": time,
+                            "cif": last["cif"],
+                            "se": last["se"],
+                            "ci_lower": last["ci_lower"],
+                            "ci_upper": last["ci_upper"],
+                        }
+                    )
         return pd.DataFrame(rows)
 
     def summary(self) -> str:
@@ -145,9 +150,7 @@ class CumIncResult:
         out.append("\n" + "=" * 72)
         return "\n".join(out)
 
-    def plot(
-        self, cause: Optional[int] = None, ax: Any = None, **kwargs: Any
-    ) -> Any:
+    def plot(self, cause: Optional[int] = None, ax: Any = None, **kwargs: Any) -> Any:
         """Step-plot the cumulative incidence function(s)."""
         import matplotlib.pyplot as plt
 
@@ -169,10 +172,7 @@ class CumIncResult:
 
     def __repr__(self) -> str:
         n_groups = self.cif_table["group"].nunique()
-        return (
-            f"<CumIncResult: {len(self.causes)} causes, "
-            f"{n_groups} group(s)>"
-        )
+        return f"<CumIncResult: {len(self.causes)} causes, " f"{n_groups} group(s)>"
 
 
 @dataclass
@@ -250,16 +250,18 @@ class FineGrayResult:
 
     def tidy(self) -> pd.DataFrame:
         ci = self.conf_int
-        return pd.DataFrame({
-            "term": self.covariates,
-            "coef": self.params,
-            "shr": self.shr,
-            "std_err": self.bse,
-            "z": self.zvalues,
-            "p_value": self.pvalues,
-            "shr_lower": np.exp(ci[:, 0]),
-            "shr_upper": np.exp(ci[:, 1]),
-        })
+        return pd.DataFrame(
+            {
+                "term": self.covariates,
+                "coef": self.params,
+                "shr": self.shr,
+                "std_err": self.bse,
+                "z": self.zvalues,
+                "p_value": self.pvalues,
+                "shr_lower": np.exp(ci[:, 0]),
+                "shr_upper": np.exp(ci[:, 1]),
+            }
+        )
 
     def summary(self) -> str:
         out = ["=" * 72, "Fine-Gray Subdistribution Hazards Model", "=" * 72]
@@ -268,8 +270,7 @@ class FineGrayResult:
         out.append(f"Cause-{self.cause} events     : {self.n_events}")
         out.append("-" * 72)
         out.append(
-            f"{'term':<16}{'sHR':>10}{'coef':>10}{'se':>10}"
-            f"{'z':>9}{'p':>10}"
+            f"{'term':<16}{'sHR':>10}{'coef':>10}{'se':>10}" f"{'z':>9}{'p':>10}"
         )
         td = self.tidy()
         for _, r in td.iterrows():
@@ -370,19 +371,19 @@ def _aalen_johansen(
             with np.errstate(divide="ignore", invalid="ignore"):
                 t1 = np.where(
                     (ni > di) & (ni > 0),
-                    f_diff ** 2 * di / (ni * (ni - di)),
+                    f_diff**2 * di / (ni * (ni - di)),
                     0.0,
                 )
                 # term II: direct cause-k contribution
                 t2 = np.where(
                     ni > 0,
-                    sl ** 2 * ((ni - dki) / ni) * dki / ni ** 2,
+                    sl**2 * ((ni - dki) / ni) * dki / ni**2,
                     0.0,
                 )
                 # term III: covariance (subtracted)
                 t3 = np.where(
                     ni > 0,
-                    f_diff * sl * dki / ni ** 2,
+                    f_diff * sl * dki / ni**2,
                     0.0,
                 )
             var[j] = np.sum(t1) + np.sum(t2) - 2.0 * np.sum(t3)
@@ -391,14 +392,16 @@ def _aalen_johansen(
         ci_lo = np.clip(cif - z * se, 0.0, 1.0)
         ci_hi = np.clip(cif + z * se, 0.0, 1.0)
         for j in range(n_times):
-            rows.append({
-                "cause": int(cause),
-                "time": float(event_times[j]),
-                "cif": float(cif[j]),
-                "se": float(se[j]),
-                "ci_lower": float(ci_lo[j]),
-                "ci_upper": float(ci_hi[j]),
-            })
+            rows.append(
+                {
+                    "cause": int(cause),
+                    "time": float(event_times[j]),
+                    "cif": float(cif[j]),
+                    "se": float(se[j]),
+                    "ci_lower": float(ci_lo[j]),
+                    "ci_upper": float(ci_hi[j]),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -437,17 +440,12 @@ def _gray_test(
         not_yet_primary = ~((event == cause) & (time < t))
         competing_before = (event != 0) & (event != cause) & (time < t)
         at_risk = not_yet_primary & ((time >= t) | competing_before)
-        n_at = np.array(
-            [np.sum(at_risk & (group == g)) for g in groups], dtype=float
-        )
+        n_at = np.array([np.sum(at_risk & (group == g)) for g in groups], dtype=float)
         n_tot = n_at.sum()
         if n_tot <= 1:
             continue
         d_at = np.array(
-            [
-                np.sum((time == t) & (event == cause) & (group == g))
-                for g in groups
-            ],
+            [np.sum((time == t) & (event == cause) & (group == g)) for g in groups],
             dtype=float,
         )
         d_tot = d_at.sum()
@@ -464,9 +462,7 @@ def _gray_test(
         for a in range(k - 1):
             for b in range(k - 1):
                 delta = 1.0 if a == b else 0.0
-                vcov[a, b] += var_factor * (
-                    n_at[a] / n_tot * (delta - n_at[b] / n_tot)
-                )
+                vcov[a, b] += var_factor * (n_at[a] / n_tot * (delta - n_at[b] / n_tot))
 
     try:
         stat = float(scores @ np.linalg.solve(vcov, scores))
@@ -560,14 +556,10 @@ def cuminc(
             tab = _aalen_johansen(time[mask], ev[mask], causes, alpha)
             tab.insert(0, "group", g)
             tables.append(tab)
-        gray = {
-            c: _gray_test(time, ev, gvals, c) for c in causes
-        }
+        gray = {c: _gray_test(time, ev, gvals, c) for c in causes}
 
     cif_table = pd.concat(tables, ignore_index=True)
-    return CumIncResult(
-        cif_table=cif_table, causes=causes, gray_test=gray, alpha=alpha
-    )
+    return CumIncResult(cif_table=cif_table, causes=causes, gray_test=gray, alpha=alpha)
 
 
 # --------------------------------------------------------------------------- #
@@ -749,7 +741,7 @@ def finegray(
             d = d_counts_arr[m]
             ll += event_x_sum_arr[m] @ b - d * np.log(s0)
             grad += event_x_sum_arr[m] - d * s1 / s0
-            hess -= d * (s2 / s0 - np.outer(s1, s1) / s0 ** 2)
+            hess -= d * (s2 / s0 - np.outer(s1, s1) / s0**2)
         return ll, grad, hess
 
     ll = -np.inf

@@ -143,8 +143,16 @@ def rd_flex(
             UserWarning,
         )
         return rdrobust(
-            data=data, y=y, x=x, c=c, fuzzy=fuzzy, p=p, kernel=kernel,
-            bwselect=bwselect, cluster=cluster, alpha=alpha,
+            data=data,
+            y=y,
+            x=x,
+            c=c,
+            fuzzy=fuzzy,
+            p=p,
+            kernel=kernel,
+            bwselect=bwselect,
+            cluster=cluster,
+            alpha=alpha,
         )
 
     # --- Validate columns --------------------------------------------
@@ -163,14 +171,24 @@ def rd_flex(
 
     # --- Cross-fit residualisation -----------------------------------
     Y_resid, r2_y = _crossfit_residualise(
-        Wmat, Y, learner, sklearn_estimator, n_folds, random_state,
+        Wmat,
+        Y,
+        learner,
+        sklearn_estimator,
+        n_folds,
+        random_state,
     )
     df = df.assign(_yflex_=Y_resid)
 
     if fuzzy is not None:
         D = df[fuzzy].to_numpy(dtype=float)
         D_resid, _ = _crossfit_residualise(
-            Wmat, D, learner, sklearn_estimator, n_folds, random_state,
+            Wmat,
+            D,
+            learner,
+            sklearn_estimator,
+            n_folds,
+            random_state,
         )
         df = df.assign(_dflex_=D_resid)
         # Apply rdrobust on residualised Y, with residualised D as fuzzy
@@ -178,26 +196,47 @@ def rd_flex(
         # numerator and denominator are residualised by free-of-cutoff
         # adjustments.
         r_flex = rdrobust(
-            data=df, y='_yflex_', x=x, c=c, fuzzy='_dflex_',
-            p=p, kernel=kernel, bwselect=bwselect, cluster=cluster,
+            data=df,
+            y="_yflex_",
+            x=x,
+            c=c,
+            fuzzy="_dflex_",
+            p=p,
+            kernel=kernel,
+            bwselect=bwselect,
+            cluster=cluster,
             alpha=alpha,
         )
     else:
         r_flex = rdrobust(
-            data=df, y='_yflex_', x=x, c=c, p=p, kernel=kernel,
-            bwselect=bwselect, cluster=cluster, alpha=alpha,
+            data=df,
+            y="_yflex_",
+            x=x,
+            c=c,
+            p=p,
+            kernel=kernel,
+            bwselect=bwselect,
+            cluster=cluster,
+            alpha=alpha,
         )
 
     # Variance reduction relative to plain rdrobust
     r_plain = rdrobust(
-        data=df, y=y, x=x, c=c, fuzzy=fuzzy,
-        p=p, kernel=kernel, bwselect=bwselect, cluster=cluster,
+        data=df,
+        y=y,
+        x=x,
+        c=c,
+        fuzzy=fuzzy,
+        p=p,
+        kernel=kernel,
+        bwselect=bwselect,
+        cluster=cluster,
         alpha=alpha,
     )
     se_plain = float(r_plain.se) if r_plain.se else np.nan
     se_flex = float(r_flex.se) if r_flex.se else np.nan
     var_reduction = (
-        1.0 - (se_flex ** 2) / (se_plain ** 2)
+        1.0 - (se_flex**2) / (se_plain**2)
         if (np.isfinite(se_plain) and np.isfinite(se_flex) and se_plain > 0)
         else np.nan
     )
@@ -257,13 +296,23 @@ def rd_flex(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             out,
             function="sp.rd.rd_flex",
             params={
-                "y": y, "x": x, "c": c, "W": list(W), "learner": learner,
-                "n_folds": n_folds, "fuzzy": fuzzy, "bwselect": bwselect,
-                "kernel": kernel, "p": p, "cluster": cluster, "alpha": alpha,
+                "y": y,
+                "x": x,
+                "c": c,
+                "W": list(W),
+                "learner": learner,
+                "n_folds": n_folds,
+                "fuzzy": fuzzy,
+                "bwselect": bwselect,
+                "kernel": kernel,
+                "p": p,
+                "cluster": cluster,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -277,37 +326,48 @@ def rd_flex(
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_learner(name: str, random_state: Optional[int]) -> Any:
     """Construct a default sklearn learner by name."""
     name = name.lower()
     try:
         if name == "boost":
             from sklearn.ensemble import GradientBoostingRegressor
+
             return GradientBoostingRegressor(
-                n_estimators=200, max_depth=3, learning_rate=0.05,
+                n_estimators=200,
+                max_depth=3,
+                learning_rate=0.05,
                 random_state=random_state,
             )
         if name == "forest":
             from sklearn.ensemble import RandomForestRegressor
+
             return RandomForestRegressor(
-                n_estimators=300, max_depth=None, n_jobs=-1,
+                n_estimators=300,
+                max_depth=None,
+                n_jobs=-1,
                 random_state=random_state,
             )
         if name == "ridge":
             from sklearn.linear_model import RidgeCV
+
             return RidgeCV(alphas=np.logspace(-3, 3, 21))
         if name == "lasso":
             from sklearn.linear_model import LassoCV
             from ..compat.sklearn import lasso_cv_alphas_kwargs
-            return LassoCV(cv=5, random_state=random_state,
-                           max_iter=10_000, **lasso_cv_alphas_kwargs(50))
+
+            return LassoCV(
+                cv=5,
+                random_state=random_state,
+                max_iter=10_000,
+                **lasso_cv_alphas_kwargs(50),
+            )
     except ImportError as exc:  # pragma: no cover
         raise ImportError(
             "rd_flex requires scikit-learn. Install with: pip install scikit-learn"
         ) from exc
-    raise ValueError(
-        f"Unknown learner '{name}'. Choose: boost, forest, ridge, lasso."
-    )
+    raise ValueError(f"Unknown learner '{name}'. Choose: boost, forest, ridge, lasso.")
 
 
 def _crossfit_residualise(
@@ -321,11 +381,14 @@ def _crossfit_residualise(
     """K-fold cross-fitted residualisation.  Returns (y - η̂(W), R²_oos)."""
     from sklearn.base import clone
     from sklearn.model_selection import KFold
+
     n = len(y)
     if n_folds <= 1:
-        est = (clone(sklearn_estimator)
-               if sklearn_estimator is not None
-               else _make_learner(learner, random_state))
+        est = (
+            clone(sklearn_estimator)
+            if sklearn_estimator is not None
+            else _make_learner(learner, random_state)
+        )
         est.fit(W, y)
         eta_hat = est.predict(W)
         ss_res = float(np.sum((y - eta_hat) ** 2))
@@ -335,9 +398,11 @@ def _crossfit_residualise(
 
     kf = KFold(n_splits=int(n_folds), shuffle=True, random_state=random_state)
     eta_hat = np.full(n, np.nan)
-    base = (sklearn_estimator
-            if sklearn_estimator is not None
-            else _make_learner(learner, random_state))
+    base = (
+        sklearn_estimator
+        if sklearn_estimator is not None
+        else _make_learner(learner, random_state)
+    )
     for train_idx, test_idx in kf.split(W):
         est = clone(base)
         est.fit(W[train_idx], y[train_idx])

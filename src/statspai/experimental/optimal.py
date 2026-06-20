@@ -146,30 +146,39 @@ def optimal_design(
 
     variance_factor = 1 - r2  # Variance reduction from covariates
 
-    if design == 'individual':
+    if design == "individual":
         if mde is not None:
             # Compute required n
-            n_per_arm = int(np.ceil(
-                ((z_alpha + z_beta)**2 * sigma**2 * variance_factor) /
-                (mde**2 * prop_treat * (1 - prop_treat))
-            ))
+            n_per_arm = int(
+                np.ceil(
+                    ((z_alpha + z_beta) ** 2 * sigma**2 * variance_factor)
+                    / (mde**2 * prop_treat * (1 - prop_treat))
+                )
+            )
             n_total = int(np.ceil(n_per_arm / prop_treat))
         else:
             n_per_arm = None
             n_total = None
             mde = (
-                (z_alpha + z_beta) * sigma * np.sqrt(variance_factor)
+                (z_alpha + z_beta)
+                * sigma
+                * np.sqrt(variance_factor)
                 / np.sqrt(prop_treat * (1 - prop_treat))
             )
 
         return OptimalDesignResult(
-            n_total=n_total, n_per_arm=n_per_arm,
-            n_clusters=None, cluster_size=None,
-            icc=0, mde=mde, power=power, alpha=alpha,
-            design_type='Individual RCT',
+            n_total=n_total,
+            n_per_arm=n_per_arm,
+            n_clusters=None,
+            cluster_size=None,
+            icc=0,
+            mde=mde,
+            power=power,
+            alpha=alpha,
+            design_type="Individual RCT",
         )
 
-    elif design == 'cluster':
+    elif design == "cluster":
         # Design effect
         if cluster_size is None:
             cluster_size = 20  # default
@@ -177,10 +186,12 @@ def optimal_design(
         deff = 1 + (cluster_size - 1) * icc
 
         if mde is not None:
-            n_ind_per_arm = int(np.ceil(
-                ((z_alpha + z_beta)**2 * sigma**2 * variance_factor * deff) /
-                (mde**2 * prop_treat * (1 - prop_treat))
-            ))
+            n_ind_per_arm = int(
+                np.ceil(
+                    ((z_alpha + z_beta) ** 2 * sigma**2 * variance_factor * deff)
+                    / (mde**2 * prop_treat * (1 - prop_treat))
+                )
+            )
             n_clusters_per_arm = int(np.ceil(n_ind_per_arm / cluster_size))
             n_clusters_total = n_clusters_per_arm * n_arms
             n_total = n_clusters_total * cluster_size
@@ -189,7 +200,8 @@ def optimal_design(
             n_total = n_clusters_total * cluster_size
             n_ind_per_arm = int(n_total * prop_treat)
             mde = (
-                (z_alpha + z_beta) * sigma
+                (z_alpha + z_beta)
+                * sigma
                 * np.sqrt(
                     variance_factor
                     * deff
@@ -199,35 +211,45 @@ def optimal_design(
 
         # Optimal cluster size given costs
         if cost_per_cluster is not None and cost_per_unit is not None:
-            optimal_m = np.sqrt(
-                (cost_per_cluster / cost_per_unit) * ((1 - icc) / icc)
-            )
+            optimal_m = np.sqrt((cost_per_cluster / cost_per_unit) * ((1 - icc) / icc))
             cluster_size = max(1, int(np.round(optimal_m)))
 
         return OptimalDesignResult(
-            n_total=n_total, n_per_arm=n_total // n_arms,
-            n_clusters=n_clusters_total, cluster_size=cluster_size,
-            icc=icc, mde=mde, power=power, alpha=alpha,
-            design_type='Cluster RCT',
+            n_total=n_total,
+            n_per_arm=n_total // n_arms,
+            n_clusters=n_clusters_total,
+            cluster_size=cluster_size,
+            icc=icc,
+            mde=mde,
+            power=power,
+            alpha=alpha,
+            design_type="Cluster RCT",
         )
 
-    elif design == 'stratified':
+    elif design == "stratified":
         # Stratified design reduces variance by (1-R²_strata)
         if mde is not None:
-            n_per_arm = int(np.ceil(
-                ((z_alpha + z_beta)**2 * sigma**2 * variance_factor) /
-                (mde**2 * prop_treat * (1 - prop_treat))
-            ))
+            n_per_arm = int(
+                np.ceil(
+                    ((z_alpha + z_beta) ** 2 * sigma**2 * variance_factor)
+                    / (mde**2 * prop_treat * (1 - prop_treat))
+                )
+            )
             n_total = int(np.ceil(n_per_arm / prop_treat))
         else:
             n_per_arm = None
             n_total = None
 
         return OptimalDesignResult(
-            n_total=n_total, n_per_arm=n_per_arm,
-            n_clusters=None, cluster_size=None,
-            icc=0, mde=mde, power=power, alpha=alpha,
-            design_type='Stratified RCT',
+            n_total=n_total,
+            n_per_arm=n_per_arm,
+            n_clusters=None,
+            cluster_size=None,
+            icc=0,
+            mde=mde,
+            power=power,
+            alpha=alpha,
+            design_type="Stratified RCT",
         )
 
     else:

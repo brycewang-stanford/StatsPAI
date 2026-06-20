@@ -83,12 +83,12 @@ def msm(
     time: str,
     time_varying: List[str],
     baseline: Optional[List[str]] = None,
-    exposure: str = 'cumulative',
-    treat_type: str = 'auto',
+    exposure: str = "cumulative",
+    treat_type: str = "auto",
     trim: float = 0.01,
     trim_per_period: bool = False,
     alpha: float = 0.05,
-    family: str = 'gaussian',
+    family: str = "gaussian",
 ) -> CausalResult:
     """
     Estimate a Marginal Structural Model via stabilized IPTW.
@@ -180,15 +180,12 @@ def msm(
       near-violations of positivity (extreme weights) are the main source
       of bias. The returned ``model_info`` reports weight diagnostics.
     """
-    if exposure not in ('cumulative', 'current', 'ever'):
+    if exposure not in ("cumulative", "current", "ever"):
         raise ValueError(
-            f"exposure must be 'cumulative', 'current', or 'ever'; "
-            f"got '{exposure}'"
+            f"exposure must be 'cumulative', 'current', or 'ever'; " f"got '{exposure}'"
         )
-    if family not in ('gaussian', 'binomial'):
-        raise ValueError(
-            f"family must be 'gaussian' or 'binomial'; got '{family}'"
-        )
+    if family not in ("gaussian", "binomial"):
+        raise ValueError(f"family must be 'gaussian' or 'binomial'; got '{family}'")
 
     baseline = list(baseline or [])
     required = [y, treat, id, time] + time_varying + baseline
@@ -200,13 +197,12 @@ def msm(
     if df.empty:
         raise ValueError("No rows remain after dropping missing values.")
 
-    if treat_type == 'auto':
+    if treat_type == "auto":
         treat_type = (
-            'binary' if set(df[treat].unique()).issubset({0, 1})
-            else 'continuous'
+            "binary" if set(df[treat].unique()).issubset({0, 1}) else "continuous"
         )
 
-    if exposure == 'ever' and treat_type != 'binary':
+    if exposure == "ever" and treat_type != "binary":
         raise ValueError("exposure='ever' requires binary treatment.")
 
     # Build stabilized weights. If per-period trimming is requested,
@@ -235,23 +231,23 @@ def msm(
     # Build the exposure summary A_t (or cumulative-A, ever-A) per row
     df = df.copy()
     grouped = df.groupby(id, sort=False)[treat]
-    if exposure == 'current':
-        df['_exposure'] = df[treat].values
+    if exposure == "current":
+        df["_exposure"] = df[treat].values
         exposure_label = treat
-    elif exposure == 'cumulative':
-        df['_exposure'] = grouped.cumsum().values
-        exposure_label = f'cum_{treat}'
+    elif exposure == "cumulative":
+        df["_exposure"] = grouped.cumsum().values
+        exposure_label = f"cum_{treat}"
     else:  # ever
-        df['_exposure'] = (grouped.cummax() > 0).astype(float).values
-        exposure_label = f'ever_{treat}'
+        df["_exposure"] = (grouped.cummax() > 0).astype(float).values
+        exposure_label = f"ever_{treat}"
 
     # Pooled weighted regression of Y on exposure + baseline
-    feat = ['_exposure'] + baseline
+    feat = ["_exposure"] + baseline
     X_mat = np.column_stack([np.ones(len(df)), df[feat].values.astype(float)])
     y_vec = df[y].values.astype(float)
     cluster_ids = df[id].values
 
-    if family == 'gaussian':
+    if family == "gaussian":
         beta, se = _wls_cluster(X_mat, y_vec, w, cluster_ids)
     else:
         beta, se = _weighted_logit_cluster(X_mat, y_vec, w, cluster_ids)
@@ -265,34 +261,37 @@ def msm(
     ci = (coef - z_crit * se_coef, coef + z_crit * se_coef)
 
     # Coefficient table (detail)
-    param_names = ['const', exposure_label] + baseline
-    detail = pd.DataFrame({
-        'term': param_names,
-        'estimate': beta,
-        'se': se,
-        'z': np.where(se > 0, beta / se, 0.0),
-        'pvalue': 2 * (1 - stats.norm.cdf(np.abs(np.where(se > 0, beta / se, 0.0)))),
-    })
+    param_names = ["const", exposure_label] + baseline
+    detail = pd.DataFrame(
+        {
+            "term": param_names,
+            "estimate": beta,
+            "se": se,
+            "z": np.where(se > 0, beta / se, 0.0),
+            "pvalue": 2
+            * (1 - stats.norm.cdf(np.abs(np.where(se > 0, beta / se, 0.0)))),
+        }
+    )
 
     model_info = {
-        'estimator': 'Marginal Structural Model (stabilized IPTW)',
-        'exposure_type': exposure,
-        'treat_type': treat_type,
-        'family': family,
-        'n_units': int(df[id].nunique()),
-        'n_periods': int(df[time].nunique()),
-        'sw_mean': float(np.mean(sw)),
-        'sw_max': float(np.max(sw)),
-        'sw_min': float(np.min(sw)),
-        'sw_trimmed': bool(trim and trim > 0),
-        'trim_per_period': bool(trim_per_period),
-        'coef_table': detail.copy(),
-        'cluster_var': id,
+        "estimator": "Marginal Structural Model (stabilized IPTW)",
+        "exposure_type": exposure,
+        "treat_type": treat_type,
+        "family": family,
+        "n_units": int(df[id].nunique()),
+        "n_periods": int(df[time].nunique()),
+        "sw_mean": float(np.mean(sw)),
+        "sw_max": float(np.max(sw)),
+        "sw_min": float(np.min(sw)),
+        "sw_trimmed": bool(trim and trim > 0),
+        "trim_per_period": bool(trim_per_period),
+        "coef_table": detail.copy(),
+        "cluster_var": id,
     }
 
     _result = CausalResult(
-        method='Marginal Structural Model (IPTW)',
-        estimand='marginal ' + exposure,
+        method="Marginal Structural Model (IPTW)",
+        estimand="marginal " + exposure,
         estimate=coef,
         se=se_coef,
         pvalue=pvalue,
@@ -301,21 +300,27 @@ def msm(
         n_obs=len(df),
         detail=detail,
         model_info=model_info,
-        _citation_key='msm',
+        _citation_key="msm",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.msm",
             params={
-                "y": y, "treat": treat,
-                "id": id, "time": time,
+                "y": y,
+                "treat": treat,
+                "id": id,
+                "time": time,
                 "time_varying": list(time_varying),
                 "baseline": list(baseline) if baseline else None,
-                "exposure": exposure, "treat_type": treat_type,
-                "trim": trim, "trim_per_period": trim_per_period,
-                "alpha": alpha, "family": family,
+                "exposure": exposure,
+                "treat_type": treat_type,
+                "trim": trim,
+                "trim_per_period": trim_per_period,
+                "alpha": alpha,
+                "family": family,
             },
             data=data,
             overwrite=False,
@@ -366,7 +371,7 @@ class MarginalStructuralModel:
         self._kwargs = kwargs
         self.result_: Optional[CausalResult] = None
 
-    def fit(self, data: pd.DataFrame) -> 'MarginalStructuralModel':
+    def fit(self, data: pd.DataFrame) -> "MarginalStructuralModel":
         self.result_ = msm(data=data, **self._kwargs)
         return self
 
@@ -383,7 +388,7 @@ def stabilized_weights(
     time: str,
     time_varying: List[str],
     baseline: Optional[List[str]] = None,
-    treat_type: str = 'auto',
+    treat_type: str = "auto",
     trim_per_period: float = 0.0,
 ) -> np.ndarray:
     """
@@ -455,29 +460,29 @@ def stabilized_weights(
     baseline = list(baseline or [])
     df = data.sort_values([id, time]).reset_index(drop=True)
 
-    if treat_type == 'auto':
+    if treat_type == "auto":
         treat_type = (
-            'binary' if set(df[treat].unique()).issubset({0, 1})
-            else 'continuous'
+            "binary" if set(df[treat].unique()).issubset({0, 1}) else "continuous"
         )
 
     A = df[treat].values.astype(float)
     L = (
-        df[time_varying].values.astype(float) if time_varying
+        df[time_varying].values.astype(float)
+        if time_varying
         else np.zeros((len(df), 0))
     )
     V = df[baseline].values.astype(float) if baseline else np.zeros((len(df), 0))
 
     # Lagged treatment — 0 at first period within each unit
-    df['_A_lag'] = df.groupby(id, sort=False)[treat].shift(1).fillna(0.0)
-    A_lag = df['_A_lag'].values.astype(float)
+    df["_A_lag"] = df.groupby(id, sort=False)[treat].shift(1).fillna(0.0)
+    A_lag = df["_A_lag"].values.astype(float)
 
     # Numerator: P(A_t | A_{t-1}, V)
     X_num = np.column_stack([A_lag.reshape(-1, 1), V])
     # Denominator: P(A_t | A_{t-1}, V, L_t)
     X_den = np.column_stack([A_lag.reshape(-1, 1), V, L])
 
-    if treat_type == 'binary':
+    if treat_type == "binary":
         p_num = _logit_proba(X_num, A)
         p_den = _logit_proba(X_den, A)
         # Probability of observed A
@@ -497,8 +502,8 @@ def stabilized_weights(
         ratio = np.clip(ratio, lo, hi)
 
     # Cumulative product within unit (ordered by time via sort above)
-    df['_ratio'] = ratio
-    sw = df.groupby(id, sort=False)['_ratio'].cumprod().values
+    df["_ratio"] = ratio
+    sw = df.groupby(id, sort=False)["_ratio"].cumprod().values
 
     return np.asarray(sw, dtype=float)
 
@@ -523,10 +528,10 @@ def _logit_proba(X: np.ndarray, y: np.ndarray) -> np.ndarray:
         X = X[:, keep] if keep.any() else X[:, :0]
     try:
         import statsmodels.api as sm
-        design = sm.add_constant(X, has_constant='add')
+
+        design = sm.add_constant(X, has_constant="add")
         fit = sm.Logit(y, design).fit(disp=0, maxiter=200, warn_convergence=False)
-        return np.asarray(np.clip(fit.predict(design), 1e-6, 1 - 1e-6),
-                          dtype=float)
+        return np.asarray(np.clip(fit.predict(design), 1e-6, 1 - 1e-6), dtype=float)
     except Exception as exc:
         warnings.warn(
             "MSM treatment model failed to fit "
@@ -686,7 +691,7 @@ def _weighted_logit_cluster(
 
 
 # Citation
-CausalResult._CITATIONS['msm'] = (
+CausalResult._CITATIONS["msm"] = (
     "@article{robins2000marginal,\n"
     "  title={Marginal Structural Models and Causal Inference in "
     "Epidemiology},\n"

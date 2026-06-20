@@ -76,37 +76,40 @@ def design_robust_event_study(
     >>> diag['n_negative_weight_periods']
     1
     """
-    df = data[[y, treat, time, id] + ([cluster] if cluster else [])] \
-        .dropna().reset_index(drop=True)
+    df = (
+        data[[y, treat, time, id] + ([cluster] if cluster else [])]
+        .dropna()
+        .reset_index(drop=True)
+    )
     cluster_col = cluster or id
 
     # Build event time
     treat_arr = df[treat].to_numpy()
-    df['_rel_time'] = np.where(
-        treat_arr > 0, df[time] - treat_arr, np.nan
-    ).astype(float)
-    df['_treated'] = (treat_arr > 0).astype(int)
+    df["_rel_time"] = np.where(treat_arr > 0, df[time] - treat_arr, np.nan).astype(
+        float
+    )
+    df["_treated"] = (treat_arr > 0).astype(int)
 
     # Build TWFE event-study dummies for k in [-leads, lags]
     rel_times = list(range(-leads, lags + 1))
     rel_times = [k for k in rel_times if k != -1]  # omit -1 as base
     for k in rel_times:
-        df[f'_es_{k}'] = ((df['_rel_time'] == k)).astype(int)
+        df[f"_es_{k}"] = ((df["_rel_time"] == k)).astype(int)
 
     # OLS with id and time fixed effects, demeaned.  The within-transform
     # below uses ``id`` / ``time`` groupers directly, so we only keep
     # the category-code columns for potential downstream reporting.
     df_demean = df.copy()
-    df_demean['_id_fe'] = df[id].astype('category').cat.codes
-    df_demean['_t_fe'] = df[time].astype('category').cat.codes
+    df_demean["_id_fe"] = df[id].astype("category").cat.codes
+    df_demean["_t_fe"] = df[time].astype("category").cat.codes
     # Within transform via mean-removal (id then time, alternating, 5 iters)
-    es_cols = [f'_es_{k}' for k in rel_times]
+    es_cols = [f"_es_{k}" for k in rel_times]
     work = df_demean[[y] + es_cols].copy()
     work[id] = df_demean[id].values
     work[time] = df_demean[time].values
     for _ in range(5):
         for grouper in [id, time]:
-            mu = work.groupby(grouper)[[y] + es_cols].transform('mean')
+            mu = work.groupby(grouper)[[y] + es_cols].transform("mean")
             work[[y] + es_cols] = work[[y] + es_cols] - mu
 
     Y = work[y].to_numpy(float)
@@ -140,28 +143,30 @@ def design_robust_event_study(
     for j, k in enumerate(rel_times):
         weights[k] = float(beta[j])  # store coef itself for diagnostics
 
-    es_df = pd.DataFrame({
-        'rel_time': rel_times,
-        'att': beta,
-        'se': se_beta,
-        'ci_low': beta - stats.norm.ppf(1 - alpha / 2) * se_beta,
-        'ci_high': beta + stats.norm.ppf(1 - alpha / 2) * se_beta,
-    })
+    es_df = pd.DataFrame(
+        {
+            "rel_time": rel_times,
+            "att": beta,
+            "se": se_beta,
+            "ci_low": beta - stats.norm.ppf(1 - alpha / 2) * se_beta,
+            "ci_high": beta + stats.norm.ppf(1 - alpha / 2) * se_beta,
+        }
+    )
 
     # Headline: avg post-treatment effect
-    post = es_df[es_df['rel_time'] >= 0]
+    post = es_df[es_df["rel_time"] >= 0]
     if post.empty:
-        att_avg = float(es_df['att'].mean())
-        se_avg = float(es_df['se'].mean()) or 1e-6
+        att_avg = float(es_df["att"].mean())
+        se_avg = float(es_df["se"].mean()) or 1e-6
     else:
-        att_avg = float(post['att'].mean())
-        se_avg = float(np.sqrt((post['se'] ** 2).sum()) / len(post)) or 1e-6
+        att_avg = float(post["att"].mean())
+        se_avg = float(np.sqrt((post["se"] ** 2).sum()) / len(post)) or 1e-6
 
     # Negative-weight contamination diagnostic
     n_negative = int(np.sum(beta < 0)) if leads > 0 else 0
     diagnostics = {
-        'n_negative_weight_periods': n_negative,
-        'contamination_warning': n_negative > leads,
+        "n_negative_weight_periods": n_negative,
+        "contamination_warning": n_negative > leads,
     }
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
@@ -179,23 +184,29 @@ def design_robust_event_study(
         alpha=alpha,
         n_obs=n,
         model_info={
-            'estimator': 'design_robust_event_study',
-            'event_study': es_df,
-            'weights': weights,
-            'diagnostics': diagnostics,
-            'reference': 'Wright (2026), arXiv 2601.18801',
+            "estimator": "design_robust_event_study",
+            "event_study": es_df,
+            "weights": weights,
+            "diagnostics": diagnostics,
+            "reference": "Wright (2026), arXiv 2601.18801",
         },
-        _citation_key='design_robust_es',
+        _citation_key="design_robust_es",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.design_robust_event_study",
             params={
-                "y": y, "treat": treat, "time": time, "id": id,
-                "leads": leads, "lags": lags,
-                "cluster": cluster, "alpha": alpha,
+                "y": y,
+                "treat": treat,
+                "time": time,
+                "id": id,
+                "leads": leads,
+                "lags": lags,
+                "cluster": cluster,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -205,7 +216,7 @@ def design_robust_event_study(
     return _result
 
 
-CausalResult._CITATIONS['design_robust_es'] = (
+CausalResult._CITATIONS["design_robust_es"] = (
     "@article{design_robust_es2026,\n"
     "  title={Design-Robust Event-Study Estimation under Staggered "
     "Adoption: Diagnostics, Sensitivity, and Orthogonalisation},\n"

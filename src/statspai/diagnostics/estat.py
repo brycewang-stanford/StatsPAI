@@ -44,17 +44,17 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
-
 # ======================================================================
 #  Line characters for pretty-printing
 # ======================================================================
-_HEAVY = "\u2501"          # ━
+_HEAVY = "\u2501"  # ━
 _LINE_WIDTH = 65
 
 
 # ======================================================================
 #  Public dispatcher
 # ======================================================================
+
 
 def estat(
     result: Any,
@@ -119,30 +119,29 @@ def estat(
         test = "reset"
 
     _dispatch = {
-        "hettest":    lambda: _estat_hettest(result, alpha=alpha),
-        "white":      lambda: _estat_white(result, alpha=alpha),
-        "reset":      lambda: _estat_reset(result, powers=powers, alpha=alpha),
-        "bgodfrey":   lambda: _estat_bgodfrey(result, lags=lags, alpha=alpha),
-        "dwatson":    lambda: _estat_dwatson(result, alpha=alpha),
-        "vif":        lambda: _estat_vif(result, alpha=alpha),
-        "ic":         lambda: _estat_ic(result),
-        "linktest":   lambda: _estat_linktest(result, alpha=alpha),
-        "normality":  lambda: _estat_normality(result, alpha=alpha),
-        "leverage":   lambda: _estat_leverage(result, alpha=alpha),
+        "hettest": lambda: _estat_hettest(result, alpha=alpha),
+        "white": lambda: _estat_white(result, alpha=alpha),
+        "reset": lambda: _estat_reset(result, powers=powers, alpha=alpha),
+        "bgodfrey": lambda: _estat_bgodfrey(result, lags=lags, alpha=alpha),
+        "dwatson": lambda: _estat_dwatson(result, alpha=alpha),
+        "vif": lambda: _estat_vif(result, alpha=alpha),
+        "ic": lambda: _estat_ic(result),
+        "linktest": lambda: _estat_linktest(result, alpha=alpha),
+        "normality": lambda: _estat_normality(result, alpha=alpha),
+        "leverage": lambda: _estat_leverage(result, alpha=alpha),
         "endogenous": lambda: _estat_endogenous(result, alpha=alpha),
-        "overid":     lambda: _estat_overid(result, alpha=alpha),
+        "overid": lambda: _estat_overid(result, alpha=alpha),
         "firststage": lambda: _estat_firststage(result, alpha=alpha),
     }
 
     if test == "all":
-        return _estat_all(result, print_results=print_results,
-                          lags=lags, powers=powers, alpha=alpha)
+        return _estat_all(
+            result, print_results=print_results, lags=lags, powers=powers, alpha=alpha
+        )
 
     if test not in _dispatch:
         available = ", ".join(sorted(_dispatch.keys()) + ["all"])
-        raise ValueError(
-            f"Unknown estat test '{test}'. Available: {available}"
-        )
+        raise ValueError(f"Unknown estat test '{test}'. Available: {available}")
 
     out = _dispatch[test]()
 
@@ -155,6 +154,7 @@ def estat(
 # ======================================================================
 #  Helpers: extract arrays from result
 # ======================================================================
+
 
 def _get_residuals(result: Any) -> np.ndarray:
     r = result.data_info.get("residuals")
@@ -178,18 +178,14 @@ def _get_fitted(result: Any) -> np.ndarray:
 def _get_X(result: Any) -> np.ndarray:
     X = result.data_info.get("X")
     if X is None:
-        raise ValueError(
-            "Design matrix not stored in result.data_info['X']."
-        )
+        raise ValueError("Design matrix not stored in result.data_info['X'].")
     return np.asarray(X, dtype=float)
 
 
 def _get_y(result: Any) -> np.ndarray:
     y = result.data_info.get("y")
     if y is None:
-        raise ValueError(
-            "Response vector not stored in result.data_info['y']."
-        )
+        raise ValueError("Response vector not stored in result.data_info['y'].")
     return np.asarray(y, dtype=float)
 
 
@@ -213,7 +209,7 @@ def _ols_fit(
 
 def _r_squared(y: np.ndarray, resid: np.ndarray) -> float:
     tss = np.sum((y - y.mean()) ** 2)
-    rss = np.sum(resid ** 2)
+    rss = np.sum(resid**2)
     return 1.0 - rss / tss if tss > 0 else 0.0
 
 
@@ -225,16 +221,17 @@ def _r_squared(y: np.ndarray, resid: np.ndarray) -> float:
 #  Breusch-Pagan heteroskedasticity test
 # ------------------------------------------------------------------
 
+
 def _estat_hettest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Breusch-Pagan / Cook-Weisberg test for heteroskedasticity."""
     resid = _get_residuals(result)
     X = _get_X(result)
     n, k = X.shape
 
-    e2 = resid ** 2
+    e2 = resid**2
     _, aux_resid, _ = _ols_fit(X, e2)
     tss_e2 = np.sum((e2 - e2.mean()) ** 2)
-    rss_e2 = np.sum(aux_resid ** 2)
+    rss_e2 = np.sum(aux_resid**2)
     r2 = 1.0 - rss_e2 / tss_e2 if tss_e2 > 0 else 0.0
 
     lm = n * r2
@@ -245,8 +242,8 @@ def _estat_hettest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     interp = (
         f"REJECT H0 at {alpha:.0%}: evidence of heteroskedasticity. "
         "Consider robust standard errors."
-        if reject else
-        f"Cannot reject H0 at {alpha:.0%}: no evidence of heteroskedasticity."
+        if reject
+        else f"Cannot reject H0 at {alpha:.0%}: no evidence of heteroskedasticity."
     )
 
     return {
@@ -265,13 +262,14 @@ def _estat_hettest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  White's general heteroskedasticity test
 # ------------------------------------------------------------------
 
+
 def _estat_white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """White's test: regress e^2 on X, X^2, and cross-products."""
     resid = _get_residuals(result)
     X = _get_X(result)
     n, k = X.shape
 
-    e2 = resid ** 2
+    e2 = resid**2
 
     # Build auxiliary regressors: original X, squares, cross-products
     # Skip constant column (assume col 0 is constant if all-ones)
@@ -300,7 +298,7 @@ def _estat_white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 
     _, aux_resid, _ = _ols_fit(X_aux, e2)
     tss_e2 = np.sum((e2 - e2.mean()) ** 2)
-    rss_e2 = np.sum(aux_resid ** 2)
+    rss_e2 = np.sum(aux_resid**2)
     r2 = 1.0 - rss_e2 / tss_e2 if tss_e2 > 0 else 0.0
 
     lm = n * r2
@@ -311,8 +309,8 @@ def _estat_white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     interp = (
         f"REJECT H0 at {alpha:.0%}: evidence of heteroskedasticity "
         "(general form). Consider robust or HC standard errors."
-        if reject else
-        f"Cannot reject H0 at {alpha:.0%}: no evidence of heteroskedasticity."
+        if reject
+        else f"Cannot reject H0 at {alpha:.0%}: no evidence of heteroskedasticity."
     )
 
     return {
@@ -331,8 +329,10 @@ def _estat_white(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  Ramsey RESET
 # ------------------------------------------------------------------
 
-def _estat_reset(result: Any, *, powers: int = 3,
-                 alpha: float = 0.05) -> Dict[str, Any]:
+
+def _estat_reset(
+    result: Any, *, powers: int = 3, alpha: float = 0.05
+) -> Dict[str, Any]:
     """Ramsey RESET: add yhat^2, yhat^3, ... to detect misspecification."""
     y = _get_y(result)
     X = _get_X(result)
@@ -343,14 +343,14 @@ def _estat_reset(result: Any, *, powers: int = 3,
     # Augmented design: original X + yhat^2 ... yhat^powers
     aug_cols = [X]
     for p in range(2, powers + 1):
-        aug_cols.append((yhat ** p).reshape(-1, 1))
+        aug_cols.append((yhat**p).reshape(-1, 1))
     X_aug = np.column_stack(aug_cols)
     k_aug = X_aug.shape[1]
 
     _, resid_aug, _ = _ols_fit(X_aug, y)
 
-    rss_r = np.sum(resid ** 2)
-    rss_u = np.sum(resid_aug ** 2)
+    rss_r = np.sum(resid**2)
+    rss_u = np.sum(resid_aug**2)
     df1 = k_aug - k
     df2 = n - k_aug
 
@@ -365,8 +365,8 @@ def _estat_reset(result: Any, *, powers: int = 3,
     interp = (
         f"REJECT H0 at {alpha:.0%}: functional form may be misspecified. "
         "Consider adding nonlinear terms or transformations."
-        if reject else
-        f"Cannot reject H0 at {alpha:.0%}: no evidence of misspecification."
+        if reject
+        else f"Cannot reject H0 at {alpha:.0%}: no evidence of misspecification."
     )
 
     return {
@@ -386,8 +386,10 @@ def _estat_reset(result: Any, *, powers: int = 3,
 #  Breusch-Godfrey serial correlation
 # ------------------------------------------------------------------
 
-def _estat_bgodfrey(result: Any, *, lags: int = 1,
-                    alpha: float = 0.05) -> Dict[str, Any]:
+
+def _estat_bgodfrey(
+    result: Any, *, lags: int = 1, alpha: float = 0.05
+) -> Dict[str, Any]:
     """Breusch-Godfrey LM test for serial correlation up to *lags* lags."""
     resid = _get_residuals(result)
     X = _get_X(result)
@@ -409,7 +411,7 @@ def _estat_bgodfrey(result: Any, *, lags: int = 1,
 
     _, aux_resid, _ = _ols_fit(X_aux, e_trimmed)
     tss = np.sum((e_trimmed - e_trimmed.mean()) ** 2)
-    rss = np.sum(aux_resid ** 2)
+    rss = np.sum(aux_resid**2)
     r2 = 1.0 - rss / tss if tss > 0 else 0.0
 
     lm = n_aux * r2
@@ -421,8 +423,8 @@ def _estat_bgodfrey(result: Any, *, lags: int = 1,
     interp = (
         f"REJECT H0 at {alpha:.0%}: evidence of serial correlation "
         f"up to {lags} {lag_label}. Consider Newey-West SEs."
-        if reject else
-        f"Cannot reject H0 at {alpha:.0%}: no evidence of serial correlation "
+        if reject
+        else f"Cannot reject H0 at {alpha:.0%}: no evidence of serial correlation "
         f"up to {lags} {lag_label}."
     )
 
@@ -443,12 +445,13 @@ def _estat_bgodfrey(result: Any, *, lags: int = 1,
 #  Durbin-Watson
 # ------------------------------------------------------------------
 
+
 def _estat_dwatson(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Durbin-Watson statistic for first-order autocorrelation."""
     resid = _get_residuals(result)
 
     diff = np.diff(resid)
-    dw = float(np.sum(diff ** 2) / np.sum(resid ** 2))
+    dw = float(np.sum(diff**2) / np.sum(resid**2))
 
     # Heuristic interpretation
     if dw < 1.5:
@@ -482,6 +485,7 @@ def _estat_dwatson(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  Variance Inflation Factors
 # ------------------------------------------------------------------
 
+
 def _estat_vif(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Compute VIF for each regressor (excluding constant)."""
     X = _get_X(result)
@@ -503,21 +507,21 @@ def _estat_vif(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     for j in var_cols:
         y_j = X[:, j]
         other_cols = [c for c in var_cols if c != j]
-        X_other = np.column_stack(
-            [np.ones(n)] + [X[:, c] for c in other_cols]
-        )
+        X_other = np.column_stack([np.ones(n)] + [X[:, c] for c in other_cols])
         _, resid_j, _ = _ols_fit(X_other, y_j)
         tss_j = np.sum((y_j - y_j.mean()) ** 2)
-        rss_j = np.sum(resid_j ** 2)
+        rss_j = np.sum(resid_j**2)
         r2_j = 1.0 - rss_j / tss_j if tss_j > 0 else 0.0
         vif_j = 1.0 / (1.0 - r2_j) if r2_j < 1.0 else np.inf
 
         name = var_names[j] if j < len(var_names) else f"x{j}"
-        rows.append({
-            "variable": name,
-            "VIF": round(vif_j, 2),
-            "1/VIF": round(1.0 / vif_j, 4) if np.isfinite(vif_j) else 0.0,
-        })
+        rows.append(
+            {
+                "variable": name,
+                "VIF": round(vif_j, 2),
+                "1/VIF": round(1.0 / vif_j, 4) if np.isfinite(vif_j) else 0.0,
+            }
+        )
 
     vif_df = pd.DataFrame(rows)
     max_vif = vif_df["VIF"].max() if len(vif_df) > 0 else 0.0
@@ -548,6 +552,7 @@ def _estat_vif(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  Information criteria
 # ------------------------------------------------------------------
 
+
 def _estat_ic(result: Any) -> Dict[str, Any]:
     """AIC, BIC, and HQIC."""
     resid = _get_residuals(result)
@@ -555,7 +560,7 @@ def _estat_ic(result: Any) -> Dict[str, Any]:
     X = _get_X(result)
     k = X.shape[1]
 
-    rss = float(np.sum(resid ** 2))
+    rss = float(np.sum(resid**2))
     ll_term = n * np.log(rss / n) if rss > 0 else 0.0
 
     aic = ll_term + 2.0 * k
@@ -580,6 +585,7 @@ def _estat_ic(result: Any) -> Dict[str, Any]:
 #  Link test (specification)
 # ------------------------------------------------------------------
 
+
 def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """
     Specification link test.
@@ -591,11 +597,11 @@ def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     yhat = _get_fitted(result)
     n = len(y)
 
-    X_link = np.column_stack([np.ones(n), yhat, yhat ** 2])
+    X_link = np.column_stack([np.ones(n), yhat, yhat**2])
     beta_link, resid_link, _ = _ols_fit(X_link, y)
 
     # t-test on yhat^2 coefficient (index 2)
-    rss = np.sum(resid_link ** 2)
+    rss = np.sum(resid_link**2)
     mse = rss / (n - 3)
     XtX_inv = np.linalg.inv(X_link.T @ X_link)
     se_hatsq = np.sqrt(mse * XtX_inv[2, 2])
@@ -606,8 +612,8 @@ def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     interp = (
         f"REJECT H0 at {alpha:.0%}: yhat^2 is significant (t = {t_hatsq:.4f}). "
         "Model may be misspecified."
-        if reject else
-        f"Cannot reject H0 at {alpha:.0%}: yhat^2 is not significant. "
+        if reject
+        else f"Cannot reject H0 at {alpha:.0%}: yhat^2 is not significant. "
         "No evidence of link misspecification."
     )
 
@@ -628,6 +634,7 @@ def _estat_linktest(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  Normality of residuals
 # ------------------------------------------------------------------
 
+
 def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Jarque-Bera and Shapiro-Wilk tests on residuals."""
     resid = _get_residuals(result)
@@ -638,13 +645,13 @@ def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     sigma = resid.std(ddof=0)
     if sigma > 0:
         z = (resid - mu) / sigma
-        skew = float(np.mean(z ** 3))
-        kurt_excess = float(np.mean(z ** 4) - 3.0)
+        skew = float(np.mean(z**3))
+        kurt_excess = float(np.mean(z**4) - 3.0)
     else:
         skew = 0.0
         kurt_excess = 0.0
 
-    jb = (n / 6.0) * (skew ** 2 + (kurt_excess ** 2) / 4.0)
+    jb = (n / 6.0) * (skew**2 + (kurt_excess**2) / 4.0)
     jb_pval = float(1.0 - sp_stats.chi2.cdf(jb, 2))
 
     # Shapiro-Wilk (scipy limit: n <= 5000)
@@ -664,23 +671,15 @@ def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
             f"(skewness = {skew:.4f}, excess kurtosis = {kurt_excess:.4f})."
         )
     else:
-        interp_parts.append(
-            f"Jarque-Bera cannot reject normality at {alpha:.0%}."
-        )
+        interp_parts.append(f"Jarque-Bera cannot reject normality at {alpha:.0%}.")
 
     if sw_pval is not None:
         if sw_pval < alpha:
-            interp_parts.append(
-                f"Shapiro-Wilk REJECTS normality at {alpha:.0%}."
-            )
+            interp_parts.append(f"Shapiro-Wilk REJECTS normality at {alpha:.0%}.")
         else:
-            interp_parts.append(
-                f"Shapiro-Wilk cannot reject normality at {alpha:.0%}."
-            )
+            interp_parts.append(f"Shapiro-Wilk cannot reject normality at {alpha:.0%}.")
     else:
-        interp_parts.append(
-            "Shapiro-Wilk skipped (n > 5000)."
-        )
+        interp_parts.append("Shapiro-Wilk skipped (n > 5000).")
 
     out: Dict[str, Any] = {
         "test": "Normality of residuals",
@@ -704,6 +703,7 @@ def _estat_normality(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  Leverage / influence diagnostics
 # ------------------------------------------------------------------
 
+
 def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Cook's distance, DFBETAS, and leverage diagnostics."""
     resid = _get_residuals(result)
@@ -718,10 +718,10 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     H = X @ XtX_inv @ X.T
     h = np.diag(H)
 
-    mse = np.sum(resid ** 2) / (n - k)
+    mse = np.sum(resid**2) / (n - k)
 
     # Cook's distance
-    cooks_d = (resid ** 2 / (k * mse)) * (h / (1.0 - h) ** 2)
+    cooks_d = (resid**2 / (k * mse)) * (h / (1.0 - h) ** 2)
     threshold = 4.0 / n
 
     influential_idx = np.where(cooks_d > threshold)[0]
@@ -734,7 +734,7 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     # For efficiency, use the approximation:
     #   MSE_{(i)} = (n-k)*MSE - e_i^2/(1-h_ii)) / (n-k-1)
     mse_loo = np.maximum(
-        ((n - k) * mse - resid ** 2 / (1.0 - h)) / (n - k - 1),
+        ((n - k) * mse - resid**2 / (1.0 - h)) / (n - k - 1),
         1e-16,
     )
 
@@ -760,9 +760,7 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
             f"{n_influential} observation(s) ({pct:.1f}%) have Cook's D > {threshold:.4f} (= 4/n)."
         )
     else:
-        interp_parts.append(
-            "No observations exceed the Cook's D threshold (4/n)."
-        )
+        interp_parts.append("No observations exceed the Cook's D threshold (4/n).")
     if len(dfbetas_flagged_idx) > 0:
         interp_parts.append(
             f"{len(dfbetas_flagged_idx)} observation(s) have |DFBETAS| > "
@@ -786,6 +784,7 @@ def _estat_leverage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 # ------------------------------------------------------------------
 #  IV-specific: endogeneity (Durbin-Wu-Hausman)
 # ------------------------------------------------------------------
+
 
 def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Durbin-Wu-Hausman endogeneity test (for IV results)."""
@@ -833,6 +832,7 @@ def _estat_endogenous(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 # ------------------------------------------------------------------
 #  IV-specific: over-identification (Sargan / Hansen J)
 # ------------------------------------------------------------------
+
 
 def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """Sargan/Hansen J test for over-identifying restrictions."""
@@ -885,6 +885,7 @@ def _estat_overid(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  IV-specific: first-stage F
 # ------------------------------------------------------------------
 
+
 def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
     """First-stage F-statistic for weak instrument detection."""
     mi = result.model_info
@@ -934,6 +935,7 @@ def _estat_firststage(result: Any, *, alpha: float = 0.05) -> Dict[str, Any]:
 #  "all" -- run every applicable test
 # ======================================================================
 
+
 def _estat_all(
     result: Any,
     *,
@@ -974,14 +976,16 @@ def _estat_all(
         outputs.append(_estat_firststage(result, alpha=alpha))
 
     if not outputs:
-        outputs.append({
-            "test": "estat: no applicable tests",
-            "interpretation": (
-                "Could not run any tests. Ensure the result object stores "
-                "residuals, fitted values, design matrix (X), and response (y) "
-                "in data_info."
-            ),
-        })
+        outputs.append(
+            {
+                "test": "estat: no applicable tests",
+                "interpretation": (
+                    "Could not run any tests. Ensure the result object stores "
+                    "residuals, fitted values, design matrix (X), and response (y) "
+                    "in data_info."
+                ),
+            }
+        )
 
     if print_results:
         _print_all(outputs)
@@ -992,6 +996,7 @@ def _estat_all(
 # ======================================================================
 #  Pretty-printing
 # ======================================================================
+
 
 def _fmt_line(width: int = _LINE_WIDTH) -> str:
     return _HEAVY * width

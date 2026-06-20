@@ -26,7 +26,14 @@ with ``NaN`` in those columns rather than silently dropping them.
 from __future__ import annotations
 
 from typing import (
-    TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union,
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
 )
 
 import numpy as np
@@ -41,6 +48,7 @@ if TYPE_CHECKING:  # pragma: no cover - for static analysis only
 # ====================================================================== #
 #  Field extractors (shared with compare.py / report.py)
 # ====================================================================== #
+
 
 def _model_info(result: CausalResult) -> Dict[str, Any]:
     return getattr(result, "model_info", {}) or {}
@@ -57,8 +65,7 @@ def _pre_rmspe(result: CausalResult) -> float:
     mspe = mi.get("pre_treatment_mspe")
     if mspe is not None:
         return float(np.sqrt(mspe))
-    for key in ("pre_treatment_rmspe", "pre_treatment_rmse",
-                "pre_rmspe", "pre_rmse"):
+    for key in ("pre_treatment_rmspe", "pre_treatment_rmse", "pre_rmspe", "pre_rmse"):
         val = mi.get(key)
         if val is not None:
             return float(val)
@@ -74,7 +81,7 @@ def _pre_rmspe(result: CausalResult) -> float:
             arr = np.asarray(pre, dtype=float)
             arr = arr[~np.isnan(arr)]
             if len(arr) > 0:
-                return float(np.sqrt(np.mean(arr ** 2)))
+                return float(np.sqrt(np.mean(arr**2)))
     return float("nan")
 
 
@@ -95,7 +102,7 @@ def _post_rmspe(result: CausalResult) -> float:
     arr = arr[~np.isnan(arr)]
     if len(arr) == 0:
         return float("nan")  # pragma: no cover
-    return float(np.sqrt(np.mean(arr ** 2)))
+    return float(np.sqrt(np.mean(arr**2)))
 
 
 def _fit_quality_pct(result: CausalResult) -> Tuple[float, str]:
@@ -149,8 +156,7 @@ def _donor_weights(result: CausalResult) -> Dict[str, float]:
       list in ``model_info``
     """
     mi = _model_info(result)
-    for key in ("donor_weights", "weights", "unit_weights",
-                "omega", "omega_weights"):
+    for key in ("donor_weights", "weights", "unit_weights", "omega", "omega_weights"):
         w = mi.get(key)
         if isinstance(w, dict):
             return {str(k): float(v) for k, v in w.items()}
@@ -159,17 +165,16 @@ def _donor_weights(result: CausalResult) -> Dict[str, float]:
         if isinstance(w, pd.DataFrame) and len(w.columns) >= 2:
             name_col = w.columns[0]
             weight_col = next(
-                (c for c in w.columns
-                 if c != name_col and pd.api.types.is_numeric_dtype(w[c])),
+                (
+                    c
+                    for c in w.columns
+                    if c != name_col and pd.api.types.is_numeric_dtype(w[c])
+                ),
                 w.columns[1],
             )
-            return {
-                str(n): float(v)
-                for n, v in zip(w[name_col], w[weight_col])
-            }
+            return {str(n): float(v) for n, v in zip(w[name_col], w[weight_col])}
         if isinstance(w, (np.ndarray, list)):
-            for names_key in ("donor_units", "donor_names",
-                              "control_units", "donors"):
+            for names_key in ("donor_units", "donor_names", "control_units", "donors"):
                 names = mi.get(names_key)
                 if names is not None and len(names) == len(w):
                     return {str(n): float(v) for n, v in zip(names, w)}
@@ -211,11 +216,13 @@ def _gap_table(result: CausalResult) -> Optional[pd.DataFrame]:
     if times is None or len(times) != len(yt_arr):
         return None  # pragma: no cover
 
-    df = pd.DataFrame({
-        "time": list(times),
-        "treated": yt_arr,
-        "synthetic": ys_arr,
-    })
+    df = pd.DataFrame(
+        {
+            "time": list(times),
+            "treated": yt_arr,
+            "synthetic": ys_arr,
+        }
+    )
     df["gap"] = df["treated"] - df["synthetic"]
 
     treatment_time = mi.get("treatment_time")
@@ -251,7 +258,11 @@ def _stars_md(pvalue: float) -> str:
 
 
 def _format_estimate_se(
-    estimate: float, se: float, pvalue: float, *, latex: bool = True,
+    estimate: float,
+    se: float,
+    pvalue: float,
+    *,
+    latex: bool = True,
     digits: int = 4,
 ) -> Tuple[str, str]:
     if np.isnan(estimate):
@@ -263,7 +274,8 @@ def _format_estimate_se(
 
 
 def _result_summary_row(
-    result: CausalResult, name: Optional[str] = None,
+    result: CausalResult,
+    name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Compact one-row dict capturing the most-cited SCM diagnostics."""
     mi = _model_info(result)
@@ -303,6 +315,7 @@ def _result_summary_row(
 # ====================================================================== #
 #  LaTeX export
 # ====================================================================== #
+
 
 def synth_to_latex(
     obj: Union[CausalResult, "SynthComparison", List[CausalResult]],
@@ -425,7 +438,11 @@ def synth_to_latex(
     se_cells = [""]
     for s in summaries:
         est, se = _format_estimate_se(
-            s["att"], s["se"], s["pvalue"], latex=True, digits=digits,
+            s["att"],
+            s["se"],
+            s["pvalue"],
+            latex=True,
+            digits=digits,
         )
         att_cells.append(est)
         se_cells.append(se)
@@ -463,8 +480,11 @@ def synth_to_latex(
     lines.append(
         "Fit (\\% of outcome SD) & "
         + " & ".join(
-            "—" if np.isnan(s["fit_pct_sd"])
-            else f"{s['fit_pct_sd']:.1f}\\% ({s['fit_label']})"
+            (
+                "—"
+                if np.isnan(s["fit_pct_sd"])
+                else f"{s['fit_pct_sd']:.1f}\\% ({s['fit_label']})"
+            )
             for s in summaries
         )
         + " \\\\"
@@ -494,8 +514,7 @@ def synth_to_latex(
     if show_weights:
         lines.append(rule_mid)
         lines.append(
-            "\\multicolumn{" + str(n_cols)
-            + "}{l}{\\emph{Top donor weights}} \\\\"
+            "\\multicolumn{" + str(n_cols) + "}{l}{\\emph{Top donor weights}} \\\\"
         )
         per_method: List[Any] = []
         max_rows = 0
@@ -505,7 +524,9 @@ def synth_to_latex(
                 per_method.append([])
                 continue
             top = sorted(
-                wmap.items(), key=lambda kv: abs(kv[1]), reverse=True,
+                wmap.items(),
+                key=lambda kv: abs(kv[1]),
+                reverse=True,
             )[:top_n_weights]
             per_method.append(top)
             max_rows = max(max_rows, len(top))
@@ -514,9 +535,7 @@ def synth_to_latex(
             for top in per_method:
                 if i < len(top):
                     name, w = top[i]
-                    cells.append(
-                        f"{_latex_escape(str(name))} ({w:.{digits}f})"
-                    )
+                    cells.append(f"{_latex_escape(str(name))} ({w:.{digits}f})")
                 else:
                     cells.append("")
             lines.append(" & ".join(cells) + " \\\\")
@@ -537,9 +556,16 @@ def synth_to_latex(
 def _latex_escape(text: str) -> str:
     """Minimal LaTeX escape for table cells / labels."""
     repl = {
-        "&": "\\&", "%": "\\%", "$": "\\$", "#": "\\#",
-        "_": "\\_", "{": "\\{", "}": "\\}", "~": "\\textasciitilde{}",
-        "^": "\\textasciicircum{}", "\\": "\\textbackslash{}",
+        "&": "\\&",
+        "%": "\\%",
+        "$": "\\$",
+        "#": "\\#",
+        "_": "\\_",
+        "{": "\\{",
+        "}": "\\}",
+        "~": "\\textasciitilde{}",
+        "^": "\\textasciicircum{}",
+        "\\": "\\textbackslash{}",
     }
     out = []
     for ch in str(text):
@@ -550,6 +576,7 @@ def _latex_escape(text: str) -> str:
 # ====================================================================== #
 #  Markdown export
 # ====================================================================== #
+
 
 def synth_to_markdown(
     obj: Union[CausalResult, "SynthComparison", List[CausalResult]],
@@ -622,7 +649,11 @@ def synth_to_markdown(
     cells = ["**ATT**"]
     for s in summaries:
         est, se = _format_estimate_se(
-            s["att"], s["se"], s["pvalue"], latex=False, digits=digits,
+            s["att"],
+            s["se"],
+            s["pvalue"],
+            latex=False,
+            digits=digits,
         )
         cells.append(f"{est} {se}")
     lines.append("| " + " | ".join(cells) + " |")
@@ -632,7 +663,8 @@ def synth_to_markdown(
         for s in summaries:
             lo, hi = s["ci_lower"], s["ci_upper"]
             cells.append(
-                "—" if np.isnan(lo) or np.isnan(hi)
+                "—"
+                if np.isnan(lo) or np.isnan(hi)
                 else f"[{lo:.{digits}f}, {hi:.{digits}f}]"
             )
         lines.append("| " + " | ".join(cells) + " |")
@@ -663,9 +695,7 @@ def synth_to_markdown(
         if np.isnan(s["fit_pct_sd"]):
             cells.append("—")
         else:
-            cells.append(
-                f"{s['fit_pct_sd']:.1f}% of SD ({s['fit_label']})"
-            )
+            cells.append(f"{s['fit_pct_sd']:.1f}% of SD ({s['fit_label']})")
     lines.append("| " + " | ".join(cells) + " |")
 
     if show_weights:
@@ -678,23 +708,22 @@ def synth_to_markdown(
                 lines.append(f"- *{n}*: weights not exposed by this method")
                 continue
             top = sorted(
-                wmap.items(), key=lambda kv: abs(kv[1]), reverse=True,
+                wmap.items(),
+                key=lambda kv: abs(kv[1]),
+                reverse=True,
             )[:top_n_weights]
-            weight_cells = ", ".join(
-                f"{name} ({w:.{digits}f})" for name, w in top
-            )
+            weight_cells = ", ".join(f"{name} ({w:.{digits}f})" for name, w in top)
             lines.append(f"- *{n}*: {weight_cells}")
 
     lines.append("")
-    lines.append(
-        "*Significance: \\* p<0.1, \\*\\* p<0.05, \\*\\*\\* p<0.01.*"
-    )
+    lines.append("*Significance: \\* p<0.1, \\*\\* p<0.05, \\*\\*\\* p<0.01.*")
     return "\n".join(lines)
 
 
 # ====================================================================== #
 #  Excel export
 # ====================================================================== #
+
 
 def synth_to_excel(
     obj: Union[CausalResult, "SynthComparison", List[CausalResult]],
@@ -780,29 +809,21 @@ def synth_to_excel(
         wmap = _donor_weights(r)
         if not wmap:
             continue
-        df = (
-            pd.Series(wmap, name=n)
-            .rename_axis("donor")
-            .reset_index()
-        )
+        df = pd.Series(wmap, name=n).rename_axis("donor").reset_index()
         df["method"] = n
         weights_long.append(df)
     if weights_long:
         weights_df = pd.concat(weights_long, ignore_index=True)
-        weights_pivot = (
-            weights_df.pivot_table(
-                index="donor", columns="method", values=n,
-                aggfunc="first",
-            )
-            .round(digits)
-        )
+        weights_pivot = weights_df.pivot_table(
+            index="donor",
+            columns="method",
+            values=n,
+            aggfunc="first",
+        ).round(digits)
         # ``aggfunc='first'`` will fall back to last-seen column if name
         # collides; rebuild explicitly to keep ordering.
         weights_pivot = pd.DataFrame(
-            {
-                n: pd.Series(_donor_weights(r))
-                for r, n in zip(results, names)
-            }
+            {n: pd.Series(_donor_weights(r)) for r, n in zip(results, names)}
         ).round(digits)
         weights_pivot.index.name = "donor"
     else:
@@ -810,28 +831,33 @@ def synth_to_excel(
 
     diag_rows = []
     for s in summaries:
-        diag_rows.append({
-            "method": s["name"],
-            "pre_rmspe": s["pre_rmspe"],
-            "post_rmspe": s["post_rmspe"],
-            "post_pre_ratio": (
-                s["post_rmspe"] / s["pre_rmspe"]
-                if s["pre_rmspe"] and s["pre_rmspe"] > 0 else np.nan
-            ),
-            "fit_pct_sd": s["fit_pct_sd"],
-            "fit_label": s["fit_label"],
-            "n_pre": s["n_pre_periods"],
-            "n_post": s["n_post_periods"],
-            "n_donors": s["n_donors"],
-            "n_effective_donors": s["n_effective_donors"],
-        })
+        diag_rows.append(
+            {
+                "method": s["name"],
+                "pre_rmspe": s["pre_rmspe"],
+                "post_rmspe": s["post_rmspe"],
+                "post_pre_ratio": (
+                    s["post_rmspe"] / s["pre_rmspe"]
+                    if s["pre_rmspe"] and s["pre_rmspe"] > 0
+                    else np.nan
+                ),
+                "fit_pct_sd": s["fit_pct_sd"],
+                "fit_label": s["fit_label"],
+                "n_pre": s["n_pre_periods"],
+                "n_post": s["n_post_periods"],
+                "n_donors": s["n_donors"],
+                "n_effective_donors": s["n_effective_donors"],
+            }
+        )
     diagnostics_df = pd.DataFrame(diag_rows).round(digits)
 
     with pd.ExcelWriter(path, engine="openpyxl") as writer:
         summary_df.to_excel(writer, sheet_name="Summary", index=False)
         weights_pivot.to_excel(writer, sheet_name="Weights")
         diagnostics_df.to_excel(
-            writer, sheet_name="Diagnostics", index=False,
+            writer,
+            sheet_name="Diagnostics",
+            index=False,
         )
         for r, n in zip(results, names):
             gap = _gap_table(r)
@@ -841,6 +867,7 @@ def synth_to_excel(
             gap.round(digits).to_excel(writer, sheet_name=sheet, index=False)
 
     import os
+
     return os.path.abspath(path)
 
 
@@ -855,8 +882,10 @@ def _safe_sheet_name(name: str) -> str:
 #  Internal: normalise input
 # ====================================================================== #
 
+
 def _normalise(
-    obj: Any, method_names: Optional[Sequence[str]] = None,
+    obj: Any,
+    method_names: Optional[Sequence[str]] = None,
 ) -> Tuple[List[CausalResult], List[str]]:
     """Coerce input into ``(list_of_results, list_of_names)``."""
     # Avoid circular import by deferring SynthComparison reference
@@ -864,9 +893,9 @@ def _normalise(
 
     if isinstance(obj, CausalResult):
         results: List[CausalResult] = [obj]
-        names: List[str] = list(method_names) if method_names else [
-            getattr(obj, "method", "SCM")
-        ]
+        names: List[str] = (
+            list(method_names) if method_names else [getattr(obj, "method", "SCM")]
+        )
         return results, names
 
     if isinstance(obj, SynthComparison):
@@ -887,9 +916,7 @@ def _normalise(
             names.append(getattr(item, "method", f"Method {i + 1}"))
         if method_names is not None:
             if len(method_names) != len(results):
-                raise ValueError(
-                    "len(method_names) must match the number of results."
-                )
+                raise ValueError("len(method_names) must match the number of results.")
             names = list(method_names)
         return results, names
 

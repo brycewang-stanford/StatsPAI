@@ -24,7 +24,6 @@ from scipy import stats, optimize
 from ..core.results import CausalResult
 from ._core import _kernel_fn
 
-
 # --------------------------------------------------------------------------- #
 # Kernel helpers
 # --------------------------------------------------------------------------- #
@@ -48,6 +47,7 @@ def _kernel_weights(x: np.ndarray, c: float, h: float, kernel: str) -> np.ndarra
 # --------------------------------------------------------------------------- #
 # Local polynomial helpers
 # --------------------------------------------------------------------------- #
+
 
 def _local_linear(
     y: np.ndarray,
@@ -113,7 +113,7 @@ def _local_quadratic(
     w = _kernel_weights(xs, c, h, kernel)
     W = np.diag(w)
     dx = xs - c
-    X_mat = np.column_stack([np.ones(len(xs)), dx, dx ** 2])
+    X_mat = np.column_stack([np.ones(len(xs)), dx, dx**2])
     try:
         beta = np.linalg.solve(X_mat.T @ W @ X_mat, X_mat.T @ W @ ys)
     except np.linalg.LinAlgError:  # pragma: no cover
@@ -126,6 +126,7 @@ def _local_quadratic(
 # --------------------------------------------------------------------------- #
 # Bandwidth selectors
 # --------------------------------------------------------------------------- #
+
 
 def _ik_bandwidth(y: np.ndarray, x: np.ndarray, c: float, kernel: str) -> float:
     """
@@ -144,6 +145,7 @@ def _ik_bandwidth(y: np.ndarray, x: np.ndarray, c: float, kernel: str) -> float:
 # --------------------------------------------------------------------------- #
 # Estimate M (bound on second derivative)
 # --------------------------------------------------------------------------- #
+
 
 def _estimate_M(
     y: np.ndarray,
@@ -175,6 +177,7 @@ def _estimate_M(
 # --------------------------------------------------------------------------- #
 # Armstrong-Kolesár critical value
 # --------------------------------------------------------------------------- #
+
 
 def _ak_critical_value(b: float, alpha: float = 0.05) -> float:
     """
@@ -225,6 +228,7 @@ def _ak_critical_value(b: float, alpha: float = 0.05) -> float:
 # Standard error of local linear estimator at cutoff
 # --------------------------------------------------------------------------- #
 
+
 def _rd_se(
     y: np.ndarray,
     x: np.ndarray,
@@ -262,7 +266,7 @@ def _rd_se(
         except np.linalg.LinAlgError:  # pragma: no cover
             return np.nan  # pragma: no cover
         # HC1
-        Sigma = X_mat.T @ W @ np.diag(resid ** 2) @ W @ X_mat
+        Sigma = X_mat.T @ W @ np.diag(resid**2) @ W @ X_mat
         V = XWX_inv @ Sigma @ XWX_inv
         return float(e1 @ V @ e1)
 
@@ -278,6 +282,7 @@ def _rd_se(
 # --------------------------------------------------------------------------- #
 # Optimal bandwidth for honest CI (FLCI criterion)
 # --------------------------------------------------------------------------- #
+
 
 def _flci_bandwidth(
     y: np.ndarray,
@@ -304,7 +309,7 @@ def _flci_bandwidth(
         se = _rd_se(y, x, c, h_try, kernel)
         if np.isnan(se) or se <= 0:
             continue  # pragma: no cover
-        bias_bound = h_try ** 2 * M * C_k
+        bias_bound = h_try**2 * M * C_k
         b = bias_bound / se
         cv = _ak_critical_value(b, alpha)
         ci_len = 2.0 * (cv * se + bias_bound)
@@ -318,6 +323,7 @@ def _flci_bandwidth(
 # --------------------------------------------------------------------------- #
 # Main function
 # --------------------------------------------------------------------------- #
+
 
 def rd_honest(
     data: pd.DataFrame,
@@ -442,7 +448,7 @@ def rd_honest(
 
     # ---- Bias bound ---- #
     C_k = _KERNEL_BIAS_CONSTANTS[kernel]
-    bias_bound = h_value ** 2 * M_value * C_k
+    bias_bound = h_value**2 * M_value * C_k
 
     # ---- Naive CI (ignores bias) ---- #
     z_naive = stats.norm.ppf(1.0 - alpha / 2.0)
@@ -464,9 +470,7 @@ def rd_honest(
 
     # ---- Build summary string ---- #
     M_label = (
-        f"{M_value:.4g} (estimated)"
-        if M_estimated
-        else f"{M_value:.4g} (supplied)"
+        f"{M_value:.4g} (estimated)" if M_estimated else f"{M_value:.4g} (supplied)"
     )
     summary_str = (
         "\n"
@@ -512,13 +516,19 @@ def rd_honest(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.rd.rd_honest",
             params={
-                "y": y, "x": x, "c": c,
-                "M": M_value, "kernel": kernel, "h": h_value,
-                "alpha": alpha, "opt_criterion": opt_criterion,
+                "y": y,
+                "x": x,
+                "c": c,
+                "M": M_value,
+                "kernel": kernel,
+                "h": h_value,
+                "alpha": alpha,
+                "opt_criterion": opt_criterion,
             },
             data=data,
             overwrite=False,

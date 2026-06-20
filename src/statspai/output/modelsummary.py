@@ -252,6 +252,7 @@ def modelsummary(
 # coefplot — independent of the table renderer; kept verbatim
 # ======================================================================
 
+
 def coefplot(
     *models: Any,
     model_names: Optional[List[str]] = None,
@@ -306,12 +307,21 @@ def coefplot(
         raise ImportError("matplotlib required. Install: pip install matplotlib")
 
     if model_names is None:
-        model_names = [f'Model {i + 1}' for i in range(len(models))]
+        model_names = [f"Model {i + 1}" for i in range(len(models))]
     if colors is None:
-        colors = ['#2C3E50', '#E74C3C', '#3498DB', '#2ECC71',
-                  '#9B59B6', '#F39C12', '#1ABC9C', '#E67E22']
+        colors = [
+            "#2C3E50",
+            "#E74C3C",
+            "#3498DB",
+            "#2ECC71",
+            "#9B59B6",
+            "#F39C12",
+            "#1ABC9C",
+            "#E67E22",
+        ]
 
     from scipy import stats as sp_stats
+
     z_crit = sp_stats.norm.ppf(1 - alpha / 2)
 
     coef_data = [_extract_coefs(m) for m in models]
@@ -354,19 +364,25 @@ def coefplot(
             hi = np.array(ci_hi)
             ax.scatter(est, pos, color=color, s=40, zorder=5, label=name)
             ax.errorbar(
-                est, pos, xerr=[est - lo, hi - est],
-                fmt='none', color=color, capsize=3, linewidth=1, zorder=3,
+                est,
+                pos,
+                xerr=[est - lo, hi - est],
+                fmt="none",
+                color=color,
+                capsize=3,
+                linewidth=1,
+                zorder=3,
             )
 
-    ax.axvline(x=0, color='gray', linestyle='--', linewidth=0.8)
+    ax.axvline(x=0, color="gray", linestyle="--", linewidth=0.8)
     ax.set_yticks(range(n_vars))
     ax.set_yticklabels(variables)
     ax.invert_yaxis()
-    ax.set_xlabel('Coefficient Estimate')
-    ax.set_title(title or 'Coefficient Plot')
+    ax.set_xlabel("Coefficient Estimate")
+    ax.set_title(title or "Coefficient Plot")
     ax.legend(fontsize=9, frameon=False)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     fig.tight_layout()
 
     return fig, ax
@@ -375,10 +391,18 @@ def coefplot(
 def _coefplot_tikz_escape(s: str) -> str:
     """Minimal LaTeX escaping for axis labels / legend entries."""
     out = str(s)
-    for ch, rep in (("\\", r"\textbackslash{}"), ("&", r"\&"),
-                    ("%", r"\%"), ("$", r"\$"), ("#", r"\#"),
-                    ("_", r"\_"), ("{", r"\{"), ("}", r"\}"),
-                    ("~", r"\textasciitilde{}"), ("^", r"\textasciicircum{}")):
+    for ch, rep in (
+        ("\\", r"\textbackslash{}"),
+        ("&", r"\&"),
+        ("%", r"\%"),
+        ("$", r"\$"),
+        ("#", r"\#"),
+        ("_", r"\_"),
+        ("{", r"\{"),
+        ("}", r"\}"),
+        ("~", r"\textasciitilde{}"),
+        ("^", r"\textasciicircum{}"),
+    ):
         out = out.replace(ch, rep)
     return out
 
@@ -461,8 +485,7 @@ def coefplot_tikz(
     n_vars = len(variables)
     n_models = len(models)
     if n_models > 1:
-        offsets = np.linspace(-0.15 * (n_models - 1),
-                              0.15 * (n_models - 1), n_models)
+        offsets = np.linspace(-0.15 * (n_models - 1), 0.15 * (n_models - 1), n_models)
     else:
         offsets = np.zeros(1)
 
@@ -538,9 +561,11 @@ def _extract_coefs(model: Any) -> Dict[str, tuple]:
     if isinstance(params, pd.Series):
         for var in params.index:
             coef = float(params[var])
-            se = float(std_errors[var]) if (
-                std_errors is not None and var in std_errors.index
-            ) else np.nan
+            se = (
+                float(std_errors[var])
+                if (std_errors is not None and var in std_errors.index)
+                else np.nan
+            )
             pv = np.nan
             if pvalues is not None:
                 if isinstance(pvalues, pd.Series) and var in pvalues.index:

@@ -32,24 +32,25 @@ def _ensure_mpl() -> Tuple[Any, Any]:
     try:
         import matplotlib.pyplot as plt
         import matplotlib
+
         return plt, matplotlib
     except ImportError:
         raise ImportError(
-            "matplotlib is required for plotting. "
-            "Install: pip install matplotlib"
+            "matplotlib is required for plotting. " "Install: pip install matplotlib"
         )
 
 
 def _style_ax(ax: Any) -> None:
     """Apply clean academic styling to axes."""
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     ax.tick_params(labelsize=10)
 
 
 # ======================================================================
 # 1. Parallel Trends Plot
 # ======================================================================
+
 
 def parallel_trends_plot(
     data: pd.DataFrame,
@@ -58,7 +59,7 @@ def parallel_trends_plot(
     treat: str,
     id: Optional[str] = None,
     treat_time: Optional[Union[int, float]] = None,
-    agg: str = 'mean',
+    agg: str = "mean",
     labels: Optional[Dict[str, str]] = None,
     colors: Optional[Tuple[str, str]] = None,
     ci: bool = True,
@@ -117,30 +118,30 @@ def parallel_trends_plot(
     'Figure'
     """
     plt, _ = _ensure_mpl()
-    colors = colors or ('#E74C3C', '#2C3E50')
+    colors = colors or ("#E74C3C", "#2C3E50")
     labels = labels or {}
-    treat_label = labels.get('treat', 'Treatment')
-    ctrl_label = labels.get('control', 'Control')
+    treat_label = labels.get("treat", "Treatment")
+    ctrl_label = labels.get("control", "Control")
 
     df = data.copy()
 
     # Binarize treatment for staggered designs
     if set(df[treat].dropna().unique()) - {0, 1, True, False}:
         # Staggered: treat column is first treatment period, 0 = never
-        df['_treat_group'] = (df[treat] > 0).astype(int)
+        df["_treat_group"] = (df[treat] > 0).astype(int)
     else:
-        df['_treat_group'] = df[treat].astype(int)
+        df["_treat_group"] = df[treat].astype(int)
 
     # Aggregate by (time, group)
-    agg_func = agg if agg in ('mean', 'median') else 'mean'
-    grouped = df.groupby([time, '_treat_group'])[y]
+    agg_func = agg if agg in ("mean", "median") else "mean"
+    grouped = df.groupby([time, "_treat_group"])[y]
 
-    if agg_func == 'mean':
+    if agg_func == "mean":
         means = grouped.mean().reset_index()
         if ci:
             sems = grouped.sem().reset_index()
-            sems.columns = [time, '_treat_group', '_se']
-            means = means.merge(sems, on=[time, '_treat_group'])
+            sems.columns = [time, "_treat_group", "_se"]
+            means = means.merge(sems, on=[time, "_treat_group"])
     else:
         means = grouped.median().reset_index()
         ci = False  # no SE for median
@@ -150,35 +151,47 @@ def parallel_trends_plot(
     else:
         fig = ax.get_figure()
 
-    for grp, color, label in [(1, colors[0], treat_label),
-                               (0, colors[1], ctrl_label)]:
-        mask = means['_treat_group'] == grp
+    for grp, color, label in [(1, colors[0], treat_label), (0, colors[1], ctrl_label)]:
+        mask = means["_treat_group"] == grp
         sub = means[mask].sort_values(time)
         t_vals = sub[time].values
         y_vals = sub[y].values
 
-        ax.plot(t_vals, y_vals, color=color, linewidth=2,
-                marker='o', markersize=5, label=label, zorder=5)
+        ax.plot(
+            t_vals,
+            y_vals,
+            color=color,
+            linewidth=2,
+            marker="o",
+            markersize=5,
+            label=label,
+            zorder=5,
+        )
 
-        if ci and '_se' in sub.columns:
-            se_vals = sub['_se'].values
+        if ci and "_se" in sub.columns:
+            se_vals = sub["_se"].values
             ax.fill_between(
                 t_vals,
                 y_vals - 1.96 * se_vals,
                 y_vals + 1.96 * se_vals,
-                alpha=0.12, color=color,
+                alpha=0.12,
+                color=color,
             )
 
     # Treatment onset line
     if treat_time is not None:
         ax.axvline(
-            x=treat_time, color='gray', linestyle='--',
-            linewidth=1, alpha=0.7, label='Treatment',
+            x=treat_time,
+            color="gray",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.7,
+            label="Treatment",
         )
 
-    ax.set_xlabel(time.replace('_', ' ').title(), fontsize=11)
-    ax.set_ylabel(y.replace('_', ' ').title(), fontsize=11)
-    ax.set_title(title or 'Parallel Trends', fontsize=13)
+    ax.set_xlabel(time.replace("_", " ").title(), fontsize=11)
+    ax.set_ylabel(y.replace("_", " ").title(), fontsize=11)
+    ax.set_title(title or "Parallel Trends", fontsize=13)
     _style_ax(ax)
     ax.legend(fontsize=10, frameon=False)
     fig.tight_layout()
@@ -188,6 +201,7 @@ def parallel_trends_plot(
 # ======================================================================
 # 2. Bacon Decomposition Plot
 # ======================================================================
+
 
 def bacon_plot(
     bacon_result: Dict[str, Any],
@@ -235,16 +249,16 @@ def bacon_plot(
     """
     plt, _ = _ensure_mpl()
 
-    decomp = bacon_result.get('decomposition')
+    decomp = bacon_result.get("decomposition")
     if decomp is None or len(decomp) == 0:
         raise ValueError("Bacon decomposition has no sub-comparisons to plot.")
 
-    beta_twfe = bacon_result.get('beta_twfe', None)
+    beta_twfe = bacon_result.get("beta_twfe", None)
 
     default_colors = {
-        'Treated vs Never-treated': '#2C3E50',
-        'Earlier vs Later treated': '#27AE60',
-        'Later vs Already-treated': '#E74C3C',
+        "Treated vs Never-treated": "#2C3E50",
+        "Earlier vs Later treated": "#27AE60",
+        "Later vs Already-treated": "#E74C3C",
     }
     colors = colors or default_colors
 
@@ -253,30 +267,39 @@ def bacon_plot(
     else:
         fig = ax.get_figure()
 
-    for comp_type in decomp['type'].unique():
-        sub = decomp[decomp['type'] == comp_type]
-        color = colors.get(comp_type, '#7F8C8D')
+    for comp_type in decomp["type"].unique():
+        sub = decomp[decomp["type"] == comp_type]
+        color = colors.get(comp_type, "#7F8C8D")
         ax.scatter(
-            sub['weight'], sub['estimate'],
-            color=color, s=80, alpha=0.7, edgecolors='white',
-            linewidth=0.5, label=comp_type, zorder=5,
+            sub["weight"],
+            sub["estimate"],
+            color=color,
+            s=80,
+            alpha=0.7,
+            edgecolors="white",
+            linewidth=0.5,
+            label=comp_type,
+            zorder=5,
         )
 
     # TWFE estimate line
     if beta_twfe is not None:
         ax.axhline(
-            y=beta_twfe, color='gray', linestyle='--',
-            linewidth=1, alpha=0.7,
-            label=f'TWFE = {beta_twfe:.4f}',
+            y=beta_twfe,
+            color="gray",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.7,
+            label=f"TWFE = {beta_twfe:.4f}",
         )
 
-    ax.axhline(y=0, color='lightgray', linestyle='-', linewidth=0.5)
+    ax.axhline(y=0, color="lightgray", linestyle="-", linewidth=0.5)
 
-    ax.set_xlabel('Weight', fontsize=11)
-    ax.set_ylabel('2×2 DD Estimate', fontsize=11)
-    ax.set_title(title or 'Goodman-Bacon Decomposition', fontsize=13)
+    ax.set_xlabel("Weight", fontsize=11)
+    ax.set_ylabel("2×2 DD Estimate", fontsize=11)
+    ax.set_title(title or "Goodman-Bacon Decomposition", fontsize=13)
     _style_ax(ax)
-    ax.legend(fontsize=9, frameon=False, loc='best')
+    ax.legend(fontsize=9, frameon=False, loc="best")
     fig.tight_layout()
     return fig, ax
 
@@ -285,15 +308,16 @@ def bacon_plot(
 # 3. Group-Time ATT Plot (Callaway-Sant'Anna)
 # ======================================================================
 
+
 def group_time_plot(
     result: Any,
-    plot_type: str = 'dot',
+    plot_type: str = "dot",
     ax: Any = None,
     figsize: Tuple[float, float] = (12, 7),
     title: Optional[str] = None,
-    color: str = '#2C3E50',
-    sig_color: str = '#E74C3C',
-    insig_color: str = '#BDC3C7',
+    color: str = "#2C3E50",
+    sig_color: str = "#E74C3C",
+    insig_color: str = "#BDC3C7",
     alpha_level: float = 0.05,
     **kwargs: Any,
 ) -> Tuple[Any, Any]:
@@ -345,7 +369,7 @@ def group_time_plot(
     plt, mpl = _ensure_mpl()
 
     detail = result.detail
-    if detail is None or 'group' not in detail.columns:
+    if detail is None or "group" not in detail.columns:
         raise ValueError(
             "Result must contain group-time detail from "
             "Callaway-Sant'Anna. Use did(method='cs')."
@@ -353,7 +377,7 @@ def group_time_plot(
 
     gt = detail.copy()
 
-    if plot_type == 'heatmap':
+    if plot_type == "heatmap":
         return _group_time_heatmap(gt, ax, figsize, title, plt, mpl)
 
     # ── Dot plot ──────────────────────────────────────────────────── #
@@ -362,8 +386,8 @@ def group_time_plot(
     else:
         fig = ax.get_figure()
 
-    gt = gt.sort_values(['group', 'time']).reset_index(drop=True)
-    is_sig = gt['pvalue'] < alpha_level
+    gt = gt.sort_values(["group", "time"]).reset_index(drop=True)
+    is_sig = gt["pvalue"] < alpha_level
 
     # Create label for each (g, t)
     labels = [f"g={int(r['group'])}, t={int(r['time'])}" for _, r in gt.iterrows()]
@@ -373,32 +397,42 @@ def group_time_plot(
     insig = ~is_sig
     if insig.any():
         ax.errorbar(
-            gt.loc[insig, 'att'], y_pos[insig],
+            gt.loc[insig, "att"],
+            y_pos[insig],
             xerr=[
-                gt.loc[insig, 'att'] - gt.loc[insig, 'ci_lower'],
-                gt.loc[insig, 'ci_upper'] - gt.loc[insig, 'att'],
+                gt.loc[insig, "att"] - gt.loc[insig, "ci_lower"],
+                gt.loc[insig, "ci_upper"] - gt.loc[insig, "att"],
             ],
-            fmt='o', color=insig_color, capsize=3,
-            markersize=5, linewidth=1, label='Not significant',
+            fmt="o",
+            color=insig_color,
+            capsize=3,
+            markersize=5,
+            linewidth=1,
+            label="Not significant",
         )
 
     # Plot significant
     if is_sig.any():
         ax.errorbar(
-            gt.loc[is_sig, 'att'], y_pos[is_sig],
+            gt.loc[is_sig, "att"],
+            y_pos[is_sig],
             xerr=[
-                gt.loc[is_sig, 'att'] - gt.loc[is_sig, 'ci_lower'],
-                gt.loc[is_sig, 'ci_upper'] - gt.loc[is_sig, 'att'],
+                gt.loc[is_sig, "att"] - gt.loc[is_sig, "ci_lower"],
+                gt.loc[is_sig, "ci_upper"] - gt.loc[is_sig, "att"],
             ],
-            fmt='o', color=sig_color, capsize=3,
-            markersize=5, linewidth=1, label=f'Significant (p < {alpha_level})',
+            fmt="o",
+            color=sig_color,
+            capsize=3,
+            markersize=5,
+            linewidth=1,
+            label=f"Significant (p < {alpha_level})",
         )
 
-    ax.axvline(x=0, color='gray', linestyle='--', linewidth=0.8)
+    ax.axvline(x=0, color="gray", linestyle="--", linewidth=0.8)
     ax.set_yticks(y_pos)
     ax.set_yticklabels(labels, fontsize=8)
-    ax.set_xlabel('ATT Estimate', fontsize=11)
-    ax.set_title(title or 'Group-Time ATT Estimates', fontsize=13)
+    ax.set_xlabel("ATT Estimate", fontsize=11)
+    ax.set_title(title or "Group-Time ATT Estimates", fontsize=13)
     _style_ax(ax)
     ax.legend(fontsize=9, frameon=False)
     ax.invert_yaxis()
@@ -416,7 +450,10 @@ def _group_time_heatmap(
 ) -> Tuple[Any, Any]:
     """Internal: heatmap of group-time ATTs."""
     pivot = gt.pivot_table(
-        values='att', index='group', columns='time', aggfunc='mean',
+        values="att",
+        index="group",
+        columns="time",
+        aggfunc="mean",
     )
 
     if ax is None:
@@ -426,17 +463,20 @@ def _group_time_heatmap(
 
     vmax = max(abs(pivot.values.min()), abs(pivot.values.max()))
     im = ax.imshow(
-        pivot.values, cmap='RdBu_r', aspect='auto',
-        vmin=-vmax, vmax=vmax,
+        pivot.values,
+        cmap="RdBu_r",
+        aspect="auto",
+        vmin=-vmax,
+        vmax=vmax,
     )
 
     ax.set_xticks(range(len(pivot.columns)))
     ax.set_xticklabels(pivot.columns.astype(int), fontsize=8, rotation=45)
     ax.set_yticks(range(len(pivot.index)))
     ax.set_yticklabels(pivot.index.astype(int), fontsize=9)
-    ax.set_xlabel('Time Period', fontsize=11)
-    ax.set_ylabel('Treatment Cohort', fontsize=11)
-    ax.set_title(title or 'Group-Time ATT Heatmap', fontsize=13)
+    ax.set_xlabel("Time Period", fontsize=11)
+    ax.set_ylabel("Treatment Cohort", fontsize=11)
+    ax.set_title(title or "Group-Time ATT Heatmap", fontsize=13)
 
     # Annotate cells
     for i in range(len(pivot.index)):
@@ -444,13 +484,17 @@ def _group_time_heatmap(
             val = pivot.values[i, j]
             if np.isfinite(val):
                 ax.text(
-                    j, i, f'{val:.2f}',
-                    ha='center', va='center', fontsize=7,
-                    color='white' if abs(val) > vmax * 0.6 else 'black',
+                    j,
+                    i,
+                    f"{val:.2f}",
+                    ha="center",
+                    va="center",
+                    fontsize=7,
+                    color="white" if abs(val) > vmax * 0.6 else "black",
                 )
 
     cbar = fig.colorbar(im, ax=ax, shrink=0.8)
-    cbar.set_label('ATT', fontsize=10)
+    cbar.set_label("ATT", fontsize=10)
     fig.tight_layout()
     return fig, ax
 
@@ -458,6 +502,7 @@ def _group_time_heatmap(
 # ======================================================================
 # 4. Classic DID Diagram with Counterfactual
 # ======================================================================
+
 
 def did_plot(
     data: pd.DataFrame,
@@ -519,21 +564,21 @@ def did_plot(
     'Figure'
     """
     plt, _ = _ensure_mpl()
-    colors = colors or ('#E74C3C', '#2C3E50', '#E74C3C')
+    colors = colors or ("#E74C3C", "#2C3E50", "#E74C3C")
     labels = labels or {}
-    treat_label = labels.get('treat', 'Treatment')
-    ctrl_label = labels.get('control', 'Control')
-    cf_label = labels.get('counterfactual', 'Counterfactual')
+    treat_label = labels.get("treat", "Treatment")
+    ctrl_label = labels.get("control", "Control")
+    cf_label = labels.get("counterfactual", "Counterfactual")
 
     df = data.copy()
 
     # Binarize
     if set(df[treat].dropna().unique()) - {0, 1, True, False}:
-        df['_tg'] = (df[treat] > 0).astype(int)
+        df["_tg"] = (df[treat] > 0).astype(int)
     else:
-        df['_tg'] = df[treat].astype(int)
+        df["_tg"] = df[treat].astype(int)
 
-    means = df.groupby([time, '_tg'])[y].mean().reset_index()
+    means = df.groupby([time, "_tg"])[y].mean().reset_index()
 
     # Infer treat_time
     time_vals = sorted(means[time].unique())
@@ -546,14 +591,30 @@ def did_plot(
         fig = ax.get_figure()
 
     # Plot control
-    ctrl = means[means['_tg'] == 0].sort_values(time)
-    ax.plot(ctrl[time], ctrl[y], color=colors[1], linewidth=2,
-            marker='s', markersize=5, label=ctrl_label, zorder=5)
+    ctrl = means[means["_tg"] == 0].sort_values(time)
+    ax.plot(
+        ctrl[time],
+        ctrl[y],
+        color=colors[1],
+        linewidth=2,
+        marker="s",
+        markersize=5,
+        label=ctrl_label,
+        zorder=5,
+    )
 
     # Plot treatment
-    tr = means[means['_tg'] == 1].sort_values(time)
-    ax.plot(tr[time], tr[y], color=colors[0], linewidth=2,
-            marker='o', markersize=5, label=treat_label, zorder=5)
+    tr = means[means["_tg"] == 1].sort_values(time)
+    ax.plot(
+        tr[time],
+        tr[y],
+        color=colors[0],
+        linewidth=2,
+        marker="o",
+        markersize=5,
+        label=treat_label,
+        zorder=5,
+    )
 
     # Counterfactual
     if show_counterfactual:
@@ -581,9 +642,15 @@ def did_plot(
                 cf_vals_full = np.concatenate([[last_pre_y], cf_vals])
 
                 ax.plot(
-                    cf_times_full, cf_vals_full,
-                    color=colors[2], linewidth=1.5, linestyle='--',
-                    marker='', alpha=0.7, label=cf_label, zorder=4,
+                    cf_times_full,
+                    cf_vals_full,
+                    color=colors[2],
+                    linewidth=1.5,
+                    linestyle="--",
+                    marker="",
+                    alpha=0.7,
+                    label=cf_label,
+                    zorder=4,
                 )
 
                 # Annotate treatment effect
@@ -598,34 +665,46 @@ def did_plot(
                         effect = last_post_y - cf_y
                         mid_y = (last_post_y + cf_y) / 2
                         ax.annotate(
-                            '', xy=(last_post_t, last_post_y),
+                            "",
+                            xy=(last_post_t, last_post_y),
                             xytext=(last_post_t, cf_y),
                             arrowprops=dict(
-                                arrowstyle='<->',
-                                color='#8E44AD', lw=1.5,
+                                arrowstyle="<->",
+                                color="#8E44AD",
+                                lw=1.5,
                             ),
                         )
                         ax.text(
                             last_post_t + 0.1 * (time_vals[-1] - time_vals[0]),
-                            mid_y, f'ATT ≈ {effect:.2f}',
-                            fontsize=10, color='#8E44AD',
-                            ha='left', va='center',
+                            mid_y,
+                            f"ATT ≈ {effect:.2f}",
+                            fontsize=10,
+                            color="#8E44AD",
+                            ha="left",
+                            va="center",
                         )
 
     # Treatment onset
     ax.axvline(
-        x=treat_time, color='gray', linestyle=':',
-        linewidth=1, alpha=0.5,
+        x=treat_time,
+        color="gray",
+        linestyle=":",
+        linewidth=1,
+        alpha=0.5,
     )
     ax.text(
-        treat_time, ax.get_ylim()[1],
-        ' Treatment', fontsize=8, color='gray',
-        ha='left', va='top',
+        treat_time,
+        ax.get_ylim()[1],
+        " Treatment",
+        fontsize=8,
+        color="gray",
+        ha="left",
+        va="top",
     )
 
-    ax.set_xlabel(time.replace('_', ' ').title(), fontsize=11)
-    ax.set_ylabel(y.replace('_', ' ').title(), fontsize=11)
-    ax.set_title(title or 'Difference-in-Differences', fontsize=13)
+    ax.set_xlabel(time.replace("_", " ").title(), fontsize=11)
+    ax.set_ylabel(y.replace("_", " ").title(), fontsize=11)
+    ax.set_title(title or "Difference-in-Differences", fontsize=13)
     _style_ax(ax)
     ax.legend(fontsize=10, frameon=False)
     fig.tight_layout()
@@ -636,20 +715,21 @@ def did_plot(
 # 5. Enhanced Event Study Plot
 # ======================================================================
 
+
 def event_study_plot(
     result: Any,
     ax: Any = None,
     figsize: Tuple[float, float] = (10, 6),
     title: Optional[str] = None,
-    color: str = '#2C3E50',
-    sig_color: Optional[str] = '#E74C3C',
+    color: str = "#2C3E50",
+    sig_color: Optional[str] = "#E74C3C",
     ci_alpha: float = 0.15,
     shade_pre: bool = True,
     shade_post: bool = True,
-    pre_color: str = '#EBF5FB',
-    post_color: str = '#FDEDEC',
+    pre_color: str = "#EBF5FB",
+    post_color: str = "#FDEDEC",
     show_zero: bool = True,
-    marker: str = 'o',
+    marker: str = "o",
     markersize: int = 6,
     alpha_level: float = 0.05,
     **kwargs: Any,
@@ -705,34 +785,40 @@ def event_study_plot(
     plt, _ = _ensure_mpl()
 
     mi = result.model_info or {}
-    if 'event_study' not in mi:
+    if "event_study" not in mi:
         raise ValueError(
             "Result has no event study estimates. "
             "Use a staggered DID estimator or event_study()."
         )
 
-    es = mi['event_study'].copy()
+    es = mi["event_study"].copy()
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
     else:
         fig = ax.get_figure()
 
-    e = es['relative_time'].values
-    att = es['att'].values
-    lo = es['ci_lower'].values
-    hi = es['ci_upper'].values
+    e = es["relative_time"].values
+    att = es["att"].values
+    lo = es["ci_lower"].values
+    hi = es["ci_upper"].values
 
     # Background shading
     if shade_pre and (e < 0).any():
         ax.axvspan(
-            e.min() - 0.5, -0.5,
-            color=pre_color, alpha=0.5, zorder=0,
+            e.min() - 0.5,
+            -0.5,
+            color=pre_color,
+            alpha=0.5,
+            zorder=0,
         )
     if shade_post and (e >= 0).any():
         ax.axvspan(
-            -0.5, e.max() + 0.5,
-            color=post_color, alpha=0.5, zorder=0,
+            -0.5,
+            e.max() + 0.5,
+            color=post_color,
+            alpha=0.5,
+            zorder=0,
         )
 
     # CI band
@@ -742,48 +828,72 @@ def event_study_plot(
     ax.plot(e, att, color=color, linewidth=1, alpha=0.6, zorder=3)
 
     # Points — color by significance
-    if sig_color and 'pvalue' in es.columns:
-        sig_mask = es['pvalue'].values < alpha_level
+    if sig_color and "pvalue" in es.columns:
+        sig_mask = es["pvalue"].values < alpha_level
         if sig_mask.any():
             ax.scatter(
-                e[sig_mask], att[sig_mask],
-                color=sig_color, s=markersize ** 2, marker=marker,
-                zorder=6, edgecolors='white', linewidth=0.5,
-                label=f'Significant (p < {alpha_level})',
+                e[sig_mask],
+                att[sig_mask],
+                color=sig_color,
+                s=markersize**2,
+                marker=marker,
+                zorder=6,
+                edgecolors="white",
+                linewidth=0.5,
+                label=f"Significant (p < {alpha_level})",
             )
         if (~sig_mask).any():
             ax.scatter(
-                e[~sig_mask], att[~sig_mask],
-                color=color, s=markersize ** 2, marker=marker,
-                zorder=6, edgecolors='white', linewidth=0.5,
-                label='Not significant',
+                e[~sig_mask],
+                att[~sig_mask],
+                color=color,
+                s=markersize**2,
+                marker=marker,
+                zorder=6,
+                edgecolors="white",
+                linewidth=0.5,
+                label="Not significant",
             )
     else:
         ax.scatter(
-            e, att, color=color, s=markersize ** 2,
-            marker=marker, zorder=6, edgecolors='white', linewidth=0.5,
+            e,
+            att,
+            color=color,
+            s=markersize**2,
+            marker=marker,
+            zorder=6,
+            edgecolors="white",
+            linewidth=0.5,
         )
 
     # Error bars
     ax.errorbar(
-        e, att,
+        e,
+        att,
         yerr=[att - lo, hi - att],
-        fmt='none', color=color, capsize=3,
-        linewidth=0.8, zorder=4,
+        fmt="none",
+        color=color,
+        capsize=3,
+        linewidth=0.8,
+        zorder=4,
     )
 
     # Reference lines
     if show_zero:
-        ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, zorder=1)
+        ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
     ax.axvline(
-        x=-0.5, color='#7F8C8D', linestyle=':',
-        linewidth=1, alpha=0.7, zorder=1,
+        x=-0.5,
+        color="#7F8C8D",
+        linestyle=":",
+        linewidth=1,
+        alpha=0.7,
+        zorder=1,
     )
 
     # Pre-trend test annotation
-    pretrend = mi.get('pretrend_test') or mi.get('pretrend_pvalue')
+    pretrend = mi.get("pretrend_test") or mi.get("pretrend_pvalue")
     if isinstance(pretrend, dict):
-        p = pretrend.get('pvalue')
+        p = pretrend.get("pvalue")
     elif isinstance(pretrend, (int, float)):
         p = pretrend
     else:
@@ -791,18 +901,25 @@ def event_study_plot(
 
     if p is not None:
         ax.text(
-            0.02, 0.98,
-            f'Pre-trend p = {p:.3f}',
+            0.02,
+            0.98,
+            f"Pre-trend p = {p:.3f}",
             transform=ax.transAxes,
-            fontsize=9, va='top', ha='left',
-            color='#27AE60' if p >= 0.05 else '#E74C3C',
-            bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
-                      edgecolor='lightgray', alpha=0.8),
+            fontsize=9,
+            va="top",
+            ha="left",
+            color="#27AE60" if p >= 0.05 else "#E74C3C",
+            bbox=dict(
+                boxstyle="round,pad=0.3",
+                facecolor="white",
+                edgecolor="lightgray",
+                alpha=0.8,
+            ),
         )
 
-    ax.set_xlabel('Periods Relative to Treatment', fontsize=11)
-    ax.set_ylabel('Estimated Effect', fontsize=11)
-    ax.set_title(title or f'Event Study: {result.method}', fontsize=13)
+    ax.set_xlabel("Periods Relative to Treatment", fontsize=11)
+    ax.set_ylabel("Estimated Effect", fontsize=11)
+    ax.set_title(title or f"Event Study: {result.method}", fontsize=13)
     _style_ax(ax)
     if ax.get_legend_handles_labels()[1]:
         ax.legend(fontsize=9, frameon=False)
@@ -814,6 +931,7 @@ def event_study_plot(
 # 6. Treatment Rollout / Timing Plot
 # ======================================================================
 
+
 def treatment_rollout_plot(
     data: pd.DataFrame,
     time: str,
@@ -822,10 +940,10 @@ def treatment_rollout_plot(
     ax: Any = None,
     figsize: Tuple[float, float] = (12, 7),
     title: Optional[str] = None,
-    treated_color: str = '#E74C3C',
-    untreated_color: str = '#ECF0F1',
-    never_color: str = '#BDC3C7',
-    sort_by: str = 'treat_time',
+    treated_color: str = "#E74C3C",
+    untreated_color: str = "#ECF0F1",
+    never_color: str = "#BDC3C7",
+    sort_by: str = "treat_time",
     show_cohort_labels: bool = True,
     **kwargs: Any,
 ) -> Tuple[Any, Any]:
@@ -890,26 +1008,27 @@ def treatment_rollout_plot(
         # Binary: infer first treatment period from data
         unit_treat_time = (
             df[df[treat].astype(bool)]
-            .groupby(id)[time].min()
+            .groupby(id)[time]
+            .min()
             .reset_index()
-            .rename(columns={time: '_first_treat'})
+            .rename(columns={time: "_first_treat"})
         )
-        unit_info = unit_info.merge(unit_treat_time, on=id, how='left')
-        unit_info['_first_treat'] = unit_info['_first_treat'].fillna(0)
+        unit_info = unit_info.merge(unit_treat_time, on=id, how="left")
+        unit_info["_first_treat"] = unit_info["_first_treat"].fillna(0)
     else:
-        unit_info['_first_treat'] = unit_info[treat]
+        unit_info["_first_treat"] = unit_info[treat]
 
     # Sort
-    if sort_by == 'treat_time':
+    if sort_by == "treat_time":
         # Never-treated last, then by treatment time
-        unit_info['_sort'] = unit_info['_first_treat'].replace(0, 9999)
-        unit_info = unit_info.sort_values('_sort').reset_index(drop=True)
-    elif sort_by == 'id':
+        unit_info["_sort"] = unit_info["_first_treat"].replace(0, 9999)
+        unit_info = unit_info.sort_values("_sort").reset_index(drop=True)
+    elif sort_by == "id":
         unit_info = unit_info.sort_values(id).reset_index(drop=True)
 
     n_units = len(unit_info)
     unit_ids = unit_info[id].values
-    first_treats = unit_info['_first_treat'].values
+    first_treats = unit_info["_first_treat"].values
 
     # Build tile matrix: 0 = untreated, 1 = treated, -1 = never-treated
     tiles = np.zeros((n_units, T))
@@ -930,8 +1049,12 @@ def treatment_rollout_plot(
     cmap = ListedColormap([never_color, untreated_color, treated_color])
 
     ax.imshow(
-        tiles, cmap=cmap, aspect='auto',
-        vmin=-1, vmax=1, interpolation='nearest',
+        tiles,
+        cmap=cmap,
+        aspect="auto",
+        vmin=-1,
+        vmax=1,
+        interpolation="nearest",
     )
 
     # X-axis: time periods
@@ -942,7 +1065,9 @@ def treatment_rollout_plot(
         step = max(1, T // 10)
         ticks = list(range(0, T, step))
         ax.set_xticks(ticks)
-        ax.set_xticklabels([str(time_periods[t]) for t in ticks], fontsize=8, rotation=45)
+        ax.set_xticklabels(
+            [str(time_periods[t]) for t in ticks], fontsize=8, rotation=45
+        )
 
     # Y-axis: cohort labels
     if show_cohort_labels and n_units <= 60:
@@ -951,7 +1076,7 @@ def treatment_rollout_plot(
         prev_ft = None
         for i, ft in enumerate(first_treats):
             if ft != prev_ft:
-                label = f'g={int(ft)}' if ft > 0 else 'Never'
+                label = f"g={int(ft)}" if ft > 0 else "Never"
                 cohorts.append((i, label))
                 prev_ft = ft
 
@@ -964,28 +1089,33 @@ def treatment_rollout_plot(
         for i in range(1, len(cohort_ticks)):
             ax.axhline(
                 y=cohort_ticks[i] - 0.5,
-                color='white', linewidth=1.5,
+                color="white",
+                linewidth=1.5,
             )
     elif n_units <= 30:
         ax.set_yticks(range(n_units))
         ax.set_yticklabels(unit_ids, fontsize=7)
     else:
         ax.set_yticks([])
-        ax.set_ylabel(f'Units (n={n_units})', fontsize=11)
+        ax.set_ylabel(f"Units (n={n_units})", fontsize=11)
 
-    ax.set_xlabel(time.replace('_', ' ').title(), fontsize=11)
-    ax.set_title(title or 'Treatment Rollout', fontsize=13)
+    ax.set_xlabel(time.replace("_", " ").title(), fontsize=11)
+    ax.set_title(title or "Treatment Rollout", fontsize=13)
 
     # Legend
     from matplotlib.patches import Patch
+
     legend_elements = [
-        Patch(facecolor=treated_color, label='Treated'),
-        Patch(facecolor=untreated_color, label='Not yet treated'),
-        Patch(facecolor=never_color, label='Never treated'),
+        Patch(facecolor=treated_color, label="Treated"),
+        Patch(facecolor=untreated_color, label="Not yet treated"),
+        Patch(facecolor=never_color, label="Never treated"),
     ]
     ax.legend(
-        handles=legend_elements, fontsize=9, frameon=False,
-        loc='upper right', bbox_to_anchor=(1.15, 1),
+        handles=legend_elements,
+        fontsize=9,
+        frameon=False,
+        loc="upper right",
+        bbox_to_anchor=(1.15, 1),
     )
 
     fig.tight_layout()
@@ -996,6 +1126,7 @@ def treatment_rollout_plot(
 # 7. Honest DID Sensitivity Plot
 # ======================================================================
 
+
 def sensitivity_plot(
     sensitivity: pd.DataFrame,
     original_ci: Optional[Tuple[float, float]] = None,
@@ -1003,9 +1134,9 @@ def sensitivity_plot(
     ax: Any = None,
     figsize: Tuple[float, float] = (10, 6),
     title: Optional[str] = None,
-    color: str = '#2C3E50',
-    breakdown_color: str = '#E74C3C',
-    original_color: str = '#27AE60',
+    color: str = "#2C3E50",
+    breakdown_color: str = "#E74C3C",
+    original_color: str = "#27AE60",
     **kwargs: Any,
 ) -> Tuple[Any, Any]:
     """
@@ -1063,15 +1194,19 @@ def sensitivity_plot(
     else:
         fig = ax.get_figure()
 
-    m_vals = sensitivity['M'].values
-    ci_lo = sensitivity['ci_lower'].values
-    ci_hi = sensitivity['ci_upper'].values
-    rejects = sensitivity['rejects_zero'].values
+    m_vals = sensitivity["M"].values
+    ci_lo = sensitivity["ci_lower"].values
+    ci_hi = sensitivity["ci_upper"].values
+    rejects = sensitivity["rejects_zero"].values
 
     # CI band
     ax.fill_between(
-        m_vals, ci_lo, ci_hi,
-        alpha=0.15, color=color, zorder=2,
+        m_vals,
+        ci_lo,
+        ci_hi,
+        alpha=0.15,
+        color=color,
+        zorder=2,
     )
 
     # CI boundaries
@@ -1079,7 +1214,7 @@ def sensitivity_plot(
     ax.plot(m_vals, ci_hi, color=color, linewidth=1.5, zorder=3)
 
     # Zero line
-    ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, zorder=1)
+    ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
 
     # Breakdown point: where rejects_zero switches from True to False
     breakdown_idx = None
@@ -1091,34 +1226,49 @@ def sensitivity_plot(
     if breakdown_idx is not None:
         m_star = m_vals[breakdown_idx]
         ax.axvline(
-            x=m_star, color=breakdown_color, linestyle=':',
-            linewidth=1.5, alpha=0.7, zorder=4,
+            x=m_star,
+            color=breakdown_color,
+            linestyle=":",
+            linewidth=1.5,
+            alpha=0.7,
+            zorder=4,
         )
         ax.scatter(
-            [m_star], [(ci_lo[breakdown_idx] + ci_hi[breakdown_idx]) / 2],
-            color=breakdown_color, s=80, marker='D', zorder=6,
-            label=f'Breakdown M* = {m_star:.3f}',
+            [m_star],
+            [(ci_lo[breakdown_idx] + ci_hi[breakdown_idx]) / 2],
+            color=breakdown_color,
+            s=80,
+            marker="D",
+            zorder=6,
+            label=f"Breakdown M* = {m_star:.3f}",
         )
 
     # Original estimate
     if original_estimate is not None:
         ax.axhline(
-            y=original_estimate, color=original_color,
-            linestyle='-.', linewidth=1, alpha=0.6,
-            label=f'Point estimate = {original_estimate:.3f}',
+            y=original_estimate,
+            color=original_color,
+            linestyle="-.",
+            linewidth=1,
+            alpha=0.6,
+            label=f"Point estimate = {original_estimate:.3f}",
         )
 
     # Original CI at M=0
     if original_ci is not None:
         ax.plot(
-            [0, 0], [original_ci[0], original_ci[1]],
-            color=original_color, linewidth=3, alpha=0.5, zorder=5,
+            [0, 0],
+            [original_ci[0], original_ci[1]],
+            color=original_color,
+            linewidth=3,
+            alpha=0.5,
+            zorder=5,
         )
 
-    ax.set_xlabel('M (Maximum Violation Magnitude)', fontsize=11)
-    ax.set_ylabel('Robust Confidence Interval', fontsize=11)
+    ax.set_xlabel("M (Maximum Violation Magnitude)", fontsize=11)
+    ax.set_ylabel("Robust Confidence Interval", fontsize=11)
     ax.set_title(
-        title or 'Sensitivity to Parallel Trends Violations\n(Rambachan & Roth, 2023)',
+        title or "Sensitivity to Parallel Trends Violations\n(Rambachan & Roth, 2023)",
         fontsize=13,
     )
     _style_ax(ax)
@@ -1131,6 +1281,7 @@ def sensitivity_plot(
 # 8. Cohort-Specific Event Study Plot
 # ======================================================================
 
+
 def cohort_event_study_plot(
     result: Any,
     ax: Any = None,
@@ -1138,7 +1289,7 @@ def cohort_event_study_plot(
     title: Optional[str] = None,
     palette: Optional[List[str]] = None,
     show_aggregate: bool = True,
-    aggregate_color: str = '#2C3E50',
+    aggregate_color: str = "#2C3E50",
     ci: bool = True,
     ci_alpha: float = 0.08,
     **kwargs: Any,
@@ -1191,16 +1342,14 @@ def cohort_event_study_plot(
     plt, _ = _ensure_mpl()
 
     detail = result.detail
-    if detail is None or 'group' not in detail.columns:
-        raise ValueError(
-            "Result must have group-time detail. Use did(method='cs')."
-        )
+    if detail is None or "group" not in detail.columns:
+        raise ValueError("Result must have group-time detail. Use did(method='cs').")
 
     gt = detail.copy()
-    if 'relative_time' not in gt.columns:
+    if "relative_time" not in gt.columns:
         raise ValueError("Detail must have 'relative_time' column.")
 
-    cohorts = sorted(gt['group'].unique())
+    cohorts = sorted(gt["group"].unique())
     cohorts = [c for c in cohorts if c > 0]  # exclude never-treated
 
     if not cohorts:
@@ -1209,13 +1358,20 @@ def cohort_event_study_plot(
     # Default palette
     if palette is None:
         default_colors = [
-            '#E74C3C', '#3498DB', '#27AE60', '#F39C12',
-            '#9B59B6', '#1ABC9C', '#E67E22', '#2980B9',
-            '#C0392B', '#16A085',
+            "#E74C3C",
+            "#3498DB",
+            "#27AE60",
+            "#F39C12",
+            "#9B59B6",
+            "#1ABC9C",
+            "#E67E22",
+            "#2980B9",
+            "#C0392B",
+            "#16A085",
         ]
-        palette = default_colors[:len(cohorts)]
+        palette = default_colors[: len(cohorts)]
         while len(palette) < len(cohorts):
-            palette.append(f'#{np.random.randint(0, 0xFFFFFF):06X}')
+            palette.append(f"#{np.random.randint(0, 0xFFFFFF):06X}")
 
     if ax is None:
         fig, ax = plt.subplots(figsize=figsize)
@@ -1224,47 +1380,65 @@ def cohort_event_study_plot(
 
     # Plot each cohort
     for i, cohort in enumerate(cohorts):
-        coh = gt[gt['group'] == cohort].sort_values('relative_time')
+        coh = gt[gt["group"] == cohort].sort_values("relative_time")
         color = palette[i % len(palette)]
-        e = coh['relative_time'].values
-        att = coh['att'].values
+        e = coh["relative_time"].values
+        att = coh["att"].values
 
         ax.plot(
-            e, att, color=color, linewidth=1.2, alpha=0.7,
-            marker='o', markersize=4,
-            label=f'Cohort {int(cohort)}', zorder=4,
+            e,
+            att,
+            color=color,
+            linewidth=1.2,
+            alpha=0.7,
+            marker="o",
+            markersize=4,
+            label=f"Cohort {int(cohort)}",
+            zorder=4,
         )
 
-        if ci and 'ci_lower' in coh.columns:
+        if ci and "ci_lower" in coh.columns:
             ax.fill_between(
-                e, coh['ci_lower'].values, coh['ci_upper'].values,
-                alpha=ci_alpha, color=color, zorder=2,
+                e,
+                coh["ci_lower"].values,
+                coh["ci_upper"].values,
+                alpha=ci_alpha,
+                color=color,
+                zorder=2,
             )
 
     # Aggregate event study
     mi = result.model_info or {}
-    if show_aggregate and 'event_study' in mi:
-        agg = mi['event_study'].copy()
+    if show_aggregate and "event_study" in mi:
+        agg = mi["event_study"].copy()
         ax.plot(
-            agg['relative_time'], agg['att'],
-            color=aggregate_color, linewidth=2.5, alpha=0.9,
-            marker='s', markersize=6,
-            label='Aggregate', zorder=6,
+            agg["relative_time"],
+            agg["att"],
+            color=aggregate_color,
+            linewidth=2.5,
+            alpha=0.9,
+            marker="s",
+            markersize=6,
+            label="Aggregate",
+            zorder=6,
         )
-        if ci and 'ci_lower' in agg.columns:
+        if ci and "ci_lower" in agg.columns:
             ax.fill_between(
-                agg['relative_time'],
-                agg['ci_lower'], agg['ci_upper'],
-                alpha=0.12, color=aggregate_color, zorder=3,
+                agg["relative_time"],
+                agg["ci_lower"],
+                agg["ci_upper"],
+                alpha=0.12,
+                color=aggregate_color,
+                zorder=3,
             )
 
     # Reference lines
-    ax.axhline(y=0, color='gray', linestyle='--', linewidth=0.8, zorder=1)
-    ax.axvline(x=-0.5, color='#7F8C8D', linestyle=':', linewidth=1, alpha=0.5)
+    ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8, zorder=1)
+    ax.axvline(x=-0.5, color="#7F8C8D", linestyle=":", linewidth=1, alpha=0.5)
 
-    ax.set_xlabel('Periods Relative to Treatment', fontsize=11)
-    ax.set_ylabel('Estimated Effect', fontsize=11)
-    ax.set_title(title or 'Event Study by Cohort', fontsize=13)
+    ax.set_xlabel("Periods Relative to Treatment", fontsize=11)
+    ax.set_ylabel("Estimated Effect", fontsize=11)
+    ax.set_title(title or "Event Study by Cohort", fontsize=13)
     _style_ax(ax)
     ax.legend(fontsize=9, frameon=False, ncol=min(3, len(cohorts) + 1))
     fig.tight_layout()
@@ -1275,13 +1449,14 @@ def cohort_event_study_plot(
 # 9. ggdid — aggte() result visualiser with uniform bands
 # ======================================================================
 
+
 def ggdid(
     result: Any,
     ax: Any = None,
     figsize: Tuple[float, float] = (10, 6),
     title: Optional[str] = None,
-    point_color: str = '#2E86AB',
-    band_color: str = '#F18F01',
+    point_color: str = "#2E86AB",
+    band_color: str = "#F18F01",
     show_pointwise: bool = True,
     show_uniform: bool = True,
 ) -> Tuple[Any, Any]:
@@ -1330,7 +1505,7 @@ def ggdid(
     plt, _ = _ensure_mpl()
 
     info = result.model_info or {}
-    agg = info.get('aggregation', 'dynamic')
+    agg = info.get("aggregation", "dynamic")
     df = result.detail
     if df is None or len(df) == 0:
         raise ValueError("result has empty detail table.")
@@ -1340,102 +1515,140 @@ def ggdid(
     else:
         fig = ax.figure
 
-    has_cband = 'cband_lower' in df.columns and 'cband_upper' in df.columns
+    has_cband = "cband_lower" in df.columns and "cband_upper" in df.columns
 
-    if agg == 'simple':
-        est = df['att'].iloc[0]
-        lo, hi = df['ci_lower'].iloc[0], df['ci_upper'].iloc[0]
+    if agg == "simple":
+        est = df["att"].iloc[0]
+        lo, hi = df["ci_lower"].iloc[0], df["ci_upper"].iloc[0]
         ax.errorbar(
-            [0], [est], yerr=[[est - lo], [hi - est]],
-            fmt='o', color=point_color, capsize=6, markersize=8,
-            linewidth=2, label=f'Overall ATT = {est:.3f}',
+            [0],
+            [est],
+            yerr=[[est - lo], [hi - est]],
+            fmt="o",
+            color=point_color,
+            capsize=6,
+            markersize=8,
+            linewidth=2,
+            label=f"Overall ATT = {est:.3f}",
         )
-        ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)
         ax.set_xticks([])
-        ax.set_ylabel('ATT')
+        ax.set_ylabel("ATT")
         ax.set_title(title or "Callaway-Sant'Anna — simple aggregation")
         ax.legend(frameon=False)
 
-    elif agg == 'dynamic':
-        x = df['relative_time'].values
-        est = df['att'].values
+    elif agg == "dynamic":
+        x = df["relative_time"].values
+        est = df["att"].values
         # Uniform band first (behind lines).
         if show_uniform and has_cband:
             ax.fill_between(
-                x, df['cband_lower'], df['cband_upper'],
-                color=band_color, alpha=0.25,
+                x,
+                df["cband_lower"],
+                df["cband_upper"],
+                color=band_color,
+                alpha=0.25,
                 label=f"Uniform {int(100*(1-result.alpha))}% band",
             )
         if show_pointwise:
             ax.fill_between(
-                x, df['ci_lower'], df['ci_upper'],
-                color=point_color, alpha=0.18,
+                x,
+                df["ci_lower"],
+                df["ci_upper"],
+                color=point_color,
+                alpha=0.18,
                 label=f"Pointwise {int(100*(1-result.alpha))}% CI",
             )
         post = x >= 0
         pre = x < 0
-        ax.plot(x[pre], est[pre], 'o-', color='#7F8C8D',
-                markersize=6, linewidth=1.5, label='Pre-treatment')
-        ax.plot(x[post], est[post], 'o-', color=point_color,
-                markersize=7, linewidth=2, label='Post-treatment')
-        ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
-        ax.axvline(-0.5, color='#7F8C8D', linestyle=':', linewidth=1, alpha=0.5)
-        ax.set_xlabel('Event time e = t - g')
-        ax.set_ylabel('ATT(e)')
+        ax.plot(
+            x[pre],
+            est[pre],
+            "o-",
+            color="#7F8C8D",
+            markersize=6,
+            linewidth=1.5,
+            label="Pre-treatment",
+        )
+        ax.plot(
+            x[post],
+            est[post],
+            "o-",
+            color=point_color,
+            markersize=7,
+            linewidth=2,
+            label="Post-treatment",
+        )
+        ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)
+        ax.axvline(-0.5, color="#7F8C8D", linestyle=":", linewidth=1, alpha=0.5)
+        ax.set_xlabel("Event time e = t - g")
+        ax.set_ylabel("ATT(e)")
         ax.set_title(title or "Callaway-Sant'Anna — dynamic (event study)")
         ax.legend(frameon=False, fontsize=9)
 
-    elif agg == 'group':
-        groups = df['group'].values
-        est = df['att'].values
+    elif agg == "group":
+        groups = df["group"].values
+        est = df["att"].values
         yvals = np.arange(len(groups))
         ax.errorbar(
-            est, yvals,
-            xerr=[est - df['ci_lower'], df['ci_upper'] - est],
-            fmt='o', color=point_color, capsize=5, markersize=7,
+            est,
+            yvals,
+            xerr=[est - df["ci_lower"], df["ci_upper"] - est],
+            fmt="o",
+            color=point_color,
+            capsize=5,
+            markersize=7,
             label=f"Pointwise {int(100*(1-result.alpha))}% CI",
         )
         if show_uniform and has_cband:
             ax.errorbar(
-                est, yvals,
-                xerr=[est - df['cband_lower'], df['cband_upper'] - est],
-                fmt='none', color=band_color, capsize=10, linewidth=2,
+                est,
+                yvals,
+                xerr=[est - df["cband_lower"], df["cband_upper"] - est],
+                fmt="none",
+                color=band_color,
+                capsize=10,
+                linewidth=2,
                 alpha=0.6,
                 label=f"Uniform {int(100*(1-result.alpha))}% band",
             )
-        ax.axvline(0, color='gray', linestyle='--', linewidth=0.8)
+        ax.axvline(0, color="gray", linestyle="--", linewidth=0.8)
         ax.set_yticks(yvals)
-        ax.set_yticklabels([f'g = {g}' for g in groups])
-        ax.set_xlabel('ATT(g)')
+        ax.set_yticklabels([f"g = {g}" for g in groups])
+        ax.set_xlabel("ATT(g)")
         ax.set_title(title or "Callaway-Sant'Anna — group aggregation")
         ax.legend(frameon=False, fontsize=9)
 
-    elif agg == 'calendar':
-        x = df['time'].values
-        est = df['att'].values
+    elif agg == "calendar":
+        x = df["time"].values
+        est = df["att"].values
         if show_uniform and has_cband:
             ax.fill_between(
-                x, df['cband_lower'], df['cband_upper'],
-                color=band_color, alpha=0.25,
+                x,
+                df["cband_lower"],
+                df["cband_upper"],
+                color=band_color,
+                alpha=0.25,
                 label=f"Uniform {int(100*(1-result.alpha))}% band",
             )
         if show_pointwise:
             ax.fill_between(
-                x, df['ci_lower'], df['ci_upper'],
-                color=point_color, alpha=0.18,
+                x,
+                df["ci_lower"],
+                df["ci_upper"],
+                color=point_color,
+                alpha=0.18,
                 label=f"Pointwise {int(100*(1-result.alpha))}% CI",
             )
-        ax.plot(x, est, 'o-', color=point_color, linewidth=2, markersize=7)
-        ax.axhline(0, color='gray', linestyle='--', linewidth=0.8)
-        ax.set_xlabel('Calendar time t')
-        ax.set_ylabel('ATT(t)')
+        ax.plot(x, est, "o-", color=point_color, linewidth=2, markersize=7)
+        ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)
+        ax.set_xlabel("Calendar time t")
+        ax.set_ylabel("ATT(t)")
         ax.set_title(title or "Callaway-Sant'Anna — calendar aggregation")
         ax.legend(frameon=False, fontsize=9)
 
     else:
-        raise ValueError(
-            f"Unsupported aggregation type in result.model_info: {agg!r}"
-        )
+        raise ValueError(f"Unsupported aggregation type in result.model_info: {agg!r}")
 
     _style_ax(ax)
     fig.tight_layout()
@@ -1445,6 +1658,7 @@ def ggdid(
 # ======================================================================
 # N. Forest Plot for did_summary()
 # ======================================================================
+
 
 def did_summary_plot(
     result: Any,
@@ -1512,8 +1726,7 @@ def did_summary_plot(
     detail = getattr(result, "detail", None)
     if not isinstance(detail, pd.DataFrame) or "estimate" not in detail.columns:
         raise ValueError(
-            "did_summary result has malformed detail; expected an "
-            "'estimate' column."
+            "did_summary result has malformed detail; expected an " "'estimate' column."
         )
 
     df = detail.copy()
@@ -1539,10 +1752,17 @@ def did_summary_plot(
     lo_err = ests - lo
     hi_err = hi - ests
     ax.errorbar(
-        ests, y_pos,
+        ests,
+        y_pos,
         xerr=[lo_err, hi_err],
-        fmt="o", color=color, ecolor=color, markersize=7,
-        capsize=4, linewidth=1.8, elinewidth=1.2, zorder=3,
+        fmt="o",
+        color=color,
+        ecolor=color,
+        markersize=7,
+        capsize=4,
+        linewidth=1.8,
+        elinewidth=1.2,
+        zorder=3,
     )
 
     # Reference line (usually at 0)
@@ -1554,8 +1774,11 @@ def did_summary_plot(
         try:
             mean_est = float(result.estimate)
             ax.axvline(
-                mean_est, color=highlight_color, linestyle="--",
-                linewidth=1.2, zorder=2,
+                mean_est,
+                color=highlight_color,
+                linestyle="--",
+                linewidth=1.2,
+                zorder=2,
                 label=f"Mean across methods = {mean_est:.3f}",
             )
             ax.legend(loc="best", frameon=False, fontsize=9)

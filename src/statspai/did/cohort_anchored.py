@@ -78,8 +78,11 @@ def cohort_anchored_event_study(
     >>> list(res.model_info['event_study'].columns)
     ['rel_time', 'att', 'se', 'ci_low', 'ci_high']
     """
-    df = data[[y, treat, time, id] + ([cluster] if cluster else [])] \
-        .dropna().reset_index(drop=True)
+    df = (
+        data[[y, treat, time, id] + ([cluster] if cluster else [])]
+        .dropna()
+        .reset_index(drop=True)
+    )
     cluster_col = cluster or id
 
     treat_arr = df[treat].to_numpy()
@@ -105,25 +108,29 @@ def cohort_anchored_event_study(
             if len(sub) < 4:
                 continue
             sub = sub.copy()
-            sub['_treated'] = sub[id].isin(cohort_units).astype(int)
+            sub["_treated"] = sub[id].isin(cohort_units).astype(int)
             # Reference period: t = c - 1
             ref = cohort_df[cohort_df[time] == c - 1]
             if len(ref) < 4:
                 continue
             ref = ref.copy()
-            ref['_treated'] = ref[id].isin(cohort_units).astype(int)
+            ref["_treated"] = ref[id].isin(cohort_units).astype(int)
             # ATT(c, k) = (Y_c,k - Y_0,k) - (Y_c,c-1 - Y_0,c-1)
             try:
-                m = sub.groupby('_treated')[y].mean()
-                m_ref = ref.groupby('_treated')[y].mean()
+                m = sub.groupby("_treated")[y].mean()
+                m_ref = ref.groupby("_treated")[y].mean()
                 att = float(
                     (m.get(1, np.nan) - m.get(0, np.nan))
                     - (m_ref.get(1, np.nan) - m_ref.get(0, np.nan))
                 )
-                rows.append({
-                    'cohort': c, 'rel_time': k, 'att': att,
-                    'n': int(len(sub)),
-                })
+                rows.append(
+                    {
+                        "cohort": c,
+                        "rel_time": k,
+                        "att": att,
+                        "n": int(len(sub)),
+                    }
+                )
             except Exception:
                 continue
         cohort_weights.append((c, int((df[treat] == c).sum())))
@@ -133,15 +140,15 @@ def cohort_anchored_event_study(
     cohort_atts = pd.DataFrame(rows)
 
     # Aggregate per event-time across cohorts (weighted by cohort size)
-    cw = pd.DataFrame(cohort_weights, columns=['cohort', 'cw'])
-    cohort_atts = cohort_atts.merge(cw, on='cohort', how='left')
+    cw = pd.DataFrame(cohort_weights, columns=["cohort", "cw"])
+    cohort_atts = cohort_atts.merge(cw, on="cohort", how="left")
     es_rows = []
     for k in rel_times:
-        sub = cohort_atts[cohort_atts['rel_time'] == k]
-        if sub.empty or not np.isfinite(sub['att']).any():
+        sub = cohort_atts[cohort_atts["rel_time"] == k]
+        if sub.empty or not np.isfinite(sub["att"]).any():
             continue
-        finite = sub['att'].dropna()
-        weights = sub.loc[finite.index, 'cw']
+        finite = sub["att"].dropna()
+        weights = sub.loc[finite.index, "cw"]
         att_k = float(np.average(finite, weights=weights))
         # Cluster-bootstrap SE: resample clusters (user-specified
         # ``cluster`` column, or the unit id by default) and recompute
@@ -166,19 +173,26 @@ def cohort_anchored_event_study(
                     control_units_b = df_b.loc[df_b[treat] == 0, id].unique()
                     if len(cohort_units_b) == 0 or len(control_units_b) == 0:
                         continue
-                    sub_b = df_b[(df_b[time] == c_b + k)
-                                  & df_b[id].isin(np.concatenate([cohort_units_b, control_units_b]))]
-                    ref_b = df_b[(df_b[time] == c_b - 1)
-                                  & df_b[id].isin(np.concatenate([cohort_units_b, control_units_b]))]
+                    sub_b = df_b[
+                        (df_b[time] == c_b + k)
+                        & df_b[id].isin(
+                            np.concatenate([cohort_units_b, control_units_b])
+                        )
+                    ]
+                    ref_b = df_b[
+                        (df_b[time] == c_b - 1)
+                        & df_b[id].isin(
+                            np.concatenate([cohort_units_b, control_units_b])
+                        )
+                    ]
                     if len(sub_b) < 2 or len(ref_b) < 2:
                         continue
                     sub_b = sub_b.assign(_tr=sub_b[id].isin(cohort_units_b).astype(int))
                     ref_b = ref_b.assign(_tr=ref_b[id].isin(cohort_units_b).astype(int))
-                    m_b = sub_b.groupby('_tr')[y].mean()
-                    mr_b = ref_b.groupby('_tr')[y].mean()
-                    att_b = (
-                        (m_b.get(1, np.nan) - m_b.get(0, np.nan))
-                        - (mr_b.get(1, np.nan) - mr_b.get(0, np.nan))
+                    m_b = sub_b.groupby("_tr")[y].mean()
+                    mr_b = ref_b.groupby("_tr")[y].mean()
+                    att_b = (m_b.get(1, np.nan) - m_b.get(0, np.nan)) - (
+                        mr_b.get(1, np.nan) - mr_b.get(0, np.nan)
                     )
                     if np.isfinite(att_b):
                         att_vals_b.append(att_b)
@@ -189,22 +203,26 @@ def cohort_anchored_event_study(
                 pass
         se_k = _bootstrap_se(boot, label="did.cohort_anchored")
         z_crit = float(stats.norm.ppf(1 - alpha / 2))
-        es_rows.append({
-            'rel_time': k, 'att': att_k, 'se': se_k,
-            'ci_low': att_k - z_crit * se_k,
-            'ci_high': att_k + z_crit * se_k,
-        })
+        es_rows.append(
+            {
+                "rel_time": k,
+                "att": att_k,
+                "se": se_k,
+                "ci_low": att_k - z_crit * se_k,
+                "ci_high": att_k + z_crit * se_k,
+            }
+        )
     event_study_df = pd.DataFrame(es_rows)
 
     # Headline: simple average across post periods (rel_time >= 0)
-    post = event_study_df[event_study_df['rel_time'] >= 0]
+    post = event_study_df[event_study_df["rel_time"] >= 0]
     if post.empty:
-        att_avg = float(event_study_df['att'].mean())
-        se_avg = float(event_study_df['se'].mean()) or 1e-6
+        att_avg = float(event_study_df["att"].mean())
+        se_avg = float(event_study_df["se"].mean()) or 1e-6
     else:
-        att_avg = float(post['att'].mean())
+        att_avg = float(post["att"].mean())
         # Conservative SE under independence approximation
-        se_avg = float(np.sqrt((post['se'] ** 2).sum()) / len(post)) or 1e-6
+        se_avg = float(np.sqrt((post["se"] ** 2).sum()) / len(post)) or 1e-6
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     ci = (att_avg - z_crit * se_avg, att_avg + z_crit * se_avg)
@@ -221,22 +239,28 @@ def cohort_anchored_event_study(
         alpha=alpha,
         n_obs=len(df),
         model_info={
-            'estimator': 'cohort_anchored_event_study',
-            'event_study': event_study_df,
-            'n_cohorts': len(cohorts),
-            'reference': 'arXiv 2509.01829 (2025)',
+            "estimator": "cohort_anchored_event_study",
+            "event_study": event_study_df,
+            "n_cohorts": len(cohorts),
+            "reference": "arXiv 2509.01829 (2025)",
         },
-        _citation_key='cohort_anchored',
+        _citation_key="cohort_anchored",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.cohort_anchored_event_study",
             params={
-                "y": y, "treat": treat, "time": time, "id": id,
-                "leads": leads, "lags": lags,
-                "cluster": cluster, "alpha": alpha,
+                "y": y,
+                "treat": treat,
+                "time": time,
+                "id": id,
+                "leads": leads,
+                "lags": lags,
+                "cluster": cluster,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,
@@ -246,7 +270,7 @@ def cohort_anchored_event_study(
     return _result
 
 
-CausalResult._CITATIONS['cohort_anchored'] = (
+CausalResult._CITATIONS["cohort_anchored"] = (
     "@article{cohort_anchored2025,\n"
     "  title={Cohort-Anchored Robust Inference for Event-Study with "
     "Staggered Adoption},\n"

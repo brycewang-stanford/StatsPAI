@@ -65,7 +65,7 @@ def kink_rdd_bridge(
         side: str,
     ) -> tuple[float, float]:
         # Triangular kernel local linear at boundary; returns slope coef.
-        if side == 'left':
+        if side == "left":
             mask = (R < cutoff) & (R >= cutoff - bandwidth)
             r0 = cutoff
         else:
@@ -81,27 +81,25 @@ def kink_rdd_bridge(
         try:
             beta = np.linalg.solve(WX.T @ Xd, WX.T @ Ym)
             resid = Ym - Xd @ beta
-            sigma2 = float(np.sum(w * resid ** 2) / max(w.sum() - 2, 1))
+            sigma2 = float(np.sum(w * resid**2) / max(w.sum() - 2, 1))
             cov = sigma2 * np.linalg.pinv(WX.T @ Xd)
             return float(beta[1]), float(np.sqrt(max(cov[1, 1], 0.0)))
         except np.linalg.LinAlgError:
             return np.nan, np.nan
 
-    slope_left, se_left = _local_slope(R, Y, 'left')
-    slope_right, se_right = _local_slope(R, Y, 'right')
+    slope_left, se_left = _local_slope(R, Y, "left")
+    slope_right, se_right = _local_slope(R, Y, "right")
     if np.isnan(slope_left) or np.isnan(slope_right):
         rkd_est = np.nan
         rkd_se = np.nan
     else:
         rkd_est = float(slope_right - slope_left)
-        rkd_se = float(np.sqrt(se_left ** 2 + se_right ** 2))
+        rkd_se = float(np.sqrt(se_left**2 + se_right**2))
 
     # ---------- Path B: bunching mass ratio ---------- #
     if bin_width is None:
         bin_width = bandwidth / 20.0
-    bins = np.arange(
-        cutoff - bandwidth, cutoff + bandwidth + bin_width, bin_width
-    )
+    bins = np.arange(cutoff - bandwidth, cutoff + bandwidth + bin_width, bin_width)
     counts, edges = np.histogram(R, bins=bins)
     centers = 0.5 * (edges[:-1] + edges[1:])
     excluded = (centers > cutoff - bin_width) & (centers < cutoff + bin_width)
@@ -115,17 +113,18 @@ def kink_rdd_bridge(
     # excess mass ≈ τ × bandwidth × density(cutoff). Solve for τ.
     f_at_cutoff = float(np.mean(counts[fit_mask]) / (n * bin_width))
     if f_at_cutoff > 0 and bandwidth > 0:
-        bunch_est = float(excess_mass / (n * f_at_cutoff * bandwidth ** 2))
+        bunch_est = float(excess_mass / (n * f_at_cutoff * bandwidth**2))
     else:
         bunch_est = np.nan
 
     # SE for bunching via Poisson approximation on counts
-    bunch_var = float(np.sum(counts[excluded])) + float(np.sum(
-        counterfactual[excluded] * (1 - counterfactual[excluded] / n)
-    ))
+    bunch_var = float(np.sum(counts[excluded])) + float(
+        np.sum(counterfactual[excluded] * (1 - counterfactual[excluded] / n))
+    )
     if f_at_cutoff > 0 and bandwidth > 0:
-        bunch_se = float(np.sqrt(max(bunch_var, 0.0))
-                         / (n * f_at_cutoff * bandwidth ** 2))
+        bunch_se = float(
+            np.sqrt(max(bunch_var, 0.0)) / (n * f_at_cutoff * bandwidth**2)
+        )
     else:
         bunch_se = np.nan
 
@@ -134,12 +133,8 @@ def kink_rdd_bridge(
     if np.isnan(bunch_est):
         bunch_est, bunch_se = rkd_est, rkd_se
 
-    diff, diff_se, diff_p = _agreement_test(
-        rkd_est, rkd_se, bunch_est, bunch_se
-    )
-    est_dr, se_dr = _dr_combine(
-        rkd_est, rkd_se, bunch_est, bunch_se, diff_p
-    )
+    diff, diff_se, diff_p = _agreement_test(rkd_est, rkd_se, bunch_est, bunch_se)
+    est_dr, se_dr = _dr_combine(rkd_est, rkd_se, bunch_est, bunch_se, diff_p)
 
     return BridgeResult(
         kind="kink_rdd",
@@ -156,7 +151,8 @@ def kink_rdd_bridge(
         se_dr=se_dr,
         n_obs=n,
         detail={
-            "bandwidth": bandwidth, "bin_width": bin_width,
+            "bandwidth": bandwidth,
+            "bin_width": bin_width,
             "excess_mass": excess_mass,
         },
         reference="Lu, Wang, Xie (2025), arXiv 2404.09117",

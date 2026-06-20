@@ -157,8 +157,12 @@ class DMLSensitivityResult:
     def __repr__(self) -> str:  # pragma: no cover
         return self.summary()
 
-    def plot(self, ax: Any = None, levels: Sequence[float] = (0.0, 0.5, 1.0),
-             figsize: Any = (6.0, 5.0)) -> Any:
+    def plot(
+        self,
+        ax: Any = None,
+        levels: Sequence[float] = (0.0, 0.5, 1.0),
+        figsize: Any = (6.0, 5.0),
+    ) -> Any:
         """Plot bias-contour grid for hypothetical (cf_y, cf_d) pairs.
 
         Plots the |bias|/|θ̂| contour as a function of the confounder
@@ -181,27 +185,36 @@ class DMLSensitivityResult:
             bias = np.sqrt(cy * cd / (1 - cd)) * self.s
         rel_bias = bias / max(abs(self.estimate), 1e-12)
 
-        cs = ax.contour(cd, cy, rel_bias, levels=list(levels),
-                        colors=["#888", "#1f77b4", "#d62728"])
+        cs = ax.contour(
+            cd, cy, rel_bias, levels=list(levels), colors=["#888", "#1f77b4", "#d62728"]
+        )
         ax.clabel(cs, inline=True, fontsize=8, fmt="%.2f")
         if not self.benchmarks.empty:
             ax.scatter(
                 self.benchmarks["cf_d_bench"],
                 self.benchmarks["cf_y_bench"],
-                marker="^", color="#000", s=50, zorder=5,
+                marker="^",
+                color="#000",
+                s=50,
+                zorder=5,
             )
             for _, row in self.benchmarks.iterrows():
                 ax.annotate(
                     str(row.get("variable", "")),
                     (row["cf_d_bench"], row["cf_y_bench"]),
-                    textcoords="offset points", xytext=(5, 5), fontsize=8,
+                    textcoords="offset points",
+                    xytext=(5, 5),
+                    fontsize=8,
                 )
-        ax.scatter([self.rv_q], [self.rv_q], marker="o", color="#1f77b4",
-                   s=80, zorder=5)
+        ax.scatter(
+            [self.rv_q], [self.rv_q], marker="o", color="#1f77b4", s=80, zorder=5
+        )
         ax.annotate(
             f"RV_q={self.rv_q:.3f}",
             (self.rv_q, self.rv_q),
-            textcoords="offset points", xytext=(8, -12), fontsize=9,
+            textcoords="offset points",
+            xytext=(8, -12),
+            fontsize=9,
             color="#1f77b4",
         )
         ax.set_xlabel(r"Partial $R^2$ of confounder with treatment ($C_D$)")
@@ -303,7 +316,9 @@ def dml_sensitivity(
     sigma_y = float(np.std(y_resid, ddof=1))
     sigma_d = float(np.std(d_resid, ddof=1))
     if sigma_d <= 0:
-        raise ValueError("D residual variance is 0; sensitivity undefined.")  # pragma: no cover
+        raise ValueError(
+            "D residual variance is 0; sensitivity undefined."
+        )  # pragma: no cover
     s = sigma_y / sigma_d
 
     rv_q = _robustness_value(q * abs(theta), s)
@@ -311,6 +326,7 @@ def dml_sensitivity(
     # RV_qa: strength to push the (1-α)/2 CI lower bound across zero.
     crit = 1.96  # default α=0.05 two-sided; we honour result.alpha below.
     from scipy import stats as _stats
+
     if hasattr(result, "alpha") and result.alpha is not None:
         crit = float(_stats.norm.ppf(1 - result.alpha / 2))
     target_for_rv_qa = max(abs(theta) - crit * se, 0.0)
@@ -352,24 +368,32 @@ def dml_sensitivity(
             cf_y_b = float(np.clip(k_y * r2_y, 0.0, 0.999))
             cf_d_b = float(np.clip(k_d * r2_d, 0.0, 0.999))
             bias_b = float(np.sqrt(cf_y_b * cf_d_b / (1 - cf_d_b)) * s)
-            rows.append({
-                "variable": name,
-                "k_y": k_y,
-                "k_d": k_d,
-                "cf_y_bench": cf_y_b,
-                "cf_d_bench": cf_d_b,
-                "bias_bound": bias_b,
-                "adjusted_low": theta - bias_b,
-                "adjusted_high": theta + bias_b,
-            })
+            rows.append(
+                {
+                    "variable": name,
+                    "k_y": k_y,
+                    "k_d": k_d,
+                    "cf_y_bench": cf_y_b,
+                    "cf_d_bench": cf_d_b,
+                    "bias_bound": bias_b,
+                    "adjusted_low": theta - bias_b,
+                    "adjusted_high": theta + bias_b,
+                }
+            )
         benchmarks = pd.DataFrame(rows)
 
     return DMLSensitivityResult(
-        estimate=theta, se=se, rv_q=rv_q, rv_qa=rv_qa,
+        estimate=theta,
+        se=se,
+        rv_q=rv_q,
+        rv_qa=rv_qa,
         bias_bound=bias_bound,
         adjusted_estimate_low=adj_low,
         adjusted_estimate_high=adj_high,
         benchmarks=benchmarks,
-        s=s, q=q, alpha=getattr(result, "alpha", 0.05),
-        cf_y=cf_y, cf_d=cf_d,
+        s=s,
+        q=q,
+        alpha=getattr(result, "alpha", 0.05),
+        cf_y=cf_y,
+        cf_d=cf_d,
     )

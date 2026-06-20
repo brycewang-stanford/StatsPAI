@@ -48,7 +48,6 @@ from scipy import stats as sp_stats
 
 from .._result_serialize import ResultProtocolMixin
 
-
 # ──────────────────────────────────────────────────────────────────────
 # Classical (non-resampling) adjustments
 # ──────────────────────────────────────────────────────────────────────
@@ -164,6 +163,7 @@ def benjamini_hochberg(pvalues: PValueInput) -> np.ndarray:
 # OLS helper (no external dependency)
 # ──────────────────────────────────────────────────────────────────────
 
+
 def _ols_fit(
     y: np.ndarray,
     X: np.ndarray,
@@ -204,7 +204,7 @@ def _ols_fit(
     else:
         # HC1 robust variance
         leverage_factor = n / (n - k)
-        e2 = resid ** 2
+        e2 = resid**2
         XtDX = (X.T * e2) @ X
         bread = XtX_inv
         V = leverage_factor * bread @ XtDX @ bread
@@ -224,6 +224,7 @@ def _ols_fit(
 # ──────────────────────────────────────────────────────────────────────
 # Romano-Wolf stepdown & Westfall-Young maxT
 # ──────────────────────────────────────────────────────────────────────
+
 
 def _build_design(
     data: pd.DataFrame,
@@ -355,12 +356,8 @@ class RomanoWolfResult(ResultProtocolMixin):
             lines.append(line)
 
         lines.append(bar)
-        lines.append(
-            "  * p<0.05, ** p<0.01, *** p<0.001 (unadjusted)"
-        )
-        lines.append(
-            "  FWER controlled at 5% via Romano-Wolf stepdown"
-        )
+        lines.append("  * p<0.05, ** p<0.01, *** p<0.001 (unadjusted)")
+        lines.append("  FWER controlled at 5% via Romano-Wolf stepdown")
         lines.append(
             f"  Observations: {self.n_obs:,}  |  Outcomes tested: {self.n_outcomes}"
         )
@@ -395,9 +392,7 @@ class RomanoWolfResult(ResultProtocolMixin):
             "<th>p-value</th><th>RW adj.</th><th>Bonf.</th>"
             "<th>Holm</th><th>BH(FDR)</th>"
             "</tr></thead>"
-            "<tbody>"
-            + "\n".join(rows_html)
-            + "</tbody></table>"
+            "<tbody>" + "\n".join(rows_html) + "</tbody></table>"
             f"<p><em>Obs: {self.n_obs:,} &middot; "
             f"Outcomes: {self.n_outcomes} &middot; "
             f"FWER controlled via Romano-Wolf stepdown</em></p>"
@@ -426,20 +421,42 @@ class RomanoWolfResult(ResultProtocolMixin):
         fig, ax = plt.subplots(figsize=figsize)
 
         ax.scatter(
-            self.table["p_value"], y_pos, marker="o",
-            s=70, label="Unadjusted", zorder=3, color="#2196F3",
+            self.table["p_value"],
+            y_pos,
+            marker="o",
+            s=70,
+            label="Unadjusted",
+            zorder=3,
+            color="#2196F3",
         )
         ax.scatter(
-            self.table["p_rw"], y_pos, marker="s",
-            s=70, label="Romano-Wolf", zorder=3, color="#E91E63",
+            self.table["p_rw"],
+            y_pos,
+            marker="s",
+            s=70,
+            label="Romano-Wolf",
+            zorder=3,
+            color="#E91E63",
         )
         ax.scatter(
-            self.table["p_bonf"], y_pos, marker="^",
-            s=50, label="Bonferroni", zorder=3, color="#9E9E9E", alpha=0.7,
+            self.table["p_bonf"],
+            y_pos,
+            marker="^",
+            s=50,
+            label="Bonferroni",
+            zorder=3,
+            color="#9E9E9E",
+            alpha=0.7,
         )
         ax.scatter(
-            self.table["p_bh"], y_pos, marker="D",
-            s=50, label="BH (FDR)", zorder=3, color="#FF9800", alpha=0.7,
+            self.table["p_bh"],
+            y_pos,
+            marker="D",
+            s=50,
+            label="BH (FDR)",
+            zorder=3,
+            color="#FF9800",
+            alpha=0.7,
         )
 
         # Significance thresholds
@@ -463,6 +480,7 @@ class RomanoWolfResult(ResultProtocolMixin):
 # ──────────────────────────────────────────────────────────────────────
 # Main entry point
 # ──────────────────────────────────────────────────────────────────────
+
 
 def romano_wolf(
     data: pd.DataFrame,
@@ -559,9 +577,7 @@ def romano_wolf(
     n = len(df)
 
     if n == 0:
-        raise ValueError(
-            "No complete observations after dropping missing values."
-        )
+        raise ValueError("No complete observations after dropping missing values.")
 
     S = len(y)  # number of hypotheses
 
@@ -663,6 +679,7 @@ def romano_wolf(
 # ──────────────────────────────────────────────────────────────────────
 # Convenience dispatcher
 # ──────────────────────────────────────────────────────────────────────
+
 
 def adjust_pvalues(
     pvalues: PValueInput,

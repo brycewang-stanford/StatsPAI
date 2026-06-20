@@ -21,80 +21,95 @@ Examples
 ...                  cluster="village", covariates=["x"],
 ...                  test_clusters=["v1", "v2"])
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Tuple
 
-
 _REGISTRY: Dict[str, Tuple[str, str]] = {
     # -- Core Lei-Candès 2021 ------------------------------------- #
     "cate": ("statspai.conformal_causal.conformal_ite", "conformal_cate"),
-    "conformal_cate": ("statspai.conformal_causal.conformal_ite",
-                       "conformal_cate"),
-
-    "counterfactual": ("statspai.conformal_causal.counterfactual",
-                       "conformal_counterfactual"),
-    "conformal_counterfactual": ("statspai.conformal_causal.counterfactual",
-                                 "conformal_counterfactual"),
-
-    "ite": ("statspai.conformal_causal.counterfactual",
-            "conformal_ite_interval"),
-    "ite_interval": ("statspai.conformal_causal.counterfactual",
-                     "conformal_ite_interval"),
-    "conformal_ite_interval": ("statspai.conformal_causal.counterfactual",
-                               "conformal_ite_interval"),
-
-    "weighted": ("statspai.conformal_causal.counterfactual",
-                 "weighted_conformal_prediction"),
-    "wcp": ("statspai.conformal_causal.counterfactual",
-            "weighted_conformal_prediction"),
-    "weighted_conformal_prediction": ("statspai.conformal_causal.counterfactual",
-                                      "weighted_conformal_prediction"),
-
+    "conformal_cate": ("statspai.conformal_causal.conformal_ite", "conformal_cate"),
+    "counterfactual": (
+        "statspai.conformal_causal.counterfactual",
+        "conformal_counterfactual",
+    ),
+    "conformal_counterfactual": (
+        "statspai.conformal_causal.counterfactual",
+        "conformal_counterfactual",
+    ),
+    "ite": ("statspai.conformal_causal.counterfactual", "conformal_ite_interval"),
+    "ite_interval": (
+        "statspai.conformal_causal.counterfactual",
+        "conformal_ite_interval",
+    ),
+    "conformal_ite_interval": (
+        "statspai.conformal_causal.counterfactual",
+        "conformal_ite_interval",
+    ),
+    "weighted": (
+        "statspai.conformal_causal.counterfactual",
+        "weighted_conformal_prediction",
+    ),
+    "wcp": (
+        "statspai.conformal_causal.counterfactual",
+        "weighted_conformal_prediction",
+    ),
+    "weighted_conformal_prediction": (
+        "statspai.conformal_causal.counterfactual",
+        "weighted_conformal_prediction",
+    ),
     # -- 2025-2026 frontier --------------------------------------- #
-    "density": ("statspai.conformal_causal.conformal_density",
-                "conformal_density_ite"),
-    "density_ite": ("statspai.conformal_causal.conformal_density",
-                    "conformal_density_ite"),
-    "conformal_density_ite": ("statspai.conformal_causal.conformal_density",
-                              "conformal_density_ite"),
-
-    "multidp": ("statspai.conformal_causal.conformal_multidp",
-                "conformal_ite_multidp"),
-    "multi_stage": ("statspai.conformal_causal.conformal_multidp",
-                    "conformal_ite_multidp"),
-    "conformal_ite_multidp": ("statspai.conformal_causal.conformal_multidp",
-                              "conformal_ite_multidp"),
-
-    "debiased": ("statspai.conformal_causal.conformal_debiased",
-                 "conformal_debiased_ml"),
-    "debiased_ml": ("statspai.conformal_causal.conformal_debiased",
-                    "conformal_debiased_ml"),
-    "conformal_debiased_ml": ("statspai.conformal_causal.conformal_debiased",
-                              "conformal_debiased_ml"),
-
-    "fair": ("statspai.conformal_causal.conformal_fair",
-             "conformal_fair_ite"),
-    "fair_ite": ("statspai.conformal_causal.conformal_fair",
-                 "conformal_fair_ite"),
-    "conformal_fair_ite": ("statspai.conformal_causal.conformal_fair",
-                           "conformal_fair_ite"),
-
+    "density": ("statspai.conformal_causal.conformal_density", "conformal_density_ite"),
+    "density_ite": (
+        "statspai.conformal_causal.conformal_density",
+        "conformal_density_ite",
+    ),
+    "conformal_density_ite": (
+        "statspai.conformal_causal.conformal_density",
+        "conformal_density_ite",
+    ),
+    "multidp": ("statspai.conformal_causal.conformal_multidp", "conformal_ite_multidp"),
+    "multi_stage": (
+        "statspai.conformal_causal.conformal_multidp",
+        "conformal_ite_multidp",
+    ),
+    "conformal_ite_multidp": (
+        "statspai.conformal_causal.conformal_multidp",
+        "conformal_ite_multidp",
+    ),
+    "debiased": (
+        "statspai.conformal_causal.conformal_debiased",
+        "conformal_debiased_ml",
+    ),
+    "debiased_ml": (
+        "statspai.conformal_causal.conformal_debiased",
+        "conformal_debiased_ml",
+    ),
+    "conformal_debiased_ml": (
+        "statspai.conformal_causal.conformal_debiased",
+        "conformal_debiased_ml",
+    ),
+    "fair": ("statspai.conformal_causal.conformal_fair", "conformal_fair_ite"),
+    "fair_ite": ("statspai.conformal_causal.conformal_fair", "conformal_fair_ite"),
+    "conformal_fair_ite": (
+        "statspai.conformal_causal.conformal_fair",
+        "conformal_fair_ite",
+    ),
     # -- v1.0 extended frontier ----------------------------------- #
-    "continuous": ("statspai.conformal_causal.extended",
-                   "conformal_continuous"),
+    "continuous": ("statspai.conformal_causal.extended", "conformal_continuous"),
     "dose": ("statspai.conformal_causal.extended", "conformal_continuous"),
-    "dose_response": ("statspai.conformal_causal.extended",
-                      "conformal_continuous"),
-    "conformal_continuous": ("statspai.conformal_causal.extended",
-                             "conformal_continuous"),
-
-    "interference": ("statspai.conformal_causal.extended",
-                     "conformal_interference"),
-    "cluster": ("statspai.conformal_causal.extended",
-                "conformal_interference"),
-    "conformal_interference": ("statspai.conformal_causal.extended",
-                               "conformal_interference"),
+    "dose_response": ("statspai.conformal_causal.extended", "conformal_continuous"),
+    "conformal_continuous": (
+        "statspai.conformal_causal.extended",
+        "conformal_continuous",
+    ),
+    "interference": ("statspai.conformal_causal.extended", "conformal_interference"),
+    "cluster": ("statspai.conformal_causal.extended", "conformal_interference"),
+    "conformal_interference": (
+        "statspai.conformal_causal.extended",
+        "conformal_interference",
+    ),
 }
 
 
@@ -157,6 +172,7 @@ def conformal(kind: str = "cate", /, **kwargs: Any) -> Any:
 
     module_path, fn_name = _REGISTRY[kind]
     import importlib
+
     mod = importlib.import_module(module_path)
     fn = getattr(mod, fn_name)
     return fn(**kwargs)

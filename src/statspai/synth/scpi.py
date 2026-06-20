@@ -21,7 +21,7 @@ Cattaneo, M.D., Feng, Y. and Titiunik, R. (2021).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -29,10 +29,10 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ====================================================================== #
 #  Public API: scdata, scest, scpi
 # ====================================================================== #
+
 
 def scdata(
     data: pd.DataFrame,
@@ -115,7 +115,9 @@ def scdata(
     pre_donors = Y_donors[pre_mask]
     valid = ~np.any(np.isnan(pre_donors), axis=0)
     if valid.sum() == 0:
-        raise ValueError("All donor units have missing pre-treatment data.")  # pragma: no cover
+        raise ValueError(
+            "All donor units have missing pre-treatment data."
+        )  # pragma: no cover
     Y_donors = Y_donors[:, valid]
     donor_cols = [donor_cols[i] for i in range(len(donor_cols)) if valid[i]]
 
@@ -211,15 +213,18 @@ def scest(
     Y_donors_post = sc["Y_donors_post"]
 
     w = _estimate_weights(
-        Y_pre, Y_donors_pre, w_constr,
-        lasso_lambda=lasso_lambda, ridge_lambda=ridge_lambda,
+        Y_pre,
+        Y_donors_pre,
+        w_constr,
+        lasso_lambda=lasso_lambda,
+        ridge_lambda=ridge_lambda,
     )
 
     Y_synth_pre = Y_donors_pre @ w
     Y_synth_post = Y_donors_post @ w
     residuals_pre = Y_pre - Y_synth_pre
     effects = Y_post - Y_synth_post
-    pre_rmspe = float(np.sqrt(np.mean(residuals_pre ** 2)))
+    pre_rmspe = float(np.sqrt(np.mean(residuals_pre**2)))
 
     return {
         "weights": w,
@@ -355,8 +360,7 @@ def scpi(
         )
     if e_method not in ("gaussian", "ls", "qreg"):
         raise ValueError(
-            f"e_method must be 'gaussian', 'ls', or 'qreg', "
-            f"got '{e_method}'."
+            f"e_method must be 'gaussian', 'ls', or 'qreg', " f"got '{e_method}'."
         )
 
     if seed is not None:
@@ -368,7 +372,7 @@ def scpi(
     sc = scdata(data, outcome, unit, time, treated_unit, treatment_time)
     Y_pre = sc["Y_pre"]
     Y_post = sc["Y_post"]
-    Y_donors_pre = sc["Y_donors_pre"]   # (T0, J)
+    Y_donors_pre = sc["Y_donors_pre"]  # (T0, J)
     Y_donors_post = sc["Y_donors_post"]  # (T1, J)
     donor_names = sc["donor_names"]
     post_times = sc["post_times"]
@@ -380,8 +384,11 @@ def scpi(
 
     # --- Step 1: Estimate SCM weights ---
     w = _estimate_weights(
-        Y_pre, Y_donors_pre, w_constr,
-        lasso_lambda=lasso_lambda, ridge_lambda=ridge_lambda,
+        Y_pre,
+        Y_donors_pre,
+        w_constr,
+        lasso_lambda=lasso_lambda,
+        ridge_lambda=ridge_lambda,
     )
 
     # Synthetic outcomes (full panel)
@@ -397,13 +404,22 @@ def scpi(
     # --- Step 2: In-sample variance (weight estimation uncertainty) ---
     # Use subsampling on pre-treatment residuals to estimate Var(w'Y_0t)
     in_sample_var = _in_sample_variance(
-        Y_pre, Y_donors_pre, Y_donors_post, w, w_constr, rng,
-        lasso_lambda=lasso_lambda, ridge_lambda=ridge_lambda,
+        Y_pre,
+        Y_donors_pre,
+        Y_donors_post,
+        w,
+        w_constr,
+        rng,
+        lasso_lambda=lasso_lambda,
+        ridge_lambda=ridge_lambda,
     )  # (T1,)
 
     # --- Step 3: Out-of-sample variance (prediction uncertainty) ---
     out_sample_var = _out_of_sample_variance(
-        e_pre, T1, e_method, alpha,
+        e_pre,
+        T1,
+        e_method,
+        alpha,
     )  # (T1,)
 
     sigma_hat = float(np.std(e_pre, ddof=1)) if T0 > 1 else 0.0
@@ -427,14 +443,16 @@ def scpi(
         pi_lo_t = effect_t - z_alpha * total_se_t
         pi_hi_t = effect_t + z_alpha * total_se_t
 
-        period_results.append({
-            "time": post_times[t],
-            "effect": effect_t,
-            "pi_lower": pi_lo_t,
-            "pi_upper": pi_hi_t,
-            "in_sample_var": in_var_t,
-            "out_sample_var": out_var_t,
-        })
+        period_results.append(
+            {
+                "time": post_times[t],
+                "effect": effect_t,
+                "pi_lower": pi_lo_t,
+                "pi_upper": pi_hi_t,
+                "in_sample_var": in_var_t,
+                "out_sample_var": out_var_t,
+            }
+        )
 
     period_df = pd.DataFrame(period_results)
 
@@ -461,12 +479,14 @@ def scpi(
         pvalue = 0.0 if abs(att) > 0 else 1.0
 
     # Gap table (all periods)
-    gap_table = pd.DataFrame({
-        "time": all_times,
-        "treated": Y_treated,
-        "synthetic": Y_synth,
-        "gap": Y_treated - Y_synth,
-    })
+    gap_table = pd.DataFrame(
+        {
+            "time": all_times,
+            "treated": Y_treated,
+            "synthetic": Y_synth,
+            "gap": Y_treated - Y_synth,
+        }
+    )
 
     model_info = {
         "period_results": period_df,
@@ -484,7 +504,7 @@ def scpi(
         "n_donors": J,
         "n_pre_periods": T0,
         "n_post_periods": T1,
-        "pre_rmspe": float(np.sqrt(np.mean(e_pre ** 2))),
+        "pre_rmspe": float(np.sqrt(np.mean(e_pre**2))),
     }
 
     return CausalResult(
@@ -505,6 +525,7 @@ def scpi(
 # ====================================================================== #
 #  Weight estimation
 # ====================================================================== #
+
 
 def _estimate_weights(
     Y_pre: np.ndarray,
@@ -553,15 +574,20 @@ def _estimate_weights(
 
 
 def _weights_simplex(
-    y: np.ndarray, X: np.ndarray, w0: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
+    w0: np.ndarray,
 ) -> np.ndarray:
     """Simplex-constrained SCM: min ||y - Xw||^2, w >= 0, sum(w) = 1."""
     from ._core import solve_simplex_weights
+
     return solve_simplex_weights(y, X, w0=w0)
 
 
 def _weights_lasso(
-    y: np.ndarray, X: np.ndarray, lam: float,
+    y: np.ndarray,
+    X: np.ndarray,
+    lam: float,
 ) -> np.ndarray:
     """L1-penalised weights via coordinate descent."""
     T0, J = X.shape
@@ -592,7 +618,9 @@ def _weights_lasso(
 
 
 def _weights_ridge(
-    y: np.ndarray, X: np.ndarray, lam: float,
+    y: np.ndarray,
+    X: np.ndarray,
+    lam: float,
 ) -> np.ndarray:
     """L2-penalised (ridge) weights."""
     J = X.shape[1]
@@ -620,6 +648,7 @@ def _soft_threshold(x: float, lam: float) -> float:
 # ====================================================================== #
 #  In-sample variance (weight estimation uncertainty)
 # ====================================================================== #
+
 
 def _in_sample_variance(
     Y_pre: np.ndarray,
@@ -674,8 +703,11 @@ def _in_sample_variance(
 
         try:
             w_sub = _estimate_weights(
-                Y_sub, X_sub, w_constr,
-                lasso_lambda=lasso_lambda, ridge_lambda=ridge_lambda,
+                Y_sub,
+                X_sub,
+                w_constr,
+                lasso_lambda=lasso_lambda,
+                ridge_lambda=ridge_lambda,
             )
         except Exception:  # pragma: no cover
             # If optimisation fails on a subsample, use w_hat
@@ -687,7 +719,7 @@ def _in_sample_variance(
     # Scale by (b / T0) to correct subsampling rate
     in_var = np.var(synth_post_samples, axis=0, ddof=1)
     # Subsampling variance correction: Var_sub * (b / T0)
-    in_var *= (b / T0)
+    in_var *= b / T0
 
     return np.asarray(in_var)
 
@@ -695,6 +727,7 @@ def _in_sample_variance(
 # ====================================================================== #
 #  Out-of-sample variance (prediction uncertainty)
 # ====================================================================== #
+
 
 def _out_of_sample_variance(
     e_pre: np.ndarray,
@@ -732,7 +765,8 @@ def _out_of_sample_variance(
 
 
 def _out_of_sample_gaussian(
-    e_pre: np.ndarray, T1: int,
+    e_pre: np.ndarray,
+    T1: int,
 ) -> np.ndarray:
     """
     Sub-Gaussian bound: sigma^2 estimated from pre-treatment residuals.
@@ -749,7 +783,8 @@ def _out_of_sample_gaussian(
 
 
 def _out_of_sample_location_scale(
-    e_pre: np.ndarray, T1: int,
+    e_pre: np.ndarray,
+    T1: int,
 ) -> np.ndarray:
     """
     Location-scale model: allow heteroskedasticity across periods.
@@ -771,17 +806,17 @@ def _out_of_sample_location_scale(
         post_t = np.arange(T0, T0 + T1, dtype=np.float64)
         scale_post = np.maximum(a_hat + b_hat * post_t, 1e-10)
         # Variance = scale^2
-        return np.asarray(scale_post ** 2)
+        return np.asarray(scale_post**2)
     else:
         # Too few periods for location-scale; fall back to constant
-        sigma2 = float(np.var(e_pre, ddof=1)) if T0 > 1 else float(
-            e_pre[0] ** 2
-        )
+        sigma2 = float(np.var(e_pre, ddof=1)) if T0 > 1 else float(e_pre[0] ** 2)
         return np.full(T1, sigma2)
 
 
 def _out_of_sample_qreg(
-    e_pre: np.ndarray, T1: int, alpha: float,
+    e_pre: np.ndarray,
+    T1: int,
+    alpha: float,
 ) -> np.ndarray:
     """
     Quantile regression approach: nonparametric.
@@ -806,7 +841,7 @@ def _out_of_sample_qreg(
     else:
         sigma_equiv = iqr / 4.0
 
-    sigma2_equiv = sigma_equiv ** 2
+    sigma2_equiv = sigma_equiv**2
     return np.full(T1, sigma2_equiv)
 
 

@@ -15,6 +15,7 @@ That covers ``sp.fast.fepois.FePoisResult`` and pyfixest's fitted
 objects directly; for ``sp.feols`` results we wrap ``params`` /
 ``std_errors`` into the ``coef()`` / ``se()`` shape on the fly.
 """
+
 from __future__ import annotations
 
 import operator
@@ -25,10 +26,10 @@ import pandas as pd
 
 from ..exceptions import MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Adapter: extract the bits we need from arbitrary result objects
 # ---------------------------------------------------------------------------
+
 
 def _coef_series(fit: Any) -> pd.Series:
     if hasattr(fit, "coef") and callable(fit.coef):
@@ -55,8 +56,7 @@ def _se_series(fit: Any) -> pd.Series:
         if isinstance(v, pd.Series):
             return v
     if hasattr(fit, "vcov_matrix") and hasattr(fit, "coef_names"):
-        return pd.Series(np.sqrt(np.diag(fit.vcov_matrix)),
-                         index=fit.coef_names)
+        return pd.Series(np.sqrt(np.diag(fit.vcov_matrix)), index=fit.coef_names)
     raise MethodIncompatibility(
         f"etable: cannot extract standard errors from {type(fit).__name__}"
     )
@@ -96,9 +96,7 @@ def _nonnegative_int(value: Any, *, name: str) -> int:
             f"etable: {name} must be a non-negative integer"
         ) from exc
     if isinstance(value, bool) or parsed < 0:
-        raise MethodIncompatibility(
-            f"etable: {name} must be a non-negative integer"
-        )
+        raise MethodIncompatibility(f"etable: {name} must be a non-negative integer")
     return int(parsed)
 
 
@@ -133,6 +131,7 @@ def _string_sequence(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def etable(
     *fits: Any,
@@ -182,18 +181,14 @@ def etable(
     if names is None:
         col_names = [f"({i+1})" for i in range(len(fits))]
     else:
-        col_names = list(
-            _string_sequence(names, name="names", allow_none=False) or []
-        )
+        col_names = list(_string_sequence(names, name="names", allow_none=False) or [])
     if len(col_names) != len(fits):
-        raise ValueError(
-            f"len(names)={len(col_names)} but len(fits)={len(fits)}"
-        )
+        raise ValueError(f"len(names)={len(col_names)} but len(fits)={len(fits)}")
     keep = _string_sequence(keep, name="keep")
     drop = _string_sequence(drop, name="drop")
 
     coefs: List[pd.Series] = [_coef_series(f) for f in fits]
-    ses:   List[pd.Series] = [_se_series(f) for f in fits]
+    ses: List[pd.Series] = [_se_series(f) for f in fits]
     n_obs = [_n_obs(f) for f in fits]
     df_resid = [_df_residual(f) for f in fits]
 
@@ -201,6 +196,7 @@ def etable(
     # Student-t two-sided critical values otherwise (matches ``stargazer`` /
     # fixest output by default).
     from scipy import stats as _stats
+
     threshold_cache: Dict[Optional[int], Tuple[float, float, float]] = {}
 
     def _stars_for(fit_idx: int) -> Tuple[float, float, float]:
@@ -208,7 +204,7 @@ def etable(
         if df in threshold_cache:
             return threshold_cache[df]
         if df is None:
-            t10, t5, t1 = 1.645, 1.960, 2.576    # Normal-z fallback
+            t10, t5, t1 = 1.645, 1.960, 2.576  # Normal-z fallback
         else:
             # Two-sided t critical values: ppf(1 - alpha/2, df)
             t10 = float(_stats.t.ppf(1 - 0.10 / 2, df))

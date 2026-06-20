@@ -49,6 +49,7 @@ from scipy import stats
 @dataclass
 class MTEResult:
     """Marginal treatment effects result."""
+
     poly_degree: int
     theta0: np.ndarray  # (K+1, dim_X) coefficients for control arm MTR
     theta1: np.ndarray  # (K+1, dim_X) coefficients for treated arm MTR
@@ -226,7 +227,7 @@ def mte(
         cols = []
         for k in range(K + 1):
             if mode == "treated":
-                w = p ** k / (k + 1)
+                w = p**k / (k + 1)
             else:
                 denom = np.where(1 - p > 1e-8, (k + 1) * (1 - p), np.nan)
                 w = (1 - p ** (k + 1)) / denom
@@ -274,21 +275,23 @@ def mte(
     V = _poly_u(u_grid, K)  # n_grid x (K+1)
     mte_x = V @ (theta1 - theta0) @ x_bar  # n_grid
     # Delta-method SE: Var( x̄'(theta_{1,k} - theta_{0,k}) ) per u
-    var_diff_per_k = (se1 ** 2 + se0 ** 2) @ (x_bar ** 2)  # K+1
-    mte_se = np.sqrt(np.maximum(V ** 2 @ var_diff_per_k, 0))
+    var_diff_per_k = (se1**2 + se0**2) @ (x_bar**2)  # K+1
+    mte_se = np.sqrt(np.maximum(V**2 @ var_diff_per_k, 0))
 
     # ATE = ∫ MTE(u) du at x̄
     weight_ate = _int_poly_u(0.0, 1.0, K)  # (K+1,)
     ate = float(weight_ate @ (theta1 - theta0) @ x_bar)
-    ate_var = float(
-        weight_ate @ np.diag(var_diff_per_k.reshape(-1)) @ weight_ate
-    )
+    ate_var = float(weight_ate @ np.diag(var_diff_per_k.reshape(-1)) @ weight_ate)
     ate_se = float(np.sqrt(max(ate_var, 0)))
 
     # ATT = ∫_0^1 MTE(u) * Pr(P(Z)>u | D=1) du ≈ ∫_0^1 MTE(u) * F_p|D=1(u) weight
     # Use empirical plug-in with the observed p distribution among treated
-    att = _weighted_integral(u_grid, mte_x, _empirical_cdf_weight(u_grid, p_hat[D == 1]))
-    atu = _weighted_integral(u_grid, mte_x, _empirical_cdf_weight(u_grid, p_hat[D == 0], side="upper"))
+    att = _weighted_integral(
+        u_grid, mte_x, _empirical_cdf_weight(u_grid, p_hat[D == 1])
+    )
+    atu = _weighted_integral(
+        u_grid, mte_x, _empirical_cdf_weight(u_grid, p_hat[D == 0], side="upper")
+    )
 
     # LATE reference = 2SLS of Y on D using Z
     late_ref = _wald_tsls(Y, D, X, p_hat)
@@ -306,8 +309,14 @@ def mte(
             idx = rng_boot.integers(0, n, size=n)
             try:
                 pt = _mte_point_only(
-                    Y[idx], D[idx], Z[idx], X_raw[idx],
-                    K, u_grid, propensity_model, trim,
+                    Y[idx],
+                    D[idx],
+                    Z[idx],
+                    X_raw[idx],
+                    K,
+                    u_grid,
+                    propensity_model,
+                    trim,
                 )
             except (ValueError, np.linalg.LinAlgError):  # pragma: no cover
                 continue
@@ -348,14 +357,16 @@ def mte(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.mte",
             params={
                 "y": y if isinstance(y, str) else None,
                 "treatment": treatment if isinstance(treatment, str) else None,
-                "instruments": instruments
-                               if isinstance(instruments, (str, list)) else None,
+                "instruments": (
+                    instruments if isinstance(instruments, (str, list)) else None
+                ),
                 "exog": exog if isinstance(exog, (str, list)) else None,
                 "poly_degree": poly_degree,
                 "add_const": add_const,
@@ -390,7 +401,7 @@ def _fit_propensity(D: np.ndarray, Z: np.ndarray, model: str = "logit") -> np.nd
         else:  # probit
             p = stats.norm.cdf(eta)
             phi = stats.norm.pdf(eta)
-            W = np.where(p * (1 - p) > 1e-10, phi ** 2 / (p * (1 - p) + 1e-10), 1e-10)
+            W = np.where(p * (1 - p) > 1e-10, phi**2 / (p * (1 - p) + 1e-10), 1e-10)
             resid = phi * (D - p) / np.where(p * (1 - p) > 1e-10, p * (1 - p), 1e-10)
         H = Z.T @ (Z * W[:, None])
         g = Z.T @ resid
@@ -408,9 +419,11 @@ def _fit_propensity(D: np.ndarray, Z: np.ndarray, model: str = "logit") -> np.nd
 
 def _wald_tsls(Y: np.ndarray, D: np.ndarray, X: np.ndarray, p: np.ndarray) -> float:
     """Reference 2SLS of Y on D using p(Z, X) as instrument after partialling out X."""
+
     def _partial(M: Any) -> Any:
         b, *_ = np.linalg.lstsq(X, M, rcond=None)
         return M - X @ b
+
     Yp = _partial(Y)
     Dp = _partial(D)
     Zp = _partial(p)
@@ -419,7 +432,9 @@ def _wald_tsls(Y: np.ndarray, D: np.ndarray, X: np.ndarray, p: np.ndarray) -> fl
     return float(Zp @ Yp) / denom if abs(denom) > 1e-12 else np.nan
 
 
-def _empirical_cdf_weight(u_grid: np.ndarray, p_sample: np.ndarray, side: str = "lower") -> np.ndarray:
+def _empirical_cdf_weight(
+    u_grid: np.ndarray, p_sample: np.ndarray, side: str = "lower"
+) -> np.ndarray:
     """Weights used by ATT/ATU integrals — see BMW 2017 Table 2."""
     if len(p_sample) == 0:
         return np.ones_like(u_grid) / max(len(u_grid), 1)  # pragma: no cover
@@ -431,14 +446,21 @@ def _empirical_cdf_weight(u_grid: np.ndarray, p_sample: np.ndarray, side: str = 
     return w / total if total > 0 else np.ones_like(u_grid) / max(len(u_grid), 1)
 
 
-def _weighted_integral(u_grid: np.ndarray, f_values: np.ndarray, weights: np.ndarray) -> float:
+def _weighted_integral(
+    u_grid: np.ndarray, f_values: np.ndarray, weights: np.ndarray
+) -> float:
     return float(np.trapezoid(f_values * weights, u_grid))
 
 
 def _mte_point_only(
-    Y: np.ndarray, D: np.ndarray, Z: np.ndarray, X: np.ndarray,
-    K: int, u_grid: np.ndarray,
-    propensity_model: str, trim: float,
+    Y: np.ndarray,
+    D: np.ndarray,
+    Z: np.ndarray,
+    X: np.ndarray,
+    K: int,
+    u_grid: np.ndarray,
+    propensity_model: str,
+    trim: float,
 ) -> Dict:
     """Internal: return *only* the point estimates for a (Y, D, Z, X) sample.
 
@@ -462,7 +484,7 @@ def _mte_point_only(
         cols = []
         for k in range(K + 1):
             if mode == "treated":
-                w = p_sub ** k / (k + 1)
+                w = p_sub**k / (k + 1)
             else:
                 denom = np.where(1 - p_sub > 1e-8, (k + 1) * (1 - p_sub), np.nan)
                 w = (1 - p_sub ** (k + 1)) / denom
@@ -481,7 +503,9 @@ def _mte_point_only(
     weight_ate = _int_poly_u(0.0, 1.0, K)
     ate = float(weight_ate @ (theta1 - theta0) @ x_bar)
     att = _weighted_integral(u_grid, mte_u, _empirical_cdf_weight(u_grid, p[D == 1]))
-    atu = _weighted_integral(u_grid, mte_u, _empirical_cdf_weight(u_grid, p[D == 0], side="upper"))
+    atu = _weighted_integral(
+        u_grid, mte_u, _empirical_cdf_weight(u_grid, p[D == 0], side="upper")
+    )
     return {"mte_curve": mte_u, "ate": ate, "att": float(att), "atu": float(atu)}
 
 

@@ -5,8 +5,7 @@ Equivalent to Stata's ``tab var1 var2, chi2 exact``.
 Exports to text, LaTeX, Excel, Word.
 """
 
-from typing import Optional, List, Dict, Any, Union
-import numpy as np
+from typing import Optional, Any, Union
 import pandas as pd
 from scipy import stats
 
@@ -15,7 +14,7 @@ def tab(
     data: pd.DataFrame,
     row: str,
     col: Optional[str] = None,
-    output: str = 'text',
+    output: str = "text",
     test: bool = True,
     margins: bool = True,
     normalize: Optional[str] = None,
@@ -71,21 +70,23 @@ def tab(
 
     # Two-way cross-tabulation
     ct = pd.crosstab(
-        data[row], data[col],
+        data[row],
+        data[col],
         margins=margins,
-        margins_name='Total',
+        margins_name="Total",
     )
 
     if normalize:
-        norm_map = {'row': 'index', 'col': 'columns', 'all': 'all'}
+        norm_map = {"row": "index", "col": "columns", "all": "all"}
         ct_norm = pd.crosstab(
-            data[row], data[col],
+            data[row],
+            data[col],
             normalize=norm_map.get(normalize, normalize),
             margins=margins,
-            margins_name='Total',
+            margins_name="Total",
         )
         # Format as percentages
-        ct_display = ct_norm.map(lambda x: f'{x:.1%}')
+        ct_display = ct_norm.map(lambda x: f"{x:.1%}")
     else:
         ct_display = ct
 
@@ -96,17 +97,17 @@ def tab(
         ct_raw = pd.crosstab(data[row], data[col])
         chi2, p_chi2, dof, expected = stats.chi2_contingency(ct_raw)
         test_result = {
-            'chi2': chi2,
-            'pvalue': p_chi2,
-            'df': dof,
+            "chi2": chi2,
+            "pvalue": p_chi2,
+            "df": dof,
         }
         # Fisher's exact for 2x2
         if ct_raw.shape == (2, 2):
             _, p_fisher = stats.fisher_exact(ct_raw)
-            test_result['fisher_pvalue'] = p_fisher
+            test_result["fisher_pvalue"] = p_fisher
 
     if title is None:
-        title = f'Tabulation: {row} × {col}'
+        title = f"Tabulation: {row} × {col}"
 
     return _format_tab(ct_display, test_result, output, title)
 
@@ -116,49 +117,55 @@ def _one_way_tab(data: Any, var: str, output: str, title: Optional[str]) -> Any:
     counts = data[var].value_counts().sort_index()
     pcts = data[var].value_counts(normalize=True).sort_index()
 
-    df = pd.DataFrame({
-        'Freq': counts,
-        'Percent': pcts.map(lambda x: f'{x:.1%}'),
-        'Cum.': pcts.cumsum().map(lambda x: f'{x:.1%}'),
-    })
-    df.loc['Total'] = [int(counts.sum()), '100.0%', '100.0%']
+    df = pd.DataFrame(
+        {
+            "Freq": counts,
+            "Percent": pcts.map(lambda x: f"{x:.1%}"),
+            "Cum.": pcts.cumsum().map(lambda x: f"{x:.1%}"),
+        }
+    )
+    df.loc["Total"] = [int(counts.sum()), "100.0%", "100.0%"]
 
     if title is None:
-        title = f'Tabulation: {var}'
+        title = f"Tabulation: {var}"
 
     return _format_tab(df, None, output, title)
 
 
 def _format_tab(df: Any, test_result: Any, output: str, title: Optional[str]) -> Any:
     """Route to output format."""
-    if output == 'dataframe':
+    if output == "dataframe":
         return df
 
-    if output.endswith('.xlsx'):
+    if output.endswith(".xlsx"):
         _tab_to_excel(df, test_result, output, title)
         return f"Exported to: {output}"
-    elif output.endswith('.docx'):
+    elif output.endswith(".docx"):
         _tab_to_word(df, test_result, output, title)
         return f"Exported to: {output}"
-    elif output == 'latex':
+    elif output == "latex":
         return _tab_to_latex(df, test_result, title)
 
     # Default: text
     lines = []
     if title:
         lines.append(title)
-    lines.append('=' * 60)
+    lines.append("=" * 60)
     lines.append(df.to_string())
-    lines.append('=' * 60)
+    lines.append("=" * 60)
 
     if test_result:
-        lines.append(f"  Pearson chi2({test_result['df']}) = "
-                      f"{test_result['chi2']:.4f}   Pr = {test_result['pvalue']:.4f}")
-        if 'fisher_pvalue' in test_result:
-            lines.append(f"  Fisher's exact                     "
-                          f"Pr = {test_result['fisher_pvalue']:.4f}")
+        lines.append(
+            f"  Pearson chi2({test_result['df']}) = "
+            f"{test_result['chi2']:.4f}   Pr = {test_result['pvalue']:.4f}"
+        )
+        if "fisher_pvalue" in test_result:
+            lines.append(
+                f"  Fisher's exact                     "
+                f"Pr = {test_result['fisher_pvalue']:.4f}"
+            )
 
-    return '\n'.join(lines)
+    return "\n".join(lines)
 
 
 def _tab_to_latex(df: Any, test_result: Any, title: Optional[str]) -> str:
@@ -168,7 +175,9 @@ def _tab_to_latex(df: Any, test_result: Any, title: Optional[str]) -> str:
     return str(latex)
 
 
-def _tab_to_excel(df: Any, test_result: Any, filename: str, title: Optional[str]) -> Any:
+def _tab_to_excel(
+    df: Any, test_result: Any, filename: str, title: Optional[str]
+) -> Any:
     """Cross-tabulation -> book-tab xlsx.
 
     Layout follows the shared three-line convention. The chi-square /
@@ -263,7 +272,7 @@ def _tab_to_word(df: Any, test_result: Any, filename: str, title: Optional[str])
     table.autofit = True
 
     # Header
-    table.rows[0].cells[0].text = ''
+    table.rows[0].cells[0].text = ""
     for j, col in enumerate(df.columns, 1):
         table.rows[0].cells[j].text = str(col)
     # Data
@@ -273,9 +282,12 @@ def _tab_to_word(df: Any, test_result: Any, filename: str, title: Optional[str])
             table.rows[i + 1].cells[j].text = str(val)
 
     style_word_table_typography(
-        table, header_rows=(0,),
-        header_pt=10, body_pt=9,
-        align_first_col="left", align_data_cols="center",
+        table,
+        header_rows=(0,),
+        header_pt=10,
+        body_pt=9,
+        align_first_col="left",
+        align_data_cols="center",
     )
     apply_word_booktab_rules(table, header_top_idx=0, header_bot_idx=0)
 

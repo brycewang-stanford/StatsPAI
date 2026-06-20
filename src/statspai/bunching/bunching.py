@@ -25,17 +25,17 @@ Chetty, R., Friedman, J. N., Olsen, T., & Pistaferri, L. (2011).
 Elasticities." QJE, 126(2), 749-804. [@chetty2011adjustment]
 """
 
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def bunching(
     data: pd.DataFrame,
@@ -47,7 +47,7 @@ def bunching(
     bunch_region: Optional[Tuple[float, float]] = None,
     exclude_region: Optional[Tuple[float, float]] = None,
     dt: Optional[float] = None,
-    design: str = 'kink',
+    design: str = "kink",
     n_bootstrap: int = 200,
     alpha: float = 0.05,
     random_state: int = 42,
@@ -102,11 +102,19 @@ def bunching(
     >>> print(result.summary())
     """
     est = BunchingEstimator(
-        data=data, running_var=running_var, threshold=threshold,
-        bin_width=bin_width, n_bins=n_bins, poly_order=poly_order,
-        bunch_region=bunch_region, exclude_region=exclude_region,
-        dt=dt, design=design, n_bootstrap=n_bootstrap,
-        alpha=alpha, random_state=random_state,
+        data=data,
+        running_var=running_var,
+        threshold=threshold,
+        bin_width=bin_width,
+        n_bins=n_bins,
+        poly_order=poly_order,
+        bunch_region=bunch_region,
+        exclude_region=exclude_region,
+        dt=dt,
+        design=design,
+        n_bootstrap=n_bootstrap,
+        alpha=alpha,
+        random_state=random_state,
     )
     return est.fit()
 
@@ -114,6 +122,7 @@ def bunching(
 # ======================================================================
 # BunchingEstimator class
 # ======================================================================
+
 
 class BunchingEstimator:
     """
@@ -165,7 +174,7 @@ class BunchingEstimator:
         bunch_region: Optional[Tuple[float, float]] = None,
         exclude_region: Optional[Tuple[float, float]] = None,
         dt: Optional[float] = None,
-        design: str = 'kink',
+        design: str = "kink",
         n_bootstrap: int = 200,
         alpha: float = 0.05,
         random_state: int = 42,
@@ -246,12 +255,12 @@ class BunchingEstimator:
         # Elasticity (for kink design)
         elasticity = None
         if self.dt is not None and self.dt > 0:
-            if self.design == 'kink':
+            if self.design == "kink":
                 # e = B / (z* * dt / (1 + dt))
                 dz_star = self.threshold * self.dt / (1 + self.dt)
                 if dz_star > 0:
                     elasticity = B_normalised * self.bin_width / dz_star
-            elif self.design == 'notch':
+            elif self.design == "notch":
                 elasticity = B_normalised  # simplified
 
         # Bootstrap SE
@@ -283,32 +292,34 @@ class BunchingEstimator:
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
         ci = (B_normalised - z_crit * se, B_normalised + z_crit * se)
 
-        detail = pd.DataFrame({
-            'bin_center': bin_centers,
-            'observed': counts,
-            'counterfactual': counterfactual,
-            'excess': counts - counterfactual,
-            'in_bunching_region': in_bunch,
-        })
+        detail = pd.DataFrame(
+            {
+                "bin_center": bin_centers,
+                "observed": counts,
+                "counterfactual": counterfactual,
+                "excess": counts - counterfactual,
+                "in_bunching_region": in_bunch,
+            }
+        )
 
         model_info = {
-            'threshold': self.threshold,
-            'bin_width': self.bin_width,
-            'bunch_region': (bl, bu),
-            'excess_mass_raw': float(excess),
-            'excess_mass_normalised': float(B_normalised),
-            'counterfactual_at_threshold': float(cf_at_threshold),
-            'poly_order': self.poly_order,
-            'design': self.design,
-            'dt': self.dt,
+            "threshold": self.threshold,
+            "bin_width": self.bin_width,
+            "bunch_region": (bl, bu),
+            "excess_mass_raw": float(excess),
+            "excess_mass_normalised": float(B_normalised),
+            "counterfactual_at_threshold": float(cf_at_threshold),
+            "poly_order": self.poly_order,
+            "design": self.design,
+            "dt": self.dt,
         }
 
         if elasticity is not None:
-            model_info['elasticity'] = float(elasticity)
+            model_info["elasticity"] = float(elasticity)
 
         return CausalResult(
-            method=f'Bunching Estimator ({self.design.title()} Design)',
-            estimand='Excess Mass (Normalised)',
+            method=f"Bunching Estimator ({self.design.title()} Design)",
+            estimand="Excess Mass (Normalised)",
             estimate=float(B_normalised),
             se=se,
             pvalue=pvalue,
@@ -317,7 +328,7 @@ class BunchingEstimator:
             n_obs=n,
             detail=detail,
             model_info=model_info,
-            _citation_key='bunching',
+            _citation_key="bunching",
         )
 
 
@@ -325,7 +336,7 @@ class BunchingEstimator:
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['bunching'] = (
+CausalResult._CITATIONS["bunching"] = (
     "@article{kleven2013using,\n"
     "  title={Using Notches to Uncover Optimization Frictions and "
     "Structural Elasticities: Theory and Evidence from Pakistan},\n"

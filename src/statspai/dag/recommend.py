@@ -18,7 +18,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, List, Optional, Sequence, Set
 
-
 __all__ = ["EstimatorRecommendation", "recommend_estimator"]
 
 
@@ -49,9 +48,7 @@ class EstimatorRecommendation:
         if self.instrument:
             lines.append(f"  Instrument            : {self.instrument}")
         if self.mediators:
-            lines.append(
-                f"  Mediators on path     : {', '.join(self.mediators)}"
-            )
+            lines.append(f"  Mediators on path     : {', '.join(self.mediators)}")
         if self.alternatives:
             lines.append("  Alternatives          :")
             for alt in self.alternatives:
@@ -134,28 +131,26 @@ def recommend_estimator(
             alternatives=[
                 f"sp.ipw(treat='{exposure}', outcome='{outcome}', "
                 f"covariates={sorted(s)!r})",
-                (
-                    "sp.aipw(...): doubly-robust combination of IPW + "
-                    "outcome model"
-                ),
+                ("sp.aipw(...): doubly-robust combination of IPW + " "outcome model"),
                 (
                     f"sp.match(..., covariates={sorted(s)!r}): "
                     "propensity-score matching"
                 ),
-            ] + alternatives,
+            ]
+            + alternatives,
         )
 
     # No adjustment set found — try IV
     iv_candidate = _find_instrument(
-        dag, exposure, outcome, candidate_instruments,
+        dag,
+        exposure,
+        outcome,
+        candidate_instruments,
     )
     if iv_candidate is not None:
         return EstimatorRecommendation(
             estimator="iv",
-            sp_call=(
-                f"sp.iv('{outcome} ~ [{exposure} ~ {iv_candidate}]', "
-                "data=df)"
-            ),
+            sp_call=(f"sp.iv('{outcome} ~ [{exposure} ~ {iv_candidate}]', " "data=df)"),
             identification=(
                 f"Unobserved confounding blocks backdoor adjustment, but "
                 f"{iv_candidate} satisfies the exclusion restriction "
@@ -171,7 +166,8 @@ def recommend_estimator(
                     f"sp.bartik(...): shift-share IV if {iv_candidate} "
                     "is a shift-share"
                 ),
-            ] + alternatives,
+            ]
+            + alternatives,
         )
 
     # Fall back to front-door if available
@@ -201,20 +197,16 @@ def recommend_estimator(
     )
     return EstimatorRecommendation(
         estimator="identify",
-        sp_call=(
-            f"sp.dag.identify(dag, '{exposure}', '{outcome}')  # to see why"
-        ),
+        sp_call=(f"sp.dag.identify(dag, '{exposure}', '{outcome}')  # to see why"),
         identification="Not identifiable under the declared DAG.",
         adjustment_set=None,
         mediators=mediators,
         alternatives=[
             "sp.proximal(...): use proxies for unmeasured confounding",
-            (
-                "sp.lee_bounds(...) / sp.manski_bounds(...): partial "
-                "identification"
-            ),
+            ("sp.lee_bounds(...) / sp.manski_bounds(...): partial " "identification"),
             "sp.sensemakr(...): sensitivity to unobserved confounding",
-        ] + alternatives,
+        ]
+        + alternatives,
         warnings=warnings,
     )
 
@@ -247,10 +239,7 @@ def _find_instrument(
     This is a heuristic IV finder — not a full identification check.
     """
     if candidates is None:
-        candidates = [
-            n for n in dag.observed_nodes
-            if n not in (exposure, outcome)
-        ]
+        candidates = [n for n in dag.observed_nodes if n not in (exposure, outcome)]
 
     desc_x = dag.descendants(exposure)
     for z in candidates:
@@ -275,9 +264,9 @@ def _frontdoor_set(
     mediators: Sequence[str],
 ) -> Set[str]:
     """Identify a frontdoor set: mediators such that
-      - all directed paths X -> Y pass through them,
-      - they have no unblocked backdoor to Y,
-      - no backdoor from X to them.
+    - all directed paths X -> Y pass through them,
+    - they have no unblocked backdoor to Y,
+    - no backdoor from X to them.
     """
     if not mediators:
         return set()

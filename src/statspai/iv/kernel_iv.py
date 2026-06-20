@@ -44,8 +44,9 @@ class KernelIVResult:
     >>> res.h_hat.shape  # structural function on a 30-point grid
     (30,)
     """
-    grid: np.ndarray            # (n_grid,) treatment values
-    h_hat: np.ndarray           # (n_grid,) structural function estimate
+
+    grid: np.ndarray  # (n_grid,) treatment values
+    h_hat: np.ndarray  # (n_grid,) structural function estimate
     ci_low: np.ndarray
     ci_high: np.ndarray
     bandwidth: float
@@ -59,8 +60,7 @@ class KernelIVResult:
             "  d        h(d)     95% UCB",
         ]
         for d, h, lo, hi in zip(
-            self.grid[:5], self.h_hat[:5],
-            self.ci_low[:5], self.ci_high[:5]
+            self.grid[:5], self.h_hat[:5], self.ci_low[:5], self.ci_high[:5]
         ):
             rows.append(f"  {d:+.3f}  {h:+.4f}   [{lo:+.4f}, {hi:+.4f}]")
         if len(self.grid) > 5:
@@ -134,8 +134,7 @@ def kernel_iv(
     if bandwidth is None:
         bandwidth = float(1.06 * Y.std(ddof=1) * n ** (-1 / 5))
     if grid is None:
-        grid = np.linspace(np.quantile(D, 0.05),
-                            np.quantile(D, 0.95), 30)
+        grid = np.linspace(np.quantile(D, 0.05), np.quantile(D, 0.95), 30)
     rng = np.random.default_rng(seed)
 
     def _fit(Yi: Any, Di: Any, Zi: Any) -> np.ndarray:
@@ -171,10 +170,10 @@ def kernel_iv(
     sd = np.nanstd(boot, axis=0, ddof=1)
     sd = np.where(np.isfinite(sd) & (sd > 0), sd, 1e-6)
     # Sup-norm critical value across grid
-    sup_band = np.nanquantile(np.nanmax(np.abs(boot - h_hat) / sd, axis=1),
-                               1 - alpha)
+    sup_band = np.nanquantile(np.nanmax(np.abs(boot - h_hat) / sd, axis=1), 1 - alpha)
     if not np.isfinite(sup_band):
         from scipy import stats
+
         sup_band = stats.norm.ppf(1 - alpha / 2)
     ci_low = h_hat - sup_band * sd
     ci_high = h_hat + sup_band * sd
@@ -189,15 +188,19 @@ def kernel_iv(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.kernel_iv",
             params={
-                "y": y, "treat": treat, "instrument": instrument,
+                "y": y,
+                "treat": treat,
+                "instrument": instrument,
                 "bandwidth": bandwidth,
                 "ridge": ridge,
                 "alpha": alpha,
-                "n_boot": n_boot, "seed": seed,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

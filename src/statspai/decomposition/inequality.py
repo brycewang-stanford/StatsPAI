@@ -27,29 +27,19 @@ Lerman, R. & Yitzhaki, S. (1985). "Income Inequality Effects by Income
 Source: A New Approach and Applications to the United States." *Review
 of Economics and Statistics*, 67, 151-156. [@lerman1985income]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from itertools import combinations
 from math import factorial
-from typing import (
-    Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union,
-)
+from typing import Any, ClassVar, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 from ._results import DecompResultMixin
-from ._common import (
-    add_constant,
-    bootstrap_ci,
-    prepare_frame,
-    statistic_value,
-    weighted_gini,
-    weighted_quantile,
-    wls,
-)
-
+from ._common import add_constant, prepare_frame, statistic_value, weighted_gini, wls
 
 # ════════════════════════════════════════════════════════════════════════
 # Inequality indices
@@ -59,6 +49,7 @@ from ._common import (
 # We keep local wrappers for the cases ``_common`` does not cover:
 # general GE(α), general Atkinson(ε≠1), and the half-squared CV (GE(2)).
 # ════════════════════════════════════════════════════════════════════════
+
 
 def _theil_t(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
     y = np.asarray(y, dtype=float)
@@ -74,8 +65,7 @@ def _theil_l(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
     return statistic_value(y, np.asarray(w, dtype=float), "theil_l")
 
 
-def _ge_index(y: np.ndarray, alpha: float,
-              w: Optional[np.ndarray] = None) -> float:
+def _ge_index(y: np.ndarray, alpha: float, w: Optional[np.ndarray] = None) -> float:
     """Generalised entropy GE(α)."""
     y = np.clip(y, 1e-12, None)
     if w is None:
@@ -89,8 +79,7 @@ def _ge_index(y: np.ndarray, alpha: float,
     return float(c * (np.average((y / mu) ** alpha, weights=w) - 1))
 
 
-def _atkinson(y: np.ndarray, eps: float = 1.0,
-              w: Optional[np.ndarray] = None) -> float:
+def _atkinson(y: np.ndarray, eps: float = 1.0, w: Optional[np.ndarray] = None) -> float:
     """Atkinson index for inequality aversion ε."""
     y = np.asarray(y, dtype=float)
     if w is None:
@@ -103,7 +92,7 @@ def _atkinson(y: np.ndarray, eps: float = 1.0,
     y = np.clip(y, 1e-12, None)
     mu = float(np.average(y, weights=w))
     p = 1.0 - eps
-    val = float(np.average(y ** p, weights=w))
+    val = float(np.average(y**p, weights=w))
     return float(1.0 - (val ** (1.0 / p)) / mu)
 
 
@@ -115,14 +104,13 @@ def _gini(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
     return weighted_gini(y, np.asarray(w, dtype=float))
 
 
-def _cv_squared_half(y: np.ndarray,
-                     w: Optional[np.ndarray] = None) -> float:
+def _cv_squared_half(y: np.ndarray, w: Optional[np.ndarray] = None) -> float:
     """Half squared coefficient of variation (GE(2))."""
     if w is None:
         w = np.ones_like(y)
     mu = float(np.average(y, weights=w))
     var = float(np.average((y - mu) ** 2, weights=w))
-    return float(0.5 * var / (mu ** 2))
+    return float(0.5 * var / (mu**2))
 
 
 _INDEX_FN = {
@@ -186,6 +174,7 @@ def inequality_index(
 # Subgroup decomposition
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class SubgroupDecompResult(DecompResultMixin):
     method_name: ClassVar[str] = "Inequality Subgroup Decomposition"
@@ -196,7 +185,7 @@ class SubgroupDecompResult(DecompResultMixin):
     between: float
     within: float
     overlap: Optional[float]
-    per_group: pd.DataFrame     # group_id, n, weight, mean, index_value, contribution
+    per_group: pd.DataFrame  # group_id, n, weight, mean, index_value, contribution
 
     def summary(self) -> str:
         lines = [
@@ -221,6 +210,7 @@ class SubgroupDecompResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import inequality_subgroup_plot
+
         return inequality_subgroup_plot(self, **kwargs)
 
     def to_latex(self) -> str:
@@ -228,13 +218,17 @@ class SubgroupDecompResult(DecompResultMixin):
         return latex
 
     def _repr_html_(self) -> str:
-        return (f"<div><h3>Inequality Subgroup — {self.index}</h3>"
-                f"<p>Total={self.total:.4f}, Between={self.between:.4f}, "
-                f"Within={self.within:.4f}</p></div>")
+        return (
+            f"<div><h3>Inequality Subgroup — {self.index}</h3>"
+            f"<p>Total={self.total:.4f}, Between={self.between:.4f}, "
+            f"Within={self.within:.4f}</p></div>"
+        )
 
     def __repr__(self) -> str:
-        return (f"SubgroupDecompResult(index={self.index}, total={self.total:.4f}, "
-                f"between={self.between:.4f}, within={self.within:.4f})")
+        return (
+            f"SubgroupDecompResult(index={self.index}, total={self.total:.4f}, "
+            f"between={self.between:.4f}, within={self.within:.4f})"
+        )
 
 
 def subgroup_decompose(
@@ -284,8 +278,7 @@ def subgroup_decompose(
     groups = df[by].to_numpy()
     unique_g = np.unique(groups)
 
-    total = inequality_index(y_vec, index=index, weights=w,
-                             eps=eps, alpha=alpha)
+    total = inequality_index(y_vec, index=index, weights=w, eps=eps, alpha=alpha)
 
     if index == "gini":
         return _gini_subgroup(y_vec, w, groups, total)
@@ -303,34 +296,45 @@ def subgroup_decompose(
         share_w = W_g / W_pool
         mu_g = float(np.average(y_g, weights=w_g))
         share_y = (W_g * mu_g) / (W_pool * mu_pool) if mu_pool != 0 else 0.0
-        idx_g = inequality_index(y_g, index=index, weights=w_g,
-                                 eps=eps, alpha=alpha)
+        idx_g = inequality_index(y_g, index=index, weights=w_g, eps=eps, alpha=alpha)
         if index in ("theil_t", "ge1"):
             contrib = share_y * idx_g
         elif index in ("theil_l", "mld", "ge0"):
             contrib = share_w * idx_g
         elif index == "ge2" or index == "cv2":
-            contrib = (share_y ** 2 / share_w) * idx_g if share_w > 0 else 0.0
+            contrib = (share_y**2 / share_w) * idx_g if share_w > 0 else 0.0
         else:
             # General fallback
             contrib = share_w * idx_g
         within += contrib
-        per_rows.append({
-            "group": gi, "n": int(mask.sum()), "weight": W_g,
-            "mean": mu_g, f"{index}_group": idx_g, "contribution": contrib,
-        })
+        per_rows.append(
+            {
+                "group": gi,
+                "n": int(mask.sum()),
+                "weight": W_g,
+                "mean": mu_g,
+                f"{index}_group": idx_g,
+                "contribution": contrib,
+            }
+        )
     between = total - within
     per_group = pd.DataFrame(per_rows)
 
     return SubgroupDecompResult(
-        index=index, total=float(total), between=float(between),
-        within=float(within), overlap=None, per_group=per_group,
+        index=index,
+        total=float(total),
+        between=float(between),
+        within=float(within),
+        overlap=None,
+        per_group=per_group,
     )
 
 
 def _weighted_pairwise_mad(
-    y_h: np.ndarray, w_h: np.ndarray,
-    y_k: np.ndarray, w_k: np.ndarray,
+    y_h: np.ndarray,
+    w_h: np.ndarray,
+    y_k: np.ndarray,
+    w_k: np.ndarray,
 ) -> float:
     """
     Weighted mean absolute difference E_{w_h, w_k}[|Y_h − Y_k|].
@@ -352,7 +356,7 @@ def _weighted_pairwise_mad(
     order_k = np.argsort(y_k)
     y_k_s = y_k[order_k]
     w_k_s = w_k[order_k]
-    F_k = np.cumsum(w_k_s) / W_k   # weighted ECDF at each y_k_s
+    F_k = np.cumsum(w_k_s) / W_k  # weighted ECDF at each y_k_s
     # For each y_h[i], find F_Y(y_h[i]) = weighted share of y_k ≤ y_h[i]
     idx_h = np.searchsorted(y_k_s, y_h, side="right") - 1
     F_k_at_h = np.where(idx_h < 0, 0.0, F_k[np.clip(idx_h, 0, len(F_k) - 1)])
@@ -387,22 +391,29 @@ def _gini_subgroup(
         W_g = w_g.sum()
         mu_g = float(np.average(y_g, weights=w_g))
         G_g = _gini(y_g, w_g)
-        per_rows.append({
-            "group": gi, "n": int(mask.sum()), "weight": W_g,
-            "mean": mu_g, "gini_group": G_g,
-            "contribution": (
-                (W_g / W) * (W_g * mu_g / (W * mu)) * G_g if mu > 0 else 0.0
-            ),
-        })
+        per_rows.append(
+            {
+                "group": gi,
+                "n": int(mask.sum()),
+                "weight": W_g,
+                "mean": mu_g,
+                "gini_group": G_g,
+                "contribution": (
+                    (W_g / W) * (W_g * mu_g / (W * mu)) * G_g if mu > 0 else 0.0
+                ),
+            }
+        )
     per_group = pd.DataFrame(per_rows)
 
     # Dagum's Gini_W = Σ_h (W_h/W)(W_h μ_h / (W μ)) G_h
     within = 0.0
     for _, row in per_group.iterrows():
         if mu > 0:
-            within += (row["weight"] / W) \
-                      * (row["weight"] * row["mean"] / (W * mu)) \
-                      * row["gini_group"]
+            within += (
+                (row["weight"] / W)
+                * (row["weight"] * row["mean"] / (W * mu))
+                * row["gini_group"]
+            )
 
     # Dagum's Gross between:
     #   G_B = Σ_{h≠k} (W_h/W)(W_k/W) D_hk / (μ_h + μ_k)
@@ -411,7 +422,7 @@ def _gini_subgroup(
     between_gross = 0.0
     g_list = list(unique_g)
     for i_h, h in enumerate(g_list):
-        for k in g_list[i_h + 1:]:
+        for k in g_list[i_h + 1 :]:
             mask_h = groups == h
             mask_k = groups == k
             y_h_arr, w_h_arr = y[mask_h], w[mask_h]
@@ -430,8 +441,12 @@ def _gini_subgroup(
     overlap = total - within - between_gross
 
     return SubgroupDecompResult(
-        index="gini", total=float(total), between=float(between_gross),
-        within=float(within), overlap=float(overlap), per_group=per_group,
+        index="gini",
+        total=float(total),
+        between=float(between_gross),
+        within=float(within),
+        overlap=float(overlap),
+        per_group=per_group,
     )
 
 
@@ -439,15 +454,14 @@ def _gini_subgroup(
 # Lerman-Yitzhaki source decomposition (Gini)
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class SourceDecompResult(DecompResultMixin):
-    method_name: ClassVar[str] = (
-        "Gini Source Decomposition (Lerman-Yitzhaki)"
-    )
+    method_name: ClassVar[str] = "Gini Source Decomposition (Lerman-Yitzhaki)"
     bib_keys: ClassVar[Tuple[str, ...]] = ("lerman1985income",)
 
     total_gini: float
-    sources: pd.DataFrame   # source, share, R, G, contribution
+    sources: pd.DataFrame  # source, share, R, G, contribution
 
     def summary(self) -> str:
         lines = [
@@ -465,17 +479,22 @@ class SourceDecompResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
+
         return detailed_waterfall(
-            self.sources, value_col="contribution",
+            self.sources,
+            value_col="contribution",
             label_col="source",
-            title="Gini Source Decomposition", **kwargs,
+            title="Gini Source Decomposition",
+            **kwargs,
         )
 
     def to_latex(self) -> str:
         lines = [
-            r"\begin{table}[htbp]", r"\centering",
+            r"\begin{table}[htbp]",
+            r"\centering",
             r"\caption{Gini Source Decomposition (Lerman-Yitzhaki 1985)}",
-            r"\begin{tabular}{lcccc}", r"\toprule",
+            r"\begin{tabular}{lcccc}",
+            r"\toprule",
             r"Source & Share & $G_k$ & Gini corr. & Contribution \\",
             r"\midrule",
         ]
@@ -485,9 +504,15 @@ class SourceDecompResult(DecompResultMixin):
                 f"{row['gini_k']:.4f} & {row['gini_corr']:.4f} & "
                 f"{row['contribution']:.4f} \\\\"
             )
-        lines.extend([r"\midrule",
-                      f"Total & 1.0000 & & & {self.total_gini:.4f} \\\\",
-                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+        lines.extend(
+            [
+                r"\midrule",
+                f"Total & 1.0000 & & & {self.total_gini:.4f} \\\\",
+                r"\bottomrule",
+                r"\end{tabular}",
+                r"\end{table}",
+            ]
+        )
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
@@ -495,13 +520,14 @@ class SourceDecompResult(DecompResultMixin):
         return (
             "<div style='font-family:monospace;'>"
             "<h3>Gini Source Decomposition</h3>"
-            f"<p>Total Gini = {self.total_gini:.4f}</p>"
-            + html + "</div>"
+            f"<p>Total Gini = {self.total_gini:.4f}</p>" + html + "</div>"
         )
 
     def __repr__(self) -> str:
-        return f"SourceDecompResult(gini={self.total_gini:.4f}, "\
-               f"n_sources={len(self.sources)})"
+        return (
+            f"SourceDecompResult(gini={self.total_gini:.4f}, "
+            f"n_sources={len(self.sources)})"
+        )
 
 
 def source_decompose(
@@ -567,11 +593,16 @@ def source_decompose(
         R = cov_total / cov_own if cov_own != 0 else 0.0
         contrib = share * R * G_s
         total_contrib += contrib
-        rows.append({
-            "source": s, "share": share, "gini_k": G_s,
-            "gini_corr": R, "contribution": contrib,
-            "pct_of_gini": contrib / G_total * 100 if G_total != 0 else 0.0,
-        })
+        rows.append(
+            {
+                "source": s,
+                "share": share,
+                "gini_k": G_s,
+                "gini_corr": R,
+                "contribution": contrib,
+                "pct_of_gini": contrib / G_total * 100 if G_total != 0 else 0.0,
+            }
+        )
 
     return SourceDecompResult(
         total_gini=float(G_total),
@@ -583,16 +614,15 @@ def source_decompose(
 # Shapley decomposition (Shorrocks 2013)
 # ════════════════════════════════════════════════════════════════════════
 
+
 @dataclass
 class ShapleyInequalityResult(DecompResultMixin):
-    method_name: ClassVar[str] = (
-        "Shapley/Shorrocks Inequality Decomposition"
-    )
+    method_name: ClassVar[str] = "Shapley/Shorrocks Inequality Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = ("shorrocks2013decomposition",)
 
     index: str
     total: float
-    shapley: pd.DataFrame     # variable, contribution, pct
+    shapley: pd.DataFrame  # variable, contribution, pct
 
     def summary(self) -> str:
         lines = [
@@ -610,24 +640,35 @@ class ShapleyInequalityResult(DecompResultMixin):
 
     def plot(self, **kwargs: Any) -> Any:
         from .plots import detailed_waterfall
-        return detailed_waterfall(self.shapley, value_col="contribution",
-                                  label_col="variable", **kwargs)
+
+        return detailed_waterfall(
+            self.shapley, value_col="contribution", label_col="variable", **kwargs
+        )
 
     def to_latex(self) -> str:
         lines = [
-            r"\begin{table}[htbp]", r"\centering",
+            r"\begin{table}[htbp]",
+            r"\centering",
             f"\\caption{{Shapley Inequality Decomposition — {self.index}}}",
-            r"\begin{tabular}{lcc}", r"\toprule",
-            r"Variable & Contribution & \% of total \\", r"\midrule",
+            r"\begin{tabular}{lcc}",
+            r"\toprule",
+            r"Variable & Contribution & \% of total \\",
+            r"\midrule",
         ]
         for _, row in self.shapley.iterrows():
             lines.append(
                 f"{row['variable']} & {row['contribution']:.4f} & "
                 f"{row['pct_of_total']:.1f}\\% \\\\"
             )
-        lines.extend([r"\midrule",
-                      f"Total ({self.index}) & {self.total:.4f} & 100.0\\% \\\\",
-                      r"\bottomrule", r"\end{tabular}", r"\end{table}"])
+        lines.extend(
+            [
+                r"\midrule",
+                f"Total ({self.index}) & {self.total:.4f} & 100.0\\% \\\\",
+                r"\bottomrule",
+                r"\end{tabular}",
+                r"\end{table}",
+            ]
+        )
         return "\n".join(lines)
 
     def _repr_html_(self) -> str:
@@ -635,13 +676,13 @@ class ShapleyInequalityResult(DecompResultMixin):
         return (
             "<div style='font-family:monospace;'>"
             f"<h3>Shapley Inequality — {self.index}</h3>"
-            f"<p>Total = {self.total:.4f}</p>"
-            + html + "</div>"
+            f"<p>Total = {self.total:.4f}</p>" + html + "</div>"
         )
 
     def __repr__(self) -> str:
-        return f"ShapleyInequalityResult(index={self.index}, "\
-               f"total={self.total:.4f})"
+        return (
+            f"ShapleyInequalityResult(index={self.index}, " f"total={self.total:.4f})"
+        )
 
 
 def shapley_inequality(
@@ -721,13 +762,14 @@ def shapley_inequality(
                     continue
                 s_with_j = tuple(sorted(s + (j,)))
                 marg = v[s_with_j] - v[s]
-                weight = (factorial(len(s)) * factorial(k - len(s) - 1)
-                          / factorial(k))
+                weight = factorial(len(s)) * factorial(k - len(s) - 1) / factorial(k)
                 contributions[j] += weight * marg
     else:
         import warnings
-        warnings.warn(f"|x|={k} > 10; using 500 random permutations for "
-                      "Shapley approximation.")
+
+        warnings.warn(
+            f"|x|={k} > 10; using 500 random permutations for " "Shapley approximation."
+        )
         rng = np.random.default_rng(12345)
         contributions = np.zeros(k)
         for _ in range(500):
@@ -741,10 +783,15 @@ def shapley_inequality(
                 v_prev = v_new
         contributions /= 500.0
 
-    df_sh = pd.DataFrame({
-        "variable": list(x),
-        "contribution": contributions,
-        "pct_of_total": contributions / I_total * 100
-        if I_total != 0 else np.zeros_like(contributions),
-    })
+    df_sh = pd.DataFrame(
+        {
+            "variable": list(x),
+            "contribution": contributions,
+            "pct_of_total": (
+                contributions / I_total * 100
+                if I_total != 0
+                else np.zeros_like(contributions)
+            ),
+        }
+    )
     return ShapleyInequalityResult(index=index, total=I_total, shapley=df_sh)

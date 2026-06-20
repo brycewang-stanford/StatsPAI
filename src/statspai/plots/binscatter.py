@@ -44,7 +44,7 @@ def binscatter(
     n_bins: Optional[int] = None,
     ci: bool = False,
     ci_level: float = 0.95,
-    fit: str = 'linear',
+    fit: str = "linear",
     fit_on_raw: bool = False,
     by: Optional[str] = None,
     weights: Optional[str] = None,
@@ -183,8 +183,7 @@ def binscatter(
         import matplotlib.pyplot as plt
     except ImportError:
         raise ImportError(
-            "matplotlib and scipy required. "
-            "Install: pip install matplotlib scipy"
+            "matplotlib and scipy required. " "Install: pip install matplotlib scipy"
         )
 
     # --- Validate inputs ---
@@ -215,10 +214,18 @@ def binscatter(
 
     # --- Defaults for colors/markers ---
     if colors is None:
-        colors = ['#2C3E50', '#E74C3C', '#3498DB', '#2ECC71',
-                  '#9B59B6', '#F39C12', '#1ABC9C', '#E67E22']
+        colors = [
+            "#2C3E50",
+            "#E74C3C",
+            "#3498DB",
+            "#2ECC71",
+            "#9B59B6",
+            "#F39C12",
+            "#1ABC9C",
+            "#E67E22",
+        ]
     if markers is None:
-        markers = ['o', 's', '^', 'D', 'v', 'P', 'X', '*']
+        markers = ["o", "s", "^", "D", "v", "P", "X", "*"]
 
     # --- Determine groups ---
     if by is not None:
@@ -266,51 +273,68 @@ def binscatter(
         X_plot = X_resid - X_resid.mean() + X_raw.mean()
 
         # --- Step 3: Bin ---
-        bin_df = _compute_bins(X_plot, Y_plot, n_bins, quantiles, W,
-                               ci, ci_level)
+        bin_df = _compute_bins(X_plot, Y_plot, n_bins, quantiles, W, ci, ci_level)
 
         if group_val is not None:
-            bin_df['group'] = group_val
+            bin_df["group"] = group_val
         all_bin_data.append(bin_df)
 
         # --- Step 4: Plot scatter ---
         color = colors[g_idx % len(colors)]
         marker = markers[g_idx % len(markers)]
-        skw = dict(s=50, zorder=5, alpha=0.85, edgecolors='white',
-                   linewidths=0.5)
+        skw = dict(s=50, zorder=5, alpha=0.85, edgecolors="white", linewidths=0.5)
         if scatter_kw:
             skw.update(scatter_kw)
 
-        ax.scatter(bin_df['x_mean'], bin_df['y_mean'],
-                   color=color, marker=marker, label=label, **skw)
+        ax.scatter(
+            bin_df["x_mean"],
+            bin_df["y_mean"],
+            color=color,
+            marker=marker,
+            label=label,
+            **skw,
+        )
 
         # CI error bars
-        if ci and 'ci_lower' in bin_df.columns:
+        if ci and "ci_lower" in bin_df.columns:
             ax.errorbar(
-                bin_df['x_mean'], bin_df['y_mean'],
-                yerr=[bin_df['y_mean'] - bin_df['ci_lower'],
-                      bin_df['ci_upper'] - bin_df['y_mean']],
-                fmt='none', color=color, capsize=2, linewidth=0.8,
-                alpha=0.6, zorder=3,
+                bin_df["x_mean"],
+                bin_df["y_mean"],
+                yerr=[
+                    bin_df["y_mean"] - bin_df["ci_lower"],
+                    bin_df["ci_upper"] - bin_df["y_mean"],
+                ],
+                fmt="none",
+                color=color,
+                capsize=2,
+                linewidth=0.8,
+                alpha=0.6,
+                zorder=3,
             )
 
         # --- Step 5: Overlay fit line ---
-        if fit != 'none':
-            fit_order = {'linear': 1, 'quadratic': 2, 'cubic': 3,
-                         'poly4': 4}.get(fit, 1)
+        if fit != "none":
+            fit_order = {"linear": 1, "quadratic": 2, "cubic": 3, "poly4": 4}.get(
+                fit, 1
+            )
 
             if fit_on_raw:
                 x_fit_data = X_plot
                 y_fit_data = Y_plot
             else:
-                x_fit_data = bin_df['x_mean'].values
-                y_fit_data = bin_df['y_mean'].values
+                x_fit_data = bin_df["x_mean"].values
+                y_fit_data = bin_df["y_mean"].values
 
             if len(x_fit_data) > fit_order:
-                coeffs = np.polyfit(x_fit_data, y_fit_data, fit_order,
-                                    w=np.sqrt(bin_df['n'].values) if not fit_on_raw else None)
-                x_grid = np.linspace(bin_df['x_mean'].min(),
-                                     bin_df['x_mean'].max(), 200)
+                coeffs = np.polyfit(
+                    x_fit_data,
+                    y_fit_data,
+                    fit_order,
+                    w=np.sqrt(bin_df["n"].values) if not fit_on_raw else None,
+                )
+                x_grid = np.linspace(
+                    bin_df["x_mean"].min(), bin_df["x_mean"].max(), 200
+                )
                 y_grid = np.polyval(coeffs, x_grid)
 
                 lkw = dict(linewidth=1.5, alpha=0.8, zorder=4)
@@ -324,8 +348,8 @@ def binscatter(
     if title:
         ax.set_title(title, fontsize=13)
     ax.tick_params(labelsize=10)
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     if legend and by is not None:
         ax.legend(fontsize=9, frameon=False)
     fig.tight_layout()
@@ -339,6 +363,7 @@ def binscatter(
 # ======================================================================
 # Internal helpers
 # ======================================================================
+
 
 def _absorb_fe(
     y: np.ndarray,
@@ -440,15 +465,15 @@ def _compute_bins(
             y_mean = float(y_b.mean())
 
         row = {
-            'x_mean': x_mean,
-            'y_mean': y_mean,
-            'n': n_b,
+            "x_mean": x_mean,
+            "y_mean": y_mean,
+            "n": n_b,
         }
 
         if ci and n_b > 1:
             se = float(np.std(y_b, ddof=1) / np.sqrt(n_b))
-            row['ci_lower'] = y_mean - z * se
-            row['ci_upper'] = y_mean + z * se
+            row["ci_lower"] = y_mean - z * se
+            row["ci_upper"] = y_mean + z * se
 
         rows.append(row)
 

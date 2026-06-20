@@ -132,16 +132,19 @@ def pate(
     _result = estimator.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.inference.pate",
             params={
-                "y": y, "treatment": treatment,
+                "y": y,
+                "treatment": treatment,
                 "covariates": list(covariates) if covariates else None,
                 "method": method,
                 "n_boot": n_boot,
                 "alpha": alpha,
-                "seed": seed, "trim": trim,
+                "seed": seed,
+                "trim": trim,
             },
             data=data_experiment,
             overwrite=False,
@@ -224,14 +227,10 @@ class PATEEstimator:
             )
         for col in [self.y, self.treatment] + self.covariates:
             if col not in self.data_exp.columns:
-                raise ValueError(
-                    f"Column '{col}' not found in data_experiment"
-                )
+                raise ValueError(f"Column '{col}' not found in data_experiment")
         for col in self.covariates:
             if col not in self.data_tgt.columns:
-                raise ValueError(
-                    f"Column '{col}' not found in data_target"
-                )
+                raise ValueError(f"Column '{col}' not found in data_target")
         # Treatment must be binary
         vals = self.data_exp[self.treatment].dropna().unique()
         if not set(vals).issubset({0, 1, 0.0, 1.0, True, False}):
@@ -291,12 +290,14 @@ class PATEEstimator:
     ) -> np.ndarray:
         """Linear regression of Y on (1, X, D, D*X)."""
         n = len(Y)
-        X_c = np.column_stack([
-            np.ones(n),
-            X,
-            D.reshape(-1, 1),
-            D.reshape(-1, 1) * X,
-        ])
+        X_c = np.column_stack(
+            [
+                np.ones(n),
+                X,
+                D.reshape(-1, 1),
+                D.reshape(-1, 1) * X,
+            ]
+        )
         beta = np.asarray(np.linalg.lstsq(X_c, Y, rcond=None)[0], dtype=float)
         return beta
 
@@ -309,12 +310,14 @@ class PATEEstimator:
         """Predict E[Y|X, D=d_val] from the linear model."""
         n = X.shape[0]
         d = np.full(n, d_val)
-        X_c = np.column_stack([
-            np.ones(n),
-            X,
-            d.reshape(-1, 1),
-            d.reshape(-1, 1) * X,
-        ])
+        X_c = np.column_stack(
+            [
+                np.ones(n),
+                X,
+                d.reshape(-1, 1),
+                d.reshape(-1, 1) * X,
+            ]
+        )
         return np.asarray(X_c @ beta, dtype=float)
 
     # ------------------------------------------------------------------
@@ -478,8 +481,10 @@ class PATEEstimator:
             idx_tgt = self.rng.choice(n_tgt, size=n_tgt, replace=True)
             try:
                 estimates[b] = self._point_estimate(
-                    Y[idx_exp], D[idx_exp],
-                    X_exp[idx_exp], X_tgt[idx_tgt],
+                    Y[idx_exp],
+                    D[idx_exp],
+                    X_exp[idx_exp],
+                    X_tgt[idx_tgt],
                 )
             except Exception:
                 estimates[b] = np.nan
@@ -541,9 +546,7 @@ class PATEEstimator:
                         [float(np.mean(boot_ests))] if len(boot_ests) else [np.nan]
                     ),
                     "bootstrap_median": (
-                        [float(np.median(boot_ests))]
-                        if len(boot_ests)
-                        else [np.nan]
+                        [float(np.median(boot_ests))] if len(boot_ests) else [np.nan]
                     ),
                     "n_boot_valid": [len(boot_ests)],
                     "n_experiment": [len(Y)],

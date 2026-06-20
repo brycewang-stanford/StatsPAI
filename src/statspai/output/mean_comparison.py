@@ -120,16 +120,18 @@ class MeanComparisonResult:
 
             stars = _format_stars(pval, (0.10, 0.05, 0.01))
 
-            rows.append({
-                "variable": var,
-                "mean0": mean0,
-                "sd0": sd0,
-                "mean1": mean1,
-                "sd1": sd1,
-                "diff": diff,
-                "pvalue": pval,
-                "stars": stars,
-            })
+            rows.append(
+                {
+                    "variable": var,
+                    "mean0": mean0,
+                    "sd0": sd0,
+                    "mean1": mean1,
+                    "sd1": sd1,
+                    "diff": diff,
+                    "pvalue": pval,
+                    "stars": stars,
+                }
+            )
 
         self._rows = rows
 
@@ -188,7 +190,7 @@ class MeanComparisonResult:
         lines.append(thin)
         lines.append(f"{'N':<{var_w}}{self.n0:>{col_w},}{self.n1:>{col_w},}")
         lines.append(thick)
-        lines.append(f"* p<0.10, ** p<0.05, *** p<0.01")
+        lines.append("* p<0.10, ** p<0.05, *** p<0.01")
 
         return "\n".join(lines)
 
@@ -201,7 +203,7 @@ class MeanComparisonResult:
         lines: List[str] = []
         lines.append(
             '<table class="balance-table" style="border-collapse:collapse; '
-            'font-family:\'Times New Roman\', serif; font-size:13px;">'
+            "font-family:'Times New Roman', serif; font-size:13px;\">"
         )
         lines.append(
             f'<caption style="font-weight:bold; font-size:14px; '
@@ -214,13 +216,19 @@ class MeanComparisonResult:
         for h in ["", g0_label, g1_label, "Diff", "p-value"]:
             border = "border-top:3px solid black; border-bottom:1px solid black; "
             align = "text-align:center;" if h else "text-align:left;"
-            lines.append(f'<th style="{border}{align} padding:4px 10px;">{_html_escape(h)}</th>')
+            lines.append(
+                f'<th style="{border}{align} padding:4px 10px;">{_html_escape(h)}</th>'
+            )
         lines.append("</tr>")
         lines.append("<tr>")
         lines.append('<th style="text-align:left;"></th>')
-        lines.append(f'<th style="text-align:center; font-weight:normal; font-size:11px;">Mean (SD)</th>')
-        lines.append(f'<th style="text-align:center; font-weight:normal; font-size:11px;">Mean (SD)</th>')
-        lines.append('<th></th><th></th>')
+        lines.append(
+            '<th style="text-align:center; font-weight:normal; font-size:11px;">Mean (SD)</th>'
+        )
+        lines.append(
+            '<th style="text-align:center; font-weight:normal; font-size:11px;">Mean (SD)</th>'
+        )
+        lines.append("<th></th><th></th>")
         lines.append("</tr>")
         lines.append("</thead>")
         lines.append("<tbody>")
@@ -234,32 +242,46 @@ class MeanComparisonResult:
             fmt_pval = "%.3f" % row["pvalue"] if not np.isnan(row["pvalue"]) else ""
 
             lines.append("<tr>")
-            lines.append(f'<td style="text-align:left; padding:2px 10px;">{_html_escape(row["variable"])}</td>')
-            lines.append(f'<td style="text-align:center; padding:2px 10px;">{fmt_mean0} ({fmt_sd0})</td>')
-            lines.append(f'<td style="text-align:center; padding:2px 10px;">{fmt_mean1} ({fmt_sd1})</td>')
-            lines.append(f'<td style="text-align:center; padding:2px 10px;">{fmt_diff}</td>')
-            lines.append(f'<td style="text-align:center; padding:2px 10px;">{fmt_pval}</td>')
+            lines.append(
+                f'<td style="text-align:left; padding:2px 10px;">{_html_escape(row["variable"])}</td>'
+            )
+            lines.append(
+                f'<td style="text-align:center; padding:2px 10px;">{fmt_mean0} ({fmt_sd0})</td>'
+            )
+            lines.append(
+                f'<td style="text-align:center; padding:2px 10px;">{fmt_mean1} ({fmt_sd1})</td>'
+            )
+            lines.append(
+                f'<td style="text-align:center; padding:2px 10px;">{fmt_diff}</td>'
+            )
+            lines.append(
+                f'<td style="text-align:center; padding:2px 10px;">{fmt_pval}</td>'
+            )
             lines.append("</tr>")
 
         # N row
         lines.append(
-            f'<tr><td colspan="5" style="border-top:1px solid black; padding:0;"></td></tr>'
+            '<tr><td colspan="5" style="border-top:1px solid black; padding:0;"></td></tr>'
         )
         lines.append("<tr>")
-        lines.append(f'<td style="text-align:left; padding:2px 10px;">N</td>')
-        lines.append(f'<td style="text-align:center; padding:2px 10px;">{self.n0:,}</td>')
-        lines.append(f'<td style="text-align:center; padding:2px 10px;">{self.n1:,}</td>')
-        lines.append('<td></td><td></td>')
+        lines.append('<td style="text-align:left; padding:2px 10px;">N</td>')
+        lines.append(
+            f'<td style="text-align:center; padding:2px 10px;">{self.n0:,}</td>'
+        )
+        lines.append(
+            f'<td style="text-align:center; padding:2px 10px;">{self.n1:,}</td>'
+        )
+        lines.append("<td></td><td></td>")
         lines.append("</tr>")
         lines.append(
-            f'<tr><td colspan="5" style="border-top:3px solid black; padding:0;"></td></tr>'
+            '<tr><td colspan="5" style="border-top:3px solid black; padding:0;"></td></tr>'
         )
 
         lines.append("</tbody>")
         lines.append("<tfoot>")
         lines.append(
-            f'<tr><td colspan="5" style="text-align:left; font-size:11px; padding:4px 10px;">'
-            f'* p&lt;0.10, ** p&lt;0.05, *** p&lt;0.01</td></tr>'
+            '<tr><td colspan="5" style="text-align:left; font-size:11px; padding:4px 10px;">'
+            f"* p&lt;0.10, ** p&lt;0.05, *** p&lt;0.01</td></tr>"
         )
         lines.append("</tfoot>")
         lines.append("</table>")
@@ -281,9 +303,7 @@ class MeanComparisonResult:
             f" & {_latex_escape(g0_label)} & {_latex_escape(g1_label)} "
             f"& Diff & p-value \\\\"
         )
-        lines.append(
-            " & Mean (SD) & Mean (SD) & & \\\\"
-        )
+        lines.append(" & Mean (SD) & Mean (SD) & & \\\\")
         lines.append("\\hline")
 
         for row in self._rows:
@@ -350,16 +370,18 @@ class MeanComparisonResult:
         g0_label, g1_label = self.group_labels
         records = []
         for row in self._rows:
-            records.append({
-                "Variable": row["variable"],
-                f"{g0_label} Mean": row["mean0"],
-                f"{g0_label} SD": row["sd0"],
-                f"{g1_label} Mean": row["mean1"],
-                f"{g1_label} SD": row["sd1"],
-                "Difference": row["diff"],
-                "p-value": row["pvalue"],
-                "Significance": row["stars"],
-            })
+            records.append(
+                {
+                    "Variable": row["variable"],
+                    f"{g0_label} Mean": row["mean0"],
+                    f"{g0_label} SD": row["sd0"],
+                    f"{g1_label} Mean": row["mean1"],
+                    f"{g1_label} SD": row["sd1"],
+                    "Difference": row["diff"],
+                    "p-value": row["pvalue"],
+                    "Significance": row["stars"],
+                }
+            )
         df = pd.DataFrame(records)
         df = df.set_index("Variable")
         return df
@@ -387,6 +409,7 @@ class MeanComparisonResult:
             warnings.warn("openpyxl required for Excel export: pip install openpyxl")
             return
         from ._excel_style import render_dataframe_to_xlsx
+
         render_dataframe_to_xlsx(
             self._formatted_dataframe(),
             filename,
@@ -401,7 +424,9 @@ class MeanComparisonResult:
         try:
             from docx import Document
         except ImportError:
-            warnings.warn("python-docx required for Word export: pip install python-docx")
+            warnings.warn(
+                "python-docx required for Word export: pip install python-docx"
+            )
             return
 
         from ._aer_style import (
@@ -466,6 +491,7 @@ class MeanComparisonResult:
 # ═══════════════════════════════════════════════════════════════════════════
 # mean_comparison() — public API
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def mean_comparison(
     data: pd.DataFrame,
@@ -535,7 +561,14 @@ def mean_comparison(
         group_labels = ("Control", "Treated")
 
     _VALID_OUTPUTS = {
-        "text", "latex", "tex", "html", "markdown", "md", "word", "excel",
+        "text",
+        "latex",
+        "tex",
+        "html",
+        "markdown",
+        "md",
+        "word",
+        "excel",
     }
     if output not in _VALID_OUTPUTS:
         raise ValueError(

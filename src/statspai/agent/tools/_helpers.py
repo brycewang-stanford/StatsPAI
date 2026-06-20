@@ -13,6 +13,7 @@ Public surface
 * :func:`_identification_serializer` — ``IdentificationReport`` →
   JSON dict (used by ``check_identification``).
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -68,7 +69,7 @@ def _default_serializer(r: Any, *, detail: str = "agent") -> Dict[str, Any]:
     for older result types that don't accept the ``detail`` kwarg, and
     finally to the field-by-field extraction below.
     """
-    to_dict = getattr(r, 'to_dict', None)
+    to_dict = getattr(r, "to_dict", None)
     if callable(to_dict):
         # Preferred: caller-chosen detail level. Use ``inspect.signature``
         # to decide whether the result class supports the ``detail``
@@ -76,6 +77,7 @@ def _default_serializer(r: Any, *, detail: str = "agent") -> Dict[str, Any]:
         # ``except TypeError`` which would also swallow internal
         # serialisation bugs that happen to raise TypeError.
         import inspect
+
         params: Any
         try:
             params = inspect.signature(to_dict).parameters
@@ -104,31 +106,34 @@ def _default_serializer(r: Any, *, detail: str = "agent") -> Dict[str, Any]:
             return True
 
     out: Dict[str, Any] = {}
-    if hasattr(r, 'estimate') and _is_scalar(r.estimate):
-        out['estimate'] = float(r.estimate)
-    if hasattr(r, 'se') and _is_scalar(r.se):
-        out['std_error'] = float(r.se)
-    if hasattr(r, 'pvalue') and _is_scalar(r.pvalue):
-        out['p_value'] = float(r.pvalue)
-    if hasattr(r, 'ci') and r.ci is not None:
+    if hasattr(r, "estimate") and _is_scalar(r.estimate):
+        out["estimate"] = float(r.estimate)
+    if hasattr(r, "se") and _is_scalar(r.se):
+        out["std_error"] = float(r.se)
+    if hasattr(r, "pvalue") and _is_scalar(r.pvalue):
+        out["p_value"] = float(r.pvalue)
+    if hasattr(r, "ci") and r.ci is not None:
         # CausalResult.ci is a (lower, upper) tuple; EconometricResults.ci
         # is a DataFrame — only the tuple form is meaningful here.
         ci = r.ci
-        if (not isinstance(ci, (pd.DataFrame, pd.Series))
-                and hasattr(ci, '__len__') and len(ci) == 2):
+        if (
+            not isinstance(ci, (pd.DataFrame, pd.Series))
+            and hasattr(ci, "__len__")
+            and len(ci) == 2
+        ):
             try:
-                out['conf_low'] = float(ci[0])
-                out['conf_high'] = float(ci[1])
+                out["conf_low"] = float(ci[0])
+                out["conf_high"] = float(ci[1])
             except (TypeError, ValueError):
                 pass
-    if hasattr(r, 'estimand'):
-        out['estimand'] = str(r.estimand)
-    if hasattr(r, 'method'):
-        out['method'] = str(r.method)
-    if hasattr(r, 'n_obs'):
-        out['n_obs'] = int(r.n_obs)
+    if hasattr(r, "estimand"):
+        out["estimand"] = str(r.estimand)
+    if hasattr(r, "method"):
+        out["method"] = str(r.method)
+    if hasattr(r, "n_obs"):
+        out["n_obs"] = int(r.n_obs)
     # Regression-style: extract coefficient table if no 'estimate'
-    if not out.get('estimate') and hasattr(r, 'params'):
+    if not out.get("estimate") and hasattr(r, "params"):
         try:
             names = list(r.params.index)
 
@@ -147,42 +152,45 @@ def _default_serializer(r: Any, *, detail: str = "agent") -> Dict[str, Any]:
             coefs = {}
             for pos, k in enumerate(names):
                 coefs[str(k)] = {
-                    'estimate': float(r.params.iloc[pos]),
-                    'std_error': _get(
-                        getattr(r, 'std_errors', None),
+                    "estimate": float(r.params.iloc[pos]),
+                    "std_error": _get(
+                        getattr(r, "std_errors", None),
                         k,
                         pos,
                     ),
-                    'p_value': _get(getattr(r, 'pvalues', None), k, pos),
+                    "p_value": _get(getattr(r, "pvalues", None), k, pos),
                 }
-            out['coefficients'] = coefs
+            out["coefficients"] = coefs
         except Exception:
             pass
-    if hasattr(r, 'diagnostics'):
+    if hasattr(r, "diagnostics"):
         diag = {}
         for k, v in r.diagnostics.items():
             if isinstance(v, (int, float, str, bool)):
                 diag[str(k)] = v
         if diag:
-            out['diagnostics'] = diag
+            out["diagnostics"] = diag
     return out
 
 
 def _identification_serializer(r: Any) -> Dict[str, Any]:
     """Serialise an ``IdentificationReport`` to a JSON dict."""
     return {
-        'verdict': r.verdict,
-        'design': r.design,
-        'n_obs': r.n_obs,
-        'n_units': r.n_units,
-        'findings': [
+        "verdict": r.verdict,
+        "design": r.design,
+        "n_obs": r.n_obs,
+        "n_units": r.n_units,
+        "findings": [
             {
-                'severity': f.severity,
-                'category': f.category,
-                'message': f.message,
-                'suggestion': f.suggestion,
-                'evidence': {k: v for k, v in f.evidence.items()
-                             if isinstance(v, (int, float, str, bool))},
+                "severity": f.severity,
+                "category": f.category,
+                "message": f.message,
+                "suggestion": f.suggestion,
+                "evidence": {
+                    k: v
+                    for k, v in f.evidence.items()
+                    if isinstance(v, (int, float, str, bool))
+                },
             }
             for f in r.findings
         ],

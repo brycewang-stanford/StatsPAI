@@ -17,6 +17,7 @@ The two co-exist: ``sp.Absorber`` is the stable production path with
 LSMR / LSQR backends and weighted support; ``sp.fast.within`` is the
 high-throughput AP-only path for the new Rust kernel.
 """
+
 from __future__ import annotations
 
 from typing import Any, List, Optional, Sequence, Tuple, Union
@@ -118,7 +119,9 @@ class WithinTransformer:
                     fe_arrays.append(fe[:, k])
                     fe_names.append(f"fe{k}")
             else:
-                raise MethodIncompatibility("fast.within: fe ndarray must be 1-D or 2-D")
+                raise MethodIncompatibility(
+                    "fast.within: fe ndarray must be 1-D or 2-D"
+                )
         elif isinstance(fe, str):
             if data is None:
                 raise MethodIncompatibility(
@@ -225,7 +228,9 @@ class WithinTransformer:
     # ------------------------------------------------------------------
 
     def transform(
-        self, X: Union[np.ndarray, pd.Series, pd.DataFrame], *,
+        self,
+        X: Union[np.ndarray, pd.Series, pd.DataFrame],
+        *,
         already_masked: bool = False,
     ) -> Tuple[np.ndarray, DemeanInfo]:
         """Residualise X against the cached FE structure.
@@ -277,17 +282,28 @@ class WithinTransformer:
             X_2d = X.copy()
             squeeze = False
 
-        accelerate = (self._accel == "aitken")
+        accelerate = self._accel == "aitken"
         X_dem, iters_out, converged_out, max_dx_out, backend_used = _demean_core(
-            X_2d, self._fe_codes, self._counts_list,
-            max_iter=self._max_iter, tol=self._tol, tol_abs=self._tol_abs,
-            accelerate=accelerate, accel_period=self._accel_period,
+            X_2d,
+            self._fe_codes,
+            self._counts_list,
+            max_iter=self._max_iter,
+            tol=self._tol,
+            tol_abs=self._tol_abs,
+            accelerate=accelerate,
+            accel_period=self._accel_period,
             backend=self._backend,
         )
         info = DemeanInfo(
-            n=self.n, n_kept=self.n_kept, n_dropped=self.n_dropped,
-            iters=iters_out, converged=converged_out, max_dx=max_dx_out,
-            keep_mask=self.keep_mask, backend=backend_used, accel=self._accel,
+            n=self.n,
+            n_kept=self.n_kept,
+            n_dropped=self.n_dropped,
+            iters=iters_out,
+            converged=converged_out,
+            max_dx=max_dx_out,
+            keep_mask=self.keep_mask,
+            backend=backend_used,
+            accel=self._accel,
             n_fe=self.n_fe,
         )
         if squeeze:
@@ -295,7 +311,10 @@ class WithinTransformer:
         return np.ascontiguousarray(X_dem), info
 
     def transform_columns(
-        self, data: pd.DataFrame, columns: Sequence[str], *,
+        self,
+        data: pd.DataFrame,
+        columns: Sequence[str],
+        *,
         already_masked: bool = False,
     ) -> pd.DataFrame:
         """Residualise specified DataFrame columns; return a new DataFrame.

@@ -43,6 +43,7 @@ import pandas as pd
 @dataclass
 class BayesianIVResult:
     """Posterior from Bayesian IV."""
+
     posterior_draws: np.ndarray
     posterior_mean: float
     posterior_sd: float
@@ -95,7 +96,7 @@ def _hpd(draws: np.ndarray, level: float = 0.95) -> Tuple[float, float]:
     if n_in >= n:
         return float(draws.min()), float(draws.max())
     sorted_d = np.sort(draws)
-    widths = sorted_d[n_in:] - sorted_d[:n - n_in]
+    widths = sorted_d[n_in:] - sorted_d[: n - n_in]
     i = int(np.argmin(widths))
     return float(sorted_d[i]), float(sorted_d[i + n_in])
 
@@ -109,7 +110,7 @@ def _ess(draws: np.ndarray) -> float:
     var = draws.var(ddof=0)
     if var < 1e-12:
         return float(n)
-    acf = np.correlate(draws - mean, draws - mean, "full")[n - 1:] / (n * var)
+    acf = np.correlate(draws - mean, draws - mean, "full")[n - 1 :] / (n * var)
     # Sum of autocorrelation pairs until sum goes negative
     total = 1.0
     for k in range(1, n // 2):
@@ -245,7 +246,8 @@ def bayesian_iv(
         posterior_draws=draws,
         posterior_mean=float(draws.mean()),
         posterior_sd=float(draws.std(ddof=1)),
-        hpd_lower=lo, hpd_upper=hi,
+        hpd_lower=lo,
+        hpd_upper=hi,
         hpd_level=hpd_level,
         acceptance_rate=acc_rate,
         n_draws=n_draws,
@@ -255,6 +257,7 @@ def bayesian_iv(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         # ``y`` / ``endog`` / ``instruments`` may be column names OR
         # raw arrays — capture summarisable form only.
         _attach_prov(
@@ -263,11 +266,13 @@ def bayesian_iv(
             params={
                 "y": y if isinstance(y, str) else None,
                 "endog": endog if isinstance(endog, str) else None,
-                "instruments": instruments if isinstance(instruments, list)
-                              else None,
-                "n_draws": n_draws, "n_warmup": n_warmup,
-                "proposal_sd": proposal_sd, "prior_sd": prior_sd,
-                "hpd_level": hpd_level, "add_const": add_const,
+                "instruments": instruments if isinstance(instruments, list) else None,
+                "n_draws": n_draws,
+                "n_warmup": n_warmup,
+                "proposal_sd": proposal_sd,
+                "prior_sd": prior_sd,
+                "hpd_level": hpd_level,
+                "add_const": add_const,
                 "random_state": random_state,
             },
             data=data,

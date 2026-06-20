@@ -32,9 +32,7 @@ def _require_neural_result(result: Any) -> None:
         )
 
 
-def neural_effects_frame(
-    result: Any, *, sort_by: Optional[str] = None
-) -> pd.DataFrame:
+def neural_effects_frame(result: Any, *, sort_by: Optional[str] = None) -> pd.DataFrame:
     """Return unit-level neural causal predictions as a tidy DataFrame.
 
     Parameters

@@ -96,7 +96,7 @@ class BVARResult:
         p = self.lags
         B = self.coef[:-1]  # exclude constant row
         # Companion form
-        A_mats = [B[k * K: (k + 1) * K].T for k in range(p)]
+        A_mats = [B[k * K : (k + 1) * K].T for k in range(p)]
         chol = np.linalg.cholesky(self.sigma)
         irfs = np.zeros((horizon, K))
         irfs[0] = chol[:, shock_var]
@@ -209,7 +209,7 @@ def bvar(
     n = Y.shape[0]
     X_parts = []
     for lag in range(1, lags + 1):
-        X_parts.append(Y_raw[lags - lag: T - lag])
+        X_parts.append(Y_raw[lags - lag : T - lag])
     X = np.column_stack(X_parts + [np.ones(n)])  # (n, K*p + 1)
     m = X.shape[1]
 

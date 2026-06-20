@@ -92,19 +92,25 @@ class MRResult:
         ]
         for _, row in self.estimates.iterrows():
             ci = f"[{row['ci_lower']:.4f}, {row['ci_upper']:.4f}]"
-            lines.append(f"{row['method']:<25s} {row['estimate']:>10.4f} "
-                         f"{row['se']:>10.4f} {ci:>22s} {row['p_value']:>10.4f}")
+            lines.append(
+                f"{row['method']:<25s} {row['estimate']:>10.4f} "
+                f"{row['se']:>10.4f} {ci:>22s} {row['p_value']:>10.4f}"
+            )
 
         lines.append("")
         lines.append("Heterogeneity:")
-        lines.append(f"  Cochran's Q = {self.heterogeneity['Q']:.3f} "
-                     f"(p = {self.heterogeneity['Q_p']:.4f})")
+        lines.append(
+            f"  Cochran's Q = {self.heterogeneity['Q']:.3f} "
+            f"(p = {self.heterogeneity['Q_p']:.4f})"
+        )
         lines.append(f"  I² = {self.heterogeneity['I2']:.1f}%")
 
         if self.pleiotropy is not None:
             lines.append("\nPleiotropy (MR-Egger intercept):")
-            lines.append(f"  Intercept = {self.pleiotropy['intercept']:.4f} "
-                         f"(p = {self.pleiotropy['p_value']:.4f})")
+            lines.append(
+                f"  Intercept = {self.pleiotropy['intercept']:.4f} "
+                f"(p = {self.pleiotropy['p_value']:.4f})"
+            )
 
         lines.append("=" * 65)
         return "\n".join(lines)
@@ -148,7 +154,9 @@ def mr_ivw(
     """
     # Weighted regression of beta_Y on beta_X through the origin.
     w = 1 / se_outcome**2
-    estimate_wls = np.sum(w * beta_exposure * beta_outcome) / np.sum(w * beta_exposure**2)
+    estimate_wls = np.sum(w * beta_exposure * beta_outcome) / np.sum(
+        w * beta_exposure**2
+    )
     se_wls = np.sqrt(1 / np.sum(w * beta_exposure**2))
 
     z = estimate_wls / se_wls
@@ -156,18 +164,21 @@ def mr_ivw(
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     # Cochran's Q
-    Q = np.sum(w * (beta_outcome - estimate_wls * beta_exposure)**2)
+    Q = np.sum(w * (beta_outcome - estimate_wls * beta_exposure) ** 2)
     Q_df = len(beta_exposure) - 1
     Q_p = 1 - stats.chi2.cdf(Q, Q_df)
     I2 = max(0, (Q - Q_df) / Q * 100) if Q > 0 else 0
 
     return {
-        'estimate': estimate_wls,
-        'se': se_wls,
-        'ci_lower': estimate_wls - z_crit * se_wls,
-        'ci_upper': estimate_wls + z_crit * se_wls,
-        'p_value': p_value,
-        'Q': Q, 'Q_df': Q_df, 'Q_p': Q_p, 'I2': I2,
+        "estimate": estimate_wls,
+        "se": se_wls,
+        "ci_lower": estimate_wls - z_crit * se_wls,
+        "ci_upper": estimate_wls + z_crit * se_wls,
+        "p_value": p_value,
+        "Q": Q,
+        "Q_df": Q_df,
+        "Q_p": Q_p,
+        "I2": I2,
     }
 
 
@@ -214,9 +225,16 @@ def mr_egger(
         XtWX_inv = np.linalg.inv(X.T @ W @ X)
         beta_hat = XtWX_inv @ X.T @ W @ beta_outcome
     except np.linalg.LinAlgError:
-        return {'estimate': np.nan, 'se': np.nan, 'ci_lower': np.nan,
-                'ci_upper': np.nan, 'p_value': np.nan,
-                'intercept': np.nan, 'intercept_se': np.nan, 'intercept_p': np.nan}
+        return {
+            "estimate": np.nan,
+            "se": np.nan,
+            "ci_lower": np.nan,
+            "ci_upper": np.nan,
+            "p_value": np.nan,
+            "intercept": np.nan,
+            "intercept_se": np.nan,
+            "intercept_p": np.nan,
+        }
 
     resid = beta_outcome - X @ beta_hat
     sigma2 = np.sum(w * resid**2) / (n - 2)
@@ -239,14 +257,14 @@ def mr_egger(
     z_intercept = intercept / intercept_se if intercept_se > 0 else 0.0
 
     return {
-        'estimate': estimate,
-        'se': se_est,
-        'ci_lower': estimate - t_crit * se_est,
-        'ci_upper': estimate + t_crit * se_est,
-        'p_value': float(2 * stats.t.sf(abs(z_slope), df=df)),
-        'intercept': intercept,
-        'intercept_se': intercept_se,
-        'intercept_p': float(2 * stats.t.sf(abs(z_intercept), df=df)),
+        "estimate": estimate,
+        "se": se_est,
+        "ci_lower": estimate - t_crit * se_est,
+        "ci_upper": estimate + t_crit * se_est,
+        "p_value": float(2 * stats.t.sf(abs(z_slope), df=df)),
+        "intercept": intercept,
+        "intercept_se": intercept_se,
+        "intercept_p": float(2 * stats.t.sf(abs(z_intercept), df=df)),
     }
 
 
@@ -295,7 +313,7 @@ def mr_median(
     if penalized:
         # Penalize SNPs with large residuals from IVW
         ivw_est = np.sum(weights * ratio) / np.sum(weights)
-        penalty = stats.chi2.cdf((ratio - ivw_est)**2 / ratio_se**2, 1)
+        penalty = stats.chi2.cdf((ratio - ivw_est) ** 2 / ratio_se**2, 1)
         weights = weights * penalty
 
     weights = weights / weights.sum()
@@ -321,18 +339,18 @@ def mr_median(
         order_b = np.argsort(boot_ratio)
         cum_w_b = np.cumsum(boot_w[order_b])
         mid_b = int(np.searchsorted(cum_w_b, 0.5))
-        boot_estimates[b] = boot_ratio[order_b[min(mid_b, len(order_b)-1)]]
+        boot_estimates[b] = boot_ratio[order_b[min(mid_b, len(order_b) - 1)]]
 
     se = np.std(boot_estimates, ddof=1)
     z = estimate / se
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     return {
-        'estimate': estimate,
-        'se': se,
-        'ci_lower': estimate - z_crit * se,
-        'ci_upper': estimate + z_crit * se,
-        'p_value': 2 * (1 - stats.norm.cdf(abs(z))),
+        "estimate": estimate,
+        "se": se,
+        "ci_lower": estimate - z_crit * se,
+        "ci_upper": estimate + z_crit * se,
+        "p_value": 2 * (1 - stats.norm.cdf(abs(z))),
     }
 
 
@@ -415,7 +433,7 @@ def mendelian_randomization(
             "must all be provided."
         )
     if methods is None:
-        methods = ['ivw', 'egger', 'weighted_median']
+        methods = ["ivw", "egger", "weighted_median"]
 
     bx = data[beta_exposure].values.astype(float)
     by = data[beta_outcome].values.astype(float)
@@ -429,48 +447,72 @@ def mendelian_randomization(
 
     n_snps = len(bx)
     results_rows: List[Dict[str, Any]] = []
-    heterogeneity: Dict[str, Any] = {'Q': np.nan, 'Q_p': np.nan, 'I2': np.nan}
+    heterogeneity: Dict[str, Any] = {"Q": np.nan, "Q_p": np.nan, "I2": np.nan}
     pleiotropy: Optional[Dict[str, float]] = None
 
     for method in methods:
-        if method == 'ivw':
+        if method == "ivw":
             res = mr_ivw(bx, by, sx, sy, alpha)
-            heterogeneity = {'Q': res['Q'], 'Q_p': res['Q_p'],
-                             'Q_df': res['Q_df'], 'I2': res['I2']}
-            results_rows.append({
-                'method': 'IVW', 'estimate': res['estimate'], 'se': res['se'],
-                'ci_lower': res['ci_lower'], 'ci_upper': res['ci_upper'],
-                'p_value': res['p_value'],
-            })
+            heterogeneity = {
+                "Q": res["Q"],
+                "Q_p": res["Q_p"],
+                "Q_df": res["Q_df"],
+                "I2": res["I2"],
+            }
+            results_rows.append(
+                {
+                    "method": "IVW",
+                    "estimate": res["estimate"],
+                    "se": res["se"],
+                    "ci_lower": res["ci_lower"],
+                    "ci_upper": res["ci_upper"],
+                    "p_value": res["p_value"],
+                }
+            )
 
-        elif method == 'egger':
+        elif method == "egger":
             res = mr_egger(bx, by, sx, sy, alpha)
             pleiotropy = {
-                'intercept': res['intercept'],
-                'se': res['intercept_se'],
-                'p_value': res['intercept_p'],
+                "intercept": res["intercept"],
+                "se": res["intercept_se"],
+                "p_value": res["intercept_p"],
             }
-            results_rows.append({
-                'method': 'MR-Egger', 'estimate': res['estimate'], 'se': res['se'],
-                'ci_lower': res['ci_lower'], 'ci_upper': res['ci_upper'],
-                'p_value': res['p_value'],
-            })
+            results_rows.append(
+                {
+                    "method": "MR-Egger",
+                    "estimate": res["estimate"],
+                    "se": res["se"],
+                    "ci_lower": res["ci_lower"],
+                    "ci_upper": res["ci_upper"],
+                    "p_value": res["p_value"],
+                }
+            )
 
-        elif method == 'weighted_median':
+        elif method == "weighted_median":
             res = mr_median(bx, by, sx, sy, seed=seed, alpha=alpha)
-            results_rows.append({
-                'method': 'Weighted Median', 'estimate': res['estimate'],
-                'se': res['se'], 'ci_lower': res['ci_lower'],
-                'ci_upper': res['ci_upper'], 'p_value': res['p_value'],
-            })
+            results_rows.append(
+                {
+                    "method": "Weighted Median",
+                    "estimate": res["estimate"],
+                    "se": res["se"],
+                    "ci_lower": res["ci_lower"],
+                    "ci_upper": res["ci_upper"],
+                    "p_value": res["p_value"],
+                }
+            )
 
-        elif method == 'penalized_median':
+        elif method == "penalized_median":
             res = mr_median(bx, by, sx, sy, penalized=True, seed=seed, alpha=alpha)
-            results_rows.append({
-                'method': 'Penalized Median', 'estimate': res['estimate'],
-                'se': res['se'], 'ci_lower': res['ci_lower'],
-                'ci_upper': res['ci_upper'], 'p_value': res['p_value'],
-            })
+            results_rows.append(
+                {
+                    "method": "Penalized Median",
+                    "estimate": res["estimate"],
+                    "se": res["se"],
+                    "ci_lower": res["ci_lower"],
+                    "ci_upper": res["ci_upper"],
+                    "p_value": res["p_value"],
+                }
+            )
 
     estimates = pd.DataFrame(results_rows)
 
@@ -507,12 +549,14 @@ def mr_plot(
     # For now, plot the estimate lines
     for _, row in result.estimates.iterrows():
         x_range = np.array([0, 1])
-        y_range = row['estimate'] * x_range
-        ax.plot(x_range, y_range, label=f"{row['method']}: {row['estimate']:.3f}", lw=1.5)
+        y_range = row["estimate"] * x_range
+        ax.plot(
+            x_range, y_range, label=f"{row['method']}: {row['estimate']:.3f}", lw=1.5
+        )
 
-    ax.axhline(0, color='gray', ls='--', lw=0.5)
-    ax.set_xlabel(f'SNP effect on {result.exposure}')
-    ax.set_ylabel(f'SNP effect on {result.outcome}')
-    ax.set_title('Mendelian Randomization')
+    ax.axhline(0, color="gray", ls="--", lw=0.5)
+    ax.set_xlabel(f"SNP effect on {result.exposure}")
+    ax.set_ylabel(f"SNP effect on {result.outcome}")
+    ax.set_title("Mendelian Randomization")
     ax.legend()
     return ax

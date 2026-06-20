@@ -20,10 +20,10 @@ from ..exceptions import (
     MethodIncompatibility,
 )
 
-
 # ════════════════════════════════════════════════════════════════════════
 # Weighted OLS
 # ════════════════════════════════════════════════════════════════════════
+
 
 def add_constant(X: np.ndarray) -> np.ndarray:
     """Prepend a column of ones."""
@@ -59,18 +59,18 @@ def wls(
     Xw = X * sw[:, None]
     yw = y * sw
     # QR for stability
-    Q, R = np.linalg.qr(Xw, mode='reduced')
+    Q, R = np.linalg.qr(Xw, mode="reduced")
     beta = np.linalg.solve(R, Q.T @ yw)
     resid = y - X @ beta
     XtWX_inv = np.linalg.inv(R.T @ R)
 
     if robust:
         # HC1: (X'WX)^{-1} X' diag(w * e^2) X (X'WX)^{-1} * n/(n-k)
-        e2 = (w * resid ** 2)
+        e2 = w * resid**2
         meat = (X * e2[:, None]).T @ X
         vcov = XtWX_inv @ meat @ XtWX_inv * (n / max(n - k, 1))
     else:
-        sigma2 = float((w * resid ** 2).sum() / max(n - k, 1))
+        sigma2 = float((w * resid**2).sum() / max(n - k, 1))
         vcov = sigma2 * XtWX_inv
 
     return beta, vcov, resid
@@ -103,6 +103,7 @@ def cluster_vcov(
 # ════════════════════════════════════════════════════════════════════════
 # Logit (Newton-Raphson)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def logit_fit(
     y: np.ndarray,
@@ -166,7 +167,8 @@ def logit_fit(
             "(possible separation or near-separation). Results may be "
             "unreliable; consider reducing dimensionality or trimming "
             "extreme propensity scores.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
     # Covariance
     eta = np.clip(X @ beta, -30, 30)
@@ -189,6 +191,7 @@ def logit_predict(beta: np.ndarray, X: np.ndarray) -> np.ndarray:
 # ════════════════════════════════════════════════════════════════════════
 # Bootstrap helpers
 # ════════════════════════════════════════════════════════════════════════
+
 
 def bootstrap_stat(
     stat_fn: Callable[[np.ndarray], Union[float, np.ndarray]],
@@ -249,7 +252,8 @@ def bootstrap_stat(
             f"({100 * n_failed / n_boot:.1f}%). "
             "SE estimates are based on the successful subset. Check "
             "for degenerate resamples or numerical issues in stat_fn.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
     arr = np.asarray(results, dtype=float)
     if arr.ndim == 1:
@@ -314,9 +318,7 @@ def wild_bootstrap_stat(
             # Mammen (1993) two-point distribution
             phi = (1.0 + np.sqrt(5.0)) / 2.0
             p = phi / np.sqrt(5.0)
-            v_g = np.where(
-                rng.random(n_g) < p, -(phi - 1.0), phi
-            )
+            v_g = np.where(rng.random(n_g) < p, -(phi - 1.0), phi)
         else:
             raise MethodIncompatibility(
                 f"unknown weights {weights!r}",
@@ -337,7 +339,8 @@ def wild_bootstrap_stat(
             f"{n_failed}/{n_boot} wild-bootstrap replications failed "
             f"({100 * n_failed / n_boot:.1f}%). SE estimates use the "
             "successful subset.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
     arr = np.asarray(out, dtype=float)
     if arr.ndim == 1:
@@ -397,6 +400,7 @@ def bootstrap_ci(
 # ════════════════════════════════════════════════════════════════════════
 # Weighted quantile / density / CDF
 # ════════════════════════════════════════════════════════════════════════
+
 
 def weighted_quantile(
     y: np.ndarray, q: Union[float, np.ndarray], w: Optional[np.ndarray] = None
@@ -556,7 +560,7 @@ def kde_at_dineq(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) ->
         ((2 * n_grid - 1) / (n_grid - 1)) * (up - lo),
         2 * n_grid,
     )
-    kords[n_grid + 1:] = -kords[n_grid - 1:0:-1]
+    kords[n_grid + 1 :] = -kords[n_grid - 1 : 0 : -1]
     kernel = np.exp(-0.5 * (kords / h) ** 2) / (h * np.sqrt(2 * np.pi))
     conv = np.fft.ifft(np.fft.fft(bins) * np.conj(np.fft.fft(kernel))).real
     density_grid = np.maximum(0.0, conv[:n_grid])
@@ -589,7 +593,7 @@ def kde_at(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) -> float
     if w is None:
         w = np.ones_like(y)
     w = np.asarray(w, dtype=float)
-    n_eff = (w.sum() ** 2) / (w ** 2).sum()
+    n_eff = (w.sum() ** 2) / (w**2).sum()
     sigma = float(np.sqrt(np.cov(y, aweights=w)))
     if sigma <= 0 or not np.isfinite(sigma):
         y_std = float(y.std())
@@ -603,6 +607,7 @@ def kde_at(y: np.ndarray, point: float, w: Optional[np.ndarray] = None) -> float
 # ════════════════════════════════════════════════════════════════════════
 # Significance formatting
 # ════════════════════════════════════════════════════════════════════════
+
 
 def weighted_gini(y: np.ndarray, w: np.ndarray) -> float:
     """Weighted Gini coefficient (Lerman-Yitzhaki 1989)."""
@@ -643,9 +648,7 @@ def statistic_value(
     if stat == "quantile":
         return float(weighted_quantile(y, tau, w=w))
     if stat == "iqr":
-        return float(
-            weighted_quantile(y, 0.75, w=w) - weighted_quantile(y, 0.25, w=w)
-        )
+        return float(weighted_quantile(y, 0.75, w=w) - weighted_quantile(y, 0.25, w=w))
     if stat == "gini":
         return weighted_gini(y, w)
     if stat == "log_var":
@@ -704,6 +707,7 @@ def sig_stars(pval: float) -> str:
 # Influence functions (RIF kernel)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def influence_function(
     y: np.ndarray,
     stat: str,
@@ -744,7 +748,7 @@ def influence_function(
     if stat == "quantile":
         if quantile_convention == "statspai":
             q = float(weighted_quantile(y, tau, w=w))
-            n_eff = (w.sum() ** 2) / (w ** 2).sum()
+            n_eff = (w.sum() ** 2) / (w**2).sum()
             sigma = np.sqrt(max(float(np.cov(y, aweights=w)), 1e-12))
             h = max(1.06 * sigma * n_eff ** (-0.2), 1e-6)
             kern = np.exp(-0.5 * ((y - q) / h) ** 2) / (h * np.sqrt(2 * np.pi))
@@ -757,8 +761,7 @@ def influence_function(
         raise MethodIncompatibility(
             "quantile_convention must be 'statspai' or 'dineq'",
             recovery_hint=(
-                "Use quantile_convention='statspai' or "
-                "quantile_convention='dineq'."
+                "Use quantile_convention='statspai' or " "quantile_convention='dineq'."
             ),
             diagnostics={"quantile_convention": quantile_convention},
         )
@@ -780,11 +783,17 @@ def influence_function(
         return cast(
             np.ndarray,
             influence_function(
-                y, "quantile", tau=0.75, w=w,
+                y,
+                "quantile",
+                tau=0.75,
+                w=w,
                 quantile_convention=quantile_convention,
             )
             - influence_function(
-                y, "quantile", tau=0.25, w=w,
+                y,
+                "quantile",
+                tau=0.25,
+                w=w,
                 quantile_convention=quantile_convention,
             ),
         )
@@ -827,9 +836,7 @@ def influence_function(
         A1 = 1.0 - geo_mean / mu
         return cast(
             np.ndarray,
-            A1 + (geo_mean / mu) * (
-                (yp - mu) / mu - (np.log(yp) - mean_log)
-            ),
+            A1 + (geo_mean / mu) * ((yp - mu) / mu - (np.log(yp) - mean_log)),
         )
     raise MethodIncompatibility(
         f"unknown statistic {stat!r}",
@@ -844,6 +851,7 @@ def influence_function(
 # ════════════════════════════════════════════════════════════════════════
 # DataFrame / formula parsing
 # ════════════════════════════════════════════════════════════════════════
+
 
 def parse_formula(formula: str) -> Tuple[str, list[str]]:
     """'y ~ x1 + x2 + x3' -> ('y', ['x1', 'x2', 'x3'])."""

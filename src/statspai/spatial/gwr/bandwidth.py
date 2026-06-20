@@ -8,6 +8,7 @@ Adaptive (integer nearest-neighbour) search bounds default to
 ``[k + 2, n]``; fixed-distance search bounds default to
 ``[median_nn, max_nn * 2]``.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Literal, Optional, Tuple
@@ -16,13 +17,20 @@ import numpy as np
 
 from .gwr import gwr, GWRResult, KernelName
 
-
 Criterion = Literal["AICc", "AIC", "BIC", "CV"]
 
 
-def _loss(result: GWRResult, criterion: Criterion, y: np.ndarray,
-          coords: np.ndarray, X: np.ndarray, bw: float,
-          kernel: KernelName, fixed: bool, add_constant: bool) -> float:
+def _loss(
+    result: GWRResult,
+    criterion: Criterion,
+    y: np.ndarray,
+    coords: np.ndarray,
+    X: np.ndarray,
+    bw: float,
+    kernel: KernelName,
+    fixed: bool,
+    add_constant: bool,
+) -> float:
     if criterion == "AICc":
         return result.aicc
     if criterion == "AIC":
@@ -40,8 +48,10 @@ def _loss(result: GWRResult, criterion: Criterion, y: np.ndarray,
 
 def _golden_section(
     f: Callable[[float], float],
-    a: float, b: float,
-    tol: float = 1e-3, max_iter: int = 200,
+    a: float,
+    b: float,
+    tol: float = 1e-3,
+    max_iter: int = 200,
     integer: bool = False,
 ) -> Tuple[float, float]:
     """Minimise ``f`` on ``[a, b]`` via golden-section search."""
@@ -49,7 +59,8 @@ def _golden_section(
     c = b - golden * (b - a)
     d = a + golden * (b - a)
     if integer:
-        c = int(round(c)); d = int(round(d))
+        c = int(round(c))
+        d = int(round(d))
     fc, fd = f(c), f(d)
     for _ in range(max_iter):
         if abs(b - a) < tol:
@@ -121,6 +132,7 @@ def gwr_bandwidth(
         if bw_min is None:
             # smallest inter-point distance (stabilised slightly)
             from scipy.spatial import cKDTree
+
             tree = cKDTree(coords)
             d1, _ = tree.query(coords, k=2)
             bw_min = float(np.percentile(d1[:, 1], 10))
@@ -129,19 +141,24 @@ def gwr_bandwidth(
         integer = False
     else:
         if bw_min is None:
-            bw_min = k + 2              # need at least k+2 obs to fit
+            bw_min = k + 2  # need at least k+2 obs to fit
         if bw_max is None:
             bw_max = float(n)
         integer = True
 
     def objective(bw: float) -> float:
-        res = gwr(coords, y, X, bw,
-                  kernel=kernel, fixed=fixed, add_constant=add_constant)
+        res = gwr(
+            coords, y, X, bw, kernel=kernel, fixed=fixed, add_constant=add_constant
+        )
         return _loss(res, criterion, y, coords, X, bw, kernel, fixed, add_constant)
 
     bw_opt, _ = _golden_section(
-        objective, bw_min, bw_max,
-        tol=tol, max_iter=60, integer=integer,
+        objective,
+        bw_min,
+        bw_max,
+        tol=tol,
+        max_iter=60,
+        integer=integer,
     )
     if integer:
         bw_opt = int(round(bw_opt))

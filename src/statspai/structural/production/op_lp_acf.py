@@ -59,10 +59,10 @@ from ._core import (
 from ._result import ProductionResult
 from ...exceptions import ConvergenceFailure
 
-
 # ---------------------------------------------------------------------------
 # Shared driver
 # ---------------------------------------------------------------------------
+
 
 def _prepare_panel(
     data: pd.DataFrame,
@@ -84,13 +84,7 @@ def _prepare_panel(
     missing = [c for c in cols if c not in data.columns]
     if missing:
         raise ValueError(f"Missing columns in data: {missing}")
-    df = (
-        data[cols]
-        .dropna()
-        .sort_values([panel_id, time])
-        .reset_index(drop=True)
-        .copy()
-    )
+    df = data[cols].dropna().sort_values([panel_id, time]).reset_index(drop=True).copy()
     df["__panel_id__"] = df[panel_id].to_numpy()
     df["__time__"] = df[time].to_numpy()
 
@@ -105,7 +99,8 @@ def _prepare_panel(
                 "the lag operator will treat these gaps as 1-period lags "
                 "and bias the AR productivity fit. Consider dropping "
                 "incomplete firm histories.",
-                UserWarning, stacklevel=3,
+                UserWarning,
+                stacklevel=3,
             )
     except (TypeError, ValueError):
         # Non-numeric time column (e.g. strings / datetimes) — skip the
@@ -164,12 +159,12 @@ def _estimate_proxy(
     instr_cols: List[str] = []
     instr_names: List[str] = []
     for s in state:
-        instr_cols.append(s)                       # k_it
+        instr_cols.append(s)  # k_it
         instr_names.append(s)
     if method == "acf":
         for f in free:
-            instr_cols.append(f"__lag1__{f}")      # l_{i,t-1}
-            instr_names.append(f)                   # name without lag prefix
+            instr_cols.append(f"__lag1__{f}")  # l_{i,t-1}
+            instr_names.append(f)  # name without lag prefix
     else:  # op / lp
         for f in free:
             instr_cols.append(f)
@@ -179,7 +174,9 @@ def _estimate_proxy(
     # Expand inputs and instruments under the functional form.
     inputs_raw = df[raw_input_names].to_numpy(dtype=float)
     inputs_mat, expanded_names = expand_inputs(
-        inputs_raw, raw_input_names, functional_form,
+        inputs_raw,
+        raw_input_names,
+        functional_form,
     )
     Z2, _ = expand_inputs(Z2_raw, instr_names, functional_form)
     panel_arr = df["__panel_id__"].to_numpy()
@@ -230,8 +227,9 @@ def _estimate_proxy(
         s = np.zeros(n_in)
         s[:n_lin] = linear_vals[:n_lin]
         return s
+
     starts: List[np.ndarray] = [
-        _start([0.5] * n_lin),     # equal-weight, plausible CD
+        _start([0.5] * n_lin),  # equal-weight, plausible CD
         _start([0.3] * n_lin),
         _start([0.7] * n_lin),
         _start([0.6, 0.3] + [0.0] * max(0, n_lin - 2)),  # labor-heavy
@@ -241,7 +239,9 @@ def _estimate_proxy(
     for b0 in starts:
         try:
             r = optimize.minimize(
-                obj, b0, method="Nelder-Mead",
+                obj,
+                b0,
+                method="Nelder-Mead",
                 options={"xatol": 1e-7, "fatol": 1e-12, "maxiter": 20000},
             )
             if (best is None) or (r.fun < best.fun):
@@ -255,11 +255,17 @@ def _estimate_proxy(
 
     # ---- Recover productivity & innovations ---------------------------
     omega_w = phi_w - inputs_w @ beta_hat
-    df_w = pd.DataFrame({
-        "omega": omega_w,
-        "panel_id": panel_w,
-        "time": time_w,
-    }).sort_values(["panel_id", "time"]).reset_index(drop=True)
+    df_w = (
+        pd.DataFrame(
+            {
+                "omega": omega_w,
+                "panel_id": panel_w,
+                "time": time_w,
+            }
+        )
+        .sort_values(["panel_id", "time"])
+        .reset_index(drop=True)
+    )
     df_w["omega_lag"] = df_w.groupby("panel_id", sort=False)["omega"].shift(1)
     mask_ar = df_w["omega_lag"].notna().to_numpy()
     xi, theta = productivity_residual(
@@ -289,10 +295,14 @@ def _estimate_proxy(
                 Z2_b_raw = boot_df[instr_cols].to_numpy(dtype=float)
                 inputs_b_raw = boot_df[raw_input_names].to_numpy(dtype=float)
                 inputs_b, _ = expand_inputs(
-                    inputs_b_raw, raw_input_names, functional_form,
+                    inputs_b_raw,
+                    raw_input_names,
+                    functional_form,
                 )
                 Z2_b, _ = expand_inputs(
-                    Z2_b_raw, instr_names, functional_form,
+                    Z2_b_raw,
+                    instr_names,
+                    functional_form,
                 )
                 panel_b = boot_df["__panel_id__"].to_numpy()
                 time_b = boot_df["__time__"].to_numpy()
@@ -333,14 +343,16 @@ def _estimate_proxy(
                     f"Production-function bootstrap: {n_fail}/{int(boot_reps)} "
                     f"firm-cluster replications failed (singular / non-converged "
                     f"GMM); SE computed over {n_success} successes.",
-                    RuntimeWarning, stacklevel=2,
+                    RuntimeWarning,
+                    stacklevel=2,
                 )
         else:
             warnings.warn(
                 f"Production-function bootstrap: only {n_success}/"
                 f"{int(boot_reps)} replications succeeded (need >1); standard "
                 f"errors are NaN. Inspect convergence / sample size.",
-                RuntimeWarning, stacklevel=2,
+                RuntimeWarning,
+                stacklevel=2,
             )
 
     # ---- Pack result ---------------------------------------------------
@@ -398,6 +410,7 @@ def _estimate_proxy(
 # Public wrappers
 # ---------------------------------------------------------------------------
 
+
 def _resolve_inputs(
     free: Optional[Sequence[str] | str],
     state: Optional[Sequence[str] | str],
@@ -413,6 +426,7 @@ def _resolve_inputs(
         if isinstance(x, str):
             return [x]
         return list(x)
+
     return _to_list(free, free_default), _to_list(state, state_default)
 
 

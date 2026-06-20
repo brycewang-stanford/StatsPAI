@@ -8,5 +8,7 @@ Variable selection tools.
 from .stepwise import stepwise, lasso_select, SelectionResult
 
 __all__ = [
-    "stepwise", "lasso_select", "SelectionResult",
+    "stepwise",
+    "lasso_select",
+    "SelectionResult",
 ]

@@ -15,6 +15,7 @@ Optuna is an **optional dependency**. If missing, this function
 raises :class:`ImportError` with the install recipe; the rest of
 ``statspai`` works normally.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -37,7 +38,6 @@ from .auto_cate import (
 )
 from .metalearners import _prepare_data
 
-
 _OPTUNA_INSTALL_HINT = (
     "sp.auto_cate_tuned requires optuna. Install with:\n"
     "    pip install 'statspai[tune]'\n"
@@ -47,13 +47,13 @@ _OPTUNA_INSTALL_HINT = (
 
 
 DEFAULT_SEARCH_SPACE: Dict[str, List[Any]] = {
-    'outcome_n_estimators': [100, 200, 400, 800],
-    'outcome_max_depth': [2, 3, 4, 5, 6],
-    'outcome_learning_rate': [0.01, 0.03, 0.05, 0.1],
-    'outcome_subsample': [0.6, 0.8, 1.0],
-    'propensity_n_estimators': [100, 200, 400],
-    'propensity_max_depth': [2, 3, 4, 5],
-    'propensity_learning_rate': [0.03, 0.05, 0.1],
+    "outcome_n_estimators": [100, 200, 400, 800],
+    "outcome_max_depth": [2, 3, 4, 5, 6],
+    "outcome_learning_rate": [0.01, 0.03, 0.05, 0.1],
+    "outcome_subsample": [0.6, 0.8, 1.0],
+    "propensity_n_estimators": [100, 200, 400],
+    "propensity_max_depth": [2, 3, 4, 5],
+    "propensity_learning_rate": [0.03, 0.05, 0.1],
 }
 
 
@@ -61,10 +61,10 @@ DEFAULT_SEARCH_SPACE: Dict[str, List[Any]] = {
 # Shared between outcome-style (S/T/X) and cate_model learners (R/DR)
 # because all of them ultimately hit a GradientBoostingRegressor.
 DEFAULT_PER_LEARNER_SEARCH_SPACE: Dict[str, List[Any]] = {
-    'cate_n_estimators': [100, 200, 400],
-    'cate_max_depth': [2, 3, 4, 5],
-    'cate_learning_rate': [0.03, 0.05, 0.1],
-    'cate_subsample': [0.6, 0.8, 1.0],
+    "cate_n_estimators": [100, 200, 400],
+    "cate_max_depth": [2, 3, 4, 5],
+    "cate_learning_rate": [0.03, 0.05, 0.1],
+    "cate_subsample": [0.6, 0.8, 1.0],
 }
 
 
@@ -228,17 +228,18 @@ def _build_models_from_params(
     random_state: int,
 ) -> Tuple[Any, Any]:
     from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor
+
     outcome = GradientBoostingRegressor(
-        n_estimators=int(params['outcome_n_estimators']),
-        max_depth=int(params['outcome_max_depth']),
-        learning_rate=float(params['outcome_learning_rate']),
-        subsample=float(params['outcome_subsample']),
+        n_estimators=int(params["outcome_n_estimators"]),
+        max_depth=int(params["outcome_max_depth"]),
+        learning_rate=float(params["outcome_learning_rate"]),
+        subsample=float(params["outcome_subsample"]),
         random_state=random_state,
     )
     propensity = GradientBoostingClassifier(
-        n_estimators=int(params['propensity_n_estimators']),
-        max_depth=int(params['propensity_max_depth']),
-        learning_rate=float(params['propensity_learning_rate']),
+        n_estimators=int(params["propensity_n_estimators"]),
+        max_depth=int(params["propensity_max_depth"]),
+        learning_rate=float(params["propensity_learning_rate"]),
         random_state=random_state,
     )
     return outcome, propensity
@@ -272,9 +273,13 @@ def _r_loss_on_nuisance(
     """
     outcome, propensity = _build_models_from_params(params, random_state)
     m_hat, e_hat = _cross_fit_nuisance(
-        X, Y, D,
-        outcome_model=outcome, propensity_model=propensity,
-        n_folds=n_folds, random_state=random_state,
+        X,
+        Y,
+        D,
+        outcome_model=outcome,
+        propensity_model=propensity,
+        n_folds=n_folds,
+        random_state=random_state,
     )
     e_hat = np.clip(e_hat, 0.01, 0.99)
     tau_zero = np.zeros_like(Y)
@@ -284,11 +289,12 @@ def _r_loss_on_nuisance(
 def _build_cate_model(params: Dict[str, Any], random_state: int) -> Any:
     """GBM factory for the CATE-stage search space."""
     from sklearn.ensemble import GradientBoostingRegressor
+
     return GradientBoostingRegressor(
-        n_estimators=int(params['cate_n_estimators']),
-        max_depth=int(params['cate_max_depth']),
-        learning_rate=float(params['cate_learning_rate']),
-        subsample=float(params['cate_subsample']),
+        n_estimators=int(params["cate_n_estimators"]),
+        max_depth=int(params["cate_max_depth"]),
+        learning_rate=float(params["cate_learning_rate"]),
+        subsample=float(params["cate_subsample"]),
         random_state=random_state,
     )
 
@@ -309,11 +315,15 @@ def _r_loss_per_learner(
     """Honest R-loss for a single learner with a specific CATE-stage HP."""
     cate_model = _build_cate_model(params, random_state)
     tau_oof = _honest_cate_predictions(
-        code, X, Y, D,
+        code,
+        X,
+        Y,
+        D,
         outcome_model=outcome_model,
         propensity_model=propensity_model,
         cate_model=cate_model,
-        n_folds=n_folds, random_state=random_state,
+        n_folds=n_folds,
+        random_state=random_state,
     )
     return _r_loss(tau_oof, Y, D, m_hat, e_hat)
 
@@ -323,9 +333,9 @@ def auto_cate_tuned(
     y: str,
     treat: str,
     covariates: CovariatesArg,
-    learners: LearnersArg = ('s', 't', 'x', 'r', 'dr'),
+    learners: LearnersArg = ("s", "t", "x", "r", "dr"),
     *,
-    tune: str = 'nuisance',
+    tune: str = "nuisance",
     n_trials: int = 25,
     n_trials_per_learner: Optional[int] = None,
     timeout: Optional[float] = None,
@@ -404,10 +414,9 @@ def auto_cate_tuned(
     >>> res.best_result.model_info["tune_mode"]  # doctest: +SKIP
     'nuisance'
     """
-    if tune not in ('nuisance', 'per_learner', 'both'):
+    if tune not in ("nuisance", "per_learner", "both"):
         raise _auto_cate_tuned_error(
-            f"tune must be one of 'nuisance', 'per_learner', 'both'; "
-            f"got {tune!r}",
+            f"tune must be one of 'nuisance', 'per_learner', 'both'; " f"got {tune!r}",
             diagnostics={"tune": tune},
             recovery_hint="Use tune='nuisance', 'per_learner', or 'both'.",
         )
@@ -416,8 +425,7 @@ def auto_cate_tuned(
             "data must be a pandas DataFrame.",
             diagnostics={"type": type(data).__name__},
             recovery_hint=(
-                "Pass a pandas DataFrame with outcome, treatment, and "
-                "covariates."
+                "Pass a pandas DataFrame with outcome, treatment, and " "covariates."
             ),
         )
     if data.empty:
@@ -477,10 +485,8 @@ def auto_cate_tuned(
             diagnostics={"n_bootstrap": n_bootstrap},
             recovery_hint="Use n_bootstrap=50 or larger for stable intervals.",
         )
-    if tune in ('nuisance', 'both') and (
-        not isinstance(n_trials, int)
-        or isinstance(n_trials, bool)
-        or n_trials < 1
+    if tune in ("nuisance", "both") and (
+        not isinstance(n_trials, int) or isinstance(n_trials, bool) or n_trials < 1
     ):
         raise _auto_cate_tuned_error(
             "n_trials must be an integer >= 1 for nuisance tuning.",
@@ -497,18 +503,20 @@ def auto_cate_tuned(
         )
 
     space = search_space if search_space is not None else DEFAULT_SEARCH_SPACE
-    pl_space = (per_learner_search_space
-                if per_learner_search_space is not None
-                else DEFAULT_PER_LEARNER_SEARCH_SPACE)
-    pl_trials = (n_trials_per_learner
-                 if n_trials_per_learner is not None
-                 else max(5, n_trials // 3))
+    pl_space = (
+        per_learner_search_space
+        if per_learner_search_space is not None
+        else DEFAULT_PER_LEARNER_SEARCH_SPACE
+    )
+    pl_trials = (
+        n_trials_per_learner
+        if n_trials_per_learner is not None
+        else max(5, n_trials // 3)
+    )
     _validate_search_space(space, context="nuisance")
     _validate_search_space(pl_space, context="per_learner")
-    if tune in ('per_learner', 'both') and (
-        not isinstance(pl_trials, int)
-        or isinstance(pl_trials, bool)
-        or pl_trials < 1
+    if tune in ("per_learner", "both") and (
+        not isinstance(pl_trials, int) or isinstance(pl_trials, bool) or pl_trials < 1
     ):
         raise _auto_cate_tuned_error(
             "n_trials_per_learner must be an integer >= 1.",
@@ -546,17 +554,23 @@ def auto_cate_tuned(
     best_outcome = None
     best_propensity = None
 
-    if tune in ('nuisance', 'both'):
+    if tune in ("nuisance", "both"):
+
         def _objective_nuisance(trial: Any) -> float:
             params = _sample_params(trial, space)
             return _r_loss_on_nuisance(
-                params, X, Y, D,
-                n_folds=n_folds, random_state=random_state,
+                params,
+                X,
+                Y,
+                D,
+                n_folds=n_folds,
+                random_state=random_state,
             )
 
         nuisance_sampler = sampler or optuna.samplers.TPESampler(seed=random_state)
         nuisance_study = optuna.create_study(
-            direction='minimize', sampler=nuisance_sampler,
+            direction="minimize",
+            sampler=nuisance_sampler,
         )
         nuisance_study.optimize(
             _objective_nuisance,
@@ -565,13 +579,17 @@ def auto_cate_tuned(
             show_progress_bar=verbose,
         )
         best_nuisance_params = dict(nuisance_study.best_params)
-        n_completed_nuisance = len([
-            t for t in nuisance_study.trials
-            if t.state == optuna.trial.TrialState.COMPLETE
-        ])
+        n_completed_nuisance = len(
+            [
+                t
+                for t in nuisance_study.trials
+                if t.state == optuna.trial.TrialState.COMPLETE
+            ]
+        )
         best_r_loss_nuisance = float(nuisance_study.best_value)
         best_outcome, best_propensity = _build_models_from_params(
-            best_nuisance_params, random_state=random_state,
+            best_nuisance_params,
+            random_state=random_state,
         )
 
     # ------------------------------------------------------------------
@@ -580,7 +598,7 @@ def auto_cate_tuned(
     per_learner_params: Dict[str, Dict[str, Any]] = {}
     per_learner_r_loss: Dict[str, float] = {}
 
-    if tune in ('per_learner', 'both'):
+    if tune in ("per_learner", "both"):
         # Pre-compute the nuisance once (shared across all learners' R-loss
         # evaluations) — uses the tuned nuisance if 'both', else defaults.
         om_shared = best_outcome
@@ -588,29 +606,43 @@ def auto_cate_tuned(
         if om_shared is None:
             # Lazy import to avoid circular issues
             from .metalearners import (
-                _default_outcome_model, _default_propensity_model,
+                _default_outcome_model,
+                _default_propensity_model,
             )
+
             om_shared = _default_outcome_model()
             pm_shared = _default_propensity_model()
         m_hat, e_hat = _cross_fit_nuisance(
-            X, Y, D,
-            outcome_model=om_shared, propensity_model=pm_shared,
-            n_folds=n_folds, random_state=random_state,
+            X,
+            Y,
+            D,
+            outcome_model=om_shared,
+            propensity_model=pm_shared,
+            n_folds=n_folds,
+            random_state=random_state,
         )
         e_hat = np.clip(e_hat, 0.01, 0.99)
 
         for code in learner_codes:
+
             def _objective_pl(trial: Any, _code: str = code) -> float:
                 params = _sample_params(trial, pl_space)
                 return _r_loss_per_learner(
-                    _code, params, X, Y, D, m_hat, e_hat,
+                    _code,
+                    params,
+                    X,
+                    Y,
+                    D,
+                    m_hat,
+                    e_hat,
                     outcome_model=om_shared,
                     propensity_model=pm_shared,
-                    n_folds=n_folds, random_state=random_state,
+                    n_folds=n_folds,
+                    random_state=random_state,
                 )
 
             pl_sampler = optuna.samplers.TPESampler(seed=random_state)
-            pl_study = optuna.create_study(direction='minimize', sampler=pl_sampler)
+            pl_study = optuna.create_study(direction="minimize", sampler=pl_sampler)
             pl_study.optimize(
                 _objective_pl,
                 n_trials=pl_trials,
@@ -632,13 +664,17 @@ def auto_cate_tuned(
             key=lambda code: per_learner_r_loss[code],
         )
         best_pl_cate_model = _build_cate_model(
-            per_learner_params[best_pl_code], random_state=random_state,
+            per_learner_params[best_pl_code],
+            random_state=random_state,
         )
     else:
         best_pl_cate_model = None
 
     result = auto_cate(
-        data, y=y, treat=treat, covariates=covariate_list,
+        data,
+        y=y,
+        treat=treat,
+        covariates=covariate_list,
         learners=learner_codes,
         outcome_model=best_outcome,
         propensity_model=best_propensity,
@@ -653,23 +689,21 @@ def auto_cate_tuned(
     # Record metadata on the winner's CausalResult
     # ------------------------------------------------------------------
     info = result.best_result.model_info
-    info['tune_mode'] = tune
+    info["tune_mode"] = tune
     if best_nuisance_params is not None:
-        info['tuned_params'] = best_nuisance_params
-        info['n_trials'] = n_completed_nuisance
-        info['best_r_loss_nuisance'] = best_r_loss_nuisance
+        info["tuned_params"] = best_nuisance_params
+        info["n_trials"] = n_completed_nuisance
+        info["best_r_loss_nuisance"] = best_r_loss_nuisance
     if per_learner_params:
-        info['per_learner_params'] = per_learner_params
-        info['per_learner_r_loss'] = per_learner_r_loss
-        info['best_per_learner_code'] = best_pl_code
-        info['n_trials_per_learner'] = pl_trials
+        info["per_learner_params"] = per_learner_params
+        info["per_learner_r_loss"] = per_learner_r_loss
+        info["best_per_learner_code"] = best_pl_code
+        info["n_trials_per_learner"] = pl_trials
 
     # Also expose on the AutoCATEResult's selection rule for transparency
     rule_parts: List[str] = []
     if best_nuisance_params is not None:
-        rule_parts.append(
-            f"nuisance tuned via {n_completed_nuisance} Optuna trials"
-        )
+        rule_parts.append(f"nuisance tuned via {n_completed_nuisance} Optuna trials")
     if per_learner_params:
         rule_parts.append(
             f"per-learner CATE tuned via {pl_trials} trials each "

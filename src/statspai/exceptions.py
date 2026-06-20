@@ -367,8 +367,7 @@ def warn(category: type, message: str, *, stacklevel: int = 2, **kwargs: Any) ->
     """
     if not (isinstance(category, type) and issubclass(category, StatsPAIWarning)):
         raise TypeError(
-            "category must be a StatsPAIWarning subclass; "
-            f"got {category!r}"
+            "category must be a StatsPAIWarning subclass; " f"got {category!r}"
         )
     warnings.warn(category(message, **kwargs), stacklevel=stacklevel)
 

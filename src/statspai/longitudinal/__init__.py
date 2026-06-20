@@ -31,6 +31,11 @@ from .regime import Regime, regime, always_treat, never_treat
 from .analyze import LongitudinalResult, analyze, contrast
 
 __all__ = [
-    "Regime", "regime", "always_treat", "never_treat",
-    "LongitudinalResult", "analyze", "contrast",
+    "Regime",
+    "regime",
+    "always_treat",
+    "never_treat",
+    "LongitudinalResult",
+    "analyze",
+    "contrast",
 ]

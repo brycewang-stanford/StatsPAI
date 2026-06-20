@@ -11,7 +11,6 @@ a measure of "exposure to treated neighbours" as a regressor.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
 
 import numpy as np
 import pandas as pd
@@ -51,6 +50,7 @@ class CrossClusterRCTResult(ResultProtocolMixin):
     >>> isinstance(res.summary(), str)
     True
     """
+
     direct_effect: float
     direct_se: float
     spillover_effect: float
@@ -123,13 +123,21 @@ def cluster_cross_interference(
     >>> isinstance(res.summary(), str)
     True
     """
-    df = data[[y, cluster, treat, neighbour_treat_share]].dropna() \
-        .reset_index(drop=True)
+    df = (
+        data[[y, cluster, treat, neighbour_treat_share]].dropna().reset_index(drop=True)
+    )
     # Aggregate to cluster level for inference
-    cl = df.groupby(cluster).agg({
-        y: 'mean', treat: 'first',
-        neighbour_treat_share: 'first',
-    }).reset_index()
+    cl = (
+        df.groupby(cluster)
+        .agg(
+            {
+                y: "mean",
+                treat: "first",
+                neighbour_treat_share: "first",
+            }
+        )
+        .reset_index()
+    )
 
     # OLS: Y_c = α + β * D_c + γ * NShare_c + ε_c
     Y = cl[y].to_numpy(float)
@@ -139,15 +147,17 @@ def cluster_cross_interference(
     try:
         beta = np.linalg.solve(X.T @ X, X.T @ Y)
         resid = Y - X @ beta
-        sigma2 = float(np.sum(resid ** 2) / max(len(Y) - X.shape[1], 1))
+        sigma2 = float(np.sum(resid**2) / max(len(Y) - X.shape[1], 1))
         cov = sigma2 * np.linalg.pinv(X.T @ X)
         direct = float(beta[1])
         se_direct = float(np.sqrt(max(cov[1, 1], 0.0)))
         spillover = float(beta[2])
         se_spillover = float(np.sqrt(max(cov[2, 2], 0.0)))
     except np.linalg.LinAlgError:
-        direct = float('nan'); se_direct = float('nan')
-        spillover = float('nan'); se_spillover = float('nan')
+        direct = float("nan")
+        se_direct = float("nan")
+        spillover = float("nan")
+        se_spillover = float("nan")
 
     return CrossClusterRCTResult(
         direct_effect=direct,

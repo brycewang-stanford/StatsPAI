@@ -11,16 +11,17 @@ Chernozhukov, V., Fernandez-Val, I. & Melly, B. (2013).
 Athey, S. & Imbens, G. W. (2006).
     Identification and Inference in Nonlinear DID Models. *Econometrica*, 74(2).
 """
+
 from __future__ import annotations
 from typing import Any, Callable, Dict, Optional, List
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 # ══════════════════════════════════════════════════════════════════════
 #  DTEResult
 # ══════════════════════════════════════════════════════════════════════
+
 
 class DTEResult:
     """Container for distributional treatment effect estimates.
@@ -48,11 +49,22 @@ class DTEResult:
     [1.63, 1.51, 1.57]
     """
 
-    def __init__(self, grid: Any, dte: Any, dte_se: Any, qte_taus: Any,
-                 qte_effects: Any, qte_se: Any,
-                 cdf_treated: Any, cdf_counterfactual: Any,
-                 ks_stat: Any, ks_pvalue: Any,
-                 n_obs: Any, method: str = "ipw", alpha: float = 0.05) -> None:
+    def __init__(
+        self,
+        grid: Any,
+        dte: Any,
+        dte_se: Any,
+        qte_taus: Any,
+        qte_effects: Any,
+        qte_se: Any,
+        cdf_treated: Any,
+        cdf_counterfactual: Any,
+        ks_stat: Any,
+        ks_pvalue: Any,
+        n_obs: Any,
+        method: str = "ipw",
+        alpha: float = 0.05,
+    ) -> None:
         self.grid = np.asarray(grid)
         self.dte = np.asarray(dte)
         self.dte_se = np.asarray(dte_se)
@@ -69,10 +81,14 @@ class DTEResult:
 
     @staticmethod
     def _stars(pv: float) -> str:
-        if np.isnan(pv): return ""
-        if pv < 0.01: return "***"
-        if pv < 0.05: return "**"
-        if pv < 0.1:  return "*"
+        if np.isnan(pv):
+            return ""
+        if pv < 0.01:
+            return "***"
+        if pv < 0.05:
+            return "**"
+        if pv < 0.1:
+            return "*"
         return ""
 
     def summary(self) -> str:
@@ -98,21 +114,28 @@ class DTEResult:
                 f"  {tau:6.2f}  {eff:>10.4f}{self._stars(pv):<3s}  ({se_i:.4f})  "
                 f"[{lo:.4f}, {hi:.4f}]"
             )
-        lines += ["  " + "-" * 58, f"  Observations: {self.n_obs:,}",
-                   "=" * 64, "  * p<0.1, ** p<0.05, *** p<0.01"]
+        lines += [
+            "  " + "-" * 58,
+            f"  Observations: {self.n_obs:,}",
+            "=" * 64,
+            "  * p<0.1, ** p<0.05, *** p<0.01",
+        ]
         out = "\n".join(lines)
         print(out)
         return out
 
     def __repr__(self) -> str:
-        return (f"DTEResult(method='{self.method}', ks_stat={self.ks_stat:.4f}, "
-                f"ks_pvalue={self.ks_pvalue:.4f}, n_obs={self.n_obs})")
+        return (
+            f"DTEResult(method='{self.method}', ks_stat={self.ks_stat:.4f}, "
+            f"ks_pvalue={self.ks_pvalue:.4f}, n_obs={self.n_obs})"
+        )
 
     # ── plots ────────────────────────────────────────────────────── #
 
     def plot(self, ax: Any = None) -> Any:
         """Plot the DTE curve with CI band. Returns (fig, ax)."""
         import matplotlib.pyplot as plt
+
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 5))
         else:
@@ -120,8 +143,14 @@ class DTEResult:
         z = stats.norm.ppf(1 - self.alpha / 2)
         lo, hi = self.dte - z * self.dte_se, self.dte + z * self.dte_se
         ax.plot(self.grid, self.dte, color="#2c7bb6", linewidth=2, label="DTE")
-        ax.fill_between(self.grid, lo, hi, alpha=0.2, color="#2c7bb6",
-                         label=f"{int(100 * (1 - self.alpha))}% CI")
+        ax.fill_between(
+            self.grid,
+            lo,
+            hi,
+            alpha=0.2,
+            color="#2c7bb6",
+            label=f"{int(100 * (1 - self.alpha))}% CI",
+        )
         ax.axhline(0, color="grey", linestyle="--", linewidth=0.8)
         ax.set_xlabel("y")
         ax.set_ylabel(r"$F_{Y(1)|D=1}(y) - F_{Y(0)|D=1}(y)$")
@@ -132,15 +161,29 @@ class DTEResult:
     def plot_cdf(self, ax: Any = None) -> Any:
         """Plot treated vs. counterfactual CDFs. Returns (fig, ax)."""
         import matplotlib.pyplot as plt
+
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 5))
         else:
             fig = ax.get_figure()
-        ax.step(self.grid, self.cdf_treated, color="#d7191c", linewidth=2,
-                where="post", label="Treated")
-        ax.step(self.grid, self.cdf_counterfactual, color="#2c7bb6", linewidth=2,
-                where="post", label="Counterfactual")
-        ax.set_xlabel("y"); ax.set_ylabel("CDF")
+        ax.step(
+            self.grid,
+            self.cdf_treated,
+            color="#d7191c",
+            linewidth=2,
+            where="post",
+            label="Treated",
+        )
+        ax.step(
+            self.grid,
+            self.cdf_counterfactual,
+            color="#2c7bb6",
+            linewidth=2,
+            where="post",
+            label="Counterfactual",
+        )
+        ax.set_xlabel("y")
+        ax.set_ylabel("CDF")
         ax.set_title("Treated vs. Counterfactual Distribution")
         ax.legend()
         return fig, ax
@@ -150,16 +193,20 @@ class DTEResult:
 #  Helpers
 # ══════════════════════════════════════════════════════════════════════
 
+
 def _propensity_score(X: np.ndarray, D: np.ndarray) -> np.ndarray:
     """Logistic propensity score (near-unpenalised)."""
     from sklearn.linear_model import LogisticRegression
+
     clf = LogisticRegression(max_iter=2000, solver="lbfgs", C=1e6)
     clf.fit(X, D)
     return np.asarray(clf.predict_proba(X)[:, 1])
 
 
 def _weighted_ecdf(
-    vals: np.ndarray, w: np.ndarray, grid: np.ndarray,
+    vals: np.ndarray,
+    w: np.ndarray,
+    grid: np.ndarray,
 ) -> np.ndarray:
     """Weighted empirical CDF on *grid*."""
     ws = w.sum()
@@ -169,7 +216,9 @@ def _weighted_ecdf(
 
 
 def _quantile_from_cdf(
-    grid: np.ndarray, cdf: np.ndarray, taus: np.ndarray,
+    grid: np.ndarray,
+    cdf: np.ndarray,
+    taus: np.ndarray,
 ) -> np.ndarray:
     """Invert CDF on grid to get quantiles."""
     out = np.empty(len(taus))
@@ -180,11 +229,14 @@ def _quantile_from_cdf(
 
 
 def _fit_cond_cdf_ctrl(
-    X_ctrl: np.ndarray, Y_ctrl: np.ndarray,
-    X_all: np.ndarray, grid: np.ndarray,
+    X_ctrl: np.ndarray,
+    Y_ctrl: np.ndarray,
+    X_all: np.ndarray,
+    grid: np.ndarray,
 ) -> np.ndarray:
     """Fit P(Y<=y|X,D=0) on controls, predict for all obs. Returns (n, n_grid)."""
     from sklearn.linear_model import LinearRegression
+
     n, ng = X_all.shape[0], len(grid)
     out = np.empty((n, ng))
     for j, yv in enumerate(grid):
@@ -197,9 +249,13 @@ def _fit_cond_cdf_ctrl(
 #  Core estimators
 # ══════════════════════════════════════════════════════════════════════
 
+
 def _dte_ipw(
-    Y: np.ndarray, D: np.ndarray, X: Optional[np.ndarray],
-    grid: np.ndarray, taus: np.ndarray,
+    Y: np.ndarray,
+    D: np.ndarray,
+    X: Optional[np.ndarray],
+    grid: np.ndarray,
+    taus: np.ndarray,
 ) -> Dict[str, Any]:
     """IPW estimator for DTE."""
     treated, control = (D == 1), (D == 0)
@@ -213,13 +269,21 @@ def _dte_ipw(
 
     qt = _quantile_from_cdf(grid, cdf_t, taus)
     qcf = _quantile_from_cdf(grid, cdf_cf, taus)
-    return dict(cdf_treated=cdf_t, cdf_cf=cdf_cf, dte=dte,
-                qte=qt - qcf, ks_stat=float(np.max(np.abs(dte))))
+    return dict(
+        cdf_treated=cdf_t,
+        cdf_cf=cdf_cf,
+        dte=dte,
+        qte=qt - qcf,
+        ks_stat=float(np.max(np.abs(dte))),
+    )
 
 
 def _dte_dr(
-    Y: np.ndarray, D: np.ndarray, X: np.ndarray,
-    grid: np.ndarray, taus: np.ndarray,
+    Y: np.ndarray,
+    D: np.ndarray,
+    X: np.ndarray,
+    grid: np.ndarray,
+    taus: np.ndarray,
 ) -> Dict[str, Any]:
     """Doubly-robust estimator for DTE."""
     treated, control = (D == 1), (D == 0)
@@ -244,12 +308,20 @@ def _dte_dr(
     dte = cdf_t - cdf_cf
     qt = _quantile_from_cdf(grid, cdf_t, taus)
     qcf = _quantile_from_cdf(grid, cdf_cf, taus)
-    return dict(cdf_treated=cdf_t, cdf_cf=cdf_cf, dte=dte,
-                qte=qt - qcf, ks_stat=float(np.max(np.abs(dte))))
+    return dict(
+        cdf_treated=cdf_t,
+        cdf_cf=cdf_cf,
+        dte=dte,
+        qte=qt - qcf,
+        ks_stat=float(np.max(np.abs(dte))),
+    )
 
 
 def _dte_cic(
-    Y: np.ndarray, D: np.ndarray, grid: np.ndarray, taus: np.ndarray,
+    Y: np.ndarray,
+    D: np.ndarray,
+    grid: np.ndarray,
+    taus: np.ndarray,
 ) -> Dict[str, Any]:
     """Changes-in-Changes distributional estimator.
 
@@ -257,14 +329,16 @@ def _dte_cic(
     Counterfactual: F_{Y(0)|11}(y) = F_01( Q_00( F_10(y) ) )
     """
     from scipy.interpolate import interp1d
+
     groups = {g: Y[D == g] for g in range(4)}
     if any(len(v) == 0 for v in groups.values()):
         raise ValueError(
-            "CiC requires 4 groups: 0=ctrl-pre, 1=ctrl-post, 2=treat-pre, 3=treat-post.")
+            "CiC requires 4 groups: 0=ctrl-pre, 1=ctrl-post, 2=treat-pre, 3=treat-post."
+        )
 
     def _ecdf_f(v: np.ndarray) -> Any:
         sv, c = np.sort(v), np.arange(1, len(v) + 1) / len(v)
-        return interp1d(sv, c, bounds_error=False, fill_value=(0., 1.))
+        return interp1d(sv, c, bounds_error=False, fill_value=(0.0, 1.0))
 
     def _qf(v: np.ndarray) -> Any:
         sv, c = np.sort(v), np.arange(1, len(v) + 1) / len(v)
@@ -274,21 +348,27 @@ def _dte_cic(
     Q_00 = _qf(groups[0])
 
     cdf_t = _weighted_ecdf(groups[3], np.ones(len(groups[3])), grid)
-    cdf_cf = np.array([
-        float(F_01(Q_00(np.clip(float(F_10(g)), 0.001, 0.999)))) for g in grid
-    ])
+    cdf_cf = np.array(
+        [float(F_01(Q_00(np.clip(float(F_10(g)), 0.001, 0.999)))) for g in grid]
+    )
     cdf_cf = np.maximum.accumulate(np.clip(cdf_cf, 0, 1))
 
     dte = cdf_t - cdf_cf
     qt = _quantile_from_cdf(grid, cdf_t, taus)
     qcf = _quantile_from_cdf(grid, cdf_cf, taus)
-    return dict(cdf_treated=cdf_t, cdf_cf=cdf_cf, dte=dte,
-                qte=qt - qcf, ks_stat=float(np.max(np.abs(dte))))
+    return dict(
+        cdf_treated=cdf_t,
+        cdf_cf=cdf_cf,
+        dte=dte,
+        qte=qt - qcf,
+        ks_stat=float(np.max(np.abs(dte))),
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════
 #  Public API
 # ══════════════════════════════════════════════════════════════════════
+
 
 def distributional_te(
     data: pd.DataFrame,
@@ -355,15 +435,25 @@ def distributional_te(
     taus = np.asarray(quantiles if quantiles else [0.1, 0.25, 0.5, 0.75, 0.9])
 
     # Evaluation grid
-    yr = Y_vec if method == "cic" else (Y_vec[D_vec == 1] if np.any(D_vec == 1) else Y_vec)
+    yr = (
+        Y_vec
+        if method == "cic"
+        else (Y_vec[D_vec == 1] if np.any(D_vec == 1) else Y_vec)
+    )
     margin = 0.01 * np.ptp(yr)
     grid = np.linspace(np.min(yr) - margin, np.max(yr) + margin, n_grid)
 
     # Dispatch
     _est: Dict[str, Callable[..., Dict[str, Any]]] = {
-        "ipw": _dte_ipw, "dr": _dte_dr, "cic": _dte_cic,
+        "ipw": _dte_ipw,
+        "dr": _dte_dr,
+        "cic": _dte_cic,
     }
-    args = (Y_vec, D_vec, grid, taus) if method == "cic" else (Y_vec, D_vec, X_mat, grid, taus)
+    args = (
+        (Y_vec, D_vec, grid, taus)
+        if method == "cic"
+        else (Y_vec, D_vec, X_mat, grid, taus)
+    )
     res0 = _est[method](*args)
 
     # Bootstrap
@@ -373,8 +463,17 @@ def distributional_te(
 
     for b in range(n_boot):
         idx = rng.choice(n, size=n, replace=True)
-        ba = (Y_vec[idx], D_vec[idx], grid, taus) if method == "cic" else \
-             (Y_vec[idx], D_vec[idx], X_mat[idx] if X_mat is not None else None, grid, taus)
+        ba = (
+            (Y_vec[idx], D_vec[idx], grid, taus)
+            if method == "cic"
+            else (
+                Y_vec[idx],
+                D_vec[idx],
+                X_mat[idx] if X_mat is not None else None,
+                grid,
+                taus,
+            )
+        )
         try:
             rb = _est[method](*ba)
             boot_dte[b], boot_qte[b], boot_ks[b] = rb["dte"], rb["qte"], rb["ks_stat"]
@@ -382,13 +481,17 @@ def distributional_te(
             boot_dte[b] = boot_qte[b] = boot_ks[b] = np.nan
 
     return DTEResult(
-        grid=grid, dte=res0["dte"],
+        grid=grid,
+        dte=res0["dte"],
         dte_se=np.nanstd(boot_dte, axis=0),
-        qte_taus=taus, qte_effects=res0["qte"],
+        qte_taus=taus,
+        qte_effects=res0["qte"],
         qte_se=np.nanstd(boot_qte, axis=0),
         cdf_treated=res0["cdf_treated"],
         cdf_counterfactual=res0["cdf_cf"],
         ks_stat=res0["ks_stat"],
         ks_pvalue=float(np.nanmean(boot_ks >= res0["ks_stat"])),
-        n_obs=n, method=method, alpha=alpha,
+        n_obs=n,
+        method=method,
+        alpha=alpha,
     )

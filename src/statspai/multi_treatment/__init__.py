@@ -20,4 +20,4 @@ Econometric Evaluation of Labour Market Policies, 43-58. [@lechner2001identifica
 
 from .multi_ipw import multi_treatment, MultiTreatment
 
-__all__ = ['multi_treatment', 'MultiTreatment']
+__all__ = ["multi_treatment", "MultiTreatment"]

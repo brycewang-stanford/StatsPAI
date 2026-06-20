@@ -179,8 +179,7 @@ def lrtest(
             stacklevel=2,
         )
         p = 0.5 * (
-            (1.0 - stats.chi2.cdf(chi2, df - 1))
-            + (1.0 - stats.chi2.cdf(chi2, df))
+            (1.0 - stats.chi2.cdf(chi2, df - 1)) + (1.0 - stats.chi2.cdf(chi2, df))
         )
     else:
         p = 1.0 - stats.chi2.cdf(chi2, df) if df > 0 else 1.0

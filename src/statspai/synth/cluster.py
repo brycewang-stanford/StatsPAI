@@ -107,8 +107,9 @@ def cluster_synth(
     # ------------------------------------------------------------------
     # 1. Validate inputs
     # ------------------------------------------------------------------
-    _validate_inputs(data, outcome, unit, time, treated_unit, treatment_time,
-                     cluster_method)
+    _validate_inputs(
+        data, outcome, unit, time, treated_unit, treatment_time, cluster_method
+    )
 
     # ------------------------------------------------------------------
     # 2. Reshape to wide panel
@@ -139,15 +140,25 @@ def cluster_synth(
     # 3. Build clustering feature matrix
     # ------------------------------------------------------------------
     X_donors, X_treated = _build_features(
-        Y0_pre, Y1_pre, data, donors, treated_unit, covariates, unit,
-        pre_times, time,
+        Y0_pre,
+        Y1_pre,
+        data,
+        donors,
+        treated_unit,
+        covariates,
+        unit,
+        pre_times,
+        time,
     )
 
     # ------------------------------------------------------------------
     # 4. Cluster donors
     # ------------------------------------------------------------------
     cluster_labels, centers, sil_scores = _cluster_donors(
-        X_donors, n_clusters, cluster_method, seed,
+        X_donors,
+        n_clusters,
+        cluster_method,
+        seed,
     )
 
     # ------------------------------------------------------------------
@@ -163,7 +174,11 @@ def cluster_synth(
 
     if augment:
         aug_idx = _augment_donors(
-            X_donors, X_treated, cluster_labels, treated_cluster, max_augment,
+            X_donors,
+            X_treated,
+            cluster_labels,
+            treated_cluster,
+            max_augment,
         )
         selected_idx = sorted(set(selected_idx) | set(aug_idx))
 
@@ -192,8 +207,8 @@ def cluster_synth(
     gaps_post = Y1_post - synth_post
 
     att = float(np.mean(gaps_post))
-    pre_rmspe = float(np.sqrt(np.mean(gaps_pre ** 2)))
-    post_rmspe = float(np.sqrt(np.mean(gaps_post ** 2)))
+    pre_rmspe = float(np.sqrt(np.mean(gaps_pre**2)))
+    post_rmspe = float(np.sqrt(np.mean(gaps_post**2)))
 
     # ------------------------------------------------------------------
     # 9. Placebo inference (optional)
@@ -205,8 +220,17 @@ def cluster_synth(
 
     if placebo:
         placebo_info = _run_placebos(
-            Y0_pre, Y0_post, Y1_pre, donors, cluster_labels, treated_cluster,
-            augment, max_augment, X_donors, X_treated, seed,
+            Y0_pre,
+            Y0_post,
+            Y1_pre,
+            donors,
+            cluster_labels,
+            treated_cluster,
+            augment,
+            max_augment,
+            X_donors,
+            X_treated,
+            seed,
         )
         if len(placebo_info["atts"]) > 0:
             placebo_atts = np.array(placebo_info["atts"])
@@ -220,21 +244,23 @@ def cluster_synth(
     # ------------------------------------------------------------------
     # 10. Build effects DataFrame
     # ------------------------------------------------------------------
-    effects_df = pd.DataFrame({
-        "time": list(pre_times) + list(post_times),
-        "treated": np.concatenate([Y1_pre, Y1_post]),
-        "synthetic": np.concatenate([synth_pre, synth_post]),
-        "effect": np.concatenate([gaps_pre, gaps_post]),
-        "period": ["pre"] * len(pre_times) + ["post"] * len(post_times),
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": list(pre_times) + list(post_times),
+            "treated": np.concatenate([Y1_pre, Y1_post]),
+            "synthetic": np.concatenate([synth_pre, synth_post]),
+            "effect": np.concatenate([gaps_pre, gaps_post]),
+            "period": ["pre"] * len(pre_times) + ["post"] * len(post_times),
+        }
+    )
 
     # ------------------------------------------------------------------
     # 11. Build cluster label mapping
     # ------------------------------------------------------------------
-    cluster_label_map = {donors[i]: int(cluster_labels[i])
-                         for i in range(len(donors))}
-    weight_map = {selected_donors[i]: float(weights[i])
-                  for i in range(len(selected_donors))}
+    cluster_label_map = {donors[i]: int(cluster_labels[i]) for i in range(len(donors))}
+    weight_map = {
+        selected_donors[i]: float(weights[i]) for i in range(len(selected_donors))
+    }
 
     model_info: Dict[str, Any] = {
         "cluster_labels": cluster_label_map,
@@ -318,6 +344,7 @@ def _build_features(
     X_treated : ndarray, shape (n_features,)
     """
     from sklearn.preprocessing import StandardScaler
+
     # Base features: standardised pre-treatment trajectories
     scaler = StandardScaler()
     # Stack treated + donors, fit scaler on all
@@ -366,6 +393,7 @@ def _auto_n_clusters(
     Tests k from 2 to min(J-1, 10) and returns the best k.
     """
     from sklearn.metrics import silhouette_score
+
     J = X.shape[0]
     k_max = min(J - 1, 10)
     if k_max < 2:
@@ -396,6 +424,7 @@ def _fit_cluster(
         KMeans,
         SpectralClustering,
     )
+
     if method == "kmeans":
         model = KMeans(
             n_clusters=n_clusters,
@@ -501,6 +530,7 @@ def _scm_weights(Y1_pre: np.ndarray, Y0_pre: np.ndarray) -> np.ndarray:
     ||Y1 - Y0^T w||^2   s.t.  sum(w) = 1,  w >= 0.
     """
     from ._core import solve_simplex_weights
+
     return solve_simplex_weights(Y1_pre, Y0_pre.T)
 
 
@@ -582,14 +612,10 @@ def _run_placebos(
             gap_pre = Y_p_pre - synth_pre
             gap_post = Y_p_post - synth_post
 
-            pre_mspe = float(np.mean(gap_pre ** 2))
-            post_mspe = float(np.mean(gap_post ** 2))
+            pre_mspe = float(np.mean(gap_pre**2))
+            post_mspe = float(np.mean(gap_post**2))
             att_p = float(np.mean(gap_post))
-            ratio = (
-                np.sqrt(post_mspe) / np.sqrt(pre_mspe)
-                if pre_mspe > 1e-10
-                else 0.0
-            )
+            ratio = np.sqrt(post_mspe) / np.sqrt(pre_mspe) if pre_mspe > 1e-10 else 0.0
 
             atts.append(att_p)
             pre_rmspes.append(np.sqrt(pre_mspe))

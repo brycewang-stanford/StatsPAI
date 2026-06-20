@@ -12,6 +12,7 @@ Two approaches that go beyond the "nearest-neighbour" heuristic:
   as possible, subject to covariate-balance constraints solved by
   linear programming.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -70,10 +71,10 @@ class OptimalMatchResult(ResultProtocolMixin):
     True
     """
 
-    pairs: pd.DataFrame              # (n_matched, 2) treated_idx + control_idx
-    distances: np.ndarray            # (n_matched,) matching distances
-    ate: float                       # average treatment effect (ATT)
-    se: float                        # (rough) analytic SE on matched pairs
+    pairs: pd.DataFrame  # (n_matched, 2) treated_idx + control_idx
+    distances: np.ndarray  # (n_matched,) matching distances
+    ate: float  # average treatment effect (ATT)
+    se: float  # (rough) analytic SE on matched pairs
     n_treated: int
     n_matched: int
 
@@ -160,6 +161,7 @@ def optimal_match(
     ctrl_idx = np.where(t == 0)[0]
     if len(treated_idx) == 0 or len(ctrl_idx) == 0:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "Need both treated and control units.",
             recovery_hint=(
@@ -187,11 +189,13 @@ def optimal_match(
         col_ind = col_ind[keep]
         dists = dists[keep]
 
-    pairs = pd.DataFrame({
-        "treated_idx": treated_idx[row_ind],
-        "control_idx": ctrl_idx[col_ind],
-        "distance": dists,
-    })
+    pairs = pd.DataFrame(
+        {
+            "treated_idx": treated_idx[row_ind],
+            "control_idx": ctrl_idx[col_ind],
+            "distance": dists,
+        }
+    )
     if len(pairs) == 0:
         raise ValueError("Caliper dropped all pairs; try a larger value.")
     diffs = y[pairs["treated_idx"].values] - y[pairs["control_idx"].values]
@@ -200,19 +204,23 @@ def optimal_match(
     _result = OptimalMatchResult(
         pairs=pairs,
         distances=dists,
-        ate=ate, se=se,
+        ate=ate,
+        se=se,
         n_treated=len(treated_idx),
         n_matched=len(pairs),
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.matching.optimal_match",
             params={
-                "treatment": treatment, "outcome": outcome,
+                "treatment": treatment,
+                "outcome": outcome,
                 "covariates": list(covariates),
-                "metric": metric, "caliper": caliper,
+                "metric": metric,
+                "caliper": caliper,
             },
             data=data,
             overwrite=False,
@@ -225,6 +233,7 @@ def optimal_match(
 # --------------------------------------------------------------------- #
 #  Cardinality matching (Zubizarreta 2012, 2014)
 # --------------------------------------------------------------------- #
+
 
 @dataclass
 class CardinalityMatchResult(ResultProtocolMixin):
@@ -271,12 +280,12 @@ class CardinalityMatchResult(ResultProtocolMixin):
     [0.111, 0.082]
     """
 
-    treated_matched: np.ndarray       # indices of matched treated
-    control_matched: np.ndarray       # indices of matched controls
+    treated_matched: np.ndarray  # indices of matched treated
+    control_matched: np.ndarray  # indices of matched controls
     ate: float
     se: float
     n_matched_pairs: int
-    balance: pd.DataFrame             # post-match standardised mean diffs
+    balance: pd.DataFrame  # post-match standardised mean diffs
 
     def summary(self) -> str:
         lines = [
@@ -363,12 +372,14 @@ def cardinality_match(
     # by sum(z) and noting sum(z) > 0 ⇒ enforce constraints as:
     #   (X_c - (mu_t + tol)) @ z <= 0
     #   -(X_c - (mu_t - tol)) @ z <= 0
-    A_ub = np.vstack([
-        (ctrl - (mu_t + tol)).T,
-        -(ctrl - (mu_t - tol)).T,
-    ])                                                 # (2k, n_c)
+    A_ub = np.vstack(
+        [
+            (ctrl - (mu_t + tol)).T,
+            -(ctrl - (mu_t - tol)).T,
+        ]
+    )  # (2k, n_c)
     b_ub = np.zeros(2 * k)
-    c = -np.ones(n_c)                                  # maximise sum(z) = minimise -sum(z)
+    c = -np.ones(n_c)  # maximise sum(z) = minimise -sum(z)
     bounds = [(0, 1)] * n_c
     res = optimize.linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method="highs")
     if not res.success or res.x is None:
@@ -376,7 +387,7 @@ def cardinality_match(
     z = np.asarray(res.x)
 
     # Round: keep controls with z > 0.5, cap at n_t
-    keep_idx = np.argsort(-z)[:min(n_t, int(np.floor(z.sum() + 0.5)))]
+    keep_idx = np.argsort(-z)[: min(n_t, int(np.floor(z.sum() + 0.5)))]
     kept_z = np.zeros(n_c, dtype=bool)
     kept_z[keep_idx] = True
 
@@ -398,31 +409,37 @@ def cardinality_match(
 
     diffs = y[pair_treated] - y[pair_control]
     ate = float(diffs.mean()) if len(diffs) else float("nan")
-    se = float(diffs.std(ddof=1) / np.sqrt(len(diffs))) if len(diffs) > 1 else float("nan")
+    se = (
+        float(diffs.std(ddof=1) / np.sqrt(len(diffs)))
+        if len(diffs) > 1
+        else float("nan")
+    )
 
     # Post-match balance
     bal_rows = []
     for j, cv in enumerate(covariates):
         mu_c_post = ctrl[kept_z, j].mean() if kept_z.sum() else np.nan
         smd = (mu_t[j] - mu_c_post) / (sd_all[j] + 1e-12)
-        bal_rows.append({"covariate": cv, "SMD": float(smd),
-                         "|SMD|": abs(float(smd))})
+        bal_rows.append({"covariate": cv, "SMD": float(smd), "|SMD|": abs(float(smd))})
     balance = pd.DataFrame(bal_rows)
 
     _result = CardinalityMatchResult(
         treated_matched=np.asarray(pair_treated),
         control_matched=np.asarray(pair_control),
-        ate=ate, se=se,
+        ate=ate,
+        se=se,
         n_matched_pairs=len(pair_treated),
         balance=balance,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.matching.cardinality_match",
             params={
-                "treatment": treatment, "outcome": outcome,
+                "treatment": treatment,
+                "outcome": outcome,
                 "covariates": list(covariates),
                 "smd_tolerance": smd_tolerance,
             },

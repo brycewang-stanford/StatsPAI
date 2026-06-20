@@ -140,12 +140,14 @@ class LTMLESurvivalResult(ResultProtocolMixin):
         )
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "time": self.times,
-            "S_treated": self.survival_treated,
-            "S_control": self.survival_control,
-            "risk_diff": self.survival_control - self.survival_treated,
-        })
+        return pd.DataFrame(
+            {
+                "time": self.times,
+                "S_treated": self.survival_treated,
+                "S_control": self.survival_control,
+                "risk_diff": self.survival_control - self.survival_treated,
+            }
+        )
 
     def __repr__(self) -> str:  # pragma: no cover
         return self.summary()
@@ -155,19 +157,25 @@ class LTMLESurvivalResult(ResultProtocolMixin):
 #  Internal helpers (mirror ltmle.py's style)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _fit_logit(X: np.ndarray, y: np.ndarray) -> Any:
     if np.all(y == y[0]):
+
         class _Const:
             def __init__(self, p: float) -> None:
                 self.p = p
 
             def predict_proba(self, X: np.ndarray) -> np.ndarray:
-                return np.column_stack([
-                    1 - self.p * np.ones(X.shape[0]),
-                    self.p * np.ones(X.shape[0]),
-                ])
+                return np.column_stack(
+                    [
+                        1 - self.p * np.ones(X.shape[0]),
+                        self.p * np.ones(X.shape[0]),
+                    ]
+                )
+
         return _Const(float(y[0]))
     from sklearn.linear_model import LogisticRegression
+
     lr = LogisticRegression(C=1e6, solver="lbfgs", max_iter=500)
     lr.fit(X, y)
     return lr
@@ -185,6 +193,7 @@ def _safe_logit(p: Any, eps: float = 1e-6) -> Any:
 # ═══════════════════════════════════════════════════════════════════════
 #  Main entry point
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def ltmle_survival(
     data: pd.DataFrame,
@@ -373,8 +382,7 @@ def ltmle_survival(
         for j in range(k):
             hist_cols += [treatments[j]] + list(covariates_time[j])
         hist_cols += list(covariates_time[k])
-        X_k = (df[hist_cols].to_numpy(dtype=float)
-               if hist_cols else np.ones((n, 0)))
+        X_k = df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
         X_k = np.column_stack([np.ones(n), X_k])
 
         A_k = df[treatments[k]].to_numpy(dtype=int)
@@ -397,9 +405,7 @@ def ltmle_survival(
     # ── Fit & target discrete-time hazards under each regime ─────────
     def _run_regime(
         regime_mat: np.ndarray,
-    ) -> Tuple[
-        np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray
-    ]:
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Returns per-subject sequences plus the population survival curve.
 
         Returned arrays (all per-subject):
@@ -423,10 +429,10 @@ def ltmle_survival(
         # so far AND been uncensored AND event-free; once False it stays.
         cum_follow = np.ones(n, dtype=bool)
         cum_weight = np.ones(n)
-        at_risk = np.ones(n, dtype=bool)   # hasn't had the event yet
+        at_risk = np.ones(n, dtype=bool)  # hasn't had the event yet
 
         S_prev = np.ones(n)
-        survival_curve = np.ones(K + 1)    # S(0) = 1
+        survival_curve = np.ones(K + 1)  # S(0) = 1
         S_seq = np.zeros((n, K))
         h_star_seq = np.zeros((n, K))
         H_seq = np.zeros((n, K))
@@ -438,8 +444,9 @@ def ltmle_survival(
             for j in range(k):
                 hist_cols += [treatments[j]] + list(covariates_time[j])
             hist_cols += list(covariates_time[k])
-            X_hist = (df[hist_cols].to_numpy(dtype=float)
-                      if hist_cols else np.ones((n, 0)))
+            X_hist = (
+                df[hist_cols].to_numpy(dtype=float) if hist_cols else np.ones((n, 0))
+            )
             X_hist = np.column_stack([np.ones(n), X_hist])
 
             A_k = df[treatments[k]].to_numpy(dtype=int)
@@ -492,9 +499,7 @@ def ltmle_survival(
                 eps = float(np.sum(H[mask] * resid[mask]) / denom)
             else:
                 eps = 0.0
-            offset_regime = _safe_logit(
-                np.clip(h_hat_regime, 1e-6, 1 - 1e-6)
-            )
+            offset_regime = _safe_logit(np.clip(h_hat_regime, 1e-6, 1 - 1e-6))
             h_star_regime = expit(offset_regime + eps * new_cum_weight)
 
             # Survival update: S(k) = S(k-1) * (1 - h*)
@@ -520,12 +525,15 @@ def ltmle_survival(
             cum_weight = new_cum_weight
             S_prev = S_new
 
-        return (survival_curve[1:], S_seq, h_star_seq, H_seq,
-                T_seq, mask_seq)
+        return (survival_curve[1:], S_seq, h_star_seq, H_seq, T_seq, mask_seq)
 
-    def _eif_survival_at_k(target_k: int, S_seq: np.ndarray,
-                            h_star_seq: np.ndarray, H_seq: np.ndarray,
-                            T_seq: np.ndarray) -> np.ndarray:
+    def _eif_survival_at_k(
+        target_k: int,
+        S_seq: np.ndarray,
+        h_star_seq: np.ndarray,
+        H_seq: np.ndarray,
+        T_seq: np.ndarray,
+    ) -> np.ndarray:
         """EIF of E[S^a(target_k)] under the stacked nuisance fits.
 
         D*(O) = -∑_{j≤target_k} H_j · (T_j − h_j^*) · S^a(target_k)/S^a(j)
@@ -546,8 +554,9 @@ def ltmle_survival(
         ic_centred = ic + (S_K - float(np.mean(S_K)))
         return ic_centred
 
-    def _eif_rmst(S_seq: np.ndarray, h_star_seq: np.ndarray,
-                   H_seq: np.ndarray, T_seq: np.ndarray) -> np.ndarray:
+    def _eif_rmst(
+        S_seq: np.ndarray, h_star_seq: np.ndarray, H_seq: np.ndarray, T_seq: np.ndarray
+    ) -> np.ndarray:
         """EIF of E[∑_{k=1}^K S^a(k)] = E[RMST^a].
 
         D*(O) = ∑_{k=1}^K D*_{S^a(k)}(O)  (linearity in target functional).
@@ -565,8 +574,8 @@ def ltmle_survival(
     surv_c, S_c_seq, h_c_seq, H_c_seq, T_c_seq, mask_c_seq = _run_regime(
         regime_control_mat,
     )
-    S_t = surv_t                  # population survival curve (treated)
-    S_c = surv_c                  # population survival curve (control)
+    S_t = surv_t  # population survival curve (treated)
+    S_c = surv_c  # population survival curve (control)
 
     rmst_t = float(np.sum(S_t))
     rmst_c = float(np.sum(S_c))

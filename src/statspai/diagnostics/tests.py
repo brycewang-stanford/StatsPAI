@@ -91,16 +91,15 @@ def diagnose(
     # Run OLS first
     df = data[[y] + x].dropna()
     Y = df[y].values
-    X = np.column_stack([np.ones(len(df))] +
-                        [df[v].values for v in x])
+    X = np.column_stack([np.ones(len(df))] + [df[v].values for v in x])
     n, k = X.shape
     beta = np.linalg.lstsq(X, Y, rcond=None)[0]
     resid = Y - X @ beta
     yhat = X @ beta
 
-    results['het_test'] = _bp_test(resid, X, n, k)
-    results['reset_test'] = _reset_test(Y, X, resid, yhat, n, k)
-    results['vif'] = _vif(df, x)
+    results["het_test"] = _bp_test(resid, X, n, k)
+    results["reset_test"] = _reset_test(Y, X, resid, yhat, n, k)
+    results["vif"] = _vif(df, x)
 
     if print_results:
         _print_diagnostics(results, x)
@@ -269,11 +268,10 @@ def vif(
 # Internal implementations
 # ======================================================================
 
-def _bp_test(
-    resid: Any, X: Any, n: int, k: int
-) -> Dict[str, Any]:
+
+def _bp_test(resid: Any, X: Any, n: int, k: int) -> Dict[str, Any]:
     """Breusch-Pagan test."""
-    e2 = resid ** 2
+    e2 = resid**2
     # Regress e² on X
     beta_e = np.linalg.lstsq(X, e2, rcond=None)[0]
     e2_hat = X @ beta_e
@@ -286,8 +284,7 @@ def _bp_test(
     df = k - 1  # excluding constant
     pvalue = float(1 - stats.chi2.cdf(lm, df))
 
-    return {'statistic': float(lm), 'df': df, 'pvalue': pvalue,
-            'test': 'Breusch-Pagan'}
+    return {"statistic": float(lm), "df": df, "pvalue": pvalue, "test": "Breusch-Pagan"}
 
 
 def _reset_test(
@@ -297,15 +294,15 @@ def _reset_test(
     # Augmented model: add yhat², yhat³, ...
     X_aug_cols = [X]
     for p in range(2, powers + 1):
-        X_aug_cols.append((yhat ** p).reshape(-1, 1))
+        X_aug_cols.append((yhat**p).reshape(-1, 1))
     X_aug = np.column_stack(X_aug_cols)
     k_aug = X_aug.shape[1]
 
     beta_aug = np.linalg.lstsq(X_aug, Y, rcond=None)[0]
     resid_aug = Y - X_aug @ beta_aug
 
-    rss_r = np.sum(resid ** 2)
-    rss_u = np.sum(resid_aug ** 2)
+    rss_r = np.sum(resid**2)
+    rss_u = np.sum(resid_aug**2)
     df1 = k_aug - k
     df2 = n - k_aug
 
@@ -316,8 +313,13 @@ def _reset_test(
         f_stat = 0.0
         pvalue = 1.0
 
-    return {'statistic': float(f_stat), 'df1': df1, 'df2': df2,
-            'pvalue': pvalue, 'test': 'Ramsey RESET'}
+    return {
+        "statistic": float(f_stat),
+        "df1": df1,
+        "df2": df2,
+        "pvalue": pvalue,
+        "test": "Ramsey RESET",
+    }
 
 
 def _vif(data: pd.DataFrame, x_vars: List[str]) -> pd.DataFrame:
@@ -330,21 +332,22 @@ def _vif(data: pd.DataFrame, x_vars: List[str]) -> pd.DataFrame:
     for j in range(k):
         # Regress x_j on all other x
         y_j = X[:, j]
-        X_other = np.column_stack([np.ones(n)] +
-                                  [X[:, i] for i in range(k) if i != j])
+        X_other = np.column_stack([np.ones(n)] + [X[:, i] for i in range(k) if i != j])
         beta_j = np.linalg.lstsq(X_other, y_j, rcond=None)[0]
         resid_j = y_j - X_other @ beta_j
         tss_j = np.sum((y_j - y_j.mean()) ** 2)
-        rss_j = np.sum(resid_j ** 2)
+        rss_j = np.sum(resid_j**2)
         r2_j = 1 - rss_j / tss_j if tss_j > 0 else 0
 
         vif_j = 1 / (1 - r2_j) if r2_j < 1 else np.inf
 
-        rows.append({
-            'variable': x_vars[j],
-            'VIF': round(vif_j, 2),
-            '1/VIF': round(1 / vif_j, 4) if vif_j > 0 else 0,
-        })
+        rows.append(
+            {
+                "variable": x_vars[j],
+                "VIF": round(vif_j, 2),
+                "1/VIF": round(1 / vif_j, 4) if vif_j > 0 else 0,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -356,24 +359,28 @@ def _print_diagnostics(results: Dict[str, Any], x_vars: List[str]) -> None:
     print("=" * 60)
 
     # Heteroskedasticity
-    ht = results['het_test']
+    ht = results["het_test"]
     print("\n  Breusch-Pagan test for heteroskedasticity")
     print(f"    chi2({ht['df']}) = {ht['statistic']:.4f}")
     print(f"    p-value = {ht['pvalue']:.4f}")
-    print(f"    {'REJECT H0: evidence of heteroskedasticity' if ht['pvalue'] < 0.05 else 'Cannot reject H0: no evidence of heteroskedasticity'}")
+    print(
+        f"    {'REJECT H0: evidence of heteroskedasticity' if ht['pvalue'] < 0.05 else 'Cannot reject H0: no evidence of heteroskedasticity'}"
+    )
 
     # RESET
-    rt = results['reset_test']
+    rt = results["reset_test"]
     print("\n  Ramsey RESET test")
     print(f"    F({rt['df1']}, {rt['df2']}) = {rt['statistic']:.4f}")
     print(f"    p-value = {rt['pvalue']:.4f}")
-    print(f"    {'REJECT H0: functional form may be misspecified' if rt['pvalue'] < 0.05 else 'Cannot reject H0: no evidence of misspecification'}")
+    print(
+        f"    {'REJECT H0: functional form may be misspecified' if rt['pvalue'] < 0.05 else 'Cannot reject H0: no evidence of misspecification'}"
+    )
 
     # VIF
-    vf = results['vif']
+    vf = results["vif"]
     print("\n  Variance Inflation Factors")
     print(vf.to_string(index=False))
-    max_vif = vf['VIF'].max()
+    max_vif = vf["VIF"].max()
     if max_vif > 10:
         print("    WARNING: VIF > 10 detected — multicollinearity concern")
     else:

@@ -329,11 +329,12 @@ class _Binomial(_Family):
         # log-likelihood — this matters for AIC comparability with other
         # families fit to the same y.  For w=1 the constant is 0 and the
         # expression reduces to the Bernoulli log-lik.
-        log_coef = special.gammaln(w + 1.0) - special.gammaln(y + 1.0) \
-                   - special.gammaln(w - y + 1.0)
-        return float(np.sum(
-            log_coef + y * np.log(mu) + (w - y) * np.log(1.0 - mu)
-        ))
+        log_coef = (
+            special.gammaln(w + 1.0)
+            - special.gammaln(y + 1.0)
+            - special.gammaln(w - y + 1.0)
+        )
+        return float(np.sum(log_coef + y * np.log(mu) + (w - y) * np.log(1.0 - mu)))
 
 
 class _Poisson(_Family):
@@ -674,26 +675,24 @@ class MEGLMResult(ResultProtocolMixin):
         """Exponentiated fixed effects with Wald CIs (binomial / ordinal)."""
         if self.family not in ("binomial", "ordinal"):
             raise MethodIncompatibility(
-                "odds_ratios() is meaningful for binomial and ordinal "
-                "GLMMs only.",
-                recovery_hint=(
-                    "Use odds_ratios() only after melogit/meologit fits."
-                ),
+                "odds_ratios() is meaningful for binomial and ordinal " "GLMMs only.",
+                recovery_hint=("Use odds_ratios() only after melogit/meologit fits."),
                 diagnostics={"family": self.family},
             )
         ci = self.conf_int()
-        return pd.DataFrame({
-            "OR": np.exp(self.fixed_effects),
-            "lower": np.exp(ci["lower"]),
-            "upper": np.exp(ci["upper"]),
-        })
+        return pd.DataFrame(
+            {
+                "OR": np.exp(self.fixed_effects),
+                "lower": np.exp(ci["lower"]),
+                "upper": np.exp(ci["upper"]),
+            }
+        )
 
     def incidence_rate_ratios(self) -> pd.DataFrame:
         """Exponentiated coefficients for log-link count GLMMs (Poisson / NB)."""
         if self.family not in ("poisson", "nbinomial"):
             raise MethodIncompatibility(
-                "IRR is meaningful for Poisson and negative-binomial GLMMs "
-                "only.",
+                "IRR is meaningful for Poisson and negative-binomial GLMMs " "only.",
                 recovery_hint=(
                     "Use incidence_rate_ratios() only after mepoisson or "
                     "menbreg fits."
@@ -701,11 +700,13 @@ class MEGLMResult(ResultProtocolMixin):
                 diagnostics={"family": self.family},
             )
         ci = self.conf_int()
-        return pd.DataFrame({
-            "IRR": np.exp(self.fixed_effects),
-            "lower": np.exp(ci["lower"]),
-            "upper": np.exp(ci["upper"]),
-        })
+        return pd.DataFrame(
+            {
+                "IRR": np.exp(self.fixed_effects),
+                "lower": np.exp(ci["lower"]),
+                "upper": np.exp(ci["upper"]),
+            }
+        )
 
     # ------------------------------------------------------------------
     # Formatting
@@ -771,9 +772,7 @@ class MEGLMResult(ResultProtocolMixin):
             z = b / se if se else float("nan")
             p = 2 * (1 - stats.norm.cdf(abs(z))) if z == z else float("nan")
             rows.append(f"| {var} | {b:.4f} | {se:.4f} | {z:.3f} | {p:.4f} |")
-        vc_rows = [
-            f"| {n} | {v:.6f} |" for n, v in self.variance_components.items()
-        ]
+        vc_rows = [f"| {n} | {v:.6f} |" for n, v in self.variance_components.items()]
         return (
             f"# {self.family.capitalize()} GLMM (link: {self.link})\n\n"
             f"**N = {self.n_obs}, Groups = {self.n_groups}, "
@@ -914,9 +913,7 @@ class MEGLMResult(ResultProtocolMixin):
         ax.set_yticks(y_pos)
         ax.set_yticklabels([str(i) for i in u.index], fontsize=7)
         ax.set_xlabel(f"BLUP of {name}")
-        ax.set_title(
-            f"Caterpillar plot ({self.family} GLMM): random {name}"
-        )
+        ax.set_title(f"Caterpillar plot ({self.family} GLMM): random {name}")
         fig.tight_layout()
         return fig, ax
 
@@ -1117,6 +1114,7 @@ def _find_mode(
 # For nAGQ = 1 the formula collapses to the Laplace approximation, which we
 # verify in the unit tests.
 
+
 def _aghq_log_lik(
     block: _GroupBlock,
     beta: np.ndarray,
@@ -1141,12 +1139,14 @@ def _aghq_log_lik(
         mu_k = family.inv_link(eta_k)
         log_lik_vals[k] = family.log_lik(block.y, mu_k, weights, dispersion)
     # log φ(u_k; 0, σ²) = -½ log(2π σ²) - u_k²/(2σ²)
-    log_prior = -0.5 * (_LOG_2PI + np.log(max(sigma2, _EPS))) - 0.5 * u_grid ** 2 / max(sigma2, _EPS)
+    log_prior = -0.5 * (_LOG_2PI + np.log(max(sigma2, _EPS))) - 0.5 * u_grid**2 / max(
+        sigma2, _EPS
+    )
     # log integrand at node k: log f + log prior + x_k² + log w_k + ½ log(2 σ̂²)
     log_terms = (
         log_lik_vals
         + log_prior
-        + nodes ** 2
+        + nodes**2
         + log_weights
         + 0.5 * (np.log(2.0) + 2.0 * np.log(sigma_hat))
     )
@@ -1225,9 +1225,17 @@ def _glmm_nll(
                 raise RuntimeError("AGHQ nodes must be initialized for nAGQ > 1.")
             # H_j is a 1×1 in q=1, so its scalar value is H_j[0,0].
             ll_j = _aghq_log_lik(
-                block, beta, sigma2, family, w, off,
-                float(u_hat[0]), float(H_j[0, 0]),
-                gh_nodes, gh_log_weights, dispersion,
+                block,
+                beta,
+                sigma2,
+                family,
+                w,
+                off,
+                float(u_hat[0]),
+                float(H_j[0, 0]),
+                gh_nodes,
+                gh_log_weights,
+                dispersion,
             )
         else:
             eta = block.X @ beta + block.Z @ u_hat + off
@@ -1385,9 +1393,7 @@ def meglm(
     if cov_type not in ("unstructured", "diagonal", "identity"):
         raise MethodIncompatibility(
             f"unknown cov_type {cov_type!r}",
-            recovery_hint=(
-                "Use cov_type='unstructured', 'diagonal', or 'identity'."
-            ),
+            recovery_hint=("Use cov_type='unstructured', 'diagonal', or 'identity'."),
             diagnostics={
                 "cov_type": cov_type,
                 "valid": ["unstructured", "diagonal", "identity"],
@@ -1399,8 +1405,7 @@ def meglm(
                 "meglm() currently supports a single grouping variable; "
                 "collapse nested levels into one key first.",
                 recovery_hint=(
-                    "Create a single grouped key column before calling "
-                    "meglm()."
+                    "Create a single grouped key column before calling " "meglm()."
                 ),
                 diagnostics={"group": list(group)},
             )
@@ -1446,9 +1451,7 @@ def meglm(
             diagnostics={"missing_columns": missing},
         )
     try:
-        df = _prepare_frame(
-            data, y, x_fixed + extra_cols, [group], x_random_cols
-        )
+        df = _prepare_frame(data, y, x_fixed + extra_cols, [group], x_random_cols)
     except (KeyError, TypeError) as exc:
         raise MethodIncompatibility(
             str(exc),
@@ -1522,9 +1525,17 @@ def meglm(
         _glmm_nll,
         theta0,
         args=(
-            blocks, weights_list, offsets_list,
-            p_fixed, q_random, cov_type, fam, u_cache,
-            nAGQ, gh_nodes, gh_log_weights,
+            blocks,
+            weights_list,
+            offsets_list,
+            p_fixed,
+            q_random,
+            cov_type,
+            fam,
+            u_cache,
+            nAGQ,
+            gh_nodes,
+            gh_log_weights,
         ),
         method="L-BFGS-B",
         options={"maxiter": opt_maxiter, "ftol": opt_tol, "gtol": opt_tol},
@@ -1664,7 +1675,10 @@ def melogit(
     True
     """
     return meglm(
-        data, y, x_fixed, group,
+        data,
+        y,
+        x_fixed,
+        group,
         family="binomial",
         x_random=x_random,
         trials=trials,
@@ -1703,7 +1717,10 @@ def mepoisson(
     True
     """
     return meglm(
-        data, y, x_fixed, group,
+        data,
+        y,
+        x_fixed,
+        group,
         family="poisson",
         x_random=x_random,
         offset=offset,
@@ -1742,7 +1759,10 @@ def menbreg(
     True
     """
     return meglm(
-        data, y, x_fixed, group,
+        data,
+        y,
+        x_fixed,
+        group,
         family="nbinomial",
         x_random=x_random,
         offset=offset,
@@ -1781,7 +1801,10 @@ def megamma(
     True
     """
     return meglm(
-        data, y, x_fixed, group,
+        data,
+        y,
+        x_fixed,
+        group,
         family="gamma",
         x_random=x_random,
         offset=offset,

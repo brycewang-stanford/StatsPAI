@@ -4,6 +4,7 @@ Fits a local polynomial model around a known cutoff within a
 user-supplied bandwidth, with independent slope coefficients on each
 side of the cutoff and a normal prior on the discontinuity ``tau``.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Tuple
@@ -34,9 +35,9 @@ def _local_polynomial_design(
     x_c = x - cutoff
     cols = [treated.astype(float)]
     for k in range(1, poly + 1):
-        cols.append(x_c ** k)
+        cols.append(x_c**k)
     for k in range(1, poly + 1):
-        cols.append(treated * (x_c ** k))
+        cols.append(treated * (x_c**k))
     return np.column_stack(cols)
 
 
@@ -53,7 +54,7 @@ def bayes_rd(
     prior_noise: float = 5.0,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
-    inference: str = 'nuts',
+    inference: str = "nuts",
     advi_iterations: int = 20000,
     draws: int = 2000,
     tune: int = 1000,
@@ -152,23 +153,23 @@ def bayes_rd(
     mu_tau, sigma_tau = prior_tau
 
     with pm.Model() as model:
-        alpha = pm.Normal('alpha', mu=0.0, sigma=prior_slope_sigma)
+        alpha = pm.Normal("alpha", mu=0.0, sigma=prior_slope_sigma)
         # Independent beta for each design column. Column 0 is the
         # treated indicator (the jump) — re-labelled for clarity as tau
         # via a deterministic, but we also draw a dedicated tau prior
         # so users can inspect it directly.
-        tau = pm.Normal('tau', mu=mu_tau, sigma=sigma_tau)
+        tau = pm.Normal("tau", mu=mu_tau, sigma=sigma_tau)
         other_cols = Z.shape[1] - 1
         beta_poly = pm.Normal(
-            'beta_poly',
+            "beta_poly",
             mu=0.0,
             sigma=prior_slope_sigma,
             shape=other_cols,
         )
         linpred = alpha + tau * Z[:, 0] + pm.math.dot(Z[:, 1:], beta_poly)
 
-        sigma = pm.HalfNormal('sigma', sigma=prior_noise)
-        pm.Normal('y_obs', mu=linpred, sigma=sigma, observed=Y)
+        sigma = pm.HalfNormal("sigma", sigma=prior_noise)
+        pm.Normal("y_obs", mu=linpred, sigma=sigma, observed=Y)
 
     trace = _sample_model(
         model,
@@ -182,37 +183,37 @@ def bayes_rd(
         advi_iterations=advi_iterations,
     )
 
-    summary = _summarise_posterior(trace, 'tau', hdi_prob=hdi_prob, rope=rope)
+    summary = _summarise_posterior(trace, "tau", hdi_prob=hdi_prob, rope=rope)
 
     model_info = {
-        'inference': inference,
-        'draws': draws,
-        'tune': tune,
-        'chains': chains,
-        'target_accept': target_accept,
-        'cutoff': cutoff,
-        'bandwidth': bw,
-        'poly': poly,
-        'n_inside': int(mask.sum()),
-        'n_treated_local': int(treated.sum()),
-        'n_control_local': int((1 - treated).sum()),
-        'prior_tau': prior_tau,
-        'prior_slope_sigma': prior_slope_sigma,
-        'prior_noise': prior_noise,
+        "inference": inference,
+        "draws": draws,
+        "tune": tune,
+        "chains": chains,
+        "target_accept": target_accept,
+        "cutoff": cutoff,
+        "bandwidth": bw,
+        "poly": poly,
+        "n_inside": int(mask.sum()),
+        "n_treated_local": int(treated.sum()),
+        "n_control_local": int((1 - treated).sum()),
+        "prior_tau": prior_tau,
+        "prior_slope_sigma": prior_slope_sigma,
+        "prior_noise": prior_noise,
     }
 
     return BayesianCausalResult(
-        method=f'Bayesian sharp RD (poly={poly})',
-        estimand='LATE',
-        posterior_mean=summary['posterior_mean'],
-        posterior_median=summary['posterior_median'],
-        posterior_sd=summary['posterior_sd'],
-        hdi_lower=summary['hdi_lower'],
-        hdi_upper=summary['hdi_upper'],
-        prob_positive=summary['prob_positive'],
-        prob_rope=summary.get('prob_rope'),
-        rhat=summary['rhat'],
-        ess=summary['ess'],
+        method=f"Bayesian sharp RD (poly={poly})",
+        estimand="LATE",
+        posterior_mean=summary["posterior_mean"],
+        posterior_median=summary["posterior_median"],
+        posterior_sd=summary["posterior_sd"],
+        hdi_lower=summary["hdi_lower"],
+        hdi_upper=summary["hdi_upper"],
+        prob_positive=summary["prob_positive"],
+        prob_rope=summary.get("prob_rope"),
+        rhat=summary["rhat"],
+        ess=summary["ess"],
         n_obs=int(mask.sum()),
         hdi_prob=hdi_prob,
         trace=trace,

@@ -12,6 +12,7 @@ Two phases:
 The output is a CPDAG (completed partially directed acyclic graph) —
 the Markov equivalence class of the true DAG.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -80,9 +81,7 @@ class GESResult:
     bic: float
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame(
-            self.adjacency, index=self.names, columns=self.names
-        )
+        return pd.DataFrame(self.adjacency, index=self.names, columns=self.names)
 
     def edges(self) -> List[Tuple[str, str, str]]:
         out = []
@@ -210,11 +209,12 @@ def ges(
     _result = GESResult(adjacency=adj, names=names, bic=best_bic)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_discovery.ges",
             params={"max_iter": max_iter},
-            data=data if hasattr(data, 'columns') else None,
+            data=data if hasattr(data, "columns") else None,
             overwrite=False,
         )
     except Exception:  # pragma: no cover

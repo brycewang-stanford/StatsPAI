@@ -48,6 +48,7 @@ class RDInterferenceResult:
     >>> isinstance(res.summary(), str)
     True
     """
+
     direct_effect: float
     direct_se: float
     spillover_effect: float
@@ -77,7 +78,7 @@ def rd_interference(
     neighbour_running: str,
     cutoff: float = 0.0,
     bandwidth: Optional[float] = None,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     alpha: float = 0.05,
 ) -> RDInterferenceResult:
     """
@@ -134,39 +135,49 @@ def rd_interference(
     treat_dir = (R >= 0).astype(int)
     weights = _kernel_fn(R / bandwidth, kernel)
     mask = weights > 0
-    Xd = np.column_stack([np.ones(mask.sum()), R[mask], treat_dir[mask],
-                          R[mask] * treat_dir[mask]])
+    Xd = np.column_stack(
+        [np.ones(mask.sum()), R[mask], treat_dir[mask], R[mask] * treat_dir[mask]]
+    )
     Wd = np.diag(weights[mask])
     try:
         beta = np.linalg.solve(Xd.T @ Wd @ Xd, Xd.T @ Wd @ Y[mask])
         resid = Y[mask] - Xd @ beta
-        sigma2 = float((weights[mask] * resid ** 2).sum()
-                       / max(weights[mask].sum() - Xd.shape[1], 1))
+        sigma2 = float(
+            (weights[mask] * resid**2).sum() / max(weights[mask].sum() - Xd.shape[1], 1)
+        )
         cov = sigma2 * np.linalg.pinv(Xd.T @ Wd @ Xd)
         direct = float(beta[2])
         se_direct = float(np.sqrt(max(cov[2, 2], 0.0)))
     except np.linalg.LinAlgError:  # pragma: no cover
-        direct = float('nan')  # pragma: no cover
-        se_direct = float('nan')  # pragma: no cover
+        direct = float("nan")  # pragma: no cover
+        se_direct = float("nan")  # pragma: no cover
 
     # Spillover effect: local linear at neighbour-running boundary
     treat_spill = (Rn >= 0).astype(int)
     weights_n = _kernel_fn(Rn / bandwidth, kernel)
     mask_n = weights_n > 0
-    Xn = np.column_stack([np.ones(mask_n.sum()), Rn[mask_n], treat_spill[mask_n],
-                           Rn[mask_n] * treat_spill[mask_n]])
+    Xn = np.column_stack(
+        [
+            np.ones(mask_n.sum()),
+            Rn[mask_n],
+            treat_spill[mask_n],
+            Rn[mask_n] * treat_spill[mask_n],
+        ]
+    )
     Wn = np.diag(weights_n[mask_n])
     try:
         beta_n = np.linalg.solve(Xn.T @ Wn @ Xn, Xn.T @ Wn @ Y[mask_n])
         resid_n = Y[mask_n] - Xn @ beta_n
-        sigma2_n = float((weights_n[mask_n] * resid_n ** 2).sum()
-                         / max(weights_n[mask_n].sum() - Xn.shape[1], 1))
+        sigma2_n = float(
+            (weights_n[mask_n] * resid_n**2).sum()
+            / max(weights_n[mask_n].sum() - Xn.shape[1], 1)
+        )
         cov_n = sigma2_n * np.linalg.pinv(Xn.T @ Wn @ Xn)
         spillover = float(beta_n[2])
         se_spillover = float(np.sqrt(max(cov_n[2, 2], 0.0)))
     except np.linalg.LinAlgError:  # pragma: no cover
-        spillover = float('nan')  # pragma: no cover
-        se_spillover = float('nan')  # pragma: no cover
+        spillover = float("nan")  # pragma: no cover
+        se_spillover = float("nan")  # pragma: no cover
 
     return RDInterferenceResult(
         direct_effect=direct,

@@ -53,9 +53,10 @@ class FunctionalCATEResult(ResultProtocolMixin):
     >>> res.cate_grid.shape  # (n_test, n_function_points)
     (300, 2)
     """
-    cate_grid: np.ndarray            # (n_test, n_t)
-    function_grid: np.ndarray        # (n_t,)
-    se_grid: np.ndarray              # (n_test, n_t)
+
+    cate_grid: np.ndarray  # (n_test, n_t)
+    function_grid: np.ndarray  # (n_t,)
+    se_grid: np.ndarray  # (n_test, n_t)
     n_train: int
     n_test: int
 
@@ -126,8 +127,8 @@ def focal_cate(
     (400, 2)
     """
     from sklearn.linear_model import LinearRegression, LogisticRegression
-    df = data[y_columns + [treat] + list(covariates)].dropna() \
-        .reset_index(drop=True)
+
+    df = data[y_columns + [treat] + list(covariates)].dropna().reset_index(drop=True)
     if df[treat].nunique() != 2:
         raise ValueError("FOCaL requires binary treatment.")
     n_train = len(df)
@@ -155,16 +156,15 @@ def focal_cate(
         # DR pseudo-outcome
         mu1 = m1.predict(X)
         mu0 = m0.predict(X)
-        psi = (mu1 - mu0
-               + D * (Y - mu1) / ps
-               - (1 - D) * (Y - mu0) / (1 - ps))
+        psi = mu1 - mu0 + D * (Y - mu1) / ps - (1 - D) * (Y - mu0) / (1 - ps)
         # Regress psi on X to obtain τ̂(x); then predict on Xt
         try:
             cate_model = LinearRegression().fit(X, psi)
             cate_grid[:, j] = cate_model.predict(Xt)
             # Approx SE: std of psi residuals
-            se_grid[:, j] = float(np.std(psi - cate_model.predict(X), ddof=1)) \
-                            * np.ones(n_test)
+            se_grid[:, j] = float(
+                np.std(psi - cate_model.predict(X), ddof=1)
+            ) * np.ones(n_test)
         except Exception:
             cate_grid[:, j] = float(np.mean(psi))
             se_grid[:, j] = float(np.std(psi, ddof=1) / np.sqrt(n_train))

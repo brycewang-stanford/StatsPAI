@@ -38,7 +38,6 @@ from typing import Any, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-
 # ======================================================================
 # Internals
 # ======================================================================
@@ -51,7 +50,9 @@ def _factorize(arr: Any) -> Tuple[np.ndarray, int]:
     return codes.astype(np.int64), len(uniq)
 
 
-def _intersection_codes(cluster_list: List[np.ndarray], idx_subset: Sequence[int]) -> np.ndarray:
+def _intersection_codes(
+    cluster_list: List[np.ndarray], idx_subset: Sequence[int]
+) -> np.ndarray:
     """Build integer codes for the intersection cluster of the selected
     dimensions: one code per unique combination of the dimensions' levels.
 
@@ -91,11 +92,15 @@ def _one_way_sandwich(
     Verified byte-identical to the prior hand-rolled sandwich for G >= 2.
     """
     from ..core._vcov import sandwich_vcov
+
     p = n_params if n_params is not None else X.shape[1]
     scores = X * resid[:, None]
     return sandwich_vcov(
-        XtX_inv, scores, clusters=codes,
-        correction="cr1" if df_adjust else "none", n_params=p,
+        XtX_inv,
+        scores,
+        clusters=codes,
+        correction="cr1" if df_adjust else "none",
+        n_params=p,
     )
 
 
@@ -183,8 +188,12 @@ def multiway_cluster_vcov(
             codes = _intersection_codes(cluster_list, combo)
             sign = (-1) ** (r + 1)
             V += sign * _one_way_sandwich(
-                X, resid, codes, XtX_inv,
-                df_adjust=df_adjust, n_params=n_params,
+                X,
+                resid,
+                codes,
+                XtX_inv,
+                df_adjust=df_adjust,
+                n_params=n_params,
             )
 
     if psd_correct:

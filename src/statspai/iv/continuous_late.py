@@ -43,6 +43,7 @@ class ContinuousLATEResult:
     >>> round(res.estimate, 2)
     1.81
     """
+
     estimate: float
     se: float
     ci: tuple
@@ -121,11 +122,13 @@ def continuous_iv_late(
         Di: np.ndarray,
         Zi: np.ndarray,
     ) -> tuple[float, float]:
-        z_bins = pd.qcut(Zi, q=n_quantiles, labels=False,
-                          duplicates='drop')
+        z_bins = pd.qcut(Zi, q=n_quantiles, labels=False, duplicates="drop")
         unique_bins = np.sort(np.unique(z_bins))
         if len(unique_bins) < 2:
-            return float(np.mean(Yi[Di > Di.mean()]) - np.mean(Yi[Di <= Di.mean()])), 1.0
+            return (
+                float(np.mean(Yi[Di > Di.mean()]) - np.mean(Yi[Di <= Di.mean()])),
+                1.0,
+            )
         # Wald ratio for each adjacent bin, then average
         atts: list[float] = []
         weights: list[float] = []
@@ -139,7 +142,7 @@ def continuous_iv_late(
             atts.append(num / denom)
             weights.append(abs(denom))
         if not atts:
-            return float('nan'), 0.0
+            return float("nan"), 0.0
         atts_arr = np.asarray(atts, dtype=float)
         weights_arr = np.asarray(weights, dtype=float)
         # Maximal complier class: pick the bin pair with the biggest
@@ -167,14 +170,18 @@ def continuous_iv_late(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.continuous_iv_late",
             params={
-                "y": y, "treat": treat, "instrument": instrument,
+                "y": y,
+                "treat": treat,
+                "instrument": instrument,
                 "n_quantiles": n_quantiles,
                 "alpha": alpha,
-                "n_boot": n_boot, "seed": seed,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

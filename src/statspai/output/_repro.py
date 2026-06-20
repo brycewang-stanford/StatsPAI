@@ -33,6 +33,7 @@ from typing import Any, Optional
 def _statspai_version() -> str:
     try:
         from .. import __version__
+
         return str(__version__)
     except Exception:
         return "unknown"

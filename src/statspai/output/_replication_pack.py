@@ -42,6 +42,7 @@ Design notes
   the call is made inside a repo; otherwise omits the field rather
   than lying about it.
 """
+
 from __future__ import annotations
 
 import datetime as _dt
@@ -67,6 +68,7 @@ __all__ = ["replication_pack", "ReplicationPack"]
 def _statspai_version() -> str:
     try:
         from .. import __version__
+
         return str(__version__)
     except Exception:  # pragma: no cover
         return "unknown"
@@ -80,6 +82,7 @@ def _python_version() -> str:
 # ---------------------------------------------------------------------------
 # Helpers — extract pieces from a heterogeneous "target"
 # ---------------------------------------------------------------------------
+
 
 def _flatten_targets(target: Any) -> List[Any]:
     """Normalise target into a list of result-like objects to inspect."""
@@ -150,6 +153,7 @@ def _extract_citations(target: Any) -> List[str]:
 # Helpers — produce content
 # ---------------------------------------------------------------------------
 
+
 def _git_sha(cwd: Optional[str] = None) -> Optional[str]:
     """Return ``git rev-parse HEAD`` if invoked inside a repo, else None."""
     try:
@@ -194,6 +198,7 @@ def _importlib_freeze_fallback() -> str:
     """
     try:
         from importlib.metadata import distributions
+
         rows = []
         for dist in distributions():
             metadata = dist.metadata
@@ -210,6 +215,7 @@ def _dataset_to_csv_bytes(data: Any) -> Optional[bytes]:
     """Best-effort serialise to CSV bytes."""
     try:
         import pandas as pd
+
         if isinstance(data, pd.DataFrame):
             csv_text = data.to_csv(index=False)
             return str(csv_text).encode("utf-8")
@@ -227,12 +233,12 @@ def _dataset_manifest(data: Any) -> Dict[str, Any]:
     }
     try:
         import pandas as pd
+
         if isinstance(data, pd.DataFrame):
             out["kind"] = "DataFrame"
             out["shape"] = list(data.shape)
             out["columns"] = [
-                {"name": str(c), "dtype": str(data[c].dtype)}
-                for c in data.columns
+                {"name": str(c), "dtype": str(data[c].dtype)} for c in data.columns
             ]
             out["n_missing_total"] = int(data.isna().sum().sum())
         elif isinstance(data, pd.Series):
@@ -285,63 +291,55 @@ def _readme(
         "MANIFEST.json     Top-level archive manifest (versions, file hashes)",
     ]
     if has_data:
-        lines.append(
-            "data/             dataset.csv + manifest.json (schema + hash)"
-        )
+        lines.append("data/             dataset.csv + manifest.json (schema + hash)")
     if has_code:
-        lines.append(
-            "code/             script.py — the analysis code"
-        )
+        lines.append("code/             script.py — the analysis code")
     if has_env:
-        lines.append(
-            "env/              requirements.txt — frozen Python environment"
-        )
+        lines.append("env/              requirements.txt — frozen Python environment")
     if paper_filename:
-        lines.append(
-            f"paper/            {paper_filename} (and paper.bib if citations)"
-        )
+        lines.append(f"paper/            {paper_filename} (and paper.bib if citations)")
     if has_lineage:
-        lines.append(
-            "lineage.json      Per-result Provenance records"
-        )
-    lines.extend([
-        "```",
-        "",
-        "## Reproducing",
-        "",
-        "```bash",
-        "python -m venv .venv && source .venv/bin/activate",
-        "pip install -r env/requirements.txt",
-        "python code/script.py",
-        "```",
-        "",
-        "If the StatsPAI version pinned in `env/requirements.txt` differs "
-        "from the one you have installed, install the exact pinned "
-        "version first:",
-        "",
-        "```bash",
-        f"pip install StatsPAI=={_statspai_version()}",
-        "```",
-        "",
-        "## Verifying data integrity",
-        "",
-        "Each file in `MANIFEST.json` carries a SHA-256 prefix. Recompute "
-        "with:",
-        "",
-        "```bash",
-        "python -c \"import hashlib,sys; "
-        "print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())\" "
-        "data/dataset.csv",
-        "```",
-        "",
-        "and compare against the value in `MANIFEST.json`.",
-    ])
+        lines.append("lineage.json      Per-result Provenance records")
+    lines.extend(
+        [
+            "```",
+            "",
+            "## Reproducing",
+            "",
+            "```bash",
+            "python -m venv .venv && source .venv/bin/activate",
+            "pip install -r env/requirements.txt",
+            "python code/script.py",
+            "```",
+            "",
+            "If the StatsPAI version pinned in `env/requirements.txt` differs "
+            "from the one you have installed, install the exact pinned "
+            "version first:",
+            "",
+            "```bash",
+            f"pip install StatsPAI=={_statspai_version()}",
+            "```",
+            "",
+            "## Verifying data integrity",
+            "",
+            "Each file in `MANIFEST.json` carries a SHA-256 prefix. Recompute " "with:",
+            "",
+            "```bash",
+            'python -c "import hashlib,sys; '
+            "print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())\" "
+            "data/dataset.csv",
+            "```",
+            "",
+            "and compare against the value in `MANIFEST.json`.",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
 # ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
+
 
 class ReplicationPack:
     """Lightweight summary returned by :func:`replication_pack`.
@@ -404,6 +402,7 @@ class ReplicationPack:
 # ---------------------------------------------------------------------------
 # Public entry point
 # ---------------------------------------------------------------------------
+
 
 def replication_pack(
     target: Any,
@@ -504,19 +503,19 @@ def replication_pack(
         b = content.encode("utf-8") if isinstance(content, str) else content
         archive[path] = b
         digest = hashlib.sha256(b).hexdigest()
-        files_manifest.append({
-            "path": path,
-            "size_bytes": len(b),
-            "sha256": digest,
-        })
+        files_manifest.append(
+            {
+                "path": path,
+                "size_bytes": len(b),
+                "sha256": digest,
+            }
+        )
 
     # ------- data -----------------------------------------------------
     if eff_data is not None:
         csv_bytes = _dataset_to_csv_bytes(eff_data)
         if csv_bytes is None:
-            warnings.append(
-                "data was not a DataFrame/Series — skipped CSV export."
-            )
+            warnings.append("data was not a DataFrame/Series — skipped CSV export.")
         else:
             _put("data/dataset.csv", csv_bytes)
             _put(
@@ -531,8 +530,7 @@ def replication_pack(
         _put("code/script.py", eff_code)
     else:
         warnings.append(
-            "no code provided — pass code=\"...\" or a path to your "
-            "analysis script."
+            'no code provided — pass code="..." or a path to your ' "analysis script."
         )
 
     # ------- env ------------------------------------------------------
@@ -540,9 +538,7 @@ def replication_pack(
         freeze = _pip_freeze()
         if freeze is None:
             freeze = _importlib_freeze_fallback()
-            warnings.append(
-                "pip freeze unavailable; used importlib.metadata fallback."
-            )
+            warnings.append("pip freeze unavailable; used importlib.metadata fallback.")
         _put("env/requirements.txt", freeze)
 
     # ------- paper ----------------------------------------------------
@@ -565,6 +561,7 @@ def replication_pack(
             if method_name is None:
                 # docx: write to tmp + read bytes.
                 import tempfile
+
                 with tempfile.TemporaryDirectory() as td:
                     tmp = Path(td) / "p.docx"
                     paper_obj.to_docx(str(tmp))
@@ -583,15 +580,14 @@ def replication_pack(
                 _put(f"paper/{fname}", method())
             paper_filename = fname
         except Exception as exc:
-            warnings.append(
-                f"paper rendering failed: {type(exc).__name__}: {exc}"
-            )
+            warnings.append(f"paper rendering failed: {type(exc).__name__}: {exc}")
 
     # ------- bibliography --------------------------------------------
     if bib and citations:
         try:
             entries = citations_to_bib_entries(citations)
             from ._bibliography import _format_bib_entry  # local helper
+
             try:
                 from .. import __version__ as _v
             except Exception:
@@ -610,7 +606,8 @@ def replication_pack(
             _put(
                 "paper/paper.bib",
                 "% raw citations (parser failed)\n\n"
-                + "\n\n".join(f"% {c}" for c in citations) + "\n",
+                + "\n\n".join(f"% {c}" for c in citations)
+                + "\n",
             )
 
     # ------- lineage --------------------------------------------------
@@ -619,9 +616,7 @@ def replication_pack(
             lin = lineage_summary(*results)
             _put("lineage.json", json.dumps(lin, indent=2, default=str) + "\n")
         except Exception as exc:
-            warnings.append(
-                f"lineage summary failed: {type(exc).__name__}: {exc}"
-            )
+            warnings.append(f"lineage summary failed: {type(exc).__name__}: {exc}")
 
     # ------- extras ---------------------------------------------------
     if extra_files:
@@ -629,9 +624,7 @@ def replication_pack(
             try:
                 _put(str(k), v)
             except Exception as exc:
-                warnings.append(
-                    f"extra_file {k!r} failed: {type(exc).__name__}: {exc}"
-                )
+                warnings.append(f"extra_file {k!r} failed: {type(exc).__name__}: {exc}")
 
     # ------- README ---------------------------------------------------
     readme = _readme(
@@ -661,20 +654,21 @@ def replication_pack(
     if results:
         manifest["n_results_with_provenance"] = len(results)
 
-    manifest_bytes = (
-        json.dumps(manifest, indent=2, default=str) + "\n"
-    ).encode("utf-8")
+    manifest_bytes = (json.dumps(manifest, indent=2, default=str) + "\n").encode(
+        "utf-8"
+    )
     archive["MANIFEST.json"] = manifest_bytes
 
     # ------- write the archive (atomic) ------------------------------
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         # Stable file ordering — manifest first so unzippers display it.
-        for name in sorted(archive.keys(),
-                           key=lambda n: (n != "MANIFEST.json", n)):
+        for name in sorted(archive.keys(), key=lambda n: (n != "MANIFEST.json", n)):
             zf.writestr(name, archive[name])
     out_path.write_bytes(buf.getvalue())
 
     return ReplicationPack(
-        output_path=out_path, manifest=manifest, warnings=warnings,
+        output_path=out_path,
+        manifest=manifest,
+        warnings=warnings,
     )

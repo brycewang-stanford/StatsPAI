@@ -24,4 +24,4 @@ their agreement test, and the recommended doubly-robust point estimate.
 
 from .core import bridge, BridgeResult
 
-__all__ = ['bridge', 'BridgeResult']
+__all__ = ["bridge", "BridgeResult"]

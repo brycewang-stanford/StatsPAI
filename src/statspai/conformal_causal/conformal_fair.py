@@ -42,6 +42,7 @@ class FairConformalResult:
     >>> sorted(res.group_coverage_targets.keys())
     ['0', '1']
     """
+
     intervals: np.ndarray
     point_estimate: np.ndarray
     group_assignment: np.ndarray
@@ -122,8 +123,7 @@ def conformal_fair_ite(
     from sklearn.linear_model import LinearRegression
 
     cov_no_protected = [c for c in covariates if c != protected]
-    df = data[[y, treat, protected] + cov_no_protected] \
-        .dropna().reset_index(drop=True)
+    df = data[[y, treat, protected] + cov_no_protected].dropna().reset_index(drop=True)
     if df[treat].nunique() != 2:
         raise ValueError("Fair conformal requires binary treatment.")
     Y = df[y].to_numpy(float)
@@ -136,7 +136,7 @@ def conformal_fair_ite(
     # 50/50 split
     perm = rng.permutation(n)
     train = perm[: n // 2]
-    cal = perm[n // 2:]
+    cal = perm[n // 2 :]
 
     m1 = LinearRegression().fit(X[train][D[train] == 1], Y[train][D[train] == 1])
     m0 = LinearRegression().fit(X[train][D[train] == 0], Y[train][D[train] == 0])
@@ -153,22 +153,27 @@ def conformal_fair_ite(
 
     # First pass: compute per-group quantiles where we have enough data.
     for g in np.unique(G):
-        mask_cal = (G[cal] == g)
+        mask_cal = G[cal] == g
         if mask_cal.sum() < 5:
             group_q[g] = None  # placeholder, fill in pass 2
             group_fallback[str(g)] = True
             continue
-        resid_g = np.concatenate([
-            np.abs(Y[cal][mask_cal & (D[cal] == 1)]
-                   - m1.predict(X[cal][mask_cal & (D[cal] == 1)])),
-            np.abs(Y[cal][mask_cal & (D[cal] == 0)]
-                   - m0.predict(X[cal][mask_cal & (D[cal] == 0)])),
-        ])
+        resid_g = np.concatenate(
+            [
+                np.abs(
+                    Y[cal][mask_cal & (D[cal] == 1)]
+                    - m1.predict(X[cal][mask_cal & (D[cal] == 1)])
+                ),
+                np.abs(
+                    Y[cal][mask_cal & (D[cal] == 0)]
+                    - m0.predict(X[cal][mask_cal & (D[cal] == 0)])
+                ),
+            ]
+        )
         if len(resid_g) < 5:
             q_g = float(np.std(resid_g)) if len(resid_g) else 1.0
         else:
-            idx = min(int(np.ceil((len(resid_g) + 1) * (1 - alpha))),
-                      len(resid_g)) - 1
+            idx = min(int(np.ceil((len(resid_g) + 1) * (1 - alpha))), len(resid_g)) - 1
             q_g = float(np.sort(resid_g)[idx])
         group_q[g] = q_g
         group_widths[str(g)] = 2 * q_g
@@ -183,21 +188,23 @@ def conformal_fair_ite(
         fallback_q = float(max(valid_qs))
     else:
         import warnings as _warnings
+
         _warnings.warn(
             "conformal_fair_ite: every group has fewer than 5 "
             "calibration points; falling back to pooled quantile. "
             "Per-group coverage guarantee does NOT hold.",
             stacklevel=2,
         )
-        pooled = np.concatenate([
-            np.abs(Y[cal] - m1.predict(X[cal])),
-            np.abs(Y[cal] - m0.predict(X[cal])),
-        ])
+        pooled = np.concatenate(
+            [
+                np.abs(Y[cal] - m1.predict(X[cal])),
+                np.abs(Y[cal] - m0.predict(X[cal])),
+            ]
+        )
         if len(pooled) < 5:
             fallback_q = float(np.std(pooled)) if len(pooled) else 1.0
         else:
-            idx = min(int(np.ceil((len(pooled) + 1) * (1 - alpha))),
-                      len(pooled)) - 1
+            idx = min(int(np.ceil((len(pooled) + 1) * (1 - alpha))), len(pooled)) - 1
             fallback_q = float(np.sort(pooled)[idx])
     for g, q in list(group_q.items()):
         if q is None:
@@ -205,8 +212,7 @@ def conformal_fair_ite(
             group_widths[str(g)] = 2 * fallback_q
 
     test_df = test_data if test_data is not None else df
-    test_df = test_df[cov_no_protected + [protected]] \
-        .dropna().reset_index(drop=True)
+    test_df = test_df[cov_no_protected + [protected]].dropna().reset_index(drop=True)
     Xt = test_df[cov_no_protected].to_numpy(float)
     Gt = test_df[protected].to_numpy()
     point = m1.predict(Xt) - m0.predict(Xt)
@@ -228,14 +234,17 @@ def conformal_fair_ite(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.conformal_causal.conformal_fair_ite",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
                 "protected": protected,
-                "alpha": alpha, "seed": seed,
+                "alpha": alpha,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

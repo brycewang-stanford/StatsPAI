@@ -55,12 +55,11 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-
 # Edge-mark constants used in the mark matrix.
-MARK_NONE = 0   # no edge
+MARK_NONE = 0  # no edge
 MARK_CIRCLE = 1  # 'o'
-MARK_ARROW = 2   # '>'
-MARK_TAIL = 3    # '-'
+MARK_ARROW = 2  # '>'
+MARK_TAIL = 3  # '-'
 
 _MARK_SYMBOL = {
     MARK_NONE: ".",
@@ -110,7 +109,7 @@ class FCIResult:
 
     variables: List[str]
     skeleton: pd.DataFrame
-    pag_left: pd.DataFrame   # marks on the i-side of edge (i,j)
+    pag_left: pd.DataFrame  # marks on the i-side of edge (i,j)
     pag_right: pd.DataFrame  # marks on the j-side of edge (i,j)
     edges: List[Tuple[str, str, str]]  # (i, label, j) e.g. ("X", "-->", "Y")
     separating_sets: Dict[Tuple[str, str], Set[str]]
@@ -132,9 +131,8 @@ class FCIResult:
 # CI test
 # --------------------------------------------------------------------
 
-def _fisher_z(
-    X: np.ndarray, i: int, j: int, S: Sequence[int], n: int
-) -> float:
+
+def _fisher_z(X: np.ndarray, i: int, j: int, S: Sequence[int], n: int) -> float:
     """Partial-correlation Fisher-Z test; returns p-value of H0: indep."""
     idx = [i, j] + list(S)
     sub = X[:, idx]
@@ -156,6 +154,7 @@ def _fisher_z(
 # --------------------------------------------------------------------
 # Skeleton learning
 # --------------------------------------------------------------------
+
 
 def _learn_skeleton(
     X: np.ndarray, alpha: float, max_cond_size: Optional[int]
@@ -195,6 +194,7 @@ def _learn_skeleton(
 # PAG helpers
 # --------------------------------------------------------------------
 
+
 def _init_pag(adj: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """Start with every edge as circle-circle."""
     left = np.where(adj == 1, MARK_CIRCLE, MARK_NONE)
@@ -208,17 +208,13 @@ def _has_edge(left: np.ndarray, right: np.ndarray, i: int, j: int) -> bool:
     return bool(left[i, j] != MARK_NONE and right[i, j] != MARK_NONE)
 
 
-def _set_mark_i(
-    left: np.ndarray, right: np.ndarray, i: int, j: int, mark: int
-) -> None:
+def _set_mark_i(left: np.ndarray, right: np.ndarray, i: int, j: int, mark: int) -> None:
     """Set the mark on the i-side of edge (i,j). Also mirror via (j,i)."""
     left[i, j] = mark
     right[j, i] = mark
 
 
-def _set_mark_j(
-    left: np.ndarray, right: np.ndarray, i: int, j: int, mark: int
-) -> None:
+def _set_mark_j(left: np.ndarray, right: np.ndarray, i: int, j: int, mark: int) -> None:
     """Set mark on the j-side of edge (i,j)."""
     right[i, j] = mark
     left[j, i] = mark
@@ -235,6 +231,7 @@ def _mark_j(right: np.ndarray, i: int, j: int) -> int:
 # --------------------------------------------------------------------
 # V-structure & FCI orientation rules (Zhang 2008, R1-R4)
 # --------------------------------------------------------------------
+
 
 def _orient_vstructures(
     adj: np.ndarray,
@@ -258,9 +255,7 @@ def _orient_vstructures(
                     _set_mark_j(left, right, c, b, MARK_ARROW)  # c *-> b
 
 
-def _apply_fci_rules(
-    left: np.ndarray, right: np.ndarray, max_iter: int = 100
-) -> None:
+def _apply_fci_rules(left: np.ndarray, right: np.ndarray, max_iter: int = 100) -> None:
     d = left.shape[0]
     for _ in range(max_iter):
         changed = False
@@ -297,8 +292,7 @@ def _apply_fci_rules(
                     if b in (a, c):
                         continue
                     if not (
-                        _has_edge(left, right, a, b)
-                        and _has_edge(left, right, b, c)
+                        _has_edge(left, right, a, b) and _has_edge(left, right, b, c)
                     ):
                         continue
                     cond1 = (
@@ -326,8 +320,10 @@ def _apply_fci_rules(
                 # need a and c with arrows into b, not adjacent,
                 # each theta o-o / arrow-circle to them.
                 preds = [
-                    x for x in range(d)
-                    if x != b and _has_edge(left, right, x, b)
+                    x
+                    for x in range(d)
+                    if x != b
+                    and _has_edge(left, right, x, b)
                     and _mark_j(right, x, b) == MARK_ARROW
                 ]
                 for a, c in combinations(preds, 2):
@@ -378,6 +374,7 @@ def _apply_fci_rules(
 # --------------------------------------------------------------------
 # Public API
 # --------------------------------------------------------------------
+
 
 def fci(
     data: pd.DataFrame,
@@ -498,6 +495,7 @@ def fci(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_discovery.fci",

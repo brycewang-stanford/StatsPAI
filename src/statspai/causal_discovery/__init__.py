@@ -88,9 +88,7 @@ def _adj_and_names_icp(result: ICPResult) -> _AdjPayload:
     parents = getattr(result, "parents", {}) or {}
     target = getattr(result, "target", None)
     names_source = (
-        getattr(result, "names", None)
-        or getattr(result, "predictors", None)
-        or []
+        getattr(result, "names", None) or getattr(result, "predictors", None) or []
     )
     names = list(names_source)
     if target is not None and target not in names:
@@ -122,6 +120,7 @@ def _make_method(viz_func: _VizMethod) -> _VizMethod:
         A, names, directed = getter(self)
         kwargs.setdefault("directed", directed)
         return viz_func(A, names, *args, **kwargs)
+
     return _bound
 
 
@@ -137,30 +136,30 @@ for _cls in _ADJ_GETTERS:
 
 
 __all__ = [
-    'notears',
-    'NOTEARS',
-    'pc_algorithm',
-    'PCAlgorithm',
-    'lingam',
-    'LiNGAMResult',
-    'ges',
-    'GESResult',
-    'fci',
-    'FCIResult',
-    'icp',
-    'nonlinear_icp',
-    'ICPResult',
-    'pcmci',
-    'PCMCIResult',
-    'partial_corr_pvalue',
-    'lpcmci',
-    'LPCMCIResult',
-    'dynotears',
-    'DYNOTEARSResult',
+    "notears",
+    "NOTEARS",
+    "pc_algorithm",
+    "PCAlgorithm",
+    "lingam",
+    "LiNGAMResult",
+    "ges",
+    "GESResult",
+    "fci",
+    "FCIResult",
+    "icp",
+    "nonlinear_icp",
+    "ICPResult",
+    "pcmci",
+    "PCMCIResult",
+    "partial_corr_pvalue",
+    "lpcmci",
+    "LPCMCIResult",
+    "dynotears",
+    "DYNOTEARSResult",
     # Shared graph helpers (also work standalone on adjacency matrices)
-    'to_networkx',
-    'to_dot',
-    'plot_dag',
-    'edge_list',
-    'shd',
+    "to_networkx",
+    "to_dot",
+    "plot_dag",
+    "edge_list",
+    "shd",
 ]

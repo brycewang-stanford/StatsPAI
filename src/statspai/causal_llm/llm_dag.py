@@ -13,24 +13,53 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, List, Optional
 
-
-
 # Heuristic priors: variable-name patterns → role hints
 _TREATMENT_KEYWORDS = {
-    'treat', 'treatment', 'policy', 'intervention', 'program',
-    'subsidy', 'tax', 'reform', 'shock',
+    "treat",
+    "treatment",
+    "policy",
+    "intervention",
+    "program",
+    "subsidy",
+    "tax",
+    "reform",
+    "shock",
 }
 _OUTCOME_KEYWORDS = {
-    'outcome', 'wage', 'income', 'gdp', 'employment', 'mortality',
-    'survival', 'sales', 'revenue', 'response', 'effect',
+    "outcome",
+    "wage",
+    "income",
+    "gdp",
+    "employment",
+    "mortality",
+    "survival",
+    "sales",
+    "revenue",
+    "response",
+    "effect",
 }
 _CONFOUNDER_KEYWORDS = {
-    'age', 'sex', 'gender', 'race', 'ethnicity', 'education', 'income',
-    'history', 'baseline', 'pretreatment', 'health',
+    "age",
+    "sex",
+    "gender",
+    "race",
+    "ethnicity",
+    "education",
+    "income",
+    "history",
+    "baseline",
+    "pretreatment",
+    "health",
 }
 _INSTRUMENT_KEYWORDS = {
-    'distance', 'lottery', 'birth_quarter', 'random', 'assignment',
-    'eligible', 'iv', 'instrument',
+    "distance",
+    "lottery",
+    "birth_quarter",
+    "random",
+    "assignment",
+    "eligible",
+    "iv",
+    "instrument",
 }
 
 
@@ -76,9 +105,10 @@ class LLMDAGProposal:
     >>> prop.to_dag_string()
     'treatment -> wage; age -> treatment; age -> wage'
     """
-    edges: List[tuple]                # (parent, child)
-    roles: dict                       # var_name → role
-    rationale: List[str]              # one sentence per edge
+
+    edges: List[tuple]  # (parent, child)
+    roles: dict  # var_name → role
+    rationale: List[str]  # one sentence per edge
     backend: str = "heuristic"
     confidence: float = 0.5
 
@@ -156,8 +186,7 @@ def llm_dag_propose(
             # (newlines, carriage returns, null bytes) and cap length.
             def _sanitize(s: str, max_len: int = 200) -> str:
                 cleaned = "".join(
-                    c for c in str(s)
-                    if c.isprintable() and c not in ("\n", "\r")
+                    c for c in str(s) if c.isprintable() and c not in ("\n", "\r")
                 )
                 return cleaned[:max_len].strip()
 
@@ -172,6 +201,7 @@ def llm_dag_propose(
             )
             raw = client.complete(prompt)
             import json
+
             edges = [tuple(e) for e in json.loads(raw)]
             roles = {v: _classify_variable(v) for v in variables}
             return LLMDAGProposal(

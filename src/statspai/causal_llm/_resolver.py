@@ -41,6 +41,7 @@ Users who want OS-keyring storage can install ``keyring`` separately
 and inject via ``api_key=keyring.get_password("statspai", "anthropic")``;
 StatsPAI doesn't take ``keyring`` as a hard dep.
 """
+
 from __future__ import annotations
 
 import os
@@ -113,21 +114,39 @@ def _construct_client(
         return anthropic_client(
             model=eff_model or "claude-sonnet-4-5",
             api_key=api_key,
-            **{k: v for k, v in kwargs.items()
-               if k in {"temperature", "max_tokens", "max_retries",
-                        "thinking_budget", "system_prompt"}},
+            **{
+                k: v
+                for k, v in kwargs.items()
+                if k
+                in {
+                    "temperature",
+                    "max_tokens",
+                    "max_retries",
+                    "thinking_budget",
+                    "system_prompt",
+                }
+            },
         )
     if provider == "openai":
         return openai_client(
             model=eff_model or "gpt-4o-mini",
             api_key=api_key,
-            **{k: v for k, v in kwargs.items()
-               if k in {"temperature", "max_tokens", "max_retries",
-                        "base_url", "organization", "system_prompt"}},
+            **{
+                k: v
+                for k, v in kwargs.items()
+                if k
+                in {
+                    "temperature",
+                    "max_tokens",
+                    "max_retries",
+                    "base_url",
+                    "organization",
+                    "system_prompt",
+                }
+            },
         )
     raise LLMConfigurationError(
-        f"Unknown provider {provider!r}. "
-        f"Supported: {sorted(_ENV_KEY_BY_PROVIDER)}."
+        f"Unknown provider {provider!r}. " f"Supported: {sorted(_ENV_KEY_BY_PROVIDER)}."
     )
 
 
@@ -173,9 +192,7 @@ def _interactive_prompt(
         try:
             raw = input("Choice [1]: ").strip() or "1"
         except (EOFError, KeyboardInterrupt):
-            raise LLMConfigurationError(
-                "Interactive provider selection cancelled."
-            )
+            raise LLMConfigurationError("Interactive provider selection cancelled.")
         try:
             idx = int(raw) - 1
             if not (0 <= idx < len(options)):
@@ -259,7 +276,10 @@ def get_llm_client(
     # Layer 2 — explicit provider + (optionally) api_key.
     if provider is not None:
         return _construct_client(
-            provider, model=model, api_key=api_key, **kwargs,
+            provider,
+            model=model,
+            api_key=api_key,
+            **kwargs,
         )
 
     # Layer 3 — env vars (auto-detect, prefer config).
@@ -269,9 +289,7 @@ def get_llm_client(
     cfg_model = cfg_llm.get("model")
 
     available = list_available_providers()
-    set_providers = [
-        name for name, info in available.items() if info["available"]
-    ]
+    set_providers = [name for name, info in available.items() if info["available"]]
 
     if set_providers:
         # If config names a provider AND its env var is set, use it.
@@ -287,7 +305,10 @@ def get_llm_client(
             or DEFAULT_MODELS[chosen]
         )
         return _construct_client(
-            chosen, model=eff_model, api_key=api_key, **kwargs,
+            chosen,
+            model=eff_model,
+            api_key=api_key,
+            **kwargs,
         )
 
     # Layer 5 — interactive prompt (no env vars set).
@@ -298,8 +319,10 @@ def get_llm_client(
             config_model=cfg_model,
         )
         return _construct_client(
-            choice["provider"], model=choice["model"],
-            api_key=api_key, **kwargs,
+            choice["provider"],
+            model=choice["model"],
+            api_key=api_key,
+            **kwargs,
         )
 
     # Layer 6 — hard error with remediation.
@@ -336,11 +359,14 @@ def configure_llm(
     ... )
     """
     from ._config import set_preferences
+
     if provider is not None and provider not in _ENV_KEY_BY_PROVIDER:
         raise ValueError(
             f"Unknown provider {provider!r}. "
             f"Supported: {sorted(_ENV_KEY_BY_PROVIDER)}."
         )
     return set_preferences(
-        provider=provider, model=model, path=config_path,
+        provider=provider,
+        model=model,
+        path=config_path,
     )

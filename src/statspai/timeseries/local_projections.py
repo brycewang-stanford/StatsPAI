@@ -13,6 +13,7 @@ This estimator is much more flexible than a VAR-based IRF — no
 finite-lag structure imposed — and is the default in modern empirical
 macro (Ramey 2016; Plagborg-Møller & Wolf 2021).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -25,10 +26,10 @@ from scipy import stats
 from ..exceptions import DataInsufficient
 from .._result_serialize import ResultProtocolMixin
 
-
 # --------------------------------------------------------------------- #
 #  Newey-West HAC for a single regression
 # --------------------------------------------------------------------- #
+
 
 def _newey_west(X: np.ndarray, e: np.ndarray, lags: int) -> np.ndarray:
     """Newey-West HAC covariance matrix for an OLS regression with
@@ -39,7 +40,7 @@ def _newey_west(X: np.ndarray, e: np.ndarray, lags: int) -> np.ndarray:
     # meat: sum_l w_l (Gamma_l + Gamma_l') where
     # Gamma_l = (1/n) sum_t X_t e_t e_{t-l} X_{t-l}'
     omega = np.zeros((k, k))
-    u = X * e[:, None]                          # (n, k)
+    u = X * e[:, None]  # (n, k)
     for lag in range(lags + 1):
         if lag == 0:
             G = u.T @ u
@@ -55,6 +56,7 @@ def _newey_west(X: np.ndarray, e: np.ndarray, lags: int) -> np.ndarray:
 # --------------------------------------------------------------------- #
 #  Result
 # --------------------------------------------------------------------- #
+
 
 @dataclass
 class LocalProjectionsResult(ResultProtocolMixin):
@@ -80,35 +82,48 @@ class LocalProjectionsResult(ResultProtocolMixin):
     True
     """
 
-    horizons: np.ndarray              # (H+1,)
-    irf: np.ndarray                   # (H+1,)
-    se: np.ndarray                    # (H+1,)
-    ci_lower: np.ndarray              # (H+1,)
-    ci_upper: np.ndarray              # (H+1,)
+    horizons: np.ndarray  # (H+1,)
+    irf: np.ndarray  # (H+1,)
+    se: np.ndarray  # (H+1,)
+    ci_lower: np.ndarray  # (H+1,)
+    ci_upper: np.ndarray  # (H+1,)
     alpha: float
     shock_name: str
     outcome_name: str
-    n_obs_per_horizon: np.ndarray     # (H+1,)  — usable sample per horizon
+    n_obs_per_horizon: np.ndarray  # (H+1,)  — usable sample per horizon
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "horizon": self.horizons,
-            "irf": self.irf,
-            "se": self.se,
-            "ci_lower": self.ci_lower,
-            "ci_upper": self.ci_upper,
-            "n": self.n_obs_per_horizon,
-        })
+        return pd.DataFrame(
+            {
+                "horizon": self.horizons,
+                "irf": self.irf,
+                "se": self.se,
+                "ci_lower": self.ci_lower,
+                "ci_upper": self.ci_upper,
+                "n": self.n_obs_per_horizon,
+            }
+        )
 
     def plot(self, ax: Any = None, **kwargs: Any) -> Any:
         import matplotlib.pyplot as plt
+
         if ax is None:
             _, ax = plt.subplots(figsize=(7, 4))
-        ax.plot(self.horizons, self.irf, "-o", color="C0",
-                label=f"IRF of {self.outcome_name}")
-        ax.fill_between(self.horizons, self.ci_lower, self.ci_upper,
-                        alpha=0.25, color="C0",
-                        label=f"{int((1 - self.alpha) * 100)}% CI")
+        ax.plot(
+            self.horizons,
+            self.irf,
+            "-o",
+            color="C0",
+            label=f"IRF of {self.outcome_name}",
+        )
+        ax.fill_between(
+            self.horizons,
+            self.ci_lower,
+            self.ci_upper,
+            alpha=0.25,
+            color="C0",
+            label=f"{int((1 - self.alpha) * 100)}% CI",
+        )
         ax.axhline(0, color="grey", linewidth=0.6)
         ax.set_xlabel("Horizon h")
         ax.set_ylabel(f"Response to {self.shock_name}")
@@ -131,6 +146,7 @@ class LocalProjectionsResult(ResultProtocolMixin):
 # --------------------------------------------------------------------- #
 #  lpirfs-compatible Cholesky local projections
 # --------------------------------------------------------------------- #
+
 
 def _lpirfs_cholesky(
     data: pd.DataFrame,
@@ -159,15 +175,11 @@ def _lpirfs_cholesky(
     if missing:
         raise KeyError(f"endog_order columns not found in data: {missing}")
     if len(data) <= horizons + 2:
-        raise DataInsufficient(
-            "too few observations for Cholesky local projections"
-        )
+        raise DataInsufficient("too few observations for Cholesky local projections")
 
     y_all = data.loc[:, order].to_numpy(dtype=float)
     if np.isnan(y_all).any():
-        raise ValueError(
-            "Cholesky local projections require complete endog_order data"
-        )
+        raise ValueError("Cholesky local projections require complete endog_order data")
 
     k_endog = y_all.shape[1]
     response_idx = order.index(outcome)
@@ -198,7 +210,7 @@ def _lpirfs_cholesky(
     n_used[0] = int(len(y_lin))
 
     for h in range(1, horizons + 1):
-        yy = y_lin[h - 1:, :]
+        yy = y_lin[h - 1 :, :]
         xx = x_lin[: len(x_lin) - h + 1, :]
         x_h = np.column_stack([np.ones(len(xx)), xx])
         coef = np.empty((k_endog, k_endog))
@@ -209,8 +221,8 @@ def _lpirfs_cholesky(
             resid = yy[:, k] - x_h @ beta
             cov_beta = _newey_west(x_h, resid, lags=lag_nw)
             std = np.sqrt(np.maximum(np.diag(cov_beta), 0.0))
-            coef[k, :] = beta[1: k_endog + 1]
-            half_width[k, :] = std[1: k_endog + 1]
+            coef[k, :] = beta[1 : k_endog + 1]
+            half_width[k, :] = std[1 : k_endog + 1]
         point = coef @ shock_vec
         # lpirfs stores lower/upper bands for each coefficient before the
         # Cholesky map; for the two-variable unit-shock case this is exactly
@@ -239,6 +251,7 @@ def _lpirfs_cholesky(
 # --------------------------------------------------------------------- #
 #  Public entry point
 # --------------------------------------------------------------------- #
+
 
 def local_projections(
     data: pd.DataFrame,
@@ -323,14 +336,11 @@ def local_projections(
         controls = []
     identification_norm = identification.lower().replace("-", "_")
     if identification_norm not in {"direct", "lpirfs_cholesky", "cholesky"}:
-        raise ValueError(
-            "identification must be 'direct' or 'lpirfs_cholesky'"
-        )
+        raise ValueError("identification must be 'direct' or 'lpirfs_cholesky'")
     if identification_norm in {"lpirfs_cholesky", "cholesky"}:
         if controls:
             raise ValueError(
-                "controls are not supported with "
-                "identification='lpirfs_cholesky'"
+                "controls are not supported with " "identification='lpirfs_cholesky'"
             )
         if cumulative:
             raise ValueError(
@@ -348,14 +358,18 @@ def local_projections(
         )
         try:
             from ..output._lineage import attach_provenance as _attach_prov
+
             _attach_prov(
                 _result,
                 function="sp.timeseries.local_projections",
                 params={
-                    "outcome": outcome, "shock": shock,
-                    "controls": None, "horizons": horizons,
+                    "outcome": outcome,
+                    "shock": shock,
+                    "controls": None,
+                    "horizons": horizons,
                     "nw_lags": nw_lags,
-                    "alpha": alpha, "cumulative": cumulative,
+                    "alpha": alpha,
+                    "cumulative": cumulative,
                     "auto_lag": auto_lag,
                     "identification": identification,
                     "endog_order": (
@@ -420,7 +434,7 @@ def local_projections(
         beta, *_ = np.linalg.lstsq(X_use, lhs_use, rcond=None)
         e = lhs_use - X_use @ beta
         V = _newey_west(X_use, e, lags=max(h, nw_lags))
-        irf[h] = float(beta[1])                 # coefficient on shock
+        irf[h] = float(beta[1])  # coefficient on shock
         se[h] = float(np.sqrt(max(V[1, 1], 0)))
         n_used[h] = int(valid.sum())
 
@@ -438,20 +452,21 @@ def local_projections(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.timeseries.local_projections",
             params={
-                "outcome": outcome, "shock": shock,
+                "outcome": outcome,
+                "shock": shock,
                 "controls": list(controls) if controls else None,
                 "horizons": horizons,
                 "nw_lags": nw_lags,
-                "alpha": alpha, "cumulative": cumulative,
+                "alpha": alpha,
+                "cumulative": cumulative,
                 "auto_lag": auto_lag,
                 "identification": identification,
-                "endog_order": (
-                    list(endog_order) if endog_order is not None else None
-                ),
+                "endog_order": (list(endog_order) if endog_order is not None else None),
             },
             data=data,
             overwrite=False,

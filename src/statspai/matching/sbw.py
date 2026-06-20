@@ -92,8 +92,14 @@ class SBWResult(CausalResult):
         solver_status: str,
     ):
         super().__init__(
-            method=method, estimand=estimand, estimate=estimate,
-            se=se, pvalue=pvalue, ci=ci, alpha=alpha, n_obs=n_obs,
+            method=method,
+            estimand=estimand,
+            estimate=estimate,
+            se=se,
+            pvalue=pvalue,
+            ci=ci,
+            alpha=alpha,
+            n_obs=n_obs,
             detail=balance,
             model_info={
                 "weights": np.asarray(weights, dtype=float),
@@ -183,6 +189,7 @@ def sbw(
     T = df[treat].values.astype(int)
     if not set(np.unique(T)).issubset({0, 1}):
         from statspai.exceptions import MethodIncompatibility
+
         raise MethodIncompatibility(
             f"`{treat}` must be 0/1 binary.",
             recovery_hint=(
@@ -201,7 +208,7 @@ def sbw(
         raise ValueError("Both treatment groups must be non-empty.")
 
     if include_squares:
-        X = np.column_stack([X, X ** 2])
+        X = np.column_stack([X, X**2])
         cov_names = list(covariates) + [f"{c}^2" for c in covariates]
     else:
         cov_names = list(covariates)
@@ -216,9 +223,7 @@ def sbw(
     else:
         delta_vec = np.asarray(delta, dtype=float).reshape(-1)
         if delta_vec.size != X.shape[1]:
-            raise ValueError(
-                f"delta must be scalar or length {X.shape[1]}"
-            )
+            raise ValueError(f"delta must be scalar or length {X.shape[1]}")
     tol_vec = delta_vec * (sd if tolerance_scale == "sd" else np.ones_like(sd))
 
     # ── Solve weights per estimand ────────────────────────────────────
@@ -255,13 +260,17 @@ def sbw(
         w_arm = weights_full[T == 1]
     else:
         w_arm = np.concatenate([weights_full[T == 1], weights_full[T == 0]])
-    ess = float((w_arm.sum() ** 2) / np.sum(w_arm ** 2))
+    ess = float((w_arm.sum() ** 2) / np.sum(w_arm**2))
 
     # ── Optional outcome inference ────────────────────────────────────
     if y is not None:
         Y = df[y].values.astype(float)
         estimate, se, low, high, pval = _weighted_treatment_effect(
-            Y, T, weights_full, estimand, alpha,
+            Y,
+            T,
+            weights_full,
+            estimand,
+            alpha,
         )
     else:
         estimate = se = pval = low = high = np.nan
@@ -282,6 +291,7 @@ def sbw(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         if isinstance(delta, (int, float, np.floating)):
             lineage_delta: Union[float, List[float]] = float(delta)
         else:
@@ -311,6 +321,7 @@ def sbw(
 # ═══════════════════════════════════════════════════════════════════════
 #  Solver
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _solve_sbw(
     X_arm: np.ndarray,
@@ -367,8 +378,13 @@ def _solve_sbw(
         opts.update(solver_options)
 
     res = optimize.minimize(
-        fn, w0, jac=grad, method="SLSQP",
-        bounds=bounds, constraints=constraints, options=opts,
+        fn,
+        w0,
+        jac=grad,
+        method="SLSQP",
+        bounds=bounds,
+        constraints=constraints,
+        options=opts,
     )
     if not res.success:
         # Retry with loosened ftol (SLSQP sometimes reports failure when
@@ -376,8 +392,13 @@ def _solve_sbw(
         retry_opts = dict(opts)
         retry_opts.update({"ftol": 1e-6, "maxiter": 1000})
         res = optimize.minimize(
-            fn, res.x if res.x is not None else w0, jac=grad, method="SLSQP",
-            bounds=bounds, constraints=constraints, options=retry_opts,
+            fn,
+            res.x if res.x is not None else w0,
+            jac=grad,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+            options=retry_opts,
         )
     w = np.asarray(res.x, dtype=float)
     w = np.clip(w, 0.0, None)
@@ -397,6 +418,7 @@ def _solve_sbw(
 # ═══════════════════════════════════════════════════════════════════════
 #  Diagnostics
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _balance_table(
     X: np.ndarray,
@@ -425,17 +447,23 @@ def _balance_table(
     smd_before = (m_t_raw - m_c_raw) / sd_pooled
     smd_after = (m_t_w - m_c_w) / sd_pooled
 
-    return pd.DataFrame({
-        "mean_treated": m_t_w,
-        "mean_control": m_c_w,
-        "SMD_before": smd_before,
-        "SMD_after": smd_after,
-    }, index=cov_names)
+    return pd.DataFrame(
+        {
+            "mean_treated": m_t_w,
+            "mean_control": m_c_w,
+            "SMD_before": smd_before,
+            "SMD_after": smd_after,
+        },
+        index=cov_names,
+    )
 
 
 def _weighted_treatment_effect(
-    Y: np.ndarray, T: np.ndarray, w: np.ndarray,
-    estimand: str, alpha: float,
+    Y: np.ndarray,
+    T: np.ndarray,
+    w: np.ndarray,
+    estimand: str,
+    alpha: float,
 ) -> Tuple[float, float, float, float, float]:
     """Point estimate + *conditional-on-weights* SE for the target estimand.
 
@@ -460,7 +488,7 @@ def _weighted_treatment_effect(
         # Sandwich-type SE combines iid treated and weighted-control variance.
         var_t = float(np.var(Y[T == 1], ddof=1) / (T == 1).sum())
         resid_c = Y[T == 0] - mu_c
-        var_c = float(np.sum((w_c ** 2) * (resid_c ** 2)))
+        var_c = float(np.sum((w_c**2) * (resid_c**2)))
     elif estimand == "atc":
         w_t = w[T == 1]
         w_c = w[T == 0]
@@ -468,7 +496,7 @@ def _weighted_treatment_effect(
         mu_c = float(np.sum(w_c * Y[T == 0]) / w_c.sum())
         ate = mu_t - mu_c
         resid_t = Y[T == 1] - mu_t
-        var_t = float(np.sum((w_t ** 2) * (resid_t ** 2)))
+        var_t = float(np.sum((w_t**2) * (resid_t**2)))
         var_c = float(np.var(Y[T == 0], ddof=1) / (T == 0).sum())
     else:  # ate
         w_t = w[T == 1]
@@ -478,8 +506,8 @@ def _weighted_treatment_effect(
         ate = mu_t - mu_c
         resid_t = Y[T == 1] - mu_t
         resid_c = Y[T == 0] - mu_c
-        var_t = float(np.sum((w_t ** 2) * (resid_t ** 2)))
-        var_c = float(np.sum((w_c ** 2) * (resid_c ** 2)))
+        var_t = float(np.sum((w_t**2) * (resid_t**2)))
+        var_c = float(np.sum((w_c**2) * (resid_c**2)))
 
     se = float(np.sqrt(var_t + var_c))
     z = float(_stats.norm.ppf(1 - alpha / 2))

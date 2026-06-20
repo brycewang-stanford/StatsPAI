@@ -128,10 +128,16 @@ class CATEEvalResult(ResultProtocolMixin):
             fig, ax = plt.subplots(figsize=figsize)
         else:
             fig = ax.figure
-        ax.plot(self.toc_curve["q"], self.toc_curve["toc"],
-                color="#1f77b4", lw=1.8, label="TOC(q)")
-        ax.fill_between(self.toc_curve["q"], 0, self.toc_curve["toc"],
-                        color="#1f77b4", alpha=0.15)
+        ax.plot(
+            self.toc_curve["q"],
+            self.toc_curve["toc"],
+            color="#1f77b4",
+            lw=1.8,
+            label="TOC(q)",
+        )
+        ax.fill_between(
+            self.toc_curve["q"], 0, self.toc_curve["toc"], color="#1f77b4", alpha=0.15
+        )
         ax.axhline(0, color="#555", lw=0.7, ls="--")
         ax.set_xlabel(r"Quantile $q$ of priority score")
         ax.set_ylabel(r"$E[\tau(X) \mid S \ge Q_{1-q}] - E[\tau(X)]$")
@@ -154,9 +160,7 @@ def _aipw_pseudo_outcome(
     if mu1_hat is not None and mu0_hat is not None:
         mu_T = T * mu1_hat + (1 - T) * mu0_hat
         return np.asarray(
-            (mu1_hat - mu0_hat) + (T - e_hat) * (Y - mu_T) / (
-                e_hat * (1 - e_hat)
-            ),
+            (mu1_hat - mu0_hat) + (T - e_hat) * (Y - mu_T) / (e_hat * (1 - e_hat)),
             dtype=float,
         )
     return np.asarray(
@@ -187,23 +191,27 @@ def _crossfit_nuisances(
         Ytr = Y[tr]
         Ttr = T[tr]
         # m̂(X) = E[Y|X]
-        m = GradientBoostingRegressor(n_estimators=200, max_depth=3,
-                                      random_state=random_state).fit(Xtr, Ytr)
+        m = GradientBoostingRegressor(
+            n_estimators=200, max_depth=3, random_state=random_state
+        ).fit(Xtr, Ytr)
         m_hat[te] = m.predict(Xte)
         # ê(X) = P(T=1|X)
-        e = GradientBoostingClassifier(n_estimators=200, max_depth=3,
-                                       random_state=random_state).fit(Xtr, Ttr)
+        e = GradientBoostingClassifier(
+            n_estimators=200, max_depth=3, random_state=random_state
+        ).fit(Xtr, Ttr)
         e_hat[te] = e.predict_proba(Xte)[:, 1]
         # μ̂_1(X), μ̂_0(X)
         mask1 = Ttr == 1
         mask0 = Ttr == 0
         if mask1.any():
-            m1 = GradientBoostingRegressor(n_estimators=200, max_depth=3,
-                                           random_state=random_state).fit(Xtr[mask1], Ytr[mask1])
+            m1 = GradientBoostingRegressor(
+                n_estimators=200, max_depth=3, random_state=random_state
+            ).fit(Xtr[mask1], Ytr[mask1])
             mu1[te] = m1.predict(Xte)
         if mask0.any():
-            m0 = GradientBoostingRegressor(n_estimators=200, max_depth=3,
-                                           random_state=random_state).fit(Xtr[mask0], Ytr[mask0])
+            m0 = GradientBoostingRegressor(
+                n_estimators=200, max_depth=3, random_state=random_state
+            ).fit(Xtr[mask0], Ytr[mask0])
             mu0[te] = m0.predict(Xte)
     return m_hat, e_hat, mu1, mu0
 
@@ -274,7 +282,11 @@ def cate_eval(
                 "e_hat / m_hat / mu1_hat / mu0_hat directly."
             )
         m_hat_cf, e_hat_cf, mu1_cf, mu0_cf = _crossfit_nuisances(
-            np.asarray(X, dtype=float), Y, T, n_folds, random_state,
+            np.asarray(X, dtype=float),
+            Y,
+            T,
+            n_folds,
+            random_state,
         )
         e_hat = e_hat_cf if e_hat is None else np.asarray(e_hat).ravel()
         m_hat = m_hat_cf if m_hat is None else np.asarray(m_hat).ravel()

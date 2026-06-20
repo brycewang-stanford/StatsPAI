@@ -143,9 +143,7 @@ def augsynth(
             alpha=alpha,
         )
     if backend_norm != "native":
-        raise ValueError(
-            "Unknown backend. Use 'native', 'augsynth', or 'r'."
-        )
+        raise ValueError("Unknown backend. Use 'native', 'augsynth', or 'r'.")
 
     # --- Input validation (unified with classic SCM contract) ---
     required_cols = [outcome, unit, time]
@@ -155,9 +153,7 @@ def augsynth(
         if col not in data.columns:
             raise ValueError(f"Column '{col}' not found in data")
     if treated_unit not in data[unit].values:
-        raise ValueError(
-            f"Treated unit '{treated_unit}' not found in '{unit}' column"
-        )
+        raise ValueError(f"Treated unit '{treated_unit}' not found in '{unit}' column")
 
     # --- Reshape to wide format ---
     panel = data.pivot_table(index=unit, columns=time, values=outcome)
@@ -167,6 +163,7 @@ def augsynth(
 
     if len(pre_times) < 2:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "Need at least 2 pre-treatment periods",
             recovery_hint=(
@@ -178,11 +175,10 @@ def augsynth(
         )
     if len(post_times) < 1:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "Need at least 1 post-treatment period",
-            recovery_hint=(
-                "Verify treatment_time is within the panel window."
-            ),
+            recovery_hint=("Verify treatment_time is within the panel window."),
             diagnostics={"n_post_periods": int(len(post_times))},
             alternative_functions=[],
         )
@@ -224,7 +220,7 @@ def augsynth(
 
     pre_residual_aug = Y1_pre - Y1_hat_aug_pre
     pre_residual_scm = Y1_pre - Y1_hat_scm_pre
-    pre_rmspe = float(np.sqrt(np.mean(pre_residual_aug ** 2)))
+    pre_rmspe = float(np.sqrt(np.mean(pre_residual_aug**2)))
 
     effects = Y1_post - Y1_hat_aug_post
     att = float(np.mean(effects))
@@ -264,27 +260,34 @@ def augsynth(
         ci = (float("nan"), float("nan"))
 
     # Build period-level results
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "treated": Y1_post,
-        "counterfactual": Y1_hat_aug_post,
-        "effect": effects,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "treated": Y1_post,
+            "counterfactual": Y1_hat_aug_post,
+            "effect": effects,
+        }
+    )
 
     # Unified gap table (full trajectory, matches classic SCM contract)
     all_times_arr = np.array(pre_times + post_times)
     Y1_all = np.concatenate([Y1_pre, Y1_post])
     Y1_hat_all = np.concatenate([Y1_hat_aug_pre, Y1_hat_aug_post])
     gap_all = Y1_all - Y1_hat_all
-    gap_df = pd.DataFrame({
-        "time": all_times_arr,
-        "treated": Y1_all,
-        "synthetic": Y1_hat_all,
-        "gap": gap_all,
-        "post_treatment": np.concatenate([
-            np.zeros(T0, dtype=bool), np.ones(T1, dtype=bool),
-        ]),
-    })
+    gap_df = pd.DataFrame(
+        {
+            "time": all_times_arr,
+            "treated": Y1_all,
+            "synthetic": Y1_hat_all,
+            "gap": gap_all,
+            "post_treatment": np.concatenate(
+                [
+                    np.zeros(T0, dtype=bool),
+                    np.ones(T1, dtype=bool),
+                ]
+            ),
+        }
+    )
 
     weight_df = (
         pd.DataFrame({"unit": donors, "weight": gamma})
@@ -309,9 +312,9 @@ def augsynth(
             "model_type": "Synthetic Control (Augmented)",
             "pre_rmspe": pre_rmspe,
             "pre_treatment_rmse": pre_rmspe,
-            "pre_treatment_mspe": pre_rmspe ** 2,
-            "scm_pre_treatment_rmse": float(np.sqrt(np.mean(pre_residual_scm ** 2))),
-            "post_rmspe": float(np.sqrt(np.mean(effects ** 2))),
+            "pre_treatment_mspe": pre_rmspe**2,
+            "scm_pre_treatment_rmse": float(np.sqrt(np.mean(pre_residual_scm**2))),
+            "post_rmspe": float(np.sqrt(np.mean(effects**2))),
             "weights": weight_df,
             "weights_dict": dict(zip(donors, np.asarray(gamma))),
             "synthetic_weights": dict(zip(donors, np.asarray(syn_weights))),
@@ -385,7 +388,7 @@ def _augsynth_r_backend(
     ).astype(int)
     panel_df = panel_df.sort_values([unit_col, time_col]).reset_index(drop=True)
 
-    r_script = r'''
+    r_script = r"""
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 3) {
   stop("expected 3 arguments: input output treatment_time")
@@ -436,7 +439,7 @@ jsonlite::write_json(
   na = "null",
   digits = 16
 )
-'''
+"""
 
     rscript = _find_rscript()
     with tempfile.TemporaryDirectory(prefix="statspai_augsynth_") as tmp:
@@ -461,8 +464,7 @@ jsonlite::write_json(
         )
         if proc.returncode != 0:
             raise RuntimeError(
-                "R augsynth backend failed. stderr:\n"
-                f"{proc.stderr.strip()}"
+                "R augsynth backend failed. stderr:\n" f"{proc.stderr.strip()}"
             )
         payload = json.loads(out_path.read_text(encoding="utf-8"))
 
@@ -476,7 +478,7 @@ jsonlite::write_json(
         "scm": True,
         "pre_rmspe": pre_rmspe,
         "pre_treatment_rmse": pre_rmspe,
-        "pre_treatment_mspe": pre_rmspe ** 2,
+        "pre_treatment_mspe": pre_rmspe**2,
         "n_donors": int(payload["n_units"]) - 1,
         "n_pre_periods": int(payload["n_pre_periods"]),
         "n_post_periods": int(payload["n_post_periods"]),
@@ -503,12 +505,14 @@ jsonlite::write_json(
 #  Internal helpers
 # ====================================================================== #
 
+
 def _scm_weights(Y1_pre: np.ndarray, Y0_pre: np.ndarray) -> np.ndarray:
     """
     Standard SCM: find non-negative weights that minimise
     ||Y1_pre - Y0_pre' γ||² subject to sum(γ) = 1, γ >= 0.
     """
     from ._core import solve_simplex_weights
+
     return solve_simplex_weights(Y1_pre, Y0_pre.T)
 
 

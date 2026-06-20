@@ -6,6 +6,7 @@ orchestrators) so each file stays small and reviewable. Adding a new
 hand-curated tool: drop a dict into the matching family file (or
 create a new family file + add it here).
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, List
@@ -19,7 +20,6 @@ from . import (
     _diag,
     _orchestrate,
 )
-
 
 # Order matters only insofar as ``tool_manifest`` returns this list
 # verbatim and a few tests depend on the regression entry being first.

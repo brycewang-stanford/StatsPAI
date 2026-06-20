@@ -59,8 +59,9 @@ class ProxyScoreResult(ResultProtocolMixin):
     >>> isinstance(res.summary(), str)
     True
     """
-    z_candidates: pd.DataFrame   # cols: name, score_z, p_indep
-    w_candidates: pd.DataFrame   # cols: name, score_w, p_indep
+
+    z_candidates: pd.DataFrame  # cols: name, score_z, p_indep
+    w_candidates: pd.DataFrame  # cols: name, score_w, p_indep
     recommended_z: List[str]
     recommended_w: List[str]
 
@@ -150,11 +151,13 @@ def select_pci_proxies(
         rho_y = float(np.corrcoef(v, Y)[0, 1]) if v.std() > 0 else 0.0
         # Partial correlation for conditional independence test
         # (Z ⊥ Y | D, X) — score_z = |rho_d| - |rho_partial(Z, Y | D, X)|
-        controls = np.column_stack([D] + ([df[c2].to_numpy(float)
-                                            for c2 in cov] if cov else []))
+        controls = np.column_stack(
+            [D] + ([df[c2].to_numpy(float) for c2 in cov] if cov else [])
+        )
         try:
             # Residualise v and Y on controls
             from sklearn.linear_model import LinearRegression
+
             r_v = v - LinearRegression().fit(controls, v).predict(controls)
             r_y = Y - LinearRegression().fit(controls, Y).predict(controls)
             partial_zy = float(np.corrcoef(r_v, r_y)[0, 1]) if r_v.std() > 0 else 0.0
@@ -185,16 +188,32 @@ def select_pci_proxies(
         # (compute symmetric quantity)
         try:
             r_v_w = v - LinearRegression().fit(
-                np.column_stack([df[c2].to_numpy(float) for c2 in cov]) if cov
-                else np.zeros((len(df), 1)), v
-            ).predict(np.column_stack([df[c2].to_numpy(float) for c2 in cov])
-                       if cov else np.zeros((len(df), 1)))
+                (
+                    np.column_stack([df[c2].to_numpy(float) for c2 in cov])
+                    if cov
+                    else np.zeros((len(df), 1))
+                ),
+                v,
+            ).predict(
+                np.column_stack([df[c2].to_numpy(float) for c2 in cov])
+                if cov
+                else np.zeros((len(df), 1))
+            )
             r_d = D - LinearRegression().fit(
-                np.column_stack([df[c2].to_numpy(float) for c2 in cov]) if cov
-                else np.zeros((len(df), 1)), D
-            ).predict(np.column_stack([df[c2].to_numpy(float) for c2 in cov])
-                       if cov else np.zeros((len(df), 1)))
-            partial_wd = float(np.corrcoef(r_v_w, r_d)[0, 1]) if r_v_w.std() > 0 else 0.0
+                (
+                    np.column_stack([df[c2].to_numpy(float) for c2 in cov])
+                    if cov
+                    else np.zeros((len(df), 1))
+                ),
+                D,
+            ).predict(
+                np.column_stack([df[c2].to_numpy(float) for c2 in cov])
+                if cov
+                else np.zeros((len(df), 1))
+            )
+            partial_wd = (
+                float(np.corrcoef(r_v_w, r_d)[0, 1]) if r_v_w.std() > 0 else 0.0
+            )
         except Exception as exc:
             partial_wd = rho_d
             warnings.warn(
@@ -207,15 +226,21 @@ def select_pci_proxies(
             )
         score_w = abs(rho_y) - abs(partial_wd)
 
-        z_rows.append({'name': c, 'score_z': score_z, 'p_indep': p_indep})
-        w_rows.append({'name': c, 'score_w': score_w, 'p_indep': p_indep})
+        z_rows.append({"name": c, "score_z": score_z, "p_indep": p_indep})
+        w_rows.append({"name": c, "score_w": score_w, "p_indep": p_indep})
 
-    z_df = pd.DataFrame(z_rows).sort_values('score_z', ascending=False) \
+    z_df = (
+        pd.DataFrame(z_rows)
+        .sort_values("score_z", ascending=False)
         .reset_index(drop=True)
-    w_df = pd.DataFrame(w_rows).sort_values('score_w', ascending=False) \
+    )
+    w_df = (
+        pd.DataFrame(w_rows)
+        .sort_values("score_w", ascending=False)
         .reset_index(drop=True)
-    rec_z = z_df.head(top_k)['name'].tolist()
-    rec_w = w_df.head(top_k)['name'].tolist()
+    )
+    rec_z = z_df.head(top_k)["name"].tolist()
+    rec_w = w_df.head(top_k)["name"].tolist()
     # Avoid recommending same variable for both roles
     rec_w = [c for c in rec_w if c not in rec_z][:top_k]
 

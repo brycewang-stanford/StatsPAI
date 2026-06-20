@@ -20,7 +20,6 @@ from scipy import stats
 from ._common import as_float_arrays, harmonize_signs
 from ..._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["MRcMLResult", "mr_cml"]
 
 
@@ -63,6 +62,7 @@ class MRcMLResult(ResultProtocolMixin):
     >>> bool(np.isfinite(res.estimate))
     True
     """
+
     estimate: float
     se: float
     ci_lower: float
@@ -81,8 +81,7 @@ class MRcMLResult(ResultProtocolMixin):
             "=" * 62,
             f"  n SNPs                : {self.n_snps}",
             f"  invalid (K_selected)  : {self.K_selected}",
-            f"  causal β              : {self.estimate:+.4f}   "
-            f"SE = {self.se:.4f}",
+            f"  causal β              : {self.estimate:+.4f}   " f"SE = {self.se:.4f}",
             f"  95% CI                : {ci}",
             f"  p-value               : {self.p_value:.4g}",
             f"  log-lik               : {self.loglik:.3f}",
@@ -100,8 +99,14 @@ class MRcMLResult(ResultProtocolMixin):
 
 
 def _fit_fixed_k(
-    bx: np.ndarray, by: np.ndarray, vx: np.ndarray, vy: np.ndarray,
-    K: int, *, max_iter: int = 200, tol: float = 1e-8,
+    bx: np.ndarray,
+    by: np.ndarray,
+    vx: np.ndarray,
+    vy: np.ndarray,
+    K: int,
+    *,
+    max_iter: int = 200,
+    tol: float = 1e-8,
 ) -> tuple[float, float, float, np.ndarray]:
     """Block-coordinate-descent MR-cML at fixed K.
 
@@ -121,7 +126,7 @@ def _fit_fixed_k(
     """
     n = len(bx)
     b_true = bx.copy()
-    beta = float(np.sum(bx * by / vy) / max(np.sum(bx ** 2 / vy), 1e-300))
+    beta = float(np.sum(bx * by / vy) / max(np.sum(bx**2 / vy), 1e-300))
     r = np.zeros(n)
     invalid_idx = np.array([], dtype=int)
 
@@ -129,13 +134,13 @@ def _fit_fixed_k(
     for _ in range(max_iter):
         # Step 1: update b_x (vector)
         num = bx / vx + beta * (by - r) / vy
-        den = 1.0 / vx + beta ** 2 / vy
+        den = 1.0 / vx + beta**2 / vy
         b_true = num / den
 
         # Step 2: update r with cardinality constraint ||r||_0 ≤ K
         full_resid = by - beta * b_true
         if K > 0:
-            score = full_resid ** 2 / vy
+            score = full_resid**2 / vy
             invalid_idx = np.argpartition(-score, K - 1)[:K]
             r = np.zeros(n)
             r[invalid_idx] = full_resid[invalid_idx]
@@ -145,7 +150,7 @@ def _fit_fixed_k(
 
         # Step 3: update beta on the remaining (valid) SNPs
         w_num = np.sum(b_true * (by - r) / vy)
-        w_den = np.sum(b_true ** 2 / vy)
+        w_den = np.sum(b_true**2 / vy)
         if w_den <= 1e-300:
             beta_new = beta
         else:
@@ -246,8 +251,8 @@ def mr_cml(
         beta_exposure, beta_outcome, se_exposure, se_outcome
     )
     bx, by = harmonize_signs(bx, by)
-    vx = sx ** 2
-    vy = sy ** 2
+    vx = sx**2
+    vy = sy**2
     n = len(bx)
 
     if K_max is None:
@@ -259,16 +264,24 @@ def mr_cml(
     fits = {}
     for K in range(0, K_max + 1):
         beta_hat, se_hat, ll, invalid_idx = _fit_fixed_k(
-            bx, by, vx, vy, K, max_iter=max_iter, tol=tol,
+            bx,
+            by,
+            vx,
+            vy,
+            K,
+            max_iter=max_iter,
+            tol=tol,
         )
         bic = -2.0 * ll + K * np.log(n)
-        rows.append({
-            "K": K,
-            "estimate": beta_hat,
-            "se": se_hat,
-            "loglik": ll,
-            "bic": bic,
-        })
+        rows.append(
+            {
+                "K": K,
+                "estimate": beta_hat,
+                "se": se_hat,
+                "loglik": ll,
+                "bic": bic,
+            }
+        )
         fits[K] = (beta_hat, se_hat, ll, invalid_idx)
 
     path_df = pd.DataFrame(rows)

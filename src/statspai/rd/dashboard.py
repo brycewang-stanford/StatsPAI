@@ -40,10 +40,10 @@ from typing import Optional, List, Dict, Any, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-
 # =============================================================================
 # rd_dashboard
 # =============================================================================
+
 
 def rd_dashboard(
     data: pd.DataFrame,
@@ -126,9 +126,17 @@ def rd_dashboard(
     # Resolve reference bandwidth
     if h is None:
         try:
-            h_ref = rdrobust(data, y=y, x=x, c=c, p=1, fuzzy=fuzzy,
-                             warn_mass_points=False, warn_weak_first_stage=False)
-            h_auto = h_ref.model_info.get('bandwidth_h', None)
+            h_ref = rdrobust(
+                data,
+                y=y,
+                x=x,
+                c=c,
+                p=1,
+                fuzzy=fuzzy,
+                warn_mass_points=False,
+                warn_weak_first_stage=False,
+            )
+            h_auto = h_ref.model_info.get("bandwidth_h", None)
             if isinstance(h_auto, tuple):
                 h = float(h_auto[0])
             elif h_auto is not None:
@@ -140,8 +148,16 @@ def rd_dashboard(
     plt.subplots_adjust(hspace=0.35, wspace=0.30)
 
     # Panel 1: RD plot
-    rdplot(data, y=y, x=x, c=c, ax=axes[0, 0], h=h,
-           title="(a) RD plot", show_bw=h is not None)
+    rdplot(
+        data,
+        y=y,
+        x=x,
+        c=c,
+        ax=axes[0, 0],
+        h=h,
+        title="(a) RD plot",
+        show_bw=h is not None,
+    )
 
     # Panel 2: density discontinuity
     rdplotdensity(data, x=x, c=c, ax=axes[0, 1], title="(b) Density at cutoff")
@@ -154,7 +170,13 @@ def rd_dashboard(
 
     # Panel 4: bandwidth sensitivity
     _plot_bw_sensitivity(
-        axes[1, 1], data, y=y, x=x, c=c, fuzzy=fuzzy, h_ref=h,
+        axes[1, 1],
+        data,
+        y=y,
+        x=x,
+        c=c,
+        fuzzy=fuzzy,
+        h_ref=h,
         bw_grid=bw_grid,
     )
 
@@ -164,7 +186,7 @@ def rd_dashboard(
     fig.tight_layout()
 
     if save:
-        fig.savefig(save, dpi=200, bbox_inches='tight')
+        fig.savefig(save, dpi=200, bbox_inches="tight")
 
     return fig, axes
 
@@ -188,21 +210,43 @@ def _plot_balance(
         sr = float(right[col].std() / np.sqrt(max(right[col].count(), 1)))
         means.append((col, ml, mr, sl, sr))
     if not means:
-        ax.text(0.5, 0.5, "(no covariates supplied)", ha='center', va='center',
-                transform=ax.transAxes)
-        ax.set_title("(c) Covariate balance"); ax.axis('off')
+        ax.text(
+            0.5,
+            0.5,
+            "(no covariates supplied)",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        ax.set_title("(c) Covariate balance")
+        ax.axis("off")
         return
     rows = list(range(len(means)))
     for i, (col, ml, mr, sl, sr) in enumerate(means):
-        ax.errorbar(ml, i - 0.12, xerr=1.96 * sl, fmt='o', color='#E74C3C',
-                    capsize=3, label='Left' if i == 0 else None)
-        ax.errorbar(mr, i + 0.12, xerr=1.96 * sr, fmt='s', color='#3498DB',
-                    capsize=3, label='Right' if i == 0 else None)
+        ax.errorbar(
+            ml,
+            i - 0.12,
+            xerr=1.96 * sl,
+            fmt="o",
+            color="#E74C3C",
+            capsize=3,
+            label="Left" if i == 0 else None,
+        )
+        ax.errorbar(
+            mr,
+            i + 0.12,
+            xerr=1.96 * sr,
+            fmt="s",
+            color="#3498DB",
+            capsize=3,
+            label="Right" if i == 0 else None,
+        )
     ax.set_yticks(rows)
     ax.set_yticklabels([m[0] for m in means])
     ax.invert_yaxis()
-    ax.legend(loc='best', fontsize=8)
-    ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+    ax.legend(loc="best", fontsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
     ax.set_title("(c) Covariate balance at cutoff", fontsize=11)
 
 
@@ -214,28 +258,42 @@ def _plot_running_var_summary(
 ) -> None:
     X = data[x].dropna().to_numpy(dtype=float)
     n_unique = int(np.unique(X).size)
-    ax.hist(X[X < c], bins=30, alpha=0.5, color='#E74C3C', label='Left')
-    ax.hist(X[X >= c], bins=30, alpha=0.5, color='#3498DB', label='Right')
-    ax.axvline(c, color='gray', linestyle='--', linewidth=0.8)
+    ax.hist(X[X < c], bins=30, alpha=0.5, color="#E74C3C", label="Left")
+    ax.hist(X[X >= c], bins=30, alpha=0.5, color="#3498DB", label="Right")
+    ax.axvline(c, color="gray", linestyle="--", linewidth=0.8)
     ax.set_xlabel(x, fontsize=10)
-    ax.set_ylabel('Count', fontsize=10)
-    ax.set_title(f"(c) Running-variable distribution (n_unique={n_unique})",
-                 fontsize=11)
-    ax.legend(loc='best', fontsize=8)
-    ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+    ax.set_ylabel("Count", fontsize=10)
+    ax.set_title(
+        f"(c) Running-variable distribution (n_unique={n_unique})", fontsize=11
+    )
+    ax.legend(loc="best", fontsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 
 def _plot_bw_sensitivity(
-    ax: Any, data: pd.DataFrame, y: str, x: str, c: float,
-    fuzzy: Optional[str], h_ref: Optional[float],
+    ax: Any,
+    data: pd.DataFrame,
+    y: str,
+    x: str,
+    c: float,
+    fuzzy: Optional[str],
+    h_ref: Optional[float],
     bw_grid: Optional[Sequence[float]],
 ) -> None:
     from .rdrobust import rdrobust
 
     if h_ref is None or h_ref <= 0:
-        ax.text(0.5, 0.5, "(bandwidth not available)",
-                ha='center', va='center', transform=ax.transAxes)
-        ax.set_title("(d) Bandwidth sensitivity"); ax.axis('off')
+        ax.text(
+            0.5,
+            0.5,
+            "(bandwidth not available)",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        ax.set_title("(d) Bandwidth sensitivity")
+        ax.axis("off")
         return
     if bw_grid is None:
         bw_values = np.array([0.5, 0.75, 1.0, 1.25, 1.5, 2.0]) * h_ref
@@ -245,26 +303,38 @@ def _plot_bw_sensitivity(
     estimates, lows, highs = [], [], []
     for h_val in bw_values:
         try:
-            r = rdrobust(data, y=y, x=x, c=c, h=h_val, fuzzy=fuzzy,
-                         warn_mass_points=False, warn_weak_first_stage=False)
+            r = rdrobust(
+                data,
+                y=y,
+                x=x,
+                c=c,
+                h=h_val,
+                fuzzy=fuzzy,
+                warn_mass_points=False,
+                warn_weak_first_stage=False,
+            )
             estimates.append(float(r.estimate))
             lo, hi = r.ci
-            lows.append(float(lo)); highs.append(float(hi))
+            lows.append(float(lo))
+            highs.append(float(hi))
         except Exception:  # pragma: no cover
-            estimates.append(np.nan); lows.append(np.nan); highs.append(np.nan)
+            estimates.append(np.nan)
+            lows.append(np.nan)
+            highs.append(np.nan)
     est_values, low_values, high_values = map(np.array, (estimates, lows, highs))
 
-    ax.fill_between(bw_values, low_values, high_values,
-                    color='#3498DB', alpha=0.20)
-    ax.plot(bw_values, est_values, '-o', color='#2C3E50', linewidth=1.4)
-    ax.axvline(h_ref, color='gray', linestyle='--', linewidth=0.8,
-               label=f'h_MSE = {h_ref:.3f}')
-    ax.axhline(0, color='black', linewidth=0.5)
-    ax.set_xlabel('Bandwidth h', fontsize=10)
-    ax.set_ylabel('τ̂ (95% CI)', fontsize=10)
+    ax.fill_between(bw_values, low_values, high_values, color="#3498DB", alpha=0.20)
+    ax.plot(bw_values, est_values, "-o", color="#2C3E50", linewidth=1.4)
+    ax.axvline(
+        h_ref, color="gray", linestyle="--", linewidth=0.8, label=f"h_MSE = {h_ref:.3f}"
+    )
+    ax.axhline(0, color="black", linewidth=0.5)
+    ax.set_xlabel("Bandwidth h", fontsize=10)
+    ax.set_ylabel("τ̂ (95% CI)", fontsize=10)
     ax.set_title("(d) Bandwidth sensitivity", fontsize=11)
-    ax.legend(loc='best', fontsize=8)
-    ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+    ax.legend(loc="best", fontsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 
 # =============================================================================
@@ -272,7 +342,9 @@ def _plot_bw_sensitivity(
 # =============================================================================
 
 _DEFAULT_COMPARE_METHODS = (
-    'rdrobust', 'honest', 'randinf',
+    "rdrobust",
+    "honest",
+    "randinf",
 )
 
 
@@ -339,34 +411,62 @@ def rd_compare(
     rows = []
     for m in methods:
         kw = dict(method_kwargs.get(m, {}))
-        kw.setdefault('alpha', alpha)
-        if fuzzy is not None and m in ('rdrobust', 'forest', 'boost', 'lasso',
-                                       'extrapolate'):
-            kw.setdefault('fuzzy', fuzzy)
+        kw.setdefault("alpha", alpha)
+        if fuzzy is not None and m in (
+            "rdrobust",
+            "forest",
+            "boost",
+            "lasso",
+            "extrapolate",
+        ):
+            kw.setdefault("fuzzy", fuzzy)
         try:
             from . import _rd_dispatch  # circular-safe import
+
             r = _rd_dispatch(data=data, y=y, x=x, c=c, method=m, **kw)
-            est = float(getattr(r, 'estimate', float('nan')))
-            se = (float(getattr(r, 'se', float('nan')))
-                  if getattr(r, 'se', None) is not None else float('nan'))
-            pv = (float(getattr(r, 'pvalue', float('nan')))
-                  if getattr(r, 'pvalue', None) is not None else float('nan'))
-            ci = getattr(r, 'ci', None)
-            lo, hi = (float(ci[0]), float(ci[1])) if ci is not None else (
-                float('nan'), float('nan'))
-            n = int(getattr(r, 'n_obs', 0) or 0)
-            rows.append({
-                'method': m, 'estimate': est, 'se': se, 'pvalue': pv,
-                'ci_lower': lo, 'ci_upper': hi, 'n_obs': n,
-                'status': 'ok',
-            })
+            est = float(getattr(r, "estimate", float("nan")))
+            se = (
+                float(getattr(r, "se", float("nan")))
+                if getattr(r, "se", None) is not None
+                else float("nan")
+            )
+            pv = (
+                float(getattr(r, "pvalue", float("nan")))
+                if getattr(r, "pvalue", None) is not None
+                else float("nan")
+            )
+            ci = getattr(r, "ci", None)
+            lo, hi = (
+                (float(ci[0]), float(ci[1]))
+                if ci is not None
+                else (float("nan"), float("nan"))
+            )
+            n = int(getattr(r, "n_obs", 0) or 0)
+            rows.append(
+                {
+                    "method": m,
+                    "estimate": est,
+                    "se": se,
+                    "pvalue": pv,
+                    "ci_lower": lo,
+                    "ci_upper": hi,
+                    "n_obs": n,
+                    "status": "ok",
+                }
+            )
         except Exception as exc:
-            rows.append({
-                'method': m, 'estimate': float('nan'),
-                'se': float('nan'), 'pvalue': float('nan'),
-                'ci_lower': float('nan'), 'ci_upper': float('nan'),
-                'n_obs': 0, 'status': f'error: {type(exc).__name__}: {exc}',
-            })
+            rows.append(
+                {
+                    "method": m,
+                    "estimate": float("nan"),
+                    "se": float("nan"),
+                    "pvalue": float("nan"),
+                    "ci_lower": float("nan"),
+                    "ci_upper": float("nan"),
+                    "n_obs": 0,
+                    "status": f"error: {type(exc).__name__}: {exc}",
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -374,14 +474,15 @@ def rd_compare(
 # rd_robustness_table
 # =============================================================================
 
+
 def rd_robustness_table(
     data: pd.DataFrame,
     y: str,
     x: str,
     c: float = 0.0,
     fuzzy: Optional[str] = None,
-    kernels: Sequence[str] = ('triangular', 'epanechnikov', 'uniform'),
-    bwselects: Sequence[str] = ('mserd', 'cerrd', 'msetwo'),
+    kernels: Sequence[str] = ("triangular", "epanechnikov", "uniform"),
+    bwselects: Sequence[str] = ("mserd", "cerrd", "msetwo"),
     polynomials: Sequence[int] = (1, 2),
     donuts: Sequence[float] = (0.0,),
     covs: Optional[List[str]] = None,
@@ -446,54 +547,72 @@ def rd_robustness_table(
             for p in polynomials:
                 for donut in donuts:
                     spec = {
-                        'kernel': kernel, 'bwselect': bwselect,
-                        'p': int(p), 'donut': float(donut),
+                        "kernel": kernel,
+                        "bwselect": bwselect,
+                        "p": int(p),
+                        "donut": float(donut),
                     }
                     try:
                         r = rdrobust(
-                            data=data, y=y, x=x, c=c,
-                            fuzzy=fuzzy, p=int(p), kernel=kernel,
-                            bwselect=bwselect, donut=float(donut),
-                            covs=covs, cluster=cluster, alpha=alpha,
+                            data=data,
+                            y=y,
+                            x=x,
+                            c=c,
+                            fuzzy=fuzzy,
+                            p=int(p),
+                            kernel=kernel,
+                            bwselect=bwselect,
+                            donut=float(donut),
+                            covs=covs,
+                            cluster=cluster,
+                            alpha=alpha,
                             warn_mass_points=False,
                             warn_weak_first_stage=False,
                         )
                         info = r.model_info or {}
-                        conv = info.get('conventional', {})
-                        rbc_ = info.get('robust', {})
-                        h_used = info.get('bandwidth_h', float('nan'))
-                        b_used = info.get('bandwidth_b', float('nan'))
-                        rows.append({
-                            **spec,
-                            'h': h_used, 'b': b_used,
-                            'estimate_conv': conv.get('estimate', float('nan')),
-                            'se_conv': conv.get('se', float('nan')),
-                            'ci_conv_lo': conv.get('ci', (float('nan'),) * 2)[0],
-                            'ci_conv_hi': conv.get('ci', (float('nan'),) * 2)[1],
-                            'pvalue_conv': conv.get('pvalue', float('nan')),
-                            'estimate_rbc': rbc_.get('estimate', float('nan')),
-                            'se_rbc': rbc_.get('se', float('nan')),
-                            'ci_rbc_lo': rbc_.get('ci', (float('nan'),) * 2)[0],
-                            'ci_rbc_hi': rbc_.get('ci', (float('nan'),) * 2)[1],
-                            'pvalue_rbc': rbc_.get('pvalue', float('nan')),
-                            'n_left': int(info.get('n_left', 0)),
-                            'n_right': int(info.get('n_right', 0)),
-                            'status': 'ok',
-                        })
+                        conv = info.get("conventional", {})
+                        rbc_ = info.get("robust", {})
+                        h_used = info.get("bandwidth_h", float("nan"))
+                        b_used = info.get("bandwidth_b", float("nan"))
+                        rows.append(
+                            {
+                                **spec,
+                                "h": h_used,
+                                "b": b_used,
+                                "estimate_conv": conv.get("estimate", float("nan")),
+                                "se_conv": conv.get("se", float("nan")),
+                                "ci_conv_lo": conv.get("ci", (float("nan"),) * 2)[0],
+                                "ci_conv_hi": conv.get("ci", (float("nan"),) * 2)[1],
+                                "pvalue_conv": conv.get("pvalue", float("nan")),
+                                "estimate_rbc": rbc_.get("estimate", float("nan")),
+                                "se_rbc": rbc_.get("se", float("nan")),
+                                "ci_rbc_lo": rbc_.get("ci", (float("nan"),) * 2)[0],
+                                "ci_rbc_hi": rbc_.get("ci", (float("nan"),) * 2)[1],
+                                "pvalue_rbc": rbc_.get("pvalue", float("nan")),
+                                "n_left": int(info.get("n_left", 0)),
+                                "n_right": int(info.get("n_right", 0)),
+                                "status": "ok",
+                            }
+                        )
                     except Exception as exc:  # pragma: no cover
-                        rows.append({
-                            **spec, 'h': float('nan'), 'b': float('nan'),
-                            'estimate_conv': float('nan'),
-                            'se_conv': float('nan'),
-                            'ci_conv_lo': float('nan'),
-                            'ci_conv_hi': float('nan'),
-                            'pvalue_conv': float('nan'),
-                            'estimate_rbc': float('nan'),
-                            'se_rbc': float('nan'),
-                            'ci_rbc_lo': float('nan'),
-                            'ci_rbc_hi': float('nan'),
-                            'pvalue_rbc': float('nan'),
-                            'n_left': 0, 'n_right': 0,
-                            'status': f'error: {type(exc).__name__}: {exc}',
-                        })
+                        rows.append(
+                            {
+                                **spec,
+                                "h": float("nan"),
+                                "b": float("nan"),
+                                "estimate_conv": float("nan"),
+                                "se_conv": float("nan"),
+                                "ci_conv_lo": float("nan"),
+                                "ci_conv_hi": float("nan"),
+                                "pvalue_conv": float("nan"),
+                                "estimate_rbc": float("nan"),
+                                "se_rbc": float("nan"),
+                                "ci_rbc_lo": float("nan"),
+                                "ci_rbc_hi": float("nan"),
+                                "pvalue_rbc": float("nan"),
+                                "n_left": 0,
+                                "n_right": 0,
+                                "status": f"error: {type(exc).__name__}: {exc}",
+                            }
+                        )
     return pd.DataFrame(rows)

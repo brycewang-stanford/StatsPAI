@@ -40,7 +40,6 @@ import pandas as pd
 
 from ..workflow._degradation import record_degradation
 
-
 _MAX_METHOD_LEN = 24
 
 
@@ -71,7 +70,7 @@ def _fmt(x: Any, fmt: str = "{:.3g}") -> str:
 
 def _truncate_method(name: str) -> str:
     if len(name) > _MAX_METHOD_LEN:
-        return name[:_MAX_METHOD_LEN - 1] + "…"
+        return name[: _MAX_METHOD_LEN - 1] + "…"
     return name
 
 
@@ -151,9 +150,7 @@ def brief(result: Any) -> str:
     method_raw = getattr(result, "method", None)
     if not method_raw:
         mi = getattr(result, "model_info", None) or {}
-        method_raw = (mi.get("method")
-                       or mi.get("model_type")
-                       or "?")
+        method_raw = mi.get("method") or mi.get("model_type") or "?"
     method = _truncate_method(str(method_raw))
 
     # Causal-style result
@@ -170,22 +167,27 @@ def brief(result: Any) -> str:
 
         ci = getattr(result, "ci", None)
         ci_str = ""
-        if (ci is not None
-                and not isinstance(ci, (pd.Series, pd.DataFrame))
-                and hasattr(ci, "__len__") and len(ci) == 2):
+        if (
+            ci is not None
+            and not isinstance(ci, (pd.Series, pd.DataFrame))
+            and hasattr(ci, "__len__")
+            and len(ci) == 2
+        ):
             alpha = getattr(result, "alpha", 0.05) or 0.05
             try:
                 pct = int(round(100 * (1 - float(alpha))))
             except (TypeError, ValueError):
                 pct = 95
-            ci_str = (f"  {pct}% CI [{_fmt(ci[0])}, {_fmt(ci[1])}]")
+            ci_str = f"  {pct}% CI [{_fmt(ci[0])}, {_fmt(ci[1])}]"
 
         n_obs = getattr(result, "n_obs", None)
-        n_str = (f"  N={int(n_obs):,}"
-                 if n_obs is not None
-                 and isinstance(n_obs, (int, float))
-                 and np.isfinite(n_obs)
-                 else "")
+        n_str = (
+            f"  N={int(n_obs):,}"
+            if n_obs is not None
+            and isinstance(n_obs, (int, float))
+            and np.isfinite(n_obs)
+            else ""
+        )
 
         viol = _violation_flag(result)
         stars_str = f"  {stars}" if stars else ""
@@ -219,17 +221,14 @@ def brief(result: Any) -> str:
                 if pvals is None:
                     continue
                 try:
-                    pv = float(pvals.iloc[i] if hasattr(pvals, "iloc")
-                                else pvals[i])
+                    pv = float(pvals.iloc[i] if hasattr(pvals, "iloc") else pvals[i])
                 except Exception:
                     continue
                 if not np.isfinite(pv):
                     continue
                 if best_p is None or pv < best_p:
                     best_p = pv
-                    best_term = (str(name),
-                                  float(params.iloc[i]),
-                                  pv)
+                    best_term = (str(name), float(params.iloc[i]), pv)
         except Exception as exc:
             record_degradation(
                 None,
@@ -239,11 +238,13 @@ def brief(result: Any) -> str:
             )
             best_term = None
 
-        n_str = (f"  N={int(n_obs):,}"
-                 if n_obs is not None
-                 and isinstance(n_obs, (int, float))
-                 and np.isfinite(n_obs)
-                 else "")
+        n_str = (
+            f"  N={int(n_obs):,}"
+            if n_obs is not None
+            and isinstance(n_obs, (int, float))
+            and np.isfinite(n_obs)
+            else ""
+        )
         if best_term is not None:
             term_name, coef, pv = best_term
             stars = _stars(pv)

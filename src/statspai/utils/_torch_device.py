@@ -23,6 +23,7 @@ The resolver is import-safe when ``torch`` is missing: it only imports
 torch when actually called (so module import in pure-numpy paths stays
 free).
 """
+
 from __future__ import annotations
 
 import os
@@ -115,7 +116,11 @@ def torch_device_info() -> str:
     if _mps_available(torch):
         parts.append("mps available")
     env = os.environ.get(_ENV_VAR)
-    parts.append(f"STATSPAI_TORCH_DEVICE={env!r}" if env else "STATSPAI_TORCH_DEVICE unset (default cpu)")
+    parts.append(
+        f"STATSPAI_TORCH_DEVICE={env!r}"
+        if env
+        else "STATSPAI_TORCH_DEVICE unset (default cpu)"
+    )
     try:
         resolved = resolve_torch_device()
     except RuntimeError as exc:

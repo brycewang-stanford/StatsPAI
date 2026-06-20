@@ -21,7 +21,7 @@ unit-level treatment ``treatment``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, List, Optional, Sequence
+from typing import List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -34,10 +34,11 @@ from ..exceptions import DataInsufficient
 from .._input_validation import clean_frame
 from .._result_serialize import ResultProtocolMixin
 
-
 __all__ = [
-    "network_hte", "inward_outward_spillover",
-    "NetworkHTEResult", "InwardOutwardResult",
+    "network_hte",
+    "inward_outward_spillover",
+    "NetworkHTEResult",
+    "InwardOutwardResult",
 ]
 
 
@@ -84,23 +85,30 @@ class NetworkHTEResult(ResultProtocolMixin):
 
     def summary(self) -> str:
         from scipy.stats import norm
+
         z = norm.ppf(1 - self.ci_alpha / 2)
-        d_ci = (self.direct_effect - z * self.direct_se,
-                self.direct_effect + z * self.direct_se)
-        s_ci = (self.spillover_effect - z * self.spillover_se,
-                self.spillover_effect + z * self.spillover_se)
-        return "\n".join([
-            "Orthogonal Network HTE (Parmigiani et al. 2025)",
-            "=" * 64,
-            f"  Direct effect   : {self.direct_effect:+.6f}  "
-            f"(SE {self.direct_se:.6f}, 95% CI [{d_ci[0]:+.4f}, {d_ci[1]:+.4f}])",
-            f"  Spillover       : {self.spillover_effect:+.6f}  "
-            f"(SE {self.spillover_se:.6f}, 95% CI [{s_ci[0]:+.4f}, {s_ci[1]:+.4f}])",
-            f"  individual direct (min/med/max) : "
-            f"{self.individual_direct.min():+.4f} / "
-            f"{np.median(self.individual_direct):+.4f} / "
-            f"{self.individual_direct.max():+.4f}",
-        ])
+        d_ci = (
+            self.direct_effect - z * self.direct_se,
+            self.direct_effect + z * self.direct_se,
+        )
+        s_ci = (
+            self.spillover_effect - z * self.spillover_se,
+            self.spillover_effect + z * self.spillover_se,
+        )
+        return "\n".join(
+            [
+                "Orthogonal Network HTE (Parmigiani et al. 2025)",
+                "=" * 64,
+                f"  Direct effect   : {self.direct_effect:+.6f}  "
+                f"(SE {self.direct_se:.6f}, 95% CI [{d_ci[0]:+.4f}, {d_ci[1]:+.4f}])",
+                f"  Spillover       : {self.spillover_effect:+.6f}  "
+                f"(SE {self.spillover_se:.6f}, 95% CI [{s_ci[0]:+.4f}, {s_ci[1]:+.4f}])",
+                f"  individual direct (min/med/max) : "
+                f"{self.individual_direct.min():+.4f} / "
+                f"{np.median(self.individual_direct):+.4f} / "
+                f"{self.individual_direct.max():+.4f}",
+            ]
+        )
 
 
 @dataclass
@@ -142,13 +150,15 @@ class InwardOutwardResult(ResultProtocolMixin):
         return result_to_dict(self)
 
     def summary(self) -> str:
-        return "\n".join([
-            "Inward / Outward Spillover Decomposition",
-            "=" * 60,
-            f"  Inward spillover   : {self.inward_effect:+.6f}  (SE {self.inward_se:.6f})",
-            f"  Outward spillover  : {self.outward_effect:+.6f}  (SE {self.outward_se:.6f})",
-            f"  Ratio (in / out)   : {self.ratio_in_out:.4f}",
-        ])
+        return "\n".join(
+            [
+                "Inward / Outward Spillover Decomposition",
+                "=" * 60,
+                f"  Inward spillover   : {self.inward_effect:+.6f}  (SE {self.inward_se:.6f})",
+                f"  Outward spillover  : {self.outward_effect:+.6f}  (SE {self.outward_se:.6f})",
+                f"  Ratio (in / out)   : {self.ratio_in_out:.4f}",
+            ]
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -246,15 +256,23 @@ def network_hte(
     for train_idx, test_idx in kf.split(X):
         # Regressors for the three nuisance models
         g_y = GradientBoostingRegressor(
-            n_estimators=80, max_depth=3, random_state=random_state,
+            n_estimators=80,
+            max_depth=3,
+            random_state=random_state,
         )
         g_d = (
-            GradientBoostingClassifier(n_estimators=80, max_depth=3, random_state=random_state)
+            GradientBoostingClassifier(
+                n_estimators=80, max_depth=3, random_state=random_state
+            )
             if set(np.unique(D)) <= {0.0, 1.0}
-            else GradientBoostingRegressor(n_estimators=80, max_depth=3, random_state=random_state)
+            else GradientBoostingRegressor(
+                n_estimators=80, max_depth=3, random_state=random_state
+            )
         )
         g_e = GradientBoostingRegressor(
-            n_estimators=80, max_depth=3, random_state=random_state,
+            n_estimators=80,
+            max_depth=3,
+            random_state=random_state,
         )
         g_y.fit(X[train_idx], Y[train_idx])
         if isinstance(g_d, GradientBoostingClassifier):
@@ -276,7 +294,7 @@ def network_hte(
     tau_d, tau_s = beta
     # Sandwich-style SE
     resid = y_resid - Xr @ beta
-    sigma2 = float((resid ** 2).sum() / max(n - 2, 1))
+    sigma2 = float((resid**2).sum() / max(n - 2, 1))
     V = sigma2 * np.linalg.inv(Xr.T @ Xr)
     se_d = float(np.sqrt(V[0, 0]))
     se_s = float(np.sqrt(V[1, 1]))
@@ -369,18 +387,18 @@ def inward_outward_spillover(
     )
     Y = df[y].to_numpy(dtype=float)
     n = len(df)
-    X = np.column_stack([
-        np.ones(n),
-        df[treatment].to_numpy(dtype=float),
-        df[inward_exposure].to_numpy(dtype=float),
-        df[outward_exposure].to_numpy(dtype=float),
-    ] + (
-        [df[c].to_numpy(dtype=float) for c in cov_list]
-        if cov_list else []
-    ))
+    X = np.column_stack(
+        [
+            np.ones(n),
+            df[treatment].to_numpy(dtype=float),
+            df[inward_exposure].to_numpy(dtype=float),
+            df[outward_exposure].to_numpy(dtype=float),
+        ]
+        + ([df[c].to_numpy(dtype=float) for c in cov_list] if cov_list else [])
+    )
     beta, *_ = np.linalg.lstsq(X, Y, rcond=None)
     resid = Y - X @ beta
-    sigma2 = float((resid ** 2).sum() / max(n - X.shape[1], 1))
+    sigma2 = float((resid**2).sum() / max(n - X.shape[1], 1))
     V = sigma2 * np.linalg.inv(X.T @ X)
     tau_in = float(beta[2])
     tau_out = float(beta[3])

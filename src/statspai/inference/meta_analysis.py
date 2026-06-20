@@ -23,6 +23,7 @@ Egger, M., Davey Smith, G., Schneider, M. & Minder, C. (1997). "Bias in
 meta-analysis detected by a simple, graphical test." *BMJ*, 315(7109),
 629-634. [@egger1997bias]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -118,9 +119,14 @@ class MetaAnalysisResult(ResultProtocolMixin):
         s = self.se_studies
         k = len(y)
         if k < 3:
-            return {"intercept": float("nan"), "se": float("nan"),
-                    "t": float("nan"), "p_value": float("nan"), "df": k - 2}
-        snd = y / s                 # standard normal deviate
+            return {
+                "intercept": float("nan"),
+                "se": float("nan"),
+                "t": float("nan"),
+                "p_value": float("nan"),
+                "df": k - 2,
+            }
+        snd = y / s  # standard normal deviate
         precision = 1.0 / s
         X = np.column_stack([np.ones(k), precision])
         beta, *_ = np.linalg.lstsq(X, snd, rcond=None)
@@ -131,15 +137,23 @@ class MetaAnalysisResult(ResultProtocolMixin):
         se_intercept = float(np.sqrt(sigma2 * xtx_inv[0, 0]))
         t_stat = float(beta[0] / se_intercept)
         p = float(2 * stats.t.sf(abs(t_stat), dof))
-        return {"intercept": float(beta[0]), "se": se_intercept,
-                "t": t_stat, "p_value": p, "df": dof}
+        return {
+            "intercept": float(beta[0]),
+            "se": se_intercept,
+            "t": t_stat,
+            "p_value": p,
+            "df": dof,
+        }
 
     def summary(self) -> str:
         z = stats.norm.ppf(1 - self.alpha / 2)
         out = ["=" * 72, "Meta-analysis (summary data)", "=" * 72]
         out.append(f"Studies (k)          : {len(self.effects)}")
-        model = ("random-effects (DerSimonian-Laird)"
-                 if self.method == "DL" else "fixed-effect (inverse-variance)")
+        model = (
+            "random-effects (DerSimonian-Laird)"
+            if self.method == "DL"
+            else "fixed-effect (inverse-variance)"
+        )
         out.append(f"Model                : {model}")
         out.append("-" * 72)
         fe_lo = self.fixed_estimate - z * self.fixed_se
@@ -157,13 +171,16 @@ class MetaAnalysisResult(ResultProtocolMixin):
         out.append("Heterogeneity:")
         out.append(f"  Q({self.q_df}) = {self.q:.4f}, p = {self.q_pvalue:.4g}")
         i2_pct = 100 * self.i2
-        out.append(f"  I^2 = {i2_pct:.1f}%   tau^2 = {self.tau2:.4f}"
-                   f"   H^2 = {self.h2:.4f}")
+        out.append(
+            f"  I^2 = {i2_pct:.1f}%   tau^2 = {self.tau2:.4f}" f"   H^2 = {self.h2:.4f}"
+        )
         egg = self.egger_test()
         if not np.isnan(egg["p_value"]):
             intercept = egg["intercept"]
-            out.append(f"Egger's test: intercept = {intercept:.4f}, "
-                       f"p = {egg['p_value']:.4g}")
+            out.append(
+                f"Egger's test: intercept = {intercept:.4f}, "
+                f"p = {egg['p_value']:.4g}"
+            )
         out.append("=" * 72)
         return "\n".join(out)
 
@@ -180,8 +197,16 @@ class MetaAnalysisResult(ResultProtocolMixin):
         s = self.se_studies
         k = len(y)
         positions = np.arange(k, 0, -1)
-        ax.errorbar(y, positions, xerr=z * s, fmt="s", color="#333",
-                    capsize=3, markersize=5, linestyle="none")
+        ax.errorbar(
+            y,
+            positions,
+            xerr=z * s,
+            fmt="s",
+            color="#333",
+            capsize=3,
+            markersize=5,
+            linestyle="none",
+        )
         ax.axvline(0.0, color="grey", lw=0.8, linestyle="--")
         pooled = self.estimate
         p_lo, p_hi = self.ci
@@ -271,21 +296,21 @@ def meta_analysis(
         labels = list(labels)
 
     # Fixed-effect inverse-variance.
-    w = 1.0 / s ** 2
+    w = 1.0 / s**2
     fe_est = float(np.sum(w * y) / np.sum(w))
     fe_se = float(np.sqrt(1.0 / np.sum(w)))
 
     # Cochran's Q and DerSimonian-Laird tau^2.
     q = float(np.sum(w * (y - fe_est) ** 2))
     df = k - 1
-    c = float(np.sum(w) - np.sum(w ** 2) / np.sum(w))
+    c = float(np.sum(w) - np.sum(w**2) / np.sum(w))
     tau2 = max(0.0, (q - df) / c) if c > 0 else 0.0
     q_pvalue = float(stats.chi2.sf(q, df)) if df > 0 else float("nan")
     i2 = max(0.0, (q - df) / q) if q > 0 else 0.0
     h2 = q / df if df > 0 else float("nan")
 
     # Random-effects (DL) weights.
-    w_re = 1.0 / (s ** 2 + tau2)
+    w_re = 1.0 / (s**2 + tau2)
     re_est = float(np.sum(w_re * y) / np.sum(w_re))
     re_se = float(np.sqrt(1.0 / np.sum(w_re)))
 
@@ -302,7 +327,7 @@ def meta_analysis(
     prediction_interval: Optional[tuple] = None
     if k >= 3:
         t_val = stats.t.ppf(1 - alpha / 2, df=k - 2)
-        pi_se = np.sqrt(re_se ** 2 + tau2)
+        pi_se = np.sqrt(re_se**2 + tau2)
         prediction_interval = (re_est - t_val * pi_se, re_est + t_val * pi_se)
 
     return MetaAnalysisResult(

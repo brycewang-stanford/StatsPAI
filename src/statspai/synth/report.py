@@ -28,7 +28,6 @@ import pandas as pd
 from .scm import synth
 from .sensitivity import synth_sensitivity
 
-
 # ======================================================================
 # Method labels
 # ======================================================================
@@ -101,7 +100,7 @@ _METHOD_CITATIONS: Dict[str, str] = {
     "gsynth": (
         "Xu, Y. (2017). "
         '"Generalized Synthetic Control Method: Causal Inference with '
-        "Interactive Fixed Effects Models.\" "
+        'Interactive Fixed Effects Models." '
         "Political Analysis, 25(1), 57–76. [@xu2017generalized]"
     ),
     "factor": (
@@ -141,7 +140,7 @@ _METHOD_CITATIONS: Dict[str, str] = {
     "conformal": (
         "Chernozhukov, V., Wüthrich, K. and Zhu, Y. (2021). "
         '"An Exact and Robust Conformal Inference Method for '
-        "Counterfactual and Synthetic Controls.\" "
+        'Counterfactual and Synthetic Controls." '
         "Journal of the American Statistical Association, 116(536), 1849–1864. "
         "[@chernozhukov2021exact]"
     ),
@@ -158,13 +157,13 @@ _METHOD_CITATIONS: Dict[str, str] = {
     "unconstrained": (
         "Doudchenko, N. and Imbens, G.W. (2016). "
         '"Balancing, Regression, Difference-in-Differences and Synthetic '
-        "Control Methods: A Synthesis.\" NBER Working Paper No. 22791. "
+        'Control Methods: A Synthesis." NBER Working Paper No. 22791. '
         "[@doudchenko2016balancing]"
     ),
     "elastic_net": (
         "Doudchenko, N. and Imbens, G.W. (2016). "
         '"Balancing, Regression, Difference-in-Differences and Synthetic '
-        "Control Methods: A Synthesis.\" NBER Working Paper No. 22791. "
+        'Control Methods: A Synthesis." NBER Working Paper No. 22791. '
         "[@doudchenko2016balancing]"
     ),
     "penscm": (
@@ -182,13 +181,13 @@ _METHOD_CITATIONS: Dict[str, str] = {
     "bsts": (
         "Brodersen, K.H., Gallusser, F., Koehler, J., Remy, N. and Scott, S.L. "
         '(2015). "Inferring Causal Impact Using Bayesian Structural Time-Series '
-        "Models.\" Annals of Applied Statistics, 9(1), 247–274. "
+        'Models." Annals of Applied Statistics, 9(1), 247–274. '
         "[@brodersen2015inferring]"
     ),
     "causal_impact": (
         "Brodersen, K.H., Gallusser, F., Koehler, J., Remy, N. and Scott, S.L. "
         '(2015). "Inferring Causal Impact Using Bayesian Structural Time-Series '
-        "Models.\" Annals of Applied Statistics, 9(1), 247–274. "
+        'Models." Annals of Applied Statistics, 9(1), 247–274. '
         "[@brodersen2015inferring]"
     ),
     "fdid": (
@@ -251,7 +250,9 @@ def _citation_for(method: str) -> str:
 
 
 def _canonicalise_mi(
-    result: Any, treated_unit: Any, treatment_time: Any,
+    result: Any,
+    treated_unit: Any,
+    treatment_time: Any,
 ) -> Dict[str, Any]:
     """Return a model_info dict normalised to the report's expected schema.
 
@@ -295,10 +296,7 @@ def _canonicalise_mi(
         mi["n_donors"] = raw["n_control"]
 
     # Pre-RMSPE (recompute from gap if absent)
-    if (
-        mi.get("pre_treatment_rmse") is None
-        and mi.get("pre_treatment_mspe") is None
-    ):
+    if mi.get("pre_treatment_rmse") is None and mi.get("pre_treatment_mspe") is None:
         pre = _exp_pre_rmspe(result)
         if not (isinstance(pre, float) and (pre != pre)):  # not nan
             mi["pre_treatment_rmse"] = pre
@@ -315,6 +313,7 @@ def _canonicalise_mi(
 # ======================================================================
 # Text formatter
 # ======================================================================
+
 
 def _format_text(
     result: Any,
@@ -354,7 +353,8 @@ def _format_text(
         f"   \u2502 {'Standard Error:':<20s} {result.se:>12.4f}   \u2502",
         f"   \u2502 {'P-value:':<20s} {result.pvalue:>12.4f}   \u2502",
         f"   \u2502 {f'{pct}% CI:':<20s} [{ci_lo:.4f}, {ci_hi:.4f}]"
-        + " " * max(0, 10 - len(f"[{ci_lo:.4f}, {ci_hi:.4f}]")) + "  \u2502",
+        + " " * max(0, 10 - len(f"[{ci_lo:.4f}, {ci_hi:.4f}]"))
+        + "  \u2502",
         f"   \u2514{'─' * 38}\u2518",
     ]
     lines.extend(box)
@@ -380,8 +380,7 @@ def _format_text(
                 else:
                     quality = "Poor"
                 lines.append(
-                    f"   - Fit quality: {quality} "
-                    f"({pct_sd:.1f}% of outcome SD)"
+                    f"   - Fit quality: {quality} " f"({pct_sd:.1f}% of outcome SD)"
                 )
     lines.append("")
 
@@ -457,8 +456,7 @@ def _format_text(
             n_sig = int((tp_df["pvalue"] < alpha).sum())
             if n_sig == 0:
                 lines.append(
-                    "   b) Time placebos: No significant "
-                    "pre-treatment effects"
+                    "   b) Time placebos: No significant " "pre-treatment effects"
                 )
             else:
                 lines.append(
@@ -474,8 +472,7 @@ def _format_text(
             q025 = ds_df["att"].quantile(0.025)
             q975 = ds_df["att"].quantile(0.975)
             lines.append(
-                f"   c) Donor pool: ATT 95% range "
-                f"[{q025:.4f}, {q975:.4f}]"
+                f"   c) Donor pool: ATT 95% range " f"[{q025:.4f}, {q975:.4f}]"
             )
         else:
             lines.append("   c) Donor pool: N/A")
@@ -506,6 +503,7 @@ def _format_text(
 # ======================================================================
 # Markdown formatter
 # ======================================================================
+
 
 def _format_markdown(
     result: Any,
@@ -569,8 +567,7 @@ def _format_markdown(
                 else:
                     quality = "Poor"
                 lines.append(
-                    f"- **Fit quality:** {quality} "
-                    f"({pct_sd:.1f}% of outcome SD)"
+                    f"- **Fit quality:** {quality} " f"({pct_sd:.1f}% of outcome SD)"
                 )
     lines.append("")
 
@@ -621,9 +618,7 @@ def _format_markdown(
         lines.append(f"- **Placebos run:** {n_plac}")
         lines.append(f"- **Treated unit rank:** {rank}/{total_units}")
         if not np.isnan(ratio_treated):
-            lines.append(
-                f"- **Post/Pre RMSPE ratio:** {ratio_treated:.2f}"
-            )
+            lines.append(f"- **Post/Pre RMSPE ratio:** {ratio_treated:.2f}")
         lines.append(f"- **P-value (ratio test):** {result.pvalue:.4f}")
         lines.append("")
 
@@ -645,8 +640,7 @@ def _format_markdown(
             n_sig = int((tp_df["pvalue"] < alpha).sum())
             if n_sig == 0:
                 lines.append(
-                    "**b) Time placebos:** No significant "
-                    "pre-treatment effects"
+                    "**b) Time placebos:** No significant " "pre-treatment effects"
                 )
             else:
                 lines.append(
@@ -660,8 +654,7 @@ def _format_markdown(
             q025 = ds_df["att"].quantile(0.025)
             q975 = ds_df["att"].quantile(0.975)
             lines.append(
-                f"**c) Donor pool:** ATT 95% range "
-                f"[{q025:.4f}, {q975:.4f}]"
+                f"**c) Donor pool:** ATT 95% range " f"[{q025:.4f}, {q975:.4f}]"
             )
             lines.append("")
 
@@ -696,6 +689,7 @@ def _format_markdown(
 # LaTeX formatter
 # ======================================================================
 
+
 def _format_latex(
     result: Any,
     mi: Dict[str, Any],
@@ -714,9 +708,7 @@ def _format_latex(
     lines.append(r"\begin{tabular}{ll}")
     lines.append(r"\hline")
     lines.append(
-        r"Treated unit & "
-        + _latex_escape(str(mi.get("treated_unit", "N/A")))
-        + r" \\"
+        r"Treated unit & " + _latex_escape(str(mi.get("treated_unit", "N/A"))) + r" \\"
     )
     lines.append(
         r"Treatment time & "
@@ -724,22 +716,11 @@ def _format_latex(
         + r" \\"
     )
     lines.append(
-        r"Method & "
-        + _latex_escape(_METHOD_LABELS.get(method, method))
-        + r" \\"
+        r"Method & " + _latex_escape(_METHOD_LABELS.get(method, method)) + r" \\"
     )
-    lines.append(
-        f"Pre-treatment periods & {mi.get('n_pre_periods', 'N/A')}"
-        + r" \\"
-    )
-    lines.append(
-        f"Post-treatment periods & {mi.get('n_post_periods', 'N/A')}"
-        + r" \\"
-    )
-    lines.append(
-        f"Donor pool & {mi.get('n_donors', 'N/A')} units"
-        + r" \\"
-    )
+    lines.append(f"Pre-treatment periods & {mi.get('n_pre_periods', 'N/A')}" + r" \\")
+    lines.append(f"Post-treatment periods & {mi.get('n_post_periods', 'N/A')}" + r" \\")
+    lines.append(f"Donor pool & {mi.get('n_donors', 'N/A')} units" + r" \\")
     lines.append(r"\hline")
     lines.append(r"\end{tabular}")
     lines.append("")
@@ -755,10 +736,7 @@ def _format_latex(
     lines.append(f"ATT Estimate & {result.estimate:.4f}" + r" \\")
     lines.append(f"Standard Error & {result.se:.4f}" + r" \\")
     lines.append(f"P-value & {result.pvalue:.4f}" + r" \\")
-    lines.append(
-        f"{pct}\\% CI & [{ci_lo:.4f}, {ci_hi:.4f}]"
-        + r" \\"
-    )
+    lines.append(f"{pct}\\% CI & [{ci_lo:.4f}, {ci_hi:.4f}]" + r" \\")
     lines.append(r"\hline")
     lines.append(r"\end{tabular}")
     lines.append("")
@@ -784,8 +762,7 @@ def _format_latex(
                 else:
                     quality = "Poor"
                 lines.append(
-                    f"\\\\Fit quality: {quality} "
-                    f"({pct_sd:.1f}\\% of outcome SD)"
+                    f"\\\\Fit quality: {quality} " f"({pct_sd:.1f}\\% of outcome SD)"
                 )
     lines.append("")
 
@@ -821,8 +798,7 @@ def _format_latex(
             for _, row in display_rows.iterrows():
                 lines.append(
                     f"{row['time']} & {row['treated']:.2f} & "
-                    f"{row['synthetic']:.2f} & {row['gap']:.2f}"
-                    + r" \\"
+                    f"{row['synthetic']:.2f} & {row['gap']:.2f}" + r" \\"
                 )
             lines.append(r"\hline")
             lines.append(r"\end{tabular}")
@@ -842,12 +818,8 @@ def _format_latex(
         lines.append(f"  \\item Placebos run: {n_plac}")
         lines.append(f"  \\item Treated unit rank: {rank}/{total_units}")
         if not np.isnan(ratio_treated):
-            lines.append(
-                f"  \\item Post/Pre RMSPE ratio: {ratio_treated:.2f}"
-            )
-        lines.append(
-            f"  \\item P-value (ratio test): {result.pvalue:.4f}"
-        )
+            lines.append(f"  \\item Post/Pre RMSPE ratio: {ratio_treated:.2f}")
+        lines.append(f"  \\item P-value (ratio test): {result.pvalue:.4f}")
         lines.append(r"\end{itemize}")
         lines.append("")
 
@@ -895,19 +867,15 @@ def _format_latex(
             lines.append(r"\begin{tabular}{rrr}")
             lines.append(r"\hline")
             lines.append(
-                r"\textbf{Threshold} & \textbf{P-value} & "
-                r"\textbf{N placebos} \\"
+                r"\textbf{Threshold} & \textbf{P-value} & " r"\textbf{N placebos} \\"
             )
             lines.append(r"\hline")
             for _, row in rp_df.iterrows():
                 thr = row["threshold"]
-                thr_label = (
-                    f"{thr:.0f}$\\times$" if np.isfinite(thr) else "all"
-                )
+                thr_label = f"{thr:.0f}$\\times$" if np.isfinite(thr) else "all"
                 lines.append(
                     f"{thr_label} & {row['pvalue']:.3f} & "
-                    f"{int(row['n_placebos'])}"
-                    + r" \\"
+                    f"{int(row['n_placebos'])}" + r" \\"
                 )
             lines.append(r"\hline")
             lines.append(r"\end{tabular}")
@@ -926,6 +894,7 @@ def _format_latex(
 # ======================================================================
 # Helpers
 # ======================================================================
+
 
 def _latex_escape(text: str) -> str:
     """Escape LaTeX special characters."""
@@ -948,6 +917,7 @@ def _latex_escape(text: str) -> str:
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def synth_report(
     data: pd.DataFrame,

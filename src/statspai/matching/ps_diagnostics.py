@@ -32,10 +32,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats, optimize
 
-
 # ======================================================================
 # Propensity score estimation
 # ======================================================================
+
 
 def propensity_score(
     data: pd.DataFrame,
@@ -113,7 +113,9 @@ def propensity_score(
     return ps_series
 
 
-def _logit_irls(X: np.ndarray, D: np.ndarray, max_iter: int = 50, tol: float = 1e-8) -> np.ndarray:
+def _logit_irls(
+    X: np.ndarray, D: np.ndarray, max_iter: int = 50, tol: float = 1e-8
+) -> np.ndarray:
     """Logistic regression via iteratively reweighted least squares."""
     n, k = X.shape
     Xa = np.column_stack([np.ones(n), X])
@@ -164,8 +166,9 @@ def _probit_mle(X: np.ndarray, D: np.ndarray) -> np.ndarray:
         return np.asarray(-Xa.T @ lam, dtype=float)
 
     beta0 = np.zeros(Xa.shape[1])
-    result = optimize.minimize(neg_loglik, beta0, jac=grad, method="BFGS",
-                               options={"maxiter": 200})
+    result = optimize.minimize(
+        neg_loglik, beta0, jac=grad, method="BFGS", options={"maxiter": 200}
+    )
     eta = Xa @ result.x
     eta = np.clip(eta, -30, 30)
     return np.asarray(stats.norm.cdf(eta), dtype=float)
@@ -175,14 +178,19 @@ def _gbm_ps(X: np.ndarray, D: np.ndarray) -> np.ndarray:
     """GBM propensity scores via sklearn, fallback to logit + interactions."""
     try:
         from sklearn.ensemble import GradientBoostingClassifier
+
         gbm = GradientBoostingClassifier(
-            n_estimators=200, max_depth=3, learning_rate=0.1,
-            subsample=0.8, random_state=42,
+            n_estimators=200,
+            max_depth=3,
+            learning_rate=0.1,
+            subsample=0.8,
+            random_state=42,
         )
         gbm.fit(X, D)
         return np.asarray(gbm.predict_proba(X)[:, 1], dtype=float)
     except ImportError:
         import warnings
+
         warnings.warn(
             "sklearn not available for GBM; falling back to logit with "
             "pairwise interactions.",
@@ -190,6 +198,7 @@ def _gbm_ps(X: np.ndarray, D: np.ndarray) -> np.ndarray:
         )
         # Build interaction terms
         from itertools import combinations
+
         interactions = []
         for i, j in combinations(range(X.shape[1]), 2):
             interactions.append(X[:, i] * X[:, j])
@@ -203,6 +212,7 @@ def _gbm_ps(X: np.ndarray, D: np.ndarray) -> np.ndarray:
 # ======================================================================
 # Crump et al. (2009) trimming
 # ======================================================================
+
 
 def _crump_alpha(ps: np.ndarray) -> float:
     """Find optimal Crump trimming threshold alpha.
@@ -308,9 +318,13 @@ def trimming(
 # Standardized mean difference & balance utilities
 # ======================================================================
 
-def _smd(x_t: np.ndarray, x_c: np.ndarray,
-         w_t: Optional[np.ndarray] = None,
-         w_c: Optional[np.ndarray] = None) -> float:
+
+def _smd(
+    x_t: np.ndarray,
+    x_c: np.ndarray,
+    w_t: Optional[np.ndarray] = None,
+    w_c: Optional[np.ndarray] = None,
+) -> float:
     """Standardized mean difference (Austin 2011 formula)."""
     if w_t is not None:
         mean_t = np.average(x_t, weights=w_t)
@@ -332,9 +346,12 @@ def _smd(x_t: np.ndarray, x_c: np.ndarray,
     return float((mean_t - mean_c) / denom)
 
 
-def _variance_ratio(x_t: np.ndarray, x_c: np.ndarray,
-                    w_t: Optional[np.ndarray] = None,
-                    w_c: Optional[np.ndarray] = None) -> float:
+def _variance_ratio(
+    x_t: np.ndarray,
+    x_c: np.ndarray,
+    w_t: Optional[np.ndarray] = None,
+    w_c: Optional[np.ndarray] = None,
+) -> float:
     """Variance ratio (treated / control)."""
     if w_t is not None:
         mean_t = np.average(x_t, weights=w_t)
@@ -353,9 +370,12 @@ def _variance_ratio(x_t: np.ndarray, x_c: np.ndarray,
     return float(var_t / var_c)
 
 
-def _ks_stat(x_t: np.ndarray, x_c: np.ndarray,
-             w_t: Optional[np.ndarray] = None,
-             w_c: Optional[np.ndarray] = None) -> float:
+def _ks_stat(
+    x_t: np.ndarray,
+    x_c: np.ndarray,
+    w_t: Optional[np.ndarray] = None,
+    w_c: Optional[np.ndarray] = None,
+) -> float:
     """Kolmogorov-Smirnov statistic (unweighted or weighted)."""
     if w_t is None and w_c is None:
         return float(stats.ks_2samp(x_t, x_c).statistic)
@@ -372,16 +392,15 @@ def _ks_stat(x_t: np.ndarray, x_c: np.ndarray,
     idx_c = np.argsort(x_c)
     cum_w_t = np.cumsum(w_t[idx_t])
     cum_w_c = np.cumsum(w_c[idx_c])
-    ecdf_t = np.interp(all_vals, x_t[idx_t], cum_w_t / cum_w_t[-1],
-                        left=0, right=1)
-    ecdf_c = np.interp(all_vals, x_c[idx_c], cum_w_c / cum_w_c[-1],
-                        left=0, right=1)
+    ecdf_t = np.interp(all_vals, x_t[idx_t], cum_w_t / cum_w_t[-1], left=0, right=1)
+    ecdf_c = np.interp(all_vals, x_c[idx_c], cum_w_c / cum_w_c[-1], left=0, right=1)
     return float(np.max(np.abs(ecdf_t - ecdf_c)))
 
 
 # ======================================================================
 # PSBalanceResult
 # ======================================================================
+
 
 class PSBalanceResult:
     """Container for propensity score balance diagnostics.
@@ -430,8 +449,10 @@ class PSBalanceResult:
         lines.append("")
         n_imbalanced_raw = (self.table["smd_raw"].abs() > 0.1).sum()
         n_imbalanced_wtd = (self.table["smd_weighted"].abs() > 0.1).sum()
-        lines.append(f"Covariates with |SMD| > 0.1: {n_imbalanced_raw} (raw)"
-                     f" -> {n_imbalanced_wtd} (weighted)")
+        lines.append(
+            f"Covariates with |SMD| > 0.1: {n_imbalanced_raw} (raw)"
+            f" -> {n_imbalanced_wtd} (weighted)"
+        )
         return "\n".join(lines)
 
     def love_plot(self, threshold: float = 0.1, **kwargs: Any) -> Tuple[Any, Any]:
@@ -444,8 +465,10 @@ class PSBalanceResult:
         html += str(self.table.to_html(float_format="{:.4f}".format))
         n_raw = (self.table["smd_raw"].abs() > 0.1).sum()
         n_wtd = (self.table["smd_weighted"].abs() > 0.1).sum()
-        html += (f"<p>Covariates with |SMD| &gt; 0.1: {n_raw} (raw) "
-                 f"&rarr; {n_wtd} (weighted)</p>")
+        html += (
+            f"<p>Covariates with |SMD| &gt; 0.1: {n_raw} (raw) "
+            f"&rarr; {n_wtd} (weighted)</p>"
+        )
         return html
 
     def __repr__(self) -> str:
@@ -525,6 +548,7 @@ def table_to_string(df: pd.DataFrame) -> str:
 # ======================================================================
 # ps_balance — comprehensive balance table
 # ======================================================================
+
 
 def ps_balance(
     data: pd.DataFrame,
@@ -608,15 +632,17 @@ def ps_balance(
         vr = _variance_ratio(x_t, x_c, w_t, w_c)
         ks = _ks_stat(x_t, x_c, w_t, w_c)
 
-        rows.append({
-            "variable": cov,
-            "mean_treat": mean_t,
-            "mean_control": mean_c,
-            "smd_raw": smd_raw,
-            "smd_weighted": smd_weighted,
-            "variance_ratio": vr,
-            "ks_stat": ks,
-        })
+        rows.append(
+            {
+                "variable": cov,
+                "mean_treat": mean_t,
+                "mean_control": mean_c,
+                "smd_raw": smd_raw,
+                "smd_weighted": smd_weighted,
+                "variance_ratio": vr,
+                "ks_stat": ks,
+            }
+        )
 
     table = pd.DataFrame(rows).set_index("variable")
     return PSBalanceResult(table=table, ps=ps)
@@ -717,18 +743,20 @@ def balance_diagnostics(
         w_t, w_c = w_vals[treat_mask], w_vals[ctrl_mask]
         smd_raw = _smd(x_t, x_c)
         smd_weighted = _smd(x_t, x_c, w_t, w_c)
-        rows.append({
-            "variable": cov,
-            "mean_treat": float(np.mean(x_t)),
-            "mean_control": float(np.mean(x_c)),
-            "weighted_mean_treat": float(np.average(x_t, weights=w_t)),
-            "weighted_mean_control": float(np.average(x_c, weights=w_c)),
-            "smd_raw": float(smd_raw),
-            "smd_weighted": float(smd_weighted),
-            "variance_ratio_weighted": float(_variance_ratio(x_t, x_c, w_t, w_c)),
-            "ks_stat_weighted": float(_ks_stat(x_t, x_c, w_t, w_c)),
-            "balanced": bool(abs(smd_weighted) <= threshold),
-        })
+        rows.append(
+            {
+                "variable": cov,
+                "mean_treat": float(np.mean(x_t)),
+                "mean_control": float(np.mean(x_c)),
+                "weighted_mean_treat": float(np.average(x_t, weights=w_t)),
+                "weighted_mean_control": float(np.average(x_c, weights=w_c)),
+                "smd_raw": float(smd_raw),
+                "smd_weighted": float(smd_weighted),
+                "variance_ratio_weighted": float(_variance_ratio(x_t, x_c, w_t, w_c)),
+                "ks_stat_weighted": float(_ks_stat(x_t, x_c, w_t, w_c)),
+                "balanced": bool(abs(smd_weighted) <= threshold),
+            }
+        )
 
     table = pd.DataFrame(rows).set_index("variable")
     abs_raw = table["smd_raw"].abs()
@@ -790,7 +818,7 @@ def _coerce_vector(
 
 def _effective_sample_size(weights: np.ndarray) -> float:
     w = np.asarray(weights, dtype=float)
-    denom = float(np.sum(w ** 2))
+    denom = float(np.sum(w**2))
     if denom <= 0:
         return np.nan
     return float((np.sum(w) ** 2) / denom)
@@ -800,10 +828,12 @@ def _effective_sample_size(weights: np.ndarray) -> float:
 # Plotting helpers
 # ======================================================================
 
+
 def _require_matplotlib() -> Any:
     """Import matplotlib or raise a helpful error."""
     try:
         import matplotlib.pyplot as plt
+
         return plt
     except ImportError:
         raise ImportError(
@@ -815,6 +845,7 @@ def _require_matplotlib() -> Any:
 # ======================================================================
 # overlap_plot
 # ======================================================================
+
 
 def overlap_plot(
     data: pd.DataFrame,
@@ -902,18 +933,33 @@ def overlap_plot(
     density_c = kde_c(grid)
 
     # Mirrored: treated above, control below
-    ax.fill_between(grid, density_t, alpha=0.35, color="#2171b5",
-                    label=f"Treated (n={len(ps_treat)})")
-    ax.fill_between(grid, -density_c, alpha=0.35, color="#cb181d",
-                    label=f"Control (n={len(ps_ctrl)})")
+    ax.fill_between(
+        grid,
+        density_t,
+        alpha=0.35,
+        color="#2171b5",
+        label=f"Treated (n={len(ps_treat)})",
+    )
+    ax.fill_between(
+        grid,
+        -density_c,
+        alpha=0.35,
+        color="#cb181d",
+        label=f"Control (n={len(ps_ctrl)})",
+    )
     ax.plot(grid, density_t, color="#2171b5", linewidth=1.2)
     ax.plot(grid, -density_c, color="#cb181d", linewidth=1.2)
 
     # Common support region
     cs_low = max(ps_treat.min(), ps_ctrl.min())
     cs_high = min(ps_treat.max(), ps_ctrl.max())
-    ax.axvspan(cs_low, cs_high, alpha=0.08, color="green",
-               label=f"Common support [{cs_low:.2f}, {cs_high:.2f}]")
+    ax.axvspan(
+        cs_low,
+        cs_high,
+        alpha=0.08,
+        color="green",
+        label=f"Common support [{cs_low:.2f}, {cs_high:.2f}]",
+    )
 
     ax.axhline(0, color="black", linewidth=0.5)
     ax.set_xlabel("Propensity Score")
@@ -929,6 +975,7 @@ def overlap_plot(
 # ======================================================================
 # love_plot
 # ======================================================================
+
 
 def love_plot(
     data: pd.DataFrame,
@@ -983,10 +1030,10 @@ def love_plot(
     ...                        threshold=0.05,
     ...                        title='Balance: union vs non-union')
     """
-    result = ps_balance(data, treatment, covariates,
-                        weights=weights, method=ps_method)
-    return _love_plot_from_table(result.table, threshold=threshold,
-                                ax=ax, figsize=figsize, title=title)
+    result = ps_balance(data, treatment, covariates, weights=weights, method=ps_method)
+    return _love_plot_from_table(
+        result.table, threshold=threshold, ax=ax, figsize=figsize, title=title
+    )
 
 
 def _love_plot_from_table(
@@ -1015,18 +1062,46 @@ def _love_plot_from_table(
 
     # Horizontal connecting lines
     for i in range(n_vars):
-        ax.plot([smd_raw[i], smd_wtd[i]], [y_pos[i], y_pos[i]],
-                color="gray", linewidth=0.8, zorder=1)
+        ax.plot(
+            [smd_raw[i], smd_wtd[i]],
+            [y_pos[i], y_pos[i]],
+            color="gray",
+            linewidth=0.8,
+            zorder=1,
+        )
 
     # Dots
-    ax.scatter(smd_raw, y_pos, color="#cb181d", s=50, zorder=2,
-               label="Raw", marker="o", edgecolors="white", linewidth=0.5)
-    ax.scatter(smd_wtd, y_pos, color="#2171b5", s=50, zorder=2,
-               label="Weighted", marker="s", edgecolors="white", linewidth=0.5)
+    ax.scatter(
+        smd_raw,
+        y_pos,
+        color="#cb181d",
+        s=50,
+        zorder=2,
+        label="Raw",
+        marker="o",
+        edgecolors="white",
+        linewidth=0.5,
+    )
+    ax.scatter(
+        smd_wtd,
+        y_pos,
+        color="#2171b5",
+        s=50,
+        zorder=2,
+        label="Weighted",
+        marker="s",
+        edgecolors="white",
+        linewidth=0.5,
+    )
 
     # Threshold line
-    ax.axvline(threshold, color="black", linestyle="--", linewidth=0.8,
-               label=f"Threshold ({threshold})")
+    ax.axvline(
+        threshold,
+        color="black",
+        linestyle="--",
+        linewidth=0.8,
+        label=f"Threshold ({threshold})",
+    )
 
     ax.set_yticks(y_pos)
     ax.set_yticklabels(variables)

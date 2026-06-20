@@ -138,8 +138,7 @@ def ivqreg(
     # Normalize arguments
     taus = [tau] if isinstance(tau, (int, float)) else list(tau)
     endog_list = [endog] if isinstance(endog, str) else list(endog)
-    inst_list = ([instruments] if isinstance(instruments, str)
-                 else list(instruments))
+    inst_list = [instruments] if isinstance(instruments, str) else list(instruments)
     exog_list = list(exog) if exog else []
 
     for col in [y] + endog_list + inst_list + exog_list:
@@ -156,7 +155,8 @@ def ivqreg(
             f"ivqreg: endog has {len(endog_list)} dims but bootstrap=0 — "
             f"standard errors will be NaN. Set bootstrap>=200 (or use a "
             f"single endogenous variable) for inference.",
-            UserWarning, stacklevel=2,
+            UserWarning,
+            stacklevel=2,
         )
 
     # Drop NA
@@ -165,13 +165,12 @@ def ivqreg(
     n = len(clean)
     Y = clean[y].values.astype(float)
     D = clean[endog_list].values.astype(float)  # (n, kd)
-    Z = clean[inst_list].values.astype(float)   # (n, kz)
-    X = (clean[exog_list].values.astype(float)
-         if exog_list else np.empty((n, 0)))
+    Z = clean[inst_list].values.astype(float)  # (n, kz)
+    X = clean[exog_list].values.astype(float) if exog_list else np.empty((n, 0))
 
     if add_constant:
         X = np.column_stack([np.ones(n), X])
-        exog_names_with_const = ['const'] + exog_list
+        exog_names_with_const = ["const"] + exog_list
     else:
         exog_names_with_const = list(exog_list)
 
@@ -182,8 +181,15 @@ def ivqreg(
 
     for tq in taus:
         alpha_hat, b_final, beta_final, grid_vals, grid_crit = _fit_ivqreg_one(
-            Y, D, X, Z, W, tq,
-            n_grid=n_grid, refine=refine, verbose=verbose,
+            Y,
+            D,
+            X,
+            Z,
+            W,
+            tq,
+            n_grid=n_grid,
+            refine=refine,
+            verbose=verbose,
         )
 
         # Bootstrap SEs
@@ -196,10 +202,15 @@ def ivqreg(
                 idx = rng.integers(0, n, size=n)
                 try:
                     alpha_b, *_ = _fit_ivqreg_one(
-                        Y[idx], D[idx], X[idx], Z[idx],
-                        np.column_stack([X[idx], Z[idx]]), tq,
+                        Y[idx],
+                        D[idx],
+                        X[idx],
+                        Z[idx],
+                        np.column_stack([X[idx], Z[idx]]),
+                        tq,
                         n_grid=max(21, n_grid // 2),
-                        refine=refine, verbose=False,
+                        refine=refine,
+                        verbose=False,
                     )
                     boot[b] = alpha_b
                 except Exception:
@@ -209,7 +220,8 @@ def ivqreg(
                 warnings.warn(
                     f"ivqreg: {n_boot_failed}/{bootstrap} bootstrap replicates "
                     f"failed at τ={tq:.3f}. SEs may be unreliable.",
-                    UserWarning, stacklevel=2,
+                    UserWarning,
+                    stacklevel=2,
                 )
             se_alpha = np.nanstd(boot, axis=0, ddof=1)
         else:
@@ -222,17 +234,17 @@ def ivqreg(
         ci_lo = alpha_hat - zcrit * se_alpha
         ci_hi = alpha_hat + zcrit * se_alpha
 
-        record: Dict[str, Any] = {'tau': tq}
+        record: Dict[str, Any] = {"tau": tq}
         for j, name in enumerate(endog_list):
-            record[f'{name}_coef'] = alpha_hat[j]
-            record[f'{name}_se'] = se_alpha[j]
-            record[f'{name}_z'] = t_stat[j]
-            record[f'{name}_pvalue'] = pval[j]
-            record[f'{name}_ci_lo'] = ci_lo[j]
-            record[f'{name}_ci_hi'] = ci_hi[j]
-        record['_alpha_hat'] = alpha_hat
-        record['_beta_hat'] = beta_final
-        record['_b_hat'] = b_final
+            record[f"{name}_coef"] = alpha_hat[j]
+            record[f"{name}_se"] = se_alpha[j]
+            record[f"{name}_z"] = t_stat[j]
+            record[f"{name}_pvalue"] = pval[j]
+            record[f"{name}_ci_lo"] = ci_lo[j]
+            record[f"{name}_ci_hi"] = ci_hi[j]
+        record["_alpha_hat"] = alpha_hat
+        record["_beta_hat"] = beta_final
+        record["_b_hat"] = b_final
         rows_out.append(record)
 
     if len(taus) == 1:
@@ -240,14 +252,16 @@ def ivqreg(
         r = rows_out[0]
         kd = len(endog_list)
         # Full parameter vector: [alpha | beta]
-        alpha_hat = r['_alpha_hat']
-        beta_hat = r['_beta_hat']
+        alpha_hat = r["_alpha_hat"]
+        beta_hat = r["_beta_hat"]
         names = endog_list + exog_names_with_const
         params = np.concatenate([alpha_hat, beta_hat])
-        ses = np.concatenate([
-            [r[f'{nm}_se'] for nm in endog_list],
-            np.full(len(beta_hat), np.nan),  # QR SEs for β not computed
-        ])
+        ses = np.concatenate(
+            [
+                [r[f"{nm}_se"] for nm in endog_list],
+                np.full(len(beta_hat), np.nan),  # QR SEs for β not computed
+            ]
+        )
         zstat = params / np.where(ses > 0, ses, np.nan)
         pvals = 2 * (1 - stats.norm.cdf(np.abs(zstat)))
 
@@ -259,30 +273,30 @@ def ivqreg(
         ci_hi_s = pd.Series(params + zcrit * ses, index=names)
 
         model_info = {
-            'model_type': 'IV Quantile Regression',
-            'method': 'Chernozhukov-Hansen inverse-QR profile',
-            'tau': float(taus[0]),
-            'n_grid': n_grid,
-            'refine': refine,
-            'bootstrap_reps': int(bootstrap),
-            '_citation_key': 'ivqreg',
+            "model_type": "IV Quantile Regression",
+            "method": "Chernozhukov-Hansen inverse-QR profile",
+            "tau": float(taus[0]),
+            "n_grid": n_grid,
+            "refine": refine,
+            "bootstrap_reps": int(bootstrap),
+            "_citation_key": "ivqreg",
         }
         data_info = {
-            'n_obs': n,
-            'n_endog': len(endog_list),
-            'n_instruments': len(inst_list),
-            'n_exog': len(exog_list),
-            'endog_names': endog_list,
-            'instrument_names': inst_list,
+            "n_obs": n,
+            "n_endog": len(endog_list),
+            "n_instruments": len(inst_list),
+            "n_exog": len(exog_list),
+            "endog_names": endog_list,
+            "instrument_names": inst_list,
         }
         diagnostics = {
-            'ci_lower': ci_lo_s,
-            'ci_upper': ci_hi_s,
-            'z': pd.Series(zstat, index=names),
-            'pvalue': pd.Series(pvals, index=names),
-            'b_hat_at_alpha': r['_b_hat'],
-            'grid_alpha': grid_vals,
-            'grid_criterion': grid_crit,
+            "ci_lower": ci_lo_s,
+            "ci_upper": ci_hi_s,
+            "z": pd.Series(zstat, index=names),
+            "pvalue": pd.Series(pvals, index=names),
+            "b_hat_at_alpha": r["_b_hat"],
+            "grid_alpha": grid_vals,
+            "grid_criterion": grid_crit,
         }
 
         return EconometricResults(
@@ -295,15 +309,16 @@ def ivqreg(
 
     # Multi-τ: return tidy DataFrame
     for r in rows_out:
-        r.pop('_alpha_hat', None)
-        r.pop('_beta_hat', None)
-        r.pop('_b_hat', None)
+        r.pop("_alpha_hat", None)
+        r.pop("_beta_hat", None)
+        r.pop("_b_hat", None)
     return pd.DataFrame(rows_out)
 
 
 # ---------------------------------------------------------------------------
 # Core profile fit
 # ---------------------------------------------------------------------------
+
 
 def _fit_ivqreg_one(
     Y: np.ndarray,
@@ -328,7 +343,7 @@ def _fit_ivqreg_one(
     def profile_crit(alpha_vec: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
         """Quadratic criterion in b̂(α) at quantile τ."""
         Y_tilde = Y - D @ alpha_vec
-        coef = _qreg_fit(Y_tilde, W, tau)        # (kx + kz,)
+        coef = _qreg_fit(Y_tilde, W, tau)  # (kx + kz,)
         b_hat = coef[kx:]
         # Identity weighting — extend to optimal later
         crit = float(b_hat @ b_hat)
@@ -368,11 +383,13 @@ def _fit_ivqreg_one(
             try:
                 res = optimize.minimize_scalar(
                     lambda a: profile_crit(np.array([a]))[0],
-                    bracket=(best[3] - (hi - lo) / (n_grid - 1),
-                             best[3],
-                             best[3] + (hi - lo) / (n_grid - 1)),
-                    method='brent',
-                    options={'xtol': 1e-6, 'maxiter': 100},
+                    bracket=(
+                        best[3] - (hi - lo) / (n_grid - 1),
+                        best[3],
+                        best[3] + (hi - lo) / (n_grid - 1),
+                    ),
+                    method="brent",
+                    options={"xtol": 1e-6, "maxiter": 100},
                 )
                 c_ref, coef_ref, b_ref = profile_crit(np.array([res.x]))
                 if c_ref <= best[0]:
@@ -393,8 +410,10 @@ def _fit_ivqreg_one(
     # Multi-dim D — use BFGS directly
     a0 = np.zeros(kd)
     res = optimize.minimize(
-        lambda a: profile_crit(a)[0], a0, method='BFGS',
-        options={'gtol': 1e-6, 'maxiter': 200},
+        lambda a: profile_crit(a)[0],
+        a0,
+        method="BFGS",
+        options={"gtol": 1e-6, "maxiter": 200},
     )
     alpha_hat = res.x
     _, coef_hat, b_hat = profile_crit(alpha_hat)
@@ -409,7 +428,7 @@ def _fit_ivqreg_one(
 try:
     citations = getattr(EconometricResults, "_CITATIONS", None)
     if isinstance(citations, dict):
-        citations['ivqreg'] = (
+        citations["ivqreg"] = (
             "@article{chernozhukov2008instrumental,\n"
             "  title={Instrumental Variable Quantile Regression: "
             "A Robust Inference Approach},\n"

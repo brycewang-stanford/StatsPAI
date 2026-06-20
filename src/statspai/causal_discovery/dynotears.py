@@ -32,7 +32,6 @@ import numpy as np
 import pandas as pd
 from scipy import linalg, optimize
 
-
 __all__ = ["dynotears", "DYNOTEARSResult"]
 
 
@@ -64,9 +63,10 @@ class DYNOTEARSResult:
     ... )) if len(edges) else True
     True
     """
+
     variables: List[str]
-    W: np.ndarray      # (d, d) contemporaneous
-    A: np.ndarray      # (p, d, d) lagged
+    W: np.ndarray  # (d, d) contemporaneous
+    A: np.ndarray  # (p, d, d) lagged
     lag: int
     threshold: float
     loss: float
@@ -75,16 +75,18 @@ class DYNOTEARSResult:
         d = len(self.variables)
         W_nz = int((np.abs(self.W) > self.threshold).sum())
         A_nz = int((np.abs(self.A) > self.threshold).sum())
-        return "\n".join([
-            "DYNOTEARS — SVAR Structure Learning",
-            "=" * 60,
-            f"  variables     : {self.variables}",
-            f"  lags          : {self.lag}",
-            f"  edges (W/cont): {W_nz}/{d*(d-1)}",
-            f"  edges (A/lag) : {A_nz}/{self.lag * d * d}",
-            f"  loss          : {self.loss:.6f}",
-            f"  threshold     : {self.threshold}",
-        ])
+        return "\n".join(
+            [
+                "DYNOTEARS — SVAR Structure Learning",
+                "=" * 60,
+                f"  variables     : {self.variables}",
+                f"  lags          : {self.lag}",
+                f"  edges (W/cont): {W_nz}/{d*(d-1)}",
+                f"  edges (A/lag) : {A_nz}/{self.lag * d * d}",
+                f"  loss          : {self.loss:.6f}",
+                f"  threshold     : {self.threshold}",
+            ]
+        )
 
     def to_frame(self) -> pd.DataFrame:
         """Long-format edges DataFrame (|coef| > threshold)."""
@@ -97,24 +99,28 @@ class DYNOTEARSResult:
                     continue
                 w = self.W[i, j]
                 if abs(w) > self.threshold:
-                    rows.append({
-                        "lag": 0,
-                        "from": self.variables[i],
-                        "to": self.variables[j],
-                        "coef": float(w),
-                    })
+                    rows.append(
+                        {
+                            "lag": 0,
+                            "from": self.variables[i],
+                            "to": self.variables[j],
+                            "coef": float(w),
+                        }
+                    )
         # Lagged
         for k in range(self.lag):
             for i in range(d):
                 for j in range(d):
                     a = self.A[k, i, j]
                     if abs(a) > self.threshold:
-                        rows.append({
-                            "lag": k + 1,
-                            "from": self.variables[i],
-                            "to": self.variables[j],
-                            "coef": float(a),
-                        })
+                        rows.append(
+                            {
+                                "lag": k + 1,
+                                "from": self.variables[i],
+                                "to": self.variables[j],
+                                "coef": float(a),
+                            }
+                        )
         return pd.DataFrame(rows)
 
 
@@ -142,7 +148,7 @@ def _loss_fn(
 ) -> tuple[float, np.ndarray]:
     """Compute augmented-Lagrangian loss + gradient."""
     W = params[: d * d].reshape(d, d)
-    A = params[d * d:].reshape(p, d, d) if p > 0 else np.zeros((0, d, d))
+    A = params[d * d :].reshape(p, d, d) if p > 0 else np.zeros((0, d, d))
     np.fill_diagonal(W, 0.0)  # no self-contemporaneous loops
 
     # Residuals
@@ -150,7 +156,7 @@ def _loss_fn(
     for k in range(p):
         resid -= X_lags[k] @ A[k]
     N = X_now.shape[0]
-    mse = 0.5 / N * float((resid ** 2).sum())
+    mse = 0.5 / N * float((resid**2).sum())
 
     # Acyclicity
     h = _h_acyclicity(W)
@@ -159,10 +165,9 @@ def _loss_fn(
     # L1 (smoothed via |w| ≈ sqrt(w^2 + eps))
     eps = 1e-8
     l1_W = lambda_W * float(
-        np.sqrt(W ** 2 + eps).sum()
-        - np.sqrt(np.diag(W) ** 2 + eps).sum()
+        np.sqrt(W**2 + eps).sum() - np.sqrt(np.diag(W) ** 2 + eps).sum()
     )
-    l1_A = lambda_A * float(np.sqrt(A ** 2 + eps).sum()) if p > 0 else 0.0
+    l1_A = lambda_A * float(np.sqrt(A**2 + eps).sum()) if p > 0 else 0.0
 
     total = mse + penalty + l1_W + l1_A
 
@@ -171,7 +176,7 @@ def _loss_fn(
     # Acyclicity gradient
     grad_W += (rho * h + mu) * _h_grad(W)
     # L1 gradients (smoothed)
-    grad_W += lambda_W * W / np.sqrt(W ** 2 + eps)
+    grad_W += lambda_W * W / np.sqrt(W**2 + eps)
     np.fill_diagonal(grad_W, 0.0)
 
     if p > 0:
@@ -261,9 +266,7 @@ def dynotears(
         # np.number)``) so a pandas extension dtype — e.g. a ``StringDtype``
         # column under pandas>=3.0 — is excluded rather than raising TypeError.
         # Identical column selection for numpy numeric dtypes.
-        variables = [
-            c for c in data.columns if pd.api.types.is_numeric_dtype(data[c])
-        ]
+        variables = [c for c in data.columns if pd.api.types.is_numeric_dtype(data[c])]
     variables = list(variables)
     d = len(variables)
     if d < 2:
@@ -280,7 +283,7 @@ def dynotears(
     # Align: X_now is rows lag..T-1; X_lags[k] is rows (lag-k-1)..(T-k-2) wait
     # Let X_now_t, X_lag_k_t = X_{t-k-1}. We pick t in [lag, T-1].
     X_now = X_full[lag:]
-    X_lags = [X_full[lag - k - 1: T - k - 1] for k in range(lag)]
+    X_lags = [X_full[lag - k - 1 : T - k - 1] for k in range(lag)]
 
     # Augmented Lagrangian
     rho, mu = 1.0, 0.0
@@ -290,9 +293,11 @@ def dynotears(
     for it in range(max_iter):
         # Inner L-BFGS-B minimization
         result = optimize.minimize(
-            _loss_fn, params,
+            _loss_fn,
+            params,
             args=(X_now, X_lags, d, lag, lambda_w, lambda_a, rho, mu),
-            jac=True, method="L-BFGS-B",
+            jac=True,
+            method="L-BFGS-B",
             options={"maxiter": 100, "disp": False},
         )
         params = result.x
@@ -300,10 +305,7 @@ def dynotears(
         np.fill_diagonal(W, 0.0)
         h = _h_acyclicity(W)
         if verbose:
-            print(
-                f"iter {it}: loss={result.fun:.4f}, h={h:.2e}, "
-                f"rho={rho:.2e}"
-            )
+            print(f"iter {it}: loss={result.fun:.4f}, h={h:.2e}, " f"rho={rho:.2e}")
         if h < h_tol or rho >= rho_max:
             break
         if h >= 0.25 * h_prev:
@@ -314,9 +316,7 @@ def dynotears(
     W = params[: d * d].reshape(d, d)
     np.fill_diagonal(W, 0.0)
     A: np.ndarray = (
-        params[d * d:].reshape(lag, d, d)
-        if lag > 0
-        else np.zeros((0, d, d))
+        params[d * d :].reshape(lag, d, d) if lag > 0 else np.zeros((0, d, d))
     )
     # Threshold small coefficients
     W = np.asarray(np.where(np.abs(W) > threshold, W, 0.0), dtype=float)
@@ -334,15 +334,19 @@ def dynotears(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_discovery.dynotears",
             params={
                 "variables": list(variables) if variables else None,
                 "lag": lag,
-                "lambda_w": lambda_w, "lambda_a": lambda_a,
-                "max_iter": max_iter, "threshold": threshold,
-                "h_tol": h_tol, "rho_max": rho_max,
+                "lambda_w": lambda_w,
+                "lambda_a": lambda_a,
+                "max_iter": max_iter,
+                "threshold": threshold,
+                "h_tol": h_tol,
+                "rho_max": rho_max,
             },
             data=data,
             overwrite=False,

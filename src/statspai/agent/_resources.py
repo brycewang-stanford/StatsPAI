@@ -20,12 +20,12 @@ Public entry points
 * :func:`handle_resources_templates_list` — the parameterised URI
   templates
 """
+
 from __future__ import annotations
 
 import json
 from functools import lru_cache
 from typing import Any, Callable, Dict, List, Optional, Type
-
 
 FUNCTION_URI_PREFIX = "statspai://function/"
 RESULT_URI_PREFIX = "statspai://result/"
@@ -41,6 +41,7 @@ def _result_schema_uri() -> str:
     """Canonical result-schema URI (from ``mcp_server`` when importable)."""
     try:
         from .mcp_server import RESULT_SCHEMA_URI
+
         return RESULT_SCHEMA_URI
     except (ImportError, AttributeError):  # pragma: no cover
         return _RESULT_SCHEMA_URI_FALLBACK
@@ -50,6 +51,7 @@ def _result_output_schema() -> Dict[str, Any]:
     """The full documented result envelope served by the schema resource."""
     try:
         from .mcp_server import _RESULT_OUTPUT_SCHEMA
+
         return _RESULT_OUTPUT_SCHEMA
     except (ImportError, AttributeError):  # pragma: no cover
         return {"type": "object", "additionalProperties": True}
@@ -58,6 +60,7 @@ def _result_output_schema() -> Dict[str, Any]:
 # ----------------------------------------------------------------------
 # Catalog / index / detail helpers
 # ----------------------------------------------------------------------
+
 
 def _resource_manifest() -> List[Dict[str, Any]]:
     """Return the cached MCP manifest when available.
@@ -71,6 +74,7 @@ def _resource_manifest() -> List[Dict[str, Any]]:
         from .mcp_server import _build_mcp_tools
     except (ImportError, AttributeError):
         from .tools import tool_manifest
+
         return [
             {
                 "name": t["name"],
@@ -114,8 +118,7 @@ def catalog_text(server_version: str) -> str:
 def functions_index() -> List[Dict[str, str]]:
     """Return a JSON-ready ``[{name, description}, …]`` list."""
     return [
-        {"name": t["name"],
-         "description": (t.get("description") or "").strip()}
+        {"name": t["name"], "description": (t.get("description") or "").strip()}
         for t in _resource_manifest()
     ]
 
@@ -132,6 +135,7 @@ def function_detail(name: str) -> Optional[Dict[str, Any]]:
     # Try the registry first — it has the agent-native metadata.
     try:
         from ..registry import agent_card as _agent_card
+
         card = _agent_card(name)
         if card:
             return card
@@ -149,9 +153,7 @@ def function_detail(name: str) -> Optional[Dict[str, Any]]:
                 "signature": {
                     "name": t["name"],
                     "description": (t.get("description") or "").strip(),
-                    "parameters": (
-                        t.get("input_schema") or t.get("inputSchema") or {}
-                    ),
+                    "parameters": (t.get("input_schema") or t.get("inputSchema") or {}),
                 },
                 "pre_conditions": [],
                 "assumptions": [],
@@ -168,6 +170,7 @@ def function_detail(name: str) -> Optional[Dict[str, Any]]:
 # Handlers
 # ----------------------------------------------------------------------
 
+
 def handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
     """Enumerate the top-level resources only.
 
@@ -183,29 +186,29 @@ def handle_resources_list(params: Dict[str, Any]) -> Dict[str, Any]:
                 "name": "StatsPAI estimator catalog",
                 "mimeType": "text/markdown",
                 "description": "Markdown list of every registered "
-                               "StatsPAI estimator with its description "
-                               "and a pointer to the per-function "
-                               "agent-card URI pattern.",
+                "StatsPAI estimator with its description "
+                "and a pointer to the per-function "
+                "agent-card URI pattern.",
             },
             {
                 "uri": "statspai://functions",
                 "name": "StatsPAI tool index (machine-readable)",
                 "mimeType": "application/json",
                 "description": "JSON array of {name, description} "
-                               "entries. Read this once during session "
-                               "setup to enumerate available tools.",
+                "entries. Read this once during session "
+                "setup to enumerate available tools.",
             },
             {
                 "uri": _result_schema_uri(),
                 "name": "StatsPAI result output schema",
                 "mimeType": "application/json",
                 "description": "JSON Schema for the agent-facing result "
-                               "envelope returned by every tools/call "
-                               "(estimate / std_error / conf_int / method / "
-                               "diagnostics / violations / next_steps / "
-                               "citations / error …). Each tool's "
-                               "outputSchema points here for the full "
-                               "field-by-field reference.",
+                "envelope returned by every tools/call "
+                "(estimate / std_error / conf_int / method / "
+                "diagnostics / violations / next_steps / "
+                "citations / error …). Each tool's "
+                "outputSchema points here for the full "
+                "field-by-field reference.",
             },
         ],
     }
@@ -233,8 +236,7 @@ def handle_resources_read(
     _clean = clean_for_json if clean_for_json is not None else (lambda x: x)
     uri = params.get("uri")
     if not isinstance(uri, str):
-        raise InvalidParamsError(
-            f"`uri` must be a string; got {uri!r}")
+        raise InvalidParamsError(f"`uri` must be a string; got {uri!r}")
 
     if uri == "statspai://catalog":
         return {
@@ -252,9 +254,9 @@ def handle_resources_read(
                 {
                     "uri": uri,
                     "mimeType": "application/json",
-                    "text": json.dumps(_clean(functions_index()),
-                                       default=json_default,
-                                       allow_nan=False),
+                    "text": json.dumps(
+                        _clean(functions_index()), default=json_default, allow_nan=False
+                    ),
                 },
             ],
         }
@@ -268,18 +270,21 @@ def handle_resources_read(
                 {
                     "uri": uri,
                     "mimeType": "application/json",
-                    "text": json.dumps(_clean(_result_output_schema()),
-                                       default=json_default,
-                                       allow_nan=False),
+                    "text": json.dumps(
+                        _clean(_result_output_schema()),
+                        default=json_default,
+                        allow_nan=False,
+                    ),
                 },
             ],
         }
     if uri.startswith(FUNCTION_URI_PREFIX):
-        name = uri[len(FUNCTION_URI_PREFIX):]
+        name = uri[len(FUNCTION_URI_PREFIX) :]
         if not name:
             raise InvalidParamsError(
                 f"Function name is empty in URI {uri!r}; "
-                f"expected {FUNCTION_URI_PREFIX}<name>")
+                f"expected {FUNCTION_URI_PREFIX}<name>"
+            )
         # Embedded slashes are not part of the {name} template — surface
         # the malformed-URI condition as -32602 (invalid params), not
         # -32002 (resource not found), so clients don't auto-retry with
@@ -287,40 +292,47 @@ def handle_resources_read(
         if "/" in name:
             raise InvalidParamsError(
                 f"Function name in URI {uri!r} must not contain '/'; "
-                f"the URI template is {FUNCTION_URI_PREFIX}{{name}}.")
+                f"the URI template is {FUNCTION_URI_PREFIX}{{name}}."
+            )
         card = function_detail(name)
         if card is None:
             raise ResourceNotFoundError(
                 f"Unknown StatsPAI tool: {name!r}. "
-                f"Read statspai://functions for the full index.")
+                f"Read statspai://functions for the full index."
+            )
         return {
             "contents": [
                 {
                     "uri": uri,
                     "mimeType": "application/json",
-                    "text": json.dumps(_clean(card), default=json_default,
-                                       allow_nan=False),
+                    "text": json.dumps(
+                        _clean(card), default=json_default, allow_nan=False
+                    ),
                 },
             ],
         }
 
     if uri.startswith(RESULT_URI_PREFIX):
-        rid = uri[len(RESULT_URI_PREFIX):]
+        rid = uri[len(RESULT_URI_PREFIX) :]
         if not rid or "/" in rid:
             raise InvalidParamsError(
                 f"Result handle in URI {uri!r} is empty or malformed; "
-                f"expected {RESULT_URI_PREFIX}<id>.")
+                f"expected {RESULT_URI_PREFIX}<id>."
+            )
         from ._result_cache import RESULT_CACHE
+
         entry = RESULT_CACHE.get_entry(rid)
         if entry is None:
             raise ResourceNotFoundError(
                 f"Result {rid!r} not in server cache. LRU cache evicts "
                 f"oldest entries; re-fit with as_handle=true for a "
-                f"fresh handle.")
+                f"fresh handle."
+            )
         # Render the result the same way an agent would have seen it
         # at fit time: registry-style ``to_dict(detail='agent')`` if
         # available, else a structural summary.
         from .tools import _default_serializer
+
         try:
             payload = _default_serializer(entry.obj, detail="agent")
         except Exception:  # pragma: no cover — fallback for odd objects
@@ -334,9 +346,9 @@ def handle_resources_read(
                 {
                     "uri": uri,
                     "mimeType": "application/json",
-                    "text": json.dumps(_clean(payload),
-                                       default=json_default,
-                                       allow_nan=False),
+                    "text": json.dumps(
+                        _clean(payload), default=json_default, allow_nan=False
+                    ),
                 },
             ],
         }
@@ -344,8 +356,7 @@ def handle_resources_read(
     raise ResourceNotFoundError(f"Unknown resource: {uri!r}")
 
 
-def handle_resources_templates_list(
-        params: Dict[str, Any]) -> Dict[str, Any]:
+def handle_resources_templates_list(params: Dict[str, Any]) -> Dict[str, Any]:
     """Expose the parameterised ``statspai://function/{name}`` and
     ``statspai://result/{id}`` URIs.
 

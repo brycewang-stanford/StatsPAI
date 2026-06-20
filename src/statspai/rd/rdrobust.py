@@ -137,7 +137,9 @@ def _require_int_at_least(value: Any, name: str, minimum: int) -> int:
     return out
 
 
-def _coerce_column_list(value: Any, name: str, *, allow_empty: bool = False) -> List[str]:
+def _coerce_column_list(
+    value: Any, name: str, *, allow_empty: bool = False
+) -> List[str]:
     if isinstance(value, str):
         out = [value]
     else:
@@ -1973,7 +1975,6 @@ def _estimate_second_deriv(
 # ======================================================================
 
 from ._core import _kernel_fn, _kernel_mse_constant, _local_poly_wls  # noqa: F401, E402
-
 
 # ======================================================================
 # rbc bootstrap (Cattaneo, Jansson & Ma, arXiv:2512.00566, 2026)

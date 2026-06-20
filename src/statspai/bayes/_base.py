@@ -5,6 +5,7 @@ imports PyMC; it is resolved at call time inside each estimator. If
 PyMC is missing the estimator raises :class:`ImportError` with the
 install recipe, leaving the rest of the package unaffected.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,7 +16,6 @@ import numpy as np
 import pandas as pd
 
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
-
 
 # ---------------------------------------------------------------------------
 # Optional-dependency guard
@@ -184,6 +184,7 @@ def _az_hdi_compat(samples: Any, hdi_prob: float = 0.95) -> np.ndarray:
 # Result type
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class BayesianCausalResult:
     """Summary of a Bayesian causal fit.
@@ -265,97 +266,114 @@ class BayesianCausalResult:
             Not used for Bayesian output (HDI has its own level set at
             fit time). Accepted for API parity with ``CausalResult.tidy``.
         """
-        return pd.DataFrame([{
-            'term': self.estimand.lower(),
-            'estimate': self.posterior_mean,
-            'std_error': self.posterior_sd,
-            'statistic': (self.posterior_mean / self.posterior_sd
-                          if self.posterior_sd > 0 else np.nan),
-            'p_value': np.nan,  # not a frequentist concept
-            'conf_low': self.hdi_lower,
-            'conf_high': self.hdi_upper,
-            'prob_positive': self.prob_positive,
-            'hdi_prob': self.hdi_prob,
-        }])
+        return pd.DataFrame(
+            [
+                {
+                    "term": self.estimand.lower(),
+                    "estimate": self.posterior_mean,
+                    "std_error": self.posterior_sd,
+                    "statistic": (
+                        self.posterior_mean / self.posterior_sd
+                        if self.posterior_sd > 0
+                        else np.nan
+                    ),
+                    "p_value": np.nan,  # not a frequentist concept
+                    "conf_low": self.hdi_lower,
+                    "conf_high": self.hdi_upper,
+                    "prob_positive": self.prob_positive,
+                    "hdi_prob": self.hdi_prob,
+                }
+            ]
+        )
 
     def glance(self) -> pd.DataFrame:
         """Single-row DataFrame with fit-level diagnostics."""
-        return pd.DataFrame([{
-            'method': self.method,
-            'nobs': self.n_obs,
-            'rhat': self.rhat,
-            'ess': self.ess,
-            'chains': self.model_info.get('chains'),
-            'draws': self.model_info.get('draws'),
-            'tune': self.model_info.get('tune'),
-            'hdi_prob': self.hdi_prob,
-            'prob_positive': self.prob_positive,
-        }])
+        return pd.DataFrame(
+            [
+                {
+                    "method": self.method,
+                    "nobs": self.n_obs,
+                    "rhat": self.rhat,
+                    "ess": self.ess,
+                    "chains": self.model_info.get("chains"),
+                    "draws": self.model_info.get("draws"),
+                    "tune": self.model_info.get("tune"),
+                    "hdi_prob": self.hdi_prob,
+                    "prob_positive": self.prob_positive,
+                }
+            ]
+        )
 
     def summary(self) -> str:
         """Printable summary."""
         lines = [
-            '=' * 70,
-            f'  Method:      {self.method}',
-            f'  Estimand:    {self.estimand}',
-            f'  N obs:       {self.n_obs:,}',
-            '-' * 70,
-            f'  Posterior mean:   {self.posterior_mean:.4f}',
-            f'  Posterior median: {self.posterior_median:.4f}',
-            f'  Posterior SD:     {self.posterior_sd:.4f}',
-            f'  {int(self.hdi_prob*100)}% HDI:          '
-            f'[{self.hdi_lower:.4f}, {self.hdi_upper:.4f}]',
-            f'  P({self.estimand} > 0):      {self.prob_positive:.3f}',
+            "=" * 70,
+            f"  Method:      {self.method}",
+            f"  Estimand:    {self.estimand}",
+            f"  N obs:       {self.n_obs:,}",
+            "-" * 70,
+            f"  Posterior mean:   {self.posterior_mean:.4f}",
+            f"  Posterior median: {self.posterior_median:.4f}",
+            f"  Posterior SD:     {self.posterior_sd:.4f}",
+            f"  {int(self.hdi_prob*100)}% HDI:          "
+            f"[{self.hdi_lower:.4f}, {self.hdi_upper:.4f}]",
+            f"  P({self.estimand} > 0):      {self.prob_positive:.3f}",
         ]
         if self.prob_rope is not None:
-            lines.append(f'  P(|{self.estimand}| < rope): {self.prob_rope:.3f}')
+            lines.append(f"  P(|{self.estimand}| < rope): {self.prob_rope:.3f}")
         # R-hat / ESS formatting has to distinguish three cases:
         #   1. NUTS with rhat>1.01 -> loud warning
         #   2. NUTS with healthy rhat -> quiet
         #   3. ADVI (rhat is NaN because 1 chain) -> different warning
         #      that tells the user convergence is undiagnosable, not
         #      that the model failed.
-        inference_mode = self.model_info.get('inference', 'nuts')
+        inference_mode = self.model_info.get("inference", "nuts")
         # Variational backends (ADVI, Pathfinder) produce a single
         # drawn chain — R-hat is meaningless. Exact samplers (NUTS,
         # SMC) have meaningful R-hat.
-        is_variational = inference_mode in ('advi', 'pathfinder')
+        is_variational = inference_mode in ("advi", "pathfinder")
         if is_variational or np.isnan(self.rhat):
             label = {
-                'advi': 'mean-field ADVI',
-                'pathfinder': 'full-rank ADVI (Pathfinder stand-in)',
-            }.get(inference_mode, 'variational')
-            rhat_line = (f'  R-hat:       n/a  [{label} — convergence is '
-                         'not measurable via R-hat; use NUTS or SMC for '
-                         'calibrated uncertainty]')
+                "advi": "mean-field ADVI",
+                "pathfinder": "full-rank ADVI (Pathfinder stand-in)",
+            }.get(inference_mode, "variational")
+            rhat_line = (
+                f"  R-hat:       n/a  [{label} — convergence is "
+                "not measurable via R-hat; use NUTS or SMC for "
+                "calibrated uncertainty]"
+            )
         elif self.rhat > 1.01:
-            rhat_line = f'  R-hat:       {self.rhat:.4f}  [WARN > 1.01]'
+            rhat_line = f"  R-hat:       {self.rhat:.4f}  [WARN > 1.01]"
         else:
-            rhat_line = f'  R-hat:       {self.rhat:.4f}'
+            rhat_line = f"  R-hat:       {self.rhat:.4f}"
 
-        ess_line = f'  ESS (bulk):  {self.ess:.0f}'
+        ess_line = f"  ESS (bulk):  {self.ess:.0f}"
         if not is_variational and np.isfinite(self.ess) and self.ess < 400:
-            ess_line += '  [WARN: low ESS]'
+            ess_line += "  [WARN: low ESS]"
 
         # Effective chain count is 1 under variational backends.
-        requested_chains = self.model_info.get('chains', '?')
+        requested_chains = self.model_info.get("chains", "?")
         if is_variational:
-            chains_line = (f'  Chains:      1  ({inference_mode}; requested '
-                           f'{requested_chains} ignored)')
+            chains_line = (
+                f"  Chains:      1  ({inference_mode}; requested "
+                f"{requested_chains} ignored)"
+            )
         else:
-            chains_line = f'  Chains:      {requested_chains}'
+            chains_line = f"  Chains:      {requested_chains}"
 
-        lines.extend([
-            '-' * 70,
-            'Convergence diagnostics',
-            rhat_line,
-            ess_line,
-            chains_line,
-            f'  Draws/chain: {self.model_info.get("draws", "?")}',
-            f'  Inference:   {inference_mode}',
-            '=' * 70,
-        ])
-        return '\n'.join(lines)
+        lines.extend(
+            [
+                "-" * 70,
+                "Convergence diagnostics",
+                rhat_line,
+                ess_line,
+                chains_line,
+                f'  Draws/chain: {self.model_info.get("draws", "?")}',
+                f"  Inference:   {inference_mode}",
+                "=" * 70,
+            ]
+        )
+        return "\n".join(lines)
 
     @staticmethod
     def _jsonable(value: Any) -> Any:
@@ -370,10 +388,7 @@ class BayesianCausalResult:
             v = float(value)
             return v if np.isfinite(v) else None
         if isinstance(value, dict):
-            return {
-                str(k): BayesianCausalResult._jsonable(v)
-                for k, v in value.items()
-            }
+            return {str(k): BayesianCausalResult._jsonable(v) for k, v in value.items()}
         if isinstance(value, (list, tuple)):
             return [BayesianCausalResult._jsonable(v) for v in value]
         if isinstance(value, np.ndarray):
@@ -419,9 +434,7 @@ class BayesianCausalResult:
             "diagnostics": {
                 "rhat": self._jsonable(self.rhat),
                 "ess": self._jsonable(self.ess),
-                "inference": self._jsonable(
-                    self.model_info.get("inference", "nuts")
-                ),
+                "inference": self._jsonable(self.model_info.get("inference", "nuts")),
                 "chains": self._jsonable(self.model_info.get("chains")),
                 "draws": self._jsonable(self.model_info.get("draws")),
                 "tune": self._jsonable(self.model_info.get("tune")),
@@ -455,20 +468,23 @@ class BayesianCausalResult:
         }
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
-        return (f"<BayesianCausalResult {self.method}: "
-                f"{self.estimand}={self.posterior_mean:.3f} "
-                f"[HDI {self.hdi_lower:.3f}, {self.hdi_upper:.3f}] "
-                f"rhat={self.rhat:.2f}>")
+        return (
+            f"<BayesianCausalResult {self.method}: "
+            f"{self.estimand}={self.posterior_mean:.3f} "
+            f"[HDI {self.hdi_lower:.3f}, {self.hdi_upper:.3f}] "
+            f"rhat={self.rhat:.2f}>"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Posterior summaries (helpers reused by did.py / rd.py)
 # ---------------------------------------------------------------------------
 
+
 def _sample_model(
     model: Any,
     *,
-    inference: str = 'nuts',
+    inference: str = "nuts",
     draws: int = 2000,
     tune: int = 1000,
     chains: int = 4,
@@ -499,7 +515,7 @@ def _sample_model(
     arviz.InferenceData
         Directly usable by :func:`_summarise_posterior`.
     """
-    valid = ('nuts', 'advi', 'pathfinder', 'smc')
+    valid = ("nuts", "advi", "pathfinder", "smc")
     if not isinstance(inference, str) or inference not in valid:
         raise MethodIncompatibility(
             f"inference must be one of {valid}; got {inference!r}.",
@@ -516,10 +532,10 @@ def _sample_model(
 
     pm, _ = _require_pymc()
     with model:
-        if inference == 'advi':
+        if inference == "advi":
             approx = pm.fit(
                 n=advi_iterations,
-                method='advi',
+                method="advi",
                 random_seed=random_state,
                 progressbar=progressbar,
             )
@@ -528,9 +544,9 @@ def _sample_model(
             # what the caller requested. Without this the glance()
             # output misleads — posterior has 1 chain but user asked
             # for 4.
-            trace.attrs['actual_chains'] = 1
-            trace.attrs['inference'] = 'advi'
-        elif inference == 'pathfinder':
+            trace.attrs["actual_chains"] = 1
+            trace.attrs["inference"] = "advi"
+        elif inference == "pathfinder":
             # PyMC 5.x's stable "smarter-than-mean-field" VI entry-point
             # is full-rank ADVI — it captures pairwise covariance between
             # parameters, which mean-field ADVI misses. When PyMC's
@@ -538,14 +554,14 @@ def _sample_model(
             # until then full-rank ADVI is the same spirit.
             approx = pm.fit(
                 n=advi_iterations,
-                method='fullrank_advi',
+                method="fullrank_advi",
                 random_seed=random_state,
                 progressbar=progressbar,
             )
             trace = approx.sample(draws)
-            trace.attrs['actual_chains'] = 1
-            trace.attrs['inference'] = 'pathfinder'
-        elif inference == 'smc':
+            trace.attrs["actual_chains"] = 1
+            trace.attrs["inference"] = "pathfinder"
+        elif inference == "smc":
             # Sequential Monte Carlo — exact sampler that handles
             # multimodal posteriors well; slower than NUTS on unimodal
             # problems but a clean fallback when NUTS diverges.
@@ -555,8 +571,8 @@ def _sample_model(
                 random_seed=random_state,
                 progressbar=progressbar,
             )
-            trace.attrs['actual_chains'] = chains
-            trace.attrs['inference'] = 'smc'
+            trace.attrs["actual_chains"] = chains
+            trace.attrs["inference"] = "smc"
         else:  # 'nuts'
             trace = pm.sample(
                 draws=draws,
@@ -567,8 +583,8 @@ def _sample_model(
                 progressbar=progressbar,
                 return_inferencedata=True,
             )
-            trace.attrs['actual_chains'] = chains
-            trace.attrs['inference'] = 'nuts'
+            trace.attrs["actual_chains"] = chains
+            trace.attrs["inference"] = "nuts"
     return trace
 
 
@@ -585,26 +601,22 @@ def _tidy_row_from_summary(
     subgroups mix (e.g. one DID result with cohort splits alongside
     one IV result with per-instrument LATEs).
     """
-    est = summary.get('posterior_mean', float('nan'))
-    sd = summary.get('posterior_sd', float('nan'))
-    lo = summary.get('hdi_lower', float('nan'))
-    hi = summary.get('hdi_upper', float('nan'))
-    pp = summary.get('prob_positive', float('nan'))
-    stat = (
-        (est / sd)
-        if (sd is not None and np.isfinite(sd) and sd > 0)
-        else np.nan
-    )
+    est = summary.get("posterior_mean", float("nan"))
+    sd = summary.get("posterior_sd", float("nan"))
+    lo = summary.get("hdi_lower", float("nan"))
+    hi = summary.get("hdi_upper", float("nan"))
+    pp = summary.get("prob_positive", float("nan"))
+    stat = (est / sd) if (sd is not None and np.isfinite(sd) and sd > 0) else np.nan
     return {
-        'term': term_label,
-        'estimate': est,
-        'std_error': sd,
-        'statistic': stat,
-        'p_value': np.nan,
-        'conf_low': lo,
-        'conf_high': hi,
-        'prob_positive': pp,
-        'hdi_prob': hdi_prob,
+        "term": term_label,
+        "estimate": est,
+        "std_error": sd,
+        "statistic": stat,
+        "p_value": np.nan,
+        "conf_low": lo,
+        "conf_high": hi,
+        "prob_positive": pp,
+        "hdi_prob": hdi_prob,
     }
 
 
@@ -665,9 +677,9 @@ class BayesianDIDResult(BayesianCausalResult):
             return super().tidy(conf_level=conf_level)
 
         if isinstance(terms, str):
-            if terms == 'att':
+            if terms == "att":
                 return super().tidy(conf_level=conf_level)
-            if terms == 'per_cohort':
+            if terms == "per_cohort":
                 if not self.cohort_summaries:
                     raise MethodIncompatibility(
                         "terms='per_cohort' requires a fit with "
@@ -677,7 +689,7 @@ class BayesianDIDResult(BayesianCausalResult):
                         diagnostics={"terms": terms, "has_cohorts": False},
                         alternative_functions=["sp.bayes_did"],
                     )
-                term_list = [f'cohort:{c}' for c in self.cohort_labels]
+                term_list = [f"cohort:{c}" for c in self.cohort_labels]
             else:
                 term_list = [terms]
         else:
@@ -688,29 +700,35 @@ class BayesianDIDResult(BayesianCausalResult):
         rows: List[Dict[str, Any]] = []
         # Back-compat label for the average ATT so downstream concat
         # pipelines can freely mix 'att' with 'cohort:*' rows.
-        known_avg = {'att', self.estimand.lower()}
-        cohort_keys = {f'cohort:{c}' for c in self.cohort_labels}
+        known_avg = {"att", self.estimand.lower()}
+        cohort_keys = {f"cohort:{c}" for c in self.cohort_labels}
         for term in term_list:
             if term in known_avg:
-                rows.append(_tidy_row_from_summary(
-                    self.estimand.lower(),
-                    {
-                        'posterior_mean': self.posterior_mean,
-                        'posterior_sd': self.posterior_sd,
-                        'hdi_lower': self.hdi_lower,
-                        'hdi_upper': self.hdi_upper,
-                        'prob_positive': self.prob_positive,
-                    },
-                    self.hdi_prob,
-                ))
+                rows.append(
+                    _tidy_row_from_summary(
+                        self.estimand.lower(),
+                        {
+                            "posterior_mean": self.posterior_mean,
+                            "posterior_sd": self.posterior_sd,
+                            "hdi_lower": self.hdi_lower,
+                            "hdi_upper": self.hdi_upper,
+                            "prob_positive": self.prob_positive,
+                        },
+                        self.hdi_prob,
+                    )
+                )
             elif term in cohort_keys:
-                raw_label = term[len('cohort:'):]
+                raw_label = term[len("cohort:") :]
                 # Map back to the user's original dict key: we stored
                 # it as str(label) in cohort_summaries.
                 summary = self.cohort_summaries[raw_label]
-                rows.append(_tidy_row_from_summary(
-                    term, summary, self.hdi_prob,
-                ))
+                rows.append(
+                    _tidy_row_from_summary(
+                        term,
+                        summary,
+                        self.hdi_prob,
+                    )
+                )
             else:
                 raise MethodIncompatibility(
                     f"Unknown term {term!r}. Valid options: "
@@ -720,7 +738,7 @@ class BayesianDIDResult(BayesianCausalResult):
                     "or one of the returned cohort labels.",
                     diagnostics={
                         "term": term,
-                        "valid_terms": ['att', 'per_cohort', *sorted(cohort_keys)],
+                        "valid_terms": ["att", "per_cohort", *sorted(cohort_keys)],
                     },
                     alternative_functions=["sp.bayes_did"],
                 )
@@ -774,9 +792,9 @@ class BayesianIVResult(BayesianCausalResult):
             return super().tidy(conf_level=conf_level)
 
         if isinstance(terms, str):
-            if terms == 'late':
+            if terms == "late":
                 return super().tidy(conf_level=conf_level)
-            if terms == 'per_instrument':
+            if terms == "per_instrument":
                 if not self.instrument_summaries:
                     raise MethodIncompatibility(
                         "terms='per_instrument' requires a fit with "
@@ -790,9 +808,7 @@ class BayesianIVResult(BayesianCausalResult):
                         },
                         alternative_functions=["sp.bayes_iv"],
                     )
-                term_list = [
-                    f'instrument:{z}' for z in self.instrument_labels
-                ]
+                term_list = [f"instrument:{z}" for z in self.instrument_labels]
             else:
                 term_list = [terms]
         else:
@@ -801,29 +817,33 @@ class BayesianIVResult(BayesianCausalResult):
                 return super().tidy(conf_level=conf_level)
 
         rows: List[Dict[str, Any]] = []
-        known_avg = {'late', self.estimand.lower()}
-        instr_keys = {
-            f'instrument:{z}' for z in self.instrument_labels
-        }
+        known_avg = {"late", self.estimand.lower()}
+        instr_keys = {f"instrument:{z}" for z in self.instrument_labels}
         for term in term_list:
             if term in known_avg:
-                rows.append(_tidy_row_from_summary(
-                    self.estimand.lower(),
-                    {
-                        'posterior_mean': self.posterior_mean,
-                        'posterior_sd': self.posterior_sd,
-                        'hdi_lower': self.hdi_lower,
-                        'hdi_upper': self.hdi_upper,
-                        'prob_positive': self.prob_positive,
-                    },
-                    self.hdi_prob,
-                ))
+                rows.append(
+                    _tidy_row_from_summary(
+                        self.estimand.lower(),
+                        {
+                            "posterior_mean": self.posterior_mean,
+                            "posterior_sd": self.posterior_sd,
+                            "hdi_lower": self.hdi_lower,
+                            "hdi_upper": self.hdi_upper,
+                            "prob_positive": self.prob_positive,
+                        },
+                        self.hdi_prob,
+                    )
+                )
             elif term in instr_keys:
-                raw_label = term[len('instrument:'):]
+                raw_label = term[len("instrument:") :]
                 summary = self.instrument_summaries[raw_label]
-                rows.append(_tidy_row_from_summary(
-                    term, summary, self.hdi_prob,
-                ))
+                rows.append(
+                    _tidy_row_from_summary(
+                        term,
+                        summary,
+                        self.hdi_prob,
+                    )
+                )
             else:
                 raise MethodIncompatibility(
                     f"Unknown term {term!r}. Valid options: "
@@ -835,8 +855,8 @@ class BayesianIVResult(BayesianCausalResult):
                     diagnostics={
                         "term": term,
                         "valid_terms": [
-                            'late',
-                            'per_instrument',
+                            "late",
+                            "per_instrument",
                             *sorted(instr_keys),
                         ],
                     },
@@ -904,8 +924,8 @@ class BayesianHTEIVResult(BayesianCausalResult):
             )
 
         # Fetch posterior draws of tau_0 and tau_hte.
-        tau0 = self.trace.posterior['tau_0'].values.reshape(-1)
-        tau_hte = self.trace.posterior['tau_hte'].values.reshape(
+        tau0 = self.trace.posterior["tau_0"].values.reshape(-1)
+        tau_hte = self.trace.posterior["tau_hte"].values.reshape(
             -1, len(self.effect_modifiers)
         )
 
@@ -926,12 +946,12 @@ class BayesianHTEIVResult(BayesianCausalResult):
         cate_samples = tau0 + tau_hte @ m_vec
         hdi = _az_hdi_compat(cate_samples, hdi_prob=self.hdi_prob)
         return {
-            'mean': float(np.mean(cate_samples)),
-            'median': float(np.median(cate_samples)),
-            'sd': float(np.std(cate_samples, ddof=1)),
-            'hdi_low': float(hdi[0]),
-            'hdi_high': float(hdi[1]),
-            'prob_positive': float(np.mean(cate_samples > 0)),
+            "mean": float(np.mean(cate_samples)),
+            "median": float(np.median(cate_samples)),
+            "sd": float(np.std(cate_samples, ddof=1)),
+            "hdi_low": float(hdi[0]),
+            "hdi_high": float(hdi[1]),
+            "prob_positive": float(np.mean(cate_samples > 0)),
         }
 
 
@@ -960,31 +980,31 @@ class BayesianMTEResult(BayesianCausalResult):
 
     mte_curve: pd.DataFrame = field(default_factory=pd.DataFrame)
     u_grid: Optional[np.ndarray] = None
-    ate: float = float('nan')
-    att: float = float('nan')
-    atu: float = float('nan')
+    ate: float = float("nan")
+    att: float = float("nan")
+    atu: float = float("nan")
     # v0.9.12: `'uniform'` (default) fits MTE polynomial in U_D on
     # [0,1]; `'normal'` fits in V = Φ^{-1}(U_D) on ℝ. The result
     # remembers this so `policy_effect` can transform the abscissa
     # before integrating against the user's weight_fn.
-    selection: str = 'uniform'
+    selection: str = "uniform"
     # v0.9.13: ATT / ATU uncertainty triplets. Default NaN so
     # pre-v0.9.13 serialised results back-compat. ``posterior_sd`` on
     # the parent already covers ATE uncertainty (ATE is the primary
     # estimand) so there is no ``ate_sd`` field.
-    att_sd: float = float('nan')
-    att_hdi_lower: float = float('nan')
-    att_hdi_upper: float = float('nan')
-    atu_sd: float = float('nan')
-    atu_hdi_lower: float = float('nan')
-    atu_hdi_upper: float = float('nan')
+    att_sd: float = float("nan")
+    att_hdi_lower: float = float("nan")
+    att_hdi_upper: float = float("nan")
+    atu_sd: float = float("nan")
+    atu_hdi_lower: float = float("nan")
+    atu_hdi_upper: float = float("nan")
     # v0.9.15: posterior P(ATT > 0) / P(ATU > 0). NaN by default so
     # results deserialised from earlier snapshots do not break; when
     # v0.9.15+ bayes_mte fits, these scalars are populated from the
     # per-draw ATT / ATU posterior and exposed via
     # ``tidy(terms=['att', 'atu'])``.
-    att_prob_positive: float = float('nan')
-    atu_prob_positive: float = float('nan')
+    att_prob_positive: float = float("nan")
+    atu_prob_positive: float = float("nan")
 
     def summary(self) -> str:
         """Printable summary with ATT/ATU uncertainty appended.
@@ -1000,23 +1020,23 @@ class BayesianMTEResult(BayesianCausalResult):
         pct = int(self.hdi_prob * 100)
         if np.isfinite(self.att_sd):
             extra.append(
-                f'  ATT: {self.att:.4f} (sd {self.att_sd:.4f}, '
-                f'{pct}% HDI [{self.att_hdi_lower:.4f}, '
-                f'{self.att_hdi_upper:.4f}])'
+                f"  ATT: {self.att:.4f} (sd {self.att_sd:.4f}, "
+                f"{pct}% HDI [{self.att_hdi_lower:.4f}, "
+                f"{self.att_hdi_upper:.4f}])"
             )
         if np.isfinite(self.atu_sd):
             extra.append(
-                f'  ATU: {self.atu:.4f} (sd {self.atu_sd:.4f}, '
-                f'{pct}% HDI [{self.atu_hdi_lower:.4f}, '
-                f'{self.atu_hdi_upper:.4f}])'
+                f"  ATU: {self.atu:.4f} (sd {self.atu_sd:.4f}, "
+                f"{pct}% HDI [{self.atu_hdi_lower:.4f}, "
+                f"{self.atu_hdi_upper:.4f}])"
             )
         if not extra:
             return base
-        block = '\n'.join(['-' * 70, 'Population-integrated effects', *extra])
-        closing = '=' * 70
+        block = "\n".join(["-" * 70, "Population-integrated effects", *extra])
+        closing = "=" * 70
         if base.endswith(closing):
-            return base[: -len(closing)] + block + '\n' + closing
-        return base + '\n' + block
+            return base[: -len(closing)] + block + "\n" + closing
+        return base + "\n" + block
 
     def tidy(
         self,
@@ -1061,12 +1081,11 @@ class BayesianMTEResult(BayesianCausalResult):
         else:
             terms_list = _normalise_terms(terms, context="Bayesian MTE tidy")
 
-        known = {'ate', 'att', 'atu'}
+        known = {"ate", "att", "atu"}
         unknown = [t for t in terms_list if t not in known]
         if unknown:
             raise MethodIncompatibility(
-                f"Unknown term(s) {unknown}; valid options are "
-                f"{sorted(known)}.",
+                f"Unknown term(s) {unknown}; valid options are " f"{sorted(known)}.",
                 recovery_hint="Request one or more of 'ate', 'att', or 'atu'.",
                 diagnostics={"unknown_terms": unknown, "valid_terms": sorted(known)},
                 alternative_functions=["sp.bayes_mte"],
@@ -1079,22 +1098,22 @@ class BayesianMTEResult(BayesianCausalResult):
             # plain ``tidy()`` produce *byte-identical* rows for the
             # ATE term. Mixing short/long labels inside the same concat
             # pipeline was the original divergence concern.
-            if term == 'ate':
+            if term == "ate":
                 term_label = self.estimand.lower()
                 est = self.posterior_mean
                 sd = self.posterior_sd
                 lo = self.hdi_lower
                 hi = self.hdi_upper
                 pp = self.prob_positive
-            elif term == 'att':
-                term_label = 'att'
+            elif term == "att":
+                term_label = "att"
                 est = self.att
                 sd = self.att_sd
                 lo = self.att_hdi_lower
                 hi = self.att_hdi_upper
                 pp = self.att_prob_positive
             else:  # 'atu'
-                term_label = 'atu'
+                term_label = "atu"
                 est = self.atu
                 sd = self.atu_sd
                 lo = self.atu_hdi_lower
@@ -1106,15 +1125,15 @@ class BayesianMTEResult(BayesianCausalResult):
                 else np.nan
             )
             return {
-                'term': term_label,
-                'estimate': est,
-                'std_error': sd,
-                'statistic': stat,
-                'p_value': np.nan,
-                'conf_low': lo,
-                'conf_high': hi,
-                'prob_positive': pp,
-                'hdi_prob': self.hdi_prob,
+                "term": term_label,
+                "estimate": est,
+                "std_error": sd,
+                "statistic": stat,
+                "p_value": np.nan,
+                "conf_low": lo,
+                "conf_high": hi,
+                "prob_positive": pp,
+                "hdi_prob": self.hdi_prob,
             }
 
         return pd.DataFrame([_row(t) for t in terms_list])
@@ -1122,7 +1141,7 @@ class BayesianMTEResult(BayesianCausalResult):
     def policy_effect(
         self,
         weight_fn: Any,
-        label: str = 'policy',
+        label: str = "policy",
         rope: Optional[Tuple[float, float]] = None,
     ) -> Dict[str, Any]:
         """Posterior summary of a policy-relevant treatment effect.
@@ -1169,7 +1188,7 @@ class BayesianMTEResult(BayesianCausalResult):
                 diagnostics={"type": type(weight_fn).__name__},
                 alternative_functions=["sp.bayes_mte"],
             )
-        b_mte_post = self.trace.posterior['b_mte'].values
+        b_mte_post = self.trace.posterior["b_mte"].values
         poly_u = b_mte_post.shape[-1] - 1
         flat = b_mte_post.reshape(-1, poly_u + 1)
         u = np.asarray(self.u_grid, dtype=float)
@@ -1193,13 +1212,14 @@ class BayesianMTEResult(BayesianCausalResult):
         # so the abscissa-powers must be built on v, not u. The
         # weight_fn is still passed u (the natural scale for users)
         # but we transform internally before dotting with b_mte.
-        if self.selection == 'normal':
+        if self.selection == "normal":
             from scipy.stats import norm as _norm_dist
+
             abscissa = _norm_dist.ppf(np.clip(u, PROBIT_CLIP, 1 - PROBIT_CLIP))
         else:
             abscissa = u
-        u_pow = np.column_stack([abscissa ** k for k in range(poly_u + 1)])
-        mte_samples = flat @ u_pow.T         # (S, n_grid)
+        u_pow = np.column_stack([abscissa**k for k in range(poly_u + 1)])
+        mte_samples = flat @ u_pow.T  # (S, n_grid)
         try:
             weights = np.asarray(weight_fn(u), dtype=float)
         except (TypeError, ValueError) as exc:
@@ -1259,17 +1279,17 @@ class BayesianMTEResult(BayesianCausalResult):
 
         hdi = _az_hdi_compat(policy_samples, hdi_prob=self.hdi_prob)
         summary = {
-            'label': label,
-            'estimate': float(np.mean(policy_samples)),
-            'std_error': float(np.std(policy_samples, ddof=1)),
-            'hdi_low': float(hdi[0]),
-            'hdi_high': float(hdi[1]),
-            'prob_positive': float(np.mean(policy_samples > 0)),
+            "label": label,
+            "estimate": float(np.mean(policy_samples)),
+            "std_error": float(np.std(policy_samples, ddof=1)),
+            "hdi_low": float(hdi[0]),
+            "hdi_high": float(hdi[1]),
+            "prob_positive": float(np.mean(policy_samples > 0)),
         }
         rope = _validate_rope(rope)
         if rope is not None:
             lo, hi = rope
-            summary['prob_rope'] = float(
+            summary["prob_rope"] = float(
                 np.mean((policy_samples > lo) & (policy_samples < hi))
             )
         return summary
@@ -1283,26 +1303,34 @@ class BayesianMTEResult(BayesianCausalResult):
         try:
             import matplotlib.pyplot as plt
         except ImportError:
-            raise ImportError(
-                "plot_mte requires matplotlib; `pip install matplotlib`."
-            )
+            raise ImportError("plot_mte requires matplotlib; `pip install matplotlib`.")
         if ax is None:
             fig, ax = plt.subplots(figsize=figsize)
         else:
             fig = ax.get_figure()
         curve = self.mte_curve
-        ax.plot(curve['u'], curve['posterior_mean'], color='#2C3E50',
-                linewidth=2, label='posterior mean')
-        ax.fill_between(curve['u'], curve['hdi_low'], curve['hdi_high'],
-                        color='#2C3E50', alpha=0.2,
-                        label=f'{int(self.hdi_prob * 100)}% HDI')
-        ax.axhline(0, color='gray', linestyle=':', linewidth=1, alpha=0.6)
-        ax.set_xlabel('Propensity to be treated ($U_D$)', fontsize=11)
-        ax.set_ylabel('MTE($u$)', fontsize=11)
-        ax.set_title('Marginal Treatment Effect', fontsize=13)
+        ax.plot(
+            curve["u"],
+            curve["posterior_mean"],
+            color="#2C3E50",
+            linewidth=2,
+            label="posterior mean",
+        )
+        ax.fill_between(
+            curve["u"],
+            curve["hdi_low"],
+            curve["hdi_high"],
+            color="#2C3E50",
+            alpha=0.2,
+            label=f"{int(self.hdi_prob * 100)}% HDI",
+        )
+        ax.axhline(0, color="gray", linestyle=":", linewidth=1, alpha=0.6)
+        ax.set_xlabel("Propensity to be treated ($U_D$)", fontsize=11)
+        ax.set_ylabel("MTE($u$)", fontsize=11)
+        ax.set_title("Marginal Treatment Effect", fontsize=13)
         ax.legend(fontsize=9, frameon=False)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         fig.tight_layout()
         return fig, ax
 
@@ -1341,23 +1369,23 @@ def _summarise_posterior(
     try:
         rhat = float(az.rhat(trace, var_names=[var_name])[var_name].values)
     except Exception:
-        rhat = float('nan')
+        rhat = float("nan")
     try:
         ess = float(az.ess(trace, var_names=[var_name])[var_name].values)
     except Exception:
-        ess = float('nan')
+        ess = float("nan")
 
     out = {
-        'posterior_mean': mean,
-        'posterior_median': median,
-        'posterior_sd': sd,
-        'hdi_lower': hdi_lower,
-        'hdi_upper': hdi_upper,
-        'prob_positive': prob_positive,
-        'rhat': rhat,
-        'ess': ess,
+        "posterior_mean": mean,
+        "posterior_median": median,
+        "posterior_sd": sd,
+        "hdi_lower": hdi_lower,
+        "hdi_upper": hdi_upper,
+        "prob_positive": prob_positive,
+        "rhat": rhat,
+        "ess": ess,
     }
     if rope is not None:
         lo, hi = rope
-        out['prob_rope'] = float(np.mean((posterior > lo) & (posterior < hi)))
+        out["prob_rope"] = float(np.mean((posterior > lo) & (posterior < hi)))
     return out

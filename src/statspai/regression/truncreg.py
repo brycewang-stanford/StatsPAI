@@ -101,7 +101,7 @@ def truncreg(
     y_data = df[y].values.astype(float)
     X_data = np.column_stack([np.ones(n), df[x_names].values.astype(float)])
     k = X_data.shape[1]
-    var_names = ['_cons'] + x_names
+    var_names = ["_cons"] + x_names
 
     def neg_log_lik(theta: np.ndarray) -> float:
         beta = theta[:k]
@@ -118,7 +118,9 @@ def truncreg(
         if ll is not None and ul is not None:
             z_ll = (ll - xb) / sigma
             z_ul = (ul - xb) / sigma
-            log_denom = np.log(np.clip(stats.norm.cdf(z_ul) - stats.norm.cdf(z_ll), 1e-20, None))
+            log_denom = np.log(
+                np.clip(stats.norm.cdf(z_ul) - stats.norm.cdf(z_ll), 1e-20, None)
+            )
         elif ll is not None:
             z_ll = (ll - xb) / sigma
             log_denom = np.log(np.clip(1 - stats.norm.cdf(z_ll), 1e-20, None))
@@ -136,8 +138,9 @@ def truncreg(
     sigma_init = np.std(resid)
     theta0 = np.concatenate([beta_init, [np.log(max(sigma_init, 0.1))]])
 
-    result = minimize(neg_log_lik, theta0, method='BFGS',
-                      options={'maxiter': maxiter, 'gtol': tol})
+    result = minimize(
+        neg_log_lik, theta0, method="BFGS", options={"maxiter": maxiter, "gtol": tol}
+    )
     # BFGS often reports status-2 ("precision loss") at a good optimum;
     # derive ``converged`` from the gradient norm (see robust_convergence).
     converged, grad_norm = robust_convergence(result)
@@ -172,7 +175,7 @@ def truncreg(
     except np.linalg.LinAlgError:
         se = np.full(k_total, np.nan)
 
-    all_names = var_names + ['ln_sigma']
+    all_names = var_names + ["ln_sigma"]
     all_params = np.concatenate([beta_hat, [theta_hat[k]]])
 
     params = pd.Series(all_params, index=all_names)
@@ -184,22 +187,22 @@ def truncreg(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': 'Truncated Regression',
-            'lower_limit': ll,
-            'upper_limit': ul,
-            'sigma': sigma_hat,
-            'converged': converged,
-            'gradient_norm': grad_norm,
+            "model_type": "Truncated Regression",
+            "lower_limit": ll,
+            "upper_limit": ul,
+            "sigma": sigma_hat,
+            "converged": converged,
+            "gradient_norm": grad_norm,
         },
         data_info={
-            'n_obs': n,
-            'dep_var': y,
-            'df_resid': n - k - 1,
+            "n_obs": n,
+            "dep_var": y,
+            "df_resid": n - k - 1,
         },
         diagnostics={
-            'log_likelihood': ll_val,
-            'sigma': sigma_hat,
-            'aic': -2 * ll_val + 2 * k_total,
-            'bic': -2 * ll_val + np.log(n) * k_total,
+            "log_likelihood": ll_val,
+            "sigma": sigma_hat,
+            "aic": -2 * ll_val + 2 * k_total,
+            "bic": -2 * ll_val + np.log(n) * k_total,
         },
     )

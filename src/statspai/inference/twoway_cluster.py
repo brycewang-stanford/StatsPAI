@@ -26,8 +26,6 @@ Liang, K.-Y. and Zeger, S.L. (1986).
 *Biometrika*, 73(1), 13-22. [@liang1986longitudinal]
 """
 
-from typing import Optional, Dict
-
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -35,8 +33,9 @@ from scipy import stats
 from ..core.results import EconometricResults
 
 
-def _cluster_robust_variance(X: np.ndarray, residuals: np.ndarray,
-                             clusters: np.ndarray) -> np.ndarray:
+def _cluster_robust_variance(
+    X: np.ndarray, residuals: np.ndarray, clusters: np.ndarray
+) -> np.ndarray:
     """
     One-way cluster-robust variance matrix (Liang-Zeger 1986).
 
@@ -49,6 +48,7 @@ def _cluster_robust_variance(X: np.ndarray, residuals: np.ndarray,
     cluster labels.
     """
     from ..core._vcov import cluster_robust_vcov
+
     return cluster_robust_vcov(X, residuals, clusters, correction="liang_zeger")
 
 
@@ -121,8 +121,8 @@ def twoway_cluster(
     >>> print(tw.summary())  # doctest: +SKIP
     """
     # --- Extract estimation objects ---
-    X = np.asarray(result.data_info['X'])
-    residuals = np.asarray(result.data_info['residuals'])
+    X = np.asarray(result.data_info["X"])
+    residuals = np.asarray(result.data_info["residuals"])
 
     c1 = data[cluster1].values
     c2 = data[cluster2].values
@@ -130,6 +130,7 @@ def twoway_cluster(
     # Reuse the N-way core so intersection keys are factorized tuple-wise
     # instead of built from collision-prone string concatenation.
     from .multiway_cluster import multiway_cluster_vcov
+
     V_twoway = multiway_cluster_vcov(
         X,
         residuals,
@@ -147,15 +148,15 @@ def twoway_cluster(
     df_resid = min(G1, G2) - 1  # Conservative DoF
 
     model_info = dict(result.model_info)
-    model_info['se_type'] = 'twoway_cluster'
-    model_info['cluster1'] = cluster1
-    model_info['cluster2'] = cluster2
-    model_info['n_clusters1'] = G1
-    model_info['n_clusters2'] = G2
+    model_info["se_type"] = "twoway_cluster"
+    model_info["cluster1"] = cluster1
+    model_info["cluster2"] = cluster2
+    model_info["n_clusters1"] = G1
+    model_info["n_clusters2"] = G2
 
     data_info = dict(result.data_info)
-    data_info['df_resid'] = df_resid
-    data_info['vcov'] = V_twoway
+    data_info["df_resid"] = df_resid
+    data_info["vcov"] = V_twoway
 
     new_result = EconometricResults(
         params=result.params.copy(),

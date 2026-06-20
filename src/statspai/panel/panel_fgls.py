@@ -28,8 +28,8 @@ def panel_fgls(
     data: pd.DataFrame,
     y: str,
     x: List[str],
-    id: str = 'id',
-    time: str = 'time',
+    id: str = "id",
+    time: str = "time",
     panels: str = "heteroskedastic",
     corr: str = "independent",
     maxiter: int = 100,
@@ -101,7 +101,7 @@ def panel_fgls(
     X_data = np.column_stack([np.ones(len(df)), df[x].values.astype(float)])
     n_total = len(df)
     k_total = X_data.shape[1]
-    var_names = ['_cons'] + list(x)
+    var_names = ["_cons"] + list(x)
 
     # Step 1: OLS to get initial residuals
     beta_ols = np.linalg.lstsq(X_data, y_data, rcond=None)[0]
@@ -124,12 +124,16 @@ def panel_fgls(
         Ti = len(e)
         sigma2_i[u] = np.sum(e**2) / Ti
 
-        if corr in ['ar1', 'psar1'] and Ti > 1:
-            rho_i[u] = np.sum(e[1:] * e[:-1]) / np.sum(e[:-1]**2) if np.sum(e[:-1]**2) > 0 else 0
+        if corr in ["ar1", "psar1"] and Ti > 1:
+            rho_i[u] = (
+                np.sum(e[1:] * e[:-1]) / np.sum(e[:-1] ** 2)
+                if np.sum(e[:-1] ** 2) > 0
+                else 0
+            )
         else:
             rho_i[u] = 0
 
-    if corr == 'psar1':
+    if corr == "psar1":
         # Common AR(1) coefficient
         rho_common = np.mean(list(rho_i.values()))
         rho_i = {u: rho_common for u in units}
@@ -150,7 +154,7 @@ def panel_fgls(
             yi = y_data[idx]
             Ti = len(idx)
 
-            if panels == 'homoskedastic':
+            if panels == "homoskedastic":
                 s2 = np.mean(list(sigma2_i.values()))
             else:
                 s2 = sigma2_i[u]
@@ -167,9 +171,9 @@ def panel_fgls(
                 for t in range(1, Ti - 1):
                     Oi_inv[t, t] = 1 + rho**2
                 for t in range(Ti - 1):
-                    Oi_inv[t, t+1] = -rho
-                    Oi_inv[t+1, t] = -rho
-                Oi_inv /= (s2 * (1 - rho**2))
+                    Oi_inv[t, t + 1] = -rho
+                    Oi_inv[t + 1, t] = -rho
+                Oi_inv /= s2 * (1 - rho**2)
             else:
                 Oi_inv = np.eye(Ti) / s2
 
@@ -189,10 +193,14 @@ def panel_fgls(
             e = resid_new[idx]
             Ti = len(e)
             sigma2_i[u] = np.sum(e**2) / Ti
-            if corr in ['ar1', 'psar1'] and Ti > 1:
-                rho_i[u] = np.sum(e[1:] * e[:-1]) / np.sum(e[:-1]**2) if np.sum(e[:-1]**2) > 0 else 0
+            if corr in ["ar1", "psar1"] and Ti > 1:
+                rho_i[u] = (
+                    np.sum(e[1:] * e[:-1]) / np.sum(e[:-1] ** 2)
+                    if np.sum(e[:-1] ** 2) > 0
+                    else 0
+                )
 
-        if corr == 'psar1':
+        if corr == "psar1":
             rho_common = np.mean(list(rho_i.values()))
             rho_i = {u: rho_common for u in units}
 
@@ -211,7 +219,7 @@ def panel_fgls(
 
     # R-squared
     resid_final = y_data - X_data @ beta_gls
-    tss = np.sum((y_data - y_data.mean())**2)
+    tss = np.sum((y_data - y_data.mean()) ** 2)
     rss = np.sum(resid_final**2)
     r2 = 1 - rss / tss
 
@@ -219,34 +227,40 @@ def panel_fgls(
         params=params,
         std_errors=std_errors,
         model_info={
-            'model_type': 'Panel FGLS',
-            'panels': panels,
-            'corr': corr,
-            'n_iterations': iteration + 1,
+            "model_type": "Panel FGLS",
+            "panels": panels,
+            "corr": corr,
+            "n_iterations": iteration + 1,
         },
         data_info={
-            'n_obs': n_total,
-            'n_units': N,
-            'n_periods': T,
-            'dep_var': y,
-            'df_resid': n_total - k_total,
+            "n_obs": n_total,
+            "n_units": N,
+            "n_periods": T,
+            "dep_var": y,
+            "df_resid": n_total - k_total,
         },
         diagnostics={
-            'r_squared': r2,
-            'mean_sigma2': np.mean(list(sigma2_i.values())),
-            'mean_rho': np.mean(list(rho_i.values())) if corr != 'independent' else 0,
+            "r_squared": r2,
+            "mean_sigma2": np.mean(list(sigma2_i.values())),
+            "mean_rho": np.mean(list(rho_i.values())) if corr != "independent" else 0,
         },
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.panel.panel_fgls",
             params={
-                "y": y, "x": list(x),
-                "id": id, "time": time,
-                "panels": panels, "corr": corr,
-                "maxiter": maxiter, "tol": tol, "alpha": alpha,
+                "y": y,
+                "x": list(x),
+                "id": id,
+                "time": time,
+                "panels": panels,
+                "corr": corr,
+                "maxiter": maxiter,
+                "tol": tol,
+                "alpha": alpha,
             },
             data=data,
             overwrite=False,

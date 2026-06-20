@@ -166,9 +166,7 @@ def ice(
         for _ in range(bootstrap):
             idx = rng.integers(0, n, n)
             bd = data.iloc[idx].reset_index(drop=True)
-            vals.append(
-                _ice_once(bd, treatment_cols, conf, outcome_col, strategy)
-            )
+            vals.append(_ice_once(bd, treatment_cols, conf, outcome_col, strategy))
         vals_arr = np.asarray(vals, dtype=float)
         se = float(vals_arr.std(ddof=1))
         ci = (
@@ -176,9 +174,7 @@ def ice(
             float(np.quantile(vals_arr, 0.975)),
         )
     else:
-        se = float(
-            data[outcome_col].std(ddof=1) / np.sqrt(max(len(data), 1))
-        )
+        se = float(data[outcome_col].std(ddof=1) / np.sqrt(max(len(data), 1)))
         ci = (val - 1.96 * se, val + 1.96 * se)
 
     _result = ICEResult(
@@ -189,14 +185,17 @@ def ice(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.gformula.ice",
             params={
-                "id_col": id_col, "time_col": time_col,
+                "id_col": id_col,
+                "time_col": time_col,
                 "treatment_cols": list(treatment_cols),
                 "outcome_col": outcome_col,
-                "bootstrap": bootstrap, "seed": seed,
+                "bootstrap": bootstrap,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -214,6 +213,7 @@ def gformula_ice(*args: Any, **kwargs: Any) -> ICEResult:
 # --------------------------------------------------------------------------- #
 #  Internal sequential regression
 # --------------------------------------------------------------------------- #
+
 
 def _ice_once(
     data: pd.DataFrame,
@@ -264,6 +264,4 @@ def _resolve_strategy(strategy: Any, K: int) -> list:
         return list(strategy)
     if isinstance(strategy, (int, float)):
         return [float(strategy)] * K
-    raise TypeError(
-        "treatment_strategy must be list[int|float], callable, or scalar"
-    )
+    raise TypeError("treatment_strategy must be list[int|float], callable, or scalar")

@@ -109,6 +109,7 @@ class NegativeControlResult(ResultProtocolMixin):
 # Helpers
 # --------------------------------------------------------------------
 
+
 def _design(df: pd.DataFrame, cols: Sequence[str]) -> np.ndarray:
     """Design matrix with intercept, dropping NaNs upstream."""
     n = len(df)
@@ -119,13 +120,15 @@ def _design(df: pd.DataFrame, cols: Sequence[str]) -> np.ndarray:
     return np.column_stack([np.ones(n), X])
 
 
-def _ols_with_se(y: np.ndarray, X: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+def _ols_with_se(
+    y: np.ndarray, X: np.ndarray
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """OLS with heteroskedasticity-robust (HC1) standard errors."""
     beta, *_ = np.linalg.lstsq(X, y, rcond=None)
     resid = y - X @ beta
     n, k = X.shape
     XtX_inv = np.linalg.pinv(X.T @ X)
-    meat = X.T @ (X * (resid ** 2)[:, None])
+    meat = X.T @ (X * (resid**2)[:, None])
     vcov = XtX_inv @ meat @ XtX_inv * (n / max(n - k, 1))
     se = np.sqrt(np.diag(vcov))
     return beta, se, vcov
@@ -134,6 +137,7 @@ def _ols_with_se(y: np.ndarray, X: np.ndarray) -> tuple[np.ndarray, np.ndarray, 
 # --------------------------------------------------------------------
 # Lipsitch calibration (NCO)
 # --------------------------------------------------------------------
+
 
 def negative_control_outcome(
     data: pd.DataFrame,
@@ -220,6 +224,7 @@ def negative_control_outcome(
 # Negative control exposure
 # --------------------------------------------------------------------
 
+
 def negative_control_exposure(
     data: pd.DataFrame,
     y: str,
@@ -284,6 +289,7 @@ def negative_control_exposure(
 # --------------------------------------------------------------------
 # Double negative control (Miao et al. 2018; Shi et al. 2020)
 # --------------------------------------------------------------------
+
 
 def double_negative_control(
     data: pd.DataFrame,
@@ -360,7 +366,7 @@ def double_negative_control(
     beta_2sls = np.linalg.pinv(X_hat.T @ X_full) @ X_hat.T @ yv
     resid = yv - X_full @ beta_2sls
     XtX_inv = np.linalg.pinv(X_hat.T @ X_full)
-    meat = X_hat.T @ (X_hat * (resid ** 2)[:, None])
+    meat = X_hat.T @ (X_hat * (resid**2)[:, None])
     vcov = XtX_inv @ meat @ XtX_inv.T * (n / max(n - X_full.shape[1], 1))
     se = np.sqrt(np.diag(vcov))
 
@@ -382,9 +388,9 @@ def double_negative_control(
         alpha=alpha,
         n_obs=n,
         detail={
-            "coefficients": dict(zip(
-                ["D", "NCO"] + ["const"] + cov, beta_2sls.tolist()
-            )),
+            "coefficients": dict(
+                zip(["D", "NCO"] + ["const"] + cov, beta_2sls.tolist())
+            ),
             "z_stat": z_stat,
         },
         interpretation=interp,

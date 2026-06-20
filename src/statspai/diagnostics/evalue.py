@@ -44,7 +44,6 @@ from scipy import stats as sp_stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
-
 _RATIO_MEASURES = {"RR", "OR", "HR"}
 _DIFF_MEASURES = {"MD", "SMD", "OLS", "DIFF", "RD"}
 _VALID_MEASURES = _RATIO_MEASURES | _DIFF_MEASURES
@@ -268,7 +267,7 @@ def evalue(
                 raise MethodIncompatibility(
                     "measure='OLS' requires the outcome sd > 0.",
                     diagnostics={"context": context, "sd": None},
-            )
+                )
             sd = _positive_float(sd, "sd", context)
             ols_scale = abs(delta) / sd
             est_d = estimate * ols_scale
@@ -434,8 +433,8 @@ def evalue_rd(
         rd_search = p1 - p0 * bf_search
         f_search = f + (1 - f) / bf_search
         low_search = rd_search * f_search - z * np.sqrt(
-            (s2_p1 + s2_p0 * bf_search ** 2) * f_search ** 2
-            + rd_search ** 2 * (1 - 1 / bf_search) ** 2 * s2_f
+            (s2_p1 + s2_p0 * bf_search**2) * f_search**2
+            + rd_search**2 * (1 - 1 / bf_search) ** 2 * s2_f
         )
         hit = np.where(low_search <= true)[0]
         if hit.size:
@@ -563,6 +562,7 @@ def evalue_from_result(
 # Internals
 # ======================================================================
 
+
 def _threshold(x: Optional[float], true: float = 1.0) -> Optional[float]:
     """Generalised E-value threshold (port of ``EValue:::threshold``).
 
@@ -687,8 +687,7 @@ def _interpret(
         else:
             strength = "potentially sensitive"
         lines.append(
-            f"The observed association is {strength} to unmeasured "
-            "confounding."
+            f"The observed association is {strength} to unmeasured " "confounding."
         )
         lines.append(
             "An unmeasured confounder would need to be associated with "

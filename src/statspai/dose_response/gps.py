@@ -39,10 +39,10 @@ if TYPE_CHECKING:
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def dose_response(
     data: pd.DataFrame,
@@ -51,8 +51,8 @@ def dose_response(
     covariates: List[str],
     n_dose_points: int = 20,
     dose_range: Optional[Tuple[float, float]] = None,
-    treatment_model: 'Optional[BaseEstimator]' = None,
-    outcome_model: 'Optional[BaseEstimator]' = None,
+    treatment_model: "Optional[BaseEstimator]" = None,
+    outcome_model: "Optional[BaseEstimator]" = None,
     n_bootstrap: int = 200,
     alpha: float = 0.05,
     random_state: int = 42,
@@ -107,10 +107,16 @@ def dose_response(
     >>> result.detail            # dose-response curve
     """
     est = DoseResponse(
-        data=data, y=y, treat=treat, covariates=covariates,
-        n_dose_points=n_dose_points, dose_range=dose_range,
-        treatment_model=treatment_model, outcome_model=outcome_model,
-        n_bootstrap=n_bootstrap, alpha=alpha,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        n_dose_points=n_dose_points,
+        dose_range=dose_range,
+        treatment_model=treatment_model,
+        outcome_model=outcome_model,
+        n_bootstrap=n_bootstrap,
+        alpha=alpha,
         random_state=random_state,
     )
     return est.fit()
@@ -119,6 +125,7 @@ def dose_response(
 # ======================================================================
 # DoseResponse class
 # ======================================================================
+
 
 class DoseResponse:
     """
@@ -173,13 +180,14 @@ class DoseResponse:
         covariates: List[str],
         n_dose_points: int = 20,
         dose_range: Optional[Tuple[float, float]] = None,
-        treatment_model: 'Optional[BaseEstimator]' = None,
-        outcome_model: 'Optional[BaseEstimator]' = None,
+        treatment_model: "Optional[BaseEstimator]" = None,
+        outcome_model: "Optional[BaseEstimator]" = None,
         n_bootstrap: int = 200,
         alpha: float = 0.05,
         random_state: int = 42,
     ) -> None:
         from sklearn.ensemble import GradientBoostingRegressor
+
         self.data = data
         self.y = y
         self.treat = treat
@@ -187,12 +195,18 @@ class DoseResponse:
         self.n_dose_points = n_dose_points
         self.dose_range = dose_range
         self.treatment_model = treatment_model or GradientBoostingRegressor(
-            n_estimators=200, max_depth=4, learning_rate=0.05,
-            subsample=0.8, random_state=random_state,
+            n_estimators=200,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.8,
+            random_state=random_state,
         )
         self.outcome_model = outcome_model or GradientBoostingRegressor(
-            n_estimators=200, max_depth=4, learning_rate=0.05,
-            subsample=0.8, random_state=random_state,
+            n_estimators=200,
+            max_depth=4,
+            learning_rate=0.05,
+            subsample=0.8,
+            random_state=random_state,
         )
         self.n_bootstrap = n_bootstrap
         self.alpha = alpha
@@ -227,9 +241,7 @@ class DoseResponse:
 
         for b in range(self.n_bootstrap):
             idx = rng.choice(n, size=n, replace=True)
-            boot_curves[b] = self._estimate_curve(
-                Y[idx], T[idx], X[idx], dose_grid, n
-            )
+            boot_curves[b] = self._estimate_curve(Y[idx], T[idx], X[idx], dose_grid, n)
 
         dr_se = np.std(boot_curves, axis=0, ddof=1)
         z_crit = sp_stats.norm.ppf(1 - self.alpha / 2)
@@ -261,27 +273,29 @@ class DoseResponse:
             pvalue = 0.0
         ci = (effect_iqr - z_crit * se_iqr, effect_iqr + z_crit * se_iqr)
 
-        detail = pd.DataFrame({
-            'dose': dose_grid,
-            'response': dr_curve,
-            'se': dr_se,
-            'ci_lower': ci_lower,
-            'ci_upper': ci_upper,
-            'marginal_effect': marginal_effects,
-        })
+        detail = pd.DataFrame(
+            {
+                "dose": dose_grid,
+                "response": dr_curve,
+                "se": dr_se,
+                "ci_lower": ci_lower,
+                "ci_upper": ci_upper,
+                "marginal_effect": marginal_effects,
+            }
+        )
 
         model_info = {
-            'dose_range': (float(t_lo), float(t_hi)),
-            'n_dose_points': self.n_dose_points,
-            'avg_marginal_effect': avg_marginal_effect,
-            'effect_25_to_75': effect_iqr,
-            'dose_25': float(dose_grid[idx_25]),
-            'dose_75': float(dose_grid[idx_75]),
+            "dose_range": (float(t_lo), float(t_hi)),
+            "n_dose_points": self.n_dose_points,
+            "avg_marginal_effect": avg_marginal_effect,
+            "effect_25_to_75": effect_iqr,
+            "dose_25": float(dose_grid[idx_25]),
+            "dose_75": float(dose_grid[idx_75]),
         }
 
         return CausalResult(
-            method='Dose-Response (GPS, Hirano & Imbens 2004)',
-            estimand='E[Y(t75)] - E[Y(t25)]',
+            method="Dose-Response (GPS, Hirano & Imbens 2004)",
+            estimand="E[Y(t75)] - E[Y(t25)]",
             estimate=effect_iqr,
             se=se_iqr,
             pvalue=pvalue,
@@ -290,7 +304,7 @@ class DoseResponse:
             n_obs=n,
             detail=detail,
             model_info=model_info,
-            _citation_key='dose_response',
+            _citation_key="dose_response",
         )
 
     def _estimate_curve(
@@ -303,6 +317,7 @@ class DoseResponse:
     ) -> np.ndarray:
         """Estimate E[Y(t)] at each dose level."""
         from sklearn.base import clone
+
         # Step 1: Treatment model E[T|X]
         t_model = clone(self.treatment_model)
         t_model.fit(X, T)
@@ -332,7 +347,7 @@ class DoseResponse:
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['dose_response'] = (
+CausalResult._CITATIONS["dose_response"] = (
     "@incollection{hirano2004propensity,\n"
     "  title={The Propensity Score with Continuous Treatments},\n"
     "  author={Hirano, Keisuke and Imbens, Guido W},\n"

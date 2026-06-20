@@ -13,6 +13,7 @@ slopes on each effect modifier. ``prob_positive`` on any individual
 slope answers "is the CATE systematically higher when this variable
 is higher?".
 """
+
 from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple, Union
@@ -79,9 +80,7 @@ def _prepare_hte_iv_frame(
     clean = data[uniq_cols].dropna().reset_index(drop=True)
     n = len(clean)
     if n < 40:
-        raise ValueError(
-            f"bayes_hte_iv needs at least 40 observations; got {n}."
-        )
+        raise ValueError(f"bayes_hte_iv needs at least 40 observations; got {n}.")
 
     Y = clean[y].to_numpy(dtype=float)
     D = clean[treat].to_numpy(dtype=float)
@@ -89,8 +88,15 @@ def _prepare_hte_iv_frame(
     M = clean[mod_cols].to_numpy(dtype=float)
     X = clean[cov_cols].to_numpy(dtype=float) if cov_cols else None
     return {
-        'n': n, 'Y': Y, 'D': D, 'Z': Z, 'M': M, 'X': X,
-        'iv_cols': iv_cols, 'mod_cols': mod_cols, 'cov_cols': cov_cols,
+        "n": n,
+        "Y": Y,
+        "D": D,
+        "Z": Z,
+        "M": M,
+        "X": X,
+        "iv_cols": iv_cols,
+        "mod_cols": mod_cols,
+        "cov_cols": cov_cols,
     }
 
 
@@ -106,7 +112,7 @@ def bayes_hte_iv(
     prior_hte_sigma: float = 5.0,
     prior_coef_sigma: float = 10.0,
     prior_noise: float = 5.0,
-    inference: str = 'nuts',
+    inference: str = "nuts",
     advi_iterations: int = 20000,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
@@ -161,15 +167,20 @@ def bayes_hte_iv(
     """
     pm, _ = _require_pymc()
     prep = _prepare_hte_iv_frame(
-        data, y, treat, instrument, effect_modifiers, covariates,
+        data,
+        y,
+        treat,
+        instrument,
+        effect_modifiers,
+        covariates,
     )
-    n = prep['n']
-    Y = prep['Y']
-    D = prep['D']
-    Z = prep['Z']
-    M = prep['M']
-    X = prep['X']
-    mod_cols = prep['mod_cols']
+    n = prep["n"]
+    Y = prep["Y"]
+    D = prep["D"]
+    Z = prep["Z"]
+    M = prep["M"]
+    X = prep["X"]
+    mod_cols = prep["mod_cols"]
     n_instr = Z.shape[1]
     n_mod = M.shape[1]
 
@@ -190,37 +201,51 @@ def bayes_hte_iv(
     with pm.Model() as model:
         # First stage: model pi_Z so we can report identification strength.
         pi_intercept = pm.Normal(
-            'pi_intercept', mu=0.0, sigma=prior_coef_sigma,
+            "pi_intercept",
+            mu=0.0,
+            sigma=prior_coef_sigma,
         )
         pi_Z = pm.Normal(
-            'pi_Z', mu=0.0, sigma=prior_coef_sigma, shape=n_instr,
+            "pi_Z",
+            mu=0.0,
+            sigma=prior_coef_sigma,
+            shape=n_instr,
         )
         first_stage = pi_intercept + pm.math.dot(Z, pi_Z)
         if X is not None:
             pi_X = pm.Normal(
-                'pi_X', mu=0.0, sigma=prior_coef_sigma, shape=X.shape[1],
+                "pi_X",
+                mu=0.0,
+                sigma=prior_coef_sigma,
+                shape=X.shape[1],
             )
             first_stage = first_stage + pm.math.dot(X, pi_X)
-        sigma_v = pm.HalfNormal('sigma_v', sigma=prior_noise)
-        pm.Normal('d_obs', mu=first_stage, sigma=sigma_v, observed=D)
+        sigma_v = pm.HalfNormal("sigma_v", sigma=prior_noise)
+        pm.Normal("d_obs", mu=first_stage, sigma=sigma_v, observed=D)
 
         # Heterogeneous structural equation
-        alpha = pm.Normal('alpha', mu=0.0, sigma=prior_coef_sigma)
-        tau_0 = pm.Normal('tau_0', mu=mu_late, sigma=sigma_late)
+        alpha = pm.Normal("alpha", mu=0.0, sigma=prior_coef_sigma)
+        tau_0 = pm.Normal("tau_0", mu=mu_late, sigma=sigma_late)
         tau_hte = pm.Normal(
-            'tau_hte', mu=0.0, sigma=prior_hte_sigma, shape=n_mod,
+            "tau_hte",
+            mu=0.0,
+            sigma=prior_hte_sigma,
+            shape=n_mod,
         )
         # tau(M_i) = tau_0 + tau_hte' (M_i - M_bar)
         tau_i = tau_0 + pm.math.dot(M_centered, tau_hte)
-        rho = pm.Normal('rho_cf', mu=0.0, sigma=prior_coef_sigma)
+        rho = pm.Normal("rho_cf", mu=0.0, sigma=prior_coef_sigma)
         structural = alpha + tau_i * D + rho * v_hat
         if X is not None:
             beta_X = pm.Normal(
-                'beta_X', mu=0.0, sigma=prior_coef_sigma, shape=X.shape[1],
+                "beta_X",
+                mu=0.0,
+                sigma=prior_coef_sigma,
+                shape=X.shape[1],
             )
             structural = structural + pm.math.dot(X, beta_X)
-        sigma_eps = pm.HalfNormal('sigma_eps', sigma=prior_noise)
-        pm.Normal('y_obs', mu=structural, sigma=sigma_eps, observed=Y)
+        sigma_eps = pm.HalfNormal("sigma_eps", sigma=prior_noise)
+        pm.Normal("y_obs", mu=structural, sigma=sigma_eps, observed=Y)
 
     trace = _sample_model(
         model,
@@ -236,41 +261,46 @@ def bayes_hte_iv(
 
     # Primary estimand: tau_0 (average LATE at modifier means)
     summary = _summarise_posterior(
-        trace, 'tau_0', hdi_prob=hdi_prob, rope=rope,
+        trace,
+        "tau_0",
+        hdi_prob=hdi_prob,
+        rope=rope,
     )
 
     # Build the CATE-slopes DataFrame from tau_hte
-    tau_hte_post = trace.posterior['tau_hte'].values  # (chains, draws, n_mod)
+    tau_hte_post = trace.posterior["tau_hte"].values  # (chains, draws, n_mod)
     flat = tau_hte_post.reshape(-1, n_mod)
     slope_rows = []
     _, az = _require_pymc()
     for k, name in enumerate(mod_cols):
         col = flat[:, k]
         hdi = _az_hdi_compat(col, hdi_prob=hdi_prob)
-        slope_rows.append({
-            'term': name,
-            'estimate': float(np.mean(col)),
-            'std_error': float(np.std(col, ddof=1)),
-            'hdi_low': float(hdi[0]),
-            'hdi_high': float(hdi[1]),
-            'prob_positive': float(np.mean(col > 0)),
-        })
+        slope_rows.append(
+            {
+                "term": name,
+                "estimate": float(np.mean(col)),
+                "std_error": float(np.std(col, ddof=1)),
+                "hdi_low": float(hdi[0]),
+                "hdi_high": float(hdi[1]),
+                "prob_positive": float(np.mean(col > 0)),
+            }
+        )
     cate_slopes = pd.DataFrame(slope_rows)
 
     model_info = {
-        'inference': inference,
-        'draws': draws,
-        'tune': tune,
-        'chains': chains,
-        'target_accept': target_accept,
-        'prior_late': prior_late,
-        'prior_hte_sigma': prior_hte_sigma,
-        'prior_coef_sigma': prior_coef_sigma,
-        'prior_noise': prior_noise,
-        'instruments': prep['iv_cols'],
-        'effect_modifiers': mod_cols,
-        'covariates': prep['cov_cols'],
-        'modifier_means': modifier_means.tolist(),
+        "inference": inference,
+        "draws": draws,
+        "tune": tune,
+        "chains": chains,
+        "target_accept": target_accept,
+        "prior_late": prior_late,
+        "prior_hte_sigma": prior_hte_sigma,
+        "prior_coef_sigma": prior_coef_sigma,
+        "prior_noise": prior_noise,
+        "instruments": prep["iv_cols"],
+        "effect_modifiers": mod_cols,
+        "covariates": prep["cov_cols"],
+        "modifier_means": modifier_means.tolist(),
     }
 
     result = BayesianHTEIVResult(
@@ -279,16 +309,16 @@ def bayes_hte_iv(
             f"({n_instr} instrument{'s' if n_instr > 1 else ''}, "
             f"{n_mod} modifier{'s' if n_mod > 1 else ''})"
         ),
-        estimand='LATE (avg)',
-        posterior_mean=summary['posterior_mean'],
-        posterior_median=summary['posterior_median'],
-        posterior_sd=summary['posterior_sd'],
-        hdi_lower=summary['hdi_lower'],
-        hdi_upper=summary['hdi_upper'],
-        prob_positive=summary['prob_positive'],
-        prob_rope=summary.get('prob_rope'),
-        rhat=summary['rhat'],
-        ess=summary['ess'],
+        estimand="LATE (avg)",
+        posterior_mean=summary["posterior_mean"],
+        posterior_median=summary["posterior_median"],
+        posterior_sd=summary["posterior_sd"],
+        hdi_lower=summary["hdi_lower"],
+        hdi_upper=summary["hdi_upper"],
+        prob_positive=summary["prob_positive"],
+        prob_rope=summary.get("prob_rope"),
+        rhat=summary["rhat"],
+        ess=summary["ess"],
         n_obs=n,
         hdi_prob=hdi_prob,
         trace=trace,

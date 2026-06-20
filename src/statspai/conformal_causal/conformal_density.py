@@ -57,8 +57,9 @@ class ConformalDensityResult:
     >>> isinstance(res.summary(), str)
     True
     """
-    intervals: np.ndarray           # (n_test, 2) [lower, upper]
-    point_estimate: np.ndarray      # (n_test,) median of cond density
+
+    intervals: np.ndarray  # (n_test, 2) [lower, upper]
+    point_estimate: np.ndarray  # (n_test,) median of cond density
     coverage_target: float
     n_calibration: int
     n_test: int
@@ -149,10 +150,13 @@ def conformal_density_ite(
 
     # Step 1: kernel-density estimate of f(Y | D=d) on training set
     from sklearn.linear_model import LinearRegression
-    m1 = LinearRegression().fit(X[train_idx][D[train_idx] == 1],
-                                  Y[train_idx][D[train_idx] == 1])
-    m0 = LinearRegression().fit(X[train_idx][D[train_idx] == 0],
-                                  Y[train_idx][D[train_idx] == 0])
+
+    m1 = LinearRegression().fit(
+        X[train_idx][D[train_idx] == 1], Y[train_idx][D[train_idx] == 1]
+    )
+    m0 = LinearRegression().fit(
+        X[train_idx][D[train_idx] == 0], Y[train_idx][D[train_idx] == 0]
+    )
     # Calibration residuals from each arm
     resid1 = Y[cal_idx][D[cal_idx] == 1] - m1.predict(X[cal_idx][D[cal_idx] == 1])
     resid0 = Y[cal_idx][D[cal_idx] == 0] - m0.predict(X[cal_idx][D[cal_idx] == 0])
@@ -234,13 +238,17 @@ def conformal_density_ite(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.conformal_causal.conformal_density_ite",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
-                "alpha": alpha, "bandwidth": bandwidth, "seed": seed,
+                "alpha": alpha,
+                "bandwidth": bandwidth,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

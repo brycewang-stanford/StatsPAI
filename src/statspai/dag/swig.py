@@ -72,9 +72,7 @@ class SWIGGraph:
             if v in X:
                 return v  # observation half
             # potential outcome labeled by intervention arguments:
-            args = ",".join(
-                f"{k}={val}" for k, val in self.intervention.items()
-            )
+            args = ",".join(f"{k}={val}" for k, val in self.intervention.items())
             return f"{v}({args})"
 
         for v in V:
@@ -93,11 +91,7 @@ class SWIGGraph:
 
     def counterfactual_nodes(self) -> set[str]:
         """Return only the potential-outcome / action-half labels."""
-        return {
-            v
-            for v in self.nodes
-            if "(" in v or v in self.intervention
-        }
+        return {v for v in self.nodes if "(" in v or v in self.intervention}
 
     def ascii(self) -> str:
         """Compact edge-list representation."""

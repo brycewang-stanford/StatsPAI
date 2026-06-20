@@ -247,8 +247,7 @@ def stacked_did(
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
     att_pval = (
-        float(2 * (1 - stats.norm.cdf(abs(att) / att_se)))
-        if att_se > 0 else np.nan
+        float(2 * (1 - stats.norm.cdf(abs(att) / att_se))) if att_se > 0 else np.nan
     )
     att_ci = (att - z_crit * att_se, att + z_crit * att_se)
 
@@ -257,26 +256,30 @@ def stacked_did(
     rows = []
     for k in all_ks:
         if k == -1:
-            rows.append({
-                "relative_time": int(k),
-                "att": 0.0,
-                "se": 0.0,
-                "ci_lower": 0.0,
-                "ci_upper": 0.0,
-                "pvalue": np.nan,
-            })
+            rows.append(
+                {
+                    "relative_time": int(k),
+                    "att": 0.0,
+                    "se": 0.0,
+                    "ci_lower": 0.0,
+                    "ci_upper": 0.0,
+                    "pvalue": np.nan,
+                }
+            )
         else:
             b = es_betas[k]
             s = es_se[k]
             p = float(2 * (1 - stats.norm.cdf(abs(b) / s))) if s > 0 else np.nan
-            rows.append({
-                "relative_time": int(k),
-                "att": b,
-                "se": s,
-                "ci_lower": b - z_crit * s,
-                "ci_upper": b + z_crit * s,
-                "pvalue": p,
-            })
+            rows.append(
+                {
+                    "relative_time": int(k),
+                    "att": b,
+                    "se": s,
+                    "ci_lower": b - z_crit * s,
+                    "ci_upper": b + z_crit * s,
+                    "pvalue": p,
+                }
+            )
 
     detail = pd.DataFrame(rows)
 
@@ -310,11 +313,14 @@ def stacked_did(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.stacked_did",
             params={
-                "y": y, "group": group, "time": time,
+                "y": y,
+                "group": group,
+                "time": time,
                 "first_treat": first_treat,
                 "window": list(window),
                 "controls": controls,
@@ -419,8 +425,11 @@ def _cluster_robust_vcov(
         XtX_inv = np.linalg.pinv(XtX)
 
     return cluster_robust_vcov(
-        X, residuals, cluster_ids,
-        correction="liang_zeger", XtX_inv=XtX_inv,
+        X,
+        residuals,
+        cluster_ids,
+        correction="liang_zeger",
+        XtX_inv=XtX_inv,
     )
 
 

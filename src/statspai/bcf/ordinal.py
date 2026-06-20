@@ -37,7 +37,6 @@ from ..exceptions import DataInsufficient, MethodIncompatibility
 from .bcf import bcf as _bcf_binary
 from .._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["bcf_ordinal", "BCFOrdinalResult"]
 
 CovariatesArg = Union[Sequence[str], str]
@@ -234,8 +233,7 @@ def bcf_ordinal(
             "data must be a pandas DataFrame.",
             diagnostics={"type": type(data).__name__},
             recovery_hint=(
-                "Pass a pandas DataFrame with outcome, treatment, and "
-                "covariates."
+                "Pass a pandas DataFrame with outcome, treatment, and " "covariates."
             ),
         )
     if data.empty:
@@ -260,9 +258,7 @@ def bcf_ordinal(
         raise DataInsufficient(
             f"bcf_ordinal: outcome '{y}' has fewer than 2 non-missing values.",
             recovery_hint="Provide a non-missing outcome column.",
-            diagnostics={
-                "n_nonmissing_outcome": int(pd.Series(data[y]).notna().sum())
-            },
+            diagnostics={"n_nonmissing_outcome": int(pd.Series(data[y]).notna().sum())},
             alternative_functions=_BCF_ORDINAL_ALTERNATIVES,
         )
     t_vals = np.asarray(data[treat])
@@ -310,7 +306,9 @@ def bcf_ordinal(
                 alternative_functions=_BCF_ORDINAL_ALTERNATIVES,
             )
         step = _bcf_binary(
-            sub, y=y, treat="__T_bin__",
+            sub,
+            y=y,
+            treat="__T_bin__",
             covariates=covariate_list,
             n_trees_mu=n_trees_mu,
             n_trees_tau=n_trees_tau,
@@ -335,7 +333,8 @@ def bcf_ordinal(
             cate_on_sub = np.asarray(cate_pair, dtype=float)
             se_on_sub = (
                 np.asarray(se_pair, dtype=float)
-                if se_pair is not None else np.full(len(sub), step.se)
+                if se_pair is not None
+                else np.full(len(sub), step.se)
             )
         full: np.ndarray = np.full(len(data), np.nan)
         full_se: np.ndarray = np.full(len(data), np.nan)
@@ -349,12 +348,13 @@ def bcf_ordinal(
             full_se = np.where(np.isnan(full_se), s, full_se)
 
         cum_cate = cum_cate + full
-        cum_var = cum_var + full_se ** 2
+        cum_var = cum_var + full_se**2
         cate_cols[k] = cum_cate.copy()
         cate_se_cols[k] = np.sqrt(np.maximum(cum_var, 0.0))
         ate_values[k] = float(cum_cate.mean())
         ate_ses[k] = float(np.sqrt(cum_var.mean() / max(len(data), 1)))
         from scipy.stats import norm as _norm
+
         z = _norm.ppf(1 - alpha / 2)
         ate_lower[k] = ate_values[k] - z * ate_ses[k]
         ate_upper[k] = ate_values[k] + z * ate_ses[k]
@@ -362,9 +362,7 @@ def bcf_ordinal(
 
     ate_series = pd.Series(ate_values, name="ATE", dtype=float)
     ate_se_series = pd.Series(ate_ses, name="SE", dtype=float)
-    ate_ci_df = pd.DataFrame(
-        {"lower": ate_lower, "upper": ate_upper}, dtype=float
-    )
+    ate_ci_df = pd.DataFrame({"lower": ate_lower, "upper": ate_upper}, dtype=float)
 
     return BCFOrdinalResult(
         cate=cate_cols,

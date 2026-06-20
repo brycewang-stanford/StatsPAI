@@ -140,9 +140,17 @@ def _is_causal(result: Any) -> bool:
 class _ModelData:
     """Normalised extraction from either result type."""
 
-    __slots__ = ("params", "std_errors", "tvalues", "pvalues",
-                 "conf_int_lower", "conf_int_upper", "stats", "depvar",
-                 "df_resid")
+    __slots__ = (
+        "params",
+        "std_errors",
+        "tvalues",
+        "pvalues",
+        "conf_int_lower",
+        "conf_int_upper",
+        "stats",
+        "depvar",
+        "df_resid",
+    )
 
     params: pd.Series
     std_errors: pd.Series
@@ -166,10 +174,20 @@ class _ModelData:
         depvar: str,
         df_resid: Optional[float] = None,
     ):
-        for attr, val in zip(self.__slots__,
-                             [params, std_errors, tvalues, pvalues,
-                              conf_int_lower, conf_int_upper, stats, depvar,
-                              df_resid]):
+        for attr, val in zip(
+            self.__slots__,
+            [
+                params,
+                std_errors,
+                tvalues,
+                pvalues,
+                conf_int_lower,
+                conf_int_upper,
+                stats,
+                depvar,
+                df_resid,
+            ],
+        ):
             object.__setattr__(self, attr, val)
 
 
@@ -218,15 +236,28 @@ def _extract_model_data(result: Any) -> _ModelData:
         mi = getattr(result, "model_info", {}) or {}
         stats: Dict[str, Any] = {"N": n}
         for k in (
-            "R-squared", "Adj. R-squared", "F-statistic", "AIC", "BIC",
+            "R-squared",
+            "Adj. R-squared",
+            "F-statistic",
+            "AIC",
+            "BIC",
             "Log-Likelihood",
         ):
             if k in mi:
                 stats[k] = mi[k]
         depvar = getattr(result, "method", "")
         df_resid = mi.get("df_resid") if isinstance(mi, dict) else None
-        return _ModelData(params, std_errors, tvalues, pvalues, ci_lo, ci_hi,
-                          stats, depvar, df_resid=df_resid)
+        return _ModelData(
+            params,
+            std_errors,
+            tvalues,
+            pvalues,
+            ci_lo,
+            ci_hi,
+            stats,
+            depvar,
+            df_resid=df_resid,
+        )
 
     # EconometricResults (or duck-typed equivalent)
     params = result.params
@@ -259,7 +290,11 @@ def _extract_model_data(result: Any) -> _ModelData:
     n = diag.get("N") or dinfo.get("nobs")
     stats = {"N": n}
     for k in (
-        "R-squared", "Adj. R-squared", "F-statistic", "AIC", "BIC",
+        "R-squared",
+        "Adj. R-squared",
+        "F-statistic",
+        "AIC",
+        "BIC",
         "Log-Likelihood",
     ):
         if k in diag:
@@ -270,11 +305,7 @@ def _extract_model_data(result: Any) -> _ModelData:
     # outcome vector — ols stores ``data_info['y']``, IV uses ``y``, GLM
     # uses ``endog``, advanced_iv uses ``dep_var``. When none are present
     # we silently skip rather than fabricate.
-    y_vec = (
-        dinfo.get("y")
-        if isinstance(dinfo, dict)
-        else None
-    )
+    y_vec = dinfo.get("y") if isinstance(dinfo, dict) else None
     if y_vec is None and isinstance(dinfo, dict):
         y_vec = dinfo.get("endog") or dinfo.get("dep_var") or dinfo.get("Y")
     if y_vec is not None:
@@ -297,8 +328,17 @@ def _extract_model_data(result: Any) -> _ModelData:
             df_resid = float(n) - float(len(params))
         except (TypeError, ValueError):
             df_resid = None
-    return _ModelData(params, std_errors, tvalues, pvalues, ci_lo, ci_hi,
-                      stats, depvar, df_resid=df_resid)
+    return _ModelData(
+        params,
+        std_errors,
+        tvalues,
+        pvalues,
+        ci_lo,
+        ci_hi,
+        stats,
+        depvar,
+        df_resid=df_resid,
+    )
 
 
 # Escape helpers
@@ -514,10 +554,9 @@ def esttab(
         # Construct an empty-but-valid wrapper so callers can still
         # call str() / to_text() without crashing.
         from .regression_table import regtable
+
         try:
-            empty = regtable(
-                [], title=title, notes=list(notes) if notes else None
-            )
+            empty = regtable([], title=title, notes=list(notes) if notes else None)
             return EstimateTableResult(empty, output)
         except Exception:
             # If regtable rejects empty input, surface a minimal
@@ -525,16 +564,17 @@ def esttab(
             class _Empty:
                 def to_text(self) -> str:
                     return "(no models)"
+
                 to_latex = to_html = to_markdown = to_text
 
                 def to_dataframe(self) -> pd.DataFrame:
                     return pd.DataFrame()
+
             return EstimateTableResult(_Empty(), output)
 
     if len(name_list) != len(model_list):
         raise ValueError(
-            f"Length mismatch: {len(model_list)} models but "
-            f"{len(name_list)} names."
+            f"Length mismatch: {len(model_list)} models but " f"{len(name_list)} names."
         )
 
     # Build the regtable call ─────────────────────────────────────────
@@ -567,8 +607,11 @@ def esttab(
         path = Path(filename)
         if output == "text":
             ext_map = {
-                ".tex": "latex", ".html": "html", ".htm": "html",
-                ".md": "markdown", ".csv": "csv",
+                ".tex": "latex",
+                ".html": "html",
+                ".htm": "html",
+                ".md": "markdown",
+                ".csv": "csv",
             }
             detected = ext_map.get(path.suffix.lower())
             if detected:

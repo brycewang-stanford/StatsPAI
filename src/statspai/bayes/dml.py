@@ -18,13 +18,11 @@ Two modes:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 from scipy import stats
-
-
 
 __all__ = ["bayes_dml", "BayesianDMLResult"]
 
@@ -32,6 +30,7 @@ __all__ = ["bayes_dml", "BayesianDMLResult"]
 @dataclass
 class BayesianDMLResult:
     """Bayesian DML posterior summary."""
+
     posterior_mean: float
     posterior_sd: float
     ci: tuple  # (low, high) HDI at 1 - alpha
@@ -143,6 +142,7 @@ def bayes_dml(
 
     # Delegate to existing DML for the frequentist point/SE.
     from ..dml import dml as _dml
+
     dml_res = _dml(
         data=data,
         y=y,
@@ -160,10 +160,15 @@ def bayes_dml(
         if hasattr(dml_res, "results") and "coef" in dml_res.results.columns:
             dml_point = float(dml_res.results["coef"].iloc[0])
     dml_se = float(getattr(dml_res, "se", np.nan))
-    if np.isnan(dml_se) and hasattr(dml_res, "results") and "se" in dml_res.results.columns:
+    if (
+        np.isnan(dml_se)
+        and hasattr(dml_res, "results")
+        and "se" in dml_res.results.columns
+    ):
         dml_se = float(dml_res.results["se"].iloc[0])
     if np.isnan(dml_se) or dml_se <= 0:
         from statspai.exceptions import NumericalInstability
+
         raise NumericalInstability(
             "DML returned non-positive standard error; cannot form "
             "Bayesian posterior. Check DML inputs.",
@@ -178,8 +183,8 @@ def bayes_dml(
 
     if mode == "conjugate":
         # Normal-Normal conjugate update.
-        prec_prior = 1.0 / prior_sd ** 2
-        prec_like = 1.0 / dml_se ** 2
+        prec_prior = 1.0 / prior_sd**2
+        prec_like = 1.0 / dml_se**2
         posterior_prec = prec_prior + prec_like
         posterior_mean = (
             prior_mean * prec_prior + dml_point * prec_like
@@ -237,8 +242,11 @@ def bayes_dml(
             observed=np.zeros_like(psi_a),
         )
         trace = pm.sample(
-            draws=n_samples, tune=1000, chains=2,
-            target_accept=0.9, progressbar=False,
+            draws=n_samples,
+            tune=1000,
+            chains=2,
+            target_accept=0.9,
+            progressbar=False,
             random_seed=random_state,
         )
     theta_draws = trace.posterior["theta"].values.flatten()

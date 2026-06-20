@@ -40,6 +40,7 @@ class DebiasedConformalResult:
     >>> bool(res.point_estimate.shape == (200,))
     True
     """
+
     intervals: np.ndarray
     point_estimate: np.ndarray
     coverage_target: float
@@ -142,23 +143,18 @@ def conformal_debiased_ml(
             ps[te] = float(D[tr].mean())
 
     # AIPW score per unit (debiased ITE estimate)
-    ite_db = (
-        mu1 - mu0
-        + D * (Y - mu1) / ps
-        - (1 - D) * (Y - mu0) / (1 - ps)
-    )
+    ite_db = mu1 - mu0 + D * (Y - mu1) / ps - (1 - D) * (Y - mu0) / (1 - ps)
 
     # Conformalize residuals of the AIPW score relative to its mean
     # within calibration fold (50/50 split).
     perm = rng.permutation(n)
-    cal = perm[n // 2:]
+    cal = perm[n // 2 :]
     score_cal = ite_db[cal]
     abs_resid = np.abs(score_cal - score_cal.mean())
     if len(abs_resid) < 5:
         q = float(np.std(abs_resid)) if len(abs_resid) else 1.0
     else:
-        idx = min(int(np.ceil((len(abs_resid) + 1) * (1 - alpha))),
-                  len(abs_resid)) - 1
+        idx = min(int(np.ceil((len(abs_resid) + 1) * (1 - alpha))), len(abs_resid)) - 1
         q = float(np.sort(abs_resid)[idx])
 
     if test_data is not None:
@@ -182,13 +178,17 @@ def conformal_debiased_ml(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.conformal_causal.conformal_debiased_ml",
             params={
-                "y": y, "treat": treat,
+                "y": y,
+                "treat": treat,
                 "covariates": list(covariates),
-                "alpha": alpha, "n_folds": n_folds, "seed": seed,
+                "alpha": alpha,
+                "n_folds": n_folds,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

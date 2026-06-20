@@ -81,8 +81,11 @@ def bidirectional_pci(
     >>> _ = res.summary()  # ATE recovered near the true value of 2.0
     """
     cov = list(covariates or [])
-    df = data[[y, treat] + list(proxy_z) + list(proxy_w) + cov] \
-        .dropna().reset_index(drop=True)
+    df = (
+        data[[y, treat] + list(proxy_z) + list(proxy_w) + cov]
+        .dropna()
+        .reset_index(drop=True)
+    )
     Y = df[y].to_numpy(float)
     D = df[treat].to_numpy(float)
     Z = df[list(proxy_z)].to_numpy(float)
@@ -92,7 +95,7 @@ def bidirectional_pci(
 
     # Filled by _bidir on the point-estimate call only (record=True);
     # the bootstrap replicates reuse the closure without signalling.
-    fallback_info: Dict[str, Any] = {'treatment_bridge_fallback': False}
+    fallback_info: Dict[str, Any] = {"treatment_bridge_fallback": False}
 
     def _bidir(
         Yi: np.ndarray,
@@ -119,6 +122,7 @@ def bidirectional_pci(
         # Treatment bridge: density-ratio weight via logistic on (Z, X)
         try:
             from sklearn.linear_model import LogisticRegression
+
             ZX = np.hstack([Zi, Xi])
             ps_z = LogisticRegression(max_iter=1000).fit(ZX, Di).predict_proba(ZX)[:, 1]
             ps_z = np.clip(ps_z, 0.02, 0.98)
@@ -136,8 +140,8 @@ def bidirectional_pci(
                     ConvergenceWarning,
                     stacklevel=3,
                 )
-                fallback_info['treatment_bridge_fallback'] = True
-                fallback_info['treatment_bridge_error'] = type(exc).__name__
+                fallback_info["treatment_bridge_fallback"] = True
+                fallback_info["treatment_bridge_error"] = type(exc).__name__
 
         # Combine: arithmetic mean (equally trust both bridges)
         return 0.5 * tau_outcome + 0.5 * tau_treatment
@@ -169,22 +173,27 @@ def bidirectional_pci(
         alpha=alpha,
         n_obs=n,
         model_info={
-            'estimator': 'bidirectional_pci',
-            'reference': 'Min, Zhang & Luo (2025), arXiv 2507.13965',
+            "estimator": "bidirectional_pci",
+            "reference": "Min, Zhang & Luo (2025), arXiv 2507.13965",
             **fallback_info,
         },
-        _citation_key='bidirectional_pci',
+        _citation_key="bidirectional_pci",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.proximal.bidirectional_pci",
             params={
-                "y": y, "treat": treat,
-                "proxy_z": list(proxy_z), "proxy_w": list(proxy_w),
+                "y": y,
+                "treat": treat,
+                "proxy_z": list(proxy_z),
+                "proxy_w": list(proxy_w),
                 "covariates": list(covariates) if covariates else None,
-                "alpha": alpha, "n_boot": n_boot, "seed": seed,
+                "alpha": alpha,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -194,7 +203,7 @@ def bidirectional_pci(
     return _result
 
 
-CausalResult._CITATIONS['bidirectional_pci'] = (
+CausalResult._CITATIONS["bidirectional_pci"] = (
     "@article{min2025regression,\n"
     "  title={A regression-based approach for bidirectional proximal "
     "causal inference in the presence of unmeasured confounding},\n"

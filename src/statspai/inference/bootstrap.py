@@ -23,7 +23,7 @@ Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, List, Optional
+from typing import Callable, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -179,10 +179,13 @@ def bootstrap(
         ci_lower = theta_hat - z * se
         ci_upper = theta_hat + z * se
     elif ci_method == "bca":
-        ci_lower, ci_upper = _bca_ci(theta_hat, boot_stats, data, statistic,
-                                     alpha, rng, cluster, block)
+        ci_lower, ci_upper = _bca_ci(
+            theta_hat, boot_stats, data, statistic, alpha, rng, cluster, block
+        )
     else:
-        raise ValueError(f"Unknown ci_method: {ci_method}. Use 'percentile', 'normal', or 'bca'.")
+        raise ValueError(
+            f"Unknown ci_method: {ci_method}. Use 'percentile', 'normal', or 'bca'."
+        )
 
     # Two-sided p-value (fraction of boot dist more extreme than null)
     centered = boot_stats - theta_hat  # center at estimate
@@ -202,15 +205,18 @@ def bootstrap(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bootstrap",
             params={
                 "statistic": getattr(statistic, "__name__", "anonymous"),
                 "n_boot": n_boot,
-                "cluster": cluster, "block": block,
+                "cluster": cluster,
+                "block": block,
                 "ci_method": ci_method,
-                "alpha": alpha, "seed": seed,
+                "alpha": alpha,
+                "seed": seed,
                 "null_value": null_value,
             },
             data=data,
@@ -224,6 +230,7 @@ def bootstrap(
 # ====================================================================== #
 #  Resampling strategies
 # ====================================================================== #
+
 
 def _resample(
     data: pd.DataFrame,
@@ -263,6 +270,7 @@ def _resample(
 #  BCa confidence interval
 # ====================================================================== #
 
+
 def _bca_ci(
     theta_hat: float,
     boot_stats: np.ndarray,
@@ -288,10 +296,10 @@ def _bca_ci(
         except Exception:
             jack_stats[i] = theta_hat
 
-    jack_stats = jack_stats[:min(n, 200)]
+    jack_stats = jack_stats[: min(n, 200)]
     jack_mean = np.mean(jack_stats)
     diff = jack_mean - jack_stats
-    a = np.sum(diff ** 3) / (6 * (np.sum(diff ** 2)) ** 1.5) if np.sum(diff ** 2) > 0 else 0
+    a = np.sum(diff**3) / (6 * (np.sum(diff**2)) ** 1.5) if np.sum(diff**2) > 0 else 0
 
     # Adjusted quantiles
     z_alpha = sp_stats.norm.ppf(alpha / 2)

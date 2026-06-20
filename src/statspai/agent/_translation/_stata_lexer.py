@@ -16,6 +16,7 @@ We do NOT try to handle:
 Those return ``StataParseError``; the caller surfaces a friendly
 unsupported-syntax message rather than producing a wrong translation.
 """
+
 from __future__ import annotations
 
 import re
@@ -60,7 +61,8 @@ def parse(line: str) -> StataCommand:
         raise StataParseError("empty command")
     if ";" in line:
         raise StataParseError(
-            "multi-command lines are unsupported; pass one command at a time")
+            "multi-command lines are unsupported; pass one command at a time"
+        )
 
     # Split into "<head>, <option-tail>" on the FIRST top-level comma
     # (a comma inside parentheses, e.g. ``vce(robust, oim)``, doesn't
@@ -72,11 +74,14 @@ def parse(line: str) -> StataCommand:
     # and warn; the cmd map will surface "by-prefix unsupported" if
     # relevant. We keep the parser simple: drop everything before the
     # first ``: `` outside parens.
-    prefix_match = re.match(r"^(by\s+[^:]*?:|capture\s*:|quietly\s*:|"
-                              r"qui\s*:|noisily\s*:)\s*", line, flags=re.I)
+    prefix_match = re.match(
+        r"^(by\s+[^:]*?:|capture\s*:|quietly\s*:|" r"qui\s*:|noisily\s*:)\s*",
+        line,
+        flags=re.I,
+    )
     if prefix_match:
         # Re-split on the post-prefix portion
-        post = line[prefix_match.end():]
+        post = line[prefix_match.end() :]
         head, opts = _split_options(post)
 
     tokens = head.split()
@@ -131,6 +136,7 @@ def parse(line: str) -> StataCommand:
 # Internals
 # ---------------------------------------------------------------------------
 
+
 def _split_options(line: str) -> Tuple[str, str]:
     """Split ``line`` on the first comma that is NOT inside parentheses.
 
@@ -144,7 +150,7 @@ def _split_options(line: str) -> Tuple[str, str]:
         elif ch == ")":
             depth = max(0, depth - 1)
         elif ch == "," and depth == 0:
-            return line[:idx].strip(), line[idx + 1:].strip()
+            return line[:idx].strip(), line[idx + 1 :].strip()
     return line.strip(), ""
 
 
@@ -184,7 +190,7 @@ def _parse_options(text: str) -> Dict[str, Optional[str]]:
                 elif text[j] == ")":
                     depth -= 1
                 j += 1
-            arg = text[i + 1:j - 1].strip() if depth == 0 else text[i + 1:j].strip()
+            arg = text[i + 1 : j - 1].strip() if depth == 0 else text[i + 1 : j].strip()
             opts[name] = arg
             i = j
         else:

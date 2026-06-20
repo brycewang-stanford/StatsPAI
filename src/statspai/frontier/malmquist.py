@@ -227,18 +227,14 @@ def malmquist(
             beta1 = period_betas[t1]
             beta2 = period_betas[t2]
 
-            log_D_t_xt_yt = _log_distance(
-                x1.reshape(1, -1), np.array([yv1]), beta1
-            )[0]
-            log_D_tp_xtp_ytp = _log_distance(
-                x2.reshape(1, -1), np.array([yv2]), beta2
-            )[0]
-            log_D_t_xtp_ytp = _log_distance(
-                x2.reshape(1, -1), np.array([yv2]), beta1
-            )[0]
-            log_D_tp_xt_yt = _log_distance(
-                x1.reshape(1, -1), np.array([yv1]), beta2
-            )[0]
+            log_D_t_xt_yt = _log_distance(x1.reshape(1, -1), np.array([yv1]), beta1)[0]
+            log_D_tp_xtp_ytp = _log_distance(x2.reshape(1, -1), np.array([yv2]), beta2)[
+                0
+            ]
+            log_D_t_xtp_ytp = _log_distance(x2.reshape(1, -1), np.array([yv2]), beta1)[
+                0
+            ]
+            log_D_tp_xt_yt = _log_distance(x1.reshape(1, -1), np.array([yv1]), beta2)[0]
 
             # Output-oriented Malmquist index.
             if cost:
@@ -256,8 +252,7 @@ def malmquist(
                 )
 
             log_M = 0.5 * (
-                (log_D_t_xtp_ytp - log_D_t_xt_yt)
-                + (log_D_tp_xtp_ytp - log_D_tp_xt_yt)
+                (log_D_t_xtp_ytp - log_D_t_xt_yt) + (log_D_tp_xtp_ytp - log_D_tp_xt_yt)
             )
             log_EC = log_D_tp_xtp_ytp - log_D_t_xt_yt
             log_TC = log_M - log_EC
@@ -285,6 +280,7 @@ def malmquist(
     # summary. We replace values above `overflow_threshold` with NaN so
     # that `.mean()` / `.std()` skip them cleanly.
     import warnings as _warnings
+
     overflow_mask = pd.DataFrame(
         False, index=index_table.index, columns=["m_index", "ec", "tc"]
     )
@@ -412,7 +408,7 @@ def translog_design(
 
     if include_interactions:
         for i, k in enumerate(inputs):
-            for other in inputs[i + 1:]:
+            for other in inputs[i + 1 :]:
                 col = f"{interaction_prefix}{k}_x_{other}"
                 df[col] = df[k] * df[other]
                 added.append(col)

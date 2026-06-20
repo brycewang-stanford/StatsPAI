@@ -40,8 +40,8 @@ def mediate(
     covariates: Optional[List[str]] = None,
     n_boot: int = 1000,
     alpha: float = 0.05,
-    inference: str = 'bootstrap',
-    pvalue_method: str = 'bootstrap_sign',
+    inference: str = "bootstrap",
+    pvalue_method: str = "bootstrap_sign",
     seed: int = 42,
 ) -> CausalResult:
     """
@@ -116,32 +116,42 @@ def mediate(
     >>> result.method
     'Causal Mediation Analysis'
     """
-    if inference not in ('bootstrap', 'delta'):
-        raise ValueError(
-            f"inference must be 'bootstrap' or 'delta'; got {inference!r}"
-        )
-    if pvalue_method not in ('bootstrap_sign', 'wald'):
+    if inference not in ("bootstrap", "delta"):
+        raise ValueError(f"inference must be 'bootstrap' or 'delta'; got {inference!r}")
+    if pvalue_method not in ("bootstrap_sign", "wald"):
         raise ValueError(
             f"pvalue_method must be 'bootstrap_sign' or 'wald'; "
             f"got {pvalue_method!r}"
         )
     analysis = MediationAnalysis(
-        data=data, y=y, treat=treat, mediator=mediator,
-        covariates=covariates, n_boot=n_boot, alpha=alpha,
-        inference=inference, pvalue_method=pvalue_method, seed=seed,
+        data=data,
+        y=y,
+        treat=treat,
+        mediator=mediator,
+        covariates=covariates,
+        n_boot=n_boot,
+        alpha=alpha,
+        inference=inference,
+        pvalue_method=pvalue_method,
+        seed=seed,
     )
     _result = analysis.fit()
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.mediate",
             params={
-                "y": y, "treat": treat, "mediator": mediator,
+                "y": y,
+                "treat": treat,
+                "mediator": mediator,
                 "covariates": list(covariates) if covariates else None,
-                "n_boot": n_boot, "alpha": alpha,
+                "n_boot": n_boot,
+                "alpha": alpha,
                 "inference": inference,
-                "pvalue_method": pvalue_method, "seed": seed,
+                "pvalue_method": pvalue_method,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -185,15 +195,15 @@ class MediationAnalysis:
         covariates: Optional[List[str]] = None,
         n_boot: int = 1000,
         alpha: float = 0.05,
-        inference: str = 'bootstrap',
-        pvalue_method: str = 'bootstrap_sign',
+        inference: str = "bootstrap",
+        pvalue_method: str = "bootstrap_sign",
         seed: int = 42,
     ) -> None:
-        if inference not in ('bootstrap', 'delta'):
+        if inference not in ("bootstrap", "delta"):
             raise ValueError(
                 f"inference must be 'bootstrap' or 'delta'; got {inference!r}"
             )
-        if pvalue_method not in ('bootstrap_sign', 'wald'):
+        if pvalue_method not in ("bootstrap_sign", "wald"):
             raise ValueError(
                 f"pvalue_method must be 'bootstrap_sign' or 'wald'; "
                 f"got {pvalue_method!r}"
@@ -237,7 +247,7 @@ class MediationAnalysis:
 
         lo = self.alpha / 2
         hi = 1 - self.alpha / 2
-        if self.inference == 'delta':
+        if self.inference == "delta":
             se_acme, se_ade, se_total = self._delta_standard_errors(Y, T, M, X)
             zcrit = float(stats.norm.ppf(1 - lo))
             ci_acme = (float(acme - zcrit * se_acme), float(acme + zcrit * se_acme))
@@ -249,7 +259,7 @@ class MediationAnalysis:
             n_kept = 0
             n_failed = 0
             fail_rate = 0.0
-            pvalue_method_used = 'wald'
+            pvalue_method_used = "wald"
             pv_acme = self._wald_pvalue(acme, se_acme)
             pv_ade = self._wald_pvalue(ade, se_ade)
             pv_total = self._wald_pvalue(total, se_total)
@@ -303,7 +313,8 @@ class MediationAnalysis:
                     f"Mediation bootstrap: {n_failed}/{self.n_boot} replicates "
                     f"({fail_rate:.1%}) failed after {max_retries} retries; "
                     "standard errors based on remaining draws may be unreliable.",
-                    RuntimeWarning, stacklevel=3,
+                    RuntimeWarning,
+                    stacklevel=3,
                 )
 
             boot_acme_arr = np.asarray(boot_acme, dtype=float)
@@ -315,12 +326,18 @@ class MediationAnalysis:
             se_ade = float(np.std(boot_ade_arr, ddof=1))
             se_total = float(np.std(boot_total_arr, ddof=1))
 
-            ci_acme = (float(np.percentile(boot_acme_arr, lo * 100)),
-                       float(np.percentile(boot_acme_arr, hi * 100)))
-            ci_ade = (float(np.percentile(boot_ade_arr, lo * 100)),
-                      float(np.percentile(boot_ade_arr, hi * 100)))
-            ci_total = (float(np.percentile(boot_total_arr, lo * 100)),
-                        float(np.percentile(boot_total_arr, hi * 100)))
+            ci_acme = (
+                float(np.percentile(boot_acme_arr, lo * 100)),
+                float(np.percentile(boot_acme_arr, hi * 100)),
+            )
+            ci_ade = (
+                float(np.percentile(boot_ade_arr, lo * 100)),
+                float(np.percentile(boot_ade_arr, hi * 100)),
+            )
+            ci_total = (
+                float(np.percentile(boot_total_arr, lo * 100)),
+                float(np.percentile(boot_total_arr, hi * 100)),
+            )
 
             # P-values. Dispatch on the user's declared convention so a
             # single mediate()/mediate_interventional() study can report
@@ -331,40 +348,44 @@ class MediationAnalysis:
             pv_total = self._pvalue(boot_total_arr, total, se_total)
 
         # Detail table
-        detail = pd.DataFrame({
-            'effect': [
-                'ACME (indirect)', 'ADE (direct)',
-                'Total Effect', 'Prop. Mediated',
-            ],
-            'estimate': [acme, ade, total, prop_mediated],
-            'se': [se_acme, se_ade, se_total, np.nan],
-            'ci_lower': [ci_acme[0], ci_ade[0], ci_total[0], np.nan],
-            'ci_upper': [ci_acme[1], ci_ade[1], ci_total[1], np.nan],
-            'pvalue': [pv_acme, pv_ade, pv_total, np.nan],
-        })
+        detail = pd.DataFrame(
+            {
+                "effect": [
+                    "ACME (indirect)",
+                    "ADE (direct)",
+                    "Total Effect",
+                    "Prop. Mediated",
+                ],
+                "estimate": [acme, ade, total, prop_mediated],
+                "se": [se_acme, se_ade, se_total, np.nan],
+                "ci_lower": [ci_acme[0], ci_ade[0], ci_total[0], np.nan],
+                "ci_upper": [ci_acme[1], ci_ade[1], ci_total[1], np.nan],
+                "pvalue": [pv_acme, pv_ade, pv_total, np.nan],
+            }
+        )
 
         model_info = {
-            'acme': acme,
-            'ade': ade,
-            'total_effect': total,
-            'prop_mediated': prop_mediated,
-            'n_boot_requested': self.n_boot,
-            'n_boot_successful': n_kept,
-            'n_boot_failed': n_failed,
-            'boot_failure_rate': fail_rate,
-            'inference': self.inference,
-            'se_acme': se_acme,
-            'se_ade': se_ade,
-            'se_total': se_total,
-            'ci_acme': ci_acme,
-            'ci_ade': ci_ade,
-            'ci_total': ci_total,
-            'pvalue_method': pvalue_method_used,
+            "acme": acme,
+            "ade": ade,
+            "total_effect": total,
+            "prop_mediated": prop_mediated,
+            "n_boot_requested": self.n_boot,
+            "n_boot_successful": n_kept,
+            "n_boot_failed": n_failed,
+            "boot_failure_rate": fail_rate,
+            "inference": self.inference,
+            "se_acme": se_acme,
+            "se_ade": se_ade,
+            "se_total": se_total,
+            "ci_acme": ci_acme,
+            "ci_ade": ci_ade,
+            "ci_total": ci_total,
+            "pvalue_method": pvalue_method_used,
         }
 
         return CausalResult(
-            method='Causal Mediation Analysis',
-            estimand='ACME',
+            method="Causal Mediation Analysis",
+            estimand="ACME",
             estimate=acme,
             se=se_acme,
             pvalue=pv_acme,
@@ -373,7 +394,7 @@ class MediationAnalysis:
             n_obs=n,
             detail=detail,
             model_info=model_info,
-            _citation_key='mediation',
+            _citation_key="mediation",
         )
 
     def _estimate_effects(
@@ -420,7 +441,7 @@ class MediationAnalysis:
         b2 = b[2]  # mediator coefficient
 
         acme = a1 * b2  # indirect effect
-        ade = b1         # direct effect
+        ade = b1  # direct effect
         total = acme + ade
 
         return float(acme), float(ade), float(total)
@@ -485,7 +506,7 @@ class MediationAnalysis:
         se: float,
     ) -> float:
         """Per-effect p-value using the convention declared by self.pvalue_method."""
-        if self.pvalue_method == 'wald':
+        if self.pvalue_method == "wald":
             return self._wald_pvalue(point, se)
         return self._boot_pvalue(boot_samples)
 
@@ -494,7 +515,7 @@ class MediationAnalysis:
         if se and se > 0 and np.isfinite(point):
             z = point / se
             return float(2 * (1 - stats.norm.cdf(abs(z))))
-        return float('nan')
+        return float("nan")
 
     @staticmethod
     def _boot_pvalue(boot_samples: np.ndarray) -> float:
@@ -510,7 +531,7 @@ class MediationAnalysis:
 
 
 # Citation
-CausalResult._CITATIONS['mediation'] = (
+CausalResult._CITATIONS["mediation"] = (
     "@article{imai2010general,\n"
     "  title={A General Approach to Causal Mediation Analysis},\n"
     "  author={Imai, Kosuke and Keele, Luke and Tingley, Dustin},\n"
@@ -534,7 +555,7 @@ def mediate_interventional(
     n_mc: int = 500,
     n_boot: int = 500,
     alpha: float = 0.05,
-    pvalue_method: str = 'bootstrap_sign',
+    pvalue_method: str = "bootstrap_sign",
     seed: int = 42,
 ) -> CausalResult:
     """
@@ -643,7 +664,7 @@ def mediate_interventional(
     mediator-outcome confounder." *Epidemiology*, 25(2), 300-306.
     [@vanderweele2014effect]
     """
-    if pvalue_method not in ('bootstrap_sign', 'wald'):
+    if pvalue_method not in ("bootstrap_sign", "wald"):
         raise ValueError(
             f"pvalue_method must be 'bootstrap_sign' or 'wald'; "
             f"got '{pvalue_method}'"
@@ -661,13 +682,9 @@ def mediate_interventional(
     if not set(np.unique(D)).issubset({0, 1}):
         raise ValueError("treat must be binary (0/1).")
 
-    X_base = (
-        df[covariates].values.astype(float) if covariates
-        else np.zeros((n, 0))
-    )
+    X_base = df[covariates].values.astype(float) if covariates else np.zeros((n, 0))
     X_tv = (
-        df[tv_confounders].values.astype(float) if tv_confounders
-        else np.zeros((n, 0))
+        df[tv_confounders].values.astype(float) if tv_confounders else np.zeros((n, 0))
     )
 
     def _compute(
@@ -704,9 +721,9 @@ def mediate_interventional(
         # x_base drawn from the empirical marginal; m drawn from the
         # conditional Gaussian given D=d and that x_base row.
         sample_idx = rng.integers(0, n_, size=n_mc)
-        Xb_pool = Xb_[sample_idx]                                   # (n_mc, p_base)
+        Xb_pool = Xb_[sample_idx]  # (n_mc, p_base)
         eps = rng.standard_normal(n_mc)
-        base_effect_m = Xb_pool @ beta_m_base                       # (n_mc,)
+        base_effect_m = Xb_pool @ beta_m_base  # (n_mc,)
         draws_d1 = alpha_m + delta_m * 1.0 + base_effect_m + sigma_m * eps
         draws_d0 = alpha_m + delta_m * 0.0 + base_effect_m + sigma_m * eps
 
@@ -714,7 +731,7 @@ def mediate_interventional(
         # vectorize. The expectation over the original units' X_tv rows
         # reduces to b_tv · mean(X_tv) because the outcome is additive.
         tv_contrib = float(b_tv @ Xtv_.mean(axis=0)) if p_tv else 0.0
-        base_mean_pool = Xb_pool @ b_base                           # (n_mc,)
+        base_mean_pool = Xb_pool @ b_base  # (n_mc,)
 
         def _EY(d_val: float, m_draws: np.ndarray) -> float:
             # b0 + bD*d + bM*m + b_base·x_base + b_tv·mean(X_tv)
@@ -743,9 +760,7 @@ def mediate_interventional(
     for b in range(n_boot):
         idx = rng.integers(0, n, size=n)
         try:
-            a, d, t = _compute(
-                Y[idx], D[idx], M[idx], X_base[idx], X_tv[idx], rng
-            )
+            a, d, t = _compute(Y[idx], D[idx], M[idx], X_base[idx], X_tv[idx], rng)
             boot_iie[b], boot_ide[b], boot_total[b] = a, d, t
         except Exception as e:
             n_failed += 1
@@ -778,16 +793,16 @@ def mediate_interventional(
         hi = float(np.nanpercentile(boot, 100 * (1 - alpha / 2)))
         boot_clean = boot[~np.isnan(boot)]
         if len(boot_clean) == 0:
-            return se, (lo, hi), float('nan')
+            return se, (lo, hi), float("nan")
 
-        if pvalue_method == 'wald':
+        if pvalue_method == "wald":
             # Conventional Wald p-value: 2 * (1 - Φ(|θ̂/ŝe|)).
             # Consistent with sp.aipw / sp.dml family.
             if se > 0:
                 z = point / se
                 p = float(2 * (1 - stats.norm.cdf(abs(z))))
             else:
-                p = float('nan')
+                p = float("nan")
             return se, (lo, hi), p
 
         # 'bootstrap_sign' (default): bootstrap CI-inversion p-value.
@@ -802,36 +817,40 @@ def mediate_interventional(
     se_d, ci_d, pv_d = _ci_pv(boot_ide, ide_hat)
     se_t, ci_t, pv_t = _ci_pv(boot_total, total_hat)
 
-    detail = pd.DataFrame({
-        'effect': ['IIE (interventional indirect)',
-                   'IDE (interventional direct)',
-                   'Total'],
-        'estimate': [iie_hat, ide_hat, total_hat],
-        'se': [se_i, se_d, se_t],
-        'ci_lower': [ci_i[0], ci_d[0], ci_t[0]],
-        'ci_upper': [ci_i[1], ci_d[1], ci_t[1]],
-        'pvalue': [pv_i, pv_d, pv_t],
-    })
+    detail = pd.DataFrame(
+        {
+            "effect": [
+                "IIE (interventional indirect)",
+                "IDE (interventional direct)",
+                "Total",
+            ],
+            "estimate": [iie_hat, ide_hat, total_hat],
+            "se": [se_i, se_d, se_t],
+            "ci_lower": [ci_i[0], ci_d[0], ci_t[0]],
+            "ci_upper": [ci_i[1], ci_d[1], ci_t[1]],
+            "pvalue": [pv_i, pv_d, pv_t],
+        }
+    )
 
     model_info = {
-        'estimator': 'Interventional (in)direct effects',
-        'iie': iie_hat,
-        'ide': ide_hat,
-        'total_effect': total_hat,
-        'n_boot': n_boot,
-        'n_boot_failed': n_failed,
-        'n_boot_success': n_success,
-        'n_mc': n_mc,
-        'pvalue_method': pvalue_method,
-        'tv_confounders': tv_confounders,
-        'covariates': covariates,
+        "estimator": "Interventional (in)direct effects",
+        "iie": iie_hat,
+        "ide": ide_hat,
+        "total_effect": total_hat,
+        "n_boot": n_boot,
+        "n_boot_failed": n_failed,
+        "n_boot_success": n_success,
+        "n_mc": n_mc,
+        "pvalue_method": pvalue_method,
+        "tv_confounders": tv_confounders,
+        "covariates": covariates,
     }
     if n_failed > 0:
-        model_info['first_bootstrap_error'] = first_err
+        model_info["first_bootstrap_error"] = first_err
 
     _result = CausalResult(
-        method='Interventional Mediation Analysis',
-        estimand='IIE',
+        method="Interventional Mediation Analysis",
+        estimand="IIE",
         estimate=iie_hat,
         se=se_i,
         pvalue=pv_i,
@@ -840,20 +859,25 @@ def mediate_interventional(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='mediation_interventional',
+        _citation_key="mediation_interventional",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.mediate_interventional",
             params={
-                "y": y, "treat": treat, "mediator": mediator,
+                "y": y,
+                "treat": treat,
+                "mediator": mediator,
                 "covariates": list(covariates) if covariates else None,
                 "tv_confounders": list(tv_confounders) if tv_confounders else None,
-                "n_mc": n_mc, "n_boot": n_boot,
+                "n_mc": n_mc,
+                "n_boot": n_boot,
                 "alpha": alpha,
-                "pvalue_method": pvalue_method, "seed": seed,
+                "pvalue_method": pvalue_method,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -863,7 +887,7 @@ def mediate_interventional(
     return _result
 
 
-CausalResult._CITATIONS['mediation_interventional'] = (
+CausalResult._CITATIONS["mediation_interventional"] = (
     "@article{vanderweele2014effect,\n"
     "  title={Effect Decomposition in the Presence of an "
     "Exposure-Induced Mediator-Outcome Confounder},\n"

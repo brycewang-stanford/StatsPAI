@@ -12,7 +12,6 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import pandas as pd
 
-
 _CORE_ACTIONS = {
     "tidy": "long coefficient/effect table",
     "glance": "one-row model summary",
@@ -89,7 +88,9 @@ def postestimation_contract(
     has_effect = all(hasattr(result, attr) for attr in ("estimate", "se", "ci"))
     has_model_data = data is not None
 
-    if callable(getattr(result, "predict", None)) or callable(getattr(result, "effect", None)):
+    if callable(getattr(result, "predict", None)) or callable(
+        getattr(result, "effect", None)
+    ):
         available["predict"] = "prediction or treatment-effect prediction"
     else:
         missing["predict"] = "result has no predict/effect method"

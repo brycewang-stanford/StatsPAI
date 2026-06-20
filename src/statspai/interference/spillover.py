@@ -32,7 +32,7 @@ def spillover(
     treat: str,
     cluster: str,
     covariates: Optional[List[str]] = None,
-    exposure_fn: str = 'fraction',
+    exposure_fn: str = "fraction",
     n_bootstrap: int = 500,
     alpha: float = 0.05,
     random_state: int = 42,
@@ -93,9 +93,14 @@ def spillover(
     True
     """
     est = SpilloverEstimator(
-        data=data, y=y, treat=treat, cluster=cluster,
-        covariates=covariates, exposure_fn=exposure_fn,
-        n_bootstrap=n_bootstrap, alpha=alpha,
+        data=data,
+        y=y,
+        treat=treat,
+        cluster=cluster,
+        covariates=covariates,
+        exposure_fn=exposure_fn,
+        n_bootstrap=n_bootstrap,
+        alpha=alpha,
         random_state=random_state,
     )
     return est.fit()
@@ -140,7 +145,7 @@ class SpilloverEstimator:
         treat: str,
         cluster: str,
         covariates: Optional[List[str]] = None,
-        exposure_fn: str = 'fraction',
+        exposure_fn: str = "fraction",
         n_bootstrap: int = 500,
         alpha: float = 0.05,
         random_state: int = 42,
@@ -237,27 +242,29 @@ class SpilloverEstimator:
             pvalue = 0.0
         ci = (total - z_crit * se_total, total + z_crit * se_total)
 
-        detail = pd.DataFrame({
-            'effect_type': ['Direct', 'Spillover', 'Total'],
-            'estimate': [direct, spillover_eff, total],
-            'se': [se_direct, se_spill, se_total],
-        })
+        detail = pd.DataFrame(
+            {
+                "effect_type": ["Direct", "Spillover", "Total"],
+                "estimate": [direct, spillover_eff, total],
+                "se": [se_direct, se_spill, se_total],
+            }
+        )
 
         model_info = {
-            'direct_effect': float(direct),
-            'direct_se': se_direct,
-            'spillover_effect': float(spillover_eff),
-            'spillover_se': se_spill,
-            'total_effect': float(total),
-            'total_se': se_total,
-            'n_clusters': n_clusters,
-            'exposure_fn': self.exposure_fn,
-            'median_exposure': float(median_exp),
+            "direct_effect": float(direct),
+            "direct_se": se_direct,
+            "spillover_effect": float(spillover_eff),
+            "spillover_se": se_spill,
+            "total_effect": float(total),
+            "total_se": se_total,
+            "n_clusters": n_clusters,
+            "exposure_fn": self.exposure_fn,
+            "median_exposure": float(median_exp),
         }
 
         return CausalResult(
-            method='Spillover Effects (Hudgens & Halloran 2008)',
-            estimand='Total Effect (Direct + Spillover)',
+            method="Spillover Effects (Hudgens & Halloran 2008)",
+            estimand="Total Effect (Direct + Spillover)",
             estimate=float(total),
             se=se_total,
             pvalue=pvalue,
@@ -266,7 +273,7 @@ class SpilloverEstimator:
             n_obs=n,
             detail=detail,
             model_info=model_info,
-            _citation_key='spillover',
+            _citation_key="spillover",
         )
 
     def _compute_exposure(
@@ -291,11 +298,11 @@ class SpilloverEstimator:
 
                 if peer_size <= 0:
                     exposure[i] = 0
-                elif self.exposure_fn == 'fraction':
+                elif self.exposure_fn == "fraction":
                     exposure[i] = peer_treated / peer_size
-                elif self.exposure_fn == 'any':
+                elif self.exposure_fn == "any":
                     exposure[i] = float(peer_treated > 0)
-                elif self.exposure_fn == 'count':
+                elif self.exposure_fn == "count":
                     exposure[i] = peer_treated
                 else:
                     exposure[i] = peer_treated / max(peer_size, 1)
@@ -314,7 +321,7 @@ def _safe_diff(
     return 0.0
 
 
-CausalResult._CITATIONS['spillover'] = (
+CausalResult._CITATIONS["spillover"] = (
     "@article{hudgens2008toward,\n"
     "  title={Toward Causal Inference with Interference},\n"
     "  author={Hudgens, Michael G and Halloran, M Elizabeth},\n"

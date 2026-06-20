@@ -20,6 +20,7 @@ Therneau, T.M. & Grambsch, P.M. (2000). *Modeling Survival Data:
 Duchateau, L. & Janssen, P. (2008). *The Frailty Model*. Springer.
 [@therneau2000modeling]
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,15 +52,11 @@ class FrailtyResult:
     # parameter stays available via ``.theta``.
     @property
     def params(self) -> pd.Series:
-        return pd.Series(
-            np.asarray(self.beta, dtype=float), index=list(self.var_names)
-        )
+        return pd.Series(np.asarray(self.beta, dtype=float), index=list(self.var_names))
 
     @property
     def std_errors(self) -> pd.Series:
-        return pd.Series(
-            np.asarray(self.se, dtype=float), index=list(self.var_names)
-        )
+        return pd.Series(np.asarray(self.se, dtype=float), index=list(self.var_names))
 
     @property
     def tvalues(self) -> pd.Series:
@@ -90,6 +87,7 @@ class FrailtyResult:
             "Coefficients:",
         ]
         from scipy import stats
+
         for nm, b, s in zip(self.var_names, self.beta, self.se):
             t = b / s if s > 0 else np.nan
             p = 2 * (1 - stats.norm.cdf(abs(t)))
@@ -192,14 +190,17 @@ def cox_frailty(
         def _penalised_nll(b: np.ndarray) -> float:
             eta = X @ b + offset
             return float(
-                _cox_neg_logpl_efron(b, X, T, E)
-                - offset @ (np.exp(eta) - eta)
+                _cox_neg_logpl_efron(b, X, T, E) - offset @ (np.exp(eta) - eta)
             )
 
         from scipy.optimize import minimize
-        opt = minimize(lambda b: _cox_neg_logpl_efron(b, X, T, E),
-                       x0=beta, method="L-BFGS-B",
-                       options={"maxiter": 20})
+
+        opt = minimize(
+            lambda b: _cox_neg_logpl_efron(b, X, T, E),
+            x0=beta,
+            method="L-BFGS-B",
+            options={"maxiter": 20},
+        )
         beta = opt.x
 
         # M-step 2: update theta via profile ML
@@ -207,6 +208,7 @@ def cox_frailty(
             if th <= 0.1:
                 return 1e15
             from scipy.special import gammaln
+
             ll = 0.0
             for g in range(n_clusters):
                 mask = cluster_idx == g
@@ -230,24 +232,36 @@ def cox_frailty(
 
     # Concordance (approximate — ignores frailties)
     from .models import _concordance_index
+
     concordance = _concordance_index(beta, X, T, E)
 
     ll = float(-_cox_neg_logpl_efron(beta, X, T, E))
 
     _result = FrailtyResult(
-        beta=beta, se=se, var_names=covariates,
-        theta=theta, frailties=z, cluster_ids=uniq_clusters,
-        log_likelihood=ll, n=n, n_events=n_events,
-        n_clusters=n_clusters, concordance=concordance,
+        beta=beta,
+        se=se,
+        var_names=covariates,
+        theta=theta,
+        frailties=z,
+        cluster_ids=uniq_clusters,
+        log_likelihood=ll,
+        n=n,
+        n_events=n_events,
+        n_clusters=n_clusters,
+        concordance=concordance,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.survival.cox_frailty",
             params={
-                "formula": formula, "cluster": cluster,
-                "alpha": alpha, "maxiter": maxiter, "tol": tol,
+                "formula": formula,
+                "cluster": cluster,
+                "alpha": alpha,
+                "maxiter": maxiter,
+                "tol": tol,
             },
             data=data,
             overwrite=False,

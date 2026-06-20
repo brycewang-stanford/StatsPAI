@@ -26,10 +26,10 @@ Examples
 ...            outcome="beta_y", outcome_se="se_y",
 ...            exposures=["beta_bmi", "beta_ldl"])
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Tuple
-
 
 # name -> (module_path, function_name) -- lazy-imported so importing the
 # dispatcher is cheap.
@@ -37,40 +37,30 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     # -- Single-exposure point estimators -------------------------- #
     "ivw": ("statspai.mendelian.mr", "mr_ivw"),
     "inverse_variance_weighted": ("statspai.mendelian.mr", "mr_ivw"),
-
     "egger": ("statspai.mendelian.mr", "mr_egger"),
     "mr_egger": ("statspai.mendelian.mr", "mr_egger"),
-
     "median": ("statspai.mendelian.mr", "mr_median"),
     "weighted_median": ("statspai.mendelian.mr", "mr_median"),
     # penalized_median is dispatched via kwargs (penalized=True) inside
     # the dispatcher; see below.
     "penalized_median": ("statspai.mendelian.mr", "mr_median"),
-
     "mode": ("statspai.mendelian.extras", "mr_mode"),
     "weighted_mode": ("statspai.mendelian.extras", "mr_mode"),
     "simple_mode": ("statspai.mendelian.extras", "mr_mode"),
-
     # -- All-methods convenience ----------------------------------- #
     "all": ("statspai.mendelian.mr", "mendelian_randomization"),
     "mr": ("statspai.mendelian.mr", "mendelian_randomization"),
-    "mendelian_randomization": ("statspai.mendelian.mr",
-                                "mendelian_randomization"),
-
+    "mendelian_randomization": ("statspai.mendelian.mr", "mendelian_randomization"),
     # -- Multi-exposure / mediation -------------------------------- #
     "mvmr": ("statspai.mendelian.multivariable", "mr_multivariable"),
     "multivariable": ("statspai.mendelian.multivariable", "mr_multivariable"),
-    "mr_multivariable": ("statspai.mendelian.multivariable",
-                         "mr_multivariable"),
-
+    "mr_multivariable": ("statspai.mendelian.multivariable", "mr_multivariable"),
     "mediation": ("statspai.mendelian.multivariable", "mr_mediation"),
     "two_step": ("statspai.mendelian.multivariable", "mr_mediation"),
     "mr_mediation": ("statspai.mendelian.multivariable", "mr_mediation"),
-
     "bma": ("statspai.mendelian.multivariable", "mr_bma"),
     "mr_bma": ("statspai.mendelian.multivariable", "mr_bma"),
     "bayesian_model_averaging": ("statspai.mendelian.multivariable", "mr_bma"),
-
     # -- Diagnostics (dispatched for agent-native discoverability) - #
     "presso": ("statspai.mendelian.diagnostics", "mr_presso"),
     "mr_presso": ("statspai.mendelian.diagnostics", "mr_presso"),
@@ -80,27 +70,21 @@ _REGISTRY: Dict[str, Tuple[str, str]] = {
     "loo": ("statspai.mendelian.diagnostics", "mr_leave_one_out"),
     "steiger": ("statspai.mendelian.diagnostics", "mr_steiger"),
     "heterogeneity": ("statspai.mendelian.diagnostics", "mr_heterogeneity"),
-    "pleiotropy_egger": ("statspai.mendelian.diagnostics",
-                         "mr_pleiotropy_egger"),
+    "pleiotropy_egger": ("statspai.mendelian.diagnostics", "mr_pleiotropy_egger"),
     "f_statistic": ("statspai.mendelian.extras", "mr_f_statistic"),
     "f_stat": ("statspai.mendelian.extras", "mr_f_statistic"),
-
     # -- v1.6 frontier: sample-overlap / clusters / profile LL / cML - #
     "lap": ("statspai.mendelian.frontier", "mr_lap"),
     "mr_lap": ("statspai.mendelian.frontier", "mr_lap"),
     "sample_overlap": ("statspai.mendelian.frontier", "mr_lap"),
-
     "clust": ("statspai.mendelian.frontier", "mr_clust"),
     "mr_clust": ("statspai.mendelian.frontier", "mr_clust"),
     "clustered": ("statspai.mendelian.frontier", "mr_clust"),
-
     "grapple": ("statspai.mendelian.frontier", "grapple"),
     "profile_likelihood": ("statspai.mendelian.frontier", "grapple"),
-
     "cml": ("statspai.mendelian.frontier", "mr_cml"),
     "mr_cml": ("statspai.mendelian.frontier", "mr_cml"),
     "constrained_ml": ("statspai.mendelian.frontier", "mr_cml"),
-
     "raps": ("statspai.mendelian.frontier", "mr_raps"),
     "mr_raps": ("statspai.mendelian.frontier", "mr_raps"),
     "robust_profile_score": ("statspai.mendelian.frontier", "mr_raps"),
@@ -178,6 +162,7 @@ def mr(method: str = "ivw", /, **kwargs: Any) -> Any:
 
     module_path, fn_name = _REGISTRY[method]
     import importlib
+
     mod = importlib.import_module(module_path)
     fn = getattr(mod, fn_name)
     return fn(**kwargs)

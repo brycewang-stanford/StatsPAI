@@ -91,7 +91,7 @@ class DIDAnalysis:
         # Bacon decomposition
         if self.bacon is not None:
             lines.append("--- Bacon Decomposition ---")
-            neg_wt = self.bacon.get('negative_weight_share', 0)
+            neg_wt = self.bacon.get("negative_weight_share", 0)
             lines.append(
                 f"  TWFE estimate          = {self.bacon.get('beta_twfe', 'N/A'):.6f}"
             )
@@ -110,9 +110,9 @@ class DIDAnalysis:
             raw_mi = self.event_study_result.model_info
             mi = raw_mi if isinstance(raw_mi, dict) else {}
             lines.append("--- Event Study ---")
-            pretrend_p = mi.get('pretrend_pvalue')
-            if pretrend_p is None and isinstance(mi.get('pretrend_test'), dict):
-                pretrend_p = mi['pretrend_test'].get('pvalue')
+            pretrend_p = mi.get("pretrend_pvalue")
+            if pretrend_p is None and isinstance(mi.get("pretrend_test"), dict):
+                pretrend_p = mi["pretrend_test"].get("pvalue")
             if pretrend_p is not None:
                 lines.append(f"  Pre-trend test p-value = {pretrend_p:.4f}")
                 if pretrend_p < 0.05:
@@ -127,9 +127,9 @@ class DIDAnalysis:
         if self.sensitivity is not None and len(self.sensitivity) > 0:
             lines.append("--- Sensitivity (Honest DID) ---")
             # Find breakdown M
-            breakdown = self.sensitivity[self.sensitivity['rejects_zero']].tail(1)
+            breakdown = self.sensitivity[self.sensitivity["rejects_zero"]].tail(1)
             if len(breakdown) > 0:
-                m_star = breakdown.iloc[0]['M']
+                m_star = breakdown.iloc[0]["M"]
                 lines.append(f"  Breakdown M* = {m_star:.4f}")
                 lines.append(
                     "  (Largest violation magnitude where effect remains significant)"
@@ -161,9 +161,9 @@ def did_analysis(
     time: str,
     id: Optional[str] = None,
     covariates: Optional[List[str]] = None,
-    method: str = 'auto',
-    estimator: str = 'dr',
-    control_group: str = 'nevertreated',
+    method: str = "auto",
+    estimator: str = "dr",
+    control_group: str = "nevertreated",
     run_bacon: bool = True,
     run_event_study: bool = True,
     run_sensitivity: bool = True,
@@ -278,27 +278,27 @@ def did_analysis(
     diag: Dict[str, Any] = {}
 
     # ── Step 1: Detect design ──────────────────────────────────────── #
-    if method == 'auto':
+    if method == "auto":
         if id is None:
             treat_vals = set(data[treat].dropna().unique())
             if treat_vals <= {0, 1, True, False}:
-                design = '2x2'
-                method = '2x2'
+                design = "2x2"
+                method = "2x2"
             else:
                 raise ValueError(
                     f"Cannot auto-detect design. Treatment '{treat}' has "
                     f"values {sorted(treat_vals)}. Provide 'id' for staggered."
                 )
         else:
-            design = 'staggered'
-            method = 'cs'
+            design = "staggered"
+            method = "cs"
         steps.append(f"Design detected: {design}")
     else:
-        design = '2x2' if method == '2x2' else 'staggered'
+        design = "2x2" if method == "2x2" else "staggered"
         steps.append(f"Design set by user: {design} (method={method})")
 
     # ── Step 2: Bacon decomposition (staggered only) ───────────────── #
-    if run_bacon and design == 'staggered' and id is not None:
+    if run_bacon and design == "staggered" and id is not None:
         try:
             bacon_data = data.copy()
             bacon_treat = "__statspai_bacon_treat__"
@@ -312,35 +312,46 @@ def did_analysis(
                 & (bacon_data[time].astype(float) >= cohort.astype(float))
             ).astype(int)
             bacon_result = bacon_decomposition(
-                bacon_data, y=y, treat=bacon_treat, time=time, id=id, alpha=alpha,
+                bacon_data,
+                y=y,
+                treat=bacon_treat,
+                time=time,
+                id=id,
+                alpha=alpha,
             )
-            neg_wt = bacon_result.get('negative_weight_share', 0)
+            neg_wt = bacon_result.get("negative_weight_share", 0)
             steps.append(
                 f"Bacon decomposition: {bacon_result.get('n_comparisons', '?')} "
                 f"sub-comparisons, negative weight = {neg_wt:.1%}"
             )
 
             # Auto-recommend method based on Bacon
-            if method == 'cs' and neg_wt > 0.1:
+            if method == "cs" and neg_wt > 0.1:
                 steps.append(
                     "⚠ High negative weights — Callaway-Sant'Anna recommended "
                     "(already selected)."
                 )
-            diag['bacon'] = bacon_result
+            diag["bacon"] = bacon_result
         except Exception as e:
             steps.append(f"Bacon decomposition skipped: {e}")
 
     # ── Step 3: Main estimation ────────────────────────────────────── #
-    if method == '2x2':
+    if method == "2x2":
         main_result = did_2x2(
-            data, y=y, treat=treat, time=time,
-            covariates=covariates, cluster=cluster,
-            robust=robust, alpha=alpha,
+            data,
+            y=y,
+            treat=treat,
+            time=time,
+            covariates=covariates,
+            cluster=cluster,
+            robust=robust,
+            alpha=alpha,
         )
-        method_label = 'DID 2×2 (OLS)'
-    elif method in ('cs', 'callaway_santanna'):
+        method_label = "DID 2×2 (OLS)"
+    elif method in ("cs", "callaway_santanna"):
         if id is None:
             from statspai.exceptions import MethodIncompatibility
+
             raise MethodIncompatibility(
                 "'id' is required for Callaway-Sant'Anna.",
                 recovery_hint=(
@@ -351,14 +362,21 @@ def did_analysis(
                 alternative_functions=["sp.did"],
             )
         main_result = callaway_santanna(
-            data, y=y, g=treat, t=time, i=id,
-            x=covariates, estimator=estimator,
-            control_group=control_group, alpha=alpha,
+            data,
+            y=y,
+            g=treat,
+            t=time,
+            i=id,
+            x=covariates,
+            estimator=estimator,
+            control_group=control_group,
+            alpha=alpha,
         )
-        method_label = f'Callaway-Sant\'Anna ({estimator.upper()})'
-    elif method in ('sa', 'sun_abraham', 'sunab'):
+        method_label = f"Callaway-Sant'Anna ({estimator.upper()})"
+    elif method in ("sa", "sun_abraham", "sunab"):
         if id is None:
             from statspai.exceptions import MethodIncompatibility
+
             raise MethodIncompatibility(
                 "'id' is required for Sun-Abraham.",
                 recovery_hint=(
@@ -369,13 +387,20 @@ def did_analysis(
                 alternative_functions=["sp.did"],
             )
         main_result = sun_abraham(
-            data, y=y, g=treat, t=time, i=id,
-            covariates=covariates, cluster=cluster, alpha=alpha,
+            data,
+            y=y,
+            g=treat,
+            t=time,
+            i=id,
+            covariates=covariates,
+            cluster=cluster,
+            alpha=alpha,
         )
-        method_label = 'Sun-Abraham (IW)'
-    elif method in ('bjs', 'did_imputation', 'borusyak_jaravel_spiess'):
+        method_label = "Sun-Abraham (IW)"
+    elif method in ("bjs", "did_imputation", "borusyak_jaravel_spiess"):
         if id is None:
             from statspai.exceptions import MethodIncompatibility
+
             raise MethodIncompatibility(
                 "'id' is required for BJS imputation.",
                 recovery_hint=(
@@ -400,21 +425,28 @@ def did_analysis(
             cluster=cluster,
             alpha=alpha,
         )
-        if bjs_horizon is not None and 'event_study' in main_result.model_info:
+        if bjs_horizon is not None and "event_study" in main_result.model_info:
             es_result = main_result
-        method_label = 'Borusyak-Jaravel-Spiess (Imputation)'
-    elif method == 'sdid':
+        method_label = "Borusyak-Jaravel-Spiess (Imputation)"
+    elif method == "sdid":
         from ..synth.sdid import sdid as _sdid
+
         # SDID requires different parameter mapping
         treat_time_vals = sorted(data.loc[data[treat] > 0, treat].unique())
         treat_time_val = treat_time_vals[0] if treat_time_vals else None
         treat_units = data.loc[data[treat] > 0, id].unique().tolist() if id else None
         main_result = _sdid(
-            data, y=y, unit=id, time=time,
-            treat_unit=treat_units, treat_time=treat_time_val,
-            method='sdid', alpha=alpha, **kwargs,
+            data,
+            y=y,
+            unit=id,
+            time=time,
+            treat_unit=treat_units,
+            treat_time=treat_time_val,
+            method="sdid",
+            alpha=alpha,
+            **kwargs,
         )
-        method_label = 'Synthetic DID (Arkhangelsky et al.)'
+        method_label = "Synthetic DID (Arkhangelsky et al.)"
     else:
         raise ValueError(f"Unknown method: '{method}'")
 
@@ -425,22 +457,28 @@ def did_analysis(
     )
 
     # ── Step 4: Event study ────────────────────────────────────────── #
-    bjs_methods = ('bjs', 'did_imputation', 'borusyak_jaravel_spiess')
+    bjs_methods = ("bjs", "did_imputation", "borusyak_jaravel_spiess")
     if (
         run_event_study
-        and design == 'staggered'
+        and design == "staggered"
         and id is not None
         and method not in bjs_methods
     ):
         try:
             window = event_window or (-4, 4)
             es_result = event_study(
-                data, y=y, treat_time=treat, time=time, unit=id,
-                window=window, cluster=cluster, alpha=alpha,
+                data,
+                y=y,
+                treat_time=treat,
+                time=time,
+                unit=id,
+                window=window,
+                cluster=cluster,
+                alpha=alpha,
             )
             raw_mi = es_result.model_info
             mi = raw_mi if isinstance(raw_mi, dict) else {}
-            pretrend_p = mi.get('pretrend_pvalue')
+            pretrend_p = mi.get("pretrend_pvalue")
             if pretrend_p is not None:
                 steps.append(
                     f"Event study: pre-trend test p = {pretrend_p:.4f}"
@@ -448,14 +486,14 @@ def did_analysis(
                 )
             else:
                 steps.append("Event study: computed (no pre-trend p-value)")
-            diag['pretrend_pvalue'] = pretrend_p
+            diag["pretrend_pvalue"] = pretrend_p
         except Exception as e:
             steps.append(f"Event study skipped: {e}")
     elif run_event_study and es_result is not None:
         raw_mi = es_result.model_info
         mi = raw_mi if isinstance(raw_mi, dict) else {}
-        pt = mi.get('pretrend_test')
-        pretrend_p = pt.get('pvalue') if isinstance(pt, dict) else None
+        pt = mi.get("pretrend_test")
+        pretrend_p = pt.get("pvalue") if isinstance(pt, dict) else None
         if pretrend_p is not None:
             steps.append(
                 f"Event study: BJS pre-trend test p = {pretrend_p:.4f}"
@@ -463,12 +501,12 @@ def did_analysis(
             )
         else:
             steps.append("Event study: BJS coefficients computed")
-        diag['pretrend_pvalue'] = pretrend_p
+        diag["pretrend_pvalue"] = pretrend_p
 
     # ── Step 5: Honest DID sensitivity ─────────────────────────────── #
     if run_sensitivity and es_result is not None:
         try:
-            sens_result = honest_did(es_result, e=0, method='smoothness', alpha=alpha)
+            sens_result = honest_did(es_result, e=0, method="smoothness", alpha=alpha)
             steps.append("Honest DID sensitivity analysis: computed")
         except Exception as e:
             steps.append(f"Sensitivity analysis skipped: {e}")

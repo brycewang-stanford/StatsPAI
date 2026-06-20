@@ -19,7 +19,6 @@ from scipy import stats
 from ._common import as_float_arrays, harmonize_signs
 from ..._result_serialize import ResultProtocolMixin
 
-
 __all__ = ["MRClustResult", "mr_clust"]
 
 
@@ -66,6 +65,7 @@ class MRClustResult(ResultProtocolMixin):
     >>> bool(len(res.assignments) == 25)
     True
     """
+
     cluster_estimates: pd.DataFrame
     assignments: np.ndarray
     responsibilities: np.ndarray
@@ -91,9 +91,7 @@ class MRClustResult(ResultProtocolMixin):
             lines.append(f"  K={k}: {self.bic[k]:.3f}{mark}")
         lines.append("")
         lines.append("Cluster estimates:")
-        lines.append(
-            self.cluster_estimates.to_string(index=False, float_format="%.4f")
-        )
+        lines.append(self.cluster_estimates.to_string(index=False, float_format="%.4f"))
         return "\n".join(lines)
 
 
@@ -120,9 +118,7 @@ def _em_gaussian_mixture(
     n = len(r)
 
     if K == 1:
-        theta_init = (
-            np.array([0.0]) if include_null else np.array([np.median(r)])
-        )
+        theta_init = np.array([0.0]) if include_null else np.array([np.median(r)])
     else:
         qs = np.linspace(0.1, 0.9, K)
         theta_init = np.quantile(r, qs)
@@ -139,7 +135,7 @@ def _em_gaussian_mixture(
         for k in range(K):
             log_comp[:, k] = (
                 np.log(pi[k] + 1e-300)
-                - 0.5 * np.log(2 * np.pi * tau ** 2)
+                - 0.5 * np.log(2 * np.pi * tau**2)
                 - 0.5 * ((r - theta[k]) / tau) ** 2
             )
         log_row_max = np.max(log_comp, axis=1, keepdims=True)
@@ -158,7 +154,7 @@ def _em_gaussian_mixture(
             if include_null and k == 0:
                 theta[k] = 0.0
             else:
-                w = resp[:, k] / tau ** 2
+                w = resp[:, k] / tau**2
                 if w.sum() <= 1e-300:
                     theta[k] = rng.normal(0, 0.1)  # reseed empty cluster
                 else:
@@ -258,9 +254,13 @@ def mr_clust(
     fits = {}
     for K in range(K_range[0], K_range[1] + 1):
         theta, pi, resp, loglik = _em_gaussian_mixture(
-            r, tau, K,
+            r,
+            tau,
+            K,
             include_null=include_null,
-            max_iter=max_iter, tol=tol, seed=seed,
+            max_iter=max_iter,
+            tol=tol,
+            seed=seed,
         )
         n_free = (K - 1) + (K - int(include_null))
         n_free = max(n_free, 0)
@@ -276,20 +276,22 @@ def mr_clust(
     z_crit = stats.norm.ppf(1 - alpha / 2)
     rows = []
     for k in range(K_best):
-        w_k = resp[:, k] / tau ** 2
+        w_k = resp[:, k] / tau**2
         if w_k.sum() <= 1e-300:
             se_k = np.inf
         else:
             se_k = float(np.sqrt(1.0 / w_k.sum()))
-        rows.append({
-            "cluster": k,
-            "estimate": float(theta[k]),
-            "se": se_k,
-            "ci_lower": float(theta[k] - z_crit * se_k),
-            "ci_upper": float(theta[k] + z_crit * se_k),
-            "weight": float(pi[k]),
-            "n_snps": int((assignments == k).sum()),
-        })
+        rows.append(
+            {
+                "cluster": k,
+                "estimate": float(theta[k]),
+                "se": se_k,
+                "ci_lower": float(theta[k] - z_crit * se_k),
+                "ci_upper": float(theta[k] + z_crit * se_k),
+                "weight": float(pi[k]),
+                "n_snps": int((assignments == k).sum()),
+            }
+        )
     cluster_df = pd.DataFrame(rows)
 
     return MRClustResult(

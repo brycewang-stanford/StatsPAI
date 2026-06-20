@@ -34,10 +34,10 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def sun_abraham(
     data: pd.DataFrame,
@@ -46,10 +46,10 @@ def sun_abraham(
     t: str,
     i: str,
     event_window: Optional[Tuple[int, int]] = None,
-    control_group: str = 'nevertreated',
+    control_group: str = "nevertreated",
     covariates: Optional[List[str]] = None,
     cluster: Optional[str] = None,
-    aggregation: str = 'event_time',
+    aggregation: str = "event_time",
     alpha: float = 0.05,
 ) -> CausalResult:
     """
@@ -120,19 +120,19 @@ def sun_abraham(
         for c in covariates:
             if c not in df.columns:
                 raise ValueError(f"Covariate '{c}' not found")
-    if control_group not in ('nevertreated', 'lastcohort'):
+    if control_group not in ("nevertreated", "lastcohort"):
         raise ValueError(
             f"control_group must be 'nevertreated' or 'lastcohort', "
             f"got {control_group!r}"
         )
     aggregation_aliases = {
-        'event_time': 'event_time',
-        'event_time_equal': 'event_time',
-        'equal_event_time': 'event_time',
-        'fixest': 'fixest_att',
-        'fixest_att': 'fixest_att',
-        'treated_cell': 'fixest_att',
-        'treated_cell_weighted': 'fixest_att',
+        "event_time": "event_time",
+        "event_time_equal": "event_time",
+        "equal_event_time": "event_time",
+        "fixest": "fixest_att",
+        "fixest_att": "fixest_att",
+        "treated_cell": "fixest_att",
+        "treated_cell_weighted": "fixest_att",
     }
     if aggregation not in aggregation_aliases:
         raise ValueError(
@@ -150,29 +150,27 @@ def sun_abraham(
         raise ValueError("No treated cohorts found in the data.")
 
     # Reference cohort: never-treated (g=0) OR last cohort.
-    if control_group == 'lastcohort':
+    if control_group == "lastcohort":
         ref_cohort = max(cohorts_all)
         cohorts = [c for c in cohorts_all if c != ref_cohort]
-        ref_mask = (df[g] == ref_cohort)
+        ref_mask = df[g] == ref_cohort
     else:
         cohorts = cohorts_all
-        ref_mask = (df[g] == 0)
+        ref_mask = df[g] == 0
 
     if not cohorts:
         raise ValueError("No non-reference cohorts available for estimation.")
     has_ref = bool(ref_mask.any())
     if not has_ref:
-        raise ValueError(
-            f"Reference group is empty (control_group={control_group!r})."
-        )
+        raise ValueError(f"Reference group is empty (control_group={control_group!r}).")
 
     cluster_col = cluster or i
 
     # Relative time (NaN for reference observations)
-    df['_rel_time'] = np.where(df[g] > 0, df[t] - df[g], np.nan)
+    df["_rel_time"] = np.where(df[g] > 0, df[t] - df[g], np.nan)
 
     if event_window is None:
-        rel_obs = df.loc[df[g] > 0, '_rel_time'].dropna()
+        rel_obs = df.loc[df[g] > 0, "_rel_time"].dropna()
         e_min = int(rel_obs.min())
         e_max = int(rel_obs.max())
     else:
@@ -187,9 +185,7 @@ def sun_abraham(
     for g_val in cohorts:
         in_cohort = (df[g] == g_val).values
         for e in rel_times:
-            X_cols.append(
-                (in_cohort & (df['_rel_time'].values == e)).astype(float)
-            )
+            X_cols.append((in_cohort & (df["_rel_time"].values == e)).astype(float))
             interact_meta.append((g_val, e))
 
     X_int = np.column_stack(X_cols)
@@ -199,17 +195,21 @@ def sun_abraham(
     unit_idx = pd.Categorical(df[i])
     time_idx = pd.Categorical(df[t])
     y_dm = _two_way_demean(df[y].values.astype(float), unit_idx, time_idx)
-    X_dm = np.column_stack([
-        _two_way_demean(X_int[:, k], unit_idx, time_idx)
-        for k in range(X_int.shape[1])
-    ])
+    X_dm = np.column_stack(
+        [
+            _two_way_demean(X_int[:, k], unit_idx, time_idx)
+            for k in range(X_int.shape[1])
+        ]
+    )
 
     if covariates:
         for c in covariates:
-            X_dm = np.column_stack([
-                X_dm,
-                _two_way_demean(df[c].values.astype(float), unit_idx, time_idx),
-            ])
+            X_dm = np.column_stack(
+                [
+                    X_dm,
+                    _two_way_demean(df[c].values.astype(float), unit_idx, time_idx),
+                ]
+            )
 
     valid = np.isfinite(y_dm) & np.all(np.isfinite(X_dm), axis=1)
     y_v = y_dm[valid]
@@ -250,15 +250,16 @@ def sun_abraham(
     es_rows = []
     for e in sorted(set(rel_times)):
         eligible = [
-            g_val for g_val in cohorts
-            if (g_val, e) in {m for m in interact_meta}
-            and (g_val + e) in time_periods
+            g_val
+            for g_val in cohorts
+            if (g_val, e) in {m for m in interact_meta} and (g_val + e) in time_periods
         ]
         if not eligible:
             continue
 
-        shares = np.array([cohort_counts.get(g_val, 0) for g_val in eligible],
-                          dtype=float)
+        shares = np.array(
+            [cohort_counts.get(g_val, 0) for g_val in eligible], dtype=float
+        )
         if shares.sum() <= 0:
             continue
         shares = shares / shares.sum()
@@ -271,37 +272,38 @@ def sun_abraham(
 
         est_e = float(w @ beta_int)
         se_e = float(np.sqrt(max(w @ V_int @ w, 0.0)))
-        pval = (float(2 * (1 - stats.norm.cdf(abs(est_e / se_e))))
-                if se_e > 0 else 1.0)
+        pval = float(2 * (1 - stats.norm.cdf(abs(est_e / se_e)))) if se_e > 0 else 1.0
 
-        es_rows.append({
-            'relative_time': e,
-            'att': est_e,
-            'se': se_e,
-            'ci_lower': est_e - z_crit * se_e,
-            'ci_upper': est_e + z_crit * se_e,
-            'pvalue': pval,
-            'n_cohorts': len(eligible),
-        })
+        es_rows.append(
+            {
+                "relative_time": e,
+                "att": est_e,
+                "se": se_e,
+                "ci_lower": est_e - z_crit * se_e,
+                "ci_upper": est_e + z_crit * se_e,
+                "pvalue": pval,
+                "n_cohorts": len(eligible),
+            }
+        )
 
     event_study = pd.DataFrame(es_rows)
 
     # ----- Overall post-treatment ATT via single linear combinations -----
-    post = event_study[event_study['relative_time'] >= 0]
+    post = event_study[event_study["relative_time"] >= 0]
     summary_stats = {
-        'event_time': (0.0, np.inf, np.zeros(k_int)),
-        'fixest_att': (0.0, np.inf, np.zeros(k_int)),
+        "event_time": (0.0, np.inf, np.zeros(k_int)),
+        "fixest_att": (0.0, np.inf, np.zeros(k_int)),
     }
     if len(post) > 0:
         # Historical StatsPAI summary: equal-weight each post relative-time
         # IW coefficient after cohort-share aggregation within that event time.
         W_event = np.zeros(k_int)
         event_total = 0.0
-        for e in post['relative_time']:
+        for e in post["relative_time"]:
             eligible = [
-                g_val for g_val in cohorts
-                if (g_val, e) in set(interact_meta)
-                and (g_val + e) in time_periods
+                g_val
+                for g_val in cohorts
+                if (g_val, e) in set(interact_meta) and (g_val + e) in time_periods
             ]
             if not eligible:
                 continue
@@ -319,17 +321,17 @@ def sun_abraham(
             W_event /= event_total
         att_event = float(W_event @ beta_int)
         se_event = float(np.sqrt(max(W_event @ V_int @ W_event, 0.0)))
-        summary_stats['event_time'] = (att_event, se_event, W_event)
+        summary_stats["event_time"] = (att_event, se_event, W_event)
 
         # fixest::summary(..., agg='att') convention: weight every observed
         # post-treatment cohort-time cell by treated cohort size.
         W_fixest = np.zeros(k_int)
         cell_total = 0.0
-        for e in post['relative_time']:
+        for e in post["relative_time"]:
             eligible = [
-                g_val for g_val in cohorts
-                if (g_val, e) in set(interact_meta)
-                and (g_val + e) in time_periods
+                g_val
+                for g_val in cohorts
+                if (g_val, e) in set(interact_meta) and (g_val + e) in time_periods
             ]
             for g_val in eligible:
                 count = float(cohort_counts.get(g_val, 0))
@@ -341,7 +343,7 @@ def sun_abraham(
             W_fixest /= cell_total
         att_fixest = float(W_fixest @ beta_int)
         se_fixest = float(np.sqrt(max(W_fixest @ V_int @ W_fixest, 0.0)))
-        summary_stats['fixest_att'] = (att_fixest, se_fixest, W_fixest)
+        summary_stats["fixest_att"] = (att_fixest, se_fixest, W_fixest)
 
     att, se_att, _ = summary_stats[aggregation_key]
 
@@ -350,25 +352,25 @@ def sun_abraham(
     ci = (att - z_crit * se_att, att + z_crit * se_att)
 
     model_info = {
-        'estimator': 'Sun-Abraham IW',
-        'control_group': control_group,
-        'event_window': (e_min, e_max),
-        'n_cohorts': len(cohorts),
-        'cohorts': cohorts,
-        'event_study': event_study,
-        'summary_aggregation': aggregation_key,
-        'att_event_time': float(summary_stats['event_time'][0]),
-        'se_event_time': float(summary_stats['event_time'][1]),
-        'att_fixest_att': float(summary_stats['fixest_att'][0]),
-        'se_fixest_att': float(summary_stats['fixest_att'][1]),
-        'se_type': f'cluster-robust on {cluster_col}',
-        'n_clusters': int(n_clust),
-        'n_coeffs': int(k_int),
+        "estimator": "Sun-Abraham IW",
+        "control_group": control_group,
+        "event_window": (e_min, e_max),
+        "n_cohorts": len(cohorts),
+        "cohorts": cohorts,
+        "event_study": event_study,
+        "summary_aggregation": aggregation_key,
+        "att_event_time": float(summary_stats["event_time"][0]),
+        "se_event_time": float(summary_stats["event_time"][1]),
+        "att_fixest_att": float(summary_stats["fixest_att"][0]),
+        "se_fixest_att": float(summary_stats["fixest_att"][1]),
+        "se_type": f"cluster-robust on {cluster_col}",
+        "n_clusters": int(n_clust),
+        "n_coeffs": int(k_int),
     }
 
     _result = CausalResult(
-        method='Sun and Abraham (2021)',
-        estimand='ATT',
+        method="Sun and Abraham (2021)",
+        estimand="ATT",
         estimate=att,
         se=se_att,
         pvalue=pvalue,
@@ -377,19 +379,24 @@ def sun_abraham(
         n_obs=len(data),
         detail=event_study,
         model_info=model_info,
-        _citation_key='sun_abraham',
+        _citation_key="sun_abraham",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.did.sun_abraham",
             params={
-                "y": y, "g": g, "t": t, "i": i,
+                "y": y,
+                "g": g,
+                "t": t,
+                "i": i,
                 "event_window": list(event_window) if event_window else None,
                 "control_group": control_group,
                 "covariates": list(covariates) if covariates else None,
-                "cluster": cluster, "aggregation": aggregation,
+                "cluster": cluster,
+                "aggregation": aggregation,
                 "alpha": alpha,
             },
             data=data,
@@ -403,6 +410,7 @@ def sun_abraham(
 # ======================================================================
 # Helpers
 # ======================================================================
+
 
 def _two_way_demean(
     x: np.ndarray,
@@ -432,10 +440,7 @@ def _two_way_demean(
         t_count = np.bincount(t_codes, minlength=n_times).clip(min=1)
         t_mean = np.bincount(t_codes, weights=x, minlength=n_times) / t_count
         x = x - t_mean[t_codes]
-        if (
-            np.nanmax(np.abs(u_mean)) < tol
-            and np.nanmax(np.abs(t_mean)) < tol
-        ):
+        if np.nanmax(np.abs(u_mean)) < tol and np.nanmax(np.abs(t_mean)) < tol:
             break
     return np.asarray(x, dtype=float)
 
@@ -443,7 +448,7 @@ def _two_way_demean(
 # ----------------------------------------------------------------------
 # Citation (redundant-safe registration)
 # ----------------------------------------------------------------------
-CausalResult._CITATIONS['sun_abraham'] = (
+CausalResult._CITATIONS["sun_abraham"] = (
     "@article{sun2021estimating,\n"
     "  title={Estimating Dynamic Treatment Effects in Event Studies "
     "with Heterogeneous Treatment Effects},\n"

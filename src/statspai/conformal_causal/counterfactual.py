@@ -42,7 +42,6 @@ from sklearn.base import BaseEstimator, clone
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
 
-
 # ═══════════════════════════════════════════════════════════════════════
 #  Result containers
 # ═══════════════════════════════════════════════════════════════════════

@@ -25,7 +25,6 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, cast
 
-
 # ---------------------------------------------------------------------------
 #  BibTeX parser (intentionally minimal — handles only the shape
 #  used in CausalResult._CITATIONS)
@@ -85,8 +84,9 @@ def _parse_bibtex(entry: str) -> Optional[Dict[str, Any]]:
     return entries[0] if entries else None
 
 
-def _parse_entry_body(entry_type: str, entry_key: str, body: str
-                       ) -> Optional[Dict[str, Any]]:
+def _parse_entry_body(
+    entry_type: str, entry_key: str, body: str
+) -> Optional[Dict[str, Any]]:
     """Walk one entry's ``key = {value}, ...`` body into a dict.
 
     Returns ``{"type", "key", "fields": {...}}`` or ``None`` if the
@@ -163,24 +163,56 @@ def _normalise_latex(s: str) -> str:
     if not s:
         return s
     # Common diacritics: {\\"o} → ö, {\\'e} → é, {\\`a} → à, etc.
-    s = re.sub(r"\{\s*\\\"\s*([A-Za-z])\s*\}",
-               lambda m: {
-                   "a": "ä", "A": "Ä", "o": "ö", "O": "Ö",
-                   "u": "ü", "U": "Ü", "e": "ë", "E": "Ë",
-                   "i": "ï", "I": "Ï",
-               }.get(m.group(1), m.group(1)), s)
-    s = re.sub(r"\{\s*\\\'\s*([A-Za-z])\s*\}",
-               lambda m: {
-                   "a": "á", "e": "é", "i": "í", "o": "ó",
-                   "u": "ú", "y": "ý",
-                   "A": "Á", "E": "É", "I": "Í", "O": "Ó",
-                   "U": "Ú", "Y": "Ý",
-               }.get(m.group(1), m.group(1)), s)
-    s = re.sub(r"\{\s*\\\`\s*([A-Za-z])\s*\}",
-               lambda m: {
-                   "a": "à", "e": "è", "i": "ì", "o": "ò", "u": "ù",
-                   "A": "À", "E": "È", "I": "Ì", "O": "Ò", "U": "Ù",
-               }.get(m.group(1), m.group(1)), s)
+    s = re.sub(
+        r"\{\s*\\\"\s*([A-Za-z])\s*\}",
+        lambda m: {
+            "a": "ä",
+            "A": "Ä",
+            "o": "ö",
+            "O": "Ö",
+            "u": "ü",
+            "U": "Ü",
+            "e": "ë",
+            "E": "Ë",
+            "i": "ï",
+            "I": "Ï",
+        }.get(m.group(1), m.group(1)),
+        s,
+    )
+    s = re.sub(
+        r"\{\s*\\\'\s*([A-Za-z])\s*\}",
+        lambda m: {
+            "a": "á",
+            "e": "é",
+            "i": "í",
+            "o": "ó",
+            "u": "ú",
+            "y": "ý",
+            "A": "Á",
+            "E": "É",
+            "I": "Í",
+            "O": "Ó",
+            "U": "Ú",
+            "Y": "Ý",
+        }.get(m.group(1), m.group(1)),
+        s,
+    )
+    s = re.sub(
+        r"\{\s*\\\`\s*([A-Za-z])\s*\}",
+        lambda m: {
+            "a": "à",
+            "e": "è",
+            "i": "ì",
+            "o": "ò",
+            "u": "ù",
+            "A": "À",
+            "E": "È",
+            "I": "Ì",
+            "O": "Ò",
+            "U": "Ù",
+        }.get(m.group(1), m.group(1)),
+        s,
+    )
     s = s.replace(r"{\oe}", "œ").replace(r"{\OE}", "Œ")
     s = s.replace(r"{\ae}", "æ").replace(r"{\AE}", "Æ")
     s = s.replace(r"\&", "&").replace(r"\$", "$").replace(r"\%", "%")
@@ -235,8 +267,11 @@ def _format_authors_apa(authors: List[Dict[str, str]]) -> str:
     if not authors:
         return ""
     formatted = [
-        (f"{a['last']}, {_initials(a['first'])}".rstrip(", ")
-         if a["first"] else a["last"])
+        (
+            f"{a['last']}, {_initials(a['first'])}".rstrip(", ")
+            if a["first"]
+            else a["last"]
+        )
         for a in authors
     ]
     if len(formatted) == 1:
@@ -332,8 +367,7 @@ def _format_json(parsed: Dict[str, Any]) -> Dict[str, Any]:
 _VALID_FORMATS = ("bibtex", "apa", "json")
 
 
-def render_citation(bibtex: str, fmt: str = "bibtex"
-                     ) -> Any:
+def render_citation(bibtex: str, fmt: str = "bibtex") -> Any:
     """Render a stored BibTeX string in the requested format.
 
     Parameters
@@ -357,8 +391,7 @@ def render_citation(bibtex: str, fmt: str = "bibtex"
           when the source contains multiple BibTeX entries.
     """
     if fmt not in _VALID_FORMATS:
-        raise ValueError(
-            f"format must be one of {_VALID_FORMATS}; got {fmt!r}")
+        raise ValueError(f"format must be one of {_VALID_FORMATS}; got {fmt!r}")
     if fmt == "bibtex":
         return bibtex
     entries = _parse_bibtex_entries(bibtex) if isinstance(bibtex, str) else []
@@ -368,8 +401,7 @@ def render_citation(bibtex: str, fmt: str = "bibtex"
         # silently corrupting agent output.
         if fmt == "apa":
             return bibtex.strip() if isinstance(bibtex, str) else ""
-        return {"type": None, "key": None, "authors": [], "fields": {},
-                "raw": bibtex}
+        return {"type": None, "key": None, "authors": [], "fields": {}, "raw": bibtex}
     if fmt == "apa":
         return "\n\n".join(_format_apa(p) for p in entries)
     if len(entries) == 1:
@@ -416,11 +448,11 @@ def bib_for(result: Any) -> Dict[str, Any]:
     """
     cite_fn = getattr(result, "cite", None)
     if not callable(cite_fn):
-        raise TypeError(
-            f"result {type(result).__name__} has no .cite() method.")
+        raise TypeError(f"result {type(result).__name__} has no .cite() method.")
     # First try the new format= path (CausalResult after this PR);
     # fall back to bibtex-string parsing for legacy result types.
     import inspect
+
     try:
         params: Any = inspect.signature(cite_fn).parameters
     except (TypeError, ValueError):

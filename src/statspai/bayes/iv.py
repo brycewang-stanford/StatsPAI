@@ -5,6 +5,7 @@ equation (``Y ~ D + X``) with a bivariate-Normal error structure so
 the posterior over the LATE prices endogeneity + weak-instrument risk
 automatically.
 """
+
 from __future__ import annotations
 
 from typing import List, Optional, Sequence, Tuple, Union
@@ -12,13 +13,7 @@ from typing import List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
-from ._base import (
-    BayesianCausalResult,
-    BayesianIVResult,
-    _require_pymc,
-    _sample_model,
-    _summarise_posterior,
-)
+from ._base import BayesianIVResult, _require_pymc, _sample_model, _summarise_posterior
 
 
 def _prepare_iv_frame(
@@ -58,13 +53,13 @@ def _prepare_iv_frame(
     X = clean[cov_cols].to_numpy(dtype=float) if cov_cols else None
 
     return {
-        'n': n,
-        'Y': Y,
-        'D': D,
-        'Z': Z,
-        'X': X,
-        'iv_cols': iv_cols,
-        'cov_cols': cov_cols,
+        "n": n,
+        "Y": Y,
+        "D": D,
+        "Z": Z,
+        "X": X,
+        "iv_cols": iv_cols,
+        "cov_cols": cov_cols,
     }
 
 
@@ -82,7 +77,7 @@ def bayes_iv(
     prior_noise: float = 5.0,
     rope: Optional[Tuple[float, float]] = None,
     hdi_prob: float = 0.95,
-    inference: str = 'nuts',
+    inference: str = "nuts",
     advi_iterations: int = 20000,
     draws: int = 2000,
     tune: int = 1000,
@@ -164,11 +159,11 @@ def bayes_iv(
     pm, _ = _require_pymc()
 
     prep = _prepare_iv_frame(data, y, treat, instrument, covariates)
-    n = prep['n']
-    Y = prep['Y']
-    D = prep['D']
-    Z = prep['Z']
-    X = prep['X']
+    n = prep["n"]
+    Y = prep["Y"]
+    D = prep["D"]
+    Z = prep["Z"]
+    X = prep["X"]
     n_instr = Z.shape[1]
 
     mu_late, sigma_late = prior_late
@@ -193,33 +188,42 @@ def bayes_iv(
         # plug-in OLS residuals above, which is a valid 2SLS-equivalent
         # simplification under homoskedasticity and a linear first stage)
         # ------------------------------------------------------------------
-        pi_intercept = pm.Normal('pi_intercept', mu=0.0, sigma=prior_coef_sigma)
+        pi_intercept = pm.Normal("pi_intercept", mu=0.0, sigma=prior_coef_sigma)
         pi_Z = pm.Normal(
-            'pi_Z', mu=0.0, sigma=prior_coef_sigma, shape=n_instr,
+            "pi_Z",
+            mu=0.0,
+            sigma=prior_coef_sigma,
+            shape=n_instr,
         )
         first_stage = pi_intercept + pm.math.dot(Z, pi_Z)
         if X is not None:
             pi_X = pm.Normal(
-                'pi_X', mu=0.0, sigma=prior_coef_sigma, shape=X.shape[1],
+                "pi_X",
+                mu=0.0,
+                sigma=prior_coef_sigma,
+                shape=X.shape[1],
             )
             first_stage = first_stage + pm.math.dot(X, pi_X)
-        sigma_v = pm.HalfNormal('sigma_v', sigma=prior_noise)
-        pm.Normal('d_obs', mu=first_stage, sigma=sigma_v, observed=D)
+        sigma_v = pm.HalfNormal("sigma_v", sigma=prior_noise)
+        pm.Normal("d_obs", mu=first_stage, sigma=sigma_v, observed=D)
 
         # ------------------------------------------------------------------
         # Structural: Y ~ D + X + rho * v_hat  (control function)
         # ------------------------------------------------------------------
-        alpha = pm.Normal('alpha', mu=0.0, sigma=prior_coef_sigma)
-        late = pm.Normal('late', mu=mu_late, sigma=sigma_late)
-        rho = pm.Normal('rho_cf', mu=0.0, sigma=prior_coef_sigma)
+        alpha = pm.Normal("alpha", mu=0.0, sigma=prior_coef_sigma)
+        late = pm.Normal("late", mu=mu_late, sigma=sigma_late)
+        rho = pm.Normal("rho_cf", mu=0.0, sigma=prior_coef_sigma)
         structural = alpha + late * D + rho * v_hat
         if X is not None:
             beta_X = pm.Normal(
-                'beta_X', mu=0.0, sigma=prior_coef_sigma, shape=X.shape[1],
+                "beta_X",
+                mu=0.0,
+                sigma=prior_coef_sigma,
+                shape=X.shape[1],
             )
             structural = structural + pm.math.dot(X, beta_X)
-        sigma_eps = pm.HalfNormal('sigma_eps', sigma=prior_noise)
-        pm.Normal('y_obs', mu=structural, sigma=sigma_eps, observed=Y)
+        sigma_eps = pm.HalfNormal("sigma_eps", sigma=prior_noise)
+        pm.Normal("y_obs", mu=structural, sigma=sigma_eps, observed=Y)
 
     trace = _sample_model(
         model,
@@ -234,22 +238,25 @@ def bayes_iv(
     )
 
     summary = _summarise_posterior(
-        trace, 'late', hdi_prob=hdi_prob, rope=rope,
+        trace,
+        "late",
+        hdi_prob=hdi_prob,
+        rope=rope,
     )
 
     model_info = {
-        'inference': inference,
-        'draws': draws,
-        'tune': tune,
-        'chains': chains,
-        'target_accept': target_accept,
-        'prior_late': prior_late,
-        'prior_first_stage_sigma': prior_first_stage_sigma,
-        'prior_coef_sigma': prior_coef_sigma,
-        'prior_noise': prior_noise,
-        'instruments': prep['iv_cols'],
-        'covariates': prep['cov_cols'],
-        'n_instruments': n_instr,
+        "inference": inference,
+        "draws": draws,
+        "tune": tune,
+        "chains": chains,
+        "target_accept": target_accept,
+        "prior_late": prior_late,
+        "prior_first_stage_sigma": prior_first_stage_sigma,
+        "prior_coef_sigma": prior_coef_sigma,
+        "prior_noise": prior_noise,
+        "instruments": prep["iv_cols"],
+        "covariates": prep["cov_cols"],
+        "n_instruments": n_instr,
     }
 
     method_label = (
@@ -267,14 +274,14 @@ def bayes_iv(
     # Z at a time; this is slow but transparent — each sub-fit is a
     # plain bayes_iv call under the hood.
     if per_instrument and n_instr >= 2:
-        for z_name in prep['iv_cols']:
+        for z_name in prep["iv_cols"]:
             sub = bayes_iv(
                 data,
                 y=y,
                 treat=treat,
-                instrument=z_name,        # scalar path = just-identified
+                instrument=z_name,  # scalar path = just-identified
                 covariates=covariates,
-                per_instrument=False,     # guard against recursion
+                per_instrument=False,  # guard against recursion
                 prior_late=prior_late,
                 prior_first_stage_sigma=prior_first_stage_sigma,
                 prior_coef_sigma=prior_coef_sigma,
@@ -291,28 +298,28 @@ def bayes_iv(
                 progressbar=progressbar,
             )
             instrument_summaries[z_name] = {
-                'posterior_mean': sub.posterior_mean,
-                'posterior_median': sub.posterior_median,
-                'posterior_sd': sub.posterior_sd,
-                'hdi_lower': sub.hdi_lower,
-                'hdi_upper': sub.hdi_upper,
-                'prob_positive': sub.prob_positive,
+                "posterior_mean": sub.posterior_mean,
+                "posterior_median": sub.posterior_median,
+                "posterior_sd": sub.posterior_sd,
+                "hdi_lower": sub.hdi_lower,
+                "hdi_upper": sub.hdi_upper,
+                "prob_positive": sub.prob_positive,
             }
-        instrument_labels = list(prep['iv_cols'])
+        instrument_labels = list(prep["iv_cols"])
         method_label += f" + {len(instrument_labels)} per-Z sub-fits"
 
     return BayesianIVResult(
         method=method_label,
-        estimand='LATE',
-        posterior_mean=summary['posterior_mean'],
-        posterior_median=summary['posterior_median'],
-        posterior_sd=summary['posterior_sd'],
-        hdi_lower=summary['hdi_lower'],
-        hdi_upper=summary['hdi_upper'],
-        prob_positive=summary['prob_positive'],
-        prob_rope=summary.get('prob_rope'),
-        rhat=summary['rhat'],
-        ess=summary['ess'],
+        estimand="LATE",
+        posterior_mean=summary["posterior_mean"],
+        posterior_median=summary["posterior_median"],
+        posterior_sd=summary["posterior_sd"],
+        hdi_lower=summary["hdi_lower"],
+        hdi_upper=summary["hdi_upper"],
+        prob_positive=summary["prob_positive"],
+        prob_rope=summary.get("prob_rope"),
+        rhat=summary["rhat"],
+        ess=summary["ess"],
         n_obs=n,
         hdi_prob=hdi_prob,
         trace=trace,

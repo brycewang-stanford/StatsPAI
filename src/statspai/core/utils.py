@@ -8,7 +8,6 @@ import numpy as np
 import re
 from patsy import dmatrices
 
-
 _BARE_NAME_RE = re.compile(r"^[A-Za-z_]\w*$")
 
 
@@ -150,77 +149,67 @@ def parse_formula(formula: str) -> Dict[str, Any]:
         Parsed formula components
     """
     result: Dict[str, Any] = {
-        'dependent': None,
-        'exogenous': [],
-        'endogenous': [],
-        'instruments': [],
-        'fixed_effects': [],
-        'has_constant': True
+        "dependent": None,
+        "exogenous": [],
+        "endogenous": [],
+        "instruments": [],
+        "fixed_effects": [],
+        "has_constant": True,
     }
 
     # Split by | for fixed effects
-    if '|' in formula:
-        main_formula, fe_part = formula.split('|', 1)
-        result['fixed_effects'] = [var.strip() for var in fe_part.split('+')]
+    if "|" in formula:
+        main_formula, fe_part = formula.split("|", 1)
+        result["fixed_effects"] = [var.strip() for var in fe_part.split("+")]
     else:
         main_formula = formula
 
     # Split dependent and independent variables
-    if '~' not in main_formula:
+    if "~" not in main_formula:
         raise ValueError(
             "Formula must contain '~' to separate dependent and "
             "independent variables"
         )
 
-    dependent_part, independent_part = main_formula.split('~', 1)
-    result['dependent'] = dependent_part.strip()
+    dependent_part, independent_part = main_formula.split("~", 1)
+    result["dependent"] = dependent_part.strip()
 
     # Parse instrumental variables (in parentheses)
-    iv_pattern = r'\(([^)]+)\)'
+    iv_pattern = r"\(([^)]+)\)"
     iv_matches = re.findall(iv_pattern, independent_part)
 
     if iv_matches:
         for iv_spec in iv_matches:
-            if '~' in iv_spec:
-                endog, instruments = iv_spec.split('~', 1)
-                result['endogenous'].extend(
-                    [var.strip() for var in endog.split('+')]
-                )
-                result['instruments'].extend(
-                    [var.strip() for var in instruments.split('+')]
+            if "~" in iv_spec:
+                endog, instruments = iv_spec.split("~", 1)
+                result["endogenous"].extend([var.strip() for var in endog.split("+")])
+                result["instruments"].extend(
+                    [var.strip() for var in instruments.split("+")]
                 )
             else:
-                result['exogenous'].extend(
-                    [var.strip() for var in iv_spec.split('+')]
-                )
+                result["exogenous"].extend([var.strip() for var in iv_spec.split("+")])
 
         # Remove IV specifications from independent part
-        independent_part = re.sub(iv_pattern, '', independent_part)
+        independent_part = re.sub(iv_pattern, "", independent_part)
 
     # Parse remaining exogenous variables
     remaining_vars = _split_additive_formula_terms(independent_part)
-    result['exogenous'].extend(remaining_vars)
+    result["exogenous"].extend(remaining_vars)
 
     # Check for constant term
-    if '1' in result['exogenous']:
-        result['exogenous'] = [
-            var for var in result['exogenous'] if var != '1'
-        ]
-    if '-1' in result['exogenous'] or '0' in result['exogenous']:
-        result['has_constant'] = False
-        result['exogenous'] = [
-            var
-            for var in result['exogenous']
-            if var not in ['-1', '0']
+    if "1" in result["exogenous"]:
+        result["exogenous"] = [var for var in result["exogenous"] if var != "1"]
+    if "-1" in result["exogenous"] or "0" in result["exogenous"]:
+        result["has_constant"] = False
+        result["exogenous"] = [
+            var for var in result["exogenous"] if var not in ["-1", "0"]
         ]
 
     return result
 
 
 def create_design_matrices(
-    formula: str,
-    data: pd.DataFrame,
-    return_type: str = 'dataframe'
+    formula: str, data: pd.DataFrame, return_type: str = "dataframe"
 ) -> Tuple[Any, Any]:
     """
     Create design matrices from formula and data
@@ -250,29 +239,26 @@ def create_design_matrices(
         # Fallback to manual parsing if patsy fails
         parsed = parse_formula(formula)
 
-        y = data[parsed['dependent']].values
-        if return_type == 'dataframe':
+        y = data[parsed["dependent"]].values
+        if return_type == "dataframe":
             y = pd.DataFrame(
                 y,
-                columns=[parsed['dependent']],
+                columns=[parsed["dependent"]],
                 index=data.index,
             )
 
-        X_cols = parsed['exogenous'].copy()
-        if parsed['has_constant']:
-            X_cols = ['Intercept'] + X_cols
+        X_cols = parsed["exogenous"].copy()
+        if parsed["has_constant"]:
+            X_cols = ["Intercept"] + X_cols
 
-        if parsed['has_constant']:
+        if parsed["has_constant"]:
             X = np.column_stack(
-                [np.ones(len(data))]
-                + [data[col].values for col in parsed['exogenous']]
+                [np.ones(len(data))] + [data[col].values for col in parsed["exogenous"]]
             )
         else:
-            X = np.column_stack(
-                [data[col].values for col in parsed['exogenous']]
-            )
+            X = np.column_stack([data[col].values for col in parsed["exogenous"]])
 
-        if return_type == 'dataframe':
+        if return_type == "dataframe":
             X = pd.DataFrame(X, columns=X_cols, index=data.index)
 
         return y, X
@@ -283,7 +269,7 @@ def prepare_data(
     dependent: str,
     independent: List[str],
     weights: Optional[str] = None,
-    subset: Optional[pd.Series] = None
+    subset: Optional[pd.Series] = None,
 ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """
     Prepare data for econometric estimation
@@ -347,9 +333,7 @@ def add_constant(X: np.ndarray, has_constant: bool = True) -> np.ndarray:
 
 
 def get_variable_names(
-    formula: str,
-    data: pd.DataFrame,
-    include_constant: bool = True
+    formula: str, data: pd.DataFrame, include_constant: bool = True
 ) -> List[str]:
     """
     Get variable names from formula
@@ -371,9 +355,9 @@ def get_variable_names(
     parsed = parse_formula(formula)
 
     names = []
-    if include_constant and parsed['has_constant']:
-        names.append('const')
+    if include_constant and parsed["has_constant"]:
+        names.append("const")
 
-    names.extend(parsed['exogenous'])
+    names.extend(parsed["exogenous"])
 
     return names

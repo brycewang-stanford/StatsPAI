@@ -1,15 +1,15 @@
 """
 Causal Forest implementation for heterogeneous treatment effect estimation
 
-This module implements the Causal Forest algorithm for estimating conditional 
+This module implements the Causal Forest algorithm for estimating conditional
 average treatment effects (CATE) based on the methodology from:
-- Wager, S., & Athey, S. (2018). Estimation and inference of heterogeneous 
-  treatment effects using random forests. Journal of the American Statistical 
+- Wager, S., & Athey, S. (2018). Estimation and inference of heterogeneous
+  treatment effects using random forests. Journal of the American Statistical
   Association, 113(523), 1228-1242.
 
 The implementation is inspired by and partially based on the EconML library:
 - https://github.com/py-why/econml/
-- Microsoft Corporation. (2019). EconML: A Python Package for ML-Based 
+- Microsoft Corporation. (2019). EconML: A Python Package for ML-Based
   Heterogeneous Treatment Effects Estimation.
 
 Key features:
@@ -36,15 +36,15 @@ from ..exceptions import DataInsufficient, MethodIncompatibility
 class CausalForest(BaseModel):
     """
     Causal Forest for heterogeneous treatment effect estimation
-    
+
     This class implements the Causal Forest algorithm, which uses random forests
     to estimate conditional average treatment effects (CATE) in a non-parametric way.
-    
+
     The method combines ideas from:
     1. Honest estimation to avoid overfitting
     2. Double machine learning to handle confounding
     3. Random forests for flexible function approximation
-    
+
     Parameters
     ----------
     n_estimators : int, default=100
@@ -57,7 +57,7 @@ class CausalForest(BaseModel):
         Fraction of samples to use for each tree
     model_y : estimator, optional
         Model for outcome regression (first stage)
-    model_t : estimator, optional  
+    model_t : estimator, optional
         Model for treatment propensity (first stage)
     discrete_treatment : bool, default=True
         Whether treatment is discrete (binary/categorical) or continuous
@@ -71,14 +71,14 @@ class CausalForest(BaseModel):
         Number of parallel jobs
     verbose : int, default=0
         Verbosity level
-        
+
     Attributes
     ----------
     fitted_ : bool
         Whether the model has been fitted
     params : pd.Series
         Not applicable for non-parametric methods, returns empty Series
-    std_errors : pd.Series  
+    std_errors : pd.Series
         Not applicable for non-parametric methods, returns empty Series
     tvalues : pd.Series
         Not applicable for non-parametric methods, returns empty Series
@@ -88,18 +88,18 @@ class CausalForest(BaseModel):
         Model diagnostics and fit statistics
     data_info : dict
         Information about the data used in fitting
-    
+
     Notes
     -----
     This implementation is inspired by the EconML library's CausalForestDML
     but adapted to fit the StatsPAI architecture and interface.
-    
+
     Examples
     --------
     >>> import numpy as np
     >>> import pandas as pd
     >>> from statspai.forest import CausalForest
-    >>> 
+    >>>
     >>> # Generate sample data
     >>> np.random.seed(42)
     >>> n = 1000
@@ -109,16 +109,16 @@ class CausalForest(BaseModel):
     >>> data = pd.DataFrame({
     ...     'Y': Y, 'T': T, 'X1': X[:, 0], 'X2': X[:, 1], 'X3': X[:, 2]
     ... })
-    >>> 
+    >>>
     >>> # Fit Causal Forest
     >>> cf = CausalForest(n_estimators=50, random_state=42)
     >>> cf.fit('Y ~ T | X1 + X2 + X3', data=data)
-    >>> 
+    >>>
     >>> # Estimate treatment effects
     >>> cate = cf.effect(data[['X1', 'X2', 'X3']])
     >>> print(f"Average treatment effect: {cate.mean():.3f}")
     """
-    
+
     def __init__(
         self,
         n_estimators: int = 100,
@@ -146,7 +146,7 @@ class CausalForest(BaseModel):
         self.random_state = random_state
         self.n_jobs = n_jobs
         self.verbose = verbose
-        
+
         # Initialize default models if not provided
         if model_y is None:
             self.model_y = RandomForestRegressor(
@@ -165,13 +165,13 @@ class CausalForest(BaseModel):
                 self.model_t = RandomForestRegressor(
                     n_estimators=100, random_state=random_state
                 )
-        
+
         # Initialize internal state
         self.fitted_ = False
         self._forest: Optional[List[DecisionTreeRegressor]] = None
         self._treatment_values: Optional[np.ndarray] = None
         self._feature_names: Optional[List[str]] = None
-        
+
     def fit(  # type: ignore[override]
         self,
         formula: Optional[str] = None,
@@ -180,10 +180,10 @@ class CausalForest(BaseModel):
         T: Optional[np.ndarray] = None,
         X: Optional[np.ndarray] = None,
         W: Optional[np.ndarray] = None,
-    ) -> 'CausalForest':
+    ) -> "CausalForest":
         """
         Fit the Causal Forest model
-        
+
         Parameters
         ----------
         formula : str, optional
@@ -193,13 +193,13 @@ class CausalForest(BaseModel):
             Data containing all variables if using formula interface
         Y : array-like, optional
             Outcome variable (n_samples,)
-        T : array-like, optional  
+        T : array-like, optional
             Treatment variable (n_samples,)
         X : array-like, optional
             Effect modifier variables (n_samples, n_features)
         W : array-like, optional
             Control variables for confounding adjustment (n_samples, n_controls)
-            
+
         Returns
         -------
         self : CausalForest
@@ -217,7 +217,7 @@ class CausalForest(BaseModel):
             raise ValueError(
                 "Must provide either (formula, data) or (Y, T, X) arguments"
             )
-        
+
         # Validate inputs
         try:
             Y = np.asarray(Y, dtype=float).ravel()
@@ -233,7 +233,7 @@ class CausalForest(BaseModel):
                     "controls to numeric columns before fitting."
                 ),
             ) from exc
-        
+
         if X.ndim == 1:
             X = X.reshape(-1, 1)
         elif X.ndim != 2:
@@ -250,7 +250,7 @@ class CausalForest(BaseModel):
                 recovery_hint="Pass W shaped (n_samples, n_controls).",
                 diagnostics={"w_ndim": int(W.ndim)},
             )
-            
+
         n_samples = len(Y)
         if len(T) != n_samples or len(X) != n_samples:
             raise MethodIncompatibility(
@@ -315,24 +315,24 @@ class CausalForest(BaseModel):
                     "minimum_rows_per_tree": min_tree_samples,
                 },
             )
-        
+
         # Store data info
         self.data_info = {
-            'nobs': n_samples,
-            'n_features': X.shape[1],
-            'n_controls': W.shape[1] if W is not None else 0,
-            'treatment_values': np.unique(T),
+            "nobs": n_samples,
+            "n_features": X.shape[1],
+            "n_controls": W.shape[1] if W is not None else 0,
+            "treatment_values": np.unique(T),
         }
-        
+
         treatment_values = np.unique(T)
         self._treatment_values = treatment_values
-        self.data_info['treatment_values'] = treatment_values
+        self.data_info["treatment_values"] = treatment_values
         if self._feature_names is None or len(self._feature_names) != X.shape[1]:
-            self._feature_names = [f'X{i}' for i in range(X.shape[1])]
+            self._feature_names = [f"X{i}" for i in range(X.shape[1])]
         self._X_original = X.copy()
         self._T_original = T.copy()
         self._Y_original = Y.copy()
-        
+
         # Validate treatment
         if self.discrete_treatment:
             if len(treatment_values) < 2:
@@ -376,15 +376,15 @@ class CausalForest(BaseModel):
                 "CausalForest.fit() needs treatment variation.",
                 recovery_hint="Provide a non-constant continuous treatment.",
             )
-        
+
         # Step 1: Fit first stage models (Double ML approach)
         # This follows the EconML CausalForestDML implementation
         if self.verbose > 0:
             print("Fitting first stage models...")
-            
+
         # Prepare features for first stage
         first_stage_features = X if W is None else np.hstack([X, W])
-        
+
         # Fit outcome model
         if self.verbose > 0:
             print("  Fitting outcome model...")
@@ -393,15 +393,19 @@ class CausalForest(BaseModel):
             self.model_y, first_stage_features, Y, cv=3, n_jobs=self.n_jobs
         )
         Y_residual = Y - Y_pred
-        
-        # Fit treatment model  
+
+        # Fit treatment model
         if self.verbose > 0:
             print("  Fitting treatment model...")
         self.model_t.fit(first_stage_features, T)
         if self.discrete_treatment:
             T_pred = cross_val_predict(
-                self.model_t, first_stage_features, T, cv=3, 
-                method='predict_proba', n_jobs=self.n_jobs
+                self.model_t,
+                first_stage_features,
+                T,
+                cv=3,
+                method="predict_proba",
+                n_jobs=self.n_jobs,
             )
             if T_pred.ndim == 2 and T_pred.shape[1] == 2:
                 # Binary case - use probability of positive class (class 1)
@@ -422,7 +426,7 @@ class CausalForest(BaseModel):
                 self.model_t, first_stage_features, T, cv=3, n_jobs=self.n_jobs
             )
             T_residual = T - T_pred
-        
+
         # Stash cross-fitted nuisance predictions for downstream inference
         # (used by :func:`forest_inference.calibration_test` / :func:`rate`).
         self._m_insample = Y_pred
@@ -433,60 +437,62 @@ class CausalForest(BaseModel):
             print("Fitting causal forest...")
 
         self._forest = self._fit_causal_forest(X, T_residual, Y_residual)
-        
+
         # Mark as fitted
         self.fitted_ = True
-        
+
         # Store results for compatibility with EconometricResults
         # For non-parametric methods, we don't have traditional parameters
         self.params = pd.Series([], dtype=float)
-        self.std_errors = pd.Series([], dtype=float) 
+        self.std_errors = pd.Series([], dtype=float)
         self.tvalues = pd.Series([], dtype=float)
         self.pvalues = np.array([])
-        
+
         # Compute diagnostics
         ate = self.effect(X).mean()
         self.diagnostics = {
-            'method': 'Causal Forest',
-            'n_estimators': self.n_estimators,
-            'n_features': X.shape[1],
-            'average_treatment_effect': ate,
-            'treatment_type': 'discrete' if self.discrete_treatment else 'continuous',
+            "method": "Causal Forest",
+            "n_estimators": self.n_estimators,
+            "n_features": X.shape[1],
+            "average_treatment_effect": ate,
+            "treatment_type": "discrete" if self.discrete_treatment else "continuous",
         }
-        
+
         return self
-    
+
     def _parse_formula_inputs(
         self, formula: str, data: pd.DataFrame
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
         """Parse formula inputs to extract Y, T, X, W arrays"""
         # Parse formula: "Y ~ T | X1 + X2 + ... [| W1 + W2 + ...]"
-        parts = formula.split('|')
+        parts = formula.split("|")
         if len(parts) < 2:
             raise ValueError(
                 "Formula must have format 'Y ~ T | X1 + X2 + ...' or "
                 "'Y ~ T | X1 + X2 + ... | W1 + W2 + ...'"
             )
-        
+
         # Parse outcome and treatment
         yt_part = parts[0].strip()
-        if '~' not in yt_part:
-            raise ValueError("Formula must contain '~' to separate outcome and treatment")
-        
-        y_name, t_name = yt_part.split('~')
+        if "~" not in yt_part:
+            raise ValueError(
+                "Formula must contain '~' to separate outcome and treatment"
+            )
+
+        y_name, t_name = yt_part.split("~")
         y_name = y_name.strip()
         t_name = t_name.strip()
-        
+
         # Parse effect modifiers (X)
         x_part = parts[1].strip()
-        x_names = [name.strip() for name in x_part.split('+')]
-        
+        x_names = [name.strip() for name in x_part.split("+")]
+
         # Parse controls (W) if provided
         w_names = []
         if len(parts) > 2:
             w_part = parts[2].strip()
-            w_names = [name.strip() for name in w_part.split('+')]
-        
+            w_names = [name.strip() for name in w_part.split("+")]
+
         # Extract data
         try:
             Y = data[y_name].values
@@ -495,12 +501,12 @@ class CausalForest(BaseModel):
             W = data[w_names].values if w_names else None
         except KeyError as e:
             raise ValueError(f"Variable {e} not found in data")
-        
+
         # Store feature names for later use
         self._feature_names = x_names
-        
+
         return Y, T, X, W
-    
+
     def _validate_array_inputs(
         self, Y: np.ndarray, T: np.ndarray, X: np.ndarray, W: Optional[np.ndarray]
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Optional[np.ndarray]]:
@@ -664,7 +670,7 @@ class CausalForest(BaseModel):
                 ),
             )
         return np.asarray(X, dtype=float)
-    
+
     def _fit_causal_forest(
         self, X: np.ndarray, T_residual: np.ndarray, Y_residual: np.ndarray
     ) -> List[DecisionTreeRegressor]:
@@ -691,7 +697,7 @@ class CausalForest(BaseModel):
             else:
                 n_tree_samples = int(self.max_samples * n_samples)
                 tree_indices = rng.choice(n_samples, n_tree_samples, replace=False)
-            
+
             # Honest estimation: split samples for tree building and effect estimation
             if self.honest:
                 split_idx = len(tree_indices) // 2
@@ -700,7 +706,7 @@ class CausalForest(BaseModel):
             else:
                 build_indices = tree_indices
                 estimate_indices = tree_indices
-            
+
             # Build tree structure using building sample
             # For simplicity, we use sklearn's DecisionTreeRegressor
             # but replace leaf predictions with causal effect estimates
@@ -708,9 +714,9 @@ class CausalForest(BaseModel):
                 max_depth=self.max_depth,
                 min_samples_leaf=self.min_samples_leaf,
                 random_state=rng.randint(0, 2**31),
-                max_features='sqrt' if n_features > 1 else None,
+                max_features="sqrt" if n_features > 1 else None,
             )
-            
+
             # Fit tree on building sample
             if len(build_indices) > 0:
                 # Use treatment residual as target for tree structure
@@ -718,13 +724,15 @@ class CausalForest(BaseModel):
                 T_build = T_residual[build_indices]
                 if T_build.ndim > 1:
                     T_build = T_build.ravel()
-                    
+
                 tree.fit(X[build_indices], T_build)
-                
+
                 # Replace leaf values with honest causal effect estimates
                 self._replace_leaf_values_with_causal_effects(
-                    tree, X[estimate_indices], T_residual[estimate_indices], 
-                    Y_residual[estimate_indices]
+                    tree,
+                    X[estimate_indices],
+                    T_residual[estimate_indices],
+                    Y_residual[estimate_indices],
                 )
             else:
                 # Fallback if not enough samples
@@ -732,40 +740,40 @@ class CausalForest(BaseModel):
                 if T_tree.ndim > 1:
                     T_tree = T_tree.ravel()
                 tree.fit(X[tree_indices], T_tree)
-            
+
             trees.append(tree)
-        
+
         return trees
-    
+
     def _replace_leaf_values_with_causal_effects(
         self,
         tree: DecisionTreeRegressor,
-        X_estimate: np.ndarray, 
+        X_estimate: np.ndarray,
         T_residual_estimate: np.ndarray,
         Y_residual_estimate: np.ndarray,
     ) -> None:
         """
         Replace leaf values with honest causal effect estimates
-        
+
         This implements the honest estimation procedure where leaf values
         are computed using a separate sample from tree construction.
         """
         if len(X_estimate) == 0:
             return
-        
+
         # Get leaf assignments for estimation sample
         leaf_ids = tree.apply(X_estimate)
-        
+
         # For each leaf, compute causal effect estimate
         for leaf_id in np.unique(leaf_ids):
             leaf_mask = leaf_ids == leaf_id
             if np.sum(leaf_mask) < 2:  # Need at least 2 samples
                 continue
-            
+
             # Get samples in this leaf
             t_leaf = T_residual_estimate[leaf_mask]
             y_leaf = Y_residual_estimate[leaf_mask]
-            
+
             # Estimate causal effect in this leaf
             if self.discrete_treatment:
                 if t_leaf.ndim == 1:
@@ -776,9 +784,8 @@ class CausalForest(BaseModel):
                         # with np.var's ddof=0 inflates small leaves.
                         t_centered = t_leaf - np.mean(t_leaf)
                         y_centered = y_leaf - np.mean(y_leaf)
-                        causal_effect = (
-                            np.sum(y_centered * t_centered)
-                            / np.sum(t_centered ** 2)
+                        causal_effect = np.sum(y_centered * t_centered) / np.sum(
+                            t_centered**2
                         )
                     else:
                         causal_effect = 0.0
@@ -787,9 +794,8 @@ class CausalForest(BaseModel):
                     if np.var(t_leaf[:, 0]) > 1e-8:
                         t_centered = t_leaf[:, 0] - np.mean(t_leaf[:, 0])
                         y_centered = y_leaf - np.mean(y_leaf)
-                        causal_effect = (
-                            np.sum(y_centered * t_centered)
-                            / np.sum(t_centered ** 2)
+                        causal_effect = np.sum(y_centered * t_centered) / np.sum(
+                            t_centered**2
                         )
                     else:
                         causal_effect = 0.0
@@ -798,26 +804,25 @@ class CausalForest(BaseModel):
                 if np.var(t_leaf) > 1e-8:
                     t_centered = t_leaf - np.mean(t_leaf)
                     y_centered = y_leaf - np.mean(y_leaf)
-                    causal_effect = (
-                        np.sum(y_centered * t_centered)
-                        / np.sum(t_centered ** 2)
+                    causal_effect = np.sum(y_centered * t_centered) / np.sum(
+                        t_centered**2
                     )
                 else:
                     causal_effect = 0.0
-            
+
             # Update THIS leaf's value (leaf_id is the node index in tree.tree_)
             original_shape = tree.tree_.value[leaf_id].shape
             tree.tree_.value[leaf_id] = np.full(original_shape, causal_effect)
-    
+
     def effect(self, X: np.ndarray) -> np.ndarray:
         """
         Estimate conditional average treatment effects
-        
+
         Parameters
         ----------
         X : array-like, shape (n_samples, n_features)
             Effect modifier variables
-            
+
         Returns
         -------
         effects : array-like, shape (n_samples,)
@@ -836,7 +841,7 @@ class CausalForest(BaseModel):
                 "CausalForest.effect() has no fitted forest.",
                 recovery_hint="Refit the causal forest before requesting effects.",
             )
-        
+
         # Average predictions across all trees
         predictions_list: List[np.ndarray] = []
         for tree in forest:
@@ -845,25 +850,25 @@ class CausalForest(BaseModel):
             if pred.ndim > 1:
                 pred = pred.ravel()
             predictions_list.append(pred)
-        
+
         # Return average effect across trees
         predictions = np.array(predictions_list)  # shape: (n_trees, n_samples)
         return np.asarray(np.mean(predictions, axis=0), dtype=float)
-    
+
     def predict(self, data: Optional[pd.DataFrame] = None) -> np.ndarray:
         """
         Generate treatment effect predictions (required by BaseModel)
-        
+
         Parameters
         ----------
         data : pd.DataFrame, optional
             Data containing effect modifier variables. If None, uses training data.
-            
+
         Returns
         -------
         np.ndarray
             Predicted treatment effects
-            
+
         Notes
         -----
         This method is required by the BaseModel interface. For Causal Forest,
@@ -874,9 +879,9 @@ class CausalForest(BaseModel):
                 "CausalForest.predict() requires a fitted model.",
                 recovery_hint="Call fit() before requesting predictions.",
             )
-        
+
         if data is None:
-            if hasattr(self, '_X_original'):
+            if hasattr(self, "_X_original"):
                 X = self._X_original
             else:
                 raise MethodIncompatibility(
@@ -888,22 +893,22 @@ class CausalForest(BaseModel):
                 )
         else:
             X = self._prepare_effect_matrix(data, context="predict()")
-        
+
         return self.effect(X)
-    
+
     def effect_interval(
         self, X: np.ndarray, alpha: float = 0.05
     ) -> Tuple[np.ndarray, np.ndarray]:
         """
         Compute confidence intervals for treatment effects using bootstrap
-        
+
         Parameters
-        ---------- 
+        ----------
         X : array-like, shape (n_samples, n_features)
             Effect modifier variables
         alpha : float, default=0.05
             Significance level (1-alpha is confidence level)
-            
+
         Returns
         -------
         lower : array-like, shape (n_samples,)
@@ -936,7 +941,7 @@ class CausalForest(BaseModel):
                 "CausalForest.effect_interval() has no fitted forest.",
                 recovery_hint="Refit the causal forest before requesting intervals.",
             )
-        
+
         # Use bootstrap of little bags approach
         # Collect predictions from each tree (which are already bootstrap samples)
         predictions_list: List[np.ndarray] = []
@@ -946,7 +951,7 @@ class CausalForest(BaseModel):
             if pred.ndim > 1:
                 pred = pred.ravel()
             predictions_list.append(pred)
-        
+
         # Convert to array and ensure consistent shapes
         try:
             predictions = np.array(predictions_list)  # shape: (n_trees, n_samples)
@@ -954,14 +959,14 @@ class CausalForest(BaseModel):
             # Handle inconsistent shapes by ensuring all predictions have same length
             min_len = min(len(p) for p in predictions_list)
             predictions = np.array([p[:min_len] for p in predictions_list])
-        
+
         # Compute percentiles across trees for each sample
         lower_percentile = 100 * alpha / 2
         upper_percentile = 100 * (1 - alpha / 2)
-        
+
         lower = np.percentile(predictions, lower_percentile, axis=0)
         upper = np.percentile(predictions, upper_percentile, axis=0)
-        
+
         return lower, upper
 
     def average_treatment_effect(
@@ -974,6 +979,7 @@ class CausalForest(BaseModel):
     ) -> Dict[str, float]:
         """GRF-style ATE/ATT/ATC/ATO aggregation of CATE predictions."""
         from .forest_inference import average_treatment_effect
+
         return average_treatment_effect(
             self,
             X=X,
@@ -991,14 +997,18 @@ class CausalForest(BaseModel):
     ) -> Dict[str, object]:
         """Overlap and CATE-distribution diagnostics for this fitted forest."""
         from .forest_inference import forest_diagnostics
+
         return forest_diagnostics(
-            self, X=X, T=T, propensity_bounds=propensity_bounds,
+            self,
+            X=X,
+            T=T,
+            propensity_bounds=propensity_bounds,
         )
-    
+
     def summary(self) -> str:
         """
         Return a summary of the fitted model
-        
+
         Returns
         -------
         summary : str
@@ -1006,9 +1016,9 @@ class CausalForest(BaseModel):
         """
         if not self.fitted_:
             return "Causal Forest (not fitted)"
-        
-        ate = self.diagnostics.get('average_treatment_effect', 0)
-        
+
+        ate = self.diagnostics.get("average_treatment_effect", 0)
+
         summary_lines = [
             "=" * 60,
             "Causal Forest Results",
@@ -1031,16 +1041,16 @@ class CausalForest(BaseModel):
             "Note: Use .effect(X) to estimate individual treatment effects",
             "      Use .effect_interval(X) for confidence intervals",
         ]
-        
+
         return "\n".join(summary_lines)
-    
+
     def __str__(self) -> str:
         """String representation"""
         if self.fitted_:
             return f"CausalForest(fitted=True, n_estimators={self.n_estimators})"
         else:
             return f"CausalForest(fitted=False, n_estimators={self.n_estimators})"
-    
+
     def __repr__(self) -> str:
         """Detailed string representation"""
         return self.__str__()
@@ -1180,7 +1190,8 @@ class CausalForest(BaseModel):
                 "than the training data; falling back to the plug-in CATE "
                 "regression with HC1 SE (no DR construction possible "
                 "out-of-sample).",
-                UserWarning, stacklevel=2,
+                UserWarning,
+                stacklevel=2,
             )
             cate = self.effect(X)
             gamma = cate
@@ -1193,9 +1204,7 @@ class CausalForest(BaseModel):
 
             if self.discrete_treatment:
                 e_clip = np.clip(e_hat, clip_value, 1.0 - clip_value)
-                n_clipped = int(
-                    np.sum((e_hat < clip_value) | (e_hat > 1 - clip_value))
-                )
+                n_clipped = int(np.sum((e_hat < clip_value) | (e_hat > 1 - clip_value)))
                 weight = (T - e_clip) / (e_clip * (1.0 - e_clip))
             else:
                 # Continuous treatment: use partialled-out Robinson form.
@@ -1235,17 +1244,18 @@ class CausalForest(BaseModel):
         pvals = 2.0 * (1.0 - _stats.t.cdf(np.abs(tvals), df=df))
         z = float(_stats.t.ppf(1.0 - alpha_value / 2.0, df=df))
 
-        names = ["Intercept"] + (
-            self._feature_names or [f"X{j}" for j in range(k)]
+        names = ["Intercept"] + (self._feature_names or [f"X{j}" for j in range(k)])
+        return pd.DataFrame(
+            {
+                "coef": beta,
+                "se": se,
+                "t": tvals,
+                "p": pvals,
+                "ci_lower": beta - z * se,
+                "ci_upper": beta + z * se,
+            },
+            index=names,
         )
-        return pd.DataFrame({
-            "coef": beta,
-            "se": se,
-            "t": tvals,
-            "p": pvals,
-            "ci_lower": beta - z * se,
-            "ci_upper": beta + z * se,
-        }, index=names)
 
     def ate(self, X: Optional[np.ndarray] = None) -> float:
         """Average Treatment Effect (mean CATE)."""
@@ -1256,8 +1266,9 @@ class CausalForest(BaseModel):
             )
         return float(self.effect(X if X is not None else self._X_original).mean())
 
-    def att(self, X: Optional[np.ndarray] = None,
-            T: Optional[np.ndarray] = None) -> float:
+    def att(
+        self, X: Optional[np.ndarray] = None, T: Optional[np.ndarray] = None
+    ) -> float:
         """Average Treatment Effect on the Treated."""
         if not self.fitted_:
             raise MethodIncompatibility(
@@ -1323,10 +1334,10 @@ def causal_forest(
 ) -> CausalForest:
     """
     Convenience function to fit a Causal Forest model
-    
+
     This function provides a simple interface to fit Causal Forest models,
     similar to the regress() function for OLS.
-    
+
     Parameters
     ----------
     formula : str, optional
@@ -1359,18 +1370,18 @@ def causal_forest(
         Random seed
     **kwargs
         Additional arguments passed to CausalForest
-        
+
     Returns
     -------
     result : CausalForest
         Fitted Causal Forest model
-        
+
     Examples
     --------
     >>> import pandas as pd
     >>> import numpy as np
     >>> from statspai.forest import causal_forest
-    >>> 
+    >>>
     >>> # Generate sample data
     >>> np.random.seed(42)
     >>> n = 500
@@ -1380,12 +1391,12 @@ def causal_forest(
     >>> data = pd.DataFrame({
     ...     'outcome': Y, 'treatment': T, 'X1': X[:, 0], 'X2': X[:, 1]
     ... })
-    >>> 
+    >>>
     >>> # Fit using formula interface
-    >>> cf = causal_forest('outcome ~ treatment | X1 + X2', data=data, 
+    >>> cf = causal_forest('outcome ~ treatment | X1 + X2', data=data,
     ...                   n_estimators=50, random_state=42)
     >>> print(cf.summary())
-    >>> 
+    >>>
     >>> # Estimate effects
     >>> effects = cf.effect(data[['X1', 'X2']])
     >>> print(f"Mean effect: {effects.mean():.3f}")
@@ -1399,12 +1410,13 @@ def causal_forest(
         model_t=model_t,
         discrete_treatment=discrete_treatment,
         random_state=random_state,
-        **kwargs
+        **kwargs,
     )
-    
+
     cf.fit(formula=formula, data=data, Y=Y, T=T, X=X, W=W)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             cf,
             function="sp.causal_forest",

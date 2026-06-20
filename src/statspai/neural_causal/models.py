@@ -49,10 +49,10 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # Public API - functional interface
 # ======================================================================
+
 
 def tarnet(
     data: pd.DataFrame,
@@ -150,14 +150,25 @@ def tarnet(
     True
     """
     est = TARNet(
-        data=data, y=y, treat=treat, covariates=covariates,
-        repr_layers=repr_layers, head_layers=head_layers,
-        epochs=epochs, batch_size=batch_size,
-        learning_rate=learning_rate, weight_decay=weight_decay,
-        dropout=dropout, alpha=alpha, n_bootstrap=n_bootstrap,
-        random_state=random_state, validation_fraction=validation_fraction,
-        early_stopping=early_stopping, patience=patience,
-        min_delta=min_delta, verbose=verbose,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        repr_layers=repr_layers,
+        head_layers=head_layers,
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        dropout=dropout,
+        alpha=alpha,
+        n_bootstrap=n_bootstrap,
+        random_state=random_state,
+        validation_fraction=validation_fraction,
+        early_stopping=early_stopping,
+        patience=patience,
+        min_delta=min_delta,
+        verbose=verbose,
     )
     return est.fit()
 
@@ -261,15 +272,26 @@ def cfrnet(
     True
     """
     est = CFRNet(
-        data=data, y=y, treat=treat, covariates=covariates,
-        repr_layers=repr_layers, head_layers=head_layers,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        repr_layers=repr_layers,
+        head_layers=head_layers,
         ipm_weight=ipm_weight,
-        epochs=epochs, batch_size=batch_size,
-        learning_rate=learning_rate, weight_decay=weight_decay,
-        dropout=dropout, alpha=alpha, n_bootstrap=n_bootstrap,
-        random_state=random_state, validation_fraction=validation_fraction,
-        early_stopping=early_stopping, patience=patience,
-        min_delta=min_delta, verbose=verbose,
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        dropout=dropout,
+        alpha=alpha,
+        n_bootstrap=n_bootstrap,
+        random_state=random_state,
+        validation_fraction=validation_fraction,
+        early_stopping=early_stopping,
+        patience=patience,
+        min_delta=min_delta,
+        verbose=verbose,
     )
     return est.fit()
 
@@ -385,16 +407,27 @@ def dragonnet(
     ...                       random_state=0)  # doctest: +SKIP
     """
     est = DragonNet(
-        data=data, y=y, treat=treat, covariates=covariates,
-        repr_layers=repr_layers, head_layers=head_layers,
+        data=data,
+        y=y,
+        treat=treat,
+        covariates=covariates,
+        repr_layers=repr_layers,
+        head_layers=head_layers,
         propensity_weight=propensity_weight,
         targeted_reg_weight=targeted_reg_weight,
-        epochs=epochs, batch_size=batch_size,
-        learning_rate=learning_rate, weight_decay=weight_decay,
-        dropout=dropout, alpha=alpha, n_bootstrap=n_bootstrap,
-        random_state=random_state, validation_fraction=validation_fraction,
-        early_stopping=early_stopping, patience=patience,
-        min_delta=min_delta, verbose=verbose,
+        epochs=epochs,
+        batch_size=batch_size,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        dropout=dropout,
+        alpha=alpha,
+        n_bootstrap=n_bootstrap,
+        random_state=random_state,
+        validation_fraction=validation_fraction,
+        early_stopping=early_stopping,
+        patience=patience,
+        min_delta=min_delta,
+        verbose=verbose,
     )
     return est.fit()
 
@@ -402,6 +435,7 @@ def dragonnet(
 # ======================================================================
 # Data preparation
 # ======================================================================
+
 
 def _prepare_data(
     data: pd.DataFrame,
@@ -440,11 +474,13 @@ def _standardise(arr: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 # PyTorch network components
 # ======================================================================
 
+
 def _check_torch() -> Tuple[Any, Any]:
     """Import and return torch, raising clear error if unavailable."""
     try:
         import torch
         import torch.nn as nn
+
         return torch, nn
     except ImportError:
         raise ImportError(
@@ -539,36 +575,37 @@ def _basic_neural_info(
 ) -> Dict[str, Any]:
     """Common result metadata for neural treatment-effect estimators."""
     return {
-        'architecture': architecture,
-        'neural_causal': True,
-        'device': str(device),
-        'validation_fraction': float(validation_fraction),
-        'early_stopping': bool(early_stopping and validation_fraction > 0),
-        'n_epochs_trained': int(n_epochs_trained),
-        'loss_history': history,
-        'training_history': _history_frame(history),
-        'se_method': 'unit_bootstrap_cate_plugin',
-        'mu0': mu0,
-        'mu1': mu1,
-        'cate': cate,
-        'treatment': D.astype(int),
-        'cate_mean': float(np.mean(cate)),
-        'cate_median': float(np.median(cate)),
-        'cate_std': float(np.std(cate)),
-        'cate_min': float(np.min(cate)),
-        'cate_max': float(np.max(cate)),
-        'cate_q05': float(np.percentile(cate, 5)),
-        'cate_q25': float(np.percentile(cate, 25)),
-        'cate_q75': float(np.percentile(cate, 75)),
-        'cate_q95': float(np.percentile(cate, 95)),
-        'n_treated': int(np.sum(D == 1)),
-        'n_control': int(np.sum(D == 0)),
+        "architecture": architecture,
+        "neural_causal": True,
+        "device": str(device),
+        "validation_fraction": float(validation_fraction),
+        "early_stopping": bool(early_stopping and validation_fraction > 0),
+        "n_epochs_trained": int(n_epochs_trained),
+        "loss_history": history,
+        "training_history": _history_frame(history),
+        "se_method": "unit_bootstrap_cate_plugin",
+        "mu0": mu0,
+        "mu1": mu1,
+        "cate": cate,
+        "treatment": D.astype(int),
+        "cate_mean": float(np.mean(cate)),
+        "cate_median": float(np.median(cate)),
+        "cate_std": float(np.std(cate)),
+        "cate_min": float(np.min(cate)),
+        "cate_max": float(np.max(cate)),
+        "cate_q05": float(np.percentile(cate, 5)),
+        "cate_q25": float(np.percentile(cate, 25)),
+        "cate_q75": float(np.percentile(cate, 75)),
+        "cate_q95": float(np.percentile(cate, 95)),
+        "n_treated": int(np.sum(D == 1)),
+        "n_control": int(np.sum(D == 0)),
     }
 
 
 # ======================================================================
 # TARNet
 # ======================================================================
+
 
 class TARNet:
     """
@@ -682,6 +719,7 @@ class TARNet:
         Y_s = Y_s.ravel()
 
         from ..utils._torch_device import resolve_torch_device
+
         device = resolve_torch_device()
         x_dim = X_s.shape[1]
 
@@ -694,11 +732,14 @@ class TARNet:
         head_0 = head_0.to(device)
         head_1 = head_1.to(device)
 
-        all_params = (list(repr_net.parameters()) +
-                      list(head_0.parameters()) +
-                      list(head_1.parameters()))
-        optimiser = torch.optim.Adam(all_params, lr=self.learning_rate,
-                                     weight_decay=self.weight_decay)
+        all_params = (
+            list(repr_net.parameters())
+            + list(head_0.parameters())
+            + list(head_1.parameters())
+        )
+        optimiser = torch.optim.Adam(
+            all_params, lr=self.learning_rate, weight_decay=self.weight_decay
+        )
 
         X_t = torch.tensor(X_s, dtype=torch.float32, device=device)
         Y_t = torch.tensor(Y_s, dtype=torch.float32, device=device)
@@ -711,8 +752,9 @@ class TARNet:
         val_t = torch.tensor(val_idx, dtype=torch.long, device=device)
 
         dataset = TensorDataset(X_t[train_t], Y_t[train_t], D_t[train_t])
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True,
-                            drop_last=False)
+        loader = DataLoader(
+            dataset, batch_size=self.batch_size, shuffle=True, drop_last=False
+        )
 
         # Training loop
         history: List[Dict[str, Any]] = []
@@ -762,26 +804,31 @@ class TARNet:
                     wait += 1
 
                 if self.early_stopping and wait >= self.patience:
-                    history.append({
-                        'epoch': epoch + 1,
-                        'train_loss': float(train_loss),
-                        'val_loss': val_loss,
-                    })
+                    history.append(
+                        {
+                            "epoch": epoch + 1,
+                            "train_loss": float(train_loss),
+                            "val_loss": val_loss,
+                        }
+                    )
                     if best_state is not None:
                         _restore_modules(best_state, repr_net, head_0, head_1)
                     if self.verbose:
                         print(f"  TARNet early stopped at epoch {epoch+1}")
                     break
 
-            history.append({
-                'epoch': epoch + 1,
-                'train_loss': float(train_loss),
-                'val_loss': val_loss,
-            })
+            history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": float(train_loss),
+                    "val_loss": val_loss,
+                }
+            )
 
             if self.verbose and (epoch + 1) % 50 == 0:
-                print(f"  TARNet epoch {epoch+1}/{self.epochs}, "
-                      f"loss={train_loss:.6f}")
+                print(
+                    f"  TARNet epoch {epoch+1}/{self.epochs}, " f"loss={train_loss:.6f}"
+                )
 
         # Predict CATE
         repr_net.eval()
@@ -813,8 +860,8 @@ class TARNet:
         )
 
         return CausalResult(
-            method='TARNet (Shalit et al. 2017)',
-            estimand='ATE',
+            method="TARNet (Shalit et al. 2017)",
+            estimand="ATE",
             estimate=ate,
             se=se,
             pvalue=pvalue,
@@ -823,7 +870,7 @@ class TARNet:
             n_obs=n,
             detail=None,
             model_info=model_info,
-            _citation_key='tarnet',
+            _citation_key="tarnet",
         )
 
     def effect(self, X_new: Optional[np.ndarray] = None) -> np.ndarray:
@@ -842,7 +889,7 @@ class TARNet:
         """
         torch, _ = _check_torch()
 
-        if not hasattr(self, '_repr_net'):
+        if not hasattr(self, "_repr_net"):
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
@@ -876,7 +923,7 @@ class TARNet:
         history: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         info = _basic_neural_info(
-            architecture='TARNet',
+            architecture="TARNet",
             cate=cate,
             mu0=mu0,
             mu1=mu1,
@@ -887,22 +934,25 @@ class TARNet:
             early_stopping=self.early_stopping,
             n_epochs_trained=len(history),
         )
-        info.update({
-            'repr_layers': self.repr_layers,
-            'head_layers': self.head_layers,
-            'epochs': self.epochs,
-            'learning_rate': self.learning_rate,
-            'weight_decay': self.weight_decay,
-            'dropout': self.dropout,
-            'n_covariates': len(self.covariates),
-            'covariates': self.covariates,
-        })
+        info.update(
+            {
+                "repr_layers": self.repr_layers,
+                "head_layers": self.head_layers,
+                "epochs": self.epochs,
+                "learning_rate": self.learning_rate,
+                "weight_decay": self.weight_decay,
+                "dropout": self.dropout,
+                "n_covariates": len(self.covariates),
+                "covariates": self.covariates,
+            }
+        )
         return info
 
 
 # ======================================================================
 # CFRNet
 # ======================================================================
+
 
 class CFRNet:
     """
@@ -1015,6 +1065,7 @@ class CFRNet:
         Y_s = Y_s.ravel()
 
         from ..utils._torch_device import resolve_torch_device
+
         device = resolve_torch_device()
         x_dim = X_s.shape[1]
 
@@ -1026,11 +1077,14 @@ class CFRNet:
         head_0 = head_0.to(device)
         head_1 = head_1.to(device)
 
-        all_params = (list(repr_net.parameters()) +
-                      list(head_0.parameters()) +
-                      list(head_1.parameters()))
-        optimiser = torch.optim.Adam(all_params, lr=self.learning_rate,
-                                     weight_decay=self.weight_decay)
+        all_params = (
+            list(repr_net.parameters())
+            + list(head_0.parameters())
+            + list(head_1.parameters())
+        )
+        optimiser = torch.optim.Adam(
+            all_params, lr=self.learning_rate, weight_decay=self.weight_decay
+        )
 
         X_t = torch.tensor(X_s, dtype=torch.float32, device=device)
         Y_t = torch.tensor(Y_s, dtype=torch.float32, device=device)
@@ -1043,8 +1097,9 @@ class CFRNet:
         val_t = torch.tensor(val_idx, dtype=torch.long, device=device)
 
         dataset = TensorDataset(X_t[train_t], Y_t[train_t], D_t[train_t])
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True,
-                            drop_last=False)
+        loader = DataLoader(
+            dataset, batch_size=self.batch_size, shuffle=True, drop_last=False
+        )
 
         history: List[Dict[str, Any]] = []
         best_val = float("inf")
@@ -1113,33 +1168,41 @@ class CFRNet:
                     wait += 1
 
                 if self.early_stopping and wait >= self.patience:
-                    history.append({
-                        'epoch': epoch + 1,
-                        'train_loss': float(train_loss + self.ipm_weight * train_ipm),
-                        'train_mse': float(train_loss),
-                        'train_ipm': float(train_ipm),
-                        'val_loss': val_loss,
-                        'val_ipm': val_ipm,
-                    })
+                    history.append(
+                        {
+                            "epoch": epoch + 1,
+                            "train_loss": float(
+                                train_loss + self.ipm_weight * train_ipm
+                            ),
+                            "train_mse": float(train_loss),
+                            "train_ipm": float(train_ipm),
+                            "val_loss": val_loss,
+                            "val_ipm": val_ipm,
+                        }
+                    )
                     if best_state is not None:
                         _restore_modules(best_state, repr_net, head_0, head_1)
                     if self.verbose:
                         print(f"  CFRNet early stopped at epoch {epoch+1}")
                     break
 
-            history.append({
-                'epoch': epoch + 1,
-                'train_loss': float(train_loss + self.ipm_weight * train_ipm),
-                'train_mse': float(train_loss),
-                'train_ipm': float(train_ipm),
-                'val_loss': val_loss,
-                'val_ipm': val_ipm,
-            })
+            history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": float(train_loss + self.ipm_weight * train_ipm),
+                    "train_mse": float(train_loss),
+                    "train_ipm": float(train_ipm),
+                    "val_loss": val_loss,
+                    "val_ipm": val_ipm,
+                }
+            )
 
             if self.verbose and (epoch + 1) % 50 == 0:
-                print(f"  CFRNet epoch {epoch+1}/{self.epochs}, "
-                      f"MSE={train_loss:.6f}, "
-                      f"IPM={train_ipm:.6f}")
+                print(
+                    f"  CFRNet epoch {epoch+1}/{self.epochs}, "
+                    f"MSE={train_loss:.6f}, "
+                    f"IPM={train_ipm:.6f}"
+                )
 
         # Predict CATE
         repr_net.eval()
@@ -1166,7 +1229,7 @@ class CFRNet:
         self._device = device
 
         model_info = _basic_neural_info(
-            architecture='CFRNet',
+            architecture="CFRNet",
             cate=cate,
             mu0=mu0_orig,
             mu1=mu1_orig,
@@ -1177,21 +1240,23 @@ class CFRNet:
             early_stopping=self.early_stopping,
             n_epochs_trained=len(history),
         )
-        model_info.update({
-            'repr_layers': self.repr_layers,
-            'head_layers': self.head_layers,
-            'ipm_weight': self.ipm_weight,
-            'epochs': self.epochs,
-            'learning_rate': self.learning_rate,
-            'weight_decay': self.weight_decay,
-            'dropout': self.dropout,
-            'n_covariates': len(self.covariates),
-            'covariates': self.covariates,
-        })
+        model_info.update(
+            {
+                "repr_layers": self.repr_layers,
+                "head_layers": self.head_layers,
+                "ipm_weight": self.ipm_weight,
+                "epochs": self.epochs,
+                "learning_rate": self.learning_rate,
+                "weight_decay": self.weight_decay,
+                "dropout": self.dropout,
+                "n_covariates": len(self.covariates),
+                "covariates": self.covariates,
+            }
+        )
 
         return CausalResult(
-            method='CFRNet (Shalit et al. 2017)',
-            estimand='ATE',
+            method="CFRNet (Shalit et al. 2017)",
+            estimand="ATE",
             estimate=ate,
             se=se,
             pvalue=pvalue,
@@ -1200,14 +1265,14 @@ class CFRNet:
             n_obs=n,
             detail=None,
             model_info=model_info,
-            _citation_key='cfrnet',
+            _citation_key="cfrnet",
         )
 
     def effect(self, X_new: Optional[np.ndarray] = None) -> np.ndarray:
         """Predict CATE for new observations."""
         torch, _ = _check_torch()
 
-        if not hasattr(self, '_repr_net'):
+        if not hasattr(self, "_repr_net"):
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
@@ -1234,6 +1299,7 @@ class CFRNet:
 # ======================================================================
 # DragonNet
 # ======================================================================
+
 
 class DragonNet:
     """
@@ -1356,6 +1422,7 @@ class DragonNet:
         Y_s = Y_s.ravel()
 
         from ..utils._torch_device import resolve_torch_device
+
         device = resolve_torch_device()
         x_dim = X_s.shape[1]
 
@@ -1383,13 +1450,16 @@ class DragonNet:
         # Epsilon for targeted regularisation (learnable scalar)
         epsilon = nn.Parameter(torch.zeros(1, device=device))
 
-        all_params = (list(repr_net.parameters()) +
-                      list(head_0.parameters()) +
-                      list(head_1.parameters()) +
-                      list(prop_head.parameters()) +
-                      [epsilon])
-        optimiser = torch.optim.Adam(all_params, lr=self.learning_rate,
-                                     weight_decay=self.weight_decay)
+        all_params = (
+            list(repr_net.parameters())
+            + list(head_0.parameters())
+            + list(head_1.parameters())
+            + list(prop_head.parameters())
+            + [epsilon]
+        )
+        optimiser = torch.optim.Adam(
+            all_params, lr=self.learning_rate, weight_decay=self.weight_decay
+        )
 
         X_t = torch.tensor(X_s, dtype=torch.float32, device=device)
         Y_t = torch.tensor(Y_s, dtype=torch.float32, device=device)
@@ -1402,8 +1472,9 @@ class DragonNet:
         val_t = torch.tensor(val_idx, dtype=torch.long, device=device)
 
         dataset = TensorDataset(X_t[train_t], Y_t[train_t], D_t[train_t])
-        loader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True,
-                            drop_last=False)
+        loader = DataLoader(
+            dataset, batch_size=self.batch_size, shuffle=True, drop_last=False
+        )
 
         bce = nn.BCELoss()
 
@@ -1444,9 +1515,11 @@ class DragonNet:
                 else:
                     t_reg = torch.tensor(0.0, device=device)
 
-                loss = (mse_loss +
-                        self.propensity_weight * prop_loss +
-                        self.targeted_reg_weight * t_reg)
+                loss = (
+                    mse_loss
+                    + self.propensity_weight * prop_loss
+                    + self.targeted_reg_weight * t_reg
+                )
 
                 loss.backward()
                 optimiser.step()
@@ -1482,11 +1555,13 @@ class DragonNet:
                         treg_v = torch.mean((y_v - y_targeted_v) ** 2)
                     else:
                         treg_v = torch.tensor(0.0, device=device)
-                    val_loss = float((
-                        mse_v
-                        + self.propensity_weight * prop_v
-                        + self.targeted_reg_weight * treg_v
-                    ).item())
+                    val_loss = float(
+                        (
+                            mse_v
+                            + self.propensity_weight * prop_v
+                            + self.targeted_reg_weight * treg_v
+                        ).item()
+                    )
 
                 if val_loss + self.min_delta < best_val:
                     best_val = val_loss
@@ -1499,16 +1574,20 @@ class DragonNet:
                     wait += 1
 
                 if self.early_stopping and wait >= self.patience:
-                    history.append({
-                        'epoch': epoch + 1,
-                        'train_loss': float(train_loss),
-                        'train_mse': float(train_mse),
-                        'train_propensity': float(train_prop),
-                        'train_targeted_reg': float(train_treg),
-                        'val_loss': val_loss,
-                    })
+                    history.append(
+                        {
+                            "epoch": epoch + 1,
+                            "train_loss": float(train_loss),
+                            "train_mse": float(train_mse),
+                            "train_propensity": float(train_prop),
+                            "train_targeted_reg": float(train_treg),
+                            "val_loss": val_loss,
+                        }
+                    )
                     if best_state is not None:
-                        _restore_modules(best_state, repr_net, head_0, head_1, prop_head)
+                        _restore_modules(
+                            best_state, repr_net, head_0, head_1, prop_head
+                        )
                         if best_epsilon is not None:
                             with torch.no_grad():
                                 epsilon.copy_(best_epsilon)
@@ -1516,20 +1595,24 @@ class DragonNet:
                         print(f"  DragonNet early stopped at epoch {epoch+1}")
                     break
 
-            history.append({
-                'epoch': epoch + 1,
-                'train_loss': float(train_loss),
-                'train_mse': float(train_mse),
-                'train_propensity': float(train_prop),
-                'train_targeted_reg': float(train_treg),
-                'val_loss': val_loss,
-            })
+            history.append(
+                {
+                    "epoch": epoch + 1,
+                    "train_loss": float(train_loss),
+                    "train_mse": float(train_mse),
+                    "train_propensity": float(train_prop),
+                    "train_targeted_reg": float(train_treg),
+                    "val_loss": val_loss,
+                }
+            )
 
             if self.verbose and (epoch + 1) % 50 == 0:
-                print(f"  DragonNet epoch {epoch+1}/{self.epochs}, "
-                      f"MSE={train_mse:.6f}, "
-                      f"Prop={train_prop:.6f}, "
-                      f"TReg={train_treg:.6f}")
+                print(
+                    f"  DragonNet epoch {epoch+1}/{self.epochs}, "
+                    f"MSE={train_mse:.6f}, "
+                    f"Prop={train_prop:.6f}, "
+                    f"TReg={train_treg:.6f}"
+                )
 
         # Predict
         repr_net.eval()
@@ -1573,7 +1656,7 @@ class DragonNet:
         self._device = device
 
         model_info = _basic_neural_info(
-            architecture='DragonNet',
+            architecture="DragonNet",
             cate=cate,
             mu0=mu0_orig,
             mu1=mu1_orig,
@@ -1584,32 +1667,34 @@ class DragonNet:
             early_stopping=self.early_stopping,
             n_epochs_trained=len(history),
         )
-        model_info.update({
-            'repr_layers': self.repr_layers,
-            'head_layers': self.head_layers,
-            'propensity_weight': self.propensity_weight,
-            'targeted_reg_weight': self.targeted_reg_weight,
-            'epsilon': float(epsilon.detach().cpu().item()),
-            'epochs': self.epochs,
-            'learning_rate': self.learning_rate,
-            'weight_decay': self.weight_decay,
-            'dropout': self.dropout,
-            'n_covariates': len(self.covariates),
-            'covariates': self.covariates,
-            'se_method': 'AIPW_influence_function',
-            'ate_plugin': float(np.mean(cate)),
-            'ate_aipw': ate_aipw,
-            'aipw_scores': aipw_scores,
-            'propensity_mean': float(np.mean(e_hat)),
-            'propensity_std': float(np.std(e_hat)),
-            'propensity_min': float(np.min(e_hat)),
-            'propensity_max': float(np.max(e_hat)),
-            'propensity': e_hat,
-        })
+        model_info.update(
+            {
+                "repr_layers": self.repr_layers,
+                "head_layers": self.head_layers,
+                "propensity_weight": self.propensity_weight,
+                "targeted_reg_weight": self.targeted_reg_weight,
+                "epsilon": float(epsilon.detach().cpu().item()),
+                "epochs": self.epochs,
+                "learning_rate": self.learning_rate,
+                "weight_decay": self.weight_decay,
+                "dropout": self.dropout,
+                "n_covariates": len(self.covariates),
+                "covariates": self.covariates,
+                "se_method": "AIPW_influence_function",
+                "ate_plugin": float(np.mean(cate)),
+                "ate_aipw": ate_aipw,
+                "aipw_scores": aipw_scores,
+                "propensity_mean": float(np.mean(e_hat)),
+                "propensity_std": float(np.std(e_hat)),
+                "propensity_min": float(np.min(e_hat)),
+                "propensity_max": float(np.max(e_hat)),
+                "propensity": e_hat,
+            }
+        )
 
         return CausalResult(
-            method='DragonNet (Shi et al. 2019)',
-            estimand='ATE',
+            method="DragonNet (Shi et al. 2019)",
+            estimand="ATE",
             estimate=ate_aipw,
             se=se,
             pvalue=pvalue,
@@ -1618,14 +1703,14 @@ class DragonNet:
             n_obs=n,
             detail=None,
             model_info=model_info,
-            _citation_key='dragonnet',
+            _citation_key="dragonnet",
         )
 
     def effect(self, X_new: Optional[np.ndarray] = None) -> np.ndarray:
         """Predict CATE for new observations."""
         torch, _ = _check_torch()
 
-        if not hasattr(self, '_repr_net'):
+        if not hasattr(self, "_repr_net"):
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
@@ -1664,7 +1749,7 @@ class DragonNet:
         """
         torch, _ = _check_torch()
 
-        if not hasattr(self, '_prop_head'):
+        if not hasattr(self, "_prop_head"):
             raise ValueError("Model must be fitted first. Call .fit()")
 
         if X_new is None:
@@ -1688,6 +1773,7 @@ class DragonNet:
 # ======================================================================
 # IPM: MMD with RBF kernel
 # ======================================================================
+
 
 def _mmd_rbf(X: Any, Y: Any, bandwidth: Optional[float] = None) -> Any:
     """
@@ -1755,6 +1841,7 @@ def _mmd_rbf(X: Any, Y: Any, bandwidth: Optional[float] = None) -> Any:
 # Shared inference helpers
 # ======================================================================
 
+
 def _bootstrap_ate_se(
     cate: np.ndarray,
     n_bootstrap: int,
@@ -1763,10 +1850,9 @@ def _bootstrap_ate_se(
     """Bootstrap standard error of ATE from individual CATE values."""
     rng = np.random.RandomState(random_state)
     n = len(cate)
-    boot_means = np.array([
-        rng.choice(cate, size=n, replace=True).mean()
-        for _ in range(n_bootstrap)
-    ])
+    boot_means = np.array(
+        [rng.choice(cate, size=n, replace=True).mean() for _ in range(n_bootstrap)]
+    )
     return float(np.std(boot_means, ddof=1))
 
 
@@ -1790,7 +1876,7 @@ def _inference(
 # Citations
 # ======================================================================
 
-CausalResult._CITATIONS['tarnet'] = (
+CausalResult._CITATIONS["tarnet"] = (
     "@inproceedings{shalit2017estimating,\n"
     "  title={Estimating Individual Treatment Effect: Generalization Bounds "
     "and Algorithms},\n"
@@ -1803,7 +1889,7 @@ CausalResult._CITATIONS['tarnet'] = (
     "}"
 )
 
-CausalResult._CITATIONS['cfrnet'] = (
+CausalResult._CITATIONS["cfrnet"] = (
     "@inproceedings{shalit2017estimating,\n"
     "  title={Estimating Individual Treatment Effect: Generalization Bounds "
     "and Algorithms},\n"
@@ -1816,7 +1902,7 @@ CausalResult._CITATIONS['cfrnet'] = (
     "}"
 )
 
-CausalResult._CITATIONS['dragonnet'] = (
+CausalResult._CITATIONS["dragonnet"] = (
     "@inproceedings{shi2019adapting,\n"
     "  title={Adapting Neural Networks for the Estimation of Treatment Effects},\n"
     "  author={Shi, Claudia and Blei, David M and Veitch, Victor},\n"

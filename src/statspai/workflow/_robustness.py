@@ -39,6 +39,7 @@ The same battery output is rendered into Robustness sections by
 :meth:`CausalWorkflow.robustness` (NL-driven path) so the user gets
 the same content regardless of how they reached the draft.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -46,7 +47,6 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------- #
 #  Data types
@@ -82,6 +82,7 @@ class RobustnessFinding:
         One-line plain-English interpretation; rendered after the
         value in markdown.
     """
+
     name: str
     label: str
     value: Any
@@ -116,6 +117,7 @@ class RobustnessReport:
         a particular check was deliberately skipped because the
         result-shape did not support it).
     """
+
     findings: List[RobustnessFinding] = field(default_factory=list)
     design: Optional[str] = None
     notes: List[str] = field(default_factory=list)
@@ -205,8 +207,12 @@ def _format_value(v: Any) -> str:
         more = "" if len(v) <= 6 else f", … +{len(v) - 6}"
         return "{" + ", ".join(bits) + more + "}"
     if isinstance(v, (list, tuple)):
-        return "[" + ", ".join(_format_value(x) for x in list(v)[:5]) + (
-            "…" if len(v) > 5 else "") + "]"
+        return (
+            "["
+            + ", ".join(_format_value(x) for x in list(v)[:5])
+            + ("…" if len(v) > 5 else "")
+            + "]"
+        )
     return str(v)
 
 
@@ -327,13 +333,15 @@ def _add_violations(result: Any, findings: List[RobustnessFinding]) -> None:
             return
         viols = viols_fn()
         if not viols:
-            findings.append(RobustnessFinding(
-                name="violations_none",
-                label="Self-reported violations",
-                value="none",
-                severity="ok",
-                interpretation="`result.violations()` returned an empty list.",
-            ))
+            findings.append(
+                RobustnessFinding(
+                    name="violations_none",
+                    label="Self-reported violations",
+                    value="none",
+                    severity="ok",
+                    interpretation="`result.violations()` returned an empty list.",
+                )
+            )
             return
         for v in viols:
             sev = (v.get("severity") or "info").lower()
@@ -342,19 +350,22 @@ def _add_violations(result: Any, findings: List[RobustnessFinding]) -> None:
                 "warning": "warning",
                 "info": "info",
             }.get(sev, "info")
-            findings.append(RobustnessFinding(
-                name=f"viol_{v.get('test', 'unknown')}",
-                label=f"Violation flag: {v.get('test', 'unknown')}",
-                value=v.get("value"),
-                severity=severity,
-                interpretation=v.get("message"),
-            ))
+            findings.append(
+                RobustnessFinding(
+                    name=f"viol_{v.get('test', 'unknown')}",
+                    label=f"Violation flag: {v.get('test', 'unknown')}",
+                    value=v.get("value"),
+                    severity=severity,
+                    interpretation=v.get("message"),
+                )
+            )
     except Exception as exc:  # pragma: no cover — defensive
         findings.append(_check_failed("violations", exc))
 
 
 def _add_estimate_summary(
-    result: Any, findings: List[RobustnessFinding],
+    result: Any,
+    findings: List[RobustnessFinding],
     treatment: Optional[str] = None,
 ) -> None:
     try:
@@ -362,19 +373,23 @@ def _add_estimate_summary(
             est = float(result.estimate)
             lo, hi = result.ci
             lo, hi = float(lo), float(hi)
-            findings.append(RobustnessFinding(
-                name="estimate",
-                label="Point estimate",
-                value=est,
-                severity="info",
-            ))
-            findings.append(RobustnessFinding(
-                name="ci_width",
-                label="95% CI width",
-                value=hi - lo,
-                severity="info",
-                interpretation=f"[{lo:+.4f}, {hi:+.4f}]",
-            ))
+            findings.append(
+                RobustnessFinding(
+                    name="estimate",
+                    label="Point estimate",
+                    value=est,
+                    severity="info",
+                )
+            )
+            findings.append(
+                RobustnessFinding(
+                    name="ci_width",
+                    label="95% CI width",
+                    value=hi - lo,
+                    severity="info",
+                    interpretation=f"[{lo:+.4f}, {hi:+.4f}]",
+                )
+            )
         elif hasattr(result, "params"):
             # statsmodels-flavoured result. Prefer the user-supplied
             # treatment column over the first row (which is usually
@@ -387,24 +402,29 @@ def _add_estimate_summary(
                     # Fall back to the first non-Intercept entry, then
                     # the very first as last resort.
                     non_const = [
-                        n for n in idx
+                        n
+                        for n in idx
                         if str(n).lower() not in {"intercept", "const", "(intercept)"}
                     ]
                     main_idx = non_const[0] if non_const else idx[0]
                 coef = float(result.params[main_idx])
                 se = float(result.std_errors[main_idx])
-                findings.append(RobustnessFinding(
-                    name="estimate",
-                    label=f"Coefficient on {main_idx}",
-                    value=coef,
-                    severity="info",
-                ))
-                findings.append(RobustnessFinding(
-                    name="ci_width",
-                    label="95% CI width (≈ 2·1.96·SE)",
-                    value=2 * 1.96 * se,
-                    severity="info",
-                ))
+                findings.append(
+                    RobustnessFinding(
+                        name="estimate",
+                        label=f"Coefficient on {main_idx}",
+                        value=coef,
+                        severity="info",
+                    )
+                )
+                findings.append(
+                    RobustnessFinding(
+                        name="ci_width",
+                        label="95% CI width (≈ 2·1.96·SE)",
+                        value=2 * 1.96 * se,
+                        severity="info",
+                    )
+                )
             except Exception as exc:  # pragma: no cover — defensive
                 findings.append(_check_failed("estimate_summary", exc))
     except Exception as exc:  # pragma: no cover — defensive
@@ -419,34 +439,40 @@ def _add_did_checks(result: Any, findings: List[RobustnessFinding]) -> None:
         if isinstance(pt, dict) and "pvalue" in pt:
             p = float(pt["pvalue"])
             sev = "warning" if p < 0.10 else "ok"
-            findings.append(RobustnessFinding(
-                name="pretrend_test",
-                label="Parallel-trends pre-test",
-                value=p,
-                severity=sev,
-                interpretation=(
-                    "p < 0.10 — pre-trends look unbalanced; investigate"
-                    if p < 0.10 else
-                    "p ≥ 0.10 — no pre-trend evidence at the 10% level"
-                ),
-            ))
+            findings.append(
+                RobustnessFinding(
+                    name="pretrend_test",
+                    label="Parallel-trends pre-test",
+                    value=p,
+                    severity=sev,
+                    interpretation=(
+                        "p < 0.10 — pre-trends look unbalanced; investigate"
+                        if p < 0.10
+                        else "p ≥ 0.10 — no pre-trend evidence at the 10% level"
+                    ),
+                )
+            )
         else:
-            findings.append(RobustnessFinding(
-                name="pretrend_test",
-                label="Parallel-trends pre-test",
-                value=pt,
-                severity="info",
-            ))
+            findings.append(
+                RobustnessFinding(
+                    name="pretrend_test",
+                    label="Parallel-trends pre-test",
+                    value=pt,
+                    severity="info",
+                )
+            )
     pj = mi.get("bjs_pretrend_joint") or mi.get("pretrend_joint")
     if pj is not None and isinstance(pj, dict) and "pvalue" in pj:
         p = float(pj["pvalue"])
         sev = "warning" if p < 0.10 else "ok"
-        findings.append(RobustnessFinding(
-            name="pretrend_joint",
-            label="Joint pre-trend test (BJS)",
-            value=p,
-            severity=sev,
-        ))
+        findings.append(
+            RobustnessFinding(
+                name="pretrend_joint",
+                label="Joint pre-trend test (BJS)",
+                value=p,
+                severity=sev,
+            )
+        )
 
 
 def _add_iv_checks(result: Any, findings: List[RobustnessFinding]) -> None:
@@ -460,40 +486,56 @@ def _add_iv_checks(result: Any, findings: List[RobustnessFinding]) -> None:
         kl = str(k).lower()
         if any(s in kl for s in skip_substrings):
             continue
-        if "first" in kl and ("_f" in kl or " f" in kl or "stage" in kl
-                              or kl.endswith("_f") or kl == "first_stage_f"):
+        if "first" in kl and (
+            "_f" in kl
+            or " f" in kl
+            or "stage" in kl
+            or kl.endswith("_f")
+            or kl == "first_stage_f"
+        ):
             try:
-                fval = float(v) if isinstance(v, (int, float, np.integer, np.floating)) \
-                    else (float(v.get("value", "nan")) if isinstance(v, dict) else float("nan"))
+                fval = (
+                    float(v)
+                    if isinstance(v, (int, float, np.integer, np.floating))
+                    else (
+                        float(v.get("value", "nan"))
+                        if isinstance(v, dict)
+                        else float("nan")
+                    )
+                )
             except Exception:
                 fval = float("nan")
             # Only treat finite numeric F values as Stock–Yogo-comparable.
             if not np.isfinite(fval):
                 continue
             sev = "ok" if fval >= 10 else ("warning" if fval >= 5 else "violation")
-            findings.append(RobustnessFinding(
-                name=f"iv_{k}",
-                label=f"First-stage strength ({k})",
-                value=fval,
-                severity=sev,
-                interpretation=(
-                    "≥ 10 — Stock–Yogo rule of thumb passed"
-                    if fval >= 10 else
-                    "< 10 — weak instrument flag (Stock–Yogo)"
-                ),
-            ))
+            findings.append(
+                RobustnessFinding(
+                    name=f"iv_{k}",
+                    label=f"First-stage strength ({k})",
+                    value=fval,
+                    severity=sev,
+                    interpretation=(
+                        "≥ 10 — Stock–Yogo rule of thumb passed"
+                        if fval >= 10
+                        else "< 10 — weak instrument flag (Stock–Yogo)"
+                    ),
+                )
+            )
     # Anderson-Rubin / weak-IV-robust
     mi = getattr(result, "model_info", None) or {}
     ar = mi.get("anderson_rubin") or mi.get("AR_test")
     if ar is not None and isinstance(ar, dict) and "pvalue" in ar:
         p = float(ar["pvalue"])
-        findings.append(RobustnessFinding(
-            name="anderson_rubin_pvalue",
-            label="Anderson-Rubin (weak-IV-robust)",
-            value=p,
-            severity="info",
-            interpretation="weak-IV-robust p-value for H0: β=0",
-        ))
+        findings.append(
+            RobustnessFinding(
+                name="anderson_rubin_pvalue",
+                label="Anderson-Rubin (weak-IV-robust)",
+                value=p,
+                severity="info",
+                interpretation="weak-IV-robust p-value for H0: β=0",
+            )
+        )
 
 
 def _add_rd_checks(result: Any, findings: List[RobustnessFinding]) -> None:
@@ -503,32 +545,37 @@ def _add_rd_checks(result: Any, findings: List[RobustnessFinding]) -> None:
     if mc is not None and isinstance(mc, dict) and "pvalue" in mc:
         p = float(mc["pvalue"])
         sev = "warning" if p < 0.10 else "ok"
-        findings.append(RobustnessFinding(
-            name="mccrary_test",
-            label="Manipulation test (McCrary / Cattaneo-Jansson-Ma)",
-            value=p,
-            severity=sev,
-            interpretation=(
-                "p < 0.10 — running-variable density discontinuity at "
-                "the cutoff; check for sorting"
-                if p < 0.10 else
-                "p ≥ 0.10 — no density-jump evidence at 10%"
-            ),
-        ))
+        findings.append(
+            RobustnessFinding(
+                name="mccrary_test",
+                label="Manipulation test (McCrary / Cattaneo-Jansson-Ma)",
+                value=p,
+                severity=sev,
+                interpretation=(
+                    "p < 0.10 — running-variable density discontinuity at "
+                    "the cutoff; check for sorting"
+                    if p < 0.10
+                    else "p ≥ 0.10 — no density-jump evidence at 10%"
+                ),
+            )
+        )
     # Bandwidth disclosure
     bw = mi.get("bandwidth") or mi.get("h")
     if bw is not None:
-        findings.append(RobustnessFinding(
-            name="rd_bandwidth",
-            label="Selected bandwidth",
-            value=bw,
-            severity="info",
-        ))
+        findings.append(
+            RobustnessFinding(
+                name="rd_bandwidth",
+                label="Selected bandwidth",
+                value=bw,
+                severity="info",
+            )
+        )
 
 
 def _add_evalue(result: Any, findings: List[RobustnessFinding]) -> None:
     try:
         from .. import evalue_from_result  # type: ignore
+
         ev = evalue_from_result(result)
         # statspai 1.x returns a dict with ``evalue_estimate`` (point
         # estimate's e-value) and ``evalue_ci`` (CI-limit e-value, which
@@ -549,45 +596,62 @@ def _add_evalue(result: Any, findings: List[RobustnessFinding]) -> None:
         if val >= 4:
             sev, interp = "ok", "≥ 4 — strong robustness to unmeasured confounding"
         elif val >= 2:
-            sev, interp = "info", "≥ 2 — moderate robustness; sensible to unmeasured confounders of similar strength"
+            sev, interp = (
+                "info",
+                "≥ 2 — moderate robustness; sensible to unmeasured confounders of similar strength",
+            )
         else:
-            sev, interp = "warning", "< 2 — modest unmeasured confounding could overturn the result"
-        findings.append(RobustnessFinding(
-            name="evalue",
-            label="E-value (CI-limit, VanderWeele-Ding)",
-            value=val,
-            severity=sev,
-            interpretation=interp,
-        ))
+            sev, interp = (
+                "warning",
+                "< 2 — modest unmeasured confounding could overturn the result",
+            )
+        findings.append(
+            RobustnessFinding(
+                name="evalue",
+                label="E-value (CI-limit, VanderWeele-Ding)",
+                value=val,
+                severity=sev,
+                interpretation=interp,
+            )
+        )
     except Exception as exc:
         # Don't swamp the section with check_failed when the result
         # simply doesn't carry the right shape — only record at a low
         # severity so the agent knows the check ran but didn't apply.
-        findings.append(RobustnessFinding(
-            name="evalue",
-            label="E-value (VanderWeele-Ding)",
-            value=None,
-            severity="check_failed",
-            interpretation=f"e-value computation failed: {type(exc).__name__}",
-        ))
+        findings.append(
+            RobustnessFinding(
+                name="evalue",
+                label="E-value (VanderWeele-Ding)",
+                value=None,
+                severity="check_failed",
+                interpretation=f"e-value computation failed: {type(exc).__name__}",
+            )
+        )
 
 
 def _add_oster_bounds(
-    result: Any, data: Optional[pd.DataFrame],
-    treatment: Optional[str], outcome: Optional[str],
+    result: Any,
+    data: Optional[pd.DataFrame],
+    treatment: Optional[str],
+    outcome: Optional[str],
     covariates: Optional[List[str]],
-    findings: List[RobustnessFinding], notes: List[str],
+    findings: List[RobustnessFinding],
+    notes: List[str],
 ) -> None:
     if data is None or treatment is None or outcome is None or not covariates:
         return  # Required inputs missing — skip silently
     try:
         from .. import oster_bounds  # type: ignore
+
         # ``oster_bounds`` (1.x) takes ``controls=`` and returns a dict
         # whose key for δ* is ``delta_for_zero`` (the value of δ that
         # would drive the bias-adjusted β to zero); ``beta_adjusted`` is
         # the bias-adjusted point estimate at the supplied δ.
         ob = oster_bounds(
-            data=data, y=outcome, treat=treatment, controls=list(covariates),
+            data=data,
+            y=outcome,
+            treat=treatment,
+            controls=list(covariates),
         )
         if not isinstance(ob, dict):
             ob = {k: getattr(ob, k) for k in dir(ob) if not k.startswith("_")}
@@ -595,72 +659,83 @@ def _add_oster_bounds(
         beta_adj = float(ob.get("beta_adjusted", float("nan")))
         robust = bool(ob.get("robust", abs(delta_star) >= 1.0))
         sev = "ok" if robust else ("info" if abs(delta_star) >= 0.5 else "warning")
-        findings.append(RobustnessFinding(
-            name="oster_delta_star",
-            label="Oster δ*-for-zero (selection-ratio threshold)",
-            value=delta_star,
-            severity=sev,
-            interpretation=(
-                "|δ*| ≥ 1 — unobservables would have to be at least as "
-                "important as observables to flip the sign"
-                if abs(delta_star) >= 1 else
-                f"|δ*| ≈ {abs(delta_star):.2f} — modest unobservable "
-                "selection could drive β to zero"
-            ),
-        ))
-        findings.append(RobustnessFinding(
-            name="oster_beta_adjusted",
-            label="Oster β* (bias-adjusted estimate at δ=1)",
-            value=beta_adj,
-            severity="info",
-        ))
-    except Exception as exc:
-        notes.append(
-            f"Oster bounds skipped: {type(exc).__name__}: {exc}"
+        findings.append(
+            RobustnessFinding(
+                name="oster_delta_star",
+                label="Oster δ*-for-zero (selection-ratio threshold)",
+                value=delta_star,
+                severity=sev,
+                interpretation=(
+                    "|δ*| ≥ 1 — unobservables would have to be at least as "
+                    "important as observables to flip the sign"
+                    if abs(delta_star) >= 1
+                    else f"|δ*| ≈ {abs(delta_star):.2f} — modest unobservable "
+                    "selection could drive β to zero"
+                ),
+            )
         )
+        findings.append(
+            RobustnessFinding(
+                name="oster_beta_adjusted",
+                label="Oster β* (bias-adjusted estimate at δ=1)",
+                value=beta_adj,
+                severity="info",
+            )
+        )
+    except Exception as exc:
+        notes.append(f"Oster bounds skipped: {type(exc).__name__}: {exc}")
 
 
 def _add_sensemakr(
-    result: Any, data: Optional[pd.DataFrame],
-    treatment: Optional[str], outcome: Optional[str],
+    result: Any,
+    data: Optional[pd.DataFrame],
+    treatment: Optional[str],
+    outcome: Optional[str],
     covariates: Optional[List[str]],
-    findings: List[RobustnessFinding], notes: List[str],
+    findings: List[RobustnessFinding],
+    notes: List[str],
 ) -> None:
     if data is None or treatment is None or outcome is None or not covariates:
         return
     try:
         from .. import sensemakr  # type: ignore
+
         # Cinelli-Hazlett (2020) sensemakr.  v1.x returns a dict with
         # ``rv_q`` (RV at q=1) and ``rv_qa`` (RV at q=1 with α=0.05).
         sm = sensemakr(
-            data=data, y=outcome, treat=treatment, controls=list(covariates),
+            data=data,
+            y=outcome,
+            treat=treatment,
+            controls=list(covariates),
         )
         if not isinstance(sm, dict):
             sm = {k: getattr(sm, k) for k in dir(sm) if not k.startswith("_")}
         rv_q = float(sm.get("rv_q", float("nan")))
         rv_qa = float(sm.get("rv_qa", float("nan")))
         sev = "ok" if rv_q >= 0.10 else ("info" if rv_q >= 0.05 else "warning")
-        findings.append(RobustnessFinding(
-            name="sensemakr_rv",
-            label="Sensemakr Robustness Value (RV, q=1)",
-            value=rv_q,
-            severity=sev,
-            interpretation=(
-                f"RV = {rv_q:.3f} — confounders explaining ≥ {rv_q*100:.1f}% "
-                "of treatment & outcome residual variance would null the result"
-            ),
-        ))
-        if np.isfinite(rv_qa):
-            findings.append(RobustnessFinding(
-                name="sensemakr_rv_qa",
-                label="Sensemakr RV (q=1, α=0.05 — significance threshold)",
-                value=rv_qa,
-                severity="info",
-            ))
-    except Exception as exc:
-        notes.append(
-            f"Sensemakr skipped: {type(exc).__name__}: {exc}"
+        findings.append(
+            RobustnessFinding(
+                name="sensemakr_rv",
+                label="Sensemakr Robustness Value (RV, q=1)",
+                value=rv_q,
+                severity=sev,
+                interpretation=(
+                    f"RV = {rv_q:.3f} — confounders explaining ≥ {rv_q*100:.1f}% "
+                    "of treatment & outcome residual variance would null the result"
+                ),
+            )
         )
+        if np.isfinite(rv_qa):
+            findings.append(
+                RobustnessFinding(
+                    name="sensemakr_rv_qa",
+                    label="Sensemakr RV (q=1, α=0.05 — significance threshold)",
+                    value=rv_qa,
+                    severity="info",
+                )
+            )
+    except Exception as exc:
+        notes.append(f"Sensemakr skipped: {type(exc).__name__}: {exc}")
 
 
 def _add_model_info_diagnostics(result: Any, findings: List[RobustnessFinding]) -> None:
@@ -670,16 +745,18 @@ def _add_model_info_diagnostics(result: Any, findings: List[RobustnessFinding]) 
     diags = mi.get("diagnostics")
     if not isinstance(diags, dict) or not diags:
         return
-    findings.append(RobustnessFinding(
-        name="estimator_diagnostics",
-        label="Estimator self-diagnostics",
-        value=diags,
-        severity="info",
-        interpretation=(
-            "Block exposed by the estimator's `model_info['diagnostics']`; "
-            "see the source estimator for interpretation."
-        ),
-    ))
+    findings.append(
+        RobustnessFinding(
+            name="estimator_diagnostics",
+            label="Estimator self-diagnostics",
+            value=diags,
+            severity="info",
+            interpretation=(
+                "Block exposed by the estimator's `model_info['diagnostics']`; "
+                "see the source estimator for interpretation."
+            ),
+        )
+    )
 
 
 def _check_failed(check_name: str, exc: Exception) -> RobustnessFinding:

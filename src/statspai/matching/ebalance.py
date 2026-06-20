@@ -114,6 +114,7 @@ def ebalance(
 
     if n_t < 2 or n_c < 2:
         from statspai.exceptions import DataInsufficient
+
         raise DataInsufficient(
             "Need at least 2 treated and 2 control units.",
             recovery_hint=(
@@ -140,6 +141,7 @@ def ebalance(
     max_imbalance = np.max(np.abs(achieved - targets))
     if max_imbalance > 0.01:
         import warnings
+
         warnings.warn(
             f"Entropy balancing did not fully converge "
             f"(max moment imbalance = {max_imbalance:.4f}). "
@@ -152,8 +154,9 @@ def ebalance(
 
     # SE via weighted variance
     var_t = np.var(Y_t, ddof=1) / n_t
-    var_c = np.average((Y_c - np.average(Y_c, weights=weights)) ** 2,
-                       weights=weights) / n_c
+    var_c = (
+        np.average((Y_c - np.average(Y_c, weights=weights)) ** 2, weights=weights) / n_c
+    )
     se = float(np.sqrt(var_t + var_c))
 
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -165,20 +168,20 @@ def ebalance(
     balance = _balance_check(X_t, X_c, weights, covariates)
 
     model_info = {
-        'method': 'Entropy Balancing',
-        'moments_balanced': moments,
-        'n_treated': int(n_t),
-        'n_control': int(n_c),
-        'max_weight': float(np.max(weights)),
-        'eff_sample_size': float(1 / np.sum(weights ** 2)),
-        'balance': balance,
-        'weights': weights,
-        'weights_fallback': weights_fallback,
+        "method": "Entropy Balancing",
+        "moments_balanced": moments,
+        "n_treated": int(n_t),
+        "n_control": int(n_c),
+        "max_weight": float(np.max(weights)),
+        "eff_sample_size": float(1 / np.sum(weights**2)),
+        "balance": balance,
+        "weights": weights,
+        "weights_fallback": weights_fallback,
     }
 
     return CausalResult(
-        method='Entropy Balancing (Hainmueller 2012)',
-        estimand='ATT',
+        method="Entropy Balancing (Hainmueller 2012)",
+        estimand="ATT",
         estimate=att,
         se=se,
         pvalue=pvalue,
@@ -187,7 +190,7 @@ def ebalance(
         n_obs=len(df),
         detail=balance,
         model_info=model_info,
-        _citation_key='ebalance',
+        _citation_key="ebalance",
     )
 
 
@@ -256,8 +259,11 @@ def _solve_ebalance(
 
     try:
         result = optimize.minimize(
-            neg_dual, lam0, jac=grad, method='L-BFGS-B',
-            options={'maxiter': max_iter, 'ftol': 1e-12},
+            neg_dual,
+            lam0,
+            jac=grad,
+            method="L-BFGS-B",
+            options={"maxiter": max_iter, "ftol": 1e-12},
         )
         lam = result.x
     except Exception as exc:
@@ -298,28 +304,28 @@ def _balance_check(
         mean_c_raw = np.mean(X_c[:, j])
         mean_c_w = np.average(X_c[:, j], weights=weights)
 
-        sd_pooled = np.sqrt(
-            (np.var(X_t[:, j], ddof=1) + np.var(X_c[:, j], ddof=1)) / 2
-        )
+        sd_pooled = np.sqrt((np.var(X_t[:, j], ddof=1) + np.var(X_c[:, j], ddof=1)) / 2)
         sd_pooled = max(sd_pooled, 1e-10)
 
         smd_before = (mean_t - mean_c_raw) / sd_pooled
         smd_after = (mean_t - mean_c_w) / sd_pooled
 
-        rows.append({
-            'covariate': cov,
-            'mean_treated': round(mean_t, 4),
-            'mean_control_raw': round(mean_c_raw, 4),
-            'mean_control_balanced': round(mean_c_w, 4),
-            'smd_before': round(smd_before, 4),
-            'smd_after': round(smd_after, 4),
-        })
+        rows.append(
+            {
+                "covariate": cov,
+                "mean_treated": round(mean_t, 4),
+                "mean_control_raw": round(mean_c_raw, 4),
+                "mean_control_balanced": round(mean_c_w, 4),
+                "smd_before": round(smd_before, 4),
+                "smd_after": round(smd_after, 4),
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
 # Citation
-CausalResult._CITATIONS['ebalance'] = (
+CausalResult._CITATIONS["ebalance"] = (
     "@article{hainmueller2012entropy,\n"
     "  title={Entropy Balancing for Causal Effects: A Multivariate "
     "Reweighting Method to Produce Balanced Samples in Observational "

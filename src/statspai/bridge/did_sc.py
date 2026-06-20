@@ -59,11 +59,11 @@ def did_sc_bridge(
 
     # ---------- Path A: classical 2×2 DID ---------- #
     df = data.copy()
-    df['_post'] = (df[time] >= treatment_time).astype(int)
-    df['_treat'] = df[unit].isin(treated_units).astype(int)
+    df["_post"] = (df[time] >= treatment_time).astype(int)
+    df["_treat"] = df[unit].isin(treated_units).astype(int)
 
     # Mean outcomes in the four cells
-    cell_means = df.groupby(['_treat', '_post'])[y].mean()
+    cell_means = df.groupby(["_treat", "_post"])[y].mean()
     try:
         m_t1_post = cell_means.loc[(1, 1)]
         m_t1_pre = cell_means.loc[(1, 0)]
@@ -85,14 +85,11 @@ def did_sc_bridge(
     boot = np.full(n_boot, np.nan)
     for b in range(n_boot):
         sample_units = rng.choice(units, size=n_units, replace=True)
-        sub = pd.concat(
-            [df[df[unit] == u] for u in sample_units], ignore_index=True
-        )
+        sub = pd.concat([df[df[unit] == u] for u in sample_units], ignore_index=True)
         try:
-            cm = sub.groupby(['_treat', '_post'])[y].mean()
-            boot[b] = (
-                (cm.loc[(1, 1)] - cm.loc[(1, 0)])
-                - (cm.loc[(0, 1)] - cm.loc[(0, 0)])
+            cm = sub.groupby(["_treat", "_post"])[y].mean()
+            boot[b] = (cm.loc[(1, 1)] - cm.loc[(1, 0)]) - (
+                cm.loc[(0, 1)] - cm.loc[(0, 0)]
             )
         except KeyError:
             continue
@@ -107,7 +104,9 @@ def did_sc_bridge(
     try:
         sc = SyntheticControl(
             data=data,
-            outcome=y, unit=unit, time=time,
+            outcome=y,
+            unit=unit,
+            time=time,
             treated_unit=treated_units[0],
             treatment_time=treatment_time,
             covariates=covariates,
@@ -126,7 +125,9 @@ def did_sc_bridge(
             try:
                 placebo_sc = SyntheticControl(
                     data=data,
-                    outcome=y, unit=unit, time=time,
+                    outcome=y,
+                    unit=unit,
+                    time=time,
                     treated_unit=du,
                     treatment_time=treatment_time,
                     covariates=covariates,
@@ -143,9 +144,9 @@ def did_sc_bridge(
                 continue
         if len(placebo) >= 3:
             sc_se = float(np.std(placebo, ddof=1))
-        sc_detail = {'n_placebo': len(placebo)}
+        sc_detail = {"n_placebo": len(placebo)}
     except Exception as e:  # pragma: no cover - upstream import edge cases
-        sc_detail = {'sc_error': f"{type(e).__name__}: {e}"}
+        sc_detail = {"sc_error": f"{type(e).__name__}: {e}"}
         sc_estimate = att_did
         sc_se = se_did
 
@@ -154,8 +155,10 @@ def did_sc_bridge(
         att_did, se_did, sc_estimate, sc_se if not np.isnan(sc_se) else se_did
     )
     est_dr, se_dr = _dr_combine(
-        att_did, se_did,
-        sc_estimate, sc_se if not np.isnan(sc_se) else se_did,
+        att_did,
+        se_did,
+        sc_estimate,
+        sc_se if not np.isnan(sc_se) else se_did,
         diff_p,
     )
 
@@ -178,11 +181,14 @@ def did_sc_bridge(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.bridge.did_sc_bridge",
             params={
-                "y": y, "unit": unit, "time": time,
+                "y": y,
+                "unit": unit,
+                "time": time,
                 "treatment_time": int(treatment_time),
                 "covariates": list(covariates) if covariates else None,
                 "alpha": alpha,

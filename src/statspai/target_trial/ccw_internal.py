@@ -1,12 +1,11 @@
 """Internal helpers for clone-censor-weight."""
+
 from __future__ import annotations
 import numpy as np
 import pandas as pd
 
 
-def _artificial_censor(
-    df: pd.DataFrame, id_col: str, time_col: str
-) -> pd.DataFrame:
+def _artificial_censor(df: pd.DataFrame, id_col: str, time_col: str) -> pd.DataFrame:
     """Censor each clone the moment they deviate from the strategy."""
     kept_rows: list[pd.DataFrame] = []
     for _, block in df.groupby(id_col, sort=False):
@@ -14,7 +13,9 @@ def _artificial_censor(
         consistent = block["_consistent"].to_numpy()
         if consistent.any() and not consistent[0]:
             continue
-        first_inconsistent = np.argmax(~consistent) if (~consistent).any() else len(consistent)
+        first_inconsistent = (
+            np.argmax(~consistent) if (~consistent).any() else len(consistent)
+        )
         if not consistent[0]:
             first_inconsistent = 0
         if first_inconsistent == 0 and not consistent[0]:

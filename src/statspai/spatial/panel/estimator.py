@@ -19,6 +19,7 @@ Elhorst, J.P. (2014). *Spatial Econometrics: From Cross-Sectional Data to
 Lee, L.-F. & Yu, J. (2010). "Estimation of spatial autoregressive panel
   data models with fixed effects." *JoE*, 154(2), 165-185.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,7 +31,6 @@ from scipy.optimize import minimize_scalar
 
 from ..models.ml import _coerce_W
 
-
 EffectKind = Literal["fe", "twoways"]
 ModelKind = Literal["sar", "sem", "sdm"]
 
@@ -38,6 +38,7 @@ ModelKind = Literal["sar", "sem", "sdm"]
 # --------------------------------------------------------------------- #
 #  Balanced-panel reshaping
 # --------------------------------------------------------------------- #
+
 
 def _balanced_panel_matrix(
     data: pd.DataFrame, entity: str, time: str, var: str
@@ -71,17 +72,18 @@ def _within_transform(arr: np.ndarray, effects: EffectKind) -> np.ndarray:
 #  Result dataclass
 # --------------------------------------------------------------------- #
 
+
 @dataclass
 class SpatialPanelResult:
-    params: pd.Series            # [x1, x2, …, ρ or λ]
+    params: pd.Series  # [x1, x2, …, ρ or λ]
     std_errors: pd.Series
     model: ModelKind
     effects: EffectKind
-    spatial_param: str           # "rho" or "lambda"
+    spatial_param: str  # "rho" or "lambda"
     spatial_param_value: float
     sigma2: float
     log_likelihood: float
-    residuals: np.ndarray        # (N, T)
+    residuals: np.ndarray  # (N, T)
     N: int
     T: int
 
@@ -111,6 +113,7 @@ class SpatialPanelResult:
 # --------------------------------------------------------------------- #
 #  Main entry point
 # --------------------------------------------------------------------- #
+
 
 def spatial_panel(
     data: pd.DataFrame,
@@ -228,7 +231,8 @@ def spatial_panel(
             return float(
                 -(
                     -N * T / 2 * np.log(2 * np.pi * sigma2)
-                    + ldet - (e @ e) / (2 * sigma2)
+                    + ldet
+                    - (e @ e) / (2 * sigma2)
                 )
             )
 
@@ -243,14 +247,13 @@ def spatial_panel(
         se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
         # simple numerical SE for ρ
         h = 1e-4
-        d2 = (
-            neg_ll(rho_hat + h) - 2 * neg_ll(rho_hat) + neg_ll(rho_hat - h)
-        ) / (h * h)
+        d2 = (neg_ll(rho_hat + h) - 2 * neg_ll(rho_hat) + neg_ll(rho_hat - h)) / (h * h)
         se_rho = float(1.0 / np.sqrt(max(d2, 1e-10)))
         spatial_name = "rho"
         spatial_value = rho_hat
 
     else:  # SEM-FE: (I - λW) premultiplied to both sides
+
         def neg_ll_sem(lam: float) -> float:
             Y_star = _apply_spatial(lam, Y_w)
             y_star_vec = Y_star.flatten(order="F")
@@ -267,7 +270,8 @@ def spatial_panel(
             return float(
                 -(
                     -N * T / 2 * np.log(2 * np.pi * sigma2)
-                    + ldet - (e @ e) / (2 * sigma2)
+                    + ldet
+                    - (e @ e) / (2 * sigma2)
                 )
             )
 
@@ -285,9 +289,7 @@ def spatial_panel(
         se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
         h = 1e-4
         d2 = (
-            neg_ll_sem(lam_hat + h)
-            - 2 * neg_ll_sem(lam_hat)
-            + neg_ll_sem(lam_hat - h)
+            neg_ll_sem(lam_hat + h) - 2 * neg_ll_sem(lam_hat) + neg_ll_sem(lam_hat - h)
         ) / (h * h)
         se_rho = float(1.0 / np.sqrt(max(d2, 1e-10)))
         spatial_name = "lambda"
@@ -307,5 +309,6 @@ def spatial_panel(
         sigma2=sigma2,
         log_likelihood=-float(opt.fun),
         residuals=residuals,
-        N=N, T=T,
+        N=N,
+        T=T,
     )

@@ -18,8 +18,12 @@ from .weighting import transport_weights as weights, TransportWeightResult
 from .generalize import generalize
 from .identify import identify_transport, TransportIdentificationResult
 from .evidence_synthesis import (
-    synthesise_evidence, heterogeneity_of_effect, rwd_rct_concordance,
-    EvidenceSynthesisResult, HeterogeneityResult, ConcordanceResult,
+    synthesise_evidence,
+    heterogeneity_of_effect,
+    rwd_rct_concordance,
+    EvidenceSynthesisResult,
+    HeterogeneityResult,
+    ConcordanceResult,
 )
 
 __all__ = [
@@ -28,6 +32,10 @@ __all__ = [
     "generalize",
     "identify_transport",
     "TransportIdentificationResult",
-    "synthesise_evidence", "heterogeneity_of_effect", "rwd_rct_concordance",
-    "EvidenceSynthesisResult", "HeterogeneityResult", "ConcordanceResult",
+    "synthesise_evidence",
+    "heterogeneity_of_effect",
+    "rwd_rct_concordance",
+    "EvidenceSynthesisResult",
+    "HeterogeneityResult",
+    "ConcordanceResult",
 ]

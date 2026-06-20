@@ -148,7 +148,7 @@ def q_learning(
         # Extract "advantage" A_k = Q(H, A=1) - Q(H, A=0)
         if include_interactions and H.shape[1] > 0:
             # advantage = H @ coef_interaction
-            adv_coef = coef[H.shape[1]:]
+            adv_coef = coef[H.shape[1] :]
             advantage = H @ adv_coef
         else:
             advantage = np.full(n, coef[-1])
@@ -157,17 +157,19 @@ def q_learning(
         # Optimal Q value at (H_k, optimal action)
         if include_interactions and H.shape[1] > 0:
             # Q(H, a=0) = H @ coef_H ; Q(H, a=1) = Q0 + advantage
-            Q0 = H @ coef[:H.shape[1]]
+            Q0 = H @ coef[: H.shape[1]]
             Y_tilde = np.maximum(Q0, Q0 + advantage)
         else:
             Q0 = H @ coef[:-1]
             Y_tilde = np.maximum(Q0, Q0 + coef[-1])
 
-        stage_coefs.append({
-            "intercept_block_dim": int(H.shape[1]),
-            "advantage_norm": float(np.linalg.norm(advantage)),
-            "fraction_treat_optimal": float(optimal_actions[:, k].mean()),
-        })
+        stage_coefs.append(
+            {
+                "intercept_block_dim": int(H.shape[1]),
+                "advantage_norm": float(np.linalg.norm(advantage)),
+                "fraction_treat_optimal": float(optimal_actions[:, k].mean()),
+            }
+        )
 
     stage_coefs = list(reversed(stage_coefs))
     value = float(np.mean(Y_tilde))

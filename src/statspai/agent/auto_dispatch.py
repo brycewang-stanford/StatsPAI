@@ -16,6 +16,7 @@ content extraction, result caching, JSON wrapping in the MCP layer)
 sees a uniform shape regardless of whether a tool was hand-curated or
 auto-dispatched.
 """
+
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
@@ -31,6 +32,7 @@ def _allowed_kwargs(name: str) -> Optional[set]:
     """
     try:
         from ..registry import _REGISTRY, _ensure_full_registry
+
         _ensure_full_registry()
         spec = _REGISTRY.get(name)
         if spec is None:
@@ -58,6 +60,7 @@ def dispatch_registry_tool(
         ``{'error': ...}`` envelope.
     """
     import statspai as sp
+
     fn = getattr(sp, name, None)
     if fn is None or not callable(fn):
         raise KeyError(name)
@@ -82,22 +85,23 @@ def dispatch_registry_tool(
         result = fn(**kwargs)
     except Exception as e:
         envelope: Dict[str, Any] = {
-            'error': f"{type(e).__name__}: {e}",
-            'tool': name,
-            'arguments': {k: v for k, v in arguments.items()
-                          if not isinstance(v, pd.DataFrame)},
-            'remediation': _remediate(e, context={'tool': name}),
+            "error": f"{type(e).__name__}: {e}",
+            "tool": name,
+            "arguments": {
+                k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+            },
+            "remediation": _remediate(e, context={"tool": name}),
         }
         if isinstance(e, StatsPAIError):
             try:
-                envelope['error_kind'] = e.code
-                envelope['error_payload'] = e.to_dict()
+                envelope["error_kind"] = e.code
+                envelope["error_payload"] = e.to_dict()
             except Exception:
-                envelope['error_kind'] = e.code
-                envelope['error_payload'] = {
-                    'kind': e.code,
-                    'class': type(e).__name__,
-                    'message': str(e),
+                envelope["error_kind"] = e.code
+                envelope["error_payload"] = {
+                    "kind": e.code,
+                    "class": type(e).__name__,
+                    "message": str(e),
                 }
         return envelope
 
@@ -105,26 +109,36 @@ def dispatch_registry_tool(
         out = _default_serializer(result, detail=detail)
     except Exception as e:
         return {
-            'error': f"serializer_error: {type(e).__name__}: {e}",
-            'tool': name,
-            'stage': 'serializer',
+            "error": f"serializer_error: {type(e).__name__}: {e}",
+            "tool": name,
+            "stage": "serializer",
         }
 
     if not isinstance(out, dict):
-        out = {'value': out}
+        out = {"value": out}
 
     rid: Optional[str] = None
     if as_handle:
-        rid = RESULT_CACHE.put(result, tool=name,
-                                arguments={k: v for k, v in arguments.items()
-                                            if not isinstance(v, pd.DataFrame)})
-        out['result_id'] = rid
-        out['result_uri'] = f"statspai://result/{rid}"
+        rid = RESULT_CACHE.put(
+            result,
+            tool=name,
+            arguments={
+                k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+            },
+        )
+        out["result_id"] = rid
+        out["result_uri"] = f"statspai://result/{rid}"
 
     from ._enrichment import enrich_payload
-    enrich_payload(out, tool_name=name, result_id=rid,
-                   base_args={k: v for k, v in arguments.items()
-                              if not isinstance(v, pd.DataFrame)})
+
+    enrich_payload(
+        out,
+        tool_name=name,
+        result_id=rid,
+        base_args={
+            k: v for k, v in arguments.items() if not isinstance(v, pd.DataFrame)
+        },
+    )
 
     return out
 

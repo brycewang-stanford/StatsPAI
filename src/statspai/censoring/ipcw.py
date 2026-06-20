@@ -93,7 +93,7 @@ class IPCWResult:
                     float(w.max()) if w.size else np.nan,
                     float((w > 10).mean()) if w.size else np.nan,
                     float((w > 20).mean()) if w.size else np.nan,
-                    float(w.sum() ** 2 / (w ** 2).sum()) if w.size else np.nan,
+                    float(w.sum() ** 2 / (w**2).sum()) if w.size else np.nan,
                 ],
             }
         )
@@ -184,8 +184,7 @@ def ipcw(
         p_uncensored_cond = _cox_uncensored_survival(t, d, X[:, 1:])
     else:
         raise ValueError(
-            "method must be 'pooled_logistic' or 'cox_ph', got "
-            f"{method!r}."
+            "method must be 'pooled_logistic' or 'cox_ph', got " f"{method!r}."
         )
 
     p_uncensored_cond = np.clip(p_uncensored_cond, 1e-8, 1.0)
@@ -213,7 +212,7 @@ def ipcw(
         "mean": float(np.nanmean(w)),
         "max": float(np.nanmax(w)),
         "min": float(np.nanmin(w)),
-        "effective_sample_size": float(w.sum() ** 2 / (w ** 2).sum()),
+        "effective_sample_size": float(w.sum() ** 2 / (w**2).sum()),
     }
 
     _result = IPCWResult(
@@ -225,14 +224,19 @@ def ipcw(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.censoring.ipcw",
             params={
-                "time": time, "event": event,
+                "time": time,
+                "event": event,
                 "censor_covariates": list(censor_covariates),
-                "treatment_covariates": list(treatment_covariates) if treatment_covariates else None,
-                "stabilize": stabilize, "method": method,
+                "treatment_covariates": (
+                    list(treatment_covariates) if treatment_covariates else None
+                ),
+                "stabilize": stabilize,
+                "method": method,
                 "truncate": list(truncate) if truncate else None,
             },
             data=data,
@@ -253,7 +257,9 @@ def _sigmoid(z: np.ndarray) -> np.ndarray:
     return np.asarray(1.0 / (1.0 + np.exp(-z)))
 
 
-def _fit_logit(y: np.ndarray, X: np.ndarray, max_iter: int = 50, tol: float = 1e-8) -> np.ndarray:
+def _fit_logit(
+    y: np.ndarray, X: np.ndarray, max_iter: int = 50, tol: float = 1e-8
+) -> np.ndarray:
     """Plain Newton-Raphson IRLS logistic regression; no external deps."""
     n, p = X.shape
     beta = np.zeros(p)
@@ -275,9 +281,7 @@ def _fit_logit(y: np.ndarray, X: np.ndarray, max_iter: int = 50, tol: float = 1e
     return beta
 
 
-def _cox_uncensored_survival(
-    t: np.ndarray, d: np.ndarray, X: np.ndarray
-) -> np.ndarray:
+def _cox_uncensored_survival(t: np.ndarray, d: np.ndarray, X: np.ndarray) -> np.ndarray:
     """Very light Breslow Cox estimator — good enough to derive
     :math:`\\hat S_C(t|X)` = prob still uncensored by t given X.
 
@@ -315,9 +319,11 @@ def _cox_uncensored_survival(
 
     eta = X @ beta
     haz_baseline = np.cumsum(
-        censor_event / np.clip(
+        censor_event
+        / np.clip(
             np.array([np.sum(np.exp(np.clip(X[t >= ti] @ beta, -35, 35))) for ti in t]),
-            1e-12, None,
+            1e-12,
+            None,
         )
     )
     surv = np.exp(-haz_baseline * np.exp(np.clip(eta, -35, 35)))

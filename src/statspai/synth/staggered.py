@@ -90,7 +90,9 @@ def staggered_synth(
     >>> _ = result.summary()
     """
     # --- Identify treated units and their adoption times ---
-    panel = data.pivot_table(index=unit, columns=time, values=treatment, aggfunc="first")
+    panel = data.pivot_table(
+        index=unit, columns=time, values=treatment, aggfunc="first"
+    )
     all_times = sorted(panel.columns.tolist())
     all_units = panel.index.tolist()
 
@@ -154,15 +156,17 @@ def staggered_synth(
             for u in cohort_units:
                 Y_u_post = outcome_panel.loc[u, post_times_c].values.astype(np.float64)
                 eff_u = Y_u_post - Y1_hat
-                unit_results.append({
-                    "unit": u,
-                    "cohort_time": cohort_time,
-                    "att": float(np.mean(eff_u)),
-                    "n_post": len(post_times_c),
-                    "n_pre": len(pre_times_c),
-                    "weights": weights,
-                    "donors": donors_c,
-                })
+                unit_results.append(
+                    {
+                        "unit": u,
+                        "cohort_time": cohort_time,
+                        "att": float(np.mean(eff_u)),
+                        "n_post": len(post_times_c),
+                        "n_pre": len(pre_times_c),
+                        "weights": weights,
+                        "donors": donors_c,
+                    }
+                )
         else:  # separate
             for u in cohort_units:
                 Y1_pre_u = outcome_panel.loc[u, pre_times_c].values.astype(np.float64)
@@ -172,20 +176,24 @@ def staggered_synth(
                     weights = _solve_weights(Y1_pre_u, Y0_pre.T, penalization)
                     Y1_hat = Y0_post.T @ weights
                     effects = Y1_post_u - Y1_hat
-                    unit_results.append({
-                        "unit": u,
-                        "cohort_time": cohort_time,
-                        "att": float(np.mean(effects)),
-                        "n_post": len(post_times_c),
-                        "n_pre": len(pre_times_c),
-                        "weights": weights,
-                        "donors": donors_c,
-                    })
+                    unit_results.append(
+                        {
+                            "unit": u,
+                            "cohort_time": cohort_time,
+                            "att": float(np.mean(effects)),
+                            "n_post": len(post_times_c),
+                            "n_pre": len(pre_times_c),
+                            "weights": weights,
+                            "donors": donors_c,
+                        }
+                    )
                 except Exception:  # pragma: no cover
                     continue  # pragma: no cover
 
     if len(unit_results) == 0:
-        raise ValueError("Could not estimate effects for any treated unit")  # pragma: no cover
+        raise ValueError(
+            "Could not estimate effects for any treated unit"
+        )  # pragma: no cover
 
     # --- Aggregate ATT ---
     # Weight by number of post-periods
@@ -207,8 +215,12 @@ def staggered_synth(
                 if len(pre_t) < 2 or len(post_t) < 1 or len(remaining_donors) < 1:
                     continue  # pragma: no cover
 
-                Y0p = outcome_panel.loc[remaining_donors, pre_t].values.astype(np.float64)
-                Y0p_post = outcome_panel.loc[remaining_donors, post_t].values.astype(np.float64)
+                Y0p = outcome_panel.loc[remaining_donors, pre_t].values.astype(
+                    np.float64
+                )
+                Y0p_post = outcome_panel.loc[remaining_donors, post_t].values.astype(
+                    np.float64
+                )
                 Yp_pre = outcome_panel.loc[p_unit, pre_t].values.astype(np.float64)
                 Yp_post = outcome_panel.loc[p_unit, post_t].values.astype(np.float64)
 
@@ -234,16 +246,27 @@ def staggered_synth(
     ci = (att - z_crit * se, att + z_crit * se)
 
     # --- Build detail tables ---
-    unit_df = pd.DataFrame([
-        {"unit": r["unit"], "cohort_time": r["cohort_time"],
-         "att": r["att"], "n_pre": r["n_pre"], "n_post": r["n_post"]}
-        for r in unit_results
-    ])
+    unit_df = pd.DataFrame(
+        [
+            {
+                "unit": r["unit"],
+                "cohort_time": r["cohort_time"],
+                "att": r["att"],
+                "n_pre": r["n_pre"],
+                "n_post": r["n_post"],
+            }
+            for r in unit_results
+        ]
+    )
 
-    cohort_df = unit_df.groupby("cohort_time").agg(
-        att=("att", "mean"),
-        n_units=("unit", "count"),
-    ).reset_index()
+    cohort_df = (
+        unit_df.groupby("cohort_time")
+        .agg(
+            att=("att", "mean"),
+            n_units=("unit", "count"),
+        )
+        .reset_index()
+    )
 
     model_info = {
         "method": method,
@@ -302,7 +325,10 @@ def _solve_weights(
         return np.asarray(g)
 
     res = optimize.minimize(
-        objective, np.ones(J) / J, jac=jac, method="SLSQP",
+        objective,
+        np.ones(J) / J,
+        jac=jac,
+        method="SLSQP",
         bounds=[(0, 1)] * J,
         constraints={"type": "eq", "fun": lambda w: np.sum(w) - 1},
         options={"maxiter": 1000, "ftol": 1e-12},

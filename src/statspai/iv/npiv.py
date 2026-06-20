@@ -36,7 +36,7 @@ Darolles, S., Fan, Y., Florens, J.-P. and Renault, E. (2011). "Nonparametric
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -45,6 +45,7 @@ import pandas as pd
 @dataclass
 class NPIVResult:
     """Nonparametric IV estimation result."""
+
     h_values: np.ndarray
     h_se: np.ndarray
     d_grid: np.ndarray
@@ -71,13 +72,15 @@ class NPIVResult:
         return "\n".join(lines)
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            "D": self.d_grid,
-            "h": self.h_values,
-            "se": self.h_se,
-            "ci_lower": self.h_values - 1.96 * self.h_se,
-            "ci_upper": self.h_values + 1.96 * self.h_se,
-        })
+        return pd.DataFrame(
+            {
+                "D": self.d_grid,
+                "h": self.h_values,
+                "se": self.h_se,
+                "ci_lower": self.h_values - 1.96 * self.h_se,
+                "ci_upper": self.h_values + 1.96 * self.h_se,
+            }
+        )
 
 
 def _grab(v: Any, data: Any, cols: bool = False) -> np.ndarray:
@@ -97,17 +100,20 @@ def _poly_basis(X: np.ndarray, K: int) -> np.ndarray:
 def _bspline_basis(X: np.ndarray, K: int, n_knots: int = 10) -> np.ndarray:
     """B-spline basis matrix."""
     from scipy.interpolate import BSpline
+
     X = np.asarray(X, dtype=float).reshape(-1)
     lo, hi = float(X.min()), float(X.max())
     knots = np.linspace(lo, hi, n_knots)
     internal = knots[1:-1]
     # use degree = min(3, K) for stability
     deg = min(3, K)
-    t = np.concatenate([
-        np.full(deg + 1, lo),
-        internal,
-        np.full(deg + 1, hi),
-    ])
+    t = np.concatenate(
+        [
+            np.full(deg + 1, lo),
+            internal,
+            np.full(deg + 1, hi),
+        ]
+    )
     n_basis = len(t) - deg - 1
     B = np.zeros((len(X), n_basis))
     for j in range(n_basis):
@@ -211,7 +217,11 @@ def npiv(
     rss_full = float(resid_fs @ resid_fs)
     rss_red = float(Dt @ Dt)
     df_d = max(n - Phi_Z.shape[1], 1)
-    first_f = ((rss_red - rss_full) / Phi_Z.shape[1]) / (rss_full / df_d) if rss_full > 0 else np.inf
+    first_f = (
+        ((rss_red - rss_full) / Phi_Z.shape[1]) / (rss_full / df_d)
+        if rss_full > 0
+        else np.inf
+    )
 
     # === Stage 2: sieve regression of Y on h(D̂) ===
     Phi_D = _build_basis(Dt_hat, k_d, basis)
@@ -256,13 +266,15 @@ def npiv(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.iv.npiv",
             params={
                 "y": y if isinstance(y, str) else None,
                 "endog": endog if isinstance(endog, str) else None,
-                "k_d": k_d, "k_z": k_z,
+                "k_d": k_d,
+                "k_z": k_z,
                 "basis": basis,
                 "regularization": regularization,
                 "add_const": add_const,

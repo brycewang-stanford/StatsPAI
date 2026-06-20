@@ -155,44 +155,42 @@ class FisherResult:
             bins=min(50, max(20, self.n_perm // 20)),
             density=True,
             alpha=0.7,
-            color='steelblue',
-            edgecolor='white',
-            label='Permutation distribution',
+            color="steelblue",
+            edgecolor="white",
+            label="Permutation distribution",
         )
         ax.axvline(
             self.statistic,
-            color='red',
+            color="red",
             linewidth=2,
-            linestyle='--',
-            label=f'Observed = {self.statistic:.4f}',
+            linestyle="--",
+            label=f"Observed = {self.statistic:.4f}",
         )
         ax.axvline(
             -abs(self.statistic),
-            color='red',
+            color="red",
             linewidth=1,
-            linestyle=':',
+            linestyle=":",
             alpha=0.5,
         )
         ax.axvline(
             abs(self.statistic),
-            color='red',
+            color="red",
             linewidth=1,
-            linestyle=':',
+            linestyle=":",
             alpha=0.5,
         )
 
-        ax.set_xlabel('Test Statistic')
-        ax.set_ylabel('Density')
-        ax.set_title(
-            f"Fisher Randomization Test (p = {self.p_value:.4f})"
-        )
+        ax.set_xlabel("Test Statistic")
+        ax.set_ylabel("Density")
+        ax.set_title(f"Fisher Randomization Test (p = {self.p_value:.4f})")
         ax.legend()
 
         return fig, ax
 
     def _repr_html_(self) -> str:
         """Rich HTML representation for Jupyter notebooks."""
-        sig_color = '#d32f2f' if self.p_value < 0.05 else '#388e3c'
+        sig_color = "#d32f2f" if self.p_value < 0.05 else "#388e3c"
         box_style = (
             "font-family: monospace; padding: 10px; border: 1px solid #ddd; "
             "border-radius: 5px; max-width: 500px;"
@@ -200,40 +198,42 @@ class FisherResult:
         cell_style = "padding: 4px 8px;"
         right_style = f"{cell_style} text-align: right;"
         p_style = f"{right_style} color: {sig_color}; font-weight: bold;"
-        return "\n".join([
-            f'<div style="{box_style}">',
-            '<h3 style="margin-top: 0;">Fisher\'s Exact Randomization Test</h3>',
-            '<table style="border-collapse: collapse; width: 100%;">',
-            (
-                f'<tr><td style="{cell_style}"><b>Test statistic '
-                f'({self.statistic_type})</b></td>'
-                f'<td style="{right_style}">{self.statistic:.6f}</td></tr>'
-            ),
-            (
-                f'<tr><td style="{cell_style}"><b>p-value (two-sided)</b></td>'
-                f'<td style="{p_style}">{self.p_value:.4f}</td></tr>'
-            ),
-            (
-                f'<tr><td style="{cell_style}"><b>p-value (one-sided)</b></td>'
-                f'<td style="{right_style}">{self.p_one_sided:.4f}</td></tr>'
-            ),
-            (
-                f'<tr><td style="{cell_style}"><b>95% CI</b></td>'
-                f'<td style="{right_style}">'
-                f'[{self.ci[0]:.4f}, {self.ci[1]:.4f}]</td></tr>'
-            ),
-            (
-                f'<tr><td style="{cell_style}"><b>Permutations</b></td>'
-                f'<td style="{right_style}">{self.n_perm:,}</td></tr>'
-            ),
-            (
-                f'<tr><td style="{cell_style}"><b>N</b></td>'
-                f'<td style="{right_style}">{self.n_obs:,} '
-                f'(treated: {self.n_treated:,})</td></tr>'
-            ),
-            '</table>',
-            '</div>',
-        ])
+        return "\n".join(
+            [
+                f'<div style="{box_style}">',
+                '<h3 style="margin-top: 0;">Fisher\'s Exact Randomization Test</h3>',
+                '<table style="border-collapse: collapse; width: 100%;">',
+                (
+                    f'<tr><td style="{cell_style}"><b>Test statistic '
+                    f"({self.statistic_type})</b></td>"
+                    f'<td style="{right_style}">{self.statistic:.6f}</td></tr>'
+                ),
+                (
+                    f'<tr><td style="{cell_style}"><b>p-value (two-sided)</b></td>'
+                    f'<td style="{p_style}">{self.p_value:.4f}</td></tr>'
+                ),
+                (
+                    f'<tr><td style="{cell_style}"><b>p-value (one-sided)</b></td>'
+                    f'<td style="{right_style}">{self.p_one_sided:.4f}</td></tr>'
+                ),
+                (
+                    f'<tr><td style="{cell_style}"><b>95% CI</b></td>'
+                    f'<td style="{right_style}">'
+                    f"[{self.ci[0]:.4f}, {self.ci[1]:.4f}]</td></tr>"
+                ),
+                (
+                    f'<tr><td style="{cell_style}"><b>Permutations</b></td>'
+                    f'<td style="{right_style}">{self.n_perm:,}</td></tr>'
+                ),
+                (
+                    f'<tr><td style="{cell_style}"><b>N</b></td>'
+                    f'<td style="{right_style}">{self.n_obs:,} '
+                    f"(treated: {self.n_treated:,})</td></tr>"
+                ),
+                "</table>",
+                "</div>",
+            ]
+        )
 
     def __repr__(self) -> str:
         return (
@@ -372,6 +372,7 @@ def fisher_exact(
     elif stratify is not None:
         perm_fn = _make_stratified_permuter(df, treatment, stratify, rng)
     else:
+
         def unrestricted_permute() -> np.ndarray:
             return np.asarray(rng.permutation(D), dtype=float)
 
@@ -388,10 +389,8 @@ def fisher_exact(
     p_one_sided = float(np.mean(perm_stats >= obs_stat))
 
     # Hodges-Lehmann confidence interval (only for ATE)
-    if statistic == 'ate':
-        ci = _hodges_lehmann_ci(
-            Y, D, stat_fn, perm_fn, n_perm, alpha, rng
-        )
+    if statistic == "ate":
+        ci = _hodges_lehmann_ci(Y, D, stat_fn, perm_fn, n_perm, alpha, rng)
     else:
         # For non-ATE statistics, use percentile CI from permutation dist
         ci = (
@@ -412,11 +411,13 @@ def fisher_exact(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.inference.fisher_exact",
             params={
-                "y": y, "treatment": treatment,
+                "y": y,
+                "treatment": treatment,
                 "statistic": statistic,
                 "controls": list(controls) if controls else None,
                 "n_perm": n_perm,
@@ -437,7 +438,7 @@ def ri_test(
     data: pd.DataFrame,
     y: str,
     treat: str,
-    stat: str = 'diff_means',
+    stat: str = "diff_means",
     n_perms: int = 1000,
     cluster: Optional[str] = None,
     seed: Optional[int] = None,
@@ -513,7 +514,7 @@ def ri_test(
 
     df = data[[y, treat]].copy()
     if cluster:
-        df['_cluster'] = data[cluster].values
+        df["_cluster"] = data[cluster].values
     df = df.dropna()
 
     Y = df[y].values.astype(float)
@@ -524,14 +525,16 @@ def ri_test(
     stat_fn: StatFn
     if callable(stat):
         stat_fn = cast(StatFn, stat)
-    elif stat == 'diff_means':
+    elif stat == "diff_means":
+
         def diff_means_stat(y_: np.ndarray, d_: np.ndarray) -> float:
             return float(np.mean(y_[d_ == 1]) - np.mean(y_[d_ == 0]))
 
         stat_fn = diff_means_stat
-    elif stat == 't':
+    elif stat == "t":
         stat_fn = _t_stat
-    elif stat == 'ks':
+    elif stat == "ks":
+
         def ks_stat(y_: np.ndarray, d_: np.ndarray) -> float:
             return float(stats.ks_2samp(y_[d_ == 1], y_[d_ == 0]).statistic)
 
@@ -549,7 +552,7 @@ def ri_test(
 
     if cluster:
         # Cluster-level permutation
-        cl = df['_cluster'].values
+        cl = df["_cluster"].values
         unique_cl = np.unique(cl)
         # Get treatment per cluster (first obs)
         cl_treat = np.array([D[cl == c][0] for c in unique_cl])
@@ -569,11 +572,11 @@ def ri_test(
     p_one_sided = float(np.mean(perm_stats >= obs_stat))
 
     return {
-        'observed': obs_stat,
-        'p_value': p_two_sided,
-        'p_one_sided': p_one_sided,
-        'n_perms': n_perms,
-        'perm_distribution': perm_stats,
+        "observed": obs_stat,
+        "p_value": p_two_sided,
+        "p_one_sided": p_one_sided,
+        "n_perms": n_perms,
+        "perm_distribution": perm_stats,
     }
 
 
@@ -595,25 +598,27 @@ def _t_stat(y: np.ndarray, d: np.ndarray) -> float:
 
 def _get_stat_fn(statistic: str) -> StatFn:
     """Return the test statistic function by name."""
-    if statistic == 'ate':
+    if statistic == "ate":
+
         def ate_stat(y: np.ndarray, d: np.ndarray) -> float:
             return float(np.mean(y[d == 1]) - np.mean(y[d == 0]))
 
         return ate_stat
-    elif statistic == 'ks':
+    elif statistic == "ks":
+
         def ks_stat(y: np.ndarray, d: np.ndarray) -> float:
             return float(stats.ks_2samp(y[d == 1], y[d == 0]).statistic)
 
         return ks_stat
-    elif statistic == 'rank_sum':
+    elif statistic == "rank_sum":
+
         def rank_sum_stat(y: np.ndarray, d: np.ndarray) -> float:
             return float(stats.ranksums(y[d == 1], y[d == 0]).statistic)
 
         return rank_sum_stat
     else:
         raise ValueError(
-            f"Unknown statistic: '{statistic}'. "
-            f"Use 'ate', 'ks', or 'rank_sum'."
+            f"Unknown statistic: '{statistic}'. " f"Use 'ate', 'ks', or 'rank_sum'."
         )
 
 
@@ -724,7 +729,7 @@ def _hodges_lehmann_ci(
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['randomization_inference'] = (
+CausalResult._CITATIONS["randomization_inference"] = (
     "@article{young2019channeling,\n"
     "  title={Channeling Fisher: Randomization Tests and the Statistical "
     "Insignificance of Seemingly Significant Experimental Results},\n"

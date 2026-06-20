@@ -34,7 +34,6 @@ from ..exceptions import (
     NumericalInstability,
 )
 
-
 # ────────────────────────────────────────────────────────────────────
 # Helpers
 # ────────────────────────────────────────────────────────────────────
@@ -276,7 +275,7 @@ def _pre_vcv(
     if hasattr(result, "model_info") and isinstance(result.model_info, dict):
         vcv = result.model_info.get("vcv_pre", None)
     if vcv is None:
-        return np.diag(se_pre ** 2)
+        return np.diag(se_pre**2)
     try:
         out = np.asarray(vcv, dtype=float)
     except (TypeError, ValueError) as exc:
@@ -324,6 +323,7 @@ def _invert_vcv(vcv: np.ndarray, context: str, target: str) -> np.ndarray:
 # ────────────────────────────────────────────────────────────────────
 # 1. pretrends_test — Joint test of H0: all pre-treatment coefs = 0
 # ────────────────────────────────────────────────────────────────────
+
 
 def pretrends_test(
     result: Any,
@@ -378,7 +378,10 @@ def pretrends_test(
     pre, _ = _split_pre_post(es, time_col, est_col, se_col)
 
     beta_pre_all, se_pre_all, estimated = _pre_arrays(
-        pre, est_col, se_col, context,
+        pre,
+        est_col,
+        se_col,
+        context,
     )
     K_all = len(beta_pre_all)
     beta_pre = beta_pre_all[estimated]
@@ -443,6 +446,7 @@ def pretrends_test(
 # ────────────────────────────────────────────────────────────────────
 # 2. pretrends_power — Roth (2022) power of the pre-test
 # ────────────────────────────────────────────────────────────────────
+
 
 def pretrends_power(
     result: Any,
@@ -571,6 +575,7 @@ def pretrends_power(
 # 3. sensitivity_rr — Rambachan & Roth (2023) honest CIs
 # ────────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class SensitivityResult:
     """Result of Rambachan & Roth (2023) sensitivity analysis.
@@ -672,16 +677,10 @@ class SensitivityResult:
             lines.append(f"  {m:8.3f}  {lo:12.4f}  {hi:12.4f}  {inc:>12s}")
         lines.append("")
         if np.isfinite(self.breakdown_mbar):
-            lines.append(
-                f"  Breakdown Mbar = {self.breakdown_mbar:.4f}"
-            )
-            lines.append(
-                "  (smallest Mbar where CI includes zero)"
-            )
+            lines.append(f"  Breakdown Mbar = {self.breakdown_mbar:.4f}")
+            lines.append("  (smallest Mbar where CI includes zero)")
         else:
-            lines.append(
-                "  No breakdown: CI excludes zero for all Mbar in grid."
-            )
+            lines.append("  No breakdown: CI excludes zero for all Mbar in grid.")
         lines.append(hbar)
         return "\n".join(lines)
 
@@ -752,12 +751,8 @@ class SensitivityResult:
         fill_kw = dict(alpha=0.3, color="steelblue", label="Honest CI")
         fill_kw.update(kwargs)
         ax.fill_between(self.mbar_grid, self.ci_lower, self.ci_upper, **fill_kw)
-        ax.plot(
-            self.mbar_grid, self.ci_lower, color="steelblue", linewidth=0.8
-        )
-        ax.plot(
-            self.mbar_grid, self.ci_upper, color="steelblue", linewidth=0.8
-        )
+        ax.plot(self.mbar_grid, self.ci_lower, color="steelblue", linewidth=0.8)
+        ax.plot(self.mbar_grid, self.ci_upper, color="steelblue", linewidth=0.8)
         ax.axhline(0, color="black", linestyle="--", linewidth=0.8)
         ax.axhline(
             self.att,
@@ -769,8 +764,11 @@ class SensitivityResult:
 
         if np.isfinite(self.breakdown_mbar):
             ax.axvline(
-                self.breakdown_mbar, color="orange", linestyle=":",
-                linewidth=1.2, label=f"Breakdown Mbar = {self.breakdown_mbar:.3f}",
+                self.breakdown_mbar,
+                color="orange",
+                linestyle=":",
+                linewidth=1.2,
+                label=f"Breakdown Mbar = {self.breakdown_mbar:.3f}",
             )
 
         ax.set_xlabel(r"$\bar{M}$ (Max. violation of parallel trends)")
@@ -868,12 +866,12 @@ def sensitivity_rr(
         )
 
     # ── Extract ATT ──────────────────────────────────────────────── #
-    att = float(result.estimate) if hasattr(result, "estimate") else float(
-        post[est_col].iloc[0]
+    att = (
+        float(result.estimate)
+        if hasattr(result, "estimate")
+        else float(post[est_col].iloc[0])
     )
-    att_se = float(result.se) if hasattr(result, "se") else float(
-        post[se_col].iloc[0]
-    )
+    att_se = float(result.se) if hasattr(result, "se") else float(post[se_col].iloc[0])
     if not np.isfinite(att) or not np.isfinite(att_se) or att_se < 0:
         raise MethodIncompatibility(
             "sensitivity_rr: ATT and standard error must be finite, with "
@@ -889,7 +887,7 @@ def sensitivity_rr(
         # Weighted least squares through pre-period estimates
         pre_se = _finite_vector(pre[se_col], se_col, context)
         _require_nonnegative(pre_se, se_col, context)
-        weights = 1.0 / (pre_se ** 2 + 1e-16)
+        weights = 1.0 / (pre_se**2 + 1e-16)
         # WLS: y = a + b*t
         W = np.diag(weights)
         X = np.column_stack([np.ones(len(pre_t)), pre_t])
@@ -962,6 +960,7 @@ def sensitivity_rr(
 # Convenience: formatted combined report
 # ────────────────────────────────────────────────────────────────────
 
+
 def pretrends_summary(
     result: Any,
     delta: Optional[np.ndarray] = None,
@@ -1024,7 +1023,9 @@ def pretrends_summary(
 
     lines.append("")
     lines.append("  Power against linear violation:")
-    lines.append(f"    Power = {pwr['power']:.2f}", )
+    lines.append(
+        f"    Power = {pwr['power']:.2f}",
+    )
     if pwr["warning"] and pwr["power"] < 0.50:
         lines.append("    \u2190 LOW POWER WARNING")
     elif pwr["warning"] and pwr["power"] < 0.80:

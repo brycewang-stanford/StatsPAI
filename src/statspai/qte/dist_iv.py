@@ -50,6 +50,7 @@ class DistIVResult(ResultProtocolMixin):
     >>> res.late_q.round(2).tolist()  # LATE at each quantile
     [0.96, 1.04, 1.24]
     """
+
     quantiles: np.ndarray
     late_q: np.ndarray
     se_q: np.ndarray
@@ -58,24 +59,27 @@ class DistIVResult(ResultProtocolMixin):
     n_obs: int
 
     def summary(self) -> str:
-        rows = ["Distributional IV LATE", "=" * 42, "  Quantile  LATE      SE       95% CI"]
+        rows = [
+            "Distributional IV LATE",
+            "=" * 42,
+            "  Quantile  LATE      SE       95% CI",
+        ]
         for q, l, s, lo, hi in zip(
-            self.quantiles, self.late_q, self.se_q,
-            self.ci_low, self.ci_high
+            self.quantiles, self.late_q, self.se_q, self.ci_low, self.ci_high
         ):
-            rows.append(
-                f"  {q:.2f}     {l:+.4f}  {s:.4f}  [{lo:+.4f}, {hi:+.4f}]"
-            )
+            rows.append(f"  {q:.2f}     {l:+.4f}  {s:.4f}  [{lo:+.4f}, {hi:+.4f}]")
         return "\n".join(rows)
 
     def to_frame(self) -> pd.DataFrame:
-        return pd.DataFrame({
-            'quantile': self.quantiles,
-            'late': self.late_q,
-            'se': self.se_q,
-            'ci_low': self.ci_low,
-            'ci_high': self.ci_high,
-        })
+        return pd.DataFrame(
+            {
+                "quantile": self.quantiles,
+                "late": self.late_q,
+                "se": self.se_q,
+                "ci_low": self.ci_low,
+                "ci_high": self.ci_high,
+            }
+        )
 
 
 def dist_iv(
@@ -139,17 +143,19 @@ def dist_iv(
     rng = np.random.default_rng(seed)
 
     def _quantile_iv(
-        Yi: np.ndarray, Di: np.ndarray, Zi: np.ndarray,
-        Xi: np.ndarray, q: float,
+        Yi: np.ndarray,
+        Di: np.ndarray,
+        Zi: np.ndarray,
+        Xi: np.ndarray,
+        q: float,
     ) -> float:
         # Wald-style quantile IV estimator (single binary instrument):
         # LATE_q = [F^{-1}(q | Z=1) - F^{-1}(q | Z=0)] /
         #         [P(D=1 | Z=1) - P(D=1 | Z=0)]
         Z_high = (Zi > np.median(Zi)).astype(int)
         try:
-            num = (np.quantile(Yi[Z_high == 1], q)
-                   - np.quantile(Yi[Z_high == 0], q))
-            denom = (Di[Z_high == 1].mean() - Di[Z_high == 0].mean())
+            num = np.quantile(Yi[Z_high == 1], q) - np.quantile(Yi[Z_high == 0], q)
+            denom = Di[Z_high == 1].mean() - Di[Z_high == 0].mean()
             if abs(denom) < 1e-6:
                 return np.nan
             return float(num / denom)
@@ -174,12 +180,14 @@ def dist_iv(
     se_q = np.where(np.isfinite(se_q) & (n_finite >= 2), se_q, np.nan)
     if (n_finite < n_boot).any():
         import warnings
+
         n_nan = int((n_finite < 2).sum())
         warnings.warn(
             f"dist_iv: distributional-IV bootstrap failed for some "
             f"quantiles; {n_nan}/{len(quantiles)} quantile SE(s) are NaN "
             f"and remaining SEs use fewer replicates.",
-            RuntimeWarning, stacklevel=2,
+            RuntimeWarning,
+            stacklevel=2,
         )
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
@@ -196,16 +204,23 @@ def dist_iv(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.qte.dist_iv",
             params={
-                "y": y, "treat": treat, "instrument": instrument,
+                "y": y,
+                "treat": treat,
+                "instrument": instrument,
                 "covariates": list(covariates) if covariates else None,
-                "quantiles": list(quantiles) if quantiles is not None
-                              and hasattr(quantiles, "__iter__") else None,
+                "quantiles": (
+                    list(quantiles)
+                    if quantiles is not None and hasattr(quantiles, "__iter__")
+                    else None
+                ),
                 "alpha": alpha,
-                "n_boot": n_boot, "seed": seed,
+                "n_boot": n_boot,
+                "seed": seed,
             },
             data=data,
             overwrite=False,
@@ -254,7 +269,13 @@ def kan_dlate(
     [0.96, 1.04, 1.24]
     """
     return dist_iv(
-        data=data, y=y, treat=treat, instrument=instrument,
-        covariates=covariates, quantiles=quantiles, alpha=alpha,
-        n_boot=n_boot, seed=seed,
+        data=data,
+        y=y,
+        treat=treat,
+        instrument=instrument,
+        covariates=covariates,
+        quantiles=quantiles,
+        alpha=alpha,
+        n_boot=n_boot,
+        seed=seed,
     )

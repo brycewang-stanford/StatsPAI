@@ -40,10 +40,10 @@ from dataclasses import dataclass, field
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # BoundsResult — Shared result class for all bounding methods
 # ======================================================================
+
 
 @dataclass
 class BoundsResult:
@@ -159,18 +159,18 @@ class BoundsResult:
             )
 
         # Method-specific extras
-        if 'selection_rate_treated' in self.model_info:
+        if "selection_rate_treated" in self.model_info:
             lines.append(
                 f"  \u2192 Selection rate: "
                 f"{self.model_info['selection_rate_treated']:.1%} (treated), "
                 f"{self.model_info['selection_rate_control']:.1%} (control)"
             )
-        if 'delta_star' in self.model_info:
+        if "delta_star" in self.model_info:
             lines.append(
                 f"  \u2192 \u03b4* for \u03b2=0: "
                 f"{self.model_info['delta_star']:.4f}"
             )
-        if 'r_max' in self.model_info:
+        if "r_max" in self.model_info:
             lines.append(
                 f"  \u2192 R\u00b2_max assumption: {self.model_info['r_max']:.4f}"
             )
@@ -204,14 +204,14 @@ class BoundsResult:
             f'<h4 style="margin:0 0 8px 0">{self.method}</h4>'
             f'<table style="border-collapse:collapse">'
             f'<tr><td style="padding:2px 12px 2px 0">Lower bound</td>'
-            f'<td><b>{self.lower:.4f}</b> (SE {self.se_lower:.4f})</td></tr>'
+            f"<td><b>{self.lower:.4f}</b> (SE {self.se_lower:.4f})</td></tr>"
             f'<tr><td style="padding:2px 12px 2px 0">Upper bound</td>'
-            f'<td><b>{self.upper:.4f}</b> (SE {self.se_upper:.4f})</td></tr>'
+            f"<td><b>{self.upper:.4f}</b> (SE {self.se_upper:.4f})</td></tr>"
             f'<tr><td style="padding:2px 12px 2px 0">{pct}% CI</td>'
-            f'<td>[{im_lo:.4f}, {im_hi:.4f}]</td></tr>'
-            f'</table>'
+            f"<td>[{im_lo:.4f}, {im_hi:.4f}]</td></tr>"
+            f"</table>"
             f'<p style="margin:8px 0 0 0">{verdict}</p>'
-            f'</div>'
+            f"</div>"
         )
 
     def plot(self, ax: Any = None, **kwargs: Any) -> Any:
@@ -240,24 +240,29 @@ class BoundsResult:
 
         # Identified set as thick bar
         ax.barh(
-            0, self.upper - self.lower, left=self.lower, height=0.3,
-            color='#3498db', alpha=0.6, label='Identified set',
+            0,
+            self.upper - self.lower,
+            left=self.lower,
+            height=0.3,
+            color="#3498db",
+            alpha=0.6,
+            label="Identified set",
         )
 
         # CI whiskers
         ci_lo = self.lower - z * self.se_lower
         ci_hi = self.upper + z * self.se_upper
-        ax.plot([ci_lo, ci_hi], [0, 0], 'k-', linewidth=1)
-        ax.plot([ci_lo, ci_lo], [-0.1, 0.1], 'k-', linewidth=1)
-        ax.plot([ci_hi, ci_hi], [-0.1, 0.1], 'k-', linewidth=1)
+        ax.plot([ci_lo, ci_hi], [0, 0], "k-", linewidth=1)
+        ax.plot([ci_lo, ci_lo], [-0.1, 0.1], "k-", linewidth=1)
+        ax.plot([ci_hi, ci_hi], [-0.1, 0.1], "k-", linewidth=1)
 
         # Zero line
-        ax.axvline(0, color='red', linestyle='--', linewidth=0.8, alpha=0.6)
+        ax.axvline(0, color="red", linestyle="--", linewidth=0.8, alpha=0.6)
 
         ax.set_yticks([])
-        ax.set_xlabel('Treatment Effect')
+        ax.set_xlabel("Treatment Effect")
         ax.set_title(self.method)
-        ax.legend(loc='upper right', fontsize=8)
+        ax.legend(loc="upper right", fontsize=8)
 
         plt.tight_layout()
         return ax
@@ -273,13 +278,14 @@ class BoundsResult:
 # Helper: bootstrap utilities
 # ======================================================================
 
+
 def _bootstrap_bounds(
     compute_fn: Callable[..., tuple[float, float]],
     data: pd.DataFrame,
     n_boot: int,
     alpha: float,
     random_state: int,
-    label: str = 'bounds bootstrap',
+    label: str = "bounds bootstrap",
     **kwargs: Any,
 ) -> Tuple[float, float, Tuple[float, float], Tuple[float, float], int]:
     """Generic bootstrap for a function that returns (lower, upper).
@@ -335,6 +341,7 @@ def _bootstrap_bounds(
 # ======================================================================
 # 1. Horowitz-Manski Bounds with Covariates
 # ======================================================================
+
 
 def horowitz_manski(
     data: pd.DataFrame,
@@ -419,7 +426,12 @@ def horowitz_manski(
         return _hm_point(df_b, y, treatment, sc, y_lower, y_upper)
 
     se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state, label='horowitz_manski',
+        _compute,
+        df,
+        n_boot,
+        alpha,
+        random_state,
+        label="horowitz_manski",
     )
 
     return BoundsResult(
@@ -429,15 +441,15 @@ def horowitz_manski(
         se_upper=se_ub,
         ci_lower=ci_lb,
         ci_upper=ci_ub,
-        method='Horowitz-Manski Bounds (2000)',
+        method="Horowitz-Manski Bounds (2000)",
         alpha=alpha,
         n_obs=len(df),
         model_info={
-            'y_lower': y_lower,
-            'y_upper': y_upper,
-            'n_strata': int(strata_col.nunique()),
-            'covariates': covariates,
-            'n_boot_failed': n_failed,
+            "y_lower": y_lower,
+            "y_upper": y_upper,
+            "n_strata": int(strata_col.nunique()),
+            "covariates": covariates,
+            "n_boot_failed": n_failed,
         },
     )
 
@@ -472,8 +484,8 @@ def _hm_point(
         if len(Y1) == 0 or len(Y0) == 0:
             continue
 
-        p1 = np.mean(D_s)   # P(D=1 | X=s)
-        p0 = 1 - p1         # P(D=0 | X=s)
+        p1 = np.mean(D_s)  # P(D=1 | X=s)
+        p0 = 1 - p1  # P(D=0 | X=s)
 
         e1 = np.mean(Y1)
         e0 = np.mean(Y0)
@@ -493,8 +505,8 @@ def _create_strata(df: pd.DataFrame, covariates: List[str]) -> pd.Series:
     parts = []
     for c in covariates:
         col = df[c]
-        if col.dtype.kind in ('f',) or col.nunique() > 10:
-            binned = pd.qcut(col, q=4, labels=False, duplicates='drop')
+        if col.dtype.kind in ("f",) or col.nunique() > 10:
+            binned = pd.qcut(col, q=4, labels=False, duplicates="drop")
             # qcut yields NaN when the bin edges collapse (constant column)
             # or the input is missing. Bucket those rows into an explicit
             # sentinel stratum: under pandas>=3.0 astype(str) preserves NaN
@@ -507,7 +519,7 @@ def _create_strata(df: pd.DataFrame, covariates: List[str]) -> pd.Series:
             parts.append(col.fillna(-1).astype(str))
     combined = parts[0]
     for p in parts[1:]:
-        combined = combined + '_' + p
+        combined = combined + "_" + p
     return combined
 
 
@@ -515,13 +527,14 @@ def _create_strata(df: pd.DataFrame, covariates: List[str]) -> pd.Series:
 # 2. IV Bounds (Nevo & Rosen 2012)
 # ======================================================================
 
+
 def iv_bounds(
     data: pd.DataFrame,
     y: str,
     treatment: str,
     instrument: str,
     controls: Optional[List[str]] = None,
-    assumption: str = 'monotone_iv',
+    assumption: str = "monotone_iv",
     alpha: float = 0.05,
     n_boot: int = 500,
     random_state: int = 42,
@@ -595,13 +608,13 @@ def iv_bounds(
         X = df[controls].values.astype(np.float64)
         X_aug = np.column_stack([np.ones(len(X)), X])
         # Residualize Y, D, Z
-        for arr_name in ['Y', 'D', 'Z']:
+        for arr_name in ["Y", "D", "Z"]:
             arr = locals()[arr_name]
             beta = np.linalg.lstsq(X_aug, arr, rcond=None)[0]
             resid = arr - X_aug @ beta
-            if arr_name == 'Y':
+            if arr_name == "Y":
                 Y = resid
-            elif arr_name == 'D':
+            elif arr_name == "D":
                 D = resid + np.mean(D)  # Keep mean for proportions
             else:
                 Z = resid + np.mean(Z)
@@ -625,7 +638,12 @@ def iv_bounds(
         return _iv_bounds_point(Yb, Db, Zb, assumption)
 
     se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state, label='iv_bounds',
+        _compute,
+        df,
+        n_boot,
+        alpha,
+        random_state,
+        label="iv_bounds",
     )
 
     # Wald estimate for reference
@@ -640,19 +658,20 @@ def iv_bounds(
         se_upper=se_ub,
         ci_lower=ci_lb,
         ci_upper=ci_ub,
-        method=f'Nevo-Rosen IV Bounds ({assumption})',
+        method=f"Nevo-Rosen IV Bounds ({assumption})",
         alpha=alpha,
         n_obs=len(df),
         model_info={
-            'assumption': assumption,
-            'wald_estimate': float(wald) if np.isfinite(wald) else None,
-            'cov_zy': float(cov_zy),
-            'cov_zd': float(cov_zd),
-            'first_stage_f': (
-                float(cov_zd ** 2 / (np.var(Z) * np.var(D) / len(Z)))
-                if np.var(D) > 0 else 0.0
+            "assumption": assumption,
+            "wald_estimate": float(wald) if np.isfinite(wald) else None,
+            "cov_zy": float(cov_zy),
+            "cov_zd": float(cov_zd),
+            "first_stage_f": (
+                float(cov_zd**2 / (np.var(Z) * np.var(D) / len(Z)))
+                if np.var(D) > 0
+                else 0.0
             ),
-            'n_boot_failed': n_failed,
+            "n_boot_failed": n_failed,
         },
     )
 
@@ -675,14 +694,14 @@ def _iv_bounds_point(
     cov_dy = np.cov(D, Y, ddof=1)[0, 1]
     ols = cov_dy / var_d if var_d > 1e-12 else 0.0
 
-    if assumption == 'monotone_iv':
+    if assumption == "monotone_iv":
         # Nevo-Rosen Proposition 2: if instrument has same-sign direct
         # effect on Y as through D, LATE is bounded between OLS and Wald.
         # Under positive correlation: [min(OLS, Wald), max(OLS, Wald)]
         lb = min(ols, wald)
         ub = max(ols, wald)
 
-    elif assumption == 'less_than_late':
+    elif assumption == "less_than_late":
         # Tighter: the direct effect of Z on Y is less than the indirect effect.
         # Bounds: [Wald - |OLS - Wald|, Wald + |OLS - Wald|]
         # but the upper bound is capped at OLS direction.
@@ -704,6 +723,7 @@ def _iv_bounds_point(
 # ======================================================================
 # 3. Oster Delta (2019) — Coefficient stability / identified set
 # ======================================================================
+
 
 def oster_delta(
     data: pd.DataFrame,
@@ -793,11 +813,13 @@ def oster_delta(
     r2_short = 1 - np.var(resid_short) / np.var(Y)
 
     # Full regression: y ~ x_base + x_controls
-    X_full = np.column_stack([
-        np.ones(n),
-        df[x_base].values.astype(np.float64),
-        df[x_controls].values.astype(np.float64),
-    ])
+    X_full = np.column_stack(
+        [
+            np.ones(n),
+            df[x_base].values.astype(np.float64),
+            df[x_controls].values.astype(np.float64),
+        ]
+    )
     beta_full_all = np.linalg.lstsq(X_full, Y, rcond=None)[0]
     beta_full = beta_full_all[1]  # coefficient on first x_base variable
     resid_full = Y - X_full @ beta_full_all
@@ -823,10 +845,12 @@ def oster_delta(
 
     # Grid of (delta, beta_star) for plotting
     deltas = np.linspace(delta_range[0], delta_range[1], n_grid)
-    betas_grid = np.array([
-        _oster_bias_adjusted(beta_short, beta_full, r2_short, r2_full, r_max, d)
-        for d in deltas
-    ])
+    betas_grid = np.array(
+        [
+            _oster_bias_adjusted(beta_short, beta_full, r2_short, r2_full, r_max, d)
+            for d in deltas
+        ]
+    )
 
     # Bootstrap
     def _compute(df_b: pd.DataFrame, **kw: Any) -> tuple[float, float]:
@@ -836,11 +860,13 @@ def oster_delta(
         bs_all = np.linalg.lstsq(Xs, Yb, rcond=None)[0]
         rs = Y_var_ratio(Yb, Xs, bs_all)
 
-        Xf = np.column_stack([
-            np.ones(nb),
-            df_b[x_base].values.astype(np.float64),
-            df_b[x_controls].values.astype(np.float64),
-        ])
+        Xf = np.column_stack(
+            [
+                np.ones(nb),
+                df_b[x_base].values.astype(np.float64),
+                df_b[x_controls].values.astype(np.float64),
+            ]
+        )
         bf_all = np.linalg.lstsq(Xf, Yb, rcond=None)[0]
         rf = Y_var_ratio(Yb, Xf, bf_all)
 
@@ -853,7 +879,12 @@ def oster_delta(
         return 1 - np.var(resid) / np.var(Yv) if np.var(Yv) > 0 else 0.0
 
     se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state, label='oster_delta',
+        _compute,
+        df,
+        n_boot,
+        alpha,
+        random_state,
+        label="oster_delta",
     )
 
     return BoundsResult(
@@ -863,20 +894,20 @@ def oster_delta(
         se_upper=se_ub,
         ci_lower=ci_lb,
         ci_upper=ci_ub,
-        method='Oster (2019) Coefficient Stability Bounds',
+        method="Oster (2019) Coefficient Stability Bounds",
         alpha=alpha,
         n_obs=n,
         model_info={
-            'beta_short': float(beta_short),
-            'beta_full': float(beta_full),
-            'r2_short': float(r2_short),
-            'r2_full': float(r2_full),
-            'r_max': float(r_max),
-            'beta_star_delta1': float(beta_star),
-            'delta_star': float(delta_star) if np.isfinite(delta_star) else None,
-            'delta_grid': deltas.tolist(),
-            'beta_grid': betas_grid.tolist(),
-            'n_boot_failed': n_failed,
+            "beta_short": float(beta_short),
+            "beta_full": float(beta_full),
+            "r2_short": float(r2_short),
+            "r2_full": float(r2_full),
+            "r_max": float(r_max),
+            "beta_star_delta1": float(beta_star),
+            "delta_star": float(delta_star) if np.isfinite(delta_star) else None,
+            "delta_grid": deltas.tolist(),
+            "beta_grid": betas_grid.tolist(),
+            "n_boot_failed": n_failed,
         },
     )
 
@@ -926,13 +957,14 @@ def _oster_delta_star(
 # 4. Selection Bounds — Lee (2009) with covariates
 # ======================================================================
 
+
 def selection_bounds(
     data: pd.DataFrame,
     y: str,
     treatment: str,
     selection: str,
     covariates: Optional[List[str]] = None,
-    method: str = 'conditional',
+    method: str = "conditional",
     n_boot: int = 500,
     alpha: float = 0.05,
     random_state: int = 42,
@@ -1002,20 +1034,25 @@ def selection_bounds(
     p1 = np.mean(S[D == 1])
     p0 = np.mean(S[D == 0])
 
-    if method == 'unconditional' or covariates is None or len(covariates) == 0:
+    if method == "unconditional" or covariates is None or len(covariates) == 0:
         lb, ub = _lee_bounds_core(df, y, treatment, selection)
     else:
         lb, ub = _conditional_lee_bounds(df, y, treatment, selection, covariates)
 
     # Bootstrap
     def _compute(df_b: pd.DataFrame, **kw: Any) -> tuple[float, float]:
-        if method == 'unconditional' or covariates is None or len(covariates) == 0:
+        if method == "unconditional" or covariates is None or len(covariates) == 0:
             return _lee_bounds_core(df_b, y, treatment, selection)
         else:
             return _conditional_lee_bounds(df_b, y, treatment, selection, covariates)
 
     se_lb, se_ub, ci_lb, ci_ub, n_failed = _bootstrap_bounds(
-        _compute, df, n_boot, alpha, random_state, label='selection_bounds',
+        _compute,
+        df,
+        n_boot,
+        alpha,
+        random_state,
+        label="selection_bounds",
     )
 
     return BoundsResult(
@@ -1025,19 +1062,18 @@ def selection_bounds(
         se_upper=se_ub,
         ci_lower=ci_lb,
         ci_upper=ci_ub,
-        method=f'Lee (2009) Bounds ({method})',
+        method=f"Lee (2009) Bounds ({method})",
         alpha=alpha,
         n_obs=int(np.sum(S)),
         model_info={
-            'method': method,
-            'selection_rate_treated': float(p1),
-            'selection_rate_control': float(p0),
-            'trimming_fraction': (
-                float(abs(p1 - p0) / max(p1, p0))
-                if max(p1, p0) > 0 else 0.0
+            "method": method,
+            "selection_rate_treated": float(p1),
+            "selection_rate_control": float(p0),
+            "trimming_fraction": (
+                float(abs(p1 - p0) / max(p1, p0)) if max(p1, p0) > 0 else 0.0
             ),
-            'covariates': covariates or [],
-            'n_boot_failed': n_failed,
+            "covariates": covariates or [],
+            "n_boot_failed": n_failed,
         },
     )
 
@@ -1076,14 +1112,14 @@ def _lee_bounds_core(
         k = max(int(np.floor(q * n1)), 1)
         Y1s = np.sort(Y1)
         lb = np.mean(Y1s[:k]) - mean_y0
-        ub = np.mean(Y1s[n1 - k:]) - mean_y0
+        ub = np.mean(Y1s[n1 - k :]) - mean_y0
     elif p0 > p1:
         q = p1 / p0
         n0 = len(Y0)
         k = max(int(np.floor(q * n0)), 1)
         Y0s = np.sort(Y0)
         mean_y1 = np.mean(Y1)
-        lb = mean_y1 - np.mean(Y0s[n0 - k:])
+        lb = mean_y1 - np.mean(Y0s[n0 - k :])
         ub = mean_y1 - np.mean(Y0s[:k])
     else:
         lb = np.mean(Y1) - mean_y0
@@ -1144,10 +1180,11 @@ def _conditional_lee_bounds(
 # 5. Breakdown Frontier (Masten & Poirier 2021)
 # ======================================================================
 
+
 def breakdown_frontier(
     estimate: float,
     se: float,
-    assumption: str = 'parallel_trends',
+    assumption: str = "parallel_trends",
     max_violation: float = 0.1,
     n_grid: int = 100,
     alpha: float = 0.05,
@@ -1227,23 +1264,23 @@ def breakdown_frontier(
         se_upper=se,
         ci_lower=(lb - z * se, lb + z * se),
         ci_upper=(ub - z * se, ub + z * se),
-        method=f'Breakdown Frontier ({assumption})',
+        method=f"Breakdown Frontier ({assumption})",
         alpha=alpha,
         n_obs=0,
         model_info={
-            'estimate': estimate,
-            'se': se,
-            'assumption': assumption,
-            'breakdown_point': float(breakdown_point),
-            'breakdown_point_ci': float(breakdown_ci),
-            'max_violation': max_violation,
-            'frontier_grid': violations.tolist(),
-            'frontier_lower': lower_bounds.tolist(),
-            'frontier_upper': upper_bounds.tolist(),
-            'conclusion_at_zero_violation': (
-                'positive' if estimate > 0 else 'negative'
+            "estimate": estimate,
+            "se": se,
+            "assumption": assumption,
+            "breakdown_point": float(breakdown_point),
+            "breakdown_point_ci": float(breakdown_ci),
+            "max_violation": max_violation,
+            "frontier_grid": violations.tolist(),
+            "frontier_lower": lower_bounds.tolist(),
+            "frontier_upper": upper_bounds.tolist(),
+            "conclusion_at_zero_violation": (
+                "positive" if estimate > 0 else "negative"
             ),
-            'robust_at_max_violation': bool(lb > 0) if estimate > 0 else bool(ub < 0),
+            "robust_at_max_violation": bool(lb > 0) if estimate > 0 else bool(ub < 0),
         },
     )
 
@@ -1251,6 +1288,7 @@ def breakdown_frontier(
 # ======================================================================
 # Utilities
 # ======================================================================
+
 
 def _check_cols(data: pd.DataFrame, cols: List[str]) -> None:
     """Raise if any columns are missing from the DataFrame."""
@@ -1263,7 +1301,7 @@ def _check_cols(data: pd.DataFrame, cols: List[str]) -> None:
 # Citations
 # ======================================================================
 
-CausalResult._CITATIONS['horowitz_manski'] = (
+CausalResult._CITATIONS["horowitz_manski"] = (
     "@article{horowitz2000nonparametric,\n"
     "  title={Nonparametric Analysis of Randomized Experiments with "
     "Missing Covariate and Outcome Data},\n"
@@ -1276,7 +1314,7 @@ CausalResult._CITATIONS['horowitz_manski'] = (
     "}"
 )
 
-CausalResult._CITATIONS['nevo_rosen'] = (
+CausalResult._CITATIONS["nevo_rosen"] = (
     "@article{nevo2012identification,\n"
     "  title={Identification with Imperfect Instruments},\n"
     "  author={Nevo, Aviv and Rosen, Adam M},\n"
@@ -1288,7 +1326,7 @@ CausalResult._CITATIONS['nevo_rosen'] = (
     "}"
 )
 
-CausalResult._CITATIONS['oster_delta'] = (
+CausalResult._CITATIONS["oster_delta"] = (
     "@article{oster2019unobservable,\n"
     "  title={Unobservable Selection and Coefficient Stability: "
     "Theory and Evidence},\n"
@@ -1301,7 +1339,7 @@ CausalResult._CITATIONS['oster_delta'] = (
     "}"
 )
 
-CausalResult._CITATIONS['selection_bounds'] = (
+CausalResult._CITATIONS["selection_bounds"] = (
     "@article{lee2009training,\n"
     "  title={Training, Wages, and Sample Selection: Estimating Sharp "
     "Bounds on Treatment Effects},\n"
@@ -1314,7 +1352,7 @@ CausalResult._CITATIONS['selection_bounds'] = (
     "}"
 )
 
-CausalResult._CITATIONS['breakdown_frontier'] = (
+CausalResult._CITATIONS["breakdown_frontier"] = (
     "@article{masten2021salvaging,\n"
     "  title={Salvaging Falsified Instrumental Variable Models},\n"
     "  author={Masten, Matthew A and Poirier, Alexandre},\n"

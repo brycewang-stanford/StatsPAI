@@ -25,7 +25,7 @@ from .principal_strat import (
 )
 
 __all__ = [
-    'principal_strat',
-    'PrincipalStratResult',
-    'survivor_average_causal_effect',
+    "principal_strat",
+    "PrincipalStratResult",
+    "survivor_average_causal_effect",
 ]

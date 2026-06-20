@@ -574,7 +574,7 @@ def _format_stata_skip_reason(skip_reason: Optional[str]) -> str:
     )
     for prefix in prefixes:
         if reason.lower().startswith(prefix.lower()):
-            return reason[len(prefix):].strip()
+            return reason[len(prefix) :].strip()
     return reason
 
 

@@ -103,9 +103,7 @@ def tobit(
     """
     df = data[[y] + x].dropna()
     Y = df[y].values.astype(float)
-    X = np.column_stack(
-        [np.ones(len(df))] + [df[v].values.astype(float) for v in x]
-    )
+    X = np.column_stack([np.ones(len(df))] + [df[v].values.astype(float) for v in x])
     n, k = X.shape
 
     if ul is None:
@@ -143,8 +141,9 @@ def tobit(
         # Uncensored
         if uncensored.any():
             resid = Y[uncensored] - xb[uncensored]
-            ll_val += np.sum(-0.5 * np.log(2 * np.pi * sigma ** 2)
-                             - resid ** 2 / (2 * sigma ** 2))
+            ll_val += np.sum(
+                -0.5 * np.log(2 * np.pi * sigma**2) - resid**2 / (2 * sigma**2)
+            )
 
         # Left-censored
         if censored_low.any():
@@ -158,8 +157,9 @@ def tobit(
 
         return -ll_val
 
-    result = optimize.minimize(neg_loglik, theta0, method='BFGS',
-                               options={'maxiter': 1000, 'gtol': 1e-6})
+    result = optimize.minimize(
+        neg_loglik, theta0, method="BFGS", options={"maxiter": 1000, "gtol": 1e-6}
+    )
 
     # BFGS often reports status-2 ("precision loss") at a good Tobit optimum;
     # derive ``converged`` from the gradient norm so the flag does not
@@ -177,6 +177,7 @@ def tobit(
     # a reliable Hessian estimate — it produced SE 13-30% off versus
     # R censReg::censReg and Stata `tobit` (parity finding #9).
     from ._optim_helpers import hessian_cov
+
     try:
         V_full = hessian_cov(neg_loglik, theta_hat)
         se_full = np.sqrt(np.maximum(np.diag(V_full), 1e-20))
@@ -186,18 +187,20 @@ def tobit(
     se_beta = se_full[:k]
     se_sigma = se_full[k] * sigma  # delta method for exp transform
 
-    var_names = ['const'] + x
+    var_names = ["const"] + x
     z_stats = beta / se_beta
     pvals = 2 * (1 - stats.norm.cdf(np.abs(z_stats)))
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
-    detail = pd.DataFrame({
-        'variable': var_names + ['sigma'],
-        'coefficient': np.append(beta, sigma),
-        'se': np.append(se_beta, se_sigma),
-        'z': np.append(z_stats, np.nan),
-        'pvalue': np.append(pvals, np.nan),
-    })
+    detail = pd.DataFrame(
+        {
+            "variable": var_names + ["sigma"],
+            "coefficient": np.append(beta, sigma),
+            "se": np.append(se_beta, se_sigma),
+            "z": np.append(z_stats, np.nan),
+            "pvalue": np.append(pvals, np.nan),
+        }
+    )
 
     # Main estimate: first regressor
     main_coef = float(beta[1])
@@ -206,21 +209,21 @@ def tobit(
     ci = (main_coef - z_crit * main_se, main_coef + z_crit * main_se)
 
     model_info = {
-        'method': 'Tobit MLE',
-        'sigma': float(sigma),
-        'n_censored': int(n_censored),
-        'n_uncensored': int(n_uncensored),
-        'censor_pct': round(n_censored / n * 100, 1),
-        'lower_limit': ll,
-        'upper_limit': ul if np.isfinite(ul) else None,
-        'log_likelihood': float(-result.fun),
-        'converged': converged,
-        'gradient_norm': grad_norm,
+        "method": "Tobit MLE",
+        "sigma": float(sigma),
+        "n_censored": int(n_censored),
+        "n_uncensored": int(n_uncensored),
+        "censor_pct": round(n_censored / n * 100, 1),
+        "lower_limit": ll,
+        "upper_limit": ul if np.isfinite(ul) else None,
+        "log_likelihood": float(-result.fun),
+        "converged": converged,
+        "gradient_norm": grad_norm,
     }
 
     return LimitedDepResult(
-        method='Tobit (Censored Regression)',
-        estimand=f'beta_{x[0]}',
+        method="Tobit (Censored Regression)",
+        estimand=f"beta_{x[0]}",
         estimate=main_coef,
         se=main_se,
         pvalue=main_p,
@@ -229,12 +232,12 @@ def tobit(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='tobit',
+        _citation_key="tobit",
     )
 
 
 # Citation
-CausalResult._CITATIONS['tobit'] = (
+CausalResult._CITATIONS["tobit"] = (
     "@article{tobin1958estimation,\n"
     "  title={Estimation of Relationships for Limited Dependent Variables},\n"
     "  author={Tobin, James},\n"

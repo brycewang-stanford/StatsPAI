@@ -13,7 +13,6 @@ import pandas as pd
 
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
-
 __all__ = [
     "counterfactual_fairness",
     "orthogonal_to_bias",
@@ -33,6 +32,7 @@ __all__ = [
 @dataclass
 class FairnessResult:
     """Single fairness diagnostic."""
+
     metric: str
     value: float
     per_group: Dict[Any, float] = field(default_factory=dict)
@@ -63,6 +63,7 @@ class FairnessResult:
 @dataclass
 class FairnessAudit:
     """One-shot dashboard of fairness diagnostics."""
+
     demographic_parity: FairnessResult
     equalized_odds: Optional[FairnessResult]
     counterfactual_fairness: Optional[FairnessResult]
@@ -86,8 +87,7 @@ class FairnessAudit:
 
     def __repr__(self) -> str:
         return (
-            f"<FairnessAudit: n={self.n}, "
-            f"DP={self.demographic_parity.value:.4f}>"
+            f"<FairnessAudit: n={self.n}, " f"DP={self.demographic_parity.value:.4f}>"
         )
 
 
@@ -216,7 +216,9 @@ def _column(df: pd.DataFrame, col: str) -> np.ndarray:
     return np.asarray(arr)
 
 
-def _finite_numeric_vector(values: Any, *, name: str, n_expected: Optional[int] = None) -> np.ndarray:
+def _finite_numeric_vector(
+    values: Any, *, name: str, n_expected: Optional[int] = None
+) -> np.ndarray:
     try:
         arr = np.asarray(values, dtype=float)
     except (TypeError, ValueError) as exc:
@@ -244,7 +246,11 @@ def _finite_numeric_vector(values: Any, *, name: str, n_expected: Optional[int] 
         raise MethodIncompatibility(
             f"`{name}` must return one value per row; got {arr.shape[0]} for {n_expected} rows.",
             recovery_hint="Make the predictor return an array with length equal to the input DataFrame.",
-            diagnostics={"name": name, "n_expected": n_expected, "n_observed": arr.shape[0]},
+            diagnostics={
+                "name": name,
+                "n_expected": n_expected,
+                "n_observed": arr.shape[0],
+            },
         )
     if not np.all(np.isfinite(arr)):
         raise NumericalInstability(
@@ -356,11 +362,13 @@ def demographic_parity(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.fairness.demographic_parity",
             params={
-                "predictions": predictions, "protected": protected,
+                "predictions": predictions,
+                "protected": protected,
                 "threshold": threshold,
             },
             data=data,
@@ -557,13 +565,19 @@ def counterfactual_fairness(
             recovery_hint=(
                 "Pass a function of (data, protected_value) returning a counterfactual DataFrame."
             ),
-            diagnostics={"argument": "scm_intervention", "type": type(scm_intervention).__name__},
+            diagnostics={
+                "argument": "scm_intervention",
+                "type": type(scm_intervention).__name__,
+            },
         )
     if protected not in data.columns:
         raise MethodIncompatibility(
             f"`protected` column {protected!r} not in data.",
             recovery_hint="Check the `protected` column name passed to counterfactual_fairness.",
-            diagnostics={"protected": protected, "available_columns": list(data.columns)},
+            diagnostics={
+                "protected": protected,
+                "available_columns": list(data.columns),
+            },
         )
     y_obs = _prediction_vector(predictor, data, name="predictor(data)")
     observed_a = data[protected].to_numpy()
@@ -710,7 +724,10 @@ def orthogonal_to_bias(
         raise MethodIncompatibility(
             f"Protected column {protected!r} not in data.",
             recovery_hint="Check the `protected` column name.",
-            diagnostics={"protected": protected, "available_columns": list(data.columns)},
+            diagnostics={
+                "protected": protected,
+                "available_columns": list(data.columns),
+            },
         )
     missing = [f for f in features if f not in data.columns]
     if missing:
@@ -729,7 +746,9 @@ def orthogonal_to_bias(
         a_arr = _finite_numeric_vector(A_raw.to_numpy(), name=protected)
         if len(np.unique(a_arr)) > 2:
             # Treat multi-level numeric as categorical to avoid linearity assumption.
-            A_oh = pd.get_dummies(A_raw.astype("category"), drop_first=True).to_numpy(dtype=float)
+            A_oh = pd.get_dummies(A_raw.astype("category"), drop_first=True).to_numpy(
+                dtype=float
+            )
         else:
             A_oh = a_arr.reshape(-1, 1)
     n = A_oh.shape[0]
@@ -798,18 +817,26 @@ def fairness_audit(
         labels = _require_column_name(labels, argument="labels")
     threshold = _require_threshold(threshold)
     dp = demographic_parity(
-        data, predictions=predictions, protected=protected, threshold=threshold,
+        data,
+        predictions=predictions,
+        protected=protected,
+        threshold=threshold,
     )
     eo = None
     if labels is not None:
         eo = equalized_odds(
-            data, predictions=predictions, labels=labels,
-            protected=protected, threshold=threshold,
+            data,
+            predictions=predictions,
+            labels=labels,
+            protected=protected,
+            threshold=threshold,
         )
     cf = None
     if predictor is not None and scm_intervention is not None:
         cf = counterfactual_fairness(
-            data, predictor=predictor, protected=protected,
+            data,
+            predictor=predictor,
+            protected=protected,
             scm_intervention=scm_intervention,
             alternative_values=alternative_values,
             threshold=threshold / 2.0,  # tighter threshold for CF

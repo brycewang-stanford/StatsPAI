@@ -18,6 +18,7 @@ any chosen distributional statistic, not just the mean.
 
 Supported statistics: ``quantile(τ)``, ``variance``, ``gini``.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,16 +31,24 @@ from scipy import stats as sp_stats
 from ._common import influence_function as _influence_function
 from ._results import DecompResultMixin
 
-
 StatisticKind = Literal[
-    "quantile", "mean", "variance", "std", "log_var",
-    "iqr", "gini", "theil_t", "theil_l", "atkinson",
+    "quantile",
+    "mean",
+    "variance",
+    "std",
+    "log_var",
+    "iqr",
+    "gini",
+    "theil_t",
+    "theil_l",
+    "atkinson",
 ]
 
 
 # --------------------------------------------------------------------- #
 #  Influence function construction
 # --------------------------------------------------------------------- #
+
 
 def _kernel_density_at(y: np.ndarray, point: float, bw: str = "silverman") -> float:
     """Kernel density estimate at a single point (kept for backward
@@ -53,12 +62,17 @@ def _kernel_density_at(y: np.ndarray, point: float, bw: str = "silverman") -> fl
     except Exception:
         # fallback: histogram-based density
         h = 1.06 * y.std() * len(y) ** (-0.2)
-        return float(np.mean(np.exp(-0.5 * ((y - point) / h) ** 2)) / (h * np.sqrt(2 * np.pi)))
+        return float(
+            np.mean(np.exp(-0.5 * ((y - point) / h) ** 2)) / (h * np.sqrt(2 * np.pi))
+        )
 
 
-def rif_values(y: np.ndarray, statistic: StatisticKind = "quantile",
-               tau: float = 0.5,
-               quantile_convention: Literal["statspai", "dineq"] = "statspai") -> np.ndarray:
+def rif_values(
+    y: np.ndarray,
+    statistic: StatisticKind = "quantile",
+    tau: float = 0.5,
+    quantile_convention: Literal["statspai", "dineq"] = "statspai",
+) -> np.ndarray:
     """Compute the RIF of each observation.
 
     Delegates to :func:`statspai.decomposition._common.influence_function`,
@@ -83,7 +97,10 @@ def rif_values(y: np.ndarray, statistic: StatisticKind = "quantile",
     """
     y = np.asarray(y, dtype=float).ravel()
     return _influence_function(
-        y, statistic, tau=tau, w=None,
+        y,
+        statistic,
+        tau=tau,
+        w=None,
         quantile_convention=quantile_convention,
     )
 
@@ -92,11 +109,13 @@ def rif_values(y: np.ndarray, statistic: StatisticKind = "quantile",
 #  RIF-OLS
 # --------------------------------------------------------------------- #
 
+
 @dataclass
 class RIFResult(DecompResultMixin):
     method_name: ClassVar[str] = "RIF Regression"
     bib_keys: ClassVar[Tuple[str, ...]] = (
-        "firpo2009unconditional", "riosavila2020rif",
+        "firpo2009unconditional",
+        "riosavila2020rif",
     )
 
     params: pd.Series
@@ -114,7 +133,8 @@ class RIFResult(DecompResultMixin):
             "",
         ]
         for nm in self.params.index:
-            b = self.params[nm]; se = self.std_errors[nm]
+            b = self.params[nm]
+            se = self.std_errors[nm]
             t = b / se if np.isfinite(se) and se > 0 else np.nan
             lines.append(f"  {nm:<15s}  {b: .4f}  (SE {se: .4f}, t {t: .3f})")
         return "\n".join(lines)
@@ -168,7 +188,9 @@ def rifreg(
     names = ["Intercept"] + indep
 
     rif = rif_values(
-        y, statistic=statistic, tau=tau,
+        y,
+        statistic=statistic,
+        tau=tau,
         quantile_convention=quantile_convention,
     )
     XtX_inv = np.linalg.inv(X.T @ X)
@@ -190,18 +212,20 @@ def rifreg(
 #  RIF-Oaxaca-Blinder decomposition
 # --------------------------------------------------------------------- #
 
+
 @dataclass
 class RIFDecompositionResult(DecompResultMixin):
     method_name: ClassVar[str] = "RIF Oaxaca-Blinder Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = (
-        "firpo2009unconditional", "firpo2018decomposing",
+        "firpo2009unconditional",
+        "firpo2018decomposing",
         "riosavila2020rif",
     )
 
     total_diff: float
     explained: float
     unexplained: float
-    detailed: pd.DataFrame          # per-covariate explained shares
+    detailed: pd.DataFrame  # per-covariate explained shares
     statistic: str
     tau: float
 
@@ -275,16 +299,24 @@ def rif_decomposition(
     y1 = df.loc[g == 1, dep].to_numpy(float)
 
     rif0 = rif_values(
-        y0, statistic=statistic, tau=tau,
+        y0,
+        statistic=statistic,
+        tau=tau,
         quantile_convention=quantile_convention,
     )
     rif1 = rif_values(
-        y1, statistic=statistic, tau=tau,
+        y1,
+        statistic=statistic,
+        tau=tau,
         quantile_convention=quantile_convention,
     )
 
-    X0 = np.column_stack([np.ones(len(y0))] + [df.loc[g == 0, v].to_numpy(float) for v in indep])
-    X1 = np.column_stack([np.ones(len(y1))] + [df.loc[g == 1, v].to_numpy(float) for v in indep])
+    X0 = np.column_stack(
+        [np.ones(len(y0))] + [df.loc[g == 0, v].to_numpy(float) for v in indep]
+    )
+    X1 = np.column_stack(
+        [np.ones(len(y1))] + [df.loc[g == 1, v].to_numpy(float) for v in indep]
+    )
     names = ["Intercept"] + indep
 
     beta0 = np.linalg.lstsq(X0, rif0, rcond=None)[0]
@@ -300,10 +332,12 @@ def rif_decomposition(
         unexplained = total_diff - explained
         detail_vals = (X1.mean(axis=0) - X0.mean(axis=0)) * beta1
 
-    detail = pd.DataFrame({
-        "variable": names,
-        "explained": detail_vals,
-    })
+    detail = pd.DataFrame(
+        {
+            "variable": names,
+            "explained": detail_vals,
+        }
+    )
 
     return RIFDecompositionResult(
         total_diff=total_diff,

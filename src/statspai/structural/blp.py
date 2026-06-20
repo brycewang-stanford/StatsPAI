@@ -38,10 +38,10 @@ from scipy import optimize, stats
 
 from ..core.results import EconometricResults
 
-
 # ---------------------------------------------------------------------------
 # Halton sequence generator for quasi-Monte Carlo integration
 # ---------------------------------------------------------------------------
+
 
 def _halton_sequence(n: int, dim: int, seed: int | None = None) -> np.ndarray:
     """
@@ -63,7 +63,9 @@ def _halton_sequence(n: int, dim: int, seed: int | None = None) -> np.ndarray:
     """
     primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47]
     if dim > len(primes):
-        raise ValueError(f"x_random has {dim} variables; max supported is {len(primes)}.")
+        raise ValueError(
+            f"x_random has {dim} variables; max supported is {len(primes)}."
+        )
 
     def _halton_1d(size: int, base: int) -> np.ndarray:
         seq = np.zeros(size)
@@ -94,8 +96,10 @@ def _halton_sequence(n: int, dim: int, seed: int | None = None) -> np.ndarray:
 # BLP instrument construction
 # ---------------------------------------------------------------------------
 
-def _build_blp_instruments(data: pd.DataFrame, x_cols: list,
-                           market_id: str, product_id: str) -> np.ndarray:
+
+def _build_blp_instruments(
+    data: pd.DataFrame, x_cols: list, market_id: str, product_id: str
+) -> np.ndarray:
     """
     Construct standard BLP instruments: for each product j in market t,
     instruments are (1) own characteristics, (2) sum of rival characteristics
@@ -140,8 +144,10 @@ def _build_blp_instruments(data: pd.DataFrame, x_cols: list,
 # Core BLP computation
 # ---------------------------------------------------------------------------
 
-def _compute_market_shares(delta: np.ndarray, mu: np.ndarray,
-                           market_ids: np.ndarray) -> np.ndarray:
+
+def _compute_market_shares(
+    delta: np.ndarray, mu: np.ndarray, market_ids: np.ndarray
+) -> np.ndarray:
     """
     Compute predicted market shares via Monte Carlo integration.
 
@@ -183,9 +189,14 @@ def _compute_market_shares(delta: np.ndarray, mu: np.ndarray,
     return shares
 
 
-def _contraction_mapping(s_obs: np.ndarray, delta: np.ndarray,
-                         mu: np.ndarray, market_ids: np.ndarray,
-                         tol: float, maxiter: int) -> tuple[np.ndarray, bool]:
+def _contraction_mapping(
+    s_obs: np.ndarray,
+    delta: np.ndarray,
+    mu: np.ndarray,
+    market_ids: np.ndarray,
+    tol: float,
+    maxiter: int,
+) -> tuple[np.ndarray, bool]:
     """
     BLP contraction mapping: δ_new = δ_old + ln(s_obs) - ln(s_pred).
 
@@ -227,8 +238,9 @@ def _contraction_mapping(s_obs: np.ndarray, delta: np.ndarray,
     return delta, converged
 
 
-def _compute_mu(X_random: np.ndarray, sigma: np.ndarray,
-                draws: np.ndarray) -> np.ndarray:
+def _compute_mu(
+    X_random: np.ndarray, sigma: np.ndarray, draws: np.ndarray
+) -> np.ndarray:
     """
     Compute individual-specific utility deviations.
 
@@ -250,8 +262,9 @@ def _compute_mu(X_random: np.ndarray, sigma: np.ndarray,
     return np.asarray((X_random * sigma) @ draws.T, dtype=float)
 
 
-def _iv_regression(delta: np.ndarray, X: np.ndarray,
-                   Z: np.ndarray, W: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def _iv_regression(
+    delta: np.ndarray, X: np.ndarray, Z: np.ndarray, W: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     IV/2SLS regression of delta on X using instruments Z with weighting matrix W.
 
@@ -281,12 +294,19 @@ def _iv_regression(delta: np.ndarray, X: np.ndarray,
     return theta, xi
 
 
-def _gmm_objective(sigma: np.ndarray, s_obs: np.ndarray,
-                   X_linear: np.ndarray, X_random: np.ndarray,
-                   Z: np.ndarray, W: np.ndarray,
-                   draws: np.ndarray, market_ids: np.ndarray,
-                   delta_init: np.ndarray,
-                   tol_inner: float, maxiter_inner: int) -> tuple[float, np.ndarray, np.ndarray]:
+def _gmm_objective(
+    sigma: np.ndarray,
+    s_obs: np.ndarray,
+    X_linear: np.ndarray,
+    X_random: np.ndarray,
+    Z: np.ndarray,
+    W: np.ndarray,
+    draws: np.ndarray,
+    market_ids: np.ndarray,
+    delta_init: np.ndarray,
+    tol_inner: float,
+    maxiter_inner: int,
+) -> tuple[float, np.ndarray, np.ndarray]:
     """
     Evaluate the GMM objective for given nonlinear parameters sigma.
 
@@ -322,10 +342,16 @@ def _gmm_objective(sigma: np.ndarray, s_obs: np.ndarray,
 # Elasticity computation
 # ---------------------------------------------------------------------------
 
-def _compute_elasticities(delta: np.ndarray, mu: np.ndarray,
-                          prices: np.ndarray, alpha: float,
-                          sigma_price: float, draws: np.ndarray,
-                          market_ids: np.ndarray) -> dict:
+
+def _compute_elasticities(
+    delta: np.ndarray,
+    mu: np.ndarray,
+    prices: np.ndarray,
+    alpha: float,
+    sigma_price: float,
+    draws: np.ndarray,
+    market_ids: np.ndarray,
+) -> dict:
     """
     Compute own- and cross-price elasticities for each market.
 
@@ -375,6 +401,7 @@ def _compute_elasticities(delta: np.ndarray, mu: np.ndarray,
 # ---------------------------------------------------------------------------
 # BLPResult
 # ---------------------------------------------------------------------------
+
 
 class BLPResult:
     """
@@ -475,15 +502,21 @@ class BLPResult:
         lines.append("=" * width)
         lines.append("BLP Random-Coefficients Logit Demand Estimation".center(width))
         lines.append("=" * width)
-        lines.append(f"  Markets: {self.n_markets:<10}  Products (total obs): {self.n_products}")
-        lines.append(f"  GMM Objective: {self.gmm_objective:.6f}"
-                     f"    Converged: {self.converged}")
+        lines.append(
+            f"  Markets: {self.n_markets:<10}  Products (total obs): {self.n_products}"
+        )
+        lines.append(
+            f"  GMM Objective: {self.gmm_objective:.6f}"
+            f"    Converged: {self.converged}"
+        )
         lines.append("-" * width)
 
         # Linear parameters table
         lines.append("Linear Parameters (Mean Utility)")
-        lines.append(f"  {'Variable':<20} {'Coef':>10} {'Std.Err':>10} "
-                     f"{'z':>8} {'P>|z|':>8} {'[0.025':>8} {'0.975]':>8}")
+        lines.append(
+            f"  {'Variable':<20} {'Coef':>10} {'Std.Err':>10} "
+            f"{'z':>8} {'P>|z|':>8} {'[0.025':>8} {'0.975]':>8}"
+        )
         lines.append("  " + "-" * 68)
         for name in self.linear_params.index:
             coef = self.linear_params[name]
@@ -492,38 +525,48 @@ class BLPResult:
             pval = 2 * (1 - stats.norm.cdf(np.abs(z)))
             ci_lo = coef - 1.96 * se
             ci_hi = coef + 1.96 * se
-            lines.append(f"  {name:<20} {coef:>10.4f} {se:>10.4f} "
-                         f"{z:>8.3f} {pval:>8.4f} {ci_lo:>8.4f} {ci_hi:>8.4f}")
+            lines.append(
+                f"  {name:<20} {coef:>10.4f} {se:>10.4f} "
+                f"{z:>8.3f} {pval:>8.4f} {ci_lo:>8.4f} {ci_hi:>8.4f}"
+            )
 
         lines.append("-" * width)
 
         # Nonlinear parameters table
         if len(self.nonlinear_params) > 0:
             lines.append("Nonlinear Parameters (Random Coefficient Std. Devs.)")
-            lines.append(f"  {'Variable':<20} {'Sigma':>10} {'Std.Err':>10} "
-                         f"{'z':>8} {'P>|z|':>8}")
+            lines.append(
+                f"  {'Variable':<20} {'Sigma':>10} {'Std.Err':>10} "
+                f"{'z':>8} {'P>|z|':>8}"
+            )
             lines.append("  " + "-" * 50)
             for name in self.nonlinear_params.index:
                 sigma = self.nonlinear_params[name]
                 se = self.se_nonlinear[name]
                 z = sigma / se if se > 0 else np.nan
                 pval = 2 * (1 - stats.norm.cdf(np.abs(z)))
-                lines.append(f"  {name:<20} {sigma:>10.4f} {se:>10.4f} "
-                             f"{z:>8.3f} {pval:>8.4f}")
+                lines.append(
+                    f"  {name:<20} {sigma:>10.4f} {se:>10.4f} "
+                    f"{z:>8.3f} {pval:>8.4f}"
+                )
             lines.append("-" * width)
 
         # Elasticity summary
         own_e = self.own_elasticities
         lines.append("Own-Price Elasticity Summary")
-        lines.append(f"  Mean: {own_e.mean():.4f}   Median: {own_e.median():.4f}   "
-                     f"Min: {own_e.min():.4f}   Max: {own_e.max():.4f}")
+        lines.append(
+            f"  Mean: {own_e.mean():.4f}   Median: {own_e.median():.4f}   "
+            f"Min: {own_e.min():.4f}   Max: {own_e.max():.4f}"
+        )
         lines.append("=" * width)
 
         return "\n".join(lines)
 
     def __repr__(self) -> str:
-        return (f"BLPResult(n_markets={self.n_markets}, n_products={self.n_products}, "
-                f"gmm_obj={self.gmm_objective:.4f}, converged={self.converged})")
+        return (
+            f"BLPResult(n_markets={self.n_markets}, n_products={self.n_products}, "
+            f"gmm_obj={self.gmm_objective:.4f}, converged={self.converged})"
+        )
 
     # ---- Elasticity matrix ------------------------------------------------
 
@@ -621,6 +664,7 @@ class BLPResult:
 # Standard-error computation
 # ---------------------------------------------------------------------------
 
+
 def _compute_standard_errors(
     xi: np.ndarray,
     X: np.ndarray,
@@ -704,6 +748,7 @@ def _compute_standard_errors(
 # ---------------------------------------------------------------------------
 # Main estimation function
 # ---------------------------------------------------------------------------
+
 
 def blp(
     data: pd.DataFrame,
@@ -826,11 +871,13 @@ def blp(
 
     # ---- Construct matrices -----------------------------------------------
     # Linear regressors: constant, x_linear, price
-    X_linear = np.column_stack([
-        np.ones(N),
-        data[x_linear].values.astype(float),
-        price_vals,
-    ])
+    X_linear = np.column_stack(
+        [
+            np.ones(N),
+            data[x_linear].values.astype(float),
+            price_vals,
+        ]
+    )
     linear_names = ["const"] + list(x_linear) + [prices]
 
     # Random coefficient characteristics
@@ -883,8 +930,17 @@ def blp(
     def _obj_wrapper(sigma_vec: np.ndarray) -> float:
         nonlocal best_delta
         obj, xi, delta = _gmm_objective(
-            sigma_vec, s_obs, X_linear, X_random_mat, Z, W,
-            draws, market_ids, best_delta, tol_inner, maxiter_inner=1000,
+            sigma_vec,
+            s_obs,
+            X_linear,
+            X_random_mat,
+            Z,
+            W,
+            draws,
+            market_ids,
+            best_delta,
+            tol_inner,
+            maxiter_inner=1000,
         )
         best_delta = delta.copy()
         return float(obj)
@@ -904,9 +960,18 @@ def blp(
 
     # ---- Two-step GMM: update weighting matrix and re-estimate ------------
     # First get residuals at current sigma
-    mu_hat = _compute_mu(X_random_mat, sigma_hat, draws) if K_sigma > 0 else np.zeros((N, n_draws))
+    mu_hat = (
+        _compute_mu(X_random_mat, sigma_hat, draws)
+        if K_sigma > 0
+        else np.zeros((N, n_draws))
+    )
     delta_hat, inner_converged = _contraction_mapping(
-        s_obs, best_delta, mu_hat, market_ids, tol_inner, maxiter=2000,
+        s_obs,
+        best_delta,
+        mu_hat,
+        market_ids,
+        tol_inner,
+        maxiter=2000,
     )
     theta_hat, xi_hat = _iv_regression(delta_hat, X_linear, Z, W)
 
@@ -924,8 +989,17 @@ def blp(
     def _obj_wrapper_2(sigma_vec: np.ndarray) -> float:
         nonlocal best_delta_2
         obj, xi, delta = _gmm_objective(
-            sigma_vec, s_obs, X_linear, X_random_mat, Z, W_opt,
-            draws, market_ids, best_delta_2, tol_inner, maxiter_inner=1000,
+            sigma_vec,
+            s_obs,
+            X_linear,
+            X_random_mat,
+            Z,
+            W_opt,
+            draws,
+            market_ids,
+            best_delta_2,
+            tol_inner,
+            maxiter_inner=1000,
         )
         best_delta_2 = delta.copy()
         return float(obj)
@@ -943,9 +1017,18 @@ def blp(
         sigma_final = np.array([])
 
     # Final pass to get delta, theta, xi
-    mu_final = _compute_mu(X_random_mat, sigma_final, draws) if K_sigma > 0 else np.zeros((N, n_draws))
+    mu_final = (
+        _compute_mu(X_random_mat, sigma_final, draws)
+        if K_sigma > 0
+        else np.zeros((N, n_draws))
+    )
     delta_final, _ = _contraction_mapping(
-        s_obs, best_delta_2, mu_final, market_ids, tol_inner, maxiter=2000,
+        s_obs,
+        best_delta_2,
+        mu_final,
+        market_ids,
+        tol_inner,
+        maxiter=2000,
     )
     theta_final, xi_final = _iv_regression(delta_final, X_linear, Z, W_opt)
     Zxi = Z.T @ xi_final
@@ -953,9 +1036,19 @@ def blp(
 
     # ---- Standard errors --------------------------------------------------
     se_linear, se_nonlinear = _compute_standard_errors(
-        xi_final, X_linear, Z, W_opt, sigma_final, X_random_mat,
-        delta_final, mu_final, s_obs, market_ids, draws,
-        tol_inner, maxiter_inner=1000,
+        xi_final,
+        X_linear,
+        Z,
+        W_opt,
+        sigma_final,
+        X_random_mat,
+        delta_final,
+        mu_final,
+        s_obs,
+        market_ids,
+        draws,
+        tol_inner,
+        maxiter_inner=1000,
     )
 
     # ---- Price coefficient for elasticities -------------------------------
@@ -969,13 +1062,20 @@ def blp(
         sigma_price = sigma_final[sp_idx] if K_sigma > 0 else 0.0
 
     elasticity_matrices = _compute_elasticities(
-        delta_final, mu_final, price_vals, alpha_hat, sigma_price,
-        draws, market_ids,
+        delta_final,
+        mu_final,
+        price_vals,
+        alpha_hat,
+        sigma_price,
+        draws,
+        market_ids,
     )
 
     # Own-price elasticities
     own_elast = np.zeros(N)
-    for m, idx in {m: np.where(market_ids == m)[0] for m in np.unique(market_ids)}.items():
+    for m, idx in {
+        m: np.where(market_ids == m)[0] for m in np.unique(market_ids)
+    }.items():
         E = elasticity_matrices[m]
         for i, j in enumerate(idx):
             own_elast[j] = E[i, i]

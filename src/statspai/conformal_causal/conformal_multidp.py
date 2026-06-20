@@ -50,8 +50,9 @@ class MultiDPConformalResult:
     >>> res.cumulative_interval.shape
     (200, 2)
     """
-    intervals_per_stage: List[np.ndarray]   # K elements of (n_test, 2)
-    cumulative_interval: np.ndarray         # (n_test, 2) for sum over stages
+
+    intervals_per_stage: List[np.ndarray]  # K elements of (n_test, 2)
+    cumulative_interval: np.ndarray  # (n_test, 2) for sum over stages
     coverage_target: float
     n_stages: int
     n_test: int
@@ -148,6 +149,7 @@ def conformal_ite_multidp(
     cum_upper = np.zeros(n_test)
     for k in range(K):
         from sklearn.linear_model import LinearRegression
+
         Y = df[y_per_stage[k]].to_numpy(float)
         D = df[treat_per_stage[k]].to_numpy(int)
         Xcols = list(history_per_stage[k])
@@ -160,21 +162,20 @@ def conformal_ite_multidp(
         n = len(df)
         perm = rng.permutation(n)
         train = perm[: n // 2]
-        cal = perm[n // 2:]
-        m1 = LinearRegression().fit(X[train][D[train] == 1],
-                                     Y[train][D[train] == 1])
-        m0 = LinearRegression().fit(X[train][D[train] == 0],
-                                     Y[train][D[train] == 0])
+        cal = perm[n // 2 :]
+        m1 = LinearRegression().fit(X[train][D[train] == 1], Y[train][D[train] == 1])
+        m0 = LinearRegression().fit(X[train][D[train] == 0], Y[train][D[train] == 0])
         # Calibration residuals
-        resid = np.concatenate([
-            np.abs(Y[cal][D[cal] == 1] - m1.predict(X[cal][D[cal] == 1])),
-            np.abs(Y[cal][D[cal] == 0] - m0.predict(X[cal][D[cal] == 0])),
-        ])
+        resid = np.concatenate(
+            [
+                np.abs(Y[cal][D[cal] == 1] - m1.predict(X[cal][D[cal] == 1])),
+                np.abs(Y[cal][D[cal] == 0] - m0.predict(X[cal][D[cal] == 0])),
+            ]
+        )
         if len(resid) < 5:
             q = float(np.std(resid)) if len(resid) else 1.0
         else:
-            idx = min(int(np.ceil((len(resid) + 1) * (1 - alpha_k))),
-                      len(resid)) - 1
+            idx = min(int(np.ceil((len(resid) + 1) * (1 - alpha_k))), len(resid)) - 1
             q = float(np.sort(resid)[idx])
         ite_k = m1.predict(Xt) - m0.predict(Xt)
         interval_k = np.column_stack([ite_k - q, ite_k + q])

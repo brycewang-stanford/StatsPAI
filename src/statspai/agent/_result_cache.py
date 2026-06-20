@@ -37,6 +37,7 @@ The cache uses a re-entrant lock around all mutations. The MCP server
 loop is currently single-threaded, but tests exercise concurrent
 access.
 """
+
 from __future__ import annotations
 
 import os
@@ -46,7 +47,6 @@ import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
-
 
 _DEFAULT_CACHE_SIZE = 32
 
@@ -106,8 +106,7 @@ class CacheEntry:
             if isinstance(v, (str, int, float, bool)) or v is None:
                 clean[k] = v
             elif isinstance(v, (list, tuple)):
-                if all(isinstance(x, (str, int, float, bool)) or x is None
-                       for x in v):
+                if all(isinstance(x, (str, int, float, bool)) or x is None for x in v):
                     clean[k] = list(v)
                 else:
                     clean[k] = f"<{type(v).__name__}, len={len(v)}>"
@@ -151,18 +150,14 @@ class ResultCache:
             self._evicted.popitem(last=False)
 
     def _is_expired(self, entry: CacheEntry) -> bool:
-        return (
-            self._ttl is not None
-            and (time.time() - entry.created_at) > self._ttl
-        )
+        return self._ttl is not None and (time.time() - entry.created_at) > self._ttl
 
     def _purge_expired_locked(self) -> int:
         if self._ttl is None:
             return 0
         now = time.time()
         stale = [
-            rid for rid, e in self._store.items()
-            if (now - e.created_at) > self._ttl
+            rid for rid, e in self._store.items() if (now - e.created_at) > self._ttl
         ]
         for rid in stale:
             del self._store[rid]
@@ -171,14 +166,16 @@ class ResultCache:
 
     # -- public API ---------------------------------------------------- #
 
-    def put(self, obj: Any, *, tool: str = "",
-            arguments: Optional[Dict[str, Any]] = None) -> str:
+    def put(
+        self, obj: Any, *, tool: str = "", arguments: Optional[Dict[str, Any]] = None
+    ) -> str:
         """Cache ``obj`` and return its newly-minted handle."""
         rid = "r_" + secrets.token_hex(4)
         with self._lock:
             self._purge_expired_locked()
             self._store[rid] = CacheEntry(
-                obj=obj, tool=tool,
+                obj=obj,
+                tool=tool,
                 arguments=dict(arguments or {}),
             )
             self._store.move_to_end(rid)

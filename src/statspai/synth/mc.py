@@ -35,10 +35,10 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
-
 # ====================================================================== #
 #  Public API
 # ====================================================================== #
+
 
 def mc_synth(
     data: pd.DataFrame,
@@ -134,7 +134,9 @@ def mc_synth(
     if len(post_times) < 1:
         raise ValueError("Need at least 1 post-treatment period.")  # pragma: no cover
     if treated_unit not in pivot.index:
-        raise ValueError(f"treated_unit '{treated_unit}' not found in data.")  # pragma: no cover
+        raise ValueError(
+            f"treated_unit '{treated_unit}' not found in data."
+        )  # pragma: no cover
 
     donors = [u for u in pivot.index if u != treated_unit]
     all_units = list(pivot.index)
@@ -151,8 +153,15 @@ def mc_synth(
     # ------------------------------------------------------------------ #
     if covariates:
         Y_full = _partial_out_covariates(
-            data, outcome, unit, time, covariates,
-            all_units, all_times, treated_unit, treatment_time,
+            data,
+            outcome,
+            unit,
+            time,
+            covariates,
+            all_units,
+            all_times,
+            treated_unit,
+            treatment_time,
         )
 
     # ------------------------------------------------------------------ #
@@ -169,7 +178,12 @@ def mc_synth(
     # ------------------------------------------------------------------ #
     if lambda_reg is None:
         lambda_reg = _cv_lambda(
-            Y_full, obs_mask, cv_folds, max_iter, tol, rng,
+            Y_full,
+            obs_mask,
+            cv_folds,
+            max_iter,
+            tol,
+            rng,
         )
 
     # ------------------------------------------------------------------ #
@@ -189,7 +203,7 @@ def mc_synth(
     att = float(np.mean(effects))
 
     pre_residuals = Y_treated_pre - Y_synth_pre
-    pre_rmspe = float(np.sqrt(np.mean(pre_residuals ** 2)))
+    pre_rmspe = float(np.sqrt(np.mean(pre_residuals**2)))
 
     # Effective rank of completed matrix
     _, S_full, _ = np.linalg.svd(M, full_matrices=False)
@@ -207,7 +221,11 @@ def mc_synth(
 
             try:
                 M_plac = _soft_impute(
-                    Y_full, plac_mask, lambda_reg, max_iter, tol,
+                    Y_full,
+                    plac_mask,
+                    lambda_reg,
+                    max_iter,
+                    tol,
                 )
                 plac_post = Y_full[d_idx, T0:]
                 plac_synth = M_plac[d_idx, T0:]
@@ -229,20 +247,24 @@ def mc_synth(
     # ------------------------------------------------------------------ #
     #  Build output tables
     # ------------------------------------------------------------------ #
-    gap_table = pd.DataFrame({
-        "time": all_times,
-        "treated": np.concatenate([Y_treated_pre, Y_treated_post]),
-        "synthetic": np.concatenate([Y_synth_pre, Y_synth_post]),
-        "gap": np.concatenate([pre_residuals, effects]),
-        "post_treatment": [False] * T0 + [True] * T1,
-    })
+    gap_table = pd.DataFrame(
+        {
+            "time": all_times,
+            "treated": np.concatenate([Y_treated_pre, Y_treated_post]),
+            "synthetic": np.concatenate([Y_synth_pre, Y_synth_post]),
+            "gap": np.concatenate([pre_residuals, effects]),
+            "post_treatment": [False] * T0 + [True] * T1,
+        }
+    )
 
-    effects_df = pd.DataFrame({
-        "time": post_times,
-        "treated": Y_treated_post,
-        "counterfactual": Y_synth_post,
-        "effect": effects,
-    })
+    effects_df = pd.DataFrame(
+        {
+            "time": post_times,
+            "treated": Y_treated_post,
+            "counterfactual": Y_synth_post,
+            "effect": effects,
+        }
+    )
 
     model_info: dict[str, Any] = {
         "n_donors": J,
@@ -283,6 +305,7 @@ def mc_synth(
 # ====================================================================== #
 #  Core algorithms
 # ====================================================================== #
+
 
 def _soft_impute(
     Y: np.ndarray,
@@ -370,6 +393,7 @@ def _init_from_means(Y: np.ndarray, obs_mask: np.ndarray) -> np.ndarray:
 #  Cross-validation for lambda
 # ====================================================================== #
 
+
 def _cv_lambda(
     Y: np.ndarray,
     obs_mask: np.ndarray,
@@ -447,6 +471,7 @@ def _cv_lambda(
 #  Covariate adjustment
 # ====================================================================== #
 
+
 def _partial_out_covariates(
     data: pd.DataFrame,
     outcome: str,
@@ -482,9 +507,7 @@ def _partial_out_covariates(
     data_res[outcome] = data_res[outcome].values - X_all @ beta
 
     pivot = data_res.pivot_table(index=unit, columns=time, values=outcome)
-    return np.asarray(
-        pivot.loc[all_units, all_times].values.astype(np.float64)
-    )
+    return np.asarray(pivot.loc[all_units, all_times].values.astype(np.float64))
 
 
 # ====================================================================== #

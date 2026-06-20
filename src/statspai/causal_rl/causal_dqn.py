@@ -15,7 +15,6 @@ the ``[neural]`` extra and wrap PyTorch/JAX around this scaffold.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, List
 
 import numpy as np
 import pandas as pd
@@ -60,8 +59,8 @@ class CausalDQNResult:
     0.1
     """
 
-    q_table: np.ndarray                 # (n_states, n_actions)
-    policy: np.ndarray                  # (n_states,)
+    q_table: np.ndarray  # (n_states, n_actions)
+    policy: np.ndarray  # (n_states,)
     gamma_bound: float
     n_iter: int
     final_bellman_error: float
@@ -139,8 +138,7 @@ def causal_dqn(
     """
     if not 0 <= gamma_bound <= 1:
         raise ValueError(f"gamma_bound must be in [0, 1]; got {gamma_bound}.")
-    df = data[[state, action, reward, next_state]].dropna() \
-        .reset_index(drop=True)
+    df = data[[state, action, reward, next_state]].dropna().reset_index(drop=True)
     S = df[state].astype(int).to_numpy()
     A = df[action].astype(int).to_numpy()
     R = df[reward].to_numpy(float)
@@ -157,7 +155,7 @@ def causal_dqn(
         target = R + discount * (1 - gamma_bound) * Q_next
         td = target - Q[S, A]
         Q[S, A] = Q[S, A] + lr * td
-        final_err = float(np.mean(td ** 2))
+        final_err = float(np.mean(td**2))
 
     policy = Q.argmax(axis=1)
     _result = CausalDQNResult(
@@ -169,14 +167,20 @@ def causal_dqn(
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.causal_rl.causal_dqn",
             params={
-                "state": state, "action": action,
-                "reward": reward, "next_state": next_state,
-                "gamma_bound": gamma_bound, "discount": discount,
-                "n_iter": n_iter, "lr": lr, "seed": seed,
+                "state": state,
+                "action": action,
+                "reward": reward,
+                "next_state": next_state,
+                "gamma_bound": gamma_bound,
+                "discount": discount,
+                "n_iter": n_iter,
+                "lr": lr,
+                "seed": seed,
             },
             data=data,
             overwrite=False,

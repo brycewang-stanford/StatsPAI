@@ -29,10 +29,10 @@ from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
 
-
 # ======================================================================
 # NotchResult
 # ======================================================================
+
 
 class NotchResult:
     """
@@ -151,13 +151,14 @@ class NotchResult:
         if self.elasticity is not None:
             lines.append(
                 f"  Elasticity            : {self.elasticity:.4f}"
-                + (f"   (SE = {self.se_elasticity:.4f})"
-                   if self.se_elasticity is not None else "")
+                + (
+                    f"   (SE = {self.se_elasticity:.4f})"
+                    if self.se_elasticity is not None
+                    else ""
+                )
             )
             if self.notch_size is not None:
-                lines.append(
-                    f"  Notch size (dt)       : {self.notch_size}"
-                )
+                lines.append(f"  Notch size (dt)       : {self.notch_size}")
 
         ci_lo, ci_hi = self.ci
         lines += [
@@ -193,13 +194,24 @@ class NotchResult:
 
         # Bar plot of observed
         bw = np.median(np.diff(self.bin_centers)) if len(self.bin_centers) > 1 else 1
-        ax.bar(self.bin_centers, self.observed, width=bw * 0.9,
-               color="#B0C4DE", edgecolor="white", alpha=0.85,
-               label="Observed")
+        ax.bar(
+            self.bin_centers,
+            self.observed,
+            width=bw * 0.9,
+            color="#B0C4DE",
+            edgecolor="white",
+            alpha=0.85,
+            label="Observed",
+        )
 
         # Counterfactual line
-        ax.plot(self.bin_centers, self.counterfactual,
-                color="#E74C3C", linewidth=2, label="Counterfactual")
+        ax.plot(
+            self.bin_centers,
+            self.counterfactual,
+            color="#E74C3C",
+            linewidth=2,
+            label="Counterfactual",
+        )
 
         # Shade excess bunching (below notch, observed > counterfactual)
         below = self.bin_centers <= self.notch_point
@@ -209,7 +221,9 @@ class NotchResult:
                 self.bin_centers[excess_mask],
                 self.counterfactual[excess_mask],
                 self.observed[excess_mask],
-                alpha=0.4, color="#3498DB", label="Excess bunching",
+                alpha=0.4,
+                color="#3498DB",
+                label="Excess bunching",
             )
 
         # Shade missing mass (above notch, counterfactual > observed)
@@ -220,25 +234,36 @@ class NotchResult:
                 self.bin_centers[hole_mask],
                 self.observed[hole_mask],
                 self.counterfactual[hole_mask],
-                alpha=0.4, color="#E74C3C", label="Missing mass",
+                alpha=0.4,
+                color="#E74C3C",
+                label="Missing mass",
             )
 
         # Vertical line at notch
-        ax.axvline(self.notch_point, color="#2C3E50", linestyle="--",
-                   linewidth=1.5, label=f"Notch ({self.notch_point:,.0f})")
+        ax.axvline(
+            self.notch_point,
+            color="#2C3E50",
+            linestyle="--",
+            linewidth=1.5,
+            label=f"Notch ({self.notch_point:,.0f})",
+        )
 
         # Marginal buncher marker
         if self.marginal_buncher > self.notch_point:
-            ax.axvline(self.marginal_buncher, color="#27AE60",
-                       linestyle=":", linewidth=1.2,
-                       label=f"x* = {self.marginal_buncher:,.0f}")
+            ax.axvline(
+                self.marginal_buncher,
+                color="#27AE60",
+                linestyle=":",
+                linewidth=1.2,
+                label=f"x* = {self.marginal_buncher:,.0f}",
+            )
 
         ax.set_xlabel("Running variable")
         ax.set_ylabel("Count")
         ax.set_title(title or "Bunching at Notch Analysis")
         ax.legend(fontsize=9)
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         plt.tight_layout()
         return fig, ax
 
@@ -258,20 +283,22 @@ class NotchResult:
         rows += [
             ("SE (B)", f"{self.se_bunching:,.4f}"),
             ("p-value", f"{self.pvalue:.4f}"),
-            (f"{100*(1-self.alpha):.0f}% CI",
-             f"[{self.ci[0]:,.2f}, {self.ci[1]:,.2f}]"),
+            (
+                f"{100*(1-self.alpha):.0f}% CI",
+                f"[{self.ci[0]:,.2f}, {self.ci[1]:,.2f}]",
+            ),
             ("N", f"{self.n_obs:,}"),
         ]
 
         html = (
             '<div style="font-family:Helvetica Neue,Arial,sans-serif;'
-            'max-width:520px;border:1px solid #E5E7EB;border-radius:8px;'
+            "max-width:520px;border:1px solid #E5E7EB;border-radius:8px;"
             'overflow:hidden;margin:6px 0">'
             '<div style="background:linear-gradient(135deg,#1a1a2e 0%,'
             '#16213e 100%);color:#fff;padding:12px 16px">'
             '<h3 style="margin:0;font-size:15px">Bunching at Notch</h3>'
             '<div style="font-size:11px;color:#94A3B8;margin-top:2px">'
-            'Kleven &amp; Waseem (2013)</div></div>'
+            "Kleven &amp; Waseem (2013)</div></div>"
             '<table style="width:100%;border-collapse:collapse;'
             'font-size:13px">'
         )
@@ -282,13 +309,14 @@ class NotchResult:
                 f'<td style="padding:6px 14px;text-align:right;'
                 f'font-weight:600;color:#1a1a2e">{val}</td></tr>'
             )
-        html += '</table></div>'
+        html += "</table></div>"
         return html
 
 
 # ======================================================================
 # Core estimation helpers
 # ======================================================================
+
 
 def _fit_counterfactual(
     bin_centers: np.ndarray,
@@ -352,6 +380,7 @@ def _find_marginal_buncher(
 # ======================================================================
 # Public API
 # ======================================================================
+
 
 def notch(
     data: pd.DataFrame,
@@ -464,15 +493,23 @@ def notch(
     # 3. Fit counterfactual
     # ------------------------------------------------------------------
     cf, coeffs = _fit_counterfactual(
-        bin_centers, counts, exclude_mask, poly_order,
-        notch_point, bin_width,
+        bin_centers,
+        counts,
+        exclude_mask,
+        poly_order,
+        notch_point,
+        bin_width,
     )
 
     # ------------------------------------------------------------------
     # 4. Compute excess bunching, missing mass, marginal buncher
     # ------------------------------------------------------------------
     x_star, excess_B, missing_H = _find_marginal_buncher(
-        bin_centers, counts, cf, notch_point, bin_width,
+        bin_centers,
+        counts,
+        cf,
+        notch_point,
+        bin_width,
     )
 
     # ------------------------------------------------------------------
@@ -499,11 +536,19 @@ def notch(
         counts_b = counts_b.astype(np.float64)
 
         cf_b, _ = _fit_counterfactual(
-            bin_centers, counts_b, exclude_mask, poly_order,
-            notch_point, bin_width,
+            bin_centers,
+            counts_b,
+            exclude_mask,
+            poly_order,
+            notch_point,
+            bin_width,
         )
         x_star_b, B_b, _ = _find_marginal_buncher(
-            bin_centers, counts_b, cf_b, notch_point, bin_width,
+            bin_centers,
+            counts_b,
+            cf_b,
+            notch_point,
+            bin_width,
         )
         boot_B[b] = B_b
 
@@ -534,31 +579,33 @@ def notch(
     # ------------------------------------------------------------------
     # 8. Build CausalResult for interop
     # ------------------------------------------------------------------
-    detail = pd.DataFrame({
-        'bin_center': bin_centers,
-        'observed': counts,
-        'counterfactual': cf,
-        'excess': counts - cf,
-        'in_excluded_region': exclude_mask,
-    })
+    detail = pd.DataFrame(
+        {
+            "bin_center": bin_centers,
+            "observed": counts,
+            "counterfactual": cf,
+            "excess": counts - cf,
+            "in_excluded_region": exclude_mask,
+        }
+    )
 
     model_info = {
-        'notch_point': notch_point,
-        'notch_size': notch_size,
-        'bin_width': bin_width,
-        'poly_order': poly_order,
-        'exclude_range': (exc_lo, exc_hi),
-        'excess_bunching': float(excess_B),
-        'missing_mass': float(missing_H),
-        'marginal_buncher': float(x_star),
-        'design': 'notch',
+        "notch_point": notch_point,
+        "notch_size": notch_size,
+        "bin_width": bin_width,
+        "poly_order": poly_order,
+        "exclude_range": (exc_lo, exc_hi),
+        "excess_bunching": float(excess_B),
+        "missing_mass": float(missing_H),
+        "marginal_buncher": float(x_star),
+        "design": "notch",
     }
     if elasticity is not None:
-        model_info['elasticity'] = float(elasticity)
+        model_info["elasticity"] = float(elasticity)
 
     cr = CausalResult(
-        method='Bunching at Notch (Kleven & Waseem 2013)',
-        estimand='Excess Mass at Notch',
+        method="Bunching at Notch (Kleven & Waseem 2013)",
+        estimand="Excess Mass at Notch",
         estimate=float(excess_B),
         se=se_B,
         pvalue=pvalue,
@@ -567,7 +614,7 @@ def notch(
         n_obs=n,
         detail=detail,
         model_info=model_info,
-        _citation_key='notch',
+        _citation_key="notch",
     )
 
     return NotchResult(
@@ -594,7 +641,7 @@ def notch(
 # Citation
 # ======================================================================
 
-CausalResult._CITATIONS['notch'] = (
+CausalResult._CITATIONS["notch"] = (
     "@article{kleven2013using,\n"
     "  title={Using Notches to Uncover Optimization Frictions and "
     "Structural Elasticities: Theory and Evidence from Pakistan},\n"

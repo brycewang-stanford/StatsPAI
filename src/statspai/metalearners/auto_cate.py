@@ -67,16 +67,19 @@ from .metalearners import (
     _prepare_data,
 )
 
-
 _LEARNER_NAMES = {
-    's': 'S-Learner', 't': 'T-Learner', 'x': 'X-Learner',
-    'r': 'R-Learner', 'dr': 'DR-Learner',
+    "s": "S-Learner",
+    "t": "T-Learner",
+    "x": "X-Learner",
+    "r": "R-Learner",
+    "dr": "DR-Learner",
 }
 
 
 # ---------------------------------------------------------------------------
 # Result type
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class AutoCATEResult(ResultProtocolMixin):
@@ -141,42 +144,54 @@ class AutoCATEResult(ResultProtocolMixin):
 
     def summary(self) -> str:
         lines = [
-            '=' * 72,
-            'auto_cate: CATE Learner Race',
-            '=' * 72,
-            f'  N obs:           {self.n_obs:,}',
-            f'  Learners raced:  {len(self.results)} '
+            "=" * 72,
+            "auto_cate: CATE Learner Race",
+            "=" * 72,
+            f"  N obs:           {self.n_obs:,}",
+            f"  Learners raced:  {len(self.results)} "
             f'({", ".join(self.leaderboard["learner"].tolist())})',
-            f'  Winner:          {self.best_learner}',
-            f'  Selection rule:  {self.selection_rule}',
-            '-' * 72,
-            'Leaderboard (sorted by R-loss; lower is better)',
-            '-' * 72,
+            f"  Winner:          {self.best_learner}",
+            f"  Selection rule:  {self.selection_rule}",
+            "-" * 72,
+            "Leaderboard (sorted by R-loss; lower is better)",
+            "-" * 72,
         ]
         # Pretty-printed leaderboard with rounding
         show = self.leaderboard.copy()
-        for col in ['ate', 'se', 'ci_lower', 'ci_upper', 'r_loss',
-                    'blp_beta1', 'blp_beta1_pvalue',
-                    'blp_beta2', 'blp_beta2_pvalue',
-                    'cate_std', 'cate_iqr']:
+        for col in [
+            "ate",
+            "se",
+            "ci_lower",
+            "ci_upper",
+            "r_loss",
+            "blp_beta1",
+            "blp_beta1_pvalue",
+            "blp_beta2",
+            "blp_beta2_pvalue",
+            "cate_std",
+            "cate_iqr",
+        ]:
             if col in show.columns:
                 show[col] = show[col].astype(float).round(4)
         lines.append(show.to_string(index=False))
-        lines.append('-' * 72)
-        lines.append('Cross-learner CATE agreement (Pearson rho)')
-        lines.append('-' * 72)
+        lines.append("-" * 72)
+        lines.append("Cross-learner CATE agreement (Pearson rho)")
+        lines.append("-" * 72)
         lines.append(self.agreement.round(3).to_string())
-        lines.append('=' * 72)
-        return '\n'.join(lines)
+        lines.append("=" * 72)
+        return "\n".join(lines)
 
     def __repr__(self) -> str:  # pragma: no cover - cosmetic
-        return (f"<AutoCATEResult n={self.n_obs} learners={len(self.results)} "
-                f"winner={self.best_learner!r}>")
+        return (
+            f"<AutoCATEResult n={self.n_obs} learners={len(self.results)} "
+            f"winner={self.best_learner!r}>"
+        )
 
 
 # ---------------------------------------------------------------------------
 # Internals
 # ---------------------------------------------------------------------------
+
 
 def _build_learner(
     code: str,
@@ -187,15 +202,16 @@ def _build_learner(
 ) -> Any:
     """Instantiate a fresh learner for a given short code."""
     from sklearn.base import clone
+
     code = code.lower()
-    if code == 's':
+    if code == "s":
         return SLearner(model=outcome_model)
-    if code == 't':
+    if code == "t":
         return TLearner(
             model_0=outcome_model,
             model_1=clone(outcome_model) if outcome_model is not None else None,
         )
-    if code == 'x':
+    if code == "x":
         return XLearner(
             model_0=outcome_model,
             model_1=clone(outcome_model) if outcome_model is not None else None,
@@ -203,23 +219,21 @@ def _build_learner(
             cate_model_1=clone(cate_model) if cate_model is not None else None,
             propensity_model=propensity_model,
         )
-    if code == 'r':
+    if code == "r":
         return RLearner(
             outcome_model=outcome_model,
             propensity_model=propensity_model,
             cate_model=cate_model,
             n_folds=n_folds,
         )
-    if code == 'dr':
+    if code == "dr":
         return DRLearner(
             outcome_model=outcome_model,
             propensity_model=propensity_model,
             cate_model=cate_model,
             n_folds=n_folds,
         )
-    raise ValueError(
-        f"Unknown learner '{code}'. Valid codes: 's','t','x','r','dr'."
-    )
+    raise ValueError(f"Unknown learner '{code}'. Valid codes: 's','t','x','r','dr'.")
 
 
 def _cross_fit_nuisance(
@@ -234,6 +248,7 @@ def _cross_fit_nuisance(
     """Shared K-fold E[Y|X] and P(D=1|X) estimates reused across learners."""
     from sklearn.base import clone
     from sklearn.model_selection import KFold
+
     n = len(Y)
     m_hat = np.zeros(n)
     e_hat = np.zeros(n)
@@ -262,6 +277,7 @@ def _honest_cate_predictions(
 ) -> np.ndarray:
     """Out-of-fold CATE predictions via per-fold refit of the learner."""
     from sklearn.model_selection import KFold
+
     n = len(Y)
     tau_hat = np.zeros(n)
     kf = KFold(n_splits=n_folds, shuffle=True, random_state=random_state)
@@ -287,7 +303,7 @@ def _r_loss(
 ) -> float:
     """Nie-Wager R-loss evaluated on held-out CATE predictions."""
     resid = (Y - m_hat) - tau_hat * (D - e_hat)
-    return float(np.mean(resid ** 2))
+    return float(np.mean(resid**2))
 
 
 def _blp_calibration(
@@ -311,13 +327,14 @@ def _blp_calibration(
     so ``Y - m_hat`` is not exactly mean-zero in finite samples.
     """
     import statsmodels.api as sm
+
     D_centered = D - e_hat
     tau_centered = tau_hat - np.mean(tau_hat)
     # Intercept first, then beta_1 and beta_2 — mirrors diagnostics.blp_test.
     Z = np.column_stack([np.ones(len(Y)), D_centered, D_centered * tau_centered])
     Y_res = Y - m_hat
     try:
-        ols = sm.OLS(Y_res, Z).fit(cov_type='HC1')
+        ols = sm.OLS(Y_res, Z).fit(cov_type="HC1")
         b1 = float(ols.params[1])
         b1_se = float(ols.bse[1])
         # Two-sided p-value for H0: beta_1 = 1
@@ -331,10 +348,10 @@ def _blp_calibration(
     except Exception:
         b1, p1, b2, p2 = np.nan, np.nan, np.nan, np.nan
     return {
-        'blp_beta1': b1,
-        'blp_beta1_pvalue': p1,
-        'blp_beta2': b2,
-        'blp_beta2_pvalue': p2,
+        "blp_beta1": b1,
+        "blp_beta1_pvalue": p1,
+        "blp_beta2": b2,
+        "blp_beta2_pvalue": p2,
     }
 
 
@@ -344,9 +361,7 @@ def _validate_learners(learners: Sequence[str]) -> List[str]:
     for lr in learners:
         code = lr.lower()
         if code not in valid:
-            raise ValueError(
-                f"Unknown learner '{lr}'. Valid: {sorted(valid)}."
-            )
+            raise ValueError(f"Unknown learner '{lr}'. Valid: {sorted(valid)}.")
         if code not in out:
             out.append(code)
     if not out:
@@ -358,17 +373,18 @@ def _validate_learners(learners: Sequence[str]) -> List[str]:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def auto_cate(
     data: pd.DataFrame,
     y: str,
     treat: str,
     covariates: List[str],
-    learners: Sequence[str] = ('s', 't', 'x', 'r', 'dr'),
+    learners: Sequence[str] = ("s", "t", "x", "r", "dr"),
     outcome_model: Optional[Any] = None,
     propensity_model: Optional[Any] = None,
     cate_model: Optional[Any] = None,
     n_folds: int = 5,
-    score: str = 'r_loss',
+    score: str = "r_loss",
     alpha: float = 0.05,
     n_bootstrap: int = 200,
     random_state: int = 42,
@@ -426,7 +442,7 @@ def auto_cate(
     ...                       learners=("s", "t"))
     >>> print(result.summary())
     """
-    if score != 'r_loss':
+    if score != "r_loss":
         raise NotImplementedError(
             f"score={score!r} is not supported yet. Use 'r_loss'."
         )
@@ -449,9 +465,13 @@ def auto_cate(
         else _default_propensity_model()
     )
     m_hat, e_hat = _cross_fit_nuisance(
-        X, Y, D,
-        outcome_model=om, propensity_model=pm,
-        n_folds=n_folds, random_state=random_state,
+        X,
+        Y,
+        D,
+        outcome_model=om,
+        propensity_model=pm,
+        n_folds=n_folds,
+        random_state=random_state,
     )
     e_hat = np.clip(e_hat, 0.01, 0.99)
 
@@ -462,7 +482,10 @@ def auto_cate(
     for code in codes:
         # Full fit via the canonical metalearner() API (in-sample CATE + SE)
         res = metalearner(
-            data, y=y, treat=treat, covariates=covariates,
+            data,
+            y=y,
+            treat=treat,
+            covariates=covariates,
             learner=code,
             outcome_model=outcome_model,
             propensity_model=propensity_model,
@@ -472,35 +495,41 @@ def auto_cate(
             alpha=alpha,
         )
         fitted_results[code] = res
-        cate = np.asarray(res.model_info['cate'])
+        cate = np.asarray(res.model_info["cate"])
         in_sample_cate[code] = cate
 
         # Honest held-out CATE for R-loss and BLP
         tau_oof = _honest_cate_predictions(
-            code, X, Y, D,
+            code,
+            X,
+            Y,
+            D,
             outcome_model=outcome_model,
             propensity_model=propensity_model,
             cate_model=cate_model,
-            n_folds=n_folds, random_state=random_state,
+            n_folds=n_folds,
+            random_state=random_state,
         )
         r_loss = _r_loss(tau_oof, Y, D, m_hat, e_hat)
         blp = _blp_calibration(tau_oof, Y, D, m_hat, e_hat)
 
-        rows.append({
-            'learner': _LEARNER_NAMES[code],
-            'code': code,
-            'ate': res.estimate,
-            'se': res.se,
-            'ci_lower': res.ci[0],
-            'ci_upper': res.ci[1],
-            'pvalue': res.pvalue,
-            'r_loss': r_loss,
-            **blp,
-            'cate_std': float(np.std(cate)),
-            'cate_iqr': float(np.percentile(cate, 75) - np.percentile(cate, 25)),
-        })
+        rows.append(
+            {
+                "learner": _LEARNER_NAMES[code],
+                "code": code,
+                "ate": res.estimate,
+                "se": res.se,
+                "ci_lower": res.ci[0],
+                "ci_upper": res.ci[1],
+                "pvalue": res.pvalue,
+                "r_loss": r_loss,
+                **blp,
+                "cate_std": float(np.std(cate)),
+                "cate_iqr": float(np.percentile(cate, 75) - np.percentile(cate, 25)),
+            }
+        )
 
-    leaderboard = pd.DataFrame(rows).sort_values('r_loss').reset_index(drop=True)
+    leaderboard = pd.DataFrame(rows).sort_values("r_loss").reset_index(drop=True)
 
     # Selection rule: lowest held-out R-loss.
     # BLP beta_1 (approx. ATE) and beta_2 (heterogeneity signal) are
@@ -512,7 +541,7 @@ def auto_cate(
     winner_row = leaderboard.iloc[0]
     rule = "lowest held-out Nie-Wager R-loss"
 
-    winner_code = winner_row['code']
+    winner_code = winner_row["code"]
     best_result = fitted_results[winner_code]
     best_name = _LEARNER_NAMES[winner_code]
 
@@ -526,7 +555,7 @@ def auto_cate(
     if len(codes) == 1:
         agr = pd.DataFrame([[1.0]], index=names, columns=names)
     else:
-        with np.errstate(invalid='ignore', divide='ignore'):
+        with np.errstate(invalid="ignore", divide="ignore"):
             corr = np.corrcoef(cate_matrix, rowvar=False)
         # NaNs come from zero-variance CATE vectors; coerce to 0.0 for
         # readability (and leave identity diagonal in place).
@@ -536,7 +565,7 @@ def auto_cate(
         agr = pd.DataFrame(corr, index=names, columns=names)
 
     # Drop 'code' helper column from the public leaderboard
-    public_leaderboard = leaderboard.drop(columns=['code']).reset_index(drop=True)
+    public_leaderboard = leaderboard.drop(columns=["code"]).reset_index(drop=True)
 
     return AutoCATEResult(
         leaderboard=public_leaderboard,

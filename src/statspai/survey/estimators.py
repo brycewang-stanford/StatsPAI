@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 #  Result container
 # ====================================================================== #
 
+
 @dataclass
 class SurveyResult:
     """Container for survey estimation results."""
@@ -45,15 +46,17 @@ class SurveyResult:
 
     def summary(self) -> pd.DataFrame:
         """Pretty summary table."""
-        tbl = pd.DataFrame({
-            "Estimate": self.estimate,
-            "Std.Err": self.std_error,
-            "t": self.t_values,
-            "p": self.p_values,
-            f"CI({1-self.alpha:.0%}) lo": self.ci_lower,
-            f"CI({1-self.alpha:.0%}) hi": self.ci_upper,
-            "DEFF": self.deff,
-        })
+        tbl = pd.DataFrame(
+            {
+                "Estimate": self.estimate,
+                "Std.Err": self.std_error,
+                "t": self.t_values,
+                "p": self.p_values,
+                f"CI({1-self.alpha:.0%}) lo": self.ci_lower,
+                f"CI({1-self.alpha:.0%}) hi": self.ci_upper,
+                "DEFF": self.deff,
+            }
+        )
         return tbl
 
     def __repr__(self) -> str:
@@ -63,6 +66,7 @@ class SurveyResult:
 # ====================================================================== #
 #  Internal helpers
 # ====================================================================== #
+
 
 def _resolve_vars(
     variables: Union[str, List[str]],
@@ -119,7 +123,7 @@ def _stratified_cluster_var(
         psu_mean = psu_totals.mean(axis=0)
         # Between-PSU variance
         dev = psu_totals - psu_mean[None, :]
-        s2 = (dev ** 2).sum(axis=0) / (n_h - 1)
+        s2 = (dev**2).sum(axis=0) / (n_h - 1)
 
         fpc_factor = 1.0
         if fpc is not None:
@@ -146,13 +150,14 @@ def _srs_var(values: np.ndarray, weights: np.ndarray) -> np.ndarray:
     w_sum = weights.sum()
     for j in range(p):
         wm = np.average(values[:, j], weights=weights)
-        v[j] = np.sum(weights * (values[:, j] - wm) ** 2) / (w_sum ** 2) * n / (n - 1)
+        v[j] = np.sum(weights * (values[:, j] - wm) ** 2) / (w_sum**2) * n / (n - 1)
     return v
 
 
 # ====================================================================== #
 #  Public API
 # ====================================================================== #
+
 
 def svymean(
     variables: Union[str, List[str]],
@@ -205,7 +210,10 @@ def svymean(
 
     # Design variance
     design_var = _stratified_cluster_var(
-        scores, design.strata, design.cluster_ids, design.fpc_values,
+        scores,
+        design.strata,
+        design.cluster_ids,
+        design.fpc_values,
     )
     se = np.sqrt(design_var)
 
@@ -273,7 +281,10 @@ def svytotal(
     scores = w[:, None] * vals
 
     design_var = _stratified_cluster_var(
-        scores, design.strata, design.cluster_ids, design.fpc_values,
+        scores,
+        design.strata,
+        design.cluster_ids,
+        design.fpc_values,
     )
     se = np.sqrt(design_var)
 
@@ -355,7 +366,9 @@ def svyglm(
     elif family == "poisson":
         params, working_residuals = _irls_fit(y, X, w, family="poisson")
     else:
-        raise ValueError(f"Unknown family: {family}. Use 'gaussian', 'binomial', or 'poisson'.")
+        raise ValueError(
+            f"Unknown family: {family}. Use 'gaussian', 'binomial', or 'poisson'."
+        )
 
     # Sandwich variance with survey design correction
     # Score contributions: z_i = w_i * r_i * x_i  (linearised influence)
@@ -414,8 +427,11 @@ def svyglm(
 #  Internal fitting helpers
 # ====================================================================== #
 
+
 def _wls_fit(
-    y: np.ndarray, X: np.ndarray, w: np.ndarray,
+    y: np.ndarray,
+    X: np.ndarray,
+    w: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Weighted least squares.  Returns (params, residuals)."""
     W = np.sqrt(w)
@@ -460,7 +476,7 @@ def _irls_fit(
 
         # Working response and working weights
         z = eta + (y - mu) / deriv
-        irls_w = w * deriv ** 2 / var_mu  # = w * var_mu for canonical link
+        irls_w = w * deriv**2 / var_mu  # = w * var_mu for canonical link
 
         W = np.sqrt(irls_w)
         Xw = X * W[:, None]
@@ -480,6 +496,6 @@ def _irls_fit(
     elif family == "poisson":
         mu = np.exp(np.clip(eta, -20, 20))
 
-    working_residuals = (y - mu)
+    working_residuals = y - mu
 
     return beta, working_residuals

@@ -98,7 +98,9 @@ class WeakIVConfidenceSet:
             pieces = " ∪ ".join(f"[{lo:.3f}, {hi:.3f}]" for lo, hi in intervals)
             lines.append(f"  confidence set       : {pieces}   (disconnected!)")
         if self.is_unbounded:
-            lines.append("  NOTE                 : CI touches grid boundary — may be unbounded.")
+            lines.append(
+                "  NOTE                 : CI touches grid boundary — may be unbounded."
+            )
         return "\n".join(lines)
 
 
@@ -139,8 +141,9 @@ def _prep(
     return Yt, Dt, Zt, W.shape[1], n
 
 
-def _default_grid(Yt: np.ndarray, Dt: np.ndarray, Zt: np.ndarray,
-                  n_points: int) -> np.ndarray:
+def _default_grid(
+    Yt: np.ndarray, Dt: np.ndarray, Zt: np.ndarray, n_points: int
+) -> np.ndarray:
     """β grid centered on 2SLS ± 10 × conservative SE."""
     PZ = Zt @ np.linalg.solve(Zt.T @ Zt, Zt.T)
     D_hat = PZ @ Dt
@@ -157,6 +160,7 @@ def _default_grid(Yt: np.ndarray, Dt: np.ndarray, Zt: np.ndarray,
 # ═══════════════════════════════════════════════════════════════════════
 #  AR confidence set
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def anderson_rubin_ci(
     y: Union[np.ndarray, pd.Series, str],
@@ -203,14 +207,21 @@ def anderson_rubin_ci(
             stats_arr[i] = np.inf  # pragma: no cover
     in_set = stats_arr <= crit
 
-    return _build_set("Anderson-Rubin (AR)", level, beta_grid, stats_arr,
-                      np.full_like(stats_arr, crit), in_set,
-                      extra={"df_num": k, "df_denom": dfd})
+    return _build_set(
+        "Anderson-Rubin (AR)",
+        level,
+        beta_grid,
+        stats_arr,
+        np.full_like(stats_arr, crit),
+        in_set,
+        extra={"df_num": k, "df_denom": dfd},
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  CLR (Moreira 2003) confidence set by grid inversion
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def conditional_lr_ci(
     y: Union[np.ndarray, pd.Series, str],
@@ -269,23 +280,27 @@ def conditional_lr_ci(
             continue  # pragma: no cover
         S = Zs.T @ ustar / np.sqrt(suu)
         d_perp = Dt - (suv / suu) * ustar
-        sperp = max(svv - suv ** 2 / suu, 1e-12)
+        sperp = max(svv - suv**2 / suu, 1e-12)
         T = Zs.T @ d_perp / np.sqrt(sperp)
         ar = float(S @ S)
         qt = float(T @ T)
         lm = float((S @ T) ** 2 / max(qt, 1e-12))
-        clr = 0.5 * (ar - qt + np.sqrt(max((ar + qt) ** 2 - 4 * (ar * qt - lm * qt), 0.0)))
+        clr = 0.5 * (
+            ar - qt + np.sqrt(max((ar + qt) ** 2 - 4 * (ar * qt - lm * qt), 0.0))
+        )
 
         # Conditional critical value at the observed qt
         # Simulate S ~ N(0, I_k) independent of T (under H0)
         # LM_sim = (S'T)^2 / qt = s1_sim^2 where s1 is coord along T direction
         T_dir = T / max(np.linalg.norm(T), 1e-12)
         s1 = S_sim_base @ T_dir
-        s_rest_sq = np.sum(S_sim_base ** 2, axis=1) - s1 ** 2
-        ar_sim = s1 ** 2 + s_rest_sq
-        lm_sim = s1 ** 2
+        s_rest_sq = np.sum(S_sim_base**2, axis=1) - s1**2
+        ar_sim = s1**2 + s_rest_sq
+        lm_sim = s1**2
         clr_sim = 0.5 * (
-            ar_sim - qt + np.sqrt(
+            ar_sim
+            - qt
+            + np.sqrt(
                 np.maximum((ar_sim + qt) ** 2 - 4 * (ar_sim * qt - lm_sim * qt), 0.0)
             )
         )
@@ -294,13 +309,21 @@ def conditional_lr_ci(
         crit_arr[i] = crit
 
     in_set = stat_arr <= crit_arr
-    return _build_set("Moreira CLR", level, beta_grid, stat_arr, crit_arr,
-                      in_set, extra={"n_sim": n_sim})
+    return _build_set(
+        "Moreira CLR",
+        level,
+        beta_grid,
+        stat_arr,
+        crit_arr,
+        in_set,
+        extra={"n_sim": n_sim},
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Kleibergen K test CI
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def k_test_ci(
     y: Union[np.ndarray, pd.Series, str],
@@ -351,7 +374,7 @@ def k_test_ci(
             continue  # pragma: no cover
         S = Zs.T @ ustar / np.sqrt(suu)
         d_perp = Dt - (suv / suu) * ustar
-        sperp = max(svv - suv ** 2 / suu, 1e-12)
+        sperp = max(svv - suv**2 / suu, 1e-12)
         T = Zs.T @ d_perp / np.sqrt(sperp)
         qt = float(T @ T)
         K_stat = float((S @ T) ** 2 / max(qt, 1e-12))
@@ -359,17 +382,25 @@ def k_test_ci(
 
     crit_arr = np.full_like(stat_arr, crit)
     in_set = stat_arr <= crit
-    return _build_set("Kleibergen K", level, beta_grid, stat_arr, crit_arr,
-                      in_set, extra={"df": 1})
+    return _build_set(
+        "Kleibergen K", level, beta_grid, stat_arr, crit_arr, in_set, extra={"df": 1}
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Shared result builder
 # ═══════════════════════════════════════════════════════════════════════
 
-def _build_set(method: Any, level: Any, beta_grid: Any, stat_arr: Any,
-               crit_arr: Any, in_set: Any,
-               extra: dict) -> WeakIVConfidenceSet:
+
+def _build_set(
+    method: Any,
+    level: Any,
+    beta_grid: Any,
+    stat_arr: Any,
+    crit_arr: Any,
+    in_set: Any,
+    extra: dict,
+) -> WeakIVConfidenceSet:
     if not in_set.any():
         lo = hi = np.nan
         is_empty = True
@@ -391,7 +422,8 @@ def _build_set(method: Any, level: Any, beta_grid: Any, stat_arr: Any,
         statistic=stat_arr.astype(float),
         critical_value=crit_arr.astype(float),
         in_set=in_set.astype(bool),
-        lower=lo, upper=hi,
+        lower=lo,
+        upper=hi,
         is_empty=is_empty,
         is_connected=is_connected,
         is_unbounded=is_unbounded,

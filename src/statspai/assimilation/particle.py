@@ -33,7 +33,6 @@ import numpy as np
 
 from .kalman import AssimilationResult
 
-
 __all__ = [
     "particle_filter",
     "assimilative_causal_particle",
@@ -83,9 +82,13 @@ def particle_filter(
     prior_sampler: Optional[Callable[[np.random.Generator, int], np.ndarray]] = None,
     prior_mean: float = 0.0,
     prior_var: float = 1.0,
-    transition_sampler: Optional[Callable[[np.ndarray, np.random.Generator], np.ndarray]] = None,
+    transition_sampler: Optional[
+        Callable[[np.ndarray, np.random.Generator], np.ndarray]
+    ] = None,
     process_sd: float = 0.0,
-    observation_log_pdf: Optional[Callable[[float, np.ndarray, float], np.ndarray]] = None,
+    observation_log_pdf: Optional[
+        Callable[[float, np.ndarray, float], np.ndarray]
+    ] = None,
     n_particles: int = 2000,
     ess_resample_threshold: float = 0.5,
     alpha: float = 0.05,
@@ -144,8 +147,7 @@ def particle_filter(
     se = np.asarray(standard_errors, dtype=float)
     if theta.shape != se.shape:
         raise ValueError(
-            "estimates/standard_errors shape mismatch: "
-            f"{theta.shape} vs {se.shape}"
+            "estimates/standard_errors shape mismatch: " f"{theta.shape} vs {se.shape}"
         )
     if np.any(se <= 0):
         raise ValueError("all standard_errors must be > 0")
@@ -173,18 +175,22 @@ def particle_filter(
     trans_fn: Callable[[np.ndarray, np.random.Generator], np.ndarray]
     if transition_sampler is None:
         sd_w = float(process_sd)
+
         def _default_trans(p: np.ndarray, r: np.random.Generator) -> np.ndarray:
             if sd_w <= 0:
                 return p
             return np.asarray(p + r.normal(0.0, sd_w, size=p.shape))
+
         trans_fn = _default_trans
     else:
         trans_fn = transition_sampler
 
     obs_fn: Callable[[float, np.ndarray, float], np.ndarray]
     if observation_log_pdf is None:
+
         def _default_obs(y: float, p: np.ndarray, s: float) -> np.ndarray:
             return _normal_log_pdf(p, np.full_like(p, y), s)
+
         obs_fn = _default_obs
     else:
         obs_fn = observation_log_pdf
@@ -196,7 +202,7 @@ def particle_filter(
     innov = np.empty(T)
     ess_arr = np.empty(T)
 
-    base_var = float(np.mean(se ** 2))
+    base_var = float(np.mean(se**2))
     base_var = max(base_var, 1e-12)
     q_lo = alpha / 2
     q_hi = 1 - alpha / 2
@@ -234,7 +240,7 @@ def particle_filter(
         ci_lo = float(sp_[np.searchsorted(cw, q_lo)])
         ci_hi = float(sp_[np.searchsorted(cw, q_hi)])
         ci[t] = (ci_lo, ci_hi)
-        ess_arr[t] = float(1.0 / np.sum(w ** 2))
+        ess_arr[t] = float(1.0 / np.sum(w**2))
 
         # Resample if ESS low
         if ess_arr[t] / n_particles < ess_resample_threshold:
@@ -256,7 +262,7 @@ def particle_filter(
             "T": int(T),
             "n_particles": int(n_particles),
             "ess_resample_threshold": float(ess_resample_threshold),
-            "average_obs_var": float(np.mean(se ** 2)),
+            "average_obs_var": float(np.mean(se**2)),
             "alpha": float(alpha),
         },
     )

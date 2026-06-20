@@ -24,10 +24,10 @@ from typing import Dict, List, Sequence, Tuple
 import numpy as np
 import pandas as pd
 
-
 # ---------------------------------------------------------------------------
 # Polynomial basis
 # ---------------------------------------------------------------------------
+
 
 def polynomial_basis(
     X: np.ndarray,
@@ -62,6 +62,7 @@ def polynomial_basis(
 # ---------------------------------------------------------------------------
 # Functional form: input expansion (Cobb-Douglas vs translog)
 # ---------------------------------------------------------------------------
+
 
 def expand_inputs(
     X_raw: np.ndarray,
@@ -191,6 +192,7 @@ def elasticities_at(
 # Within-panel lag
 # ---------------------------------------------------------------------------
 
+
 def panel_lag(
     df: pd.DataFrame,
     column: str,
@@ -211,6 +213,7 @@ def panel_lag(
 # ---------------------------------------------------------------------------
 # Stage-1 control function
 # ---------------------------------------------------------------------------
+
 
 def stage_one_phi(
     y: np.ndarray,
@@ -237,6 +240,7 @@ def stage_one_phi(
 # Stage-2 productivity Markov + GMM moment evaluator
 # ---------------------------------------------------------------------------
 
+
 def productivity_residual(
     omega: np.ndarray,
     omega_lag: np.ndarray,
@@ -258,8 +262,8 @@ def gmm_objective(
     beta: np.ndarray,
     *,
     phi_hat: np.ndarray,
-    inputs: np.ndarray,           # shape (n, p) — same order as beta
-    instruments: np.ndarray,      # shape (n, q) — q >= p
+    inputs: np.ndarray,  # shape (n, p) — same order as beta
+    instruments: np.ndarray,  # shape (n, q) — q >= p
     panel_id: np.ndarray,
     time: np.ndarray,
     productivity_degree: int = 3,
@@ -287,12 +291,14 @@ def gmm_objective(
     # sorted as one block — keeps moment pairing intact even if the
     # caller's data was unsorted.
     n_z = instruments.shape[1]
-    df = pd.DataFrame({
-        "omega": omega,
-        "panel_id": panel_id,
-        "time": time,
-        **{f"_z{j}": instruments[:, j] for j in range(n_z)},
-    })
+    df = pd.DataFrame(
+        {
+            "omega": omega,
+            "panel_id": panel_id,
+            "time": time,
+            **{f"_z{j}": instruments[:, j] for j in range(n_z)},
+        }
+    )
     df = df.sort_values(["panel_id", "time"]).reset_index(drop=True)
     df["omega_lag"] = df.groupby("panel_id", sort=False)["omega"].shift(1)
     mask = df["omega_lag"].notna().to_numpy()
@@ -313,6 +319,7 @@ def gmm_objective(
 # ---------------------------------------------------------------------------
 # Cluster (firm) bootstrap helper
 # ---------------------------------------------------------------------------
+
 
 def firm_bootstrap_indices(
     panel_id: np.ndarray,

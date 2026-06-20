@@ -96,10 +96,13 @@ def g_estimation(
     2
     """
     est = GEstimation(
-        data=data, y=y, treatments=treatments,
+        data=data,
+        y=y,
+        treatments=treatments,
         covariates_by_stage=covariates_by_stage,
         propensity_covariates=propensity_covariates,
-        alpha=alpha, n_bootstrap=n_bootstrap,
+        alpha=alpha,
+        n_bootstrap=n_bootstrap,
         random_state=random_state,
     )
     return est.fit()
@@ -191,8 +194,9 @@ class GEstimation:
 
         Y = clean[self.y].values.astype(np.float64)
         A = [clean[t].values.astype(np.float64) for t in self.treatments]
-        X_stages = [clean[covs].values.astype(np.float64)
-                    for covs in self.covariates_by_stage]
+        X_stages = [
+            clean[covs].values.astype(np.float64) for covs in self.covariates_by_stage
+        ]
 
         # Backward induction
         psi_estimates, optimal_rules = self._backward_induction(Y, A, X_stages, n)
@@ -226,25 +230,27 @@ class GEstimation:
 
         detail_rows = []
         for k in range(self.n_stages):
-            detail_rows.append({
-                'stage': k + 1,
-                'treatment': self.treatments[k],
-                'blip_estimate': psi_estimates[k],
-                'se': se_psis[k],
-                'optimal_rule': optimal_rules[k],
-            })
+            detail_rows.append(
+                {
+                    "stage": k + 1,
+                    "treatment": self.treatments[k],
+                    "blip_estimate": psi_estimates[k],
+                    "se": se_psis[k],
+                    "optimal_rule": optimal_rules[k],
+                }
+            )
         detail = pd.DataFrame(detail_rows)
 
         model_info = {
-            'n_stages': self.n_stages,
-            'psi_estimates': list(psi_estimates),
-            'optimal_rules': optimal_rules,
-            'total_value_optimal': float(total_value),
+            "n_stages": self.n_stages,
+            "psi_estimates": list(psi_estimates),
+            "optimal_rules": optimal_rules,
+            "total_value_optimal": float(total_value),
         }
 
         return CausalResult(
-            method='G-Estimation (Robins 2004)',
-            estimand='Optimal DTR Value',
+            method="G-Estimation (Robins 2004)",
+            estimand="Optimal DTR Value",
             estimate=float(total_value),
             se=se_total,
             pvalue=pvalue,
@@ -253,7 +259,7 @@ class GEstimation:
             n_obs=n,
             detail=detail,
             model_info=model_info,
-            _citation_key='g_estimation',
+            _citation_key="g_estimation",
         )
 
     def _backward_induction(
@@ -286,7 +292,7 @@ class GEstimation:
             A_res = A_k - lr_a.predict(X_k)
 
             # psi_k = Cov(Y_res, A_res) / Var(A_res)
-            denom = np.sum(A_res ** 2)
+            denom = np.sum(A_res**2)
             if denom > 1e-10:
                 psi_k = float(np.sum(Y_res * A_res) / denom)
             else:
@@ -310,7 +316,7 @@ class GEstimation:
         return psi_estimates, optimal_rules
 
 
-CausalResult._CITATIONS['g_estimation'] = (
+CausalResult._CITATIONS["g_estimation"] = (
     "@incollection{robins2004optimal,\n"
     "  title={Optimal Structural Nested Models for Optimal Sequential "
     "Decisions},\n"

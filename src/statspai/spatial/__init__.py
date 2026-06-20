@@ -31,6 +31,7 @@ Examples
 >>> eff = sp.impacts(result)
 >>> lms = sp.lm_tests("y ~ x1 + x2", df, w)
 """
+
 from .models import sar, sem, sdm, SpatialModel
 from .models.ml import slx, sac
 from .models.gmm import sar_gmm, sem_gmm, sarar_gmm
@@ -39,11 +40,21 @@ from .models.impacts import impacts
 from .gwr import gwr, mgwr, gwr_bandwidth, GWRResult, MGWRResult
 from .panel import spatial_panel, SpatialPanelResult
 from .weights import (
-    W, queen_weights, rook_weights, knn_weights,
-    distance_band, kernel_weights, block_weights,
+    W,
+    queen_weights,
+    rook_weights,
+    knn_weights,
+    distance_band,
+    kernel_weights,
+    block_weights,
 )
 from .esda import (
-    moran, moran_local, geary, getis_ord_g, getis_ord_local, join_counts,
+    moran,
+    moran_local,
+    geary,
+    getis_ord_g,
+    getis_ord_local,
+    join_counts,
 )
 from .esda.plots import moran_plot, lisa_cluster_map
 from .did import spatial_did, SpatialDiDResult
@@ -52,23 +63,47 @@ from .iv import spatial_iv, SpatialIVResult
 __all__ = [
     # weights
     "W",
-    "queen_weights", "rook_weights", "knn_weights",
-    "distance_band", "kernel_weights", "block_weights",
+    "queen_weights",
+    "rook_weights",
+    "knn_weights",
+    "distance_band",
+    "kernel_weights",
+    "block_weights",
     # esda
-    "moran", "moran_local", "geary",
-    "getis_ord_g", "getis_ord_local", "join_counts",
-    "moran_plot", "lisa_cluster_map",
+    "moran",
+    "moran_local",
+    "geary",
+    "getis_ord_g",
+    "getis_ord_local",
+    "join_counts",
+    "moran_plot",
+    "lisa_cluster_map",
     # models
-    "sar", "sem", "sdm", "slx", "sac",
-    "sar_gmm", "sem_gmm", "sarar_gmm",
+    "sar",
+    "sem",
+    "sdm",
+    "slx",
+    "sac",
+    "sar_gmm",
+    "sem_gmm",
+    "sarar_gmm",
     "SpatialModel",
     # diagnostics / effects
-    "lm_tests", "moran_residuals", "impacts",
+    "lm_tests",
+    "moran_residuals",
+    "impacts",
     # GWR
-    "gwr", "mgwr", "gwr_bandwidth", "GWRResult", "MGWRResult",
+    "gwr",
+    "mgwr",
+    "gwr_bandwidth",
+    "GWRResult",
+    "MGWRResult",
     # panel
-    "spatial_panel", "SpatialPanelResult",
+    "spatial_panel",
+    "SpatialPanelResult",
     # DiD / IV
-    "spatial_did", "SpatialDiDResult",
-    "spatial_iv", "SpatialIVResult",
+    "spatial_did",
+    "SpatialDiDResult",
+    "spatial_iv",
+    "SpatialIVResult",
 ]

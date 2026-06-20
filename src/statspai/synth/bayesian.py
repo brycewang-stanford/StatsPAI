@@ -36,7 +36,6 @@ from scipy.special import gammaln
 
 from ..core.results import CausalResult
 
-
 # ====================================================================== #
 #  Public API
 # ====================================================================== #
@@ -168,7 +167,7 @@ def bayesian_synth(
     if len(donors) < 2:
         raise ValueError("Need at least 2 donor units")  # pragma: no cover
 
-    Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)   # (J, T0)
+    Y0_pre = panel.loc[donors, pre_times].values.astype(np.float64)  # (J, T0)
     Y0_post = panel.loc[donors, post_times].values.astype(np.float64)  # (J, T1)
 
     # ------------------------------------------------------------------
@@ -183,21 +182,15 @@ def bayesian_synth(
     # ------------------------------------------------------------------
     if covariates is not None and len(covariates) > 0:
         # Reference scale: pooled pre-treatment outcome SD (treated + donors).
-        outcome_sd = float(
-            np.std(
-                np.concatenate([Y1_pre, Y0_pre.ravel()]), ddof=1
-            )
-        )
+        outcome_sd = float(np.std(np.concatenate([Y1_pre, Y0_pre.ravel()]), ddof=1))
         outcome_sd = max(outcome_sd, 1e-12)
 
         for cov in covariates:
             cov_panel = data.pivot_table(index=unit, columns=time, values=cov)
-            cov_treated = cov_panel.loc[
-                treated_unit, pre_times
-            ].values.astype(np.float64)
-            cov_donors = cov_panel.loc[
-                donors, pre_times
-            ].values.astype(np.float64)
+            cov_treated = cov_panel.loc[treated_unit, pre_times].values.astype(
+                np.float64
+            )
+            cov_donors = cov_panel.loc[donors, pre_times].values.astype(np.float64)
             # Z-score the covariate block, then rescale to outcome's SD.
             block = np.concatenate([cov_treated, cov_donors.ravel()])
             mu = float(np.mean(block))
@@ -209,7 +202,7 @@ def bayesian_synth(
             Y0_pre = np.concatenate([Y0_pre, cov_donors], axis=1)
 
     J = len(donors)
-    T0 = len(pre_times)         # outcome pre-periods (for post-estimate bookkeeping)
+    T0 = len(pre_times)  # outcome pre-periods (for post-estimate bookkeeping)
     T1 = len(post_times)
 
     # ------------------------------------------------------------------
@@ -236,7 +229,7 @@ def bayesian_synth(
         acceptance_rates.append(acc_rate)
 
     # Stack chains: each is (n_post_warmup/thin, J) or (n_post_warmup/thin,)
-    w_samples = np.concatenate(all_w_samples, axis=0)      # (S, J)
+    w_samples = np.concatenate(all_w_samples, axis=0)  # (S, J)
     sigma_samples = np.concatenate(all_sigma_samples, axis=0)  # (S,)
     S = w_samples.shape[0]
 
@@ -245,9 +238,7 @@ def bayesian_synth(
     # ------------------------------------------------------------------
     # Y_synth_post[s, t] = Y0_post[:, t].T @ w_samples[s]
     posterior_counterfactual = w_samples @ Y0_post  # (S, T1)
-    effects_posterior = (
-        Y1_post[np.newaxis, :] - posterior_counterfactual
-    )  # (S, T1)
+    effects_posterior = Y1_post[np.newaxis, :] - posterior_counterfactual  # (S, T1)
 
     # Period-level summaries
     effect_mean_by_period = np.mean(effects_posterior, axis=0)  # (T1,)
@@ -275,9 +266,9 @@ def bayesian_synth(
     # ------------------------------------------------------------------
     # Convergence diagnostics
     # ------------------------------------------------------------------
-    rhat_weights = _compute_rhat(all_w_samples)   # (J,)
+    rhat_weights = _compute_rhat(all_w_samples)  # (J,)
     rhat_sigma = _compute_rhat_scalar(all_sigma_samples)
-    n_eff_weights = _compute_neff(all_w_samples)   # (J,)
+    n_eff_weights = _compute_neff(all_w_samples)  # (J,)
 
     # ------------------------------------------------------------------
     # Pre-treatment fit (posterior mean weights)
@@ -340,9 +331,7 @@ def bayesian_synth(
             "n_eff": dict(zip(donors, n_eff_weights.tolist())),
             # Fit
             "pre_rmspe": pre_rmspe,
-            "post_rmspe": float(
-                np.sqrt(np.mean(effect_mean_by_period**2))
-            ),
+            "post_rmspe": float(np.sqrt(np.mean(effect_mean_by_period**2))),
             # Panel dimensions
             "n_donors": J,
             "n_pre_periods": T0,
@@ -407,9 +396,7 @@ def _log_posterior(
 
     # --- Log-likelihood ---
     residual = Y1_pre - Y0_pre.T @ w  # (T0,)
-    ll = -0.5 * T0 * np.log(2 * np.pi * sigma**2) - np.sum(residual**2) / (
-        2 * sigma**2
-    )
+    ll = -0.5 * T0 * np.log(2 * np.pi * sigma**2) - np.sum(residual**2) / (2 * sigma**2)
 
     # --- Log-prior: Dirichlet ---
     # log p(w | alpha) = log C(alpha) + sum (alpha - 1) log(w_j)
@@ -538,8 +525,8 @@ def _mcmc_sampler(
     sigma = float(np.std(Y1_pre - Y0_pre.T @ w)) + 0.1
 
     # Adaptation parameters
-    w_step = float(J * 10)       # initial Dirichlet concentration step
-    sigma_step = 0.2 * sigma     # initial sigma proposal scale
+    w_step = float(J * 10)  # initial Dirichlet concentration step
+    sigma_step = 0.2 * sigma  # initial sigma proposal scale
     adapt_interval = 50
 
     # Storage
@@ -565,9 +552,7 @@ def _mcmc_sampler(
         sigma_prop = np.exp(log_sigma_prop)
 
         # ----- MH acceptance -----
-        prop_lp = _log_posterior(
-            w_prop, sigma_prop, Y1_pre, Y0_pre, dirichlet_alpha
-        )
+        prop_lp = _log_posterior(w_prop, sigma_prop, Y1_pre, Y0_pre, dirichlet_alpha)
 
         # Proposal ratio:
         # - Dirichlet is asymmetric: need explicit q ratio.
@@ -582,9 +567,7 @@ def _mcmc_sampler(
         log_jac_sigma = np.log(sigma_prop) - np.log(sigma)
 
         log_alpha_mh = (
-            prop_lp - current_lp
-            + log_q_reverse - log_q_forward
-            + log_jac_sigma
+            prop_lp - current_lp + log_q_reverse - log_q_forward + log_jac_sigma
         )
 
         if np.log(rng.uniform()) < log_alpha_mh:
@@ -678,7 +661,7 @@ def _compute_rhat(chain_samples: List[np.ndarray]) -> np.ndarray:
         chain_vars = np.array([np.var(s[:, j], ddof=1) for s in splits])
 
         B = N * np.var(chain_means, ddof=1)  # between-chain variance
-        W = np.mean(chain_vars)              # within-chain variance
+        W = np.mean(chain_vars)  # within-chain variance
 
         if W < 1e-30:
             rhat[j] = 1.0

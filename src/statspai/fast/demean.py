@@ -31,6 +31,7 @@ Varadhan, R. and Roland, C. (2008). Simple and globally convergent
 methods for accelerating the convergence of any EM algorithm.
 Scandinavian Journal of Statistics 35(2), 335–353.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -50,6 +51,7 @@ from ._validation import (
 # always works, just slower on large panels.
 try:
     import statspai_hdfe as _rust  # type: ignore
+
     _HAS_RUST = True
     _RUST_VERSION: Optional[str] = getattr(_rust, "__version__", None)
 except ImportError:  # pragma: no cover  - exercised in CI on no-Rust wheels
@@ -61,6 +63,7 @@ except ImportError:  # pragma: no cover  - exercised in CI on no-Rust wheels
 # ---------------------------------------------------------------------------
 # Public result type
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class DemeanInfo:
@@ -107,6 +110,7 @@ class DemeanInfo:
 # FE prep
 # ---------------------------------------------------------------------------
 
+
 def _coerce_fe_columns(
     fe: Union[pd.DataFrame, np.ndarray, Sequence[np.ndarray]],
     n: int,
@@ -114,9 +118,7 @@ def _coerce_fe_columns(
     """Return a list of K 1-D arrays, one per FE column, length n each."""
     if isinstance(fe, pd.DataFrame):
         if len(fe) != n:
-            raise MethodIncompatibility(
-                f"fe has {len(fe)} rows but X has length {n}"
-            )
+            raise MethodIncompatibility(f"fe has {len(fe)} rows but X has length {n}")
         if fe.shape[1] < 1:
             raise MethodIncompatibility("fe must contain at least one column")
         return [fe.iloc[:, k].values for k in range(fe.shape[1])]
@@ -199,6 +201,7 @@ def _detect_singletons(fe_codes_raw: List[np.ndarray], n: int) -> np.ndarray:
 # AP loop — NumPy reference implementation
 # ---------------------------------------------------------------------------
 
+
 def _aitken(x0: np.ndarray, x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
     """Vector Irons-Tuck extrapolation (matches Rust impl bit-for-bit)."""
     dx1 = x1 - x0
@@ -271,6 +274,7 @@ def _demean_numpy_one_column(
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def demean(
     X: np.ndarray,
     fe: Union[pd.DataFrame, np.ndarray, Sequence[np.ndarray]],
@@ -342,9 +346,7 @@ def demean(
         accel_period, name="accel_period", context="fast.demean"
     )
     tol = _nonnegative_finite_float(tol, name="tol", context="fast.demean")
-    tol_abs = _nonnegative_finite_float(
-        tol_abs, name="tol_abs", context="fast.demean"
-    )
+    tol_abs = _nonnegative_finite_float(tol_abs, name="tol_abs", context="fast.demean")
     if jax_max_iter is not None:
         jax_max_iter = _positive_int(
             jax_max_iter, name="jax_max_iter", context="fast.demean"
@@ -379,9 +381,7 @@ def demean(
     n_kept = int(keep_mask.sum())
     n_dropped = n - n_kept
     if n_kept < 1:
-        raise DataInsufficient(
-            "fast.demean: no rows remain after singleton pruning"
-        )
+        raise DataInsufficient("fast.demean: no rows remain after singleton pruning")
 
     # Re-densify codes on kept rows (so they're contiguous in [0, G_k))
     fe_codes: List[np.ndarray] = []
@@ -402,20 +402,32 @@ def demean(
     else:
         X = X.copy()
 
-    accelerate = (accel == "aitken")
+    accelerate = accel == "aitken"
 
     # Hand off to the shared core (also used by ``WithinTransformer.transform``)
     X, iters_out, converged_out, max_dx_out, backend_used = _demean_core(
-        X, fe_codes, counts_list,
-        max_iter=max_iter, tol=tol, tol_abs=tol_abs,
-        accelerate=accelerate, accel_period=accel_period,
-        backend=backend, jax_max_iter=jax_max_iter,
+        X,
+        fe_codes,
+        counts_list,
+        max_iter=max_iter,
+        tol=tol,
+        tol_abs=tol_abs,
+        accelerate=accelerate,
+        accel_period=accel_period,
+        backend=backend,
+        jax_max_iter=jax_max_iter,
     )
 
     info = DemeanInfo(
-        n=n, n_kept=n_kept, n_dropped=n_dropped,
-        iters=iters_out, converged=converged_out, max_dx=max_dx_out,
-        keep_mask=keep_mask, backend=backend_used, accel=accel,
+        n=n,
+        n_kept=n_kept,
+        n_dropped=n_dropped,
+        iters=iters_out,
+        converged=converged_out,
+        max_dx=max_dx_out,
+        keep_mask=keep_mask,
+        backend=backend_used,
+        accel=accel,
         n_fe=n_fe_post,
     )
     if squeeze:
@@ -459,21 +471,26 @@ def _demean_core(
         # JAX backend (Phase 7): structurally GPU-ready; on CPU it's the
         # slowest of the three options. We trust the user's explicit ask.
         from .jax_backend import demean_jax, _HAS_JAX
+
         if not _HAS_JAX:
             raise RuntimeError(
                 "backend='jax' requested but jax is not installed; "
                 "pip install jax jaxlib to enable, or use a different backend."
             )
         X_dem, converged_jax = demean_jax(
-            X, fe_codes, counts_list,
+            X,
+            fe_codes,
+            counts_list,
             max_iter=jax_max_iter or max_iter,
-            tol=tol, accelerate=accelerate, accel_period=accel_period,
+            tol=tol,
+            accelerate=accelerate,
+            accel_period=accel_period,
         )
         if X_dem.ndim == 1:
             X_dem = X_dem.reshape(-1, 1)
         return (
             X_dem,
-            [0] * X_dem.shape[1],          # JAX doesn't expose iter counts
+            [0] * X_dem.shape[1],  # JAX doesn't expose iter counts
             list(converged_jax),
             [0.0] * X_dem.shape[1],
             "jax",

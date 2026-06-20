@@ -224,17 +224,17 @@ def rddensity(
     ci = (diff - z_crit * se_diff, diff + z_crit * se_diff)
 
     model_info = {
-        'test': 'Cattaneo-Jansson-Ma (2020)',
-        'density_left': f_left,
-        'density_right': f_right,
-        'density_diff': diff,
-        'bandwidth_left': h_l,
-        'bandwidth_right': h_r,
-        'bandwidth_source': h_source,
-        'backend': 'native',
-        'validation_tier': 'T2_native_reference_parity',
-        'reference_backend': 'rddensity',
-        'validation_note': (
+        "test": "Cattaneo-Jansson-Ma (2020)",
+        "density_left": f_left,
+        "density_right": f_right,
+        "density_diff": diff,
+        "bandwidth_left": h_l,
+        "bandwidth_right": h_r,
+        "bandwidth_source": h_source,
+        "backend": "native",
+        "validation_tier": "T2_native_reference_parity",
+        "reference_backend": "rddensity",
+        "validation_note": (
             "StatsPAI native rddensity mirrors the default rddensity "
             "unrestricted triangular-kernel path: rdbwdensity combination "
             "bandwidths, mass-point ECDF handling, and jackknife CJM "
@@ -242,15 +242,15 @@ def rddensity(
             "available for users who want to delegate directly to the R "
             "package."
         ),
-        'polynomial_order': p,
-        'n_left': n_l,
-        'n_right': n_r,
-        'cutoff': c,
+        "polynomial_order": p,
+        "n_left": n_l,
+        "n_right": n_r,
+        "cutoff": c,
     }
 
     _result = CausalResult(
-        method='CJM (2020) Density Test',
-        estimand='T-statistic (density discontinuity)',
+        method="CJM (2020) Density Test",
+        estimand="T-statistic (density discontinuity)",
         estimate=float(T_stat),
         se=float(se_diff),
         pvalue=pvalue,
@@ -258,15 +258,20 @@ def rddensity(
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
-        _citation_key='rddensity',
+        _citation_key="rddensity",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.diagnostics.rddensity",
             params={
-                "x": x, "c": c, "p": p, "h": h, "alpha": alpha,
+                "x": x,
+                "c": c,
+                "p": p,
+                "h": h,
+                "alpha": alpha,
                 "backend": backend,
             },
             data=data,
@@ -441,31 +446,31 @@ cat(jsonlite::toJSON(out, auto_unbox = TRUE, digits = 16, null = "null"))
     ci = (diff - z_crit * se_diff, diff + z_crit * se_diff)
 
     model_info = {
-        'test': 'Cattaneo-Jansson-Ma (2020)',
-        'density_left': float(out["density_left"]),
-        'density_right': float(out["density_right"]),
-        'density_diff': diff,
-        'bandwidth_left': float(out["bandwidth_left"]),
-        'bandwidth_right': float(out["bandwidth_right"]),
-        'bandwidth_source': h_source,
-        'backend': 'rddensity',
-        'validation_tier': 'reference_backend_bridge',
-        'reference_backend': 'rddensity',
-        'validation_note': (
+        "test": "Cattaneo-Jansson-Ma (2020)",
+        "density_left": float(out["density_left"]),
+        "density_right": float(out["density_right"]),
+        "density_diff": diff,
+        "bandwidth_left": float(out["bandwidth_left"]),
+        "bandwidth_right": float(out["bandwidth_right"]),
+        "bandwidth_source": h_source,
+        "backend": "rddensity",
+        "validation_tier": "reference_backend_bridge",
+        "reference_backend": "rddensity",
+        "validation_note": (
             "This result delegates to rddensity::rddensity. It is useful "
             "for exact reference-package numbers, but it is not counted as "
             "native Python parity evidence because the reference backend is "
             "the estimator itself."
         ),
-        'polynomial_order': int(out["polynomial_order"]),
-        'n_left': n_l,
-        'n_right': n_r,
-        'cutoff': c,
+        "polynomial_order": int(out["polynomial_order"]),
+        "n_left": n_l,
+        "n_right": n_r,
+        "cutoff": c,
     }
 
     _result = CausalResult(
-        method='CJM (2020) Density Test [rddensity::rddensity]',
-        estimand='T-statistic (density discontinuity)',
+        method="CJM (2020) Density Test [rddensity::rddensity]",
+        estimand="T-statistic (density discontinuity)",
         estimate=zstat,
         se=float(se_diff),
         pvalue=pvalue,
@@ -473,15 +478,20 @@ cat(jsonlite::toJSON(out, auto_unbox = TRUE, digits = 16, null = "null"))
         alpha=alpha,
         n_obs=n,
         model_info=model_info,
-        _citation_key='rddensity',
+        _citation_key="rddensity",
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
+
         _attach_prov(
             _result,
             function="sp.diagnostics.rddensity",
             params={
-                "x": x, "c": c, "p": p, "h": h, "alpha": alpha,
+                "x": x,
+                "c": c,
+                "p": p,
+                "h": h,
+                "alpha": alpha,
                 "backend": "r",
             },
             data=data,
@@ -515,7 +525,9 @@ def _cjm_bandwidth(x: np.ndarray, p: int) -> float:
     return float(max(h, 0.01 * sd))
 
 
-def _rddensity_unique(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _rddensity_unique(
+    x: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Run-length encoding matching ``rddensity:::rddensityUnique``."""
     x = np.asarray(x, dtype=float)
     n = len(x)
@@ -549,23 +561,23 @@ def _rddensity_h(x: float, p: int) -> float:
     if p == 1:
         return x
     if p == 2:
-        return x ** 2 - 1
+        return x**2 - 1
     if p == 3:
-        return x ** 3 - 3 * x
+        return x**3 - 3 * x
     if p == 4:
-        return x ** 4 - 6 * x ** 2 + 3
+        return x**4 - 6 * x**2 + 3
     if p == 5:
-        return x ** 5 - 10 * x ** 3 + 15 * x
+        return x**5 - 10 * x**3 + 15 * x
     if p == 6:
-        return x ** 6 - 15 * x ** 4 + 45 * x ** 2 - 15
+        return x**6 - 15 * x**4 + 45 * x**2 - 15
     if p == 7:
-        return x ** 7 - 21 * x ** 5 + 105 * x ** 3 - 105 * x
+        return x**7 - 21 * x**5 + 105 * x**3 - 105 * x
     if p == 8:
-        return x ** 8 - 28 * x ** 6 + 210 * x ** 4 - 420 * x ** 2 + 105
+        return x**8 - 28 * x**6 + 210 * x**4 - 420 * x**2 + 105
     if p == 9:
-        return x ** 9 - 36 * x ** 7 + 378 * x ** 5 - 1260 * x ** 3 + 945 * x
+        return x**9 - 36 * x**7 + 378 * x**5 - 1260 * x**3 + 945 * x
     if p == 10:
-        return x ** 10 - 45 * x ** 8 + 630 * x ** 6 - 3150 * x ** 4 + 4725 * x ** 2 - 945
+        return x**10 - 45 * x**8 + 630 * x**6 - 3150 * x**4 + 4725 * x**2 - 945
     raise MethodIncompatibility(
         "p must be between 1 and 7 for rddensity defaults.",
         recovery_hint="Use p in the supported range 1..7.",
@@ -574,7 +586,7 @@ def _rddensity_h(x: float, p: int) -> float:
 
 
 def _dnorm(x: float) -> float:
-    return float(np.exp(-0.5 * x ** 2) / np.sqrt(2 * np.pi))
+    return float(np.exp(-0.5 * x**2) / np.sqrt(2 * np.pi))
 
 
 def _kernel_power_integral(power: int, low: float = 0.0, up: float = 1.0) -> float:
@@ -609,7 +621,9 @@ def _rddensity_ecdf_y(n: int, freq: np.ndarray, index_last: np.ndarray) -> np.nd
     return np.repeat(y[index_last], freq)
 
 
-def _rddensity_default_bandwidths(x_centered: np.ndarray, p: int) -> Tuple[float, float]:
+def _rddensity_default_bandwidths(
+    x_centered: np.ndarray, p: int
+) -> Tuple[float, float]:
     """Port of ``rdbwdensity(..., bwselect='comb')`` for the default path."""
     x = np.sort(np.asarray(x_centered, dtype=float))
     n = len(x)
@@ -622,24 +636,28 @@ def _rddensity_default_bandwidths(x_centered: np.ndarray, p: int) -> Tuple[float
     x_mu = float(np.mean(x))
     x_sd = float(np.std(x, ddof=1))
     z = x_mu / x_sd
-    cb = np.array([
-        25884.4444444942,
-        3430865.45512362,
-        845007948.042626,
-        330631733667.038,
-        187774809656037,
-        145729502641999264,
-        1.4601350297445e20,
-    ])
-    cc = np.array([
-        4.80000000000002,
-        548.571428571555,
-        100800.000000204,
-        29558225.4581006,
-        12896196859.6126,
-        7890871468221.61,
-        6467911284037581.0,
-    ])
+    cb = np.array(
+        [
+            25884.4444444942,
+            3430865.45512362,
+            845007948.042626,
+            330631733667.038,
+            187774809656037,
+            145729502641999264,
+            1.4601350297445e20,
+        ]
+    )
+    cc = np.array(
+        [
+            4.80000000000002,
+            548.571428571555,
+            100800.000000204,
+            29558225.4581006,
+            12896196859.6126,
+            7890871468221.61,
+            6467911284037581.0,
+        ]
+    )
     fhat_b = 1.0 / (_rddensity_h(z, p + 2) ** 2 * _dnorm(z))
     fhat_c = 1.0 / (_rddensity_h(z, p) ** 2 * _dnorm(z))
     b_n = (((2 * p + 1) / 4) * fhat_b * cb[p - 1] / n) ** (1 / (2 * p + 5)) * x_sd
@@ -668,12 +686,28 @@ def _rddensity_default_bandwidths(x_centered: np.ndarray, p: int) -> Tuple[float
     x_b, y_b = x[mask_b], y[mask_b]
     x_c, y_c = x[mask_c], y[mask_c]
     fv_b = _rddensity_fv(
-        y_b, x_b, n_l, n_r, int(np.sum(x_b < 0)), int(np.sum(x_b >= 0)),
-        b_n, b_n, p + 2, p + 1,
+        y_b,
+        x_b,
+        n_l,
+        n_r,
+        int(np.sum(x_b < 0)),
+        int(np.sum(x_b >= 0)),
+        b_n,
+        b_n,
+        p + 2,
+        p + 1,
     )
     fv_c = _rddensity_fv(
-        y_c, x_c, n_l, n_r, int(np.sum(x_c < 0)), int(np.sum(x_c >= 0)),
-        c_n, c_n, p, 1,
+        y_c,
+        x_c,
+        n_l,
+        n_r,
+        int(np.sum(x_c < 0)),
+        int(np.sum(x_c >= 0)),
+        c_n,
+        c_n,
+        p,
+        1,
     )
 
     hn = np.full((4, 3), np.nan, dtype=float)
@@ -717,7 +751,9 @@ def _rddensity_default_bandwidths(x_centered: np.ndarray, p: int) -> Tuple[float
     return h_left, h_right
 
 
-def _rddensity_fit(x_centered: np.ndarray, *, h_l: float, h_r: float, p: int) -> np.ndarray:
+def _rddensity_fit(
+    x_centered: np.ndarray, *, h_l: float, h_r: float, p: int
+) -> np.ndarray:
     """Default ``rddensity`` density/test fit with q=p+1."""
     x = np.sort(np.asarray(x_centered, dtype=float))
     n = len(x)
@@ -771,12 +807,12 @@ def _rddensity_fv(
             power = (j - 1) // 2
             xp[:n_lh, col] = (x[:n_lh] / h_l) ** power
             xp[n_lh:, col] = 0.0
-            hp[col] = h_l ** power
+            hp[col] = h_l**power
         else:
             power = (j - 2) // 2
             xp[:n_lh, col] = 0.0
             xp[n_lh:, col] = (x[n_lh:] / h_r) ** power
-            hp[col] = h_r ** power
+            hp[col] = h_r**power
 
     out = np.full((4, 4), np.nan, dtype=float)
     xp_w = xp * weights[:, None]
@@ -815,7 +851,7 @@ def _rddensity_fv(
 
 
 # Citation
-CausalResult._CITATIONS['rddensity'] = (
+CausalResult._CITATIONS["rddensity"] = (
     "@article{cattaneo2020simple,\n"
     "  title={Simple Local Polynomial Density Estimators},\n"
     "  author={Cattaneo, Matias D. and Jansson, Michael and Ma, Xinwei},\n"

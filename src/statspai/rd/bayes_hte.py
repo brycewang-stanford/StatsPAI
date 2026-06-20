@@ -47,6 +47,7 @@ class BayesRDHTEResult:
     >>> bool(res.posterior_sd >= 0)
     True
     """
+
     posterior_mean: float
     posterior_sd: float
     posterior_ci: tuple
@@ -75,7 +76,7 @@ def rd_bayes_hte(
     covariates: List[str],
     cutoff: float = 0.0,
     bandwidth: Optional[float] = None,
-    kernel: str = 'triangular',
+    kernel: str = "triangular",
     alpha: float = 0.05,
     n_draws: int = 2000,
     seed: int = 0,
@@ -145,7 +146,10 @@ def rd_bayes_hte(
     # normal-inverse-gamma prior. Augmented design:
     # [1, R, T, T*R, T*X1, ..., T*Xk]
     Xb = [
-        np.ones(mask.sum()), R[mask], treat[mask], R[mask] * treat[mask],
+        np.ones(mask.sum()),
+        R[mask],
+        treat[mask],
+        R[mask] * treat[mask],
     ]
     for j in range(X.shape[1]):
         Xb.append(treat[mask] * X[mask, j])
@@ -160,8 +164,7 @@ def rd_bayes_hte(
         post_mean = post_cov @ XtWy
         # Posterior variance = sigma2 * post_cov
         resid = Y[mask] - Xd @ post_mean
-        sigma2 = float((w[mask] * resid ** 2).sum()
-                       / max(w[mask].sum() - Xd.shape[1], 1))
+        sigma2 = float((w[mask] * resid**2).sum() / max(w[mask].sum() - Xd.shape[1], 1))
         post_cov_full = sigma2 * post_cov
         # Draw posterior samples for the treatment + covariate-interaction
         # block; CATE(x) = β_treat + sum_j β_{T*Xj} * x_j.
@@ -169,17 +172,14 @@ def rd_bayes_hte(
             chol = np.linalg.cholesky(
                 post_cov_full + 1e-8 * np.eye(post_cov_full.shape[0])
             )
-            draws = (
-                post_mean[:, None]
-                + chol @ rng.standard_normal(
-                    (post_cov_full.shape[0], n_draws)
-                )
+            draws = post_mean[:, None] + chol @ rng.standard_normal(
+                (post_cov_full.shape[0], n_draws)
             )
         except np.linalg.LinAlgError:  # pragma: no cover
             draws = np.tile(post_mean.reshape(-1, 1), n_draws)
 
         beta_treat = draws[2, :]
-        beta_inter = draws[4: 4 + X.shape[1], :]  # (k, n_draws)
+        beta_inter = draws[4 : 4 + X.shape[1], :]  # (k, n_draws)
 
         # CATE per unit
         cate_draws = beta_treat[None, :] + X @ beta_inter  # (n, n_draws)
@@ -199,9 +199,9 @@ def rd_bayes_hte(
             float(np.quantile(att_post, 1 - alpha / 2)),
         )
     except np.linalg.LinAlgError:  # pragma: no cover
-        post_mean_att = float('nan')  # pragma: no cover
-        post_sd_att = float('nan')  # pragma: no cover
-        ci = (float('nan'), float('nan'))
+        post_mean_att = float("nan")  # pragma: no cover
+        post_sd_att = float("nan")  # pragma: no cover
+        ci = (float("nan"), float("nan"))
         cate = np.full(n, np.nan)  # pragma: no cover
         cate_sd = np.full(n, np.nan)  # pragma: no cover
 

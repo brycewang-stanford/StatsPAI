@@ -22,11 +22,11 @@ Failure modes are non-fatal: an unrecognised command returns
 raising. Calls translate one command at a time — multi-command
 ``do`` files should be split by the caller.
 """
+
 from __future__ import annotations
 
 from ._stata import from_stata, STATA_COMMAND_MAP
 from ._r import from_r, R_FUNCTION_MAP
-
 
 __all__ = [
     "from_stata",

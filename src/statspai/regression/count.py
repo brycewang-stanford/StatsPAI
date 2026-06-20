@@ -22,7 +22,6 @@ from ..core.results import EconometricResults
 from ..core.utils import parse_formula
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
-
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
@@ -74,8 +73,9 @@ def _normalize_column_list(columns: Any, role: str) -> List[str]:
                 diagnostics={"role": role, "type": type(columns).__name__},
                 alternative_functions=_COUNT_ALTERNATIVES,
             ) from exc
-    return [_require_column_name(column, f"{role}[{idx}]")
-            for idx, column in enumerate(raw)]
+    return [
+        _require_column_name(column, f"{role}[{idx}]") for idx, column in enumerate(raw)
+    ]
 
 
 def _require_columns(data: pd.DataFrame, columns: Sequence[str], role: str) -> None:
@@ -97,9 +97,7 @@ def _require_columns(data: pd.DataFrame, columns: Sequence[str], role: str) -> N
 def _numeric_column(data: pd.DataFrame, column: str, role: str) -> np.ndarray:
     _require_columns(data, [column], role)
     try:
-        values = pd.to_numeric(data[column], errors="raise").to_numpy(
-            dtype=np.float64
-        )
+        values = pd.to_numeric(data[column], errors="raise").to_numpy(dtype=np.float64)
     except (TypeError, ValueError) as exc:
         raise MethodIncompatibility(
             f"{role} column {column!r} must be numeric.",
@@ -148,10 +146,10 @@ def _parse_formula_or_xy(
     if formula is not None and data is not None:
         data = _require_count_dataframe(data, "count regression")
         parsed = parse_formula(formula)
-        dep_var = parsed['dependent']
-        indep_vars = parsed['exogenous']
-        fe_vars = parsed.get('fixed_effects', [])
-        has_constant = parsed['has_constant']
+        dep_var = parsed["dependent"]
+        indep_vars = parsed["exogenous"]
+        fe_vars = parsed.get("fixed_effects", [])
+        has_constant = parsed["has_constant"]
         _require_columns(data, [dep_var, *indep_vars], "formula")
 
         y_arr = data[dep_var].values.astype(np.float64)
@@ -159,12 +157,12 @@ def _parse_formula_or_xy(
         X_arr_parts = [data[v].values.astype(np.float64) for v in X_cols]
         if has_constant and add_constant:
             X_arr_parts = [np.ones(len(data))] + X_arr_parts
-            var_names = ['_cons'] + X_cols
+            var_names = ["_cons"] + X_cols
         else:
             var_names = list(X_cols)
         X_arr = np.column_stack(X_arr_parts) if X_arr_parts else np.ones((len(data), 1))
         if not X_arr_parts:
-            var_names = ['_cons']
+            var_names = ["_cons"]
         return y_arr, X_arr, var_names, dep_var, fe_vars, data
     elif y is not None and x is not None and data is not None:
         data = _require_count_dataframe(data, "count regression")
@@ -175,12 +173,12 @@ def _parse_formula_or_xy(
         X_arr_parts = [data[v].values.astype(np.float64) for v in X_cols]
         if add_constant:
             X_arr_parts = [np.ones(len(data))] + X_arr_parts
-            var_names = ['_cons'] + X_cols
+            var_names = ["_cons"] + X_cols
         else:
             var_names = list(X_cols)
         X_arr = np.column_stack(X_arr_parts) if X_arr_parts else np.ones((len(data), 1))
         if not X_arr_parts:
-            var_names = ['_cons']
+            var_names = ["_cons"]
         return y_arr, X_arr, var_names, dep_var, [], data
     else:
         raise MethodIncompatibility(
@@ -272,6 +270,7 @@ def _sandwich_vcov(
     # Meat via the canonical core sandwich (CLAUDE.md §4); bread is the
     # GLM-weighted (X'WX)^{-1}. Byte-identical to the prior HC0 sandwich.
     from ..core._vcov import sandwich_vcov
+
     return sandwich_vcov(XtWX_inv, X * residuals[:, None], correction="none")
 
 
@@ -292,8 +291,9 @@ def _cluster_vcov(
         XtWX_inv = np.linalg.pinv(XtWX)
 
     # correction='cgm' = n_clusters/(n_clusters-1). Byte-identical for G>=2.
-    return sandwich_vcov(XtWX_inv, X * residuals[:, None],
-                         clusters=cluster_arr, correction="cgm")
+    return sandwich_vcov(
+        XtWX_inv, X * residuals[:, None], clusters=cluster_arr, correction="cgm"
+    )
 
 
 def _poisson_vcov(
@@ -314,9 +314,9 @@ def _poisson_vcov(
 
     if cluster_arr is not None:
         return _cluster_vcov(X, mu, residuals, cluster_arr)
-    elif robust.lower() in ('robust', 'hc0', 'hc1', 'hc2', 'hc3'):
+    elif robust.lower() in ("robust", "hc0", "hc1", "hc2", "hc3"):
         vcov = _sandwich_vcov(X, mu, residuals, XtWX_inv)
-        if robust.lower() == 'hc1':
+        if robust.lower() == "hc1":
             vcov *= n / (n - k)
         return vcov
     else:
@@ -335,6 +335,7 @@ def _poisson_loglik(y: np.ndarray, mu: np.ndarray) -> float:
 # ---------------------------------------------------------------------------
 # Poisson IRLS
 # ---------------------------------------------------------------------------
+
 
 def _poisson_irls(
     y: np.ndarray,
@@ -392,6 +393,7 @@ def _poisson_irls(
 # ---------------------------------------------------------------------------
 # Negative Binomial MLE
 # ---------------------------------------------------------------------------
+
 
 def _nb2_loglik(y: np.ndarray, mu: np.ndarray, alpha: float) -> float:
     """NB2 log-likelihood: Var(y) = mu + alpha * mu^2."""
@@ -486,7 +488,7 @@ def _nb2_fit(
         res = optimize.minimize_scalar(
             neg_profile_ll,
             bounds=(np.log(1e-8), np.log(1e4)),
-            method='bounded',
+            method="bounded",
         )
         alpha_new = np.exp(res.x)
 
@@ -553,7 +555,7 @@ def _nb1_fit(
         res = optimize.minimize_scalar(
             neg_profile_ll,
             bounds=(np.log(1e-8), np.log(1e4)),
-            method='bounded',
+            method="bounded",
         )
         delta_new = np.exp(res.x)
 
@@ -571,6 +573,7 @@ def _nb1_fit(
 # ---------------------------------------------------------------------------
 # PPML helpers: fixed-effect absorption via alternating projection
 # ---------------------------------------------------------------------------
+
 
 def _demean_poisson(
     y: np.ndarray,
@@ -600,8 +603,9 @@ def _demean_poisson(
     n, k = X.shape
 
     # Stack y and X for joint demeaning
-    Z = np.column_stack([y.reshape(-1, 1) / mu.reshape(-1, 1) * w.reshape(-1, 1),
-                         X * w[:, None]])  # weighted
+    Z = np.column_stack(
+        [y.reshape(-1, 1) / mu.reshape(-1, 1) * w.reshape(-1, 1), X * w[:, None]]
+    )  # weighted
 
     # Actually we need to demean the working response and weighted X.
     # Working response in IRLS: z_i = eta_i + (y_i - mu_i)/mu_i
@@ -675,6 +679,7 @@ def _detect_separation(
 # ---------------------------------------------------------------------------
 # PPML with HDFE via IRLS + alternating projection
 # ---------------------------------------------------------------------------
+
 
 def _ppml_hdfe_irls(
     y: np.ndarray,
@@ -856,6 +861,7 @@ def _ppml_hdfe_irls(
 # Cameron-Trivedi overdispersion test
 # ---------------------------------------------------------------------------
 
+
 def _overdispersion_test(y: np.ndarray, mu: np.ndarray) -> Tuple[float, float]:
     """
     Cameron-Trivedi (1990) test for overdispersion.
@@ -870,9 +876,7 @@ def _overdispersion_test(y: np.ndarray, mu: np.ndarray) -> Tuple[float, float]:
     beta_test = np.linalg.lstsq(X_test, dep, rcond=None)[0]
     resid_test = dep - X_test @ beta_test
     se_test = np.sqrt(
-        np.sum(resid_test**2)
-        / (len(y) - 2)
-        * np.linalg.inv(X_test.T @ X_test)[1, 1]
+        np.sum(resid_test**2) / (len(y) - 2) * np.linalg.inv(X_test.T @ X_test)[1, 1]
     )
     t_stat = beta_test[1] / se_test
     p_val = 2 * (1 - stats.t.cdf(abs(t_stat), len(y) - 2))
@@ -882,6 +886,7 @@ def _overdispersion_test(y: np.ndarray, mu: np.ndarray) -> Tuple[float, float]:
 # ===========================================================================
 # Public API
 # ===========================================================================
+
 
 def poisson(
     formula: Optional[str] = None,
@@ -954,9 +959,7 @@ def poisson(
     >>> bool(res_irr.params['math'] > 0)
     True
     """
-    y_arr, X, var_names, dep_var, _, data = _parse_formula_or_xy(
-        formula, data, y, x
-    )
+    y_arr, X, var_names, dep_var, _, data = _parse_formula_or_xy(formula, data, y, x)
     n, k = X.shape
 
     # Offset / exposure
@@ -1036,53 +1039,53 @@ def poisson(
     se_series = pd.Series(se_report, index=var_names)
 
     model_info = {
-        'model_type': 'Poisson',
-        'family': 'Poisson',
-        'link': 'log',
-        'method': 'IRLS (MLE)',
-        'robust': robust,
-        'cluster': cluster,
-        'irr': irr,
-        'coef_label': coef_label,
-        'converged': converged,
-        'iterations': n_iter,
-        'll': ll,
-        'll_null': ll_null,
-        'lr_chi2': lr_chi2,
-        'lr_pvalue': lr_pvalue,
-        'pseudo_r2': pseudo_r2,
-        'aic': aic,
-        'bic': bic,
+        "model_type": "Poisson",
+        "family": "Poisson",
+        "link": "log",
+        "method": "IRLS (MLE)",
+        "robust": robust,
+        "cluster": cluster,
+        "irr": irr,
+        "coef_label": coef_label,
+        "converged": converged,
+        "iterations": n_iter,
+        "ll": ll,
+        "ll_null": ll_null,
+        "lr_chi2": lr_chi2,
+        "lr_pvalue": lr_pvalue,
+        "pseudo_r2": pseudo_r2,
+        "aic": aic,
+        "bic": bic,
     }
 
     data_info = {
-        'nobs': n,
-        'df_model': k - 1,
-        'df_resid': n - k,
-        'dependent_var': dep_var,
-        'fitted_values': mu,
-        'residuals': residuals,
-        'X': X,
-        'y': y_arr,
-        'var_cov': vcov,
-        'var_names': var_names,
-        'offset': offset,
-        'exposure': exposure,
-        'weights': weights,
+        "nobs": n,
+        "df_model": k - 1,
+        "df_resid": n - k,
+        "dependent_var": dep_var,
+        "fitted_values": mu,
+        "residuals": residuals,
+        "X": X,
+        "y": y_arr,
+        "var_cov": vcov,
+        "var_names": var_names,
+        "offset": offset,
+        "exposure": exposure,
+        "weights": weights,
     }
 
     diagnostics = {
-        'Log-Likelihood': ll,
-        'Log-Lik (null)': ll_null,
-        'LR chi2': lr_chi2,
-        'Prob > chi2': lr_pvalue,
-        'Pseudo R2': pseudo_r2,
-        'AIC': aic,
-        'BIC': bic,
-        'Deviance': deviance,
-        'Pearson chi2': pearson_chi2,
-        'Overdispersion test (C-T)': od_stat,
-        'Overdispersion p-value': od_pval,
+        "Log-Likelihood": ll,
+        "Log-Lik (null)": ll_null,
+        "LR chi2": lr_chi2,
+        "Prob > chi2": lr_pvalue,
+        "Pseudo R2": pseudo_r2,
+        "AIC": aic,
+        "BIC": bic,
+        "Deviance": deviance,
+        "Pearson chi2": pearson_chi2,
+        "Overdispersion test (C-T)": od_stat,
+        "Overdispersion p-value": od_pval,
     }
 
     return EconometricResults(
@@ -1192,15 +1195,23 @@ def nbreg(
     is_nb2 = dispersion.lower() == "mean"
     if is_nb2:
         beta, mu, disp_param, converged, n_iter = _nb2_fit(
-            y_arr, X, offset=offset_arr, weights=w_arr,
-            maxiter=maxiter, tol=tol,
+            y_arr,
+            X,
+            offset=offset_arr,
+            weights=w_arr,
+            maxiter=maxiter,
+            tol=tol,
         )
         disp_label = "alpha"
         nb_label = "NB2"
     else:
         beta, mu, disp_param, converged, n_iter = _nb1_fit(
-            y_arr, X, offset=offset_arr, weights=w_arr,
-            maxiter=maxiter, tol=tol,
+            y_arr,
+            X,
+            offset=offset_arr,
+            weights=w_arr,
+            maxiter=maxiter,
+            tol=tol,
         )
         disp_label = "delta"
         nb_label = "NB1"
@@ -1225,9 +1236,9 @@ def nbreg(
 
     if cluster_arr is not None:
         vcov = _cluster_vcov(X, nb_w, residuals, cluster_arr)
-    elif robust.lower() in ('robust', 'hc0', 'hc1'):
+    elif robust.lower() in ("robust", "hc0", "hc1"):
         vcov = _sandwich_vcov(X, nb_w, residuals, XtWX_inv)
-        if robust.lower() == 'hc1':
+        if robust.lower() == "hc1":
             vcov *= n / (n - k)
     else:
         vcov = XtWX_inv
@@ -1246,15 +1257,18 @@ def nbreg(
         # Optimize alpha for null model
         def neg_null_ll(log_a: float) -> float:
             return -_nb2_loglik(y_arr, mu_null, float(np.exp(log_a)))
+
         res_null = optimize.minimize_scalar(
-            neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method='bounded'
+            neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method="bounded"
         )
         ll_null = -res_null.fun
     else:
+
         def neg_null_ll(log_a: float) -> float:
             return -_nb1_loglik(y_arr, mu_null, float(np.exp(log_a)))
+
         res_null = optimize.minimize_scalar(
-            neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method='bounded'
+            neg_null_ll, bounds=(np.log(1e-8), np.log(1e4)), method="bounded"
         )
         ll_null = -res_null.fun
 
@@ -1285,59 +1299,59 @@ def nbreg(
     se_series = pd.Series(se_report, index=var_names)
 
     model_info = {
-        'model_type': f'NegBin ({nb_label})',
-        'family': 'Negative Binomial',
-        'link': 'log',
-        'method': 'MLE (IRLS + profile likelihood)',
-        'dispersion_type': nb_label,
-        'fixed_effects': list(fe_level_counts) or None,
-        'n_fe_levels': fe_level_counts or None,
-        'n_fe_params': n_fe_params,
-        'robust': robust,
-        'cluster': cluster,
-        'irr': irr,
-        'coef_label': coef_label,
-        'converged': converged,
-        'iterations': n_iter,
-        'dispersion': disp_param,
-        'dispersion_label': disp_label,
-        'll': ll,
-        'll_null': ll_null,
-        'lr_chi2': lr_chi2,
-        'lr_pvalue': lr_pvalue,
-        'pseudo_r2': pseudo_r2,
-        'aic': aic,
-        'bic': bic,
+        "model_type": f"NegBin ({nb_label})",
+        "family": "Negative Binomial",
+        "link": "log",
+        "method": "MLE (IRLS + profile likelihood)",
+        "dispersion_type": nb_label,
+        "fixed_effects": list(fe_level_counts) or None,
+        "n_fe_levels": fe_level_counts or None,
+        "n_fe_params": n_fe_params,
+        "robust": robust,
+        "cluster": cluster,
+        "irr": irr,
+        "coef_label": coef_label,
+        "converged": converged,
+        "iterations": n_iter,
+        "dispersion": disp_param,
+        "dispersion_label": disp_label,
+        "ll": ll,
+        "ll_null": ll_null,
+        "lr_chi2": lr_chi2,
+        "lr_pvalue": lr_pvalue,
+        "pseudo_r2": pseudo_r2,
+        "aic": aic,
+        "bic": bic,
     }
 
     data_info = {
-        'nobs': n,
-        'df_model': k - 1,
-        'df_resid': n - k,
-        'dependent_var': dep_var,
-        'fitted_values': mu,
-        'residuals': residuals,
-        'X': X,
-        'y': y_arr,
-        'var_cov': vcov,
-        'var_names': var_names,
+        "nobs": n,
+        "df_model": k - 1,
+        "df_resid": n - k,
+        "dependent_var": dep_var,
+        "fitted_values": mu,
+        "residuals": residuals,
+        "X": X,
+        "y": y_arr,
+        "var_cov": vcov,
+        "var_names": var_names,
     }
 
     diagnostics = {
-        'Log-Likelihood': ll,
-        'Log-Lik (null)': ll_null,
-        'LR chi2': lr_chi2,
-        'Prob > chi2': lr_pvalue,
-        'Pseudo R2': pseudo_r2,
-        'AIC': aic,
-        'BIC': bic,
-        f'Dispersion ({disp_label})': disp_param,
-        'LR test vs Poisson (chi2)': lr_alpha,
-        'LR test vs Poisson (p)': lr_alpha_pvalue,
+        "Log-Likelihood": ll,
+        "Log-Lik (null)": ll_null,
+        "LR chi2": lr_chi2,
+        "Prob > chi2": lr_pvalue,
+        "Pseudo R2": pseudo_r2,
+        "AIC": aic,
+        "BIC": bic,
+        f"Dispersion ({disp_label})": disp_param,
+        "LR test vs Poisson (chi2)": lr_alpha,
+        "LR test vs Poisson (p)": lr_alpha_pvalue,
     }
     if fe_level_counts:
-        diagnostics['N fixed-effect parameters'] = n_fe_params
-        diagnostics['Fixed-effect levels'] = fe_level_counts
+        diagnostics["N fixed-effect parameters"] = n_fe_params
+        diagnostics["Fixed-effect levels"] = fe_level_counts
 
     return EconometricResults(
         params=params_series,
@@ -1562,8 +1576,7 @@ def xtnbreg(
             )
         if dispersion.lower() != "mean":
             warnings.warn(
-                "xtnbreg(model='re') uses NB2 mean dispersion; "
-                "ignoring dispersion"
+                "xtnbreg(model='re') uses NB2 mean dispersion; " "ignoring dispersion"
             )
         if irr:
             warnings.warn(
@@ -1712,7 +1725,7 @@ def ppmlhdfe(
 
     # Absorb parameter takes priority over formula-parsed FE
     if absorb is not None:
-        fe_names = [v.strip() for v in absorb.split('+')]
+        fe_names = [v.strip() for v in absorb.split("+")]
     elif formula_fe:
         fe_names = formula_fe
 
@@ -1721,7 +1734,7 @@ def ppmlhdfe(
         fe_indices_list.append(codes)
 
     # If we have FE, drop the constant from X (absorbed by FE)
-    if fe_indices_list and var_names[0] == '_cons':
+    if fe_indices_list and var_names[0] == "_cons":
         X = X[:, 1:]
         var_names = var_names[1:]
         k = X.shape[1]
@@ -1749,10 +1762,12 @@ def ppmlhdfe(
 
     # Fit
     beta, mu, converged, n_iter, X_dm = _ppml_hdfe_irls(
-        y_arr, X,
+        y_arr,
+        X,
         fe_indices_list=fe_indices_list if fe_indices_list else None,
         weights=w_arr,
-        maxiter=maxiter, tol=tol,
+        maxiter=maxiter,
+        tol=tol,
     )
     if not converged:
         warnings.warn(f"PPML did not converge in {maxiter} iterations")
@@ -1776,11 +1791,7 @@ def ppmlhdfe(
     ll_null = _poisson_loglik(y_arr, mu_null)
 
     lr_chi2 = 2 * (ll - ll_null)
-    lr_pvalue = (
-        1 - stats.chi2.cdf(lr_chi2, max(k - 1, 1))
-        if k > 1
-        else np.nan
-    )
+    lr_pvalue = 1 - stats.chi2.cdf(lr_chi2, max(k - 1, 1)) if k > 1 else np.nan
     pseudo_r2 = 1 - ll / ll_null
 
     # Deviance
@@ -1798,66 +1809,62 @@ def ppmlhdfe(
     bic = -2 * ll + np.log(n) * k
 
     # Number of FE levels absorbed
-    n_fe = (
-        sum(len(np.unique(idx)) for idx in fe_indices_list)
-        if fe_indices_list
-        else 0
-    )
+    n_fe = sum(len(np.unique(idx)) for idx in fe_indices_list) if fe_indices_list else 0
 
     params_series = pd.Series(beta, index=var_names)
     se_series = pd.Series(se, index=var_names)
 
     model_info = {
-        'model_type': 'PPML' + (' HDFE' if fe_indices_list else ''),
-        'family': 'Poisson (Pseudo-MLE)',
-        'link': 'log',
-        'method': (
-            'IRLS (Quasi-MLE)'
-            + (' + Alternating Projection' if fe_indices_list else '')
+        "model_type": "PPML" + (" HDFE" if fe_indices_list else ""),
+        "family": "Poisson (Pseudo-MLE)",
+        "link": "log",
+        "method": (
+            "IRLS (Quasi-MLE)"
+            + (" + Alternating Projection" if fe_indices_list else "")
         ),
-        'robust': robust,
-        'cluster': cluster,
-        'converged': converged,
-        'iterations': n_iter,
-        'll': ll,
-        'll_null': ll_null,
-        'lr_chi2': lr_chi2,
-        'lr_pvalue': lr_pvalue,
-        'pseudo_r2': pseudo_r2,
-        'aic': aic,
-        'bic': bic,
-        'absorbed_fe': fe_names if fe_names else None,
-        'n_fe_levels': n_fe,
-        'separation_warnings': sep_warnings,
+        "robust": robust,
+        "cluster": cluster,
+        "converged": converged,
+        "iterations": n_iter,
+        "ll": ll,
+        "ll_null": ll_null,
+        "lr_chi2": lr_chi2,
+        "lr_pvalue": lr_pvalue,
+        "pseudo_r2": pseudo_r2,
+        "aic": aic,
+        "bic": bic,
+        "absorbed_fe": fe_names if fe_names else None,
+        "n_fe_levels": n_fe,
+        "separation_warnings": sep_warnings,
     }
 
     n_cluster = len(np.unique(cluster_arr)) if cluster_arr is not None else None
     data_info = {
-        'nobs': n,
-        'df_model': k,
-        'df_resid': n - k - n_fe,
-        'dependent_var': dep_var,
-        'fitted_values': mu,
-        'residuals': residuals,
-        'X': X,
-        'y': y_arr,
-        'var_cov': vcov,
-        'var_names': var_names,
-        'n_clusters': n_cluster,
+        "nobs": n,
+        "df_model": k,
+        "df_resid": n - k - n_fe,
+        "dependent_var": dep_var,
+        "fitted_values": mu,
+        "residuals": residuals,
+        "X": X,
+        "y": y_arr,
+        "var_cov": vcov,
+        "var_names": var_names,
+        "n_clusters": n_cluster,
     }
 
     diagnostics = {
-        'Log-Likelihood': ll,
-        'Log-Lik (null)': ll_null,
-        'Pseudo R2': pseudo_r2,
-        'Deviance': deviance,
-        'Pearson chi2': pearson_chi2,
-        'AIC': aic,
-        'BIC': bic,
-        'N absorbed FE': n_fe,
+        "Log-Likelihood": ll,
+        "Log-Lik (null)": ll_null,
+        "Pseudo R2": pseudo_r2,
+        "Deviance": deviance,
+        "Pearson chi2": pearson_chi2,
+        "AIC": aic,
+        "BIC": bic,
+        "N absorbed FE": n_fe,
     }
     if n_cluster is not None:
-        diagnostics['N clusters'] = n_cluster
+        diagnostics["N clusters"] = n_cluster
 
     return EconometricResults(
         params=params_series,
