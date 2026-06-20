@@ -8255,6 +8255,9 @@ def _build_registry() -> None:
     )
 
     # -- Social network analysis (sp.network) ------------------------- #
+    _network_api_evidence = [
+        "API/unit contract evidence: tests/test_network.py",
+    ]
     register(
         FunctionSpec(
             name="network_graph",
@@ -8277,6 +8280,7 @@ def _build_registry() -> None:
             example="sp.network_graph(edges=[(0,1),(1,2),(2,0)])",
             tags=["network", "graph", "sna", "adjacency", "edgelist"],
             reference="wasserman1994social",
+            validation_notes=_network_api_evidence,
         )
     )
     register(
@@ -8293,6 +8297,7 @@ def _build_registry() -> None:
             example="sp.network_summary(sp.karate_club())",
             tags=["network", "descriptives", "density", "clustering", "sna"],
             reference="watts1998collective",
+            validation_notes=_network_api_evidence,
         )
     )
     register(
@@ -8316,6 +8321,7 @@ def _build_registry() -> None:
             example='sp.centrality(sp.karate_club(), kind="betweenness")',
             tags=["network", "centrality", "betweenness", "pagerank", "sna"],
             reference="freeman1978centrality",
+            validation_notes=_network_api_evidence,
         )
     )
     register(
@@ -8339,6 +8345,7 @@ def _build_registry() -> None:
             example='sp.community_detection(sp.karate_club(), method="louvain")',
             tags=["network", "community", "modularity", "louvain", "sna"],
             reference="blondel2008fast",
+            validation_notes=_network_api_evidence,
         )
     )
     register(
@@ -8364,6 +8371,7 @@ def _build_registry() -> None:
             example="sp.netlm(Y, {'dist': D}, nperm=1000)",
             tags=["network", "qap", "mrqap", "regression", "sna"],
             reference="dekker2007sensitivity",
+            validation_notes=_network_api_evidence,
         )
     )
     register(
@@ -8386,6 +8394,7 @@ def _build_registry() -> None:
             example="sp.netlogit(Ybinary, X, nperm=1000)",
             tags=["network", "qap", "logistic", "regression", "sna"],
             reference="krackhardt1988predicting",
+            validation_notes=_network_api_evidence,
         )
     )
     register(
@@ -8409,6 +8418,7 @@ def _build_registry() -> None:
             example='sp.dyadic_regression(df, y="trade", covariates=["dist"], i="i", j="j")',
             tags=["network", "dyadic", "robust", "regression", "sna"],
             reference="aronow2015cluster",
+            validation_notes=_network_api_evidence,
         )
     )
     register(
@@ -8433,6 +8443,7 @@ def _build_registry() -> None:
             example='sp.ergm(g, terms=["edges", "nodematch:dept"], node_attrs=attrs)',
             tags=["network", "ergm", "formation", "pstar", "sna"],
             reference="robins2007introduction",
+            validation_notes=_network_api_evidence,
             assumptions=[
                 "Dyad-independent terms: MPLE coincides with MLE",
                 "Dyad-dependent terms (triangles): MPLE approximate; SEs "

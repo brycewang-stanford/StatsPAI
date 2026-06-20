@@ -16510,7 +16510,9 @@
     },
     "stability": "stable",
     "typical_n_min": null,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_network.py"
+    ],
     "validation_status": "api_stable"
   },
   {
