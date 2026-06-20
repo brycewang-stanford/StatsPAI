@@ -4,6 +4,51 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠ Correctness
+
+- **`sp.conformal_synth` average-effect p-value corrected to the moving-block
+  test (Chernozhukov, Wüthrich & Zhu 2021).** The per-period conformal p-values
+  were already correct, but the *average* post-treatment-effect p-value compared
+  a `T1`-averaged statistic (`|mean of the T1 post-period gaps − τ0|`) against
+  *single* pre-period residuals. A `T1`-average has roughly `1/√T1` the spread of
+  one residual, so this scale mismatch pinned the average p-value at its
+  `1/(T0+1)` floor regardless of the data. `_conformal_avg_pvalue` now builds the
+  null from all length-`T1` cyclic blocks of the full residual series under H0
+  (matched scale); at `T1 = 1` it reduces *exactly* to the per-period p-value.
+  Effect: only the average-effect `.pvalue` (and its inverted average CI) change;
+  the point estimate, SE, and per-period results are unchanged. Null p-values are
+  now well-calibrated (mean ≈ 0.5 under H0 instead of being biased toward the
+  floor). Regression anchor `test_cov95_synth_variants.py` updated (`pvalue`
+  1/12 → 1/18 on the fixture).
+- **`sp.sensitivity_dashboard` no longer fabricates subsample / outlier
+  stability (CLAUDE.md §7).** The "80% subsample stability" and
+  "outlier sensitivity (trimming)" dimensions previously reported metrics built
+  from `baseline_est + N(0, baseline_se)` Gaussian jitter and
+  `baseline_est * (1 + N(0, frac_removed))` — i.e. synthetic noise around the
+  point estimate, with the actually-sliced subsample never re-estimated. They now
+  perform a *genuine* OLS re-fit of the headline coefficient on the stored linear
+  design (`data_info['X']`/`'y'`) for each 80% row resample / outcome-trimmed
+  subset, gated by a self-consistency check (the full-sample re-fit must
+  reproduce the baseline). Results that do not expose a plain linear design
+  (weighted / IV / DiD / synthetic-control families) now **skip** these
+  dimensions instead of emitting fabricated numbers. The unimplemented MSM
+  `trim_sweep` (its loop body was `pass`) is relabelled as the positivity check
+  it actually is, with every flag tied to the real max-stabilized-weight signal.
+  Also fixes the headline-coefficient selection, which excluded only Stata's
+  `_cons` and so analysed the **intercept** for patsy-`Intercept` regressions;
+  it now excludes `_cons` / `Intercept` / `const` and analyses the first real
+  regressor.
+- **`registry.py` `sp.bridge` `kind` parameter metadata fix.** A positional
+  `ParamSpec(...)` call placed the description text in the `default` slot and the
+  allowed-values list in the `description` slot; the `kind` enum/description/
+  default are now correct (keyword arguments), so the generated agent/MCP schema
+  for `sp.bridge` describes its `kind` choices accurately.
+- **`_agent_cards_extra.py` duplicate agent cards removed.** The
+  `network_hte` and `inward_outward_spillover` agent-native cards were each
+  defined twice in one dict literal; the earlier (richer) definitions were
+  silently shadowed by the later ones. The dead shadowed entries were removed
+  (the runtime-active cards are unchanged).
+
 ### Added
 
 - **Agent-native result protocol (`.to_dict()` / `.to_latex()` / `.cite()`) on
