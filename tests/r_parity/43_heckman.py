@@ -1,11 +1,9 @@
 """StatsPAI Heckman selection parity (Python side) -- Module 43."""
-
 from __future__ import annotations
 import numpy as np, pandas as pd, statspai as sp
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
 
 MODULE = "43_heckman"
-
 
 def make_data(n=600, seed=PARITY_SEED):
     rng = np.random.default_rng(seed)
@@ -20,7 +18,6 @@ def make_data(n=600, seed=PARITY_SEED):
     y_lat = 1.0 + 0.5 * x + eps
     y = np.where(sel == 1, y_lat, np.nan)
     return pd.DataFrame({"y": y, "x": x, "z": z, "sel": sel})
-
 
 def main():
     df = make_data()
@@ -37,24 +34,16 @@ def main():
         if name in dct:
             est, sev = dct[name]
             label = "intercept" if name == "const" else name
-            rows.append(
-                ParityRecord(
-                    MODULE, "py", f"beta_{label}", estimate=est, se=sev, n=int(len(df))
-                )
-            )
+            rows.append(ParityRecord(MODULE, "py",
+                f"beta_{label}", estimate=est, se=sev, n=int(len(df))))
     # lambda (IMR) coefficient
     if "lambda (IMR)" in dct:
         est, sev = dct["lambda (IMR)"]
-        rows.append(
-            ParityRecord(
-                MODULE, "py", "lambda_imr", estimate=est, se=sev, n=int(len(df))
-            )
-        )
+        rows.append(ParityRecord(MODULE, "py", "lambda_imr",
+            estimate=est, se=sev, n=int(len(df))))
 
-    write_results(
-        MODULE, "py", rows, extra={"method": "2-step Heckman", "engine": "statspai"}
-    )
-
+    write_results(MODULE, "py", rows,
+        extra={"method": "2-step Heckman", "engine": "statspai"})
 
 if __name__ == "__main__":
     main()

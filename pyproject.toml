@@ -169,6 +169,14 @@ where = ["src"]
 [tool.black]
 line-length = 88
 target-version = ['py39']
+# Frozen test fixtures/contracts — black must NOT reformat these or their guards
+# break: tests/r_parity and tests/stata_parity files are SHA-locked by
+# scripts/tier_a_fixture_lock.py, and tests/external_parity/*.py have their
+# source text asserted verbatim by tests/test_ci_exact_parity_contract.py.
+# Keep them byte-stable.
+extend-exclude = '''
+/tests/(r_parity|stata_parity|external_parity)/
+'''
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

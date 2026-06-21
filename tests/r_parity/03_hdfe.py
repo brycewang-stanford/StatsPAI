@@ -8,7 +8,6 @@ absorbing the FEs.
 Tolerance: rel < 1e-6 (closed-form estimator after the within
 transform).
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -17,13 +16,13 @@ import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
 
+
 MODULE = "03_hdfe"
 FORMULA = "y ~ x1 + x2 | firm + year"
 
 
-def make_panel(
-    n: int = 10_000, n_firms: int = 250, n_years: int = 20, seed: int = PARITY_SEED
-) -> pd.DataFrame:
+def make_panel(n: int = 10_000, n_firms: int = 250, n_years: int = 20,
+               seed: int = PARITY_SEED) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     firm = rng.integers(0, n_firms, size=n)
     year = rng.integers(0, n_years, size=n)
@@ -58,11 +57,8 @@ def main() -> None:
         se = float(ses[name])
         rows.append(
             ParityRecord(
-                module=MODULE,
-                side="py",
-                statistic=f"beta_{name}",
-                estimate=beta,
-                se=se,
+                module=MODULE, side="py", statistic=f"beta_{name}",
+                estimate=beta, se=se,
                 ci_lo=beta - 1.959963984540054 * se,
                 ci_hi=beta + 1.959963984540054 * se,
                 n=int(len(df)),
@@ -70,9 +66,7 @@ def main() -> None:
         )
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "formula": FORMULA,
             "vcov": "iid",

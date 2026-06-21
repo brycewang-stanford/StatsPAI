@@ -27,7 +27,6 @@ Reference
 Hernán, M.A. & Robins, J.M. (2020). *Causal Inference: What If*.
 Boca Raton: Chapman & Hall/CRC.
 """
-
 from __future__ import annotations
 
 import warnings
@@ -38,6 +37,7 @@ import pytest
 
 import statspai as sp
 
+
 # =========================================================================
 # Pinned reference values (StatsPAI output on the bundled NHEFS extract,
 # at the moment of test creation). Updating a pin requires an explicit
@@ -45,17 +45,17 @@ import statspai as sp
 # =========================================================================
 
 # Ch12 — IP weighting / marginal structural model
-PINNED_CRUDE_WT_DIFF = 2.5406  # quitters - non-quitters, unadjusted
-PINNED_CH12_IPW_ATT = 3.4405  # sp.ipw (Hájek ATE), book design, seed=42
+PINNED_CRUDE_WT_DIFF = 2.5406       # quitters - non-quitters, unadjusted
+PINNED_CH12_IPW_ATT = 3.4405        # sp.ipw (Hájek ATE), book design, seed=42
 
 # Published book anchors (Hernán-Robins, What If, Part II)
-BOOK_CRUDE = 2.54  # §12.2
-BOOK_IPW_ATT = 3.4  # Program 12.4, 95% CI (2.4, 4.5)
+BOOK_CRUDE = 2.54                   # §12.2
+BOOK_IPW_ATT = 3.4                  # Program 12.4, 95% CI (2.4, 4.5)
 BOOK_IPW_CI = (2.4, 4.5)
-BOOK_GFORMULA_ATT = 3.5  # Ch13 standardization / g-formula
-BOOK_GEST_PSI = 3.4  # Ch14 g-estimation
+BOOK_GFORMULA_ATT = 3.5            # Ch13 standardization / g-formula
+BOOK_GEST_PSI = 3.4               # Ch14 g-estimation
 
-PIN_TOL = 1e-2  # pinned-match tolerance (kg) — BLAS/bootstrap jitter
+PIN_TOL = 1e-2     # pinned-match tolerance (kg) — BLAS/bootstrap jitter
 BOOK_TOL_KG = 0.3  # neighbourhood-of-published tolerance (kg)
 
 
@@ -70,7 +70,8 @@ def _book_design(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     for c in _CONT_CONF:
         d[f"{c}2"] = d[c] ** 2
     dd = pd.get_dummies(d, columns=_CAT_CONF, drop_first=True)
-    cat_cols = [c for c in dd.columns if any(c.startswith(p + "_") for p in _CAT_CONF)]
+    cat_cols = [c for c in dd.columns
+                if any(c.startswith(p + "_") for p in _CAT_CONF)]
     covs = cat_cols + _CONT_CONF + [f"{c}2" for c in _CONT_CONF]
     for c in covs:
         dd[c] = dd[c].astype(float)
@@ -80,7 +81,6 @@ def _book_design(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
 # =========================================================================
 # The bundled dataset itself
 # =========================================================================
-
 
 class TestNhefsDataset:
     """The NHEFS loader ships the real book extract."""
@@ -95,7 +95,7 @@ class TestNhefsDataset:
 
     def test_complete_case_sample(self):
         dc = sp.datasets.nhefs(complete_case=True)
-        assert dc.shape == (1566, 67)  # the book's weight-analysis n
+        assert dc.shape == (1566, 67)         # the book's weight-analysis n
         assert dc["wt82_71"].notna().all()
 
     def test_load_alias_is_same(self):
@@ -116,7 +116,6 @@ class TestNhefsDataset:
 # Chapter 12 — IP weighting and marginal structural models
 # =========================================================================
 
-
 class TestCh12IPWeighting:
     """quitting smoking -> 10-year weight change, via IP weighting."""
 
@@ -125,10 +124,8 @@ class TestCh12IPWeighting:
         return sp.datasets.nhefs(complete_case=True)
 
     def test_crude_difference(self, df):
-        crude = (
-            df.loc[df.qsmk == 1, "wt82_71"].mean()
-            - df.loc[df.qsmk == 0, "wt82_71"].mean()
-        )
+        crude = (df.loc[df.qsmk == 1, "wt82_71"].mean()
+                 - df.loc[df.qsmk == 0, "wt82_71"].mean())
         # pinned to machine precision; matches book §12.2 (2.54 kg)
         assert crude == pytest.approx(PINNED_CRUDE_WT_DIFF, abs=PIN_TOL)
         assert crude == pytest.approx(BOOK_CRUDE, abs=BOOK_TOL_KG)
@@ -137,15 +134,8 @@ class TestCh12IPWeighting:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             dd, covs = _book_design(df)
-            res = sp.ipw(
-                dd,
-                y="wt82_71",
-                treat="qsmk",
-                covariates=covs,
-                estimand="ATE",
-                seed=42,
-                n_bootstrap=500,
-            )
+            res = sp.ipw(dd, y="wt82_71", treat="qsmk", covariates=covs,
+                         estimand="ATE", seed=42, n_bootstrap=500)
         # (1) pinned — no silent drift
         assert res.estimate == pytest.approx(PINNED_CH12_IPW_ATT, abs=0.01)
         # (2) neighbourhood of the published 3.4 kg
@@ -164,15 +154,8 @@ class TestCh12IPWeighting:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             dd, covs = _book_design(df)
-            res = sp.ipw(
-                dd,
-                y="wt82_71",
-                treat="qsmk",
-                covariates=covs,
-                estimand="ATE",
-                seed=42,
-                n_bootstrap=0,
-            )
+            res = sp.ipw(dd, y="wt82_71", treat="qsmk", covariates=covs,
+                         estimand="ATE", seed=42, n_bootstrap=0)
         assert res.estimate == pytest.approx(3.4405354296, abs=1e-6)
         assert res.model_info["pscore_min"] == pytest.approx(0.051000764, abs=1e-6)
         assert res.model_info["pscore_max"] == pytest.approx(0.776888702, abs=1e-6)
@@ -182,7 +165,7 @@ class TestCh12IPWeighting:
 # Chapter 13 — Standardization / parametric g-formula
 # =========================================================================
 
-PINNED_CH13_GFORMULA = 3.4626  # sp.g_computation point estimate
+PINNED_CH13_GFORMULA = 3.4626      # sp.g_computation point estimate
 
 
 class TestCh13Standardization:
@@ -190,9 +173,8 @@ class TestCh13Standardization:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             dd, covs = _book_design(sp.datasets.nhefs(complete_case=True))
-            g = sp.g_computation(
-                dd, y="wt82_71", treat="qsmk", covariates=covs, n_boot=100, seed=42
-            )
+            g = sp.g_computation(dd, y="wt82_71", treat="qsmk",
+                                 covariates=covs, n_boot=100, seed=42)
         assert g.estimate == pytest.approx(PINNED_CH13_GFORMULA, abs=0.05)
         assert g.estimate == pytest.approx(BOOK_GFORMULA_ATT, abs=BOOK_TOL_KG)
 
@@ -201,7 +183,7 @@ class TestCh13Standardization:
 # Chapter 14 — G-estimation of a structural nested mean model
 # =========================================================================
 
-PINNED_CH14_PSI = 3.4626  # sp.g_estimation psi
+PINNED_CH14_PSI = 3.4626           # sp.g_estimation psi
 
 
 class TestCh14GEstimation:
@@ -209,14 +191,9 @@ class TestCh14GEstimation:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             dd, covs = _book_design(sp.datasets.nhefs(complete_case=True))
-            ge = sp.g_estimation(
-                dd,
-                y="wt82_71",
-                treatments=["qsmk"],
-                covariates_by_stage=[covs],
-                random_state=42,
-                n_bootstrap=100,
-            )
+            ge = sp.g_estimation(dd, y="wt82_71", treatments=["qsmk"],
+                                 covariates_by_stage=[covs], random_state=42,
+                                 n_bootstrap=100)
         assert ge.estimate == pytest.approx(PINNED_CH14_PSI, abs=0.05)
         assert ge.estimate == pytest.approx(BOOK_GEST_PSI, abs=BOOK_TOL_KG)
 
@@ -228,7 +205,7 @@ class TestCh14GEstimation:
 # These closed-form regression coefficients match the book to 4 decimals.
 PINNED_CH15_QSMK = 2.5596
 PINNED_CH15_INTERACTION = 0.0467
-BOOK_CH15_QSMK = 2.56  # Program 15.1
+BOOK_CH15_QSMK = 2.56              # Program 15.1
 BOOK_CH15_INTERACTION = 0.0467
 
 
@@ -256,15 +233,15 @@ class TestCh15OutcomeRegression:
     def test_effect_at_smoking_intensities(self, fit):
         b = float(fit.params["qsmk"])
         bi = float(fit.params["qsmk:smokeintensity"])
-        assert (b + 5 * bi) == pytest.approx(2.79, abs=0.02)  # book 2.79
-        assert (b + 40 * bi) == pytest.approx(4.43, abs=0.02)  # book 4.43
+        assert (b + 5 * bi) == pytest.approx(2.79, abs=0.02)    # book 2.79
+        assert (b + 40 * bi) == pytest.approx(4.43, abs=0.02)   # book 4.43
 
 
 # =========================================================================
 # Chapter 17 — Survival: confounding inflates the crude hazard ratio
 # =========================================================================
 
-PINNED_CH17_UNWEIGHTED_HR = 1.3941  # statsmodels PHReg, matches R coxph
+PINNED_CH17_UNWEIGHTED_HR = 1.3941   # statsmodels PHReg, matches R coxph
 
 
 class TestCh17Survival:
@@ -274,28 +251,26 @@ class TestCh17Survival:
 
     def test_unweighted_hazard_ratio(self):
         import statsmodels.api as sm
-
         df = sp.datasets.nhefs().copy()
-        df["survtime"] = np.where(df.death == 0, 120, (df.yrdth - 83) * 12 + df.modth)
+        df["survtime"] = np.where(df.death == 0, 120,
+                                  (df.yrdth - 83) * 12 + df.modth)
         df = df[df.survtime.notna()]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            m = sm.PHReg(
-                df["survtime"], df[["qsmk"]].astype(float), status=df["death"]
-            ).fit()
+            m = sm.PHReg(df["survtime"], df[["qsmk"]].astype(float),
+                         status=df["death"]).fit()
         hr = float(np.exp(m.params[0]))
         assert hr == pytest.approx(PINNED_CH17_UNWEIGHTED_HR, abs=0.02)
-        assert hr == pytest.approx(1.39, abs=0.05)  # book §17
+        assert hr == pytest.approx(1.39, abs=0.05)             # book §17
 
 
 # =========================================================================
 # Sensitivity analysis — the E-value (VanderWeele & Ding 2017)
 # =========================================================================
 
-
 class TestEValueSensitivity:
     def test_evalue_matches_closed_form(self):
-        rr = 1.3251  # crude qsmk -> death risk ratio
+        rr = 1.3251                       # crude qsmk -> death risk ratio
         ev = sp.evalue(estimate=rr, measure="RR")
         closed = rr + np.sqrt(rr * (rr - 1.0))
         assert ev["evalue_estimate"] == pytest.approx(1.9814, abs=1e-3)

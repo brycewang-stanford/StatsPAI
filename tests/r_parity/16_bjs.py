@@ -6,12 +6,12 @@ didimputation::did_imputation.
 
 Tolerance: rel < 1e-3 on the simple ATT.
 """
-
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
+
 
 MODULE = "16_bjs"
 
@@ -21,18 +21,13 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     fit = sp.did_imputation(
-        df,
-        y="lemp",
-        group="countyreal",
-        time="year",
+        df, y="lemp", group="countyreal", time="year",
         first_treat="first_treat",
     )
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="att_bjs",
+            module=MODULE, side="py", statistic="att_bjs",
             estimate=float(fit.estimate),
             se=None,
             ci_lo=None,
@@ -40,18 +35,14 @@ def main() -> None:
             n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="se_cluster_if",
+            module=MODULE, side="py", statistic="se_cluster_if",
             estimate=float(fit.se),
             n=int(len(df)),
         ),
     ]
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "method": "did_imputation",
             "n_treated_obs": int(fit.model_info["n_treated_obs"]),

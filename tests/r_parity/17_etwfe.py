@@ -6,12 +6,12 @@ two-way fixed-effects estimator.
 
 Tolerance: rel < 1e-3 on the pooled ATT.
 """
-
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
+
 
 MODULE = "17_etwfe"
 
@@ -20,22 +20,14 @@ def main() -> None:
     df = sp.datasets.mpdta()
     dump_csv(df, MODULE)
 
-    fit = sp.etwfe(
-        df,
-        y="lemp",
-        group="countyreal",
-        time="year",
-        first_treat="first_treat",
-        cluster="countyreal",
-        panel=False,
-    )
+    fit = sp.etwfe(df, y="lemp", group="countyreal", time="year",
+                   first_treat="first_treat", cluster="countyreal",
+                   panel=False)
     simple = sp.etwfe_emfx(fit, type="simple", weighting="treated")
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="att_etwfe",
+            module=MODULE, side="py", statistic="att_etwfe",
             estimate=float(simple.estimate),
             se=float(simple.se),
             ci_lo=float(simple.ci[0]) if simple.ci is not None else None,
@@ -45,9 +37,7 @@ def main() -> None:
     ]
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "method": "Wooldridge ETWFE + emfx simple aggregation",
             "n_cohorts": int(fit.model_info["n_cohorts"]),

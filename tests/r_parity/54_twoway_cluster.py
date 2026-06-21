@@ -25,7 +25,6 @@ low-cardinality dimension such as ``year`` in ``mpdta``, where the CGM
 estimator degenerates. The committed ``data/54_twoway_cluster.csv`` is the
 authoritative bytes the R side reads.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -33,6 +32,7 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
+
 
 MODULE = "54_twoway_cluster"
 FORMULA = "y ~ x"
@@ -47,11 +47,7 @@ def _make_dgp() -> pd.DataFrame:
     x = rng.normal(size=n) + 0.3 * g1 / g1_levels
     # Errors correlated within each cluster dimension -> genuine two-way
     # clustering that one-way SEs understate.
-    u = (
-        rng.normal(size=n)
-        + rng.normal(size=g1_levels)[g1]
-        + rng.normal(size=g2_levels)[g2]
-    )
+    u = rng.normal(size=n) + rng.normal(size=g1_levels)[g1] + rng.normal(size=g2_levels)[g2]
     y = 1.0 + 0.5 * x + u
     return pd.DataFrame({"y": y, "x": x, "g1": g1, "g2": g2})
 
@@ -70,19 +66,14 @@ def main() -> None:
         canonical = "(Intercept)" if name == "Intercept" else name
         rows.append(
             ParityRecord(
-                module=MODULE,
-                side="py",
+                module=MODULE, side="py",
                 statistic=f"beta_{canonical}",
-                estimate=beta,
-                se=float(tw.std_errors[name]),
-                n=n,
+                estimate=beta, se=float(tw.std_errors[name]), n=n,
             )
         )
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "formula": FORMULA,
             "vcov": "two-way cluster (Cameron-Gelbach-Miller 2011)",

@@ -3,12 +3,12 @@
 Re-uses the Card 1995 replica with nearc4 as the instrument for educ.
 HC1 robust SE on both sides.
 """
-
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
+
 
 MODULE = "02_iv"
 FORMULA = "lwage ~ exper + expersq + black + south + smsa + (educ ~ nearc4)"

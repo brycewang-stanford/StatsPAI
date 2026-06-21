@@ -34,6 +34,7 @@ import pytest
 
 import statspai as sp
 
+
 # ---------------------------------------------------------------------------
 # Generic helpers
 # ---------------------------------------------------------------------------
@@ -54,8 +55,8 @@ class TestCMLBook_DMLPartiallyLinear:
         rng = np.random.default_rng(42)
         n, p = 500, 10
         X = rng.normal(size=(n, p))
-        m = 0.5 * X[:, 0] ** 2 + 0.3 * X[:, 1]  # propensity mean
-        g = X[:, 0] + 0.5 * X[:, 2]  # outcome mean
+        m = 0.5 * X[:, 0] ** 2 + 0.3 * X[:, 1]        # propensity mean
+        g = X[:, 0] + 0.5 * X[:, 2]                    # outcome mean
         D = m + rng.normal(0, 0.5, n)
         tau = 0.5
         Y = tau * D + g + rng.normal(0, 0.5, n)
@@ -63,21 +64,18 @@ class TestCMLBook_DMLPartiallyLinear:
         df["D"] = D
         df["Y"] = Y
         res = sp.dml(
-            df,
-            y="Y",
-            treat="D",
+            df, y="Y", treat="D",
             covariates=[f"x{j}" for j in range(p)],
-            model="plr",
-            n_folds=5,
+            model="plr", n_folds=5,
         )
         est = getattr(res, "estimate", None)
         se = getattr(res, "se", None)
         if est is None and hasattr(res, "params"):
             est = float(res.params.get("D", res.params.iloc[0]))
             se = float(res.std_errors.iloc[0])
-        assert _within_se(
-            est, tau, se
-        ), f"DML-PLR: {est:.3f} vs truth {tau}, SE {se:.3f}"
+        assert _within_se(est, tau, se), (
+            f"DML-PLR: {est:.3f} vs truth {tau}, SE {se:.3f}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -98,14 +96,13 @@ class TestCMLBook_CausalForest:
         n = 1500  # larger n tightens Monte-Carlo variance
         X = rng.normal(size=(n, 5))
         D = rng.integers(0, 2, size=n)
-        tau = 0.5 + X[:, 0]  # heterogeneous CATE
+        tau = 0.5 + X[:, 0]                      # heterogeneous CATE
         Y = tau * D + X[:, 0] + 0.2 * X[:, 1] + rng.normal(0, 0.5, n)
         df = pd.DataFrame(X, columns=[f"x{j}" for j in range(5)])
         df["D"] = D
         df["Y"] = Y
         cf = sp.causal_forest(
-            "Y ~ D | x0 + x1 + x2 + x3 + x4",
-            data=df,
+            "Y ~ D | x0 + x1 + x2 + x3 + x4", data=df,
             random_state=0,
             n_estimators=300,
         )
@@ -118,7 +115,9 @@ class TestCMLBook_CausalForest:
         # With n=1500, n_estimators=300, random_state=0 the forest ATE
         # is reproducibly within 0.15 of the truth across all CI OS /
         # Python matrix entries.
-        assert abs(est - 0.5) < 0.3, f"CausalForest ATE = {est:.3f} vs truth 0.5"
+        assert abs(est - 0.5) < 0.3, (
+            f"CausalForest ATE = {est:.3f} vs truth 0.5"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -139,9 +138,7 @@ class TestCMLBook_MetaLearners:
         df["D"] = D
         df["Y"] = Y
         res = sp.metalearner(
-            df,
-            y="Y",
-            treat="D",
+            df, y="Y", treat="D",
             covariates=[f"x{j}" for j in range(4)],
             learner="T",
         )
@@ -149,7 +146,9 @@ class TestCMLBook_MetaLearners:
         if est is None:
             est = getattr(res, "estimate", None)
         est = float(est)
-        assert abs(est - 0.4) < 0.25, f"T-learner ATE = {est:.3f} vs truth 0.4"
+        assert abs(est - 0.4) < 0.25, (
+            f"T-learner ATE = {est:.3f} vs truth 0.4"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +170,9 @@ class TestCMLBook_IVRecovery:
         res = sp.ivreg("Y ~ (D ~ Z)", data=df)
         est = float(res.params["D"])
         se = float(res.std_errors["D"])
-        assert _within_se(est, tau, se), f"2SLS: {est:.3f} vs truth {tau}, SE {se:.3f}"
+        assert _within_se(est, tau, se), (
+            f"2SLS: {est:.3f} vs truth {tau}, SE {se:.3f}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -192,22 +193,14 @@ class TestCMLBook_DID:
             for t in range(n_periods):
                 D = 1 if (g > 0 and t >= g) else 0
                 y = uf + 0.1 * t + 1.0 * D + rng.normal(0, 0.3)
-                rows.append(
-                    dict(
-                        unit=i,
-                        time=t,
-                        y=y,
-                        treat=D,
-                        first_treat=0 if g == 0 else g,
-                    )
-                )
+                rows.append(dict(
+                    unit=i, time=t, y=y,
+                    treat=D,
+                    first_treat=0 if g == 0 else g,
+                ))
         df = pd.DataFrame(rows)
         res = sp.callaway_santanna(
-            df,
-            y="y",
-            g="first_treat",
-            t="time",
-            i="unit",
+            df, y="y", g="first_treat", t="time", i="unit",
         )
         est = float(getattr(res, "estimate", np.nan))
         se = float(getattr(res, "se", np.nan))
@@ -215,7 +208,9 @@ class TestCMLBook_DID:
             # Older CS wrapper may return in model_info
             est = float(res.model_info.get("att", np.nan))
             se = float(res.model_info.get("att_se", np.nan))
-        assert _within_se(est, 1.0, se), f"CS DID: {est:.3f} vs truth 1.0, SE {se:.3f}"
+        assert _within_se(est, 1.0, se), (
+            f"CS DID: {est:.3f} vs truth 1.0, SE {se:.3f}"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -234,9 +229,9 @@ class TestCMLBook_RDRobust:
         res = sp.rdrobust(df, y="y", x="x", c=0)
         est = float(res.estimate)
         se = float(res.se)
-        assert _within_se(
-            est, 2.0, se, k=3.0
-        ), f"rdrobust: {est:.3f} vs truth 2.0, SE {se:.3f}"
+        assert _within_se(est, 2.0, se, k=3.0), (
+            f"rdrobust: {est:.3f} vs truth 2.0, SE {se:.3f}"
+        )
 
     def test_rbc_bootstrap_coverage_matches_analytic(self):
         rng = np.random.default_rng(31)
@@ -246,13 +241,8 @@ class TestCMLBook_RDRobust:
         df = pd.DataFrame({"y": Y, "x": X})
         r_a = sp.rdrobust(df, y="y", x="x", c=0)
         r_b = sp.rdrobust(
-            df,
-            y="y",
-            x="x",
-            c=0,
-            bootstrap="rbc",
-            n_boot=499,
-            random_state=0,
+            df, y="y", x="x", c=0,
+            bootstrap="rbc", n_boot=499, random_state=0,
         )
         ci_a = r_a.ci
         ci_b = r_b.model_info["rbc_bootstrap"]["ci"]
@@ -262,6 +252,6 @@ class TestCMLBook_RDRobust:
         # rbc CI should be comparable to or shorter than analytic
         len_a = ci_a[1] - ci_a[0]
         len_b = ci_b[1] - ci_b[0]
-        assert (
-            len_b <= 1.3 * len_a
-        ), f"rbc CI longer than 1.3x analytic: {len_b:.3f} vs {len_a:.3f}"
+        assert len_b <= 1.3 * len_a, (
+            f"rbc CI longer than 1.3x analytic: {len_b:.3f} vs {len_a:.3f}"
+        )

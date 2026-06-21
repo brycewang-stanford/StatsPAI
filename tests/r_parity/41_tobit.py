@@ -5,7 +5,6 @@ sp.tobit against R censReg::censReg and Stata's tobit.
 
 Tolerance: rel < 1e-3 on coefficients; rel < 1e-2 on SEs and sigma.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -13,6 +12,7 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
+
 
 MODULE = "41_tobit"
 
@@ -41,26 +41,19 @@ def main() -> None:
         if name in dct:
             est, sev = dct[name]
             label = "intercept" if name == "const" else name
-            rows.append(
-                ParityRecord(
-                    MODULE,
-                    "py",
-                    statistic=f"beta_{label}",
-                    estimate=est,
-                    se=sev,
-                    n=int(len(df)),
-                )
-            )
+            rows.append(ParityRecord(
+                MODULE, "py",
+                statistic=f"beta_{label}",
+                estimate=est, se=sev, n=int(len(df))))
     # Sigma (residual scale)
     if "sigma" in dct:
         est, sev = dct["sigma"]
-        rows.append(
-            ParityRecord(MODULE, "py", "sigma", estimate=est, se=sev, n=int(len(df)))
-        )
+        rows.append(ParityRecord(
+            MODULE, "py", "sigma",
+            estimate=est, se=sev, n=int(len(df))))
 
-    write_results(
-        MODULE, "py", rows, extra={"left_censor": 0.0, "engine": "statsmodels"}
-    )
+    write_results(MODULE, "py", rows,
+                  extra={"left_censor": 0.0, "engine": "statsmodels"})
 
 
 if __name__ == "__main__":

@@ -13,12 +13,12 @@ local-polynomial density inference.  The optional backend='r' bridge is
 still available for users who want to delegate directly to the R package,
 but it is not used here as the comparator.
 """
-
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
+
 
 MODULE = "09_rddensity"
 
@@ -32,57 +32,35 @@ def main() -> None:
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="density_diff",
+            module=MODULE, side="py", statistic="density_diff",
             estimate=float(mi["density_diff"]),
             n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="density_left",
-            estimate=float(mi["density_left"]),
-            n=int(len(df)),
+            module=MODULE, side="py", statistic="density_left",
+            estimate=float(mi["density_left"]), n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="density_right",
-            estimate=float(mi["density_right"]),
-            n=int(len(df)),
+            module=MODULE, side="py", statistic="density_right",
+            estimate=float(mi["density_right"]), n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="bandwidth_left",
-            estimate=float(mi["bandwidth_left"]),
-            n=int(len(df)),
+            module=MODULE, side="py", statistic="bandwidth_left",
+            estimate=float(mi["bandwidth_left"]), n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="bandwidth_right",
-            estimate=float(mi["bandwidth_right"]),
-            n=int(len(df)),
+            module=MODULE, side="py", statistic="bandwidth_right",
+            estimate=float(mi["bandwidth_right"]), n=int(len(df)),
         ),
     ]
     _pv = getattr(fit, "pvalue", None)
     if _pv is not None:
-        rows.append(
-            ParityRecord(
-                module=MODULE,
-                side="py",
-                statistic="test_pvalue",
-                estimate=float(_pv),
-                n=int(len(df)),
-            )
-        )
+        rows.append(ParityRecord(
+            module=MODULE, side="py", statistic="test_pvalue",
+            estimate=float(_pv), n=int(len(df))))
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "polynomial_order": int(mi.get("polynomial_order", 2)),
             "backend": mi.get("backend", "native"),

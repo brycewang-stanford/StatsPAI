@@ -4,7 +4,6 @@ Over-identified linear IV model (one endogenous regressor, two
 instruments) estimated by limited-information maximum likelihood,
 against R ivmodel::ivmodel()'s LIML row and Stata ivregress liml.
 """
-
 from __future__ import annotations
 import numpy as np, pandas as pd, statspai as sp
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
@@ -30,17 +29,12 @@ def main():
     rows = []
     for nm, lab in [("x", "x"), ("w", "w"), ("_cons", "intercept")]:
         if nm in res.params.index:
-            rows.append(
-                ParityRecord(
-                    MODULE,
-                    "py",
-                    f"beta_{lab}",
-                    estimate=float(res.params[nm]),
-                    se=float(res.std_errors[nm]),
-                    n=int(len(df)),
-                )
-            )
-    write_results(MODULE, "py", rows, extra={"n_instruments": 2, "endog": "x"})
+            rows.append(ParityRecord(MODULE, "py", f"beta_{lab}",
+                estimate=float(res.params[nm]),
+                se=float(res.std_errors[nm]),
+                n=int(len(df))))
+    write_results(MODULE, "py", rows,
+                  extra={"n_instruments": 2, "endog": "x"})
 
 
 if __name__ == "__main__":

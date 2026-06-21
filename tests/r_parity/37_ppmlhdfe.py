@@ -13,7 +13,6 @@ References:
 
 Tolerance: rel < 1e-3 on coefficients; rel < 1e-2 on HC1 SEs.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -21,6 +20,7 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
+
 
 MODULE = "37_ppmlhdfe"
 
@@ -47,21 +47,15 @@ def main() -> None:
 
     rows: list[ParityRecord] = []
     for name in ["x1", "x2"]:
-        rows.append(
-            ParityRecord(
-                module=MODULE,
-                side="py",
-                statistic=f"beta_{name}",
-                estimate=float(res.params[name]),
-                se=float(res.std_errors[name]),
-                n=int(len(df)),
-            )
-        )
+        rows.append(ParityRecord(
+            module=MODULE, side="py",
+            statistic=f"beta_{name}",
+            estimate=float(res.params[name]),
+            se=float(res.std_errors[name]),
+            n=int(len(df))))
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "fe": "origin",
             "vcov": "HC1",

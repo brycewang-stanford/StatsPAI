@@ -5,7 +5,6 @@ R betareg::betareg(..., link.phi='log') and Stata betareg (whose scale
 equation also uses a log link), so all three sides estimate the same
 (beta, log phi) parameterisation.
 """
-
 from __future__ import annotations
 import numpy as np, pandas as pd, statspai as sp
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
@@ -28,35 +27,22 @@ def make_data(n=900, seed=PARITY_SEED):
 def main():
     df = make_data()
     dump_csv(df, MODULE)
-    res = sp.betareg(
-        data=df, y="y", x=["x1", "x2"], link="logit", maxiter=2000, tol=1e-12
-    )
+    res = sp.betareg(data=df, y="y", x=["x1", "x2"], link="logit", maxiter=2000, tol=1e-12)
     rows = []
     for nm, lab in [("_cons", "intercept"), ("x1", "x1"), ("x2", "x2")]:
         if nm in res.params.index:
-            rows.append(
-                ParityRecord(
-                    MODULE,
-                    "py",
-                    f"beta_{lab}",
-                    estimate=float(res.params[nm]),
-                    se=float(res.std_errors[nm]),
-                    n=int(len(df)),
-                )
-            )
+            rows.append(ParityRecord(MODULE, "py", f"beta_{lab}",
+                estimate=float(res.params[nm]),
+                se=float(res.std_errors[nm]),
+                n=int(len(df))))
     # Precision parameter on the common log scale.
     if "_cons_phi" in res.params.index:
-        rows.append(
-            ParityRecord(
-                MODULE,
-                "py",
-                "ln_phi",
-                estimate=float(res.params["_cons_phi"]),
-                se=float(res.std_errors["_cons_phi"]),
-                n=int(len(df)),
-            )
-        )
-    write_results(MODULE, "py", rows, extra={"link": "logit", "phi_link": "log"})
+        rows.append(ParityRecord(MODULE, "py", "ln_phi",
+            estimate=float(res.params["_cons_phi"]),
+            se=float(res.std_errors["_cons_phi"]),
+            n=int(len(df))))
+    write_results(MODULE, "py", rows,
+                  extra={"link": "logit", "phi_link": "log"})
 
 
 if __name__ == "__main__":

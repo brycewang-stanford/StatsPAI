@@ -7,7 +7,6 @@ sfaR::sfacross with id_var (Pitt-Lee 1981 time-invariant model).
 Tolerance: rel < 1e-3 on the headline production-frontier slopes; the
 intercept and sigma rows are retained as Stata scale diagnostics.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -15,6 +14,7 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
+
 
 MODULE = "29_panel_sfa"
 
@@ -31,89 +31,52 @@ def make_data(n_units: int = 50, T: int = 6, seed: int = PARITY_SEED) -> pd.Data
     unit_u = np.abs(rng.normal(0, 0.5, n_units))
     u = unit_u[unit]
     lny = 2.0 + 0.6 * lnk + 0.4 * lnl + v - u
-    return pd.DataFrame(
-        {
-            "lny": lny,
-            "lnk": lnk,
-            "lnl": lnl,
-            "unit": unit,
-            "year": year,
-        }
-    )
+    return pd.DataFrame({
+        "lny": lny, "lnk": lnk, "lnl": lnl,
+        "unit": unit, "year": year,
+    })
 
 
 def main() -> None:
     df = make_data()
     dump_csv(df, MODULE)
 
-    fit = sp.xtfrontier(
-        data=df,
-        y="lny",
-        x=["lnk", "lnl"],
-        id="unit",
-        time="year",
-        model="ti",
-        dist="half-normal",
-    )
+    fit = sp.xtfrontier(data=df, y="lny", x=["lnk", "lnl"],
+                        id="unit", time="year",
+                        model="ti", dist="half-normal")
 
     rows: list[ParityRecord] = [
-        ParityRecord(
-            MODULE,
-            "py",
-            "beta_intercept",
-            estimate=float(fit.params["_cons"]),
-            se=float(fit.std_errors["_cons"]),
-            n=int(len(df)),
-        ),
-        ParityRecord(
-            MODULE,
-            "py",
-            "beta_lnk",
-            estimate=float(fit.params["lnk"]),
-            se=float(fit.std_errors["lnk"]),
-            n=int(len(df)),
-        ),
-        ParityRecord(
-            MODULE,
-            "py",
-            "beta_lnl",
-            estimate=float(fit.params["lnl"]),
-            se=float(fit.std_errors["lnl"]),
-            n=int(len(df)),
-        ),
-        ParityRecord(
-            MODULE,
-            "py",
-            "sigma_u",
-            estimate=float(fit.model_info["sigma_u"]),
-            n=int(len(df)),
-        ),
-        ParityRecord(
-            MODULE,
-            "py",
-            "sigma_v",
-            estimate=float(fit.model_info["sigma_v"]),
-            n=int(len(df)),
-        ),
+        ParityRecord(MODULE, "py", "beta_intercept",
+                     estimate=float(fit.params["_cons"]),
+                     se=float(fit.std_errors["_cons"]),
+                     n=int(len(df))),
+        ParityRecord(MODULE, "py", "beta_lnk",
+                     estimate=float(fit.params["lnk"]),
+                     se=float(fit.std_errors["lnk"]),
+                     n=int(len(df))),
+        ParityRecord(MODULE, "py", "beta_lnl",
+                     estimate=float(fit.params["lnl"]),
+                     se=float(fit.std_errors["lnl"]),
+                     n=int(len(df))),
+        ParityRecord(MODULE, "py", "sigma_u",
+                     estimate=float(fit.model_info["sigma_u"]),
+                     n=int(len(df))),
+        ParityRecord(MODULE, "py", "sigma_v",
+                     estimate=float(fit.model_info["sigma_v"]),
+                     n=int(len(df))),
     ]
 
-    write_results(
-        MODULE,
-        "py",
-        rows,
-        extra={
-            "distribution": "half-normal",
-            "panel_model": "Pitt-Lee 1981 (ti)",
-            "stata_scale_reference": (
-                "Headline parity uses beta_lnk and beta_lnl. "
-                "Stata xtfrontier reports the intercept and "
-                "sigma_u on its xtfrontier scale, so those "
-                "rows are retained as diagnostics."
-            ),
-            "n_units": int(df["unit"].nunique()),
-            "T": int(df["year"].nunique()),
-        },
-    )
+    write_results(MODULE, "py", rows,
+                  extra={"distribution": "half-normal",
+                         "panel_model": "Pitt-Lee 1981 (ti)",
+                         "stata_scale_reference": (
+                             "Headline parity uses beta_lnk and beta_lnl. "
+                             "Stata xtfrontier reports the intercept and "
+                             "sigma_u on its xtfrontier scale, so those "
+                             "rows are retained as diagnostics."
+                         ),
+                         "n_units": int(df["unit"].nunique()),
+                         "T": int(df["year"].nunique())})
 
 
 if __name__ == "__main__":

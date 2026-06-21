@@ -19,13 +19,13 @@ that diverge across implementations in their leverage / df adjustment:
     ``clubSandwich::vcovCR(type="CR3")``. The exact delete-one-cluster
     jackknife remains available separately as ``sp.cr3_jackknife_vcov``.
 """
-
 from __future__ import annotations
 
 import numpy as np
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
+
 
 MODULE = "53_cr2"
 FORMULA = "lemp ~ treat + year"
@@ -57,29 +57,21 @@ def main() -> None:
         canonical = "(Intercept)" if name == "Intercept" else name
         rows.append(
             ParityRecord(
-                module=MODULE,
-                side="py",
+                module=MODULE, side="py",
                 statistic=f"cr2_{canonical}",
-                estimate=beta,
-                se=float(cr2.std_errors[name]),
-                n=n,
+                estimate=beta, se=float(cr2.std_errors[name]), n=n,
             )
         )
         rows.append(
             ParityRecord(
-                module=MODULE,
-                side="py",
+                module=MODULE, side="py",
                 statistic=f"cr3_{canonical}",
-                estimate=beta,
-                se=float(cr3_se[i]),
-                n=n,
+                estimate=beta, se=float(cr3_se[i]), n=n,
             )
         )
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "formula": FORMULA,
             "vcov": "CR2 (Bell-McCaffrey) + CR3 (clubSandwich analytic)",

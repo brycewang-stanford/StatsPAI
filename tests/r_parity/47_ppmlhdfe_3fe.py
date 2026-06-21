@@ -8,7 +8,6 @@ to compare against fixest/Stata.
 
 Tolerance: rel < 1e-3 on coefficients; rel < 5e-2 on HC1 SEs.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -16,6 +15,7 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
+
 
 MODULE = "47_ppmlhdfe_3fe"
 
@@ -31,23 +31,17 @@ def make_data(seed: int = PARITY_SEED) -> pd.DataFrame:
             dist = rng.uniform(1.0, 5.0)
             contig = rng.binomial(1, 0.3)
             log_mu = (
-                -0.8 * np.log(dist)
-                + 0.4 * contig
-                + 0.2 * origin
-                + 0.3 * dest
-                + 0.05 * t
-                - 1.0
+                -0.8 * np.log(dist) + 0.4 * contig
+                + 0.2 * origin + 0.3 * dest + 0.05 * t - 1.0
             )
-            rows.append(
-                {
-                    "trade": float(rng.poisson(np.exp(log_mu))),
-                    "log_dist": float(np.log(dist)),
-                    "contig": float(contig),
-                    "origin": int(origin),
-                    "dest": int(dest),
-                    "year": int(t),
-                }
-            )
+            rows.append({
+                "trade": float(rng.poisson(np.exp(log_mu))),
+                "log_dist": float(np.log(dist)),
+                "contig": float(contig),
+                "origin": int(origin),
+                "dest": int(dest),
+                "year": int(t),
+            })
     return pd.DataFrame(rows)
 
 
@@ -63,22 +57,17 @@ def main() -> None:
 
     rows: list[ParityRecord] = []
     for name in ["log_dist", "contig"]:
-        rows.append(
-            ParityRecord(
-                module=MODULE,
-                side="py",
-                statistic=f"beta_{name}",
-                estimate=float(res.params[name]),
-                se=float(res.std_errors[name]),
-                n=int(len(df)),
-            )
-        )
+        rows.append(ParityRecord(
+            module=MODULE, side="py",
+            statistic=f"beta_{name}",
+            estimate=float(res.params[name]),
+            se=float(res.std_errors[name]),
+            n=int(len(df))))
 
     write_results(
-        MODULE,
-        "py",
-        rows,
-        extra={"fe": "origin + dest + year", "vcov": "HC1", "n_obs": int(len(df))},
+        MODULE, "py", rows,
+        extra={"fe": "origin + dest + year", "vcov": "HC1",
+               "n_obs": int(len(df))},
     )
 
 

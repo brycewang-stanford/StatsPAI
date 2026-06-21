@@ -6,7 +6,6 @@ companion 33_var.R uses vars::VAR.
 Tolerance: rel < 1e-3 on the coefficient matrix entries (closed-
 form OLS-by-equation; both implementations compute the same thing).
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -14,6 +13,7 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
+
 
 MODULE = "33_var"
 LAGS = 2
@@ -41,44 +41,28 @@ def main() -> None:
         for term in coefs.index:
             beta = float(coefs.loc[term, "coef"])
             se = float(coefs.loc[term, "se"])
-            rows.append(
-                ParityRecord(
-                    module=MODULE,
-                    side="py",
-                    statistic=f"eq_{eq}__{term}",
-                    estimate=beta,
-                    se=se,
-                    n=int(fit.n_obs),
-                )
-            )
+            rows.append(ParityRecord(
+                module=MODULE, side="py",
+                statistic=f"eq_{eq}__{term}",
+                estimate=beta, se=se, n=int(fit.n_obs)))
 
-    rows.append(
-        ParityRecord(
-            module=MODULE,
-            side="py",
-            statistic="logLik",
-            estimate=float(fit.log_likelihood),
-            n=int(fit.n_obs),
-        )
-    )
+    rows.append(ParityRecord(
+        module=MODULE, side="py", statistic="logLik",
+        estimate=float(fit.log_likelihood), n=int(fit.n_obs)))
 
-    write_results(
-        MODULE,
-        "py",
-        rows,
-        extra={
-            "lags": LAGS,
-            "n_obs": int(fit.n_obs),
-            "se_df": "stata",
-            "se_note": (
-                "Default coefficient SEs use Stata var's "
-                "conditional-MLE denominator T. Use "
-                "sp.var(..., se_df='r') to reproduce the "
-                "equation-by-equation lm() denominator T-k used "
-                "inside R vars::VAR()."
-            ),
-        },
-    )
+    write_results(MODULE, "py", rows,
+                  extra={
+                      "lags": LAGS,
+                      "n_obs": int(fit.n_obs),
+                      "se_df": "stata",
+                      "se_note": (
+                          "Default coefficient SEs use Stata var's "
+                          "conditional-MLE denominator T. Use "
+                          "sp.var(..., se_df='r') to reproduce the "
+                          "equation-by-equation lm() denominator T-k used "
+                          "inside R vars::VAR()."
+                      ),
+                  })
 
 
 if __name__ == "__main__":

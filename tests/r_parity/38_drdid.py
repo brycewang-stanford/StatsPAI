@@ -6,7 +6,6 @@ script uses DRDID::drdid_imp_panel and Stata uses drdid, drimp.
 
 Tolerance: rel < 1e-6 on ATT/CI and SE.
 """
-
 from __future__ import annotations
 
 import numpy as np
@@ -14,6 +13,7 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
+
 
 MODULE = "38_drdid"
 
@@ -44,10 +44,7 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     res = sp.drdid(
-        data=df,
-        y="y",
-        group="treated",
-        time="post",
+        data=df, y="y", group="treated", time="post",
         covariates=["x"],
         method="imp",
         id="id",
@@ -55,31 +52,21 @@ def main() -> None:
     )
 
     rows: list[ParityRecord] = [
-        ParityRecord(
-            MODULE,
-            "py",
-            "att",
-            estimate=float(res.estimate),
-            se=float(res.se),
-            n=int(len(df)),
-        ),
+        ParityRecord(MODULE, "py", "att",
+                     estimate=float(res.estimate),
+                     se=float(res.se),
+                     n=int(len(df))),
     ]
     # CI bounds
-    rows.append(
-        ParityRecord(
-            MODULE, "py", "ci_lower", estimate=float(res.ci[0]), n=int(len(df))
-        )
-    )
-    rows.append(
-        ParityRecord(
-            MODULE, "py", "ci_upper", estimate=float(res.ci[1]), n=int(len(df))
-        )
-    )
+    rows.append(ParityRecord(
+        MODULE, "py", "ci_lower",
+        estimate=float(res.ci[0]), n=int(len(df))))
+    rows.append(ParityRecord(
+        MODULE, "py", "ci_upper",
+        estimate=float(res.ci[1]), n=int(len(df))))
 
     write_results(
-        MODULE,
-        "py",
-        rows,
+        MODULE, "py", rows,
         extra={
             "method": "DR-DID (improved, Sant'Anna-Zhao 2020)",
             "covariates": ["x"],

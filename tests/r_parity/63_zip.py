@@ -3,7 +3,6 @@
 ZIP with a logit inflation equation, against R pscl::zeroinfl
 (dist='poisson', link='logit') and Stata zip ..., inflate(...).
 """
-
 from __future__ import annotations
 import numpy as np, pandas as pd, statspai as sp
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
@@ -26,9 +25,7 @@ def make_data(n=1500, seed=PARITY_SEED):
 def main():
     df = make_data()
     dump_csv(df, MODULE)
-    res = sp.zip_model(
-        formula="y ~ x1 + x2", data=df, inflate=["z"], maxiter=2000, tol=1e-12
-    )
+    res = sp.zip_model(formula="y ~ x1 + x2", data=df, inflate=["z"], maxiter=2000, tol=1e-12)
     name_map = [
         ("const", "count_intercept"),
         ("x1", "count_x1"),
@@ -39,19 +36,12 @@ def main():
     rows = []
     for nm, lab in name_map:
         if nm in res.params.index:
-            rows.append(
-                ParityRecord(
-                    MODULE,
-                    "py",
-                    f"beta_{lab}",
-                    estimate=float(res.params[nm]),
-                    se=float(res.std_errors[nm]),
-                    n=int(len(df)),
-                )
-            )
-    write_results(
-        MODULE, "py", rows, extra={"inflate_link": "logit", "count_dist": "poisson"}
-    )
+            rows.append(ParityRecord(MODULE, "py", f"beta_{lab}",
+                estimate=float(res.params[nm]),
+                se=float(res.std_errors[nm]),
+                n=int(len(df))))
+    write_results(MODULE, "py", rows,
+                  extra={"inflate_link": "logit", "count_dist": "poisson"})
 
 
 if __name__ == "__main__":
