@@ -125,3 +125,53 @@ Results:
   the quality/test/package changes and the `plans/` directory; `.flake8`,
   `.github/workflows/parity-guards.yml`, `CITATION.cff`, `README_CN.md`, and
   `docs/index.md` are explicitly not owned here.
+
+## Batch 4 - Stata migration contract hardening
+
+Status: implemented; focused verification passed.
+
+Intent:
+
+- Improve the Stata-to-StatsPAI migration surface without touching estimator
+  internals, parity artifacts, or JOSS/JSS review files.
+- Cover official Stata command shapes that users paste during migration:
+  `ivregress 2sls`, `ivregress liml`, `didregress`, `xtdidregress`, and
+  `teffects ..., atet`.
+
+Results:
+
+- `ivregress 2sls ...` no longer treats `2sls` as the outcome variable; the
+  translator now emits `method='2sls'`, preserves `robust` as `hc1`, and keeps
+  `small` as an explicit finite-sample convention note.
+- `ivregress liml ... vce(cluster firm)` now emits
+  `sp.ivreg(..., method='liml', cluster='firm')` with a migration note.
+- `didregress` and `xtdidregress` now translate to
+  `sp.did(..., method='twfe')` and carry a note that Stata's official command
+  uses a treatment-status indicator, while StatsPAI's staggered DID APIs need a
+  first-treatment cohort column.
+- `teffects ipw/aipw/nnmatch` translations now preserve `ATE` versus `ATET`
+  in the emitted `estimand` argument.
+
+Focused verification:
+
+- `.venv/bin/python -m pytest -o addopts='' tests/test_translation.py` passed
+  with 100 tests.
+- `.venv/bin/python -m py_compile src/statspai/agent/_translation/_stata.py tests/test_translation.py`
+  passed.
+- `git diff --check` passed.
+
+Final verification for this batch:
+
+- `.venv/bin/python -m compileall -q src/statspai` passed.
+- `.venv/bin/python scripts/tierd_classify.py report` passed with 1108
+  registered functions and 0 estimator-like Tier-D functions.
+- `.venv/bin/python scripts/registry_stats.py --check` passed with 1108
+  functions across 83 submodules.
+- `.venv/bin/python scripts/dump_schemas.py --check` passed; schemas remain in
+  sync.
+- `.venv/bin/python scripts/quality_gate.py all` passed with flake8
+  `observed=999 baseline=999`, mypy `observed=1058 baseline=1058`, and the
+  import-budget, agent-card, result-protocol, and error-taxonomy checks OK.
+- `git -C Paper-JSS status --short --branch` and
+  `git -C CausalAgentBench status --short --branch` both reported clean
+  `main...origin/main`.
