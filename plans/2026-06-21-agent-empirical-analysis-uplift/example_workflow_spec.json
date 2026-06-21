@@ -1,0 +1,142 @@
+{
+  "workflow_name": "agent_native_did_replication_bundle",
+  "research_question": {
+    "treatment": "training",
+    "outcome": "wage",
+    "estimand": "ATT",
+    "population": "eligible workers in the analysis panel"
+  },
+  "data": {
+    "sources": [
+      {
+        "path": "data/analysis_panel.parquet",
+        "format": "parquet",
+        "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "provenance": "analysis data built from raw survey extracts with a checked sample log"
+      }
+    ],
+    "unit_of_observation": "worker-year",
+    "column_map": {
+      "id": "worker_id",
+      "time": "year",
+      "treatment": "training",
+      "outcome": "wage",
+      "cohort": "first_treat_year",
+      "covariates": [
+        "age",
+        "edu",
+        "tenure"
+      ]
+    },
+    "sample_construction": [
+      "Keep workers observed before and after first eligibility.",
+      "Drop observations with missing treatment, outcome, id, or time.",
+      "Record all exclusion counts in replication/sample_log.csv."
+    ],
+    "missing_data_policy": "complete-case for required design columns, with sensitivity table for covariate imputation"
+  },
+  "identification": {
+    "design": "did",
+    "assumptions": [
+      "parallel trends after conditioning on age, education, tenure, unit fixed effects, and year fixed effects",
+      "no anticipation before the first treatment year",
+      "stable unit treatment value within the worker-year panel"
+    ],
+    "estimating_equation": "wage_it = alpha_i + lambda_t + beta training_it + X_it gamma + epsilon_it",
+    "threats": [
+      "differential pre-trends",
+      "composition changes around treatment",
+      "spillovers across firms"
+    ],
+    "human_review_required": true
+  },
+  "estimators": [
+    {
+      "name": "callaway_santanna_att",
+      "statspai_function": "sp.callaway_santanna",
+      "target_estimand": "ATT",
+      "args": {
+        "y": "wage",
+        "g": "first_treat_year",
+        "t": "year",
+        "i": "worker_id",
+        "x": [
+          "age",
+          "edu",
+          "tenure"
+        ]
+      }
+    },
+    {
+      "name": "twfe_sensitivity",
+      "statspai_function": "sp.feols",
+      "target_estimand": "ATT",
+      "formula": "wage ~ training + age + edu + tenure | worker_id + year"
+    }
+  ],
+  "diagnostics": [
+    {
+      "name": "parallel_trends_event_study",
+      "type": "event_study_pretrend",
+      "artifact": "figures/fig2_event_study.png"
+    },
+    {
+      "name": "treatment_rollout_balance",
+      "type": "rollout_balance",
+      "artifact": "figures/fig1_rollout.png"
+    }
+  ],
+  "robustness": [
+    {
+      "name": "placebo_outcome",
+      "type": "placebo"
+    },
+    {
+      "name": "honest_did_sensitivity",
+      "type": "honest_did"
+    },
+    {
+      "name": "alternative_lead_lag_window",
+      "type": "lead_lag_window"
+    }
+  ],
+  "outputs": {
+    "tables": [
+      "table1_summary_balance",
+      "table2_main_results",
+      "tableA1_robustness"
+    ],
+    "figures": [
+      "fig1_raw_trends",
+      "fig2_event_study",
+      "fig6_sensitivity"
+    ],
+    "export_formats": [
+      "docx",
+      "xlsx",
+      "tex"
+    ],
+    "replication_bundle": "replication/paper.{docx,xlsx,tex}"
+  },
+  "reproducibility": {
+    "seed": 20260621,
+    "environment": "python -m pip freeze > replication/environment.txt",
+    "data_provenance": "Attach the StatsPAI MCP data_provenance block to every result handle.",
+    "code_paths": [
+      "analysis/run_pipeline.py",
+      "replication/README.md"
+    ]
+  },
+  "validation": {
+    "gates": [
+      "python -m pytest tests/test_analysis_contract.py",
+      "git diff --check",
+      "python scripts/check_example_execution.py --quiet"
+    ],
+    "external_parity": [
+      "Run an R did::att_gt or Stata csdid spot check when the external engine is configured."
+    ],
+    "failure_policy": "Stop on missing provenance, unidentified design choices, or failing gates.",
+    "human_review_required": true
+  }
+}
