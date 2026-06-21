@@ -171,8 +171,6 @@ def mc_synth(
     post_col_start = T0  # post-treatment columns start at index T0
     obs_mask[treated_idx, post_col_start:] = False
 
-    Y_observed = Y_full[obs_mask]  # kept for reference
-
     # ------------------------------------------------------------------ #
     #  Auto-select lambda via CV on observed entries
     # ------------------------------------------------------------------ #

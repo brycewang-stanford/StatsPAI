@@ -850,7 +850,7 @@ from .help import help, HelpResult
 
 # === Article-facing aliases (sp.rdd / sp.frontdoor / sp.xlearner / ...) ===
 # Thin wrappers around existing implementations; see _article_aliases.py
-from ._article_aliases import (
+from ._article_aliases import (  # noqa: E402,F811
     rdd,
     frontdoor,
     xlearner,

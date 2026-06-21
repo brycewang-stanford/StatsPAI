@@ -290,7 +290,7 @@ def _cox_uncensored_survival(t: np.ndarray, d: np.ndarray, X: np.ndarray) -> np.
     n, p = X.shape
     censor_event = (d == 0).astype(float)
     order = np.argsort(t)
-    X_ord, t_ord, ce_ord = X[order], t[order], censor_event[order]
+    X_ord, ce_ord = X[order], censor_event[order]
 
     beta = np.zeros(p)
     for _ in range(25):
