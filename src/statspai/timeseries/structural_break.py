@@ -439,7 +439,20 @@ def cusum_test(
     Returns
     -------
     dict
-        Keys: 'cusum', 'critical_value', 'reject', 'n_obs'.
+        Keys: ``'cusum'`` (standardised CUSUM path of the recursive
+        residuals), ``'max_cusum'`` (its supremum in absolute value),
+        ``'critical_value'`` (the Brown-Durbin-Evans crossing **boundary**,
+        an array ``a * [1 + 2 s / (n - k)]`` that widens from ``a`` to ``3a``
+        across the sample -- *not* a constant), ``'reject'`` (True if the path
+        crosses that boundary anywhere), and ``'n_obs'``.
+
+    Notes
+    -----
+    This is the recursive-residual CUSUM of Brown, Durbin & Evans (1975), as
+    in R's ``strucchange::efp(type="Rec-CUSUM")``. Its boundary is linear in
+    the recursion index with coefficient ``a`` (0.948 at the 5% level), not
+    the constant sup\\|Brownian-bridge\\| value (1.358) that belongs to the
+    OLS-CUSUM of Ploberger & Kramer (1992).
 
     References
     ----------
@@ -485,20 +498,35 @@ def cusum_test(
 
     rec_resid = np.array(rec_resid_values)
     sigma = np.std(rec_resid, ddof=1)
+    m = rec_resid.size  # number of recursive residuals = n - k
 
-    # CUSUM statistic
-    cusum = np.cumsum(rec_resid) / (sigma * np.sqrt(n - k))
-    max_cusum = np.max(np.abs(cusum))
+    # Standardised CUSUM path of the recursive residuals (Brown, Durbin &
+    # Evans 1975). W_t = (1/s) * sum_{j<=t} w_j; dividing by sqrt(m) puts it
+    # in the units of the BDE boundary computed just below.
+    cusum = np.cumsum(rec_resid) / (sigma * np.sqrt(m))
+    max_cusum = float(np.max(np.abs(cusum)))
 
-    # Critical values (Brownian bridge)
-    # Approximate: critical value ≈ 1.358 for 5%
-    crit_vals = {0.01: 1.628, 0.05: 1.358, 0.10: 1.224}
-    cv = crit_vals.get(alpha, 1.358)
+    # The Brown-Durbin-Evans crossing boundary is LINEAR in the recursion
+    # index, not a constant:
+    #   |W_t| > a * [sqrt(m) + 2 (t - k) / sqrt(m)]
+    #   <=>  |cusum_t| > a * [1 + 2 s / m],   s = 1, ..., m.
+    # The previous code compared ``max|cusum|`` against a constant 1.358; that
+    # value is the sup|Brownian-bridge| critical value for the OLS-CUSUM
+    # (Ploberger & Kramer 1992), a *different* test. Applied to the
+    # recursive-residual CUSUM it over-rejected late breaks (true boundary
+    # widens to 3a at the sample end) and under-rejected early ones. The BDE
+    # boundary coefficients ``a`` (one-sided significance level) are:
+    a_vals = {0.01: 1.143, 0.05: 0.948, 0.10: 0.850}
+    a = a_vals.get(round(float(alpha), 2), 0.948)
+    s = np.arange(1, m + 1)
+    boundary = a * (1.0 + 2.0 * s / m)
 
     return {
         "cusum": cusum,
         "max_cusum": max_cusum,
-        "critical_value": cv,
-        "reject": max_cusum > cv,
+        # Per-recursion BDE crossing boundary (array). Replaces the old scalar
+        # 1.358, which was the wrong (Brownian-bridge) critical value.
+        "critical_value": boundary,
+        "reject": bool(np.any(np.abs(cusum) > boundary)),
         "n_obs": n,
     }

@@ -73,6 +73,7 @@ def _sandwich_variance(
     n_eff: int,
     k: int,
     cluster_in_bw: Optional[np.ndarray] = None,
+    weights: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """
     HC1 or cluster-robust sandwich variance for a WLS fit.
@@ -93,7 +94,16 @@ def _sandwich_variance(
         Number of columns in the design matrix.
     cluster_in_bw : (n,) array or None
         Cluster identifiers for observations inside the bandwidth.
-        When None, HC1 is used.
+        When None, the heteroskedasticity-robust (HC) meat is used.
+    weights : (n,) array or None
+        Raw in-bandwidth kernel weights ``w`` (NOT their square root). The
+        Calonico-Cattaneo-Titiunik (2014) HC meat is ``X' W diag(e^2) W X``,
+        which carries the kernel weight *squared*; since ``Xw = X * sqrt(w)``
+        only supplies one power, ``weights`` provides the missing factor. If
+        None, ``w`` is recovered from the weighted intercept column
+        ``Xw[:, 0] = sqrt(w)``. Ignored for the cluster-robust meat (whose
+        per-observation score ``Xw' (yw - Xw beta)`` already equals
+        ``w x e``).
     """
     XtWX = Xw.T @ Xw
     try:
@@ -113,7 +123,19 @@ def _sandwich_variance(
         return cast(np.ndarray, corr * bread @ meat @ bread)
     else:
         corr = n_eff / (n_eff - k) if n_eff > k else 1.0
-        meat = Xw.T @ np.diag(resid**2 * corr) @ Xw
+        # CCT (2014) heteroskedasticity-robust local-polynomial meat:
+        #   X' W diag(e^2) W X = sum_i w_i^2 x_i x_i' e_i^2.
+        # Xw = X * sqrt(w) carries only ONE power of the kernel weight on each
+        # side (w_i total), so we multiply by an extra w_i to reach w_i^2.
+        # Omitting this factor (the historical bug) inflated every HC-robust RD
+        # standard error -- ~1.4x for a uniform kernel versus R rdrobust
+        # vce='hc0'. The cluster branch above is unaffected (its score already
+        # carries w_i x_i e_i).
+        if weights is not None:
+            w_vec = np.asarray(weights, dtype=float)
+        else:
+            w_vec = Xw[:, 0] ** 2  # Xw[:, 0] = sqrt(w) (weighted intercept)
+        meat = Xw.T @ np.diag(w_vec * resid**2 * corr) @ Xw
         return cast(np.ndarray, bread @ meat @ bread)
 
 
@@ -179,7 +201,9 @@ def _local_poly_wls(
     resid = y_bw - X @ beta_full
 
     cl_in_bw = cluster[in_bw] if cluster is not None else None
-    vcov_full = _sandwich_variance(Xw, yw, beta_full, resid, n_eff, k_total, cl_in_bw)
+    vcov_full = _sandwich_variance(
+        Xw, yw, beta_full, resid, n_eff, k_total, cl_in_bw, weights=w_bw
+    )
 
     # Return only the polynomial part (first k_poly elements)
     beta = beta_full[:k_poly]

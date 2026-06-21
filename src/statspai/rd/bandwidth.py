@@ -153,6 +153,7 @@ def _local_residual_var_cluster(
         int(in_bw.sum()),
         2,
         cl_bw,
+        weights=w_bw,
     )
     # Return variance estimate (intercept variance scaled by n * f_c)
     return float(vcov[0, 0] * in_bw.sum())

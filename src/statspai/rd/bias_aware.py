@@ -460,7 +460,13 @@ def _local_cov_yd(
         else:
             n_eff = int(in_bw.sum())
             corr = n_eff / max(n_eff - 2, 1)
-            meat = Zw.T @ np.diag(ry * rd * corr) @ Zw
+            # CCT (2014) W^2 kernel weighting, consistent with the variances
+            # from `_sandwich_variance`: Zw = Z*sqrt(w) supplies one power of
+            # w, so multiply by `ww` for the second. Without this the 2x2
+            # (Y, D) intercept covariance is on a different scale than the
+            # variances and the delta-method form var_dy + t^2 var_dd
+            # - 2 t cov_yd can turn negative (collapsing the fuzzy SE to 0).
+            meat = Zw.T @ np.diag(ww * ry * rd * corr) @ Zw
             v = (ZtZ_inv @ meat @ ZtZ_inv)[0, 0]
         cov += float(v)
     return cov

@@ -1066,7 +1066,7 @@ def _bivariate_wls(
 
     resid = y_bw - cols @ beta
 
-    vcov = _sandwich_variance(Xw, yw, beta, resid, n_eff, k, None)
+    vcov = _sandwich_variance(Xw, yw, beta, resid, n_eff, k, None, weights=w_bw)
 
     return beta, vcov, n_eff
 

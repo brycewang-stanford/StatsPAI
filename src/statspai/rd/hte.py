@@ -712,7 +712,7 @@ def _interacted_wls(
     resid = y_bw - Xmat @ beta
 
     cl_bw = cluster[in_bw] if cluster is not None else None
-    vcov = _sandwich_variance(Xw, yw, beta, resid, n_eff, k, cl_bw)
+    vcov = _sandwich_variance(Xw, yw, beta, resid, n_eff, k, cl_bw, weights=w_bw)
 
     return beta, vcov, n_eff
 

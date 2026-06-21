@@ -1529,9 +1529,18 @@ class MatchEstimator:
         matches: List[np.ndarray],
         weights: List[np.ndarray],
     ) -> float:
-        """
-        Abadie-Imbens (2006) standard error for matching estimator.
-        Uses conditional variance estimation from matched pairs.
+        """Simple matched-pair standard error.
+
+        Returns ``std(per-pair treatment effects, ddof=1) / sqrt(n_pairs)``.
+
+        NOTE: despite the historical ``'ai'`` label this is NOT the
+        Abadie-Imbens (2006) variance -- it treats matched pairs as
+        independent and ignores the extra variance from reusing controls
+        under matching *with replacement*, so it is anti-conservative
+        (empirically ~0.68x the true sampling SD; ~81% coverage at a nominal
+        95% level). For the rigorous Abadie-Imbens (2006) conditional-variance
+        standard error pass ``se_method='abadie_imbens'`` (implemented in
+        ``matching/_matched_frame.py``).
         """
         effects = []
         for i, (m, w) in enumerate(zip(matches, weights)):

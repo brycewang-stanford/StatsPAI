@@ -29,14 +29,53 @@ Review of Economic Studies, 76(3), 1071-1102. [@lee2009training]
 
 Manski, C. F. (1990). "Nonparametric Bounds on Treatment Effects."
 American Economic Review P&P, 80(2), 319-323. [@manski1990nonparametric]
+
+Imbens, G. W. & Manski, C. F. (2004). "Confidence Intervals for Partially
+Identified Parameters." Econometrica, 72(6), 1845-1857.
+doi:10.1111/j.1468-0262.2004.00555.x.
+(Confidence interval for the partially identified parameter used by
+``lee_bounds``; refs verified via Crossref and RePEc/IDEAS.)
 """
 
 from typing import Optional, List
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+from scipy.optimize import brentq
 
 from ..core.results import CausalResult
+
+
+def _imbens_manski_cn(delta: float, sigma_max: float, alpha: float = 0.05) -> float:
+    """Imbens & Manski (2004) critical value for a partially identified scalar.
+
+    Solves ``Phi(C_n + delta / sigma_max) - Phi(-C_n) = 1 - alpha`` for ``C_n``,
+    where ``delta`` is the width of the estimated identified set and
+    ``sigma_max`` the larger of the two endpoint standard errors. The root lies
+    in ``[z_{1-alpha}, z_{1-alpha/2}]`` and interpolates between the one-sided
+    critical value (wide bounds) and the two-sided one (point identification).
+
+    References
+    ----------
+    Imbens, G. W. & Manski, C. F. (2004). "Confidence Intervals for Partially
+    Identified Parameters." Econometrica, 72(6), 1845-1857.
+    doi:10.1111/j.1468-0262.2004.00555.x.
+    """
+    z_one = float(sp_stats.norm.ppf(1 - alpha))
+    z_two = float(sp_stats.norm.ppf(1 - alpha / 2))
+    if not np.isfinite(sigma_max) or sigma_max <= 0:
+        return z_two if delta <= 0 else z_one
+    ratio = float(delta) / float(sigma_max)
+
+    def _eq(c: float) -> float:
+        return float(sp_stats.norm.cdf(c + ratio) - sp_stats.norm.cdf(-c) - (1 - alpha))
+
+    if _eq(z_two) <= 0:  # point-identified limit (delta -> 0)
+        return z_two
+    if _eq(z_one) >= 0:  # wide-bounds limit (delta / sigma_max -> inf)
+        return z_one
+    return float(brentq(_eq, z_one, z_two, xtol=1e-10))
+
 
 # ======================================================================
 # Lee Bounds
@@ -156,13 +195,20 @@ def lee_bounds(
         else:
             boot_lb[b], boot_ub[b] = lb, ub
 
-    # Imbens-Manski CI for the identified set
-    z_crit = sp_stats.norm.ppf(1 - alpha / 2)
-    se_lb = np.std(boot_lb, ddof=1)
-    se_ub = np.std(boot_ub, ddof=1)
-
-    ci_lower = float(lb - z_crit * se_lb)
-    ci_upper = float(ub + z_crit * se_ub)
+    # Imbens & Manski (2004) confidence interval for the *parameter* (not the
+    # whole identified set). The critical value C_n solves
+    #     Phi(C_n + Delta / sigma_max) - Phi(-C_n) = 1 - alpha,
+    # where Delta = ub - lb is the estimated width of the identified set and
+    # sigma_max = max(se_lb, se_ub). C_n interpolates between the one-sided
+    # z_{1-alpha} (wide bounds, width >> SE) and the two-sided z_{1-alpha/2}
+    # (point-identified, width -> 0). Applying the two-sided z to *both*
+    # endpoints instead -- the previous code -- yields the Horowitz-Manski CI
+    # that covers the identified SET and therefore over-covers the parameter.
+    se_lb = float(np.std(boot_lb, ddof=1))
+    se_ub = float(np.std(boot_ub, ddof=1))
+    c_n = _imbens_manski_cn(float(ub - lb), max(se_lb, se_ub), alpha)
+    ci_lower = float(lb - c_n * se_lb)
+    ci_upper = float(ub + c_n * se_ub)
 
     midpoint = float((lb + ub) / 2)
     se_mid = float((se_lb + se_ub) / 2)
