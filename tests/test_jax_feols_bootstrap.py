@@ -13,6 +13,7 @@ identical).
 
 Skips automatically when JAX is not installed.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -41,22 +42,31 @@ def _make_panel(n: int = 1_000, n_firm: int = 50, seed: int = 0) -> pd.DataFrame
     x1 = rng.normal(size=n)
     x2 = rng.normal(size=n)
     y = 0.5 * x1 - 0.2 * x2 + fe + 0.5 * rng.normal(size=n)
-    return pd.DataFrame({
-        "y": y, "x1": x1, "x2": x2,
-        "firm": firm, "cluster": firm,
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "firm": firm,
+            "cluster": firm,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Deterministic invariants (no Monte-Carlo noise)
 # ---------------------------------------------------------------------------
 
+
 def test_point_estimate_matches_feols_jax():
     """``coef`` is the un-resampled point estimate; must match feols_jax exactly."""
     df = _make_panel(seed=1)
     fit = feols_jax("y ~ x1 + x2 | firm", df, vcov="iid")
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=100, seed=0,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=100,
+        seed=0,
     )
     np.testing.assert_allclose(boot.coef.values, fit.coef_vec, atol=1e-12)
     assert list(boot.coef.index) == list(fit.coef_names)
@@ -65,7 +75,10 @@ def test_point_estimate_matches_feols_jax():
 def test_returns_correct_dataclass_type():
     df = _make_panel(seed=2)
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=50, seed=0,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=50,
+        seed=0,
     )
     assert isinstance(boot, FeolsBootstrapResult)
     assert boot.bootstrap_type == "pairs"
@@ -83,7 +96,10 @@ def test_same_seed_gives_identical_results():
 def test_boot_betas_shape_and_columns():
     df = _make_panel(seed=4)
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=137, seed=0,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=137,
+        seed=0,
     )
     assert boot.boot_betas.shape == (137, 2)
     assert list(boot.boot_betas.columns) == ["x1", "x2"]
@@ -93,13 +109,23 @@ def test_chunk_size_does_not_change_results():
     """Different chunk sizes split the same vmap → identical numbers."""
     df = _make_panel(seed=5)
     b_small = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=200, seed=7, vmap_chunk_size=20,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=200,
+        seed=7,
+        vmap_chunk_size=20,
     )
     b_large = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=200, seed=7, vmap_chunk_size=200,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=200,
+        seed=7,
+        vmap_chunk_size=200,
     )
     np.testing.assert_allclose(
-        b_small.boot_betas.values, b_large.boot_betas.values, atol=1e-12,
+        b_small.boot_betas.values,
+        b_large.boot_betas.values,
+        atol=1e-12,
     )
 
 
@@ -107,20 +133,28 @@ def test_chunk_size_does_not_change_results():
 # Convergence to analytic SEs
 # ---------------------------------------------------------------------------
 
+
 def test_pairs_bootstrap_se_converges_to_hc1():
     """Pairs SE → HC1 SE as B grows."""
     df = _make_panel(n=2_000, n_firm=80, seed=11)
     fit_hc1 = feols("y ~ x1 + x2 | firm", df, vcov="hc1")
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=2_000, seed=0,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=2_000,
+        seed=0,
     )
     # 5% relative tolerance — empirically tight enough at B=2000 even
     # with the JAX-vs-numpy random-stream divergence.
     np.testing.assert_allclose(
-        boot.se_boot["x1"], fit_hc1.se()["x1"], rtol=0.10,
+        boot.se_boot["x1"],
+        fit_hc1.se()["x1"],
+        rtol=0.10,
     )
     np.testing.assert_allclose(
-        boot.se_boot["x2"], fit_hc1.se()["x2"], rtol=0.10,
+        boot.se_boot["x2"],
+        fit_hc1.se()["x2"],
+        rtol=0.10,
     )
 
 
@@ -128,15 +162,24 @@ def test_cluster_bootstrap_se_converges_to_cr1():
     """Cluster SE → CR1 SE as B grows."""
     df = _make_panel(n=2_000, n_firm=80, seed=12)
     fit_cr1 = feols(
-        "y ~ x1 + x2 | firm", df, vcov="cr1", cluster="cluster",
+        "y ~ x1 + x2 | firm",
+        df,
+        vcov="cr1",
+        cluster="cluster",
     )
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=2_000, seed=0,
-        bootstrap="cluster", cluster="cluster",
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=2_000,
+        seed=0,
+        bootstrap="cluster",
+        cluster="cluster",
     )
     # Cluster bootstrap convergence is slower than pairs; allow 15%.
     np.testing.assert_allclose(
-        boot.se_boot["x1"], fit_cr1.se()["x1"], rtol=0.15,
+        boot.se_boot["x1"],
+        fit_cr1.se()["x1"],
+        rtol=0.15,
     )
 
 
@@ -144,7 +187,10 @@ def test_percentile_ci_contains_true_value_for_well_specified_dgp():
     """95% CI should cover the true coefficient on a clean DGP."""
     df = _make_panel(n=2_000, n_firm=80, seed=13)
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=2_000, seed=0,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=2_000,
+        seed=0,
     )
     # True beta_x1 = 0.5 in _make_panel
     assert boot.ci_lower["x1"] < 0.5 < boot.ci_upper["x1"]
@@ -156,6 +202,7 @@ def test_percentile_ci_contains_true_value_for_well_specified_dgp():
 # Validation / error paths
 # ---------------------------------------------------------------------------
 
+
 def test_invalid_bootstrap_type_raises():
     df = _make_panel(seed=20)
     with pytest.raises(ValueError, match="bootstrap="):
@@ -166,7 +213,10 @@ def test_cluster_bootstrap_without_cluster_raises():
     df = _make_panel(seed=21)
     with pytest.raises(ValueError, match="cluster"):
         feols_jax_bootstrap(
-            "y ~ x1", df, n_boot=10, bootstrap="cluster",
+            "y ~ x1",
+            df,
+            n_boot=10,
+            bootstrap="cluster",
         )
 
 
@@ -174,7 +224,10 @@ def test_wild_cluster_without_cluster_raises():
     df = _make_panel(seed=21)
     with pytest.raises(ValueError, match="cluster"):
         feols_jax_bootstrap(
-            "y ~ x1", df, n_boot=10, bootstrap="wild_cluster",
+            "y ~ x1",
+            df,
+            n_boot=10,
+            bootstrap="wild_cluster",
         )
 
 
@@ -182,22 +235,30 @@ def test_wild_cluster_without_cluster_raises():
 # Phase 4c: wild + wild_cluster bootstrap
 # ---------------------------------------------------------------------------
 
+
 def test_wild_bootstrap_se_converges_to_hc1():
     """Wild row-level SE → HC1 SE as B → ∞ (asymptotic equivalence)."""
     df = _make_panel(n=2_000, n_firm=80, seed=40)
     fit_hc1 = feols("y ~ x1 + x2 | firm", df, vcov="hc1")
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=2_000, seed=0,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=2_000,
+        seed=0,
         bootstrap="wild",
     )
     # Wild bootstrap with Rademacher weights converges to HC SE (not
     # HC1 — the n/(n-k) factor is asymptotically 1). 10% rtol matches
     # the pairs-bootstrap convergence rate at B=2000.
     np.testing.assert_allclose(
-        boot.se_boot["x1"], fit_hc1.se()["x1"], rtol=0.10,
+        boot.se_boot["x1"],
+        fit_hc1.se()["x1"],
+        rtol=0.10,
     )
     np.testing.assert_allclose(
-        boot.se_boot["x2"], fit_hc1.se()["x2"], rtol=0.10,
+        boot.se_boot["x2"],
+        fit_hc1.se()["x2"],
+        rtol=0.10,
     )
 
 
@@ -205,15 +266,24 @@ def test_wild_cluster_bootstrap_se_converges_to_cr1():
     """Wild cluster SE → CR1 SE as B → ∞."""
     df = _make_panel(n=2_000, n_firm=80, seed=41)
     fit_cr1 = feols(
-        "y ~ x1 + x2 | firm", df, vcov="cr1", cluster="cluster",
+        "y ~ x1 + x2 | firm",
+        df,
+        vcov="cr1",
+        cluster="cluster",
     )
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=2_000, seed=0,
-        bootstrap="wild_cluster", cluster="cluster",
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=2_000,
+        seed=0,
+        bootstrap="wild_cluster",
+        cluster="cluster",
     )
     # Wild cluster convergence is slower; allow 15%.
     np.testing.assert_allclose(
-        boot.se_boot["x1"], fit_cr1.se()["x1"], rtol=0.15,
+        boot.se_boot["x1"],
+        fit_cr1.se()["x1"],
+        rtol=0.15,
     )
 
 
@@ -227,17 +297,27 @@ def test_wild_bootstrap_point_estimate_matches_feols_jax():
             kw["cluster"] = "cluster"
         boot = feols_jax_bootstrap("y ~ x1 + x2 | firm", df, **kw)
         np.testing.assert_allclose(
-            boot.coef.values, fit.coef_vec, atol=1e-12,
+            boot.coef.values,
+            fit.coef_vec,
+            atol=1e-12,
         )
 
 
 def test_wild_bootstrap_same_seed_is_bit_identical():
     df = _make_panel(seed=43)
     b1 = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42, bootstrap="wild",
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=100,
+        seed=42,
+        bootstrap="wild",
     )
     b2 = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42, bootstrap="wild",
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=100,
+        seed=42,
+        bootstrap="wild",
     )
     np.testing.assert_array_equal(b1.boot_betas.values, b2.boot_betas.values)
 
@@ -245,12 +325,20 @@ def test_wild_bootstrap_same_seed_is_bit_identical():
 def test_wild_cluster_bootstrap_same_seed_is_bit_identical():
     df = _make_panel(seed=44)
     b1 = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42,
-        bootstrap="wild_cluster", cluster="cluster",
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=100,
+        seed=42,
+        bootstrap="wild_cluster",
+        cluster="cluster",
     )
     b2 = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=100, seed=42,
-        bootstrap="wild_cluster", cluster="cluster",
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=100,
+        seed=42,
+        bootstrap="wild_cluster",
+        cluster="cluster",
     )
     np.testing.assert_array_equal(b1.boot_betas.values, b2.boot_betas.values)
 
@@ -258,11 +346,18 @@ def test_wild_cluster_bootstrap_same_seed_is_bit_identical():
 def test_wild_bootstrap_records_correct_type():
     df = _make_panel(seed=45)
     boot_w = feols_jax_bootstrap(
-        "y ~ x1", df, n_boot=20, bootstrap="wild",
+        "y ~ x1",
+        df,
+        n_boot=20,
+        bootstrap="wild",
     )
     assert boot_w.bootstrap_type == "wild"
     boot_wc = feols_jax_bootstrap(
-        "y ~ x1", df, n_boot=20, bootstrap="wild_cluster", cluster="cluster",
+        "y ~ x1",
+        df,
+        n_boot=20,
+        bootstrap="wild_cluster",
+        cluster="cluster",
     )
     assert boot_wc.bootstrap_type == "wild_cluster"
 
@@ -274,7 +369,11 @@ def test_wild_score_bootstrap_matches_literal_refit_on_pseudo_y():
     df = _make_panel(seed=46).drop(columns=["firm"])  # no FE
     # Same RNG seed for reproducibility on both paths.
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2", df, n_boot=2, seed=99, bootstrap="wild",
+        "y ~ x1 + x2",
+        df,
+        n_boot=2,
+        seed=99,
+        bootstrap="wild",
     )
     score_beta = boot.boot_betas.iloc[0].values
 
@@ -283,9 +382,10 @@ def test_wild_score_bootstrap_matches_literal_refit_on_pseudo_y():
     fit = feols("y ~ x1 + x2", df, vcov="iid")
     import jax
     import jax.numpy as jnp
+
     n = len(df)
     key = jax.random.split(jax.random.PRNGKey(99), 2)[0]
-    eta = (2 * jax.random.bernoulli(key, p=0.5, shape=(n,)).astype(jnp.float64) - 1)
+    eta = 2 * jax.random.bernoulli(key, p=0.5, shape=(n,)).astype(jnp.float64) - 1
     eta_np = np.asarray(eta)
     X = np.column_stack([np.ones(n), df["x1"].values, df["x2"].values])
     y = df["y"].values
@@ -367,8 +467,11 @@ def test_missing_cluster_column_raises():
     df = _make_panel(seed=26)
     with pytest.raises(MethodIncompatibility, match="not_a_column"):
         feols_jax_bootstrap(
-            "y ~ x1", df, n_boot=10,
-            bootstrap="cluster", cluster="not_a_column",
+            "y ~ x1",
+            df,
+            n_boot=10,
+            bootstrap="cluster",
+            cluster="not_a_column",
         )
 
 
@@ -376,8 +479,11 @@ def test_one_cluster_after_pruning_raises_data_insufficient():
     df = _make_panel(n=80, n_firm=1, seed=27)
     with pytest.raises(DataInsufficient, match=">= 2 clusters"):
         feols_jax_bootstrap(
-            "y ~ x1", df, n_boot=10,
-            bootstrap="cluster", cluster="cluster",
+            "y ~ x1",
+            df,
+            n_boot=10,
+            bootstrap="cluster",
+            cluster="cluster",
         )
 
 
@@ -392,10 +498,14 @@ def test_bootstrap_singular_solve_raises_numerical_instability():
 # Summary + repr
 # ---------------------------------------------------------------------------
 
+
 def test_summary_contains_key_metadata():
     df = _make_panel(seed=30)
     boot = feols_jax_bootstrap(
-        "y ~ x1 + x2 | firm", df, n_boot=50, seed=0,
+        "y ~ x1 + x2 | firm",
+        df,
+        n_boot=50,
+        seed=0,
     )
     s = boot.summary()
     assert "feols_jax_bootstrap" in s

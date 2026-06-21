@@ -109,7 +109,9 @@ def test_kdensity_weighted_gaussian_matches_manual_kernel_sum():
     manual = []
     for g in grid:
         u = (g - df["x"].to_numpy()) / 0.5
-        manual.append(np.sum(weights * np.exp(-0.5 * u**2) / np.sqrt(2.0 * np.pi)) / 0.5)
+        manual.append(
+            np.sum(weights * np.exp(-0.5 * u**2) / np.sqrt(2.0 * np.pi)) / 0.5
+        )
     np.testing.assert_allclose(result.density, manual)
 
 

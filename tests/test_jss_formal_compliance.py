@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AUDIT = (
     REPO_ROOT
@@ -60,9 +59,7 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
     assert _m is not None, "could not read version from pyproject.toml"
     expected_version = _m.group(1)
 
-    payload = json.loads(
-        (RESULTS / "jss_formal_compliance_audit.json").read_text()
-    )
+    payload = json.loads((RESULTS / "jss_formal_compliance_audit.json").read_text())
     checks = {item["requirement"]: item for item in payload["checks"]}
 
     assert payload["status"] == "PASS"
@@ -124,8 +121,7 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
     assert "GPL-compatible software license is clearly indicated" in md
     assert "standalone replication script covers manuscript results" in md
     assert (
-        "reviewer output transcript for standalone replication script is included"
-        in md
+        "reviewer output transcript for standalone replication script is included" in md
     )
     assert "short reviewer replication path completes within one hour" in md
     assert "existing implementations and comparative scope are discussed" in md

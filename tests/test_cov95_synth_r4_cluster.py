@@ -6,6 +6,7 @@ placebo inference, plus the input-validation guard branches.
 
 Real multi-cluster donor panels (sklearn clustering). No mocking.
 """
+
 import numpy as np
 import pandas as pd
 import pytest

@@ -1,4 +1,5 @@
 """Tests for the Phase 7 JAX backend in ``sp.fast.demean``."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,10 +20,14 @@ def _panel(seed=0, n_units=80, n_periods=15):
     a = rng.normal(0, 0.5, size=n_units)[i]
     g = rng.normal(0, 0.3, size=n_periods)[t]
     y = 1.0 + 0.3 * x + a + g + rng.normal(size=n)
-    return pd.DataFrame({
-        "y": y, "x": x,
-        "i": i.astype(np.int32), "t": t.astype(np.int32),
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x": x,
+            "i": i.astype(np.int32),
+            "t": t.astype(np.int32),
+        }
+    )
 
 
 def test_jax_device_info_string():
@@ -36,10 +41,8 @@ def test_jax_demean_matches_rust():
     y = df["y"].to_numpy()
     fe = df[["i", "t"]].to_numpy()
 
-    y_rs, _ = sp.fast.demean(y, fe, backend="rust", drop_singletons=False,
-                              tol=1e-12)
-    y_jx, _ = sp.fast.demean(y, fe, backend="jax", drop_singletons=False,
-                              tol=1e-10)
+    y_rs, _ = sp.fast.demean(y, fe, backend="rust", drop_singletons=False, tol=1e-12)
+    y_jx, _ = sp.fast.demean(y, fe, backend="jax", drop_singletons=False, tol=1e-10)
     # JAX uses jit + accumulator order may differ slightly from Rust;
     # 1e-9 is well below any practical use case.
     assert np.allclose(y_rs, y_jx, atol=1e-9)
@@ -68,15 +71,14 @@ def test_jax_oneway_exact():
 
 def test_jax_unknown_backend_rejected():
     with pytest.raises(ValueError, match="backend"):
-        sp.fast.demean(np.zeros(10), [np.zeros(10, dtype=np.int64)],
-                        backend="cupy")
+        sp.fast.demean(np.zeros(10), [np.zeros(10, dtype=np.int64)], backend="cupy")
 
 
 def test_jax_when_unavailable_raises():
     """If backend='jax' is forced and jax cannot be imported, we must raise."""
     import statspai.fast.jax_backend as jb_mod
+
     if jb_mod._HAS_JAX:
         pytest.skip("jax is installed — cannot test missing-jax path")
     with pytest.raises(RuntimeError, match="jax"):
-        sp.fast.demean(np.zeros(10), [np.zeros(10, dtype=np.int64)],
-                        backend="jax")
+        sp.fast.demean(np.zeros(10), [np.zeros(10, dtype=np.int64)], backend="jax")

@@ -150,7 +150,9 @@ def test_stata_skip_reasons_are_not_reported_as_missing_harnesses():
     assert "Stata 19" in not_materialized["13_causal_forest"]["description"]
     assert "fect_stata" in not_materialized["19_gsynth"]["description"]
     assert "0.679854" in not_materialized["19_gsynth"]["description"]
-    assert "force(two-way/unit/time/none)" in not_materialized["19_gsynth"]["description"]
+    assert (
+        "force(two-way/unit/time/none)" in not_materialized["19_gsynth"]["description"]
+    )
 
 
 def test_dml_dfl_rif_and_cr2_have_materialized_stata_mata_bridges():

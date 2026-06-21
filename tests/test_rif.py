@@ -1,4 +1,5 @@
 """RIF regression and decomposition tests."""
+
 import numpy as np, pandas as pd, pytest
 from statspai.decomposition.rif import rifreg, rif_decomposition, rif_values
 
@@ -24,15 +25,13 @@ def test_rif_ols_variance_positive_effect(wage_dgp):
 
 
 def test_rif_decomposition_total_equals_sum(wage_dgp):
-    r = rif_decomposition("y ~ x", wage_dgp, group="g",
-                          statistic="quantile", tau=0.5)
+    r = rif_decomposition("y ~ x", wage_dgp, group="g", statistic="quantile", tau=0.5)
     assert abs(r.total_diff - (r.explained + r.unexplained)) < 1e-8
 
 
 def test_rif_decomposition_unexplained_captures_group_effect(wage_dgp):
-    r = rif_decomposition("y ~ x", wage_dgp, group="g",
-                          statistic="quantile", tau=0.5)
-    assert r.unexplained > 1.0     # group coeff ≈ 1.5
+    r = rif_decomposition("y ~ x", wage_dgp, group="g", statistic="quantile", tau=0.5)
+    assert r.unexplained > 1.0  # group coeff ≈ 1.5
 
 
 def test_rif_values_quantile_shape():
@@ -53,9 +52,7 @@ def test_rif_values_dineq_quantile_convention_matches_r_reference():
         ]
     )
 
-    rif = rif_values(
-        y, "quantile", tau=0.5, quantile_convention="dineq"
-    )
+    rif = rif_values(y, "quantile", tau=0.5, quantile_convention="dineq")
     np.testing.assert_allclose(rif, expected)
 
 
@@ -71,5 +68,6 @@ def test_rif_rejects_unknown_quantile_convention():
 
 def test_exported():
     import statspai as sp
+
     assert callable(sp.rifreg)
     assert callable(sp.rif_decomposition)

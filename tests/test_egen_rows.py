@@ -132,9 +132,7 @@ def test_outlier_indicator_combined_any():
     assert "_outlier_any" in out.columns
     # _outlier_any must equal the OR of the per-variable flags.
     expected_any = ((out["x_outlier"] + out["y_outlier"]) > 0).astype(int)
-    pd.testing.assert_series_equal(
-        out["_outlier_any"], expected_any, check_names=False
-    )
+    pd.testing.assert_series_equal(out["_outlier_any"], expected_any, check_names=False)
 
 
 def test_outlier_indicator_ignores_nan_rows():

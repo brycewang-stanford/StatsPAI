@@ -44,8 +44,15 @@ def test_mte_helpers():
 
 def test_mte_logit_summary():
     df = _binary_df(seed=1)
-    r = sp.iv.mte(y="y", treatment="d", instruments="z", exog="x", data=df,
-                  poly_degree=2, propensity_model="logit")
+    r = sp.iv.mte(
+        y="y",
+        treatment="d",
+        instruments="z",
+        exog="x",
+        data=df,
+        poly_degree=2,
+        propensity_model="logit",
+    )
     s = r.summary()
     assert "Marginal Treatment Effects" in s
     assert "ATE" in s and "ATT" in s
@@ -55,40 +62,70 @@ def test_mte_logit_summary():
 
 def test_mte_probit_propensity():
     df = _binary_df(seed=2)
-    r = sp.iv.mte(y="y", treatment="d", instruments="z", exog="x", data=df,
-                  poly_degree=1, propensity_model="probit")
+    r = sp.iv.mte(
+        y="y",
+        treatment="d",
+        instruments="z",
+        exog="x",
+        data=df,
+        poly_degree=1,
+        propensity_model="probit",
+    )
     assert np.isfinite(r.ate)
 
 
 def test_mte_linear_propensity():
     df = _binary_df(seed=3)
-    r = sp.iv.mte(y="y", treatment="d", instruments="z", exog="x", data=df,
-                  poly_degree=1, propensity_model="linear")
+    r = sp.iv.mte(
+        y="y",
+        treatment="d",
+        instruments="z",
+        exog="x",
+        data=df,
+        poly_degree=1,
+        propensity_model="linear",
+    )
     assert np.isfinite(r.ate)
 
 
 def test_mte_no_exog_array_inputs():
     df = _binary_df(seed=4)
     # pass arrays (no data) to exercise reshape branches + no-exog path
-    r = sp.iv.mte(y=df["y"].to_numpy(), treatment=df["d"].to_numpy(),
-                  instruments=df["z"].to_numpy(), poly_degree=1)
+    r = sp.iv.mte(
+        y=df["y"].to_numpy(),
+        treatment=df["d"].to_numpy(),
+        instruments=df["z"].to_numpy(),
+        poly_degree=1,
+    )
     assert r.n_obs > 0
 
 
 def test_mte_bootstrap_se():
     df = _binary_df(seed=5)
-    r = sp.iv.mte(y="y", treatment="d", instruments="z", exog="x", data=df,
-                  poly_degree=1, bootstrap=25, random_state=0)
+    r = sp.iv.mte(
+        y="y",
+        treatment="d",
+        instruments="z",
+        exog="x",
+        data=df,
+        poly_degree=1,
+        bootstrap=25,
+        random_state=0,
+    )
     # bootstrap should populate att_se/atu_se or n_successful_draws
-    assert ("att_se" in r.extra) or ("n_successful_draws" in r.extra) \
+    assert (
+        ("att_se" in r.extra)
+        or ("n_successful_draws" in r.extra)
         or np.isfinite(r.ate_se)
+    )
 
 
 def test_mte_no_const_no_exog():
     # add_const=False and exog=None -> X_raw empty -> falls back to ones (180)
     df = _binary_df(seed=14)
-    r = sp.iv.mte(y="y", treatment="d", instruments="z", data=df,
-                  poly_degree=1, add_const=False)
+    r = sp.iv.mte(
+        y="y", treatment="d", instruments="z", data=df, poly_degree=1, add_const=False
+    )
     assert np.isfinite(r.ate)
 
 
@@ -103,8 +140,9 @@ def test_mte_degree_too_high_raises():
     # very high poly degree relative to arm sizes -> "Not enough observations"
     df = _binary_df(n=40, seed=7)
     with pytest.raises(ValueError, match="Not enough observations"):
-        sp.iv.mte(y="y", treatment="d", instruments="z", exog="x", data=df,
-                  poly_degree=8)
+        sp.iv.mte(
+            y="y", treatment="d", instruments="z", exog="x", data=df, poly_degree=8
+        )
 
 
 def test_fit_propensity_models():
@@ -147,5 +185,6 @@ def test_mte_point_only_too_small_raises():
     Y = 1.0 + D + rng.normal(size=n)
     u = np.linspace(0.02, 0.98, 51)
     with pytest.raises(ValueError):
-        _mte._mte_point_only(Y, D, Z, X, K=2, u_grid=u,
-                             propensity_model="logit", trim=0.01)
+        _mte._mte_point_only(
+            Y, D, Z, X, K=2, u_grid=u, propensity_model="logit", trim=0.01
+        )

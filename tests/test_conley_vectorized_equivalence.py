@@ -6,6 +6,7 @@ per-pair Python ``np.outer`` loops to vectorized matrix products
 the vectorized output to an *independent* explicit-loop reference computation
 of the same estimator, so any algebraic drift is caught.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -52,12 +53,14 @@ def _reference_conley_se(result, data, lat, lon, dist_cutoff, kernel):
 
 def _fixture(n=500, seed=1):
     rng = np.random.default_rng(seed)
-    df = pd.DataFrame({
-        "x1": rng.normal(size=n),
-        "x2": rng.normal(size=n),
-        "latitude": rng.uniform(30, 45, n),
-        "longitude": rng.uniform(-120, -80, n),
-    })
+    df = pd.DataFrame(
+        {
+            "x1": rng.normal(size=n),
+            "x2": rng.normal(size=n),
+            "latitude": rng.uniform(30, 45, n),
+            "longitude": rng.uniform(-120, -80, n),
+        }
+    )
     df["y"] = 1 + 0.5 * df.x1 - 0.3 * df.x2 + rng.normal(size=n)
     return df
 
@@ -65,8 +68,9 @@ def _fixture(n=500, seed=1):
 def test_conley_uniform_matches_reference_loop():
     df = _fixture()
     res = sp.regress("y ~ x1 + x2", data=df)
-    c = sp.conley(res, data=df, lat="latitude", lon="longitude",
-                  dist_cutoff=400, kernel="uniform")
+    c = sp.conley(
+        res, data=df, lat="latitude", lon="longitude", dist_cutoff=400, kernel="uniform"
+    )
     ref = _reference_conley_se(res, df, "latitude", "longitude", 400, "uniform")
     np.testing.assert_allclose(c.std_errors.values, ref, rtol=1e-10, atol=1e-12)
 
@@ -74,7 +78,13 @@ def test_conley_uniform_matches_reference_loop():
 def test_conley_bartlett_matches_reference_loop():
     df = _fixture(seed=7)
     res = sp.regress("y ~ x1 + x2", data=df)
-    c = sp.conley(res, data=df, lat="latitude", lon="longitude",
-                  dist_cutoff=350, kernel="bartlett")
+    c = sp.conley(
+        res,
+        data=df,
+        lat="latitude",
+        lon="longitude",
+        dist_cutoff=350,
+        kernel="bartlett",
+    )
     ref = _reference_conley_se(res, df, "latitude", "longitude", 350, "bartlett")
     np.testing.assert_allclose(c.std_errors.values, ref, rtol=1e-10, atol=1e-12)

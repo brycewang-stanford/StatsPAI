@@ -5,6 +5,7 @@ battle-tested HDFE implementation) and ``ppmlhdfe`` (Stata's reference);
 since neither is callable in-process, we use ``pyfixest.fepois`` as a
 proxy and add a separate Rscript-based fixest comparison if R is found.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -19,13 +20,12 @@ import pytest
 import statspai as sp
 from statspai.exceptions import MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Synthetic Poisson DGP
 # ---------------------------------------------------------------------------
 
-def _poisson_panel(n=5_000, n_units=200, n_periods=25, seed=0,
-                    beta=(0.30, -0.20)):
+
+def _poisson_panel(n=5_000, n_units=200, n_periods=25, seed=0, beta=(0.30, -0.20)):
     rng = np.random.default_rng(seed)
     i = np.repeat(np.arange(n_units), n_periods)[:n]
     t = np.tile(np.arange(n_periods), n_units)[:n]
@@ -38,14 +38,21 @@ def _poisson_panel(n=5_000, n_units=200, n_periods=25, seed=0,
     eta = np.clip(eta, -10, 10)
     mu = np.exp(eta)
     y = rng.poisson(mu).astype(np.int64)
-    return pd.DataFrame({"y": y, "x1": x1, "x2": x2,
-                         "fe1": i.astype(np.int32),
-                         "fe2": t.astype(np.int32)})
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "fe1": i.astype(np.int32),
+            "fe2": t.astype(np.int32),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Coefficient + SE parity against pyfixest
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("seed", [0, 1, 7])
 def test_coef_matches_pyfixest_iid(seed):
@@ -55,8 +62,9 @@ def test_coef_matches_pyfixest_iid(seed):
     df = _poisson_panel(seed=seed)
 
     fit = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
-    pf_fit = pf.fepois(fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-                      vcov="iid", fixef_rm="singleton")
+    pf_fit = pf.fepois(
+        fml="y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid", fixef_rm="singleton"
+    )
 
     for k in ("x1", "x2"):
         diff = abs(float(fit.coef()[k]) - float(pf_fit.coef()[k]))
@@ -70,8 +78,9 @@ def test_se_matches_pyfixest_iid_with_ssc():
     df = _poisson_panel(seed=2)
 
     fit = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
-    pf_fit = pf.fepois(fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-                      vcov="iid", fixef_rm="singleton")
+    pf_fit = pf.fepois(
+        fml="y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid", fixef_rm="singleton"
+    )
     for k in ("x1", "x2"):
         diff = abs(float(fit.se()[k]) - float(pf_fit.se()[k]))
         assert diff < 1e-7, f"SE[{k}] diff {diff:.3e} > 1e-7"
@@ -88,6 +97,7 @@ def test_iterations_and_convergence():
 # Edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_separation_rows_dropped():
     """Rows in all-zero FE clusters must be removed by the pre-pass."""
     rng = np.random.default_rng(11)
@@ -103,8 +113,7 @@ def test_separation_rows_dropped():
     y[fe1 == 0] = 0  # introduce separation
     df = pd.DataFrame({"y": y, "x1": x1, "x2": x2, "fe1": fe1, "fe2": fe2})
 
-    fit = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", df,
-                          drop_separation=True)
+    fit = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", df, drop_separation=True)
     # All rows in fe1==0 have y==0, so they are detected by the separation
     # pre-pass. (Pre-fix, the singleton/separation counts were lumped
     # under ``n_dropped_singletons``; the split is now correct.)
@@ -131,10 +140,13 @@ def test_no_fe_means_intercept_only_poisson():
 
 
 def test_negative_y_rejected():
-    df = pd.DataFrame({
-        "y": [1, -1, 2, 3], "x1": [0.0, 1.0, 2.0, 3.0],
-        "fe1": [0, 1, 0, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1, -1, 2, 3],
+            "x1": [0.0, 1.0, 2.0, 3.0],
+            "fe1": [0, 1, 0, 1],
+        }
+    )
     with pytest.raises(ValueError, match="non-negative"):
         sp.fast.fepois("y ~ x1 | fe1", df)
 
@@ -190,6 +202,7 @@ def test_unknown_vcov_rejected():
 # Result object surface
 # ---------------------------------------------------------------------------
 
+
 def test_result_object_api():
     df = _poisson_panel(seed=5)
     fit = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", df)
@@ -236,13 +249,17 @@ def test_fepois_result_protocol_json_safe():
 # Cross-engine verification with R fixest (parity test)
 # ---------------------------------------------------------------------------
 
+
 def test_weights_unweighted_matches_default():
     """Passing all-1 weights must reproduce the unweighted fit bit-for-bit."""
     df = _poisson_panel(seed=20)
     df["w_one"] = 1.0
     fit_default = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
     fit_w = sp.fast.fepois(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="iid", weights="w_one",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="iid",
+        weights="w_one",
     )
     for k in ("x1", "x2"):
         assert abs(float(fit_default.coef()[k]) - float(fit_w.coef()[k])) < 1e-12
@@ -257,11 +274,17 @@ def test_weights_match_pyfixest_with_obs_weights():
     # Heterogeneous obs weights (uniform ish, all positive)
     df["w"] = 0.5 + rng.random(len(df))
     fit = sp.fast.fepois(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="iid", weights="w",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="iid",
+        weights="w",
     )
     pf_fit = pf.fepois(
-        fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-        vcov="iid", fixef_rm="singleton", weights="w",
+        fml="y ~ x1 + x2 | fe1 + fe2",
+        data=df,
+        vcov="iid",
+        fixef_rm="singleton",
+        weights="w",
     )
     for k in ("x1", "x2"):
         diff = abs(float(fit.coef()[k]) - float(pf_fit.coef()[k]))
@@ -342,6 +365,7 @@ def test_coefs_match_r_fixest(tmp_path):
 # Cluster-robust SE (CR1) — Phase 4 follow-up wired through fepois
 # ---------------------------------------------------------------------------
 
+
 def test_fepois_cluster_validation():
     df = _poisson_panel(seed=40)
     # vcov='cr1' without cluster
@@ -356,7 +380,10 @@ def test_fepois_cluster_validation():
     # missing cluster column
     with pytest.raises(MethodIncompatibility, match="missing"):
         sp.fast.fepois(
-            "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="not_a_col",
+            "y ~ x1 + x2 | fe1 + fe2",
+            df,
+            vcov="cr1",
+            cluster="not_a_col",
         )
 
 
@@ -375,7 +402,10 @@ def test_fepois_cluster_iid_sanity():
     df = _poisson_panel(seed=42, n_units=80, n_periods=20)
     fit_iid = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
     fit_cr1 = sp.fast.fepois(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="cr1",
+        cluster="fe1",
     )
     # Same coefs (same IRLS path)
     for k in ("x1", "x2"):
@@ -399,7 +429,10 @@ def test_fepois_cluster_closed_form():
     """
     df = _poisson_panel(seed=43, n_units=50, n_periods=20)
     fit = sp.fast.fepois(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="cr1",
+        cluster="fe1",
     )
 
     # Reconstruct demeaned X / y at the converged μ. To do this we need
@@ -428,9 +461,9 @@ def test_fepois_cluster_closed_form():
     se_iid = fit_iid.se()
     # On a panel with within-cluster correlation in the score, cluster
     # SE typically differs from iid by a non-trivial amount.
-    assert not np.allclose(se_cr1.values, se_iid.values, rtol=1e-6), (
-        "cluster SE accidentally equal to iid SE — CR1 path may be no-op"
-    )
+    assert not np.allclose(
+        se_cr1.values, se_iid.values, rtol=1e-6
+    ), "cluster SE accidentally equal to iid SE — CR1 path may be no-op"
 
 
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript not on PATH")
@@ -444,7 +477,10 @@ def test_fepois_cluster_se_close_to_r_fixest(tmp_path):
     csv_path = tmp_path / "panel.csv"
     df.to_csv(csv_path, index=False)
     fit = sp.fast.fepois(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="cr1",
+        cluster="fe1",
     )
 
     r_script = (
@@ -456,7 +492,10 @@ def test_fepois_cluster_se_close_to_r_fixest(tmp_path):
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
-        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=120,
+        ["Rscript", "-e", r_script],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if proc.returncode != 0:
         pytest.skip(f"Rscript failed: {proc.stderr[:200]}")
@@ -513,14 +552,15 @@ def test_se_matches_r_fixest_iid(tmp_path):
         sp_se = float(fit.se()[k])
         r_se = float(r_out["se"][k])
         rel = abs(sp_se - r_se) / max(abs(r_se), 1e-15)
-        assert rel < 0.01, (
-            f"SE drift at {k}: sp={sp_se:.6e} fixest={r_se:.6e} rel={rel:.3e}"
-        )
+        assert (
+            rel < 0.01
+        ), f"SE drift at {k}: sp={sp_se:.6e} fixest={r_se:.6e} rel={rel:.3e}"
 
 
 # ---------------------------------------------------------------------------
 # Phase A: Rust weighted demean parity (FFI test)
 # ---------------------------------------------------------------------------
+
 
 def test_rust_weighted_demean_matches_numpy_kernel():
     """The Rust ``demean_2d_weighted`` must match the existing pure-NumPy
@@ -548,8 +588,14 @@ def test_rust_weighted_demean_matches_numpy_kernel():
         counts1 = np.bincount(codes1, minlength=G1).astype(np.float64)
         counts2 = np.bincount(codes2, minlength=G2).astype(np.float64)
         X_ref, _, conv_ref = _numpy_weighted(
-            X.copy(), [codes1, codes2], [counts1, counts2], weights,
-            max_iter=1000, tol=1e-10, accelerate=True, accel_period=5,
+            X.copy(),
+            [codes1, codes2],
+            [counts1, counts2],
+            weights,
+            max_iter=1000,
+            tol=1e-10,
+            accelerate=True,
+            accel_period=5,
         )
         assert conv_ref, f"seed={seed}: NumPy reference did not converge"
 
@@ -558,14 +604,25 @@ def test_rust_weighted_demean_matches_numpy_kernel():
         wsum2 = np.bincount(codes2, weights=weights, minlength=G2)
         X_rust = np.asfortranarray(X.copy())
         infos = _r.demean_2d_weighted(
-            X_rust, [codes1, codes2], [wsum1, wsum2], weights,
-            1000, 0.0, 1e-10, True, 5,
+            X_rust,
+            [codes1, codes2],
+            [wsum1, wsum2],
+            weights,
+            1000,
+            0.0,
+            1e-10,
+            True,
+            5,
         )
-        assert all(d["converged"] for d in infos), \
-            f"seed={seed}: Rust path did not converge (infos={infos})"
+        assert all(
+            d["converged"] for d in infos
+        ), f"seed={seed}: Rust path did not converge (infos={infos})"
 
         np.testing.assert_allclose(
-            X_rust, X_ref, atol=1e-14, rtol=0,
+            X_rust,
+            X_ref,
+            atol=1e-14,
+            rtol=0,
             err_msg=f"seed={seed}: Rust weighted demean diverged from NumPy reference",
         )
 
@@ -600,8 +657,10 @@ def test_fepois_rust_path_coef_parity_vs_pyfixest():
     fit_sp = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid")
     fit_pf = pf.fepois("y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid")
     np.testing.assert_allclose(
-        fit_sp.coef().values, fit_pf.coef().values,
-        atol=1e-13, rtol=0,
+        fit_sp.coef().values,
+        fit_pf.coef().values,
+        atol=1e-13,
+        rtol=0,
     )
 
 
@@ -628,8 +687,10 @@ def test_fepois_rust_path_with_weights():
     fit_sp = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", data=df, weights="w", vcov="iid")
     fit_pf = pf.fepois("y ~ x1 + x2 | fe1 + fe2", data=df, weights="w", vcov="iid")
     np.testing.assert_allclose(
-        fit_sp.coef().values, fit_pf.coef().values,
-        atol=1e-13, rtol=0,
+        fit_sp.coef().values,
+        fit_pf.coef().values,
+        atol=1e-13,
+        rtol=0,
     )
 
 
@@ -642,6 +703,7 @@ def test_fepois_falls_back_when_rust_unavailable(monkeypatch):
     """
     pytest.importorskip("statspai_hdfe")
     import importlib
+
     _fepois_mod = importlib.import_module("statspai.fast.fepois")
 
     df = _make_synthetic_panel(seed=99)
@@ -652,8 +714,10 @@ def test_fepois_falls_back_when_rust_unavailable(monkeypatch):
     fit_numpy = sp.fast.fepois("y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid")
 
     np.testing.assert_allclose(
-        fit_rust.coef().values, fit_numpy.coef().values,
-        atol=1e-12, rtol=0,
+        fit_rust.coef().values,
+        fit_numpy.coef().values,
+        atol=1e-12,
+        rtol=0,
         err_msg="Rust and NumPy fallback paths disagree",
     )
 
@@ -672,6 +736,7 @@ def test_fepois_native_irls_vs_python_irls_parity(monkeypatch):
     pytest.importorskip("statspai_hdfe")
     import importlib
     import statspai_hdfe
+
     _fepois_mod = importlib.import_module("statspai.fast.fepois")
 
     if not hasattr(statspai_hdfe, "fepois_irls"):
@@ -693,13 +758,17 @@ def test_fepois_native_irls_vs_python_irls_parity(monkeypatch):
     setattr(_fepois_mod._rust_hdfe, "fepois_irls", real_fepois_irls)
 
     np.testing.assert_allclose(
-        fit_native.coef().values, fit_py.coef().values,
-        atol=1e-10, rtol=0,
+        fit_native.coef().values,
+        fit_py.coef().values,
+        atol=1e-10,
+        rtol=0,
         err_msg="Native Rust IRLS coef diverges from Python IRLS for-loop",
     )
     np.testing.assert_allclose(
-        fit_native.se().values, fit_py.se().values,
-        atol=1e-7, rtol=0,
+        fit_native.se().values,
+        fit_py.se().values,
+        atol=1e-7,
+        rtol=0,
         err_msg="Native Rust IRLS SE diverges from Python IRLS for-loop",
     )
 
@@ -711,6 +780,7 @@ def test_separation_rust_matches_python_fallback():
     """
     pytest.importorskip("statspai_hdfe")
     import statspai_hdfe
+
     if not hasattr(statspai_hdfe, "separation_mask"):
         pytest.skip("statspai_hdfe wheel pre-dates the separation_mask binding")
     from statspai.fast.fepois import (
@@ -737,6 +807,7 @@ def test_separation_rust_matches_python_fallback():
         rust_mask = _drop_separation_dispatcher(y, [codes1, codes2])
 
         np.testing.assert_array_equal(
-            rust_mask, ref_mask,
+            rust_mask,
+            ref_mask,
             err_msg=f"seed={seed}: Rust separation mask diverges from NumPy reference",
         )

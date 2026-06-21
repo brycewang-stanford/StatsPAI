@@ -44,8 +44,7 @@ def _did_panel(seed=0, n_per_group=6, n_t=10, treat_time=5, effect=3.0):
             for t in range(1, n_t + 1):
                 post = 1 if t >= treat_time else 0
                 y = base + 0.4 * t + (effect * is_t * post) + rng.normal(0, 0.2)
-                rows.append({"unit": f"{g}{u}", "time": t, "y": y,
-                             "treated": is_t})
+                rows.append({"unit": f"{g}{u}", "time": t, "y": y, "treated": is_t})
     return pd.DataFrame(rows)
 
 
@@ -57,8 +56,9 @@ def _rollout_panel(seed=0, n_t=12):
     for u, g in cohorts.items():
         for t in range(1, n_t + 1):
             d = 1 if (g != 0 and t >= g) else 0
-            rows.append({"unit": u, "time": t,
-                         "y": rng.normal(0, 1) + d, "d": d, "cohort": g})
+            rows.append(
+                {"unit": u, "time": t, "y": rng.normal(0, 1) + d, "d": d, "cohort": g}
+            )
     return pd.DataFrame(rows)
 
 
@@ -88,8 +88,9 @@ def test_did_plot_counterfactual_and_annotation():
 
 def test_did_plot_no_counterfactual():
     df = _did_panel(seed=2)
-    fig, ax = sp.did_plot(df, y="y", time="time", treat="treated",
-                          treat_time=5, show_counterfactual=False)
+    fig, ax = sp.did_plot(
+        df, y="y", time="time", treat="treated", treat_time=5, show_counterfactual=False
+    )
     assert _is_fig(fig)
     labels = {t.get_text() for t in ax.get_legend().get_texts()}
     assert "Counterfactual" not in labels
@@ -115,11 +116,20 @@ def test_did_plot_custom_labels_colors_and_ax():
     df = _did_panel(seed=5)
     fig0, ax0 = plt.subplots()
     fig, ax = sp.did_plot(
-        df, y="y", time="time", treat="treated", treat_time=5,
-        labels={"treat": "Adopters", "control": "Non-adopters",
-                "counterfactual": "No-policy"},
+        df,
+        y="y",
+        time="time",
+        treat="treated",
+        treat_time=5,
+        labels={
+            "treat": "Adopters",
+            "control": "Non-adopters",
+            "counterfactual": "No-policy",
+        },
         colors=("#111111", "#222222", "#333333"),
-        ax=ax0, title="Custom DiD", annotate_effect=False,
+        ax=ax0,
+        title="Custom DiD",
+        annotate_effect=False,
     )
     assert ax is ax0
     labels = {t.get_text() for t in ax.get_legend().get_texts()}
@@ -141,8 +151,9 @@ def test_treatment_rollout_binary_treat():
 def test_treatment_rollout_cohort_coded_treat():
     df = _rollout_panel(seed=1)
     # 'cohort' holds the first-treat period (0 = never) → non-binary branch
-    fig, ax = sp.treatment_rollout_plot(df, time="time", treat="cohort",
-                                        id="unit", sort_by="treat_time")
+    fig, ax = sp.treatment_rollout_plot(
+        df, time="time", treat="cohort", id="unit", sort_by="treat_time"
+    )
     assert _is_fig(fig)
     assert len(ax.get_images()) == 1
     # cohort boundary labels rendered (g=4 / g=7 / g=10 / Never)
@@ -152,8 +163,9 @@ def test_treatment_rollout_cohort_coded_treat():
 
 def test_treatment_rollout_sort_by_id():
     df = _rollout_panel(seed=2)
-    fig, ax = sp.treatment_rollout_plot(df, time="time", treat="d", id="unit",
-                                        sort_by="id")
+    fig, ax = sp.treatment_rollout_plot(
+        df, time="time", treat="d", id="unit", sort_by="id"
+    )
     assert _is_fig(fig)
 
 
@@ -161,8 +173,7 @@ def test_treatment_rollout_long_horizon_and_supplied_ax():
     # >20 time periods → the down-sampled x-tick branch; caller-supplied ax.
     df = _rollout_panel(seed=3, n_t=24)
     fig0, ax0 = plt.subplots()
-    fig, ax = sp.treatment_rollout_plot(df, time="time", treat="d", id="unit",
-                                        ax=ax0)
+    fig, ax = sp.treatment_rollout_plot(df, time="time", treat="d", id="unit", ax=ax0)
     assert ax is ax0
     assert len(ax.get_images()) == 1
 
@@ -170,8 +181,9 @@ def test_treatment_rollout_long_horizon_and_supplied_ax():
 def test_treatment_rollout_no_cohort_labels():
     # show_cohort_labels=False with a small (≤30-unit) panel → per-unit yticks.
     df = _rollout_panel(seed=4)
-    fig, ax = sp.treatment_rollout_plot(df, time="time", treat="d", id="unit",
-                                        show_cohort_labels=False)
+    fig, ax = sp.treatment_rollout_plot(
+        df, time="time", treat="d", id="unit", show_cohort_labels=False
+    )
     assert _is_fig(fig)
     yt = {t.get_text() for t in ax.get_yticklabels()}
     assert "a4" in yt  # individual unit labels, not cohort labels
@@ -183,7 +195,12 @@ def test_treatment_rollout_no_cohort_labels():
 def test_parallel_trends_binary_with_treatment_line():
     df = _did_panel(seed=6)
     fig, ax = sp.parallel_trends_plot(
-        df, y="y", time="time", treat="treated", treat_time=5, ci=True,
+        df,
+        y="y",
+        time="time",
+        treat="treated",
+        treat_time=5,
+        ci=True,
     )
     assert _is_fig(fig)
     # treated + control lines + treatment-onset axvline → 'Treatment' legend
@@ -195,8 +212,14 @@ def test_parallel_trends_median_aggregation_with_ax():
     df = _did_panel(seed=7)
     fig0, ax0 = plt.subplots()
     fig, ax = sp.parallel_trends_plot(
-        df, y="y", time="time", treat="treated", agg="median",
-        ci=True, ax=ax0, title="PT median",
+        df,
+        y="y",
+        time="time",
+        treat="treated",
+        agg="median",
+        ci=True,
+        ax=ax0,
+        title="PT median",
     )
     assert ax is ax0
     assert ax.get_title() == "PT median"
@@ -206,22 +229,28 @@ def test_parallel_trends_median_aggregation_with_ax():
 # sp.bacon_plot — caller-supplied ax + empty-decomposition guard
 # --------------------------------------------------------------------------
 def test_bacon_plot_supplied_ax_and_custom_colors():
-    bacon = sp.bacon_decomposition(_rollout_panel(seed=0), y="y", treat="d",
-                                   time="time", id="unit")
+    bacon = sp.bacon_decomposition(
+        _rollout_panel(seed=0), y="y", treat="d", time="time", id="unit"
+    )
     fig0, ax0 = plt.subplots()
     fig, ax = sp.bacon_plot(
-        bacon, ax=ax0,
-        colors={"Treated vs Never-treated": "#123456",
-                "Earlier vs Later treated": "#234567",
-                "Later vs Already-treated": "#345678"},
+        bacon,
+        ax=ax0,
+        colors={
+            "Treated vs Never-treated": "#123456",
+            "Earlier vs Later treated": "#234567",
+            "Later vs Already-treated": "#345678",
+        },
     )
     assert ax is ax0
     assert _is_fig(fig)
 
 
 def test_bacon_plot_empty_decomposition_raises():
-    empty = {"decomposition": pd.DataFrame(columns=["type", "weight", "estimate"]),
-             "beta_twfe": 0.0}
+    empty = {
+        "decomposition": pd.DataFrame(columns=["type", "weight", "estimate"]),
+        "beta_twfe": 0.0,
+    }
     with pytest.raises(ValueError, match="no sub-comparisons"):
         sp.bacon_plot(empty)
 
@@ -231,8 +260,14 @@ def test_bacon_plot_empty_decomposition_raises():
 # --------------------------------------------------------------------------
 def test_did_summary_plot_forest_with_ax():
     df = sp.dgp_did(n_units=80, n_periods=8, staggered=True, seed=2026)
-    out = sp.did_summary(df, y="y", time="time", first_treat="first_treat",
-                         group="unit", methods=["cs", "etwfe"])
+    out = sp.did_summary(
+        df,
+        y="y",
+        time="time",
+        first_treat="first_treat",
+        group="unit",
+        methods=["cs", "etwfe"],
+    )
     fig0, ax0 = plt.subplots()
     fig, ax = sp.did_summary_plot(out, ax=ax0, reference=0.0)
     assert ax is ax0
@@ -265,14 +300,18 @@ def test_did_summary_plot_rejects_all_nan_estimates():
     import types
 
     # Marker + estimate column present, but every method failed to fit (all NaN).
-    nan_detail = pd.DataFrame({
-        "method": ["cs", "etwfe"],
-        "estimate": [np.nan, np.nan],
-        "ci_low": [np.nan, np.nan],
-        "ci_high": [np.nan, np.nan],
-    })
+    nan_detail = pd.DataFrame(
+        {
+            "method": ["cs", "etwfe"],
+            "estimate": [np.nan, np.nan],
+            "ci_low": [np.nan, np.nan],
+            "ci_high": [np.nan, np.nan],
+        }
+    )
     res = types.SimpleNamespace(
-        model_info={"_did_summary_marker": True}, detail=nan_detail, estimate=np.nan,
+        model_info={"_did_summary_marker": True},
+        detail=nan_detail,
+        estimate=np.nan,
     )
     with pytest.raises(ValueError, match="No successfully-fit methods"):
         sp.did_summary_plot(res)

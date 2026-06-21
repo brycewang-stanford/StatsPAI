@@ -28,6 +28,7 @@ def test_queen_vs_rook_edge_vs_corner(three_squares):
 
 def test_contiguity_without_geopandas_raises(monkeypatch):
     import statspai.spatial.weights.contiguity as mod
+
     monkeypatch.setattr(mod, "_gpd", None)
     with pytest.raises(ImportError, match="geopandas"):
         mod.queen_weights(object())

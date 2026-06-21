@@ -18,6 +18,7 @@ family functions (network_exposure / peer_effects /
 weighted_conformal_prediction / conformal_counterfactual /
 conformal_ite_interval) now surface in ``sp.list_functions()``.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 # ======================================================================
 # Shared fixtures
@@ -71,60 +71,92 @@ def _spillover_df(n_households: int = 80, seed: int = 0):
 class TestMRDispatcher:
     def test_ivw_matches_direct_call(self):
         bx, by, sx, sy = _mr_arrays()
-        r_disp = sp.mr("ivw", beta_exposure=bx, beta_outcome=by,
-                       se_exposure=sx, se_outcome=sy)
+        r_disp = sp.mr(
+            "ivw", beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy
+        )
         r_direct = sp.mr_ivw(bx, by, sx, sy)
         assert r_disp["estimate"] == pytest.approx(r_direct["estimate"])
         assert r_disp["se"] == pytest.approx(r_direct["se"])
 
     def test_egger_matches_direct_call(self):
         bx, by, sx, sy = _mr_arrays()
-        r_disp = sp.mr("egger", beta_exposure=bx, beta_outcome=by,
-                       se_exposure=sx, se_outcome=sy)
+        r_disp = sp.mr(
+            "egger", beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy
+        )
         r_direct = sp.mr_egger(bx, by, sx, sy)
         assert r_disp["estimate"] == pytest.approx(r_direct["estimate"])
         assert r_disp["intercept"] == pytest.approx(r_direct["intercept"])
 
     def test_median_matches_direct_call(self):
         bx, by, sx, sy = _mr_arrays()
-        r_disp = sp.mr("median", beta_exposure=bx, beta_outcome=by,
-                       se_exposure=sx, se_outcome=sy,
-                       n_boot=100, seed=123)
+        r_disp = sp.mr(
+            "median",
+            beta_exposure=bx,
+            beta_outcome=by,
+            se_exposure=sx,
+            se_outcome=sy,
+            n_boot=100,
+            seed=123,
+        )
         r_direct = sp.mr_median(bx, by, sx, sy, n_boot=100, seed=123)
         assert r_disp["estimate"] == pytest.approx(r_direct["estimate"])
 
     def test_penalized_median_sets_kwarg(self):
         """penalized_median alias should flip penalized=True."""
         bx, by, sx, sy = _mr_arrays()
-        r_disp = sp.mr("penalized_median", beta_exposure=bx, beta_outcome=by,
-                       se_exposure=sx, se_outcome=sy, n_boot=100, seed=123)
-        r_direct = sp.mr_median(bx, by, sx, sy,
-                                penalized=True, n_boot=100, seed=123)
+        r_disp = sp.mr(
+            "penalized_median",
+            beta_exposure=bx,
+            beta_outcome=by,
+            se_exposure=sx,
+            se_outcome=sy,
+            n_boot=100,
+            seed=123,
+        )
+        r_direct = sp.mr_median(bx, by, sx, sy, penalized=True, n_boot=100, seed=123)
         assert r_disp["estimate"] == pytest.approx(r_direct["estimate"])
 
     def test_mode_matches_direct_call(self):
         bx, by, sx, sy = _mr_arrays()
-        r_disp = sp.mr("mode", beta_exposure=bx, beta_outcome=by,
-                       se_exposure=sx, se_outcome=sy, n_boot=100, seed=0)
+        r_disp = sp.mr(
+            "mode",
+            beta_exposure=bx,
+            beta_outcome=by,
+            se_exposure=sx,
+            se_outcome=sy,
+            n_boot=100,
+            seed=0,
+        )
         r_direct = sp.mr_mode(bx, by, sx, sy, n_boot=100, seed=0)
         assert r_disp.estimate == pytest.approx(r_direct.estimate)
 
     def test_simple_mode_alias(self):
         """simple_mode alias should set method='simple'."""
         bx, by, sx, sy = _mr_arrays()
-        r_disp = sp.mr("simple_mode", beta_exposure=bx, beta_outcome=by,
-                       se_exposure=sx, se_outcome=sy, n_boot=100, seed=0)
-        r_direct = sp.mr_mode(bx, by, sx, sy,
-                              method="simple", n_boot=100, seed=0)
+        r_disp = sp.mr(
+            "simple_mode",
+            beta_exposure=bx,
+            beta_outcome=by,
+            se_exposure=sx,
+            se_outcome=sy,
+            n_boot=100,
+            seed=0,
+        )
+        r_direct = sp.mr_mode(bx, by, sx, sy, method="simple", n_boot=100, seed=0)
         assert r_disp.estimate == pytest.approx(r_direct.estimate)
 
     def test_all_methods_routes_to_mendelian_randomization(self):
         """`method='all'` returns an MRResult with IVW+Egger+Median rows."""
         bx, by, sx, sy = _mr_arrays()
         df = pd.DataFrame({"bx": bx, "by": by, "sx": sx, "sy": sy})
-        r = sp.mr("all", data=df,
-                  beta_exposure="bx", beta_outcome="by",
-                  se_exposure="sx", se_outcome="sy")
+        r = sp.mr(
+            "all",
+            data=df,
+            beta_exposure="bx",
+            beta_outcome="by",
+            se_exposure="sx",
+            se_outcome="sy",
+        )
         assert hasattr(r, "estimates")
         methods = set(r.estimates["method"].tolist())
         assert {"IVW", "MR-Egger", "Weighted Median"} <= methods
@@ -135,20 +167,31 @@ class TestMRDispatcher:
         bx1 = np.abs(rng.normal(0.1, 0.04, n_snps))
         bx2 = np.abs(rng.normal(0.1, 0.04, n_snps))
         by = 1.5 * bx1 + 0.5 * bx2 + rng.normal(0, 0.02, n_snps)
-        df = pd.DataFrame({"bx1": bx1, "bx2": bx2, "by": by,
-                           "sy": np.full(n_snps, 0.08)})
-        r_disp = sp.mr("mvmr", snp_associations=df,
-                       outcome="by", outcome_se="sy",
-                       exposures=["bx1", "bx2"])
-        r_direct = sp.mr_multivariable(df, outcome="by", outcome_se="sy",
-                                        exposures=["bx1", "bx2"])
+        df = pd.DataFrame(
+            {"bx1": bx1, "bx2": bx2, "by": by, "sy": np.full(n_snps, 0.08)}
+        )
+        r_disp = sp.mr(
+            "mvmr",
+            snp_associations=df,
+            outcome="by",
+            outcome_se="sy",
+            exposures=["bx1", "bx2"],
+        )
+        r_direct = sp.mr_multivariable(
+            df, outcome="by", outcome_se="sy", exposures=["bx1", "bx2"]
+        )
         assert r_disp.direct_effect.equals(r_direct.direct_effect)
 
     def test_unknown_method_raises(self):
         bx, by, sx, sy = _mr_arrays()
         with pytest.raises(ValueError, match="Unknown MR method"):
-            sp.mr("totally_fake", beta_exposure=bx, beta_outcome=by,
-                  se_exposure=sx, se_outcome=sy)
+            sp.mr(
+                "totally_fake",
+                beta_exposure=bx,
+                beta_outcome=by,
+                se_exposure=sx,
+                se_outcome=sy,
+            )
 
     def test_available_methods_is_nonempty_sorted(self):
         methods = sp.mr_available_methods()
@@ -172,22 +215,43 @@ class TestMRDispatcher:
 class TestConformalDispatcher:
     def test_cate_matches_direct_call(self):
         df = _conformal_df(n=200)
-        r_disp = sp.conformal("cate", data=df, y="y", treat="d",
-                              covariates=["x1", "x2"],
-                              alpha=0.1, random_state=0)
-        r_direct = sp.conformal_cate(data=df, y="y", treat="d",
-                                      covariates=["x1", "x2"],
-                                      alpha=0.1, random_state=0)
+        r_disp = sp.conformal(
+            "cate",
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=0,
+        )
+        r_direct = sp.conformal_cate(
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=0,
+        )
         assert r_disp.estimate == pytest.approx(r_direct.estimate)
 
     def test_ite_routes_to_ite_interval(self):
         df = _conformal_df(n=200)
-        r_disp = sp.conformal("ite", data=df, y="y", treat="d",
-                              covariates=["x1", "x2"],
-                              alpha=0.1, random_state=0)
+        r_disp = sp.conformal(
+            "ite",
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=0,
+        )
         r_direct = sp.conformal_ite_interval(
-            data=df, y="y", treat="d", covariates=["x1", "x2"],
-            alpha=0.1, random_state=0,
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=0,
         )
         # same point estimates and same bounds under same seed
         assert np.allclose(r_disp.point, r_direct.point)
@@ -195,22 +259,43 @@ class TestConformalDispatcher:
 
     def test_counterfactual_matches_direct_call(self):
         df = _conformal_df(n=200)
-        r_disp = sp.conformal("counterfactual", data=df, y="y", treat="d",
-                              covariates=["x1", "x2"],
-                              alpha=0.1, random_state=0)
+        r_disp = sp.conformal(
+            "counterfactual",
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=0,
+        )
         r_direct = sp.conformal_counterfactual(
-            data=df, y="y", treat="d", covariates=["x1", "x2"],
-            alpha=0.1, random_state=0,
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=0,
         )
         assert np.allclose(r_disp.lower_Y1, r_direct.lower_Y1)
 
     def test_debiased_matches_direct_call(self):
         df = _conformal_df(n=200)
-        r_disp = sp.conformal("debiased", data=df, y="y", treat="d",
-                              covariates=["x1", "x2"], alpha=0.1, seed=0)
+        r_disp = sp.conformal(
+            "debiased",
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            seed=0,
+        )
         r_direct = sp.conformal_debiased_ml(
-            data=df, y="y", treat="d", covariates=["x1", "x2"],
-            alpha=0.1, seed=0,
+            data=df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            seed=0,
         )
         assert np.allclose(r_disp.intervals, r_direct.intervals)
 
@@ -220,24 +305,35 @@ class TestConformalDispatcher:
         X = rng.normal(size=(n, 2))
         dose = rng.uniform(0, 1, n)
         y = 0.5 * dose + 0.2 * X[:, 0] + rng.normal(0, 0.3, n)
-        train = pd.DataFrame({"y": y, "dose": dose,
-                               "x1": X[:, 0], "x2": X[:, 1]})
+        train = pd.DataFrame({"y": y, "dose": dose, "x1": X[:, 0], "x2": X[:, 1]})
         test = train.head(20).copy()
-        r_disp = sp.conformal("continuous", data=train, y="y",
-                              treatment="dose", covariates=["x1", "x2"],
-                              test_data=test, alpha=0.1, random_state=0)
+        r_disp = sp.conformal(
+            "continuous",
+            data=train,
+            y="y",
+            treatment="dose",
+            covariates=["x1", "x2"],
+            test_data=test,
+            alpha=0.1,
+            random_state=0,
+        )
         r_direct = sp.conformal_continuous(
-            data=train, y="y", treatment="dose",
-            covariates=["x1", "x2"], test_data=test,
-            alpha=0.1, random_state=0,
+            data=train,
+            y="y",
+            treatment="dose",
+            covariates=["x1", "x2"],
+            test_data=test,
+            alpha=0.1,
+            random_state=0,
         )
         assert r_disp.quantile == pytest.approx(r_direct.quantile)
 
     def test_unknown_kind_raises(self):
         df = _conformal_df(n=200)
         with pytest.raises(ValueError, match="Unknown conformal kind"):
-            sp.conformal("totally_fake", data=df, y="y", treat="d",
-                         covariates=["x1", "x2"])
+            sp.conformal(
+                "totally_fake", data=df, y="y", treat="d", covariates=["x1", "x2"]
+            )
 
     def test_available_kinds_is_sorted(self):
         kinds = sp.conformal_available_kinds()
@@ -261,10 +357,18 @@ class TestConformalDispatcher:
 class TestInterferenceDispatcher:
     def test_partial_matches_direct_call(self):
         df = _spillover_df(n_households=60)
-        r_disp = sp.interference("partial", data=df, y="y", treat="d",
-                                  cluster="h", n_bootstrap=50, random_state=0)
-        r_direct = sp.spillover(data=df, y="y", treat="d", cluster="h",
-                                 n_bootstrap=50, random_state=0)
+        r_disp = sp.interference(
+            "partial",
+            data=df,
+            y="y",
+            treat="d",
+            cluster="h",
+            n_bootstrap=50,
+            random_state=0,
+        )
+        r_direct = sp.spillover(
+            data=df, y="y", treat="d", cluster="h", n_bootstrap=50, random_state=0
+        )
         assert r_disp.estimate == pytest.approx(r_direct.estimate)
 
     def test_network_hte_matches_direct_call(self):
@@ -276,14 +380,25 @@ class TestInterferenceDispatcher:
         e = np.clip(0.3 * d + 0.4 * rng.uniform(size=n), 0, 1)
         y = 0.2 * x1 - 0.1 * x2 + 0.4 * d + 0.3 * e + rng.normal(0, 0.3, n)
         df = pd.DataFrame({"y": y, "d": d, "e": e, "x1": x1, "x2": x2})
-        r_disp = sp.interference("network_hte", data=df, y="y",
-                                  treatment="d", neighbor_exposure="e",
-                                  covariates=["x1", "x2"],
-                                  n_folds=5, random_state=0)
-        r_direct = sp.network_hte(data=df, y="y", treatment="d",
-                                   neighbor_exposure="e",
-                                   covariates=["x1", "x2"],
-                                   n_folds=5, random_state=0)
+        r_disp = sp.interference(
+            "network_hte",
+            data=df,
+            y="y",
+            treatment="d",
+            neighbor_exposure="e",
+            covariates=["x1", "x2"],
+            n_folds=5,
+            random_state=0,
+        )
+        r_direct = sp.network_hte(
+            data=df,
+            y="y",
+            treatment="d",
+            neighbor_exposure="e",
+            covariates=["x1", "x2"],
+            n_folds=5,
+            random_state=0,
+        )
         assert r_disp.direct_effect == pytest.approx(r_direct.direct_effect)
 
     def test_network_exposure_matches_direct_call(self):
@@ -295,13 +410,17 @@ class TestInterferenceDispatcher:
             A[i, (i + 1) % n] = 1
             A[(i + 1) % n, i] = 1
         Z = (rng.random(n) < 0.5).astype(int)
-        Y = (0.3 * Z + 0.2 * (A @ Z > 0).astype(float)
-             + rng.normal(0, 0.2, n))
-        r_disp = sp.interference("network_exposure",
-                                  Y=Y, Z=Z, adjacency=A,
-                                  p_treat=0.5, n_sim=200, seed=0)
+        Y = 0.3 * Z + 0.2 * (A @ Z > 0).astype(float) + rng.normal(0, 0.2, n)
+        r_disp = sp.interference(
+            "network_exposure", Y=Y, Z=Z, adjacency=A, p_treat=0.5, n_sim=200, seed=0
+        )
         r_direct = sp.network_exposure(
-            Y=Y, Z=Z, adjacency=A, p_treat=0.5, n_sim=200, seed=0,
+            Y=Y,
+            Z=Z,
+            adjacency=A,
+            p_treat=0.5,
+            n_sim=200,
+            seed=0,
         )
         assert r_disp.n_obs == r_direct.n_obs
         assert r_disp.estimates.equals(r_direct.estimates)
@@ -309,8 +428,7 @@ class TestInterferenceDispatcher:
     def test_unknown_design_raises(self):
         df = _spillover_df(n_households=20)
         with pytest.raises(ValueError, match="Unknown interference design"):
-            sp.interference("totally_fake", data=df, y="y", treat="d",
-                            cluster="h")
+            sp.interference("totally_fake", data=df, y="y", treat="d", cluster="h")
 
     def test_available_designs_is_sorted(self):
         designs = sp.interference_available_designs()
@@ -332,13 +450,16 @@ class TestInterferenceDispatcher:
 
 
 class TestRegistryCoverageFixes:
-    @pytest.mark.parametrize("name", [
-        "network_exposure",
-        "peer_effects",
-        "weighted_conformal_prediction",
-        "conformal_counterfactual",
-        "conformal_ite_interval",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "network_exposure",
+            "peer_effects",
+            "weighted_conformal_prediction",
+            "conformal_counterfactual",
+            "conformal_ite_interval",
+        ],
+    )
     def test_family_function_now_registered(self, name):
         assert hasattr(sp, name), f"sp.{name} must exist"
         assert name in sp.list_functions(), (

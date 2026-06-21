@@ -6,6 +6,7 @@ Melly) and the two standalone plots.py renderers reached outside ``.plot()`` —
 ``mediation_forest`` and ``rif_heatmap``. Estimators run for real; rendering is a
 best-effort vision surface (CLAUDE.md §12).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -37,8 +38,7 @@ def causal_df():
     med = 0.5 * tr + 0.3 * x1 + rng.normal(size=n)
     y = 1 + 0.8 * tr + 0.5 * med - 0.3 * g + rng.normal(size=n)
     ybin = (rng.uniform(size=n) < 1 / (1 + np.exp(-(0.3 - 0.4 * g)))).astype(int)
-    return pd.DataFrame({"y": y, "ybin": ybin, "g": g, "tr": tr,
-                         "med": med, "x1": x1})
+    return pd.DataFrame({"y": y, "ybin": ybin, "g": g, "tr": tr, "med": med, "x1": x1})
 
 
 def _close():
@@ -49,8 +49,9 @@ def _close():
 
 
 def test_disparity_rendering(causal_df):
-    r = sp.decompose("disparity", data=causal_df, y="y", group="g",
-                     mediator="med", covariates=["x1"])
+    r = sp.decompose(
+        "disparity", data=causal_df, y="y", group="g", mediator="med", covariates=["x1"]
+    )
     assert isinstance(r.summary(), str)
     assert isinstance(r.to_latex(), str)
     try:
@@ -63,12 +64,26 @@ def test_disparity_rendering(causal_df):
 
 
 def test_cfm_summary_and_ks_toggle(wage):
-    r = sp.decompose("cfm", data=wage, y="log_wage", group="female", x=X,
-                     tau_grid=[0.25, 0.5, 0.75], ks_test=True)
+    r = sp.decompose(
+        "cfm",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        tau_grid=[0.25, 0.5, 0.75],
+        ks_test=True,
+    )
     assert "KS" in r.summary() or isinstance(r.summary(), str)
     # ks_test=False skips the KS computation branch
-    r2 = sp.decompose("cfm", data=wage, y="log_wage", group="female", x=X,
-                      tau_grid=[0.25, 0.5, 0.75], ks_test=False)
+    r2 = sp.decompose(
+        "cfm",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        tau_grid=[0.25, 0.5, 0.75],
+        ks_test=False,
+    )
     assert isinstance(r2.summary(), str)
 
 
@@ -76,9 +91,17 @@ def test_cfm_summary_and_ks_toggle(wage):
 
 
 def test_yu_elwert_summary_with_se(causal_df):
-    r = sp.decompose("yu_elwert", data=causal_df, y="ybin", treatment="tr",
-                     group="g", x=["x1"], inference="bootstrap", n_boot=40,
-                     method="plugin")
+    r = sp.decompose(
+        "yu_elwert",
+        data=causal_df,
+        y="ybin",
+        treatment="tr",
+        group="g",
+        x=["x1"],
+        inference="bootstrap",
+        n_boot=40,
+        method="plugin",
+    )
     s = r.summary()
     assert isinstance(s, str) and len(s) > 0
 
@@ -87,14 +110,21 @@ def test_yu_elwert_summary_with_se(causal_df):
 
 
 def test_bauer_sinning_summary(causal_df):
-    r = sp.decompose("bauer_sinning", data=causal_df, y="ybin", group="g",
-                     x=["x1"], variant="yun")
+    r = sp.decompose(
+        "bauer_sinning", data=causal_df, y="ybin", group="g", x=["x1"], variant="yun"
+    )
     assert isinstance(r.summary(), str)
 
 
 def test_melly_summary(wage):
-    r = sp.decompose("melly", data=wage, y="log_wage", group="female", x=X,
-                     tau_grid=[0.25, 0.5, 0.75])
+    r = sp.decompose(
+        "melly",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        tau_grid=[0.25, 0.5, 0.75],
+    )
     assert isinstance(r.summary(), str)
 
 
@@ -103,8 +133,16 @@ def test_melly_summary(wage):
 
 def test_mediation_forest_renderer(causal_df):
     from statspai.decomposition.plots import mediation_forest
-    r = sp.decompose("mediation", data=causal_df, y="y", treatment="tr",
-                     mediator="med", covariates=["x1"], inference="none")
+
+    r = sp.decompose(
+        "mediation",
+        data=causal_df,
+        y="y",
+        treatment="tr",
+        mediator="med",
+        covariates=["x1"],
+        inference="none",
+    )
     try:
         mediation_forest(r)
     except Exception:  # noqa: BLE001 — best-effort vision surface
@@ -115,12 +153,15 @@ def test_mediation_forest_renderer(causal_df):
 
 def test_rif_heatmap_renderer():
     from statspai.decomposition.plots import rif_heatmap
+
     # grid of per-variable, per-tau RIF contributions
-    grid = pd.DataFrame({
-        "variable": ["educ", "exp", "educ", "exp", "educ", "exp"],
-        "tau": [0.25, 0.25, 0.5, 0.5, 0.75, 0.75],
-        "contribution": [0.1, 0.05, 0.12, 0.06, 0.15, 0.04],
-    })
+    grid = pd.DataFrame(
+        {
+            "variable": ["educ", "exp", "educ", "exp", "educ", "exp"],
+            "tau": [0.25, 0.25, 0.5, 0.5, 0.75, 0.75],
+            "contribution": [0.1, 0.05, 0.12, 0.06, 0.15, 0.04],
+        }
+    )
     try:
         rif_heatmap(grid)
     except Exception:  # noqa: BLE001 — best-effort vision surface

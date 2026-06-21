@@ -3,6 +3,7 @@
 CATE varies with X[:, 0]: tau(x) = 1 + 2 * x[:, 0]. Average ATE = 1.
 n=1000, p=5 covariates.  Seed=42.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -26,6 +27,7 @@ for j in range(p):
 df = pd.DataFrame(cols)
 
 import pathlib
+
 out = pathlib.Path(__file__).parent / "grf_data.csv"
 df.to_csv(out, index=False)
 print(f"Wrote {out} (n={n}, mean tau={tau.mean():.3f})")

@@ -5,9 +5,11 @@ PanelCompareResults, the CRE (Mundlak/Chamberlain) and GMM routes,
 panel_compare, balance handling, and the legacy PanelRegression shim.
 Assertions check structure / sane properties, not fabricated numbers.
 """
+
 import warnings
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
@@ -37,6 +39,7 @@ def panel_df():
 
 
 # ── PanelResults diagnostic-method wrappers ─────────────────────────────
+
 
 def test_hausman_test_method(panel_df):
     r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year", method="fe")
@@ -106,6 +109,7 @@ def test_pesaran_cd_raises_without_lm_result(panel_df):
 
 # ── compare / PanelCompareResults ───────────────────────────────────────
 
+
 def test_compare_and_summary(panel_df):
     r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year", method="fe")
     cmp = r.compare("re")
@@ -120,9 +124,9 @@ def test_compare_and_summary(panel_df):
 
 # ── CRE: Mundlak (with Wald test) and Chamberlain ───────────────────────
 
+
 def test_mundlak_cre(panel_df):
-    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                 method="mundlak")
+    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year", method="mundlak")
     assert isinstance(r, PanelResults)
     # Mundlak terms diagnostics + Wald test recorded
     assert r.diagnostics.get("Mundlak terms") == 2
@@ -132,18 +136,21 @@ def test_mundlak_cre(panel_df):
 
 
 def test_chamberlain_cre(panel_df):
-    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                 method="chamberlain")
+    r = sp.panel(
+        panel_df, "y ~ x1 + x2", entity="id", time="year", method="chamberlain"
+    )
     assert isinstance(r, PanelResults)
 
 
 # ── GMM dynamic panel route ─────────────────────────────────────────────
 
+
 def test_arellano_bond_gmm(panel_df):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                     method="ab", lags=1)
+        r = sp.panel(
+            panel_df, "y ~ x1 + x2", entity="id", time="year", method="ab", lags=1
+        )
     assert isinstance(r, PanelResults)
     assert r.model_info["method"] == "ab"
     assert "AR(1) z" in r.diagnostics or "Hansen J" in r.diagnostics
@@ -153,11 +160,19 @@ def test_system_gmm_not_implemented(panel_df):
     # System GMM (Blundell-Bond) is intentionally not implemented yet;
     # the GMM route raises rather than returning unvalidated numbers.
     with pytest.raises(NotImplementedError, match="system GMM"):
-        sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                 method="system", lags=1, twostep=True)
+        sp.panel(
+            panel_df,
+            "y ~ x1 + x2",
+            entity="id",
+            time="year",
+            method="system",
+            lags=1,
+            twostep=True,
+        )
 
 
 # ── panel_compare table ─────────────────────────────────────────────────
+
 
 def test_panel_compare_default_methods(panel_df):
     with warnings.catch_warnings():
@@ -169,8 +184,13 @@ def test_panel_compare_default_methods(panel_df):
 
 
 def test_panel_compare_custom_methods(panel_df):
-    tbl = sp.panel_compare(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                           methods=["pooled", "fe", "re"])
+    tbl = sp.panel_compare(
+        panel_df,
+        "y ~ x1 + x2",
+        entity="id",
+        time="year",
+        methods=["pooled", "fe", "re"],
+    )
     assert isinstance(tbl, pd.DataFrame)
     # coefficient rows present for x1/x2
     assert "x1" in tbl.index
@@ -178,38 +198,44 @@ def test_panel_compare_custom_methods(panel_df):
 
 def test_panel_compare_handles_estimator_error(panel_df):
     # An invalid method inside the list is caught and stored as 'error'
-    tbl = sp.panel_compare(panel_df, "y ~ x1", entity="id", time="year",
-                           methods=["fe", "not_a_method"])
+    tbl = sp.panel_compare(
+        panel_df, "y ~ x1", entity="id", time="year", methods=["fe", "not_a_method"]
+    )
     assert isinstance(tbl, pd.DataFrame)
 
 
 # ── balance handling ────────────────────────────────────────────────────
 
+
 def test_balance_true(panel_df):
     # drop a couple rows to make it unbalanced, then balance=True
     unbal = panel_df.drop(index=[0, 1]).reset_index(drop=True)
-    r = sp.panel(unbal, "y ~ x1 + x2", entity="id", time="year",
-                 method="fe", balance=True)
+    r = sp.panel(
+        unbal, "y ~ x1 + x2", entity="id", time="year", method="fe", balance=True
+    )
     assert isinstance(r, PanelResults)
 
 
 def test_balance_drops_all_raises():
     # No entity is observed in all periods -> balance=True wipes everything
-    df = pd.DataFrame({
-        "id": [0, 1, 2], "year": [0, 1, 2],
-        "y": [1.0, 2.0, 3.0], "x1": [0.1, 0.2, 0.3],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [0, 1, 2],
+            "year": [0, 1, 2],
+            "y": [1.0, 2.0, 3.0],
+            "x1": [0.1, 0.2, 0.3],
+        }
+    )
     with pytest.raises(DataInsufficient, match="dropped all units"):
-        sp.panel(df, "y ~ x1", entity="id", time="year",
-                 method="fe", balance=True)
+        sp.panel(df, "y ~ x1", entity="id", time="year", method="fe", balance=True)
 
 
 # ── error paths ─────────────────────────────────────────────────────────
 
+
 def test_unknown_method(panel_df):
     with pytest.raises(MethodIncompatibility, match="method must be one of"):
-        sp.panel(panel_df, "y ~ x1", entity="id", time="year",
-                 method="bogus")
+        sp.panel(panel_df, "y ~ x1", entity="id", time="year", method="bogus")
 
 
 def test_formula_without_tilde(panel_df):
@@ -224,30 +250,35 @@ def test_missing_column(panel_df):
 
 # ── linearmodels method branches + cov kwargs ──────────────────────────
 
+
 @pytest.mark.parametrize("method", ["twoway", "fd", "be", "pooled"])
 def test_linearmodels_method_branches(panel_df, method):
-    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                 method=method)
+    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year", method=method)
     assert isinstance(r, PanelResults)
 
 
-@pytest.mark.parametrize("kwargs", [
-    {"cluster": "twoway"},
-    {"cluster": "entity"},
-    {"cluster": "time"},
-    {"cluster": "id"},          # generic cluster column -> entity-cluster path
-    {"robust": "robust"},
-    {"robust": "kernel"},
-    {"robust": "driscoll-kraay"},
-])
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"cluster": "twoway"},
+        {"cluster": "entity"},
+        {"cluster": "time"},
+        {"cluster": "id"},  # generic cluster column -> entity-cluster path
+        {"robust": "robust"},
+        {"robust": "kernel"},
+        {"robust": "driscoll-kraay"},
+    ],
+)
 def test_cov_kwargs_branches(panel_df, kwargs):
-    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                 method="fe", **kwargs)
+    r = sp.panel(
+        panel_df, "y ~ x1 + x2", entity="id", time="year", method="fe", **kwargs
+    )
     assert isinstance(r, PanelResults)
     assert (r.std_errors >= 0).all()
 
 
 # ── plot dispatcher (routes into panel_plots, which is excluded) ────────
+
 
 @pytest.mark.parametrize("ptype", ["coef", "effects", "residuals", "hausman"])
 def test_plot_dispatcher(panel_df, ptype):
@@ -292,19 +323,21 @@ def test_compare_plot(panel_df):
 
 # ── legacy PanelRegression shim ─────────────────────────────────────────
 
+
 def test_panel_regression_shim(panel_df):
-    pr = PanelRegression(data=panel_df, formula="y ~ x1 + x2",
-                         entity="id", time="year", method="fe")
+    pr = PanelRegression(
+        data=panel_df, formula="y ~ x1 + x2", entity="id", time="year", method="fe"
+    )
     r = pr.fit()
     assert isinstance(r, PanelResults)
 
 
 # ── package-level sp.panel dispatcher (panel/__init__.py) ───────────────
 
+
 def test_dispatcher_hdfe_auto_formula(panel_df):
     # No `|` in formula -> dispatcher bolts entity+time on as FE.
-    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year",
-                 method="hdfe")
+    r = sp.panel(panel_df, "y ~ x1 + x2", entity="id", time="year", method="hdfe")
     assert type(r).__name__ == "FEOLSResult"
 
 
@@ -315,8 +348,7 @@ def test_dispatcher_hdfe_explicit_fe(panel_df):
 
 def test_dispatcher_hdfe_requires_formula(panel_df):
     with pytest.raises(ValueError, match="requires a formula"):
-        sp.panel(panel_df, formula=None, entity="id", time="year",
-                 method="hdfe")
+        sp.panel(panel_df, formula=None, entity="id", time="year", method="hdfe")
 
 
 def test_dispatcher_non_string_method(panel_df):
@@ -326,11 +358,11 @@ def test_dispatcher_non_string_method(panel_df):
 
 def test_dispatcher_unknown_method(panel_df):
     with pytest.raises(ValueError, match="Unknown method"):
-        sp.panel(panel_df, "y ~ x1", entity="id", time="year",
-                 method="totally_bogus")
+        sp.panel(panel_df, "y ~ x1", entity="id", time="year", method="totally_bogus")
 
 
 # ── balance_panel standalone ────────────────────────────────────────────
+
 
 def test_balance_panel_function(panel_df):
     unbal = panel_df.drop(index=[2, 3]).reset_index(drop=True)

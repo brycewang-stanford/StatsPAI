@@ -13,8 +13,10 @@ import statspai as sp
 def test_synthesise_evidence_pools_correctly():
     # RCT: 0.5 ± 0.1, RWD: 0.6 ± 0.1 → pooled should be between.
     res = sp.synthesise_evidence(
-        rct_estimate=0.5, rct_se=0.1,
-        rwd_estimate=0.6, rwd_se=0.1,
+        rct_estimate=0.5,
+        rct_se=0.1,
+        rwd_estimate=0.6,
+        rwd_se=0.1,
     )
     assert 0.5 < res.pooled_estimate < 0.6
     # Inverse-variance with equal SEs → weights 0.5/0.5 → pooled = 0.55
@@ -27,9 +29,12 @@ def test_synthesise_evidence_pools_correctly():
 
 def test_synthesise_evidence_with_transport_shift():
     res = sp.synthesise_evidence(
-        rct_estimate=0.5, rct_se=0.1,
-        rwd_estimate=0.8, rwd_se=0.1,
-        transport_shift=0.2, transport_shift_se=0.02,
+        rct_estimate=0.5,
+        rct_se=0.1,
+        rwd_estimate=0.8,
+        rwd_se=0.1,
+        transport_shift=0.2,
+        transport_shift_se=0.02,
     )
     # After shift, RCT-adj = 0.7 vs RWD 0.8 → pooled ≈ 0.75 (shifted toward RWD)
     assert 0.6 < res.pooled_estimate < 0.8
@@ -37,13 +42,17 @@ def test_synthesise_evidence_with_transport_shift():
 
 def test_synthesise_evidence_rct_heavy_weighting():
     res_iv = sp.synthesise_evidence(
-        rct_estimate=0.5, rct_se=0.1,
-        rwd_estimate=0.9, rwd_se=0.1,
+        rct_estimate=0.5,
+        rct_se=0.1,
+        rwd_estimate=0.9,
+        rwd_se=0.1,
         weight_mode="inverse_variance",
     )
     res_rh = sp.synthesise_evidence(
-        rct_estimate=0.5, rct_se=0.1,
-        rwd_estimate=0.9, rwd_se=0.1,
+        rct_estimate=0.5,
+        rct_se=0.1,
+        rwd_estimate=0.9,
+        rwd_se=0.1,
         weight_mode="rct_heavy",
     )
     # rct_heavy should pull pooled toward the RCT (0.5)
@@ -53,7 +62,10 @@ def test_synthesise_evidence_rct_heavy_weighting():
 def test_synthesise_evidence_rejects_nonpositive_se():
     with pytest.raises(ValueError, match="SEs must be > 0"):
         sp.synthesise_evidence(
-            rct_estimate=0.1, rct_se=0.0, rwd_estimate=0.2, rwd_se=0.1,
+            rct_estimate=0.1,
+            rct_se=0.0,
+            rwd_estimate=0.2,
+            rwd_se=0.1,
         )
 
 
@@ -79,7 +91,9 @@ def test_heterogeneity_identical_studies():
 
 def test_rwd_rct_concordance_inside():
     res = sp.rwd_rct_concordance(
-        rct_estimate=0.5, rct_se=0.1, rwd_estimate=0.55,
+        rct_estimate=0.5,
+        rct_se=0.1,
+        rwd_estimate=0.55,
     )
     assert res.rwd_inside_rct_ci is True
     np.testing.assert_allclose(res.relative_difference, 0.1)
@@ -89,7 +103,9 @@ def test_rwd_rct_concordance_inside():
 
 def test_rwd_rct_concordance_outside():
     res = sp.rwd_rct_concordance(
-        rct_estimate=0.5, rct_se=0.05, rwd_estimate=0.8,
+        rct_estimate=0.5,
+        rct_se=0.05,
+        rwd_estimate=0.8,
     )
     assert res.rwd_inside_rct_ci is False
     np.testing.assert_allclose(res.relative_difference, 0.6)

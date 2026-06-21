@@ -41,11 +41,13 @@ def demo_spec():
 class TestRenderAgentBlock:
     def test_empty_for_unpopulated_entry(self):
         name = "__test_empty_agent_block__"
-        register(FunctionSpec(
-            name=name,
-            category="utils",
-            description="Scratch spec with no agent-native fields.",
-        ))
+        register(
+            FunctionSpec(
+                name=name,
+                category="utils",
+                description="Scratch spec with no agent-native fields.",
+            )
+        )
         try:
             assert sp.render_agent_block(name) == ""
         finally:
@@ -83,25 +85,26 @@ class TestRenderAgentBlock:
 
     def test_pipe_in_symptom_is_escaped(self):
         name = "__test_pipe_escape__"
-        register(FunctionSpec(
-            name=name,
-            category="causal",
-            description="",
-            failure_modes=[
-                FailureMode(
-                    symptom="contains | pipe character",
-                    exception="ValueError",
-                    remedy="nothing",
-                ),
-            ],
-        ))
+        register(
+            FunctionSpec(
+                name=name,
+                category="causal",
+                description="",
+                failure_modes=[
+                    FailureMode(
+                        symptom="contains | pipe character",
+                        exception="ValueError",
+                        remedy="nothing",
+                    ),
+                ],
+            )
+        )
         try:
             block = sp.render_agent_block(name)
             assert "\\|" in block
             # Markdown table must still have exactly 4 delimiter pipes
             # on the row (outer two + three inner).
-            data_rows = [ln for ln in block.splitlines()
-                         if ln.startswith("| contains")]
+            data_rows = [ln for ln in block.splitlines() if ln.startswith("| contains")]
             assert len(data_rows) == 1
         finally:
             _REGISTRY.pop(name, None)

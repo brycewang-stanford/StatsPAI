@@ -4,6 +4,7 @@ Covers question parsing, the full data → markdown / TeX / file pipeline,
 DiD/RD path detection, and graceful behaviour when the pipeline must
 infer the design.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,9 +17,11 @@ import pytest
 import statspai as sp
 from statspai.workflow.causal_workflow import CausalWorkflow
 from statspai.workflow.paper import (
-    parse_question, _eda_block, _md_to_tex, _tex_escape,
+    parse_question,
+    _eda_block,
+    _md_to_tex,
+    _tex_escape,
 )
-
 
 # --------------------------------------------------------------------- #
 #  Question parser
@@ -64,8 +67,8 @@ def test_parse_question_picks_up_instrument():
 def test_parse_question_picks_up_running_var_and_cutoff():
     cols = ["pass", "score"]
     out = parse_question(
-        "regression discontinuity with running variable score and "
-        "threshold at 50", cols,
+        "regression discontinuity with running variable score and " "threshold at 50",
+        cols,
     )
     assert out["running_var"] == "score"
     assert out["cutoff"] == 50.0
@@ -94,24 +97,35 @@ def _make_observational_df(seed: int = 42, n: int = 600):
     x1 = rng.standard_normal(n)
     x2 = rng.standard_normal(n)
     treat = (0.5 * x1 + 0.3 * x2 + rng.standard_normal(n) > 0).astype(int)
-    wage = (1.2 * treat + 0.4 * x1 + 0.3 * x2
-            + rng.standard_normal(n))
-    return pd.DataFrame({
-        "wage": wage, "trained": treat, "edu": x1, "experience": x2,
-    })
+    wage = 1.2 * treat + 0.4 * x1 + 0.3 * x2 + rng.standard_normal(n)
+    return pd.DataFrame(
+        {
+            "wage": wage,
+            "trained": treat,
+            "edu": x1,
+            "experience": x2,
+        }
+    )
 
 
 def test_paper_basic_observational():
     """End-to-end on simple observational data → all sections present."""
     df = _make_observational_df()
     draft = sp.paper(
-        df, "effect of trained on wage",
+        df,
+        "effect of trained on wage",
         covariates=["edu", "experience"],
     )
     md = draft.to_markdown()
-    for header in ("## Question", "## Data", "## Identification",
-                   "## Estimator", "## Results", "## Robustness",
-                   "## References"):
+    for header in (
+        "## Question",
+        "## Data",
+        "## Identification",
+        "## Estimator",
+        "## Results",
+        "## Robustness",
+        "## References",
+    ):
         assert header in md, f"Missing section: {header}"
     # Numerical sanity: estimate should be roughly in [0.8, 1.6] of true 1.2
     if hasattr(draft.workflow.result, "estimate"):
@@ -130,15 +144,23 @@ def test_paper_did_pipeline():
         treated = i < 40
         for t in (0, 1):
             post = int(t > 0)
-            y = (1.0 + 0.2 * t
-                 + (0.5 if (treated and post) else 0.0)
-                 + rng.standard_normal() * 0.3)
-            rows.append({"id": i, "year": t, "wage": y,
-                         "trained": int(treated and post)})
+            y = (
+                1.0
+                + 0.2 * t
+                + (0.5 if (treated and post) else 0.0)
+                + rng.standard_normal() * 0.3
+            )
+            rows.append(
+                {"id": i, "year": t, "wage": y, "trained": int(treated and post)}
+            )
     df = pd.DataFrame(rows)
     draft = sp.paper(
-        df, "difference-in-differences effect of trained on wage",
-        y="wage", treatment="trained", time="year", id="id",
+        df,
+        "difference-in-differences effect of trained on wage",
+        y="wage",
+        treatment="trained",
+        time="year",
+        id="id",
     )
     md = draft.to_markdown()
     assert draft.workflow.design == "did"
@@ -171,8 +193,7 @@ def test_paper_missing_outcome_raises():
 
 def test_paper_tex_renders_with_sections_and_estimate():
     df = _make_observational_df()
-    draft = sp.paper(df, "effect of trained on wage",
-                     covariates=["edu", "experience"])
+    draft = sp.paper(df, "effect of trained on wage", covariates=["edu", "experience"])
     tex = draft.to_tex()
     assert tex.startswith("\\documentclass")
     assert "\\section{Question}" in tex
@@ -203,8 +224,7 @@ def test_paper_writes_to_disk_tex(tmp_path):
 def test_paper_output_path_via_kwarg(tmp_path):
     df = _make_observational_df()
     out = tmp_path / "auto.md"
-    draft = sp.paper(df, "effect of trained on wage",
-                     output_path=str(out))
+    draft = sp.paper(df, "effect of trained on wage", output_path=str(out))
     assert out.exists()
     assert isinstance(draft, sp.PaperDraft)
 
@@ -220,8 +240,7 @@ def test_paper_to_dict_round_trip():
 
 def test_paper_skip_eda_when_disabled():
     df = _make_observational_df()
-    draft = sp.paper(df, "effect of trained on wage",
-                     include_eda=False)
+    draft = sp.paper(df, "effect of trained on wage", include_eda=False)
     assert "Data" not in draft.sections
 
 
@@ -233,8 +252,10 @@ def test_paper_include_robustness_false_skips_workflow_robustness(monkeypatch):
 
     monkeypatch.setattr(CausalWorkflow, "robustness", _should_not_run)
     draft = sp.paper(
-        df, "effect of trained on wage",
-        y="wage", treatment="trained",
+        df,
+        "effect of trained on wage",
+        y="wage",
+        treatment="trained",
         covariates=["edu", "experience"],
         design="observational",
         include_robustness=False,
@@ -250,8 +271,11 @@ def test_paper_stage_failure_surfaces_pipeline_notes(monkeypatch):
 
     monkeypatch.setattr(CausalWorkflow, "recommend", _boom)
     draft = sp.paper(
-        df, "effect of trained on wage",
-        y="wage", treatment="trained", design="observational",
+        df,
+        "effect of trained on wage",
+        y="wage",
+        treatment="trained",
+        design="observational",
     )
     assert "Pipeline notes" in draft.sections
     assert "recommend" in draft.sections["Pipeline notes"]

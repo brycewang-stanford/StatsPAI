@@ -25,7 +25,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 #  Fixtures
 # ---------------------------------------------------------------------------
@@ -34,12 +33,14 @@ import statspai as sp
 @pytest.fixture
 def balanced_panel():
     rng = np.random.default_rng(0)
-    return pd.DataFrame({
-        "firm_id": np.repeat(range(50), 10),
-        "year": np.tile(range(2010, 2020), 50),
-        "sales": rng.normal(size=500),
-        "cost": rng.normal(size=500),
-    })
+    return pd.DataFrame(
+        {
+            "firm_id": np.repeat(range(50), 10),
+            "year": np.tile(range(2010, 2020), 50),
+            "sales": rng.normal(size=500),
+            "cost": rng.normal(size=500),
+        }
+    )
 
 
 @pytest.fixture
@@ -56,25 +57,31 @@ def imbalanced_panel():
 @pytest.fixture
 def cross_section():
     rng = np.random.default_rng(0)
-    return pd.DataFrame({
-        "x": rng.normal(size=200),
-        "y": rng.normal(size=200),
-        "z": rng.normal(size=200),
-    })
+    return pd.DataFrame(
+        {
+            "x": rng.normal(size=200),
+            "y": rng.normal(size=200),
+            "z": rng.normal(size=200),
+        }
+    )
 
 
 @pytest.fixture
 def rd_dataset():
     rng = np.random.default_rng(1)
-    score = np.concatenate([
-        rng.uniform(40, 65, 200),
-        rng.uniform(65, 90, 200),
-    ])
-    return pd.DataFrame({
-        "score": score,
-        "admit": (score >= 65).astype(int),
-        "outcome": rng.normal(size=400),
-    })
+    score = np.concatenate(
+        [
+            rng.uniform(40, 65, 200),
+            rng.uniform(65, 90, 200),
+        ]
+    )
+    return pd.DataFrame(
+        {
+            "score": score,
+            "admit": (score >= 65).astype(int),
+            "outcome": rng.normal(size=400),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -95,8 +102,14 @@ class TestReturnShape:
 
     def test_top_level_keys(self, balanced_panel):
         out = sp.detect_design(balanced_panel)
-        for k in ("design", "confidence", "identified", "candidates",
-                  "n_obs", "columns"):
+        for k in (
+            "design",
+            "confidence",
+            "identified",
+            "candidates",
+            "n_obs",
+            "columns",
+        ):
             assert k in out, f"missing top-level key {k!r}"
 
     def test_design_string_in_known_set(self, balanced_panel):
@@ -129,8 +142,7 @@ class TestCanonicalShapes:
         assert out["identified"]["unit"] == "firm_id"
         assert out["identified"]["time"] == "year"
 
-    def test_imbalanced_panel_still_classified_as_panel(self,
-                                                        imbalanced_panel):
+    def test_imbalanced_panel_still_classified_as_panel(self, imbalanced_panel):
         out = sp.detect_design(imbalanced_panel)
         assert out["design"] == "panel"
         # Looser confidence floor since 80 % fill rate.
@@ -141,14 +153,12 @@ class TestCanonicalShapes:
         assert out["design"] == "cross_section"
 
     def test_rd_with_hint_classified_as_rd(self, rd_dataset):
-        out = sp.detect_design(rd_dataset, running_var="score",
-                                cutoff=65.0)
+        out = sp.detect_design(rd_dataset, running_var="score", cutoff=65.0)
         assert out["design"] == "rd"
         assert out["identified"]["running_var"] == "score"
         assert out["identified"]["cutoff"] == 65.0
 
-    def test_rd_without_hint_does_not_beat_cross_section(self,
-                                                         cross_section):
+    def test_rd_without_hint_does_not_beat_cross_section(self, cross_section):
         # Pure-noise data must NOT be auto-RD'd just because random
         # numbers split roughly evenly around their median.
         out = sp.detect_design(cross_section)
@@ -165,18 +175,17 @@ class TestHints:
     def test_unit_hint_pins_column(self, balanced_panel):
         # If we hint a NON-id column as the unit, it should still try
         # to use it.
-        out = sp.detect_design(balanced_panel, unit="firm_id",
-                                time="year")
+        out = sp.detect_design(balanced_panel, unit="firm_id", time="year")
         assert out["identified"]["unit"] == "firm_id"
         assert out["identified"]["time"] == "year"
         # Confidence boost from the hint vs. unhinted call.
         out_unhinted = sp.detect_design(balanced_panel)
-        assert (out["confidence"] >= out_unhinted["confidence"]
-                or out["confidence"] >= 0.95)
+        assert (
+            out["confidence"] >= out_unhinted["confidence"] or out["confidence"] >= 0.95
+        )
 
     def test_running_var_hint_promotes_rd(self, rd_dataset):
-        out = sp.detect_design(rd_dataset, running_var="score",
-                                cutoff=65.0)
+        out = sp.detect_design(rd_dataset, running_var="score", cutoff=65.0)
         assert out["design"] == "rd"
         assert out["confidence"] >= 0.5
 
@@ -198,12 +207,11 @@ class TestSymmetricDedup:
             for c in out["candidates"]
             if c["design"] == "panel"
         }
-        panel_count = sum(
-            1 for c in out["candidates"] if c["design"] == "panel"
-        )
+        panel_count = sum(1 for c in out["candidates"] if c["design"] == "panel")
         assert panel_count == len(panel_pairs), (
             f"{panel_count} panel candidates but only "
-            f"{len(panel_pairs)} unique pairs — dedup is broken")
+            f"{len(panel_pairs)} unique pairs — dedup is broken"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -228,10 +236,12 @@ class TestEdgeCases:
             sp.detect_design([1, 2, 3])  # list → reject
 
     def test_all_constant_columns_not_panel(self):
-        df = pd.DataFrame({
-            "x": [1] * 100,  # constant
-            "y": [2] * 100,  # constant
-        })
+        df = pd.DataFrame(
+            {
+                "x": [1] * 100,  # constant
+                "y": [2] * 100,  # constant
+            }
+        )
         out = sp.detect_design(df)
         assert out["design"] == "cross_section"
 
@@ -245,8 +255,7 @@ class TestEdgeCases:
         rows = []
         for i in range(40):
             for t in range(8):
-                rows.append({"unit_id": i, "year": t,
-                             "y": rng.normal()})
+                rows.append({"unit_id": i, "year": t, "y": rng.normal()})
         df = pd.DataFrame(rows)
         # Inject NaNs into the unit column
         nan_idx = df.sample(frac=0.10, random_state=7).index
@@ -266,17 +275,18 @@ class TestWideDataFrame:
         # ~900 (column-pair) × n_rows duplicated() passes.
         rng = np.random.default_rng(0)
         n = 200
-        data = {f"c{i}": rng.integers(0, 25, size=n)
-                for i in range(30)}
+        data = {f"c{i}": rng.integers(0, 25, size=n) for i in range(30)}
         df = pd.DataFrame(data)
         # Should complete in well under a second even on slow CI.
         import time
+
         t0 = time.time()
         out = sp.detect_design(df)
         elapsed = time.time() - t0
         assert elapsed < 5.0, (
             f"detect_design took {elapsed:.2f}s on a 30-col DataFrame; "
-            "candidate cap may be missing")
+            "candidate cap may be missing"
+        )
         # Output is still well-formed.
         assert out["design"] in ("panel", "cross_section", "rd")
         assert 0.0 <= out["confidence"] <= 1.0
@@ -299,8 +309,7 @@ class TestCandidatesList:
         assert out["design"] == out["candidates"][0]["design"]
         assert out["confidence"] == out["candidates"][0]["confidence"]
 
-    def test_cross_section_always_present_as_fallback(self,
-                                                      balanced_panel):
+    def test_cross_section_always_present_as_fallback(self, balanced_panel):
         out = sp.detect_design(balanced_panel)
         designs = {c["design"] for c in out["candidates"]}
         assert "cross_section" in designs

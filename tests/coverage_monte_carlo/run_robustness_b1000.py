@@ -25,6 +25,7 @@ Re-execute end-to-end with::
 
 Total wall-clock: ~10-15 minutes on Apple M3 Pro / 36 GB.
 """
+
 from __future__ import annotations
 
 import json
@@ -36,7 +37,6 @@ import numpy as np
 import pandas as pd
 
 import statspai as sp
-
 
 HERE = Path(__file__).resolve().parent
 RESULTS_DIR = HERE / "results_b1000"
@@ -142,8 +142,7 @@ def coverage_cs_heterogeneous() -> dict:
                 y = 0.2 * t + att_eff + ui + rng.normal(scale=0.8)
                 rows.append({"i": i, "t": t, "g": g, "y": y})
         df = pd.DataFrame(rows)
-        r = sp.callaway_santanna(df, y="y", g="g", t="t", i="i",
-                                 estimator="reg")
+        r = sp.callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="reg")
         bias.append(float(r.estimate) - truth)
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
@@ -191,8 +190,11 @@ def coverage_causal_forest_overlap() -> dict:
         y = 0.5 + truth * d + 0.7 * x1 + 0.3 * x2 + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
         q = sp.causal_question(
-            treatment="d", outcome="y", design="causal_forest",
-            covariates=["x1", "x2"], data=df,
+            treatment="d",
+            outcome="y",
+            design="causal_forest",
+            covariates=["x1", "x2"],
+            data=df,
         )
         r = q.estimate(n_estimators=30, random_state=seed)
         bias.append(float(r.estimate) - truth)
@@ -213,15 +215,19 @@ def coverage_causal_forest_overlap() -> dict:
 
 def main() -> None:
     out: list[dict] = []
-    for fn in [coverage_weak_iv,
-               coverage_cs_heterogeneous,
-               coverage_causal_forest_overlap]:
+    for fn in [
+        coverage_weak_iv,
+        coverage_cs_heterogeneous,
+        coverage_causal_forest_overlap,
+    ]:
         t0 = time.time()
         rec = fn()
         rec["wall_s"] = round(time.time() - t0, 1)
         out.append(rec)
-        print(f"  {rec['name']:<60} cov={rec['rate']:.3f}  "
-              f"band={rec['documented_band']}  ({rec['wall_s']}s)")
+        print(
+            f"  {rec['name']:<60} cov={rec['rate']:.3f}  "
+            f"band={rec['documented_band']}  ({rec['wall_s']}s)"
+        )
     out_path = RESULTS_DIR / "coverage_robustness_b1000.json"
     out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
     print(f"OK -- wrote {out_path}")

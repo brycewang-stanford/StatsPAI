@@ -37,8 +37,18 @@ def test_method_dispatch(method):
     df = make_dose()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                           t_pre=1, t_post=2, method=method, n_boot=30, seed=1)
+        r = continuous_did(
+            df,
+            y="wage",
+            dose="dose",
+            time="t",
+            id="i",
+            t_pre=1,
+            t_post=2,
+            method=method,
+            n_boot=30,
+            seed=1,
+        )
     assert r is not None
     assert np.isfinite(r.estimate)
 
@@ -46,8 +56,16 @@ def test_method_dispatch(method):
 def test_twfe_with_controls_and_cluster():
     df = make_dose()
     df["c1"] = np.random.default_rng(2).normal(size=len(df))
-    r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                       method="twfe", controls=["c1"], cluster="i")
+    r = continuous_did(
+        df,
+        y="wage",
+        dose="dose",
+        time="t",
+        id="i",
+        method="twfe",
+        controls=["c1"],
+        cluster="i",
+    )
     assert np.isfinite(r.estimate)
     assert r.se >= 0
 
@@ -55,8 +73,7 @@ def test_twfe_with_controls_and_cluster():
 def test_post_inferred_from_midpoint():
     # post=None and no t_pre/t_post -> midpoint split (line 128-130)
     df = make_dose(T=4)
-    r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                       method="twfe")
+    r = continuous_did(df, y="wage", dose="dose", time="t", id="i", method="twfe")
     assert np.isfinite(r.estimate)
 
 
@@ -69,8 +86,17 @@ def test_att_gt_quantile_edges_collapse():
     df = pd.concat([df, ctrl], ignore_index=True)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                           method="att_gt", n_quantiles=5, n_boot=20, seed=3)
+        r = continuous_did(
+            df,
+            y="wage",
+            dose="dose",
+            time="t",
+            id="i",
+            method="att_gt",
+            n_quantiles=5,
+            n_boot=20,
+            seed=3,
+        )
     assert r is not None
 
 
@@ -82,15 +108,29 @@ def test_dose_response_fallback_to_linregress():
         d = rng.uniform(0, 2)
         ufe = rng.normal()
         for t in (1, 2):
-            rows.append({"i": u, "t": t,
-                         "wage": ufe + (1.5 * d if t == 2 else 0) + rng.normal() * 0.1,
-                         "dose": d})
+            rows.append(
+                {
+                    "i": u,
+                    "t": t,
+                    "wage": ufe + (1.5 * d if t == 2 else 0) + rng.normal() * 0.1,
+                    "dose": d,
+                }
+            )
     df = pd.DataFrame(rows)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                           method="dose_response", t_pre=1, t_post=2,
-                           n_boot=10, seed=1)
+        r = continuous_did(
+            df,
+            y="wage",
+            dose="dose",
+            time="t",
+            id="i",
+            method="dose_response",
+            t_pre=1,
+            t_post=2,
+            n_boot=10,
+            seed=1,
+        )
     assert r is not None
     assert "Dose-Response" in r.method or "Continuous DID" in r.method
 
@@ -98,16 +138,27 @@ def test_dose_response_fallback_to_linregress():
 def test_cgs_auto_periods():
     # t_pre / t_post None -> times[0] / times[-1] (lines 468, 472)
     df = make_dose()
-    r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                       method="cgs", n_boot=10, seed=1)
+    r = continuous_did(
+        df, y="wage", dose="dose", time="t", id="i", method="cgs", n_boot=10, seed=1
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_cgs_no_controls_warns():
     # All dose>0 -> no untreated control arm (lines 494-503)
     df = make_dose(zero_frac=0.0)
-    r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                       method="cgs", t_pre=1, t_post=2, n_boot=10, seed=1)
+    r = continuous_did(
+        df,
+        y="wage",
+        dose="dose",
+        time="t",
+        id="i",
+        method="cgs",
+        t_pre=1,
+        t_post=2,
+        n_boot=10,
+        seed=1,
+    )
     assert np.isnan(r.estimate)
     assert "control" in r.model_info.get("warning", "").lower()
 
@@ -120,12 +171,27 @@ def test_cgs_too_few_treated_warns():
         d = rng.uniform(0.5, 2) if u < 2 else 0.0
         ufe = rng.normal()
         for t in (1, 2):
-            rows.append({"i": u, "t": t,
-                         "wage": ufe + (d if t == 2 else 0) + rng.normal() * 0.1,
-                         "dose": d})
+            rows.append(
+                {
+                    "i": u,
+                    "t": t,
+                    "wage": ufe + (d if t == 2 else 0) + rng.normal() * 0.1,
+                    "dose": d,
+                }
+            )
     df = pd.DataFrame(rows)
-    r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                       method="cgs", t_pre=1, t_post=2, n_boot=10, seed=1)
+    r = continuous_did(
+        df,
+        y="wage",
+        dose="dose",
+        time="t",
+        id="i",
+        method="cgs",
+        t_pre=1,
+        t_post=2,
+        n_boot=10,
+        seed=1,
+    )
     assert np.isnan(r.estimate)
     assert "treated" in r.model_info.get("warning", "").lower()
 
@@ -138,7 +204,17 @@ def test_cgs_empty_merge_returns_nan():
     for u in range(5, 10):
         rows.append({"i": u, "t": 2, "wage": 2.0, "dose": 1.0})
     df = pd.DataFrame(rows)
-    r = continuous_did(df, y="wage", dose="dose", time="t", id="i",
-                       method="cgs", t_pre=1, t_post=2, n_boot=5, seed=1)
+    r = continuous_did(
+        df,
+        y="wage",
+        dose="dose",
+        time="t",
+        id="i",
+        method="cgs",
+        t_pre=1,
+        t_post=2,
+        n_boot=5,
+        seed=1,
+    )
     assert np.isnan(r.estimate)
     assert r.n_obs == 0

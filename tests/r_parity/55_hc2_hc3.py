@@ -16,12 +16,12 @@ machine-precision headline (rel_se ~ 1e-9). This certifies an additional
 ``sp.regress`` covariance path; it does not introduce a new certified
 symbol (``regress`` is already certified via modules 01/14).
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
-
 
 MODULE = "55_hc2_hc3"
 FORMULA = "lemp ~ treat + year"
@@ -31,8 +31,10 @@ def main() -> None:
     df = sp.datasets.mpdta()
     dump_csv(df, MODULE)
 
-    fits = {"hc2": sp.regress(FORMULA, data=df, robust="hc2"),
-            "hc3": sp.regress(FORMULA, data=df, robust="hc3")}
+    fits = {
+        "hc2": sp.regress(FORMULA, data=df, robust="hc2"),
+        "hc3": sp.regress(FORMULA, data=df, robust="hc3"),
+    }
 
     n = int(fits["hc2"].data_info.get("n_obs", len(df)))
     rows: list[ParityRecord] = []
@@ -42,14 +44,19 @@ def main() -> None:
             canonical = "(Intercept)" if name == "Intercept" else name
             rows.append(
                 ParityRecord(
-                    module=MODULE, side="py",
+                    module=MODULE,
+                    side="py",
                     statistic=f"{kind}_{canonical}",
-                    estimate=beta, se=float(fit.std_errors[name]), n=n,
+                    estimate=beta,
+                    se=float(fit.std_errors[name]),
+                    n=n,
                 )
             )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "formula": FORMULA,
             "vcov": "HC2 + HC3 (MacKinnon-White 1985)",

@@ -19,10 +19,10 @@ from statspai.output._journals import (
     star_note_for,
 )
 
-
 # ---------------------------------------------------------------------------
 # fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def two_models():
@@ -40,7 +40,16 @@ def two_models():
 # _journals registry
 # ---------------------------------------------------------------------------
 
-REQUIRED_TEMPLATES = ("aer", "qje", "econometrica", "restat", "jf", "aeja", "jpe", "restud")
+REQUIRED_TEMPLATES = (
+    "aer",
+    "qje",
+    "econometrica",
+    "restat",
+    "jf",
+    "aeja",
+    "jpe",
+    "restud",
+)
 
 
 def test_journals_registry_has_required_templates():
@@ -112,6 +121,7 @@ def test_star_note_two_threshold_skips_single_star():
 # regtable(template=...) plumbing
 # ---------------------------------------------------------------------------
 
+
 def test_regtable_template_qje_uses_robust_se_label(two_models):
     m1, m2 = two_models
     txt = sp.regtable(m1, m2, template="qje").to_text()
@@ -163,8 +173,9 @@ def test_regtable_unknown_template_raises(two_models):
 def test_regtable_explicit_kwargs_override_template(two_models):
     """Explicit ``star_levels`` should beat the template default."""
     m1, m2 = two_models
-    txt = sp.regtable(m1, m2, template="econometrica",
-                      star_levels=(0.10, 0.05, 0.01)).to_text()
+    txt = sp.regtable(
+        m1, m2, template="econometrica", star_levels=(0.10, 0.05, 0.01)
+    ).to_text()
     # 10% threshold should now appear in the star note
     assert "* p<0.10" in txt
 
@@ -173,8 +184,10 @@ def test_regtable_explicit_kwargs_override_template(two_models):
 # paper_tables ↔ _journals integration
 # ---------------------------------------------------------------------------
 
+
 def test_paper_tables_TEMPLATES_re_exports_all_journals():
     from statspai.output.paper_tables import TEMPLATES
+
     for name in REQUIRED_TEMPLATES:
         assert name in TEMPLATES, f"paper_tables.TEMPLATES missing {name}"
 

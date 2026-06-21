@@ -26,14 +26,18 @@ def _oracle_llm(prompt: str) -> str:
 
 
 def test_pairwise_causal_benchmark_oracle():
-    gt = pd.DataFrame([
-        {"A": "smoking", "B": "lung cancer", "a_causes_b": True},
-        {"A": "education", "B": "wage", "a_causes_b": True},
-        {"A": "horoscope", "B": "success", "a_causes_b": False},
-        {"A": "shoe_size", "B": "iq", "a_causes_b": False},
-    ])
+    gt = pd.DataFrame(
+        [
+            {"A": "smoking", "B": "lung cancer", "a_causes_b": True},
+            {"A": "education", "B": "wage", "a_causes_b": True},
+            {"A": "horoscope", "B": "success", "a_causes_b": False},
+            {"A": "shoe_size", "B": "iq", "a_causes_b": False},
+        ]
+    )
     res = sp.pairwise_causal_benchmark(
-        gt, llm_client=_oracle_llm, llm_identifier="oracle",
+        gt,
+        llm_client=_oracle_llm,
+        llm_identifier="oracle",
     )
     np.testing.assert_allclose(
         [res.accuracy, res.precision_forward, res.recall_forward],
@@ -49,7 +53,8 @@ def test_pairwise_benchmark_missing_columns():
     bad = pd.DataFrame({"X": ["a"], "Y": ["b"]})
     with pytest.raises(ValueError, match="Missing"):
         sp.pairwise_causal_benchmark(
-            bad, llm_client=_oracle_llm,
+            bad,
+            llm_client=_oracle_llm,
         )
 
 
@@ -58,12 +63,17 @@ def test_llm_causal_assess_level1():
         if "smoking" in q.lower():
             return "The answer is yes"
         return "I don't know"
-    items = pd.DataFrame([
-        {"question": "Does smoking cause cancer?", "answer": "yes"},
-        {"question": "Does wealth cause health?", "answer": "yes"},
-    ])
+
+    items = pd.DataFrame(
+        [
+            {"question": "Does smoking cause cancer?", "answer": "yes"},
+            {"question": "Does wealth cause health?", "answer": "yes"},
+        ]
+    )
     res = sp.llm_causal_assess(
-        level1_items=items, llm_client=llm, llm_identifier="toy",
+        level1_items=items,
+        llm_client=llm,
+        llm_identifier="toy",
     )
     # Only the first item matches
     np.testing.assert_allclose(res.level1_accuracy, 0.5)

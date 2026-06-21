@@ -8,6 +8,7 @@ mock=True to mock=False is the one-line change. The real production
 run is gated on the OSF pre-registration deposit (see prompts/
 _protocol.md) and the budget approval logged in NEXT-STEPS §M.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -16,7 +17,6 @@ import time
 from pathlib import Path
 
 from mock_llm import run_trial as run_mock_trial, to_dict as mock_to_dict
-
 
 HERE = Path(__file__).resolve().parent
 PROMPTS_PATH = HERE.parent / "prompts" / "prompts.json"
@@ -30,20 +30,35 @@ CELL_LABELS = ["C1", "C2", "C3", "C4", "C5", "C6"]
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--mock", action="store_true", default=True,
-                    help="Use the deterministic mock LLM (default).")
-    p.add_argument("--api", choices=["anthropic", "openai", "both", "none"],
-                    default="none",
-                    help="Real API. Off by default until OSF + budget approved.")
-    p.add_argument("--cells", default="C1,C2,C3,C4,C5,C6",
-                    help="Comma-separated cell IDs to run.")
-    p.add_argument("--prompts", default="all",
-                    help="'all' or one of L1, L2, L3, or a comma-separated "
-                         "list of prompt IDs.")
-    p.add_argument("--reps", type=int, default=3,
-                    help="Reps per (cell, prompt) -- default 3.")
-    p.add_argument("--out", type=str, default="trials.jsonl",
-                    help="Output JSONL filename inside results/.")
+    p.add_argument(
+        "--mock",
+        action="store_true",
+        default=True,
+        help="Use the deterministic mock LLM (default).",
+    )
+    p.add_argument(
+        "--api",
+        choices=["anthropic", "openai", "both", "none"],
+        default="none",
+        help="Real API. Off by default until OSF + budget approved.",
+    )
+    p.add_argument(
+        "--cells", default="C1,C2,C3,C4,C5,C6", help="Comma-separated cell IDs to run."
+    )
+    p.add_argument(
+        "--prompts",
+        default="all",
+        help="'all' or one of L1, L2, L3, or a comma-separated " "list of prompt IDs.",
+    )
+    p.add_argument(
+        "--reps", type=int, default=3, help="Reps per (cell, prompt) -- default 3."
+    )
+    p.add_argument(
+        "--out",
+        type=str,
+        default="trials.jsonl",
+        help="Output JSONL filename inside results/.",
+    )
     return p.parse_args()
 
 
@@ -73,8 +88,10 @@ def main() -> None:
     cells = [c.strip() for c in args.cells.split(",") if c.strip()]
     out_path = RESULTS_DIR / args.out
 
-    print(f"Running {len(cells)} cells x {len(selected)} prompts x {args.reps} reps "
-          f"= {len(cells) * len(selected) * args.reps} trials")
+    print(
+        f"Running {len(cells)} cells x {len(selected)} prompts x {args.reps} reps "
+        f"= {len(cells) * len(selected) * args.reps} trials"
+    )
     if args.mock:
         print("Mode: MOCK LLM (no API calls)")
     print(f"Out:   {out_path}")

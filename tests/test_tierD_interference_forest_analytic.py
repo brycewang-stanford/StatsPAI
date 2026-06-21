@@ -105,7 +105,12 @@ class TestNotchAnalytic:
         assert np.isfinite(float(res.excess_bunching))
         np.testing.assert_allclose(
             [res.excess_bunching, res.missing_mass, res.se_bunching, res.pvalue],
-            [62.631548856082375, 65.69429856082435, 32.59876800238219, 0.054695691007236924],
+            [
+                62.631548856082375,
+                65.69429856082435,
+                32.59876800238219,
+                0.054695691007236924,
+            ],
             atol=1e-12,
         )
         np.testing.assert_allclose(

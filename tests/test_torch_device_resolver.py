@@ -3,6 +3,7 @@
 These tests cover the decision logic without requiring a CUDA box: the
 ``cuda`` branch is exercised via monkeypatching ``torch.cuda.is_available``.
 """
+
 from __future__ import annotations
 
 import os

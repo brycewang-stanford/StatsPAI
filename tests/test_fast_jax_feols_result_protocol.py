@@ -1,4 +1,5 @@
 """Result-protocol tests for JAX bootstrap containers."""
+
 from __future__ import annotations
 
 import json
@@ -17,10 +18,12 @@ def test_feols_jax_bootstrap_result_protocol_json_safe():
         se_boot=pd.Series({"x1": 0.05, "x2": 0.04}),
         ci_lower=pd.Series({"x1": 0.15, "x2": -0.18}),
         ci_upper=pd.Series({"x1": 0.35, "x2": -0.02}),
-        boot_betas=pd.DataFrame({
-            "x1": [0.20, 0.25, 0.30],
-            "x2": [-0.12, -0.10, -0.08],
-        }),
+        boot_betas=pd.DataFrame(
+            {
+                "x1": [0.20, 0.25, 0.30],
+                "x2": [-0.12, -0.10, -0.08],
+            }
+        ),
         n_boot=3,
         bootstrap_type="pairs",
     )

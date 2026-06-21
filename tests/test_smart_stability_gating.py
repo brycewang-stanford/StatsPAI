@@ -12,6 +12,7 @@ Two layers of test:
 * integration: ``sp.recommend(...)`` with a hand-crafted recommendation
   list confirms the warning trail and the kept set survive the round trip.
 """
+
 from __future__ import annotations
 
 import pandas as pd
@@ -22,18 +23,21 @@ import pytest
 def _toy_panel(n_units: int = 60, n_t: int = 4) -> pd.DataFrame:
     rng = np.random.default_rng(0)
     n = n_units * n_t
-    return pd.DataFrame({
-        "y":          rng.normal(size=n),
-        "unit":       np.repeat(np.arange(n_units), n_t),
-        "t":          np.tile(np.arange(n_t), n_units),
-        "treatment":  rng.binomial(1, 0.5, size=n),
-        "x1":         rng.normal(size=n),
-    })
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "unit": np.repeat(np.arange(n_units), n_t),
+            "t": np.tile(np.arange(n_t), n_units),
+            "treatment": rng.binomial(1, 0.5, size=n),
+            "x1": rng.normal(size=n),
+        }
+    )
 
 
 # --------------------------------------------------------------------------- #
 #  Unit: the in-place filter
 # --------------------------------------------------------------------------- #
+
 
 def _import_recommend_module():
     """Import the ``statspai.smart.recommend`` *module* (not the
@@ -46,6 +50,7 @@ def _import_recommend_module():
     the actual module so we can poke private helpers.
     """
     import importlib
+
     return importlib.import_module("statspai.smart.recommend")
 
 
@@ -89,6 +94,7 @@ class TestUnstableFilter:
 #  Integration: sp.recommend default vs opt-in
 # --------------------------------------------------------------------------- #
 
+
 class TestRecommendStabilityDefault:
     """Synthesize a recommendation list and round-trip via the real entry point."""
 
@@ -128,6 +134,7 @@ class TestRecommendStabilityDefault:
         # caller's allow_experimental=True flag short-circuits the
         # filter call site".
         import inspect
+
         mod = _import_recommend_module()
         src = inspect.getsource(mod.recommend)
         # The filter is gated by a literal `if not allow_experimental:`.
@@ -145,16 +152,22 @@ class TestRecommendStabilityDefault:
         # auto_run=False so we can inspect the workflow without paying
         # for a full estimation.
         w = sp.causal(
-            df, y="y", treatment="treatment",
-            id="unit", time="t",
+            df,
+            y="y",
+            treatment="treatment",
+            id="unit",
+            time="t",
             auto_run=False,
             allow_experimental=True,
         )
         assert w.allow_experimental is True
 
         w2 = sp.causal(
-            df, y="y", treatment="treatment",
-            id="unit", time="t",
+            df,
+            y="y",
+            treatment="treatment",
+            id="unit",
+            time="t",
             auto_run=False,
             # default
         )

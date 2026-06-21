@@ -25,7 +25,6 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 import audit_bib_coverage as abc  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # extract_citations
 # ---------------------------------------------------------------------------
@@ -106,8 +105,7 @@ def test_extract_citations_accepts_single_file_root(tmp_path, monkeypatch):
 
 def _write_bib(path: Path, *keys: str) -> None:
     body = "\n\n".join(
-        f"@article{{{k},\n  title={{X}},\n  doi={{10.1/{k}}}\n}}"
-        for k in keys
+        f"@article{{{k},\n  title={{X}},\n  doi={{10.1/{k}}}\n}}" for k in keys
     )
     path.write_text(body, encoding="utf-8")
 
@@ -144,7 +142,8 @@ def test_build_report_clean_reports_nothing(tmp_path, monkeypatch):
     _write_bib(tmp_path / "paper.bib", "key_a", "key_b")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        "# [@key_a] and [@key_b]\n", encoding="utf-8",
+        "# [@key_a] and [@key_b]\n",
+        encoding="utf-8",
     )
     report = abc.build_report(tmp_path / "paper.bib", [tmp_path / "src"])
     assert report.dangling == set()
@@ -153,7 +152,8 @@ def test_build_report_clean_reports_nothing(tmp_path, monkeypatch):
 
 
 def test_build_report_coverage_percent_is_intersection_over_bib(
-    tmp_path, monkeypatch,
+    tmp_path,
+    monkeypatch,
 ):
     monkeypatch.setattr(abc, "REPO_ROOT", tmp_path)
     _write_bib(tmp_path / "paper.bib", "a", "b", "c", "d")
@@ -173,10 +173,12 @@ def test_build_report_records_citation_locations(tmp_path, monkeypatch):
     _write_bib(tmp_path / "paper.bib", "repeated")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "a.py").write_text(
-        "# [@repeated]\n# [@repeated]\n", encoding="utf-8",
+        "# [@repeated]\n# [@repeated]\n",
+        encoding="utf-8",
     )
     (tmp_path / "src" / "b.py").write_text(
-        "# [@repeated]\n", encoding="utf-8",
+        "# [@repeated]\n",
+        encoding="utf-8",
     )
     report = abc.build_report(tmp_path / "paper.bib", [tmp_path / "src"])
     sites = report.citations_by_key["repeated"]
@@ -193,11 +195,18 @@ def test_build_report_records_citation_locations(tmp_path, monkeypatch):
 
 def _run_cli(tmp_path: Path, *extra_args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "audit_bib_coverage.py"),
-         "--bib", str(tmp_path / "paper.bib"),
-         "--roots", str(tmp_path / "src"),
-         *extra_args],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "audit_bib_coverage.py"),
+            "--bib",
+            str(tmp_path / "paper.bib"),
+            "--roots",
+            str(tmp_path / "src"),
+            *extra_args,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
 
@@ -205,7 +214,8 @@ def test_cli_strict_dangling_fails_on_dangling(tmp_path):
     _write_bib(tmp_path / "paper.bib", "defined")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        "# [@missing]\n", encoding="utf-8",
+        "# [@missing]\n",
+        encoding="utf-8",
     )
     result = _run_cli(tmp_path, "--strict-dangling")
     assert result.returncode == 1
@@ -217,7 +227,8 @@ def test_cli_strict_dangling_passes_when_only_orphans_exist(tmp_path):
     _write_bib(tmp_path / "paper.bib", "cited", "uncited_orphan")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        "# [@cited]\n", encoding="utf-8",
+        "# [@cited]\n",
+        encoding="utf-8",
     )
     result = _run_cli(tmp_path, "--strict-dangling")
     assert result.returncode == 0, result.stdout + result.stderr
@@ -228,7 +239,8 @@ def test_cli_strict_all_fails_on_orphan(tmp_path):
     _write_bib(tmp_path / "paper.bib", "cited", "uncited")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        "# [@cited]\n", encoding="utf-8",
+        "# [@cited]\n",
+        encoding="utf-8",
     )
     result = _run_cli(tmp_path, "--strict")
     assert result.returncode == 1
@@ -240,7 +252,8 @@ def test_cli_non_strict_always_exits_zero(tmp_path):
     _write_bib(tmp_path / "paper.bib", "defined")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        "# [@missing]\n", encoding="utf-8",
+        "# [@missing]\n",
+        encoding="utf-8",
     )
     result = _run_cli(tmp_path)
     assert result.returncode == 0
@@ -251,7 +264,8 @@ def test_cli_hide_orphans_flag(tmp_path):
     _write_bib(tmp_path / "paper.bib", "cited", "uncited_should_not_show")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        "# [@cited]\n", encoding="utf-8",
+        "# [@cited]\n",
+        encoding="utf-8",
     )
     result = _run_cli(tmp_path, "--hide-orphans")
     assert result.returncode == 0
@@ -262,10 +276,17 @@ def test_cli_hide_orphans_flag(tmp_path):
 
 def test_cli_missing_bib_returns_2(tmp_path):
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "audit_bib_coverage.py"),
-         "--bib", str(tmp_path / "nope.bib"),
-         "--roots", str(tmp_path)],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "audit_bib_coverage.py"),
+            "--bib",
+            str(tmp_path / "nope.bib"),
+            "--roots",
+            str(tmp_path),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 2
     assert "not found" in result.stderr

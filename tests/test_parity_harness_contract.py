@@ -324,7 +324,9 @@ def test_glmm_parity_uses_tight_optimizer_solution_with_se_convention_guard():
         assert compare.TOLERANCES[module]["rel_se"] == 5e-2
         assert compare.tolerance_tier(module) == "iterative"
         assert py_payload["extra"]["optimizer_tol"] == 1e-8
-        assert "tracks lme4/Stata fixed effects" in py_payload["extra"]["optimizer_note"]
+        assert (
+            "tracks lme4/Stata fixed effects" in py_payload["extra"]["optimizer_note"]
+        )
 
         for statistic in ("beta_intercept", "beta_x1"):
             assert rows[statistic].rel_est < rel_tol
@@ -410,7 +412,10 @@ def test_rif_uses_dineq_quantile_convention_with_tight_bridge():
     assert compare.tolerance_tier("32_rif") == "machine"
     assert py_payload["extra"]["quantile_convention"] == "dineq"
     assert stata_payload["extra"]["quantile_convention"] == "dineq"
-    assert "R stats::density binned Gaussian density" in stata_payload["extra"]["stata_algorithm"]
+    assert (
+        "R stats::density binned Gaussian density"
+        in stata_payload["extra"]["stata_algorithm"]
+    )
 
     for statistic in (
         "total_diff",
@@ -733,10 +738,7 @@ def test_arima_uses_innovations_mle_reference_mode_for_r_stata_coefficients():
     assert r_payload["extra"]["method"] == ["ML"]
     assert stata_payload["extra"]["method"] == "exact MLE"
     assert compare.TOLERANCES["39_arima"]["rel_est"] == 1e-6
-    assert (
-        "tightly converged Stata arima"
-        in compare.HEADLINE["39_arima"]["gap_note"]
-    )
+    assert "tightly converged Stata arima" in compare.HEADLINE["39_arima"]["gap_note"]
 
     rows = [
         row

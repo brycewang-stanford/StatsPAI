@@ -32,10 +32,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def ols_models():
@@ -64,6 +64,7 @@ def logit_model():
 # ---------------------------------------------------------------------------
 # 1. eform
 # ---------------------------------------------------------------------------
+
 
 class TestEform:
 
@@ -132,8 +133,9 @@ class TestEform:
         assert ws.freeze_panes == "B2"
         assert ws.print_title_rows.replace("$", "") == "1:1"
         assert ws.page_setup.fitToWidth == 1
-        assert any("exp(b)" in value or "exponentiated" in value.lower()
-                   for value in values)
+        assert any(
+            "exp(b)" in value or "exponentiated" in value.lower() for value in values
+        )
 
     def test_eform_preserves_stars(self, logit_model):
         """Significance stars come from the original p-value, not the exp cell."""
@@ -154,12 +156,16 @@ class TestEform:
 # 2. Column spanners
 # ---------------------------------------------------------------------------
 
+
 class TestColumnSpanners:
 
     def test_spanners_text_renders_label_centered(self, ols_models):
         m1, m2, _ = ols_models
         out = sp.regtable(
-            m1, m2, m1, m2,
+            m1,
+            m2,
+            m1,
+            m2,
             column_spanners=[("OLS", 2), ("IV", 2)],
         ).to_text()
         assert "OLS" in out
@@ -168,7 +174,10 @@ class TestColumnSpanners:
     def test_spanners_latex_uses_multicolumn(self, ols_models):
         m1, m2, _ = ols_models
         tex = sp.regtable(
-            m1, m2, m1, m2,
+            m1,
+            m2,
+            m1,
+            m2,
             column_spanners=[("OLS", 2), ("IV", 2)],
         ).to_latex()
         assert "\\multicolumn{2}{c}{OLS}" in tex
@@ -179,7 +188,10 @@ class TestColumnSpanners:
     def test_spanners_html_uses_colspan(self, ols_models):
         m1, m2, _ = ols_models
         html = sp.regtable(
-            m1, m2, m1, m2,
+            m1,
+            m2,
+            m1,
+            m2,
             column_spanners=[("OLS", 2), ("IV", 2)],
         ).to_html()
         assert 'colspan="2"' in html
@@ -194,7 +206,8 @@ class TestColumnSpanners:
     def test_spanners_escapes_latex_specials(self, ols_models):
         m1, m2, _ = ols_models
         tex = sp.regtable(
-            m1, m2,
+            m1,
+            m2,
             column_spanners=[("M&M Co.", 2)],
         ).to_latex()
         assert "M\\&M Co." in tex
@@ -203,6 +216,7 @@ class TestColumnSpanners:
 # ---------------------------------------------------------------------------
 # 3. depvar_mean / depvar_sd auto rows
 # ---------------------------------------------------------------------------
+
 
 class TestDepvarStats:
 
@@ -236,13 +250,15 @@ class TestDepvarStats:
 # 4. coef_map unified
 # ---------------------------------------------------------------------------
 
+
 class TestCoefMap:
 
     def test_coef_map_renames_and_orders_and_drops(self, ols_models):
         m1, m2, _ = ols_models
         # Drop x1 by omitting it from the map; keep x2 first labelled "Education"
         out = sp.regtable(
-            m1, m2,
+            m1,
+            m2,
             coef_map={"x2": "Education", "Intercept": "Constant"},
         ).to_text()
         assert "Education" in out
@@ -250,13 +266,15 @@ class TestCoefMap:
         # x1 omitted because it's not in coef_map — "x1" as standalone label gone
         # (plain x1 should not appear as a row label, but "x1 + x2" formula chunks
         # don't appear in regtable so this is safe)
-        assert not re.search(r"^\s*x1\s+", out, re.M), \
-            f"x1 should be dropped; got:\n{out}"
+        assert not re.search(
+            r"^\s*x1\s+", out, re.M
+        ), f"x1 should be dropped; got:\n{out}"
 
     def test_coef_map_preserves_order(self, ols_models):
         m1, m2, _ = ols_models
         out = sp.regtable(
-            m1, m2,
+            m1,
+            m2,
             coef_map={"Intercept": "Constant", "x2": "Edu", "x1": "Exper"},
         ).to_text()
         # Order in output reflects coef_map insertion order
@@ -276,6 +294,7 @@ class TestCoefMap:
 # 5. Consistency warnings
 # ---------------------------------------------------------------------------
 
+
 class TestConsistencyWarnings:
 
     def test_n_mismatch_warning(self, ols_models):
@@ -286,8 +305,13 @@ class TestConsistencyWarnings:
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
             sp.regtable(m1, m3)
-            n_warns = [x for x in w if "sample" in str(x.message).lower()
-                       or "N" in str(x.message) and "differ" in str(x.message).lower()]
+            n_warns = [
+                x
+                for x in w
+                if "sample" in str(x.message).lower()
+                or "N" in str(x.message)
+                and "differ" in str(x.message).lower()
+            ]
         assert len(n_warns) >= 1, [str(x.message) for x in w]
 
     def test_no_warning_when_n_matches(self, ols_models):
@@ -297,9 +321,9 @@ class TestConsistencyWarnings:
             sp.regtable(m1, m2)
         # m1 and m2 fit on same df → no N-mismatch warning
         n_warns = [
-            x for x in w
-            if "sample" in str(x.message).lower()
-            and "differ" in str(x.message).lower()
+            x
+            for x in w
+            if "sample" in str(x.message).lower() and "differ" in str(x.message).lower()
         ]
         assert n_warns == []
 
@@ -307,6 +331,7 @@ class TestConsistencyWarnings:
 # ---------------------------------------------------------------------------
 # 6. LaTeX escape correctness
 # ---------------------------------------------------------------------------
+
 
 class TestLatexEscape:
 

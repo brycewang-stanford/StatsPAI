@@ -73,9 +73,7 @@ def test_missing_caption_warns_and_uses_default(ols_models):
 
 def test_output_quarto_dispatches_via_str(ols_models):
     m1, _ = ols_models
-    r = sp.regtable(
-        m1, quarto_label="main", quarto_caption="C", output="quarto"
-    )
+    r = sp.regtable(m1, quarto_label="main", quarto_caption="C", output="quarto")
     assert "{#tbl-main}" in str(r)
 
 

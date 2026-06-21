@@ -29,8 +29,9 @@ def _iv_df(n=600, seed=0):
 
 def test_jive1_summary_and_frame():
     df = _iv_df(seed=1)
-    r = sp.iv.jive1(y="y", endog="d", instruments=["z0", "z1", "z2", "z3"],
-                    exog="x", data=df)
+    r = sp.iv.jive1(
+        y="y", endog="d", instruments=["z0", "z1", "z2", "z3"], exog="x", data=df
+    )
     s = r.summary()
     assert "JIVE1" in s
     assert "first-stage F" in s
@@ -40,16 +41,18 @@ def test_jive1_summary_and_frame():
 
 def test_ujive_with_exog():
     df = _iv_df(seed=2)
-    r = sp.iv.ujive(y="y", endog="d", instruments=["z0", "z1", "z2", "z3"],
-                    exog="x", data=df)
+    r = sp.iv.ujive(
+        y="y", endog="d", instruments=["z0", "z1", "z2", "z3"], exog="x", data=df
+    )
     assert np.isfinite(r.params.iloc[0])
 
 
 def test_ujive_no_exog_no_const():
     df = _iv_df(seed=3)
     # no exog and no const -> the W.size == 0 ujive branch (183-185)
-    r = sp.iv.ujive(y="y", endog="d", instruments=["z0", "z1", "z2", "z3"],
-                    data=df, add_const=False)
+    r = sp.iv.ujive(
+        y="y", endog="d", instruments=["z0", "z1", "z2", "z3"], data=df, add_const=False
+    )
     assert np.isfinite(r.params.iloc[0])
 
 
@@ -64,15 +67,22 @@ def test_jive1_array_inputs_1d_instrument():
 
 def test_ijive_runs():
     df = _iv_df(seed=4)
-    r = sp.iv.ijive(y="y", endog="d", instruments=["z0", "z1", "z2", "z3"],
-                    exog="x", data=df)
+    r = sp.iv.ijive(
+        y="y", endog="d", instruments=["z0", "z1", "z2", "z3"], exog="x", data=df
+    )
     assert np.isfinite(r.params.iloc[0])
 
 
 def test_rjive_runs():
     df = _iv_df(seed=5)
-    r = sp.iv.rjive(y="y", endog="d", instruments=["z0", "z1", "z2", "z3"],
-                    exog="x", data=df, ridge=0.5)
+    r = sp.iv.rjive(
+        y="y",
+        endog="d",
+        instruments=["z0", "z1", "z2", "z3"],
+        exog="x",
+        data=df,
+        ridge=0.5,
+    )
     assert "RJIVE" in r.method
 
 

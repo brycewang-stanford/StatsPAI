@@ -20,70 +20,106 @@ def staggered_panel():
             post = first_treat > 0 and t >= first_treat
             x = rng.standard_normal()
             y = (
-                u * 0.1 + t * 0.2
+                u * 0.1
+                + t * 0.2
                 + (2.0 if post else 0.0)
                 + 0.3 * x
                 + rng.standard_normal()
             )
-            rows.append({
-                'unit': f'u{u}', 'time': t, 'y': y, 'x': x,
-                'first_treat': first_treat,
-            })
+            rows.append(
+                {
+                    "unit": f"u{u}",
+                    "time": t,
+                    "y": y,
+                    "x": x,
+                    "first_treat": first_treat,
+                }
+            )
     return pd.DataFrame(rows)
 
 
 def test_did_bcf(staggered_panel):
     res = sp.did_bcf(
-        staggered_panel, y='y', treat='first_treat', time='time',
-        id='unit', covariates=['x'], n_trees=20, seed=0,
+        staggered_panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        covariates=["x"],
+        n_trees=20,
+        seed=0,
     )
-    assert hasattr(res, 'estimate')
+    assert hasattr(res, "estimate")
     # True ATT ≈ 2.0
     assert -1.0 < res.estimate < 5.0
     assert res.method.startswith("DiD-BCF")
-    assert 'catt_by_cohort' in res.model_info
+    assert "catt_by_cohort" in res.model_info
     np.testing.assert_allclose(
         [res.estimate, res.se, res.pvalue, res.ci[0], res.ci[1]],
-        [1.875493484862111, 0.05533075076598776, 0.0, 1.767047206123213, 1.983939763601009],
+        [
+            1.875493484862111,
+            0.05533075076598776,
+            0.0,
+            1.767047206123213,
+            1.983939763601009,
+        ],
         atol=1e-12,
     )
 
 
 def test_cohort_anchored(staggered_panel):
     res = sp.cohort_anchored_event_study(
-        staggered_panel, y='y', treat='first_treat', time='time',
-        id='unit', leads=2, lags=2,
+        staggered_panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        leads=2,
+        lags=2,
     )
-    assert hasattr(res, 'estimate')
-    es = res.model_info['event_study']
+    assert hasattr(res, "estimate")
+    es = res.model_info["event_study"]
     assert isinstance(es, pd.DataFrame)
-    assert 'rel_time' in es.columns
+    assert "rel_time" in es.columns
     # Should produce post-treatment effects in the right ballpark
     assert -1.0 < res.estimate < 5.0
 
 
 def test_design_robust(staggered_panel):
     res = sp.design_robust_event_study(
-        staggered_panel, y='y', treat='first_treat', time='time',
-        id='unit', leads=2, lags=2,
+        staggered_panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        leads=2,
+        lags=2,
     )
-    assert hasattr(res, 'estimate')
-    es = res.model_info['event_study']
+    assert hasattr(res, "estimate")
+    es = res.model_info["event_study"]
     assert isinstance(es, pd.DataFrame)
-    assert 'diagnostics' in res.model_info
+    assert "diagnostics" in res.model_info
     np.testing.assert_allclose(
         [res.estimate, res.se, res.pvalue, res.ci[0], res.ci[1]],
-        [1.2398673925548866, 0.24138955398202597, 2.8008774366483635e-07, 0.7667525605059285, 1.7129822246038446],
+        [
+            1.2398673925548866,
+            0.24138955398202597,
+            2.8008774366483635e-07,
+            0.7667525605059285,
+            1.7129822246038446,
+        ],
         atol=1e-12,
     )
     np.testing.assert_allclose(
         es[["rel_time", "att", "se"]].to_numpy(),
-        np.array([
-            [-2.0, -0.165497, 0.429303],
-            [0.0, 1.341270, 0.388341],
-            [1.0, 1.218834, 0.369759],
-            [2.0, 1.159498, 0.486713],
-        ]),
+        np.array(
+            [
+                [-2.0, -0.165497, 0.429303],
+                [0.0, 1.341270, 0.388341],
+                [1.0, 1.218834, 0.369759],
+                [2.0, 1.159498, 0.486713],
+            ]
+        ),
         atol=5e-7,
     )
 
@@ -91,27 +127,42 @@ def test_design_robust(staggered_panel):
 def test_did_misclassified_no_correction(staggered_panel):
     # pi_misclass=0, anticipation=0 → should reproduce naive ATT
     res = sp.did_misclassified(
-        staggered_panel, y='y', treat='first_treat', time='time',
-        id='unit', pi_misclass=0.0, anticipation_periods=0,
+        staggered_panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        pi_misclass=0.0,
+        anticipation_periods=0,
     )
-    assert hasattr(res, 'estimate')
-    assert abs(res.model_info['naive_att'] - res.estimate) < 1e-6
+    assert hasattr(res, "estimate")
+    assert abs(res.model_info["naive_att"] - res.estimate) < 1e-6
 
 
 def test_did_misclassified_with_correction(staggered_panel):
     # pi_misclass=0.1 → corrected estimate larger in magnitude
     res = sp.did_misclassified(
-        staggered_panel, y='y', treat='first_treat', time='time',
-        id='unit', pi_misclass=0.1, anticipation_periods=1,
+        staggered_panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        pi_misclass=0.1,
+        anticipation_periods=1,
     )
-    assert res.model_info['misclass_factor'] > 1.0
+    assert res.model_info["misclass_factor"] > 1.0
 
 
 def test_did_misclassified_invalid_pi():
-    df = pd.DataFrame({
-        'y': np.random.randn(20), 'first_treat': [0]*10 + [3]*10,
-        'time': list(range(10)) * 2, 'unit': [f'u{i}' for i in range(2) for _ in range(10)],
-    })
+    df = pd.DataFrame(
+        {
+            "y": np.random.randn(20),
+            "first_treat": [0] * 10 + [3] * 10,
+            "time": list(range(10)) * 2,
+            "unit": [f"u{i}" for i in range(2) for _ in range(10)],
+        }
+    )
     with pytest.raises(ValueError, match="pi_misclass"):
-        sp.did_misclassified(df, y='y', treat='first_treat', time='time',
-                              id='unit', pi_misclass=0.6)
+        sp.did_misclassified(
+            df, y="y", treat="first_treat", time="time", id="unit", pi_misclass=0.6
+        )

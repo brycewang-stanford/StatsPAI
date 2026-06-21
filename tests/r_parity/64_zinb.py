@@ -6,6 +6,7 @@ Dispersion conventions differ across references (pscl reports theta,
 Stata reports lnalpha with alpha = 1/theta), so the dispersion row is
 exported on the common alpha scale as a point-estimate diagnostic.
 """
+
 from __future__ import annotations
 import numpy as np, pandas as pd, statspai as sp
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
@@ -32,7 +33,9 @@ def make_data(n=1500, seed=PARITY_SEED):
 def main():
     df = make_data()
     dump_csv(df, MODULE)
-    res = sp.zinb(formula="y ~ x1 + x2", data=df, inflate=["z"], maxiter=2000, tol=1e-12)
+    res = sp.zinb(
+        formula="y ~ x1 + x2", data=df, inflate=["z"], maxiter=2000, tol=1e-12
+    )
     name_map = [
         ("const", "count_intercept"),
         ("x1", "count_x1"),
@@ -43,10 +46,16 @@ def main():
     rows = []
     for nm, lab in name_map:
         if nm in res.params.index:
-            rows.append(ParityRecord(MODULE, "py", f"beta_{lab}",
-                estimate=float(res.params[nm]),
-                se=float(res.std_errors[nm]),
-                n=int(len(df))))
+            rows.append(
+                ParityRecord(
+                    MODULE,
+                    "py",
+                    f"beta_{lab}",
+                    estimate=float(res.params[nm]),
+                    se=float(res.std_errors[nm]),
+                    n=int(len(df)),
+                )
+            )
     # Dispersion on the common alpha = 1/theta scale (point estimate only).
     alpha = None
     for nm in ("alpha", "lnalpha", "ln_alpha", "theta"):
@@ -60,11 +69,17 @@ def main():
                 alpha = 1.0 / val
             break
     if alpha is not None:
-        rows.append(ParityRecord(MODULE, "py", "alpha", estimate=alpha,
-                                 n=int(len(df))))
-    write_results(MODULE, "py", rows,
-                  extra={"inflate_link": "logit", "count_dist": "negbin",
-                         "alpha_note": "alpha = 1/theta (Stata lnalpha scale)"})
+        rows.append(ParityRecord(MODULE, "py", "alpha", estimate=alpha, n=int(len(df))))
+    write_results(
+        MODULE,
+        "py",
+        rows,
+        extra={
+            "inflate_link": "logit",
+            "count_dist": "negbin",
+            "alpha_note": "alpha = 1/theta (Stata lnalpha scale)",
+        },
+    )
 
 
 if __name__ == "__main__":

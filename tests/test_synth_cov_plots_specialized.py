@@ -50,8 +50,13 @@ def _panel(seed=0, n_donors=8, n_t=20, effect=4.0):
         fe = rng.normal(0, 0.5)
         for t in range(1, n_t + 1):
             eff = effect if (u == "treated" and t >= T_TREAT) else 0.0
-            rows.append({"unit": u, "time": t,
-                         "y": base + 0.2 * t + fe + eff + rng.normal(0, 0.3)})
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": base + 0.2 * t + fe + eff + rng.normal(0, 0.3),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -68,7 +73,9 @@ def _staggered_panel(seed=0, n_control=4, effect=6.0):
             rows.append((f"c{c}", yr, s[i], 0))
     cohort_map = {"t_early": 2008, "t_early2": 2008, "t_late": 2012}
     for u, g in cohort_map.items():
-        base = 0.5 * controls["c0"] + 0.5 * controls["c1"] + rng.normal(0, 0.3, len(years))
+        base = (
+            0.5 * controls["c0"] + 0.5 * controls["c1"] + rng.normal(0, 0.3, len(years))
+        )
         for i, yr in enumerate(years):
             tr = 1 if yr >= g else 0
             rows.append((u, yr, base[i] + (effect if tr else 0.0), tr))
@@ -83,12 +90,18 @@ def _multi_outcome_panel(seed=0, n_donors=8, n_t=20, effect=4.0):
     for u in units:
         base = rng.normal(0, 1)
         for t in range(1, n_t + 1):
-            tr = (u == "treated" and t >= T_TREAT)
-            rows.append({
-                "unit": u, "time": t,
-                "y1": base + 0.2 * t + (effect if tr else 0.0) + rng.normal(0, 0.3),
-                "y2": base + 0.1 * t + (0.5 * effect if tr else 0.0) + rng.normal(0, 0.3),
-            })
+            tr = u == "treated" and t >= T_TREAT
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y1": base + 0.2 * t + (effect if tr else 0.0) + rng.normal(0, 0.3),
+                    "y2": base
+                    + 0.1 * t
+                    + (0.5 * effect if tr else 0.0)
+                    + rng.normal(0, 0.3),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -102,8 +115,13 @@ def _dist_panel(seed=0, n_donors=6, n_t=8, n_per=40):
         for t in range(1, n_t + 1):
             shift = 1.5 if (u == "treated" and t >= 5) else 0.0
             for _ in range(n_per):
-                rows.append({"unit": u, "time": t,
-                             "y": loc + 0.1 * t + shift + rng.normal(0, 1)})
+                rows.append(
+                    {
+                        "unit": u,
+                        "time": t,
+                        "y": loc + 0.1 * t + shift + rng.normal(0, 1),
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -122,14 +140,19 @@ def _is_fig(obj):
 # --------------------------------------------------------------------------
 def test_synthplot_staggered_cohort_bars():
     res = sp.staggered_synth(
-        data=_staggered_panel(seed=1), outcome="y", unit="unit", time="year",
-        treatment="treat", method="separate", placebo=False,
+        data=_staggered_panel(seed=1),
+        outcome="y",
+        unit="unit",
+        time="year",
+        treatment="treat",
+        method="separate",
+        placebo=False,
     )
     fig, ax = sp.synthplot(res, type="staggered")
     assert _is_fig(fig)
     # cohort bar chart drawn + overall-ATT reference line present
-    assert len(ax.patches) >= 1           # cohort bars
-    assert len(ax.get_lines()) >= 1       # axhline(s) incl. overall ATT
+    assert len(ax.patches) >= 1  # cohort bars
+    assert len(ax.get_lines()) >= 1  # axhline(s) incl. overall ATT
     labels = [t.get_text() for t in ax.get_legend().get_texts()]
     assert any("Overall ATT" in s for s in labels)
 
@@ -139,8 +162,12 @@ def test_synthplot_staggered_cohort_bars():
 # --------------------------------------------------------------------------
 def test_synthplot_factors_from_gsynth():
     res = sp.gsynth(
-        _panel(seed=2), outcome="y", unit="unit", time="time",
-        treated_unit="treated", treatment_time=T_TREAT,
+        _panel(seed=2),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
     )
     mi = res.model_info
     if mi.get("factors_pre") is None:
@@ -158,9 +185,16 @@ def test_synthplot_factors_from_gsynth():
 # --------------------------------------------------------------------------
 def test_synthplot_distributional_from_discos():
     res = sp.discos(
-        _dist_panel(seed=0), outcome="y", unit="unit", time="time",
-        treated_unit="treated", treatment_time=5,
-        method="mixture", n_quantiles=40, placebo=False, seed=1,
+        _dist_panel(seed=0),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=5,
+        method="mixture",
+        n_quantiles=40,
+        placebo=False,
+        seed=1,
     )
     fig, ax = sp.synthplot(res, type="distributional")
     assert _is_fig(fig)
@@ -176,8 +210,12 @@ def test_synthplot_distributional_from_discos():
 # --------------------------------------------------------------------------
 def test_synthplot_multi_outcome_per_outcome_bars():
     res = sp.multi_outcome_synth(
-        _multi_outcome_panel(seed=3), outcomes=["y1", "y2"], unit="unit",
-        time="time", treated_unit="treated", treatment_time=T_TREAT,
+        _multi_outcome_panel(seed=3),
+        outcomes=["y1", "y2"],
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
         placebo=False,
     )
     fig, ax = sp.synthplot(res, type="multi_outcome")
@@ -193,8 +231,13 @@ def test_synthplot_multi_outcome_per_outcome_bars():
 # --------------------------------------------------------------------------
 def test_synthplot_prediction_interval_from_scpi():
     res = sp.scpi(
-        _panel(seed=0), outcome="y", unit="unit", time="time",
-        treated_unit="treated", treatment_time=T_TREAT, seed=1,
+        _panel(seed=0),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        seed=1,
     )
     fig, ax = sp.synthplot(res, type="prediction_interval")
     assert _is_fig(fig)
@@ -206,8 +249,13 @@ def test_synthplot_prediction_interval_from_scpi():
 def test_synthplot_pi_alias():
     """'pi' is the short alias of 'prediction_interval'."""
     res = sp.scpi(
-        _panel(seed=4), outcome="y", unit="unit", time="time",
-        treated_unit="treated", treatment_time=T_TREAT, seed=2,
+        _panel(seed=4),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        seed=2,
     )
     fig, ax = sp.synthplot(res, type="pi")
     assert _is_fig(fig)
@@ -225,9 +273,14 @@ def test_plot_sensitivity_2x2_panel_from_dict():
     from statspai.synth.plots import _plot_sensitivity
 
     sens = sp.synth_sensitivity(
-        _panel(seed=0), outcome="y", unit="unit", time="time",
-        treated_unit="treated", treatment_time=T_TREAT,
-        n_donor_samples=15, seed=0,
+        _panel(seed=0),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        n_donor_samples=15,
+        seed=0,
     )
     assert isinstance(sens, dict)
     fig, axes = _plot_sensitivity(sens)
@@ -244,13 +297,22 @@ def test_plot_sensitivity_via_result_model_info():
     from statspai.synth.plots import _plot_sensitivity
 
     sens = sp.synth_sensitivity(
-        _panel(seed=1), outcome="y", unit="unit", time="time",
-        treated_unit="treated", treatment_time=T_TREAT,
-        n_donor_samples=12, seed=1,
+        _panel(seed=1),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        n_donor_samples=12,
+        seed=1,
     )
     base = sp.synth(
-        _panel(seed=1), outcome="y", unit="unit", time="time",
-        treated_unit="treated", treatment_time=T_TREAT,
+        _panel(seed=1),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
     )
     base.model_info["sensitivity"] = sens
     fig, axes = _plot_sensitivity(base)

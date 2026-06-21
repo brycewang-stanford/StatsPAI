@@ -110,9 +110,9 @@ def test_mr_steiger_direction_correct():
     # Simulate: exposure has high R^2, outcome has low R^2
     rng = np.random.default_rng(1)
     n_snps = 10
-    bx = rng.uniform(0.1, 0.3, n_snps)       # large exposure effects
+    bx = rng.uniform(0.1, 0.3, n_snps)  # large exposure effects
     sx = np.full(n_snps, 0.02)
-    by = 0.2 * bx                            # small outcome effects
+    by = 0.2 * bx  # small outcome effects
     sy = np.full(n_snps, 0.05)
     r = sp.mr_steiger(bx, sx, 50_000, by, sy, 50_000)
     assert r.correct_direction
@@ -127,8 +127,12 @@ def test_mr_steiger_direction_correct():
 def test_mr_presso_detects_outliers(pleiotropic_mr_data):
     d = pleiotropic_mr_data
     r = sp.mr_presso(
-        d["bx"], d["by"], d["sx"], d["sy"],
-        n_boot=200, seed=42,
+        d["bx"],
+        d["by"],
+        d["sx"],
+        d["sy"],
+        n_boot=200,
+        seed=42,
     )
     # MR-PRESSO should detect at least one of the seeded outliers
     assert len(r.outliers) >= 1
@@ -140,8 +144,12 @@ def test_mr_presso_detects_outliers(pleiotropic_mr_data):
 def test_mr_presso_clean_data_no_outliers(clean_mr_data):
     d = clean_mr_data
     r = sp.mr_presso(
-        d["bx"], d["by"], d["sx"], d["sy"],
-        n_boot=200, seed=7,
+        d["bx"],
+        d["by"],
+        d["sx"],
+        d["sy"],
+        n_boot=200,
+        seed=7,
     )
     # global test should not reject for clean data
     assert r.global_test_pvalue > 0.01

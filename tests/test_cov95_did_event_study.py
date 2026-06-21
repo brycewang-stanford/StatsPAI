@@ -1,4 +1,5 @@
 """Coverage tests for statspai.did.event_study (OLS TWFE event study)."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,10 +15,17 @@ def _panel(seed=0, n_units=80, n_periods=10):
         fe = rng.normal()
         for t in range(1, n_periods + 1):
             te = 1.0 * (t - g + 1) if (g > 0 and t >= g) else 0.0
-            rows.append({"unit": u, "time": t,
-                         "y": fe + 0.3 * t + te + rng.normal(0, 0.4),
-                         "g": g, "x1": rng.normal(),
-                         "cl": u % 12, "w": rng.uniform(0.5, 2.0)})
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": fe + 0.3 * t + te + rng.normal(0, 0.4),
+                    "g": g,
+                    "x1": rng.normal(),
+                    "cl": u % 12,
+                    "w": rng.uniform(0.5, 2.0),
+                }
+            )
     df = pd.DataFrame(rows)
     df["ft"] = df["g"].replace(0, np.nan)
     return df
@@ -29,8 +37,9 @@ def panel():
 
 
 def test_event_study_basic(panel):
-    r = sp.event_study(panel, y="y", treat_time="ft", time="time",
-                       unit="unit", window=(-3, 3))
+    r = sp.event_study(
+        panel, y="y", treat_time="ft", time="time", unit="unit", window=(-3, 3)
+    )
     es = r.model_info["event_study"]
     # reference period present with zero estimate
     ref = es[es["relative_time"] == -1]
@@ -45,21 +54,42 @@ def test_event_study_basic(panel):
 
 
 def test_event_study_covariates(panel):
-    r = sp.event_study(panel, y="y", treat_time="ft", time="time",
-                       unit="unit", window=(-2, 2), covariates=["x1"])
+    r = sp.event_study(
+        panel,
+        y="y",
+        treat_time="ft",
+        time="time",
+        unit="unit",
+        window=(-2, 2),
+        covariates=["x1"],
+    )
     assert "event_study" in r.model_info
 
 
 def test_event_study_explicit_cluster(panel):
-    r = sp.event_study(panel, y="y", treat_time="ft", time="time",
-                       unit="unit", window=(-2, 2), cluster="cl")
+    r = sp.event_study(
+        panel,
+        y="y",
+        treat_time="ft",
+        time="time",
+        unit="unit",
+        window=(-2, 2),
+        cluster="cl",
+    )
     assert r.model_info["cluster_var"] == "cl"
     assert r.model_info["n_clusters"] >= 1
 
 
 def test_event_study_weights(panel):
-    r = sp.event_study(panel, y="y", treat_time="ft", time="time",
-                       unit="unit", window=(-2, 2), weights="w")
+    r = sp.event_study(
+        panel,
+        y="y",
+        treat_time="ft",
+        time="time",
+        unit="unit",
+        window=(-2, 2),
+        weights="w",
+    )
     assert r.model_info["weights"] == "w"
     assert r.estimate is not None
 
@@ -68,8 +98,15 @@ def test_event_study_negative_weights_raise(panel):
     bad = panel.copy()
     bad["w"] = -1.0
     with pytest.raises(ValueError):
-        sp.event_study(bad, y="y", treat_time="ft", time="time",
-                       unit="unit", window=(-2, 2), weights="w")
+        sp.event_study(
+            bad,
+            y="y",
+            treat_time="ft",
+            time="time",
+            unit="unit",
+            window=(-2, 2),
+            weights="w",
+        )
 
 
 def test_event_study_string_time():
@@ -84,18 +121,25 @@ def test_event_study_string_time():
             t = i + 1
             g = 4 if treated else 0
             te = 1.0 * (t - g + 1) if (treated and t >= g) else 0.0
-            rows.append({"unit": u, "yr": yr,
-                         "y": fe + 0.3 * t + te + rng.normal(0, 0.4),
-                         "ft": ("2013" if treated else None)})
+            rows.append(
+                {
+                    "unit": u,
+                    "yr": yr,
+                    "y": fe + 0.3 * t + te + rng.normal(0, 0.4),
+                    "ft": ("2013" if treated else None),
+                }
+            )
     df = pd.DataFrame(rows)
-    r = sp.event_study(df, y="y", treat_time="ft", time="yr",
-                       unit="unit", window=(-2, 2))
+    r = sp.event_study(
+        df, y="y", treat_time="ft", time="yr", unit="unit", window=(-2, 2)
+    )
     assert "event_study" in r.model_info
 
 
 def test_event_study_window_binning(panel):
     # narrow window forces endpoint binning of far lags/leads
-    r = sp.event_study(panel, y="y", treat_time="ft", time="time",
-                       unit="unit", window=(-1, 1))
+    r = sp.event_study(
+        panel, y="y", treat_time="ft", time="time", unit="unit", window=(-1, 1)
+    )
     es = r.model_info["event_study"]
     assert set(es["relative_time"]) <= {-1, 0, 1}

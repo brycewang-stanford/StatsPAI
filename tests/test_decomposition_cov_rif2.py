@@ -15,6 +15,7 @@ assertions (no smoke calls):
 
 import alias is always ``import statspai as sp``.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -26,10 +27,10 @@ from statspai.decomposition._common import statistic_value, influence_function
 from statspai.decomposition.ffl import _numerical_rif, _rif_for_sample
 from statspai.decomposition.rif import _kernel_density_at, rif_values
 
-
 # --------------------------------------------------------------------- #
 #  Fixtures
 # --------------------------------------------------------------------- #
+
 
 def _make_df(n: int = 300, seed: int = 7) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -43,6 +44,7 @@ def _make_df(n: int = 300, seed: int = 7) -> pd.DataFrame:
 # --------------------------------------------------------------------- #
 #  rif.py — influence functions & kernel density
 # --------------------------------------------------------------------- #
+
 
 def test_rif_of_mean_equals_variable():
     """RIF of the mean is y itself, so its average is the sample mean."""
@@ -89,6 +91,7 @@ def test_kernel_density_histogram_fallback_on_degenerate_input():
 #  rif.py — RIFResult / rifreg
 # --------------------------------------------------------------------- #
 
+
 def test_rifreg_repr_and_summary():
     df = _make_df()
     res = sp.rifreg("y ~ x1 + x2", df, statistic="mean")
@@ -109,10 +112,12 @@ def test_rifreg_requires_tilde():
 #  rif.py — rif_decomposition (Oaxaca-Blinder)
 # --------------------------------------------------------------------- #
 
+
 def test_rif_decomposition_reference0_components_sum_to_total():
     df = _make_df()
-    res = sp.rif_decomposition("y ~ x1 + x2", df, group="g",
-                               statistic="mean", reference=0)
+    res = sp.rif_decomposition(
+        "y ~ x1 + x2", df, group="g", statistic="mean", reference=0
+    )
     assert res.explained + res.unexplained == pytest.approx(res.total_diff)
     # Detailed explained shares sum to the aggregate explained part.
     assert res.detailed["explained"].sum() == pytest.approx(res.explained)
@@ -120,8 +125,9 @@ def test_rif_decomposition_reference0_components_sum_to_total():
 
 def test_rif_decomposition_reference1_path_and_render():
     df = _make_df()
-    res = sp.rif_decomposition("y ~ x1 + x2", df, group="g",
-                               statistic="quantile", tau=0.5, reference=1)
+    res = sp.rif_decomposition(
+        "y ~ x1 + x2", df, group="g", statistic="quantile", tau=0.5, reference=1
+    )
     assert res.explained + res.unexplained == pytest.approx(res.total_diff)
     assert res.detailed["explained"].sum() == pytest.approx(res.explained)
     text = repr(res)
@@ -139,6 +145,7 @@ def test_rif_decomposition_requires_tilde():
 # --------------------------------------------------------------------- #
 #  ffl.py — numerical RIF & validation
 # --------------------------------------------------------------------- #
+
 
 def test_numerical_rif_gini_averages_to_gini():
     """Numerical influence-function RIF of the Gini recovers the Gini."""
@@ -160,11 +167,13 @@ def test_rif_for_sample_mean_delegates_to_influence_function():
 
 def test_ffl_requires_min_obs():
     # Group with <10 obs triggers the explicit guard.
-    df = pd.DataFrame({
-        "y": list(range(20)),
-        "g": [0] * 5 + [1] * 15,
-        "x1": np.linspace(0, 1, 20),
-    })
+    df = pd.DataFrame(
+        {
+            "y": list(range(20)),
+            "g": [0] * 5 + [1] * 15,
+            "x1": np.linspace(0, 1, 20),
+        }
+    )
     with pytest.raises(ValueError, match="at least 10"):
         sp.ffl_decompose(df, "y", "g", ["x1"], stat="mean")
 
@@ -173,43 +182,52 @@ def test_ffl_requires_min_obs():
 #  ffl.py — aggregate / detailed adding-up
 # --------------------------------------------------------------------- #
 
+
 def test_ffl_mean_components_add_up_and_detailed_columns_sum():
     df = _make_df(seed=12)
-    res = sp.ffl_decompose(df, "y", "g", ["x1", "x2"],
-                           stat="mean", inference="none")
+    res = sp.ffl_decompose(df, "y", "g", ["x1", "x2"], stat="mean", inference="none")
     # Total gap = composition + structure + spec_error + reweight_error.
-    total = (res.composition + res.structure
-             + res.spec_error + res.reweight_error)
+    total = res.composition + res.structure + res.spec_error + res.reweight_error
     assert res.gap == pytest.approx(total, abs=1e-8)
     # Detailed tables audit to the aggregate values.
     assert res.detailed_composition["composition"].sum() == pytest.approx(
-        res.composition)
-    assert res.detailed_structure["structure"].sum() == pytest.approx(
-        res.structure)
+        res.composition
+    )
+    assert res.detailed_structure["structure"].sum() == pytest.approx(res.structure)
 
 
 def test_ffl_reference1_path_and_detailed_tables():
     """reference=1 reweights A to B's X (ffl lines 261-265, 301-304)."""
     df = _make_df(seed=21)
-    res = sp.ffl_decompose(df, "y", "g", ["x1", "x2"], stat="mean",
-                           reference=1, inference="none")
+    res = sp.ffl_decompose(
+        df, "y", "g", ["x1", "x2"], stat="mean", reference=1, inference="none"
+    )
     assert res.reference == 1
     # Stat-level adding-up always holds: the total gap splits exactly
     # through the counterfactual statistic.
     assert res.gap == pytest.approx(
-        (res.stat_a - res.stat_cf) + (res.stat_cf - res.stat_b), abs=1e-10)
+        (res.stat_a - res.stat_cf) + (res.stat_cf - res.stat_b), abs=1e-10
+    )
     # Detailed per-covariate tables column-sum to the aggregate values.
     assert res.detailed_composition["composition"].sum() == pytest.approx(
-        res.composition)
-    assert res.detailed_structure["structure"].sum() == pytest.approx(
-        res.structure)
+        res.composition
+    )
+    assert res.detailed_structure["structure"].sum() == pytest.approx(res.structure)
     assert np.isfinite(res.spec_error) and np.isfinite(res.reweight_error)
 
 
 def test_ffl_bootstrap_populates_se_and_ci():
     df = _make_df(seed=13)
-    res = sp.ffl_decompose(df, "y", "g", ["x1", "x2"], stat="mean",
-                           inference="bootstrap", n_boot=30, seed=2)
+    res = sp.ffl_decompose(
+        df,
+        "y",
+        "g",
+        ["x1", "x2"],
+        stat="mean",
+        inference="bootstrap",
+        n_boot=30,
+        seed=2,
+    )
     assert res.se is not None and res.ci is not None
     assert set(res.se) == {"gap", "composition", "structure", "spec_error"}
     for lo, hi in res.ci.values():
@@ -223,10 +241,10 @@ def test_ffl_bootstrap_populates_se_and_ci():
 #  dfl.py — core, reference flips, reweighting positivity
 # --------------------------------------------------------------------- #
 
+
 def test_dfl_mean_gap_equals_composition_plus_structure():
     df = _make_df(seed=8)
-    res = sp.dfl_decompose(df, "y", "g", ["x1", "x2"],
-                           stat="mean", inference="none")
+    res = sp.dfl_decompose(df, "y", "g", ["x1", "x2"], stat="mean", inference="none")
     assert res.gap == pytest.approx(res.composition + res.structure)
     # DFL reweighting factors must be strictly positive.
     assert np.all(res.weights_cf > 0.0)
@@ -235,19 +253,22 @@ def test_dfl_mean_gap_equals_composition_plus_structure():
 def test_dfl_reference1_core_path():
     """reference=1 reweights A to B's X (lines 182-185, 202-203)."""
     df = _make_df(seed=9)
-    res = sp.dfl_decompose(df, "y", "g", ["x1", "x2"], stat="mean",
-                           reference=1, inference="none")
+    res = sp.dfl_decompose(
+        df, "y", "g", ["x1", "x2"], stat="mean", reference=1, inference="none"
+    )
     assert res.reference == 1
     assert res.gap == pytest.approx(res.composition + res.structure)
     assert np.all(res.weights_cf > 0.0)
 
 
 def test_dfl_requires_min_obs():
-    df = pd.DataFrame({
-        "y": list(range(12)),
-        "g": [0] * 3 + [1] * 9,
-        "x1": np.linspace(0, 1, 12),
-    })
+    df = pd.DataFrame(
+        {
+            "y": list(range(12)),
+            "g": [0] * 3 + [1] * 9,
+            "x1": np.linspace(0, 1, 12),
+        }
+    )
     with pytest.raises(ValueError, match="at least 5"):
         sp.dfl_decompose(df, "y", "g", ["x1"], stat="mean")
 
@@ -256,9 +277,17 @@ def test_dfl_quantile_grid_reference0_and_reference1():
     df = _make_df(seed=10)
     grid = [0.25, 0.5, 0.75]
     for ref in (0, 1):
-        res = sp.dfl_decompose(df, "y", "g", ["x1", "x2"], stat="quantile",
-                               tau=0.5, reference=ref, inference="none",
-                               quantile_grid=grid)
+        res = sp.dfl_decompose(
+            df,
+            "y",
+            "g",
+            ["x1", "x2"],
+            stat="quantile",
+            tau=0.5,
+            reference=ref,
+            inference="none",
+            quantile_grid=grid,
+        )
         qg = res.quantile_grid
         assert qg is not None and len(qg) == len(grid)
         # Per-τ adding-up: gap == composition + structure on the grid.
@@ -270,10 +299,19 @@ def test_dfl_quantile_grid_reference0_and_reference1():
 #  dfl.py — bootstrap & rendering branches
 # --------------------------------------------------------------------- #
 
+
 def test_dfl_bootstrap_se_ci_and_summary_render():
     df = _make_df(seed=14)
-    res = sp.dfl_decompose(df, "y", "g", ["x1", "x2"], stat="mean",
-                           inference="bootstrap", n_boot=40, seed=1)
+    res = sp.dfl_decompose(
+        df,
+        "y",
+        "g",
+        ["x1", "x2"],
+        stat="mean",
+        inference="bootstrap",
+        n_boot=40,
+        seed=1,
+    )
     assert res.se is not None and res.ci is not None
     assert set(res.se) == {"gap", "composition", "structure"}
     # Summary SE branch (lines 86, 90) + CI loop (lines 98-99).
@@ -284,8 +322,9 @@ def test_dfl_bootstrap_se_ci_and_summary_render():
 
 def test_dfl_quantile_to_latex_names_tau():
     df = _make_df(seed=15)
-    res = sp.dfl_decompose(df, "y", "g", ["x1"], stat="quantile", tau=0.5,
-                           inference="none")
+    res = sp.dfl_decompose(
+        df, "y", "g", ["x1"], stat="quantile", tau=0.5, inference="none"
+    )
     latex = res.to_latex()
     assert "quantile" in latex
     assert "τ=0.5" in latex  # line 113: quantile-named LaTeX caption
@@ -295,14 +334,16 @@ def test_dfl_quantile_to_latex_names_tau():
 #  dispatcher
 # --------------------------------------------------------------------- #
 
+
 def test_decompose_dispatch_to_dfl_ffl_rif():
     df = _make_df(seed=16)
-    rd = sp.decompose("dfl", data=df, y="y", group="g", x=["x1"],
-                      stat="mean", inference="none")
+    rd = sp.decompose(
+        "dfl", data=df, y="y", group="g", x=["x1"], stat="mean", inference="none"
+    )
     assert type(rd).__name__ == "DFLResult"
-    rf = sp.decompose("ffl", data=df, y="y", group="g", x=["x1"],
-                      stat="mean", inference="none")
+    rf = sp.decompose(
+        "ffl", data=df, y="y", group="g", x=["x1"], stat="mean", inference="none"
+    )
     assert type(rf).__name__ == "FFLResult"
-    rr = sp.decompose("rif", formula="y ~ x1", data=df, group="g",
-                      statistic="mean")
+    rr = sp.decompose("rif", formula="y ~ x1", data=df, group="g", statistic="mean")
     assert type(rr).__name__ == "RIFDecompositionResult"

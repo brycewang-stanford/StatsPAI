@@ -39,12 +39,14 @@ from statspai.agent.mcp_server import (
 
 def _rpc(method: str, params: dict, request_id: int = 1) -> dict:
     """Round-trip a JSON-RPC request through ``handle_request``."""
-    raw = json.dumps({
-        "jsonrpc": "2.0",
-        "id": request_id,
-        "method": method,
-        "params": params,
-    })
+    raw = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "method": method,
+            "params": params,
+        }
+    )
     response = handle_request(raw)
     assert response is not None, f"{method} returned no response"
     return json.loads(response)
@@ -53,6 +55,7 @@ def _rpc(method: str, params: dict, request_id: int = 1) -> dict:
 # ---------------------------------------------------------------------------
 #  initialize handshake
 # ---------------------------------------------------------------------------
+
 
 class TestInitialize:
 
@@ -83,8 +86,9 @@ class TestInitialize:
         # the server MUST reply with that exact revision (not its own latest).
         for requested in SUPPORTED_PROTOCOL_VERSIONS:
             msg = _rpc("initialize", {"protocolVersion": requested})
-            assert msg["result"]["protocolVersion"] == requested, (
-                f"requested {requested!r} should be echoed verbatim")
+            assert (
+                msg["result"]["protocolVersion"] == requested
+            ), f"requested {requested!r} should be echoed verbatim"
 
     def test_negotiation_falls_back_for_unknown_version(self):
         # An unknown / unsupported revision → server offers its latest.
@@ -101,14 +105,21 @@ class TestInitialize:
 #  tools/list — manifest enumeration
 # ---------------------------------------------------------------------------
 
+
 class TestToolsList:
 
     def test_manifest_has_curated_tools(self):
         msg = _rpc("tools/list", {})
         tools = msg["result"]["tools"]
         names = {t["name"] for t in tools}
-        for canonical in ("regress", "did", "rdrobust", "ivreg",
-                          "callaway_santanna", "ebalance"):
+        for canonical in (
+            "regress",
+            "did",
+            "rdrobust",
+            "ivreg",
+            "callaway_santanna",
+            "ebalance",
+        ):
             assert canonical in names
 
     def test_every_tool_has_data_path_param(self):
@@ -122,6 +133,7 @@ class TestToolsList:
         # plus a small hand-curated override list — see
         # ``_dataless_tool_names``.
         from statspai.agent.mcp_server import _dataless_tool_names
+
         dataless = _dataless_tool_names()
         msg = _rpc("tools/list", {})
         for t in msg["result"]["tools"]:
@@ -130,12 +142,14 @@ class TestToolsList:
             if t["name"] in dataless:
                 assert "data_path" not in schema["required"], (
                     f"{t['name']!r} is dataless but its schema still "
-                    "marks data_path required")
+                    "marks data_path required"
+                )
             else:
                 assert "data_path" in schema["required"], (
                     f"{t['name']!r} is data-bound (registry has a "
                     "required ``data`` param) but its schema does not "
-                    "mark data_path required")
+                    "mark data_path required"
+                )
 
     def test_dataless_tools_omit_data_path_required(self):
         # Regression guard for the 1.9.1 schema fix: honest_did and
@@ -146,8 +160,8 @@ class TestToolsList:
             if n not in by_name:
                 continue  # not in the merged manifest in this env
             assert "data_path" not in (
-                by_name[n]["inputSchema"]["required"]), (
-                    f"{n!r} schema must NOT require data_path")
+                by_name[n]["inputSchema"]["required"]
+            ), f"{n!r} schema must NOT require data_path"
 
     def test_tools_call_missing_name_returns_invalid_params(self):
         # Regression guard for the 1.9.1 typed-error fix: a missing
@@ -162,6 +176,7 @@ class TestToolsList:
 #  Tool annotations + structured output (MCP 2025-03-26 / 2025-06-18)
 # ---------------------------------------------------------------------------
 
+
 class TestAnnotationsAndOutputSchema:
 
     def test_every_tool_is_annotated_read_only(self):
@@ -173,10 +188,12 @@ class TestAnnotationsAndOutputSchema:
         for t in tools:
             ann = t.get("annotations")
             assert isinstance(ann, dict), f"{t['name']} missing annotations"
-            assert ann.get("readOnlyHint") is True, (
-                f"{t['name']} should be readOnlyHint=true")
-            assert ann.get("openWorldHint") is False, (
-                f"{t['name']} should be openWorldHint=false")
+            assert (
+                ann.get("readOnlyHint") is True
+            ), f"{t['name']} should be readOnlyHint=true"
+            assert (
+                ann.get("openWorldHint") is False
+            ), f"{t['name']} should be openWorldHint=false"
 
     def test_every_tool_declares_compact_output_schema(self):
         # Every tool advertises a *compact* outputSchema (valid object
@@ -184,32 +201,36 @@ class TestAnnotationsAndOutputSchema:
         # shared resource for the full field reference — we deliberately
         # do NOT inline the ~2.7 KB documented schema 480x.
         from statspai.agent.mcp_server import RESULT_SCHEMA_URI
+
         msg = _rpc("tools/list", {})
         for t in msg["result"]["tools"]:
             schema = t.get("outputSchema")
-            assert isinstance(schema, dict), (
-                f"{t['name']} missing outputSchema")
+            assert isinstance(schema, dict), f"{t['name']} missing outputSchema"
             assert schema.get("type") == "object"
             assert schema.get("additionalProperties") is True
             assert RESULT_SCHEMA_URI in schema.get("description", ""), (
-                f"{t['name']} outputSchema should point to the schema "
-                "resource")
+                f"{t['name']} outputSchema should point to the schema " "resource"
+            )
             assert "properties" not in schema, (
                 f"{t['name']} inlines the full property table — that is "
-                "the 1.3 MB duplication we avoid")
+                "the 1.3 MB duplication we avoid"
+            )
 
     def test_output_schema_not_duplicated_across_manifest(self):
         # Efficiency guard: the per-tool outputSchema must be small. If a
         # future change re-inlines the full documented envelope, the
         # tools/list payload roughly doubles — fail loudly here first.
         from statspai.agent.mcp_server import _RESULT_OUTPUT_SCHEMA_COMPACT
+
         compact_bytes = len(json.dumps(_RESULT_OUTPUT_SCHEMA_COMPACT))
         assert compact_bytes < 600, (
             f"compact outputSchema is {compact_bytes} bytes — too large to "
-            "inline across ~480 tools; keep the full schema in the resource")
+            "inline across ~480 tools; keep the full schema in the resource"
+        )
 
     def test_result_schema_resource_is_listed_and_readable(self):
         from statspai.agent.mcp_server import RESULT_SCHEMA_URI
+
         listing = _rpc("resources/list", {})
         uris = {r["uri"] for r in listing["result"]["resources"]}
         assert RESULT_SCHEMA_URI in uris, "schema resource not enumerated"
@@ -226,13 +247,31 @@ class TestAnnotationsAndOutputSchema:
         # Guard against documenting invented keys: every documented
         # property must be one the serializer / enrichment can emit.
         from statspai.agent.mcp_server import _RESULT_OUTPUT_SCHEMA
+
         documented = set(_RESULT_OUTPUT_SCHEMA["properties"])
         real = {
-            "estimate", "std_error", "p_value", "conf_low", "conf_high",
-            "estimand", "method", "n_obs", "coefficients", "diagnostics",
-            "violations", "warnings", "next_steps", "suggested_functions",
-            "next_calls", "citations", "narrative", "result_id",
-            "result_uri", "data_provenance", "error", "error_kind",
+            "estimate",
+            "std_error",
+            "p_value",
+            "conf_low",
+            "conf_high",
+            "estimand",
+            "method",
+            "n_obs",
+            "coefficients",
+            "diagnostics",
+            "violations",
+            "warnings",
+            "next_steps",
+            "suggested_functions",
+            "next_calls",
+            "citations",
+            "narrative",
+            "result_id",
+            "result_uri",
+            "data_provenance",
+            "error",
+            "error_kind",
             "remediation",
         }
         assert documented <= real, f"undocumented-key drift: {documented - real}"
@@ -250,10 +289,13 @@ class TestStructuredContent:
         return path
 
     def test_tools_call_returns_structured_content(self, sample_csv):
-        msg = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {"formula": "y ~ x", "data_path": str(sample_csv)},
-        })
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {"formula": "y ~ x", "data_path": str(sample_csv)},
+            },
+        )
         result = msg["result"]
         assert "structuredContent" in result
         sc = result["structuredContent"]
@@ -265,12 +307,19 @@ class TestStructuredContent:
     def test_structured_content_is_nan_free(self, sample_csv):
         # Same strict-JSON guarantee as the text block: no NaN/Infinity
         # tokens reach the wire (the raw response string is parsed back).
-        raw = handle_request(json.dumps({
-            "jsonrpc": "2.0", "id": 1, "method": "tools/call",
-            "params": {"name": "regress",
-                       "arguments": {"formula": "y ~ x",
-                                     "data_path": str(sample_csv)}},
-        }))
+        raw = handle_request(
+            json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "method": "tools/call",
+                    "params": {
+                        "name": "regress",
+                        "arguments": {"formula": "y ~ x", "data_path": str(sample_csv)},
+                    },
+                }
+            )
+        )
         assert "NaN" not in raw and "Infinity" not in raw
         # round-trips through a strict parser without error
         json.loads(raw)
@@ -281,11 +330,13 @@ class TestStructuredContent:
         df = pd.DataFrame({"y": [1.0, 2.0, 3.0]})
         path = tmp_path / "bad.csv"
         df.to_csv(path, index=False)
-        msg = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {"formula": "y ~ nonexistent_col",
-                           "data_path": str(path)},
-        })
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {"formula": "y ~ nonexistent_col", "data_path": str(path)},
+            },
+        )
         result = msg["result"]
         assert result["isError"] is True
         assert isinstance(result.get("structuredContent"), dict)
@@ -293,15 +344,18 @@ class TestStructuredContent:
 
     def test_local_data_path_provenance_reaches_result_resource(self, sample_csv):
         expected_sha = hashlib.sha256(sample_csv.read_bytes()).hexdigest()
-        msg = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {
-                "formula": "y ~ x",
-                "data_path": str(sample_csv),
-                "data_columns": ["y", "x"],
-                "as_handle": True,
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {
+                    "formula": "y ~ x",
+                    "data_path": str(sample_csv),
+                    "data_columns": ["y", "x"],
+                    "as_handle": True,
+                },
             },
-        })
+        )
         payload = msg["result"]["structuredContent"]
         prov = payload["data_provenance"]
         assert prov["source"] == str(sample_csv)
@@ -335,29 +389,34 @@ class TestStructuredContent:
 #  tools/call — happy + structured error round-trip
 # ---------------------------------------------------------------------------
 
+
 class TestToolsCall:
 
     @pytest.fixture
     def sample_csv(self, tmp_path):
         rng = np.random.default_rng(1)
         n = 300
-        df = pd.DataFrame({
-            "y": rng.normal(size=n),
-            "x": rng.normal(size=n),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=n),
+                "x": rng.normal(size=n),
+            }
+        )
         path = tmp_path / "sample.csv"
         df.to_csv(path, index=False)
         return path
 
-    def test_happy_path_runs_estimator_and_returns_text_block(
-            self, sample_csv):
-        msg = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {
-                "formula": "y ~ x",
-                "data_path": str(sample_csv),
+    def test_happy_path_runs_estimator_and_returns_text_block(self, sample_csv):
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {
+                    "formula": "y ~ x",
+                    "data_path": str(sample_csv),
+                },
             },
-        })
+        )
         result = msg["result"]
         assert result["isError"] is False
         text = result["content"][0]["text"]
@@ -366,18 +425,20 @@ class TestToolsCall:
         assert "coefficients" in payload
         assert "next_steps" in payload
 
-    def test_cross_validate_tool_keeps_claim_flag_and_data_provenance(
-            self, sample_csv):
-        msg = _rpc("tools/call", {
-            "name": "cross_validate",
-            "arguments": {
-                "estimand": "ols",
-                "formula": "y ~ x",
-                "treatment": "x",
-                "engines": ["statspai", "definitely_not_an_engine"],
-                "data_path": str(sample_csv),
+    def test_cross_validate_tool_keeps_claim_flag_and_data_provenance(self, sample_csv):
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "cross_validate",
+                "arguments": {
+                    "estimand": "ols",
+                    "formula": "y ~ x",
+                    "treatment": "x",
+                    "engines": ["statspai", "definitely_not_an_engine"],
+                    "data_path": str(sample_csv),
+                },
             },
-        })
+        )
         payload = msg["result"]["structuredContent"]
         assert payload["verdict"] == "INSUFFICIENT"
         assert payload["can_claim_cross_engine_agreement"] is False
@@ -389,18 +450,30 @@ class TestToolsCall:
         # Verify the MCP-level detail control yields a strictly smaller
         # payload than the agent default — agents trade richness for
         # token cost on a per-call basis.
-        msg_min = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {"formula": "y ~ x",
-                           "data_path": str(sample_csv),
-                           "detail": "minimal"},
-        }, request_id=11)
-        msg_agent = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {"formula": "y ~ x",
-                           "data_path": str(sample_csv),
-                           "detail": "agent"},
-        }, request_id=12)
+        msg_min = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {
+                    "formula": "y ~ x",
+                    "data_path": str(sample_csv),
+                    "detail": "minimal",
+                },
+            },
+            request_id=11,
+        )
+        msg_agent = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {
+                    "formula": "y ~ x",
+                    "data_path": str(sample_csv),
+                    "detail": "agent",
+                },
+            },
+            request_id=12,
+        )
         text_min = msg_min["result"]["content"][0]["text"]
         text_agent = msg_agent["result"]["content"][0]["text"]
         assert len(text_min) < len(text_agent), (
@@ -410,16 +483,21 @@ class TestToolsCall:
         # minimal must NOT carry the agent-level fields.
         payload_min = json.loads(text_min)
         for k in ("violations", "next_steps", "suggested_functions"):
-            assert k not in payload_min, (
-                f"minimal leaked agent-level field {k!r}")
+            assert k not in payload_min, f"minimal leaked agent-level field {k!r}"
 
     def test_detail_standard_excludes_agent_extras(self, sample_csv):
-        msg = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {"formula": "y ~ x",
-                           "data_path": str(sample_csv),
-                           "detail": "standard"},
-        }, request_id=13)
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {
+                    "formula": "y ~ x",
+                    "data_path": str(sample_csv),
+                    "detail": "standard",
+                },
+            },
+            request_id=13,
+        )
         payload = json.loads(msg["result"]["content"][0]["text"])
         assert "coefficients" in payload  # standard has coef table
         for k in ("violations", "next_steps", "suggested_functions"):
@@ -428,23 +506,31 @@ class TestToolsCall:
     def test_detail_default_is_agent(self, sample_csv):
         # Backward compat: omitting ``detail`` falls back to the
         # agent-rich payload, same shape as Phase 1.
-        msg = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {"formula": "y ~ x",
-                           "data_path": str(sample_csv)},
-        }, request_id=14)
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {"formula": "y ~ x", "data_path": str(sample_csv)},
+            },
+            request_id=14,
+        )
         payload = json.loads(msg["result"]["content"][0]["text"])
         for k in ("violations", "next_steps", "suggested_functions"):
-            assert k in payload, (
-                f"default tools/call must keep agent-level field {k!r}")
+            assert k in payload, f"default tools/call must keep agent-level field {k!r}"
 
     def test_invalid_detail_returns_invalid_params(self, sample_csv):
-        msg = _rpc("tools/call", {
-            "name": "regress",
-            "arguments": {"formula": "y ~ x",
-                           "data_path": str(sample_csv),
-                           "detail": "verbose"},  # not a valid level
-        }, request_id=15)
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "regress",
+                "arguments": {
+                    "formula": "y ~ x",
+                    "data_path": str(sample_csv),
+                    "detail": "verbose",
+                },  # not a valid level
+            },
+            request_id=15,
+        )
         assert "error" in msg
         assert msg["error"]["code"] == -32602
 
@@ -452,8 +538,9 @@ class TestToolsCall:
         msg = _rpc("tools/list", {}, request_id=16)
         for tool in msg["result"]["tools"]:
             schema = tool["inputSchema"]
-            assert "detail" in schema["properties"], (
-                f"{tool['name']} schema missing the detail enum")
+            assert (
+                "detail" in schema["properties"]
+            ), f"{tool['name']} schema missing the detail enum"
             d = schema["properties"]["detail"]
             assert d["enum"] == ["minimal", "standard", "agent"]
             assert d["default"] == "agent"
@@ -472,13 +559,16 @@ class TestToolsCall:
         df = pd.DataFrame({"y": y, "d1": d1, "d2": d2, "z": z})
         csv = tmp_path / "iv.csv"
         df.to_csv(csv, index=False)
-        msg = _rpc("tools/call", {
-            "name": "ivreg",
-            "arguments": {
-                "formula": "y ~ (d1 + d2 ~ z)",
-                "data_path": str(csv),
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "ivreg",
+                "arguments": {
+                    "formula": "y ~ (d1 + d2 ~ z)",
+                    "data_path": str(csv),
+                },
             },
-        })
+        )
         result = msg["result"]
         assert result["isError"] is True
         payload = json.loads(result["content"][0]["text"])
@@ -488,6 +578,7 @@ class TestToolsCall:
 # ---------------------------------------------------------------------------
 #  resources/list + resources/read
 # ---------------------------------------------------------------------------
+
 
 class TestResources:
 
@@ -499,8 +590,7 @@ class TestResources:
         assert "statspai://parity/track-a-summary" in uris
 
     def test_read_catalog_returns_markdown(self):
-        msg = _rpc("resources/read",
-                   {"uri": "statspai://catalog"})
+        msg = _rpc("resources/read", {"uri": "statspai://catalog"})
         content = msg["result"]["contents"][0]
         assert content["mimeType"] == "text/markdown"
         assert "StatsPAI tool catalog" in content["text"]
@@ -508,8 +598,7 @@ class TestResources:
         assert "statspai://function/" in content["text"]
 
     def test_read_functions_index_returns_json_array(self):
-        msg = _rpc("resources/read",
-                   {"uri": "statspai://functions"})
+        msg = _rpc("resources/read", {"uri": "statspai://functions"})
         content = msg["result"]["contents"][0]
         assert content["mimeType"] == "application/json"
         index = json.loads(content["text"])
@@ -543,8 +632,7 @@ class TestResources:
         assert "not a live Stata/R execution" in summary["caution"]
 
     def test_read_per_function_returns_agent_card(self):
-        msg = _rpc("resources/read",
-                   {"uri": "statspai://function/regress"})
+        msg = _rpc("resources/read", {"uri": "statspai://function/regress"})
         content = msg["result"]["contents"][0]
         assert content["mimeType"] == "application/json"
         card = json.loads(content["text"])
@@ -558,8 +646,7 @@ class TestResources:
         assert "signature" in card
 
     def test_read_unknown_function_returns_error(self):
-        msg = _rpc("resources/read",
-                   {"uri": "statspai://function/__not_a_real_tool__"})
+        msg = _rpc("resources/read", {"uri": "statspai://function/__not_a_real_tool__"})
         # Per JSON-RPC spec, server errors come back as ``error``, not
         # ``result``.
         assert "error" in msg
@@ -573,8 +660,7 @@ class TestResources:
         # Embedded slash → malformed URI under the {name} template.
         # Should return -32602 (invalid params), NOT -32002 (which
         # would mislead clients into a "did you mean" retry loop).
-        msg = _rpc("resources/read",
-                   {"uri": "statspai://function/foo/bar"})
+        msg = _rpc("resources/read", {"uri": "statspai://function/foo/bar"})
         assert "error" in msg
         assert msg["error"]["code"] == -32602
 
@@ -584,8 +670,7 @@ class TestResources:
         assert msg["error"]["code"] == -32602
 
     def test_read_unknown_uri_scheme_errors(self):
-        msg = _rpc("resources/read",
-                   {"uri": "https://example.com/no"})
+        msg = _rpc("resources/read", {"uri": "https://example.com/no"})
         assert "error" in msg
         assert msg["error"]["code"] == -32002
 
@@ -605,6 +690,7 @@ class TestResources:
 #  tools/call: unknown tool name
 # ---------------------------------------------------------------------------
 
+
 class TestToolsCallUnknownName:
 
     def test_unknown_tool_returns_structured_error_dict(self, tmp_path):
@@ -614,10 +700,13 @@ class TestToolsCallUnknownName:
         # of the tools/call result with ``isError=true``.
         csv = tmp_path / "empty.csv"
         pd.DataFrame({"y": [1.0]}).to_csv(csv, index=False)
-        msg = _rpc("tools/call", {
-            "name": "__not_a_real_tool__",
-            "arguments": {"data_path": str(csv)},
-        })
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "__not_a_real_tool__",
+                "arguments": {"data_path": str(csv)},
+            },
+        )
         result = msg["result"]
         assert result["isError"] is True
         payload = json.loads(result["content"][0]["text"])
@@ -628,6 +717,7 @@ class TestToolsCallUnknownName:
 # ---------------------------------------------------------------------------
 #  Notifications (no id) must not produce a response per JSON-RPC 2.0
 # ---------------------------------------------------------------------------
+
 
 class TestPrompts:
     """``prompts/list`` + ``prompts/get`` workflow templates."""
@@ -642,9 +732,14 @@ class TestPrompts:
         prompts = msg["result"]["prompts"]
         names = {p["name"] for p in prompts}
         # At least the 3 curated workflows must be present.
-        for n in ("audit_did_result", "design_then_estimate",
-                  "robustness_followup", "stata_command_workflow",
-                  "r_command_workflow", "cross_language_command_check"):
+        for n in (
+            "audit_did_result",
+            "design_then_estimate",
+            "robustness_followup",
+            "stata_command_workflow",
+            "r_command_workflow",
+            "cross_language_command_check",
+        ):
             assert n in names, f"prompt {n!r} missing from prompts/list"
 
     def test_each_prompt_has_required_metadata(self):
@@ -656,15 +751,19 @@ class TestPrompts:
                 assert "name" in arg and "description" in arg
 
     def test_get_renders_template_with_arguments(self):
-        msg = _rpc("prompts/get", {
-            "name": "audit_did_result",
-            "arguments": {
-                "data_path": "/abs/path.csv",
-                "y": "outcome",
-                "treat": "treated",
-                "time": "year",
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "audit_did_result",
+                "arguments": {
+                    "data_path": "/abs/path.csv",
+                    "y": "outcome",
+                    "treat": "treated",
+                    "time": "year",
+                },
             },
-        }, request_id=83)
+            request_id=83,
+        )
         result = msg["result"]
         assert "description" in result
         text = result["messages"][0]["content"]["text"]
@@ -678,10 +777,14 @@ class TestPrompts:
         assert "{y}" not in text
 
     def test_get_missing_required_argument_returns_invalid_params(self):
-        msg = _rpc("prompts/get", {
-            "name": "audit_did_result",
-            "arguments": {"data_path": "/x.csv"},  # missing y/treat/time
-        }, request_id=84)
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "audit_did_result",
+                "arguments": {"data_path": "/x.csv"},  # missing y/treat/time
+            },
+            request_id=84,
+        )
         assert "error" in msg
         assert msg["error"]["code"] == -32602
 
@@ -689,15 +792,19 @@ class TestPrompts:
         # Defense-in-depth: a user value containing literal ``{name}``
         # must NOT be re-rendered against the template's placeholders.
         # Regression guard for the brace-escape pass in _handle_prompts_get.
-        msg = _rpc("prompts/get", {
-            "name": "audit_did_result",
-            "arguments": {
-                "data_path": "/data/runs/{y}/panel.csv",  # literal {y}
-                "y": "earnings",
-                "treat": "treated",
-                "time": "year",
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "audit_did_result",
+                "arguments": {
+                    "data_path": "/data/runs/{y}/panel.csv",  # literal {y}
+                    "y": "earnings",
+                    "treat": "treated",
+                    "time": "year",
+                },
             },
-        }, request_id=86)
+            request_id=86,
+        )
         assert "result" in msg
         text = msg["result"]["messages"][0]["content"]["text"]
         # The literal ``{y}`` inside data_path must survive verbatim.
@@ -707,13 +814,17 @@ class TestPrompts:
         assert "y=earnings" in text
 
     def test_stata_command_workflow_prompt_renders_dispatch_contract(self):
-        msg = _rpc("prompts/get", {
-            "name": "stata_command_workflow",
-            "arguments": {
-                "data_path": "/abs/panel.dta",
-                "command": "reghdfe y x, absorb(id year) cluster(id)",
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "stata_command_workflow",
+                "arguments": {
+                    "data_path": "/abs/panel.dta",
+                    "command": "reghdfe y x, absorb(id year) cluster(id)",
+                },
             },
-        }, request_id=87)
+            request_id=87,
+        )
         text = msg["result"]["messages"][0]["content"]["text"]
         assert "from_stata" in text
         assert "/abs/panel.dta" in text
@@ -722,17 +833,21 @@ class TestPrompts:
         assert "{command}" not in text
 
     def test_cross_language_command_check_prompt_warns_no_live_external_run(self):
-        msg = _rpc("prompts/get", {
-            "name": "cross_language_command_check",
-            "arguments": {
-                "data_path": "/abs/panel.dta",
-                "stata_command": "csdid y, ivar(id) time(year) gvar(g)",
-                "r_expression": (
-                    'att_gt(yname="y", tname="year", '
-                    'idname="id", gname="g", data=df)'
-                ),
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "cross_language_command_check",
+                "arguments": {
+                    "data_path": "/abs/panel.dta",
+                    "stata_command": "csdid y, ivar(id) time(year) gvar(g)",
+                    "r_expression": (
+                        'att_gt(yname="y", tname="year", '
+                        'idname="id", gname="g", data=df)'
+                    ),
+                },
             },
-        }, request_id=88)
+            request_id=88,
+        )
         text = msg["result"]["messages"][0]["content"]["text"]
         assert "from_stata" in text
         assert "from_r" in text
@@ -743,9 +858,13 @@ class TestPrompts:
         assert "do not claim live Stata or R execution" in text
 
     def test_get_unknown_prompt_returns_resource_not_found(self):
-        msg = _rpc("prompts/get", {
-            "name": "totally_made_up_prompt",
-        }, request_id=85)
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "totally_made_up_prompt",
+            },
+            request_id=85,
+        )
         assert "error" in msg
         assert msg["error"]["code"] == -32002
 
@@ -754,11 +873,13 @@ class TestNotifications:
 
     def test_notification_returns_none(self):
         # No "id" field → notification, server must stay silent.
-        raw = json.dumps({
-            "jsonrpc": "2.0",
-            "method": "initialize",
-            "params": {},
-        })
+        raw = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {},
+            }
+        )
         assert handle_request(raw) is None
 
     def test_notifications_initialized_silenced_even_with_id(self):
@@ -768,26 +889,31 @@ class TestNotifications:
         # ``id`` field, the ``notifications/`` prefix should suppress
         # any response (which would otherwise be -32601 noise on every
         # session).
-        raw = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 99,
-            "method": "notifications/initialized",
-            "params": {},
-        })
+        raw = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 99,
+                "method": "notifications/initialized",
+                "params": {},
+            }
+        )
         assert handle_request(raw) is None
 
     def test_notifications_cancelled_silenced(self):
-        raw = json.dumps({
-            "jsonrpc": "2.0",
-            "method": "notifications/cancelled",
-            "params": {"requestId": 1, "reason": "user"},
-        })
+        raw = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/cancelled",
+                "params": {"requestId": 1, "reason": "user"},
+            }
+        )
         assert handle_request(raw) is None
 
 
 # ---------------------------------------------------------------------------
 #  Console script wiring (pip install statspai → ``statspai-mcp`` on PATH)
 # ---------------------------------------------------------------------------
+
 
 class TestConsoleScript:
 
@@ -808,13 +934,12 @@ class TestConsoleScript:
         with open(pyproject, "rb") as f:
             cfg = tomllib.load(f)
         scripts = cfg.get("project", {}).get("scripts", {})
-        assert scripts.get("statspai-mcp") == (
-            "statspai.agent.mcp_server:main"
-        ), (
+        assert scripts.get("statspai-mcp") == ("statspai.agent.mcp_server:main"), (
             "statspai-mcp console script not wired in pyproject.toml; "
             "agents won't see it on PATH after pip install."
         )
 
     def test_main_callable_exists(self):
         from statspai.agent import mcp_server
+
         assert callable(getattr(mcp_server, "main", None))

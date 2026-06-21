@@ -8,6 +8,7 @@ silently rot the moment the underlying code learns a new variant or the
 function is renamed: the registry would still claim the gap exists but
 the runtime no longer enforces it (or vice versa).
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Tuple
@@ -15,7 +16,6 @@ from typing import Any, Callable, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 import pytest
-
 
 ALLOWED_PHRASES: Tuple[str, ...] = (
     "not yet implemented",
@@ -96,59 +96,82 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
 }
 
 
-def _runtime_map() -> Dict[Tuple[str, str], Tuple[Callable[[], Any], type | tuple[type, ...]]]:
+def _runtime_map() -> (
+    Dict[Tuple[str, str], Tuple[Callable[[], Any], type | tuple[type, ...]]]
+):
     """Build the (function_name, limitation_substring) -> (call, exc) map."""
     import statspai as sp
 
     rng = np.random.default_rng(0)
     n = 200
 
-    df_panel = pd.DataFrame({
-        "y": rng.normal(size=n),
-        "i": np.repeat(np.arange(n // 4), 4),
-        "t": np.tile(np.arange(4), n // 4),
-        "g": np.repeat(rng.choice([0, 2, 3], size=n // 4), 4),
-        "d": rng.binomial(1, 0.4, size=n),
-        "dose": rng.uniform(0, 1, size=n),
-    })
+    df_panel = pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "i": np.repeat(np.arange(n // 4), 4),
+            "t": np.tile(np.arange(4), n // 4),
+            "g": np.repeat(rng.choice([0, 2, 3], size=n // 4), 4),
+            "d": rng.binomial(1, 0.4, size=n),
+            "dose": rng.uniform(0, 1, size=n),
+        }
+    )
 
-    df_cs = pd.DataFrame({
-        "y": rng.normal(size=n),
-        "d": rng.binomial(1, 0.5, size=n).astype(float),
-        "s": rng.binomial(1, 0.5, size=n).astype(float),
-        "x": rng.normal(size=n),
-        "x1": rng.normal(size=n),
-        "x2": rng.normal(size=n),
-        "z": rng.binomial(1, 0.5, size=n).astype(float),
-        "w": rng.normal(size=n),
-        "score": rng.normal(size=n),
-    })
+    df_cs = pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "d": rng.binomial(1, 0.5, size=n).astype(float),
+            "s": rng.binomial(1, 0.5, size=n).astype(float),
+            "x": rng.normal(size=n),
+            "x1": rng.normal(size=n),
+            "x2": rng.normal(size=n),
+            "z": rng.binomial(1, 0.5, size=n).astype(float),
+            "w": rng.normal(size=n),
+            "score": rng.normal(size=n),
+        }
+    )
 
     return {
         ("hal_tmle", "variant='projection'"): (
             lambda: sp.hal_tmle(
-                df_cs, y="y", treat="d", covariates=["x1", "x2"],
+                df_cs,
+                y="y",
+                treat="d",
+                covariates=["x1", "x2"],
                 variant="projection",
             ),
             NotImplementedError,
         ),
         ("callaway_santanna", "panel=False"): (
             lambda: sp.callaway_santanna(
-                df_panel, y="y", g="g", t="t", i="i",
-                panel=False, estimator="dr",
+                df_panel,
+                y="y",
+                g="g",
+                t="t",
+                i="i",
+                panel=False,
+                estimator="dr",
             ),
             NotImplementedError,
         ),
         ("etwfe", "cgroup='nevertreated' combined with panel=False"): (
             lambda: sp.etwfe(
-                df_panel, y="y", group="i", time="t", first_treat="g",
-                cgroup="nevertreated", panel=False,
+                df_panel,
+                y="y",
+                group="i",
+                time="t",
+                first_treat="g",
+                cgroup="nevertreated",
+                panel=False,
             ),
             NotImplementedError,
         ),
         ("rdrobust", "observation-level weights"): (
             lambda: sp.rdrobust(
-                df_cs, y="y", x="x", c=0.0, weights="w",
+                df_cs,
+                y="y",
+                x="x",
+                c=0.0,
+                weights="w",
             ),
             NotImplementedError,
         ),
@@ -204,17 +227,16 @@ def _all_limitations() -> List[Tuple[str, str]]:
 @pytest.mark.parametrize("name,limitation", _all_limitations())
 def test_limitation_uses_allowed_vocabulary(name: str, limitation: str) -> None:
     """Every registered limitation must use vetted phrasing."""
-    assert _matches_allowed_vocabulary(limitation), (
-        f"sp.{name} limitation does not use vetted vocabulary: {limitation!r}"
-    )
+    assert _matches_allowed_vocabulary(
+        limitation
+    ), f"sp.{name} limitation does not use vetted vocabulary: {limitation!r}"
 
 
 def test_every_limitation_is_classified() -> None:
     """Every limitation must be either runtime-tested or explicitly descriptive."""
     runtime_keys = {key for key in _runtime_map().keys()}
     descriptive_keys = {
-        (fn, sub) for fn, subs in LIMITATIONS_DESCRIPTIVE_ONLY.items()
-        for sub in subs
+        (fn, sub) for fn, subs in LIMITATIONS_DESCRIPTIVE_ONLY.items() for sub in subs
     }
 
     unclassified: List[Tuple[str, str]] = []
@@ -236,7 +258,8 @@ def test_every_limitation_is_classified() -> None:
 
 
 @pytest.mark.parametrize(
-    "key", list(_runtime_map().keys()),
+    "key",
+    list(_runtime_map().keys()),
     ids=lambda k: f"{k[0]}::{k[1][:40]}",
 )
 def test_limitation_actually_raises(

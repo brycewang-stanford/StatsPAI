@@ -28,8 +28,14 @@ def panel():
 
 
 def test_stacked_basic(panel):
-    r = sp.stacked_did(panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", window=(-4, 4))
+    r = sp.stacked_did(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        window=(-4, 4),
+    )
     assert np.isfinite(r.estimate)
     assert 0.0 <= r.pvalue <= 1.0
     es = r.model_info["event_study"]
@@ -40,42 +46,73 @@ def test_stacked_basic(panel):
 
 
 def test_stacked_not_yet_treated_controls(panel):
-    r = sp.stacked_did(panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", window=(-4, 4),
-                       never_treated_only=False)
+    r = sp.stacked_did(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        window=(-4, 4),
+        never_treated_only=False,
+    )
     assert r.model_info["never_treated_only"] is False
     assert np.isfinite(r.estimate)
 
 
 def test_stacked_explicit_cluster(panel):
-    r = sp.stacked_did(panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", window=(-3, 3),
-                       cluster="unit")
+    r = sp.stacked_did(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        window=(-3, 3),
+        cluster="unit",
+    )
     assert r.model_info["cluster_var"] == "unit"
 
 
 def test_stacked_missing_outcome_raises(panel):
     with pytest.raises(ValueError, match="not found"):
-        sp.stacked_did(panel, y="nope", group="unit", time="time",
-                       first_treat="first_treat")
+        sp.stacked_did(
+            panel, y="nope", group="unit", time="time", first_treat="first_treat"
+        )
 
 
 def test_stacked_missing_control_raises(panel):
     with pytest.raises(ValueError, match="Control column"):
-        sp.stacked_did(panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", controls=["nope"])
+        sp.stacked_did(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            controls=["nope"],
+        )
 
 
 def test_stacked_bad_window_lo_raises(panel):
     with pytest.raises(ValueError, match=r"window\[0\] must be negative"):
-        sp.stacked_did(panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", window=(0, 5))
+        sp.stacked_did(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            window=(0, 5),
+        )
 
 
 def test_stacked_bad_window_hi_raises(panel):
     with pytest.raises(ValueError, match=r"window\[1\] must be non-negative"):
-        sp.stacked_did(panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", window=(-5, -1))
+        sp.stacked_did(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            window=(-5, -1),
+        )
 
 
 def test_stacked_no_cohorts_raises():
@@ -83,16 +120,16 @@ def test_stacked_no_cohorts_raises():
     df = df.copy()
     df["first_treat"] = 0  # all never-treated
     with pytest.raises(ValueError, match="No treated cohorts"):
-        sp.stacked_did(df, y="y", group="unit", time="time",
-                       first_treat="first_treat")
+        sp.stacked_did(df, y="y", group="unit", time="time", first_treat="first_treat")
 
 
 def test_stacked_pre_only_window_no_post():
     # window with only pre periods (and the -1 reference) leaves no post k>=0
     # in some configs -> att/att_se default to 0. Use a narrow pre window.
     df = sp.dgp_did(n_units=80, n_periods=12, staggered=True, seed=6)
-    r = sp.stacked_did(df, y="y", group="unit", time="time",
-                       first_treat="first_treat", window=(-3, 0))
+    r = sp.stacked_did(
+        df, y="y", group="unit", time="time", first_treat="first_treat", window=(-3, 0)
+    )
     # window=(-3, 0) still includes rel_time 0 (post). Verify it runs.
     assert np.isfinite(r.estimate)
 

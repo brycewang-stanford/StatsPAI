@@ -31,8 +31,9 @@ def _iv_df(n=300, seed=0):
 
 def test_dispatch_ivqreg_explicit_args():
     df = _iv_df(seed=1)
-    r = sp.iv(data=df, method="ivqreg", y="y", endog="d", instruments="z",
-              tau=0.5, n_grid=11)
+    r = sp.iv(
+        data=df, method="ivqreg", y="y", endog="d", instruments="z", tau=0.5, n_grid=11
+    )
     assert hasattr(r, "params")
 
 
@@ -65,8 +66,7 @@ def test_fit_alias_matches_dispatch():
     df = _iv_df(seed=4)
     r1 = sp.iv.fit("y ~ (d ~ z) + x", data=df, method="2sls")
     r2 = sp.iv("y ~ (d ~ z) + x", data=df, method="2sls")
-    np.testing.assert_allclose(np.asarray(r1.params), np.asarray(r2.params),
-                               rtol=1e-8)
+    np.testing.assert_allclose(np.asarray(r1.params), np.asarray(r2.params), rtol=1e-8)
 
 
 def test_rename_helper_conflict_raises():
@@ -89,12 +89,12 @@ def test_unwrap_singleton_str_single():
 
 def test_augmented_diagnostics_attached_for_2sls():
     df = _iv_df(seed=5)
-    r = sp.iv("y ~ (d ~ z) + x", data=df, method="2sls",
-              augmented_diagnostics=True)
+    r = sp.iv("y ~ (d ~ z) + x", data=df, method="2sls", augmented_diagnostics=True)
     diag = getattr(r, "diagnostics", {})
     # KP rk + Olea-Pflueger effective F should be attached
-    assert any("KP rk" in str(k) for k in diag) or \
-        any("effective F" in str(k) for k in diag)
+    assert any("KP rk" in str(k) for k in diag) or any(
+        "effective F" in str(k) for k in diag
+    )
 
 
 def test_getattr_unknown_raises_attributeerror():

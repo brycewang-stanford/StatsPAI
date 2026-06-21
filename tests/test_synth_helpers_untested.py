@@ -38,8 +38,12 @@ def panel():
 @pytest.fixture
 def base_kwargs(panel):
     return dict(
-        data=panel, outcome="y", unit="unit", time="time",
-        treated_unit=0, treatment_time=TREAT_T,
+        data=panel,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit=0,
+        treatment_time=TREAT_T,
     )
 
 
@@ -90,7 +94,12 @@ def test_robust_and_demeaned_numeric_contracts(base_kwargs):
     demeaned = sp.demeaned_synth(**base_kwargs)
     np.testing.assert_allclose(
         [robust.estimate, robust.se, robust.ci[0], robust.ci[1]],
-        [6.151221649507683, 3.6951747725571136, -1.0911878212852457, 13.393631120300611],
+        [
+            6.151221649507683,
+            3.6951747725571136,
+            -1.0911878212852457,
+            13.393631120300611,
+        ],
         atol=1e-12,
     )
     np.testing.assert_allclose(
@@ -136,12 +145,16 @@ def test_rmspe_filter_pvalues_are_probabilities(base_kwargs):
     assert ((out["pvalue"] >= 0) & (out["pvalue"] <= 1)).all()
     assert (out["n_placebos"] >= 0).all()
     np.testing.assert_allclose(
-        out[["threshold", "n_placebos", "pvalue", "treated_pre_rmspe"]].head(3).to_numpy(),
-        np.array([
-            [1.0, 1.0, 0.5, 0.17714],
-            [2.0, 10.0, 0.09090909, 0.17714],
-            [5.0, 14.0, 0.06666667, 0.17714],
-        ]),
+        out[["threshold", "n_placebos", "pvalue", "treated_pre_rmspe"]]
+        .head(3)
+        .to_numpy(),
+        np.array(
+            [
+                [1.0, 1.0, 0.5, 0.17714],
+                [2.0, 10.0, 0.09090909, 0.17714],
+                [5.0, 14.0, 0.06666667, 0.17714],
+            ]
+        ),
         atol=5e-8,
     )
 

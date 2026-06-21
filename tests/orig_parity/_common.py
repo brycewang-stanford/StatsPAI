@@ -25,6 +25,7 @@ replica harness because:
 Pre-registered tolerance: rel < 1e-2 against the published number,
 rel < 1e-6 against the canonical R reference on the same bytes.
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,6 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
-
 
 HERE = Path(__file__).resolve().parent
 DATA_DIR = HERE / "data"
@@ -64,8 +64,13 @@ class OrigRecord:
         return d
 
 
-def write_results(module: str, side: str, rows: list[OrigRecord], *,
-                  extra: Mapping[str, Any] | None = None) -> Path:
+def write_results(
+    module: str,
+    side: str,
+    rows: list[OrigRecord],
+    *,
+    extra: Mapping[str, Any] | None = None,
+) -> Path:
     out = RESULTS_DIR / f"{module}_{side}.json"
     payload = {
         "module": module,

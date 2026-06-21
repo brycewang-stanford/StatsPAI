@@ -9,6 +9,7 @@ Tolerance: rel < 1e-3. With deterministic linear nuisance learners
 the only Monte Carlo source is the fold split itself, so the gap
 should be small.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,7 +17,6 @@ import statspai as sp
 from sklearn.linear_model import LinearRegression
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "08_dml"
 COVARIATES = ["exper", "expersq", "black", "south", "smsa"]
@@ -31,7 +31,10 @@ def main() -> None:
     # sp.dml accepts learners through model_y / model_d kwargs.
     np.random.seed(PARITY_SEED)
     fit = sp.dml(
-        data=df, y="lwage", d="educ", X=COVARIATES,
+        data=df,
+        y="lwage",
+        d="educ",
+        X=COVARIATES,
         model="plr",
         model_y=LinearRegression(),
         model_d=LinearRegression(),
@@ -41,7 +44,9 @@ def main() -> None:
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE, side="py", statistic="theta_DML_PLR",
+            module=MODULE,
+            side="py",
+            statistic="theta_DML_PLR",
             estimate=float(fit.estimate),
             se=float(fit.se),
             ci_lo=float(fit.ci[0]) if fit.ci is not None else None,
@@ -51,7 +56,9 @@ def main() -> None:
     ]
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "dml_model": "PLR",
             "n_folds": int(fit.model_info["n_folds"]),

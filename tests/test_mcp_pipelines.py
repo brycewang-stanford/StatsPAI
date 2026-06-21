@@ -1,5 +1,5 @@
-"""Tests for Module F — composite pipeline tools (pipeline_did / iv / rd).
-"""
+"""Tests for Module F — composite pipeline tools (pipeline_did / iv / rd)."""
+
 from __future__ import annotations
 
 import json
@@ -12,8 +12,7 @@ from statspai.agent import execute_tool, mcp_handle_request
 
 
 def _rpc(method, params=None, request_id=1):
-    msg = {"jsonrpc": "2.0", "id": request_id, "method": method,
-           "params": params or {}}
+    msg = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
     line = mcp_handle_request(json.dumps(msg))
     return json.loads(line)
 
@@ -52,6 +51,7 @@ def _toy_rd():
 # Manifest entries
 # ----------------------------------------------------------------------
 
+
 class TestPipelineManifest:
     def test_pipeline_tools_listed(self):
         msg = _rpc("tools/list", {})
@@ -64,6 +64,7 @@ class TestPipelineManifest:
 # ----------------------------------------------------------------------
 # pipeline_did
 # ----------------------------------------------------------------------
+
 
 class TestPipelineDID:
     def test_basic_workflow(self):
@@ -88,8 +89,7 @@ class TestPipelineDID:
         assert "error" in out
 
     def test_no_data_returns_error(self):
-        out = execute_tool("pipeline_did",
-                            {"y": "y", "treat": "treat", "time": "time"})
+        out = execute_tool("pipeline_did", {"y": "y", "treat": "treat", "time": "time"})
         assert "error" in out
 
     def test_next_calls_carry_result_id(self):
@@ -100,14 +100,16 @@ class TestPipelineDID:
             data=df,
         )
         rid = out["result_id"]
-        assert all(c["arguments"].get("result_id") == rid
-                   or "result_id" not in c["arguments"]
-                   for c in out["next_calls"])
+        assert all(
+            c["arguments"].get("result_id") == rid or "result_id" not in c["arguments"]
+            for c in out["next_calls"]
+        )
 
 
 # ----------------------------------------------------------------------
 # pipeline_iv
 # ----------------------------------------------------------------------
+
 
 class TestPipelineIV:
     def test_basic_workflow(self):
@@ -127,6 +129,7 @@ class TestPipelineIV:
 # ----------------------------------------------------------------------
 # pipeline_rd
 # ----------------------------------------------------------------------
+
 
 class TestPipelineRD:
     def test_basic_workflow(self):

@@ -23,17 +23,11 @@ def test_llm_client_adapters_have_offline_contracts(monkeypatch):
     class FakeOpenAI:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
-            self.chat = SimpleNamespace(
-                completions=SimpleNamespace(create=self.create)
-            )
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=self.create))
 
         def create(self, **kwargs):
             return SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        message=SimpleNamespace(content="openai-ok")
-                    )
-                ]
+                choices=[SimpleNamespace(message=SimpleNamespace(content="openai-ok"))]
             )
 
     openai_mod = types.ModuleType("openai")
@@ -193,9 +187,8 @@ def test_gformula_and_transport_top_level_aliases():
     w = transported.weights
     a = source["a"].to_numpy(dtype=float)
     y = source["y"].to_numpy(dtype=float)
-    manual = (
-        np.sum(w * a * y) / np.sum(w * a)
-        - np.sum(w * (1 - a) * y) / np.sum(w * (1 - a))
+    manual = np.sum(w * a * y) / np.sum(w * a) - np.sum(w * (1 - a) * y) / np.sum(
+        w * (1 - a)
     )
     np.testing.assert_allclose(transported.effect_transported, manual)
     assert transported.ess > 0
@@ -215,9 +208,7 @@ def test_fairness_and_synth_design_frontier_helpers():
     def intervention(frame, value):
         out = frame.copy()
         out["A"] = value
-        out["credit"] = 600 + 50 * value + (
-            frame["credit"] - (600 + 50 * frame["A"])
-        )
+        out["credit"] = 600 + 50 * value + (frame["credit"] - (600 + 50 * frame["A"]))
         return out
 
     fairness = sp.evidence_without_injustice(

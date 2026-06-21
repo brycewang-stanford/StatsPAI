@@ -11,6 +11,7 @@ artifacts (PNG / Markdown / LaTeX) in a specified directory::
     from tests.test_cs_report_smoke import run_demo
     run_demo("/tmp/my_outputs")
 """
+
 from __future__ import annotations
 
 import os
@@ -22,10 +23,10 @@ import pytest
 
 from statspai.did import cs_report
 
-
 # ---------------------------------------------------------------------------
 # Data-generating process
 # ---------------------------------------------------------------------------
+
 
 def simulate_staggered_panel(
     n_per_cohort: int = 60,
@@ -58,6 +59,7 @@ def simulate_staggered_panel(
 # Runnable demo
 # ---------------------------------------------------------------------------
 
+
 def run_demo(outdir: str = "/tmp", n_boot: int = 500, seed: int = 0):
     """Execute the v0.7.0 workflow end-to-end and save artifacts to ``outdir``.
 
@@ -67,22 +69,35 @@ def run_demo(outdir: str = "/tmp", n_boot: int = 500, seed: int = 0):
     outdir_p.mkdir(parents=True, exist_ok=True)
 
     df = simulate_staggered_panel()
-    rpt = cs_report(df, y="y", g="g", t="t", i="unit",
-                    n_boot=n_boot, random_state=seed, verbose=False)
+    rpt = cs_report(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="unit",
+        n_boot=n_boot,
+        random_state=seed,
+        verbose=False,
+    )
 
     (outdir_p / "cs_report_demo.md").write_text(
-        rpt.to_markdown(float_format="%.3f"), encoding="utf-8")
+        rpt.to_markdown(float_format="%.3f"), encoding="utf-8"
+    )
     (outdir_p / "cs_report_demo.tex").write_text(
-        rpt.to_latex(float_format="%.3f",
-                     caption="CS report on the simulated DGP.",
-                     label="tab:cs_demo"), encoding="utf-8")
+        rpt.to_latex(
+            float_format="%.3f",
+            caption="CS report on the simulated DGP.",
+            label="tab:cs_demo",
+        ),
+        encoding="utf-8",
+    )
 
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         fig, _ = rpt.plot(suptitle="Callaway-Sant'Anna report — simulated panel")
-        fig.savefig(outdir_p / "cs_report_demo_panel.png",
-                    dpi=110, bbox_inches="tight")
+        fig.savefig(outdir_p / "cs_report_demo_panel.png", dpi=110, bbox_inches="tight")
     except ImportError:
         pass
 
@@ -93,6 +108,7 @@ def run_demo(outdir: str = "/tmp", n_boot: int = 500, seed: int = 0):
 # Assertions (pytest)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def demo_report(tmp_path_factory):
     outdir = tmp_path_factory.mktemp("cs_demo")
@@ -101,16 +117,15 @@ def demo_report(tmp_path_factory):
 
 def test_overall_att_is_positive_and_significant(demo_report):
     o = demo_report.overall
-    assert o["estimate"] > 0, \
-        f"expected positive overall ATT, got {o['estimate']}"
-    assert o["pvalue"] < 0.01, \
-        f"overall ATT should be highly significant, p = {o['pvalue']}"
+    assert o["estimate"] > 0, f"expected positive overall ATT, got {o['estimate']}"
+    assert (
+        o["pvalue"] < 0.01
+    ), f"overall ATT should be highly significant, p = {o['pvalue']}"
 
 
 def test_all_post_event_coefficients_positive(demo_report):
     post = demo_report.dynamic[demo_report.dynamic["relative_time"] >= 0]
-    assert (post["att"] > 0).all(), \
-        "dynamic ATT should be positive on this DGP"
+    assert (post["att"] > 0).all(), "dynamic ATT should be positive on this DGP"
 
 
 def test_dynamic_coefficients_monotonically_increasing(demo_report):

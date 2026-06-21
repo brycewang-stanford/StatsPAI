@@ -24,8 +24,7 @@ import pytest
 
 import statspai as sp
 
-from ._helpers import (assert_no_silent_wrong, assert_raises_clean, coef,
-                       make_iv, stderr)
+from ._helpers import assert_no_silent_wrong, assert_raises_clean, coef, make_iv, stderr
 
 
 def _fit(df, fml="y ~ (x ~ z) + w1"):

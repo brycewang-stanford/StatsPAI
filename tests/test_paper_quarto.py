@@ -16,6 +16,7 @@ Quarto is the publication-grade default. These tests verify:
 - YAML-quoting is robust against quotes / colons / newlines in the
   question.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -26,10 +27,10 @@ import pytest
 from statspai.output._lineage import attach_provenance
 from statspai.workflow.paper import PaperDraft, _yaml_str, paper
 
-
 # ---------------------------------------------------------------------------
 # _yaml_str helper
 # ---------------------------------------------------------------------------
+
 
 class TestYamlEscape:
     def test_simple(self):
@@ -52,8 +53,14 @@ class TestYamlEscape:
 # PaperDraft.to_qmd direct tests
 # ---------------------------------------------------------------------------
 
-def _make_draft(*, sections=None, citations=None, workflow=None,
-                question="effect of training on wages"):
+
+def _make_draft(
+    *,
+    sections=None,
+    citations=None,
+    workflow=None,
+    question="effect of training on wages",
+):
     sections = sections or {
         "Question": "What's the effect of `training` on `wage`?",
         "Data": "- N = 100\n- 5 covariates",
@@ -144,6 +151,7 @@ class TestToQmdYAML:
         head = qmd.split("\n---\n", 2)[0].lstrip("-").lstrip("\n")
         try:
             import yaml
+
             parsed = yaml.safe_load(head)
             assert "subtitle" in parsed
             assert "X" in parsed["subtitle"]
@@ -157,12 +165,20 @@ class TestToQmdYAML:
 # Body content
 # ---------------------------------------------------------------------------
 
+
 class TestToQmdBody:
     def test_sections_render_as_h2(self):
         draft = _make_draft()
         qmd = draft.to_qmd()
-        for title in ("Question", "Data", "Identification",
-                      "Estimator", "Results", "Robustness", "References"):
+        for title in (
+            "Question",
+            "Data",
+            "Identification",
+            "Estimator",
+            "Results",
+            "Robustness",
+            "References",
+        ):
             assert f"## {title}" in qmd
 
     def test_section_order_matches_markdown(self):
@@ -170,8 +186,14 @@ class TestToQmdBody:
         qmd = draft.to_qmd()
         positions = [
             qmd.index(f"## {t}")
-            for t in ("Question", "Data", "Identification",
-                      "Estimator", "Results", "Robustness")
+            for t in (
+                "Question",
+                "Data",
+                "Identification",
+                "Estimator",
+                "Results",
+                "Robustness",
+            )
         ]
         assert positions == sorted(positions)
 
@@ -191,12 +213,15 @@ class TestToQmdBody:
 # Provenance integration
 # ---------------------------------------------------------------------------
 
+
 class TestToQmdProvenance:
     def test_provenance_in_yaml_and_appendix(self):
         df = pd.DataFrame({"y": [1, 2, 3]})
         result = SimpleNamespace(estimate=0.5)
         attach_provenance(
-            result, function="sp.did.test", data=df,
+            result,
+            function="sp.did.test",
+            data=df,
             params={"y": "y"},
         )
         wf = SimpleNamespace(result=result, data=df)
@@ -234,6 +259,7 @@ class TestToQmdProvenance:
 # write() dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestWriteDispatch:
     def test_qmd_extension_dispatches(self, tmp_path):
         draft = _make_draft()
@@ -248,18 +274,22 @@ class TestWriteDispatch:
 # Top-level paper(fmt='qmd')
 # ---------------------------------------------------------------------------
 
+
 class TestPaperFnFmt:
     def test_fmt_qmd_accepted(self):
         # Build a tiny dataset that the workflow can handle.
-        df = pd.DataFrame({
-            "wage": [10.0, 11.0, 12.0, 13.0, 14.0, 15.0,
-                     16.0, 17.0, 18.0, 19.0],
-            "trained": [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "wage": [10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0, 17.0, 18.0, 19.0],
+                "trained": [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+            }
+        )
         # paper() should not raise on fmt='qmd'.
         try:
             draft = paper(
-                df, "effect of trained on wage", fmt="qmd",
+                df,
+                "effect of trained on wage",
+                fmt="qmd",
             )
         except ValueError:
             pytest.fail("paper(fmt='qmd') raised ValueError")

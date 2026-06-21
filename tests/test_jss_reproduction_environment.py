@@ -10,7 +10,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AUDIT = (
     REPO_ROOT
@@ -54,9 +53,14 @@ def test_reproduction_environment_audit_guards_seeded_stochastic_outputs() -> No
 
     assert payload["status"] == "PASS"
     assert requirements["package_count"] >= 20
-    assert {"pyarrow", "pytest", "pytest-cov", "rdrobust", "setuptools", "wheel"} <= set(
-        requirements["packages"]
-    )
+    assert {
+        "pyarrow",
+        "pytest",
+        "pytest-cov",
+        "rdrobust",
+        "setuptools",
+        "wheel",
+    } <= set(requirements["packages"])
     assert makefile["pandoc_markdown_optional"] is True
     assert reproduce["tier1_live_external_call_count"] == 0
     assert reproduce["tier1_live_external_dependency_markers"] == []

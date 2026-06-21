@@ -40,8 +40,8 @@ def test_ttl_expires_entry_and_records_reason():
     assert c.get(rid) == {"v": 1}  # fresh
     # Age it past the TTL.
     c._store[rid].created_at = time.time() - 200.0
-    assert c.get(rid) is None              # swept on access
-    assert rid not in c                     # contains agrees
+    assert c.get(rid) is None  # swept on access
+    assert rid not in c  # contains agrees
     assert c.miss_reason(rid) == EVICT_TTL  # explained
 
 

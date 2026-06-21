@@ -20,10 +20,10 @@ TRUE_BETA = 1.0
 def iv_data():
     rng = np.random.RandomState(7)
     n = 2000
-    z = rng.randn(n)            # instrument
-    u = rng.randn(n)            # omitted confounder
-    x = 0.8 * z + 1.0 * u + rng.randn(n) * 0.5   # strong first stage
-    y = TRUE_BETA * x + 2.0 * u + rng.randn(n)   # OLS biased by u
+    z = rng.randn(n)  # instrument
+    u = rng.randn(n)  # omitted confounder
+    x = 0.8 * z + 1.0 * u + rng.randn(n) * 0.5  # strong first stage
+    y = TRUE_BETA * x + 2.0 * u + rng.randn(n)  # OLS biased by u
     return pd.DataFrame({"y": y, "x": x, "z": z})
 
 

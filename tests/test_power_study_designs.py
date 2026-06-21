@@ -4,6 +4,7 @@ Validation uses Monte-Carlo agreement (the analytic power matches the
 empirical rejection rate of the test it approximates) and the closed-form
 Schoenfeld events requirement.
 """
+
 import numpy as np
 import pytest
 
@@ -43,8 +44,9 @@ def test_two_proportions_sample_size_achieves_target():
 def test_two_proportions_monotone_and_array():
     p = sp.power_two_proportions(n=[100, 200, 400], p1=0.3, p2=0.5).power
     assert np.all(np.diff(p) > 0)
-    assert sp.power_two_proportions(n=100, p1=0.3, p2=0.3).power == \
-        pytest.approx(0.025, abs=0.01)   # no effect -> power ~ alpha/2 side
+    assert sp.power_two_proportions(n=100, p1=0.3, p2=0.3).power == pytest.approx(
+        0.025, abs=0.01
+    )  # no effect -> power ~ alpha/2 side
 
 
 def test_logrank_schoenfeld_events():

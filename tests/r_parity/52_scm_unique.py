@@ -23,6 +23,7 @@ the R Synth reference fixes the predictor-weight vector and tightens the
 inner ``ipop`` QP so the reference gap is also at machine-level point
 precision.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -30,7 +31,6 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "52_scm_unique"
 J, T0, T1 = 5, 20, 10
@@ -55,30 +55,51 @@ def main() -> None:
     df = _make_unique_dgp()
     dump_csv(df, MODULE)
 
-    fit = sp.synth(df, outcome="y", unit="region", time="year",
-                   treated_unit="treated", treatment_time=T0, method="classic")
+    fit = sp.synth(
+        df,
+        outcome="y",
+        unit="region",
+        time="year",
+        treated_unit="treated",
+        treatment_time=T0,
+        method="classic",
+    )
 
     wdf = fit.model_info["weights"]
     wmap = dict(zip(wdf["unit"], wdf["weight"]))
 
     rows = [
         ParityRecord(
-            module=MODULE, side="py", statistic="avg_post_gap",
-            estimate=float(fit.estimate), se=float(fit.se), n=int(len(df)),
+            module=MODULE,
+            side="py",
+            statistic="avg_post_gap",
+            estimate=float(fit.estimate),
+            se=float(fit.se),
+            n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE, side="py", statistic="pre_treatment_rmse",
-            estimate=float(fit.model_info["pre_treatment_rmse"]), n=int(len(df)),
+            module=MODULE,
+            side="py",
+            statistic="pre_treatment_rmse",
+            estimate=float(fit.model_info["pre_treatment_rmse"]),
+            n=int(len(df)),
         ),
     ]
     for d in range(J):
-        rows.append(ParityRecord(
-            module=MODULE, side="py", statistic=f"weight_donor{d}",
-            estimate=float(wmap.get(f"donor{d}", 0.0)), n=int(len(df)),
-        ))
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"weight_donor{d}",
+                estimate=float(wmap.get(f"donor{d}", 0.0)),
+                n=int(len(df)),
+            )
+        )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "method": "classic",
             "true_gap": TAU,

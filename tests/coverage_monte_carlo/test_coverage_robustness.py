@@ -41,6 +41,7 @@ References
   Dealing with limited overlap in estimation of average treatment
   effects. Biometrika 96(1), 187-199.
 """
+
 from __future__ import annotations
 
 import os
@@ -52,17 +53,17 @@ import pytest
 
 import statspai as sp
 
-
 # Default draws per test.  Override via env STATSPAI_MC_DRAWS=N.
-B_DEFAULT = int(os.environ.get('STATSPAI_MC_DRAWS', 300))
+B_DEFAULT = int(os.environ.get("STATSPAI_MC_DRAWS", 300))
 
 
 def _coverage_rate(covered: int, B: int) -> float:
     return covered / B
 
 
-def _assert_documented_band(covered: int, B: int, label: str,
-                            lo: float, hi: float) -> None:
+def _assert_documented_band(
+    covered: int, B: int, label: str, lo: float, hi: float
+) -> None:
     """Assert empirical coverage lies in the documented [lo, hi] band.
 
     For robustness DGPs this band reflects the *known textbook
@@ -101,8 +102,8 @@ def test_iv_weak_instrument_undercoverage():
     """
     B = B_DEFAULT
     truth = 1.0
-    pi = 0.10            # weak first-stage coefficient
-    eu = 1.5             # endogeneity loading
+    pi = 0.10  # weak first-stage coefficient
+    eu = 1.5  # endogeneity loading
     n = 600
     covered = 0
     with warnings.catch_warnings():
@@ -121,8 +122,7 @@ def test_iv_weak_instrument_undercoverage():
             lo, hi = ci.loc["d"].values
             if lo <= truth <= hi:
                 covered += 1
-    _assert_documented_band(covered, B, "Weak-IV (pi=0.10)",
-                            lo=0.85, hi=0.95)
+    _assert_documented_band(covered, B, "Weak-IV (pi=0.10)", lo=0.85, hi=0.95)
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +166,7 @@ def test_cs_heterogeneous_timing_coverage():
     """
     # Sanity-check: hard-coded truth matches the analytic recomputation.
     assert abs(_cs_het_population_truth() - _CS_HET_TRUTH) < 1e-9
-    B = min(B_DEFAULT, 200)   # CS is slow
+    B = min(B_DEFAULT, 200)  # CS is slow
     truth = _CS_HET_TRUTH
     n_units = 200
     T = 8
@@ -184,14 +184,12 @@ def test_cs_heterogeneous_timing_coverage():
                 else:
                     att_eff = 0.0
                 y = 0.2 * t + att_eff + ui + rng.normal(scale=0.8)
-                rows.append({'i': i, 't': t, 'g': g, 'y': y})
+                rows.append({"i": i, "t": t, "g": g, "y": y})
         df = pd.DataFrame(rows)
-        r = sp.callaway_santanna(df, y='y', g='g', t='t', i='i',
-                                 estimator='reg')
+        r = sp.callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="reg")
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
-    _assert_documented_band(covered, B, "CS-DiD heterogeneous timing",
-                            lo=0.90, hi=0.97)
+    _assert_documented_band(covered, B, "CS-DiD heterogeneous timing", lo=0.90, hi=0.97)
 
 
 # ---------------------------------------------------------------------------
@@ -228,11 +226,15 @@ def test_causal_forest_overlap_loss():
         y = 0.5 + truth * d + 0.7 * x1 + 0.3 * x2 + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
         q = sp.causal_question(
-            treatment="d", outcome="y", design="causal_forest",
-            covariates=["x1", "x2"], data=df,
+            treatment="d",
+            outcome="y",
+            design="causal_forest",
+            covariates=["x1", "x2"],
+            data=df,
         )
         r = q.estimate(n_estimators=30, random_state=seed)
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
-    _assert_documented_band(covered, B, "Causal Forest AIPW (overlap loss)",
-                            lo=0.85, hi=0.99)
+    _assert_documented_band(
+        covered, B, "Causal Forest AIPW (overlap loss)", lo=0.85, hi=0.99
+    )

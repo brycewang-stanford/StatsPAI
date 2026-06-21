@@ -30,10 +30,8 @@ def data():
     rng = np.random.default_rng(0)
     n = 400
     df = pd.DataFrame({"x": rng.normal(size=n), "z": rng.normal(size=n)})
-    df["d"] = (0.5 * df["x"] + 0.4 * df["z"]
-               + rng.normal(size=n) > 0).astype(int)
-    df["y"] = (1 + 2.0 * df["d"] + 0.5 * df["x"]
-               - 0.3 * df["z"] + rng.normal(size=n))
+    df["d"] = (0.5 * df["x"] + 0.4 * df["z"] + rng.normal(size=n) > 0).astype(int)
+    df["y"] = 1 + 2.0 * df["d"] + 0.5 * df["x"] - 0.3 * df["z"] + rng.normal(size=n)
     df["count"] = rng.poisson(np.exp(0.2 * df["x"]).clip(upper=20))
     df["entity"] = np.tile(np.arange(n // 4), 4)[:n]
     df["time"] = np.repeat(np.arange(4), n // 4)[:n]
@@ -65,8 +63,17 @@ def _fit(name, df):
     raise AssertionError(name)
 
 
-ESTIMATORS = ["ols", "iv", "logit", "glm_poisson", "qreg", "panel",
-              "frontier", "dml", "tmle"]
+ESTIMATORS = [
+    "ols",
+    "iv",
+    "logit",
+    "glm_poisson",
+    "qreg",
+    "panel",
+    "frontier",
+    "dml",
+    "tmle",
+]
 
 
 class TestUniversalExporter:

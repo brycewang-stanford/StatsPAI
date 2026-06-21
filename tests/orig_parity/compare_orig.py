@@ -1,11 +1,11 @@
 """Original-data parity comparator. Joins per-module results across
 sp / R / published-paper anchors and emits a Markdown rollup.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
-
 
 HERE = Path(__file__).resolve().parent
 RESULTS_DIR = HERE / "results"
@@ -18,10 +18,7 @@ def fmt(x: float | None, prec: int = 4) -> str:
 
 
 def main() -> None:
-    modules = sorted(
-        p.stem.replace("_py", "")
-        for p in RESULTS_DIR.glob("*_py.json")
-    )
+    modules = sorted(p.stem.replace("_py", "") for p in RESULTS_DIR.glob("*_py.json"))
     lines: list[str] = [
         "# Original-data parity report",
         "",
@@ -50,16 +47,28 @@ def main() -> None:
         R_by = {r["statistic"]: r for r in R["rows"]}
         lines.append(f"## Module `{m}`")
         if py["extra"].get("data_source"):
-            lines.append(f"Data source: `{py['extra']['data_source']}` ({py['extra'].get('n_obs', '?')} obs)")
+            lines.append(
+                f"Data source: `{py['extra']['data_source']}` ({py['extra'].get('n_obs', '?')} obs)"
+            )
         lines.append("")
-        lines.append("| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |")
+        lines.append(
+            "| stat | sp | R | published | rel(sp vs R) | rel(sp vs published) | citation |"
+        )
         lines.append("|---|---:|---:|---:|---:|---:|---|")
         for pr in py["rows"]:
             rr = R_by.get(pr["statistic"], {})
             p, r, pub = pr["estimate"], rr.get("estimate"), pr.get("published")
             cite = pr.get("citation", "")
-            rel_R = (abs(p - r) / abs(r) if r and abs(r) > 1e-12 else None) if p is not None else None
-            rel_pub = (abs(p - pub) / abs(pub) if pub and abs(pub) > 1e-12 else None) if p is not None else None
+            rel_R = (
+                (abs(p - r) / abs(r) if r and abs(r) > 1e-12 else None)
+                if p is not None
+                else None
+            )
+            rel_pub = (
+                (abs(p - pub) / abs(pub) if pub and abs(pub) > 1e-12 else None)
+                if p is not None
+                else None
+            )
             lines.append(
                 f"| `{pr['statistic']}` | {fmt(p)} | {fmt(r)} | {fmt(pub)} "
                 f"| {fmt(rel_R, 2)} | {fmt(rel_pub, 2)} | {cite} |"

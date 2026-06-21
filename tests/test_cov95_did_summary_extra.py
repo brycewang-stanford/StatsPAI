@@ -1,5 +1,6 @@
 """Extra coverage for statspai.did.summary: failed-method NaN rows in markdown
 & latex, _stars branches, breakdown-print in summary(), did_report verbose+PNG."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -40,10 +41,16 @@ def test_summary_markdown_with_failed_method(monkeypatch, stag):
     # Force the 'sa' runner to raise so its row is NaN -> markdown NA branch.
     def _boom(*a, **k):
         raise ValueError("synthetic failure for coverage")
+
     monkeypatch.setitem(summod._DISPATCH, "sa", _boom)
-    out = sp.did_summary(stag, y="y", time="time",
-                         first_treat="first_treat", group="unit",
-                         methods=["cs", "sa"])
+    out = sp.did_summary(
+        stag,
+        y="y",
+        time="time",
+        first_treat="first_treat",
+        group="unit",
+        methods=["cs", "sa"],
+    )
     assert "sa" in out.model_info["methods_failed"]
     md = sp.did_summary_to_markdown(out)
     assert "—" in md  # NA dash row rendered
@@ -54,9 +61,15 @@ def test_summary_markdown_with_failed_method(monkeypatch, stag):
 
 
 def test_summary_breakdown_print(stag):
-    out = sp.did_summary(stag, y="y", time="time",
-                         first_treat="first_treat", group="unit",
-                         methods=["cs"], include_sensitivity=True)
+    out = sp.did_summary(
+        stag,
+        y="y",
+        time="time",
+        first_treat="first_treat",
+        group="unit",
+        methods=["cs"],
+        include_sensitivity=True,
+    )
     txt = out.summary()
     # if breakdown computed, the summary prints "Breakdown M*"
     if out.model_info.get("breakdown_m") is not None:
@@ -64,12 +77,20 @@ def test_summary_breakdown_print(stag):
 
 
 def test_did_report_verbose_with_png(stag, tmp_path):
-    out = sp.did_report(stag, y="y", time="time",
-                        first_treat="first_treat", group="unit",
-                        save_to=str(tmp_path), methods=["cs", "sa"],
-                        include_sensitivity=False, verbose=True)
+    out = sp.did_report(
+        stag,
+        y="y",
+        time="time",
+        first_treat="first_treat",
+        group="unit",
+        save_to=str(tmp_path),
+        methods=["cs", "sa"],
+        include_sensitivity=False,
+        verbose=True,
+    )
     # PNG written when matplotlib present
     import importlib.util
+
     if importlib.util.find_spec("matplotlib") is not None:
         assert (tmp_path / "did_summary.png").exists()
     assert (tmp_path / "did_summary.json").exists()

@@ -14,6 +14,7 @@ Real synthetic RD data; assertions check the helpers return finite, sane
 fallbacks (non-negative variances, zero derivative) — never fabricated
 numbers.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -93,21 +94,20 @@ def test_local_poly_fit_tiny_bandwidth_returns_zeros():
 
 def test_local_residual_var_tiny_bandwidth_falls_back():
     df = _df()
-    v = _local_residual_var(df["y"].values, df["x"].values, h=1e-9,
-                            kernel="triangular")
+    v = _local_residual_var(df["y"].values, df["x"].values, h=1e-9, kernel="triangular")
     assert np.isfinite(v) and v >= 0
 
 
 def test_estimate_deriv_tiny_bandwidth_returns_zero():
     df = _df()
-    d2 = _estimate_deriv(df["y"].values, df["x"].values, h=1e-9,
-                         kernel="triangular")
+    d2 = _estimate_deriv(df["y"].values, df["x"].values, h=1e-9, kernel="triangular")
     assert d2 == 0.0
 
 
 def test_covariate_adjusted_variance_tiny_bandwidth_falls_back():
     df = _df()
     covs = df[["z"]].values
-    v = _covariate_adjusted_variance(df["y"].values, df["x"].values, covs,
-                                     h=1e-9, kernel="triangular")
+    v = _covariate_adjusted_variance(
+        df["y"].values, df["x"].values, covs, h=1e-9, kernel="triangular"
+    )
     assert np.isfinite(v) and v >= 0

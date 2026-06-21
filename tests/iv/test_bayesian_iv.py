@@ -30,8 +30,13 @@ def weak_dgp():
 class TestBayesianIV:
     def test_strong_iv_covers_truth(self, strong_dgp):
         r = iv.bayesian_iv(
-            y="y", endog="d", instruments=["z"], data=strong_dgp,
-            n_draws=5000, n_warmup=2000, random_state=0,
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=strong_dgp,
+            n_draws=5000,
+            n_warmup=2000,
+            random_state=0,
         )
         assert r.hpd_lower <= 2.05  # truth within reasonable tolerance
         assert r.hpd_upper >= 2.0
@@ -39,15 +44,33 @@ class TestBayesianIV:
         assert r.posterior_sd < 0.2
 
     def test_weak_iv_much_wider(self, strong_dgp, weak_dgp):
-        r_s = iv.bayesian_iv(y="y", endog="d", instruments=["z"], data=strong_dgp,
-                             n_draws=3000, random_state=0)
-        r_w = iv.bayesian_iv(y="y", endog="d", instruments=["z"], data=weak_dgp,
-                             n_draws=3000, random_state=0)
+        r_s = iv.bayesian_iv(
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=strong_dgp,
+            n_draws=3000,
+            random_state=0,
+        )
+        r_w = iv.bayesian_iv(
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=weak_dgp,
+            n_draws=3000,
+            random_state=0,
+        )
         assert r_w.posterior_sd > r_s.posterior_sd * 2
 
     def test_to_frame(self, strong_dgp):
-        r = iv.bayesian_iv(y="y", endog="d", instruments=["z"], data=strong_dgp,
-                           n_draws=500, random_state=0)
+        r = iv.bayesian_iv(
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=strong_dgp,
+            n_draws=500,
+            random_state=0,
+        )
         df = r.to_frame()
         assert df.shape == (500, 1)
         assert "beta" in df.columns

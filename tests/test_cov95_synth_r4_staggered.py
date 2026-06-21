@@ -5,6 +5,7 @@ never-treated controls. Exercises both the 'separate' and 'pooled'
 estimation paths, the penalized weight solver, placebo inference, and
 the input-validation guards.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -28,7 +29,9 @@ def _staggered_panel(seed=0, n_control=4, effect=6.0):
     # Two treated cohorts adopting in 2008 and 2012.
     cohort_map = {"t_early": 2008, "t_early2": 2008, "t_late": 2012}
     for u, g in cohort_map.items():
-        base = 0.5 * controls["c0"] + 0.5 * controls["c1"] + rng.normal(0, 0.3, len(years))
+        base = (
+            0.5 * controls["c0"] + 0.5 * controls["c1"] + rng.normal(0, 0.3, len(years))
+        )
         for i, yr in enumerate(years):
             treated_flag = 1 if yr >= g else 0
             val = base[i] + (effect if treated_flag else 0.0)

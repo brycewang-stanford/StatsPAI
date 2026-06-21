@@ -1,4 +1,5 @@
 """Tests for cs_report() — the one-call staggered-DID report."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,16 +15,16 @@ def _staggered_panel(seed=0):
         ui = rng.normal(scale=0.3)
         for t in range(1, 9):
             te = max(0, t - g + 1) * 0.5 if g > 0 else 0
-            rows.append({'i': u, 't': t, 'g': g,
-                         'y': ui + 0.2 * t + te + rng.normal()})
+            rows.append({"i": u, "t": t, "g": g, "y": ui + 0.2 * t + te + rng.normal()})
     return pd.DataFrame(rows)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def report():
     df = _staggered_panel(seed=42)
-    return cs_report(df, y='y', g='g', t='t', i='i',
-                     n_boot=300, random_state=0, verbose=False)
+    return cs_report(
+        df, y="y", g="g", t="t", i="i", n_boot=300, random_state=0, verbose=False
+    )
 
 
 def test_report_is_dataclass_instance(report):
@@ -31,43 +32,46 @@ def test_report_is_dataclass_instance(report):
 
 
 def test_report_exposes_all_aggregations(report):
-    for attr, shape_min in [('simple', 1), ('dynamic', 1),
-                            ('group', 1), ('calendar', 1)]:
+    for attr, shape_min in [
+        ("simple", 1),
+        ("dynamic", 1),
+        ("group", 1),
+        ("calendar", 1),
+    ]:
         df = getattr(report, attr)
         assert isinstance(df, pd.DataFrame)
         assert len(df) >= shape_min
-        assert {'att', 'se', 'ci_lower', 'ci_upper', 'pvalue'} <= set(df.columns)
+        assert {"att", "se", "ci_lower", "ci_upper", "pvalue"} <= set(df.columns)
     # Non-simple aggregations carry uniform-band columns.
-    for attr in ('dynamic', 'group', 'calendar'):
+    for attr in ("dynamic", "group", "calendar"):
         df = getattr(report, attr)
-        assert {'cband_lower', 'cband_upper'} <= set(df.columns)
+        assert {"cband_lower", "cband_upper"} <= set(df.columns)
 
 
 def test_report_breakdown_covers_all_post_times(report):
-    dyn_post = report.dynamic[report.dynamic['relative_time'] >= 0]
+    dyn_post = report.dynamic[report.dynamic["relative_time"] >= 0]
     assert len(report.breakdown) == len(dyn_post)
-    assert list(report.breakdown['relative_time']) == \
-        list(dyn_post['relative_time'])
-    assert (report.breakdown['breakdown_M_star'] >= 0).all()
+    assert list(report.breakdown["relative_time"]) == list(dyn_post["relative_time"])
+    assert (report.breakdown["breakdown_M_star"] >= 0).all()
 
 
 def test_report_overall_matches_simple_aggregation(report):
-    assert report.overall['estimate'] == pytest.approx(
-        report.simple['att'].iloc[0], rel=1e-6
+    assert report.overall["estimate"] == pytest.approx(
+        report.simple["att"].iloc[0], rel=1e-6
     )
 
 
 def test_report_accepts_prefitted_result():
     df = _staggered_panel(seed=7)
-    cs = callaway_santanna(df, y='y', g='g', t='t', i='i')
+    cs = callaway_santanna(df, y="y", g="g", t="t", i="i")
     rpt = cs_report(cs, n_boot=200, random_state=1, verbose=False)
     assert isinstance(rpt, CSReport)
-    assert rpt.meta['estimator'] == 'DR'
+    assert rpt.meta["estimator"] == "DR"
 
 
 def test_report_raw_data_requires_column_names():
     df = _staggered_panel(seed=3)
-    with pytest.raises(ValueError, match='column names'):
+    with pytest.raises(ValueError, match="column names"):
         cs_report(df, n_boot=50, verbose=False)
 
 
@@ -81,8 +85,7 @@ def test_report_to_text_is_non_empty(report):
 
 def test_report_verbose_prints(capsys):
     df = _staggered_panel(seed=9)
-    cs_report(df, y='y', g='g', t='t', i='i',
-              n_boot=100, random_state=0, verbose=True)
+    cs_report(df, y="y", g="g", t="t", i="i", n_boot=100, random_state=0, verbose=True)
     captured = capsys.readouterr()
     assert "Callaway" in captured.out
     assert "Overall ATT" in captured.out
@@ -90,10 +93,12 @@ def test_report_verbose_prints(capsys):
 
 def test_reproducibility_with_fixed_seed():
     df = _staggered_panel(seed=11)
-    a = cs_report(df, y='y', g='g', t='t', i='i',
-                  n_boot=200, random_state=42, verbose=False)
-    b = cs_report(df, y='y', g='g', t='t', i='i',
-                  n_boot=200, random_state=42, verbose=False)
+    a = cs_report(
+        df, y="y", g="g", t="t", i="i", n_boot=200, random_state=42, verbose=False
+    )
+    b = cs_report(
+        df, y="y", g="g", t="t", i="i", n_boot=200, random_state=42, verbose=False
+    )
     pd.testing.assert_frame_equal(a.dynamic, b.dynamic)
     pd.testing.assert_frame_equal(a.breakdown, b.breakdown)
 
@@ -101,6 +106,7 @@ def test_reproducibility_with_fixed_seed():
 # --------------------------------------------------------------------------- #
 # Export: to_markdown / to_latex                                              #
 # --------------------------------------------------------------------------- #
+
 
 def test_to_markdown_structure(report):
     md = report.to_markdown()
@@ -125,7 +131,7 @@ def test_to_markdown_float_format(report):
 
 
 def test_to_latex_structure(report):
-    tex = report.to_latex(caption='Demo', label='tab:demo')
+    tex = report.to_latex(caption="Demo", label="tab:demo")
     assert tex.startswith("\\begin{table}")
     assert "\\caption{Demo}" in tex
     assert "\\label{tab:demo}" in tex
@@ -144,22 +150,24 @@ def test_to_latex_escapes_special_chars(report):
 def test_to_latex_no_jinja2_required(report):
     """Our booktabs formatter should not depend on jinja2."""
     import sys
-    saved = sys.modules.pop('jinja2', None)
+
+    saved = sys.modules.pop("jinja2", None)
     try:
         tex = report.to_latex()
         assert "\\begin{tabular}" in tex
     finally:
         if saved is not None:
-            sys.modules['jinja2'] = saved
+            sys.modules["jinja2"] = saved
 
 
 # --------------------------------------------------------------------------- #
 # Plot: 2×2 summary panel                                                     #
 # --------------------------------------------------------------------------- #
 
+
 def test_report_plot_returns_2x2_panel(report):
-    matplotlib = pytest.importorskip('matplotlib')
-    matplotlib.use('Agg')
+    matplotlib = pytest.importorskip("matplotlib")
+    matplotlib.use("Agg")
     fig, axes = report.plot(suptitle="demo")
     assert axes.shape == (2, 2)
     # The four quadrants should each carry a non-empty title.
@@ -173,6 +181,7 @@ def test_report_plot_returns_2x2_panel(report):
 # Export: to_excel                                                            #
 # --------------------------------------------------------------------------- #
 
+
 def test_to_excel_roundtrip(report, tmp_path):
     pytest.importorskip("openpyxl")
     out = tmp_path / "cs_report.xlsx"
@@ -182,7 +191,12 @@ def test_to_excel_roundtrip(report, tmp_path):
 
     sheets = pd.ExcelFile(out).sheet_names
     assert set(sheets) >= {
-        "Summary", "Dynamic", "Group", "Calendar", "Breakdown", "Meta"
+        "Summary",
+        "Dynamic",
+        "Group",
+        "Calendar",
+        "Breakdown",
+        "Meta",
     }
 
     # Dynamic sheet row count matches the in-memory frame.
@@ -192,8 +206,13 @@ def test_to_excel_roundtrip(report, tmp_path):
     # Summary sheet carries the key header numbers.
     summary_xl = pd.read_excel(out, "Summary")
     keys = set(summary_xl["key"].astype(str))
-    assert {"overall_att", "overall_se", "overall_ci_lower",
-            "overall_ci_upper", "overall_pvalue"} <= keys
+    assert {
+        "overall_att",
+        "overall_se",
+        "overall_ci_lower",
+        "overall_ci_upper",
+        "overall_pvalue",
+    } <= keys
 
 
 def test_to_excel_breakdown_matches_inmemory(report, tmp_path):
@@ -210,23 +229,34 @@ def test_to_excel_breakdown_matches_inmemory(report, tmp_path):
 # save_to — one-call bundle export                                            #
 # --------------------------------------------------------------------------- #
 
+
 def test_save_to_produces_all_artifacts(tmp_path):
     df = _staggered_panel(seed=13)
     prefix = str(tmp_path / "bundle" / "cs")
-    cs_report(df, y='y', g='g', t='t', i='i',
-              n_boot=80, random_state=0, verbose=False,
-              save_to=prefix)
+    cs_report(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="i",
+        n_boot=80,
+        random_state=0,
+        verbose=False,
+        save_to=prefix,
+    )
     assert (tmp_path / "bundle" / "cs.txt").exists()
     assert (tmp_path / "bundle" / "cs.md").exists()
     assert (tmp_path / "bundle" / "cs.tex").exists()
     # Excel + PNG depend on optional deps — tolerate either way.
     try:
         import openpyxl  # noqa: F401
+
         assert (tmp_path / "bundle" / "cs.xlsx").exists()
     except ImportError:
         pass
     try:
         import matplotlib  # noqa: F401
+
         assert (tmp_path / "bundle" / "cs.png").exists()
     except ImportError:
         pass
@@ -235,23 +265,39 @@ def test_save_to_produces_all_artifacts(tmp_path):
 def test_save_to_creates_missing_parent_dirs(tmp_path):
     df = _staggered_panel(seed=14)
     prefix = str(tmp_path / "a" / "b" / "c" / "report")
-    cs_report(df, y='y', g='g', t='t', i='i',
-              n_boot=50, random_state=0, verbose=False,
-              save_to=prefix)
+    cs_report(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="i",
+        n_boot=50,
+        random_state=0,
+        verbose=False,
+        save_to=prefix,
+    )
     assert (tmp_path / "a" / "b" / "c" / "report.md").exists()
 
 
 def test_save_to_files_contain_expected_content(tmp_path):
     df = _staggered_panel(seed=15)
     prefix = str(tmp_path / "cs")
-    cs_report(df, y='y', g='g', t='t', i='i',
-              n_boot=50, random_state=0, verbose=False,
-              save_to=prefix)
-    md = (tmp_path / "cs.md").read_text(encoding='utf-8')
+    cs_report(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="i",
+        n_boot=50,
+        random_state=0,
+        verbose=False,
+        save_to=prefix,
+    )
+    md = (tmp_path / "cs.md").read_text(encoding="utf-8")
     assert "Callaway" in md and "Event study" in md
-    tex = (tmp_path / "cs.tex").read_text(encoding='utf-8')
+    tex = (tmp_path / "cs.tex").read_text(encoding="utf-8")
     assert "\\begin{table}" in tex and "\\bottomrule" in tex
-    txt = (tmp_path / "cs.txt").read_text(encoding='utf-8')
+    txt = (tmp_path / "cs.txt").read_text(encoding="utf-8")
     assert "Overall ATT" in txt
 
 
@@ -259,28 +305,40 @@ def test_save_to_files_contain_expected_content(tmp_path):
 # Audit-round bug regressions                                                 #
 # --------------------------------------------------------------------------- #
 
+
 def test_to_latex_backslash_is_single_escaped(report):
     """Bug: \\ → \\textbackslash{} followed by { → \\{ mangled the brace.
 
     A single backslash in a cell should render as \\textbackslash{}
     verbatim, not \\textbackslash\\{\\}."""
     import importlib
-    mod = importlib.import_module('statspai.did.report')
-    df = pd.DataFrame({'label': ['a\\b', 'x^y'], 'val': [1, 2]})
+
+    mod = importlib.import_module("statspai.did.report")
+    df = pd.DataFrame({"label": ["a\\b", "x^y"], "val": [1, 2]})
     tex = mod._df_to_booktabs(df)
-    assert r'\textbackslash{}' in tex
-    assert r'\textbackslash\{\}' not in tex
-    assert r'\textasciicircum{}' in tex
+    assert r"\textbackslash{}" in tex
+    assert r"\textbackslash\{\}" not in tex
+    assert r"\textasciicircum{}" in tex
 
 
 def test_save_to_expands_tilde(tmp_path, monkeypatch):
     """`save_to='~/foo/bar'` should expand the home directory."""
     df = _staggered_panel(seed=31)
     monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # ntpath.expanduser uses USERPROFILE on Windows
-    cs_report(df, y='y', g='g', t='t', i='i',
-              n_boot=50, random_state=0, verbose=False,
-              save_to='~/cs_study/rpt')
+    monkeypatch.setenv(
+        "USERPROFILE", str(tmp_path)
+    )  # ntpath.expanduser uses USERPROFILE on Windows
+    cs_report(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="i",
+        n_boot=50,
+        random_state=0,
+        verbose=False,
+        save_to="~/cs_study/rpt",
+    )
     # If ~ was not expanded, we'd see a literal "~" subdirectory under CWD.
     assert (tmp_path / "cs_study" / "rpt.md").exists()
     assert (tmp_path / "cs_study" / "rpt.txt").exists()
@@ -290,12 +348,14 @@ def test_save_to_expands_tilde(tmp_path, monkeypatch):
 # Round-2 audit regressions                                                   #
 # --------------------------------------------------------------------------- #
 
+
 def test_cs_report_rejects_non_cs_result():
     """Passing a Sun-Abraham / BJS result must raise a clear ValueError,
     not a cryptic KeyError deep inside aggte."""
     import statspai as sp
+
     df = _staggered_panel(seed=19)
-    sa = sp.sun_abraham(df, y='y', g='g', t='t', i='i')
+    sa = sp.sun_abraham(df, y="y", g="g", t="t", i="i")
     with pytest.raises(ValueError, match="Callaway"):
         cs_report(sa, n_boot=50, random_state=0, verbose=False)
 
@@ -306,20 +366,21 @@ def test_cs_report_warns_on_shadowed_args():
     Otherwise users would silently see the pre-fit's settings rather
     than the ones they explicitly passed."""
     import warnings
+
     df = _staggered_panel(seed=21)
-    cs = callaway_santanna(df, y='y', g='g', t='t', i='i', estimator='dr')
+    cs = callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="dr")
     with warnings.catch_warnings(record=True) as w_list:
         warnings.simplefilter("always")
-        cs_report(cs, estimator='reg',
-                  n_boot=30, random_state=0, verbose=False)
+        cs_report(cs, estimator="reg", n_boot=30, random_state=0, verbose=False)
     assert any("estimator='reg'" in str(wi.message) for wi in w_list)
 
 
 def test_cs_report_pre_fitted_without_shadowed_args_is_silent():
     """No warning when user correctly passes only bootstrap/report args."""
     import warnings
+
     df = _staggered_panel(seed=23)
-    cs = callaway_santanna(df, y='y', g='g', t='t', i='i')
+    cs = callaway_santanna(df, y="y", g="g", t="t", i="i")
     with warnings.catch_warnings(record=True) as w_list:
         warnings.simplefilter("always")
         cs_report(cs, n_boot=30, random_state=0, verbose=False)

@@ -19,12 +19,12 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import matplotlib
+
 matplotlib.use("Agg")
 
 import numpy as np
 import pandas as pd
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Bug 1 — use_chinese() on Linux with JP/TC/Zen Hei / Source Han fonts
@@ -44,11 +44,15 @@ def test_use_chinese_picks_noto_jp_on_linux():
     from statspai.plots import themes
     import matplotlib.font_manager as _fm
 
-    fake = _fake_fontmanager([
-        "DejaVu Sans", "Liberation Serif",
-        "Noto Sans CJK JP", "Noto Serif CJK JP",
-        "WenQuanYi Zen Hei",
-    ])
+    fake = _fake_fontmanager(
+        [
+            "DejaVu Sans",
+            "Liberation Serif",
+            "Noto Sans CJK JP",
+            "Noto Serif CJK JP",
+            "WenQuanYi Zen Hei",
+        ]
+    )
     with patch.object(_fm, "fontManager", fake):
         chosen = themes.use_chinese()
     # Sans-preferred in auto mode, and Noto Sans CJK JP is listed before
@@ -107,6 +111,7 @@ def two_ols():
     y = 1 + 2 * x1 - 0.5 * x2 + rng.normal(0, 1, n)
     df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
     from statspai import regress
+
     return regress("y ~ x1", data=df), regress("y ~ x1 + x2", data=df)
 
 
@@ -121,6 +126,7 @@ def _captured(fn, *args, **kwargs):
 def test_regtable_does_not_auto_print(two_ols):
     """regtable() must not write to stdout — double-print bug in 0.9.3."""
     from statspai import regtable
+
     m1, m2 = two_ols
     result, stdout = _captured(regtable, m1, m2)
     assert stdout == "", (
@@ -133,12 +139,15 @@ def test_regtable_does_not_auto_print(two_ols):
 
 def test_mean_comparison_does_not_auto_print():
     from statspai import mean_comparison
+
     rng = np.random.default_rng(0)
-    df = pd.DataFrame({
-        "treated": rng.integers(0, 2, 200),
-        "age": rng.normal(30, 5, 200),
-        "income": rng.normal(50, 10, 200),
-    })
+    df = pd.DataFrame(
+        {
+            "treated": rng.integers(0, 2, 200),
+            "age": rng.normal(30, 5, 200),
+            "income": rng.normal(50, 10, 200),
+        }
+    )
     result, stdout = _captured(
         mean_comparison, df, variables=["age", "income"], group="treated"
     )
@@ -147,6 +156,7 @@ def test_mean_comparison_does_not_auto_print():
 
 def test_esttab_does_not_auto_print(two_ols):
     from statspai import esttab
+
     m1, m2 = two_ols
     result, stdout = _captured(esttab, m1, m2)
     assert stdout == "", f"esttab wrote to stdout:\n{stdout[:400]}"
@@ -160,6 +170,7 @@ def test_esttab_does_not_auto_print(two_ols):
 def test_regtable_output_latex_changes_str(two_ols):
     """regtable(..., output='latex') should make str(result) return LaTeX."""
     from statspai import regtable
+
     m1, m2 = two_ols
     result = regtable(m1, m2, output="latex")
     out = str(result)
@@ -172,6 +183,7 @@ def test_regtable_output_latex_changes_str(two_ols):
 
 def test_regtable_output_markdown_changes_str(two_ols):
     from statspai import regtable
+
     m1, m2 = two_ols
     result = regtable(m1, m2, output="markdown")
     out = str(result)
@@ -181,6 +193,7 @@ def test_regtable_output_markdown_changes_str(two_ols):
 
 def test_regtable_output_html_changes_str(two_ols):
     from statspai import regtable
+
     m1, m2 = two_ols
     result = regtable(m1, m2, output="html")
     out = str(result)
@@ -189,6 +202,7 @@ def test_regtable_output_html_changes_str(two_ols):
 
 def test_regtable_default_output_is_text(two_ols):
     from statspai import regtable
+
     m1, m2 = two_ols
     result = regtable(m1, m2)
     out = str(result)
@@ -199,6 +213,7 @@ def test_regtable_default_output_is_text(two_ols):
 def test_regtable_to_methods_still_work(two_ols):
     """The explicit to_xxx() methods must still work regardless of output."""
     from statspai import regtable
+
     m1, m2 = two_ols
     result = regtable(m1, m2, output="latex")
     # Explicit calls always return their format
@@ -210,6 +225,7 @@ def test_regtable_to_methods_still_work(two_ols):
 def test_regtable_invalid_output_raises(two_ols):
     """Unknown output= should raise ValueError, not silently fall back."""
     from statspai import regtable
+
     m1, m2 = two_ols
     with pytest.raises(ValueError, match="output="):
         regtable(m1, m2, output="xml")
@@ -217,11 +233,14 @@ def test_regtable_invalid_output_raises(two_ols):
 
 def test_mean_comparison_invalid_output_raises():
     from statspai import mean_comparison
+
     rng = np.random.default_rng(0)
-    df = pd.DataFrame({
-        "treated": rng.integers(0, 2, 50),
-        "age": rng.normal(30, 5, 50),
-    })
+    df = pd.DataFrame(
+        {
+            "treated": rng.integers(0, 2, 50),
+            "age": rng.normal(30, 5, 50),
+        }
+    )
     with pytest.raises(ValueError, match="output="):
         mean_comparison(df, variables=["age"], group="treated", output="xml")
 
@@ -234,6 +253,7 @@ def test_mean_comparison_invalid_output_raises():
 def test_did_docstring_clarifies_treat_semantics():
     """did() must document the first_treat vs 0/1 distinction with an example."""
     from statspai.did import did
+
     doc = did.__doc__ or ""
     low = doc.lower()
     # Key phrases we want the user to see when they call help(did)

@@ -9,6 +9,7 @@ Covers: every effect measure (RR/OR/HR rare+common, MD/SMD, OLS, RD),
 non-null ``true`` E-values, the confidence-interval null-crossing guard,
 mathematical invariants, input validation, and backwards compatibility.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -18,7 +19,6 @@ import statspai as sp
 from statspai.diagnostics.evalue import _threshold
 from statspai.exceptions import MethodIncompatibility
 
-
 # Tolerance vs the R EValue package (closed-form / deterministic grid).
 RTOL = 1e-5
 
@@ -27,20 +27,40 @@ RTOL = 1e-5
 # Parity with R EValue across every measure
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("kwargs,r_point,r_ci", [
-    # (call kwargs, R evalues.* point, R CI-limit E-value)
-    (dict(estimate=2.5, ci=(1.8, 3.2), measure="RR"), 4.436492, 3.000000),
-    (dict(estimate=0.6, ci=(0.4, 0.9), measure="RR"), 2.720759, 1.462475),
-    (dict(estimate=1.1, ci=(0.9, 1.3), measure="RR"), 1.431662, 1.000000),
-    (dict(estimate=2.5, ci=(1.8, 3.2), measure="RR", true=1.5), 2.720759, 1.689898),
-    (dict(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=False), 2.179580, 1.749392),
-    (dict(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=True), 3.414214, 2.366025),
-    (dict(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=False), 1.978541, 1.338382),
-    (dict(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=True), 2.366025, 1.431662),
-    (dict(estimate=0.3, se=0.1, measure="MD"), 1.956110, 1.430704),
-    (dict(estimate=0.3, se=0.1, measure="SMD"), 1.956110, 1.430704),
-    (dict(estimate=0.5, se=0.1, sd=2.0, measure="OLS"), 1.821775, 1.561607),
-])
+
+@pytest.mark.parametrize(
+    "kwargs,r_point,r_ci",
+    [
+        # (call kwargs, R evalues.* point, R CI-limit E-value)
+        (dict(estimate=2.5, ci=(1.8, 3.2), measure="RR"), 4.436492, 3.000000),
+        (dict(estimate=0.6, ci=(0.4, 0.9), measure="RR"), 2.720759, 1.462475),
+        (dict(estimate=1.1, ci=(0.9, 1.3), measure="RR"), 1.431662, 1.000000),
+        (dict(estimate=2.5, ci=(1.8, 3.2), measure="RR", true=1.5), 2.720759, 1.689898),
+        (
+            dict(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=False),
+            2.179580,
+            1.749392,
+        ),
+        (
+            dict(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=True),
+            3.414214,
+            2.366025,
+        ),
+        (
+            dict(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=False),
+            1.978541,
+            1.338382,
+        ),
+        (
+            dict(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=True),
+            2.366025,
+            1.431662,
+        ),
+        (dict(estimate=0.3, se=0.1, measure="MD"), 1.956110, 1.430704),
+        (dict(estimate=0.3, se=0.1, measure="SMD"), 1.956110, 1.430704),
+        (dict(estimate=0.5, se=0.1, sd=2.0, measure="OLS"), 1.821775, 1.561607),
+    ],
+)
 def test_parity_with_r_evalue(kwargs, r_point, r_ci):
     out = sp.evalue(**kwargs)
     assert out["evalue_estimate"] == pytest.approx(r_point, rel=RTOL)
@@ -58,8 +78,10 @@ def test_rd_table_parity_with_r():
 def test_point_estimate_closed_form():
     rr = 1.3251
     out = sp.evalue(estimate=rr, measure="RR")
-    assert out["evalue_estimate"] == pytest.approx(rr + np.sqrt(rr * (rr - 1)), abs=1e-9)
-    assert out["evalue_ci"] is None         # no CI/SE given
+    assert out["evalue_estimate"] == pytest.approx(
+        rr + np.sqrt(rr * (rr - 1)), abs=1e-9
+    )
+    assert out["evalue_ci"] is None  # no CI/SE given
 
 
 # ---------------------------------------------------------------------------
@@ -67,17 +89,25 @@ def test_point_estimate_closed_form():
 # NHEFS / What If reproduction surfaced)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("estimate,ci", [
-    (0.90, (0.79, 1.22)),   # RR < 1, CI crosses the null
-    (1.10, (0.95, 1.27)),   # RR > 1, CI crosses the null
-    (1.00, (0.80, 1.25)),   # exactly at the null
-])
+
+@pytest.mark.parametrize(
+    "estimate,ci",
+    [
+        (0.90, (0.79, 1.22)),  # RR < 1, CI crosses the null
+        (1.10, (0.95, 1.27)),  # RR > 1, CI crosses the null
+        (1.00, (0.80, 1.25)),  # exactly at the null
+    ],
+)
 def test_ci_crossing_null_returns_one(estimate, ci):
-    assert sp.evalue(estimate=estimate, ci=ci, measure="RR")["evalue_ci"] == pytest.approx(1.0, abs=1e-12)
+    assert sp.evalue(estimate=estimate, ci=ci, measure="RR")[
+        "evalue_ci"
+    ] == pytest.approx(1.0, abs=1e-12)
 
 
 def test_borderline_limit_at_null_is_one():
-    assert sp.evalue(estimate=1.30, ci=(1.00, 1.60), measure="RR")["evalue_ci"] == pytest.approx(1.0, abs=1e-12)
+    assert sp.evalue(estimate=1.30, ci=(1.00, 1.60), measure="RR")[
+        "evalue_ci"
+    ] == pytest.approx(1.0, abs=1e-12)
 
 
 def test_protective_ci_clearing_null():
@@ -88,6 +118,7 @@ def test_protective_ci_clearing_null():
 # ---------------------------------------------------------------------------
 # Mathematical invariants
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("rr", [0.2, 0.5, 0.8, 1.0, 1.5, 2.0, 5.0, 12.0])
 def test_evalue_never_below_one(rr):
@@ -124,6 +155,7 @@ def test_monotonic_in_rr():
 # ---------------------------------------------------------------------------
 # Input validation
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_measure():
     with pytest.raises(ValueError):
@@ -205,10 +237,19 @@ def test_bias_factor_rejects_nonfinite_inputs():
 # Backwards compatibility
 # ---------------------------------------------------------------------------
 
+
 def test_legacy_keys_present():
     out = sp.evalue(estimate=1.5, ci=(1.1, 2.0), measure="RR")
-    for k in ("evalue_estimate", "evalue_ci", "rr_estimate", "rr_ci",
-              "measure", "original_estimate", "interpretation", "ci"):
+    for k in (
+        "evalue_estimate",
+        "evalue_ci",
+        "rr_estimate",
+        "rr_ci",
+        "measure",
+        "original_estimate",
+        "interpretation",
+        "ci",
+    ):
         assert k in out
 
 
@@ -224,6 +265,7 @@ def test_evalue_from_result_roundtrip():
         se = None
         ci = (1.5, 2.7)
         alpha = 0.05
+
     out = sp.evalue_from_result(_R(), measure="RR")
     assert out["evalue_estimate"] == pytest.approx(3.414214, rel=RTOL)
 
@@ -241,6 +283,7 @@ def test_interpretation_mentions_evalue():
 # ---------------------------------------------------------------------------
 # Branch coverage: alternative input paths
 # ---------------------------------------------------------------------------
+
 
 def test_ratio_with_se_builds_ci():
     out = sp.evalue(estimate=2.0, se=0.15, measure="RR")
@@ -265,11 +308,14 @@ def test_ols_with_ci_instead_of_se():
     assert out["evalue_ci"] is not None
 
 
-@pytest.mark.parametrize("call", [
-    dict(estimate=0.2, measure="DIFF"),
-    dict(estimate=0.2, ci=(0.05, 0.35), measure="RD"),
-    dict(estimate=0.2, se=0.07, measure="DIFF"),
-])
+@pytest.mark.parametrize(
+    "call",
+    [
+        dict(estimate=0.2, measure="DIFF"),
+        dict(estimate=0.2, ci=(0.05, 0.35), measure="RD"),
+        dict(estimate=0.2, se=0.07, measure="DIFF"),
+    ],
+)
 def test_diff_scalar_path(call):
     out = sp.evalue(**call)
     assert out["evalue_estimate"] >= 1.0
@@ -294,12 +340,15 @@ def test_evalue_rd_nonnull_true():
     assert out["true"] == 0.1
 
 
-@pytest.mark.parametrize("rr,word", [
-    (2.5, "very robust"),       # E ~ 4.4
-    (1.6, "moderately robust"), # E ~ 2.6
-    (1.3, "somewhat robust"),   # E ~ 1.7
-    (1.05, "potentially sensitive"),  # E ~ 1.28
-])
+@pytest.mark.parametrize(
+    "rr,word",
+    [
+        (2.5, "very robust"),  # E ~ 4.4
+        (1.6, "moderately robust"),  # E ~ 2.6
+        (1.3, "somewhat robust"),  # E ~ 1.7
+        (1.05, "potentially sensitive"),  # E ~ 1.28
+    ],
+)
 def test_interpretation_strength_levels(rr, word):
     out = sp.evalue(estimate=rr, measure="RR")
     assert word in out["interpretation"]
@@ -311,6 +360,7 @@ def test_evalue_from_result_with_se_path():
         se = 0.1
         ci = None
         alpha = 0.05
+
     out = sp.evalue_from_result(_R(), measure="SMD")
     assert out["evalue_estimate"] == pytest.approx(1.956110, rel=RTOL)
 

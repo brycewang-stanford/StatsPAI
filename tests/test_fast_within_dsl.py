@@ -2,6 +2,7 @@
 
 Phase 3 acceptance gate.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -11,10 +12,10 @@ import pytest
 import statspai as sp
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 def _panel(n_units=80, n_periods=15, seed=0):
     rng = np.random.default_rng(seed)
@@ -32,6 +33,7 @@ def _panel(n_units=80, n_periods=15, seed=0):
 # ---------------------------------------------------------------------------
 # WithinTransformer — basic correctness
 # ---------------------------------------------------------------------------
+
 
 def test_within_transform_matches_demean():
     df = _panel(seed=1)
@@ -85,8 +87,9 @@ def test_within_accepts_multiple_fe_input_shapes():
     wt1 = sp.fast.within(df, fe=["i", "t"], drop_singletons=False)
     wt2 = sp.fast.within(fe=df[["i", "t"]], drop_singletons=False)
     wt3 = sp.fast.within(fe=df[["i", "t"]].to_numpy(), drop_singletons=False)
-    wt4 = sp.fast.within(fe=[df["i"].to_numpy(), df["t"].to_numpy()],
-                         drop_singletons=False)
+    wt4 = sp.fast.within(
+        fe=[df["i"].to_numpy(), df["t"].to_numpy()], drop_singletons=False
+    )
 
     y = df["y"].to_numpy()
     a, _ = wt1.transform(y)
@@ -173,6 +176,7 @@ def test_within_transform_columns_validates_column_list():
 # DSL: i()
 # ---------------------------------------------------------------------------
 
+
 def test_i_default_drops_first_level():
     s = pd.Series([2010, 2011, 2012, 2010, 2011], name="year")
     out = sp.fast.i(s)
@@ -237,6 +241,7 @@ def test_i_event_study_in_fepois():
 # DSL: fe_interact (i^j)
 # ---------------------------------------------------------------------------
 
+
 def test_fe_interact_two_columns():
     a = np.array([0, 0, 1, 1, 2])
     b = np.array([0, 1, 0, 1, 0])
@@ -276,11 +281,15 @@ def test_fe_interact_passes_to_fepois():
     year = rng.integers(0, 5, size=n)
     eta = 0.3 * rng.normal(size=n)
     y = rng.poisson(np.exp(eta)).astype(np.int64)
-    df = pd.DataFrame({
-        "y": y, "x": rng.normal(size=n),
-        "firm": firm, "year": year,
-        "firm_x_year": sp.fast.fe_interact(firm, year),
-    })
+    df = pd.DataFrame(
+        {
+            "y": y,
+            "x": rng.normal(size=n),
+            "firm": firm,
+            "year": year,
+            "firm_x_year": sp.fast.fe_interact(firm, year),
+        }
+    )
     fit = sp.fast.fepois("y ~ x | firm_x_year", df)
     assert fit.converged
 
@@ -288,6 +297,7 @@ def test_fe_interact_passes_to_fepois():
 # ---------------------------------------------------------------------------
 # DSL: sw / csw
 # ---------------------------------------------------------------------------
+
 
 def test_sw_emits_separate_specs():
     out = sp.fast.sw(["x1"], ["x2"], ["x1", "x2"])

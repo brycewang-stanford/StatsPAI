@@ -29,10 +29,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def ols_models():
@@ -57,24 +57,24 @@ def event_study_result():
     for u in range(n_units):
         treat_time = 5 if u < 40 else np.nan
         for t in range(n_periods):
-            post = (
-                (t >= treat_time)
-                if not np.isnan(treat_time)
-                else False
+            post = (t >= treat_time) if not np.isnan(treat_time) else False
+            y = (1.0 if post else 0.0) * 0.5 + rng.normal(0, 0.5) + u * 0.02 + t * 0.1
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "treat_time": treat_time,
+                    "y": y,
+                }
             )
-            y = (
-                (1.0 if post else 0.0) * 0.5
-                + rng.normal(0, 0.5)
-                + u * 0.02
-                + t * 0.1
-            )
-            rows.append({
-                "unit": u, "time": t, "treat_time": treat_time, "y": y,
-            })
     df = pd.DataFrame(rows)
     return sp.event_study(
-        df, y="y", treat_time="treat_time", time="time",
-        unit="unit", window=(-3, 3),
+        df,
+        y="y",
+        treat_time="treat_time",
+        time="time",
+        unit="unit",
+        window=(-3, 3),
     )
 
 
@@ -82,11 +82,11 @@ def event_study_result():
 # 1. event_study_table
 # ---------------------------------------------------------------------------
 
+
 class TestEventStudyTable:
 
     def test_event_study_table_exists(self):
-        assert hasattr(sp, "event_study_table"), \
-            "sp.event_study_table not registered"
+        assert hasattr(sp, "event_study_table"), "sp.event_study_table not registered"
 
     def test_extracts_relative_time_rows(self, event_study_result):
         et = sp.event_study_table(event_study_result)
@@ -114,8 +114,7 @@ class TestEventStudyTable:
             m = re.search(r"(-?\d+)", lbl)
             assert m, f"Could not parse time from label {lbl!r}"
             times.append(int(m.group(1)))
-        assert times == sorted(times), \
-            f"Labels not time-sorted: {labels}"
+        assert times == sorted(times), f"Labels not time-sorted: {labels}"
 
     def test_event_study_table_se_match(self, event_study_result):
         et = sp.event_study_table(event_study_result)
@@ -138,9 +137,12 @@ class TestEventStudyTable:
         # the test independent of which attributes EconometricResults
         # exposes as Series vs ndarray internally.
         idx = ["Intercept", "tau_-1"]
-        b = pd.Series([float(m1.params["Intercept"]), float(m1.params["x1"])], index=idx)
+        b = pd.Series(
+            [float(m1.params["Intercept"]), float(m1.params["x1"])], index=idx
+        )
         se = pd.Series(
-            [float(m1.std_errors["Intercept"]), float(m1.std_errors["x1"])], index=idx,
+            [float(m1.std_errors["Intercept"]), float(m1.std_errors["x1"])],
+            index=idx,
         )
         zero = pd.Series(np.zeros(2), index=idx)
 
@@ -163,6 +165,7 @@ class TestEventStudyTable:
 # ---------------------------------------------------------------------------
 # 2. vcov= print-time recompute (HC0/HC1/HC2/HC3)
 # ---------------------------------------------------------------------------
+
 
 class TestVcovRecompute:
 
@@ -220,6 +223,7 @@ class TestVcovRecompute:
 # 3. transpose=True
 # ---------------------------------------------------------------------------
 
+
 class TestTranspose:
 
     def test_transpose_text_swaps_axes(self, ols_models):
@@ -251,7 +255,8 @@ class TestTranspose:
         boot = pd.Series({"x1": 0.05}, dtype=float)
         with pytest.raises((ValueError, NotImplementedError)):
             sp.regtable(
-                m1, m2,
+                m1,
+                m2,
                 multi_se={"Boot SE": [boot, boot]},
                 transpose=True,
             )

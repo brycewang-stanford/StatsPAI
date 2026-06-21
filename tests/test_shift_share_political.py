@@ -58,8 +58,14 @@ def _manual_2sls_slope(y, d, z):
 def test_shift_share_political_returns_point_estimate():
     df, shares, shocks, _ = _political_panel(seed=0)
     r = sp.shift_share_political(
-        df, unit="unit", time="time", outcome="y", endog="d",
-        shares=shares, shocks=shocks, leave_one_out=False,
+        df,
+        unit="unit",
+        time="time",
+        outcome="y",
+        endog="d",
+        shares=shares,
+        shocks=shocks,
+        leave_one_out=False,
     )
     panel = df.sort_values(["unit", "time"])
     first = panel.groupby("unit").first()
@@ -82,12 +88,20 @@ def test_shift_share_political_exposes_rotemberg_diagnostics():
     """Park-Xu recommend Rotemberg top-K as a default diagnostic."""
     df, shares, shocks, _ = _political_panel(seed=1)
     r = sp.shift_share_political(
-        df, unit="unit", time="time", outcome="y", endog="d",
-        shares=shares, shocks=shocks, leave_one_out=False,
+        df,
+        unit="unit",
+        time="time",
+        outcome="y",
+        endog="d",
+        shares=shares,
+        shocks=shocks,
+        leave_one_out=False,
     )
     attrs = [a for a in dir(r) if not a.startswith("_")]
-    has_rot = any("rotemberg" in a.lower() or "top" in a.lower() or
-                   "weights" in a.lower() for a in attrs)
+    has_rot = any(
+        "rotemberg" in a.lower() or "top" in a.lower() or "weights" in a.lower()
+        for a in attrs
+    )
     assert has_rot, f"result missing Rotemberg-style diagnostic; attrs: {attrs[:8]}"
 
 
@@ -100,8 +114,14 @@ def test_shift_share_political_rejects_mismatched_shocks():
     )
     with pytest.raises(MethodIncompatibility, match="no overlap"):
         sp.shift_share_political(
-            df, unit="unit", time="time", outcome="y", endog="d",
-            shares=shares, shocks=bad_shocks, leave_one_out=False,
+            df,
+            unit="unit",
+            time="time",
+            outcome="y",
+            endog="d",
+            shares=shares,
+            shocks=bad_shocks,
+            leave_one_out=False,
         )
 
 
@@ -109,8 +129,15 @@ def test_shift_share_political_accepts_scalar_covariate():
     df, shares, shocks, _ = _political_panel(seed=3)
     df["pre_cov"] = df.groupby("unit")["y"].transform("first")
     r = sp.shift_share_political(
-        df, unit="unit", time="time", outcome="y", endog="d",
-        shares=shares, shocks=shocks, covariates="pre_cov", leave_one_out=False,
+        df,
+        unit="unit",
+        time="time",
+        outcome="y",
+        endog="d",
+        shares=shares,
+        shocks=shocks,
+        covariates="pre_cov",
+        leave_one_out=False,
     )
     assert list(r.share_balance["covariate"]) == ["pre_cov"]
 
@@ -119,13 +146,26 @@ def test_shift_share_political_rejects_contract_errors():
     df, shares, shocks, _ = _political_panel(seed=4)
     with pytest.raises(MethodIncompatibility, match="shares"):
         sp.shift_share_political(
-            df, unit="unit", time="time", outcome="y", endog="d",
-            shares=shares.to_numpy(), shocks=shocks, leave_one_out=False,
+            df,
+            unit="unit",
+            time="time",
+            outcome="y",
+            endog="d",
+            shares=shares.to_numpy(),
+            shocks=shocks,
+            leave_one_out=False,
         )
     with pytest.raises(MethodIncompatibility, match="alpha"):
         sp.shift_share_political(
-            df, unit="unit", time="time", outcome="y", endog="d",
-            shares=shares, shocks=shocks, alpha=1.0, leave_one_out=False,
+            df,
+            unit="unit",
+            time="time",
+            outcome="y",
+            endog="d",
+            shares=shares,
+            shocks=shocks,
+            alpha=1.0,
+            leave_one_out=False,
         )
 
 
@@ -135,14 +175,21 @@ def test_shift_share_political_rejects_nonfinite_shares():
     bad.iloc[0, 0] = np.inf
     with pytest.raises(NumericalInstability, match="non-finite"):
         sp.shift_share_political(
-            df, unit="unit", time="time", outcome="y", endog="d",
-            shares=bad, shocks=shocks, leave_one_out=False,
+            df,
+            unit="unit",
+            time="time",
+            outcome="y",
+            endog="d",
+            shares=bad,
+            shocks=shocks,
+            leave_one_out=False,
         )
 
 
 # ---------------------------------------------------------------------------
 # model_info / FE metadata pickup (panel variant)
 # ---------------------------------------------------------------------------
+
 
 def _panel_long_df(units=20, T=4, K=3, seed=0):
     """Build a long-format panel + per-period shares & shocks for the
@@ -184,12 +231,15 @@ def _manual_panel_shift_share_slope(df, shares, shocks, *, fe):
     return _manual_2sls_slope(work["y"], work["d"], work["z"])
 
 
-@pytest.mark.parametrize("fe_mode,expected", [
-    ("two-way", "u+t"),
-    ("unit", "u"),
-    ("time", "t"),
-    ("none", ""),
-])
+@pytest.mark.parametrize(
+    "fe_mode,expected",
+    [
+        ("two-way", "u+t"),
+        ("unit", "u"),
+        ("time", "t"),
+        ("none", ""),
+    ],
+)
 def test_panel_writes_fe_to_model_info(fe_mode, expected):
     """Bartik panel result exposes FE variable names via the canonical
     ``model_info['fixed_effects']`` key (pyfixest-compatible ``"unit+time"``
@@ -197,8 +247,14 @@ def test_panel_writes_fe_to_model_info(fe_mode, expected):
     """
     df, shares, shocks = _panel_long_df(seed=0)
     r = sp.shift_share_political_panel(
-        df, unit="u", time="t", outcome="y", endog="d",
-        shares=shares, shocks=shocks, fe=fe_mode,
+        df,
+        unit="u",
+        time="t",
+        outcome="y",
+        endog="d",
+        shares=shares,
+        shocks=shocks,
+        fe=fe_mode,
     )
     np.testing.assert_allclose(
         r.estimate,
@@ -215,10 +271,17 @@ def test_panel_fe_picked_up_by_diagnostic_extractor():
     FE metadata into AER-style per-variable rows (``"U FE"``, ``"T FE"``).
     """
     from statspai.output._diagnostics import extract_fe_cluster_indicators
+
     df, shares, shocks = _panel_long_df(seed=1)
     r = sp.shift_share_political_panel(
-        df, unit="u", time="t", outcome="y", endog="d",
-        shares=shares, shocks=shocks, fe="two-way",
+        df,
+        unit="u",
+        time="t",
+        outcome="y",
+        endog="d",
+        shares=shares,
+        shocks=shocks,
+        fe="two-way",
     )
     rows = extract_fe_cluster_indicators([r])
     assert rows["U FE"] == ["Yes"]
@@ -228,10 +291,17 @@ def test_panel_fe_picked_up_by_diagnostic_extractor():
 def test_panel_fe_none_drops_fe_rows_entirely():
     df, shares, shocks = _panel_long_df(seed=2)
     r = sp.shift_share_political_panel(
-        df, unit="u", time="t", outcome="y", endog="d",
-        shares=shares, shocks=shocks, fe="none",
+        df,
+        unit="u",
+        time="t",
+        outcome="y",
+        endog="d",
+        shares=shares,
+        shocks=shocks,
+        fe="none",
     )
     from statspai.output._diagnostics import extract_fe_cluster_indicators
+
     rows = extract_fe_cluster_indicators([r])
     assert all(not k.endswith(" FE") for k in rows.keys())
     assert "Fixed Effects" not in rows
@@ -241,18 +311,35 @@ def test_panel_rejects_bad_fe_cluster_and_missing_shock_row():
     df, shares, shocks = _panel_long_df(seed=3)
     with pytest.raises(MethodIncompatibility, match="fe must"):
         sp.shift_share_political_panel(
-            df, unit="u", time="t", outcome="y", endog="d",
-            shares=shares, shocks=shocks, fe="bad",
+            df,
+            unit="u",
+            time="t",
+            outcome="y",
+            endog="d",
+            shares=shares,
+            shocks=shocks,
+            fe="bad",
         )
     with pytest.raises(MethodIncompatibility, match="cluster must"):
         sp.shift_share_political_panel(
-            df, unit="u", time="t", outcome="y", endog="d",
-            shares=shares, shocks=shocks, cluster="bad",
+            df,
+            unit="u",
+            time="t",
+            outcome="y",
+            endog="d",
+            shares=shares,
+            shocks=shocks,
+            cluster="bad",
         )
     with pytest.raises(MethodIncompatibility, match="shocks row missing"):
         sp.shift_share_political_panel(
-            df, unit="u", time="t", outcome="y", endog="d",
-            shares=shares, shocks=shocks.drop(index=0),
+            df,
+            unit="u",
+            time="t",
+            outcome="y",
+            endog="d",
+            shares=shares,
+            shocks=shocks.drop(index=0),
         )
 
 
@@ -260,6 +347,11 @@ def test_panel_rejects_uncovered_units_with_clear_error():
     df, shares, shocks = _panel_long_df(seed=4)
     with pytest.raises(DataInsufficient, match="missing Bartik IV"):
         sp.shift_share_political_panel(
-            df, unit="u", time="t", outcome="y", endog="d",
-            shares=shares.iloc[:-1], shocks=shocks,
+            df,
+            unit="u",
+            time="t",
+            outcome="y",
+            endog="d",
+            shares=shares.iloc[:-1],
+            shocks=shocks,
         )

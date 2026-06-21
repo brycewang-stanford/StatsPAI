@@ -130,8 +130,7 @@ def test_sanderson_windmeijer_name_mismatch_raises():
 
 
 def test_extract_exog_ndarray():
-    W = _wid._extract_exog(None, np.array([[1.0], [2.0], [3.0]]), 3,
-                           add_const=True)
+    W = _wid._extract_exog(None, np.array([[1.0], [2.0], [3.0]]), 3, add_const=True)
     assert W.shape == (3, 2)
 
 
@@ -174,8 +173,12 @@ def test_conditional_lr_test_runs_and_summary():
     y = 1.0 + 1.5 * d + 0.5 * v + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "z1": z[:, 0], "z2": z[:, 1]})
     r = _wid.conditional_lr_test(
-        y="y", endog="d", instruments=["z1", "z2"], data=df,
-        n_simulations=2000, random_state=0,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        data=df,
+        n_simulations=2000,
+        random_state=0,
     )
     assert 0.0 <= r.pvalue <= 1.0
     s = r.summary()
@@ -190,6 +193,10 @@ def test_conditional_lr_test_array_instruments():
     d = 0.8 * z[:, 0] + 0.4 * z[:, 1] + v
     y = 1.5 * d + 0.5 * v + rng.normal(size=n)
     r = _wid.conditional_lr_test(
-        y=y, endog=d, instruments=z, n_simulations=1500, random_state=1,
+        y=y,
+        endog=d,
+        instruments=z,
+        n_simulations=1500,
+        random_state=1,
     )
     assert np.isfinite(r.statistic)

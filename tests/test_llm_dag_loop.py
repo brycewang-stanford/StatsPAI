@@ -3,6 +3,7 @@
 Covers the design's six P1-A acceptance tests plus a regression check
 that unconstrained PC behaviour is identical to the prior contract.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -12,7 +13,6 @@ import pytest
 import statspai as sp
 from statspai.causal_discovery.pc import pc_algorithm
 from statspai.causal_llm.llm_dag_loop import _normalize_oracle_output
-
 
 RNG = np.random.default_rng(2026)
 
@@ -63,8 +63,10 @@ def test_constrained_pc_required_wins_over_forbidden():
     """When the same pair is in both lists, required wins."""
     df = _chain_dgp()
     r = pc_algorithm(
-        df, variables=["X", "Y", "Z"],
-        required=[("X", "Y")], forbidden=[("X", "Y")],
+        df,
+        variables=["X", "Y", "Z"],
+        required=[("X", "Y")],
+        forbidden=[("X", "Y")],
     )
     assert ("X", "Y") in r["edges"]
 
@@ -74,8 +76,10 @@ def test_constrained_pc_unknown_edge_silently_ignored():
     df = _chain_dgp()
     # 'Q' isn't in variables — should be ignored, not crash.
     r = pc_algorithm(
-        df, variables=["X", "Y", "Z"],
-        required=[("Q", "Y")], forbidden=[("Q", "Z")],
+        df,
+        variables=["X", "Y", "Z"],
+        required=[("Q", "Y")],
+        forbidden=[("Q", "Z")],
     )
     assert isinstance(r, dict)
     assert "edges" in r
@@ -94,7 +98,10 @@ def test_loop_demotes_ci_rejected_edge():
         return [("X", "Y", 0.95), ("Y", "Z", 0.90), ("X", "Z", 0.85)]
 
     r = sp.llm_dag_constrained(
-        df, variables=["X", "Y", "Z"], oracle=oracle, max_iter=3,
+        df,
+        variables=["X", "Y", "Z"],
+        oracle=oracle,
+        max_iter=3,
     )
     edges = set(r.final_edges)
     np.testing.assert_allclose(
@@ -119,7 +126,10 @@ def test_loop_converges_when_llm_correct():
         return [("X", "Y", 0.99), ("Y", "Z", 0.99)]
 
     r = sp.llm_dag_constrained(
-        df, variables=["X", "Y", "Z"], oracle=oracle, max_iter=5,
+        df,
+        variables=["X", "Y", "Z"],
+        oracle=oracle,
+        max_iter=5,
     )
     assert r.converged
     assert r.iteration_log[0]["demoted"] == 0
@@ -131,13 +141,17 @@ def test_loop_works_without_oracle():
     """No oracle -> falls back to plain PC, returns sensible result."""
     df = _chain_dgp()
     r = sp.llm_dag_constrained(
-        df, variables=["X", "Y", "Z"], oracle=None, max_iter=2,
+        df,
+        variables=["X", "Y", "Z"],
+        oracle=None,
+        max_iter=2,
     )
     assert isinstance(r.final_edges, list)
     # No LLM scores recorded.
     assert r.edge_confidence["llm_score"].isna().all()
     assert r.provenance["oracle_error"] is None or "no oracle" in str(
-        r.provenance.get("oracle_error", ""))
+        r.provenance.get("oracle_error", "")
+    )
 
 
 def test_loop_provenance_records_threshold_and_proposal():
@@ -147,8 +161,11 @@ def test_loop_provenance_records_threshold_and_proposal():
         return [("X", "Y", 0.8), ("X", "Z", 0.6)]  # second is mid-conf
 
     r = sp.llm_dag_constrained(
-        df, variables=["X", "Y", "Z"], oracle=oracle,
-        high_conf_threshold=0.7, max_iter=2,
+        df,
+        variables=["X", "Y", "Z"],
+        oracle=oracle,
+        high_conf_threshold=0.7,
+        max_iter=2,
     )
     assert r.provenance["high_conf_threshold"] == 0.7
     proposed = r.provenance["oracle_edges_proposed"]
@@ -163,7 +180,10 @@ def test_loop_to_dag_returns_dag_object():
         return [("X", "Y", 0.95), ("Y", "Z", 0.95)]
 
     r = sp.llm_dag_constrained(
-        df, variables=["X", "Y", "Z"], oracle=oracle, max_iter=2,
+        df,
+        variables=["X", "Y", "Z"],
+        oracle=oracle,
+        max_iter=2,
     )
     g = r.to_dag()
     # Should be a DAG with X, Y, Z as nodes.
@@ -178,9 +198,13 @@ def test_loop_respects_low_conf_forbidden_when_enabled():
         return [("X", "Y", 0.95), ("Y", "Z", 0.10)]  # Y->Z is low-conf
 
     r = sp.llm_dag_constrained(
-        df, variables=["X", "Y", "Z"], oracle=oracle,
-        high_conf_threshold=0.7, low_conf_threshold=0.3,
-        forbid_low_conf=True, max_iter=2,
+        df,
+        variables=["X", "Y", "Z"],
+        oracle=oracle,
+        high_conf_threshold=0.7,
+        low_conf_threshold=0.3,
+        forbid_low_conf=True,
+        max_iter=2,
     )
     # When forbid_low_conf=True, Y-Z (low-conf) should be forbidden.
     edges = set(r.final_edges)
@@ -229,8 +253,10 @@ def test_normalize_oracle_output_handles_pairs():
 
 def test_normalize_oracle_output_handles_proposal_object():
     """LLMDAGProposal-like object with .edges attribute."""
+
     class _FakeProposal:
         edges = [("A", "B", 0.7)]
+
     out = _normalize_oracle_output(_FakeProposal())
     assert out == [("A", "B", 0.7)]
 

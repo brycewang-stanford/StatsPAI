@@ -30,13 +30,9 @@ def test_balance_panel_keeps_only_fully_observed_entities():
 
 
 def test_balance_panel_idempotent_on_balanced_input():
-    df = pd.DataFrame(
-        {"id": [1, 1, 2, 2], "t": [1, 2, 1, 2], "y": [10, 11, 12, 13]}
-    )
+    df = pd.DataFrame({"id": [1, 1, 2, 2], "t": [1, 2, 1, 2], "y": [10, 11, 12, 13]})
     out = sp.balance_panel(df, entity="id", time="t")
-    pd.testing.assert_frame_equal(
-        out.reset_index(drop=True), df.reset_index(drop=True)
-    )
+    pd.testing.assert_frame_equal(out.reset_index(drop=True), df.reset_index(drop=True))
 
 
 def test_balance_panel_empty_when_no_entity_is_complete():
@@ -47,9 +43,7 @@ def test_balance_panel_empty_when_no_entity_is_complete():
 
 
 def test_balance_panel_does_not_mutate_input():
-    df = pd.DataFrame(
-        {"id": [1, 1, 2], "t": [1, 2, 1], "y": [0, 1, 2]}
-    )
+    df = pd.DataFrame({"id": [1, 1, 2], "t": [1, 2, 1], "y": [0, 1, 2]})
     before = df.copy()
     sp.balance_panel(df, entity="id", time="t")
     pd.testing.assert_frame_equal(df, before)

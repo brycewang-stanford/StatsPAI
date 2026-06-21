@@ -19,13 +19,18 @@ def event_study_result():
     # Even units treated at t=7; odd units never treated (NaN, per the
     # event_study contract).
     df["treat_time"] = np.where(df["unit"] % 2 == 0, 7.0, np.nan)
-    df["post"] = (
-        (df["treat_time"].notna()) & (df["time"] >= df["treat_time"])
-    ).astype(int)
+    df["post"] = ((df["treat_time"].notna()) & (df["time"] >= df["treat_time"])).astype(
+        int
+    )
     df["y"] = df["y"] + 1.5 * df["post"]
     return sp.event_study(
-        df, y="y", treat_time="treat_time", time="time", unit="unit",
-        window=(-4, 4), ref_period=-1,
+        df,
+        y="y",
+        treat_time="treat_time",
+        time="time",
+        unit="unit",
+        window=(-4, 4),
+        ref_period=-1,
     )
 
 
@@ -52,9 +57,7 @@ def test_power_increases_with_violation_size(event_study_result):
 def test_full_length_delta_is_aligned(event_study_result):
     # A delta with one entry per pre-period (reference included) is accepted
     # and aligned down to the estimated periods.
-    out = sp.pretrends_power(
-        event_study_result, delta=np.array([0.5, 0.4, 0.3, 0.0])
-    )
+    out = sp.pretrends_power(event_study_result, delta=np.array([0.5, 0.4, 0.3, 0.0]))
     assert out["df"] == 3
 
 

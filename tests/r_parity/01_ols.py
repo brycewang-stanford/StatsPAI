@@ -5,12 +5,12 @@ with HC1 robust SEs. The companion 01_ols.R reads the same CSV and
 runs lm() + sandwich::vcovHC(type="HC1"). Tolerance: rel < 1e-6
 (closed-form estimator).
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
-
 
 MODULE = "01_ols"
 FORMULA = "lwage ~ educ + exper + expersq + black + south + smsa"

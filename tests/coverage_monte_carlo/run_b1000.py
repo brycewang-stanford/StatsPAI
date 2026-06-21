@@ -6,6 +6,7 @@ This script imports the test functions' DGPs and replicates each
 1000-rep loop, then writes results/coverage_b1000.json so the §5.3
 table can be regenerated automatically.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,7 +17,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import statspai as sp
-
 
 HERE = Path(__file__).resolve().parent
 RESULTS_DIR = HERE / "results_b1000"
@@ -45,12 +45,17 @@ def coverage_ols() -> dict:
         y = 0.3 * x + truth * d + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "x": x, "d": d})
         fit = sp.regress("y ~ d + x", data=df, robust="hc1")
-        beta = float(fit.params["d"]); se = float(fit.std_errors["d"])
+        beta = float(fit.params["d"])
+        se = float(fit.std_errors["d"])
         ci = (beta - 1.96 * se, beta + 1.96 * se)
         if _ci_covers(ci, truth):
             covered += 1
-    return {"name": "sp.regress (HC1) on RCT", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.regress (HC1) on RCT",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_did_2x2() -> dict:
@@ -64,12 +69,8 @@ def coverage_did_2x2() -> dict:
         for unit in range(2 * n_per):
             T = unit < n_per  # treated indicator
             for t in (0, 1):
-                y = (
-                    0.3 * t + 0.5 * T + truth * T * t
-                    + rng.normal(scale=0.5)
-                )
-                rows.append({"unit": unit, "year": t, "T": int(T),
-                             "post": t, "y": y})
+                y = 0.3 * t + 0.5 * T + truth * T * t + rng.normal(scale=0.5)
+                rows.append({"unit": unit, "year": t, "T": int(T), "post": t, "y": y})
         df = pd.DataFrame(rows)
         fit = sp.regress("y ~ T + post + T:post", data=df, robust="hc1")
         # Coefficient on T:post is the ATT
@@ -88,8 +89,12 @@ def coverage_did_2x2() -> dict:
         ci = (beta - 1.96 * se, beta + 1.96 * se)
         if _ci_covers(ci, truth):
             covered += 1
-    return {"name": "sp.regress 2x2 DiD", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.regress 2x2 DiD",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_iv() -> dict:
@@ -106,12 +111,17 @@ def coverage_iv() -> dict:
         y = truth * d + 0.5 * u + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "d": d, "z": z})
         fit = sp.ivreg("y ~ (d ~ z)", data=df, robust="hc1")
-        beta = float(fit.params["d"]); se = float(fit.std_errors["d"])
+        beta = float(fit.params["d"])
+        se = float(fit.std_errors["d"])
         ci = (beta - 1.96 * se, beta + 1.96 * se)
         if _ci_covers(ci, truth):
             covered += 1
-    return {"name": "sp.ivreg (HC1) on strong-Z IV", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.ivreg (HC1) on strong-Z IV",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_cs() -> dict:
@@ -136,12 +146,15 @@ def coverage_cs() -> dict:
                 y = 0.2 * t + truth * post + ui + rng.normal(scale=0.8)
                 rows.append({"i": i, "t": t, "g": g, "y": y})
         df = pd.DataFrame(rows)
-        r = sp.callaway_santanna(df, y="y", g="g", t="t", i="i",
-                                 estimator="reg")
+        r = sp.callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="reg")
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
-    return {"name": "sp.callaway_santanna simple ATT (staggered)", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.callaway_santanna simple ATT (staggered)",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_ebalance() -> dict:
@@ -160,8 +173,12 @@ def coverage_ebalance() -> dict:
         r = sp.ebalance(df, y="y", treat="d", covariates=["X1", "X2"])
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
-    return {"name": "sp.ebalance (CIA, ATT)", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.ebalance (CIA, ATT)",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_dml() -> dict:
@@ -177,13 +194,18 @@ def coverage_dml() -> dict:
         d = rng.binomial(1, p)
         y = 0.5 + truth * d + 0.6 * x1 + 0.3 * x2 + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
-        q = sp.causal_question(treatment="d", outcome="y", design="dml",
-                               covariates=["x1", "x2"], data=df)
+        q = sp.causal_question(
+            treatment="d", outcome="y", design="dml", covariates=["x1", "x2"], data=df
+        )
         r = q.estimate()
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
-    return {"name": "sp.causal_question(design='dml') IRM ATE", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.causal_question(design='dml') IRM ATE",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_causal_forest() -> dict:
@@ -204,14 +226,22 @@ def coverage_causal_forest() -> dict:
         d = rng.binomial(1, p)
         y = 0.5 + truth * d + 0.7 * x1 + 0.3 * x2 + rng.normal(size=n)
         df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
-        q = sp.causal_question(treatment="d", outcome="y",
-                               design="causal_forest",
-                               covariates=["x1", "x2"], data=df)
+        q = sp.causal_question(
+            treatment="d",
+            outcome="y",
+            design="causal_forest",
+            covariates=["x1", "x2"],
+            data=df,
+        )
         r = q.estimate(n_estimators=30, random_state=seed)
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
-    return {"name": "sp.causal_question(design='causal_forest') AIPW ATE",
-            "B": B, "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.causal_question(design='causal_forest') AIPW ATE",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_panel_fe() -> dict:
@@ -233,8 +263,12 @@ def coverage_panel_fe() -> dict:
         lo, hi = r.conf_int().loc["d"].values
         if lo <= truth <= hi:
             covered += 1
-    return {"name": "sp.panel two-way FE", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.panel two-way FE",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def coverage_sdid() -> dict:
@@ -262,13 +296,25 @@ def coverage_sdid() -> dict:
                 times.append(t)
                 ys.append(base + eff)
         df = pd.DataFrame({"u": units, "t": times, "y": ys})
-        r = sp.sdid(df, outcome="y", unit="u", time="t",
-                    treated_unit=0, treatment_time=t0,
-                    se_method="placebo", n_reps=100, seed=seed)
+        r = sp.sdid(
+            df,
+            outcome="y",
+            unit="u",
+            time="t",
+            treated_unit=0,
+            treatment_time=t0,
+            se_method="placebo",
+            n_reps=100,
+            seed=seed,
+        )
         if r.ci[0] <= truth <= r.ci[1]:
             covered += 1
-    return {"name": "sp.sdid placebo (1 treated)", "B": B,
-            "covered": covered, "rate": covered / B}
+    return {
+        "name": "sp.sdid placebo (1 treated)",
+        "B": B,
+        "covered": covered,
+        "rate": covered / B,
+    }
 
 
 def main() -> None:
@@ -279,9 +325,15 @@ def main() -> None:
     # post-review expansion but are intentionally NOT in the canonical list;
     # panel/sdid coverage is still exercised by the pytest rows in
     # ``test_coverage.py``.
-    fns = [coverage_ols, coverage_did_2x2, coverage_iv,
-           coverage_cs, coverage_ebalance, coverage_dml,
-           coverage_causal_forest]
+    fns = [
+        coverage_ols,
+        coverage_did_2x2,
+        coverage_iv,
+        coverage_cs,
+        coverage_ebalance,
+        coverage_dml,
+        coverage_causal_forest,
+    ]
     for fn in fns:
         t0 = time.time()
         rec = fn()

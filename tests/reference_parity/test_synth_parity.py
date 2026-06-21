@@ -10,6 +10,7 @@ Validates:
    is small.
 3. Pre-treatment RMSPE is small on a well-specified DGP.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,39 +29,56 @@ class TestSynthRecovery:
 
     def test_vanilla_synth_recovers_effect(self, synth_factor_model_data):
         df = synth_factor_model_data
-        truth = df.attrs['true_effect']  # -5.0
-        treated_unit = df.attrs['treated_unit']
-        treatment_year = df.attrs['treatment_year']
+        truth = df.attrs["true_effect"]  # -5.0
+        treated_unit = df.attrs["treated_unit"]
+        treatment_year = df.attrs["treatment_year"]
 
-        r = sp.synth(df, outcome='y', unit='unit', time='year',
-                     treated_unit=treated_unit,
-                     treatment_time=treatment_year,
-                     method='classic', placebo=False)
+        r = sp.synth(
+            df,
+            outcome="y",
+            unit="unit",
+            time="year",
+            treated_unit=treated_unit,
+            treatment_time=treatment_year,
+            method="classic",
+            placebo=False,
+        )
         # The ATT (main estimand on SCM) should be near -5
         # Tolerance: 1.0 (absolute) because of noise variance = 0.2
         assert _within_tolerance(r.estimate, truth, tol=1.0), (
-            f"Vanilla SCM: {r.estimate:.4f} vs truth {truth} "
-            f"(tolerance ±1.0)"
+            f"Vanilla SCM: {r.estimate:.4f} vs truth {truth} " f"(tolerance ±1.0)"
         )
 
     def test_augmented_synth_recovers_effect(self, synth_factor_model_data):
         df = synth_factor_model_data
-        truth = df.attrs['true_effect']
-        r = sp.synth(df, outcome='y', unit='unit', time='year',
-                     treated_unit=df.attrs['treated_unit'],
-                     treatment_time=df.attrs['treatment_year'],
-                     method='augmented', placebo=False)
-        assert _within_tolerance(r.estimate, truth, tol=1.0), (
-            f"Augmented SCM: {r.estimate:.4f} vs truth {truth}"
+        truth = df.attrs["true_effect"]
+        r = sp.synth(
+            df,
+            outcome="y",
+            unit="unit",
+            time="year",
+            treated_unit=df.attrs["treated_unit"],
+            treatment_time=df.attrs["treatment_year"],
+            method="augmented",
+            placebo=False,
         )
+        assert _within_tolerance(
+            r.estimate, truth, tol=1.0
+        ), f"Augmented SCM: {r.estimate:.4f} vs truth {truth}"
 
     def test_synth_sign_correct(self, synth_factor_model_data):
         """Negative effect must produce negative estimate."""
         df = synth_factor_model_data
-        r = sp.synth(df, outcome='y', unit='unit', time='year',
-                     treated_unit=df.attrs['treated_unit'],
-                     treatment_time=df.attrs['treatment_year'],
-                     method='classic', placebo=False)
-        assert r.estimate < 0, (
-            f"Negative true effect must yield negative estimate, got {r.estimate}"
+        r = sp.synth(
+            df,
+            outcome="y",
+            unit="unit",
+            time="year",
+            treated_unit=df.attrs["treated_unit"],
+            treatment_time=df.attrs["treatment_year"],
+            method="classic",
+            placebo=False,
         )
+        assert (
+            r.estimate < 0
+        ), f"Negative true effect must yield negative estimate, got {r.estimate}"

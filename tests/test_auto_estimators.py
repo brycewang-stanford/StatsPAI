@@ -18,10 +18,10 @@ import pytest
 import statspai as sp
 from statspai._auto_estimators import AutoDIDResult, AutoIVResult
 
-
 # =====================================================================
 # sp.auto_did
 # =====================================================================
+
 
 @pytest.fixture(scope="module")
 def did_panel():
@@ -37,7 +37,11 @@ def did_panel():
 
 def test_auto_did_returns_leaderboard(did_panel):
     result = sp.auto_did(
-        did_panel, y="y", g="first_treat", t="time", i="unit",
+        did_panel,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
     )
     assert isinstance(result, AutoDIDResult)
     assert set(result.leaderboard["method"]) == {"CS", "SA", "BJS"}
@@ -48,7 +52,11 @@ def test_auto_did_returns_leaderboard(did_panel):
 
 def test_auto_did_result_protocol_json_safe(did_panel):
     result = sp.auto_did(
-        did_panel, y="y", g="first_treat", t="time", i="unit",
+        did_panel,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
         methods=["cs", "sa"],
     )
 
@@ -68,7 +76,11 @@ def test_auto_did_result_protocol_json_safe(did_panel):
 
 def test_auto_did_winner_points_into_candidates(did_panel):
     result = sp.auto_did(
-        did_panel, y="y", g="first_treat", t="time", i="unit",
+        did_panel,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
     )
     # The winner must be one of the candidate CausalResult objects,
     # not a copy — this keeps `result.candidates['cs'] is result.winner`
@@ -84,7 +96,11 @@ def test_auto_did_recovers_effect_in_band(did_panel):
     small groups because its imputation is more demanding on pretreatment
     periods; see Borusyak, Jaravel & Spiess (2024)."""
     result = sp.auto_did(
-        did_panel, y="y", g="first_treat", t="time", i="unit",
+        did_panel,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
     )
     true_effect = 0.5
     for _, row in result.leaderboard.iterrows():
@@ -92,14 +108,17 @@ def test_auto_did_recovers_effect_in_band(did_panel):
     # At least one estimator should get within 0.2 of the truth
     close_enough = result.leaderboard["estimate"].sub(true_effect).abs() < 0.2
     assert close_enough.any(), (
-        "no DiD estimator recovered the true effect within 0.2 — "
-        "likely a regression"
+        "no DiD estimator recovered the true effect within 0.2 — " "likely a regression"
     )
 
 
 def test_auto_did_respects_methods_filter(did_panel):
     result = sp.auto_did(
-        did_panel, y="y", g="first_treat", t="time", i="unit",
+        did_panel,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
         methods=["cs", "sa"],
     )
     assert set(result.leaderboard["method"]) == {"CS", "SA"}
@@ -108,7 +127,11 @@ def test_auto_did_respects_methods_filter(did_panel):
 
 def test_auto_did_select_by_specific_method(did_panel):
     result = sp.auto_did(
-        did_panel, y="y", g="first_treat", t="time", i="unit",
+        did_panel,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
         select_by="sa",
     )
     assert result.selection_rule == "sa"
@@ -119,7 +142,11 @@ def test_auto_did_select_by_specific_method(did_panel):
 def test_auto_did_rejects_unknown_method(did_panel):
     with pytest.raises(ValueError, match="unknown methods"):
         sp.auto_did(
-            did_panel, y="y", g="first_treat", t="time", i="unit",
+            did_panel,
+            y="y",
+            g="first_treat",
+            t="time",
+            i="unit",
             methods=["cs", "mystery_did"],
         )
 
@@ -128,14 +155,21 @@ def test_auto_did_rejects_missing_required_column(did_panel):
     with pytest.raises(ValueError, match="missing required columns"):
         sp.auto_did(
             did_panel.drop(columns=["first_treat"]),
-            y="y", g="first_treat", t="time", i="unit",
+            y="y",
+            g="first_treat",
+            t="time",
+            i="unit",
         )
 
 
 def test_auto_did_rejects_empty_methods(did_panel):
     with pytest.raises(ValueError, match="methods must not be empty"):
         sp.auto_did(
-            did_panel, y="y", g="first_treat", t="time", i="unit",
+            did_panel,
+            y="y",
+            g="first_treat",
+            t="time",
+            i="unit",
             methods=[],
         )
 
@@ -143,7 +177,11 @@ def test_auto_did_rejects_empty_methods(did_panel):
 def test_auto_did_rejects_invalid_alpha(did_panel):
     with pytest.raises(ValueError, match="alpha"):
         sp.auto_did(
-            did_panel, y="y", g="first_treat", t="time", i="unit",
+            did_panel,
+            y="y",
+            g="first_treat",
+            t="time",
+            i="unit",
             alpha=1.0,
         )
 
@@ -152,6 +190,7 @@ def test_auto_did_degrades_when_one_candidate_fails(did_panel, monkeypatch):
     """Patch one runner to raise; the others should still succeed and
     the leaderboard should report the failure in the `notes` column."""
     import importlib
+
     cs_mod = importlib.import_module("statspai.did.callaway_santanna")
 
     def broken_cs(*args, **kwargs):
@@ -160,11 +199,13 @@ def test_auto_did_degrades_when_one_candidate_fails(did_panel, monkeypatch):
     monkeypatch.setattr(cs_mod, "callaway_santanna", broken_cs)
 
     result = sp.auto_did(
-        did_panel, y="y", g="first_treat", t="time", i="unit",
+        did_panel,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
     )
-    cs_row = result.leaderboard.loc[
-        result.leaderboard["method"] == "CS"
-    ].iloc[0]
+    cs_row = result.leaderboard.loc[result.leaderboard["method"] == "CS"].iloc[0]
     assert "FAILED" in cs_row["notes"]
     assert pd.isna(cs_row["estimate"])
     assert not isinstance(result.winner, Exception)
@@ -172,6 +213,7 @@ def test_auto_did_degrades_when_one_candidate_fails(did_panel, monkeypatch):
 
 def test_auto_did_raises_when_requested_winner_failed(did_panel, monkeypatch):
     import importlib
+
     sa_mod = importlib.import_module("statspai.did.sun_abraham")
 
     def broken_sa(*args, **kwargs):
@@ -181,7 +223,11 @@ def test_auto_did_raises_when_requested_winner_failed(did_panel, monkeypatch):
 
     with pytest.raises(RuntimeError, match="requested winner 'sa' failed"):
         sp.auto_did(
-            did_panel, y="y", g="first_treat", t="time", i="unit",
+            did_panel,
+            y="y",
+            g="first_treat",
+            t="time",
+            i="unit",
             select_by="sa",
         )
 
@@ -190,6 +236,7 @@ def test_auto_did_raises_when_requested_winner_failed(did_panel, monkeypatch):
 # sp.auto_iv
 # =====================================================================
 
+
 @pytest.fixture(scope="module")
 def iv_df():
     return sp.dgp_iv(n=500, seed=7)
@@ -197,8 +244,11 @@ def iv_df():
 
 def test_auto_iv_returns_leaderboard(iv_df):
     result = sp.auto_iv(
-        iv_df, y="y", endog="treatment",
-        instruments="instrument", exog=["x1", "x2"],
+        iv_df,
+        y="y",
+        endog="treatment",
+        instruments="instrument",
+        exog=["x1", "x2"],
     )
     assert isinstance(result, AutoIVResult)
     assert set(result.leaderboard["method"]) == {"2SLS", "LIML", "JIVE"}
@@ -208,8 +258,11 @@ def test_auto_iv_returns_leaderboard(iv_df):
 
 def test_auto_iv_result_protocol_json_safe(iv_df):
     result = sp.auto_iv(
-        iv_df, y="y", endog="treatment",
-        instruments="instrument", exog=["x1", "x2"],
+        iv_df,
+        y="y",
+        endog="treatment",
+        instruments="instrument",
+        exog=["x1", "x2"],
         methods=["2sls", "liml"],
     )
 
@@ -230,36 +283,55 @@ def test_auto_iv_result_protocol_json_safe(iv_df):
 def test_auto_iv_formula_accepts_scalar_instrument(iv_df):
     """Scalar `instruments='z'` must be promoted to a single-element list."""
     r_scalar = sp.auto_iv(
-        iv_df, y="y", endog="treatment",
-        instruments="instrument", methods=["2sls"],
+        iv_df,
+        y="y",
+        endog="treatment",
+        instruments="instrument",
+        methods=["2sls"],
     )
     r_list = sp.auto_iv(
-        iv_df, y="y", endog="treatment",
-        instruments=["instrument"], methods=["2sls"],
+        iv_df,
+        y="y",
+        endog="treatment",
+        instruments=["instrument"],
+        methods=["2sls"],
     )
     assert r_scalar.leaderboard.iloc[0]["estimate"] == pytest.approx(
-        r_list.leaderboard.iloc[0]["estimate"], rel=1e-10,
+        r_list.leaderboard.iloc[0]["estimate"],
+        rel=1e-10,
     )
 
 
 def test_auto_iv_accepts_scalar_exog(iv_df):
     r_scalar = sp.auto_iv(
-        iv_df, y="y", endog="treatment",
-        instruments="instrument", exog="x1", methods=["2sls"],
+        iv_df,
+        y="y",
+        endog="treatment",
+        instruments="instrument",
+        exog="x1",
+        methods=["2sls"],
     )
     r_list = sp.auto_iv(
-        iv_df, y="y", endog="treatment",
-        instruments="instrument", exog=["x1"], methods=["2sls"],
+        iv_df,
+        y="y",
+        endog="treatment",
+        instruments="instrument",
+        exog=["x1"],
+        methods=["2sls"],
     )
     assert r_scalar.leaderboard.iloc[0]["estimate"] == pytest.approx(
-        r_list.leaderboard.iloc[0]["estimate"], rel=1e-10,
+        r_list.leaderboard.iloc[0]["estimate"],
+        rel=1e-10,
     )
 
 
 def test_auto_iv_single_method(iv_df):
     result = sp.auto_iv(
-        iv_df, y="y", endog="treatment",
-        instruments="instrument", methods=["liml"],
+        iv_df,
+        y="y",
+        endog="treatment",
+        instruments="instrument",
+        methods=["liml"],
     )
     assert set(result.leaderboard["method"]) == {"LIML"}
     assert result.winner is result.candidates["liml"]
@@ -268,7 +340,10 @@ def test_auto_iv_single_method(iv_df):
 def test_auto_iv_rejects_unknown_method(iv_df):
     with pytest.raises(ValueError, match="unknown methods"):
         sp.auto_iv(
-            iv_df, y="y", endog="treatment", instruments="instrument",
+            iv_df,
+            y="y",
+            endog="treatment",
+            instruments="instrument",
             methods=["2sls", "mystery_iv"],
         )
 
@@ -277,21 +352,29 @@ def test_auto_iv_rejects_missing_required_column(iv_df):
     with pytest.raises(ValueError, match="missing required columns"):
         sp.auto_iv(
             iv_df.drop(columns=["instrument"]),
-            y="y", endog="treatment", instruments="instrument",
+            y="y",
+            endog="treatment",
+            instruments="instrument",
         )
 
 
 def test_auto_iv_rejects_empty_instruments(iv_df):
     with pytest.raises(ValueError, match="instruments must not be empty"):
         sp.auto_iv(
-            iv_df, y="y", endog="treatment", instruments=[],
+            iv_df,
+            y="y",
+            endog="treatment",
+            instruments=[],
         )
 
 
 def test_auto_iv_rejects_invalid_alpha(iv_df):
     with pytest.raises(ValueError, match="alpha"):
         sp.auto_iv(
-            iv_df, y="y", endog="treatment", instruments="instrument",
+            iv_df,
+            y="y",
+            endog="treatment",
+            instruments="instrument",
             alpha=0.0,
         )
 
@@ -299,6 +382,7 @@ def test_auto_iv_rejects_invalid_alpha(iv_df):
 # =====================================================================
 # Conformal ITE coverage property
 # =====================================================================
+
 
 def test_conformal_ite_covers_at_advertised_rate():
     """On an i.i.d. CATE DGP the nominal 90% intervals should cover the
@@ -325,6 +409,6 @@ def test_conformal_ite_covers_at_advertised_rate():
     # to catch regressions, and P1 test already checks IV coverage.
     assert len(lower) == len(upper) == n
     assert np.all(upper >= lower)
-    assert 0.1 < float(np.mean(upper - lower)) < 6.0, (
-        f"interval width {np.mean(upper - lower):.3f} outside plausible band"
-    )
+    assert (
+        0.1 < float(np.mean(upper - lower)) < 6.0
+    ), f"interval width {np.mean(upper - lower):.3f} outside plausible band"

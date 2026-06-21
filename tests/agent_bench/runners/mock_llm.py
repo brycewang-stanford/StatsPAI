@@ -15,6 +15,7 @@ Behaviour parameters:
 These numbers are placeholders; only the harness's plumbing is
 being validated.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -23,7 +24,6 @@ import random
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
-
 
 HERE = Path(__file__).resolve().parent
 GOLDS_PATH = HERE.parent / "golds" / "golds.json"
@@ -75,7 +75,9 @@ def _gold_value(gold: dict[str, Any]) -> float | None:
     return None
 
 
-def run_trial(cell: str, prompt: dict[str, Any], gold: dict[str, Any], rep: int) -> MockTrace:
+def run_trial(
+    cell: str, prompt: dict[str, Any], gold: dict[str, Any], rep: int
+) -> MockTrace:
     rng = _seeded_rng(cell, prompt["id"], rep)
     p_correct, t_in, t_out, p_halluc = CELL_BEHAVIOUR[cell]
 
@@ -84,10 +86,13 @@ def run_trial(cell: str, prompt: dict[str, Any], gold: dict[str, Any], rep: int)
 
     expected_est = gold.get("expected_estimator")
     final_estimator = (
-        expected_est if is_correct else
-        f"hallucinated_{rng.choice(['fakefunc', 'imaginarymethod'])}"
-        if is_hallucinated else
-        rng.choice([expected_est, "ols", "regression"])
+        expected_est
+        if is_correct
+        else (
+            f"hallucinated_{rng.choice(['fakefunc', 'imaginarymethod'])}"
+            if is_hallucinated
+            else rng.choice([expected_est, "ols", "regression"])
+        )
     )
 
     target = _gold_value(gold)
@@ -109,7 +114,9 @@ def run_trial(cell: str, prompt: dict[str, Any], gold: dict[str, Any], rep: int)
     )
 
     return MockTrace(
-        cell=cell, prompt_id=prompt["id"], rep=rep,
+        cell=cell,
+        prompt_id=prompt["id"],
+        rep=rep,
         final_estimate=final_estimate,
         final_estimator=final_estimator,
         n_tokens_in=t_in + rng.randint(-20, 30),

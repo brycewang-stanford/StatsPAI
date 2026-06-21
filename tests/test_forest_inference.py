@@ -49,10 +49,12 @@ def test_calibration_returns_dataframe():
     assert out_alias.equals(out)
     np.testing.assert_allclose(
         out.loc[:, ["coef", "se", "ci_low", "ci_high"]].to_numpy(),
-        np.array([
-            [1.719618, 0.259624, 1.210764, 2.228472],
-            [0.276105, 0.353360, -0.416468, 0.968677],
-        ]),
+        np.array(
+            [
+                [1.719618, 0.259624, 1.210764, 2.228472],
+                [0.276105, 0.353360, -0.416468, 0.968677],
+            ]
+        ),
         atol=5e-7,
     )
     # Differential forest prediction coefficient should be positive

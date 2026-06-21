@@ -32,7 +32,12 @@ def test_copula_sensitivity_returns_curve():
     np.testing.assert_allclose(res.breakpoint, 0.15000000000000002)
     assert isinstance(res.curve, pd.DataFrame)
     assert set(res.curve.columns) == {
-        "rho", "bias", "adjusted_estimate", "ci_low", "ci_high", "significant"
+        "rho",
+        "bias",
+        "adjusted_estimate",
+        "ci_low",
+        "ci_high",
+        "significant",
     }
     assert res.method == "copula_gaussian"
     assert "Sensitivity" in res.summary()
@@ -68,8 +73,10 @@ def test_survival_sensitivity_rejects_negative_se():
 def test_calibrate_confounding_strength_flags_robust_effect():
     """Large effect, small observed R² → breakpoint should be large (robust)."""
     res = sp.calibrate_confounding_strength(
-        estimate=0.6, se=0.05,
-        observed_r2_outcome=0.01, observed_r2_treatment=0.01,
+        estimate=0.6,
+        se=0.05,
+        observed_r2_outcome=0.01,
+        observed_r2_treatment=0.01,
     )
     # Either no breakpoint (robust) or a large multiplier
     assert (res.breakpoint is None) or (res.breakpoint >= 2.0)
@@ -78,8 +85,10 @@ def test_calibrate_confounding_strength_flags_robust_effect():
 def test_calibrate_confounding_strength_small_effect_fragile():
     """Small effect, modest R² → breakpoint should be small (fragile)."""
     res = sp.calibrate_confounding_strength(
-        estimate=0.05, se=0.05,
-        observed_r2_outcome=0.2, observed_r2_treatment=0.2,
+        estimate=0.05,
+        se=0.05,
+        observed_r2_outcome=0.2,
+        observed_r2_treatment=0.2,
     )
     assert res.breakpoint is not None
     assert res.breakpoint < 4.0  # small effect should be overturn-able within 4x
@@ -88,7 +97,9 @@ def test_calibrate_confounding_strength_small_effect_fragile():
 def test_calibrate_refuses_equal_target():
     with pytest.raises(ValueError, match="already equals"):
         sp.calibrate_confounding_strength(
-            estimate=0.0, se=0.1,
-            observed_r2_outcome=0.1, observed_r2_treatment=0.1,
+            estimate=0.0,
+            se=0.1,
+            observed_r2_outcome=0.1,
+            observed_r2_treatment=0.1,
             target_estimate=0.0,
         )

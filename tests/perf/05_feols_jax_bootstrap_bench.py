@@ -36,6 +36,7 @@ regardless of where it runs), so to get a clean speedup ratio we
 recommend running ``cpu_seq`` once on the GPU machine alongside the
 ``gpu`` mode, then comparing within the same hardware tier.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,8 +69,9 @@ VMAP_CHUNK_SIZE = 200
 VARIANTS: tuple[str, ...] = ("pairs", "cluster", "wild", "wild_cluster")
 
 
-def make_panel(n: int = N, n_firms: int = N_FIRMS,
-                n_years: int = N_YEARS, seed: int = SEED) -> pd.DataFrame:
+def make_panel(
+    n: int = N, n_firms: int = N_FIRMS, n_years: int = N_YEARS, seed: int = SEED
+) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     firm = rng.integers(0, n_firms, size=n)
     year = rng.integers(0, n_years, size=n)
@@ -78,19 +80,25 @@ def make_panel(n: int = N, n_firms: int = N_FIRMS,
     x1 = rng.normal(size=n)
     x2 = rng.normal(size=n)
     y = (
-        2.0 * x1 - 1.5 * x2 + firm_fe[firm] + year_fe[year]
+        2.0 * x1
+        - 1.5 * x2
+        + firm_fe[firm]
+        + year_fe[year]
         + rng.normal(scale=0.5, size=n)
     )
-    return pd.DataFrame({"y": y, "x1": x1, "x2": x2,
-                          "firm": firm, "year": year})
+    return pd.DataFrame({"y": y, "x1": x1, "x2": x2, "firm": firm, "year": year})
 
 
-def _cpu_sequential_bootstrap(df: pd.DataFrame, formula: str,
-                               variant: str, n_boot: int,
-                               cluster: str | None,
-                               fe_cols: Sequence[str],
-                               y_col: str = "y",
-                               x_cols: Sequence[str] = ("x1", "x2")) -> None:
+def _cpu_sequential_bootstrap(
+    df: pd.DataFrame,
+    formula: str,
+    variant: str,
+    n_boot: int,
+    cluster: str | None,
+    fe_cols: Sequence[str],
+    y_col: str = "y",
+    x_cols: Sequence[str] = ("x1", "x2"),
+) -> None:
     """Reference CPU loop — calls sp.fast.feols once per bootstrap draw.
 
     All four variants do real work:
@@ -155,7 +163,8 @@ def _cpu_sequential_bootstrap(df: pd.DataFrame, formula: str,
         n_clusters = int(_uniq.size)
         for _ in range(n_boot):
             cluster_signs = rng.choice(
-                np.array([-1.0, 1.0], dtype=np.float64), size=n_clusters,
+                np.array([-1.0, 1.0], dtype=np.float64),
+                size=n_clusters,
             )
             signs = cluster_signs[inv]
             df_local[y_col] = y_hat + signs * resid
@@ -164,61 +173,86 @@ def _cpu_sequential_bootstrap(df: pd.DataFrame, formula: str,
     raise ValueError(f"unknown variant: {variant!r}")
 
 
-def run_mode(mode: str, df: pd.DataFrame, formula: str,
-              cluster: str, fe_cols: Sequence[str],
-              vmap_chunk_size: int = VMAP_CHUNK_SIZE) -> list[TimingResult]:
+def run_mode(
+    mode: str,
+    df: pd.DataFrame,
+    formula: str,
+    cluster: str,
+    fe_cols: Sequence[str],
+    vmap_chunk_size: int = VMAP_CHUNK_SIZE,
+) -> list[TimingResult]:
     rows: list[TimingResult] = []
     for variant in VARIANTS:
-        cluster_kw = (cluster if variant in ("cluster", "wild_cluster") else None)
+        cluster_kw = cluster if variant in ("cluster", "wild_cluster") else None
         if mode == "cpu_seq":
             label = "cpu_sequential"
+
             def runner(_v: str = variant, _c: str | None = cluster_kw) -> None:
                 _cpu_sequential_bootstrap(
-                    df, formula, _v, n_boot=B, cluster=_c,
+                    df,
+                    formula,
+                    _v,
+                    n_boot=B,
+                    cluster=_c,
                     fe_cols=fe_cols,
                 )
+
         else:  # cpu_jax / gpu — both use feols_jax_bootstrap, device decided by JAX
             label = mode
-            def runner(_v: str = variant, _c: str | None = cluster_kw,
-                        _chunk: int = vmap_chunk_size) -> None:
-                kw: dict = dict(n_boot=B, seed=0, bootstrap=_v,
-                                vmap_chunk_size=_chunk)
+
+            def runner(
+                _v: str = variant,
+                _c: str | None = cluster_kw,
+                _chunk: int = vmap_chunk_size,
+            ) -> None:
+                kw: dict = dict(n_boot=B, seed=0, bootstrap=_v, vmap_chunk_size=_chunk)
                 if _c is not None:
                     kw["cluster"] = _c
                 sp.fast.feols_jax_bootstrap(formula, df, **kw)
+
         hbm_before = gpu_hbm_peak_mb() if mode != "cpu_seq" else None
         median, iqr, t_min, t_max, peak_mem = time_repeat(
-            runner, n_reps=N_REPS, warmup=1,
+            runner,
+            n_reps=N_REPS,
+            warmup=1,
         )
         hbm_after = gpu_hbm_peak_mb() if mode != "cpu_seq" else None
         if hbm_before is not None and hbm_after is not None:
             peak_hbm = max(hbm_before, hbm_after)
         else:
             peak_hbm = hbm_after if hbm_before is None else hbm_before
-        rows.append(TimingResult(
-            estimator="feols_jax_bootstrap",
-            side=label,
-            n=N,
-            n_reps=N_REPS,
-            median_time_s=median,
-            iqr_time_s=iqr,
-            min_time_s=t_min,
-            max_time_s=t_max,
-            peak_mem_mb=peak_mem,
-            peak_gpu_hbm_mb=peak_hbm,
-            extra={"variant": variant, "B": B,
-                   "n_clusters": N_FIRMS,
-                   "p": 2,
-                   "fe": list(fe_cols),
-                   "vmap_chunk_size": vmap_chunk_size,
-                   "n": N, "n_firms": N_FIRMS, "n_years": N_YEARS},
-        ))
+        rows.append(
+            TimingResult(
+                estimator="feols_jax_bootstrap",
+                side=label,
+                n=N,
+                n_reps=N_REPS,
+                median_time_s=median,
+                iqr_time_s=iqr,
+                min_time_s=t_min,
+                max_time_s=t_max,
+                peak_mem_mb=peak_mem,
+                peak_gpu_hbm_mb=peak_hbm,
+                extra={
+                    "variant": variant,
+                    "B": B,
+                    "n_clusters": N_FIRMS,
+                    "p": 2,
+                    "fe": list(fe_cols),
+                    "vmap_chunk_size": vmap_chunk_size,
+                    "n": N,
+                    "n_firms": N_FIRMS,
+                    "n_years": N_YEARS,
+                },
+            )
+        )
     return rows
 
 
 def _jax_device_label() -> str:
     try:
         import jax
+
         return f"jax_{jax.devices()[0].platform}"
     except ImportError:
         return "jax_unavailable"
@@ -228,18 +262,24 @@ def main(argv: Sequence[str] | None = None) -> None:
     global B  # noqa: PLW0603 — intentional rebind so ``run_mode`` sees override
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
-        "--modes", nargs="+",
+        "--modes",
+        nargs="+",
         choices=["cpu_seq", "cpu_jax", "gpu"],
         default=["cpu_seq", "cpu_jax"],
         help="Which timing modes to run. 'gpu' is identical to 'cpu_jax' "
-             "but written under a separate JSON file label that records "
-             "the JAX device platform.",
+        "but written under a separate JSON file label that records "
+        "the JAX device platform.",
     )
-    ap.add_argument("--n-boot", type=int, default=B,
-                    help=f"Override bootstrap draws (default {B})")
-    ap.add_argument("--vmap-chunk-size", type=int, default=VMAP_CHUNK_SIZE,
-                    help=f"JAX vmap chunk size (default {VMAP_CHUNK_SIZE}); "
-                         "lower to fit on smaller GPUs.")
+    ap.add_argument(
+        "--n-boot", type=int, default=B, help=f"Override bootstrap draws (default {B})"
+    )
+    ap.add_argument(
+        "--vmap-chunk-size",
+        type=int,
+        default=VMAP_CHUNK_SIZE,
+        help=f"JAX vmap chunk size (default {VMAP_CHUNK_SIZE}); "
+        "lower to fit on smaller GPUs.",
+    )
     args = ap.parse_args(argv)
     B = args.n_boot
 
@@ -253,22 +293,35 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     for mode in args.modes:
         print(f"--- mode={mode!r} ---", flush=True)
-        rows = run_mode(mode, df, formula, cluster, fe_cols,
-                        vmap_chunk_size=args.vmap_chunk_size)
+        rows = run_mode(
+            mode, df, formula, cluster, fe_cols, vmap_chunk_size=args.vmap_chunk_size
+        )
         side = mode if mode != "gpu" else _jax_device_label()
         out_path = out_dir / f"05_feols_jax_bootstrap_{side}.json"
-        out_path.write_text(json.dumps({
-            "estimator": "feols_jax_bootstrap",
-            "side": side,
-            "mode": mode,
-            "rows": [r.to_dict() for r in rows],
-            "hardware": hardware_record(),
-            "extra": {"n": N, "n_firms": N_FIRMS, "n_years": N_YEARS,
-                      "B": B, "formula": formula, "cluster": cluster,
-                      "vmap_chunk_size": args.vmap_chunk_size,
-                      "n_reps": N_REPS,
-                      "wild_baseline": "true_wild"},
-        }, indent=2), encoding="utf-8")
+        out_path.write_text(
+            json.dumps(
+                {
+                    "estimator": "feols_jax_bootstrap",
+                    "side": side,
+                    "mode": mode,
+                    "rows": [r.to_dict() for r in rows],
+                    "hardware": hardware_record(),
+                    "extra": {
+                        "n": N,
+                        "n_firms": N_FIRMS,
+                        "n_years": N_YEARS,
+                        "B": B,
+                        "formula": formula,
+                        "cluster": cluster,
+                        "vmap_chunk_size": args.vmap_chunk_size,
+                        "n_reps": N_REPS,
+                        "wild_baseline": "true_wild",
+                    },
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
         for r in rows:
             hbm = f" gpu_hbm={r.peak_gpu_hbm_mb:.0f}MiB" if r.peak_gpu_hbm_mb else ""
             print(f"  {r.extra['variant']:14s} median={r.median_time_s:8.3f}s{hbm}")

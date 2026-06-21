@@ -99,7 +99,13 @@ def test_collection_to_frame_exposes_semantic_cells(models_and_df):
     )
     long = c.to_frame()
     assert {
-        "item", "kind", "model", "term", "statistic", "value", "formatted",
+        "item",
+        "kind",
+        "model",
+        "term",
+        "statistic",
+        "value",
+        "formatted",
     } <= set(long.columns)
     assert {"main", "desc"} <= set(long["item"])
     assert "note" not in set(long["item"])
@@ -138,7 +144,9 @@ def test_add_regression_requires_at_least_one_model(models_and_df):
 
 def test_add_balance_calls_mean_comparison(models_and_df):
     df, *_ = models_and_df
-    c = sp.collect().add_balance(df, treatment="treat", variables=["x1", "x2"], name="bal")
+    c = sp.collect().add_balance(
+        df, treatment="treat", variables=["x1", "x2"], name="bal"
+    )
     item = c.get("bal")
     assert item.kind == "balance"
 
@@ -229,8 +237,9 @@ def test_save_docx(tmp_path, models_and_df):
         .add_heading("Section A: Main")
         .add_regression(m1, m2, m3, name="main", title="Table 1")
         .add_summary(df, vars=["x1", "x2"], name="desc", title="Table 2")
-        .add_balance(df, treatment="treat", variables=["x1", "x2"],
-                     name="bal", title="Table 3")
+        .add_balance(
+            df, treatment="treat", variables=["x1", "x2"], name="bal", title="Table 3"
+        )
         .add_text("Standard errors clustered at firm level.", name="note")
     )
     out = tmp_path / "everything.docx"
@@ -238,6 +247,7 @@ def test_save_docx(tmp_path, models_and_df):
     assert out.exists() and out.stat().st_size > 1000
 
     from docx import Document
+
     doc = Document(str(out))
     assert len(doc.tables) >= 3  # main + summary + balance
     assert doc.sections[0].left_margin.inches == pytest.approx(1.0)

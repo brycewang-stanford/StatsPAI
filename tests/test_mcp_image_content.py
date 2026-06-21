@@ -4,6 +4,7 @@ The MCP layer already promotes ``_plot_png`` bytes to a second content
 block (``{"type": "image", ...}``). These tests exercise the end-to-end
 path through ``plot_from_result``.
 """
+
 from __future__ import annotations
 
 import base64
@@ -18,8 +19,7 @@ from statspai.agent import execute_tool, mcp_handle_request
 
 
 def _rpc(method, params=None, request_id=1):
-    msg = {"jsonrpc": "2.0", "id": request_id, "method": method,
-           "params": params or {}}
+    msg = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
     line = mcp_handle_request(json.dumps(msg))
     return json.loads(line)
 
@@ -38,6 +38,7 @@ def _toy_panel():
 # ----------------------------------------------------------------------
 # Direct execute_tool path
 # ----------------------------------------------------------------------
+
 
 class TestPlotFromResult:
     def test_unknown_handle_friendly_error(self):
@@ -70,6 +71,7 @@ class TestPlotFromResult:
 # MCP RPC path: image content block
 # ----------------------------------------------------------------------
 
+
 class TestImageContentBlock:
     def test_tools_call_emits_image_content_when_plot_available(self):
         # Use a synthetic tool call that fakes a result handle by
@@ -78,6 +80,7 @@ class TestImageContentBlock:
 
         try:
             import matplotlib
+
             matplotlib.use("Agg", force=False)
             import matplotlib.pyplot as plt
             from matplotlib.figure import Figure
@@ -92,9 +95,9 @@ class TestImageContentBlock:
                 return fig
 
         rid = RESULT_CACHE.put(Stub(), tool="stub", arguments={})
-        msg = _rpc("tools/call",
-                   {"name": "plot_from_result",
-                    "arguments": {"result_id": rid}})
+        msg = _rpc(
+            "tools/call", {"name": "plot_from_result", "arguments": {"result_id": rid}}
+        )
         assert "result" in msg, msg
         content = msg["result"]["content"]
         # Two content blocks: text (JSON) + image (PNG)
@@ -118,6 +121,7 @@ class TestImageContentBlock:
 # Schema visibility
 # ----------------------------------------------------------------------
 
+
 class TestSchemaListsPlotTool:
     def test_plot_from_result_in_manifest(self):
         msg = _rpc("tools/list", {})
@@ -126,6 +130,7 @@ class TestSchemaListsPlotTool:
 
     def test_plot_tool_is_dataless(self):
         from statspai.agent.mcp_server import _dataless_tool_names
+
         assert "plot_from_result" in _dataless_tool_names() or True
         # ^ best-effort — workflow tools are added to overrides via
         # _DATALESS_OVERRIDES, but plot_from_result wasn't added
@@ -134,6 +139,6 @@ class TestSchemaListsPlotTool:
         for t in msg["result"]["tools"]:
             if t["name"] == "plot_from_result":
                 assert "data_path" not in t["inputSchema"]["required"], (
-                    "plot_from_result is dataless — data_path must not "
-                    "be required")
+                    "plot_from_result is dataless — data_path must not " "be required"
+                )
                 break

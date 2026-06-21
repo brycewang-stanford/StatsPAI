@@ -9,11 +9,13 @@ All numeric assertions check genuine algebraic identities of the
 decomposition (gap = composition + structure, etc.) or exact structure of
 the returned matplotlib artists.  No numerical path is mocked.
 """
+
 from __future__ import annotations
 
 import types
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,6 +37,7 @@ plots_mod = importlib.import_module("statspai.decomposition.plots")
 # ════════════════════════════════════════════════════════════════════════
 # Fixtures
 # ════════════════════════════════════════════════════════════════════════
+
 
 def _make_continuous(n: int = 240, seed: int = 7) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
@@ -64,6 +67,7 @@ def _close_figs():
 # ════════════════════════════════════════════════════════════════════════
 # cfm.py
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_cfm_reference1_and_repr():
     """reference=1 branch (cfm.py 253, 264-265) + default tau_grid (239) + repr (187)."""
@@ -134,6 +138,7 @@ def test_cfm_fit_dr_separation_fallback():
 # machado_mata.py
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_machado_mata_reference1_repr_and_default_grid():
     """mm.py 233 (default grid), 163-167 (repr), reference=1 identity."""
     df = _make_continuous()
@@ -165,8 +170,16 @@ def test_machado_mata_bootstrap_inference():
     """mm.py 285-336 bootstrap path incl. reference=1 comp branch (325) and se_df."""
     df = _make_continuous(n=200)
     res = sp.machado_mata(
-        df, "y", "g", ["x1"], reference=1, n_sim=150, n_tau_qr=15,
-        inference="bootstrap", n_boot=25, seed=2,
+        df,
+        "y",
+        "g",
+        ["x1"],
+        reference=1,
+        n_sim=150,
+        n_tau_qr=15,
+        inference="bootstrap",
+        n_boot=25,
+        seed=2,
     )
     assert res.se is not None
     assert list(res.se.columns) == ["tau", "gap_se", "composition_se"]
@@ -205,8 +218,15 @@ def test_machado_mata_bootstrap_skips_tiny_strata():
     y = 0.5 * x1 + 0.3 * g + rng.normal(size=n0 + n1)
     df = pd.DataFrame({"y": y, "g": g, "x1": x1})
     res = sp.machado_mata(
-        df, "y", "g", ["x1"], n_sim=100, n_tau_qr=11,
-        inference="bootstrap", n_boot=8, seed=9,
+        df,
+        "y",
+        "g",
+        ["x1"],
+        n_sim=100,
+        n_tau_qr=11,
+        inference="bootstrap",
+        n_boot=8,
+        seed=9,
     )
     # <=10 successful replicates → se_df guard (line 329) keeps se None
     assert res.se is None
@@ -239,6 +259,7 @@ def test_qreg_irls_singular_fallback():
 # melly.py
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_melly_reference1_repr_and_default_grid():
     """melly.py 152 (default grid), 87-88 (repr), 164/171-172 (reference=1)."""
     df = _make_continuous()
@@ -270,11 +291,13 @@ def test_melly_too_few_obs_raises():
 # nonlinear.py — Fairlie / Bauer-Sinning / probit helpers
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_fairlie_reference1_branch_and_identity():
     """nonlinear.py 226-228 (reference=1) + gap = explained + unexplained."""
     df = _make_binary()
-    res = sp.fairlie(df, "y", "g", ["x1"], model="logit", reference=1,
-                     n_sim=200, seed=3)
+    res = sp.fairlie(
+        df, "y", "g", ["x1"], model="logit", reference=1, n_sim=200, seed=3
+    )
     assert res.gap == pytest.approx(res.explained + res.unexplained, abs=1e-10)
     # detailed contributions normalised to sum to explained
     assert res.detailed["contribution"].sum() == pytest.approx(res.explained, rel=1e-6)
@@ -299,9 +322,7 @@ def test_fairlie_probit_uses_probit_helpers():
     obs_gap = df.loc[df.g == 1, "y"].mean() - df.loc[df.g == 0, "y"].mean()
     assert abs(res.gap) == pytest.approx(abs(obs_gap), abs=1e-10)
     # detailed contributions partition the explained component
-    assert res.detailed["contribution"].sum() == pytest.approx(
-        res.explained, rel=1e-6
-    )
+    assert res.detailed["contribution"].sum() == pytest.approx(res.explained, rel=1e-6)
 
 
 def test_bauer_sinning_reference1():
@@ -310,9 +331,7 @@ def test_bauer_sinning_reference1():
     res = sp.yun_nonlinear(df, "y", "g", ["x1"], model="logit", reference=1)
     assert res.gap == pytest.approx(res.explained + res.unexplained, abs=1e-10)
     # Yun weights sum the per-variable contributions to the explained part
-    assert res.detailed["contribution"].sum() == pytest.approx(
-        res.explained, abs=1e-9
-    )
+    assert res.detailed["contribution"].sum() == pytest.approx(res.explained, abs=1e-9)
     assert res.method.startswith("Bauer-Sinning")
     assert "model=logit" in repr(res)
 
@@ -365,6 +384,7 @@ def test_probit_fit_singular_hessian_fallback():
 # plots.py
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_ci_whiskers_returns_none_when_no_positive_se():
     """plots.py 47: all-zero SE array → None (no whiskers)."""
     assert plots_mod._ci_whiskers([1.0, 2.0], [0.0, 0.0]) is None
@@ -384,8 +404,12 @@ def test_ci_whiskers_returns_none_when_no_positive_se():
 def test_dfl_plot_quantile_name_branch():
     """plots.py 174-177: quantile DFL result renders 'quantile(τ=..)' title."""
     res = types.SimpleNamespace(
-        gap=1.0, composition=0.6, structure=0.4,
-        se=None, stat="quantile", tau=0.25,
+        gap=1.0,
+        composition=0.6,
+        structure=0.4,
+        se=None,
+        stat="quantile",
+        tau=0.25,
     )
     fig, ax = plots_mod.dfl_plot(res)
     assert "quantile(τ=0.25)" in ax.get_title()
@@ -395,15 +419,17 @@ def test_dfl_plot_quantile_name_branch():
 
 def test_quantile_process_plot_ci_band():
     """plots.py 263-271: SE columns trigger fill_between CI bands."""
-    grid = pd.DataFrame({
-        "tau": [0.25, 0.5, 0.75],
-        "gap": [1.0, 1.1, 1.2],
-        "composition": [0.6, 0.65, 0.7],
-        "structure": [0.4, 0.45, 0.5],
-        "gap_se": [0.1, 0.1, 0.1],
-        "composition_se": [0.05, 0.05, 0.05],
-        "structure_se": [0.05, 0.05, 0.05],
-    })
+    grid = pd.DataFrame(
+        {
+            "tau": [0.25, 0.5, 0.75],
+            "gap": [1.0, 1.1, 1.2],
+            "composition": [0.6, 0.65, 0.7],
+            "structure": [0.4, 0.45, 0.5],
+            "gap_se": [0.1, 0.1, 0.1],
+            "composition_se": [0.05, 0.05, 0.05],
+            "structure_se": [0.05, 0.05, 0.05],
+        }
+    )
     res = types.SimpleNamespace(quantile_grid=grid)
     fig, ax = plots_mod.quantile_process_plot(res)
     # three line series
@@ -415,7 +441,10 @@ def test_quantile_process_plot_ci_band():
 def test_inequality_subgroup_plot_with_overlap():
     """plots.py 316-318: overlap present → third 'Overlap' bar."""
     res = types.SimpleNamespace(
-        between=2.0, within=1.5, overlap=0.5, index="gini",
+        between=2.0,
+        within=1.5,
+        overlap=0.5,
+        index="gini",
     )
     fig, ax = plots_mod.inequality_subgroup_plot(res)
     assert len(ax.patches) == 3  # Between / Within / Overlap
@@ -425,7 +454,10 @@ def test_inequality_subgroup_plot_with_overlap():
 def test_inequality_subgroup_plot_no_overlap():
     """plots.py 316 false branch: overlap None → only two bars."""
     res = types.SimpleNamespace(
-        between=2.0, within=1.5, overlap=None, index="theil",
+        between=2.0,
+        within=1.5,
+        overlap=None,
+        index="theil",
     )
     fig, ax = plots_mod.inequality_subgroup_plot(res)
     assert len(ax.patches) == 2
@@ -434,7 +466,10 @@ def test_inequality_subgroup_plot_no_overlap():
 def test_mediation_forest_skips_none_component():
     """plots.py 378-379: a None component is skipped; remaining rows plotted."""
     res = types.SimpleNamespace(
-        total_effect=1.0, nde=0.6, nie=None, se=None,
+        total_effect=1.0,
+        nde=0.6,
+        nie=None,
+        se=None,
     )
     fig, ax = plots_mod.mediation_forest(res)
     # Total + NDE rendered (NIE skipped) → 2 y ticks
@@ -454,8 +489,12 @@ def test_mediation_forest_empty_raises():
 def test_yu_elwert_plot_skips_none():
     """plots.py 472-474: components that are None are skipped."""
     res = types.SimpleNamespace(
-        disparity=1.0, baseline=0.5, prevalence=None,
-        effect=0.3, selection=None, se=None,
+        disparity=1.0,
+        baseline=0.5,
+        prevalence=None,
+        effect=0.3,
+        selection=None,
+        se=None,
     )
     fig, ax = plots_mod.yu_elwert_mechanisms_plot(res)
     # Disparity / Baseline / Effect remain (Prevalence + Selection dropped)
@@ -465,6 +504,7 @@ def test_yu_elwert_plot_skips_none():
 # ════════════════════════════════════════════════════════════════════════
 # oaxaca.py — Gelbach plot + sanity warning
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_gelbach_plot_returns_figure():
     """oaxaca.py Gelbach .plot() renders one bar per added variable."""

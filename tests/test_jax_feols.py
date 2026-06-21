@@ -5,6 +5,7 @@ to activate). The tests run on the JAX CPU path; correctness on GPU is
 inferred from JAX's device-routing semantics — same JIT-compiled
 function, only the device changes.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,15 +20,15 @@ from statspai.exceptions import (  # noqa: E402
 )
 from statspai.fast import feols, feols_jax, jax_device_info  # noqa: E402
 
-
 # Float64 + same RNG seed → bit-comparable parity to within QR vs
 # normal-equation rounding. Empirically this lands within ~1e-10 on
 # CPU JAX even with non-deterministic XLA scheduling.
 _ATOL = 1e-9
 
 
-def _make_panel(n: int = 1_000, n_firm: int = 50, n_year: int = 10,
-                seed: int = 0) -> pd.DataFrame:
+def _make_panel(
+    n: int = 1_000, n_firm: int = 50, n_year: int = 10, seed: int = 0
+) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     firm = rng.integers(0, n_firm, size=n)
     year = rng.integers(0, n_year, size=n)
@@ -36,17 +37,23 @@ def _make_panel(n: int = 1_000, n_firm: int = 50, n_year: int = 10,
     fe_firm = rng.normal(size=n_firm)[firm]
     fe_year = rng.normal(size=n_year)[year]
     y = 1.5 * x1 - 0.4 * x2 + fe_firm + fe_year + 0.5 * rng.normal(size=n)
-    return pd.DataFrame({
-        "y": y, "x1": x1, "x2": x2,
-        "firm": firm, "year": year,
-        "w": rng.uniform(0.5, 1.5, size=n),
-        "cluster": firm,
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "firm": firm,
+            "year": year,
+            "w": rng.uniform(0.5, 1.5, size=n),
+            "cluster": firm,
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Coefficient + SE parity
 # ---------------------------------------------------------------------------
+
 
 def test_iid_no_fe_matches_numpy_feols():
     df = _make_panel(seed=1)
@@ -83,12 +90,16 @@ def test_cr1_with_fe_matches_numpy_feols():
     """``cr1`` is delegated to ``crve`` — must round-trip identically."""
     df = _make_panel(seed=4)
     fit_np = feols(
-        "y ~ x1 + x2 | firm + year", df,
-        vcov="cr1", cluster="cluster",
+        "y ~ x1 + x2 | firm + year",
+        df,
+        vcov="cr1",
+        cluster="cluster",
     )
     fit_jx = feols_jax(
-        "y ~ x1 + x2 | firm + year", df,
-        vcov="cr1", cluster="cluster",
+        "y ~ x1 + x2 | firm + year",
+        df,
+        vcov="cr1",
+        cluster="cluster",
     )
     np.testing.assert_allclose(fit_jx.coef_vec, fit_np.coef_vec, atol=_ATOL)
     np.testing.assert_allclose(fit_jx.vcov_matrix, fit_np.vcov_matrix, atol=_ATOL)
@@ -113,6 +124,7 @@ def test_within_r2_matches_numpy_feols():
 # ---------------------------------------------------------------------------
 # Validation + error paths
 # ---------------------------------------------------------------------------
+
 
 def test_invalid_vcov_raises():
     df = _make_panel()
@@ -210,7 +222,10 @@ def test_float32_runs_with_relaxed_tol():
     df = _make_panel(seed=7)
     fit_np = feols("y ~ x1 + x2 | firm", df, vcov="iid")
     fit_jx = feols_jax(
-        "y ~ x1 + x2 | firm", df, vcov="iid", dtype="float32",
+        "y ~ x1 + x2 | firm",
+        df,
+        vcov="iid",
+        dtype="float32",
     )
     # Coefficients should match to ~3-4 decimals; this is the explicit
     # precision/speed tradeoff documented in the docstring.
@@ -220,6 +235,7 @@ def test_float32_runs_with_relaxed_tol():
 # ---------------------------------------------------------------------------
 # Diagnostic helpers
 # ---------------------------------------------------------------------------
+
 
 def test_jax_device_info_when_jax_present():
     info = jax_device_info()

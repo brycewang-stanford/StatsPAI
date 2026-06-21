@@ -25,6 +25,7 @@ References
   differences with multiple time periods." *Journal of Econometrics*,
   225(2), 200-230. [@callaway2021difference]
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -106,9 +106,7 @@ def test_cs_close_to_truth(py_result):
     py_att = float(py_result.estimate)
     # g=2 contributes mean τ=3.0 over 5 periods, g=3 contributes 2.5
     # over 4 periods — weighted by (5*40 + 4*40) = 360 obs → ≈2.78
-    assert abs(py_att - 2.75) < 0.5, (
-        f"CS simple ATT={py_att:.4f} far from true ≈ 2.75"
-    )
+    assert abs(py_att - 2.75) < 0.5, f"CS simple ATT={py_att:.4f} far from true ≈ 2.75"
 
 
 def test_cs_fixture_meta(r_reference):

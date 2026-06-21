@@ -21,10 +21,14 @@ def _make_mvmr_data(*, n_snps: int = 80, seed: int = 61):
     beta_x2 = 0.3 * beta_x1 + rng.normal(0, 1, size=n_snps)  # correlated
     se_y = np.abs(rng.normal(0.1, 0.02, size=n_snps)) + 0.05
     beta_y = 0.5 * beta_x1 + 0.2 * beta_x2 + rng.normal(0, se_y)
-    return pd.DataFrame({
-        "beta_x1": beta_x1, "beta_x2": beta_x2,
-        "beta_y": beta_y, "se_y": se_y,
-    })
+    return pd.DataFrame(
+        {
+            "beta_x1": beta_x1,
+            "beta_x2": beta_x2,
+            "beta_y": beta_y,
+            "se_y": se_y,
+        }
+    )
 
 
 def test_mr_multivariable_recovers_direct_effects():
@@ -42,7 +46,9 @@ def test_mr_multivariable_recovers_direct_effects():
 
 
 def test_mr_multivariable_single_exposure_errors():
-    df = pd.DataFrame({"beta_x1": [1, 2, 3], "beta_y": [1, 2, 3], "se_y": [0.1, 0.1, 0.1]})
+    df = pd.DataFrame(
+        {"beta_x1": [1, 2, 3], "beta_y": [1, 2, 3], "se_y": [0.1, 0.1, 0.1]}
+    )
     with pytest.raises(ValueError, match=">= 2 exposures"):
         sp.mr_multivariable(df, exposures=["beta_x1"])
 
@@ -60,11 +66,16 @@ def test_mr_mediation_two_step():
     # Y receives a direct effect of 0.5 from X + 0.3 through M → total ≈ 0.5 + 0.4*0.3 = 0.62.
     se_y = np.abs(rng.normal(0.1, 0.02, size=n)) + 0.05
     beta_y = 0.5 * beta_x + 0.3 * beta_m + rng.normal(0, se_y)
-    df = pd.DataFrame({
-        "beta_x": beta_x, "se_x": np.full(n, 0.01),
-        "beta_m": beta_m, "se_m": np.full(n, 0.01),
-        "beta_y": beta_y, "se_y": se_y,
-    })
+    df = pd.DataFrame(
+        {
+            "beta_x": beta_x,
+            "se_x": np.full(n, 0.01),
+            "beta_m": beta_m,
+            "se_m": np.full(n, 0.01),
+            "beta_y": beta_y,
+            "se_y": se_y,
+        }
+    )
     res = sp.mr_mediation(df)
     # total ≈ 0.62, direct ≈ 0.5, indirect ≈ 0.12
     assert abs(res.total_effect - 0.62) < 0.15, res.total_effect
@@ -85,10 +96,15 @@ def test_mr_bma_identifies_causal_exposure():
     se_y = np.abs(rng.normal(0.1, 0.02, size=n)) + 0.05
     # Only x1 is causal
     beta_y = 0.5 * beta_x1 + rng.normal(0, se_y)
-    df = pd.DataFrame({
-        "beta_x1": beta_x1, "beta_x2": beta_x2, "beta_x3": beta_x3,
-        "beta_y": beta_y, "se_y": se_y,
-    })
+    df = pd.DataFrame(
+        {
+            "beta_x1": beta_x1,
+            "beta_x2": beta_x2,
+            "beta_x3": beta_x3,
+            "beta_y": beta_y,
+            "se_y": se_y,
+        }
+    )
     res = sp.mr_bma(df, exposures=["beta_x1", "beta_x2", "beta_x3"])
     # x1 should have the highest marginal inclusion
     mp = res.marginal_inclusion
@@ -103,11 +119,13 @@ def test_mr_bma_identifies_causal_exposure():
 
 
 def test_mr_bma_too_few_exposures_errors():
-    df = pd.DataFrame({
-        "beta_x1": np.random.randn(20),
-        "beta_y": np.random.randn(20),
-        "se_y": np.full(20, 0.1),
-    })
+    df = pd.DataFrame(
+        {
+            "beta_x1": np.random.randn(20),
+            "beta_y": np.random.randn(20),
+            "se_y": np.full(20, 0.1),
+        }
+    )
     with pytest.raises(ValueError, match=">= 2 exposures"):
         sp.mr_bma(df, exposures=["beta_x1"])
 

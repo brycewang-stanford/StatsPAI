@@ -39,7 +39,11 @@ def es_result():
             rows.append((u, t, y, tt))
     df = pd.DataFrame(rows, columns=["unit", "time", "y", "treat_time"])
     return sp.event_study(
-        df, y="y", treat_time="treat_time", time="time", unit="unit",
+        df,
+        y="y",
+        treat_time="treat_time",
+        time="time",
+        unit="unit",
         window=(-3, 3),
     )
 

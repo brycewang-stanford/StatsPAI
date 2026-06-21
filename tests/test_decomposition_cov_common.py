@@ -6,6 +6,7 @@ influence-function atoms every decomposition method delegates to (CLAUDE.md §11
 pure numerical kernels, so every test pins a closed-form value, a parity target,
 or a defining mathematical property — never a smoke call.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -13,7 +14,6 @@ import pytest
 
 from statspai.decomposition import _common as C
 from statspai.exceptions import MethodIncompatibility
-
 
 # ── WLS ──────────────────────────────────────────────────────────────
 
@@ -61,9 +61,9 @@ def test_weighted_quantile_monotone_and_bounded():
 
 def test_weighted_gini_properties():
     # Perfect equality → Gini 0.
-    assert C.weighted_gini(
-        np.array([5.0, 5, 5, 5]), np.ones(4)
-    ) == pytest.approx(0.0, abs=1e-12)
+    assert C.weighted_gini(np.array([5.0, 5, 5, 5]), np.ones(4)) == pytest.approx(
+        0.0, abs=1e-12
+    )
     # Bounded in [0, 1].
     g = C.weighted_gini(np.array([1.0, 2, 3, 10, 50]), np.ones(5))
     assert 0.0 <= g <= 1.0
@@ -87,9 +87,7 @@ def test_statistic_value_closed_forms():
     rng = np.random.default_rng(2)
     y = np.abs(rng.normal(5, 2, 500)) + 0.1
     w = np.ones_like(y)
-    assert C.statistic_value(y, w, "mean") == pytest.approx(
-        float(np.average(y))
-    )
+    assert C.statistic_value(y, w, "mean") == pytest.approx(float(np.average(y)))
     assert C.statistic_value(y, w, "variance") == pytest.approx(
         float(np.cov(y)), rel=1e-9
     )
@@ -101,7 +99,8 @@ def test_statistic_value_closed_forms():
         assert C.statistic_value(y, w, stat) >= -1e-9
     # quantile honours tau
     assert C.statistic_value(y, w, "quantile", tau=0.5) == pytest.approx(
-        C.weighted_quantile(y, 0.5))
+        C.weighted_quantile(y, 0.5)
+    )
 
 
 def test_statistic_value_unknown_raises():
@@ -122,7 +121,8 @@ def test_rif_recenters_to_statistic(stat):
     rif = C.influence_function(y, stat, tau=0.5, w=w)
     # The RIF recentres so that its mean equals the statistic it expands.
     assert float(np.mean(rif)) == pytest.approx(
-        C.statistic_value(y, w, stat, tau=0.5), rel=1e-6, abs=1e-6)
+        C.statistic_value(y, w, stat, tau=0.5), rel=1e-6, abs=1e-6
+    )
 
 
 def test_rif_variance_family_recenters_to_population_moment():
@@ -160,18 +160,14 @@ def test_bootstrap_ci_methods(method):
     boot = rng.normal(2.0, 0.5, 2000)
     point = np.array([2.0])
     # bootstrap_ci returns (se, lo, hi).
-    se, lo, hi = C.bootstrap_ci(
-        boot.reshape(-1, 1), point, alpha=0.05, method=method
-    )
+    se, lo, hi = C.bootstrap_ci(boot.reshape(-1, 1), point, alpha=0.05, method=method)
     assert np.all(lo < hi)
     assert np.all(se > 0)
 
 
 def test_bootstrap_ci_percentile_endpoints():
     boot = np.linspace(0, 1, 1001).reshape(-1, 1)
-    _se, lo, hi = C.bootstrap_ci(
-        boot, np.array([0.5]), alpha=0.10, method="percentile"
-    )
+    _se, lo, hi = C.bootstrap_ci(boot, np.array([0.5]), alpha=0.10, method="percentile")
     assert lo[0] == pytest.approx(0.05, abs=1e-2)
     assert hi[0] == pytest.approx(0.95, abs=1e-2)
 
@@ -226,9 +222,14 @@ def test_weighted_quantile_hmisc_validation_uses_taxonomy():
 
 def test_prepare_frame_drops_na_and_extracts_weights():
     import pandas as pd
-    df = pd.DataFrame({"y": [1.0, 2.0, np.nan, 4.0],
-                       "x": [1.0, 2.0, 3.0, 4.0],
-                       "wt": [1.0, 1.0, 2.0, 3.0]})
+
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, np.nan, 4.0],
+            "x": [1.0, 2.0, 3.0, 4.0],
+            "wt": [1.0, 1.0, 2.0, 3.0],
+        }
+    )
     d2, w = C.prepare_frame(df, ["y", "x"], weights="wt")
     assert len(d2) == 3 and len(w) == 3  # NA row dropped
     np.testing.assert_array_equal(w, np.array([1.0, 1.0, 3.0]))
@@ -239,6 +240,7 @@ def test_prepare_frame_drops_na_and_extracts_weights():
 
 def test_prepare_frame_missing_columns_use_taxonomy():
     import pandas as pd
+
     df = pd.DataFrame({"y": [1.0], "x": [2.0]})
     with pytest.raises(MethodIncompatibility, match="missing") as excinfo:
         C.prepare_frame(df, ["y", "missing"], weights="wt")
@@ -252,8 +254,9 @@ def test_prepare_frame_missing_columns_use_taxonomy():
 def test_bootstrap_stat_recovers_sample_mean():
     rng = np.random.default_rng(7)
     y = rng.normal(3.0, 1.0, 300)
-    boots = C.bootstrap_stat(lambda idx: float(y[idx].mean()), n=300,
-                             n_boot=400, rng=rng)
+    boots = C.bootstrap_stat(
+        lambda idx: float(y[idx].mean()), n=300, n_boot=400, rng=rng
+    )
     assert boots.shape[0] == 400
     # bootstrap distribution centres on the sample statistic
     assert float(np.mean(boots)) == pytest.approx(y.mean(), abs=0.1)
@@ -262,12 +265,14 @@ def test_bootstrap_stat_recovers_sample_mean():
 def test_bootstrap_stat_strata_and_clusters():
     rng = np.random.default_rng(8)
     y = rng.normal(size=200)
-    strata = (np.arange(200) % 2)
+    strata = np.arange(200) % 2
     clusters = np.repeat(np.arange(20), 10)
-    b_s = C.bootstrap_stat(lambda idx: float(y[idx].mean()), n=200,
-                           n_boot=50, rng=rng, strata=strata)
-    b_c = C.bootstrap_stat(lambda idx: float(y[idx].mean()), n=200,
-                           n_boot=50, rng=rng, clusters=clusters)
+    b_s = C.bootstrap_stat(
+        lambda idx: float(y[idx].mean()), n=200, n_boot=50, rng=rng, strata=strata
+    )
+    b_c = C.bootstrap_stat(
+        lambda idx: float(y[idx].mean()), n=200, n_boot=50, rng=rng, clusters=clusters
+    )
     assert b_s.shape[0] == 50 and b_c.shape[0] == 50
 
 
@@ -277,8 +282,9 @@ def test_wild_bootstrap_stat(weights):
     n = 150
     fitted = np.linspace(0, 1, n)
     resid = rng.normal(0, 0.3, n)
-    boots = C.wild_bootstrap_stat(lambda ys: float(ys.mean()), resid, fitted,
-                                  n_boot=100, rng=rng, weights=weights)
+    boots = C.wild_bootstrap_stat(
+        lambda ys: float(ys.mean()), resid, fitted, n_boot=100, rng=rng, weights=weights
+    )
     assert boots.shape[0] == 100
     # E[y*] = fitted (multipliers are mean-zero), so the mean statistic
     # concentrates near mean(fitted) = 0.5.
@@ -295,7 +301,8 @@ def test_rif_inequality_recenters(stat):
     w = np.ones_like(y)
     rif = C.influence_function(y, stat, w=w)
     assert float(np.mean(rif)) == pytest.approx(
-        C.statistic_value(y, w, stat), rel=1e-6, abs=1e-8)
+        C.statistic_value(y, w, stat), rel=1e-6, abs=1e-8
+    )
 
 
 def test_rif_gini_recenters_approximately():
@@ -313,4 +320,5 @@ def test_statistic_value_iqr():
     w = np.ones_like(y)
     iqr = C.statistic_value(y, w, "iqr")
     assert iqr == pytest.approx(
-        C.weighted_quantile(y, 0.75) - C.weighted_quantile(y, 0.25))
+        C.weighted_quantile(y, 0.75) - C.weighted_quantile(y, 0.25)
+    )

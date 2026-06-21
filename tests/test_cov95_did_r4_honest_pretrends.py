@@ -14,6 +14,7 @@ All run on a real staggered CS result with a +2 ATT; assertions check
 shapes, monotonic CI widening in M, p-values in [0, 1], and that bad
 inputs raise — no fabricated numbers.
 """
+
 from __future__ import annotations
 
 import matplotlib
@@ -58,8 +59,9 @@ def test_honest_did_methods(cs_result, method):
 
 
 def test_honest_did_custom_mgrid(cs_result):
-    tab = sp.honest_did(cs_result, e=0, method="relative_magnitude",
-                        m_grid=[0.0, 0.5, 1.0, 2.0])
+    tab = sp.honest_did(
+        cs_result, e=0, method="relative_magnitude", m_grid=[0.0, 0.5, 1.0, 2.0]
+    )
     assert len(tab) == 4
 
 
@@ -76,8 +78,7 @@ def test_honest_did_invalid_m_grid_raises(cs_result):
 def test_honest_did_no_event_study_raises():
     # A frame with no event-study table cannot be honest-DiD'd.
     df = sp.dgp_did(n_units=40, n_periods=6, effect=1.0, seed=0)
-    r = sp.did(df, y="y", treat="treated", time="time", id="unit",
-               method="twfe")
+    r = sp.did(df, y="y", treat="treated", time="time", id="unit", method="twfe")
     with pytest.raises((MethodIncompatibility, AttributeError, TypeError)):
         sp.honest_did(r, e=0)
 
@@ -94,6 +95,7 @@ def test_breakdown_m_bad_e_raises(cs_result):
 
 
 # ── Rambachan-Roth SensitivityResult display methods ─────────────── #
+
 
 @pytest.fixture(scope="module")
 def sens_result(cs_result):
@@ -136,6 +138,7 @@ def test_sensitivity_plot_supplied_ax(sens_result):
 
 
 # ── pretrends test / power / summary ─────────────────────────────── #
+
 
 def test_pretrends_test(cs_result):
     res = sp.pretrends_test(cs_result)

@@ -13,10 +13,10 @@ from statspai.fixest import feols, fepois, feglm, etable
 from statspai.core.results import EconometricResults
 from statspai.output.outreg2 import outreg2
 
-
 # --------------------------------------------------------------------------- #
 #  Fixtures
 # --------------------------------------------------------------------------- #
+
 
 @pytest.fixture
 def panel_data():
@@ -35,13 +35,15 @@ def panel_data():
     x2 = np.random.randn(n)
     y = 1.0 + 2.0 * x1 - 0.5 * x2 + firm_effect + year_effect + np.random.randn(n)
 
-    return pd.DataFrame({
-        "y": y,
-        "x1": x1,
-        "x2": x2,
-        "firm_id": firm_id,
-        "year": year,
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "firm_id": firm_id,
+            "year": year,
+        }
+    )
 
 
 @pytest.fixture
@@ -54,16 +56,19 @@ def count_data():
     lam = np.exp(0.5 + 0.3 * x1 + 0.1 * group)
     y = np.random.poisson(lam)
 
-    return pd.DataFrame({
-        "y": y,
-        "x1": x1,
-        "group_id": group,
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "group_id": group,
+        }
+    )
 
 
 # --------------------------------------------------------------------------- #
 #  feols tests
 # --------------------------------------------------------------------------- #
+
 
 class TestFeols:
     """Tests for feols wrapper."""
@@ -111,7 +116,10 @@ class TestFeols:
     def test_result_has_diagnostics(self, panel_data):
         """Result should contain R-squared and RMSE."""
         result = feols("y ~ x1 + x2 | firm_id", data=panel_data)
-        assert "R-squared" in result.diagnostics or "R-squared (within)" in result.diagnostics
+        assert (
+            "R-squared" in result.diagnostics
+            or "R-squared (within)" in result.diagnostics
+        )
 
     def test_result_has_nobs(self, panel_data):
         """Data info should contain nobs."""
@@ -144,6 +152,7 @@ class TestFeols:
 #  fepois tests
 # --------------------------------------------------------------------------- #
 
+
 class TestFepois:
     """Tests for fepois wrapper."""
 
@@ -165,6 +174,7 @@ class TestFepois:
 #  outreg2 integration tests
 # --------------------------------------------------------------------------- #
 
+
 class TestOutreg2Integration:
     """Test that pyfixest results integrate with outreg2."""
 
@@ -174,6 +184,7 @@ class TestOutreg2Integration:
         outfile = str(tmp_path / "test_fixest.xlsx")
         outreg2(result, filename=outfile)
         import os
+
         assert os.path.exists(outfile)
 
     def test_outreg2_multiple_models(self, panel_data, tmp_path):
@@ -182,15 +193,16 @@ class TestOutreg2Integration:
         r2 = feols("y ~ x1 + x2", data=panel_data)
         r3 = feols("y ~ x1 + x2 | firm_id", data=panel_data)
         outfile = str(tmp_path / "test_multi.xlsx")
-        outreg2(r1, r2, r3, filename=outfile,
-                model_names=["(1)", "(2)", "(3)"])
+        outreg2(r1, r2, r3, filename=outfile, model_names=["(1)", "(2)", "(3)"])
         import os
+
         assert os.path.exists(outfile)
 
 
 # --------------------------------------------------------------------------- #
 #  etable tests
 # --------------------------------------------------------------------------- #
+
 
 class TestEtable:
     """Tests for the etable convenience wrapper."""

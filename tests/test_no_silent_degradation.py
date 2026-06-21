@@ -126,7 +126,7 @@ def _scan_orchestration() -> tuple[list[str], list[str]]:
 
 
 _SKIP_PATTERN = re.compile(
-    r'pytest\.skip\([^)]*(?:path differs|runtime:)[^)]*\)',
+    r"pytest\.skip\([^)]*(?:path differs|runtime:)[^)]*\)",
     re.IGNORECASE,
 )
 
@@ -154,6 +154,7 @@ def _scan_path_differs_skips() -> list[str]:
 # Tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def scan():
     bare, none_assign = _scan_orchestration()
@@ -178,8 +179,7 @@ def test_bare_exception_swallow_does_not_regrow(scan):
         "Either fix the new violation by routing the failure through "
         "``record_degradation``, or — if intentional — decrement "
         "BARE_SWALLOW_MAX is the wrong direction here; this counter only "
-        "moves DOWN when debt is paid.\nViolations:\n  "
-        + "\n  ".join(sorted(hits))
+        "moves DOWN when debt is paid.\nViolations:\n  " + "\n  ".join(sorted(hits))
     )
 
 

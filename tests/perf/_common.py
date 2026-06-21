@@ -9,6 +9,7 @@ emits a Markdown rollup and a log-log scaling figure.
 Hardware reported in results/_hardware.json so cross-machine
 reproducibility is auditable.
 """
+
 from __future__ import annotations
 
 import gc
@@ -24,6 +25,7 @@ from typing import Any, Callable, Mapping
 
 try:
     import psutil  # type: ignore
+
     _HAS_PSUTIL = True
 except ImportError:
     _HAS_PSUTIL = False
@@ -38,7 +40,10 @@ def _git_commit_sha() -> str | None:
     try:
         out = subprocess.run(
             ["git", "-C", str(HERE), "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=3, check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
         )
         if out.returncode == 0:
             return out.stdout.strip() or None
@@ -52,6 +57,7 @@ def _jax_record() -> dict[str, Any]:
     try:
         import jax  # type: ignore
         import jaxlib  # type: ignore
+
         rec["jax"] = jax.__version__
         rec["jaxlib"] = jaxlib.__version__
         try:
@@ -71,9 +77,15 @@ def _gpu_record() -> dict[str, Any]:
     """Best-effort NVIDIA GPU snapshot via nvidia-smi. None on non-CUDA hosts."""
     try:
         out = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total",
-             "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=3, check=False,
+            [
+                "nvidia-smi",
+                "--query-gpu=name,driver_version,memory.total",
+                "--format=csv,noheader,nounits",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            check=False,
         )
         if out.returncode == 0 and out.stdout.strip():
             lines = [l.strip() for l in out.stdout.strip().splitlines() if l.strip()]
@@ -81,11 +93,13 @@ def _gpu_record() -> dict[str, Any]:
             for line in lines:
                 parts = [p.strip() for p in line.split(",")]
                 if len(parts) >= 3:
-                    gpus.append({
-                        "name": parts[0],
-                        "driver": parts[1],
-                        "memory_total_mb": float(parts[2]),
-                    })
+                    gpus.append(
+                        {
+                            "name": parts[0],
+                            "driver": parts[1],
+                            "memory_total_mb": float(parts[2]),
+                        }
+                    )
             return {"gpus": gpus} if gpus else {}
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
@@ -124,11 +138,12 @@ def gpu_hbm_peak_mb() -> float | None:
     """
     try:
         import pynvml  # type: ignore
+
         pynvml.nvmlInit()
         try:
             h = pynvml.nvmlDeviceGetHandleByIndex(0)
             info = pynvml.nvmlDeviceGetMemoryInfo(h)
-            return float(info.used) / (1024 ** 2)
+            return float(info.used) / (1024**2)
         finally:
             try:
                 pynvml.nvmlShutdown()
@@ -141,7 +156,7 @@ def gpu_hbm_peak_mb() -> float | None:
 @dataclass
 class TimingResult:
     estimator: str
-    side: str           # "py" or "R"
+    side: str  # "py" or "R"
     n: int
     n_reps: int
     median_time_s: float
@@ -156,8 +171,9 @@ class TimingResult:
         return asdict(self)
 
 
-def time_repeat(fn: Callable[[], Any], n_reps: int = 5,
-                warmup: int = 1) -> tuple[float, float, float, float, float | None]:
+def time_repeat(
+    fn: Callable[[], Any], n_reps: int = 5, warmup: int = 1
+) -> tuple[float, float, float, float, float | None]:
     """Returns (median, iqr, min, max, peak_mem_mb) over n_reps."""
     for _ in range(warmup):
         fn()
@@ -181,15 +197,20 @@ def time_repeat(fn: Callable[[], Any], n_reps: int = 5,
     median = statistics.median(times)
     if len(times) >= 4:
         q1 = statistics.median(times[: len(times) // 2])
-        q3 = statistics.median(times[(len(times) + 1) // 2:])
+        q3 = statistics.median(times[(len(times) + 1) // 2 :])
         iqr = q3 - q1
     else:
         iqr = max(times) - min(times)
     return median, iqr, min(times), max(times), peak_mem
 
 
-def write_results(estimator: str, side: str, rows: list[TimingResult],
-                  *, extra: Mapping[str, Any] | None = None) -> Path:
+def write_results(
+    estimator: str,
+    side: str,
+    rows: list[TimingResult],
+    *,
+    extra: Mapping[str, Any] | None = None,
+) -> Path:
     out = RESULTS_DIR / f"{estimator}_{side}.json"
     payload = {
         "estimator": estimator,

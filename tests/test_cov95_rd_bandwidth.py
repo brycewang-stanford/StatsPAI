@@ -29,8 +29,19 @@ def _make_fuzzy(n=3000, seed=11):
     return pd.DataFrame({"y": Y, "x": X, "d": D})
 
 
-@pytest.mark.parametrize("bw", ["mserd", "msetwo", "cerrd", "certwo",
-                                "msecomb1", "msecomb2", "cercomb1", "cercomb2"])
+@pytest.mark.parametrize(
+    "bw",
+    [
+        "mserd",
+        "msetwo",
+        "cerrd",
+        "certwo",
+        "msecomb1",
+        "msecomb2",
+        "cercomb1",
+        "cercomb2",
+    ],
+)
 def test_rdbwselect_all_methods(bw):
     df = _make_sharp()
     out = sp.rdbwselect(df, y="y", x="x", c=0, bwselect=bw)

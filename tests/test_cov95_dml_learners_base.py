@@ -24,7 +24,6 @@ from statspai.dml._base import _DoubleMLBase
 from statspai.dml import dml
 from statspai.exceptions import MethodIncompatibility
 
-
 _HAS_LGBM = importlib.util.find_spec("lightgbm") is not None
 _HAS_XGB = importlib.util.find_spec("xgboost") is not None
 
@@ -32,36 +31,42 @@ _HAS_XGB = importlib.util.find_spec("xgboost") is not None
 # --------------------------------------------------------------------------
 # _learners.py — regressor aliases
 # --------------------------------------------------------------------------
-@pytest.mark.parametrize("alias,cls_name", [
-    ("rf", "RandomForestRegressor"),
-    ("random_forest", "RandomForestRegressor"),
-    ("randomforest", "RandomForestRegressor"),
-    ("gbm", "GradientBoostingRegressor"),
-    ("gbr", "GradientBoostingRegressor"),
-    ("gradient_boosting", "GradientBoostingRegressor"),
-    ("lasso", "LassoCV"),
-    ("ridge", "RidgeCV"),
-    ("linear", "LinearRegression"),
-    ("ols", "LinearRegression"),
-    ("RF", "RandomForestRegressor"),  # case-insensitive
-])
+@pytest.mark.parametrize(
+    "alias,cls_name",
+    [
+        ("rf", "RandomForestRegressor"),
+        ("random_forest", "RandomForestRegressor"),
+        ("randomforest", "RandomForestRegressor"),
+        ("gbm", "GradientBoostingRegressor"),
+        ("gbr", "GradientBoostingRegressor"),
+        ("gradient_boosting", "GradientBoostingRegressor"),
+        ("lasso", "LassoCV"),
+        ("ridge", "RidgeCV"),
+        ("linear", "LinearRegression"),
+        ("ols", "LinearRegression"),
+        ("RF", "RandomForestRegressor"),  # case-insensitive
+    ],
+)
 def test_build_regressor_aliases(alias, cls_name):
     est = _build_regressor(alias)
     assert type(est).__name__ == cls_name
     assert hasattr(est, "fit") and hasattr(est, "get_params")
 
 
-@pytest.mark.parametrize("alias,cls_name", [
-    ("rf", "RandomForestClassifier"),
-    ("gbm", "GradientBoostingClassifier"),
-    ("gbc", "GradientBoostingClassifier"),
-    ("lasso", "LogisticRegressionCV"),
-    ("ridge", "LogisticRegressionCV"),
-    ("linear", "LogisticRegression"),
-    ("logistic", "LogisticRegression"),
-    ("logit", "LogisticRegression"),
-    ("LOGISTIC", "LogisticRegression"),
-])
+@pytest.mark.parametrize(
+    "alias,cls_name",
+    [
+        ("rf", "RandomForestClassifier"),
+        ("gbm", "GradientBoostingClassifier"),
+        ("gbc", "GradientBoostingClassifier"),
+        ("lasso", "LogisticRegressionCV"),
+        ("ridge", "LogisticRegressionCV"),
+        ("linear", "LogisticRegression"),
+        ("logistic", "LogisticRegression"),
+        ("logit", "LogisticRegression"),
+        ("LOGISTIC", "LogisticRegression"),
+    ],
+)
 def test_build_classifier_aliases(alias, cls_name):
     est = _build_classifier(alias)
     assert type(est).__name__ == cls_name
@@ -126,6 +131,7 @@ def test_alias_error_message_lists_universe():
 
 def test_is_estimator_like():
     from sklearn.linear_model import LinearRegression
+
     assert _is_estimator_like(LinearRegression())
     assert not _is_estimator_like("rf")
     assert not _is_estimator_like(42)
@@ -140,13 +146,17 @@ def test_resolve_none_raises():
 
 
 def test_resolve_string_regressor():
-    assert type(resolve_learner("rf", kind="regressor", role="ml_g")).__name__ \
+    assert (
+        type(resolve_learner("rf", kind="regressor", role="ml_g")).__name__
         == "RandomForestRegressor"
+    )
 
 
 def test_resolve_string_classifier():
-    assert type(resolve_learner("rf", kind="classifier", role="ml_m")).__name__ \
+    assert (
+        type(resolve_learner("rf", kind="classifier", role="ml_m")).__name__
         == "RandomForestClassifier"
+    )
 
 
 def test_resolve_bad_kind():
@@ -156,6 +166,7 @@ def test_resolve_bad_kind():
 
 def test_resolve_estimator_passthrough():
     from sklearn.linear_model import LinearRegression
+
     est = LinearRegression()
     assert resolve_learner(est, kind="regressor", role="ml_g") is est
 
@@ -181,14 +192,18 @@ def plr_df():
 
 def test_sample_weight_string_column_missing(plr_df):
     with pytest.raises(ValueError, match="sample_weight column"):
-        dml(plr_df, y="y", treat="d", covariates=["x1", "x2"],
-            sample_weight="no_such_col")
+        dml(
+            plr_df,
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            sample_weight="no_such_col",
+        )
 
 
 def test_sample_weight_wrong_length(plr_df):
     with pytest.raises(ValueError, match="must be 1-D of length"):
-        dml(plr_df, y="y", treat="d", covariates=["x1", "x2"],
-            sample_weight=np.ones(5))
+        dml(plr_df, y="y", treat="d", covariates=["x1", "x2"], sample_weight=np.ones(5))
 
 
 def test_sample_weight_negative(plr_df):
@@ -225,11 +240,9 @@ def test_sample_weight_unsupported_model_raises():
         _MODEL_TAG = "FOO"
         _SUPPORTS_SAMPLE_WEIGHT = False
 
-    df = pd.DataFrame({"y": [1.0, 2, 3], "d": [0.0, 1, 0],
-                       "x1": [1.0, 2, 3]})
+    df = pd.DataFrame({"y": [1.0, 2, 3], "d": [0.0, 1, 0], "x1": [1.0, 2, 3]})
     with pytest.raises(MethodIncompatibility, match="not yet supported"):
-        NoWeightModel(df, y="y", treat="d", covariates=["x1"],
-                      sample_weight=np.ones(3))
+        NoWeightModel(df, y="y", treat="d", covariates=["x1"], sample_weight=np.ones(3))
 
 
 def test_fit_weighted_fallback_warns():
@@ -254,6 +267,7 @@ def test_fit_weighted_fallback_warns():
 
 def test_fit_weighted_no_weights():
     from sklearn.linear_model import LinearRegression
+
     X = np.random.default_rng(0).normal(size=(20, 2))
     y = np.random.default_rng(1).normal(size=20)
     clf = _DoubleMLBase._fit_weighted(LinearRegression(), X, y, None)
@@ -266,11 +280,11 @@ def test_aggregate_diagnostics_mixed_types():
         {"flag": False, "count": 3, "val": 3.0, "lst": [3], "label": "b"},
     ]
     merged = _DoubleMLBase._aggregate_diagnostics(per_rep)
-    assert merged["flag"] is True          # any()
-    assert merged["count"] == 5            # sum
+    assert merged["flag"] is True  # any()
+    assert merged["count"] == 5  # sum
     assert merged["val"] == pytest.approx(2.0)  # mean
-    assert merged["lst"] == [1, 2, 3]      # concat
-    assert merged["label"] == "a"          # passthrough (last-of-first)
+    assert merged["lst"] == [1, 2, 3]  # concat
+    assert merged["label"] == "a"  # passthrough (last-of-first)
 
 
 def test_aggregate_diagnostics_empty():
@@ -298,8 +312,7 @@ def test_instrument_supplied_to_noniv_raises(plr_df):
     df = plr_df.copy()
     df["z"] = np.random.default_rng(2).normal(size=len(df))
     with pytest.raises(ValueError, match="only valid when"):
-        dml(df, y="y", treat="d", covariates=["x1", "x2"],
-            model="plr", instrument="z")
+        dml(df, y="y", treat="d", covariates=["x1", "x2"], model="plr", instrument="z")
 
 
 def test_iv_model_without_instrument_raises(plr_df):
@@ -317,13 +330,20 @@ def test_iivm_multiple_scalar_instruments_rejected():
     y = d + x + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "x": x, "z1": z1, "z2": z2})
     with pytest.raises(ValueError, match="single scalar"):
-        dml(df, y="y", treat="d", covariates=["x"], model="iivm",
-            instrument=["z1", "z2"])
+        dml(
+            df,
+            y="y",
+            treat="d",
+            covariates=["x"],
+            model="iivm",
+            instrument=["z1", "z2"],
+        )
 
 
 def test_string_alias_through_dml(plr_df):
-    res = dml(plr_df, y="y", treat="d", covariates=["x1", "x2"],
-              ml_g="linear", ml_m="linear")
+    res = dml(
+        plr_df, y="y", treat="d", covariates=["x1", "x2"], ml_g="linear", ml_m="linear"
+    )
     assert np.isfinite(res.estimate)
     assert res.model_info["ml_g"] == "LinearRegression"
 
@@ -338,8 +358,16 @@ def test_dml_invalid_model_raises(plr_df):
 
 def test_legacy_doubleml_fit(plr_df):
     from statspai.dml import DoubleML
-    m = DoubleML(plr_df, y="y", treat="d", covariates=["x1", "x2"],
-                 model="plr", ml_g="linear", ml_m="linear")
+
+    m = DoubleML(
+        plr_df,
+        y="y",
+        treat="d",
+        covariates=["x1", "x2"],
+        model="plr",
+        ml_g="linear",
+        ml_m="linear",
+    )
     res = m.fit()
     assert np.isfinite(res.estimate)
     # exercise the legacy attribute properties
@@ -359,5 +387,6 @@ def test_legacy_doubleml_fit(plr_df):
 
 def test_legacy_doubleml_invalid_model(plr_df):
     from statspai.dml import DoubleML
+
     with pytest.raises(ValueError, match="model must be"):
         DoubleML(plr_df, y="y", treat="d", covariates=["x1"], model="nope")

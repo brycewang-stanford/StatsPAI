@@ -18,13 +18,21 @@ def test_bcf_ordinal_recovers_monotone_effects():
     T = rng.integers(0, 4, size=n)
     # Monotone treatment effect: 0 for T=0, then +0.5 per level.
     y = 0.5 * T + X[:, 0] + rng.normal(0, 0.3, n)
-    df = pd.DataFrame({
-        "y": y, "t": T,
-        **{f"x{j}": X[:, j] for j in range(3)},
-    })
+    df = pd.DataFrame(
+        {
+            "y": y,
+            "t": T,
+            **{f"x{j}": X[:, j] for j in range(3)},
+        }
+    )
     r = sp.bcf_ordinal(
-        df, y="y", treat="t", covariates=["x0", "x1", "x2"],
-        n_trees_mu=50, n_trees_tau=20, n_bootstrap=30,
+        df,
+        y="y",
+        treat="t",
+        covariates=["x0", "x1", "x2"],
+        n_trees_mu=50,
+        n_trees_tau=20,
+        n_bootstrap=30,
     )
     # Result object should expose level-specific effects
     assert r is not None
@@ -33,8 +41,14 @@ def test_bcf_ordinal_recovers_monotone_effects():
     has_levels = any(
         kw in attrs
         for kw in (
-            "level_effects", "effects", "tau", "contrasts",
-            "estimates", "ate", "cate", "levels",
+            "level_effects",
+            "effects",
+            "tau",
+            "contrasts",
+            "estimates",
+            "ate",
+            "cate",
+            "levels",
         )
     )
     assert has_levels, f"result has attrs {attrs[:12]}"
@@ -59,16 +73,25 @@ def test_bcf_factor_exposure_runs():
     X = rng.normal(size=(n, 2))
     # True outcome depends on 1st factor
     y = exposures[:, 0] + X[:, 0] + rng.normal(0, 0.3, n)
-    df = pd.DataFrame({
-        "y": y,
-        **{f"e{i}": exposures[:, i] for i in range(5)},
-        "x1": X[:, 0], "x2": X[:, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "y": y,
+            **{f"e{i}": exposures[:, i] for i in range(5)},
+            "x1": X[:, 0],
+            "x2": X[:, 1],
+        }
+    )
     from statspai.bcf.factor_exposure import bcf_factor_exposure
+
     r = bcf_factor_exposure(
-        df, y="y", exposures=[f"e{i}" for i in range(5)],
-        covariates=["x1", "x2"], n_factors=2,
-        n_trees_mu=40, n_trees_tau=20, n_bootstrap=20,
+        df,
+        y="y",
+        exposures=[f"e{i}" for i in range(5)],
+        covariates=["x1", "x2"],
+        n_factors=2,
+        n_trees_mu=40,
+        n_trees_tau=20,
+        n_bootstrap=20,
     )
     assert r is not None
     np.testing.assert_allclose(
@@ -88,31 +111,37 @@ def test_bcf_factor_exposure_runs():
     )
     np.testing.assert_allclose(
         r.per_factor_ate[["explained_var_ratio", "ate", "se"]].to_numpy(),
-        np.array([
-            [0.241991, 0.293275, 0.157422],
-            [0.224799, -1.353406, 0.126396],
-        ]),
+        np.array(
+            [
+                [0.241991, 0.293275, 0.157422],
+                [0.224799, -1.353406, 0.126396],
+            ]
+        ),
         atol=5e-7,
     )
 
 
 def test_bcf_ordinal_validates_inputs():
-    df = pd.DataFrame({
-        "y": np.random.randn(50),
-        "t": np.random.randint(0, 3, 50),
-        "x": np.random.randn(50),
-    })
+    df = pd.DataFrame(
+        {
+            "y": np.random.randn(50),
+            "t": np.random.randint(0, 3, 50),
+            "x": np.random.randn(50),
+        }
+    )
     with pytest.raises(MethodIncompatibility, match="missing") as exc:
         sp.bcf_ordinal(df, y="nonexistent_col", treat="t", covariates=["x"])
     assert exc.value.diagnostics["missing_columns"] == ["nonexistent_col"]
 
 
 def test_bcf_ordinal_validates_levels_and_baseline():
-    df = pd.DataFrame({
-        "y": np.random.randn(50),
-        "t": np.zeros(50, dtype=int),
-        "x": np.random.randn(50),
-    })
+    df = pd.DataFrame(
+        {
+            "y": np.random.randn(50),
+            "t": np.zeros(50, dtype=int),
+            "x": np.random.randn(50),
+        }
+    )
     with pytest.raises(DataInsufficient, match=">=2 levels") as exc:
         sp.bcf_ordinal(df, y="y", treat="t", covariates=["x"])
     assert exc.value.diagnostics["levels"] == [0]

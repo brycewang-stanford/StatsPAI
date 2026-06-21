@@ -100,13 +100,14 @@ class TestThreeparttable:
     def test_notes_not_multicolumn_rows(self, table):
         tex = table.to_latex(threeparttable=True)
         # the SE-in-parentheses note must be an \item, not a multicolumn row
-        assert "\\item Standard errors in parentheses" in tex \
-            or "\\item Robust standard errors" in tex \
+        assert (
+            "\\item Standard errors in parentheses" in tex
+            or "\\item Robust standard errors" in tex
             or re.search(r"\\item .*in parentheses", tex)
+        )
 
     def test_combined_with_siunitx(self, table):
-        tex = table.to_latex(siunitx=True, threeparttable=True,
-                             siunitx_preamble=True)
+        tex = table.to_latex(siunitx=True, threeparttable=True, siunitx_preamble=True)
         assert "\\begin{threeparttable}" in tex
         assert "S[table-format=" in tex
         assert tex.startswith("% Preamble:")
@@ -139,8 +140,7 @@ class TestUnsupportedFeaturesRejected:
         m1 = sp.regress("y ~ x", data=models)
         m2 = sp.regress("y ~ x", data=models)
         with pytest.raises(NotImplementedError, match="column_spanners"):
-            sp.regtable(m1, m2,
-                        column_spanners=[("G", 2)]).to_latex(siunitx=True)
+            sp.regtable(m1, m2, column_spanners=[("G", 2)]).to_latex(siunitx=True)
 
 
 class TestEconometricResultsPassthrough:

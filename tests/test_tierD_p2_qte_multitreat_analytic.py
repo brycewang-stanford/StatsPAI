@@ -43,24 +43,39 @@ class TestQTEAnalytic:
         rng = np.random.default_rng(0)
         t = rng.integers(0, 2, N)
         y = rng.normal(0, 1, N) + 2.0 * t  # constant shift tau = 2
-        res = sp.qte(pd.DataFrame({"y": y, "t": t}), y="y", treatment="t",
-                     quantiles=[0.25, 0.5, 0.75], n_boot=NBOOT)
+        res = sp.qte(
+            pd.DataFrame({"y": y, "t": t}),
+            y="y",
+            treatment="t",
+            quantiles=[0.25, 0.5, 0.75],
+            n_boot=NBOOT,
+        )
         np.testing.assert_allclose(res.effects, 2.0, atol=0.25)
 
     def test_ate_recovers_mean_shift(self):
         rng = np.random.default_rng(1)
         t = rng.integers(0, 2, N)
         y = rng.normal(0, 1, N) + 2.0 * t
-        res = sp.qte(pd.DataFrame({"y": y, "t": t}), y="y", treatment="t",
-                     quantiles=[0.5], n_boot=NBOOT)
+        res = sp.qte(
+            pd.DataFrame({"y": y, "t": t}),
+            y="y",
+            treatment="t",
+            quantiles=[0.5],
+            n_boot=NBOOT,
+        )
         assert res.ate == pytest.approx(2.0, abs=0.2)
 
     def test_no_effect_gives_zero_qte(self):
         rng = np.random.default_rng(2)
         t = rng.integers(0, 2, N)
         y = rng.normal(0, 1, N)  # treatment unrelated to outcome
-        res = sp.qte(pd.DataFrame({"y": y, "t": t}), y="y", treatment="t",
-                     quantiles=[0.25, 0.5, 0.75], n_boot=NBOOT)
+        res = sp.qte(
+            pd.DataFrame({"y": y, "t": t}),
+            y="y",
+            treatment="t",
+            quantiles=[0.25, 0.5, 0.75],
+            n_boot=NBOOT,
+        )
         np.testing.assert_allclose(res.effects, 0.0, atol=0.25)
 
 
@@ -80,16 +95,18 @@ class TestMultiTreatmentAnalytic:
 
     def test_recovers_per_arm_effects(self):
         df = self._three_arm_dgp()
-        res = sp.multi_treatment(df, y="y", treat="T", covariates=["x"],
-                                 reference=0, n_bootstrap=NBOOT)
+        res = sp.multi_treatment(
+            df, y="y", treat="T", covariates=["x"], reference=0, n_bootstrap=NBOOT
+        )
         eff = res.detail.set_index("treatment")["estimate"]
         assert eff[1] == pytest.approx(1.0, abs=0.25)
         assert eff[2] == pytest.approx(2.5, abs=0.25)
 
     def test_reference_arm_excluded_and_ordering(self):
         df = self._three_arm_dgp()
-        res = sp.multi_treatment(df, y="y", treat="T", covariates=["x"],
-                                 reference=0, n_bootstrap=NBOOT)
+        res = sp.multi_treatment(
+            df, y="y", treat="T", covariates=["x"], reference=0, n_bootstrap=NBOOT
+        )
         assert 0 not in set(res.detail["treatment"])
         eff = res.detail.set_index("treatment")["estimate"]
         assert eff[2] > eff[1]  # arm 2 effect exceeds arm 1
@@ -107,15 +124,25 @@ class TestDistributionalTEAnalytic:
         rng = np.random.default_rng(0)
         t = rng.integers(0, 2, N)
         y = rng.normal(0, 1, N) + 2.0 * t
-        res = sp.distributional_te(pd.DataFrame({"y": y, "t": t}), y="y",
-                                   treatment="t", n_grid=40, n_boot=NBOOT)
-        assert np.nanmean(res.dte) < 0     # treated stochastically dominates
-        assert res.ks_stat > 0.3           # distributions clearly differ
+        res = sp.distributional_te(
+            pd.DataFrame({"y": y, "t": t}),
+            y="y",
+            treatment="t",
+            n_grid=40,
+            n_boot=NBOOT,
+        )
+        assert np.nanmean(res.dte) < 0  # treated stochastically dominates
+        assert res.ks_stat > 0.3  # distributions clearly differ
 
     def test_no_effect_has_small_ks_distance(self):
         rng = np.random.default_rng(3)
         t = rng.integers(0, 2, N)
         y = rng.normal(0, 1, N)  # identical distributions across arms
-        res = sp.distributional_te(pd.DataFrame({"y": y, "t": t}), y="y",
-                                   treatment="t", n_grid=40, n_boot=NBOOT)
+        res = sp.distributional_te(
+            pd.DataFrame({"y": y, "t": t}),
+            y="y",
+            treatment="t",
+            n_grid=40,
+            n_boot=NBOOT,
+        )
         assert res.ks_stat < 0.1

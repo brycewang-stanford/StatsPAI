@@ -22,14 +22,15 @@ def _nonlinear_iv(n=600, seed=0):
     v = rng.normal(size=n)
     d = 0.9 * z + v
     u = 0.5 * v + rng.normal(0, 0.5, size=n)
-    y = 1.0 + 0.5 * d - 0.2 * d ** 2 + u
+    y = 1.0 + 0.5 * d - 0.2 * d**2 + u
     return pd.DataFrame({"y": y, "d": d, "z": z, "x": rng.normal(size=n)})
 
 
 def test_npiv_polynomial_summary_frame():
     df = _nonlinear_iv(seed=1)
-    r = sp.iv.npiv(y="y", endog="d", instruments="z", data=df,
-                   basis="polynomial", k_d=3, k_z=3)
+    r = sp.iv.npiv(
+        y="y", endog="d", instruments="z", data=df, basis="polynomial", k_d=3, k_z=3
+    )
     s = r.summary()
     assert "Nonparametric IV" in s
     frame = r.to_frame()
@@ -39,15 +40,24 @@ def test_npiv_polynomial_summary_frame():
 
 def test_npiv_bspline_basis():
     df = _nonlinear_iv(seed=2)
-    r = sp.iv.npiv(y="y", endog="d", instruments="z", data=df,
-                   basis="bspline", k_d=4, k_z=4)
+    r = sp.iv.npiv(
+        y="y", endog="d", instruments="z", data=df, basis="bspline", k_d=4, k_z=4
+    )
     assert np.isfinite(r.h_values).all()
 
 
 def test_npiv_auto_high_degree_uses_bspline():
     df = _nonlinear_iv(n=800, seed=3)
-    r = sp.iv.npiv(y="y", endog="d", instruments="z", data=df,
-                   basis="auto", k_d=6, k_z=6, regularization=0.01)
+    r = sp.iv.npiv(
+        y="y",
+        endog="d",
+        instruments="z",
+        data=df,
+        basis="auto",
+        k_d=6,
+        k_z=6,
+        regularization=0.01,
+    )
     assert r.basis_type == "auto"
     assert r.n_obs == len(df)
 
@@ -63,17 +73,29 @@ def test_npiv_multi_instrument_and_exog():
     df = df.copy()
     rng = np.random.default_rng(5)
     df["z2"] = 0.5 * df["z"] + rng.normal(size=len(df))
-    r = sp.iv.npiv(y="y", endog="d", instruments=["z", "z2"], exog="x", data=df,
-                   basis="polynomial", k_d=3, k_z=3)
+    r = sp.iv.npiv(
+        y="y",
+        endog="d",
+        instruments=["z", "z2"],
+        exog="x",
+        data=df,
+        basis="polynomial",
+        k_d=3,
+        k_z=3,
+    )
     assert np.isfinite(r.first_stage_f)
 
 
 def test_npiv_array_inputs_and_regularization():
     df = _nonlinear_iv(seed=6)
     r = sp.iv.npiv(
-        y=df["y"].to_numpy(), endog=df["d"].to_numpy(),
-        instruments=df["z"].to_numpy(), basis="polynomial",
-        k_d=4, k_z=4, regularization=0.05,
+        y=df["y"].to_numpy(),
+        endog=df["d"].to_numpy(),
+        instruments=df["z"].to_numpy(),
+        basis="polynomial",
+        k_d=4,
+        k_z=4,
+        regularization=0.05,
     )
     assert r.regularization == 0.05
 
@@ -81,8 +103,16 @@ def test_npiv_array_inputs_and_regularization():
 def test_npiv_custom_grid():
     df = _nonlinear_iv(seed=7)
     grid = np.linspace(-1.0, 1.0, 21)
-    r = sp.iv.npiv(y="y", endog="d", instruments="z", data=df,
-                   basis="polynomial", k_d=3, k_z=3, d_grid=grid)
+    r = sp.iv.npiv(
+        y="y",
+        endog="d",
+        instruments="z",
+        data=df,
+        basis="polynomial",
+        k_d=3,
+        k_z=3,
+        d_grid=grid,
+    )
     np.testing.assert_array_equal(r.d_grid, grid)
 
 

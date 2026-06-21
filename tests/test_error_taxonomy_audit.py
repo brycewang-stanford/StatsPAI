@@ -1,4 +1,5 @@
 """Contract tests for ``scripts/error_taxonomy_audit.py``."""
+
 from __future__ import annotations
 
 import json

@@ -12,6 +12,7 @@ Quarto emitter both consume ``result._provenance``. These tests cover:
 - Param summarisation: scalars pass through, frames become
   fingerprint dicts, long sequences are truncated.
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
@@ -29,10 +30,10 @@ from statspai.output._lineage import (
     lineage_summary,
 )
 
-
 # ---------------------------------------------------------------------------
 # compute_data_hash
 # ---------------------------------------------------------------------------
+
 
 class TestComputeDataHash:
     def test_dataframe_stable(self):
@@ -88,6 +89,7 @@ class TestComputeDataHash:
 # Provenance dataclass
 # ---------------------------------------------------------------------------
 
+
 class TestProvenanceDataclass:
     def test_construct_minimal(self):
         p = Provenance(function="sp.did.canonical_did")
@@ -131,6 +133,7 @@ class TestProvenanceDataclass:
 # ---------------------------------------------------------------------------
 # attach_provenance
 # ---------------------------------------------------------------------------
+
 
 class TestAttachProvenance:
     def test_basic_attach(self):
@@ -225,6 +228,7 @@ class TestAttachProvenance:
 # get_provenance
 # ---------------------------------------------------------------------------
 
+
 class TestGetProvenance:
     def test_direct(self):
         result = SimpleNamespace()
@@ -253,6 +257,7 @@ class TestGetProvenance:
 # format_provenance
 # ---------------------------------------------------------------------------
 
+
 class TestFormatProvenance:
     def test_minimal(self):
         p = Provenance(function="sp.did.test")
@@ -278,6 +283,7 @@ class TestFormatProvenance:
 # ---------------------------------------------------------------------------
 # lineage_summary
 # ---------------------------------------------------------------------------
+
 
 class TestLineageSummary:
     def test_aggregates_runs(self):

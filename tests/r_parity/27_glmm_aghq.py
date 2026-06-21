@@ -6,6 +6,7 @@ Laplace approximation). Tolerance: rel < 1e-6 on fixed-effect point
 estimates after tight optimiser controls; rel < 5e-2 on SE because
 the fixed-effect covariance conventions differ across implementations.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,12 +15,12 @@ import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
 
-
 MODULE = "27_glmm_aghq"
 
 
-def make_data(n_groups: int = 60, n_per: int = 25,
-              seed: int = PARITY_SEED) -> pd.DataFrame:
+def make_data(
+    n_groups: int = 60, n_per: int = 25, seed: int = PARITY_SEED
+) -> pd.DataFrame:
     """Same DGP as Module 26."""
     rng = np.random.default_rng(seed)
     gid = np.repeat(np.arange(n_groups), n_per)
@@ -47,32 +48,46 @@ def main() -> None:
     )
 
     rows: list[ParityRecord] = [
-        ParityRecord(MODULE, "py", "beta_intercept",
-                     estimate=float(fit.params["_cons"]),
-                     se=float(fit.bse["_cons"]),
-                     n=int(fit.n_obs)),
-        ParityRecord(MODULE, "py", "beta_x1",
-                     estimate=float(fit.params["x1"]),
-                     se=float(fit.bse["x1"]),
-                     n=int(fit.n_obs)),
-        ParityRecord(MODULE, "py", "logLik",
-                     estimate=float(fit.log_likelihood),
-                     n=int(fit.n_obs)),
+        ParityRecord(
+            MODULE,
+            "py",
+            "beta_intercept",
+            estimate=float(fit.params["_cons"]),
+            se=float(fit.bse["_cons"]),
+            n=int(fit.n_obs),
+        ),
+        ParityRecord(
+            MODULE,
+            "py",
+            "beta_x1",
+            estimate=float(fit.params["x1"]),
+            se=float(fit.bse["x1"]),
+            n=int(fit.n_obs),
+        ),
+        ParityRecord(
+            MODULE, "py", "logLik", estimate=float(fit.log_likelihood), n=int(fit.n_obs)
+        ),
     ]
 
-    write_results(MODULE, "py", rows,
-                  extra={"family": "binomial",
-                         "link": "logit",
-                         "nAGQ": 8,
-                         "n_groups": int(fit.n_groups),
-                         "optimizer_tol": 1e-12,
-                         "optimizer_maxiter": 5000,
-                         "optimizer_note": (
-                             "sp.melogit uses the AGHQ reference optimiser "
-                             "budget (maxiter=5000, tol=1e-12) so the "
-                             "likelihood optimum tracks tight lme4/Stata "
-                             "fixed effects."
-                         )})
+    write_results(
+        MODULE,
+        "py",
+        rows,
+        extra={
+            "family": "binomial",
+            "link": "logit",
+            "nAGQ": 8,
+            "n_groups": int(fit.n_groups),
+            "optimizer_tol": 1e-12,
+            "optimizer_maxiter": 5000,
+            "optimizer_note": (
+                "sp.melogit uses the AGHQ reference optimiser "
+                "budget (maxiter=5000, tol=1e-12) so the "
+                "likelihood optimum tracks tight lme4/Stata "
+                "fixed effects."
+            ),
+        },
+    )
 
 
 if __name__ == "__main__":

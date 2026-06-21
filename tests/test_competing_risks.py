@@ -12,6 +12,7 @@ Validation strategy (no external R/Stata dependency):
 * Gray's K-sample test rejects under a strong group difference and does not
   reject under the null.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -67,8 +68,7 @@ def test_analytic_se_matches_bootstrap():
 
     def cif1_se_at(d):
         c = sp.cuminc(d, "time", "event")
-        sub = c.cif_table[(c.cif_table["cause"] == 1)
-                          & (c.cif_table["time"] <= t0)]
+        sub = c.cif_table[(c.cif_table["cause"] == 1) & (c.cif_table["time"] <= t0)]
         if not len(sub):
             return 0.0, 0.0
         return float(sub["cif"].iloc[-1]), float(sub["se"].iloc[-1])
@@ -89,7 +89,7 @@ def test_finegray_recovers_positive_shr():
     rng = np.random.default_rng(3)
     n = 3000
     x = rng.binomial(1, 0.5, n).astype(float)
-    h1 = 0.4 * np.exp(0.8 * x)        # x raises the cause-1 hazard
+    h1 = 0.4 * np.exp(0.8 * x)  # x raises the cause-1 hazard
     t1 = rng.exponential(1.0 / h1)
     t2 = rng.exponential(1.0 / 0.4, n)
     te = np.minimum(t1, t2)
@@ -100,7 +100,7 @@ def test_finegray_recovers_positive_shr():
     df = pd.DataFrame({"time": time, "event": event, "x": x})
 
     fg = sp.finegray(df, "time", "event", x=["x"], cause=1)
-    assert fg.shr[0] > 1.0                       # positive subdistribution effect
+    assert fg.shr[0] > 1.0  # positive subdistribution effect
     assert fg.pvalues[0] < 0.01
     assert fg.conf_int[0, 0] < fg.params[0] < fg.conf_int[0, 1]
     assert fg.n_events > 0

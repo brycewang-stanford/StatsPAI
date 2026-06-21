@@ -15,6 +15,7 @@ DGP: one treated unit with a clean +4 post jump over imperfect donors.
 Assertions check real recovery / correct loud failures — never fabricated
 numbers.
 """
+
 from __future__ import annotations
 
 import matplotlib
@@ -58,19 +59,35 @@ def panel():
 # v_method branches
 # ---------------------------------------------------------------------------
 def test_v_method_equal_branch(panel):
-    r = sp.synth(panel, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="classic", v_method="equal", placebo=False)
+    r = sp.synth(
+        panel,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="classic",
+        v_method="equal",
+        placebo=False,
+    )
     assert np.isfinite(r.estimate)
     assert r.estimate > 1.5
 
 
 def test_v_method_nested_with_covariates():
     df = _scm_panel(seed=3, with_cov=True)
-    r = sp.synth(df, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="classic", covariates=["z"], v_method="nested",
-                 placebo=False)
+    r = sp.synth(
+        df,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="classic",
+        covariates=["z"],
+        v_method="nested",
+        placebo=False,
+    )
     assert np.isfinite(r.estimate)
     # weights are a valid simplex
     wt = r.model_info.get("weights")
@@ -84,21 +101,34 @@ def test_v_method_nested_with_covariates():
 # ---------------------------------------------------------------------------
 def test_special_predictors_mean_and_slice():
     df = _scm_panel(seed=4, with_cov=True)
-    r = sp.synth(df, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="classic", placebo=False,
-                 special_predictors=[("z", slice(1, 5), "mean"),
-                                     ("z", [6, 7], "sum")])
+    r = sp.synth(
+        df,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="classic",
+        placebo=False,
+        special_predictors=[("z", slice(1, 5), "mean"), ("z", [6, 7], "sum")],
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_special_predictor_invalid_op_raises():
     df = _scm_panel(seed=5, with_cov=True)
     with pytest.raises(ValueError):
-        sp.synth(df, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="classic", placebo=False,
-                 special_predictors=[("z", 3, "median")])
+        sp.synth(
+            df,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            method="classic",
+            placebo=False,
+            special_predictors=[("z", 3, "median")],
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -108,9 +138,15 @@ def test_multi_outcome_defaults_to_single_outcome(panel):
     # dispatcher defaults outcomes=[outcome]; multi_outcome_synth then
     # rejects a single outcome — covers the dispatch default branch.
     with pytest.raises(ValueError):
-        sp.synth(panel, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="multi_outcome")
+        sp.synth(
+            panel,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            method="multi_outcome",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -118,32 +154,61 @@ def test_multi_outcome_defaults_to_single_outcome(panel):
 # ---------------------------------------------------------------------------
 def test_r_backend_rejects_penalized(panel):
     with pytest.raises(NotImplementedError):
-        sp.synth(panel, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="ridge", backend="r")
+        sp.synth(
+            panel,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            method="ridge",
+            backend="r",
+        )
 
 
 def test_r_backend_rejects_covariates():
     df = _scm_panel(seed=6, with_cov=True)
     with pytest.raises(NotImplementedError):
-        sp.synth(df, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="classic", backend="r", covariates=["z"])
+        sp.synth(
+            df,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            method="classic",
+            backend="r",
+            covariates=["z"],
+        )
 
 
 def test_r_backend_rejects_special_predictors(panel):
     with pytest.raises(NotImplementedError):
-        sp.synth(panel, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="classic", backend="synth",
-                 special_predictors=[("y", 3, "mean")])
+        sp.synth(
+            panel,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            method="classic",
+            backend="synth",
+            special_predictors=[("y", 3, "mean")],
+        )
 
 
 def test_unknown_backend_raises(panel):
     with pytest.raises(ValueError):
-        sp.synth(panel, outcome="y", unit="unit", time="time",
-                 treated_unit="treated", treatment_time=T_TREAT,
-                 method="classic", backend="bogus")
+        sp.synth(
+            panel,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            method="classic",
+            backend="bogus",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -151,13 +216,21 @@ def test_unknown_backend_raises(panel):
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="module")
 def fitted(panel):
-    return sp.synth(panel, outcome="y", unit="unit", time="time",
-                    treated_unit="treated", treatment_time=T_TREAT,
-                    method="classic", placebo=False)
+    return sp.synth(
+        panel,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="classic",
+        placebo=False,
+    )
 
 
 def test_synthplot_trajectory(fitted):
     import matplotlib.pyplot as plt
+
     fig, ax = sp.synthplot(fitted, type="trajectory")
     assert fig is not None and ax is not None
     plt.close(fig)
@@ -165,6 +238,7 @@ def test_synthplot_trajectory(fitted):
 
 def test_synthplot_gap(fitted):
     import matplotlib.pyplot as plt
+
     fig, ax = sp.synthplot(fitted, type="gap")
     assert fig is not None
     plt.close(fig)
@@ -172,6 +246,7 @@ def test_synthplot_gap(fitted):
 
 def test_synthplot_both(fitted):
     import matplotlib.pyplot as plt
+
     fig, axes = sp.synthplot(fitted, type="both", title="custom")
     assert len(axes) == 2
     plt.close(fig)
@@ -223,6 +298,7 @@ def test_scm_module_synthplot_requires_gap_table(fitted):
 def test_synthplot_requires_gap_table(fitted):
     import copy
     import matplotlib.pyplot as plt
+
     bad = copy.copy(fitted)
     mi = dict(fitted.model_info)
     mi["gap_table"] = None

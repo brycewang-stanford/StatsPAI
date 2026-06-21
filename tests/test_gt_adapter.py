@@ -17,6 +17,7 @@ Coverage
   even if a particular gt option is missing in the installed
   version.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -35,16 +36,19 @@ pytestmark = pytest.mark.skipif(
 # Smoke
 # ---------------------------------------------------------------------------
 
+
 class TestSmoke:
     def test_dep_detected(self):
         assert is_great_tables_available() is True
 
     def test_dataframe_path(self):
-        df = pd.DataFrame({
-            "var": ["x1", "x2"],
-            "M1": ["0.5***", "0.3"],
-            "M2": ["0.45**", "0.28"],
-        })
+        df = pd.DataFrame(
+            {
+                "var": ["x1", "x2"],
+                "M1": ["0.5***", "0.3"],
+                "M2": ["0.45**", "0.28"],
+            }
+        )
         g = to_gt(df, rowname_col="var", title="Returns")
         # Round-trip via HTML — establishes the GT actually renders.
         html = g.as_raw_html()
@@ -61,22 +65,27 @@ class TestSmoke:
 # RegtableResult path
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def fitted_model():
     """A small statsmodels-OLS-like fit that regtable can consume."""
     import statspai as sp
+
     np.random.seed(0)
-    df = pd.DataFrame({
-        "wage": np.random.randn(200) + 10.0,
-        "trained": np.random.binomial(1, 0.5, 200),
-        "edu": np.random.randn(200),
-    })
+    df = pd.DataFrame(
+        {
+            "wage": np.random.randn(200) + 10.0,
+            "trained": np.random.binomial(1, 0.5, 200),
+            "edu": np.random.randn(200),
+        }
+    )
     return sp.feols("wage ~ trained + edu", df)
 
 
 class TestRegtableAdapter:
     def test_regtable_to_gt_basic(self, fitted_model):
         import statspai as sp
+
         rt = sp.regtable(fitted_model, title="Returns to Schooling")
         g = to_gt(rt)
         html = g.as_raw_html()
@@ -87,6 +96,7 @@ class TestRegtableAdapter:
 
     def test_journal_template_applied(self, fitted_model):
         import statspai as sp
+
         rt = sp.regtable(fitted_model, template="aer")
         g = to_gt(rt)
         # Theme application is best-effort — the call must not raise.
@@ -96,11 +106,11 @@ class TestRegtableAdapter:
 
     def test_notes_carry_through(self, fitted_model):
         import statspai as sp
+
         rt = sp.regtable(
             fitted_model,
             template="aer",
-            notes=["Robust SEs in parentheses.",
-                   "*** p<0.01, ** p<0.05, * p<0.10."],
+            notes=["Robust SEs in parentheses.", "*** p<0.01, ** p<0.05, * p<0.10."],
         )
         g = to_gt(rt)
         html = g.as_raw_html()
@@ -110,18 +120,29 @@ class TestRegtableAdapter:
 
     def test_explicit_title_overrides(self, fitted_model):
         import statspai as sp
+
         rt = sp.regtable(fitted_model, title="Auto title")
         g = to_gt(rt, title="Manual override")
         html = g.as_raw_html()
         assert "Manual override" in html
         assert "Auto title" not in html
 
-    @pytest.mark.parametrize("template", [
-        "aer", "qje", "econometrica", "restat",
-        "jf", "aeja", "jpe", "restud",
-    ])
+    @pytest.mark.parametrize(
+        "template",
+        [
+            "aer",
+            "qje",
+            "econometrica",
+            "restat",
+            "jf",
+            "aeja",
+            "jpe",
+            "restud",
+        ],
+    )
     def test_all_journal_presets_dont_crash(self, fitted_model, template):
         import statspai as sp
+
         rt = sp.regtable(fitted_model, template=template)
         g = to_gt(rt)
         # The full pipeline (including theme application) must not crash
@@ -132,6 +153,7 @@ class TestRegtableAdapter:
 # ---------------------------------------------------------------------------
 # Generic DataFrame path
 # ---------------------------------------------------------------------------
+
 
 class TestDataFramePath:
     def test_no_rowname_col(self):
@@ -165,8 +187,10 @@ class TestDataFramePath:
 # Duck-typed (anything with to_dataframe)
 # ---------------------------------------------------------------------------
 
+
 class _DuckTable:
     """Minimal duck — like a custom result object with to_dataframe."""
+
     title = "Duck title"
     notes = ("note 1",)
     template = "aer"

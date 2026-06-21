@@ -15,6 +15,7 @@ Real synthetic RD data with a moderator-driven jump; assertions check the
 recovered level / spread, positive bandwidth, ordered CIs — never fabricated
 numbers.
 """
+
 from __future__ import annotations
 
 import matplotlib

@@ -51,6 +51,7 @@ def _make_fuzzy(n=2500, seed=11):
 
 # ---------------------------------------------------------------- hte
 
+
 def test_rdhte_and_lincom_and_bwhte():
     df = _make_hte()
     res = sp.rdhte(df, y="y", x="x", z="z", c=0, n_eval=8)
@@ -72,6 +73,7 @@ def test_rdhte_multiple_covariates():
 
 # ---------------------------------------------------------------- honest_ci
 
+
 def test_rd_honest_mse_and_flci_and_manual_M():
     df = _make_sharp()
     r_mse = sp.rd_honest(df, y="y", x="x", c=0, opt_criterion="mse")
@@ -81,18 +83,48 @@ def test_rd_honest_mse_and_flci_and_manual_M():
     r_M = sp.rd_honest(df, y="y", x="x", c=0, M=5.0)
     assert np.isfinite(r_M.estimate)
     np.testing.assert_allclose(
-        [r_mse.estimate, r_mse.se, r_mse.ci[0], r_mse.ci[1], r_mse.model_info["bias_bound"]],
-        [3.075221537406432, 0.06848787439334914, 2.667657858640401, 3.4827852161724624, 0.1366649557886817],
+        [
+            r_mse.estimate,
+            r_mse.se,
+            r_mse.ci[0],
+            r_mse.ci[1],
+            r_mse.model_info["bias_bound"],
+        ],
+        [
+            3.075221537406432,
+            0.06848787439334914,
+            2.667657858640401,
+            3.4827852161724624,
+            0.1366649557886817,
+        ],
         atol=1e-12,
     )
     np.testing.assert_allclose(
-        [r_flci.estimate, r_flci.se, r_flci.ci[0], r_flci.ci[1], r_flci.model_info["bias_bound"]],
-        [3.09668701925409, 0.09801637617962299, 2.8453998509496996, 3.3479741875584805, 0.02958930054859988],
+        [
+            r_flci.estimate,
+            r_flci.se,
+            r_flci.ci[0],
+            r_flci.ci[1],
+            r_flci.model_info["bias_bound"],
+        ],
+        [
+            3.09668701925409,
+            0.09801637617962299,
+            2.8453998509496996,
+            3.3479741875584805,
+            0.02958930054859988,
+        ],
         atol=1e-12,
     )
     np.testing.assert_allclose(
         [r_M.estimate, r_M.se, r_M.ci[0], r_M.ci[1], r_M.model_info["bias_bound"]],
-        [3.075221537406432, 0.06848787439334914, 2.8305431453530514, 3.319899929459812, 0.05522231243235646],
+        [
+            3.075221537406432,
+            0.06848787439334914,
+            2.8305431453530514,
+            3.319899929459812,
+            0.05522231243235646,
+        ],
         atol=1e-12,
     )
 
@@ -106,6 +138,7 @@ def test_rd_honest_kernels(kernel):
 
 # ---------------------------------------------------------------- bias_aware
 
+
 def test_rd_bias_aware_fuzzy():
     df = _make_fuzzy()
     res = sp.rd_bias_aware_fuzzy(df, y="y", x="x", fuzzy="d", c=0, n_grid=81)
@@ -116,12 +149,14 @@ def test_rd_bias_aware_fuzzy():
 def test_rd_bias_aware_fuzzy_manual_M_and_cluster():
     df = _make_fuzzy()
     df["g"] = (np.arange(len(df)) // 25).astype(int)
-    res = sp.rd_bias_aware_fuzzy(df, y="y", x="x", fuzzy="d", c=0,
-                                 M_y=2.0, M_d=2.0, cluster="g", n_grid=81)
+    res = sp.rd_bias_aware_fuzzy(
+        df, y="y", x="x", fuzzy="d", c=0, M_y=2.0, M_d=2.0, cluster="g", n_grid=81
+    )
     assert np.isfinite(res.estimate)
 
 
 # ---------------------------------------------------------------- dashboard
+
 
 def test_rd_dashboard():
     df = _make_sharp()
@@ -140,23 +175,30 @@ def test_rd_compare_default_and_custom():
 
 def test_rd_robustness_table():
     df = _make_sharp()
-    out = sp.rd_robustness_table(df, y="y", x="x", c=0,
-                                 kernels=("triangular",),
-                                 bwselects=("mserd",),
-                                 polynomials=(1,))
+    out = sp.rd_robustness_table(
+        df,
+        y="y",
+        x="x",
+        c=0,
+        kernels=("triangular",),
+        bwselects=("mserd",),
+        polynomials=(1,),
+    )
     assert isinstance(out, pd.DataFrame)
     assert len(out) >= 1
 
 
 # ---------------------------------------------------------------- rd_flex / discrete
 
+
 @pytest.mark.parametrize("learner", ["boost", "forest", "ridge", "lasso"])
 def test_rd_flex_learners(learner):
     if not _HAS_SK:
         pytest.skip("sklearn not installed")
     df = _make_sharp()
-    res = sp.rd_flex(df, y="y", x="x", c=0, W=["z", "z2"],
-                     learner=learner, n_folds=3, random_state=0)
+    res = sp.rd_flex(
+        df, y="y", x="x", c=0, W=["z", "z2"], learner=learner, n_folds=3, random_state=0
+    )
     assert isinstance(res, CausalResult)
     assert res.se > 0
 
@@ -183,6 +225,7 @@ def test_rd_discrete_errors():
 
 # ---------------------------------------------------------------- rdmulti
 
+
 def test_rdmc_multi_cutoff():
     rng = np.random.default_rng(2)
     n = 3000
@@ -202,12 +245,12 @@ def test_rdms_multi_score():
     treat = ((x1 >= 0) & (x2 >= 0)).astype(int)
     Y = 0.3 * x1 + 0.3 * x2 + 2.0 * treat + rng.normal(0, 0.4, n)
     df = pd.DataFrame({"y": Y, "x1": x1, "x2": x2})
-    res = sp.rdms(df, y="y", x1="x1", x2="x2", cutoff1=0, cutoff2=0,
-                  bandwidth=0.6)
+    res = sp.rdms(df, y="y", x1="x1", x2="x2", cutoff1=0, cutoff2=0, bandwidth=0.6)
     assert res is not None
 
 
 # ---------------------------------------------------------------- rdml
+
 
 def test_rd_lasso():
     df = _make_sharp()
@@ -229,12 +272,14 @@ def test_rd_cate_summary():
     if not _HAS_SK:
         pytest.skip("sklearn not installed")
     df = _make_hte()
-    out = sp.rd_cate_summary(df, y="y", x="x", c=0, covs=["z"],
-                             methods=["lasso"], seed=0)
+    out = sp.rd_cate_summary(
+        df, y="y", x="x", c=0, covs=["z"], methods=["lasso"], seed=0
+    )
     assert isinstance(out, dict)
 
 
 # ---------------------------------------------------------------- dispatcher
+
 
 def test_rd_fit_dispatcher_passthrough():
     df = _make_sharp()
@@ -258,8 +303,7 @@ def test_rd_fit_bias_aware_requires_fuzzy():
     df = _make_fuzzy()
     with pytest.raises(ValueError, match="requires fuzzy"):
         sp.rd.fit(df, y="y", x="x", c=0, method="bias_aware_fuzzy")
-    res = sp.rd.fit(df, y="y", x="x", c=0, method="bias_aware_fuzzy",
-                    fuzzy="d")
+    res = sp.rd.fit(df, y="y", x="x", c=0, method="bias_aware_fuzzy", fuzzy="d")
     assert np.isfinite(res.estimate)
 
 

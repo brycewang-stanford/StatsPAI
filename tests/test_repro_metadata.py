@@ -30,6 +30,7 @@ def small_df():
 # build_repro_note unit tests
 # ---------------------------------------------------------------------------
 
+
 def test_repro_note_default_includes_version_and_timestamp():
     s = build_repro_note()
     assert s.startswith("Reproducibility:")
@@ -89,6 +90,7 @@ def test_repro_note_ignores_non_dataframe():
 # ---------------------------------------------------------------------------
 # regtable() integration
 # ---------------------------------------------------------------------------
+
 
 def test_regtable_repro_true_appends_footer(ols_models):
     m1, m2 = ols_models

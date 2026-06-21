@@ -3,6 +3,7 @@
 Times sp.synth(method='classic') at N_donors in {20, 50, 100} on a
 deterministic 30-period panel. Companion R script times Synth::synth.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -10,7 +11,6 @@ import pandas as pd
 import statspai as sp
 
 from _common import TimingResult, time_repeat, write_results
-
 
 N_DONORS_LIST = [20, 50, 100]
 T = 30
@@ -39,19 +39,30 @@ def main() -> None:
 
         def run_sp() -> None:
             sp.synth(
-                df, outcome="y", unit="unit_id", time="year",
-                treated_unit=0, treatment_time=1985,
+                df,
+                outcome="y",
+                unit="unit_id",
+                time="year",
+                treated_unit=0,
+                treatment_time=1985,
                 method="classic",
             )
 
         med, iqr, mn, mx, peak = time_repeat(run_sp, n_reps=N_REPS, warmup=1)
-        rows.append(TimingResult(
-            estimator="03_scm", side="py",
-            n=n_donors, n_reps=N_REPS,
-            median_time_s=med, iqr_time_s=iqr,
-            min_time_s=mn, max_time_s=mx, peak_mem_mb=peak,
-            extra={"n_donors": n_donors, "T": T},
-        ))
+        rows.append(
+            TimingResult(
+                estimator="03_scm",
+                side="py",
+                n=n_donors,
+                n_reps=N_REPS,
+                median_time_s=med,
+                iqr_time_s=iqr,
+                min_time_s=mn,
+                max_time_s=mx,
+                peak_mem_mb=peak,
+                extra={"n_donors": n_donors, "T": T},
+            )
+        )
         print(f"  n_donors={n_donors:>4}  T={T}  median={med:.3f}s")
 
     write_results("03_scm", "py", rows)

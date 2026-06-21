@@ -44,14 +44,16 @@ class TestIVRegression:
         # Outcome
         y = 1 + 2 * x_endog + 3 * x_exog + eps
 
-        df = pd.DataFrame({
-            'y': y,
-            'x_endog': x_endog,
-            'x_exog': x_exog,
-            'z1': z1,
-            'z2': z2,
-            'group': np.random.choice(['A', 'B', 'C', 'D'], n),
-        })
+        df = pd.DataFrame(
+            {
+                "y": y,
+                "x_endog": x_endog,
+                "x_exog": x_exog,
+                "z1": z1,
+                "z2": z2,
+                "group": np.random.choice(["A", "B", "C", "D"], n),
+            }
+        )
         return df
 
     @pytest.fixture
@@ -67,11 +69,13 @@ class TestIVRegression:
         x_endog = 0.7 * z + 0.5 * eps + np.random.normal(0, 0.3, n)
         y = 3 + 1.5 * x_endog + eps
 
-        return pd.DataFrame({
-            'y': y,
-            'x_endog': x_endog,
-            'z': z,
-        })
+        return pd.DataFrame(
+            {
+                "y": y,
+                "x_endog": x_endog,
+                "z": z,
+            }
+        )
 
     # ----------------------------------------------------------------
     # Basic functionality
@@ -88,9 +92,9 @@ class TestIVRegression:
         assert len(result.params) == 3  # Intercept, x_exog, x_endog
 
         # 2SLS should be close to true values
-        assert abs(result.params['x_endog'] - 2.0) < 0.3
-        assert abs(result.params['x_exog'] - 3.0) < 0.3
-        assert abs(result.params['Intercept'] - 1.0) < 0.5
+        assert abs(result.params["x_endog"] - 2.0) < 0.3
+        assert abs(result.params["x_exog"] - 3.0) < 0.3
+        assert abs(result.params["Intercept"] - 1.0) < 0.5
 
     def test_iv_corrects_ols_bias(self, endogenous_data):
         """OLS is biased upward; 2SLS should give lower x_endog coefficient"""
@@ -101,15 +105,15 @@ class TestIVRegression:
         )
 
         # OLS overestimates because x_endog is positively correlated with eps
-        ols_endog = ols_result.params['x_endog']
-        iv_endog = iv_result.params['x_endog']
+        ols_endog = ols_result.params["x_endog"]
+        iv_endog = iv_result.params["x_endog"]
 
         # OLS should be biased upward (> 2.0)
         assert ols_endog > 2.2, f"OLS should be biased: {ols_endog:.3f}"
         # IV should be closer to true value of 2.0
-        assert abs(iv_endog - 2.0) < abs(ols_endog - 2.0), (
-            f"IV ({iv_endog:.3f}) should be closer to 2.0 than OLS ({ols_endog:.3f})"
-        )
+        assert abs(iv_endog - 2.0) < abs(
+            ols_endog - 2.0
+        ), f"IV ({iv_endog:.3f}) should be closer to 2.0 than OLS ({ols_endog:.3f})"
 
     def test_just_identified(self, just_identified_data):
         """Just-identified case: 1 instrument for 1 endogenous variable"""
@@ -119,7 +123,7 @@ class TestIVRegression:
         )
 
         assert result is not None
-        assert abs(result.params['x_endog'] - 1.5) < 0.5
+        assert abs(result.params["x_endog"] - 1.5) < 0.5
 
     # ----------------------------------------------------------------
     # Standard errors
@@ -130,12 +134,12 @@ class TestIVRegression:
         result_classical = ivreg(
             "y ~ (x_endog ~ z1 + z2) + x_exog",
             data=endogenous_data,
-            robust='nonrobust',
+            robust="nonrobust",
         )
         result_hc1 = ivreg(
             "y ~ (x_endog ~ z1 + z2) + x_exog",
             data=endogenous_data,
-            robust='hc1',
+            robust="hc1",
         )
 
         # Parameters identical
@@ -154,7 +158,7 @@ class TestIVRegression:
         result = ivreg(
             "y ~ (x_endog ~ z1 + z2) + x_exog",
             data=endogenous_data,
-            cluster='group',
+            cluster="group",
         )
         assert result is not None
         assert len(result.params) == 3
@@ -173,9 +177,9 @@ class TestIVRegression:
 
         fs = model.first_stage
         assert len(fs) == 1  # One endogenous variable
-        assert fs[0]['f_statistic'] > 10, (
-            f"First-stage F = {fs[0]['f_statistic']:.1f}, should be > 10"
-        )
+        assert (
+            fs[0]["f_statistic"] > 10
+        ), f"First-stage F = {fs[0]['f_statistic']:.1f}, should be > 10"
 
     def test_sargan_test_overidentified(self, endogenous_data):
         """Sargan test should be available when over-identified"""
@@ -187,9 +191,9 @@ class TestIVRegression:
 
         sargan = model.sargan_test
         assert sargan is not None
-        assert sargan['df'] == 1  # 2 instruments - 1 endogenous = 1
+        assert sargan["df"] == 1  # 2 instruments - 1 endogenous = 1
         # With valid instruments, p-value should not reject
-        assert sargan['pvalue'] > 0.01
+        assert sargan["pvalue"] > 0.01
 
     def test_sargan_not_available_just_identified(self, just_identified_data):
         """Sargan test unavailable when just-identified"""
@@ -212,9 +216,8 @@ class TestIVRegression:
         hausman = model.hausman_test
         assert hausman is not None
         # Should reject H0: x_endog is exogenous
-        assert hausman['pvalue'] < 0.05, (
-            f"Hausman p-value = {hausman['pvalue']:.4f}, "
-            f"should reject exogeneity"
+        assert hausman["pvalue"] < 0.05, (
+            f"Hausman p-value = {hausman['pvalue']:.4f}, " f"should reject exogeneity"
         )
 
     def test_weak_instrument_warning(self):
@@ -228,7 +231,7 @@ class TestIVRegression:
         x_endog = 0.05 * z + eps
         y = 1 + 2 * x_endog + eps
 
-        df = pd.DataFrame({'y': y, 'x_endog': x_endog, 'z': z})
+        df = pd.DataFrame({"y": y, "x_endog": x_endog, "z": z})
 
         with pytest.warns(UserWarning, match="Weak instrument"):
             ivreg("y ~ (x_endog ~ z)", data=df)
@@ -242,19 +245,21 @@ class TestIVRegression:
         # Try 2 endogenous with only 1 instrument
         np.random.seed(42)
         n = 100
-        df = pd.DataFrame({
-            'y': np.random.normal(size=n),
-            'x1': np.random.normal(size=n),
-            'x2': np.random.normal(size=n),
-            'z1': np.random.normal(size=n),
-        })
+        df = pd.DataFrame(
+            {
+                "y": np.random.normal(size=n),
+                "x1": np.random.normal(size=n),
+                "x2": np.random.normal(size=n),
+                "z1": np.random.normal(size=n),
+            }
+        )
 
         with pytest.raises(MethodIncompatibility, match="Under-identified"):
             ivreg("y ~ (x1 + x2 ~ z1)", data=df)
 
     def test_missing_iv_formula_error(self):
         """Should raise error if formula has no IV syntax"""
-        df = pd.DataFrame({'y': [1, 2, 3], 'x': [1, 2, 3]})
+        df = pd.DataFrame({"y": [1, 2, 3], "x": [1, 2, 3]})
 
         with pytest.raises(MethodIncompatibility, match="IV formula must specify"):
             ivreg("y ~ x", data=df)
@@ -334,9 +339,10 @@ class TestIVRegression:
 
         assert list(result.params.index) == ["x_endog"]
         predictions = model.predict(just_identified_data[["x_endog"]].head(10))
-        expected = result.params["x_endog"] * just_identified_data[
-            "x_endog"
-        ].head(10).to_numpy()
+        expected = (
+            result.params["x_endog"]
+            * just_identified_data["x_endog"].head(10).to_numpy()
+        )
         np.testing.assert_allclose(predictions, expected)
 
     def test_predict_errors_use_exception_taxonomy(self, endogenous_data):
@@ -364,10 +370,12 @@ class TestIVRegression:
 
         raw = IVRegression(
             y=endogenous_data["y"].to_numpy(),
-            X_exog=np.column_stack([
-                np.ones(len(endogenous_data)),
-                endogenous_data["x_exog"].to_numpy(),
-            ]),
+            X_exog=np.column_stack(
+                [
+                    np.ones(len(endogenous_data)),
+                    endogenous_data["x_exog"].to_numpy(),
+                ]
+            ),
             X_endog=endogenous_data[["x_endog"]].to_numpy(),
             Z=endogenous_data[["z1", "z2"]].to_numpy(),
         )
@@ -388,10 +396,10 @@ class TestIVRegression:
         summary = result.summary()
 
         assert isinstance(summary, str)
-        assert 'IV-2SLS' in summary
-        assert 'Two-Stage Least Squares' in summary
-        assert 'First-stage F' in summary
-        assert 'Sargan' in summary
+        assert "IV-2SLS" in summary
+        assert "Two-Stage Least Squares" in summary
+        assert "First-stage F" in summary
+        assert "Sargan" in summary
 
     def test_model_class_interface(self, endogenous_data):
         """Test the model class interface"""
@@ -431,8 +439,8 @@ class TestIVRegression:
             data=endogenous_data,
         )
         repr_str = repr(result)
-        assert 'IV-2SLS' in repr_str
-        assert '3 parameters' in repr_str
+        assert "IV-2SLS" in repr_str
+        assert "3 parameters" in repr_str
 
 
 if __name__ == "__main__":

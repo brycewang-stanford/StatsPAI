@@ -4,6 +4,7 @@ Real synthetic panels; assert structure / sane statistical properties
 (finite stats, valid p-values, coef shapes, positive SEs, warnings on
 excluded units), not fabricated numbers.
 """
+
 import warnings
 
 import numpy as np
@@ -16,8 +17,8 @@ from statspai.panel.panel_fgls import panel_fgls
 from statspai.panel.panel_binary import panel_logit, panel_probit
 from statspai.panel.interactive_fe import interactive_fe
 
-
 # ── Unit-root data ──────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def ur_df():
@@ -48,14 +49,16 @@ def test_panel_unitroot_methods(ur_df, test):
 
 @pytest.mark.parametrize("trend", ["c", "ct", "n"])
 def test_panel_unitroot_trends(ur_df, trend):
-    res = panel_unitroot(ur_df, variable="g", id="id", time="time",
-                         test="ips", trend=trend)
+    res = panel_unitroot(
+        ur_df, variable="g", id="id", time="time", test="ips", trend=trend
+    )
     assert np.isfinite(res.statistic)
 
 
 def test_panel_unitroot_hadri_trend_ct(ur_df):
-    res = panel_unitroot(ur_df, variable="g", id="id", time="time",
-                         test="hadri", trend="ct")
+    res = panel_unitroot(
+        ur_df, variable="g", id="id", time="time", test="hadri", trend="ct"
+    )
     assert np.isfinite(res.statistic)
 
 
@@ -66,8 +69,7 @@ def test_panel_unitroot_unknown_test(ur_df):
 
 def test_panel_unitroot_warns_on_short_units(ur_df):
     # Append an entity with only 3 periods -> excluded with a warning
-    extra = pd.DataFrame({"id": [99, 99, 99], "time": [0, 1, 2],
-                          "g": [0.1, 0.2, 0.3]})
+    extra = pd.DataFrame({"id": [99, 99, 99], "time": [0, 1, 2], "g": [0.1, 0.2, 0.3]})
     df = pd.concat([ur_df, extra], ignore_index=True)
     with pytest.warns(RuntimeWarning, match="units"):
         res = panel_unitroot(df, variable="g", id="id", time="time", test="ips")
@@ -75,13 +77,15 @@ def test_panel_unitroot_warns_on_short_units(ur_df):
 
 
 def test_panel_unitroot_all_short_raises():
-    df = pd.DataFrame({"id": [0, 0, 1, 1], "time": [0, 1, 0, 1],
-                       "g": [1.0, 2.0, 3.0, 4.0]})
+    df = pd.DataFrame(
+        {"id": [0, 0, 1, 1], "time": [0, 1, 0, 1], "g": [1.0, 2.0, 3.0, 4.0]}
+    )
     with pytest.raises(ValueError, match="no unit yielded a valid ADF"):
         panel_unitroot(df, variable="g", id="id", time="time", test="ips")
 
 
 # ── Panel FGLS ──────────────────────────────────────────────────────────
+
 
 @pytest.fixture
 def fgls_df():
@@ -104,8 +108,9 @@ def fgls_df():
 @pytest.mark.parametrize("panels", ["homoskedastic", "heteroskedastic"])
 @pytest.mark.parametrize("corr", ["independent", "ar1", "psar1"])
 def test_panel_fgls_variants(fgls_df, panels, corr):
-    res = panel_fgls(fgls_df, y="y", x=["x1", "x2"], id="id", time="time",
-                     panels=panels, corr=corr)
+    res = panel_fgls(
+        fgls_df, y="y", x=["x1", "x2"], id="id", time="time", panels=panels, corr=corr
+    )
     assert "_cons" in res.params.index
     assert len(res.params) == 3
     assert np.all(res.std_errors.values >= 0) or np.isnan(res.std_errors.values).any()
@@ -113,12 +118,20 @@ def test_panel_fgls_variants(fgls_df, panels, corr):
 
 
 def test_panel_fgls_recovers_slope(fgls_df):
-    res = panel_fgls(fgls_df, y="y", x=["x1", "x2"], id="id", time="time",
-                     panels="heteroskedastic", corr="ar1")
+    res = panel_fgls(
+        fgls_df,
+        y="y",
+        x=["x1", "x2"],
+        id="id",
+        time="time",
+        panels="heteroskedastic",
+        corr="ar1",
+    )
     assert abs(res.params["x1"] - 2.0) < 0.5
 
 
 # ── Panel binary choice ─────────────────────────────────────────────────
+
 
 @pytest.fixture
 def bin_df():
@@ -139,8 +152,7 @@ def bin_df():
 def test_panel_logit_fe(bin_df):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        res = panel_logit(bin_df, y="y", x=["x1"], id="id", time="time",
-                          method="fe")
+        res = panel_logit(bin_df, y="y", x=["x1"], id="id", time="time", method="fe")
     assert "x1" in res.params.index
     assert res.model_info["method"] == "fe"
 
@@ -148,8 +160,9 @@ def test_panel_logit_fe(bin_df):
 def test_panel_logit_re(bin_df):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        res = panel_logit(bin_df, y="y", x=["x1"], id="id", time="time",
-                          method="re", n_quadrature=8)
+        res = panel_logit(
+            bin_df, y="y", x=["x1"], id="id", time="time", method="re", n_quadrature=8
+        )
     assert res.model_info["method"] == "re"
     assert "sigma_u" in res.model_info
 
@@ -157,31 +170,33 @@ def test_panel_logit_re(bin_df):
 def test_panel_logit_cre(bin_df):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        res = panel_logit(bin_df, y="y", x=["x1"], id="id", time="time",
-                          method="cre", n_quadrature=8)
+        res = panel_logit(
+            bin_df, y="y", x=["x1"], id="id", time="time", method="cre", n_quadrature=8
+        )
     assert res.model_info["method"] == "cre"
     assert res.model_info["original_x"] == ["x1"]
 
 
 def test_panel_logit_bad_method(bin_df):
     with pytest.raises(ValueError, match="method must be"):
-        panel_logit(bin_df, y="y", x=["x1"], id="id", time="time",
-                    method="bogus")
+        panel_logit(bin_df, y="y", x=["x1"], id="id", time="time", method="bogus")
 
 
 def test_panel_probit_re(bin_df):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        res = panel_probit(bin_df, y="y", x=["x1"], id="id", time="time",
-                           method="re", n_quadrature=8)
+        res = panel_probit(
+            bin_df, y="y", x=["x1"], id="id", time="time", method="re", n_quadrature=8
+        )
     assert res.model_info["link"] == "probit"
 
 
 def test_panel_probit_cre(bin_df):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        res = panel_probit(bin_df, y="y", x=["x1"], id="id", time="time",
-                           method="cre", n_quadrature=8)
+        res = panel_probit(
+            bin_df, y="y", x=["x1"], id="id", time="time", method="cre", n_quadrature=8
+        )
     sigma_u = float(res.model_info["sigma_u"])
     np.testing.assert_allclose(
         res.model_info["rho"],
@@ -192,8 +207,7 @@ def test_panel_probit_cre(bin_df):
 
 def test_panel_probit_fe_unsupported(bin_df):
     with pytest.raises(ValueError, match="incidental parameters"):
-        panel_probit(bin_df, y="y", x=["x1"], id="id", time="time",
-                     method="fe")
+        panel_probit(bin_df, y="y", x=["x1"], id="id", time="time", method="fe")
 
 
 def test_panel_logit_cre_multiple_x(bin_df):
@@ -202,12 +216,20 @@ def test_panel_logit_cre_multiple_x(bin_df):
     df["x2"] = rng.normal(size=len(df))
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        res = panel_logit(df, y="y", x=["x1", "x2"], id="id", time="time",
-                          method="cre", n_quadrature=6)
+        res = panel_logit(
+            df,
+            y="y",
+            x=["x1", "x2"],
+            id="id",
+            time="time",
+            method="cre",
+            n_quadrature=6,
+        )
     assert res.model_info["method"] == "cre"
 
 
 # ── Interactive fixed effects ───────────────────────────────────────────
+
 
 @pytest.fixture
 def ife_df():
@@ -220,15 +242,15 @@ def ife_df():
         for t in range(T):
             x1 = rng.normal()
             x2 = rng.normal()
-            y = (0.8 * x1 - 0.4 * x2 + Lam[i] @ F[t]
-                 + rng.normal(0, 0.3))
+            y = 0.8 * x1 - 0.4 * x2 + Lam[i] @ F[t] + rng.normal(0, 0.3)
             rows.append({"id": i, "time": t, "y": y, "x1": x1, "x2": x2})
     return pd.DataFrame(rows)
 
 
 def test_interactive_fe_iterative(ife_df):
-    res = interactive_fe(ife_df, y="y", x=["x1", "x2"], id="id", time="time",
-                         n_factors=2)
+    res = interactive_fe(
+        ife_df, y="y", x=["x1", "x2"], id="id", time="time", n_factors=2
+    )
     assert list(res.params.index) == ["x1", "x2"]
     assert np.all(res.std_errors.values >= 0)
     assert "eigenvalues" in res.diagnostics
@@ -236,6 +258,7 @@ def test_interactive_fe_iterative(ife_df):
 
 
 def test_interactive_fe_non_robust(ife_df):
-    res = interactive_fe(ife_df, y="y", x=["x1", "x2"], id="id", time="time",
-                         n_factors=1, robust=False)
+    res = interactive_fe(
+        ife_df, y="y", x=["x1", "x2"], id="id", time="time", n_factors=1, robust=False
+    )
     assert "r_squared" in res.diagnostics

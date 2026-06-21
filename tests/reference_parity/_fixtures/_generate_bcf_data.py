@@ -6,6 +6,7 @@ Adapted from Hahn-Murray-Carvalho (2020, JBA) DGP-1: linear μ-prognosis
 n=400, p=5 covariates, true τ̄ = 1.0 (homogeneous + small HTE).
 Seed=42.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -34,6 +35,7 @@ for j in range(p):
 df = pd.DataFrame(cols)
 
 import pathlib
+
 out = pathlib.Path(__file__).parent / "bcf_data.csv"
 df.to_csv(out, index=False)
 print(f"Wrote {out} (n={n}, true ATE ≈ 1.0)")

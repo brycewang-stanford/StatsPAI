@@ -40,15 +40,17 @@ def _make_dataset(seed: int = 42, n: int = 400) -> pd.DataFrame:
     eps = rng.standard_normal(n)
     y_lin = 0.5 + 1.2 * x1 - 0.8 * x2 + 0.3 * x3 + eps
     y_bin = (y_lin > y_lin.mean()).astype(int)
-    return pd.DataFrame({
-        "y_lin": y_lin,
-        "y_bin": y_bin,
-        "x1": x1,
-        "x2": x2,
-        "x3": x3,
-        "g1": g1,
-        "g2": g2,
-    })
+    return pd.DataFrame(
+        {
+            "y_lin": y_lin,
+            "y_bin": y_bin,
+            "x1": x1,
+            "x2": x2,
+            "x3": x3,
+            "g1": g1,
+            "g2": g2,
+        }
+    )
 
 
 def fixture_simple_ols() -> "sp.output.RegtableResult":

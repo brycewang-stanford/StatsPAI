@@ -1,4 +1,5 @@
 """Tests for the benchmark regression ratchet."""
+
 from __future__ import annotations
 
 import json

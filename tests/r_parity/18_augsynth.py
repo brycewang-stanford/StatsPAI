@@ -11,12 +11,12 @@ no-covariate Ridge+SCM specification.  The optional
 ``backend='augsynth'`` R bridge remains a migration convenience, NOT the
 parity comparator.
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
-
 
 MODULE = "18_augsynth"
 
@@ -37,25 +37,30 @@ def main() -> None:
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE, side="py", statistic="att_augmented",
+            module=MODULE,
+            side="py",
+            statistic="att_augmented",
             estimate=float(fit.estimate),
             se=float(fit.se),
             n=int(len(df)),
         ),
     ]
-    _pre = fit.model_info.get("pre_treatment_rmse",
-                              fit.model_info.get("pre_rmspe"))
+    _pre = fit.model_info.get("pre_treatment_rmse", fit.model_info.get("pre_rmspe"))
     if _pre is not None:
         rows.append(
             ParityRecord(
-                module=MODULE, side="py", statistic="pre_rmspe",
+                module=MODULE,
+                side="py",
+                statistic="pre_rmspe",
                 estimate=float(_pre),
                 n=int(len(df)),
             )
         )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "method": "augmented",
             "backend": fit.model_info.get("backend", "native"),

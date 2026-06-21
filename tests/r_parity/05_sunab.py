@@ -10,12 +10,12 @@ same CSV.
 Tolerance: rel < 1e-3 for the simple weighted-average ATT; the
 event-study coefficients are reported as a sanity-check.
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
-
 
 MODULE = "05_sunab"
 
@@ -25,13 +25,19 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     fit = sp.sun_abraham(
-        df, y="lemp", g="first_treat", t="year", i="countyreal",
+        df,
+        y="lemp",
+        g="first_treat",
+        t="year",
+        i="countyreal",
         aggregation="fixest_att",
     )
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE, side="py", statistic="weighted_avg_ATT",
+            module=MODULE,
+            side="py",
+            statistic="weighted_avg_ATT",
             estimate=float(fit.estimate),
             se=float(fit.se),
             ci_lo=float(fit.ci[0]) if fit.ci is not None else None,
@@ -41,7 +47,9 @@ def main() -> None:
     ]
     rows.append(
         ParityRecord(
-            module=MODULE, side="py", statistic="event_time_avg_ATT",
+            module=MODULE,
+            side="py",
+            statistic="event_time_avg_ATT",
             estimate=float(fit.model_info["att_event_time"]),
             se=float(fit.model_info["se_event_time"]),
             n=int(len(df)),
@@ -55,7 +63,8 @@ def main() -> None:
             rt = int(row["relative_time"])
             rows.append(
                 ParityRecord(
-                    module=MODULE, side="py",
+                    module=MODULE,
+                    side="py",
                     statistic=f"att_rel_{rt}",
                     estimate=float(row["att"]),
                     se=float(row["se"]),
@@ -66,7 +75,9 @@ def main() -> None:
             )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "control_group": "nevertreated",
             "method": fit.method,

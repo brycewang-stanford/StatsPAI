@@ -13,6 +13,7 @@ Real synthetic RD data; properties asserted (positive SE/bandwidth, ordered
 CIs, p-values in [0,1], effect magnitude near the seeded jump). The CCT tests
 skip when the external ``rdrobust`` package is absent.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -29,8 +30,9 @@ import statspai as sp  # noqa: E402
 from statspai.core.results import CausalResult  # noqa: E402
 
 _HAS_CCT = importlib.util.find_spec("rdrobust") is not None
-_skip_cct = pytest.mark.skipif(not _HAS_CCT,
-                               reason="official rdrobust package not installed")
+_skip_cct = pytest.mark.skipif(
+    not _HAS_CCT, reason="official rdrobust package not installed"
+)
 
 
 def _sharp(n=2000, tau=3.0, seed=42):
@@ -57,8 +59,7 @@ def _fuzzy(n=3000, seed=11):
 def test_cct_with_donut_and_cluster():
     df = _sharp()
     df["g"] = (np.arange(len(df)) // 30).astype(int)
-    res = sp.rdrobust(df, y="y", x="x", c=0, bwselect="cct",
-                      donut=0.03, cluster="g")
+    res = sp.rdrobust(df, y="y", x="x", c=0, bwselect="cct", donut=0.03, cluster="g")
     assert isinstance(res, CausalResult)
     assert res.se > 0
     assert res.model_info["donut"] == 0.03
@@ -83,8 +84,7 @@ def test_cct_rho_kwarg():
 def test_cct_fuzzy_covs_kink():
     df = _fuzzy()
     df["w1"] = np.random.default_rng(0).normal(0, 1, len(df))
-    res = sp.rdrobust(df, y="y", x="x", c=0, bwselect="cct", fuzzy="d",
-                      covs=["w1"])
+    res = sp.rdrobust(df, y="y", x="x", c=0, bwselect="cct", fuzzy="d", covs=["w1"])
     assert res.se > 0
     assert abs(res.estimate - 2.0) < 1.5
 
@@ -109,8 +109,7 @@ def test_rdplot_basic():
 def test_rdplot_covariate_partial_out_and_weights():
     df = _sharp()
     df["wt"] = np.abs(np.random.default_rng(1).normal(1, 0.1, len(df)))
-    fig, ax = sp.rdplot(df, y="y", x="x", c=0, covs=["z", "z2"],
-                        weights="wt")
+    fig, ax = sp.rdplot(df, y="y", x="x", c=0, covs=["z", "z2"], weights="wt")
     assert ax is not None
     plt.close("all")
 
@@ -131,8 +130,18 @@ def test_rdplot_explicit_bandwidth_shading():
 
 def test_rdplot_nbins_no_scatter_no_ci():
     df = _sharp()
-    fig, ax = sp.rdplot(df, y="y", x="x", c=0, nbins=15, scatter=False,
-                        hide_ci=True, title="T", x_label="X", y_label="Y")
+    fig, ax = sp.rdplot(
+        df,
+        y="y",
+        x="x",
+        c=0,
+        nbins=15,
+        scatter=False,
+        hide_ci=True,
+        title="T",
+        x_label="X",
+        y_label="Y",
+    )
     assert ax is not None
     plt.close("all")
 
@@ -184,15 +193,17 @@ def test_rdplotdensity_provided_axes():
 def test_rbc_bootstrap_cluster():
     df = _sharp()
     df["g"] = (np.arange(len(df)) // 25).astype(int)
-    res = sp.rdrobust(df, y="y", x="x", c=0, cluster="g", bootstrap="rbc",
-                      n_boot=199, random_state=0)
+    res = sp.rdrobust(
+        df, y="y", x="x", c=0, cluster="g", bootstrap="rbc", n_boot=199, random_state=0
+    )
     boot = res.model_info["rbc_bootstrap"]
     assert boot["ci"][0] < boot["ci"][1]
 
 
 def test_rbc_bootstrap_fuzzy():
     df = _fuzzy()
-    res = sp.rdrobust(df, y="y", x="x", c=0, fuzzy="d", bootstrap="rbc",
-                      n_boot=199, random_state=1)
+    res = sp.rdrobust(
+        df, y="y", x="x", c=0, fuzzy="d", bootstrap="rbc", n_boot=199, random_state=1
+    )
     boot = res.model_info["rbc_bootstrap"]
     assert boot["ci"][0] < boot["ci"][1]

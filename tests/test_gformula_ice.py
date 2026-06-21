@@ -1,4 +1,5 @@
 """Sprint-6 tests: parametric g-formula via ICE."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -24,10 +25,16 @@ def _make_longitudinal_dgp(n=1500, seed=0):
     p_a1 = 1 / (1 + np.exp(-(0.3 * L1 + 0.5 * A0)))
     A1 = rng.binomial(1, p_a1, n)
     Y = 2 * A0 + 3 * A1 + L0 + rng.normal(0, 0.5, n)
-    df = pd.DataFrame({
-        "id": np.arange(n),
-        "L0": L0, "A0": A0, "L1": L1, "A1": A1, "Y": Y,
-    })
+    df = pd.DataFrame(
+        {
+            "id": np.arange(n),
+            "L0": L0,
+            "A0": A0,
+            "L1": L1,
+            "A1": A1,
+            "Y": Y,
+        }
+    )
     return df
 
 
@@ -35,7 +42,8 @@ def test_ice_recovers_always_treat_value():
     df = _make_longitudinal_dgp(n=3000, seed=0)
     res = sp.gformula.ice(
         data=df,
-        id_col="id", time_col=None,
+        id_col="id",
+        time_col=None,
         treatment_cols=["A0", "A1"],
         confounder_cols=[["L0"], ["L1"]],
         outcome_col="Y",
@@ -59,13 +67,15 @@ def test_top_level_gformula_ice_fn_recovers_noiseless_static_strategies():
     a0 = np.array([row[1] for row in rows])
     a1 = np.array([row[2] for row in rows])
     y = 1.0 + 0.5 * l0 + 2.0 * a0 + 3.0 * a1
-    df = pd.DataFrame({
-        "id": np.arange(len(l0)),
-        "L0": l0,
-        "A0": a0,
-        "A1": a1,
-        "Y": y,
-    })
+    df = pd.DataFrame(
+        {
+            "id": np.arange(len(l0)),
+            "L0": l0,
+            "A0": a0,
+            "A1": a1,
+            "Y": y,
+        }
+    )
 
     always = sp.gformula_ice_fn(
         data=df,
@@ -94,7 +104,8 @@ def test_ice_recovers_never_treat_value():
     df = _make_longitudinal_dgp(n=3000, seed=1)
     res = sp.gformula.ice(
         data=df,
-        id_col="id", time_col=None,
+        id_col="id",
+        time_col=None,
         treatment_cols=["A0", "A1"],
         confounder_cols=[["L0"], ["L1"]],
         outcome_col="Y",
@@ -106,16 +117,22 @@ def test_ice_recovers_never_treat_value():
 def test_ice_contrast_is_5_between_always_and_never():
     df = _make_longitudinal_dgp(n=5000, seed=2)
     always = sp.gformula.ice(
-        data=df, id_col="id", time_col=None,
+        data=df,
+        id_col="id",
+        time_col=None,
         treatment_cols=["A0", "A1"],
         confounder_cols=[["L0"], ["L1"]],
-        outcome_col="Y", treatment_strategy=[1, 1],
+        outcome_col="Y",
+        treatment_strategy=[1, 1],
     )
     never = sp.gformula.ice(
-        data=df, id_col="id", time_col=None,
+        data=df,
+        id_col="id",
+        time_col=None,
         treatment_cols=["A0", "A1"],
         confounder_cols=[["L0"], ["L1"]],
-        outcome_col="Y", treatment_strategy=[0, 0],
+        outcome_col="Y",
+        treatment_strategy=[0, 0],
     )
     contrast = always.value - never.value
     assert abs(contrast - 5.0) < 0.8
@@ -124,7 +141,9 @@ def test_ice_contrast_is_5_between_always_and_never():
 def test_ice_bootstrap_gives_reasonable_se():
     df = _make_longitudinal_dgp(n=1000, seed=3)
     res = sp.gformula.ice(
-        data=df, id_col="id", time_col=None,
+        data=df,
+        id_col="id",
+        time_col=None,
         treatment_cols=["A0"],
         confounder_cols=[["L0"]],
         outcome_col="Y",
@@ -140,7 +159,9 @@ def test_ice_strategy_validation():
     df = _make_longitudinal_dgp(n=100, seed=4)
     with pytest.raises(ValueError, match="strategy length"):
         sp.gformula.ice(
-            data=df, id_col="id", time_col=None,
+            data=df,
+            id_col="id",
+            time_col=None,
             treatment_cols=["A0", "A1"],
             confounder_cols=[["L0"], ["L1"]],
             outcome_col="Y",
@@ -151,7 +172,9 @@ def test_ice_strategy_validation():
 def test_ice_accepts_callable_strategy():
     df = _make_longitudinal_dgp(n=500, seed=5)
     res = sp.gformula.ice(
-        data=df, id_col="id", time_col=None,
+        data=df,
+        id_col="id",
+        time_col=None,
         treatment_cols=["A0", "A1"],
         confounder_cols=[["L0"], ["L1"]],
         outcome_col="Y",

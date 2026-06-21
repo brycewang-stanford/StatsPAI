@@ -20,16 +20,25 @@ def _staggered_panel(N=150, T=10, tau=2.0, seed=0):
     te = np.tile(rng.normal(0, 0.2, T), N)
     treated = (time >= first) & np.isfinite(first)
     y = ue + te + tau * treated + rng.normal(0, 0.3, N * T)
-    return pd.DataFrame({
-        "id": unit, "t": time, "y": y,
-        "g": np.where(np.isfinite(first), first, 0.0),
-    })
+    return pd.DataFrame(
+        {
+            "id": unit,
+            "t": time,
+            "y": y,
+            "g": np.where(np.isfinite(first), first, 0.0),
+        }
+    )
 
 
 def test_harvest_recovers_homogeneous_att():
     df = _staggered_panel(N=200, tau=2.0, seed=0)
     r = sp.harvest_did(
-        df, outcome="y", unit="id", time="t", cohort="g", never_value=0,
+        df,
+        outcome="y",
+        unit="id",
+        time="t",
+        cohort="g",
+        never_value=0,
     )
     assert abs(r.estimate - 2.0) < 0.3, f"ATT {r.estimate} off from true 2.0"
     assert r.se > 0
@@ -39,8 +48,9 @@ def test_harvest_recovers_homogeneous_att():
 def test_harvest_agrees_with_callaway_santanna():
     """Harvest + CS target the same ATT — agree within ~10%."""
     df = _staggered_panel(N=300, tau=1.5, seed=1)
-    r_h = sp.harvest_did(df, outcome="y", unit="id", time="t",
-                          cohort="g", never_value=0)
+    r_h = sp.harvest_did(
+        df, outcome="y", unit="id", time="t", cohort="g", never_value=0
+    )
     # CS requires first-treat column coding: never-treated as 0 (or NaN)
     r_cs = sp.callaway_santanna(df, y="y", g="g", t="t", i="id")
     # CS stores an overall ATT
@@ -58,7 +68,11 @@ def test_harvest_respects_never_value():
     df = _staggered_panel(N=150, seed=2)
     # "0" is never-treated in our DGP — explicitly pass
     r = sp.harvest_did(
-        df, outcome="y", unit="id", time="t", cohort="g",
+        df,
+        outcome="y",
+        unit="id",
+        time="t",
+        cohort="g",
         never_value=0,
     )
     assert np.isfinite(r.estimate)
@@ -69,8 +83,13 @@ def test_harvest_different_weighting_schemes_all_finite():
     for scheme in ("precision", "equal", "cohort_size"):
         try:
             r = sp.harvest_did(
-                df, outcome="y", unit="id", time="t", cohort="g",
-                never_value=0, weighting=scheme,
+                df,
+                outcome="y",
+                unit="id",
+                time="t",
+                cohort="g",
+                never_value=0,
+                weighting=scheme,
             )
             assert np.isfinite(r.estimate)
         except (ValueError, NotImplementedError):

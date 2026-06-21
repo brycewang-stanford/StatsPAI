@@ -8,7 +8,6 @@ import pytest
 
 import statspai as sp
 
-
 # The four ``sp.dml`` vs doubleml-for-py pins in
 # ``tests/external_parity/test_dml_python_parity.py`` (PLR, IRM, PLIV, IIVM —
 # one per DoubleML model class) are gated by
@@ -116,8 +115,7 @@ def test_coverage_matrix_reconciles_category_totals():
         )
         assert status_total == row["registered_functions"]
         assert (
-            row["handwritten_specs"] + row["auto_specs"]
-            == row["registered_functions"]
+            row["handwritten_specs"] + row["auto_specs"] == row["registered_functions"]
         )
         assert row["agent_cards"] <= row["registered_functions"]
 
@@ -240,9 +238,7 @@ def test_certified_validated_symbols_have_attached_evidence_notes():
         if not notes:
             missing_notes.append(name)
         if spec.get("validation_status") == "certified" and not any(
-            "R parity module" in note
-            or "Stata parity module" in note
-            for note in notes
+            "R parity module" in note or "Stata parity module" in note for note in notes
         ):
             certified_without_grade.append(name)
         if spec.get("validation_status") == "validated" and not any(

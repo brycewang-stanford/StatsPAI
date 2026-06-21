@@ -20,7 +20,6 @@ import statspai as sp
 from statspai.core.results import CausalResult
 from statspai.exceptions import MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Existence pin: every advertised alias resolves at the top level.
 # ---------------------------------------------------------------------------
@@ -53,6 +52,7 @@ def test_alias_in_dunder_all():
 # sp.rdd — sharp RD integration smoke test
 # ---------------------------------------------------------------------------
 
+
 def test_rdd_sharp():
     df = sp.dgp_rd(n=500, effect=0.4, cutoff=0.0, seed=7)
     result = sp.rdd(df, y="y", running="x", cutoff=0.0)
@@ -74,6 +74,7 @@ def test_rdd_matches_rdrobust():
 # ---------------------------------------------------------------------------
 # sp.xlearner — X-Learner CATE integration smoke test
 # ---------------------------------------------------------------------------
+
 
 def _make_xlearner_df(seed=0, n=400):
     rng = np.random.default_rng(seed)
@@ -118,6 +119,7 @@ def test_xlearner_rejects_learner_kwarg():
 # sp.psm — propensity-score matching
 # ---------------------------------------------------------------------------
 
+
 def test_psm_nearest_neighbor():
     df = sp.dgp_observational(n=400, seed=3)
     X = [c for c in df.columns if c.startswith("x")]
@@ -139,6 +141,7 @@ def test_psm_method_alias_equivalence():
 # sp.conformal_ite — conformal CATE intervals
 # ---------------------------------------------------------------------------
 
+
 def test_conformal_ite_returns_intervals():
     df = sp.dgp_observational(n=400, seed=13)
     X = [c for c in df.columns if c.startswith("x")]
@@ -156,13 +159,18 @@ def test_conformal_ite_returns_intervals():
 # sp.partial_identification — dispatch to bounds
 # ---------------------------------------------------------------------------
 
+
 def test_partial_identification_manski():
     df = sp.dgp_observational(n=300, seed=17)
     # Clip y to [0, 1] so Manski bounds are well-defined.
     df = df.assign(y=df["y"].rank(pct=True))
     result = sp.partial_identification(
-        df, y="y", d="treatment", method="manski",
-        y_lower=0.0, y_upper=1.0,
+        df,
+        y="y",
+        d="treatment",
+        method="manski",
+        y_lower=0.0,
+        y_upper=1.0,
     )
     # manski_bounds returns a CausalResult whose model_info carries the
     # interval; check the actual bounds structure, not just __repr__.
@@ -171,7 +179,14 @@ def test_partial_identification_manski():
     assert "lower_bound" in info and "upper_bound" in info
     assert info["lower_bound"] <= info["upper_bound"]
     np.testing.assert_allclose(
-        [result.estimate, result.se, result.ci[0], result.ci[1], info["lower_bound"], info["upper_bound"]],
+        [
+            result.estimate,
+            result.se,
+            result.ci[0],
+            result.ci[1],
+            info["lower_bound"],
+            info["upper_bound"],
+        ],
         [
             0.0870222222222223,
             0.01595365164580654,
@@ -189,8 +204,11 @@ def test_partial_identification_manski_rejects_covariates():
     df = sp.dgp_observational(n=100, seed=1)
     with pytest.raises(ValueError, match="does not use"):
         sp.partial_identification(
-            df, y="y", d="treatment",
-            X=["x1"], method="manski",
+            df,
+            y="y",
+            d="treatment",
+            X=["x1"],
+            method="manski",
         )
 
 
@@ -198,10 +216,13 @@ def test_partial_identification_horowitz_manski():
     df = sp.dgp_observational(n=300, seed=19)
     df = df.assign(y=df["y"].rank(pct=True))  # bounded outcome
     result = sp.partial_identification(
-        df, y="y", d="treatment",
+        df,
+        y="y",
+        d="treatment",
         X=["x1", "x2"],
         method="horowitz_manski",
-        y_lower=0.0, y_upper=1.0,
+        y_lower=0.0,
+        y_upper=1.0,
     )
     # horowitz_manski returns a BoundsResult (see bounds/partial_id.py).
     assert hasattr(result, "lower")
@@ -232,7 +253,9 @@ def test_partial_identification_horowitz_manski_requires_X():
     df = sp.dgp_observational(n=100, seed=1)
     with pytest.raises(ValueError, match="requires a non-empty"):
         sp.partial_identification(
-            df, y="y", d="treatment",
+            df,
+            y="y",
+            d="treatment",
             method="horowitz_manski",
         )
 
@@ -241,7 +264,10 @@ def test_partial_identification_lee_requires_selection():
     df = sp.dgp_observational(n=100, seed=1)
     with pytest.raises(ValueError, match="requires"):
         sp.partial_identification(
-            df, y="y", d="treatment", method="lee",
+            df,
+            y="y",
+            d="treatment",
+            method="lee",
         )
 
 
@@ -249,7 +275,10 @@ def test_partial_identification_iv_requires_instrument():
     df = sp.dgp_iv(n=100, seed=1)
     with pytest.raises(ValueError, match="requires"):
         sp.partial_identification(
-            df, y="y", d="treatment", method="iv",
+            df,
+            y="y",
+            d="treatment",
+            method="iv",
         )
 
 
@@ -259,7 +288,9 @@ def test_partial_identification_iv_smoke():
     df = sp.dgp_iv(n=300, seed=5)
     df = df.assign(y=df["y"].rank(pct=True))
     result = sp.partial_identification(
-        df, y="y", d="treatment",
+        df,
+        y="y",
+        d="treatment",
         instrument="instrument",
         method="iv",
         # iv_bounds's assumption='monotone_iv' default requires a bounded
@@ -286,8 +317,10 @@ def test_partial_identification_rejects_non_string_method():
 # sp.anderson_rubin_ci / sp.conditional_lr_ci — weak-IV robust CIs
 # ---------------------------------------------------------------------------
 
+
 def test_anderson_rubin_ci_smoke():
     from statspai.iv.weak_iv_ci import WeakIVConfidenceSet
+
     df = sp.dgp_iv(n=500, seed=21)
     out = sp.anderson_rubin_ci(
         y="y",
@@ -301,6 +334,7 @@ def test_anderson_rubin_ci_smoke():
 
 def test_conditional_lr_ci_smoke():
     from statspai.iv.weak_iv_ci import WeakIVConfidenceSet
+
     df = sp.dgp_iv(n=500, seed=23)
     out = sp.conditional_lr_ci(
         y="y",
@@ -311,9 +345,20 @@ def test_conditional_lr_ci_smoke():
     )
     assert isinstance(out, WeakIVConfidenceSet)
     # CLR is Moreira (2003)'s Conditional Likelihood Ratio test.
-    assert "CLR" in out.method or "conditional" in out.method.lower() or "moreira" in out.method.lower()
+    assert (
+        "CLR" in out.method
+        or "conditional" in out.method.lower()
+        or "moreira" in out.method.lower()
+    )
     np.testing.assert_allclose(
-        [out.lower, out.upper, len(out.beta_grid), out.critical_value[0], out.statistic.min(), out.in_set.sum()],
+        [
+            out.lower,
+            out.upper,
+            len(out.beta_grid),
+            out.critical_value[0],
+            out.statistic.min(),
+            out.in_set.sum(),
+        ],
         [0.38978995772354263, 0.6734980393245119, 201, 3.78068207615837, 0.0, 40],
         atol=5e-9,
     )
@@ -322,6 +367,7 @@ def test_conditional_lr_ci_smoke():
 # ---------------------------------------------------------------------------
 # sp.tF_adjustment — Lee-McCrary-Moreira-Porter (2022) critical value.
 # ---------------------------------------------------------------------------
+
 
 def test_tF_adjustment_monotone():
     """Critical value should weakly decrease as the first-stage F grows."""
@@ -335,6 +381,7 @@ def test_tF_adjustment_monotone():
 
 def test_tF_adjustment_matches_underlying():
     from statspai.diagnostics.weak_iv import tF_critical_value
+
     for F in [5.0, 10.0, 50.0, 200.0]:
         assert sp.tF_adjustment(F) == pytest.approx(tF_critical_value(F), rel=1e-12)
 
@@ -342,6 +389,7 @@ def test_tF_adjustment_matches_underlying():
 # ---------------------------------------------------------------------------
 # P1 coverage property: Anderson-Rubin CI covers the true β under weak IV.
 # ---------------------------------------------------------------------------
+
 
 def test_anderson_rubin_covers_true_beta():
     """AR's *raison d'être* is validity under weak instruments.
@@ -365,10 +413,10 @@ def test_anderson_rubin_covers_true_beta():
     clr = sp.conditional_lr_ci(y="y", endog="D", instruments="Z", data=df)
 
     assert not ar.is_empty, "AR set is empty — numerical failure"
-    assert ar.lower - 1e-6 <= beta_true <= ar.upper + 1e-6, (
-        f"AR CI [{ar.lower:.3f}, {ar.upper:.3f}] excludes β=0.5"
-    )
+    assert (
+        ar.lower - 1e-6 <= beta_true <= ar.upper + 1e-6
+    ), f"AR CI [{ar.lower:.3f}, {ar.upper:.3f}] excludes β=0.5"
     assert not clr.is_empty
-    assert clr.lower - 1e-6 <= beta_true <= clr.upper + 1e-6, (
-        f"CLR CI [{clr.lower:.3f}, {clr.upper:.3f}] excludes β=0.5"
-    )
+    assert (
+        clr.lower - 1e-6 <= beta_true <= clr.upper + 1e-6
+    ), f"CLR CI [{clr.lower:.3f}, {clr.upper:.3f}] excludes β=0.5"

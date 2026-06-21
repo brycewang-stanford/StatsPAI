@@ -25,6 +25,7 @@ References
   forests. *Annals of Statistics*, 47(2), 1148-1178.
   [@athey2019generalized]
 """
+
 from __future__ import annotations
 
 import json
@@ -35,7 +36,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -74,7 +74,7 @@ def test_grf_ate_aipw_within_combined_se(fitted_cf, r_reference):
     assert aipw["method"] == "aipw", "headline ATE must use the AIPW score"
     py_ate, py_se = float(aipw["estimate"]), float(aipw["se"])
     r_ate, r_se = r_reference["ate"]["estimate"], r_reference["ate"]["se"]
-    combined_se = math.sqrt(py_se ** 2 + r_se ** 2)
+    combined_se = math.sqrt(py_se**2 + r_se**2)
     z = abs(py_ate - r_ate) / combined_se
     assert z < 3.0, (
         f"sp AIPW ATE={py_ate:.4f} (SE {py_se:.4f}) vs grf AIPW "
@@ -103,9 +103,9 @@ def test_grf_aipw_recovers_grf_ci(fitted_cf, r_reference):
     py_ate = float(fitted_cf.average_treatment_effect(target_sample="all")["estimate"])
     r_ate, r_se = r_reference["ate"]["estimate"], r_reference["ate"]["se"]
     lo, hi = r_ate - 1.96 * r_se, r_ate + 1.96 * r_se
-    assert lo <= py_ate <= hi, (
-        f"sp AIPW ATE={py_ate:.4f} outside grf 95% CI [{lo:.4f}, {hi:.4f}]"
-    )
+    assert (
+        lo <= py_ate <= hi
+    ), f"sp AIPW ATE={py_ate:.4f} outside grf 95% CI [{lo:.4f}, {hi:.4f}]"
 
 
 def test_grf_plugin_is_documented_convenience_estimand(fitted_cf, r_reference):

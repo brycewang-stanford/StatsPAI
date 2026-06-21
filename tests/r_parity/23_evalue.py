@@ -13,12 +13,12 @@ standardised by the outcome SD, and the exact 2x2-table risk difference.
 
 Tolerance: rel < 1e-6 (closed-form / deterministic grid).
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, write_results
-
 
 MODULE = "23_evalue"
 
@@ -28,19 +28,34 @@ MODULE = "23_evalue"
 CASES = [
     # The first three keep their original labels so the committed Stata
     # anchor (23_evalue.do) still joins in compare.py.
-    ("moderate",      lambda: sp.evalue(estimate=2.5, ci=(1.8, 3.2), measure="RR")),
-    ("strong",        lambda: sp.evalue(estimate=4.0, ci=(2.5, 6.0), measure="RR")),
-    ("borderline",    lambda: sp.evalue(estimate=1.3, ci=(1.0, 1.6), measure="RR")),
+    ("moderate", lambda: sp.evalue(estimate=2.5, ci=(1.8, 3.2), measure="RR")),
+    ("strong", lambda: sp.evalue(estimate=4.0, ci=(2.5, 6.0), measure="RR")),
+    ("borderline", lambda: sp.evalue(estimate=1.3, ci=(1.0, 1.6), measure="RR")),
     ("rr_protective", lambda: sp.evalue(estimate=0.6, ci=(0.4, 0.9), measure="RR")),
-    ("rr_crossnull",  lambda: sp.evalue(estimate=1.1, ci=(0.9, 1.3), measure="RR")),
-    ("rr_nonnull",    lambda: sp.evalue(estimate=2.5, ci=(1.8, 3.2), measure="RR", true=1.5)),
-    ("or_common",     lambda: sp.evalue(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=False)),
-    ("or_rare",       lambda: sp.evalue(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=True)),
-    ("hr_common",     lambda: sp.evalue(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=False)),
-    ("hr_rare",       lambda: sp.evalue(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=True)),
-    ("md",            lambda: sp.evalue(estimate=0.3, se=0.1, measure="MD")),
-    ("ols",           lambda: sp.evalue(estimate=0.5, se=0.1, sd=2.0, delta=1.0, measure="OLS")),
-    ("rd",            lambda: sp.evalue_rd(200, 150, 100, 250)),
+    ("rr_crossnull", lambda: sp.evalue(estimate=1.1, ci=(0.9, 1.3), measure="RR")),
+    (
+        "rr_nonnull",
+        lambda: sp.evalue(estimate=2.5, ci=(1.8, 3.2), measure="RR", true=1.5),
+    ),
+    (
+        "or_common",
+        lambda: sp.evalue(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=False),
+    ),
+    (
+        "or_rare",
+        lambda: sp.evalue(estimate=2.0, ci=(1.5, 2.7), measure="OR", rare=True),
+    ),
+    (
+        "hr_common",
+        lambda: sp.evalue(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=False),
+    ),
+    (
+        "hr_rare",
+        lambda: sp.evalue(estimate=1.5, ci=(1.1, 2.0), measure="HR", rare=True),
+    ),
+    ("md", lambda: sp.evalue(estimate=0.3, se=0.1, measure="MD")),
+    ("ols", lambda: sp.evalue(estimate=0.5, se=0.1, sd=2.0, delta=1.0, measure="OLS")),
+    ("rd", lambda: sp.evalue_rd(200, 150, 100, 250)),
 ]
 
 
@@ -48,21 +63,32 @@ def main() -> None:
     rows: list[ParityRecord] = []
     for label, fn in CASES:
         out = fn()
-        rows.append(ParityRecord(
-            module=MODULE, side="py",
-            statistic=f"evalue_est_{label}",
-            estimate=float(out["evalue_estimate"]), n=1,
-        ))
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"evalue_est_{label}",
+                estimate=float(out["evalue_estimate"]),
+                n=1,
+            )
+        )
         ci = out.get("evalue_ci")
-        rows.append(ParityRecord(
-            module=MODULE, side="py",
-            statistic=f"evalue_ci_{label}",
-            estimate=None if ci is None else float(ci), n=1,
-        ))
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"evalue_ci_{label}",
+                estimate=None if ci is None else float(ci),
+                n=1,
+            )
+        )
 
-    write_results(MODULE, "py", rows,
-                  extra={"reference": "R EValue package",
-                         "n_cases": len(CASES)})
+    write_results(
+        MODULE,
+        "py",
+        rows,
+        extra={"reference": "R EValue package", "n_cases": len(CASES)},
+    )
     print(f"[{MODULE}] wrote {len(rows)} rows across {len(CASES)} measures")
 
 

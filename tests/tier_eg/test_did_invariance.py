@@ -23,8 +23,15 @@ import pytest
 
 import statspai as sp
 
-from ._helpers import (HAS_HYPOTHESIS, assert_invariant, assert_scaled, coef,
-                       make_did_2x2, make_staggered_did, stderr)
+from ._helpers import (
+    HAS_HYPOTHESIS,
+    assert_invariant,
+    assert_scaled,
+    coef,
+    make_did_2x2,
+    make_staggered_did,
+    stderr,
+)
 
 pytestmark = pytest.mark.filterwarnings("ignore")
 

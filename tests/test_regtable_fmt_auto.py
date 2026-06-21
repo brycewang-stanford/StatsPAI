@@ -6,6 +6,7 @@ elasticity-magnitude (~0.3) coefficients, fixed ``fmt="%.0f"``
 rounds the latter to ``0`` even though significance stars survive.
 ``fmt="auto"`` picks per-value precision so neither side is killed.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -15,7 +16,6 @@ import pytest
 import statspai as sp
 from statspai.output.estimates import _fmt_auto, _fmt_val
 
-
 # ---------------------------------------------------------------------------
 # 1. Unit tests for _fmt_auto bucketing
 # ---------------------------------------------------------------------------
@@ -24,18 +24,18 @@ from statspai.output.estimates import _fmt_auto, _fmt_val
 @pytest.mark.parametrize(
     "value, expected",
     [
-        (1521.109, "1,521"),    # >= 1000 -> thousands separator, no decimal
+        (1521.109, "1,521"),  # >= 1000 -> thousands separator, no decimal
         (-1521.109, "-1,521"),
-        (590.769, "591"),       # >= 100 -> integer
-        (30.925, "30.9"),       # >= 10 -> 1 decimal
-        (3.955, "3.96"),        # >= 1 -> 2 decimals
+        (590.769, "591"),  # >= 100 -> integer
+        (30.925, "30.9"),  # >= 10 -> 1 decimal
+        (3.955, "3.96"),  # >= 1 -> 2 decimals
         # NOTE: Python uses banker's rounding (round-half-to-even) on
         # IEEE-754 doubles. 0.2876 rounds to 0.288; 0.2875 actually
         # stores as 0.28749999... so round-half-to-even drops to 0.287.
         # The expected values below reflect Python's actual behavior.
         (0.2876, "0.288"),
         (-0.0106, "-0.011"),
-        (0.0, "0.000"),         # zero
+        (0.0, "0.000"),  # zero
     ],
 )
 def test_fmt_auto_buckets(value, expected):
@@ -55,7 +55,7 @@ def test_fmt_auto_handles_nan_and_none():
 def test_fmt_val_auto_routing():
     """fmt='auto' uses _fmt_auto; explicit C-style preserved unchanged."""
     assert _fmt_val(0.2876, "auto") == "0.288"
-    assert _fmt_val(0.2876, "%.0f") == "0"          # legacy behavior preserved
+    assert _fmt_val(0.2876, "%.0f") == "0"  # legacy behavior preserved
     assert _fmt_val(0.2876, "%.3f") == "0.288"
     assert _fmt_val(1521.109, "auto") == "1,521"
     assert _fmt_val(1521.109, "%.0f") == "1521"
@@ -94,9 +94,9 @@ def test_regtable_fmt_auto_preserves_small_coefs(mixed_magnitude_data):
     # The coefficient cell must contain a "0.X" decimal pattern, not bare "0"
     line = x_small_lines[0]
     cell = line.split("|")[2].strip()  # markdown col 1 (after row label)
-    assert "0." in cell or "." in cell, (
-        f"fmt='auto' should keep decimals for ~0.3 coef; got {cell!r}"
-    )
+    assert (
+        "0." in cell or "." in cell
+    ), f"fmt='auto' should keep decimals for ~0.3 coef; got {cell!r}"
 
 
 def test_regtable_fmt_pct0_kills_small_coefs(mixed_magnitude_data):
@@ -115,8 +115,7 @@ def test_regtable_fmt_pct0_kills_small_coefs(mixed_magnitude_data):
     # Under %.0f the ~0.3 coefficient is killed: digit is "0" with stars,
     # no decimal point, no significant digits.
     assert cell.lstrip("-").startswith("0") and "." not in cell, (
-        f"%.0f should round ~0.3 coef to 0/-0 (the bug being fixed); "
-        f"got {cell!r}"
+        f"%.0f should round ~0.3 coef to 0/-0 (the bug being fixed); " f"got {cell!r}"
     )
 
 
@@ -149,9 +148,7 @@ def test_modelsummary_fmt_auto_parity(mixed_magnitude_data):
     text = out if isinstance(out, str) else str(out)
     assert text.strip(), "modelsummary returned empty output"
     # x_small ~ 0.3 should NOT be rounded to bare 0 under fmt='auto'
-    x_small_segment = next(
-        (ln for ln in text.split("\n") if "x_small" in ln), ""
-    )
+    x_small_segment = next((ln for ln in text.split("\n") if "x_small" in ln), "")
     assert x_small_segment, "x_small row not found in modelsummary output"
     assert "0." in x_small_segment or "." in x_small_segment, (
         f"fmt='auto' should keep decimals on ~0.3 coef in modelsummary "

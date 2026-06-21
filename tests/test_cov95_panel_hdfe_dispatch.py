@@ -14,6 +14,7 @@ Assertions check the defining property of within-transformation (group means
 collapse to ~0 after absorbing that FE) and that ``absorb_ols`` recovers the
 known DGP slopes — not fabricated numbers.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -42,7 +43,7 @@ def test_demean_1d_unweighted_and_weighted():
     fe = df[["id", "time"]]
     x = df["x1"].to_numpy(dtype=float)
 
-    dm = np.asarray(sp.demean(x.copy(), fe)[0])        # 1-D unweighted path
+    dm = np.asarray(sp.demean(x.copy(), fe)[0])  # 1-D unweighted path
     # After absorbing entity FE, the within-entity means are ~0.
     by_id = pd.Series(dm).groupby(df["id"].values).mean()
     assert np.abs(by_id).max() < 1e-6

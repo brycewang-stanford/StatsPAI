@@ -16,8 +16,7 @@ import pytest
 
 import statspai as sp
 
-from ._helpers import (assert_raises_clean, coef, make_did_2x2,
-                       make_staggered_did)
+from ._helpers import assert_raises_clean, coef, make_did_2x2, make_staggered_did
 
 
 def _fit(d, **kw):

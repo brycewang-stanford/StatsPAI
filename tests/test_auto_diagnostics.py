@@ -27,6 +27,7 @@ class _FakeResult:
     Used to drive the per-FE row extractor with synthetic FE metadata
     without booting a real estimator (HDFE/pyfixest are heavy).
     """
+
     def __init__(self, fe=None, cluster=None):
         mi = {}
         if fe is not None:
@@ -42,15 +43,18 @@ class _FakeResult:
 # fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def ols_models():
     rng = np.random.default_rng(2026)
     n = 400
-    df = pd.DataFrame({
-        "y": rng.normal(0, 1, n),
-        "x": rng.normal(0, 1, n),
-        "g": rng.integers(0, 5, n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(0, 1, n),
+            "x": rng.normal(0, 1, n),
+            "g": rng.integers(0, 5, n),
+        }
+    )
     m_plain = sp.regress("y ~ x", data=df)
     m_clust = sp.regress("y ~ x", data=df, cluster="g")
     return m_plain, m_clust
@@ -70,6 +74,7 @@ def iv_model():
 # ---------------------------------------------------------------------------
 # extract_fe_cluster_indicators
 # ---------------------------------------------------------------------------
+
 
 def test_cluster_row_appears_when_any_model_clusters(ols_models):
     m_plain, m_clust = ols_models
@@ -94,31 +99,38 @@ def test_fe_row_omitted_when_no_fe(ols_models):
 # _parse_fe_tokens: shape tolerance
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("value,expected", [
-    (None, []),
-    ("", []),
-    ("None", []),
-    ("none", []),
-    ("firm", ["firm"]),
-    ("firm+year", ["firm", "year"]),
-    ("firm + year", ["firm", "year"]),
-    ("firm^year", ["firm^year"]),                    # interaction stays one token
-    ("firm^year+industry", ["firm^year", "industry"]),
-    (["firm", "year"], ["firm", "year"]),
-    (("firm", "year"), ["firm", "year"]),
-    ({"firm": object(), "year": object()}, ["firm", "year"]),
-])
+
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        (None, []),
+        ("", []),
+        ("None", []),
+        ("none", []),
+        ("firm", ["firm"]),
+        ("firm+year", ["firm", "year"]),
+        ("firm + year", ["firm", "year"]),
+        ("firm^year", ["firm^year"]),  # interaction stays one token
+        ("firm^year+industry", ["firm^year", "industry"]),
+        (["firm", "year"], ["firm", "year"]),
+        (("firm", "year"), ["firm", "year"]),
+        ({"firm": object(), "year": object()}, ["firm", "year"]),
+    ],
+)
 def test_parse_fe_tokens_shapes(value, expected):
     assert _parse_fe_tokens(value) == expected
 
 
-@pytest.mark.parametrize("token,label", [
-    ("firm", "Firm FE"),
-    ("year", "Year FE"),
-    ("firm^year", "Firm × Year FE"),
-    ("industry^state^quarter", "Industry × State × Quarter FE"),
-    ("state-1", "State-1 FE"),                       # non-letter preserved
-])
+@pytest.mark.parametrize(
+    "token,label",
+    [
+        ("firm", "Firm FE"),
+        ("year", "Year FE"),
+        ("firm^year", "Firm × Year FE"),
+        ("industry^state^quarter", "Industry × State × Quarter FE"),
+        ("state-1", "State-1 FE"),  # non-letter preserved
+    ],
+)
 def test_fe_token_label(token, label):
     assert _fe_token_label(token) == label
 
@@ -127,13 +139,14 @@ def test_fe_token_label(token, label):
 # Per-FE row extraction (the AER-style format)
 # ---------------------------------------------------------------------------
 
+
 def test_per_fe_rows_one_row_per_variable():
     """3 columns with mixed FE specs → one row per distinct FE."""
-    m1 = _FakeResult(fe="firm+year")           # both
-    m2 = _FakeResult(fe="firm")                # only firm
-    m3 = _FakeResult(fe="year")                # only year
+    m1 = _FakeResult(fe="firm+year")  # both
+    m2 = _FakeResult(fe="firm")  # only firm
+    m3 = _FakeResult(fe="year")  # only year
     rows = extract_fe_cluster_indicators([m1, m2, m3])
-    assert "Fixed Effects" not in rows         # no collapsed row
+    assert "Fixed Effects" not in rows  # no collapsed row
     assert rows["Firm FE"] == ["Yes", "Yes", "No"]
     assert rows["Year FE"] == ["Yes", "No", "Yes"]
 
@@ -177,6 +190,7 @@ def test_no_fe_anywhere_drops_all_fe_rows():
 # regtable() integration — per-FE rows visible in rendered output
 # ---------------------------------------------------------------------------
 
+
 def test_regtable_renders_per_fe_rows():
     """End-to-end: synthetic results with FE metadata produce labelled rows."""
     m1 = _FakeResult(fe="firm+year")
@@ -195,8 +209,10 @@ def test_regtable_renders_per_fe_rows():
 # Fallback branch: unparseable FE metadata → single Yes/No row
 # ---------------------------------------------------------------------------
 
+
 class _OpaqueFE:
     """Truthy non-string/list/dict to exercise the fallback branch."""
+
     def __bool__(self):
         return True
 
@@ -216,6 +232,7 @@ def test_per_fe_falls_back_to_single_row_for_unknown_shape():
 # Backwards-compat: user-supplied "Fixed Effects" row suppresses auto per-FE
 # ---------------------------------------------------------------------------
 
+
 def test_user_fixed_effects_row_suppresses_auto_per_fe_rows():
     """Legacy ``add_rows={'Fixed Effects': [...]}`` must keep working: when the
     user explicitly provides this row, the auto per-FE expansion should be
@@ -225,16 +242,19 @@ def test_user_fixed_effects_row_suppresses_auto_per_fe_rows():
     pytest.importorskip("pyfixest")
     rng = np.random.default_rng(2026)
     n = 400
-    df = pd.DataFrame({
-        "y": rng.normal(0, 1, n),
-        "x": rng.normal(0, 1, n),
-        "firm": rng.integers(0, 20, n),
-        "year": rng.integers(2010, 2020, n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(0, 1, n),
+            "x": rng.normal(0, 1, n),
+            "firm": rng.integers(0, 20, n),
+            "year": rng.integers(2010, 2020, n),
+        }
+    )
     m1 = sp.feols("y ~ x | firm + year", data=df)
     m2 = sp.feols("y ~ x | firm", data=df)
     txt = sp.regtable(
-        m1, m2,
+        m1,
+        m2,
         add_rows={"Fixed Effects": ["All", "Firm only"]},
     ).to_text()
     assert "Fixed Effects" in txt
@@ -247,6 +267,7 @@ def test_user_fixed_effects_row_suppresses_auto_per_fe_rows():
 # ---------------------------------------------------------------------------
 # extract_diagnostic_rows
 # ---------------------------------------------------------------------------
+
 
 def test_iv_first_stage_F_row_extracted(iv_model):
     rows = extract_diagnostic_rows([iv_model])
@@ -280,6 +301,7 @@ def test_diagnostic_rows_disable_iv():
 # regtable() integration
 # ---------------------------------------------------------------------------
 
+
 def test_regtable_auto_emits_cluster_row(ols_models):
     m_plain, m_clust = ols_models
     txt = sp.regtable(m_plain, m_clust).to_text()
@@ -303,16 +325,20 @@ def test_regtable_diagnostics_off_string(ols_models):
 def test_regtable_user_add_rows_override_auto(ols_models):
     m_plain, m_clust = ols_models
     out = sp.regtable(
-        m_plain, m_clust,
+        m_plain,
+        m_clust,
         add_rows={"Cluster SE": ["—", "Industry"]},
     )
     txt = out.to_text()
     # User's value should win, not the auto-extracted "g"
     assert "Industry" in txt
     # The auto value "g" should not appear in the cluster row
-    assert "g" not in txt.splitlines()[
-        next(i for i, ln in enumerate(txt.splitlines()) if "Cluster SE" in ln)
-    ]
+    assert (
+        "g"
+        not in txt.splitlines()[
+            next(i for i, ln in enumerate(txt.splitlines()) if "Cluster SE" in ln)
+        ]
+    )
 
 
 def test_regtable_iv_first_stage_F_row(iv_model):

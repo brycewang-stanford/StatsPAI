@@ -19,6 +19,7 @@ Coverage
   ``draft.dag`` is set, even if the markdown body is text-art.
 - DAG with no treatment/outcome match still renders variables + edges.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -30,16 +31,15 @@ from statspai.dag.graph import DAG
 from statspai.workflow._degradation import WorkflowDegradedWarning
 from statspai.workflow.paper import _render_dag_section
 
-
 # ---------------------------------------------------------------------------
 # _render_dag_section direct
 # ---------------------------------------------------------------------------
 
+
 class TestRenderDagSection:
     def test_basic_markdown(self):
         g = DAG("Z -> X; Z -> Y; X -> Y")
-        out = _render_dag_section(g, treatment="X", outcome="Y",
-                                   fmt="markdown")
+        out = _render_dag_section(g, treatment="X", outcome="Y", fmt="markdown")
         # Variables + edges + adjustment sets present.
         assert "**Variables**" in out
         assert "`X`" in out and "`Y`" in out and "`Z`" in out
@@ -61,16 +61,14 @@ class TestRenderDagSection:
 
     def test_renders_latent_confounders(self):
         g = DAG("Z -> X; X -> Y; U <-> Y")
-        out = _render_dag_section(g, treatment="X", outcome="Y",
-                                   fmt="markdown")
+        out = _render_dag_section(g, treatment="X", outcome="Y", fmt="markdown")
         assert "**Latent common causes**" in out
         # Latent node syntax `_L_U_Y` is what statspai DAG generates.
         assert "_L_U_Y" in out
 
     def test_backdoor_paths_listed(self):
         g = DAG("Z -> X; Z -> Y; X -> Y")
-        out = _render_dag_section(g, treatment="X", outcome="Y",
-                                   fmt="markdown")
+        out = _render_dag_section(g, treatment="X", outcome="Y", fmt="markdown")
         assert "**Back-door paths**" in out
         # X — Z — Y is the canonical path.
         assert "`X` — `Z` — `Y`" in out or "`X` — `Z` — `Y`" in out.replace("·", "—")
@@ -134,6 +132,7 @@ class TestRenderDagSection:
 # sp.paper(..., dag=g) integration
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def panel_df():
     rng = np.random.default_rng(0)
@@ -143,12 +142,15 @@ def panel_df():
         treated = u >= n_units // 2
         for t in (2018, 2019):
             post = int(t == 2019)
-            rows.append({
-                "id": u, "year": t,
-                "wage": 10 + 0.5 * post * treated + rng.normal(scale=0.3),
-                "trained": int(treated),
-                "post": post,
-            })
+            rows.append(
+                {
+                    "id": u,
+                    "year": t,
+                    "wage": 10 + 0.5 * post * treated + rng.normal(scale=0.3),
+                    "trained": int(treated),
+                    "post": post,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -156,8 +158,11 @@ class TestSpPaperDagIntegration:
     def test_dag_section_populated(self, panel_df):
         g = DAG("trained -> wage; edu -> wage; edu -> trained")
         draft = sp.paper(
-            panel_df, "effect of trained on wage",
-            treatment="trained", y="wage", dag=g,
+            panel_df,
+            "effect of trained on wage",
+            treatment="trained",
+            y="wage",
+            dag=g,
         )
         assert "Causal DAG" in draft.sections
         body = draft.sections["Causal DAG"]
@@ -169,8 +174,11 @@ class TestSpPaperDagIntegration:
     def test_dag_persists_on_draft(self, panel_df):
         g = DAG("X -> Y")
         draft = sp.paper(
-            panel_df, "effect of trained on wage",
-            treatment="trained", y="wage", dag=g,
+            panel_df,
+            "effect of trained on wage",
+            treatment="trained",
+            y="wage",
+            dag=g,
         )
         # The DAG is held on the draft for to_qmd() to re-render.
         assert draft.dag is g
@@ -180,8 +188,12 @@ class TestSpPaperDagIntegration:
     def test_to_qmd_emits_mermaid(self, panel_df):
         g = DAG("trained -> wage; edu -> trained; edu -> wage")
         draft = sp.paper(
-            panel_df, "effect of trained on wage",
-            treatment="trained", y="wage", dag=g, fmt="qmd",
+            panel_df,
+            "effect of trained on wage",
+            treatment="trained",
+            y="wage",
+            dag=g,
+            fmt="qmd",
         )
         qmd = draft.to_qmd()
         assert "## Causal DAG" in qmd
@@ -191,8 +203,10 @@ class TestSpPaperDagIntegration:
 
     def test_no_dag_no_section(self, panel_df):
         draft = sp.paper(
-            panel_df, "effect of trained on wage",
-            treatment="trained", y="wage",
+            panel_df,
+            "effect of trained on wage",
+            treatment="trained",
+            y="wage",
         )
         # No DAG passed → no Causal DAG section.
         assert "Causal DAG" not in draft.sections
@@ -202,11 +216,15 @@ class TestSpPaperDagIntegration:
 # CausalQuestion.paper(dag=g) integration
 # ---------------------------------------------------------------------------
 
+
 class TestQuestionPaperDag:
     def test_dag_in_question_paper(self, panel_df):
         g = DAG("trained -> wage; edu -> wage")
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = q.paper(dag=g)
         assert "Causal DAG" in draft.sections
@@ -220,7 +238,10 @@ class TestQuestionPaperDag:
     def test_dag_persists_on_estimand_first_draft(self, panel_df):
         g = DAG("trained -> wage")
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = q.paper(dag=g, fmt="qmd")
         qmd = draft.to_qmd()

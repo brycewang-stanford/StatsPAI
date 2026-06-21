@@ -27,6 +27,7 @@ that is covered by ``tests/test_article_aliases_round2.py``,
 ``tests/test_proximal.py``, etc.  We only pin the *binding type* and
 ensure it survives a downstream ``from statspai.X import ...``.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -35,7 +36,6 @@ import types
 import pytest
 
 import statspai as sp
-
 
 # ---------------------------------------------------------------------------
 # Late-bind: 6 names that ``_article_aliases`` re-binds at the bottom of
@@ -84,20 +84,20 @@ def test_iv_is_callable_dispatcher():
 # ---------------------------------------------------------------------------
 
 CONFLICT_PRONE = [
-    ("proximal",         "ProximalCausalInference"),
-    ("principal_strat",  "PrincipalStratResult"),
-    ("bridge",           "BridgeResult"),
-    ("bcf",              "BayesianCausalForest"),
-    ("bunching",         "BunchingEstimator"),
-    ("dose_response",    "DoseResponse"),
-    ("multi_treatment",  "MultiTreatment"),
-    ("causal_impact",    "CausalImpactEstimator"),
-    ("frontier",         "FrontierResult"),
-    ("interference",     "SpilloverEstimator"),
-    ("tmle",             "TMLE"),
-    ("msm",              "MarginalStructuralModel"),
-    ("deepiv",           "DeepIV"),
-    ("bartik",           "BartikIV"),
+    ("proximal", "ProximalCausalInference"),
+    ("principal_strat", "PrincipalStratResult"),
+    ("bridge", "BridgeResult"),
+    ("bcf", "BayesianCausalForest"),
+    ("bunching", "BunchingEstimator"),
+    ("dose_response", "DoseResponse"),
+    ("multi_treatment", "MultiTreatment"),
+    ("causal_impact", "CausalImpactEstimator"),
+    ("frontier", "FrontierResult"),
+    ("interference", "SpilloverEstimator"),
+    ("tmle", "TMLE"),
+    ("msm", "MarginalStructuralModel"),
+    ("deepiv", "DeepIV"),
+    ("bartik", "BartikIV"),
 ]
 
 
@@ -120,9 +120,9 @@ def test_conflict_prone_function_survives_submodule_import(name, sibling):
         f"submodule.  Either keep the eager `from .{name} import {name}` "
         f"in __init__.py, or extend the __getattr__ defensive re-pin."
     )
-    assert not isinstance(obj, types.ModuleType), (
-        f"sp.{name} resolved to a module instead of a function."
-    )
+    assert not isinstance(
+        obj, types.ModuleType
+    ), f"sp.{name} resolved to a module instead of a function."
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +140,7 @@ def test_conflict_prone_function_survives_submodule_import(name, sibling):
 # triggering ``sp`` access through a legitimate lazy leaf, then asserting
 # every conflict-prone function remains callable.
 # ---------------------------------------------------------------------------
+
 
 def test_no_conflict_function_morphs_to_module_after_lazy_traffic():
     """End-to-end: trigger several lazy resolutions and re-assert all 14
@@ -189,16 +190,16 @@ def test_no_conflict_function_morphs_to_module_after_lazy_traffic():
 # ---------------------------------------------------------------------------
 
 FOREST_LAZY_LEAVES = [
-    ("CausalForest",          "forest.causal_forest"),
-    ("causal_forest",         "forest.causal_forest"),
-    ("calibration_test",      "forest.forest_inference"),
-    ("test_calibration",      "forest.forest_inference"),
-    ("rate",                  "forest.forest_inference"),
-    ("honest_variance",       "forest.forest_inference"),
-    ("multi_arm_forest",      "forest.multi_arm_forest"),
-    ("MultiArmForestResult",  "forest.multi_arm_forest"),
-    ("iv_forest",             "forest.iv_forest"),
-    ("IVForestResult",        "forest.iv_forest"),
+    ("CausalForest", "forest.causal_forest"),
+    ("causal_forest", "forest.causal_forest"),
+    ("calibration_test", "forest.forest_inference"),
+    ("test_calibration", "forest.forest_inference"),
+    ("rate", "forest.forest_inference"),
+    ("honest_variance", "forest.forest_inference"),
+    ("multi_arm_forest", "forest.multi_arm_forest"),
+    ("MultiArmForestResult", "forest.multi_arm_forest"),
+    ("iv_forest", "forest.iv_forest"),
+    ("IVForestResult", "forest.iv_forest"),
 ]
 
 
@@ -228,7 +229,7 @@ def test_forest_not_loaded_on_bare_import_statspai():
     )
     last_line = proc.stdout.strip().splitlines()[-1]
     assert last_line.startswith("LEAKED="), proc.stdout
-    leaked_csv = last_line[len("LEAKED="):]
+    leaked_csv = last_line[len("LEAKED=") :]
     leaked = [m for m in leaked_csv.split(",") if m]
     assert not leaked, (
         f"`import statspai` eagerly loaded {leaked}.  Move the offending "
@@ -250,8 +251,7 @@ def test_forest_leaf_resolves_to_callable(name, expected_modpath):
     # everything else is a callable function.  ``callable(obj)`` is True
     # for both, so this is enough.
     assert callable(obj), (
-        f"sp.{name} should be the callable exported by "
-        f"statspai.{expected_modpath}."
+        f"sp.{name} should be the callable exported by " f"statspai.{expected_modpath}."
     )
 
 
@@ -274,9 +274,7 @@ def test_forest_leaf_survives_submodule_fromimport_shadow():
     assert callable(pre)
 
     # Trigger the shadow shape.
-    importlib.__import__(
-        "statspai.forest.causal_forest", fromlist=["CausalForest"]
-    )
+    importlib.__import__("statspai.forest.causal_forest", fromlist=["CausalForest"])
 
     post = sp.causal_forest
     assert callable(post), (
@@ -348,7 +346,7 @@ def test_sklearn_budget_ceiling_on_bare_import_statspai():
     )
     last_line = proc.stdout.strip().splitlines()[-1]
     assert last_line.startswith("SKLEARN_COUNT="), proc.stdout
-    n = int(last_line[len("SKLEARN_COUNT="):])
+    n = int(last_line[len("SKLEARN_COUNT=") :])
     assert n <= SKLEARN_BUDGET_CEILING, (
         f"`import statspai` pulled {n} sklearn submodules, exceeding the "
         f"<= {SKLEARN_BUDGET_CEILING} ceiling.  Either a top-level "

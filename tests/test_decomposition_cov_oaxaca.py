@@ -18,6 +18,7 @@ These are exact (Oaxaca–Blinder is a deterministic algebraic identity), so the
 tolerances are machine-epsilon-scale, per CLAUDE.md §5 (real numerical
 assertions, no mocking of numerical paths).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -45,7 +46,11 @@ def wage() -> pd.DataFrame:
 @pytest.mark.parametrize("reference", [0, 1, "pooled", "cotton", "reimers"])
 def test_oaxaca_additivity_identity(wage, reference):
     r = sp.decompose(
-        "oaxaca", data=wage, y="log_wage", group="female", x=X,
+        "oaxaca",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
         reference=reference,
     )
     o = r.overall
@@ -58,23 +63,28 @@ def test_oaxaca_additivity_identity(wage, reference):
 
 
 def test_oaxaca_reference_selects_beta_star(wage):
-    r0 = sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                      x=X, reference=0)
+    r0 = sp.decompose(
+        "oaxaca", data=wage, y="log_wage", group="female", x=X, reference=0
+    )
     np.testing.assert_allclose(
         r0.group_stats["beta_star"].to_numpy(),
-        r0.group_stats["beta_a"].to_numpy(), atol=1e-10,
+        r0.group_stats["beta_a"].to_numpy(),
+        atol=1e-10,
     )
-    r1 = sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                      x=X, reference=1)
+    r1 = sp.decompose(
+        "oaxaca", data=wage, y="log_wage", group="female", x=X, reference=1
+    )
     np.testing.assert_allclose(
         r1.group_stats["beta_star"].to_numpy(),
-        r1.group_stats["beta_b"].to_numpy(), atol=1e-10,
+        r1.group_stats["beta_b"].to_numpy(),
+        atol=1e-10,
     )
 
 
 def test_oaxaca_detailed_sums_to_aggregate(wage):
-    r = sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                     x=X, reference=0, detail=True)
+    r = sp.decompose(
+        "oaxaca", data=wage, y="log_wage", group="female", x=X, reference=0, detail=True
+    )
     detailed = r.detailed
     assert detailed is not None
     # The detailed explained contributions must sum to the aggregate
@@ -85,8 +95,15 @@ def test_oaxaca_detailed_sums_to_aggregate(wage):
 
 
 def test_oaxaca_detail_false_skips_detailed(wage):
-    r = sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                     x=X, reference=0, detail=False)
+    r = sp.decompose(
+        "oaxaca",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        reference=0,
+        detail=False,
+    )
     # Aggregate identity still holds even without the per-variable table.
     o = r.overall
     assert o["explained"] + o["unexplained"] == pytest.approx(o["gap"], abs=1e-9)
@@ -94,8 +111,13 @@ def test_oaxaca_detail_false_skips_detailed(wage):
 
 def test_oaxaca_missing_column_raises(wage):
     with pytest.raises(ValueError, match="(?i)not found"):
-        sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                     x=["education", "does_not_exist"])
+        sp.decompose(
+            "oaxaca",
+            data=wage,
+            y="log_wage",
+            group="female",
+            x=["education", "does_not_exist"],
+        )
 
 
 # ── Gelbach (2016): exact additivity of the coefficient change ────────
@@ -103,8 +125,11 @@ def test_oaxaca_missing_column_raises(wage):
 
 def test_gelbach_additivity(wage):
     g = sp.decompose(
-        "gelbach", data=wage, y="log_wage",
-        base_x=["education"], added_x=["experience", "tenure"],
+        "gelbach",
+        data=wage,
+        y="log_wage",
+        base_x=["education"],
+        added_x=["experience", "tenure"],
     )
     # total_change is exactly the short-minus-long coefficient gap.
     assert g.total_change == pytest.approx(g.base_coef - g.full_coef, abs=1e-9)
@@ -115,8 +140,11 @@ def test_gelbach_additivity(wage):
 
 def test_gelbach_var_of_interest_explicit(wage):
     g = sp.decompose(
-        "gelbach", data=wage, y="log_wage",
-        base_x=["education", "experience"], added_x=["tenure", "union"],
+        "gelbach",
+        data=wage,
+        y="log_wage",
+        base_x=["education", "experience"],
+        added_x=["tenure", "union"],
         var_of_interest="experience",
     )
     assert g.base_var == "experience"
@@ -128,8 +156,9 @@ def test_gelbach_var_of_interest_explicit(wage):
 
 @pytest.fixture(scope="module")
 def oaxaca_result(wage):
-    return sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                        x=X, reference=0, detail=True)
+    return sp.decompose(
+        "oaxaca", data=wage, y="log_wage", group="female", x=X, reference=0, detail=True
+    )
 
 
 def test_oaxaca_result_summary_and_repr(oaxaca_result):
@@ -158,8 +187,15 @@ def test_oaxaca_result_plot(oaxaca_result, kind):
 
 
 def test_oaxaca_plot_without_detail_raises(wage):
-    r = sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                     x=X, reference=0, detail=False)
+    r = sp.decompose(
+        "oaxaca",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        reference=0,
+        detail=False,
+    )
     with pytest.raises(ValueError, match="(?i)detail"):
         r.plot(kind="waterfall")
     plt.close("all")
@@ -176,16 +212,23 @@ def test_oaxaca_non_binary_group_raises(wage):
 
 
 def test_oaxaca_too_few_obs_raises(wage):
-    tiny = pd.concat([wage[wage["female"] == 1].head(1),
-                      wage[wage["female"] == 0].head(5)])
+    tiny = pd.concat(
+        [wage[wage["female"] == 1].head(1), wage[wage["female"] == 0].head(5)]
+    )
     with pytest.raises(ValueError, match="(?i)at least 2"):
         sp.decompose("oaxaca", data=tiny, y="log_wage", group="female", x=X)
 
 
 def test_oaxaca_invalid_reference_raises(wage):
     with pytest.raises(ValueError, match="(?i)invalid reference"):
-        sp.decompose("oaxaca", data=wage, y="log_wage", group="female",
-                     x=X, reference="not_a_reference")
+        sp.decompose(
+            "oaxaca",
+            data=wage,
+            y="log_wage",
+            group="female",
+            x=X,
+            reference="not_a_reference",
+        )
 
 
 # ── GelbachResult rendering surface + validation branches ────────────
@@ -193,8 +236,13 @@ def test_oaxaca_invalid_reference_raises(wage):
 
 @pytest.fixture(scope="module")
 def gelbach_result(wage):
-    return sp.decompose("gelbach", data=wage, y="log_wage",
-                        base_x=["education"], added_x=["experience", "tenure"])
+    return sp.decompose(
+        "gelbach",
+        data=wage,
+        y="log_wage",
+        base_x=["education"],
+        added_x=["experience", "tenure"],
+    )
 
 
 def test_gelbach_result_rendering(gelbach_result):
@@ -210,25 +258,41 @@ def test_gelbach_result_rendering(gelbach_result):
 
 def test_gelbach_var_not_in_base_raises(wage):
     with pytest.raises(ValueError, match="(?i)not in base_x"):
-        sp.decompose("gelbach", data=wage, y="log_wage",
-                     base_x=["education"], added_x=["tenure"],
-                     var_of_interest="experience")
+        sp.decompose(
+            "gelbach",
+            data=wage,
+            y="log_wage",
+            base_x=["education"],
+            added_x=["tenure"],
+            var_of_interest="experience",
+        )
 
 
 def test_gelbach_overlap_raises(wage):
     with pytest.raises(ValueError, match="(?i)both base_x and added_x"):
-        sp.decompose("gelbach", data=wage, y="log_wage",
-                     base_x=["education", "tenure"], added_x=["tenure"])
+        sp.decompose(
+            "gelbach",
+            data=wage,
+            y="log_wage",
+            base_x=["education", "tenure"],
+            added_x=["tenure"],
+        )
 
 
 def test_gelbach_missing_column_raises(wage):
     with pytest.raises(ValueError, match="(?i)not found"):
-        sp.decompose("gelbach", data=wage, y="log_wage",
-                     base_x=["education"], added_x=["nope"])
+        sp.decompose(
+            "gelbach", data=wage, y="log_wage", base_x=["education"], added_x=["nope"]
+        )
 
 
 def test_gelbach_too_few_obs_raises(wage):
     tiny = wage.head(3)  # n < len(all_x) + 2
     with pytest.raises(ValueError):
-        sp.decompose("gelbach", data=tiny, y="log_wage",
-                     base_x=["education"], added_x=["experience", "tenure"])
+        sp.decompose(
+            "gelbach",
+            data=tiny,
+            y="log_wage",
+            base_x=["education"],
+            added_x=["experience", "tenure"],
+        )

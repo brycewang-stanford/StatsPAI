@@ -1,4 +1,5 @@
 """Mediation sensitivity analysis tests."""
+
 import numpy as np, pandas as pd, pytest
 from statspai.mediation.sensitivity import mediate_sensitivity
 
@@ -39,4 +40,5 @@ def test_summary_prints(med_dgp):
 
 def test_exported():
     import statspai as sp
+
     assert callable(sp.mediate_sensitivity)

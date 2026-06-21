@@ -24,9 +24,7 @@ def small_panel():
                 + (3.0 if treated and post else 0.0)
                 + rng.standard_normal()
             )
-            units.append(
-                {"unit": f"u{u}", "time": t, "y": y, "treated": int(treated)}
-            )
+            units.append({"unit": f"u{u}", "time": t, "y": y, "treated": int(treated)})
     return pd.DataFrame(units)
 
 
@@ -38,17 +36,26 @@ def cross_section():
     ps = 1.0 / (1.0 + np.exp(-X[:, 0]))
     D = (rng.uniform(size=n) < ps).astype(int)
     Y = X[:, 0] + X[:, 1] + 2.0 * D + rng.standard_normal(n)
-    return pd.DataFrame({
-        "y": Y, "treat": D,
-        "x1": X[:, 0], "x2": X[:, 1], "x3": X[:, 2],
-    })
+    return pd.DataFrame(
+        {
+            "y": Y,
+            "treat": D,
+            "x1": X[:, 0],
+            "x2": X[:, 1],
+            "x3": X[:, 2],
+        }
+    )
 
 
 def test_bridge_did_sc(small_panel):
     res = sp.bridge(
-        kind="did_sc", data=small_panel,
-        y="y", unit="unit", time="time",
-        treated_unit="u0", treatment_time=5,
+        kind="did_sc",
+        data=small_panel,
+        y="y",
+        unit="unit",
+        time="time",
+        treated_unit="u0",
+        treatment_time=5,
     )
     assert isinstance(res, sp.BridgeResult)
     assert res.kind == "did_sc"
@@ -59,8 +66,11 @@ def test_bridge_did_sc(small_panel):
 
 def test_bridge_cb_ipw(cross_section):
     res = sp.bridge(
-        kind="cb_ipw", data=cross_section,
-        y="y", treat="treat", covariates=["x1", "x2", "x3"],
+        kind="cb_ipw",
+        data=cross_section,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2", "x3"],
         n_boot=50,
     )
     assert isinstance(res, sp.BridgeResult)
@@ -70,8 +80,11 @@ def test_bridge_cb_ipw(cross_section):
 
 def test_bridge_ewm_cate(cross_section):
     res = sp.bridge(
-        kind="ewm_cate", data=cross_section,
-        y="y", treat="treat", covariates=["x1", "x2", "x3"],
+        kind="ewm_cate",
+        data=cross_section,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2", "x3"],
         n_boot=50,
     )
     assert isinstance(res, sp.BridgeResult)
@@ -80,8 +93,11 @@ def test_bridge_ewm_cate(cross_section):
 
 def test_bridge_dr_calib(cross_section):
     res = sp.bridge(
-        kind="dr_calib", data=cross_section,
-        y="y", treat="treat", covariates=["x1", "x2", "x3"],
+        kind="dr_calib",
+        data=cross_section,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2", "x3"],
         n_boot=50,
     )
     assert isinstance(res, sp.BridgeResult)
@@ -92,9 +108,13 @@ def test_bridge_surrogate_pci(cross_section):
     df = cross_section.copy()
     df["s1"] = df["y"] * 0.6 + np.random.default_rng(2).standard_normal(len(df))
     res = sp.bridge(
-        kind="surrogate_pci", data=df,
-        long_term="y", short_term=["s1"], treat="treat",
-        covariates=["x1", "x2", "x3"], n_boot=50,
+        kind="surrogate_pci",
+        data=df,
+        long_term="y",
+        short_term=["s1"],
+        treat="treat",
+        covariates=["x1", "x2", "x3"],
+        n_boot=50,
     )
     assert isinstance(res, sp.BridgeResult)
     assert np.isfinite(res.estimate_dr)
@@ -107,8 +127,12 @@ def test_bridge_kink_rdd():
     Y = np.where(R > 0, 1.5 * R, 0.5 * R) + 0.1 * rng.standard_normal(n)
     df = pd.DataFrame({"y": Y, "r": R})
     res = sp.bridge(
-        kind="kink_rdd", data=df,
-        y="y", running="r", cutoff=0.0, bandwidth=0.6,
+        kind="kink_rdd",
+        data=df,
+        y="y",
+        running="r",
+        cutoff=0.0,
+        bandwidth=0.6,
     )
     assert isinstance(res, sp.BridgeResult)
     # RKD slope-jump should be near 1.0 (= 1.5 - 0.5)

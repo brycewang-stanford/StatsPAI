@@ -18,10 +18,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════
 #  LTMLE: dynamic regimes + survival
 # ═══════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def longitudinal_panel():
@@ -45,10 +45,12 @@ class TestLTMLEDynamic:
             return (hist[key] > 0).astype(int)
 
         r = sp.ltmle(
-            longitudinal_panel, y="Y",
+            longitudinal_panel,
+            y="Y",
             treatments=["A0", "A1"],
             covariates_time=[["L0"], ["L1"]],
-            regime_treated=policy, regime_control=[0, 0],
+            regime_treated=policy,
+            regime_control=[0, 0],
         )
         assert np.isfinite(r.ate)
         assert r.detail["regime_treated_callable"] is True
@@ -58,11 +60,12 @@ class TestLTMLEDynamic:
         import statspai as sp
 
         def bad_policy(k, hist):
-            return np.ones(10, dtype=int)   # wrong length
+            return np.ones(10, dtype=int)  # wrong length
 
         with pytest.raises(ValueError, match="length"):
             sp.ltmle(
-                longitudinal_panel, y="Y",
+                longitudinal_panel,
+                y="Y",
                 treatments=["A0", "A1"],
                 covariates_time=[["L0"], ["L1"]],
                 regime_treated=bad_policy,
@@ -70,11 +73,14 @@ class TestLTMLEDynamic:
 
     def test_static_list_still_works(self, longitudinal_panel):
         import statspai as sp
+
         r = sp.ltmle(
-            longitudinal_panel, y="Y",
+            longitudinal_panel,
+            y="Y",
             treatments=["A0", "A1"],
             covariates_time=[["L0"], ["L1"]],
-            regime_treated=[1, 1], regime_control=[0, 0],
+            regime_treated=[1, 1],
+            regime_control=[0, 0],
         )
         assert np.isfinite(r.ate)
 
@@ -82,6 +88,7 @@ class TestLTMLEDynamic:
         """A callable that always returns the static vector must give
         the same ATE as passing that vector directly."""
         import statspai as sp
+
         n = len(longitudinal_panel)
 
         def constant_one(k, hist):
@@ -91,16 +98,20 @@ class TestLTMLEDynamic:
             return np.zeros(n, dtype=int)
 
         r_static = sp.ltmle(
-            longitudinal_panel, y="Y",
+            longitudinal_panel,
+            y="Y",
             treatments=["A0", "A1"],
             covariates_time=[["L0"], ["L1"]],
-            regime_treated=[1, 1], regime_control=[0, 0],
+            regime_treated=[1, 1],
+            regime_control=[0, 0],
         )
         r_dyn = sp.ltmle(
-            longitudinal_panel, y="Y",
+            longitudinal_panel,
+            y="Y",
             treatments=["A0", "A1"],
             covariates_time=[["L0"], ["L1"]],
-            regime_treated=constant_one, regime_control=constant_zero,
+            regime_treated=constant_one,
+            regime_control=constant_zero,
         )
         assert abs(r_static.ate - r_dyn.ate) < 1e-8
 
@@ -124,17 +135,26 @@ def survival_panel():
     h3 = 1 / (1 + np.exp(-(-1.0 - 0.7 * A2 + 0.1 * L2)))
     T3 = np.where((T1 + T2) > 0, 0, rng.binomial(1, h3))
 
-    return pd.DataFrame({
-        "L0": L0, "A0": A0, "T1": T1,
-        "L1": L1, "A1": A1, "T2": T2,
-        "L2": L2, "A2": A2, "T3": T3,
-    })
+    return pd.DataFrame(
+        {
+            "L0": L0,
+            "A0": A0,
+            "T1": T1,
+            "L1": L1,
+            "A1": A1,
+            "T2": T2,
+            "L2": L2,
+            "A2": A2,
+            "T3": T3,
+        }
+    )
 
 
 class TestLTMLESurvival:
 
     def test_produces_monotone_survival_curves(self, survival_panel):
         import statspai as sp
+
         res = sp.ltmle_survival(
             survival_panel,
             event_indicators=["T1", "T2", "T3"],
@@ -147,6 +167,7 @@ class TestLTMLESurvival:
 
     def test_treatment_improves_survival(self, survival_panel):
         import statspai as sp
+
         res = sp.ltmle_survival(
             survival_panel,
             event_indicators=["T1", "T2", "T3"],
@@ -160,6 +181,7 @@ class TestLTMLESurvival:
 
     def test_rmst_ci_reasonable(self, survival_panel):
         import statspai as sp
+
         res = sp.ltmle_survival(
             survival_panel,
             event_indicators=["T1", "T2", "T3"],
@@ -171,6 +193,7 @@ class TestLTMLESurvival:
 
     def test_exposed_at_top_level(self):
         import statspai as sp
+
         assert callable(sp.ltmle_survival)
         assert hasattr(sp, "LTMLESurvivalResult")
 
@@ -178,6 +201,7 @@ class TestLTMLESurvival:
         """RMST SE should be on the same order as a quick bootstrap SE,
         not inflated by a factor of K."""
         import statspai as sp
+
         res = sp.ltmle_survival(
             survival_panel,
             event_indicators=["T1", "T2", "T3"],
@@ -201,14 +225,15 @@ class TestLTMLESurvival:
         # Allow the IC-based SE to be within 0.4–2.5× of bootstrap —
         # catches an ×K-style inflation while still being lenient to
         # the first-order IC approximation.
-        assert 0.4 < ratio < 2.5, (
-            f"rmst_se={res.rmst_se}, boot_se={boot_se}, ratio={ratio}"
-        )
+        assert (
+            0.4 < ratio < 2.5
+        ), f"rmst_se={res.rmst_se}, boot_se={boot_se}, ratio={ratio}"
 
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Conformal counterfactual + weighted conformal + ITE interval
 # ═══════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def het_effect_data():
@@ -217,7 +242,7 @@ def het_effect_data():
     x1 = rng.normal(size=n)
     x2 = rng.normal(size=n)
     T = rng.binomial(1, 1 / (1 + np.exp(-(0.3 * x1 - 0.2 * x2))))
-    tau = 0.5 + x1   # heterogeneous effect
+    tau = 0.5 + x1  # heterogeneous effect
     Y = 0.3 * x1 + 0.2 * x2 + T * tau + rng.normal(size=n) * 0.5
     df = pd.DataFrame({"Y": Y, "T": T, "x1": x1, "x2": x2})
     return df, tau
@@ -227,10 +252,15 @@ class TestConformalCounterfactual:
 
     def test_intervals_are_ordered(self, het_effect_data):
         import statspai as sp
+
         df, _ = het_effect_data
         cf = sp.conformal_counterfactual(
-            df, y="Y", treat="T", covariates=["x1", "x2"],
-            alpha=0.1, random_state=1,
+            df,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=1,
         )
         np.testing.assert_allclose(
             [
@@ -246,10 +276,15 @@ class TestConformalCounterfactual:
 
     def test_ite_interval_covers_true_effect(self, het_effect_data):
         import statspai as sp
+
         df, tau_true = het_effect_data
         ite = sp.conformal_ite_interval(
-            df, y="Y", treat="T", covariates=["x1", "x2"],
-            alpha=0.1, random_state=1,
+            df,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            alpha=0.1,
+            random_state=1,
         )
         # Nested bound is conservative — coverage should exceed target
         covered = np.mean((tau_true >= ite.lower) & (tau_true <= ite.upper))
@@ -258,6 +293,7 @@ class TestConformalCounterfactual:
     def test_weighted_conformal_basic_coverage(self):
         """Standard (unweighted) conformal should hit the nominal rate."""
         import statspai as sp
+
         rng = np.random.default_rng(0)
         n = 500
         X_all = rng.normal(size=(n, 3))
@@ -265,10 +301,15 @@ class TestConformalCounterfactual:
         # 60/20/20 split
         n_trn, n_cal = 300, 100
         X_tr, y_tr = X_all[:n_trn], y_all[:n_trn]
-        X_cal, y_cal = X_all[n_trn:n_trn + n_cal], y_all[n_trn:n_trn + n_cal]
-        X_te, y_te = X_all[n_trn + n_cal:], y_all[n_trn + n_cal:]
+        X_cal, y_cal = X_all[n_trn : n_trn + n_cal], y_all[n_trn : n_trn + n_cal]
+        X_te, y_te = X_all[n_trn + n_cal :], y_all[n_trn + n_cal :]
         lo, hi, _ = sp.weighted_conformal_prediction(
-            X_tr, y_tr, X_cal, y_cal, X_te, alpha=0.1,
+            X_tr,
+            y_tr,
+            X_cal,
+            y_cal,
+            X_te,
+            alpha=0.1,
         )
         covered = np.mean((y_te >= lo) & (y_te <= hi))
         np.testing.assert_allclose(covered, 0.89)
@@ -276,9 +317,14 @@ class TestConformalCounterfactual:
 
     def test_exposed_at_top_level(self):
         import statspai as sp
-        for name in ("conformal_counterfactual", "conformal_ite_interval",
-                     "weighted_conformal_prediction",
-                     "ConformalCounterfactualResult", "ConformalITEResult"):
+
+        for name in (
+            "conformal_counterfactual",
+            "conformal_ite_interval",
+            "weighted_conformal_prediction",
+            "ConformalCounterfactualResult",
+            "ConformalITEResult",
+        ):
             assert hasattr(sp, name), f"sp.{name} missing"
 
 
@@ -286,13 +332,15 @@ class TestConformalCounterfactual:
 #  PCMCI
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def lagged_ts():
     # DGP: X0→X1 lag 1, X1→X2 lag 1, X0→X2 lag 2
     rng = np.random.default_rng(0)
     T = 800
     X0 = rng.normal(size=T)
-    X1 = np.zeros(T); X2 = np.zeros(T)
+    X1 = np.zeros(T)
+    X2 = np.zeros(T)
     for t in range(2, T):
         X1[t] = 0.7 * X0[t - 1] + 0.3 * rng.normal()
         X2[t] = 0.5 * X1[t - 1] + 0.4 * X0[t - 2] + 0.3 * rng.normal()
@@ -303,6 +351,7 @@ class TestPCMCI:
 
     def test_recovers_true_links(self, lagged_ts):
         import statspai as sp
+
         res = sp.pcmci(lagged_ts, tau_max=3, pc_alpha=0.01)
         links = res.discovered_links()
         true_links = {
@@ -310,23 +359,20 @@ class TestPCMCI:
             ("X1", "X2", 1),
             ("X0", "X2", 2),
         }
-        got = {
-            (row.source, row.target, row.lag)
-            for row in links.itertuples()
-        }
+        got = {(row.source, row.target, row.lag) for row in links.itertuples()}
         # Must find all 3 true links
-        assert true_links.issubset(got), (
-            f"missing links: {true_links - got}, got {got}"
-        )
+        assert true_links.issubset(got), f"missing links: {true_links - got}, got {got}"
 
     def test_no_lag_zero_self_loops(self, lagged_ts):
         import statspai as sp
+
         res = sp.pcmci(lagged_ts, tau_max=2, pc_alpha=0.01)
         # lag=0 adjacency should be all False by design
         assert not res.adjacency[0].any()
 
     def test_partial_corr_pvalue_respects_conditioning(self):
         import statspai as sp
+
         rng = np.random.default_rng(0)
         n = 1000
         Z = rng.normal(size=n)
@@ -341,17 +387,17 @@ class TestPCMCI:
 
     def test_exposed_at_top_level(self):
         import statspai as sp
+
         for name in ("pcmci", "PCMCIResult", "partial_corr_pvalue"):
             assert hasattr(sp, name), f"sp.{name} missing"
 
     def test_type_I_control_on_white_noise(self):
         """Independent white-noise series should produce few links at α=0.01."""
         import statspai as sp
+
         rng = np.random.default_rng(0)
         T = 600
-        df = pd.DataFrame({
-            f"X{i}": rng.normal(size=T) for i in range(3)
-        })
+        df = pd.DataFrame({f"X{i}": rng.normal(size=T) for i in range(3)})
         res = sp.pcmci(df, tau_max=3, pc_alpha=0.01, mci_alpha=0.01)
         n_links = int(res.adjacency.sum())
         # 3 × 3 × 3 = 27 possible lagged edges, expected false positives
@@ -363,6 +409,7 @@ class TestPCMCI:
 # ═══════════════════════════════════════════════════════════════════════
 #  ML-enhanced partial-identification bounds
 # ═══════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def bounds_data():
@@ -379,9 +426,16 @@ class TestMLBounds:
 
     def test_interval_contains_manski_midpoint(self, bounds_data):
         import statspai as sp
+
         res = sp.ml_bounds(
-            bounds_data, y="Y", treat="T", covariates=["x1", "x2"],
-            y_min=-3, y_max=3, n_bootstrap=30, random_state=1,
+            bounds_data,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            y_min=-3,
+            y_max=3,
+            n_bootstrap=30,
+            random_state=1,
         )
         # Adaptive bounds should fully contain the Manski interval's midpoint
         manski_mid = 0.5 * (res.manski_lower + res.manski_upper)
@@ -390,9 +444,16 @@ class TestMLBounds:
     def test_width_matches_y_range(self, bounds_data):
         """Under bounded-outcome Manski the width equals y_max - y_min."""
         import statspai as sp
+
         res = sp.ml_bounds(
-            bounds_data, y="Y", treat="T", covariates=["x1", "x2"],
-            y_min=-3, y_max=3, n_bootstrap=0, random_state=1,
+            bounds_data,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            y_min=-3,
+            y_max=3,
+            n_bootstrap=0,
+            random_state=1,
         )
         expected_width = 3.0 - (-3.0)
         actual_width = res.adaptive_upper - res.adaptive_lower
@@ -400,13 +461,26 @@ class TestMLBounds:
 
     def test_tighter_y_range_gives_tighter_bounds(self, bounds_data):
         import statspai as sp
+
         wide = sp.ml_bounds(
-            bounds_data, y="Y", treat="T", covariates=["x1", "x2"],
-            y_min=-5, y_max=5, n_bootstrap=0, random_state=1,
+            bounds_data,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            y_min=-5,
+            y_max=5,
+            n_bootstrap=0,
+            random_state=1,
         )
         tight = sp.ml_bounds(
-            bounds_data, y="Y", treat="T", covariates=["x1", "x2"],
-            y_min=-2, y_max=3, n_bootstrap=0, random_state=1,
+            bounds_data,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            y_min=-2,
+            y_max=3,
+            n_bootstrap=0,
+            random_state=1,
         )
         w_wide = wide.adaptive_upper - wide.adaptive_lower
         w_tight = tight.adaptive_upper - tight.adaptive_lower
@@ -414,14 +488,21 @@ class TestMLBounds:
 
     def test_gradient_boosting_learner(self, bounds_data):
         import statspai as sp
+
         res = sp.ml_bounds(
-            bounds_data, y="Y", treat="T", covariates=["x1", "x2"],
-            learner="gradient_boosting", n_bootstrap=0, random_state=1,
+            bounds_data,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            learner="gradient_boosting",
+            n_bootstrap=0,
+            random_state=1,
         )
         assert "Gradient" in res.learner
 
     def test_exposed_at_top_level(self):
         import statspai as sp
+
         assert hasattr(sp, "ml_bounds")
         assert hasattr(sp, "MLBoundsResult")
 
@@ -429,9 +510,16 @@ class TestMLBounds:
         """With n_bootstrap=0 the bootstrap CIs must collapse to the
         adaptive plug-in (no width around the endpoint)."""
         import statspai as sp
+
         res = sp.ml_bounds(
-            bounds_data, y="Y", treat="T", covariates=["x1", "x2"],
-            y_min=-3, y_max=3, n_bootstrap=0, random_state=1,
+            bounds_data,
+            y="Y",
+            treat="T",
+            covariates=["x1", "x2"],
+            y_min=-3,
+            y_max=3,
+            n_bootstrap=0,
+            random_state=1,
         )
         assert res.lower_ci == (res.adaptive_lower, res.adaptive_lower)
         assert res.upper_ci == (res.adaptive_upper, res.adaptive_upper)
@@ -444,17 +532,22 @@ class TestMLBounds:
 #  MCP server
 # ═══════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def mcp_csv():
     rng = np.random.default_rng(0)
     n = 300
-    df = pd.DataFrame({
-        "y": rng.normal(size=n),
-        "d": rng.binomial(1, 0.5, n),
-        "x1": rng.normal(size=n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "d": rng.binomial(1, 0.5, n),
+            "x1": rng.normal(size=n),
+        }
+    )
     tmp = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".csv", delete=False,
+        mode="w",
+        suffix=".csv",
+        delete=False,
     )
     df.to_csv(tmp.name, index=False)
     tmp.close()
@@ -466,9 +559,15 @@ class TestMCPServer:
 
     def test_initialize_returns_server_info(self):
         import statspai as sp
-        req = json.dumps({
-            "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {},
-        })
+
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {},
+            }
+        )
         resp = json.loads(sp.agent.mcp_handle_request(req))
         assert resp["result"]["serverInfo"]["name"] == "statspai"
         assert resp["result"]["serverInfo"]["version"] == sp.agent.MCP_SERVER_VERSION
@@ -478,6 +577,7 @@ class TestMCPServer:
 
     def test_tools_list_includes_data_path(self):
         import statspai as sp
+
         # The schema generator marks ``data_path`` required only for tools
         # whose registry spec has a required ``data`` parameter.  Use the
         # same auto-derive function the schema generator does, not the
@@ -485,10 +585,16 @@ class TestMCPServer:
         # dataless tools (super_learner, structural_break, *_from_result,
         # *_plot, post-estimation tests, …) don't fail this check.
         from statspai.agent.mcp_server import _dataless_tool_names
+
         dataless = _dataless_tool_names()
-        req = json.dumps({
-            "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {},
-        })
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/list",
+                "params": {},
+            }
+        )
         resp = json.loads(sp.agent.mcp_handle_request(req))
         tools = resp["result"]["tools"]
         assert len(tools) > 0
@@ -506,16 +612,21 @@ class TestMCPServer:
 
     def test_tools_call_runs_regress(self, mcp_csv):
         import statspai as sp
-        req = json.dumps({
-            "jsonrpc": "2.0", "id": 3, "method": "tools/call",
-            "params": {
-                "name": "regress",
-                "arguments": {
-                    "data_path": mcp_csv,
-                    "formula": "y ~ d + x1",
+
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": "regress",
+                    "arguments": {
+                        "data_path": mcp_csv,
+                        "formula": "y ~ d + x1",
+                    },
                 },
-            },
-        })
+            }
+        )
         resp = json.loads(sp.agent.mcp_handle_request(req))
         assert resp["result"]["isError"] is False
         content = resp["result"]["content"][0]
@@ -526,70 +637,101 @@ class TestMCPServer:
 
     def test_tools_call_unknown_tool_returns_error(self, mcp_csv):
         import statspai as sp
-        req = json.dumps({
-            "jsonrpc": "2.0", "id": 4, "method": "tools/call",
-            "params": {
-                "name": "definitely_not_a_tool",
-                "arguments": {"data_path": mcp_csv},
-            },
-        })
+
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 4,
+                "method": "tools/call",
+                "params": {
+                    "name": "definitely_not_a_tool",
+                    "arguments": {"data_path": mcp_csv},
+                },
+            }
+        )
         resp = json.loads(sp.agent.mcp_handle_request(req))
         # Either JSON-RPC error or an isError:True content block
         assert resp["result"]["isError"] is True
 
     def test_resources_list_and_read(self):
         import statspai as sp
-        req = json.dumps({
-            "jsonrpc": "2.0", "id": 5, "method": "resources/list",
-            "params": {},
-        })
+
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 5,
+                "method": "resources/list",
+                "params": {},
+            }
+        )
         resp = json.loads(sp.agent.mcp_handle_request(req))
         uris = [r["uri"] for r in resp["result"]["resources"]]
         assert "statspai://catalog" in uris
 
-        req2 = json.dumps({
-            "jsonrpc": "2.0", "id": 6, "method": "resources/read",
-            "params": {"uri": "statspai://catalog"},
-        })
+        req2 = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "resources/read",
+                "params": {"uri": "statspai://catalog"},
+            }
+        )
         resp2 = json.loads(sp.agent.mcp_handle_request(req2))
         text = resp2["result"]["contents"][0]["text"]
         assert "StatsPAI tool catalog" in text
 
     def test_unknown_method_returns_jsonrpc_error(self):
         import statspai as sp
-        req = json.dumps({
-            "jsonrpc": "2.0", "id": 7, "method": "nosuch", "params": {},
-        })
+
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 7,
+                "method": "nosuch",
+                "params": {},
+            }
+        )
         resp = json.loads(sp.agent.mcp_handle_request(req))
         assert "error" in resp
         assert resp["error"]["code"] == -32601
 
     def test_parse_error_returns_jsonrpc_32700(self):
         import statspai as sp
+
         resp = json.loads(sp.agent.mcp_handle_request("not valid json"))
         assert resp["error"]["code"] == -32700
 
     def test_notification_receives_no_response(self):
         """A JSON-RPC notification (no id) must return None."""
         import statspai as sp
-        req = json.dumps({
-            "jsonrpc": "2.0", "method": "initialize", "params": {},
-        })
+
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "method": "initialize",
+                "params": {},
+            }
+        )
         assert sp.agent.mcp_handle_request(req) is None
 
     def test_relative_data_path_returns_error(self):
         """A relative data_path must be rejected, not crash."""
         import statspai as sp
-        req = json.dumps({
-            "jsonrpc": "2.0", "id": 8, "method": "tools/call",
-            "params": {
-                "name": "regress",
-                "arguments": {
-                    "data_path": "relative/path/data.csv",
-                    "formula": "y ~ x",
+
+        req = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 8,
+                "method": "tools/call",
+                "params": {
+                    "name": "regress",
+                    "arguments": {
+                        "data_path": "relative/path/data.csv",
+                        "formula": "y ~ x",
+                    },
                 },
-            },
-        })
+            }
+        )
         resp = json.loads(sp.agent.mcp_handle_request(req))
         # Either a JSON-RPC error or a content block flagged isError=True
         assert ("error" in resp) or (resp.get("result", {}).get("isError") is True)

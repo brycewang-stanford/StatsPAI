@@ -23,7 +23,7 @@ def sample_results():
     x1 = np.random.normal(0, 1, n)
     x2 = np.random.normal(0, 1, n)
     y = 1 + 2 * x1 + 3 * x2 + np.random.normal(0, 1, n)
-    df = pd.DataFrame({'y': y, 'x1': x1, 'x2': x2})
+    df = pd.DataFrame({"y": y, "x1": x1, "x2": x2})
 
     r1 = regress("y ~ x1", data=df)
     r2 = regress("y ~ x1 + x2", data=df)
@@ -40,6 +40,7 @@ def tmp_dir():
 # ================================================================
 # outreg2 Excel export
 # ================================================================
+
 
 class TestOutreg2Excel:
 
@@ -62,6 +63,7 @@ class TestOutreg2Excel:
 # outreg2 Word export
 # ================================================================
 
+
 class TestOutreg2Word:
 
     def test_word_export_via_class(self, sample_results, tmp_dir):
@@ -83,14 +85,14 @@ class TestOutreg2Word:
         """outreg2() convenience function with format='word'."""
         r1, r2 = sample_results
         path = os.path.join(tmp_dir, "test.docx")
-        outreg2(r1, r2, filename=path, format='word')
+        outreg2(r1, r2, filename=path, format="word")
         assert os.path.exists(path)
 
     def test_word_auto_detect(self, sample_results, tmp_dir):
         """Auto-detect .docx extension."""
         r1, r2 = sample_results
         path = os.path.join(tmp_dir, "test.docx")
-        outreg2(r1, r2, filename=path, format='auto')
+        outreg2(r1, r2, filename=path, format="auto")
         assert os.path.exists(path)
 
     def test_word_content(self, sample_results, tmp_dir):
@@ -99,14 +101,13 @@ class TestOutreg2Word:
 
         r1, r2 = sample_results
         path = os.path.join(tmp_dir, "test.docx")
-        outreg2(r1, r2, filename=path, format='word',
-                title="Main Results")
+        outreg2(r1, r2, filename=path, format="word", title="Main Results")
 
         doc = Document(path)
 
         # Check title exists
-        text = '\n'.join(p.text for p in doc.paragraphs)
-        assert 'Main Results' in text
+        text = "\n".join(p.text for p in doc.paragraphs)
+        assert "Main Results" in text
 
         # Check table exists with expected structure
         assert len(doc.tables) == 1
@@ -116,13 +117,15 @@ class TestOutreg2Word:
         # over regtable in PR-B). Legacy "Variables" column header was
         # dropped — the bespoke renderer's quirk.
         header_text = [cell.text for cell in table.rows[0].cells]
-        assert any('Model' in h or '(1)' in h or '(2)' in h
-                   for h in header_text), header_text
+        assert any(
+            "Model" in h or "(1)" in h or "(2)" in h for h in header_text
+        ), header_text
 
 
 # ================================================================
 # modelsummary Excel/Word export
 # ================================================================
+
 
 class TestModelsummaryExcel:
 
@@ -132,7 +135,7 @@ class TestModelsummaryExcel:
         path = os.path.join(tmp_dir, "summary.xlsx")
         result = modelsummary(r1, r2, output=path)
         assert os.path.exists(path)
-        assert 'exported' in result.lower()
+        assert "exported" in result.lower()
 
     def test_excel_readable(self, sample_results, tmp_dir):
         """Exported Excel should be readable by pandas."""
@@ -152,15 +155,16 @@ class TestModelsummaryWord:
         path = os.path.join(tmp_dir, "summary.docx")
         result = modelsummary(r1, r2, output=path, title="My Table")
         assert os.path.exists(path)
-        assert 'exported' in result.lower()
+        assert "exported" in result.lower()
 
     def test_word_with_options(self, sample_results, tmp_dir):
         """Word export with all options."""
         r1, r2 = sample_results
         path = os.path.join(tmp_dir, "full.docx")
         modelsummary(
-            r1, r2,
-            model_names=['Baseline', 'Full'],
+            r1,
+            r2,
+            model_names=["Baseline", "Full"],
             output=path,
             title="Regression Results",
             notes=["Robust SE in parentheses"],
@@ -184,4 +188,4 @@ class TestModelsummaryWord:
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, "-v"])

@@ -1,4 +1,5 @@
 """Tests for ``sp.fast.etable`` (Phase 8)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,6 +23,7 @@ def _poisson_data(seed=0, n=2000):
 # ---------------------------------------------------------------------------
 # Smoke tests
 # ---------------------------------------------------------------------------
+
 
 def test_etable_single_fepois():
     df = _poisson_data(seed=1)
@@ -120,7 +122,11 @@ def test_etable_works_with_event_study():
             rows.append((u, t, y, et))
     df = pd.DataFrame(rows, columns=["unit", "time", "y", "event_time"])
     es = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
         window=(-2, 2),
     )
 
@@ -130,12 +136,17 @@ def test_etable_works_with_event_study():
         def __init__(self, e):
             self.e = e
             self.n_obs = e.n_obs
+
         def coef(self):
-            return pd.Series(self.e.coefs,
-                              index=[f"et_{int(t)}" for t in self.e.event_times])
+            return pd.Series(
+                self.e.coefs, index=[f"et_{int(t)}" for t in self.e.event_times]
+            )
+
         def se(self):
-            return pd.Series(self.e.ses,
-                              index=[f"et_{int(t)}" for t in self.e.event_times])
+            return pd.Series(
+                self.e.ses, index=[f"et_{int(t)}" for t in self.e.event_times]
+            )
+
     tab = sp.fast.etable(_ESAdapter(es))
     assert "N" in tab.index
     assert any(idx.startswith("et_") for idx in tab.index)
@@ -157,6 +168,7 @@ def test_etable_no_models_rejected():
 # t-distribution stars (P2 #11 follow-up)
 # ---------------------------------------------------------------------------
 
+
 def test_etable_uses_t_distribution_when_df_residual_present():
     """Stars should use the t-distribution when the fit exposes df_residual.
 
@@ -167,11 +179,13 @@ def test_etable_uses_t_distribution_when_df_residual_present():
     """
     rng = np.random.default_rng(100)
     n = 25  # small sample → df ~= 25 - p - FE rank
-    df = pd.DataFrame({
-        "y": rng.poisson(2.0, size=n).astype(np.int64),
-        "x1": rng.normal(size=n),
-        "fe": rng.integers(0, 3, size=n).astype(np.int32),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.poisson(2.0, size=n).astype(np.int64),
+            "x1": rng.normal(size=n),
+            "fe": rng.integers(0, 3, size=n).astype(np.int32),
+        }
+    )
     fit = sp.fast.fepois("y ~ x1 | fe", df)
     assert fit.df_residual > 0
 
@@ -185,13 +199,12 @@ def test_etable_uses_t_distribution_when_df_residual_present():
 
     # Manual t critical values for fit.df_residual
     from scipy import stats
+
     t5 = stats.t.ppf(0.975, fit.df_residual)
     if z > t5:
         assert "**" in cell
     else:
-        assert cell.count("*") < 2, (
-            f"got {cell!r} but z={z:.3f} <= t5={t5:.3f}"
-        )
+        assert cell.count("*") < 2, f"got {cell!r} but z={z:.3f} <= t5={t5:.3f}"
 
 
 def test_etable_falls_back_to_z_when_no_df_residual():

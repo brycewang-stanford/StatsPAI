@@ -24,7 +24,6 @@ from statspai.core.next_steps import (
     _detect_family,
 )
 
-
 # ======================================================================
 #  Step basics
 # ======================================================================
@@ -85,7 +84,9 @@ class TestFormatSteps:
 class TestStepsReprHtml:
     def test_contains_html_structure(self):
         steps = [
-            Step("sp.test()", "A test step", priority="essential", category="diagnostics"),
+            Step(
+                "sp.test()", "A test step", priority="essential", category="diagnostics"
+            ),
         ]
         html = _steps_repr_html(steps)
         assert "sp-ns" in html
@@ -120,8 +121,15 @@ class TestDetectFamily:
         assert _detect_family("augsynth") == "synth"
 
     def test_did(self):
-        for m in ("did", "diff_in_diff", "callaway", "sun_abraham",
-                  "staggered", "imputation", "twfe"):
+        for m in (
+            "did",
+            "diff_in_diff",
+            "callaway",
+            "sun_abraham",
+            "staggered",
+            "imputation",
+            "twfe",
+        ):
             assert _detect_family(m) == "did", f"{m} -> did"
 
     def test_rd(self):
@@ -129,8 +137,7 @@ class TestDetectFamily:
             assert _detect_family(m) == "rd", f"{m} -> rd"
 
     def test_iv(self):
-        for m in ("2sls", "iv", "instrumental",
-                  "bartik", "shift-share", "deepiv"):
+        for m in ("2sls", "iv", "instrumental", "bartik", "shift-share", "deepiv"):
             assert _detect_family(m) == "iv", f"{m} -> iv"
 
     def test_matching(self):
@@ -142,8 +149,17 @@ class TestDetectFamily:
             assert _detect_family(m) == "dml", f"{m} -> dml"
 
     def test_hte(self):
-        for m in ("metalearner", "slearner", "tlearner", "xlearner",
-                  "rlearner", "drlearner", "causal forest", "bcf", "cate"):
+        for m in (
+            "metalearner",
+            "slearner",
+            "tlearner",
+            "xlearner",
+            "rlearner",
+            "drlearner",
+            "causal forest",
+            "bcf",
+            "cate",
+        ):
             assert _detect_family(m) == "hte", f"{m} -> hte"
 
     def test_mediation(self):
@@ -181,7 +197,10 @@ def _mock_econ_result(
 
     class MockEconResult:
         def __init__(self):
-            self.model_info: Dict[str, Any] = {"model_type": model_type, "robust": robust}
+            self.model_info: Dict[str, Any] = {
+                "model_type": model_type,
+                "robust": robust,
+            }
             self.data_info: Dict[str, Any] = {
                 "residuals": [0.1] * nobs if has_residuals else None,
                 "X": [[1]] * nobs if has_X else None,
@@ -240,26 +259,24 @@ class TestEconometricNextSteps:
     def test_ols_no_residuals(self):
         """Without residuals/X, estat shortcut to IC."""
         steps = econometric_next_steps(
-            _mock_econ_result(has_residuals=False, has_X=False))
+            _mock_econ_result(has_residuals=False, has_X=False)
+        )
         actions = [s.action for s in steps]
         assert any("sp.estat(result, 'ic')" in a for a in actions)
 
     def test_nonrobust_triggers_robust_se(self):
-        steps = econometric_next_steps(
-            _mock_econ_result(robust="nonrobust"))
+        steps = econometric_next_steps(_mock_econ_result(robust="nonrobust"))
         actions = [s.action for s in steps]
         assert any("robust='hc1'" in a for a in actions)
 
     def test_robust_se_already_set(self):
-        steps = econometric_next_steps(
-            _mock_econ_result(robust="hc1"))
+        steps = econometric_next_steps(_mock_econ_result(robust="hc1"))
         actions = [s.action for s in steps]
         # Should not suggest robust SE re-estimation
         assert not any("robust='hc1'" in a for a in actions)
 
     def test_iv_adds_specific_steps(self):
-        steps = econometric_next_steps(
-            _mock_econ_result(model_type="iv"))
+        steps = econometric_next_steps(_mock_econ_result(model_type="iv"))
         actions = [s.action for s in steps]
         assert any("firststage" in a for a in actions)
         assert any("overid" in a for a in actions)
@@ -267,20 +284,17 @@ class TestEconometricNextSteps:
         assert any("kitagawa" in a for a in actions)
 
     def test_many_params_triggers_stepwise(self):
-        steps = econometric_next_steps(
-            _mock_econ_result(n_params=10))
+        steps = econometric_next_steps(_mock_econ_result(n_params=10))
         actions = [s.action for s in steps]
         assert any("stepwise" in a for a in actions)
 
     def test_few_params_no_stepwise(self):
-        steps = econometric_next_steps(
-            _mock_econ_result(n_params=2))
+        steps = econometric_next_steps(_mock_econ_result(n_params=2))
         actions = [s.action for s in steps]
         assert not any("stepwise" in a for a in actions)
 
     def test_panel_adds_hausman(self):
-        steps = econometric_next_steps(
-            _mock_econ_result(model_type="panel_fe"))
+        steps = econometric_next_steps(_mock_econ_result(model_type="panel_fe"))
         actions = [s.action for s in steps]
         assert any("hausman" in a for a in actions)
         assert any("twoway_cluster" in a for a in actions)
@@ -300,16 +314,16 @@ class TestCausalNextSteps:
 
     def test_did_with_event_study(self):
         """With event study → no need to suggest building one."""
-        steps = causal_next_steps(_mock_causal_result(
-            method="did", has_event_study=True))
+        steps = causal_next_steps(
+            _mock_causal_result(method="did", has_event_study=True)
+        )
         actions = [s.action for s in steps]
         assert any("pretrends_test" in a for a in actions)
         assert any("sensitivity_rr" in a for a in actions)
         assert not any("event_study(data=df" in a for a in actions)
 
     def test_did_twfe_suggests_alternatives(self):
-        steps = causal_next_steps(_mock_causal_result(
-            method="twfe"))
+        steps = causal_next_steps(_mock_causal_result(method="twfe"))
         actions = [s.action for s in steps]
         assert any("bacon" in a for a in actions)
         assert any("did_imputation" in a for a in actions)
@@ -370,8 +384,7 @@ class TestCausalNextSteps:
 
     def test_universal_evalue(self):
         """E-value appears for all families except synth."""
-        for method in ("did", "rd", "iv", "psm", "dml",
-                       "causal_forest", "mediation"):
+        for method in ("did", "rd", "iv", "psm", "dml", "causal_forest", "mediation"):
             steps = causal_next_steps(_mock_causal_result(method=method))
             actions = [s.action for s in steps]
             assert any("evalue" in a for a in actions), f"{method} missing evalue"
@@ -397,8 +410,17 @@ class TestCausalNextSteps:
 
     def test_long_output_is_stable(self):
         """Run with every method family; verify total step count range."""
-        for method in ("did", "rd", "iv", "psm", "synth", "dml",
-                       "causal_forest", "mediation", "generic_estimator"):
+        for method in (
+            "did",
+            "rd",
+            "iv",
+            "psm",
+            "synth",
+            "dml",
+            "causal_forest",
+            "mediation",
+            "generic_estimator",
+        ):
             steps = causal_next_steps(_mock_causal_result(method=method))
             # Every family should generate at least 3 universal steps
             assert len(steps) >= 3, f"{method}: only {len(steps)} steps"

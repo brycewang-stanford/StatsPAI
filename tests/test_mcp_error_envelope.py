@@ -22,10 +22,10 @@ from statspai.agent import execute_tool
 from statspai.agent.mcp_server import handle_request
 from statspai.exceptions import StatsPAIError
 
-
 # ---------------------------------------------------------------------------
 #  Fixtures: a dataset that triggers MethodIncompatibility from sp.did
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def under_identified_iv_df() -> pd.DataFrame:
@@ -43,6 +43,7 @@ def under_identified_iv_df() -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 #  execute_tool: legacy fields preserved + structured fields added
 # ---------------------------------------------------------------------------
+
 
 class TestExecuteToolStructuredError:
 
@@ -76,8 +77,14 @@ class TestExecuteToolStructuredError:
         )
         payload = out["error_payload"]
         # Mirrors StatsPAIError.to_dict() exactly.
-        for k in ("kind", "class", "message", "recovery_hint",
-                  "diagnostics", "alternative_functions"):
+        for k in (
+            "kind",
+            "class",
+            "message",
+            "recovery_hint",
+            "diagnostics",
+            "alternative_functions",
+        ):
             assert k in payload, f"error_payload missing {k!r}"
         assert payload["kind"] == "method_incompatibility"
         assert payload["class"] == "MethodIncompatibility"
@@ -130,8 +137,7 @@ class TestExecuteToolStructuredError:
         # KeyError from a missing column is NOT a StatsPAIError → no
         # error_kind / error_payload should appear (so agents using
         # ``"error_kind" in out`` for branching get a clean signal).
-        df = pd.DataFrame({"y": [1.0, 2.0], "treated": [0, 1],
-                           "t": [0, 1]})
+        df = pd.DataFrame({"y": [1.0, 2.0], "treated": [0, 1], "t": [0, 1]})
         out = execute_tool(
             "regress",
             {"formula": "y ~ does_not_exist"},
@@ -146,6 +152,7 @@ class TestExecuteToolStructuredError:
 #  Subclass coverage: every concrete StatsPAIError code surfaces correctly
 # ---------------------------------------------------------------------------
 
+
 class TestAllStatsPAIErrorSubclassesRoundTrip:
     """Each concrete ``StatsPAIError`` subclass must surface its own
     ``code`` through ``execute_tool`` regardless of what specific
@@ -158,46 +165,69 @@ class TestAllStatsPAIErrorSubclassesRoundTrip:
 
         # Marker so we can clean up cleanly even if the test errors.
         fake_spec = {
-            'name': '_fake_error_tool',
-            'description': 'test-only tool that raises a chosen error',
-            'input_schema': {'type': 'object', 'properties': {},
-                             'required': []},
-            'statspai_fn': '_fake_error_tool',
-            'serializer': lambda r: r,
+            "name": "_fake_error_tool",
+            "description": "test-only tool that raises a chosen error",
+            "input_schema": {"type": "object", "properties": {}, "required": []},
+            "statspai_fn": "_fake_error_tool",
+            "serializer": lambda r: r,
         }
         agent_tools.TOOL_REGISTRY.append(fake_spec)
 
         def _restore():
             agent_tools.TOOL_REGISTRY.remove(fake_spec)
-        monkeypatch.setattr(agent_tools, '_resolve_fn',
-                            lambda fn_name: _raiser_factory.fn)
+
+        monkeypatch.setattr(
+            agent_tools, "_resolve_fn", lambda fn_name: _raiser_factory.fn
+        )
         yield
         _restore()
 
-    @pytest.mark.parametrize("cls_name,expected_code,extra", [
-        ("AssumptionViolation", "assumption_violation",
-         {"diagnostics": {"pretrend_pvalue": 0.001}}),
-        ("IdentificationFailure", "identification_failure",
-         {"alternative_functions": ["sp.bounds"]}),
-        ("DataInsufficient", "data_insufficient",
-         {"diagnostics": {"n_treated": 1}}),
-        ("ConvergenceFailure", "convergence_failure",
-         {"diagnostics": {"rhat_max": 1.15, "ess_min": 120}}),
-        ("NumericalInstability", "numerical_instability",
-         {"diagnostics": {"condition_number": 1e18}}),
-        ("MethodIncompatibility", "method_incompatibility",
-         {"diagnostics": {"got": "continuous", "expected": "binary"}}),
-    ])
-    def test_subclass_round_trips(self, cls_name, expected_code, extra,
-                                   patched_tool):
+    @pytest.mark.parametrize(
+        "cls_name,expected_code,extra",
+        [
+            (
+                "AssumptionViolation",
+                "assumption_violation",
+                {"diagnostics": {"pretrend_pvalue": 0.001}},
+            ),
+            (
+                "IdentificationFailure",
+                "identification_failure",
+                {"alternative_functions": ["sp.bounds"]},
+            ),
+            (
+                "DataInsufficient",
+                "data_insufficient",
+                {"diagnostics": {"n_treated": 1}},
+            ),
+            (
+                "ConvergenceFailure",
+                "convergence_failure",
+                {"diagnostics": {"rhat_max": 1.15, "ess_min": 120}},
+            ),
+            (
+                "NumericalInstability",
+                "numerical_instability",
+                {"diagnostics": {"condition_number": 1e18}},
+            ),
+            (
+                "MethodIncompatibility",
+                "method_incompatibility",
+                {"diagnostics": {"got": "continuous", "expected": "binary"}},
+            ),
+        ],
+    )
+    def test_subclass_round_trips(self, cls_name, expected_code, extra, patched_tool):
         from statspai import exceptions as spx
+
         cls = getattr(spx, cls_name)
 
         def _raiser(**_kwargs):
             raise cls(f"test {cls_name}", recovery_hint="try X", **extra)
+
         _raiser_factory.fn = _raiser
 
-        out = execute_tool('_fake_error_tool', {})
+        out = execute_tool("_fake_error_tool", {})
         assert out["error_kind"] == expected_code, (
             f"{cls_name} surfaced as {out.get('error_kind')!r}, "
             f"expected {expected_code!r}"
@@ -210,8 +240,7 @@ class TestAllStatsPAIErrorSubclassesRoundTrip:
             for k, v in extra["diagnostics"].items():
                 assert payload["diagnostics"][k] == v
         if "alternative_functions" in extra:
-            assert (payload["alternative_functions"]
-                    == extra["alternative_functions"])
+            assert payload["alternative_functions"] == extra["alternative_functions"]
         # Strict JSON serialisation — no string fallback.
         json.dumps(out)
 
@@ -219,6 +248,7 @@ class TestAllStatsPAIErrorSubclassesRoundTrip:
 class _raiser_factory:
     """Holder so the parametrized test can swap the raise target without
     rebuilding the monkeypatch each call."""
+
     fn = None  # set by each test
 
 
@@ -226,10 +256,10 @@ class _raiser_factory:
 #  Defensive: malformed diagnostics shouldn't crash the error handler
 # ---------------------------------------------------------------------------
 
+
 class TestMalformedDiagnosticsFallback:
 
-    def test_unserialisable_diagnostics_degrade_gracefully(self,
-                                                            monkeypatch):
+    def test_unserialisable_diagnostics_degrade_gracefully(self, monkeypatch):
         """If a caller stuffs a non-serialisable value into
         ``diagnostics`` and ``e.to_dict()`` somehow blows up, the
         envelope must still carry ``error_kind`` and a minimal
@@ -247,18 +277,16 @@ class TestMalformedDiagnosticsFallback:
             raise _BadError("violation", recovery_hint="hint")
 
         spec = {
-            'name': '_bad_tool',
-            'description': 'broken to_dict',
-            'input_schema': {'type': 'object', 'properties': {},
-                             'required': []},
-            'statspai_fn': '_bad_tool',
-            'serializer': lambda r: r,
+            "name": "_bad_tool",
+            "description": "broken to_dict",
+            "input_schema": {"type": "object", "properties": {}, "required": []},
+            "statspai_fn": "_bad_tool",
+            "serializer": lambda r: r,
         }
         agent_tools.TOOL_REGISTRY.append(spec)
         try:
-            monkeypatch.setattr(agent_tools, '_resolve_fn',
-                                lambda fn_name: _raiser)
-            out = execute_tool('_bad_tool', {})
+            monkeypatch.setattr(agent_tools, "_resolve_fn", lambda fn_name: _raiser)
+            out = execute_tool("_bad_tool", {})
             # The error_kind still surfaces because e.code is a class
             # attribute, never raised from.
             assert out["error_kind"] == "assumption_violation"
@@ -276,26 +304,30 @@ class TestMalformedDiagnosticsFallback:
 #  MCP server: structured error survives the JSON-RPC envelope
 # ---------------------------------------------------------------------------
 
+
 class TestMcpToolsCallErrorEnvelope:
 
-    def test_tools_call_propagates_structured_error(self, tmp_path,
-                                                     under_identified_iv_df):
+    def test_tools_call_propagates_structured_error(
+        self, tmp_path, under_identified_iv_df
+    ):
         # Persist the IV frame as CSV — the MCP server expects a
         # ``data_path`` argument and loads the frame itself.
         csv = tmp_path / "under_identified.csv"
         under_identified_iv_df.to_csv(csv, index=False)
-        request = json.dumps({
-            "jsonrpc": "2.0",
-            "id": 42,
-            "method": "tools/call",
-            "params": {
-                "name": "ivreg",
-                "arguments": {
-                    "formula": "y ~ (d1 + d2 ~ z)",
-                    "data_path": str(csv),
+        request = json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 42,
+                "method": "tools/call",
+                "params": {
+                    "name": "ivreg",
+                    "arguments": {
+                        "formula": "y ~ (d1 + d2 ~ z)",
+                        "data_path": str(csv),
+                    },
                 },
-            },
-        })
+            }
+        )
         response = handle_request(request)
         assert response is not None
         msg = json.loads(response)
@@ -308,12 +340,12 @@ class TestMcpToolsCallErrorEnvelope:
         payload = json.loads(text)
         # The structured payload must survive the MCP envelope.
         assert payload["error_kind"] == "method_incompatibility"
-        assert "sp.bounds" in (
-            payload["error_payload"]["alternative_functions"])
+        assert "sp.bounds" in (payload["error_payload"]["alternative_functions"])
 
     def test_statspai_error_class_export_unchanged(self):
         # Smoke check: the bridge depends on isinstance() so the error
         # class must remain importable from the canonical path.
         import statspai
+
         assert hasattr(statspai, "StatsPAIError")
         assert statspai.StatsPAIError is StatsPAIError

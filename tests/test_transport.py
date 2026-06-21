@@ -1,11 +1,12 @@
 """Sprint-4 tests: transportability + SWIG."""
+
 import numpy as np
 import pandas as pd
 
 import statspai as sp
 
-
 # ---------- density-ratio weighting ----------
+
 
 def test_transport_weights_recovers_target_effect():
     """Source has effect modified by X; target has different X
@@ -38,13 +39,16 @@ def test_transport_weights_recovers_target_effect():
 
 # ---------- generalize ----------
 
+
 def test_generalize_works():
     rng = np.random.default_rng(1)
     n = 300
-    src = pd.DataFrame({
-        "age": rng.normal(40, 10, n),
-        "treat": rng.binomial(1, 0.5, n),
-    })
+    src = pd.DataFrame(
+        {
+            "age": rng.normal(40, 10, n),
+            "treat": rng.binomial(1, 0.5, n),
+        }
+    )
     src["y"] = src["treat"] * 2 + rng.normal(0, 1, n)
     tgt = pd.DataFrame({"age": rng.normal(55, 10, 200)})
     res = sp.transport.generalize(src, tgt, features=["age"])
@@ -53,11 +57,13 @@ def test_generalize_works():
 
 # ---------- Pearl-Bareinboim identification ----------
 
+
 def test_identify_transport_selection_node_separated():
     """If S is d-separated from Y given X, transport is direct."""
     g = sp.dag("S -> X; X -> Y")
-    res = sp.transport.identify_transport(g, treatment="X", outcome="Y",
-                                          selection_nodes={"S"})
+    res = sp.transport.identify_transport(
+        g, treatment="X", outcome="Y", selection_nodes={"S"}
+    )
     assert res.transportable
     np.testing.assert_allclose(len(res.admissible_set), 0)
     assert "X" in res.formula
@@ -67,16 +73,18 @@ def test_identify_transport_fails_when_S_directly_causes_Y():
     """If S -> Y directly and has no mediator in the graph, no admissible
     Z exists -- NOT transportable."""
     g = sp.dag("S -> Y; X -> Y")
-    res = sp.transport.identify_transport(g, treatment="X", outcome="Y",
-                                          selection_nodes={"S"})
+    res = sp.transport.identify_transport(
+        g, treatment="X", outcome="Y", selection_nodes={"S"}
+    )
     assert not res.transportable
     np.testing.assert_allclose(len(res.admissible_set), 0)
 
 
 def test_identify_transport_finds_admissible_set():
     g = sp.dag("S -> Z; Z -> Y; X -> Y")
-    res = sp.transport.identify_transport(g, treatment="X", outcome="Y",
-                                          selection_nodes={"S"})
+    res = sp.transport.identify_transport(
+        g, treatment="X", outcome="Y", selection_nodes={"S"}
+    )
     # Z should render S irrelevant for Y
     assert res.transportable
     np.testing.assert_allclose(len(res.admissible_set), 1)
@@ -84,6 +92,7 @@ def test_identify_transport_finds_admissible_set():
 
 
 # ---------- SWIG integration ----------
+
 
 def test_swig_with_latent_confounder_splits_correctly():
     g = sp.dag("X -> Y; L -> X; L -> Y")

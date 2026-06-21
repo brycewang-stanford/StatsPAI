@@ -1,4 +1,5 @@
 """RD power and sample-size tests."""
+
 import numpy as np, pytest
 from statspai.rd.rdpower import rdpower, rdsampsi
 
@@ -39,5 +40,6 @@ def test_rdsampsi_larger_effect_needs_fewer_obs():
 
 def test_exported():
     import statspai as sp
+
     assert callable(sp.rdpower)
     assert callable(sp.rdsampsi)

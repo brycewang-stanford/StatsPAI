@@ -17,7 +17,6 @@ pytest.importorskip("docx")
 from docx import Document  # noqa: E402
 from docx.oxml.ns import qn  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -37,11 +36,13 @@ def two_models():
 @pytest.fixture
 def small_df():
     rng = np.random.default_rng(2)
-    return pd.DataFrame({
-        "y": rng.normal(size=80),
-        "x": rng.normal(size=80),
-        "z": rng.integers(0, 2, size=80),
-    })
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=80),
+            "x": rng.normal(size=80),
+            "z": rng.integers(0, 2, size=80),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------

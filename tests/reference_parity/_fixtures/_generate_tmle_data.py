@@ -22,6 +22,7 @@ logistic Q-model keeps TMLE within its 4-sigma recovery band.
 
 n = 2000, seed = 7321.
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -42,15 +43,18 @@ a = rng.binomial(1, p_a)
 p_y = expit(-0.4 + 0.8 * a + 0.9 * w1 + 0.5 * w2)
 y = rng.binomial(1, p_y)
 
-truth = float(np.mean(expit(-0.4 + 0.8 + 0.9 * w1 + 0.5 * w2)
-                      - expit(-0.4 + 0.9 * w1 + 0.5 * w2)))
+truth = float(
+    np.mean(expit(-0.4 + 0.8 + 0.9 * w1 + 0.5 * w2) - expit(-0.4 + 0.9 * w1 + 0.5 * w2))
+)
 
-df = pd.DataFrame({
-    "y": y.astype(float),
-    "a": a.astype(float),
-    "w1": w1,
-    "w2": w2.astype(float),
-})
+df = pd.DataFrame(
+    {
+        "y": y.astype(float),
+        "a": a.astype(float),
+        "w1": w1,
+        "w2": w2.astype(float),
+    }
+)
 
 out = pathlib.Path(__file__).parent / "tmle_data.csv"
 df.to_csv(out, index=False)

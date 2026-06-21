@@ -43,7 +43,9 @@ def test_evalue_from_result_works_on_causal_result(data):
 
 def test_predict_cate_rejects_result_without_estimator(data):
     cf = sp.causal_forest(
-        data=data, Y=data["y"].values, T=data["t"].values,
+        data=data,
+        Y=data["y"].values,
+        T=data["t"].values,
         X=data[["x1", "x2"]].values,
     )
     with pytest.raises(ValueError, match="fitted estimator"):

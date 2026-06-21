@@ -59,6 +59,7 @@ published effect in Chapter 17 is essentially null; the "1.05" figure
 appears to be an imperfect recollection.  We trust the gold and the
 book's own survival numbers and document the gap.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -71,7 +72,6 @@ import statspai as sp
 from _common import DATA_DIR, OrigRecord, write_results
 from _nhefs import book_design
 
-
 MODULE = "10_nhefs_ch17_survival"
 
 
@@ -79,7 +79,8 @@ def build_survival_frame() -> pd.DataFrame:
     """Full NHEFS (n=1629) with book survtime, integer death/qsmk."""
     df = sp.datasets.nhefs().copy()
     df["survtime"] = np.where(
-        df["death"] == 0, 120.0,
+        df["death"] == 0,
+        120.0,
         (df["yrdth"] - 83.0) * 12.0 + df["modth"],
     ).astype(int)
     df["death"] = df["death"].astype(int)
@@ -142,10 +143,20 @@ def main() -> None:
     # Cross-check: sp.ipw's propensity model recovers the same scores
     # (so these weights are StatsPAI's IP-weighting object).  sp.ipw is
     # run on the complete-case weight sample but on the same design.
-    dd_cc, covs = book_design(sp.datasets.nhefs(complete_case=True).assign(
-        qsmk=lambda d: d["qsmk"].astype(int)))
-    ipw_res = sp.ipw(dd_cc, y="wt82_71", treat="qsmk", covariates=covs,
-                     estimand="ATE", seed=42, n_bootstrap=200)
+    dd_cc, covs = book_design(
+        sp.datasets.nhefs(complete_case=True).assign(
+            qsmk=lambda d: d["qsmk"].astype(int)
+        )
+    )
+    ipw_res = sp.ipw(
+        dd_cc,
+        y="wt82_71",
+        treat="qsmk",
+        covariates=covs,
+        estimand="ATE",
+        seed=42,
+        n_bootstrap=200,
+    )
     ps_min = float(ipw_res.diagnostics["pscore_min"])
     ps_max = float(ipw_res.diagnostics["pscore_max"])
 
@@ -162,13 +173,20 @@ def main() -> None:
     # (2) IP-weighted hazard ratio: stabilized-weighted simple pooled
     #     logistic; the qsmk log-OR is the IP-weighted (approximate)
     #     log hazard ratio.  Robust (cluster-on-id) SE.
-    plr_w = smf.glm("event ~ qsmk + time + timesq", data=long, family=B,
-                    var_weights=long["sw"].to_numpy()).fit()
+    plr_w = smf.glm(
+        "event ~ qsmk + time + timesq",
+        data=long,
+        family=B,
+        var_weights=long["sw"].to_numpy(),
+    ).fit()
     loghr = float(plr_w.params["qsmk"])
     # Cluster-robust SE on subject id for the weighted fit.
-    plr_w_rob = smf.glm("event ~ qsmk + time + timesq", data=long, family=B,
-                        var_weights=long["sw"].to_numpy()).fit(
-        cov_type="cluster", cov_kwds={"groups": long["id"].to_numpy()})
+    plr_w_rob = smf.glm(
+        "event ~ qsmk + time + timesq",
+        data=long,
+        family=B,
+        var_weights=long["sw"].to_numpy(),
+    ).fit(cov_type="cluster", cov_kwds={"groups": long["id"].to_numpy()})
     se_loghr = float(plr_w_rob.bse["qsmk"])
     hr_ipw = float(np.exp(loghr))
     hr_lo = float(np.exp(loghr - 1.959964 * se_loghr))
@@ -178,84 +196,123 @@ def main() -> None:
     #     interactions; report 120-month survival under quit / no-quit.
     plr_full = smf.glm(
         "event ~ qsmk + qsmk:time + qsmk:timesq + time + timesq",
-        data=long, family=B, var_weights=long["sw"].to_numpy()).fit()
+        data=long,
+        family=B,
+        var_weights=long["sw"].to_numpy(),
+    ).fit()
     t = np.arange(120)
 
     def surv(qval: int) -> float:
-        g = pd.DataFrame({"qsmk": qval, "time": t, "timesq": t ** 2})
+        g = pd.DataFrame({"qsmk": qval, "time": t, "timesq": t**2})
         h = np.asarray(plr_full.predict(g))
         return float(np.cumprod(1.0 - h)[-1])
 
-    s0 = surv(0)   # never quit
-    s1 = surv(1)   # quit
-    surv_diff = s1 - s0   # quit - no quit (book: +0.002)
+    s0 = surv(0)  # never quit
+    s1 = surv(1)  # quit
+    surv_diff = s1 - s0  # quit - no quit (book: +0.002)
 
     rows = [
         OrigRecord(
-            module=MODULE, side="py", statistic="hr_unweighted",
-            estimate=hr_unw, se=None, n=n, published=1.39,
+            module=MODULE,
+            side="py",
+            statistic="hr_unweighted",
+            estimate=hr_unw,
+            se=None,
+            n=n,
+            published=1.39,
             citation="Hernán-Robins, What If §17 (unadjusted qsmk hazard ratio)",
             extra={"n_death": n_death, "scale": "hazard ratio"},
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="hr_ipweighted",
-            estimate=hr_ipw, se=se_loghr, n=n, published=1.00,
+            module=MODULE,
+            side="py",
+            statistic="hr_ipweighted",
+            estimate=hr_ipw,
+            se=se_loghr,
+            n=n,
+            published=1.00,
             citation="Hernán-Robins, What If §17.4 (IP-weighted hazard ratio; "
-                     "pooled-logistic, package-consistent)",
-            extra={"log_hr": loghr, "ci": [hr_lo, hr_hi],
-                   "se_is_on": "log-HR scale", "n_death": n_death,
-                   "published_hint": 1.05,
-                   "note": "gold (R weighted Cox) HR=1.001 CI (0.77,1.30); "
-                           "book effect is essentially null"},
+            "pooled-logistic, package-consistent)",
+            extra={
+                "log_hr": loghr,
+                "ci": [hr_lo, hr_hi],
+                "se_is_on": "log-HR scale",
+                "n_death": n_death,
+                "published_hint": 1.05,
+                "note": "gold (R weighted Cox) HR=1.001 CI (0.77,1.30); "
+                "book effect is essentially null",
+            },
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="surv120_noquit",
-            estimate=s0, se=None, n=n, published=0.805,
+            module=MODULE,
+            side="py",
+            statistic="surv120_noquit",
+            estimate=s0,
+            se=None,
+            n=n,
+            published=0.805,
             citation="Hernán-Robins, What If Program 17.4 (IP-weighted S(120), A=0)",
             extra={"scale": "survival probability"},
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="surv120_quit",
-            estimate=s1, se=None, n=n, published=0.807,
+            module=MODULE,
+            side="py",
+            statistic="surv120_quit",
+            estimate=s1,
+            se=None,
+            n=n,
+            published=0.807,
             citation="Hernán-Robins, What If Program 17.4 (IP-weighted S(120), A=1)",
             extra={"scale": "survival probability"},
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="surv120_diff",
-            estimate=surv_diff, se=None, n=n, published=0.002,
+            module=MODULE,
+            side="py",
+            statistic="surv120_diff",
+            estimate=surv_diff,
+            se=None,
+            n=n,
+            published=0.002,
             citation="Hernán-Robins, What If Program 17.4 "
-                     "(IP-weighted 120-month survival difference, quit - no-quit)",
-            extra={"scale": "survival difference", "s_noquit": s0,
-                   "s_quit": s1},
+            "(IP-weighted 120-month survival difference, quit - no-quit)",
+            extra={"scale": "survival difference", "s_noquit": s0, "s_quit": s1},
         ),
     ]
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "data_source": "sp.datasets.nhefs() full sample (NHEFS / What If)",
-            "n_obs": n, "n_death": n_death,
+            "n_obs": n,
+            "n_death": n_death,
             "survtime_rule": "ifelse(death==0,120,(yrdth-83)*12+modth)",
             "statspai_surface": "sp.ipw propensity (cross-checked) + "
-                                "package-consistent IP-weighted pooled-logistic "
-                                "hazard (book Program 17.4)",
-            "sw_mean": float(sw.mean()), "sw_min": float(sw.min()),
+            "package-consistent IP-weighted pooled-logistic "
+            "hazard (book Program 17.4)",
+            "sw_mean": float(sw.mean()),
+            "sw_min": float(sw.min()),
             "sw_max": float(sw.max()),
-            "ipw_pscore_min": ps_min, "ipw_pscore_max": ps_max,
+            "ipw_pscore_min": ps_min,
+            "ipw_pscore_max": ps_max,
             "ltmle_survival_note": "sp.ltmle_survival targets dynamic-regime "
-                                   "RMST/risk-difference, not a point-treatment "
-                                   "HR; sp.ipcw yields censoring weights -- "
-                                   "neither cleanly gives this estimand",
+            "RMST/risk-difference, not a point-treatment "
+            "HR; sp.ipcw yields censoring weights -- "
+            "neither cleanly gives this estimand",
             "hr_ipw_ci": [hr_lo, hr_hi],
             "published_hr_hint": 1.05,
             "published_hr_ci_hint": [0.78, 1.43],
-        })
+        },
+    )
 
-    print(f"[{MODULE}] n={n} deaths={n_death}  "
-          f"HR_unw={hr_unw:.3f}  HR_ipw={hr_ipw:.3f} "
-          f"95% CI ({hr_lo:.2f},{hr_hi:.2f})  "
-          f"S(120) noquit={s0:.4f} quit={s1:.4f} diff={surv_diff:+.4f} "
-          f"(book 0.805/0.807/+0.002)")
+    print(
+        f"[{MODULE}] n={n} deaths={n_death}  "
+        f"HR_unw={hr_unw:.3f}  HR_ipw={hr_ipw:.3f} "
+        f"95% CI ({hr_lo:.2f},{hr_hi:.2f})  "
+        f"S(120) noquit={s0:.4f} quit={s1:.4f} diff={surv_diff:+.4f} "
+        f"(book 0.805/0.807/+0.002)"
+    )
 
 
 if __name__ == "__main__":

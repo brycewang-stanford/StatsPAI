@@ -10,7 +10,6 @@ import pytest
 import statspai as sp
 from statspai.core.results import CausalResult, EconometricResults
 
-
 # ====================================================================== #
 #  CausalResult
 # ====================================================================== #
@@ -109,9 +108,16 @@ class TestCausalAgentSummary:
         r = _make_causal_result()
         s = r.to_agent_summary()
         for key in (
-            "kind", "method", "method_family", "estimand",
-            "point", "n_obs", "diagnostics", "violations",
-            "next_steps", "citation_key",
+            "kind",
+            "method",
+            "method_family",
+            "estimand",
+            "point",
+            "n_obs",
+            "diagnostics",
+            "violations",
+            "next_steps",
+            "citation_key",
         ):
             assert key in s
 
@@ -169,10 +175,12 @@ class TestCausalAgentSummary:
 class TestEconometricAgentSummary:
     def test_regress_agent_summary(self):
         np.random.seed(0)
-        df = pd.DataFrame({
-            "y": np.random.randn(200),
-            "x": np.random.randn(200),
-        })
+        df = pd.DataFrame(
+            {
+                "y": np.random.randn(200),
+                "x": np.random.randn(200),
+            }
+        )
         r = sp.regress("y ~ x", data=df)
         s = r.to_agent_summary()
 
@@ -188,19 +196,23 @@ class TestEconometricAgentSummary:
 
     def test_regress_violations_empty_on_good_data(self):
         np.random.seed(0)
-        df = pd.DataFrame({
-            "y": np.random.randn(200),
-            "x": np.random.randn(200),
-        })
+        df = pd.DataFrame(
+            {
+                "y": np.random.randn(200),
+                "x": np.random.randn(200),
+            }
+        )
         r = sp.regress("y ~ x", data=df)
         assert r.violations() == []
 
     def test_agent_summary_json_safe(self):
         np.random.seed(0)
-        df = pd.DataFrame({
-            "y": np.random.randn(100),
-            "x": np.random.randn(100),
-        })
+        df = pd.DataFrame(
+            {
+                "y": np.random.randn(100),
+                "x": np.random.randn(100),
+            }
+        )
         r = sp.regress("y ~ x", data=df)
         s = r.to_agent_summary()
         # Must round-trip through json
@@ -217,10 +229,12 @@ class TestEconometricAgentSummary:
     )
     def test_probability_arguments_rejected(self, method_name, kwargs):
         np.random.seed(0)
-        df = pd.DataFrame({
-            "y": np.random.randn(100),
-            "x": np.random.randn(100),
-        })
+        df = pd.DataFrame(
+            {
+                "y": np.random.randn(100),
+                "x": np.random.randn(100),
+            }
+        )
         r = sp.regress("y ~ x", data=df)
         with pytest.raises(ValueError, match="open interval"):
             getattr(r, method_name)(**kwargs)

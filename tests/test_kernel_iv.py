@@ -16,7 +16,7 @@ def _iv_data(n=600, seed=0):
     v = rng.normal(size=n)
     u = 0.5 * v + rng.normal(0, 0.5, size=n)
     D = 0.8 * Z + v
-    Y = 1.0 + 2.0 * D - 0.3 * D ** 2 + u
+    Y = 1.0 + 2.0 * D - 0.3 * D**2 + u
     return pd.DataFrame({"y": Y, "d": D, "z": Z})
 
 
@@ -48,8 +48,16 @@ def test_kernel_iv_registry():
 def test_kernel_iv_custom_grid_and_bw():
     df = _iv_data(seed=2)
     grid = np.linspace(-1.0, 1.0, 11)
-    r = sp.kernel_iv(df, y="y", treat="d", instrument="z",
-                      grid=grid, bandwidth=0.5, n_boot=20, seed=2)
+    r = sp.kernel_iv(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        grid=grid,
+        bandwidth=0.5,
+        n_boot=20,
+        seed=2,
+    )
     np.testing.assert_array_equal(r.grid, grid)
     assert abs(r.bandwidth - 0.5) < 1e-9
 

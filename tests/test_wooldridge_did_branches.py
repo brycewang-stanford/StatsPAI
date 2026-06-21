@@ -14,6 +14,7 @@ coverage audit:
 5. ``etwfe_emfx`` group/event/calendar aggregations including
    ``include_leads=True``.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -33,7 +34,6 @@ from statspai.did.wooldridge_did import (
     twfe_decomposition,
     wooldridge_did,
 )
-
 
 # --------------------------------------------------------------------- #
 #  Fixtures
@@ -55,13 +55,15 @@ def repeated_cs_data():
     t = rng.integers(0, 12, size=n)
     x = rng.normal(size=n)
     y = (t >= ft) * (ft != 0) * 2.0 + 0.4 * x + rng.normal(size=n)
-    return pd.DataFrame({
-        "y": y,
-        "time": t,
-        "first_treat": ft.astype(float),
-        "x": x,
-        "cluster": rng.integers(0, 30, size=n),
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "time": t,
+            "first_treat": ft.astype(float),
+            "x": x,
+            "cluster": rng.integers(0, 30, size=n),
+        }
+    )
 
 
 # --------------------------------------------------------------------- #
@@ -72,12 +74,21 @@ def repeated_cs_data():
 def test_twfe_decomposition_returns_bacon_components(staggered_panel):
     res = twfe_decomposition(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     assert res.method.startswith("TWFE Decomposition")
     # Detail has rows per 2x2 comparison and the dCDH cells in model_info
-    assert {"type", "treated_cohort", "control_cohort",
-            "estimate", "weight", "weighted_est"} <= set(res.detail.columns)
+    assert {
+        "type",
+        "treated_cohort",
+        "control_cohort",
+        "estimate",
+        "weight",
+        "weighted_est",
+    } <= set(res.detail.columns)
     # We have at least one of every comparison type in a staggered panel
     types = set(res.detail["type"].unique())
     assert "Earlier vs Later" in types
@@ -87,10 +98,16 @@ def test_twfe_decomposition_returns_bacon_components(staggered_panel):
     assert np.isclose(res.detail["weight"].sum(), 1.0, atol=1e-6)
     mi = res.model_info
     for key in (
-        "twfe_beta", "bacon_att", "n_comparisons",
-        "n_negative_weights_bacon", "n_negative_weights_dcdh",
-        "n_cohorts", "cohorts", "has_never_treated",
-        "n_units", "n_periods",
+        "twfe_beta",
+        "bacon_att",
+        "n_comparisons",
+        "n_negative_weights_bacon",
+        "n_negative_weights_dcdh",
+        "n_cohorts",
+        "cohorts",
+        "has_never_treated",
+        "n_units",
+        "n_periods",
     ):
         assert key in mi
     # dCDH weights frame present and shaped right
@@ -102,7 +119,10 @@ def test_twfe_decomposition_returns_bacon_components(staggered_panel):
 
 def test_twfe_decomposition_bacon_recombines_to_estimate(staggered_panel):
     res = twfe_decomposition(
-        staggered_panel, y="y", group="unit", time="time",
+        staggered_panel,
+        y="y",
+        group="unit",
+        time="time",
         first_treat="first_treat",
     )
     # weighted_est sums back to the headline ATT
@@ -115,15 +135,21 @@ def test_twfe_decomposition_bacon_recombines_to_estimate(staggered_panel):
 
 def test_twfe_decomposition_no_treated_raises():
     """All-control frame has no cohorts → explicit ValueError."""
-    df = pd.DataFrame({
-        "unit": np.repeat(np.arange(10), 5),
-        "time": np.tile(np.arange(5), 10),
-        "y": np.random.default_rng(0).normal(size=50),
-        "first_treat": [np.nan] * 50,
-    })
+    df = pd.DataFrame(
+        {
+            "unit": np.repeat(np.arange(10), 5),
+            "time": np.tile(np.arange(5), 10),
+            "y": np.random.default_rng(0).normal(size=50),
+            "first_treat": [np.nan] * 50,
+        }
+    )
     with pytest.raises(ValueError):
         twfe_decomposition(
-            df, y="y", group="unit", time="time", first_treat="first_treat",
+            df,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
         )
 
 
@@ -135,7 +161,11 @@ def test_twfe_decomposition_no_treated_raises():
 def test_etwfe_panel_false_runs(repeated_cs_data):
     df = repeated_cs_data
     res = etwfe(
-        df, y="y", group="cluster", time="time", first_treat="first_treat",
+        df,
+        y="y",
+        group="cluster",
+        time="time",
+        first_treat="first_treat",
         panel=False,
     )
     # True effect is 2.0; with n=800 we should land within ~1.0 of it
@@ -151,25 +181,30 @@ def test_etwfe_panel_false_rank_deficient_warns():
     ft = np.array([0] * 30 + [5] * 30, dtype=float)
     t = rng.integers(0, 6, size=n)
     # Identical control column will make things singular when expanded
-    df = pd.DataFrame({
-        "y": rng.normal(size=n),
-        "time": t,
-        "first_treat": ft,
-        "ctrl_a": np.ones(n),
-        "ctrl_b": np.ones(n),  # collinear with ctrl_a
-        "cluster": rng.integers(0, 5, size=n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "time": t,
+            "first_treat": ft,
+            "ctrl_a": np.ones(n),
+            "ctrl_b": np.ones(n),  # collinear with ctrl_a
+            "cluster": rng.integers(0, 5, size=n),
+        }
+    )
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         etwfe(
-            df, y="y", group="cluster", time="time",
+            df,
+            y="y",
+            group="cluster",
+            time="time",
             first_treat="first_treat",
-            panel=False, controls=["ctrl_a", "ctrl_b"],
+            panel=False,
+            controls=["ctrl_a", "ctrl_b"],
         )
     # At least one RuntimeWarning about rank-deficient design
     assert any(
-        issubclass(w.category, RuntimeWarning)
-        and "rank-deficient" in str(w.message)
+        issubclass(w.category, RuntimeWarning) and "rank-deficient" in str(w.message)
         for w in caught
     )
 
@@ -178,8 +213,12 @@ def test_etwfe_panel_false_with_nevertreated_raises(repeated_cs_data):
     with pytest.raises(NotImplementedError, match="not yet supported"):
         etwfe(
             repeated_cs_data,
-            y="y", group="cluster", time="time", first_treat="first_treat",
-            panel=False, cgroup="nevertreated",
+            y="y",
+            group="cluster",
+            time="time",
+            first_treat="first_treat",
+            panel=False,
+            cgroup="nevertreated",
         )
 
 
@@ -191,7 +230,10 @@ def test_etwfe_panel_false_with_nevertreated_raises(repeated_cs_data):
 def test_etwfe_cgroup_nevertreated(staggered_panel):
     res = etwfe(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
         cgroup="nevertreated",
     )
     assert res.method.endswith("never-treated control")
@@ -208,7 +250,11 @@ def test_etwfe_cgroup_nevertreated_no_never_raises():
     df.loc[df["first_treat"].isna(), "first_treat"] = 6
     with pytest.raises(ValueError, match="never-treated"):
         etwfe(
-            df, y="y", group="unit", time="time", first_treat="first_treat",
+            df,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
             cgroup="nevertreated",
         )
 
@@ -217,7 +263,10 @@ def test_etwfe_invalid_cgroup_raises(staggered_panel):
     with pytest.raises(ValueError, match="cgroup must be"):
         etwfe(
             staggered_panel,
-            y="y", group="unit", time="time", first_treat="first_treat",
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
             cgroup="bogus",
         )
 
@@ -231,7 +280,11 @@ def test_etwfe_with_xvar_single(staggered_panel):
     df = staggered_panel.copy()
     df["x1"] = np.random.default_rng(0).normal(size=len(df))
     res = etwfe(
-        df, y="y", group="unit", time="time", first_treat="first_treat",
+        df,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
         xvar="x1",
     )
     # Single-xvar back-compat aliases populated
@@ -250,7 +303,11 @@ def test_etwfe_with_xvar_multi(staggered_panel):
     df["x1"] = rng.normal(size=len(df))
     df["x2"] = rng.normal(size=len(df))
     res = etwfe(
-        df, y="y", group="unit", time="time", first_treat="first_treat",
+        df,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
         xvar=["x1", "x2"],
     )
     cols = set(res.detail.columns)
@@ -263,7 +320,10 @@ def test_etwfe_xvar_missing_column_raises(staggered_panel):
     with pytest.raises(KeyError, match="not found"):
         etwfe(
             staggered_panel,
-            y="y", group="unit", time="time", first_treat="first_treat",
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
             xvar="nonexistent",
         )
 
@@ -274,7 +334,10 @@ def test_etwfe_xvar_constant_raises(staggered_panel):
     with pytest.raises(ValueError, match="constant"):
         etwfe(
             df,
-            y="y", group="unit", time="time", first_treat="first_treat",
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
             xvar="xc",
         )
 
@@ -286,7 +349,10 @@ def test_etwfe_xvar_too_few_observations_raises(staggered_panel):
     with pytest.raises(ValueError, match="fewer than 2"):
         etwfe(
             df,
-            y="y", group="unit", time="time", first_treat="first_treat",
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
             xvar="xs",
         )
 
@@ -297,8 +363,13 @@ def test_etwfe_nevertreated_with_xvar(staggered_panel):
     df = staggered_panel.copy()
     df["x1"] = np.random.default_rng(2).normal(size=len(df))
     res = etwfe(
-        df, y="y", group="unit", time="time", first_treat="first_treat",
-        xvar=["x1"], cgroup="nevertreated",
+        df,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        xvar=["x1"],
+        cgroup="nevertreated",
     )
     assert res.method.endswith("never-treated control")
 
@@ -311,7 +382,10 @@ def test_etwfe_nevertreated_with_xvar(staggered_panel):
 def test_etwfe_emfx_simple_matches_overall(staggered_panel):
     fit = etwfe(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     s = etwfe_emfx(fit, type="simple")
     assert np.isclose(s.estimate, fit.estimate)
@@ -321,7 +395,10 @@ def test_etwfe_emfx_simple_matches_overall(staggered_panel):
 def test_etwfe_emfx_group_recovers_per_cohort(staggered_panel):
     fit = etwfe(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     g = etwfe_emfx(fit, type="group")
     assert "cohort" in g.detail.columns and "estimate" in g.detail.columns
@@ -333,7 +410,10 @@ def test_etwfe_emfx_group_recovers_per_cohort(staggered_panel):
 def test_etwfe_emfx_event_default_post_only(staggered_panel):
     fit = etwfe(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     e = etwfe_emfx(fit, type="event")
     # Default include_leads=False → only rel_time >= 0
@@ -343,7 +423,10 @@ def test_etwfe_emfx_event_default_post_only(staggered_panel):
 def test_etwfe_emfx_event_include_leads(staggered_panel):
     fit = etwfe(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     e = etwfe_emfx(fit, type="event", include_leads=True)
     # With leads we should now see at least one negative event time
@@ -353,7 +436,10 @@ def test_etwfe_emfx_event_include_leads(staggered_panel):
 def test_etwfe_emfx_calendar(staggered_panel):
     fit = etwfe(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     c = etwfe_emfx(fit, type="calendar")
     assert "calendar_time" in c.detail.columns
@@ -362,7 +448,10 @@ def test_etwfe_emfx_calendar(staggered_panel):
 def test_etwfe_emfx_invalid_type_raises(staggered_panel):
     fit = etwfe(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     with pytest.raises(ValueError, match="type must be"):
         etwfe_emfx(fit, type="weekly")
@@ -376,7 +465,10 @@ def test_wooldridge_did_summary_renders_event_study(staggered_panel):
     """
     res = wooldridge_did(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     s = res.summary()
     assert "ATT" in s
@@ -388,14 +480,19 @@ def test_wooldridge_did_summary_renders_event_study(staggered_panel):
 def test_etwfe_emfx_event_without_event_study_raises():
     """Pass a manufactured result with no ``event_study`` info → fails."""
     from statspai.core.results import CausalResult
+
     fake = CausalResult(
         method="manual",
         estimand="ATT",
-        estimate=1.0, se=0.1,
-        pvalue=0.0, ci=(0.5, 1.5),
-        alpha=0.05, n_obs=10,
-        detail=pd.DataFrame({"cohort": [1], "att": [1.0],
-                             "se": [0.1], "pvalue": [0.0], "n_obs": [5]}),
+        estimate=1.0,
+        se=0.1,
+        pvalue=0.0,
+        ci=(0.5, 1.5),
+        alpha=0.05,
+        n_obs=10,
+        detail=pd.DataFrame(
+            {"cohort": [1], "att": [1.0], "se": [0.1], "pvalue": [0.0], "n_obs": [5]}
+        ),
         model_info={"cohorts": [1]},  # no event_study
         _citation_key="wooldridge_twfe",
     )
@@ -405,11 +502,18 @@ def test_etwfe_emfx_event_without_event_study_raises():
 
 def test_etwfe_emfx_requires_etwfe_result():
     from statspai.core.results import CausalResult
+
     fake = CausalResult(
-        method="other", estimand="ATT",
-        estimate=1.0, se=0.1, pvalue=0.0, ci=(0.5, 1.5),
-        alpha=0.05, n_obs=10,
-        detail=pd.DataFrame(), model_info={},  # missing 'cohorts'
+        method="other",
+        estimand="ATT",
+        estimate=1.0,
+        se=0.1,
+        pvalue=0.0,
+        ci=(0.5, 1.5),
+        alpha=0.05,
+        n_obs=10,
+        detail=pd.DataFrame(),
+        model_info={},  # missing 'cohorts'
         _citation_key=None,
     )
     with pytest.raises(ValueError, match="missing 'cohorts'"):
@@ -430,8 +534,14 @@ def test_drdid_traditional_method():
     y = 1 + 0.5 * x + 2 * G + 3 * T + 4 * G * T + rng.normal(0, 1, n)
     df = pd.DataFrame({"y": y, "treated": G, "post": T, "x": x})
     res = drdid(
-        df, y="y", group="treated", time="post", covariates=["x"],
-        method="trad", n_boot=50, random_state=0,
+        df,
+        y="y",
+        group="treated",
+        time="post",
+        covariates=["x"],
+        method="trad",
+        n_boot=50,
+        random_state=0,
     )
     # Traditional DR-DID is consistent but noisier than the improved
     # variant on small / unbalanced 2x2 designs — wide tolerance is
@@ -449,28 +559,37 @@ def test_drdid_no_covariates_falls_back():
     y = 1 + 2 * G + 3 * T + 4 * G * T + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "treated": G, "post": T})
     res = drdid(
-        df, y="y", group="treated", time="post",
-        covariates=None, n_boot=30, random_state=1,
+        df,
+        y="y",
+        group="treated",
+        time="post",
+        covariates=None,
+        n_boot=30,
+        random_state=1,
     )
     assert abs(res.estimate - 4.0) < 1.5
 
 
 def test_drdid_invalid_group_dimension_raises():
-    df = pd.DataFrame({
-        "y": [1.0, 2.0, 3.0, 4.0],
-        "treated": [0, 1, 2, 1],   # not binary
-        "post": [0, 1, 0, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "treated": [0, 1, 2, 1],  # not binary
+            "post": [0, 1, 0, 1],
+        }
+    )
     with pytest.raises(ValueError, match="must be binary"):
         drdid(df, y="y", group="treated", time="post")
 
 
 def test_drdid_invalid_time_dimension_raises():
-    df = pd.DataFrame({
-        "y": [1.0, 2.0, 3.0, 4.0],
-        "treated": [0, 1, 0, 1],
-        "post": [0, 1, 2, 1],   # not binary
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "treated": [0, 1, 0, 1],
+            "post": [0, 1, 2, 1],  # not binary
+        }
+    )
     with pytest.raises(ValueError, match="must be binary"):
         drdid(df, y="y", group="treated", time="post")
 

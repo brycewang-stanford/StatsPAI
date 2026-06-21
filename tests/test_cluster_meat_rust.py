@@ -3,6 +3,7 @@
 Skips automatically when ``statspai_hdfe`` is not built into the
 current venv (i.e. ``maturin develop --release`` has not been run).
 """
+
 from __future__ import annotations
 
 import numpy as np

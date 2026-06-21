@@ -1,7 +1,9 @@
 import numpy as np
 import pytest
 from statspai.spatial.weights.distance import (
-    knn_weights, distance_band, kernel_weights,
+    knn_weights,
+    distance_band,
+    kernel_weights,
 )
 
 

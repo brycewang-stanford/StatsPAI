@@ -18,10 +18,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Multiple-hypothesis-testing adjusters (analytical).
 # ---------------------------------------------------------------------------
+
 
 class TestMHTAdjusters:
     P = [0.01, 0.02, 0.03, 0.50]  # m = 4
@@ -71,25 +71,27 @@ class TestMHTAdjusters:
 # Power analysis family (analytical reference + monotonicity).
 # ---------------------------------------------------------------------------
 
+
 class TestPowerFamily:
     def test_power_rct_matches_two_sample_z(self):
         # n=200 total, equal split, d=0.5: ncp = 0.5*sqrt(100*100/200)=3.5355,
         # power = Phi(ncp - 1.96) = Phi(1.5755) ~ 0.9424.
         from scipy import stats
+
         r = sp.power_rct(n=200, effect_size=0.5)
         ncp = 0.5 * np.sqrt(100 * 100 / 200)
         expected = stats.norm.cdf(ncp - stats.norm.ppf(0.975))
         assert r.power == pytest.approx(expected, abs=2e-3)
 
     def test_power_increases_with_n(self):
-        powers = [sp.power_rct(n=n, effect_size=0.3).power
-                  for n in (50, 100, 200, 400)]
+        powers = [sp.power_rct(n=n, effect_size=0.3).power for n in (50, 100, 200, 400)]
         assert powers == sorted(powers)
         assert powers[-1] > powers[0]
 
     def test_power_increases_with_effect_size(self):
-        powers = [sp.power_rct(n=200, effect_size=es).power
-                  for es in (0.1, 0.3, 0.5, 0.8)]
+        powers = [
+            sp.power_rct(n=200, effect_size=es).power for es in (0.1, 0.3, 0.5, 0.8)
+        ]
         assert powers == sorted(powers)
 
     def test_power_in_unit_interval(self):
@@ -100,10 +102,10 @@ class TestPowerFamily:
 
     def test_power_ols_covariates_help_via_r2(self):
         # Explaining residual variance (higher r2_other) raises power.
-        base = sp.power_ols(n=200, effect_size=0.2, n_covariates=3,
-                            r2_other=0.0).power
-        better = sp.power_ols(n=200, effect_size=0.2, n_covariates=3,
-                              r2_other=0.5).power
+        base = sp.power_ols(n=200, effect_size=0.2, n_covariates=3, r2_other=0.0).power
+        better = sp.power_ols(
+            n=200, effect_size=0.2, n_covariates=3, r2_other=0.5
+        ).power
         assert better >= base
 
 
@@ -111,10 +113,10 @@ class TestPowerFamily:
 # Survey weighted estimators (analytical).
 # ---------------------------------------------------------------------------
 
+
 class TestSurveyEstimators:
     def _design(self):
-        df = pd.DataFrame({"y": [1.0, 2, 3, 4, 5, 6],
-                           "w": [1, 1, 1, 2, 2, 2]})
+        df = pd.DataFrame({"y": [1.0, 2, 3, 4, 5, 6], "w": [1, 1, 1, 2, 2, 2]})
         return sp.svydesign(data=df, weights="w")
 
     def test_svymean_is_weighted_mean(self):
@@ -136,6 +138,7 @@ class TestSurveyEstimators:
 # Regression models: cloglog & zero-inflated NB (sign recovery + smoke).
 # ---------------------------------------------------------------------------
 
+
 class TestRareRegressions:
     def test_cloglog_recovers_positive_slope(self):
         rng = np.random.default_rng(0)
@@ -150,8 +153,11 @@ class TestRareRegressions:
             warnings.simplefilter("ignore")
             res = sp.cloglog(data=df, y="y", x=["x"])
         coefs = res.params if hasattr(res, "params") else res.coefficients
-        bx = float(np.asarray(coefs)[list(res.param_names).index("x")]) \
-            if hasattr(res, "param_names") else float(pd.Series(coefs)["x"])
+        bx = (
+            float(np.asarray(coefs)[list(res.param_names).index("x")])
+            if hasattr(res, "param_names")
+            else float(pd.Series(coefs)["x"])
+        )
         assert bx > 0.3  # recovers the positive sign with the right magnitude
 
     def test_zinb_runs_and_returns_finite_estimates(self):

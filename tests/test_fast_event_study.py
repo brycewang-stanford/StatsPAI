@@ -1,4 +1,5 @@
 """Tests for ``sp.fast.event_study`` (Phase 6)."""
+
 from __future__ import annotations
 
 import json
@@ -43,7 +44,11 @@ def test_event_study_recovers_constant_effect():
     """Post-treatment coefs should average ~ true treatment effect."""
     df = _staggered_panel(seed=1, treatment_effect=0.6)
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
         window=(-5, 5),
     )
     td = res.tidy()
@@ -56,7 +61,11 @@ def test_event_study_pre_trend_near_zero():
     """Pre-treatment coefs (event_time <= -2) should be near zero."""
     df = _staggered_panel(seed=2, treatment_effect=0.5)
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
         window=(-5, 5),
     )
     td = res.tidy()
@@ -69,7 +78,11 @@ def test_event_study_pre_trend_near_zero():
 def test_event_study_returns_correct_shape():
     df = _staggered_panel(seed=3)
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
         window=(-3, 3),
     )
     # 7 event-times in window minus the reference (-1) = 6 coefs
@@ -82,8 +95,13 @@ def test_event_study_returns_correct_shape():
 def test_event_study_custom_reference():
     df = _staggered_panel(seed=4)
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
-        window=(-3, 3), reference=-2,
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
+        window=(-3, 3),
+        reference=-2,
     )
     # -2 should be excluded as the reference
     assert -2 not in res.event_times
@@ -94,8 +112,13 @@ def test_event_study_rejects_noninteger_reference():
 
     with pytest.raises(ValueError, match="reference must be an integer"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
-            window=(-3, 3), reference=-1.5,
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
+            window=(-3, 3),
+            reference=-1.5,
         )
 
 
@@ -104,12 +127,20 @@ def test_event_study_rejects_invalid_window():
 
     with pytest.raises(ValueError, match="lower bound"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
             window=(3, -3),
         )
     with pytest.raises(ValueError, match="window bounds"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
             window=(-3.5, 3),  # type: ignore[arg-type]
         )
 
@@ -117,7 +148,11 @@ def test_event_study_rejects_invalid_window():
 def test_event_study_clustered_se():
     df = _staggered_panel(seed=5)
     res_default = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
         window=(-3, 3),
     )
     # Default clusters on unit
@@ -129,7 +164,10 @@ def test_event_study_missing_column_raises():
     df = _staggered_panel(seed=6)
     with pytest.raises(MethodIncompatibility, match="missing columns"):
         sp.fast.event_study(
-            df, y="nope", unit="unit", time="time",
+            df,
+            y="nope",
+            unit="unit",
+            time="time",
             event_time="event_time",
         )
 
@@ -146,12 +184,14 @@ def test_event_study_validates_data_and_column_arguments():
             df.iloc[0:0], y="y", unit="unit", time="time", event_time="event_time"
         )
     with pytest.raises(MethodIncompatibility, match="column arguments"):
-        sp.fast.event_study(
-            df, y="", unit="unit", time="time", event_time="event_time"
-        )
+        sp.fast.event_study(df, y="", unit="unit", time="time", event_time="event_time")
     with pytest.raises(MethodIncompatibility, match="cluster"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
             cluster=123,  # type: ignore[arg-type]
         )
 
@@ -161,12 +201,20 @@ def test_event_study_rejects_malformed_window():
 
     with pytest.raises(MethodIncompatibility, match="window must be"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
             window=1,  # type: ignore[arg-type]
         )
     with pytest.raises(MethodIncompatibility, match="window must be"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
             window=(1, 2, 3),  # type: ignore[arg-type]
         )
 
@@ -177,7 +225,11 @@ def test_event_study_nonfinite_outcome_raises():
 
     with pytest.raises(ValueError, match="outcome column"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
         )
 
 
@@ -188,7 +240,11 @@ def test_event_study_fractional_event_time_raises():
 
     with pytest.raises(ValueError, match="integer event-time offsets"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
         )
 
 
@@ -199,7 +255,11 @@ def test_event_study_infinite_event_time_raises():
 
     with pytest.raises(ValueError, match="infinite values"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
         )
 
 
@@ -210,7 +270,11 @@ def test_event_study_missing_cluster_raises():
 
     with pytest.raises(ValueError, match="missing values"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
             cluster="cluster",
         )
 
@@ -218,7 +282,11 @@ def test_event_study_missing_cluster_raises():
 def test_event_study_summary_string():
     df = _staggered_panel(seed=7)
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
         window=(-2, 2),
     )
     s = res.summary()
@@ -229,7 +297,11 @@ def test_event_study_summary_string():
 def test_event_study_result_protocol_json_safe():
     df = _staggered_panel(seed=8)
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
         window=(-2, 2),
     )
 
@@ -251,18 +323,25 @@ def test_event_study_collinear_dummies_raise_clear_error():
     rows = []
     for unit in range(8):
         for time in range(5):
-            rows.append({
-                "unit": unit,
-                "time": time,
-                "event_time": time - 2,
-                "y": float(unit) + 0.1 * time,
-            })
+            rows.append(
+                {
+                    "unit": unit,
+                    "time": time,
+                    "event_time": time - 2,
+                    "y": float(unit) + 0.1 * time,
+                }
+            )
     df = pd.DataFrame(rows)
 
     with pytest.raises(RuntimeError, match="perfectly collinear"):
         sp.fast.event_study(
-            df, y="y", unit="unit", time="time", event_time="event_time",
-            window=(0, 0), reference=-1,
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            event_time="event_time",
+            window=(0, 0),
+            reference=-1,
         )
 
 
@@ -272,6 +351,7 @@ def test_event_study_collinear_dummies_raise_clear_error():
 # pre-fix factor was (n-1)/(n-k_dummies) only — i.e. event_study SEs were
 # systematically too small. reghdfe / fixest both subtract Σ(G_k - 1).)
 # ---------------------------------------------------------------------------
+
 
 def test_event_study_se_includes_fe_rank_correction():
     """Pin event_study CR1 SE against the hand-computed sandwich.
@@ -284,8 +364,13 @@ def test_event_study_se_includes_fe_rank_correction():
     """
     df = _staggered_panel(seed=42, n_units=60, n_periods=15)
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
-        window=(-3, 3), reference=-1,
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
+        window=(-3, 3),
+        reference=-1,
     )
 
     # --- Reconstruct the system the same way event_study does ---
@@ -296,10 +381,10 @@ def test_event_study_se_includes_fe_rank_correction():
     in_window = finite & (et_int >= -3) & (et_int <= 3)
     et_int = np.where(in_window, et_int, np.iinfo(np.int64).min)
     levels = sorted({v for v in et_int[in_window] if v != -1})
-    dummies = pd.DataFrame({
-        f"et_{lv}": ((et_int == lv) & in_window).astype(np.float64)
-        for lv in levels
-    }, index=df.index)
+    dummies = pd.DataFrame(
+        {f"et_{lv}": ((et_int == lv) & in_window).astype(np.float64) for lv in levels},
+        index=df.index,
+    )
     df_aug = pd.concat([df, dummies], axis=1)
 
     y_dem, _ = wt.transform(df_aug["y"].to_numpy(dtype=np.float64))
@@ -334,9 +419,9 @@ def test_event_study_se_includes_fe_rank_correction():
     np.testing.assert_allclose(res.ses, se_fixed_expected, rtol=1e-12, atol=1e-12)
     # Direction: post-fix SE strictly larger than the buggy one — the
     # whole point of the FE-rank correction.
-    assert (res.ses > se_buggy_would_have).all(), (
-        "event_study FE-rank fix did not increase SEs as expected"
-    )
+    assert (
+        res.ses > se_buggy_would_have
+    ).all(), "event_study FE-rank fix did not increase SEs as expected"
     # Math identity: the only thing that changes between buggy and fixed
     # factor is the denominator, so the ratio must equal sqrt((n-k)/(n-k-fe_dof))
     # uniformly across coefficients. Pin it tight — this also guards against
@@ -347,7 +432,8 @@ def test_event_study_se_includes_fe_rank_correction():
     np.testing.assert_allclose(
         ratio_actual,
         np.full_like(ratio_actual, ratio_expected),
-        rtol=1e-12, atol=1e-12,
+        rtol=1e-12,
+        atol=1e-12,
     )
     # Sanity: with this n/k/fe_dof, the bump must be at least 1% — if not,
     # the test panel is too large for the bug to have been observable and
@@ -400,14 +486,20 @@ def test_event_study_se_close_to_r_fixest(tmp_path):
     df = _truly_staggered_panel(seed=11, n_units=80, n_periods=15)
 
     res = sp.fast.event_study(
-        df, y="y", unit="unit", time="time", event_time="event_time",
-        window=(-3, 3), reference=-1,
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        event_time="event_time",
+        window=(-3, 3),
+        reference=-1,
     )
 
     # Use ``etm{n}`` (m=minus) / ``etp{n}`` (p=plus) names to dodge R's
     # parsing of ``-`` in formula identifiers.
     def _r_name(lv: int) -> str:
         return f"etm{abs(lv)}" if lv < 0 else f"etp{lv}"
+
     levels = [-3, -2, 0, 1, 2, 3]
     rhs_terms = " + ".join(_r_name(lv) for lv in levels)
 
@@ -434,7 +526,10 @@ def test_event_study_se_close_to_r_fixest(tmp_path):
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
-        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=120,
+        ["Rscript", "-e", r_script],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if proc.returncode != 0:
         pytest.skip(f"Rscript failed: {proc.stderr[:300]}")

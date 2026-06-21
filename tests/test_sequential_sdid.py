@@ -12,8 +12,12 @@ import statspai as sp
 
 
 def _make_staggered_panel(
-    *, n_units: int = 40, n_periods: int = 20,
-    cohorts: dict = None, true_ate: float = 2.0, seed: int = 17,
+    *,
+    n_units: int = 40,
+    n_periods: int = 20,
+    cohorts: dict = None,
+    true_ate: float = 2.0,
+    seed: int = 17,
 ) -> pd.DataFrame:
     """Staggered-adoption panel.
 
@@ -40,22 +44,33 @@ def _make_staggered_panel(
         for t in range(n_periods):
             treated = (g != 0) and (t >= g)
             y = (
-                unit_fe[u] + time_fe[t]
+                unit_fe[u]
+                + time_fe[t]
                 + (true_ate if treated else 0.0)
                 + rng.normal(0, 0.3)
             )
-            rows.append({
-                "unit": u, "time": t, "y": y,
-                "cohort": g,
-            })
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": y,
+                    "cohort": g,
+                }
+            )
     return pd.DataFrame(rows)
 
 
 def test_sequential_sdid_recovers_true_ate():
     df = _make_staggered_panel(true_ate=2.0, seed=19)
     res = sp.sequential_sdid(
-        df, outcome="y", unit="unit", time="time", cohort="cohort",
-        se_method="placebo", n_reps=30, seed=19,
+        df,
+        outcome="y",
+        unit="unit",
+        time="time",
+        cohort="cohort",
+        se_method="placebo",
+        n_reps=30,
+        seed=19,
     )
     assert res.method == "sequential_sdid"
     assert res.estimand == "ATT"
@@ -70,33 +85,57 @@ def test_sequential_sdid_single_cohort_matches_sdid():
     """With only one cohort, sequential SDID should agree with plain SDID."""
     cohorts = {u: (0 if u < 20 else 12) for u in range(30)}
     df = _make_staggered_panel(
-        n_units=30, n_periods=20, cohorts=cohorts,
-        true_ate=1.5, seed=23,
+        n_units=30,
+        n_periods=20,
+        cohorts=cohorts,
+        true_ate=1.5,
+        seed=23,
     )
     res_seq = sp.sequential_sdid(
-        df, outcome="y", unit="unit", time="time", cohort="cohort",
-        se_method="placebo", n_reps=30, seed=23,
+        df,
+        outcome="y",
+        unit="unit",
+        time="time",
+        cohort="cohort",
+        se_method="placebo",
+        n_reps=30,
+        seed=23,
     )
     # Single-cohort → one row in detail
     assert len(res_seq.detail) == 1
     treated = [u for u, g in cohorts.items() if g != 0]
     res_plain = sp.sdid(
-        df, y="y", unit="unit", time="time",
-        treat_unit=treated, treat_time=12, method="sdid",
-        se_method="placebo", n_reps=30, seed=23,
+        df,
+        y="y",
+        unit="unit",
+        time="time",
+        treat_unit=treated,
+        treat_time=12,
+        method="sdid",
+        se_method="placebo",
+        n_reps=30,
+        seed=23,
     )
     # Point estimates should be within numerical noise.
     assert abs(res_seq.estimate - res_plain.estimate) < 0.1
 
 
 def test_sequential_sdid_no_treated_errors():
-    df = pd.DataFrame({
-        "unit": [1, 1, 2, 2], "time": [0, 1, 0, 1],
-        "y": [1.0, 2.0, 3.0, 4.0], "cohort": [0, 0, 0, 0],
-    })
+    df = pd.DataFrame(
+        {
+            "unit": [1, 1, 2, 2],
+            "time": [0, 1, 0, 1],
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "cohort": [0, 0, 0, 0],
+        }
+    )
     with pytest.raises(ValueError, match="No treated cohorts"):
         sp.sequential_sdid(
-            df, outcome="y", unit="unit", time="time", cohort="cohort",
+            df,
+            outcome="y",
+            unit="unit",
+            time="time",
+            cohort="cohort",
         )
 
 
@@ -104,7 +143,11 @@ def test_sequential_sdid_invalid_cohort_weights():
     df = _make_staggered_panel(seed=29)
     with pytest.raises(ValueError, match="cohort_weights"):
         sp.sequential_sdid(
-            df, outcome="y", unit="unit", time="time", cohort="cohort",
+            df,
+            outcome="y",
+            unit="unit",
+            time="time",
+            cohort="cohort",
             cohort_weights="bogus",
         )
 

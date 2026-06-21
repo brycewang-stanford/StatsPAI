@@ -13,7 +13,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 #  Top-level export
 # ---------------------------------------------------------------------------
@@ -37,9 +36,17 @@ class TestReturnShape:
 
     def test_top_level_keys(self):
         ex = sp.examples("did")
-        for k in ("name", "category", "description", "signature",
-                  "examples", "pre_conditions", "assumptions",
-                  "alternatives", "known_function"):
+        for k in (
+            "name",
+            "category",
+            "description",
+            "signature",
+            "examples",
+            "pre_conditions",
+            "assumptions",
+            "alternatives",
+            "known_function",
+        ):
             assert k in ex, f"missing key {k!r}"
 
     def test_each_example_has_title_and_code(self):
@@ -68,14 +75,26 @@ class TestReturnShape:
 
 class TestCuratedCoverage:
 
-    @pytest.mark.parametrize("name", [
-        "regress", "did", "callaway_santanna", "rdrobust", "ivreg",
-        "ebalance", "synth", "audit", "preflight", "detect_design",
-    ])
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "regress",
+            "did",
+            "callaway_santanna",
+            "rdrobust",
+            "ivreg",
+            "ebalance",
+            "synth",
+            "audit",
+            "preflight",
+            "detect_design",
+        ],
+    )
     def test_flagship_has_curated_snippet(self, name):
         ex = sp.examples(name)
-        assert len(ex["examples"]) >= 1, (
-            f"flagship method {name!r} has no curated snippet")
+        assert (
+            len(ex["examples"]) >= 1
+        ), f"flagship method {name!r} has no curated snippet"
         # Every snippet must be valid Python (parses without
         # SyntaxError). We compile in 'exec' mode.
         for snippet in ex["examples"]:
@@ -83,8 +102,7 @@ class TestCuratedCoverage:
 
     def test_did_snippet_uses_sp_alias(self):
         ex = sp.examples("did")
-        assert any("import statspai as sp" in e["code"]
-                   for e in ex["examples"])
+        assert any("import statspai as sp" in e["code"] for e in ex["examples"])
 
 
 # ---------------------------------------------------------------------------
@@ -104,8 +122,10 @@ class TestRegistryFallback:
         # but no hand-curated snippet (e.g. 'iv' if not curated, or
         # any other registered fn). Skip if we can't find one.
         from statspai.registry import _REGISTRY
+
         for name, spec in (_REGISTRY or {}).items():
             from statspai.smart.examples import _CURATED
+
             if name not in _CURATED and getattr(spec, "example", ""):
                 ex = sp.examples(name)
                 assert ex["known_function"] is True

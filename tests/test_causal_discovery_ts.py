@@ -13,9 +13,9 @@ import statspai as sp
 
 def _make_svar_data(T: int = 300, seed: int = 31) -> pd.DataFrame:
     """SVAR with known structure:
-        X_t = 0.5 X_{t-1} + eps_x
-        Y_t = 0.4 X_{t-1} + 0.3 Y_{t-1} + eps_y
-        Z_t = 0.6 Y_{t-1} + eps_z
+    X_t = 0.5 X_{t-1} + eps_x
+    Y_t = 0.4 X_{t-1} + 0.3 Y_{t-1} + eps_y
+    Z_t = 0.6 Y_{t-1} + eps_z
     """
     rng = np.random.default_rng(seed)
     X = np.zeros(T)
@@ -39,8 +39,7 @@ def test_lpcmci_recovers_directed_chain():
     assert res.variables == ["X", "Y", "Z"]
     # There must be a directed lag-1 edge from X to Y
     assert res.edge_types[1, 0, 1] == "-->", (
-        "Expected X --> Y at lag 1, got "
-        f"{res.edge_types[1, 0, 1]!r}"
+        "Expected X --> Y at lag 1, got " f"{res.edge_types[1, 0, 1]!r}"
     )
     # Directed lag-1 Y -> Z
     assert res.edge_types[1, 1, 2] == "-->", res.edge_types[1, 1, 2]
@@ -58,9 +57,12 @@ def test_lpcmci_needs_numeric_variables():
 
 
 def test_lpcmci_short_timeseries_errors():
-    df = pd.DataFrame({
-        "a": np.random.randn(4), "b": np.random.randn(4),
-    })
+    df = pd.DataFrame(
+        {
+            "a": np.random.randn(4),
+            "b": np.random.randn(4),
+        }
+    )
     with pytest.raises(ValueError, match="too short"):
         sp.lpcmci(df, tau_max=3)
 
@@ -73,8 +75,12 @@ def test_lpcmci_short_timeseries_errors():
 def test_dynotears_recovers_svar_coefficients():
     df = _make_svar_data(T=500, seed=37)
     res = sp.dynotears(
-        df, variables=["X", "Y", "Z"], lag=1,
-        lambda_w=0.01, lambda_a=0.01, threshold=0.1,
+        df,
+        variables=["X", "Y", "Z"],
+        lag=1,
+        lambda_w=0.01,
+        lambda_a=0.01,
+        threshold=0.1,
     )
     assert res.variables == ["X", "Y", "Z"]
     # Contemporaneous should be near-zero (DGP has none).
@@ -93,6 +99,7 @@ def test_dynotears_contemporaneous_acyclicity():
     res = sp.dynotears(df, lag=1, lambda_w=0.02, lambda_a=0.02, threshold=0.05)
     # h(W) should be close to 0 (acyclic).
     from scipy import linalg as _la
+
     h = np.trace(_la.expm(res.W * res.W)) - res.W.shape[0]
     assert h < 1e-4, h
     # Diagonal of W must be exactly 0.

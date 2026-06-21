@@ -13,10 +13,10 @@ import numpy as np
 import pandas as pd
 from statspai.core.results import CausalResult
 
-
 # ====================================================================== #
 #  Shared fixtures
 # ====================================================================== #
+
 
 @pytest.fixture
 def panel_data():
@@ -34,16 +34,18 @@ def panel_data():
     betas = rng.normal(0.5, 0.1, n_units)
 
     for i in range(n_units):
-        unit_name = f'unit_{i}'
+        unit_name = f"unit_{i}"
         for t in range(1, n_periods + 1):
             y = alphas[i] + betas[i] * t + rng.normal(0, 0.3)
             if i == 0 and t >= treatment_time:
                 y += 5.0
-            records.append({
-                'unit': unit_name,
-                'time': t,
-                'outcome': y,
-            })
+            records.append(
+                {
+                    "unit": unit_name,
+                    "time": t,
+                    "outcome": y,
+                }
+            )
 
     return pd.DataFrame(records)
 
@@ -66,10 +68,10 @@ def multi_outcome_data():
     for i in range(n_units):
         for t in range(1, n_periods + 1):
             row = {
-                'unit': f'unit_{i}',
-                'time': t,
+                "unit": f"unit_{i}",
+                "time": t,
             }
-            for k, name in enumerate(['gdp', 'employment', 'investment']):
+            for k, name in enumerate(["gdp", "employment", "investment"]):
                 y = alphas[i, k] + betas[i, k] * t + rng.normal(0, 0.3)
                 if i == 0 and t >= treatment_time:
                     effects = [5.0, 3.0, 0.0]
@@ -84,6 +86,7 @@ def multi_outcome_data():
 #  Matrix Completion SCM
 # ====================================================================== #
 
+
 class TestMatrixCompletion:
 
     def test_basic_mc(self, panel_data):
@@ -92,45 +95,62 @@ class TestMatrixCompletion:
 
         result = mc_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 3.0, (
-            f"MC estimate = {result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 3.0
+        ), f"MC estimate = {result.estimate:.2f}, expected ≈ 5.0"
 
     def test_returns_causal_result(self, panel_data):
         from statspai.synth.mc import mc_synth
 
         result = mc_synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11, placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            placebo=False,
         )
 
-        assert 'Matrix Completion' in result.method
-        assert result.estimand == 'ATT'
-        assert 'rank' in result.model_info or 'lambda_reg' in result.model_info
+        assert "Matrix Completion" in result.method
+        assert result.estimand == "ATT"
+        assert "rank" in result.model_info or "lambda_reg" in result.model_info
 
     def test_gap_table(self, panel_data):
         from statspai.synth.mc import mc_synth
 
         result = mc_synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11, placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            placebo=False,
         )
 
         mi = result.model_info
-        assert 'gap_table' in mi or 'Y_synth' in mi
+        assert "gap_table" in mi or "Y_synth" in mi
 
     def test_mc_with_placebo(self, panel_data):
         from statspai.synth.mc import mc_synth
 
         result = mc_synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=True,
         )
 
@@ -142,27 +162,38 @@ class TestMatrixCompletion:
         from statspai.synth import synth
 
         result = synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='mc', placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="mc",
+            placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert 'Matrix Completion' in result.method
+        assert "Matrix Completion" in result.method
 
     def test_citation(self, panel_data):
         from statspai.synth.mc import mc_synth
 
         result = mc_synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11, placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            placebo=False,
         )
-        assert 'athey' in result.cite().lower() or 'matrix' in result.cite().lower()
+        assert "athey" in result.cite().lower() or "matrix" in result.cite().lower()
 
 
 # ====================================================================== #
 #  Distributional SCM (DiSCo)
 # ====================================================================== #
+
 
 class TestDistributionalSCM:
 
@@ -172,70 +203,92 @@ class TestDistributionalSCM:
 
         result = discos(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert 'Distributional' in result.method
+        assert "Distributional" in result.method
 
     def test_quantile_effects(self, panel_data):
         from statspai.synth.discos import discos
 
         result = discos(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'quantile_effects' in mi
-        qe = mi['quantile_effects']
+        assert "quantile_effects" in mi
+        qe = mi["quantile_effects"]
         assert isinstance(qe, pd.DataFrame)
-        assert 'quantile' in qe.columns
-        assert 'effect' in qe.columns
+        assert "quantile" in qe.columns
+        assert "effect" in qe.columns
 
     def test_discos_positive_effect(self, panel_data):
         """Average quantile effect should be positive (true effect = 5)."""
         from statspai.synth.discos import discos
 
         result = discos(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
-        assert result.estimate > 0, (
-            f"DiSCo estimate = {result.estimate:.2f}, expected > 0"
-        )
+        assert (
+            result.estimate > 0
+        ), f"DiSCo estimate = {result.estimate:.2f}, expected > 0"
 
     def test_discos_via_dispatcher(self, panel_data):
         from statspai.synth import synth
 
         result = synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='discos', placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="discos",
+            placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert 'Distributional' in result.method
+        assert "Distributional" in result.method
 
     def test_citation(self, panel_data):
         from statspai.synth.discos import discos
 
         result = discos(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11, placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            placebo=False,
         )
         cite = result.cite().lower()
-        assert 'gunsilius' in cite or 'distributional' in cite
+        assert "gunsilius" in cite or "distributional" in cite
 
 
 # ====================================================================== #
 #  Multiple Outcomes SCM
 # ====================================================================== #
+
 
 class TestMultiOutcomeSCM:
 
@@ -244,37 +297,41 @@ class TestMultiOutcomeSCM:
 
         result = multi_outcome_synth(
             multi_outcome_data,
-            outcomes=['gdp', 'employment', 'investment'],
-            unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcomes=["gdp", "employment", "investment"],
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert 'Multiple Outcomes' in result.method or 'Multi-Outcome' in result.method
+        assert "Multiple Outcomes" in result.method or "Multi-Outcome" in result.method
 
     def test_per_outcome_effects(self, multi_outcome_data):
         from statspai.synth.multi_outcome import multi_outcome_synth
 
         result = multi_outcome_synth(
             multi_outcome_data,
-            outcomes=['gdp', 'employment', 'investment'],
-            unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcomes=["gdp", "employment", "investment"],
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'per_outcome_effects' in mi
-        oe = mi['per_outcome_effects']
+        assert "per_outcome_effects" in mi
+        oe = mi["per_outcome_effects"]
         assert len(oe) == 3
         np.testing.assert_allclose(
-            [result.estimate, oe['att'].mean()],
+            [result.estimate, oe["att"].mean()],
             [2.0500675158579713, 2.0500675158579713],
             atol=1e-12,
         )
         np.testing.assert_allclose(
-            oe['att'].to_numpy(),
+            oe["att"].to_numpy(),
             [1.274515, 3.568886, 1.306802],
             atol=5e-7,
         )
@@ -285,14 +342,16 @@ class TestMultiOutcomeSCM:
 
         result = multi_outcome_synth(
             multi_outcome_data,
-            outcomes=['gdp', 'employment', 'investment'],
-            unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcomes=["gdp", "employment", "investment"],
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'weights' in mi
+        assert "weights" in mi
 
     def test_effects_are_positive(self, multi_outcome_data):
         """GDP and employment effects should be positive (true effects > 0)."""
@@ -300,15 +359,17 @@ class TestMultiOutcomeSCM:
 
         result = multi_outcome_synth(
             multi_outcome_data,
-            outcomes=['gdp', 'employment', 'investment'],
-            unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcomes=["gdp", "employment", "investment"],
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
-        oe = result.model_info['per_outcome_effects']
-        gdp_eff = oe[oe['outcome'] == 'gdp']['att'].values[0]
-        emp_eff = oe[oe['outcome'] == 'employment']['att'].values[0]
+        oe = result.model_info["per_outcome_effects"]
+        gdp_eff = oe[oe["outcome"] == "gdp"]["att"].values[0]
+        emp_eff = oe[oe["outcome"] == "employment"]["att"].values[0]
         # Both should be positive (true effects are 5.0 and 3.0)
         assert gdp_eff > 0, f"GDP effect ({gdp_eff:.2f}) should be positive"
         assert emp_eff > 0, f"Employment effect ({emp_eff:.2f}) should be positive"
@@ -317,10 +378,15 @@ class TestMultiOutcomeSCM:
         from statspai.synth import synth
 
         result = synth(
-            multi_outcome_data, outcome='gdp', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='multi_outcome', placebo=False,
-            outcomes=['gdp', 'employment', 'investment'],
+            multi_outcome_data,
+            outcome="gdp",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="multi_outcome",
+            placebo=False,
+            outcomes=["gdp", "employment", "investment"],
         )
 
         assert isinstance(result, CausalResult)
@@ -330,6 +396,7 @@ class TestMultiOutcomeSCM:
 #  Prediction Intervals (SCPI)
 # ====================================================================== #
 
+
 class TestSCPI:
 
     def test_basic_scpi(self, panel_data):
@@ -337,20 +404,27 @@ class TestSCPI:
 
         result = scpi(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
         assert isinstance(result, CausalResult)
-        assert 'Prediction Interval' in result.method or 'SCPI' in result.method
+        assert "Prediction Interval" in result.method or "SCPI" in result.method
 
     def test_prediction_intervals(self, panel_data):
         """PI should be wider than zero-width."""
         from statspai.synth.scpi import scpi
 
         result = scpi(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
         ci = result.ci
@@ -362,23 +436,31 @@ class TestSCPI:
         from statspai.synth.scpi import scpi
 
         result = scpi(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
         mi = result.model_info
-        assert 'period_results' in mi
-        pr = mi['period_results']
+        assert "period_results" in mi
+        pr = mi["period_results"]
         assert isinstance(pr, pd.DataFrame)
-        assert 'pi_lower' in pr.columns or 'ci_lower' in pr.columns
+        assert "pi_lower" in pr.columns or "ci_lower" in pr.columns
 
     def test_scpi_via_dispatcher(self, panel_data):
         from statspai.synth import synth
 
         result = synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='scpi',
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="scpi",
         )
 
         assert isinstance(result, CausalResult)
@@ -387,18 +469,23 @@ class TestSCPI:
         from statspai.synth.scpi import scpi
 
         result = scpi(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
-        assert abs(result.estimate - 5.0) < 3.0, (
-            f"SCPI estimate = {result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 3.0
+        ), f"SCPI estimate = {result.estimate:.2f}, expected ≈ 5.0"
 
 
 # ====================================================================== #
 #  Sensitivity Analysis
 # ====================================================================== #
+
 
 class TestSensitivity:
 
@@ -406,17 +493,26 @@ class TestSensitivity:
         from statspai.synth.sensitivity import synth_loo
 
         loo = synth_loo(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
         assert isinstance(loo, pd.DataFrame)
-        assert 'dropped_unit' in loo.columns or 'unit' in loo.columns
-        assert 'att' in loo.columns
+        assert "dropped_unit" in loo.columns or "unit" in loo.columns
+        assert "att" in loo.columns
         assert len(loo) >= 5  # at least half of donors
         np.testing.assert_allclose(
-            [loo['att'].mean(), loo['att'].std(), loo['att'].min(), loo['att'].max()],
-            [5.203214288817167, 0.1772123678980847, 4.748068949701723, 5.467812084888023],
+            [loo["att"].mean(), loo["att"].std(), loo["att"].min(), loo["att"].max()],
+            [
+                5.203214288817167,
+                0.1772123678980847,
+                4.748068949701723,
+                5.467812084888023,
+            ],
             atol=1e-12,
         )
 
@@ -424,16 +520,25 @@ class TestSensitivity:
         from statspai.synth.sensitivity import synth_time_placebo
 
         tp = synth_time_placebo(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
         assert isinstance(tp, pd.DataFrame)
-        assert 'placebo_time' in tp.columns
-        assert 'att' in tp.columns
+        assert "placebo_time" in tp.columns
+        assert "att" in tp.columns
         np.testing.assert_allclose(
-            [tp['att'].sum(), tp['att'].mean(), tp['att'].min(), tp['att'].max()],
-            [3.2070738962818575, 0.4008842370352322, -0.16739911527023565, 0.7630928354486967],
+            [tp["att"].sum(), tp["att"].mean(), tp["att"].min(), tp["att"].max()],
+            [
+                3.2070738962818575,
+                0.4008842370352322,
+                -0.16739911527023565,
+                0.7630928354486967,
+            ],
             atol=1e-12,
         )
 
@@ -442,35 +547,46 @@ class TestSensitivity:
         from statspai.synth.sensitivity import synth_time_placebo
 
         tp = synth_time_placebo(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
         # All placebo ATTs should be smaller than the real treatment
         real_effect = 5.0
         for _, row in tp.iterrows():
-            assert abs(row['att']) < real_effect + 2.0
+            assert abs(row["att"]) < real_effect + 2.0
 
     def test_comprehensive_sensitivity(self, panel_data):
         from statspai.synth.sensitivity import synth_sensitivity
 
         sens = synth_sensitivity(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_donor_samples=20, seed=42,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_donor_samples=20,
+            seed=42,
         )
 
         assert isinstance(sens, dict)
-        assert 'loo' in sens
-        assert 'time_placebo' in sens
-        assert 'summary' in sens
+        assert "loo" in sens
+        assert "time_placebo" in sens
+        assert "summary" in sens
         np.testing.assert_allclose(
-            [sens['loo']['att'].mean(), sens['time_placebo']['att'].max()],
+            [sens["loo"]["att"].mean(), sens["time_placebo"]["att"].max()],
             [5.203214288817167, 0.7630928354486967],
             atol=1e-12,
         )
         np.testing.assert_allclose(
-            sens['rmspe_filter'][['threshold', 'n_placebos', 'pvalue']].head(3).to_numpy(),
+            sens["rmspe_filter"][["threshold", "n_placebos", "pvalue"]]
+            .head(3)
+            .to_numpy(),
             np.array([[1.0, 5.0, 0.16666667], [2.0, 8.0, 0.11111111], [5.0, 9.0, 0.1]]),
             atol=5e-8,
         )
@@ -480,14 +596,16 @@ class TestSensitivity:
         from statspai.synth.sensitivity import synth_loo
 
         loo = synth_loo(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
-        atts = loo['att'].values
-        assert np.std(atts) < 5.0, (
-            f"LOO ATT std = {np.std(atts):.2f}, too variable"
-        )
+        atts = loo["att"].values
+        assert np.std(atts) < 5.0, f"LOO ATT std = {np.std(atts):.2f}, too variable"
 
     def test_loo_consistent_with_main_fit(self, panel_data):
         """
@@ -499,34 +617,56 @@ class TestSensitivity:
         import statspai as sp
         from statspai.synth.sensitivity import _fit_scm_core
 
-        all_units = panel_data['unit'].unique().tolist()
-        donors = [u for u in all_units if u != 'unit_0']
+        all_units = panel_data["unit"].unique().tolist()
+        donors = [u for u in all_units if u != "unit_0"]
         drop = donors[0]
         keep = [u for u in all_units if u != drop]
-        subset = panel_data[panel_data['unit'].isin(keep)]
+        subset = panel_data[panel_data["unit"].isin(keep)]
 
         res_helper = _fit_scm_core(
-            panel_data, 'outcome', 'unit', 'time', 'unit_0', 11,
-            donor_subset=[u for u in keep if u != 'unit_0'],
+            panel_data,
+            "outcome",
+            "unit",
+            "time",
+            "unit_0",
+            11,
+            donor_subset=[u for u in keep if u != "unit_0"],
         )
         res_main = sp.synth(
-            subset, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='classic', placebo=False,
+            subset,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="classic",
+            placebo=False,
         )
-        assert abs(res_helper['att'] - res_main.estimate) < 1e-6
+        assert abs(res_helper["att"] - res_main.estimate) < 1e-6
 
 
 # ====================================================================== #
 #  Integration: all methods through unified synth() dispatcher
 # ====================================================================== #
 
+
 class TestUnifiedDispatcher:
 
     ALL_METHODS = [
-        'classic', 'penalized', 'ridge', 'demeaned', 'detrended',
-        'unconstrained', 'elastic_net', 'augmented', 'ascm',
-        'factor', 'gsynth', 'mc', 'discos', 'scpi',
+        "classic",
+        "penalized",
+        "ridge",
+        "demeaned",
+        "detrended",
+        "unconstrained",
+        "elastic_net",
+        "augmented",
+        "ascm",
+        "factor",
+        "gsynth",
+        "mc",
+        "discos",
+        "scpi",
     ]
 
     @pytest.mark.parametrize("method", ALL_METHODS)
@@ -535,13 +675,18 @@ class TestUnifiedDispatcher:
         from statspai.synth import synth
 
         result = synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method=method, placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method=method,
+            placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert 'ATT' in result.estimand  # covers 'ATT' and 'Distributional ATT'
+        assert "ATT" in result.estimand  # covers 'ATT' and 'Distributional ATT'
         assert isinstance(result.estimate, float)
         assert result.ci[0] <= result.ci[1]
 
@@ -551,15 +696,20 @@ class TestUnifiedDispatcher:
         from statspai.synth import synth
 
         result = synth(
-            panel_data, outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method=method, placebo=False,
+            panel_data,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method=method,
+            placebo=False,
         )
 
-        assert result.estimate > 0, (
-            f"method={method}: estimate = {result.estimate:.2f}, expected > 0"
-        )
+        assert (
+            result.estimate > 0
+        ), f"method={method}: estimate = {result.estimate:.2f}, expected > 0"
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, "-v"])

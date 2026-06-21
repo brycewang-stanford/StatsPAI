@@ -68,6 +68,7 @@ References (bib keys grep-confirmed in paper.bib)
   counterfactual quantile functions feed ``stochastic_dominance``.
   [@gunsilius2023distributional]
 """
+
 from __future__ import annotations
 
 import warnings
@@ -79,7 +80,6 @@ from scipy import stats
 
 import statspai as sp
 
-
 # Hand-set true location shift shared by the DTE anchors (Y1 ~ N(MU, 1)).
 MU = 1.2
 
@@ -87,6 +87,7 @@ MU = 1.2
 # ---------------------------------------------------------------------------
 # Deterministic DGP builders (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
+
 
 def _make_shift_dgp(seed, n=6000):
     """Two equal arms: control Y0 ~ N(0,1), treated Y1 ~ N(MU, 1).
@@ -147,6 +148,7 @@ def _make_panel(seed, kind):
 # Module fixtures.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def shift_data():
     return _make_shift_dgp(20260614)
@@ -157,8 +159,14 @@ def fosd_result():
     df = _make_panel(7, "fosd")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return sp.discos(df, outcome="y", unit="unit", time="time",
-                         treated_unit="T", treatment_time=5)
+        return sp.discos(
+            df,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="T",
+            treatment_time=5,
+        )
 
 
 @pytest.fixture(scope="module")
@@ -166,8 +174,14 @@ def cross_result():
     df = _make_panel(11, "cross")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return sp.discos(df, outcome="y", unit="unit", time="time",
-                         treated_unit="T", treatment_time=5)
+        return sp.discos(
+            df,
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="T",
+            treatment_time=5,
+        )
 
 
 def _dte(df, quantiles, seed):
@@ -175,13 +189,20 @@ def _dte(df, quantiles, seed):
         # bootstrap convergence / sklearn solver chatter is not under test.
         warnings.simplefilter("ignore")
         return sp.distributional_te(
-            df, y="y", treatment="d", method="ipw",
-            quantiles=quantiles, n_boot=80, seed=seed)
+            df,
+            y="y",
+            treatment="d",
+            method="ipw",
+            quantiles=quantiles,
+            n_boot=80,
+            seed=seed,
+        )
 
 
 # ---------------------------------------------------------------------------
 # Anchor 1. Median QTE recovers the location shift MU.
 # ---------------------------------------------------------------------------
+
 
 class TestQuantileShiftRecovery:
     """A location shift moves every quantile by MU; median QTE == MU."""
@@ -221,6 +242,7 @@ class TestQuantileShiftRecovery:
 # ---------------------------------------------------------------------------
 # Anchor 2. Treated CDF at the counterfactual median == Phi(-MU).
 # ---------------------------------------------------------------------------
+
 
 class TestCDFShiftClosedForm:
     """F_{Y1}(0) estimates Phi(-MU): a hand-set normal quantity."""
@@ -264,6 +286,7 @@ class TestCDFShiftClosedForm:
 # Anchor 3. Mean shift = area between the CDFs == MU.
 # ---------------------------------------------------------------------------
 
+
 class TestMeanShiftFromCDFs:
     """integral (F_cf - F_t) dy recovers E[Y1]-E[Y0] = MU."""
 
@@ -285,6 +308,7 @@ class TestMeanShiftFromCDFs:
 # ---------------------------------------------------------------------------
 # Anchor 4. Stochastic dominance: detect FOSD when present, NOT when crossing.
 # ---------------------------------------------------------------------------
+
 
 class TestStochasticDominanceTwoSided:
     """dominates=True under a uniform +shift; False under a crossing spread."""
@@ -346,6 +370,7 @@ class TestStochasticDominanceTwoSided:
 # Anchor 5 (consistency). DiSCo average QTE recovers the location shift.
 # ---------------------------------------------------------------------------
 
+
 class TestDiscoAvgQTERecovery:
     """On a pure level shift, DiSCo's average QTE == the shift."""
 
@@ -383,6 +408,7 @@ class TestDiscoAvgQTERecovery:
 # ---------------------------------------------------------------------------
 # Determinism guard (seed-stability).
 # ---------------------------------------------------------------------------
+
 
 class TestSeedStability:
     """Same seed -> identical DTE output (hermetic determinism)."""

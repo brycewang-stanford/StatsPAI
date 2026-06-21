@@ -1,4 +1,5 @@
 """Spatial DiD workflow tests."""
+
 from __future__ import annotations
 
 import json
@@ -43,15 +44,11 @@ def _ring_w(n: int) -> np.ndarray:
 def test_spatial_did_w_object_and_exports():
     df = _panel()
     n = df["i"].nunique()
-    neighbors = {
-        i: [j for j in (i - 1, i + 1) if 0 <= j < n]
-        for i in range(n)
-    }
+    neighbors = {i: [j for j in (i - 1, i + 1) if 0 <= j < n] for i in range(n)}
     w = W(neighbors, id_order=list(range(n)))
     w.transform = "R"
 
-    res = spatial_did(df, y="y", treat="d", unit="i", time="t", W=w,
-                      covariates="x")
+    res = spatial_did(df, y="y", treat="d", unit="i", time="t", W=w, covariates="x")
 
     assert np.isfinite(res.direct_effect)
     assert np.isfinite(res.spillover_effect)
@@ -84,7 +81,13 @@ def test_spatial_did_recovers_noiseless_direct_and_spillover_effects():
     df = pd.DataFrame(rows)
 
     res = spatial_did(
-        df, y="y", treat="d", unit="i", time="t", W=Wm, se_type="robust",
+        df,
+        y="y",
+        treat="d",
+        unit="i",
+        time="t",
+        W=Wm,
+        se_type="robust",
     )
 
     np.testing.assert_allclose(res.direct_effect, 1.25, atol=1e-12)
@@ -154,12 +157,18 @@ def test_spatial_did_rejects_invalid_weights_and_unit_order():
     n = df["i"].nunique()
 
     with pytest.raises(MethodIncompatibility, match="square spatial weights"):
-        spatial_did(df, y="y", treat="d", unit="i", time="t",
-                    W=np.ones((n, n + 1)))
+        spatial_did(df, y="y", treat="d", unit="i", time="t", W=np.ones((n, n + 1)))
 
     with pytest.raises(MethodIncompatibility, match="unit order"):
-        spatial_did(df, y="y", treat="d", unit="i", time="t",
-                    W=_chain_w(n), unit_order=list(range(n - 1)))
+        spatial_did(
+            df,
+            y="y",
+            treat="d",
+            unit="i",
+            time="t",
+            W=_chain_w(n),
+            unit_order=list(range(n - 1)),
+        )
 
 
 def test_spatial_did_rejects_duplicate_cells_and_missing_columns():
@@ -168,12 +177,10 @@ def test_spatial_did_rejects_duplicate_cells_and_missing_columns():
 
     duplicated = pd.concat([df, df.iloc[[0]]], ignore_index=True)
     with pytest.raises(MethodIncompatibility, match="one row per unit-period"):
-        spatial_did(duplicated, y="y", treat="d", unit="i", time="t",
-                    W=_chain_w(n))
+        spatial_did(duplicated, y="y", treat="d", unit="i", time="t", W=_chain_w(n))
 
     with pytest.raises(MethodIncompatibility, match="Columns not found"):
-        spatial_did(df, y="missing", treat="d", unit="i", time="t",
-                    W=_chain_w(n))
+        spatial_did(df, y="missing", treat="d", unit="i", time="t", W=_chain_w(n))
 
 
 def test_spatial_did_conley_input_validation():
@@ -181,13 +188,20 @@ def test_spatial_did_conley_input_validation():
     n = df["i"].nunique()
 
     with pytest.raises(MethodIncompatibility, match="requires conley_cutoff"):
-        spatial_did(df, y="y", treat="d", unit="i", time="t",
-                    W=_chain_w(n), se_type="conley")
+        spatial_did(
+            df, y="y", treat="d", unit="i", time="t", W=_chain_w(n), se_type="conley"
+        )
 
     with pytest.raises(MethodIncompatibility, match="distance_matrix"):
         spatial_did(
-            df, y="y", treat="d", unit="i", time="t", W=_chain_w(n),
-            se_type="conley", conley_cutoff=1.0,
+            df,
+            y="y",
+            treat="d",
+            unit="i",
+            time="t",
+            W=_chain_w(n),
+            se_type="conley",
+            conley_cutoff=1.0,
             distance_matrix=np.ones((n - 1, n - 1)),
         )
 
@@ -198,8 +212,7 @@ def test_spatial_did_result_taxonomy_for_exports_and_plots():
     matplotlib.use("Agg")
     df = _panel()
     n = df["i"].nunique()
-    res = spatial_did(df, y="y", treat="d", unit="i", time="t",
-                      W=_chain_w(n))
+    res = spatial_did(df, y="y", treat="d", unit="i", time="t", W=_chain_w(n))
 
     with pytest.raises(MethodIncompatibility, match="detail must"):
         res.to_dict(detail="verbose")
@@ -217,5 +230,4 @@ def test_spatial_did_rejects_empty_complete_panel():
     df["y"] = np.nan
 
     with pytest.raises(DataInsufficient, match="No complete observations"):
-        spatial_did(df, y="y", treat="d", unit="i", time="t",
-                    W=_chain_w(n))
+        spatial_did(df, y="y", treat="d", unit="i", time="t", W=_chain_w(n))

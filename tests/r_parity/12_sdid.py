@@ -11,12 +11,12 @@ scaling, so the ATT matches the R reference on identical CSV bytes.  The
 headline ``att_sdid`` row is point-only; backend-native placebo SEs are
 reported as explicitly named diagnostic rows.
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "12_sdid"
 
@@ -38,7 +38,9 @@ def main() -> None:
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE, side="py", statistic="att_sdid",
+            module=MODULE,
+            side="py",
+            statistic="att_sdid",
             estimate=float(fit.estimate),
             se=None,
             ci_lo=None,
@@ -46,7 +48,9 @@ def main() -> None:
             n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE, side="py", statistic="se_native_placebo",
+            module=MODULE,
+            side="py",
+            statistic="se_native_placebo",
             estimate=float(fit.se),
             se=None,
             ci_lo=None,
@@ -56,7 +60,9 @@ def main() -> None:
     ]
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "method": "sdid",
             "n_treated": int(fit.model_info["n_treated"]),

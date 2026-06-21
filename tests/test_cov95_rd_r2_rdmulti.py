@@ -8,6 +8,7 @@ Real synthetic RD data with a known jump at each cutoff; assertions check
 effect signs/magnitudes, positive SEs / bandwidths, and CI ordering — never
 fabricated numbers.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -64,8 +65,7 @@ def test_rdmc_equal_pooling():
 
 def test_rdmc_manual_bandwidth_and_uniform_kernel():
     df = _multi_cutoff_df()
-    res = sp.rdmc(df, y="y", x="x", cutoffs=[0.0, 2.0],
-                  bandwidth=0.6, kernel="uniform")
+    res = sp.rdmc(df, y="y", x="x", cutoffs=[0.0, 2.0], bandwidth=0.6, kernel="uniform")
     for cr in res.cutoff_results:
         assert cr["bandwidth"] == 0.6
 
@@ -116,8 +116,7 @@ def test_rdms_uniform_kernel_and_manual_bw():
 def test_rdms_other_kernel_falls_back_to_triangular():
     df = _geo_df()
     # an unrecognised kernel hits the else branch (triangular fallback)
-    res = sp.rdms(df, y="y", x1="x1", x2="x2", bandwidth=0.8,
-                  kernel="epanechnikov")
+    res = sp.rdms(df, y="y", x1="x1", x2="x2", bandwidth=0.8, kernel="epanechnikov")
     assert np.isfinite(res.estimate)
 
 

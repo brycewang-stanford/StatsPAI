@@ -8,6 +8,7 @@ Li 2024), and the shared simplex / ADH optimisation primitives in
 All pure-numpy. Assertions check real properties (finite ATT, weights on
 the simplex, correct exceptions); no estimator numbers are fabricated.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -31,8 +32,13 @@ def _panel(seed=0, n_donors=10, n_t=20, effect=4.0):
         fe = rng.normal(0, 0.5)
         for t in range(1, n_t + 1):
             eff = effect if (u == "treated" and t >= T_TREAT) else 0.0
-            rows.append({"unit": u, "time": t,
-                         "y": base + 0.2 * t + fe + eff + rng.normal(0, 0.3)})
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": base + 0.2 * t + fe + eff + rng.normal(0, 0.3),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -40,44 +46,87 @@ def _panel(seed=0, n_donors=10, n_t=20, effect=4.0):
 # cluster_synth
 # ===========================================================================
 def test_cluster_synth_kmeans_with_augment():
-    r = cluster_synth(_panel(0), outcome="y", unit="unit", time="time",
-                      treated_unit="treated", treatment_time=T_TREAT,
-                      n_clusters=3, cluster_method="kmeans",
-                      augment=True, placebo=True, seed=1)
+    r = cluster_synth(
+        _panel(0),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        n_clusters=3,
+        cluster_method="kmeans",
+        augment=True,
+        placebo=True,
+        seed=1,
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_cluster_synth_auto_n_clusters():
-    r = cluster_synth(_panel(1), outcome="y", unit="unit", time="time",
-                      treated_unit="treated", treatment_time=T_TREAT,
-                      n_clusters=None, placebo=False, seed=2)
+    r = cluster_synth(
+        _panel(1),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        n_clusters=None,
+        placebo=False,
+        seed=2,
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_cluster_synth_missing_treated_raises():
     with pytest.raises(ValueError):
-        cluster_synth(_panel(2), outcome="y", unit="unit", time="time",
-                      treated_unit="ghost", treatment_time=T_TREAT)
+        cluster_synth(
+            _panel(2),
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="ghost",
+            treatment_time=T_TREAT,
+        )
 
 
 def test_cluster_synth_bad_treatment_time_raises():
     with pytest.raises(ValueError):
-        cluster_synth(_panel(3), outcome="y", unit="unit", time="time",
-                      treated_unit="treated", treatment_time=9999)
+        cluster_synth(
+            _panel(3),
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=9999,
+        )
 
 
 def test_cluster_synth_missing_covariate_raises():
     with pytest.raises((ValueError, KeyError)):
-        cluster_synth(_panel(4), outcome="y", unit="unit", time="time",
-                      treated_unit="treated", treatment_time=T_TREAT,
-                      covariates=["nope"])
+        cluster_synth(
+            _panel(4),
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            covariates=["nope"],
+        )
 
 
 def test_cluster_synth_spectral_method():
-    r = cluster_synth(_panel(5), outcome="y", unit="unit", time="time",
-                      treated_unit="treated", treatment_time=T_TREAT,
-                      n_clusters=3, cluster_method="spectral",
-                      placebo=False, seed=3)
+    r = cluster_synth(
+        _panel(5),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        n_clusters=3,
+        cluster_method="spectral",
+        placebo=False,
+        seed=3,
+    )
     assert np.isfinite(r.estimate)
 
 
@@ -85,51 +134,99 @@ def test_cluster_synth_spectral_method():
 # fdid — forward difference-in-differences
 # ===========================================================================
 def test_fdid_forward_selection():
-    r = fdid(_panel(0), outcome="y", unit="unit", time="time",
-             treated_unit="treated", treatment_time=T_TREAT,
-             method="forward", placebo=True)
+    r = fdid(
+        _panel(0),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="forward",
+        placebo=True,
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_fdid_max_donors_cap():
-    r = fdid(_panel(1), outcome="y", unit="unit", time="time",
-             treated_unit="treated", treatment_time=T_TREAT,
-             method="forward", max_donors=3, placebo=False)
+    r = fdid(
+        _panel(1),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="forward",
+        max_donors=3,
+        placebo=False,
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_fdid_forward_cv_method():
     # Enough pre-periods for the expanding-window CV branch.
-    r = fdid(_panel(5, n_t=24), outcome="y", unit="unit", time="time",
-             treated_unit="treated", treatment_time=13,
-             method="forward_cv", placebo=False)
+    r = fdid(
+        _panel(5, n_t=24),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=13,
+        method="forward_cv",
+        placebo=False,
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_fdid_best_subset_method():
-    r = fdid(_panel(6, n_donors=6), outcome="y", unit="unit", time="time",
-             treated_unit="treated", treatment_time=T_TREAT,
-             method="best_subset", max_donors=2, placebo=False)
+    r = fdid(
+        _panel(6, n_donors=6),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="best_subset",
+        max_donors=2,
+        placebo=False,
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_fdid_missing_treated_raises():
     with pytest.raises(ValueError):
-        fdid(_panel(2), outcome="y", unit="unit", time="time",
-             treated_unit="ghost", treatment_time=T_TREAT)
+        fdid(
+            _panel(2),
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="ghost",
+            treatment_time=T_TREAT,
+        )
 
 
 def test_fdid_bad_treatment_time_raises():
     with pytest.raises(ValueError):
-        fdid(_panel(3), outcome="y", unit="unit", time="time",
-             treated_unit="treated", treatment_time=9999)
+        fdid(
+            _panel(3),
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=9999,
+        )
 
 
 def test_fdid_unknown_method_raises():
     with pytest.raises(ValueError):
-        fdid(_panel(4), outcome="y", unit="unit", time="time",
-             treated_unit="treated", treatment_time=T_TREAT,
-             method="not_a_method")
+        fdid(
+            _panel(4),
+            outcome="y",
+            unit="unit",
+            time="time",
+            treated_unit="treated",
+            treatment_time=T_TREAT,
+            method="not_a_method",
+        )
 
 
 # ===========================================================================
@@ -203,6 +300,11 @@ def test_solve_synth_weights_adh_no_standardize():
     Z0 = rng.normal(size=(T0, J))
     Z1 = Z0.mean(axis=1)
     out = _core.solve_synth_weights_adh(
-        X1, X0, Z1, Z0, standardize=False, n_random_starts=1,
+        X1,
+        X0,
+        Z1,
+        Z0,
+        standardize=False,
+        n_random_starts=1,
     )
     assert np.all(np.asarray(out["scale"]) == 1.0)

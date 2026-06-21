@@ -28,27 +28,32 @@ def iivm_dgp():
     # Types: complier (D = Z), always-taker (D = 1), never-taker (D = 0)
     u = rng.uniform(0, 1, n)
     D = np.where(
-        u < 0.6, Z,  # 60% compliers
+        u < 0.6,
+        Z,  # 60% compliers
         np.where(u < 0.8, 1.0, 0.0),  # 20% always, 20% never
     )
     Y = 1.5 * D + 0.5 * X + U + rng.normal(0, 0.3, n)
-    return pd.DataFrame({'y': Y, 'd': D, 'z': Z, 'x': X})
+    return pd.DataFrame({"y": Y, "d": D, "z": Z, "x": X})
 
 
 def test_iivm_recovers_late(iivm_dgp):
     """IIVM should recover LATE ≈ 1.5 (tight; n=3000, 60% compliers)."""
     result = sp.dml(
-        iivm_dgp, y='y', treat='d', covariates=['x'],
-        model='iivm', instrument='z',
+        iivm_dgp,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
     )
     assert isinstance(result, CausalResult)
-    assert result.estimand == 'LATE'
+    assert result.estimand == "LATE"
     # Tightened from 0.3 → 0.12 after post-review pass. With n=3000
     # and π_C≈0.6, the IF-based SE is on the order of 0.03, so 0.12
     # is a ~4σ envelope — catches bias but not ordinary MC noise.
-    assert abs(result.estimate - 1.5) < 0.12, (
-        f"IIVM estimate {result.estimate:.3f}, expected ≈ 1.5"
-    )
+    assert (
+        abs(result.estimate - 1.5) < 0.12
+    ), f"IIVM estimate {result.estimate:.3f}, expected ≈ 1.5"
 
 
 def test_iivm_se_in_reasonable_range(iivm_dgp):
@@ -59,8 +64,12 @@ def test_iivm_se_in_reasonable_range(iivm_dgp):
     fits would blow this up. Keep a loose band for MC/learner noise.
     """
     result = sp.dml(
-        iivm_dgp, y='y', treat='d', covariates=['x'],
-        model='iivm', instrument='z',
+        iivm_dgp,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
     )
     assert 0.005 < result.se < 0.15, (
         f"IIVM SE {result.se:.4f} outside expected band; "
@@ -70,8 +79,12 @@ def test_iivm_se_in_reasonable_range(iivm_dgp):
 
 def test_iivm_significance(iivm_dgp):
     result = sp.dml(
-        iivm_dgp, y='y', treat='d', covariates=['x'],
-        model='iivm', instrument='z',
+        iivm_dgp,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
     )
     assert result.pvalue < 0.05
 
@@ -83,10 +96,9 @@ def test_iivm_rejects_continuous_z():
     D = rng.binomial(1, 1 / (1 + np.exp(-Z)), n).astype(float)
     Y = D + rng.normal(0, 0.3, n)
     X = rng.normal(0, 1, n)
-    df = pd.DataFrame({'y': Y, 'd': D, 'z': Z, 'x': X})
-    with pytest.raises(ValueError, match='binary'):
-        sp.dml(df, y='y', treat='d', covariates=['x'],
-               model='iivm', instrument='z')
+    df = pd.DataFrame({"y": Y, "d": D, "z": Z, "x": X})
+    with pytest.raises(ValueError, match="binary"):
+        sp.dml(df, y="y", treat="d", covariates=["x"], model="iivm", instrument="z")
 
 
 def test_iivm_rejects_continuous_d():
@@ -96,20 +108,23 @@ def test_iivm_rejects_continuous_d():
     D = rng.normal(0, 1, n)  # continuous treatment
     Y = D + rng.normal(0, 0.3, n)
     X = rng.normal(0, 1, n)
-    df = pd.DataFrame({'y': Y, 'd': D, 'z': Z, 'x': X})
-    with pytest.raises(ValueError, match='binary'):
-        sp.dml(df, y='y', treat='d', covariates=['x'],
-               model='iivm', instrument='z')
+    df = pd.DataFrame({"y": Y, "d": D, "z": Z, "x": X})
+    with pytest.raises(ValueError, match="binary"):
+        sp.dml(df, y="y", treat="d", covariates=["x"], model="iivm", instrument="z")
 
 
 def test_iivm_model_info(iivm_dgp):
     result = sp.dml(
-        iivm_dgp, y='y', treat='d', covariates=['x'],
-        model='iivm', instrument='z',
+        iivm_dgp,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
     )
-    assert result.model_info['dml_model'] == 'IIVM'
-    assert result.model_info['instrument'] == 'z'
-    assert 'ml_r' in result.model_info
+    assert result.model_info["dml_model"] == "IIVM"
+    assert result.model_info["instrument"] == "z"
+    assert "ml_r" in result.model_info
 
 
 def test_iivm_accepts_sample_weight_array():
@@ -121,16 +136,21 @@ def test_iivm_accepts_sample_weight_array():
     D = np.where(u < 0.55, Z, np.where(u < 0.78, 1.0, 0.0))
     Y = 1.3 * D + 0.4 * X + rng.normal(scale=0.4, size=n)
     w = rng.uniform(0.4, 2.2, size=n)
-    df = pd.DataFrame({'y': Y, 'd': D, 'z': Z, 'x': X})
+    df = pd.DataFrame({"y": Y, "d": D, "z": Z, "x": X})
 
     result = sp.dml(
-        df, y='y', treat='d', covariates=['x'],
-        model='iivm', instrument='z', sample_weight=w,
+        df,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
+        sample_weight=w,
     )
     assert np.isfinite(result.estimate)
     assert np.isfinite(result.se) and result.se > 0
     assert abs(result.estimate - 1.3) < 0.2
-    assert result.model_info['diagnostics']['weighted'] is True
+    assert result.model_info["diagnostics"]["weighted"] is True
 
 
 def test_iivm_accepts_sample_weight_column_name():
@@ -143,16 +163,27 @@ def test_iivm_accepts_sample_weight_column_name():
     u = rng.uniform(0, 1, n)
     D = np.where(u < 0.6, Z, np.where(u < 0.82, 1.0, 0.0))
     Y = 1.1 * D + 0.3 * X1 - 0.2 * X2 + rng.normal(scale=0.35, size=n)
-    df = pd.DataFrame({
-        'y': Y, 'd': D, 'z': Z, 'x1': X1, 'x2': X2,
-        'w': rng.uniform(0.5, 1.7, size=n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": Y,
+            "d": D,
+            "z": Z,
+            "x1": X1,
+            "x2": X2,
+            "w": rng.uniform(0.5, 1.7, size=n),
+        }
+    )
 
     result = sp.dml(
-        df, y='y', treat='d', covariates=['x1', 'x2'],
-        model='iivm', instrument='z', sample_weight='w',
+        df,
+        y="y",
+        treat="d",
+        covariates=["x1", "x2"],
+        model="iivm",
+        instrument="z",
+        sample_weight="w",
     )
     assert np.isfinite(result.estimate)
     assert np.isfinite(result.se) and result.se > 0
     assert abs(result.estimate - 1.1) < 0.2
-    assert result.model_info['diagnostics']['weighted'] is True
+    assert result.model_info["diagnostics"]["weighted"] is True

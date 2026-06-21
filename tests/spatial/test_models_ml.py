@@ -1,4 +1,5 @@
 """Tests exercising the new W-object-aware sparse SAR/SEM/SDM path."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,7 +13,8 @@ def dgp():
     rng = np.random.default_rng(0)
     n = 80
     coords = rng.uniform(size=(n, 2))
-    w = knn_weights(coords, k=5); w.transform = "R"
+    w = knn_weights(coords, k=5)
+    w.transform = "R"
     x = rng.standard_normal(n)
     y = 2.0 + 1.5 * x + rng.standard_normal(n)
     return w, pd.DataFrame({"y": y, "x": x})
@@ -46,7 +48,8 @@ def test_sar_large_n_sparse_no_densify(dgp):
     rng = np.random.default_rng(1)
     n = 2000
     coords = rng.uniform(size=(n, 2))
-    w = knn_weights(coords, k=6); w.transform = "R"
+    w = knn_weights(coords, k=6)
+    w.transform = "R"
     x = rng.standard_normal(n)
     y = 1.0 + x + 0.5 * rng.standard_normal(n)
     res = sar(w, pd.DataFrame({"y": y, "x": x}), "y ~ x")

@@ -5,7 +5,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -30,7 +29,9 @@ def test_ci_coverage_ratchet_consumes_same_job_generated_xml():
         "pytest tests/ -v --cov=statspai --cov-report=xml "
         "--cov-report=term-missing --cov-fail-under=60"
     )
-    ratchet_step = "python scripts/coverage_campaign.py report --xml coverage.xml --check --min 95"
+    ratchet_step = (
+        "python scripts/coverage_campaign.py report --xml coverage.xml --check --min 95"
+    )
 
     assert coverage_step in workflow
     assert ratchet_step in workflow

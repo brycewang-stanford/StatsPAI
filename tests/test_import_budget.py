@@ -1,4 +1,5 @@
 """Cold-import budget checks for top-level ``import statspai``."""
+
 from __future__ import annotations
 
 import importlib.util

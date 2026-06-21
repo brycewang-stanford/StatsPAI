@@ -66,6 +66,7 @@ References (bib keys grep-confirmed in paper.bib)
   Adjustment Costs, Firm Responses, and Micro vs. Macro Labor Supply
   Elasticities. *QJE* 126(2), 749-804. [@chetty2011adjustment]
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -74,13 +75,14 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Deterministic-histogram builders (independent of statspai internals)
 # ---------------------------------------------------------------------------
 
-def _make_bunching_deterministic(threshold, bin_width, n_bins, a, b, excess,
-                                 excess_bin_center):
+
+def _make_bunching_deterministic(
+    threshold, bin_width, n_bins, a, b, excess, excess_bin_center
+):
     """Place points so each bin's count is exactly ``a + b*center``.
 
     Bins are centred at ``threshold + bin_width*(k + 0.5)`` for
@@ -104,6 +106,7 @@ def _make_bunching_deterministic(threshold, bin_width, n_bins, a, b, excess,
 # A. Closed-form excess-mass integral (machine collapse)
 # ---------------------------------------------------------------------------
 
+
 class TestBunchingClosedForm:
     """Deterministic counts -> excess mass is the planted integer.
 
@@ -122,12 +125,23 @@ class TestBunchingClosedForm:
         threshold, bin_width, n_bins = 0.0, 1.0, 10
         CONST, EXCESS = 50, 37
         data, _, _ = _make_bunching_deterministic(
-            threshold, bin_width, n_bins, a=CONST, b=0.0,
-            excess=EXCESS, excess_bin_center=0.5,  # in-region bin
+            threshold,
+            bin_width,
+            n_bins,
+            a=CONST,
+            b=0.0,
+            excess=EXCESS,
+            excess_bin_center=0.5,  # in-region bin
         )
-        r = sp.bunching(pd.DataFrame({"z": data}), running_var="z",
-                        threshold=threshold, bin_width=bin_width,
-                        n_bins=n_bins, poly_order=3, n_bootstrap=5)
+        r = sp.bunching(
+            pd.DataFrame({"z": data}),
+            running_var="z",
+            threshold=threshold,
+            bin_width=bin_width,
+            n_bins=n_bins,
+            poly_order=3,
+            n_bootstrap=5,
+        )
         mi = r.model_info
         assert abs(mi["excess_mass_raw"] - EXCESS) < self.TOL, (
             f"flat-cf raw excess {mi['excess_mass_raw']!r} != planted "
@@ -152,28 +166,38 @@ class TestBunchingClosedForm:
         threshold, bin_width, n_bins = 0.0, 1.0, 10
         a, b, EXCESS = 60.0, 2.0, 23
         data, centers, counts = _make_bunching_deterministic(
-            threshold, bin_width, n_bins, a=a, b=b,
-            excess=EXCESS, excess_bin_center=-0.5,
+            threshold,
+            bin_width,
+            n_bins,
+            a=a,
+            b=b,
+            excess=EXCESS,
+            excess_bin_center=-0.5,
         )
-        r = sp.bunching(pd.DataFrame({"z": data}), running_var="z",
-                        threshold=threshold, bin_width=bin_width,
-                        n_bins=n_bins, poly_order=2, n_bootstrap=5)
+        r = sp.bunching(
+            pd.DataFrame({"z": data}),
+            running_var="z",
+            threshold=threshold,
+            bin_width=bin_width,
+            n_bins=n_bins,
+            poly_order=2,
+            n_bootstrap=5,
+        )
 
         # Hand integral over the default region [thr-2bw, thr+2bw]:
         # in-region bin centres are -1.5, -0.5, 0.5, 1.5.
-        in_mask = (centers >= threshold - 2 * bin_width) & \
-                  (centers <= threshold + 2 * bin_width)
+        in_mask = (centers >= threshold - 2 * bin_width) & (
+            centers <= threshold + 2 * bin_width
+        )
         cf_integral_hand = float(np.sum(a + b * centers[in_mask]))
         observed_in = float(np.sum(counts[in_mask])) + EXCESS
         expected_excess = observed_in - cf_integral_hand
 
-        assert abs(r.model_info["excess_mass_raw"] - expected_excess) \
-            < self.TOL, (
+        assert abs(r.model_info["excess_mass_raw"] - expected_excess) < self.TOL, (
             f"linear-cf raw excess {r.model_info['excess_mass_raw']!r} "
             f"!= hand integral {expected_excess!r}"
         )
-        assert abs(r.model_info["counterfactual_at_threshold"] - a) \
-            < self.TOL, (
+        assert abs(r.model_info["counterfactual_at_threshold"] - a) < self.TOL, (
             f"cf_at_threshold {r.model_info['counterfactual_at_threshold']!r}"
             f" != linear intercept {a}"
         )
@@ -192,11 +216,9 @@ class TestGeneralBunchingClosedForm:
     def test_elasticity_matches_hand_formula(self):
         cutoff, bandwidth = 0.0, 1.0
         bin_width = bandwidth / 25.0  # general.py default
-        bins = np.arange(cutoff - bandwidth, cutoff + bandwidth + bin_width,
-                         bin_width)
+        bins = np.arange(cutoff - bandwidth, cutoff + bandwidth + bin_width, bin_width)
         centers = 0.5 * (bins[:-1] + bins[1:])
-        excluded = (centers > cutoff - bin_width) & \
-                   (centers < cutoff + bin_width)
+        excluded = (centers > cutoff - bin_width) & (centers < cutoff + bin_width)
 
         CONST, EXCESS = 40, 30
         pts = []
@@ -207,14 +229,20 @@ class TestGeneralBunchingClosedForm:
         data = np.asarray(pts, dtype=float)
         n = len(data)
 
-        res = sp.general_bunching(pd.DataFrame({"r": data}), running="r",
-                                  cutoff=cutoff, bandwidth=bandwidth,
-                                  polynomial_order=3, n_boot=5, seed=0)
+        res = sp.general_bunching(
+            pd.DataFrame({"r": data}),
+            running="r",
+            cutoff=cutoff,
+            bandwidth=bandwidth,
+            polynomial_order=3,
+            n_boot=5,
+            seed=0,
+        )
 
         # Hand: flat cf height CONST -> f_at = CONST / (n * bin_width);
         # eps = EXCESS / (n * f_at * bandwidth^2).
         f_at = CONST / (n * bin_width)
-        eps_hand = EXCESS / (n * f_at * bandwidth ** 2)
+        eps_hand = EXCESS / (n * f_at * bandwidth**2)
         assert abs(res.bias_corrected_elasticity - eps_hand) < self.TOL, (
             f"corrected eps {res.bias_corrected_elasticity!r} != hand "
             f"formula {eps_hand!r}"
@@ -230,22 +258,24 @@ class TestGeneralBunchingClosedForm:
         """
         cutoff, bandwidth = 0.0, 1.0
         bin_width = bandwidth / 25.0
-        bins = np.arange(cutoff - bandwidth, cutoff + bandwidth + bin_width,
-                         bin_width)
+        bins = np.arange(cutoff - bandwidth, cutoff + bandwidth + bin_width, bin_width)
         centers = 0.5 * (bins[:-1] + bins[1:])
-        excluded = (centers > cutoff - bin_width) & \
-                   (centers < cutoff + bin_width)
+        excluded = (centers > cutoff - bin_width) & (centers < cutoff + bin_width)
         CONST, EXCESS = 40, 30
         pts = []
         for c in centers:
             pts.extend([c] * CONST)
         pts.extend([float(centers[excluded][0])] * EXCESS)
-        res = sp.general_bunching(pd.DataFrame({"r": np.asarray(pts, float)}),
-                                  running="r", cutoff=cutoff,
-                                  bandwidth=bandwidth, polynomial_order=4,
-                                  n_boot=5, seed=0)
-        assert abs(res.naive_elasticity
-                   - res.bias_corrected_elasticity) < self.TOL, (
+        res = sp.general_bunching(
+            pd.DataFrame({"r": np.asarray(pts, float)}),
+            running="r",
+            cutoff=cutoff,
+            bandwidth=bandwidth,
+            polynomial_order=4,
+            n_boot=5,
+            seed=0,
+        )
+        assert abs(res.naive_elasticity - res.bias_corrected_elasticity) < self.TOL, (
             f"naive {res.naive_elasticity!r} != corrected "
             f"{res.bias_corrected_elasticity!r} on a flat counterfactual"
         )
@@ -254,6 +284,7 @@ class TestGeneralBunchingClosedForm:
 # ---------------------------------------------------------------------------
 # B. Known-DGP recovery within ~10%
 # ---------------------------------------------------------------------------
+
 
 class TestRecovery:
     """Planted excess mass / elasticity recovered within tolerance."""
@@ -277,9 +308,15 @@ class TestRecovery:
         # displace.  Probed max relative error 4.9% over 6 seeds, so a
         # 10% band recovers the truth while a 20% estimate bias (-> rel
         # error ~0.20) breaks it.
-        r = sp.bunching(self._dgp(2024), running_var="z",
-                        threshold=self.THRESHOLD, n_bins=40, poly_order=2,
-                        dt=0.10, n_bootstrap=30)
+        r = sp.bunching(
+            self._dgp(2024),
+            running_var="z",
+            threshold=self.THRESHOLD,
+            n_bins=40,
+            poly_order=2,
+            dt=0.10,
+            n_bootstrap=30,
+        )
         raw = r.model_info["excess_mass_raw"]
         rel_err = abs(raw - self.N_EXTRA) / self.N_EXTRA
         assert rel_err < 0.10, (
@@ -293,9 +330,15 @@ class TestRecovery:
         Pinned to a positive, finite value (the planted excess is
         positive), not merely present — a sign flip or NaN would fail.
         """
-        r = sp.bunching(self._dgp(2024), running_var="z",
-                        threshold=self.THRESHOLD, n_bins=40, poly_order=2,
-                        dt=0.10, n_bootstrap=10)
+        r = sp.bunching(
+            self._dgp(2024),
+            running_var="z",
+            threshold=self.THRESHOLD,
+            n_bins=40,
+            poly_order=2,
+            dt=0.10,
+            n_bootstrap=10,
+        )
         assert "elasticity" in r.model_info
         eps = r.model_info["elasticity"]
         assert np.isfinite(eps) and eps > 0.0, (
@@ -314,9 +357,15 @@ class TestRecovery:
         base = rng.uniform(-1.0, 1.0, 40_000)
         bunchers = rng.uniform(-0.04, 0.04, 1200)  # within bin_width=0.04
         df = pd.DataFrame({"r": np.concatenate([base, bunchers])})
-        res = sp.general_bunching(df, running="r", cutoff=0.0,
-                                  bandwidth=1.0, polynomial_order=4,
-                                  n_boot=30, seed=7)
+        res = sp.general_bunching(
+            df,
+            running="r",
+            cutoff=0.0,
+            bandwidth=1.0,
+            polynomial_order=4,
+            n_boot=30,
+            seed=7,
+        )
         z = abs(res.bias_corrected_elasticity) / res.se
         assert z > 4.0, (
             f"corrected eps {res.bias_corrected_elasticity:.4f} only "
@@ -329,6 +378,7 @@ class TestRecovery:
 # C. Null: smooth density, NO notch -> ~zero excess
 # ---------------------------------------------------------------------------
 
+
 class TestNull:
     """A smooth density with no bunching yields ~zero excess mass.
 
@@ -340,8 +390,14 @@ class TestNull:
         rng = np.random.default_rng(7)
         # Smooth uniform, no planted notch.
         df = pd.DataFrame({"z": rng.uniform(60.0, 140.0, 40_000)})
-        r = sp.bunching(df, running_var="z", threshold=100.0, n_bins=40,
-                        poly_order=2, n_bootstrap=40)
+        r = sp.bunching(
+            df,
+            running_var="z",
+            threshold=100.0,
+            n_bins=40,
+            poly_order=2,
+            n_bootstrap=40,
+        )
         # Normalised excess within 4 SE of zero (suite recovery band;
         # probed |z| < 1).  se>0 here so the band is informative.
         assert r.se > 0.0
@@ -353,9 +409,15 @@ class TestNull:
     def test_general_bunching_null_elasticity_near_zero(self):
         rng = np.random.default_rng(7)
         df = pd.DataFrame({"r": rng.uniform(-1.0, 1.0, 40_000)})
-        res = sp.general_bunching(df, running="r", cutoff=0.0,
-                                  bandwidth=1.0, polynomial_order=4,
-                                  n_boot=40, seed=7)
+        res = sp.general_bunching(
+            df,
+            running="r",
+            cutoff=0.0,
+            bandwidth=1.0,
+            polynomial_order=4,
+            n_boot=40,
+            seed=7,
+        )
         z = abs(res.bias_corrected_elasticity) / res.se
         assert z <= 4.0, (
             f"smooth-density corrected eps "
@@ -368,6 +430,7 @@ class TestNull:
 # D. Internal-consistency identity
 # ---------------------------------------------------------------------------
 
+
 class TestInternalConsistency:
     """estimate == raw excess / counterfactual_at_threshold (bunching.py:242)."""
 
@@ -378,8 +441,14 @@ class TestInternalConsistency:
         base = rng.uniform(60.0, 140.0, 30_000)
         bunchers = rng.uniform(98.0, 100.0, 1500)
         df = pd.DataFrame({"z": np.concatenate([base, bunchers])})
-        r = sp.bunching(df, running_var="z", threshold=100.0, n_bins=40,
-                        poly_order=3, n_bootstrap=10)
+        r = sp.bunching(
+            df,
+            running_var="z",
+            threshold=100.0,
+            n_bins=40,
+            poly_order=3,
+            n_bootstrap=10,
+        )
         mi = r.model_info
         cf0 = mi["counterfactual_at_threshold"]
         assert cf0 > 0.0  # guard the division is well-posed

@@ -10,6 +10,7 @@ References (cross-checked against existing implementations):
 * sp.fast.demean ↔ sp.demean (Absorber): same algorithm, ditto.
 * K-way ↔ dummy-variable LSQR: orthogonal projection onto FE complement.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,10 +20,10 @@ import pytest
 import statspai as sp
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Fixtures + helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_panel(n_units=100, n_periods=20, seed=0):
     rng = np.random.default_rng(seed)
@@ -58,6 +59,7 @@ def _dummy_ols_residuals(y: np.ndarray, codes_list, atol: float = 1e-12) -> np.n
 # ---------------------------------------------------------------------------
 # Correctness vs analytical / brute-force references
 # ---------------------------------------------------------------------------
+
 
 def test_oneway_matches_groupby_mean():
     """Single-FE demean equals y - groupby mean exactly (closed form)."""
@@ -102,6 +104,7 @@ def test_threeway_matches_lsqr_reference():
 # Backend cross-check (Rust ↔ NumPy)
 # ---------------------------------------------------------------------------
 
+
 def test_backend_rust_equals_numpy():
     df = _make_panel(seed=4)
     y = df["y"].to_numpy()
@@ -138,6 +141,7 @@ def test_2d_input_block_processed_per_column():
 # ---------------------------------------------------------------------------
 # Singleton handling
 # ---------------------------------------------------------------------------
+
 
 def test_singleton_drop_default_on():
     """A row whose FE level appears once is dropped by default."""
@@ -186,13 +190,15 @@ def test_all_singletons_default_drop_raises_data_insufficient():
 # DataFrame / Series / list inputs
 # ---------------------------------------------------------------------------
 
+
 def test_dataframe_fe_input():
     df = _make_panel(seed=8)
     y = df["y"].to_numpy()
     y1, _ = sp.fast.demean(y, df[["i", "t"]], drop_singletons=False)
     y2, _ = sp.fast.demean(y, df[["i", "t"]].to_numpy(), drop_singletons=False)
-    y3, _ = sp.fast.demean(y, [df["i"].to_numpy(), df["t"].to_numpy()],
-                           drop_singletons=False)
+    y3, _ = sp.fast.demean(
+        y, [df["i"].to_numpy(), df["t"].to_numpy()], drop_singletons=False
+    )
     assert np.allclose(y1, y2, atol=1e-12)
     assert np.allclose(y1, y3, atol=1e-12)
 
@@ -214,6 +220,7 @@ def test_string_fe_factorisation():
 # ---------------------------------------------------------------------------
 # Error paths
 # ---------------------------------------------------------------------------
+
 
 def test_nan_in_X_raises():
     n = 50
@@ -305,6 +312,7 @@ def test_rust_backend_when_unavailable():
     # under the same attribute name, so attribute lookup gives us the
     # function not the submodule — go through sys.modules instead).
     import sys
+
     demean_mod = sys.modules["statspai.fast.demean"]
 
     if demean_mod._HAS_RUST:
@@ -316,6 +324,7 @@ def test_rust_backend_when_unavailable():
 # ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------
+
 
 def test_repeated_calls_deterministic():
     df = _make_panel(seed=10)

@@ -16,7 +16,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 #  Top-level export
 # ---------------------------------------------------------------------------
@@ -189,16 +188,16 @@ class TestLazyBackends:
         with sp.session(seed=42):
             pass
         if not was_loaded_before:
-            assert "torch" not in sys.modules, (
-                "sp.session must not trigger torch import")
+            assert (
+                "torch" not in sys.modules
+            ), "sp.session must not trigger torch import"
 
     def test_session_does_not_import_jax(self):
         was_loaded_before = "jax" in sys.modules
         with sp.session(seed=42):
             pass
         if not was_loaded_before:
-            assert "jax" not in sys.modules, (
-                "sp.session must not trigger jax import")
+            assert "jax" not in sys.modules, "sp.session must not trigger jax import"
 
 
 # ---------------------------------------------------------------------------

@@ -18,6 +18,7 @@ date; assertions check the recovered overall ATT is near +2 (or, for the
 continuous dose design, that estimates are finite with valid CIs/SEs),
 p-values in [0, 1], CI ordering, and that bad inputs raise.
 """
+
 from __future__ import annotations
 
 import matplotlib
@@ -44,11 +45,25 @@ def _stag_panel(seed=0, n_units=120, n_periods=10, att=TRUE_ATT):
         for t in range(1, n_periods + 1):
             treated_now = (g > 0) and (t >= g)
             treat = 1 if treated_now else 0
-            y = fe + 0.3 * t + 0.4 * x + (att if treated_now else 0.0) \
+            y = (
+                fe
+                + 0.3 * t
+                + 0.4 * x
+                + (att if treated_now else 0.0)
                 + rng.normal(0, 0.4)
-            rows.append({"unit": u, "time": t, "y": y, "g": g,
-                         "treat": treat, "first_treat": g, "x": x,
-                         "state": st})
+            )
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": y,
+                    "g": g,
+                    "treat": treat,
+                    "first_treat": g,
+                    "x": x,
+                    "state": st,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -66,24 +81,34 @@ def _ci_ok(res):
 
 # ── Sun-Abraham ──────────────────────────────────────────────────── #
 
+
 def test_sun_abraham_covariates_cluster_window(panel):
-    r = sp.sun_abraham(panel, y="y", g="g", t="time", i="unit",
-                       covariates=["x"], cluster="state",
-                       event_window=(-3, 3))
+    r = sp.sun_abraham(
+        panel,
+        y="y",
+        g="g",
+        t="time",
+        i="unit",
+        covariates=["x"],
+        cluster="state",
+        event_window=(-3, 3),
+    )
     _ci_ok(r)
     assert "event_study" in (r.model_info or {})
 
 
 def test_sun_abraham_lastcohort_control(panel):
-    r = sp.sun_abraham(panel, y="y", g="g", t="time", i="unit",
-                       control_group="lastcohort")
+    r = sp.sun_abraham(
+        panel, y="y", g="g", t="time", i="unit", control_group="lastcohort"
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_sun_abraham_bad_control_raises(panel):
     with pytest.raises(ValueError):
-        sp.sun_abraham(panel, y="y", g="g", t="time", i="unit",
-                       control_group="notyettreated")
+        sp.sun_abraham(
+            panel, y="y", g="g", t="time", i="unit", control_group="notyettreated"
+        )
 
 
 def test_sun_abraham_missing_col_raises(panel):
@@ -93,16 +118,16 @@ def test_sun_abraham_missing_col_raises(panel):
 
 def test_sun_abraham_missing_covariate_raises(panel):
     with pytest.raises(ValueError):
-        sp.sun_abraham(panel, y="y", g="g", t="time", i="unit",
-                       covariates=["nope"])
+        sp.sun_abraham(panel, y="y", g="g", t="time", i="unit", covariates=["nope"])
 
 
 # ── Cohort-anchored event study ──────────────────────────────────── #
 
+
 def test_cohort_anchored_cluster(panel):
-    r = sp.cohort_anchored_event_study(panel, y="y", treat="first_treat",
-                                       time="time", id="unit",
-                                       cluster="state")
+    r = sp.cohort_anchored_event_study(
+        panel, y="y", treat="first_treat", time="time", id="unit", cluster="state"
+    )
     assert abs(r.estimate - TRUE_ATT) < 0.8
     _ci_ok(r)
     assert "event_study" in (r.model_info or {})
@@ -111,37 +136,55 @@ def test_cohort_anchored_cluster(panel):
 def test_cohort_anchored_no_cohorts_raises(panel):
     df = panel.assign(first_treat=0)
     with pytest.raises(ValueError):
-        sp.cohort_anchored_event_study(df, y="y", treat="first_treat",
-                                       time="time", id="unit")
+        sp.cohort_anchored_event_study(
+            df, y="y", treat="first_treat", time="time", id="unit"
+        )
 
 
 # ── Local-projections DiD ────────────────────────────────────────── #
 
+
 def test_lp_did_controls_nevertreated(panel):
-    r = sp.lp_did(panel, y="y", unit="unit", time="time", treatment="treat",
-                  controls=["x"], clean_controls="never_treated")
+    r = sp.lp_did(
+        panel,
+        y="y",
+        unit="unit",
+        time="time",
+        treatment="treat",
+        controls=["x"],
+        clean_controls="never_treated",
+    )
     assert abs(r.estimate - TRUE_ATT) < 1.0
     _ci_ok(r)
 
 
 def test_lp_did_horizons(panel):
-    r = sp.lp_did(panel, y="y", unit="unit", time="time", treatment="treat",
-                  horizons=(-2, 4))
+    r = sp.lp_did(
+        panel, y="y", unit="unit", time="time", treatment="treat", horizons=(-2, 4)
+    )
     assert "event_study" in (r.model_info or {}) or r.detail is not None
 
 
 # ── Gardner two-stage ────────────────────────────────────────────── #
 
+
 def test_gardner_event_study_controls(panel):
-    r = sp.gardner_did(panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", controls=["x"],
-                       event_study=True)
+    r = sp.gardner_did(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        controls=["x"],
+        event_study=True,
+    )
     assert abs(r.estimate - TRUE_ATT) < 1.0
     _ci_ok(r)
     assert "event_study" in (r.model_info or {})
 
 
 # ── Continuous-treatment DiD ─────────────────────────────────────── #
+
 
 def _dose_panel(seed=3, n_units=120, n_periods=10):
     rng = np.random.default_rng(seed)
@@ -155,17 +198,28 @@ def _dose_panel(seed=3, n_units=120, n_periods=10):
             treated_now = (g > 0) and (t >= g)
             treat = 1 if treated_now else 0
             y = fe + 0.3 * t + dose * treat + rng.normal(0, 0.4)
-            rows.append({"unit": u, "time": t, "y": y, "dose": dose,
-                         "x": x, "treat": treat})
+            rows.append(
+                {"unit": u, "time": t, "y": y, "dose": dose, "x": x, "treat": treat}
+            )
     return pd.DataFrame(rows)
 
 
 @pytest.mark.parametrize("method", ["att_gt", "twfe", "dose_response", "cgs"])
 def test_continuous_did_methods(method):
     df = _dose_panel()
-    r = sp.continuous_did(df, y="y", dose="dose", time="time", id="unit",
-                          method=method, t_pre=4, t_post=6,
-                          controls=["x"], n_boot=40, seed=0)
+    r = sp.continuous_did(
+        df,
+        y="y",
+        dose="dose",
+        time="time",
+        id="unit",
+        method=method,
+        t_pre=4,
+        t_post=6,
+        controls=["x"],
+        n_boot=40,
+        seed=0,
+    )
     assert np.isfinite(r.estimate)
     lo, hi = r.ci
     assert lo <= hi
@@ -173,19 +227,30 @@ def test_continuous_did_methods(method):
 
 # ── de Chaisemartin-D'Haultfœuille ───────────────────────────────── #
 
+
 def test_did_multiplegt_placebo_dynamic(panel):
-    r = sp.did_multiplegt(panel, y="y", group="unit", time="time",
-                          treatment="treat", placebo=2, dynamic=3,
-                          n_boot=50, seed=0)
+    r = sp.did_multiplegt(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        treatment="treat",
+        placebo=2,
+        dynamic=3,
+        n_boot=50,
+        seed=0,
+    )
     assert abs(r.estimate - TRUE_ATT) < 1.0
     assert "event_study" in (r.model_info or {})
 
 
 # ── did_analysis pipeline ────────────────────────────────────────── #
 
+
 def test_did_analysis_cs_pipeline(panel):
-    a = sp.did_analysis(panel, y="y", treat="first_treat", time="time",
-                        id="unit", method="cs")
+    a = sp.did_analysis(
+        panel, y="y", treat="first_treat", time="time", id="unit", method="cs"
+    )
     assert np.isfinite(a.main_result.estimate)
     assert isinstance(a.summary(), str)
     ax = a.plot()
@@ -194,14 +259,16 @@ def test_did_analysis_cs_pipeline(panel):
 
 
 def test_did_analysis_sun_abraham_pipeline(panel):
-    a = sp.did_analysis(panel, y="y", treat="first_treat", time="time",
-                        id="unit", method="sa")
+    a = sp.did_analysis(
+        panel, y="y", treat="first_treat", time="time", id="unit", method="sa"
+    )
     assert np.isfinite(a.main_result.estimate)
     assert isinstance(a.summary(), str)
 
 
 def test_did_analysis_bjs_pipeline(panel):
-    a = sp.did_analysis(panel, y="y", treat="first_treat", time="time",
-                        id="unit", method="bjs")
+    a = sp.did_analysis(
+        panel, y="y", treat="first_treat", time="time", id="unit", method="bjs"
+    )
     assert np.isfinite(a.main_result.estimate)
     assert isinstance(a.summary(), str)

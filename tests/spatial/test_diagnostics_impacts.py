@@ -1,4 +1,5 @@
 """LM diagnostics and LeSage-Pace impacts."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,12 +17,14 @@ def sar_dgp():
     rng = np.random.default_rng(7)
     n = 120
     coords = rng.uniform(size=(n, 2))
-    w = knn_weights(coords, k=6); w.transform = "R"
+    w = knn_weights(coords, k=6)
+    w.transform = "R"
     W_dense = w.sparse.toarray()
     x = rng.standard_normal(n)
     rho_true = 0.5
-    y = np.linalg.solve(np.eye(n) - rho_true * W_dense,
-                        1 + 2 * x + rng.standard_normal(n))
+    y = np.linalg.solve(
+        np.eye(n) - rho_true * W_dense, 1 + 2 * x + rng.standard_normal(n)
+    )
     return w, pd.DataFrame({"y": y, "x": x})
 
 
@@ -30,9 +33,10 @@ def iid_dgp():
     rng = np.random.default_rng(0)
     n = 100
     coords = rng.uniform(size=(n, 2))
-    w = knn_weights(coords, k=4); w.transform = "R"
+    w = knn_weights(coords, k=4)
+    w.transform = "R"
     x = rng.standard_normal(n)
-    y = 1 + 2 * x + rng.standard_normal(n)          # no spatial structure
+    y = 1 + 2 * x + rng.standard_normal(n)  # no spatial structure
     return w, pd.DataFrame({"y": y, "x": x})
 
 
@@ -67,7 +71,12 @@ def test_impacts_sar_shape(sar_dgp):
     res = sar(w, df, "y ~ x")
     imp = impacts(res, n_sim=200, seed=0)
     assert list(imp.columns) == [
-        "Direct", "SE_Direct", "Indirect", "SE_Indirect", "Total", "SE_Total"
+        "Direct",
+        "SE_Direct",
+        "Indirect",
+        "SE_Indirect",
+        "Total",
+        "SE_Total",
     ]
     assert list(imp.index) == ["x"]
 
@@ -94,6 +103,7 @@ def test_impacts_sdm_uses_theta(sar_dgp):
 
 def test_impacts_rejects_non_sar_family(sar_dgp):
     from statspai.spatial import sem
+
     w, df = sar_dgp
     res = sem(w, df, "y ~ x")
     with pytest.raises(ValueError, match="SAR / SDM / SAC"):

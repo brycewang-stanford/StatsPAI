@@ -16,6 +16,7 @@ These are rendering smoke tests: each asserts the call returns a Matplotlib
 ``Figure`` and lays down the expected artists (lines / bars / error bars), not
 pixel output. The estimator numerics are pinned by the DiD parity suites.
 """
+
 from __future__ import annotations
 
 import matplotlib
@@ -40,15 +41,19 @@ def _staggered_panel(seed=0, n_units=90, n_periods=10):
     rng = np.random.default_rng(seed)
     rows = []
     for u in range(n_units):
-        g = [0, 5, 7][u % 3]               # 0 = never-treated
+        g = [0, 5, 7][u % 3]  # 0 = never-treated
         fe = rng.normal()
         for t in range(1, n_periods + 1):
             te = 1.0 * (t - g + 1) if (g > 0 and t >= g) else 0.0
-            rows.append({
-                "unit": u, "time": t,
-                "y": fe + 0.3 * t + te + rng.normal(0, 0.4),
-                "g": g, "x1": rng.normal(),
-            })
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": fe + 0.3 * t + te + rng.normal(0, 0.4),
+                    "g": g,
+                    "x1": rng.normal(),
+                }
+            )
     df = pd.DataFrame(rows)
     df["ft"] = df["g"].replace(0, np.nan)
     # binary time-varying treatment indicator (for Bacon / rollout plots)
@@ -74,8 +79,22 @@ def test_ggdid_simple(cs_result):
     fig, ax = sp.ggdid(agg)
     assert isinstance(fig, Figure)
     np.testing.assert_allclose(
-        [agg.estimate, agg.se, agg.ci[0], agg.ci[1], len(ax.lines), len(ax.collections)],
-        [3.096126829333214, 0.06764777834888368, 2.9635396201352537, 3.2287140385311743, 4, 1],
+        [
+            agg.estimate,
+            agg.se,
+            agg.ci[0],
+            agg.ci[1],
+            len(ax.lines),
+            len(ax.collections),
+        ],
+        [
+            3.096126829333214,
+            0.06764777834888368,
+            2.9635396201352537,
+            3.2287140385311743,
+            4,
+            1,
+        ],
         atol=1e-12,
     )
 
@@ -121,7 +140,9 @@ def test_sensitivity_plot(cs_result):
     agg = sp.aggte(cs_result, type="dynamic", cband=True, random_state=0, n_boot=200)
     sens = sp.honest_did(agg, e=1)
     fig, ax = sp.sensitivity_plot(
-        sens, original_estimate=0.0, original_ci=(-0.5, 0.5),
+        sens,
+        original_estimate=0.0,
+        original_ci=(-0.5, 0.5),
     )
     assert isinstance(fig, Figure)
 
@@ -130,8 +151,9 @@ def test_sensitivity_plot(cs_result):
 
 
 def test_event_study_plot(panel):
-    es = sp.event_study(panel, y="y", treat_time="ft", time="time",
-                        unit="unit", window=(-3, 3))
+    es = sp.event_study(
+        panel, y="y", treat_time="ft", time="time", unit="unit", window=(-3, 3)
+    )
     fig, ax = event_study_plot(es)
     assert isinstance(fig, Figure)
     assert len(ax.lines) >= 1 or len(ax.collections) >= 1
@@ -142,7 +164,11 @@ def test_event_study_plot(panel):
 
 def test_parallel_trends_plot(panel):
     fig, ax = sp.parallel_trends_plot(
-        panel, y="y", time="time", treat="g", id="unit",
+        panel,
+        y="y",
+        time="time",
+        treat="g",
+        id="unit",
     )
     assert isinstance(fig, Figure)
     assert len(ax.lines) >= 1

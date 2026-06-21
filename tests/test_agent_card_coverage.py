@@ -11,6 +11,7 @@ maintained by hand — bump it after intentionally raising the bar.
 Lowering the floor to make CI pass is explicitly disallowed in
 ``docs/agent_cards_spec.md``.
 """
+
 from __future__ import annotations
 
 import json
@@ -56,8 +57,13 @@ def test_json_is_well_formed() -> None:
     res = _run(["--json"])
     assert res.returncode == 0, res.stderr
     payload = json.loads(res.stdout)
-    assert {"total", "field_counts", "validation_counts",
-            "per_category", "tier_totals"} <= set(payload)
+    assert {
+        "total",
+        "field_counts",
+        "validation_counts",
+        "per_category",
+        "tier_totals",
+    } <= set(payload)
     # Tier-B is a superset of Tier-A is a superset of Tier-S
     tt = payload["tier_totals"]
     assert tt["tier_b"] >= tt["tier_a"] >= tt["tier_s"]
@@ -72,12 +78,21 @@ def test_floor_file_exists_and_well_formed() -> None:
     floor = json.loads(FLOOR_PATH.read_text(encoding="utf-8"))
     # Required keys
     required = {
-        "tier_b", "tier_a", "tier_s",
-        "field_assumptions", "field_failure_modes", "field_alternatives",
-        "field_pre_conditions", "field_typical_n_min",
-        "field_tags", "field_example", "field_reference",
-        "field_description_30", "field_any_param_description",
-        "validation_certified", "validation_validated",
+        "tier_b",
+        "tier_a",
+        "tier_s",
+        "field_assumptions",
+        "field_failure_modes",
+        "field_alternatives",
+        "field_pre_conditions",
+        "field_typical_n_min",
+        "field_tags",
+        "field_example",
+        "field_reference",
+        "field_description_30",
+        "field_any_param_description",
+        "validation_certified",
+        "validation_validated",
     }
     missing = required - set(floor)
     assert not missing, f"Floor file missing keys: {sorted(missing)}"
@@ -114,9 +129,9 @@ def test_inherits_from_merges_parent_assumptions() -> None:
     _ensure_full_registry()
     variant = _REGISTRY["borusyak_jaravel_spiess"]
     parent = _REGISTRY["did"]
-    assert variant.inherits_from == "did", (
-        "borusyak_jaravel_spiess must inherit from did per _INHERITANCE_SEEDS"
-    )
+    assert (
+        variant.inherits_from == "did"
+    ), "borusyak_jaravel_spiess must inherit from did per _INHERITANCE_SEEDS"
 
     raw = variant.agent_card(merge_inherited=False)
     merged = variant.agent_card(merge_inherited=True)
@@ -128,17 +143,17 @@ def test_inherits_from_merges_parent_assumptions() -> None:
     # assumptions — and over-specifying "own == []" made this test brittle
     # against exactly the metadata enrichment it is meant to encourage.)
     merged_assumptions = set(merged["assumptions"])
-    assert set(parent.assumptions) <= merged_assumptions, (
-        "merged view must include the parent's assumptions"
-    )
-    assert set(raw["assumptions"]) <= merged_assumptions, (
-        "merged view must not drop the variant's own assumptions"
-    )
+    assert (
+        set(parent.assumptions) <= merged_assumptions
+    ), "merged view must include the parent's assumptions"
+    assert (
+        set(raw["assumptions"]) <= merged_assumptions
+    ), "merged view must not drop the variant's own assumptions"
     parent_symptoms = {fm.symptom for fm in parent.failure_modes}
     merged_symptoms = {fm["symptom"] for fm in merged["failure_modes"]}
-    assert parent_symptoms <= merged_symptoms, (
-        "merged view must include the parent's failure modes"
-    )
+    assert (
+        parent_symptoms <= merged_symptoms
+    ), "merged view must include the parent's failure modes"
     assert len(merged["assumptions"]) >= len(parent.assumptions)
     # typical_n_min falls back to parent when child is None
     if variant.typical_n_min is None:
@@ -207,9 +222,9 @@ def test_known_flagship_specs_are_tier_a() -> None:
     _ensure_full_registry()
     flagships = ("regress", "did", "iv", "rdrobust", "synth")
     missing_from_registry = [f for f in flagships if f not in _REGISTRY]
-    assert not missing_from_registry, (
-        f"Flagship functions absent from registry: {missing_from_registry}"
-    )
+    assert (
+        not missing_from_registry
+    ), f"Flagship functions absent from registry: {missing_from_registry}"
     weak = []
     for name in flagships:
         spec = _REGISTRY[name]
@@ -244,6 +259,4 @@ def test_known_flagship_specs_are_tier_a() -> None:
             missing.append(f"validation_status_degraded={spec.validation_status}")
         if missing:
             weak.append(f"{name}: {', '.join(missing)}")
-    assert not weak, (
-        f"Flagship estimators must be Tier-A/S but these are not: {weak}"
-    )
+    assert not weak, f"Flagship estimators must be Tier-A/S but these are not: {weak}"

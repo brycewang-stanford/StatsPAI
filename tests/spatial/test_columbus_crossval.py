@@ -7,6 +7,7 @@ either package at runtime. The acceptance target for SP-01 S1.1 is
 
 This is **the acceptance gate** for the spatial core sprint.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,7 +19,6 @@ import pytest
 
 from statspai.spatial import sar, sem
 from statspai.spatial.weights.core import W
-
 
 FIXTURE = Path(__file__).parent / "fixtures" / "columbus_reference.json"
 
@@ -32,12 +32,15 @@ def reference():
 @pytest.fixture(scope="module")
 def columbus(reference):
     neighbors = {int(k): v for k, v in reference["neighbors"].items()}
-    w = W(neighbors); w.transform = "R"
-    df = pd.DataFrame({
-        "CRIME": reference["y"],
-        "INC":   reference["INC"],
-        "HOVAL": reference["HOVAL"],
-    })
+    w = W(neighbors)
+    w.transform = "R"
+    df = pd.DataFrame(
+        {
+            "CRIME": reference["y"],
+            "INC": reference["INC"],
+            "HOVAL": reference["HOVAL"],
+        }
+    )
     return w, df
 
 
@@ -45,10 +48,11 @@ def columbus(reference):
 # Our sar returns params indexed  [const,     INC, HOVAL, rho].
 # Same numerical positions.
 
+
 def test_sar_matches_spreg(columbus, reference):
     w, df = columbus
     res = sar(w, df, "CRIME ~ INC + HOVAL")
-    expected = reference["ml_lag"]["betas_with_rho"]   # [b0, b_INC, b_HOVAL, rho]
+    expected = reference["ml_lag"]["betas_with_rho"]  # [b0, b_INC, b_HOVAL, rho]
     got = res.params.values
     np.testing.assert_allclose(got, expected, rtol=1e-4)
     # tighten the spatial coefficient specifically
@@ -62,7 +66,7 @@ def test_sar_matches_spreg(columbus, reference):
 def test_sem_matches_spreg(columbus, reference):
     w, df = columbus
     res = sem(w, df, "CRIME ~ INC + HOVAL")
-    expected = reference["ml_err"]["betas"]            # [b0, b_INC, b_HOVAL, lam]
+    expected = reference["ml_err"]["betas"]  # [b0, b_INC, b_HOVAL, lam]
     got = res.params.values
     np.testing.assert_allclose(got, expected, rtol=1e-4)
     np.testing.assert_allclose(

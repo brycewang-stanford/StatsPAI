@@ -21,18 +21,22 @@ def _exact_synthetic_panel(tau: float = 2.5):
 
     for index in range(4):
         for t in times:
-            rows.append({
-                "unit": f"c{index + 1}",
-                "time": t,
-                "y": control_value(index, t),
-            })
+            rows.append(
+                {
+                    "unit": f"c{index + 1}",
+                    "time": t,
+                    "y": control_value(index, t),
+                }
+            )
     for t in times:
         untreated = np.mean([control_value(index, t) for index in range(4)])
-        rows.append({
-            "unit": "treated",
-            "time": t,
-            "y": untreated + 1.7 + (tau if t >= 6 else 0.0),
-        })
+        rows.append(
+            {
+                "unit": "treated",
+                "time": t,
+                "y": untreated + 1.7 + (tau if t >= 6 else 0.0),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -114,9 +118,10 @@ def test_synthdid_backend_matches_reference_fixture():
     assert np.isclose(result.se, 2.6266066920828113)
     assert result.model_info["backend"] == "synthdid"
     assert result.model_info["validation_tier"] == "reference_backend_bridge"
-    assert "not counted as native Python parity evidence" in result.model_info[
-        "validation_note"
-    ]
+    assert (
+        "not counted as native Python parity evidence"
+        in result.model_info["validation_note"]
+    )
     assert result.model_info["n_control"] == 38
     assert result.model_info["T_pre"] == 19
 

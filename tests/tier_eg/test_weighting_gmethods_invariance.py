@@ -16,7 +16,6 @@ from ._helpers import (
     stderr,
 )
 
-
 COVARIATES = ["x1", "x2"]
 
 
@@ -194,7 +193,9 @@ def test_matching_weight_estimators_respect_outcome_affine_transforms():
 
         scaled = fit(df.assign(y=-2.0 * df["y"]))
         assert_scaled(coef(base), coef(scaled), -2.0, rtol=1e-9, atol=1e-9)
-        assert_scaled(stderr(base), stderr(scaled), 2.0, rtol=1e-9, atol=1e-9, what="se")
+        assert_scaled(
+            stderr(base), stderr(scaled), 2.0, rtol=1e-9, atol=1e-9, what="se"
+        )
 
 
 def test_entropy_balance_weights_are_finite_and_normalized():

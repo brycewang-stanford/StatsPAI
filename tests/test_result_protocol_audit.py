@@ -1,4 +1,5 @@
 """Contract tests for ``scripts/result_protocol_audit.py``."""
+
 from __future__ import annotations
 
 import json

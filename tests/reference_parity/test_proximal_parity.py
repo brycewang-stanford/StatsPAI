@@ -87,6 +87,7 @@ References (bib keys verified present in paper.bib via grep)
 - Min, Zhang & Luo (2025), arXiv:2507.13965 — bidirectional PCI.
   [@min2025regression]
 """
+
 from __future__ import annotations
 
 import warnings
@@ -96,7 +97,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 # Hand-set true treatment effect shared by every DGP below.
 GAMMA_D = 1.5
@@ -109,6 +109,7 @@ def _within_n_se(est, truth, se, n_sigma=4.0):
 # ---------------------------------------------------------------------------
 # Deterministic DGP builders (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
+
 
 def _make_proximal_dgp(seed, n=4000, binary_d=False):
     """Linear-Gaussian proximal DGP with a known ATE = GAMMA_D.
@@ -156,6 +157,7 @@ def _make_just_identified_dgp(seed, n=2000):
 # Module fixtures.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def just_identified_data():
     return _make_just_identified_dgp(123)
@@ -176,14 +178,15 @@ def _proximal(df, covariates=None):
     with warnings.catch_warnings():
         # weak-instrument / first-stage F warnings are not under test here.
         warnings.simplefilter("ignore")
-        return sp.proximal(df, y="y", treat="d",
-                           proxy_z=["z"], proxy_w=["w"],
-                           covariates=covariates)
+        return sp.proximal(
+            df, y="y", treat="d", proxy_z=["z"], proxy_w=["w"], covariates=covariates
+        )
 
 
 # ---------------------------------------------------------------------------
 # A. Closed-form just-identified collapse (machine precision).
 # ---------------------------------------------------------------------------
+
 
 class TestClosedFormCollapse:
     """proximal == hand-computed (Z'X)^{-1} Z'Y coefficient on D.
@@ -230,6 +233,7 @@ class TestClosedFormCollapse:
 # B. Known-DGP recovery of GAMMA_D.
 # ---------------------------------------------------------------------------
 
+
 class TestRecovery:
     """proximal recovers the hand-set GAMMA_D = 1.5."""
 
@@ -272,14 +276,14 @@ class TestRecovery:
 # C. Naive-bias contrast (proximal corrects the confounding).
 # ---------------------------------------------------------------------------
 
+
 class TestNaiveBiasContrast:
     """Naive OLS-on-D is biased high; proximal de-confounds."""
 
     def test_naive_biased_proximal_corrects(self, continuous_d_data):
         df = continuous_d_data
         # Naive OLS of Y on [1, D, X] — hand-rolled numpy, no statspai.
-        Dx = np.column_stack([np.ones(len(df)), df["d"].values,
-                              df["x"].values])
+        Dx = np.column_stack([np.ones(len(df)), df["d"].values, df["x"].values])
         beta_ols = np.linalg.lstsq(Dx, df["y"].values, rcond=None)[0]
         resid = df["y"].values - Dx @ beta_ols
         sig2 = float(resid @ resid) / (len(df) - Dx.shape[1])
@@ -315,11 +319,11 @@ class TestNaiveBiasContrast:
 # D. Family internal consistency.
 # ---------------------------------------------------------------------------
 
+
 class TestFamilyConsistency:
     """Cross-estimator identities within the proximal family."""
 
-    def test_continuous_d_bidirectional_collapses_to_proximal(
-            self, continuous_d_data):
+    def test_continuous_d_bidirectional_collapses_to_proximal(self, continuous_d_data):
         """Continuous D -> Z-IPW logistic fails -> bidir == proximal.
 
         ``LogisticRegression`` rejects a non-binary target, so
@@ -336,20 +340,26 @@ class TestFamilyConsistency:
         rp = _proximal(df, covariates=["x"])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            rb = sp.bidirectional_pci(df, y="y", treat="d",
-                                      proxy_z=["z"], proxy_w=["w"],
-                                      covariates=["x"], n_boot=20, seed=0)
-        assert rb.model_info["treatment_bridge_fallback"] is True, (
-            "expected the Z-IPW logistic step to fall back on continuous D"
-        )
+            rb = sp.bidirectional_pci(
+                df,
+                y="y",
+                treat="d",
+                proxy_z=["z"],
+                proxy_w=["w"],
+                covariates=["x"],
+                n_boot=20,
+                seed=0,
+            )
+        assert (
+            rb.model_info["treatment_bridge_fallback"] is True
+        ), "expected the Z-IPW logistic step to fall back on continuous D"
         assert abs(rb.estimate - rp.estimate) < 1e-9, (
             f"bidirectional {rb.estimate!r} should collapse to proximal "
             f"{rp.estimate!r} under fallback "
             f"(|diff|={abs(rb.estimate - rp.estimate):.2e})."
         )
 
-    def test_binary_d_partial_correctors_between_naive_and_truth(
-            self, binary_d_data):
+    def test_binary_d_partial_correctors_between_naive_and_truth(self, binary_d_data):
         """Binary D -> Z-IPW active; bidir & fortified sit in (truth, naive).
 
         With binary D the logistic Z-IPW runs (fallback False).  On this
@@ -380,19 +390,32 @@ class TestFamilyConsistency:
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            rb = sp.bidirectional_pci(df, y="y", treat="d",
-                                      proxy_z=["z"], proxy_w=["w"],
-                                      covariates=["x"], n_boot=20, seed=0)
-            rf = sp.fortified_pci(df, y="y", treat="d",
-                                  proxy_z=["z"], proxy_w=["w"],
-                                  covariates=["x"], n_boot=20, seed=0)
+            rb = sp.bidirectional_pci(
+                df,
+                y="y",
+                treat="d",
+                proxy_z=["z"],
+                proxy_w=["w"],
+                covariates=["x"],
+                n_boot=20,
+                seed=0,
+            )
+            rf = sp.fortified_pci(
+                df,
+                y="y",
+                treat="d",
+                proxy_z=["z"],
+                proxy_w=["w"],
+                covariates=["x"],
+                n_boot=20,
+                seed=0,
+            )
         # Z-IPW actually engaged (fallback NOT taken).
-        assert rb.model_info["treatment_bridge_fallback"] is False, (
-            "expected the Z-IPW logistic step to engage on binary D"
-        )
+        assert (
+            rb.model_info["treatment_bridge_fallback"] is False
+        ), "expected the Z-IPW logistic step to engage on binary D"
         # Both partial correctors strictly inside the (truth, naive) band.
-        for name, est in [("bidirectional", rb.estimate),
-                          ("fortified", rf.estimate)]:
+        for name, est in [("bidirectional", rb.estimate), ("fortified", rf.estimate)]:
             assert GAMMA_D < est < naive, (
                 f"{name} {est:.4f} not strictly between truth {GAMMA_D} "
                 f"and naive {naive:.4f} — it neither partially corrects "
@@ -404,6 +427,7 @@ class TestFamilyConsistency:
 # E. Orientation / sign correctness.
 # ---------------------------------------------------------------------------
 
+
 class TestOrientation:
     """Positive-effect DGPs (GAMMA_D = 1.5 > 0) yield positive estimates."""
 
@@ -412,12 +436,26 @@ class TestOrientation:
         rp = _proximal(df, covariates=["x"])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            rf = sp.fortified_pci(df, y="y", treat="d", proxy_z=["z"],
-                                  proxy_w=["w"], covariates=["x"],
-                                  n_boot=20, seed=0)
-            rb = sp.bidirectional_pci(df, y="y", treat="d", proxy_z=["z"],
-                                      proxy_w=["w"], covariates=["x"],
-                                      n_boot=20, seed=0)
+            rf = sp.fortified_pci(
+                df,
+                y="y",
+                treat="d",
+                proxy_z=["z"],
+                proxy_w=["w"],
+                covariates=["x"],
+                n_boot=20,
+                seed=0,
+            )
+            rb = sp.bidirectional_pci(
+                df,
+                y="y",
+                treat="d",
+                proxy_z=["z"],
+                proxy_w=["w"],
+                covariates=["x"],
+                n_boot=20,
+                seed=0,
+            )
         assert rp.estimate > 0
         assert rf.estimate > 0
         assert rb.estimate > 0
@@ -427,12 +465,26 @@ class TestOrientation:
         rp = _proximal(df, covariates=["x"])
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            rf = sp.fortified_pci(df, y="y", treat="d", proxy_z=["z"],
-                                  proxy_w=["w"], covariates=["x"],
-                                  n_boot=20, seed=0)
-            rb = sp.bidirectional_pci(df, y="y", treat="d", proxy_z=["z"],
-                                      proxy_w=["w"], covariates=["x"],
-                                      n_boot=20, seed=0)
+            rf = sp.fortified_pci(
+                df,
+                y="y",
+                treat="d",
+                proxy_z=["z"],
+                proxy_w=["w"],
+                covariates=["x"],
+                n_boot=20,
+                seed=0,
+            )
+            rb = sp.bidirectional_pci(
+                df,
+                y="y",
+                treat="d",
+                proxy_z=["z"],
+                proxy_w=["w"],
+                covariates=["x"],
+                n_boot=20,
+                seed=0,
+            )
         assert rp.estimate > 0
         assert rf.estimate > 0
         assert rb.estimate > 0

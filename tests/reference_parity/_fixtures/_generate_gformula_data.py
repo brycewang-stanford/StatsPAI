@@ -18,6 +18,7 @@ the parametric g-formula is correctly specified on this DGP.
 n = 800.  pandas ``to_csv`` writes shortest-roundtrip float repr, so R
 ``read.csv`` recovers bit-identical doubles.
 """
+
 from __future__ import annotations
 
 import pathlib

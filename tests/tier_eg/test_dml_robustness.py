@@ -21,8 +21,7 @@ import statspai as sp
 from ._helpers import assert_no_silent_wrong, assert_raises_clean
 
 pytest.importorskip("sklearn")
-from sklearn.linear_model import (LinearRegression,  # noqa: E402
-                                  LogisticRegression)
+from sklearn.linear_model import LinearRegression, LogisticRegression  # noqa: E402
 
 _P = 4
 _XCOLS = [f"x{i}" for i in range(_P)]

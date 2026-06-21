@@ -18,6 +18,7 @@ def _make_data(n=200, k=3, seed=42):
 class TestSklearnOLS:
     def test_fit_predict(self):
         from statspai.compat import SklearnOLS
+
         X, y = _make_data()
         model = SklearnOLS(robust="hc1")
         model.fit(X, y)
@@ -29,6 +30,7 @@ class TestSklearnOLS:
 
     def test_get_set_params(self):
         from statspai.compat import SklearnOLS
+
         model = SklearnOLS(robust="hc1")
         params = model.get_params()
         assert params["robust"] == "hc1"
@@ -38,6 +40,7 @@ class TestSklearnOLS:
     def test_cross_val_score(self):
         from statspai.compat import SklearnOLS
         from sklearn.model_selection import cross_val_score
+
         X, y = _make_data(n=100)
         model = SklearnOLS()
         scores = cross_val_score(model, X, y, cv=3, scoring="r2")
@@ -47,11 +50,14 @@ class TestSklearnOLS:
         from statspai.compat import SklearnOLS
         from sklearn.pipeline import Pipeline
         from sklearn.preprocessing import StandardScaler
+
         X, y = _make_data()
-        pipe = Pipeline([
-            ("scaler", StandardScaler()),
-            ("ols", SklearnOLS(robust="hc1")),
-        ])
+        pipe = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("ols", SklearnOLS(robust="hc1")),
+            ]
+        )
         pipe.fit(X, y)
         preds = pipe.predict(X)
         assert preds.shape == (200,)
@@ -60,6 +66,7 @@ class TestSklearnOLS:
 class TestSklearnDML:
     def test_fit_predict(self):
         from statspai.compat import SklearnDML
+
         rng = np.random.RandomState(42)
         n = 300
         confounders = rng.randn(n, 2)

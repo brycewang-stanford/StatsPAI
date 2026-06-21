@@ -5,6 +5,7 @@ coefficients and standard errors. These fixtures are static and license-free to
 run, so they give a fast guard against numerically unstable OLS changes without
 requiring R, Stata, or network access.
 """
+
 from __future__ import annotations
 
 import re
@@ -16,7 +17,6 @@ import pytest
 
 from statspai.core._numba_kernels import ols_fit
 from statspai.regression.ols import OLSEstimator
-
 
 FIXTURE_DIR = Path(__file__).with_name("_fixtures") / "nist_strd"
 NUMBER_RE = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?")
@@ -136,9 +136,9 @@ def test_ols_kernel_matches_nist_strd_coefficients(case: NistRegressionCase):
     beta, _fitted, _residuals = ols_fit(case.X, case.y)
 
     max_rel = _max_relative_error(beta, case.beta)
-    assert max_rel <= PARAM_RTOL.get(case.name, DEFAULT_PARAM_RTOL), (
-        f"{case.name}: max coefficient relative error {max_rel:.3e}"
-    )
+    assert max_rel <= PARAM_RTOL.get(
+        case.name, DEFAULT_PARAM_RTOL
+    ), f"{case.name}: max coefficient relative error {max_rel:.3e}"
 
 
 @pytest.mark.parametrize(
@@ -153,14 +153,14 @@ def test_ols_estimator_matches_nist_strd_standard_errors(case: NistRegressionCas
     nonzero = case.se != 0
     if np.any(nonzero):
         max_rel = _max_relative_error(std_errors[nonzero], case.se[nonzero])
-        assert max_rel <= SE_RTOL.get(case.name, DEFAULT_SE_RTOL), (
-            f"{case.name}: max SE relative error {max_rel:.3e}"
-        )
+        assert max_rel <= SE_RTOL.get(
+            case.name, DEFAULT_SE_RTOL
+        ), f"{case.name}: max SE relative error {max_rel:.3e}"
     if np.any(~nonzero):
         max_abs = float(np.max(np.abs(std_errors[~nonzero])))
-        assert max_abs <= ZERO_SE_ATOL, (
-            f"{case.name}: zero certified SE drifted to {max_abs:.3e}"
-        )
+        assert (
+            max_abs <= ZERO_SE_ATOL
+        ), f"{case.name}: zero certified SE drifted to {max_abs:.3e}"
 
 
 @pytest.mark.parametrize("name", ["Filip", "Wampler1", "Wampler4"])

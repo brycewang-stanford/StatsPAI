@@ -15,7 +15,7 @@ def nonlinear_dgp():
     z = rng.normal(size=n)
     eps = rng.normal(size=n)
     d = 0.8 * z + 0.3 * eps + rng.normal(size=n, scale=0.5)
-    y = 2 * d + 0.5 * d ** 2 + eps
+    y = 2 * d + 0.5 * d**2 + eps
     return pd.DataFrame({"y": y, "d": d, "z": z})
 
 
@@ -34,8 +34,9 @@ class TestNPIV:
         assert df.shape[0] == 100
 
     def test_captures_nonlinearity(self, nonlinear_dgp):
-        r = iv.npiv(y="y", endog="d", instruments=["z"], data=nonlinear_dgp,
-                    k_d=4, k_z=4)
+        r = iv.npiv(
+            y="y", endog="d", instruments=["z"], data=nonlinear_dgp, k_d=4, k_z=4
+        )
         # h(D) = 2D + 0.5D² is convex. h(d=2) = 6, h(d=-2) = -2.
         # NPIV should show convexity: h(2) > -h(-2)
         df = r.to_frame()
@@ -45,9 +46,21 @@ class TestNPIV:
         assert h_pos > 0 and h_neg < 0
 
     def test_regularization(self, nonlinear_dgp):
-        r0 = iv.npiv(y="y", endog="d", instruments=["z"], data=nonlinear_dgp,
-                     k_d=4, regularization=0.0)
-        r1 = iv.npiv(y="y", endog="d", instruments=["z"], data=nonlinear_dgp,
-                     k_d=4, regularization=1.0)
+        r0 = iv.npiv(
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=nonlinear_dgp,
+            k_d=4,
+            regularization=0.0,
+        )
+        r1 = iv.npiv(
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=nonlinear_dgp,
+            k_d=4,
+            regularization=1.0,
+        )
         # Regularization should shrink h towards zero → smaller variance
         assert r1.h_se.mean() <= r0.h_se.mean()

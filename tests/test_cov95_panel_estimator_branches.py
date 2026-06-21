@@ -14,6 +14,7 @@ Assertions check sane structure / properties (finite estimates after
 dropping bad rows; NaN sentinels when there is nothing to estimate; the
 reported drop count), not fabricated numbers.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -42,13 +43,13 @@ def _balanced_panel(n_id=30, T=8, seed=7):
 
 def test_interactive_fe_drops_nonfinite_rows():
     df = _balanced_panel()
-    df.loc[5, "y"] = np.nan          # one non-finite row → triggers the filter
+    df.loc[5, "y"] = np.nan  # one non-finite row → triggers the filter
     df.loc[20, "x1"] = np.inf
-    res = sp.interactive_fe(df, "y", ["x1", "x2"], id="id", time="time",
-                            n_factors=1)
+    res = sp.interactive_fe(df, "y", ["x1", "x2"], id="id", time="time", n_factors=1)
     # Estimation still succeeds on the finite rows and recovers sane slopes.
-    beta = np.asarray(getattr(res, "params", getattr(res, "beta", None)),
-                      dtype=float).ravel()
+    beta = np.asarray(
+        getattr(res, "params", getattr(res, "beta", None)), dtype=float
+    ).ravel()
     assert beta.size >= 1
     assert np.all(np.isfinite(beta))
 
@@ -63,18 +64,18 @@ def test_unit_root_hadri_skips_short_units():
     # skip, while the long units still yield a finite Hadri statistic.
     rng = np.random.default_rng(1)
     rows = []
-    for i in range(10):                 # long units
+    for i in range(10):  # long units
         y = 0.0
         for t in range(18):
             y = 0.3 * y + rng.normal()
             rows.append({"id": i, "time": t, "v": y})
-    for i in range(10, 13):             # short units (3 periods each)
+    for i in range(10, 13):  # short units (3 periods each)
         for t in range(3):
             rows.append({"id": i, "time": t, "v": rng.normal()})
     df = pd.DataFrame(rows)
     res = sp.panel_unitroot(df, "v", id="id", time="time", test="hadri")
-    assert np.isfinite(res.statistic)   # finite stat from the long units
-    assert res.n_units >= 10            # the 3 short units were skipped
+    assert np.isfinite(res.statistic)  # finite stat from the long units
+    assert res.n_units >= 10  # the 3 short units were skipped
 
 
 def test_unit_root_ips_runs_on_adequate_panel():
@@ -113,8 +114,9 @@ def test_panel_logit_fe_drops_constant_outcome_units():
     n_dropped = getattr(res, "n_dropped", None)
     if n_dropped is not None:
         assert n_dropped >= 2
-    beta = np.asarray(getattr(res, "params", getattr(res, "beta", None)),
-                      dtype=float).ravel()
+    beta = np.asarray(
+        getattr(res, "params", getattr(res, "beta", None)), dtype=float
+    ).ravel()
     assert np.all(np.isfinite(beta))
 
 
@@ -131,8 +133,9 @@ def test_panel_logit_cre_mundlak_means():
             rows.append({"id": i, "time": t, "y": int(rng.random() < p), "x1": x1})
     df = pd.DataFrame(rows)
     res = sp.panel_logit(df, "y", ["x1"], id="id", time="time", method="cre")
-    beta = np.asarray(getattr(res, "params", getattr(res, "beta", None)),
-                      dtype=float).ravel()
+    beta = np.asarray(
+        getattr(res, "params", getattr(res, "beta", None)), dtype=float
+    ).ravel()
     assert np.all(np.isfinite(beta))
 
 
@@ -142,7 +145,10 @@ def test_panel_logit_cre_mundlak_means():
 def test_panel_compare_reports_failed_method():
     df = _balanced_panel()
     out = panel_compare(
-        df, "y ~ x1 + x2", entity="id", time="time",
+        df,
+        "y ~ x1 + x2",
+        entity="id",
+        time="time",
         methods=["fe", "definitely_not_a_method"],
     )
     assert isinstance(out, pd.DataFrame)
@@ -166,13 +172,16 @@ def test_pesaran_cd_no_overlapping_pairs():
         base = i * 100  # disjoint time windows per entity
         for t in range(8):
             x1 = rng.normal()
-            rows.append({"id": i, "time": base + t, "y": 1.5 * x1 + rng.normal(),
-                         "x1": x1})
+            rows.append(
+                {"id": i, "time": base + t, "y": 1.5 * x1 + rng.normal(), "x1": x1}
+            )
     df = pd.DataFrame(rows)
     r = sp.panel(df, "y ~ x1", entity="id", time="time", method="fe")
     out = r.pesaran_cd_test()
     # Cannot form cross-sectional correlations ⇒ undefined statistic, and the
     # routine reports why rather than fabricating a number (CLAUDE.md §7).
     assert np.isnan(out["statistic"])
-    assert out["interpretation"] and ("pairs" in out["interpretation"].lower()
-                                      or "insufficient" in out["interpretation"].lower())
+    assert out["interpretation"] and (
+        "pairs" in out["interpretation"].lower()
+        or "insufficient" in out["interpretation"].lower()
+    )

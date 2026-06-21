@@ -32,7 +32,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Data generator
 # ---------------------------------------------------------------------------
@@ -82,32 +81,35 @@ class TestIVWBalancedPleiotropy:
         bx, by, se_x, se_y = _simulate_mr_twosample(seed=0)
         r = sp.mr_ivw(bx, by, se_x, se_y)
         truth = 0.30
-        est = _estimate(r); se = _se(r)
-        assert abs(est - truth) <= 4 * se, (
-            f"IVW {est:.3f} vs truth {truth} (SE {se:.3f})"
-        )
+        est = _estimate(r)
+        se = _se(r)
+        assert (
+            abs(est - truth) <= 4 * se
+        ), f"IVW {est:.3f} vs truth {truth} (SE {se:.3f})"
 
     def test_egger_intercept_near_zero_when_balanced(self):
         bx, by, se_x, se_y = _simulate_mr_twosample(seed=0)
         r = sp.mr_egger(bx, by, se_x, se_y)
         intercept = r["intercept"]
         int_se = r["intercept_se"]
-        assert abs(intercept) <= 3 * int_se, (
-            f"Egger intercept {intercept:.4f} exceeds 3*SE ({int_se:.4f})"
-        )
+        assert (
+            abs(intercept) <= 3 * int_se
+        ), f"Egger intercept {intercept:.4f} exceeds 3*SE ({int_se:.4f})"
 
 
 class TestMREggerDirectionalPleiotropy:
 
     def test_egger_detects_shift(self):
         bx, by, se_x, se_y = _simulate_mr_twosample(
-            seed=1, pleiotropy_mean=0.04, pleiotropy_sd=0.003,
+            seed=1,
+            pleiotropy_mean=0.04,
+            pleiotropy_sd=0.003,
         )
         r = sp.mr_egger(bx, by, se_x, se_y)
         intercept = r["intercept"]
-        assert intercept > 0.01, (
-            f"Egger intercept failed to detect +0.04 pleiotropic shift: {intercept}"
-        )
+        assert (
+            intercept > 0.01
+        ), f"Egger intercept failed to detect +0.04 pleiotropic shift: {intercept}"
         assert r["intercept_p"] < 0.05
 
 
@@ -124,9 +126,9 @@ class TestWeightedMedianRobust:
         by = by.copy()
         by[:n_bad] += 0.20
         r = sp.mr_median(bx, by, se_x, se_y, n_boot=200, seed=0)
-        assert abs(r["estimate"] - 0.30) < 0.15, (
-            f"Median broke on 30% outliers: {r['estimate']:.3f}"
-        )
+        assert (
+            abs(r["estimate"] - 0.30) < 0.15
+        ), f"Median broke on 30% outliers: {r['estimate']:.3f}"
 
 
 class TestMRPressoOutlierFlag:
@@ -168,14 +170,17 @@ class TestLeaveOneOut:
                     table = v
                     break
         assert isinstance(table, pd.DataFrame)
-        est_cols = [c for c in table.columns
-                    if c.lower() in ("estimate", "b", "beta", "ivw", "ivw_estimate")]
+        est_cols = [
+            c
+            for c in table.columns
+            if c.lower() in ("estimate", "b", "beta", "ivw", "ivw_estimate")
+        ]
         assert est_cols, f"LOO table has no estimate column: {table.columns.tolist()}"
         vals = table[est_cols[0]].to_numpy(dtype=float)
         max_dev = float(np.max(np.abs(vals - ivw_full["estimate"])))
-        assert max_dev < 5 * ivw_full["se"], (
-            f"LOO swung by {max_dev:.4f} > 5*IVW SE ({ivw_full['se']:.4f})"
-        )
+        assert (
+            max_dev < 5 * ivw_full["se"]
+        ), f"LOO swung by {max_dev:.4f} > 5*IVW SE ({ivw_full['se']:.4f})"
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +207,4 @@ class TestMRRadialBetaSNP:
         # (Wald ratios), except where bx ≈ 0.
         wald = by / bx
         rho = np.corrcoef(wald, table["beta_hat"].to_numpy(dtype=float))[0, 1]
-        assert rho > 0.9, (
-            f"Radial beta_hat correlation with Wald ratios = {rho:.3f}"
-        )
+        assert rho > 0.9, f"Radial beta_hat correlation with Wald ratios = {rho:.3f}"

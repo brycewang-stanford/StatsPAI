@@ -49,7 +49,7 @@ def parallel_trends_data():
     rows = []
     for g in (0, 1):
         for t in (0, 1):
-            base = 0.0 + 0.5 * t          # parallel trend +0.5 per period
+            base = 0.0 + 0.5 * t  # parallel trend +0.5 per period
             shift = 1.5 if (g == 1 and t == 1) else 0.0
             y = base + shift + rng.normal(size=n_per_cell)
             for yi in y:
@@ -66,10 +66,13 @@ class TestQTE:
 
     def test_quantile_regression_recovers_constant_shift(self, constant_qte_data):
         res = sp.qte(
-            constant_qte_data, y="y", treatment="d",
+            constant_qte_data,
+            y="y",
+            treatment="d",
             quantiles=[0.25, 0.5, 0.75],
             method="quantile_regression",
-            n_boot=50, seed=0,
+            n_boot=50,
+            seed=0,
         )
         assert res.effects.shape == (3,)
         # Every quantile effect should be close to 1.5
@@ -78,23 +81,35 @@ class TestQTE:
 
     def test_distribution_method(self, constant_qte_data):
         res = sp.qte(
-            constant_qte_data, y="y", treatment="d",
+            constant_qte_data,
+            y="y",
+            treatment="d",
             quantiles=[0.5],
             method="distribution",
-            n_boot=50, seed=0,
+            n_boot=50,
+            seed=0,
         )
         assert abs(res.effects[0] - 1.5) < 0.30
 
     def test_unknown_method_raises(self, constant_qte_data):
         with pytest.raises(ValueError, match="Unknown QTE method"):
-            sp.qte(constant_qte_data, y="y", treatment="d",
-                   method="not_a_real_method", n_boot=10)
+            sp.qte(
+                constant_qte_data,
+                y="y",
+                treatment="d",
+                method="not_a_real_method",
+                n_boot=10,
+            )
 
     def test_result_object(self, constant_qte_data):
         res = sp.qte(
-            constant_qte_data, y="y", treatment="d",
-            quantiles=[0.5], method="quantile_regression",
-            n_boot=20, seed=0,
+            constant_qte_data,
+            y="y",
+            treatment="d",
+            quantiles=[0.5],
+            method="quantile_regression",
+            n_boot=20,
+            seed=0,
         )
         assert hasattr(res, "summary")
         assert hasattr(res, "plot")
@@ -111,9 +126,13 @@ class TestQDiD:
 
     def test_recovers_parallel_trends_shift(self, parallel_trends_data):
         res = sp.qdid(
-            parallel_trends_data, y="y", group="g", time="t",
+            parallel_trends_data,
+            y="y",
+            group="g",
+            time="t",
             quantiles=[0.25, 0.5, 0.75],
-            n_boot=50, seed=2,
+            n_boot=50,
+            seed=2,
         )
         # QDID(τ) ≈ 1.5 at every τ (the treated-group post-treatment shift)
         for q, eff in zip(res.quantiles, res.effects):
@@ -134,8 +153,11 @@ class TestDistributionalTE:
 
     def test_smoke_constant_shift(self, constant_qte_data):
         res = sp.distributional_te(
-            constant_qte_data, y="y", treatment="d",
-            method="ipw", n_boot=20,
+            constant_qte_data,
+            y="y",
+            treatment="d",
+            method="ipw",
+            n_boot=20,
         )
         # CDFs should be monotone non-decreasing on the grid.
         assert np.all(np.diff(res.cdf_treated) >= -1e-10)

@@ -1,4 +1,5 @@
 """Tests for ``sp.bayes_iv`` — Bayesian linear IV via control function."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -30,7 +31,7 @@ def _iv_dgp(n, strength, rho=0.5, seed=0, true_late=1.5):
     # Endogeneity: D absorbs fraction `rho` of U
     D = strength * Z + rho * U + v
     Y = true_late * D + U + rng.normal(size=n)
-    return pd.DataFrame({'y': Y, 'd': D, 'z': Z})
+    return pd.DataFrame({"y": Y, "d": D, "z": Z})
 
 
 @pytest.fixture
@@ -49,11 +50,19 @@ def weak_iv_data():
 
 
 def test_bayes_iv_returns_result(strong_iv_data):
-    r = bayes_iv(strong_iv_data, y='y', treat='d', instrument='z',
-                 draws=300, tune=300, chains=2, progressbar=False)
+    r = bayes_iv(
+        strong_iv_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        draws=300,
+        tune=300,
+        chains=2,
+        progressbar=False,
+    )
     assert isinstance(r, BayesianCausalResult)
-    assert r.estimand == 'LATE'
-    assert r.method.startswith('Bayesian IV')
+    assert r.estimand == "LATE"
+    assert r.method.startswith("Bayesian IV")
 
 
 def test_bayes_iv_top_level_export():
@@ -66,9 +75,17 @@ def test_bayes_iv_top_level_export():
 
 
 def test_bayes_iv_strong_instrument_recovers_late(strong_iv_data):
-    r = bayes_iv(strong_iv_data, y='y', treat='d', instrument='z',
-                 draws=500, tune=500, chains=2, progressbar=False,
-                 random_state=7)
+    r = bayes_iv(
+        strong_iv_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        draws=500,
+        tune=500,
+        chains=2,
+        progressbar=False,
+        random_state=7,
+    )
     assert r.hdi_lower < 1.5 < r.hdi_upper, (
         f"True LATE=1.5 not covered by 95% HDI "
         f"[{r.hdi_lower:.3f}, {r.hdi_upper:.3f}] "
@@ -78,17 +95,32 @@ def test_bayes_iv_strong_instrument_recovers_late(strong_iv_data):
 
 def test_bayes_iv_weak_instrument_widens_hdi(strong_iv_data, weak_iv_data):
     """Weak Z should produce a substantially wider posterior than strong Z."""
-    strong = bayes_iv(strong_iv_data, y='y', treat='d', instrument='z',
-                      draws=400, tune=400, chains=2, progressbar=False,
-                      random_state=11)
-    weak = bayes_iv(weak_iv_data, y='y', treat='d', instrument='z',
-                    draws=400, tune=400, chains=2, progressbar=False,
-                    random_state=11)
+    strong = bayes_iv(
+        strong_iv_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        draws=400,
+        tune=400,
+        chains=2,
+        progressbar=False,
+        random_state=11,
+    )
+    weak = bayes_iv(
+        weak_iv_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        draws=400,
+        tune=400,
+        chains=2,
+        progressbar=False,
+        random_state=11,
+    )
     strong_width = strong.hdi_upper - strong.hdi_lower
     weak_width = weak.hdi_upper - weak.hdi_lower
     assert weak_width > 1.5 * strong_width, (
-        f"Weak-IV HDI width {weak_width:.3f} should be >> strong "
-        f"{strong_width:.3f}"
+        f"Weak-IV HDI width {weak_width:.3f} should be >> strong " f"{strong_width:.3f}"
     )
 
 
@@ -105,10 +137,18 @@ def test_bayes_iv_multiple_instruments():
     U = rng.normal(size=n)
     D = 0.5 * Z1 + 0.4 * Z2 + 0.3 * U + rng.normal(size=n)
     Y = 1.5 * D + U + rng.normal(size=n)
-    df = pd.DataFrame({'y': Y, 'd': D, 'z1': Z1, 'z2': Z2})
-    r = bayes_iv(df, y='y', treat='d', instrument=['z1', 'z2'],
-                 draws=300, tune=300, chains=2, progressbar=False)
-    assert r.model_info['n_instruments'] == 2
+    df = pd.DataFrame({"y": Y, "d": D, "z1": Z1, "z2": Z2})
+    r = bayes_iv(
+        df,
+        y="y",
+        treat="d",
+        instrument=["z1", "z2"],
+        draws=300,
+        tune=300,
+        chains=2,
+        progressbar=False,
+    )
+    assert r.model_info["n_instruments"] == 2
     assert np.isfinite(r.posterior_mean)
 
 
@@ -120,10 +160,19 @@ def test_bayes_iv_covariates_run():
     U = rng.normal(size=n)
     D = 0.7 * Z + 0.4 * X + 0.3 * U + rng.normal(size=n)
     Y = 1.5 * D + 0.5 * X + U + rng.normal(size=n)
-    df = pd.DataFrame({'y': Y, 'd': D, 'z': Z, 'x': X})
-    r = bayes_iv(df, y='y', treat='d', instrument='z', covariates=['x'],
-                 draws=300, tune=300, chains=2, progressbar=False)
-    assert r.model_info['covariates'] == ['x']
+    df = pd.DataFrame({"y": Y, "d": D, "z": Z, "x": X})
+    r = bayes_iv(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        covariates=["x"],
+        draws=300,
+        tune=300,
+        chains=2,
+        progressbar=False,
+    )
+    assert r.model_info["covariates"] == ["x"]
 
 
 # ---------------------------------------------------------------------------
@@ -132,14 +181,30 @@ def test_bayes_iv_covariates_run():
 
 
 def test_bayes_iv_missing_column_raises(strong_iv_data):
-    with pytest.raises(ValueError, match='not found'):
-        bayes_iv(strong_iv_data, y='nope', treat='d', instrument='z',
-                 draws=50, tune=50, chains=1, progressbar=False)
+    with pytest.raises(ValueError, match="not found"):
+        bayes_iv(
+            strong_iv_data,
+            y="nope",
+            treat="d",
+            instrument="z",
+            draws=50,
+            tune=50,
+            chains=1,
+            progressbar=False,
+        )
 
 
 def test_bayes_iv_tidy_and_glance(strong_iv_data):
-    r = bayes_iv(strong_iv_data, y='y', treat='d', instrument='z',
-                 draws=300, tune=300, chains=2, progressbar=False)
+    r = bayes_iv(
+        strong_iv_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        draws=300,
+        tune=300,
+        chains=2,
+        progressbar=False,
+    )
     assert len(r.tidy()) == 1
-    assert 'late' in r.tidy()['term'].iloc[0]
+    assert "late" in r.tidy()["term"].iloc[0]
     assert len(r.glance()) == 1

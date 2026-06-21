@@ -1,12 +1,13 @@
 """Sprint-5 tests: OPE + CEVAE."""
+
 import numpy as np
 import pytest
 
 import statspai as sp
 from statspai.exceptions import MethodIncompatibility
 
-
 # ---------- OPE ----------
+
 
 def _bandit_logging(n=2000, K=3, seed=0):
     rng = np.random.default_rng(seed)
@@ -17,11 +18,13 @@ def _bandit_logging(n=2000, K=3, seed=0):
     pi_b = exp_b / exp_b.sum(axis=1, keepdims=True)
     actions = np.array([rng.choice(K, p=pi_b[i]) for i in range(n)])
     # true reward: depends on X[:,1] and action
-    true_means = np.column_stack([
-        1.0 + X[:, 1],
-        0.5 * X[:, 0],
-        -0.2 + 0.5 * X[:, 1],
-    ])
+    true_means = np.column_stack(
+        [
+            1.0 + X[:, 1],
+            0.5 * X[:, 0],
+            -0.2 + 0.5 * X[:, 1],
+        ]
+    )
     rewards = true_means[np.arange(n), actions] + rng.normal(0, 0.5, n)
     return X, actions, rewards, pi_b, true_means
 
@@ -107,8 +110,13 @@ def test_evaluate_dispatches_all_methods():
 
 def test_evaluate_rejects_unknown_method():
     with pytest.raises(MethodIncompatibility, match="Unknown"):
-        sp.ope.evaluate("XYZ", actions=np.array([0]), rewards=np.array([0.0]),
-                        pi_b=np.array([[1.0]]), pi_e=np.array([[1.0]]))
+        sp.ope.evaluate(
+            "XYZ",
+            actions=np.array([0]),
+            rewards=np.array([0.0]),
+            pi_b=np.array([[1.0]]),
+            pi_e=np.array([[1.0]]),
+        )
 
 
 def test_evaluate_rejects_missing_required_arguments_with_taxonomy():
@@ -122,6 +130,7 @@ def test_evaluate_rejects_missing_required_arguments_with_taxonomy():
 
 
 # ---------- CEVAE ----------
+
 
 def test_cevae_recovers_ate_in_simple_setting():
     rng = np.random.default_rng(0)

@@ -1,4 +1,5 @@
 """PyMC-free validation tests for Bayesian DID input contracts."""
+
 from __future__ import annotations
 
 from typing import Dict, List, Optional

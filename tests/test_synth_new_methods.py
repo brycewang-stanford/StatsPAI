@@ -15,10 +15,10 @@ import numpy as np
 import pandas as pd
 from statspai.core.results import CausalResult
 
-
 # ====================================================================== #
 #  Shared fixtures
 # ====================================================================== #
+
 
 @pytest.fixture
 def panel_data():
@@ -39,16 +39,18 @@ def panel_data():
     betas = rng.normal(0.5, 0.1, n_units)
 
     for i in range(n_units):
-        unit_name = f'unit_{i}'
+        unit_name = f"unit_{i}"
         for t in range(1, n_periods + 1):
             y = alphas[i] + betas[i] * t + rng.normal(0, 0.3)
             if i == 0 and t >= treatment_time:
                 y += 5.0
-            records.append({
-                'unit': unit_name,
-                'time': t,
-                'outcome': y,
-            })
+            records.append(
+                {
+                    "unit": unit_name,
+                    "time": t,
+                    "outcome": y,
+                }
+            )
 
     return pd.DataFrame(records)
 
@@ -65,7 +67,7 @@ def panel_no_effect():
         alpha = rng.normal(5, 1)
         for t in range(1, n_periods + 1):
             y = alpha + 0.3 * t + rng.normal(0, 0.2)
-            records.append({'unit': f'u{i}', 'time': t, 'outcome': y})
+            records.append({"unit": f"u{i}", "time": t, "outcome": y})
 
     return pd.DataFrame(records)
 
@@ -73,6 +75,7 @@ def panel_no_effect():
 # ====================================================================== #
 #  Bayesian SCM
 # ====================================================================== #
+
 
 class TestBayesianSCM:
 
@@ -82,16 +85,22 @@ class TestBayesianSCM:
 
         result = bayesian_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_iter=500, n_warmup=200, n_chains=1,
-            seed=42, alpha=0.05,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_iter=500,
+            n_warmup=200,
+            n_chains=1,
+            seed=42,
+            alpha=0.05,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 3.0, (
-            f"Bayesian ATT={result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 3.0
+        ), f"Bayesian ATT={result.estimate:.2f}, expected ≈ 5.0"
 
     def test_returns_causal_result(self, panel_data):
         """Output should be a CausalResult with required fields."""
@@ -99,14 +108,20 @@ class TestBayesianSCM:
 
         result = bayesian_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_iter=300, n_warmup=100, n_chains=1, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_iter=300,
+            n_warmup=100,
+            n_chains=1,
+            seed=42,
         )
 
-        assert hasattr(result, 'estimate')
-        assert hasattr(result, 'se')
-        assert hasattr(result, 'ci')
+        assert hasattr(result, "estimate")
+        assert hasattr(result, "se")
+        assert hasattr(result, "ci")
         assert result.ci[0] < result.estimate < result.ci[1]
 
     def test_posterior_diagnostics(self, panel_data):
@@ -115,15 +130,21 @@ class TestBayesianSCM:
 
         result = bayesian_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_iter=400, n_warmup=150, n_chains=1, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_iter=400,
+            n_warmup=150,
+            n_chains=1,
+            seed=42,
         )
 
         mi = result.model_info
-        assert 'weights_posterior_mean' in mi
-        assert 'sigma_posterior_mean' in mi
-        assert mi['sigma_posterior_mean'] > 0
+        assert "weights_posterior_mean" in mi
+        assert "sigma_posterior_mean" in mi
+        assert mi["sigma_posterior_mean"] > 0
 
     def test_via_dispatcher(self, panel_data):
         """synth(method='bayesian') should route correctly."""
@@ -131,10 +152,16 @@ class TestBayesianSCM:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='bayesian',
-            n_iter=300, n_warmup=100, n_chains=1, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="bayesian",
+            n_iter=300,
+            n_warmup=100,
+            n_chains=1,
+            seed=42,
         )
 
         assert isinstance(result, CausalResult)
@@ -146,9 +173,15 @@ class TestBayesianSCM:
 
         result = bayesian_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_iter=300, n_warmup=100, n_chains=1, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_iter=300,
+            n_warmup=100,
+            n_chains=1,
+            seed=42,
         )
 
         cite = result.cite()
@@ -160,6 +193,7 @@ class TestBayesianSCM:
 #  BSTS / CausalImpact
 # ====================================================================== #
 
+
 class TestBSTS:
 
     def test_basic_bsts(self, panel_data):
@@ -168,15 +202,19 @@ class TestBSTS:
 
         result = bsts_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_simulations=200, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_simulations=200,
+            seed=42,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 4.0, (
-            f"BSTS ATT={result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 4.0
+        ), f"BSTS ATT={result.estimate:.2f}, expected ≈ 5.0"
 
     def test_causal_impact_interface(self, panel_data):
         """causal_impact() wide-format interface should work."""
@@ -184,13 +222,19 @@ class TestBSTS:
 
         # Reshape to wide format for causal_impact
         wide = panel_data.pivot_table(
-            index='time', columns='unit', values='outcome',
+            index="time",
+            columns="unit",
+            values="outcome",
         )
         wide.columns.name = None
 
         result = causal_impact(
-            wide, pre_period=(1, 10), post_period=(11, 20),
-            outcome='unit_0', n_simulations=200, seed=42,
+            wide,
+            pre_period=(1, 10),
+            post_period=(11, 20),
+            outcome="unit_0",
+            n_simulations=200,
+            seed=42,
         )
 
         assert isinstance(result, CausalResult)
@@ -202,15 +246,19 @@ class TestBSTS:
 
         result = bsts_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_simulations=100, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_simulations=100,
+            seed=42,
         )
 
         mi = result.model_info
-        assert 'sigma_obs' in mi
-        assert 'model_type' in mi
-        assert mi['model_type'] in ('local_level', 'local_linear_trend')
+        assert "sigma_obs" in mi
+        assert "model_type" in mi
+        assert mi["model_type"] in ("local_level", "local_linear_trend")
 
     def test_via_dispatcher(self, panel_data):
         """synth(method='bsts') should route correctly."""
@@ -218,10 +266,14 @@ class TestBSTS:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='bsts',
-            n_simulations=100, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="bsts",
+            n_simulations=100,
+            seed=42,
         )
 
         assert isinstance(result, CausalResult)
@@ -232,18 +284,23 @@ class TestBSTS:
 
         result = bsts_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            n_simulations=200, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            n_simulations=200,
+            seed=42,
         )
 
         mi = result.model_info
-        assert 'cumulative_effect' in mi
+        assert "cumulative_effect" in mi
 
 
 # ====================================================================== #
 #  Penalized SCM (Abadie & L'Hour 2021)
 # ====================================================================== #
+
 
 class TestPenalizedSCM:
 
@@ -253,15 +310,19 @@ class TestPenalizedSCM:
 
         result = penalized_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            placebo=False, alpha=0.05,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            placebo=False,
+            alpha=0.05,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 3.0, (
-            f"PenSCM ATT={result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 3.0
+        ), f"PenSCM ATT={result.estimate:.2f}, expected ≈ 5.0"
 
     def test_pairwise_distances(self, panel_data):
         """model_info should contain pairwise distances."""
@@ -269,25 +330,32 @@ class TestPenalizedSCM:
 
         result = penalized_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'pairwise_distances' in mi
-        assert isinstance(mi['pairwise_distances'], dict)
+        assert "pairwise_distances" in mi
+        assert isinstance(mi["pairwise_distances"], dict)
 
     def test_penalty_types(self, panel_data):
         """All 3 penalty types should work."""
         from statspai.synth.penscm import penalized_synth
 
-        for ptype in ('pairwise', 'max_dev', 'l1_pairwise'):
+        for ptype in ("pairwise", "max_dev", "l1_pairwise"):
             result = penalized_synth(
                 panel_data,
-                outcome='outcome', unit='unit', time='time',
-                treated_unit='unit_0', treatment_time=11,
-                penalty_type=ptype, placebo=False,
+                outcome="outcome",
+                unit="unit",
+                time="time",
+                treated_unit="unit_0",
+                treatment_time=11,
+                penalty_type=ptype,
+                placebo=False,
             )
             assert isinstance(result, CausalResult)
             assert result.estimate != 0, f"penalty_type={ptype} returned 0"
@@ -298,12 +366,15 @@ class TestPenalizedSCM:
 
         result = penalized_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
-        weights = result.model_info['weights']
+        weights = result.model_info["weights"]
         w_arr = np.array(list(weights.values()))
         assert np.all(w_arr >= -1e-6), "Weights should be non-negative"
         assert abs(np.sum(w_arr) - 1.0) < 1e-4, "Weights should sum to 1"
@@ -314,9 +385,13 @@ class TestPenalizedSCM:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='penscm', placebo=False,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="penscm",
+            placebo=False,
         )
 
         assert isinstance(result, CausalResult)
@@ -326,6 +401,7 @@ class TestPenalizedSCM:
 #  Forward DID
 # ====================================================================== #
 
+
 class TestForwardDID:
 
     def test_basic_fdid(self, panel_data):
@@ -334,15 +410,18 @@ class TestForwardDID:
 
         result = fdid(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 3.0, (
-            f"FDID ATT={result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 3.0
+        ), f"FDID ATT={result.estimate:.2f}, expected ≈ 5.0"
 
     def test_selected_donors(self, panel_data):
         """FDID should select a subset of donors."""
@@ -350,26 +429,33 @@ class TestForwardDID:
 
         result = fdid(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'selected_donors' in mi
-        assert len(mi['selected_donors']) > 0
-        assert len(mi['selected_donors']) <= 10  # at most all donors
+        assert "selected_donors" in mi
+        assert len(mi["selected_donors"]) > 0
+        assert len(mi["selected_donors"]) <= 10  # at most all donors
 
     def test_selection_methods(self, panel_data):
         """All selection methods should work."""
         from statspai.synth.fdid import fdid
 
-        for method in ('forward', 'forward_cv'):
+        for method in ("forward", "forward_cv"):
             result = fdid(
                 panel_data,
-                outcome='outcome', unit='unit', time='time',
-                treated_unit='unit_0', treatment_time=11,
-                method=method, placebo=False,
+                outcome="outcome",
+                unit="unit",
+                time="time",
+                treated_unit="unit_0",
+                treatment_time=11,
+                method=method,
+                placebo=False,
             )
             assert isinstance(result, CausalResult)
             assert result.estimate != 0
@@ -380,9 +466,13 @@ class TestForwardDID:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='fdid', placebo=False,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="fdid",
+            placebo=False,
         )
 
         assert isinstance(result, CausalResult)
@@ -393,18 +483,22 @@ class TestForwardDID:
 
         result = fdid(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'selection_path' in mi
+        assert "selection_path" in mi
 
 
 # ====================================================================== #
 #  Cluster SCM
 # ====================================================================== #
+
 
 class TestClusterSCM:
 
@@ -414,26 +508,35 @@ class TestClusterSCM:
 
         result = cluster_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            placebo=False, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            placebo=False,
+            seed=42,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 4.0, (
-            f"Cluster ATT={result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 4.0
+        ), f"Cluster ATT={result.estimate:.2f}, expected ≈ 5.0"
 
     def test_cluster_methods(self, panel_data):
         """All clustering methods should work."""
         from statspai.synth.cluster import cluster_synth
 
-        for method in ('kmeans', 'hierarchical'):
+        for method in ("kmeans", "hierarchical"):
             result = cluster_synth(
                 panel_data,
-                outcome='outcome', unit='unit', time='time',
-                treated_unit='unit_0', treatment_time=11,
-                cluster_method=method, placebo=False, seed=42,
+                outcome="outcome",
+                unit="unit",
+                time="time",
+                treated_unit="unit_0",
+                treatment_time=11,
+                cluster_method=method,
+                placebo=False,
+                seed=42,
             )
             assert isinstance(result, CausalResult)
 
@@ -443,14 +546,18 @@ class TestClusterSCM:
 
         result = cluster_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            placebo=False, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            placebo=False,
+            seed=42,
         )
 
         mi = result.model_info
-        assert 'cluster_labels' in mi
-        assert 'n_clusters' in mi
+        assert "cluster_labels" in mi
+        assert "n_clusters" in mi
 
     def test_via_dispatcher(self, panel_data):
         """synth(method='cluster') should route correctly."""
@@ -458,9 +565,14 @@ class TestClusterSCM:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='cluster', placebo=False, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="cluster",
+            placebo=False,
+            seed=42,
         )
 
         assert isinstance(result, CausalResult)
@@ -471,10 +583,15 @@ class TestClusterSCM:
 
         result = cluster_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            augment=True, max_augment=2,
-            placebo=False, seed=42,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            augment=True,
+            max_augment=2,
+            placebo=False,
+            seed=42,
         )
 
         assert isinstance(result, CausalResult)
@@ -484,6 +601,7 @@ class TestClusterSCM:
 #  Sparse SCM
 # ====================================================================== #
 
+
 class TestSparseSCM:
 
     def test_basic_sparse(self, panel_data):
@@ -492,15 +610,18 @@ class TestSparseSCM:
 
         result = sparse_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 4.0, (
-            f"Sparse ATT={result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 4.0
+        ), f"Sparse ATT={result.estimate:.2f}, expected ≈ 5.0"
 
     def test_sparsity(self, panel_data):
         """Sparse SCM should produce sparse weights."""
@@ -508,26 +629,33 @@ class TestSparseSCM:
 
         result = sparse_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'n_nonzero_weights' in mi
+        assert "n_nonzero_weights" in mi
         # Should have fewer non-zero weights than total donors
-        assert mi['n_nonzero_weights'] <= 10
+        assert mi["n_nonzero_weights"] <= 10
 
     def test_modes(self, panel_data):
         """All sparse modes should work."""
         from statspai.synth.sparse import sparse_synth
 
-        for mode in ('lasso', 'constrained_lasso'):
+        for mode in ("lasso", "constrained_lasso"):
             result = sparse_synth(
                 panel_data,
-                outcome='outcome', unit='unit', time='time',
-                treated_unit='unit_0', treatment_time=11,
-                mode=mode, placebo=False,
+                outcome="outcome",
+                unit="unit",
+                time="time",
+                treated_unit="unit_0",
+                treatment_time=11,
+                mode=mode,
+                placebo=False,
             )
             assert isinstance(result, CausalResult)
 
@@ -537,9 +665,13 @@ class TestSparseSCM:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='sparse', placebo=False,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="sparse",
+            placebo=False,
         )
 
         assert isinstance(result, CausalResult)
@@ -550,19 +682,23 @@ class TestSparseSCM:
 
         result = sparse_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         mi = result.model_info
-        assert 'lambda_w' in mi
-        assert mi['lambda_w'] > 0
+        assert "lambda_w" in mi
+        assert mi["lambda_w"] > 0
 
 
 # ====================================================================== #
 #  Kernel SCM
 # ====================================================================== #
+
 
 class TestKernelSCM:
 
@@ -572,26 +708,33 @@ class TestKernelSCM:
 
         result = kernel_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 5.0) < 4.0, (
-            f"Kernel ATT={result.estimate:.2f}, expected ≈ 5.0"
-        )
+        assert (
+            abs(result.estimate - 5.0) < 4.0
+        ), f"Kernel ATT={result.estimate:.2f}, expected ≈ 5.0"
 
     def test_kernel_types(self, panel_data):
         """All kernel types should work."""
         from statspai.synth.kernel import kernel_synth
 
-        for kernel in ('rbf', 'polynomial', 'laplacian'):
+        for kernel in ("rbf", "polynomial", "laplacian"):
             result = kernel_synth(
                 panel_data,
-                outcome='outcome', unit='unit', time='time',
-                treated_unit='unit_0', treatment_time=11,
-                kernel=kernel, placebo=False,
+                outcome="outcome",
+                unit="unit",
+                time="time",
+                treated_unit="unit_0",
+                treatment_time=11,
+                kernel=kernel,
+                placebo=False,
             )
             assert isinstance(result, CausalResult)
             assert result.estimate != 0, f"kernel={kernel} returned 0"
@@ -602,8 +745,11 @@ class TestKernelSCM:
 
         result = kernel_ridge_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
         )
 
         assert isinstance(result, CausalResult)
@@ -615,12 +761,15 @@ class TestKernelSCM:
 
         result = kernel_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
             placebo=False,
         )
 
-        weights = result.model_info['weights']
+        weights = result.model_info["weights"]
         w_arr = np.array(list(weights.values()))
         assert np.all(w_arr >= -1e-6), "Weights should be non-negative"
         assert abs(np.sum(w_arr) - 1.0) < 1e-4, "Weights should sum to 1"
@@ -631,9 +780,13 @@ class TestKernelSCM:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='kernel', placebo=False,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="kernel",
+            placebo=False,
         )
 
         assert isinstance(result, CausalResult)
@@ -644,9 +797,12 @@ class TestKernelSCM:
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method='kernel_ridge',
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method="kernel_ridge",
         )
 
         assert isinstance(result, CausalResult)
@@ -657,67 +813,96 @@ class TestKernelSCM:
 
         result = kernel_synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            sigma=None, placebo=False,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            sigma=None,
+            placebo=False,
         )
 
         mi = result.model_info
-        assert 'sigma' in mi
-        assert mi['sigma'] > 0
+        assert "sigma" in mi
+        assert mi["sigma"] > 0
 
 
 # ====================================================================== #
 #  Unified dispatcher coverage
 # ====================================================================== #
 
+
 class TestUnifiedDispatcher:
 
-    @pytest.mark.parametrize("method", [
-        'bayesian', 'bsts', 'penscm', 'fdid',
-        'cluster', 'sparse', 'kernel', 'kernel_ridge',
-    ])
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "bayesian",
+            "bsts",
+            "penscm",
+            "fdid",
+            "cluster",
+            "sparse",
+            "kernel",
+            "kernel_ridge",
+        ],
+    )
     def test_all_new_methods_return_causal_result(self, panel_data, method):
         """All new methods via synth() should return CausalResult."""
         from statspai.synth import synth
 
-        kwargs = {'placebo': False}
-        if method == 'bayesian':
+        kwargs = {"placebo": False}
+        if method == "bayesian":
             kwargs.update(n_iter=300, n_warmup=100, n_chains=1, seed=42)
-        elif method == 'bsts':
+        elif method == "bsts":
             kwargs.update(n_simulations=100, seed=42)
-        elif method == 'cluster':
+        elif method == "cluster":
             kwargs.update(seed=42)
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method=method, **kwargs,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method=method,
+            **kwargs,
         )
 
         assert isinstance(result, CausalResult)
         assert result.estimate is not None
         assert not np.isnan(result.estimate)
 
-    @pytest.mark.parametrize("method", [
-        'penscm', 'fdid', 'cluster', 'sparse', 'kernel',
-    ])
+    @pytest.mark.parametrize(
+        "method",
+        [
+            "penscm",
+            "fdid",
+            "cluster",
+            "sparse",
+            "kernel",
+        ],
+    )
     def test_new_methods_positive_effect(self, panel_data, method):
         """All new methods should detect a positive effect (true ATT = 5.0)."""
         from statspai.synth import synth
 
-        kwargs = {'placebo': False}
-        if method == 'cluster':
+        kwargs = {"placebo": False}
+        if method == "cluster":
             kwargs.update(seed=42)
 
         result = synth(
             panel_data,
-            outcome='outcome', unit='unit', time='time',
-            treated_unit='unit_0', treatment_time=11,
-            method=method, **kwargs,
+            outcome="outcome",
+            unit="unit",
+            time="time",
+            treated_unit="unit_0",
+            treatment_time=11,
+            method=method,
+            **kwargs,
         )
 
-        assert result.estimate > 0, (
-            f"method={method}: ATT={result.estimate:.2f} should be positive"
-        )
+        assert (
+            result.estimate > 0
+        ), f"method={method}: ATT={result.estimate:.2f} should be positive"

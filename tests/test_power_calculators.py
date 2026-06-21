@@ -15,9 +15,7 @@ import statspai as sp
 
 
 def _did(n, effect=0.3):
-    return sp.power_did(
-        n=n, effect_size=effect, n_periods=4, n_treated_periods=2
-    ).power
+    return sp.power_did(n=n, effect_size=effect, n_periods=4, n_treated_periods=2).power
 
 
 def _rd(n, effect=0.3):
@@ -43,9 +41,10 @@ def test_power_is_a_probability(power):
 
 
 def test_result_objects_carry_design_tag():
-    assert sp.power_did(
-        n=200, effect_size=0.3, n_periods=4, n_treated_periods=2
-    ).design == "did"
+    assert (
+        sp.power_did(n=200, effect_size=0.3, n_periods=4, n_treated_periods=2).design
+        == "did"
+    )
     assert sp.power_rd(n=1000, effect_size=0.3, bandwidth=0.5).design == "rd"
 
 
@@ -58,9 +57,7 @@ def test_power_did_matches_closed_form_formula():
         rho=0.5,
     )
     z_alpha = norm.ppf(0.975)
-    se = (1.0 / 400**0.5) * (
-        (1.0 + 3.0 * 0.5) / (2.0 * (1.0 - 2.0 / 4.0))
-    ) ** 0.5
+    se = (1.0 / 400**0.5) * ((1.0 + 3.0 * 0.5) / (2.0 * (1.0 - 2.0 / 4.0))) ** 0.5
     expected = norm.cdf(0.3 / se - z_alpha)
     assert res.power == pytest.approx(expected)
 

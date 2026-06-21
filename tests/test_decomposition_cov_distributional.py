@@ -14,6 +14,7 @@ pinned exactly:
 
 These are exact algebraic identities of the estimators (no mocking, CLAUDE.md §5).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -35,8 +36,9 @@ def wage():
 
 @pytest.mark.parametrize("stat", ["mean", "variance", "gini", "quantile"])
 def test_ffl_aggregate_identity(wage, stat):
-    r = sp.decompose("ffl", data=wage, y="log_wage", group="female", x=X,
-                     stat=stat, tau=0.5)
+    r = sp.decompose(
+        "ffl", data=wage, y="log_wage", group="female", x=X, stat=stat, tau=0.5
+    )
     # The raw gap is exactly the difference in the statistic across groups.
     assert r.gap == pytest.approx(r.stat_a - r.stat_b, rel=1e-9, abs=1e-9)
     # gap = composition + structure + the two approximation error terms (RIF
@@ -47,8 +49,16 @@ def test_ffl_aggregate_identity(wage, stat):
 
 
 def test_ffl_reference_one(wage):
-    r = sp.decompose("ffl", data=wage, y="log_wage", group="female", x=X,
-                     stat="quantile", tau=0.5, reference=1)
+    r = sp.decompose(
+        "ffl",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        stat="quantile",
+        tau=0.5,
+        reference=1,
+    )
     assert r.gap == pytest.approx(r.stat_a - r.stat_b, rel=1e-7, abs=1e-9)
 
 
@@ -57,8 +67,9 @@ def test_ffl_reference_one(wage):
 
 @pytest.mark.parametrize("stat", ["mean", "quantile", "gini"])
 def test_dfl_decomposition_identity(wage, stat):
-    r = sp.decompose("dfl", data=wage, y="log_wage", group="female", x=X,
-                     stat=stat, tau=0.5)
+    r = sp.decompose(
+        "dfl", data=wage, y="log_wage", group="female", x=X, stat=stat, tau=0.5
+    )
     assert r.gap == pytest.approx(r.composition + r.structure, rel=1e-7, abs=1e-9)
     # Counterfactual = group B's characteristics under group A's structure:
     # composition (characteristics) = cf - B; structure (returns) = A - cf.
@@ -73,37 +84,60 @@ def test_dfl_decomposition_identity(wage, stat):
 @pytest.mark.parametrize("statistic", ["mean", "quantile", "variance", "gini"])
 def test_rif_decomposition_identity(wage, statistic):
     r = sp.decompose(
-        "rif", formula="log_wage ~ education + experience + tenure",
-        data=wage, group="female", statistic=statistic, tau=0.5,
+        "rif",
+        formula="log_wage ~ education + experience + tenure",
+        data=wage,
+        group="female",
+        statistic=statistic,
+        tau=0.5,
     )
-    assert r.total_diff == pytest.approx(r.explained + r.unexplained, rel=1e-7, abs=1e-9)
+    assert r.total_diff == pytest.approx(
+        r.explained + r.unexplained, rel=1e-7, abs=1e-9
+    )
 
 
 # ── quantile-grid decompositions ─────────────────────────────────────
 
 
 def test_machado_mata_mean_identity(wage):
-    r = sp.decompose("machado_mata", data=wage, y="log_wage", group="female",
-                     x=X, tau_grid=[0.25, 0.5, 0.75], n_sim=120)
+    r = sp.decompose(
+        "machado_mata",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        tau_grid=[0.25, 0.5, 0.75],
+        n_sim=120,
+    )
     o = r.overall
     assert o["mean_gap"] == pytest.approx(
-        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6)
+        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6
+    )
 
 
 def test_melly_mean_identity(wage):
-    r = sp.decompose("melly", data=wage, y="log_wage", group="female",
-                     x=X, tau_grid=[0.25, 0.5, 0.75])
+    r = sp.decompose(
+        "melly",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        tau_grid=[0.25, 0.5, 0.75],
+    )
     o = r.overall
     assert o["mean_gap"] == pytest.approx(
-        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6)
+        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6
+    )
 
 
 def test_cfm_identity_and_ks(wage):
-    r = sp.decompose("cfm", data=wage, y="log_wage", group="female",
-                     x=X, tau_grid=[0.25, 0.5, 0.75])
+    r = sp.decompose(
+        "cfm", data=wage, y="log_wage", group="female", x=X, tau_grid=[0.25, 0.5, 0.75]
+    )
     o = r.overall
     assert o["mean_gap"] == pytest.approx(
-        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6)
+        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6
+    )
     # CFM also runs a Kolmogorov–Smirnov test on the two distributions.
     assert r.ks_stat >= 0.0
     assert 0.0 <= r.ks_pvalue <= 1.0

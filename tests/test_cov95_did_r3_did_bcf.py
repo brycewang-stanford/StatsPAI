@@ -36,8 +36,16 @@ def test_did_bcf_no_covariates(panel):
 
 
 def test_did_bcf_with_covariates(panel):
-    r = sp.did_bcf(panel, y="y", treat="first_treat", time="time", id="unit",
-                   covariates=["x1", "x2"], n_trees=20, seed=3)
+    r = sp.did_bcf(
+        panel,
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
+        covariates=["x1", "x2"],
+        n_trees=20,
+        seed=3,
+    )
     assert np.isfinite(r.estimate)
     assert 0.0 <= r.pvalue <= 1.0
     assert r.model_info["n_covariates"] == 2

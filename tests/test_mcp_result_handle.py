@@ -10,6 +10,7 @@ Covers:
 * ``bibtex`` tool round-trips known + unknown keys.
 * LRU eviction.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,8 +29,7 @@ from statspai.agent import (
 
 
 def _rpc(method, params=None, request_id=1):
-    msg = {"jsonrpc": "2.0", "id": request_id, "method": method,
-           "params": params or {}}
+    msg = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
     line = mcp_handle_request(json.dumps(msg))
     return json.loads(line)
 
@@ -37,6 +37,7 @@ def _rpc(method, params=None, request_id=1):
 # ----------------------------------------------------------------------
 # Result cache primitives
 # ----------------------------------------------------------------------
+
 
 class TestResultCache:
     def test_put_and_get_round_trip(self):
@@ -61,8 +62,11 @@ class TestResultCache:
     def test_metadata_strips_dataframes(self):
         df = pd.DataFrame({"y": [1, 2, 3]})
         cache = ResultCache(max_size=2)
-        rid = cache.put({"hello": "world"}, tool="did",
-                        arguments={"data": df, "y": "wage", "post": True})
+        rid = cache.put(
+            {"hello": "world"},
+            tool="did",
+            arguments={"data": df, "y": "wage", "post": True},
+        )
         meta = cache.get_entry(rid).to_metadata()
         assert "data" in meta["arguments"]
         # DataFrame replaced by a placeholder string
@@ -95,6 +99,7 @@ class TestResultCache:
 # bibtex tool
 # ----------------------------------------------------------------------
 
+
 class TestBibtexTool:
     def test_known_key_returns_entry(self):
         out = execute_tool("bibtex", {"keys": ["abadie2003economic"]})
@@ -122,6 +127,7 @@ class TestBibtexTool:
 # ----------------------------------------------------------------------
 # Workflow tools
 # ----------------------------------------------------------------------
+
 
 def _toy_panel():
     """2-period 2-group panel for sanity tests."""
@@ -159,8 +165,7 @@ class TestAsHandleAndResourceRead:
             as_handle=True,
         )
         rid = out["result_id"]
-        msg = _rpc("resources/read",
-                   {"uri": f"statspai://result/{rid}"})
+        msg = _rpc("resources/read", {"uri": f"statspai://result/{rid}"})
         assert "result" in msg, msg
         contents = msg["result"]["contents"]
         body = json.loads(contents[0]["text"])
@@ -168,8 +173,7 @@ class TestAsHandleAndResourceRead:
         assert body["provenance"]["tool"] == "did"
 
     def test_resource_read_unknown_handle_is_32002(self):
-        msg = _rpc("resources/read",
-                   {"uri": "statspai://result/r_deadbeef"})
+        msg = _rpc("resources/read", {"uri": "statspai://result/r_deadbeef"})
         assert msg["error"]["code"] == -32002
 
     def test_audit_result_via_handle(self):
@@ -189,8 +193,7 @@ class TestAsHandleAndResourceRead:
             assert "audit" in out["error"].lower() or "result_id" in out
 
     def test_audit_with_missing_handle_returns_friendly_error(self):
-        out = execute_tool("audit_result",
-                            {"result_id": "r_definitely_missing"})
+        out = execute_tool("audit_result", {"result_id": "r_definitely_missing"})
         assert "error" in out
         assert "result_id" in out["error"] or "not found" in out["error"]
 
@@ -229,6 +232,7 @@ class TestAsHandleAndResourceRead:
 # Schema injection: result_id, as_handle, data_columns, data_sample_n
 # ----------------------------------------------------------------------
 
+
 class TestSchemaInjection:
     def test_every_tool_exposes_result_id(self):
         msg = _rpc("tools/list", {})
@@ -254,6 +258,7 @@ class TestSchemaInjection:
 # Initialize block surfaces instructions
 # ----------------------------------------------------------------------
 
+
 class TestInitializeInstructions:
     def test_instructions_present(self):
         msg = _rpc("initialize", {})
@@ -272,6 +277,7 @@ class TestInitializeInstructions:
 # Templates list includes the result template
 # ----------------------------------------------------------------------
 
+
 class TestResultTemplate:
     def test_result_template_exposed(self):
         msg = _rpc("resources/templates/list", {})
@@ -284,20 +290,24 @@ class TestResultTemplate:
 # JSON encoder coverage
 # ----------------------------------------------------------------------
 
+
 class TestJsonDefault:
     def test_numpy_bool_int_float(self):
         from statspai.agent.mcp_server import _json_default
+
         assert _json_default(np.bool_(True)) is True
         assert _json_default(np.int64(7)) == 7
         assert _json_default(np.float32(1.5)) == 1.5
 
     def test_numpy_nan_inf_become_none(self):
         from statspai.agent.mcp_server import _json_default
+
         assert _json_default(np.float64("nan")) is None
         assert _json_default(np.float64("inf")) is None
 
     def test_set_and_frozenset(self):
         from statspai.agent.mcp_server import _json_default
+
         out = _json_default({"b", "a"})
         assert out == ["a", "b"]
         out = _json_default(frozenset(["c", "a"]))
@@ -307,11 +317,13 @@ class TestJsonDefault:
         from pathlib import Path
         from decimal import Decimal
         from statspai.agent.mcp_server import _json_default
+
         assert _json_default(Path("/tmp/x")) == "/tmp/x"
         assert _json_default(Decimal("1.5")) == 1.5
 
     def test_pandas_index_and_timestamp(self):
         from statspai.agent.mcp_server import _json_default
+
         out = _json_default(pd.Index([1, 2, 3]))
         assert out == [1, 2, 3]
         ts = pd.Timestamp("2026-04-29")
@@ -323,15 +335,19 @@ class TestJsonDefault:
 # Debug flag gates traceback
 # ----------------------------------------------------------------------
 
+
 class TestDebugFlagGatesTraceback:
     def test_default_no_traceback(self, monkeypatch):
         monkeypatch.delenv("STATSPAI_MCP_DEBUG", raising=False)
         # Force a -32000 by triggering an unknown handler error path.
         # We monkey-patch a registered method to raise.
         from statspai.agent import mcp_server
+
         original = mcp_server._METHODS["initialize"]
+
         def boom(_):
             raise RuntimeError("synthetic")
+
         mcp_server._METHODS["initialize"] = boom
         try:
             msg = _rpc("initialize", {})
@@ -343,9 +359,12 @@ class TestDebugFlagGatesTraceback:
     def test_debug_flag_emits_traceback(self, monkeypatch):
         monkeypatch.setenv("STATSPAI_MCP_DEBUG", "1")
         from statspai.agent import mcp_server
+
         original = mcp_server._METHODS["initialize"]
+
         def boom(_):
             raise RuntimeError("synthetic")
+
         mcp_server._METHODS["initialize"] = boom
         try:
             msg = _rpc("initialize", {})

@@ -25,12 +25,18 @@ def test_conformal_continuous_coverage():
     df_train = _make_continuous_data(n=800, seed=101)
     df_test = _make_continuous_data(n=400, seed=103)
     res = sp.conformal_continuous(
-        df_train, y="y", treatment="t", covariates=["x1", "x2"],
-        test_data=df_test, alpha=0.1, random_state=101,
+        df_train,
+        y="y",
+        treatment="t",
+        covariates=["x1", "x2"],
+        test_data=df_test,
+        alpha=0.1,
+        random_state=101,
     )
     y_test = df_test["y"].to_numpy()
-    covered = ((y_test >= res.predictions["lo"].to_numpy())
-               & (y_test <= res.predictions["hi"].to_numpy()))
+    covered = (y_test >= res.predictions["lo"].to_numpy()) & (
+        y_test <= res.predictions["hi"].to_numpy()
+    )
     coverage = covered.mean()
     # Allow slack for finite-sample noise.
     assert 0.80 < coverage < 0.98, coverage
@@ -40,21 +46,34 @@ def test_conformal_continuous_dose_grid():
     df = _make_continuous_data(n=400)
     test = df.head(5)
     res = sp.conformal_continuous(
-        df, y="y", treatment="t", covariates=["x1", "x2"],
+        df,
+        y="y",
+        treatment="t",
+        covariates=["x1", "x2"],
         test_data=test,
         dose_grid=np.linspace(0, 2, 11),
-        alpha=0.1, random_state=107,
+        alpha=0.1,
+        random_state=107,
     )
     assert res.dose_curves is not None
     assert len(res.dose_curves) == 5 * 11
-    assert set(res.dose_curves.columns) >= {"test_idx", "dose", "prediction", "lo", "hi"}
+    assert set(res.dose_curves.columns) >= {
+        "test_idx",
+        "dose",
+        "prediction",
+        "lo",
+        "hi",
+    }
 
 
 def test_conformal_continuous_missing_columns():
     df = _make_continuous_data(n=100)
     with pytest.raises(ValueError, match="missing"):
         sp.conformal_continuous(
-            df, y="bogus", treatment="t", covariates=["x1"],
+            df,
+            y="bogus",
+            treatment="t",
+            covariates=["x1"],
             test_data=df,
         )
 
@@ -71,9 +90,14 @@ def test_conformal_interference_cluster_level():
             rows.append({"cluster": c, "t": t, "x1": x1, "y": y})
     df = pd.DataFrame(rows)
     res = sp.conformal_interference(
-        df, y="y", treatment="t", cluster="cluster",
+        df,
+        y="y",
+        treatment="t",
+        cluster="cluster",
         covariates=["x1"],
-        test_clusters=[0, 1, 2], alpha=0.1, random_state=109,
+        test_clusters=[0, 1, 2],
+        alpha=0.1,
+        random_state=109,
     )
     assert len(res.predictions) == 3
     assert res.quantile > 0
@@ -89,14 +113,20 @@ def test_conformal_interference_cluster_level():
 
 
 def test_conformal_interference_requires_enough_clusters():
-    df = pd.DataFrame({
-        "cluster": [0, 0, 1, 1],
-        "t": [0, 1, 0, 1],
-        "y": [0.1, 0.2, 0.3, 0.4],
-        "x1": [0.0, 0.1, 0.2, 0.3],
-    })
+    df = pd.DataFrame(
+        {
+            "cluster": [0, 0, 1, 1],
+            "t": [0, 1, 0, 1],
+            "y": [0.1, 0.2, 0.3, 0.4],
+            "x1": [0.0, 0.1, 0.2, 0.3],
+        }
+    )
     with pytest.raises(ValueError, match=">= 4 non-test"):
         sp.conformal_interference(
-            df, y="y", treatment="t", cluster="cluster", covariates=["x1"],
+            df,
+            y="y",
+            treatment="t",
+            cluster="cluster",
+            covariates=["x1"],
             test_clusters=[0],
         )

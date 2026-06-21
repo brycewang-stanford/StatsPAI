@@ -31,7 +31,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # 1. Proposer parsing
 # ---------------------------------------------------------------------------
@@ -48,7 +47,8 @@ class TestProposerParsing:
         client = sp.causal_llm.echo_client(script)
         res = sp.causal_llm.causal_mas(
             variables=["age", "treatment", "outcome"],
-            client=client, rounds=1,
+            client=client,
+            rounds=1,
         )
         assert ("age", "treatment") in res.edges
         assert ("treatment", "outcome") in res.edges
@@ -68,7 +68,8 @@ class TestProposerParsing:
         client = sp.causal_llm.echo_client(script)
         res = sp.causal_llm.causal_mas(
             variables=["age", "treatment", "outcome"],
-            client=client, rounds=1,
+            client=client,
+            rounds=1,
         )
         # All three edges are parsed despite bullet characters.
         assert ("age", "treatment") in res.edges
@@ -97,7 +98,9 @@ class TestCriticRejection:
         client = sp.causal_llm.echo_client(script)
         res = sp.causal_llm.causal_mas(
             variables=["age", "treatment", "outcome"],
-            client=client, rounds=3, final_threshold=0.9,
+            client=client,
+            rounds=3,
+            final_threshold=0.9,
         )
         # The rejected edge gained zero proposer-survivor votes (always
         # rejected) and zero domain-expert bonuses, so its confidence
@@ -128,13 +131,15 @@ class TestDomainExpertBoost:
         client = sp.causal_llm.echo_client(script)
         res = sp.causal_llm.causal_mas(
             variables=["treatment", "outcome"],
-            client=client, rounds=3, final_threshold=0.1,
+            client=client,
+            rounds=3,
+            final_threshold=0.1,
         )
         # The edge was only proposed once ⇒ confidence = 1/3 ≈ 0.333.
         conf = res.confidence.get(("treatment", "outcome"), 0.0)
-        assert abs(conf - 1 / 3) < 0.1, (
-            f"Single-round proposal → confidence {conf:.3f}, expected ≈0.33"
-        )
+        assert (
+            abs(conf - 1 / 3) < 0.1
+        ), f"Single-round proposal → confidence {conf:.3f}, expected ≈0.33"
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +152,9 @@ class TestTranscriptAudit:
     def test_transcript_has_four_entries_per_round(self):
         client = sp.causal_llm.echo_client(lambda r, p: "")
         res = sp.causal_llm.causal_mas(
-            variables=["a", "b"], client=client, rounds=4,
+            variables=["a", "b"],
+            client=client,
+            rounds=4,
         )
         # proposer + critic + domain_expert + synthesiser per round.
         assert len(res.transcript) == 4 * 4
@@ -156,9 +163,9 @@ class TestTranscriptAudit:
         expected_cycle = ["propose", "reject", "endorse", "score"]
         for r in range(4):
             got = actions[4 * r : 4 * (r + 1)]
-            assert got == expected_cycle, (
-                f"Round {r}: action sequence = {got}, expected {expected_cycle}"
-            )
+            assert (
+                got == expected_cycle
+            ), f"Round {r}: action sequence = {got}, expected {expected_cycle}"
 
 
 # ---------------------------------------------------------------------------
@@ -176,7 +183,9 @@ class TestConfidenceScaling:
 
         client = sp.causal_llm.echo_client(always_propose)
         res = sp.causal_llm.causal_mas(
-            variables=["a", "b"], client=client, rounds=5,
+            variables=["a", "b"],
+            client=client,
+            rounds=5,
         )
         # Every round produces the edge and critic does not reject.
         # Confidence should be 1.0 (capped).
@@ -197,8 +206,10 @@ class TestRoleOverrides:
         client = sp.causal_llm.echo_client(lambda r, p: "foo -> bar")
         res = sp.causal_llm.causal_mas(
             variables=["foo", "bar"],
-            client=client, rounds=1,
-            treatment="foo", outcome="bar",
+            client=client,
+            rounds=1,
+            treatment="foo",
+            outcome="bar",
         )
         assert res.roles["foo"] == "treatment"
         assert res.roles["bar"] == "outcome"
@@ -222,6 +233,7 @@ class TestClaudeThinkingBlockParsing:
         # or `.thinking` depending on the block type.
         class _Block:
             type = block_type
+
         b = _Block()
         if block_type == "thinking":
             b.thinking = payload
@@ -266,17 +278,21 @@ class TestClaudeThinkingBlockParsing:
         return text, client.history[-1]
 
     def test_text_only_response(self):
-        text, entry = self._run_chat([
-            self._mock_block("text", "treatment -> outcome"),
-        ])
+        text, entry = self._run_chat(
+            [
+                self._mock_block("text", "treatment -> outcome"),
+            ]
+        )
         assert text == "treatment -> outcome"
         assert "thinking" not in entry
 
     def test_thinking_then_text(self):
-        text, entry = self._run_chat([
-            self._mock_block("thinking", "I should consider the DAG..."),
-            self._mock_block("text", "age -> treatment"),
-        ])
+        text, entry = self._run_chat(
+            [
+                self._mock_block("thinking", "I should consider the DAG..."),
+                self._mock_block("text", "age -> treatment"),
+            ]
+        )
         # The returned text must NOT contain the thinking trace.
         assert text == "age -> treatment"
         assert "DAG" not in text
@@ -284,10 +300,12 @@ class TestClaudeThinkingBlockParsing:
         assert entry.get("thinking") == "I should consider the DAG..."
 
     def test_redacted_thinking_is_labelled(self):
-        text, entry = self._run_chat([
-            self._mock_block("redacted_thinking", ""),
-            self._mock_block("text", "a -> b"),
-        ])
+        text, entry = self._run_chat(
+            [
+                self._mock_block("redacted_thinking", ""),
+                self._mock_block("text", "a -> b"),
+            ]
+        )
         assert text == "a -> b"
         assert entry.get("thinking") == "<redacted>"
 
@@ -304,7 +322,8 @@ class TestDagInterop:
         res = sp.causal_llm.causal_mas(
             variables=["age", "treatment", "outcome"],
             domain="RCT of statin",
-            client=client, rounds=1,
+            client=client,
+            rounds=1,
         )
         dag_str = res.to_dag_string()
         # sp.dag accepts "A -> B; C -> D" style strings.

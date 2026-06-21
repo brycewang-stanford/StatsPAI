@@ -23,7 +23,6 @@ from statspai.smart.citations import (
     render_citation,
 )
 
-
 CALLAWAY_BIB = (
     "@article{callaway2021difference,\n"
     "  title={Difference-in-differences with multiple time periods},\n"
@@ -139,7 +138,7 @@ class TestApaProse:
         bib = (
             "@book{angrist2009mostly,\n"
             "  title={Mostly Harmless Econometrics},\n"
-            "  author={Angrist, Joshua D and Pischke, J{\\\"o}rn-Steffen},\n"
+            '  author={Angrist, Joshua D and Pischke, J{\\"o}rn-Steffen},\n'
             "  year={2009},\n"
             "  publisher={Princeton University Press}\n"
             "}"
@@ -177,15 +176,25 @@ class TestJsonPayload:
 
     def test_json_has_canonical_keys(self):
         j = render_citation(CALLAWAY_BIB, fmt="json")
-        for k in ("type", "key", "authors", "year", "title", "journal",
-                  "volume", "number", "pages", "publisher", "fields"):
+        for k in (
+            "type",
+            "key",
+            "authors",
+            "year",
+            "title",
+            "journal",
+            "volume",
+            "number",
+            "pages",
+            "publisher",
+            "fields",
+        ):
             assert k in j
 
     def test_json_authors_are_structured(self):
         j = render_citation(CALLAWAY_BIB, fmt="json")
         assert isinstance(j["authors"], list)
-        assert all(set(a.keys()) >= {"last", "first"}
-                   for a in j["authors"])
+        assert all(set(a.keys()) >= {"last", "first"} for a in j["authors"])
 
     def test_json_round_trips(self):
         j = render_citation(CALLAWAY_BIB, fmt="json")
@@ -207,9 +216,15 @@ class TestPackageCitation:
 @pytest.fixture
 def did_result():
     return CausalResult(
-        method="callaway_santanna", estimand="ATT",
-        estimate=1.5, se=0.5, pvalue=0.003, ci=(0.5, 2.5),
-        alpha=0.05, n_obs=1000, model_info={},
+        method="callaway_santanna",
+        estimand="ATT",
+        estimate=1.5,
+        se=0.5,
+        pvalue=0.003,
+        ci=(0.5, 2.5),
+        alpha=0.05,
+        n_obs=1000,
+        model_info={},
         _citation_key="callaway_santanna",
     )
 
@@ -237,9 +252,17 @@ class TestCausalResultCite:
             did_result.cite(format="latex")
 
     def test_unregistered_method_returns_placeholder(self):
-        r = CausalResult(method="totally_made_up", estimand="ATE",
-                          estimate=0.0, se=0.0, pvalue=0.5, ci=(0, 0),
-                          alpha=0.05, n_obs=100, model_info={})
+        r = CausalResult(
+            method="totally_made_up",
+            estimand="ATE",
+            estimate=0.0,
+            se=0.0,
+            pvalue=0.5,
+            ci=(0, 0),
+            alpha=0.05,
+            n_obs=100,
+            model_info={},
+        )
         bib = r.cite()
         assert "No citation registered" in bib
         # APA / JSON also surface the placeholder rather than guessing.
@@ -326,11 +349,7 @@ class TestMultiEntryBibtex:
 
     def test_json_returns_dict_for_single_entry(self):
         # Backward compat: single-entry inputs still get a dict.
-        single = (
-            "@article{x2020,\n"
-            "  author={Foo, B}, year={2020}, title={A}\n"
-            "}"
-        )
+        single = "@article{x2020,\n" "  author={Foo, B}, year={2020}, title={A}\n" "}"
         j = render_citation(single, fmt="json")
         assert isinstance(j, dict)
 
@@ -352,10 +371,8 @@ class TestNoHallucination:
         )
         s = render_citation(bib, fmt="apa")
         # Common phantoms a model might insert.
-        for fake in ("Springer", "Elsevier", "Wiley", "Oxford",
-                      "MIT Press"):
-            assert fake not in s, (
-                f"hallucinated publisher {fake!r} in APA prose: {s!r}")
+        for fake in ("Springer", "Elsevier", "Wiley", "Oxford", "MIT Press"):
+            assert fake not in s, f"hallucinated publisher {fake!r} in APA prose: {s!r}"
 
     def test_no_phantom_year_when_missing(self):
         bib = (
@@ -366,5 +383,6 @@ class TestNoHallucination:
         s = render_citation(bib, fmt="apa")
         # The current decade should NOT appear if not in the source.
         for fake_year in ("2024", "2023", "2022", "2021", "2020"):
-            assert fake_year not in s, (
-                f"hallucinated year {fake_year!r} in APA prose: {s!r}")
+            assert (
+                fake_year not in s
+            ), f"hallucinated year {fake_year!r} in APA prose: {s!r}"

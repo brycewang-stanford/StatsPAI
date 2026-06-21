@@ -18,6 +18,7 @@ plan §5.2):
   * iterative / cross-fit (DiD, RD, SCM, DML): rel_diff < 1e-3
   * bootstrap / placebo CI half-widths:        abs_diff < 0.05 * SE
 """
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,6 @@ from pathlib import Path
 from typing import Any, Mapping
 
 import pandas as pd
-
 
 HERE = Path(__file__).resolve().parent
 DATA_DIR = HERE / "data"
@@ -51,9 +51,9 @@ class ParityRecord:
     on (module, statistic) and compute abs / rel diffs directly.
     """
 
-    module: str                       # e.g. "01_ols"
-    side: str                         # "py" or "R"
-    statistic: str                    # e.g. "beta_educ", "se_educ"
+    module: str  # e.g. "01_ols"
+    side: str  # "py" or "R"
+    statistic: str  # e.g. "beta_educ", "se_educ"
     estimate: float | None
     se: float | None = None
     ci_lo: float | None = None

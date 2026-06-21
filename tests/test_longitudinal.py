@@ -9,7 +9,6 @@ import pytest
 import statspai as sp
 from statspai.longitudinal import regime, always_treat, never_treat
 
-
 # ---------------------------------------------------------------------------
 # Regime DSL
 # ---------------------------------------------------------------------------
@@ -50,6 +49,7 @@ def test_regime_from_string_always():
 def test_regime_from_callable():
     def my_regime(h, t):
         return 1 if h.get("x", 0) > 0 else 0
+
     r = sp.regime(my_regime, name="x_positive")
     assert r.kind == "dynamic"
     assert r.treatment({"x": 5}, 0) == 1
@@ -58,6 +58,7 @@ def test_regime_from_callable():
 
 def test_regime_string_rejects_unsafe_syntax():
     import pytest
+
     # Function calls, attribute access, etc. should be rejected
     with pytest.raises(ValueError):
         sp.regime("__import__('os').system('ls')")
@@ -83,21 +84,27 @@ def simple_cross_sectional_panel():
     treated = rng.binomial(1, 1 / (1 + np.exp(-(age - 50) / 10)))
     # True ATE = 2.0
     y = 10 + 2.0 * treated + 0.1 * age + rng.normal(0, 1, n)
-    return pd.DataFrame({
-        "pid": range(n),
-        "visit": 0,
-        "treat": treated,
-        "y": y,
-        "age": age,
-    })
+    return pd.DataFrame(
+        {
+            "pid": range(n),
+            "visit": 0,
+            "treat": treated,
+            "y": y,
+            "age": age,
+        }
+    )
 
 
 def test_analyze_ipw_without_time_varying(simple_cross_sectional_panel):
     df = simple_cross_sectional_panel
     r = sp.longitudinal_analyze(
-        data=df, id="pid", time="visit",
-        treatment="treat", outcome="y",
-        baseline=["age"], regime=always_treat(),
+        data=df,
+        id="pid",
+        time="visit",
+        treatment="treat",
+        outcome="y",
+        baseline=["age"],
+        regime=always_treat(),
     )
     assert r.method == "ipw"
     assert np.isfinite(r.estimate)
@@ -110,25 +117,35 @@ def test_longitudinal_analyze_ipw_recovers_balanced_static_regime_means():
     for age in (30.0, 40.0, 50.0, 60.0):
         for _ in range(15):
             for treat in (0.0, 1.0):
-                rows.append({
-                    "pid": pid,
-                    "visit": 0,
-                    "age": age,
-                    "treat": treat,
-                    "y": 5.0 + 0.1 * age + 2.0 * treat,
-                })
+                rows.append(
+                    {
+                        "pid": pid,
+                        "visit": 0,
+                        "age": age,
+                        "treat": treat,
+                        "y": 5.0 + 0.1 * age + 2.0 * treat,
+                    }
+                )
                 pid += 1
     df = pd.DataFrame(rows)
 
     always = sp.longitudinal_analyze(
-        data=df, id="pid", time="visit",
-        treatment="treat", outcome="y",
-        baseline=["age"], regime=always_treat(),
+        data=df,
+        id="pid",
+        time="visit",
+        treatment="treat",
+        outcome="y",
+        baseline=["age"],
+        regime=always_treat(),
     )
     never = sp.longitudinal_analyze(
-        data=df, id="pid", time="visit",
-        treatment="treat", outcome="y",
-        baseline=["age"], regime=never_treat(),
+        data=df,
+        id="pid",
+        time="visit",
+        treatment="treat",
+        outcome="y",
+        baseline=["age"],
+        regime=never_treat(),
     )
 
     np.testing.assert_allclose(always.estimate, 11.5, atol=1e-12)
@@ -139,9 +156,13 @@ def test_longitudinal_analyze_ipw_recovers_balanced_static_regime_means():
 def test_analyze_contrast_a_minus_b(simple_cross_sectional_panel):
     df = simple_cross_sectional_panel
     diff = sp.longitudinal_contrast(
-        data=df, id="pid", time="visit",
-        treatment="treat", outcome="y",
-        regime_a=always_treat(), regime_b=never_treat(),
+        data=df,
+        id="pid",
+        time="visit",
+        treatment="treat",
+        outcome="y",
+        regime_a=always_treat(),
+        regime_b=never_treat(),
         baseline=["age"],
     )
     assert "contrast" in diff
@@ -167,10 +188,15 @@ def panel_with_tv_confounders():
             p_treat = 1 / (1 + np.exp(-(bp_lag - 120) / 20))
             treat = rng.binomial(1, p_treat)
             bp = bp_prev - 2 * treat + rng.normal(0, 3)
-            rows.append({
-                "pid": pid, "visit": t,
-                "treat": treat, "bp": bp, "bp_lag": bp_lag,
-            })
+            rows.append(
+                {
+                    "pid": pid,
+                    "visit": t,
+                    "treat": treat,
+                    "bp": bp,
+                    "bp_lag": bp_lag,
+                }
+            )
             bp_prev = bp
     df = pd.DataFrame(rows)
     # End-of-follow-up outcome
@@ -181,8 +207,11 @@ def panel_with_tv_confounders():
 def test_analyze_msm_path(panel_with_tv_confounders):
     df = panel_with_tv_confounders
     r = sp.longitudinal_analyze(
-        data=df, id="pid", time="visit",
-        treatment="treat", outcome="y",
+        data=df,
+        id="pid",
+        time="visit",
+        treatment="treat",
+        outcome="y",
         time_varying=["bp_lag"],
         regime="if bp_lag > 120 then 1 else 0",
     )
@@ -194,8 +223,11 @@ def test_analyze_msm_path(panel_with_tv_confounders):
 def test_analyze_gformula_path_with_static_regime(panel_with_tv_confounders):
     df = panel_with_tv_confounders
     r = sp.longitudinal_analyze(
-        data=df, id="pid", time="visit",
-        treatment="treat", outcome="y",
+        data=df,
+        id="pid",
+        time="visit",
+        treatment="treat",
+        outcome="y",
         time_varying=["bp_lag"],
         regime=always_treat(K=3),
         method="g-formula",

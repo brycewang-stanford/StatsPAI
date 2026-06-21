@@ -15,6 +15,7 @@ Real synthetic RD data; assertions check that figures/axes are produced and
 that helper fallbacks render text rather than raising — never fabricated
 numbers.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,8 +43,9 @@ def _df(seed=6, n=2000, tau=3.0):
 
 def test_rd_dashboard_no_covs_running_var_panel():
     df = _df()
-    fig, axes = sp.rd_dashboard(df, y="y", x="x", c=0, covs=None,
-                                title="RD diagnostics")
+    fig, axes = sp.rd_dashboard(
+        df, y="y", x="x", c=0, covs=None, title="RD diagnostics"
+    )
     assert axes.shape == (2, 2)
     plt.close("all")
 
@@ -52,8 +54,9 @@ def test_rd_dashboard_with_covs_and_custom_grid_and_save():
     df = _df()
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "dash.png")
-        fig, axes = sp.rd_dashboard(df, y="y", x="x", c=0, covs=["z"],
-                                    bw_grid=[0.2, 0.4, 0.6], save=path)
+        fig, axes = sp.rd_dashboard(
+            df, y="y", x="x", c=0, covs=["z"], bw_grid=[0.2, 0.4, 0.6], save=path
+        )
         assert os.path.exists(path)
     plt.close("all")
 
@@ -78,8 +81,9 @@ def test_plot_bw_sensitivity_no_bandwidth_fallback():
     df = _df()
     fig, ax = plt.subplots()
     # h_ref None -> "(bandwidth not available)" text branch
-    _plot_bw_sensitivity(ax, df, y="y", x="x", c=0, fuzzy=None, h_ref=None,
-                         bw_grid=None)
+    _plot_bw_sensitivity(
+        ax, df, y="y", x="x", c=0, fuzzy=None, h_ref=None, bw_grid=None
+    )
     assert ax is not None
     plt.close("all")
 
@@ -87,7 +91,8 @@ def test_plot_bw_sensitivity_no_bandwidth_fallback():
 def test_plot_bw_sensitivity_explicit_grid():
     df = _df()
     fig, ax = plt.subplots()
-    _plot_bw_sensitivity(ax, df, y="y", x="x", c=0, fuzzy=None, h_ref=0.5,
-                         bw_grid=[0.3, 0.5, 0.7])
+    _plot_bw_sensitivity(
+        ax, df, y="y", x="x", c=0, fuzzy=None, h_ref=0.5, bw_grid=[0.3, 0.5, 0.7]
+    )
     assert ax is not None
     plt.close("all")

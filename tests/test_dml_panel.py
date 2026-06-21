@@ -32,9 +32,14 @@ from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
 
 def _sim_panel(
-    N: int = 60, T: int = 8, *,
-    beta: float = 0.5, gamma: float = 0.8,
-    d_on_x: float = 0.3, sigma: float = 0.5, seed: int = 0,
+    N: int = 60,
+    T: int = 8,
+    *,
+    beta: float = 0.5,
+    gamma: float = 0.8,
+    d_on_x: float = 0.3,
+    sigma: float = 0.5,
+    seed: int = 0,
 ):
     rng = np.random.default_rng(seed)
     alpha_i = rng.normal(0, 1, N)
@@ -44,10 +49,15 @@ def _sim_panel(
         D = d_on_x * X + rng.normal(0, 1, T)
         Y = alpha_i[i] + beta * D + gamma * X + rng.normal(0, sigma, T)
         for t in range(T):
-            rows.append({
-                "pid": i, "year": t, "y": Y[t],
-                "d": D[t], "x1": X[t],
-            })
+            rows.append(
+                {
+                    "pid": i,
+                    "year": t,
+                    "y": Y[t],
+                    "d": D[t],
+                    "x1": X[t],
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -60,8 +70,7 @@ class TestRecovery:
 
     def test_result_type_and_summary(self):
         df = _sim_panel(N=40, T=6, seed=0)
-        res = dml_panel(df, y="y", treat="d", covariates="x1",
-                        unit="pid", n_folds=3)
+        res = dml_panel(df, y="y", treat="d", covariates="x1", unit="pid", n_folds=3)
         assert isinstance(res, DMLPanelResult)
         s = res.summary()
         assert "Long-panel Double/Debiased ML" in s
@@ -69,16 +78,22 @@ class TestRecovery:
 
     def test_recovers_truth_without_time_fe(self):
         df = _sim_panel(N=80, T=8, beta=0.5, seed=1)
-        res = dml_panel(df, y="y", treat="d", covariates=["x1"],
-                        unit="pid", n_folds=5)
+        res = dml_panel(df, y="y", treat="d", covariates=["x1"], unit="pid", n_folds=5)
         # Allow 3 cluster-SEs given finite sample + cross-fit noise.
         assert abs(res.estimate - 0.5) < 3 * res.se + 0.05, res
 
     def test_recovers_truth_with_time_fe(self):
         df = _sim_panel(N=80, T=8, beta=0.5, seed=2)
-        res = dml_panel(df, y="y", treat="d", covariates=["x1"],
-                        unit="pid", time="year",
-                        include_time_fe=True, n_folds=5)
+        res = dml_panel(
+            df,
+            y="y",
+            treat="d",
+            covariates=["x1"],
+            unit="pid",
+            time="year",
+            include_time_fe=True,
+            n_folds=5,
+        )
         assert abs(res.estimate - 0.5) < 3 * res.se + 0.05, res
 
     def test_no_confounding_close_to_fe_ols(self):
@@ -86,22 +101,22 @@ class TestRecovery:
         should match the pure FE-OLS within estimator.
         """
         df = _sim_panel(N=100, T=8, beta=0.7, d_on_x=0.0, seed=3)
-        res = dml_panel(df, y="y", treat="d", covariates=["x1"],
-                        unit="pid", n_folds=5)
+        res = dml_panel(df, y="y", treat="d", covariates=["x1"], unit="pid", n_folds=5)
         # Compute FE-OLS within estimator manually
         within = df.copy()
         for col in ("y", "d", "x1"):
             within[col] = within[col] - within.groupby("pid")[col].transform("mean")
         # Regress y_tilde on d_tilde + x1_tilde
         from numpy.linalg import lstsq
-        X = np.column_stack([within["d"].to_numpy(),
-                             within["x1"].to_numpy()])
+
+        X = np.column_stack([within["d"].to_numpy(), within["x1"].to_numpy()])
         y = within["y"].to_numpy()
         beta_ols = lstsq(X, y, rcond=None)[0][0]
         # Within 15% of FE-OLS (both targeting same parameter under
         # homogeneous effect + no confounding)
         assert abs(res.estimate - beta_ols) < 0.15 * abs(beta_ols) + 0.05, (
-            res.estimate, beta_ols
+            res.estimate,
+            beta_ols,
         )
 
 
@@ -125,11 +140,9 @@ class TestInferenceStructure:
                 eps[t] = rho * eps[t - 1] + rng.normal(0, 1)
             Y = alpha_i[i] + 0.5 * D + 0.8 * X + eps
             for t in range(T):
-                rows.append({"pid": i, "year": t, "y": Y[t],
-                             "d": D[t], "x1": X[t]})
+                rows.append({"pid": i, "year": t, "y": Y[t], "d": D[t], "x1": X[t]})
         df = pd.DataFrame(rows)
-        res = dml_panel(df, y="y", treat="d", covariates=["x1"],
-                        unit="pid", n_folds=5)
+        res = dml_panel(df, y="y", treat="d", covariates=["x1"], unit="pid", n_folds=5)
         # Naive i.i.d. SE from sqrt(omega / n / J^2) — we track omega
         # inside diagnostics.  Compare to an iid-residual approximation
         # of SE: the cluster Ω aggregates within-unit covariance, so
@@ -140,7 +153,7 @@ class TestInferenceStructure:
         n = res.n_obs
         J = res.diagnostics["d_resid_std"] ** 2
         if J > 0:
-            se_iid_approx = float(np.sqrt(psi_var_iid / (n * J ** 2)))
+            se_iid_approx = float(np.sqrt(psi_var_iid / (n * J**2)))
             assert res.se > 0.5 * se_iid_approx  # same order of magnitude
             # Under AR(1) > 0 we expect se_cluster >= se_iid_approx,
             # but numerical fold noise can flip this by ~20%; use a
@@ -158,32 +171,34 @@ class TestValidation:
     def test_missing_column_raises(self):
         df = _sim_panel(N=20, T=5, seed=0)
         with pytest.raises(MethodIncompatibility, match="missing columns"):
-            dml_panel(df, y="y", treat="d", covariates=["nonexistent"],
-                      unit="pid")
+            dml_panel(df, y="y", treat="d", covariates=["nonexistent"], unit="pid")
 
     def test_folds_exceed_units_raises(self):
         df = _sim_panel(N=5, T=5, seed=0)
         with pytest.raises(DataInsufficient, match="cannot exceed n_units"):
-            dml_panel(df, y="y", treat="d", covariates=["x1"],
-                      unit="pid", n_folds=10)
+            dml_panel(df, y="y", treat="d", covariates=["x1"], unit="pid", n_folds=10)
 
     def test_n_folds_below_two_raises(self):
         df = _sim_panel(N=20, T=5, seed=0)
         with pytest.raises(MethodIncompatibility, match="n_folds must be >= 2"):
-            dml_panel(df, y="y", treat="d", covariates=["x1"],
-                      unit="pid", n_folds=1)
+            dml_panel(df, y="y", treat="d", covariates=["x1"], unit="pid", n_folds=1)
 
     def test_include_time_fe_without_time_raises(self):
         df = _sim_panel(N=20, T=5, seed=0)
         with pytest.raises(MethodIncompatibility, match="time must be provided"):
-            dml_panel(df, y="y", treat="d", covariates=["x1"],
-                      unit="pid", include_time_fe=True)
+            dml_panel(
+                df,
+                y="y",
+                treat="d",
+                covariates=["x1"],
+                unit="pid",
+                include_time_fe=True,
+            )
 
     def test_no_covariates_allowed(self):
         """Empty covariate list should still work (pure FE OLS fallback)."""
         df = _sim_panel(N=40, T=6, d_on_x=0.0, seed=0)
-        res = dml_panel(df, y="y", treat="d", covariates=[],
-                        unit="pid", n_folds=3)
+        res = dml_panel(df, y="y", treat="d", covariates=[], unit="pid", n_folds=3)
         assert np.isfinite(res.estimate)
         assert np.isfinite(res.se)
 
@@ -211,8 +226,6 @@ class TestPublicAPI:
 
     def test_diagnostics_populated(self):
         df = _sim_panel(N=40, T=6, seed=0)
-        res = dml_panel(df, y="y", treat="d", covariates=["x1"],
-                        unit="pid", n_folds=3)
-        for key in ("y_resid_std", "d_resid_std", "within_r2_outcome",
-                    "omega_cluster"):
+        res = dml_panel(df, y="y", treat="d", covariates=["x1"], unit="pid", n_folds=3)
+        for key in ("y_resid_std", "d_resid_std", "within_r2_outcome", "omega_cluster"):
             assert key in res.diagnostics

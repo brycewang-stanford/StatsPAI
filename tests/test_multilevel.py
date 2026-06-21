@@ -16,15 +16,20 @@ import pytest
 import statspai as sp
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Data-generation helpers
 # ---------------------------------------------------------------------------
 
 
-def _random_intercept_panel(seed: int = 0, n_groups: int = 40, n_per: int = 20,
-                             sigma_u: float = 1.0, sigma_e: float = 0.5,
-                             beta0: float = 2.0, beta1: float = 0.5):
+def _random_intercept_panel(
+    seed: int = 0,
+    n_groups: int = 40,
+    n_per: int = 20,
+    sigma_u: float = 1.0,
+    sigma_e: float = 0.5,
+    beta0: float = 2.0,
+    beta1: float = 0.5,
+):
     rng = np.random.default_rng(seed)
     group = np.repeat(np.arange(n_groups), n_per)
     u = np.repeat(rng.normal(0, sigma_u, n_groups), n_per)
@@ -33,14 +38,21 @@ def _random_intercept_panel(seed: int = 0, n_groups: int = 40, n_per: int = 20,
     return pd.DataFrame({"y": y, "x": x, "g": group})
 
 
-def _random_slope_panel(seed: int = 7, n_groups: int = 60, n_per: int = 20,
-                         sigma_int: float = 1.0, sigma_slope: float = 0.5,
-                         rho: float = 0.4, sigma_e: float = 0.5):
+def _random_slope_panel(
+    seed: int = 7,
+    n_groups: int = 60,
+    n_per: int = 20,
+    sigma_int: float = 1.0,
+    sigma_slope: float = 0.5,
+    rho: float = 0.4,
+    sigma_e: float = 0.5,
+):
     rng = np.random.default_rng(seed)
     n = n_groups * n_per
     group = np.repeat(np.arange(n_groups), n_per)
-    L = np.array([[sigma_int, 0.0],
-                  [rho * sigma_slope, sigma_slope * np.sqrt(1 - rho ** 2)]])
+    L = np.array(
+        [[sigma_int, 0.0], [rho * sigma_slope, sigma_slope * np.sqrt(1 - rho**2)]]
+    )
     U = rng.normal(size=(n_groups, 2)) @ L.T
     u_int = np.repeat(U[:, 0], n_per)
     u_sl = np.repeat(U[:, 1], n_per)
@@ -49,11 +61,15 @@ def _random_slope_panel(seed: int = 7, n_groups: int = 60, n_per: int = 20,
     return pd.DataFrame({"y": y, "x": x, "g": group})
 
 
-def _three_level_panel(seed: int = 1, n_schools: int = 80,
-                       classes_per_school: int = 6,
-                       students_per_class: int = 15,
-                       sigma_s: float = 0.6, sigma_c: float = 0.4,
-                       sigma_e: float = 0.5):
+def _three_level_panel(
+    seed: int = 1,
+    n_schools: int = 80,
+    classes_per_school: int = 6,
+    students_per_class: int = 15,
+    sigma_s: float = 0.6,
+    sigma_c: float = 0.4,
+    sigma_e: float = 0.5,
+):
     rng = np.random.default_rng(seed)
     records = []
     school_u = rng.normal(0, sigma_s, n_schools)
@@ -64,8 +80,7 @@ def _three_level_panel(seed: int = 1, n_schools: int = 80,
         for _ in range(classes_per_school):
             for _ in range(students_per_class):
                 x = rng.normal()
-                y = (1.0 + 0.5 * x + school_u[s] + class_u[cid]
-                     + rng.normal(0, sigma_e))
+                y = 1.0 + 0.5 * x + school_u[s] + class_u[cid] + rng.normal(0, sigma_e)
                 records.append({"school": s, "klass": cid, "x": x, "y": y})
             cid += 1
     return pd.DataFrame(records)
@@ -200,30 +215,31 @@ class TestRandomSlopeUnstructured:
         import statsmodels.formula.api as smf
 
         df = _random_slope_panel()
-        r = sp.mixed(df, "y", ["x"], "g", x_random=["x"],
-                     cov_type="unstructured")
-        ref = smf.mixedlm("y ~ x", df, groups=df["g"],
-                          re_formula="~x").fit(reml=True)
+        r = sp.mixed(df, "y", ["x"], "g", x_random=["x"], cov_type="unstructured")
+        ref = smf.mixedlm("y ~ x", df, groups=df["g"], re_formula="~x").fit(reml=True)
         np.testing.assert_allclose(
             r.fixed_effects.values, ref.fe_params.values, atol=1e-3
         )
-        np.testing.assert_allclose(
-            r._se_fixed.values, ref.bse_fe.values, atol=1e-3
-        )
+        np.testing.assert_allclose(r._se_fixed.values, ref.bse_fe.values, atol=1e-3)
         # Var components: compare the 2×2 covariance block.
-        our_G = np.array([
-            [r.variance_components["var(_cons)"],
-             r.variance_components["cov(_cons,x)"]],
-            [r.variance_components["cov(_cons,x)"],
-             r.variance_components["var(x)"]],
-        ])
+        our_G = np.array(
+            [
+                [
+                    r.variance_components["var(_cons)"],
+                    r.variance_components["cov(_cons,x)"],
+                ],
+                [
+                    r.variance_components["cov(_cons,x)"],
+                    r.variance_components["var(x)"],
+                ],
+            ]
+        )
         np.testing.assert_allclose(our_G, ref.cov_re.values, atol=1e-2)
         assert abs(r.variance_components["var(Residual)"] - ref.scale) < 1e-2
 
     def test_diagonal_cov_type_drops_correlation(self):
         df = _random_slope_panel()
-        r = sp.mixed(df, "y", ["x"], "g", x_random=["x"],
-                     cov_type="diagonal")
+        r = sp.mixed(df, "y", ["x"], "g", x_random=["x"], cov_type="diagonal")
         assert not any("corr(" in k for k in r.variance_components)
 
     def test_ranef_se_shape(self):
@@ -245,11 +261,14 @@ class TestThreeLevelNested:
     def test_separates_variance_components(self):
         pytest.importorskip("statsmodels")
         import statsmodels.formula.api as smf
+
         df = _three_level_panel()
         r = sp.mixed(df, "y", ["x"], group=["school", "klass"])
         # Cross-check against statsmodels with explicit re_formula="1".
         ref = smf.mixedlm(
-            "y ~ x", df, groups=df["school"],
+            "y ~ x",
+            df,
+            groups=df["school"],
             re_formula="1",
             vc_formula={"klass": "0 + C(klass)"},
         ).fit(reml=True)
@@ -260,10 +279,8 @@ class TestThreeLevelNested:
         # ``cov_re`` holds the raw covariance element.
         sm_school = float(ref.cov_re.values[0, 0])
         sm_class = float(ref.vcomp[0])
-        assert abs(r.variance_components["var(_cons|school)"]
-                   - sm_school) < 5e-2
-        assert abs(r.variance_components["var(_cons|klass)"]
-                   - sm_class) < 5e-2
+        assert abs(r.variance_components["var(_cons|school)"] - sm_school) < 5e-2
+        assert abs(r.variance_components["var(_cons|klass)"] - sm_class) < 5e-2
         assert abs(r.variance_components["var(Residual)"] - ref.scale) < 1e-3
 
     def test_rejects_random_slope(self):
@@ -394,11 +411,13 @@ class TestMELogit:
     def test_meglm_input_errors_use_exception_taxonomy(self):
         rng = np.random.default_rng(6)
         n = 40
-        df = pd.DataFrame({
-            "y": rng.binomial(1, 0.5, n),
-            "x": rng.normal(size=n),
-            "g": np.repeat(np.arange(8), 5),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.binomial(1, 0.5, n),
+                "x": rng.normal(size=n),
+                "g": np.repeat(np.arange(8), 5),
+            }
+        )
 
         with pytest.raises(MethodIncompatibility, match="pandas DataFrame"):
             sp.meglm([[1.0]], "y", ["x"], "g", family="binomial")
@@ -502,12 +521,14 @@ class TestMEPoisson:
         u = np.repeat(rng.normal(0, 0.4, n_groups), n_per)
         mu = np.exp(0.3 + 0.4 * x + np.log(exposure) + u)
         y = rng.poisson(mu)
-        df = pd.DataFrame({
-            "y": y,
-            "x": x,
-            "g": group,
-            "log_exposure": np.log(exposure),
-        })
+        df = pd.DataFrame(
+            {
+                "y": y,
+                "x": x,
+                "g": group,
+                "log_exposure": np.log(exposure),
+            }
+        )
         r = sp.mepoisson(df, "y", ["x"], "g", offset="log_exposure")
 
         with pytest.raises(MethodIncompatibility, match="missing column") as excinfo:
@@ -526,9 +547,14 @@ class TestMEPoisson:
 class TestAGHQ:
     """AGHQ should match Laplace at nAGQ=1, beat it on small clusters."""
 
-    def _small_cluster_binary(self, seed: int = 2026,
-                              n_groups: int = 200, n_per: int = 3,
-                              sigma_u: float = 1.5, beta_x: float = 0.8):
+    def _small_cluster_binary(
+        self,
+        seed: int = 2026,
+        n_groups: int = 200,
+        n_per: int = 3,
+        sigma_u: float = 1.5,
+        beta_x: float = 0.8,
+    ):
         rng = np.random.default_rng(seed)
         g = np.repeat(np.arange(n_groups), n_per)
         x = rng.normal(0, 1, n_groups * n_per)
@@ -562,7 +588,7 @@ class TestAGHQ:
         # On small clusters, Laplace severely underestimates var(u).
         # AGHQ should be closer to truth than Laplace.
         df, sigma_u, _ = self._small_cluster_binary()
-        true_var = sigma_u ** 2
+        true_var = sigma_u**2
         r1 = sp.melogit(df, "y", ["x"], "g", nAGQ=1)
         r7 = sp.melogit(df, "y", ["x"], "g", nAGQ=7)
         v1 = r1.variance_components["var(_cons)"]
@@ -598,9 +624,16 @@ class TestAGHQ:
 
 
 class TestMEGamma:
-    def _gamma_panel(self, seed: int = 2026, n_g: int = 60, n_per: int = 25,
-                      phi: float = 0.4, sigma_u: float = 0.5,
-                      beta0: float = 0.5, beta_x: float = 0.7):
+    def _gamma_panel(
+        self,
+        seed: int = 2026,
+        n_g: int = 60,
+        n_per: int = 25,
+        phi: float = 0.4,
+        sigma_u: float = 0.5,
+        beta0: float = 0.5,
+        beta_x: float = 0.7,
+    ):
         rng = np.random.default_rng(seed)
         g = np.repeat(np.arange(n_g), n_per)
         x = rng.normal(0, 1, n_g * n_per)
@@ -639,9 +672,16 @@ class TestMEGamma:
 
 
 class TestMENegBin:
-    def _nb_panel(self, seed: int = 2026, n_g: int = 60, n_per: int = 25,
-                   alpha: float = 0.5, sigma_u: float = 0.4,
-                   beta0: float = 1.0, beta_x: float = 0.4):
+    def _nb_panel(
+        self,
+        seed: int = 2026,
+        n_g: int = 60,
+        n_per: int = 25,
+        alpha: float = 0.5,
+        sigma_u: float = 0.4,
+        beta0: float = 1.0,
+        beta_x: float = 0.4,
+    ):
         rng = np.random.default_rng(seed)
         g = np.repeat(np.arange(n_g), n_per)
         x = rng.normal(0, 1, n_g * n_per)
@@ -679,9 +719,15 @@ class TestMENegBin:
 
 
 class TestMEOLogit:
-    def _ordinal_panel(self, seed: int = 7, n_g: int = 80, n_per: int = 25,
-                        beta_x: float = 0.8, sigma_u: float = 0.6,
-                        kappa=(-1.0, 0.0, 1.5)):
+    def _ordinal_panel(
+        self,
+        seed: int = 7,
+        n_g: int = 80,
+        n_per: int = 25,
+        beta_x: float = 0.8,
+        sigma_u: float = 0.6,
+        kappa=(-1.0, 0.0, 1.5),
+    ):
         rng = np.random.default_rng(seed)
         g = np.repeat(np.arange(n_g), n_per)
         x = rng.normal(0, 1, n_g * n_per)
@@ -733,11 +779,13 @@ class TestMEOLogit:
     def test_K2_rejected(self):
         # meologit needs K >= 3 categories.
         rng = np.random.default_rng(1)
-        df = pd.DataFrame({
-            "y": rng.binomial(1, 0.5, 200) + 1,  # 1 or 2
-            "x": rng.normal(0, 1, 200),
-            "g": np.repeat(np.arange(20), 10),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.binomial(1, 0.5, 200) + 1,  # 1 or 2
+                "x": rng.normal(0, 1, 200),
+                "g": np.repeat(np.arange(20), 10),
+            }
+        )
         with pytest.raises(ValueError, match="3 outcome"):
             sp.meologit(df, "y", ["x"], "g")
 
@@ -763,10 +811,10 @@ class TestLRTest:
         assert r_full._lr_test["p"] > 0.05
 
     def test_nested_models(self):
-        df = _random_slope_panel(n_groups=100, n_per=30, sigma_slope=0.3,
-                                 rho=0.0, sigma_int=0.6, sigma_e=0.5)
-        r_full = sp.mixed(df, "y", ["x"], "g", x_random=["x"],
-                          cov_type="diagonal")
+        df = _random_slope_panel(
+            n_groups=100, n_per=30, sigma_slope=0.3, rho=0.0, sigma_int=0.6, sigma_e=0.5
+        )
+        r_full = sp.mixed(df, "y", ["x"], "g", x_random=["x"], cov_type="diagonal")
         r_restricted = sp.mixed(df, "y", ["x"], "g")
         lr = sp.lrtest(r_restricted, r_full, boundary=True)
         # A random slope is present → we should strongly reject.
@@ -775,10 +823,10 @@ class TestLRTest:
 
     def test_multi_component_boundary_warns(self):
         # Unstructured → diagonal adds 2 free params on the boundary.
-        df = _random_slope_panel(n_groups=80, n_per=30, sigma_slope=0.3,
-                                 rho=0.2, sigma_int=0.6, sigma_e=0.5)
-        r_full = sp.mixed(df, "y", ["x"], "g", x_random=["x"],
-                          cov_type="unstructured")
+        df = _random_slope_panel(
+            n_groups=80, n_per=30, sigma_slope=0.3, rho=0.2, sigma_int=0.6, sigma_e=0.5
+        )
+        r_full = sp.mixed(df, "y", ["x"], "g", x_random=["x"], cov_type="unstructured")
         r_restricted = sp.mixed(df, "y", ["x"], "g")
         with pytest.warns(RuntimeWarning):
             sp.lrtest(r_restricted, r_full, boundary=True)
@@ -789,11 +837,14 @@ class TestLRTest:
         g = np.repeat(np.arange(20), 20)
         x = rng.normal(0, 1, n)
         u = np.repeat(rng.normal(0, 0.3, 20), 20)
-        df = pd.DataFrame({
-            "y_bin": rng.binomial(1, 1 / (1 + np.exp(-(0.1 + 0.5 * x + u)))),
-            "y_ct": rng.poisson(np.exp(0.1 + 0.3 * x + u)),
-            "x": x, "g": g,
-        })
+        df = pd.DataFrame(
+            {
+                "y_bin": rng.binomial(1, 1 / (1 + np.exp(-(0.1 + 0.5 * x + u)))),
+                "y_ct": rng.poisson(np.exp(0.1 + 0.3 * x + u)),
+                "x": x,
+                "g": g,
+            }
+        )
         r_b = sp.melogit(df, "y_bin", ["x"], "g")
         r_p = sp.mepoisson(df, "y_ct", ["x"], "g")
         with pytest.raises(ValueError):

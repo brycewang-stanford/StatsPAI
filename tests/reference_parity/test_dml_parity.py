@@ -39,6 +39,7 @@ References
   Machine Learning in R. *Journal of Statistical Software*, 108(3),
   1-56. [@bach2024doubleml]
 """
+
 from __future__ import annotations
 
 import json
@@ -49,7 +50,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -75,8 +75,12 @@ def test_dml_plr_coefficient_matches_R(dml_data, r_reference):
     x_cols = [c for c in dml_data.columns if c.startswith("x")]
     np.random.seed(42)
     res = sp.dml(
-        data=dml_data, y="y", d="d", X=x_cols,
-        model="plr", n_folds=5,
+        data=dml_data,
+        y="y",
+        d="d",
+        X=x_cols,
+        model="plr",
+        n_folds=5,
     )
     py_coef = float(res.estimate)
 
@@ -95,8 +99,12 @@ def test_dml_plr_standard_error_matches_R(dml_data, r_reference):
     x_cols = [c for c in dml_data.columns if c.startswith("x")]
     np.random.seed(42)
     res = sp.dml(
-        data=dml_data, y="y", d="d", X=x_cols,
-        model="plr", n_folds=5,
+        data=dml_data,
+        y="y",
+        d="d",
+        X=x_cols,
+        model="plr",
+        n_folds=5,
     )
     py_se = float(res.se)
 
@@ -116,8 +124,12 @@ def test_dml_irm_coefficient_matches_R(dml_data, r_reference):
     x_cols = [c for c in dml_data.columns if c.startswith("x")]
     np.random.seed(42)
     res = sp.dml(
-        data=dml_data, y="y", d="d_bin", X=x_cols,
-        model="irm", n_folds=5,
+        data=dml_data,
+        y="y",
+        d="d_bin",
+        X=x_cols,
+        model="irm",
+        n_folds=5,
     )
     py_coef = float(res.estimate)
 

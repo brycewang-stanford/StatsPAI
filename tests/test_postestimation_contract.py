@@ -12,10 +12,12 @@ import statspai as sp
 
 def test_postestimation_contract_for_regression_result():
     rng = np.random.default_rng(4)
-    df = pd.DataFrame({
-        "y": rng.normal(size=100),
-        "x": rng.normal(size=100),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=100),
+            "x": rng.normal(size=100),
+        }
+    )
     res = sp.regress("y ~ x", data=df)
 
     contract = sp.postestimation_contract(res, data=df)
@@ -53,11 +55,13 @@ def test_postestimation_contract_for_causal_result():
     for i in range(80):
         treated = int(i >= 40)
         for post in (0, 1):
-            rows.append({
-                "y": rng.normal() + treated * post,
-                "t": treated,
-                "post": post,
-            })
+            rows.append(
+                {
+                    "y": rng.normal() + treated * post,
+                    "t": treated,
+                    "post": post,
+                }
+            )
     df = pd.DataFrame(rows)
     res = sp.did_2x2(df, y="y", treat="t", time="post")
 

@@ -30,8 +30,7 @@ def _make_2d(n=2500, tau=2.0, seed=42):
 
 def test_rd2d_distance_properties():
     df = _make_2d()
-    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                  approach="distance")
+    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d", approach="distance")
     assert isinstance(res, CausalResult)
     assert res.se > 0
     assert abs(res.estimate - 2.0) < 1.5
@@ -39,11 +38,13 @@ def test_rd2d_distance_properties():
 
 def test_rd2d_location_single_and_multi_eval():
     df = _make_2d()
-    res1 = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                   approach="location", n_eval=1)
+    res1 = sp.rd2d(
+        df, y="y", x1="x1", x2="x2", treatment="d", approach="location", n_eval=1
+    )
     assert res1.se > 0
-    res3 = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                   approach="location", n_eval=3)
+    res3 = sp.rd2d(
+        df, y="y", x1="x1", x2="x2", treatment="d", approach="location", n_eval=3
+    )
     assert res3.detail is not None
     assert len(res3.detail) >= 1
 
@@ -57,30 +58,45 @@ def test_rd2d_custom_boundary_callable():
     D = (X2 >= 0.2 * X1).astype(float)
     Y = 0.2 * X1 + 0.2 * X2 + 1.5 * D + rng.normal(0, 0.4, n)
     df = pd.DataFrame({"y": Y, "x1": X1, "x2": X2, "d": D})
-    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                  approach="distance", boundary=lambda x1: 0.2 * x1)
+    res = sp.rd2d(
+        df,
+        y="y",
+        x1="x1",
+        x2="x2",
+        treatment="d",
+        approach="distance",
+        boundary=lambda x1: 0.2 * x1,
+    )
     assert res.se > 0
 
 
 @pytest.mark.parametrize("kernel", ["triangular", "uniform", "epanechnikov"])
 def test_rd2d_kernels(kernel):
     df = _make_2d()
-    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                  approach="distance", kernel=kernel, h=0.5)
+    res = sp.rd2d(
+        df,
+        y="y",
+        x1="x1",
+        x2="x2",
+        treatment="d",
+        approach="distance",
+        kernel=kernel,
+        h=0.5,
+    )
     assert res.se > 0
 
 
 def test_rd2d_manual_bandwidth():
     df = _make_2d()
-    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                  approach="distance", h=0.4)
+    res = sp.rd2d(
+        df, y="y", x1="x1", x2="x2", treatment="d", approach="distance", h=0.4
+    )
     assert res.se > 0
 
 
 def test_rd2d_bw_selector():
     df = _make_2d()
-    h = sp.rd2d_bw(df, y="y", x1="x1", x2="x2", treatment="d",
-                   approach="distance")
+    h = sp.rd2d_bw(df, y="y", x1="x1", x2="x2", treatment="d", approach="distance")
     assert isinstance(h, float)
     assert h > 0
     np.testing.assert_allclose(h, 0.21015049861820304, atol=1e-12)
@@ -107,8 +123,13 @@ def test_rd2d_input_validation_taxonomy():
 
     with pytest.raises(MethodIncompatibility, match="eval_points"):
         sp.rd2d(
-            df, y="y", x1="x1", x2="x2", treatment="d",
-            approach="location", eval_points=np.ones((2, 3)),
+            df,
+            y="y",
+            x1="x1",
+            x2="x2",
+            treatment="d",
+            approach="location",
+            eval_points=np.ones((2, 3)),
         )
 
     with pytest.raises(MethodIncompatibility, match="Column"):
@@ -118,10 +139,10 @@ def test_rd2d_input_validation_taxonomy():
 @pytest.mark.parametrize("ptype", ["scatter", "heatmap"])
 def test_rd2d_plot_types_vertical_boundary(ptype):
     df = _make_2d()
-    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                  approach="distance")
-    fig, ax = sp.rd2d_plot(df, y="y", x1="x1", x2="x2", treatment="d",
-                           result=res, plot_type=ptype)
+    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d", approach="distance")
+    fig, ax = sp.rd2d_plot(
+        df, y="y", x1="x1", x2="x2", treatment="d", result=res, plot_type=ptype
+    )
     assert fig is not None
     plt.close("all")
 
@@ -135,16 +156,38 @@ def test_rd2d_plot_custom_boundary_and_boundary_effects():
     Y = 0.2 * X1 + 0.2 * X2 + 1.5 * D + rng.normal(0, 0.4, n)
     df = pd.DataFrame({"y": Y, "x1": X1, "x2": X2, "d": D})
     bdry = lambda v: 0.2 * v
-    res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d",
-                  approach="location", boundary=bdry, n_eval=3)
-    fig, ax = sp.rd2d_plot(df, y="y", x1="x1", x2="x2", treatment="d",
-                           boundary=bdry, result=res,
-                           plot_type="scatter")
+    res = sp.rd2d(
+        df,
+        y="y",
+        x1="x1",
+        x2="x2",
+        treatment="d",
+        approach="location",
+        boundary=bdry,
+        n_eval=3,
+    )
+    fig, ax = sp.rd2d_plot(
+        df,
+        y="y",
+        x1="x1",
+        x2="x2",
+        treatment="d",
+        boundary=bdry,
+        result=res,
+        plot_type="scatter",
+    )
     assert fig is not None
     # boundary_effects panel needs multiple eval points in the result
-    fig2, ax2 = sp.rd2d_plot(df, y="y", x1="x1", x2="x2", treatment="d",
-                             boundary=bdry, result=res,
-                             plot_type="boundary_effects")
+    fig2, ax2 = sp.rd2d_plot(
+        df,
+        y="y",
+        x1="x1",
+        x2="x2",
+        treatment="d",
+        boundary=bdry,
+        result=res,
+        plot_type="boundary_effects",
+    )
     assert fig2 is not None
     plt.close("all")
 
@@ -152,8 +195,7 @@ def test_rd2d_plot_custom_boundary_and_boundary_effects():
 def test_rd2d_plot_invalid_type():
     df = _make_2d()
     with pytest.raises(MethodIncompatibility, match="plot_type"):
-        sp.rd2d_plot(df, y="y", x1="x1", x2="x2", treatment="d",
-                     plot_type="bad")
+        sp.rd2d_plot(df, y="y", x1="x1", x2="x2", treatment="d", plot_type="bad")
 
 
 def test_rd2d_plot_boundary_effects_requires_location_detail():
@@ -161,6 +203,11 @@ def test_rd2d_plot_boundary_effects_requires_location_detail():
     res = sp.rd2d(df, y="y", x1="x1", x2="x2", treatment="d")
     with pytest.raises(MethodIncompatibility, match="boundary eval points"):
         sp.rd2d_plot(
-            df, y="y", x1="x1", x2="x2", treatment="d",
-            result=res, plot_type="boundary_effects",
+            df,
+            y="y",
+            x1="x1",
+            x2="x2",
+            treatment="d",
+            result=res,
+            plot_type="boundary_effects",
         )

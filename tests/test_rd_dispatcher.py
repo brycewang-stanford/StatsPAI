@@ -8,6 +8,7 @@ that error paths are clear.
 Numerical correctness of the underlying estimators is covered by the
 per-method test files (``test_rd*.py``) and reference parity.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -16,7 +17,6 @@ import pytest
 
 import statspai as sp
 from statspai.exceptions import MethodIncompatibility
-
 
 # ─── Fixtures ───────────────────────────────────────────────────────────
 
@@ -28,15 +28,16 @@ def rd_data():
     n = 800
     x = rng.uniform(-1, 1, n)
     treat = (x >= 0).astype(int)
-    y = 0.5 + 1.5 * treat + 0.5 * x + 0.3 * x * treat \
-        + 0.5 * rng.standard_normal(n)
-    return pd.DataFrame({
-        "y": y,
-        "x": x,
-        "cov1": rng.standard_normal(n),
-        "cov2": rng.standard_normal(n),
-        "z": (rng.standard_normal(n) > 0).astype(int),
-    })
+    y = 0.5 + 1.5 * treat + 0.5 * x + 0.3 * x * treat + 0.5 * rng.standard_normal(n)
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x": x,
+            "cov1": rng.standard_normal(n),
+            "cov2": rng.standard_normal(n),
+            "z": (rng.standard_normal(n) > 0).astype(int),
+        }
+    )
 
 
 # ─── Callable-module surface ────────────────────────────────────────────
@@ -51,11 +52,27 @@ def test_sp_rd_is_callable():
 
 def test_sp_rd_keeps_submodule_access():
     """Callable trick must not break submodule attribute access."""
-    for name in ("rdrobust", "rdplot", "rdsummary", "rdbwselect",
-                 "rd_honest", "rdhte", "rd_forest", "rd_boost", "rd_lasso",
-                 "rd2d", "rdmc", "rdms", "rkd", "rdit",
-                 "rd_extrapolate", "rd_interference", "rd_distribution",
-                 "rd_bayes_hte", "fit"):
+    for name in (
+        "rdrobust",
+        "rdplot",
+        "rdsummary",
+        "rdbwselect",
+        "rd_honest",
+        "rdhte",
+        "rd_forest",
+        "rd_boost",
+        "rd_lasso",
+        "rd2d",
+        "rdmc",
+        "rdms",
+        "rkd",
+        "rdit",
+        "rd_extrapolate",
+        "rd_interference",
+        "rd_distribution",
+        "rd_bayes_hte",
+        "fit",
+    ):
         assert callable(getattr(sp.rd, name)), name
 
 
@@ -87,8 +104,7 @@ def test_honest(rd_data):
 
 
 def test_randinf(rd_data):
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="randinf",
-              wl=-0.2, wr=0.2)
+    r = sp.rd(rd_data, y="y", x="x", c=0, method="randinf", wl=-0.2, wr=0.2)
     assert r is not None
 
 
@@ -98,45 +114,64 @@ def test_hte(rd_data):
 
 
 def test_forest(rd_data):
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="forest",
-              covs=["cov1", "cov2"], n_trees=20)
+    r = sp.rd(
+        rd_data, y="y", x="x", c=0, method="forest", covs=["cov1", "cov2"], n_trees=20
+    )
     assert r is not None
 
 
 def test_boost(rd_data):
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="boost",
-              covs=["cov1", "cov2"], n_estimators=20)
+    r = sp.rd(
+        rd_data,
+        y="y",
+        x="x",
+        c=0,
+        method="boost",
+        covs=["cov1", "cov2"],
+        n_estimators=20,
+    )
     assert r is not None
 
 
 def test_lasso(rd_data):
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="lasso",
-              covs=["cov1", "cov2"], cv_folds=3)
+    r = sp.rd(
+        rd_data, y="y", x="x", c=0, method="lasso", covs=["cov1", "cov2"], cv_folds=3
+    )
     assert r is not None
 
 
 def test_extrapolate(rd_data):
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="extrapolate",
-              covs=["cov1", "cov2"], eval_points=[-0.3, 0.3])
+    r = sp.rd(
+        rd_data,
+        y="y",
+        x="x",
+        c=0,
+        method="extrapolate",
+        covs=["cov1", "cov2"],
+        eval_points=[-0.3, 0.3],
+    )
     assert r is not None
 
 
 def test_external_validity(rd_data):
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="external_validity",
-              covs=["cov1", "cov2"])
+    r = sp.rd(
+        rd_data, y="y", x="x", c=0, method="external_validity", covs=["cov1", "cov2"]
+    )
     assert r is not None
 
 
 def test_bayes_hte_uses_running_cutoff_aliases(rd_data):
     """rd_bayes_hte expects ``running``/``cutoff`` — dispatcher translates."""
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="bayes_hte",
-              covariates=["cov1", "cov2"])
+    r = sp.rd(
+        rd_data, y="y", x="x", c=0, method="bayes_hte", covariates=["cov1", "cov2"]
+    )
     assert r is not None
 
 
 def test_distribution(rd_data):
-    r = sp.rd(rd_data, y="y", x="x", c=0, method="distribution",
-              quantiles=[0.25, 0.5, 0.75])
+    r = sp.rd(
+        rd_data, y="y", x="x", c=0, method="distribution", quantiles=[0.25, 0.5, 0.75]
+    )
     assert r is not None
 
 

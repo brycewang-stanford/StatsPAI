@@ -6,6 +6,7 @@ its method guard, the Kitagawa normalisation variants (`a` / `b` / symmetric),
 and a couple of shared `_common` weighted helpers. Real identities / invariants
 throughout (CLAUDE.md §12).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -31,8 +32,9 @@ def causal_df():
     g = (rng.uniform(size=n) < 0.5).astype(int)
     tr = (rng.uniform(size=n) < 0.5).astype(int)
     ybin = (rng.uniform(size=n) < 1 / (1 + np.exp(-(0.3 - 0.4 * g)))).astype(int)
-    return pd.DataFrame({"ybin": ybin, "g": g, "tr": tr, "x1": x1,
-                         "region": rng.integers(0, 3, n)})
+    return pd.DataFrame(
+        {"ybin": ybin, "g": g, "tr": tr, "x1": x1, "region": rng.integers(0, 3, n)}
+    )
 
 
 # ── RIF kernel ───────────────────────────────────────────────────────
@@ -48,8 +50,9 @@ def test_rif_values_recenter(statistic):
 
 
 def test_rifreg_runs(wage):
-    r = rifreg("log_wage ~ education + experience", data=wage,
-               statistic="quantile", tau=0.5)
+    r = rifreg(
+        "log_wage ~ education + experience", data=wage, statistic="quantile", tau=0.5
+    )
     assert r is not None
     assert isinstance(r.summary(), str)
 
@@ -58,19 +61,36 @@ def test_rifreg_runs(wage):
 
 
 def test_yu_elwert_efficient(causal_df):
-    r = sp.decompose("yu_elwert", data=causal_df, y="ybin", treatment="tr",
-                     group="g", x=["x1"], method="efficient", inference="none")
+    r = sp.decompose(
+        "yu_elwert",
+        data=causal_df,
+        y="ybin",
+        treatment="tr",
+        group="g",
+        x=["x1"],
+        method="efficient",
+        inference="none",
+    )
     # The efficient (AIPW-style) estimator carries small cross-fit correction
     # terms, so the four components reconstruct the disparity up to estimation
     # order rather than to machine precision (the plugin variant is exact).
     assert r.disparity == pytest.approx(
-        r.baseline + r.prevalence + r.effect + r.selection, rel=1e-3, abs=1e-4)
+        r.baseline + r.prevalence + r.effect + r.selection, rel=1e-3, abs=1e-4
+    )
 
 
 def test_yu_elwert_bad_method_raises(causal_df):
     with pytest.raises(ValueError, match="(?i)plugin.*efficient|method"):
-        sp.decompose("yu_elwert", data=causal_df, y="ybin", treatment="tr",
-                     group="g", x=["x1"], method="not_a_method", inference="none")
+        sp.decompose(
+            "yu_elwert",
+            data=causal_df,
+            y="ybin",
+            treatment="tr",
+            group="g",
+            x=["x1"],
+            method="not_a_method",
+            inference="none",
+        )
 
 
 # ── Kitagawa normalisation variants ──────────────────────────────────
@@ -78,13 +98,20 @@ def test_yu_elwert_bad_method_raises(causal_df):
 
 @pytest.mark.parametrize("normalize", ["symmetric", "a", "b"])
 def test_kitagawa_normalize_variants(causal_df, normalize):
-    r = sp.decompose("kitagawa", data=causal_df, rate="ybin", group="g",
-                     by="region", normalize=normalize)
+    r = sp.decompose(
+        "kitagawa",
+        data=causal_df,
+        rate="ybin",
+        group="g",
+        by="region",
+        normalize=normalize,
+    )
     # the raw gap is invariant to the normalisation choice
     assert r.gap == pytest.approx(r.rate_a - r.rate_b, rel=1e-9, abs=1e-9)
     # three-way components still reconstruct the gap
     assert r.gap == pytest.approx(
-        r.rate_effect + r.composition_effect + r.interaction, rel=1e-9, abs=1e-9)
+        r.rate_effect + r.composition_effect + r.interaction, rel=1e-9, abs=1e-9
+    )
 
 
 # ── shared weighted helpers ──────────────────────────────────────────

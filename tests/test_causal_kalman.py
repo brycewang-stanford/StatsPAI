@@ -7,7 +7,9 @@ import pytest
 warnings.filterwarnings("ignore")
 
 from statspai.assimilation.kalman import (
-    causal_kalman, assimilative_causal, AssimilationResult,
+    causal_kalman,
+    assimilative_causal,
+    AssimilationResult,
 )
 
 
@@ -65,8 +67,10 @@ def test_assimilative_causal_with_estimator_callback():
         np.array([1.5, 2.5, 3.5]),
         np.array([1.2, 2.2, 3.2]),
     ]
+
     def estimator(batch):
         return float(batch.mean()), float(batch.std() / np.sqrt(len(batch)))
+
     r = assimilative_causal(batches, estimator=estimator, backend="kalman")
     assert isinstance(r, AssimilationResult)
     assert 1.5 < r.final_mean < 2.8

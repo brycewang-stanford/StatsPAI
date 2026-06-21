@@ -6,6 +6,7 @@ absorb path drops the intercept). Both paths produce the same 2SLS
 fitted values via the Frisch–Waugh–Lovell theorem; coefficients on the
 remaining regressors must match to within float-rounding.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,10 +28,17 @@ def _make_iv_panel(n: int = 600, n_firm: int = 30, seed: int = 0) -> pd.DataFram
     x1 = rng.normal(size=n)
     y = 1.0 + 0.5 * d + 0.2 * x1 + 1.5 * fe + 0.5 * rng.normal(size=n)
     cluster = firm  # by-firm clustering for vcov tests
-    return pd.DataFrame({
-        "y": y, "d": d, "z1": z1, "z2": z2, "x1": x1,
-        "firm": firm, "cluster": cluster,
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "d": d,
+            "z1": z1,
+            "z2": z2,
+            "x1": x1,
+            "firm": firm,
+            "cluster": cluster,
+        }
+    )
 
 
 def _add_dummies(df: pd.DataFrame, *cols: str) -> tuple[pd.DataFrame, list[str]]:
@@ -48,6 +56,7 @@ def _add_dummies(df: pd.DataFrame, *cols: str) -> tuple[pd.DataFrame, list[str]]
 # Coefficient parity vs explicit dummy controls
 # ---------------------------------------------------------------------------
 
+
 def test_one_way_absorb_coef_matches_dummy_control():
     df = _make_iv_panel(seed=1)
     r_absorb = sp.iv("y ~ (d ~ z1 + z2) + x1", data=df, absorb="firm")
@@ -57,10 +66,14 @@ def test_one_way_absorb_coef_matches_dummy_control():
     r_dummy = sp.iv(formula_dummy, data=df2)
 
     np.testing.assert_allclose(
-        r_absorb.params["d"], r_dummy.params["d"], atol=1e-9,
+        r_absorb.params["d"],
+        r_dummy.params["d"],
+        atol=1e-9,
     )
     np.testing.assert_allclose(
-        r_absorb.params["x1"], r_dummy.params["x1"], atol=1e-9,
+        r_absorb.params["x1"],
+        r_dummy.params["x1"],
+        atol=1e-9,
     )
 
 
@@ -75,7 +88,9 @@ def test_two_way_absorb_coef_matches_dummy_control():
     r_dummy = sp.iv(formula_dummy, data=df2)
 
     np.testing.assert_allclose(
-        r_absorb.params["d"], r_dummy.params["d"], atol=1e-9,
+        r_absorb.params["d"],
+        r_dummy.params["d"],
+        atol=1e-9,
     )
 
 
@@ -93,6 +108,7 @@ def test_absorb_string_with_plus_parses():
 # Standard errors
 # ---------------------------------------------------------------------------
 
+
 def test_absorb_iid_se_matches_dummy_control():
     df = _make_iv_panel(seed=4)
     r_absorb = sp.iv("y ~ (d ~ z1 + z2) + x1", data=df, absorb="firm")
@@ -104,15 +120,20 @@ def test_absorb_iid_se_matches_dummy_control():
     # (small drift from QR vs normal-equation rounding through different
     # code paths).
     np.testing.assert_allclose(
-        r_absorb.std_errors["d"], r_dummy.std_errors["d"], rtol=1e-3,
+        r_absorb.std_errors["d"],
+        r_dummy.std_errors["d"],
+        rtol=1e-3,
     )
 
 
 def test_absorb_cluster_se_matches_dummy_control():
     df = _make_iv_panel(seed=5)
     r_absorb = sp.iv(
-        "y ~ (d ~ z1 + z2) + x1", data=df,
-        absorb="firm", robust="nonrobust", cluster="cluster",
+        "y ~ (d ~ z1 + z2) + x1",
+        data=df,
+        absorb="firm",
+        robust="nonrobust",
+        cluster="cluster",
     )
     df2, dummies = _add_dummies(df, "firm")
     formula_dummy = f"y ~ (d ~ z1 + z2) + x1 + {' + '.join(dummies)}"
@@ -121,13 +142,16 @@ def test_absorb_cluster_se_matches_dummy_control():
     # Cluster SE: small-sample factor uses (n-k) which absorb path
     # rescales to (n-k-fe_dof). Both should match to ~3 decimals.
     np.testing.assert_allclose(
-        r_absorb.std_errors["d"], r_dummy.std_errors["d"], rtol=1e-2,
+        r_absorb.std_errors["d"],
+        r_dummy.std_errors["d"],
+        rtol=1e-2,
     )
 
 
 # ---------------------------------------------------------------------------
 # DOF + metadata
 # ---------------------------------------------------------------------------
+
 
 def test_absorb_df_resid_charges_fe_dof():
     df = _make_iv_panel(seed=6)
@@ -153,6 +177,7 @@ def test_absorb_metadata_attached():
 # Backwards compatibility: absorb=None must not change anything
 # ---------------------------------------------------------------------------
 
+
 def test_absorb_none_matches_no_absorb_call():
     df = _make_iv_panel(seed=8)
     r0 = sp.iv("y ~ (d ~ z1 + z2) + x1", data=df)
@@ -165,13 +190,16 @@ def test_absorb_none_matches_no_absorb_call():
 # Validation / error paths
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("method", ["liml", "fuller", "gmm", "jive"])
 def test_absorb_with_unsupported_method_raises(method):
     df = _make_iv_panel(seed=9)
     with pytest.raises(NotImplementedError, match="Phase 3b"):
         sp.iv(
-            "y ~ (d ~ z1 + z2) + x1", data=df,
-            method=method, absorb="firm",
+            "y ~ (d ~ z1 + z2) + x1",
+            data=df,
+            method=method,
+            absorb="firm",
         )
 
 

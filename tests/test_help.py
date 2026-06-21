@@ -1,4 +1,5 @@
 """Tests for sp.help() unified entry point and CLI."""
+
 from __future__ import annotations
 
 import io
@@ -7,14 +8,15 @@ import sys
 
 import pytest
 
-
 # --------------------------------------------------------------------------- #
 #  sp.help() — Python API
 # --------------------------------------------------------------------------- #
 
+
 class TestTopLevelHelp:
     def test_help_no_args_returns_overview(self):
         import statspai as sp
+
         r = sp.help()
         # HelpResult prints as text; should mention the package and version.
         text = str(r)
@@ -25,6 +27,7 @@ class TestTopLevelHelp:
 
     def test_help_overview_dict_format(self):
         import statspai as sp
+
         d = sp.help(format="dict")
         assert d["kind"] == "overview"
         assert d["version"] == sp.__version__
@@ -33,6 +36,7 @@ class TestTopLevelHelp:
 
     def test_help_bad_format_raises(self):
         import statspai as sp
+
         with pytest.raises(ValueError):
             sp.help(format="xml")
 
@@ -40,6 +44,7 @@ class TestTopLevelHelp:
 class TestFunctionLookup:
     def test_help_by_function_name(self):
         import statspai as sp
+
         r = sp.help("did")
         text = str(r)
         assert "sp.did" in text
@@ -47,6 +52,7 @@ class TestFunctionLookup:
 
     def test_help_function_dict_format(self):
         import statspai as sp
+
         d = sp.help("regress", format="dict")
         assert d["name"] == "regress"
         assert d["category"] == "regression"
@@ -54,11 +60,13 @@ class TestFunctionLookup:
 
     def test_help_scoped_category_dot_name(self):
         import statspai as sp
+
         r = sp.help("causal.did")
         assert "sp.did" in str(r)
 
     def test_help_callable_object(self):
         import statspai as sp
+
         r = sp.help(sp.regress)
         text = str(r)
         # Should fall through to registry detail (has one).
@@ -68,6 +76,7 @@ class TestFunctionLookup:
 class TestCategoryListing:
     def test_help_by_category_name(self):
         import statspai as sp
+
         r = sp.help("causal")
         text = str(r)
         assert "Category: causal" in text
@@ -77,6 +86,7 @@ class TestCategoryListing:
 class TestSearch:
     def test_help_search_keyword(self):
         import statspai as sp
+
         r = sp.help(search="treatment")
         text = str(r)
         assert "Search:" in text
@@ -84,6 +94,7 @@ class TestSearch:
 
     def test_help_search_dict_format(self):
         import statspai as sp
+
         d = sp.help(search="synthetic control", format="dict")
         assert d["query"] == "synthetic control"
         assert isinstance(d["results"], list)
@@ -92,6 +103,7 @@ class TestSearch:
 class TestNotFound:
     def test_help_unknown_topic_returns_suggestions(self):
         import statspai as sp
+
         r = sp.help("diid")  # typo
         text = str(r)
         assert "No match" in text
@@ -100,12 +112,14 @@ class TestNotFound:
 
     def test_help_unknown_dict_format(self):
         import statspai as sp
+
         d = sp.help("totallynosuchthing", format="dict")
         assert d["kind"] == "not_found"
         assert isinstance(d["function_suggestions"], list)
 
     def test_help_bad_topic_type_raises(self):
         import statspai as sp
+
         with pytest.raises(TypeError):
             sp.help(42)
 
@@ -114,9 +128,11 @@ class TestNotFound:
 #  Registry auto-registration
 # --------------------------------------------------------------------------- #
 
+
 class TestRegistryExpansion:
     def test_list_functions_covers_more_than_hand_written(self):
         import statspai as sp
+
         names = sp.list_functions()
         # Hand-written baseline was 41; auto-registration should lift this
         # substantially (hundreds of exports in __all__).
@@ -124,6 +140,7 @@ class TestRegistryExpansion:
 
     def test_list_functions_includes_new_modules(self):
         import statspai as sp
+
         names = set(sp.list_functions())
         # These were previously unregistered.
         for n in ("bayes_mte", "frontier", "mixed", "rdrobust"):
@@ -131,6 +148,7 @@ class TestRegistryExpansion:
 
     def test_describe_auto_registered_returns_params(self):
         import statspai as sp
+
         # Pick a function that likely wasn't hand-registered.
         info = sp.describe_function("frontier")
         assert info["name"] == "frontier"
@@ -139,6 +157,7 @@ class TestRegistryExpansion:
 
     def test_all_schemas_stable(self):
         import statspai as sp
+
         schemas = sp.all_schemas()
         assert len(schemas) > 100
         for s in schemas:
@@ -147,6 +166,7 @@ class TestRegistryExpansion:
 
     def test_top_level_all_has_no_duplicates(self):
         import statspai as sp
+
         assert len(sp.__all__) == len(set(sp.__all__))
 
 
@@ -154,9 +174,11 @@ class TestRegistryExpansion:
 #  CLI
 # --------------------------------------------------------------------------- #
 
+
 class TestCLI:
     def _run(self, *argv):
         from statspai.cli import main
+
         buf = io.StringIO()
         old = sys.stdout
         sys.stdout = buf
@@ -168,12 +190,14 @@ class TestCLI:
 
     def test_cli_version(self):
         import statspai as sp
+
         rc, out = self._run("version")
         assert rc == 0
         assert sp.__version__ in out
 
     def test_cli_version_flag(self):
         import statspai as sp
+
         rc, out = self._run("--version")
         assert rc == 0
         assert sp.__version__ in out

@@ -24,10 +24,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def ols_models():
@@ -58,6 +58,7 @@ def logit_models():
 # 1. margins_table adapter
 # ---------------------------------------------------------------------------
 
+
 class TestMarginsTable:
 
     def test_margins_table_exists(self):
@@ -69,8 +70,7 @@ class TestMarginsTable:
         mt2 = sp.margins_table(m2)
         out = sp.regtable(mt1, mt2).to_text()
         # Variable rows should be x and (in m2) z
-        assert re.search(r"^\s*x\b", out, re.M), \
-            f"x row missing in:\n{out}"
+        assert re.search(r"^\s*x\b", out, re.M), f"x row missing in:\n{out}"
 
     def test_margins_table_numbers_match_margins_df(self, logit_models):
         m, _, _ = logit_models
@@ -78,9 +78,7 @@ class TestMarginsTable:
         mt = sp.margins_table(m)
         # The mt result's params series should match mfx_df['dy/dx']
         # for variable 'x'
-        x_dydx = float(
-            mfx_df.loc[mfx_df["variable"] == "x", "dy/dx"].iloc[0]
-        )
+        x_dydx = float(mfx_df.loc[mfx_df["variable"] == "x", "dy/dx"].iloc[0])
         # Adapter exposes .params (pandas Series indexed by variable name)
         assert "x" in mt.params.index
         assert abs(float(mt.params["x"]) - x_dydx) < 1e-10
@@ -89,9 +87,7 @@ class TestMarginsTable:
         m, _, _ = logit_models
         mfx_df = sp.margins(m)
         mt = sp.margins_table(m)
-        x_se = float(
-            mfx_df.loc[mfx_df["variable"] == "x", "se"].iloc[0]
-        )
+        x_se = float(mfx_df.loc[mfx_df["variable"] == "x", "se"].iloc[0])
         assert abs(float(mt.std_errors["x"]) - x_se) < 1e-10
 
     def test_margins_table_renders_latex(self, logit_models):
@@ -112,12 +108,14 @@ class TestMarginsTable:
 # 2. tests= footer rows
 # ---------------------------------------------------------------------------
 
+
 class TestTestsFooter:
 
     def test_tests_dict_renders_as_rows(self, ols_models):
         m1, m2, _ = ols_models
         out = sp.regtable(
-            m1, m2,
+            m1,
+            m2,
             tests={
                 "F-test x1=0": [(12.34, 0.0001), (8.91, 0.003)],
             },
@@ -131,7 +129,8 @@ class TestTestsFooter:
     def test_tests_pvalue_alone_gets_stars(self, ols_models):
         m1, m2, _ = ols_models
         out = sp.regtable(
-            m1, m2,
+            m1,
+            m2,
             tests={"Hansen J p-value": [0.04, 0.62]},
         ).to_text()
         assert "Hansen J p-value" in out
@@ -156,6 +155,7 @@ class TestTestsFooter:
 # 3. fixef_sizes
 # ---------------------------------------------------------------------------
 
+
 class TestFixefSizes:
 
     def _result_with_n_fe_levels(self, base_result, levels_dict):
@@ -172,6 +172,7 @@ class TestFixefSizes:
             mi["fixed_effects"] = "+".join(levels_dict.keys())
             return base_result
         except (AttributeError, TypeError):
+
             class _Wrapper:
                 params = base_result.params
                 std_errors = base_result.std_errors
@@ -186,6 +187,7 @@ class TestFixefSizes:
                     "fixed_effects": "+".join(levels_dict.keys()),
                     "n_fe_levels": levels_dict,
                 }
+
             return _Wrapper()
 
     def test_fixef_sizes_emits_count_rows(self, ols_models):

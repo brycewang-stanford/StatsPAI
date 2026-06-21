@@ -26,7 +26,9 @@ class TestUnifiedFit:
         assert abs(res.params["d"] - 2.0) < 0.15
         # Augmented diagnostics attached by default
         assert "KP rk Wald F" in res.diagnostics
-        assert "SW conditional F (d)" not in res.diagnostics  # single endog → no SW line
+        assert (
+            "SW conditional F (d)" not in res.diagnostics
+        )  # single endog → no SW line
         assert "Olea-Pflueger effective F" in res.diagnostics
 
     def test_alias_tsls(self, dgp):
@@ -64,7 +66,12 @@ class TestUnifiedFit:
         n = len(dgp)
         z3 = rng.normal(size=n)
         eps = rng.normal(size=n)
-        d2 = 0.6 * dgp["z2"].values + 0.7 * z3 + 0.3 * eps + rng.normal(size=n, scale=0.5)
+        d2 = (
+            0.6 * dgp["z2"].values
+            + 0.7 * z3
+            + 0.3 * eps
+            + rng.normal(size=n, scale=0.5)
+        )
         df = dgp.assign(z3=z3, d2=d2, y=dgp["y"] - 1.5 * d2)
         res = iv.fit("y ~ (d + d2 ~ z1 + z2 + z3) + x", data=df)
         # SW per-endog should be attached

@@ -18,7 +18,6 @@ from typing import Iterator
 
 import pytest
 
-
 pytestmark = [
     pytest.mark.external_parity_runtime,
     pytest.mark.slow,
@@ -30,7 +29,9 @@ STATA_PARITY = ROOT / "tests" / "stata_parity"
 STATA_DEFAULT = "/Applications/Stata/StataMP.app/Contents/MacOS/stata-mp"
 
 
-def _run(cmd: list[str], *, cwd: Path, timeout: int = 120) -> subprocess.CompletedProcess:
+def _run(
+    cmd: list[str], *, cwd: Path, timeout: int = 120
+) -> subprocess.CompletedProcess:
     proc = subprocess.run(
         cmd,
         cwd=str(cwd),
@@ -76,10 +77,7 @@ def _assert_result(path: Path, module: str, side: str) -> None:
 
 @contextmanager
 def _preserve_artifacts(paths: list[Path]) -> Iterator[None]:
-    snapshots = {
-        path: path.read_bytes() if path.exists() else None
-        for path in paths
-    }
+    snapshots = {path: path.read_bytes() if path.exists() else None for path in paths}
     try:
         yield
     finally:

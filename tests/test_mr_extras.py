@@ -22,8 +22,9 @@ def clean_mr_data():
 
 def test_mr_mode_weighted(clean_mr_data):
     d = clean_mr_data
-    r = sp.mr_mode(d["bx"], d["by"], d["sx"], d["sy"],
-                   method="weighted", n_boot=200, seed=1)
+    r = sp.mr_mode(
+        d["bx"], d["by"], d["sx"], d["sy"], method="weighted", n_boot=200, seed=1
+    )
     assert abs(r.estimate - d["true_beta"]) < 0.3
     assert r.n_snps == len(d["bx"])
     assert r.bandwidth > 0
@@ -32,8 +33,9 @@ def test_mr_mode_weighted(clean_mr_data):
 
 def test_mr_mode_simple(clean_mr_data):
     d = clean_mr_data
-    r = sp.mr_mode(d["bx"], d["by"], d["sx"], d["sy"],
-                   method="simple", n_boot=200, seed=2)
+    r = sp.mr_mode(
+        d["bx"], d["by"], d["sx"], d["sy"], method="simple", n_boot=200, seed=2
+    )
     assert np.isfinite(r.estimate)
     assert "simple" in r.method
 

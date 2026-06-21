@@ -17,6 +17,7 @@ the remaining gaps in the v1.12.x coverage report:
 - ``paper`` with ``output_path=`` writing to disk.
 - DAG appendix rendering via a duck-typed DAG stub (text and qmd).
 """
+
 from __future__ import annotations
 
 import os
@@ -41,7 +42,6 @@ from statspai.workflow.paper import (
     paper,
 )
 
-
 # --------------------------------------------------------------------- #
 #  Fixtures
 # --------------------------------------------------------------------- #
@@ -54,9 +54,13 @@ def rct_data() -> pd.DataFrame:
     T = rng.binomial(1, 0.5, n)
     x = rng.normal(size=n)
     y = 2.0 * T + 0.5 * x + rng.normal(size=n)
-    return pd.DataFrame({
-        "wage": y, "trained": T, "edu": x,
-    })
+    return pd.DataFrame(
+        {
+            "wage": y,
+            "trained": T,
+            "edu": x,
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -94,9 +98,17 @@ def test_yaml_str_escapes_backslash():
 
 def test_tex_escape_special_chars():
     out = _tex_escape("a&b%c$d#e_f{g}h~i^j")
-    for tok in (r"\&", r"\%", r"\$", r"\#", r"\_",
-                r"\{", r"\}",
-                r"\textasciitilde{}", r"\textasciicircum{}"):
+    for tok in (
+        r"\&",
+        r"\%",
+        r"\$",
+        r"\#",
+        r"\_",
+        r"\{",
+        r"\}",
+        r"\textasciitilde{}",
+        r"\textasciicircum{}",
+    ):
         assert tok in out
 
 
@@ -147,19 +159,23 @@ def test_inline_md_to_tex_plain_text_escapes_specials():
 def test_eda_block_with_continuous_treatment():
     """Continuous-treatment branch (>10 unique values)."""
     rng = np.random.default_rng(0)
-    df = pd.DataFrame({
-        "y": rng.normal(size=200),
-        "T": rng.normal(size=200),  # continuous
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=200),
+            "T": rng.normal(size=200),  # continuous
+        }
+    )
     out = _eda_block(df, y="y", treatment="T", covariates=None)
     assert "continuous" in out
 
 
 def test_eda_block_handles_missingness():
-    df = pd.DataFrame({
-        "y": [1.0, np.nan, 3.0, 4.0],
-        "x": [1.0, 2.0, np.nan, 4.0],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1.0, np.nan, 3.0, 4.0],
+            "x": [1.0, 2.0, np.nan, 4.0],
+        }
+    )
     out = _eda_block(df, y="y", treatment=None, covariates=None)
     assert "Missingness" in out
 
@@ -172,12 +188,14 @@ def test_eda_block_no_missingness_path():
 
 def test_eda_block_covariate_balance_table():
     rng = np.random.default_rng(0)
-    df = pd.DataFrame({
-        "y": rng.normal(size=200),
-        "T": rng.binomial(1, 0.5, 200),
-        "x1": rng.normal(size=200),
-        "x2": rng.normal(size=200),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=200),
+            "T": rng.binomial(1, 0.5, 200),
+            "x1": rng.normal(size=200),
+            "x2": rng.normal(size=200),
+        }
+    )
     out = _eda_block(df, y="y", treatment="T", covariates=["x1", "x2"])
     assert "covariate" in out and "std-diff" in out
 
@@ -185,16 +203,20 @@ def test_eda_block_covariate_balance_table():
 def test_eda_block_records_degradation_on_bad_covariate():
     """Non-numeric covariate triggers a recorded degradation."""
     import warnings as _w
-    df = pd.DataFrame({
-        "y": np.random.default_rng(0).normal(size=200),
-        "T": [0, 1] * 100,
-        "bad": ["foo"] * 200,
-    })
+
+    df = pd.DataFrame(
+        {
+            "y": np.random.default_rng(0).normal(size=200),
+            "T": [0, 1] * 100,
+            "bad": ["foo"] * 200,
+        }
+    )
     degradations: list = []
     with _w.catch_warnings():
         _w.simplefilter("ignore")
-        _eda_block(df, y="y", treatment="T", covariates=["bad"],
-                   degradations=degradations)
+        _eda_block(
+            df, y="y", treatment="T", covariates=["bad"], degradations=degradations
+        )
     # 'bad' is constant (all "foo") → grp.mean() may NaN out;
     # degradation may or may not trigger depending on pandas dtype handling.
     # We assert degradations is a list (not None) — the surface contract.
@@ -261,6 +283,7 @@ def test_to_qmd_with_author_and_bib(draft):
 
 def test_to_qmd_renders_dag_appendix_when_dag_attached(rct_data):
     """When the draft carries a DAG, qmd output contains a mermaid block."""
+
     class _StubDAG:
         nodes = {"trained", "wage", "edu"}
         observed_nodes = {"trained", "wage", "edu"}
@@ -291,8 +314,7 @@ def test_to_qmd_renders_dag_appendix_when_dag_attached(rct_data):
 # --------------------------------------------------------------------- #
 
 
-def test_to_docx_falls_back_to_markdown_when_docx_missing(draft, tmp_path,
-                                                           monkeypatch):
+def test_to_docx_falls_back_to_markdown_when_docx_missing(draft, tmp_path, monkeypatch):
     """Force python-docx import to fail → fallback writes markdown to .docx."""
     # Block ``import docx`` for the duration of this test.
     monkeypatch.setitem(sys.modules, "docx", None)

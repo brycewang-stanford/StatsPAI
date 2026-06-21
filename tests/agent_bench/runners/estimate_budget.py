@@ -15,13 +15,13 @@ four LLM options the protocol pre-registers; it intentionally does
 *not* authorise spending. Re-check the provider pricing pages and
 update PRICE_TABLE immediately before any real API run.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
-
 
 HERE = Path(__file__).resolve().parent
 PROMPTS_PATH = HERE.parent / "prompts" / "prompts.json"
@@ -83,11 +83,12 @@ def cost_for_model(stats: dict, model: ModelPrice) -> dict:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--cells",
-                    default="C1,C2,C3,C4,C5,C6",
-                    help="Comma-separated cell IDs.")
-    p.add_argument("--reps", type=int, default=3,
-                    help="Reps per (cell, prompt). Default 3.")
+    p.add_argument(
+        "--cells", default="C1,C2,C3,C4,C5,C6", help="Comma-separated cell IDs."
+    )
+    p.add_argument(
+        "--reps", type=int, default=3, help="Reps per (cell, prompt). Default 3."
+    )
     p.add_argument("--prompts-path", type=Path, default=PROMPTS_PATH)
     return p.parse_args()
 
@@ -103,19 +104,25 @@ def main() -> None:
     print(f"  Prompts:  {stats['n_prompts']}")
     print(f"  Reps:     {stats['reps']}")
     print(f"  Trials:   {stats['n_trials']}")
-    print(f"  Per-trial allowance: {BUDGET_INPUT_TOKENS_PER_TRIAL} in "
-          f"+ {BUDGET_OUTPUT_TOKENS_PER_TRIAL} out tokens")
-    print(f"  Total tokens (worst case): "
-          f"{stats['input_tokens']:,} in + {stats['output_tokens']:,} out "
-          f"= {stats['total_tokens']:,}")
+    print(
+        f"  Per-trial allowance: {BUDGET_INPUT_TOKENS_PER_TRIAL} in "
+        f"+ {BUDGET_OUTPUT_TOKENS_PER_TRIAL} out tokens"
+    )
+    print(
+        f"  Total tokens (worst case): "
+        f"{stats['input_tokens']:,} in + {stats['output_tokens']:,} out "
+        f"= {stats['total_tokens']:,}"
+    )
     print()
     print("=== Cost ceiling per model (bundled price snapshot, USD) ===")
     print(f"  {'Model':<18}  {'Input':>9}  {'Output':>9}  {'Total':>9}")
     print(f"  {'-' * 18}  {'-' * 9}  {'-' * 9}  {'-' * 9}")
     for m in PRICE_TABLE:
         c = cost_for_model(stats, m)
-        print(f"  {c['model']:<18}  ${c['input_usd']:>7.2f}  "
-              f"${c['output_usd']:>7.2f}  ${c['total_usd']:>7.2f}")
+        print(
+            f"  {c['model']:<18}  ${c['input_usd']:>7.2f}  "
+            f"${c['output_usd']:>7.2f}  ${c['total_usd']:>7.2f}"
+        )
     print()
     print("Notes:")
     print("  - These are upper-bound ceilings from the bundled token")

@@ -5,6 +5,7 @@ from __future__ import annotations
 import warnings
 
 import matplotlib
+
 matplotlib.use("Agg")  # noqa: E402
 import numpy as np
 import pandas as pd
@@ -12,8 +13,8 @@ import pytest
 
 import statspai as sp
 
-
 # ─── Synthetic data generator ───────────────────────────────────────────
+
 
 def _make_iv_data(n=600, beta=0.8, seed=0, binary_endog=False):
     rng = np.random.default_rng(seed)
@@ -32,11 +33,17 @@ def _make_iv_data(n=600, beta=0.8, seed=0, binary_endog=False):
 #  iv_diag — basic surface
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def test_iv_diag_basic_runs_and_recovers_dgp():
     df = _make_iv_data(n=800, beta=0.8, seed=42)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=100, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=100,
+        random_state=0,
     )
     # Recovers the DGP within a 2-SE window
     assert abs(r.beta_2sls - 0.8) < 3 * r.se_2sls
@@ -51,11 +58,19 @@ def test_iv_diag_basic_runs_and_recovers_dgp():
 
 def test_iv_diag_to_frame_columns():
     df = _make_iv_data(seed=1)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1"],
-                      n_boot=50, random_state=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1"], n_boot=50, random_state=0
+    )
     fr = r.to_frame()
-    assert {"estimator", "estimate", "SE", "stat", "p-value",
-            "CI lower", "CI upper"}.issubset(fr.columns)
+    assert {
+        "estimator",
+        "estimate",
+        "SE",
+        "stat",
+        "p-value",
+        "CI lower",
+        "CI upper",
+    }.issubset(fr.columns)
     # Must include 2SLS analytic, tF-adjusted, AR, OLS rows
     estimators = set(fr["estimator"])
     assert "2SLS (analytic)" in estimators
@@ -67,8 +82,14 @@ def test_iv_diag_to_frame_columns():
 def test_iv_diag_bootstrap_pairs_and_wild():
     df = _make_iv_data(seed=2)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=200, boot_methods=("pairs", "wild"), random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=200,
+        boot_methods=("pairs", "wild"),
+        random_state=0,
     )
     assert r.bootstrap_n >= 100
     assert r.bootstrap_se_pairs is not None and r.bootstrap_se_pairs > 0
@@ -83,9 +104,16 @@ def test_iv_diag_bootstrap_pairs_and_wild():
 def test_iv_diag_optional_clr_k():
     df = _make_iv_data(seed=3, n=400)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=0, include_clr_ci=True, include_k_ci=True,
-        grid_size=121, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=0,
+        include_clr_ci=True,
+        include_k_ci=True,
+        grid_size=121,
+        random_state=0,
     )
     assert r.clr_ci is not None and len(r.clr_ci) == 2
     assert r.k_ci is not None and len(r.k_ci) == 2
@@ -97,8 +125,14 @@ def test_iv_diag_optional_clr_k():
 def test_iv_diag_ltz_sensitivity_widens_ci():
     df = _make_iv_data(seed=4, n=500)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=0, ltz_gamma_sd=0.05, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=0,
+        ltz_gamma_sd=0.05,
+        random_state=0,
     )
     assert r.ltz_ci is not None
     # LTZ CI must be at least as wide as the analytic Wald CI
@@ -110,8 +144,13 @@ def test_iv_diag_ltz_sensitivity_widens_ci():
 def test_iv_diag_binary_endog_caveat_triggers():
     df = _make_iv_data(seed=5, n=600, binary_endog=True)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=0, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=0,
+        random_state=0,
     )
     assert r.tsls_late_caveat is not None
     assert "Blandhol" in r.tsls_late_caveat
@@ -121,8 +160,13 @@ def test_iv_diag_binary_endog_caveat_triggers():
 def test_iv_diag_no_exog_no_caveat():
     df = _make_iv_data(seed=6, n=400, binary_endog=True)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=None,
-        n_boot=0, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=None,
+        n_boot=0,
+        random_state=0,
     )
     # BBMT/Słoczyński caveat is *covariate-driven* — without covariates it stays silent.
     assert r.tsls_late_caveat is None
@@ -131,8 +175,13 @@ def test_iv_diag_no_exog_no_caveat():
 def test_iv_diag_summary_includes_caveat_when_triggered():
     df = _make_iv_data(seed=7, n=400, binary_endog=True)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=0, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=0,
+        random_state=0,
     )
     s = r.summary()
     assert "Interpretation caveat" in s
@@ -141,17 +190,20 @@ def test_iv_diag_summary_includes_caveat_when_triggered():
 
 def test_iv_diag_to_dict_jsonable():
     import json
+
     df = _make_iv_data(seed=8)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1"],
-                      n_boot=50, random_state=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1"], n_boot=50, random_state=0
+    )
     j = json.dumps(r.to_dict())  # does not raise
     assert isinstance(j, str) and len(j) > 100
 
 
 def test_iv_diag_to_latex_runs():
     df = _make_iv_data(seed=9)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1"],
-                      n_boot=0, random_state=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1"], n_boot=0, random_state=0
+    )
     tex = r.to_latex(caption="IV bundle", label="tab:iv")
     assert "\\begin{table}" in tex and "tab:iv" in tex
 
@@ -160,10 +212,12 @@ def test_iv_diag_to_latex_runs():
 #  iv_compare
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def test_iv_compare_recovers_dgp_across_methods():
     df = _make_iv_data(seed=10, n=800)
     out = sp.iv.iv_compare(
-        "y ~ (d ~ z1 + z2) + x", data=df,
+        "y ~ (d ~ z1 + z2) + x",
+        data=df,
         methods=("2sls", "liml", "fuller", "jive", "ujive"),
     )
     assert set(out["status"]) <= {"ok"}
@@ -174,8 +228,10 @@ def test_iv_compare_recovers_dgp_across_methods():
 def test_iv_compare_endog_name_override():
     df = _make_iv_data(seed=11)
     out = sp.iv.iv_compare(
-        "y ~ (d ~ z1 + z2) + x", data=df,
-        methods=("ujive",), endog_name="d",
+        "y ~ (d ~ z1 + z2) + x",
+        data=df,
+        methods=("ujive",),
+        endog_name="d",
     )
     # Forced look-up by endog name returns a non-trivial estimate
     assert out.iloc[0]["estimate"] is not None and abs(out.iloc[0]["estimate"]) < 5
@@ -185,12 +241,20 @@ def test_iv_compare_endog_name_override():
 #  Plot helpers — only smoke-test "does it draw without errors"
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def test_plots_smoke():
     df = _make_iv_data(seed=12, n=400)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=50, include_clr_ci=True, include_k_ci=True,
-        ltz_gamma_sd=0.05, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=50,
+        include_clr_ci=True,
+        include_k_ci=True,
+        ltz_gamma_sd=0.05,
+        random_state=0,
     )
     # All four plot routes
     assert r.plot("first_stage") is not None
@@ -203,10 +267,12 @@ def test_plots_smoke():
 #  Error paths
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def test_iv_diag_unknown_plot_kind_raises():
     df = _make_iv_data(seed=13)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1"],
-                      n_boot=0, random_state=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1"], n_boot=0, random_state=0
+    )
     with pytest.raises(ValueError, match="Unknown plot kind"):
         r.plot("nonsense")
 
@@ -222,13 +288,20 @@ def test_iv_diag_top_level_alias():
 #  Coverage of issues caught in the v1.14 polish-pass code review
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def test_iv_diag_cluster_string_column():
     """Cluster identifier passed as a column name in `data`."""
     df = _make_iv_data(seed=20, n=600)
     df["state"] = np.repeat(np.arange(20), len(df) // 20 + 1)[: len(df)]
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        cluster="state", n_boot=100, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        cluster="state",
+        n_boot=100,
+        random_state=0,
     )
     # Cluster bootstrap should produce a non-trivial SE
     assert r.bootstrap_se_pairs is not None
@@ -250,8 +323,14 @@ def test_iv_diag_cluster_array_aligns_after_dropna():
     df = df.copy()
     df.loc[10:13, "x"] = np.nan
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        cluster=cluster, n_boot=80, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        cluster=cluster,
+        n_boot=80,
+        random_state=0,
     )
     # The estimator should run; correctness is hard to assert directly
     # without a parallel truth, but the SE must be finite.
@@ -264,8 +343,12 @@ def test_iv_diag_cluster_array_length_mismatch_raises():
     cluster = np.arange(150)  # wrong length
     with pytest.raises(ValueError, match="cluster array length"):
         sp.iv.iv_diag(
-            df, y="y", endog="d", instruments=["z1"],
-            cluster=cluster, n_boot=0,
+            df,
+            y="y",
+            endog="d",
+            instruments=["z1"],
+            cluster=cluster,
+            n_boot=0,
         )
 
 
@@ -276,12 +359,24 @@ def test_iv_diag_classic_vcov_matches_homoskedastic():
     """
     df = _make_iv_data(seed=23, n=2000)
     r_classic = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=0, vcov="classic", random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=0,
+        vcov="classic",
+        random_state=0,
     )
     r_hc1 = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=0, vcov="HC1", random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=0,
+        vcov="HC1",
+        random_state=0,
     )
     assert np.isfinite(r_classic.se_2sls)
     # Under homoskedasticity at large n, classic ~ HC1 within a few %
@@ -302,8 +397,9 @@ def test_iv_diag_tF_returns_inf_when_F_below_threshold():
     d = 0.005 * z + 0.4 * x + u + rng.standard_normal(n)
     y = 0.5 + 0.8 * d + 0.5 * x + u
     df = pd.DataFrame({"y": y, "d": d, "z": z, "x": x})
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z"], exog=["x"],
-                      n_boot=0, random_state=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z"], exog=["x"], n_boot=0, random_state=0
+    )
     if r.first_stage_F < 3.84:
         assert not np.isfinite(r.tF_critical_value)
         assert r.tF_adjusted_ci == (-np.inf, np.inf)
@@ -314,8 +410,14 @@ def test_iv_diag_bootstrap_n_per_method():
     minimum of the two success counts (conservative reading)."""
     df = _make_iv_data(seed=24, n=400)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=100, boot_methods=("pairs", "wild"), random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=100,
+        boot_methods=("pairs", "wild"),
+        random_state=0,
     )
     # bootstrap_n should be no larger than the smallest of the two
     assert r.bootstrap_n > 0
@@ -326,8 +428,14 @@ def test_iv_diag_ltz_warning_describes_tipping_point():
     multiples-of-σ-units, not a literal 0."""
     df = _make_iv_data(seed=25)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=0, ltz_gamma_sd=0.05, random_state=0,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=0,
+        ltz_gamma_sd=0.05,
+        random_state=0,
     )
     assert r.ltz_warning is not None
     assert "σ_γ" in r.ltz_warning

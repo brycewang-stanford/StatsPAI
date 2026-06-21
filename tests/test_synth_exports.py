@@ -16,16 +16,17 @@ import os
 import tempfile
 
 import matplotlib
+
 matplotlib.use("Agg")  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import pytest  # noqa: E402
 
 import statspai as sp
 
-
 # ====================================================================== #
 #  Fixtures
 # ====================================================================== #
+
 
 @pytest.fixture(scope="module")
 def calif():
@@ -36,33 +37,50 @@ def calif():
 @pytest.fixture(scope="module")
 def classic_result(calif):
     return sp.synth(
-        calif, outcome="cigsale", unit="state", time="year",
-        treated_unit="California", treatment_time=1989,
-        method="classic", placebo=False,
+        calif,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
+        method="classic",
+        placebo=False,
     )
 
 
 @pytest.fixture(scope="module")
 def sdid_result(calif):
     return sp.sdid(
-        calif, outcome="cigsale", unit="state", time="year",
-        treated_unit="California", treatment_time=1989,
+        calif,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
     )
 
 
 @pytest.fixture(scope="module")
 def scpi_result(calif):
     return sp.scpi(
-        calif, outcome="cigsale", unit="state", time="year",
-        treated_unit="California", treatment_time=1989,
+        calif,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
     )
 
 
 @pytest.fixture(scope="module")
 def comparison(calif):
     return sp.synth_compare(
-        calif, outcome="cigsale", unit="state", time="year",
-        treated_unit="California", treatment_time=1989,
+        calif,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
         methods=["classic", "augmented", "sdid"],
         placebo=False,
     )
@@ -71,6 +89,7 @@ def comparison(calif):
 # ====================================================================== #
 #  synth_to_latex
 # ====================================================================== #
+
 
 class TestSynthToLatex:
 
@@ -84,7 +103,9 @@ class TestSynthToLatex:
 
     def test_single_result_with_weights(self, classic_result):
         latex = sp.synth_to_latex(
-            classic_result, show_weights=True, top_n_weights=3,
+            classic_result,
+            show_weights=True,
+            top_n_weights=3,
         )
         assert "Top donor weights" in latex
         # Classic SCM California study should pick Montana / Nevada
@@ -92,7 +113,9 @@ class TestSynthToLatex:
 
     def test_comparison(self, comparison):
         latex = sp.synth_to_latex(
-            comparison, caption="Test", label="tab:test",
+            comparison,
+            caption="Test",
+            label="tab:test",
         )
         assert "\\caption{Test}" in latex
         assert "\\label{tab:test}" in latex
@@ -118,6 +141,7 @@ class TestSynthToLatex:
 #  synth_to_markdown
 # ====================================================================== #
 
+
 class TestSynthToMarkdown:
 
     def test_single_result(self, classic_result):
@@ -141,12 +165,14 @@ class TestSynthToMarkdown:
 #  synth_to_excel
 # ====================================================================== #
 
+
 class TestSynthToExcel:
 
     def test_single_result_writes_file(self, classic_result):
         openpyxl = pytest.importorskip("openpyxl")
         with tempfile.NamedTemporaryFile(
-            suffix=".xlsx", delete=False,
+            suffix=".xlsx",
+            delete=False,
         ) as f:
             path = sp.synth_to_excel(classic_result, f.name)
         try:
@@ -163,7 +189,8 @@ class TestSynthToExcel:
     def test_comparison_writes_multi_sheet(self, comparison):
         openpyxl = pytest.importorskip("openpyxl")
         with tempfile.NamedTemporaryFile(
-            suffix=".xlsx", delete=False,
+            suffix=".xlsx",
+            delete=False,
         ) as f:
             path = comparison.to_excel(f.name)
         try:
@@ -182,14 +209,13 @@ class TestSynthToExcel:
 #  Plot enhancements
 # ====================================================================== #
 
+
 class TestPlotOptions:
 
     def test_trajectory_with_pre_band(self, classic_result):
         fig, ax = sp.synthplot(classic_result, type="trajectory", pre_band=True)
         # Pre-band adds an additional fill_between collection
-        assert any(
-            "pre-RMSPE" in (c.get_label() or "") for c in ax.collections
-        )
+        assert any("pre-RMSPE" in (c.get_label() or "") for c in ax.collections)
         plt.close(fig)
 
     def test_trajectory_with_pi_band_scpi(self, scpi_result):
@@ -209,13 +235,20 @@ class TestPlotOptions:
 #  synth_report SDID canonicalisation
 # ====================================================================== #
 
+
 class TestSynthReportSDID:
 
     def test_sdid_setup_table_no_NA(self, calif):
         md = sp.synth_report(
-            calif, outcome="cigsale", unit="state", time="year",
-            treated_unit="California", treatment_time=1989,
-            method="sdid", output="markdown", sensitivity=False,
+            calif,
+            outcome="cigsale",
+            unit="state",
+            time="year",
+            treated_unit="California",
+            treatment_time=1989,
+            method="sdid",
+            output="markdown",
+            sensitivity=False,
         )
         # Setup section should NOT be filled with N/A for SDID
         setup_block = md.split("## 2.")[0]
@@ -226,9 +259,15 @@ class TestSynthReportSDID:
 
     def test_sdid_pre_rmspe_recomputed(self, calif):
         md = sp.synth_report(
-            calif, outcome="cigsale", unit="state", time="year",
-            treated_unit="California", treatment_time=1989,
-            method="sdid", output="markdown", sensitivity=False,
+            calif,
+            outcome="cigsale",
+            unit="state",
+            time="year",
+            treated_unit="California",
+            treatment_time=1989,
+            method="sdid",
+            output="markdown",
+            sensitivity=False,
         )
         # Pre-RMSPE should be a finite number, not "nan"
         assert "Pre-RMSPE" in md
@@ -236,9 +275,15 @@ class TestSynthReportSDID:
 
     def test_sdid_uses_arkhangelsky_citation(self, calif):
         md = sp.synth_report(
-            calif, outcome="cigsale", unit="state", time="year",
-            treated_unit="California", treatment_time=1989,
-            method="sdid", output="markdown", sensitivity=False,
+            calif,
+            outcome="cigsale",
+            unit="state",
+            time="year",
+            treated_unit="California",
+            treatment_time=1989,
+            method="sdid",
+            output="markdown",
+            sensitivity=False,
         )
         assert "Arkhangelsky" in md
         assert "[@arkhangelsky2021synthetic]" in md

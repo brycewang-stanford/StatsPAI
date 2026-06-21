@@ -34,8 +34,13 @@ def experiment_and_target():
 def test_pate_transports_above_source_sate(experiment_and_target):
     exp, target = experiment_and_target
     res = sp.pate(
-        data_experiment=exp, data_target=target,
-        y="y", treatment="t", covariates=["x"], seed=0, n_boot=200,
+        data_experiment=exp,
+        data_target=target,
+        y="y",
+        treatment="t",
+        covariates=["x"],
+        seed=0,
+        n_boot=200,
     )
     # Target oversamples high-CATE units (x shifted up by 1) so the PATE must
     # exceed the homogeneous SATE benchmark of ~1.0; truth is ~1.5.
@@ -69,8 +74,11 @@ def test_pate_recovers_constant_treatment_effect(method):
 def test_transport_generalize_direction_and_weights(experiment_and_target):
     exp, target = experiment_and_target
     tr = sp.transport_generalize(
-        rct=exp, target_population=target, features=["x"],
-        treatment="t", outcome="y",
+        rct=exp,
+        target_population=target,
+        features=["x"],
+        treatment="t",
+        outcome="y",
     )
     # Transported effect exceeds the source effect for the shifted target.
     assert tr.effect_transported > tr.effect_source
@@ -92,8 +100,11 @@ def bartik():
 
 def test_ssaggregate_recovers_effect(bartik):
     res = sp.ssaggregate(
-        data=bartik["data"], y="y", x="bartik",
-        shares=bartik["shares"], shocks=bartik["shocks"],
+        data=bartik["data"],
+        y="y",
+        x="bartik",
+        shares=bartik["shares"],
+        shocks=bartik["shocks"],
     )
     assert float(res.params["bartik"]) == pytest.approx(1.5, abs=0.5)
     assert float(res.std_errors["bartik"]) > 0
@@ -101,8 +112,11 @@ def test_ssaggregate_recovers_effect(bartik):
 
 def test_shift_share_se_preserves_point_estimate(bartik):
     base = sp.ssaggregate(
-        data=bartik["data"], y="y", x="bartik",
-        shares=bartik["shares"], shocks=bartik["shocks"],
+        data=bartik["data"],
+        y="y",
+        x="bartik",
+        shares=bartik["shares"],
+        shocks=bartik["shocks"],
     )
     akm = sp.shift_share_se(base, shares=bartik["shares"])
     # The AKM correction only re-estimates the variance — point estimates
@@ -133,8 +147,11 @@ def test_shift_share_se_no_divide_by_zero_on_strong_first_stage(bartik):
     import warnings
 
     base = sp.ssaggregate(
-        data=bartik["data"], y="y", x="bartik",
-        shares=bartik["shares"], shocks=bartik["shocks"],
+        data=bartik["data"],
+        y="y",
+        x="bartik",
+        shares=bartik["shares"],
+        shocks=bartik["shocks"],
     )
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)

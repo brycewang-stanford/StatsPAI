@@ -5,6 +5,7 @@ client capability is advertised so callers can route to a fallback.
 When the client does advertise support, the helpers send a
 ``sampling/createMessage`` request on stdout and block on the reply.
 """
+
 from __future__ import annotations
 
 import io
@@ -25,26 +26,28 @@ from statspai.agent._sampling import (
     SAMPLING_TIMEOUT_ENV,
 )
 
-
 # ----------------------------------------------------------------------
 # Fail-closed when capability not set
 # ----------------------------------------------------------------------
+
 
 class TestFailClosed:
     def test_raises_when_capability_unset(self):
         # Capability resets between tests via the ``reset`` fixture below.
         with pytest.raises(UnsupportedSamplingError):
-            request_sampling([{"role": "user",
-                                "content": {"type": "text", "text": "hi"}}],
-                               max_tokens=10)
+            request_sampling(
+                [{"role": "user", "content": {"type": "text", "text": "hi"}}],
+                max_tokens=10,
+            )
 
     def test_raises_when_writer_unset(self, monkeypatch):
         set_capability(True)
         try:
             with pytest.raises(UnsupportedSamplingError):
-                request_sampling([{"role": "user",
-                                    "content": {"type": "text", "text": "x"}}],
-                                  max_tokens=10)
+                request_sampling(
+                    [{"role": "user", "content": {"type": "text", "text": "x"}}],
+                    max_tokens=10,
+                )
         finally:
             set_capability(False)
 
@@ -52,6 +55,7 @@ class TestFailClosed:
 # ----------------------------------------------------------------------
 # Round-trip via mock writer
 # ----------------------------------------------------------------------
+
 
 class TestRoundTrip:
     def test_sends_request_and_returns_result(self):
@@ -89,8 +93,7 @@ class TestRoundTrip:
         t.start()
         try:
             result = request_sampling(
-                [{"role": "user",
-                  "content": {"type": "text", "text": "hi"}}],
+                [{"role": "user", "content": {"type": "text", "text": "hi"}}],
                 max_tokens=200,
                 system_prompt="be concise",
                 temperature=0.2,
@@ -126,9 +129,9 @@ class TestRoundTrip:
         try:
             with pytest.raises(RuntimeError) as excinfo:
                 request_sampling(
-                    [{"role": "user",
-                      "content": {"type": "text", "text": "x"}}],
-                    max_tokens=10, timeout=2.0,
+                    [{"role": "user", "content": {"type": "text", "text": "x"}}],
+                    max_tokens=10,
+                    timeout=2.0,
                 )
             assert "client refused" in str(excinfo.value)
         finally:
@@ -141,6 +144,7 @@ class TestRoundTrip:
 # Timeout handling
 # ----------------------------------------------------------------------
 
+
 class TestTimeout:
     def test_times_out_when_client_silent(self, monkeypatch):
         monkeypatch.setenv(SAMPLING_TIMEOUT_ENV, "0.05")
@@ -149,8 +153,7 @@ class TestTimeout:
         try:
             with pytest.raises(SamplingTimeoutError):
                 request_sampling(
-                    [{"role": "user",
-                      "content": {"type": "text", "text": "x"}}],
+                    [{"role": "user", "content": {"type": "text", "text": "x"}}],
                     max_tokens=10,
                 )
         finally:
@@ -162,11 +165,15 @@ class TestTimeout:
 # stdio integration: serve_stdio registers + clears the writer
 # ----------------------------------------------------------------------
 
+
 class TestServeStdioIntegration:
     def test_initialize_records_client_capability(self):
         from statspai.agent import mcp_handle_request
+
         msg = {
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
             "params": {"capabilities": {"sampling": {}}},
         }
         line = mcp_handle_request(json.dumps(msg))
@@ -180,9 +187,12 @@ class TestServeStdioIntegration:
 
     def test_initialize_without_capability_keeps_flag_false(self):
         from statspai.agent import mcp_handle_request
+
         set_capability(False)  # explicit reset
         msg = {
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
             "params": {"capabilities": {}},
         }
         mcp_handle_request(json.dumps(msg))
@@ -190,10 +200,13 @@ class TestServeStdioIntegration:
 
     def test_serve_stdio_registers_then_clears_writer(self):
         from statspai.agent import mcp_serve_stdio
+
         # Run a single-line dummy session (just an initialize) and
         # verify the writer was unset on exit.
         request = {
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
             "params": {"capabilities": {}},
         }
         stdin = io.StringIO(json.dumps(request) + "\n")
@@ -207,10 +220,13 @@ class TestServeStdioIntegration:
 # route_response: ignores unsolicited replies
 # ----------------------------------------------------------------------
 
+
 class TestRouteResponseIgnoresUnsolicited:
     def test_unknown_id_returns_false(self):
-        assert route_response({"jsonrpc": "2.0", "id": "not-pending",
-                                "result": {}}) is False
+        assert (
+            route_response({"jsonrpc": "2.0", "id": "not-pending", "result": {}})
+            is False
+        )
 
     def test_non_dict_returns_false(self):
         assert route_response("not a dict") is False  # type: ignore[arg-type]
@@ -219,6 +235,7 @@ class TestRouteResponseIgnoresUnsolicited:
 # ----------------------------------------------------------------------
 # Auto-reset between tests so module-level state doesn't leak
 # ----------------------------------------------------------------------
+
 
 @pytest.fixture(autouse=True)
 def _reset_sampling_state():

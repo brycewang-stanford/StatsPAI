@@ -10,6 +10,7 @@ check real properties (sign, magnitude window, p-values in [0,1], CI
 ordering, frame shapes) and that bad inputs raise — never fabricated
 numbers.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -60,8 +61,7 @@ def test_aggte_types_recover_att(cs_result, typ):
 
 
 def test_aggte_dynamic_has_cband(cs_result):
-    agg = sp.aggte(cs_result, type="dynamic", cband=True, n_boot=200,
-                   random_state=1)
+    agg = sp.aggte(cs_result, type="dynamic", cband=True, n_boot=200, random_state=1)
     assert "cband_lower" in agg.detail.columns
     assert "cband_upper" in agg.detail.columns
     # uniform band is at least as wide as the pointwise CI
@@ -76,8 +76,9 @@ def test_aggte_simple_no_cband(cs_result):
 
 
 def test_aggte_event_time_window(cs_result):
-    agg = sp.aggte(cs_result, type="dynamic", min_e=-2, max_e=3,
-                   n_boot=100, random_state=0)
+    agg = sp.aggte(
+        cs_result, type="dynamic", min_e=-2, max_e=3, n_boot=100, random_state=0
+    )
     rt = agg.detail["time"] if "time" in agg.detail.columns else None
     # the dynamic detail labels event time in the dim column ('time')
     assert (agg.detail.iloc[:, 0] >= -2).all()
@@ -86,8 +87,7 @@ def test_aggte_event_time_window(cs_result):
 
 
 def test_aggte_balance_e(cs_result):
-    agg = sp.aggte(cs_result, type="dynamic", balance_e=2, n_boot=100,
-                   random_state=0)
+    agg = sp.aggte(cs_result, type="dynamic", balance_e=2, n_boot=100, random_state=0)
     # balanced window keeps only e in [.., 2]
     assert (agg.detail.iloc[:, 0] <= 2).all()
     _ci_ok(agg)
@@ -103,6 +103,7 @@ def test_aggte_analytic_fallback(cs_result):
 def test_aggte_na_rm_drops_nan_cell(cs_result):
     # Inject a NaN ATT cell into a copy of the result; na_rm should drop it.
     import copy
+
     res = copy.copy(cs_result)
     det = cs_result.detail.copy()
     det.loc[det.index[0], "att"] = np.nan
@@ -124,7 +125,6 @@ def test_aggte_bad_boottype_raises(cs_result):
 def test_aggte_non_cs_result_raises():
     # A plain DiD result has no ATT(g,t) grid -> aggte must reject it.
     df = sp.dgp_did(n_units=40, n_periods=6, effect=1.0, seed=0)
-    r = sp.did(df, y="y", treat="treated", time="time", id="unit",
-               method="twfe")
+    r = sp.did(df, y="y", treat="treated", time="time", id="unit", method="twfe")
     with pytest.raises((ValueError, AttributeError, TypeError)):
         sp.aggte(r, type="simple")

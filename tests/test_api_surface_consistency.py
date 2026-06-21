@@ -23,7 +23,6 @@ import pytest
 import statspai
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Frozen baseline. Update deliberately when intentionally adding / removing
 # public surface; never silently. Both sets are alphabetised for easy diffs.
@@ -31,18 +30,20 @@ import statspai as sp
 
 # Names in ``__all__`` that are *not* registry functions. These are legitimate
 # module / constant re-exports — the registry only tracks callable estimators.
-ALL_NOT_REGISTERED_BASELINE = frozenset({
-    "JOURNAL_PRESETS",
-    "PAPER_TABLE_TEMPLATES",
-    "STABILITY_TIERS",
-    "VALIDATION_STATUSES",
-    "epi",
-    "exceptions",
-    "longitudinal",
-    "mendelian",
-    "question",
-    "tte",
-})
+ALL_NOT_REGISTERED_BASELINE = frozenset(
+    {
+        "JOURNAL_PRESETS",
+        "PAPER_TABLE_TEMPLATES",
+        "STABILITY_TIERS",
+        "VALIDATION_STATUSES",
+        "epi",
+        "exceptions",
+        "longitudinal",
+        "mendelian",
+        "question",
+        "tte",
+    }
+)
 
 # Names registered in the registry but *not* in ``__all__``. Most are real
 # estimators that ship today on ``sp.<name>`` but were never added to the
@@ -54,48 +55,53 @@ ALL_NOT_REGISTERED_BASELINE = frozenset({
 # proximal / negative-control family, DiD extras, shift-share, dose-response,
 # ITS, longitudinal TMLE, etc.), shrinking this baseline from 44 → 25 and
 # locking the gain in so they can never silently drop back out.
-REGISTERED_NOT_IN_ALL_BASELINE = frozenset({
-    "anthropic_client",
-    "assimilative_causal",
-    "bayes_dml",
-    "causal_bandit",
-    "causal_kalman",
-    "causal_mas",
-    "causal_policy_forest",
-    "conformal_continuous",
-    "conformal_interference",
-    "counterfactual_fairness",
-    "counterfactual_policy_optimization",
-    "demographic_parity",
-    "echo_client",
-    "equalized_odds",
-    "evidence_without_injustice",
-    "fairness_audit",
-    "heterogeneity_of_effect",
-    "long_term_from_short",
-    "mr_bma",
-    "mr_multivariable",
-    "openai_client",
-    "particle_filter",
-    "proximal_surrogate_index",
-    "rwd_rct_concordance",
-    "sharp_ope_unobserved",
-})
+REGISTERED_NOT_IN_ALL_BASELINE = frozenset(
+    {
+        "anthropic_client",
+        "assimilative_causal",
+        "bayes_dml",
+        "causal_bandit",
+        "causal_kalman",
+        "causal_mas",
+        "causal_policy_forest",
+        "conformal_continuous",
+        "conformal_interference",
+        "counterfactual_fairness",
+        "counterfactual_policy_optimization",
+        "demographic_parity",
+        "echo_client",
+        "equalized_odds",
+        "evidence_without_injustice",
+        "fairness_audit",
+        "heterogeneity_of_effect",
+        "long_term_from_short",
+        "mr_bma",
+        "mr_multivariable",
+        "openai_client",
+        "particle_filter",
+        "proximal_surrogate_index",
+        "rwd_rct_concordance",
+        "sharp_ope_unobserved",
+    }
+)
 
 # Registered functions that live on a submodule rather than the top-level
 # module. The registry ``example`` already documents the correct path, so this
 # is not a defect — just the contract the test must allow.
-SUBMODULE_ONLY_BASELINE = frozenset({
-    "anthropic_client",
-    "echo_client",
-    "openai_client",
-    "particle_filter",
-})
+SUBMODULE_ONLY_BASELINE = frozenset(
+    {
+        "anthropic_client",
+        "echo_client",
+        "openai_client",
+        "particle_filter",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
 # Contract 1: ``__all__`` resolves
 # ---------------------------------------------------------------------------
+
 
 def test_all_names_in_dunder_all_resolve_on_module():
     """Every name listed in ``statspai.__all__`` must be accessible.
@@ -105,14 +111,15 @@ def test_all_names_in_dunder_all_resolve_on_module():
     the star-import idiom.
     """
     missing = [n for n in statspai.__all__ if not hasattr(statspai, n)]
-    assert missing == [], (
-        f"{len(missing)} name(s) in __all__ do not resolve: {missing!r}"
-    )
+    assert (
+        missing == []
+    ), f"{len(missing)} name(s) in __all__ do not resolve: {missing!r}"
 
 
 # ---------------------------------------------------------------------------
 # Contract 2: registry → callable
 # ---------------------------------------------------------------------------
+
 
 def _registry_example_module(example: str | None) -> str | None:
     """Pull the documented submodule path out of an example like
@@ -150,18 +157,18 @@ def test_every_registered_function_is_callable_via_documented_path():
             failures.append(f"{name}: documented submodule fails to import ({exc})")
             continue
         if not hasattr(mod, name):
-            failures.append(
-                f"{name}: not on statspai and not on statspai.{submod}"
-            )
-    assert failures == [], (
-        f"{len(failures)} registered function(s) are unreachable:\n  "
-        + "\n  ".join(failures)
+            failures.append(f"{name}: not on statspai and not on statspai.{submod}")
+    assert (
+        failures == []
+    ), f"{len(failures)} registered function(s) are unreachable:\n  " + "\n  ".join(
+        failures
     )
 
 
 # ---------------------------------------------------------------------------
 # Contract 3: drift against frozen baselines
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def asymmetry():

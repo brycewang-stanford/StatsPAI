@@ -9,7 +9,6 @@ path, so keep it importable and runnable for reviewers copying that command.
 import importlib.util
 from pathlib import Path
 
-
 _MODULE_PATH = Path(__file__).with_name("test_external_reviewer_followups.py")
 _SPEC = importlib.util.spec_from_file_location(
     "_statspai_external_reviewer_followups",

@@ -14,6 +14,7 @@ sections match what was pre-registered. These tests cover:
 - Errors fire when ``data`` is missing.
 - Non-default formats (``qmd`` / ``tex``) work end-to-end.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -24,10 +25,10 @@ import importlib
 import statspai as sp
 from statspai.workflow.paper import paper_from_question, PaperDraft
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def panel_df():
@@ -41,14 +42,16 @@ def panel_df():
             post = int(t == 2019)
             base = rng.normal(loc=10.0, scale=1.0)
             te = 0.5 * post * treated  # treatment effect after 2019
-            rows.append({
-                "id": u,
-                "year": t,
-                "wage": base + te + rng.normal(scale=0.3),
-                "trained": int(treated),
-                "edu": rng.normal(),
-                "post": post,
-            })
+            rows.append(
+                {
+                    "id": u,
+                    "year": t,
+                    "wage": base + te + rng.normal(scale=0.3),
+                    "trained": int(treated),
+                    "edu": rng.normal(),
+                    "post": post,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -56,24 +59,38 @@ def panel_df():
 # CausalQuestion.paper()
 # ---------------------------------------------------------------------------
 
+
 class TestQuestionPaperMethod:
     def test_returns_paper_draft(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df,
-            design="rct", estimand="ATE",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
+            estimand="ATE",
         )
         draft = q.paper()
         assert isinstance(draft, PaperDraft)
         # All canonical sections present.
-        for s in ("Question", "Data", "Identification",
-                  "Estimator", "Results", "Robustness", "References"):
+        for s in (
+            "Question",
+            "Data",
+            "Identification",
+            "Estimator",
+            "Results",
+            "Robustness",
+            "References",
+        ):
             assert s in draft.sections, f"missing {s!r}"
 
     def test_question_section_carries_declaration(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df,
+            "trained",
+            "wage",
+            data=panel_df,
             population="manufacturing workers, 2018-2019",
-            design="rct", estimand="ATT",
+            design="rct",
+            estimand="ATT",
             covariates=["edu"],
             notes="Pre-registered 2026-04-27.",
         )
@@ -87,8 +104,11 @@ class TestQuestionPaperMethod:
 
     def test_results_section_has_estimate_se_ci(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df,
-            design="rct", estimand="ATE",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
+            estimand="ATE",
         )
         draft = q.paper()
         body = draft.sections["Results"]
@@ -99,8 +119,11 @@ class TestQuestionPaperMethod:
 
     def test_identification_lists_assumptions(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df,
-            design="rct", estimand="ATE",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
+            estimand="ATE",
         )
         draft = q.paper()
         body = draft.sections["Identification"]
@@ -113,11 +136,15 @@ class TestQuestionPaperMethod:
 # sp.paper(question_obj) dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestSpPaperDispatch:
     def test_dispatch_on_causal_question(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df,
-            design="rct", estimand="ATE",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
+            estimand="ATE",
         )
         draft = sp.paper(q)
         assert isinstance(draft, PaperDraft)
@@ -127,14 +154,20 @@ class TestSpPaperDispatch:
 
     def test_dispatch_with_explicit_question_text(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = sp.paper(q, question="my custom question")
         assert "my custom question" in draft.sections["Question"]
 
     def test_dispatch_qmd_format(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = sp.paper(q, fmt="qmd")
         assert draft.fmt == "qmd"
@@ -145,7 +178,10 @@ class TestSpPaperDispatch:
 
     def test_dispatch_tex_format(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = sp.paper(q, fmt="tex")
         tex = draft.to_tex()
@@ -154,7 +190,10 @@ class TestSpPaperDispatch:
 
     def test_dispatch_reviewer_mode(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = sp.paper(q, reviewer_mode=True)
         assert "Reviewer Audit" in draft.sections
@@ -165,10 +204,14 @@ class TestSpPaperDispatch:
 # Provenance integration
 # ---------------------------------------------------------------------------
 
+
 class TestProvenanceFromQuestion:
     def test_provenance_attached_to_underlying(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = q.paper()
         # The lightweight workflow adapter exposes the underlying
@@ -181,16 +224,20 @@ class TestProvenanceFromQuestion:
         # its more-specific provenance record wins over the
         # causal_question wrapper (overwrite=False semantics). Either is
         # acceptable here.
-        assert (
-            prov.function.startswith("sp.causal_question[")
-            or prov.function in {"sp.regress", "sp.did.callaway_santanna",
-                                  "sp.did.did_2x2", "sp.iv"}
-        )
+        assert prov.function.startswith("sp.causal_question[") or prov.function in {
+            "sp.regress",
+            "sp.did.callaway_santanna",
+            "sp.did.did_2x2",
+            "sp.iv",
+        }
         assert prov.data_hash  # data was hashed
 
     def test_qmd_includes_provenance_appendix(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = q.paper(fmt="qmd")
         qmd = draft.to_qmd()
@@ -199,17 +246,23 @@ class TestProvenanceFromQuestion:
 
     def test_replication_pack_picks_up_lineage(self, panel_df, tmp_path):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         draft = q.paper(fmt="qmd")
         rp = sp.replication_pack(
-            draft, tmp_path / "estimand_first.zip",
-            env=False, paper_format="qmd",
+            draft,
+            tmp_path / "estimand_first.zip",
+            env=False,
+            paper_format="qmd",
         )
         # The pack must include lineage.json (auto-collected from the
         # underlying estimator's _provenance via workflow.result).
         import zipfile
         import json
+
         with zipfile.ZipFile(rp.output_path) as zf:
             assert "lineage.json" in zf.namelist()
             lineage = json.loads(zf.read("lineage.json"))
@@ -219,6 +272,7 @@ class TestProvenanceFromQuestion:
 # ---------------------------------------------------------------------------
 # Error paths
 # ---------------------------------------------------------------------------
+
 
 class TestErrors:
     def test_question_without_data_raises(self):
@@ -234,7 +288,10 @@ class TestErrors:
 
     def test_unknown_format_rejected(self, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         with pytest.raises(ValueError, match="Unknown fmt"):
             paper_from_question(q, fmt="rst")
@@ -243,7 +300,10 @@ class TestErrors:
 class TestDegradations:
     def test_dag_render_failure_surfaces_in_draft(self, monkeypatch, panel_df):
         q = sp.causal_question(
-            "trained", "wage", data=panel_df, design="rct",
+            "trained",
+            "wage",
+            data=panel_df,
+            design="rct",
         )
         paper_module = importlib.import_module("statspai.workflow.paper")
 

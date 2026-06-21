@@ -30,7 +30,6 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 import audit_citations as ac  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Regex: arXiv
 # ---------------------------------------------------------------------------
@@ -193,7 +192,9 @@ def test_strip_diacritics_preserves_case():
 def test_paper_meta_last_names_normalises_each():
     meta = ac.PaperMeta(
         authors=["Guido Imbens", "Sant'Anna, Pedro", "Goodman-Bacon, Andrew"],
-        title="x", year=2020, source="arxiv",
+        title="x",
+        year=2020,
+        source="arxiv",
     )
     lasts = meta.last_names()
     assert "imbens" in lasts
@@ -224,8 +225,15 @@ def test_real_surnames_not_in_stopwords():
     ``ma``) ARE stopwords by design — they appear in the codebase only
     as method-name shorthand ("Cattaneo-Jansson bootstrap"), never as
     the true author of the papers we cite."""
-    for tok in ("imbens", "angrist", "bareinboim", "athey",
-                "sant'anna", "pearl", "wooldridge"):
+    for tok in (
+        "imbens",
+        "angrist",
+        "bareinboim",
+        "athey",
+        "sant'anna",
+        "pearl",
+        "wooldridge",
+    ):
         assert tok not in ac.SURNAME_STOPWORDS, (
             f"{tok!r} is a real author surname; removing from "
             "SURNAME_STOPWORDS blocks phantom detection for them"
@@ -237,19 +245,26 @@ def test_real_surnames_not_in_stopwords():
 # ---------------------------------------------------------------------------
 
 
-def _make_citation(claim: str, *, kind: str = "arxiv", id: str = "2510.21110",
-                   line: int = 1) -> ac.Citation:
+def _make_citation(
+    claim: str, *, kind: str = "arxiv", id: str = "2510.21110", line: int = 1
+) -> ac.Citation:
     return ac.Citation(
-        kind=kind, id=id,
-        file="synthetic.py", line=line,
-        claim_block=claim, same_line=claim.splitlines()[0] if claim else "",
+        kind=kind,
+        id=id,
+        file="synthetic.py",
+        line=line,
+        claim_block=claim,
+        same_line=claim.splitlines()[0] if claim else "",
         claimed_year=2025,
     )
 
 
 def test_diff_citation_matching_single_author_is_clean():
     truth = ac.PaperMeta(
-        authors=["Guido Imbens"], title="T", year=2020, source="arxiv",
+        authors=["Guido Imbens"],
+        title="T",
+        year=2020,
+        source="arxiv",
     )
     c = _make_citation("(Imbens 2020) arXiv:2510.21110")
     assert ac.diff_citation(c, truth) == []
@@ -258,7 +273,9 @@ def test_diff_citation_matching_single_author_is_clean():
 def test_diff_citation_wrong_author_is_flagged():
     truth = ac.PaperMeta(
         authors=["Guido Imbens", "Joshua Angrist"],
-        title="T", year=2020, source="arxiv",
+        title="T",
+        year=2020,
+        source="arxiv",
     )
     # Claim credits a surname that ISN'T on the paper, in author
     # position. The phantom detector requires an author-list punctuation
@@ -276,7 +293,9 @@ def test_diff_citation_q_network_not_flagged_as_author():
     should be clean — Q-network is a method name, not an author."""
     truth = ac.PaperMeta(
         authors=["Mingxuan Li", "Junzhe Zhang", "Elias Bareinboim"],
-        title="Causal Deep Q-Network …", year=2025, source="arxiv",
+        title="Causal Deep Q-Network …",
+        year=2025,
+        source="arxiv",
     )
     c = _make_citation(
         "Causal deep Q-network (Li, Zhang, Bareinboim 2025, arXiv:2510.21110) "
@@ -295,7 +314,9 @@ def test_diff_citation_bare_reference_does_not_spuriously_flag_missing():
     """
     truth = ac.PaperMeta(
         authors=["Alice Smith", "Bob Jones"],
-        title="T", year=2024, source="arxiv",
+        title="T",
+        year=2024,
+        source="arxiv",
     )
     c = _make_citation("See https://arxiv.org/abs/2510.21110 for details.")
     issues = ac.diff_citation(c, truth)
@@ -321,10 +342,10 @@ def test_extract_citations_finds_arxiv_and_doi_in_py_file(tmp_repo):
     src = tmp_repo / "mod.py"
     src.write_text(
         '"""Method of Foo et al.\n'
-        'References\n'
-        '----------\n'
-        'Foo, Bar (2024). arXiv:2408.12345\n'
-        'Baz, Qux (2023). doi:10.1234/abcd.5678\n'
+        "References\n"
+        "----------\n"
+        "Foo, Bar (2024). arXiv:2408.12345\n"
+        "Baz, Qux (2023). doi:10.1234/abcd.5678\n"
         '"""\n',
         encoding="utf-8",
     )
@@ -365,9 +386,7 @@ def test_extract_citations_accepts_markdown(tmp_repo):
 def test_extract_citations_records_line_number(tmp_repo):
     src = tmp_repo / "mod.py"
     src.write_text(
-        "# header\n"
-        "# another\n"
-        "# Foo (2024) arXiv:2408.12345\n",
+        "# header\n" "# another\n" "# Foo (2024) arXiv:2408.12345\n",
         encoding="utf-8",
     )
     citations = ac.extract_citations([tmp_repo])
@@ -402,28 +421,39 @@ def test_cli_runs_without_crash_on_empty_tree(tmp_path):
     """
     (tmp_path / "src").mkdir()
     (tmp_path / "docs").mkdir()
-    (tmp_path / "src" / "mod.py").write_text("# no citations here\n",
-                                             encoding="utf-8")
+    (tmp_path / "src" / "mod.py").write_text("# no citations here\n", encoding="utf-8")
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "audit_citations.py"),
-         "--roots", "src", "docs",
-         "--out", str(tmp_path / "report.md")],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "audit_citations.py"),
+            "--roots",
+            "src",
+            "docs",
+            "--out",
+            str(tmp_path / "report.md"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
         cwd=tmp_path,
     )
-    assert "Traceback" not in result.stderr, (
-        f"auditor crashed with traceback:\n{result.stderr}"
-    )
-    assert result.returncode in (0, 1, 2), (
-        f"unexpected exit {result.returncode}: {result.stderr}"
-    )
+    assert (
+        "Traceback" not in result.stderr
+    ), f"auditor crashed with traceback:\n{result.stderr}"
+    assert result.returncode in (
+        0,
+        1,
+        2,
+    ), f"unexpected exit {result.returncode}: {result.stderr}"
 
 
 def test_cli_strict_flag_is_recognised():
     """--strict must be a documented CLI flag (not swallowed as positional)."""
     result = subprocess.run(
         [sys.executable, str(TOOLS_DIR / "audit_citations.py"), "--help"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0
     assert "--strict" in result.stdout
@@ -483,9 +513,7 @@ def test_http_get_gives_up_after_max_retries(monkeypatch):
 
     def always_429(req, timeout=None, context=None):
         calls["n"] += 1
-        raise ac.urllib.error.HTTPError(
-            "http://x", 429, "Too Many Requests", {}, None
-        )
+        raise ac.urllib.error.HTTPError("http://x", 429, "Too Many Requests", {}, None)
 
     _stub_http_io(monkeypatch)
     monkeypatch.setattr(ac.urllib.request, "urlopen", always_429)
@@ -529,8 +557,7 @@ def test_verify_arxiv_records_transient_on_network_error(monkeypatch):
 
     monkeypatch.setattr(ac, "_http_get", boom)
     transient: set[str] = set()
-    assert ac.verify_arxiv(["2408.12345", "2409.00001"],
-                           transient=transient) == {}
+    assert ac.verify_arxiv(["2408.12345", "2409.00001"], transient=transient) == {}
     # Whole chunk failed to reach arXiv → every id is transient.
     assert transient == {"2408.12345", "2409.00001"}
 
@@ -540,8 +567,7 @@ def test_verify_crossref_404_is_genuine_not_transient(monkeypatch):
         raise ac.urllib.error.HTTPError("http://x", 404, "Not Found", {}, None)
 
     monkeypatch.setattr(ac, "_http_get", raise_404)
-    monkeypatch.setattr(ac, "_verify_datacite_one",
-                        lambda doi, refresh=False: None)
+    monkeypatch.setattr(ac, "_verify_datacite_one", lambda doi, refresh=False: None)
     transient: set[str] = set()
     assert ac.verify_crossref(["10.1234/x"], transient=transient) == {}
     # A 404 means "Crossref definitively has no such DOI" — a genuine
@@ -569,9 +595,7 @@ def test_verify_crossref_records_transient_on_5xx(monkeypatch):
 def _seed_one_arxiv_citation(tmp_repo):
     src = tmp_repo / "src"
     src.mkdir()
-    (src / "mod.py").write_text(
-        "# Foo (2024) arXiv:2408.12345\n", encoding="utf-8"
-    )
+    (src / "mod.py").write_text("# Foo (2024) arXiv:2408.12345\n", encoding="utf-8")
     (tmp_repo / "docs").mkdir()
 
 
@@ -584,8 +608,18 @@ def test_main_strict_transient_unresolved_returns_2(tmp_repo, monkeypatch):
         return {}
 
     monkeypatch.setattr(ac, "verify_arxiv", throttled)
-    rc = ac.main(["--roots", "src", "docs", "--kinds", "arxiv",
-                  "--strict", "--out", str(tmp_repo / "r.md")])
+    rc = ac.main(
+        [
+            "--roots",
+            "src",
+            "docs",
+            "--kinds",
+            "arxiv",
+            "--strict",
+            "--out",
+            str(tmp_repo / "r.md"),
+        ]
+    )
     assert rc == 2  # soft failure — must not block a merge
 
 
@@ -593,17 +627,30 @@ def test_main_strict_genuine_unresolved_returns_1(tmp_repo, monkeypatch):
     _seed_one_arxiv_citation(tmp_repo)
 
     # Source reachable, id genuinely absent → transient stays empty.
-    monkeypatch.setattr(ac, "verify_arxiv",
-                        lambda ids, refresh=False, transient=None: {})
-    rc = ac.main(["--roots", "src", "docs", "--kinds", "arxiv",
-                  "--strict", "--out", str(tmp_repo / "r.md")])
+    monkeypatch.setattr(
+        ac, "verify_arxiv", lambda ids, refresh=False, transient=None: {}
+    )
+    rc = ac.main(
+        [
+            "--roots",
+            "src",
+            "docs",
+            "--kinds",
+            "arxiv",
+            "--strict",
+            "--out",
+            str(tmp_repo / "r.md"),
+        ]
+    )
     assert rc == 1  # genuine §10 failure — blocks the merge
 
 
 def test_main_nonstrict_unresolved_returns_0(tmp_repo, monkeypatch):
     _seed_one_arxiv_citation(tmp_repo)
-    monkeypatch.setattr(ac, "verify_arxiv",
-                        lambda ids, refresh=False, transient=None: {})
-    rc = ac.main(["--roots", "src", "docs", "--kinds", "arxiv",
-                  "--out", str(tmp_repo / "r.md")])
+    monkeypatch.setattr(
+        ac, "verify_arxiv", lambda ids, refresh=False, transient=None: {}
+    )
+    rc = ac.main(
+        ["--roots", "src", "docs", "--kinds", "arxiv", "--out", str(tmp_repo / "r.md")]
+    )
     assert rc == 0  # non-strict: unresolved alone never fails

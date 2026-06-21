@@ -31,7 +31,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -68,7 +67,10 @@ class TestStaticPosteriorRecovery:
     def test_particle_recovers_static_tau(self):
         ests, ses = _gauss_stream(T=20, tau=0.5, se=0.1, seed=0)
         r = sp.assimilation.particle_filter(
-            ests, ses, n_particles=4000, random_state=0,
+            ests,
+            ses,
+            n_particles=4000,
+            random_state=0,
         )
         assert abs(r.final_mean - 0.5) < 0.08
         assert r.final_ci[0] < 0.5 < r.final_ci[1]
@@ -86,7 +88,10 @@ class TestKalmanParticleAgreement:
         ests, ses = _gauss_stream(T=15, tau=0.3, se=0.08, seed=seed)
         rk = sp.causal_kalman(ests, ses, prior_mean=0.0, prior_var=1.0)
         rp = sp.assimilation.particle_filter(
-            ests, ses, n_particles=5000, random_state=seed,
+            ests,
+            ses,
+            n_particles=5000,
+            random_state=seed,
         )
         # Point estimates agree to Monte-Carlo noise.
         assert abs(rp.final_mean - rk.final_mean) < 0.02, (
@@ -112,9 +117,13 @@ class TestKalmanVarianceMonotone:
     def test_posterior_var_non_increasing(self):
         ests, ses = _gauss_stream(T=25, tau=0.0, se=0.1, seed=0)
         r = sp.causal_kalman(
-            ests, ses, prior_mean=0.0, prior_var=1.0, process_var=0.0,
+            ests,
+            ses,
+            prior_mean=0.0,
+            prior_var=1.0,
+            process_var=0.0,
         )
-        P = r.posterior_sd ** 2
+        P = r.posterior_sd**2
         # Allow a tiny floating-point tolerance.
         diffs = np.diff(P)
         assert (diffs <= 1e-10).all(), (
@@ -134,11 +143,19 @@ class TestParticleFilterResampling:
         # A long, slowly drifting stream will eventually require
         # resampling; ESS must not collapse to near zero.
         ests, ses = _drift_stream(
-            T=30, tau0=0.5, tau1=0.6, se=0.1, seed=0,
+            T=30,
+            tau0=0.5,
+            tau1=0.6,
+            se=0.1,
+            seed=0,
         )
         r = sp.assimilation.particle_filter(
-            ests, ses, n_particles=2000, process_sd=0.02,
-            ess_resample_threshold=0.5, random_state=0,
+            ests,
+            ses,
+            n_particles=2000,
+            process_sd=0.02,
+            ess_resample_threshold=0.5,
+            random_state=0,
         )
         # After resampling fires, ESS should bounce back above the
         # threshold for at least half of the remaining steps.
@@ -170,27 +187,32 @@ class TestHeavyTailedObsRobustness:
 
         # Particle filter with Student-t obs log-pdf stays near truth.
         from math import lgamma, log, pi
+
         nu = 3.0  # heavy tails
 
         def student_t_log_pdf(theta_hat, particles, sigma):
             # Standard Student-t centred on each particle.
             z = (particles - theta_hat) / sigma
             return (
-                lgamma((nu + 1) / 2) - lgamma(nu / 2)
-                - 0.5 * log(nu * pi) - log(sigma)
-                - ((nu + 1) / 2) * np.log1p(z ** 2 / nu)
+                lgamma((nu + 1) / 2)
+                - lgamma(nu / 2)
+                - 0.5 * log(nu * pi)
+                - log(sigma)
+                - ((nu + 1) / 2) * np.log1p(z**2 / nu)
             )
 
         rp = sp.assimilation.particle_filter(
-            ests, ses,
+            ests,
+            ses,
             observation_log_pdf=student_t_log_pdf,
-            n_particles=5000, random_state=0,
+            n_particles=5000,
+            random_state=0,
         )
         # Kalman should pull towards the outlier by ≥ 0.1; particle-t
         # should stay within 0.15 of 0.5.
-        assert abs(rp.final_mean - 0.5) < 0.15, (
-            f"Particle-t also blew up: {rp.final_mean:.3f}"
-        )
+        assert (
+            abs(rp.final_mean - 0.5) < 0.15
+        ), f"Particle-t also blew up: {rp.final_mean:.3f}"
         # Kalman is allowed to be worse — we just require particle is
         # meaningfully better on this stream.
         assert abs(rp.final_mean - 0.5) <= abs(rk.final_mean - 0.5), (
@@ -208,15 +230,23 @@ class TestDriftingEffect:
 
     def test_kalman_tracks_drift(self):
         ests, ses = _drift_stream(
-            T=30, tau0=0.3, tau1=0.7, se=0.05, seed=0,
+            T=30,
+            tau0=0.3,
+            tau1=0.7,
+            se=0.05,
+            seed=0,
         )
         r = sp.causal_kalman(
-            ests, ses, prior_mean=0.0, prior_var=1.0, process_var=0.002,
+            ests,
+            ses,
+            prior_mean=0.0,
+            prior_var=1.0,
+            process_var=0.002,
         )
         # Final posterior should be closer to 0.7 than to 0.3.
-        assert abs(r.final_mean - 0.7) < abs(r.final_mean - 0.3), (
-            f"Kalman failed to track drift: final_mean = {r.final_mean:.3f}"
-        )
+        assert abs(r.final_mean - 0.7) < abs(
+            r.final_mean - 0.3
+        ), f"Kalman failed to track drift: final_mean = {r.final_mean:.3f}"
         # Variance doesn't blow up.
         assert r.final_sd < 0.2
 
@@ -231,7 +261,8 @@ class TestEndToEndDispatch:
     def test_kalman_dispatch_matches_direct(self):
         def make_batch(n, seed):
             r = np.random.default_rng(seed)
-            d = r.integers(0, 2, n); x = r.normal(size=n)
+            d = r.integers(0, 2, n)
+            x = r.normal(size=n)
             y = 0.5 * d + 0.2 * x + r.normal(scale=0.3, size=n)
             return pd.DataFrame({"y": y, "d": d, "x": x})
 
@@ -242,14 +273,20 @@ class TestEndToEndDispatch:
             return float(r.params["d"]), float(r.std_errors["d"])
 
         r_e2e = sp.assimilative_causal(
-            batches, est, backend="kalman",
-            prior_mean=0.0, prior_var=1.0,
+            batches,
+            est,
+            backend="kalman",
+            prior_mean=0.0,
+            prior_var=1.0,
         )
         # Run the same pipeline step-by-step.
         ests = [est(b)[0] for b in batches]
         ses = [est(b)[1] for b in batches]
         r_direct = sp.causal_kalman(
-            ests, ses, prior_mean=0.0, prior_var=1.0,
+            ests,
+            ses,
+            prior_mean=0.0,
+            prior_var=1.0,
         )
         assert abs(r_e2e.final_mean - r_direct.final_mean) < 1e-10
         assert abs(r_e2e.final_sd - r_direct.final_sd) < 1e-10

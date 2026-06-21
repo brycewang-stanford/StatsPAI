@@ -129,10 +129,10 @@ def test_dispatch_lasso_formula_matches_native(df):
     # ``x_endog``/``z`` lists, raising ``TypeError``). The fix parses the
     # Patsy-style formula into those names, so the formula path must now
     # return the *same* estimates as the native x_endog/z calling convention.
-    res_formula = sp.iv(method="lasso", formula="y ~ (d ~ z1 + z2) + x",
-                        data=df)
-    res_native = sp.iv(method="lasso", data=df, y="y", x_endog=["d"],
-                       z=["z1", "z2"], x_exog=["x"])
+    res_formula = sp.iv(method="lasso", formula="y ~ (d ~ z1 + z2) + x", data=df)
+    res_native = sp.iv(
+        method="lasso", data=df, y="y", x_endog=["d"], z=["z1", "z2"], x_exog=["x"]
+    )
     assert res_formula is not None and res_native is not None
 
     def _coef(r):
@@ -141,15 +141,20 @@ def test_dispatch_lasso_formula_matches_native(df):
             c = getattr(r, "params", None)
         return np.asarray(c, dtype=float)
 
-    np.testing.assert_allclose(_coef(res_formula), _coef(res_native),
-                               rtol=0, atol=0)
+    np.testing.assert_allclose(_coef(res_formula), _coef(res_native), rtol=0, atol=0)
 
 
 def test_dispatch_lasso_alias_endog_instruments(df):
     # The canonical dispatcher aliases (endog/instruments/exog) must also route
     # into lasso_iv's native x_endog/z/x_exog names.
-    res = sp.iv(method="lasso", data=df, y="y", endog=["d"],
-                instruments=["z1", "z2"], exog=["x"])
+    res = sp.iv(
+        method="lasso",
+        data=df,
+        y="y",
+        endog=["d"],
+        instruments=["z1", "z2"],
+        exog=["x"],
+    )
     assert res is not None
 
 

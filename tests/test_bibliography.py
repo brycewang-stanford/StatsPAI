@@ -14,6 +14,7 @@ Coverage
 - Replication pack now writes a real bib through the pipeline.
 - ``to_qmd(csl='aer')`` resolves to the canonical filename.
 """
+
 from __future__ import annotations
 
 import re
@@ -33,10 +34,10 @@ from statspai.output._bibliography import (
 )
 from statspai.workflow.paper import PaperDraft
 
-
 # ---------------------------------------------------------------------------
 # CSL registry
 # ---------------------------------------------------------------------------
+
 
 class TestCslRegistry:
     def test_aer_present(self):
@@ -46,17 +47,22 @@ class TestCslRegistry:
 
     def test_all_table_journals_covered(self):
         # The journal-presets module covers these — CSL must too.
-        for j in ("aer", "qje", "econometrica", "restat",
-                  "jf", "aeja", "jpe", "restud"):
+        for j in (
+            "aer",
+            "qje",
+            "econometrica",
+            "restat",
+            "jf",
+            "aeja",
+            "jpe",
+            "restud",
+        ):
             assert j in CSL_REGISTRY, f"missing CSL for {j!r}"
 
     def test_aej_family_alias_to_aer_style(self):
         # AEJ family historically uses the AER style.
         for j in ("aeja", "aejmac", "aejmicro", "aejpol"):
-            assert (
-                CSL_REGISTRY[j]["filename"]
-                == "american-economic-association.csl"
-            )
+            assert CSL_REGISTRY[j]["filename"] == "american-economic-association.csl"
 
     def test_csl_url_lookup(self):
         url = csl_url("aer")
@@ -84,11 +90,14 @@ class TestCslRegistry:
 # Citation parser + bib key
 # ---------------------------------------------------------------------------
 
+
 class TestParseCitation:
     def test_canonical_aer_format(self):
-        s = ("Callaway B, Sant'Anna PHC. (2021). "
-             "Difference-in-Differences with multiple time periods. "
-             "Journal of Econometrics.")
+        s = (
+            "Callaway B, Sant'Anna PHC. (2021). "
+            "Difference-in-Differences with multiple time periods. "
+            "Journal of Econometrics."
+        )
         entry = parse_citation_to_bib(s)
         assert entry["type"] == "article"
         assert entry["fields"]["year"] == "2021"
@@ -130,9 +139,7 @@ class TestMakeBibKey:
     def test_unique_for_distinct_papers(self):
         # Two real papers with same first author + year but different
         # opening title words produce distinct keys.
-        a = make_bib_key(
-            "Imbens GW (2004). Nonparametric estimation of ATEs."
-        )
+        a = make_bib_key("Imbens GW (2004). Nonparametric estimation of ATEs.")
         b = make_bib_key(
             "Imbens GW (2004). Sensitivity analysis for unobserved confounders."
         )
@@ -157,6 +164,7 @@ class TestMakeBibKey:
 # citations_to_bib_entries
 # ---------------------------------------------------------------------------
 
+
 class TestEntries:
     def test_dedupe_by_key(self):
         cites = [
@@ -174,6 +182,7 @@ class TestEntries:
 # ---------------------------------------------------------------------------
 # write_bib
 # ---------------------------------------------------------------------------
+
 
 class TestWriteBib:
     def test_writes_valid_bibtex(self, tmp_path):
@@ -208,10 +217,15 @@ class TestWriteBib:
 
     def test_accepts_pre_built_dicts(self, tmp_path):
         entries = [
-            {"key": "custom2020", "type": "article",
-             "fields": {"author": "Custom Author",
-                        "title": "Manual Title",
-                        "year": "2020"}},
+            {
+                "key": "custom2020",
+                "type": "article",
+                "fields": {
+                    "author": "Custom Author",
+                    "title": "Manual Title",
+                    "year": "2020",
+                },
+            },
         ]
         out = write_bib(entries, tmp_path / "p.bib")
         text = out.read_text(encoding="utf-8")
@@ -223,6 +237,7 @@ class TestWriteBib:
 # Replication pack integration
 # ---------------------------------------------------------------------------
 
+
 class TestReplicationPackBibIntegration:
     def test_pack_writes_real_bib(self, tmp_path):
         from types import SimpleNamespace
@@ -232,9 +247,7 @@ class TestReplicationPackBibIntegration:
         # PaperDraft-shaped duck with a real-looking citation.
         class _Draft:
             sections = {"Q": "?"}
-            citations = [
-                "Callaway B, Sant'Anna PHC. (2021). DiD multi-period. JoE."
-            ]
+            citations = ["Callaway B, Sant'Anna PHC. (2021). DiD multi-period. JoE."]
             workflow = None
             fmt = "markdown"
 
@@ -242,9 +255,12 @@ class TestReplicationPackBibIntegration:
                 return "## Q\n\n?\n"
 
         rp = replication_pack(
-            _Draft(), tmp_path / "p.zip", env=False,
+            _Draft(),
+            tmp_path / "p.zip",
+            env=False,
         )
         import zipfile
+
         with zipfile.ZipFile(rp.output_path) as zf:
             text = zf.read("paper/paper.bib").decode()
         assert text.startswith("% paper.bib")
@@ -255,27 +271,34 @@ class TestReplicationPackBibIntegration:
 # to_qmd csl resolution
 # ---------------------------------------------------------------------------
 
+
 class TestToQmdCslShortName:
     def test_csl_aer_resolves_to_filename(self):
         draft = PaperDraft(
-            question="x", sections={"Q": "?"},
-            workflow=None, fmt="qmd",
+            question="x",
+            sections={"Q": "?"},
+            workflow=None,
+            fmt="qmd",
         )
         qmd = draft.to_qmd(csl="aer")
         assert 'csl: "american-economic-association.csl"' in qmd
 
     def test_csl_explicit_filename_passes_through(self):
         draft = PaperDraft(
-            question="x", sections={"Q": "?"},
-            workflow=None, fmt="qmd",
+            question="x",
+            sections={"Q": "?"},
+            workflow=None,
+            fmt="qmd",
         )
         qmd = draft.to_qmd(csl="my-custom.csl")
         assert 'csl: "my-custom.csl"' in qmd
 
     def test_csl_econometrica_resolves(self):
         draft = PaperDraft(
-            question="x", sections={"Q": "?"},
-            workflow=None, fmt="qmd",
+            question="x",
+            sections={"Q": "?"},
+            workflow=None,
+            fmt="qmd",
         )
         qmd = draft.to_qmd(csl="econometrica")
         assert 'csl: "econometrica.csl"' in qmd

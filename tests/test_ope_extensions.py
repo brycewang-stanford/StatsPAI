@@ -21,11 +21,19 @@ def test_sharp_ope_bounds_widen_with_gamma():
     target = np.where(actions == 1, 0.7, 0.3)
     df = pd.DataFrame({"a": actions, "r": rewards, "e": logging, "pi": target})
     r1 = sp.sharp_ope_unobserved(
-        df, actions="a", rewards="r", logging_prob="e", target_prob="pi",
+        df,
+        actions="a",
+        rewards="r",
+        logging_prob="e",
+        target_prob="pi",
         gamma=1.0,
     )
     r2 = sp.sharp_ope_unobserved(
-        df, actions="a", rewards="r", logging_prob="e", target_prob="pi",
+        df,
+        actions="a",
+        rewards="r",
+        logging_prob="e",
+        target_prob="pi",
         gamma=2.0,
     )
     width1 = r1.upper_bound - r1.lower_bound
@@ -55,20 +63,34 @@ def test_sharp_ope_bounds_widen_with_gamma():
 
 
 def test_sharp_ope_rejects_bad_gamma():
-    df = pd.DataFrame({
-        "a": [0, 1], "r": [0.1, 0.2], "e": [0.5, 0.5], "pi": [0.3, 0.7],
-    })
+    df = pd.DataFrame(
+        {
+            "a": [0, 1],
+            "r": [0.1, 0.2],
+            "e": [0.5, 0.5],
+            "pi": [0.3, 0.7],
+        }
+    )
     with pytest.raises(MethodIncompatibility, match="gamma must be"):
         sp.sharp_ope_unobserved(
-            df, actions="a", rewards="r", logging_prob="e", target_prob="pi",
+            df,
+            actions="a",
+            rewards="r",
+            logging_prob="e",
+            target_prob="pi",
             gamma=0.5,
         )
 
 
 def test_sharp_ope_rejects_bad_columns_and_probabilities_with_taxonomy():
-    df = pd.DataFrame({
-        "a": [0, 1], "r": [0.1, 0.2], "e": [0.5, 1.2], "pi": [0.3, 0.7],
-    })
+    df = pd.DataFrame(
+        {
+            "a": [0, 1],
+            "r": [0.1, 0.2],
+            "e": [0.5, 1.2],
+            "pi": [0.3, 0.7],
+        }
+    )
     with pytest.raises(MethodIncompatibility, match="Missing columns"):
         sp.sharp_ope_unobserved(
             df,
@@ -96,14 +118,23 @@ def test_causal_policy_forest_prefers_correct_action():
     a = rng.integers(0, 2, size=n)
     # Reward: action 1 gives +1 when x1>0, action 0 gives +1 when x1<=0
     r = np.where(
-        (a == 1) & (x1 > 0), 1.0 + 0.1 * rng.normal(size=n),
-        np.where((a == 0) & (x1 <= 0), 1.0 + 0.1 * rng.normal(size=n),
-                 0.1 * rng.normal(size=n))
+        (a == 1) & (x1 > 0),
+        1.0 + 0.1 * rng.normal(size=n),
+        np.where(
+            (a == 0) & (x1 <= 0),
+            1.0 + 0.1 * rng.normal(size=n),
+            0.1 * rng.normal(size=n),
+        ),
     )
     df = pd.DataFrame({"a": a, "r": r, "x1": x1, "x2": x2})
     res = sp.causal_policy_forest(
-        df, actions="a", rewards="r", covariates=["x1", "x2"],
-        n_trees=15, depth=3, random_state=137,
+        df,
+        actions="a",
+        rewards="r",
+        covariates=["x1", "x2"],
+        n_trees=15,
+        depth=3,
+        random_state=137,
     )
     # Majority of units with x1>0 should be assigned action 1
     positive_x1 = df["x1"].to_numpy() > 0
@@ -122,11 +153,13 @@ def test_causal_policy_forest_prefers_correct_action():
 
 
 def test_causal_policy_forest_rejects_contract_errors_with_taxonomy():
-    df = pd.DataFrame({
-        "a": [0, 1] * 20,
-        "r": np.linspace(0.0, 1.0, 40),
-        "x": np.linspace(-1.0, 1.0, 40),
-    })
+    df = pd.DataFrame(
+        {
+            "a": [0, 1] * 20,
+            "r": np.linspace(0.0, 1.0, 40),
+            "x": np.linspace(-1.0, 1.0, 40),
+        }
+    )
     with pytest.raises(MethodIncompatibility, match="Missing columns"):
         sp.causal_policy_forest(
             df,

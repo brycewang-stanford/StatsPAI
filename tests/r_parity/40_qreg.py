@@ -6,6 +6,7 @@ The R side uses quantreg::rq; Stata uses qreg.
 Tolerance: rel < 1e-3 on coefficients (simplex solver converges to
 the same vertex); rel < 5e-2 on SEs (different SE methods).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -13,7 +14,6 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "40_qreg"
 
@@ -44,13 +44,18 @@ def main() -> None:
         if name in dct:
             est, sev = dct[name]
             label = "intercept" if name == "const" else name
-            rows.append(ParityRecord(
-                MODULE, "py",
-                statistic=f"beta_{label}",
-                estimate=est, se=sev, n=int(len(df))))
+            rows.append(
+                ParityRecord(
+                    MODULE,
+                    "py",
+                    statistic=f"beta_{label}",
+                    estimate=est,
+                    se=sev,
+                    n=int(len(df)),
+                )
+            )
 
-    write_results(MODULE, "py", rows,
-                  extra={"quantile": 0.5, "engine": "statsmodels"})
+    write_results(MODULE, "py", rows, extra={"quantile": 0.5, "engine": "statsmodels"})
 
 
 if __name__ == "__main__":

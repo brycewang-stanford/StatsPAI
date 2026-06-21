@@ -11,14 +11,16 @@ import pytest
 import statspai as sp
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
-
 # -------------------------------------------------------------------------
 # Data generators
 # -------------------------------------------------------------------------
 
 
 def _make_surrogate_data(
-    *, n_exp: int = 500, n_obs: int = 1500, true_ate: float = 1.0,
+    *,
+    n_exp: int = 500,
+    n_obs: int = 1500,
+    true_ate: float = 1.0,
     seed: int = 7,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """DGP where Y is driven by S, S is driven by T — classical surrogacy."""
@@ -44,7 +46,11 @@ def _make_surrogate_data(
 def test_surrogate_index_recovers_true_ate():
     exp, obs = _make_surrogate_data(true_ate=1.0, seed=7)
     res = sp.surrogate_index(
-        exp, obs, treatment="T", surrogates=["S"], long_term_outcome="Y",
+        exp,
+        obs,
+        treatment="T",
+        surrogates=["S"],
+        long_term_outcome="Y",
     )
     # Long-term ATE = beta * true_ate_on_S = 1.5 * 1.0 = 1.5.
     # Require coverage within 3 SE (asymptotic).
@@ -59,7 +65,11 @@ def test_surrogate_index_recovers_true_ate():
 def test_surrogate_index_zero_effect():
     exp, obs = _make_surrogate_data(true_ate=0.0, seed=11)
     res = sp.surrogate_index(
-        exp, obs, treatment="T", surrogates=["S"], long_term_outcome="Y",
+        exp,
+        obs,
+        treatment="T",
+        surrogates=["S"],
+        long_term_outcome="Y",
     )
     # Should be ~0, well within 2 SE
     assert abs(res.estimate) < 2 * res.se + 0.2
@@ -68,11 +78,20 @@ def test_surrogate_index_zero_effect():
 def test_surrogate_index_bootstrap_matches_delta():
     exp, obs = _make_surrogate_data(true_ate=1.0, seed=13)
     res_delta = sp.surrogate_index(
-        exp, obs, treatment="T", surrogates=["S"], long_term_outcome="Y",
+        exp,
+        obs,
+        treatment="T",
+        surrogates=["S"],
+        long_term_outcome="Y",
     )
     res_boot = sp.surrogate_index(
-        exp, obs, treatment="T", surrogates=["S"], long_term_outcome="Y",
-        n_boot=200, random_state=13,
+        exp,
+        obs,
+        treatment="T",
+        surrogates=["S"],
+        long_term_outcome="Y",
+        n_boot=200,
+        random_state=13,
     )
     # Point estimates should be *identical* (same data, same f-hat).
     assert abs(res_delta.estimate - res_boot.estimate) < 1e-10
@@ -84,13 +103,19 @@ def test_surrogate_index_missing_columns_errors():
     exp, obs = _make_surrogate_data()
     with pytest.raises(ValueError, match="experimental missing"):
         sp.surrogate_index(
-            exp, obs, treatment="Tbogus",
-            surrogates=["S"], long_term_outcome="Y",
+            exp,
+            obs,
+            treatment="Tbogus",
+            surrogates=["S"],
+            long_term_outcome="Y",
         )
     with pytest.raises(ValueError, match="observational missing"):
         sp.surrogate_index(
-            exp, obs, treatment="T",
-            surrogates=["S"], long_term_outcome="Ybogus",
+            exp,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            long_term_outcome="Ybogus",
         )
 
 
@@ -100,8 +125,11 @@ def test_surrogate_index_non_binary_treatment_errors():
     exp["T"] = exp["T"] * 3.0  # 0 and 3
     with pytest.raises(ValueError, match="must be binary"):
         sp.surrogate_index(
-            exp, obs, treatment="T",
-            surrogates=["S"], long_term_outcome="Y",
+            exp,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            long_term_outcome="Y",
         )
 
 
@@ -109,33 +137,49 @@ def test_surrogate_index_validation_uses_taxonomy():
     exp, obs = _make_surrogate_data()
     with pytest.raises(MethodIncompatibility, match="DataFrame"):
         sp.surrogate_index(
-            [1, 2], obs, treatment="T",
-            surrogates=["S"], long_term_outcome="Y",
+            [1, 2],
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            long_term_outcome="Y",
         )
     with pytest.raises(MethodIncompatibility, match="experimental missing"):
         sp.surrogate_index(
-            exp, obs, treatment="Tbogus",
-            surrogates=["S"], long_term_outcome="Y",
+            exp,
+            obs,
+            treatment="Tbogus",
+            surrogates=["S"],
+            long_term_outcome="Y",
         )
     bad_t = exp.copy()
     bad_t["T"] = bad_t["T"] * 3.0
     with pytest.raises(MethodIncompatibility, match="binary"):
         sp.surrogate_index(
-            bad_t, obs, treatment="T",
-            surrogates=["S"], long_term_outcome="Y",
+            bad_t,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            long_term_outcome="Y",
         )
     one_arm = exp.copy()
     one_arm["T"] = 1.0
     with pytest.raises(DataInsufficient, match="overlap"):
         sp.surrogate_index(
-            one_arm, obs, treatment="T",
-            surrogates=["S"], long_term_outcome="Y",
+            one_arm,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            long_term_outcome="Y",
         )
     bad_model = object()
     with pytest.raises(MethodIncompatibility, match="model"):
         sp.surrogate_index(
-            exp, obs, treatment="T",
-            surrogates=["S"], long_term_outcome="Y", model=bad_model,
+            exp,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            long_term_outcome="Y",
+            model=bad_model,
         )
 
 
@@ -148,13 +192,20 @@ def test_long_term_from_short_single_wave_matches_classical():
     """Single wave should reduce to the classical surrogate index."""
     exp, obs = _make_surrogate_data(true_ate=1.0, seed=19)
     res_multi = sp.long_term_from_short(
-        exp, obs, treatment="T",
+        exp,
+        obs,
+        treatment="T",
         surrogates_waves=[["S"]],
         long_term_outcome="Y",
-        n_boot=100, random_state=19,
+        n_boot=100,
+        random_state=19,
     )
     res_classic = sp.surrogate_index(
-        exp, obs, treatment="T", surrogates=["S"], long_term_outcome="Y",
+        exp,
+        obs,
+        treatment="T",
+        surrogates=["S"],
+        long_term_outcome="Y",
     )
     # Same DGP → same point estimate up to numerical noise.
     assert abs(res_multi.estimate - res_classic.estimate) < 1e-8
@@ -174,10 +225,13 @@ def test_long_term_from_short_two_waves():
     obs = pd.DataFrame({"S1": S1_o, "S2": S2_o, "Y": Y_o})
 
     res = sp.long_term_from_short(
-        exp, obs, treatment="T",
+        exp,
+        obs,
+        treatment="T",
         surrogates_waves=[["S1"], ["S2"]],
         long_term_outcome="Y",
-        n_boot=100, random_state=23,
+        n_boot=100,
+        random_state=23,
     )
     # Expected: ATE(S1 on T) * 0.6 * 1.5 ≈ 0.8 * 0.9 = 0.72
     assert 0.45 < res.estimate < 1.0, res.estimate
@@ -188,23 +242,32 @@ def test_long_term_from_short_validation_uses_taxonomy():
     exp, obs = _make_surrogate_data()
     with pytest.raises(MethodIncompatibility, match="surrogates_waves"):
         sp.long_term_from_short(
-            exp, obs, treatment="T",
+            exp,
+            obs,
+            treatment="T",
             surrogates_waves=[],
-            long_term_outcome="Y", n_boot=100,
+            long_term_outcome="Y",
+            n_boot=100,
         )
     with pytest.raises(MethodIncompatibility, match="n_boot"):
         sp.long_term_from_short(
-            exp, obs, treatment="T",
+            exp,
+            obs,
+            treatment="T",
             surrogates_waves=[["S"]],
-            long_term_outcome="Y", n_boot=10,
+            long_term_outcome="Y",
+            n_boot=10,
         )
     one_arm = exp.copy()
     one_arm["T"] = 1.0
     with pytest.raises(DataInsufficient, match="overlap"):
         sp.long_term_from_short(
-            one_arm, obs, treatment="T",
+            one_arm,
+            obs,
+            treatment="T",
             surrogates_waves=[["S"]],
-            long_term_outcome="Y", n_boot=100,
+            long_term_outcome="Y",
+            n_boot=100,
         )
 
 
@@ -229,8 +292,14 @@ def test_proximal_surrogate_index_runs_with_valid_proxy():
     obs = pd.DataFrame({"S": S_o, "W": W_o, "Y": Y_o})
 
     res = sp.proximal_surrogate_index(
-        exp, obs, treatment="T", surrogates=["S"], proxies=["W"],
-        long_term_outcome="Y", n_boot=100, random_state=29,
+        exp,
+        obs,
+        treatment="T",
+        surrogates=["S"],
+        proxies=["W"],
+        long_term_outcome="Y",
+        n_boot=100,
+        random_state=29,
     )
     obs_ones = np.ones((len(obs), 1))
     stage1_x = np.column_stack([obs_ones, obs["W"].to_numpy(float)])
@@ -253,7 +322,11 @@ def test_proximal_surrogate_no_proxy_errors():
     exp, obs = _make_surrogate_data()
     with pytest.raises(MethodIncompatibility, match="at least one proxy"):
         sp.proximal_surrogate_index(
-            exp, obs, treatment="T", surrogates=["S"], proxies=[],
+            exp,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            proxies=[],
             long_term_outcome="Y",
         )
 
@@ -263,20 +336,34 @@ def test_proximal_surrogate_validation_uses_taxonomy():
     obs = obs.assign(W=np.random.default_rng(41).normal(size=len(obs)))
     with pytest.raises(MethodIncompatibility, match="observational missing"):
         sp.proximal_surrogate_index(
-            exp, obs.drop(columns=["W"]), treatment="T",
-            surrogates=["S"], proxies=["W"], long_term_outcome="Y",
+            exp,
+            obs.drop(columns=["W"]),
+            treatment="T",
+            surrogates=["S"],
+            proxies=["W"],
+            long_term_outcome="Y",
         )
     with pytest.raises(MethodIncompatibility, match="n_boot"):
         sp.proximal_surrogate_index(
-            exp, obs, treatment="T", surrogates=["S"], proxies=["W"],
-            long_term_outcome="Y", n_boot=10,
+            exp,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            proxies=["W"],
+            long_term_outcome="Y",
+            n_boot=10,
         )
     one_arm = exp.copy()
     one_arm["T"] = 0.0
     with pytest.raises(DataInsufficient, match="overlap"):
         sp.proximal_surrogate_index(
-            one_arm, obs, treatment="T", surrogates=["S"], proxies=["W"],
-            long_term_outcome="Y", n_boot=100,
+            one_arm,
+            obs,
+            treatment="T",
+            surrogates=["S"],
+            proxies=["W"],
+            long_term_outcome="Y",
+            n_boot=100,
         )
 
 

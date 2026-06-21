@@ -34,6 +34,7 @@ class TestBCHPostLasso:
 
     def test_outperforms_naive_2sls(self, high_dim_dgp):
         import statspai as sp
+
         df, zs = high_dim_dgp
         post = iv.bch_post_lasso_iv(y="y", endog="d", instruments=zs, data=df)
         naive = sp.ivreg("y ~ (d ~ " + "+".join(zs) + ")", data=df)
@@ -50,9 +51,12 @@ class TestBCHPostLasso:
         df, zs = high_dim_dgp
         # Force aggressive α so LASSO selects nothing, then verify fallback
         r = iv.bch_post_lasso_iv(
-            y="y", endog="d", instruments=zs, data=df,
+            y="y",
+            endog="d",
+            instruments=zs,
+            data=df,
             alpha=1e-10,  # essentially no LASSO selection
-            c=50.0,       # enormous λ to starve LASSO
+            c=50.0,  # enormous λ to starve LASSO
             ensure_min_instruments=3,
         )
         assert r.n_selected >= 3

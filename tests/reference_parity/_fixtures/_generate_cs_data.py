@@ -10,6 +10,7 @@ Heterogeneous, dynamic effects:
 
 n_units=120 (40 per group), T=6 periods.  Seed=42.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,7 +20,7 @@ rng = np.random.default_rng(42)
 T = 6
 groups_per_cohort = 40
 groups = (
-    [2] * groups_per_cohort   # treated at t=2
+    [2] * groups_per_cohort  # treated at t=2
     + [3] * groups_per_cohort  # treated at t=3
     + [0] * groups_per_cohort  # never treated
 )
@@ -38,20 +39,25 @@ for i in range(n_units):
             + tau  # heterogeneous treatment effect
             + 0.5 * rng.standard_normal()
         )
-        rows.append({
-            "id": i,
-            "year": t,
-            "g": g,
-            "first_treat": g if g > 0 else 0,
-            "post": int(post),
-            "tau": tau,
-            "y": y,
-        })
+        rows.append(
+            {
+                "id": i,
+                "year": t,
+                "g": g,
+                "first_treat": g if g > 0 else 0,
+                "post": int(post),
+                "tau": tau,
+                "y": y,
+            }
+        )
 
 df = pd.DataFrame(rows)
 
 import pathlib
+
 out = pathlib.Path(__file__).parent / "cs_data.csv"
 df.to_csv(out, index=False)
 print(f"Wrote {out}  (n={len(df)}, units={n_units}, T={T})")
-print(f"  cohort sizes: g=0:{(df.g==0).sum()//T}, g=2:{(df.g==2).sum()//T}, g=3:{(df.g==3).sum()//T}")
+print(
+    f"  cohort sizes: g=0:{(df.g==0).sum()//T}, g=2:{(df.g==2).sum()//T}, g=3:{(df.g==3).sum()//T}"
+)

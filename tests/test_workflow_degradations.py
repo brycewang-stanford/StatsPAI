@@ -12,6 +12,7 @@ The tests deliberately trigger failures by feeding pathological inputs
 rather than by mocking, so they double as regression tests against
 future code paths that try to silently swallow these errors again.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -24,7 +25,6 @@ from statspai.workflow._degradation import (
     WorkflowDegradedWarning,
     record_degradation,
 )
-
 
 # --------------------------------------------------------------------- #
 #  Helper itself
@@ -75,19 +75,22 @@ def test_eda_block_records_when_balance_table_fails():
     still render and the failure must surface."""
     from statspai.workflow.paper import _eda_block
 
-    df = pd.DataFrame({
-        "y": [1.0, 2.0, 3.0, 4.0],
-        "treated": [0, 1, 0, 1],
-        # ``string_col`` is not numeric → groupby().mean() raises.
-        "string_col": ["a", "b", "c", "d"],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "treated": [0, 1, 0, 1],
+            # ``string_col`` is not numeric → groupby().mean() raises.
+            "string_col": ["a", "b", "c", "d"],
+        }
+    )
     bag: list = []
-    with pytest.warns(
-        WorkflowDegradedWarning, match="EDA covariate balance table"
-    ):
+    with pytest.warns(WorkflowDegradedWarning, match="EDA covariate balance table"):
         out = _eda_block(
-            df, y="y", treatment="treated",
-            covariates=["string_col"], degradations=bag,
+            df,
+            y="y",
+            treatment="treated",
+            covariates=["string_col"],
+            degradations=bag,
         )
     # Section still renders something useful (sample size + missingness).
     assert "Sample size" in out
@@ -110,7 +113,7 @@ class _FakeResultBadCI:
     estimate = 1.5
     se = 0.2
     estimand = "ATT"
-    ci = "not-a-tuple"   # float(ci[0]) → ValueError
+    ci = "not-a-tuple"  # float(ci[0]) → ValueError
     pvalue = 0.01
     n_obs = 100
 
@@ -120,9 +123,7 @@ class _FakeWorkflow:
 
     def __init__(self, result):
         self.result = result
-        self.diagnostics = type("D", (), {
-            "verdict": "OK", "findings": []
-        })()
+        self.diagnostics = type("D", (), {"verdict": "OK", "findings": []})()
         self.recommendation = None
         self.robustness_findings = {}
         self._robustness_report = None
@@ -153,10 +154,15 @@ def _make_observational_df(seed: int = 42, n: int = 200):
     x1 = rng.standard_normal(n)
     x2 = rng.standard_normal(n)
     treat = (0.5 * x1 + 0.3 * x2 + rng.standard_normal(n) > 0).astype(int)
-    wage = (1.2 * treat + 0.4 * x1 + 0.3 * x2 + rng.standard_normal(n))
-    return pd.DataFrame({
-        "wage": wage, "trained": treat, "edu": x1, "experience": x2,
-    })
+    wage = 1.2 * treat + 0.4 * x1 + 0.3 * x2 + rng.standard_normal(n)
+    return pd.DataFrame(
+        {
+            "wage": wage,
+            "trained": treat,
+            "edu": x1,
+            "experience": x2,
+        }
+    )
 
 
 class _ExplodingDAG:
@@ -184,7 +190,8 @@ def test_paper_records_dag_render_failure():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         draft = sp.paper(
-            df, "effect of trained on wage",
+            df,
+            "effect of trained on wage",
             covariates=["edu", "experience"],
             dag=_ExplodingDAG(),
         )
@@ -193,9 +200,9 @@ def test_paper_records_dag_render_failure():
     # At least one WorkflowDegradedWarning fired specifically for the
     # DAG appendix.
     dag_warnings = [
-        w for w in caught
-        if issubclass(w.category, WorkflowDegradedWarning)
-        and "DAG" in str(w.message)
+        w
+        for w in caught
+        if issubclass(w.category, WorkflowDegradedWarning) and "DAG" in str(w.message)
     ]
     assert dag_warnings, "Expected a DAG-related WorkflowDegradedWarning"
     assert any(
@@ -224,7 +231,9 @@ def test_causal_workflow_run_records_substage_failure(monkeypatch):
 
     with pytest.warns(WorkflowDegradedWarning, match="compare_estimators"):
         wf = sp.causal(
-            df, y="wage", treatment="trained",
+            df,
+            y="wage",
+            treatment="trained",
             covariates=["edu", "experience"],
             design="rct",  # cheapest path
         ).run(full=True)
@@ -264,7 +273,8 @@ def test_assumption_audit_records_underlying_failure(monkeypatch):
         audit = sp.assumption_audit(res, data=df, verbose=False)
 
     degraded = [
-        w for w in caught
+        w
+        for w in caught
         if issubclass(w.category, WorkflowDegradedWarning)
         and "_audit_linear" in str(w.message)
     ]
@@ -275,9 +285,12 @@ def test_assumption_audit_records_underlying_failure(monkeypatch):
     # check (passed=None) with the actual error message in detail.
     inconclusive = [c for c in audit.checks if c.passed is None]
     assumption_names = {c.assumption for c in inconclusive}
-    assert {"Linearity", "Homoskedasticity",
-            "No multicollinearity", "Robustness to unobservables"} \
-        <= assumption_names
+    assert {
+        "Linearity",
+        "Homoskedasticity",
+        "No multicollinearity",
+        "Robustness to unobservables",
+    } <= assumption_names
     for c in inconclusive:
         assert "RuntimeError" in c.detail, c.detail
 
@@ -311,8 +324,11 @@ def test_render_dag_section_records_subanalysis_failure():
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         out = _render_dag_section(
-            _PartlyBrokenDAG(), treatment="x", outcome="y",
-            fmt="markdown", degradations=bag,
+            _PartlyBrokenDAG(),
+            treatment="x",
+            outcome="y",
+            fmt="markdown",
+            degradations=bag,
         )
     # Outer renderer still produced edges + variables.
     assert "Variables" in out
@@ -323,8 +339,7 @@ def test_render_dag_section_records_subanalysis_failure():
     assert any("backdoor_paths" in s for s in sections)
     assert any("bad_controls" in s for s in sections)
     # Three WorkflowDegradedWarnings raised.
-    degraded = [w for w in caught
-                if issubclass(w.category, WorkflowDegradedWarning)]
+    degraded = [w for w in caught if issubclass(w.category, WorkflowDegradedWarning)]
     assert len(degraded) >= 3
 
 
@@ -341,9 +356,7 @@ def test_sensitivity_dashboard_records_dimension_failure(monkeypatch):
 
     monkeypatch.setattr(sp, "oster_bounds", _boom, raising=False)
 
-    with pytest.warns(
-        WorkflowDegradedWarning, match="sensitivity_dashboard.*Oster"
-    ):
+    with pytest.warns(WorkflowDegradedWarning, match="sensitivity_dashboard.*Oster"):
         dash = sp.sensitivity_dashboard(res, data=df, verbose=False)
     # Dashboard still produced — just without the Oster row.
     assert dash is not None
@@ -379,18 +392,20 @@ def test_assumption_audit_runs_all_four_linear_checks_on_real_ols():
     for name in expected:
         c = by_name.get(name)
         assert c is not None, f"missing AssumptionCheck for {name!r}"
-        assert c.passed is not None, (
-            f"{name}: passed=None means the backing test crashed silently"
-        )
+        assert (
+            c.passed is not None
+        ), f"{name}: passed=None means the backing test crashed silently"
 
     degraded = [
-        w for w in caught
+        w
+        for w in caught
         if issubclass(w.category, WorkflowDegradedWarning)
         and "_audit_linear" in str(w.message)
     ]
-    assert not degraded, (
-        f"Expected no degradation warnings on a clean OLS audit, got: "
-        + "; ".join(str(w.message) for w in degraded)
+    assert (
+        not degraded
+    ), f"Expected no degradation warnings on a clean OLS audit, got: " + "; ".join(
+        str(w.message) for w in degraded
     )
 
 
@@ -412,9 +427,7 @@ def test_verify_recommendation_records_per_method_failure(monkeypatch):
         "params": {"formula": "wage ~ trained"},
         "prep": None,
     }
-    with pytest.warns(
-        WorkflowDegradedWarning, match="verify_recommendation"
-    ):
+    with pytest.warns(WorkflowDegradedWarning, match="verify_recommendation"):
         out = _run_method(rec, df)
     assert out is None
 
@@ -452,14 +465,16 @@ def test_placebo_all_reps_crashed_surfaces_single_warning(monkeypatch):
     assert out["total"] == 0
     assert out["score"] == 0.0
     degraded = [
-        w for w in caught
+        w
+        for w in caught
         if issubclass(w.category, WorkflowDegradedWarning)
         and "placebo all-reps crashed" in str(w.message)
     ]
     # Exactly one summary degradation, not n_reps individual ones.
-    assert len(degraded) == 1, (
-        f"Expected 1 summary degradation, got {len(degraded)}: "
-        + "; ".join(str(w.message) for w in degraded)
+    assert (
+        len(degraded) == 1
+    ), f"Expected 1 summary degradation, got {len(degraded)}: " + "; ".join(
+        str(w.message) for w in degraded
     )
     # Original exception type and message preserved.
     assert "RuntimeError" in str(degraded[0].message)
@@ -501,7 +516,4 @@ def test_placebo_partial_crashes_no_summary_warning(monkeypatch):
         warnings.simplefilter("always")
         _placebo_pass(rec, df, rng, n_reps=3)
     # No "all-reps crashed" warning when at least one rep succeeded.
-    assert not any(
-        "placebo all-reps crashed" in str(w.message) for w in caught
-    )
-
+    assert not any("placebo all-reps crashed" in str(w.message) for w in caught)

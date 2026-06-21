@@ -12,6 +12,7 @@ Covers:
   ``severity='check_failed'`` finding rather than aborting the
   battery.
 """
+
 import re
 import warnings
 
@@ -23,7 +24,9 @@ warnings.filterwarnings("ignore")
 
 import statspai as sp
 from statspai.workflow._robustness import (
-    RobustnessFinding, RobustnessReport, run_robustness_battery,
+    RobustnessFinding,
+    RobustnessReport,
+    run_robustness_battery,
 )
 
 
@@ -32,10 +35,15 @@ def _obs_data(n=300, seed=0):
     X = rng.normal(size=(n, 3))
     D = (rng.random(n) < 1 / (1 + np.exp(-X[:, 0]))).astype(int)
     Y = 0.7 * D + X[:, 0] + rng.normal(scale=0.3, size=n)
-    return pd.DataFrame({
-        "y": Y, "d": D,
-        "x0": X[:, 0], "x1": X[:, 1], "x2": X[:, 2],
-    })
+    return pd.DataFrame(
+        {
+            "y": Y,
+            "d": D,
+            "x0": X[:, 0],
+            "x1": X[:, 1],
+            "x2": X[:, 2],
+        }
+    )
 
 
 # ---------------------------------------------------------------------- #
@@ -50,15 +58,18 @@ class TestBatteryOnDML:
     @pytest.fixture(scope="class")
     def result_and_data(self):
         df = _obs_data(n=300, seed=1)
-        r = sp.dml(df, y="y", treat="d",
-                   covariates=["x0", "x1", "x2"], model="plr")
+        r = sp.dml(df, y="y", treat="d", covariates=["x0", "x1", "x2"], model="plr")
         return r, df
 
     def test_returns_non_empty_report(self, result_and_data):
         r, df = result_and_data
         report = run_robustness_battery(
-            r, design="observational", data=df,
-            treatment="d", outcome="y", covariates=["x0", "x1", "x2"],
+            r,
+            design="observational",
+            data=df,
+            treatment="d",
+            outcome="y",
+            covariates=["x0", "x1", "x2"],
         )
         assert isinstance(report, RobustnessReport)
         assert not report.is_empty()
@@ -72,8 +83,12 @@ class TestBatteryOnDML:
     def test_to_dict_has_findings_array(self, result_and_data):
         r, df = result_and_data
         report = run_robustness_battery(
-            r, design="observational", data=df,
-            treatment="d", outcome="y", covariates=["x0", "x1", "x2"],
+            r,
+            design="observational",
+            data=df,
+            treatment="d",
+            outcome="y",
+            covariates=["x0", "x1", "x2"],
         )
         d = report.to_dict()
         # Backwards-compat: flat keys are still present
@@ -89,8 +104,12 @@ class TestBatteryOnDML:
     def test_to_markdown_renders_severity_icons(self, result_and_data):
         r, df = result_and_data
         report = run_robustness_battery(
-            r, design="observational", data=df,
-            treatment="d", outcome="y", covariates=["x0", "x1", "x2"],
+            r,
+            design="observational",
+            data=df,
+            treatment="d",
+            outcome="y",
+            covariates=["x0", "x1", "x2"],
         )
         md = report.to_markdown()
         # At least one ok / info icon in the rendered block.
@@ -108,6 +127,7 @@ class TestBatteryFailureIsolation:
             estimate = 0.5
             ci = (0.1, 0.9)
             model_info = {}
+
             def violations(self):
                 return []
 
@@ -119,7 +139,8 @@ class TestBatteryFailureIsolation:
         # E-value either ran (succeeded) or was check_failed; either way
         # the battery returned a structured report rather than raising.
         evalue_finding = next(
-            (f for f in report.findings if f.name == "evalue"), None,
+            (f for f in report.findings if f.name == "evalue"),
+            None,
         )
         if evalue_finding is not None:
             assert evalue_finding.severity in {"ok", "info", "warning", "check_failed"}
@@ -141,15 +162,20 @@ class TestDesignTagAliases:
         # battery should still attempt e-value / oster.
         r = sp.regress("y ~ d + x0 + x1 + x2", data=df)
         report = run_robustness_battery(
-            r, design="selection_on_observables",
-            data=df, treatment="d", outcome="y",
+            r,
+            design="selection_on_observables",
+            data=df,
+            treatment="d",
+            outcome="y",
             covariates=["x0", "x1", "x2"],
         )
         names = {f.name for f in report.findings}
         # At least Oster + Sensemakr should be tried (success or
         # check_failed; never silently skipped).
-        assert any(n.startswith("oster") or n.startswith("sensemakr")
-                   for n in names) or report.notes
+        assert (
+            any(n.startswith("oster") or n.startswith("sensemakr") for n in names)
+            or report.notes
+        )
 
     def test_unknown_design_runs_generic_only(self):
         df = _obs_data(n=200, seed=3)
@@ -178,7 +204,9 @@ class TestPaperFromQuestion:
     def test_robustness_section_no_longer_placeholder(self):
         df = _obs_data(n=200, seed=4)
         q = sp.causal_question(
-            treatment="d", outcome="y", data=df,
+            treatment="d",
+            outcome="y",
+            data=df,
             design="selection_on_observables",
             covariates=["x0", "x1", "x2"],
         )
@@ -192,7 +220,9 @@ class TestPaperFromQuestion:
     def test_robustness_section_lists_substantive_checks(self):
         df = _obs_data(n=200, seed=5)
         q = sp.causal_question(
-            treatment="d", outcome="y", data=df,
+            treatment="d",
+            outcome="y",
+            data=df,
             design="selection_on_observables",
             covariates=["x0", "x1", "x2"],
         )
@@ -203,9 +233,13 @@ class TestPaperFromQuestion:
         # must surface (some can fail on extreme synthetic DGPs).
         lower = section.lower()
         substantive = any(
-            kw in lower for kw in [
-                "oster", "sensemakr", "e-value",
-                "robustness value", "self-reported violations",
+            kw in lower
+            for kw in [
+                "oster",
+                "sensemakr",
+                "e-value",
+                "robustness value",
+                "self-reported violations",
             ]
         )
         assert substantive, f"No substantive checks in section: {section}"
@@ -213,7 +247,9 @@ class TestPaperFromQuestion:
     def test_include_robustness_false_omits_section(self):
         df = _obs_data(n=200, seed=6)
         q = sp.causal_question(
-            treatment="d", outcome="y", data=df,
+            treatment="d",
+            outcome="y",
+            data=df,
             design="selection_on_observables",
             covariates=["x0", "x1", "x2"],
         )
@@ -234,8 +270,10 @@ class TestPaperNaturalLanguage:
     def test_section_uses_structured_renderer(self):
         df = _obs_data(n=200, seed=7)
         draft = sp.paper(
-            df, "effect of d on y",
-            y="y", treatment="d",
+            df,
+            "effect of d on y",
+            y="y",
+            treatment="d",
             covariates=["x0", "x1", "x2"],
         )
         section = _extract_robustness_section(draft.to_markdown())
@@ -253,10 +291,15 @@ class TestCausalWorkflowBackwardsCompat:
     def test_flat_dict_still_carries_estimate_and_ci_width(self):
         df = _obs_data(n=200, seed=8)
         wf = sp.causal(
-            df, y="y", treatment="d",
+            df,
+            y="y",
+            treatment="d",
             covariates=["x0", "x1", "x2"],
         )
-        wf.diagnose(); wf.recommend(); wf.estimate(); wf.robustness()
+        wf.diagnose()
+        wf.recommend()
+        wf.estimate()
+        wf.robustness()
         d = wf.robustness_findings
         assert isinstance(d, dict)
         assert "estimate" in d

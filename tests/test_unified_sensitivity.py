@@ -30,13 +30,15 @@ def test_unified_sensitivity_zero_effect():
     res = _FakeResult(estimate=0.0, se=0.1, ci=(-0.2, 0.2))
     dash = sp.unified_sensitivity(res)
     # breakdown undefined when sign is 0
-    assert np.isnan(dash.breakdown["bias_to_flip"]) or \
-        dash.breakdown["bias_to_flip"] == 0
+    assert (
+        np.isnan(dash.breakdown["bias_to_flip"]) or dash.breakdown["bias_to_flip"] == 0
+    )
 
 
 def test_sensitivity_method_on_causal_result_smoke():
     """Smoke test: DID result should expose a .sensitivity() method."""
     import pandas as pd
+
     rng = np.random.default_rng(5)
     n_unit = 40
     rows = []
@@ -45,8 +47,7 @@ def test_sensitivity_method_on_causal_result_smoke():
             post = int(t == 1)
             treated = int(u < n_unit // 2)
             y = 1.0 + 0.2 * post + 0.8 * (post * treated) + rng.normal(0, 0.5)
-            rows.append({"unit": u, "time": t, "y": y,
-                         "treat": treated, "post": post})
+            rows.append({"unit": u, "time": t, "y": y, "treat": treated, "post": post})
     df = pd.DataFrame(rows)
     res = sp.did_2x2(df, y="y", treat="treat", time="post")
     # Should have a sensitivity method
@@ -88,9 +89,12 @@ def test_unified_sensitivity_oster_matches_oster_bounds():
         beta_uncontrolled=0.5,
     )
     direct = sp.oster_bounds(
-        beta_short=0.5, r2_short=0.15,
-        beta_long=0.3, r2_long=0.45,
-        r_max=1.0, delta=1.0,
+        beta_short=0.5,
+        r2_short=0.15,
+        beta_long=0.3,
+        r2_long=0.45,
+        r_max=1.0,
+        delta=1.0,
     )
     assert dash.oster is not None
     assert dash.oster["delta"] == pytest.approx(direct["delta_for_zero"])
@@ -108,6 +112,7 @@ def test_unified_sensitivity_oster_matches_oster_bounds():
 
 def _toy_regression_df(n: int = 300, seed: int = 42):
     import pandas as pd
+
     rng = np.random.default_rng(seed)
     x1 = rng.normal(size=n)
     x2 = rng.normal(size=n)
@@ -120,7 +125,11 @@ def test_unified_sensitivity_sensemakr_matches_direct_call():
     df = _toy_regression_df()
     res = _FakeResult(estimate=0.6, se=0.1, ci=(0.4, 0.8))
     dash = sp.unified_sensitivity(
-        res, data=df, y="y", treat="d", controls=["x1", "x2"],
+        res,
+        data=df,
+        y="y",
+        treat="d",
+        controls=["x1", "x2"],
     )
     direct = sp.sensemakr(df, y="y", treat="d", controls=["x1", "x2"])
     assert dash.sensemakr is not None
@@ -138,9 +147,7 @@ def test_unified_sensitivity_sensemakr_without_data_notes_guidance():
     res = _FakeResult(estimate=0.3, se=0.1, ci=(0.1, 0.5))
     dash = sp.unified_sensitivity(res)
     assert dash.sensemakr is None
-    assert any(
-        "sp.sensemakr(data, y, treat, controls)" in n for n in dash.notes
-    )
+    assert any("sp.sensemakr(data, y, treat, controls)" in n for n in dash.notes)
     assert not any("TypeError" in n for n in dash.notes)
 
 
@@ -184,8 +191,7 @@ def test_unified_sensitivity_rosenbaum_matches_direct_call():
         ci: tuple
         matched_pairs: tuple = field(default=None)
 
-    res = R(estimate=0.5, se=0.15, ci=(0.2, 0.8),
-            matched_pairs=(treated, control))
+    res = R(estimate=0.5, se=0.15, ci=(0.2, 0.8), matched_pairs=(treated, control))
     dash = sp.unified_sensitivity(res)
     direct = sp.rosenbaum_bounds(treated, control, alternative="two-sided")
     assert dash.rosenbaum is not None

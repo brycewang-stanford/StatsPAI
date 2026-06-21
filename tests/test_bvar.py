@@ -1,4 +1,5 @@
 """Bayesian VAR tests."""
+
 import numpy as np, pandas as pd, pytest
 from statspai.timeseries.bvar import bvar
 
@@ -10,7 +11,7 @@ def var_dgp():
     A = np.array([[0.5, 0.1, 0.0], [0.0, 0.6, 0.1], [0.0, 0.0, 0.4]])
     Y = np.zeros((T, K))
     for t in range(1, T):
-        Y[t] = A @ Y[t-1] + rng.standard_normal(K) * 0.3
+        Y[t] = A @ Y[t - 1] + rng.standard_normal(K) * 0.3
     return pd.DataFrame(Y, columns=["gdp", "inf", "rate"])
 
 
@@ -41,4 +42,5 @@ def test_bvar_irf_shape(var_dgp):
 
 def test_exported():
     import statspai as sp
+
     assert callable(sp.bvar)

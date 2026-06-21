@@ -1,4 +1,5 @@
 """Out-of-sample prediction tests for OLS and IV."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,10 +23,15 @@ def ols_dgp():
 
 def test_ols_predict_in_sample_returns_fitted(ols_dgp):
     train, _, _ = ols_dgp
-    model = sp.OLSRegression(formula="y ~ x1 + x2", data=train) if hasattr(sp, "OLSRegression") else None
+    model = (
+        sp.OLSRegression(formula="y ~ x1 + x2", data=train)
+        if hasattr(sp, "OLSRegression")
+        else None
+    )
     # Use the public regress entry — it returns EconometricResults; we need the
     # estimator for predict, so go through sp.regression.ols.OLSRegression:
     from statspai.regression.ols import OLSRegression
+
     m = OLSRegression(formula="y ~ x1 + x2", data=train)
     m.fit()
     yhat = m.predict()
@@ -36,6 +42,7 @@ def test_ols_predict_in_sample_returns_fitted(ols_dgp):
 def test_ols_predict_out_of_sample(ols_dgp):
     train, test, y_true_oos = ols_dgp
     from statspai.regression.ols import OLSRegression
+
     m = OLSRegression(formula="y ~ x1 + x2", data=train)
     m.fit()
     yhat = m.predict(test)
@@ -49,6 +56,7 @@ def test_ols_predict_out_of_sample(ols_dgp):
 def test_ols_predict_confidence_interval(ols_dgp):
     train, test, _ = ols_dgp
     from statspai.regression.ols import OLSRegression
+
     m = OLSRegression(formula="y ~ x1 + x2", data=train)
     m.fit()
     out = m.predict(test, what="confidence", alpha=0.05)
@@ -60,6 +68,7 @@ def test_ols_predict_confidence_interval(ols_dgp):
 def test_ols_prediction_interval_wider_than_confidence(ols_dgp):
     train, test, _ = ols_dgp
     from statspai.regression.ols import OLSRegression
+
     m = OLSRegression(formula="y ~ x1 + x2", data=train)
     m.fit()
     ci = m.predict(test, what="confidence")
@@ -70,9 +79,10 @@ def test_ols_prediction_interval_wider_than_confidence(ols_dgp):
 def test_ols_predict_missing_column_raises(ols_dgp):
     train, _, _ = ols_dgp
     from statspai.regression.ols import OLSRegression
+
     m = OLSRegression(formula="y ~ x1 + x2", data=train)
     m.fit()
-    bad = pd.DataFrame({"x1": [0.0]})    # missing x2
+    bad = pd.DataFrame({"x1": [0.0]})  # missing x2
     with pytest.raises(Exception):
         m.predict(bad)
 
@@ -88,13 +98,16 @@ def iv_dgp():
     x = 0.8 * z + 0.5 * e + 0.3 * rng.standard_normal(n)
     y = 1.0 + 2.0 * x + e
     df = pd.DataFrame({"y": y, "x": x, "z": z})
-    train, test = df.iloc[:300].reset_index(drop=True), df.iloc[300:].reset_index(drop=True)
+    train, test = df.iloc[:300].reset_index(drop=True), df.iloc[300:].reset_index(
+        drop=True
+    )
     return train, test
 
 
 def test_iv_predict_out_of_sample(iv_dgp):
     train, test = iv_dgp
     from statspai.regression.iv import IVRegression
+
     m = IVRegression(formula="y ~ (x ~ z)", data=train)
     m.fit()
     yhat = m.predict(test.drop(columns=["y"]))

@@ -32,7 +32,7 @@ def mediation_data():
     M = 0.5 + 1.0 * T + X + e_m
     Y = 1.0 + 0.5 * T + 2.0 * M + X + e_y
 
-    return pd.DataFrame({'y': Y, 'treat': T, 'mediator': M, 'x': X})
+    return pd.DataFrame({"y": Y, "treat": T, "mediator": M, "x": X})
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ def no_mediation_data():
     M = rng.normal(0, 1, n)  # M independent of T
     Y = 3.0 * T + 0.5 * M + rng.normal(0, 0.5, n)
 
-    return pd.DataFrame({'y': Y, 'treat': T, 'mediator': M})
+    return pd.DataFrame({"y": Y, "treat": T, "mediator": M})
 
 
 class TestMediationBasic:
@@ -53,54 +53,77 @@ class TestMediationBasic:
     def test_acme_estimate(self, mediation_data):
         """ACME should be ≈ 2.0"""
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', covariates=['x'], n_boot=500,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            covariates=["x"],
+            n_boot=500,
         )
 
         assert isinstance(result, CausalResult)
-        assert abs(result.estimate - 2.0) < 0.5, (
-            f"ACME = {result.estimate:.2f}, expected ≈ 2.0"
-        )
+        assert (
+            abs(result.estimate - 2.0) < 0.5
+        ), f"ACME = {result.estimate:.2f}, expected ≈ 2.0"
 
     def test_ade(self, mediation_data):
         """ADE should be ≈ 0.5"""
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', covariates=['x'], n_boot=500,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            covariates=["x"],
+            n_boot=500,
         )
-        ade = result.model_info['ade']
+        ade = result.model_info["ade"]
         assert abs(ade - 0.5) < 0.5, f"ADE = {ade:.2f}, expected ≈ 0.5"
 
     def test_total_effect(self, mediation_data):
         """Total = ACME + ADE ≈ 2.5"""
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', covariates=['x'], n_boot=500,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            covariates=["x"],
+            n_boot=500,
         )
-        total = result.model_info['total_effect']
+        total = result.model_info["total_effect"]
         assert abs(total - 2.5) < 0.5
 
     def test_prop_mediated(self, mediation_data):
         """Proportion mediated ≈ 0.8"""
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', covariates=['x'], n_boot=500,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            covariates=["x"],
+            n_boot=500,
         )
-        prop = result.model_info['prop_mediated']
+        prop = result.model_info["prop_mediated"]
         assert abs(prop - 0.8) < 0.2
 
     def test_no_mediation(self, no_mediation_data):
         """When T doesn't affect M, ACME should be near zero."""
         result = mediate(
-            no_mediation_data, y='y', treat='treat',
-            mediator='mediator', n_boot=500,
+            no_mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            n_boot=500,
         )
         assert abs(result.estimate) < 0.5
 
     def test_significance(self, mediation_data):
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', covariates=['x'], n_boot=500,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            covariates=["x"],
+            n_boot=500,
         )
         assert result.pvalue < 0.05
 
@@ -109,35 +132,43 @@ class TestMediationOutput:
 
     def test_detail_table(self, mediation_data):
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', n_boot=200,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            n_boot=200,
         )
         detail = result.detail
         assert len(detail) == 4
-        effects = detail['effect'].tolist()
-        assert 'ACME (indirect)' in effects
-        assert 'ADE (direct)' in effects
-        assert 'Total Effect' in effects
+        effects = detail["effect"].tolist()
+        assert "ACME (indirect)" in effects
+        assert "ADE (direct)" in effects
+        assert "Total Effect" in effects
 
     def test_summary(self, mediation_data):
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', n_boot=200,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            n_boot=200,
         )
         s = result.summary()
-        assert 'Mediation' in s
+        assert "Mediation" in s
 
     def test_citation(self, mediation_data):
         result = mediate(
-            mediation_data, y='y', treat='treat',
-            mediator='mediator', n_boot=200,
+            mediation_data,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            n_boot=200,
         )
-        assert 'imai' in result.cite().lower()
+        assert "imai" in result.cite().lower()
 
     def test_missing_column(self, mediation_data):
         with pytest.raises(ValueError, match="not found"):
-            mediate(mediation_data, y='nonexistent', treat='treat',
-                    mediator='mediator')
+            mediate(mediation_data, y="nonexistent", treat="treat", mediator="mediator")
 
     def test_delta_inference_matches_sobel_paramed_formula(self):
         rng = np.random.default_rng(202405)
@@ -145,11 +176,15 @@ class TestMediationOutput:
         treat = rng.binomial(1, 0.5, n).astype(float)
         mediator = 0.3 * treat + rng.normal(0, 0.5, n)
         y = 0.5 * treat + 0.4 * mediator + rng.normal(0, 0.4, n)
-        df = pd.DataFrame({'y': y, 'treat': treat, 'mediator': mediator})
+        df = pd.DataFrame({"y": y, "treat": treat, "mediator": mediator})
 
         result = mediate(
-            df, y='y', treat='treat', mediator='mediator',
-            inference='delta', n_boot=0,
+            df,
+            y="y",
+            treat="treat",
+            mediator="mediator",
+            inference="delta",
+            n_boot=0,
         )
 
         z_med = np.column_stack([np.ones(n), treat])
@@ -163,25 +198,28 @@ class TestMediationOutput:
 
         a, cov_a = ols_cov(z_med, mediator)
         b, cov_b = ols_cov(z_out, y)
-        expected_acme_se = np.sqrt(
-            b[2] ** 2 * cov_a[1, 1] + a[1] ** 2 * cov_b[2, 2]
-        )
+        expected_acme_se = np.sqrt(b[2] ** 2 * cov_a[1, 1] + a[1] ** 2 * cov_b[2, 2])
         expected_ade_se = np.sqrt(cov_b[1, 1])
         expected_total_se = np.sqrt(
-            expected_acme_se ** 2 + cov_b[1, 1] + 2 * a[1] * cov_b[1, 2]
+            expected_acme_se**2 + cov_b[1, 1] + 2 * a[1] * cov_b[1, 2]
         )
 
-        assert result.model_info['inference'] == 'delta'
-        assert result.model_info['pvalue_method'] == 'wald'
-        assert result.model_info['se_acme'] == pytest.approx(expected_acme_se)
-        assert result.model_info['se_ade'] == pytest.approx(expected_ade_se)
-        assert result.model_info['se_total'] == pytest.approx(expected_total_se)
+        assert result.model_info["inference"] == "delta"
+        assert result.model_info["pvalue_method"] == "wald"
+        assert result.model_info["se_acme"] == pytest.approx(expected_acme_se)
+        assert result.model_info["se_ade"] == pytest.approx(expected_ade_se)
+        assert result.model_info["se_total"] == pytest.approx(expected_total_se)
 
     def test_bad_inference_method(self, mediation_data):
         with pytest.raises(ValueError, match="inference"):
-            mediate(mediation_data, y='y', treat='treat',
-                    mediator='mediator', inference='garbage')
+            mediate(
+                mediation_data,
+                y="y",
+                treat="treat",
+                mediator="mediator",
+                inference="garbage",
+            )
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, "-v"])

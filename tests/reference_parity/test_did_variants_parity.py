@@ -29,6 +29,7 @@ References
   Mundlak regression, and difference-in-differences estimators."
   SSRN. [@wooldridge2021twoway]
 """
+
 from __future__ import annotations
 
 import json
@@ -38,7 +39,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -75,12 +75,16 @@ def r_reference():
 # markers were left stale and have been removed — a future regression
 # will fail the suite loudly rather than be hidden as XPASS.
 
+
 def test_bjs_did_imputation_matches_R(cs_data, r_reference):
     bjs_meta = r_reference["bjs"]["meta"]
     if not bjs_meta.get("available", False):
         pytest.skip(f"R didimputation unavailable: {bjs_meta.get('error', '?')}")
     res = sp.did_imputation(
-        data=cs_data, y="y", group="id", time="year",
+        data=cs_data,
+        y="y",
+        group="id",
+        time="year",
         first_treat="first_treat",
     )
     py_att = float(res.estimate)
@@ -96,7 +100,10 @@ def test_bjs_did_imputation_close_to_truth(cs_data, r_reference):
     if not r_reference["bjs"]["meta"].get("available", False):
         pytest.skip("BJS R reference unavailable")
     res = sp.did_imputation(
-        data=cs_data, y="y", group="id", time="year",
+        data=cs_data,
+        y="y",
+        group="id",
+        time="year",
         first_treat="first_treat",
     )
     assert abs(float(res.estimate) - 2.75) < 0.5
@@ -110,7 +117,10 @@ def test_gardner_did_matches_R(cs_data, r_reference):
     if not g_meta.get("available", False):
         pytest.skip(f"R did2s unavailable: {g_meta.get('error', '?')}")
     res = sp.gardner_did(
-        data=cs_data, y="y", group="id", time="year",
+        data=cs_data,
+        y="y",
+        group="id",
+        time="year",
         first_treat="first_treat",
     )
     py_att = float(res.estimate)
@@ -128,15 +138,18 @@ def test_gardner_did_matches_R(cs_data, r_reference):
 @pytest.mark.xfail(
     strict=False,
     reason="sp.wooldridge_did returns 2.15 vs R etwfe's 2.75 (true) "
-           "— ~22% downward bias on this DGP. Likely a cohort-weighting "
-           "difference in the Mundlak transform. Flagged for v1.11.",
+    "— ~22% downward bias on this DGP. Likely a cohort-weighting "
+    "difference in the Mundlak transform. Flagged for v1.11.",
 )
 def test_wooldridge_did_matches_R(cs_data, r_reference):
     e_meta = r_reference["etwfe"]["meta"]
     if not e_meta.get("available", False):
         pytest.skip(f"R etwfe unavailable: {e_meta.get('error', '?')}")
     res = sp.wooldridge_did(
-        data=cs_data, y="y", group="id", time="year",
+        data=cs_data,
+        y="y",
+        group="id",
+        time="year",
         first_treat="first_treat",
     )
     py_att = float(res.estimate)
@@ -152,8 +165,9 @@ def test_gardner_close_to_truth(cs_data, r_reference):
     """Gardner converges; this is the 'green' member of the trio."""
     if not r_reference["gardner"]["meta"].get("available", False):
         pytest.skip("Gardner R reference unavailable")
-    res = sp.gardner_did(data=cs_data, y="y", group="id", time="year",
-                         first_treat="first_treat")
+    res = sp.gardner_did(
+        data=cs_data, y="y", group="id", time="year", first_treat="first_treat"
+    )
     assert abs(float(res.estimate) - 2.75) < 0.5
 
 

@@ -11,7 +11,6 @@ import pytest
 
 import statspai as sp
 
-
 # -------------------------------------------------------------------------
 # causal_bandit
 # -------------------------------------------------------------------------
@@ -25,8 +24,11 @@ def test_causal_bandit_picks_best_arm():
         return float(means[arm] + rng.normal(0, 0.2))
 
     res = sp.causal_bandit(
-        arms=["A", "B", "C"], reward_fn=reward_fn,
-        context={"u": 42}, n_samples=400, rng_seed=151,
+        arms=["A", "B", "C"],
+        reward_fn=reward_fn,
+        context={"u": 42},
+        n_samples=400,
+        rng_seed=151,
     )
     assert res.arm_labels == ["A", "B", "C"]
     np.testing.assert_allclose(res.optimal_arm, int(np.argmax(res.expected_rewards)))
@@ -54,7 +56,10 @@ def test_cfpo_detects_better_policy():
     r = 0.5 * s + 1.5 * a + rng.normal(0, 0.3, size=n)
     df = pd.DataFrame({"s": s, "a": a, "r": r})
     res = sp.counterfactual_policy_optimization(
-        df, state="s", action="a", reward="r",
+        df,
+        state="s",
+        action="a",
+        reward="r",
         target_policy=lambda si: 2.0 * si,  # high positive corr with a-coef
     )
     X = np.column_stack([np.ones(n), s, a])
@@ -74,7 +79,10 @@ def test_cfpo_missing_columns_errors():
     df = pd.DataFrame({"s": [0.1, 0.2], "a": [0.3, 0.4], "r": [0.5, 0.6]})
     with pytest.raises(ValueError, match="Missing"):
         sp.counterfactual_policy_optimization(
-            df, state="bogus", action="a", reward="r",
+            df,
+            state="bogus",
+            action="a",
+            reward="r",
             target_policy=lambda s: s,
         )
 
@@ -96,7 +104,11 @@ def test_structural_mdp_fits_linear_dynamics():
     r = s + a + rng.normal(0, 0.1, size=T)
     df = pd.DataFrame({"s": s, "a": a, "r": r, "t": np.arange(T)})
     res = sp.structural_mdp(
-        df, state_cols=["s"], action_cols=["a"], reward="r", time="t",
+        df,
+        state_cols=["s"],
+        action_cols=["a"],
+        reward="r",
+        time="t",
     )
     # A matrix should be close to [[0.9]]
     assert abs(res.A[0, 0] - 0.9) < 0.05, res.A
@@ -106,7 +118,9 @@ def test_structural_mdp_fits_linear_dynamics():
     assert abs(res.reward_coef[1] - 1.0) < 0.2
     # Counterfactual rollout runs
     rollout = res.counterfactual_rollout(
-        np.array([0.0]), policy=lambda s: np.array([0.5]), horizon=5,
+        np.array([0.0]),
+        policy=lambda s: np.array([0.5]),
+        horizon=5,
     )
     assert rollout["states"].shape == (6, 1)
     assert rollout["actions"].shape == (5, 1)

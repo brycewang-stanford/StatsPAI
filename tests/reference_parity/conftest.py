@@ -4,18 +4,19 @@ All DGPs here are fully deterministic given a seed and return
 dataframes with ``attrs['true_effect']`` recording the known truth
 so recovery tests can verify bias is within Monte-Carlo tolerance.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # DID DGPs
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def did_2x2_data():
     """Classic 2-group, 2-period DID with true ATT = 2.0.
 
@@ -31,16 +32,31 @@ def did_2x2_data():
         treated = 1 if i < n_units // 2 else 0
         ui = rng.normal(scale=0.4)
         for t in [0, 1]:
-            y = 1.0 + 0.3 * t + 0.5 * treated + 2.0 * treated * t + ui + rng.normal(scale=0.5)
-            rows.append({'i': i, 't': t, 'treated': treated,
-                         'post': t, 'd': treated * t,
-                         'g': 1 if treated else 0, 'y': y})
+            y = (
+                1.0
+                + 0.3 * t
+                + 0.5 * treated
+                + 2.0 * treated * t
+                + ui
+                + rng.normal(scale=0.5)
+            )
+            rows.append(
+                {
+                    "i": i,
+                    "t": t,
+                    "treated": treated,
+                    "post": t,
+                    "d": treated * t,
+                    "g": 1 if treated else 0,
+                    "y": y,
+                }
+            )
     df = pd.DataFrame(rows)
-    df.attrs['true_effect'] = 2.0
+    df.attrs["true_effect"] = 2.0
     return df
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def did_staggered_homogeneous():
     """Staggered DID, homogeneous effect = 1.5 (cohort-invariant, time-invariant).
 
@@ -58,13 +74,13 @@ def did_staggered_homogeneous():
         for t in range(1, 9):
             post = 1 if (g > 0 and t >= g) else 0
             y = 0.2 * t + 1.5 * post + ui + rng.normal(scale=0.8)
-            rows.append({'i': i, 't': t, 'g': g, 'post': post, 'y': y})
+            rows.append({"i": i, "t": t, "g": g, "post": post, "y": y})
     df = pd.DataFrame(rows)
-    df.attrs['true_effect'] = 1.5
+    df.attrs["true_effect"] = 1.5
     return df
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def did_staggered_heterogeneous():
     """Staggered DID, heterogeneous effect (later cohorts = larger effect).
 
@@ -88,10 +104,11 @@ def did_staggered_heterogeneous():
         for t in range(1, 9):
             post = 1 if (g > 0 and t >= g) else 0
             y = 0.2 * t + te * post + ui + rng.normal(scale=0.8)
-            rows.append({'i': i, 't': t, 'g': g, 'post': post, 'y': y,
-                         'cohort_effect': te})
+            rows.append(
+                {"i": i, "t": t, "g": g, "post": post, "y": y, "cohort_effect": te}
+            )
     df = pd.DataFrame(rows)
-    df.attrs['cohort_effects'] = cohort_effects
+    df.attrs["cohort_effects"] = cohort_effects
     return df
 
 
@@ -99,7 +116,8 @@ def did_staggered_heterogeneous():
 # RD DGPs
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def rd_sharp_data():
     """Sharp RD with known ATE at cutoff = 1.0.
 
@@ -112,14 +130,14 @@ def rd_sharp_data():
     n = 2000
     x = rng.uniform(-1, 1, n)
     d = (x >= 0).astype(int)
-    y = 2 + 3*x + x**2 + 1.0 * d + rng.normal(scale=0.3, size=n)
-    df = pd.DataFrame({'y': y, 'x': x, 'd': d})
-    df.attrs['true_effect'] = 1.0
-    df.attrs['cutoff'] = 0.0
+    y = 2 + 3 * x + x**2 + 1.0 * d + rng.normal(scale=0.3, size=n)
+    df = pd.DataFrame({"y": y, "x": x, "d": d})
+    df.attrs["true_effect"] = 1.0
+    df.attrs["cutoff"] = 0.0
     return df
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def rd_fuzzy_data():
     """Fuzzy RD with known LATE at cutoff = 0.8.
 
@@ -132,10 +150,10 @@ def rd_fuzzy_data():
     # Probability of treatment jumps from 0.1 to 0.8 at cutoff
     p = np.where(x >= 0, 0.8, 0.1)
     d = (rng.uniform(0, 1, n) < p).astype(int)
-    y = 1.0 + 2*x + 0.8 * d + rng.normal(scale=0.4, size=n)
-    df = pd.DataFrame({'y': y, 'x': x, 'd': d})
-    df.attrs['true_effect'] = 0.8
-    df.attrs['cutoff'] = 0.0
+    y = 1.0 + 2 * x + 0.8 * d + rng.normal(scale=0.4, size=n)
+    df = pd.DataFrame({"y": y, "x": x, "d": d})
+    df.attrs["true_effect"] = 0.8
+    df.attrs["cutoff"] = 0.0
     return df
 
 
@@ -143,7 +161,8 @@ def rd_fuzzy_data():
 # IV DGPs
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def iv_strong_data():
     """Strong-instrument IV with known LATE = 1.5.
 
@@ -159,8 +178,8 @@ def iv_strong_data():
     d = (0.2 + 0.6 * z + 0.3 * u + rng.normal(scale=0.3, size=n) > 0.5).astype(int)
     # Outcome: y = 1 + 1.5 * d + 0.5 * u + noise (u is confounder)
     y = 1.0 + 1.5 * d + 0.5 * u + rng.normal(scale=0.5, size=n)
-    df = pd.DataFrame({'y': y, 'd': d, 'z': z})
-    df.attrs['true_effect'] = 1.5
+    df = pd.DataFrame({"y": y, "d": d, "z": z})
+    df.attrs["true_effect"] = 1.5
     return df
 
 
@@ -168,7 +187,8 @@ def iv_strong_data():
 # Synth DGPs
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def synth_factor_model_data():
     """Factor-model DGP where SCM is exactly unbiased.
 
@@ -195,7 +215,7 @@ def synth_factor_model_data():
 
     rows = []
     for unit in range(n_controls + 1):
-        is_treated = (unit == n_controls)
+        is_treated = unit == n_controls
         lam = treated_loadings if is_treated else control_loadings[unit]
         y_base = lam[0] * f1 + lam[1] * f2
         noise = rng.normal(scale=0.2, size=T)
@@ -204,17 +224,19 @@ def synth_factor_model_data():
             # Post-period effect = -5
             y[T0:] += -5.0
         for t in range(T):
-            rows.append({
-                'unit': unit,
-                'year': 2000 + t,
-                'y': y[t],
-                'treat': 1 if (is_treated and t >= T0) else 0,
-                'is_treated_unit': int(is_treated),
-            })
+            rows.append(
+                {
+                    "unit": unit,
+                    "year": 2000 + t,
+                    "y": y[t],
+                    "treat": 1 if (is_treated and t >= T0) else 0,
+                    "is_treated_unit": int(is_treated),
+                }
+            )
     df = pd.DataFrame(rows)
-    df.attrs['true_effect'] = -5.0
-    df.attrs['treatment_year'] = 2020
-    df.attrs['treated_unit'] = n_controls
+    df.attrs["true_effect"] = -5.0
+    df.attrs["treatment_year"] = 2020
+    df.attrs["treated_unit"] = n_controls
     return df
 
 
@@ -222,7 +244,8 @@ def synth_factor_model_data():
 # Matching DGPs
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope='session')
+
+@pytest.fixture(scope="session")
 def matching_cia_data():
     """Selection-on-observables DGP with known ATT = 2.0.
 
@@ -243,6 +266,6 @@ def matching_cia_data():
     # Outcome
     y0 = 1.0 + 1.5 * X1 - 0.8 * X2 + 0.6 * X3 + rng.normal(scale=0.8, size=n)
     y = y0 + 2.0 * d
-    df = pd.DataFrame({'y': y, 'd': d, 'X1': X1, 'X2': X2, 'X3': X3})
-    df.attrs['true_effect'] = 2.0
+    df = pd.DataFrame({"y": y, "d": d, "X1": X1, "X2": X2, "X3": X3})
+    df.attrs["true_effect"] = 2.0
     return df

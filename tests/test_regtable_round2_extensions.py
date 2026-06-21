@@ -49,6 +49,7 @@ def ols_models():
 # 1. estimate= / statistic= template strings
 # ---------------------------------------------------------------------------
 
+
 class TestTemplates:
 
     def test_default_unchanged(self, ols_models):
@@ -65,6 +66,7 @@ class TestTemplates:
         out = sp.regtable(m1, estimate="{stars}{estimate}").to_text()
         # Find a coefficient row with stars
         import re
+
         match = re.search(r"\*+\d+\.\d+", out)
         assert match, f"Stars before estimate not found in:\n{out}"
 
@@ -108,6 +110,7 @@ class TestTemplates:
 # 2. notation= for significance markers
 # ---------------------------------------------------------------------------
 
+
 class TestNotation:
 
     def test_default_uses_stars(self, ols_models):
@@ -145,6 +148,7 @@ class TestNotation:
 # 3. apply_coef arbitrary transform
 # ---------------------------------------------------------------------------
 
+
 class TestApplyCoef:
 
     def test_apply_coef_doubles_estimates(self, ols_models):
@@ -160,6 +164,7 @@ class TestApplyCoef:
         m1, _, _ = ols_models
         # 100x percentage: SE also 100x
         import re
+
         out = sp.regtable(
             m1,
             apply_coef=lambda b: 100 * b,
@@ -193,6 +198,7 @@ class TestApplyCoef:
 # 4. Word + Excel column_spanners
 # ---------------------------------------------------------------------------
 
+
 class TestWordExcelSpanners:
 
     def test_excel_renders_spanner_row(self, ols_models):
@@ -200,7 +206,10 @@ class TestWordExcelSpanners:
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "t.xlsx")
             sp.regtable(
-                m1, m2, m1, m2,
+                m1,
+                m2,
+                m1,
+                m2,
                 column_spanners=[("OLS", 2), ("IV", 2)],
             ).save(path)
             try:
@@ -210,7 +219,9 @@ class TestWordExcelSpanners:
             wb = load_workbook(path)
             ws = wb.active
             cells_text = " ".join(
-                str(c.value) for row in ws.iter_rows() for c in row
+                str(c.value)
+                for row in ws.iter_rows()
+                for c in row
                 if c.value is not None
             )
             assert "OLS" in cells_text
@@ -221,7 +232,10 @@ class TestWordExcelSpanners:
         with tempfile.TemporaryDirectory() as d:
             path = os.path.join(d, "t.docx")
             sp.regtable(
-                m1, m2, m1, m2,
+                m1,
+                m2,
+                m1,
+                m2,
                 column_spanners=[("OLS", 2), ("IV", 2)],
             ).save(path)
             try:
@@ -230,9 +244,7 @@ class TestWordExcelSpanners:
                 pytest.skip("python-docx not installed")
             doc = Document(path)
             tbl = doc.tables[0]
-            all_text = " ".join(
-                cell.text for row in tbl.rows for cell in row.cells
-            )
+            all_text = " ".join(cell.text for row in tbl.rows for cell in row.cells)
             assert "OLS" in all_text
             assert "IV" in all_text
 
@@ -240,6 +252,7 @@ class TestWordExcelSpanners:
 # ---------------------------------------------------------------------------
 # 5. escape=
 # ---------------------------------------------------------------------------
+
 
 class TestEscapeOptOut:
 

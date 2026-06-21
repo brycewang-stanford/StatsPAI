@@ -13,6 +13,7 @@ default ATT path; this file adds:
 - The internal ``_ols_coef`` helper's empty-X early return.
 - The horizon SE helper's ``N_k == 0`` early return.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -27,7 +28,6 @@ from statspai.did.did_imputation import (
     _ols_coef,
     did_imputation,
 )
-
 
 # --------------------------------------------------------------------- #
 #  Fixtures
@@ -68,7 +68,10 @@ def test_did_imputation_validates_control_columns(staggered_panel):
     with pytest.raises(ValueError, match="Control column"):
         did_imputation(
             staggered_panel,
-            y="y", group="unit", time="time", first_treat="first_treat",
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
             controls=["bogus"],
         )
 
@@ -78,7 +81,11 @@ def test_did_imputation_no_treated_raises(staggered_panel):
     df["first_treat"] = np.inf  # everyone never-treated
     with pytest.raises(ValueError, match="No treated observations"):
         did_imputation(
-            df, y="y", group="unit", time="time", first_treat="first_treat",
+            df,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
         )
 
 
@@ -89,15 +96,23 @@ def test_did_imputation_no_untreated_raises():
     rows = []
     for u in range(n_units):
         for t in range(n_per):
-            rows.append({
-                "unit": u, "time": t, "y": rng.normal(),
-                # first_treat smaller than every time observed → all treated
-                "first_treat": -1.0,
-            })
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": rng.normal(),
+                    # first_treat smaller than every time observed → all treated
+                    "first_treat": -1.0,
+                }
+            )
     df = pd.DataFrame(rows)
     with pytest.raises(ValueError, match="No untreated observations"):
         did_imputation(
-            df, y="y", group="unit", time="time", first_treat="first_treat",
+            df,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
         )
 
 
@@ -109,8 +124,12 @@ def test_did_imputation_no_untreated_raises():
 def test_did_imputation_with_controls_and_horizon(staggered_panel):
     res = did_imputation(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
-        controls=["x"], horizon=list(range(-3, 4)),
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        controls=["x"],
+        horizon=list(range(-3, 4)),
     )
     mi = res.model_info
     # Coefficient on the control surfaces in model_info
@@ -118,8 +137,15 @@ def test_did_imputation_with_controls_and_horizon(staggered_panel):
     # Event study has rows for the requested horizons that exist in data
     assert "event_study" in mi and len(mi["event_study"]) > 0
     es = mi["event_study"]
-    assert {"relative_time", "att", "se", "ci_lower", "ci_upper",
-            "pvalue", "n_obs"} <= set(es.columns)
+    assert {
+        "relative_time",
+        "att",
+        "se",
+        "ci_lower",
+        "ci_upper",
+        "pvalue",
+        "n_obs",
+    } <= set(es.columns)
     # Pre-trend joint chi^2 test computed
     assert "pretrend_test" in mi
     pre = mi["pretrend_test"]
@@ -216,7 +242,11 @@ def test_did_imputation_explicit_cluster_overrides_default(staggered_panel):
     df = staggered_panel.copy()
     df["state"] = df["unit"] // 5  # group units into pseudo-states
     res = did_imputation(
-        df, y="y", group="unit", time="time", first_treat="first_treat",
+        df,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
         cluster="state",
     )
     assert res.model_info["cluster_var"] == "state"
@@ -227,7 +257,10 @@ def test_did_imputation_horizon_event_study_orders_by_relative_time(
 ):
     res = did_imputation(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
         horizon=[-2, 0, 2, 4],
     )
     es = res.model_info["event_study"]
@@ -264,11 +297,13 @@ def test_cluster_se_horizon_zero_mask_returns_inf():
     """``mask_k.sum() == 0`` short-circuits to ``np.inf`` (no obs at horizon)."""
     rng = np.random.default_rng(0)
     n = 40
-    df = pd.DataFrame({
-        "cluster": rng.integers(0, 5, size=n),
-        "_uid": np.arange(n),
-        "_tid": np.arange(n),
-    })
+    df = pd.DataFrame(
+        {
+            "cluster": rng.integers(0, 5, size=n),
+            "_uid": np.arange(n),
+            "_tid": np.arange(n),
+        }
+    )
     mask_k = np.zeros(n, dtype=bool)  # nothing at this horizon
     treated_mask = np.zeros(n, dtype=bool)
     out = _cluster_se_horizon(
@@ -298,7 +333,10 @@ def test_cluster_se_horizon_zero_mask_returns_inf():
 def test_did_imputation_cite_returns_registered_bibtex(staggered_panel):
     res = did_imputation(
         staggered_panel,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     cite = res.cite()
     assert "borusyak2024revisiting" in cite

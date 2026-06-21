@@ -32,17 +32,26 @@ def two_models():
 @pytest.fixture
 def table(two_models):
     m1, m2 = two_models
-    return sp.regtable(m1, m2, template="aer",
-                       model_labels=["Wages", "Hours"])
+    return sp.regtable(m1, m2, template="aer", model_labels=["Wages", "Hours"])
 
 
 class TestToDictStructure:
 
     def test_top_level_keys(self, table):
         d = table.to_dict()
-        for key in ("kind", "n_models", "model_labels", "columns",
-                    "table", "models", "template", "se_type",
-                    "stars", "star_levels", "requested_stats"):
+        for key in (
+            "kind",
+            "n_models",
+            "model_labels",
+            "columns",
+            "table",
+            "models",
+            "template",
+            "se_type",
+            "stars",
+            "star_levels",
+            "requested_stats",
+        ):
             assert key in d, f"missing top-level key {key!r}"
         assert d["kind"] == "regression_table"
         assert d["n_models"] == 2
@@ -86,8 +95,9 @@ class TestJsonSafety:
         s = table.to_json()
         back = json.loads(s)
         assert back["n_models"] == 2
-        assert back["models"][0]["coefficients"]["x"]["estimate"] == \
-            pytest.approx(2.0, abs=0.25)
+        assert back["models"][0]["coefficients"]["x"]["estimate"] == pytest.approx(
+            2.0, abs=0.25
+        )
 
     def test_indent_passthrough(self, table):
         s = table.to_json(indent=2)
@@ -103,6 +113,7 @@ class TestJsonSafety:
 
     def test_jsonable_helper_handles_edge_scalars(self):
         from statspai.output.regression_table import RegtableResult
+
         j = RegtableResult._jsonable
         assert j(float("nan")) is None
         assert j(float("inf")) is None

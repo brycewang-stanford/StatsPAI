@@ -14,19 +14,30 @@ import pytest
 import statspai as sp
 from statspai.core.results import CausalResult
 
-
 # ---------------------------------------------------------------------------
 #  Fixtures
 # ---------------------------------------------------------------------------
 
 
-def _causal(method: str = "did_2x2", *,
-             estimate=1.5, se=0.5, pvalue=0.003, ci=(0.5, 2.5),
-             n_obs=1000, model_info=None):
+def _causal(
+    method: str = "did_2x2",
+    *,
+    estimate=1.5,
+    se=0.5,
+    pvalue=0.003,
+    ci=(0.5, 2.5),
+    n_obs=1000,
+    model_info=None,
+):
     return CausalResult(
-        method=method, estimand="ATT",
-        estimate=estimate, se=se, pvalue=pvalue, ci=ci,
-        alpha=0.05, n_obs=n_obs,
+        method=method,
+        estimand="ATT",
+        estimate=estimate,
+        se=se,
+        pvalue=pvalue,
+        ci=ci,
+        alpha=0.05,
+        n_obs=n_obs,
         model_info=model_info or {},
         _citation_key=method,
     )
@@ -35,11 +46,13 @@ def _causal(method: str = "did_2x2", *,
 @pytest.fixture
 def regress_result():
     rng = np.random.default_rng(0)
-    df = pd.DataFrame({
-        "y": rng.normal(size=300),
-        "x1": rng.normal(size=300),
-        "treat": rng.integers(0, 2, size=300),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=300),
+            "x1": rng.normal(size=300),
+            "treat": rng.integers(0, 2, size=300),
+        }
+    )
     df["y"] = df["y"] + 2.0 * df["treat"] + 0.5 * df["x1"]
     return sp.regress("y ~ x1 + treat", data=df, robust="hc1")
 
@@ -69,15 +82,17 @@ class TestLengthBudget:
         s = sp.brief(_causal())
         assert len(s) <= 130, (
             f"causal brief is {len(s)} chars; cap is ~120 (with a "
-            "small slack for ATTRIBUTION + violations)")
+            "small slack for ATTRIBUTION + violations)"
+        )
 
     def test_regress_under_140_chars(self, regress_result):
         s = regress_result.brief()
         assert len(s) <= 140
 
     def test_long_method_name_truncated(self):
-        s = sp.brief(_causal(
-            method="some_extremely_long_method_name_we_want_truncated"))
+        s = sp.brief(
+            _causal(method="some_extremely_long_method_name_we_want_truncated")
+        )
         # Must still be a single line and reasonably short.
         assert "\n" not in s
         assert len(s) <= 140
@@ -134,8 +149,9 @@ class TestEconometricContent:
     def test_method_surfaced_from_model_info(self, regress_result):
         s = regress_result.brief()
         # OLS reports 'Least Squares' or similar via model_info.
-        assert "?" not in s.split("]")[0], (
-            "method label should come from model_info, not show '?'")
+        assert (
+            "?" not in s.split("]")[0]
+        ), "method label should come from model_info, not show '?'"
 
     def test_n_terms_reported(self, regress_result):
         s = regress_result.brief()
@@ -150,7 +166,7 @@ class TestEconometricContent:
         s = regress_result.brief()
         assert "best:" in s
         # Surfaced term must be one of the model's covariates.
-        assert ("treat" in s or "x1" in s)
+        assert "treat" in s or "x1" in s
 
 
 # ---------------------------------------------------------------------------
@@ -186,6 +202,7 @@ class TestEdgeCases:
         # graceful fallback string, not an exception.
         class Stub:
             method = "stub"
+
         s = sp.brief(Stub())
         assert isinstance(s, str)
         assert "stub" in s

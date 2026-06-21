@@ -14,7 +14,6 @@ import pytest
 import statspai
 from statspai.cli import _make_parser, main
 
-
 # ======================================================================
 #  _make_parser
 # ======================================================================
@@ -151,6 +150,7 @@ class TestMain:
             assert rc == 0
             out, _ = capsys.readouterr()
             import json
+
             parsed = json.loads(out)
             assert parsed == ["did", "iv"]
 
@@ -162,25 +162,31 @@ class TestMain:
             assert "bogus" in out
 
     def test_describe_text(self, capsys):
-        with patch("statspai.describe_function", return_value={"name": "did"}), \
-             patch("statspai.help") as mock_help:
+        with (
+            patch("statspai.describe_function", return_value={"name": "did"}),
+            patch("statspai.help") as mock_help,
+        ):
             rc = main(["describe", "did"])
             assert rc == 0
             mock_help.assert_called_once_with("did", verbose=True)
 
     def test_describe_json(self, capsys):
-        with patch("statspai.describe_function",
-                   return_value={"name": "did", "category": "causal"}):
+        with patch(
+            "statspai.describe_function",
+            return_value={"name": "did", "category": "causal"},
+        ):
             rc = main(["describe", "did", "--json"])
             assert rc == 0
             out, _ = capsys.readouterr()
             import json
+
             parsed = json.loads(out)
             assert parsed["name"] == "did"
 
     def test_describe_not_found(self, capsys):
-        with patch("statspai.describe_function",
-                   side_effect=KeyError("unknown: 'bogus'")):
+        with patch(
+            "statspai.describe_function", side_effect=KeyError("unknown: 'bogus'")
+        ):
             rc = main(["describe", "bogus"])
             assert rc == 2
             err = capsys.readouterr().err
@@ -198,6 +204,7 @@ class TestMain:
             assert rc == 0
             out, _ = capsys.readouterr()
             import json
+
             parsed = json.loads(out)
             assert parsed == ["did", "iv"]
 

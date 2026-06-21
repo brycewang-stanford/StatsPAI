@@ -12,7 +12,10 @@ def _make_survey_data(n=500, seed=42):
     n_psu_per_stratum = 4
 
     strata = np.repeat(np.arange(n_strata), n // n_strata)
-    psu = np.tile(np.repeat(np.arange(n_psu_per_stratum), n // (n_strata * n_psu_per_stratum)), n_strata)
+    psu = np.tile(
+        np.repeat(np.arange(n_psu_per_stratum), n // (n_strata * n_psu_per_stratum)),
+        n_strata,
+    )
     # Make PSU ids unique across strata
     psu_unique = strata * 100 + psu
 
@@ -21,20 +24,23 @@ def _make_survey_data(n=500, seed=42):
     education = 12 + rng.randint(0, 9, size=n)
     age = 25 + rng.randint(0, 40, size=n)
 
-    df = pd.DataFrame({
-        "stratum": strata,
-        "psu": psu_unique,
-        "weight": weights,
-        "income": income,
-        "education": education,
-        "age": age,
-    })
+    df = pd.DataFrame(
+        {
+            "stratum": strata,
+            "psu": psu_unique,
+            "weight": weights,
+            "income": income,
+            "education": education,
+            "age": age,
+        }
+    )
     return df
 
 
 class TestSurveyDesign:
     def test_create_design(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         assert design.n == 500
@@ -42,12 +48,15 @@ class TestSurveyDesign:
 
     def test_svydesign_weighted_mean_matches_manual_formula(self):
         from statspai.survey import svydesign
-        df = pd.DataFrame({
-            "weight": [1.0, 2.0, 3.0, 4.0],
-            "stratum": [0, 0, 1, 1],
-            "psu": [10, 11, 20, 21],
-            "income": [10.0, 20.0, 40.0, 80.0],
-        })
+
+        df = pd.DataFrame(
+            {
+                "weight": [1.0, 2.0, 3.0, 4.0],
+                "stratum": [0, 0, 1, 1],
+                "psu": [10, 11, 20, 21],
+                "income": [10.0, 20.0, 40.0, 80.0],
+            }
+        )
 
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         result = design.mean("income")
@@ -57,18 +66,21 @@ class TestSurveyDesign:
 
     def test_design_no_strata(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", cluster="psu")
         assert design.n == 500
 
     def test_design_no_cluster(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum")
         assert design.n == 500
 
     def test_bad_weights_raises(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         df.loc[0, "weight"] = -1.0
         with pytest.raises(ValueError, match="positive"):
@@ -76,6 +88,7 @@ class TestSurveyDesign:
 
     def test_nonfinite_weights_raise(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         df.loc[0, "weight"] = np.nan
         with pytest.raises(ValueError, match="finite"):
@@ -83,6 +96,7 @@ class TestSurveyDesign:
 
     def test_array_weights_length_mismatch_raises(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         with pytest.raises(ValueError, match="weights length"):
             svydesign(df, weights=np.ones(len(df) - 1))
@@ -91,6 +105,7 @@ class TestSurveyDesign:
 class TestSvyMean:
     def test_mean_single_var(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         result = design.mean("income")
@@ -101,6 +116,7 @@ class TestSvyMean:
 
     def test_mean_multiple_vars(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         result = design.mean(["income", "education"])
@@ -110,6 +126,7 @@ class TestSvyMean:
 
     def test_mean_summary(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         result = design.mean("income")
@@ -121,6 +138,7 @@ class TestSvyMean:
 class TestSvyTotal:
     def test_total_basic(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         result = design.total("income")
@@ -131,6 +149,7 @@ class TestSvyTotal:
 class TestSvyGLM:
     def test_gaussian_glm(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         result = design.glm("income ~ education + age")
@@ -139,6 +158,7 @@ class TestSvyGLM:
 
     def test_glm_summary(self):
         from statspai.survey import svydesign
+
         df = _make_survey_data()
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")
         result = design.glm("income ~ education + age")
@@ -147,14 +167,17 @@ class TestSvyGLM:
 
     def test_binomial_glm(self):
         from statspai.survey import svydesign
+
         rng = np.random.RandomState(123)
         n = 400
-        df = pd.DataFrame({
-            "weight": rng.uniform(0.5, 3.0, n),
-            "stratum": np.repeat([0, 1], n // 2),
-            "psu": np.tile(np.repeat(np.arange(4), n // 8), 2),
-            "x": rng.randn(n),
-        })
+        df = pd.DataFrame(
+            {
+                "weight": rng.uniform(0.5, 3.0, n),
+                "stratum": np.repeat([0, 1], n // 2),
+                "psu": np.tile(np.repeat(np.arange(4), n // 8), 2),
+                "x": rng.randn(n),
+            }
+        )
         prob = 1 / (1 + np.exp(-(0.5 + 0.8 * df["x"])))
         df["y"] = rng.binomial(1, prob)
         design = svydesign(df, weights="weight", strata="stratum", cluster="psu")

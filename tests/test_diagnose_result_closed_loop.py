@@ -30,7 +30,9 @@ def _did_result_with_pretrend_violation():
         n_obs=1000,
         model_info={
             "pretrend_test": {
-                "pvalue": 0.01, "statistic": 9.2, "df": 3,
+                "pvalue": 0.01,
+                "statistic": 9.2,
+                "df": 3,
             },
         },
     )
@@ -48,7 +50,9 @@ def _clean_did_result():
         n_obs=1000,
         model_info={
             "pretrend_test": {
-                "pvalue": 0.80, "statistic": 1.2, "df": 3,
+                "pvalue": 0.80,
+                "statistic": 1.2,
+                "df": 3,
             },
         },
     )
@@ -57,14 +61,16 @@ def _clean_did_result():
 class TestClosedLoop:
     def test_violations_key_present(self):
         out = sp.diagnose_result(
-            _did_result_with_pretrend_violation(), print_results=False,
+            _did_result_with_pretrend_violation(),
+            print_results=False,
         )
         assert "violations" in out
         assert isinstance(out["violations"], list)
 
     def test_next_steps_key_present(self):
         out = sp.diagnose_result(
-            _did_result_with_pretrend_violation(), print_results=False,
+            _did_result_with_pretrend_violation(),
+            print_results=False,
         )
         assert "next_steps" in out
         assert isinstance(out["next_steps"], list)
@@ -72,18 +78,18 @@ class TestClosedLoop:
 
     def test_violation_surfaces_pretrend(self):
         out = sp.diagnose_result(
-            _did_result_with_pretrend_violation(), print_results=False,
+            _did_result_with_pretrend_violation(),
+            print_results=False,
         )
         tests = {v["test"] for v in out["violations"]}
         assert "pretrend" in tests
 
     def test_violation_carries_recovery_hint(self):
         out = sp.diagnose_result(
-            _did_result_with_pretrend_violation(), print_results=False,
+            _did_result_with_pretrend_violation(),
+            print_results=False,
         )
-        pretrend = next(
-            v for v in out["violations"] if v["test"] == "pretrend"
-        )
+        pretrend = next(v for v in out["violations"] if v["test"] == "pretrend")
         assert pretrend["recovery_hint"]
         assert "sp.sensitivity_rr" in pretrend["alternatives"]
 
@@ -93,7 +99,8 @@ class TestClosedLoop:
 
     def test_backward_compatibility_checks_still_there(self):
         out = sp.diagnose_result(
-            _did_result_with_pretrend_violation(), print_results=False,
+            _did_result_with_pretrend_violation(),
+            print_results=False,
         )
         # Existing interface untouched
         assert "method_type" in out
@@ -102,10 +109,12 @@ class TestClosedLoop:
 
     def test_regress_result_also_loops(self):
         rng = np.random.default_rng(0)
-        df = pd.DataFrame({
-            "y": rng.normal(size=200),
-            "x": rng.normal(size=200),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=200),
+                "x": rng.normal(size=200),
+            }
+        )
         r = sp.regress("y ~ x", data=df)
         out = sp.diagnose_result(r, print_results=False)
         assert "violations" in out
@@ -117,7 +126,8 @@ class TestClosedLoop:
         # Exercise the _print_battery path — this is the agent-facing
         # human readable view
         sp.diagnose_result(
-            _did_result_with_pretrend_violation(), print_results=True,
+            _did_result_with_pretrend_violation(),
+            print_results=True,
         )
         captured = capsys.readouterr().out
         # Print should include the new Structured violations block

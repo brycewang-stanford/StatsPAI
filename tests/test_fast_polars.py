@@ -1,4 +1,5 @@
 """Tests for ``sp.fast.demean_polars`` and ``sp.fast.fepois_polars`` (Phase 5)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -15,6 +16,7 @@ pl = pytest.importorskip("polars")
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 def _panel_pandas(seed=0):
     rng = np.random.default_rng(seed)
     n_units, n_periods = 80, 25
@@ -29,25 +31,34 @@ def _panel_pandas(seed=0):
     eta = np.clip(eta, -10, 10)
     mu = np.exp(eta)
     y = rng.poisson(mu).astype(np.int64)
-    return pd.DataFrame({
-        "y": y, "x1": x1, "x2": x2,
-        "i": i.astype(np.int32), "t": t.astype(np.int32),
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "i": i.astype(np.int32),
+            "t": t.astype(np.int32),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # demean_polars
 # ---------------------------------------------------------------------------
 
+
 def test_demean_polars_eager_matches_pandas():
     pdf = _panel_pandas(seed=1)
     polf = pl.from_pandas(pdf)
     Xd_pd, _info_pd = sp.fast.demean(
-        pdf[["x1", "x2"]].to_numpy(), pdf[["i", "t"]].to_numpy(),
+        pdf[["x1", "x2"]].to_numpy(),
+        pdf[["i", "t"]].to_numpy(),
         drop_singletons=False,
     )
     Xd_pl, _info_pl = sp.fast.demean_polars(
-        polf, X_cols=["x1", "x2"], fe_cols=["i", "t"],
+        polf,
+        X_cols=["x1", "x2"],
+        fe_cols=["i", "t"],
         drop_singletons=False,
     )
     assert np.allclose(Xd_pd, Xd_pl, atol=1e-12)
@@ -57,7 +68,9 @@ def test_demean_polars_lazyframe_collected():
     pdf = _panel_pandas(seed=2)
     polf = pl.from_pandas(pdf).lazy()  # explicitly lazy
     Xd, info = sp.fast.demean_polars(
-        polf, X_cols=["x1"], fe_cols=["i", "t"],
+        polf,
+        X_cols=["x1"],
+        fe_cols=["i", "t"],
         drop_singletons=False,
     )
     assert info.converged[0]
@@ -75,6 +88,7 @@ def test_demean_polars_missing_column_raises():
 # ---------------------------------------------------------------------------
 # fepois_polars
 # ---------------------------------------------------------------------------
+
 
 def test_fepois_polars_matches_pandas():
     pdf = _panel_pandas(seed=4)

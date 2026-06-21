@@ -34,10 +34,10 @@ from statspai.agent.mcp_server import (
     _make_progress_drain,
 )
 
-
 # ---------------------------------------------------------------------------
 #  _clean_floats — the leaf scrubber
 # ---------------------------------------------------------------------------
+
 
 class TestCleanFloats:
 
@@ -52,13 +52,13 @@ class TestCleanFloats:
         assert _clean_floats(-2.5) == -2.5
 
     def test_walks_dict_recursively(self):
-        cleaned = _clean_floats({"a": 1.0, "b": float("-inf"),
-                                 "c": {"d": float("nan")}})
+        cleaned = _clean_floats(
+            {"a": 1.0, "b": float("-inf"), "c": {"d": float("nan")}}
+        )
         assert cleaned == {"a": 1.0, "b": None, "c": {"d": None}}
 
     def test_walks_list_and_tuple(self):
-        cleaned = _clean_floats([1.0, float("inf"),
-                                 (float("nan"), 3.0)])
+        cleaned = _clean_floats([1.0, float("inf"), (float("nan"), 3.0)])
         # tuples normalise to lists (matches json.dumps behaviour)
         assert cleaned == [1.0, None, [None, 3.0]]
 
@@ -77,6 +77,7 @@ class TestCleanFloats:
 # ---------------------------------------------------------------------------
 #  _json_default — numpy / pandas pathways must also clean
 # ---------------------------------------------------------------------------
+
 
 class TestJsonDefaultNanInf:
 
@@ -104,15 +105,13 @@ class TestJsonDefaultNanInf:
         Pin: assert the **production envelope** path scrubs np.float64
         nan/inf even though _json_default alone cannot.
         """
-        env = _jsonrpc_result(0, {"v": np.float64("-inf"),
-                                   "w": np.float64("nan")})
+        env = _jsonrpc_result(0, {"v": np.float64("-inf"), "w": np.float64("nan")})
         parsed = json.loads(env)  # strict re-parse
         assert parsed["result"] == {"v": None, "w": None}
         # Sanity check: the float-subclass gotcha is real — _json_default
         # alone (no pre-walk) leaks. This documents WHY _clean_floats
         # has to exist as the outer wrapper.
-        leaked = json.dumps({"v": np.float64("-inf")},
-                            default=_json_default)
+        leaked = json.dumps({"v": np.float64("-inf")}, default=_json_default)
         assert "-Infinity" in leaked, (
             "If this assertion ever flips, json.dumps grew a way to "
             "intercept float-subclass nan/inf and _clean_floats "
@@ -120,19 +119,16 @@ class TestJsonDefaultNanInf:
         )
 
     def test_pandas_series_with_inf(self):
-        s = pd.Series({"a": 1.0, "b": float("-inf"),
-                       "c": float("nan")})
+        s = pd.Series({"a": 1.0, "b": float("-inf"), "c": float("nan")})
         text = json.dumps({"s": s}, default=_json_default)
         parsed = json.loads(text)
         assert parsed == {"s": {"a": 1.0, "b": None, "c": None}}
 
     def test_pandas_dataframe_with_inf(self):
-        df = pd.DataFrame({"x": [1.0, float("-inf")],
-                           "y": [float("nan"), 2.0]})
+        df = pd.DataFrame({"x": [1.0, float("-inf")], "y": [float("nan"), 2.0]})
         text = json.dumps({"df": df}, default=_json_default)
         parsed = json.loads(text)
-        assert parsed == {"df": {"x": [1.0, None],
-                                  "y": [None, 2.0]}}
+        assert parsed == {"df": {"x": [1.0, None], "y": [None, 2.0]}}
 
     def test_pandas_index_with_inf(self):
         idx = pd.Index([1.0, float("-inf"), 3.0])
@@ -140,14 +136,14 @@ class TestJsonDefaultNanInf:
         assert json.loads(text) == {"idx": [1.0, None, 3.0]}
 
     def test_numpy_complex_with_inf_via_production_path(self):
-        env = _jsonrpc_result(0, {"z": np.complex128(complex(float("inf"),
-                                                             float("nan")))})
+        env = _jsonrpc_result(
+            0, {"z": np.complex128(complex(float("inf"), float("nan")))}
+        )
         parsed = json.loads(env)
         assert parsed["result"] == {"z": {"real": None, "imag": None}}
 
     def test_pandas_interval_with_inf_via_production_path(self):
-        interval = pd.Interval(left=float("-inf"), right=float("inf"),
-                               closed="both")
+        interval = pd.Interval(left=float("-inf"), right=float("inf"), closed="both")
         env = _jsonrpc_result(0, {"interval": interval})
         parsed = json.loads(env)
         assert parsed["result"] == {
@@ -166,6 +162,7 @@ class TestJsonDefaultNanInf:
 # ---------------------------------------------------------------------------
 #  JSON-RPC envelopes — the actual wire-format paths Claude Desktop sees
 # ---------------------------------------------------------------------------
+
 
 class TestJsonRpcEnvelopes:
 
@@ -206,9 +203,9 @@ class TestJsonRpcEnvelopes:
     def test_no_invalid_json_tokens_in_output(self):
         """The original failure mode emitted '-Infinity' / 'NaN' / '
         Infinity' tokens. Pin: never appears in any envelope output."""
-        env = _jsonrpc_result(1, {"a": float("-inf"),
-                                   "b": float("nan"),
-                                   "c": float("inf")})
+        env = _jsonrpc_result(
+            1, {"a": float("-inf"), "b": float("nan"), "c": float("inf")}
+        )
         # These substrings are the smoking-gun tokens — none should
         # appear in the wire output (would only show inside a string,
         # but we don't put them in strings either).
@@ -220,6 +217,7 @@ class TestJsonRpcEnvelopes:
 # ---------------------------------------------------------------------------
 #  Progress notifications — same json.dumps pathway, separate site
 # ---------------------------------------------------------------------------
+
 
 class TestProgressDrain:
 
@@ -237,14 +235,14 @@ class TestProgressDrain:
             def flush(self):
                 pass
 
-        monkeypatch.setattr(srv, "_PROGRESS_SINK", _FakeSink(),
-                            raising=False)
+        monkeypatch.setattr(srv, "_PROGRESS_SINK", _FakeSink(), raising=False)
         drain = srv._make_progress_drain()
         # A pathological progress payload (shouldn't happen in normal
         # tool code, but defends against estimators that pass through
         # raw float divisions).
-        drain({"progressToken": "tok-1", "progress": float("-inf"),
-               "total": float("nan")})
+        drain(
+            {"progressToken": "tok-1", "progress": float("-inf"), "total": float("nan")}
+        )
         assert captured, "progress drain produced no output"
         msg = captured[0].rstrip("\n")
         parsed = json.loads(msg)  # strict re-parse
@@ -256,17 +254,21 @@ class TestProgressDrain:
 #  Re-parseability harness — the original failure was a re-parse error.
 # ---------------------------------------------------------------------------
 
+
 class TestStrictReparse:
 
-    @pytest.mark.parametrize("payload", [
-        {"x": float("-inf")},
-        {"x": float("inf")},
-        {"x": float("nan")},
-        {"nested": {"deep": {"x": float("-inf")}}},
-        {"arr": [float("-inf"), float("nan"), 1.0]},
-        {"np": np.array([1.0, np.nan, -np.inf])},
-        {"df": pd.DataFrame({"a": [1.0, float("-inf")]})},
-    ])
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"x": float("-inf")},
+            {"x": float("inf")},
+            {"x": float("nan")},
+            {"nested": {"deep": {"x": float("-inf")}}},
+            {"arr": [float("-inf"), float("nan"), 1.0]},
+            {"np": np.array([1.0, np.nan, -np.inf])},
+            {"df": pd.DataFrame({"a": [1.0, float("-inf")]})},
+        ],
+    )
     def test_strict_parse_after_envelope(self, payload):
         env = _jsonrpc_result(1, payload)
         # Strict parser — would raise JSONDecodeError on -Infinity / NaN

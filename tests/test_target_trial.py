@@ -1,12 +1,13 @@
 """Sprint-1 tests: Target Trial Emulation + IPCW."""
+
 import numpy as np
 import pandas as pd
 import pytest
 
 import statspai as sp
 
-
 # ---------- protocol ----------
+
 
 def test_protocol_basic():
     p = sp.target_trial.protocol(
@@ -52,6 +53,7 @@ def test_protocol_rejects_unknown_contrast():
 
 # ---------- emulate ----------
 
+
 def test_emulate_query_eligibility_recovers_treatment_effect():
     rng = np.random.default_rng(0)
     n = 2000
@@ -81,11 +83,13 @@ def test_emulate_query_eligibility_recovers_treatment_effect():
 def test_emulate_with_callable_eligibility():
     rng = np.random.default_rng(1)
     n = 500
-    data = pd.DataFrame({
-        "x": rng.normal(0, 1, n),
-        "a": rng.binomial(1, 0.5, n),
-        "y": rng.normal(0, 1, n),
-    })
+    data = pd.DataFrame(
+        {
+            "x": rng.normal(0, 1, n),
+            "a": rng.binomial(1, 0.5, n),
+            "y": rng.normal(0, 1, n),
+        }
+    )
     p = sp.target_trial.protocol(
         eligibility=lambda row: row["x"] > 0,
         treatment_strategies=["A", "B"],
@@ -100,15 +104,20 @@ def test_emulate_with_callable_eligibility():
 
 # ---------- immortal time diagnostic ----------
 
+
 def test_immortal_time_check_flags_backdated_treatment():
-    df = pd.DataFrame({
-        "id": [1, 2, 3, 4],
-        "t": [5, 8, 10, 15],
-        "tx_start": [3, 9, 10, 20],  # id=1 starts BEFORE elig -> immortal
-        "elig_time": [5, 8, 10, 15],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [1, 2, 3, 4],
+            "t": [5, 8, 10, 15],
+            "tx_start": [3, 9, 10, 20],  # id=1 starts BEFORE elig -> immortal
+            "elig_time": [5, 8, 10, 15],
+        }
+    )
     diag = sp.target_trial.immortal_time_check(
-        df, id_col="id", time_col="t",
+        df,
+        id_col="id",
+        time_col="t",
         treatment_start_col="tx_start",
         eligibility_time_col="elig_time",
     )
@@ -118,26 +127,33 @@ def test_immortal_time_check_flags_backdated_treatment():
 
 # ---------- clone-censor-weight ----------
 
+
 def test_clone_censor_weight_runs():
     rng = np.random.default_rng(2)
     n, T = 200, 3
     rows = []
     for i in range(n):
         for t in range(T):
-            rows.append({
-                "id": i,
-                "t": t,
-                "tx": 1 if rng.random() < 0.6 else 0,
-                "x": rng.normal(),
-            })
+            rows.append(
+                {
+                    "id": i,
+                    "t": t,
+                    "tx": 1 if rng.random() < 0.6 else 0,
+                    "x": rng.normal(),
+                }
+            )
     df = pd.DataFrame(rows)
     strategies = {
         "always": lambda block: block["tx"].to_numpy() == 1,
         "never": lambda block: block["tx"].to_numpy() == 0,
     }
     res = sp.target_trial.clone_censor_weight(
-        df, id_col="id", time_col="t", treatment_col="tx",
-        strategies=strategies, censor_covariates=["x"],
+        df,
+        id_col="id",
+        time_col="t",
+        treatment_col="tx",
+        strategies=strategies,
+        censor_covariates=["x"],
     )
     assert set(res.strategies) == {"always", "never"}
     assert res.n_clones > 0
@@ -147,16 +163,18 @@ def test_clone_censor_weight_runs():
 
 # ---------- IPCW ----------
 
+
 def test_ipcw_recovers_uniform_weights_under_no_dependent_censoring():
     rng = np.random.default_rng(3)
     n = 500
-    df = pd.DataFrame({
-        "t": rng.uniform(0, 5, n),
-        "d": rng.binomial(1, 0.5, n),
-        "x": rng.normal(0, 1, n),
-    })
-    res = sp.ipcw(df, time="t", event="d", censor_covariates=["x"],
-                  stabilize=True)
+    df = pd.DataFrame(
+        {
+            "t": rng.uniform(0, 5, n),
+            "d": rng.binomial(1, 0.5, n),
+            "x": rng.normal(0, 1, n),
+        }
+    )
+    res = sp.ipcw(df, time="t", event="d", censor_covariates=["x"], stabilize=True)
     assert isinstance(res, sp.IPCWResult)
     diag = res.diagnose()
     assert set(diag["metric"]) >= {"mean", "max", "min"}
@@ -175,8 +193,9 @@ def test_ipcw_truncation_bounds_weights():
     pc = 1 / (1 + np.exp(-2 * x))
     d = (rng.random(n) > pc).astype(int)
     df = pd.DataFrame({"t": rng.uniform(0, 1, n), "d": d, "x": x})
-    res = sp.ipcw(df, time="t", event="d", censor_covariates=["x"],
-                  truncate=(0.05, 0.95))
+    res = sp.ipcw(
+        df, time="t", event="d", censor_covariates=["x"], truncate=(0.05, 0.95)
+    )
     w = res.weights
     # truncation must keep weights finite
     assert np.isfinite(w).all()

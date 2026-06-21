@@ -14,10 +14,14 @@ def test_general_bunching():
     R = rng.normal(0, 0.5, size=n)
     # Add a small bunch at 0
     R = np.concatenate([R, rng.normal(0, 0.05, size=200)])
-    df = pd.DataFrame({'r': R})
+    df = pd.DataFrame({"r": R})
     res = sp.general_bunching(
-        df, running='r', cutoff=0.0, bandwidth=0.5,
-        polynomial_order=4, n_boot=30,
+        df,
+        running="r",
+        cutoff=0.0,
+        bandwidth=0.5,
+        polynomial_order=4,
+        n_boot=30,
     )
     assert isinstance(res, sp.GeneralBunchingResult)
     # Bunching elasticity should be positive (mass piled at cutoff)
@@ -29,15 +33,31 @@ def test_kink_unified():
     n = 800
     R = rng.uniform(-1, 1, size=n)
     Y = np.where(R > 0, 1.5 * R, 0.5 * R) + 0.2 * rng.standard_normal(n)
-    df = pd.DataFrame({'y': Y, 'r': R})
+    df = pd.DataFrame({"y": Y, "r": R})
     res = sp.kink_unified(
-        df, y='y', running='r', cutoff=0.0, bandwidth=0.6,
+        df,
+        y="y",
+        running="r",
+        cutoff=0.0,
+        bandwidth=0.6,
     )
     assert isinstance(res, sp.KinkUnifiedResult)
     # RKD should pick up the slope difference (≈ 1.0)
     assert 0.3 < abs(res.rkd_effect) < 2.0
     np.testing.assert_allclose(
-        [res.rdd_effect, res.rdd_se, res.rkd_effect, res.rkd_se, res.bunching_elasticity],
-        [0.026282374858113442, 0.04813381034944931, 0.8212406458004073, 0.19376515528326926, 0.001350587535326446],
+        [
+            res.rdd_effect,
+            res.rdd_se,
+            res.rkd_effect,
+            res.rkd_se,
+            res.bunching_elasticity,
+        ],
+        [
+            0.026282374858113442,
+            0.04813381034944931,
+            0.8212406458004073,
+            0.19376515528326926,
+            0.001350587535326446,
+        ],
         atol=1e-12,
     )

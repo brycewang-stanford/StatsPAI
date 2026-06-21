@@ -1,4 +1,5 @@
 """Coverage tests for the statspai.did.did() dispatcher (__init__.py)."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,9 +13,15 @@ def _data_2x2(seed=0, n=1500):
     treat = rng.integers(0, 2, n)
     post = rng.integers(0, 2, n)
     y = 1 + 2 * treat + 3 * post + 5 * treat * post + rng.normal(0, 1, n)
-    return pd.DataFrame({"y": y, "treat": treat, "post": post,
-                         "sub": rng.integers(0, 2, n),
-                         "x1": rng.normal(0, 1, n)})
+    return pd.DataFrame(
+        {
+            "y": y,
+            "treat": treat,
+            "post": post,
+            "sub": rng.integers(0, 2, n),
+            "x1": rng.normal(0, 1, n),
+        }
+    )
 
 
 def _staggered(seed=0, n_units=90, n_periods=8):
@@ -25,15 +32,16 @@ def _staggered(seed=0, n_units=90, n_periods=8):
         fe = rng.normal()
         for t in range(1, n_periods + 1):
             te = 1.0 * (t - g + 1) if (g > 0 and t >= g) else 0.0
-            rows.append({"i": u, "t": t,
-                         "y": fe + 0.5 * t + te + rng.normal(0, 0.4),
-                         "g": g})
+            rows.append(
+                {"i": u, "t": t, "y": fe + 0.5 * t + te + rng.normal(0, 0.4), "g": g}
+            )
     return pd.DataFrame(rows)
 
 
 # ----------------------------------------------------------------------
 # validation
 # ----------------------------------------------------------------------
+
 
 def test_did_not_dataframe():
     with pytest.raises((TypeError, MethodIncompatibility)):
@@ -42,8 +50,12 @@ def test_did_not_dataframe():
 
 def test_did_empty_dataframe():
     with pytest.raises(DataInsufficient):
-        sp.did(pd.DataFrame({"y": [], "treat": [], "post": []}),
-               y="y", treat="treat", time="post")
+        sp.did(
+            pd.DataFrame({"y": [], "treat": [], "post": []}),
+            y="y",
+            treat="treat",
+            time="post",
+        )
 
 
 def test_did_missing_columns():
@@ -67,19 +79,28 @@ def test_did_scalar_covariate_and_invalid_controls():
         sp.did(df, y="y", treat="treat", time="post", alpha=1.0)
     with pytest.raises(MethodIncompatibility, match="aggregation"):
         sp.did(
-            df, y="y", treat="treat", time="post",
-            method="2x2", aggregation="simple",
+            df,
+            y="y",
+            treat="treat",
+            time="post",
+            method="2x2",
+            aggregation="simple",
         )
     with pytest.raises(MethodIncompatibility, match="panel=False"):
         sp.did(
-            df, y="y", treat="treat", time="post",
-            method="2x2", panel=False,
+            df,
+            y="y",
+            treat="treat",
+            time="post",
+            method="2x2",
+            panel=False,
         )
 
 
 # ----------------------------------------------------------------------
 # 2x2 + aliases
 # ----------------------------------------------------------------------
+
 
 def test_did_auto_2x2():
     df = _data_2x2()
@@ -107,6 +128,7 @@ def test_did_did2s_alias():
 # ddd
 # ----------------------------------------------------------------------
 
+
 def test_did_ddd_autodetect_subgroup():
     df = _data_2x2()
     r = sp.did(df, y="y", treat="treat", time="post", subgroup="sub")
@@ -123,6 +145,7 @@ def test_did_ddd_method_without_subgroup_raises():
 # callaway_santanna + aggregation forwarding
 # ----------------------------------------------------------------------
 
+
 def test_did_cs_autodetect_with_id():
     df = _staggered()
     r = sp.did(df, y="y", treat="g", time="t", id="i")
@@ -137,42 +160,49 @@ def test_did_cs_missing_id_raises():
 
 def test_did_aggregation_forces_cs():
     df = _staggered()
-    r = sp.did(df, y="y", treat="g", time="t", id="i",
-               aggregation="dynamic", n_boot=50, random_state=1)
+    r = sp.did(
+        df,
+        y="y",
+        treat="g",
+        time="t",
+        id="i",
+        aggregation="dynamic",
+        n_boot=50,
+        random_state=1,
+    )
     assert r is not None
 
 
 def test_did_aggregation_bad_value_raises():
     df = _staggered()
     with pytest.raises(ValueError):
-        sp.did(df, y="y", treat="g", time="t", id="i",
-               aggregation="bogus")
+        sp.did(df, y="y", treat="g", time="t", id="i", aggregation="bogus")
 
 
 def test_did_aggregation_with_non_cs_method_raises():
     df = _data_2x2()
     with pytest.raises(ValueError):
-        sp.did(df, y="y", treat="treat", time="post",
-               method="2x2", aggregation="dynamic")
+        sp.did(
+            df, y="y", treat="treat", time="post", method="2x2", aggregation="dynamic"
+        )
 
 
 def test_did_panel_false_non_cs_raises():
     df = _data_2x2()
     with pytest.raises(ValueError):
-        sp.did(df, y="y", treat="treat", time="post",
-               method="2x2", panel=False)
+        sp.did(df, y="y", treat="treat", time="post", method="2x2", panel=False)
 
 
 def test_did_anticipation_non_cs_raises():
     df = _data_2x2()
     with pytest.raises(ValueError):
-        sp.did(df, y="y", treat="treat", time="post",
-               method="2x2", anticipation=1)
+        sp.did(df, y="y", treat="treat", time="post", method="2x2", anticipation=1)
 
 
 # ----------------------------------------------------------------------
 # sun_abraham / bjs / sdid
 # ----------------------------------------------------------------------
+
 
 def test_did_sun_abraham():
     df = _staggered()
@@ -188,8 +218,9 @@ def test_did_sun_abraham_missing_id_raises():
 
 def test_did_bjs():
     df = _staggered()
-    r = sp.did(df, y="y", treat="g", time="t", id="i", method="bjs",
-               event_window=(-3, 3))
+    r = sp.did(
+        df, y="y", treat="g", time="t", id="i", method="bjs", event_window=(-3, 3)
+    )
     assert r.estimate is not None
 
 

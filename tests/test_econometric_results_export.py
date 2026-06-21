@@ -43,12 +43,12 @@ def tmp_dir():
 # Surface: the methods must exist (the headline gap being closed)
 # ----------------------------------------------------------------------
 
+
 class TestExportSurfaceExists:
 
     @pytest.mark.parametrize(
         "method",
-        ["to_latex", "to_html", "to_markdown", "to_excel", "to_word",
-         "to_docx"],
+        ["to_latex", "to_html", "to_markdown", "to_excel", "to_word", "to_docx"],
     )
     def test_method_present(self, ols_result, method):
         assert hasattr(ols_result, method)
@@ -63,12 +63,13 @@ class TestExportSurfaceExists:
         """
         from statspai.core.results import CausalResult
 
-        export_methods = {"to_latex", "to_html", "to_markdown",
-                          "to_excel", "to_word"}
-        causal_has = {m for m in export_methods
-                      if callable(getattr(CausalResult, m, None))}
-        econ_has = {m for m in export_methods
-                    if callable(getattr(EconometricResults, m, None))}
+        export_methods = {"to_latex", "to_html", "to_markdown", "to_excel", "to_word"}
+        causal_has = {
+            m for m in export_methods if callable(getattr(CausalResult, m, None))
+        }
+        econ_has = {
+            m for m in export_methods if callable(getattr(EconometricResults, m, None))
+        }
         missing = causal_has - econ_has
         assert not missing, (
             "EconometricResults is missing export methods present on "
@@ -79,6 +80,7 @@ class TestExportSurfaceExists:
 # ----------------------------------------------------------------------
 # LaTeX
 # ----------------------------------------------------------------------
+
 
 class TestToLatex:
 
@@ -95,8 +97,9 @@ class TestToLatex:
         assert "\\label{tab:main}" in tex
         # label must come right after the caption line
         lines = tex.split("\n")
-        cap_i = next(i for i, x in enumerate(lines)
-                     if x.lstrip().startswith("\\caption"))
+        cap_i = next(
+            i for i, x in enumerate(lines) if x.lstrip().startswith("\\caption")
+        )
         assert lines[cap_i + 1].strip() == "\\label{tab:main}"
 
     def test_label_without_caption_anchors_on_centering(self, ols_result):
@@ -130,6 +133,7 @@ class TestToLatex:
 # HTML / Markdown
 # ----------------------------------------------------------------------
 
+
 class TestToHtml:
 
     def test_returns_html_table(self, ols_result):
@@ -161,8 +165,9 @@ class TestToMarkdown:
             ols_result.to_markdown(quarto=True)
 
     def test_quarto_with_label(self, ols_result):
-        md = ols_result.to_markdown(quarto=True, quarto_label="main",
-                                    quarto_caption="Main results")
+        md = ols_result.to_markdown(
+            quarto=True, quarto_label="main", quarto_caption="Main results"
+        )
         assert "{#tbl-main}" in md
 
     def test_drop_passthrough(self, ols_result):
@@ -179,6 +184,7 @@ class TestToMarkdown:
 # ----------------------------------------------------------------------
 # Excel / Word (binary; require optional deps)
 # ----------------------------------------------------------------------
+
 
 class TestToExcel:
 
@@ -224,6 +230,7 @@ class TestToWord:
 # Cross-cutting: delegation fidelity
 # ----------------------------------------------------------------------
 
+
 class TestDelegationFidelity:
 
     def test_latex_matches_regtable(self, ols_result):
@@ -234,5 +241,4 @@ class TestDelegationFidelity:
         assert ols_result.to_html() == sp.regtable(ols_result).to_html()
 
     def test_markdown_matches_regtable(self, ols_result):
-        assert (ols_result.to_markdown()
-                == sp.regtable(ols_result).to_markdown())
+        assert ols_result.to_markdown() == sp.regtable(ols_result).to_markdown()

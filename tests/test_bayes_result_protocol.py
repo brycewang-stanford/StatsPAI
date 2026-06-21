@@ -1,4 +1,5 @@
 """Protocol tests for Bayesian result containers without requiring PyMC."""
+
 from __future__ import annotations
 
 import json

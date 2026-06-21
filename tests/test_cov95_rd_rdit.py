@@ -60,7 +60,9 @@ def test_rdit_manual_bandwidth_and_quadratic():
     assert res.detail is not None and len(res.detail) == 200
 
 
-@pytest.mark.parametrize("kernel", ["triangular", "epanechnikov", "uniform", "gaussian"])
+@pytest.mark.parametrize(
+    "kernel", ["triangular", "epanechnikov", "uniform", "gaussian"]
+)
 def test_rdit_all_kernels(kernel):
     df = _make_numeric_rdit()
     res = sp.rdit(df, y="y", time="t", cutoff=200.0, h=80.0, kernel=kernel)
@@ -78,8 +80,9 @@ def test_rdit_donut_excludes_observations():
 
 def test_rdit_datetime_with_seasonality():
     df = _make_datetime_rdit()
-    res = sp.rdit(df, y="y", time="date", cutoff="2010-07-10",
-                  seasonality="month", h=120.0)
+    res = sp.rdit(
+        df, y="y", time="date", cutoff="2010-07-10", seasonality="month", h=120.0
+    )
     assert res.model_info["seasonality"] == "month"
     assert res.se > 0
     assert abs(res.estimate - 1.5) < 2.0
@@ -88,8 +91,9 @@ def test_rdit_datetime_with_seasonality():
 @pytest.mark.parametrize("seas", ["month", "quarter", "dow"])
 def test_rdit_seasonality_variants(seas):
     df = _make_datetime_rdit()
-    res = sp.rdit(df, y="y", time="date", cutoff="2010-07-10",
-                  seasonality=seas, h=150.0)
+    res = sp.rdit(
+        df, y="y", time="date", cutoff="2010-07-10", seasonality=seas, h=150.0
+    )
     assert res.model_info["seasonality"] == seas
 
 

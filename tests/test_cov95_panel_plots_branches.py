@@ -19,6 +19,7 @@ each call returns a Matplotlib ``Figure``/``Axes`` and produces the expected
 artists (e.g. the within/between bar groups), not pixel output. The numerical
 content (coefficients, effects) is pinned by the estimator parity suites.
 """
+
 from __future__ import annotations
 
 import types
@@ -67,7 +68,7 @@ def teardown_function(_):
 def test_plot_coef_variables_and_supplied_ax(fe_result):
     fig0, ax0 = plt.subplots()
     fig, ax = pp.plot_coef(fe_result, variables=["x1"], ax=ax0, color="#E74C3C")
-    assert fig is fig0 and ax is ax0          # reused the supplied axes
+    assert fig is fig0 and ax is ax0  # reused the supplied axes
     # exactly one coefficient (x1) was plotted → one y-tick label
     assert [t.get_text() for t in ax.get_yticklabels()] == ["x1"]
 
@@ -124,7 +125,10 @@ def test_plot_within_between_full(panel_df):
     df = panel_df.assign(constcol=1.0)  # zero-variance column → degenerate branch
     fig0, ax0 = plt.subplots()
     fig, ax = pp.plot_within_between(
-        df, variables=["x1", "x2", "constcol"], entity="id", ax=ax0,
+        df,
+        variables=["x1", "x2", "constcol"],
+        entity="id",
+        ax=ax0,
     )
     assert ax is ax0
     # one Between bar-group + one Within bar-group across 3 variables

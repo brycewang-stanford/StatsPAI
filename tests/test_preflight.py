@@ -16,7 +16,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 #  Fixtures
 # ---------------------------------------------------------------------------
@@ -29,19 +28,22 @@ def good_did_df():
     for i in range(40):
         tr = i % 2
         for t in (0, 1):
-            rows.append({"i": i, "y": rng.normal() + 0.5 * tr * t,
-                         "treated": tr, "t": t})
+            rows.append(
+                {"i": i, "y": rng.normal() + 0.5 * tr * t, "treated": tr, "t": t}
+            )
     return pd.DataFrame(rows)
 
 
 @pytest.fixture
 def regress_df():
     rng = np.random.default_rng(0)
-    return pd.DataFrame({
-        "y": rng.normal(size=200),
-        "x1": rng.normal(size=200),
-        "x2": rng.normal(size=200),
-    })
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=200),
+            "x1": rng.normal(size=200),
+            "x2": rng.normal(size=200),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -67,8 +69,7 @@ class TestReturnShape:
 
     def test_top_level_keys(self, regress_df):
         out = sp.preflight(regress_df, "regress", formula="y ~ x1")
-        for k in ("method", "verdict", "checks", "summary", "n_obs",
-                  "known_method"):
+        for k in ("method", "verdict", "checks", "summary", "n_obs", "known_method"):
             assert k in out, f"missing key {k!r}"
 
     def test_verdict_in_known_set(self, regress_df):
@@ -83,8 +84,7 @@ class TestReturnShape:
     def test_each_check_shape(self, regress_df):
         out = sp.preflight(regress_df, "regress", formula="y ~ x1")
         for c in out["checks"]:
-            for k in ("name", "question", "status", "message",
-                      "evidence"):
+            for k in ("name", "question", "status", "message", "evidence"):
                 assert k in c
             assert c["status"] in ("passed", "warning", "failed")
 
@@ -101,8 +101,7 @@ class TestReturnShape:
 class TestVerdictPass:
 
     def test_clean_regress_passes(self, regress_df):
-        out = sp.preflight(regress_df, "regress",
-                            formula="y ~ x1 + x2")
+        out = sp.preflight(regress_df, "regress", formula="y ~ x1 + x2")
         assert out["verdict"] == "PASS"
         assert out["known_method"] is True
 
@@ -110,9 +109,9 @@ class TestVerdictPass:
 class TestVerdictWarn:
 
     def test_tiny_n_warns(self):
-        df = pd.DataFrame({"y": [1.0, 2.0, 3.0, 4.0],
-                            "treated": [0, 1, 0, 1],
-                            "t": [0, 0, 1, 1]})
+        df = pd.DataFrame(
+            {"y": [1.0, 2.0, 3.0, 4.0], "treated": [0, 1, 0, 1], "t": [0, 0, 1, 1]}
+        )
         out = sp.preflight(df, "did", y="y", treat="treated", time="t")
         assert out["verdict"] == "WARN"
         warns = [c for c in out["checks"] if c["status"] == "warning"]
@@ -123,44 +122,48 @@ class TestVerdictFail:
 
     def test_multi_arm_treatment_fails(self):
         rng = np.random.default_rng(0)
-        df = pd.DataFrame({
-            "y": rng.normal(size=120),
-            "treated": [0, 1, 2] * 40,
-            "t": [0, 1] * 60,
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=120),
+                "treated": [0, 1, 2] * 40,
+                "t": [0, 1] * 60,
+            }
+        )
         out = sp.preflight(df, "did", y="y", treat="treated", time="t")
         assert out["verdict"] == "FAIL"
-        assert any(c["name"] == "treat_is_binary"
-                   and c["status"] == "failed"
-                   for c in out["checks"])
+        assert any(
+            c["name"] == "treat_is_binary" and c["status"] == "failed"
+            for c in out["checks"]
+        )
 
     def test_missing_column_fails(self, regress_df):
-        out = sp.preflight(regress_df, "did", y="y",
-                            treat="does_not_exist", time="t")
+        out = sp.preflight(regress_df, "did", y="y", treat="does_not_exist", time="t")
         assert out["verdict"] == "FAIL"
 
     def test_string_treatment_column_fails(self):
         # Regression guard: a CSV-imported "0"/"1" string column would
         # previously WARN and let the agent proceed; estimator then
         # raises an opaque downstream error. Preflight must FAIL here.
-        df = pd.DataFrame({
-            "y": [1.0, 2.0, 3.0, 4.0],
-            "treat": ["0", "1", "0", "1"],  # strings, not ints
-            "t": [0, 0, 1, 1],
-        })
+        df = pd.DataFrame(
+            {
+                "y": [1.0, 2.0, 3.0, 4.0],
+                "treat": ["0", "1", "0", "1"],  # strings, not ints
+                "t": [0, 0, 1, 1],
+            }
+        )
         out = sp.preflight(df, "did", y="y", treat="treat", time="t")
         assert out["verdict"] == "FAIL"
-        binary_check = next(c for c in out["checks"]
-                            if c["name"] == "treat_is_binary")
+        binary_check = next(c for c in out["checks"] if c["name"] == "treat_is_binary")
         assert binary_check["status"] == "failed"
         assert "dtype" in binary_check["evidence"]
 
     def test_non_dataframe_fails(self):
         out = sp.preflight([1, 2, 3], "did")
         assert out["verdict"] == "FAIL"
-        assert any(c["name"] == "data_is_dataframe"
-                   and c["status"] == "failed"
-                   for c in out["checks"])
+        assert any(
+            c["name"] == "data_is_dataframe" and c["status"] == "failed"
+            for c in out["checks"]
+        )
 
     def test_empty_dataframe_fails(self):
         out = sp.preflight(pd.DataFrame(), "did")
@@ -175,34 +178,37 @@ class TestVerdictFail:
 class TestMethodDispatch:
 
     def test_did_uses_did_table(self, good_did_df):
-        out = sp.preflight(good_did_df, "did",
-                            y="y", treat="treated", time="t")
+        out = sp.preflight(good_did_df, "did", y="y", treat="treated", time="t")
         names = {c["name"] for c in out["checks"]}
         assert "treat_is_binary" in names
         assert "time_has_two_periods" in names
 
     def test_callaway_santanna_requires_id(self, good_did_df):
         # No ``i`` provided → expect FAIL on id_column_provided.
-        out = sp.preflight(good_did_df, "callaway_santanna",
-                            y="y", treat="treated", time="t")
+        out = sp.preflight(
+            good_did_df, "callaway_santanna", y="y", treat="treated", time="t"
+        )
         assert out["verdict"] == "FAIL"
-        assert any(c["name"] == "id_column_provided"
-                   and c["status"] == "failed"
-                   for c in out["checks"])
+        assert any(
+            c["name"] == "id_column_provided" and c["status"] == "failed"
+            for c in out["checks"]
+        )
 
     def test_callaway_santanna_passes_with_id(self, good_did_df):
-        out = sp.preflight(good_did_df, "callaway_santanna",
-                            y="y", treat="treated", time="t",
-                            i="i")
+        out = sp.preflight(
+            good_did_df, "callaway_santanna", y="y", treat="treated", time="t", i="i"
+        )
         # Either PASS (if all good) or WARN on n_obs; never FAIL.
         assert out["verdict"] in ("PASS", "WARN")
 
     def test_rdrobust_needs_continuous_running_var(self):
         rng = np.random.default_rng(0)
-        df = pd.DataFrame({
-            "y": rng.normal(size=600),
-            "score": rng.uniform(0, 100, size=600),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=600),
+                "score": rng.uniform(0, 100, size=600),
+            }
+        )
         out = sp.preflight(df, "rdrobust", y="y", x="score")
         assert out["verdict"] == "PASS"
 
@@ -215,10 +221,8 @@ class TestMethodDispatch:
     def test_method_alias_resolves(self, regress_df):
         # "ols" is an alias for "regress".
         out_ols = sp.preflight(regress_df, "ols", formula="y ~ x1")
-        out_regress = sp.preflight(regress_df, "regress",
-                                    formula="y ~ x1")
-        assert out_ols["summary"]["n_total"] == (
-            out_regress["summary"]["n_total"])
+        out_regress = sp.preflight(regress_df, "regress", formula="y ~ x1")
+        assert out_ols["summary"]["n_total"] == (out_regress["summary"]["n_total"])
 
 
 # ---------------------------------------------------------------------------
@@ -246,8 +250,9 @@ class TestEdgeCases:
 # ---------------------------------------------------------------------------
 
 
-def _make_iv_df(seed: int, pi: float, eu: float, n: int = 600,
-                truth: float = 1.0) -> pd.DataFrame:
+def _make_iv_df(
+    seed: int, pi: float, eu: float, n: int = 600, truth: float = 1.0
+) -> pd.DataFrame:
     """Linear-IV DGP: y = truth*d + u; d = pi*z + eu*u + noise.
 
     pi controls first-stage strength (small => weak); eu controls
@@ -322,8 +327,7 @@ class TestIVFirstStageStrength:
 
     def test_missing_columns_skipped_not_failed(self):
         df = _make_iv_df(seed=2026, pi=0.7, eu=0.5, n=400)
-        out = sp.preflight(df, "ivreg",
-                            formula="y ~ (d ~ NotAColumn)")
+        out = sp.preflight(df, "ivreg", formula="y ~ (d ~ NotAColumn)")
         check = _first_stage_check(out)
         assert check["status"] == "passed"
         assert "missing" in check["evidence"].get("skipped", "")

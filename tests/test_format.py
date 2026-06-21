@@ -15,10 +15,10 @@ from statspai.output._format import (
     is_missing,
 )
 
-
 # ---------------------------------------------------------------------------
 # is_missing
 # ---------------------------------------------------------------------------
+
 
 class TestIsMissing:
     @pytest.mark.parametrize("value", [None, float("nan"), np.nan, pd.NA, pd.NaT])
@@ -43,6 +43,7 @@ class TestIsMissing:
 # format_stars
 # ---------------------------------------------------------------------------
 
+
 class TestFormatStars:
     def test_no_stars(self):
         assert format_stars(0.15) == ""
@@ -58,8 +59,8 @@ class TestFormatStars:
 
     def test_exact_thresholds(self):
         # at the threshold: pvalue < level is False → no star
-        assert format_stars(0.10) == ""   # not < 0.10
-        assert format_stars(0.05) == "*"   # < 0.10 → one star
+        assert format_stars(0.10) == ""  # not < 0.10
+        assert format_stars(0.05) == "*"  # < 0.10 → one star
         assert format_stars(0.01) == "**"  # < 0.10 and < 0.05
         # just below thresholds
         assert format_stars(0.099999) == "*"
@@ -87,6 +88,7 @@ class TestFormatStars:
 # ---------------------------------------------------------------------------
 # fmt_auto
 # ---------------------------------------------------------------------------
+
 
 class TestFmtAuto:
     @pytest.mark.parametrize(
@@ -120,6 +122,7 @@ class TestFmtAuto:
 # fmt_val
 # ---------------------------------------------------------------------------
 
+
 class TestFmtVal:
     def test_printf_format(self):
         assert fmt_val(3.14159, "%.3f") == "3.142"
@@ -148,6 +151,7 @@ class TestFmtVal:
 # ---------------------------------------------------------------------------
 # fmt_int
 # ---------------------------------------------------------------------------
+
 
 class TestFmtInt:
     def test_positive(self):

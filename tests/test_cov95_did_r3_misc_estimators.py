@@ -35,37 +35,58 @@ def stag_panel():
 
 
 def test_gardner_overall(stag_panel):
-    r = sp.gardner_did(stag_panel, y="y", group="unit", time="time",
-                       first_treat="first_treat")
+    r = sp.gardner_did(
+        stag_panel, y="y", group="unit", time="time", first_treat="first_treat"
+    )
     assert np.isfinite(r.estimate)
     assert 0.0 <= r.pvalue <= 1.0
 
 
 def test_gardner_event_study_default_horizon(stag_panel):
-    r = sp.gardner_did(stag_panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", event_study=True)
+    r = sp.gardner_did(
+        stag_panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        event_study=True,
+    )
     es = r.model_info.get("event_study")
     assert es is not None
     assert np.isfinite(r.estimate)
 
 
 def test_gardner_event_study_custom_horizon(stag_panel):
-    r = sp.gardner_did(stag_panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", event_study=True,
-                       horizon=[-2, -1, 0, 1, 2], cluster="st")
+    r = sp.gardner_did(
+        stag_panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        event_study=True,
+        horizon=[-2, -1, 0, 1, 2],
+        cluster="st",
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_gardner_missing_column_raises(stag_panel):
     with pytest.raises(ValueError, match="not found"):
-        sp.gardner_did(stag_panel, y="nope", group="unit", time="time",
-                       first_treat="first_treat")
+        sp.gardner_did(
+            stag_panel, y="nope", group="unit", time="time", first_treat="first_treat"
+        )
 
 
 def test_gardner_bad_cluster_raises(stag_panel):
     with pytest.raises(ValueError, match="cluster column"):
-        sp.gardner_did(stag_panel, y="y", group="unit", time="time",
-                       first_treat="first_treat", cluster="nope")
+        sp.gardner_did(
+            stag_panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            cluster="nope",
+        )
 
 
 def test_gardner_too_few_untreated_raises():
@@ -77,8 +98,7 @@ def test_gardner_too_few_untreated_raises():
             rows.append((u, t, rng.normal(), 1))  # treated from t=1 (first period)
     df = pd.DataFrame(rows, columns=["unit", "time", "y", "first_treat"])
     with pytest.raises(ValueError, match="untreated"):
-        sp.gardner_did(df, y="y", group="unit", time="time",
-                       first_treat="first_treat")
+        sp.gardner_did(df, y="y", group="unit", time="time", first_treat="first_treat")
 
 
 # ----------------------------------------------------------------------
@@ -103,18 +123,36 @@ def dose_panel():
 def test_continuous_did_methods(dose_panel, method):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.continuous_did(dose_panel, y="y", dose="dose", time="time",
-                              id="id", t_pre=2019, t_post=2020,
-                              method=method, n_boot=40, seed=1)
+        r = sp.continuous_did(
+            dose_panel,
+            y="y",
+            dose="dose",
+            time="time",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method=method,
+            n_boot=40,
+            seed=1,
+        )
     assert r.estimate is not None
     # estimate may be nan for the cgs MVP on this DGP; the call must succeed.
     assert np.isfinite(r.estimate) or np.isnan(r.estimate)
 
 
 def test_continuous_did_twfe_controls_cluster(dose_panel):
-    r = sp.continuous_did(dose_panel, y="y", dose="dose", time="time",
-                          id="id", t_pre=2019, t_post=2020, method="twfe",
-                          controls=["xc"], cluster="id")
+    r = sp.continuous_did(
+        dose_panel,
+        y="y",
+        dose="dose",
+        time="time",
+        id="id",
+        t_pre=2019,
+        t_post=2020,
+        method="twfe",
+        controls=["xc"],
+        cluster="id",
+    )
     assert np.isfinite(r.estimate)
 
 
@@ -122,16 +160,18 @@ def test_continuous_did_post_inferred_from_midpoint(dose_panel):
     # No t_pre/t_post and no post col -> midpoint split branch.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.continuous_did(dose_panel, y="y", dose="dose", time="time",
-                              id="id", method="twfe")
+        r = sp.continuous_did(
+            dose_panel, y="y", dose="dose", time="time", id="id", method="twfe"
+        )
     assert np.isfinite(r.estimate)
 
 
 def test_continuous_did_explicit_post_column(dose_panel):
     df = dose_panel.copy()
     df["mypost"] = (df["time"] >= 2020).astype(int)
-    r = sp.continuous_did(df, y="y", dose="dose", time="time", id="id",
-                          post="mypost", method="twfe")
+    r = sp.continuous_did(
+        df, y="y", dose="dose", time="time", id="id", post="mypost", method="twfe"
+    )
     assert np.isfinite(r.estimate)
 
 
@@ -153,9 +193,19 @@ def dose_panel_with_controls():
 
 
 def test_continuous_did_att_gt_with_zero_dose_controls(dose_panel_with_controls):
-    r = sp.continuous_did(dose_panel_with_controls, y="y", dose="dose",
-                          time="time", id="id", t_pre=2019, t_post=2020,
-                          method="att_gt", n_quantiles=4, n_boot=40, seed=1)
+    r = sp.continuous_did(
+        dose_panel_with_controls,
+        y="y",
+        dose="dose",
+        time="time",
+        id="id",
+        t_pre=2019,
+        t_post=2020,
+        method="att_gt",
+        n_quantiles=4,
+        n_boot=40,
+        seed=1,
+    )
     assert np.isfinite(r.estimate)
     assert isinstance(r.detail, pd.DataFrame)
     assert {"dose_group", "att", "se"} <= set(r.detail.columns)
@@ -164,9 +214,18 @@ def test_continuous_did_att_gt_with_zero_dose_controls(dose_panel_with_controls)
 def test_continuous_did_cgs_full_curve(dose_panel_with_controls):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.continuous_did(dose_panel_with_controls, y="y", dose="dose",
-                              time="time", id="id", t_pre=2019, t_post=2020,
-                              method="cgs", n_boot=40, seed=2)
+        r = sp.continuous_did(
+            dose_panel_with_controls,
+            y="y",
+            dose="dose",
+            time="time",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method="cgs",
+            n_boot=40,
+            seed=2,
+        )
     assert np.isfinite(r.estimate)
     assert isinstance(r.detail, pd.DataFrame)
     assert {"dose", "att_d", "acrt_d"} <= set(r.detail.columns)
@@ -176,16 +235,34 @@ def test_continuous_did_cgs_no_controls_returns_nan(dose_panel):
     # dose is uniform(0, 5), so no dose==0 control units -> degenerate guard.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.continuous_did(dose_panel, y="y", dose="dose", time="time",
-                              id="id", t_pre=2019, t_post=2020, method="cgs",
-                              n_boot=20, seed=3)
+        r = sp.continuous_did(
+            dose_panel,
+            y="y",
+            dose="dose",
+            time="time",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method="cgs",
+            n_boot=20,
+            seed=3,
+        )
     assert np.isnan(r.estimate)
 
 
 def test_continuous_did_dose_response_curve(dose_panel_with_controls):
-    r = sp.continuous_did(dose_panel_with_controls, y="y", dose="dose",
-                          time="time", id="id", t_pre=2019, t_post=2020,
-                          method="dose_response", n_boot=30, seed=4)
+    r = sp.continuous_did(
+        dose_panel_with_controls,
+        y="y",
+        dose="dose",
+        time="time",
+        id="id",
+        t_pre=2019,
+        t_post=2020,
+        method="dose_response",
+        n_boot=30,
+        seed=4,
+    )
     assert np.isfinite(r.estimate)
 
 
@@ -210,35 +287,71 @@ def switch_panel():
 
 
 def test_multiplegt_main(switch_panel):
-    r = sp.did_multiplegt(switch_panel, y="y", group="unit", time="time",
-                          treatment="treat", n_boot=30, seed=1)
+    r = sp.did_multiplegt(
+        switch_panel,
+        y="y",
+        group="unit",
+        time="time",
+        treatment="treat",
+        n_boot=30,
+        seed=1,
+    )
     assert np.isfinite(r.estimate)
     assert isinstance(r.detail, pd.DataFrame)
 
 
 def test_multiplegt_placebo_dynamic(switch_panel):
-    r = sp.did_multiplegt(switch_panel, y="y", group="unit", time="time",
-                          treatment="treat", placebo=2, dynamic=2,
-                          n_boot=30, seed=2)
+    r = sp.did_multiplegt(
+        switch_panel,
+        y="y",
+        group="unit",
+        time="time",
+        treatment="treat",
+        placebo=2,
+        dynamic=2,
+        n_boot=30,
+        seed=2,
+    )
     assert np.isfinite(r.estimate)
     mi = r.model_info
     assert isinstance(mi, dict)
 
 
 def test_multiplegt_controls_cluster(switch_panel):
-    r = sp.did_multiplegt(switch_panel, y="y", group="unit", time="time",
-                          treatment="treat", controls=["xc"], cluster="st",
-                          n_boot=20, seed=3)
+    r = sp.did_multiplegt(
+        switch_panel,
+        y="y",
+        group="unit",
+        time="time",
+        treatment="treat",
+        controls=["xc"],
+        cluster="st",
+        n_boot=20,
+        seed=3,
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_multiplegt_missing_column_raises(switch_panel):
     with pytest.raises(ValueError, match="not found"):
-        sp.did_multiplegt(switch_panel, y="nope", group="unit", time="time",
-                          treatment="treat", n_boot=5)
+        sp.did_multiplegt(
+            switch_panel,
+            y="nope",
+            group="unit",
+            time="time",
+            treatment="treat",
+            n_boot=5,
+        )
 
 
 def test_multiplegt_bad_control_raises(switch_panel):
     with pytest.raises(ValueError, match="Control column"):
-        sp.did_multiplegt(switch_panel, y="y", group="unit", time="time",
-                          treatment="treat", controls=["nope"], n_boot=5)
+        sp.did_multiplegt(
+            switch_panel,
+            y="y",
+            group="unit",
+            time="time",
+            treatment="treat",
+            controls=["nope"],
+            n_boot=5,
+        )

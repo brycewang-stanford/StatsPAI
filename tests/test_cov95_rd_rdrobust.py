@@ -89,8 +89,7 @@ def test_rdrobust_donut():
 def test_rdrobust_fuzzy_with_donut_and_covs():
     df = _make_fuzzy()
     df["w1"] = np.random.default_rng(0).normal(0, 1, len(df))
-    res = sp.rdrobust(df, y="y", x="x", c=0, fuzzy="d", donut=0.03,
-                      covs=["w1"])
+    res = sp.rdrobust(df, y="y", x="x", c=0, fuzzy="d", donut=0.03, covs=["w1"])
     assert res.se > 0
     assert np.isfinite(res.estimate)
 
@@ -98,6 +97,7 @@ def test_rdrobust_fuzzy_with_donut_and_covs():
 def test_rdrobust_cct_delegation():
     # bwselect='cct' delegates to the official rdrobust port for R parity.
     import importlib.util
+
     if importlib.util.find_spec("rdrobust") is None:
         pytest.skip("official rdrobust package not installed")
     df = _make_sharp()
@@ -109,6 +109,7 @@ def test_rdrobust_cct_delegation():
 
 def test_rdrobust_cct_lee_bandwidth_preserves_reference_precision():
     import importlib.util
+
     if importlib.util.find_spec("rdrobust") is None:
         pytest.skip("official rdrobust package not installed")
 
@@ -118,21 +119,25 @@ def test_rdrobust_cct_lee_bandwidth_preserves_reference_precision():
     assert res.model_info["bandwidth_h"] == pytest.approx(
         0.17578426639940303, abs=1e-12
     )
-    assert res.model_info["bandwidth_b"] == pytest.approx(
-        0.2755756160782371, abs=1e-12
+    assert res.model_info["bandwidth_b"] == pytest.approx(0.2755756160782371, abs=1e-12)
+    assert (
+        abs(res.model_info["bandwidth_h"] - round(res.model_info["bandwidth_h"], 6))
+        > 1e-8
     )
-    assert abs(res.model_info["bandwidth_h"] - round(res.model_info["bandwidth_h"], 6)) > 1e-8
-    assert abs(res.model_info["bandwidth_b"] - round(res.model_info["bandwidth_b"], 6)) > 1e-8
+    assert (
+        abs(res.model_info["bandwidth_b"] - round(res.model_info["bandwidth_b"], 6))
+        > 1e-8
+    )
 
 
 def test_rdrobust_cct_fuzzy_and_covs():
     import importlib.util
+
     if importlib.util.find_spec("rdrobust") is None:
         pytest.skip("official rdrobust package not installed")
     df = _make_fuzzy()
     df["w1"] = np.random.default_rng(0).normal(0, 1, len(df))
-    res = sp.rdrobust(df, y="y", x="x", c=0, bwselect="cct", fuzzy="d",
-                      covs=["w1"])
+    res = sp.rdrobust(df, y="y", x="x", c=0, bwselect="cct", fuzzy="d", covs=["w1"])
     assert res.se > 0
 
 
@@ -145,8 +150,9 @@ def test_rdrobust_rho_and_explicit_b():
 
 def test_rdrobust_rbc_bootstrap():
     df = _make_sharp()
-    res = sp.rdrobust(df, y="y", x="x", c=0, bootstrap="rbc",
-                      n_boot=199, random_state=0)
+    res = sp.rdrobust(
+        df, y="y", x="x", c=0, bootstrap="rbc", n_boot=199, random_state=0
+    )
     assert "rbc_bootstrap" in res.model_info
     boot = res.model_info["rbc_bootstrap"]
     assert boot["ci"][0] < boot["ci"][1]
@@ -159,8 +165,19 @@ def test_rdrobust_kernels(kernel):
     assert res.se > 0
 
 
-@pytest.mark.parametrize("bw", ["mserd", "msetwo", "cerrd", "certwo",
-                                "msecomb1", "msecomb2", "cercomb1", "cercomb2"])
+@pytest.mark.parametrize(
+    "bw",
+    [
+        "mserd",
+        "msetwo",
+        "cerrd",
+        "certwo",
+        "msecomb1",
+        "msecomb2",
+        "cercomb1",
+        "cercomb2",
+    ],
+)
 def test_rdrobust_all_bwselect(bw):
     df = _make_sharp()
     res = sp.rdrobust(df, y="y", x="x", c=0, bwselect=bw)
@@ -196,8 +213,7 @@ def test_rdrobust_weak_first_stage_warning():
     df = pd.DataFrame({"y": Y, "x": X, "d": D})
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        sp.rdrobust(df, y="y", x="x", c=0, fuzzy="d",
-                    warn_weak_first_stage=True)
+        sp.rdrobust(df, y="y", x="x", c=0, fuzzy="d", warn_weak_first_stage=True)
     # may or may not trip depending on sample; if it does, message mentions F
     msgs = " ".join(str(x.message) for x in w)
     assert "first-stage" in msgs.lower() or msgs == "" or True

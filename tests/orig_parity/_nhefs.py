@@ -13,6 +13,7 @@ Canonical confounder set (book Programs 12.x-15.x):
 Treatment  : ``qsmk``    (quit smoking 1971-1982)
 Outcome    : ``wt82_71`` (10-year weight change, kg; complete case n=1566)
 """
+
 from __future__ import annotations
 
 import pandas as pd
@@ -50,8 +51,7 @@ def book_design(df: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     for c in CONT_CONF:
         d[f"{c}2"] = d[c] ** 2
     dd = pd.get_dummies(d, columns=CAT_CONF, drop_first=True)
-    cat_cols = [c for c in dd.columns
-                if any(c.startswith(p + "_") for p in CAT_CONF)]
+    cat_cols = [c for c in dd.columns if any(c.startswith(p + "_") for p in CAT_CONF)]
     cont_cols = CONT_CONF + [f"{c}2" for c in CONT_CONF]
     covs = cat_cols + cont_cols
     for c in covs:

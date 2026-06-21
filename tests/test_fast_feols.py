@@ -1,4 +1,5 @@
 """Tests for ``sp.fast.feols`` — native OLS HDFE estimator."""
+
 from __future__ import annotations
 
 import json
@@ -12,41 +13,47 @@ import pytest
 import statspai as sp
 from statspai.exceptions import MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Synthetic OLS DGP (panel with within-cluster correlation)
 # ---------------------------------------------------------------------------
 
-def _ols_panel(n=4_000, n_units=100, n_periods=20, seed=0,
-               beta=(0.30, -0.20)):
+
+def _ols_panel(n=4_000, n_units=100, n_periods=20, seed=0, beta=(0.30, -0.20)):
     rng = np.random.default_rng(seed)
     i = np.repeat(np.arange(n_units), n_periods)[:n]
     t = np.tile(np.arange(n_periods), n_units)[:n]
     n = i.size
     x1 = rng.normal(size=n)
     x2 = rng.normal(size=n)
-    a = rng.normal(0, 0.5, size=n_units)[i]      # unit FE
-    g = rng.normal(0, 0.3, size=n_periods)[t]    # time FE
-    cl = rng.normal(0, 0.4, size=n_units)[i]      # cluster shock
+    a = rng.normal(0, 0.5, size=n_units)[i]  # unit FE
+    g = rng.normal(0, 0.3, size=n_periods)[t]  # time FE
+    cl = rng.normal(0, 0.4, size=n_units)[i]  # cluster shock
     eps = cl + rng.normal(size=n)
     y = beta[0] * x1 + beta[1] * x2 + a + g + eps
-    return pd.DataFrame({
-        "y": y, "x1": x1, "x2": x2,
-        "fe1": i.astype(np.int32), "fe2": t.astype(np.int32),
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "fe1": i.astype(np.int32),
+            "fe2": t.astype(np.int32),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Coefficient parity vs pyfixest
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("seed", [0, 3, 11])
 def test_feols_coef_matches_pyfixest_iid(seed):
     pf = pytest.importorskip("pyfixest")
     df = _ols_panel(seed=seed)
     fit = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
-    pf_fit = pf.feols(fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-                       vcov="iid", fixef_rm="singleton")
+    pf_fit = pf.feols(
+        fml="y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid", fixef_rm="singleton"
+    )
     for k in ("x1", "x2"):
         diff = abs(float(fit.coef()[k]) - float(pf_fit.coef()[k]))
         assert diff < 1e-10, f"coef[{k}] diff {diff:.3e}"
@@ -65,8 +72,9 @@ def test_feols_se_iid_close_to_pyfixest():
     pf = pytest.importorskip("pyfixest")
     df = _ols_panel(seed=4)
     fit = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
-    pf_fit = pf.feols(fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-                       vcov="iid", fixef_rm="singleton")
+    pf_fit = pf.feols(
+        fml="y ~ x1 + x2 | fe1 + fe2", data=df, vcov="iid", fixef_rm="singleton"
+    )
     for k in ("x1", "x2"):
         rel = abs(float(fit.se()[k]) - float(pf_fit.se()[k])) / max(
             abs(float(pf_fit.se()[k])), 1e-15
@@ -79,8 +87,9 @@ def test_feols_se_hc1_close_to_pyfixest():
     pf = pytest.importorskip("pyfixest")
     df = _ols_panel(seed=5)
     fit = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov="hc1")
-    pf_fit = pf.feols(fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-                       vcov="hetero", fixef_rm="singleton")
+    pf_fit = pf.feols(
+        fml="y ~ x1 + x2 | fe1 + fe2", data=df, vcov="hetero", fixef_rm="singleton"
+    )
     for k in ("x1", "x2"):
         rel = abs(float(fit.se()[k]) - float(pf_fit.se()[k])) / max(
             abs(float(pf_fit.se()[k])), 1e-15
@@ -101,11 +110,16 @@ def test_feols_se_cr1_close_to_pyfixest():
     pf = pytest.importorskip("pyfixest")
     df = _ols_panel(seed=6)
     fit = sp.fast.feols(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="cr1",
+        cluster="fe1",
     )
     pf_fit = pf.feols(
-        fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-        vcov={"CRV1": "fe1"}, fixef_rm="singleton",
+        fml="y ~ x1 + x2 | fe1 + fe2",
+        data=df,
+        vcov={"CRV1": "fe1"},
+        fixef_rm="singleton",
     )
     for k in ("x1", "x2"):
         rel = abs(float(fit.se()[k]) - float(pf_fit.se()[k])) / max(
@@ -118,6 +132,7 @@ def test_feols_se_cr1_close_to_pyfixest():
 # Pure OLS path (no FEs) — intercept auto-added
 # ---------------------------------------------------------------------------
 
+
 def test_feols_no_fe_matches_numpy_lstsq():
     df = _ols_panel(seed=7, n_units=50, n_periods=10)
     fit = sp.fast.feols("y ~ x1 + x2", df, vcov="iid")
@@ -126,7 +141,10 @@ def test_feols_no_fe_matches_numpy_lstsq():
     y = df["y"].to_numpy()
     beta_np = np.linalg.solve(X.T @ X, X.T @ y)
     np.testing.assert_allclose(
-        fit.coef_vec, beta_np, atol=1e-12, rtol=1e-12,
+        fit.coef_vec,
+        beta_np,
+        atol=1e-12,
+        rtol=1e-12,
     )
     # SE from sigma² (X'X)^-1 / df
     n, p = X.shape
@@ -134,7 +152,9 @@ def test_feols_no_fe_matches_numpy_lstsq():
     sigma2 = float(resid @ resid / (n - p))
     V_np = sigma2 * np.linalg.inv(X.T @ X)
     np.testing.assert_allclose(
-        np.diag(fit.vcov_matrix), np.diag(V_np), rtol=1e-12,
+        np.diag(fit.vcov_matrix),
+        np.diag(V_np),
+        rtol=1e-12,
     )
 
 
@@ -147,6 +167,7 @@ def test_feols_no_fe_intercept_naming():
 # ---------------------------------------------------------------------------
 # Weighted feols (WLS)
 # ---------------------------------------------------------------------------
+
 
 def test_feols_unweighted_equals_uniform_weights():
     df = _ols_panel(seed=9)
@@ -164,11 +185,17 @@ def test_feols_weighted_matches_pyfixest():
     df = _ols_panel(seed=10)
     df["w"] = 0.5 + rng.random(len(df))
     fit = sp.fast.feols(
-        "y ~ x1 + x2 | fe1 + fe2", df, weights="w", vcov="iid",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        weights="w",
+        vcov="iid",
     )
     pf_fit = pf.feols(
-        fml="y ~ x1 + x2 | fe1 + fe2", data=df,
-        weights="w", vcov="iid", fixef_rm="singleton",
+        fml="y ~ x1 + x2 | fe1 + fe2",
+        data=df,
+        weights="w",
+        vcov="iid",
+        fixef_rm="singleton",
     )
     for k in ("x1", "x2"):
         diff = abs(float(fit.coef()[k]) - float(pf_fit.coef()[k]))
@@ -178,6 +205,7 @@ def test_feols_weighted_matches_pyfixest():
 # ---------------------------------------------------------------------------
 # Validation / edge cases
 # ---------------------------------------------------------------------------
+
 
 def test_feols_unknown_vcov_rejected():
     df = _ols_panel(seed=12)
@@ -276,6 +304,7 @@ def test_feols_singleton_drop():
 # Result-object surface
 # ---------------------------------------------------------------------------
 
+
 def test_feols_result_accessors_shape():
     df = _ols_panel(seed=20)
     fit = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df)
@@ -284,7 +313,7 @@ def test_feols_result_accessors_shape():
     assert isinstance(fit.vcov(), pd.DataFrame)
     assert isinstance(fit.tidy(), pd.DataFrame)
     assert "feols" in fit.summary()
-    assert fit.coef_vec.size == 2          # x1, x2
+    assert fit.coef_vec.size == 2  # x1, x2
     assert fit.vcov_matrix.shape == (2, 2)
     assert 0.0 <= fit.r_squared_within <= 1.0
 
@@ -311,24 +340,24 @@ def test_feols_df_resid_accounting():
     """df_resid = n_kept - p - sum(G_k - 1) — pin the convention."""
     df = _ols_panel(seed=21, n_units=30, n_periods=10)
     fit = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df)
-    expected = fit.n_kept - fit.coef_vec.size - sum(
-        c - 1 for c in fit.fe_cardinality
-    )
+    expected = fit.n_kept - fit.coef_vec.size - sum(c - 1 for c in fit.fe_cardinality)
     assert fit.df_resid == expected
 
 
 def test_feols_fixest_ssc_uses_full_fe_rank_for_iid():
     df = _ols_panel(seed=22, n_units=30, n_periods=10)
     fit_default = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid")
-    fit_fixest = sp.fast.feols(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="iid", ssc="fixest"
-    )
+    fit_fixest = sp.fast.feols("y ~ x1 + x2 | fe1 + fe2", df, vcov="iid", ssc="fixest")
 
-    expected_default_df = fit_default.n_kept - fit_default.coef_vec.size - sum(
-        c - 1 for c in fit_default.fe_cardinality
+    expected_default_df = (
+        fit_default.n_kept
+        - fit_default.coef_vec.size
+        - sum(c - 1 for c in fit_default.fe_cardinality)
     )
-    expected_fixest_df = fit_fixest.n_kept - fit_fixest.coef_vec.size - (
-        sum(fit_fixest.fe_cardinality) - 1
+    expected_fixest_df = (
+        fit_fixest.n_kept
+        - fit_fixest.coef_vec.size
+        - (sum(fit_fixest.fe_cardinality) - 1)
     )
 
     assert fit_default.df_resid == expected_default_df
@@ -347,7 +376,10 @@ def test_feols_fixest_ssc_excludes_cluster_nested_fe_from_cr1():
         "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1"
     )
     fit_fixest = sp.fast.feols(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="cr1",
+        cluster="fe1",
         ssc="fixest",
     )
 
@@ -376,6 +408,7 @@ def test_feols_unknown_ssc_rejected():
 # Cross-engine: R fixest parity
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(shutil.which("Rscript") is None, reason="Rscript not on PATH")
 def test_feols_coef_matches_r_fixest(tmp_path):
     df = _ols_panel(seed=30)
@@ -391,7 +424,10 @@ def test_feols_coef_matches_r_fixest(tmp_path):
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
-        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=120,
+        ["Rscript", "-e", r_script],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if proc.returncode != 0:
         pytest.skip(f"Rscript failed: {proc.stderr[:200]}")
@@ -418,7 +454,10 @@ def test_feols_se_iid_close_to_r_fixest(tmp_path):
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
-        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=120,
+        ["Rscript", "-e", r_script],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if proc.returncode != 0:
         pytest.skip(f"Rscript failed: {proc.stderr[:200]}")
@@ -437,7 +476,10 @@ def test_feols_se_cluster_close_to_r_fixest(tmp_path):
     csv_path = tmp_path / "panel.csv"
     df.to_csv(csv_path, index=False)
     fit = sp.fast.feols(
-        "y ~ x1 + x2 | fe1 + fe2", df, vcov="cr1", cluster="fe1",
+        "y ~ x1 + x2 | fe1 + fe2",
+        df,
+        vcov="cr1",
+        cluster="fe1",
     )
 
     r_script = (
@@ -449,7 +491,10 @@ def test_feols_se_cluster_close_to_r_fixest(tmp_path):
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
-        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=120,
+        ["Rscript", "-e", r_script],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if proc.returncode != 0:
         pytest.skip(f"Rscript failed: {proc.stderr[:200]}")

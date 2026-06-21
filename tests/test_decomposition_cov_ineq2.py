@@ -15,11 +15,13 @@ All assertions check real numerical identities:
 
 import statspai as sp throughout (no mocks, deterministic seeds).
 """
+
 from __future__ import annotations
 
 import warnings
 
 import matplotlib
+
 matplotlib.use("Agg")  # headless backend for .plot() branches
 
 import numpy as np
@@ -33,14 +35,14 @@ from statspai.decomposition.inequality import (
     _weighted_pairwise_mad,
 )
 
-
 # ════════════════════════════════════════════════════════════════════════
 # inequality_index — indices, equal-distribution identities, weight=None
 # ════════════════════════════════════════════════════════════════════════
 
+
 @pytest.mark.parametrize(
-    "index", ["theil_t", "theil_l", "mld", "ge0", "ge1", "ge2",
-              "atkinson", "gini", "cv2"]
+    "index",
+    ["theil_t", "theil_l", "mld", "ge0", "ge1", "ge2", "atkinson", "gini", "cv2"],
 )
 def test_perfectly_equal_distribution_has_zero_inequality(index):
     """Every index is exactly 0 for a perfectly equal distribution."""
@@ -78,7 +80,7 @@ def test_atkinson_weight_none_branch_eps_not_one():
     got = _atkinson(y, 0.5)
     p = 0.5  # 1 - eps
     mu = y.mean()
-    expected = 1.0 - (np.mean(y ** p) ** (1.0 / p)) / mu
+    expected = 1.0 - (np.mean(y**p) ** (1.0 / p)) / mu
     assert got == pytest.approx(expected, abs=1e-12)
     assert got == pytest.approx(_atkinson(y, 0.5, np.ones_like(y)), abs=1e-12)
 
@@ -92,16 +94,20 @@ def test_inequality_index_unknown_raises():
 # subgroup_decompose — additive contribution rules + Gini (Dagum) overlap
 # ════════════════════════════════════════════════════════════════════════
 
+
 def _grouped_frame(seed=0, n=200, ngroups=3):
     rng = np.random.default_rng(seed)
-    return pd.DataFrame({
-        "y": rng.lognormal(0.0, 0.5, n),
-        "g": rng.integers(0, ngroups, n),
-    })
+    return pd.DataFrame(
+        {
+            "y": rng.lognormal(0.0, 0.5, n),
+            "g": rng.integers(0, ngroups, n),
+        }
+    )
 
 
-@pytest.mark.parametrize("index", ["theil_t", "ge1", "theil_l", "mld",
-                                   "ge0", "ge2", "cv2", "atkinson"])
+@pytest.mark.parametrize(
+    "index", ["theil_t", "ge1", "theil_l", "mld", "ge0", "ge2", "cv2", "atkinson"]
+)
 def test_additive_subgroup_between_plus_within_equals_total(index):
     """Additive GE/Theil/MLD/CV/Atkinson: between+within == total exactly.
 
@@ -131,12 +137,8 @@ def test_weighted_pairwise_mad_empty_group_is_zero():
     """Empty-group guard (line 304): MAD against an empty sample is 0."""
     yk = np.array([1.0, 2.0, 5.0])
     wk = np.array([1.0, 1.0, 1.0])
-    assert _weighted_pairwise_mad(
-        np.array([]), np.array([]), yk, wk
-    ) == 0.0
-    assert _weighted_pairwise_mad(
-        yk, wk, np.array([]), np.array([])
-    ) == 0.0
+    assert _weighted_pairwise_mad(np.array([]), np.array([]), yk, wk) == 0.0
+    assert _weighted_pairwise_mad(yk, wk, np.array([]), np.array([])) == 0.0
 
 
 def test_gini_subgroup_components_sum_to_total_and_summary_overlap():
@@ -144,9 +146,7 @@ def test_gini_subgroup_components_sum_to_total_and_summary_overlap():
     df = _grouped_frame(seed=1)
     r = sp.subgroup_decompose(df, y="y", by="g", index="gini")
     assert r.overlap is not None
-    assert r.between + r.within + r.overlap == pytest.approx(
-        r.total, abs=1e-9
-    )
+    assert r.between + r.within + r.overlap == pytest.approx(r.total, abs=1e-9)
     # summary() (line 186) appends the overlap line for the Gini case.
     txt = r.summary()
     assert "Overlap:" in txt
@@ -157,17 +157,18 @@ def test_gini_subgroup_components_sum_to_total_and_summary_overlap():
 # source_decompose (Lerman-Yitzhaki) — renderers + additivity
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_source_decompose_contributions_sum_to_total_gini():
     rng = np.random.default_rng(2)
     n = 150
-    df = pd.DataFrame({
-        "wage": rng.lognormal(0.0, 0.4, n),
-        "capital": rng.lognormal(0.2, 0.3, n),
-    })
-    r = sp.source_decompose(df, ["wage", "capital"])
-    assert r.sources["contribution"].sum() == pytest.approx(
-        r.total_gini, abs=1e-12
+    df = pd.DataFrame(
+        {
+            "wage": rng.lognormal(0.0, 0.4, n),
+            "capital": rng.lognormal(0.2, 0.3, n),
+        }
     )
+    r = sp.source_decompose(df, ["wage", "capital"])
+    assert r.sources["contribution"].sum() == pytest.approx(r.total_gini, abs=1e-12)
     # __repr__ (line 458)
     rep = repr(r)
     assert "SourceDecompResult" in rep and "n_sources=2" in rep
@@ -183,14 +184,17 @@ def test_source_decompose_contributions_sum_to_total_gini():
 # shapley_inequality — renderers, unknown-index raise, large-k sampler
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_shapley_renderers_and_repr():
     rng = np.random.default_rng(4)
     n = 150
-    df = pd.DataFrame({
-        "y": rng.lognormal(0.0, 0.5, n),
-        "x1": rng.normal(0, 1, n),
-        "x2": rng.normal(0, 1, n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": rng.lognormal(0.0, 0.5, n),
+            "x1": rng.normal(0, 1, n),
+            "x2": rng.normal(0, 1, n),
+        }
+    )
     r = sp.shapley_inequality(df, "y", ["x1", "x2"], index="theil_t")
     assert r.total > 0
     assert len(r.shapley) == 2
@@ -231,27 +235,30 @@ def test_shapley_large_k_uses_random_permutation_sampler():
 # kitagawa_decompose — additivity, normalisations, branches, renderers
 # ════════════════════════════════════════════════════════════════════════
 
+
 def _preagg_frame():
-    return pd.DataFrame({
-        "rate": [0.1, 0.3, 0.2, 0.4],
-        "grp": [0, 0, 1, 1],
-        "cat": ["x", "y", "x", "y"],
-        "pop": [100.0, 100.0, 50.0, 150.0],
-    })
+    return pd.DataFrame(
+        {
+            "rate": [0.1, 0.3, 0.2, 0.4],
+            "grp": [0, 0, 1, 1],
+            "cat": ["x", "y", "x", "y"],
+            "pop": [100.0, 100.0, 50.0, 150.0],
+        }
+    )
 
 
 def test_kitagawa_preaggregated_components_sum_to_gap():
     """Pre-aggregated weights path (lines 147-149); components sum to gap."""
     df = _preagg_frame()
-    r = sp.kitagawa_decompose(df, rate="rate", group="grp", by="cat",
-                              weights="pop", normalize="symmetric")
-    assert r.gap == pytest.approx(r.rate_a - r.rate_b, abs=1e-12)
-    assert r.rate_effect + r.composition_effect + r.interaction == \
-        pytest.approx(r.gap, abs=1e-12)
-    # Symmetric per-cell contributions sum to the aggregate effects.
-    assert r.per_cell["rate_contrib"].sum() == pytest.approx(
-        r.rate_effect, abs=1e-12
+    r = sp.kitagawa_decompose(
+        df, rate="rate", group="grp", by="cat", weights="pop", normalize="symmetric"
     )
+    assert r.gap == pytest.approx(r.rate_a - r.rate_b, abs=1e-12)
+    assert r.rate_effect + r.composition_effect + r.interaction == pytest.approx(
+        r.gap, abs=1e-12
+    )
+    # Symmetric per-cell contributions sum to the aggregate effects.
+    assert r.per_cell["rate_contrib"].sum() == pytest.approx(r.rate_effect, abs=1e-12)
     assert r.per_cell["comp_contrib"].sum() == pytest.approx(
         r.composition_effect, abs=1e-12
     )
@@ -265,44 +272,51 @@ def test_kitagawa_preaggregated_components_sum_to_gap():
 def test_kitagawa_normalize_a_and_b_still_sum_to_gap(normalize):
     """normalize='a'/'b' branches (lines 184-189) preserve additivity."""
     df = _preagg_frame()
-    r = sp.kitagawa_decompose(df, rate="rate", group="grp", by="cat",
-                              weights="pop", normalize=normalize)
-    assert r.rate_effect + r.composition_effect + r.interaction == \
-        pytest.approx(r.gap, abs=1e-12)
+    r = sp.kitagawa_decompose(
+        df, rate="rate", group="grp", by="cat", weights="pop", normalize=normalize
+    )
+    assert r.rate_effect + r.composition_effect + r.interaction == pytest.approx(
+        r.gap, abs=1e-12
+    )
 
 
 def test_kitagawa_individual_level_aggregation():
     """weights=None individual-level path; components sum to the gap."""
-    df = pd.DataFrame({
-        "y": [1, 0, 1, 1, 0, 1, 0, 0],
-        "g": [0, 0, 0, 0, 1, 1, 1, 1],
-        "cat": ["a", "a", "b", "b", "a", "a", "b", "b"],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1, 0, 1, 1, 0, 1, 0, 0],
+            "g": [0, 0, 0, 0, 1, 1, 1, 1],
+            "cat": ["a", "a", "b", "b", "a", "a", "b", "b"],
+        }
+    )
     r = sp.kitagawa_decompose(df, rate="y", group="g", by="cat")
     # Group 0 overall = mean of [1,0,1,1]=0.75 ; group 1 = [0,1,0,0]=0.25.
     assert r.rate_a == pytest.approx(0.75, abs=1e-12)
     assert r.rate_b == pytest.approx(0.25, abs=1e-12)
     assert r.gap == pytest.approx(0.5, abs=1e-12)
-    assert r.rate_effect + r.composition_effect + r.interaction == \
-        pytest.approx(r.gap, abs=1e-12)
+    assert r.rate_effect + r.composition_effect + r.interaction == pytest.approx(
+        r.gap, abs=1e-12
+    )
 
 
 def test_kitagawa_zero_population_raises():
     """All mass in one group -> empty other group -> ValueError (line 163)."""
-    df = pd.DataFrame({
-        "y": [0.1, 0.2],
-        "g": [0, 0],
-        "cat": ["a", "b"],
-        "pop": [10.0, 10.0],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [0.1, 0.2],
+            "g": [0, 0],
+            "cat": ["a", "b"],
+            "pop": [10.0, 10.0],
+        }
+    )
     with pytest.raises(ValueError, match="Zero population"):
-        sp.kitagawa_decompose(df, rate="y", group="g", by="cat",
-                              weights="pop")
+        sp.kitagawa_decompose(df, rate="y", group="g", by="cat", weights="pop")
 
 
 # ════════════════════════════════════════════════════════════════════════
 # das_gupta — product-form additivity, renderers, validation
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_das_gupta_effects_sum_to_gap_and_renderers():
     """Two-factor product form: effects sum to the gap; renderers run."""
@@ -327,5 +341,4 @@ def test_das_gupta_effects_sum_to_gap_and_renderers():
 
 def test_das_gupta_no_factors_raises():
     with pytest.raises(ValueError, match="Need"):
-        sp.das_gupta(pd.DataFrame({"f": [1.0]}),
-                     pd.DataFrame({"f": [2.0]}), [])
+        sp.das_gupta(pd.DataFrame({"f": [1.0]}), pd.DataFrame({"f": [2.0]}), [])

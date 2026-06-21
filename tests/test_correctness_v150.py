@@ -17,6 +17,7 @@ they ever regress:
 Both fixes are transparent to the ``method=...`` signature; existing
 user code still works.  No API change.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -25,7 +26,6 @@ import pytest
 from scipy import stats
 
 import statspai as sp
-
 
 # ======================================================================
 # Fix 1: mr_egger slope uses t(n-2), not Normal
@@ -48,7 +48,7 @@ class TestMREggerUsesTDistribution:
         # (roughly — the point is just that both should be on the same
         # ref distribution).
         rng = np.random.default_rng(42)
-        n = 6                                           # small n_snps
+        n = 6  # small n_snps
         bx = np.abs(rng.normal(0.1, 0.04, n))
         by = 2.0 * bx + 0.01 + rng.normal(0, 0.05, n)  # with intercept
         sx = np.full(n, 0.02)
@@ -66,12 +66,12 @@ class TestMREggerUsesTDistribution:
         expected_slope_p = float(2 * stats.t.sf(abs(t_slope), df=df))
         expected_int_p = float(2 * stats.t.sf(abs(t_int), df=df))
 
-        assert r_egger["p_value"] == pytest.approx(expected_slope_p, rel=1e-6), (
-            "mr_egger slope p-value must use t(n-2), not Normal."
-        )
-        assert r_pleio.p_value == pytest.approx(expected_int_p, rel=1e-6), (
-            "mr_pleiotropy_egger intercept p-value must use t(n-2)."
-        )
+        assert r_egger["p_value"] == pytest.approx(
+            expected_slope_p, rel=1e-6
+        ), "mr_egger slope p-value must use t(n-2), not Normal."
+        assert r_pleio.p_value == pytest.approx(
+            expected_int_p, rel=1e-6
+        ), "mr_pleiotropy_egger intercept p-value must use t(n-2)."
 
     def test_slope_ci_uses_t_crit_not_z_crit(self):
         """The Egger slope CI should widen with small n via t-distribution."""
@@ -105,9 +105,9 @@ class TestMREggerUsesTDistribution:
         # With n=200, t(198) ≈ Normal to 4 decimal places
         t_stat = r["estimate"] / r["se"]
         normal_p = float(2 * (1 - stats.norm.cdf(abs(t_stat))))
-        assert abs(r["p_value"] - normal_p) < 1e-3, (
-            "At n=200 t(n-2) and Normal should differ by < 1e-3."
-        )
+        assert (
+            abs(r["p_value"] - normal_p) < 1e-3
+        ), "At n=200 t(n-2) and Normal should differ by < 1e-3."
 
 
 # ======================================================================
@@ -124,7 +124,7 @@ class TestMRPressoMCPvalueConvention:
         bx = np.abs(rng.normal(0.1, 0.04, n))
         # One obviously pleiotropic SNP — makes obs RSS very large
         by = 2.0 * bx + rng.normal(0, 0.01, n)
-        by[0] = 10.0                         # huge outlier
+        by[0] = 10.0  # huge outlier
         sx = np.full(n, 0.02)
         sy = np.full(n, 0.05)
         B = 50
@@ -147,9 +147,9 @@ class TestMRPressoMCPvalueConvention:
         r = sp.mr_presso(bx, by, sx, sy, n_boot=B, seed=42)
         # p should be a rational number with denominator B+1
         p_times_B_plus_1 = r.global_test_pvalue * (B + 1)
-        assert abs(p_times_B_plus_1 - round(p_times_B_plus_1)) < 1e-9, (
-            "MC p-value should have denominator B+1, not B."
-        )
+        assert (
+            abs(p_times_B_plus_1 - round(p_times_B_plus_1)) < 1e-9
+        ), "MC p-value should have denominator B+1, not B."
 
     def test_per_snp_pvalues_respect_mc_floor(self):
         """Per-SNP outlier p-values should also respect the MC floor."""
@@ -165,9 +165,9 @@ class TestMRPressoMCPvalueConvention:
         # the new convention, the minimum achievable p is 1/(B+1).
         # Confirming there's no hidden p=0 anywhere: re-run the per-SNP
         # p computation via the public API's outlier list.
-        assert (1.0 / (B + 1)) < 0.05, (
-            "Sanity: 1/(B+1)=1/41 should be below sig_threshold=0.05."
-        )
+        assert (
+            1.0 / (B + 1)
+        ) < 0.05, "Sanity: 1/(B+1)=1/41 should be below sig_threshold=0.05."
         # If any outliers were flagged they must have p < 0.05 but also
         # ≥ 1/(B+1).  Cannot test per_snp_p directly from the returned
         # result, but outliers being a non-empty list is sufficient.
@@ -186,13 +186,15 @@ def test_mendelian_randomization_reports_t_based_egger():
     n = 6
     bx = np.abs(rng.normal(0.1, 0.04, n))
     by = 2.0 * bx + rng.normal(0, 0.05, n)
-    df = pd.DataFrame({"bx": bx, "by": by,
-                       "sx": np.full(n, 0.02),
-                       "sy": np.full(n, 0.10)})
+    df = pd.DataFrame(
+        {"bx": bx, "by": by, "sx": np.full(n, 0.02), "sy": np.full(n, 0.10)}
+    )
     r = sp.mendelian_randomization(
         data=df,
-        beta_exposure="bx", se_exposure="sx",
-        beta_outcome="by", se_outcome="sy",
+        beta_exposure="bx",
+        se_exposure="sx",
+        beta_outcome="by",
+        se_outcome="sy",
         methods=["egger"],
     )
     egger_row = r.estimates[r.estimates["method"] == "MR-Egger"].iloc[0]

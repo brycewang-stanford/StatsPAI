@@ -12,6 +12,7 @@ No numerical path is mocked. Fault injection is used in two places only
 to exercise *failure-accounting* code (not the estimator math), and the
 parsed counts are asserted against the emitted warning.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -36,6 +37,7 @@ SEED = 20260607
 # Fixtures / data builders
 # ════════════════════════════════════════════════════════════════════════
 
+
 def _gap_data(n: int = 220, seed: int = SEED) -> pd.DataFrame:
     rng = np.random.default_rng(seed)
     x1 = rng.normal(size=n)
@@ -59,6 +61,7 @@ def _ye_data(n: int = 400, seed: int = SEED) -> pd.DataFrame:
 # ════════════════════════════════════════════════════════════════════════
 # causal.py — _gap_closing_core branches (target_dist = 0 and 1)
 # ════════════════════════════════════════════════════════════════════════
+
 
 @pytest.mark.parametrize("method", ["regression", "ipw", "aipw"])
 def test_gap_core_target_dist_invariant(method):
@@ -112,13 +115,16 @@ def test_gap_core_unknown_method_raises():
 # causal.py — gap_closing public API: validation, bootstrap, summary CI
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_gap_closing_too_few_obs_raises():
     """Line 233: fewer than 10 obs in a group -> ValueError."""
-    df = pd.DataFrame({
-        "y": np.linspace(0, 1, 14),
-        "g": [0] * 9 + [1] * 5,
-        "x1": np.linspace(-1, 1, 14),
-    })
+    df = pd.DataFrame(
+        {
+            "y": np.linspace(0, 1, 14),
+            "g": [0] * 9 + [1] * 5,
+            "x1": np.linspace(-1, 1, 14),
+        }
+    )
     with pytest.raises(ValueError, match="10 obs per group"):
         gap_closing(df, "y", "g", ["x1"], inference="none")
 
@@ -126,18 +132,28 @@ def test_gap_closing_too_few_obs_raises():
 def test_gap_closing_identity_closed_equals_obs_minus_cf():
     """closed_gap == observed - counterfactual (closed-form identity)."""
     df = _gap_data()
-    res = sp.gap_closing(df, "y", "g", ["x1", "x2"],
-                         method="regression", inference="none")
+    res = sp.gap_closing(
+        df, "y", "g", ["x1", "x2"], method="regression", inference="none"
+    )
     assert res.closed_gap == pytest.approx(
-        res.observed_gap - res.counterfactual_gap, abs=1e-12)
+        res.observed_gap - res.counterfactual_gap, abs=1e-12
+    )
 
 
 def test_gap_closing_bootstrap_summary_renders_ci():
     """Bootstrap fills se/ci; summary() prints the CI block (lines 83-84)."""
     df = _gap_data(n=240)
-    res = sp.gap_closing(df, "y", "g", ["x1", "x2"], method="aipw",
-                         target_dist=1, inference="bootstrap",
-                         n_boot=80, seed=SEED)
+    res = sp.gap_closing(
+        df,
+        "y",
+        "g",
+        ["x1", "x2"],
+        method="aipw",
+        target_dist=1,
+        inference="bootstrap",
+        n_boot=80,
+        seed=SEED,
+    )
     assert res.se is not None and res.ci is not None
     # SEs are non-negative and CIs bracket the point estimates.
     for key in ("observed", "counterfactual", "closed"):
@@ -154,6 +170,7 @@ def test_gap_closing_bootstrap_summary_renders_ci():
 # causal.py — mediation_decompose identities
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_mediation_decompose_total_identity():
     """total == nde + nie, cde == nde (linear nesting), pm == nie/total."""
     rng = np.random.default_rng(SEED)
@@ -164,8 +181,7 @@ def test_mediation_decompose_total_identity():
     Y = 1.0 + 0.6 * A + 0.7 * M + 0.3 * C + rng.normal(scale=0.5, size=n)
     df = pd.DataFrame({"y": Y, "a": A, "m": M, "c": C})
 
-    res = sp.mediation_decompose(df, "y", "a", "m",
-                                 covariates=["c"], inference="none")
+    res = sp.mediation_decompose(df, "y", "a", "m", covariates=["c"], inference="none")
     assert res.total == pytest.approx(res.nde + res.nie, abs=1e-9)
     assert res.cde == pytest.approx(res.nde, abs=1e-9)
     assert res.propn_mediated == pytest.approx(res.nie / res.total, abs=1e-9)
@@ -174,6 +190,7 @@ def test_mediation_decompose_total_identity():
 # ════════════════════════════════════════════════════════════════════════
 # causal.py — disparity_decompose identity + repr
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_disparity_decompose_identity_and_repr():
     """total == initial + mediator_attributable; covers __repr__ (line 537)."""
@@ -186,10 +203,12 @@ def test_disparity_decompose_identity_and_repr():
 
     res = sp.disparity_decompose(df, "y", "g", "m")
     assert res.total_disparity == pytest.approx(
-        res.initial_disparity + res.mediator_attributable, abs=1e-9)
+        res.initial_disparity + res.mediator_attributable, abs=1e-9
+    )
     # Total disparity is the raw observed group gap.
     assert res.total_disparity == pytest.approx(
-        float(Y[G == 1].mean() - Y[G == 0].mean()), abs=1e-9)
+        float(Y[G == 1].mean() - Y[G == 0].mean()), abs=1e-9
+    )
 
     text = repr(res)
     assert text.startswith("DisparityDecompResult(")
@@ -208,19 +227,22 @@ def test_disparity_decompose_target_level_override():
     res = sp.disparity_decompose(df, "y", "g", "m", target_level=0.25)
     assert res.target_mediator_level == pytest.approx(0.25, abs=1e-12)
     assert res.total_disparity == pytest.approx(
-        res.initial_disparity + res.mediator_attributable, abs=1e-9)
+        res.initial_disparity + res.mediator_attributable, abs=1e-9
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════
 # yu_elwert.py — decomposition identity + disparity equality
 # ════════════════════════════════════════════════════════════════════════
 
+
 @pytest.mark.parametrize("method", ["plugin", "efficient"])
 def test_yu_elwert_disparity_equals_observed_gap(method):
     """disparity field equals the raw observed group gap exactly."""
     df = _ye_data()
-    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                 method=method, inference="none")
+    res = sp.yu_elwert_decompose(
+        df, "y", "t", "r", ["x1", "x2"], method=method, inference="none"
+    )
     obs = float(df.loc[df.r == 1, "y"].mean() - df.loc[df.r == 0, "y"].mean())
     assert res.disparity == pytest.approx(obs, abs=1e-9)
 
@@ -228,10 +250,10 @@ def test_yu_elwert_disparity_equals_observed_gap(method):
 def test_yu_elwert_plugin_components_sum_to_disparity():
     """Plug-in decomposition is exact: components sum to the disparity."""
     df = _ye_data()
-    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                 method="plugin", inference="none")
-    resid = (res.disparity - res.baseline - res.prevalence
-             - res.effect - res.selection)
+    res = sp.yu_elwert_decompose(
+        df, "y", "t", "r", ["x1", "x2"], method="plugin", inference="none"
+    )
+    resid = res.disparity - res.baseline - res.prevalence - res.effect - res.selection
     assert resid == pytest.approx(0.0, abs=1e-8)
 
 
@@ -239,11 +261,11 @@ def test_yu_elwert_plugin_components_sum_to_disparity():
 # yu_elwert.py — confint override (lines 172, 174, 179-184)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_yu_elwert_confint_none_without_se():
     """Line 174: no se dict -> confint returns None."""
     df = _ye_data()
-    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                 inference="none")
+    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"], inference="none")
     assert res.se is None
     assert res.confint() is None
 
@@ -251,12 +273,12 @@ def test_yu_elwert_confint_none_without_se():
 def test_yu_elwert_confint_overall_and_detailed():
     """confint('overall') builds z-CIs (179-184); 'detailed' delegates (172)."""
     df = _ye_data()
-    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                 inference="bootstrap", n_boot=60, seed=SEED)
+    res = sp.yu_elwert_decompose(
+        df, "y", "t", "r", ["x1", "x2"], inference="bootstrap", n_boot=60, seed=SEED
+    )
     out = res.confint(alpha=0.05)
     assert out is not None
-    assert set(out) == {"disparity", "baseline", "prevalence",
-                        "effect", "selection"}
+    assert set(out) == {"disparity", "baseline", "prevalence", "effect", "selection"}
     # CI must be centered on the point estimate (symmetric normal interval).
     lo, hi = out["disparity"]
     assert (lo + hi) / 2 == pytest.approx(res.disparity, rel=1e-9, abs=1e-9)
@@ -270,11 +292,11 @@ def test_yu_elwert_confint_overall_and_detailed():
 # yu_elwert.py — to_latex with and without se (lines 188-205)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_yu_elwert_latex_without_se():
     """Lines 200-205: se column left blank when no se dict present."""
     df = _ye_data()
-    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                 inference="none")
+    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"], inference="none")
     latex = res.to_latex()
     assert r"\begin{tabular}" in latex and r"\bottomrule" in latex
     for label in ("Disparity", "Baseline", "Prevalence", "Effect", "Selection"):
@@ -286,8 +308,9 @@ def test_yu_elwert_latex_without_se():
 def test_yu_elwert_latex_with_se():
     """Lines 200-205: se column populated when se dict present."""
     df = _ye_data()
-    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                 inference="bootstrap", n_boot=60, seed=SEED)
+    res = sp.yu_elwert_decompose(
+        df, "y", "t", "r", ["x1", "x2"], inference="bootstrap", n_boot=60, seed=SEED
+    )
     latex = res.to_latex()
     # five component rows, each terminated by a LaTeX row break.
     assert latex.count(r"\\") >= 6
@@ -299,11 +322,13 @@ def test_yu_elwert_latex_with_se():
 # yu_elwert.py — summary residual line
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_yu_elwert_summary_residual_zero():
     """summary() prints an implied residual that is ~0 for the plug-in fit."""
     df = _ye_data()
-    res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                 inference="bootstrap", n_boot=60, seed=SEED)
+    res = sp.yu_elwert_decompose(
+        df, "y", "t", "r", ["x1", "x2"], inference="bootstrap", n_boot=60, seed=SEED
+    )
     text = res.summary()
     assert "Yu-Elwert" in text
     assert "Implied residual" in text
@@ -312,6 +337,7 @@ def test_yu_elwert_summary_residual_zero():
 # ════════════════════════════════════════════════════════════════════════
 # yu_elwert.py — nuisance fallback paths (internal helpers)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_fit_within_cell_outcome_fallback_constant():
     """Lines 244-253: small (r,t) cells fall back to a constant = cell mean."""
@@ -323,7 +349,7 @@ def test_fit_within_cell_outcome_fallback_constant():
     t = np.zeros(n)
     r[:12] = 1
     # Populate cells (0,1) and (1,0) well; make cell (1,1) tiny.
-    t[:2] = 1     # r=1 & t=1: only 2 obs (< k+1 = 4) -> fallback
+    t[:2] = 1  # r=1 & t=1: only 2 obs (< k+1 = 4) -> fallback
     t[12:18] = 1  # r=0 & t=1: 6 obs -> regular fit
     coef, fb = _fit_within_cell_outcome(y, X, t, r)
     assert fb == 1
@@ -359,7 +385,7 @@ def test_fit_within_group_propensity_fallback():
     t = np.zeros(n)
     r = np.zeros(n)
     r[:2] = 1  # group 1 has 2 obs (< k+1 = 4) -> fallback
-    t[0] = 1   # group-1 treat rate = 0.5
+    t[0] = 1  # group-1 treat rate = 0.5
     p_coef = _fit_within_group_propensity(t, X, r)
     fb = p_coef[1]
     assert fb[0] == pytest.approx(0.5, abs=1e-12)
@@ -369,6 +395,7 @@ def test_fit_within_group_propensity_fallback():
 # ════════════════════════════════════════════════════════════════════════
 # yu_elwert.py — validation raises (lines 471, 477, 482-485)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_yu_elwert_bad_method_raises():
     """Line 469: unknown method -> ValueError."""
@@ -381,14 +408,14 @@ def test_yu_elwert_bad_inference_raises():
     """Line 471: unknown inference -> ValueError."""
     df = _ye_data(n=80)
     with pytest.raises(ValueError, match="inference must be"):
-        sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                               inference="wat")
+        sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"], inference="wat")
 
 
 def test_yu_elwert_empty_after_dropna_raises():
     """Line 477: all rows dropped -> ValueError."""
-    df = pd.DataFrame({"y": [np.nan, np.nan], "t": [0, 1],
-                       "r": [0, 1], "x1": [1.0, 2.0]})
+    df = pd.DataFrame(
+        {"y": [np.nan, np.nan], "t": [0, 1], "r": [0, 1], "x1": [1.0, 2.0]}
+    )
     with pytest.raises(ValueError, match="No complete observations"):
         sp.yu_elwert_decompose(df, "y", "t", "r", ["x1"])
 
@@ -396,12 +423,14 @@ def test_yu_elwert_empty_after_dropna_raises():
 def test_yu_elwert_non_binary_treatment_raises():
     """Line 483: non-binary treatment -> ValueError."""
     n = 30
-    df = pd.DataFrame({
-        "y": np.arange(n, dtype=float),
-        "t": np.arange(n) % 3,   # values in {0,1,2}
-        "r": np.arange(n) % 2,
-        "x1": np.linspace(0, 1, n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": np.arange(n, dtype=float),
+            "t": np.arange(n) % 3,  # values in {0,1,2}
+            "r": np.arange(n) % 2,
+            "x1": np.linspace(0, 1, n),
+        }
+    )
     with pytest.raises(ValueError, match="treatment .* must be binary"):
         sp.yu_elwert_decompose(df, "y", "t", "r", ["x1"], inference="none")
 
@@ -409,12 +438,14 @@ def test_yu_elwert_non_binary_treatment_raises():
 def test_yu_elwert_non_binary_group_raises():
     """Line 485: non-binary group -> ValueError."""
     n = 30
-    df = pd.DataFrame({
-        "y": np.arange(n, dtype=float),
-        "t": np.arange(n) % 2,
-        "r": np.arange(n) % 3,   # values in {0,1,2}
-        "x1": np.linspace(0, 1, n),
-    })
+    df = pd.DataFrame(
+        {
+            "y": np.arange(n, dtype=float),
+            "t": np.arange(n) % 2,
+            "r": np.arange(n) % 3,  # values in {0,1,2}
+            "x1": np.linspace(0, 1, n),
+        }
+    )
     with pytest.raises(ValueError, match="group .* must be binary"):
         sp.yu_elwert_decompose(df, "y", "t", "r", ["x1"], inference="none")
 
@@ -422,6 +453,7 @@ def test_yu_elwert_non_binary_group_raises():
 # ════════════════════════════════════════════════════════════════════════
 # yu_elwert.py — bootstrap-failure accounting & parsing (lines 533-542)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_yu_elwert_bootstrap_failure_count_parsed(monkeypatch):
     """Lines 533-540: parse the failure count from the emitted warning.
@@ -437,9 +469,9 @@ def test_yu_elwert_bootstrap_failure_count_parsed(monkeypatch):
 
     def flaky(*args, **kwargs):
         state["n"] += 1
-        if state["n"] == 1:          # the point estimate must succeed
+        if state["n"] == 1:  # the point estimate must succeed
             return orig(*args, **kwargs)
-        if state["n"] % 2 == 0:      # fail ~half the bootstrap reps
+        if state["n"] % 2 == 0:  # fail ~half the bootstrap reps
             raise RuntimeError("injected nuisance failure")
         return orig(*args, **kwargs)
 
@@ -448,15 +480,25 @@ def test_yu_elwert_bootstrap_failure_count_parsed(monkeypatch):
     n_boot = 40
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        res = sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                                     inference="bootstrap", n_boot=n_boot,
-                                     seed=SEED)
+        res = sp.yu_elwert_decompose(
+            df,
+            "y",
+            "t",
+            "r",
+            ["x1", "x2"],
+            inference="bootstrap",
+            n_boot=n_boot,
+            seed=SEED,
+        )
 
     parsed = res.nuisance["bootstrap_failure_count"]
     assert parsed > 0
     # Cross-check the parsed integer against the warning message itself.
-    msgs = [str(w.message) for w in caught
-            if "bootstrap replications failed" in str(w.message)]
+    msgs = [
+        str(w.message)
+        for w in caught
+        if "bootstrap replications failed" in str(w.message)
+    ]
     assert msgs, "expected a bootstrap-failure RuntimeWarning"
     reported = int(msgs[0].split("/")[0].split()[-1])
     assert parsed == reported
@@ -470,12 +512,13 @@ def test_yu_elwert_all_bootstrap_fail_raises(monkeypatch):
 
     def always_fail(*args, **kwargs):
         state["n"] += 1
-        if state["n"] == 1:   # point estimate succeeds
+        if state["n"] == 1:  # point estimate succeeds
             return orig(*args, **kwargs)
         raise RuntimeError("injected total failure")
 
     monkeypatch.setattr(ye, "_fit_within_cell_outcome", always_fail)
 
     with pytest.raises(RuntimeError, match="bootstrap replications failed"):
-        sp.yu_elwert_decompose(df, "y", "t", "r", ["x1", "x2"],
-                               inference="bootstrap", n_boot=20, seed=SEED)
+        sp.yu_elwert_decompose(
+            df, "y", "t", "r", ["x1", "x2"], inference="bootstrap", n_boot=20, seed=SEED
+        )

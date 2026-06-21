@@ -32,13 +32,22 @@ def staggered_panel():
     rows = []
     for u in range(n_units):
         for t in range(1, 9):
-            te = 1.0 * (t - g_assign[u] + 1) if g_assign[u] > 0 and t >= g_assign[u] else 0
+            te = (
+                1.0 * (t - g_assign[u] + 1)
+                if g_assign[u] > 0 and t >= g_assign[u]
+                else 0
+            )
             treated = 1 if g_assign[u] > 0 and t >= g_assign[u] else 0
             y = unit_fe[u] + 0.5 * t + te + rng.normal(0, 0.5)
-            rows.append({
-                'unit': u, 'time': t, 'y': y,
-                'g': g_assign[u], 'treated': treated,
-            })
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": y,
+                    "g": g_assign[u],
+                    "treated": treated,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -46,55 +55,61 @@ def staggered_panel():
 # Sun-Abraham tests
 # ======================================================================
 
+
 class TestSunAbraham:
     """Tests for Sun & Abraham (2021) IW estimator."""
 
     def test_basic_run(self, staggered_panel):
-        result = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit')
+        result = sun_abraham(staggered_panel, y="y", g="g", t="time", i="unit")
         assert isinstance(result, CausalResult)
-        assert 'Sun' in result.method
+        assert "Sun" in result.method
 
     def test_positive_att(self, staggered_panel):
         """Overall ATT should be positive (DGP has positive effects)."""
-        result = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit')
+        result = sun_abraham(staggered_panel, y="y", g="g", t="time", i="unit")
         assert result.estimate > 0
 
     def test_event_study_available(self, staggered_panel):
         """Event study should be in model_info."""
-        result = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit')
-        assert 'event_study' in result.model_info
-        es = result.model_info['event_study']
+        result = sun_abraham(staggered_panel, y="y", g="g", t="time", i="unit")
+        assert "event_study" in result.model_info
+        es = result.model_info["event_study"]
         assert len(es) > 0
-        assert 'relative_time' in es.columns
-        assert 'att' in es.columns
+        assert "relative_time" in es.columns
+        assert "att" in es.columns
 
     def test_post_effects_positive(self, staggered_panel):
         """Post-treatment event study effects should be positive."""
-        result = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit')
-        es = result.model_info['event_study']
-        post = es[es['relative_time'] >= 0]
+        result = sun_abraham(staggered_panel, y="y", g="g", t="time", i="unit")
+        es = result.model_info["event_study"]
+        post = es[es["relative_time"] >= 0]
         if len(post) > 0:
-            assert (post['att'] > 0).all()
+            assert (post["att"] > 0).all()
 
     def test_event_window(self, staggered_panel):
         """Custom event window should limit output."""
-        result = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit',
-                             event_window=(-3, 3))
-        es = result.model_info['event_study']
-        assert es['relative_time'].min() >= -3
-        assert es['relative_time'].max() <= 3
+        result = sun_abraham(
+            staggered_panel, y="y", g="g", t="time", i="unit", event_window=(-3, 3)
+        )
+        es = result.model_info["event_study"]
+        assert es["relative_time"].min() >= -3
+        assert es["relative_time"].max() <= 3
 
     def test_fixest_att_aggregation_matches_treated_cell_weighting(self):
         df = sp.datasets.mpdta()
         result = sun_abraham(
-            df, y='lemp', g='first_treat', t='year', i='countyreal',
-            aggregation='fixest_att',
+            df,
+            y="lemp",
+            g="first_treat",
+            t="year",
+            i="countyreal",
+            aggregation="fixest_att",
         )
 
-        assert result.model_info['summary_aggregation'] == 'fixest_att'
+        assert result.model_info["summary_aggregation"] == "fixest_att"
         assert result.estimate == pytest.approx(-0.03297651380944135, abs=1e-12)
-        assert result.model_info['att_fixest_att'] == pytest.approx(result.estimate)
-        assert result.model_info['att_event_time'] == pytest.approx(
+        assert result.model_info["att_fixest_att"] == pytest.approx(result.estimate)
+        assert result.model_info["att_event_time"] == pytest.approx(
             -0.033782519054575945,
             abs=1e-12,
         )
@@ -102,111 +117,134 @@ class TestSunAbraham:
     def test_did_dispatcher_passes_sunab_aggregation(self):
         df = sp.datasets.mpdta()
         result = sp.did(
-            df, y='lemp', treat='first_treat', time='year',
-            id='countyreal', method='sun_abraham',
-            aggregation='fixest_att',
+            df,
+            y="lemp",
+            treat="first_treat",
+            time="year",
+            id="countyreal",
+            method="sun_abraham",
+            aggregation="fixest_att",
         )
 
-        assert result.model_info['summary_aggregation'] == 'fixest_att'
+        assert result.model_info["summary_aggregation"] == "fixest_att"
         assert result.estimate == pytest.approx(-0.03297651380944135, abs=1e-12)
 
     def test_bad_aggregation_raises(self, staggered_panel):
-        with pytest.raises(ValueError, match='aggregation'):
+        with pytest.raises(ValueError, match="aggregation"):
             sun_abraham(
-                staggered_panel, y='y', g='g', t='time', i='unit',
-                aggregation='bad',
+                staggered_panel,
+                y="y",
+                g="g",
+                t="time",
+                i="unit",
+                aggregation="bad",
             )
 
     def test_via_did_dispatcher(self, staggered_panel):
         """did(method='sun_abraham') should dispatch correctly."""
-        result = did(staggered_panel, y='y', treat='g', time='time', id='unit',
-                     method='sun_abraham')
-        assert 'Sun' in result.method
+        result = did(
+            staggered_panel,
+            y="y",
+            treat="g",
+            time="time",
+            id="unit",
+            method="sun_abraham",
+        )
+        assert "Sun" in result.method
 
     def test_cite(self, staggered_panel):
-        result = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit')
+        result = sun_abraham(staggered_panel, y="y", g="g", t="time", i="unit")
         bib = result.cite()
-        assert 'sun2021' in bib
+        assert "sun2021" in bib
 
     def test_summary(self, staggered_panel):
-        result = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit')
+        result = sun_abraham(staggered_panel, y="y", g="g", t="time", i="unit")
         s = result.summary()
-        assert 'ATT' in s
+        assert "ATT" in s
 
 
 # ======================================================================
 # Bacon decomposition tests
 # ======================================================================
 
+
 class TestBaconDecomposition:
     """Tests for Goodman-Bacon (2021) decomposition."""
 
     def test_basic_run(self, staggered_panel):
         result = bacon_decomposition(
-            staggered_panel, y='y', treat='treated', time='time', id='unit')
-        assert 'decomposition' in result
-        assert 'beta_twfe' in result
+            staggered_panel, y="y", treat="treated", time="time", id="unit"
+        )
+        assert "decomposition" in result
+        assert "beta_twfe" in result
 
     def test_decomposition_nonempty(self, staggered_panel):
         result = bacon_decomposition(
-            staggered_panel, y='y', treat='treated', time='time', id='unit')
-        decomp = result['decomposition']
+            staggered_panel, y="y", treat="treated", time="time", id="unit"
+        )
+        decomp = result["decomposition"]
         assert len(decomp) > 0
-        assert 'type' in decomp.columns
-        assert 'estimate' in decomp.columns
-        assert 'weight' in decomp.columns
+        assert "type" in decomp.columns
+        assert "estimate" in decomp.columns
+        assert "weight" in decomp.columns
 
     def test_weights_sum_to_one(self, staggered_panel):
         """Normalized weights should sum to approximately 1."""
         result = bacon_decomposition(
-            staggered_panel, y='y', treat='treated', time='time', id='unit')
-        total_w = result['decomposition']['weight'].sum()
+            staggered_panel, y="y", treat="treated", time="time", id="unit"
+        )
+        total_w = result["decomposition"]["weight"].sum()
         assert abs(total_w - 1.0) < 0.01
 
     def test_bacondecomp_reference_identity_and_pair_rows(self):
         """Uncontrolled path follows R/Stata bacondecomp dyad conventions."""
         df = sp.datasets.mpdta()
         result = bacon_decomposition(
-            df, y='lemp', treat='treat', time='year', id='countyreal')
+            df, y="lemp", treat="treat", time="year", id="countyreal"
+        )
 
-        assert result['weighted_sum'] == pytest.approx(result['beta_twfe'], abs=1e-13)
-        assert result['weighted_sum'] == pytest.approx(-0.0375050765908744, abs=1e-13)
-        assert result['negative_weight_share'] == pytest.approx(0.0, abs=1e-15)
-        assert result['already_treated_control_weight_share'] > 0.0
+        assert result["weighted_sum"] == pytest.approx(result["beta_twfe"], abs=1e-13)
+        assert result["weighted_sum"] == pytest.approx(-0.0375050765908744, abs=1e-13)
+        assert result["negative_weight_share"] == pytest.approx(0.0, abs=1e-15)
+        assert result["already_treated_control_weight_share"] > 0.0
 
         pairs = {
-            (int(row['treated']), row['control']): row['estimate']
-            for _, row in result['decomposition'].iterrows()
+            (int(row["treated"]), row["control"]): row["estimate"]
+            for _, row in result["decomposition"].iterrows()
         }
         assert pairs[(2006, 2004.0)] == pytest.approx(-0.035748230665, abs=1e-12)
         assert pairs[(2004, 2006.0)] == pytest.approx(-0.0326750794690403, abs=1e-12)
-        assert pairs[(2004, 'Never')] == pytest.approx(-0.041908787447213, abs=1e-12)
+        assert pairs[(2004, "Never")] == pytest.approx(-0.041908787447213, abs=1e-12)
 
     def test_comparison_types(self, staggered_panel):
         """Should identify different comparison types."""
         result = bacon_decomposition(
-            staggered_panel, y='y', treat='treated', time='time', id='unit')
-        types = result['decomposition']['type'].unique()
+            staggered_panel, y="y", treat="treated", time="time", id="unit"
+        )
+        types = result["decomposition"]["type"].unique()
         # With 2 cohorts + never-treated, we should see multiple types
         assert len(types) >= 2
 
     def test_negative_weight_share(self, staggered_panel):
         """Should report negative weight share."""
         result = bacon_decomposition(
-            staggered_panel, y='y', treat='treated', time='time', id='unit')
-        assert 'negative_weight_share' in result
-        assert 0 <= result['negative_weight_share'] <= 1
+            staggered_panel, y="y", treat="treated", time="time", id="unit"
+        )
+        assert "negative_weight_share" in result
+        assert 0 <= result["negative_weight_share"] <= 1
 
     def test_twfe_estimate_reasonable(self, staggered_panel):
         """TWFE estimate should be positive (positive DGP)."""
         result = bacon_decomposition(
-            staggered_panel, y='y', treat='treated', time='time', id='unit')
-        assert result['beta_twfe'] > 0
+            staggered_panel, y="y", treat="treated", time="time", id="unit"
+        )
+        assert result["beta_twfe"] > 0
 
 
 # ======================================================================
 # Cross-method consistency
 # ======================================================================
+
 
 class TestCrossMethodConsistency:
     """Verify DID methods give broadly consistent results on same data."""
@@ -214,28 +252,32 @@ class TestCrossMethodConsistency:
     def test_cs_vs_sa_same_sign(self, staggered_panel):
         """C&S and Sun-Abraham should agree on sign of ATT."""
         from statspai.did import callaway_santanna
-        r_cs = callaway_santanna(staggered_panel, y='y', g='g', t='time', i='unit')
-        r_sa = sun_abraham(staggered_panel, y='y', g='g', t='time', i='unit')
+
+        r_cs = callaway_santanna(staggered_panel, y="y", g="g", t="time", i="unit")
+        r_sa = sun_abraham(staggered_panel, y="y", g="g", t="time", i="unit")
         assert r_cs.estimate > 0
         assert r_sa.estimate > 0
 
     def test_bacon_twfe_vs_cs(self, staggered_panel):
         """Bacon TWFE should differ from C&S (TWFE is biased with hetero effects)."""
         from statspai.did import callaway_santanna
-        r_cs = callaway_santanna(staggered_panel, y='y', g='g', t='time', i='unit')
+
+        r_cs = callaway_santanna(staggered_panel, y="y", g="g", t="time", i="unit")
         bacon = bacon_decomposition(
-            staggered_panel, y='y', treat='treated', time='time', id='unit')
+            staggered_panel, y="y", treat="treated", time="time", id="unit"
+        )
         # Both positive, but TWFE may differ due to heterogeneous effects
-        assert bacon['beta_twfe'] > 0
+        assert bacon["beta_twfe"] > 0
         assert r_cs.estimate > 0
 
 
 class TestIntegration:
     def test_import(self):
         import statspai as sp
-        assert hasattr(sp, 'sun_abraham')
-        assert hasattr(sp, 'bacon_decomposition')
+
+        assert hasattr(sp, "sun_abraham")
+        assert hasattr(sp, "bacon_decomposition")
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, '-v'])
+    pytest.main([__file__, "-v"])

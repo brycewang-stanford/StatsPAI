@@ -1,4 +1,5 @@
 """Regression tests for the generated top-level type stub."""
+
 from __future__ import annotations
 
 from pathlib import Path

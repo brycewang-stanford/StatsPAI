@@ -1,4 +1,5 @@
 """Coverage tests for statspai.did.cic (Changes-in-Changes, Athey & Imbens 2006)."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -42,13 +43,21 @@ def test_cic_att_only(cic_df):
 
 
 def test_cic_with_quantiles(cic_df):
-    r = sp.cic(cic_df, y="y", group="group", time="time",
-               quantiles=[0.25, 0.5, 0.75], n_boot=60, seed=2)
+    r = sp.cic(
+        cic_df,
+        y="y",
+        group="group",
+        time="time",
+        quantiles=[0.25, 0.5, 0.75],
+        n_boot=60,
+        seed=2,
+    )
     assert "qte" in r.model_info
     det = r.model_info["qte"]
     assert len(det) == 3
-    assert set(["quantile", "qte", "se", "ci_lower", "ci_upper",
-                "pvalue"]).issubset(det.columns)
+    assert set(["quantile", "qte", "se", "ci_lower", "ci_upper", "pvalue"]).issubset(
+        det.columns
+    )
     assert np.all(det["ci_lower"] <= det["ci_upper"])
 
 
@@ -60,14 +69,16 @@ def test_cic_summary_att(cic_df, capsys):
 
 
 def test_cic_summary_with_qte(cic_df):
-    r = sp.cic(cic_df, y="y", group="group", time="time",
-               quantiles=[0.5], n_boot=40, seed=4)
+    r = sp.cic(
+        cic_df, y="y", group="group", time="time", quantiles=[0.5], n_boot=40, seed=4
+    )
     out = r.summary()
     assert "Quantile Treatment Effects" in out
 
 
 def test_cic_plot_att(cic_df):
     import matplotlib
+
     matplotlib.use("Agg")
     r = sp.cic(cic_df, y="y", group="group", time="time", n_boot=30, seed=5)
     fig, ax = r.plot()
@@ -76,21 +87,32 @@ def test_cic_plot_att(cic_df):
 
 def test_cic_plot_qte(cic_df):
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    r = sp.cic(cic_df, y="y", group="group", time="time",
-               quantiles=[0.25, 0.5, 0.75], n_boot=30, seed=6)
+
+    r = sp.cic(
+        cic_df,
+        y="y",
+        group="group",
+        time="time",
+        quantiles=[0.25, 0.5, 0.75],
+        n_boot=30,
+        seed=6,
+    )
     fig, ax = plt.subplots()
     fig2, ax2 = r.plot(ax=ax)
     assert ax2 is not None
 
 
 def test_cic_too_few_obs_raises():
-    df = pd.DataFrame({
-        "y": [1.0, 2.0, 3.0],
-        "group": [0, 1, 1],
-        "time": [0, 0, 1],
-    })  # control-post cell empty
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0],
+            "group": [0, 1, 1],
+            "time": [0, 0, 1],
+        }
+    )  # control-post cell empty
     with pytest.raises(ValueError):
         sp.cic(df, y="y", group="group", time="time", n_boot=10)
 

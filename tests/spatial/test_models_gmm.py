@@ -1,4 +1,5 @@
 """GMM estimators — cross-validated against PySAL spreg on Columbus."""
+
 from __future__ import annotations
 
 import json
@@ -11,15 +12,15 @@ import pytest
 from statspai.spatial.weights.core import W
 from statspai.spatial.models.gmm import sem_gmm, sar_gmm, sarar_gmm
 
-
 FIXTURE = Path(__file__).parent / "fixtures" / "columbus_reference.json"
 
 
 @pytest.fixture(scope="module")
 def columbus():
-    ref = json.loads(FIXTURE.read_text(encoding='utf-8'))
+    ref = json.loads(FIXTURE.read_text(encoding="utf-8"))
     neighbors = {int(k): v for k, v in ref["neighbors"].items()}
-    w = W(neighbors); w.transform = "R"
+    w = W(neighbors)
+    w.transform = "R"
     df = pd.DataFrame({"CRIME": ref["y"], "INC": ref["INC"], "HOVAL": ref["HOVAL"]})
     return w, df, ref
 
@@ -27,14 +28,14 @@ def columbus():
 def test_sem_gmm_matches_spreg_GM_Error(columbus):
     w, df, ref = columbus
     res = sem_gmm(w, df, "CRIME ~ INC + HOVAL")
-    expected = ref["gm_error"]["betas"]             # [const, INC, HOVAL, lam]
+    expected = ref["gm_error"]["betas"]  # [const, INC, HOVAL, lam]
     np.testing.assert_allclose(res.params.values, expected, rtol=1e-4)
 
 
 def test_sar_gmm_matches_spreg_GM_Lag(columbus):
     w, df, ref = columbus
     res = sar_gmm(w, df, "CRIME ~ INC + HOVAL", w_lags=1)
-    expected = ref["gm_lag"]["betas_with_rho"]      # [const, INC, HOVAL, rho]
+    expected = ref["gm_lag"]["betas_with_rho"]  # [const, INC, HOVAL, rho]
     np.testing.assert_allclose(res.params.values, expected, rtol=1e-4)
 
 

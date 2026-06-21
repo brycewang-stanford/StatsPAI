@@ -19,7 +19,9 @@ def two_endog_dgp():
     d1 = 0.6 * z1 + 0.3 * z2 + 0.4 * eps + rng.normal(size=n, scale=0.5)
     d2 = 0.2 * z1 + 0.7 * z3 + 0.5 * eps + rng.normal(size=n, scale=0.5)
     y = 1 + 2 * d1 - 1.5 * d2 + 0.8 * x + eps
-    return pd.DataFrame({"y": y, "d1": d1, "d2": d2, "z1": z1, "z2": z2, "z3": z3, "x": x})
+    return pd.DataFrame(
+        {"y": y, "d1": d1, "d2": d2, "z1": z1, "z2": z2, "z3": z3, "x": x}
+    )
 
 
 @pytest.fixture
@@ -49,6 +51,7 @@ def weak_iv_dgp():
 #  Kleibergen-Paap rk
 # ────────────────────────────────────────────────────────────────────────
 
+
 class TestKleibergenPaap:
     def test_basic_strong_identification(self, two_endog_dgp):
         df = two_endog_dgp
@@ -66,7 +69,8 @@ class TestKleibergenPaap:
     def test_cov_type_nonrobust_matches_cragg_donald(self, single_endog_dgp):
         df = single_endog_dgp
         kp = iv.kleibergen_paap_rk(
-            endog=df[["d"]], instruments=df[["z1", "z2"]],
+            endog=df[["d"]],
+            instruments=df[["z1", "z2"]],
             cov_type="nonrobust",
         )
         assert kp.rk_f > 10
@@ -76,8 +80,11 @@ class TestKleibergenPaap:
         df = two_endog_dgp.copy()
         df["grp"] = np.tile(np.arange(50), len(df) // 50)
         kp = iv.kleibergen_paap_rk(
-            endog=df[["d1", "d2"]], instruments=df[["z1", "z2", "z3"]],
-            exog=df[["x"]], cov_type="cluster", cluster=df["grp"],
+            endog=df[["d1", "d2"]],
+            instruments=df[["z1", "z2", "z3"]],
+            exog=df[["x"]],
+            cov_type="cluster",
+            cluster=df["grp"],
         )
         assert kp.rk_f > 0
         assert "cluster" in kp.cov_type
@@ -87,7 +94,8 @@ class TestKleibergenPaap:
         # 2 endog, 1 instrument → should raise
         with pytest.raises(ValueError, match="Under-identified"):
             iv.kleibergen_paap_rk(
-                endog=df[["d1", "d2"]], instruments=df[["z1"]],
+                endog=df[["d1", "d2"]],
+                instruments=df[["z1"]],
             )
 
 
@@ -95,11 +103,13 @@ class TestKleibergenPaap:
 #  Sanderson-Windmeijer
 # ────────────────────────────────────────────────────────────────────────
 
+
 class TestSandersonWindmeijer:
     def test_two_endogenous(self, two_endog_dgp):
         df = two_endog_dgp
         sw = iv.sanderson_windmeijer(
-            endog=df[["d1", "d2"]], instruments=df[["z1", "z2", "z3"]],
+            endog=df[["d1", "d2"]],
+            instruments=df[["z1", "z2", "z3"]],
             exog=df[["x"]],
         )
         assert set(sw.sw_f.keys()) == {"d1", "d2"}
@@ -113,7 +123,8 @@ class TestSandersonWindmeijer:
     def test_single_endog_reduces_to_first_stage_f(self, single_endog_dgp):
         df = single_endog_dgp
         sw = iv.sanderson_windmeijer(
-            endog=df[["d"]], instruments=df[["z1", "z2"]],
+            endog=df[["d"]],
+            instruments=df[["z1", "z2"]],
         )
         assert sw.df_num["d"] == 2
         assert sw.sw_f["d"] > 10
@@ -121,7 +132,8 @@ class TestSandersonWindmeijer:
     def test_to_frame_shape(self, two_endog_dgp):
         df = two_endog_dgp
         sw = iv.sanderson_windmeijer(
-            endog=df[["d1", "d2"]], instruments=df[["z1", "z2", "z3"]],
+            endog=df[["d1", "d2"]],
+            instruments=df[["z1", "z2", "z3"]],
         )
         tbl = sw.to_frame()
         assert tbl.shape == (2, 4)
@@ -132,26 +144,42 @@ class TestSandersonWindmeijer:
 #  Moreira CLR
 # ────────────────────────────────────────────────────────────────────────
 
+
 class TestConditionalLR:
     def test_fails_to_reject_true_beta(self, single_endog_dgp):
         df = single_endog_dgp
         clr = iv.conditional_lr_test(
-            y="d", endog="d", instruments=["z1", "z2"], data=df.rename(columns={"y": "yorig"}),
-            beta0=1.0, n_simulations=2000, random_state=1,
+            y="d",
+            endog="d",
+            instruments=["z1", "z2"],
+            data=df.rename(columns={"y": "yorig"}),
+            beta0=1.0,
+            n_simulations=2000,
+            random_state=1,
         )
         # Not great test — use the proper dataset
         # Better: test with correct outcome
         clr = iv.conditional_lr_test(
-            y="y", endog="d", instruments=["z1", "z2"], data=df,
-            beta0=2.0, n_simulations=3000, random_state=1,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            data=df,
+            beta0=2.0,
+            n_simulations=3000,
+            random_state=1,
         )
         assert clr.pvalue > 0.05
 
     def test_rejects_wrong_beta(self, single_endog_dgp):
         df = single_endog_dgp
         clr = iv.conditional_lr_test(
-            y="y", endog="d", instruments=["z1", "z2"], data=df,
-            beta0=0.0, n_simulations=3000, random_state=1,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            data=df,
+            beta0=0.0,
+            n_simulations=3000,
+            random_state=1,
         )
         assert clr.pvalue < 0.001
         assert clr.statistic > 20
@@ -161,11 +189,13 @@ class TestConditionalLR:
 #  Weak instrument behaviour
 # ────────────────────────────────────────────────────────────────────────
 
+
 class TestWeakInstrumentFlagging:
     def test_sw_low_under_weak(self, weak_iv_dgp):
         df = weak_iv_dgp
         sw = iv.sanderson_windmeijer(
-            endog=df[["d"]], instruments=df[["z1"]],
+            endog=df[["d"]],
+            instruments=df[["z1"]],
         )
         # first-stage F should be small (< 10 typically) under this DGP
         assert sw.sw_f["d"] < 10
@@ -173,6 +203,7 @@ class TestWeakInstrumentFlagging:
     def test_kp_small_under_weak(self, weak_iv_dgp):
         df = weak_iv_dgp
         kp = iv.kleibergen_paap_rk(
-            endog=df[["d"]], instruments=df[["z1"]],
+            endog=df[["d"]],
+            instruments=df[["z1"]],
         )
         assert kp.rk_f < 15

@@ -94,6 +94,7 @@ References
   (No bib key in paper.bib — method named, not cited via a fabricated
   key; see CLAUDE.md §10.)
 """
+
 from __future__ import annotations
 
 import warnings
@@ -103,7 +104,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 # ---------------------------------------------------------------------------
 # Deterministic DGP builders.  True graphs are stated as frozensets of
@@ -186,6 +186,7 @@ def _make_forkcol(seed, n=4000, noise=0.3):
 # Structure-recovery helpers (graph -> comparable edge SETS).
 # ---------------------------------------------------------------------------
 
+
 def _pc_skeleton_set(result):
     """Undirected edge set of a PC result.
 
@@ -228,13 +229,13 @@ def _notears(df, variables):
         warnings.simplefilter("ignore")
         # w_threshold 0.3 (default-ish) prunes float-noise edges; lambda1
         # 0.05 keeps the four strong structural edges. Not under test.
-        return sp.notears(df, variables=variables,
-                          w_threshold=0.3, lambda1=0.05)
+        return sp.notears(df, variables=variables, w_threshold=0.3, lambda1=0.05)
 
 
 # ---------------------------------------------------------------------------
 # A. PC skeleton precision = recall = 1.
 # ---------------------------------------------------------------------------
+
 
 class TestPCSkeletonRecovery:
     """PC recovers the exact undirected skeleton of the linear chain."""
@@ -274,6 +275,7 @@ class TestPCSkeletonRecovery:
 # B. PC naive-correlation contrast (spurious marginal link is dropped).
 # ---------------------------------------------------------------------------
 
+
 class TestPCNaiveCorrelationContrast:
     """A strong marginal corr(X1,X4) must NOT survive as a PC edge."""
 
@@ -308,6 +310,7 @@ class TestPCNaiveCorrelationContrast:
 # C. PC v-structure orientation.
 # ---------------------------------------------------------------------------
 
+
 class TestPCVStructureOrientation:
     """PC orients the collider X0 -> X2 <- X1 (both arrows into X2)."""
 
@@ -334,6 +337,7 @@ class TestPCVStructureOrientation:
 # D. LiNGAM directed-edge recovery (precision = recall = 1) + coefficients.
 # ---------------------------------------------------------------------------
 
+
 class TestLiNGAMDirectedRecovery:
     """DirectLiNGAM recovers the exact directed chain (non-Gaussian)."""
 
@@ -358,8 +362,7 @@ class TestLiNGAMDirectedRecovery:
         # The unique causal order of a chain is X1, X2, X3, X4 (most
         # exogenous first). A flipped order would mis-orient every edge.
         assert order_names == CHAIN_VARS, (
-            f"LiNGAM causal order {order_names} != true chain order "
-            f"{CHAIN_VARS}"
+            f"LiNGAM causal order {order_names} != true chain order " f"{CHAIN_VARS}"
         )
 
     def test_coefficients_recover_truth(self):
@@ -396,6 +399,7 @@ class TestLiNGAMDirectedRecovery:
 # E. NOTEARS skeleton recovery + valid acyclic DAG.
 # ---------------------------------------------------------------------------
 
+
 class TestNOTEARSSkeletonRecovery:
     """NOTEARS recovers the fork+collider skeleton and returns a DAG.
 
@@ -427,9 +431,9 @@ class TestNOTEARSSkeletonRecovery:
         """
         df = _make_forkcol(31)
         r = _notears(df, FORKCOL_VARS)
-        assert abs(r["h_value"]) < 1e-6, (
-            f"NOTEARS returned a non-acyclic W: h={r['h_value']:.3e}"
-        )
+        assert (
+            abs(r["h_value"]) < 1e-6
+        ), f"NOTEARS returned a non-acyclic W: h={r['h_value']:.3e}"
         # The binary dag adjacency must encode exactly the recovered edges
         # (output-contract guard, notears.py:210-211).
         assert int(r["dag"].values.sum()) == r["n_edges"]
@@ -439,15 +443,17 @@ class TestNOTEARSSkeletonRecovery:
 # F. Seed stability — recovered structure is a property of the DGP.
 # ---------------------------------------------------------------------------
 
+
 class TestSeedStability:
     """PC skeleton, LiNGAM order, NOTEARS skeleton stable across seeds."""
 
     SEEDS = [0, 1, 2]
 
     def test_pc_skeleton_stable(self):
-        skels = [_pc_skeleton_set(_pc(_make_chain(s, gaussian=True),
-                                      CHAIN_VARS))
-                 for s in self.SEEDS]
+        skels = [
+            _pc_skeleton_set(_pc(_make_chain(s, gaussian=True), CHAIN_VARS))
+            for s in self.SEEDS
+        ]
         # Every seed yields the SAME skeleton == the true one.
         for s, sk in zip(self.SEEDS, skels):
             assert sk == CHAIN_TRUE_SKELETON, (
@@ -462,15 +468,14 @@ class TestSeedStability:
             res = sp.lingam(_make_chain(s, gaussian=False))
             orders.append([res.names[i] for i in res.order])
         for s, o in zip(self.SEEDS, orders):
-            assert o == CHAIN_VARS, (
-                f"LiNGAM order drifted on seed {s}: {o}"
-            )
+            assert o == CHAIN_VARS, f"LiNGAM order drifted on seed {s}: {o}"
         assert all(o == orders[0] for o in orders)
 
     def test_notears_skeleton_stable(self):
-        skels = [_notears_skeleton_set(_notears(_make_forkcol(s),
-                                                FORKCOL_VARS))
-                 for s in self.SEEDS]
+        skels = [
+            _notears_skeleton_set(_notears(_make_forkcol(s), FORKCOL_VARS))
+            for s in self.SEEDS
+        ]
         for s, sk in zip(self.SEEDS, skels):
             assert sk == FORKCOL_TRUE_SKELETON, (
                 f"NOTEARS skeleton drifted on seed {s}: "

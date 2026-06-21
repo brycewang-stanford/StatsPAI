@@ -1,4 +1,5 @@
 """Local projections (Jordà 2005) tests."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -13,13 +14,20 @@ def ar_dgp():
     rng = np.random.default_rng(0)
     n = 300
     eps = rng.standard_normal(n)
-    shock = np.zeros(n); shock[0] = rng.standard_normal()
+    shock = np.zeros(n)
+    shock[0] = rng.standard_normal()
     for t in range(1, n):
-        shock[t] = 0.3 * shock[t-1] + rng.standard_normal()
+        shock[t] = 0.3 * shock[t - 1] + rng.standard_normal()
     y = np.zeros(n)
     for t in range(4, n):
-        y[t] = (0.3 * y[t-1] + 1.0 * shock[t] + 0.7 * shock[t-1]
-                + 0.4 * shock[t-2] + 0.1 * shock[t-3] + 0.5 * eps[t])
+        y[t] = (
+            0.3 * y[t - 1]
+            + 1.0 * shock[t]
+            + 0.7 * shock[t - 1]
+            + 0.4 * shock[t - 2]
+            + 0.1 * shock[t - 3]
+            + 0.5 * eps[t]
+        )
     return pd.DataFrame({"y": y, "shock": shock})
 
 
@@ -44,8 +52,9 @@ def test_confidence_interval_bracketing(ar_dgp):
 
 def test_cumulative_mode_differs(ar_dgp):
     r1 = local_projections(ar_dgp, outcome="y", shock="shock", horizons=5)
-    r2 = local_projections(ar_dgp, outcome="y", shock="shock", horizons=5,
-                           cumulative=True)
+    r2 = local_projections(
+        ar_dgp, outcome="y", shock="shock", horizons=5, cumulative=True
+    )
     # cumulative and level responses differ by construction
     assert np.any(np.abs(r1.irf - r2.irf) > 0.05)
 
@@ -80,26 +89,30 @@ def test_lpirfs_cholesky_matches_reference_fixture():
 
     np.testing.assert_allclose(
         res.irf,
-        np.array([
-            0.0,
-            0.461444592839222,
-            0.299582531051504,
-            0.148092245451433,
-            -0.00543013383730529,
-            -0.00324604091867858,
-        ]),
+        np.array(
+            [
+                0.0,
+                0.461444592839222,
+                0.299582531051504,
+                0.148092245451433,
+                -0.00543013383730529,
+                -0.00324604091867858,
+            ]
+        ),
         atol=1e-12,
     )
     np.testing.assert_allclose(
         res.se,
-        np.array([
-            0.0,
-            0.0431362326194262,
-            0.0651216685321928,
-            0.0691169132528259,
-            0.0650565347230699,
-            0.0746097068040731,
-        ]),
+        np.array(
+            [
+                0.0,
+                0.0431362326194262,
+                0.0651216685321928,
+                0.0691169132528259,
+                0.0650565347230699,
+                0.0746097068040731,
+            ]
+        ),
         atol=1e-12,
     )
 
@@ -117,4 +130,5 @@ def test_lpirfs_cholesky_rejects_direct_controls(ar_dgp):
 
 def test_exported_at_sp_dot():
     import statspai as sp
+
     assert callable(sp.local_projections)

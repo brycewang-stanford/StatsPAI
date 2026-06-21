@@ -15,6 +15,7 @@ sklearn is installed in this environment, so these paths are reachable. Real
 synthetic RD data with a moderator-driven jump; assertions check recovered
 magnitude, positive SE, and structural keys — never fabricated numbers.
 """
+
 from __future__ import annotations
 
 import matplotlib
@@ -47,8 +48,7 @@ def _rd_df(seed=0, n=1500):
 
 def test_rd_forest_no_honesty():
     df = _rd_df()
-    r = sp.rd_forest(df, y="y", x="x", c=0, covs=["cov1"], n_trees=50,
-                     honesty=False)
+    r = sp.rd_forest(df, y="y", x="x", c=0, covs=["cov1"], n_trees=50, honesty=False)
     est = float(r.estimate)
     assert np.isfinite(est)
     # Planted jump is positive everywhere (eff in {2.0, 5.0}); average ATE=3.5.
@@ -94,8 +94,7 @@ def test_rd_forest_running_var_in_covs_errors():
 def test_rd_forest_missing_covariate_column():
     df = _rd_df()
     with pytest.raises(MethodIncompatibility, match="not found"):
-        sp.rd_forest(df, y="y", x="x", c=0, covs=["does_not_exist"],
-                     n_trees=50)
+        sp.rd_forest(df, y="y", x="x", c=0, covs=["does_not_exist"], n_trees=50)
 
 
 def test_rd_lasso_requires_covs():
@@ -106,8 +105,7 @@ def test_rd_lasso_requires_covs():
 
 def test_rd_cate_summary_method_subset():
     df = _rd_df()
-    out = sp.rd_cate_summary(df, y="y", x="x", c=0, covs="cov1",
-                             methods="lasso")
+    out = sp.rd_cate_summary(df, y="y", x="x", c=0, covs="cov1", methods="lasso")
     assert "lasso" in out
     assert "comparison" in out
     # Only the requested method ran -> exactly one comparison row, no others.
@@ -138,15 +136,17 @@ def test_rd_cate_summary_method_subset():
 def test_rd_cate_summary_unknown_method():
     df = _rd_df()
     with pytest.raises(MethodIncompatibility, match="Unknown methods"):
-        sp.rd_cate_summary(df, y="y", x="x", c=0, covs=["cov1"],
-                           methods=["forest", "nope"])
+        sp.rd_cate_summary(
+            df, y="y", x="x", c=0, covs=["cov1"], methods=["forest", "nope"]
+        )
 
 
 def test_rd_cate_summary_collects_errors():
     # too few covs/obs forces the per-method try/except error capture
     df = _rd_df(n=1500)
-    out = sp.rd_cate_summary(df, y="y", x="x", c=0, covs=["cov1"], h=0.001,
-                             methods=["forest"])
+    out = sp.rd_cate_summary(
+        df, y="y", x="x", c=0, covs=["cov1"], h=0.001, methods=["forest"]
+    )
     # forest should fail (too few obs in tiny bandwidth) -> forest_error key,
     # captured as a string rather than swallowed, and no successful result.
     assert "forest_error" in out

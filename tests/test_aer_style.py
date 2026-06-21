@@ -44,7 +44,6 @@ from statspai.output._aer_style import (  # noqa: E402
     BOTTOM_RULE_SZ,
 )
 
-
 # ---- document defaults --------------------------------------------------
 
 
@@ -94,8 +93,10 @@ def test_border_xml_top_set():
 
 def test_border_xml_all_set():
     """All six edges can be set simultaneously."""
-    kwargs = {edge: {"sz": "8", "val": "single"} for edge in
-              ("top", "bottom", "left", "right", "insideH", "insideV")}
+    kwargs = {
+        edge: {"sz": "8", "val": "single"}
+        for edge in ("top", "bottom", "left", "right", "insideH", "insideV")
+    }
     elem = _docx_border_xml(**kwargs)
     for edge in kwargs:
         assert elem.find(qn(f"w:{edge}")).get(qn("w:val")) == "single"
@@ -138,8 +139,12 @@ def test_clear_table_borders():
     for row in table.rows:
         for cell in row.cells:
             for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
-                val = cell._tc.find(qn("w:tcPr")).find(
-                    qn("w:tcBorders")).find(qn(f"w:{edge}")).get(qn("w:val"))
+                val = (
+                    cell._tc.find(qn("w:tcPr"))
+                    .find(qn("w:tcBorders"))
+                    .find(qn(f"w:{edge}"))
+                    .get(qn("w:val"))
+                )
                 assert val == "nil", f"{edge} is {val!r}"
 
 
@@ -243,7 +248,10 @@ class TestStyleWordTableTypography:
             for cell in row.cells:
                 cell.text = "x"
         style_word_table_typography(
-            table, font_name="Arial", header_pt=12, body_pt=9,
+            table,
+            font_name="Arial",
+            header_pt=12,
+            body_pt=9,
         )
         run0 = table.rows[0].cells[0].paragraphs[0].runs[0]
         assert run0.font.name == "Arial"
@@ -335,15 +343,27 @@ def test_render_dataframe_to_word_table_index_notes_and_rules():
     assert table.rows[1].cells[1].text == "1.23"
     assert table.rows[1].cells[2].text == ""
 
-    top = table.rows[0].cells[0]._tc.find(qn("w:tcPr")).find(
-        qn("w:tcBorders")
-    ).find(qn("w:top"))
-    mid = table.rows[0].cells[0]._tc.find(qn("w:tcPr")).find(
-        qn("w:tcBorders")
-    ).find(qn("w:bottom"))
-    bottom = table.rows[-1].cells[0]._tc.find(qn("w:tcPr")).find(
-        qn("w:tcBorders")
-    ).find(qn("w:bottom"))
+    top = (
+        table.rows[0]
+        .cells[0]
+        ._tc.find(qn("w:tcPr"))
+        .find(qn("w:tcBorders"))
+        .find(qn("w:top"))
+    )
+    mid = (
+        table.rows[0]
+        .cells[0]
+        ._tc.find(qn("w:tcPr"))
+        .find(qn("w:tcBorders"))
+        .find(qn("w:bottom"))
+    )
+    bottom = (
+        table.rows[-1]
+        .cells[0]
+        ._tc.find(qn("w:tcPr"))
+        .find(qn("w:tcBorders"))
+        .find(qn("w:bottom"))
+    )
 
     assert top.get(qn("w:sz")) == TOP_RULE_SZ
     assert mid.get(qn("w:sz")) == MID_RULE_SZ
@@ -359,6 +379,7 @@ class TestExcelBooktabBorders:
     def test_four_borders_returned(self):
         top, mid, bot, none = excel_booktab_borders()
         from openpyxl.styles import Border, Side
+
         assert isinstance(top, Border)
         assert isinstance(mid, Border)
         assert isinstance(bot, Border)
@@ -376,6 +397,7 @@ class TestExcelBooktabBorders:
         """Apply borders to real cells and verify via openpyxl."""
         from openpyxl import Workbook
         from openpyxl.styles import Border
+
         wb = Workbook()
         ws = wb.active
         top, mid, bot, none = excel_booktab_borders()

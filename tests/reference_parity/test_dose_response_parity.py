@@ -105,6 +105,7 @@ References (bib keys verified present in paper.bib via grep)
 - de Chaisemartin & D'Haultfoeuille (2018), "Fuzzy
   Differences-in-Differences". [@dechaisemartin2018fuzzy]
 """
+
 from __future__ import annotations
 
 import warnings
@@ -115,10 +116,9 @@ import pytest
 
 import statspai as sp
 
-
 # Hand-set population parameters shared by the DGPs below.
-BETA = 0.8   # structural dose-response slope for the GPS cross-section
-TAU = 0.5    # per-unit-dose DiD effect on the post-period gain
+BETA = 0.8  # structural dose-response slope for the GPS cross-section
+TAU = 0.5  # per-unit-dose DiD effect on the post-period gain
 
 
 def _within_n_se(est, truth, se, n_sigma=4.0):
@@ -128,6 +128,7 @@ def _within_n_se(est, truth, se, n_sigma=4.0):
 # ---------------------------------------------------------------------------
 # Deterministic DGP builders (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
+
 
 def _make_gps_dgp(seed, n=800, confounded=False):
     """Linear-Gaussian continuous-treatment DGP with known slope BETA.
@@ -179,6 +180,7 @@ def _make_did_dgp(seed, n=400, confounded_fe=False):
 # Module fixtures.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def gps_unconfounded():
     return _make_gps_dgp(202, n=800, confounded=False)
@@ -202,11 +204,16 @@ def did_confounded():
 def _dose_response_linear(df, n_bootstrap=40):
     """GPS curve with linear models -> exactly linear curve (fast)."""
     from sklearn.linear_model import LinearRegression
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return sp.dose_response(
-            df, y="y", treat="d", covariates=["x"],
-            n_dose_points=11, n_bootstrap=n_bootstrap,
+            df,
+            y="y",
+            treat="d",
+            covariates=["x"],
+            n_dose_points=11,
+            n_bootstrap=n_bootstrap,
             treatment_model=LinearRegression(),
             outcome_model=LinearRegression(),
             random_state=0,
@@ -216,6 +223,7 @@ def _dose_response_linear(df, n_bootstrap=40):
 # ---------------------------------------------------------------------------
 # A. GPS unconfounded recovery of BETA.
 # ---------------------------------------------------------------------------
+
 
 class TestGPSRecovery:
     """sp.dose_response recovers the hand-set slope BETA = 0.8."""
@@ -254,6 +262,7 @@ class TestGPSRecovery:
 # B. GPS curve internal consistency (linear-model closed form).
 # ---------------------------------------------------------------------------
 
+
 class TestGPSCurveConsistency:
     """effect_25_to_75 == curve_slope*(dose_75 - dose_25)."""
 
@@ -283,6 +292,7 @@ class TestGPSCurveConsistency:
 # C. GPS naive-bias contrast (GBM partially de-confounds).
 # ---------------------------------------------------------------------------
 
+
 class TestGPSNaiveBias:
     """Naive Y~D slope is biased high; GPS moves toward truth."""
 
@@ -308,8 +318,13 @@ class TestGPSNaiveBias:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             r = sp.dose_response(
-                df, y="y", treat="d", covariates=["x"],
-                n_dose_points=8, n_bootstrap=3, random_state=0,
+                df,
+                y="y",
+                treat="d",
+                covariates=["x"],
+                n_dose_points=8,
+                n_bootstrap=3,
+                random_state=0,
             )
         me = r.model_info["avg_marginal_effect"]
         # Strictly between truth and naive: a real correction, not a
@@ -327,14 +342,22 @@ class TestGPSNaiveBias:
 # D. Continuous-DiD slope recovery of TAU.
 # ---------------------------------------------------------------------------
 
+
 class TestContinuousDiDRecovery:
     """method='twfe' dose x post coefficient recovers TAU = 0.5."""
 
     def test_twfe_slope_within_4_se(self, did_clean):
         df, _dose = did_clean
         r = sp.continuous_did(
-            df, y="wage", dose="dose", time="year", id="id",
-            t_pre=2019, t_post=2020, method="twfe", seed=0,
+            df,
+            y="wage",
+            dose="dose",
+            time="year",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method="twfe",
+            seed=0,
         )
         # 4-sigma recovery (suite convention; probed z ~-1.6).  A 20%
         # multiplicative bias on the slope lands ~20 sigma out and fails.
@@ -347,6 +370,7 @@ class TestContinuousDiDRecovery:
 # ---------------------------------------------------------------------------
 # E. Continuous-DiD naive-bias contrast.
 # ---------------------------------------------------------------------------
+
 
 class TestContinuousDiDNaiveBias:
     """Cross-section Y~dose is biased; DiD differences the FE away."""
@@ -373,8 +397,15 @@ class TestContinuousDiDNaiveBias:
         )
 
         r = sp.continuous_did(
-            df, y="wage", dose="dose", time="year", id="id",
-            t_pre=2019, t_post=2020, method="twfe", seed=0,
+            df,
+            y="wage",
+            dose="dose",
+            time="year",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method="twfe",
+            seed=0,
         )
         # DiD differences the fixed effect out and recovers TAU within
         # 4 sigma (probed z ~-0.1) -- AND lands far below the naive slope.
@@ -392,6 +423,7 @@ class TestContinuousDiDNaiveBias:
 # F. Continuous-DiD cross-method consistency (level vs slope).
 # ---------------------------------------------------------------------------
 
+
 class TestContinuousDiDCGSConsistency:
     """cgs level ATT == TAU*mean_dose; cgs ACRT == TAU."""
 
@@ -401,8 +433,16 @@ class TestContinuousDiDCGSConsistency:
     def test_cgs_level_equals_tau_times_mean_dose(self, did_clean):
         df, dose = did_clean
         r = sp.continuous_did(
-            df, y="wage", dose="dose", time="year", id="id",
-            t_pre=2019, t_post=2020, method="cgs", n_boot=120, seed=0,
+            df,
+            y="wage",
+            dose="dose",
+            time="year",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method="cgs",
+            n_boot=120,
+            seed=0,
         )
         mean_treated_dose = float(dose[dose > 0].mean())
         level_truth = TAU * mean_treated_dose
@@ -419,8 +459,16 @@ class TestContinuousDiDCGSConsistency:
     def test_cgs_acrt_recovers_tau_slope(self, did_clean):
         df, _dose = did_clean
         r = sp.continuous_did(
-            df, y="wage", dose="dose", time="year", id="id",
-            t_pre=2019, t_post=2020, method="cgs", n_boot=120, seed=0,
+            df,
+            y="wage",
+            dose="dose",
+            time="year",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method="cgs",
+            n_boot=120,
+            seed=0,
         )
         acrt = float(r.model_info["acrt_overall"])
         acrt_se = float(r.model_info["acrt_se"])
@@ -436,6 +484,7 @@ class TestContinuousDiDCGSConsistency:
 # G. Determinism / seed-stability.
 # ---------------------------------------------------------------------------
 
+
 class TestDeterminism:
     """Fixed seeds -> bitwise-identical repeated calls."""
 
@@ -447,8 +496,17 @@ class TestDeterminism:
 
     def test_continuous_did_deterministic(self, did_clean):
         df, _dose = did_clean
-        kw = dict(y="wage", dose="dose", time="year", id="id",
-                  t_pre=2019, t_post=2020, method="att_gt", n_boot=80, seed=42)
+        kw = dict(
+            y="wage",
+            dose="dose",
+            time="year",
+            id="id",
+            t_pre=2019,
+            t_post=2020,
+            method="att_gt",
+            n_boot=80,
+            seed=42,
+        )
         a = sp.continuous_did(df, **kw)
         b = sp.continuous_did(df, **kw)
         assert a.estimate == b.estimate, "continuous_did estimate not deterministic"

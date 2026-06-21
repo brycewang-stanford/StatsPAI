@@ -11,6 +11,7 @@ DGP — semi-linear with confounding:
 
 n = 1000, p = 10 covariates, all i.i.d. standard normal.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -42,6 +43,7 @@ for j in range(p):
 df = pd.DataFrame(cols)
 
 import pathlib
+
 out = pathlib.Path(__file__).parent / "dml_data.csv"
 df.to_csv(out, index=False)
 print(f"Wrote {out}  (n={n}, true theta={THETA})")

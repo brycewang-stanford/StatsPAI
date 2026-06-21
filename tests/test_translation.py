@@ -3,6 +3,7 @@
 Round-trip dictionary: a representative Stata command per Tier-1
 target, plus parser stress tests (comments, options, abbreviations).
 """
+
 from __future__ import annotations
 
 import json
@@ -23,14 +24,14 @@ from statspai.agent import execute_tool, mcp_handle_request
 
 
 def _rpc(method, params=None, request_id=1):
-    msg = {"jsonrpc": "2.0", "id": request_id, "method": method,
-           "params": params or {}}
+    msg = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
     return json.loads(mcp_handle_request(json.dumps(msg)))
 
 
 # ----------------------------------------------------------------------
 # Lexer
 # ----------------------------------------------------------------------
+
 
 class TestStataLexer:
     def test_basic_command(self):
@@ -90,46 +91,74 @@ class TestStataLexer:
 TIER1_ROUND_TRIPS = [
     # regress
     ("regress y x1 x2", "regress", {"formula": "y ~ x1 + x2"}),
-    ("reg wage education experience, robust",
-     "regress", {"formula": "wage ~ education + experience", "robust": "hc1"}),
-    ("regress y x, vce(cluster id)",
-     "regress", {"formula": "y ~ x", "cluster": "id"}),
+    (
+        "reg wage education experience, robust",
+        "regress",
+        {"formula": "wage ~ education + experience", "robust": "hc1"},
+    ),
+    ("regress y x, vce(cluster id)", "regress", {"formula": "y ~ x", "cluster": "id"}),
     # xtreg
-    ("xtreg y x, fe i(worker)",
-     "fixest", {"formula": "y ~ x", "fe": ["worker"]}),
-    ("xtreg y x, fe vce(cluster id) i(id)",
-     "fixest", {"formula": "y ~ x", "fe": ["id"], "cluster": "id"}),
+    ("xtreg y x, fe i(worker)", "fixest", {"formula": "y ~ x", "fe": ["worker"]}),
+    (
+        "xtreg y x, fe vce(cluster id) i(id)",
+        "fixest",
+        {"formula": "y ~ x", "fe": ["id"], "cluster": "id"},
+    ),
     # reghdfe
-    ("reghdfe y x, absorb(id year) cluster(id)",
-     "fixest", {"formula": "y ~ x", "fe": ["id", "year"], "cluster": "id"}),
-    ("reghdfe wage edu exp, absorb(firm year)",
-     "fixest", {"formula": "wage ~ edu + exp", "fe": ["firm", "year"]}),
+    (
+        "reghdfe y x, absorb(id year) cluster(id)",
+        "fixest",
+        {"formula": "y ~ x", "fe": ["id", "year"], "cluster": "id"},
+    ),
+    (
+        "reghdfe wage edu exp, absorb(firm year)",
+        "fixest",
+        {"formula": "wage ~ edu + exp", "fe": ["firm", "year"]},
+    ),
     # ivreg2
-    ("ivreg2 y x1 (d = z1 z2)",
-     "ivreg", {"formula": "y ~ x1 + (d ~ z1 z2)"}),
-    ("ivregress y (d = z), cluster(id)",
-     "ivreg", {"formula": "y ~ (d ~ z)"}),
-    ("ivreghdfe y x1 x2 (d = z1 z2), absorb(firm year) cluster(firm)",
-     "fixest",
-     {"formula": "y ~ x1 + x2 + (d ~ z1 + z2)",
-      "fe": ["firm", "year"], "cluster": "firm"}),
+    ("ivreg2 y x1 (d = z1 z2)", "ivreg", {"formula": "y ~ x1 + (d ~ z1 z2)"}),
+    ("ivregress y (d = z), cluster(id)", "ivreg", {"formula": "y ~ (d ~ z)"}),
+    (
+        "ivreghdfe y x1 x2 (d = z1 z2), absorb(firm year) cluster(firm)",
+        "fixest",
+        {
+            "formula": "y ~ x1 + x2 + (d ~ z1 + z2)",
+            "fe": ["firm", "year"],
+            "cluster": "firm",
+        },
+    ),
     # csdid
-    ("csdid wage, ivar(worker_id) tvar(year) gvar(first_treat)",
-     "callaway_santanna",
-     {"y": "wage", "i": "worker_id", "t": "year", "g": "first_treat"}),
+    (
+        "csdid wage, ivar(worker_id) tvar(year) gvar(first_treat)",
+        "callaway_santanna",
+        {"y": "wage", "i": "worker_id", "t": "year", "g": "first_treat"},
+    ),
     # did_imputation
-    ("did_imputation y, treatment(treat) horizons(0 1 2)",
-     "did_imputation", {"y": "y", "treat": "treat", "horizons": [0, 1, 2]}),
+    (
+        "did_imputation y, treatment(treat) horizons(0 1 2)",
+        "did_imputation",
+        {"y": "y", "treat": "treat", "horizons": [0, 1, 2]},
+    ),
     # synth
-    ("synth gdp inflation unemployment, trunit(7) trperiod(1990) "
-     "unit(state) time(year)",
-     "synth", {"outcome": "gdp", "treated_unit": 7, "treatment_time": 1990,
-                "unit": "state", "time": "year"}),
+    (
+        "synth gdp inflation unemployment, trunit(7) trperiod(1990) "
+        "unit(state) time(year)",
+        "synth",
+        {
+            "outcome": "gdp",
+            "treated_unit": 7,
+            "treatment_time": 1990,
+            "unit": "state",
+            "time": "year",
+        },
+    ),
     # rdrobust
-    ("rdrobust y x, c(0.5)",
-     "rdrobust", {"y": "y", "x": "x", "c": 0.5}),
-    ("rdrobust wage age, c(18) kernel(uniform)",
-     "rdrobust", {"y": "wage", "x": "age", "c": 18.0, "kernel": "uniform"}),
+    ("rdrobust y x, c(0.5)", "rdrobust", {"y": "y", "x": "x", "c": 0.5}),
+    (
+        "rdrobust wage age, c(18) kernel(uniform)",
+        "rdrobust",
+        {"y": "wage", "x": "age", "c": 18.0, "kernel": "uniform"},
+    ),
 ]
 
 
@@ -141,7 +170,8 @@ def test_tier1_round_trip(stata, tool, subset):
     for k, v in subset.items():
         assert out["arguments"].get(k) == v, (
             f"{stata!r}: arguments[{k!r}] = "
-            f"{out['arguments'].get(k)!r}, expected {v!r}")
+            f"{out['arguments'].get(k)!r}, expected {v!r}"
+        )
     # python_code is always non-empty
     assert out["python_code"]
     # JSON-serializable
@@ -170,45 +200,75 @@ class TestStataDispatchPolicy:
 # ----------------------------------------------------------------------
 
 R_ROUND_TRIPS = [
-    ("feols(y ~ x, data = df)",
-     "fixest", {"formula": "y ~ x", "fe": []}),
-    ("feols(y ~ x | id, data = df)",
-     "fixest", {"formula": "y ~ x", "fe": ["id"]}),
-    ("feols(y ~ x | id + year, data = df, cluster = \"id\")",
-     "fixest", {"formula": "y ~ x", "fe": ["id", "year"], "cluster": "id"}),
-    ("feols(y ~ x | id^year | (d ~ z), data = df)",
-     "fixest", {"formula": "y ~ x + (d ~ z)", "fe": ["id^year"]}),
-    ("lm(y ~ x + z, data = df)",
-     "regress", {"formula": "y ~ x + z"}),
-    ("att_gt(yname=\"y\", gname=\"g\", tname=\"t\", idname=\"id\", data=df)",
-     "callaway_santanna",
-     {"y": "y", "g": "g", "t": "t", "i": "id"}),
+    ("feols(y ~ x, data = df)", "fixest", {"formula": "y ~ x", "fe": []}),
+    ("feols(y ~ x | id, data = df)", "fixest", {"formula": "y ~ x", "fe": ["id"]}),
+    (
+        'feols(y ~ x | id + year, data = df, cluster = "id")',
+        "fixest",
+        {"formula": "y ~ x", "fe": ["id", "year"], "cluster": "id"},
+    ),
+    (
+        "feols(y ~ x | id^year | (d ~ z), data = df)",
+        "fixest",
+        {"formula": "y ~ x + (d ~ z)", "fe": ["id^year"]},
+    ),
+    ("lm(y ~ x + z, data = df)", "regress", {"formula": "y ~ x + z"}),
+    (
+        'att_gt(yname="y", gname="g", tname="t", idname="id", data=df)',
+        "callaway_santanna",
+        {"y": "y", "g": "g", "t": "t", "i": "id"},
+    ),
     # GLM family — recognised binomial/poisson route to the
     # specialised sp helper.
-    ("glm(y ~ x, family = binomial, data = df)",
-     "logit", {"formula": "y ~ x"}),
-    ("glm(y ~ x, family = binomial(link = \"probit\"), data = df)",
-     "probit", {"formula": "y ~ x"}),
-    ("glm(counts ~ x, family = poisson, data = df)",
-     "poisson", {"formula": "counts ~ x"}),
-    ("glm(y ~ x, family = gaussian, data = df)",
-     "glm", {"formula": "y ~ x", "family": "gaussian"}),
+    ("glm(y ~ x, family = binomial, data = df)", "logit", {"formula": "y ~ x"}),
+    (
+        'glm(y ~ x, family = binomial(link = "probit"), data = df)',
+        "probit",
+        {"formula": "y ~ x"},
+    ),
+    (
+        "glm(counts ~ x, family = poisson, data = df)",
+        "poisson",
+        {"formula": "counts ~ x"},
+    ),
+    (
+        "glm(y ~ x, family = gaussian, data = df)",
+        "glm",
+        {"formula": "y ~ x", "family": "gaussian"},
+    ),
     # Multilevel / GLMM
-    ("lmer(y ~ x + (1|group), data = df)",
-     "multilevel", {"formula": "y ~ x + (1|group)"}),
-    ("glmer(y ~ x + (1|group), family = binomial, data = df)",
-     "glmer", {"formula": "y ~ x + (1|group)", "family": "binomial"}),
+    (
+        "lmer(y ~ x + (1|group), data = df)",
+        "multilevel",
+        {"formula": "y ~ x + (1|group)"},
+    ),
+    (
+        "glmer(y ~ x + (1|group), family = binomial, data = df)",
+        "glmer",
+        {"formula": "y ~ x + (1|group)", "family": "binomial"},
+    ),
     # Panel
-    ("plm(y ~ x, data = df, model = \"within\", index = c(\"id\", \"t\"))",
-     "panel", {"formula": "y ~ x", "method": "within",
-                "id": "id", "time": "t"}),
-    ("plm(y ~ x, data = df, model = \"random\")",
-     "panel", {"formula": "y ~ x", "method": "random"}),
+    (
+        'plm(y ~ x, data = df, model = "within", index = c("id", "t"))',
+        "panel",
+        {"formula": "y ~ x", "method": "within", "id": "id", "time": "t"},
+    ),
+    (
+        'plm(y ~ x, data = df, model = "random")',
+        "panel",
+        {"formula": "y ~ x", "method": "random"},
+    ),
     # MatchIt
-    ("matchit(treat ~ x1 + x2, data = df, method = \"nearest\")",
-     "match", {"formula": "treat ~ x1 + x2", "method": "nn"}),
-    ("matchit(treat ~ x1, data = df, method = \"genetic\")",
-     "match", {"formula": "treat ~ x1", "method": "genmatch"}),
+    (
+        'matchit(treat ~ x1 + x2, data = df, method = "nearest")',
+        "match",
+        {"formula": "treat ~ x1 + x2", "method": "nn"},
+    ),
+    (
+        'matchit(treat ~ x1, data = df, method = "genetic")',
+        "match",
+        {"formula": "treat ~ x1", "method": "genmatch"},
+    ),
 ]
 
 
@@ -220,7 +280,8 @@ def test_r_round_trip(rcall, tool, subset):
     for k, v in subset.items():
         assert out["arguments"].get(k) == v, (
             f"{rcall!r}: arguments[{k!r}] = "
-            f"{out['arguments'].get(k)!r}, expected {v!r}")
+            f"{out['arguments'].get(k)!r}, expected {v!r}"
+        )
 
 
 class TestRDispatchPolicy:
@@ -236,12 +297,8 @@ class TestRDispatchPolicy:
 
 class TestEconomistMigrationUseCases:
     def test_reghdfe_and_feols_share_estimand_shape(self):
-        stata = from_stata(
-            "reghdfe y x1 x2, absorb(firm year) cluster(firm)"
-        )
-        r = from_r(
-            'feols(y ~ x1 + x2 | firm + year, data = df, cluster = "firm")'
-        )
+        stata = from_stata("reghdfe y x1 x2, absorb(firm year) cluster(firm)")
+        r = from_r('feols(y ~ x1 + x2 | firm + year, data = df, cluster = "firm")')
 
         assert stata["ok"] is True, stata
         assert r["ok"] is True, r
@@ -250,8 +307,7 @@ class TestEconomistMigrationUseCases:
 
     def test_csdid_and_att_gt_share_timing_shape(self):
         stata = from_stata(
-            "csdid lemp, ivar(countyreal) time(year) "
-            "gvar(first_treat) method(reg)"
+            "csdid lemp, ivar(countyreal) time(year) " "gvar(first_treat) method(reg)"
         )
         r = from_r(
             'att_gt(yname="lemp", tname="year", idname="countyreal", '
@@ -269,7 +325,7 @@ class TestEconomistMigrationUseCases:
             "ivreghdfe y x1 x2 (d = z1 z2), absorb(firm year) cluster(firm)"
         )
         r = from_r(
-            'feols(y ~ x1 + x2 | firm + year | (d ~ z1 + z2), '
+            "feols(y ~ x1 + x2 | firm + year | (d ~ z1 + z2), "
             'data=df, cluster="firm")'
         )
 
@@ -283,10 +339,12 @@ class TestEconomistMigrationUseCases:
 # MCP integration: workflow tool dispatch
 # ----------------------------------------------------------------------
 
+
 class TestExecuteToolFromStata:
     def test_via_execute_tool(self):
-        out = execute_tool("from_stata",
-                           {"command": "reghdfe y x, absorb(id) cluster(id)"})
+        out = execute_tool(
+            "from_stata", {"command": "reghdfe y x, absorb(id) cluster(id)"}
+        )
         assert out["ok"] is True
         assert out["tool"] == "fixest"
         assert out["source"] == "stata"
@@ -305,11 +363,7 @@ class TestExecuteToolFromStata:
     def test_ivreghdfe_via_execute_tool(self):
         out = execute_tool(
             "from_stata",
-            {
-                "command": (
-                    "ivreghdfe y x (d = z), absorb(id year) cluster(id)"
-                )
-            },
+            {"command": ("ivreghdfe y x (d = z), absorb(id year) cluster(id)")},
         )
         assert out["ok"] is True
         assert out["tool"] == "fixest"
@@ -323,8 +377,7 @@ class TestExecuteToolFromStata:
 
 class TestExecuteToolFromR:
     def test_via_execute_tool(self):
-        out = execute_tool("from_r",
-                           {"expression": "feols(y ~ x | id, data=df)"})
+        out = execute_tool("from_r", {"expression": "feols(y ~ x | id, data=df)"})
         assert out["ok"] is True
         assert out["tool"] == "fixest"
 
@@ -337,6 +390,7 @@ class TestExecuteToolFromR:
 # MCP RPC: tools/list shows them, tools/call dispatches them
 # ----------------------------------------------------------------------
 
+
 class TestRpcSurface:
     def test_translators_in_manifest(self):
         msg = _rpc("tools/list", {})
@@ -348,14 +402,18 @@ class TestRpcSurface:
         msg = _rpc("tools/list", {})
         for t in msg["result"]["tools"]:
             if t["name"] in ("from_stata", "from_r"):
-                assert "data_path" not in t["inputSchema"]["required"], (
-                    f"{t['name']} should be dataless")
+                assert (
+                    "data_path" not in t["inputSchema"]["required"]
+                ), f"{t['name']} should be dataless"
 
     def test_rpc_translation(self):
-        msg = _rpc("tools/call", {
-            "name": "from_stata",
-            "arguments": {"command": "rdrobust y x, c(0)"},
-        })
+        msg = _rpc(
+            "tools/call",
+            {
+                "name": "from_stata",
+                "arguments": {"command": "rdrobust y x, c(0)"},
+            },
+        )
         body = json.loads(msg["result"]["content"][0]["text"])
         assert body["tool"] == "rdrobust"
         assert body["arguments"]["c"] == 0.0
@@ -368,88 +426,142 @@ class TestRpcSurface:
 TIER2_ROUND_TRIPS = [
     # GLM family
     ("probit y x1 x2", "probit", {"formula": "y ~ x1 + x2"}),
-    ("logit treated age income, vce(cluster fid)",
-     "logit", {"formula": "treated ~ age + income", "cluster": "fid"}),
-    ("poisson visits age, robust",
-     "poisson", {"formula": "visits ~ age", "robust": "hc1"}),
-    ("nbreg counts x1 x2",
-     "nbreg", {"formula": "counts ~ x1 + x2"}),
-    ("xtnbreg counts x1 x2, fe i(firm) vce(cluster firm) irr",
-     "xtnbreg",
-     {"formula": "counts ~ x1 + x2", "entity": "firm",
-      "model": "fe", "cluster": "firm", "irr": True}),
+    (
+        "logit treated age income, vce(cluster fid)",
+        "logit",
+        {"formula": "treated ~ age + income", "cluster": "fid"},
+    ),
+    (
+        "poisson visits age, robust",
+        "poisson",
+        {"formula": "visits ~ age", "robust": "hc1"},
+    ),
+    ("nbreg counts x1 x2", "nbreg", {"formula": "counts ~ x1 + x2"}),
+    (
+        "xtnbreg counts x1 x2, fe i(firm) vce(cluster firm) irr",
+        "xtnbreg",
+        {
+            "formula": "counts ~ x1 + x2",
+            "entity": "firm",
+            "model": "fe",
+            "cluster": "firm",
+            "irr": True,
+        },
+    ),
     # Censored regression
-    ("tobit hours wage kids, ll(0) ul(80)",
-     "tobit", {"formula": "hours ~ wage + kids",
-                "lower": 0.0, "upper": 80.0}),
+    (
+        "tobit hours wage kids, ll(0) ul(80)",
+        "tobit",
+        {"formula": "hours ~ wage + kids", "lower": 0.0, "upper": 80.0},
+    ),
     # Selection
-    ("heckman wage education, select(employed = age kids)",
-     "heckman",
-     {"formula": "wage ~ education",
-      "select_formula": "employed ~ age + kids"}),
+    (
+        "heckman wage education, select(employed = age kids)",
+        "heckman",
+        {"formula": "wage ~ education", "select_formula": "employed ~ age + kids"},
+    ),
     # RD ancillary
     ("rdplot y x, c(0)", "rdplot", {"y": "y", "x": "x", "c": 0.0}),
     ("rddensity x, c(0.5)", "rddensity", {"x": "x", "c": 0.5}),
     # teffects
-    ("teffects ipw (y) (treat z1 z2)",
-     "ipw", {"y": "y", "treat": "treat", "covariates": ["z1", "z2"]}),
-    ("teffects nnmatch (y x1) (treat)",
-     "match",
-     {"y": "y", "treat": "treat", "method": "nn"}),
+    (
+        "teffects ipw (y) (treat z1 z2)",
+        "ipw",
+        {"y": "y", "treat": "treat", "covariates": ["z1", "z2"]},
+    ),
+    (
+        "teffects nnmatch (y x1) (treat)",
+        "match",
+        {"y": "y", "treat": "treat", "method": "nn"},
+    ),
     # Stata psmatch2 migration
-    ("psmatch2 d x, out(y) n(1) logit",
-     "psmatch2",
-     {"treat": "d", "outcome": "y", "covariates": ["x"], "neighbor": 1}),
-    ("psmatch2 d x, kernel kerneltype(epan) bwidth(0.06)",
-     "psmatch2",
-     {"treat": "d", "covariates": ["x"], "method": "kernel",
-      "kernel": "epan", "bwidth": 0.06}),
-    ("psmatch2 d x, radius caliper(0.05) common ai(2)",
-     "psmatch2",
-     {"treat": "d", "covariates": ["x"], "method": "radius",
-      "caliper": 0.05, "common_support": "minmax", "ai": 2}),
+    (
+        "psmatch2 d x, out(y) n(1) logit",
+        "psmatch2",
+        {"treat": "d", "outcome": "y", "covariates": ["x"], "neighbor": 1},
+    ),
+    (
+        "psmatch2 d x, kernel kerneltype(epan) bwidth(0.06)",
+        "psmatch2",
+        {
+            "treat": "d",
+            "covariates": ["x"],
+            "method": "kernel",
+            "kernel": "epan",
+            "bwidth": 0.06,
+        },
+    ),
+    (
+        "psmatch2 d x, radius caliper(0.05) common ai(2)",
+        "psmatch2",
+        {
+            "treat": "d",
+            "covariates": ["x"],
+            "method": "radius",
+            "caliper": 0.05,
+            "common_support": "minmax",
+            "ai": 2,
+        },
+    ),
     # Postestimation
-    ("margins, dydx(treat)",
-     "margins", {"variables": [], "dydx": ["treat"]}),
-    ("contrast x1",
-     "contrast", {"terms": ["x1"]}),
-    ("test x1 x2",
-     "test", {"terms": ["x1", "x2"]}),
+    ("margins, dydx(treat)", "margins", {"variables": [], "dydx": ["treat"]}),
+    ("contrast x1", "contrast", {"terms": ["x1"]}),
+    ("test x1 x2", "test", {"terms": ["x1", "x2"]}),
     # Panel declaration (no-op)
-    ("xtset id year",
-     "xtset", {"id": "id", "time": "year"}),
+    ("xtset id year", "xtset", {"id": "id", "time": "year"}),
     ("tsset year", "xtset", {"id": "year"}),
 ]
 
 
 TIER3_ROUND_TRIPS = [
     # Poisson HDFE
-    ("ppmlhdfe trade gravity, absorb(orig dest year) cluster(orig)",
-     "ppmlhdfe",
-     {"formula": "trade ~ gravity",
-      "fe": ["orig", "dest", "year"], "cluster": "orig"}),
+    (
+        "ppmlhdfe trade gravity, absorb(orig dest year) cluster(orig)",
+        "ppmlhdfe",
+        {
+            "formula": "trade ~ gravity",
+            "fe": ["orig", "dest", "year"],
+            "cluster": "orig",
+        },
+    ),
     # Multinomial / ordinal
-    ("mlogit choice age income, baseoutcome(1)",
-     "glm", {"formula": "choice ~ age + income",
-              "family": "multinomial", "base_outcome": 1}),
-    ("oprobit grade x1 x2",
-     "glm", {"formula": "grade ~ x1 + x2",
-              "family": "ordered_probit"}),
+    (
+        "mlogit choice age income, baseoutcome(1)",
+        "glm",
+        {
+            "formula": "choice ~ age + income",
+            "family": "multinomial",
+            "base_outcome": 1,
+        },
+    ),
+    (
+        "oprobit grade x1 x2",
+        "glm",
+        {"formula": "grade ~ x1 + x2", "family": "ordered_probit"},
+    ),
     # Dynamic panel GMM
-    ("xtabond y x1 x2, twostep robust i(firm)",
-     "xtabond",
-     {"y": "y", "x": ["x1", "x2"], "id": "firm",
-      "twostep": True, "robust": True}),
-    ("xtdpdsys y x1, twostep i(unit)",
-     "xtdpdsys",
-     {"y": "y", "x": ["x1"], "id": "unit", "twostep": True}),
+    (
+        "xtabond y x1 x2, twostep robust i(firm)",
+        "xtabond",
+        {"y": "y", "x": ["x1", "x2"], "id": "firm", "twostep": True, "robust": True},
+    ),
+    (
+        "xtdpdsys y x1, twostep i(unit)",
+        "xtdpdsys",
+        {"y": "y", "x": ["x1"], "id": "unit", "twostep": True},
+    ),
     # Bunching
-    ("bunching income, c(50000) bw(2000)",
-     "bunching", {"x": "income", "c": 50000.0, "bandwidth": 2000.0}),
+    (
+        "bunching income, c(50000) bw(2000)",
+        "bunching",
+        {"x": "income", "c": 50000.0, "bandwidth": 2000.0},
+    ),
     # boottest (post-estimation)
-    ("boottest x1=0, reps(999) cluster(id)",
-     "wild_cluster_bootstrap",
-     {"hypothesis": ["x1=0"], "B": 999, "cluster": "id"}),
+    (
+        "boottest x1=0, reps(999) cluster(id)",
+        "wild_cluster_bootstrap",
+        {"hypothesis": ["x1=0"], "B": 999, "cluster": "id"},
+    ),
     # mi estimate: passes through with a translation note.
     ("mi estimate: reg y x", "mi_estimate", {}),
 ]
@@ -463,7 +575,8 @@ def test_tier3_round_trip(stata, tool, subset):
     for k, v in subset.items():
         assert out["arguments"].get(k) == v, (
             f"{stata!r}: arguments[{k!r}] = "
-            f"{out['arguments'].get(k)!r}, expected {v!r}")
+            f"{out['arguments'].get(k)!r}, expected {v!r}"
+        )
     json.dumps(out)
 
 
@@ -498,7 +611,8 @@ def test_tier2_round_trip(stata, tool, subset):
     for k, v in subset.items():
         assert out["arguments"].get(k) == v, (
             f"{stata!r}: arguments[{k!r}] = "
-            f"{out['arguments'].get(k)!r}, expected {v!r}")
+            f"{out['arguments'].get(k)!r}, expected {v!r}"
+        )
     json.dumps(out)
 
 
@@ -551,14 +665,15 @@ class TestTier2EdgeCases:
 # Coverage — every Tier-1 entry has a test
 # ----------------------------------------------------------------------
 
+
 class TestStataHandlerCoverage:
     def test_every_handler_has_round_trip(self):
         # Every handler in the dispatch map (de-duped by handler id) must
         # appear in TIER1_ROUND_TRIPS or TIER2_ROUND_TRIPS at least once.
         covered = set()
         import re
-        for stata, _, _ in (TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS
-                             + TIER3_ROUND_TRIPS):
+
+        for stata, _, _ in TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS + TIER3_ROUND_TRIPS:
             head = stata.split()[0]
             # Strip trailing punctuation: ``margins, dydx(...)`` →
             # ``margins`` (the comma is the option-separator, not part
@@ -570,9 +685,10 @@ class TestStataHandlerCoverage:
         for alias, h in STATA_COMMAND_MAP.items():
             handler_to_aliases.setdefault(id(h), []).append(alias)
         uncovered_handlers = [
-            aliases for aliases in handler_to_aliases.values()
+            aliases
+            for aliases in handler_to_aliases.values()
             if not any(a in covered for a in aliases)
         ]
         assert not uncovered_handlers, (
-            f"these handler aliases have no round-trip test: "
-            f"{uncovered_handlers}")
+            f"these handler aliases have no round-trip test: " f"{uncovered_handlers}"
+        )

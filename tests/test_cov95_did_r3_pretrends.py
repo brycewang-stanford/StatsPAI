@@ -20,8 +20,9 @@ from statspai.core.results import CausalResult
 def es_result():
     df = sp.dgp_did(n_units=140, n_periods=10, staggered=False, seed=5).copy()
     df["first_treat"] = df["first_treat"].fillna(0)
-    return sp.event_study(df, y="y", treat_time="first_treat", time="time",
-                          unit="unit", window=(-4, 4))
+    return sp.event_study(
+        df, y="y", treat_time="first_treat", time="time", unit="unit", window=(-4, 4)
+    )
 
 
 def test_pretrends_test_wald(es_result):
@@ -95,14 +96,16 @@ def _hand_event_study_result():
     rel = [-3, -2, -1, 0, 1, 2]
     est = [0.02, -0.01, 0.0, 0.4, 0.5, 0.55]
     se = [0.05, 0.05, 0.0, 0.06, 0.06, 0.07]
-    detail = pd.DataFrame({
-        "relative_time": rel,
-        "estimate": est,
-        "se": se,
-    })
+    detail = pd.DataFrame(
+        {
+            "relative_time": rel,
+            "estimate": est,
+            "se": se,
+        }
+    )
     # vcv_pre over ALL pre-periods (3 rows incl. the reference), diagonal.
     pre_se = np.array([0.05, 0.05, 0.0])
-    vcv_pre = np.diag(pre_se ** 2)
+    vcv_pre = np.diag(pre_se**2)
     return CausalResult(
         method="event_study",
         estimand="ATT(k)",

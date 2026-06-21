@@ -9,6 +9,7 @@ Two distinct facets are exercised:
 Both must surface through the registry, the OpenAI tool-schema
 serializer, the help layer, and the CLI list filter.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -34,7 +35,9 @@ class TestStabilitySchema:
 
         with pytest.raises(ValueError, match="stability="):
             FunctionSpec(
-                name="x", category="utils", description="x",
+                name="x",
+                category="utils",
+                description="x",
                 stability="bogus_tier",
             )
 
@@ -61,9 +64,7 @@ class TestStabilityFlowsThroughRegistry:
 
         d = describe_function("principal_strat")
         assert d["stability"] == "stable"
-        assert any(
-            "instrument" in lim.lower() for lim in d["limitations"]
-        ), (
+        assert any("instrument" in lim.lower() for lim in d["limitations"]), (
             "principal_strat must advertise that the instrument= "
             "two-layer setup is not yet implemented"
         )
@@ -129,8 +130,11 @@ class TestStabilityFilters:
 
         exp = list_functions(stability="experimental")
         # The three v1.13 experimental flagship entries.
-        for name in ("text_treatment_effect", "llm_annotator_correct",
-                     "did_multiplegt_dyn"):
+        for name in (
+            "text_treatment_effect",
+            "llm_annotator_correct",
+            "did_multiplegt_dyn",
+        ):
             assert name in exp, (
                 f"{name} should be visible to "
                 "list_functions(stability='experimental')"
@@ -183,6 +187,7 @@ class TestStabilityInHelpLayer:
         # Either no experimental entries (then the tier is omitted) OR
         # the badge shows up.
         from statspai.registry import _REGISTRY
+
         if any(s.stability == "experimental" for s in _REGISTRY.values()):
             assert "[experimental]" in text
 

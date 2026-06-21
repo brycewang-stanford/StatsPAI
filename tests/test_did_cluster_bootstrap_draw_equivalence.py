@@ -5,6 +5,7 @@ a pre-grouped fancy-index build. With an identically-seeded RNG the resampled
 rows and the collision-avoiding relabel suffixes must be byte-for-byte the same
 as the old implementation (reproduced here as the reference).
 """
+
 import numpy as np
 import pandas as pd
 
@@ -32,33 +33,37 @@ def _panel(n_clusters=40, periods=6, seed=3):
     rows = []
     for c in range(n_clusters):
         for t in range(periods):
-            rows.append({"unit": c, "time": t,
-                         "y": rng.normal(), "x": rng.normal()})
+            rows.append({"unit": c, "time": t, "y": rng.normal(), "x": rng.normal()})
     return pd.DataFrame(rows)
 
 
 def test_matches_reference_default_relabel():
     df = _panel()
-    new = cluster_bootstrap_draw(
-        df, cluster_col="unit", rng=np.random.default_rng(123))
-    ref = _reference_draw(
-        df, cluster_col="unit", rng=np.random.default_rng(123))
+    new = cluster_bootstrap_draw(df, cluster_col="unit", rng=np.random.default_rng(123))
+    ref = _reference_draw(df, cluster_col="unit", rng=np.random.default_rng(123))
     pd.testing.assert_frame_equal(new, ref)
 
 
 def test_matches_reference_multi_relabel_cols():
     df = _panel(seed=11)
     new = cluster_bootstrap_draw(
-        df, cluster_col="unit", rng=np.random.default_rng(7),
-        relabel_cols=["unit", "time"], sep="__d")
+        df,
+        cluster_col="unit",
+        rng=np.random.default_rng(7),
+        relabel_cols=["unit", "time"],
+        sep="__d",
+    )
     ref = _reference_draw(
-        df, cluster_col="unit", rng=np.random.default_rng(7),
-        relabel_cols=["unit", "time"], sep="__d")
+        df,
+        cluster_col="unit",
+        rng=np.random.default_rng(7),
+        relabel_cols=["unit", "time"],
+        sep="__d",
+    )
     pd.testing.assert_frame_equal(new, ref)
 
 
 def test_row_count_preserved():
     df = _panel()
-    out = cluster_bootstrap_draw(
-        df, cluster_col="unit", rng=np.random.default_rng(1))
+    out = cluster_bootstrap_draw(df, cluster_col="unit", rng=np.random.default_rng(1))
     assert len(out) == len(df)  # balanced panel: equal cluster sizes

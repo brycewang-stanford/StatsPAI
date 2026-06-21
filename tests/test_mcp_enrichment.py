@@ -1,5 +1,5 @@
-"""Tests for Module D — output enrichment (next_calls / citations / narrative).
-"""
+"""Tests for Module D — output enrichment (next_calls / citations / narrative)."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -31,10 +31,12 @@ def _toy_panel():
 # next_calls
 # ----------------------------------------------------------------------
 
+
 class TestBuildNextCalls:
     def test_did_has_followups(self):
-        out = build_next_calls("did", result_id="r_abc",
-                                base_args={"y": "wage", "data_path": "/tmp/x.csv"})
+        out = build_next_calls(
+            "did", result_id="r_abc", base_args={"y": "wage", "data_path": "/tmp/x.csv"}
+        )
         assert len(out) >= 1
         first = out[0]
         assert first["tool"] == "audit_result"
@@ -52,9 +54,9 @@ class TestBuildNextCalls:
         assert build_next_calls("not_a_real_tool") == []
 
     def test_template_arguments_preserved_over_base(self):
-        out = build_next_calls("did",
-                                result_id="r_z",
-                                base_args={"method": "OVERWRITE_ME"})
+        out = build_next_calls(
+            "did", result_id="r_z", base_args={"method": "OVERWRITE_ME"}
+        )
         # honest_did_from_result template carries method=SD; base_args
         # should NOT overwrite it.
         for c in out:
@@ -65,6 +67,7 @@ class TestBuildNextCalls:
 # ----------------------------------------------------------------------
 # citations
 # ----------------------------------------------------------------------
+
 
 class TestBuildCitations:
     def test_callaway_santanna(self):
@@ -89,22 +92,30 @@ class TestBuildCitations:
 # narrative
 # ----------------------------------------------------------------------
 
+
 class TestBuildNarrative:
     def test_basic_payload(self):
-        text = build_narrative("did",
-                                {"method": "did", "estimate": 0.243,
-                                 "std_error": 0.041,
-                                 "conf_low": 0.162, "conf_high": 0.324,
-                                 "n_obs": 5234, "estimand": "ATT"})
+        text = build_narrative(
+            "did",
+            {
+                "method": "did",
+                "estimate": 0.243,
+                "std_error": 0.041,
+                "conf_low": 0.162,
+                "conf_high": 0.324,
+                "n_obs": 5234,
+                "estimand": "ATT",
+            },
+        )
         assert "did" in text.lower()
         assert "0.243" in text or "0.24" in text
         assert "ATT" in text
         assert "5,234" in text
 
     def test_violations_surfaced(self):
-        text = build_narrative("did",
-                                {"method": "did",
-                                 "violations": ["pre-trend rejected"]})
+        text = build_narrative(
+            "did", {"method": "did", "violations": ["pre-trend rejected"]}
+        )
         assert "violations" in text.lower()
 
     def test_empty_payload_returns_empty(self):
@@ -117,19 +128,18 @@ class TestBuildNarrative:
 # enrich_payload integration
 # ----------------------------------------------------------------------
 
+
 class TestEnrichPayload:
     def test_inplace_mutation(self):
         p = {"estimate": 1.0, "method": "callaway_santanna"}
-        out = enrich_payload(p, tool_name="callaway_santanna",
-                              result_id="r_x")
+        out = enrich_payload(p, tool_name="callaway_santanna", result_id="r_x")
         assert out is p  # in-place
         assert "next_calls" in p
         assert "citations" in p
         assert "callaway2021difference" in p["citations"]["keys"]
 
     def test_existing_keys_not_overwritten(self):
-        p = {"narrative": "user-provided",
-             "citations": {"keys": ["custom"]}}
+        p = {"narrative": "user-provided", "citations": {"keys": ["custom"]}}
         enrich_payload(p, tool_name="callaway_santanna")
         assert p["narrative"] == "user-provided"
         assert p["citations"]["keys"] == ["custom"]
@@ -138,6 +148,7 @@ class TestEnrichPayload:
 # ----------------------------------------------------------------------
 # End-to-end: execute_tool surfaces next_calls + citations
 # ----------------------------------------------------------------------
+
 
 class TestExecuteToolEnrichment:
     def test_did_emits_next_calls(self):

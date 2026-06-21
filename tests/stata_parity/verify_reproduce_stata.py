@@ -34,6 +34,7 @@ Usage::
 Writes ``results/REPRODUCIBILITY_REPORT_STATA.md`` and exits non-zero if
 any attempted module drifts.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -133,7 +134,8 @@ def run_one(module: str, exe: str, timeout: int) -> dict:
         if log.exists():
             tail = " | ".join(
                 log.read_text(encoding="utf-8", errors="replace")
-                .strip().splitlines()[-3:]
+                .strip()
+                .splitlines()[-3:]
             )[:300]
         return {"module": module, "status": "stata_error", "detail": tail}
 
@@ -205,8 +207,7 @@ def render_report(results: list[dict]) -> str:
                 f"| {r.get('detail','')}"
             )
     lines.append("")
-    if any(r.get("relaxed") for r in results
-           if r["status"] in ("reproduces", "drift")):
+    if any(r.get("relaxed") for r in results if r["status"] in ("reproduces", "drift")):
         lines += [
             "\\* Reproduction tolerance relaxed to 1e-6 (iterative optimiser, "
             "BLAS/seed sensitive); see `REPRO_TOL_OVERRIDE` in "
@@ -254,17 +255,19 @@ def main() -> int:
 
     if not args.no_report:
         (RESULTS_DIR / "REPRODUCIBILITY_REPORT_STATA.md").write_text(
-            render_report(results), encoding="utf-8")
+            render_report(results), encoding="utf-8"
+        )
         print(f"\nWrote {RESULTS_DIR / 'REPRODUCIBILITY_REPORT_STATA.md'}")
 
     drifted = [r for r in results if r["status"] == "drift"]
     reproduced = [r for r in results if r["status"] == "reproduces"]
     skipped = [r for r in results if r["status"] not in ("reproduces", "drift")]
-    print(f"\nSummary: {len(reproduced)} reproduce, {len(drifted)} drift, "
-          f"{len(skipped)} skipped/errored.")
+    print(
+        f"\nSummary: {len(reproduced)} reproduce, {len(drifted)} drift, "
+        f"{len(skipped)} skipped/errored."
+    )
     if drifted:
-        print("DRIFT modules (must explain):",
-              ", ".join(r["module"] for r in drifted))
+        print("DRIFT modules (must explain):", ", ".join(r["module"] for r in drifted))
         return 2
     return 0
 

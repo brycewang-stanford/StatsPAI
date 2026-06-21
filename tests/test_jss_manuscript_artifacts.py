@@ -10,14 +10,9 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 AUDIT = (
-    REPO_ROOT
-    / "Paper-JSS"
-    / "replication"
-    / "scripts"
-    / "manuscript_artifact_audit.py"
+    REPO_ROOT / "Paper-JSS" / "replication" / "scripts" / "manuscript_artifact_audit.py"
 )
 RESULTS = REPO_ROOT / "Paper-JSS" / "replication" / "results"
 
@@ -47,8 +42,7 @@ def test_active_manuscript_artifacts_have_generators_and_hash_guards() -> None:
 
     payload = json.loads((RESULTS / "manuscript_artifact_audit.json").read_text())
     artifacts = {
-        row["path"]: row
-        for row in [*payload["tables"], *payload["figure_artifacts"]]
+        row["path"]: row for row in [*payload["tables"], *payload["figure_artifacts"]]
     }
 
     assert payload["status"] == "PASS"
@@ -63,12 +57,13 @@ def test_active_manuscript_artifacts_have_generators_and_hash_guards() -> None:
         "Paper-JSS/manuscript/figures/ex03_mpdta_event_study.pdf",
         "Paper-JSS/manuscript/figures/track_c_loglog.pdf",
     } == set(artifacts)
-    assert artifacts[
-        "Paper-JSS/manuscript/tables/track_c_perf.tex"
-    ]["hash_equal"] is True
-    assert artifacts[
-        "Paper-JSS/manuscript/figures/track_c_loglog.pdf"
-    ]["hash_equal"] is True
+    assert (
+        artifacts["Paper-JSS/manuscript/tables/track_c_perf.tex"]["hash_equal"] is True
+    )
+    assert (
+        artifacts["Paper-JSS/manuscript/figures/track_c_loglog.pdf"]["hash_equal"]
+        is True
+    )
 
     snapshot = (
         REPO_ROOT

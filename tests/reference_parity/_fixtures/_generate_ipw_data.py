@@ -14,6 +14,7 @@ n = 800.  Propensities lie comfortably inside (0.02, 0.98), so no
 trimming is involved and the unpenalized-logit Hajek estimate is a
 smooth functional of the data — ideal for tight cross-language parity.
 """
+
 from __future__ import annotations
 
 import pathlib

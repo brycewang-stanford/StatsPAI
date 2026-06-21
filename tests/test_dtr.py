@@ -29,10 +29,10 @@ import pytest
 
 import statspai as sp
 
-
 # --------------------------------------------------------------------- #
 # Data generators
 # --------------------------------------------------------------------- #
+
 
 def _make_two_stage(n=600, seed=0):
     """Two-stage DTR with a unique linear optimal rule.
@@ -50,13 +50,18 @@ def _make_two_stage(n=600, seed=0):
     rng = np.random.default_rng(seed)
     x1 = rng.normal(size=n)
     a1 = rng.binomial(1, 0.5, n)
-    x2 = rng.normal(size=n)         # independent of a1 ⇒ myopic optimum
+    x2 = rng.normal(size=n)  # independent of a1 ⇒ myopic optimum
     a2 = rng.binomial(1, 0.5, n)
     Y = 2.0 * x1 * a1 + 1.5 * x2 * a2 + 0.5 * rng.normal(size=n)
-    return pd.DataFrame({
-        "x1": x1, "x2": x2, "a1": a1.astype(int), "a2": a2.astype(int),
-        "y": Y,
-    })
+    return pd.DataFrame(
+        {
+            "x1": x1,
+            "x2": x2,
+            "a1": a1.astype(int),
+            "a2": a2.astype(int),
+            "y": Y,
+        }
+    )
 
 
 def _make_one_stage(n=400, seed=1):
@@ -81,7 +86,8 @@ class TestQLearning:
     def test_smoke_two_stage(self):
         df = _make_two_stage()
         r = sp.q_learning(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a1", "a2"],
             stage_covariates=[["x1"], ["x2"]],
         )
@@ -99,7 +105,8 @@ class TestQLearning:
         Q-learning, not a defect in this implementation.)"""
         df = _make_two_stage(n=2000, seed=42)
         r = sp.q_learning(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a1", "a2"],
             stage_covariates=[["x1"], ["x2"]],
         )
@@ -112,7 +119,8 @@ class TestQLearning:
         recovers ``treat iff x1 > 0``."""
         df = _make_one_stage(n=1500, seed=3)
         r = sp.q_learning(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a"],
             stage_covariates=[["x1"]],
         )
@@ -122,7 +130,8 @@ class TestQLearning:
     def test_value_beats_no_treatment(self):
         df = _make_two_stage(n=1000)
         r = sp.q_learning(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a1", "a2"],
             stage_covariates=[["x1"], ["x2"]],
         )
@@ -132,7 +141,8 @@ class TestQLearning:
     def test_one_stage(self):
         df = _make_one_stage()
         r = sp.q_learning(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a"],
             stage_covariates=[["x1"]],
         )
@@ -143,7 +153,8 @@ class TestQLearning:
         df = _make_one_stage()
         with pytest.raises(ValueError, match="equal length"):
             sp.q_learning(
-                df, outcome="y",
+                df,
+                outcome="y",
                 actions=["a"],
                 stage_covariates=[["x1"], ["x1"]],
             )
@@ -159,7 +170,8 @@ class TestALearning:
     def test_smoke_two_stage(self):
         df = _make_two_stage()
         r = sp.a_learning(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a1", "a2"],
             stage_covariates=[["x1"], ["x2"]],
         )
@@ -174,7 +186,8 @@ class TestALearning:
         contrast under A-learning's parametrisation)."""
         df = _make_two_stage(n=2000, seed=7)
         r = sp.a_learning(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a1", "a2"],
             stage_covariates=[["x1"], ["x2"]],
         )
@@ -194,7 +207,8 @@ class TestGEstimation:
     def test_smoke_two_stage(self):
         df = _make_two_stage(n=400)
         r = sp.g_estimation(
-            df, y="y",
+            df,
+            y="y",
             treatments=["a1", "a2"],
             covariates_by_stage=[["x1"], ["x2"]],
             n_bootstrap=50,
@@ -215,7 +229,8 @@ class TestSNMM:
     def test_smoke_two_stage(self):
         df = _make_two_stage(n=600)
         r = sp.snmm(
-            df, outcome="y",
+            df,
+            outcome="y",
             actions=["a1", "a2"],
             stage_covariates=[["x1"], ["x2"]],
         )

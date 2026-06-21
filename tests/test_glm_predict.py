@@ -77,7 +77,9 @@ def test_glm_predict_unseen_category_raises_taxonomy(poisson_data):
     model.fit()
 
     new_data = pd.DataFrame({"x": [0.0], "g": ["c"]})
-    with pytest.raises(MethodIncompatibility, match="prediction design matrix") as excinfo:
+    with pytest.raises(
+        MethodIncompatibility, match="prediction design matrix"
+    ) as excinfo:
         model.predict(new_data)
     assert excinfo.value.diagnostics["formula"] == "y ~ x + C(g)"
 
@@ -111,11 +113,13 @@ def test_glm_predict_errors_use_exception_taxonomy(poisson_data):
     with pytest.raises(MethodIncompatibility, match="offset length"):
         model.predict(new_data, offset=np.ones(3))
 
-    x = np.column_stack([
-        np.ones(len(poisson_data)),
-        poisson_data["x"].to_numpy(),
-        poisson_data["z"].to_numpy(),
-    ])
+    x = np.column_stack(
+        [
+            np.ones(len(poisson_data)),
+            poisson_data["x"].to_numpy(),
+            poisson_data["z"].to_numpy(),
+        ]
+    )
     raw = GLMRegression(
         y=poisson_data["y"].to_numpy(),
         X=x,

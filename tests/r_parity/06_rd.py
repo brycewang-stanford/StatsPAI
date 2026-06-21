@@ -8,12 +8,12 @@ row, but the parity headline is the canonical CCT path.
 
 Tolerance: rel < 1e-6 against R/Stata CCT defaults.
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import ParityRecord, dump_csv, write_results
-
 
 MODULE = "06_rd"
 
@@ -31,7 +31,9 @@ def main() -> None:
         d = fit.model_info[label]
         rows.append(
             ParityRecord(
-                module=MODULE, side="py", statistic=f"default_{label}_est",
+                module=MODULE,
+                side="py",
+                statistic=f"default_{label}_est",
                 estimate=float(d["estimate"]),
                 se=float(d["se"]),
                 ci_lo=float(d["ci"][0]),
@@ -42,14 +44,20 @@ def main() -> None:
 
     rows.append(
         ParityRecord(
-            module=MODULE, side="py", statistic="default_bandwidth_h",
-            estimate=float(fit.model_info["bandwidth_h"]), n=int(len(df)),
+            module=MODULE,
+            side="py",
+            statistic="default_bandwidth_h",
+            estimate=float(fit.model_info["bandwidth_h"]),
+            n=int(len(df)),
         )
     )
     rows.append(
         ParityRecord(
-            module=MODULE, side="py", statistic="default_bandwidth_b",
-            estimate=float(fit.model_info["bandwidth_b"]), n=int(len(df)),
+            module=MODULE,
+            side="py",
+            statistic="default_bandwidth_b",
+            estimate=float(fit.model_info["bandwidth_b"]),
+            n=int(len(df)),
         )
     )
 
@@ -58,14 +66,17 @@ def main() -> None:
     legacy = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0)
     rows.append(
         ParityRecord(
-            module=MODULE, side="py",
+            module=MODULE,
+            side="py",
             statistic="legacy_internal_mserd_bandwidth_h",
-            estimate=float(legacy.model_info["bandwidth_h"]), n=int(len(df)),
+            estimate=float(legacy.model_info["bandwidth_h"]),
+            n=int(len(df)),
         )
     )
     rows.append(
         ParityRecord(
-            module=MODULE, side="py",
+            module=MODULE,
+            side="py",
             statistic="legacy_internal_mserd_robust_est",
             estimate=float(legacy.model_info["robust"]["estimate"]),
             se=float(legacy.model_info["robust"]["se"]),
@@ -78,13 +89,15 @@ def main() -> None:
     # Forced-bandwidth replicate at the legacy h = b = 0.042287 so the
     # local-polynomial estimator math remains separately pinned.
     H_FORCED = float(legacy.model_info["bandwidth_h"])
-    fit_forced = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0,
-                              h=H_FORCED, b=H_FORCED)
+    fit_forced = sp.rdrobust(
+        df, y="voteshare_next", x="margin", c=0.0, h=H_FORCED, b=H_FORCED
+    )
     for label in ("conventional", "robust"):
         d = fit_forced.model_info[label]
         rows.append(
             ParityRecord(
-                module=MODULE, side="py",
+                module=MODULE,
+                side="py",
                 statistic=f"forced_h{H_FORCED}_{label}_est",
                 estimate=float(d["estimate"]),
                 se=float(d["se"]),
@@ -95,7 +108,9 @@ def main() -> None:
         )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "kernel": fit.model_info["kernel"],
             "p": fit.model_info["polynomial_p"],

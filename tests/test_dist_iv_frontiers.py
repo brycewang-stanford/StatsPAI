@@ -16,7 +16,7 @@ def iv_data():
     Z = (rng.uniform(size=n) < 0.5).astype(int)
     D = ((rng.uniform(size=n) < 0.4 + 0.4 * Z)).astype(int)
     Y = 1.5 * D + 0.5 * Z + rng.standard_normal(n)
-    return pd.DataFrame({'y': Y, 'treat': D, 'z': Z})
+    return pd.DataFrame({"y": Y, "treat": D, "z": Z})
 
 
 @pytest.fixture
@@ -29,31 +29,48 @@ def panel_qte_data():
             d = int(u >= 15 and t >= 2)
             x = rng.standard_normal(5)
             y = u * 0.05 + t * 0.1 + 1.0 * d + 0.5 * x[0] + rng.standard_normal()
-            rows.append({
-                'y': y, 'treat': d, 'unit': f'u{u}', 'time': t,
-                **{f'x{i}': x[i] for i in range(5)},
-            })
+            rows.append(
+                {
+                    "y": y,
+                    "treat": d,
+                    "unit": f"u{u}",
+                    "time": t,
+                    **{f"x{i}": x[i] for i in range(5)},
+                }
+            )
     return pd.DataFrame(rows)
 
 
 def test_dist_iv(iv_data):
     res = sp.dist_iv(
-        iv_data, y='y', treat='treat', instrument='z',
-        quantiles=np.array([0.25, 0.5, 0.75]), n_boot=50,
+        iv_data,
+        y="y",
+        treat="treat",
+        instrument="z",
+        quantiles=np.array([0.25, 0.5, 0.75]),
+        n_boot=50,
     )
     assert isinstance(res, sp.DistIVResult)
     assert len(res.late_q) == 3
     # True LATE on compliers ≈ 1.5
     median_late = res.late_q[1]
     assert 0.5 < median_late < 3.5
-    np.testing.assert_allclose(res.late_q, [2.59108666, 2.57194475, 2.28643254], atol=5e-9)
-    np.testing.assert_allclose(res.se_q, [0.38290231, 0.32793698, 0.32574394], atol=5e-9)
+    np.testing.assert_allclose(
+        res.late_q, [2.59108666, 2.57194475, 2.28643254], atol=5e-9
+    )
+    np.testing.assert_allclose(
+        res.se_q, [0.38290231, 0.32793698, 0.32574394], atol=5e-9
+    )
 
 
 def test_kan_dlate(iv_data):
     res = sp.kan_dlate(
-        iv_data, y='y', treat='treat', instrument='z',
-        quantiles=np.array([0.5]), n_boot=30,
+        iv_data,
+        y="y",
+        treat="treat",
+        instrument="z",
+        quantiles=np.array([0.5]),
+        n_boot=30,
     )
     assert isinstance(res, sp.DistIVResult)
     np.testing.assert_allclose(
@@ -65,8 +82,12 @@ def test_kan_dlate(iv_data):
 
 def test_qte_hd_panel(panel_qte_data):
     res = sp.qte_hd_panel(
-        panel_qte_data, y='y', treat='treat', unit='unit', time='time',
-        covariates=[f'x{i}' for i in range(5)],
+        panel_qte_data,
+        y="y",
+        treat="treat",
+        unit="unit",
+        time="time",
+        covariates=[f"x{i}" for i in range(5)],
         quantiles=np.array([0.25, 0.5, 0.75]),
     )
     assert isinstance(res, sp.HDPanelQTEResult)
@@ -77,17 +98,24 @@ def test_qte_hd_panel(panel_qte_data):
 
 def test_beyond_average(iv_data):
     res = sp.beyond_average_late(
-        iv_data, y='y', treat='treat', instrument='z',
-        quantiles=np.array([0.25, 0.5, 0.75]), n_boot=50,
+        iv_data,
+        y="y",
+        treat="treat",
+        instrument="z",
+        quantiles=np.array([0.25, 0.5, 0.75]),
+        n_boot=50,
     )
     assert isinstance(res, sp.BeyondAverageResult)
     assert 0 < res.complier_share < 1
 
 
 def test_beyond_average_invalid_instrument():
-    df = pd.DataFrame({
-        'y': np.random.randn(50), 'treat': np.random.randint(0, 2, 50),
-        'z': np.random.randn(50),  # continuous, should fail
-    })
+    df = pd.DataFrame(
+        {
+            "y": np.random.randn(50),
+            "treat": np.random.randint(0, 2, 50),
+            "z": np.random.randn(50),  # continuous, should fail
+        }
+    )
     with pytest.raises(ValueError, match="binary"):
-        sp.beyond_average_late(df, y='y', treat='treat', instrument='z')
+        sp.beyond_average_late(df, y="y", treat="treat", instrument="z")

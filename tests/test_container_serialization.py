@@ -94,8 +94,7 @@ class TestPaperTables:
         panel = pt.to_dict()["panels"]["main"]
         assert panel["kind"] == "regression_table"
         assert panel["n_models"] == 2
-        assert RegtableResult.from_dict(panel).to_latex() == \
-            pt.main.to_latex()
+        assert RegtableResult.from_dict(panel).to_latex() == pt.main.to_latex()
 
     def test_to_json_is_strict(self, models):
         _, m1, m2 = models

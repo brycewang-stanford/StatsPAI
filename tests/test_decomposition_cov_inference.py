@@ -8,6 +8,7 @@ confidence intervals (``ffl.py`` 328-357, ``dfl.py`` 303-339, ``machado_mata.py`
 estimate, and the point decomposition identity is unchanged by the inference
 mode. No mocking (CLAUDE.md §12).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,9 +29,18 @@ def wage():
 
 
 def test_ffl_bootstrap_se(wage):
-    r = sp.decompose("ffl", data=wage, y="log_wage", group="female", x=X,
-                     stat="quantile", tau=0.5, inference="bootstrap",
-                     n_boot=40, seed=0)
+    r = sp.decompose(
+        "ffl",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        stat="quantile",
+        tau=0.5,
+        inference="bootstrap",
+        n_boot=40,
+        seed=0,
+    )
     assert r.se is not None
     assert {"gap", "composition", "structure"} <= set(r.se)
     assert np.isfinite(r.se["gap"]) and r.se["gap"] >= 0
@@ -42,8 +52,17 @@ def test_ffl_bootstrap_se(wage):
 
 
 def test_dfl_bootstrap_se(wage):
-    r = sp.decompose("dfl", data=wage, y="log_wage", group="female", x=X,
-                     stat="mean", inference="bootstrap", n_boot=40, seed=0)
+    r = sp.decompose(
+        "dfl",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        stat="mean",
+        inference="bootstrap",
+        n_boot=40,
+        seed=0,
+    )
     assert r.se is not None
     assert np.isfinite(r.se["gap"]) and r.se["gap"] >= 0
     assert r.gap == pytest.approx(r.composition + r.structure, rel=1e-7, abs=1e-9)
@@ -52,8 +71,9 @@ def test_dfl_bootstrap_se(wage):
 @pytest.mark.parametrize("tau", [0.25, 0.75])
 def test_dfl_quantile_stat(wage, tau):
     # stat='quantile' at several taus exercises the weighted-quantile DFL path.
-    r = sp.decompose("dfl", data=wage, y="log_wage", group="female", x=X,
-                     stat="quantile", tau=tau)
+    r = sp.decompose(
+        "dfl", data=wage, y="log_wage", group="female", x=X, stat="quantile", tau=tau
+    )
     assert r.gap == pytest.approx(r.composition + r.structure, rel=1e-7, abs=1e-9)
     assert r.gap == pytest.approx(r.stat_a - r.stat_b, rel=1e-7, abs=1e-9)
 
@@ -62,11 +82,21 @@ def test_dfl_quantile_stat(wage, tau):
 
 
 def test_machado_mata_bootstrap_se(wage):
-    r = sp.decompose("machado_mata", data=wage, y="log_wage", group="female",
-                     x=X, tau_grid=[0.25, 0.5, 0.75], n_sim=80,
-                     inference="bootstrap", n_boot=30, seed=0)
+    r = sp.decompose(
+        "machado_mata",
+        data=wage,
+        y="log_wage",
+        group="female",
+        x=X,
+        tau_grid=[0.25, 0.5, 0.75],
+        n_sim=80,
+        inference="bootstrap",
+        n_boot=30,
+        seed=0,
+    )
     # se table assembled across the bootstrap replications
     assert r.se is not None
     o = r.overall
     assert o["mean_gap"] == pytest.approx(
-        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6)
+        o["mean_composition"] + o["mean_structure"], rel=1e-6, abs=1e-6
+    )

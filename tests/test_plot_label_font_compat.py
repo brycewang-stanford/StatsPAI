@@ -1,7 +1,6 @@
 import ast
 from pathlib import Path
 
-
 MATPLOTLIB_TEXT_METHODS = {
     "set_xlabel",
     "set_ylabel",

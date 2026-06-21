@@ -33,6 +33,7 @@ Usage::
 Writes ``results/REPRODUCIBILITY_REPORT.md`` and exits non-zero if any
 attempted module drifts beyond ``REPRO_TOL``.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -112,7 +113,11 @@ def run_one(module: str, timeout: int) -> dict:
     """Run the R reference for one module into the staging dir and diff."""
     committed_path = RESULTS_DIR / f"{module}_R.json"
     if not committed_path.exists():
-        return {"module": module, "status": "no_golden", "detail": "no committed _R.json"}
+        return {
+            "module": module,
+            "status": "no_golden",
+            "detail": "no committed _R.json",
+        }
 
     r_script = HERE / f"{module}.R"
     if not r_script.exists():
@@ -133,14 +138,16 @@ def run_one(module: str, timeout: int) -> dict:
     except subprocess.TimeoutExpired:
         return {"module": module, "status": "timeout", "detail": f">{timeout}s"}
     except FileNotFoundError:
-        return {"module": module, "status": "no_rscript",
-                "detail": "Rscript not on PATH"}
+        return {
+            "module": module,
+            "status": "no_rscript",
+            "detail": "Rscript not on PATH",
+        }
 
     fresh_path = STAGING_DIR / f"{module}_R.json"
     if proc.returncode != 0 or not fresh_path.exists():
         tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
-        return {"module": module, "status": "r_error",
-                "detail": " | ".join(tail)[:300]}
+        return {"module": module, "status": "r_error", "detail": " | ".join(tail)[:300]}
 
     committed = json.loads(committed_path.read_text(encoding="utf-8"))
     fresh = json.loads(fresh_path.read_text(encoding="utf-8"))
@@ -211,8 +218,7 @@ def render_report(results: list[dict]) -> str:
                 f"| — | — |  {r.get('detail','')}"
             )
     lines.append("")
-    if any(r.get("relaxed") for r in results
-           if r["status"] in ("reproduces", "drift")):
+    if any(r.get("relaxed") for r in results if r["status"] in ("reproduces", "drift")):
         lines += [
             "\\* Reproduction tolerance relaxed for this module (see "
             "`REPRO_TOL_OVERRIDE` in `verify_reproduce.py`): the reference "
@@ -245,10 +251,14 @@ def render_report(results: list[dict]) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("modules", nargs="*", help="module stems, e.g. 01_ols")
-    ap.add_argument("--timeout", type=int, default=900,
-                    help="per-module Rscript timeout in seconds")
-    ap.add_argument("--no-report", action="store_true",
-                    help="skip writing REPRODUCIBILITY_REPORT.md")
+    ap.add_argument(
+        "--timeout", type=int, default=900, help="per-module Rscript timeout in seconds"
+    )
+    ap.add_argument(
+        "--no-report",
+        action="store_true",
+        help="skip writing REPRODUCIBILITY_REPORT.md",
+    )
     args = ap.parse_args()
 
     modules = args.modules or discover_modules()
@@ -261,25 +271,30 @@ def main() -> int:
         print(f"[verify] {m} ...", flush=True)
         res = run_one(m, args.timeout)
         results.append(res)
-        print(f"         -> {res['status']}"
-              + (f" (worst rel est {res['worst_rel_est']:.2e})"
-                 if res["status"] in ("reproduces", "drift") else
-                 f" ({res.get('detail','')})"), flush=True)
+        print(
+            f"         -> {res['status']}"
+            + (
+                f" (worst rel est {res['worst_rel_est']:.2e})"
+                if res["status"] in ("reproduces", "drift")
+                else f" ({res.get('detail','')})"
+            ),
+            flush=True,
+        )
 
     if not args.no_report:
         report = render_report(results)
-        (RESULTS_DIR / "REPRODUCIBILITY_REPORT.md").write_text(
-            report, encoding="utf-8")
+        (RESULTS_DIR / "REPRODUCIBILITY_REPORT.md").write_text(report, encoding="utf-8")
         print(f"\nWrote {RESULTS_DIR / 'REPRODUCIBILITY_REPORT.md'}")
 
     drifted = [r for r in results if r["status"] == "drift"]
     reproduced = [r for r in results if r["status"] == "reproduces"]
     skipped = [r for r in results if r["status"] not in ("reproduces", "drift")]
-    print(f"\nSummary: {len(reproduced)} reproduce, {len(drifted)} drift, "
-          f"{len(skipped)} skipped/errored.")
+    print(
+        f"\nSummary: {len(reproduced)} reproduce, {len(drifted)} drift, "
+        f"{len(skipped)} skipped/errored."
+    )
     if drifted:
-        print("DRIFT modules (must explain):",
-              ", ".join(r["module"] for r in drifted))
+        print("DRIFT modules (must explain):", ", ".join(r["module"] for r in drifted))
         return 2
     return 0
 

@@ -31,6 +31,7 @@ with :math:`A = (1-\\kappa)I + \\kappa P_W` equals
 :math:`(\\hat X'\\hat X)^{-1}` when :math:`\\kappa = 1`.  That part
 has always been correct in StatsPAI; this test targets only the meat.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -39,11 +40,11 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Deterministic DGP with cluster structure and weak-ish first stage so that
 # X_hat and X differ substantively in the endog column.
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def iv_cluster_data():
@@ -96,10 +97,10 @@ def _hand_2sls_sandwich(df, cov_type: str):
         corr = (G / (G - 1)) * ((n - 1) / (n - k))
         vcv = corr * bread @ meat @ bread
     elif cov_type == "hc0":
-        meat = X_hat.T @ np.diag(resid ** 2) @ X_hat
+        meat = X_hat.T @ np.diag(resid**2) @ X_hat
         vcv = bread @ meat @ bread
     elif cov_type == "hc1":
-        weights = (n / (n - k)) * resid ** 2
+        weights = (n / (n - k)) * resid**2
         meat = X_hat.T @ np.diag(weights) @ X_hat
         vcv = bread @ meat @ bread
     else:
@@ -117,16 +118,17 @@ class TestIV2SLSSandwichUsesProjectedX:
         # params order in StatsPAI: [Intercept, x, d]
         assert np.allclose(
             np.array([r.params["Intercept"], r.params["x"], r.params["d"]]),
-            beta_hand, atol=1e-10,
+            beta_hand,
+            atol=1e-10,
         )
 
     def test_cluster_se_matches_projected_meat(self, iv_cluster_data):
         """Cluster SE must match hand-computed projected-X̂ formula."""
         r = sp.ivreg("y ~ (d ~ z1 + z2) + x", data=iv_cluster_data, cluster="cl")
         se_hand, _ = _hand_2sls_sandwich(iv_cluster_data, "cluster")
-        sp_se = np.array([r.std_errors["Intercept"],
-                          r.std_errors["x"],
-                          r.std_errors["d"]])
+        sp_se = np.array(
+            [r.std_errors["Intercept"], r.std_errors["x"], r.std_errors["d"]]
+        )
         assert np.allclose(sp_se, se_hand, rtol=1e-10, atol=1e-10), (
             f"Cluster SE mismatch:\n"
             f"  StatsPAI   : {sp_se}\n"
@@ -136,9 +138,9 @@ class TestIV2SLSSandwichUsesProjectedX:
     def test_hc0_se_matches_projected_meat(self, iv_cluster_data):
         r = sp.ivreg("y ~ (d ~ z1 + z2) + x", data=iv_cluster_data, robust="hc0")
         se_hand, _ = _hand_2sls_sandwich(iv_cluster_data, "hc0")
-        sp_se = np.array([r.std_errors["Intercept"],
-                          r.std_errors["x"],
-                          r.std_errors["d"]])
+        sp_se = np.array(
+            [r.std_errors["Intercept"], r.std_errors["x"], r.std_errors["d"]]
+        )
         assert np.allclose(sp_se, se_hand, rtol=1e-10, atol=1e-10), (
             f"HC0 SE mismatch:\n"
             f"  StatsPAI   : {sp_se}\n"
@@ -148,9 +150,9 @@ class TestIV2SLSSandwichUsesProjectedX:
     def test_hc1_se_matches_projected_meat(self, iv_cluster_data):
         r = sp.ivreg("y ~ (d ~ z1 + z2) + x", data=iv_cluster_data, robust="hc1")
         se_hand, _ = _hand_2sls_sandwich(iv_cluster_data, "hc1")
-        sp_se = np.array([r.std_errors["Intercept"],
-                          r.std_errors["x"],
-                          r.std_errors["d"]])
+        sp_se = np.array(
+            [r.std_errors["Intercept"], r.std_errors["x"], r.std_errors["d"]]
+        )
         assert np.allclose(sp_se, se_hand, rtol=1e-10, atol=1e-10), (
             f"HC1 SE mismatch:\n"
             f"  StatsPAI   : {sp_se}\n"
@@ -168,18 +170,16 @@ class TestIVvsLinearmodelsParity:
         use the projected X̂ meat.
         """
         lm = pytest.importorskip("linearmodels.iv")
-        r_sp = sp.ivreg("y ~ (d ~ z1 + z2) + x",
-                        data=iv_cluster_data, cluster="cl")
-        r_lm = lm.IV2SLS.from_formula(
-            "y ~ 1 + x + [d ~ z1 + z2]", iv_cluster_data
-        ).fit(cov_type="clustered", clusters=iv_cluster_data["cl"],
-              debiased=True)
-        sp_se = np.array([r_sp.std_errors["Intercept"],
-                          r_sp.std_errors["x"],
-                          r_sp.std_errors["d"]])
-        lm_se = np.array([r_lm.std_errors["Intercept"],
-                          r_lm.std_errors["x"],
-                          r_lm.std_errors["d"]])
+        r_sp = sp.ivreg("y ~ (d ~ z1 + z2) + x", data=iv_cluster_data, cluster="cl")
+        r_lm = lm.IV2SLS.from_formula("y ~ 1 + x + [d ~ z1 + z2]", iv_cluster_data).fit(
+            cov_type="clustered", clusters=iv_cluster_data["cl"], debiased=True
+        )
+        sp_se = np.array(
+            [r_sp.std_errors["Intercept"], r_sp.std_errors["x"], r_sp.std_errors["d"]]
+        )
+        lm_se = np.array(
+            [r_lm.std_errors["Intercept"], r_lm.std_errors["x"], r_lm.std_errors["d"]]
+        )
         assert np.allclose(sp_se, lm_se, rtol=1e-8, atol=1e-10), (
             f"Cluster SE mismatch:\n"
             f"  StatsPAI      : {sp_se}\n"
@@ -189,17 +189,16 @@ class TestIVvsLinearmodelsParity:
     def test_hc0_se_matches_linearmodels(self, iv_cluster_data):
         """HC0 has no dof correction → should match linearmodels exactly."""
         lm = pytest.importorskip("linearmodels.iv")
-        r_sp = sp.ivreg("y ~ (d ~ z1 + z2) + x",
-                        data=iv_cluster_data, robust="hc0")
-        r_lm = lm.IV2SLS.from_formula(
-            "y ~ 1 + x + [d ~ z1 + z2]", iv_cluster_data
-        ).fit(cov_type="robust", debiased=False)
-        sp_se = np.array([r_sp.std_errors["Intercept"],
-                          r_sp.std_errors["x"],
-                          r_sp.std_errors["d"]])
-        lm_se = np.array([r_lm.std_errors["Intercept"],
-                          r_lm.std_errors["x"],
-                          r_lm.std_errors["d"]])
+        r_sp = sp.ivreg("y ~ (d ~ z1 + z2) + x", data=iv_cluster_data, robust="hc0")
+        r_lm = lm.IV2SLS.from_formula("y ~ 1 + x + [d ~ z1 + z2]", iv_cluster_data).fit(
+            cov_type="robust", debiased=False
+        )
+        sp_se = np.array(
+            [r_sp.std_errors["Intercept"], r_sp.std_errors["x"], r_sp.std_errors["d"]]
+        )
+        lm_se = np.array(
+            [r_lm.std_errors["Intercept"], r_lm.std_errors["x"], r_lm.std_errors["d"]]
+        )
         assert np.allclose(sp_se, lm_se, rtol=1e-8, atol=1e-10), (
             f"HC0 SE mismatch:\n"
             f"  StatsPAI      : {sp_se}\n"

@@ -28,6 +28,7 @@ def _minimal_result():
     # Build a TargetTrialResult directly with the stub data so we don't
     # need the full emulate() pipeline for this test.
     from statspai.target_trial.emulate import TargetTrialResult
+
     return TargetTrialResult(
         protocol=proto,
         estimate=0.034,

@@ -8,6 +8,7 @@ importing the module directly and feeding real synthetic panel data.
 We assert structural properties (shapes, keys, finite stats, valid
 p-values, recommendation strings) — not fabricated numbers.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -49,8 +50,15 @@ def test_re_estimator_shapes(panel_df):
 
 def test_hausman_from_data(panel_df):
     out = pd_diag._hausman_from_data(panel_df, "y", ["x1", "x2"], "id", "time")
-    for key in ("statistic", "df", "pvalue", "recommendation",
-                "beta_fe", "beta_re", "interpretation"):
+    for key in (
+        "statistic",
+        "df",
+        "pvalue",
+        "recommendation",
+        "beta_fe",
+        "beta_re",
+        "interpretation",
+    ):
         assert key in out
     assert out["df"] == 2
     assert out["statistic"] >= 0
@@ -62,8 +70,9 @@ def test_hausman_from_data(panel_df):
 
 def test_hausman_alpha_one_forces_fe(panel_df):
     # alpha=1.0 => pvalue < alpha always true => recommends FE branch
-    out = pd_diag._hausman_from_data(panel_df, "y", ["x1", "x2"],
-                                     "id", "time", alpha=1.0)
+    out = pd_diag._hausman_from_data(
+        panel_df, "y", ["x1", "x2"], "id", "time", alpha=1.0
+    )
     assert out["recommendation"] == "FE"
     assert "Fixed Effects" in out["interpretation"]
 
@@ -88,10 +97,15 @@ def test_f_test_effects(panel_df):
 
 def test_f_test_effects_insufficient_df():
     # 2 units, 1 period each, 2 regressors -> df2 = n - N - k <= 0
-    df = pd.DataFrame({
-        "id": [0, 1], "time": [0, 0],
-        "y": [1.0, 2.0], "x1": [0.5, 1.5], "x2": [0.1, 0.2],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [0, 1],
+            "time": [0, 0],
+            "y": [1.0, 2.0],
+            "x1": [0.5, 1.5],
+            "x2": [0.1, 0.2],
+        }
+    )
     out = pd_diag._f_test_effects(df, "y", ["x1", "x2"], "id", "time")
     assert np.isnan(out["statistic"])
     assert "Insufficient" in out["interpretation"]
@@ -109,9 +123,13 @@ def test_pesaran_cd(panel_df):
 
 def test_pesaran_cd_insufficient_data():
     # Only 1 entity / too few periods -> insufficient-data branch
-    df = pd.DataFrame({
-        "id": [0, 0], "time": [0, 1], "y": [1.0, 2.0],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [0, 0],
+            "time": [0, 1],
+            "y": [1.0, 2.0],
+        }
+    )
     resids = pd.Series([0.1, -0.1])
     out = pd_diag._pesaran_cd(resids, "id", "time", df)
     assert np.isnan(out["statistic"])
@@ -122,13 +140,17 @@ def test_pesaran_cd_no_valid_pairs():
     # 2 entities but only 2 common periods each -> T_common may pass but
     # per-pair < 3 leaves count == 0. Construct entities with disjoint times
     # so no overlapping pair has >= 3 observations.
-    df = pd.DataFrame({
-        "id": [0, 0, 0, 1, 1, 1],
-        "time": [0, 1, 2, 3, 4, 5],
-        "y": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-    })
+    df = pd.DataFrame(
+        {
+            "id": [0, 0, 0, 1, 1, 1],
+            "time": [0, 1, 2, 3, 4, 5],
+            "y": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+        }
+    )
     resids = pd.Series([0.1, -0.2, 0.3, -0.1, 0.2, -0.3])
     out = pd_diag._pesaran_cd(resids, "id", "time", df)
     assert np.isnan(out["statistic"])
-    assert ("No valid pairs" in out["interpretation"]
-            or "Insufficient" in out["interpretation"])
+    assert (
+        "No valid pairs" in out["interpretation"]
+        or "Insufficient" in out["interpretation"]
+    )

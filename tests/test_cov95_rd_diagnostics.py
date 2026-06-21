@@ -32,11 +32,13 @@ def test_rdbwsensitivity_grid():
     assert ((out["pvalue"] >= 0) & (out["pvalue"] <= 1)).all()
     np.testing.assert_allclose(
         out[["bandwidth", "estimate", "se"]].head(3).to_numpy(),
-        np.array([
-            [0.169524, 2.803506, 0.185342],
-            [0.271238, 2.877359, 0.146894],
-            [0.372953, 2.919283, 0.124040],
-        ]),
+        np.array(
+            [
+                [0.169524, 2.803506, 0.185342],
+                [0.271238, 2.877359, 0.146894],
+                [0.372953, 2.919283, 0.124040],
+            ]
+        ),
         atol=5e-7,
     )
     plt.close("all")
@@ -44,8 +46,7 @@ def test_rdbwsensitivity_grid():
 
 def test_rdbwsensitivity_explicit_grid():
     df = _make_sharp()
-    out = sp.rdbwsensitivity(df, y="y", x="x", c=0,
-                             bw_grid=[0.2, 0.4, 0.6])
+    out = sp.rdbwsensitivity(df, y="y", x="x", c=0, bw_grid=[0.2, 0.4, 0.6])
     assert len(out) <= 3
     plt.close("all")
 
@@ -88,8 +89,7 @@ def test_rdplacebo_sides(side):
 
 def test_rdplacebo_explicit_cutoffs():
     df = _make_sharp()
-    out = sp.rdplacebo(df, y="y", x="x", c=0,
-                       placebo_cutoffs=[-0.5, -0.3, 0.3, 0.5])
+    out = sp.rdplacebo(df, y="y", x="x", c=0, placebo_cutoffs=[-0.5, -0.3, 0.3, 0.5])
     assert len(out) >= 1
     plt.close("all")
 
@@ -112,8 +112,9 @@ def test_rdsummary_with_covs_verbose():
 
 def test_rdsummary_full_with_plot():
     df = _make_sharp()
-    res = sp.rdsummary(df, y="y", x="x", c=0, covs=["z"],
-                       full=True, verbose=True, plot=True)
+    res = sp.rdsummary(
+        df, y="y", x="x", c=0, covs=["z"], full=True, verbose=True, plot=True
+    )
     assert "honest_ci" in res
     assert "power" in res
     assert "placebos" in res
@@ -126,8 +127,7 @@ def test_rdsummary_full_plot_no_covs_placebo_panel():
     # No covariates -> balance is None, so the diagnostic plot's 4th panel
     # falls through to the placebo-cutoff branch.
     df = _make_sharp()
-    res = sp.rdsummary(df, y="y", x="x", c=0, full=True,
-                       verbose=False, plot=True)
+    res = sp.rdsummary(df, y="y", x="x", c=0, full=True, verbose=False, plot=True)
     assert res["balance"] is None
     assert "figure" in res
     plt.close("all")

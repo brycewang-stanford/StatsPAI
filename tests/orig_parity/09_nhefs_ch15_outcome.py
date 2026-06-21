@@ -34,6 +34,7 @@ Compares against:
   (b) the R-side base-R reference run on the same CSV bytes
       (``09_nhefs_ch15_outcome.R``).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -44,7 +45,6 @@ import statspai as sp
 
 from _common import OrigRecord, write_results
 from _nhefs import book_design, dump_csv
-
 
 MODULE = "09_nhefs_ch15_outcome"
 
@@ -58,7 +58,7 @@ CONF_RHS = (
 
 
 def main() -> None:
-    df = dump_csv(MODULE)            # n=1566 complete case; identical bytes for R
+    df = dump_csv(MODULE)  # n=1566 complete case; identical bytes for R
     n = len(df)
 
     # ------------------------------------------------------------------
@@ -105,54 +105,98 @@ def main() -> None:
 
     # Cross-reference: standardized marginal ATE via g-computation.
     dd, covs = book_design(df)
-    gc = sp.g_computation(dd, y="wt82_71", treat="qsmk", covariates=covs,
-                          estimand="ATE", seed=42, n_boot=500)
+    gc = sp.g_computation(
+        dd,
+        y="wt82_71",
+        treat="qsmk",
+        covariates=covs,
+        estimand="ATE",
+        seed=42,
+        n_boot=500,
+    )
 
     rows = [
         # (a) Program 15.1
         OrigRecord(
-            module=MODULE, side="py", statistic="om_qsmk_main_coef",
-            estimate=b_qsmk, se=se_qsmk, n=n, published=2.56,
+            module=MODULE,
+            side="py",
+            statistic="om_qsmk_main_coef",
+            estimate=b_qsmk,
+            se=se_qsmk,
+            n=n,
+            published=2.56,
             citation="Hernán-Robins, What If Program 15.1 (qsmk main coef)",
             extra={"note": "conditional effect at smokeintensity=0; NOT marginal"},
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="om_qsmk_x_smkint",
-            estimate=b_int, se=se_int, n=n, published=0.0467,
+            module=MODULE,
+            side="py",
+            statistic="om_qsmk_x_smkint",
+            estimate=b_int,
+            se=se_int,
+            n=n,
+            published=0.0467,
             citation="Hernán-Robins, What If Program 15.1 (qsmk:smokeintensity)",
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="om_effect_smkint5",
-            estimate=float(eff_5), se=None, n=n, published=2.79,
+            module=MODULE,
+            side="py",
+            statistic="om_effect_smkint5",
+            estimate=float(eff_5),
+            se=None,
+            n=n,
+            published=2.79,
             citation="Hernán-Robins, What If Program 15.1 (effect at smokeintensity=5)",
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="om_effect_smkint40",
-            estimate=float(eff_40), se=None, n=n, published=4.43,
+            module=MODULE,
+            side="py",
+            statistic="om_effect_smkint40",
+            estimate=float(eff_40),
+            se=None,
+            n=n,
+            published=4.43,
             citation="Hernán-Robins, What If Program 15.1 (effect at smokeintensity=40)",
         ),
         # (b)(i) Program 15.3
         OrigRecord(
-            module=MODULE, side="py", statistic="ps_in_outcome_ate",
-            estimate=b_psi, se=se_psi, n=n, published=3.5,
+            module=MODULE,
+            side="py",
+            statistic="ps_in_outcome_ate",
+            estimate=b_psi,
+            se=se_psi,
+            n=n,
+            published=3.5,
             citation="Hernán-Robins, What If Program 15.3 (PS as covariate)",
         ),
         # (b)(ii) Program 15.4
         OrigRecord(
-            module=MODULE, side="py", statistic="ps_decile_ate",
-            estimate=b_psd, se=se_psd, n=n, published=3.5,
+            module=MODULE,
+            side="py",
+            statistic="ps_decile_ate",
+            estimate=b_psd,
+            se=se_psd,
+            n=n,
+            published=3.5,
             citation="Hernán-Robins, What If Program 15.4 (PS-decile stratification)",
         ),
         # cross-reference: standardized marginal ATE
         OrigRecord(
-            module=MODULE, side="py", statistic="gcomp_std_ate",
-            estimate=float(gc.estimate), se=float(gc.se), n=n, published=3.5,
+            module=MODULE,
+            side="py",
+            statistic="gcomp_std_ate",
+            estimate=float(gc.estimate),
+            se=float(gc.se),
+            n=n,
+            published=3.5,
             citation="Hernán-Robins, What If Ch.15 (standardized marginal ATE, cross-ref)",
         ),
     ]
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "data_source": "sp.datasets.nhefs (NHEFS / What If)",
             "n_obs": n,

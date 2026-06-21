@@ -19,6 +19,7 @@ warnings.filterwarnings("ignore")
 import importlib
 
 import statspai as sp
+
 _ivd = importlib.import_module("statspai.iv.iv_diag")
 
 
@@ -41,10 +42,18 @@ def _iv_df(n=400, seed=0, binary_endog=False):
 def test_iv_diag_full_bundle_summary_and_frame():
     df = _iv_df(seed=1)
     r = sp.iv.iv_diag(
-        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-        n_boot=120, boot_methods=("pairs", "wild"),
-        include_clr_ci=True, include_k_ci=True,
-        ltz_gamma_sd=0.05, grid_size=81, random_state=3,
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        n_boot=120,
+        boot_methods=("pairs", "wild"),
+        include_clr_ci=True,
+        include_k_ci=True,
+        ltz_gamma_sd=0.05,
+        grid_size=81,
+        random_state=3,
     )
     # to_frame exercises pairs/wild/tF/AR/CLR/K/LTZ/OLS rows
     frame = r.to_frame()
@@ -77,8 +86,9 @@ def test_iv_diag_str_instruments_and_exog():
 
 def test_iv_diag_binary_endog_caveat_present():
     df = _iv_df(seed=4, binary_endog=True)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-                      n_boot=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"], n_boot=0
+    )
     assert r.tsls_late_caveat is not None
     assert "binary endogenous" in r.tsls_late_caveat
     s = r.summary()
@@ -135,19 +145,22 @@ def test_wild_cluster_bootstrap_path():
 
 def test_bootstrap_se_unknown_method_raises():
     df = _iv_df(seed=9)
-    Y = df["y"].to_numpy(); D = df["d"].to_numpy()
+    Y = df["y"].to_numpy()
+    D = df["d"].to_numpy()
     Z = df[["z1", "z2"]].to_numpy()
     W = np.ones((len(df), 1))
     rng = np.random.default_rng(0)
     with pytest.raises(ValueError):
-        _ivd._bootstrap_se(Y, D, Z, W, n_boot=10, cluster=None, rng=rng,
-                           method="nope", alpha=0.05)
+        _ivd._bootstrap_se(
+            Y, D, Z, W, n_boot=10, cluster=None, rng=rng, method="nope", alpha=0.05
+        )
 
 
 def test_bootstrap_se_insufficient_successes_returns_nan():
     # n_boot small enough that successes < max(50, n_boot//4) triggers nan path
     df = _iv_df(n=120, seed=10)
-    Y = df["y"].to_numpy(); D = df["d"].to_numpy()
+    Y = df["y"].to_numpy()
+    D = df["d"].to_numpy()
     Z = df[["z1", "z2"]].to_numpy()
     W = np.ones((len(df), 1))
     rng = np.random.default_rng(0)
@@ -161,16 +174,25 @@ def test_bootstrap_se_insufficient_successes_returns_nan():
 
 def test_iv_diag_cluster_bootstrap_str():
     df = _iv_df(seed=11)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-                      cluster="cl", n_boot=120, boot_methods=("pairs",),
-                      random_state=1)
+    r = sp.iv.iv_diag(
+        df,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x"],
+        cluster="cl",
+        n_boot=120,
+        boot_methods=("pairs",),
+        random_state=1,
+    )
     assert r.bootstrap_ci_pairs is not None
 
 
 def test_iv_diag_to_excel_word_latex(tmp_path):
     df = _iv_df(seed=12)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-                      n_boot=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"], n_boot=0
+    )
     xlsx = tmp_path / "out.xlsx"
     r.to_excel(str(xlsx))
     assert xlsx.exists()
@@ -192,8 +214,10 @@ def test_iv_diag_to_excel_word_latex(tmp_path):
 def test_iv_compare_basic():
     df = _iv_df(seed=13)
     out = sp.iv.iv_compare(
-        formula="y ~ (d ~ z1 + z2) + x", data=df,
-        methods=("2sls", "liml"), endog_name="d",
+        formula="y ~ (d ~ z1 + z2) + x",
+        data=df,
+        methods=("2sls", "liml"),
+        endog_name="d",
     )
     assert isinstance(out, pd.DataFrame)
     assert set(out["method"]) == {"2sls", "liml"}
@@ -206,7 +230,9 @@ def test_iv_compare_endog_autoresolve_from_formula():
     df = _iv_df(seed=14)
     # no endog_name -> resolved from formula parse
     out = sp.iv.iv_compare(
-        formula="y ~ (d ~ z1 + z2) + x", data=df, methods=("2sls",),
+        formula="y ~ (d ~ z1 + z2) + x",
+        data=df,
+        methods=("2sls",),
     )
     assert "2sls" in set(out["method"])
 
@@ -216,7 +242,8 @@ def test_iv_compare_jive_endog_fallback():
     # exercises diagnostics-key / last-resort param fallback (1043-1061).
     df = _iv_df(seed=15)
     out = sp.iv.iv_compare(
-        formula="y ~ (d ~ z1 + z2) + x", data=df,
+        formula="y ~ (d ~ z1 + z2) + x",
+        data=df,
         methods=("2sls", "jive"),
     )
     assert set(out["method"]) == {"2sls", "jive"}
@@ -227,8 +254,10 @@ def test_iv_compare_endog_name_mismatch_diag_fallback():
     # diagnostics-key parse fallback (lines 1043-1049) which recovers 'd'.
     df = _iv_df(seed=19)
     out = sp.iv.iv_compare(
-        formula="y ~ (d ~ z1 + z2) + x", data=df,
-        methods=("2sls",), endog_name="not_a_real_col",
+        formula="y ~ (d ~ z1 + z2) + x",
+        data=df,
+        methods=("2sls",),
+        endog_name="not_a_real_col",
     )
     row = out[out["method"] == "2sls"].iloc[0]
     assert row["status"] == "ok"
@@ -238,8 +267,9 @@ def test_iv_compare_endog_name_mismatch_diag_fallback():
 def test_iv_diag_to_word_with_caveat(tmp_path):
     # binary endog with covariates -> caveat -> to_word adds caveat paragraph
     df = _iv_df(seed=16, binary_endog=True)
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-                      n_boot=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"], n_boot=0
+    )
     assert r.tsls_late_caveat is not None
     docx = tmp_path / "caveat.docx"
     r.to_word(str(docx))
@@ -250,16 +280,23 @@ def test_iv_diag_cluster_array_alignment():
     # pass cluster as an ndarray of full length -> alignment branch (466-475)
     df = _iv_df(seed=17)
     cl = df["cl"].to_numpy()
-    r = sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"],
-                      cluster=cl, n_boot=0)
+    r = sp.iv.iv_diag(
+        df, y="y", endog="d", instruments=["z1", "z2"], exog=["x"], cluster=cl, n_boot=0
+    )
     assert np.isfinite(r.se_2sls)
 
 
 def test_iv_diag_cluster_array_wrong_length_raises():
     df = _iv_df(seed=18)
     with pytest.raises(ValueError):
-        sp.iv.iv_diag(df, y="y", endog="d", instruments=["z1", "z2"],
-                      cluster=np.ones(len(df) + 3), n_boot=0)
+        sp.iv.iv_diag(
+            df,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            cluster=np.ones(len(df) + 3),
+            n_boot=0,
+        )
 
 
 def test_iv_diag_weak_first_stage_tF_inf():

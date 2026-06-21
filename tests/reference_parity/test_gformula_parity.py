@@ -61,6 +61,7 @@ References (bib keys verified in paper.bib)
 - Hernan, M.A., Robins, J.M. (2020). *Causal Inference: What If*.
   Chapman & Hall/CRC, ch. 13. [@hernan2020causal]
 """
+
 from __future__ import annotations
 
 import json
@@ -100,8 +101,13 @@ def _ols_beta_d(df: pd.DataFrame) -> float:
 
     Hand-rolled design [1, d, x1, x2, x3] — no statspai internals.
     """
-    X = np.column_stack([np.ones(len(df)), df["d"].to_numpy(dtype=float),
-                         df[_COVS].to_numpy(dtype=float)])
+    X = np.column_stack(
+        [
+            np.ones(len(df)),
+            df["d"].to_numpy(dtype=float),
+            df[_COVS].to_numpy(dtype=float),
+        ]
+    )
     beta, *_ = np.linalg.lstsq(X, df["y"].to_numpy(dtype=float), rcond=None)
     return float(beta[1])
 
@@ -110,28 +116,37 @@ def _ols_beta_d(df: pd.DataFrame) -> float:
 # A. Linear collapse: ATE (and ATT) == OLS beta_d under the default Q-model
 # ---------------------------------------------------------------------------
 
+
 class TestLinearCollapse:
     """Default Q is ONE additive OLS (g_computation.py:162-172), so the
     standardized contrast collapses to the treatment coefficient exactly."""
 
     def test_ate_equals_independent_ols_coefficient(self, gf_data):
-        res = sp.g_computation(gf_data, y="y", treat="d", covariates=_COVS,
-                               n_boot=10, seed=1)
+        res = sp.g_computation(
+            gf_data, y="y", treat="d", covariates=_COVS, n_boot=10, seed=1
+        )
         expected = _ols_beta_d(gf_data)
         # atol 1e-8: exact algebra — Q(1,X)-Q(0,X) = beta_d for every row
         # under the additive fit, so the only discrepancy is the linear
         # solver (statsmodels pinv/SVD vs numpy lstsq/SVD), both backward-
         # stable on this well-conditioned 5-column design (~1e-15 observed).
-        assert abs(res.estimate - expected) < 1e-8, (
-            f"ATE {res.estimate!r} != OLS beta_d {expected!r}"
-        )
+        assert (
+            abs(res.estimate - expected) < 1e-8
+        ), f"ATE {res.estimate!r} != OLS beta_d {expected!r}"
 
     def test_att_collapses_to_same_coefficient(self, gf_data):
         """ATT averages the SAME constant contrast over treated rows
         (g_computation.py:189-195) — single-model implementation fact —
         so ATT == ATE == beta_d under the additive default Q."""
-        res = sp.g_computation(gf_data, y="y", treat="d", covariates=_COVS,
-                               estimand="ATT", n_boot=10, seed=1)
+        res = sp.g_computation(
+            gf_data,
+            y="y",
+            treat="d",
+            covariates=_COVS,
+            estimand="ATT",
+            n_boot=10,
+            seed=1,
+        )
         expected = _ols_beta_d(gf_data)
         # atol 1e-8: same exactness argument as the ATE collapse above.
         assert abs(res.estimate - expected) < 1e-8
@@ -140,6 +155,7 @@ class TestLinearCollapse:
 # ---------------------------------------------------------------------------
 # B. Saturated discrete cell: nonparametric standardization identity
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def saturated_cell_data():
@@ -178,6 +194,7 @@ class TestSaturatedCellStandardization:
         # consumed via the ml_Q clone/fit/predict branch
         # (g_computation.py:174-183).
         from sklearn.tree import DecisionTreeRegressor
+
         return DecisionTreeRegressor(random_state=0)
 
     def test_ate_equals_groupby_standardization(self, saturated_cell_data):
@@ -186,14 +203,15 @@ class TestSaturatedCellStandardization:
         px = df["x"].value_counts(normalize=True)
         expected_ate = sum(contrast[xv] * px[xv] for xv in (0, 1))
 
-        res = sp.g_computation(df, y="y", treat="d", covariates=["x"],
-                               ml_Q=self._tree(), n_boot=10, seed=2)
+        res = sp.g_computation(
+            df, y="y", treat="d", covariates=["x"], ml_Q=self._tree(), n_boot=10, seed=2
+        )
         # atol 1e-10: tree leaf means and pandas groupby means are the same
         # arithmetic means of the same float64 cells; only summation order
         # differs (~1e-15 observed).  Machine-collapse anchor.
-        assert abs(res.estimate - expected_ate) < 1e-10, (
-            f"ATE {res.estimate!r} != standardized {expected_ate!r}"
-        )
+        assert (
+            abs(res.estimate - expected_ate) < 1e-10
+        ), f"ATE {res.estimate!r} != standardized {expected_ate!r}"
 
     def test_att_uses_treated_covariate_distribution(self, saturated_cell_data):
         df = saturated_cell_data
@@ -201,15 +219,22 @@ class TestSaturatedCellStandardization:
         px_treated = df.loc[df["d"] == 1, "x"].value_counts(normalize=True)
         expected_att = sum(contrast[xv] * px_treated[xv] for xv in (0, 1))
 
-        res = sp.g_computation(df, y="y", treat="d", covariates=["x"],
-                               estimand="ATT", ml_Q=self._tree(),
-                               n_boot=10, seed=2)
+        res = sp.g_computation(
+            df,
+            y="y",
+            treat="d",
+            covariates=["x"],
+            estimand="ATT",
+            ml_Q=self._tree(),
+            n_boot=10,
+            seed=2,
+        )
         # atol 1e-10: same machine-collapse argument; ATT averages the cell
         # contrasts over treated rows only (g_computation.py:189-195), i.e.
         # weights P_hat(X=x | D=1).
-        assert abs(res.estimate - expected_att) < 1e-10, (
-            f"ATT {res.estimate!r} != standardized {expected_att!r}"
-        )
+        assert (
+            abs(res.estimate - expected_att) < 1e-10
+        ), f"ATT {res.estimate!r} != standardized {expected_att!r}"
 
     def test_anchor_is_not_tautological(self, saturated_cell_data):
         """Non-degeneracy guard: the additive-OLS collapse value (anchor A's
@@ -221,11 +246,14 @@ class TestSaturatedCellStandardization:
         contrast = self._cell_contrasts(df)
         px = df["x"].value_counts(normalize=True)
         expected_ate = sum(contrast[xv] * px[xv] for xv in (0, 1))
-        X = np.column_stack([np.ones(len(df)),
-                             df["d"].to_numpy(dtype=float),
-                             df["x"].to_numpy(dtype=float)])
-        beta, *_ = np.linalg.lstsq(X, df["y"].to_numpy(dtype=float),
-                                   rcond=None)
+        X = np.column_stack(
+            [
+                np.ones(len(df)),
+                df["d"].to_numpy(dtype=float),
+                df["x"].to_numpy(dtype=float),
+            ]
+        )
+        beta, *_ = np.linalg.lstsq(X, df["y"].to_numpy(dtype=float), rcond=None)
         assert abs(beta[1] - expected_ate) > 0.05
 
 
@@ -233,19 +261,21 @@ class TestSaturatedCellStandardization:
 # C. Frozen base-R fixture (stats::lm standardization)
 # ---------------------------------------------------------------------------
 
+
 class TestFrozenRParity:
     """sp.g_computation vs base-R lm + predict standardization."""
 
     def test_point_estimate_matches_R(self, gf_data, gf_R):
-        res = sp.g_computation(gf_data, y="y", treat="d", covariates=_COVS,
-                               n_boot=10, seed=3)
+        res = sp.g_computation(
+            gf_data, y="y", treat="d", covariates=_COVS, n_boot=10, seed=3
+        )
         # atol 1e-8: both languages parse identical doubles (pandas writes
         # shortest-roundtrip floats; read.csv restores them exactly) and
         # solve the same least-squares problem (R QR vs statsmodels pinv,
         # both backward-stable); observed agreement ~7e-16.
-        assert abs(res.estimate - gf_R["psi"]) < 1e-8, (
-            f"Python {res.estimate!r} vs R psi {gf_R['psi']!r}"
-        )
+        assert (
+            abs(res.estimate - gf_R["psi"]) < 1e-8
+        ), f"Python {res.estimate!r} vs R psi {gf_R['psi']!r}"
 
     def test_bootstrap_se_loosely_matches_R_classical_se(self, gf_data, gf_R):
         """Bootstrap SE is pinned only LOOSELY (decision documented in
@@ -256,12 +286,13 @@ class TestFrozenRParity:
         this homoskedastic Gaussian DGP; with B=200 the bootstrap-SE
         Monte-Carlo noise is ~SE/sqrt(2B) ~ 5%.  Band: +/-25% relative
         (recovery-grade; observed ratio 0.895 with the fixed seed)."""
-        res = sp.g_computation(gf_data, y="y", treat="d", covariates=_COVS,
-                               n_boot=200, seed=4)
-        r_se = gf_R["se_d_classical"]
-        assert abs(res.se / r_se - 1.0) < 0.25, (
-            f"bootstrap SE {res.se:.6f} vs R classical SE {r_se:.6f}"
+        res = sp.g_computation(
+            gf_data, y="y", treat="d", covariates=_COVS, n_boot=200, seed=4
         )
+        r_se = gf_R["se_d_classical"]
+        assert (
+            abs(res.se / r_se - 1.0) < 0.25
+        ), f"bootstrap SE {res.se:.6f} vs R classical SE {r_se:.6f}"
 
     def test_fixture_csv_intact(self, gf_data):
         """Guard that the CSV fixture wasn't accidentally mutated."""
@@ -280,6 +311,7 @@ class TestFrozenRParity:
 # ---------------------------------------------------------------------------
 # D. Recovery under confounding (the adjustment is real)
 # ---------------------------------------------------------------------------
+
 
 class TestConfoundedRecovery:
     """On matching_cia_data (conftest.py: homogeneous effect 2.0, linear
@@ -307,9 +339,9 @@ class TestConfoundedRecovery:
     def test_g_computation_recovers_truth_within_4_sigma(self, matching_cia_data):
         df = matching_cia_data
         truth = df.attrs["true_effect"]
-        res = sp.g_computation(df, y="y", treat="d",
-                               covariates=["X1", "X2", "X3"],
-                               n_boot=200, seed=5)
+        res = sp.g_computation(
+            df, y="y", treat="d", covariates=["X1", "X2", "X3"], n_boot=200, seed=5
+        )
         # 4-sigma recovery (REFERENCES.md convention): false-failure prob
         # 6.3e-5; observed ~1.2 sigma on this seed.
         assert abs(res.estimate - truth) <= 4.0 * res.se, (
@@ -322,6 +354,7 @@ class TestConfoundedRecovery:
 # E. Invariances
 # ---------------------------------------------------------------------------
 
+
 class TestInvariances:
 
     def test_irrelevant_covariate_barely_moves_estimate(self, matching_cia_data):
@@ -331,12 +364,17 @@ class TestInvariances:
         vs bound ~0.13).  Catches covariate-column wiring bugs."""
         df = matching_cia_data.copy()
         df["noise"] = np.random.default_rng(9090).normal(size=len(df))
-        base = sp.g_computation(df, y="y", treat="d",
-                                covariates=["X1", "X2", "X3"],
-                                n_boot=200, seed=6)
-        aug = sp.g_computation(df, y="y", treat="d",
-                               covariates=["X1", "X2", "X3", "noise"],
-                               n_boot=200, seed=6)
+        base = sp.g_computation(
+            df, y="y", treat="d", covariates=["X1", "X2", "X3"], n_boot=200, seed=6
+        )
+        aug = sp.g_computation(
+            df,
+            y="y",
+            treat="d",
+            covariates=["X1", "X2", "X3", "noise"],
+            n_boot=200,
+            seed=6,
+        )
         assert abs(aug.estimate - base.estimate) <= 4.0 * base.se, (
             f"noise covariate moved ATE from {base.estimate:.4f} "
             f"to {aug.estimate:.4f} (4*SE = {4 * base.se:.4f})"
@@ -349,12 +387,17 @@ class TestInvariances:
         code path => bitwise-equal estimate AND bootstrap SE (exact ==,
         no tolerance)."""
         df = matching_cia_data
-        a = sp.g_computation(df, y="y", treat="d",
-                             covariates=["X1", "X2", "X3"],
-                             n_boot=50, seed=7)
-        b = sp.g_computation(df, y="y", treat="d",
-                             covariates=["X1", "X2", "X3"],
-                             treat_values=(0, 1),
-                             n_boot=50, seed=7)
+        a = sp.g_computation(
+            df, y="y", treat="d", covariates=["X1", "X2", "X3"], n_boot=50, seed=7
+        )
+        b = sp.g_computation(
+            df,
+            y="y",
+            treat="d",
+            covariates=["X1", "X2", "X3"],
+            treat_values=(0, 1),
+            n_boot=50,
+            seed=7,
+        )
         assert a.estimate == b.estimate
         assert a.se == b.se

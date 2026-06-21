@@ -13,6 +13,7 @@ Estimators (6):
 - ``sp.bartik`` — Goldsmith-Pinkham-Sorkin-Swift (2020) shift-share IV.
 - ``sp.decompose`` — Oaxaca / FFL / DFL / RIF dispatcher.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,9 +29,9 @@ def panel_df():
     rows = []
     for u in range(30):
         for t in range(8):
-            rows.append({"i": u, "year": t,
-                          "y": rng.normal() + 0.1 * t,
-                          "x1": rng.normal()})
+            rows.append(
+                {"i": u, "year": t, "y": rng.normal() + 0.1 * t, "x1": rng.normal()}
+            )
     return pd.DataFrame(rows)
 
 
@@ -39,51 +40,56 @@ def ts_df():
     rng = np.random.default_rng(1)
     n = 100
     intervention = np.where(np.arange(n) >= 70, 2.0, 0.0)
-    return pd.DataFrame({
-        "y": rng.normal(size=n) + intervention,
-        "t": range(n),
-    })
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=n) + intervention,
+            "t": range(n),
+        }
+    )
 
 
 @pytest.fixture
 def mediation_df():
     rng = np.random.default_rng(2)
     n = 200
-    return pd.DataFrame({
-        "y": rng.normal(size=n),
-        "d": rng.binomial(1, 0.5, size=n),
-        "m": rng.normal(size=n),
-        "x1": rng.normal(size=n),
-    })
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "d": rng.binomial(1, 0.5, size=n),
+            "m": rng.normal(size=n),
+            "x1": rng.normal(size=n),
+        }
+    )
 
 
 @pytest.fixture
 def decomp_df():
     rng = np.random.default_rng(3)
     n = 200
-    return pd.DataFrame({
-        "log_wage": rng.normal(size=n) + 0.3 * rng.binomial(1, 0.5, size=n),
-        "female": rng.binomial(1, 0.5, size=n),
-        "edu": rng.normal(size=n),
-    })
+    return pd.DataFrame(
+        {
+            "log_wage": rng.normal(size=n) + 0.3 * rng.binomial(1, 0.5, size=n),
+            "female": rng.binomial(1, 0.5, size=n),
+            "edu": rng.normal(size=n),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Per-estimator
 # ---------------------------------------------------------------------------
 
+
 class TestPanelProvenance:
     def test_attached_fe(self, panel_df):
-        r = sp.panel(panel_df, formula="y ~ x1",
-                      entity="i", time="year", method="fe")
+        r = sp.panel(panel_df, formula="y ~ x1", entity="i", time="year", method="fe")
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.panel"
         assert prov.params["method"] == "fe"
 
     def test_method_choice_captured(self, panel_df):
-        r = sp.panel(panel_df, formula="y ~ x1",
-                      entity="i", time="year", method="re")
+        r = sp.panel(panel_df, formula="y ~ x1", entity="i", time="year", method="re")
         prov = sp.get_provenance(r)
         assert prov.params["method"] == "re"
 
@@ -99,8 +105,9 @@ class TestCausalImpactProvenance:
 
 class TestMediateProvenance:
     def test_attached(self, mediation_df):
-        r = sp.mediate(mediation_df, y="y", treat="d", mediator="m",
-                        covariates=["x1"], n_boot=20)
+        r = sp.mediate(
+            mediation_df, y="y", treat="d", mediator="m", covariates=["x1"], n_boot=20
+        )
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.mediate"
@@ -110,9 +117,15 @@ class TestMediateProvenance:
 class TestMediateInterventionalProvenance:
     def test_attached(self, mediation_df):
         from statspai.mediation.mediate import mediate_interventional
+
         r = mediate_interventional(
-            mediation_df, y="y", treat="d", mediator="m",
-            covariates=["x1"], n_mc=50, n_boot=20,
+            mediation_df,
+            y="y",
+            treat="d",
+            mediator="m",
+            covariates=["x1"],
+            n_mc=50,
+            n_boot=20,
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -123,9 +136,9 @@ class TestMediateInterventionalProvenance:
 
 class TestDecomposeProvenance:
     def test_attached_oaxaca(self, decomp_df):
-        r = sp.decompose("oaxaca", data=decomp_df,
-                          y="log_wage", group="female",
-                          x=["edu"])
+        r = sp.decompose(
+            "oaxaca", data=decomp_df, y="log_wage", group="female", x=["edu"]
+        )
         prov = sp.get_provenance(r)
         assert prov is not None
         # Function name surfaces the dispatched method.
@@ -143,16 +156,18 @@ class TestBartikProvenance:
             rng.dirichlet(np.ones(K), size=n_regions),
             columns=[f"ind{i}" for i in range(K)],
         )
-        shocks = pd.Series(rng.normal(size=K) * 0.05,
-                            index=[f"ind{i}" for i in range(K)])
+        shocks = pd.Series(
+            rng.normal(size=K) * 0.05, index=[f"ind{i}" for i in range(K)]
+        )
         # Build region-level data
-        data = pd.DataFrame({
-            "region": range(n_regions),
-            "y": rng.normal(size=n_regions),
-            "x": rng.normal(size=n_regions),
-        })
-        r = sp.bartik(data=data, y="y", endog="x",
-                        shares=shares, shocks=shocks)
+        data = pd.DataFrame(
+            {
+                "region": range(n_regions),
+                "y": rng.normal(size=n_regions),
+                "x": rng.normal(size=n_regions),
+            }
+        )
+        r = sp.bartik(data=data, y="y", endog="x", shares=shares, shocks=shocks)
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.bartik"
@@ -162,19 +177,21 @@ class TestBartikProvenance:
 # Integration
 # ---------------------------------------------------------------------------
 
+
 class TestRound6LineageIntegration:
     def test_multi_estimator_pack(self, panel_df, ts_df, tmp_path):
-        r1 = sp.panel(panel_df, formula="y ~ x1",
-                       entity="i", time="year", method="fe")
-        r2 = sp.causal_impact(ts_df, y="y", time="t",
-                                intervention_time=70)
+        r1 = sp.panel(panel_df, formula="y ~ x1", entity="i", time="year", method="fe")
+        r2 = sp.causal_impact(ts_df, y="y", time="t", intervention_time=70)
 
         rp = sp.replication_pack(
-            [r1, r2], tmp_path / "round6.zip",
-            data=panel_df, env=False,
+            [r1, r2],
+            tmp_path / "round6.zip",
+            data=panel_df,
+            env=False,
         )
         import json
         import zipfile
+
         with zipfile.ZipFile(rp.output_path) as zf:
             assert "lineage.json" in zf.namelist()
             lin = json.loads(zf.read("lineage.json"))

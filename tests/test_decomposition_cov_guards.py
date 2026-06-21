@@ -5,6 +5,7 @@ significance-star thresholds, and the ``weights=None`` default inside the
 private inequality-index kernels (which the public ``inequality_index`` never
 hits because it always forwards a weight vector). Real behavioural assertions.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -14,7 +15,6 @@ import pytest
 
 from statspai.decomposition import _common as C
 from statspai.decomposition import inequality as I
-
 
 # ── logit non-convergence path ───────────────────────────────────────
 
@@ -45,9 +45,16 @@ def test_logit_fit_silent_when_flag_off():
 # ── significance stars thresholds ────────────────────────────────────
 
 
-@pytest.mark.parametrize("pval,expected", [
-    (0.0005, "***"), (0.005, "**"), (0.03, "*"), (0.07, "+"), (0.5, ""),
-])
+@pytest.mark.parametrize(
+    "pval,expected",
+    [
+        (0.0005, "***"),
+        (0.005, "**"),
+        (0.03, "*"),
+        (0.07, "+"),
+        (0.5, ""),
+    ],
+)
 def test_sig_stars(pval, expected):
     assert C.sig_stars(pval) == expected
 

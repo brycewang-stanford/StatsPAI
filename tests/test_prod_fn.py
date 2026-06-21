@@ -25,10 +25,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Synthetic DGP
 # ---------------------------------------------------------------------------
+
 
 def _simulate_panel(
     n_firms: int = 200,
@@ -45,7 +45,7 @@ def _simulate_panel(
 
     # Initial state per firm
     for fid in range(n_firms):
-        omega = rng.normal(0.0, sigma_xi / np.sqrt(1 - rho ** 2))
+        omega = rng.normal(0.0, sigma_xi / np.sqrt(1 - rho**2))
         k = rng.normal(0.0, 0.5)  # log capital initial level
         for t in range(n_periods):
             xi = rng.normal(0.0, sigma_xi)
@@ -65,17 +65,19 @@ def _simulate_panel(
             eta = rng.normal(0.0, sigma_eta)
             y = beta_l * l + beta_k * k + omega + eta
 
-            rows.append({
-                "id": fid,
-                "year": t,
-                "y": y,
-                "l": l,
-                "k": k,
-                "m": m,
-                "i": i_lvl,
-                "omega": omega,
-                "eta": eta,
-            })
+            rows.append(
+                {
+                    "id": fid,
+                    "year": t,
+                    "y": y,
+                    "l": l,
+                    "k": k,
+                    "m": m,
+                    "i": i_lvl,
+                    "omega": omega,
+                    "eta": eta,
+                }
+            )
 
             # Capital evolves with investment (predetermined for next period)
             k = 0.9 * k + 0.1 * np.log(i_lvl + 1e-6)
@@ -101,6 +103,7 @@ def panel():
 # Recovery tests (large tolerance — proxy-variable estimators are noisy)
 # ---------------------------------------------------------------------------
 
+
 def _close(coef: float, truth: float, tol: float) -> bool:
     return abs(coef - truth) < tol
 
@@ -112,9 +115,15 @@ def test_olley_pakes_runs(panel):
     """
     df, truth = panel
     res = sp.olley_pakes(
-        df, output="y", free="l", state="k", proxy="i",
-        panel_id="id", time="year",
-        polynomial_degree=3, productivity_degree=1,
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="i",
+        panel_id="id",
+        time="year",
+        polynomial_degree=3,
+        productivity_degree=1,
     )
     assert "l" in res.coef and "k" in res.coef
     assert res.diagnostics["stage1_r2"] > 0.5
@@ -128,9 +137,15 @@ def test_levinsohn_petrin_runs(panel):
     We test that the estimator runs and produces output."""
     df, _ = panel
     res = sp.levinsohn_petrin(
-        df, output="y", free="l", state="k", proxy="m",
-        panel_id="id", time="year",
-        polynomial_degree=3, productivity_degree=1,
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=3,
+        productivity_degree=1,
     )
     assert "l" in res.coef and "k" in res.coef
     assert res.diagnostics["stage1_r2"] > 0.5
@@ -141,9 +156,15 @@ def test_acf_recovers_params(panel):
     should recover (beta_l, beta_k) close to truth."""
     df, truth = panel
     res = sp.ackerberg_caves_frazer(
-        df, output="y", free="l", state="k", proxy="m",
-        panel_id="id", time="year",
-        polynomial_degree=3, productivity_degree=1,
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=3,
+        productivity_degree=1,
     )
     assert _close(res.coef["l"], truth["beta_l"], tol=0.10)
     assert _close(res.coef["k"], truth["beta_k"], tol=0.10)
@@ -158,9 +179,15 @@ def test_wooldridge_runs(panel):
     to truth."""
     df, _ = panel
     res = sp.wooldridge_prod(
-        df, output="y", free="l", state="k", proxy="m",
-        panel_id="id", time="year",
-        polynomial_degree=2, productivity_degree=1,
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
     )
     np.testing.assert_allclose(len(res.tfp), len(res.sample))
     assert res.coef["l"] > 0 and res.coef["l"] < 1.5
@@ -172,15 +199,22 @@ def test_wooldridge_runs(panel):
 # Dispatcher + aliases
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize("method", ["op", "lp", "acf", "wrdg"])
 def test_prod_fn_dispatcher(panel, method):
     df, _ = panel
     proxy = "i" if method == "op" else "m"
     res = sp.prod_fn(
-        df, output="y", free="l", state="k", proxy=proxy,
-        panel_id="id", time="year",
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy=proxy,
+        panel_id="id",
+        time="year",
         method=method,
-        polynomial_degree=2, productivity_degree=1,
+        polynomial_degree=2,
+        productivity_degree=1,
     )
     np.testing.assert_allclose(len(res.tfp), len(res.sample))
     assert hasattr(res, "coef")
@@ -190,13 +224,27 @@ def test_prod_fn_dispatcher(panel, method):
 
 def test_aliases_match_canonical(panel):
     df, _ = panel
-    res1 = sp.acf(df, output="y", free="l", state="k", proxy="m",
-                  panel_id="id", time="year",
-                  polynomial_degree=2, productivity_degree=1)
+    res1 = sp.acf(
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
+    )
     res2 = sp.ackerberg_caves_frazer(
-        df, output="y", free="l", state="k", proxy="m",
-        panel_id="id", time="year",
-        polynomial_degree=2, productivity_degree=1,
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
     )
     assert np.isclose(res1.coef["l"], res2.coef["l"])
     assert np.isclose(res1.coef["k"], res2.coef["k"])
@@ -206,13 +254,21 @@ def test_aliases_match_canonical(panel):
 # Bootstrap SE
 # ---------------------------------------------------------------------------
 
+
 def test_bootstrap_produces_se(panel):
     df, _ = panel
     res = sp.acf(
-        df, output="y", free="l", state="k", proxy="m",
-        panel_id="id", time="year",
-        polynomial_degree=2, productivity_degree=1,
-        boot_reps=20, seed=0,
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
+        boot_reps=20,
+        seed=0,
     )
     assert np.isfinite(res.std_errors["l"]).all()
     assert np.isfinite(res.std_errors["k"]).all()
@@ -224,6 +280,7 @@ def test_bootstrap_produces_se(panel):
 # Markup
 # ---------------------------------------------------------------------------
 
+
 def test_markup_runs(panel):
     df, _ = panel
     # Construct log revenue and log materials cost as if firms face common
@@ -234,33 +291,52 @@ def test_markup_runs(panel):
     df["log_mat_cost"] = df["m"] + np.log(0.80) + rng.normal(0, 0.05, len(df))
 
     res = sp.acf(
-        df, output="y", free="l", state="k", proxy="m",
-        panel_id="id", time="year",
-        polynomial_degree=2, productivity_degree=1,
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
     )
 
     # markup() expects revenue/cost columns inside result.sample.
-    res.sample["log_rev"] = df.loc[res.sample.index, "log_rev"].to_numpy() if "log_rev" in df else df["log_rev"].to_numpy()[: len(res.sample)]
+    res.sample["log_rev"] = (
+        df.loc[res.sample.index, "log_rev"].to_numpy()
+        if "log_rev" in df
+        else df["log_rev"].to_numpy()[: len(res.sample)]
+    )
     res.sample["log_mat_cost"] = df["log_mat_cost"].to_numpy()[: len(res.sample)]
 
     # The flexible input here must be one of the production-function
     # coefficients. ACF coefs are {l, k}, so we re-fit with m as a free
     # input to expose theta_m.
     res2 = sp.acf(
-        df, output="y", free=["l", "m"], state="k", proxy="m",
-        panel_id="id", time="year",
-        polynomial_degree=2, productivity_degree=1,
+        df,
+        output="y",
+        free=["l", "m"],
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
     )
     res2.sample["log_rev"] = df["log_rev"].to_numpy()[: len(res2.sample)]
     res2.sample["log_mat_cost"] = df["log_mat_cost"].to_numpy()[: len(res2.sample)]
 
-    mu = sp.markup(res2, revenue="log_rev", input_cost="log_mat_cost",
-                   flexible_input="m")
+    mu = sp.markup(
+        res2, revenue="log_rev", input_cost="log_mat_cost", flexible_input="m"
+    )
     theta_m = float(res2.coef["m"])
     cost_share = np.exp(
         res2.sample["log_mat_cost"].to_numpy(dtype=float)
-        - (res2.sample["log_rev"].to_numpy(dtype=float)
-           - res2.sample["eta"].to_numpy(dtype=float))
+        - (
+            res2.sample["log_rev"].to_numpy(dtype=float)
+            - res2.sample["eta"].to_numpy(dtype=float)
+        )
     )
     np.testing.assert_allclose(mu.to_numpy(), theta_m / cost_share)
     assert isinstance(mu, pd.Series)
@@ -273,21 +349,36 @@ def test_markup_runs(panel):
 # Edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_missing_column_raises(panel):
     df, _ = panel
     with pytest.raises(ValueError, match="Missing columns"):
-        sp.olley_pakes(df.drop(columns=["i"]), output="y", free="l",
-                       state="k", proxy="i", panel_id="id", time="year")
+        sp.olley_pakes(
+            df.drop(columns=["i"]),
+            output="y",
+            free="l",
+            state="k",
+            proxy="i",
+            panel_id="id",
+            time="year",
+        )
 
 
 def test_too_few_obs_raises():
-    df = pd.DataFrame({
-        "y": [1.0, 1.1], "l": [0.5, 0.6], "k": [0.4, 0.4],
-        "m": [0.3, 0.3], "id": [0, 0], "year": [0, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 1.1],
+            "l": [0.5, 0.6],
+            "k": [0.4, 0.4],
+            "m": [0.3, 0.3],
+            "id": [0, 0],
+            "year": [0, 1],
+        }
+    )
     with pytest.raises(ValueError, match="valid observations"):
-        sp.acf(df, output="y", free="l", state="k", proxy="m",
-               panel_id="id", time="year")
+        sp.acf(
+            df, output="y", free="l", state="k", proxy="m", panel_id="id", time="year"
+        )
 
 
 def test_op_drops_zero_investment(panel):
@@ -295,9 +386,17 @@ def test_op_drops_zero_investment(panel):
     df = df.copy()
     df.loc[df.index[:5], "i"] = 0.0  # five rows with zero investment
     n_before = len(df)
-    res = sp.olley_pakes(df, output="y", free="l", state="k", proxy="i",
-                         panel_id="id", time="year",
-                         polynomial_degree=2, productivity_degree=1)
+    res = sp.olley_pakes(
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="i",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
+    )
     # Should drop the zero-i rows internally
     assert len(res.sample) < n_before
 
@@ -306,11 +405,20 @@ def test_op_drops_zero_investment(panel):
 # Result object surface
 # ---------------------------------------------------------------------------
 
+
 def test_production_result_has_summary(panel):
     df, _ = panel
-    res = sp.acf(df, output="y", free="l", state="k", proxy="m",
-                 panel_id="id", time="year",
-                 polynomial_degree=2, productivity_degree=1)
+    res = sp.acf(
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
+    )
     s = res.summary()
     assert "Production function" in s or "Model" in s or hasattr(res, "params")
     assert isinstance(res.cite(), str)
@@ -336,9 +444,17 @@ def test_diagnostics_without_bootstrap(panel):
     """Ensure result.diagnostics is well-formed when no bootstrap is run
     (boot_reps_effective == 0, no NameError on missing bootstrap state)."""
     df, _ = panel
-    res = sp.acf(df, output="y", free="l", state="k", proxy="m",
-                 panel_id="id", time="year",
-                 polynomial_degree=2, productivity_degree=1)
+    res = sp.acf(
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
+    )
     assert res.diagnostics["boot_reps_effective"] == 0
     assert np.isnan(res.std_errors["l"])
     assert np.isnan(res.std_errors["k"])
@@ -349,19 +465,28 @@ def test_diagnostics_without_bootstrap(panel):
 # Translog functional form
 # ---------------------------------------------------------------------------
 
+
 def test_translog_runs_and_exposes_quadratic_terms(panel):
     """Translog fit on a Cobb-Douglas DGP should:
-      (i) converge with all 5 expected coefficient keys,
-      (ii) produce a firm-time elasticity panel,
-      (iii) recover near-zero quadratic / cross terms (since the truth
-            is CD), and
-      (iv) keep linear elasticities in a CD-plausible neighborhood.
+    (i) converge with all 5 expected coefficient keys,
+    (ii) produce a firm-time elasticity panel,
+    (iii) recover near-zero quadratic / cross terms (since the truth
+          is CD), and
+    (iv) keep linear elasticities in a CD-plausible neighborhood.
     """
     df, _ = panel
-    res = sp.acf(df, output="y", free="l", state="k", proxy="m",
-                 panel_id="id", time="year",
-                 polynomial_degree=3, productivity_degree=1,
-                 functional_form="translog")
+    res = sp.acf(
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=3,
+        productivity_degree=1,
+        functional_form="translog",
+    )
     expected_keys = {"l", "k", "ll", "kk", "lk"}
     assert expected_keys <= set(res.coef)
     elasts = res.model_info["elasticities"]
@@ -386,11 +511,19 @@ def test_translog_runs_and_exposes_quadratic_terms(panel):
 def test_translog_dispatcher(panel):
     """Dispatcher should pass functional_form through to OP/LP/ACF."""
     df, _ = panel
-    res = sp.prod_fn(df, output="y", free="l", state="k", proxy="m",
-                     panel_id="id", time="year",
-                     method="lp",
-                     polynomial_degree=2, productivity_degree=1,
-                     functional_form="translog")
+    res = sp.prod_fn(
+        df,
+        output="y",
+        free="l",
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        method="lp",
+        polynomial_degree=2,
+        productivity_degree=1,
+        functional_form="translog",
+    )
     assert "ll" in res.coef and "kk" in res.coef and "lk" in res.coef
 
 
@@ -403,15 +536,24 @@ def test_translog_markup_uses_firm_time_elasticities(panel):
     df["log_rev"] = df["y"] + np.log(1.20) + rng.normal(0, 0.05, len(df))
     df["log_mat_cost"] = df["m"] + np.log(0.80) + rng.normal(0, 0.05, len(df))
 
-    res = sp.acf(df, output="y", free=["l", "m"], state="k", proxy="m",
-                 panel_id="id", time="year",
-                 polynomial_degree=2, productivity_degree=1,
-                 functional_form="translog")
+    res = sp.acf(
+        df,
+        output="y",
+        free=["l", "m"],
+        state="k",
+        proxy="m",
+        panel_id="id",
+        time="year",
+        polynomial_degree=2,
+        productivity_degree=1,
+        functional_form="translog",
+    )
     res.sample["log_rev"] = df["log_rev"].to_numpy()[: len(res.sample)]
     res.sample["log_mat_cost"] = df["log_mat_cost"].to_numpy()[: len(res.sample)]
 
-    mu = sp.markup(res, revenue="log_rev", input_cost="log_mat_cost",
-                   flexible_input="m")
+    mu = sp.markup(
+        res, revenue="log_rev", input_cost="log_mat_cost", flexible_input="m"
+    )
     assert isinstance(mu, pd.Series)
     assert (mu > 0).all()
     # Translog markup should vary across firm-times (not constant).
@@ -423,18 +565,32 @@ def test_wooldridge_translog_raises():
     raise NotImplementedError, not silently return wrong numbers."""
     df, _ = _simulate_panel(n_firms=80, n_periods=8)
     with pytest.raises(NotImplementedError, match="cobb-douglas"):
-        sp.wooldridge_prod(df, output="y", free="l", state="k", proxy="m",
-                           panel_id="id", time="year",
-                           functional_form="translog")
+        sp.wooldridge_prod(
+            df,
+            output="y",
+            free="l",
+            state="k",
+            proxy="m",
+            panel_id="id",
+            time="year",
+            functional_form="translog",
+        )
 
 
 def test_unknown_functional_form_raises(panel):
     """Anything outside {cobb-douglas, translog} must raise immediately."""
     df, _ = panel
     with pytest.raises(ValueError, match="Unknown functional_form"):
-        sp.acf(df, output="y", free="l", state="k", proxy="m",
-               panel_id="id", time="year",
-               functional_form="ces")
+        sp.acf(
+            df,
+            output="y",
+            free="l",
+            state="k",
+            proxy="m",
+            panel_id="id",
+            time="year",
+            functional_form="ces",
+        )
 
 
 def test_time_gap_warning():
@@ -444,15 +600,26 @@ def test_time_gap_warning():
     # 50 firms, but each skips year 5 (creating a 2-year gap)
     for fid in range(50):
         for t in [0, 1, 2, 3, 4, 6, 7, 8, 9, 10]:  # gap at t=5
-            rows.append({
-                "id": fid, "year": t,
-                "y": rng.normal(0, 1),
-                "l": rng.normal(0, 1),
-                "k": rng.normal(0, 1),
-                "m": rng.normal(0, 1),
-            })
+            rows.append(
+                {
+                    "id": fid,
+                    "year": t,
+                    "y": rng.normal(0, 1),
+                    "l": rng.normal(0, 1),
+                    "k": rng.normal(0, 1),
+                    "m": rng.normal(0, 1),
+                }
+            )
     df = pd.DataFrame(rows)
     with pytest.warns(UserWarning, match="non-consecutive"):
-        sp.acf(df, output="y", free="l", state="k", proxy="m",
-               panel_id="id", time="year",
-               polynomial_degree=2, productivity_degree=1)
+        sp.acf(
+            df,
+            output="y",
+            free="l",
+            state="k",
+            proxy="m",
+            panel_id="id",
+            time="year",
+            polynomial_degree=2,
+            productivity_degree=1,
+        )

@@ -8,6 +8,7 @@ a small synthetic panel and assert that each renderer emits the
 expected sections, that the file writer round-trips, and that the
 public API rejects bad ``output`` values loudly.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,7 +28,6 @@ from statspai.synth.report import (
     synth_report,
     synth_report_to_file,
 )
-
 
 # --------------------------------------------------------------------- #
 #  Fixtures
@@ -317,11 +317,13 @@ def test_format_text_with_sensitivity_dict_branches():
         "loo": pd.DataFrame({"unit": ["A", "B"], "att": [-15.0, -12.5]}),
         "time_placebo": pd.DataFrame({"time": [1995, 1996], "pvalue": [0.02, 0.50]}),
         "donor_sensitivity": pd.DataFrame({"att": np.linspace(-20, -10, 50)}),
-        "rmspe_filter": pd.DataFrame({
-            "threshold": [2.0, 5.0, np.inf],
-            "pvalue": [0.10, 0.05, 0.20],
-            "n_placebos": [10, 6, 30],
-        }),
+        "rmspe_filter": pd.DataFrame(
+            {
+                "threshold": [2.0, 5.0, np.inf],
+                "pvalue": [0.10, 0.05, 0.20],
+                "n_placebos": [10, 6, 30],
+            }
+        ),
     }
     out = _format_text(
         result=_DummyResult(),
@@ -350,15 +352,20 @@ def test_format_text_with_sensitivity_dict_branches():
 
 def test_format_markdown_handles_long_weights_truncation():
     """Weights table > 15 rows triggers the ``... N more`` line."""
-    weights = pd.DataFrame({
-        "unit": [f"S{i}" for i in range(20)],
-        "weight": np.linspace(0.1, 0.0, 20),
-    })
+    weights = pd.DataFrame(
+        {
+            "unit": [f"S{i}" for i in range(20)],
+            "weight": np.linspace(0.1, 0.0, 20),
+        }
+    )
     out = _format_markdown(
         result=_DummyResult(),
         mi={
-            "treated_unit": "S0", "treatment_time": 2000,
-            "n_pre_periods": 5, "n_post_periods": 3, "n_donors": 20,
+            "treated_unit": "S0",
+            "treatment_time": 2000,
+            "n_pre_periods": 5,
+            "n_post_periods": 3,
+            "n_donors": 20,
             "pre_treatment_rmse": 0.1,
             "weights": weights,
         },
@@ -371,30 +378,39 @@ def test_format_markdown_handles_long_weights_truncation():
 
 def test_format_text_gap_table_classifies_fit_quality():
     """A near-perfect pre-fit triggers the ``Excellent`` quality label."""
-    pre = pd.DataFrame({
-        "time": [1, 2, 3, 4],
-        "treated": [10.0, 11.0, 12.0, 13.0],
-        "synthetic": [10.0, 11.0, 12.0, 13.0],
-        "gap": [0.0, 0.0, 0.0, 0.0],
-        "post_treatment": [False, False, False, False],
-    })
-    post = pd.DataFrame({
-        "time": [5, 6],
-        "treated": [14.0, 15.0],
-        "synthetic": [16.0, 16.0],
-        "gap": [-2.0, -1.0],
-        "post_treatment": [True, True],
-    })
+    pre = pd.DataFrame(
+        {
+            "time": [1, 2, 3, 4],
+            "treated": [10.0, 11.0, 12.0, 13.0],
+            "synthetic": [10.0, 11.0, 12.0, 13.0],
+            "gap": [0.0, 0.0, 0.0, 0.0],
+            "post_treatment": [False, False, False, False],
+        }
+    )
+    post = pd.DataFrame(
+        {
+            "time": [5, 6],
+            "treated": [14.0, 15.0],
+            "synthetic": [16.0, 16.0],
+            "gap": [-2.0, -1.0],
+            "post_treatment": [True, True],
+        }
+    )
     gap = pd.concat([pre, post], ignore_index=True)
     out = _format_text(
         result=_DummyResult(),
         mi={
-            "treated_unit": "S0", "treatment_time": 5,
-            "n_pre_periods": 4, "n_post_periods": 2, "n_donors": 3,
+            "treated_unit": "S0",
+            "treatment_time": 5,
+            "n_pre_periods": 4,
+            "n_post_periods": 2,
+            "n_donors": 3,
             "pre_treatment_rmse": 0.001,
             "gap_table": gap,
         },
-        method="classic", sensitivity=None, alpha=0.05,
+        method="classic",
+        sensitivity=None,
+        alpha=0.05,
     )
     assert "Excellent" in out
     # Section 5 runs because gap_table has post rows
@@ -407,14 +423,19 @@ def test_format_text_placebo_section_with_explicit_inputs():
     out = _format_text(
         result=_DummyResult(est=-3.0, se=0.5, p=0.001, ci=(-4.0, -2.0)),
         mi={
-            "treated_unit": "S0", "treatment_time": 2000,
-            "n_pre_periods": 4, "n_post_periods": 2, "n_donors": 5,
+            "treated_unit": "S0",
+            "treatment_time": 2000,
+            "n_pre_periods": 4,
+            "n_post_periods": 2,
+            "n_donors": 5,
             "pre_treatment_rmse": 0.5,
             "placebo_atts": placebos,
             "n_placebos": 5,
             "treated_ratio": 4.2,
         },
-        method="classic", sensitivity=None, alpha=0.05,
+        method="classic",
+        sensitivity=None,
+        alpha=0.05,
     )
     assert "6. PLACEBO INFERENCE" in out
     # Treated |est| = 3 > all placebo |att| → rank 1 of 6
@@ -426,10 +447,15 @@ def test_synth_report_unknown_method_falls_through_to_label_string():
     """Unknown method passes through (``_METHOD_LABELS.get(method, method)``)."""
     df = _make_panel(n_donors=8, n_pre=6, n_post=3)
     out = synth_report(
-        df, outcome="cigsale", unit="state", time="year",
-        treated_unit="S0", treatment_time=1996,
+        df,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="S0",
+        treatment_time=1996,
         method="classic",  # use a real method but verify label string
-        sensitivity=False, output="markdown",
+        sensitivity=False,
+        output="markdown",
     )
     label = _METHOD_LABELS["classic"]
     assert label in out

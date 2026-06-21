@@ -21,6 +21,7 @@ Stata reference values are hard-coded constants (the gold standard); the data
 is regenerated deterministically so the test is hermetic (no Stata needed at
 run time).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -44,17 +45,29 @@ def _make_data() -> pd.DataFrame:
     z = rng.normal(0, 1, N)
     u = rng.normal(0, 1, N)
     d = 0.8 * z + 0.5 * u + rng.normal(0, 0.5, N)
-    y = (1.0 + 0.5 * x1 - 0.3 * x2 + 0.7 * x3 + 1.2 * d + ufe + u
-         + rng.normal(0, 1, N))
+    y = 1.0 + 0.5 * x1 - 0.3 * x2 + 0.7 * x3 + 1.2 * d + ufe + u + rng.normal(0, 1, N)
     eta_c = 0.2 + 0.3 * x1 - 0.2 * x2 + 0.4 * x3
     count_y = rng.poisson(np.exp(eta_c))
     eta_b = -0.2 + 0.6 * x1 - 0.4 * x2 + 0.5 * x3
     p = 1 / (1 + np.exp(-eta_b))
     bin_y = (rng.uniform(0, 1, N) < p).astype(int)
     w = rng.uniform(0.5, 2.0, N)
-    return pd.DataFrame(dict(id=idv, time=time, y=y, count_y=count_y,
-                             bin_y=bin_y, x1=x1, x2=x2, x3=x3, d=d, z=z, w=w,
-                             cluster=idv))
+    return pd.DataFrame(
+        dict(
+            id=idv,
+            time=time,
+            y=y,
+            count_y=count_y,
+            bin_y=bin_y,
+            x1=x1,
+            x2=x2,
+            x3=x3,
+            d=d,
+            z=z,
+            w=w,
+            cluster=idv,
+        )
+    )
 
 
 # Stata 18 MP, 2026-06-16. ``regress y x1 x2 x3 [aw=w]`` (+ robust / cluster).
@@ -126,9 +139,9 @@ def _assert_match(series, ref: dict, ck: str, rtol: float = _RTOL):
     for name, expected in ref.items():
         key = ck if name == "Intercept" else name
         got = float(series[key])
-        assert got == pytest.approx(expected, rel=rtol, abs=1e-12), (
-            f"{name}: {got!r} != Stata {expected!r}"
-        )
+        assert got == pytest.approx(
+            expected, rel=rtol, abs=1e-12
+        ), f"{name}: {got!r} != Stata {expected!r}"
 
 
 # ---------------------------------------------------------------------------

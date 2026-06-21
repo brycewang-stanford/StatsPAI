@@ -22,8 +22,9 @@ def _continuous_late_data(n=600, true_late=1.5, seed=0):
 
 def test_continuous_late_recovers_truth():
     df = _continuous_late_data(n=800, true_late=1.5, seed=0)
-    r = sp.continuous_iv_late(df, y="y", treat="d", instrument="z",
-                                n_quantiles=5, n_boot=50, seed=0)
+    r = sp.continuous_iv_late(
+        df, y="y", treat="d", instrument="z", n_quantiles=5, n_boot=50, seed=0
+    )
     assert abs(r.estimate - 1.5) < 0.5, f"Estimate {r.estimate}"
     assert r.se > 0
     assert r.ci[0] < r.estimate < r.ci[1]
@@ -32,8 +33,9 @@ def test_continuous_late_recovers_truth():
 
 def test_continuous_late_summary_not_degenerate():
     df = _continuous_late_data(n=300, seed=1)
-    r = sp.continuous_iv_late(df, y="y", treat="d", instrument="z",
-                                n_quantiles=4, n_boot=20, seed=1)
+    r = sp.continuous_iv_late(
+        df, y="y", treat="d", instrument="z", n_quantiles=4, n_boot=20, seed=1
+    )
     s = r.summary()
     # Bug regression: summary should NOT contain the header repeated dozens of times
     assert s.count("Continuous-Instrument LATE") == 1
@@ -48,6 +50,7 @@ def test_continuous_late_registry():
 def test_continuous_late_handles_few_quantiles():
     df = _continuous_late_data(n=200, seed=2)
     # Even with 2 quantiles it should produce a finite estimate
-    r = sp.continuous_iv_late(df, y="y", treat="d", instrument="z",
-                                n_quantiles=2, n_boot=10, seed=2)
+    r = sp.continuous_iv_late(
+        df, y="y", treat="d", instrument="z", n_quantiles=2, n_boot=10, seed=2
+    )
     assert np.isfinite(r.estimate)

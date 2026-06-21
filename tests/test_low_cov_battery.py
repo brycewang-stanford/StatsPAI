@@ -21,6 +21,7 @@ Each test runs in well under a second on a reproducible RNG seed and
 asserts the result has finite point estimate + an SE + a CI — i.e. the
 "contract" downstream code (paper / replication_pack / Quarto) relies on.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -30,7 +31,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 # --------------------------------------------------------------------- #
 #  Reusable fixtures
@@ -63,10 +63,15 @@ def causal_obs_data() -> pd.DataFrame:
     X = rng.normal(size=(n, 3))
     A = rng.binomial(1, 1.0 / (1.0 + np.exp(-X[:, 0])), n)
     Y = X[:, 0] + 2.0 * A + rng.normal(size=n)
-    return pd.DataFrame({
-        "Y": Y, "A": A,
-        "X1": X[:, 0], "X2": X[:, 1], "X3": X[:, 2],
-    })
+    return pd.DataFrame(
+        {
+            "Y": Y,
+            "A": A,
+            "X1": X[:, 0],
+            "X2": X[:, 1],
+            "X3": X[:, 2],
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -79,14 +84,19 @@ def synth_panel() -> pd.DataFrame:
         a = rng.normal() * 5.0
         for y in years:
             post = (u == 0) and (y >= 2010)
-            rows.append({
-                "state": f"S{u}", "year": y,
-                "cigsale": (
-                    100.0 + a + 0.5 * (y - 2000)
-                    + (-15.0 if post else 0.0)
-                    + 0.5 * rng.normal()
-                ),
-            })
+            rows.append(
+                {
+                    "state": f"S{u}",
+                    "year": y,
+                    "cigsale": (
+                        100.0
+                        + a
+                        + 0.5 * (y - 2000)
+                        + (-15.0 if post else 0.0)
+                        + 0.5 * rng.normal()
+                    ),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -180,9 +190,11 @@ def test_jive_smoke(iv_data):
 
 def test_tmle_ate_smoke(causal_obs_data):
     from statspai.tmle import tmle
+
     res = tmle(
         causal_obs_data,
-        y="Y", treat="A",
+        y="Y",
+        treat="A",
         covariates=["X1", "X2", "X3"],
         n_folds=2,
         random_state=0,
@@ -194,9 +206,11 @@ def test_tmle_ate_smoke(causal_obs_data):
 
 def test_tmle_att_estimand(causal_obs_data):
     from statspai.tmle import tmle
+
     res = tmle(
         causal_obs_data,
-        y="Y", treat="A",
+        y="Y",
+        treat="A",
         covariates=["X1", "X2", "X3"],
         estimand="ATT",
         n_folds=2,
@@ -228,6 +242,7 @@ def test_super_learner_classification_smoke():
 
 def test_hal_regressor_predicts_finite():
     from statspai.tmle import HALRegressor
+
     rng = np.random.default_rng(0)
     n = 200
     X = rng.normal(size=(n, 2))
@@ -247,8 +262,11 @@ def test_hal_regressor_predicts_finite():
 def test_synth_classic_smoke(synth_panel):
     res = sp.synth(
         synth_panel,
-        outcome="cigsale", unit="state", time="year",
-        treated_unit="S0", treatment_time=2010,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="S0",
+        treatment_time=2010,
     )
     _has_finite_ci(res)
     assert res.model_info["treated_unit"] == "S0"
@@ -257,8 +275,11 @@ def test_synth_classic_smoke(synth_panel):
 def test_sdid_smoke(synth_panel):
     res = sp.sdid(
         synth_panel,
-        outcome="cigsale", unit="state", time="year",
-        treated_unit="S0", treatment_time=2010,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="S0",
+        treatment_time=2010,
     )
     assert np.isfinite(float(res.estimate))
 
@@ -266,8 +287,11 @@ def test_sdid_smoke(synth_panel):
 def test_augsynth_smoke(synth_panel):
     res = sp.augsynth(
         synth_panel,
-        outcome="cigsale", unit="state", time="year",
-        treated_unit="S0", treatment_time=2010,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="S0",
+        treatment_time=2010,
     )
     assert np.isfinite(float(res.estimate))
 
@@ -275,8 +299,11 @@ def test_augsynth_smoke(synth_panel):
 def test_gsynth_smoke(synth_panel):
     res = sp.gsynth(
         synth_panel,
-        outcome="cigsale", unit="state", time="year",
-        treated_unit="S0", treatment_time=2010,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="S0",
+        treatment_time=2010,
     )
     assert np.isfinite(float(res.estimate))
 
@@ -285,8 +312,11 @@ def test_gsynth_smoke(synth_panel):
 def test_synth_dispatcher_methods(synth_panel, method):
     res = sp.synth(
         synth_panel,
-        outcome="cigsale", unit="state", time="year",
-        treated_unit="S0", treatment_time=2010,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="S0",
+        treatment_time=2010,
         method=method,
     )
     assert np.isfinite(float(res.estimate))
@@ -306,7 +336,10 @@ def test_did_dispatcher_panel_classic(staggered_did):
     """``sp.did(...)`` staggered-panel classic path (default ``method='auto'``)."""
     res = sp.did(
         staggered_did,
-        y="y", treat="first_treat", time="time", id="unit",
+        y="y",
+        treat="first_treat",
+        time="time",
+        id="unit",
     )
     assert np.isfinite(float(res.estimate))
 
@@ -315,7 +348,10 @@ def test_callaway_santanna_smoke(staggered_did):
     """Callaway-Sant'Anna uses (y, g=first_treat, t=time, i=unit) signature."""
     res = sp.callaway_santanna(
         staggered_did,
-        y="y", g="first_treat", t="time", i="unit",
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
     )
     assert np.isfinite(float(res.estimate))
 
@@ -323,7 +359,10 @@ def test_callaway_santanna_smoke(staggered_did):
 def test_aggte_simple_smoke(staggered_did):
     cs = sp.callaway_santanna(
         staggered_did,
-        y="y", g="first_treat", t="time", i="unit",
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
     )
     agg = sp.aggte(cs, type="simple", bstrap=False)
     assert np.isfinite(float(agg.estimate))
@@ -332,7 +371,10 @@ def test_aggte_simple_smoke(staggered_did):
 def test_did_imputation_summary_works(staggered_did):
     res = sp.did_imputation(
         staggered_did,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     s = res.summary()
     assert isinstance(s, str) and "ATT" in s
@@ -341,7 +383,10 @@ def test_did_imputation_summary_works(staggered_did):
 def test_wooldridge_did_summary_works(staggered_did):
     res = sp.wooldridge_did(
         staggered_did,
-        y="y", group="unit", time="time", first_treat="first_treat",
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
     )
     s = res.summary()
     assert "ATT" in s
@@ -354,6 +399,7 @@ def test_wooldridge_did_summary_works(staggered_did):
 
 try:
     import pymc as _PYMC  # noqa: F401  — referenced only for availability test
+
     _HAS_PYMC = True
 except Exception:
     _HAS_PYMC = False
@@ -367,11 +413,14 @@ def _bayes_did_panel():
         ft = 4 if u < 15 else np.inf
         for t in range(n_per):
             post = t >= ft
-            rows.append({
-                "unit": u, "time": t,
-                "first_treat": ft if np.isfinite(ft) else np.nan,
-                "y": 0.5 * t + (2.0 if post else 0.0) + 0.1 * rng.normal(),
-            })
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "first_treat": ft if np.isfinite(ft) else np.nan,
+                    "y": 0.5 * t + (2.0 if post else 0.0) + 0.1 * rng.normal(),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -380,8 +429,14 @@ def test_bayes_did_smoke():
     df = _bayes_did_panel()
     res = sp.bayes_did(
         df,
-        y="y", group="unit", time="time", first_treat="first_treat",
-        draws=200, tune=200, chains=1, target_accept=0.9,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        draws=200,
+        tune=200,
+        chains=1,
+        target_accept=0.9,
         random_seed=0,
     )
     # Only assert the result has the expected shape; we don't pin

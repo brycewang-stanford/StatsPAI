@@ -7,6 +7,7 @@ horizons 0..5. The companion 34_lp.R uses lpirfs::lp_lin.
 Tolerance: rel < 1e-6 on the impulse-response coefficients and
 Newey-West standard errors.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,7 +15,6 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "34_lp"
 H_MAX = 5
@@ -36,13 +36,17 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     fit = sp.local_projections(
-        data=df, outcome="y", shock="x",
+        data=df,
+        outcome="y",
+        shock="x",
         horizons=H_MAX,
         identification="lpirfs_cholesky",
         endog_order=["y", "x"],
     )
     direct_fit = sp.local_projections(
-        data=df, outcome="y", shock="x",
+        data=df,
+        outcome="y",
+        shock="x",
         controls=["y_lag"],
         horizons=H_MAX,
         auto_lag=False,
@@ -51,21 +55,31 @@ def main() -> None:
 
     rows: list[ParityRecord] = []
     for h, irf in enumerate(fit.irf):
-        rows.append(ParityRecord(
-            module=MODULE, side="py",
-            statistic=f"irf_h{h}",
-            estimate=float(irf),
-            se=float(fit.se[h]),
-            n=int(fit.n_obs_per_horizon[h])))
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"irf_h{h}",
+                estimate=float(irf),
+                se=float(fit.se[h]),
+                n=int(fit.n_obs_per_horizon[h]),
+            )
+        )
     for h, irf in enumerate(direct_fit.irf):
-        rows.append(ParityRecord(
-            module=MODULE, side="py",
-            statistic=f"irf_direct_ols_h{h}",
-            estimate=float(irf),
-            n=int(direct_fit.n_obs_per_horizon[h])))
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"irf_direct_ols_h{h}",
+                estimate=float(irf),
+                n=int(direct_fit.n_obs_per_horizon[h]),
+            )
+        )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "horizons": H_MAX,
             "identification": "lpirfs_cholesky",

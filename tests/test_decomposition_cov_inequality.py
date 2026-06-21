@@ -13,6 +13,7 @@ call (CLAUDE.md §5):
 * Shapley internal consistency:  ``pct_of_total == 100 * contribution / total``.
 * Indices vanish at perfect equality and match the shared weighted-Gini kernel.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -53,7 +54,8 @@ def test_index_gini_matches_kernel():
     rng = np.random.default_rng(1)
     y = np.abs(rng.lognormal(0, 0.6, 400)) + 0.1
     assert inequality_index(y, index="gini") == pytest.approx(
-        weighted_gini(y, np.ones_like(y)), rel=1e-9)
+        weighted_gini(y, np.ones_like(y)), rel=1e-9
+    )
 
 
 def test_generalized_entropy_alpha():
@@ -68,16 +70,14 @@ def test_generalized_entropy_alpha():
 
 @pytest.mark.parametrize("index", ["theil_t", "theil_l"])
 def test_subgroup_additive_decomposability(income, index):
-    r = sp.decompose("inequality", data=income, y="wage", by="region",
-                     index=index)
+    r = sp.decompose("inequality", data=income, y="wage", by="region", index=index)
     # Theil indices are perfectly additively decomposable.
     assert r.total == pytest.approx(r.within + r.between, rel=1e-9)
     assert len(r.per_group) >= 2
 
 
 def test_subgroup_gini_has_overlap_term(income):
-    r = sp.decompose("inequality", data=income, y="wage", by="region",
-                     index="gini")
+    r = sp.decompose("inequality", data=income, y="wage", by="region", index="gini")
     # The Gini is not additively decomposable: total = within + between + overlap.
     overlap = r.overlap if r.overlap is not None else 0.0
     assert r.total == pytest.approx(r.within + r.between + overlap, rel=1e-6)
@@ -93,15 +93,22 @@ def test_source_decomposition_sums_to_total_gini(income):
     r = sp.decompose("gini_source", data=inc, sources=["s1", "s2"])
     contrib = np.asarray(r.sources["contribution"], dtype=float)
     assert contrib.sum() == pytest.approx(r.total_gini, rel=1e-9)
-    assert np.asarray(r.sources["pct_of_gini"], dtype=float).sum() == pytest.approx(100.0, abs=1e-6)
+    assert np.asarray(r.sources["pct_of_gini"], dtype=float).sum() == pytest.approx(
+        100.0, abs=1e-6
+    )
 
 
 # ── Shorrocks–Shapley covariate decomposition ────────────────────────
 
 
 def test_shapley_internal_consistency(income):
-    r = sp.decompose("shapley_inequality", data=income, y="wage",
-                     x=["education", "experience"], index="theil_t")
+    r = sp.decompose(
+        "shapley_inequality",
+        data=income,
+        y="wage",
+        x=["education", "experience"],
+        index="theil_t",
+    )
     sh = r.shapley
     contrib = np.asarray(sh["contribution"], dtype=float)
     pct = np.asarray(sh["pct_of_total"], dtype=float)
@@ -115,8 +122,7 @@ def test_shapley_internal_consistency(income):
 
 
 def test_inequality_result_rendering(income):
-    r = sp.decompose("inequality", data=income, y="wage", by="region",
-                     index="theil_t")
+    r = sp.decompose("inequality", data=income, y="wage", by="region", index="theil_t")
     assert isinstance(r.summary(), str)
     assert isinstance(repr(r), str)
 
@@ -126,7 +132,9 @@ def test_inequality_result_rendering(income):
 
 @pytest.mark.parametrize("index", ["mld", "ge0", "ge1", "ge2"])
 def test_more_indices_zero_and_positive(index):
-    assert inequality_index(np.full(50, 4.0), index=index) == pytest.approx(0.0, abs=1e-9)
+    assert inequality_index(np.full(50, 4.0), index=index) == pytest.approx(
+        0.0, abs=1e-9
+    )
     y = np.array([1.0, 2.0, 4.0, 8.0, 16.0])
     assert inequality_index(y, index=index) > 0.0
 
@@ -136,9 +144,11 @@ def test_generalized_entropy_limit_equivalences():
     y = np.abs(rng.lognormal(0, 0.4, 400)) + 0.1
     # GE(0) == MLD == Theil-L,  GE(1) == Theil-T.
     assert inequality_index(y, index="ge0") == pytest.approx(
-        inequality_index(y, index="theil_l"), rel=1e-9)
+        inequality_index(y, index="theil_l"), rel=1e-9
+    )
     assert inequality_index(y, index="ge1") == pytest.approx(
-        inequality_index(y, index="theil_t"), rel=1e-9)
+        inequality_index(y, index="theil_t"), rel=1e-9
+    )
 
 
 @pytest.mark.parametrize("eps", [0.5, 2.0])
@@ -166,8 +176,13 @@ def test_source_and_shapley_rendering(income):
     assert isinstance(src.to_latex(), str)
     assert "<table" in src._repr_html_()
 
-    sh = sp.decompose("shapley_inequality", data=income, y="wage",
-                      x=["education", "experience"], index="theil_t")
+    sh = sp.decompose(
+        "shapley_inequality",
+        data=income,
+        y="wage",
+        x=["education", "experience"],
+        index="theil_t",
+    )
     assert isinstance(sh.summary(), str)
     assert isinstance(sh.to_latex(), str)
     assert "<table" in sh._repr_html_()

@@ -1,4 +1,5 @@
 """DirectLiNGAM tests — cross-validated against the ``lingam`` package."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -41,7 +42,7 @@ def test_edges_detected(chain_dgp):
     edges = {(src, dst) for src, dst, _ in res.edges(threshold=0.1)}
     assert ("x1", "x2") in edges
     assert ("x2", "x3") in edges
-    assert ("x1", "x3") in edges          # direct path
+    assert ("x1", "x3") in edges  # direct path
 
 
 def test_summary_prints(chain_dgp):
@@ -55,10 +56,12 @@ def test_summary_prints(chain_dgp):
 def test_rejects_no_relationship():
     rng = np.random.default_rng(0)
     n = 300
-    df = pd.DataFrame({
-        "a": rng.uniform(size=n),
-        "b": rng.uniform(size=n),
-    })
+    df = pd.DataFrame(
+        {
+            "a": rng.uniform(size=n),
+            "b": rng.uniform(size=n),
+        }
+    )
     res = lingam(df)
     # Any detected edge should have tiny magnitude
     for _, _, w in res.edges(threshold=0.0):

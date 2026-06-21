@@ -23,7 +23,7 @@ def plr_result():
     x1 = rng.normal(size=n)
     x2 = rng.normal(size=n)
     d = np.cos(x1) + x2 + rng.normal(scale=0.5, size=n)
-    y = 2.0 * d + np.sin(x1) + x2 ** 2 + rng.normal(scale=0.5, size=n)
+    y = 2.0 * d + np.sin(x1) + x2**2 + rng.normal(scale=0.5, size=n)
     df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
     return dml(df, y="y", treat="d", covariates=["x1", "x2"], model="plr")
 
@@ -36,7 +36,7 @@ def irm_result():
     x2 = rng.normal(size=n)
     prob = 1.0 / (1.0 + np.exp(-(0.5 * x1 + x2)))
     d = rng.binomial(1, prob, n).astype(float)
-    y = 3.0 * d + x1 + x2 ** 2 + rng.normal(scale=0.5, size=n)
+    y = 3.0 * d + x1 + x2**2 + rng.normal(scale=0.5, size=n)
     df = pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
     return dml(df, y="y", treat="d", covariates=["x1", "x2"], model="irm")
 
@@ -47,8 +47,7 @@ def irm_result():
 def test_diagnostics_plr_path(plr_result):
     diag = dml_diagnostics(plr_result)
     # PLR has no propensity → overlap uses |D - m(X)| residual.
-    assert "residual" in diag._overlap_label.lower() or \
-        "D" in diag._overlap_label
+    assert "residual" in diag._overlap_label.lower() or "D" in diag._overlap_label
     assert diag.method == "PLR"
     assert not diag.overlap_table.empty
     assert diag.score_sd > 0
@@ -80,9 +79,16 @@ def test_diagnostics_irm_propensity_path(irm_result):
 
 def test_diagnostics_missing_residuals_raises():
     from statspai.core.results import CausalResult
+
     bogus = CausalResult(
-        method="x", estimand="ATE", estimate=1.0, se=0.1,
-        pvalue=0.5, ci=(0.8, 1.2), alpha=0.05, n_obs=10,
+        method="x",
+        estimand="ATE",
+        estimate=1.0,
+        se=0.1,
+        pvalue=0.5,
+        ci=(0.8, 1.2),
+        alpha=0.05,
+        n_obs=10,
         model_info={},
     )
     with pytest.raises(ValueError, match="post-fit residuals"):
@@ -154,9 +160,16 @@ def test_sensitivity_benchmark_unknown_covariate_skipped(plr_result):
 
 def test_sensitivity_missing_residuals_raises():
     from statspai.core.results import CausalResult
+
     bogus = CausalResult(
-        method="x", estimand="ATE", estimate=1.0, se=0.1,
-        pvalue=0.5, ci=(0.8, 1.2), alpha=0.05, n_obs=10,
+        method="x",
+        estimand="ATE",
+        estimate=1.0,
+        se=0.1,
+        pvalue=0.5,
+        ci=(0.8, 1.2),
+        alpha=0.05,
+        n_obs=10,
         model_info={},
     )
     with pytest.raises(ValueError, match="post-fit residuals"):
@@ -193,6 +206,7 @@ def test_irm_rejects_continuous_treatment():
     y = d + x + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "x": x})
     from statspai.exceptions import MethodIncompatibility
+
     with pytest.raises(MethodIncompatibility):
         dml(df, y="y", treat="d", covariates=["x"], model="irm")
 
@@ -207,6 +221,7 @@ def test_irm_too_few_per_arm_raises():
     y = 3.0 * d + x + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "x": x})
     from statspai.exceptions import IdentificationFailure
+
     with pytest.raises(IdentificationFailure):
         dml(df, y="y", treat="d", covariates=["x"], model="irm", n_folds=5)
 
@@ -238,8 +253,9 @@ def test_irm_weighted_with_fallback():
     y = 3.0 * d + x + rng.normal(scale=0.5, size=n)
     w = np.abs(rng.normal(size=n)) + 0.1
     df = pd.DataFrame({"y": y, "d": d, "x": x})
-    res = dml(df, y="y", treat="d", covariates=["x"], model="irm",
-              n_folds=2, sample_weight=w)
+    res = dml(
+        df, y="y", treat="d", covariates=["x"], model="irm", n_folds=2, sample_weight=w
+    )
     assert np.isfinite(res.estimate)
     assert res.model_info["diagnostics"]["weighted"] is True
 
@@ -267,8 +283,9 @@ def test_irm_control_arm_weighted_fallback():
     y = 3.0 * d + x + rng.normal(scale=0.5, size=n)
     w = np.abs(rng.normal(size=n)) + 0.1
     df = pd.DataFrame({"y": y, "d": d, "x": x})
-    res = dml(df, y="y", treat="d", covariates=["x"], model="irm",
-              n_folds=2, sample_weight=w)
+    res = dml(
+        df, y="y", treat="d", covariates=["x"], model="irm", n_folds=2, sample_weight=w
+    )
     assert np.isfinite(res.estimate)
 
 
@@ -283,8 +300,16 @@ def test_irm_regressor_ml_m_predict_path():
     y = 2.0 * d + x + rng.normal(scale=0.5, size=n)
     df = pd.DataFrame({"y": y, "d": d, "x": x})
     from sklearn.linear_model import LinearRegression
-    res = dml(df, y="y", treat="d", covariates=["x"], model="irm",
-              n_folds=3, ml_m=LinearRegression())
+
+    res = dml(
+        df,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="irm",
+        n_folds=3,
+        ml_m=LinearRegression(),
+    )
     assert np.isfinite(res.estimate)
 
 
@@ -301,38 +326,46 @@ def test_irm_diagnostics_populated(irm_result):
 # --------------------------------------------------------------------------
 def test_diagnostics_plot(plr_result):
     import matplotlib
+
     matplotlib.use("Agg")
     diag = dml_diagnostics(plr_result)
     fig, axes = diag.plot()
     assert fig is not None
     assert axes.shape == (2, 2)
     import matplotlib.pyplot as plt
+
     plt.close(fig)
 
 
 def test_diagnostics_plot_irm(irm_result):
     import matplotlib
+
     matplotlib.use("Agg")
     diag = dml_diagnostics(irm_result, clip=0.3)
     fig, axes = diag.plot(bins=15)
     assert fig is not None
     import matplotlib.pyplot as plt
+
     plt.close(fig)
 
 
 def test_sensitivity_plot(plr_result):
     import matplotlib
+
     matplotlib.use("Agg")
     res = dml_sensitivity(plr_result, benchmark_covariates=["x1"])
     fig, ax = res.plot()
     assert fig is not None
     import matplotlib.pyplot as plt
+
     plt.close(fig)
 
 
-def _make_result(y_resid, d_resid, *, pscore=None, X=None, cov_names=None,
-                 estimate=1.0, se=0.1):
+def _make_result(
+    y_resid, d_resid, *, pscore=None, X=None, cov_names=None, estimate=1.0, se=0.1
+):
     from statspai.core.results import CausalResult
+
     info = {"dml_model": "PLR", "_y_resid": y_resid, "_d_resid": d_resid}
     if pscore is not None:
         info["_pscore"] = pscore
@@ -340,8 +373,14 @@ def _make_result(y_resid, d_resid, *, pscore=None, X=None, cov_names=None,
         info["_X_design"] = X
         info["_covariate_names"] = cov_names
     return CausalResult(
-        method="Double ML (PLR)", estimand="ATE", estimate=estimate,
-        se=se, pvalue=0.5, ci=(0.0, 2.0), alpha=0.05, n_obs=len(y_resid),
+        method="Double ML (PLR)",
+        estimand="ATE",
+        estimate=estimate,
+        se=se,
+        pvalue=0.5,
+        ci=(0.0, 2.0),
+        alpha=0.05,
+        n_obs=len(y_resid),
         model_info=info,
     )
 
@@ -357,16 +396,15 @@ def test_diagnostics_summary_warnings():
     pscore = np.clip(rng.uniform(0, 1, n), 0, 1)
     pscore[:50] = 0.001  # force overlap violations
     X = np.column_stack([np.ones(n), rng.normal(size=n)])  # col 0 constant
-    res = _make_result(y_resid, d_resid, pscore=pscore, X=X,
-                       cov_names=["const_col", "x1"])
+    res = _make_result(
+        y_resid, d_resid, pscore=pscore, X=X, cov_names=["const_col", "x1"]
+    )
     diag = dml_diagnostics(res, clip=0.02)
     assert diag.overlap_warning is not None
     s = diag.summary()
     assert "⚠" in s  # overlap warning rendered (line 90)
     # constant covariate row → zeros (lines 291-293)
-    const_row = diag.balance_table[
-        diag.balance_table["variable"] == "const_col"
-    ]
+    const_row = diag.balance_table[diag.balance_table["variable"] == "const_col"]
     assert float(const_row["corr_d_resid"].iloc[0]) == 0.0
 
 

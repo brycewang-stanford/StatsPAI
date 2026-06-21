@@ -57,6 +57,7 @@ References
   Dealing with Limited Overlap in Estimation of Average Treatment
   Effects. *Biometrika*, 96(1), 187-199. [@crump2009dealing]
 """
+
 from __future__ import annotations
 
 import json
@@ -67,7 +68,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -80,7 +80,8 @@ def _within_n_se(est, truth, se, n_sigma=4.0):
 # Shared DGPs (module-scoped; deterministic seeds)
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope='module')
+
+@pytest.fixture(scope="module")
 def saturated_data():
     """One binary covariate -> saturated logistic propensity.
 
@@ -94,10 +95,10 @@ def saturated_data():
     p = np.where(x == 1, 0.65, 0.30)
     t = (rng.uniform(size=n) < p).astype(int)
     y = 1.0 + 1.5 * x + 2.0 * t + 0.5 * t * x + rng.normal(scale=1.0, size=n)
-    return pd.DataFrame({'y': y, 't': t, 'x': x})
+    return pd.DataFrame({"y": y, "t": t, "x": x})
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def saturated_closed_forms(saturated_data):
     """Hand-computed stratified means — INDEPENDENT of statspai.
 
@@ -120,25 +121,25 @@ def saturated_closed_forms(saturated_data):
     n = len(df)
     cells = {}
     for xv in (0, 1):
-        sub = df[df['x'] == xv]
+        sub = df[df["x"] == xv]
         cells[xv] = dict(
             nx=len(sub),
-            n1=int((sub['t'] == 1).sum()),
-            n0=int((sub['t'] == 0).sum()),
-            y1=sub.loc[sub['t'] == 1, 'y'].mean(),
-            y0=sub.loc[sub['t'] == 0, 'y'].mean(),
+            n1=int((sub["t"] == 1).sum()),
+            n0=int((sub["t"] == 0).sum()),
+            y1=sub.loc[sub["t"] == 1, "y"].mean(),
+            y0=sub.loc[sub["t"] == 0, "y"].mean(),
         )
-    n1 = cells[0]['n1'] + cells[1]['n1']
-    n0 = cells[0]['n0'] + cells[1]['n0']
-    gap = {v: cells[v]['y1'] - cells[v]['y0'] for v in (0, 1)}
+    n1 = cells[0]["n1"] + cells[1]["n1"]
+    n0 = cells[0]["n0"] + cells[1]["n0"]
+    gap = {v: cells[v]["y1"] - cells[v]["y0"] for v in (0, 1)}
     return {
-        'ATE': sum(cells[v]['nx'] / n * gap[v] for v in (0, 1)),
-        'ATT': sum(cells[v]['n1'] / n1 * gap[v] for v in (0, 1)),
-        'ATC': sum(cells[v]['n0'] / n0 * gap[v] for v in (0, 1)),
+        "ATE": sum(cells[v]["nx"] / n * gap[v] for v in (0, 1)),
+        "ATT": sum(cells[v]["n1"] / n1 * gap[v] for v in (0, 1)),
+        "ATC": sum(cells[v]["n0"] / n0 * gap[v] for v in (0, 1)),
     }
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def randomized_data():
     """Treatment assigned Bernoulli(0.5) INDEPENDENT of (x1, x2).
 
@@ -152,12 +153,12 @@ def randomized_data():
     x2 = rng.binomial(1, 0.5, n)
     t = rng.binomial(1, 0.5, n)
     y = 0.5 + 0.8 * x1 - 0.4 * x2 + 1.2 * t + rng.normal(scale=1.0, size=n)
-    df = pd.DataFrame({'y': y, 't': t, 'x1': x1, 'x2': x2})
-    df.attrs['true_effect'] = 1.2
+    df = pd.DataFrame({"y": y, "t": t, "x1": x1, "x2": x2})
+    df.attrs["true_effect"] = 1.2
     return df
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def overlap_good_data():
     """Well-overlapped DGP: ps = expit(0.4*x), x~N(0,1) -> ps in ~[0.15, 0.88].
 
@@ -170,10 +171,10 @@ def overlap_good_data():
     p = 1.0 / (1.0 + np.exp(-0.4 * x))
     t = (rng.uniform(size=n) < p).astype(int)
     y = 1.0 + 0.9 * x + 1.0 * t + rng.normal(scale=0.8, size=n)
-    return pd.DataFrame({'y': y, 't': t, 'x': x})
+    return pd.DataFrame({"y": y, "t": t, "x": x})
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def overlap_poor_data():
     """Poor-overlap DGP: ps = expit(3*x) -> ~6% of units have ps < 0.01.
 
@@ -186,22 +187,24 @@ def overlap_poor_data():
     p = 1.0 / (1.0 + np.exp(-3.0 * x))
     t = (rng.uniform(size=n) < p).astype(int)
     y = 1.0 + 0.9 * x + 1.0 * t + rng.normal(scale=0.8, size=n)
-    return pd.DataFrame({'y': y, 't': t, 'x': x})
+    return pd.DataFrame({"y": y, "t": t, "x": x})
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def ipw_data():
     """Load the shared seed=20260612 DGP — same csv base R consumed."""
-    return pd.read_csv(_FIXTURE_DIR / 'ipw_data.csv')
+    return pd.read_csv(_FIXTURE_DIR / "ipw_data.csv")
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def ipw_r_reference():
     """Load the frozen base-R reference (skip gracefully if absent)."""
-    path = _FIXTURE_DIR / 'ipw_R.json'
+    path = _FIXTURE_DIR / "ipw_R.json"
     if not path.exists():
-        pytest.skip("ipw_R.json missing — run "
-                    "Rscript tests/reference_parity/_fixtures/_generate_ipw.R")
+        pytest.skip(
+            "ipw_R.json missing — run "
+            "Rscript tests/reference_parity/_fixtures/_generate_ipw.R"
+        )
     with open(path) as f:
         return json.load(f)
 
@@ -209,6 +212,7 @@ def ipw_r_reference():
 # ---------------------------------------------------------------------------
 # A. Saturated-propensity closed form (machine-collapse anchor)
 # ---------------------------------------------------------------------------
+
 
 class TestSaturatedClosedForm:
     """sp.ipw on a saturated propensity must equal stratified means.
@@ -222,20 +226,30 @@ class TestSaturatedClosedForm:
 
     TOL = 1e-9
 
-    @pytest.mark.parametrize('estimand', ['ATE', 'ATT', 'ATC'])
-    def test_hajek_matches_stratified_means(self, saturated_data,
-                                            saturated_closed_forms, estimand):
+    @pytest.mark.parametrize("estimand", ["ATE", "ATT", "ATC"])
+    def test_hajek_matches_stratified_means(
+        self, saturated_data, saturated_closed_forms, estimand
+    ):
         expected = saturated_closed_forms[estimand]
         # n_bootstrap=10: SE unused here; keeps the anchor fast.
-        r = sp.ipw(saturated_data, y='y', treat='t', covariates=['x'],
-                   estimand=estimand, normalize=True, n_bootstrap=10, seed=2)
+        r = sp.ipw(
+            saturated_data,
+            y="y",
+            treat="t",
+            covariates=["x"],
+            estimand=estimand,
+            normalize=True,
+            n_bootstrap=10,
+            seed=2,
+        )
         assert abs(r.estimate - expected) < self.TOL, (
             f"Hajek {estimand}: sp.ipw {r.estimate!r} vs closed form "
             f"{expected!r} (|diff|={abs(r.estimate - expected):.2e})"
         )
 
-    def test_ht_equals_hajek_under_saturation(self, saturated_data,
-                                              saturated_closed_forms):
+    def test_ht_equals_hajek_under_saturation(
+        self, saturated_data, saturated_closed_forms
+    ):
         """normalize=False (HT, /n) == Hajek when weights sum to n exactly.
 
         Under saturation sum_i T_i/p_hat_i = sum_x n_x = n, so the HT
@@ -243,9 +257,17 @@ class TestSaturatedClosedForm:
         noise means the normalization branch (ipw.py:263-272) broke.
         Tolerance 1e-9 as above (observed ~8e-13).
         """
-        expected = saturated_closed_forms['ATE']
-        r_ht = sp.ipw(saturated_data, y='y', treat='t', covariates=['x'],
-                      estimand='ATE', normalize=False, n_bootstrap=10, seed=2)
+        expected = saturated_closed_forms["ATE"]
+        r_ht = sp.ipw(
+            saturated_data,
+            y="y",
+            treat="t",
+            covariates=["x"],
+            estimand="ATE",
+            normalize=False,
+            n_bootstrap=10,
+            seed=2,
+        )
         assert abs(r_ht.estimate - expected) < self.TOL, (
             f"HT ATE: {r_ht.estimate!r} vs closed form {expected!r} "
             f"(|diff|={abs(r_ht.estimate - expected):.2e})"
@@ -256,33 +278,41 @@ class TestSaturatedClosedForm:
 # B. Randomized collapse to difference in means
 # ---------------------------------------------------------------------------
 
+
 class TestRandomizedCollapse:
     """With T independent of X, IPW ≈ difference in means."""
 
     def test_ipw_agrees_with_diff_in_means(self, randomized_data):
         df = randomized_data
-        y, t = df['y'].values, df['t'].values
+        y, t = df["y"].values, df["t"].values
         # Difference in means + Welch SE — hand-rolled numpy only.
         y1, y0 = y[t == 1], y[t == 0]
         dim = y1.mean() - y0.mean()
         se_dim = np.sqrt(y1.var(ddof=1) / len(y1) + y0.var(ddof=1) / len(y0))
 
-        r = sp.ipw(df, y='y', treat='t', covariates=['x1', 'x2'],
-                   estimand='ATE', n_bootstrap=200, seed=7)
+        r = sp.ipw(
+            df,
+            y="y",
+            treat="t",
+            covariates=["x1", "x2"],
+            estimand="ATE",
+            n_bootstrap=200,
+            seed=7,
+        )
 
         # 4 * combined SE (REFERENCES.md cross-estimator convention);
         # conservative since both estimators share the same sample.
         # Observed |diff| ~0.031 vs band ~0.27.
-        band = 4.0 * np.sqrt(r.se ** 2 + se_dim ** 2)
+        band = 4.0 * np.sqrt(r.se**2 + se_dim**2)
         assert abs(r.estimate - dim) <= band, (
-            f"IPW {r.estimate:.4f} vs diff-in-means {dim:.4f} "
-            f"(band {band:.4f})"
+            f"IPW {r.estimate:.4f} vs diff-in-means {dim:.4f} " f"(band {band:.4f})"
         )
 
 
 # ---------------------------------------------------------------------------
 # C. Frozen base-R fixture (stats::glm + Hajek means)
 # ---------------------------------------------------------------------------
+
 
 class TestFrozenRParity:
     """sp.ipw vs base R glm(t ~ x1 + x2, binomial) Hajek means.
@@ -301,20 +331,36 @@ class TestFrozenRParity:
     TOL = 1e-9
 
     def test_hajek_ate_matches_R(self, ipw_data, ipw_r_reference):
-        r = sp.ipw(ipw_data, y='y', treat='t', covariates=['x1', 'x2'],
-                   estimand='ATE', normalize=True, trim=0.0,
-                   n_bootstrap=10, seed=1)
-        r_val = ipw_r_reference['hajek_ate']
+        r = sp.ipw(
+            ipw_data,
+            y="y",
+            treat="t",
+            covariates=["x1", "x2"],
+            estimand="ATE",
+            normalize=True,
+            trim=0.0,
+            n_bootstrap=10,
+            seed=1,
+        )
+        r_val = ipw_r_reference["hajek_ate"]
         assert abs(r.estimate - r_val) < self.TOL, (
             f"Hajek ATE drifted from base R: Python={r.estimate!r}, "
             f"R={r_val!r} (|diff|={abs(r.estimate - r_val):.2e})"
         )
 
     def test_hajek_att_matches_R(self, ipw_data, ipw_r_reference):
-        r = sp.ipw(ipw_data, y='y', treat='t', covariates=['x1', 'x2'],
-                   estimand='ATT', normalize=True, trim=0.0,
-                   n_bootstrap=10, seed=1)
-        r_val = ipw_r_reference['hajek_att']
+        r = sp.ipw(
+            ipw_data,
+            y="y",
+            treat="t",
+            covariates=["x1", "x2"],
+            estimand="ATT",
+            normalize=True,
+            trim=0.0,
+            n_bootstrap=10,
+            seed=1,
+        )
+        r_val = ipw_r_reference["hajek_att"]
         assert abs(r.estimate - r_val) < self.TOL, (
             f"Hajek ATT drifted from base R: Python={r.estimate!r}, "
             f"R={r_val!r} (|diff|={abs(r.estimate - r_val):.2e})"
@@ -323,20 +369,21 @@ class TestFrozenRParity:
     def test_fixture_csv_intact(self, ipw_data):
         """Guard that the CSV fixture wasn't accidentally mutated."""
         assert len(ipw_data) == 800
-        assert list(ipw_data.columns) == ['y', 't', 'x1', 'x2']
-        assert int(ipw_data['t'].sum()) == 331
+        assert list(ipw_data.columns) == ["y", "t", "x1", "x2"]
+        assert int(ipw_data["t"].sum()) == 331
 
     def test_fixture_R_meta_present(self, ipw_r_reference):
         """Guard that the R fixture records its provenance."""
-        meta = ipw_r_reference['meta']
-        assert meta['n'] == 800
-        assert meta['n_treated'] == 331
-        assert 'glm' in meta['formula']
+        meta = ipw_r_reference["meta"]
+        assert meta["n"] == 800
+        assert meta["n_treated"] == 331
+        assert "glm" in meta["formula"]
 
 
 # ---------------------------------------------------------------------------
 # D. CIA recovery on the shared matching_cia_data fixture
 # ---------------------------------------------------------------------------
+
 
 class TestCIARecovery:
     """IPW on matching_cia_data must recover the true effect = 2.0.
@@ -346,32 +393,45 @@ class TestCIARecovery:
     missing anchored coverage.  Effect is homogeneous, so ATE = ATT.
     """
 
-    COVARIATES = ['X1', 'X2', 'X3']
+    COVARIATES = ["X1", "X2", "X3"]
 
     def test_ipw_att_recovers(self, matching_cia_data):
-        truth = matching_cia_data.attrs['true_effect']
-        r = sp.ipw(matching_cia_data, y='y', treat='d',
-                   covariates=self.COVARIATES, estimand='ATT',
-                   n_bootstrap=200, seed=42)
-        # 4-sigma recovery (REFERENCES.md convention). Observed |z|~0.6.
-        assert _within_n_se(r.estimate, truth, r.se, n_sigma=4.0), (
-            f"IPW ATT: {r.estimate:.4f} vs truth {truth} (SE {r.se:.4f})"
+        truth = matching_cia_data.attrs["true_effect"]
+        r = sp.ipw(
+            matching_cia_data,
+            y="y",
+            treat="d",
+            covariates=self.COVARIATES,
+            estimand="ATT",
+            n_bootstrap=200,
+            seed=42,
         )
+        # 4-sigma recovery (REFERENCES.md convention). Observed |z|~0.6.
+        assert _within_n_se(
+            r.estimate, truth, r.se, n_sigma=4.0
+        ), f"IPW ATT: {r.estimate:.4f} vs truth {truth} (SE {r.se:.4f})"
 
     def test_ipw_ate_recovers(self, matching_cia_data):
-        truth = matching_cia_data.attrs['true_effect']
-        r = sp.ipw(matching_cia_data, y='y', treat='d',
-                   covariates=self.COVARIATES, estimand='ATE',
-                   n_bootstrap=200, seed=42)
-        # 4-sigma recovery. Observed |z|~1.5.
-        assert _within_n_se(r.estimate, truth, r.se, n_sigma=4.0), (
-            f"IPW ATE: {r.estimate:.4f} vs truth {truth} (SE {r.se:.4f})"
+        truth = matching_cia_data.attrs["true_effect"]
+        r = sp.ipw(
+            matching_cia_data,
+            y="y",
+            treat="d",
+            covariates=self.COVARIATES,
+            estimand="ATE",
+            n_bootstrap=200,
+            seed=42,
         )
+        # 4-sigma recovery. Observed |z|~1.5.
+        assert _within_n_se(
+            r.estimate, truth, r.se, n_sigma=4.0
+        ), f"IPW ATE: {r.estimate:.4f} vs truth {truth} (SE {r.se:.4f})"
 
 
 # ---------------------------------------------------------------------------
 # E. Trim semantics
 # ---------------------------------------------------------------------------
+
 
 class TestTrimSemantics:
     """trim winsorizes propensities (np.clip at ipw.py:123-124)."""
@@ -385,21 +445,36 @@ class TestTrimSemantics:
         Tolerance 1e-12: exact-identity anchor; observed |diff| = 0.0.
         This trivially also satisfies the spec's < 4-sigma movement.
         """
-        r0 = sp.ipw(overlap_good_data, y='y', treat='t', covariates=['x'],
-                    estimand='ATE', trim=0.0, n_bootstrap=100, seed=3)
-        r1 = sp.ipw(overlap_good_data, y='y', treat='t', covariates=['x'],
-                    estimand='ATE', trim=0.01, n_bootstrap=100, seed=3)
+        r0 = sp.ipw(
+            overlap_good_data,
+            y="y",
+            treat="t",
+            covariates=["x"],
+            estimand="ATE",
+            trim=0.0,
+            n_bootstrap=100,
+            seed=3,
+        )
+        r1 = sp.ipw(
+            overlap_good_data,
+            y="y",
+            treat="t",
+            covariates=["x"],
+            estimand="ATE",
+            trim=0.01,
+            n_bootstrap=100,
+            seed=3,
+        )
         # Guard: the no-op argument requires genuine overlap.
         # (model_info reports post-trim ps, ipw.py:152-164; for r0
         # trim=0 so these are the raw fitted propensities.)
-        assert r0.model_info['pscore_min'] > 0.01
-        assert r0.model_info['pscore_max'] < 0.99
+        assert r0.model_info["pscore_min"] > 0.01
+        assert r0.model_info["pscore_max"] < 0.99
         assert abs(r0.estimate - r1.estimate) < 1e-12, (
-            f"trim=0.01 should be a no-op here: "
-            f"{r0.estimate!r} vs {r1.estimate!r}"
+            f"trim=0.01 should be a no-op here: " f"{r0.estimate!r} vs {r1.estimate!r}"
         )
         # And (a fortiori) within the 4-sigma combined band.
-        band = 4.0 * np.sqrt(r0.se ** 2 + r1.se ** 2)
+        band = 4.0 * np.sqrt(r0.se**2 + r1.se**2)
         assert abs(r0.estimate - r1.estimate) <= band
 
     def test_trim_caps_max_weight_on_poor_overlap_dgp(self, overlap_poor_data):
@@ -413,12 +488,28 @@ class TestTrimSemantics:
         Tolerance 1e-12 on pscore_min == trim: np.clip sets the value
         bitwise-exactly to the float 0.01.
         """
-        r0 = sp.ipw(overlap_poor_data, y='y', treat='t', covariates=['x'],
-                    estimand='ATE', trim=0.0, n_bootstrap=10, seed=4)
-        r1 = sp.ipw(overlap_poor_data, y='y', treat='t', covariates=['x'],
-                    estimand='ATE', trim=0.01, n_bootstrap=10, seed=4)
-        ps_min_raw = r0.model_info['pscore_min']
-        ps_min_trim = r1.model_info['pscore_min']
+        r0 = sp.ipw(
+            overlap_poor_data,
+            y="y",
+            treat="t",
+            covariates=["x"],
+            estimand="ATE",
+            trim=0.0,
+            n_bootstrap=10,
+            seed=4,
+        )
+        r1 = sp.ipw(
+            overlap_poor_data,
+            y="y",
+            treat="t",
+            covariates=["x"],
+            estimand="ATE",
+            trim=0.01,
+            n_bootstrap=10,
+            seed=4,
+        )
+        ps_min_raw = r0.model_info["pscore_min"]
+        ps_min_trim = r1.model_info["pscore_min"]
         # Guard: overlap really is poor (observed ps_min ~5.7e-6).
         assert ps_min_raw < 0.01, f"DGP not poor-overlap: ps_min={ps_min_raw}"
         # Clip lands exactly on the trim boundary.
@@ -433,6 +524,7 @@ class TestTrimSemantics:
 # ---------------------------------------------------------------------------
 # F. Bootstrap SE calibration vs Monte-Carlo SD
 # ---------------------------------------------------------------------------
+
 
 class TestBootstrapSECalibration:
     """Mean bootstrap SE must track the empirical SD across MC draws."""
@@ -455,11 +547,17 @@ class TestBootstrapSECalibration:
             x2 = rng.normal(size=n)
             p = 1.0 / (1.0 + np.exp(-(0.5 * x1 - 0.4 * x2)))
             t = (rng.uniform(size=n) < p).astype(int)
-            y = (1.0 + 1.0 * x1 - 0.6 * x2 + 1.5 * t
-                 + rng.normal(scale=1.0, size=n))
-            df = pd.DataFrame({'y': y, 't': t, 'x1': x1, 'x2': x2})
-            r = sp.ipw(df, y='y', treat='t', covariates=['x1', 'x2'],
-                       estimand='ATE', n_bootstrap=100, seed=rep)
+            y = 1.0 + 1.0 * x1 - 0.6 * x2 + 1.5 * t + rng.normal(scale=1.0, size=n)
+            df = pd.DataFrame({"y": y, "t": t, "x1": x1, "x2": x2})
+            r = sp.ipw(
+                df,
+                y="y",
+                treat="t",
+                covariates=["x1", "x2"],
+                estimand="ATE",
+                n_bootstrap=100,
+                seed=rep,
+            )
             estimates.append(r.estimate)
             ses.append(r.se)
         emp_sd = float(np.std(estimates, ddof=1))

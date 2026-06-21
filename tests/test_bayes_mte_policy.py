@@ -1,4 +1,5 @@
 """Tests for BayesianMTEResult.policy_effect + policy-weight builders."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -34,7 +35,7 @@ def _mte_dgp(n, mte_fn, seed):
     u_obs = 1 / (1 + np.exp(-linpred))
     tau = np.array([mte_fn(u) for u in u_obs])
     Y = 1.0 + tau * D + 0.3 * rng.normal(size=n)
-    return pd.DataFrame({'y': Y, 'd': D, 'z': Z})
+    return pd.DataFrame({"y": Y, "d": D, "z": Z})
 
 
 @pytest.fixture
@@ -46,8 +47,15 @@ def decreasing_mte_data():
 @pytest.fixture
 def mte_result(decreasing_mte_data):
     return bayes_mte(
-        decreasing_mte_data, y='y', treat='d', instrument='z',
-        poly_u=2, draws=400, tune=400, chains=2, progressbar=False,
+        decreasing_mte_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        poly_u=2,
+        draws=400,
+        tune=400,
+        chains=2,
+        progressbar=False,
         random_state=42,
     )
 
@@ -62,14 +70,17 @@ def test_policy_weight_ate_is_uniform():
     np.testing.assert_allclose(w, np.ones(11))
 
 
-@pytest.mark.parametrize("u_lo, u_hi", [
-    (-0.1, 0.5),
-    (0.0, 1.5),
-    (0.7, 0.3),
-    (0.5, 0.5),
-])
+@pytest.mark.parametrize(
+    "u_lo, u_hi",
+    [
+        (-0.1, 0.5),
+        (0.0, 1.5),
+        (0.7, 0.3),
+        (0.5, 0.5),
+    ],
+)
 def test_policy_weight_subsidy_rejects_invalid_bounds(u_lo, u_hi):
-    with pytest.raises(ValueError, match='u_lo|u_hi'):
+    with pytest.raises(ValueError, match="u_lo|u_hi"):
         policy_weight_subsidy(u_lo, u_hi)
 
 
@@ -89,7 +100,7 @@ def test_policy_weight_subsidy_band_mask():
 
 @pytest.mark.parametrize("shift", [-2.0, -1.0, 0.0, 1.0, 2.0])
 def test_policy_weight_prte_rejects_bad_shift(shift):
-    with pytest.raises(ValueError, match='shift'):
+    with pytest.raises(ValueError, match="shift"):
         policy_weight_prte(shift)
 
 
@@ -106,9 +117,9 @@ def test_policy_weight_prte_symmetric_around_half():
 
 
 def test_policy_weight_marginal_rejects_invalid_args():
-    with pytest.raises(ValueError, match='u_star'):
+    with pytest.raises(ValueError, match="u_star"):
         policy_weight_marginal(1.5)
-    with pytest.raises(ValueError, match='bandwidth'):
+    with pytest.raises(ValueError, match="bandwidth"):
         policy_weight_marginal(0.5, bandwidth=0.0)
 
 
@@ -130,50 +141,54 @@ def test_policy_effect_ate_weight_matches_native_ate(mte_result):
     identical* to the internally-computed .ate. Both use
     trapezoidal integration on the same u_grid, so they must
     agree to floating-point precision."""
-    pe = mte_result.policy_effect(policy_weight_ate(), label='ate')
-    assert abs(pe['estimate'] - mte_result.ate) < 1e-8
+    pe = mte_result.policy_effect(policy_weight_ate(), label="ate")
+    assert abs(pe["estimate"] - mte_result.ate) < 1e-8
 
 
 def test_policy_effect_low_band_higher_than_high_band(mte_result):
     """Decreasing MTE DGP: subsidising low-u units should produce
     a higher policy effect than subsidising high-u units."""
     pe_low = mte_result.policy_effect(
-        policy_weight_subsidy(0.05, 0.3), label='low',
+        policy_weight_subsidy(0.05, 0.3),
+        label="low",
     )
     pe_high = mte_result.policy_effect(
-        policy_weight_subsidy(0.7, 0.95), label='high',
+        policy_weight_subsidy(0.7, 0.95),
+        label="high",
     )
-    assert pe_low['estimate'] > pe_high['estimate']
+    assert pe_low["estimate"] > pe_high["estimate"]
 
 
 def test_policy_effect_returns_expected_keys(mte_result):
-    pe = mte_result.policy_effect(policy_weight_ate(), label='test')
-    for k in ('label', 'estimate', 'std_error', 'hdi_low',
-              'hdi_high', 'prob_positive'):
+    pe = mte_result.policy_effect(policy_weight_ate(), label="test")
+    for k in ("label", "estimate", "std_error", "hdi_low", "hdi_high", "prob_positive"):
         assert k in pe
-    assert pe['label'] == 'test'
-    assert pe['hdi_low'] <= pe['estimate'] <= pe['hdi_high']
+    assert pe["label"] == "test"
+    assert pe["hdi_low"] <= pe["estimate"] <= pe["hdi_high"]
 
 
 def test_policy_effect_rope(mte_result):
     pe = mte_result.policy_effect(
-        policy_weight_ate(), rope=(-0.1, 0.1),
+        policy_weight_ate(),
+        rope=(-0.1, 0.1),
     )
-    assert 'prob_rope' in pe
-    assert 0.0 <= pe['prob_rope'] <= 1.0
+    assert "prob_rope" in pe
+    assert 0.0 <= pe["prob_rope"] <= 1.0
 
 
 def test_policy_effect_rejects_wrong_shape_weights(mte_result):
     def _bad(u):
         return np.ones(len(u) + 1)
-    with pytest.raises(ValueError, match='shape'):
+
+    with pytest.raises(ValueError, match="shape"):
         mte_result.policy_effect(_bad)
 
 
 def test_policy_effect_rejects_zero_weight(mte_result):
     def _zeros(u):
         return np.zeros_like(u)
-    with pytest.raises(ValueError, match='zero'):
+
+    with pytest.raises(ValueError, match="zero"):
         mte_result.policy_effect(_zeros)
 
 
@@ -184,27 +199,48 @@ def test_policy_effect_rejects_zero_weight(mte_result):
 
 def test_bayes_mte_joint_runs(decreasing_mte_data):
     r = bayes_mte(
-        decreasing_mte_data, y='y', treat='d', instrument='z',
-        first_stage='joint', poly_u=2,
-        draws=300, tune=300, chains=2, progressbar=False,
+        decreasing_mte_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        first_stage="joint",
+        poly_u=2,
+        draws=300,
+        tune=300,
+        chains=2,
+        progressbar=False,
         random_state=17,
     )
-    assert r.model_info['first_stage'] == 'joint'
-    assert 'joint' in r.method.lower()
+    assert r.model_info["first_stage"] == "joint"
+    assert "joint" in r.method.lower()
     assert np.isfinite(r.ate)
 
 
 def test_bayes_mte_joint_vs_plugin_similar_ate(decreasing_mte_data):
     r_plugin = bayes_mte(
-        decreasing_mte_data, y='y', treat='d', instrument='z',
-        first_stage='plugin', poly_u=2,
-        draws=300, tune=300, chains=2, progressbar=False,
+        decreasing_mte_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        first_stage="plugin",
+        poly_u=2,
+        draws=300,
+        tune=300,
+        chains=2,
+        progressbar=False,
         random_state=18,
     )
     r_joint = bayes_mte(
-        decreasing_mte_data, y='y', treat='d', instrument='z',
-        first_stage='joint', poly_u=2,
-        draws=300, tune=300, chains=2, progressbar=False,
+        decreasing_mte_data,
+        y="y",
+        treat="d",
+        instrument="z",
+        first_stage="joint",
+        poly_u=2,
+        draws=300,
+        tune=300,
+        chains=2,
+        progressbar=False,
         random_state=18,
     )
     # On a well-specified DGP the two posterior means should be
@@ -213,11 +249,17 @@ def test_bayes_mte_joint_vs_plugin_similar_ate(decreasing_mte_data):
 
 
 def test_bayes_mte_invalid_first_stage_raises(decreasing_mte_data):
-    with pytest.raises(ValueError, match='first_stage'):
+    with pytest.raises(ValueError, match="first_stage"):
         bayes_mte(
-            decreasing_mte_data, y='y', treat='d', instrument='z',
-            first_stage='bogus',
-            draws=50, tune=50, chains=1, progressbar=False,
+            decreasing_mte_data,
+            y="y",
+            treat="d",
+            instrument="z",
+            first_stage="bogus",
+            draws=50,
+            tune=50,
+            chains=1,
+            progressbar=False,
         )
 
 
@@ -233,6 +275,7 @@ def test_policy_weight_helpers_at_top_level():
     assert sp.policy_weight_marginal is policy_weight_marginal
     # v0.9.11 addition
     from statspai.bayes import policy_weight_observed_prte
+
     assert sp.policy_weight_observed_prte is policy_weight_observed_prte
 
 
@@ -248,7 +291,7 @@ def test_policy_weight_observed_prte_returns_callable():
     assert callable(w_fn)
     weights = w_fn(np.linspace(0, 1, 11))
     assert weights.shape == (11,)
-    assert (weights >= 0).all()     # clipped at 0
+    assert (weights >= 0).all()  # clipped at 0
 
 
 def test_policy_weight_observed_prte_uniform_sample_is_approximately_flat():
@@ -264,18 +307,18 @@ def test_policy_weight_observed_prte_uniform_sample_is_approximately_flat():
     instead — that would give ≈ 0 on the plateau and spikes at the
     support boundary (derivative of density)."""
     rng = np.random.default_rng(1)
-    p_sample = rng.uniform(0, 1, 2000)   # large sample → smooth KDE
+    p_sample = rng.uniform(0, 1, 2000)  # large sample → smooth KDE
     w_fn = sp.policy_weight_observed_prte(p_sample, shift=0.2)
     # Plateau region: u ∈ [0.3, 0.8], well inside [Δ=0.2, 1.0]
     plateau_u = np.linspace(0.3, 0.8, 11)
     plateau_w = w_fn(plateau_u)
     # On the plateau, correct CHV weight ≈ 1.0 (with KDE smoothing)
-    assert np.all(plateau_w > 0.7), (
-        f"Plateau weights should be ≈ 1.0; got min={plateau_w.min():.3f}"
-    )
-    assert np.all(plateau_w < 1.3), (
-        f"Plateau weights should be ≈ 1.0; got max={plateau_w.max():.3f}"
-    )
+    assert np.all(
+        plateau_w > 0.7
+    ), f"Plateau weights should be ≈ 1.0; got min={plateau_w.min():.3f}"
+    assert np.all(
+        plateau_w < 1.3
+    ), f"Plateau weights should be ≈ 1.0; got max={plateau_w.max():.3f}"
 
 
 def test_policy_weight_observed_prte_negative_shift_yields_negative_weights():
@@ -286,24 +329,23 @@ def test_policy_weight_observed_prte_negative_shift_yields_negative_weights():
     rng = np.random.default_rng(10)
     p_sample = rng.uniform(0, 1, 1000)
     w_fn = sp.policy_weight_observed_prte(p_sample, shift=-0.2)
-    grid = np.linspace(0.3, 0.8, 11)    # plateau region
+    grid = np.linspace(0.3, 0.8, 11)  # plateau region
     w = w_fn(grid)
     # Most values should be negative (true CHV under contraction).
     assert (w < 0).sum() > len(w) // 2, (
-        f"Negative-shift weights should be negative on the plateau; "
-        f"got {w}"
+        f"Negative-shift weights should be negative on the plateau; " f"got {w}"
     )
 
 
 def test_policy_weight_observed_prte_rejects_out_of_bounds_sample():
-    with pytest.raises(ValueError, match=r'\[0, 1\]'):
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
         sp.policy_weight_observed_prte(np.array([0.5, 1.5]), shift=0.1)
-    with pytest.raises(ValueError, match=r'\[0, 1\]'):
+    with pytest.raises(ValueError, match=r"\[0, 1\]"):
         sp.policy_weight_observed_prte(np.array([-0.1, 0.5]), shift=0.1)
 
 
 def test_policy_weight_observed_prte_rejects_tiny_sample():
-    with pytest.raises(ValueError, match='at least 2'):
+    with pytest.raises(ValueError, match="at least 2"):
         sp.policy_weight_observed_prte(np.array([0.5]), shift=0.1)
 
 
@@ -311,7 +353,7 @@ def test_policy_weight_observed_prte_rejects_tiny_sample():
 def test_policy_weight_observed_prte_rejects_bad_shift(shift):
     rng = np.random.default_rng(2)
     p_sample = rng.uniform(0, 1, 50)
-    with pytest.raises(ValueError, match='shift'):
+    with pytest.raises(ValueError, match="shift"):
         sp.policy_weight_observed_prte(p_sample, shift=shift)
 
 
@@ -324,6 +366,6 @@ def test_policy_weight_observed_prte_integrates_with_policy_effect(mte_result):
     # testing that the plumbing works end-to-end)
     p_sample = rng.uniform(0.1, 0.9, 200)
     w_fn = sp.policy_weight_observed_prte(p_sample, shift=0.1)
-    pe = mte_result.policy_effect(w_fn, label='chv_prte')
-    assert np.isfinite(pe['estimate'])
-    assert pe['hdi_low'] <= pe['estimate'] <= pe['hdi_high']
+    pe = mte_result.policy_effect(w_fn, label="chv_prte")
+    assert np.isfinite(pe["estimate"])
+    assert pe["hdi_low"] <= pe["estimate"] <= pe["hdi_high"]

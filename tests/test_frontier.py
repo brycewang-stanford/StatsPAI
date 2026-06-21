@@ -34,7 +34,6 @@ from statspai.frontier import (
 from statspai.frontier import _core as _fc
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
-
 # ---------------------------------------------------------------------------
 # Simulated data helpers
 # ---------------------------------------------------------------------------
@@ -79,8 +78,9 @@ def _simulate_panel_tvd(N, T, sigma_v, sigma_u, mu, eta, seed=3):
     t_ = np.tile(np.arange(T), N)
     n = N * T
     x1 = rng.normal(0, 1, n)
-    u_i = sst.truncnorm.rvs(-mu / sigma_u, np.inf, loc=mu, scale=sigma_u,
-                            size=N, random_state=rng)
+    u_i = sst.truncnorm.rvs(
+        -mu / sigma_u, np.inf, loc=mu, scale=sigma_u, size=N, random_state=rng
+    )
     a_it = np.exp(-eta * (t_ - (T - 1)))
     u_it = a_it * np.repeat(u_i, T)
     v = rng.normal(0, sigma_v, n)
@@ -115,8 +115,7 @@ class TestCrossSectionalRecovery:
         # Previous version allowed a 5-nat slack, which masked any
         # implementation bug that degraded but didn't flip the ranking.
         assert (
-            res.diagnostics["log_likelihood"]
-            > res_wrong.diagnostics["log_likelihood"]
+            res.diagnostics["log_likelihood"] > res_wrong.diagnostics["log_likelihood"]
         ), (
             f"correct-sign LL ({res.diagnostics['log_likelihood']:.3f}) "
             f"should strictly exceed wrong-sign LL "
@@ -147,12 +146,12 @@ class TestCrossSectionalRecovery:
         assert res.model_info["converged"]
         assert res.model_info["sign"] == 1
         # Slope recovery — tight because we have n=2500.
-        assert abs(res.params["x1"] - true_beta_1) < 0.03, (
-            f"x1 beta drift: {res.params['x1']:.4f} vs 0.50"
-        )
-        assert abs(res.params["x2"] - true_beta_2) < 0.03, (
-            f"x2 beta drift: {res.params['x2']:.4f} vs -0.30"
-        )
+        assert (
+            abs(res.params["x1"] - true_beta_1) < 0.03
+        ), f"x1 beta drift: {res.params['x1']:.4f} vs 0.50"
+        assert (
+            abs(res.params["x2"] - true_beta_2) < 0.03
+        ), f"x2 beta drift: {res.params['x2']:.4f} vs -0.30"
         # Variance recovery.
         assert abs(np.exp(res.params["ln_sigma_u"]) - true_sigma_u) < 0.05
         assert abs(np.exp(res.params["ln_sigma_v"]) - true_sigma_v) < 0.04
@@ -176,8 +175,9 @@ class TestCrossSectionalRecovery:
         n = 5000
         x1 = rng.normal(0, 1, n)
         mu_t, su_t, sv_t = 0.5, 0.4, 0.2
-        u = sst.truncnorm.rvs(-mu_t / su_t, np.inf, loc=mu_t, scale=su_t,
-                              size=n, random_state=rng)
+        u = sst.truncnorm.rvs(
+            -mu_t / su_t, np.inf, loc=mu_t, scale=su_t, size=n, random_state=rng
+        )
         v = rng.normal(0, sv_t, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1})
@@ -229,8 +229,9 @@ class TestHeteroskedasticity:
         x1 = rng.normal(0, 1, n)
         z1 = rng.normal(0, 1, n)
         mu_i = 0.3 + 0.2 * z1
-        u = sst.truncnorm.rvs(-mu_i / 0.3, np.inf, loc=mu_i, scale=0.3,
-                              random_state=rng)
+        u = sst.truncnorm.rvs(
+            -mu_i / 0.3, np.inf, loc=mu_i, scale=0.3, random_state=rng
+        )
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1, "z1": z1})
@@ -373,7 +374,9 @@ class TestHelpers:
         res = frontier(df, y="y", x=["x1"], dist="half-normal")
         r = te_rank(res)
         np.testing.assert_allclose(r["rank"].to_numpy(), np.arange(1, len(r) + 1))
-        np.testing.assert_allclose(r["efficiency"].to_numpy(), np.sort(r["efficiency"])[::-1])
+        np.testing.assert_allclose(
+            r["efficiency"].to_numpy(), np.sort(r["efficiency"])[::-1]
+        )
         assert "rank" in r.columns and r["rank"].min() == 1
         r2 = te_rank(res, with_ci=True, B=40)
         assert {"lower", "upper"}.issubset(r2.columns)
@@ -387,8 +390,9 @@ class TestHelpers:
 class TestPanelTimeInvariant:
     def test_pitt_lee_halfnormal_recovers(self):
         df = _simulate_panel_ti(N=100, T=6, sigma_v=0.2, sigma_u=0.5, seed=51)
-        res = xtfrontier(df, y="y", x=["x1", "x2"], id="id", time="t",
-                         model="ti", dist="half-normal")
+        res = xtfrontier(
+            df, y="y", x=["x1", "x2"], id="id", time="t", model="ti", dist="half-normal"
+        )
         assert res.model_info["converged"]
         assert abs(res.params["x1"] - 0.6) < 0.05
         assert abs(res.params["x2"] - 0.4) < 0.05
@@ -403,14 +407,16 @@ class TestPanelTimeInvariant:
         n = N * T
         x1 = rng.normal(0, 1, n)
         mu_t = 0.4
-        u_i = sst.truncnorm.rvs(-mu_t / 0.3, np.inf, loc=mu_t, scale=0.3,
-                                size=N, random_state=rng)
+        u_i = sst.truncnorm.rvs(
+            -mu_t / 0.3, np.inf, loc=mu_t, scale=0.3, size=N, random_state=rng
+        )
         u_it = np.repeat(u_i, T)
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u_it
         df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
-        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                         model="ti", dist="truncated-normal")
+        res = xtfrontier(
+            df, y="y", x=["x1"], id="id", time="t", model="ti", dist="truncated-normal"
+        )
         assert res.model_info["converged"]
         assert "mu" in res.params.index
         assert res.model_info["sigma_u"] > 0
@@ -429,10 +435,12 @@ class TestPanelTimeInvariant:
 
 class TestPanelTVD:
     def test_battese_coelli_1992_recovers_eta(self):
-        df = _simulate_panel_tvd(N=120, T=6, sigma_v=0.2, sigma_u=0.3,
-                                 mu=0.4, eta=0.05, seed=61)
-        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                         model="tvd", dist="truncated-normal")
+        df = _simulate_panel_tvd(
+            N=120, T=6, sigma_v=0.2, sigma_u=0.3, mu=0.4, eta=0.05, seed=61
+        )
+        res = xtfrontier(
+            df, y="y", x=["x1"], id="id", time="t", model="tvd", dist="truncated-normal"
+        )
         assert res.model_info["converged"]
         assert abs(res.params["eta"] - 0.05) < 0.05
         assert abs(res.params["x1"] - 0.6) < 0.05
@@ -473,8 +481,7 @@ class TestPanelTVD:
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v + np.repeat(u_i, T)  # cost
         df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
-        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti",
-                         cost=True)
+        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti", cost=True)
         assert res.model_info["converged"]
         assert res.model_info["sign"] == 1
 
@@ -489,13 +496,15 @@ class TestPanelBC95:
         x1 = rng.normal(0, 1, n)
         z1 = rng.normal(0, 1, n)
         mu_it = 0.2 + 0.3 * z1
-        u = sst.truncnorm.rvs(-mu_it / 0.4, np.inf, loc=mu_it, scale=0.4,
-                              random_state=rng)
+        u = sst.truncnorm.rvs(
+            -mu_it / 0.4, np.inf, loc=mu_it, scale=0.4, random_state=rng
+        )
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1, "z1": z1, "id": id_, "t": t_})
-        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                         model="bc95", emean=["z1"])
+        res = xtfrontier(
+            df, y="y", x=["x1"], id="id", time="t", model="bc95", emean=["z1"]
+        )
         assert res.model_info["converged"]
         assert abs(res.params["mu_z1"] - 0.3) < 0.1
         assert "efficiency_bc_unit_mean" in res.diagnostics
@@ -596,8 +605,9 @@ class TestMarginalEffects:
         x1 = rng.normal(0, 1, n)
         z1 = rng.normal(0, 1, n)
         mu_it = 0.3 + 0.25 * z1
-        u = sst.truncnorm.rvs(-mu_it / 0.3, np.inf, loc=mu_it, scale=0.3,
-                              random_state=rng)
+        u = sst.truncnorm.rvs(
+            -mu_it / 0.3, np.inf, loc=mu_it, scale=0.3, random_state=rng
+        )
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1, "z1": z1})
@@ -617,8 +627,9 @@ class TestMarginalEffects:
         rng = np.random.default_rng(302)
         n = 500
         x1 = rng.normal(0, 1, n)
-        u = sst.truncnorm.rvs(-0.3 / 0.3, np.inf, loc=0.3, scale=0.3,
-                              size=n, random_state=rng)
+        u = sst.truncnorm.rvs(
+            -0.3 / 0.3, np.inf, loc=0.3, scale=0.3, size=n, random_state=rng
+        )
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1})
@@ -648,8 +659,9 @@ class TestMarginalEffects:
         n = 500
         x1 = rng.normal(0, 1, n)
         z1 = rng.normal(0, 1, n)
-        u = sst.truncnorm.rvs(-0.3 / 0.3, np.inf, loc=0.3, scale=0.3,
-                              size=n, random_state=rng)
+        u = sst.truncnorm.rvs(
+            -0.3 / 0.3, np.inf, loc=0.3, scale=0.3, size=n, random_state=rng
+        )
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1, "z1": z1})
@@ -716,10 +728,12 @@ class TestVarianceEstimators:
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - np.repeat(u_i, T)
         df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
-        r_rob = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                           model="ti", vce="robust")
-        r_cl = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                          model="ti", cluster="id")
+        r_rob = xtfrontier(
+            df, y="y", x=["x1"], id="id", time="t", model="ti", vce="robust"
+        )
+        r_cl = xtfrontier(
+            df, y="y", x=["x1"], id="id", time="t", model="ti", cluster="id"
+        )
         # Both should give identical SEs (cluster=id IS the natural grouping).
         assert np.isclose(r_rob.std_errors["x1"], r_cl.std_errors["x1"])
 
@@ -739,8 +753,9 @@ class TestPanelPredict:
         res = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="ti")
         new = pd.DataFrame({"x1": [0.0, 1.0]})
         fr = res.predict(new, what="frontier")
-        expected = np.array([res.params["_cons"],
-                             res.params["_cons"] + res.params["x1"]])
+        expected = np.array(
+            [res.params["_cons"], res.params["_cons"] + res.params["x1"]]
+        )
         assert np.allclose(fr.values, expected, atol=1e-12)
 
     def test_panel_ti_predict_expected_efficiency(self):
@@ -767,13 +782,15 @@ class TestPanelPredict:
         x1 = rng.normal(0, 1, n)
         z1 = rng.normal(0, 1, n)
         mu_it = 0.2 + 0.3 * z1
-        u = sst.truncnorm.rvs(-mu_it / 0.4, np.inf, loc=mu_it, scale=0.4,
-                              random_state=rng)
+        u = sst.truncnorm.rvs(
+            -mu_it / 0.4, np.inf, loc=mu_it, scale=0.4, random_state=rng
+        )
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1, "z1": z1, "id": id_, "t": t_})
-        res = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                         model="bc95", emean=["z1"])
+        res = xtfrontier(
+            df, y="y", x=["x1"], id="id", time="t", model="bc95", emean=["z1"]
+        )
         new = pd.DataFrame({"x1": [0, 0], "z1": [-1.0, 1.0]})
         E_u = res.predict(new, what="expected_inefficiency").values
         # Positive emean coef on z1 → higher z1 gives larger E[u].
@@ -788,8 +805,9 @@ class TestTruncatedNormalRobustness:
         x1 = rng.normal(0, 1, n)
         # Challenging case: true mu near 0 (ambiguous between HN and TN).
         mu_t = 0.05
-        u = sst.truncnorm.rvs(-mu_t / 0.4, np.inf, loc=mu_t, scale=0.4,
-                              size=n, random_state=rng)
+        u = sst.truncnorm.rvs(
+            -mu_t / 0.4, np.inf, loc=mu_t, scale=0.4, size=n, random_state=rng
+        )
         v = rng.normal(0, 0.2, n)
         y = 1.0 + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1})
@@ -799,8 +817,10 @@ class TestTruncatedNormalRobustness:
         # And not absurdly worse than a half-normal fit of same data.
         res_hn = frontier(df, y="y", x=["x1"], dist="half-normal")
         # TN has one more parameter (mu), so its LL must be >= HN's LL - epsilon.
-        assert (res.diagnostics["log_likelihood"]
-                >= res_hn.diagnostics["log_likelihood"] - 0.5)
+        assert (
+            res.diagnostics["log_likelihood"]
+            >= res_hn.diagnostics["log_likelihood"] - 0.5
+        )
 
 
 class TestGreeneTrueEffects:
@@ -839,8 +859,15 @@ class TestGreeneTrueEffects:
     def test_tre_rejects_truncated_normal(self):
         df = _simulate_panel_ti(30, 4, 0.2, 0.3, seed=703)
         with pytest.raises(ValueError, match="tre currently|TRE currently"):
-            xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                       model="tre", dist="truncated-normal")
+            xtfrontier(
+                df,
+                y="y",
+                x=["x1"],
+                id="id",
+                time="t",
+                model="tre",
+                dist="truncated-normal",
+            )
 
     def test_tfe_recovers_with_long_t(self):
         """TFE (brute-force firm dummies) works well when T is not too short."""
@@ -887,7 +914,9 @@ class TestBootstrap:
         df = _simulate_hn_production(1000, 0.2, 0.4, seed=801)
         r_oim = frontier(df, y="y", x=["x1"], vce="oim")
         r_bs = frontier(df, y="y", x=["x1"], vce="bootstrap", B=200, seed=1)
-        rel = abs(r_bs.std_errors["x1"] - r_oim.std_errors["x1"]) / r_oim.std_errors["x1"]
+        rel = (
+            abs(r_bs.std_errors["x1"] - r_oim.std_errors["x1"]) / r_oim.std_errors["x1"]
+        )
         assert rel < 0.20, f"bootstrap SE too far from OIM: rel={rel:.3f}"
         assert np.isfinite(r_bs.std_errors["x1"])
         # Bootstrap SE must not be implausibly small (old collapse bug).
@@ -1014,7 +1043,10 @@ class TestMetafrontier:
         u = np.abs(rng.normal(0, 0.3, n))
         v = rng.normal(0, 0.15, n)
         y = np.array(
-            [intercepts[g] + 0.5 * x1[i] + v[i] - u[i] for i, g in enumerate(groups_arr)]
+            [
+                intercepts[g] + 0.5 * x1[i] + v[i] - u[i]
+                for i, g in enumerate(groups_arr)
+            ]
         )
         df = pd.DataFrame({"y": y, "x1": x1, "g": groups_arr})
         res = metafrontier(df, y="y", x=["x1"], group="g")
@@ -1032,6 +1064,7 @@ class TestMetafrontier:
 
     def test_metafrontier_tgr_in_0_1(self):
         from statspai.frontier import metafrontier
+
         rng = np.random.default_rng(1302)
         N_per, K = 100, 2
         n = N_per * K
@@ -1041,7 +1074,10 @@ class TestMetafrontier:
         u = np.abs(rng.normal(0, 0.3, n))
         v = rng.normal(0, 0.15, n)
         y = np.array(
-            [intercepts[g] + 0.5 * x1[i] + v[i] - u[i] for i, g in enumerate(groups_arr)]
+            [
+                intercepts[g] + 0.5 * x1[i] + v[i] - u[i]
+                for i, g in enumerate(groups_arr)
+            ]
         )
         df = pd.DataFrame({"y": y, "x1": x1, "g": groups_arr})
         res = metafrontier(df, y="y", x=["x1"], group="g")
@@ -1081,6 +1117,7 @@ class TestMalmquist:
     def test_malmquist_decomposition_multiplicative(self):
         """M = EC * TC must hold row-wise (identity)."""
         from statspai.frontier import malmquist
+
         rng = np.random.default_rng(1702)
         N = 40
         periods = [1, 2]
@@ -1111,9 +1148,10 @@ class TestMalmquist:
         would still pass.
         """
         from statspai.frontier import malmquist
+
         rng = np.random.default_rng(1703)
         N = 400
-        delta_alpha = 0.10   # known outward frontier shift period 1 -> 2
+        delta_alpha = 0.10  # known outward frontier shift period 1 -> 2
         beta_true = 0.5
         # Low noise so OLS/SFA betas are very close to truth.
         sigma_u_true = 0.02
@@ -1150,9 +1188,9 @@ class TestMalmquist:
             f"mean TC {mean_tc:.4f} vs expected {expected_tc:.4f} "
             f"(|diff|={abs(mean_tc - expected_tc):.4f})"
         )
-        assert abs(mean_ec - expected_ec) < 0.04, (
-            f"mean EC {mean_ec:.4f} vs expected {expected_ec:.4f}"
-        )
+        assert (
+            abs(mean_ec - expected_ec) < 0.04
+        ), f"mean EC {mean_ec:.4f} vs expected {expected_ec:.4f}"
         # M = EC * TC should equal the observed mean M up to noise;
         # more importantly the direction is correct.
         mean_m = float(res.index_table["m_index"].mean())
@@ -1160,6 +1198,7 @@ class TestMalmquist:
 
     def test_malmquist_requires_two_periods(self):
         from statspai.frontier import malmquist
+
         df = _simulate_hn_production(100, 0.2, 0.4, seed=1703)
         df["id"] = np.arange(100)
         df["t"] = 2020  # single period
@@ -1170,6 +1209,7 @@ class TestMalmquist:
 class TestTranslogDesign:
     def test_translog_design_adds_squares_and_interactions(self):
         from statspai.frontier import translog_design
+
         df = pd.DataFrame({"log_k": [1.0, 2.0, 3.0], "log_l": [0.5, 1.5, 2.5]})
         tl = translog_design(df, inputs=["log_k", "log_l"])
         assert "log_k_sq" in tl.columns
@@ -1181,22 +1221,23 @@ class TestTranslogDesign:
 
     def test_translog_opt_out_squares(self):
         from statspai.frontier import translog_design
+
         df = pd.DataFrame({"log_k": [1.0], "log_l": [1.0]})
-        tl = translog_design(df, inputs=["log_k", "log_l"],
-                              include_squares=False)
+        tl = translog_design(df, inputs=["log_k", "log_l"], include_squares=False)
         assert "log_k_sq" not in tl.columns
         assert "log_k_x_log_l" in tl.columns
 
     def test_translog_opt_out_interactions(self):
         from statspai.frontier import translog_design
+
         df = pd.DataFrame({"log_k": [1.0], "log_l": [1.0]})
-        tl = translog_design(df, inputs=["log_k", "log_l"],
-                              include_interactions=False)
+        tl = translog_design(df, inputs=["log_k", "log_l"], include_interactions=False)
         assert "log_k_x_log_l" not in tl.columns
         assert "log_k_sq" in tl.columns
 
     def test_translog_attrs_list(self):
         from statspai.frontier import translog_design
+
         df = pd.DataFrame({"log_k": [1.0, 2.0], "log_l": [1.0, 2.0]})
         tl = translog_design(df, inputs=["log_k", "log_l"])
         terms = tl.attrs["translog_terms"]
@@ -1215,6 +1256,7 @@ class TestTranslogDesign:
         true DGP is Cobb-Douglas (translog nests CD as restrictions).
         """
         from statspai.frontier import translog_design
+
         rng = np.random.default_rng(1750)
         n = 600
         # Cobb-Douglas DGP: translog terms should all be ~0.
@@ -1223,9 +1265,13 @@ class TestTranslogDesign:
         u = np.abs(rng.normal(0, 0.2, n))
         v = rng.normal(0, 0.1, n)
         log_y = 1.0 + 0.4 * log_k + 0.5 * log_l + v - u
-        df = pd.DataFrame({
-            "log_y": log_y, "log_k": log_k, "log_l": log_l,
-        })
+        df = pd.DataFrame(
+            {
+                "log_y": log_y,
+                "log_k": log_k,
+                "log_l": log_l,
+            }
+        )
         tl = translog_design(df, inputs=["log_k", "log_l"])
         terms = tl.attrs["translog_terms"]
         # Option A: pass the full translog regressor list in one shot.
@@ -1233,9 +1279,9 @@ class TestTranslogDesign:
         assert res.model_info.get("converged", False)
         # Squared + interaction terms should be small on a CD DGP.
         for extra in ("log_k_sq", "log_l_sq", "log_k_x_log_l"):
-            assert extra in res.params.index, (
-                f"{extra!r} missing from fitted params — integration broken"
-            )
+            assert (
+                extra in res.params.index
+            ), f"{extra!r} missing from fitted params — integration broken"
             assert abs(res.params[extra]) < 0.15, (
                 f"CD DGP should give near-zero translog coeffs; "
                 f"{extra}={res.params[extra]:.4f}"
@@ -1307,6 +1353,7 @@ class TestZeroInefficiency:
 
     def test_zisf_recovers_mixture_probability(self):
         from statspai.frontier import zisf
+
         rng = np.random.default_rng(1401)
         n = 2000
         x1 = rng.normal(0, 1, n)
@@ -1324,6 +1371,7 @@ class TestZeroInefficiency:
     def test_zisf_with_zprob_covariate(self):
         """Class probability should respond to a covariate."""
         from statspai.frontier import zisf
+
         rng = np.random.default_rng(1402)
         n = 2000
         x1 = rng.normal(0, 1, n)
@@ -1342,6 +1390,7 @@ class TestZeroInefficiency:
 
     def test_zisf_rejects_unsupported_dist(self):
         from statspai.frontier import zisf
+
         df = _simulate_hn_production(200, 0.15, 0.4, seed=1403)
         with pytest.raises(ValueError, match="half-normal"):
             zisf(df, y="y", x=["x1"], dist="exponential")
@@ -1352,6 +1401,7 @@ class TestLatentClassSFA:
 
     def test_lcsf_recovers_two_classes(self):
         from statspai.frontier import lcsf
+
         rng = np.random.default_rng(1501)
         n = 2500
         x1 = rng.normal(0, 1, n)
@@ -1401,6 +1451,7 @@ class TestLatentClassSFA:
 
     def test_lcsf_efficiency_bounded(self):
         from statspai.frontier import lcsf
+
         rng = np.random.default_rng(1502)
         n = 1000
         x1 = rng.normal(0, 1, n)
@@ -1414,6 +1465,7 @@ class TestLatentClassSFA:
 
     def test_lcsf_two_classes_exposed(self):
         from statspai.frontier import lcsf
+
         df = _simulate_hn_production(500, 0.15, 0.4, seed=1503)
         res = lcsf(df, y="y", x=["x1"])
         assert res.model_info["n_classes"] == 2
@@ -1436,8 +1488,9 @@ class TestTFEBiasCorrection:
         y = np.repeat(alpha_i, T) + 0.5 * x1 + v - u
         df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
         r_raw = xtfrontier(df, y="y", x=["x1"], id="id", time="t", model="tfe")
-        r_bc = xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                          model="tfe", bias_correct=True)
+        r_bc = xtfrontier(
+            df, y="y", x=["x1"], id="id", time="t", model="tfe", bias_correct=True
+        )
         # With fixed seed the direction of bias reduction must hold:
         # BC sigma_u strictly closer to the true 0.35 than raw.
         # A +0.02 slack (prior version) allowed a broken correction
@@ -1449,17 +1502,18 @@ class TestTFEBiasCorrection:
             f"bc={bc_bias:.4f}"
         )
         # And reduction must be substantive (not a 0.1% cosmetic change).
-        assert bc_bias <= 0.75 * raw_bias + 1e-6, (
-            f"bias reduction too small: raw={raw_bias:.4f}, bc={bc_bias:.4f}"
-        )
+        assert (
+            bc_bias <= 0.75 * raw_bias + 1e-6
+        ), f"bias reduction too small: raw={raw_bias:.4f}, bc={bc_bias:.4f}"
         assert "Dhaene-Jochmans" in r_bc.model_info.get("bias_correct", "")
 
     def test_bias_correct_requires_time(self):
         df = _simulate_panel_ti(20, 10, 0.15, 0.35, seed=1602)
         df_no_time = df.drop(columns=["t"])
         with pytest.raises(ValueError, match="time"):
-            xtfrontier(df_no_time, y="y", x=["x1"], id="id",
-                       model="tfe", bias_correct=True)
+            xtfrontier(
+                df_no_time, y="y", x=["x1"], id="id", model="tfe", bias_correct=True
+            )
 
     def test_bias_correct_requires_enough_periods(self):
         """Splits require T >= 4; shorter panels should raise."""
@@ -1475,8 +1529,9 @@ class TestTFEBiasCorrection:
         y = 1.0 + 0.5 * x1 + np.repeat(alpha_i, T) + v - u
         df = pd.DataFrame({"y": y, "x1": x1, "id": id_, "t": t_})
         with pytest.raises(ValueError, match="time periods"):
-            xtfrontier(df, y="y", x=["x1"], id="id", time="t",
-                       model="tfe", bias_correct=True)
+            xtfrontier(
+                df, y="y", x=["x1"], id="id", time="t", model="tfe", bias_correct=True
+            )
 
 
 class TestKernelMath:
@@ -1488,30 +1543,39 @@ class TestKernelMath:
         u = np.abs(rng.normal(0, sigma_u, n))
         v = rng.normal(0, sigma_v, n)
         eps = v - u  # production
-        ll = _fc.loglik_halfnormal(eps, np.full(n, sigma_v),
-                                   np.full(n, sigma_u), sign=-1)
+        ll = _fc.loglik_halfnormal(
+            eps, np.full(n, sigma_v), np.full(n, sigma_u), sign=-1
+        )
         assert np.all(np.isfinite(ll))
         # Empirical KL: compare to kernel estimate.
         grid = np.linspace(-3, 2, 300)
-        f = np.exp(_fc.loglik_halfnormal(grid, np.array([sigma_v]),
-                                          np.array([sigma_u]), sign=-1))
+        f = np.exp(
+            _fc.loglik_halfnormal(
+                grid, np.array([sigma_v]), np.array([sigma_u]), sign=-1
+            )
+        )
         integral = np.trapezoid(f, grid)
         assert abs(integral - 1.0) < 0.01
 
     def test_exponential_is_valid_density(self):
         grid = np.linspace(-5, 3, 1000)
         sigma_v, sigma_u = 0.3, 0.4
-        f = np.exp(_fc.loglik_exponential(grid, np.array([sigma_v]),
-                                           np.array([sigma_u]), sign=-1))
+        f = np.exp(
+            _fc.loglik_exponential(
+                grid, np.array([sigma_v]), np.array([sigma_u]), sign=-1
+            )
+        )
         integral = np.trapezoid(f, grid)
         assert abs(integral - 1.0) < 0.01
 
     def test_truncated_normal_is_valid_density(self):
         grid = np.linspace(-5, 4, 1000)
         sv, su, mu = 0.3, 0.4, 0.5
-        f = np.exp(_fc.loglik_truncated_normal(
-            grid, np.array([sv]), np.array([su]), np.array([mu]), sign=-1
-        ))
+        f = np.exp(
+            _fc.loglik_truncated_normal(
+                grid, np.array([sv]), np.array([su]), np.array([mu]), sign=-1
+            )
+        )
         integral = np.trapezoid(f, grid)
         assert abs(integral - 1.0) < 0.01
 

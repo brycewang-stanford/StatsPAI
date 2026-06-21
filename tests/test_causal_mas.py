@@ -34,13 +34,17 @@ def test_causal_mas_sensitive_to_treatment_outcome_pair():
     )
     edges = getattr(r, "edges", None) or getattr(r, "final_edges", None) or []
     # Should include at least one edge involving the outcome
-    touches_outcome = any("health" in (e if isinstance(e, tuple) else e) for e in edges) \
-        if edges else True  # lenient: heuristic may return empty in degenerate cases
+    touches_outcome = (
+        any("health" in (e if isinstance(e, tuple) else e) for e in edges)
+        if edges
+        else True
+    )  # lenient: heuristic may return empty in degenerate cases
     assert touches_outcome or edges == []
 
 
 def test_causal_mas_signature_exposes_llm_hook():
     import inspect
+
     sig = inspect.signature(sp.causal_mas)
     # Should accept `client=None` so users can plug in an LLM
     assert "client" in sig.parameters

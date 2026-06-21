@@ -15,8 +15,8 @@ def kernel_data():
     n = 400
     Z = rng.standard_normal(n)
     D = 0.7 * Z + 0.3 * rng.standard_normal(n)
-    Y = 1.2 * D + 0.5 * D ** 2 + rng.standard_normal(n) * 0.5
-    return pd.DataFrame({'y': Y, 'treat': D, 'z': Z})
+    Y = 1.2 * D + 0.5 * D**2 + rng.standard_normal(n) * 0.5
+    return pd.DataFrame({"y": Y, "treat": D, "z": Z})
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def continuous_iv_data():
     Z = rng.uniform(-1, 1, size=n)
     D = (Z > 0).astype(float) + 0.3 * rng.standard_normal(n)
     Y = 1.5 * D + 0.5 * Z + rng.standard_normal(n) * 0.4
-    return pd.DataFrame({'y': Y, 'treat': D, 'z': Z})
+    return pd.DataFrame({"y": Y, "treat": D, "z": Z})
 
 
 @pytest.fixture
@@ -37,17 +37,24 @@ def ivdml_data():
     X = rng.standard_normal((n, 4))
     D = 0.5 * Z[:, 0] + 0.3 * X[:, 0] + 0.2 * rng.standard_normal(n)
     Y = 1.0 * D + 0.4 * X[:, 1] + rng.standard_normal(n)
-    return pd.DataFrame({
-        'y': Y, 'treat': D,
-        **{f'z{i}': Z[:, i] for i in range(3)},
-        **{f'x{i}': X[:, i] for i in range(4)},
-    })
+    return pd.DataFrame(
+        {
+            "y": Y,
+            "treat": D,
+            **{f"z{i}": Z[:, i] for i in range(3)},
+            **{f"x{i}": X[:, i] for i in range(4)},
+        }
+    )
 
 
 def test_kernel_iv(kernel_data):
     res = sp.iv.kernel_iv(
-        kernel_data, y='y', treat='treat', instrument='z',
-        n_boot=20, seed=0,
+        kernel_data,
+        y="y",
+        treat="treat",
+        instrument="z",
+        n_boot=20,
+        seed=0,
     )
     assert isinstance(res, sp.iv.KernelIVResult)
     assert len(res.h_hat) == 30
@@ -57,8 +64,12 @@ def test_kernel_iv(kernel_data):
 
 def test_continuous_iv_late(continuous_iv_data):
     res = sp.iv.continuous_iv_late(
-        continuous_iv_data, y='y', treat='treat', instrument='z',
-        n_quantiles=4, n_boot=50,
+        continuous_iv_data,
+        y="y",
+        treat="treat",
+        instrument="z",
+        n_quantiles=4,
+        n_boot=50,
     )
     assert isinstance(res, sp.iv.ContinuousLATEResult)
     # True LATE ≈ 1.5
@@ -67,9 +78,12 @@ def test_continuous_iv_late(continuous_iv_data):
 
 def test_ivdml(ivdml_data):
     res = sp.iv.ivdml(
-        ivdml_data, y='y', treat='treat',
-        instruments=['z0', 'z1', 'z2'],
-        covariates=['x0', 'x1', 'x2', 'x3'], n_folds=3,
+        ivdml_data,
+        y="y",
+        treat="treat",
+        instruments=["z0", "z1", "z2"],
+        covariates=["x0", "x1", "x2", "x3"],
+        n_folds=3,
     )
     assert isinstance(res, sp.iv.IVDMLResult)
     # True LATE = 1.0

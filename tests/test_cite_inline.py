@@ -36,10 +36,13 @@ def ols_null_signal():
 # Basic formatting
 # ---------------------------------------------------------------------------
 
+
 def test_cite_default_format(ols_strong_signal):
     s = sp.cite(ols_strong_signal, "x")
     # 0.5xx*** (0.0xx) — 3-decimal, three stars on a 1-pct effect
-    assert re.match(r"^0\.\d{3}\*+ \(\d\.\d{3}\)$", s) or re.match(r"^0\.\d{3} \(\d\.\d{3}\)$", s)
+    assert re.match(r"^0\.\d{3}\*+ \(\d\.\d{3}\)$", s) or re.match(
+        r"^0\.\d{3} \(\d\.\d{3}\)$", s
+    )
 
 
 def test_cite_stars_appear_for_significant(ols_strong_signal):
@@ -61,6 +64,7 @@ def test_cite_custom_fmt(ols_strong_signal):
 # ---------------------------------------------------------------------------
 # Output formats
 # ---------------------------------------------------------------------------
+
 
 def test_cite_latex_uses_superscript(ols_strong_signal):
     s = sp.cite(ols_strong_signal, "x", output="latex")
@@ -84,6 +88,7 @@ def test_cite_markdown_escapes_stars(ols_strong_signal):
 # ---------------------------------------------------------------------------
 # second_row variants
 # ---------------------------------------------------------------------------
+
 
 def test_cite_second_row_ci(ols_strong_signal):
     s = sp.cite(ols_strong_signal, "x", second_row="ci")
@@ -117,16 +122,26 @@ def test_cite_second_row_none(ols_strong_signal):
 # CausalResult support
 # ---------------------------------------------------------------------------
 
-def _make_causal_result(estimate=0.42, se=0.10, pvalue=0.0001, ci=(0.22, 0.62),
-                        estimand="ATT", method="Custom DiD", n=300):
+
+def _make_causal_result(
+    estimate=0.42,
+    se=0.10,
+    pvalue=0.0001,
+    ci=(0.22, 0.62),
+    estimand="ATT",
+    method="Custom DiD",
+    n=300,
+):
     """Construct a duck-typed CausalResult for the cite() CausalResult branch.
 
     Avoids importing the real ``CausalResult`` class to keep the test
     independent of fitting any actual estimator (which may pull in optional
     dependencies).
     """
+
     class _Causal:
         pass
+
     r = _Causal()
     r.method = method
     r.estimand = estimand
@@ -171,6 +186,7 @@ def test_cite_causal_result_ci_passthrough():
 # ---------------------------------------------------------------------------
 # Validation
 # ---------------------------------------------------------------------------
+
 
 def test_cite_unknown_term_raises(ols_strong_signal):
     with pytest.raises(KeyError):

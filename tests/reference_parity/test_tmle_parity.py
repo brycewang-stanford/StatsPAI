@@ -83,6 +83,7 @@ References (bib keys verified in paper.bib)
 - Robins (1986), *Mathematical Modelling* 7 — g-computation
   cross-checked in anchor D. [@robins1986new]
 """
+
 from __future__ import annotations
 
 import json
@@ -95,7 +96,6 @@ from scipy.special import expit, logit
 from sklearn.linear_model import LinearRegression, LogisticRegression
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -112,13 +112,13 @@ def _logreg():
     so two fits on the same data are bit-identical (needed by the
     independent EIF reconstruction in anchor B).
     """
-    return LogisticRegression(penalty=None, solver="lbfgs",
-                              tol=1e-12, max_iter=10000)
+    return LogisticRegression(penalty=None, solver="lbfgs", tol=1e-12, max_iter=10000)
 
 
 # ---------------------------------------------------------------------------
 # Module fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def saturated_binary_data():
@@ -134,8 +134,9 @@ def saturated_binary_data():
     w = rng.binomial(1, 0.5, n)
     a = rng.binomial(1, 0.35 + 0.30 * w)
     yb = rng.binomial(1, 0.20 + 0.30 * a + 0.20 * w)
-    df = pd.DataFrame({"y": yb.astype(float), "a": a.astype(float),
-                       "w": w.astype(float)})
+    df = pd.DataFrame(
+        {"y": yb.astype(float), "a": a.astype(float), "w": w.astype(float)}
+    )
     return df
 
 
@@ -157,8 +158,11 @@ def tmle_fixture_truth(tmle_fixture_data):
     """
     w1 = tmle_fixture_data["w1"].values
     w2 = tmle_fixture_data["w2"].values
-    return float(np.mean(expit(-0.4 + 0.8 + 0.9 * w1 + 0.5 * w2)
-                         - expit(-0.4 + 0.9 * w1 + 0.5 * w2)))
+    return float(
+        np.mean(
+            expit(-0.4 + 0.8 + 0.9 * w1 + 0.5 * w2) - expit(-0.4 + 0.9 * w1 + 0.5 * w2)
+        )
+    )
 
 
 @pytest.fixture(scope="module")
@@ -177,18 +181,22 @@ def tmle_on_fixture(tmle_fixture_data):
     libraries — shared by the frozen-R, EIF-zero and binary-recovery
     anchors (the call is deterministic, so sharing is sound)."""
     return sp.tmle(
-        tmle_fixture_data, y="y", treat="a", covariates=["w1", "w2"],
+        tmle_fixture_data,
+        y="y",
+        treat="a",
+        covariates=["w1", "w2"],
         outcome_library=[_logreg()],
         propensity_library=[_logreg()],
         n_folds=2,  # irrelevant to the estimate with a 1-learner library
-                    # (super_learner.py:229-234 refits on full data);
-                    # 2 is the sklearn KFold minimum.
+        # (super_learner.py:229-234 refits on full data);
+        # 2 is the sklearn KFold minimum.
     )
 
 
 # ---------------------------------------------------------------------------
 # A) Saturated nonparametric collapse (closed form)
 # ---------------------------------------------------------------------------
+
 
 class TestSaturatedCollapse:
     """TMLE = stratified estimator when the propensity model is saturated.
@@ -230,14 +238,18 @@ class TestSaturatedCollapse:
         for wv in (0.0, 1.0):
             sub = df[df["w"] == wv]
             strat += (len(sub) / n) * (
-                sub.loc[sub["a"] == 1, "y"].mean()
-                - sub.loc[sub["a"] == 0, "y"].mean()
+                sub.loc[sub["a"] == 1, "y"].mean() - sub.loc[sub["a"] == 0, "y"].mean()
             )
 
-        r = sp.tmle(df, y="y", treat="a", covariates=["w"],
-                    outcome_library=[_logreg()],
-                    propensity_library=[_logreg()],
-                    n_folds=2)
+        r = sp.tmle(
+            df,
+            y="y",
+            treat="a",
+            covariates=["w"],
+            outcome_library=[_logreg()],
+            propensity_library=[_logreg()],
+            n_folds=2,
+        )
         assert abs(r.estimate - strat) < self.TOL, (
             f"saturated TMLE {r.estimate:.12f} != stratified ATE "
             f"{strat:.12f} (|diff|={abs(r.estimate - strat):.2e}); "
@@ -253,13 +265,16 @@ class TestSaturatedCollapse:
         of differences up to float associativity (~1e-16), so 1e-12 is
         a pure machine-identity tolerance.
         """
-        r = sp.tmle(saturated_binary_data, y="y", treat="a",
-                    covariates=["w"],
-                    outcome_library=[_logreg()],
-                    propensity_library=[_logreg()],
-                    n_folds=2)
-        plug_in = (r.model_info["Q_star_1_mean"]
-                   - r.model_info["Q_star_0_mean"])
+        r = sp.tmle(
+            saturated_binary_data,
+            y="y",
+            treat="a",
+            covariates=["w"],
+            outcome_library=[_logreg()],
+            propensity_library=[_logreg()],
+            n_folds=2,
+        )
+        plug_in = r.model_info["Q_star_1_mean"] - r.model_info["Q_star_0_mean"]
         assert abs(r.estimate - plug_in) < 1e-12, (
             f"TMLE estimate {r.estimate:.15f} is not the plug-in "
             f"mean(Q*1)-mean(Q*0)={plug_in:.15f} — the targeting "
@@ -270,6 +285,7 @@ class TestSaturatedCollapse:
 # ---------------------------------------------------------------------------
 # B) EIF zero (targeting property), via independent reconstruction
 # ---------------------------------------------------------------------------
+
 
 class TestEIFZero:
     """Mean of the efficient influence curve at the TMLE estimate is ~0.
@@ -307,12 +323,9 @@ class TestEIFZero:
             return np.clip(np.clip(p, 1e-6, 1 - 1e-6), 1e-5, 1 - 1e-5)
 
         Qb_A = clip_q(q_fit.predict_proba(AW)[:, 1])
-        Qb_1 = clip_q(q_fit.predict_proba(
-            np.column_stack([np.ones(n), W]))[:, 1])
-        Qb_0 = clip_q(q_fit.predict_proba(
-            np.column_stack([np.zeros(n), W]))[:, 1])
-        g = np.clip(np.clip(g_fit.predict_proba(W)[:, 1],
-                            1e-6, 1 - 1e-6), 0.025, 0.975)
+        Qb_1 = clip_q(q_fit.predict_proba(np.column_stack([np.ones(n), W]))[:, 1])
+        Qb_0 = clip_q(q_fit.predict_proba(np.column_stack([np.zeros(n), W]))[:, 1])
+        g = np.clip(np.clip(g_fit.predict_proba(W)[:, 1], 1e-6, 1 - 1e-6), 0.025, 0.975)
 
         H_A = A / g - (1 - A) / (1 - g)  # tmle.py:308-311
         Qs_A = expit(logit(Qb_A) + eps * H_A)
@@ -320,12 +333,10 @@ class TestEIFZero:
         Qs_0 = expit(logit(Qb_0) - eps / (1 - g))
         return Y, A, g, H_A, Qs_A, Qs_1, Qs_0
 
-    def test_mean_eif_is_zero_at_tmle(self, tmle_fixture_data,
-                                      tmle_on_fixture):
+    def test_mean_eif_is_zero_at_tmle(self, tmle_fixture_data, tmle_on_fixture):
         r = tmle_on_fixture
         eps = r.model_info["epsilon"]
-        Y, A, g, H_A, Qs_A, Qs_1, Qs_0 = self._reconstruct(
-            tmle_fixture_data, eps)
+        Y, A, g, H_A, Qs_A, Qs_1, Qs_0 = self._reconstruct(tmle_fixture_data, eps)
         n = len(Y)
 
         # Reconstruction fidelity: the plug-in from OUR nuisances must
@@ -345,10 +356,12 @@ class TestEIFZero:
         # 1e-8 * mean(H^2 p(1-p)) ≈ 9.3e-9 on this DGP — so 1e-8 is the
         # stopping-rule-derived bound; quadratic convergence makes the
         # realised value ~1e-17.
-        eif = ((Qs_1 - Qs_0)
-               + A * (Y - Qs_A) / g
-               - (1 - A) * (Y - Qs_A) / (1 - g)
-               - r.estimate)
+        eif = (
+            (Qs_1 - Qs_0)
+            + A * (Y - Qs_A) / g
+            - (1 - A) * (Y - Qs_A) / (1 - g)
+            - r.estimate
+        )
         assert abs(float(np.mean(eif))) < 1e-8, (
             f"mean(EIF) = {np.mean(eif):.3e} at the TMLE estimate — "
             f"targeting (the defining TMLE property) failed."
@@ -359,14 +372,14 @@ class TestEIFZero:
         # observed 0.0, tolerance 1e-10.
         se_mine = float(np.std(eif, ddof=1) / np.sqrt(n))
         assert abs(se_mine - r.se) < 1e-10, (
-            f"IC-based SE {r.se:.12f} != independent reconstruction "
-            f"{se_mine:.12f}."
+            f"IC-based SE {r.se:.12f} != independent reconstruction " f"{se_mine:.12f}."
         )
 
 
 # ---------------------------------------------------------------------------
 # C) Frozen base-R parity (stats::glm TMLE)
 # ---------------------------------------------------------------------------
+
 
 class TestFrozenRParity:
     """sp.tmle vs a base-R (stats::glm) TMLE on the frozen CSV.
@@ -389,8 +402,7 @@ class TestFrozenRParity:
     def test_se_matches_R(self, tmle_on_fixture, r_reference):
         r_se = r_reference["ate"]["se"]
         assert abs(tmle_on_fixture.se - r_se) < 1e-9, (
-            f"EIF SE: Python {tmle_on_fixture.se:.12f} vs base-R "
-            f"{r_se:.12f}"
+            f"EIF SE: Python {tmle_on_fixture.se:.12f} vs base-R " f"{r_se:.12f}"
         )
 
     def test_epsilon_matches_R(self, tmle_on_fixture, r_reference):
@@ -421,6 +433,7 @@ class TestFrozenRParity:
 # D) Cross-estimator parity (combined SE)
 # ---------------------------------------------------------------------------
 
+
 class TestCrossEstimatorParity:
     """TMLE vs AIPW vs g-computation on the CIA DGP (truth = 2.0).
 
@@ -436,16 +449,25 @@ class TestCrossEstimatorParity:
 
     @pytest.fixture(scope="class")
     def tmle_cia(self, matching_cia_data):
-        return sp.tmle(matching_cia_data, y="y", treat="d",
-                       covariates=["X1", "X2", "X3"],
-                       outcome_library=[LinearRegression()],
-                       propensity_library=[_logreg()],
-                       n_folds=2)
+        return sp.tmle(
+            matching_cia_data,
+            y="y",
+            treat="d",
+            covariates=["X1", "X2", "X3"],
+            outcome_library=[LinearRegression()],
+            propensity_library=[_logreg()],
+            n_folds=2,
+        )
 
     def test_tmle_vs_aipw(self, matching_cia_data, tmle_cia):
-        r_a = sp.aipw(matching_cia_data, y="y", treat="d",
-                      covariates=["X1", "X2", "X3"],
-                      n_folds=5, seed=123)
+        r_a = sp.aipw(
+            matching_cia_data,
+            y="y",
+            treat="d",
+            covariates=["X1", "X2", "X3"],
+            n_folds=5,
+            seed=123,
+        )
         # Suite convention: |A - B| <= 4*sqrt(SE_A^2 + SE_B^2)
         # (REFERENCES.md, cross-estimator parity).  Observed
         # |diff| = 0.0006 vs allowed 0.18.
@@ -459,9 +481,14 @@ class TestCrossEstimatorParity:
         # n_boot=200 (not the 500 default) keeps runtime low; the
         # bootstrap SE enters only the tolerance, where 200 reps give
         # ~5% SE-of-SE — negligible against the 4-sigma band.
-        r_g = sp.g_computation(matching_cia_data, y="y", treat="d",
-                               covariates=["X1", "X2", "X3"],
-                               n_boot=200, seed=123)
+        r_g = sp.g_computation(
+            matching_cia_data,
+            y="y",
+            treat="d",
+            covariates=["X1", "X2", "X3"],
+            n_boot=200,
+            seed=123,
+        )
         comb = 4.0 * np.sqrt(tmle_cia.se**2 + r_g.se**2)
         assert abs(tmle_cia.estimate - r_g.estimate) <= comb, (
             f"TMLE {tmle_cia.estimate:.4f} vs g-computation "
@@ -473,6 +500,7 @@ class TestCrossEstimatorParity:
 # ---------------------------------------------------------------------------
 # E) Recovery + bias contrast (4-sigma)
 # ---------------------------------------------------------------------------
+
 
 class TestRecoveryAndBiasContrast:
     """Naive diff-in-means is > 4 sigma biased; TMLE recovers truth."""
@@ -489,8 +517,7 @@ class TestRecoveryAndBiasContrast:
         y1 = df.loc[df["d"] == 1, "y"]
         y0 = df.loc[df["d"] == 0, "y"]
         naive = y1.mean() - y0.mean()
-        se_naive = np.sqrt(y1.var(ddof=1) / len(y1)
-                           + y0.var(ddof=1) / len(y0))
+        se_naive = np.sqrt(y1.var(ddof=1) / len(y1) + y0.var(ddof=1) / len(y0))
         assert abs(naive - truth) > 4.0 * se_naive, (
             f"naive {naive:.3f} should be > 4 sigma from truth {truth} "
             f"(SE {se_naive:.4f}) — if not, the DGP lost its "
@@ -499,11 +526,15 @@ class TestRecoveryAndBiasContrast:
 
     def test_continuous_tmle_recovers(self, matching_cia_data):
         truth = matching_cia_data.attrs["true_effect"]
-        r = sp.tmle(matching_cia_data, y="y", treat="d",
-                    covariates=["X1", "X2", "X3"],
-                    outcome_library=[LinearRegression()],
-                    propensity_library=[_logreg()],
-                    n_folds=2)
+        r = sp.tmle(
+            matching_cia_data,
+            y="y",
+            treat="d",
+            covariates=["X1", "X2", "X3"],
+            outcome_library=[LinearRegression()],
+            propensity_library=[_logreg()],
+            n_folds=2,
+        )
         # 4-sigma recovery (REFERENCES.md convention; false-failure
         # probability 6.3e-5).  Observed z ≈ 1.2.
         assert _within_n_se(r.estimate, truth, r.se, n_sigma=4.0), (
@@ -511,8 +542,7 @@ class TestRecoveryAndBiasContrast:
             f"{truth} by {abs(r.estimate - truth) / r.se:.1f} sigma."
         )
 
-    def test_binary_naive_is_biased(self, tmle_fixture_data,
-                                    tmle_fixture_truth):
+    def test_binary_naive_is_biased(self, tmle_fixture_data, tmle_fixture_truth):
         """Binary outcome: naive risk difference vs the known SATE.
 
         Two-proportion SE, hand-computed.  Observed bias z ≈ 6.0 on
@@ -530,14 +560,12 @@ class TestRecoveryAndBiasContrast:
             f"{tmle_fixture_truth:.4f} (SE {se_naive:.4f})."
         )
 
-    def test_binary_tmle_recovers(self, tmle_on_fixture,
-                                  tmle_fixture_truth):
+    def test_binary_tmle_recovers(self, tmle_on_fixture, tmle_fixture_truth):
         # 4-sigma recovery; the logistic Q model matches the DGP's
         # outcome link exactly, so TMLE is unbiased here.  Observed
         # z ≈ 1.4.
         r = tmle_on_fixture
-        assert _within_n_se(r.estimate, tmle_fixture_truth, r.se,
-                            n_sigma=4.0), (
+        assert _within_n_se(r.estimate, tmle_fixture_truth, r.se, n_sigma=4.0), (
             f"TMLE RD {r.estimate:.4f} (SE {r.se:.4f}) misses truth "
             f"{tmle_fixture_truth:.4f} by "
             f"{abs(r.estimate - tmle_fixture_truth) / r.se:.1f} sigma."
@@ -553,17 +581,23 @@ class TestRecoveryAndBiasContrast:
 # F) Propensity-bounds invariance
 # ---------------------------------------------------------------------------
 
+
 class TestPropensityBoundsInvariance:
     """On a well-overlapped DGP, propensity truncation is inert."""
 
     def test_bounds_invariance(self, matching_cia_data):
-        kwargs = dict(y="y", treat="d", covariates=["X1", "X2", "X3"],
-                      outcome_library=[LinearRegression()],
-                      propensity_library=[_logreg()], n_folds=2)
-        r_wide = sp.tmle(matching_cia_data,
-                         propensity_bounds=(0.025, 0.975), **kwargs)
-        r_narrow = sp.tmle(matching_cia_data,
-                           propensity_bounds=(0.001, 0.999), **kwargs)
+        kwargs = dict(
+            y="y",
+            treat="d",
+            covariates=["X1", "X2", "X3"],
+            outcome_library=[LinearRegression()],
+            propensity_library=[_logreg()],
+            n_folds=2,
+        )
+        r_wide = sp.tmle(matching_cia_data, propensity_bounds=(0.025, 0.975), **kwargs)
+        r_narrow = sp.tmle(
+            matching_cia_data, propensity_bounds=(0.001, 0.999), **kwargs
+        )
 
         # Headline criterion: < 4-sigma movement (combined SE).
         comb = 4.0 * np.sqrt(r_wide.se**2 + r_narrow.se**2)
@@ -594,6 +628,7 @@ class TestPropensityBoundsInvariance:
 # G) SE sanity: IC-based SE vs Monte-Carlo SD
 # ---------------------------------------------------------------------------
 
+
 class TestSESanity:
     """Influence-curve SE within 3x of the empirical SD (30 MC reps).
 
@@ -614,14 +649,23 @@ class TestSESanity:
             x1 = rng.normal(size=self.N)
             x2 = rng.normal(size=self.N)
             a = rng.binomial(1, expit(0.3 * x1 - 0.3 * x2))
-            y = (1.0 + self.TRUE_ATE * a + 0.8 * x1 + 0.5 * x2
-                 + rng.normal(scale=1.0, size=self.N))
-            df = pd.DataFrame({"y": y, "a": a.astype(float),
-                               "x1": x1, "x2": x2})
-            r = sp.tmle(df, y="y", treat="a", covariates=["x1", "x2"],
-                        outcome_library=[LinearRegression()],
-                        propensity_library=[_logreg()],
-                        n_folds=2)
+            y = (
+                1.0
+                + self.TRUE_ATE * a
+                + 0.8 * x1
+                + 0.5 * x2
+                + rng.normal(scale=1.0, size=self.N)
+            )
+            df = pd.DataFrame({"y": y, "a": a.astype(float), "x1": x1, "x2": x2})
+            r = sp.tmle(
+                df,
+                y="y",
+                treat="a",
+                covariates=["x1", "x2"],
+                outcome_library=[LinearRegression()],
+                propensity_library=[_logreg()],
+                n_folds=2,
+            )
             ests.append(r.estimate)
             ses.append(r.se)
 
@@ -636,8 +680,7 @@ class TestSESanity:
         # MC-mean recovery: SE of the mean over 30 reps is
         # emp_sd/sqrt(30); 4-sigma band per suite convention.
         mc_mean = float(np.mean(ests))
-        assert abs(mc_mean - self.TRUE_ATE) <= 4.0 * emp_sd / np.sqrt(
-            self.N_REPS), (
+        assert abs(mc_mean - self.TRUE_ATE) <= 4.0 * emp_sd / np.sqrt(self.N_REPS), (
             f"MC mean {mc_mean:.4f} drifted from truth "
             f"{self.TRUE_ATE} — systematic bias across replications."
         )

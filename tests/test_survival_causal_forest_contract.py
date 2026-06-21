@@ -12,12 +12,14 @@ def _survival_frame(n: int = 80) -> pd.DataFrame:
     treat = (x + rng.normal(scale=0.2, size=n) > 0).astype(int)
     time = 1.0 + rng.exponential(scale=1.0 + 0.2 * treat, size=n)
     event = rng.binomial(1, 0.8, size=n)
-    return pd.DataFrame({
-        "time": time,
-        "event": event,
-        "treat": treat,
-        "x": x,
-    })
+    return pd.DataFrame(
+        {
+            "time": time,
+            "event": event,
+            "treat": treat,
+            "x": x,
+        }
+    )
 
 
 def test_causal_survival_forest_accepts_scalar_covariate() -> None:

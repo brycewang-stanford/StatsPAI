@@ -7,6 +7,7 @@ Tolerance: rel < 5e-2 on ACME/ADE/total_effect (mediation analysis
 involves OLS-based decomposition + bootstrap; both implementations
 share the Imai-Keele-Tingley framework).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,7 +15,6 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "36_mediation"
 
@@ -35,34 +35,54 @@ def main() -> None:
     mi = res.model_info
 
     rows: list[ParityRecord] = [
-        ParityRecord(MODULE, "py", "acme",
-                     estimate=float(mi["acme"]),
-                     se=float(mi["se_acme"]),
-                     n=int(len(df))),
-        ParityRecord(MODULE, "py", "ade",
-                     estimate=float(mi["ade"]),
-                     se=float(mi["se_ade"]),
-                     n=int(len(df))),
-        ParityRecord(MODULE, "py", "total_effect",
-                     estimate=float(mi["total_effect"]),
-                     n=int(len(df))),
-        ParityRecord(MODULE, "py", "prop_mediated",
-                     estimate=float(mi["prop_mediated"]),
-                     n=int(len(df))),
+        ParityRecord(
+            MODULE,
+            "py",
+            "acme",
+            estimate=float(mi["acme"]),
+            se=float(mi["se_acme"]),
+            n=int(len(df)),
+        ),
+        ParityRecord(
+            MODULE,
+            "py",
+            "ade",
+            estimate=float(mi["ade"]),
+            se=float(mi["se_ade"]),
+            n=int(len(df)),
+        ),
+        ParityRecord(
+            MODULE,
+            "py",
+            "total_effect",
+            estimate=float(mi["total_effect"]),
+            n=int(len(df)),
+        ),
+        ParityRecord(
+            MODULE,
+            "py",
+            "prop_mediated",
+            estimate=float(mi["prop_mediated"]),
+            n=int(len(df)),
+        ),
     ]
 
-    write_results(MODULE, "py", rows,
-                  extra={
-                      "inference": mi["inference"],
-                      "n_boot": int(mi["n_boot_requested"]),
-                      "se_note": (
-                          "Default sp.mediation inference uses bootstrap "
-                          "SEs to track R mediation::mediate(boot=TRUE); "
-                          "sp.mediation(..., inference='delta') uses the "
-                          "closed-form Sobel/delta SE and matches Stata "
-                          "paramed for the linear no-interaction model."
-                      ),
-                  })
+    write_results(
+        MODULE,
+        "py",
+        rows,
+        extra={
+            "inference": mi["inference"],
+            "n_boot": int(mi["n_boot_requested"]),
+            "se_note": (
+                "Default sp.mediation inference uses bootstrap "
+                "SEs to track R mediation::mediate(boot=TRUE); "
+                "sp.mediation(..., inference='delta') uses the "
+                "closed-form Sobel/delta SE and matches Stata "
+                "paramed for the linear no-interaction model."
+            ),
+        },
+    )
 
 
 if __name__ == "__main__":

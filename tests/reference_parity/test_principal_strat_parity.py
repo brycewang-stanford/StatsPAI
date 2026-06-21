@@ -100,6 +100,7 @@ References (bib keys verified present in paper.bib via grep)
 - Ding, P. & Lu, J. (2017), "Principal stratification analysis using
   principal scores", *JRSS-B* 79(3), 757-777. [@ding2017principal]
 """
+
 from __future__ import annotations
 
 import warnings
@@ -110,11 +111,10 @@ import pytest
 
 import statspai as sp
 
-
 # Hand-set truths shared across DGPs (stored as module constants so a
 # verifier can see exactly what each assert is pinned to).
-TRUE_LATE = 2.0   # complier Wald LATE on Y in the encouragement DGP
-TRUE_SACE = 1.0   # E[Y(1)-Y(0) | always-survivor] in the survivor DGP
+TRUE_LATE = 2.0  # complier Wald LATE on Y in the encouragement DGP
+TRUE_SACE = 1.0  # E[Y(1)-Y(0) | always-survivor] in the survivor DGP
 
 
 def _within_n_se(est, truth, se, n_sigma=4.0):
@@ -124,6 +124,7 @@ def _within_n_se(est, truth, se, n_sigma=4.0):
 # ---------------------------------------------------------------------------
 # Deterministic DGP builders (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
+
 
 def _make_encouragement_dgp(seed, n=8000):
     """Monotonicity (no-defiers) IV DGP with KNOWN shares + complier LATE.
@@ -142,8 +143,7 @@ def _make_encouragement_dgp(seed, n=8000):
     # 0.2 always-takers, 0.3 never-takers, 0.5 compliers.
     typ = np.where(u < 0.2, "AT", np.where(u < 0.5, "NT", "CO"))
     Z = rng.binomial(1, 0.5, n).astype(float)
-    D = np.where(typ == "AT", 1.0,
-                 np.where(typ == "NT", 0.0, Z))
+    D = np.where(typ == "AT", 1.0, np.where(typ == "NT", 0.0, Z))
     # Stratum-level intercepts (constant in D -> exclusion preserved);
     # the only D-driven term is TRUE_LATE * D.
     level = np.where(typ == "AT", 0.5, np.where(typ == "NT", -0.5, 0.0))
@@ -206,7 +206,8 @@ def _make_survivor_bias_dgp(seed, n=20000):
     y_as1 = (5.0 + TRUE_SACE) + rng.normal(scale=1.5, size=n)  # mean 6
     y_pr1 = 5.5 + rng.normal(scale=1.5, size=n)
     Y = np.where(
-        typ == "AS", np.where(D == 1, y_as1, y_as0),
+        typ == "AS",
+        np.where(D == 1, y_as1, y_as0),
         np.where(typ == "PR", y_pr1, 0.0 + rng.normal(scale=0.5, size=n)),
     )
     return pd.DataFrame({"y": Y, "d": D, "s": S})
@@ -215,6 +216,7 @@ def _make_survivor_bias_dgp(seed, n=20000):
 # ---------------------------------------------------------------------------
 # Module fixtures.
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def encouragement_data():
@@ -240,14 +242,20 @@ def survivor_bias_data():
 # A. Known-DGP IV (AIR) recovery + complier-share recovery.
 # ---------------------------------------------------------------------------
 
+
 class TestEncouragementRecovery:
     """sp.principal_strat(instrument=...) recovers the AIR/Wald LATE."""
 
     def test_wald_late_recovers_truth(self, encouragement_data):
         df = encouragement_data
         r = sp.principal_strat(
-            df, y="y", treat="d", strata="s", instrument="z",
-            n_boot=200, seed=1,
+            df,
+            y="y",
+            treat="d",
+            strata="s",
+            instrument="z",
+            n_boot=200,
+            seed=1,
         )
         tau_y = float(r.effects.iloc[0]["estimate"])  # Wald LATE on Y
         se_y = float(r.effects.iloc[0]["se"])
@@ -269,8 +277,13 @@ class TestEncouragementRecovery:
         """
         df = encouragement_data
         r = sp.principal_strat(
-            df, y="y", treat="d", strata="s", instrument="z",
-            n_boot=50, seed=1,
+            df,
+            y="y",
+            treat="d",
+            strata="s",
+            instrument="z",
+            n_boot=50,
+            seed=1,
         )
         first_stage = r.strata_proportions["first_stage (D|Z=1 - D|Z=0)"]
         # Hand-rolled two-proportion SE of P(D=1|Z=1)-P(D=1|Z=0).
@@ -290,8 +303,13 @@ class TestEncouragementRecovery:
         """Orientation: a strictly positive-LATE DGP -> positive tau_Y."""
         df = encouragement_data
         r = sp.principal_strat(
-            df, y="y", treat="d", strata="s", instrument="z",
-            n_boot=20, seed=1,
+            df,
+            y="y",
+            treat="d",
+            strata="s",
+            instrument="z",
+            n_boot=20,
+            seed=1,
         )
         assert float(r.effects.iloc[0]["estimate"]) > 0
 
@@ -299,6 +317,7 @@ class TestEncouragementRecovery:
 # ---------------------------------------------------------------------------
 # B. Closed-form saturated collapse (machine precision).
 # ---------------------------------------------------------------------------
+
 
 class TestClosedFormCollapse:
     """The monotonicity LATE equals an exact hand-computed cell-mean form."""
@@ -318,8 +337,13 @@ class TestClosedFormCollapse:
         """
         df = monotone_strata_data
         r = sp.principal_strat(
-            df, y="y", treat="d", strata="s", method="monotonicity",
-            n_boot=20, seed=1,
+            df,
+            y="y",
+            treat="d",
+            strata="s",
+            method="monotonicity",
+            n_boot=20,
+            seed=1,
         )
         est = float(r.effects.iloc[0]["estimate"])
 
@@ -339,7 +363,8 @@ class TestClosedFormCollapse:
         )
 
     def test_perfect_compliance_collapses_to_treated_survivor_mean(
-            self, perfect_compliance_data):
+        self, perfect_compliance_data
+    ):
         """S == D -> pi_complier = 1 and LATE = E[Y | D=1, S=1].
 
         With S == D every unit is a complier (pi_always = pi_never = 0),
@@ -351,15 +376,18 @@ class TestClosedFormCollapse:
         """
         df = perfect_compliance_data
         r = sp.principal_strat(
-            df, y="y", treat="d", strata="s", method="monotonicity",
-            n_boot=20, seed=1,
+            df,
+            y="y",
+            treat="d",
+            strata="s",
+            method="monotonicity",
+            n_boot=20,
+            seed=1,
         )
         props = r.strata_proportions
         assert props["complier"] == pytest.approx(1.0, abs=1e-12)
-        assert props["always-taker / always-survivor"] == pytest.approx(
-            0.0, abs=1e-12)
-        assert props["never-taker / never-survivor"] == pytest.approx(
-            0.0, abs=1e-12)
+        assert props["always-taker / always-survivor"] == pytest.approx(0.0, abs=1e-12)
+        assert props["never-taker / never-survivor"] == pytest.approx(0.0, abs=1e-12)
 
         est = float(r.effects.iloc[0]["estimate"])
         Y = df["y"].values
@@ -376,6 +404,7 @@ class TestClosedFormCollapse:
 # C. Naive-bias contrast on the SACE.
 # ---------------------------------------------------------------------------
 
+
 class TestSACENaiveBias:
     """Naive survivor diff is biased; Zhang-Rubin bounds bracket the truth."""
 
@@ -390,8 +419,9 @@ class TestSACENaiveBias:
         y11 = Y[(D == 1) & (S == 1)]
         y01 = Y[(D == 0) & (S == 1)]
         naive = float(y11.mean() - y01.mean())
-        se_naive = float(np.sqrt(y11.var(ddof=1) / len(y11)
-                                 + y01.var(ddof=1) / len(y01)))
+        se_naive = float(
+            np.sqrt(y11.var(ddof=1) / len(y11) + y01.var(ddof=1) / len(y01))
+        )
         # The naive survivor estimator is provably biased (>4 sigma off
         # the true SACE; probed z ~-8) because the (D=1, S=1) cell mixes
         # always-survivors with the protected stratum.  If this fails the
@@ -403,7 +433,12 @@ class TestSACENaiveBias:
         )
 
         res = sp.survivor_average_causal_effect(
-            df, y="y", treat="d", survival="s", n_boot=100, seed=1,
+            df,
+            y="y",
+            treat="d",
+            survival="s",
+            n_boot=100,
+            seed=1,
         )
         lo = res.model_info["sace_lower"]
         hi = res.model_info["sace_upper"]
@@ -426,6 +461,7 @@ class TestSACENaiveBias:
 # D. Cross-method / internal consistency.
 # ---------------------------------------------------------------------------
 
+
 class TestInternalConsistency:
     """Identities tying the SACE wrapper to the monotonicity result."""
 
@@ -440,13 +476,16 @@ class TestInternalConsistency:
         """
         df = survivor_bias_data
         res = sp.survivor_average_causal_effect(
-            df, y="y", treat="d", survival="s", n_boot=50, seed=3,
+            df,
+            y="y",
+            treat="d",
+            survival="s",
+            n_boot=50,
+            seed=3,
         )
         lo = res.model_info["sace_lower"]
         hi = res.model_info["sace_upper"]
-        assert lo <= hi, (
-            f"SACE bounds inverted: lower {lo:.4f} > upper {hi:.4f}."
-        )
+        assert lo <= hi, f"SACE bounds inverted: lower {lo:.4f} > upper {hi:.4f}."
         midpoint = (lo + hi) / 2.0
         assert abs(res.estimate - midpoint) < 1e-12, (
             f"SACE estimate {res.estimate!r} != bounds midpoint "
@@ -455,7 +494,8 @@ class TestInternalConsistency:
         assert res.estimand == "SACE"
 
     def test_strata_proportions_sum_to_one_and_recover_shares(
-            self, monotone_strata_data):
+        self, monotone_strata_data
+    ):
         """Shares sum to 1 exactly and recover the hand-set 0.4/0.3/0.3.
 
         pi_complier = P(S=1|D=1)-P(S=1|D=0), pi_always = P(S=1|D=0),
@@ -465,17 +505,22 @@ class TestInternalConsistency:
         """
         df = monotone_strata_data
         r = sp.principal_strat(
-            df, y="y", treat="d", strata="s", method="monotonicity",
-            n_boot=20, seed=1,
+            df,
+            y="y",
+            treat="d",
+            strata="s",
+            method="monotonicity",
+            n_boot=20,
+            seed=1,
         )
         props = r.strata_proportions
         pc = props["complier"]
         pa = props["always-taker / always-survivor"]
         pn = props["never-taker / never-survivor"]
         # Exact telescoping identity.
-        assert abs((pc + pa + pn) - 1.0) < 1e-12, (
-            f"stratum proportions sum to {pc + pa + pn!r}, not 1."
-        )
+        assert (
+            abs((pc + pa + pn) - 1.0) < 1e-12
+        ), f"stratum proportions sum to {pc + pa + pn!r}, not 1."
         # Complier-share recovery (true 0.4); hand-rolled two-proportion SE.
         D = df["d"].values
         S = df["s"].values
@@ -493,6 +538,7 @@ class TestInternalConsistency:
 # ---------------------------------------------------------------------------
 # E. Determinism of the SACE point bounds.
 # ---------------------------------------------------------------------------
+
 
 class TestDeterminism:
     """The Zhang-Rubin point endpoints carry no bootstrap noise."""

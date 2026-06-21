@@ -7,6 +7,7 @@ periods so the truncation and quality branches fire.
 
 All output is via ``tmp_path`` -- never the repo root.
 """
+
 import numpy as np
 import pandas as pd
 import pytest

@@ -20,6 +20,7 @@ RD (2):
 
 Total provenance coverage after this round: **21/925**.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,10 +29,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def staggered_panel_df():
@@ -42,11 +43,14 @@ def staggered_panel_df():
         cohort = [4, 6, 0][u // 20]
         for t in range(1, 9):
             te = max(0, t - cohort + 1) if cohort > 0 else 0
-            rows.append({
-                "i": u, "t": t,
-                "y": te + rng.normal(),
-                "g": cohort,
-            })
+            rows.append(
+                {
+                    "i": u,
+                    "t": t,
+                    "y": te + rng.normal(),
+                    "g": cohort,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -58,8 +62,7 @@ def two_period_df():
     for u in range(150):
         treat = u >= 75
         for t in (0, 1):
-            y = (1.0 + 0.5 * treat + 0.3 * t + 1.2 * treat * t
-                 + rng.normal())
+            y = 1.0 + 0.5 * treat + 0.3 * t + 1.2 * treat * t + rng.normal()
             rows.append({"i": u, "t": t, "treat": int(treat), "y": y})
     return pd.DataFrame(rows)
 
@@ -80,13 +83,16 @@ def event_study_panel_df():
         for t in range(1, 9):
             d = int(cohort > 0 and t >= cohort)
             te = max(0, t - cohort + 1) if cohort > 0 else 0
-            rows.append({
-                "id": u, "period": t,
-                "y": te + rng.normal(scale=0.5),
-                "cohort": cohort,
-                "treat_bin": d,
-                "ftreat": cohort if cohort > 0 else np.nan,
-            })
+            rows.append(
+                {
+                    "id": u,
+                    "period": t,
+                    "y": te + rng.normal(scale=0.5),
+                    "cohort": cohort,
+                    "treat_bin": d,
+                    "ftreat": cohort if cohort > 0 else np.nan,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -116,10 +122,10 @@ def rkd_df():
 # DiD long-tail
 # ---------------------------------------------------------------------------
 
+
 class TestCicProvenance:
     def test_attached(self, two_period_df):
-        r = sp.cic(two_period_df, y="y", group="treat", time="t",
-                   n_boot=20, n_grid=50)
+        r = sp.cic(two_period_df, y="y", group="treat", time="t", n_boot=20, n_grid=50)
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.did.cic"
@@ -134,8 +140,13 @@ class TestCohortAnchoredProvenance:
         # ``treat`` here is the cohort column (first-treatment period),
         # not a binary 0/1 indicator — matches the API.
         r = sp.cohort_anchored_event_study(
-            event_study_panel_df, y="y", treat="cohort",
-            time="period", id="id", leads=2, lags=2,
+            event_study_panel_df,
+            y="y",
+            treat="cohort",
+            time="period",
+            id="id",
+            leads=2,
+            lags=2,
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -148,8 +159,13 @@ class TestDesignRobustProvenance:
         # design_robust_event_study uses the same cohort-as-treat
         # convention as cohort_anchored.
         r = sp.design_robust_event_study(
-            event_study_panel_df, y="y", treat="cohort",
-            time="period", id="id", leads=2, lags=2,
+            event_study_panel_df,
+            y="y",
+            treat="cohort",
+            time="period",
+            id="id",
+            leads=2,
+            lags=2,
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -159,7 +175,10 @@ class TestDesignRobustProvenance:
 class TestGardnerProvenance:
     def test_attached(self, staggered_panel_df):
         r = sp.gardner_did(
-            staggered_panel_df, y="y", group="i", time="t",
+            staggered_panel_df,
+            y="y",
+            group="i",
+            time="t",
             first_treat="g",
         )
         prov = sp.get_provenance(r)
@@ -170,7 +189,10 @@ class TestGardnerProvenance:
     def test_did_2stage_alias_same_provenance(self, staggered_panel_df):
         # did_2stage IS gardner_did (alias) — same provenance signature.
         r = sp.did_2stage(
-            staggered_panel_df, y="y", group="i", time="t",
+            staggered_panel_df,
+            y="y",
+            group="i",
+            time="t",
             first_treat="g",
         )
         prov = sp.get_provenance(r)
@@ -182,8 +204,11 @@ class TestHarvestProvenance:
         # harvest_did needs first_treat-style cohort; use g column.
         r = sp.harvest_did(
             staggered_panel_df,
-            unit="i", time="t", outcome="y",
-            cohort="g", never_value=0,
+            unit="i",
+            time="t",
+            outcome="y",
+            cohort="g",
+            never_value=0,
             horizons=[1, 2, 3],
         )
         prov = sp.get_provenance(r)
@@ -197,8 +222,11 @@ class TestMisclassifiedProvenance:
         # did_misclassified uses cohort-as-treat too (treats values as
         # first-treatment-period labels).
         r = sp.did_misclassified(
-            event_study_panel_df, y="y", treat="cohort",
-            time="period", id="id",
+            event_study_panel_df,
+            y="y",
+            treat="cohort",
+            time="period",
+            id="id",
             pi_misclass=0.05,
         )
         prov = sp.get_provenance(r)
@@ -210,8 +238,12 @@ class TestMisclassifiedProvenance:
 class TestStackedProvenance:
     def test_attached(self, staggered_panel_df):
         r = sp.stacked_did(
-            staggered_panel_df, y="y", group="i", time="t",
-            first_treat="g", window=(-2, 2),
+            staggered_panel_df,
+            y="y",
+            group="i",
+            time="t",
+            first_treat="g",
+            window=(-2, 2),
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -222,7 +254,10 @@ class TestStackedProvenance:
 class TestWooldridgeDidProvenance:
     def test_attached(self, staggered_panel_df):
         r = sp.wooldridge_did(
-            staggered_panel_df, y="y", group="i", time="t",
+            staggered_panel_df,
+            y="y",
+            group="i",
+            time="t",
             first_treat="g",
         )
         prov = sp.get_provenance(r)
@@ -236,7 +271,10 @@ class TestEtwfeProvenance:
         # panel=True, cgroup='notyet'), the inner provenance wins
         # (overwrite=False semantics, matching synth's cascade).
         r = sp.etwfe(
-            staggered_panel_df, y="y", group="i", time="t",
+            staggered_panel_df,
+            y="y",
+            group="i",
+            time="t",
             first_treat="g",
         )
         prov = sp.get_provenance(r)
@@ -260,6 +298,7 @@ class TestDrdidProvenance:
 # ---------------------------------------------------------------------------
 # RD
 # ---------------------------------------------------------------------------
+
 
 class TestRdHonestProvenance:
     def test_attached(self, rd_df):
@@ -285,11 +324,15 @@ class TestRkdProvenance:
 # into replication_pack.
 # ---------------------------------------------------------------------------
 
+
 class TestRound3LineageIntegration:
     def test_multi_estimator_pack(self, staggered_panel_df, rd_df, tmp_path):
         # Three estimators across two families → 3 distinct lineage runs.
         gardner = sp.gardner_did(
-            staggered_panel_df, y="y", group="i", time="t",
+            staggered_panel_df,
+            y="y",
+            group="i",
+            time="t",
             first_treat="g",
         )
         rd = sp.rd_honest(rd_df, y="y", x="x", c=0.0)
@@ -298,10 +341,12 @@ class TestRound3LineageIntegration:
         rp = sp.replication_pack(
             [gardner, rd, rkd],
             tmp_path / "round3.zip",
-            data=staggered_panel_df, env=False,
+            data=staggered_panel_df,
+            env=False,
         )
         import json
         import zipfile
+
         with zipfile.ZipFile(rp.output_path) as zf:
             assert "lineage.json" in zf.namelist()
             lin = json.loads(zf.read("lineage.json"))

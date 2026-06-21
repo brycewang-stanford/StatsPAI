@@ -11,6 +11,7 @@ prior to v1.10 ``sp.iv("y ~ (d ~ z)", data=df)`` silently raised
 ``TypeError: 'module' object is not callable`` despite being advertised
 in the registry, agent summaries, and `question/question.py`.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -20,7 +21,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 # ─── Fixtures ───────────────────────────────────────────────────────────
 
@@ -99,48 +99,86 @@ def test_kclass_methods(iv_data, method):
 @pytest.mark.parametrize("method", ["jive1", "ujive", "ijive", "rjive"])
 def test_modern_jive(iv_data, method):
     r = sp.iv(
-        method=method, y="y", endog="d",
-        instruments=["z1", "z2"], exog=["x1"], data=iv_data,
+        method=method,
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x1"],
+        data=iv_data,
     )
     # JIVEResult exposes ``coef`` (not params) — just check it runs.
     assert r is not None
 
 
 def test_kernel_iv(iv_data):
-    r = sp.iv(method="kernel", y="y", endog="d",
-              instruments=["z1"], data=iv_data, n_boot=20)
+    r = sp.iv(
+        method="kernel", y="y", endog="d", instruments=["z1"], data=iv_data, n_boot=20
+    )
     assert r is not None
 
 
 def test_npiv(iv_data):
-    r = sp.iv(method="npiv", y="y", endog="d",
-              instruments=["z1", "z2"], exog=["x1"], data=iv_data)
+    r = sp.iv(
+        method="npiv",
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x1"],
+        data=iv_data,
+    )
     assert r is not None
 
 
 def test_ivdml(iv_data):
-    r = sp.iv(method="ivdml", y="y", endog="d",
-              instruments=["z1", "z2"], exog=["x1"], data=iv_data, n_folds=2)
+    r = sp.iv(
+        method="ivdml",
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x1"],
+        data=iv_data,
+        n_folds=2,
+    )
     assert r is not None
 
 
 def test_continuous_late(iv_data):
-    r = sp.iv(method="continuous_late", y="y", endog="d",
-              instruments=["z1"], data=iv_data, n_boot=20)
+    r = sp.iv(
+        method="continuous_late",
+        y="y",
+        endog="d",
+        instruments=["z1"],
+        data=iv_data,
+        n_boot=20,
+    )
     assert r is not None
 
 
 def test_bayesian_iv(iv_data):
-    r = sp.iv(method="bayes", y="y", endog="d",
-              instruments=["z1", "z2"], exog=["x1"], data=iv_data,
-              n_draws=200, n_warmup=100)
+    r = sp.iv(
+        method="bayes",
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x1"],
+        data=iv_data,
+        n_draws=200,
+        n_warmup=100,
+    )
     assert r is not None
 
 
 def test_plausibly_exog(iv_data):
-    r = sp.iv(method="plausibly_exog", y="y", endog="d",
-              instruments=["z1", "z2"], exog=["x1"], data=iv_data,
-              gamma_mean=0.0, gamma_var=0.01)
+    r = sp.iv(
+        method="plausibly_exog",
+        y="y",
+        endog="d",
+        instruments=["z1", "z2"],
+        exog=["x1"],
+        data=iv_data,
+        gamma_mean=0.0,
+        gamma_var=0.01,
+    )
     assert r is not None
 
 
@@ -155,18 +193,33 @@ def test_2sls_aliases_equivalent(iv_data, alias):
 
 def test_endog_alias_normalizes_to_treat(iv_data):
     """For kernel_iv (which expects ``treat``), passing ``endog`` should work."""
-    r1 = sp.iv(method="kernel", y="y", endog="d",
-               instruments=["z1"], data=iv_data, n_boot=10, seed=0)
-    r2 = sp.iv(method="kernel", y="y", treat="d",
-               instruments=["z1"], data=iv_data, n_boot=10, seed=0)
+    r1 = sp.iv(
+        method="kernel",
+        y="y",
+        endog="d",
+        instruments=["z1"],
+        data=iv_data,
+        n_boot=10,
+        seed=0,
+    )
+    r2 = sp.iv(
+        method="kernel",
+        y="y",
+        treat="d",
+        instruments=["z1"],
+        data=iv_data,
+        n_boot=10,
+        seed=0,
+    )
     # Same DGP and seed → same result.
     assert type(r1).__name__ == type(r2).__name__
 
 
 def test_singleton_instrument_list_unwrapped(iv_data):
     """``instruments=['z1']`` should work for singular-instrument methods."""
-    r = sp.iv(method="kernel", y="y", endog="d",
-              instruments=["z1"], data=iv_data, n_boot=10)
+    r = sp.iv(
+        method="kernel", y="y", endog="d", instruments=["z1"], data=iv_data, n_boot=10
+    )
     assert r is not None
 
 
@@ -186,15 +239,20 @@ def test_non_string_method_raises_type_error(iv_data):
 def test_ambiguous_alias_raises(iv_data):
     """Passing both ``endog`` and ``treat`` to a kernel-style method = error."""
     with pytest.raises(TypeError, match="Got both"):
-        sp.iv(method="kernel", y="y", endog="d", treat="d",
-              instruments=["z1"], data=iv_data)
+        sp.iv(
+            method="kernel",
+            y="y",
+            endog="d",
+            treat="d",
+            instruments=["z1"],
+            data=iv_data,
+        )
 
 
 def test_kernel_with_multiple_instruments_raises(iv_data):
     """Singular-instrument methods reject multi-instrument lists clearly."""
     with pytest.raises(ValueError, match="single 'instrument' column"):
-        sp.iv(method="kernel", y="y", endog="d",
-              instruments=["z1", "z2"], data=iv_data)
+        sp.iv(method="kernel", y="y", endog="d", instruments=["z1", "z2"], data=iv_data)
 
 
 def test_formula_methods_require_formula_and_data(iv_data):
@@ -214,5 +272,6 @@ def test_ivreg_top_level_still_works(iv_data):
 def test_regression_iv_iv_function_still_importable(iv_data):
     """Direct import path should keep working — used by tests and provenance."""
     from statspai.regression.iv import iv as _iv_fn
+
     r = _iv_fn("y ~ (d ~ z1 + z2) + x1", data=iv_data)
     assert "d" in r.params

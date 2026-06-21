@@ -12,6 +12,7 @@ paths. This file adds:
 Real synthetic RD data; assertions check structural properties (p-values in
 [0,1], balance flags boolean, errors raise) — never fabricated numbers.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -33,9 +34,7 @@ def test_rdwinselect_pseudo_covariates_and_poly():
     df = _df()
     # no covs -> pseudo quantile covariates built and cleaned up afterwards
     out = sp.rdwinselect(df, x="x", c=0, nwindows=5, p=1, seed=1)
-    assert {"window_left", "window_right", "p_value", "balanced"}.issubset(
-        out.columns
-    )
+    assert {"window_left", "window_right", "p_value", "balanced"}.issubset(out.columns)
     assert out["balanced"].dtype == bool
     # pseudo-cov columns must not leak back into the user's frame
     assert not any(col.startswith("_x_q") for col in df.columns)
@@ -52,8 +51,9 @@ def test_rdwinselect_with_covs_baseline():
 def test_rdsensitivity_tiny_window_row():
     df = _df()
     # include a near-zero window so n_left/n_right < 2 -> NaN row branch
-    out = sp.rdsensitivity(df, y="y", x="x", c=0,
-                           wlist=[1e-6, 0.2, 0.4], n_perms=120, seed=3)
+    out = sp.rdsensitivity(
+        df, y="y", x="x", c=0, wlist=[1e-6, 0.2, 0.4], n_perms=120, seed=3
+    )
     assert out["estimate"].isna().any()
     fin = out["estimate"].dropna()
     assert len(fin) >= 1
@@ -61,8 +61,17 @@ def test_rdsensitivity_tiny_window_row():
 
 def test_rdrbounds_gamma_one_and_bounds():
     df = _df()
-    out = sp.rdrbounds(df, y="y", x="x", c=0, wl=-0.3, wr=0.3,
-                       gamma_list=[1.0, 2.0], n_perms=120, seed=5)
+    out = sp.rdrbounds(
+        df,
+        y="y",
+        x="x",
+        c=0,
+        wl=-0.3,
+        wr=0.3,
+        gamma_list=[1.0, 2.0],
+        n_perms=120,
+        seed=5,
+    )
     assert {"gamma", "pvalue_upper", "pvalue_lower"}.issubset(out.columns)
     pu = out["pvalue_upper"]
     assert ((pu >= 0) & (pu <= 1)).all()
@@ -71,15 +80,15 @@ def test_rdrbounds_gamma_one_and_bounds():
 def test_rdrbounds_window_too_small_raises():
     df = _df()
     with pytest.raises(ValueError, match="observations"):
-        sp.rdrbounds(df, y="y", x="x", c=0, wl=-1e-6, wr=1e-6,
-                     n_perms=50)
+        sp.rdrbounds(df, y="y", x="x", c=0, wl=-1e-6, wr=1e-6, n_perms=50)
 
 
 def test_rdrbounds_gamma_below_one_raises():
     df = _df()
     with pytest.raises(ValueError, match="gamma"):
-        sp.rdrbounds(df, y="y", x="x", c=0, wl=-0.3, wr=0.3,
-                     gamma_list=[0.5], n_perms=50)
+        sp.rdrbounds(
+            df, y="y", x="x", c=0, wl=-0.3, wr=0.3, gamma_list=[0.5], n_perms=50
+        )
 
 
 def test_rdrandinf_too_few_obs_raises():
@@ -91,8 +100,9 @@ def test_rdrandinf_too_few_obs_raises():
 def test_rdrandinf_bad_statistic_raises():
     df = _df()
     with pytest.raises(ValueError, match="[Uu]nknown statistic"):
-        sp.rdrandinf(df, y="y", x="x", c=0, wl=-0.3, wr=0.3,
-                     statistic="not_a_stat", n_perms=50)
+        sp.rdrandinf(
+            df, y="y", x="x", c=0, wl=-0.3, wr=0.3, statistic="not_a_stat", n_perms=50
+        )
 
 
 def test_rdrandinf_unbalanced_sides_raises():

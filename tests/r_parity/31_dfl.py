@@ -10,6 +10,7 @@ Tolerance: rel < 1e-3 on the DFL gap, composition, and structure.
 match group 1. StatsPAI's ``reference`` indexes the target covariate
 distribution, so the matching counterfactual is ``reference=1``.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -17,7 +18,6 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "31_dfl"
 
@@ -28,13 +28,16 @@ def make_data(n_per: int = 800, seed: int = PARITY_SEED) -> pd.DataFrame:
     educ = rng.normal(15, 3, 2 * n_per)
     exper = rng.normal(10, 5, 2 * n_per) - 1.0 * (female == 1)
     log_wage = (
-        2.0 + 0.07 * educ + 0.02 * exper - 0.20 * female
-        + rng.normal(0, 0.3, 2 * n_per)
+        2.0 + 0.07 * educ + 0.02 * exper - 0.20 * female + rng.normal(0, 0.3, 2 * n_per)
     )
-    return pd.DataFrame({
-        "log_wage": log_wage, "educ": educ, "exper": exper,
-        "female": female,
-    })
+    return pd.DataFrame(
+        {
+            "log_wage": log_wage,
+            "educ": educ,
+            "exper": exper,
+            "female": female,
+        }
+    )
 
 
 def main() -> None:
@@ -42,27 +45,37 @@ def main() -> None:
     dump_csv(df, MODULE)
 
     res = sp.decompose(
-        "dfl", data=df, y="log_wage", group="female",
-        x=["educ", "exper"], reference=1,
+        "dfl",
+        data=df,
+        y="log_wage",
+        group="female",
+        x=["educ", "exper"],
+        reference=1,
     )
 
     rows: list[ParityRecord] = [
-        ParityRecord(MODULE, "py", "gap",
-                     estimate=float(res.gap), n=int(len(df))),
-        ParityRecord(MODULE, "py", "composition",
-                     estimate=float(res.composition), n=int(len(df))),
-        ParityRecord(MODULE, "py", "structure",
-                     estimate=float(res.structure), n=int(len(df))),
-        ParityRecord(MODULE, "py", "stat_a",
-                     estimate=float(res.stat_a), n=int(len(df))),
-        ParityRecord(MODULE, "py", "stat_b",
-                     estimate=float(res.stat_b), n=int(len(df))),
-        ParityRecord(MODULE, "py", "stat_cf",
-                     estimate=float(res.stat_cf), n=int(len(df))),
+        ParityRecord(MODULE, "py", "gap", estimate=float(res.gap), n=int(len(df))),
+        ParityRecord(
+            MODULE, "py", "composition", estimate=float(res.composition), n=int(len(df))
+        ),
+        ParityRecord(
+            MODULE, "py", "structure", estimate=float(res.structure), n=int(len(df))
+        ),
+        ParityRecord(
+            MODULE, "py", "stat_a", estimate=float(res.stat_a), n=int(len(df))
+        ),
+        ParityRecord(
+            MODULE, "py", "stat_b", estimate=float(res.stat_b), n=int(len(df))
+        ),
+        ParityRecord(
+            MODULE, "py", "stat_cf", estimate=float(res.stat_cf), n=int(len(df))
+        ),
     ]
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "reference": int(res.reference),
             "stat": str(res.stat),

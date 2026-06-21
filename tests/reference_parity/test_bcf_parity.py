@@ -19,6 +19,7 @@ References
   Regression Tree Models for Causal Inference."
   *Bayesian Analysis*, 15(3), 965-1056. [@hahn2020bayesian]
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -51,9 +51,11 @@ def py_result(bcf_data):
     np.random.seed(42)
     return sp.bcf(
         data=bcf_data,
-        y="y", treat="W",
+        y="y",
+        treat="W",
         covariates=[f"X{i}" for i in range(1, 6)],
-        n_trees_mu=200, n_trees_tau=50,
+        n_trees_mu=200,
+        n_trees_tau=50,
         # NB: n_bootstrap=0 crashes the current build (empty-array
         # indexing in the SE-quantile path).  Use a small number.
         n_bootstrap=20,
@@ -78,9 +80,7 @@ def test_bcf_ate_matches_R(py_result, r_reference):
 def test_bcf_ate_close_to_truth(py_result):
     """True ATE = 1.0; both implementations should land near it."""
     py_ate = float(py_result.estimate)
-    assert abs(py_ate - 1.0) < 0.3, (
-        f"sp.bcf ATE={py_ate:.4f} far from true ATE=1.0"
-    )
+    assert abs(py_ate - 1.0) < 0.3, f"sp.bcf ATE={py_ate:.4f} far from true ATE=1.0"
 
 
 def test_bcf_ate_sign_correct(py_result, r_reference):

@@ -23,6 +23,7 @@ References
   models with multiple high-dimensional fixed effects."
   [@berge2018fixest]
 """
+
 from __future__ import annotations
 
 import json
@@ -32,7 +33,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 _FIXTURE_DIR = pathlib.Path(__file__).parent / "_fixtures"
 
@@ -50,7 +50,9 @@ def r_reference():
 
 def test_hdfe_x1_coefficient(hdfe_data, r_reference):
     res = sp.hdfe_ols(
-        "y ~ x1 + x2 | id + year", data=hdfe_data, cluster="id",
+        "y ~ x1 + x2 | id + year",
+        data=hdfe_data,
+        cluster="id",
     )
     py = float(res.params["x1"])
     rv = r_reference["twfe_clustered"]["x1"]["coef"]
@@ -64,18 +66,20 @@ def test_hdfe_x1_coefficient(hdfe_data, r_reference):
 
 def test_hdfe_x2_coefficient(hdfe_data, r_reference):
     res = sp.hdfe_ols(
-        "y ~ x1 + x2 | id + year", data=hdfe_data, cluster="id",
+        "y ~ x1 + x2 | id + year",
+        data=hdfe_data,
+        cluster="id",
     )
     py = float(res.params["x2"])
     rv = r_reference["twfe_clustered"]["x2"]["coef"]
-    assert abs(py - rv) < 1e-4, (
-        f"HDFE x2 coef diverged: Python={py:.8f}, R={rv:.8f}."
-    )
+    assert abs(py - rv) < 1e-4, f"HDFE x2 coef diverged: Python={py:.8f}, R={rv:.8f}."
 
 
 def test_hdfe_x1_clustered_se(hdfe_data, r_reference):
     res = sp.hdfe_ols(
-        "y ~ x1 + x2 | id + year", data=hdfe_data, cluster="id",
+        "y ~ x1 + x2 | id + year",
+        data=hdfe_data,
+        cluster="id",
     )
     py_se = float(res.std_errors["x1"])
     r_se = r_reference["twfe_clustered"]["x1"]["se"]
@@ -93,7 +97,9 @@ def test_hdfe_x1_clustered_se(hdfe_data, r_reference):
 
 def test_hdfe_x2_clustered_se(hdfe_data, r_reference):
     res = sp.hdfe_ols(
-        "y ~ x1 + x2 | id + year", data=hdfe_data, cluster="id",
+        "y ~ x1 + x2 | id + year",
+        data=hdfe_data,
+        cluster="id",
     )
     py_se = float(res.std_errors["x2"])
     r_se = r_reference["twfe_clustered"]["x2"]["se"]
@@ -104,7 +110,9 @@ def test_hdfe_x2_clustered_se(hdfe_data, r_reference):
 
 def test_hdfe_n_obs(hdfe_data, r_reference):
     res = sp.hdfe_ols(
-        "y ~ x1 + x2 | id + year", data=hdfe_data, cluster="id",
+        "y ~ x1 + x2 | id + year",
+        data=hdfe_data,
+        cluster="id",
     )
     # R nobs vs Python n
     r_n = r_reference["n_obs"]

@@ -17,6 +17,7 @@ They deliberately do not pin pixel output — the numerical content of the
 synthetic control is covered by the estimator parity suites; here we only
 guard that the visualisation code paths execute on real fitted results.
 """
+
 from __future__ import annotations
 
 import matplotlib
@@ -37,8 +38,11 @@ def prop99():
 @pytest.fixture(scope="module")
 def _base():
     return dict(
-        outcome="cigsale", unit="state", time="year",
-        treated_unit="California", treatment_time=1989,
+        outcome="cigsale",
+        unit="state",
+        time="year",
+        treated_unit="California",
+        treatment_time=1989,
     )
 
 
@@ -88,7 +92,9 @@ def test_synthplot_compare(prop99, _base, basic_result):
     """``type='compare'`` overlays multiple results passed as a list."""
     other = sp.synth(prop99, method="demeaned", **_base)
     _assert_figure(
-        sp.synthplot([basic_result, other], type="compare", labels=["Classic", "De-meaned"])
+        sp.synthplot(
+            [basic_result, other], type="compare", labels=["Classic", "De-meaned"]
+        )
     )
 
 

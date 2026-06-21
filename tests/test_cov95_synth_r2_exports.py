@@ -11,6 +11,7 @@ These are export branches, not plots: each call must return a non-empty
 ``str`` or write a non-empty ``.xlsx``. Assertions check structure
 (table delimiters present, sheets written) — never fabricated numbers.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -31,23 +32,41 @@ def _panel(seed=0, n_donors=8, n_t=20, effect=4.0):
         fe = rng.normal(0, 0.5)
         for t in range(1, n_t + 1):
             eff = effect if (u == "treated" and t >= T_TREAT) else 0.0
-            rows.append({"unit": u, "time": t,
-                         "y": base + 0.2 * t + fe + eff + rng.normal(0, 0.3)})
+            rows.append(
+                {
+                    "unit": u,
+                    "time": t,
+                    "y": base + 0.2 * t + fe + eff + rng.normal(0, 0.3),
+                }
+            )
     return pd.DataFrame(rows)
 
 
 @pytest.fixture(scope="module")
 def classic():
-    return sp.synth(_panel(0), outcome="y", unit="unit", time="time",
-                    treated_unit="treated", treatment_time=T_TREAT,
-                    method="classic", placebo=True)
+    return sp.synth(
+        _panel(0),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="classic",
+        placebo=True,
+    )
 
 
 @pytest.fixture(scope="module")
 def sdid_res():
-    return sp.synth(_panel(1), outcome="y", unit="unit", time="time",
-                    treated_unit="treated", treatment_time=T_TREAT,
-                    method="sdid")
+    return sp.synth(
+        _panel(1),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="sdid",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -60,23 +79,30 @@ def test_latex_single_with_weights(classic):
 
 
 def test_latex_no_booktabs_no_ci(classic):
-    tex = sp.synth_to_latex(classic, booktabs=False, show_ci=False,
-                            caption="My cap", label="tab:x")
+    tex = sp.synth_to_latex(
+        classic, booktabs=False, show_ci=False, caption="My cap", label="tab:x"
+    )
     assert "\\hline" in tex and "My cap" in tex
 
 
 def test_latex_multi_via_list(classic, sdid_res):
-    tex = sp.synth_to_latex([classic, sdid_res],
-                            method_names=["Classic", "SDID"],
-                            show_weights=True)
+    tex = sp.synth_to_latex(
+        [classic, sdid_res], method_names=["Classic", "SDID"], show_weights=True
+    )
     assert isinstance(tex, str)
     assert "Classic" in tex and "SDID" in tex
 
 
 def test_latex_via_comparison_object():
-    comp = sp.synth_compare(_panel(2), outcome="y", unit="unit", time="time",
-                            treated_unit="treated", treatment_time=T_TREAT,
-                            methods=["classic", "sdid"])
+    comp = sp.synth_compare(
+        _panel(2),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        methods=["classic", "sdid"],
+    )
     tex = sp.synth_to_latex(comp)
     assert isinstance(tex, str) and "\\begin{table}" in tex
 
@@ -108,8 +134,7 @@ def test_excel_single(classic, tmp_path):
 
 def test_excel_multi(classic, sdid_res, tmp_path):
     out = tmp_path / "multi.xlsx"
-    sp.synth_to_excel([classic, sdid_res], str(out),
-                      method_names=["Classic", "SDID"])
+    sp.synth_to_excel([classic, sdid_res], str(out), method_names=["Classic", "SDID"])
     xl = pd.ExcelFile(out)
     assert "Summary" in xl.sheet_names
     assert any(s.startswith("Gap_") for s in xl.sheet_names)
@@ -120,9 +145,15 @@ def test_excel_comparison_object(tmp_path):
     # rebuild path. (A mixed pool where one method has *empty* weights
     # currently triggers a KeyError in synth_to_excel — reported, not
     # exercised here so the suite stays green.)
-    comp = sp.synth_compare(_panel(3), outcome="y", unit="unit", time="time",
-                            treated_unit="treated", treatment_time=T_TREAT,
-                            methods=["classic", "sdid"])
+    comp = sp.synth_compare(
+        _panel(3),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        methods=["classic", "sdid"],
+    )
     out = tmp_path / "comp.xlsx"
     sp.synth_to_excel(comp, str(out))
     assert out.exists()
@@ -158,18 +189,32 @@ def test_exports_on_sdid_uses_gap_fallback(sdid_res):
 
 
 def test_exports_on_scpi_dict_weights():
-    scpi = sp.synth(_panel(5), outcome="y", unit="unit", time="time",
-                    treated_unit="treated", treatment_time=T_TREAT,
-                    method="scpi")
+    scpi = sp.synth(
+        _panel(5),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="scpi",
+    )
     tex = sp.synth_to_latex(scpi, show_weights=True)
     assert isinstance(tex, str)
 
 
 def test_exports_helpers_on_kernel_result():
-    ker = sp.synth(_panel(6), outcome="y", unit="unit", time="time",
-                   treated_unit="treated", treatment_time=T_TREAT,
-                   method="kernel", placebo=False)
+    ker = sp.synth(
+        _panel(6),
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit="treated",
+        treatment_time=T_TREAT,
+        method="kernel",
+        placebo=False,
+    )
     from statspai.synth import exports as ex
+
     pre = ex._pre_rmspe(ker)
     post = ex._post_rmspe(ker)
     assert np.isfinite(pre) or np.isnan(pre)
@@ -181,6 +226,7 @@ def test_exports_helpers_on_kernel_result():
 
 def test_exports_significance_stars_levels():
     from statspai.synth import exports as ex
+
     assert ex._stars(0.005) and ex._stars_md(0.005)
     assert ex._stars(0.03) and ex._stars_md(0.03)
     assert ex._stars(0.08) and ex._stars_md(0.08)

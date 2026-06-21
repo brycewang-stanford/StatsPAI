@@ -41,7 +41,6 @@ import pytest
 
 import statspai as sp
 
-
 # ===================================================================== #
 # 1. Forest BLP — AIPW DR scores
 # ===================================================================== #
@@ -56,10 +55,10 @@ class TestForestBLP:
         X = rng.normal(size=(n, 3))
         T = rng.binomial(1, 0.5, n)
         Y = X[:, 0] * T + X[:, 1] + rng.normal(size=n)
-        df = pd.DataFrame({"Y": Y, "T": T,
-                           "X1": X[:, 0], "X2": X[:, 1], "X3": X[:, 2]})
-        cf = sp.causal_forest(formula="Y ~ T | X1 + X2 + X3", data=df,
-                              n_estimators=50, random_state=0)
+        df = pd.DataFrame({"Y": Y, "T": T, "X1": X[:, 0], "X2": X[:, 1], "X3": X[:, 2]})
+        cf = sp.causal_forest(
+            formula="Y ~ T | X1 + X2 + X3", data=df, n_estimators=50, random_state=0
+        )
         blp = cf.best_linear_projection()
         # Expected columns from the new DR-based implementation
         for col in ("coef", "se", "t", "p", "ci_lower", "ci_upper"):
@@ -87,8 +86,7 @@ class TestMediationBootstrap:
         M = 0.5 * T + rng.normal(size=n)
         Y = 0.3 * M + 0.4 * T + rng.normal(size=n)
         df = pd.DataFrame({"Y": Y, "T": T, "M": M})
-        res = sp.mediate(df, y="Y", treat="T", mediator="M",
-                         n_boot=200, seed=0)
+        res = sp.mediate(df, y="Y", treat="T", mediator="M", n_boot=200, seed=0)
         info = res.model_info
         assert "n_boot_requested" in info
         assert "n_boot_successful" in info
@@ -110,6 +108,7 @@ class TestOPEDedup:
     def test_canonical_OPEResult(self):
         from statspai.ope.estimators import OPEResult as Canonical
         from statspai.policy_learning.ope import OPEResult as PLAlias
+
         assert sp.OPEResult is Canonical
         assert PLAlias is Canonical
 
@@ -182,12 +181,15 @@ class TestCausalDiscoveryViz:
 
     def test_module_exports_helpers(self):
         from statspai.causal_discovery import (
-            to_networkx, to_dot, plot_dag, edge_list, shd,
+            to_networkx,
+            to_dot,
+            plot_dag,
+            edge_list,
+            shd,
         )
+
         # Standalone usage on a 3-node DAG
-        A = np.array([[0, 0.5, 0.0],
-                      [0, 0.0, 0.4],
-                      [0, 0.0, 0.0]])
+        A = np.array([[0, 0.5, 0.0], [0, 0.0, 0.4], [0, 0.0, 0.0]])
         names = ["a", "b", "c"]
         edges = edge_list(A, names)
         assert ("a", "b", 0.5) in edges
@@ -214,14 +216,19 @@ class TestPolicyTreeResult:
         # CATE varies with X1; treating helps when X1 > 0
         mu = 2 * X[:, 0]
         Y = T * mu + 0.5 * rng.normal(size=n)
-        return pd.DataFrame({"Y": Y, "T": T, "X1": X[:, 0],
-                             "X2": X[:, 1], "X3": X[:, 2]})
+        return pd.DataFrame(
+            {"Y": Y, "T": T, "X1": X[:, 0], "X2": X[:, 1], "X3": X[:, 2]}
+        )
 
     def test_returns_PolicyTreeResult(self, policy_data):
         res = sp.policy_tree(
-            policy_data, y="Y", treat="T",
+            policy_data,
+            y="Y",
+            treat="T",
             covariates=["X1", "X2", "X3"],
-            max_depth=2, min_leaf_size=30, n_folds=3,
+            max_depth=2,
+            min_leaf_size=30,
+            n_folds=3,
         )
         assert isinstance(res, sp.PolicyTreeResult)
         # Backwards compat
@@ -231,9 +238,13 @@ class TestPolicyTreeResult:
 
     def test_value_policy_has_se_and_ci(self, policy_data):
         res = sp.policy_tree(
-            policy_data, y="Y", treat="T",
+            policy_data,
+            y="Y",
+            treat="T",
             covariates=["X1", "X2", "X3"],
-            max_depth=2, min_leaf_size=30, n_folds=3,
+            max_depth=2,
+            min_leaf_size=30,
+            n_folds=3,
         )
         assert np.isfinite(res.value_policy_se)
         assert res.value_policy_se > 0
@@ -242,9 +253,13 @@ class TestPolicyTreeResult:
 
     def test_summary_and_cite(self, policy_data):
         res = sp.policy_tree(
-            policy_data, y="Y", treat="T",
+            policy_data,
+            y="Y",
+            treat="T",
             covariates=["X1", "X2", "X3"],
-            max_depth=2, min_leaf_size=30, n_folds=3,
+            max_depth=2,
+            min_leaf_size=30,
+            n_folds=3,
         )
         s = res.summary()
         assert "Policy Tree" in s
@@ -264,38 +279,58 @@ def dml_data():
     X = rng.normal(size=(n, 4))
     T = (X[:, 0] + X[:, 1] + 0.5 * rng.normal(size=n) > 0).astype(int)
     Y = 0.5 * T + 0.4 * X[:, 0] + 0.2 * X[:, 1] + rng.normal(size=n)
-    return pd.DataFrame({"Y": Y, "T": T,
-                         **{f"X{j+1}": X[:, j] for j in range(4)}})
+    return pd.DataFrame({"Y": Y, "T": T, **{f"X{j+1}": X[:, j] for j in range(4)}})
 
 
 class TestDMLSensitivity:
 
     def test_basic_rv_q(self, dml_data):
-        res = sp.dml(data=dml_data, y="Y", d="T",
-                     covariates=["X1", "X2", "X3", "X4"],
-                     model="plr", n_folds=3, random_state=0)
+        res = sp.dml(
+            data=dml_data,
+            y="Y",
+            d="T",
+            covariates=["X1", "X2", "X3", "X4"],
+            model="plr",
+            n_folds=3,
+            random_state=0,
+        )
         sens = sp.dml_sensitivity(res, q=1.0, cf_y=0.10, cf_d=0.10)
         assert 0.0 <= sens.rv_q <= 1.0
-        assert 0.0 <= sens.rv_qa <= sens.rv_q + 1e-9   # rv_qa ≤ rv_q
+        assert 0.0 <= sens.rv_qa <= sens.rv_q + 1e-9  # rv_qa ≤ rv_q
         assert sens.bias_bound > 0
         assert sens.adjusted_estimate_low <= sens.estimate
         assert sens.adjusted_estimate_high >= sens.estimate
 
     def test_benchmarks(self, dml_data):
-        res = sp.dml(data=dml_data, y="Y", d="T",
-                     covariates=["X1", "X2", "X3", "X4"],
-                     model="plr", n_folds=3, random_state=0)
+        res = sp.dml(
+            data=dml_data,
+            y="Y",
+            d="T",
+            covariates=["X1", "X2", "X3", "X4"],
+            model="plr",
+            n_folds=3,
+            random_state=0,
+        )
         sens = sp.dml_sensitivity(
-            res, q=1.0, cf_y=0.05, cf_d=0.05,
+            res,
+            q=1.0,
+            cf_y=0.05,
+            cf_d=0.05,
             benchmark_covariates=["X1", "X2"],
         )
         assert not sens.benchmarks.empty
         assert set(sens.benchmarks["variable"]) == {"X1", "X2"}
 
     def test_summary_string(self, dml_data):
-        res = sp.dml(data=dml_data, y="Y", d="T",
-                     covariates=["X1", "X2", "X3", "X4"],
-                     model="plr", n_folds=3, random_state=0)
+        res = sp.dml(
+            data=dml_data,
+            y="Y",
+            d="T",
+            covariates=["X1", "X2", "X3", "X4"],
+            model="plr",
+            n_folds=3,
+            random_state=0,
+        )
         sens = sp.dml_sensitivity(res, q=1.0)
         text = sens.summary()
         assert "Robustness value" in text
@@ -304,9 +339,16 @@ class TestDMLSensitivity:
     def test_missing_residuals_raises(self):
         # A bare CausalResult without DML residuals should be rejected.
         from statspai.core.results import CausalResult
+
         bare = CausalResult(
-            method="OLS", estimand="ATE", estimate=1.0, se=0.1,
-            pvalue=0.0, ci=(0.8, 1.2), alpha=0.05, n_obs=100,
+            method="OLS",
+            estimand="ATE",
+            estimate=1.0,
+            se=0.1,
+            pvalue=0.0,
+            ci=(0.8, 1.2),
+            alpha=0.05,
+            n_obs=100,
             model_info={},
         )
         with pytest.raises(ValueError, match="post-fit residuals"):
@@ -321,9 +363,15 @@ class TestDMLSensitivity:
 class TestDMLDiagnostics:
 
     def test_basic_report(self, dml_data):
-        res = sp.dml(data=dml_data, y="Y", d="T",
-                     covariates=["X1", "X2", "X3", "X4"],
-                     model="plr", n_folds=3, random_state=0)
+        res = sp.dml(
+            data=dml_data,
+            y="Y",
+            d="T",
+            covariates=["X1", "X2", "X3", "X4"],
+            model="plr",
+            n_folds=3,
+            random_state=0,
+        )
         diag = sp.dml_diagnostics(res)
         assert diag.method == "PLR"
         assert diag.score_sd > 0
@@ -334,9 +382,15 @@ class TestDMLDiagnostics:
         assert set(diag.balance_table["variable"]) == {"X1", "X2", "X3", "X4"}
 
     def test_summary_string(self, dml_data):
-        res = sp.dml(data=dml_data, y="Y", d="T",
-                     covariates=["X1", "X2", "X3", "X4"],
-                     model="plr", n_folds=3, random_state=0)
+        res = sp.dml(
+            data=dml_data,
+            y="Y",
+            d="T",
+            covariates=["X1", "X2", "X3", "X4"],
+            model="plr",
+            n_folds=3,
+            random_state=0,
+        )
         diag = sp.dml_diagnostics(res)
         s = diag.summary()
         assert "Overlap" in s
@@ -395,9 +449,15 @@ class TestCATEEval:
 class TestToDocx:
 
     def test_dml_to_docx(self, dml_data):
-        res = sp.dml(data=dml_data, y="Y", d="T",
-                     covariates=["X1", "X2", "X3", "X4"],
-                     model="plr", n_folds=3, random_state=0)
+        res = sp.dml(
+            data=dml_data,
+            y="Y",
+            d="T",
+            covariates=["X1", "X2", "X3", "X4"],
+            model="plr",
+            n_folds=3,
+            random_state=0,
+        )
         try:
             import docx  # noqa: F401
         except ImportError:

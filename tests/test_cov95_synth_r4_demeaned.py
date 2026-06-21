@@ -4,6 +4,7 @@ De-meaned and de-trended synthetic control on a real donor panel.
 Exercises both variants with placebo inference, plus the period /
 donor / variant validation guards and the weight-solver guard.
 """
+
 import numpy as np
 import pandas as pd
 import pytest

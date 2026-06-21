@@ -91,6 +91,7 @@ References (bib keys verified present in paper.bib via grep)
   Difference-in-Differences Models", Econometrica 74(2).
   [@athey2006identification]
 """
+
 from __future__ import annotations
 
 import warnings
@@ -101,16 +102,16 @@ import pytest
 
 import statspai as sp
 
-
 # Hand-set true location shifts shared by the DGPs below.
-DELTA = 2.0          # constant shift for the sp.qte location-shift DGP
-DELTA_DID = 2.5      # constant shift layered on a common trend for sp.qdid
-TREND = 1.0          # common (control + treated) pre->post drift for qdid
+DELTA = 2.0  # constant shift for the sp.qte location-shift DGP
+DELTA_DID = 2.5  # constant shift layered on a common trend for sp.qdid
+TREND = 1.0  # common (control + treated) pre->post drift for qdid
 
 
 # ---------------------------------------------------------------------------
 # Deterministic DGP builders (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
+
 
 def _make_location_shift_dgp(seed, n=4000, delta=DELTA):
     """Cross-section location-shift DGP with a KNOWN constant QTE = delta.
@@ -164,10 +165,12 @@ def _make_qdid_dgp(seed, n_per=3000, delta=DELTA_DID, trend=TREND):
     y01 = rng.normal(5.0 + trend, 2.0, n_per)
     y10 = rng.normal(5.0, 2.0, n_per)
     y11 = rng.normal(5.0 + trend + delta, 2.0, n_per)
-    g = np.concatenate([np.zeros(n_per), np.zeros(n_per),
-                        np.ones(n_per), np.ones(n_per)]).astype(int)
-    t = np.concatenate([np.zeros(n_per), np.ones(n_per),
-                        np.zeros(n_per), np.ones(n_per)]).astype(int)
+    g = np.concatenate(
+        [np.zeros(n_per), np.zeros(n_per), np.ones(n_per), np.ones(n_per)]
+    ).astype(int)
+    t = np.concatenate(
+        [np.zeros(n_per), np.ones(n_per), np.zeros(n_per), np.ones(n_per)]
+    ).astype(int)
     y = np.concatenate([y00, y01, y10, y11])
     return pd.DataFrame({"y": y, "g": g, "t": t})
 
@@ -189,10 +192,8 @@ def _make_exact_qdid_dgp(seed, n=1500, delta=1.7, trend=0.9):
     y01 = base_c + trend
     y10 = base_t
     y11 = base_t + trend + delta
-    g = np.concatenate([np.zeros(n), np.zeros(n),
-                        np.ones(n), np.ones(n)]).astype(int)
-    t = np.concatenate([np.zeros(n), np.ones(n),
-                        np.zeros(n), np.ones(n)]).astype(int)
+    g = np.concatenate([np.zeros(n), np.zeros(n), np.ones(n), np.ones(n)]).astype(int)
+    t = np.concatenate([np.zeros(n), np.ones(n), np.zeros(n), np.ones(n)]).astype(int)
     y = np.concatenate([y00, y01, y10, y11])
     return pd.DataFrame({"y": y, "g": g, "t": t}), delta
 
@@ -223,20 +224,35 @@ def _qte(df, method="quantile_regression", n_boot=40, seed=0):
     # test here.
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return sp.qte(df, y="y", treatment="d", quantiles=QUANTILES,
-                      method=method, n_boot=n_boot, seed=seed)
+        return sp.qte(
+            df,
+            y="y",
+            treatment="d",
+            quantiles=QUANTILES,
+            method=method,
+            n_boot=n_boot,
+            seed=seed,
+        )
 
 
 def _qdid(df, quantiles=QUANTILES, n_boot=40, seed=2):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return sp.qdid(df, y="y", group="g", time="t",
-                       quantiles=quantiles, n_boot=n_boot, seed=seed)
+        return sp.qdid(
+            df,
+            y="y",
+            group="g",
+            time="t",
+            quantiles=quantiles,
+            n_boot=n_boot,
+            seed=seed,
+        )
 
 
 # ---------------------------------------------------------------------------
 # A. Closed-form exact collapse (machine precision).
 # ---------------------------------------------------------------------------
+
 
 class TestClosedFormCollapse:
     """Empirical-quantile arithmetic recovers DELTA to machine precision."""
@@ -262,8 +278,7 @@ class TestClosedFormCollapse:
 
     def test_qdid_exact_did_contrast(self):
         df, delta = _make_exact_qdid_dgp(99, n=1500, delta=1.7, trend=0.9)
-        r = _qdid(df, quantiles=[0.1, 0.25, 0.5, 0.75, 0.9],
-                  n_boot=5, seed=0)
+        r = _qdid(df, quantiles=[0.1, 0.25, 0.5, 0.75, 0.9], n_boot=5, seed=0)
         dev = float(np.max(np.abs(r.effects - delta)))
         assert dev < self.TOL, (
             f"qdid DID-quantile contrast {r.effects} deviates from the "
@@ -275,6 +290,7 @@ class TestClosedFormCollapse:
 # ---------------------------------------------------------------------------
 # B. Known-DGP recovery of the hand-set shift.
 # ---------------------------------------------------------------------------
+
 
 class TestRecovery:
     """qte / qdid recover the hand-set location shift."""
@@ -334,6 +350,7 @@ class TestRecovery:
 # C. Homogeneity of a pure location shift.
 # ---------------------------------------------------------------------------
 
+
 class TestHomogeneity:
     """A constant shift induces NO quantile heterogeneity."""
 
@@ -363,6 +380,7 @@ class TestHomogeneity:
 # D. Cross-method consistency (qreg vs IPW-distribution).
 # ---------------------------------------------------------------------------
 
+
 class TestCrossMethodConsistency:
     """The two qte engines agree under a homogeneous shift."""
 
@@ -387,6 +405,7 @@ class TestCrossMethodConsistency:
 # ---------------------------------------------------------------------------
 # E. Orientation / sign correctness.
 # ---------------------------------------------------------------------------
+
 
 class TestOrientation:
     """A positive shift yields positive estimates; a negative shift flips."""

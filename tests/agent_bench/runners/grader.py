@@ -14,6 +14,7 @@ Pre-registered metrics (see README + prompts/_protocol.md):
 Bootstrap test for hypotheses H1-H5: cluster bootstrap with prompt
 as the cluster, alpha=0.05, Bonferroni correction across H1-H5.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,7 +25,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
-
 
 HERE = Path(__file__).resolve().parent
 RESULTS_DIR = HERE.parent / "results"
@@ -38,9 +38,9 @@ class TrialScore:
     prompt_id: str
     level: str
     rep: int
-    task_success: int       # 0/1
-    method_correct: int     # 0/1
-    hallucination: int      # 0/1
+    task_success: int  # 0/1
+    method_correct: int  # 0/1
+    hallucination: int  # 0/1
     n_tokens: int
     final_estimate: float | None
     final_estimator: str
@@ -56,13 +56,24 @@ def _results_path(value: str | Path) -> Path:
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--in", dest="trials_in", default="trials.jsonl",
-                   help="Input JSONL. Bare filenames resolve inside results/.")
-    p.add_argument("--scores-out", default="scores.csv",
-                   help="Output CSV. Bare filenames resolve inside results/.")
-    p.add_argument("--headline-out", default="headline.md",
-                   help=("Output Markdown headline table. Bare filenames "
-                         "resolve inside results/."))
+    p.add_argument(
+        "--in",
+        dest="trials_in",
+        default="trials.jsonl",
+        help="Input JSONL. Bare filenames resolve inside results/.",
+    )
+    p.add_argument(
+        "--scores-out",
+        default="scores.csv",
+        help="Output CSV. Bare filenames resolve inside results/.",
+    )
+    p.add_argument(
+        "--headline-out",
+        default="headline.md",
+        help=(
+            "Output Markdown headline table. Bare filenames " "resolve inside results/."
+        ),
+    )
     return p.parse_args()
 
 
@@ -105,12 +116,16 @@ def score_trial(trial: dict, gold: dict, level: str) -> TrialScore:
     method_correct = int(trial["final_estimator"] == expected)
 
     return TrialScore(
-        cell=trial["cell"], prompt_id=trial["prompt_id"], level=level,
-        rep=trial["rep"], task_success=task_success,
+        cell=trial["cell"],
+        prompt_id=trial["prompt_id"],
+        level=level,
+        rep=trial["rep"],
+        task_success=task_success,
         method_correct=method_correct,
         hallucination=int(trial["hallucinated_call"]),
         n_tokens=int(trial["n_tokens_in"] + trial["n_tokens_out"]),
-        final_estimate=est, final_estimator=trial["final_estimator"],
+        final_estimate=est,
+        final_estimator=trial["final_estimator"],
         expected_estimator=expected,
     )
 
@@ -162,27 +177,32 @@ def render_headline(agg: dict, n_total: int) -> str:
     # H1-H5 quick pre-flight check on the mock numbers.
     lines.append("## Pre-registered hypotheses (mock-LLM directional check)")
     lines.append("")
-    sp_levels = {l: agg.get(("C1", l), {}).get("task_success", 0)
-                 for l in ("L1", "L2", "L3")}
+    sp_levels = {
+        l: agg.get(("C1", l), {}).get("task_success", 0) for l in ("L1", "L2", "L3")
+    }
     sp_l2 = sp_levels["L2"]
     sp_l3 = sp_levels["L3"]
     py_l2 = agg.get(("C3", "L2"), {}).get("task_success", 0)
     py_l3 = agg.get(("C3", "L3"), {}).get("task_success", 0)
     sp_halluc = statistics.mean(
         agg.get(("C" + cn, l), {}).get("hallucination", 0)
-        for cn in "12" for l in ("L1", "L2", "L3")
+        for cn in "12"
+        for l in ("L1", "L2", "L3")
     )
     py_halluc = statistics.mean(
         agg.get(("C" + cn, l), {}).get("hallucination", 0)
-        for cn in "34" for l in ("L1", "L2", "L3")
+        for cn in "34"
+        for l in ("L1", "L2", "L3")
     )
     sp_tok = statistics.median(
         agg.get(("C" + cn, l), {}).get("median_tokens", 0)
-        for cn in "12" for l in ("L1", "L2", "L3")
+        for cn in "12"
+        for l in ("L1", "L2", "L3")
     )
     py_tok = statistics.median(
         agg.get(("C" + cn, l), {}).get("median_tokens", 0)
-        for cn in "34" for l in ("L1", "L2", "L3")
+        for cn in "34"
+        for l in ("L1", "L2", "L3")
     )
     lines.append(
         f"- H1: sp L1={sp_levels['L1']:.2f} (>=0.90?), L2={sp_l2:.2f} (>=0.70?), L3={sp_l3:.2f} (>=0.50?)"
@@ -225,19 +245,37 @@ def main() -> None:
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     with out_csv.open("w", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow([
-            "cell", "prompt_id", "level", "rep",
-            "task_success", "method_correct", "hallucination",
-            "n_tokens", "final_estimate", "final_estimator",
-            "expected_estimator",
-        ])
+        w.writerow(
+            [
+                "cell",
+                "prompt_id",
+                "level",
+                "rep",
+                "task_success",
+                "method_correct",
+                "hallucination",
+                "n_tokens",
+                "final_estimate",
+                "final_estimator",
+                "expected_estimator",
+            ]
+        )
         for s in scores:
-            w.writerow([
-                s.cell, s.prompt_id, s.level, s.rep,
-                s.task_success, s.method_correct, s.hallucination,
-                s.n_tokens, s.final_estimate, s.final_estimator,
-                s.expected_estimator,
-            ])
+            w.writerow(
+                [
+                    s.cell,
+                    s.prompt_id,
+                    s.level,
+                    s.rep,
+                    s.task_success,
+                    s.method_correct,
+                    s.hallucination,
+                    s.n_tokens,
+                    s.final_estimate,
+                    s.final_estimator,
+                    s.expected_estimator,
+                ]
+            )
 
     agg = aggregate(scores)
     headline = render_headline(agg, len(scores))

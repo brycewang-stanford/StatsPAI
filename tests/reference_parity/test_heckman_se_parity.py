@@ -34,6 +34,7 @@ References
 - Wooldridge, J. M. (2010). *Econometric Analysis of Cross Section and
   Panel Data*, 2nd ed., §19.6.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -43,10 +44,10 @@ from scipy import stats
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # DGP with known selection structure and valid exclusion restriction
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture(scope="module")
 def heckman_data():
@@ -59,7 +60,7 @@ def heckman_data():
     z2 = rng.normal(size=n)
     rho = 0.5
     u1 = rng.normal(size=n)
-    u2 = rho * u1 + np.sqrt(1 - rho ** 2) * rng.normal(size=n)
+    u2 = rho * u1 + np.sqrt(1 - rho**2) * rng.normal(size=n)
     # Selection equation (probit latent)
     d_star = 0.2 + 0.6 * z1 + 0.7 * z2 + u1
     d = (d_star > 0).astype(int)
@@ -71,6 +72,7 @@ def heckman_data():
 # ---------------------------------------------------------------------------
 # Hand-computed Heckman (1979) analytical variance
 # ---------------------------------------------------------------------------
+
 
 def _hand_heckman_variance(df):
     """Compute (β̂, analytical SE) using the Heckman (1979) / Greene
@@ -88,7 +90,7 @@ def _hand_heckman_variance(df):
         Zg = Z @ gamma
         Phi = np.clip(stats.norm.cdf(Zg), 1e-12, 1 - 1e-12)
         phi = stats.norm.pdf(Zg)
-        w = phi ** 2 / (Phi * (1 - Phi))
+        w = phi**2 / (Phi * (1 - Phi))
         score = Z.T @ ((D - Phi) * phi / (Phi * (1 - Phi)))
         H = -(Z.T @ (w[:, None] * Z))
         delta_g = np.linalg.solve(H, score)
@@ -99,14 +101,13 @@ def _hand_heckman_variance(df):
 
     # IMR for all obs; restrict to selected for second stage.
     Zg_all = Z @ gamma
-    imr_all = stats.norm.pdf(Zg_all) / np.clip(stats.norm.cdf(Zg_all),
-                                               1e-12, 1 - 1e-12)
+    imr_all = stats.norm.pdf(Zg_all) / np.clip(stats.norm.cdf(Zg_all), 1e-12, 1 - 1e-12)
 
     sel = D == 1
     Y_v = df.loc[sel, "y"].to_numpy()
-    X_v = np.column_stack([np.ones(sel.sum()),
-                           df.loc[sel, "z1"].to_numpy(),
-                           imr_all[sel]])
+    X_v = np.column_stack(
+        [np.ones(sel.sum()), df.loc[sel, "z1"].to_numpy(), imr_all[sel]]
+    )
     Z_v = Z[sel]
     Zg_v = Zg_all[sel]
     imr_v = imr_all[sel]
@@ -117,10 +118,10 @@ def _hand_heckman_variance(df):
     rss = float(resid @ resid)
 
     beta_lambda = float(beta[-1])
-    delta_v = imr_v * (imr_v + Zg_v)   # ≥ 0 by Mills' ratio inequality
+    delta_v = imr_v * (imr_v + Zg_v)  # ≥ 0 by Mills' ratio inequality
     # Greene (2003) eq. 22-21: σ̂² = RSS/n_sel + β_λ² · mean(δ)
-    sigma2 = rss / n_sel + beta_lambda ** 2 * float(np.mean(delta_v))
-    rho2 = beta_lambda ** 2 / sigma2
+    sigma2 = rss / n_sel + beta_lambda**2 * float(np.mean(delta_v))
+    rho2 = beta_lambda**2 / sigma2
 
     XtX_inv = np.linalg.inv(X_v.T @ X_v)
     # Heteroskedastic contribution X*' (I − ρ² diag(δ)) X*
@@ -139,8 +140,7 @@ class TestHeckmanVarianceCorrection:
     analytical two-step variance, not a naive HC1 sandwich."""
 
     def test_point_estimates_match_hand_computed(self, heckman_data):
-        r = sp.heckman(heckman_data, y="y", x=["z1"],
-                       select="d", z=["z1", "z2"])
+        r = sp.heckman(heckman_data, y="y", x=["z1"], select="d", z=["z1", "z2"])
         beta_hand, _ = _hand_heckman_variance(heckman_data)
         sp_beta = r.detail["coefficient"].to_numpy()
         assert np.allclose(sp_beta, beta_hand, rtol=1e-8, atol=1e-10), (
@@ -150,8 +150,7 @@ class TestHeckmanVarianceCorrection:
         )
 
     def test_se_matches_heckman_1979_formula(self, heckman_data):
-        r = sp.heckman(heckman_data, y="y", x=["z1"],
-                       select="d", z=["z1", "z2"])
+        r = sp.heckman(heckman_data, y="y", x=["z1"], select="d", z=["z1", "z2"])
         _, se_hand = _hand_heckman_variance(heckman_data)
         sp_se = r.detail["se"].to_numpy()
         assert np.allclose(sp_se, se_hand, rtol=1e-8, atol=1e-10), (
@@ -163,38 +162,43 @@ class TestHeckmanVarianceCorrection:
     def test_model_info_exposes_sigma_rho(self, heckman_data):
         """``sigma`` and ``rho`` in model_info must use the
         Greene (2003) consistent σ̂² formula, not a naive RSS/(n−k)."""
-        r = sp.heckman(heckman_data, y="y", x=["z1"],
-                       select="d", z=["z1", "z2"])
+        r = sp.heckman(heckman_data, y="y", x=["z1"], select="d", z=["z1", "z2"])
         beta_hand, _ = _hand_heckman_variance(heckman_data)
         # σ̂² reconstruction from hand-computed quantities
         D = heckman_data["d"].to_numpy(dtype=float)
-        Z = np.column_stack([np.ones(len(heckman_data)),
-                             heckman_data["z1"].to_numpy(),
-                             heckman_data["z2"].to_numpy()])
+        Z = np.column_stack(
+            [
+                np.ones(len(heckman_data)),
+                heckman_data["z1"].to_numpy(),
+                heckman_data["z2"].to_numpy(),
+            ]
+        )
         gamma = np.zeros(Z.shape[1])
         for _ in range(100):
             Zg = Z @ gamma
             Phi = np.clip(stats.norm.cdf(Zg), 1e-12, 1 - 1e-12)
             phi = stats.norm.pdf(Zg)
             score = Z.T @ ((D - Phi) * phi / (Phi * (1 - Phi)))
-            w_i = phi ** 2 / (Phi * (1 - Phi))
+            w_i = phi**2 / (Phi * (1 - Phi))
             H = -(Z.T @ (w_i[:, None] * Z))
             g = np.linalg.solve(H, score)
             gamma -= g
             if np.max(np.abs(g)) < 1e-10:
                 break
         imr_all = stats.norm.pdf(Z @ gamma) / np.clip(
-            stats.norm.cdf(Z @ gamma), 1e-12, 1 - 1e-12)
+            stats.norm.cdf(Z @ gamma), 1e-12, 1 - 1e-12
+        )
         sel = D == 1
         delta_v = imr_all[sel] * (imr_all[sel] + (Z @ gamma)[sel])
         Y_v = heckman_data.loc[sel, "y"].to_numpy()
-        X_v = np.column_stack([np.ones(sel.sum()),
-                               heckman_data.loc[sel, "z1"].to_numpy(),
-                               imr_all[sel]])
+        X_v = np.column_stack(
+            [np.ones(sel.sum()), heckman_data.loc[sel, "z1"].to_numpy(), imr_all[sel]]
+        )
         resid = Y_v - X_v @ beta_hand
         beta_lambda = float(beta_hand[-1])
-        sigma2_hand = (resid @ resid) / sel.sum() + \
-            beta_lambda ** 2 * float(np.mean(delta_v))
+        sigma2_hand = (resid @ resid) / sel.sum() + beta_lambda**2 * float(
+            np.mean(delta_v)
+        )
         sigma_hand = float(np.sqrt(sigma2_hand))
         rho_hand = beta_lambda / sigma_hand
 

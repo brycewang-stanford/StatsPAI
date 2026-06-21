@@ -7,6 +7,7 @@ cluster, the wild-bootstrap branch, plus HDFE primitive edge cases
 Rust-bridge RuntimeError fallback. Real synthetic panels; properties
 asserted, not fabricated numbers.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -29,12 +30,21 @@ def fe_df():
             x1 = rng.normal()
             x2 = rng.normal()
             y = 1.0 + 0.5 * x1 - 0.3 * x2 + fe_f + fe_y + rng.normal(0, 0.4)
-            rows.append({"firm": f, "year": yr, "y": y,
-                         "x1": x1, "x2": x2, "w": 1.0 + abs(rng.normal())})
+            rows.append(
+                {
+                    "firm": f,
+                    "year": yr,
+                    "y": y,
+                    "x1": x1,
+                    "x2": x2,
+                    "w": 1.0 + abs(rng.normal()),
+                }
+            )
     return pd.DataFrame(rows)
 
 
 # ── FEOLS basic + summary/repr/coef/se ──────────────────────────────────
+
 
 def test_feols_twoway_fe_summary(fe_df):
     res = feols("y ~ x1 + x2 | firm + year", data=fe_df, cluster="firm")
@@ -78,8 +88,14 @@ def test_feols_string_weights(fe_df):
 
 
 def test_feols_wild_cluster_bootstrap(fe_df):
-    res = feols("y ~ x1 | firm", data=fe_df, cluster="firm",
-                wild=True, wild_n_boot=199, wild_seed=0)
+    res = feols(
+        "y ~ x1 | firm",
+        data=fe_df,
+        cluster="firm",
+        wild=True,
+        wild_n_boot=199,
+        wild_seed=0,
+    )
     assert res.se_type == "wild_cluster"
     assert "wild_p" in res.cluster_info
     assert "wild_ci" in res.cluster_info
@@ -89,11 +105,11 @@ def test_feols_wild_cluster_bootstrap(fe_df):
 
 def test_feols_wild_multiway_not_implemented(fe_df):
     with pytest.raises(NotImplementedError, match="multi-way"):
-        feols("y ~ x1 | firm", data=fe_df,
-              cluster=["firm", "year"], wild=True)
+        feols("y ~ x1 | firm", data=fe_df, cluster=["firm", "year"], wild=True)
 
 
 # ── no-FE fallback (_ols_no_fe) ─────────────────────────────────────────
+
 
 def test_feols_no_fe_iid(fe_df):
     res = feols("y ~ x1 + x2", data=fe_df)
@@ -126,13 +142,13 @@ def test_feols_non_bare_column_raises(fe_df):
 
 
 def test_feols_empty_after_dropna():
-    df = pd.DataFrame({"y": [np.nan, np.nan], "x1": [1.0, 2.0],
-                       "firm": [0, 1]})
+    df = pd.DataFrame({"y": [np.nan, np.nan], "x1": [1.0, 2.0], "firm": [0, 1]})
     with pytest.raises(ValueError, match="No non-missing rows"):
         feols("y ~ x1 | firm", data=df)
 
 
 # ── HDFE primitives via sp.demean / sp.absorb_ols ───────────────────────
+
 
 def test_demean_nan_in_fe_raises(fe_df):
     # ``.to_numpy()`` returns a read-only array under pandas>=3.0; copy so the
@@ -217,27 +233,29 @@ def test_absorb_ols_weighted_krylov(fe_df):
 
 def test_absorb_ols_df_exhausted_raises():
     # n_kept tiny, too many regressors/FE groups -> df_resid <= 0
-    df = pd.DataFrame({
-        "y": [1.0, 2.0, 3.0, 4.0],
-        "x1": [0.1, 0.9, 0.4, 0.7],
-        "x2": [0.2, 0.3, 0.8, 0.5],
-        "x3": [0.5, 0.1, 0.6, 0.2],
-        "fe": [0, 0, 1, 1],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, 3.0, 4.0],
+            "x1": [0.1, 0.9, 0.4, 0.7],
+            "x2": [0.2, 0.3, 0.8, 0.5],
+            "x3": [0.5, 0.1, 0.6, 0.2],
+            "fe": [0, 0, 1, 1],
+        }
+    )
     with pytest.raises(ValueError, match="Degrees of freedom exhausted"):
-        sp.absorb_ols(df["y"].to_numpy(),
-                      df[["x1", "x2", "x3"]].to_numpy(),
-                      df[["fe"]].to_numpy())
+        sp.absorb_ols(
+            df["y"].to_numpy(), df[["x1", "x2", "x3"]].to_numpy(), df[["fe"]].to_numpy()
+        )
 
 
 def test_absorb_ols_no_fe_columns_raises(fe_df):
     empty_fe = np.empty((len(fe_df), 0))
     with pytest.raises(ValueError, match="at least one fixed-effect column"):
-        sp.absorb_ols(fe_df["y"].to_numpy(),
-                      fe_df[["x1"]].to_numpy(), empty_fe)
+        sp.absorb_ols(fe_df["y"].to_numpy(), fe_df[["x1"]].to_numpy(), empty_fe)
 
 
 # ── kernel dispatchers (numba present) ──────────────────────────────────
+
 
 def test_kernels_sweep_dispatch():
     col = np.array([1.0, 2.0, 3.0, 4.0])
@@ -275,6 +293,7 @@ def test_kernels_numpy_fallback_paths():
 
 
 # ── Rust bridge fallback (extension absent on main) ─────────────────────
+
 
 def test_rust_bridge_raises_when_unavailable():
     if hdfe_rust.HAS_RUST:

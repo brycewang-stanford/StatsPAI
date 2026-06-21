@@ -9,10 +9,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 # ====================================================================== #
 #  Spatial Econometrics
 # ====================================================================== #
+
 
 def _make_spatial_data(n=50, seed=42):
     """Generate data with spatial dependence."""
@@ -42,6 +42,7 @@ def _make_spatial_data(n=50, seed=42):
 class TestSAR:
     def test_sar_basic(self):
         from statspai import sar
+
         W, df = _make_spatial_data()
         result = sar(W, data=df, formula="y ~ x1 + x2")
         assert "rho" in result.params.index
@@ -50,6 +51,7 @@ class TestSAR:
 
     def test_sar_rho_range(self):
         from statspai import sar
+
         W, df = _make_spatial_data()
         result = sar(W, data=df, formula="y ~ x1 + x2")
         rho = result.params["rho"]
@@ -57,6 +59,7 @@ class TestSAR:
 
     def test_sar_summary(self):
         from statspai import sar
+
         W, df = _make_spatial_data()
         result = sar(W, data=df, formula="y ~ x1 + x2")
         summary = result.summary()
@@ -67,6 +70,7 @@ class TestSAR:
 class TestSEM:
     def test_sem_basic(self):
         from statspai import sem
+
         W, df = _make_spatial_data()
         result = sem(W, data=df, formula="y ~ x1 + x2")
         assert "lambda" in result.params.index
@@ -74,6 +78,7 @@ class TestSEM:
 
     def test_sem_lambda_range(self):
         from statspai import sem
+
         W, df = _make_spatial_data()
         result = sem(W, data=df, formula="y ~ x1 + x2")
         lam = result.params["lambda"]
@@ -83,6 +88,7 @@ class TestSEM:
 class TestSDM:
     def test_sdm_basic(self):
         from statspai import sdm
+
         W, df = _make_spatial_data()
         result = sdm(W, data=df, formula="y ~ x1 + x2")
         assert "rho" in result.params.index
@@ -91,6 +97,7 @@ class TestSDM:
 
     def test_sdm_effects(self):
         from statspai import sdm
+
         W, df = _make_spatial_data()
         result = sdm(W, data=df, formula="y ~ x1 + x2")
         assert "Direct effects" in result.diagnostics
@@ -99,6 +106,7 @@ class TestSDM:
 
     def test_sdm_w_shape_mismatch(self):
         from statspai.spatial import SpatialModel
+
         W = np.eye(10)
         df = pd.DataFrame({"y": np.ones(5), "x": np.ones(5)})
         with pytest.raises(ValueError, match="must be"):
@@ -109,9 +117,11 @@ class TestSDM:
 #  Bootstrap
 # ====================================================================== #
 
+
 class TestBootstrap:
     def test_bootstrap_mean(self):
         from statspai import bootstrap
+
         rng = np.random.RandomState(42)
         df = pd.DataFrame({"y": rng.randn(200) + 5})
         result = bootstrap(df, lambda d: d["y"].mean(), n_boot=200, seed=42)
@@ -121,36 +131,45 @@ class TestBootstrap:
 
     def test_bootstrap_cluster(self):
         from statspai import bootstrap
+
         rng = np.random.RandomState(42)
         n = 200
-        df = pd.DataFrame({
-            "y": rng.randn(n) + 3,
-            "cluster": np.repeat(np.arange(20), 10),
-        })
-        result = bootstrap(df, lambda d: d["y"].mean(),
-                           n_boot=100, cluster="cluster", seed=42)
+        df = pd.DataFrame(
+            {
+                "y": rng.randn(n) + 3,
+                "cluster": np.repeat(np.arange(20), 10),
+            }
+        )
+        result = bootstrap(
+            df, lambda d: d["y"].mean(), n_boot=100, cluster="cluster", seed=42
+        )
         assert result.se > 0
 
     def test_bootstrap_normal_ci(self):
         from statspai import bootstrap
+
         rng = np.random.RandomState(42)
         df = pd.DataFrame({"y": rng.randn(100)})
-        result = bootstrap(df, lambda d: d["y"].mean(),
-                           n_boot=100, ci_method="normal", seed=42)
+        result = bootstrap(
+            df, lambda d: d["y"].mean(), n_boot=100, ci_method="normal", seed=42
+        )
         assert result.ci_method == "normal"
         assert result.ci_lower < result.ci_upper
 
     def test_bootstrap_bca_ci(self):
         from statspai import bootstrap
+
         rng = np.random.RandomState(42)
         df = pd.DataFrame({"y": rng.randn(50) + 2})
-        result = bootstrap(df, lambda d: d["y"].mean(),
-                           n_boot=100, ci_method="bca", seed=42)
+        result = bootstrap(
+            df, lambda d: d["y"].mean(), n_boot=100, ci_method="bca", seed=42
+        )
         assert result.ci_method == "bca"
         assert result.ci_lower < result.ci_upper
 
     def test_bootstrap_summary(self):
         from statspai import bootstrap
+
         rng = np.random.RandomState(42)
         df = pd.DataFrame({"y": rng.randn(100)})
         result = bootstrap(df, lambda d: d["y"].mean(), n_boot=50, seed=42)
@@ -163,16 +182,28 @@ class TestBootstrap:
 #  Registry updates
 # ====================================================================== #
 
+
 class TestRegistryRound3:
     def test_new_functions_registered(self):
         from statspai import list_functions
+
         funcs = list_functions()
-        for name in ["ipw", "dag", "event_study", "augsynth",
-                      "sar", "sem", "sdm", "bootstrap", "diagnose_result"]:
+        for name in [
+            "ipw",
+            "dag",
+            "event_study",
+            "augsynth",
+            "sar",
+            "sem",
+            "sdm",
+            "bootstrap",
+            "diagnose_result",
+        ]:
             assert name in funcs, f"{name} not found in registry"
 
     def test_spatial_category(self):
         from statspai import list_functions
+
         spatial = list_functions(category="spatial")
         assert "sar" in spatial
         assert "sem" in spatial
@@ -180,12 +211,14 @@ class TestRegistryRound3:
 
     def test_search_spatial(self):
         from statspai import search_functions
+
         results = search_functions("spatial")
         names = [r["name"] for r in results]
         assert any("sar" in n or "sem" in n or "sdm" in n for n in names)
 
     def test_schema_count_increased(self):
         from statspai import all_schemas
+
         schemas = all_schemas()
         # Should have 20+ from round 1 plus ~10 new ones
         assert len(schemas) >= 25

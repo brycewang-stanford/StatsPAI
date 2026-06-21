@@ -4,6 +4,7 @@ Validation against closed-form inverse-variance pooling, the
 DerSimonian-Laird heterogeneity formulas, and Egger's test behaviour under
 symmetric vs. asymmetric funnels.
 """
+
 import numpy as np
 import pytest
 
@@ -26,7 +27,7 @@ def test_fixed_effect_matches_inverse_variance():
 def test_homogeneous_studies_zero_tau2():
     rng = np.random.default_rng(0)
     se = rng.uniform(0.05, 0.15, 25)
-    y = 0.4 + rng.normal(0, se)          # only sampling variation
+    y = 0.4 + rng.normal(0, se)  # only sampling variation
     r = sp.meta_analysis(y, se)
     assert r.tau2 == pytest.approx(0.0, abs=1e-3)
     assert r.i2 < 0.25
@@ -36,7 +37,7 @@ def test_homogeneous_studies_zero_tau2():
 
 def test_heterogeneous_studies_inflate_random_se():
     rng = np.random.default_rng(1)
-    mu = rng.normal(0.4, 0.3, 25)        # true between-study heterogeneity
+    mu = rng.normal(0.4, 0.3, 25)  # true between-study heterogeneity
     se = rng.uniform(0.05, 0.15, 25)
     y = mu + rng.normal(0, se)
     r = sp.meta_analysis(y, se)
@@ -57,7 +58,7 @@ def test_egger_symmetric_vs_asymmetric():
     assert p_sym > 0.10
 
     se2 = rng.uniform(0.05, 0.30, 50)
-    y_asym = 0.3 + 2.0 * se2 + rng.normal(0, se2)   # small-study effect
+    y_asym = 0.3 + 2.0 * se2 + rng.normal(0, se2)  # small-study effect
     p_asym = sp.meta_analysis(y_asym, se2).egger_test()["p_value"]
     assert p_asym < 0.05
 

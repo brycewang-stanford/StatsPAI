@@ -1,4 +1,5 @@
 """Coverage tests for statspai.did.ddd (Triple Differences)."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -12,15 +13,28 @@ def _ddd_data(seed=0, n=2000):
     post = rng.integers(0, 2, n)
     sub = rng.integers(0, 2, n)
     # true DDD (triple interaction) = 4.0
-    y = (1 + 2 * treat + 1.5 * post + 0.7 * sub
-         + 1 * treat * post + 0.5 * treat * sub + 0.3 * post * sub
-         + 4.0 * treat * post * sub + rng.normal(0, 1, n))
-    return pd.DataFrame({
-        "y": y, "treat": treat, "post": post, "sub": sub,
-        "x1": rng.normal(0, 1, n),
-        "state": rng.integers(0, 15, n),
-        "w": rng.uniform(0.5, 2.0, n),
-    })
+    y = (
+        1
+        + 2 * treat
+        + 1.5 * post
+        + 0.7 * sub
+        + 1 * treat * post
+        + 0.5 * treat * sub
+        + 0.3 * post * sub
+        + 4.0 * treat * post * sub
+        + rng.normal(0, 1, n)
+    )
+    return pd.DataFrame(
+        {
+            "y": y,
+            "treat": treat,
+            "post": post,
+            "sub": sub,
+            "x1": rng.normal(0, 1, n),
+            "state": rng.integers(0, 15, n),
+            "w": rng.uniform(0.5, 2.0, n),
+        }
+    )
 
 
 @pytest.fixture(scope="module")
@@ -43,41 +57,55 @@ def test_ddd_basic(ddd_df):
 
 
 def test_ddd_cluster(ddd_df):
-    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub",
-               cluster="state")
+    r = sp.ddd(
+        ddd_df, y="y", treat="treat", time="post", subgroup="sub", cluster="state"
+    )
     assert r.se > 0
     assert r.model_info["cluster"] == "state"
 
 
 def test_ddd_robust_false(ddd_df):
-    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub",
-               robust=False)
+    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub", robust=False)
     assert r.se > 0
     assert r.model_info["robust_se"] is False
 
 
 def test_ddd_covariates(ddd_df):
-    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub",
-               covariates=["x1"])
+    r = sp.ddd(
+        ddd_df, y="y", treat="treat", time="post", subgroup="sub", covariates=["x1"]
+    )
     assert "x1" in r.detail["variable"].tolist()
 
 
 def test_ddd_weights(ddd_df):
-    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub",
-               weights="w")
+    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub", weights="w")
     assert r.se > 0
     assert r.model_info["weights"] == "w"
 
 
 def test_ddd_weights_and_cluster(ddd_df):
-    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub",
-               weights="w", cluster="state")
+    r = sp.ddd(
+        ddd_df,
+        y="y",
+        treat="treat",
+        time="post",
+        subgroup="sub",
+        weights="w",
+        cluster="state",
+    )
     assert r.se > 0
 
 
 def test_ddd_weights_robust_false(ddd_df):
-    r = sp.ddd(ddd_df, y="y", treat="treat", time="post", subgroup="sub",
-               weights="w", robust=False)
+    r = sp.ddd(
+        ddd_df,
+        y="y",
+        treat="treat",
+        time="post",
+        subgroup="sub",
+        weights="w",
+        robust=False,
+    )
     assert r.se > 0
 
 
@@ -93,7 +121,6 @@ def test_ddd_some_negative_weights_filtered(ddd_df):
     # proceeds on the remaining rows.
     bad = ddd_df.copy()
     bad.loc[bad.index[:50], "w"] = -1.0
-    r = sp.ddd(bad, y="y", treat="treat", time="post", subgroup="sub",
-               weights="w")
+    r = sp.ddd(bad, y="y", treat="treat", time="post", subgroup="sub", weights="w")
     assert r.se > 0
     assert r.n_obs == int((ddd_df["w"].values > 0).sum()) - 0 or r.n_obs > 0

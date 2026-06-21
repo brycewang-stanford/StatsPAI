@@ -77,8 +77,10 @@ def test_cox_recovers_coefficient_and_concordance():
     assert float(c.params["x"]) == pytest.approx(0.7, abs=0.2)
     # Concordance is a probability strictly inside (0, 1) for an informative fit.
     assert 0.5 < c.concordance < 1.0
-    assert float(c.conf_int_lower["x"]) < float(c.params["x"]) < float(
-        c.conf_int_upper["x"]
+    assert (
+        float(c.conf_int_lower["x"])
+        < float(c.params["x"])
+        < float(c.conf_int_upper["x"])
     )
 
 
@@ -126,7 +128,9 @@ def test_local_projections_impulse_matches_shock_loading():
     for t in range(1, T):  # contemporaneous loading on the shock is 1.0
         y[t] = 0.6 * y[t - 1] + 1.0 * shock[t] + rng.randn() * 0.5
     lp = sp.local_projections(
-        pd.DataFrame({"y": y, "shock": shock}), outcome="y", shock="shock",
+        pd.DataFrame({"y": y, "shock": shock}),
+        outcome="y",
+        shock="shock",
         horizons=8,
     )
     irf = np.asarray(lp.irf)

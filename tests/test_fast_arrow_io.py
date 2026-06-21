@@ -1,4 +1,5 @@
 """Tests for the PyArrow table path behind ``sp.fast.*_polars`` adapters."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -23,13 +24,15 @@ def _panel_pandas(seed=0):
     g = rng.normal(0, 0.25, size=n_periods)[t]
     eta = np.clip(0.35 + 0.25 * x1 - 0.15 * x2 + a + g, -8, 8)
     y = rng.poisson(np.exp(eta)).astype(np.int64)
-    return pd.DataFrame({
-        "y": y,
-        "x1": x1,
-        "x2": x2,
-        "i": i.astype(np.int32),
-        "t": t.astype(np.int32),
-    })
+    return pd.DataFrame(
+        {
+            "y": y,
+            "x1": x1,
+            "x2": x2,
+            "i": i.astype(np.int32),
+            "t": t.astype(np.int32),
+        }
+    )
 
 
 def _arrow_table(pdf: pd.DataFrame):
@@ -96,12 +99,8 @@ def test_fepois_polars_arrow_matches_pandas():
     fit_arrow = sp.fast.fepois_polars(arrow, "y ~ x1 + x2 | i + t")
 
     for name in ("x1", "x2"):
-        assert fit_arrow.coef()[name] == pytest.approx(
-            fit_pd.coef()[name], abs=1e-12
-        )
-        assert fit_arrow.se()[name] == pytest.approx(
-            fit_pd.se()[name], abs=1e-12
-        )
+        assert fit_arrow.coef()[name] == pytest.approx(fit_pd.coef()[name], abs=1e-12)
+        assert fit_arrow.se()[name] == pytest.approx(fit_pd.se()[name], abs=1e-12)
 
 
 def test_fepois_polars_arrow_missing_column_raises_taxonomy_error():

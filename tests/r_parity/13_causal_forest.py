@@ -31,13 +31,13 @@ ATE/ATT point estimates -- a conservative envelope around the observed
 post-nuisance-regularisation sp-vs-grf gap, sized to combined Monte
 Carlo error, not the old 5.0.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "13_causal_forest"
 N = 4000
@@ -78,7 +78,9 @@ def main() -> None:
     X = df[COVARIATES].to_numpy()
 
     cf = sp.causal_forest(
-        Y=Y, T=T, X=X,
+        Y=Y,
+        T=T,
+        X=X,
         n_estimators=2000,
         random_state=PARITY_SEED,
         discrete_treatment=True,
@@ -94,21 +96,31 @@ def main() -> None:
 
     rows = [
         ParityRecord(
-            module=MODULE, side="py", statistic="ate_causal_forest",
-            estimate=float(ate["estimate"]), se=float(ate["se"]),
-            ci_lo=float(ate["ci_low"]), ci_hi=float(ate["ci_high"]),
+            module=MODULE,
+            side="py",
+            statistic="ate_causal_forest",
+            estimate=float(ate["estimate"]),
+            se=float(ate["se"]),
+            ci_lo=float(ate["ci_low"]),
+            ci_hi=float(ate["ci_high"]),
             n=int(len(df)),
         ),
         ParityRecord(
-            module=MODULE, side="py", statistic="att_causal_forest",
-            estimate=float(att["estimate"]), se=float(att["se"]),
-            ci_lo=float(att["ci_low"]), ci_hi=float(att["ci_high"]),
+            module=MODULE,
+            side="py",
+            statistic="att_causal_forest",
+            estimate=float(att["estimate"]),
+            se=float(att["se"]),
+            ci_lo=float(att["ci_low"]),
+            ci_hi=float(att["ci_high"]),
             n=int(len(df)),
         ),
     ]
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "n_estimators": 2000,
             "random_state": PARITY_SEED,

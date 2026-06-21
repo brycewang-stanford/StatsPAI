@@ -1,4 +1,5 @@
 """Sprint-3 tests: Invariant Causal Prediction."""
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -6,13 +7,15 @@ import pytest
 import statspai as sp
 
 
-def _make_two_env_scm(n: int = 600, seed: int = 0) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+def _make_two_env_scm(
+    n: int = 600, seed: int = 0
+) -> tuple[pd.DataFrame, np.ndarray, np.ndarray]:
     """DGP:
-        E in {0, 1}
-        X1 = N(0, 1) + 2 * E          <- intervened on in env 1
-        X2 = N(0, 1)                  <- spurious predictor
-        Y  = 1.5 * X1 + noise         <- X1 is the true parent
-        X3 = Y + N(0, 0.5)            <- child of Y (should NOT be a parent)
+    E in {0, 1}
+    X1 = N(0, 1) + 2 * E          <- intervened on in env 1
+    X2 = N(0, 1)                  <- spurious predictor
+    Y  = 1.5 * X1 + noise         <- X1 is the true parent
+    X3 = Y + N(0, 0.5)            <- child of Y (should NOT be a parent)
     """
     rng = np.random.default_rng(seed)
     E = rng.integers(0, 2, n)

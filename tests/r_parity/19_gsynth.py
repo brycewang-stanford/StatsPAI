@@ -10,12 +10,12 @@ never-treated control panel, then projects the treated unit on the
 pre-treatment periods. The optional ``backend='gsynth'`` R bridge remains
 a migration convenience, NOT the parity comparator.
 """
+
 from __future__ import annotations
 
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "19_gsynth"
 
@@ -41,7 +41,9 @@ def main() -> None:
 
     rows: list[ParityRecord] = [
         ParityRecord(
-            module=MODULE, side="py", statistic="att_gsynth",
+            module=MODULE,
+            side="py",
+            statistic="att_gsynth",
             estimate=float(fit.estimate),
             se=float(fit.se) if fit.se is not None else None,
             n=int(len(df)),
@@ -49,18 +51,31 @@ def main() -> None:
     ]
     _nf = fit.model_info.get("n_factors")
     if _nf is not None:
-        rows.append(ParityRecord(
-            module=MODULE, side="py", statistic="n_factors",
-            estimate=float(_nf), n=int(len(df))))
-    _pre = fit.model_info.get("pre_treatment_rmse",
-                              fit.model_info.get("pre_rmse"))
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic="n_factors",
+                estimate=float(_nf),
+                n=int(len(df)),
+            )
+        )
+    _pre = fit.model_info.get("pre_treatment_rmse", fit.model_info.get("pre_rmse"))
     if _pre is not None:
-        rows.append(ParityRecord(
-            module=MODULE, side="py", statistic="pre_rmse",
-            estimate=float(_pre), n=int(len(df))))
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic="pre_rmse",
+                estimate=float(_pre),
+                n=int(len(df)),
+            )
+        )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "method": "gsynth (Xu 2017)",
             "backend": fit.model_info.get("backend", "native"),

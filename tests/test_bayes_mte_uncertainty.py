@@ -1,4 +1,5 @@
 """Tests for v0.9.13 ATT/ATU uncertainty on BayesianMTEResult."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -22,15 +23,24 @@ def _hv_dgp(n, slope, seed):
     D = (p_true > U_D).astype(float)
     tau = slope * U_D
     Y = 1.0 + tau * D + 0.3 * rng.normal(size=n)
-    return pd.DataFrame({'y': Y, 'd': D, 'z': Z})
+    return pd.DataFrame({"y": Y, "d": D, "z": Z})
 
 
 def test_att_atu_sd_fields_populated():
     """After a typical fit, both ATT and ATU SDs should be finite."""
     df = _hv_dgp(400, slope=1.5, seed=11)
-    r = bayes_mte(df, y='y', treat='d', instrument='z',
-                  mte_method='hv_latent', poly_u=1,
-                  draws=250, tune=250, chains=2, progressbar=False)
+    r = bayes_mte(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        mte_method="hv_latent",
+        poly_u=1,
+        draws=250,
+        tune=250,
+        chains=2,
+        progressbar=False,
+    )
     assert np.isfinite(r.att_sd)
     assert np.isfinite(r.atu_sd)
     assert r.att_sd > 0
@@ -40,28 +50,46 @@ def test_att_atu_sd_fields_populated():
 def test_att_atu_hdi_brackets_posterior_mean():
     """HDI endpoints must straddle the posterior mean."""
     df = _hv_dgp(400, slope=1.5, seed=12)
-    r = bayes_mte(df, y='y', treat='d', instrument='z',
-                  mte_method='hv_latent', poly_u=1,
-                  draws=250, tune=250, chains=2, progressbar=False)
+    r = bayes_mte(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        mte_method="hv_latent",
+        poly_u=1,
+        draws=250,
+        tune=250,
+        chains=2,
+        progressbar=False,
+    )
     assert r.att_hdi_lower <= r.att <= r.att_hdi_upper, (
         f"ATT HDI [{r.att_hdi_lower:.3f}, {r.att_hdi_upper:.3f}] "
         f"does not bracket posterior mean {r.att:.3f}"
     )
-    assert r.atu_hdi_lower <= r.atu <= r.atu_hdi_upper, (
-        f"ATU HDI does not bracket posterior mean"
-    )
+    assert (
+        r.atu_hdi_lower <= r.atu <= r.atu_hdi_upper
+    ), f"ATU HDI does not bracket posterior mean"
 
 
 def test_ate_uncertainty_via_posterior_sd_not_new_field():
     """`posterior_sd` already covers the primary ATE estimand — we
     don't duplicate it into an ``ate_sd`` attribute."""
     df = _hv_dgp(300, slope=1.0, seed=13)
-    r = bayes_mte(df, y='y', treat='d', instrument='z', poly_u=1,
-                  draws=200, tune=200, chains=2, progressbar=False)
+    r = bayes_mte(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        poly_u=1,
+        draws=200,
+        tune=200,
+        chains=2,
+        progressbar=False,
+    )
     # posterior_sd maps to the ATE posterior SD
     assert r.posterior_sd > 0
     # No redundant `ate_sd` field
-    assert not hasattr(r, 'ate_sd')
+    assert not hasattr(r, "ate_sd")
 
 
 def test_bayes_mte_att_atu_both_finite_on_realistic_dgp():
@@ -77,8 +105,17 @@ def test_bayes_mte_att_atu_both_finite_on_realistic_dgp():
     guardrail for future refactors that might call the helper
     directly."""
     df = _hv_dgp(300, slope=1.0, seed=17)
-    r = bayes_mte(df, y='y', treat='d', instrument='z', poly_u=1,
-                  draws=150, tune=150, chains=2, progressbar=False)
+    r = bayes_mte(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        poly_u=1,
+        draws=150,
+        tune=150,
+        chains=2,
+        progressbar=False,
+    )
     assert np.isfinite(r.att)
     assert np.isfinite(r.atu)
     assert np.isfinite(r.att_sd)
@@ -89,14 +126,23 @@ def test_summary_shows_att_atu_uncertainty():
     """summary() must print an ATT / ATU block with sd + HDI once
     the SD fields are finite (spec §3.3)."""
     df = _hv_dgp(300, slope=1.0, seed=23)
-    r = bayes_mte(df, y='y', treat='d', instrument='z', poly_u=1,
-                  draws=200, tune=200, chains=2, progressbar=False)
+    r = bayes_mte(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        poly_u=1,
+        draws=200,
+        tune=200,
+        chains=2,
+        progressbar=False,
+    )
     s = r.summary()
-    assert 'ATT:' in s
-    assert 'ATU:' in s
+    assert "ATT:" in s
+    assert "ATU:" in s
     # sd is lower-case in the spec-mandated format
-    assert 'sd ' in s
-    assert 'HDI [' in s
+    assert "sd " in s
+    assert "HDI [" in s
 
 
 def test_summary_skips_att_atu_when_nan():
@@ -104,9 +150,10 @@ def test_summary_skips_att_atu_when_nan():
     summary() must silently omit the block rather than printing
     ``sd nan`` garbage."""
     from statspai.bayes._base import BayesianMTEResult
+
     stub = BayesianMTEResult(
-        method='bayes_mte',
-        estimand='ATE',
+        method="bayes_mte",
+        estimand="ATE",
         posterior_mean=0.5,
         posterior_median=0.5,
         posterior_sd=0.1,
@@ -117,8 +164,8 @@ def test_summary_skips_att_atu_when_nan():
         ess=400.0,
         n_obs=100,
         hdi_prob=0.95,
-        model_info={'inference': 'nuts', 'chains': 2, 'draws': 100},
+        model_info={"inference": "nuts", "chains": 2, "draws": 100},
     )
     out = stub.summary()
-    assert 'ATT:' not in out
-    assert 'ATU:' not in out
+    assert "ATT:" not in out
+    assert "ATU:" not in out

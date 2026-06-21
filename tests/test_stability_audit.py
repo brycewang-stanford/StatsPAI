@@ -6,6 +6,7 @@ flags stable API entries that lack a parity test in
 ``validation_status`` field is the authoritative evidence tier; this
 script is a compatibility guard for old stable-by-default risk.
 """
+
 from __future__ import annotations
 
 import json
@@ -59,13 +60,14 @@ def test_audit_json_is_well_formed() -> None:
     assert t["registry"] == t["stable"] + t["experimental"] + t["deprecated"]
     p = payload["parity_coverage"]
     # Counts must add up
-    assert p["backed_handwritten"] + p["unbacked_handwritten"] == t["stable_handwritten"]
+    assert (
+        p["backed_handwritten"] + p["unbacked_handwritten"] == t["stable_handwritten"]
+    )
     assert p["backed_auto"] + p["unbacked_auto"] == t["stable_auto"]
     breakdown = payload["auto_unbacked_breakdown"]
     assert sum(breakdown["category_counts"].values()) == p["unbacked_auto"]
     assert (
-        breakdown["classlike_symbol_count"]
-        + breakdown["functionlike_symbol_count"]
+        breakdown["classlike_symbol_count"] + breakdown["functionlike_symbol_count"]
         == p["unbacked_auto"]
     )
     assert breakdown["category_counts"]
@@ -105,11 +107,14 @@ def test_audit_classifies_known_experimental_as_experimental() -> None:
     res = _run(["--json"])
     payload = json.loads(res.stdout)
     experimental = set(payload["lists"]["experimental"])
-    for name in ("text_treatment_effect", "llm_annotator_correct",
-                 "did_multiplegt_dyn"):
-        assert name in experimental, (
-            f"{name} should be classified experimental in the audit"
-        )
+    for name in (
+        "text_treatment_effect",
+        "llm_annotator_correct",
+        "did_multiplegt_dyn",
+    ):
+        assert (
+            name in experimental
+        ), f"{name} should be classified experimental in the audit"
     # And it shouldn't show up in any unbacked bucket (those are stable-only).
     assert name not in payload["lists"]["unbacked_handwritten"]
     assert name not in payload["lists"]["unbacked_auto"]

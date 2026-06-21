@@ -46,17 +46,13 @@ class TestEconometricResultsPredict:
         np.testing.assert_array_equal(result.predict(), fitted)
 
     def test_predict_out_of_sample_orders_intercept_and_columns(self):
-        result = _linear_result(
-            pd.Series({"Intercept": 1.0, "x": 2.0, "z": -1.0})
-        )
+        result = _linear_result(pd.Series({"Intercept": 1.0, "x": 2.0, "z": -1.0}))
         new = pd.DataFrame({"z": [3.0, 4.0], "x": [10.0, 20.0]})
 
         np.testing.assert_allclose(result.predict(new), [18.0, 37.0])
 
     def test_predict_missing_simple_column_names_the_missing_column(self):
-        result = _linear_result(
-            pd.Series({"Intercept": 1.0, "x": 2.0, "z": -1.0})
-        )
+        result = _linear_result(pd.Series({"Intercept": 1.0, "x": 2.0, "z": -1.0}))
 
         with pytest.raises(MethodIncompatibility, match="missing column") as excinfo:
             result.predict(pd.DataFrame({"x": [1.0]}))
@@ -67,7 +63,9 @@ class TestEconometricResultsPredict:
             pd.Series({"Intercept": 1.0, "x": 2.0, "z": -1.0, "x:z": 0.5})
         )
 
-        with pytest.raises(MethodIncompatibility, match="formula transforms") as excinfo:
+        with pytest.raises(
+            MethodIncompatibility, match="formula transforms"
+        ) as excinfo:
             result.predict(pd.DataFrame({"x": [1.0], "z": [2.0]}))
         assert excinfo.value.diagnostics["derived_terms"] == ["x:z"]
 
@@ -98,9 +96,7 @@ class TestDAGReasoningHelpers:
         assert "instrument" in valid_iv.classify_variable("Z", "X", "Y")
 
         exclusion_violation = sp.dag("Z -> X; Z -> Y; X -> Y")
-        assert "instrument" not in exclusion_violation.classify_variable(
-            "Z", "X", "Y"
-        )
+        assert "instrument" not in exclusion_violation.classify_variable("Z", "X", "Y")
 
     def test_do_removes_incoming_edges_to_intervened_nodes_only(self):
         graph = sp.dag("Z -> X; W -> X; X -> M -> Y; Z -> Y")
@@ -149,9 +145,7 @@ class TestAdvancedPostEstimationMargins:
         out = sp.margins(result, data=data, variables=["x"], at={"group": 1})
 
         assert list(out["variable"]) == ["x"]
-        assert out.loc[0, "dy/dx"] == pytest.approx(
-            2.0 + 4.0 * data["z"].mean()
-        )
+        assert out.loc[0, "dy/dx"] == pytest.approx(2.0 + 4.0 * data["z"].mean())
         assert out.loc[0, "se"] > 0
 
     def test_margins_at_uses_prediction_grid_and_delta_method(
@@ -189,16 +183,12 @@ class TestAdvancedPostEstimationMargins:
         grand = sp.contrast(result, data=data, variable="group", method="gw")
 
         assert set(ref["contrast_label"]) == {"1 vs 0", "2 vs 0"}
-        contrast_1_vs_0 = ref.loc[
-            ref["contrast_label"] == "1 vs 0", "contrast"
-        ].iloc[0]
+        contrast_1_vs_0 = ref.loc[ref["contrast_label"] == "1 vs 0", "contrast"].iloc[0]
         assert contrast_1_vs_0 == pytest.approx(0.5)
         assert set(adj["contrast_label"]) == {"1 vs 0", "2 vs 1"}
         assert len(grand) == 3
 
-    def test_pwcompare_adjusts_pvalues_and_intervals(
-        self, interaction_result_and_data
-    ):
+    def test_pwcompare_adjusts_pvalues_and_intervals(self, interaction_result_and_data):
         result, data = interaction_result_and_data
 
         out = sp.pwcompare(
@@ -219,9 +209,7 @@ class TestAdvancedPostEstimationMargins:
         assert (out["ci_lower"] < out["diff"]).all()
         assert (out["diff"] < out["ci_upper"]).all()
 
-    def test_pwcompare_rejects_unknown_adjustment(
-        self, interaction_result_and_data
-    ):
+    def test_pwcompare_rejects_unknown_adjustment(self, interaction_result_and_data):
         result, data = interaction_result_and_data
 
         with pytest.raises(ValueError, match="Unknown adjustment"):

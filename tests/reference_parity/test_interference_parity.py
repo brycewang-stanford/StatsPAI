@@ -94,6 +94,7 @@ References (bib keys grep-confirmed present in paper.bib)
   [@aronow2017estimating] — the exposure-mapping Horvitz-Thompson
   estimator ``sp.network_exposure`` implements.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -104,10 +105,9 @@ import pytest
 
 import statspai as sp
 
-
 # Hand-set structural parameters shared across the partial-interference DGPs.
 DIRECT = 1.5  # own-treatment (direct) effect
-SPILL = 2.0   # spillover coefficient on peer exposure
+SPILL = 2.0  # spillover coefficient on peer exposure
 
 # Hand-set parameters for the network (AS4) DGP.  The any-treated-neighbour
 # spillover term enters as a {0,1} indicator, so its contrast target is the
@@ -124,8 +124,8 @@ def _within_n_se(est, truth, se, n_sigma=4.0):
 # Partial-interference DGP builders (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
 
-def _make_partial_dgp(seed, n_clusters=250, c_size=6, spill=SPILL,
-                      correlated=False):
+
+def _make_partial_dgp(seed, n_clusters=250, c_size=6, spill=SPILL, correlated=False):
     """Cluster DGP with KNOWN direct effect + KNOWN spillover coef.
 
     ``exposure_i`` = share of the unit's OTHER cluster-mates that are
@@ -181,6 +181,7 @@ def _make_network_dgp(seed, n=300, p=0.3, direct=DIRECT_NET, spill=SPILL_NET):
 # Module fixtures.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def partial_data():
     return _make_partial_dgp(7)
@@ -201,13 +202,20 @@ def network_data():
 def _spillover(df, n_bootstrap=200, random_state=0):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return sp.spillover(df, y="y", treat="d", cluster="cl",
-                            n_bootstrap=n_bootstrap, random_state=random_state)
+        return sp.spillover(
+            df,
+            y="y",
+            treat="d",
+            cluster="cl",
+            n_bootstrap=n_bootstrap,
+            random_state=random_state,
+        )
 
 
 # ---------------------------------------------------------------------------
 # A. Decomposition additivity (closed-form internal identities).
 # ---------------------------------------------------------------------------
+
 
 class TestDecompositionAdditivity:
     """total == direct + spillover; AS4 contrasts obey the partition sum.
@@ -231,9 +239,9 @@ class TestDecompositionAdditivity:
             f"{recombined!r} (|diff|={abs(mi['total_effect'] - recombined):.2e})"
         )
         # The headline estimate IS the total effect (spillover.py:261).
-        assert abs(r.estimate - mi["total_effect"]) < self.TOL, (
-            f"estimate {r.estimate!r} != total {mi['total_effect']!r}"
-        )
+        assert (
+            abs(r.estimate - mi["total_effect"]) < self.TOL
+        ), f"estimate {r.estimate!r} != total {mi['total_effect']!r}"
         # The detail table must echo the same three scalars.
         det = r.detail.set_index("effect_type")["estimate"]
         assert abs(det["Direct"] - mi["direct_effect"]) < self.TOL
@@ -258,14 +266,14 @@ class TestDecompositionAdditivity:
         # And composite must equal the hand-computed HT-mean difference.
         m = res.estimates.set_index("exposure")["mean_Y(d)"]
         assert abs(composite - (m["c11"] - m["c00"])) < self.TOL, (
-            f"composite {composite!r} != mu(c11)-mu(c00) "
-            f"{m['c11'] - m['c00']!r}"
+            f"composite {composite!r} != mu(c11)-mu(c00) " f"{m['c11'] - m['c00']!r}"
         )
 
 
 # ---------------------------------------------------------------------------
 # B. Known-DGP recovery of DIRECT and SPILL.
 # ---------------------------------------------------------------------------
+
 
 class TestRecovery:
     """spillover recovers DIRECT; network_exposure recovers DIRECT_NET/SPILL_NET."""
@@ -277,8 +285,7 @@ class TestRecovery:
         # treatment is balanced across peer exposure.  Observed z ~0.5; a
         # +20% bias (1.8) lands ~3 SEs out and fails alongside anchor C.
         se = r.model_info["direct_se"]
-        assert _within_n_se(r.model_info["direct_effect"], DIRECT, se,
-                            n_sigma=4.0), (
+        assert _within_n_se(r.model_info["direct_effect"], DIRECT, se, n_sigma=4.0), (
             f"spillover direct {r.model_info['direct_effect']:.4f} "
             f"(SE {se:.4f}) misses DIRECT {DIRECT} by "
             f"{abs(r.model_info['direct_effect'] - DIRECT) / se:.1f} sigma."
@@ -297,8 +304,7 @@ class TestRecovery:
         ests = []
         for s in range(reps):
             df = _make_partial_dgp(1000 + s, n_clusters=200)
-            ests.append(_spillover(df, n_bootstrap=5).model_info[
-                "direct_effect"])
+            ests.append(_spillover(df, n_bootstrap=5).model_info["direct_effect"])
         ests = np.asarray(ests)
         mc_mean = float(ests.mean())
         band = 4.0 * float(ests.std(ddof=1)) / np.sqrt(reps)
@@ -324,9 +330,15 @@ class TestRecovery:
             Y, Z, A = _make_network_dgp(100 + s)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                res = sp.interference("network_exposure", Y=Y, Z=Z,
-                                      adjacency=A, p_treat=0.3, n_sim=800,
-                                      seed=0)
+                res = sp.interference(
+                    "network_exposure",
+                    Y=Y,
+                    Z=Z,
+                    adjacency=A,
+                    p_treat=0.3,
+                    n_sim=800,
+                    seed=0,
+                )
             c = res.contrasts.set_index("contrast")["estimate"]
             direct_e.append(c["direct (c10 - c00)"])
             spill_e.append(c["spillover (c01 - c00)"])
@@ -348,11 +360,11 @@ class TestRecovery:
 # C. Naive-bias contrast (SUTVA-ignoring diff-in-means is contaminated).
 # ---------------------------------------------------------------------------
 
+
 class TestNaiveBiasContrast:
     """Naive diff-in-means is biased by spillover; spillover de-confounds."""
 
-    def test_naive_biased_spillover_recovers_direct(self,
-                                                    correlated_partial_data):
+    def test_naive_biased_spillover_recovers_direct(self, correlated_partial_data):
         df = correlated_partial_data
         # SUTVA-ignoring difference-in-means + Welch SE — hand-rolled numpy,
         # no statspai internals.  Because D correlates with peer exposure,
@@ -361,8 +373,7 @@ class TestNaiveBiasContrast:
         d = df["d"].values
         y1, y0 = y[d == 1], y[d == 0]
         naive = float(y1.mean() - y0.mean())
-        se_naive = float(np.sqrt(y1.var(ddof=1) / len(y1)
-                                 + y0.var(ddof=1) / len(y0)))
+        se_naive = float(np.sqrt(y1.var(ddof=1) / len(y1) + y0.var(ddof=1) / len(y0)))
 
         # The naive estimator is provably contaminated: > 6 sigma above the
         # true direct effect (probed z ~8.7).  If this fails, the DGP lost
@@ -394,6 +405,7 @@ class TestNaiveBiasContrast:
 # ---------------------------------------------------------------------------
 # D. Null spillover -> ~0 spillover effect (and direct stays pinned).
 # ---------------------------------------------------------------------------
+
 
 class TestNullSpillover:
     """SPILL=0 zeroes the spillover effect; SPILL>0 makes it many SEs from 0."""
@@ -427,7 +439,15 @@ class TestNullSpillover:
         # The direct effect is INVARIANT to the spillover magnitude and
         # recovers DIRECT under BOTH regimes (probed 1.466 / 1.461).  This
         # rules out a spillover bug that merely leaks into the direct slot.
-        assert _within_n_se(r_null.model_info["direct_effect"], DIRECT,
-                            r_null.model_info["direct_se"], n_sigma=4.0)
-        assert _within_n_se(r_pos.model_info["direct_effect"], DIRECT,
-                            r_pos.model_info["direct_se"], n_sigma=4.0)
+        assert _within_n_se(
+            r_null.model_info["direct_effect"],
+            DIRECT,
+            r_null.model_info["direct_se"],
+            n_sigma=4.0,
+        )
+        assert _within_n_se(
+            r_pos.model_info["direct_effect"],
+            DIRECT,
+            r_pos.model_info["direct_se"],
+            n_sigma=4.0,
+        )

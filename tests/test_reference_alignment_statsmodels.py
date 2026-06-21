@@ -24,9 +24,9 @@ def reg_data():
     n = 500
     df = pd.DataFrame({"x1": rng.randn(n), "x2": rng.randn(n)})
     df["y"] = 1.0 + 2.0 * df["x1"] - 1.5 * df["x2"] + rng.randn(n)
-    df["d"] = (
-        rng.uniform(size=n) < 1.0 / (1.0 + np.exp(-(0.5 * df["x1"])))
-    ).astype(int)
+    df["d"] = (rng.uniform(size=n) < 1.0 / (1.0 + np.exp(-(0.5 * df["x1"])))).astype(
+        int
+    )
     df["count"] = rng.poisson(np.exp(0.3 + 0.4 * df["x1"]))
     return df
 
@@ -78,9 +78,7 @@ def test_iv_2sls_matches_linearmodels():
 
     sp_iv = sp.ivreg("y ~ (x ~ z)", df)
     df2 = df.assign(const=1.0)
-    lm = iv_mod.IV2SLS(
-        df2["y"], df2[["const"]], df2[["x"]], df2[["z"]]
-    ).fit(cov_type="unadjusted")
-    assert float(sp_iv.params["x"]) == pytest.approx(
-        float(lm.params["x"]), abs=1e-8
+    lm = iv_mod.IV2SLS(df2["y"], df2[["const"]], df2[["x"]], df2[["z"]]).fit(
+        cov_type="unadjusted"
     )
+    assert float(sp_iv.params["x"]) == pytest.approx(float(lm.params["x"]), abs=1e-8)

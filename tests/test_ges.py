@@ -1,4 +1,5 @@
 """GES tests."""
+
 import numpy as np, pandas as pd, pytest
 from statspai.causal_discovery.ges import ges
 
@@ -19,8 +20,7 @@ def test_ges_recovers_chain_skeleton():
 
 def test_ges_independent_vars_no_edges():
     rng = np.random.default_rng(1)
-    df = pd.DataFrame({"a": rng.standard_normal(300),
-                       "b": rng.standard_normal(300)})
+    df = pd.DataFrame({"a": rng.standard_normal(300), "b": rng.standard_normal(300)})
     res = ges(df)
     assert len(res.edges()) == 0
 
@@ -33,4 +33,5 @@ def test_ges_summary():
 
 def test_exported():
     import statspai as sp
+
     assert callable(sp.ges)

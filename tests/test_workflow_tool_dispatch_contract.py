@@ -68,9 +68,9 @@ def test_workflow_tool_spec_shape(spec):
     assert isinstance(spec.get("description"), str) and spec["description"]
     schema = spec.get("input_schema")
     assert isinstance(schema, dict), f"{spec['name']}: input_schema must be a dict"
-    assert schema.get("type") == "object", (
-        f"{spec['name']}: input_schema.type must be 'object'"
-    )
+    assert (
+        schema.get("type") == "object"
+    ), f"{spec['name']}: input_schema.type must be 'object'"
     # properties must be a dict when present; required ⊆ properties
     props = schema.get("properties")
     assert props is None or isinstance(props, dict)

@@ -14,6 +14,7 @@ test files (``test_ebalance.py``, ``test_overlap_and_cbps.py``,
 guard the dispatcher contract: alias coverage, kwarg forwarding,
 back-compat of the standalone APIs, and clear error paths.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -40,12 +41,11 @@ def match_data():
 # ─── Classical methods (back-compat) ────────────────────────────────────
 
 
-@pytest.mark.parametrize(
-    "method", ["nearest", "stratify", "cem", "psm", "mahalanobis"]
-)
+@pytest.mark.parametrize("method", ["nearest", "stratify", "cem", "psm", "mahalanobis"])
 def test_classical_methods(match_data, method):
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method=method)
+    r = sp.match(
+        match_data, y="y", treat="treat", covariates=["x1", "x2"], method=method
+    )
     assert r is not None
 
 
@@ -53,107 +53,185 @@ def test_classical_methods(match_data, method):
 
 
 def test_ebalance(match_data):
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="ebalance")
+    r = sp.match(
+        match_data, y="y", treat="treat", covariates=["x1", "x2"], method="ebalance"
+    )
     assert r is not None
 
 
 def test_cbps(match_data):
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="cbps", n_bootstrap=20)
+    r = sp.match(
+        match_data,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2"],
+        method="cbps",
+        n_bootstrap=20,
+    )
     assert r is not None
 
 
 def test_sbw(match_data):
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="sbw")
+    r = sp.match(
+        match_data, y="y", treat="treat", covariates=["x1", "x2"], method="sbw"
+    )
     assert r is not None
 
 
 def test_overlap_weights(match_data):
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="overlap",
-                 n_bootstrap=20)
+    r = sp.match(
+        match_data,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2"],
+        method="overlap",
+        n_bootstrap=20,
+    )
     assert r is not None
 
 
 def test_genmatch(match_data):
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="genmatch",
-                 population_size=20, generations=2)
+    r = sp.match(
+        match_data,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2"],
+        method="genmatch",
+        population_size=20,
+        generations=2,
+    )
     assert r is not None
 
 
 def test_optimal(match_data):
     """optimal_match's signature uses ``treatment``/``outcome`` —
     dispatcher must translate from canonical ``treat``/``y``."""
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="optimal")
+    r = sp.match(
+        match_data, y="y", treat="treat", covariates=["x1", "x2"], method="optimal"
+    )
     assert r is not None
 
 
 def test_cardinality(match_data):
-    r = sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="cardinality",
-                 smd_tolerance=0.2)
+    r = sp.match(
+        match_data,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2"],
+        method="cardinality",
+        smd_tolerance=0.2,
+    )
     assert r is not None
 
 
 # ─── Aliases ────────────────────────────────────────────────────────────
 
 
-@pytest.mark.parametrize("alias,canon", [
-    ("entropy", "ebalance"),
-    ("entropy_balancing", "ebalance"),
-    ("subclass", "stratify"),
-    ("subclassification", "stratify"),
-    ("coarsened_exact", "cem"),
-    ("ow", "overlap"),
-    ("overlap_weights", "overlap"),
-    ("stable_balancing", "sbw"),
-    ("genetic", "genmatch"),
-    ("optimal_match", "optimal"),
-    ("cardinality_match", "cardinality"),
-])
+@pytest.mark.parametrize(
+    "alias,canon",
+    [
+        ("entropy", "ebalance"),
+        ("entropy_balancing", "ebalance"),
+        ("subclass", "stratify"),
+        ("subclassification", "stratify"),
+        ("coarsened_exact", "cem"),
+        ("ow", "overlap"),
+        ("overlap_weights", "overlap"),
+        ("stable_balancing", "sbw"),
+        ("genetic", "genmatch"),
+        ("optimal_match", "optimal"),
+        ("cardinality_match", "cardinality"),
+    ],
+)
 def test_aliases_route_correctly(match_data, alias, canon):
     """``method=`` aliases should route to the same estimator type."""
     if canon == "overlap":
-        r1 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=alias, n_bootstrap=10)
-        r2 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=canon, n_bootstrap=10)
+        r1 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=alias,
+            n_bootstrap=10,
+        )
+        r2 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=canon,
+            n_bootstrap=10,
+        )
     elif canon == "cbps":
-        r1 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=alias, n_bootstrap=10)
-        r2 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=canon, n_bootstrap=10)
+        r1 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=alias,
+            n_bootstrap=10,
+        )
+        r2 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=canon,
+            n_bootstrap=10,
+        )
     elif canon == "genmatch":
-        r1 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=alias,
-                      population_size=10, generations=1)
-        r2 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=canon,
-                      population_size=10, generations=1)
+        r1 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=alias,
+            population_size=10,
+            generations=1,
+        )
+        r2 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=canon,
+            population_size=10,
+            generations=1,
+        )
     elif canon == "cardinality":
-        r1 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=alias,
-                      smd_tolerance=0.2)
-        r2 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=canon,
-                      smd_tolerance=0.2)
+        r1 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=alias,
+            smd_tolerance=0.2,
+        )
+        r2 = sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method=canon,
+            smd_tolerance=0.2,
+        )
     else:
-        r1 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=alias)
-        r2 = sp.match(match_data, y="y", treat="treat",
-                      covariates=["x1", "x2"], method=canon)
+        r1 = sp.match(
+            match_data, y="y", treat="treat", covariates=["x1", "x2"], method=alias
+        )
+        r2 = sp.match(
+            match_data, y="y", treat="treat", covariates=["x1", "x2"], method=canon
+        )
     assert type(r1).__name__ == type(r2).__name__
 
 
 def test_case_insensitive(match_data):
-    r1 = sp.match(match_data, y="y", treat="treat",
-                  covariates=["x1", "x2"], method="ebalance")
-    r2 = sp.match(match_data, y="y", treat="treat",
-                  covariates=["x1", "x2"], method="EBALANCE")
+    r1 = sp.match(
+        match_data, y="y", treat="treat", covariates=["x1", "x2"], method="ebalance"
+    )
+    r2 = sp.match(
+        match_data, y="y", treat="treat", covariates=["x1", "x2"], method="EBALANCE"
+    )
     assert type(r1).__name__ == type(r2).__name__
 
 
@@ -161,21 +239,26 @@ def test_case_insensitive(match_data):
 
 
 def test_standalone_ebalance_still_works(match_data):
-    r = sp.ebalance(match_data, y="y", treat="treat",
-                    covariates=["x1", "x2"])
+    r = sp.ebalance(match_data, y="y", treat="treat", covariates=["x1", "x2"])
     assert r is not None
 
 
 def test_standalone_cbps_still_works(match_data):
-    r = sp.cbps(match_data, y="y", treat="treat",
-                covariates=["x1", "x2"], n_bootstrap=20)
+    r = sp.cbps(
+        match_data, y="y", treat="treat", covariates=["x1", "x2"], n_bootstrap=20
+    )
     assert r is not None
 
 
 def test_standalone_genmatch_still_works(match_data):
-    r = sp.genmatch(match_data, y="y", treat="treat",
-                    covariates=["x1", "x2"],
-                    population_size=20, generations=2)
+    r = sp.genmatch(
+        match_data,
+        y="y",
+        treat="treat",
+        covariates=["x1", "x2"],
+        population_size=20,
+        generations=2,
+    )
     assert r is not None
     np.testing.assert_allclose(
         [r.att, r.att_se, r.n_treated, r.n_obs],
@@ -192,8 +275,9 @@ def test_standalone_genmatch_still_works(match_data):
 
 def test_standalone_optimal_match_still_works(match_data):
     """optimal_match used directly takes ``treatment``/``outcome``."""
-    r = sp.optimal_match(match_data, treatment="treat", outcome="y",
-                         covariates=["x1", "x2"])
+    r = sp.optimal_match(
+        match_data, treatment="treat", outcome="y", covariates=["x1", "x2"]
+    )
     assert r is not None
 
 
@@ -202,14 +286,18 @@ def test_standalone_optimal_match_still_works(match_data):
 
 def test_unknown_method_raises(match_data):
     with pytest.raises(ValueError, match="method must be"):
-        sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="not_a_method")
+        sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method="not_a_method",
+        )
 
 
 def test_non_string_method_raises(match_data):
     with pytest.raises(TypeError, match="method must be a string"):
-        sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method=42)
+        sp.match(match_data, y="y", treat="treat", covariates=["x1", "x2"], method=42)
 
 
 def test_missing_required_inputs_raise_taxonomy_error(match_data):
@@ -223,8 +311,14 @@ def test_classical_kwarg_blocked_on_advanced(match_data):
     methods.  Passing it to ``method='ebalance'`` should error
     rather than silently ignore — the agent contract is "fail
     loudly."""
-    with pytest.raises(TypeError,
-                       match="does not accept these classical-matching kwargs"):
-        sp.match(match_data, y="y", treat="treat",
-                 covariates=["x1", "x2"], method="ebalance",
-                 caliper=0.1)
+    with pytest.raises(
+        TypeError, match="does not accept these classical-matching kwargs"
+    ):
+        sp.match(
+            match_data,
+            y="y",
+            treat="treat",
+            covariates=["x1", "x2"],
+            method="ebalance",
+            caliper=0.1,
+        )

@@ -13,6 +13,7 @@ not of any estimator numerics (no numbers are fabricated as estimator
 output; the assertions check structural properties of the rendered
 tables only).
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -40,8 +41,9 @@ def _result(method, estimate, se, pvalue, ci, model_info):
 def _gap_mi(treatment_time=11, n_t=20, weights=None, **extra):
     """A model_info dict with reconstructable gap series + weights."""
     times = list(range(1, n_t + 1))
-    yt = np.array([1.0 + 0.2 * t + (4.0 if t >= treatment_time else 0.0)
-                   for t in times])
+    yt = np.array(
+        [1.0 + 0.2 * t + (4.0 if t >= treatment_time else 0.0) for t in times]
+    )
     ys = np.array([1.0 + 0.2 * t for t in times])
     mi = {
         "method": "custom",
@@ -84,9 +86,7 @@ def test_latex_weights_as_ndarray_with_donor_names():
 
 def test_latex_weights_dataframe_two_columns():
     mi = _gap_mi()
-    mi["donor_weights"] = pd.DataFrame(
-        {"unit": ["a", "b", "c"], "w": [0.7, 0.2, 0.1]}
-    )
+    mi["donor_weights"] = pd.DataFrame({"unit": ["a", "b", "c"], "w": [0.7, 0.2, 0.1]})
     r = _result("df_sc", 1.5, 0.6, 0.2, (0.0, 3.0), mi)
     out = sp.synth_to_latex(r, show_weights=True)
     # p>0.1 -> no stars on the estimate cell
@@ -95,8 +95,9 @@ def test_latex_weights_dataframe_two_columns():
 
 def test_stars_one_star_and_no_se():
     # p<0.1 single star + NaN SE branch (L259-260)
-    r = _result("sc", 3.0, float("nan"), 0.08, (np.nan, np.nan),
-                _gap_mi(weights={"d0": 1.0}))
+    r = _result(
+        "sc", 3.0, float("nan"), 0.08, (np.nan, np.nan), _gap_mi(weights={"d0": 1.0})
+    )
     out = sp.synth_to_latex(r, show_ci=True)
     assert "$^{*}$" in out
     # NaN SE row renders an em-dash; NaN CI also em-dash
@@ -107,18 +108,21 @@ def test_stars_one_star_and_no_se():
 # Comparison mode: some / all methods missing weights
 # ===========================================================================
 def test_latex_comparison_some_methods_lack_weights():
-    r_w = _result("classic", 4.0, 0.5, 0.01, (3.0, 5.0),
-                  _gap_mi(weights={"d0": 0.6, "d1": 0.4}))
-    r_now = _result("nodonors", 3.5, 0.6, 0.02, (2.3, 4.7),
-                    _gap_mi())  # no weights at all
+    r_w = _result(
+        "classic", 4.0, 0.5, 0.01, (3.0, 5.0), _gap_mi(weights={"d0": 0.6, "d1": 0.4})
+    )
+    r_now = _result(
+        "nodonors", 3.5, 0.6, 0.02, (2.3, 4.7), _gap_mi()
+    )  # no weights at all
     out = sp.synth_to_latex([r_w, r_now], show_weights=True, show_ci=True)
     assert "classic" in out and "nodonors" in out
     assert "Donor 1" in out  # per_method weights panel built (L488+)
 
 
 def test_markdown_comparison_method_without_weights():
-    r_w = _result("classic", 4.0, 0.5, 0.01, (3.0, 5.0),
-                  _gap_mi(weights={"d0": 0.7, "d1": 0.3}))
+    r_w = _result(
+        "classic", 4.0, 0.5, 0.01, (3.0, 5.0), _gap_mi(weights={"d0": 0.7, "d1": 0.3})
+    )
     r_now = _result("nodonors", 3.5, 0.6, 0.02, (2.3, 4.7), _gap_mi())
     out = sp.synth_to_markdown([r_w, r_now], show_weights=True)
     assert "weights not exposed by this method" in out  # L630
@@ -136,8 +140,9 @@ def test_markdown_comparison_nan_ci_and_fit():
 # Excel export: weights present, weights absent (all-missing pivot)
 # ===========================================================================
 def test_excel_with_weights(tmp_path):
-    r = _result("classic", 4.0, 0.5, 0.01, (3.0, 5.0),
-                _gap_mi(weights={"d0": 0.6, "d1": 0.4}))
+    r = _result(
+        "classic", 4.0, 0.5, 0.01, (3.0, 5.0), _gap_mi(weights={"d0": 0.6, "d1": 0.4})
+    )
     path = tmp_path / "synth_weights.xlsx"
     out = sp.synth_to_excel(r, str(path))
     assert path.exists()
@@ -219,8 +224,7 @@ def test_latex_pre_rmspe_nan():
 
 
 def test_excel_gap_none_skipped(tmp_path):
-    mi = {"method": "nogap", "n_donors": 4,
-          "donor_weights": {"d0": 1.0}}
+    mi = {"method": "nogap", "n_donors": 4, "donor_weights": {"d0": 1.0}}
     r = _result("nogap", 2.0, 0.5, 0.04, (1.0, 3.0), mi)
     path = tmp_path / "nogap.xlsx"
     out = sp.synth_to_excel(r, str(path))
@@ -240,10 +244,13 @@ def test_method_names_length_mismatch_raises():
 
 def test_synth_comparison_input_path():
     from statspai.synth.compare import SynthComparison
-    r1 = _result("m1", 4.0, 0.5, 0.01, (3.0, 5.0),
-                 _gap_mi(weights={"d0": 0.6, "d1": 0.4}))
-    r2 = _result("m2", 3.5, 0.6, 0.02, (2.3, 4.7),
-                 _gap_mi(weights={"d0": 0.5, "d1": 0.5}))
+
+    r1 = _result(
+        "m1", 4.0, 0.5, 0.01, (3.0, 5.0), _gap_mi(weights={"d0": 0.6, "d1": 0.4})
+    )
+    r2 = _result(
+        "m2", 3.5, 0.6, 0.02, (2.3, 4.7), _gap_mi(weights={"d0": 0.5, "d1": 0.5})
+    )
     comp = SynthComparison(
         results={"m1": r1, "m2": r2},
         comparison_table=pd.DataFrame(

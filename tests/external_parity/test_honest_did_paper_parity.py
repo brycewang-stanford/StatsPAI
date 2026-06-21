@@ -29,10 +29,10 @@ from scipy import stats
 import statspai as sp
 from statspai.core.results import CausalResult
 
-
 # ---------------------------------------------------------------------------
 # Helper: build a minimal CausalResult whose event study we control.
 # ---------------------------------------------------------------------------
+
 
 def _event_study_result(
     relative_times: list,
@@ -47,11 +47,13 @@ def _event_study_result(
         "_event_study_result expects a relative_time=0 row; other layouts "
         "would make the headline-estimate fallback silently pick the wrong row."
     )
-    es = pd.DataFrame({
-        "relative_time": relative_times,
-        "att": atts,
-        "se": ses,
-    })
+    es = pd.DataFrame(
+        {
+            "relative_time": relative_times,
+            "att": atts,
+            "se": ses,
+        }
+    )
     # Pick the relative_time=0 row as the headline estimate.  Fallback to
     # index 0 only if the assertion above is bypassed by a subclass;
     # kept for defence in depth.
@@ -62,8 +64,7 @@ def _event_study_result(
         estimate=float(atts[idx]),
         se=float(ses[idx]),
         pvalue=0.0,
-        ci=(float(atts[idx] - 1.96 * ses[idx]),
-            float(atts[idx] + 1.96 * ses[idx])),
+        ci=(float(atts[idx] - 1.96 * ses[idx]), float(atts[idx] + 1.96 * ses[idx])),
         alpha=0.05,
         n_obs=1000,
         model_info={"event_study": es},
@@ -74,13 +75,17 @@ def _event_study_result(
 # Pin breakdown_m to the paper's closed form at several points.
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("theta, se, e", [
-    (0.50, 0.10, 0),
-    (0.30, 0.05, 1),
-    (0.80, 0.20, 2),
-    (0.15, 0.03, 0),
-    (1.20, 0.25, 3),
-])
+
+@pytest.mark.parametrize(
+    "theta, se, e",
+    [
+        (0.50, 0.10, 0),
+        (0.30, 0.05, 1),
+        (0.80, 0.20, 2),
+        (0.15, 0.03, 0),
+        (1.20, 0.25, 3),
+    ],
+)
 def test_breakdown_m_matches_closed_form(theta, se, e):
     """M* = (|θ̂| - z_{0.025} · SE) / n_drift where n_drift = max(e+1, 1)."""
     # Construct an event study with a single positive-relative-time row.
@@ -132,15 +137,24 @@ def test_breakdown_m_missing_relative_time_raises():
 # End-to-end smoke: breakdown_m on a real CS DID result.
 # ---------------------------------------------------------------------------
 
+
 def test_breakdown_m_on_callaway_santanna_runs():
     """End-to-end: `sp.breakdown_m` must work on a genuine
     `callaway_santanna` result (not just hand-crafted ones)."""
     df = sp.dgp_did(
-        n_units=80, n_periods=8, staggered=True, n_groups=3,
-        effect=0.5, seed=2026,
+        n_units=80,
+        n_periods=8,
+        staggered=True,
+        n_groups=3,
+        effect=0.5,
+        seed=2026,
     )
     r = sp.callaway_santanna(
-        data=df, y="y", g="first_treat", t="time", i="unit",
+        data=df,
+        y="y",
+        g="first_treat",
+        t="time",
+        i="unit",
     )
     # Aggregate to a dynamic event study before Honest DiD (per the
     # module's polymorphic _extract_event_study contract).

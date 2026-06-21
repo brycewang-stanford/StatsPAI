@@ -5,12 +5,12 @@ joins (py, R, Stata) JSONs by statistic name (with the (Intercept) /
 Intercept normalisation), reports worst relative diff, and is a stand-
 in until compare.py is extended for 3-way output.
 """
+
 from __future__ import annotations
 
 import json
 import sys
 from pathlib import Path
-
 
 HERE = Path(__file__).resolve().parent
 PY_DIR = HERE.parent / "r_parity" / "results"
@@ -85,19 +85,29 @@ def compare(module: str) -> None:
         rows_out.append((k, pe, re_e, sve, rel_pr, rel_ps, rel_rs))
 
     print(f"\n=== {module} ===")
-    print(f"{'statistic':<32} {'py':>14} {'R':>14} {'Stata':>14}  rel(py-R)  rel(py-S)  rel(R-S)")
+    print(
+        f"{'statistic':<32} {'py':>14} {'R':>14} {'Stata':>14}  rel(py-R)  rel(py-S)  rel(R-S)"
+    )
     for k, p, r_, s, rel_pr, rel_ps, rel_rs in rows_out:
+
         def fmt(x):
             return "—" if x is None else f"{x:>14.10f}"
+
         def rel(x):
             return "—" if x is None else f"{x:.2e}"
-        print(f"{k:<32} {fmt(p)} {fmt(r_)} {fmt(s)}  {rel(rel_pr):>9}  {rel(rel_ps):>9}  {rel(rel_rs):>9}")
-    print(f"  worst rel est: py-R={worst_pr:.2e}  py-Stata={worst_ps:.2e}  R-Stata={worst_rs:.2e}")
+
+        print(
+            f"{k:<32} {fmt(p)} {fmt(r_)} {fmt(s)}  {rel(rel_pr):>9}  {rel(rel_ps):>9}  {rel(rel_rs):>9}"
+        )
+    print(
+        f"  worst rel est: py-R={worst_pr:.2e}  py-Stata={worst_ps:.2e}  R-Stata={worst_rs:.2e}"
+    )
     print(f"  worst rel se:  py-R={worst_pr_se:.2e}  py-Stata={worst_ps_se:.2e}")
 
 
 if __name__ == "__main__":
-    targets = sys.argv[1:] or [p.name.replace("_Stata.json", "")
-                                for p in sorted(ST_DIR.glob("*_Stata.json"))]
+    targets = sys.argv[1:] or [
+        p.name.replace("_Stata.json", "") for p in sorted(ST_DIR.glob("*_Stata.json"))
+    ]
     for m in targets:
         compare(m)

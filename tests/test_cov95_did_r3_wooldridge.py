@@ -56,8 +56,9 @@ def twobytwo():
 # wooldridge_did core
 # ----------------------------------------------------------------------
 def test_wooldridge_basic(panel):
-    r = sp.wooldridge_did(panel, y="y", group="unit", time="time",
-                          first_treat="first_treat")
+    r = sp.wooldridge_did(
+        panel, y="y", group="unit", time="time", first_treat="first_treat"
+    )
     assert np.isfinite(r.estimate)
     assert 0.0 <= r.pvalue <= 1.0
     assert isinstance(r.detail, pd.DataFrame)
@@ -70,9 +71,15 @@ def test_wooldridge_basic(panel):
 
 
 def test_wooldridge_with_controls_and_cluster(panel):
-    r = sp.wooldridge_did(panel, y="y", group="unit", time="time",
-                          first_treat="first_treat",
-                          controls=["xcov"], cluster="cl")
+    r = sp.wooldridge_did(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        controls=["xcov"],
+        cluster="cl",
+    )
     assert np.isfinite(r.estimate)
     assert r.model_info["controls"] == ["xcov"]
 
@@ -82,39 +89,58 @@ def test_wooldridge_no_cohorts_raises():
     df = df.copy()
     df["first_treat"] = np.nan  # all never-treated
     with pytest.raises(ValueError, match="No treated cohorts"):
-        sp.wooldridge_did(df, y="y", group="unit", time="time",
-                          first_treat="first_treat")
+        sp.wooldridge_did(
+            df, y="y", group="unit", time="time", first_treat="first_treat"
+        )
 
 
 # ----------------------------------------------------------------------
 # etwfe dispatcher
 # ----------------------------------------------------------------------
 def test_etwfe_alias_matches_wooldridge(panel):
-    a = sp.etwfe(panel, y="y", group="unit", time="time",
-                 first_treat="first_treat")
-    b = sp.wooldridge_did(panel, y="y", group="unit", time="time",
-                          first_treat="first_treat")
+    a = sp.etwfe(panel, y="y", group="unit", time="time", first_treat="first_treat")
+    b = sp.wooldridge_did(
+        panel, y="y", group="unit", time="time", first_treat="first_treat"
+    )
     assert a.estimate == pytest.approx(b.estimate, rel=1e-9)
 
 
 def test_etwfe_bad_cgroup_raises(panel):
     with pytest.raises(ValueError, match="cgroup must be"):
-        sp.etwfe(panel, y="y", group="unit", time="time",
-                 first_treat="first_treat", cgroup="bogus")
+        sp.etwfe(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            cgroup="bogus",
+        )
 
 
 def test_etwfe_xvar_missing_column_raises(panel):
     with pytest.raises(KeyError, match="not found"):
-        sp.etwfe(panel, y="y", group="unit", time="time",
-                 first_treat="first_treat", xvar="nope")
+        sp.etwfe(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            xvar="nope",
+        )
 
 
 def test_etwfe_xvar_constant_raises(panel):
     df = panel.copy()
     df["constx"] = 3.0
     with pytest.raises(ValueError, match="constant"):
-        sp.etwfe(df, y="y", group="unit", time="time",
-                 first_treat="first_treat", xvar="constx")
+        sp.etwfe(
+            df,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            xvar="constx",
+        )
 
 
 def test_etwfe_xvar_too_few_rows_raises(panel):
@@ -122,53 +148,96 @@ def test_etwfe_xvar_too_few_rows_raises(panel):
     df["sparsex"] = np.nan
     df.loc[df.index[0], "sparsex"] = 1.0  # only 1 non-NaN
     with pytest.raises(ValueError, match="fewer than 2"):
-        sp.etwfe(df, y="y", group="unit", time="time",
-                 first_treat="first_treat", xvar="sparsex")
+        sp.etwfe(
+            df,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            xvar="sparsex",
+        )
 
 
 def test_etwfe_panel_false_nevertreated_not_implemented(panel):
     with pytest.raises(NotImplementedError):
-        sp.etwfe(panel, y="y", group="unit", time="time",
-                 first_treat="first_treat", panel=False,
-                 cgroup="nevertreated")
+        sp.etwfe(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            panel=False,
+            cgroup="nevertreated",
+        )
 
 
 def test_etwfe_xvar_single_and_multi(panel):
-    r1 = sp.etwfe(panel, y="y", group="unit", time="time",
-                  first_treat="first_treat", xvar="xcov")
+    r1 = sp.etwfe(
+        panel, y="y", group="unit", time="time", first_treat="first_treat", xvar="xcov"
+    )
     assert np.isfinite(r1.estimate)
     assert "att_at_xmean" in r1.detail.columns or "att" in r1.detail.columns
-    r2 = sp.etwfe(panel, y="y", group="unit", time="time",
-                  first_treat="first_treat", xvar=["xcov", "xcov2"])
+    r2 = sp.etwfe(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        xvar=["xcov", "xcov2"],
+    )
     assert np.isfinite(r2.estimate)
 
 
 def test_etwfe_nevertreated_cgroup(panel):
-    r = sp.etwfe(panel, y="y", group="unit", time="time",
-                 first_treat="first_treat", cgroup="nevertreated")
+    r = sp.etwfe(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        cgroup="nevertreated",
+    )
     assert r.model_info["cgroup"] == "nevertreated"
     assert np.isfinite(r.estimate)
     assert 0.0 <= r.pvalue <= 1.0
 
 
 def test_etwfe_nevertreated_with_xvar(panel):
-    r = sp.etwfe(panel, y="y", group="unit", time="time",
-                 first_treat="first_treat", cgroup="nevertreated",
-                 xvar="xcov")
+    r = sp.etwfe(
+        panel,
+        y="y",
+        group="unit",
+        time="time",
+        first_treat="first_treat",
+        cgroup="nevertreated",
+        xvar="xcov",
+    )
     assert np.isfinite(r.estimate)
 
 
 def test_etwfe_nevertreated_no_never_units_raises(panel_no_never):
     with pytest.raises(ValueError, match="never-treated"):
-        sp.etwfe(panel_no_never, y="y", group="unit", time="time",
-                 first_treat="first_treat", cgroup="nevertreated")
+        sp.etwfe(
+            panel_no_never,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            cgroup="nevertreated",
+        )
 
 
 def test_etwfe_repeated_cross_section(panel):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.etwfe(panel, y="y", group="unit", time="time",
-                     first_treat="first_treat", panel=False)
+        r = sp.etwfe(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            panel=False,
+        )
     assert r.model_info["panel"] is False
     assert np.isfinite(r.estimate)
     assert isinstance(r.detail, pd.DataFrame)
@@ -177,9 +246,16 @@ def test_etwfe_repeated_cross_section(panel):
 def test_etwfe_repeated_cs_with_xvar_and_controls(panel):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.etwfe(panel, y="y", group="unit", time="time",
-                     first_treat="first_treat", panel=False,
-                     xvar="xcov", controls=["xcov2"])
+        r = sp.etwfe(
+            panel,
+            y="y",
+            group="unit",
+            time="time",
+            first_treat="first_treat",
+            panel=False,
+            xvar="xcov",
+            controls=["xcov2"],
+        )
     assert np.isfinite(r.estimate)
     # with xvar, event_study is suppressed
     assert r.model_info["event_study"] is None
@@ -190,16 +266,25 @@ def test_etwfe_repeated_cs_no_cohorts_raises():
     df = df.copy()
     df["first_treat"] = np.nan
     with pytest.raises(ValueError, match="No treated cohorts"):
-        sp.etwfe(df, y="y", group="unit", time="time",
-                 first_treat="first_treat", panel=False)
+        sp.etwfe(
+            df, y="y", group="unit", time="time", first_treat="first_treat", panel=False
+        )
 
 
 # ----------------------------------------------------------------------
 # drdid
 # ----------------------------------------------------------------------
 def test_drdid_improved_recovers_effect(twobytwo):
-    r = sp.drdid(twobytwo, y="y", group="treated", time="post",
-                 covariates=["x"], method="imp", n_boot=80, random_state=1)
+    r = sp.drdid(
+        twobytwo,
+        y="y",
+        group="treated",
+        time="post",
+        covariates=["x"],
+        method="imp",
+        n_boot=80,
+        random_state=1,
+    )
     assert abs(r.estimate - 4.0) < 1.0
     assert 0.0 <= r.pvalue <= 1.0
     assert r.model_info["method"] == "improved"
@@ -239,23 +324,31 @@ def test_drdid_panel_id_uses_influence_function_se():
 
 
 def test_drdid_traditional_recovers_effect(twobytwo):
-    r = sp.drdid(twobytwo, y="y", group="treated", time="post",
-                 covariates=["x"], method="trad", n_boot=80, seed=2)
+    r = sp.drdid(
+        twobytwo,
+        y="y",
+        group="treated",
+        time="post",
+        covariates=["x"],
+        method="trad",
+        n_boot=80,
+        seed=2,
+    )
     assert abs(r.estimate - 4.0) < 1.0
     assert r.model_info["method"] == "traditional"
 
 
 def test_drdid_no_covariates(twobytwo):
-    r = sp.drdid(twobytwo, y="y", group="treated", time="post",
-                 n_boot=40, random_state=3)
+    r = sp.drdid(
+        twobytwo, y="y", group="treated", time="post", n_boot=40, random_state=3
+    )
     assert np.isfinite(r.estimate)
     assert r.model_info["covariates"] == []
 
 
 def test_drdid_bad_method_raises(twobytwo):
     with pytest.raises(ValueError, match="method must be"):
-        sp.drdid(twobytwo, y="y", group="treated", time="post",
-                 method="xyz", n_boot=10)
+        sp.drdid(twobytwo, y="y", group="treated", time="post", method="xyz", n_boot=10)
 
 
 def test_drdid_nonbinary_group_raises(twobytwo):
@@ -284,8 +377,15 @@ def test_drdid_simple_fallback_path(twobytwo):
     keep = df[df["treated"] == 1].copy()
     ctrl = df[df["treated"] == 0].head(8).copy()
     small = pd.concat([keep, ctrl], ignore_index=True)
-    r = sp.drdid(small, y="y", group="treated", time="post",
-                 covariates=covs, n_boot=20, random_state=5)
+    r = sp.drdid(
+        small,
+        y="y",
+        group="treated",
+        time="post",
+        covariates=covs,
+        n_boot=20,
+        random_state=5,
+    )
     assert np.isfinite(r.estimate) or np.isnan(r.estimate)
 
 
@@ -293,11 +393,18 @@ def test_drdid_simple_fallback_path(twobytwo):
 # twfe_decomposition
 # ----------------------------------------------------------------------
 def test_twfe_decomposition_structure(panel):
-    r = sp.twfe_decomposition(panel, y="y", group="unit", time="time",
-                              first_treat="first_treat")
+    r = sp.twfe_decomposition(
+        panel, y="y", group="unit", time="time", first_treat="first_treat"
+    )
     assert np.isfinite(r.estimate)
-    assert {"type", "treated_cohort", "control_cohort", "estimate",
-            "weight", "weighted_est"} <= set(r.detail.columns)
+    assert {
+        "type",
+        "treated_cohort",
+        "control_cohort",
+        "estimate",
+        "weight",
+        "weighted_est",
+    } <= set(r.detail.columns)
     mi = r.model_info
     assert "twfe_beta" in mi and "bacon_att" in mi
     assert mi["has_never_treated"] is True
@@ -311,8 +418,9 @@ def test_twfe_decomposition_structure(panel):
 
 
 def test_twfe_decomposition_no_never(panel_no_never):
-    r = sp.twfe_decomposition(panel_no_never, y="y", group="unit",
-                              time="time", first_treat="first_treat")
+    r = sp.twfe_decomposition(
+        panel_no_never, y="y", group="unit", time="time", first_treat="first_treat"
+    )
     assert r.model_info["has_never_treated"] is False
     assert "Treated vs Never" not in set(r.detail["type"])
 
@@ -322,8 +430,7 @@ def test_twfe_decomposition_no_never(panel_no_never):
 # ----------------------------------------------------------------------
 @pytest.fixture(scope="module")
 def fit(panel):
-    return sp.etwfe(panel, y="y", group="unit", time="time",
-                    first_treat="first_treat")
+    return sp.etwfe(panel, y="y", group="unit", time="time", first_treat="first_treat")
 
 
 def test_emfx_simple(fit):
@@ -376,16 +483,18 @@ def test_emfx_bad_weighting_raises(fit):
 
 
 def test_emfx_requires_etwfe_result(twobytwo):
-    bad = sp.drdid(twobytwo, y="y", group="treated", time="post",
-                   n_boot=10, random_state=1)
+    bad = sp.drdid(
+        twobytwo, y="y", group="treated", time="post", n_boot=10, random_state=1
+    )
     with pytest.raises(ValueError, match="cohorts"):
         sp.etwfe_emfx(bad, type="simple")
 
 
 def test_emfx_xvar_group_and_simple(panel):
     # An xvar fit exposes the 'att_at_xmean' detail column path in emfx.
-    fit_x = sp.etwfe(panel, y="y", group="unit", time="time",
-                     first_treat="first_treat", xvar="xcov")
+    fit_x = sp.etwfe(
+        panel, y="y", group="unit", time="time", first_treat="first_treat", xvar="xcov"
+    )
     g = sp.etwfe_emfx(fit_x, type="group", weighting="cohort")
     assert g.detail.shape[0] == fit_x.model_info["n_cohorts"]
     s = sp.etwfe_emfx(fit_x, type="simple", weighting="treated")
@@ -401,7 +510,8 @@ def test_emfx_simple_treated_uses_event_cell_vcov(fit):
 
 def test_emfx_event_xvar_no_event_study(panel):
     # An xvar fit suppresses event_study, so event/calendar must raise.
-    fit_x = sp.etwfe(panel, y="y", group="unit", time="time",
-                     first_treat="first_treat", xvar="xcov")
+    fit_x = sp.etwfe(
+        panel, y="y", group="unit", time="time", first_treat="first_treat", xvar="xcov"
+    )
     with pytest.raises(ValueError, match="event_study"):
         sp.etwfe_emfx(fit_x, type="event")

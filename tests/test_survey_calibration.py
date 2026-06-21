@@ -1,4 +1,5 @@
 """Survey calibration (raking / linear) tests."""
+
 import numpy as np, pandas as pd, pytest
 from statspai.survey.calibration import rake, linear_calibration
 
@@ -41,5 +42,6 @@ def test_linear_calibration_hits_total(survey_data):
 
 def test_exported():
     import statspai as sp
+
     assert callable(sp.rake)
     assert callable(sp.linear_calibration)

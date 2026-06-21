@@ -13,6 +13,7 @@ module-13 causal-forest parity row; the cross-language agreement with
 ``grf`` itself is checked in ``test_grf_parity.py`` against a committed
 grf fixture, and re-verified live in ``tests/r_parity/13_causal_forest``.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -20,7 +21,6 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-
 
 SEED = 42
 N = 4000
@@ -30,9 +30,9 @@ K = 5
 def _clean_overlap_dgp(seed: int = SEED, n: int = N):
     rng = np.random.default_rng(seed)
     X = rng.normal(size=(n, K))
-    e = 0.5 + 0.2 * np.tanh(X[:, 0])        # propensity in [0.30, 0.70]
+    e = 0.5 + 0.2 * np.tanh(X[:, 0])  # propensity in [0.30, 0.70]
     T = (rng.uniform(size=n) < e).astype(int)
-    tau = 1.0 + 0.5 * X[:, 1]               # heterogeneous CATE, E[tau] = 1
+    tau = 1.0 + 0.5 * X[:, 1]  # heterogeneous CATE, E[tau] = 1
     Y = X[:, 0] + 0.5 * X[:, 2] + tau * T + rng.normal(scale=1.0, size=n)
     return X, T, Y, float(tau.mean()), float(tau[T == 1].mean())
 
@@ -41,7 +41,11 @@ def _clean_overlap_dgp(seed: int = SEED, n: int = N):
 def fitted():
     X, T, Y, true_ate, true_att = _clean_overlap_dgp()
     cf = sp.causal_forest(
-        Y=Y, T=T, X=X, n_estimators=2000, random_state=SEED,
+        Y=Y,
+        T=T,
+        X=X,
+        n_estimators=2000,
+        random_state=SEED,
         discrete_treatment=True,
     )
     return cf, true_ate, true_att
@@ -94,7 +98,11 @@ def test_clean_overlap_aipw_is_stable_across_seeds(seed):
     """
     X, T, Y, true_ate, true_att = _clean_overlap_dgp(seed=seed, n=2500)
     cf = sp.causal_forest(
-        Y=Y, T=T, X=X, n_estimators=800, random_state=seed,
+        Y=Y,
+        T=T,
+        X=X,
+        n_estimators=800,
+        random_state=seed,
         discrete_treatment=True,
     )
     for target_sample, truth in (("all", true_ate), ("treated", true_att)):

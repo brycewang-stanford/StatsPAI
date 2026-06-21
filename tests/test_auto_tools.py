@@ -29,7 +29,6 @@ from statspai.agent.auto_tools import (
     merged_tool_manifest,
 )
 
-
 # ======================================================================
 #  _is_agent_safe
 # ======================================================================
@@ -114,7 +113,7 @@ def test_enrich_with_alternatives():
 def test_enrich_truncation():
     """Overly long descriptions are truncated to MAX_DESCRIPTION_LEN."""
     base = "x" * 1100
-    card = {"assumptions": [("y" * 200)]}
+    card = {"assumptions": ["y" * 200]}
     desc = _enrich_description(base, card)
     assert len(desc) <= 1200
 
@@ -228,8 +227,10 @@ def _make_registry_entry(name: str, category: str, tags: Optional[List[str]] = N
 class TestAutoToolManifest:
     def test_empty_registry(self):
         """Empty registry → empty manifest."""
-        with patch("statspai.registry._REGISTRY", {}), \
-             patch("statspai.registry._ensure_full_registry") as mock_ensure:
+        with (
+            patch("statspai.registry._REGISTRY", {}),
+            patch("statspai.registry._ensure_full_registry") as mock_ensure,
+        ):
             result = auto_tool_manifest(max_tools=500, warn_on_truncate=False)
             assert result == []
 
@@ -238,8 +239,10 @@ class TestAutoToolManifest:
         registry = {
             "sp_did": _make_registry_entry("sp_did", "causal"),
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = auto_tool_manifest(max_tools=500, warn_on_truncate=False)
             assert len(result) == 1
             assert result[0]["name"] == "sp_did"
@@ -250,8 +253,10 @@ class TestAutoToolManifest:
             "causal_fn": _make_registry_entry("causal_fn", "causal"),
             "plot_fn": _make_registry_entry("plot_fn", "plots"),
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = auto_tool_manifest(max_tools=500, warn_on_truncate=False)
             names = [t["name"] for t in result]
             assert "causal_fn" in names
@@ -263,8 +268,10 @@ class TestAutoToolManifest:
             "deepiv": _make_registry_entry("deepiv", "causal"),
             "did": _make_registry_entry("did", "causal"),
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = auto_tool_manifest(max_tools=500, warn_on_truncate=False)
             names = [t["name"] for t in result]
             assert "did" in names
@@ -276,8 +283,10 @@ class TestAutoToolManifest:
             "z_fn": _make_registry_entry("z_fn", "causal"),
             "a_fn": _make_registry_entry("a_fn", "causal"),
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = auto_tool_manifest(max_tools=500, warn_on_truncate=False)
             assert result[0]["name"] == "a_fn"
             assert result[1]["name"] == "z_fn"
@@ -288,8 +297,10 @@ class TestAutoToolManifest:
             f"fn_{i:03d}": _make_registry_entry(f"fn_{i:03d}", "causal")
             for i in range(20)
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             with pytest.warns(RuntimeWarning, match="truncated"):
                 result = auto_tool_manifest(max_tools=5, warn_on_truncate=True)
             assert len(result) == 5
@@ -311,8 +322,10 @@ class TestMergedToolManifest:
         registry = {
             "auto_fn": _make_registry_entry("auto_fn", "causal"),
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = merged_tool_manifest(hand)
             assert len(result) == 3
             assert result[0]["name"] == "a_hand"
@@ -327,8 +340,10 @@ class TestMergedToolManifest:
         registry = {
             "did": _make_registry_entry("did", "causal"),
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = merged_tool_manifest(hand)
             assert len(result) == 1
             assert result[0]["description"] == "Hand-curated DID"
@@ -339,8 +354,10 @@ class TestMergedToolManifest:
             {"name": "fn", "description": "First", "input_schema": {}},
             {"name": "fn", "description": "Dup", "input_schema": {}},
         ]
-        with patch("statspai.registry._REGISTRY", {}), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", {}),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = merged_tool_manifest(hand)
             assert len(result) == 1
             assert result[0]["description"] == "First"
@@ -350,8 +367,10 @@ class TestMergedToolManifest:
         registry = {
             "fn": _make_registry_entry("fn", "causal"),
         }
-        with patch("statspai.registry._REGISTRY", registry), \
-             patch("statspai.registry._ensure_full_registry"):
+        with (
+            patch("statspai.registry._REGISTRY", registry),
+            patch("statspai.registry._ensure_full_registry"),
+        ):
             result = merged_tool_manifest([])
             assert len(result) == 1
 

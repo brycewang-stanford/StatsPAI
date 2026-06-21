@@ -31,7 +31,9 @@ def weak_iv_dgp():
 
 class TestAndersonRubinCI:
     def test_strong_id_covers_truth(self, strong_iv_dgp):
-        ci = iv.anderson_rubin_ci(y="y", endog="d", instruments=["z"], data=strong_iv_dgp)
+        ci = iv.anderson_rubin_ci(
+            y="y", endog="d", instruments=["z"], data=strong_iv_dgp
+        )
         assert not ci.is_empty
         assert ci.is_connected
         assert ci.lower <= 2.0 <= ci.upper
@@ -39,7 +41,9 @@ class TestAndersonRubinCI:
         assert ci.upper - ci.lower < 0.3
 
     def test_weak_id_can_be_disconnected_or_unbounded(self, weak_iv_dgp):
-        ci = iv.anderson_rubin_ci(y="y", endog="d", instruments=["z"], data=weak_iv_dgp, n_grid=801)
+        ci = iv.anderson_rubin_ci(
+            y="y", endog="d", instruments=["z"], data=weak_iv_dgp, n_grid=801
+        )
         # At least SOMETHING funny should happen: wide, disconnected, or unbounded
         wide = (ci.upper - ci.lower) > 5
         assert wide or (not ci.is_connected) or ci.is_unbounded
@@ -48,14 +52,21 @@ class TestAndersonRubinCI:
         # Force an out-of-support grid → empty set
         grid = np.linspace(50, 60, 51)
         ci = iv.anderson_rubin_ci(
-            y="y", endog="d", instruments=["z"], data=strong_iv_dgp,
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=strong_iv_dgp,
             beta_grid=grid,
         )
         assert ci.is_empty
 
     def test_as_intervals(self, weak_iv_dgp):
         ci = iv.anderson_rubin_ci(
-            y="y", endog="d", instruments=["z"], data=weak_iv_dgp, n_grid=801,
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=weak_iv_dgp,
+            n_grid=801,
         )
         intervals = ci.as_intervals()
         if not ci.is_connected:
@@ -65,16 +76,26 @@ class TestAndersonRubinCI:
 class TestConditionalLRCI:
     def test_strong_id_covers_truth(self, strong_iv_dgp):
         ci = iv.conditional_lr_ci(
-            y="y", endog="d", instruments=["z"], data=strong_iv_dgp, random_state=0,
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=strong_iv_dgp,
+            random_state=0,
         )
         assert not ci.is_empty
         assert ci.lower <= 2.0 <= ci.upper
 
     def test_clr_tighter_than_ar_under_strong_id(self, strong_iv_dgp):
         # CLR is UMPI; should be at least as tight as AR when identification is strong
-        ar = iv.anderson_rubin_ci(y="y", endog="d", instruments=["z"], data=strong_iv_dgp)
+        ar = iv.anderson_rubin_ci(
+            y="y", endog="d", instruments=["z"], data=strong_iv_dgp
+        )
         clr = iv.conditional_lr_ci(
-            y="y", endog="d", instruments=["z"], data=strong_iv_dgp, random_state=0,
+            y="y",
+            endog="d",
+            instruments=["z"],
+            data=strong_iv_dgp,
+            random_state=0,
             n_grid=401,  # match AR resolution
         )
         ar_width = ar.upper - ar.lower

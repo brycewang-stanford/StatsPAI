@@ -35,8 +35,12 @@ def _matches(spec_default, sig_default) -> bool:
     a, b = _norm(spec_default), _norm(sig_default)
     if a == b:
         return True
-    if isinstance(a, (int, float)) and isinstance(b, (int, float)) \
-            and not isinstance(a, bool) and not isinstance(b, bool):
+    if (
+        isinstance(a, (int, float))
+        and isinstance(b, (int, float))
+        and not isinstance(a, bool)
+        and not isinstance(b, bool)
+    ):
         return abs(a - b) < 1e-9
     return False
 

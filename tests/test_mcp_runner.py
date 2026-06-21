@@ -9,6 +9,7 @@ Covers:
 * ``serve_stdio`` registers/unregisters the progress sink so MCP RPC
   in-flight progress is written to the same stdout stream.
 """
+
 from __future__ import annotations
 
 import io
@@ -25,10 +26,10 @@ from statspai.agent._runner import (
 )
 from statspai.agent import mcp_handle_request, mcp_serve_stdio
 
-
 # ----------------------------------------------------------------------
 # run_with_progress core
 # ----------------------------------------------------------------------
+
 
 class TestRunWithProgress:
     def test_returns_work_value(self):
@@ -39,6 +40,7 @@ class TestRunWithProgress:
     def test_surfaces_exception(self):
         def boom():
             raise ValueError("nope")
+
         ok, val = run_with_progress(boom)
         assert ok is False
         assert isinstance(val, ValueError)
@@ -53,7 +55,8 @@ class TestRunWithProgress:
             return "done"
 
         ok, val = run_with_progress(
-            work, progress_token="tkn-1",
+            work,
+            progress_token="tkn-1",
             drain=lambda p: events.append(p),
         )
         assert ok is True
@@ -84,6 +87,7 @@ class TestRunWithProgress:
 # tool_timeout env var
 # ----------------------------------------------------------------------
 
+
 class TestToolTimeout:
     def test_default_is_a_number(self, monkeypatch):
         monkeypatch.delenv(TOOL_TIMEOUT_ENV, raising=False)
@@ -104,6 +108,7 @@ class TestToolTimeout:
 # MCP RPC: progress notifications round-trip via serve_stdio
 # ----------------------------------------------------------------------
 
+
 class TestServeStdioProgressSink:
     def test_progress_appears_on_stdout(self, monkeypatch):
         """End-to-end: when a tool emits progress, the stdio loop
@@ -116,14 +121,22 @@ class TestServeStdioProgressSink:
         """
         from statspai.agent import _runner
 
-        def _fake_tool(name, arguments, *, data=None, detail="agent",
-                        result_id=None, as_handle=False):
+        def _fake_tool(
+            name,
+            arguments,
+            *,
+            data=None,
+            detail="agent",
+            result_id=None,
+            as_handle=False,
+        ):
             # Emit a couple of progress events
             _runner.progress(0.25, total=1.0, message="warmup")
             _runner.progress(0.75, total=1.0, message="finalising")
             return {"value": 99}
 
         from statspai.agent import mcp_server
+
         monkeypatch.setattr(mcp_server, "execute_tool", _fake_tool)
 
         request = {
@@ -158,17 +171,27 @@ class TestServeStdioProgressSink:
 
         called = {"n": 0}
 
-        def _fake_tool(name, arguments, *, data=None, detail="agent",
-                        result_id=None, as_handle=False):
+        def _fake_tool(
+            name,
+            arguments,
+            *,
+            data=None,
+            detail="agent",
+            result_id=None,
+            as_handle=False,
+        ):
             _runner.progress(0.5, total=1.0)
             called["n"] += 1
             return {"value": 1}
 
         from statspai.agent import mcp_server
+
         monkeypatch.setattr(mcp_server, "execute_tool", _fake_tool)
 
         request = {
-            "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
             "params": {"name": "regress", "arguments": {"formula": "y ~ x"}},
         }
         stdin = io.StringIO(json.dumps(request) + "\n")
@@ -184,24 +207,43 @@ class TestServeStdioProgressSink:
 # Tool timeout RPC integration
 # ----------------------------------------------------------------------
 
+
 class TestRpcTimeout:
     def test_slow_tool_times_out_with_clean_error(self, monkeypatch):
         # Force a 0.05 s timeout for this test.
         monkeypatch.setenv(TOOL_TIMEOUT_ENV, "0.05")
 
-        def _slow_tool(name, arguments, *, data=None, detail="agent",
-                        result_id=None, as_handle=False):
+        def _slow_tool(
+            name,
+            arguments,
+            *,
+            data=None,
+            detail="agent",
+            result_id=None,
+            as_handle=False,
+        ):
             time.sleep(1.0)
             return {"value": "never"}
 
         from statspai.agent import mcp_server
+
         monkeypatch.setattr(mcp_server, "execute_tool", _slow_tool)
 
-        msg = json.loads(mcp_handle_request(json.dumps({
-            "jsonrpc": "2.0", "id": 9, "method": "tools/call",
-            "params": {"name": "regress",
-                        "arguments": {"formula": "y ~ x"}},
-        })))
+        msg = json.loads(
+            mcp_handle_request(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 9,
+                        "method": "tools/call",
+                        "params": {
+                            "name": "regress",
+                            "arguments": {"formula": "y ~ x"},
+                        },
+                    }
+                )
+            )
+        )
         # Timeout triggers a -32000 generic server error with the
         # readable message including the env-var name.
         assert "error" in msg

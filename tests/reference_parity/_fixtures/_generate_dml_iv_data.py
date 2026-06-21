@@ -28,6 +28,7 @@ The seeds below are the ones under which ``sp.dml`` and ``doubleml-for-py``
 were verified to agree (PLIV to machine precision, IIVM to ~1.5e-3 on the
 coefficient); see ``tests/external_parity/test_dml_python_parity.py``.
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -58,8 +59,12 @@ y_iivm = THETA * d_b + X @ beta_y + 1.0 * xi2 + 0.3 * rng2.standard_normal(n)
 
 cols = {f"x{j + 1}": X[:, j] for j in range(p)}
 cols.update(
-    z_c=z_c, d_c=d_c, y_pliv=y_pliv,  # PLIV block
-    z_b=z_b, d_b=d_b, y_iivm=y_iivm,  # IIVM block
+    z_c=z_c,
+    d_c=d_c,
+    y_pliv=y_pliv,  # PLIV block
+    z_b=z_b,
+    d_b=d_b,
+    y_iivm=y_iivm,  # IIVM block
 )
 df = pd.DataFrame(cols)
 

@@ -56,7 +56,10 @@ def test_optimal_match_recovers_att():
     y = 2.0 * t + 1.2 * x1 + x2 + 0.5 * x3 + rng.randn(n)
     df = pd.DataFrame({"y": y, "t": t, "x1": x1, "x2": x2, "x3": x3})
     r = sp.optimal_match(
-        df, treatment="t", outcome="y", covariates=["x1", "x2", "x3"],
+        df,
+        treatment="t",
+        outcome="y",
+        covariates=["x1", "x2", "x3"],
         metric="mahalanobis",
     )
     assert r.ate == pytest.approx(2.0, abs=0.4)

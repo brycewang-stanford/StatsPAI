@@ -14,6 +14,7 @@ Before v1.6.5 the standalone LIML used raw ``X`` in the cluster / robust
 meat, identical in character to the 2SLS bug fixed in v1.6.4 but in a
 different module.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -52,6 +53,7 @@ def _hand_liml_cluster_sandwich(df):
     Returns (SE vector in order [const, x, d], params, kappa).
     """
     from scipy.linalg import eigh as _eigh
+
     y = df["y"].to_numpy()
     X_exog = np.column_stack([np.ones(len(df)), df["x"].to_numpy()])
     X_endog = df["d"].to_numpy().reshape(-1, 1)
@@ -94,8 +96,14 @@ class TestStandaloneLIMLSandwichUsesProjectedX:
     """``sp.liml`` cluster SE must use (I−κM_Z)X in the meat, not raw X."""
 
     def test_point_estimates_match_hand_computed(self, iv_cluster_data):
-        r = sp.liml(data=iv_cluster_data, y="y", x_endog=["d"],
-                    x_exog=["x"], z=["z1", "z2"], cluster="cl")
+        r = sp.liml(
+            data=iv_cluster_data,
+            y="y",
+            x_endog=["d"],
+            x_exog=["x"],
+            z=["z1", "z2"],
+            cluster="cl",
+        )
         _, beta_hand, _ = _hand_liml_cluster_sandwich(iv_cluster_data)
         sp_beta = np.array([r.params["_cons"], r.params["x"], r.params["d"]])
         assert np.allclose(sp_beta, beta_hand, rtol=1e-6, atol=1e-6), (
@@ -106,12 +114,16 @@ class TestStandaloneLIMLSandwichUsesProjectedX:
         )
 
     def test_cluster_se_matches_projected_meat(self, iv_cluster_data):
-        r = sp.liml(data=iv_cluster_data, y="y", x_endog=["d"],
-                    x_exog=["x"], z=["z1", "z2"], cluster="cl")
+        r = sp.liml(
+            data=iv_cluster_data,
+            y="y",
+            x_endog=["d"],
+            x_exog=["x"],
+            z=["z1", "z2"],
+            cluster="cl",
+        )
         se_hand, _, _ = _hand_liml_cluster_sandwich(iv_cluster_data)
-        sp_se = np.array([r.std_errors["_cons"],
-                          r.std_errors["x"],
-                          r.std_errors["d"]])
+        sp_se = np.array([r.std_errors["_cons"], r.std_errors["x"], r.std_errors["d"]])
         assert np.allclose(sp_se, se_hand, rtol=1e-8, atol=1e-10), (
             f"Cluster SE mismatch (projected-meat formula):\n"
             f"  StatsPAI   : {sp_se}\n"
@@ -125,22 +137,33 @@ class TestStandaloneLIMLSandwichUsesProjectedX:
         (raw X in meat); the fix aligns it with the canonical
         ``_k_class_fit`` implementation.
         """
-        r_std = sp.liml(data=iv_cluster_data, y="y", x_endog=["d"],
-                        x_exog=["x"], z=["z1", "z2"], cluster="cl")
-        r_disp = sp.ivreg("y ~ (d ~ z1 + z2) + x", data=iv_cluster_data,
-                          method="liml", cluster="cl")
-        std_params = np.array([r_std.params["_cons"],
-                               r_std.params["x"],
-                               r_std.params["d"]])
-        disp_params = np.array([r_disp.params["Intercept"],
-                                r_disp.params["x"],
-                                r_disp.params["d"]])
-        std_se = np.array([r_std.std_errors["_cons"],
-                           r_std.std_errors["x"],
-                           r_std.std_errors["d"]])
-        disp_se = np.array([r_disp.std_errors["Intercept"],
-                            r_disp.std_errors["x"],
-                            r_disp.std_errors["d"]])
+        r_std = sp.liml(
+            data=iv_cluster_data,
+            y="y",
+            x_endog=["d"],
+            x_exog=["x"],
+            z=["z1", "z2"],
+            cluster="cl",
+        )
+        r_disp = sp.ivreg(
+            "y ~ (d ~ z1 + z2) + x", data=iv_cluster_data, method="liml", cluster="cl"
+        )
+        std_params = np.array(
+            [r_std.params["_cons"], r_std.params["x"], r_std.params["d"]]
+        )
+        disp_params = np.array(
+            [r_disp.params["Intercept"], r_disp.params["x"], r_disp.params["d"]]
+        )
+        std_se = np.array(
+            [r_std.std_errors["_cons"], r_std.std_errors["x"], r_std.std_errors["d"]]
+        )
+        disp_se = np.array(
+            [
+                r_disp.std_errors["Intercept"],
+                r_disp.std_errors["x"],
+                r_disp.std_errors["d"],
+            ]
+        )
         assert np.allclose(std_params, disp_params, rtol=1e-10, atol=1e-12)
         assert np.allclose(std_se, disp_se, rtol=1e-10, atol=1e-12)
 
@@ -158,27 +181,31 @@ class TestLIMLvsLinearmodelsParity:
 
     def test_cluster_se_close_to_linearmodels_debiased(self, iv_cluster_data):
         lm = pytest.importorskip("linearmodels.iv")
-        r_sp = sp.liml(data=iv_cluster_data, y="y", x_endog=["d"],
-                       x_exog=["x"], z=["z1", "z2"], cluster="cl")
-        r_lm = lm.IVLIML.from_formula(
-            "y ~ 1 + x + [d ~ z1 + z2]", iv_cluster_data
-        ).fit(cov_type="clustered", clusters=iv_cluster_data["cl"],
-              debiased=True)
+        r_sp = sp.liml(
+            data=iv_cluster_data,
+            y="y",
+            x_endog=["d"],
+            x_exog=["x"],
+            z=["z1", "z2"],
+            cluster="cl",
+        )
+        r_lm = lm.IVLIML.from_formula("y ~ 1 + x + [d ~ z1 + z2]", iv_cluster_data).fit(
+            cov_type="clustered", clusters=iv_cluster_data["cl"], debiased=True
+        )
         # Point estimates use the same κ on both sides — these must match
         # to machine precision.
-        assert np.allclose(r_sp.params["d"], r_lm.params["d"],
-                           rtol=1e-8, atol=1e-10), (
+        assert np.allclose(r_sp.params["d"], r_lm.params["d"], rtol=1e-8, atol=1e-10), (
             f"LIML β[d]: StatsPAI={r_sp.params['d']}, "
             f"linearmodels={r_lm.params['d']}"
         )
         # SEs differ by the AX vs X̂ meat convention; asymptotically
         # equivalent, finite-sample gap ~0.2% at typical κ.
-        sp_se = np.array([r_sp.std_errors["_cons"],
-                          r_sp.std_errors["x"],
-                          r_sp.std_errors["d"]])
-        lm_se = np.array([r_lm.std_errors["Intercept"],
-                          r_lm.std_errors["x"],
-                          r_lm.std_errors["d"]])
+        sp_se = np.array(
+            [r_sp.std_errors["_cons"], r_sp.std_errors["x"], r_sp.std_errors["d"]]
+        )
+        lm_se = np.array(
+            [r_lm.std_errors["Intercept"], r_lm.std_errors["x"], r_lm.std_errors["d"]]
+        )
         assert np.allclose(sp_se, lm_se, rtol=5e-3, atol=1e-6), (
             f"LIML cluster SE (convention gap AX vs X̂ should be <0.5%):\n"
             f"  StatsPAI      : {sp_se}\n"

@@ -19,6 +19,7 @@ Each test verifies:
   returns a result *or* raises the estimator's normal error, never
   swallows the error inside lineage.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,19 +28,21 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # regress
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def cross_section_df():
     rng = np.random.default_rng(0)
-    return pd.DataFrame({
-        "wage": rng.normal(loc=10, scale=1, size=200),
-        "trained": rng.binomial(1, 0.5, size=200),
-        "edu": rng.normal(size=200),
-    })
+    return pd.DataFrame(
+        {
+            "wage": rng.normal(loc=10, scale=1, size=200),
+            "trained": rng.binomial(1, 0.5, size=200),
+            "edu": rng.normal(size=200),
+        }
+    )
 
 
 class TestRegressProvenance:
@@ -62,6 +65,7 @@ class TestRegressProvenance:
 # callaway_santanna
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def staggered_panel():
     rng = np.random.default_rng(42)
@@ -70,18 +74,25 @@ def staggered_panel():
         g = [4, 6, 0][u // 20]  # 3 cohorts: g=4, 6, never-treated
         for t in range(1, 9):
             te = max(0, t - g + 1) if g > 0 else 0
-            rows.append({
-                "i": u, "t": t,
-                "y": te + rng.normal(),
-                "g": g,
-            })
+            rows.append(
+                {
+                    "i": u,
+                    "t": t,
+                    "y": te + rng.normal(),
+                    "g": g,
+                }
+            )
     return pd.DataFrame(rows)
 
 
 class TestCallawaySantannaProvenance:
     def test_attached(self, staggered_panel):
         r = sp.callaway_santanna(
-            staggered_panel, y="y", g="g", t="t", i="i",
+            staggered_panel,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -92,7 +103,11 @@ class TestCallawaySantannaProvenance:
 
     def test_estimator_choice_captured(self, staggered_panel):
         r = sp.callaway_santanna(
-            staggered_panel, y="y", g="g", t="t", i="i",
+            staggered_panel,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
             estimator="reg",  # not the default 'dr'
         )
         prov = sp.get_provenance(r)
@@ -103,16 +118,20 @@ class TestCallawaySantannaProvenance:
 # did_2x2
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def two_period_df():
     rng = np.random.default_rng(7)
     n = 400
     d = rng.integers(0, 2, n)
     t = rng.integers(0, 2, n)
-    return pd.DataFrame({
-        "y": 1 + 2 * d + 3 * t + 5 * d * t + rng.normal(0, 1, n),
-        "d": d, "t": t,
-    })
+    return pd.DataFrame(
+        {
+            "y": 1 + 2 * d + 3 * t + 5 * d * t + rng.normal(0, 1, n),
+            "d": d,
+            "t": t,
+        }
+    )
 
 
 class TestDid2x2Provenance:
@@ -131,6 +150,7 @@ class TestDid2x2Provenance:
 # IV (statspai.regression.iv.iv)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def iv_df():
     rng = np.random.default_rng(123)
@@ -144,6 +164,7 @@ def iv_df():
 class TestIVProvenance:
     def test_attached_2sls(self, iv_df):
         from statspai.regression.iv import iv
+
         r = iv("y ~ (x ~ z)", data=iv_df)
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -154,6 +175,7 @@ class TestIVProvenance:
 
     def test_method_captured(self, iv_df):
         from statspai.regression.iv import iv
+
         r = iv("y ~ (x ~ z)", data=iv_df, method="liml")
         prov = sp.get_provenance(r)
         assert prov.params["method"] == "liml"
@@ -163,17 +185,24 @@ class TestIVProvenance:
 # Integration with replication_pack
 # ---------------------------------------------------------------------------
 
+
 class TestProvenanceFlowsIntoReplicationPack:
     def test_fit_then_pack_picks_up_lineage(
-        self, cross_section_df, tmp_path,
+        self,
+        cross_section_df,
+        tmp_path,
     ):
         r = sp.regress("wage ~ trained + edu", cross_section_df)
         rp = sp.replication_pack(
-            r, tmp_path / "out.zip", env=False,
-            data=cross_section_df, code="# fake\n",
+            r,
+            tmp_path / "out.zip",
+            env=False,
+            data=cross_section_df,
+            code="# fake\n",
         )
         import json
         import zipfile
+
         with zipfile.ZipFile(rp.output_path) as zf:
             assert "lineage.json" in zf.namelist()
             lin = json.loads(zf.read("lineage.json"))

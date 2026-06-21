@@ -1,11 +1,12 @@
 """Sprint-2 tests: SCM machinery on sp.dag."""
+
 import numpy as np
 import pytest
 
 import statspai as sp
 
-
 # ---------- ID algorithm ----------
+
 
 def test_id_backdoor_is_identifiable():
     """Classic confounder DAG -- P(Y | do(X)) identifiable via backdoor."""
@@ -39,6 +40,7 @@ def test_id_raises_on_unknown_variable():
 
 
 # ---------- do-calculus rules ----------
+
 
 def test_rule1_independence_on_mutilated_graph():
     g = sp.dag("Z -> X; X -> Y")
@@ -77,6 +79,7 @@ def test_apply_rules_returns_all_three():
 
 # ---------- SWIG ----------
 
+
 def test_swig_splits_intervened_nodes():
     g = sp.dag("L -> X; L -> Y; X -> Y")
     sw = sp.swig(g, intervention={"X": "x"})
@@ -100,6 +103,7 @@ def test_swig_accepts_bare_variable_iterable():
 
 
 # ---------- SCM counterfactuals ----------
+
 
 def test_scm_simulate_linear_chain():
     scm = sp.SCM()

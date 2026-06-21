@@ -25,18 +25,30 @@ import pytest
 
 import statspai as sp
 from statspai.mendelian.frontier import (
-    mr_lap, mr_clust, grapple, mr_cml, mr_raps,
-    MRLapResult, MRClustResult, GrappleResult, MRcMLResult, MRRapsResult,
+    mr_lap,
+    mr_clust,
+    grapple,
+    mr_cml,
+    mr_raps,
+    MRLapResult,
+    MRClustResult,
+    GrappleResult,
+    MRcMLResult,
+    MRRapsResult,
 )
-
 
 # --------------------------------------------------------------------------- #
 #  DGP helpers
 # --------------------------------------------------------------------------- #
 
 
-def _sim_clean(n_snps: int = 60, true_beta: float = 0.30, *,
-               pleiotropy_sd: float = 0.0, seed: int = 0):
+def _sim_clean(
+    n_snps: int = 60,
+    true_beta: float = 0.30,
+    *,
+    pleiotropy_sd: float = 0.0,
+    seed: int = 0,
+):
     """Balanced-pleiotropy two-sample MR DGP.
 
     Returns (bx, by, sx, sy, true_beta).  Matches the DGP used in the
@@ -54,7 +66,9 @@ def _sim_clean(n_snps: int = 60, true_beta: float = 0.30, *,
 
 def _sim_two_clusters(
     n_per_cluster: int = 30,
-    beta_a: float = 0.20, beta_b: float = 0.60, seed: int = 7,
+    beta_a: float = 0.20,
+    beta_b: float = 0.60,
+    seed: int = 7,
 ):
     """Two-cluster DGP for MR-Clust tests.
 
@@ -67,17 +81,22 @@ def _sim_two_clusters(
     sx = np.full(n, 1.0 / np.sqrt(20_000))
     sy = np.full(n, np.sqrt(2.0 / 20_000))
     bx = rng.normal(alpha, sx)
-    true_b = np.concatenate([
-        np.full(n_per_cluster, beta_a),
-        np.full(n_per_cluster, beta_b),
-    ])
+    true_b = np.concatenate(
+        [
+            np.full(n_per_cluster, beta_a),
+            np.full(n_per_cluster, beta_b),
+        ]
+    )
     by = true_b * alpha + rng.normal(0.0, sy, n)
     return bx, by, sx, sy, beta_a, beta_b
 
 
 def _sim_with_overlap(
-    n_snps: int = 80, true_beta: float = 0.30, *,
-    overlap_fraction: float = 1.0, overlap_rho: float = 0.30,
+    n_snps: int = 80,
+    true_beta: float = 0.30,
+    *,
+    overlap_fraction: float = 1.0,
+    overlap_rho: float = 0.30,
     seed: int = 11,
 ):
     """Simulate two-sample MR with participant overlap.
@@ -94,8 +113,12 @@ def _sim_with_overlap(
     # Joint bivariate noise with correlation rho*p
     rho_joint = overlap_rho * overlap_fraction
     mu = np.zeros(2)
-    cov = np.array([[sx[0] ** 2, rho_joint * sx[0] * sy[0]],
-                    [rho_joint * sx[0] * sy[0], sy[0] ** 2]])
+    cov = np.array(
+        [
+            [sx[0] ** 2, rho_joint * sx[0] * sy[0]],
+            [rho_joint * sx[0] * sy[0], sy[0] ** 2],
+        ]
+    )
     noise = rng.multivariate_normal(mu, cov, size=n_snps)
     bx = alpha + noise[:, 0]
     by = true_beta * alpha + noise[:, 1]
@@ -144,32 +167,32 @@ class TestMRLap:
         bias_lap_list = []
         for seed in range(20):
             bx, by, sx, sy, true_beta = _sim_with_overlap(
-                n_snps=100, true_beta=0.30,
-                overlap_fraction=1.0, overlap_rho=0.5,
+                n_snps=100,
+                true_beta=0.30,
+                overlap_fraction=1.0,
+                overlap_rho=0.5,
                 seed=seed,
             )
-            r = mr_lap(bx, by, sx, sy,
-                       overlap_fraction=1.0, overlap_rho=0.5)
+            r = mr_lap(bx, by, sx, sy, overlap_fraction=1.0, overlap_rho=0.5)
             bias_ivw_list.append(r.estimate_ivw - true_beta)
             bias_lap_list.append(r.estimate - true_beta)
         mean_abs_bias_ivw = float(np.mean(np.abs(bias_ivw_list)))
         mean_abs_bias_lap = float(np.mean(np.abs(bias_lap_list)))
         # Hard bound: correction must not inflate bias.
         assert mean_abs_bias_lap <= mean_abs_bias_ivw + 0.005, (
-            mean_abs_bias_lap, mean_abs_bias_ivw
+            mean_abs_bias_lap,
+            mean_abs_bias_ivw,
         )
 
     def test_invalid_overlap_fraction_raises(self):
         bx, by, sx, sy, _ = _sim_clean(seed=0)
         with pytest.raises(ValueError, match="overlap_fraction"):
-            mr_lap(bx, by, sx, sy,
-                   overlap_fraction=1.5, overlap_rho=0.1)
+            mr_lap(bx, by, sx, sy, overlap_fraction=1.5, overlap_rho=0.1)
 
     def test_invalid_rho_raises(self):
         bx, by, sx, sy, _ = _sim_clean(seed=0)
         with pytest.raises(ValueError, match="overlap_rho"):
-            mr_lap(bx, by, sx, sy,
-                   overlap_fraction=0.5, overlap_rho=1.2)
+            mr_lap(bx, by, sx, sy, overlap_fraction=0.5, overlap_rho=1.2)
 
     def test_length_mismatch_raises(self):
         with pytest.raises(ValueError, match="length mismatch"):
@@ -226,7 +249,9 @@ class TestMRClust:
         assert r.responsibilities.shape == (40, r.K)
         # Responsibilities sum to 1
         np.testing.assert_allclose(
-            r.responsibilities.sum(axis=1), np.ones(40), atol=1e-6,
+            r.responsibilities.sum(axis=1),
+            np.ones(40),
+            atol=1e-6,
         )
 
     def test_two_cluster_dgp(self):
@@ -236,7 +261,10 @@ class TestMRClust:
         0.2 and 0.6 in the non-null clusters.
         """
         bx, by, sx, sy, beta_a, beta_b = _sim_two_clusters(
-            n_per_cluster=60, beta_a=0.20, beta_b=0.60, seed=7,
+            n_per_cluster=60,
+            beta_a=0.20,
+            beta_b=0.60,
+            seed=7,
         )
         r = mr_clust(bx, by, sx, sy, K_range=(1, 4))
         # Select one non-null estimate closest to each truth
@@ -283,7 +311,9 @@ class TestGrapple:
         se_list = []
         for seed in range(10):
             bx, by, sx, sy, true_beta = _sim_clean(
-                n_snps=80, pleiotropy_sd=0.005, seed=seed,
+                n_snps=80,
+                pleiotropy_sd=0.005,
+                seed=seed,
             )
             r = grapple(bx, by, sx, sy)
             bias_list.append(r.estimate - true_beta)
@@ -296,12 +326,16 @@ class TestGrapple:
     def test_tau2_positive_with_pleiotropy(self):
         """Under a larger pleiotropy SD, tau^2 should grow."""
         bx, by, sx, sy, _ = _sim_clean(
-            n_snps=100, pleiotropy_sd=0.02, seed=3,
+            n_snps=100,
+            pleiotropy_sd=0.02,
+            seed=3,
         )
         r_big = grapple(bx, by, sx, sy)
 
         bx, by, sx, sy, _ = _sim_clean(
-            n_snps=100, pleiotropy_sd=0.001, seed=3,
+            n_snps=100,
+            pleiotropy_sd=0.001,
+            seed=3,
         )
         r_small = grapple(bx, by, sx, sy)
 
@@ -347,21 +381,24 @@ class TestMRcML:
         bx, by, sx, sy, _ = _sim_clean(seed=0, pleiotropy_sd=0.0)
         r_cml = mr_cml(bx, by, sx, sy, K_max=0)
         assert r_cml.K_selected == 0
-        r_ivw = sp.mr("ivw",
-                      beta_exposure=bx, beta_outcome=by,
-                      se_exposure=sx, se_outcome=sy)
+        r_ivw = sp.mr(
+            "ivw", beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy
+        )
         # Within 10% of IVW on clean data — both target the same thing;
         # MR-cML corrects attenuation from sx^2 whereas naive IVW does
         # not, so small deviations are expected but should be small.
-        assert abs(r_cml.estimate - r_ivw["estimate"]) < 0.10 * abs(
-            r_ivw["estimate"]
-        ) + 0.01
+        assert (
+            abs(r_cml.estimate - r_ivw["estimate"])
+            < 0.10 * abs(r_ivw["estimate"]) + 0.01
+        )
 
     def test_recovers_truth_no_pleiotropy(self):
         bias_list = []
         for seed in range(10):
             bx, by, sx, sy, true_beta = _sim_clean(
-                n_snps=80, pleiotropy_sd=0.0, seed=seed,
+                n_snps=80,
+                pleiotropy_sd=0.0,
+                seed=seed,
             )
             r = mr_cml(bx, by, sx, sy)
             bias_list.append(r.estimate - true_beta)
@@ -416,7 +453,9 @@ class TestMRRAPS:
         se_list = []
         for seed in range(10):
             bx, by, sx, sy, true_beta = _sim_clean(
-                n_snps=80, pleiotropy_sd=0.005, seed=seed,
+                n_snps=80,
+                pleiotropy_sd=0.005,
+                seed=seed,
             )
             r = mr_raps(bx, by, sx, sy)
             bias_list.append(r.estimate - true_beta)
@@ -440,12 +479,12 @@ class TestMRRAPS:
         pleio[:3] = rng.choice([-0.15, 0.15], size=3)  # gross outliers
         by = true_beta * alpha + pleio + rng.normal(0, sy)
         r_raps = mr_raps(bx, by, sx, sy, tuning_c=4.685)
-        r_ivw = sp.mr("ivw",
-                      beta_exposure=bx, beta_outcome=by,
-                      se_exposure=sx, se_outcome=sy)
-        assert abs(r_raps.estimate - true_beta) < abs(
-            r_ivw["estimate"] - true_beta
-        ) + 0.02, (r_raps.estimate, r_ivw["estimate"], true_beta)
+        r_ivw = sp.mr(
+            "ivw", beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy
+        )
+        assert (
+            abs(r_raps.estimate - true_beta) < abs(r_ivw["estimate"] - true_beta) + 0.02
+        ), (r_raps.estimate, r_ivw["estimate"], true_beta)
 
     def test_smaller_c_is_more_robust(self):
         """With contaminated data, smaller Tukey c should yield estimates
@@ -480,33 +519,45 @@ class TestMRRAPS:
 
 class TestFrontierIntegration:
 
-    @pytest.mark.parametrize("method,cls", [
-        ("mr_lap", MRLapResult),
-        ("lap", MRLapResult),
-        ("mr_clust", MRClustResult),
-        ("clust", MRClustResult),
-        ("grapple", GrappleResult),
-        ("mr_cml", MRcMLResult),
-        ("cml", MRcMLResult),
-        ("mr_raps", MRRapsResult),
-        ("raps", MRRapsResult),
-    ])
+    @pytest.mark.parametrize(
+        "method,cls",
+        [
+            ("mr_lap", MRLapResult),
+            ("lap", MRLapResult),
+            ("mr_clust", MRClustResult),
+            ("clust", MRClustResult),
+            ("grapple", GrappleResult),
+            ("mr_cml", MRcMLResult),
+            ("cml", MRcMLResult),
+            ("mr_raps", MRRapsResult),
+            ("raps", MRRapsResult),
+        ],
+    )
     def test_dispatcher_routes(self, method, cls):
         bx, by, sx, sy, _ = _sim_clean(seed=0)
         if "lap" in method:
-            r = sp.mr(method,
-                      beta_exposure=bx, beta_outcome=by,
-                      se_exposure=sx, se_outcome=sy,
-                      overlap_fraction=0.3, overlap_rho=0.1)
+            r = sp.mr(
+                method,
+                beta_exposure=bx,
+                beta_outcome=by,
+                se_exposure=sx,
+                se_outcome=sy,
+                overlap_fraction=0.3,
+                overlap_rho=0.1,
+            )
         elif "clust" in method:
-            r = sp.mr(method,
-                      beta_exposure=bx, beta_outcome=by,
-                      se_exposure=sx, se_outcome=sy,
-                      K_range=(1, 3))
+            r = sp.mr(
+                method,
+                beta_exposure=bx,
+                beta_outcome=by,
+                se_exposure=sx,
+                se_outcome=sy,
+                K_range=(1, 3),
+            )
         else:
-            r = sp.mr(method,
-                      beta_exposure=bx, beta_outcome=by,
-                      se_exposure=sx, se_outcome=sy)
+            r = sp.mr(
+                method, beta_exposure=bx, beta_outcome=by, se_exposure=sx, se_outcome=sy
+            )
         assert isinstance(r, cls)
 
     def test_registry_describes_each_function(self):
@@ -516,19 +567,40 @@ class TestFrontierIntegration:
             assert info["category"] == "mendelian"
             # params metadata must list the four SNP-summary arrays
             param_names = {p["name"] for p in info["params"]}
-            for expected in ("beta_exposure", "beta_outcome",
-                             "se_exposure", "se_outcome"):
+            for expected in (
+                "beta_exposure",
+                "beta_outcome",
+                "se_exposure",
+                "se_outcome",
+            ):
                 assert expected in param_names, (name, param_names)
 
     def test_available_methods_lists_new_aliases(self):
         methods = set(sp.mr_available_methods())
-        for alias in ("mr_lap", "lap", "mr_clust", "clust",
-                      "grapple", "mr_cml", "cml",
-                      "mr_raps", "raps"):
+        for alias in (
+            "mr_lap",
+            "lap",
+            "mr_clust",
+            "clust",
+            "grapple",
+            "mr_cml",
+            "cml",
+            "mr_raps",
+            "raps",
+        ):
             assert alias in methods, alias
 
     def test_all_top_level_imports(self):
-        for name in ("mr_lap", "mr_clust", "grapple", "mr_cml", "mr_raps",
-                     "MRLapResult", "MRClustResult", "GrappleResult",
-                     "MRcMLResult", "MRRapsResult"):
+        for name in (
+            "mr_lap",
+            "mr_clust",
+            "grapple",
+            "mr_cml",
+            "mr_raps",
+            "MRLapResult",
+            "MRClustResult",
+            "GrappleResult",
+            "MRcMLResult",
+            "MRRapsResult",
+        ):
             assert getattr(sp, name, None) is not None, name

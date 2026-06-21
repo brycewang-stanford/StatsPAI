@@ -36,8 +36,12 @@ def _make(diff_selection, seed=0, n=3000):
 
 def test_bounds_are_ordered_and_bracket_truth_under_independence():
     res = sp.selection_bounds(
-        _make(False), y="y", treatment="treatment", selection="selection",
-        n_boot=50, random_state=0,
+        _make(False),
+        y="y",
+        treatment="treatment",
+        selection="selection",
+        n_boot=50,
+        random_state=0,
     )
     assert res.lower < res.upper
     # No differential attrition -> tight bounds containing the true ATE.
@@ -47,12 +51,20 @@ def test_bounds_are_ordered_and_bracket_truth_under_independence():
 
 def test_differential_selection_widens_identified_set():
     indep = sp.selection_bounds(
-        _make(False), y="y", treatment="treatment", selection="selection",
-        n_boot=50, random_state=0,
+        _make(False),
+        y="y",
+        treatment="treatment",
+        selection="selection",
+        n_boot=50,
+        random_state=0,
     )
     diff = sp.selection_bounds(
-        _make(True), y="y", treatment="treatment", selection="selection",
-        n_boot=50, random_state=0,
+        _make(True),
+        y="y",
+        treatment="treatment",
+        selection="selection",
+        n_boot=50,
+        random_state=0,
     )
     # Differential attrition must enlarge the Lee identified set.
     assert diff.width > 3 * indep.width
@@ -60,8 +72,12 @@ def test_differential_selection_widens_identified_set():
 
 def test_selection_bounds_result_contract():
     res = sp.selection_bounds(
-        _make(False), y="y", treatment="treatment", selection="selection",
-        n_boot=50, random_state=0,
+        _make(False),
+        y="y",
+        treatment="treatment",
+        selection="selection",
+        n_boot=50,
+        random_state=0,
     )
     # ci_lower / ci_upper are the bootstrap CIs *for each bound* (2-tuples).
     assert res.ci_lower[0] <= res.ci_lower[1]
@@ -69,18 +85,28 @@ def test_selection_bounds_result_contract():
     assert res.se_lower > 0 and res.se_upper > 0
     # Derived quantities are internally consistent.
     np.testing.assert_allclose(res.width, res.upper - res.lower, rtol=1e-8)
-    np.testing.assert_allclose(
-        res.midpoint, 0.5 * (res.lower + res.upper), rtol=1e-8
-    )
+    np.testing.assert_allclose(res.midpoint, 0.5 * (res.lower + res.upper), rtol=1e-8)
     assert res.n_obs > 0
 
 
 def test_selection_bounds_is_seed_reproducible():
     data = _make(False)
-    a = sp.selection_bounds(data, y="y", treatment="treatment",
-                            selection="selection", n_boot=50, random_state=123)
-    b = sp.selection_bounds(data, y="y", treatment="treatment",
-                            selection="selection", n_boot=50, random_state=123)
+    a = sp.selection_bounds(
+        data,
+        y="y",
+        treatment="treatment",
+        selection="selection",
+        n_boot=50,
+        random_state=123,
+    )
+    b = sp.selection_bounds(
+        data,
+        y="y",
+        treatment="treatment",
+        selection="selection",
+        n_boot=50,
+        random_state=123,
+    )
     np.testing.assert_allclose(a.lower, b.lower)
     np.testing.assert_allclose(a.upper, b.upper)
     np.testing.assert_allclose(a.ci_lower, b.ci_lower)

@@ -74,8 +74,9 @@ def test_cohort_event_study_plot_requires_relative_time():
 def test_cohort_event_study_plot_requires_treated_cohort():
     # only never-treated (group == 0) → no treated cohorts to plot
     bogus = types.SimpleNamespace(
-        detail=pd.DataFrame({"group": [0, 0], "relative_time": [-1, 0],
-                             "att": [0.0, 0.0]})
+        detail=pd.DataFrame(
+            {"group": [0, 0], "relative_time": [-1, 0], "att": [0.0, 0.0]}
+        )
     )
     with pytest.raises(ValueError, match="No treated cohorts"):
         sp.cohort_event_study_plot(bogus)
@@ -92,15 +93,18 @@ def test_sensitivity_plot_rejects_empty():
 def test_sensitivity_plot_renders_breakdown_frontier():
     # Minimal honest-DiD sensitivity table: as the relative-magnitudes bound M
     # grows, the robust CI widens and eventually fails to reject zero.
-    sens = pd.DataFrame({
-        "M": [0.0, 0.5, 1.0, 1.5, 2.0],
-        "ci_lower": [0.20, 0.10, -0.05, -0.20, -0.40],
-        "ci_upper": [0.80, 0.90, 1.00, 1.15, 1.35],
-        "rejects_zero": [True, True, False, False, False],
-    })
+    sens = pd.DataFrame(
+        {
+            "M": [0.0, 0.5, 1.0, 1.5, 2.0],
+            "ci_lower": [0.20, 0.10, -0.05, -0.20, -0.40],
+            "ci_upper": [0.80, 0.90, 1.00, 1.15, 1.35],
+            "rejects_zero": [True, True, False, False, False],
+        }
+    )
     fig0, ax0 = plt.subplots()
-    fig, ax = sp.sensitivity_plot(sens, original_estimate=0.5,
-                                  original_ci=(0.2, 0.8), ax=ax0)
+    fig, ax = sp.sensitivity_plot(
+        sens, original_estimate=0.5, original_ci=(0.2, 0.8), ax=ax0
+    )
     assert ax is ax0
     assert isinstance(fig, plt.Figure)
     # the breakdown frontier draws at least the CI band / markers

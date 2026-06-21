@@ -6,6 +6,7 @@ layer only: bib DOI extraction, the ``is_retracted`` classifier against
 hand-built payloads, the summary/report formatting, and the CLI exit-code
 contract (via a monkeypatched ``retraction_status`` so no HTTP happens).
 """
+
 from __future__ import annotations
 
 import sys
@@ -15,7 +16,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "tools"))
 
 import audit_retractions as ar  # noqa: E402
-
 
 # ---------------------------------------------------------------------------
 # bib DOI extraction (delegates to audit_bib_duplicates.parse_bib)

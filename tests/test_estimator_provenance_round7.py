@@ -13,6 +13,7 @@ Estimators (7):
 - ``sp.bootstrap`` — general-purpose bootstrap inference.
 - ``sp.conformal_cate`` — conformal prediction intervals for CATE.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,12 +29,15 @@ def panel_df():
     rows = []
     for u in range(20):
         for t in range(4):
-            rows.append({
-                "i": u, "year": t,
-                "y": rng.normal(),
-                "d": int(t >= 2 and u < 10),
-                "x1": rng.normal(),
-            })
+            rows.append(
+                {
+                    "i": u,
+                    "year": t,
+                    "y": rng.normal(),
+                    "d": int(t >= 2 and u < 10),
+                    "x1": rng.normal(),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -55,22 +59,26 @@ def iv_df():
     n = 200
     z = rng.normal(size=n)
     d = (z + rng.normal(size=n) > 0).astype(int)
-    return pd.DataFrame({
-        "y": 0.5 * d + rng.normal(size=n),
-        "d": d,
-        "z": z,
-        "x1": rng.normal(size=n),
-    })
+    return pd.DataFrame(
+        {
+            "y": 0.5 * d + rng.normal(size=n),
+            "d": d,
+            "z": z,
+            "x1": rng.normal(size=n),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Spatial
 # ---------------------------------------------------------------------------
 
+
 class TestSpatialDidProvenance:
     def test_attached(self, panel_df, W_matrix):
-        r = sp.spatial_did(panel_df, y="y", treat="d",
-                            unit="i", time="year", W=W_matrix)
+        r = sp.spatial_did(
+            panel_df, y="y", treat="d", unit="i", time="year", W=W_matrix
+        )
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.spatial.spatial_did"
@@ -82,8 +90,10 @@ class TestSpatialIvProvenance:
         # period only as a 20-region cross-section.
         cs = panel_df[panel_df["year"] == 0].reset_index(drop=True)
         from statspai.spatial.iv import spatial_iv
-        r = spatial_iv(cs, y="y", endog=["d"], exog=["x1"],
-                        W=W_matrix, instruments=None)
+
+        r = spatial_iv(
+            cs, y="y", endog=["d"], exog=["x1"], W=W_matrix, instruments=None
+        )
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.spatial.spatial_iv"
@@ -93,11 +103,12 @@ class TestSpatialIvProvenance:
 # Quantile / distributional
 # ---------------------------------------------------------------------------
 
+
 class TestDistIvProvenance:
     def test_attached(self, iv_df):
         from statspai.qte.dist_iv import dist_iv
-        r = dist_iv(data=iv_df, y="y", treat="d", instrument="z",
-                     n_boot=20)
+
+        r = dist_iv(data=iv_df, y="y", treat="d", instrument="z", n_boot=20)
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.qte.dist_iv"
@@ -111,14 +122,16 @@ class TestBeyondAverageLateProvenance:
         z_bin = rng.binomial(1, 0.5, size=n)
         # Fuzzy compliance: P(D=1|Z) higher when Z=1.
         d = ((rng.uniform(size=n) < 0.3 + 0.5 * z_bin)).astype(int)
-        df = pd.DataFrame({
-            "y": 0.5 * d + rng.normal(size=n),
-            "d": d,
-            "z": z_bin,
-        })
+        df = pd.DataFrame(
+            {
+                "y": 0.5 * d + rng.normal(size=n),
+                "d": d,
+                "z": z_bin,
+            }
+        )
         from statspai.qte.beyond_average import beyond_average_late
-        r = beyond_average_late(data=df, y="y", treat="d",
-                                  instrument="z", n_boot=20)
+
+        r = beyond_average_late(data=df, y="y", treat="d", instrument="z", n_boot=20)
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.qte.beyond_average_late"
@@ -127,8 +140,10 @@ class TestBeyondAverageLateProvenance:
 class TestQteHdPanelProvenance:
     def test_attached(self, panel_df):
         from statspai.qte.hd_panel import qte_hd_panel
-        r = qte_hd_panel(data=panel_df, y="y", treat="d",
-                          unit="i", time="year", covariates=["x1"])
+
+        r = qte_hd_panel(
+            data=panel_df, y="y", treat="d", unit="i", time="year", covariates=["x1"]
+        )
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.qte.qte_hd_panel"
@@ -138,13 +153,12 @@ class TestQteHdPanelProvenance:
 # Bootstrap inference
 # ---------------------------------------------------------------------------
 
+
 class TestBootstrapProvenance:
     def test_attached(self):
         rng = np.random.default_rng(2)
         df = pd.DataFrame({"x": rng.normal(size=200)})
-        r = sp.bootstrap(df,
-                          statistic=lambda d: float(d["x"].mean()),
-                          n_boot=50)
+        r = sp.bootstrap(df, statistic=lambda d: float(d["x"].mean()), n_boot=50)
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.bootstrap"
@@ -155,19 +169,22 @@ class TestBootstrapProvenance:
 # Conformal CATE
 # ---------------------------------------------------------------------------
 
+
 class TestConformalCateProvenance:
     def test_attached(self):
         rng = np.random.default_rng(3)
         n = 250
-        df = pd.DataFrame({
-            "y": rng.normal(size=n),
-            "d": rng.binomial(1, 0.5, size=n),
-            "x1": rng.normal(size=n),
-            "x2": rng.normal(size=n),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=n),
+                "d": rng.binomial(1, 0.5, size=n),
+                "x1": rng.normal(size=n),
+                "x2": rng.normal(size=n),
+            }
+        )
         from statspai.conformal_causal.conformal_ite import conformal_cate
-        r = conformal_cate(data=df, y="y", treat="d",
-                            covariates=["x1", "x2"])
+
+        r = conformal_cate(data=df, y="y", treat="d", covariates=["x1", "x2"])
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.conformal_cate"
@@ -177,23 +194,26 @@ class TestConformalCateProvenance:
 # Integration
 # ---------------------------------------------------------------------------
 
+
 class TestRound7LineageIntegration:
     def test_multi_estimator_pack(self, panel_df, W_matrix, tmp_path):
         rng = np.random.default_rng(4)
         df_boot = pd.DataFrame({"x": rng.normal(size=100)})
 
-        r1 = sp.spatial_did(panel_df, y="y", treat="d",
-                              unit="i", time="year", W=W_matrix)
-        r2 = sp.bootstrap(df_boot,
-                            statistic=lambda d: float(d["x"].mean()),
-                            n_boot=20)
+        r1 = sp.spatial_did(
+            panel_df, y="y", treat="d", unit="i", time="year", W=W_matrix
+        )
+        r2 = sp.bootstrap(df_boot, statistic=lambda d: float(d["x"].mean()), n_boot=20)
 
         rp = sp.replication_pack(
-            [r1, r2], tmp_path / "round7.zip",
-            data=panel_df, env=False,
+            [r1, r2],
+            tmp_path / "round7.zip",
+            data=panel_df,
+            env=False,
         )
         import json
         import zipfile
+
         with zipfile.ZipFile(rp.output_path) as zf:
             assert "lineage.json" in zf.namelist()
             lin = json.loads(zf.read("lineage.json"))

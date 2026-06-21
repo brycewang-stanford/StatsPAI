@@ -20,6 +20,7 @@ DGP: a deterministic crossed three-way clustered DGP (seed=42), N=4000 with
 40 x 50 x 30 crossed clusters, so all three dimensions and their pairwise /
 triple intersections carry enough levels for a well-conditioned VCOV.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,7 +28,6 @@ import pandas as pd
 import statspai as sp
 
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
-
 
 MODULE = "56_multiway_cluster"
 FORMULA = "y ~ x"
@@ -69,14 +69,19 @@ def main() -> None:
         canonical = "(Intercept)" if name == "Intercept" else name
         rows.append(
             ParityRecord(
-                module=MODULE, side="py",
+                module=MODULE,
+                side="py",
                 statistic=f"beta_{canonical}",
-                estimate=b, se=float(se[i]), n=n,
+                estimate=b,
+                se=float(se[i]),
+                n=n,
             )
         )
 
     write_results(
-        MODULE, "py", rows,
+        MODULE,
+        "py",
+        rows,
         extra={
             "formula": FORMULA,
             "vcov": "three-way cluster (Cameron-Gelbach-Miller 2011)",

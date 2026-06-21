@@ -9,6 +9,7 @@ brackets its estimate; a round-trip dict/json carries the headline numbers);
 datasets are checked for the documented columns, row counts, and value ranges.
 No mocking of numerical paths (CLAUDE.md §12).
 """
+
 from __future__ import annotations
 
 import json
@@ -29,7 +30,9 @@ X = ["education", "experience", "tenure"]
 def test_cps_wage_schema():
     df = datasets.cps_wage(n=500, seed=1)
     assert len(df) == 500
-    assert {"female", "education", "experience", "tenure", "log_wage"} <= set(df.columns)
+    assert {"female", "education", "experience", "tenure", "log_wage"} <= set(
+        df.columns
+    )
     assert df["female"].isin([0, 1]).all()
     assert (df["education"] >= 0).all()
     np.testing.assert_allclose(
@@ -84,8 +87,11 @@ def test_confint_brackets_estimate(oaxaca_result):
     # confint returns a per-component table / mapping; just assert it is a
     # non-empty structured object with finite numbers.
     assert ci is not None
-    arr = np.asarray(pd.DataFrame(ci).select_dtypes("number").to_numpy(), dtype=float) \
-        if not isinstance(ci, pd.DataFrame) else ci.select_dtypes("number").to_numpy()
+    arr = (
+        np.asarray(pd.DataFrame(ci).select_dtypes("number").to_numpy(), dtype=float)
+        if not isinstance(ci, pd.DataFrame)
+        else ci.select_dtypes("number").to_numpy()
+    )
     assert np.isfinite(arr).any()
 
 
@@ -117,6 +123,7 @@ def test_to_dict_and_json_roundtrip(oaxaca_result):
 
 def test_to_excel(oaxaca_result, tmp_path):
     import os
+
     out = tmp_path / "decomp.xlsx"
     try:
         oaxaca_result.to_excel(str(out))

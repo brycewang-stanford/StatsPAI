@@ -19,9 +19,9 @@ def _multi_outcome_data(n=500, seed=0):
     return pd.DataFrame(
         {
             "x": x,
-            "y1": 2.0 * x + rng.normal(size=n),   # strong true effect
-            "y2": rng.normal(size=n),             # null
-            "y3": 0.1 * x + rng.normal(size=n),   # weak
+            "y1": 2.0 * x + rng.normal(size=n),  # strong true effect
+            "y2": rng.normal(size=n),  # null
+            "y3": 0.1 * x + rng.normal(size=n),  # weak
         }
     )
 
@@ -51,14 +51,12 @@ def test_romano_wolf_separates_signal_from_null():
         _multi_outcome_data(), y=["y1", "y2", "y3"], x="x", n_boot=2000, seed=1
     )
     t = rw.table.set_index("outcome")
-    assert t.loc["y1", "p_rw"] < 0.05    # strong effect survives correction
-    assert t.loc["y2", "p_rw"] > 0.10    # null is not spuriously rejected
+    assert t.loc["y1", "p_rw"] < 0.05  # strong effect survives correction
+    assert t.loc["y2", "p_rw"] > 0.10  # null is not spuriously rejected
 
 
 def test_romano_wolf_seed_reproducible():
     df = _multi_outcome_data()
     a = sp.romano_wolf(df, y=["y1", "y2", "y3"], x="x", n_boot=500, seed=99)
     b = sp.romano_wolf(df, y=["y1", "y2", "y3"], x="x", n_boot=500, seed=99)
-    np.testing.assert_allclose(
-        a.table["p_rw"].to_numpy(), b.table["p_rw"].to_numpy()
-    )
+    np.testing.assert_allclose(a.table["p_rw"].to_numpy(), b.table["p_rw"].to_numpy())

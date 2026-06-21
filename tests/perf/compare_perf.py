@@ -4,6 +4,7 @@ Joins per-estimator timings on the sp side and the R side, emits a
 Markdown rollup, a LaTeX table for §6 of the manuscript, and a
 log-log scaling figure.
 """
+
 from __future__ import annotations
 
 import json
@@ -14,7 +15,6 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -29,14 +29,22 @@ PAPER_FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
 
 ESTIMATORS = {
-    "01_hdfe":  {"name": "HDFE 2-way FE", "ref": "fixest::feols",
-                 "x_label": "N (observations)"},
-    "02_csdid": {"name": "CS-DiD simple ATT", "ref": "did::att\\_gt",
-                 "x_label": "N (observations)"},
-    "03_scm":   {"name": "Classical SCM", "ref": "Synth::synth",
-                 "x_label": "n\\_donors"},
-    "04_dml":   {"name": "DML PLR (lin. learners)", "ref": "DoubleML::DoubleMLPLR",
-                 "x_label": "N (observations)"},
+    "01_hdfe": {
+        "name": "HDFE 2-way FE",
+        "ref": "fixest::feols",
+        "x_label": "N (observations)",
+    },
+    "02_csdid": {
+        "name": "CS-DiD simple ATT",
+        "ref": "did::att\\_gt",
+        "x_label": "N (observations)",
+    },
+    "03_scm": {"name": "Classical SCM", "ref": "Synth::synth", "x_label": "n\\_donors"},
+    "04_dml": {
+        "name": "DML PLR (lin. learners)",
+        "ref": "DoubleML::DoubleMLPLR",
+        "x_label": "N (observations)",
+    },
 }
 
 
@@ -60,7 +68,7 @@ def render_md() -> str:
     ]
     for est, cfg in ESTIMATORS.items():
         py = load(est, "py")
-        r  = load(est, "R")
+        r = load(est, "R")
         if not py or not r:
             continue
         lines.append(f"## {est}: {cfg['name']}")
@@ -70,10 +78,16 @@ def render_md() -> str:
         r_by_n = {row["n"]: row for row in r}
         for prow in py:
             rrow = r_by_n.get(prow["n"])
-            ratio = rrow["median_time_s"] / prow["median_time_s"] if rrow and prow["median_time_s"] > 0 else None
+            ratio = (
+                rrow["median_time_s"] / prow["median_time_s"]
+                if rrow and prow["median_time_s"] > 0
+                else None
+            )
             ratio_s = f"{ratio:.2f}" if ratio is not None else "—"
-            lines.append(f"| {prow['n']} | {prow['median_time_s']:.4f} | "
-                          f"{rrow['median_time_s']:.4f} | {ratio_s} |")
+            lines.append(
+                f"| {prow['n']} | {prow['median_time_s']:.4f} | "
+                f"{rrow['median_time_s']:.4f} | {ratio_s} |"
+            )
         lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -102,15 +116,19 @@ def render_tex() -> str:
         max_n = max(prow["n"] for prow in py)
         last = next(p for p in py if p["n"] == max_n)
         last_r = r_by_n.get(max_n, {}).get("median_time_s", float("nan"))
-        ratio_max = last_r / last["median_time_s"] if last["median_time_s"] > 0 else None
+        ratio_max = (
+            last_r / last["median_time_s"] if last["median_time_s"] > 0 else None
+        )
         ratio_str = (
             f"sp $\\mathbf{{{ratio_max:.1f}\\times}}$"
-            if ratio_max and ratio_max > 1.5 else
-            f"R $\\mathbf{{{1/ratio_max:.1f}\\times}}$"
-            if ratio_max and ratio_max < 0.67 else
-            f"tie ${ratio_max:.2f}\\times$"
+            if ratio_max and ratio_max > 1.5
+            else (
+                f"R $\\mathbf{{{1/ratio_max:.1f}\\times}}$"
+                if ratio_max and ratio_max < 0.67
+                else f"tie ${ratio_max:.2f}\\times$"
+            )
         )
-        est_tex = est.replace('_', '\\_')
+        est_tex = est.replace("_", "\\_")
         max_n_tex = f"{max_n:,}".replace(",", "{,}")
         rows.append(
             f"\\code{{{est_tex}}} & {cfg['name']} & "
@@ -181,7 +199,9 @@ def render_figure() -> Path:
     fig.savefig(FIGURES_DIR / "track_c_loglog.png", bbox_inches="tight", dpi=150)
     plt.close(fig)
     shutil.copyfile(out, PAPER_FIGURES_DIR / "track_c_loglog.pdf")
-    shutil.copyfile(FIGURES_DIR / "track_c_loglog.png", PAPER_FIGURES_DIR / "track_c_loglog.png")
+    shutil.copyfile(
+        FIGURES_DIR / "track_c_loglog.png", PAPER_FIGURES_DIR / "track_c_loglog.png"
+    )
     return out
 
 

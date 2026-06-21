@@ -16,6 +16,7 @@ DGP: a sharp RD with a moderator ``z`` so the jump is +2 for ``z=0`` and
 (level at z=0, presence of heterogeneity, positive bandwidth), never
 fabricated numbers. Forests/boosting use small ensembles for test speed.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -93,7 +94,7 @@ def test_rdhte_recovers_heterogeneity(rd_df):
     # at z=0 the jump is ~2; the moderator induces a clear spread toward +5
     lo_z = by_z.index.min()
     assert abs(by_z.loc[lo_z] - JUMP_Z0) < 0.8
-    assert (by_z.max() - by_z.min()) > 1.5     # heterogeneity recovered
+    assert (by_z.max() - by_z.min()) > 1.5  # heterogeneity recovered
 
 
 def test_rdbwhte_positive(rd_df):
@@ -104,7 +105,7 @@ def test_rdbwhte_positive(rd_df):
 def test_rdhte_lincom(rd_df):
     r = sp.rdhte(rd_df, y="y", x="x", z="z", c=0)
     n_pts = len(r.detail)
-    w = np.ones(n_pts) / n_pts            # uniform average across eval points
+    w = np.ones(n_pts) / n_pts  # uniform average across eval points
     out = sp.rdhte_lincom(r, weights=w)
     assert isinstance(out, dict)
     est = out.get("estimate", out.get("value"))
@@ -116,12 +117,11 @@ def test_rdhte_continuous_moderator_and_eval_points():
     n = 1500
     x = rng.uniform(-1, 1, n)
     treat = (x >= 0).astype(float)
-    zc = rng.uniform(0, 1, n)              # continuous moderator
+    zc = rng.uniform(0, 1, n)  # continuous moderator
     y = 0.5 * x + (2.0 + 3.0 * zc) * treat + rng.normal(0, 0.4, n)
     df = pd.DataFrame({"y": y, "x": x, "z": zc})
     # explicit evaluation points exercise the eval_points branch
-    r = sp.rdhte(df, y="y", x="x", z="z", c=0,
-                 eval_points=np.array([0.2, 0.5, 0.8]))
+    r = sp.rdhte(df, y="y", x="x", z="z", c=0, eval_points=np.array([0.2, 0.5, 0.8]))
     det = r.detail
     assert len(det) >= 3
     # CATE should increase with the moderator (true slope +3)
@@ -146,6 +146,7 @@ def test_rdhte_quadratic_and_multivariate_z():
 def test_rdhte_plot(rd_df):
     pytest.importorskip("matplotlib")
     import matplotlib
+
     matplotlib.use("Agg")
     r = sp.rdhte(rd_df, y="y", x="x", z="z", c=0)
     ax = r.plot()

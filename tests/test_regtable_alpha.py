@@ -26,7 +26,9 @@ def ols_models():
 
 def _ci_from_text(txt, var):
     """Extract `[lo, hi]` immediately after the row label."""
-    pattern = re.compile(rf"{re.escape(var)}.*?\[\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]", re.S)
+    pattern = re.compile(
+        rf"{re.escape(var)}.*?\[\s*(-?[\d.]+),\s*(-?[\d.]+)\s*\]", re.S
+    )
     m = pattern.search(txt)
     assert m, f"could not locate CI for {var} in:\n{txt}"
     return float(m.group(1)), float(m.group(2))
@@ -88,10 +90,11 @@ def test_alpha_recomputed_ci_matches_manual(ols_models):
     m1, _ = ols_models
     b = float(m1.params["x1"])
     se = float(m1.std_errors["x1"])
-    df_resid = (m1.diagnostics.get("df_resid")
-                or m1.data_info.get("df_resid")
-                or (m1.diagnostics.get("N") or m1.data_info.get("nobs"))
-                - len(m1.params))
+    df_resid = (
+        m1.diagnostics.get("df_resid")
+        or m1.data_info.get("df_resid")
+        or (m1.diagnostics.get("N") or m1.data_info.get("nobs")) - len(m1.params)
+    )
 
     txt = sp.regtable(m1, se_type="ci", alpha=0.10, fmt="%.6f").to_text()
     lo, hi = _ci_from_text(txt, "x1")

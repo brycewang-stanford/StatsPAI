@@ -20,8 +20,9 @@ from statspai.output.regression_table import RegtableResult
 def models():
     rng = np.random.default_rng(0)
     n = 300
-    df = pd.DataFrame({"x": rng.normal(size=n), "z": rng.normal(size=n),
-                       "w": rng.normal(size=n)})
+    df = pd.DataFrame(
+        {"x": rng.normal(size=n), "z": rng.normal(size=n), "w": rng.normal(size=n)}
+    )
     df["y"] = 1.0 + 2.0 * df["x"] - 0.5 * df["z"] + rng.normal(size=n)
     df["y2"] = 0.5 + 1.5 * df["x"] + 0.3 * df["w"] + rng.normal(size=n)
     m1 = sp.regress("y ~ x + z", data=df)
@@ -35,34 +36,30 @@ SCENARIOS = {
     "single": lambda m: sp.regtable(m[0]),
     "multi": lambda m: sp.regtable(m[0], m[1]),
     "template_aer": lambda m: sp.regtable(m[0], m[1], template="aer"),
-    "labels": lambda m: sp.regtable(m[0], m[1], model_labels=["A", "B"],
-                                    dep_var_labels=["Y", "Y2"]),
+    "labels": lambda m: sp.regtable(
+        m[0], m[1], model_labels=["A", "B"], dep_var_labels=["Y", "Y2"]
+    ),
     "keep": lambda m: sp.regtable(m[0], m[1], keep=["x"]),
     "drop": lambda m: sp.regtable(m[0], m[1], drop=["Intercept"]),
-    "order": lambda m: sp.regtable(m[0], m[1],
-                                   order=["z", "x", "Intercept"]),
-    "coef_labels": lambda m: sp.regtable(m[0], m[1],
-                                         coef_labels={"x": "Treat"}),
-    "add_rows": lambda m: sp.regtable(m[0], m[1],
-                                      add_rows={"Controls": ["No", "Yes"]}),
+    "order": lambda m: sp.regtable(m[0], m[1], order=["z", "x", "Intercept"]),
+    "coef_labels": lambda m: sp.regtable(m[0], m[1], coef_labels={"x": "Treat"}),
+    "add_rows": lambda m: sp.regtable(m[0], m[1], add_rows={"Controls": ["No", "Yes"]}),
     "se_ci": lambda m: sp.regtable(m[0], m[1], se_type="ci"),
     "se_t": lambda m: sp.regtable(m[0], m[1], se_type="t"),
     "fmt4": lambda m: sp.regtable(m[0], m[1], fmt="%.4f"),
-    "multipanel": lambda m: sp.regtable([m[0], m[1]], [m[2]],
-                                        panel_labels=["A", "B"]),
+    "multipanel": lambda m: sp.regtable([m[0], m[1]], [m[2]], panel_labels=["A", "B"]),
     "notes_title": lambda m: sp.regtable(m[0], title="T", notes=["n1"]),
 }
 
 
 @pytest.mark.parametrize("scenario", list(SCENARIOS))
-@pytest.mark.parametrize("fmt", ["to_latex", "to_markdown", "to_text",
-                                 "to_html"])
+@pytest.mark.parametrize("fmt", ["to_latex", "to_markdown", "to_text", "to_html"])
 def test_round_trip_rerender_is_identical(models, scenario, fmt):
     t = SCENARIOS[scenario](models)
     rt = RegtableResult.from_dict(t.to_dict())
-    assert getattr(rt, fmt)() == getattr(t, fmt)(), (
-        f"{scenario} re-render diverged for {fmt}"
-    )
+    assert (
+        getattr(rt, fmt)() == getattr(t, fmt)()
+    ), f"{scenario} re-render diverged for {fmt}"
 
 
 class TestJsonRoundTrip:
@@ -77,8 +74,7 @@ class TestJsonRoundTrip:
         t = sp.regtable(models[0], models[1])
         p = tmp_path / "t.json"
         t.save(str(p))
-        rt = RegtableResult.from_dict(
-            json.loads(p.read_text(encoding="utf-8")))
+        rt = RegtableResult.from_dict(json.loads(p.read_text(encoding="utf-8")))
         assert rt.to_markdown() == t.to_markdown()
 
 

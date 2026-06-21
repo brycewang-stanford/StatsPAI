@@ -12,7 +12,6 @@ import pytest
 import statspai as sp
 from statspai.panel.hdfe import Absorber, absorb_ols, demean
 
-
 RNG = np.random.default_rng(42)
 
 
@@ -30,7 +29,13 @@ def _make_panel(n_firms=20, n_years=8, beta=(1.0, -0.5), seed=0):
     x2 = rng.standard_normal(n)
     alpha_firm = rng.standard_normal(n_firms)[firm]
     alpha_year = rng.standard_normal(n_years)[year]
-    y = alpha_firm + alpha_year + beta[0] * x1 + beta[1] * x2 + rng.standard_normal(n) * 0.5
+    y = (
+        alpha_firm
+        + alpha_year
+        + beta[0] * x1
+        + beta[1] * x2
+        + rng.standard_normal(n) * 0.5
+    )
     return pd.DataFrame({"firm": firm, "year": year, "x1": x1, "x2": x2, "y": y})
 
 
@@ -70,14 +75,20 @@ def test_absorb_ols_matches_dummy_ols_two_way():
         drop_singletons=False,
     )
     # Dummy-variable OLS for comparison
-    firm_dummies = pd.get_dummies(df["firm"], prefix="firm", drop_first=True, dtype=float)
-    year_dummies = pd.get_dummies(df["year"], prefix="year", drop_first=True, dtype=float)
-    X_full = np.column_stack([
-        np.ones(len(df)),
-        df[["x1", "x2"]].values,
-        firm_dummies.values,
-        year_dummies.values,
-    ])
+    firm_dummies = pd.get_dummies(
+        df["firm"], prefix="firm", drop_first=True, dtype=float
+    )
+    year_dummies = pd.get_dummies(
+        df["year"], prefix="year", drop_first=True, dtype=float
+    )
+    X_full = np.column_stack(
+        [
+            np.ones(len(df)),
+            df[["x1", "x2"]].values,
+            firm_dummies.values,
+            year_dummies.values,
+        ]
+    )
     beta_full, *_ = np.linalg.lstsq(X_full, df["y"].values, rcond=None)
     # coefficients on x1, x2 are at positions 1 and 2
     np.testing.assert_allclose(res_native["coef"], beta_full[1:3], atol=1e-8)
@@ -87,10 +98,14 @@ def test_singleton_drop_reduces_rows():
     # Add a unique firm-year that's a singleton
     df = _make_panel(n_firms=5, n_years=4)
     # Add a row whose firm appears only once
-    df_ext = pd.concat([
-        df,
-        pd.DataFrame({"firm": [999], "year": [7], "x1": [0.0], "x2": [0.0], "y": [0.0]}),
-    ]).reset_index(drop=True)
+    df_ext = pd.concat(
+        [
+            df,
+            pd.DataFrame(
+                {"firm": [999], "year": [7], "x1": [0.0], "x2": [0.0], "y": [0.0]}
+            ),
+        ]
+    ).reset_index(drop=True)
 
     ab = Absorber(df_ext[["firm", "year"]].values, drop_singletons=True)
     assert ab.n_dropped >= 1
@@ -132,12 +147,20 @@ def test_cluster_se_with_singleton_drop_does_not_crash():
     # also be masked to keep_mask. Without the fix, this would shape-mismatch.
     df = _make_panel(n_firms=12, n_years=8, seed=99)
     # Append a singleton firm
-    df_ext = pd.concat([
-        df,
-        pd.DataFrame({
-            "firm": [999], "year": [0], "x1": [0.0], "x2": [0.0], "y": [0.0],
-        }),
-    ]).reset_index(drop=True)
+    df_ext = pd.concat(
+        [
+            df,
+            pd.DataFrame(
+                {
+                    "firm": [999],
+                    "year": [0],
+                    "x1": [0.0],
+                    "x2": [0.0],
+                    "y": [0.0],
+                }
+            ),
+        ]
+    ).reset_index(drop=True)
     res = absorb_ols(
         y=df_ext["y"].values,
         X=df_ext[["x1", "x2"]].values,

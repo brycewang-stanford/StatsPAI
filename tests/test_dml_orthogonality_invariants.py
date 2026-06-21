@@ -32,6 +32,7 @@ References
   treatment and structural parameters. *The Econometrics Journal*,
   21(1), C1-C68. [@chernozhukov2018double]
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -46,10 +47,7 @@ pytest.importorskip("sklearn")
 from sklearn.linear_model import LassoCV, LogisticRegressionCV
 
 _FIXTURE = (
-    pathlib.Path(__file__).parent
-    / "reference_parity"
-    / "_fixtures"
-    / "dml_data.csv"
+    pathlib.Path(__file__).parent / "reference_parity" / "_fixtures" / "dml_data.csv"
 )
 
 
@@ -67,10 +65,16 @@ def x_cols() -> list:
 def plr_fit(dml_data, x_cols):
     np.random.seed(42)
     return sp.dml(
-        data=dml_data, y="y", treat="d", covariates=x_cols, model="plr",
+        data=dml_data,
+        y="y",
+        treat="d",
+        covariates=x_cols,
+        model="plr",
         ml_g=LassoCV(cv=5, random_state=42),
         ml_m=LassoCV(cv=5, random_state=42),
-        n_folds=5, n_rep=1, random_state=42,
+        n_folds=5,
+        n_rep=1,
+        random_state=42,
     )
 
 
@@ -107,7 +111,7 @@ def test_plr_sandwich_variance_identity(plr_fit):
     n = int(plr_fit.n_obs)
     psi = (y_t - theta * d_t) * d_t
     J = -np.mean(d_t * d_t)
-    se_recomputed = float(np.sqrt(np.mean(psi ** 2) / (J ** 2 * n)))
+    se_recomputed = float(np.sqrt(np.mean(psi**2) / (J**2 * n)))
     assert abs(float(plr_fit.se) - se_recomputed) < 1e-9, (
         f"PLR SE is not the DML sandwich variance: "
         f"se={plr_fit.se:.10f}, recomputed={se_recomputed:.10f}"
@@ -118,16 +122,22 @@ def test_plr_nrep_median_and_variance_correction(dml_data, x_cols):
     """n_rep>1: theta = median(theta_r); se per Chernozhukov 2018 eq 3.7."""
     np.random.seed(42)
     res = sp.dml(
-        data=dml_data, y="y", treat="d", covariates=x_cols, model="plr",
+        data=dml_data,
+        y="y",
+        treat="d",
+        covariates=x_cols,
+        model="plr",
         ml_g=LassoCV(cv=5, random_state=42),
         ml_m=LassoCV(cv=5, random_state=42),
-        n_folds=5, n_rep=3, random_state=42,
+        n_folds=5,
+        n_rep=3,
+        random_state=42,
     )
     mi = res.model_info
     theta_r = np.asarray(mi["theta_all_reps"], dtype=float)
     se_r = np.asarray(mi["se_all_reps"], dtype=float)
     theta_med = float(np.median(theta_r))
-    se_formula = float(np.sqrt(np.median(se_r ** 2 + (theta_r - theta_med) ** 2)))
+    se_formula = float(np.sqrt(np.median(se_r**2 + (theta_r - theta_med) ** 2)))
     assert abs(float(res.estimate) - theta_med) < 1e-12
     assert abs(float(res.se) - se_formula) < 1e-12
 
@@ -136,10 +146,16 @@ def test_irm_aipw_moment_is_solved(dml_data, x_cols):
     """IRM theta = mean(psi_AIPW): the centered score has mean ~ 0."""
     np.random.seed(42)
     res = sp.dml(
-        data=dml_data, y="y", treat="d_bin", covariates=x_cols, model="irm",
+        data=dml_data,
+        y="y",
+        treat="d_bin",
+        covariates=x_cols,
+        model="irm",
         ml_g=LassoCV(cv=5, random_state=42),
         ml_m=LogisticRegressionCV(cv=5, random_state=42, max_iter=2000),
-        n_folds=5, n_rep=1, random_state=42,
+        n_folds=5,
+        n_rep=1,
+        random_state=42,
     )
     # model_info["_y_resid"] is the centered AIPW score psi - theta_hat.
     centered = np.asarray(res.model_info["_y_resid"], dtype=float)

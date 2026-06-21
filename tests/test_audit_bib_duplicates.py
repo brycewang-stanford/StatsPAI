@@ -24,7 +24,6 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 import audit_bib_duplicates as abd  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # parse_bib
 # ---------------------------------------------------------------------------
@@ -155,7 +154,7 @@ def _entries(*specs):
 def test_find_duplicates_flags_duplicate_keys():
     entries = _entries(
         ("same_key", "10.1/a", None),
-        ("other",    "10.1/b", None),
+        ("other", "10.1/b", None),
         ("same_key", "10.1/c", None),  # same key, different DOI
     )
     report = abd.find_duplicates(entries)
@@ -201,7 +200,7 @@ def test_find_duplicates_clean_bib_reports_nothing():
     entries = _entries(
         ("a2020x", "10.1/a", None),
         ("b2021y", "10.1/b", "2401.00001"),
-        ("c2022z", None,     "2402.00002"),
+        ("c2022z", None, "2402.00002"),
     )
     report = abd.find_duplicates(entries)
     assert report.duplicate_keys == {}
@@ -217,7 +216,8 @@ def test_find_duplicates_clean_bib_reports_nothing():
 
 def test_cli_strict_exits_nonzero_on_duplicates(tmp_path):
     bib = tmp_path / "dirty.bib"
-    bib.write_text(textwrap.dedent("""
+    bib.write_text(
+        textwrap.dedent("""
         @article{dup_key,
           title={A},
           doi={10.1/a}
@@ -227,11 +227,20 @@ def test_cli_strict_exits_nonzero_on_duplicates(tmp_path):
           title={B},
           doi={10.1/b}
         }
-    """).strip(), encoding="utf-8")
+    """).strip(),
+        encoding="utf-8",
+    )
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "audit_bib_duplicates.py"),
-         "--bib", str(bib), "--strict"],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "audit_bib_duplicates.py"),
+            "--bib",
+            str(bib),
+            "--strict",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 1, result.stdout + result.stderr
     assert "dup_key" in result.stdout
@@ -239,7 +248,8 @@ def test_cli_strict_exits_nonzero_on_duplicates(tmp_path):
 
 def test_cli_strict_exits_zero_on_clean_bib(tmp_path):
     bib = tmp_path / "clean.bib"
-    bib.write_text(textwrap.dedent("""
+    bib.write_text(
+        textwrap.dedent("""
         @article{unique_one,
           title={A},
           doi={10.1/a}
@@ -249,18 +259,28 @@ def test_cli_strict_exits_zero_on_clean_bib(tmp_path):
           title={B},
           doi={10.1/b}
         }
-    """).strip(), encoding="utf-8")
+    """).strip(),
+        encoding="utf-8",
+    )
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "audit_bib_duplicates.py"),
-         "--bib", str(bib), "--strict"],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "audit_bib_duplicates.py"),
+            "--bib",
+            str(bib),
+            "--strict",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_cli_non_strict_reports_but_exits_zero(tmp_path):
     bib = tmp_path / "dirty.bib"
-    bib.write_text(textwrap.dedent("""
+    bib.write_text(
+        textwrap.dedent("""
         @article{dup_key,
           title={A},
           doi={10.1/a}
@@ -270,11 +290,14 @@ def test_cli_non_strict_reports_but_exits_zero(tmp_path):
           title={B},
           doi={10.1/b}
         }
-    """).strip(), encoding="utf-8")
+    """).strip(),
+        encoding="utf-8",
+    )
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "audit_bib_duplicates.py"),
-         "--bib", str(bib)],
-        capture_output=True, text=True, check=False,
+        [sys.executable, str(TOOLS_DIR / "audit_bib_duplicates.py"), "--bib", str(bib)],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     # Without --strict: still report, but exit 0 so humans running it
     # locally don't get confused by non-zero exits.
@@ -285,9 +308,15 @@ def test_cli_non_strict_reports_but_exits_zero(tmp_path):
 def test_cli_missing_bib_file_returns_2(tmp_path):
     missing = tmp_path / "nope.bib"
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "audit_bib_duplicates.py"),
-         "--bib", str(missing)],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "audit_bib_duplicates.py"),
+            "--bib",
+            str(missing),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 2
     assert "not found" in result.stderr
@@ -311,12 +340,12 @@ def test_repository_paper_bib_has_no_duplicates():
         pytest.skip("paper.bib not present in this checkout")
     entries = abd.parse_bib(bib_path.read_text(encoding="utf-8"))
     report = abd.find_duplicates(entries)
-    assert report.duplicate_keys == {}, (
-        f"paper.bib has duplicate keys: {list(report.duplicate_keys)}"
-    )
-    assert report.duplicate_dois == {}, (
-        f"paper.bib has duplicate DOIs: {list(report.duplicate_dois)}"
-    )
-    assert report.duplicate_arxiv == {}, (
-        f"paper.bib has duplicate arXiv ids: {list(report.duplicate_arxiv)}"
-    )
+    assert (
+        report.duplicate_keys == {}
+    ), f"paper.bib has duplicate keys: {list(report.duplicate_keys)}"
+    assert (
+        report.duplicate_dois == {}
+    ), f"paper.bib has duplicate DOIs: {list(report.duplicate_dois)}"
+    assert (
+        report.duplicate_arxiv == {}
+    ), f"paper.bib has duplicate arXiv ids: {list(report.duplicate_arxiv)}"

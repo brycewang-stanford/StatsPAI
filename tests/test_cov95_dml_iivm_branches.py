@@ -30,8 +30,15 @@ def iivm_df():
 
 
 def test_iivm_full_fit_and_diagnostics(iivm_df):
-    res = dml(iivm_df, y="y", treat="d", covariates=["x"],
-              model="iivm", instrument="z", n_folds=3)
+    res = dml(
+        iivm_df,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
+        n_folds=3,
+    )
     assert np.isfinite(res.estimate)
     assert res.estimand == "LATE"
     diags = res.model_info["diagnostics"]
@@ -42,8 +49,16 @@ def test_iivm_full_fit_and_diagnostics(iivm_df):
 
 def test_iivm_weighted(iivm_df):
     w = np.abs(np.random.default_rng(102).normal(size=len(iivm_df))) + 0.1
-    res = dml(iivm_df, y="y", treat="d", covariates=["x"],
-              model="iivm", instrument="z", n_folds=3, sample_weight=w)
+    res = dml(
+        iivm_df,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
+        n_folds=3,
+        sample_weight=w,
+    )
     assert np.isfinite(res.estimate)
     assert res.model_info["diagnostics"]["weighted"] is True
 
@@ -57,8 +72,7 @@ def test_iivm_requires_d_variation():
     y = x + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "x": x, "z": z})
     with pytest.raises(ValueError, match="variation in D"):
-        dml(df, y="y", treat="d", covariates=["x"],
-            model="iivm", instrument="z")
+        dml(df, y="y", treat="d", covariates=["x"], model="iivm", instrument="z")
 
 
 def test_iivm_requires_z_variation():
@@ -70,8 +84,7 @@ def test_iivm_requires_z_variation():
     y = d + x + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "x": x, "z": z})
     with pytest.raises(ValueError, match="variation in Z"):
-        dml(df, y="y", treat="d", covariates=["x"],
-            model="iivm", instrument="z")
+        dml(df, y="y", treat="d", covariates=["x"], model="iivm", instrument="z")
 
 
 def test_iivm_too_few_per_z_arm():
@@ -84,8 +97,15 @@ def test_iivm_too_few_per_z_arm():
     y = d + x + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "x": x, "z": z})
     with pytest.raises(ValueError, match="under each instrument arm"):
-        dml(df, y="y", treat="d", covariates=["x"],
-            model="iivm", instrument="z", n_folds=5)
+        dml(
+            df,
+            y="y",
+            treat="d",
+            covariates=["x"],
+            model="iivm",
+            instrument="z",
+            n_folds=5,
+        )
 
 
 # --- subgroup helpers directly ---
@@ -95,8 +115,12 @@ def test_fit_predict_subgroup_mean_fallback():
     y_sub = np.array([1.0, 2.0, 3.0])
     X_te = np.random.default_rng(1).normal(size=(5, 2))
     preds, used_fb = DoubleMLIIVM._fit_predict_subgroup(
-        learner=None, X_sub=X_sub, y_sub=y_sub, X_te=X_te,
-        fallback_y=y_sub, arm_label="test",
+        learner=None,
+        X_sub=X_sub,
+        y_sub=y_sub,
+        X_te=X_te,
+        fallback_y=y_sub,
+        arm_label="test",
     )
     assert used_fb is True
     assert np.allclose(preds, 2.0)
@@ -108,8 +132,13 @@ def test_fit_predict_subgroup_weighted_mean_fallback():
     X_te = np.zeros((4, 2))
     w_sub = np.array([1.0, 0.0, 0.0])  # weight only the first
     preds, used_fb = DoubleMLIIVM._fit_predict_subgroup(
-        learner=None, X_sub=X_sub, y_sub=y_sub, X_te=X_te,
-        fallback_y=y_sub, weights_sub=w_sub, arm_label="test",
+        learner=None,
+        X_sub=X_sub,
+        y_sub=y_sub,
+        X_te=X_te,
+        fallback_y=y_sub,
+        weights_sub=w_sub,
+        arm_label="test",
     )
     assert used_fb is True
     assert np.allclose(preds, 1.0)
@@ -117,10 +146,14 @@ def test_fit_predict_subgroup_weighted_mean_fallback():
 
 def test_fit_predict_subgroup_empty_raises():
     from statspai.exceptions import IdentificationFailure
+
     with pytest.raises(IdentificationFailure):
         DoubleMLIIVM._fit_predict_subgroup(
-            learner=None, X_sub=np.empty((0, 2)), y_sub=np.array([]),
-            X_te=np.zeros((3, 2)), fallback_y=np.array([]),
+            learner=None,
+            X_sub=np.empty((0, 2)),
+            y_sub=np.array([]),
+            X_te=np.zeros((3, 2)),
+            fallback_y=np.array([]),
             arm_label="empty arm",
         )
 
@@ -131,7 +164,10 @@ def test_fit_predict_classifier_mean_fallback():
     d_sub = np.array([0.0, 1.0, 1.0, 1.0])
     X_te = np.zeros((6, 2))
     preds, used_fb = DoubleMLIIVM._fit_predict_classifier(
-        learner=None, X_sub=X_sub, d_sub=d_sub, X_te=X_te,
+        learner=None,
+        X_sub=X_sub,
+        d_sub=d_sub,
+        X_te=X_te,
         arm_label="test",
     )
     assert used_fb is True
@@ -144,7 +180,11 @@ def test_fit_predict_classifier_single_class_fallback():
     d_sub = np.ones(20)  # all 1 → single class
     X_te = np.zeros((5, 2))
     preds, used_fb = DoubleMLIIVM._fit_predict_classifier(
-        learner=None, X_sub=X_sub, d_sub=d_sub, X_te=X_te, arm_label="t",
+        learner=None,
+        X_sub=X_sub,
+        d_sub=d_sub,
+        X_te=X_te,
+        arm_label="t",
     )
     assert used_fb is True
     assert np.allclose(preds, 1.0)
@@ -152,10 +192,14 @@ def test_fit_predict_classifier_single_class_fallback():
 
 def test_fit_predict_classifier_empty_raises():
     from statspai.exceptions import IdentificationFailure
+
     with pytest.raises(IdentificationFailure):
         DoubleMLIIVM._fit_predict_classifier(
-            learner=None, X_sub=np.empty((0, 2)), d_sub=np.array([]),
-            X_te=np.zeros((3, 2)), arm_label="empty",
+            learner=None,
+            X_sub=np.empty((0, 2)),
+            d_sub=np.array([]),
+            X_te=np.zeros((3, 2)),
+            arm_label="empty",
         )
 
 
@@ -164,7 +208,15 @@ def test_iivm_m_regressor_predict_path(iivm_df):
     # branch in the m(X) estimation is exercised. We bypass the
     # classifier coercion by handing an estimator object directly.
     from sklearn.linear_model import LinearRegression
-    res = dml(iivm_df, y="y", treat="d", covariates=["x"],
-              model="iivm", instrument="z", n_folds=3,
-              ml_m=LinearRegression())
+
+    res = dml(
+        iivm_df,
+        y="y",
+        treat="d",
+        covariates=["x"],
+        model="iivm",
+        instrument="z",
+        n_folds=3,
+        ml_m=LinearRegression(),
+    )
     assert np.isfinite(res.estimate)

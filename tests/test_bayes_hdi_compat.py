@@ -1,4 +1,5 @@
 """Tests for the arviz ``_az_hdi_compat`` kwarg-compat shim."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -37,13 +38,11 @@ def test_shim_handles_typeerror_and_falls_back_to_prob(monkeypatch):
 
     def _future_hdi(samples, prob=0.95, **kwargs):
         """Simulates future arviz: only accepts ``prob``."""
-        if 'hdi_prob' in kwargs:
-            raise TypeError(
-                "hdi() got an unexpected keyword argument 'hdi_prob'"
-            )
+        if "hdi_prob" in kwargs:
+            raise TypeError("hdi() got an unexpected keyword argument 'hdi_prob'")
         return original_hdi(samples, hdi_prob=prob)
 
-    monkeypatch.setattr(az, 'hdi', _future_hdi)
+    monkeypatch.setattr(az, "hdi", _future_hdi)
 
     rng = np.random.default_rng(1)
     samples = rng.normal(size=500)
@@ -56,6 +55,7 @@ def test_shim_matches_direct_az_hdi_on_current_arviz():
     """On the version in the current env the shim should return
     exactly what a direct ``az.hdi(...)`` call returns."""
     import arviz as az
+
     rng = np.random.default_rng(2)
     samples = rng.normal(size=500)
     via_shim = _az_hdi_compat(samples, hdi_prob=0.8)
@@ -72,7 +72,7 @@ def test_shim_handles_both_kwargs_rejected(monkeypatch):
     def _broken_hdi(*args, **kwargs):
         raise TypeError("unexpected kwarg")
 
-    monkeypatch.setattr(az, 'hdi', _broken_hdi)
+    monkeypatch.setattr(az, "hdi", _broken_hdi)
 
     with pytest.raises(TypeError):
         _az_hdi_compat(np.array([1.0, 2.0, 3.0]), hdi_prob=0.95)

@@ -27,6 +27,7 @@ DML (1):
 
 Total provenance coverage after this round: **36/925**.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -35,10 +36,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def iv_df():
@@ -71,17 +72,23 @@ def matching_df():
     rng = np.random.default_rng(2)
     n_treat = 60
     n_ctrl = 140
-    return pd.DataFrame({
-        "y": np.concatenate([
-            1.0 + rng.normal(size=n_treat),     # treated mean ≈ 1
-            rng.normal(size=n_ctrl),            # control mean ≈ 0
-        ]),
-        "d": np.concatenate([
-            np.ones(n_treat, dtype=int),
-            np.zeros(n_ctrl, dtype=int),
-        ]),
-        "x1": rng.normal(size=n_treat + n_ctrl),
-    })
+    return pd.DataFrame(
+        {
+            "y": np.concatenate(
+                [
+                    1.0 + rng.normal(size=n_treat),  # treated mean ≈ 1
+                    rng.normal(size=n_ctrl),  # control mean ≈ 0
+                ]
+            ),
+            "d": np.concatenate(
+                [
+                    np.ones(n_treat, dtype=int),
+                    np.zeros(n_ctrl, dtype=int),
+                ]
+            ),
+            "x1": rng.normal(size=n_treat + n_ctrl),
+        }
+    )
 
 
 @pytest.fixture
@@ -89,18 +96,21 @@ def dml_df():
     """High-dim controls + binary treatment for DML PLR."""
     rng = np.random.default_rng(3)
     n = 250
-    return pd.DataFrame({
-        "y": rng.normal(size=n),
-        "d": rng.binomial(1, 0.5, size=n),
-        "x1": rng.normal(size=n),
-        "x2": rng.normal(size=n),
-        "x3": rng.normal(size=n),
-    })
+    return pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "d": rng.binomial(1, 0.5, size=n),
+            "x1": rng.normal(size=n),
+            "x2": rng.normal(size=n),
+            "x3": rng.normal(size=n),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # IV family
 # ---------------------------------------------------------------------------
+
 
 class TestLimlProvenance:
     def test_attached(self, iv_df):
@@ -135,12 +145,21 @@ class TestLassoIvProvenance:
         # — replication-side, what matters is the trail of params.
         assert prov.function in {"sp.iv.lasso_iv", "sp.iv"}
         np.testing.assert_allclose(
-            [r.params["x"], r.std_errors["x"], r.conf_int_lower["x"], r.conf_int_upper["x"]],
+            [
+                r.params["x"],
+                r.std_errors["x"],
+                r.conf_int_lower["x"],
+                r.conf_int_upper["x"],
+            ],
             [1.038257, 0.044845, 0.950095, 1.126419],
             atol=5e-7,
         )
         np.testing.assert_allclose(
-            [r.model_info["n_candidate_instruments"], r.model_info["n_selected_instruments"], r.diagnostics["First-stage F (x)"]],
+            [
+                r.model_info["n_candidate_instruments"],
+                r.model_info["n_selected_instruments"],
+                r.diagnostics["First-stage F (x)"],
+            ],
             [1, 1, 463.8658661384413],
             atol=1e-12,
         )
@@ -149,9 +168,15 @@ class TestLassoIvProvenance:
 class TestBayesianIvProvenance:
     def test_attached(self, iv_df):
         from statspai.iv import bayesian_iv
+
         r = bayesian_iv(
-            y="y", endog="x", instruments=["z"], data=iv_df,
-            n_draws=200, n_warmup=50, random_state=0,
+            y="y",
+            endog="x",
+            instruments=["z"],
+            data=iv_df,
+            n_draws=200,
+            n_warmup=50,
+            random_state=0,
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -166,6 +191,7 @@ class TestJiveVariantsProvenance:
 
     def test_jive1(self, iv_df):
         from statspai.iv import jive1
+
         r = jive1(y="y", endog="x", instruments=["z"], data=iv_df)
         prov = sp.get_provenance(r)
         assert prov.function == "sp.iv.jive1"
@@ -173,20 +199,22 @@ class TestJiveVariantsProvenance:
 
     def test_ujive(self, iv_df):
         from statspai.iv import ujive
+
         r = ujive(y="y", endog="x", instruments=["z"], data=iv_df)
         prov = sp.get_provenance(r)
         assert prov.function == "sp.iv.ujive"
 
     def test_ijive(self, iv_df):
         from statspai.iv import ijive
+
         r = ijive(y="y", endog="x", instruments=["z"], data=iv_df)
         prov = sp.get_provenance(r)
         assert prov.function == "sp.iv.ijive"
 
     def test_rjive(self, iv_df):
         from statspai.iv import rjive
-        r = rjive(y="y", endog="x", instruments=["z"],
-                  data=iv_df, ridge=0.5)
+
+        r = rjive(y="y", endog="x", instruments=["z"], data=iv_df, ridge=0.5)
         prov = sp.get_provenance(r)
         assert prov.function == "sp.iv.rjive"
         assert prov.params["ridge"] == 0.5
@@ -195,8 +223,15 @@ class TestJiveVariantsProvenance:
 class TestMteProvenance:
     def test_attached(self, iv_df_binary):
         from statspai.iv import mte
-        r = mte(y="y", treatment="d", instruments=["z"],
-                data=iv_df_binary, poly_degree=2, trim=0.05)
+
+        r = mte(
+            y="y",
+            treatment="d",
+            instruments=["z"],
+            data=iv_df_binary,
+            poly_degree=2,
+            trim=0.05,
+        )
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.iv.mte"
@@ -207,6 +242,7 @@ class TestMteProvenance:
 # ---------------------------------------------------------------------------
 # Matching family
 # ---------------------------------------------------------------------------
+
 
 class TestMatchProvenance:
     def test_attached(self, matching_df):
@@ -219,8 +255,7 @@ class TestMatchProvenance:
 
 class TestOptimalMatchProvenance:
     def test_attached(self, matching_df):
-        r = sp.optimal_match(matching_df, treatment="d", outcome="y",
-                              covariates=["x1"])
+        r = sp.optimal_match(matching_df, treatment="d", outcome="y", covariates=["x1"])
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.matching.optimal_match"
@@ -230,8 +265,11 @@ class TestOptimalMatchProvenance:
 class TestCardinalityMatchProvenance:
     def test_attached(self, matching_df):
         r = sp.cardinality_match(
-            matching_df, treatment="d", outcome="y",
-            covariates=["x1"], smd_tolerance=0.5,
+            matching_df,
+            treatment="d",
+            outcome="y",
+            covariates=["x1"],
+            smd_tolerance=0.5,
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -243,8 +281,13 @@ class TestGenmatchProvenance:
     def test_attached(self, matching_df):
         # Tiny GA budget — instrumentation tests don't need accuracy.
         r = sp.genmatch(
-            matching_df, y="y", treat="d", covariates=["x1"],
-            generations=3, population_size=10, random_state=0,
+            matching_df,
+            y="y",
+            treat="d",
+            covariates=["x1"],
+            generations=3,
+            population_size=10,
+            random_state=0,
         )
         prov = sp.get_provenance(r)
         assert prov is not None
@@ -254,8 +297,7 @@ class TestGenmatchProvenance:
 
 class TestSbwProvenance:
     def test_attached(self, matching_df):
-        r = sp.sbw(matching_df, treat="d", covariates=["x1"], y="y",
-                    delta=0.5)
+        r = sp.sbw(matching_df, treat="d", covariates=["x1"], y="y", delta=0.5)
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.matching.sbw"
@@ -267,13 +309,12 @@ class TestSbwProvenance:
 # DML
 # ---------------------------------------------------------------------------
 
+
 class TestDmlProvenance:
     def test_attached_plr(self, dml_df):
         # Default model='plr' is fastest; instrumentation test doesn't
         # need accuracy.
-        r = sp.dml(dml_df, y="y", treat="d",
-                    covariates=["x1", "x2", "x3"],
-                    n_folds=3)
+        r = sp.dml(dml_df, y="y", treat="d", covariates=["x1", "x2", "x3"], n_folds=3)
         prov = sp.get_provenance(r)
         assert prov is not None
         assert prov.function == "sp.dml"
@@ -285,22 +326,25 @@ class TestDmlProvenance:
 # Integration: round-4 estimators flow into replication_pack lineage
 # ---------------------------------------------------------------------------
 
+
 class TestRound4LineageIntegration:
     def test_multi_estimator_pack(self, iv_df, matching_df, tmp_path):
         # Run three estimators across two families.
         liml_r = sp.liml(data=iv_df, y="y", x_endog=["x"], z=["z"])
-        match_r = sp.match(matching_df, y="y", treat="d",
-                            covariates=["x1"])
-        opt_r = sp.optimal_match(matching_df, treatment="d", outcome="y",
-                                  covariates=["x1"])
+        match_r = sp.match(matching_df, y="y", treat="d", covariates=["x1"])
+        opt_r = sp.optimal_match(
+            matching_df, treatment="d", outcome="y", covariates=["x1"]
+        )
 
         rp = sp.replication_pack(
             [liml_r, match_r, opt_r],
             tmp_path / "round4.zip",
-            data=iv_df, env=False,
+            data=iv_df,
+            env=False,
         )
         import json
         import zipfile
+
         with zipfile.ZipFile(rp.output_path) as zf:
             assert "lineage.json" in zf.namelist()
             lin = json.loads(zf.read("lineage.json"))

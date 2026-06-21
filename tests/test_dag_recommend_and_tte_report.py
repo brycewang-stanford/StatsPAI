@@ -8,7 +8,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # DAG -> estimator recommendation
 # ---------------------------------------------------------------------------
@@ -64,12 +63,14 @@ def test_recommend_estimator_summary_runs():
 def tte_data_and_protocol():
     rng = np.random.default_rng(1)
     n = 300
-    df = pd.DataFrame({
-        "age": rng.normal(65, 8, n),
-        "sex": rng.integers(0, 2, n),
-        "treat": rng.binomial(1, 0.4, n),
-        "outcome": rng.normal(0, 1, n),
-    })
+    df = pd.DataFrame(
+        {
+            "age": rng.normal(65, 8, n),
+            "sex": rng.integers(0, 2, n),
+            "treat": rng.binomial(1, 0.4, n),
+            "outcome": rng.normal(0, 1, n),
+        }
+    )
     # Apply a treatment effect
     df.loc[df["treat"] == 1, "outcome"] += 0.5
     protocol = sp.target_trial_protocol(
@@ -103,8 +104,10 @@ def test_target_trial_to_paper_markdown(tte_data_and_protocol):
 def test_target_trial_to_paper_text(tte_data_and_protocol):
     df, protocol = tte_data_and_protocol
     result = sp.target_trial_emulate(
-        protocol=protocol, data=df,
-        outcome_col="outcome", treatment_col="treat",
+        protocol=protocol,
+        data=df,
+        outcome_col="outcome",
+        treatment_col="treat",
     )
     text = result.to_paper(fmt="text")
     assert "Target Trial Emulation Report" in text
@@ -114,8 +117,10 @@ def test_target_trial_to_paper_text(tte_data_and_protocol):
 def test_target_trial_to_paper_latex(tte_data_and_protocol):
     df, protocol = tte_data_and_protocol
     result = sp.target_trial_emulate(
-        protocol=protocol, data=df,
-        outcome_col="outcome", treatment_col="treat",
+        protocol=protocol,
+        data=df,
+        outcome_col="outcome",
+        treatment_col="treat",
     )
     tex = result.to_paper(fmt="latex")
     assert "\\begin{tabular}" in tex
@@ -125,8 +130,10 @@ def test_target_trial_to_paper_latex(tte_data_and_protocol):
 def test_target_trial_to_paper_rejects_bad_fmt(tte_data_and_protocol):
     df, protocol = tte_data_and_protocol
     result = sp.target_trial_emulate(
-        protocol=protocol, data=df,
-        outcome_col="outcome", treatment_col="treat",
+        protocol=protocol,
+        data=df,
+        outcome_col="outcome",
+        treatment_col="treat",
     )
     with pytest.raises(ValueError):
         result.to_paper(fmt="json")

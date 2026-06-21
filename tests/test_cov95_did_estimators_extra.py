@@ -13,6 +13,7 @@ DGP: a constant +2 treatment effect switched on at each cohort's adoption
 date, so every consistent estimator must recover an overall ATT near 2.
 Assertions check that recovery + finite SEs, never fabricated numbers.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -28,7 +29,7 @@ def _staggered(seed=0, n_units=120, n_periods=8, att=TRUE_ATT):
     rng = np.random.default_rng(seed)
     rows = []
     for u in range(n_units):
-        g = [0, 4, 6][u % 3]                 # 0 = never-treated
+        g = [0, 4, 6][u % 3]  # 0 = never-treated
         fe = rng.normal()
         x1 = rng.normal()
         for t in range(1, n_periods + 1):
@@ -61,20 +62,23 @@ def test_gardner_two_stage(panel):
 
 
 def test_gardner_event_study(panel):
-    r = sp.gardner_did(panel, y="y", group="unit", time="time", first_treat="g",
-                       event_study=True)
+    r = sp.gardner_did(
+        panel, y="y", group="unit", time="time", first_treat="g", event_study=True
+    )
     assert r is not None  # event-study path returns per-horizon effects
 
 
 def test_stacked_did(panel):
-    r = sp.stacked_did(panel, y="y", group="unit", time="time", first_treat="g",
-                       window=(-3, 3))
+    r = sp.stacked_did(
+        panel, y="y", group="unit", time="time", first_treat="g", window=(-3, 3)
+    )
     assert abs(_att(r) - TRUE_ATT) < 0.7
 
 
 def test_lp_did(panel):
-    r = sp.lp_did(panel, y="y", unit="unit", time="time", treatment="d",
-                  horizons=(-2, 3))
+    r = sp.lp_did(
+        panel, y="y", unit="unit", time="time", treatment="d", horizons=(-2, 3)
+    )
     assert r is not None
     assert np.isfinite(_att(r))
 
@@ -92,7 +96,8 @@ def test_did_bcf(panel):
 
 
 def test_harvest_did(panel):
-    r = sp.harvest_did(panel, unit="unit", time="time", outcome="y",
-                       cohort="g", never_value=0)
+    r = sp.harvest_did(
+        panel, unit="unit", time="time", outcome="y", cohort="g", never_value=0
+    )
     assert r is not None
     assert np.isfinite(_att(r))

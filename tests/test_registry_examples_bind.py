@@ -12,6 +12,7 @@ arguments of the ``sp.<name>(...)`` call against the real signature. It does
 so it is fast and deterministic. It exists to stop the registry/example drift
 fixed in this change from silently coming back.
 """
+
 import ast
 import inspect
 
@@ -49,8 +50,7 @@ def _accepted(fn):
     for p in sig.parameters.values():
         if p.kind == p.VAR_KEYWORD:
             var_kw = True
-        elif p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY,
-                        p.POSITIONAL_ONLY):
+        elif p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY, p.POSITIONAL_ONLY):
             names.add(p.name)
     return names, var_kw
 
@@ -62,23 +62,27 @@ _EXAMPLES = [
 ]
 
 
-@pytest.mark.parametrize("name,example", _EXAMPLES,
-                         ids=[n for n, _ in _EXAMPLES])
+@pytest.mark.parametrize("name,example", _EXAMPLES, ids=[n for n, _ in _EXAMPLES])
 def test_registered_example_parses_and_binds(name, example):
     # (a) must parse
     try:
         tree = ast.parse(example.strip(), mode="exec")
     except SyntaxError as exc:  # pragma: no cover - failure message path
-        pytest.fail(f"registered example for {name!r} is not valid Python: "
-                    f"{exc}\n    {example!r}")
+        pytest.fail(
+            f"registered example for {name!r} is not valid Python: "
+            f"{exc}\n    {example!r}"
+        )
 
     # (b) locate the sp.<name>(...) call and bind its kwargs
     target = None
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             f = node.func
-            fname = (f.attr if isinstance(f, ast.Attribute)
-                     else f.id if isinstance(f, ast.Name) else None)
+            fname = (
+                f.attr
+                if isinstance(f, ast.Attribute)
+                else f.id if isinstance(f, ast.Name) else None
+            )
             if fname == name:
                 target = node
                 break

@@ -29,7 +29,6 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 import suggest_bibkey_backfills as sbb  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # _append_bibkey — placement logic
 # ---------------------------------------------------------------------------
@@ -54,7 +53,7 @@ def test_append_bibkey_before_docstring_close():
     out = sbb._append_bibkey(src, "smith2024")
     # The bibkey goes before the \n" tail, preserving the trailing newline.
     assert "[@smith2024]" in out
-    assert out.endswith('\n')
+    assert out.endswith("\n")
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +68,7 @@ def _setup_tmp_repo(tmp_path: Path, monkeypatch) -> Path:
     # relative-path reporting; patch those too.
     import audit_bib_coverage
     import audit_bib_duplicates  # noqa
+
     monkeypatch.setattr(audit_bib_coverage, "REPO_ROOT", tmp_path)
     # Initialise a minimal git repo so ``git grep`` works.
     subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
@@ -98,8 +98,7 @@ def _commit(path: Path) -> None:
 
 def test_find_candidates_surfaces_orphan_with_arxiv_in_prose(tmp_path, monkeypatch):
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
         'r"""See Smith (2024) arXiv:2408.12345 for proof."""\n',
@@ -118,8 +117,7 @@ def test_find_candidates_surfaces_orphan_with_arxiv_in_prose(tmp_path, monkeypat
 
 def test_find_candidates_skips_already_annotated_line(tmp_path, monkeypatch):
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
         'r"""Smith (2024) arXiv:2408.12345. [@someotherkey]"""\n',
@@ -138,24 +136,22 @@ def test_find_candidates_skips_unsafe_bibtex_synthesis_line(tmp_path, monkeypatc
     Appending [@bibkey] would PUSH the tag INTO the generated bibtex
     string, breaking biblatex."""
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        'CITATION = (\n'
+        "CITATION = (\n"
         '    "@article{foo,\\n"\n'
         '    "  journal={arXiv preprint arXiv:2408.12345},\\n"\n'
         '    "  year={2024}\\n"\n'
         '    "}"\n'
-        ')\n',
+        ")\n",
         encoding="utf-8",
     )
     _commit(tmp_path)
 
     cands = sbb.find_candidates(tmp_path / "paper.bib", [tmp_path / "src"])
     assert cands == [], (
-        "must skip string-literal-inside-bibtex-synthesis lines "
-        "(unsafe for --apply)"
+        "must skip string-literal-inside-bibtex-synthesis lines " "(unsafe for --apply)"
     )
 
 
@@ -164,14 +160,13 @@ def test_find_candidates_skips_reference_kwarg(tmp_path, monkeypatch):
     function kwargs. Appending [@bibkey] after the closing string quote
     would either break Python syntax or put the tag outside the value."""
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
-        'def _register():\n'
-        '    add_func(\n'
+        "def _register():\n"
+        "    add_func(\n"
         '        reference="arXiv:2408.12345 (2024).",\n'
-        '    )\n',
+        "    )\n",
         encoding="utf-8",
     )
     _commit(tmp_path)
@@ -182,8 +177,7 @@ def test_find_candidates_skips_reference_kwarg(tmp_path, monkeypatch):
 
 def test_find_candidates_uses_doi_when_arxiv_absent(tmp_path, monkeypatch):
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               doi_only_orphan=(None, "10.1234/abcd.5678"))
+    _write_bib(tmp_path / "paper.bib", doi_only_orphan=(None, "10.1234/abcd.5678"))
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text(
         'r"""Paper at doi 10.1234/abcd.5678 is relevant."""\n',
@@ -201,8 +195,7 @@ def test_find_candidates_ignores_paper_bib_itself(tmp_path, monkeypatch):
     """The orphan's identifier appears in paper.bib trivially. The tool
     must not offer to annotate its own paper.bib line."""
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "mod.py").write_text("# unrelated\n", encoding="utf-8")
     _commit(tmp_path)
@@ -220,8 +213,7 @@ def test_find_candidates_ignores_paper_bib_itself(tmp_path, monkeypatch):
 
 def test_apply_candidates_mutates_file(tmp_path, monkeypatch):
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     target = tmp_path / "src" / "mod.py"
     original = 'r"""Smith (2024) arXiv:2408.12345."""\n'
@@ -241,8 +233,7 @@ def test_apply_candidates_skips_when_original_line_drifted(tmp_path, monkeypatch
     recorded ``original`` won't match the current line — we must NOT
     overwrite in that case."""
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     target = tmp_path / "src" / "mod.py"
     target.write_text(
@@ -254,8 +245,7 @@ def test_apply_candidates_skips_when_original_line_drifted(tmp_path, monkeypatch
     cands = sbb.find_candidates(tmp_path / "paper.bib", [tmp_path / "src"])
     assert cands
     # Simulate concurrent edit.
-    target.write_text('r"""Completely different content."""\n',
-                      encoding="utf-8")
+    target.write_text('r"""Completely different content."""\n', encoding="utf-8")
     stats = sbb.apply_candidates(cands)
     # No lines changed — we protected against drift.
     assert stats == {}
@@ -266,8 +256,7 @@ def test_apply_candidates_is_idempotent(tmp_path, monkeypatch):
     tree must not double-annotate: the HAS_BIBKEY filter in
     find_candidates should detect the already-applied tag."""
     _setup_tmp_repo(tmp_path, monkeypatch)
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     target = tmp_path / "src" / "mod.py"
     target.write_text(
@@ -295,8 +284,7 @@ def test_apply_candidates_is_idempotent(tmp_path, monkeypatch):
 
 
 def test_cli_dry_run_does_not_mutate(tmp_path):
-    _write_bib(tmp_path / "paper.bib",
-               orphan_key=("2408.12345", None))
+    _write_bib(tmp_path / "paper.bib", orphan_key=("2408.12345", None))
     (tmp_path / "src").mkdir()
     target = tmp_path / "src" / "mod.py"
     original = 'r"""Smith (2024) arXiv:2408.12345."""\n'
@@ -314,11 +302,19 @@ def test_cli_dry_run_does_not_mutate(tmp_path):
     # so an empty-env child cannot resolve ``git.exe``.
     env = {**os.environ, "PYTHONPATH": str(TOOLS_DIR)}
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "suggest_bibkey_backfills.py"),
-         "--bib", str(tmp_path / "paper.bib"),
-         "--roots", str(tmp_path / "src")],
-        capture_output=True, text=True, check=False,
-        cwd=tmp_path, env=env,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "suggest_bibkey_backfills.py"),
+            "--bib",
+            str(tmp_path / "paper.bib"),
+            "--roots",
+            str(tmp_path / "src"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=tmp_path,
+        env=env,
     )
     # Default is dry-run; file must be untouched.
     assert result.returncode == 0, result.stderr
@@ -328,9 +324,15 @@ def test_cli_dry_run_does_not_mutate(tmp_path):
 
 def test_cli_missing_bib_returns_2(tmp_path):
     result = subprocess.run(
-        [sys.executable, str(TOOLS_DIR / "suggest_bibkey_backfills.py"),
-         "--bib", str(tmp_path / "nope.bib")],
-        capture_output=True, text=True, check=False,
+        [
+            sys.executable,
+            str(TOOLS_DIR / "suggest_bibkey_backfills.py"),
+            "--bib",
+            str(tmp_path / "nope.bib"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 2
     assert "not found" in result.stderr

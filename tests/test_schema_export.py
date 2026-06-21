@@ -181,9 +181,10 @@ def test_rendered_bundle_strings_are_ascii_normalized():
             if "  " in value:
                 double_spaced.append(f"{fname}:{path}: {value!r}")
     assert not bad, "Non-ASCII decoded schema strings:\n  " + "\n  ".join(bad[:20])
-    assert not double_spaced, (
-        "Schema strings with repeated spaces after normalization:\n  "
-        + "\n  ".join(double_spaced[:20])
+    assert (
+        not double_spaced
+    ), "Schema strings with repeated spaces after normalization:\n  " + "\n  ".join(
+        double_spaced[:20]
     )
 
 
@@ -205,9 +206,10 @@ def test_tool_descriptions_do_not_contain_join_artifacts():
             for value in candidates:
                 if isinstance(value, str) and sentence_double_period.search(value):
                     bad.append(f"{fname}[{i}]: {value}")
-    assert not bad, (
-        "Schema descriptions contain double-period sentence joins:\n  "
-        + "\n  ".join(bad[:20])
+    assert (
+        not bad
+    ), "Schema descriptions contain double-period sentence joins:\n  " + "\n  ".join(
+        bad[:20]
     )
 
 

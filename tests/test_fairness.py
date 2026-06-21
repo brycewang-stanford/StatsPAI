@@ -47,9 +47,7 @@ def test_demographic_parity_flags_biased_classifier():
 
 def test_demographic_parity_unbiased_classifier_passes():
     df = _make_audit_data(bias=0.0, seed=5)
-    res = sp.demographic_parity(
-        df, predictions="Y_hat", protected="A", threshold=0.1
-    )
+    res = sp.demographic_parity(df, predictions="Y_hat", protected="A", threshold=0.1)
     # Stochastic — but with n=800 and bias=0 we expect gap < 0.1 most of the time.
     assert res.value < 0.15
 
@@ -90,9 +88,13 @@ def test_equalized_odds_decomposes_into_tpr_fpr():
 
 
 def test_equalized_odds_requires_both_labels_in_each_group():
-    df = pd.DataFrame({
-        "Y_hat": [1, 1, 0], "Y": [1, 1, 1], "A": [0, 0, 1],
-    })  # Group 1 has no negatives, so FPR is undefined for group 1.
+    df = pd.DataFrame(
+        {
+            "Y_hat": [1, 1, 0],
+            "Y": [1, 1, 1],
+            "A": [0, 0, 1],
+        }
+    )  # Group 1 has no negatives, so FPR is undefined for group 1.
     with pytest.raises(DataInsufficient, match="positive and one negative"):
         sp.equalized_odds(df, predictions="Y_hat", labels="Y", protected="A")
 
@@ -120,8 +122,11 @@ def test_counterfactual_fairness_detects_direct_dependence():
         return out
 
     res = sp.counterfactual_fairness(
-        df, predictor=biased_predictor, protected="A",
-        scm_intervention=scm_flip, threshold=0.05,
+        df,
+        predictor=biased_predictor,
+        protected="A",
+        scm_intervention=scm_flip,
+        threshold=0.05,
     )
     np.testing.assert_allclose(res.value, 2.0)
     np.testing.assert_allclose([res.per_group[0], res.per_group[1]], [2.0, 2.0])
@@ -144,8 +149,11 @@ def test_counterfactual_fairness_unbiased_predictor_passes():
         return out
 
     res = sp.counterfactual_fairness(
-        df, predictor=fair_predictor, protected="A",
-        scm_intervention=scm_flip, threshold=0.01,
+        df,
+        predictor=fair_predictor,
+        protected="A",
+        scm_intervention=scm_flip,
+        threshold=0.01,
     )
     np.testing.assert_allclose(res.value, 0.0)
     assert res.passes is True
@@ -164,7 +172,9 @@ def test_counterfactual_fairness_predictor_length_mismatch_errors():
 
     with pytest.raises(MethodIncompatibility, match="one value per row"):
         sp.counterfactual_fairness(
-            df, predictor=bad_predictor, protected="A",
+            df,
+            predictor=bad_predictor,
+            protected="A",
             scm_intervention=scm,
         )
 
@@ -188,11 +198,17 @@ def test_counterfactual_fairness_validates_predictor_and_scm_outputs():
 
     with pytest.raises(NumericalInstability, match="non-finite"):
         sp.counterfactual_fairness(
-            df, predictor=nonfinite_predictor, protected="A", scm_intervention=scm,
+            df,
+            predictor=nonfinite_predictor,
+            protected="A",
+            scm_intervention=scm,
         )
     with pytest.raises(MethodIncompatibility, match="pandas DataFrame"):
         sp.counterfactual_fairness(
-            df, predictor=vector_predictor, protected="A", scm_intervention=bad_scm,
+            df,
+            predictor=vector_predictor,
+            protected="A",
+            scm_intervention=bad_scm,
         )
 
 
@@ -252,7 +268,10 @@ def test_orthogonal_to_bias_accepts_scalar_feature_and_rejects_bad_inputs():
 def test_fairness_audit_combines_metrics():
     df = _make_audit_data(bias=1.5, seed=23)
     audit = sp.fairness_audit(
-        df, predictions="Y_hat", protected="A", labels="Y",
+        df,
+        predictions="Y_hat",
+        protected="A",
+        labels="Y",
     )
     assert audit.demographic_parity.metric == "demographic_parity"
     assert audit.equalized_odds is not None
@@ -315,31 +334,49 @@ def test_evidence_without_injustice_validation_uses_taxonomy():
 
     with pytest.raises(MethodIncompatibility, match="protected") as excinfo:
         sp.fairness.evidence_without_injustice(
-            df, predictor, protected="missing",
-            admissible_features=[], scm_intervention=scm,
+            df,
+            predictor,
+            protected="missing",
+            admissible_features=[],
+            scm_intervention=scm,
         )
     assert isinstance(excinfo.value, ValueError)
     assert "available_columns" in excinfo.value.diagnostics
 
     with pytest.raises(MethodIncompatibility, match="admissible_features"):
         sp.fairness.evidence_without_injustice(
-            df, predictor, protected="A",
-            admissible_features=["missing"], scm_intervention=scm,
+            df,
+            predictor,
+            protected="A",
+            admissible_features=["missing"],
+            scm_intervention=scm,
         )
     with pytest.raises(MethodIncompatibility, match="alpha"):
         sp.fairness.evidence_without_injustice(
-            df, predictor, protected="A",
-            admissible_features=[], scm_intervention=scm, alpha=0,
+            df,
+            predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=scm,
+            alpha=0,
         )
     with pytest.raises(MethodIncompatibility, match="threshold"):
         sp.fairness.evidence_without_injustice(
-            df, predictor, protected="A",
-            admissible_features=[], scm_intervention=scm, threshold=np.nan,
+            df,
+            predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=scm,
+            threshold=np.nan,
         )
     with pytest.raises(MethodIncompatibility, match="n_boot"):
         sp.fairness.evidence_without_injustice(
-            df, predictor, protected="A",
-            admissible_features=[], scm_intervention=scm, n_boot=10,
+            df,
+            predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=scm,
+            n_boot=10,
         )
 
 
@@ -364,13 +401,19 @@ def test_evidence_without_injustice_predictor_and_scm_contracts():
 
     with pytest.raises(MethodIncompatibility, match="wrong length"):
         sp.fairness.evidence_without_injustice(
-            df, bad_len_predictor, protected="A",
-            admissible_features=[], scm_intervention=good_scm,
+            df,
+            bad_len_predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=good_scm,
         )
     with pytest.raises(NumericalInstability, match="non-finite"):
         sp.fairness.evidence_without_injustice(
-            df, nonfinite_predictor, protected="A",
-            admissible_features=[], scm_intervention=good_scm,
+            df,
+            nonfinite_predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=good_scm,
         )
 
     def bad_scm_type(d: pd.DataFrame, value):
@@ -378,8 +421,11 @@ def test_evidence_without_injustice_predictor_and_scm_contracts():
 
     with pytest.raises(MethodIncompatibility, match="DataFrame"):
         sp.fairness.evidence_without_injustice(
-            df, good_predictor, protected="A",
-            admissible_features=[], scm_intervention=bad_scm_type,
+            df,
+            good_predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=bad_scm_type,
         )
 
     def bad_scm_length(d: pd.DataFrame, value) -> pd.DataFrame:
@@ -387,8 +433,11 @@ def test_evidence_without_injustice_predictor_and_scm_contracts():
 
     with pytest.raises(MethodIncompatibility, match="length mismatch"):
         sp.fairness.evidence_without_injustice(
-            df, good_predictor, protected="A",
-            admissible_features=[], scm_intervention=bad_scm_length,
+            df,
+            good_predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=bad_scm_length,
         )
 
 
@@ -405,8 +454,11 @@ def test_evidence_without_injustice_single_level_and_bootstrap_failures():
 
     with pytest.raises(DataInsufficient, match="only one level"):
         sp.fairness.evidence_without_injustice(
-            df.assign(A=1), predictor, protected="A",
-            admissible_features=[], scm_intervention=scm,
+            df.assign(A=1),
+            predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=scm,
         )
 
     calls = {"n": 0}
@@ -421,8 +473,11 @@ def test_evidence_without_injustice_single_level_and_bootstrap_failures():
 
     with pytest.raises(ConvergenceFailure, match="bootstrap only produced") as excinfo:
         sp.fairness.evidence_without_injustice(
-            df, predictor, protected="A",
-            admissible_features=[], scm_intervention=scm_fails_after_observed_stat,
+            df,
+            predictor,
+            protected="A",
+            admissible_features=[],
+            scm_intervention=scm_fails_after_observed_stat,
             n_boot=99,
         )
     assert isinstance(excinfo.value, RuntimeError)

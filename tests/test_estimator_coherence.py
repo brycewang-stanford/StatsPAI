@@ -18,12 +18,20 @@ import statspai as sp
 # --------------------------------------------------------------------------
 def test_synth_recovers_effect_with_simplex_weights():
     df = sp.dgp_synth(
-        n_units=20, n_periods=30, treated_unit=0, treatment_time=20,
-        effect=5.0, seed=2,
+        n_units=20,
+        n_periods=30,
+        treated_unit=0,
+        treatment_time=20,
+        effect=5.0,
+        seed=2,
     )
     r = sp.synth(
-        df, outcome="y", unit="unit", time="time",
-        treated_unit=0, treatment_time=20,
+        df,
+        outcome="y",
+        unit="unit",
+        time="time",
+        treated_unit=0,
+        treatment_time=20,
     )
     assert float(r.estimate) == pytest.approx(5.0, abs=1.0)
     lo, hi = r.ci
@@ -41,9 +49,9 @@ def test_dml_corrects_confounding_bias():
     rng = np.random.RandomState(0)
     n = 2000
     X = rng.randn(n, 5)
-    g = X[:, 0] + np.sin(X[:, 1])      # nonlinear confounding
-    d = g + rng.randn(n)               # treatment depends on X
-    y = 1.0 * d + g + rng.randn(n)     # true effect 1.0
+    g = X[:, 0] + np.sin(X[:, 1])  # nonlinear confounding
+    d = g + rng.randn(n)  # treatment depends on X
+    y = 1.0 * d + g + rng.randn(n)  # true effect 1.0
     cols = [f"x{i}" for i in range(5)]
     df = pd.DataFrame(X, columns=cols)
     df["d"] = d
@@ -53,9 +61,9 @@ def test_dml_corrects_confounding_bias():
     r = sp.dml(df, y="y", d="d", X=cols, model="plr")
     est = float(r.estimate)
 
-    assert abs(naive - 1.0) > 0.3            # OLS is confounded
+    assert abs(naive - 1.0) > 0.3  # OLS is confounded
     assert est == pytest.approx(1.0, abs=0.2)  # DML recovers the truth
-    assert abs(est - 1.0) < abs(naive - 1.0)   # and is less biased
+    assert abs(est - 1.0) < abs(naive - 1.0)  # and is less biased
     lo, hi = r.ci
     assert lo <= 1.0 <= hi
 
@@ -83,7 +91,7 @@ def test_psm_recovers_att_and_corrects_bias(matching_data):
     r = sp.psm(matching_data, y="y", d="t", X=["x1", "x2"], method="nn")
     est = float(r.estimate)
 
-    assert naive > 2.5                       # naive contrast is upward-biased
+    assert naive > 2.5  # naive contrast is upward-biased
     assert est == pytest.approx(2.0, abs=0.4)  # matching recovers the ATT
     assert abs(est - 2.0) < abs(naive - 2.0)
 
@@ -92,9 +100,7 @@ def test_match_agrees_with_psm(matching_data):
     psm_res = sp.psm(matching_data, y="y", d="t", X=["x1", "x2"], method="nn")
     psm = float(psm_res.estimate)
     m = float(
-        sp.match(
-            data=matching_data, y="y", treat="t", covariates=["x1", "x2"]
-        ).estimate
+        sp.match(data=matching_data, y="y", treat="t", covariates=["x1", "x2"]).estimate
     )
     # Both nearest-neighbour matchers should land on the same ATT.
     assert m == pytest.approx(psm, abs=0.5)

@@ -28,8 +28,9 @@ def _mte_dgp(n: int = 6000, seed: int = 7):
 class TestMTE:
     def test_basic_runs(self):
         df, ate_true = _mte_dgp()
-        r = iv.mte(y="y", treatment="d", instruments=["z"], exog=["x"], data=df,
-                   poly_degree=2)
+        r = iv.mte(
+            y="y", treatment="d", instruments=["z"], exog=["x"], data=df, poly_degree=2
+        )
         assert r.poly_degree == 2
         assert r.mte_curve.shape[1] >= 3
         # ATE estimate should be in right ballpark (wide tolerance — small n,
@@ -38,8 +39,9 @@ class TestMTE:
 
     def test_mte_declining(self):
         df, _ = _mte_dgp(n=8000)
-        r = iv.mte(y="y", treatment="d", instruments=["z"], exog=["x"], data=df,
-                   poly_degree=2)
+        r = iv.mte(
+            y="y", treatment="d", instruments=["z"], exog=["x"], data=df, poly_degree=2
+        )
         # MTE should decline over the support
         mte_start = r.mte_curve["mte"].iloc[0]
         mte_end = r.mte_curve["mte"].iloc[-1]
@@ -53,6 +55,7 @@ class TestMTE:
 
     def test_late_reference_returned(self):
         df, _ = _mte_dgp()
-        r = iv.mte(y="y", treatment="d", instruments=["z"], exog=["x"], data=df,
-                   poly_degree=1)
+        r = iv.mte(
+            y="y", treatment="d", instruments=["z"], exog=["x"], data=df, poly_degree=1
+        )
         assert np.isfinite(r.late_2sls)

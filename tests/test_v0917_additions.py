@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-
 # ═══════════════════════════════════════════════════════════════════════
 #  Fixtures
 # ═══════════════════════════════════════════════════════════════════════
+
 
 @pytest.fixture
 def iv_dataset():
@@ -45,7 +45,9 @@ def panel_gformula_data():
     L0 = rng.normal(size=n)
     A0 = (rng.random(n) < 1 / (1 + np.exp(-0.5 * L0))).astype(float)
     L1 = 0.3 * L0 + 0.4 * A0 + rng.normal(size=n)
-    A1 = (rng.random(n) < 1 / (1 + np.exp(-(0.3 * L0 - 0.2 * A0 + 0.4 * L1)))).astype(float)
+    A1 = (rng.random(n) < 1 / (1 + np.exp(-(0.3 * L0 - 0.2 * A0 + 0.4 * L1)))).astype(
+        float
+    )
     Y = 0.2 + 0.4 * A0 + 0.6 * A1 + 0.3 * L0 + 0.2 * L1 + rng.normal(size=n) * 0.3
     return pd.DataFrame({"L0": L0, "A0": A0, "L1": L1, "A1": A1, "Y": Y})
 
@@ -54,22 +56,36 @@ def panel_gformula_data():
 #  sp.weakrobust — unified weak-IV panel
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestWeakRobust:
 
     def test_basic_runs(self, iv_dataset):
         import statspai as sp
+
         panel = sp.weakrobust(
-            iv_dataset, y="y", endog="d", instruments=["z1", "z2"],
-            h0=0.0, clr_simulations=2000, grid_size=101, random_state=1,
+            iv_dataset,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            h0=0.0,
+            clr_simulations=2000,
+            grid_size=101,
+            random_state=1,
         )
         assert panel.n == 300
         assert len(panel.instruments) == 2
 
     def test_contains_all_statistics(self, iv_dataset):
         import statspai as sp
+
         panel = sp.weakrobust(
-            iv_dataset, y="y", endog="d", instruments=["z1", "z2"],
-            clr_simulations=2000, grid_size=101, random_state=1,
+            iv_dataset,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            clr_simulations=2000,
+            grid_size=101,
+            random_state=1,
         )
         frame = panel.to_frame()
         labels = frame["statistic"].tolist()
@@ -82,9 +98,15 @@ class TestWeakRobust:
 
     def test_ar_ci_covers_true_beta(self, iv_dataset):
         import statspai as sp
+
         panel = sp.weakrobust(
-            iv_dataset, y="y", endog="d", instruments=["z1", "z2"],
-            clr_simulations=3000, grid_size=201, random_state=1,
+            iv_dataset,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            clr_simulations=3000,
+            grid_size=201,
+            random_state=1,
         )
         lo, hi = panel["ar_ci"]
         assert lo <= 0.5 <= hi, f"true beta=0.5 outside AR CI [{lo},{hi}]"
@@ -92,9 +114,15 @@ class TestWeakRobust:
     def test_clr_ci_tighter_than_ar_with_strong_iv(self, iv_dataset):
         # CLR should be similar-or-tighter than AR for strong IVs
         import statspai as sp
+
         panel = sp.weakrobust(
-            iv_dataset, y="y", endog="d", instruments=["z1", "z2"],
-            clr_simulations=3000, grid_size=201, random_state=1,
+            iv_dataset,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            clr_simulations=3000,
+            grid_size=201,
+            random_state=1,
         )
         ar_width = panel["ar_ci"][1] - panel["ar_ci"][0]
         clr_width = panel["clr_ci"][1] - panel["clr_ci"][0]
@@ -103,15 +131,22 @@ class TestWeakRobust:
 
     def test_exposed_at_top_level(self):
         import statspai as sp
+
         assert callable(sp.weakrobust)
         assert hasattr(sp, "WeakRobustResult")
 
     def test_minimal_panel_when_disabled(self, iv_dataset):
         """include_clr=False and include_k=False must still return AR + KP."""
         import statspai as sp
+
         panel = sp.weakrobust(
-            iv_dataset, y="y", endog="d", instruments=["z1", "z2"],
-            include_clr=False, include_k=False, random_state=1,
+            iv_dataset,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            include_clr=False,
+            include_k=False,
+            random_state=1,
         )
         data = panel.to_dict()
         assert "ar_stat" in data
@@ -122,17 +157,25 @@ class TestWeakRobust:
 
     def test_beta_2sls_matches_manual_projection_formula(self, iv_dataset):
         import statspai as sp
+
         panel = sp.weakrobust(
-            iv_dataset, y="y", endog="d", instruments=["z1", "z2"],
-            include_clr=False, include_k=False, random_state=1,
+            iv_dataset,
+            y="y",
+            endog="d",
+            instruments=["z1", "z2"],
+            include_clr=False,
+            include_k=False,
+            random_state=1,
         )
 
         y = iv_dataset["y"].to_numpy()
         d = iv_dataset["d"].to_numpy()
-        Z = np.column_stack([
-            np.ones(len(iv_dataset)),
-            iv_dataset[["z1", "z2"]].to_numpy(),
-        ])
+        Z = np.column_stack(
+            [
+                np.ones(len(iv_dataset)),
+                iv_dataset[["z1", "z2"]].to_numpy(),
+            ]
+        )
         X = np.column_stack([np.ones(len(iv_dataset)), d])
         X_hat = Z @ np.linalg.solve(Z.T @ Z, Z.T @ X)
         beta = np.linalg.solve(X_hat.T @ X, X_hat.T @ y)
@@ -143,74 +186,96 @@ class TestWeakRobust:
 #  sp.sbw — Stable Balancing Weights
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestSBW:
 
     def test_balance_achieved(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     delta=0.02)
+
+        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"], delta=0.02)
         # Every covariate's post-weighting |SMD| should be <= delta + tol
         smd_after = res.balance["SMD_after"].abs().max()
         assert smd_after <= 0.025, f"max |SMD_after| = {smd_after}"
 
     def test_att_estimate_near_truth(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     y="Y", delta=0.02, estimand="att")
+
+        res = sp.sbw(
+            obs_dataset,
+            treat="T",
+            covariates=["x1", "x2"],
+            y="Y",
+            delta=0.02,
+            estimand="att",
+        )
         # True ATT ≈ 0.80
         assert 0.5 < res.estimate < 1.2
 
     def test_ess_reasonable(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     delta=0.02)
+
+        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"], delta=0.02)
         n_c = int((obs_dataset["T"] == 0).sum())
         # ESS should be a decent fraction of the control sample
         assert res.effective_sample_size > 0.5 * n_c
 
     def test_weights_normalised(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     delta=0.02, estimand="att")
+
+        res = sp.sbw(
+            obs_dataset, treat="T", covariates=["x1", "x2"], delta=0.02, estimand="att"
+        )
         T = obs_dataset["T"].values
         w_c_sum = res.weights[T == 0].sum()
         assert abs(w_c_sum - 1.0) < 1e-6
 
     def test_entropy_objective_also_works(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     delta=0.02, objective="entropy")
+
+        res = sp.sbw(
+            obs_dataset,
+            treat="T",
+            covariates=["x1", "x2"],
+            delta=0.02,
+            objective="entropy",
+        )
         assert res.effective_sample_size > 0
 
     def test_tight_delta_raises_or_converges(self, obs_dataset):
         import statspai as sp
+
         # Very tight delta with only 2 covariates should still be feasible
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     delta=0.001)
+        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"], delta=0.001)
         smd_after = res.balance["SMD_after"].abs().max()
         assert smd_after <= 0.002
 
     def test_ate_estimand_runs(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     y="Y", delta=0.02, estimand="ate")
+
+        res = sp.sbw(
+            obs_dataset,
+            treat="T",
+            covariates=["x1", "x2"],
+            y="Y",
+            delta=0.02,
+            estimand="ate",
+        )
         # Both arms reweighted, ATE should be finite and in a reasonable band
         assert np.isfinite(res.estimate)
         assert 0.3 < res.estimate < 1.3
 
     def test_balance_columns_present(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     delta=0.02)
-        for col in ("mean_treated", "mean_control",
-                    "SMD_before", "SMD_after"):
+
+        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"], delta=0.02)
+        for col in ("mean_treated", "mean_control", "SMD_before", "SMD_after"):
             assert col in res.balance.columns
         assert set(res.balance.index) == {"x1", "x2"}
 
     def test_citation_key_attached(self, obs_dataset):
         import statspai as sp
-        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"],
-                     delta=0.02)
+
+        res = sp.sbw(obs_dataset, treat="T", covariates=["x1", "x2"], delta=0.02)
         # SBWResult hooks into the CausalResult citation registry
         assert getattr(res, "_citation_key", None) == "zubizarreta_2015_sbw"
 
@@ -219,10 +284,12 @@ class TestSBW:
 #  sp.gformula_mc — Monte Carlo parametric g-formula
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestGFormulaMC:
 
     def test_runs_on_two_period_data(self, panel_gformula_data):
         import statspai as sp
+
         res = sp.gformula_mc(
             panel_gformula_data,
             treatment_cols=["A0", "A1"],
@@ -238,6 +305,7 @@ class TestGFormulaMC:
 
     def test_ate_matches_truth(self, panel_gformula_data):
         import statspai as sp
+
         res = sp.gformula_mc(
             panel_gformula_data,
             treatment_cols=["A0", "A1"],
@@ -254,6 +322,7 @@ class TestGFormulaMC:
 
     def test_bootstrap_ci_contains_contrast(self, panel_gformula_data):
         import statspai as sp
+
         res = sp.gformula_mc(
             panel_gformula_data,
             treatment_cols=["A0", "A1"],
@@ -274,7 +343,11 @@ class TestGFormulaMC:
 
         def dynamic(t, hist):
             key = f"L{t}"
-            return (hist[key] > 0).astype(float) if key in hist else np.zeros(len(next(iter(hist.values()))))
+            return (
+                (hist[key] > 0).astype(float)
+                if key in hist
+                else np.zeros(len(next(iter(hist.values()))))
+            )
 
         res = sp.gformula_mc(
             panel_gformula_data,
@@ -290,11 +363,13 @@ class TestGFormulaMC:
 
     def test_exposed_at_top_level(self):
         import statspai as sp
+
         assert callable(sp.gformula_mc)
         assert hasattr(sp, "MCGFormulaResult")
 
     def test_bootstrap_zero_returns_nan_se(self, panel_gformula_data):
         import statspai as sp
+
         res = sp.gformula_mc(
             panel_gformula_data,
             treatment_cols=["A0", "A1"],
@@ -315,6 +390,7 @@ class TestGFormulaMC:
         """A confounder that is identically 0 must not blow up the
         logistic Newton-Raphson loop."""
         import statspai as sp
+
         rng = np.random.default_rng(42)
         n = 200
         L0 = np.zeros(n)  # degenerate
@@ -322,9 +398,15 @@ class TestGFormulaMC:
         Y = 0.5 + 0.6 * A0 + rng.normal(size=n) * 0.3
         df = pd.DataFrame({"L0": L0, "A0": A0, "Y": Y})
         res = sp.gformula_mc(
-            df, treatment_cols=["A0"], confounder_cols=[["L0"]],
-            outcome_col="Y", strategy=[1], control_strategy=[0],
-            n_simulations=500, bootstrap=0, seed=0,
+            df,
+            treatment_cols=["A0"],
+            confounder_cols=[["L0"]],
+            outcome_col="Y",
+            strategy=[1],
+            control_strategy=[0],
+            n_simulations=500,
+            bootstrap=0,
+            seed=0,
         )
         assert np.isfinite(res.value)
 
@@ -333,15 +415,22 @@ class TestGFormulaMC:
 #  sp.causal() enhanced workflow
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestCausalWorkflow:
 
     def test_auto_run_triggers_all_stages(self, obs_dataset):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import statspai as sp
-            w = sp.causal(obs_dataset, y="Y", treatment="T",
-                          covariates=["x1", "x2"],
-                          design="observational", auto_run=True)
+
+            w = sp.causal(
+                obs_dataset,
+                y="Y",
+                treatment="T",
+                covariates=["x1", "x2"],
+                design="observational",
+                auto_run=True,
+            )
         stages = set(w.stages_completed)
         assert "diagnose" in stages
         assert "estimate" in stages
@@ -353,9 +442,15 @@ class TestCausalWorkflow:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import statspai as sp
-            w = sp.causal(obs_dataset, y="Y", treatment="T",
-                          covariates=["x1", "x2"],
-                          design="observational", auto_run=True)
+
+            w = sp.causal(
+                obs_dataset,
+                y="Y",
+                treatment="T",
+                covariates=["x1", "x2"],
+                design="observational",
+                auto_run=True,
+            )
         cmp = w.estimator_comparison
         assert isinstance(cmp, pd.DataFrame)
         # At least OLS + one weighting + DML should be there
@@ -371,9 +466,15 @@ class TestCausalWorkflow:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import statspai as sp
-            w = sp.causal(obs_dataset, y="Y", treatment="T",
-                          covariates=["x1", "x2"],
-                          design="observational", auto_run=True)
+
+            w = sp.causal(
+                obs_dataset,
+                y="Y",
+                treatment="T",
+                covariates=["x1", "x2"],
+                design="observational",
+                auto_run=True,
+            )
         panel = w.sensitivity_panel_result
         assert isinstance(panel, pd.DataFrame)
         # Expect E-value and Oster δ* at minimum
@@ -384,9 +485,15 @@ class TestCausalWorkflow:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import statspai as sp
-            w = sp.causal(obs_dataset, y="Y", treatment="T",
-                          covariates=["x1", "x2"],
-                          design="observational", auto_run=True)
+
+            w = sp.causal(
+                obs_dataset,
+                y="Y",
+                treatment="T",
+                covariates=["x1", "x2"],
+                design="observational",
+                auto_run=True,
+            )
         cate = w.cate_summary_table
         assert isinstance(cate, pd.DataFrame)
         assert len(cate) >= 1  # At least one learner succeeded
@@ -395,9 +502,15 @@ class TestCausalWorkflow:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import statspai as sp
-            w = sp.causal(obs_dataset, y="Y", treatment="T",
-                          covariates=["x1", "x2"],
-                          design="observational", auto_run=True)
+
+            w = sp.causal(
+                obs_dataset,
+                y="Y",
+                treatment="T",
+                covariates=["x1", "x2"],
+                design="observational",
+                auto_run=True,
+            )
         md = w.report(fmt="markdown")
         assert "## 4b. Multi-estimator comparison" in md
         assert "## 4c. Sensitivity triad" in md
@@ -409,11 +522,17 @@ class TestCausalWorkflow:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import statspai as sp
+
             # Build a dataset where DML won't converge cleanly (tiny n)
             tiny = obs_dataset.sample(20, random_state=0)
-            w = sp.causal(tiny, y="Y", treatment="T",
-                          covariates=["x1", "x2"],
-                          design="observational", auto_run=False)
+            w = sp.causal(
+                tiny,
+                y="Y",
+                treatment="T",
+                covariates=["x1", "x2"],
+                design="observational",
+                auto_run=False,
+            )
             w.run(full=True)
         cmp = w.estimator_comparison
         # The panel must at least exist
@@ -421,16 +540,21 @@ class TestCausalWorkflow:
         # Every row with a NaN estimate must carry a non-empty note
         bad = cmp[cmp["estimate"].isna()]
         if len(bad):
-            assert bad["note"].str.contains("ERROR").any(), \
-                "NaN rows must explain why"
+            assert bad["note"].str.contains("ERROR").any(), "NaN rows must explain why"
 
     def test_run_full_false_skips_extended_stages(self, obs_dataset):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             import statspai as sp
-            w = sp.causal(obs_dataset, y="Y", treatment="T",
-                          covariates=["x1", "x2"],
-                          design="observational", auto_run=False)
+
+            w = sp.causal(
+                obs_dataset,
+                y="Y",
+                treatment="T",
+                covariates=["x1", "x2"],
+                design="observational",
+                auto_run=False,
+            )
             w.run(full=False)
         stages = set(w.stages_completed)
         assert "estimate" in stages

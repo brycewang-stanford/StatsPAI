@@ -90,6 +90,7 @@ References (bib key verified present in paper.bib via grep)
   Completion Methods for Causal Panel Data Models", JASA 116(536),
   1716-1730. [@athey2021matrix]
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -98,7 +99,6 @@ import pytest
 
 import statspai as sp
 
-
 # Hand-set truths shared across the file.
 TAU = 3.0  # additive treatment effect on treated cells (causal anchor D)
 
@@ -106,6 +106,7 @@ TAU = 3.0  # additive treatment effect on treated cells (causal anchor D)
 # ---------------------------------------------------------------------------
 # DGP builders (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
+
 
 def _rank2_completion_dgp(seed, noise_sd, N=25, T=20, mask_frac=0.30):
     """KNOWN rank-2 matrix M = a⊗b + c⊗e; ~``mask_frac`` cells held out.
@@ -164,6 +165,7 @@ def _causal_panel_dgp(seed, N=30, T=12, T0=8, n_treated=6, noise_sd=0.05):
 # Fixtures.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def noisy_completion():
     # noise sd 0.02; probed rel-Fro on masked cells ~0.017, eff_rank 2.
@@ -189,6 +191,7 @@ def _masked_rel_fro(L, M, mask):
 # A. Known-rank-2 recovery within the noise floor.
 # ---------------------------------------------------------------------------
 
+
 class TestRecoveryFrobenius:
     """completed_matrix reconstructs the HAND-SET rank-2 M on held-out cells."""
 
@@ -200,8 +203,15 @@ class TestRecoveryFrobenius:
     def test_masked_frobenius_within_noise_floor(self, noisy_completion):
         df, M, mask = noisy_completion
         r = sp.matrix_completion(
-            df, y="y", d="d", unit="unit", time="time",
-            max_rank=2, lambda_reg=0.05, n_bootstrap=3, random_state=0,
+            df,
+            y="y",
+            d="d",
+            unit="unit",
+            time="time",
+            max_rank=2,
+            lambda_reg=0.05,
+            n_bootstrap=3,
+            random_state=0,
         )
         L = r.model_info["completed_matrix"]
         rel = _masked_rel_fro(L, M, mask)
@@ -223,6 +233,7 @@ class TestRecoveryFrobenius:
 # B. Noiseless near-exact collapse.
 # ---------------------------------------------------------------------------
 
+
 class TestNoiselessCollapse:
     """Y == M exactly -> near-exact low-rank recovery (rtol ~1e-2)."""
 
@@ -234,9 +245,17 @@ class TestNoiselessCollapse:
     def test_noiseless_recovery_near_exact(self, noiseless_completion):
         df, M, mask = noiseless_completion
         r = sp.matrix_completion(
-            df, y="y", d="d", unit="unit", time="time",
-            max_rank=2, lambda_reg=1e-4, n_bootstrap=3, random_state=0,
-            max_iter=5000, tol=1e-10,
+            df,
+            y="y",
+            d="d",
+            unit="unit",
+            time="time",
+            max_rank=2,
+            lambda_reg=1e-4,
+            n_bootstrap=3,
+            random_state=0,
+            max_iter=5000,
+            tol=1e-10,
         )
         L = r.model_info["completed_matrix"]
         rel = _masked_rel_fro(L, M, mask)
@@ -249,6 +268,7 @@ class TestNoiselessCollapse:
 # ---------------------------------------------------------------------------
 # C. Singular-value gap / rank-2 recovery (non-tautological: no max_rank).
 # ---------------------------------------------------------------------------
+
 
 class TestSingularValueGap:
     """lambda ALONE recovers rank 2: a genuine 3rd singular value is
@@ -267,8 +287,15 @@ class TestSingularValueGap:
         """
         df, _M, _mask = noisy_completion
         r = sp.matrix_completion(
-            df, y="y", d="d", unit="unit", time="time",
-            lambda_reg=1.0, n_bootstrap=3, random_state=0, max_iter=2000,
+            df,
+            y="y",
+            d="d",
+            unit="unit",
+            time="time",
+            lambda_reg=1.0,
+            n_bootstrap=3,
+            random_state=0,
+            max_iter=2000,
         )
         assert r.model_info["effective_rank"] == 2, (
             f"lambda-only soft-impute recovered rank "
@@ -290,6 +317,7 @@ class TestSingularValueGap:
 # D. Causal ATT recovery + naive-bias contrast.
 # ---------------------------------------------------------------------------
 
+
 class TestCausalRecoveryAndNaiveBias:
     """mc_panel recovers TAU; a trend-ignoring naive contrast is biased."""
 
@@ -310,8 +338,15 @@ class TestCausalRecoveryAndNaiveBias:
 
         # --- mc_panel recovers the hand-set TAU within 4 bootstrap SE.
         r = sp.mc_panel(
-            df, y="y", unit="unit", time="time", treat="d",
-            max_rank=2, lambda_reg=0.1, n_bootstrap=50, random_state=0,
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            treat="d",
+            max_rank=2,
+            lambda_reg=0.1,
+            n_bootstrap=50,
+            random_state=0,
         )
         assert r.estimand == "ATT"
         z = abs(r.estimate - TAU) / r.se
@@ -337,12 +372,26 @@ class TestCausalRecoveryAndNaiveBias:
         """
         df, _Y, _W, _tu, _T0 = causal_panel
         r_alias = sp.matrix_completion(
-            df, y="y", d="d", unit="unit", time="time",
-            max_rank=2, lambda_reg=0.1, n_bootstrap=20, random_state=0,
+            df,
+            y="y",
+            d="d",
+            unit="unit",
+            time="time",
+            max_rank=2,
+            lambda_reg=0.1,
+            n_bootstrap=20,
+            random_state=0,
         )
         r_panel = sp.mc_panel(
-            df, y="y", unit="unit", time="time", treat="d",
-            max_rank=2, lambda_reg=0.1, n_bootstrap=20, random_state=0,
+            df,
+            y="y",
+            unit="unit",
+            time="time",
+            treat="d",
+            max_rank=2,
+            lambda_reg=0.1,
+            n_bootstrap=20,
+            random_state=0,
         )
         assert abs(r_alias.estimate - r_panel.estimate) < 1e-12, (
             f"alias estimate {r_alias.estimate!r} != mc_panel "
@@ -355,18 +404,27 @@ class TestCausalRecoveryAndNaiveBias:
 # E. Determinism / seed-stability.
 # ---------------------------------------------------------------------------
 
+
 class TestDeterminism:
     """random_state pins the bootstrap -> identical estimate AND se."""
 
     def test_repeated_call_is_bitwise_stable(self, causal_panel):
         df, _Y, _W, _tu, _T0 = causal_panel
-        kw = dict(y="y", unit="unit", time="time", treat="d",
-                  max_rank=2, lambda_reg=0.1, n_bootstrap=30, random_state=0)
+        kw = dict(
+            y="y",
+            unit="unit",
+            time="time",
+            treat="d",
+            max_rank=2,
+            lambda_reg=0.1,
+            n_bootstrap=30,
+            random_state=0,
+        )
         r1 = sp.mc_panel(df, **kw)
         r2 = sp.mc_panel(df, **kw)
-        assert abs(r1.estimate - r2.estimate) < 1e-12, (
-            f"non-deterministic estimate: {r1.estimate!r} vs {r2.estimate!r}"
-        )
+        assert (
+            abs(r1.estimate - r2.estimate) < 1e-12
+        ), f"non-deterministic estimate: {r1.estimate!r} vs {r2.estimate!r}"
         # SE is bootstrap-derived; random_state must pin it too.
         assert abs(r1.se - r2.se) < 1e-12, (
             f"non-deterministic SE: {r1.se!r} vs {r2.se!r} — random_state "

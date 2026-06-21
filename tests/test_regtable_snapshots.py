@@ -34,7 +34,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from output_snapshots._fixtures import FIXTURES  # noqa: E402
 from output_snapshots._snapshot import assert_snapshot  # noqa: E402
 
-
 _TEXT_FORMATS = ("text", "html", "latex", "markdown")
 
 

@@ -6,6 +6,7 @@ Every test carries a real assertion (closed-form identity, algebraic
 invariant, exact structural property, or a triggered ``raise``) — no bare
 smoke calls, no mocked numerical paths.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -43,6 +44,7 @@ SEED = 20240607
 # ════════════════════════════════════════════════════════════════════════
 # _common.py — cluster_vcov  (lines 80-94)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_cluster_vcov_single_cluster_per_obs_matches_hc1_shape():
     """cluster_vcov is symmetric PSD-shaped and uses the CR1 finite-sample
@@ -88,6 +90,7 @@ def test_cluster_vcov_weights_default_and_grouping():
 # _common.py — bootstrap_stat  (lines 213, 234-236, 238, 241)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_bootstrap_stat_default_rng_is_deterministic():
     """rng=None -> default_rng(12345); calling twice yields identical draws
     (line 213)."""
@@ -119,17 +122,18 @@ def test_bootstrap_stat_partial_failures_warn_and_recover():
 
 def test_bootstrap_stat_all_fail_raises():
     """Every replication raises -> RuntimeError (lines 237-238)."""
+
     def always_fail(idx):
         raise RuntimeError("nope")
 
     with pytest.raises(RuntimeError, match="All bootstrap replications failed"):
-        bootstrap_stat(always_fail, n=10, n_boot=5,
-                       rng=np.random.default_rng(0))
+        bootstrap_stat(always_fail, n=10, n_boot=5, rng=np.random.default_rng(0))
 
 
 # ════════════════════════════════════════════════════════════════════════
 # _common.py — wild_bootstrap_stat  (lines 289, 315, 320-322, 324, 326)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_wild_bootstrap_default_rng_and_rademacher_symmetry():
     """rng=None default (line 289). With Rademacher multipliers and a
@@ -142,8 +146,7 @@ def test_wild_bootstrap_default_rng_and_rademacher_symmetry():
     def stat(y_star):
         return float((y_star - fitted).sum())  # == sum(v_i * resid_i)
 
-    out = wild_bootstrap_stat(stat, resid, fitted, n_boot=200,
-                              weights="rademacher")
+    out = wild_bootstrap_stat(stat, resid, fitted, n_boot=200, weights="rademacher")
     assert out.shape == (200, 1)
     # E[v]=0 => mean of sum(v*resid) ~ 0; bounded by |sum(resid)|
     assert abs(out.mean()) < resid.sum()
@@ -155,8 +158,10 @@ def test_wild_bootstrap_unknown_weights_raises():
     with pytest.raises(MethodIncompatibility, match="unknown weights") as excinfo:
         wild_bootstrap_stat(
             lambda y: float(y.sum()),
-            resid=np.ones(n), fitted=np.zeros(n),
-            n_boot=3, weights="gaussian",
+            resid=np.ones(n),
+            fitted=np.zeros(n),
+            n_boot=3,
+            weights="gaussian",
             rng=np.random.default_rng(0),
         )
     assert isinstance(excinfo.value, ValueError)
@@ -175,8 +180,11 @@ def test_wild_bootstrap_partial_failures_warn():
 
     with pytest.warns(RuntimeWarning, match="wild-bootstrap replications failed"):
         out = wild_bootstrap_stat(
-            flaky, resid=np.ones(20), fitted=np.zeros(20),
-            n_boot=40, weights="rademacher",
+            flaky,
+            resid=np.ones(20),
+            fitted=np.zeros(20),
+            n_boot=40,
+            weights="rademacher",
             rng=np.random.default_rng(SEED),
         )
     assert out.shape[1] == 1
@@ -188,8 +196,10 @@ def test_wild_bootstrap_all_fail_raises():
     with pytest.raises(RuntimeError, match="All wild-bootstrap replications failed"):
         wild_bootstrap_stat(
             lambda y: (_ for _ in ()).throw(ValueError("bad")),
-            resid=np.ones(8), fitted=np.zeros(8),
-            n_boot=4, weights="rademacher",
+            resid=np.ones(8),
+            fitted=np.zeros(8),
+            n_boot=4,
+            weights="rademacher",
             rng=np.random.default_rng(0),
         )
 
@@ -198,6 +208,7 @@ def test_wild_bootstrap_all_fail_raises():
 # _common.py — bootstrap_ci  (line 362) + methods
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_bootstrap_ci_transpose_branch_for_vector_point():
     """A (n_boot, 1)-shaped boot with a multi-element point triggers the
     transpose reshape (line 362): boot (B,1) -> (1,B). With a single row per
@@ -205,7 +216,7 @@ def test_bootstrap_ci_transpose_branch_for_vector_point():
     but well-formed CI (lo == hi == that value)."""
     B = 5
     boot = np.arange(B, dtype=float).reshape(B, 1)  # (5,1)
-    point = np.array([10.0, 20.0, 30.0])            # size 3 > 1
+    point = np.array([10.0, 20.0, 30.0])  # size 3 > 1
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)  # ddof on single row
         se, lo, hi = bootstrap_ci(boot, point, method="percentile")
@@ -240,6 +251,7 @@ def test_bootstrap_ci_basic_and_normal_methods():
 # _common.py — weighted_quantile / weighted_ecdf / kde_at  (403, 413, 434)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_weighted_quantile_scalar_returns_float():
     """Scalar q -> python float (line 403). The cumulative-weight CDF runs
     from w/Σw up to 1, so np.interp at q=0.5 over 1..9 lands at 4.5; the
@@ -260,9 +272,9 @@ def test_weighted_ecdf_default_weights_monotone():
     y_sample = np.array([1.0, 2.0, 3.0, 4.0])
     grid = np.array([0.5, 1.0, 2.5, 4.0, 10.0])
     F = weighted_ecdf(grid, y_sample)
-    assert F[0] == 0.0                     # below min
-    assert np.all(np.diff(F) >= -1e-12)    # monotone non-decreasing
-    assert F[-1] == pytest.approx(1.0)     # at/above max
+    assert F[0] == 0.0  # below min
+    assert np.all(np.diff(F) >= -1e-12)  # monotone non-decreasing
+    assert F[-1] == pytest.approx(1.0)  # at/above max
 
 
 def test_kde_at_degenerate_sigma_fallback():
@@ -277,6 +289,7 @@ def test_kde_at_degenerate_sigma_fallback():
 # ════════════════════════════════════════════════════════════════════════
 # _common.py — weighted_gini  (lines 452, 457)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_weighted_gini_zero_total_weight_nan():
     """W <= 0 -> nan (line 452)."""
@@ -295,6 +308,7 @@ def test_weighted_gini_nonpositive_mean_nan():
 # ════════════════════════════════════════════════════════════════════════
 # _common.py — statistic_value  (lines 495, 501, 507) + branches
 # ════════════════════════════════════════════════════════════════════════
+
 
 @pytest.mark.parametrize("stat", ["theil_t", "theil_l", "atkinson"])
 def test_statistic_value_inequality_positive_data(stat):
@@ -339,6 +353,7 @@ def test_statistic_value_full_menu_and_unknown_raises():
 # ════════════════════════════════════════════════════════════════════════
 # _common.py — influence_function  (608, 620, 628, 634, 641)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_influence_function_gini_nonpositive_mean_returns_nan():
     """gini does NOT clip y, so mean-zero (symmetric) data gives mu == 0
@@ -388,6 +403,7 @@ def test_influence_function_quantile_recenters_to_quantile():
 # _common.py — prepare_frame  (line 679)
 # ════════════════════════════════════════════════════════════════════════
 
+
 def test_prepare_frame_weight_length_mismatch_raises():
     """An array of weights whose length differs from the cleaned frame
     raises (line 679)."""
@@ -401,20 +417,23 @@ def test_prepare_frame_weight_length_mismatch_raises():
 
 def test_prepare_frame_string_weights_and_dropna():
     """String weights column is extracted and dropped; NA rows removed."""
-    df = pd.DataFrame({
-        "y": [1.0, 2.0, np.nan, 4.0],
-        "x": [0.1, 0.2, 0.3, 0.4],
-        "wt": [1.0, 1.0, 1.0, 2.0],
-    })
+    df = pd.DataFrame(
+        {
+            "y": [1.0, 2.0, np.nan, 4.0],
+            "x": [0.1, 0.2, 0.3, 0.4],
+            "wt": [1.0, 1.0, 1.0, 2.0],
+        }
+    )
     out, w = prepare_frame(df, ["y", "x"], weights="wt")
     assert "wt" not in out.columns
-    assert len(out) == 3                # NA row dropped
+    assert len(out) == 3  # NA row dropped
     assert np.array_equal(w, np.array([1.0, 1.0, 2.0]))
 
 
 # ════════════════════════════════════════════════════════════════════════
 # _results.py — DecompResultMixin via a tiny concrete subclass
 # ════════════════════════════════════════════════════════════════════════
+
 
 class _Res(DecompResultMixin):
     method_name = "ToyDecomp"
@@ -429,11 +448,13 @@ def test_confint_detailed_branch_full():
     """which='detailed' with a 'se' column and a 'contribution' value column
     builds per-variable CIs (covers the detailed branch incl. lines 337-351;
     exercises the value-col detection)."""
-    detailed = pd.DataFrame({
-        "variable": ["age", "edu"],
-        "contribution": [0.5, -0.2],
-        "se": [0.1, 0.05],
-    })
+    detailed = pd.DataFrame(
+        {
+            "variable": ["age", "edu"],
+            "contribution": [0.5, -0.2],
+            "se": [0.1, 0.05],
+        }
+    )
     r = _Res(detailed=detailed)
     ci = r.confint(which="detailed")
     assert set(ci) == {"age", "edu"}
@@ -465,8 +486,10 @@ def test_confint_unknown_which_raises():
 
 def test_cite_no_keys_returns_empty():
     """No bib_keys -> '' for string fmt, [] otherwise (line 368)."""
+
     class _NoKeys(DecompResultMixin):
         bib_keys = ()
+
     nk = _NoKeys()
     assert nk.cite("string") == ""
     assert nk.cite("list") == []
@@ -496,6 +519,7 @@ def test_to_excel_roundtrip_bytes():
     data = r.to_excel()
     assert isinstance(data, (bytes, bytearray))
     import io
+
     book = pd.read_excel(io.BytesIO(data), sheet_name=None)
     assert "Overall" in book
     assert "Detailed" in book
@@ -515,18 +539,22 @@ def test_to_word_empty_dataframe_panel(tmp_path):
     """A DataFrame panel that is empty after detection... empty panels are
     filtered by _dataframe_panels, so we cover the empty-table branch
     (lines 487-488) by overriding _dataframe_panels to yield an empty df."""
+
     class _WordRes(DecompResultMixin):
         method_name = "EmptyPanelDoc"
         bib_keys = ("oaxaca1973male",)
 
         def _dataframe_panels(self):
-            return {"Empty": pd.DataFrame(columns=["a", "b"]),
-                    "Full": pd.DataFrame({"a": [1], "b": [2.5]})}
+            return {
+                "Empty": pd.DataFrame(columns=["a", "b"]),
+                "Full": pd.DataFrame({"a": [1], "b": [2.5]}),
+            }
 
     out = tmp_path / "doc.docx"
     _WordRes().to_word(str(out))
     assert out.exists()
     from docx import Document
+
     doc = Document(str(out))
     texts = [p.text for p in doc.paragraphs]
     assert "(empty)" in texts  # empty-panel paragraph (line 487-488)
@@ -535,6 +563,7 @@ def test_to_word_empty_dataframe_panel(tmp_path):
 def test_to_word_summary_exception_falls_back_to_repr(tmp_path):
     """If summary() raises, to_word swallows it and writes repr(self)
     instead (lines 476-477)."""
+
     class _BadSummary(DecompResultMixin):
         method_name = "BadSummaryDoc"
         bib_keys = ()
@@ -551,6 +580,7 @@ def test_to_word_summary_exception_falls_back_to_repr(tmp_path):
     out = tmp_path / "bad.docx"
     _BadSummary().to_word(str(out))
     from docx import Document
+
     doc = Document(str(out))
     full = "\n".join(p.text for p in doc.paragraphs)
     assert "REPR_FALLBACK_MARKER" in full
@@ -560,6 +590,7 @@ def test_to_word_writes_summary_and_tables(tmp_path):
     """to_word writes a heading, the summary text, a populated table, and a
     References section. summary() returns text (no exception => normal
     path)."""
+
     class _SumRes(DecompResultMixin):
         method_name = "SummaryDoc"
         bib_keys = ("oaxaca1973male",)
@@ -571,6 +602,7 @@ def test_to_word_writes_summary_and_tables(tmp_path):
     out = tmp_path / "sum.docx"
     _SumRes().to_word(str(out))
     from docx import Document
+
     doc = Document(str(out))
     full = "\n".join(p.text for p in doc.paragraphs)
     assert "Gap = 1.25" in full
@@ -581,6 +613,7 @@ def test_to_word_writes_summary_and_tables(tmp_path):
 # ════════════════════════════════════════════════════════════════════════
 # _results.py — _coerce_for_json  (lines 575, 579)
 # ════════════════════════════════════════════════════════════════════════
+
 
 def test_coerce_for_json_ndarray_to_list():
     """numpy ndarray -> python list (line 575)."""
@@ -599,6 +632,7 @@ def test_coerce_for_json_nan_and_inf_to_none():
 def test_to_dict_roundtrips_through_json():
     """to_dict / to_json coerce numpy + DataFrame into JSON-safe forms."""
     import json
+
     r = _Res(
         overall={"gap": np.float64(1.0)},
         detailed=pd.DataFrame({"variable": ["x"], "contribution": [0.5]}),

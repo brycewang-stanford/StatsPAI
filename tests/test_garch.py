@@ -1,4 +1,5 @@
 """GARCH(p,q) tests."""
+
 import numpy as np, pytest
 from statspai.timeseries.garch import garch
 
@@ -7,11 +8,12 @@ from statspai.timeseries.garch import garch
 def garch_dgp():
     rng = np.random.default_rng(42)
     T = 2000
-    eps = np.zeros(T); s2 = np.zeros(T)
+    eps = np.zeros(T)
+    s2 = np.zeros(T)
     omega, alpha, beta = 0.01, 0.1, 0.85
     s2[0] = omega / (1 - alpha - beta)
     for t in range(1, T):
-        s2[t] = omega + alpha * eps[t-1]**2 + beta * s2[t-1]
+        s2[t] = omega + alpha * eps[t - 1] ** 2 + beta * s2[t - 1]
         eps[t] = np.sqrt(s2[t]) * rng.standard_normal()
     return eps, omega, alpha, beta
 
@@ -50,4 +52,5 @@ def test_garch_summary(garch_dgp):
 
 def test_exported():
     import statspai as sp
+
     assert callable(sp.garch)

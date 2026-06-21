@@ -14,7 +14,6 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Critical 1: RR SE formula — must match Katz (1978) textbook form
 # ---------------------------------------------------------------------------
@@ -22,16 +21,14 @@ import statspai as sp
 
 def test_rr_se_katz_formula_dense_cells():
     r = sp.epi.relative_risk(50, 50, 30, 70)
-    expected_se = math.sqrt(1/50 - 1/100 + 1/30 - 1/100)
+    expected_se = math.sqrt(1 / 50 - 1 / 100 + 1 / 30 - 1 / 100)
     assert r.se_log == pytest.approx(expected_se, rel=1e-6)
 
 
 def test_rr_se_katz_formula_haldane_corrected():
     # Zero cell triggers Haldane correction: a=0.5, b=10.5, c=5.5, d=20.5
     r = sp.epi.relative_risk(0, 10, 5, 20)
-    expected_se = math.sqrt(
-        1/0.5 - 1/(0.5 + 10.5) + 1/5.5 - 1/(5.5 + 20.5)
-    )
+    expected_se = math.sqrt(1 / 0.5 - 1 / (0.5 + 10.5) + 1 / 5.5 - 1 / (5.5 + 20.5))
     assert r.se_log == pytest.approx(expected_se, rel=1e-6)
 
 
@@ -67,6 +64,7 @@ def test_regime_rejects_callable_via_history():
     class _Evil:
         def __call__(self, *a, **kw):
             return 1
+
     with pytest.raises(TypeError):
         r.treatment({"malicious": _Evil()}, 0)
 
@@ -114,6 +112,7 @@ def test_unified_sensitivity_skips_oster_without_beta_uncontrolled():
         estimate: float
         se: float
         ci: tuple
+
     dash = sp.unified_sensitivity(
         R(0.3, 0.1, (0.1, 0.5)),
         r2_treated=0.25,
@@ -131,6 +130,7 @@ def test_unified_sensitivity_runs_oster_when_all_args_supplied():
         estimate: float
         se: float
         ci: tuple
+
     dash = sp.unified_sensitivity(
         R(0.3, 0.1, (0.1, 0.5)),
         r2_treated=0.25,
@@ -155,6 +155,7 @@ def test_breakdown_bias_uses_ci_not_estimate():
         estimate: float
         se: float
         ci: tuple
+
     dash = sp.unified_sensitivity(R(0.5, 0.1, (0.3, 0.7)))
     # bias_to_flip should be ~0.3 (lower CI bound), not 0.5
     assert dash.breakdown["bias_to_flip"] == pytest.approx(0.3, rel=1e-3)
@@ -196,18 +197,24 @@ def test_mr_radial_rejects_single_snp():
 def test_longitudinal_gformula_warns_on_missing_cells():
     import pandas as pd
     import warnings
-    df = pd.DataFrame({
-        "pid": [1, 1, 1, 2, 2, 3, 3, 3],
-        "visit": [0, 1, 2, 0, 1, 0, 1, 2],
-        "treat": [0, 1, 1, 0, 1, 1, 1, 1],
-        "bp_lag": [130, 125, 120, 140, 138, 120, 118, 115],
-        "y": [118, 118, 118, 136, 136, 113, 113, 113],
-    })
+
+    df = pd.DataFrame(
+        {
+            "pid": [1, 1, 1, 2, 2, 3, 3, 3],
+            "visit": [0, 1, 2, 0, 1, 0, 1, 2],
+            "treat": [0, 1, 1, 0, 1, 1, 1, 1],
+            "bp_lag": [130, 125, 120, 140, 138, 120, 118, 115],
+            "y": [118, 118, 118, 136, 136, 113, 113, 113],
+        }
+    )
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         sp.longitudinal_analyze(
-            data=df, id="pid", time="visit",
-            treatment="treat", outcome="y",
+            data=df,
+            id="pid",
+            time="visit",
+            treatment="treat",
+            outcome="y",
             time_varying=["bp_lag"],
             regime=sp.always_treat(K=3),
             method="g-formula",
@@ -223,7 +230,9 @@ def test_longitudinal_gformula_warns_on_missing_cells():
 
 def test_preregister_preserves_colons_in_notes(tmp_path):
     q = sp.causal_question(
-        treatment="d", outcome="y", design="rct",
+        treatment="d",
+        outcome="y",
+        design="rct",
         notes="Design: RCT with 80:20 split",
     )
     path = q.save(tmp_path / "pap.yaml")

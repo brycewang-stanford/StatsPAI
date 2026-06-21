@@ -10,6 +10,7 @@ Pure-numpy Bayesian structural time series. Covers:
 No mocking of numeric paths -- real time series with a genuine level
 shift in the post period.
 """
+
 import numpy as np
 import pandas as pd
 import pytest

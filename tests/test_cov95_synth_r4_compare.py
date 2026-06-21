@@ -5,6 +5,7 @@ exercises the SynthComparison export surface (summary / to_latex /
 to_markdown / to_excel / plot) plus the ``_recommend`` tie-break
 branches. All file output via ``tmp_path``; figures use the Agg backend.
 """
+
 import matplotlib
 
 matplotlib.use("Agg")

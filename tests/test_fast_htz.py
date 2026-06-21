@@ -2,6 +2,7 @@
 
 See docs/superpowers/specs/2026-04-27-htz-clubsandwich-parity-design.md.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,10 +17,10 @@ import pytest
 
 import statspai as sp
 
-
 # ---------------------------------------------------------------------------
 # Shared panel fixture (mirrors tests/test_fast_inference.py::_ols_panel)
 # ---------------------------------------------------------------------------
+
 
 def _ols_panel(n_clusters=20, m=30, seed=0, beta=(0.30, -0.20), unbalanced=False):
     rng = np.random.default_rng(seed)
@@ -40,11 +41,19 @@ def _ols_panel(n_clusters=20, m=30, seed=0, beta=(0.30, -0.20), unbalanced=False
 # Task 1: WaldTestResult dataclass
 # ---------------------------------------------------------------------------
 
+
 def test_wald_test_result_is_frozen_dataclass():
     """WaldTestResult should exist, be importable from sp.fast, and be frozen."""
     res = sp.fast.WaldTestResult(
-        test="HTZ", q=2, eta=18.5, F_stat=3.4, p_value=0.04, Q=7.1,
-        R=np.eye(2), r=np.zeros(2), V_R=np.eye(2),
+        test="HTZ",
+        q=2,
+        eta=18.5,
+        F_stat=3.4,
+        p_value=0.04,
+        Q=7.1,
+        R=np.eye(2),
+        r=np.zeros(2),
+        V_R=np.eye(2),
     )
     assert res.test == "HTZ"
     assert res.q == 2
@@ -56,6 +65,7 @@ def test_wald_test_result_is_frozen_dataclass():
 # ---------------------------------------------------------------------------
 # Task 2: per-cluster helper internal API
 # ---------------------------------------------------------------------------
+
 
 def test_htz_helper_V_R_matches_crve_path():
     """The HTZ helper's per-cluster G_g matrices should reproduce the CR2
@@ -82,8 +92,8 @@ def test_htz_helper_V_R_matches_crve_path():
     for cg in range(G_clusters):
         mask = cluster_codes == cg
         e_g = e[mask]
-        a_e = qty["A_g_sqrtW"][cg] @ e_g           # (n_g,)
-        v_g = qty["G_g"][cg] @ a_e                 # (q,)
+        a_e = qty["A_g_sqrtW"][cg] @ e_g  # (n_g,)
+        v_g = qty["G_g"][cg] @ a_e  # (q,)
         v_sum += np.outer(v_g, v_g)
 
     # Compare to crve(type="cr2") sandwich, sliced to R subspace
@@ -98,6 +108,7 @@ def test_htz_helper_Omega_is_symmetric_psd():
     g = df["g"].to_numpy()
     R = np.eye(2)
     from statspai.fast.inference import _htz_per_cluster_quantities
+
     qty = _htz_per_cluster_quantities(X, g, R=R)
     Omega = qty["Omega"]
     assert Omega.shape == (2, 2)
@@ -144,29 +155,42 @@ def test_htz_frozen_fixture_matches_clubsandwich(panel_name):
     R = np.atleast_2d(np.array(fx["R"], dtype=np.float64))
 
     res = sp.fast.cluster_wald_htz(
-        X=X, residuals=e, cluster=g, R=R, beta=beta,
+        X=X,
+        residuals=e,
+        cluster=g,
+        R=R,
+        beta=beta,
     )
     np.testing.assert_allclose(
-        res.eta, fx["eta"], rtol=1e-8,
+        res.eta,
+        fx["eta"],
+        rtol=1e-8,
         err_msg=f"η mismatch on panel {panel_name}",
     )
     np.testing.assert_allclose(
-        res.F_stat, fx["F_stat"], rtol=1e-8,
+        res.F_stat,
+        fx["F_stat"],
+        rtol=1e-8,
         err_msg=f"F mismatch on panel {panel_name}",
     )
     np.testing.assert_allclose(
-        res.p_value, fx["p_value"], rtol=1e-7,
+        res.p_value,
+        fx["p_value"],
+        rtol=1e-7,
         err_msg=f"p-value mismatch on panel {panel_name}",
     )
     np.testing.assert_allclose(
-        res.V_R, np.atleast_2d(np.array(fx["V_R"], dtype=np.float64)),
-        rtol=1e-9, err_msg=f"V_R mismatch on panel {panel_name}",
+        res.V_R,
+        np.atleast_2d(np.array(fx["V_R"], dtype=np.float64)),
+        rtol=1e-9,
+        err_msg=f"V_R mismatch on panel {panel_name}",
     )
 
 
 # ---------------------------------------------------------------------------
 # Task 4: helper ↔ full-wrapper self-consistency
 # ---------------------------------------------------------------------------
+
 
 def test_htz_q1_helper_eta_matches_full_wrapper():
     """The DOF helper and the full wrapper share Step 4 — η must be bit-equal."""
@@ -180,7 +204,11 @@ def test_htz_q1_helper_eta_matches_full_wrapper():
 
     nu_helper = sp.fast.cluster_dof_wald_htz(X, g, R=contrast.reshape(1, -1))
     res = sp.fast.cluster_wald_htz(
-        X=X, residuals=e, cluster=g, R=contrast.reshape(1, -1), beta=beta,
+        X=X,
+        residuals=e,
+        cluster=g,
+        R=contrast.reshape(1, -1),
+        beta=beta,
     )
     assert abs(nu_helper - res.eta) < 1e-12
 
@@ -198,7 +226,11 @@ def test_htz_F_and_p_value_internal_consistency():
 
     R = np.eye(2)
     res = sp.fast.cluster_wald_htz(
-        X=X, residuals=e, cluster=g, R=R, beta=beta,
+        X=X,
+        residuals=e,
+        cluster=g,
+        R=R,
+        beta=beta,
     )
     # F = (η - q + 1) / (η · q) · Q
     F_recomputed = (res.eta - res.q + 1) / (res.eta * res.q) * res.Q
@@ -218,7 +250,11 @@ def test_htz_zero_residuals_returns_p_one():
     e = np.zeros(len(df))
     R = np.eye(2)
     res = sp.fast.cluster_wald_htz(
-        X=X, residuals=e, cluster=g, R=R, beta=beta,
+        X=X,
+        residuals=e,
+        cluster=g,
+        R=R,
+        beta=beta,
     )
     assert res.Q == 0.0
     assert res.F_stat == 0.0
@@ -229,6 +265,7 @@ def test_htz_zero_residuals_returns_p_one():
 # Task 5: Validation + edge cases
 # ---------------------------------------------------------------------------
 
+
 def test_htz_validates_R_shape():
     df = _ols_panel(seed=80)
     X = df[["x1", "x2"]].to_numpy()
@@ -238,7 +275,9 @@ def test_htz_validates_R_shape():
         sp.fast.cluster_dof_wald_htz(X, g, R=np.eye(3))
     with pytest.raises(ValueError, match="rank"):
         sp.fast.cluster_dof_wald_htz(
-            X, g, R=np.array([[1.0, 0.0], [1.0, 0.0]]),
+            X,
+            g,
+            R=np.array([[1.0, 0.0], [1.0, 0.0]]),
         )
     with pytest.raises(ValueError, match="at least one row"):
         sp.fast.cluster_dof_wald_htz(X, g, R=np.empty((0, 2)))
@@ -285,7 +324,11 @@ def test_htz_invariant_to_cluster_relabel():
     perm = rng.permutation(g.max() + 1)
     g_relab = perm[g]
     res1 = sp.fast.cluster_wald_htz(
-        X=X, residuals=e, cluster=g_relab, R=R, beta=beta,
+        X=X,
+        residuals=e,
+        cluster=g_relab,
+        R=R,
+        beta=beta,
     )
     np.testing.assert_allclose(res0.eta, res1.eta, rtol=1e-10)
     np.testing.assert_allclose(res0.F_stat, res1.F_stat, rtol=1e-10)
@@ -299,7 +342,10 @@ def test_htz_independent_of_bread_arg():
     R = np.eye(2)
     nu_a = sp.fast.cluster_dof_wald_htz(X, g, R=R)
     nu_b = sp.fast.cluster_dof_wald_htz(
-        X, g, R=R, bread=np.linalg.inv(X.T @ X),
+        X,
+        g,
+        R=R,
+        bread=np.linalg.inv(X.T @ X),
     )
     assert abs(nu_a - nu_b) < 1e-10
 
@@ -327,8 +373,9 @@ def test_htz_singleton_cluster_warns():
         x1 = rng.normal(size=n_g)
         x2 = rng.normal(size=n_g)
         eps = rng.normal(size=n_g)
-        rows.append(pd.DataFrame({"g": cg, "x1": x1, "x2": x2,
-                                    "y": 0.3 * x1 - 0.2 * x2 + eps}))
+        rows.append(
+            pd.DataFrame({"g": cg, "x1": x1, "x2": x2, "y": 0.3 * x1 - 0.2 * x2 + eps})
+        )
     df = pd.concat(rows, ignore_index=True)
     X = df[["x1", "x2"]].to_numpy()
     g = df["g"].to_numpy()
@@ -349,7 +396,12 @@ def test_htz_r_shape_mismatch_rejected():
 
     with pytest.raises(ValueError, match="r has"):
         sp.fast.cluster_wald_htz(
-            X=X, residuals=e, cluster=g, R=R, beta=beta, r=np.zeros(3),
+            X=X,
+            residuals=e,
+            cluster=g,
+            R=R,
+            beta=beta,
+            r=np.zeros(3),
         )
 
 
@@ -370,7 +422,10 @@ def test_htz_weight_length_and_nonfinite_rejected():
 
     with pytest.raises(ValueError, match="weights length"):
         sp.fast.cluster_dof_wald_htz(
-            X, g, R=np.eye(2), weights=np.ones(len(df) - 1),
+            X,
+            g,
+            R=np.eye(2),
+            weights=np.ones(len(df) - 1),
         )
     bad_w = np.ones(len(df))
     bad_w[0] = np.nan
@@ -415,15 +470,19 @@ def test_htz_q1_documented_drift_from_bm_simplified():
 # Task 6: Live R clubSandwich parity (skipif when Rscript missing)
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.skipif(
     shutil.which("Rscript") is None,
     reason="Rscript not on PATH",
 )
-@pytest.mark.parametrize("seed,G,q", [
-    (1010, 15, 1),
-    (1011, 25, 2),
-    (1012, 30, 2),
-])
+@pytest.mark.parametrize(
+    "seed,G,q",
+    [
+        (1010, 15, 1),
+        (1011, 25, 2),
+        (1012, 30, 2),
+    ],
+)
 def test_htz_matches_r_clubsandwich_live(seed, G, q, tmp_path):
     """Live parity: simulate panel in Python, run R clubSandwich on it,
     compare HTZ outputs to ``rtol < 1e-8``.
@@ -465,7 +524,10 @@ def test_htz_matches_r_clubsandwich_live(seed, G, q, tmp_path):
         "cat(toJSON(out, auto_unbox=TRUE, digits=14))\n"
     )
     proc = subprocess.run(
-        ["Rscript", "-e", r_script], capture_output=True, text=True, timeout=120,
+        ["Rscript", "-e", r_script],
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if proc.returncode == 2 or "SKIP" in proc.stdout:
         pytest.skip("clubSandwich not available")
@@ -485,18 +547,28 @@ def test_htz_matches_r_clubsandwich_live(seed, G, q, tmp_path):
         R = np.array([[0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
 
     res = sp.fast.cluster_wald_htz(
-        X=X_ic, residuals=e, cluster=g_arr, R=R, beta=beta,
+        X=X_ic,
+        residuals=e,
+        cluster=g_arr,
+        R=R,
+        beta=beta,
     )
 
     np.testing.assert_allclose(
-        res.eta, r_out["eta"], rtol=1e-8,
+        res.eta,
+        r_out["eta"],
+        rtol=1e-8,
         err_msg=f"η drift seed={seed} G={G} q={q}",
     )
     np.testing.assert_allclose(
-        res.F_stat, r_out["F_stat"], rtol=1e-8,
+        res.F_stat,
+        r_out["F_stat"],
+        rtol=1e-8,
         err_msg=f"F drift seed={seed} G={G} q={q}",
     )
     np.testing.assert_allclose(
-        res.p_value, r_out["p_value"], rtol=1e-7,
+        res.p_value,
+        r_out["p_value"],
+        rtol=1e-7,
         err_msg=f"p drift seed={seed} G={G} q={q}",
     )

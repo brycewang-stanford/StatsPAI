@@ -12,6 +12,7 @@ The fix drops zero-variance columns before fitting (which is the numerically
 correct thing to do — such columns only duplicate the intercept) and warns
 loudly if the treatment model genuinely fails to fit.
 """
+
 import warnings
 
 import numpy as np
@@ -34,8 +35,7 @@ def test_single_period_weights_are_not_collapsed_to_one():
     """Weights must reflect the confounder, not silently degrade to 1.0."""
     df = _single_period_panel()
     sw = np.asarray(
-        sp.stabilized_weights(df, treat="A", id="id", time="time",
-                              time_varying=["L"])
+        sp.stabilized_weights(df, treat="A", id="id", time="time", time_varying=["L"])
     )
     # The pre-fix bug produced var == 0 and a single unique value of 1.0.
     assert np.var(sw) > 0.1, "stabilized weights collapsed to a constant"
@@ -48,8 +48,7 @@ def test_single_period_weights_match_hand_computed_iptw():
     df = _single_period_panel()
     A = df["A"].values
     sw = np.asarray(
-        sp.stabilized_weights(df, treat="A", id="id", time="time",
-                              time_varying=["L"])
+        sp.stabilized_weights(df, treat="A", id="id", time="time", time_varying=["L"])
     )
     p_den = sm.Logit(A, sm.add_constant(df["L"].values)).fit(disp=0).predict()
     p_num = np.full(len(A), A.mean())
@@ -68,8 +67,7 @@ def test_multi_period_weights_still_vary():
     Y = A + L + rng.normal(0, 1, n)
     df = pd.DataFrame({"id": ids, "time": t, "A": A, "L": L, "Y": Y})
     sw = np.asarray(
-        sp.stabilized_weights(df, treat="A", id="id", time="time",
-                              time_varying=["L"])
+        sp.stabilized_weights(df, treat="A", id="id", time="time", time_varying=["L"])
     )
     assert np.var(sw) > 0.0
     assert len(np.unique(np.round(sw, 4))) > 10

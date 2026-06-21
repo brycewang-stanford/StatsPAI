@@ -42,8 +42,12 @@ def test_kitagawa_result_contract():
 
 def test_kitagawa_valid_instrument_not_rejected():
     res = sp.kitagawa_test(
-        _iv_data(violate=False), y="y", treatment="d", instrument="z",
-        n_boot=300, seed=0,
+        _iv_data(violate=False),
+        y="y",
+        treatment="d",
+        instrument="z",
+        n_boot=300,
+        seed=0,
     )
     # A genuinely valid instrument should not be rejected at 5%.
     assert res.p_value > 0.05
@@ -52,12 +56,20 @@ def test_kitagawa_valid_instrument_not_rejected():
 
 def test_kitagawa_statistic_rises_under_exclusion_violation():
     valid = sp.kitagawa_test(
-        _iv_data(violate=False), y="y", treatment="d", instrument="z",
-        n_boot=200, seed=0,
+        _iv_data(violate=False),
+        y="y",
+        treatment="d",
+        instrument="z",
+        n_boot=200,
+        seed=0,
     )
     invalid = sp.kitagawa_test(
-        _iv_data(violate=True), y="y", treatment="d", instrument="z",
-        n_boot=200, seed=0,
+        _iv_data(violate=True),
+        y="y",
+        treatment="d",
+        instrument="z",
+        n_boot=200,
+        seed=0,
     )
     # The measured density violation must be far larger when Z enters Y.
     assert invalid.statistic > 10 * max(valid.statistic, 1e-4)
@@ -65,9 +77,7 @@ def test_kitagawa_statistic_rises_under_exclusion_violation():
 
 def test_kitagawa_seed_reproducible():
     data = _iv_data()
-    a = sp.kitagawa_test(data, y="y", treatment="d", instrument="z",
-                         n_boot=200, seed=7)
-    b = sp.kitagawa_test(data, y="y", treatment="d", instrument="z",
-                         n_boot=200, seed=7)
+    a = sp.kitagawa_test(data, y="y", treatment="d", instrument="z", n_boot=200, seed=7)
+    b = sp.kitagawa_test(data, y="y", treatment="d", instrument="z", n_boot=200, seed=7)
     assert a.statistic == b.statistic
     assert a.p_value == b.p_value

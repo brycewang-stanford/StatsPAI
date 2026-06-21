@@ -63,8 +63,13 @@ def test_fit_logit_runs():
 def test_ivmte_bounds_ate():
     df = _binary_iv_df(seed=2)
     r = sp.iv.ivmte_bounds(
-        y="d".replace("d", "y"), treatment="d", instruments="z",
-        data=df, target="ate", basis_degree=2, n_propensity_bins=6,
+        y="d".replace("d", "y"),
+        treatment="d",
+        instruments="z",
+        data=df,
+        target="ate",
+        basis_degree=2,
+        n_propensity_bins=6,
     )
     assert isinstance(r, _lp.IVMTEBounds)
     assert r.lower_bound <= r.upper_bound + 1e-6
@@ -73,44 +78,84 @@ def test_ivmte_bounds_ate():
 
 def test_ivmte_bounds_att_atu():
     df = _binary_iv_df(seed=3)
-    r_att = sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df,
-                               target="att", basis_degree=2, n_propensity_bins=6)
-    r_atu = sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df,
-                               target="atu", basis_degree=2, n_propensity_bins=6)
+    r_att = sp.iv.ivmte_bounds(
+        y="y",
+        treatment="d",
+        instruments="z",
+        data=df,
+        target="att",
+        basis_degree=2,
+        n_propensity_bins=6,
+    )
+    r_atu = sp.iv.ivmte_bounds(
+        y="y",
+        treatment="d",
+        instruments="z",
+        data=df,
+        target="atu",
+        basis_degree=2,
+        n_propensity_bins=6,
+    )
     assert r_att.lower_bound <= r_att.upper_bound + 1e-6
     assert r_atu.lower_bound <= r_atu.upper_bound + 1e-6
 
 
 def test_ivmte_bounds_late():
     df = _binary_iv_df(seed=4)
-    r = sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df,
-                           target="late", late_bounds=(0.2, 0.8),
-                           basis_degree=2, n_propensity_bins=6)
+    r = sp.iv.ivmte_bounds(
+        y="y",
+        treatment="d",
+        instruments="z",
+        data=df,
+        target="late",
+        late_bounds=(0.2, 0.8),
+        basis_degree=2,
+        n_propensity_bins=6,
+    )
     assert r.lower_bound <= r.upper_bound + 1e-6
 
 
 def test_ivmte_bounds_late_requires_bounds():
     df = _binary_iv_df(seed=5)
     with pytest.raises(ValueError):
-        sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df,
-                           target="late", basis_degree=2)
+        sp.iv.ivmte_bounds(
+            y="y",
+            treatment="d",
+            instruments="z",
+            data=df,
+            target="late",
+            basis_degree=2,
+        )
 
 
 def test_ivmte_bounds_prte():
     df = _binary_iv_df(seed=6)
     rng = np.random.default_rng(6)
     policy = np.clip(rng.uniform(0.2, 0.9, size=len(df)), 1e-3, 1 - 1e-3)
-    r = sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df,
-                           target="prte", policy_prob=policy,
-                           basis_degree=2, n_propensity_bins=6)
+    r = sp.iv.ivmte_bounds(
+        y="y",
+        treatment="d",
+        instruments="z",
+        data=df,
+        target="prte",
+        policy_prob=policy,
+        basis_degree=2,
+        n_propensity_bins=6,
+    )
     assert np.isfinite(r.lower_bound) or np.isnan(r.lower_bound)
 
 
 def test_ivmte_bounds_prte_requires_policy():
     df = _binary_iv_df(seed=7)
     with pytest.raises(ValueError):
-        sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df,
-                           target="prte", basis_degree=2)
+        sp.iv.ivmte_bounds(
+            y="y",
+            treatment="d",
+            instruments="z",
+            data=df,
+            target="prte",
+            basis_degree=2,
+        )
 
 
 def test_target_weights_prte_negligible_shift_raises():
@@ -132,16 +177,22 @@ def test_ivmte_bounds_nonbinary_treatment_raises():
     df = df.copy()
     df["d"] = df["d"] + 0.5  # now 0.5 / 1.5
     with pytest.raises(ValueError):
-        sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df,
-                           target="ate")
+        sp.iv.ivmte_bounds(y="y", treatment="d", instruments="z", data=df, target="ate")
 
 
 def test_ivmte_bounds_with_exog_and_shape():
     df = _binary_iv_df(seed=10)
     r = sp.iv.ivmte_bounds(
-        y="y", treatment="d", instruments="z", exog="x", data=df,
-        target="ate", basis_degree=2, n_propensity_bins=6,
-        bounds_outcome=(-2.0, 3.0), decreasing_mte=True,
+        y="y",
+        treatment="d",
+        instruments="z",
+        exog="x",
+        data=df,
+        target="ate",
+        basis_degree=2,
+        n_propensity_bins=6,
+        bounds_outcome=(-2.0, 3.0),
+        decreasing_mte=True,
         include_bmw_point=True,
     )
     assert "decreasing_mte" in r.shape_restrictions
@@ -156,8 +207,9 @@ def test_shape_constraints_empty():
 
 
 def test_shape_constraints_with_bounds_and_decreasing():
-    A, b = _lp._shape_constraints(2, bounds_outcome=(0.0, 1.0),
-                                  decreasing_mte=True, u_discretisation=11)
+    A, b = _lp._shape_constraints(
+        2, bounds_outcome=(0.0, 1.0), decreasing_mte=True, u_discretisation=11
+    )
     assert A.shape[0] == b.shape[0]
     assert A.shape[1] == 6
     assert A.shape[0] > 0

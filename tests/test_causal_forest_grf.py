@@ -1,4 +1,5 @@
 """GRF-inspired extensions for CausalForest: variable_importance, BLP, ate, att."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -19,9 +20,15 @@ def fitted_cf():
     T = rng.binomial(1, 0.5, n)
     # CATE = X[:, 0]  (heterogeneous along dim 0 only)
     Y = X[:, 0] * T + X[:, 1] + rng.standard_normal(n)
-    data = pd.DataFrame({
-        "Y": Y, "T": T, "X0": X[:, 0], "X1": X[:, 1], "X2": X[:, 2],
-    })
+    data = pd.DataFrame(
+        {
+            "Y": Y,
+            "T": T,
+            "X0": X[:, 0],
+            "X1": X[:, 1],
+            "X2": X[:, 2],
+        }
+    )
     cf = CausalForest(n_estimators=50, random_state=42)
     cf.fit("Y ~ T | X0 + X1 + X2", data=data)
     return cf
@@ -52,7 +59,12 @@ def test_blp_returns_full_table(fitted_cf):
     # HC1 SEs and now reports a 95% CI (ci_lower / ci_upper) alongside
     # the legacy coef / se / t / p columns.
     assert set(blp.columns) == {
-        "coef", "se", "t", "p", "ci_lower", "ci_upper",
+        "coef",
+        "se",
+        "t",
+        "p",
+        "ci_lower",
+        "ci_upper",
     }
     assert "Intercept" in blp.index
     assert "X0" in blp.index

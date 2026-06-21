@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
 ORIG = ROOT / "tests" / "orig_parity"
 RESULTS = ORIG / "results"

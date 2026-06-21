@@ -13,6 +13,7 @@ data, code, environment, paper, and lineage. These tests cover:
 - ``overwrite=False`` raises on existing path.
 - ``env=False`` skips pip freeze (much faster + makes the test hermetic).
 """
+
 from __future__ import annotations
 
 import io
@@ -31,18 +32,20 @@ from statspai.output._replication_pack import (
     replication_pack,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def df():
-    return pd.DataFrame({
-        "y": np.arange(10, dtype=float),
-        "treat": [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
-        "x": np.linspace(0, 1, 10),
-    })
+    return pd.DataFrame(
+        {
+            "y": np.arange(10, dtype=float),
+            "treat": [0, 0, 0, 0, 0, 1, 1, 1, 1, 1],
+            "x": np.linspace(0, 1, 10),
+        }
+    )
 
 
 @pytest.fixture
@@ -62,6 +65,7 @@ def _open_zip(rp):
 # ---------------------------------------------------------------------------
 # Minimal / smoke
 # ---------------------------------------------------------------------------
+
 
 class TestMinimalPack:
     def test_no_inputs_still_valid_zip(self, tmp_path):
@@ -90,6 +94,7 @@ class TestMinimalPack:
 # Data
 # ---------------------------------------------------------------------------
 
+
 class TestData:
     def test_dataframe_packs_to_csv(self, tmp_path, df):
         out = tmp_path / "d.zip"
@@ -99,8 +104,9 @@ class TestData:
             csv = zf.read("data/dataset.csv").decode()
             # Round-trips: parse back and compare.
             df2 = pd.read_csv(io.BytesIO(csv.encode()))
-            pd.testing.assert_frame_equal(df.reset_index(drop=True),
-                                           df2.reset_index(drop=True))
+            pd.testing.assert_frame_equal(
+                df.reset_index(drop=True), df2.reset_index(drop=True)
+            )
 
     def test_data_manifest_records_schema(self, tmp_path, df):
         rp = replication_pack(None, tmp_path / "d.zip", data=df, env=False)
@@ -121,8 +127,11 @@ class TestData:
             assert "data/dataset.csv" in entries
             csv_bytes = zf.read("data/dataset.csv")
             import hashlib as _h
-            assert entries["data/dataset.csv"]["sha256"] == \
-                _h.sha256(csv_bytes).hexdigest()
+
+            assert (
+                entries["data/dataset.csv"]["sha256"]
+                == _h.sha256(csv_bytes).hexdigest()
+            )
             assert entries["data/dataset.csv"]["size_bytes"] == len(csv_bytes)
 
 
@@ -130,10 +139,14 @@ class TestData:
 # Code
 # ---------------------------------------------------------------------------
 
+
 class TestCode:
     def test_inline_code(self, tmp_path, script_text):
         rp = replication_pack(
-            None, tmp_path / "c.zip", code=script_text, env=False,
+            None,
+            tmp_path / "c.zip",
+            code=script_text,
+            env=False,
         )
         with _open_zip(rp) as zf:
             assert "code/script.py" in zf.namelist()
@@ -143,7 +156,10 @@ class TestCode:
         sp_path = tmp_path / "analysis.py"
         sp_path.write_text(script_text, encoding="utf-8")
         rp = replication_pack(
-            None, tmp_path / "c.zip", code=str(sp_path), env=False,
+            None,
+            tmp_path / "c.zip",
+            code=str(sp_path),
+            env=False,
         )
         with _open_zip(rp) as zf:
             assert zf.read("code/script.py").decode() == script_text
@@ -157,6 +173,7 @@ class TestCode:
 # PaperDraft-like target
 # ---------------------------------------------------------------------------
 
+
 class _FakeWorkflow:
     def __init__(self, data, result):
         self.data = data
@@ -166,8 +183,9 @@ class _FakeWorkflow:
 class _FakePaperDraft:
     """Duck-type compatible with workflow.paper.PaperDraft for testing."""
 
-    def __init__(self, sections, citations, fmt="markdown",
-                 workflow=None, has_qmd=False):
+    def __init__(
+        self, sections, citations, fmt="markdown", workflow=None, has_qmd=False
+    ):
         self.sections = sections
         self.citations = citations
         self.fmt = fmt
@@ -175,14 +193,15 @@ class _FakePaperDraft:
         self._has_qmd = has_qmd
 
     def to_markdown(self) -> str:
-        body = "\n\n".join(
-            f"## {k}\n\n{v}" for k, v in self.sections.items()
-        )
+        body = "\n\n".join(f"## {k}\n\n{v}" for k, v in self.sections.items())
         return body
 
     def to_tex(self) -> str:
-        return r"\documentclass{article}\begin{document}" + \
-               self.to_markdown() + r"\end{document}"
+        return (
+            r"\documentclass{article}\begin{document}"
+            + self.to_markdown()
+            + r"\end{document}"
+        )
 
     def to_docx(self, path):
         Path(path).write_bytes(b"PK\x03\x04 fake docx")
@@ -197,8 +216,7 @@ class TestPaperDraft:
         attach_provenance(result, function="sp.did.test", data=df)
         wf = _FakeWorkflow(data=df, result=result)
         draft = _FakePaperDraft(
-            sections={"Question": "What's the effect?",
-                      "Results": "Effect = 0.5"},
+            sections={"Question": "What's the effect?", "Results": "Effect = 0.5"},
             citations=["Callaway B, Sant'Anna PHC. (2021). ..."],
             workflow=wf,
         )
@@ -214,10 +232,15 @@ class TestPaperDraft:
 
     def test_paper_format_qmd(self, tmp_path):
         draft = _FakePaperDraft(
-            sections={"Q": "x"}, citations=[], fmt="markdown",
+            sections={"Q": "x"},
+            citations=[],
+            fmt="markdown",
         )
         rp = replication_pack(
-            draft, tmp_path / "p.zip", env=False, paper_format="qmd",
+            draft,
+            tmp_path / "p.zip",
+            env=False,
+            paper_format="qmd",
         )
         with _open_zip(rp) as zf:
             assert "paper/paper.qmd" in zf.namelist()
@@ -227,7 +250,10 @@ class TestPaperDraft:
     def test_paper_format_tex(self, tmp_path):
         draft = _FakePaperDraft(sections={"Q": "x"}, citations=[])
         rp = replication_pack(
-            draft, tmp_path / "p.zip", env=False, paper_format="tex",
+            draft,
+            tmp_path / "p.zip",
+            env=False,
+            paper_format="tex",
         )
         with _open_zip(rp) as zf:
             assert "paper/paper.tex" in zf.namelist()
@@ -237,6 +263,7 @@ class TestPaperDraft:
 # Lineage
 # ---------------------------------------------------------------------------
 
+
 class TestLineage:
     def test_lineage_aggregates_from_results_list(self, tmp_path, df):
         r1 = SimpleNamespace()
@@ -244,7 +271,10 @@ class TestLineage:
         attach_provenance(r1, function="sp.did.foo", data=df)
         attach_provenance(r2, function="sp.iv.bar", data=df)
         rp = replication_pack(
-            [r1, r2], tmp_path / "l.zip", data=df, env=False,
+            [r1, r2],
+            tmp_path / "l.zip",
+            data=df,
+            env=False,
         )
         with _open_zip(rp) as zf:
             assert "lineage.json" in zf.namelist()
@@ -258,7 +288,9 @@ class TestLineage:
 
     def test_no_lineage_when_no_provenance(self, tmp_path):
         rp = replication_pack(
-            SimpleNamespace(), tmp_path / "l.zip", env=False,
+            SimpleNamespace(),
+            tmp_path / "l.zip",
+            env=False,
         )
         with _open_zip(rp) as zf:
             assert "lineage.json" not in zf.namelist()
@@ -268,12 +300,16 @@ class TestLineage:
 # Extras / overwrite
 # ---------------------------------------------------------------------------
 
+
 class TestExtras:
     def test_extra_files_included(self, tmp_path):
         rp = replication_pack(
-            None, tmp_path / "e.zip",
-            extra_files={"notes/HISTORY.md": "Run 1: pilot.",
-                         "config.toml": b"[run]\nseed = 42\n"},
+            None,
+            tmp_path / "e.zip",
+            extra_files={
+                "notes/HISTORY.md": "Run 1: pilot.",
+                "config.toml": b"[run]\nseed = 42\n",
+            },
             env=False,
         )
         with _open_zip(rp) as zf:
@@ -300,12 +336,15 @@ class TestExtras:
 # Manifest content
 # ---------------------------------------------------------------------------
 
+
 class TestManifest:
-    def test_manifest_has_versions_and_timestamp(self, tmp_path, df,
-                                                   script_text):
+    def test_manifest_has_versions_and_timestamp(self, tmp_path, df, script_text):
         rp = replication_pack(
-            None, tmp_path / "m.zip",
-            data=df, code=script_text, env=False,
+            None,
+            tmp_path / "m.zip",
+            data=df,
+            code=script_text,
+            env=False,
         )
         m = rp.manifest
         assert m["statspai_version"]
@@ -314,11 +353,13 @@ class TestManifest:
         # data/dataset.csv + data/manifest.json + code/script.py + README.md
         assert isinstance(m["files"], list) and len(m["files"]) >= 4
 
-    def test_files_listed_in_manifest_match_archive(self, tmp_path, df,
-                                                      script_text):
+    def test_files_listed_in_manifest_match_archive(self, tmp_path, df, script_text):
         rp = replication_pack(
-            None, tmp_path / "m.zip",
-            data=df, code=script_text, env=False,
+            None,
+            tmp_path / "m.zip",
+            data=df,
+            code=script_text,
+            env=False,
         )
         with _open_zip(rp) as zf:
             archive_names = set(zf.namelist())

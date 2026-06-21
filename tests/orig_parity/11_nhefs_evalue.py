@@ -38,6 +38,7 @@ Anchors per statistic: StatsPAI (sp.evalue) | R gold (EValue package +
 hand-rolled stabilized IPW) on the same CSV bytes | the deterministic
 closed form / published convention.
 """
+
 from __future__ import annotations
 
 import math
@@ -48,7 +49,6 @@ import statspai as sp
 
 from _common import OrigRecord, write_results
 from _nhefs import book_design
-
 
 MODULE = "11_nhefs_evalue"
 
@@ -65,7 +65,7 @@ def _stabilized_ipw_rr(dd, covs, y: str, treat: str) -> tuple[float, float, floa
     Y = dd[y].astype(float).values
     den = sm.Logit(A, X).fit(disp=0)
     p_den = den.predict(X)
-    p_num = A.mean()                       # stabilizing numerator P(A=1)
+    p_num = A.mean()  # stabilizing numerator P(A=1)
     sw = np.where(A == 1, p_num / p_den, (1 - p_num) / (1 - p_den))
     r1 = np.sum(sw * A * Y) / np.sum(sw * A)
     r0 = np.sum(sw * (1 - A) * Y) / np.sum(sw * (1 - A))
@@ -88,7 +88,7 @@ def _boot_rr_ci(dd, covs, y, treat, n_boot=1000, alpha=0.05, seed=42):
 
 
 def main() -> None:
-    full = sp.datasets.nhefs()                 # n=1629 -- death is complete
+    full = sp.datasets.nhefs()  # n=1629 -- death is complete
     full.to_csv(__import__("_common").DATA_DIR / f"{MODULE}.csv", index=False)
     n_full = len(full)
 
@@ -102,16 +102,14 @@ def main() -> None:
     rr_crude = risk1_c / risk0_c
     # Wald CI on log-RR (closed form -> identical in R).
     n1, n0 = (A == 1).sum(), (A == 0).sum()
-    se_log = math.sqrt((1 - risk1_c) / (risk1_c * n1)
-                       + (1 - risk0_c) / (risk0_c * n0))
+    se_log = math.sqrt((1 - risk1_c) / (risk1_c * n1) + (1 - risk0_c) / (risk0_c * n0))
     z = sp_norm_ppf(1 - 0.05 / 2)
     lo_c = rr_crude * math.exp(-z * se_log)
     hi_c = rr_crude * math.exp(z * se_log)
 
     # IP-weighted (adjusted) RR -- bootstrap CI (straddles 1 here).
     rr_adj, r1_adj, r0_adj = _stabilized_ipw_rr(dd_full, covs, "death", "qsmk")
-    lo_a, hi_a = _boot_rr_ci(dd_full, covs, "death", "qsmk",
-                             n_boot=1000, seed=42)
+    lo_a, hi_a = _boot_rr_ci(dd_full, covs, "death", "qsmk", n_boot=1000, seed=42)
 
     ev_crude = sp.evalue(estimate=rr_crude, ci=(lo_c, hi_c), measure="RR")
     ev_adj = sp.evalue(estimate=rr_adj, ci=(lo_a, hi_a), measure="RR")
@@ -123,9 +121,16 @@ def main() -> None:
     # ---- SECONDARY: Ch12 weight effect (continuous) -------------------
     cc = sp.datasets.nhefs(complete_case=True)
     dd_cc, covs_cc = book_design(cc)
-    wt_res = sp.ipw(dd_cc, y="wt82_71", treat="qsmk", covariates=covs_cc,
-                    estimand="ATE", seed=42, n_bootstrap=500)
-    effect = float(wt_res.estimate)            # ~3.44 kg (book 3.4)
+    wt_res = sp.ipw(
+        dd_cc,
+        y="wt82_71",
+        treat="qsmk",
+        covariates=covs_cc,
+        estimand="ATE",
+        seed=42,
+        n_bootstrap=500,
+    )
+    effect = float(wt_res.estimate)  # ~3.44 kg (book 3.4)
     sd_out = float(cc["wt82_71"].std(ddof=1))
     d_smd = effect / sd_out
     # CI limits standardized too (closest-to-null limit drives evalue_ci).
@@ -138,63 +143,99 @@ def main() -> None:
     rr_approx = math.exp(VD_SMD_COEF * d_smd)
     rr_approx_lo = math.exp(VD_SMD_COEF * lo_d)
     rr_approx_hi = math.exp(VD_SMD_COEF * hi_d)
-    ev_smd_manual = sp.evalue(estimate=rr_approx,
-                              ci=(rr_approx_lo, rr_approx_hi), measure="RR")
+    ev_smd_manual = sp.evalue(
+        estimate=rr_approx, ci=(rr_approx_lo, rr_approx_hi), measure="RR"
+    )
 
     rows = [
         OrigRecord(
-            module=MODULE, side="py", statistic="evalue_crude_rr_point",
-            estimate=float(ev_crude["evalue_estimate"]), se=None, n=int(n_full),
+            module=MODULE,
+            side="py",
+            statistic="evalue_crude_rr_point",
+            estimate=float(ev_crude["evalue_estimate"]),
+            se=None,
+            n=int(n_full),
             published=closed_crude,
             citation="VanderWeele-Ding 2017 E = RR + sqrt(RR(RR-1)) (crude mortality RR)",
-            extra={"rr": rr_crude, "rr_ci": [lo_c, hi_c],
-                   "evalue_ci": float(ev_crude["evalue_ci"]),
-                   "risk1": risk1_c, "risk0": risk0_c},
+            extra={
+                "rr": rr_crude,
+                "rr_ci": [lo_c, hi_c],
+                "evalue_ci": float(ev_crude["evalue_ci"]),
+                "risk1": risk1_c,
+                "risk0": risk0_c,
+            },
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="evalue_ipw_rr_point",
-            estimate=float(ev_adj["evalue_estimate"]), se=None, n=int(n_full),
+            module=MODULE,
+            side="py",
+            statistic="evalue_ipw_rr_point",
+            estimate=float(ev_adj["evalue_estimate"]),
+            se=None,
+            n=int(n_full),
             published=1.0,
             citation="VanderWeele-Ding 2017 E-value, IP-weighted mortality RR (~null after adjustment)",
-            extra={"rr": rr_adj, "rr_ci": [lo_a, hi_a],
-                   "evalue_ci": float(ev_adj["evalue_ci"]),
-                   "risk1": float(r1_adj), "risk0": float(r0_adj)},
+            extra={
+                "rr": rr_adj,
+                "rr_ci": [lo_a, hi_a],
+                "evalue_ci": float(ev_adj["evalue_ci"]),
+                "risk1": float(r1_adj),
+                "risk0": float(r0_adj),
+            },
         ),
         OrigRecord(
-            module=MODULE, side="py", statistic="evalue_smd_point",
-            estimate=float(ev_smd["evalue_estimate"]), se=None, n=int(len(cc)),
+            module=MODULE,
+            side="py",
+            statistic="evalue_smd_point",
+            estimate=float(ev_smd["evalue_estimate"]),
+            se=None,
+            n=int(len(cc)),
             published=float(ev_smd_manual["evalue_estimate"]),
             citation="VanderWeele-Ding SMD approx exp(0.91*d) on Ch12 weight effect",
-            extra={"effect_kg": effect, "sd_outcome": sd_out, "d": d_smd,
-                   "rr_approx": float(ev_smd["rr_estimate"]),
-                   "rr_approx_manual": rr_approx,
-                   "evalue_ci": float(ev_smd["evalue_ci"]),
-                   "evalue_manual_point": float(ev_smd_manual["evalue_estimate"])},
+            extra={
+                "effect_kg": effect,
+                "sd_outcome": sd_out,
+                "d": d_smd,
+                "rr_approx": float(ev_smd["rr_estimate"]),
+                "rr_approx_manual": rr_approx,
+                "evalue_ci": float(ev_smd["evalue_ci"]),
+                "evalue_manual_point": float(ev_smd_manual["evalue_estimate"]),
+            },
         ),
     ]
 
     write_results(
-        MODULE, "py", rows,
-        extra={"data_source": "sp.datasets.nhefs (NHEFS / What If)",
-               "n_full": int(n_full), "n_complete": int(len(cc)),
-               "vd_smd_coef": VD_SMD_COEF,
-               "closed_form": "E = RR + sqrt(RR*(RR-1))",
-               "smd_native_eq_manual": math.isclose(
-                   ev_smd["evalue_estimate"],
-                   ev_smd_manual["evalue_estimate"], rel_tol=1e-9)})
+        MODULE,
+        "py",
+        rows,
+        extra={
+            "data_source": "sp.datasets.nhefs (NHEFS / What If)",
+            "n_full": int(n_full),
+            "n_complete": int(len(cc)),
+            "vd_smd_coef": VD_SMD_COEF,
+            "closed_form": "E = RR + sqrt(RR*(RR-1))",
+            "smd_native_eq_manual": math.isclose(
+                ev_smd["evalue_estimate"],
+                ev_smd_manual["evalue_estimate"],
+                rel_tol=1e-9,
+            ),
+        },
+    )
 
-    print(f"[{MODULE}] crude RR={rr_crude:.4f} CI({lo_c:.3f},{hi_c:.3f}) "
-          f"E={ev_crude['evalue_estimate']:.4f} (closed {closed_crude:.4f}) "
-          f"E_ci={ev_crude['evalue_ci']:.4f} || "
-          f"ipw RR={rr_adj:.4f} CI({lo_a:.3f},{hi_a:.3f}) "
-          f"E={ev_adj['evalue_estimate']:.4f} || "
-          f"SMD d={d_smd:.4f} RR_approx={rr_approx:.4f} "
-          f"E={ev_smd['evalue_estimate']:.4f} (manual {ev_smd_manual['evalue_estimate']:.4f})")
+    print(
+        f"[{MODULE}] crude RR={rr_crude:.4f} CI({lo_c:.3f},{hi_c:.3f}) "
+        f"E={ev_crude['evalue_estimate']:.4f} (closed {closed_crude:.4f}) "
+        f"E_ci={ev_crude['evalue_ci']:.4f} || "
+        f"ipw RR={rr_adj:.4f} CI({lo_a:.3f},{hi_a:.3f}) "
+        f"E={ev_adj['evalue_estimate']:.4f} || "
+        f"SMD d={d_smd:.4f} RR_approx={rr_approx:.4f} "
+        f"E={ev_smd['evalue_estimate']:.4f} (manual {ev_smd_manual['evalue_estimate']:.4f})"
+    )
 
 
 def sp_norm_ppf(q: float) -> float:
     """Inverse standard-normal CDF (avoid importing scipy explicitly)."""
     from statistics import NormalDist
+
     return NormalDist().inv_cdf(q)
 
 

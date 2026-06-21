@@ -5,6 +5,7 @@ panels with a treated arm and several donor arms. Exercises both the
 boolean-flag and explicit-name treated-unit detection, the donor /
 pre-period guards, and the no-CI fallback.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -14,8 +15,9 @@ from statspai.synth import survival as _survival
 synth_survival = _survival.synth_survival
 
 
-def _survival_panel(n_donor=5, n_time=12, treat_time=6, effect=-0.1, seed=0,
-                    treated_flag=True):
+def _survival_panel(
+    n_donor=5, n_time=12, treat_time=6, effect=-0.1, seed=0, treated_flag=True
+):
     """Survival curves: monotone-decreasing in (0,1), treated drops faster."""
     rng = np.random.default_rng(seed)
     months = np.arange(n_time)
@@ -24,7 +26,9 @@ def _survival_panel(n_donor=5, n_time=12, treat_time=6, effect=-0.1, seed=0,
     for d in range(n_donor):
         # Decreasing survival from ~0.95 down.
         hazard = 0.03 + 0.01 * rng.random()
-        s = np.clip(0.95 * np.exp(-hazard * months) + rng.normal(0, 0.005, n_time), 0.01, 0.99)
+        s = np.clip(
+            0.95 * np.exp(-hazard * months) + rng.normal(0, 0.005, n_time), 0.01, 0.99
+        )
         donor_curves[d] = s
         for i, m in enumerate(months):
             rows.append((f"d{d}", m, s[i], 0))

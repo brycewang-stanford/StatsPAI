@@ -15,6 +15,7 @@ The sampling round-trip is mocked exactly as in
 ``test_sampling_llm_loop`` — the fake writer synchronously routes a
 scripted reply for the matching request id, so no network / no key.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,7 +26,6 @@ import pytest
 
 from statspai.agent import execute_tool, mcp_handle_request
 from statspai.agent import _sampling
-
 
 # --------------------------------------------------------------------------- #
 #  Fixtures
@@ -112,8 +112,7 @@ def test_interpret_falls_back_to_deterministic_without_sampling():
 
 
 def test_interpret_missing_handle_is_friendly():
-    out = execute_tool(
-        "interpret_result", {"result_id": "r_definitely_missing"})
+    out = execute_tool("interpret_result", {"result_id": "r_definitely_missing"})
     assert "error" in out
     assert "not found" in out["error"] or "result_id" in out["error"]
 
@@ -129,13 +128,15 @@ def test_interpret_uses_the_agents_model_when_sampling_advertised(mock_sampling)
 
     out = execute_tool(
         "interpret_result",
-        {"result_id": rid, "question": "is the effect meaningful?",
-         "audience": "policymaker"},
+        {
+            "result_id": rid,
+            "question": "is the effect meaningful?",
+            "audience": "policymaker",
+        },
     )
 
     assert out["backend"] == "mcp_sampling"
-    assert out["interpretation"] == \
-        "The DiD ATT is positive and precisely estimated."
+    assert out["interpretation"] == "The DiD ATT is positive and precisely estimated."
     assert out["audience"] == "policymaker"
     assert out["question"] == "is the effect meaningful?"
 
@@ -170,8 +171,7 @@ def test_interpret_falls_back_loudly_on_sampling_error(monkeypatch):
 
 
 def _rpc(method, params=None, request_id=1):
-    msg = {"jsonrpc": "2.0", "id": request_id, "method": method,
-           "params": params or {}}
+    msg = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
     return json.loads(mcp_handle_request(json.dumps(msg)))
 
 

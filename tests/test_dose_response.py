@@ -7,6 +7,7 @@ continuous exposure under unconfoundedness — a common public-health setting
 test file; these checks pin its statistical behaviour on simple DGPs with a
 known sign and shape.
 """
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -41,13 +42,18 @@ def _null_dgp(n=1000, seed=0):
 def test_dose_response_detects_positive_effect():
     df = _linear_dgp(slope=1.5, seed=0)
     res = sp.dose_response(
-        df, y="y", treat="t", covariates=["x"],
-        n_bootstrap=100, n_dose_points=15, random_state=0,
+        df,
+        y="y",
+        treat="t",
+        covariates=["x"],
+        n_bootstrap=100,
+        n_dose_points=15,
+        random_state=0,
     )
     # E[Y(t75)] - E[Y(t25)] must be positive and clearly bounded away from 0.
     assert res.estimate > 0
     assert res.ci[0] < res.estimate < res.ci[1]
-    assert res.ci[0] > 0          # CI excludes the null for a strong effect
+    assert res.ci[0] > 0  # CI excludes the null for a strong effect
     assert res.se > 0
     assert res.n_obs == len(df)
     assert "Dose-Response" in res.summary()
@@ -56,8 +62,13 @@ def test_dose_response_detects_positive_effect():
 def test_dose_response_null_effect_covers_zero():
     df = _null_dgp(seed=1)
     res = sp.dose_response(
-        df, y="y", treat="t", covariates=["x"],
-        n_bootstrap=100, n_dose_points=12, random_state=0,
+        df,
+        y="y",
+        treat="t",
+        covariates=["x"],
+        n_bootstrap=100,
+        n_dose_points=12,
+        random_state=0,
     )
     # No true dose-response: the IQR contrast should be near zero and its
     # confidence interval should cover zero.
@@ -67,10 +78,12 @@ def test_dose_response_null_effect_covers_zero():
 
 def test_dose_response_is_reproducible_with_random_state():
     df = _linear_dgp(seed=2)
-    a = sp.dose_response(df, y="y", treat="t", covariates=["x"],
-                         n_bootstrap=50, random_state=7)
-    b = sp.dose_response(df, y="y", treat="t", covariates=["x"],
-                         n_bootstrap=50, random_state=7)
+    a = sp.dose_response(
+        df, y="y", treat="t", covariates=["x"], n_bootstrap=50, random_state=7
+    )
+    b = sp.dose_response(
+        df, y="y", treat="t", covariates=["x"], n_bootstrap=50, random_state=7
+    )
     assert a.estimate == pytest.approx(b.estimate, rel=1e-9, abs=1e-9)
 
 
@@ -82,8 +95,9 @@ def test_vcnet_curve_is_increasing_for_positive_slope():
     y = 1.5 * t + rng.normal(0, 0.5, n)
     df = pd.DataFrame({"t": t, "x": x, "y": y})
 
-    res = sp.vcnet(df, y="y", treatment="t", covariates=["x"],
-                   n_bootstrap=20, random_state=0)
+    res = sp.vcnet(
+        df, y="y", treatment="t", covariates=["x"], n_bootstrap=20, random_state=0
+    )
     t_grid = np.asarray(res.t_grid, dtype=float)
     mu_hat = np.asarray(res.mu_hat, dtype=float)
 

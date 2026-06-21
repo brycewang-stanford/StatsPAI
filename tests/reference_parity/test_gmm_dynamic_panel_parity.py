@@ -93,6 +93,7 @@ References
   Nickell-contrast anchor exploits.  (No bib key in paper.bib; named
   without a citation key per the suite convention.)
 """
+
 from __future__ import annotations
 
 import warnings
@@ -104,7 +105,6 @@ import pytest
 import statspai as sp
 from statspai.gmm.arellano_bond import _ab_H
 
-
 # Hand-set structural parameters of the Arellano-Bond DGP.
 RHO = 0.5
 BETA = 1.0
@@ -113,6 +113,7 @@ BETA = 1.0
 # ---------------------------------------------------------------------------
 # Deterministic DGP builder (every draw seeded via default_rng).
 # ---------------------------------------------------------------------------
+
 
 def _make_ab_panel(seed, N=200, T=6, burn=20):
     """Arellano-Bond dynamic panel with known RHO, BETA.
@@ -257,6 +258,7 @@ def _gmm_replicate_ab(df, T):
 # Module fixtures.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def ab_panel():
     """Single canonical panel, N=200 T=6 (the design-hint size)."""
@@ -272,6 +274,7 @@ def ab_panel_large():
 # ---------------------------------------------------------------------------
 # A. Known-DGP recovery of RHO and BETA.
 # ---------------------------------------------------------------------------
+
 
 class TestRecovery:
     """xtabond recovers the hand-set RHO = 0.5 and BETA = 1.0."""
@@ -289,8 +292,10 @@ class TestRecovery:
         """
         reps = 20
         rhos = np.array(
-            [_xtabond_coefs(_make_ab_panel(2000 + s, N=250, T=7))[0]
-             for s in range(reps)]
+            [
+                _xtabond_coefs(_make_ab_panel(2000 + s, N=250, T=7))[0]
+                for s in range(reps)
+            ]
         )
         mc_mean = float(rhos.mean())
         mc_sd = float(rhos.std(ddof=1))
@@ -322,6 +327,7 @@ class TestRecovery:
 # B. Nickell-bias contrast (within-group biased; AB-GMM de-biases).
 # ---------------------------------------------------------------------------
 
+
 class TestNickellBiasContrast:
     """Within-group rho is biased DOWN (small T); AB-GMM recovers RHO."""
 
@@ -342,8 +348,7 @@ class TestNickellBiasContrast:
         # (i) within-group rho is biased strictly below truth — verified
         # across an 8-seed bank so this is not a one-draw fluke.
         within_rhos = np.array(
-            [_within_group_rho(_make_ab_panel(s, N=200, T=6))
-             for s in range(8)]
+            [_within_group_rho(_make_ab_panel(s, N=200, T=6)) for s in range(8)]
         )
         assert within_rhos.max() < RHO - 0.10, (
             f"within-group rho bank max {within_rhos.max():.4f} is not "
@@ -373,6 +378,7 @@ class TestNickellBiasContrast:
 # C. Cross-method consistency: sp.gmm reproduces sp.xtabond.
 # ---------------------------------------------------------------------------
 
+
 class TestCrossMethodConsistency:
     """Generic sp.gmm one-step on the AB moments == sp.xtabond coefs."""
 
@@ -389,8 +395,10 @@ class TestCrossMethodConsistency:
         ab_rho, ab_beta = _xtabond_coefs(ab_panel)
         g_rho, g_beta = _gmm_replicate_ab(ab_panel, T=6)
         np.testing.assert_allclose(
-            [g_rho, g_beta], [ab_rho, ab_beta],
-            rtol=self.RTOL, atol=self.ATOL,
+            [g_rho, g_beta],
+            [ab_rho, ab_beta],
+            rtol=self.RTOL,
+            atol=self.ATOL,
             err_msg=(
                 f"sp.gmm one-step (rho={g_rho:.6f}, beta={g_beta:.6f}) does "
                 f"not match sp.xtabond (rho={ab_rho:.6f}, beta={ab_beta:.6f}) "
@@ -405,8 +413,10 @@ class TestCrossMethodConsistency:
             ab_rho, ab_beta = _xtabond_coefs(df)
             g_rho, g_beta = _gmm_replicate_ab(df, T=6)
             np.testing.assert_allclose(
-                [g_rho, g_beta], [ab_rho, ab_beta],
-                rtol=self.RTOL, atol=self.ATOL,
+                [g_rho, g_beta],
+                [ab_rho, ab_beta],
+                rtol=self.RTOL,
+                atol=self.ATOL,
                 err_msg=f"sp.gmm != sp.xtabond on seed {s}.",
             )
 
@@ -414,6 +424,7 @@ class TestCrossMethodConsistency:
 # ---------------------------------------------------------------------------
 # D. Orientation / sign correctness.
 # ---------------------------------------------------------------------------
+
 
 class TestOrientation:
     """RHO > 0 and BETA > 0 ⇒ positive lagged-Y and x coefficients."""

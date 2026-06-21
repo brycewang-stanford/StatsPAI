@@ -54,6 +54,7 @@ def assert_snapshot(name: str, fmt: str, actual: str) -> None:
     if expected != actual_norm:
         # Render a friendly unified-diff message
         import difflib
+
         diff = "\n".join(
             difflib.unified_diff(
                 expected.splitlines(),

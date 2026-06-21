@@ -16,6 +16,7 @@ def _make_ols_data(n=200, k=4, seed=42):
 class TestOLSFit:
     def test_ols_fit_recovers_params(self):
         from statspai.core._numba_kernels import ols_fit
+
         X, y, beta_true = _make_ols_data()
         params, fitted, residuals = ols_fit(X, y)
         np.testing.assert_allclose(params, beta_true, atol=0.3)
@@ -23,6 +24,7 @@ class TestOLSFit:
 
     def test_ols_fit_shapes(self):
         from statspai.core._numba_kernels import ols_fit
+
         X, y, _ = _make_ols_data(n=100, k=3)
         params, fitted, residuals = ols_fit(X, y)
         assert params.shape == (3,)
@@ -33,6 +35,7 @@ class TestOLSFit:
 class TestSandwichHC:
     def test_hc1_positive_diagonal(self):
         from statspai.core._numba_kernels import ols_fit, sandwich_hc
+
         X, y, _ = _make_ols_data()
         params, _, residuals = ols_fit(X, y)
         XtX_inv = np.linalg.inv(X.T @ X)
@@ -41,6 +44,7 @@ class TestSandwichHC:
 
     def test_hc_types(self):
         from statspai.core._numba_kernels import ols_fit, sandwich_hc
+
         X, y, _ = _make_ols_data()
         _, _, residuals = ols_fit(X, y)
         XtX_inv = np.linalg.inv(X.T @ X)
@@ -53,6 +57,7 @@ class TestSandwichHC:
 class TestClusterMeat:
     def test_cluster_meat_basic(self):
         from statspai.core._numba_kernels import cluster_meat
+
         rng = np.random.RandomState(0)
         n, k = 200, 3
         X = np.column_stack([np.ones(n), rng.randn(n, k - 1)])
@@ -64,6 +69,7 @@ class TestClusterMeat:
 
     def test_single_obs_clusters(self):
         from statspai.core._numba_kernels import cluster_meat
+
         rng = np.random.RandomState(1)
         n, k = 50, 2
         X = np.column_stack([np.ones(n), rng.randn(n, k - 1)])
@@ -76,6 +82,7 @@ class TestClusterMeat:
 class TestHACMeat:
     def test_hac_meat_symmetric(self):
         from statspai.core._numba_kernels import hac_meat
+
         rng = np.random.RandomState(2)
         n, k = 300, 3
         X = np.column_stack([np.ones(n), rng.randn(n, k - 1)])
@@ -91,13 +98,16 @@ class TestOLSRegressionIntegration:
     def test_regress_basic(self):
         import pandas as pd
         from statspai import regress
+
         rng = np.random.RandomState(42)
         n = 200
-        df = pd.DataFrame({
-            "y": rng.randn(n),
-            "x1": rng.randn(n),
-            "x2": rng.randn(n),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.randn(n),
+                "x1": rng.randn(n),
+                "x2": rng.randn(n),
+            }
+        )
         result = regress("y ~ x1 + x2", data=df)
         assert hasattr(result, "params")
         assert len(result.params) == 3  # const + x1 + x2
@@ -105,24 +115,30 @@ class TestOLSRegressionIntegration:
     def test_regress_hc1(self):
         import pandas as pd
         from statspai import regress
+
         rng = np.random.RandomState(42)
         n = 200
-        df = pd.DataFrame({
-            "y": rng.randn(n),
-            "x1": rng.randn(n),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.randn(n),
+                "x1": rng.randn(n),
+            }
+        )
         result = regress("y ~ x1", data=df, robust="hc1")
         assert np.all(result.std_errors > 0)
 
     def test_regress_cluster(self):
         import pandas as pd
         from statspai import regress
+
         rng = np.random.RandomState(42)
         n = 200
-        df = pd.DataFrame({
-            "y": rng.randn(n),
-            "x1": rng.randn(n),
-            "cluster": np.repeat(np.arange(20), 10),
-        })
+        df = pd.DataFrame(
+            {
+                "y": rng.randn(n),
+                "x1": rng.randn(n),
+                "cluster": np.repeat(np.arange(20), 10),
+            }
+        )
         result = regress("y ~ x1", data=df, cluster="cluster")
         assert np.all(result.std_errors > 0)

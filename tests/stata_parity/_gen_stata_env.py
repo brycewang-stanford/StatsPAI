@@ -11,6 +11,7 @@ commands as "NOT INSTALLED" -- never a guessed version (CLAUDE.md §10).
     stata-mp -q -b do _capture_stata_env.do   # writes the two raw files
     python _gen_stata_env.py                   # -> STATA_ENVIRONMENT.md
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -116,8 +117,10 @@ def main() -> None:
         "`provenance` block is the authoritative per-result engine record.*",
     ]
     OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print(f"Wrote {OUT} ({len(ado)} ado packages, Stata "
-          f"{core.get('stata_version','?')} {core.get('edition','?')})")
+    print(
+        f"Wrote {OUT} ({len(ado)} ado packages, Stata "
+        f"{core.get('stata_version','?')} {core.get('edition','?')})"
+    )
 
 
 if __name__ == "__main__":

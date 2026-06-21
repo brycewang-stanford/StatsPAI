@@ -41,12 +41,12 @@ def _make_multi_cutoff(n=3000, seed=42):
 @pytest.mark.parametrize("method", ["ols", "ipw", "doubly_robust"])
 def test_rd_extrapolate_methods(method):
     df = _make_ar_data()
-    res = sp.rd_extrapolate(df, y="y", x="x", c=0, covs=["z"],
-                            n_eval=6, method=method)
+    res = sp.rd_extrapolate(df, y="y", x="x", c=0, covs=["z"], n_eval=6, method=method)
     assert isinstance(res, CausalResult)
     assert res.detail is not None
     assert set(["x_value", "cate", "se", "ci_lower", "ci_upper"]).issubset(
-        res.detail.columns)
+        res.detail.columns
+    )
     ci = res.model_info["conditional_independence_test"]
     assert 0.0 <= ci["control_side"]["p_value"] <= 1.0
     assert 0.0 <= ci["treated_side"]["p_value"] <= 1.0
@@ -56,8 +56,16 @@ def test_rd_extrapolate_methods(method):
 def test_rd_extrapolate_explicit_eval_points_and_fuzzy():
     df = _make_ar_data()
     eval_pts = np.linspace(-1.5, 1.5, 8)
-    res = sp.rd_extrapolate(df, y="y", x="x", c=0, covs=["z"],
-                            treatment="d", eval_points=eval_pts, method="ols")
+    res = sp.rd_extrapolate(
+        df,
+        y="y",
+        x="x",
+        c=0,
+        covs=["z"],
+        treatment="d",
+        eval_points=eval_pts,
+        method="ols",
+    )
     assert len(res.detail) == 8
     np.testing.assert_allclose(res.detail["x_value"].values, eval_pts)
 
@@ -87,9 +95,14 @@ def test_rd_extrapolate_insufficient_one_side():
 @pytest.mark.parametrize("method", ["linear", "polynomial", "weighted"])
 def test_rd_multi_extrapolate_methods(method):
     df = _make_multi_cutoff()
-    res = sp.rd_multi_extrapolate(df, y="y", x="x", cutoffs=[1.0, 3.0],
-                                  method=method,
-                                  eval_points=np.linspace(0, 4, 6))
+    res = sp.rd_multi_extrapolate(
+        df,
+        y="y",
+        x="x",
+        cutoffs=[1.0, 3.0],
+        method=method,
+        eval_points=np.linspace(0, 4, 6),
+    )
     assert isinstance(res, CausalResult)
     assert "cate_extrapolated" in res.detail.columns
     assert res.model_info["n_cutoffs"] >= 2
@@ -115,8 +128,9 @@ def test_rd_multi_extrapolate_methods(method):
 
 def test_rd_multi_extrapolate_polynomial_three_cutoffs():
     df = _make_multi_cutoff()
-    res = sp.rd_multi_extrapolate(df, y="y", x="x", cutoffs=[0.0, 1.0, 3.0],
-                                  method="polynomial")
+    res = sp.rd_multi_extrapolate(
+        df, y="y", x="x", cutoffs=[0.0, 1.0, 3.0], method="polynomial"
+    )
     assert res.model_info["degree"] >= 1
     assert len(res.model_info["coefficients"]) == res.model_info["degree"] + 1
 
@@ -131,8 +145,9 @@ def test_rd_multi_extrapolate_errors():
 
 def test_rd_external_validity_with_covs():
     df = _make_ar_data()
-    diag = sp.rd_external_validity(df, y="y", x="x", c=0, covs=["z"],
-                                   target_x_range=(-2.0, 2.0))
+    diag = sp.rd_external_validity(
+        df, y="y", x="x", c=0, covs=["z"], target_x_range=(-2.0, 2.0)
+    )
     assert "recommendation" in diag
     assert diag["local_estimate"] is not None
     assert diag["ci_test"] is not None
@@ -149,7 +164,12 @@ def test_rd_external_validity_with_covs():
             cov_diag["z"]["overlap_coefficient"],
             cov_diag["z"]["std_mean_diff"],
         ],
-        [0.9351517084851074, 0.023372360360149558, 0.6823772047473244, 0.08575978496385764],
+        [
+            0.9351517084851074,
+            0.023372360360149558,
+            0.6823772047473244,
+            0.08575978496385764,
+        ],
         atol=1e-12,
     )
 
@@ -175,14 +195,15 @@ def test_rd_external_validity_no_covs():
     diag = sp.rd_external_validity(df, y="y", x="x", c=0, covs=None)
     assert diag["ci_test"] is None
     assert diag["overlap"] is None
-    assert "not recommended" in diag["recommendation"].lower() or \
-        "cannot be tested" in diag["recommendation"].lower()
+    assert (
+        "not recommended" in diag["recommendation"].lower()
+        or "cannot be tested" in diag["recommendation"].lower()
+    )
 
 
 def test_extrapolation_plot_single_cutoff():
     df = _make_ar_data()
-    res = sp.rd_extrapolate(df, y="y", x="x", c=0, covs=["z"],
-                            n_eval=10, method="ols")
+    res = sp.rd_extrapolate(df, y="y", x="x", c=0, covs=["z"], n_eval=10, method="ols")
     ax = _extrapolation_plot(res)
     assert ax is not None
     plt.close("all")
@@ -190,8 +211,7 @@ def test_extrapolation_plot_single_cutoff():
 
 def test_extrapolation_plot_multi_cutoff():
     df = _make_multi_cutoff()
-    res = sp.rd_multi_extrapolate(df, y="y", x="x", cutoffs=[1.0, 3.0],
-                                  method="linear")
+    res = sp.rd_multi_extrapolate(df, y="y", x="x", cutoffs=[1.0, 3.0], method="linear")
     fig, ax = plt.subplots()
     out = _extrapolation_plot(res, ax=ax, show_ci=True)
     assert out is not None

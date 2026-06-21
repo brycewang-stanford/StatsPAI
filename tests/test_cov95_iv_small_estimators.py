@@ -37,6 +37,7 @@ def _many_iv_df(n=400, seed=0, p=8):
 
 # ─── post_lasso ──────────────────────────────────────────────────────────
 
+
 def test_post_lasso_helpers():
     assert _pl._as_matrix(np.array([1.0, 2.0])).shape == (2, 1)
     arr = _pl._grab(np.array([1.0, 2.0]), None)
@@ -52,8 +53,9 @@ def test_post_lasso_helpers():
 def test_post_lasso_summary_and_robust():
     df = _many_iv_df(seed=1)
     zs = [f"z{i}" for i in range(8)]
-    r = sp.iv.bch_post_lasso_iv(y="y", endog="d", instruments=zs, exog="x",
-                                data=df, robust=True)
+    r = sp.iv.bch_post_lasso_iv(
+        y="y", endog="d", instruments=zs, exog="x", data=df, robust=True
+    )
     s = r.summary()
     assert "Post-Lasso IV" in s
     assert np.isfinite(r.beta.iloc[0])
@@ -62,8 +64,7 @@ def test_post_lasso_summary_and_robust():
 def test_post_lasso_nonrobust_se():
     df = _many_iv_df(seed=2)
     zs = [f"z{i}" for i in range(8)]
-    r = sp.iv.bch_post_lasso_iv(y="y", endog="d", instruments=zs, data=df,
-                                robust=False)
+    r = sp.iv.bch_post_lasso_iv(y="y", endog="d", instruments=zs, data=df, robust=False)
     assert np.isfinite(r.std_errors.iloc[0])
 
 
@@ -76,8 +77,9 @@ def test_post_lasso_ensure_min_instruments():
     y = 1.0 + 2.0 * d + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, **{f"z{i}": Z[:, i] for i in range(p)}})
     zs = [f"z{i}" for i in range(p)]
-    r = sp.iv.bch_post_lasso_iv(y="y", endog="d", instruments=zs, data=df,
-                                ensure_min_instruments=2)
+    r = sp.iv.bch_post_lasso_iv(
+        y="y", endog="d", instruments=zs, data=df, ensure_min_instruments=2
+    )
     assert r.n_selected >= 1
 
 
@@ -88,6 +90,7 @@ def test_bch_lambda():
 
 # ─── bayesian_iv ─────────────────────────────────────────────────────────
 
+
 def test_bayesian_iv_summary_and_frame():
     rng = np.random.default_rng(10)
     n = 400
@@ -96,8 +99,16 @@ def test_bayesian_iv_summary_and_frame():
     d = 0.8 * z + v
     y = 1.0 + 2.0 * d + 0.5 * v + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "z": z, "x": rng.normal(size=n)})
-    r = sp.iv.bayesian_iv(y="y", endog="d", instruments="z", exog="x", data=df,
-                          n_draws=800, n_warmup=400, random_state=0)
+    r = sp.iv.bayesian_iv(
+        y="y",
+        endog="d",
+        instruments="z",
+        exog="x",
+        data=df,
+        n_draws=800,
+        n_warmup=400,
+        random_state=0,
+    )
     s = r.summary()
     assert "Bayesian IV" in s
     assert "HPD" in s
@@ -121,6 +132,7 @@ def test_bayesian_iv_helpers():
 
 # ─── many_weak ───────────────────────────────────────────────────────────
 
+
 def test_many_weak_jive_with_exog():
     df = _many_iv_df(seed=20)
     zs = [f"z{i}" for i in range(8)]
@@ -140,12 +152,12 @@ def test_many_weak_ar_custom_grid():
     df = _many_iv_df(seed=22)
     zs = [f"z{i}" for i in range(8)]
     grid = np.linspace(0.0, 4.0, 81)
-    r = _mw.many_weak_ar(data=df, y="y", endog="d", instruments=zs,
-                         beta_grid=grid)
+    r = _mw.many_weak_ar(data=df, y="y", endog="d", instruments=zs, beta_grid=grid)
     assert np.isfinite(r.estimate)
 
 
 # ─── continuous_late ─────────────────────────────────────────────────────
+
 
 def test_continuous_late_summary():
     rng = np.random.default_rng(30)
@@ -154,8 +166,9 @@ def test_continuous_late_summary():
     d = (z + 0.3 * rng.normal(size=n) > 0).astype(float)
     y = 1.5 * d + 0.4 * z + rng.normal(size=n) * 0.4
     df = pd.DataFrame({"y": y, "treat": d, "z": z})
-    r = sp.iv.continuous_iv_late(df, y="y", treat="treat", instrument="z",
-                                 n_quantiles=4, n_boot=30, seed=0)
+    r = sp.iv.continuous_iv_late(
+        df, y="y", treat="treat", instrument="z", n_quantiles=4, n_boot=30, seed=0
+    )
     s = r.summary()
     assert "Continuous-Instrument LATE" in s
     assert r.n_obs == n
@@ -165,17 +178,21 @@ def test_continuous_late_wald_per_bin_degenerate():
     # constant instrument -> qcut collapses -> <2 bins fallback (line 82)
     rng = np.random.default_rng(31)
     n = 200
-    df = pd.DataFrame({
-        "y": rng.normal(size=n),
-        "treat": (rng.uniform(size=n) > 0.5).astype(float),
-        "z": np.ones(n),  # constant instrument
-    })
-    r = sp.iv.continuous_iv_late(df, y="y", treat="treat", instrument="z",
-                                 n_quantiles=4, n_boot=10, seed=0)
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "treat": (rng.uniform(size=n) > 0.5).astype(float),
+            "z": np.ones(n),  # constant instrument
+        }
+    )
+    r = sp.iv.continuous_iv_late(
+        df, y="y", treat="treat", instrument="z", n_quantiles=4, n_boot=10, seed=0
+    )
     assert r.n_obs == n
 
 
 # ─── kernel_iv ───────────────────────────────────────────────────────────
+
 
 def test_continuous_late_constant_treatment_no_shift():
     # z varies (>=2 bins) but treatment is constant -> denom ~ 0 in every
@@ -183,13 +200,16 @@ def test_continuous_late_constant_treatment_no_shift():
     rng = np.random.default_rng(32)
     n = 300
     z = rng.uniform(-1, 1, size=n)
-    df = pd.DataFrame({
-        "y": rng.normal(size=n),
-        "treat": np.ones(n),  # constant treatment, no first stage
-        "z": z,
-    })
-    r = sp.iv.continuous_iv_late(df, y="y", treat="treat", instrument="z",
-                                 n_quantiles=4, n_boot=10, seed=0)
+    df = pd.DataFrame(
+        {
+            "y": rng.normal(size=n),
+            "treat": np.ones(n),  # constant treatment, no first stage
+            "z": z,
+        }
+    )
+    r = sp.iv.continuous_iv_late(
+        df, y="y", treat="treat", instrument="z", n_quantiles=4, n_boot=10, seed=0
+    )
     assert r.n_obs == n
 
 
@@ -199,7 +219,7 @@ def test_kernel_iv_summary_and_band():
     z = rng.normal(size=n)
     v = rng.normal(size=n)
     d = 0.8 * z + v
-    y = 1.0 + 1.5 * d - 0.2 * d ** 2 + 0.5 * v + rng.normal(size=n)
+    y = 1.0 + 1.5 * d - 0.2 * d**2 + 0.5 * v + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "z": z})
     r = sp.iv.kernel_iv(df, y="y", treat="d", instrument="z", n_boot=30, seed=0)
     assert np.all(r.ci_low <= r.ci_high + 1e-9)
@@ -216,12 +236,21 @@ def test_kernel_iv_far_grid_nan_weight():
     y = 1.0 + d + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, "z": z})
     grid = np.array([-1e6, 0.0, 1e6])
-    r = sp.iv.kernel_iv(df, y="y", treat="d", instrument="z", grid=grid,
-                        bandwidth=0.01, n_boot=10, seed=0)
+    r = sp.iv.kernel_iv(
+        df,
+        y="y",
+        treat="d",
+        instrument="z",
+        grid=grid,
+        bandwidth=0.01,
+        n_boot=10,
+        seed=0,
+    )
     assert np.isnan(r.h_hat[0]) or np.isnan(r.h_hat[-1])
 
 
 # ─── ivdml ───────────────────────────────────────────────────────────────
+
 
 def test_ivdml_summary_and_estimate():
     rng = np.random.default_rng(50)
@@ -231,13 +260,23 @@ def test_ivdml_summary_and_estimate():
     v = rng.normal(size=n)
     d = 0.6 * Z[:, 0] + 0.3 * X[:, 0] + v
     y = 1.0 + 2.0 * d + 0.4 * X[:, 1] + 0.5 * v + rng.normal(size=n)
-    df = pd.DataFrame({
-        "y": y, "d": d,
-        **{f"z{i}": Z[:, i] for i in range(3)},
-        **{f"x{i}": X[:, i] for i in range(2)},
-    })
-    r = sp.iv.ivdml(df, y="y", treat="d", instruments=["z0", "z1", "z2"],
-                    covariates=["x0", "x1"], n_folds=3, seed=0)
+    df = pd.DataFrame(
+        {
+            "y": y,
+            "d": d,
+            **{f"z{i}": Z[:, i] for i in range(3)},
+            **{f"x{i}": X[:, i] for i in range(2)},
+        }
+    )
+    r = sp.iv.ivdml(
+        df,
+        y="y",
+        treat="d",
+        instruments=["z0", "z1", "z2"],
+        covariates=["x0", "x1"],
+        n_folds=3,
+        seed=0,
+    )
     s = r.summary()
     assert "IV" in s and "DML" in s
     assert np.isfinite(r.estimate)
@@ -253,6 +292,7 @@ def test_ivdml_no_covariates():
     d = 0.6 * Z[:, 0] + v
     y = 1.0 + 2.0 * d + 0.5 * v + rng.normal(size=n)
     df = pd.DataFrame({"y": y, "d": d, **{f"z{i}": Z[:, i] for i in range(3)}})
-    r = sp.iv.ivdml(df, y="y", treat="d", instruments=["z0", "z1", "z2"],
-                    n_folds=3, seed=0)
+    r = sp.iv.ivdml(
+        df, y="y", treat="d", instruments=["z0", "z1", "z2"], n_folds=3, seed=0
+    )
     assert np.isfinite(r.first_stage_F)

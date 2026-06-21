@@ -6,6 +6,7 @@ correction) matches the Stata sureg default; the R side reproduces the
 same convention via systemfit(method='SUR',
 control=systemfit.control(methodResidCov='noDfCor')).
 """
+
 from __future__ import annotations
 import numpy as np, pandas as pd, statspai as sp
 from _common import PARITY_SEED, ParityRecord, dump_csv, write_results
@@ -27,18 +28,25 @@ def make_data(n=1000, seed=PARITY_SEED):
 def main():
     df = make_data()
     dump_csv(df, MODULE)
-    res = sp.sureg({"eq1": ("y1", ["x1", "w"]),
-                    "eq2": ("y2", ["x2", "w"])}, data=df, method="fgls")
-    labels = ["eq1_intercept", "eq1_x1", "eq1_w",
-              "eq2_intercept", "eq2_x2", "eq2_w"]
+    res = sp.sureg(
+        {"eq1": ("y1", ["x1", "w"]), "eq2": ("y2", ["x2", "w"])}, data=df, method="fgls"
+    )
+    labels = ["eq1_intercept", "eq1_x1", "eq1_w", "eq2_intercept", "eq2_x2", "eq2_w"]
     rows = []
     for i, lab in enumerate(labels):
-        rows.append(ParityRecord(MODULE, "py", f"beta_{lab}",
-            estimate=float(res.params_all[i]),
-            se=float(res.se_all[i]),
-            n=int(res.n_obs)))
-    write_results(MODULE, "py", rows,
-                  extra={"method": "one-step FGLS", "sigma_divisor": "n"})
+        rows.append(
+            ParityRecord(
+                MODULE,
+                "py",
+                f"beta_{lab}",
+                estimate=float(res.params_all[i]),
+                se=float(res.se_all[i]),
+                n=int(res.n_obs),
+            )
+        )
+    write_results(
+        MODULE, "py", rows, extra={"method": "one-step FGLS", "sigma_divisor": "n"}
+    )
 
 
 if __name__ == "__main__":

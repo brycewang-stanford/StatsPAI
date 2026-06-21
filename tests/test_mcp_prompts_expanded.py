@@ -1,4 +1,5 @@
 """Tests for Module G — expanded prompt-template surface."""
+
 from __future__ import annotations
 
 import json
@@ -7,8 +8,7 @@ from statspai.agent import mcp_handle_request
 
 
 def _rpc(method, params=None, request_id=1):
-    msg = {"jsonrpc": "2.0", "id": request_id, "method": method,
-           "params": params or {}}
+    msg = {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params or {}}
     return json.loads(mcp_handle_request(json.dumps(msg)))
 
 
@@ -41,20 +41,26 @@ class TestPromptListExpansion:
                 assert "required" in arg, p["name"]
 
     def test_audit_iv_renders_template(self):
-        msg = _rpc("prompts/get", {
-            "name": "audit_iv_result",
-            "arguments": {"data_path": "/d.csv", "formula": "y ~ (d ~ z)"},
-        })
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "audit_iv_result",
+                "arguments": {"data_path": "/d.csv", "formula": "y ~ (d ~ z)"},
+            },
+        )
         text = msg["result"]["messages"][0]["content"]["text"]
         assert "pipeline_iv" in text
         assert "/d.csv" in text
         assert "y ~ (d ~ z)" in text
 
     def test_paper_render_uses_result_id(self):
-        msg = _rpc("prompts/get", {
-            "name": "paper_render",
-            "arguments": {"result_id": "r_xyz"},
-        })
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "paper_render",
+                "arguments": {"result_id": "r_xyz"},
+            },
+        )
         text = msg["result"]["messages"][0]["content"]["text"]
         assert "r_xyz" in text
         assert "brief_result" in text
@@ -63,11 +69,13 @@ class TestPromptListExpansion:
         assert "bibtex" in text
 
     def test_compare_methods_template(self):
-        msg = _rpc("prompts/get", {
-            "name": "compare_methods",
-            "arguments": {"data_path": "/d.csv", "y": "wage",
-                          "treat": "treated"},
-        })
+        msg = _rpc(
+            "prompts/get",
+            {
+                "name": "compare_methods",
+                "arguments": {"data_path": "/d.csv", "y": "wage", "treat": "treated"},
+            },
+        )
         text = msg["result"]["messages"][0]["content"]["text"]
         assert "callaway_santanna" in text
         assert "did_imputation" in text

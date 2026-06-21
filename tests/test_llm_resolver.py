@@ -19,6 +19,7 @@ We never make real LLM calls — every test that needs a "client"
 either inspects what would be constructed or uses an
 :func:`echo_client` to capture the round-trip.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,10 +43,10 @@ from statspai.causal_llm._resolver import (
 )
 from statspai.causal_llm.llm_clients import echo_client, LLMClient
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def clean_env(monkeypatch):
@@ -84,7 +85,8 @@ def fake_construct(monkeypatch):
         return client
 
     monkeypatch.setattr(
-        "statspai.causal_llm._resolver._construct_client", _fake,
+        "statspai.causal_llm._resolver._construct_client",
+        _fake,
     )
     return captured
 
@@ -92,6 +94,7 @@ def fake_construct(monkeypatch):
 # ---------------------------------------------------------------------------
 # Config file
 # ---------------------------------------------------------------------------
+
 
 class TestConfigFile:
     def test_default_models_exposed(self):
@@ -110,19 +113,18 @@ class TestConfigFile:
         assert load_config(tmp_cfg) == {}
 
     def test_load_malformed_returns_empty(self, tmp_cfg):
-        tmp_cfg.write_text("this is not valid toml [unclosed",
-                           encoding="utf-8")
+        tmp_cfg.write_text("this is not valid toml [unclosed", encoding="utf-8")
         # Our tiny parser is permissive; structurally bad input returns
         # an empty section rather than raising.
         result = load_config(tmp_cfg)
         assert isinstance(result, dict)
 
     def test_save_then_load_round_trip(self, tmp_cfg):
-        save_config({"llm": {"provider": "anthropic",
-                              "model": "claude-sonnet-4-5"}}, tmp_cfg)
+        save_config(
+            {"llm": {"provider": "anthropic", "model": "claude-sonnet-4-5"}}, tmp_cfg
+        )
         cfg = load_config(tmp_cfg)
-        assert cfg == {"llm": {"provider": "anthropic",
-                                "model": "claude-sonnet-4-5"}}
+        assert cfg == {"llm": {"provider": "anthropic", "model": "claude-sonnet-4-5"}}
 
     def test_save_creates_parent_dir(self, tmp_path):
         cfg_path = tmp_path / "deep" / "nested" / "llm.toml"
@@ -134,16 +136,16 @@ class TestConfigFile:
         # still write it (it doesn't filter) — but our convention is
         # that callers don't pass keys. Document the convention via
         # comment in the file header.
-        save_config({"llm": {"provider": "anthropic",
-                              "model": "claude-sonnet-4-5"}}, tmp_cfg)
+        save_config(
+            {"llm": {"provider": "anthropic", "model": "claude-sonnet-4-5"}}, tmp_cfg
+        )
         text = tmp_cfg.read_text()
         # Header comment warns against putting keys in the file.
         assert "API keys" in text or "API key" in text
         assert "ANTHROPIC_API_KEY" in text or "OPENAI_API_KEY" in text
 
     def test_set_preferences_partial_update(self, tmp_cfg):
-        set_preferences(provider="anthropic", model="claude-3-5-haiku",
-                        path=tmp_cfg)
+        set_preferences(provider="anthropic", model="claude-3-5-haiku", path=tmp_cfg)
         # Only update the model.
         set_preferences(model="claude-sonnet-4-5", path=tmp_cfg)
         cfg = load_config(tmp_cfg)
@@ -155,6 +157,7 @@ class TestConfigFile:
 # ---------------------------------------------------------------------------
 # Provider availability
 # ---------------------------------------------------------------------------
+
 
 class TestAvailability:
     def test_no_env_no_provider_available(self, clean_env):
@@ -179,47 +182,53 @@ class TestAvailability:
 # Resolver — layered fallback
 # ---------------------------------------------------------------------------
 
+
 class TestResolverLayers:
     def test_explicit_client_pass_through(self):
         ec = echo_client(lambda role, prompt: "hi")
         out = get_llm_client(client=ec)
         assert out is ec
 
-    def test_explicit_provider_constructs(self, clean_env, tmp_cfg,
-                                            fake_construct):
+    def test_explicit_provider_constructs(self, clean_env, tmp_cfg, fake_construct):
         get_llm_client(
-            provider="anthropic", api_key="sk-ant-fake",
-            allow_interactive=False, config_path=tmp_cfg,
+            provider="anthropic",
+            api_key="sk-ant-fake",
+            allow_interactive=False,
+            config_path=tmp_cfg,
         )
         assert fake_construct["provider"] == "anthropic"
         assert fake_construct["api_key"] == "sk-ant-fake"
 
-    def test_env_var_drives_anthropic(self, clean_env, tmp_cfg,
-                                        fake_construct):
+    def test_env_var_drives_anthropic(self, clean_env, tmp_cfg, fake_construct):
         clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
         get_llm_client(allow_interactive=False, config_path=tmp_cfg)
         assert fake_construct["provider"] == "anthropic"
 
-    def test_env_var_drives_openai_when_only_one_set(self, clean_env,
-                                                       tmp_cfg,
-                                                       fake_construct):
+    def test_env_var_drives_openai_when_only_one_set(
+        self, clean_env, tmp_cfg, fake_construct
+    ):
         clean_env.setenv("OPENAI_API_KEY", "sk-fake")
         get_llm_client(allow_interactive=False, config_path=tmp_cfg)
         assert fake_construct["provider"] == "openai"
 
     def test_both_env_vars_tie_breaks_to_config_provider(
-        self, clean_env, tmp_cfg, fake_construct,
+        self,
+        clean_env,
+        tmp_cfg,
+        fake_construct,
     ):
         clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
         clean_env.setenv("OPENAI_API_KEY", "sk-fake")
-        save_config({"llm": {"provider": "openai", "model": "gpt-4o"}},
-                    tmp_cfg)
+        save_config({"llm": {"provider": "openai", "model": "gpt-4o"}}, tmp_cfg)
         get_llm_client(allow_interactive=False, config_path=tmp_cfg)
         assert fake_construct["provider"] == "openai"
         assert fake_construct["model"] == "gpt-4o"
 
     def test_both_env_vars_no_config_tiebreaks_anthropic(
-        self, clean_env, tmp_cfg, fake_construct,
+        self,
+        clean_env,
+        tmp_cfg,
+        fake_construct,
     ):
         clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
         clean_env.setenv("OPENAI_API_KEY", "sk-fake")
@@ -227,7 +236,9 @@ class TestResolverLayers:
         assert fake_construct["provider"] == "anthropic"
 
     def test_no_env_no_interactive_raises_with_remediation(
-        self, clean_env, tmp_cfg,
+        self,
+        clean_env,
+        tmp_cfg,
     ):
         with pytest.raises(LLMConfigurationError) as excinfo:
             get_llm_client(allow_interactive=False, config_path=tmp_cfg)
@@ -235,12 +246,12 @@ class TestResolverLayers:
         assert "ANTHROPIC_API_KEY" in msg
         assert "OPENAI_API_KEY" in msg
 
-    def test_explicit_model_override(self, clean_env, tmp_cfg,
-                                       fake_construct):
+    def test_explicit_model_override(self, clean_env, tmp_cfg, fake_construct):
         clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
         get_llm_client(
             model="claude-haiku-4-5",
-            allow_interactive=False, config_path=tmp_cfg,
+            allow_interactive=False,
+            config_path=tmp_cfg,
         )
         assert fake_construct["model"] == "claude-haiku-4-5"
 
@@ -249,22 +260,25 @@ class TestResolverLayers:
 # Interactive prompt (mocked stdin)
 # ---------------------------------------------------------------------------
 
+
 class TestInteractivePrompt:
     def test_no_env_non_tty_raises(self, clean_env, tmp_cfg, monkeypatch):
         monkeypatch.setattr("sys.stdin.isatty", lambda: False)
         with pytest.raises(LLMConfigurationError):
             get_llm_client(allow_interactive=True, config_path=tmp_cfg)
 
-    def test_no_env_tty_but_no_keys_raises(self, clean_env, tmp_cfg,
-                                            monkeypatch, capsys):
+    def test_no_env_tty_but_no_keys_raises(
+        self, clean_env, tmp_cfg, monkeypatch, capsys
+    ):
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
         # User's input is irrelevant — both providers report unavailable.
         monkeypatch.setattr("builtins.input", lambda *a, **kw: "1")
         with pytest.raises(LLMConfigurationError):
             get_llm_client(allow_interactive=True, config_path=tmp_cfg)
 
-    def test_with_env_skips_interactive(self, clean_env, tmp_cfg,
-                                          monkeypatch, fake_construct):
+    def test_with_env_skips_interactive(
+        self, clean_env, tmp_cfg, monkeypatch, fake_construct
+    ):
         clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
         # No prompt should fire — we go straight to env-driven path.
@@ -282,10 +296,10 @@ class TestInteractivePrompt:
 # configure_llm() persistence
 # ---------------------------------------------------------------------------
 
+
 class TestConfigureLLM:
     def test_persist_provider_and_model(self, tmp_cfg):
-        configure_llm(provider="openai", model="gpt-4o",
-                      config_path=tmp_cfg)
+        configure_llm(provider="openai", model="gpt-4o", config_path=tmp_cfg)
         cfg = load_config(tmp_cfg)
         assert cfg["llm"]["provider"] == "openai"
         assert cfg["llm"]["model"] == "gpt-4o"
@@ -294,12 +308,12 @@ class TestConfigureLLM:
         with pytest.raises(ValueError, match="Unknown provider"):
             configure_llm(provider="xai-grok", config_path=tmp_cfg)
 
-    def test_subsequent_call_resolves_to_saved(self, clean_env, tmp_cfg,
-                                                  fake_construct):
+    def test_subsequent_call_resolves_to_saved(
+        self, clean_env, tmp_cfg, fake_construct
+    ):
         clean_env.setenv("ANTHROPIC_API_KEY", "sk-ant-fake")
         clean_env.setenv("OPENAI_API_KEY", "sk-fake")
-        configure_llm(provider="openai", model="gpt-4o",
-                      config_path=tmp_cfg)
+        configure_llm(provider="openai", model="gpt-4o", config_path=tmp_cfg)
         get_llm_client(allow_interactive=False, config_path=tmp_cfg)
         assert fake_construct["provider"] == "openai"
         assert fake_construct["model"] == "gpt-4o"
@@ -308,6 +322,7 @@ class TestConfigureLLM:
 # ---------------------------------------------------------------------------
 # LLMClient.complete() alias (latent bug fix)
 # ---------------------------------------------------------------------------
+
 
 class TestCompleteAlias:
     def test_echo_client_has_complete(self):
@@ -323,6 +338,7 @@ class TestCompleteAlias:
 # heuristic, returns a valid PaperDraft, populates DAG.
 # ---------------------------------------------------------------------------
 
+
 class TestPaperLLMAuto:
     def test_llm_auto_no_env_falls_back_to_heuristic(self, clean_env):
         import statspai as sp
@@ -330,29 +346,32 @@ class TestPaperLLMAuto:
         import pandas as pd
 
         rng = np.random.default_rng(0)
-        df = pd.DataFrame({
-            "wage": 10 + rng.normal(size=200),
-            "trained": rng.binomial(1, 0.5, 200),
-            "edu": rng.normal(size=200),
-        })
+        df = pd.DataFrame(
+            {
+                "wage": 10 + rng.normal(size=200),
+                "trained": rng.binomial(1, 0.5, 200),
+                "edu": rng.normal(size=200),
+            }
+        )
         # No API key; resolver returns None internally; llm_dag_propose
         # falls back to its deterministic heuristic — paper still works.
         draft = sp.paper(
-            df, "effect of trained on wage",
-            treatment="trained", y="wage",
-            llm="auto", llm_domain="labor economics",
+            df,
+            "effect of trained on wage",
+            treatment="trained",
+            y="wage",
+            llm="auto",
+            llm_domain="labor economics",
         )
         # PaperDraft built either with or without a DAG (heuristic may
         # propose an empty edge list for these generic vars).
         from statspai.workflow.paper import PaperDraft
+
         assert isinstance(draft, PaperDraft)
         # Either no DAG (heuristic skipped it) OR a DAG is set with
         # edges drawn from the variable list.
         if draft.dag is not None:
-            assert all(
-                u in df.columns and v in df.columns
-                for u, v in draft.dag.edges
-            )
+            assert all(u in df.columns and v in df.columns for u, v in draft.dag.edges)
 
     def test_llm_explicit_client_used(self, clean_env):
         import statspai as sp
@@ -362,18 +381,24 @@ class TestPaperLLMAuto:
         # Build an echo_client that returns a fixed JSON edge list.
         def respond(role, prompt):
             return '[["edu", "wage"], ["edu", "trained"], ["trained", "wage"]]'
+
         client = echo_client(respond)
 
         rng = np.random.default_rng(0)
-        df = pd.DataFrame({
-            "wage": 10 + rng.normal(size=200),
-            "trained": rng.binomial(1, 0.5, 200),
-            "edu": rng.normal(size=200),
-        })
+        df = pd.DataFrame(
+            {
+                "wage": 10 + rng.normal(size=200),
+                "trained": rng.binomial(1, 0.5, 200),
+                "edu": rng.normal(size=200),
+            }
+        )
         draft = sp.paper(
-            df, "effect of trained on wage",
-            treatment="trained", y="wage",
-            llm="auto", llm_client=client,
+            df,
+            "effect of trained on wage",
+            treatment="trained",
+            y="wage",
+            llm="auto",
+            llm_client=client,
         )
         # The DAG was populated from the echo client's response.
         assert draft.dag is not None

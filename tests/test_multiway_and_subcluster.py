@@ -148,12 +148,22 @@ def test_subcluster_wild_bootstrap_basic():
     firm = np.repeat(np.arange(n_firms), n_years)
     year = np.tile(np.arange(n_years), n_firms)
     x = rng.standard_normal(len(firm))
-    y = 0.3 * x + rng.standard_normal(n_firms)[firm] + rng.standard_normal(len(firm)) * 0.2
+    y = (
+        0.3 * x
+        + rng.standard_normal(n_firms)[firm]
+        + rng.standard_normal(len(firm)) * 0.2
+    )
 
     df = pd.DataFrame({"firm": firm, "year": year, "x": x, "y": y})
     res = subcluster_wild_bootstrap(
-        df, y="y", x=["x"], cluster="firm", subcluster="year",
-        n_boot=199, weight_type="webb", seed=1,
+        df,
+        y="y",
+        x=["x"],
+        cluster="firm",
+        subcluster="year",
+        n_boot=199,
+        weight_type="webb",
+        seed=1,
     )
     assert 0 <= res["p_boot"] <= 1
     assert res["n_clusters"] == n_firms
@@ -164,17 +174,24 @@ def test_subcluster_wild_bootstrap_basic():
 
 
 def test_subcluster_wild_bootstrap_single_cluster_raises():
-    df = pd.DataFrame({
-        "firm": np.zeros(12, dtype=int),
-        "year": np.arange(12),
-        "x": np.linspace(-1.0, 1.0, 12),
-        "y": np.linspace(0.0, 1.0, 12),
-    })
+    df = pd.DataFrame(
+        {
+            "firm": np.zeros(12, dtype=int),
+            "year": np.arange(12),
+            "x": np.linspace(-1.0, 1.0, 12),
+            "y": np.linspace(0.0, 1.0, 12),
+        }
+    )
 
     with pytest.raises(ValueError, match="at least two clusters"):
         subcluster_wild_bootstrap(
-            df, y="y", x=["x"], cluster="firm", subcluster="year",
-            n_boot=19, seed=1,
+            df,
+            y="y",
+            x=["x"],
+            cluster="firm",
+            subcluster="year",
+            n_boot=19,
+            seed=1,
         )
 
 
@@ -187,8 +204,14 @@ def test_wild_cluster_ci_inv_brackets_truth():
     y = 2.5 * x + rng.standard_normal(n_firms)[firm] + rng.standard_normal(n_obs) * 0.3
     df = pd.DataFrame({"firm": firm, "x": x, "y": y})
     res = wild_cluster_ci_inv(
-        df, y="y", x=["x"], cluster="firm",
-        n_boot=199, weight_type="webb", seed=11, grid_size=21,
+        df,
+        y="y",
+        x=["x"],
+        cluster="firm",
+        n_boot=199,
+        weight_type="webb",
+        seed=11,
+        grid_size=21,
     )
     lo, hi = res["ci"]
     # True coefficient ~ 2.5 should lie in the inverted CI

@@ -1,4 +1,5 @@
 """SLX and SAC (SARAR) model smoke + shape tests."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -14,7 +15,8 @@ def dgp():
     rng = np.random.default_rng(0)
     n = 80
     coords = rng.uniform(size=(n, 2))
-    w = knn_weights(coords, k=5); w.transform = "R"
+    w = knn_weights(coords, k=5)
+    w.transform = "R"
     x = rng.standard_normal(n)
     z = rng.standard_normal(n)
     y = 1.0 + 2.0 * x + 1.0 * z + rng.standard_normal(n)
@@ -46,7 +48,8 @@ def test_sac_recovers_rho_and_lambda():
     rng = np.random.default_rng(7)
     n = 400
     coords = rng.uniform(size=(n, 2))
-    w = knn_weights(coords, k=6); w.transform = "R"
+    w = knn_weights(coords, k=6)
+    w.transform = "R"
     W_dense = w.sparse.toarray()
     X = np.column_stack([np.ones(n), rng.standard_normal(n)])
     beta_true = np.array([1.0, 2.0])
@@ -66,5 +69,6 @@ def test_sac_recovers_rho_and_lambda():
 
 def test_slx_exported_on_package():
     from statspai.spatial.models import ml
+
     assert hasattr(ml, "slx")
     assert hasattr(ml, "sac")

@@ -1,4 +1,5 @@
 """Tests for ``sp.fast.crve`` and ``sp.fast.boottest`` (Phase 4)."""
+
 from __future__ import annotations
 
 import json
@@ -26,6 +27,7 @@ def _ols_panel(n_clusters=20, m=30, seed=0, beta=(0.30, -0.20)):
 # ---------------------------------------------------------------------------
 # CRVE — closed-form sanity
 # ---------------------------------------------------------------------------
+
 
 def test_crve_cr1_matches_manual_formula():
     """CR1 sandwich computed by us must match the textbook formula."""
@@ -75,7 +77,7 @@ def test_crve_too_few_clusters_raises():
     X = np.random.default_rng(0).normal(size=(20, 2))
     resid = np.random.default_rng(0).normal(size=20)
     with pytest.raises(ValueError, match="2 clusters"):
-        sp.fast.crve(X, resid, np.zeros(20))   # G=1
+        sp.fast.crve(X, resid, np.zeros(20))  # G=1
 
 
 def test_crve_missing_cluster_labels_raise():
@@ -149,21 +151,36 @@ def test_boottest_invalid_obs_weights_raise():
 
     with pytest.raises(ValueError, match="weights length"):
         sp.fast.boottest(
-            X, y, cluster, null_coef=0, B=19, seed=0,
+            X,
+            y,
+            cluster,
+            null_coef=0,
+            B=19,
+            seed=0,
             obs_weights=np.ones(len(y) - 1),
         )
     bad_weights = np.ones(len(y))
     bad_weights[0] = np.inf
     with pytest.raises(ValueError, match="weights contain non-finite"):
         sp.fast.boottest(
-            X, y, cluster, null_coef=0, B=19, seed=0,
+            X,
+            y,
+            cluster,
+            null_coef=0,
+            B=19,
+            seed=0,
             obs_weights=bad_weights,
         )
     bad_weights = np.ones(len(y))
     bad_weights[0] = -1.0
     with pytest.raises(ValueError, match="weights must be non-negative"):
         sp.fast.boottest(
-            X, y, cluster, null_coef=0, B=19, seed=0,
+            X,
+            y,
+            cluster,
+            null_coef=0,
+            B=19,
+            seed=0,
             obs_weights=bad_weights,
         )
 
@@ -188,7 +205,12 @@ def test_boottest_wald_invalid_obs_weights_raise():
 
     with pytest.raises(ValueError, match="weights contain non-finite"):
         sp.fast.boottest_wald(
-            X, y, cluster, R=np.eye(2), B=19, seed=0,
+            X,
+            y,
+            cluster,
+            R=np.eye(2),
+            B=19,
+            seed=0,
             obs_weights=bad_weights,
         )
 
@@ -210,14 +232,18 @@ def test_cluster_dof_bm_invalid_weights_raise():
 
     with pytest.raises(ValueError, match="weights length"):
         sp.fast.cluster_dof_bm(
-            X, cluster, contrast=np.array([1.0, 0.0]),
+            X,
+            cluster,
+            contrast=np.array([1.0, 0.0]),
             weights=np.ones(len(df) - 1),
         )
     bad_weights = np.ones(len(df))
     bad_weights[0] = -1.0
     with pytest.raises(ValueError, match="weights must be non-negative"):
         sp.fast.cluster_dof_bm(
-            X, cluster, contrast=np.array([1.0, 0.0]),
+            X,
+            cluster,
+            contrast=np.array([1.0, 0.0]),
             weights=bad_weights,
         )
 
@@ -244,7 +270,7 @@ def test_crve_extra_df_matches_manual_formula():
         cluster_score[g[i]] += score[i]
     meat = cluster_score.T @ cluster_score
 
-    extra_df = 7   # pretend 7 FE-rank dof were absorbed
+    extra_df = 7  # pretend 7 FE-rank dof were absorbed
     factor_ref = (G / (G - 1)) * ((n - 1) / (n - k - extra_df))
     V_ref = bread @ meat @ bread * factor_ref
 
@@ -292,11 +318,13 @@ def test_crve_extra_df_ignored_for_cr3():
 
 def test_crve_cr3_matches_clubsandwich_frozen_reference():
     df = sp.datasets.mpdta()
-    X = np.column_stack([
-        np.ones(len(df)),
-        df["treat"].to_numpy(float),
-        df["year"].to_numpy(float),
-    ])
+    X = np.column_stack(
+        [
+            np.ones(len(df)),
+            df["treat"].to_numpy(float),
+            df["year"].to_numpy(float),
+        ]
+    )
     y = df["lemp"].to_numpy(float)
     beta = np.linalg.solve(X.T @ X, X.T @ y)
     resid = y - X @ beta
@@ -304,11 +332,13 @@ def test_crve_cr3_matches_clubsandwich_frozen_reference():
 
     np.testing.assert_allclose(
         np.sqrt(np.diag(V)),
-        np.array([
-            5.08137168727772,
-            0.0122594989183214,
-            0.00253657872562322,
-        ]),
+        np.array(
+            [
+                5.08137168727772,
+                0.0122594989183214,
+                0.00253657872562322,
+            ]
+        ),
         rtol=1e-7,
     )
 
@@ -316,6 +346,7 @@ def test_crve_cr3_matches_clubsandwich_frozen_reference():
 # ---------------------------------------------------------------------------
 # CR2 (Bell-McCaffrey)
 # ---------------------------------------------------------------------------
+
 
 def test_crve_cr2_runs_and_positive():
     """CR2 sandwich must be SPD on a well-conditioned panel."""
@@ -350,8 +381,9 @@ def test_crve_cr2_close_to_cr1_with_many_balanced_clusters():
     se1 = np.sqrt(np.diag(V1))
     se2 = np.sqrt(np.diag(V2))
     ratio = se2 / se1
-    assert (0.8 <= ratio).all() and (ratio <= 1.3).all(), \
-        f"CR2/CR1 SE ratio out of bounds: {ratio}"
+    assert (0.8 <= ratio).all() and (
+        ratio <= 1.3
+    ).all(), f"CR2/CR1 SE ratio out of bounds: {ratio}"
 
 
 def test_crve_cr2_larger_than_cr1_in_few_clusters():
@@ -385,6 +417,7 @@ def test_crve_unknown_type_rejected():
 # Wild cluster bootstrap
 # ---------------------------------------------------------------------------
 
+
 def test_boottest_returns_pvalue_in_unit_interval():
     df = _ols_panel(seed=3, n_clusters=15, m=20)
     X = df[["x1", "x2"]].to_numpy()
@@ -392,8 +425,14 @@ def test_boottest_returns_pvalue_in_unit_interval():
     g = df["g"].to_numpy()
 
     res = sp.fast.boottest(
-        X, y, g, null_coef=0, null_value=0.0,
-        weights="rademacher", B=999, seed=42,
+        X,
+        y,
+        g,
+        null_coef=0,
+        null_value=0.0,
+        weights="rademacher",
+        B=999,
+        seed=42,
     )
     assert 0.0 <= res.pvalue <= 1.0
     assert res.boot_t_dist.shape == (999,)
@@ -489,6 +528,7 @@ def test_boottest_result_agent_protocol_json_safe():
 # Multi-coefficient joint Wald wild bootstrap
 # ---------------------------------------------------------------------------
 
+
 def test_boottest_wald_single_coef_matches_t_squared():
     """A 1-row R matrix testing β[0] = 0 should give Wald = t^2; the
     bootstrap p should match the corresponding two-sided t-bootstrap p
@@ -499,11 +539,11 @@ def test_boottest_wald_single_coef_matches_t_squared():
     y = df["y"].to_numpy()
     g = df["g"].to_numpy()
 
-    R = np.array([[1.0, 0.0]])     # test β_x1 = 0
+    R = np.array([[1.0, 0.0]])  # test β_x1 = 0
     res_w = sp.fast.boottest_wald(X, y, g, R, B=999, seed=11)
     # Wald == t^2 under H0 with q=1
     res_t = sp.fast.boottest(X, y, g, null_coef=0, B=999, seed=11)
-    assert abs(res_w.wald_obs - res_t.t_obs ** 2) < 1e-8
+    assert abs(res_w.wald_obs - res_t.t_obs**2) < 1e-8
 
 
 def test_boottest_wald_rejects_under_alternative():

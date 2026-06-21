@@ -9,16 +9,16 @@ import statspai as sp
 
 def test_llm_dag_propose_heuristic():
     res = sp.llm_dag_propose(
-        variables=['age', 'education', 'wage', 'distance'],
+        variables=["age", "education", "wage", "distance"],
         domain="labor economics",
     )
     assert isinstance(res, sp.LLMDAGProposal)
     # 'distance' should be classified as instrument
     np.testing.assert_allclose([len(res.edges), len(res.roles)], [2, 4])
-    assert res.roles['distance'] == 'instrument'
-    assert res.roles['wage'] == 'outcome'
+    assert res.roles["distance"] == "instrument"
+    assert res.roles["wage"] == "outcome"
     # Should have at least one edge to wage
-    edges_to_wage = [e for e in res.edges if e[1] == 'wage']
+    edges_to_wage = [e for e in res.edges if e[1] == "wage"]
     assert len(edges_to_wage) >= 1
     # to_dag_string format check
     s = res.to_dag_string()
@@ -58,7 +58,9 @@ def test_llm_sensitivity_priors():
 
 def test_llm_unknown_domain_fallback():
     res = sp.llm_sensitivity_priors(
-        treatment="x", outcome="y", domain="weatherology",
+        treatment="x",
+        outcome="y",
+        domain="weatherology",
     )
     assert res.backend == "heuristic"
     assert "Generic" in res.rationale

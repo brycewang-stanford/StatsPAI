@@ -42,16 +42,18 @@ def test_hc0_matches_statsmodels(ols_data):
     sm = pytest.importorskip("statsmodels.api")
     X, y, resid, _ = ols_data
     res = sm.OLS(y, X).fit()
-    np.testing.assert_allclose(hc_vcov(X, resid, hc_type="hc0"),
-                               res.cov_HC0, rtol=1e-10, atol=1e-12)
+    np.testing.assert_allclose(
+        hc_vcov(X, resid, hc_type="hc0"), res.cov_HC0, rtol=1e-10, atol=1e-12
+    )
 
 
 def test_cluster_stata_matches_statsmodels(ols_data):
     sm = pytest.importorskip("statsmodels.api")
     X, y, resid, clusters = ols_data
     res = sm.OLS(y, X).fit()
-    rob = res.get_robustcov_results(cov_type="cluster", groups=clusters,
-                                    use_correction=True)
+    rob = res.get_robustcov_results(
+        cov_type="cluster", groups=clusters, use_correction=True
+    )
     expected = rob.cov_params()
     got = cluster_robust_vcov(X, resid, clusters, correction="stata")
     np.testing.assert_allclose(got, expected, rtol=1e-8, atol=1e-10)
@@ -63,9 +65,11 @@ def test_correction_factor_relationships():
     assert cluster_correction_factor(G, N, K, "none") == 1.0
     assert cluster_correction_factor(G, N, K, "cgm") == pytest.approx(G / (G - 1))
     assert cluster_correction_factor(G, N, K, "stata") == pytest.approx(
-        (G / (G - 1)) * ((N - 1) / (N - K)))
+        (G / (G - 1)) * ((N - 1) / (N - K))
+    )
     assert cluster_correction_factor(G, N, K, "stacked") == pytest.approx(
-        (G / (G - 1)) * (N / (N - K)))
+        (G / (G - 1)) * (N / (N - K))
+    )
 
 
 def test_dof_adjust_override(ols_data):
@@ -102,12 +106,12 @@ def test_unknown_correction_raises():
 
 # --- generic sandwich_vcov (covers MLE bread + precomputed scores) ----------
 
+
 def test_sandwich_vcov_cluster_equals_cluster_robust_vcov(ols_data):
     X, y, resid, clusters = ols_data
     XtX_inv = np.linalg.inv(X.T @ X)
     scores = X * resid[:, None]
-    got = sandwich_vcov(XtX_inv, scores, clusters=clusters,
-                        correction="liang_zeger")
+    got = sandwich_vcov(XtX_inv, scores, clusters=clusters, correction="liang_zeger")
     expected = cluster_robust_vcov(X, resid, clusters, correction="liang_zeger")
     np.testing.assert_allclose(got, expected, rtol=1e-12, atol=1e-14)
 
