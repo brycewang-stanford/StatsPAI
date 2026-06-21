@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 
-DEFAULT_FLAKE8_MAX = 1006
+DEFAULT_FLAKE8_MAX = 999
 DEFAULT_MYPY_MAX = 1058
 MYPY_CONFIG_WARNING_RE = re.compile(r"^.*: \[mypy\]: ", re.MULTILINE)
 FORBIDDEN_IMPORT_PREFIXES = (
