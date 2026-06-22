@@ -76,12 +76,12 @@ triggers:
 
 # StatsPAI: Agent-Native Causal Inference & AER-Style Empirical Workflow
 
-StatsPAI is a validation-tiered Python package for causal inference and applied econometrics: one `import statspai as sp`, 1,000+ registered functions behind a self-describing API, and mature estimator result objects that commonly export to LaTeX / Word / Excel / BibTeX.
+StatsPAI is a validation-tiered Python package for causal inference and applied econometrics: one `import statspai as sp`, 1,100+ registered functions behind a self-describing API, and mature estimator result objects that commonly export to LaTeX / Word / Excel / BibTeX.
 
 This skill drives StatsPAI through the **canonical pipeline of an applied AER empirical paper**. Each step emits a paper-ready artifact (Table 1, event-study figure, Table 2 main results, robustness panel, replication stamp).
 
 - **Source**: https://github.com/brycewang-stanford/StatsPAI
-- **Install**: `pip install "statspai[fixest,plotting]"` (verified against **statspai 1.16.1**). The bare `pip install statspai` is **not enough** for the default pipeline — see the dependency matrix below.
+- **Install**: `pip install "statspai[fixest,plotting]"` (API surface re-validated against **statspai 1.19.0** — every `sp.*` reference, signature, and result-object attribute claim in this skill is checked by `validate_api_claims.py` in this folder). The bare `pip install statspai` is **not enough** for the default pipeline — see the dependency matrix below.
 - **Paper**: JOSS submission under review; JSS materials in `Paper-JSS/README.md` and `docs/jss_source_audit_dossier.md`
 
 > **Install the right extras or the documented calls will raise `ImportError`.** Several core functions live behind optional dependency groups (verified from `pyproject.toml`):
@@ -97,7 +97,7 @@ This skill drives StatsPAI through the **canonical pipeline of an applied AER em
 
 ## Verified skeleton (copy, then swap in your columns)
 
-This minimal pipeline **runs start-to-finish against statspai 1.16.1** (every call below was executed). It is the golden path — adapt column names / design, keep the call shapes and the unpack-then-save figure idiom. The full playbook (§−1 → §8) expands each step.
+This minimal pipeline **runs start-to-finish against statspai 1.19.0** (every call below was executed). It is the golden path — adapt column names / design, keep the call shapes and the unpack-then-save figure idiom. The full playbook (§−1 → §8) expands each step.
 
 ```python
 import numpy as np, pandas as pd, statspai as sp
@@ -153,6 +153,56 @@ for ext in ("docx","xlsx","tex","md"): c.save(f"replication/paper.{ext}")
 2. **Structured results**: mature estimators return result objects with methods such as `.summary()`, `.plot()`, `.diagnostics`, `.to_latex()`, `.to_word()`, `.cite()` when supported.
 3. **One import, full pipeline**: data contract → Table 1 → estimand-first DSL → identification graphs → main table → heterogeneity → mechanisms → robustness → replication package.
 4. **Estimand-first**: `sp.causal_question(...).identify()` forces the "DID vs RD vs IV?" decision *before* estimation, with the identifying assumption written down — the way a referee expects to read it.
+
+## SkillOpt-derived operating loop (read before the playbook)
+
+SkillOpt's useful lesson for this skill is procedural, not cosmetic: a skill is a
+bounded decision policy that should improve from rollout evidence while preserving
+verified behavior. Treat every StatsPAI request as a mini rollout:
+
+1. **Route the mode first**: choose Default/AER, Mode A/epi, Mode B/ML-causal, or
+   a narrow export-only path from the user's words. Do not run the full paper
+   pipeline when the request is only "make Table 1" or "export this regression".
+2. **Freeze the contract before estimating**: name `y`, treatment/exposure,
+   unit/time ids, estimand, design, required artifacts, and install extras. If any
+   field is missing, infer only when the column names make the choice obvious;
+   otherwise produce a short blocking checklist instead of hallucinating columns.
+3. **Start from the smallest verified call shape**: prefer the skeleton and the
+   relevant section-specific snippet over ad hoc API guesses. For an unfamiliar
+   function, call `sp.describe_function(name)` / `sp.function_schema(name)` before
+   writing code.
+4. **Widen one block at a time**: data contract → plan → diagnostic figure →
+   main estimate → robustness/export. After each block, read warnings and object
+   attributes before passing the result downstream.
+5. **Gate the answer on artifacts, not intentions**: final responses should list
+   the files produced, the identifying assumption, the estimator class, and any
+   failed or skipped gate. Never claim "paper-ready" if Word/Excel/LaTeX exports
+   or required diagnostics were not actually generated.
+6. **Turn failures into bounded corrections**: if a call raises, fix the smallest
+   wrong rule (signature, result type, optional extra, plot return shape) and
+   continue from the last verified artifact. Do not rewrite the pipeline wholesale.
+
+### Acceptance gates by request type
+
+| Request type | Minimum gates before final answer |
+|---|---|
+| Export-only / `outreg2` equivalent | At least one `RegtableResult` or `Collection` object is created; requested `.docx` / `.xlsx` / `.tex` paths are written or the exact missing optional dependency is reported |
+| AER DID / event study | `sp.causal_question(...).identify()` saved or printed; CS/SA result used for the event-study figure; numerical pre-trends checked separately with `sp.event_study(...)` or equivalent; Table 2 and at least one robustness/sensitivity artifact produced |
+| IV | First-stage F and instrument story reported before the 2SLS coefficient; no `\| fe` formula is passed to `sp.ivreg`; FE-IV needs explicit dummy construction or a stated limitation |
+| RD | McCrary/manipulation check plus RD plot are produced before the treatment-effect table; bandwidth/kernel sensitivity is in the robustness block |
+| Matching / weighting | Balance or love plot is produced before outcome estimation; weights are carried into the Table 1 / balance export when applicable |
+| Epi / target-trial | Target-trial protocol is written before modeling; positivity/overlap is checked; IPTW/g-formula/TMLE estimates are compared when data support them; E-value or equivalent sensitivity is reported |
+| ML causal / CATE | Train/holdout split and nuisance learners are explicit; per-row CATE source is valid (`model_info["cate"]` for meta-learners or `cf.effect(X)` for forests); policy/OPE claims use holdout data |
+| Stata/R migration | Use StatsPAI's self-description or translator surface first; preserve semantic notes for unsupported options instead of silently pretending full parity |
+
+### Maintenance rule for future skill edits
+
+When improving this skill itself, follow a SkillOpt-style accept rule: propose a
+small add/delete/replace edit, then accept it only if it helps a concrete failure
+case and does not regress the verified skeleton, export cookbook, or Common
+Mistakes table. Use `EVALS.md` as the held-out gate set for future skill edits.
+Keep reusable fixes near the earliest section where an agent will need them; keep
+rare API traps in Common Mistakes.
 
 ## The AER-style empirical pipeline
 
@@ -1665,13 +1715,16 @@ aft = sp.aft("followup_days + mace ~ statin_initiation + age + sex + ldl_baselin
              cohort, family="weibull")
 print(aft.summary())                                  # AFTResult exposes .summary() (text)
 
-# AFTResult does NOT go into sp.regtable (it has no .params) and has no .to_word/.to_latex.
-# Build a coefficient table from its attributes (.beta / .se / .var_names / .n / .n_events):
-import numpy as np
-aft_table = pd.DataFrame({"coef": aft.beta, "se": aft.se}, index=aft.var_names)
-aft_table["z"] = aft_table["coef"] / aft_table["se"]
-aft_table.to_excel("tables/table3_survival.xlsx")     # or .to_latex()
+# AFTResult exposes `.params` (a pd.Series) + `.std_errors`, so it drops STRAIGHT into
+# sp.regtable → SEs, stars, and one-line Word/Excel/LaTeX export via the RegtableResult.
+# (AFTResult itself still has no `.to_word`/`.to_latex`/`.conf_int` — go through regtable.)
+aft_tbl = sp.regtable(aft, model_labels=["Weibull AFT"],
+                      title="Table 3. Survival (accelerated failure time)")
+aft_tbl.to_word("tables/table3_survival.docx"); aft_tbl.to_excel("tables/table3_survival.xlsx")
+# Read N / events / AIC straight off the result for the table footer:
 print(f"N={aft.n}, events={aft.n_events}, family={aft.family}, AIC={aft.aic:.1f}")
+# Manual fallback only if you need a custom layout (regtable is preferred):
+#   pd.DataFrame({"coef": aft.beta, "se": aft.se}, index=aft.var_names)
 
 # For a CAUSAL survival estimand (risk/RMST contrast under unconfoundedness), use the
 # doubly-robust longitudinal-TMLE survival estimator instead of a raw AFT:
@@ -2139,7 +2192,7 @@ sp.interactive(fig)                                                   # WYSIWYG 
 | `sp.feols(...)` without installing pyfixest | `sp.feols`/`fepois`/`feglm` need `pip install "statspai[fixest]"`; neural causal needs `[neural]` (torch); plots need `[plotting]` |
 | `sp.ivreg("y ~ (d ~ z) + x \| industry + year", ...)` for FE-IV | **Silently drops the `\| fe`** (identical β̂ with/without it; FE never appear in output). `sp.ivreg` does not absorb `\|` FE or parse `C(fe)`. Keep all IV-triplet columns on the same low-dim controls, or pre-build dummy columns in pandas |
 | `sp.regtable(ivw, egger, median, ...)` for MR results | `mr_ivw`/`mr_egger`/`mr_median` return **dicts** (`estimate/se/ci_lower/ci_upper/p_value/...`), not result objects. Build a `pd.DataFrame({...}).T` and `.to_excel()`/`.to_latex()` it |
-| `sp.regtable(aft, ...)` for a survival AFT | `AFTResult` has no `.params`/`.to_word` — it exposes `.summary()` plus `.beta`/`.se`/`.var_names`/`.n`/`.n_events`/`.aic`. Build a `pd.DataFrame({"coef": aft.beta, "se": aft.se}, index=aft.var_names)`. For a causal survival estimand use `sp.ltmle_survival(...)` |
+| `aft.to_word(...)` / hand-rolling a `pd.DataFrame` for an AFT table | `sp.regtable(aft, ...)` works **directly** — `AFTResult` exposes `.params` + `.std_errors`, so regtable renders SEs/stars and the `RegtableResult` exports to Word/Excel/LaTeX. `AFTResult` itself still has no `.to_word`/`.to_latex`/`.conf_int`; read `.n`/`.n_events`/`.aic`/`.family`/`.summary()` for the footer. For a causal survival estimand use `sp.ltmle_survival(...)` |
 | `sp.causal(..., dag=discovered.dag)` | `LLMConstrainedDAGResult` has no `.dag` — use `discovered.to_dag()` (or inspect `.final_edges`) |
 | `result.conf_int()` / `result.data_info["n_obs"]` on a `CausalResult` | `CausalResult` exposes `.estimate` / `.ci` (tuple) / `.n_obs` / `.estimand` (no `.conf_int()`; `data_info` key is `"nobs"`). `.params[name]` + `.conf_int().loc[name]` are for econometric (OLS/feols/ivreg) results |
 
