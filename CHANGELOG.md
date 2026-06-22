@@ -4,6 +4,96 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+These change *inference output* (standard errors / p-values / CIs), not point
+estimates. See `MIGRATION.md` for per-function detail.
+
+- **`sp.cusum_test`** — the recursive-residual CUSUM now compares the path
+  against the Brown–Durbin–Evans *linear* boundary `a·[1 + 2 s/(n−k)]`
+  (`a = 0.948` at 5%) instead of a constant `1.358` (the sup|Brownian-bridge|
+  value, which belongs to the OLS-CUSUM). The old boundary rejected ≈32% of
+  stable series at a nominal 5% level (empirical size 0.32 → 0.04).
+  `result["critical_value"]` is now the per-recursion boundary array.
+- **`sp.lee_bounds`** — the confidence interval is now the genuine Imbens &
+  Manski (2004) interval for the partially identified parameter (critical
+  value `C_n` interpolating between the one- and two-sided `z`), replacing a
+  Horowitz–Manski *set* interval that over-covered. CIs are narrower (correct).
+- **`sp.rdrobust` / `sp.rd2d` / RD HTE / `sp.rd_bias_aware_fuzzy`** — the
+  heteroskedasticity-robust local-polynomial variance now uses the
+  Calonico–Cattaneo–Titiunik (2014) kernel weighting `X'W·diag(e²)·W·X`
+  (kernel weight **squared**). The previous meat carried only one power of the
+  kernel weight, inflating every HC-robust RD standard error (≈1.4× for a
+  uniform kernel vs R `rdrobust` `vce="hc0"`). Point estimates are unchanged;
+  SEs now match R. (Cluster-robust RD SEs were already correct.)
+- **`sp.callaway_santanna` pre-trend test** — the joint pre-trend Wald p-value
+  (`model_info["pretrend_test"]`) now applies a Hotelling-T² finite-sample
+  correction, referring `W·(G−k)/(k·(G−1))` to `F(k, G−k)` instead of the
+  plug-in `χ²(k)`. The pre-period ATT(g,t) are strongly correlated and the
+  covariance is estimated, so the plug-in χ² over-rejected (empirical size
+  ≈0.15 at a nominal 5% level for ~60 units → ≈0.07). ATT point estimates and
+  SEs are unchanged.
+- **`gardner_did(event_study=True)` overall ATT** — the headline ATT is now the
+  treated-observation-**weighted** mean of post-period coefficients (the
+  `did2s` convention), matching the non-event-study path exactly. Previously an
+  *unweighted* mean disagreed with the non-ES ATT under heterogeneous effects /
+  unbalanced horizon support (e.g. 1.63 vs 1.75).
+
+### Known limitations
+
+- **`sp.rdrobust` bias-corrected estimate for `rho != 1` (`b != h`).** The
+  "Robust" row currently uses the standalone order-`(p+1)` fit at `b` rather
+  than the Calonico–Cattaneo–Titiunik `μ̂_p(h) − bias(b)` construction; the two
+  coincide only at the default `rho=1`. Point/SE differ slightly from R
+  `rdrobust` when `b != h`. The default (`rho=1`) is exact. A full CCT
+  bias-corrected point+variance for `rho != 1` is tracked for an R-parity sprint.
+
+### Added
+
+- **`gardner_did(vce='bootstrap')` and `did_imputation(vce='bootstrap')`** —
+  a pairs-cluster bootstrap of the *full* estimator for valid overall-ATT
+  inference. The analytic defaults cluster only the second-stage / imputation
+  residuals and ignore the variance from estimating the fixed effects, so they
+  are anti-conservative; a `UserWarning` now steers users to `vce='bootstrap'`.
+  Simulated 95% coverage improves from ≈0.78 → ≈0.90 (`gardner_did`) and
+  ≈0.87 → ≈0.94 (`did_imputation`). Default behaviour and point estimates are
+  unchanged; `n_boot` / `boot_seed` control the bootstrap.
+- **`sp.iv(..., cluster=<Series>)`** — passing the cluster as a `pandas.Series`
+  (or array) is now accepted, matching the documented signature; previously it
+  raised `ValueError: truth value of a Series is ambiguous`. A misaligned
+  cluster vector now fails loudly with a clear length-mismatch error.
+- **`sp.effect_summary(...)` / `EffectSummary`** — a decision-ready table-plus-
+  text summary surface for frequentist `CausalResult` objects and Bayesian
+  posterior results, with `CausalResult.effect_summary(...)` and
+  `BayesianCausalResult.effect_summary(...)` method hooks.
+- **`sp.counterfactual_data(...)` and `sp.counterfactual_plot(...)`** — a shared
+  observed-vs-counterfactual contract for causal-impact, synthetic-control, and
+  interrupted-time-series results. `sp.its(...)` now stores the fitted
+  no-intervention counterfactual series in `ITSResult.detail` so it joins the
+  same plotting path.
+- **`sp.design_intake(...)` and `statspai.checks`** — additive agent-facing
+  contracts for pre-estimator design routing and pluggable diagnostic checks,
+  backed by a new `quality_gate.py contract-inventory` drift guard.
+- **`sp.rdrobust(..., engine='bayes')`** — sharp-RD calls can now route to the
+  existing Bayesian RD backend while the default `engine='ols'` path remains
+  byte-identical.
+- **`sp.ancova(...)` and `sp.negd(...)`** — named pre/post quasi-experimental
+  wrappers around the shared OLS machinery, surfacing ANCOVA, change-score
+  NEGD, assumptions, and regression-to-the-mean warnings as `CausalResult`
+  objects.
+- **`scripts/agent_workflow_spec_audit.py`** — a static audit for agent
+  empirical-analysis workflow specs, including a bundled DID example contract
+  and focused regression tests.
+
+### Changed
+
+- **`sp.match` (nearest-neighbour) default SE.** The public docstring and a new
+  `UserWarning` now flag that the default `se_method='ai'` matched-pair SE is
+  anti-conservative under matching with replacement (~0.81 coverage at a
+  nominal 95% level) and recommend `se_method='abadie_imbens'`. The default
+  *number* is unchanged (JOSS-review stability); the internal `_ai_se`
+  docstring no longer mislabels the simple SE as Abadie–Imbens (2006).
+
 ## [1.19.0] — 2026-06-20
 
 ### Added

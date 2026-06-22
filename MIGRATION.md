@@ -5,6 +5,113 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="cusum-boundary"></a>
+
+## Unreleased — ⚠️ `sp.cusum_test` used the wrong CUSUM boundary
+
+**What changed.** The recursive-residual CUSUM test compared the CUSUM path
+against a **constant** critical value (`1.358` at 5%). That constant is the
+`sup|Brownian bridge|` quantile of the *OLS-CUSUM* (Ploberger–Krämer 1992), a
+different test; the Brown–Durbin–Evans recursive CUSUM crosses a **linear**
+boundary `a·[1 + 2 s/(n−k)]` (`a = 0.948` at 5%) that widens from `a` to `3a`
+across the sample. The old constant over-rejected late breaks and
+under-rejected early ones — empirically it rejected ≈32% of stable series at a
+nominal 5% level (now ≈4%).
+
+**Who is affected.** Anyone reading `cusum_test(...)["reject"]` or
+`["critical_value"]`. **`critical_value` changed from a scalar to the boundary
+array**; `reject` is now True iff the path crosses that boundary anywhere.
+
+**Action required.** If you compared `max_cusum` to a hard-coded `1.358`, use
+the returned `reject` instead. Point estimates / the CUSUM path are unchanged.
+
+---
+
+<a id="lee-imbens-manski"></a>
+
+## Unreleased — ⚠️ `sp.lee_bounds` reported a Horowitz–Manski CI labelled "Imbens–Manski"
+
+**What changed.** The confidence interval padded *both* bound endpoints by the
+two-sided `z_{1−α/2}`. That is the Horowitz–Manski interval for the identified
+**set**, which over-covers the partially identified **parameter**, yet it was
+labelled "Imbens–Manski". It is now the genuine Imbens & Manski (2004) interval:
+a critical value `C_n` solving `Φ(C_n + Δ/σ_max) − Φ(−C_n) = 1 − α` that
+interpolates between the one-sided `z_{1−α}` (wide bounds) and the two-sided
+`z_{1−α/2}` (point identification). Refs verified via Crossref + RePEc/IDEAS
+(Econometrica 72(6):1845–1857, doi:10.1111/j.1468-0262.2004.00555.x).
+
+**Who is affected.** Anyone reading the CI from `sp.lee_bounds`. The interval is
+**narrower** (correct). Point bounds, midpoint estimate, and bound width are
+unchanged.
+
+**Action required.** None beyond noting that previously reported CIs were
+conservative (too wide).
+
+---
+
+<a id="rd-hc-variance"></a>
+
+## Unreleased — ⚠️ RD heteroskedasticity-robust standard errors were inflated
+
+**What changed.** The local-polynomial HC ("conventional"/"robust") variance
+built its sandwich *meat* with the kernel weight to the **first** power
+(`Σ w_i x_i x_i' e_i²`) instead of **squared** (`Σ w_i² x_i x_i' e_i²`) as the
+Calonico–Cattaneo–Titiunik (2014) variance requires. Every HC-robust RD
+standard error was therefore inflated — ≈1.4× for a uniform kernel versus R
+`rdrobust` `vce="hc0"`. Affects `sp.rdrobust`, `sp.rd2d`, RD heterogeneous-
+effects, and `sp.rd_bias_aware_fuzzy`. (Cluster-robust RD SEs were already
+correct.)
+
+**Who is affected.** Anyone using RD HC-robust SEs / CIs / p-values. Point
+estimates are **unchanged**; SEs/CIs are now **smaller** and match R `rdrobust`
+to the documented HC1-vs-HC0 d.o.f. convention.
+
+**Action required.** None beyond noting that prior HC-robust RD intervals were
+conservative (too wide). Re-run if you reported their exact width.
+
+---
+
+<a id="cs-pretrend-f"></a>
+
+## Unreleased — ⚠️ `sp.callaway_santanna` pre-trend Wald test over-rejected
+
+**What changed.** The joint pre-trend test (`model_info["pretrend_test"]`)
+referred its Wald statistic `W = θ̂'V̂⁻¹θ̂` to `χ²(k)`. Because the pre-period
+ATT(g,t) are strongly correlated (shared base period and control group) and
+`V̂` is estimated, the plug-in χ² over-rejected in finite samples — empirical
+size ≈0.15 at a nominal 5% level for ~60 units. It now applies the Hotelling-T²
+correction, referring `W·(G−k)/(k·(G−1))` to `F(k, G−k)` (`G` = number of
+units), which is exact under normal influence functions and → χ²(k)/k as
+`G → ∞` (empirical size ≈0.07).
+
+**Who is affected.** Anyone reading the pre-trend test p-value. ATT point
+estimates and SEs are unchanged. The new p-value is (weakly) larger (less
+likely to spuriously reject parallel trends).
+
+**Action required.** None beyond noting prior pre-trend p-values were too small.
+
+---
+
+<a id="gardner-es-weighting"></a>
+
+## Unreleased — ⚠️ `gardner_did(event_study=True)` overall ATT was unweighted
+
+**What changed.** In event-study mode the overall ATT was the *unweighted* mean
+of the post-period coefficients. It is now the treated-observation-**weighted**
+mean (the `did2s` aggregated-ATT convention), which equals the
+non-event-study `gardner_did` ATT exactly. The unweighted mean disagreed with
+the non-ES path under heterogeneous effects / unbalanced horizon support
+(e.g. 1.63 vs the correct 1.75).
+
+**Who is affected.** Anyone using `gardner_did(event_study=True).estimate` (the
+headline overall ATT). The per-horizon event-study coefficients are unchanged;
+only their aggregation into the overall ATT changed.
+
+**Action required.** Re-run if you reported the event-study overall ATT; it now
+matches the obs-weighted (non-event-study) value.
+
+---
+
 <a id="regress-weights"></a>
 
 ## Unreleased — ⚠️ `sp.regress` ignored `weights=` (silently fit unweighted OLS)

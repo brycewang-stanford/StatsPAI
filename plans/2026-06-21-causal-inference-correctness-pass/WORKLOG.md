@@ -30,7 +30,7 @@ translator).
 | `src/statspai/rd/_core.py` | RD HC sandwich: W² kernel weighting (⚠️ correctness) + `weights` param |
 | `src/statspai/rd/hte.py`, `rd2d.py`, `bandwidth.py` | pass kernel weights to `_sandwich_variance` |
 | `src/statspai/rd/bias_aware.py` | W²-consistent `_local_cov_yd` (keeps fuzzy SE PSD) |
-| `src/statspai/matching/match.py` | honest `_ai_se` docstring (label-only; no number change) |
+| `src/statspai/matching/match.py` | honest `_ai_se` docstring + **JOSS-safe** default-SE guidance: `UserWarning` on the default `auto`→`'ai'` nearest path steering to `abadie_imbens`, stronger public docstring. **Default number unchanged** (locked `test_default_sp_match_se_is_ai_unchanged` still passes). |
 | `tests/test_correctness_inference_fixes.py` | **new** — 10 regression + Monte-Carlo size/coverage tests |
 
 ---
@@ -178,7 +178,7 @@ reimplementation + R parity — both higher-collision than this pass should take
 
 | # | Sev | Site | Bug | Evidence | Fix |
 |---|---|---|---|---|---|
-| 1 | HIGH | `matching/match.py:887` (`_resolve_se_method`) | `sp.match(method='nearest')` default SE is the naive matched-pair `std/√n` (`'ai'`); ignores control-reuse variance | nominal-95% coverage **0.81**, SE ≈0.68× true SD | resolve `'auto'`→`'abadie_imbens'` (already implemented & verified at 0.95 coverage); update `test_psmatch2.py` `default==ai` assertion; ⚠️ CHANGELOG/MIGRATION |
+| 1 | HIGH (interim ✓) | `matching/match.py:887` (`_resolve_se_method`) | `sp.match(method='nearest')` default SE is the naive matched-pair `std/√n` (`'ai'`); ignores control-reuse variance | nominal-95% coverage **0.81**, SE ≈0.68× true SD | **This pass (JOSS-safe):** default number kept; added a `UserWarning` + stronger docstring steering to `abadie_imbens`. **Post-acceptance:** resolve `'auto'`→`'abadie_imbens'` (already implemented & verified at 0.95 coverage); rewrite the `test_default_sp_match_se_is_ai_unchanged` lock; re-check Paper-JSS #12 PSM parity row; ⚠️ CHANGELOG/MIGRATION |
 | 2 | HIGH | `did/gardner_2s.py:316` | `gardner_did` two-stage SE ignores Stage-1 estimation uncertainty (docstring overclaims it is "adjusted for first-stage residualisation") | coverage **0.78**, SE/SD 0.65, does not shrink with n | implement Gardner(2021)/`did2s` GMM two-stage variance (IF stacking) **or** bootstrap the two-step; parity vs R `did2s` |
 | 3 | HIGH | `did/did_imputation.py:240` → `_cluster_se_imputation` | BJS imputation **overall-ATT** SE under-counts FE-estimation variance | coverage **0.865**, SE/SD 0.76, structural | full BJS(2024) analytic variance or unit-cluster bootstrap; per-horizon SEs already ≈ok |
 | 4 | MED | `did/callaway_santanna.py:976` (`_pretrend_test`) | plug-in χ² pre-trend Wald over-rejects in finite samples (pre-cells correlated) | size **0.142** @ nominal 5% (n=60); →0.05 as n grows | multiplier-bootstrap uniform pre-test (as R `did`) or Hotelling-T² df adjustment |
@@ -215,3 +215,39 @@ reimplementation + R parity — both higher-collision than this pass should take
 Guiding principle (matches CLAUDE.md §6): **trust is bounded by the worst SE in
 the package.** A user who finds one anti-conservative CI distrusts every
 estimate. Closing inference bugs raises the floor faster than adding estimators.
+
+---
+
+## Follow-up pass (roadmap items 1, 2, 7 — implemented & validated)
+
+| # | What shipped | Validation |
+|---|---|---|
+| 7 | `sp.iv(..., cluster=<Series>)` accepts a Series/array (was a crash); misaligned length fails loudly | Series-cluster SE == string-cluster SE exactly; 97 IV tests green |
+| 2a | `gardner_did(vce='bootstrap')` — pairs-cluster bootstrap of the full two-step; analytic default warns | MC 95% coverage **0.78 → 0.90**; point unchanged; module/param docstrings de-overclaimed |
+| 2b | `did_imputation(vce='bootstrap')` — cluster bootstrap of the full imputation estimator; analytic default warns | MC 95% coverage **0.87 → 0.94**; point unchanged |
+| 1 | `sp.match` default-SE guidance (JOSS-safe): `UserWarning` + docstring, **number unchanged** | locked `test_default_sp_match_se_is_ai_unchanged` still passes |
+
+All new SEs are **opt-in** (`vce='bootstrap'`) so the default published numbers
+are unchanged — safe under the Codex commit race and the JOSS-review window.
+Regression tests in `tests/test_correctness_inference_fixes.py` (19 total).
+CHANGELOG `### ⚠️ Correctness`/`### Added`/`### Changed` and three new
+`MIGRATION.md` Unreleased sections (cusum / lee_bounds / RD) now document the
+pushed correctness fixes and these additions.
+
+## Follow-up pass 2 (roadmap items 4, 5, 6)
+
+| # | What shipped | Validation |
+|---|---|---|
+| 4 | `callaway_santanna` pre-trend Wald: Hotelling-T² → `F(k, G−k)` finite-sample correction (was plug-in `χ²(k)`) | MC size **0.155 → 0.070** @ nominal 5%; ATT point/SE unchanged; 86 CS tests green |
+| 5 | `gardner_did(event_study=True)` overall ATT: treated-obs-**weighted** mean of post coefs (was unweighted) | ES ATT now **== non-ES ATT** exactly (1.753 vs audit's unweighted 1.63) |
+| 6 | `sp.rdrobust` `rho!=1` bias-corrected estimate | **Documented**, not reimplemented — default `rho=1` is exact CCT; a correct `b!=h` point+variance needs R-parity validation. Added a docstring `.. note::` + CHANGELOG "Known limitations". |
+
+Item 4 and item 5 change *inference output* (pre-trend p-value / ES overall
+ATT); both now have `⚠️` CHANGELOG entries and `MIGRATION.md` Unreleased
+sections (`cs-pretrend-f`, `gardner-es-weighting`). Regression tests added to
+`tests/test_correctness_inference_fixes.py` (now 21 tests). Item 6 is the only
+remaining roadmap item, deliberately deferred to an R-parity sprint rather than
+shipping an under-validated bias-correction on a flagship estimator mid-review.
+
+Item 1's full default switch to `abadie_imbens` waits for JOSS acceptance
+(touches the #12 PSM parity row).
