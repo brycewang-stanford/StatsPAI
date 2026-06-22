@@ -264,7 +264,9 @@ def negd(
     Examples
     --------
     >>> import statspai as sp  # doctest: +SKIP
-    >>> res = sp.negd(df, group='treated', pre='score0', post='score1')
+    >>> res = sp.negd(  # doctest: +SKIP
+    ...     df, group='treated', pre='score0', post='score1',
+    ... )
     """
     if method not in ("ancova", "change_score"):
         raise ValueError(f"method must be 'ancova' or 'change_score'; got {method!r}.")

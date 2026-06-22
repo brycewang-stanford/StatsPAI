@@ -123,9 +123,11 @@ def bayes_synth(
     --------
     >>> import statspai as sp  # doctest: +SKIP
     >>> df = sp.california_prop99()  # doctest: +SKIP
-    >>> res = sp.bayes_synth(df, outcome='packspercapita', unit='state',
-    ...                      time='year', treated_unit='California',
-    ...                      treatment_time=1989, draws=500, chains=2)
+    >>> res = sp.bayes_synth(  # doctest: +SKIP
+    ...     df, outcome='packspercapita', unit='state',
+    ...     time='year', treated_unit='California',
+    ...     treatment_time=1989, draws=500, chains=2,
+    ... )
     >>> res.posterior_mean  # posterior mean ATT  # doctest: +SKIP
     """
     pm, _ = _require_pymc()

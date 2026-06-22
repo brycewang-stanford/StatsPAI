@@ -75,8 +75,10 @@ def geolift(
     Examples
     --------
     >>> import statspai as sp  # doctest: +SKIP
-    >>> res = sp.geolift(df, outcome='sales', geo='dma', time='week',
-    ...                  treated_geos=['NYC', 'LA'], treatment_time=40)
+    >>> res = sp.geolift(  # doctest: +SKIP
+    ...     df, outcome='sales', geo='dma', time='week',
+    ...     treated_geos=['NYC', 'LA'], treatment_time=40,
+    ... )
     >>> res.estimate, res.model_info['relative_lift_pct']  # doctest: +SKIP
     """
     if agg not in ("mean", "sum"):
