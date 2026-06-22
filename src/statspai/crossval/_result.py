@@ -74,6 +74,21 @@ class CrossValidationResult:
     degradations : list of dict
         Structured records for every engine that could not contribute, mirrored
         from :func:`statspai.workflow.record_degradation`.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> df = pd.DataFrame(
+    ...     {"y": [1.0, 2.0, 3.0, 4.0], "x": [0.0, 1.0, 0.0, 1.0]}
+    ... )
+    >>> cv = sp.cross_validate(
+    ...     df, "ols", formula="y ~ x", treatment="x", engines=["statspai"]
+    ... )
+    >>> isinstance(cv, sp.CrossValidationResult)
+    True
+    >>> cv.term
+    'x'
     """
 
     def __init__(

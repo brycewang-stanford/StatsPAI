@@ -21,7 +21,17 @@ from .results import _to_jsonable
 
 @dataclass
 class EffectSummary:
-    """Container for an effect summary table and human-readable text."""
+    """Container for an effect summary table and human-readable text.
+
+    Examples
+    --------
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> table = pd.DataFrame([{"estimand": "ATT", "estimate": 2.0}])
+    >>> summary = sp.EffectSummary(table=table, text="ATT is positive.")
+    >>> summary.to_dict()["kind"]
+    'effect_summary'
+    """
 
     table: pd.DataFrame
     text: str
@@ -67,6 +77,23 @@ def effect_summary(
     -------
     EffectSummary
         A table-plus-text summary with JSON-safe ``to_dict`` support.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> result = sp.CausalResult(
+    ...     method="DID",
+    ...     estimand="ATT",
+    ...     estimate=2.0,
+    ...     se=0.2,
+    ...     pvalue=0.001,
+    ...     ci=(1.6, 2.4),
+    ...     alpha=0.05,
+    ...     n_obs=1000,
+    ... )
+    >>> summary = sp.effect_summary(result, rope=0.5)
+    >>> summary.kind
+    'effect_summary'
     """
     own = getattr(result, "effect_summary", None)
     if callable(own) and getattr(own, "__self__", None) is result:

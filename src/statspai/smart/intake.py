@@ -16,7 +16,15 @@ DESIGN_INTAKE_OUTCOMES = (
 
 @dataclass
 class IntakeResult:
-    """Structured routing outcome before estimator selection."""
+    """Structured routing outcome before estimator selection.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> result = sp.IntakeResult(outcome="matched", recommended_design="rd")
+    >>> result.to_dict()["recommended_design"]
+    'rd'
+    """
 
     outcome: str
     recommended_design: Optional[str] = None
@@ -76,6 +84,19 @@ def design_intake(
 
     This is a pre-``recommend`` intake helper.  It does not fit models and it
     does not pretend missing identification facts are harmless.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> intake = sp.design_intake(
+    ...     assignment="threshold cutoff",
+    ...     data_topology="cross-section",
+    ...     identification_support="continuity",
+    ... )
+    >>> intake.outcome
+    'matched'
+    >>> intake.recommended_design
+    'rd'
     """
     missing = [
         name
