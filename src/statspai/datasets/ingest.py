@@ -111,7 +111,8 @@ def from_worldbank(
     >>> rows = [{"indicator": {"id": "NY.GDP", "value": "GDP"},
     ...          "country": {"id": "US", "value": "United States"},
     ...          "countryiso3code": "USA", "date": "2020", "value": 1.0}]
-    >>> df = from_worldbank(rows)
+    >>> import statspai as sp
+    >>> df = sp.from_worldbank(rows)
     >>> list(df.columns)
     ['country', 'iso3', 'indicator', 'indicator_id', 'year', 'value']
     >>> int(df.loc[0, 'year'])
@@ -238,7 +239,8 @@ def from_fred(
     --------
     >>> obs = {"observations": [{"date": "2020-01-01", "value": "1.5"},
     ...                         {"date": "2020-02-01", "value": "."}]}
-    >>> df = from_fred(obs, series_id="cpi")
+    >>> import statspai as sp
+    >>> df = sp.from_fred(obs, series_id="cpi")
     >>> list(df.columns)
     ['date', 'cpi']
     >>> bool(df['cpi'].isna().iloc[1])
@@ -333,7 +335,8 @@ def from_sdmx(payload: JSONLike, *, value_name: str = "value") -> pd.DataFrame:
     ...      "observation": [
     ...        {"id": "TIME_PERIOD", "values": [{"id": "2020", "name": "2020"}]}]
     ...   }}}
-    >>> df = from_sdmx(payload)
+    >>> import statspai as sp
+    >>> df = sp.from_sdmx(payload)
     >>> df.loc[0, "LOCATION"], df.loc[0, "TIME_PERIOD"], df.loc[0, "value"]
     ('USA', '2020', 3.2)
     """
