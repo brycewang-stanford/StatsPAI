@@ -56,7 +56,7 @@ def _coerce_times(times: Any, n: int) -> list:
         times = list(np.asarray(times).ravel())
     if len(times) != n:
         return list(range(n))
-    return times
+    return list(times)
 
 
 def _add_cumulative(df: pd.DataFrame) -> pd.DataFrame:
@@ -227,7 +227,7 @@ def counterfactual_plot(
     bands: bool = True,
     show_effect: bool = True,
     title: Optional[str] = None,
-):
+) -> Any:
     """Plot observed vs counterfactual with an uncertainty band.
 
     The figure has a trajectory panel (observed solid, counterfactual dashed,

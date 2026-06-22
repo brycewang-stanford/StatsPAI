@@ -30,7 +30,7 @@ def _description_with_validation_tier(
         from ...registry import describe_function
 
         spec = describe_function(statspai_fn)
-    except Exception:
+    except (ImportError, TypeError, ValueError, AttributeError, KeyError):
         return description
 
     status = spec.get("validation_status", "api_stable")
@@ -124,7 +124,7 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
 
     try:
         return merged_tool_manifest(curated)
-    except Exception as e:
+    except (ImportError, TypeError, ValueError, AttributeError, RuntimeError) as e:
         # Loud degradation: silently dropping the auto-tools is exactly
         # the kind of failure CLAUDE.md §3 #7 prohibits ("失败要响亮").
         # Emit a warning the operator (or CI log scraper) can spot.
@@ -421,7 +421,7 @@ def execute_tool(
             try:
                 envelope["error_kind"] = e.code
                 envelope["error_payload"] = e.to_dict()
-            except Exception:
+            except (TypeError, ValueError, AttributeError):
                 # Defensive fallback: a malformed diagnostics dict (e.g.
                 # a live DataFrame) shouldn't crash the error handler
                 # and lose the original exception. ``e.code`` is a

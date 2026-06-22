@@ -30,7 +30,7 @@ _GATE_PATH = _REPO_ROOT / "StatsPAI_full_data_analysis_skill" / "validate_api_cl
 
 
 def _load_gate():
-    """Load the skill's standalone validation gate as a module (single source of truth)."""
+    """Load the skill's standalone validation gate as a module."""
     if not _GATE_PATH.exists():
         pytest.skip(f"skill validation gate not found at {_GATE_PATH}")
     spec = importlib.util.spec_from_file_location("statspai_skill_gate", _GATE_PATH)
@@ -54,7 +54,7 @@ def test_skill_api_claims_quick():
 
 @pytest.mark.slow
 def test_skill_api_claims_attributes():
-    """Result-object attribute / return-shape claims hold (smoke fits; needs plotting)."""
+    """Result-object attribute / return-shape claims hold."""
     pytest.importorskip("matplotlib")
     gate = _load_gate()
     failures: list[str] = []

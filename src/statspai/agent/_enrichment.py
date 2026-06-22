@@ -175,14 +175,14 @@ def _required_args_by_tool() -> Dict[str, Set[str]]:
                     schema.get("required") or []
                 )
             return required_by_tool
-    except Exception:
+    except (OSError, TypeError, ValueError, AttributeError):
         required_by_tool = {}
 
     try:
         from .tools import tool_manifest
 
         manifest = tool_manifest()
-    except Exception:
+    except (ImportError, TypeError, ValueError, AttributeError):
         return required_by_tool
 
     for tool in manifest:

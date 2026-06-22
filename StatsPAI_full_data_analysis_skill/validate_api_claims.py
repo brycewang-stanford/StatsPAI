@@ -23,13 +23,13 @@ Usage
 Keep this green. When it goes red, either the library changed (update SKILL.md +
 this file together) or a skill edit introduced a false claim.
 """
+
 from __future__ import annotations
 
 import argparse
 import inspect
 import pathlib
 import re
-import sys
 import types
 
 import statspai as sp
@@ -42,23 +42,39 @@ _PLACEHOLDER_REFS = {"power_"}  # from the `sp.power_<design>` prose example
 # Required argument names per documented call. We assert presence, not order,
 # so additive library changes don't trip the gate.
 _SIGNATURE_CLAIMS: dict[str, list[str]] = {
-    "match": ["data", "y", "treat", "covariates"],          # y BEFORE treat
+    "match": ["data", "y", "treat", "covariates"],  # y BEFORE treat
     "oster_delta": ["data", "y", "x_base", "x_controls", "r_max"],
     "oster_bounds": ["data", "y", "treat", "controls", "r_max"],
     "mediation": ["data", "y", "d", "m", "X"],
     "subgroup_analysis": ["data", "formula", "x", "by", "robust"],
-    "callaway_santanna": ["data", "y", "g", "t", "i", "x"],   # x= not covariates=
+    "callaway_santanna": ["data", "y", "g", "t", "i", "x"],  # x= not covariates=
     "sun_abraham": ["data", "y", "g", "t", "i"],
     "synth": ["data", "outcome", "unit", "time", "treatment_time"],
     "panel": ["data", "formula", "method"],
     "dml": ["data", "y", "model_y", "model_d"],
-    "metalearner": ["data", "y", "treat", "covariates", "learner",
-                    "outcome_model", "propensity_model"],
+    "metalearner": [
+        "data",
+        "y",
+        "treat",
+        "covariates",
+        "learner",
+        "outcome_model",
+        "propensity_model",
+    ],
     "spec_curve": ["data", "y", "x", "controls", "se_types", "y_transforms"],
     "evalue": ["estimate", "ci", "measure"],
     "g_computation": ["data", "y", "treat", "covariates"],
-    "causal_question": ["treatment", "outcome", "data", "estimand", "design",
-                        "time_structure", "time", "id", "covariates"],
+    "causal_question": [
+        "treatment",
+        "outcome",
+        "data",
+        "estimand",
+        "design",
+        "time_structure",
+        "time",
+        "id",
+        "covariates",
+    ],
     "power": ["design", "power_target"],
     "bjs_pretrend_joint": ["result", "data", "y", "group", "time", "first_treat"],
     "honest_did": ["result", "e", "m_grid", "method"],
@@ -73,8 +89,14 @@ _SIGNATURE_CLAIMS: dict[str, list[str]] = {
     "hal_tmle": ["data", "y", "treat", "covariates", "variant"],
     "aft": ["formula", "data", "family"],
     "offline_safe_policy": ["data", "state", "action", "reward", "cost"],
-    "target_trial_emulate": ["protocol", "data", "outcome_col", "treatment_col",
-                             "time_zero_filter", "weights"],
+    "target_trial_emulate": [
+        "protocol",
+        "data",
+        "outcome_col",
+        "treatment_col",
+        "time_zero_filter",
+        "weights",
+    ],
     "kaplan_meier": ["data", "duration", "event", "group"],
     "policy_tree": ["data", "y", "d", "X"],
 }
@@ -104,10 +126,13 @@ def check_references(failures: list[str]) -> None:
     refs = sorted(set(re.findall(r"\bsp\.([A-Za-z_][A-Za-z0-9_]*)", text)))
     refs = [r for r in refs if r not in _PLACEHOLDER_REFS]
     missing = [r for r in refs if not hasattr(sp, r)]
-    _record(failures, not missing, f"{len(refs)} unique references",
-            "" if not missing else f"missing: {missing}")
-    mods = sorted(r for r in refs
-                  if isinstance(getattr(sp, r, None), types.ModuleType))
+    _record(
+        failures,
+        not missing,
+        f"{len(refs)} unique references",
+        "" if not missing else f"missing: {missing}",
+    )
+    mods = sorted(r for r in refs if isinstance(getattr(sp, r, None), types.ModuleType))
     print(f"         (referenced modules: {mods})")
 
 
@@ -117,8 +142,12 @@ def check_modules(failures: list[str]) -> None:
         m = getattr(sp, mod, None)
         is_mod = isinstance(m, types.ModuleType)
         absent = [x for x in members if not hasattr(m, x)] if m is not None else members
-        _record(failures, is_mod and not absent, f"sp.{mod}",
-                "" if (is_mod and not absent) else f"module={is_mod}, missing={absent}")
+        _record(
+            failures,
+            is_mod and not absent,
+            f"sp.{mod}",
+            "" if (is_mod and not absent) else f"module={is_mod}, missing={absent}",
+        )
 
 
 # ---------------------------------------------------------------- signatures
@@ -135,8 +164,12 @@ def check_signatures(failures: list[str]) -> None:
             _record(failures, False, f"sp.{name}", f"no signature ({exc})")
             continue
         absent = [p for p in required if p not in params]
-        _record(failures, not absent, f"sp.{name}",
-                "" if not absent else f"missing args: {absent}")
+        _record(
+            failures,
+            not absent,
+            f"sp.{name}",
+            "" if not absent else f"missing args: {absent}",
+        )
 
 
 # ---------------------------------------------------------------- attributes
@@ -161,17 +194,20 @@ def check_attributes(failures: list[str]) -> None:
 
     # --- metalearner CATE + CausalResult attribute claims -----------------
     try:
-        ml = sp.metalearner(df, y="y", treat="t", covariates=["x1", "x2"],
-                            learner="dr", n_bootstrap=10)
+        ml = sp.metalearner(
+            df, y="y", treat="t", covariates=["x1", "x2"], learner="dr", n_bootstrap=10
+        )
         ok = (
             isinstance(getattr(ml, "model_info", None), dict)
             and isinstance(ml.model_info.get("cate"), np.ndarray)
-            and not hasattr(ml, "cate_estimates")          # claim: no such attr
-            and hasattr(ml, "estimate") and hasattr(ml, "ci")
-            and hasattr(ml, "n_obs") and hasattr(ml, "estimand")
-            and not hasattr(ml, "point_estimate")          # claim: no such attr
-            and not hasattr(ml, "conf_int")                # claim: no such method
-            and list(ml.data_info) == ["nobs"]             # claim: key is "nobs"
+            and not hasattr(ml, "cate_estimates")  # claim: no such attr
+            and hasattr(ml, "estimate")
+            and hasattr(ml, "ci")
+            and hasattr(ml, "n_obs")
+            and hasattr(ml, "estimand")
+            and not hasattr(ml, "point_estimate")  # claim: no such attr
+            and not hasattr(ml, "conf_int")  # claim: no such method
+            and list(ml.data_info) == ["nobs"]  # claim: key is "nobs"
         )
         _record(failures, ok, "metalearner → model_info['cate'] + CausalResult attrs")
     except Exception as exc:  # noqa: BLE001
@@ -179,17 +215,34 @@ def check_attributes(failures: list[str]) -> None:
 
     # --- IdentificationPlan attributes ------------------------------------
     try:
-        q = sp.causal_question(treatment="t", outcome="y", data=df,
-                               estimand="ATE", design="auto",
-                               covariates=["x1", "x2"])
+        q = sp.causal_question(
+            treatment="t",
+            outcome="y",
+            data=df,
+            estimand="ATE",
+            design="auto",
+            covariates=["x1", "x2"],
+        )
         plan = q.identify()
-        has = all(hasattr(plan, a) for a in
-                  ("assumptions", "estimand", "estimator", "fallback_estimators",
-                   "identification_story", "warnings", "summary"))
+        has = all(
+            hasattr(plan, a)
+            for a in (
+                "assumptions",
+                "estimand",
+                "estimator",
+                "fallback_estimators",
+                "identification_story",
+                "warnings",
+                "summary",
+            )
+        )
         absent = not any(hasattr(plan, a) for a in ("equation", "threats"))
         qattrs = all(hasattr(q, a) for a in ("population", "treatment", "outcome"))
-        _record(failures, has and absent and qattrs,
-                "causal_question().identify() → plan/question attrs")
+        _record(
+            failures,
+            has and absent and qattrs,
+            "causal_question().identify() → plan/question attrs",
+        )
     except Exception as exc:  # noqa: BLE001
         _record(failures, False, "IdentificationPlan", f"{type(exc).__name__}: {exc}")
 
@@ -201,10 +254,15 @@ def check_attributes(failures: list[str]) -> None:
             sp.regtable(M, output="docx")
         except Exception:  # noqa: BLE001  (claim: docx is not a valid output enum)
             raised = True
-        valid = all(_silent_ok(lambda v=v: sp.regtable(M, output=v))
-                    for v in ("text", "latex", "markdown", "html"))
-        _record(failures, raised and valid,
-                "regtable output enum (docx rejected; text/latex/md/html ok)")
+        valid = all(
+            _silent_ok(lambda v=v: sp.regtable(M, output=v))
+            for v in ("text", "latex", "markdown", "html")
+        )
+        _record(
+            failures,
+            raised and valid,
+            "regtable output enum (docx rejected; text/latex/md/html ok)",
+        )
     except Exception as exc:  # noqa: BLE001
         _record(failures, False, "regtable enum", f"{type(exc).__name__}: {exc}")
 
@@ -215,12 +273,14 @@ def check_attributes(failures: list[str]) -> None:
         d["event"] = (rng.uniform(size=len(d)) < 0.7).astype(int)
         aft = sp.aft("dur + event ~ x1 + x2", d, family="weibull")
         ok = (
-            isinstance(aft.params, pd.Series)               # NEW in 1.19.0
+            isinstance(aft.params, pd.Series)  # NEW in 1.19.0
             and hasattr(aft, "std_errors")
             and _silent_ok(lambda: sp.regtable(aft, output="text"))
-            and not hasattr(aft, "to_word")                 # still goes via regtable
-            and all(hasattr(aft, a) for a in
-                    ("beta", "se", "var_names", "n", "n_events", "aic", "family"))
+            and not hasattr(aft, "to_word")  # still goes via regtable
+            and all(
+                hasattr(aft, a)
+                for a in ("beta", "se", "var_names", "n", "n_events", "aic", "family")
+            )
         )
         _record(failures, ok, "AFTResult.params + sp.regtable(aft) works")
     except Exception as exc:  # noqa: BLE001
@@ -229,6 +289,7 @@ def check_attributes(failures: list[str]) -> None:
     # --- plot / model return shapes ---------------------------------------
     try:
         import matplotlib
+
         matplotlib.use("Agg")
         M = sp.regress("y ~ t + x1 + x2", df)
         coef = sp.coefplot(M)
@@ -241,13 +302,22 @@ def check_attributes(failures: list[str]) -> None:
         kmr = km.plot()
         pt = sp.policy_tree(df, y="y", d="t", X=["x1", "x2"], max_depth=2)
         ok = (
-            isinstance(coef, tuple) and len(coef) == 2           # coefplot → (fig,ax)
-            and isinstance(binr, tuple) and len(binr) == 3       # binscatter → (fig,ax,df)
-            and hasattr(cf, "effect") and not hasattr(cf, "local_effects")
-            and not isinstance(kmr, tuple) and hasattr(kmr, "figure")  # KM → bare Axes
-            and hasattr(pt, "plot_tree") and not hasattr(pt, "plot")   # policy_tree.plot_tree()
+            isinstance(coef, tuple)
+            and len(coef) == 2  # coefplot → (fig,ax)
+            and isinstance(binr, tuple)
+            and len(binr) == 3  # binscatter → (fig,ax,df)
+            and hasattr(cf, "effect")
+            and not hasattr(cf, "local_effects")
+            and not isinstance(kmr, tuple)
+            and hasattr(kmr, "figure")  # KM → bare Axes
+            and hasattr(pt, "plot_tree")
+            and not hasattr(pt, "plot")  # policy_tree.plot_tree()
         )
-        _record(failures, ok, "plot/return shapes (coefplot/binscatter/forest/KM/policy_tree)")
+        _record(
+            failures,
+            ok,
+            "plot/return shapes (coefplot/binscatter/forest/KM/policy_tree)",
+        )
     except Exception as exc:  # noqa: BLE001
         _record(failures, False, "return shapes", f"{type(exc).__name__}: {exc}")
 
@@ -263,8 +333,11 @@ def _silent_ok(thunk) -> bool:
 # ----------------------------------------------------------------------- main
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--quick", action="store_true",
-                    help="existence + signatures only (skip the smoke fits)")
+    ap.add_argument(
+        "--quick",
+        action="store_true",
+        help="existence + signatures only (skip the smoke fits)",
+    )
     args = ap.parse_args()
 
     print(f"statspai {sp.__version__}  ·  validating SKILL.md API claims")

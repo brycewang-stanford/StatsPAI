@@ -855,7 +855,8 @@ def _pick_plan(q: CausalQuestion) -> IdentificationPlan:
                 "conditional exchangeability given X",
                 "positivity / overlap",
                 "no interference",
-                "honest splitting (separate sub-samples for partition vs leaf estimates)",
+                "honest splitting "
+                "(separate sub-samples for partition vs leaf estimates)",
                 "binary treatment (for AIPW-IF inference)",
             ],
             fallback_estimators=["metalearner", "dml", "aipw"],

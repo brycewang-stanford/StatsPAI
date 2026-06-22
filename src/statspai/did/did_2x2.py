@@ -13,7 +13,7 @@ Angrist, J.D. and Pischke, J.-S. (2009).
 Princeton University Press. [@angrist2009mostly]
 """
 
-from typing import Optional, List
+from typing import Any, Optional, List, cast
 
 import numpy as np
 import pandas as pd
@@ -32,8 +32,8 @@ def _did2x2_bayes_engine(
     cluster: Optional[str],
     weights: Optional[str],
     alpha: float,
-    **kwargs,
-):
+    **kwargs: Any,
+) -> CausalResult:
     """Route ``did_2x2(..., engine='bayes')`` to the Bayesian 2×2 DiD.
 
     The 2×2 parameterisation maps exactly: ``treat`` is the treated-group
@@ -56,14 +56,17 @@ def _did2x2_bayes_engine(
         )
     from ..bayes import bayes_did
 
-    return bayes_did(
-        data,
-        y=y,
-        treat=treat,
-        post=time,
-        covariates=list(covariates) if covariates else None,
-        hdi_prob=1.0 - float(alpha),
-        **kwargs,
+    return cast(
+        CausalResult,
+        bayes_did(
+            data,
+            y=y,
+            treat=treat,
+            post=time,
+            covariates=list(covariates) if covariates else None,
+            hdi_prob=1.0 - float(alpha),
+            **kwargs,
+        ),
     )
 
 
@@ -78,7 +81,7 @@ def did_2x2(
     alpha: float = 0.05,
     weights: Optional[str] = None,
     engine: str = "ols",
-    **kwargs,
+    **kwargs: Any,
 ) -> CausalResult:
     """
     Classic 2×2 Difference-in-Differences estimator.
@@ -316,12 +319,12 @@ def did_2x2(
 
     # R-squared (weighted if applicable)
     if w is not None:
-        y_wmean = np.sum(w * y_arr) / np.sum(w)
-        tss = np.sum(w * (y_arr - y_wmean) ** 2)
-        rss = np.sum(w * resid**2)
+        y_wmean: float = float(np.sum(w * y_arr) / np.sum(w))
+        tss: float = float(np.sum(w * (y_arr - y_wmean) ** 2))
+        rss: float = float(np.sum(w * resid**2))
     else:
-        tss = np.sum((y_arr - np.mean(y_arr)) ** 2)
-        rss = np.sum(resid**2)
+        tss = float(np.sum((y_arr - np.mean(y_arr)) ** 2))
+        rss = float(np.sum(resid**2))
     r_squared = 1 - rss / tss if tss > 0 else 0.0
 
     model_info = {

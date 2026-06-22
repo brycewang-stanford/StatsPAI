@@ -459,9 +459,8 @@ from .iv.continuous_late import continuous_iv_late, ContinuousLATEResult
 # Modern IV reporting bundle (post-2022 standard) — top-level for ergonomics.
 from .iv.iv_diag import iv_diag, iv_compare, IVDiagResult
 from .plots import binscatter, set_theme, list_themes, use_chinese
-from .plots import counterfactual_data, counterfactual_plot
+from .plots import counterfactual_data, counterfactual_plot  # noqa: E402
 from .quasi import ancova, negd
-from .geolift import geolift
 from .utils import (
     label_var,
     label_vars,
@@ -2478,6 +2477,10 @@ _register_lazy(
     "plots.interactive",
     "interactive",
     "get_code",
+)
+_register_lazy(
+    "geolift",
+    "geolift",
 )
 _register_lazy(
     "bayes",
