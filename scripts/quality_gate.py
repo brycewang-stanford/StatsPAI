@@ -195,6 +195,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     sub.add_parser("import-budget", help="Run cold-import dependency gate.")
     sub.add_parser("agent-cards", help="Run curated agent-card coverage gate.")
+    sub.add_parser("agent-workflow", help="Run empirical workflow spec gate.")
     sub.add_parser("result-protocol", help="Run result-object protocol gate.")
     sub.add_parser("contract-inventory", help="Run cross-contract inventory gate.")
     sub.add_parser("error-taxonomy", help="Run exception taxonomy migration gate.")
@@ -214,6 +215,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     elif args.command == "agent-cards":
         results = [
             run_script_gate("agent-cards", "scripts/agent_card_coverage.py")
+        ]
+    elif args.command == "agent-workflow":
+        results = [
+            run_script_gate(
+                "agent-workflow", "scripts/agent_workflow_spec_audit.py"
+            )
         ]
     elif args.command == "result-protocol":
         results = [
@@ -235,6 +242,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             run_mypy(args.max_mypy),
             run_import_budget(),
             run_script_gate("agent-cards", "scripts/agent_card_coverage.py"),
+            run_script_gate(
+                "agent-workflow", "scripts/agent_workflow_spec_audit.py"
+            ),
             run_script_gate("result-protocol", "scripts/result_protocol_audit.py"),
             run_script_gate(
                 "contract-inventory", "scripts/check_contract_inventory.py"

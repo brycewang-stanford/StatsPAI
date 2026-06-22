@@ -133,16 +133,56 @@ Python 3.9 note:
   avoids Python 3.10-only union syntax and optional dependencies; syntax and
   tests were verified with the repo `.venv` Python 3.10.20.
 
+## Batch 2 - Agent execution loop and function-name guard
+
+Status: implemented; verification pending.
+
+Intent:
+
+- Make the workflow spec audit check the *full agent loop*, not just the
+  estimator list. A full empirical agent should declare preflight, fitting,
+  result-handle reuse, result audit, robustness/sensitivity, export, and
+  validation before producing a polished answer.
+- Close a function-hallucination gap by checking declared `sp.*` estimator
+  names against the offline `schemas/functions.json` bundle without importing
+  StatsPAI or optional estimator dependencies.
+
+Implemented:
+
+- Added an `agent_execution` section to the bundled DID workflow spec with:
+  `workflow_steps`, `result_handle_policy`, `handoff_artifacts`, and
+  `stop_conditions`.
+- Extended `scripts/agent_workflow_spec_audit.py` with:
+  - required agent-execution fields,
+  - full-loop step-group checks,
+  - result-handle policy checks,
+  - stop-condition checks,
+  - optional offline public-function validation from `schemas/functions.json`.
+- Added `scripts/quality_gate.py agent-workflow` and included it in
+  `scripts/quality_gate.py all` so the empirical workflow spec gate can run
+  with the rest of the repo's gradual quality gates.
+- Added focused tests for:
+  - missing/weak agent execution loops,
+  - missing result-handle policy,
+  - declared `sp.*` functions that do not exist in the offline schema bundle.
+  - the new `quality_gate.py agent-workflow` subcommand.
+
+Boundary notes:
+
+- Did not touch `Paper-JSS/`, `CausalAgentBench/`, release/tag/PyPI state, or
+  active `quasi/` files that appeared in the tree while this batch was running.
+
 ## Final Verification Snapshot
 
 Status: passed for this root-only additive lane.
 
 Commands:
 
+- `.venv/bin/python scripts/quality_gate.py agent-workflow`
 - `.venv/bin/python scripts/agent_workflow_spec_audit.py --check`
-- `.venv/bin/python -m pytest -o addopts='' tests/test_agent_workflow_spec_audit.py`
-- `.venv/bin/python -m py_compile scripts/agent_workflow_spec_audit.py tests/test_agent_workflow_spec_audit.py`
-- `.venv/bin/python -m flake8 scripts/agent_workflow_spec_audit.py tests/test_agent_workflow_spec_audit.py --max-line-length=88 --ignore=E203,W503`
+- `.venv/bin/python -m pytest -o addopts='' tests/test_agent_workflow_spec_audit.py -q`
+- `.venv/bin/python -m py_compile scripts/agent_workflow_spec_audit.py scripts/quality_gate.py tests/test_agent_workflow_spec_audit.py`
+- `.venv/bin/python -m flake8 scripts/agent_workflow_spec_audit.py scripts/quality_gate.py tests/test_agent_workflow_spec_audit.py --max-line-length=88 --ignore=E203,W503`
 - `git diff --check`
 - `git -C Paper-JSS status --short --branch`
 - `git -C CausalAgentBench status --short --branch`
@@ -150,7 +190,8 @@ Commands:
 Results:
 
 - The bundled example workflow spec passes with score `100`.
-- Focused pytest passed with 5 tests.
+- `quality_gate.py agent-workflow` passes with observed `0` / baseline `0`.
+- Focused pytest passed with 8 tests.
 - Full whitespace check passed.
 - `Paper-JSS/` still has the same style of generated audit result diffs under
   `replication/results/`; this goal did not modify that review lane.
@@ -162,3 +203,6 @@ this goal:
 
 - `src/statspai/did/callaway_santanna.py`
 - `tests/test_effect_summary.py`
+- `src/statspai/quasi/__init__.py`
+- `src/statspai/quasi/ancova.py`
+- `tests/test_quasi_ancova_negd.py`

@@ -407,7 +407,10 @@ def _check_agent_execution(spec: Mapping[str, Any], issues: list[Issue]) -> None
             "stop_conditions",
             "error",
             "agent_execution.stop_conditions",
-            "workflow must declare stop conditions for missing evidence or failed gates",
+            (
+                "workflow must declare stop conditions for missing evidence "
+                "or failed gates"
+            ),
         )
 
 
