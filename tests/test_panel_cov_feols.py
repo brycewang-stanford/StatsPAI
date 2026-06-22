@@ -62,6 +62,39 @@ def test_hdfe_cluster(df):
     assert abs(_b(res) - 2.0) < 0.5
 
 
+def test_hdfe_cluster_omits_fe_nested_in_cluster_dof():
+    df = sp.dgp_panel(n_units=200, n_periods=10, seed=0)
+
+    res = sp.hdfe_ols("y ~ x | unit + time", df, cluster="unit")
+
+    assert res.dof_fe == 209
+    assert res.cluster_info["dof_fe_cluster"] == 10
+    assert res.cluster_info["nested_fe"] == ["unit"]
+    assert res.std_errors["x"] == pytest.approx(0.02517069037042562, rel=1e-12)
+
+
+def test_hdfe_cluster_all_nested_fe_keeps_intercept_dof():
+    df = sp.dgp_panel(n_units=200, n_periods=10, seed=0)
+
+    res = sp.hdfe_ols("y ~ x | unit", df, cluster="unit")
+
+    assert res.cluster_info["dof_fe_cluster"] == 1
+    assert res.cluster_info["nested_fe"] == ["unit"]
+    assert res.std_errors["x"] == pytest.approx(0.02680753371253867, rel=1e-12)
+
+
+def test_hdfe_cluster_keeps_full_dof_when_no_fe_nested():
+    df = sp.dgp_panel(n_units=200, n_periods=10, seed=0)
+    rng = np.random.default_rng(123)
+    df["cl_alt"] = rng.integers(0, 50, len(df))
+
+    res = sp.hdfe_ols("y ~ x | unit + time", df, cluster="cl_alt")
+
+    assert res.cluster_info["dof_fe_cluster"] == res.dof_fe == 209
+    assert res.cluster_info["nested_fe"] == []
+    assert res.std_errors["x"] == pytest.approx(0.01963832219003795, rel=1e-12)
+
+
 def test_hdfe_hetero(df):
     res = sp.hdfe_ols("y ~ x1 + x2 | id", df, se_type="hetero")
     assert np.isfinite(_b(res))

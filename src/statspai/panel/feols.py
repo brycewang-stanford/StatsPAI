@@ -370,9 +370,15 @@ def feols(
             se_type = "iid"
     cluster_info = {}
     if cluster_names:
+        nested_fe_mask = list(result.get("nested_fe_in_cluster", []))
+        nested_fe = [
+            name for name, is_nested in zip(fe_vars, nested_fe_mask) if is_nested
+        ]
         cluster_info = {
             "cluster": cluster_names,
             "n_clusters": [int(pd.Series(df[c]).nunique()) for c in cluster_names],
+            "dof_fe_cluster": int(result.get("dof_fe_cluster", result["dof_fe"])),
+            "nested_fe": nested_fe,
         }
 
     # Optional wild bootstrap

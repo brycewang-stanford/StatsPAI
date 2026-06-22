@@ -766,7 +766,7 @@ def absorb_ols(
 
     # DOF: n - p - Σ(G_k - 1) - 1_if_first_fe (the "one lost for mean" already in
     # each FE's G-1; common intercept overlap handled by subtracting (K-1))
-    dof_fe = sum(G for G in ab.n_fe) - (len(ab.n_fe) - 1)
+    dof_fe = _absorbed_fe_dof(ab.n_fe)
     df_resid = ab.n_kept - p - dof_fe
     if df_resid <= 0:
         raise ValueError(  # pragma: no cover
@@ -799,6 +799,11 @@ def absorb_ols(
             cluster_sub = [np.asarray(c)[keep] for c in cluster]
         else:
             cluster_sub = np.asarray(cluster)[keep]
+        dof_fe_cluster, nested_fe_in_cluster = _cluster_effective_fe_dof(
+            ab.fe_codes,
+            ab.n_fe,
+            cluster_sub,
+        )
         vcov = _cluster_sandwich(
             Xw,
             resid,
@@ -807,8 +812,11 @@ def absorb_ols(
             cluster_sub,
             df_resid=df_resid,
             weights=w,
-            n_absorbed=dof_fe + p,
+            n_absorbed=dof_fe_cluster + p,
         )
+    if cluster is None:
+        dof_fe_cluster = dof_fe
+        nested_fe_in_cluster = [False] * len(ab.n_fe)
     se = np.sqrt(np.maximum(np.diag(vcov), 0.0))
 
     out = {
@@ -820,6 +828,8 @@ def absorb_ols(
         "n": ab.n_kept,
         "df_resid": df_resid,
         "dof_fe": dof_fe,
+        "dof_fe_cluster": dof_fe_cluster,
+        "nested_fe_in_cluster": nested_fe_in_cluster,
         "r2_within": r2_within,
         "n_singletons_dropped": ab.n_dropped,
         "converged": ab._converged,
@@ -834,6 +844,60 @@ def absorb_ols(
 # ======================================================================
 # Clustered sandwich (one-way + N-way inclusion-exclusion)
 # ======================================================================
+
+
+def _absorbed_fe_dof(fe_counts: List[int]) -> int:
+    """Return the absorbed-FE parameter count under native HDFE conventions."""
+    if not fe_counts:
+        return 0
+    return int(sum(int(G) for G in fe_counts) - (len(fe_counts) - 1))
+
+
+def _codes_nested_in_cluster(
+    fe_codes: np.ndarray,
+    cluster_codes: np.ndarray,
+    n_fe: int,
+) -> bool:
+    """True when every FE level maps to exactly one cluster level."""
+    first_cluster = np.full(int(n_fe), -1, dtype=np.int64)
+    for fe_code, cluster_code in zip(fe_codes, cluster_codes):
+        previous = first_cluster[fe_code]
+        if previous < 0:
+            first_cluster[fe_code] = cluster_code
+        elif previous != cluster_code:
+            return False
+    return True
+
+
+def _cluster_effective_fe_dof(
+    fe_codes: List[np.ndarray],
+    fe_counts: List[int],
+    cluster: Union[np.ndarray, List[np.ndarray]],
+) -> Tuple[int, List[bool]]:
+    """Return FE dof charged to CRV1 after omitting cluster-nested FEs."""
+    if not isinstance(cluster, list):
+        clusters_list = [np.asarray(cluster)]
+    else:
+        clusters_list = [np.asarray(c) for c in cluster]
+
+    cluster_codes_list = [_factorize(c)[0] for c in clusters_list]
+    nested: List[bool] = []
+    for codes, n_fe in zip(fe_codes, fe_counts):
+        nested.append(
+            any(
+                _codes_nested_in_cluster(codes, cluster_codes, int(n_fe))
+                for cluster_codes in cluster_codes_list
+            )
+        )
+
+    if not any(nested):
+        return _absorbed_fe_dof(fe_counts), nested
+    effective_counts = [
+        int(n_fe) for n_fe, is_nested in zip(fe_counts, nested) if not is_nested
+    ]
+    if not effective_counts:
+        return 1, nested
+    return _absorbed_fe_dof(effective_counts), nested
 
 
 def _cluster_sandwich(
