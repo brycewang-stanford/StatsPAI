@@ -27,13 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-parity-pip-${{ hashFiles('**/pyproject.toml') }}
@@ -54,9 +54,9 @@ jobs:
     # enough headroom for GitHub-hosted runner variance after install/setup.
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       # ``[dev]`` is required for pytest plus the parity / drift-check tooling
@@ -121,10 +121,10 @@ jobs:
     # This bounds outbound API load and reduces transient arxiv / crossref
     # outage flake on unrelated commits.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Detect citation-bearing changes
         id: changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         with:
           filters: |
             cite:
@@ -139,7 +139,7 @@ jobs:
               - 'tools/audit_citations.py'
       - name: Set up Python
         if: steps.changes.outputs.cite == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.10"
       - name: Install
@@ -153,7 +153,7 @@ jobs:
           python tools/audit_citations.py
       - name: Upload audit report
         if: steps.changes.outputs.cite == 'true' && (success() || failure())
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: citation-audit-report
           path: audit_report.md
