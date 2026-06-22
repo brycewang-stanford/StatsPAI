@@ -143,6 +143,13 @@ estimates. See `MIGRATION.md` for per-function detail.
   `sp.svyglm` at both `fit` and `predict`. String-extension columns are now
   coerced to `object` at every patsy entry point. No-op on pandas < 3.0;
   point estimates and standard errors are unchanged.
+- **Nonlinear (Fairlie/Yun) decomposition probit covariance symmetry.** On a
+  singular / collinear design the Newton-fallback covariance from
+  `numpy.linalg.pinv` could pick up BLAS-backend-dependent asymmetric float
+  noise off the diagonal, so the reported probit covariance was not exactly
+  symmetric on rank-deficient designs (and differed across platforms). It is now
+  symmetrised by construction. Variances (the diagonal / reported SEs) and point
+  estimates are unchanged — a ~1e-15 no-op on well-conditioned fits.
 - **`sp.fast.feols(..., backend='jax')` rank-deficiency detection.** Newer JAX
   returns a finite least-norm solution for a singular design instead of
   `NaN`/`Inf`, so perfectly collinear regressors silently produced output. The

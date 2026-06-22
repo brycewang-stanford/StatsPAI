@@ -82,6 +82,11 @@ def _probit_fit(
         vcov = np.linalg.inv(info)
     except np.linalg.LinAlgError:
         vcov = np.linalg.pinv(info)
+    # A covariance is symmetric by definition; inv/pinv of the (symmetric)
+    # information matrix can pick up asymmetric float noise on singular or
+    # ill-conditioned designs, and that noise is BLAS-backend dependent. Force
+    # symmetry — on a well-conditioned fit this is a ~1e-15 no-op.
+    vcov = 0.5 * (vcov + vcov.T)
     return beta, vcov
 
 
