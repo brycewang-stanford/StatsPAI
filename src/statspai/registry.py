@@ -1500,6 +1500,41 @@ def _build_registry() -> None:
                     1,
                     "Repeated cross-fitting splits (median aggregation)",
                 ),
+                ParamSpec(
+                    "score",
+                    "str",
+                    False,
+                    None,
+                    (
+                        "Orthogonal score variant (DoubleML-compatible). PLR: "
+                        "'partialling out' (default) or 'IV-type'. IRM: 'ATE' "
+                        "(default) or 'ATTE'. None selects the model default; "
+                        "defaults reproduce historical output exactly."
+                    ),
+                    ["partialling out", "IV-type", "ATE", "ATTE"],
+                ),
+                ParamSpec(
+                    "normalize_ipw",
+                    "bool",
+                    False,
+                    False,
+                    (
+                        "Self-normalize the inverse-propensity weights for the "
+                        "IPW models (irm/iivm); matches DoubleML's normalize_ipw. "
+                        "Rejected for plr/pliv."
+                    ),
+                ),
+                ParamSpec(
+                    "trimming_threshold",
+                    "float",
+                    False,
+                    0.01,
+                    (
+                        "Symmetric propensity clip [t, 1-t] for irm/iivm "
+                        "(DoubleML trimming_rule='truncate'). Default 0.01 = "
+                        "historical clip."
+                    ),
+                ),
             ],
             returns="CausalResult",
             example='sp.dml(df, y="wage", treat="training", covariates=["age","edu"], model="plr")',

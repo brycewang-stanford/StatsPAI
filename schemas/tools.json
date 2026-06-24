@@ -6125,9 +6125,29 @@
           "description": "Repeated cross-fitting splits (median aggregation)",
           "type": "integer"
         },
+        "normalize_ipw": {
+          "default": false,
+          "description": "Self-normalize the inverse-propensity weights for the IPW models (irm/iivm); matches DoubleML's normalize_ipw. Rejected for plr/pliv.",
+          "type": "boolean"
+        },
+        "score": {
+          "description": "Orthogonal score variant (DoubleML-compatible). PLR: 'partialling out' (default) or 'IV-type'. IRM: 'ATE' (default) or 'ATTE'. None selects the model default; defaults reproduce historical output exactly.",
+          "enum": [
+            "partialling out",
+            "IV-type",
+            "ATE",
+            "ATTE"
+          ],
+          "type": "string"
+        },
         "treat": {
           "description": "Treatment variable",
           "type": "string"
+        },
+        "trimming_threshold": {
+          "default": 0.01,
+          "description": "Symmetric propensity clip [t, 1-t] for irm/iivm (DoubleML trimming_rule='truncate'). Default 0.01 = historical clip.",
+          "type": "number"
         },
         "y": {
           "description": "Outcome",
