@@ -36,12 +36,13 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, ClassVar, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
 from ._core import rlasso
 
 # MASS::ginv (used throughout hdm's IV routines) defaults to a singular-value
@@ -133,8 +134,14 @@ def _tsls(
 
 
 @dataclass
-class RLassoIVResult:
+class RLassoIVResult(ResultProtocolMixin):
     """Return of :func:`rlasso_iv`."""
+
+    #: Verified paper.bib keys (CLAUDE.md §10).
+    _citation_keys: ClassVar[Tuple[str, ...]] = (
+        "belloni2012sparse",
+        "chernozhukov2016hdm",
+    )
 
     coef: np.ndarray
     se: np.ndarray
@@ -445,9 +452,15 @@ def rlasso_iv(
     Examples
     --------
     >>> import statspai as sp
-    >>> res = sp.rlasso_iv(y="y", d="d", z=z_cols, x=x_cols, data=df,
-    ...                    select_X=False, select_Z=True)
-    >>> res.coef, res.se
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> Z = rng.standard_normal((300, 5))  # candidate instruments
+    >>> X = rng.standard_normal((300, 10))  # candidate controls
+    >>> d = Z[:, 0] + 0.5 * X[:, 0] + rng.standard_normal(300)
+    >>> y = 1.0 * d + X[:, 0] + rng.standard_normal(300)
+    >>> res = sp.rlasso_iv(y=y, d=d, z=Z, x=X, select_Z=True, select_X=False)
+    >>> float(res.se[0]) > 0  # res.coef[0] ~ 1.0 (BCH optimal-IV)
+    True
     """
     Y = _grab(y, data).ravel()
     D = _grab(d, data)

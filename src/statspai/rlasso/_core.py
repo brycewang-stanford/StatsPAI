@@ -52,10 +52,12 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, ClassVar, Dict, List, Optional, Tuple
 
 import numpy as np
 from scipy import stats
+
+from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Penalty / control defaults (mirror hdm::rlasso.default)
@@ -311,8 +313,14 @@ def _update_loadings(
 
 
 @dataclass
-class RLassoFit:
+class RLassoFit(ResultProtocolMixin):
     """Result of :func:`rlasso` — mirrors the fields of an ``hdm`` ``rlasso``."""
+
+    #: Verified paper.bib keys (CLAUDE.md §10).
+    _citation_keys: ClassVar[Tuple[str, ...]] = (
+        "belloni2014inference",
+        "chernozhukov2016hdm",
+    )
 
     beta: np.ndarray  # slope coefficients on the (centered) columns, length p
     intercept: float
@@ -416,6 +424,20 @@ def rlasso(
     Returns
     -------
     RLassoFit
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> X = rng.standard_normal((100, 20))
+    >>> beta = np.zeros(20); beta[:3] = [1.0, -1.0, 0.5]
+    >>> y = X @ beta + 0.5 * rng.standard_normal(100)
+    >>> fit = sp.rlasso(X, y, post=True)  # rigorous post-Lasso
+    >>> int(fit.index.sum()) >= 1  # at least one control kept
+    True
+    >>> fit.beta.shape
+    (20,)
     """
     X = np.asarray(X, dtype=float)
     if X.ndim == 1:

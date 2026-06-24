@@ -33,18 +33,25 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, ClassVar, Dict, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
 from ._core import rlasso
 
 
 @dataclass
-class RLassoEffectResult:
+class RLassoEffectResult(ResultProtocolMixin):
     """Return of :func:`rlasso_effect`."""
+
+    #: Verified paper.bib keys (CLAUDE.md §10).
+    _citation_keys: ClassVar[Tuple[str, ...]] = (
+        "belloni2014inference",
+        "chernozhukov2016hdm",
+    )
 
     alpha: float
     se: float
@@ -118,6 +125,20 @@ def rlasso_effect(
     Returns
     -------
     RLassoEffectResult
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> X = rng.standard_normal((200, 12))  # candidate controls
+    >>> d = X[:, 0] + rng.standard_normal(200)  # treatment
+    >>> y = 1.5 * d + X[:, 1] + rng.standard_normal(200)
+    >>> res = sp.rlasso_effect(X[:, 1:], y, d, method="partialling out")
+    >>> float(res.se) > 0
+    True
+    >>> bool(np.isfinite(res.alpha))  # ~1.5
+    True
     """
     if data is not None:
         X = (
@@ -225,6 +246,19 @@ def rlasso_effects(
     -------
     dict
         Mapping ``column name -> RLassoEffectResult``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> X = rng.standard_normal((200, 8))
+    >>> y = X[:, 0] - 0.8 * X[:, 1] + rng.standard_normal(200)
+    >>> out = sp.rlasso_effects(X, y, index=[0, 1], method="partialling out")
+    >>> len(out)  # one result per targeted column
+    2
+    >>> all(r.se > 0 for r in out.values())
+    True
     """
     if isinstance(X, pd.DataFrame):
         cols = list(X.columns)

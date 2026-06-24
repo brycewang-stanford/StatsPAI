@@ -274,3 +274,44 @@ def test_dml_plr_with_rlasso_learner_recovers_effect():
         n_folds=5,
     )
     assert abs(float(res.estimate) - theta) < 0.25
+
+
+# ─────────────────── §3 unified result-object contract ────────────────────
+
+
+def test_result_objects_expose_protocol(sparse_reg, iv_dgp):
+    """RLassoFit / RLassoIVResult / RLassoEffectResult honour the agent-native
+    result contract (CLAUDE.md §3): to_dict / to_latex / cite."""
+    X, y, _ = sparse_reg
+    Xc, Z, d, yv, _ = iv_dgp
+    objs = [
+        rlasso(X, y),
+        rlasso_effect(X, y, X[:, 0]),
+        rlasso_iv(y=yv, d=d, z=Z, x=Xc, select_Z=True, select_X=False),
+    ]
+    for r in objs:
+        assert isinstance(r.to_dict(), dict) and r.to_dict()
+        assert r.to_latex().startswith("\\begin{table}")
+        cite = r.cite()
+        assert isinstance(cite, str) and cite
+        # json form is structured + points at paper.bib
+        assert r.cite(format="json")["source"] == "paper.bib"
+
+
+def test_result_cite_keys_are_in_paper_bib():
+    """Zero-hallucination (CLAUDE.md §10): every cite key the rlasso results
+    advertise must exist in paper.bib."""
+    import pathlib
+    import re
+
+    bib = (pathlib.Path(__file__).resolve().parents[1] / "paper.bib").read_text(
+        encoding="utf-8"
+    )
+    have = set(re.findall(r"^@\w+\{([^,]+),", bib, flags=re.MULTILINE))
+    from statspai.rlasso._core import RLassoFit
+    from statspai.rlasso.effect import RLassoEffectResult
+    from statspai.rlasso.iv import RLassoIVResult
+
+    for cls in (RLassoFit, RLassoEffectResult, RLassoIVResult):
+        for key in cls._citation_keys:
+            assert key in have, f"{cls.__name__} cites missing bib key {key!r}"
