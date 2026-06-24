@@ -35,7 +35,7 @@ import numpy as np
 
 try:
     from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
-except Exception:  # pragma: no cover - sklearn is a hard dep of dml anyway
+except ImportError:  # pragma: no cover - sklearn is a hard dep of dml anyway
     BaseEstimator = object  # type: ignore[assignment,misc]
 
     class RegressorMixin:  # type: ignore[no-redef]
