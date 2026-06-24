@@ -231,3 +231,35 @@ def test_eminent_core_selection_matches_hdm(eminent, R):
     # R is 1-based; selected_idx stored 1-based
     got = (np.where(fit.index)[0] + 1).tolist()
     assert got == exp["selected_idx"]
+
+
+# ───────────── sp.dml(ml_g='rlasso') vs R DoubleML-PLR-with-hdm::rlasso ─────
+
+
+@pytest.fixture(scope="module")
+def dml_rlasso():
+    df = pd.read_csv(_FIXTURE_DIR / "dml_rlasso_data.csv")
+    with open(_FIXTURE_DIR / "dml_rlasso_R.json", encoding="utf-8") as f:
+        ref = json.load(f)
+    return df, ref
+
+
+def test_dml_rlasso_learner_matches_r_doubleml(dml_rlasso):
+    """sp.dml(model='plr', ml_g='rlasso', ml_m='rlasso') reproduces a manual
+    Double-ML PLR estimator whose nuisances are hdm::rlasso, cross-fitted over
+    the SAME fold partition (shared via the ``fold`` column).  Identical folds
+    + a bit-exact rlasso engine ⇒ machine-precision agreement, not a tolerance
+    band — a tight cross-ecosystem validation of the rlasso nuisance path."""
+    import statspai as sp
+
+    df, ref = dml_rlasso
+    xcols = [c for c in df.columns if c.startswith("x")]
+    folds = df["fold"].values.astype(int)
+    res = sp.dml(
+        data=df, y="y", treat="d", covariates=xcols,
+        model="plr", ml_g="rlasso", ml_m="rlasso",
+        n_folds=ref["n_folds"], fold_indices=folds,
+    )
+    assert res.model_info.get("fold_source") == "user"
+    np.testing.assert_allclose(float(res.estimate), ref["theta"], atol=1e-6)
+    np.testing.assert_allclose(float(res.se), ref["se"], atol=1e-6)

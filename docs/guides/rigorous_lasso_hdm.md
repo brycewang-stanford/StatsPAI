@@ -121,6 +121,13 @@ cross-fitting `clone()` on every fold. The classifier is a *linear
 probability* propensity (clipped to `(ε, 1−ε)`) — convenient, but prefer
 a calibrated classifier when propensity calibration matters.
 
+This path is pinned against R: with a shared fold partition (pass
+`fold_indices=`), `sp.dml(model='plr', ml_g='rlasso', ml_m='rlasso')`
+reproduces a manual Double-ML PLR estimator whose nuisances are
+`hdm::rlasso` to **machine precision** (θ̂ and SE; see
+`test_dml_rlasso_learner_matches_r_doubleml`). So the rigorous-Lasso DML
+path is validated end to end, not just learner-by-learner.
+
 ## Relationship to `iv.bch_post_lasso_iv`
 
 `iv.bch_post_lasso_iv` is the original reconstruction and is **deprecated**
