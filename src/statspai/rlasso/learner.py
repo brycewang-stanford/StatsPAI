@@ -29,23 +29,57 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, Dict, Optional
 
 import numpy as np
 
-try:
-    from sklearn.base import BaseEstimator, ClassifierMixin, RegressorMixin
-except ImportError:  # pragma: no cover - sklearn is a hard dep of dml anyway
-    BaseEstimator = object  # type: ignore[assignment,misc]
-
-    class RegressorMixin:  # type: ignore[no-redef]
-        pass
-
-    class ClassifierMixin:  # type: ignore[no-redef]
-        pass
-
-
 from ._core import rlasso
+
+
+# ---------------------------------------------------------------------------
+# Duck-typed sklearn-estimator base (imports NO sklearn at module load).
+#
+# Inheriting ``sklearn.base.BaseEstimator`` + a Mixin at class-definition time
+# pulls ~70 ``sklearn.*`` submodules into ``sys.modules`` on every
+# ``import statspai`` (rlasso is wired into the top-level package), blowing the
+# lazy-import budget (tests/test_late_bind_contracts.py: a bare
+# ``import statspai`` must pull 0 sklearn submodules). These wrappers need
+# sklearn only for *interop* — ``sklearn.base.clone(learner)`` during DML
+# cross-fitting — which is fully duck-typed (clone calls ``get_params`` /
+# ``set_params`` and reconstructs via ``__init__``). So we reproduce that slice
+# here, mirroring the ``_BaseHAL`` pattern in ``tmle/hal_tmle.py``, and import
+# nothing from sklearn. ``_estimator_type`` on each subclass keeps
+# ``sklearn.base.is_regressor`` / ``is_classifier`` correct for any caller.
+# ---------------------------------------------------------------------------
+
+
+class _SklearnCompatEstimator:
+    """Minimal duck-typed sklearn estimator base (no sklearn import).
+
+    Provides the ``get_params`` / ``set_params`` / ``__repr__`` slice of
+    ``sklearn.base.BaseEstimator`` that ``sklearn.base.clone()`` needs, so
+    these learners stay clone-safe inside ``sp.dml`` cross-fitting without
+    forcing sklearn at module-load time.
+    """
+
+    def get_params(self, deep: bool = True) -> Dict[str, Any]:
+        del deep  # params are scalars, never nested estimators
+        params: Dict[str, Any] = {}
+        for name in inspect.signature(type(self).__init__).parameters:
+            if name == "self":
+                continue
+            params[name] = getattr(self, name)
+        return params
+
+    def set_params(self, **params: Any) -> "_SklearnCompatEstimator":
+        for k, v in params.items():
+            setattr(self, k, v)
+        return self
+
+    def __repr__(self) -> str:
+        items = ", ".join(f"{k}={v!r}" for k, v in self.get_params().items())
+        return f"{type(self).__name__}({items})"
 
 
 def _penalty_dict(self: Any) -> Dict[str, Any]:
@@ -61,7 +95,7 @@ def _penalty_dict(self: Any) -> Dict[str, Any]:
     return pen
 
 
-class RlassoRegressor(BaseEstimator, RegressorMixin):
+class RlassoRegressor(_SklearnCompatEstimator):
     """Rigorous (post-)Lasso as a scikit-learn regressor.
 
     Parameters mirror :func:`statspai.rlasso.rlasso`.  Suitable as
@@ -81,6 +115,8 @@ class RlassoRegressor(BaseEstimator, RegressorMixin):
     >>> est.coef_.shape
     (20,)
     """
+
+    _estimator_type = "regressor"
 
     def __init__(
         self,
@@ -131,7 +167,7 @@ class RlassoRegressor(BaseEstimator, RegressorMixin):
         return out
 
 
-class RlassoClassifier(BaseEstimator, ClassifierMixin):
+class RlassoClassifier(_SklearnCompatEstimator):
     """Linear-probability classifier backed by the rigorous Lasso.
 
     Fits ``rlasso`` to the 0/1 label and exposes clipped
@@ -150,6 +186,8 @@ class RlassoClassifier(BaseEstimator, ClassifierMixin):
     >>> clf.predict_proba(X).shape  # columns: P(0), P(1)
     (200, 2)
     """
+
+    _estimator_type = "classifier"
 
     def __init__(
         self,
