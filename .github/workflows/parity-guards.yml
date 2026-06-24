@@ -1,14 +1,20 @@
 name: Parity guards
 
-# Three CLAUDE.md §3 / §10 contracts enforced as required CI gates,
-# independent of the main ci-cd.yml pipeline so they show up as their own
-# required checks on PRs and never get diluted by the unrelated test matrix:
+# Two CLAUDE.md §3 contracts enforced as required CI gates, independent of
+# the main ci-cd.yml pipeline so they show up as their own required checks on
+# PRs and never get diluted by the unrelated test matrix:
 #
 #   1. reference_parity  — numerical alignment with R / Stata / paper anchors
 #   2. registry_drift    — registry public-function count + submodule count
 #                          stays within the README floor (1000+ / 80)
-#   3. citation_audit    — every arXiv / NBER / DOI claim in src/ + docs/
-#                          verifies against primary sources (zero phantom refs)
+#
+# The §10 zero-hallucination citation audit lives in its own workflow
+# (.github/workflows/citation-audit.yml) — it used to be duplicated here as a
+# third job, but running the network-dependent auditor twice per push only
+# doubled the transient-flake surface. The dedicated workflow is the single
+# source of truth: it carries the full 4-gate suite (auditor pytest + bib
+# duplicate/coverage audits + the live citation audit) and an exit-2 soft-pass
+# so an arXiv/Crossref outage warns instead of blocking.
 
 on:
   push:
@@ -107,54 +113,9 @@ jobs:
         run: |
           python scripts/check_example_execution.py --quiet --max-failures 0
 
-  citation-audit:
-    name: Citation audit (§10 zero-hallucination)
-    # ``--strict`` would conflate "fabricated citation" (mismatch — the real
-    # §10 red line) with "network glitch" (unresolved). Run in the default
-    # mismatch-only mode so transient arxiv / crossref / NBER outages don't
-    # paint the gate red. Unresolved entries are still surfaced in the
-    # audit_report.md artifact for human follow-up.
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    # Per-step ``paths-filter`` skips the network-heavy verification when no
-    # citation-bearing file changed (e.g. rust/, benchmarks/, .gitignore).
-    # This bounds outbound API load and reduces transient arxiv / crossref
-    # outage flake on unrelated commits.
-    steps:
-      - uses: actions/checkout@v5
-      - name: Detect citation-bearing changes
-        id: changes
-        uses: dorny/paths-filter@v4
-        with:
-          filters: |
-            cite:
-              - 'src/**'
-              - 'docs/**'
-              - 'paper.md'
-              - 'paper.bib'
-              - 'README.md'
-              - 'README_CN.md'
-              - 'CHANGELOG.md'
-              - 'MIGRATION.md'
-              - 'tools/audit_citations.py'
-      - name: Set up Python
-        if: steps.changes.outputs.cite == 'true'
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.10"
-      - name: Install
-        if: steps.changes.outputs.cite == 'true'
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-      - name: tools/audit_citations.py (mismatch-only)
-        if: steps.changes.outputs.cite == 'true'
-        run: |
-          python tools/audit_citations.py
-      - name: Upload audit report
-        if: steps.changes.outputs.cite == 'true' && (success() || failure())
-        uses: actions/upload-artifact@v6
-        with:
-          name: citation-audit-report
-          path: audit_report.md
-          if-no-files-found: ignore
+  # NOTE: the §10 citation audit job that used to live here was removed —
+  # it duplicated .github/workflows/citation-audit.yml (which is more
+  # complete and has an exit-2 soft-pass for transient arXiv/Crossref
+  # outages). Running the network-dependent auditor twice per push only
+  # doubled the flake surface. See that workflow for the single source of
+  # truth.

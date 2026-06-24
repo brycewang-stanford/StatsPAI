@@ -848,6 +848,19 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         sub_chunks = re.split(r"\n(?=\s*(?:[-*•]|\d+\.)\s)", full_scope)
         full_scope = next((ch for ch in sub_chunks if c.id in ch), full_scope)
     before_id = full_scope.split(c.id, 1)[0]
+    # Strip quoted *title* spans before phantom detection. In every
+    # citation format the authors precede the title and the title is
+    # wrapped in double quotes ("..." / “...”); an *invented* author
+    # would still appear in author position OUTSIDE the quotes, so this
+    # never weakens fabricated-author detection. What it does kill is the
+    # dominant false-positive class: title words like
+    # ``"... Efficient Instruments and Machine Learning"`` otherwise read
+    # as "Instruments and Machine" → a faux "Surname and Surname" author
+    # list, flagging "instruments" as a phantom. Removing the quoted span
+    # makes the §10 gate robust to paper titles instead of requiring every
+    # leaked title word to be hand-added to SURNAME_STOPWORDS.
+    before_id = re.sub(r'"[^"]*"', " ", before_id)
+    before_id = re.sub(r"“[^”]*”", " ", before_id)
     # Narrow the phantom-detection scope to discriminate multi-citation
     # text. We start from ``before_id`` (everything before this
     # citation's id) and chop off any earlier arXiv / NBER id matches —

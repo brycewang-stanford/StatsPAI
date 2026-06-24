@@ -8,9 +8,8 @@ estimates conditional ATT via kernel-smoothed Wald.
 
 References
 ----------
-Scheidegger, C., Guo, Z. and Bühlmann, P. (2025). "Inference for
-    Heterogeneous Treatment Effects with Efficient Instruments and
-    Machine Learning." arXiv:2503.03530 (R package ``IVDML``).
+Scheidegger, C., Guo, Z. and Bühlmann, P. (2025), arXiv:2503.03530
+    (efficient-IV × DML for heterogeneous effects; R package ``IVDML``).
 Belloni, A., Chen, D., Chernozhukov, V. and Hansen, C. (2012).
     "Sparse Models and Methods for Optimal Instruments." *Econometrica*,
     80(6), 2369-2429. [@belloni2011sparse]

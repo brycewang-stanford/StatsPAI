@@ -307,6 +307,51 @@ def test_diff_citation_q_network_not_flagged_as_author():
     assert issues == [], issues
 
 
+def test_diff_citation_quoted_title_words_not_flagged_as_author():
+    """Regression: a correctly-attributed paper whose *quoted title*
+    contains an ``X and Y`` phrase must not flag a title word as a phantom
+    author. Real case: Scheidegger/Guo/Bühlmann (arXiv:2503.03530), title
+    "... Efficient Instruments and Machine Learning" — "Instruments and
+    Machine" used to read as a faux "Surname and Surname" author list.
+    Authors always sit OUTSIDE the title quotes, so stripping the quoted
+    span is precision-only.
+    """
+    truth = ac.PaperMeta(
+        authors=["Cyrill Scheidegger", "Zijian Guo", "Peter Bühlmann"],
+        title="Inference for Heterogeneous Treatment Effects with "
+        "Efficient Instruments and Machine Learning",
+        year=2025,
+        source="arxiv",
+    )
+    c = _make_citation(
+        'Scheidegger, C., Guo, Z. and Bühlmann, P. (2025). "Inference for '
+        "Heterogeneous Treatment Effects with Efficient Instruments and "
+        'Machine Learning." arXiv:2503.03530',
+        id="2503.03530",
+    )
+    issues = ac.diff_citation(c, truth)
+    assert issues == [], issues
+
+
+def test_diff_citation_invented_author_outside_title_quote_still_flagged():
+    """Guard the precision fix above does NOT blind the §10 gate: an
+    invented co-author in author position (outside the title quotes) must
+    still be caught."""
+    truth = ac.PaperMeta(
+        authors=["Cyrill Scheidegger", "Zijian Guo", "Peter Bühlmann"],
+        title="Inference for Heterogeneous Treatment Effects",
+        year=2025,
+        source="arxiv",
+    )
+    c = _make_citation(
+        "Scheidegger, C., Guo, Z., Bühlmann, P. and Fakeson, Q. (2025). "
+        '"Inference for Heterogeneous Treatment Effects." arXiv:2503.03530',
+        id="2503.03530",
+    )
+    issues = ac.diff_citation(c, truth)
+    assert any("fakeson" in i.lower() for i in issues), issues
+
+
 def test_diff_citation_bare_reference_does_not_spuriously_flag_missing():
     """Lines that are pure arXiv URL references (no author text) should
     not be flagged for 'missing author': there's no attribution text to
