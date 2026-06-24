@@ -38,6 +38,7 @@ Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union
 
@@ -330,6 +331,15 @@ def bch_post_lasso_iv(
     -------
     PostLassoResult
     """
+    warnings.warn(
+        "iv.bch_post_lasso_iv is deprecated and will be removed in a future "
+        "release. It is StatsPAI's original BCH-2012 reconstruction and does "
+        "not agree numerically with R's hdm (e.g. ~17x off on the eminent-"
+        "domain application). Use sp.rlasso_iv(...), a faithful, parity-tested "
+        "port of hdm::rlassoIV, instead. See MIGRATION.md.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     Y = _grab(y, data).reshape(-1)
     D = _grab(endog, data).reshape(-1)
     Zraw = _grab(instruments, data, cols=True)

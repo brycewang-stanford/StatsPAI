@@ -5,6 +5,37 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="bch-post-lasso-iv-deprecation"></a>
+
+## Unreleased — Deprecation: `iv.bch_post_lasso_iv` → `sp.rlasso_iv`
+
+**What changed.** `statspai.iv.bch_post_lasso_iv` now emits a
+`DeprecationWarning`. It was StatsPAI's original, from-memory reconstruction
+of the Belloni–Chen–Chernozhukov–Hansen (2012) post-Lasso IV estimator and
+does **not** agree numerically with R's `hdm`: on the canonical eminent-domain
+application it returns ≈0.013 where `hdm::rlassoIV` returns 0.227 (~17× off),
+because it uses the asymptotic penalty `λ = 2c√{2n log(2p/α)}` and selects
+only instruments (no control selection).
+
+**Why.** `sp.rlasso_iv` is a faithful, parity-tested port of `hdm::rlassoIV`
+(verified to ~1e-6 against `hdm` 0.3.2, exact on eminent domain). It supports
+all four selection regimes (instruments, controls, both, neither).
+
+**Migration.**
+
+| Before | After |
+|---|---|
+| `iv.bch_post_lasso_iv(y='y', endog='d', instruments=z_cols, data=df)` | `sp.rlasso_iv(y='y', d='d', z=z_cols, data=df, select_Z=True, select_X=False)` |
+| `iv.bch_post_lasso_iv(..., exog=x_cols)` | `sp.rlasso_iv(..., x=x_cols, select_Z=True, select_X=True)` |
+
+The result object differs (`RLassoIVResult` exposes `.coef` / `.se` / `.tstat`
+/ `.pvalue` / `.conf_int()` / `.summary()` / `.cite()`). `bch_post_lasso_iv`
+keeps its original numerics during the deprecation window; nothing about
+existing call sites breaks, but new code should use `sp.rlasso_iv`. See
+[`docs/guides/rigorous_lasso_hdm.md`](docs/guides/rigorous_lasso_hdm.md).
+
+---
+
 <a id="cusum-boundary"></a>
 
 ## 1.20.0 — ⚠️ `sp.cusum_test` used the wrong CUSUM boundary

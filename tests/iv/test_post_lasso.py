@@ -6,6 +6,10 @@ import pytest
 
 import statspai.iv as iv
 
+# bch_post_lasso_iv is deprecated in favour of sp.rlasso_iv; these legacy
+# tests still pin its (unchanged) behaviour, so silence the warning here.
+pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
+
 
 @pytest.fixture
 def high_dim_dgp():
@@ -67,3 +71,21 @@ class TestBCHPostLasso:
         s = r.summary()
         assert "Belloni-Chen-Chernozhukov-Hansen" in s
         assert "Selected instruments" in s
+
+
+def test_bch_post_lasso_iv_emits_deprecation(high_dim_dgp):
+    """bch_post_lasso_iv steers users to sp.rlasso_iv via DeprecationWarning.
+
+    Uses a manual ``catch_warnings`` (not ``pytest.warns``) so it is robust
+    to the module-level ``filterwarnings("ignore")`` that silences the legacy
+    behavioural tests above.
+    """
+    import warnings
+
+    df, zs = high_dim_dgp
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        iv.bch_post_lasso_iv(y="y", endog="d", instruments=zs, data=df)
+    dep = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+    assert dep, "expected a DeprecationWarning"
+    assert any("rlasso_iv" in str(w.message) for w in dep)

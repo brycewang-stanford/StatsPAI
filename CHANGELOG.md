@@ -79,6 +79,14 @@ All notable changes to StatsPAI will be documented in this file.
   than `hdm::rlassoIV` on weak-instrument designs (a tracked roadmap item,
   not a silent divergence).
 
+### Deprecated
+
+- **`iv.bch_post_lasso_iv`** now emits a `DeprecationWarning`. It is
+  StatsPAI's original from-memory BCH-2012 reconstruction and does not
+  agree numerically with `hdm` (≈17× off on eminent domain). Use the new,
+  parity-tested `sp.rlasso_iv` instead. Behaviour is unchanged during the
+  deprecation window; see [`MIGRATION.md`](MIGRATION.md).
+
 ## [1.20.0] — 2026-06-22
 
 ### ⚠️ Correctness
