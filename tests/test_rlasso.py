@@ -406,6 +406,25 @@ def test_rlassologit_predict_type_validation(logit_dgp):
         fit.predict(X, type="bogus")
 
 
+def test_rlassologit_rejects_non_binary_y(logit_dgp):
+    """§7 fail-loudly: continuous / {1,2}-coded / single-class y must raise,
+    not slide silently into the IRLS solver and emit overflow garbage."""
+    from statspai.rlasso import RlassologitClassifier, rlassologit
+
+    X, _, _ = logit_dgp
+    n = X.shape[0]
+    rng = np.random.default_rng(0)
+    with pytest.raises(ValueError, match="binary 0/1"):
+        rlassologit(X, rng.standard_normal(n))  # continuous
+    with pytest.raises(ValueError, match="binary 0/1"):
+        rlassologit(X, np.where(rng.uniform(size=n) < 0.5, 1.0, 2.0))  # {1, 2}
+    with pytest.raises(ValueError, match="both classes"):
+        rlassologit(X, np.ones(n))  # single class
+    # the classifier wrapper inherits the guard (it delegates to rlassologit)
+    with pytest.raises(ValueError, match="binary 0/1"):
+        RlassologitClassifier().fit(X, rng.standard_normal(n))
+
+
 def test_rlassologit_classifier_is_genuine_logistic(logit_dgp):
     from statspai.rlasso import RlassologitClassifier, rlassologit
 

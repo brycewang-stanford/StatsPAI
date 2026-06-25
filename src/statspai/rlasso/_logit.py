@@ -25,15 +25,26 @@ plain-Lasso (``post=False``) coefficients to ~1e-6 (glmnet's own
 convergence tolerance).
 
 The underlying logistic-lasso solver follows Friedman, Hastie &
-Tibshirani's coordinate-descent algorithm (the engine behind R's
-``glmnet``); the post-selection theory is that of Belloni, Chernozhukov &
-Wei on inference for generalized linear models with many controls.
+Tibshirani's coordinate-descent algorithm [@friedman2010regularization]
+(the engine behind R's ``glmnet``); the post-selection theory is that of
+Belloni, Chernozhukov & Wei on inference for generalized linear models
+with many controls [@belloni2016post].
 
 References
 ----------
+Belloni, A., Chernozhukov, V. and Wei, Y. (2016). "Post-Selection
+    Inference for Generalized Linear Models With Many Controls."
+    *Journal of Business & Economic Statistics*, 34(4), 606-619.
+    [@belloni2016post]
+
 Chernozhukov, V., Hansen, C. and Spindler, M. (2016). "hdm:
     High-Dimensional Metrics." *The R Journal*, 8(2), 185-199.
     [@chernozhukov2016hdm]
+
+Friedman, J., Hastie, T. and Tibshirani, R. (2010). "Regularization
+    Paths for Generalized Linear Models via Coordinate Descent."
+    *Journal of Statistical Software*, 33(1), 1-22.
+    [@friedman2010regularization]
 """
 
 from __future__ import annotations
@@ -328,6 +339,26 @@ def rlassologit(
         X = X.reshape(-1, 1)
     y = np.asarray(y, dtype=float).ravel()
     n, p = X.shape
+
+    # Fail loudly on non-binary input (CLAUDE.md §7): a logistic model is
+    # only defined for a 0/1 response.  Without this guard, continuous or
+    # {1,2}-coded labels slide silently into the IRLS solver and produce
+    # overflow garbage instead of an error.
+    classes = np.unique(y[np.isfinite(y)])
+    if not np.all(np.isin(classes, (0.0, 1.0))):
+        shown = classes[:5].tolist()
+        raise ValueError(
+            "rlassologit requires a binary 0/1 response y; got "
+            f"{classes.size} distinct value(s) {shown}"
+            f"{'...' if classes.size > 5 else ''}. Encode the outcome as 0/1 "
+            "(e.g. (y == positive_label).astype(float))."
+        )
+    if classes.size < 2:
+        raise ValueError(
+            "rlassologit needs both classes present in y; got a single class "
+            f"({classes.tolist()}) — a logistic model is not identified."
+        )
+
     if colnames is None:
         colnames = [f"V{j + 1}" for j in range(p)]
     ctrl = dict(control) if control else {}
