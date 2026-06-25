@@ -99,7 +99,17 @@ well-defined family of double machine-learning designs. These packages
 are complementary to `StatsPAI`, and several ideas in `StatsPAI` follow
 the same methodological literature, including double/debiased machine
 learning [@chernozhukov2018double], causal forests
-[@wager2018estimation], and meta-learners [@kunzel2019metalearners].
+[@wager2018estimation], and meta-learners [@kunzel2019metalearners]. In
+the high-dimensional and double machine-learning tradition specifically,
+`StatsPAI` builds on established reference implementations rather than
+around them: it provides a faithful Python port of the rigorous
+(data-driven) Lasso and post-double-selection estimators of the `hdm`
+package [@chernozhukov2016hdm; @belloni2012sparse; @belloni2014inference],
+validated for numerical agreement with `hdm`, and orthogonal-score
+estimators aligned with the `DoubleML` implementations in Python and R
+[@bach2022doubleml; @bach2024doubleml]. This lets researchers reproduce
+the high-dimensional econometrics workflow inside the same
+agent-addressable interface used for the rest of the package.
 These comparisons are with packages that, like `StatsPAI`, operate at
 the causal-inference and machine-learning layer. The general-purpose
 regression toolkits applied economists already rely on — `statsmodels`

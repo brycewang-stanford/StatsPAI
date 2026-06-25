@@ -124,6 +124,7 @@ nav:
       - "Migrating from R to StatsPAI": guides/migration-from-r.md
       - "sp.dml and the DoubleML reference implementation": guides/sp_dml_vs_doubleml.md
       - "Rigorous (data-driven) Lasso — sp.rlasso and the hdm port": guides/rigorous_lasso_hdm.md
+      - "Case study: reproducing the DoubleML / hdm 401(k) result": guides/case_study_401k.md
       - "Cross-engine validation (sp.cross_validate — StatsPAI vs R/Stata/pyfixest/DoubleML)": guides/cross_engine_validation.md
       - "From a data MCP to an estimate (World Bank / FRED / OECD ingestion)": guides/data_mcp_ingestion.md
       - "Robustness workflow": guides/robustness_workflow.md

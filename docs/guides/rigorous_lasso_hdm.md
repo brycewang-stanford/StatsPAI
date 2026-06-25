@@ -45,6 +45,43 @@ pin every surface against `hdm` 0.3.2:
 > values and silently produces a *different* pseudo-inverse. Matching the
 > MASS tolerance is exactly what restores eminent-domain parity.
 
+## `hdm` ↔ StatsPAI function map
+
+The complete public surface of `hdm`, and where each piece lives in
+StatsPAI. Two categories: **faithful ports** (bit-for-bit against `hdm`,
+no cross-validation, deterministic fixtures) and **same-score
+equivalents** (the high-dimensional treatment-effect estimators, which
+StatsPAI exposes through `sp.dml`'s Neyman-orthogonal scores with
+cross-fitting (Chernozhukov et al., *Econometrics Journal* 2018) rather
+than `hdm`'s full-sample post-Lasso — same estimand and score family, not
+claimed bit-for-bit).
+
+| `hdm` | StatsPAI | Status |
+| --- | --- | --- |
+| `rlasso` | `sp.rlasso` | **faithful port** — coeffs/`λ₀`/loadings/residuals ~1e-13, support **exact** |
+| `rlassologit` | `sp.rlassologit` | **faithful port** — support **exact**, glmnet engine ~1e-6, `post=TRUE` refit ~1e-9 |
+| `rlassoEffect` | `sp.rlasso_effect` | **faithful port** — α, SE ~1e-14 (partialling-out & double-selection) |
+| `rlassoEffects` | `sp.rlasso_effects` | **faithful port** — ~1e-14 (multi-target) |
+| `rlassoIV`, `rlassoIVselectX`, `rlassoIVselectZ` | `sp.rlasso_iv(select_X=…, select_Z=…)` | **faithful port** — ~1e-14 well-conditioned, ~1e-9 rank-deficient |
+| `tsls` | `sp.rlasso_iv(select_Z=False, select_X=False)` | robust 2SLS path (no selection) |
+| `lambdaCalculation` | `sp.rlasso(penalty=…)` (internal) | homoskedastic & heteroskedastic (X-independent) bit-exact; X-dependent in-distribution only |
+| `rlassoATE` | `sp.dml(model='irm', score='ATE', ml_g='rlasso', ml_m='rlassologit')` | same doubly-robust (AIPW) score family; cross-fitted, DoubleML-aligned |
+| `rlassoATET` | `sp.dml(model='irm', score='ATTE', …)` | same score family; cross-fitted |
+| `rlassoLATE` | `sp.dml(model='iivm', ml_g='rlasso', ml_m='rlassologit')` | same LATE Wald-ratio score family; cross-fitted |
+| `rlassoLATET` | `sp.dml(model='iivm', …)` | covered by the IIVM score; a LATET-specific variant is not separately exposed |
+| `rlassologitEffect`, `rlassologitEffects` | *not ported* → `sp.dml(model='irm', ml_m='rlassologit')` | see "What is and isn't ported" below |
+| `print` / `summary` / `confint` / `predict` | `.summary()` / `.conf_int()` / `.predict()` | result-object methods |
+| dataset `EminentDomain` | parity fixture in `tests/reference_parity/` | used to pin `rlasso_iv` |
+| datasets `pension`, `GrowthData`, `AJR`, `cps2012`, `BLP` | not yet bundled as `sp.datasets` | on the roadmap (canonical-case reproduction) |
+
+> **On the treatment-effect family.** `hdm::rlassoATE/ATET/LATE/LATET`
+> estimate the same program-evaluation parameters as `sp.dml`'s IRM and
+> IIVM models; StatsPAI routes them through the cross-fitted DML scores so
+> the high-dimensional and generic-ML paths share one validated
+> implementation, rather than maintaining a second full-sample estimator.
+> The `sp.dml` path is parity-tested against `DoubleML` (Bach et al.,
+> *JMLR* 2022 for Python; *Journal of Statistical Software* 2024 for R).
+
 ## The three entry points
 
 ### 1. `sp.rlasso` — rigorous (post-)Lasso
