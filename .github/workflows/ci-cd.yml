@@ -297,6 +297,42 @@ jobs:
       run: |
         pytest tests/ -m 'not slow' -n auto -o addopts=''
 
+  # Dedicated fast lazy-import contract gate (~2 min on a warm cache).
+  # The cold-import budget — a bare ``import statspai`` must pull ZERO heavy
+  # submodules (sklearn / torch / jax / pymc / pyfixest) — was previously only
+  # exercised *inside* the ~1 h ``test-pandas3`` full suite, so a lazy-import
+  # regression (e.g. a new eager ``import sklearn`` in a learner module) took an
+  # hour to surface. Isolating it here on the default dependency set makes such
+  # regressions fail fast on every push and PR. Intentionally NOT a ``needs:``
+  # of build/publish, so it can never block or delay a release upload.
+  import-budget:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.10'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v5
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Cold-import budget (lazy-import contract)
+      run: |
+        pytest tests/test_import_budget.py -q --no-header -o addopts=''
+
   build:
     needs: test
     runs-on: ubuntu-latest

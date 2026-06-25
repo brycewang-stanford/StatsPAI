@@ -1,31 +1,102 @@
+# Pre-commit hooks for StatsPAI.
+#
+# Install once — this wires BOTH the commit-time and push-time stages thanks to
+# ``default_install_hook_types`` below (no separate ``--hook-type pre-push``):
+#
+#     pre-commit install
+#
+# Stage layout — mirror the cheap CI gates locally so the self-inflicted CI
+# reds (registry / schema / examples drift, lazy-import regressions) are caught
+# BEFORE they reach GitHub, while keeping commits snappy:
+#
+#   * pre-commit — formatting + hard syntax errors (fast, auto-fixing). Every
+#                  inherited hook pins ``stages: [pre-commit]`` EXPLICITLY: the
+#                  pre-commit-hooks manifest hard-codes ``stages`` (incl. push)
+#                  for trailing-whitespace / end-of-file-fixer / large-files, so
+#                  a config-level ``default_stages`` alone does NOT confine them
+#                  (verified empirically) — the per-hook override does.
+#   * pre-push   — deterministic drift / contract guards that mirror
+#                  parity-guards.yml + the ci-cd import-budget job (~10 s total).
+#                  None of these modify files.
+#   * manual     — the heavy 1000+ runnable-examples sweep (CI owns it; run on
+#                  demand: ``pre-commit run examples-runnable --hook-stage manual``)
+#
+# Two protections worth noting:
+#   1. trailing-whitespace / end-of-file-fixer carry an ``exclude`` for every
+#      reference-data tree (parity fixtures, benchmark JSON, NIST .dat). Those
+#      are byte-exact anchors from R / Stata / NIST — a whitespace "fix" would
+#      corrupt a numerical-parity baseline (JOSS-sensitive). Never let an
+#      auto-fixer rewrite them.
+#   2. The flake8 / mypy COUNT ratchets (scripts/quality_gate.py) are NOT
+#      mirrored here: they are interpreter/tool-version sensitive (local flake8
+#      7.x reports ~110 more than CI's pinned 6.1.0), so a local ratchet would
+#      red even when CI is green. They live only in CI's pinned canonical env.
+#      The pinned flake8 hook below (rev 6.1.0, hard-error select) is the
+#      version-stable subset that is safe to run locally.
+
+default_install_hook_types: [pre-commit, pre-push]
+
+# Reference-data trees that must never be touched by an auto-fixing hook.
+# Anchored, used by trailing-whitespace / end-of-file-fixer below.
+# YAML anchor so the two hooks share one definition.
+exclude: &refdata_exclude |
+  (?x)^(
+      benchmarks/
+    | tests/fixtures/
+    | tests/agent_bench/
+    | tests/coverage_monte_carlo/
+    | tests/numerical_accuracy/
+    | tests/orig_parity/
+    | tests/perf/results/
+    | tests/r_parity/
+    | tests/stata_parity/
+    | tests/reference_parity/_fixtures/
+    | tests/spatial/fixtures/
+  )
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
       - id: trailing-whitespace
+        stages: [pre-commit]
+        exclude: *refdata_exclude
       - id: end-of-file-fixer
+        stages: [pre-commit]
+        exclude: *refdata_exclude
       - id: check-yaml
+        stages: [pre-commit]
       - id: check-toml
+        stages: [pre-commit]
       - id: check-added-large-files
+        stages: [pre-commit]
       - id: check-merge-conflict
+        stages: [pre-commit]
       - id: debug-statements
+        stages: [pre-commit]
 
   - repo: https://github.com/psf/black
     rev: 23.9.1
     hooks:
       - id: black
         language_version: python3
+        stages: [pre-commit]
 
   - repo: https://github.com/PyCQA/isort
     rev: 5.12.0
     hooks:
       - id: isort
+        stages: [pre-commit]
 
   - repo: https://github.com/PyCQA/flake8
     rev: 6.1.0
     hooks:
       - id: flake8
+        # Hard syntax / undefined-name breakage only — must be zero on every
+        # interpreter. The full violation-COUNT ratchet is CI-only (pinned env,
+        # see note at top of file).
         args: ["--select=E9,F63,F7,F82", "--show-source", "--statistics"]
+        stages: [pre-commit]
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.5
@@ -33,14 +104,67 @@ repos:
       - id: bandit
         args: [-r, src/]
         exclude: ^tests/
+        stages: [pre-commit]
 
+  # ---------------------------------------------------------------------------
+  # Local CI-mirror guards (pre-push stage). ``language: system`` runs them in
+  # the active env — they need ``pip install -e ".[dev]"``. Every one is
+  # deterministic (same result locally and in CI) and fast (<4 s each measured
+  # at v1.20.0), reads only / never writes, so they gate ``git push`` without
+  # the ~1 h pytest sweep that made the old full-pytest hook unusable (and
+  # uninstalled). These mirror the checks that actually red the build between
+  # releases: parity-guards.yml's registry/schema/examples drift gates and
+  # ci-cd.yml's import-budget job.
+  # ---------------------------------------------------------------------------
   - repo: local
     hooks:
-      - id: pytest
-        name: pytest
-        entry: pytest
+      - id: registry-drift
+        name: registry_stats --check (public-function / submodule drift)
+        entry: python3 scripts/registry_stats.py --check
         language: system
-        types: [python]
-        args: [tests/, -v]
         pass_filenames: false
         always_run: true
+        stages: [pre-push]
+
+      - id: schema-drift
+        name: dump_schemas --check (MCP cold-start bundle drift)
+        entry: python3 scripts/dump_schemas.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: error-taxonomy
+        name: error_taxonomy_audit --check (exception-taxonomy ratchet)
+        entry: python3 scripts/error_taxonomy_audit.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: examples-coverage
+        name: examples_coverage --check (docstring Examples presence, budget 0)
+        entry: python3 scripts/examples_coverage.py --check --max-missing 0
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: import-budget
+        name: cold-import budget (lazy-import contract — 0 heavy submodules)
+        entry: python3 -m pytest tests/test_import_budget.py -q --no-header -o addopts=
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      # Heavy: executes 1000+ docstring examples (>2 min). CI's parity-guards
+      # workflow owns this gate; run locally on demand only:
+      #     pre-commit run examples-runnable --hook-stage manual
+      - id: examples-runnable
+        name: check_example_execution (docstring Examples runnability)
+        entry: python3 scripts/check_example_execution.py --quiet --max-failures 0
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [manual]
