@@ -38,7 +38,7 @@ de Chaisemartin, C. and D'Haultfoeuille, X. (2024).
 and average cumulative effect, Section 3.) [@dechaisemartin2024difference]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -466,51 +466,63 @@ def _estimate_did_m(
         merged["_switched"] = merged[treatment] != merged[f"{treatment}_prev"]
         merged["_dy"] = merged[y] - merged[f"{y}_prev"]
 
-        switchers = merged[merged["_switched"]]
-        stayers = merged[~merged["_switched"]]
+        # de Chaisemartin--D'Haultfoeuille (2020): the cell-level DID must
+        # condition on the BASELINE treatment d_{t-1}. Switchers are compared
+        # only to stayers that shared the same period-(t-1) treatment value, and
+        # switch-OFF cells (baseline 1 -> 0) enter with a flipped sign so the
+        # estimand is the effect of *gaining* treatment. Pooling across baselines
+        # (i) contaminates the control trend with already-treated stayers and
+        # (ii) mixes switch-on / switch-off effects under a single sign -- both
+        # bias DID_M (see Paper-DiD-JAE/replication/did_multiplegt/).
+        for base in sorted(merged[f"{treatment}_prev"].unique()):
+            grp = merged[merged[f"{treatment}_prev"] == base]
+            switchers = grp[grp["_switched"]]
+            stayers = grp[~grp["_switched"]]
 
-        n_switch = len(switchers)
-        if n_switch == 0 or len(stayers) == 0:
-            continue
+            n_switch = len(switchers)
+            if n_switch == 0 or len(stayers) == 0:
+                continue
 
-        dy_switch = switchers["_dy"].values.copy()
-        dy_stay = stayers["_dy"].values.copy()
+            dy_switch = switchers["_dy"].values.copy()
+            dy_stay = stayers["_dy"].values.copy()
 
-        # Residualize on controls if provided
-        if controls:
-            dX_switch = np.column_stack(
-                [switchers[c].values - switchers[f"{c}_prev"].values for c in controls]
+            # Residualize on controls within the baseline cell
+            if controls:
+                dX_switch = np.column_stack(
+                    [
+                        switchers[c].values - switchers[f"{c}_prev"].values
+                        for c in controls
+                    ]
+                )
+                dX_stay = np.column_stack(
+                    [stayers[c].values - stayers[f"{c}_prev"].values for c in controls]
+                )
+                dX_all = np.vstack([dX_switch, dX_stay])
+                dy_all = np.concatenate([dy_switch, dy_stay])
+                resid = _residualize(dy_all, dX_all)
+                dy_switch = resid[:n_switch]
+                dy_stay = resid[n_switch:]
+
+            # Binary treatment: baseline 0 -> switch ON (+); baseline 1 -> OFF (-).
+            turned_on = base == 0
+            sign = 1.0 if turned_on else -1.0
+
+            did_gt = sign * (np.mean(dy_switch) - np.mean(dy_stay))
+
+            cell_estimates.append(
+                {
+                    "time": t_curr,
+                    "time_prev": t_prev,
+                    "baseline_treatment": float(base),
+                    "n_switchers": n_switch,
+                    "n_stayers": len(stayers),
+                    "did_gt": did_gt,
+                    "mean_dy_switch": float(np.mean(dy_switch)),
+                    "mean_dy_stay": float(np.mean(dy_stay)),
+                    "direction": "on" if turned_on else "off",
+                }
             )
-            dX_stay = np.column_stack(
-                [stayers[c].values - stayers[f"{c}_prev"].values for c in controls]
-            )
-            # Pool for consistent residualization
-            dX_all = np.vstack([dX_switch, dX_stay])
-            dy_all = np.concatenate([dy_switch, dy_stay])
-            resid = _residualize(dy_all, dX_all)
-            dy_switch = resid[:n_switch]
-            dy_stay = resid[n_switch:]
-
-        # Determine sign: if switchers turned ON → positive effect expected
-        # If switchers turned OFF → flip sign so estimate is effect of treatment
-        turned_on = (switchers[treatment].values == 1).mean() > 0.5
-        sign = 1.0 if turned_on else -1.0
-
-        did_gt = sign * (np.mean(dy_switch) - np.mean(dy_stay))
-
-        cell_estimates.append(
-            {
-                "time": t_curr,
-                "time_prev": t_prev,
-                "n_switchers": n_switch,
-                "n_stayers": len(stayers),
-                "did_gt": did_gt,
-                "mean_dy_switch": float(np.mean(dy_switch)),
-                "mean_dy_stay": float(np.mean(dy_stay)),
-                "direction": "on" if turned_on else "off",
-            }
-        )
-        total_switchers += n_switch
+            total_switchers += n_switch
 
     if total_switchers == 0:
         return {
@@ -543,65 +555,45 @@ def _estimate_placebo(
     lag: int,
 ) -> Dict[str, Any]:
     """
-    Placebo test at lag *l*.
+    Placebo test at lag *l* (de Chaisemartin--D'Haultfoeuille 2020).
 
-    For switchers at time t, check outcome changes between t-l-1 and t-l
-    (pre-treatment periods) relative to stayers.
+    For switchers at time t, the first-difference placebo compares the
+    pre-treatment outcome change over (t-l-1, t-l) for switchers vs stayers,
+    CONDITIONING on the baseline treatment d_{t-1} (switchers are compared only
+    to same-baseline stayers; switch-off cells enter with a flipped sign). The
+    sign convention mirrors Stata ``did_multiplegt_old``.
     """
     periods = sorted(df[time].unique())
-    period_idx = {p: i for i, p in enumerate(periods)}
+    dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
+    ypiv = df.pivot_table(index=group, columns=time, values=y, aggfunc="first")
 
-    estimates = []
-    weights = []
+    estimates: List[float] = []
+    weights: List[int] = []
 
-    for idx in range(1, len(periods)):
-        t_prev, t_curr = periods[idx - 1], periods[idx]
-
-        df_prev = df[df[time] == t_prev][[group, treatment]].copy()
-        df_curr = df[df[time] == t_curr][[group, treatment]].copy()
-        df_prev_ren = df_prev.rename(columns={treatment: f"{treatment}_prev"})
-        merged_t = df_curr.merge(df_prev_ren, on=group, how="inner")
-        if merged_t.empty:
+    for i in range(1, len(periods)):
+        t_prev, t_curr = periods[i - 1], periods[i]  # switching step (t-1 -> t)
+        e_idx = i - lag  # placebo "end" period index
+        b_idx = e_idx - 1  # placebo "start" period index
+        if b_idx < 0:
             continue
+        t_end, t_base = periods[e_idx], periods[b_idx]
 
-        merged_t["_switched"] = merged_t[treatment] != merged_t[f"{treatment}_prev"]
-        switch_groups = set(merged_t[merged_t["_switched"]][group].unique())
-        stay_groups = set(merged_t[~merged_t["_switched"]][group].unique())
-
-        if not switch_groups or not stay_groups:
-            continue
-
-        # Look back to periods t-lag-1 and t-lag
-        curr_idx = period_idx[t_curr]
-        plac_end_idx = curr_idx - lag
-        plac_start_idx = plac_end_idx - 1
-
-        if plac_start_idx < 0 or plac_end_idx < 0 or plac_end_idx >= len(periods):
-            continue
-
-        p_start = periods[plac_start_idx]
-        p_end = periods[plac_end_idx]
-
-        df_p_start = df[df[time] == p_start][[group, y]].copy()
-        df_p_end = df[df[time] == p_end][[group, y]].copy()
-
-        df_p_start = df_p_start.rename(columns={y: f"{y}_start"})
-        merged_p = df_p_end.merge(df_p_start, on=group, how="inner")
-        if merged_p.empty:
-            continue
-
-        merged_p["_dy"] = merged_p[y] - merged_p[f"{y}_start"]
-
-        dy_switch = merged_p[merged_p[group].isin(switch_groups)]["_dy"].values
-        dy_stay = merged_p[merged_p[group].isin(stay_groups)]["_dy"].values
-
-        if len(dy_switch) == 0 or len(dy_stay) == 0:
-            continue
-
-        est = np.mean(dy_switch) - np.mean(dy_stay)
-        n_sw = len(dy_switch)
-        estimates.append(est)
-        weights.append(n_sw)
+        common = dpiv.index[dpiv[t_prev].notna() & dpiv[t_curr].notna()]
+        for base in sorted(set(dpiv.loc[common, t_prev].dropna().unique())):
+            in_base = common[dpiv.loc[common, t_prev] == base]
+            sw = in_base[dpiv.loc[in_base, t_curr] != base]  # switchers from baseline
+            st = in_base[dpiv.loc[in_base, t_curr] == base]  # stayers at baseline
+            sw = sw[ypiv.loc[sw, t_end].notna() & ypiv.loc[sw, t_base].notna()]
+            st = st[ypiv.loc[st, t_end].notna() & ypiv.loc[st, t_base].notna()]
+            if len(sw) == 0 or len(st) == 0:
+                continue
+            ps = float((ypiv.loc[sw, t_end] - ypiv.loc[sw, t_base]).mean())
+            pt = float((ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).mean())
+            sign = 1.0 if base == 0 else -1.0
+            estimates.append(
+                -sign * (ps - pt)
+            )  # -sign matches Stata placebo convention
+            weights.append(len(sw))
 
     if not estimates:
         return {"estimate": 0.0, "n_cells": 0}
@@ -622,75 +614,46 @@ def _estimate_dynamic(
     horizon: int,
 ) -> Dict[str, Any]:
     """
-    Dynamic effect at horizon *l*.
+    Dynamic effect at horizon *l* (de Chaisemartin--D'Haultfoeuille 2020,
+    dynamic-robust).
 
-    For switchers at time t, compute Y_{t+l} - Y_{t-1} relative to
-    stayers' same long difference.
+    For switchers at time t (relative to baseline d_{t-1}), the long-difference
+    Y_{t+l} - Y_{t-1} is compared to that of ROBUST stayers: units that share the
+    baseline treatment AND keep it unchanged over the whole window [t, t+l] (so
+    the control trend is not contaminated by units treated during the horizon).
+    Switch-off cells enter with a flipped sign.
     """
     periods = sorted(df[time].unique())
-    period_idx = {p: i for i, p in enumerate(periods)}
+    dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
+    ypiv = df.pivot_table(index=group, columns=time, values=y, aggfunc="first")
 
-    estimates = []
-    weights = []
+    estimates: List[float] = []
+    weights: List[int] = []
 
-    for idx in range(1, len(periods)):
-        t_prev, t_curr = periods[idx - 1], periods[idx]
-
-        df_prev = df[df[time] == t_prev][[group, y, treatment]].copy()
-        df_curr = df[df[time] == t_curr][[group, treatment]].copy()
-        df_prev_ren = df_prev.rename(
-            columns={
-                treatment: f"{treatment}_prev",
-                y: f"{y}_base",
-            }
-        )
-        merged_t = df_curr.merge(df_prev_ren, on=group, how="inner")
-        if merged_t.empty:
+    for i in range(1, len(periods)):
+        t_prev, t_curr = periods[i - 1], periods[i]
+        f_idx = i + horizon
+        if f_idx >= len(periods):
             continue
+        t_future = periods[f_idx]
+        window = periods[i : f_idx + 1]  # t_curr .. t_future
 
-        merged_t["_switched"] = merged_t[treatment] != merged_t[f"{treatment}_prev"]
-        switch_groups = set(merged_t[merged_t["_switched"]][group].unique())
-        stay_groups = set(merged_t[~merged_t["_switched"]][group].unique())
-
-        if not switch_groups or not stay_groups:
-            continue
-
-        # Outcome at t + horizon
-        curr_idx = period_idx[t_curr]
-        future_idx = curr_idx + horizon
-
-        if future_idx >= len(periods):
-            continue
-
-        t_future = periods[future_idx]
-        df_future = df[df[time] == t_future][[group, y]].copy()
-        df_future = df_future.rename(columns={y: f"{y}_future"})
-
-        # Base outcome at t-1
-        df_base = df[df[time] == t_prev][[group, y]].copy()
-        df_base = df_base.rename(columns={y: f"{y}_base2"})
-
-        merged_ld = df_future.merge(df_base, on=group, how="inner")
-        if merged_ld.empty:
-            continue
-
-        merged_ld["_ldy"] = merged_ld[f"{y}_future"] - merged_ld[f"{y}_base2"]
-
-        ldy_switch = merged_ld[merged_ld[group].isin(switch_groups)]["_ldy"].values
-        ldy_stay = merged_ld[merged_ld[group].isin(stay_groups)]["_ldy"].values
-
-        if len(ldy_switch) == 0 or len(ldy_stay) == 0:
-            continue
-
-        # Determine sign from switching direction
-        turned_on_mask = merged_t[merged_t["_switched"]][treatment].values == 1
-        turned_on = turned_on_mask.mean() > 0.5
-        sign = 1.0 if turned_on else -1.0
-
-        est = sign * (np.mean(ldy_switch) - np.mean(ldy_stay))
-        n_sw = len(ldy_switch)
-        estimates.append(est)
-        weights.append(n_sw)
+        common = dpiv.index[dpiv[t_prev].notna() & dpiv[t_curr].notna()]
+        for base in sorted(set(dpiv.loc[common, t_prev].dropna().unique())):
+            in_base = common[dpiv.loc[common, t_prev] == base]
+            sw = in_base[dpiv.loc[in_base, t_curr] != base]
+            # robust stayers: keep the baseline treatment over the whole window
+            stable = (dpiv.loc[in_base, window] == base).all(axis=1)
+            st = in_base[stable]
+            sw = sw[ypiv.loc[sw, t_future].notna() & ypiv.loc[sw, t_prev].notna()]
+            st = st[ypiv.loc[st, t_future].notna() & ypiv.loc[st, t_prev].notna()]
+            if len(sw) == 0 or len(st) == 0:
+                continue
+            lds = float((ypiv.loc[sw, t_future] - ypiv.loc[sw, t_prev]).mean())
+            ldt = float((ypiv.loc[st, t_future] - ypiv.loc[st, t_prev]).mean())
+            sign = 1.0 if base == 0 else -1.0
+            estimates.append(sign * (lds - ldt))
+            weights.append(len(sw))
 
     if not estimates:
         return {"estimate": 0.0, "n_cells": 0}
