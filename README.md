@@ -34,6 +34,19 @@ your role:
 
 The examples use bundled teaching datasets and require no network access after installation.
 
+**Reproduce the high-dimensional / double-ML numerical evidence** (the part most relevant to that literature): StatsPAI's rigorous-Lasso port reproduces `hdm`'s three vignette applications — Barro–Lee growth convergence, Acemoglu–Johnson–Robinson institutions IV, and the CPS 2012 gender wage gap — and its double-machine-learning estimators are pinned against `DoubleML`.
+
+```bash
+# rigorous-Lasso (hdm) parity — no R or extras needed (reference committed as JSON)
+pytest tests/reference_parity/test_rlasso_parity.py \
+       tests/reference_parity/test_rlasso_vignette_parity.py -q
+
+# DoubleML parity (optional: needs the `parity` extra = doubleml-for-py)
+pip install -e ".[dev,parity]" && pytest tests/external_parity/test_dml_python_parity.py -q
+```
+
+See [`docs/guides/rigorous_lasso_hdm.md`](docs/guides/rigorous_lasso_hdm.md) for the full `hdm` ↔ StatsPAI function map and [`docs/guides/case_study_401k.md`](docs/guides/case_study_401k.md) for the canonical 401(k) reproduction with `sp.dml`.
+
 ---
 
 ## Quick Start — 60 seconds
