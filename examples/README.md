@@ -14,6 +14,7 @@ python examples/rd_lee.py
 python examples/synth_prop99.py
 python examples/gmethods_timevarying.py
 python examples/nhefs_whatif.py
+python examples/dml_card.py
 ```
 
 Or after installing the released package:
@@ -38,3 +39,7 @@ The scripts cover canonical causal-inference designs:
   data: IP weighting, standardization/g-formula, and g-estimation all
   recover the book's ~3.4-3.5 kg effect of quitting smoking on weight, plus
   an E-value sensitivity analysis. Uses `sp.datasets.nhefs()`.
+- `dml_card.py` - double/debiased machine learning (`sp.dml`) on Card
+  (1995): partially linear and partially linear IV models for the return to
+  schooling, recovering the classic pattern that the IV estimate exceeds the
+  partialling-out one. The DoubleML-aligned, high-dimensional entry point.
