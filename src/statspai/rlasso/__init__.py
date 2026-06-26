@@ -30,6 +30,11 @@ from ._logit import RLassoLogitFit, rlassologit
 from .effect import RLassoEffectResult, rlasso_effect, rlasso_effects
 from .iv import RLassoIVResult, rlasso_iv
 from .learner import RlassoClassifier, RlassologitClassifier, RlassoRegressor
+from .logit_effect import (
+    RLassoLogitEffectResult,
+    rlassologit_effect,
+    rlassologit_effects,
+)
 
 __all__ = [
     "rlasso",
@@ -40,6 +45,9 @@ __all__ = [
     "rlasso_iv",
     "RLassoIVResult",
     "rlassologit",
+    "rlassologit_effect",
+    "rlassologit_effects",
+    "RLassoLogitEffectResult",
     "RLassoLogitFit",
     "RlassologitClassifier",
     "RlassoRegressor",
