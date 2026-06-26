@@ -170,6 +170,7 @@ nav:
       - "Stochastic frontier": reference/frontier.md
       - "Multilevel / mixed-effects": reference/multilevel.md
       - "Double / debiased ML": reference/dml.md
+      - "Rigorous Lasso (hdm port)": reference/rlasso.md
       - "Causal ML (forests, meta-learners, TMLE, neural)": reference/causal.md
       - "G-methods (g-formula, front-door, MSM, interventional mediation)": reference/g_methods.md
       - "Proximal causal inference": reference/proximal.md

@@ -109,6 +109,61 @@ python -m pytest tests/external_parity/test_dml_python_parity.py -v
 
 ---
 
+## Rigorous Lasso (`sp.rlasso`, the `hdm` port)
+
+### Given that `hdm` already exists, why does `sp.rlasso` exist? How faithful is the port?
+
+`sp.rlasso` is **not** a re-derivation of rigorous Lasso — it is a deliberate,
+bit-level port of the R `hdm` package (Chernozhukov, Hansen & Spindler, *The R
+Journal* 8(2), 2016) into the same agent-native, one-import workspace as the
+rest of StatsPAI. The increment is the *interface and integration*, while the
+numerics are held to `hdm` exactly:
+
+- **One import, one result surface.** `sp.rlasso`, `sp.rlasso_effect`,
+  `sp.rlasso_effects`, `sp.rlasso_iv`, and `sp.rlassologit` sit behind `import
+  statspai as sp` and feed straight into `sp.dml` as nuisance learners
+  (`ml_g='rlasso'`), so the rigorous-penalty estimator and the DML assembly
+  share one validated implementation.
+- **Agent-native.** All of them are discoverable via `list_functions()` /
+  `describe_function()` / `function_schema()`, the same as every other
+  estimator.
+- **Faithful, not approximate.** An earlier from-memory reconstruction of
+  optimal-IV selection was ~17× off `hdm` on the eminent-domain application
+  because it used the *asymptotic* penalty and selected only instruments; that
+  path is deprecated. `sp.rlasso` ports the rigorous penalty, the
+  heteroskedastic loadings, the LassoShooting objective, and post-Lasso exactly.
+
+### Is the rigorous-Lasso port numerically correct?
+
+Yes, and it is pinned, not asserted. Because `hdm`'s penalty is data-driven
+(no cross-validation), its output is deterministic, so the fixtures are a hard
+contract (`hdm` 0.3.2 / R 4.5.2 / `glmnet` 4.1.10) — **29 parity tests, all
+passing**:
+
+| `hdm` surface | Agreement with `hdm` |
+| --- | --- |
+| `rlasso` coefficients / `λ₀` / loadings / residuals | ~1e-13; **selected support exact** |
+| `rlasso_effect` / `rlasso_effects` (α, SE) | ~1e-14 |
+| `rlasso_iv` eminent domain, `select_Z` (BCH 2012) | `coef 0.2274`, `SE 0.2466` (~1e-9) |
+| `rlassologit` selected support / `post` refit | support exact; `post` ~1e-9 |
+| `sp.dml(ml_g='rlasso', ml_m='rlasso')` end to end | matches R DoubleML `θ̂=1.44867`, `SE=0.04502` (machine precision) |
+| `hdm` vignette applications | Growth, AJR, and cps2012 coefficients pinned to `hdm` |
+
+The full numbers and the `hdm` ↔ StatsPAI function map are in
+[`docs/guides/rigorous_lasso_hdm.md`](guides/rigorous_lasso_hdm.md); the
+evidence dossier section is *Rigorous Lasso (`hdm`) Parity* in
+[`docs/joss_validation_dossier.md`](joss_validation_dossier.md).
+
+To reproduce (no R needed — the `hdm` reference is committed as JSON):
+
+```bash
+python -m pytest tests/reference_parity/test_rlasso_parity.py -v
+python -m pytest tests/reference_parity/test_rlassologit_parity.py -v
+python -m pytest tests/reference_parity/test_rlasso_vignette_parity.py -v
+```
+
+---
+
 ## Installation & dependencies
 
 ### Does the package install cleanly, and are heavy dependencies optional?
