@@ -17883,7 +17883,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "Default cgroup='notyet' and cgroup='nevertreated' are pinned against R etwfe / Stata jwdid simple ATT values on did::mpdta. The historical cohort-share summary remains available via etwfe_emfx(..., weighting='cohort')."
+      "Default cgroup='notyet' and cgroup='nevertreated' are pinned against R etwfe / Stata jwdid simple ATT values on did::mpdta. The historical cohort-share aggregation remains available via etwfe_emfx(..., weighting='cohort')."
     ],
     "validation_status": "api_stable"
   },

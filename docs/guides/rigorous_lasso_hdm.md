@@ -181,6 +181,15 @@ regimes), `tsls`, `rlassologit` (the logistic rigorous Lasso), and the
 data-driven `lambdaCalculation` for the homoskedastic and heteroskedastic
 (X-independent) penalties.
 
+### Not yet ported
+
+Not yet ported as separate `hdm`-named wrappers: `rlassoLATET` is covered
+through the IIVM score in `sp.dml(...)`, not exposed as its own
+`sp.rlasso_latet`; exact R RNG parity for
+`penalty={"X.dependent.lambda": True}` is also not claimed because StatsPAI
+does not reproduce R's Mersenne-Twister stream. These are documented scope
+boundaries rather than silent approximations.
+
 ### `sp.rlassologit` — the logistic rigorous Lasso
 
 `hdm::rlassologit` is the binary-outcome analogue of `rlasso`: its

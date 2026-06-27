@@ -5,8 +5,8 @@ These tests lock in the behaviour that callers rely on:
 
 1. ``sp.did_summary`` output matches the individual estimators called
    directly (no drift introduced by the dispatcher).
-2. ``sp.etwfe`` is numerically identical to ``sp.wooldridge_did`` when
-   ``xvar`` is not provided.
+2. ``sp.etwfe`` uses the R/Stata simple-ATT headline, while the historical
+   saturated TWFE helper remains available as ``sp.wooldridge_did``.
 3. ``sp.etwfe(..., xvar=...)`` returns an overall ATT numerically close
    (but not identical) to the plain etwfe under an uncorrelated xvar —
    a soft sanity bound, not a strict equality.
@@ -80,19 +80,23 @@ def test_did_summary_matches_bjs_direct(staggered_df):
 
 
 # ───────────────────────────────────────────────────────────────────────
-# 2. etwfe ≡ wooldridge_did when xvar is None (public alias)
+# 2. etwfe public headline vs historical saturated TWFE helper
 # ───────────────────────────────────────────────────────────────────────
 
 
-def test_etwfe_alias_matches_wooldridge_did(staggered_df):
+def test_etwfe_headline_uses_r_stata_simple_att_not_historical_alias(staggered_df):
     a = sp.etwfe(
         staggered_df, y="y", time="time", first_treat="first_treat", group="unit"
     )
     b = sp.wooldridge_did(
         staggered_df, y="y", time="time", first_treat="first_treat", group="unit"
     )
-    assert _isclose(a.estimate, b.estimate, tol=1e-10)
-    assert _isclose(a.se, b.se, tol=1e-10)
+    simple = sp.etwfe_emfx(a, type="simple")
+    assert _isclose(a.estimate, simple.estimate, tol=1e-10)
+    assert _isclose(a.se, simple.se, tol=1e-10)
+    assert not _isclose(a.estimate, b.estimate, tol=1e-6)
+    assert a.model_info["headline_aggregation"] == "emfx_simple"
+    assert a.model_info["headline_weighting"] == "treated_observations"
 
 
 # ───────────────────────────────────────────────────────────────────────
@@ -442,8 +446,9 @@ def test_etwfe_emfx_group_matches_fit_headline(staggered_df):
 
 
 def test_did_summary_plot_rejects_non_did_summary_result():
-    from statspai.core.results import CausalResult
     import matplotlib
+
+    from statspai.core.results import CausalResult
 
     matplotlib.use("Agg")
     bad = CausalResult(
@@ -538,7 +543,7 @@ def test_etwfe_panel_false_rank_deficient_warns(staggered_df):
 
 
 def test_etwfe_emfx_event_include_leads(staggered_df):
-    fit = sp.etwfe(
+    fit = sp.wooldridge_did(
         staggered_df, y="y", time="time", first_treat="first_treat", group="unit"
     )
     # Default: post-only (backward compatibility)

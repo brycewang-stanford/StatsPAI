@@ -11899,7 +11899,7 @@ _CERTIFIED_VARIANT_LIMITATIONS: Dict[str, Dict[str, List[str]]] = {
         "validation_notes": [
             "Default cgroup='notyet' and cgroup='nevertreated' are pinned "
             "against R etwfe / Stata jwdid simple ATT values on did::mpdta. "
-            "The historical cohort-share summary remains available via "
+            "The historical cohort-share aggregation remains available via "
             "etwfe_emfx(..., weighting='cohort').",
         ],
     },

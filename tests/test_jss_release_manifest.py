@@ -511,7 +511,7 @@ def test_validation_claim_lint_covers_release_notes() -> None:
     assert "docs/guides/agent_native_workflow.md" in payload["required_snippet_files"]
     assert payload["claim_counts"]["certified"] == 61
     assert payload["claim_counts"]["validated"] == 50
-    assert payload["claim_counts"]["api_stable"] == 1014
+    assert payload["claim_counts"]["api_stable"] == 1016
     assert payload["claim_counts"]["experimental"] == 3
 
 

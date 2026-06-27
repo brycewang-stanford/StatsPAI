@@ -510,7 +510,10 @@ def bibtex(keys: Union[str, Iterable[str]]) -> str:
     --------
     >>> import statspai as sp
     >>> entry = sp.bibtex("chernozhukov2016hdm")
-    >>> "Spindler" in entry and "10.32614/RJ-2016-040" in entry
+    >>> all(
+    ...     x in entry
+    ...     for x in ("Chernozhukov", "Hansen", "Spindler", "10.32614/RJ-2016-040")
+    ... )
     True
     """
     if isinstance(keys, str):
