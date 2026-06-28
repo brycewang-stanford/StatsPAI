@@ -283,11 +283,14 @@ jobs:
           ${{ runner.os }}-pip-pandas3-
           ${{ runner.os }}-pip-
 
-    - name: Install dependencies (pin pandas to the 3.x line)
+    - name: Install dependencies (pin pandas to the stable 3.x line)
       run: |
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
-        pip install --upgrade "pandas>=3,<4"
+        # pandas 3.0.4 wheels segfault / bus-error in pd.date_range on the
+        # Python 3.12 pandas3 lane. Keep the canary on pandas 3.x, but exclude
+        # that patch release until an upstream fixed 3.x wheel is available.
+        pip install --upgrade "pandas>=3,<4,!=3.0.4"
 
     - name: Confirm pandas 3.x is active
       run: |
