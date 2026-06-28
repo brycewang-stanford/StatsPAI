@@ -49,6 +49,22 @@ def test_active_manuscript_artifacts_have_generators_and_hash_guards() -> None:
     assert len(payload["active_sections"]) == 9
     assert payload["artifact_count"] == 6
     assert payload["hash_mismatches"] == 0
+    compact_coverage = payload["compact_section_coverage"]
+    assert compact_coverage["ok"] is True
+    assert compact_coverage["sections_checked"] == 9
+    assert compact_coverage["sections_passed"] == 9
+    assert compact_coverage["missing_anchor_count"] == 0
+    assert [row["section"] for row in compact_coverage["rows"]] == [
+        "sections/01-introduction-compact.tex",
+        "sections/02-architecture-compact.tex",
+        "sections/03-agent-facing-compact.tex",
+        "sections/04-examples-compact.tex",
+        "sections/05-parity-compact.tex",
+        "sections/06-performance.tex",
+        "sections/07-agent-eval.tex",
+        "sections/08-computational-details-compact.tex",
+        "sections/09-discussion-compact.tex",
+    ]
     assert {
         "Paper-JSS/manuscript/tables/track_a_cross_language_snapshot.tex",
         "Paper-JSS/manuscript/tables/track_c_perf.tex",

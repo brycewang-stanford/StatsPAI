@@ -55,6 +55,7 @@ def test_reproduction_environment_audit_guards_seeded_stochastic_outputs() -> No
     assert requirements["package_count"] >= 20
     assert {
         "pyarrow",
+        "pillow",
         "pytest",
         "pytest-cov",
         "rdrobust",
@@ -77,7 +78,7 @@ def test_reproduction_environment_audit_guards_seeded_stochastic_outputs() -> No
     } <= set(rng["stochastic_files"])
 
     md = (RESULTS / "reproduction_environment_audit.md").read_text()
-    assert "Python requirement packages: 22" in md
+    assert "Python requirement packages: 23" in md
     assert "Optional Pandoc Markdown export: True" in md
     assert "Tier-1 transcript states no R/Stata headline path: True" in md
     assert "Tier-1 live R/Stata dependency markers: 0" in md
