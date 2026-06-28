@@ -16,7 +16,7 @@ the exact audit artifacts under `Paper-JSS/replication/results/`.
 - PyPI: <https://pypi.org/project/StatsPAI/>
 - License: MIT, with a plain-text `LICENSE` file in the repository.
 - JSS source-snapshot package metadata version: `1.20.0`; the final-publication release gate remains pending until a clean tagged release snapshot is cut.
-- JSS source-snapshot audit date: 2026-05-31.
+- JSS source-snapshot audit date: 2026-06-28.
 - Public GitHub repository creation date: 2025-07-26.
 
 ## Software Scope

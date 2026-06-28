@@ -88,7 +88,7 @@ python Paper-JSS/replication/scripts/validation_evidence_audit.py
 
 `scripts/stability_audit.py --check` fails if any hand-written stable API entry lacks attached validation or API/unit-contract evidence. Auto-registered entries are reported separately because they represent breadth imported into the registry, not the validated numerical core defended in the JSS paper.
 
-The JSS packager also extracts Python source paths from registry evidence notes. The current submission manifest includes 134 such registry evidence files, and `Paper-JSS/replication/scripts/verify_submission_package.py` fails if any referenced evidence file is absent from the archive.
+The JSS packager also extracts Python source paths from registry evidence notes. The current submission manifest includes 152 such registry evidence files, and `Paper-JSS/replication/scripts/verify_submission_package.py` fails if any referenced evidence file is absent from the archive.
 
 Programmatic evidence summaries:
 
@@ -100,4 +100,4 @@ sp.parity_gap_report()
 
 `sp.parity_gap_report()` parses the already-generated 3-way parity table and reports documented convention gaps, missing Stata siblings, priorities, and next actions.
 
-*Last updated: JSS source-snapshot validation audit (2026-05-31).*
+*Last updated: JSS source-snapshot validation audit (2026-06-28).*
