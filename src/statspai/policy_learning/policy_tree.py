@@ -19,16 +19,18 @@ Athey, S. & Wager, S. (2021).
 Econometrica, 89(1), 133-161. [@athey2021matrix]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
+
+from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # sklearn is imported lazily inside the methods that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
 # file when the user never touches policy_tree.
 
-from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
 
 TreeNode = Dict[str, Any]
 
@@ -83,7 +85,7 @@ class PolicyTreeResult(dict):
     300
     >>> bool(0.0 <= res.fraction_treated <= 1.0)
     True
-    >>> "begin{table}" in res.to_latex()        # publication-ready LaTeX
+    >>> "begin{table}" in res.to_latex()        # LaTeX table output
     True
     """
 
@@ -167,8 +169,8 @@ class PolicyTreeResult(dict):
         Requires matplotlib.
         """
         try:
-            import matplotlib.pyplot as plt
             import matplotlib.patches as mpatches
+            import matplotlib.pyplot as plt
         except ImportError as e:  # pragma: no cover
             raise ImportError("matplotlib required for plot_tree()") from e
 
@@ -430,12 +432,24 @@ def policy_tree(
 
     Examples
     --------
+    >>> import numpy as np
+    >>> import pandas as pd
     >>> import statspai as sp
-    >>> result = sp.policy_tree(df, y='outcome', treat='treatment',
-    ...                         covariates=['x1', 'x2', 'x3'],
-    ...                         max_depth=2)
-    >>> print(result['rules'])
-    >>> print(f"Policy value gain: {result['value_gain']:.4f}")
+    >>> rng = np.random.default_rng(0)
+    >>> n = 120
+    >>> x1 = rng.normal(size=n)
+    >>> x2 = rng.normal(size=n)
+    >>> treatment = rng.integers(0, 2, n)
+    >>> outcome = 1 + 1.5 * (x1 > 0) * treatment + 0.3 * x2 + rng.normal(size=n)
+    >>> df = pd.DataFrame({"outcome": outcome, "treatment": treatment,
+    ...                    "x1": x1, "x2": x2})
+    >>> result = sp.policy_tree(df, y="outcome", treat="treatment",
+    ...                         covariates=["x1", "x2"], max_depth=2,
+    ...                         min_leaf_size=20, n_folds=3, random_state=0)
+    >>> isinstance(result, sp.PolicyTreeResult)
+    True
+    >>> bool(result["value_gain"] >= 0)
+    True
     """
     est = PolicyTree(
         data=data,
@@ -733,10 +747,8 @@ class PolicyTree:
         n: int,
     ) -> np.ndarray:
         """Compute AIPW doubly robust scores for treatment benefit."""
-        from sklearn.ensemble import (
-            GradientBoostingRegressor,
-            GradientBoostingClassifier,
-        )
+        from sklearn.ensemble import (GradientBoostingClassifier,
+                                      GradientBoostingRegressor)
         from sklearn.model_selection import KFold
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
