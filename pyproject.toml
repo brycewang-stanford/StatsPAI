@@ -73,7 +73,7 @@ dev = [
     "black",
     "isort",
     "flake8",
-    "mypy>=1.10,<2.0",
+    "mypy>=1.10,<3.0",
     "bandit",
     "sphinx",
     "sphinx-rtd-theme",
