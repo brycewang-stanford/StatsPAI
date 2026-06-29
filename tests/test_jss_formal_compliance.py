@@ -63,10 +63,13 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
     checks = {item["requirement"]: item for item in payload["checks"]}
 
     assert payload["status"] == "PASS"
-    assert payload["official_sources_checked"] == "2026-05-31"
-    assert len(payload["checks"]) == 16
+    assert payload["official_sources_checked"] == "2026-06-29"
+    assert len(payload["checks"]) == 23
     assert payload["page_count"] and payload["page_count"] < 30
     assert payload["archive_present"] in {True, False}
+    assert payload["pdf_text_chars"] > 0
+    assert payload["missing_pdf_boundary_snippets"] == []
+    assert payload["pdf_stale_prose_hits"] == []
     assert payload["tier1_transcript"]["passed"] == payload["tier1_transcript"]["total"]
     assert payload["tier1_transcript"]["total"] >= 20
     assert payload["tier1_transcript"]["within_one_hour"] is True
@@ -89,6 +92,9 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
     required = {
         "PDF manuscript in JSS LaTeX article style",
         "LaTeX build log is free of blocking layout/reference errors",
+        "PDF-visible validation/source/data/agent boundaries are present",
+        "PDF text is synchronized with polished manuscript prose",
+        "rendered PDF page-sample sanity check passes",
         "JSS markup macros and labelled floats are used",
         "source code is packaged for installation",
         "formatted package help/documentation files are included",
@@ -99,8 +105,12 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
         "short reviewer replication path completes within one hour",
         "existing implementations and comparative scope are discussed",
         "Monte Carlo content is framed as validation rather than a standalone simulation study",
+        "source-snapshot and final-release boundaries are explicit",
         "platform dependencies and RNG seeds are disclosed",
-        "active manuscript tables and figures map to generators",
+        "cover letter numeric summary is synchronized with generated audit artifacts",
+        "cover letter PDF visual-check boundary is explicit",
+        "cover letter related-review and conflict disclosures are explicit",
+        "active manuscript tables and figures map to generators and prose",
         "JSS attachment size and archive source set are bounded",
         "ASCII source/data contract is enforced inside the archive",
     }
@@ -112,7 +122,11 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
         assert checks[name]["ok"] is True
 
     md = (RESULTS / "jss_formal_compliance_audit.md").read_text()
-    assert "Official JSS pages checked: 2026-05-31" in md
+    assert "Official JSS pages checked: 2026-06-29" in md
+    assert "PDF-visible validation/source/data/agent boundaries are present" in md
+    assert "PDF text is synchronized with polished manuscript prose" in md
+    assert "stale_hits=[]" in md
+    assert "rendered PDF page-sample sanity check passes" in md
     assert "LaTeX build log is free of blocking layout/reference errors" in md
     assert "JSS markup macros and labelled floats are used" in md
     assert "caption_label_failures=[]" in md
@@ -130,16 +144,17 @@ def test_jss_formal_compliance_audit_maps_official_requirements() -> None:
         in md
     )
     assert "related-software table" in md
-    assert "StatsPAI advantages and disadvantages" in md
+    assert "StatsPAI contribution/boundary language" in md
     assert "missing_related_tokens=[]" in md
-    assert "active manuscript tables and figures map to generators" in md
+    assert "active manuscript tables and figures map to generators and prose" in md
 
     comparative = checks["existing implementations and comparative scope are discussed"]
     assert comparative["ok"] is True
     evidence = comparative["evidence"]
     for snippet in (
         "cross-ecosystem comparators",
-        "comparator strengths",
+        "reference-choice boundaries",
+        "empirical-comparison pointers",
         "non-supersession",
         "T3/T4/licensing",
         "missing_related_tokens=[]",
