@@ -747,8 +747,7 @@ class PolicyTree:
         n: int,
     ) -> np.ndarray:
         """Compute AIPW doubly robust scores for treatment benefit."""
-        from sklearn.ensemble import (GradientBoostingClassifier,
-                                      GradientBoostingRegressor)
+        from sklearn import ensemble
         from sklearn.model_selection import KFold
 
         kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
@@ -765,10 +764,10 @@ class PolicyTree:
             mask1 = D_tr == 1
             mask0 = D_tr == 0
 
-            m1 = GradientBoostingRegressor(
+            m1 = ensemble.GradientBoostingRegressor(
                 n_estimators=100, max_depth=3, random_state=self.random_state
             )
-            m0 = GradientBoostingRegressor(
+            m0 = ensemble.GradientBoostingRegressor(
                 n_estimators=100, max_depth=3, random_state=self.random_state
             )
 
@@ -780,7 +779,7 @@ class PolicyTree:
                 mu0_hat[test_idx] = m0.predict(W_te)
 
             # Propensity
-            prop = GradientBoostingClassifier(
+            prop = ensemble.GradientBoostingClassifier(
                 n_estimators=100, max_depth=3, random_state=self.random_state
             )
             prop.fit(W_tr, D_tr)
