@@ -102,7 +102,22 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [-r, src/]
+        # ``--severity-level medium`` mirrors the canonical CI gate
+        # (ci-cd.yml: ``bandit -r src/ -f json --severity-level medium``).
+        # Without it the hook gated on bandit's ~345 LOW findings (asserts,
+        # try/except/pass, subprocess) — pre-existing noise that CI itself does
+        # NOT block on, so the un-gated hook was STRICTER than CI and aborted
+        # every commit. Keep medium+ as the real gate; let LOW stay advisory.
+        #
+        # ``pass_filenames: false`` is REQUIRED here: ``-r src/`` already
+        # declares a full recursive scan, so the staged-file list pre-commit
+        # would otherwise append is redundant — and with an option in front of
+        # it (``--severity-level medium``) argparse splits the ``targets``
+        # positional and rejects the trailing files ("unrecognized arguments").
+        # Dropping the filename list runs exactly ``bandit -r src/
+        # --severity-level medium``, identical to CI.
+        args: [-r, src/, --severity-level, medium]
+        pass_filenames: false
         exclude: ^tests/
         stages: [pre-commit]
 
