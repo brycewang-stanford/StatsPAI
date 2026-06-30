@@ -712,6 +712,11 @@
           ],
           "type": "string"
         },
+        "manipulation_test": {
+          "default": true,
+          "description": "Run a McCrary density test for sorting at the cutoff; stores model_info['mccrary']['pvalue'] and warns + flags result.violations() when p<0.05. Disable for placebo-cutoff loops.",
+          "type": "boolean"
+        },
         "n_boot": {
           "default": 999,
           "description": "Number of bootstrap draws when bootstrap='rbc'",
