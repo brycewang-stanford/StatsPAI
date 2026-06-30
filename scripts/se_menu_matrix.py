@@ -127,13 +127,21 @@ MATRIX: Dict[str, Dict[str, str]] = {
         "conley": "standalone",
         "jackknife": "standalone",
     },
-    "ivreg": {  # IV — standalone SE helpers refit plain OLS, dropping 2nd stage
+    "ivreg": {  # IV
         "classical": "native",
         "hc_robust": "native",
         "cluster": "native",
+        # Native `ivreg(vce="wild", cluster=...)` runs the WRE wild cluster
+        # bootstrap (Davidson-MacKinnon 2010) — the IV-correct bootstrap that
+        # resamples both equations. Externally validated against Stata
+        # `boottest` after `ivreg2`: matches the WRE p-value across strong-IV
+        # (0.2016 vs 0.20155) and weak-IV (0.3415 vs 0.3412) regimes, and the
+        # weak-IV case rules out the naive (non-efficient) variant.
+        "wild_cluster_boot": "native",
+        # The remaining cells stay unsafe: the OLS standalone helpers refit
+        # plain OLS and silently drop the IV two-stage structure.
         "twoway": "standalone_unsafe",
         "cr2_cr3": "standalone_unsafe",
-        "wild_cluster_boot": "standalone_unsafe",
         "conley": "standalone_unsafe",
         "jackknife": "standalone_unsafe",
     },

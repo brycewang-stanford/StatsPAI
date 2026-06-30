@@ -48,15 +48,15 @@ def test_status_counts_consistent() -> None:
 
 
 def test_native_wild_boot_estimators() -> None:
-    """Native + correct wild cluster bootstrap lives on the two within-paths:
-    the panel ``hdfe_ols`` and the pyfixest ``feols`` (the latter via
-    ``vce="wild"``, externally validated against Stata ``boottest``)."""
+    """Native + correct wild cluster bootstrap, all externally validated against
+    Stata ``boottest``: the panel ``hdfe_ols``, the pyfixest ``feols``
+    (``vce="wild"``), and ``ivreg`` (``vce="wild"`` → WRE bootstrap)."""
     from se_menu_matrix import MATRIX, _cell  # type: ignore
 
     native_wild = sorted(
         est for est in MATRIX if _cell(est, "wild_cluster_boot") == "native"
     )
-    assert native_wild == ["feols", "hdfe_ols"], native_wild
+    assert native_wild == ["feols", "hdfe_ols", "ivreg"], native_wild
 
 
 def test_ratchet_holds() -> None:

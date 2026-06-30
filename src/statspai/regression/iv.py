@@ -1196,6 +1196,30 @@ class IVRegression(BaseModel):
             "residuals": results["residuals"],
         }
 
+        # Store the 2SLS structure under a dedicated ``iv`` namespace so the
+        # IV-aware wild bootstrap (WRE) can refit the two-stage model without
+        # re-parsing the formula. Deliberately NOT under the OLS keys
+        # ("X"/"y"/"var_names"): those would make the plain-OLS standalone SE
+        # helpers (cr2_se / wild_cluster_boot) operate on the structural design
+        # as if it were OLS, which is wrong for IV. The IV path must use the WRE
+        # bootstrap, which reads this namespace instead.
+        if method in ("2sls", "liml", "fuller"):
+            data_info["iv"] = {
+                "y": np.asarray(y_fit, dtype=float),
+                "X": np.column_stack(
+                    [X_exog_fit, X_endog_fit]
+                ),  # structural design [exog | endog]
+                "W": np.column_stack(
+                    [X_exog_fit, Z_fit]
+                ),  # full instruments [exog | excluded]
+                "exog_names": list(self._exog_names),
+                "endog_names": list(self._endog_names),
+                "var_names": list(self._exog_names) + list(self._endog_names),
+                "n_exog": X_exog_fit.shape[1],
+                "n_endog": X_endog_fit.shape[1],
+                "kappa": float(results.get("kappa", 1.0)),
+            }
+
         # Build diagnostics dict
         diagnostics = {
             "R-squared": results["r_squared"],
@@ -1844,11 +1868,20 @@ def iv(
 # ====================================================================== #
 
 
+#: vce sentinels (case-insensitive) selecting the IV wild cluster bootstrap.
+_IV_WILD_VCOV = frozenset({"wild", "wildbootstrap", "wild_cluster", "wre", "boottest"})
+
+
 def ivreg(
     formula: str,
     data: pd.DataFrame,
     robust: str = "nonrobust",
     cluster: Optional[str] = None,
+    *,
+    vce: Optional[str] = None,
+    wild_reps: int = 999,
+    wild_weight_type: str = "rademacher",
+    seed: Optional[int] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1865,6 +1898,13 @@ def ivreg(
     data : pd.DataFrame
     robust : str, default 'nonrobust'
     cluster : str, optional
+    vce : str, optional
+        Set ``vce="wild"`` (with ``cluster=``) to run the WRE wild cluster
+        bootstrap (Davidson-MacKinnon 2010) on the endogenous coefficient —
+        pinned to Stata ``boottest`` after ``ivreg2``. Otherwise ``vce`` is the
+        canonical alias for ``robust``.
+    wild_reps, wild_weight_type, seed
+        Controls for the ``vce="wild"`` path.
 
     Returns
     -------
@@ -1888,5 +1928,65 @@ def ivreg(
     >>> # Preferred modern entry point:
     >>> result = sp.iv("y ~ (x ~ z)", data=df, method='2sls')
     """
+    # Resolve the canonical `vce` alias; intercept the wild sentinel.
+    se_kw = vce if vce is not None else robust
+    if isinstance(se_kw, str) and se_kw.lower() in _IV_WILD_VCOV:
+        if cluster is None:
+            from statspai.exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "ivreg(vce='wild') requires cluster=... — the wild *cluster* "
+                "bootstrap resamples residuals within clusters."
+            )
+        base = iv(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=cluster,
+            method="2sls",
+            **kwargs,
+        )
+        from statspai.inference.iv_wild import iv_wild_bootstrap
+
+        endog_name = base.data_info["iv"]["endog_names"][0]
+        out = iv_wild_bootstrap(
+            base,
+            data,
+            cluster=cluster,
+            variable=endog_name,
+            n_boot=wild_reps,
+            weight_type=wild_weight_type,
+            seed=seed,
+        )
+        # Attach the WRE inference to the endogenous coefficient; exogenous
+        # coefficients retain their 2SLS cluster-robust inference.
+        base.std_errors[endog_name] = out["se_cluster"]
+        # ``pvalues`` may be a plain ndarray on the IV result — rebuild as a
+        # name-indexed Series so the endogenous entry can be overridden while
+        # the exogenous 2SLS p-values are preserved.
+        old_p = np.asarray(
+            getattr(base, "pvalues", np.full(len(base.params), np.nan)), dtype=float
+        ).ravel()
+        if old_p.shape[0] == len(base.params):
+            pvals = pd.Series(old_p, index=base.params.index)
+        else:
+            pvals = pd.Series(np.nan, index=base.params.index, dtype=float)
+        pvals[endog_name] = out["p_boot"]
+        base.pvalues = pvals
+        base.conf_int_lower = pd.Series(np.nan, index=base.params.index, dtype=float)
+        base.conf_int_upper = pd.Series(np.nan, index=base.params.index, dtype=float)
+        base.conf_int_lower[endog_name], base.conf_int_upper[endog_name] = out[
+            "ci_boot"
+        ]
+        base.model_info = dict(base.model_info)
+        base.model_info["vcov_type"] = (
+            "WRE wild cluster bootstrap (Davidson-MacKinnon 2010, "
+            f"{wild_reps} reps, {wild_weight_type}; endogenous coefficient)"
+        )
+        base.model_info["wild_endogenous"] = endog_name
+        base.model_info["n_boot"] = wild_reps
+        base.model_info["cluster"] = cluster
+        return base
+
     kwargs.setdefault("method", "2sls")
-    return iv(formula=formula, data=data, robust=robust, cluster=cluster, **kwargs)
+    return iv(formula=formula, data=data, robust=se_kw, cluster=cluster, **kwargs)

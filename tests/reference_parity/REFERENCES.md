@@ -704,3 +704,26 @@ coef=0.06576571, CRV1 SE=0.02719398 (both match reghdfe to ~1e-9), wild
 p=0.026530 (vs boottest's exact 0.026306 — Monte-Carlo agreement). The data
 generator is inlined in the test so the pinned Stata values apply without
 R/Stata in CI.
+
+## ivreg(vce="wild") vs Stata ivreg2 + boottest (WRE)
+
+`tests/reference_parity/test_iv_wild_boottest_parity.py` pins
+`sp.ivreg(vce="wild")` — the WRE (wild restricted efficient) bootstrap of
+Davidson-MacKinnon (2010) — to Stata `boottest` after `ivreg2`. Produced with
+Stata 18 MP, `ivreg2` 04.1.12, `boottest` 4.5.3:
+
+```stata
+* strong instruments (F~284), 600 obs / 20 clusters
+ivreg2 y w (d = z1 z2), cluster(firm)        // _b[d]=.07075778
+boottest d, reps(99999) weighttype(rademacher) nograph   // r(p)=.20155202
+
+* weak instruments (F~4), 400 obs / 16 clusters  (discriminates efficient RF)
+ivreg2 y (d = z1), cluster(firm)             // _b[d]=.19650046
+boottest d, reps(99999) weighttype(rademacher) nograph   // r(p)=.34120178
+```
+
+StatsPAI `ivreg(vce="wild", cluster="firm", wild_reps=99999)`: coef matches
+ivreg2 to ~1e-9; the WRE p-value matches boottest to Monte-Carlo error
+(strong 0.2016 vs 0.20155; weak 0.3415 vs 0.3412). The weak-IV panel selects
+the *efficient* reduced form (the naive variant gives 0.426), confirming the
+implementation matches boottest's WRE rather than a simpler approximation.
