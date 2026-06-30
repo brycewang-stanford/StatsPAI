@@ -98,6 +98,21 @@ def test_econometric_result_method_present():
         ("fe", "fe"),
         ("feols", "fe"),
         ("within", "fe"),
+        # Distributional / mediation / identification additions
+        ("qte", "qte"),
+        ("quantile_treatment_effect", "qte"),
+        ("mediation", "mediation"),
+        ("mediate", "mediation"),
+        ("front_door", "front_door"),
+        ("frontdoor", "front_door"),
+        ("g_computation", "g_computation"),
+        ("standardization", "g_computation"),
+        ("manski_bounds", "manski_bounds"),
+        ("continuous_did", "continuous_did"),
+        ("bartik", "bartik"),
+        ("shift_share", "bartik"),
+        ("proximal", "proximal"),
+        ("pci", "proximal"),
     ],
 )
 def test_resolution(method, expect_key):
@@ -118,6 +133,8 @@ def test_short_alias_no_false_positive():
     assert _resolve_spec(_causal("some_obscure_method")) is None
     # "iv" must not fire on the "iv" inside "derivative".
     assert _resolve_spec(_causal("derivative_estimator")) is None
+    # Horowitz-Manski bounds must NOT collapse onto the Manski worst-case spec.
+    assert _resolve_spec(_causal("horowitz_manski")) is None
 
 
 # --------------------------------------------------------------------------

@@ -95,8 +95,9 @@ class MethodSpec:
 # ---------------------------------------------------------------------------
 #  Curated methods table — core causal estimators (DiD family, RD, IV, SCM,
 #  matching/weighting, DML/TMLE, event-study, DDD, gsynth, imputation DiD,
-#  CiC, LP-DiD) plus the common regression families (OLS, Poisson, logit,
-#  probit, panel fixed effects).
+#  CiC, LP-DiD, QTE, mediation, front-door, g-computation, Manski bounds,
+#  continuous-treatment DiD, Bartik/shift-share, proximal) plus the common
+#  regression families (OLS, Poisson, logit, probit, panel fixed effects).
 #
 #  Every formula is a standard definition from the primary source cited via
 #  result.cite(); see module docstring. SE math is intentionally omitted and
@@ -732,6 +733,206 @@ _SPECS: List[MethodSpec] = [
             "lsdv",
             "twfe_ols",
         ],
+    ),
+    MethodSpec(
+        key="qte",
+        name="Quantile Treatment Effects",
+        estimand_latex=r"\tau(u) = F^{-1}_{Y(1)}(u) - F^{-1}_{Y(0)}(u)",
+        estimator_latex=(
+            r"\hat F_{Y(d)}(y) = \sum_i \omega_i^{d}\,\mathbf{1}\{Y_i \le y\};"
+            r"\quad \hat\tau(u) = \hat F^{-1}_{Y(1)}(u) - \hat F^{-1}_{Y(0)}(u)"
+        ),
+        prose=(
+            "Estimates the gap between the marginal outcome quantiles under "
+            "treatment and control. Under unconfoundedness, Firpo's "
+            "propensity-weighted estimator reweights each arm to recover the "
+            "counterfactual quantile functions. Note this is a quantile of the "
+            "two marginals, not of the individual effect (unless rank invariance "
+            "holds)."
+        ),
+        assumptions=[
+            "Unconfoundedness and overlap (for the weighting estimator).",
+            "Rank invariance if a per-unit effect interpretation is desired.",
+        ],
+        aliases=[
+            "quantile_treatment_effect",
+            "qtet",
+            "qte_hd_panel",
+            "firpo_qte",
+        ],
+    ),
+    MethodSpec(
+        key="mediation",
+        name="Causal Mediation (Natural Direct/Indirect Effects)",
+        estimand_latex=(
+            r"\mathrm{NDE} = \mathbb{E}[Y(1,M(0)) - Y(0,M(0))],\quad "
+            r"\mathrm{NIE} = \mathbb{E}[Y(1,M(1)) - Y(1,M(0))]"
+        ),
+        estimator_latex=(
+            r"\mathbb{E}[Y(t,M(t'))] = "
+            r"\int \mathbb{E}[Y\mid t,m,X]\,dP(m\mid t',X)\,dP(X)"
+        ),
+        prose=(
+            "Decomposes a total effect into the part transmitted through a "
+            "mediator (natural indirect effect) and the part that is not "
+            "(natural direct effect), via the mediation formula that integrates "
+            "the outcome model over the mediator's conditional distribution."
+        ),
+        assumptions=[
+            "No unmeasured treatment-outcome confounding.",
+            "No unmeasured treatment-mediator confounding.",
+            "No unmeasured mediator-outcome confounding.",
+            "No mediator-outcome confounder is itself affected by treatment.",
+        ],
+        aliases=[
+            "mediate",
+            "natural_effects",
+            "causal_mediation",
+            "mediation_decompose",
+            "mediate_interventional",
+            "nde_nie",
+        ],
+    ),
+    MethodSpec(
+        key="front_door",
+        name="Front-Door Adjustment",
+        estimand_latex=r"\Pr(Y \mid \mathrm{do}(T=t))",
+        estimator_latex=(
+            r"\Pr(Y \mid \mathrm{do}(t)) = "
+            r"\sum_m \Pr(m\mid t)\sum_{t'} \Pr(Y\mid m,t')\,\Pr(t')"
+        ),
+        prose=(
+            "Identifies a causal effect through a fully-mediating variable M "
+            "when the treatment-outcome back-door is confounded but the "
+            "treatment-mediator and mediator-outcome links are not (Pearl's "
+            "front-door criterion)."
+        ),
+        assumptions=[
+            "M intercepts all directed paths from T to Y.",
+            "No unconfounded treatment-mediator relationship.",
+            "No unobserved mediator-outcome confounding given T.",
+        ],
+        aliases=["frontdoor", "front_door_adjustment", "pearl_frontdoor"],
+    ),
+    MethodSpec(
+        key="g_computation",
+        name="G-Computation (Standardization)",
+        estimand_latex=r"\tau_{\mathrm{ATE}} = \mathbb{E}[Y(1) - Y(0)]",
+        estimator_latex=(
+            r"\hat\tau = \frac{1}{N}\sum_i" r"\big(\hat\mu(1,X_i) - \hat\mu(0,X_i)\big)"
+        ),
+        prose=(
+            "Fits an outcome model mu(t,X) = E[Y | T=t, X] and averages its "
+            "predicted treated-minus-control contrast over the empirical "
+            "covariate distribution (the parametric g-formula / "
+            "standardization)."
+        ),
+        assumptions=[
+            "Unconfoundedness given X.",
+            "Overlap: 0 < e(X) < 1.",
+            "Correctly specified outcome model.",
+        ],
+        aliases=[
+            "gcomputation",
+            "g_formula",
+            "standardization",
+            "g_comp",
+            "parametric_g_formula",
+        ],
+    ),
+    MethodSpec(
+        key="manski_bounds",
+        name="Worst-Case (Manski) Bounds",
+        estimand_latex=r"\tau_{\mathrm{ATE}} \in [\underline{\tau},\ \overline{\tau}]",
+        estimator_latex=(
+            r"\mathbb{E}[Y(1)] \in \big[\,"
+            r"\mathbb{E}[Y\mid D{=}1]\Pr(D{=}1) + y_{\min}\Pr(D{=}0),\; "
+            r"\mathbb{E}[Y\mid D{=}1]\Pr(D{=}1) + y_{\max}\Pr(D{=}0)\,\big]"
+        ),
+        prose=(
+            "The no-assumption worst-case bounds on a potential-outcome mean: "
+            "the observed values for the observed arm and the full outcome "
+            "support for the counterfactual arm. The ATE bounds combine the "
+            "bounds on E[Y(1)] and E[Y(0)] (Manski)."
+        ),
+        assumptions=[
+            "Bounded outcome support [y_min, y_max].",
+            "No further identifying assumptions (the point of partial "
+            "identification).",
+        ],
+        aliases=["worst_case_bounds", "no_assumption_bounds", "manski_worst_case"],
+    ),
+    MethodSpec(
+        key="continuous_did",
+        name="Continuous-Treatment DiD (Dose-Response)",
+        estimand_latex=r"\mathrm{ATT}(d\mid d) = \mathbb{E}[Y(d) - Y(0)\mid D=d]",
+        estimator_latex=(
+            r"\widehat{\mathrm{ATT}}(d\mid d) = "
+            r"\mathbb{E}[\Delta Y\mid D=d] - \mathbb{E}[\Delta Y\mid D=0]"
+        ),
+        prose=(
+            "Extends staggered DiD to a continuous (dose) treatment, identifying "
+            "dose-specific level effects ATT(d|d) and the average causal "
+            "response by comparing the outcome change of units receiving dose d "
+            "against untreated units (Callaway, Goodman-Bacon & Sant'Anna). "
+            "Requires a stronger parallel-trends condition holding across all "
+            "doses."
+        ),
+        assumptions=[
+            "Strong parallel trends across the full dose distribution.",
+            "No anticipation.",
+            "Correct handling of TWFE dose-heterogeneity bias.",
+        ],
+        aliases=["continuous_treatment_did", "dose_did", "cont_did", "cgs_did"],
+    ),
+    MethodSpec(
+        key="bartik",
+        name="Bartik / Shift-Share Instrument",
+        estimand_latex=r"\beta\;\;(\text{2SLS coefficient instrumented by } B_i)",
+        estimator_latex=(
+            r"B_i = \sum_k z_{ik}\,g_k\;\;(\text{shares}\times\text{shocks});"
+            r"\quad \hat\beta = \text{2SLS of } Y \text{ on } X \text{ using } B_i"
+        ),
+        prose=(
+            "A shift-share instrument formed by interacting local exposure "
+            "shares z_ik (e.g. industry composition) with common shocks g_k "
+            "(e.g. national growth), then used to instrument the endogenous "
+            "regressor. Identification rests either on exogenous shares "
+            "(Goldsmith-Pinkham, Sorkin & Swift) or exogenous shocks (Borusyak, "
+            "Hull & Jaravel)."
+        ),
+        assumptions=[
+            "Instrument relevance (non-zero first stage).",
+            "Exogeneity of the shares OR of the shocks (the two routes).",
+        ],
+        aliases=[
+            "shift_share",
+            "shift_share_iv",
+            "bartik_instrument",
+            "goldsmith_pinkham",
+        ],
+    ),
+    MethodSpec(
+        key="proximal",
+        name="Proximal Causal Inference",
+        estimand_latex=r"\tau_{\mathrm{ATE}} = \mathbb{E}[Y(1) - Y(0)]",
+        estimator_latex=(
+            r"\mathbb{E}[Y - h(W,A,X)\mid Z,A,X] = 0;\quad "
+            r"\hat\tau = \mathbb{E}[h(W,1,X) - h(W,0,X)]"
+        ),
+        prose=(
+            "Identifies causal effects under unmeasured confounding using a "
+            "pair of negative-control proxies — a treatment-inducing proxy Z "
+            "and an outcome-inducing proxy W — by solving for an outcome "
+            "confounding bridge function h (Miao, Geng & Tchetgen Tchetgen; "
+            "Cui et al.)."
+        ),
+        assumptions=[
+            "Valid negative-control proxies (proxy independence conditions).",
+            "Completeness / relevance of the proxies for the confounder.",
+            "Overlap.",
+        ],
+        aliases=["proximal_causal", "negative_controls", "pci", "bridge_function"],
     ),
 ]
 
