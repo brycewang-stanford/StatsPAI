@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.5.0-frontier2"
+corpus_version: "0.6.0-rdfuzzy"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -368,7 +368,7 @@ entries:
     data:
       tier: B
       loader: "sp.dgp_rd(n=1500, fuzzy=True, cutoff=0.0, seed=13)"
-      args: {y: y, running_var: x, cutoff: 0.0}
+      args: {y: y, running_var: x, cutoff: 0.0, treatment: treatment}
     ground_truth:
       estimator:
         primary: rdrobust

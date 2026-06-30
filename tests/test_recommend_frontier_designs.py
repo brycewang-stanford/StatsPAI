@@ -5,6 +5,7 @@ triple-difference (DDD), shift-share/Bartik IV, and decomposition — now route
 to the already-shipping estimators when the design is declared. Each must
 produce the right top-1 recommendation.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -49,6 +50,18 @@ def test_frontier_design_routes_to_estimator(df, design, kwargs, needle):
     assert rec.recommendations, f"{design}: no recommendation produced"
     top1 = rec.recommendations[0]["method"].lower()
     assert needle in top1, f"{design}: top-1 was {top1!r}"
+
+
+def test_rd_sharp_vs_fuzzy_autodetection():
+    """High-confidence RD refinement: a deterministic step at the cutoff is
+    sharp; a treatment-probability jump is fuzzy. Only refines a detected RD."""
+    fuzzy = sp.dgp_rd(n=1500, fuzzy=True, cutoff=0.0, seed=13)
+    rf = sp.recommend(fuzzy, y="y", running_var="x", cutoff=0.0, treatment="treatment")
+    assert "fuzzy" in rf.recommendations[0]["method"].lower()
+    sharp = sp.dgp_rd(n=1500, fuzzy=False, cutoff=0.0, seed=9)
+    rs = sp.recommend(sharp, y="y", running_var="x", cutoff=0.0, treatment="treatment")
+    assert "fuzzy" not in rs.recommendations[0]["method"].lower()
+    assert "rd" in rs.recommendations[0]["method"].lower()
 
 
 def test_frontier_does_not_regress_core_designs(df):

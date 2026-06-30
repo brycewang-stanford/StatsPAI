@@ -100,10 +100,13 @@ adversarial corpus (neither is a hit-rate miss; both are refinements):
    quarter-of-birth dummies, or `dgp_iv(n_instruments=3)` →
    `instrument_1..3`) cannot be expressed end-to-end, and the engine never
    prompts the Hansen-J over-identification test on its own.
-2. **Fuzzy vs sharp RD.** `recommend` returns `rdrobust` for both fuzzy and
-   sharp RD without distinguishing them; a fuzzy design is IV-at-the-cutoff and
-   the referee's extra ask (first-stage compliance jump / fuzzy estimand) is
-   not surfaced.
+2. **Fuzzy vs sharp RD.** ✅ **FIXED** — the RD branch now auto-detects
+   sharp vs fuzzy: when a treatment column is supplied and is (nearly) a
+   deterministic step at the cutoff it is sharp; otherwise the treatment
+   *probability* jumps → fuzzy RD (`rdrobust(..., fuzzy=treatment)`) with the
+   first-stage compliance check surfaced. High-confidence and safe — it only
+   refines an already-detected RD. Locked by
+   `tests/test_recommend_frontier_designs.py::test_rd_sharp_vs_fuzzy_autodetection`.
 
 **Evidence.** Scorecard rows `trap_weak_instrument` (single instrument only),
 `archetype_strong_instrument`, `trap_fuzzy_rd` (detected `rd`, top-1

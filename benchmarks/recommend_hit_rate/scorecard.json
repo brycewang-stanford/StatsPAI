@@ -1,5 +1,5 @@
 {
-  "corpus_version": "0.5.0-frontier2",
+  "corpus_version": "0.6.0-rdfuzzy",
   "statspai_version": "1.20.0",
   "n_entries": 23,
   "n_core": 17,
@@ -410,7 +410,7 @@
       "status": "HIT",
       "detected_design": "rd",
       "ranked_labels": [
-        "Local polynomial RD (CCT 2014)"
+        "Fuzzy RD (local polynomial, CCT 2014)"
       ],
       "ranked_tags": [
         "local_polynomial_rd"

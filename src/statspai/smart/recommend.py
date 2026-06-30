@@ -872,20 +872,61 @@ def recommend(
     elif design == "rd":
         rv = running_var or "running_var"
         cutoff_value = cutoff or 0
-        recommendations.append(
-            {
-                "method": "Local polynomial RD (CCT 2014)",
-                "function": "rdrobust",
-                "reason": "Sharp/fuzzy RD with MSE-optimal bandwidth and bias correction.",
-                "assumptions": [
-                    "Continuity of potential outcomes at cutoff",
-                    "No manipulation of running variable",
-                ],
-                "robustness": "Run sp.rddensity(), sp.rdbwsensitivity(), sp.rdplacebo()",
-                "code": f"sp.rdrobust(df, y='{y}', x='{rv}', c={cutoff_value})",
-                "params": {"data": data, "y": y, "x": rv, "c": cutoff_value},
-            }
-        )
+        # High-confidence sharp-vs-fuzzy auto-detection: if a treatment column
+        # is given and is (nearly) a deterministic step at the cutoff, it is a
+        # SHARP RD; otherwise the treatment *probability* jumps → FUZZY RD
+        # (identified like IV at the cutoff), which needs a first-stage
+        # compliance check. Safe by construction — it only refines an already
+        # detected RD, so there is no false-positive risk on non-RD designs.
+        _fuzzy = False
+        if treatment and treatment in data.columns and rv in data.columns:
+            try:
+                _above = (data[rv] >= cutoff_value).astype(int)
+                _match = float((data[treatment] == _above).mean())
+                _fuzzy = _match < 0.95  # not a clean step → fuzzy
+            except (KeyError, TypeError, ValueError):
+                _fuzzy = False
+        if _fuzzy:
+            recommendations.append(
+                {
+                    "method": "Fuzzy RD (local polynomial, CCT 2014)",
+                    "function": "rdrobust",
+                    "reason": "Treatment probability (not treatment itself) jumps "
+                    "at the cutoff — a fuzzy RD, identified like IV at the cutoff.",
+                    "assumptions": [
+                        "Continuity of potential outcomes at cutoff",
+                        "No manipulation of the running variable",
+                        "First-stage compliance jump (monotonicity)",
+                    ],
+                    "robustness": "Check the first-stage compliance jump (a weak "
+                    "jump = weak IV at the cutoff); sp.rddensity(), "
+                    "sp.rdbwsensitivity(), sp.rdplacebo().",
+                    "code": f"sp.rdrobust(df, y='{y}', x='{rv}', c={cutoff_value}, "
+                    f"fuzzy='{treatment}')",
+                    "params": {
+                        "data": data,
+                        "y": y,
+                        "x": rv,
+                        "c": cutoff_value,
+                        "fuzzy": treatment,
+                    },
+                }
+            )
+        else:
+            recommendations.append(
+                {
+                    "method": "Local polynomial RD (CCT 2014)",
+                    "function": "rdrobust",
+                    "reason": "Sharp RD with MSE-optimal bandwidth and bias correction.",
+                    "assumptions": [
+                        "Continuity of potential outcomes at cutoff",
+                        "No manipulation of running variable",
+                    ],
+                    "robustness": "Run sp.rddensity(), sp.rdbwsensitivity(), sp.rdplacebo()",
+                    "code": f"sp.rdrobust(df, y='{y}', x='{rv}', c={cutoff_value})",
+                    "params": {"data": data, "y": y, "x": rv, "c": cutoff_value},
+                }
+            )
 
     elif design == "iv":
         z = instrument or "instrument"
