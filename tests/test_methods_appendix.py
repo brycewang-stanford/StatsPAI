@@ -79,6 +79,25 @@ def test_econometric_result_method_present():
         ("callaway_santanna", "callaway_santanna"),
         ("sun_abraham", "sun_abraham"),
         ("drdid", "drdid"),
+        # Expanded causal table
+        ("event_study", "event_study"),
+        ("ddd", "ddd"),
+        ("gsynth", "gsynth"),
+        ("generalized_synthetic_control", "gsynth"),
+        ("did_imputation", "did_imputation"),
+        ("bjs", "did_imputation"),
+        ("cic", "cic"),
+        ("lp_did", "lp_did"),
+        # Regression families
+        ("ols", "ols"),
+        ("regress", "ols"),
+        ("poisson", "poisson"),
+        ("fepois", "poisson"),
+        ("logit", "logit"),
+        ("probit", "probit"),
+        ("fe", "fe"),
+        ("feols", "fe"),
+        ("within", "fe"),
     ],
 )
 def test_resolution(method, expect_key):
@@ -272,10 +291,19 @@ def test_econ_iv_resolves_to_iv_spec():
     assert "robust" in out  # inference read from model_info
 
 
-def test_econ_ols_degrades_gracefully():
+def test_econ_ols_resolves_to_ols_spec():
     r = _econ({"model_type": "ols", "se_method": "HC1"})
     out = r.to_appendix(format="text")
-    # OLS isn't in the causal methods table -> placeholder, never invented math.
+    assert "Ordinary Least Squares" in out
+    assert "(X'X)^{-1}" in out  # OLS normal-equations estimator
+    assert "HC1" in out  # inference read from model_info
+    assert "Produced by StatsPAI" in out  # provenance present
+
+
+def test_econ_unregistered_model_degrades_gracefully():
+    r = _econ({"model_type": "some_exotic_glm", "se_method": "HC1"})
+    out = r.to_appendix(format="text")
+    # Genuinely unregistered -> placeholder, never invented math.
     assert "not yet registered" in out
     assert "HC1" in out  # inference still reported
     assert "Produced by StatsPAI" in out  # provenance still present
