@@ -33128,7 +33128,7 @@
     }
   },
   {
-    "description": "Parametric survival model (AFT parameterization).",
+    "description": "Parametric survival model (AFT parameterization). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "survreg",
     "parameters": {
       "properties": {
@@ -37124,6 +37124,25 @@
           "default": 15.0,
           "description": "Wall-clock budget per verification run.",
           "type": "number"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Score ``sp.recommend`` / ``sp.audit`` against the ground-truth corpus.",
+    "name": "recommend_benchmark",
+    "parameters": {
+      "properties": {
+        "corpus_path": {
+          "description": "Path to an alternative corpus YAML. Defaults to the bundled corpus.",
+          "type": "string"
+        },
+        "fit": {
+          "default": true,
+          "description": "Also run the dynamic audit pass (fit each top-1 estimator and run ``sp.audit`` on the result). Set ``False`` for a faster recommend-only run.",
+          "type": "boolean"
         }
       },
       "required": [],
@@ -43837,7 +43856,7 @@
     }
   },
   {
-    "description": "Fit an Accelerated Failure Time model by MLE.",
+    "description": "Fit an Accelerated Failure Time model by MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "aft",
     "parameters": {
       "properties": {
