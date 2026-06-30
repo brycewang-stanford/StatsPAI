@@ -323,6 +323,49 @@ def test_rdrobust_manipulation_test_param_is_discoverable():
 
 
 # --------------------------------------------------------------------------- #
+#  Regression (OLS) — too few clusters for cluster-robust inference
+# --------------------------------------------------------------------------- #
+
+
+def _clustered_ols(n_clusters: int, per: int = 40, seed: int = 0) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    rows = []
+    for g in range(n_clusters):
+        alpha = rng.normal()
+        for _ in range(per):
+            x = rng.normal()
+            rows.append({"g": g, "x": x, "y": 1 + 0.5 * x + alpha + rng.normal()})
+    return pd.DataFrame(rows)
+
+
+class TestRegressFewClusters:
+    def test_few_clusters_warns_and_surfaces(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            r = sp.regress("y ~ x", data=_clustered_ols(12), cluster="g")
+        typed = [
+            w.message for w in caught if isinstance(w.message, sp.AssumptionWarning)
+        ]
+        assert typed, "OLS with few clusters should warn"
+        assert "sp.wild_cluster_bootstrap" in typed[0].alternative_functions
+        assert r.model_info["n_clusters"] == 12
+        few = [v for v in r.violations() if v.get("test") == "few_clusters"]
+        assert few and "sp.wild_cluster_bootstrap" in few[0]["alternatives"]
+
+    def test_many_clusters_is_clean(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            r = sp.regress("y ~ x", data=_clustered_ols(50), cluster="g")
+        assert not [w for w in caught if isinstance(w.message, sp.AssumptionWarning)]
+        assert r.model_info["n_clusters"] == 50
+        assert not [v for v in r.violations() if v.get("test") == "few_clusters"]
+
+    def test_no_cluster_is_silent(self):
+        r = sp.regress("y ~ x", data=_clustered_ols(12))
+        assert "n_clusters" not in r.model_info
+
+
+# --------------------------------------------------------------------------- #
 #  Taxonomy — IdentificationError is catchable through the central taxonomy
 # --------------------------------------------------------------------------- #
 

@@ -13,7 +13,12 @@ from .._aliases import accepts_aliases
 from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
 from ..core.utils import _coerce_string_extension_dtypes, create_design_matrices
-from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from ..exceptions import (
+    AssumptionWarning,
+    DataInsufficient,
+    MethodIncompatibility,
+    NumericalInstability,
+)
 
 _NORMAL_EQUATION_COND_MAX = 1e8
 _LOW_ORDER_DEP_MAX_WORK = 50_000
@@ -820,12 +825,46 @@ class OLSRegression(BaseModel):
         params = pd.Series(results["params"], index=self.var_names)
         std_errors = pd.Series(results["std_errors"], index=self.var_names)
 
+        # Surface the number of clusters so few-cluster inference risk is
+        # machine-readable (result.violations()) and warned loudly at fit time,
+        # mirroring sp.panel — cluster-robust SEs are unreliable with few
+        # clusters (Cameron-Gelbach-Miller 2008).
+        if cluster_var is not None:
+            from ..core._agent_summary import _FEW_CLUSTERS_MIN
+
+            n_clusters_obs = int(pd.Series(cluster_var).nunique())
+            if n_clusters_obs < _FEW_CLUSTERS_MIN:
+                warnings.warn(
+                    AssumptionWarning(
+                        f"Only {n_clusters_obs} clusters (< {_FEW_CLUSTERS_MIN}) "
+                        f"for cluster='{cluster}' — cluster-robust SEs are "
+                        "downward-biased and t-tests over-reject with few "
+                        "clusters.",
+                        recovery_hint=(
+                            "Report sp.wild_cluster_bootstrap (or "
+                            "sp.wild_cluster_ci_inv for CIs), correct with few "
+                            "clusters."
+                        ),
+                        diagnostics={
+                            "n_clusters": n_clusters_obs,
+                            "threshold": _FEW_CLUSTERS_MIN,
+                        },
+                        alternative_functions=[
+                            "sp.wild_cluster_bootstrap",
+                            "sp.wild_cluster_ci_inv",
+                        ],
+                    ),
+                    stacklevel=2,
+                )
+
         model_info = {
             "model_type": "OLS",
             "method": "Least Squares",
             "robust": robust,
             "cluster": cluster,
         }
+        if cluster_var is not None:
+            model_info["n_clusters"] = n_clusters_obs
 
         data_info = {
             "nobs": results["nobs"],
