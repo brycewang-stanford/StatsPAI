@@ -30549,6 +30549,10 @@
       "name": "feols",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
+          },
           "collin_tol": {
             "default": 1e-06,
             "description": "Collinearity tolerance.",
@@ -30572,6 +30576,10 @@
             "description": "If True, drop large intermediate arrays to save memory.",
             "type": "boolean"
           },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
           "ssc": {
             "description": "Small-sample correction via ``pyfixest.ssc()``.",
             "type": "string"
@@ -30582,6 +30590,16 @@
           },
           "weights": {
             "description": "Column name for regression weights.",
+            "type": "string"
+          },
+          "wild_reps": {
+            "default": 999,
+            "description": "wild_reps parameter (int).",
+            "type": "integer"
+          },
+          "wild_weight_type": {
+            "default": "rademacher",
+            "description": "wild_weight_type parameter (str).",
             "type": "string"
           }
         },
