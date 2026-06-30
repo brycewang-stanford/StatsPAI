@@ -45,8 +45,15 @@ _RHAT_MAX = 1.01
 _ESS_MIN = 400
 _DIVERGENCES_MAX = 0
 
-#: Maximum tolerable standardized mean difference after matching (SMD).
+#: Maximum tolerable standardized mean difference after matching (SMD). 0.10 is
+#: the conventional "well balanced" target (Rosenbaum-Rubin); a match leaving
+#: more than this on a covariate is not ideal but often acceptable.
 _SMD_MAX = 0.10
+
+#: Standardized mean difference above which residual imbalance is a *concern*
+#: worth flagging loudly (Stuart 2010; What Works Clearinghouse). Set above
+#: _SMD_MAX so the warning fires on genuinely poor matches, not borderline ones.
+_SMD_IMBALANCE_MAX = 0.25
 
 #: Propensity score overlap: treated weight share below this → bad
 #: common support.
@@ -93,6 +100,24 @@ def _as_float(x: Any) -> Optional[float]:
     if not np.isfinite(f):
         return None
     return f
+
+
+def _max_covariate_smd(mi: Dict[str, Any]) -> Optional[float]:
+    """Largest absolute post-matching standardized mean difference across
+    covariates. Handles both the scalar convention
+    (``mi["balance"]["max_smd_after"]``) and the per-variable balance table
+    that ``sp.match`` stores (a DataFrame with ``variable`` / ``smd`` columns),
+    excluding the propensity score / distance rows which are not covariates."""
+    scalar = _as_float(_safe_get(mi, "balance", "max_smd_after"))
+    if scalar is not None:
+        return scalar
+    bal = mi.get("balance")
+    if isinstance(bal, pd.DataFrame) and {"variable", "smd"}.issubset(bal.columns):
+        cov = bal[~bal["variable"].isin(["propensity_score", "distance"])]
+        if not cov.empty:
+            m = cov["smd"].abs().max()
+            return _as_float(m)
+    return None
 
 
 def causal_violations(result: Any) -> List[Dict[str, Any]]:
@@ -255,23 +280,30 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
             )
 
     # --- Matching: covariate balance ------------------------------------
-    smd_max = _as_float(_safe_get(mi, "balance", "max_smd_after"))
-    if smd_max is not None and smd_max > _SMD_MAX and method_family == "matching":
+    smd_max = _max_covariate_smd(mi)
+    if (
+        smd_max is not None
+        and smd_max > _SMD_IMBALANCE_MAX
+        and method_family == "matching"
+    ):
         out.append(
             {
                 "kind": "assumption",
                 "severity": "warning",
                 "test": "balance",
                 "value": smd_max,
-                "threshold": _SMD_MAX,
+                "threshold": _SMD_IMBALANCE_MAX,
                 "message": (
                     f"Max standardized mean difference after matching = "
-                    f"{smd_max:.3f} > {_SMD_MAX} — imbalance remains."
+                    f"{smd_max:.3f} > {_SMD_IMBALANCE_MAX} — notable residual "
+                    "imbalance, so the matched comparison is still confounded."
                 ),
                 "recovery_hint": (
-                    "Tighten caliper, add interactions, or try sp.entropy_balance."
+                    "Tighten the caliper, add interactions/polynomials to the "
+                    "propensity model, or reweight with sp.ebalance "
+                    "(entropy balancing) / sp.cbps, and re-check sp.love_plot."
                 ),
-                "alternatives": ["sp.entropy_balance", "sp.psmatch"],
+                "alternatives": ["sp.ebalance", "sp.cbps", "sp.love_plot"],
             }
         )
 

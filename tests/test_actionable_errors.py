@@ -275,6 +275,54 @@ def test_default_did_handles_staggered_without_error():
 
 
 # --------------------------------------------------------------------------- #
+#  Matching — residual covariate imbalance after matching
+# --------------------------------------------------------------------------- #
+
+
+class TestMatchingBalance:
+    def _data(self, confounded: bool, n: int = 600, seed: int = 0) -> pd.DataFrame:
+        rng = np.random.default_rng(seed)
+        x1, x2 = rng.normal(size=n), rng.normal(size=n)
+        ps = 1 / (1 + np.exp(-(0.8 * x1 + 0.5 * x2))) if confounded else np.full(n, 0.5)
+        d = (rng.uniform(size=n) < ps).astype(int)
+        y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
+        return pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
+
+    def test_poor_balance_is_flagged(self):
+        r = sp.match(
+            self._data(confounded=True),
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            method="psm",
+        )
+        viols = [v for v in r.violations() if v.get("test") == "balance"]
+        assert viols, "notable residual imbalance after matching should be flagged"
+        assert viols[0]["value"] > viols[0]["threshold"]
+        assert "sp.ebalance" in viols[0]["alternatives"]
+
+    def test_good_balance_is_clean(self):
+        """Already-balanced (randomised) data must not cry wolf."""
+        r = sp.match(
+            self._data(confounded=False),
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            method="psm",
+        )
+        assert not [v for v in r.violations() if v.get("test") == "balance"]
+
+
+def test_rdrobust_manipulation_test_param_is_discoverable():
+    """The McCrary opt-out must be visible to agents via the registry."""
+    params = [
+        p["name"] if isinstance(p, dict) else getattr(p, "name", None)
+        for p in sp.describe_function("rdrobust")["params"]
+    ]
+    assert "manipulation_test" in params
+
+
+# --------------------------------------------------------------------------- #
 #  Taxonomy — IdentificationError is catchable through the central taxonomy
 # --------------------------------------------------------------------------- #
 

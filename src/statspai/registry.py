@@ -1295,6 +1295,18 @@ def _build_registry() -> None:
                     True,
                     "Warn on weak first-stage discontinuity in fuzzy RD",
                 ),
+                ParamSpec(
+                    "manipulation_test",
+                    "bool",
+                    False,
+                    True,
+                    (
+                        "Run a McCrary density test for sorting at the cutoff; "
+                        "stores model_info['mccrary']['pvalue'] and warns + flags "
+                        "result.violations() when p<0.05. Disable for placebo-"
+                        "cutoff loops."
+                    ),
+                ),
             ],
             returns="CausalResult",
             example='sp.rdrobust(df, y="score", x="income", c=10000)',
