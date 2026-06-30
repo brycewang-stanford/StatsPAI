@@ -588,6 +588,30 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "cloglog",
+      "notes": [
+        "Frozen-R fixture: complementary-log-log binary GLM matches base R glm(binomial('cloglog')) to IRLS convergence tolerance (graded aligned). Regenerate via _generate_glm_ext_R.R."
+      ],
+      "reference": "stats::glm(binomial('cloglog'))",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_glm_ext_parity.py",
+        "tests/reference_parity/_fixtures/glm_ext_R.json"
+      ],
+      "tolerance": "coefficients 5e-5 abs (observed ~1e-5; IRLS convergence)"
+    },
+    {
       "function": "continuous_did",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -1204,10 +1228,14 @@
       "additional_tests": [
         "tests/r_parity/15_hdfe_cluster.py",
         "tests/r_parity/15_hdfe_cluster.R",
-        "tests/stata_parity/15_hdfe_cluster.do"
+        "tests/stata_parity/15_hdfe_cluster.do",
+        "tests/reference_parity/test_feols_wild_boottest_parity.py"
       ],
       "also_in_modules": [
         "15_hdfe_cluster"
+      ],
+      "also_verified_by": [
+        "reference_parity"
       ],
       "function": "feols",
       "headline": {
@@ -1269,6 +1297,30 @@
         "tests/reference_parity/test_proximal_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "fracreg",
+      "notes": [
+        "Frozen-R fixture: fractional-response GLM matches base R glm(quasibinomial) to machine precision. Regenerate via _generate_glm_ext_R.R."
+      ],
+      "reference": "stats::glm(quasibinomial('logit')) [fractional response]",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_glm_ext_parity.py",
+        "tests/reference_parity/_fixtures/glm_ext_R.json"
+      ],
+      "tolerance": "coefficients 1e-10 abs (observed ~8e-15)"
     },
     {
       "function": "frontier",
@@ -1630,6 +1682,31 @@
       ],
       "tier": "machine",
       "tolerance": "abs_est<=1e-06, abs_se<=1e-06"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "hurdle",
+      "notes": [
+        "Frozen-R fixture: Poisson-logit hurdle count + zero coefficients match pscl::hurdle to machine tolerance. Regenerate via _generate_glm_ext_R.R."
+      ],
+      "reference": "pscl::hurdle(dist='poisson', zero.dist='binomial')",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pscl": "1.5.9"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_glm_ext_parity.py",
+        "tests/reference_parity/_fixtures/glm_ext_R.json"
+      ],
+      "tolerance": "count + zero coefficients 1e-6 abs (observed ~2e-8)"
     },
     {
       "function": "interference",

@@ -307,6 +307,54 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "via _generate_aft_R.R."
         ),
     },
+    "fracreg": {
+        "status": "bit-exact",
+        "reference": "stats::glm(quasibinomial('logit')) [fractional response]",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "coefficients 1e-10 abs (observed ~8e-15)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_glm_ext_parity.py",
+            "tests/reference_parity/_fixtures/glm_ext_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: fractional-response GLM matches base R "
+            "glm(quasibinomial) to machine precision. Regenerate via "
+            "_generate_glm_ext_R.R."
+        ),
+    },
+    "hurdle": {
+        "status": "bit-exact",
+        "reference": "pscl::hurdle(dist='poisson', zero.dist='binomial')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)", "pscl": "1.5.9"},
+        "tolerance": "count + zero coefficients 1e-6 abs (observed ~2e-8)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_glm_ext_parity.py",
+            "tests/reference_parity/_fixtures/glm_ext_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: Poisson-logit hurdle count + zero coefficients "
+            "match pscl::hurdle to machine tolerance. Regenerate via "
+            "_generate_glm_ext_R.R."
+        ),
+    },
+    "cloglog": {
+        "status": "aligned",
+        "reference": "stats::glm(binomial('cloglog'))",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "coefficients 5e-5 abs (observed ~1e-5; IRLS convergence)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_glm_ext_parity.py",
+            "tests/reference_parity/_fixtures/glm_ext_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: complementary-log-log binary GLM matches base R "
+            "glm(binomial('cloglog')) to IRLS convergence tolerance (graded "
+            "aligned). Regenerate via _generate_glm_ext_R.R."
+        ),
+    },
 }
 
 

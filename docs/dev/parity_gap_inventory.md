@@ -17,9 +17,9 @@ render tables, build agent schemas, or load data; they are not estimators.
 
 | denominator | verified | total | fraction |
 | --- | ---: | ---: | ---: |
-| **estimator functions** (parity-applicable) | 121 | 964 | **12.6%** |
+| **estimator functions** (parity-applicable) | 124 | 964 | **12.9%** |
 | infra / non-estimator (parity N/A) | — | 171 | — |
-| all registered | 121 | 1135 | 10.7% |
+| all registered | 124 | 1135 | 10.9% |
 
 > Recent coverage gains (vs R): +`kaplan_meier`, +`logrank_test`
 > (`survival::survfit`/`survdiff`, bit-exact); +`bonferroni`, +`holm`,
@@ -42,7 +42,7 @@ functions at once.
 | family | verified / total | note |
 | --- | ---: | --- |
 | causal | 58 / 407 | mega-bucket: DiD / IV / RD / synth / matching / DML / mediation / sensitivity — many sub-families already bit-exact; biggest *absolute* gap but heterogeneous |
-| regression | 21 / 40 | GLM / count / quantile / limited-dependent largely covered |
+| regression | 24 / 40 | GLM / count / quantile / limited-dependent + fracreg/hurdle/cloglog vs R |
 | panel | 7 / 36 | FE/RE/HDFE/GMM core covered; dynamic & spatial panels open |
 | mendelian | 6 / 37 | MR core has analytical recovery; cross-package MR open |
 | decomposition | 4 / 31 | Oaxaca/DFL/RIF bit-exact; Gelbach/Das-Gupta/inequality open |
