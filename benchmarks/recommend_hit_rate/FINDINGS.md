@@ -91,6 +91,38 @@ the textbook plausible-but-wrong loop on an observational design.
 
 ---
 
+## F-003 · recommend's IV/RD paths under-specify two design refinements  ○ LOW
+
+**Symptom.** Two minor expressiveness gaps surfaced while building the Tier-B
+adversarial corpus (neither is a hit-rate miss; both are refinements):
+1. **Multiple instruments / over-identification.** `recommend(instrument=...)`
+   takes a single string, so an over-identified design (e.g. AK-1991's four
+   quarter-of-birth dummies, or `dgp_iv(n_instruments=3)` →
+   `instrument_1..3`) cannot be expressed end-to-end, and the engine never
+   prompts the Hansen-J over-identification test on its own.
+2. **Fuzzy vs sharp RD.** `recommend` returns `rdrobust` for both fuzzy and
+   sharp RD without distinguishing them; a fuzzy design is IV-at-the-cutoff and
+   the referee's extra ask (first-stage compliance jump / fuzzy estimand) is
+   not surfaced.
+
+**Evidence.** Scorecard rows `trap_weak_instrument` (single instrument only),
+`archetype_strong_instrument`, `trap_fuzzy_rd` (detected `rd`, top-1
+`local_polynomial_rd` — correct family, no fuzzy-specific guidance).
+
+**Why it matters.** Low severity — the recommended estimator family is correct
+in every case (no hit-rate impact). These are completeness gaps: the audit
+should prompt over-identification for multi-instrument IV and a first-stage /
+fuzzy-estimand check for fuzzy RD.
+
+**Proposed fix.** Accept `instrument` as `str | list[str]`; when >1, add the
+over-id test to the IV recommendation and audit. Add a `fuzzy` signal to the RD
+path (or detect a non-deterministic treatment jump) and attach the fuzzy-RD
+first-stage check.
+
+**Status.** OPEN (low priority; tracked for a later phase).
+
+---
+
 ## (template for future findings)
 ## F-00X · <one-line symptom>  <severity>
 **Symptom.** …

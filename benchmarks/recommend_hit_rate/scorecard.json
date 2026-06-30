@@ -1,7 +1,9 @@
 {
-  "corpus_version": "0.1.0-seed",
+  "corpus_version": "0.2.0-tierB",
   "statspai_version": "1.20.0",
-  "n_entries": 8,
+  "n_entries": 15,
+  "n_tier_a": 8,
+  "n_tier_b": 7,
   "summary": {
     "hit_rate_top1": 1.0,
     "hit_rate_topk": 1.0,
@@ -235,6 +237,197 @@
         "psm"
       ],
       "disqualifying": []
+    },
+    {
+      "id": "trap_staggered_heterogeneous_twfe",
+      "design": "staggered_did",
+      "detected_design": "did",
+      "ranked_labels": [
+        "Callaway-Sant'Anna (2021) \u2014 staggered DID",
+        "Sun-Abraham (2021) \u2014 interaction-weighted"
+      ],
+      "ranked_tags": [
+        "callaway_santanna",
+        "sun_abraham"
+      ],
+      "status": "HIT",
+      "top1_tag": "callaway_santanna",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "borusyak_jaravel_spiess",
+        "callaway_santanna",
+        "dcdh",
+        "did_imputation",
+        "drdid",
+        "gardner",
+        "stacked_did",
+        "sun_abraham"
+      ],
+      "disqualifying": [
+        "classic_2x2",
+        "twfe"
+      ]
+    },
+    {
+      "id": "trap_did_2x2_common_timing",
+      "design": "did",
+      "detected_design": "did",
+      "ranked_labels": [
+        "Classic 2\u00d72 DID"
+      ],
+      "ranked_tags": [
+        "classic_2x2"
+      ],
+      "status": "HIT",
+      "top1_tag": "classic_2x2",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "callaway_santanna",
+        "classic_2x2",
+        "did",
+        "drdid",
+        "sun_abraham",
+        "twfe"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "trap_weak_instrument",
+      "design": "iv",
+      "detected_design": "iv",
+      "ranked_labels": [
+        "LIML (robust to weak instruments)",
+        "Anderson-Rubin confidence interval (weak-IV robust inference)",
+        "2SLS (two-stage least squares)"
+      ],
+      "ranked_tags": [
+        "liml",
+        "anderson_rubin",
+        "twosls"
+      ],
+      "status": "HIT",
+      "top1_tag": "liml",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "anderson_rubin",
+        "jive",
+        "liml",
+        "twosls"
+      ],
+      "disqualifying": [
+        "ols"
+      ]
+    },
+    {
+      "id": "archetype_strong_instrument",
+      "design": "iv",
+      "detected_design": "iv",
+      "ranked_labels": [
+        "2SLS (two-stage least squares)",
+        "LIML (robust to weak instruments)"
+      ],
+      "ranked_tags": [
+        "twosls",
+        "liml"
+      ],
+      "status": "HIT",
+      "top1_tag": "twosls",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "anderson_rubin",
+        "jive",
+        "liml",
+        "twosls"
+      ],
+      "disqualifying": [
+        "ols"
+      ]
+    },
+    {
+      "id": "archetype_sharp_rd",
+      "design": "rd",
+      "detected_design": "rd",
+      "ranked_labels": [
+        "Local polynomial RD (CCT 2014)"
+      ],
+      "ranked_tags": [
+        "local_polynomial_rd"
+      ],
+      "status": "HIT",
+      "top1_tag": "local_polynomial_rd",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "cct",
+        "local_polynomial_rd",
+        "rdrobust"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "trap_fuzzy_rd",
+      "design": "rd",
+      "detected_design": "rd",
+      "ranked_labels": [
+        "Local polynomial RD (CCT 2014)"
+      ],
+      "ranked_tags": [
+        "local_polynomial_rd"
+      ],
+      "status": "HIT",
+      "top1_tag": "local_polynomial_rd",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "cct",
+        "local_polynomial_rd",
+        "rdrobust"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "trap_observational_strong_confounding",
+      "design": "observational",
+      "detected_design": "observational",
+      "ranked_labels": [
+        "Propensity Score Matching (selection on observables)",
+        "Double ML (high-dimensional controls)",
+        "OLS with robust SE (naive baseline \u2014 biased under confounding)",
+        "G-computation (ATE)"
+      ],
+      "ranked_tags": [
+        "psm",
+        "dml",
+        "ols",
+        "g_computation"
+      ],
+      "status": "HIT",
+      "top1_tag": "psm",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "aipw",
+        "dml",
+        "drdid",
+        "entropy_balance",
+        "ipw",
+        "matching",
+        "psm"
+      ],
+      "disqualifying": [
+        "ols"
+      ]
     }
   ],
   "audit_coverage": [
@@ -375,6 +568,135 @@
     },
     {
       "id": "dehejia_wahba_1999_nsw",
+      "audit_family": "matching",
+      "gt_checks": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "scored_checks": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "covered": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "trap_staggered_heterogeneous_twfe",
+      "audit_family": "did",
+      "gt_checks": [
+        "bacon_decomposition",
+        "parallel_trends",
+        "honest_did"
+      ],
+      "scored_checks": [
+        "bacon_decomposition",
+        "parallel_trends",
+        "honest_did"
+      ],
+      "covered": [
+        "bacon_decomposition",
+        "parallel_trends",
+        "honest_did"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "trap_did_2x2_common_timing",
+      "audit_family": "did",
+      "gt_checks": [
+        "parallel_trends"
+      ],
+      "scored_checks": [
+        "parallel_trends"
+      ],
+      "covered": [
+        "parallel_trends"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "trap_weak_instrument",
+      "audit_family": "iv",
+      "gt_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "scored_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "archetype_strong_instrument",
+      "audit_family": "iv",
+      "gt_checks": [
+        "weak_instrument"
+      ],
+      "scored_checks": [
+        "weak_instrument"
+      ],
+      "covered": [
+        "weak_instrument"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "archetype_sharp_rd",
+      "audit_family": "rd",
+      "gt_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "scored_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "trap_fuzzy_rd",
+      "audit_family": "rd",
+      "gt_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "scored_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "trap_observational_strong_confounding",
       "audit_family": "matching",
       "gt_checks": [
         "overlap",
@@ -534,6 +856,138 @@
     },
     {
       "id": "dehejia_wahba_1999_nsw",
+      "status": "OK",
+      "audit_family": "matching",
+      "scored_checks": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "covered": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "trap_staggered_heterogeneous_twfe",
+      "status": "OK",
+      "audit_family": "did",
+      "scored_checks": [
+        "bacon_decomposition",
+        "parallel_trends",
+        "honest_did"
+      ],
+      "covered": [
+        "bacon_decomposition",
+        "parallel_trends",
+        "honest_did"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "bacon_decomposition",
+        "honest_did"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "trap_did_2x2_common_timing",
+      "status": "OK",
+      "audit_family": "did",
+      "scored_checks": [
+        "parallel_trends"
+      ],
+      "covered": [
+        "parallel_trends"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "parallel_trends"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "trap_weak_instrument",
+      "status": "OK",
+      "audit_family": "iv",
+      "scored_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "anderson_rubin_ci"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "archetype_strong_instrument",
+      "status": "OK",
+      "audit_family": "iv",
+      "scored_checks": [
+        "weak_instrument"
+      ],
+      "covered": [
+        "weak_instrument"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "archetype_sharp_rd",
+      "status": "OK",
+      "audit_family": "rd",
+      "scored_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "trap_fuzzy_rd",
+      "status": "OK",
+      "audit_family": "rd",
+      "scored_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "trap_observational_strong_confounding",
       "status": "OK",
       "audit_family": "matching",
       "scored_checks": [

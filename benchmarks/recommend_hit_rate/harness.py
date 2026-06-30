@@ -292,6 +292,8 @@ def run(fit: bool = True) -> Dict[str, Any]:
         if bk and verified and bk not in verified:
             citation_errors.append((e["id"], bk))
 
+    n_tier_a = sum(1 for e in entries if e.get("data", {}).get("tier") == "A")
+    n_tier_b = sum(1 for e in entries if e.get("data", {}).get("tier") == "B")
     rec_rows = [_score_recommend(e, sp) for e in entries]
     audit_rows = [_score_audit_coverage(e, fam_map) for e in entries]
     audit_dyn_rows = [_score_audit_dynamic(e, sp) for e in entries] if fit else []
@@ -311,6 +313,8 @@ def run(fit: bool = True) -> Dict[str, Any]:
         "corpus_version": corpus.get("corpus_version"),
         "statspai_version": getattr(sp, "__version__", "?"),
         "n_entries": n,
+        "n_tier_a": n_tier_a,
+        "n_tier_b": n_tier_b,
         "summary": {
             "hit_rate_top1": round(n_hit1 / n, 4) if n else None,
             "hit_rate_topk": round(n_hitk / n, 4) if n else None,
@@ -347,7 +351,8 @@ def render_markdown(card: Dict[str, Any]) -> str:
         "# Recommendation Hit-Rate Scorecard",
         "",
         f"- corpus: `{card['corpus_version']}`  |  statspai: `{card['statspai_version']}`"
-        f"  |  entries: **{card['n_entries']}** (Tier-A, data-backed)",
+        f"  |  entries: **{card['n_entries']}**"
+        f" ({card.get('n_tier_a', '?')} Tier-A data-backed + {card.get('n_tier_b', '?')} Tier-B synthetic)",
         f"- **top-1 hit-rate: {s['hit_rate_top1']}**  |  top-k hit-rate: {s['hit_rate_topk']}"
         f"  |  hard-miss rate: {s['hard_miss_rate']}  |  errors: {s['n_errors']}",
         f"- audit catalog mean recall (static): {s['audit_catalog_mean_recall']}"

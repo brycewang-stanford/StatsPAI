@@ -1,0 +1,115 @@
+{
+  "provenance": {
+    "python": "3.13.5",
+    "platform": "macOS-26.5.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "cpu_count": 8,
+    "statspai_version": "1.20.0",
+    "pyfixest_version": "0.50.1",
+    "numpy_version": "2.3.2",
+    "pandas_version": "2.3.1",
+    "r_fixest_version": "0.14.0"
+  },
+  "results": {
+    "10000": [
+      {
+        "backend": "sp.feols",
+        "scale": 10000,
+        "status": "ok",
+        "coef_x1": 1.5061426771567408,
+        "se_x1": 0.010057186279467075,
+        "time_median_s": 0.006069625029340386,
+        "time_iqr_s": 0.00042687507811933756,
+        "peak_rss_mb": 480.09375,
+        "n_obs": 10000,
+        "detail": ""
+      },
+      {
+        "backend": "sp.absorb_ols",
+        "scale": 10000,
+        "status": "ok",
+        "coef_x1": 1.5061426771567397,
+        "se_x1": 0.010057186279467075,
+        "time_median_s": 0.0009407919133082032,
+        "time_iqr_s": 5.960406269878149e-05,
+        "peak_rss_mb": 480.40625,
+        "n_obs": 10000,
+        "detail": ""
+      },
+      {
+        "backend": "pyfixest",
+        "scale": 10000,
+        "status": "ok",
+        "coef_x1": 1.5061426771567408,
+        "se_x1": 0.010057186279467075,
+        "time_median_s": 0.0051027919398620725,
+        "time_iqr_s": 0.00012768706073984504,
+        "peak_rss_mb": 484.640625,
+        "n_obs": 10000,
+        "detail": ""
+      },
+      {
+        "backend": "R fixest",
+        "scale": 10000,
+        "status": "ok",
+        "coef_x1": 1.5061426772,
+        "se_x1": 0.0100571863,
+        "time_median_s": 0.003955,
+        "time_iqr_s": 0.000912,
+        "peak_rss_mb": null,
+        "n_obs": 10000,
+        "detail": ""
+      }
+    ],
+    "100000": [
+      {
+        "backend": "sp.feols",
+        "scale": 100000,
+        "status": "ok",
+        "coef_x1": 1.501118718613963,
+        "se_x1": 0.0031932358237205354,
+        "time_median_s": 0.01832895795814693,
+        "time_iqr_s": 0.0008852084283716977,
+        "peak_rss_mb": 552.984375,
+        "n_obs": 99960,
+        "detail": ""
+      },
+      {
+        "backend": "sp.absorb_ols",
+        "scale": 100000,
+        "status": "ok",
+        "coef_x1": 1.5011187186139618,
+        "se_x1": 0.0031932358237205354,
+        "time_median_s": 0.007250415976159275,
+        "time_iqr_s": 0.00038743740878999233,
+        "peak_rss_mb": 561.4375,
+        "n_obs": 99960,
+        "detail": ""
+      },
+      {
+        "backend": "pyfixest",
+        "scale": 100000,
+        "status": "ok",
+        "coef_x1": 1.501118718613963,
+        "se_x1": 0.0031932358237205354,
+        "time_median_s": 0.01723729190416634,
+        "time_iqr_s": 0.00048404105473309755,
+        "peak_rss_mb": 587.453125,
+        "n_obs": 99960,
+        "detail": ""
+      },
+      {
+        "backend": "R fixest",
+        "scale": 100000,
+        "status": "ok",
+        "coef_x1": 1.5011187186,
+        "se_x1": 0.0031932358,
+        "time_median_s": 0.011975,
+        "time_iqr_s": 0.006941,
+        "peak_rss_mb": null,
+        "n_obs": 99960,
+        "detail": ""
+      }
+    ]
+  }
+}

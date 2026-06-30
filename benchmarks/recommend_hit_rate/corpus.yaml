@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.1.0-seed"
+corpus_version: "0.2.0-tierB"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -234,3 +234,171 @@ entries:
         - {check: balance_after,   provenance: paper_section,           source: "DW (1999) covariate balance after matching"}
         - {check: ovb_sensitivity, provenance: methodological_followup, source: "omitted-variable sensitivity (Oster / Rosenbaum)"}
     notes: "Selection-on-observables. recommend should surface PSM/DML/balancing, not bare OLS top-1 alone."
+
+  # ===========================================================================
+  # TIER B — adversarial design archetypes (synthetic stubs via sp.dgp_*).
+  # Each stresses the engine on a canonical design pattern and is anchored to a
+  # METHOD / critique paper already DOI-verified in paper.bib (§10-safe). These
+  # run without real microdata and scale the corpus toward the 50-design canon.
+  # ===========================================================================
+
+  # ADVERSARIAL #1 — the TWFE negative-weights trap. Heterogeneous effects +
+  # staggered timing: leading with TWFE/2x2 is the canonical failure.
+  - id: trap_staggered_heterogeneous_twfe
+    paper:
+      citation: "Goodman-Bacon, A. (2021). Difference-in-differences with variation in treatment timing. Journal of Econometrics."
+      bib_key: goodmanbacon2021difference
+    design:
+      label: staggered_did
+      fingerprint: {synthetic: true, n_units: 150, n_periods: 6, staggered: true, heterogeneous: true}
+    data:
+      tier: B
+      loader: "sp.dgp_did(n_units=150, n_periods=6, staggered=True, heterogeneous=True, seed=7)"
+      args: {y: y, treatment: treated, id: unit, time: time}
+    ground_truth:
+      estimator:
+        primary: callaway_santanna
+        acceptable: [callaway_santanna, sun_abraham, did_imputation, gardner, borusyak_jaravel_spiess, stacked_did, dcdh, drdid]
+        disqualifying: [twfe, classic_2x2]
+      robustness_checks:
+        - {check: bacon_decomposition, provenance: methodological_critique, source: "Goodman-Bacon (2021) negative weights [goodmanbacon2021difference]"}
+        - {check: parallel_trends,     provenance: methodological_followup, source: "pre-trend test"}
+        - {check: honest_did,          provenance: methodological_followup, source: "Rambachan & Roth (2023) [rambachan2023more]"}
+    notes: "Heterogeneous effects + staggered timing = TWFE negative-weights trap. Leading with TWFE/2x2 = HARD MISS."
+
+  # REVERSE TRAP — a clean 2-group / 2-period DiD. Guards against errors on the
+  # simple case (and against over-routing it to synth).
+  - id: trap_did_2x2_common_timing
+    paper:
+      citation: "Cunningham, S. (2021). Causal Inference: The Mixtape. Yale University Press."
+      bib_key: cunningham2021causal
+    design:
+      label: did
+      fingerprint: {synthetic: true, n_units: 200, n_periods: 2, staggered: false}
+    data:
+      tier: B
+      loader: "sp.dgp_did(n_units=200, n_periods=2, staggered=False, seed=11)"
+      args: {y: y, treatment: treated, id: unit, time: time}
+    ground_truth:
+      estimator:
+        primary: classic_2x2
+        acceptable: [classic_2x2, did, twfe, callaway_santanna, sun_abraham, drdid]
+        disqualifying: []
+      robustness_checks:
+        - {check: parallel_trends, provenance: methodological_followup, source: "pre-trend test"}
+    notes: "Clean 2x2 DiD; classic or heterogeneity-robust estimators all valid."
+
+  # ADVERSARIAL #2 — weak instrument (tiny first-stage F). Engine should elevate
+  # LIML / Anderson-Rubin over plain 2SLS.
+  - id: trap_weak_instrument
+    paper:
+      citation: "Stock, J. H. & Yogo, M. (2005). Testing for Weak Instruments in Linear IV Regression. In Identification and Inference for Econometric Models."
+      bib_key: stock2005testing
+    design:
+      label: iv
+      fingerprint: {synthetic: true, n: 600, first_stage: 0.03, weak_instrument: true}
+    data:
+      tier: B
+      loader: "sp.dgp_iv(n=600, first_stage=0.03, seed=3)"
+      args: {y: y, treatment: treatment, instrument: instrument, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: liml
+        acceptable: [liml, anderson_rubin, twosls, jive]
+        disqualifying: [ols]
+      robustness_checks:
+        - {check: weak_instrument,   provenance: methodological_critique, source: "Stock-Yogo (2005) weak-IV [stock2005testing]"}
+        - {check: anderson_rubin_ci, provenance: methodological_followup, source: "Andrews, Stock & Sun (2019) weak-IV-robust inference [andrews2019weak]"}
+    notes: "Weak-IV adversarial trap: tiny first-stage F. Engine should lead with LIML / Anderson-Rubin, not bare 2SLS."
+
+  # CONTRAST — strong (single) instrument. 2SLS leads when the first stage is
+  # strong; pairs with the weak-IV trap to confirm the live-F adaptation.
+  - id: archetype_strong_instrument
+    paper:
+      citation: "Staiger, D. & Stock, J. H. (1997). Instrumental Variables Regression with Weak Instruments. Econometrica."
+      bib_key: staiger1997instrumental
+    design:
+      label: iv
+      fingerprint: {synthetic: true, n: 900, first_stage: 0.7, weak_instrument: false}
+    data:
+      tier: B
+      loader: "sp.dgp_iv(n=900, first_stage=0.7, seed=5)"
+      args: {y: y, treatment: treatment, instrument: instrument, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: twosls
+        acceptable: [twosls, liml, anderson_rubin, jive]
+        disqualifying: [ols]
+      robustness_checks:
+        - {check: weak_instrument, provenance: paper_section, source: "first-stage strength (Staiger-Stock 1997)"}
+    notes: "Strong single instrument: 2SLS leads (first-stage F well above the weak-IV thresholds)."
+
+  # ARCHETYPE — sharp RD baseline.
+  - id: archetype_sharp_rd
+    paper:
+      citation: "Calonico, S., Cattaneo, M. D. & Titiunik, R. (2014). Robust nonparametric confidence intervals for regression-discontinuity designs. Econometrica."
+      bib_key: calonico2014robust
+    design:
+      label: rd
+      fingerprint: {synthetic: true, n: 1500, cutoff: 0.0, sharp: true}
+    data:
+      tier: B
+      loader: "sp.dgp_rd(n=1500, fuzzy=False, cutoff=0.0, seed=9)"
+      args: {y: y, running_var: x, cutoff: 0.0}
+    ground_truth:
+      estimator:
+        primary: rdrobust
+        acceptable: [rdrobust, cct, local_polynomial_rd]
+        disqualifying: []
+      robustness_checks:
+        - {check: mccrary_density,       provenance: methodological_followup, source: "McCrary (2008) manipulation test [mccrary2008manipulation]"}
+        - {check: bandwidth_sensitivity, provenance: methodological_followup, source: "CCT (2014) bandwidth robustness [calonico2014robust]"}
+        - {check: placebo_cutoff,        provenance: methodological_followup, source: "placebo-cutoff falsification"}
+    notes: "Sharp RD baseline; rdrobust / local-polynomial expected."
+
+  # ADVERSARIAL #3 — fuzzy RD. The design is IV-at-the-cutoff; rdrobust handles
+  # it, but the first-stage compliance jump is the referee's extra ask.
+  - id: trap_fuzzy_rd
+    paper:
+      citation: "Imbens, G. W. & Lemieux, T. (2008). Regression discontinuity designs: A guide to practice. Journal of Econometrics."
+      bib_key: imbens2008regression
+    design:
+      label: rd
+      fingerprint: {synthetic: true, n: 1500, cutoff: 0.0, fuzzy: true}
+    data:
+      tier: B
+      loader: "sp.dgp_rd(n=1500, fuzzy=True, cutoff=0.0, seed=13)"
+      args: {y: y, running_var: x, cutoff: 0.0}
+    ground_truth:
+      estimator:
+        primary: rdrobust
+        acceptable: [rdrobust, cct, local_polynomial_rd]
+        disqualifying: []
+      robustness_checks:
+        - {check: mccrary_density,       provenance: methodological_followup, source: "McCrary (2008) manipulation test [mccrary2008manipulation]"}
+        - {check: bandwidth_sensitivity, provenance: methodological_followup, source: "Imbens & Lemieux (2008) [imbens2008regression]"}
+    notes: "Fuzzy RD (IV-at-cutoff). rdrobust acceptable; engine does not yet distinguish fuzzy vs sharp — see FINDINGS F-003."
+
+  # VALIDATION — selection-on-observables with strong confounding. Confirms the
+  # F-002 fix on synthetic data: engine must lead with an adjusting estimator.
+  - id: trap_observational_strong_confounding
+    paper:
+      citation: "Cunningham, S. (2021). Causal Inference: The Mixtape. Yale University Press."
+      bib_key: cunningham2021causal
+    design:
+      label: observational
+      fingerprint: {synthetic: true, n: 1000, confounding: 0.6, treatment_binary: true}
+    data:
+      tier: B
+      loader: "sp.dgp_observational(n=1000, confounding=0.6, seed=17)"
+      args: {y: y, treatment: treatment, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: psm
+        acceptable: [psm, dml, ipw, aipw, entropy_balance, matching, drdid]
+        disqualifying: [ols]
+      robustness_checks:
+        - {check: overlap,         provenance: methodological_followup, source: "common support under strong confounding"}
+        - {check: balance_after,   provenance: methodological_followup, source: "covariate balance after adjustment"}
+        - {check: ovb_sensitivity, provenance: methodological_followup, source: "unobserved-confounding sensitivity (Oster)"}
+    notes: "Strong confounding: leading with bare OLS = MISS (ols is disqualifying here). Validates the F-002 fix on synthetic data."

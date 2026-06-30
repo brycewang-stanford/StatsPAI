@@ -42,6 +42,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
+from ..exceptions import StatsPAIError
 from ..output._lineage import format_provenance, get_provenance
 from ._degradation import WorkflowDegradedWarning, record_degradation
 
@@ -237,6 +238,7 @@ class PaperDraft:
             "Reviewer Audit",
             "Pipeline notes",
             "Causal DAG",
+            "Methods and Formulas",
             "References",
         ]
         chunks: List[str] = []
@@ -428,6 +430,7 @@ class PaperDraft:
             "Reviewer Audit",
             "Pipeline notes",
             "Causal DAG",
+            "Methods and Formulas",
             "References",
         ]
         # When self.dag is set, regenerate the Causal DAG body with the
@@ -1212,6 +1215,7 @@ def paper(
     output_path: Optional[str] = None,
     include_eda: bool = True,
     include_robustness: bool = True,
+    include_methods: bool = True,
     cite: bool = True,
     strict: bool = False,
     # v1.13: forwarded to sp.causal -> sp.recommend; default False
@@ -1247,6 +1251,11 @@ def paper(
         Include the Data section (descriptives + balance).
     include_robustness : bool, default True
         Include the Robustness section.
+    include_methods : bool, default True
+        Include the "Methods and Formulas" appendix — the estimand /
+        estimator definitions, the inference actually used, and the
+        verified citation for the fitted estimator (via
+        ``result.to_appendix()``).
     cite : bool, default True
         Pull bibliography entries from the fitted result's ``cite()``
         method (when available).
@@ -1524,6 +1533,37 @@ def paper(
                 detail=f"dag_type={type(dag).__name__}",
             )
 
+    # Methods and Formulas appendix — ties every reported number to its
+    # estimand / estimator definition, the inference actually used, and a
+    # verified citation (the "Methods and Formulas" disclosure a referee
+    # expects). Markdown is stored regardless of fmt; the renderers convert.
+    if include_methods and workflow.result is not None:
+        to_appendix = getattr(workflow.result, "to_appendix", None)
+        if callable(to_appendix):
+            try:
+                methods_body = to_appendix(format="markdown")
+                # Strip the appendix's own top-level header; the paper supplies
+                # the "## Methods and Formulas" section title via its renderer.
+                header = "## Methods and Formulas"
+                if methods_body.startswith(header):
+                    methods_body = methods_body[len(header) :].lstrip("\n")
+                if methods_body.strip():
+                    sections["Methods and Formulas"] = methods_body
+            except (
+                AttributeError,
+                KeyError,
+                RuntimeError,
+                StatsPAIError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                record_degradation(
+                    degradations,
+                    section="Methods and Formulas appendix",
+                    exc=exc,
+                    detail=f"result_type={type(workflow.result).__name__}",
+                )
+
     # References — citation extraction is a §10 ("引用零幻觉") concern in
     # reverse: a silently dropped real citation is just as harmful as a
     # hallucinated one.  Surface the failure rather than swallow it.
@@ -1603,6 +1643,7 @@ def paper_from_question(
     fmt: str = "markdown",
     output_path: Optional[str] = None,
     include_robustness: bool = True,
+    include_methods: bool = True,
     cite: bool = True,
     dag: Any = None,
     reviewer_mode: bool = False,
@@ -1805,6 +1846,33 @@ def paper_from_question(
                 exc=exc,
                 detail=f"design={q.design!r}",
             )
+
+    # Methods and Formulas appendix (estimand / estimator / inference /
+    # citation / provenance) — see paper() for rationale.
+    if include_methods and result.underlying is not None:
+        to_appendix = getattr(result.underlying, "to_appendix", None)
+        if callable(to_appendix):
+            try:
+                methods_body = to_appendix(format="markdown")
+                header = "## Methods and Formulas"
+                if methods_body.startswith(header):
+                    methods_body = methods_body[len(header) :].lstrip("\n")
+                if methods_body.strip():
+                    sections["Methods and Formulas"] = methods_body
+            except (
+                AttributeError,
+                KeyError,
+                RuntimeError,
+                StatsPAIError,
+                TypeError,
+                ValueError,
+            ) as exc:
+                record_degradation(
+                    degradations,
+                    section="Methods and Formulas appendix (estimand-first path)",
+                    exc=exc,
+                    detail=f"underlying_type={type(result.underlying).__name__}",
+                )
 
     # References — see paper()/citation note: a silently dropped citation
     # is just as harmful as a hallucinated one (§10).

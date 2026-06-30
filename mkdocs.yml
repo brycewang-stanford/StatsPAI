@@ -157,6 +157,7 @@ nav:
       - "面向实证经济学的 MCP 工作流": guides/economist_mcp_workflow_zh.md
       - "v1.13 Stability tiers — parity-grade vs. frontier-grade (stable / experimental / deprecated + limitations)": guides/stability.md
       - "v1.14 GPU acceleration — neural causal (PyTorch) + JAX feols + vmap'd bootstrap": guides/gpu_acceleration.md
+      - "Performance — honest cross-library HDFE benchmark": guides/performance.md
       - "v1.15 Decomposition family — 19 estimators incl. Yu-Elwert (2025) + unified Excel/Word/cite exports": guides/decomposition_family.md
       - "Exporting regression results — LaTeX/Word/Excel/HTML/Markdown/JSON + Stata/R cross-reference": guides/exporting-regression-tables.md
   - Reference:

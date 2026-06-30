@@ -16,12 +16,7 @@ import pytest
 
 import statspai as sp
 from statspai.workflow.causal_workflow import CausalWorkflow
-from statspai.workflow.paper import (
-    parse_question,
-    _eda_block,
-    _md_to_tex,
-    _tex_escape,
-)
+from statspai.workflow.paper import _eda_block, _md_to_tex, _tex_escape, parse_question
 
 # --------------------------------------------------------------------- #
 #  Question parser
@@ -361,3 +356,55 @@ def test_paper_registered():
 def test_paperdraft_exposed_at_top_level():
     assert hasattr(sp, "PaperDraft")
     assert hasattr(sp, "paper")
+
+
+# --------------------------------------------------------------------- #
+#  Methods and Formulas appendix
+# --------------------------------------------------------------------- #
+
+
+def test_paper_includes_methods_appendix():
+    """The draft carries a Methods and Formulas appendix by default."""
+    df = _make_observational_df()
+    draft = sp.paper(df, "effect of trained on wage")
+    assert "Methods and Formulas" in draft.sections
+    md = draft.to_markdown()
+    assert "Methods and Formulas" in md
+    # One section header only (the paper supplies it; the appendix body's
+    # own top-level header is stripped).
+    assert md.count("## Methods and Formulas") == 1
+    # Provenance trace present (the "exact code path" leg).
+    assert "Produced by StatsPAI" in md
+
+
+def test_paper_methods_appendix_can_be_disabled():
+    df = _make_observational_df()
+    draft = sp.paper(df, "effect of trained on wage", include_methods=False)
+    assert "Methods and Formulas" not in draft.sections
+
+
+def test_paper_did_methods_appendix_has_formula():
+    """DiD draft's appendix carries a real estimand/estimator formula."""
+    rng = np.random.default_rng(7)
+    rows = []
+    for i in range(80):
+        treated = i < 40
+        for t in (0, 1):
+            post = int(t > 0)
+            y = 1.0 + 0.2 * t + (0.5 if (treated and post) else 0.0)
+            y += rng.standard_normal() * 0.3
+            rows.append(
+                {"id": i, "year": t, "wage": y, "trained": int(treated and post)}
+            )
+    df = pd.DataFrame(rows)
+    draft = sp.paper(
+        df,
+        "difference-in-differences effect of trained on wage",
+        y="wage",
+        treatment="trained",
+        time="year",
+        id="id",
+    )
+    body = draft.sections.get("Methods and Formulas", "")
+    assert "Estimand" in body
+    assert "$$" in body  # display math present
