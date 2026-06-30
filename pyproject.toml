@@ -163,7 +163,7 @@ where = ["src"]
 "" = "src"
 
 [tool.setuptools.package-data]
-"statspai" = ["py.typed", "*.pyi", "CITATION.cff", "schemas/*.json"]
+"statspai" = ["py.typed", "*.pyi", "CITATION.cff", "schemas/*.json", "_parity_index.json"]
 "statspai.datasets" = ["data/*.csv"]
 
 [tool.black]

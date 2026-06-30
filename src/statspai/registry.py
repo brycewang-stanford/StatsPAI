@@ -1342,7 +1342,7 @@ def _build_registry() -> None:
                     symptom="Placebo cutoffs show significant 'effects'",
                     exception="AssumptionViolation",
                     remedy="The RD signal is noise; seek an alternative identification strategy.",
-                    alternative="sp.bounds",
+                    alternative="sp.manski_bounds",
                 ),
             ],
             alternatives=["rd_honest", "rdrbounds", "bounds"],
@@ -3438,7 +3438,7 @@ def _build_registry() -> None:
                     symptom="Complier share near zero",
                     exception="statspai.DataInsufficient",
                     remedy="Low compliance — report only bounds; LATE SE explodes.",
-                    alternative="sp.bounds",
+                    alternative="sp.lee_bounds",
                 ),
                 FailureMode(
                     symptom="Principal score fails overlap",
@@ -8734,7 +8734,7 @@ def _build_registry() -> None:
                     symptom="Some arm has near-zero propensity in the data",
                     exception="statspai.AssumptionViolation",
                     remedy="Violates overlap — drop that arm or use bounds.",
-                    alternative="sp.bounds",
+                    alternative="sp.manski_bounds",
                 ),
                 FailureMode(
                     symptom="Tiny treatment cells (< 30)",
@@ -12243,8 +12243,8 @@ _AGENT_CARD_SEED_METADATA: Dict[str, Dict[str, Any]] = {
             {
                 "symptom": "Missing citations, assumptions, or validation notes in generated text",
                 "exception": "AssumptionWarning",
-                "remedy": "Call audit_result() or attach citations before rendering the paper section.",
-                "alternative": "sp.audit_result",
+                "remedy": "Call sp.audit() or attach citations before rendering the paper section.",
+                "alternative": "sp.audit",
             },
         ],
         "alternatives": ["paper_tables", "modelsummary", "replication_pack"],

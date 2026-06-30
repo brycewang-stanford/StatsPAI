@@ -29,18 +29,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from ..core._agent_summary import (
-    _as_float,
-    _safe_get,
-    # Threshold constants imported (not re-stated) so audit's verdict
-    # cannot drift from violations() when a future correctness fix
-    # updates a cutoff. Single source of truth for numerical thresholds.
+from ..core._agent_summary import (  # Threshold constants imported (not re-stated) so audit's verdict; cannot drift from violations() when a future correctness fix; updates a cutoff. Single source of truth for numerical thresholds.
     _ESS_MIN,
     _OVERLAP_MIN,
     _PRETREND_ALPHA,
     _RHAT_MAX,
     _SMD_MAX,
     _WEAK_IV_F,
+    _as_float,
+    _safe_get,
 )
 
 # ====================================================================== #
@@ -495,7 +492,22 @@ def _evaluate(check: _Check, model_info: Dict[str, Any]) -> Tuple[str, Any]:
 # ====================================================================== #
 
 
-def audit(result: Any) -> Dict[str, Any]:
+_BY_NAME: Dict[str, _Check] = {c.name: c for c in _CAUSAL_CHECKS}
+#: Checks a selection-on-observables regression must still face when the caller
+#: declares a treatment via ``audit(result, treatment=...)``. A bare OLS carries
+#: no treatment signal, so audit cannot infer this on its own; an explicit
+#: treatment is the gate that distinguishes a causal-adjustment regression from
+#: a descriptive one (so descriptive OLS is never flagged). Reused from the
+#: causal catalog — single source of truth. See benchmarks/recommend_hit_rate
+#: F-002.
+_OBSERVATIONAL_TREATMENT_CHECKS: Tuple[_Check, ...] = tuple(
+    _BY_NAME[n]
+    for n in ("overlap", "balance_after", "ovb_sensitivity")
+    if n in _BY_NAME
+)
+
+
+def audit(result: Any, *, treatment: Optional[str] = None) -> Dict[str, Any]:
     """Reviewer-checklist audit of a fitted StatsPAI result.
 
     Returns the *missing-evidence* view: which robustness / sensitivity /
@@ -511,6 +523,15 @@ def audit(result: Any) -> Dict[str, Any]:
     ----------
     result : CausalResult or EconometricResults
         Any fitted StatsPAI result with ``model_info`` attached.
+    treatment : str, optional
+        Name of the treatment variable when ``result`` is a plain regression
+        used for causal adjustment on a selection-on-observables design. When
+        supplied, the audit additionally asks for overlap / common-support,
+        post-adjustment balance, and omitted-variable sensitivity — the checks
+        a referee demands on an observational design but that a bare OLS would
+        otherwise escape. Has no effect on designs whose family already carries
+        these checks (matching / DML / IV / …). Descriptive regressions (no
+        treatment declared) are never flagged.
 
     Returns
     -------
@@ -595,11 +616,9 @@ def audit(result: Any) -> Dict[str, Any]:
     )
 
     checks: List[Dict[str, Any]] = []
-    n_passed = n_failed = n_missing = 0
+    counts = {"passed": 0, "failed": 0, "missing": 0}
 
-    for chk in pool:
-        if family not in chk.applies_to:
-            continue
+    def _record(chk: _Check) -> None:
         status, value = _evaluate(chk, model_info)
         # ``severity`` and ``importance`` carry orthogonal vocabularies
         # so agents can branch on either without ambiguity:
@@ -610,13 +629,13 @@ def audit(result: Any) -> Dict[str, Any]:
         #     — constant per check; how badly missing/failing this
         #     check undermines the conclusion.
         if status == "passed":
-            n_passed += 1
+            counts["passed"] += 1
             severity_out = "info"
         elif status == "failed":
-            n_failed += 1
+            counts["failed"] += 1
             severity_out = "error"
         else:
-            n_missing += 1
+            counts["missing"] += 1
             # A high-importance missing check is a stronger signal than
             # a passed informational check, but agents that branch on
             # ``severity == "error"`` should not pick up missing items
@@ -642,6 +661,26 @@ def audit(result: Any) -> Dict[str, Any]:
             }
         )
 
+    for chk in pool:
+        if family not in chk.applies_to:
+            continue
+        _record(chk)
+
+    # Treatment-aware observational checks. A regression the caller declares to
+    # be a causal-adjustment regression (``treatment=...``) must still face the
+    # overlap / balance / OVB questions a referee asks on a
+    # selection-on-observables design — bare OLS otherwise escapes them
+    # (F-002). Gated on the explicit treatment so descriptive regressions are
+    # never flagged; deduped against checks already emitted by the family pool.
+    if treatment is not None and family == "regression":
+        already = {c["name"] for c in checks}
+        for chk in _OBSERVATIONAL_TREATMENT_CHECKS:
+            if chk.name not in already:
+                _record(chk)
+
+    n_passed = counts["passed"]
+    n_failed = counts["failed"]
+    n_missing = counts["missing"]
     n_total = len(checks)
     coverage = (n_passed / n_total) if n_total else 0.0
 

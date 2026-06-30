@@ -12501,6 +12501,50 @@
     "name": "metalearner"
   },
   {
+    "description": "Generate a referee-grade *Methods and Formulas* appendix for results.",
+    "input_schema": {
+      "properties": {
+        "format": {
+          "default": "latex",
+          "description": "Output format. ``\"latex\"`` emits ``\\subsection*`` blocks with display math; ``\"markdown\"`` emits ``###`` headings with ``$$`` math; ``\"text\"`` emits a plain-text rendering.",
+          "enum": [
+            "latex",
+            "markdown",
+            "text"
+          ],
+          "type": "string"
+        },
+        "include_assumptions": {
+          "default": true,
+          "description": "Include the identifying-assumptions list.",
+          "type": "boolean"
+        },
+        "include_citation": {
+          "default": true,
+          "description": "Append the APA-style reference from ``result.cite()``.",
+          "type": "boolean"
+        },
+        "include_diagnostics": {
+          "default": true,
+          "description": "Include the inference block (SE method, clustering, bandwidth, F, CI).",
+          "type": "boolean"
+        },
+        "results": {
+          "description": "One or more fitted result objects exposing ``method`` / ``model_info`` / ``cite``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "results"
+      ],
+      "type": "object"
+    },
+    "name": "methods_appendix"
+  },
+  {
     "description": "Two-period Mincer wage distribution with a structural shift.",
     "input_schema": {
       "properties": {

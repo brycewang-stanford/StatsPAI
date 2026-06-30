@@ -1,0 +1,55 @@
+{
+  "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.",
+  "by_theme": {
+    "cluster": 2,
+    "data": 5,
+    "outcome": 55,
+    "se": 58,
+    "treatment": 62,
+    "weights": 5
+  },
+  "coverage": {
+    "cluster": {
+      "canonical": 98,
+      "canonical_pct": 98.0,
+      "legacy": 2,
+      "total": 100
+    },
+    "data": {
+      "canonical": 486,
+      "canonical_pct": 99.0,
+      "legacy": 5,
+      "total": 491
+    },
+    "outcome": {
+      "canonical": 313,
+      "canonical_pct": 85.1,
+      "legacy": 55,
+      "total": 368
+    },
+    "se": {
+      "canonical": 9,
+      "canonical_pct": 13.4,
+      "legacy": 58,
+      "total": 67
+    },
+    "treatment": {
+      "canonical": 98,
+      "canonical_pct": 61.3,
+      "legacy": 62,
+      "total": 160
+    },
+    "weights": {
+      "canonical": 39,
+      "canonical_pct": 88.6,
+      "legacy": 5,
+      "total": 44
+    }
+  },
+  "totals": {
+    "acknowledged_false_friends": 40,
+    "introspected": 820,
+    "public_callables": 850,
+    "violations": 187
+  }
+}

@@ -27,14 +27,14 @@ Blundell, R. and Bond, S. (1998). "Initial Conditions and Moment Restrictions."
 """
 
 import warnings
-from typing import Optional, List, Dict, Any, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import EconometricResults
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
@@ -316,7 +316,7 @@ class PanelResults(EconometricResults):
         -------
         (fig, ax)
         """
-        from .panel_plots import plot_coef, plot_effects, plot_residuals, plot_hausman
+        from .panel_plots import plot_coef, plot_effects, plot_hausman, plot_residuals
 
         if type == "coef":
             return plot_coef(self, **kwargs)
@@ -881,11 +881,11 @@ def _fit_linearmodels(
     # import lazily to keep module-import time low, but do not mask a broken
     # install as if it were an optional extra.
     from linearmodels.panel import (
-        PanelOLS,
-        RandomEffects,
         BetweenOLS,
         FirstDifferenceOLS,
+        PanelOLS,
         PooledOLS,
+        RandomEffects,
     )
     from statsmodels.tools import add_constant
 
@@ -961,6 +961,54 @@ _METHOD_NAMES = {
 }
 
 
+def _binding_n_clusters(
+    cluster: Optional[str], entity: str, time: str, data: pd.DataFrame
+) -> Optional[int]:
+    """Number of clusters the CRVE actually rests on, or ``None`` if no
+    cluster-robust SE was requested.
+
+    Mirrors :func:`_build_cov_kwargs`: ``"time"`` clusters by period,
+    ``"twoway"`` is bounded by the smaller dimension, and every other truthy
+    value (``"entity"`` or a named column) clusters by entity.
+    """
+    if not cluster:
+        return None
+    n_entity = int(data[entity].nunique())
+    n_time = int(data[time].nunique())
+    if cluster == "time":
+        return n_time
+    if cluster == "twoway":
+        return min(n_entity, n_time)
+    return n_entity
+
+
+def _maybe_warn_few_clusters(n_clusters: int, cluster: Optional[str]) -> None:
+    """Emit a typed, actionable warning when cluster-robust SEs rest on too
+    few clusters (Cameron-Gelbach-Miller 2008; MacKinnon-Webb 2017)."""
+    from ..core._agent_summary import _FEW_CLUSTERS_MIN
+
+    if n_clusters >= _FEW_CLUSTERS_MIN:
+        return
+    warnings.warn(
+        AssumptionWarning(
+            f"Only {n_clusters} clusters (< {_FEW_CLUSTERS_MIN}) for "
+            f"cluster='{cluster}' — cluster-robust standard errors are "
+            "downward-biased and t-tests over-reject with few clusters.",
+            recovery_hint=(
+                "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv "
+                "for CIs), which keeps correct size when the number of "
+                "clusters is small."
+            ),
+            diagnostics={"n_clusters": int(n_clusters), "threshold": _FEW_CLUSTERS_MIN},
+            alternative_functions=[
+                "sp.wild_cluster_bootstrap",
+                "sp.wild_cluster_ci_inv",
+            ],
+        ),
+        stacklevel=2,
+    )
+
+
 def _convert_lm_result(
     lm_result: Any,
     method: str,
@@ -982,6 +1030,14 @@ def _convert_lm_result(
         "robust": robust,
         "cluster": cluster,
     }
+
+    # Record the binding number of clusters so few-cluster inference risk is
+    # machine-readable (``result.violations()``), and warn loudly at fit time
+    # when cluster-robust SEs rest on too few clusters to be reliable.
+    n_clusters = _binding_n_clusters(cluster, entity, time, raw_data)
+    if n_clusters is not None:
+        model_info["n_clusters"] = n_clusters
+        _maybe_warn_few_clusters(n_clusters, cluster)
 
     data_info = {
         "nobs": int(lm_result.nobs),

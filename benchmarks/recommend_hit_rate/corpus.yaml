@@ -1,0 +1,236 @@
+# StatsPAI — Recommendation Hit-Rate Benchmark Corpus
+# ===================================================
+# Ground-truth corpus of published empirical designs. For each design we record
+# (a) the estimator the paper actually used and the econometrically-acceptable
+# family for that design, and (b) the robustness checks the paper / referees /
+# methodological literature demanded. The harness runs `sp.recommend` /
+# `sp.audit` against each entry and scores hit-rate + audit recall.
+#
+# CITATION DISCIPLINE (CLAUDE.md §10 — zero-hallucination red line)
+# -----------------------------------------------------------------
+# Every `bib_key` below MUST resolve to an entry in paper.bib (the single
+# DOI-verified source of truth). The harness asserts this. Robustness-check
+# `provenance` labels WHERE the "a referee would ask this" claim comes from and
+# NEVER fabricates a referee report:
+#   paper_section          — the paper's own published robustness section
+#   methodological_critique— a published critique of the paper's headline method
+#   methodological_followup— a later method the field now expects on this design
+#   replication_package    — the authors' released code / appendix
+#   citation_needed        — a real concern we have NOT yet verified a source for
+#                            (NEVER scored as ground truth until promoted)
+#
+# TIERS
+#   A — data-backed: the dataset is bundled in sp.datasets; recommend runs on the
+#       REAL data. This is the rigorous core.
+#   B — design-card only: we encode the design fingerprint; recommend runs on a
+#       faithful stub. Scales to the 50-paper canon. (Added in later phases.)
+#
+# ESTIMATOR VOCABULARY (controlled tags — see harness._normalize_method)
+#   staggered DiD : callaway_santanna sun_abraham did_imputation gardner
+#                   borusyak_jaravel_spiess stacked_did dcdh drdid
+#   2x2 DiD       : classic_2x2 twfe
+#   IV            : twosls liml anderson_rubin jive
+#   RD            : rdrobust cct local_polynomial_rd
+#   synth         : synth augsynth synthdid gsynth mc_panel
+#   observational : ols psm dml ipw aipw entropy_balance matching
+#   panel         : fe mundlak re
+
+schema_version: 1
+corpus_version: "0.1.0-seed"
+
+entries:
+  # ---------------------------------------------------------------------------
+  # ADVERSARIAL CASE #1 — Staggered DiD. The crown jewel. TWFE here is
+  # contaminated by negative weights (Goodman-Bacon 2021); recommend MUST
+  # surface a heterogeneity-robust estimator and MUST NOT lead with TWFE/2x2.
+  # ---------------------------------------------------------------------------
+  - id: callaway_santanna_2021_mpdta
+    paper:
+      citation: "Callaway, B. & Sant'Anna, P. H. C. (2021). Difference-in-Differences with Multiple Time Periods. Journal of Econometrics 225(2), 200-230."
+      bib_key: callaway2021difference
+    design:
+      label: staggered_did
+      fingerprint: {unit: county, time: year, n_units: 500, n_periods: 5, staggered: true}
+    data:
+      tier: A
+      loader: "sp.datasets.mpdta()"
+      args: {y: lemp, treatment: treat, id: countyreal, time: year}
+    ground_truth:
+      estimator:
+        primary: callaway_santanna
+        acceptable: [callaway_santanna, sun_abraham, did_imputation, gardner, borusyak_jaravel_spiess, stacked_did, dcdh, drdid]
+        disqualifying: [twfe, classic_2x2]
+      robustness_checks:
+        - {check: parallel_trends,      provenance: paper_section,           source: "Callaway & Sant'Anna (2021) §4 pre-test"}
+        - {check: bacon_decomposition,  provenance: methodological_critique, source: "Goodman-Bacon (2021) [goodmanbacon2021difference]"}
+        - {check: honest_did,           provenance: methodological_followup, source: "Rambachan & Roth (2023) [rambachan2023more]"}
+    notes: "Canonical staggered-DiD adversarial trap. Leading with TWFE = HARD MISS."
+
+  # ---------------------------------------------------------------------------
+  # ADVERSARIAL CASE #2 — Weak instrument. Quarter-of-birth has a tiny
+  # first-stage F. recommend computes F live; on weak F it should elevate
+  # LIML / Anderson-Rubin over plain 2SLS.
+  # ---------------------------------------------------------------------------
+  - id: angrist_krueger_1991_qob
+    paper:
+      citation: "Angrist, J. D. & Krueger, A. B. (1991). Does Compulsory School Attendance Affect Schooling and Earnings? Quarterly Journal of Economics 106(4), 979-1014."
+      bib_key: angrist1991does
+    design:
+      label: iv
+      fingerprint: {endogenous: educ, instruments: [q1, q2, q3, q4], weak_instrument: true}
+    data:
+      tier: A
+      loader: "sp.datasets.angrist_krueger_1991()"
+      args: {y: lwage, treatment: educ, instrument: q1, covariates: [year_of_birth]}
+    ground_truth:
+      estimator:
+        primary: twosls
+        acceptable: [liml, anderson_rubin, twosls, jive]
+        disqualifying: [ols]
+      robustness_checks:
+        - {check: weak_instrument,   provenance: methodological_critique, source: "weak-IV critique of QOB (citation_needed — not yet in paper.bib)"}
+        - {check: anderson_rubin_ci, provenance: methodological_followup, source: "weak-IV-robust inference"}
+        - {check: overid_test,       provenance: paper_section,           source: "over-identification with 4 quarter dummies"}
+    notes: "Weak-IV adversarial trap. With tiny first-stage F, leading with bare 2SLS unflagged is the failure mode."
+
+  # ---------------------------------------------------------------------------
+  # IV — moderate instrument (geographic). Tests that recommend surfaces IV
+  # (not OLS) for an endogenous-regressor design.
+  # ---------------------------------------------------------------------------
+  - id: card_1995_proximity
+    paper:
+      citation: "Card, D. (1995). Using Geographic Variation in College Proximity to Estimate the Return to Schooling. In Aspects of Labour Market Behaviour, 201-222."
+      bib_key: card1995using
+    design:
+      label: iv
+      fingerprint: {endogenous: educ, instruments: [nearc4], weak_instrument: false}
+    data:
+      tier: A
+      loader: "sp.datasets.card_1995(simulated=False)"
+      args: {y: lwage, treatment: educ, instrument: nearc4, covariates: [exper, expersq, black, south, smsa]}
+    ground_truth:
+      estimator:
+        primary: twosls
+        acceptable: [twosls, liml, anderson_rubin, jive]
+        disqualifying: []
+      robustness_checks:
+        - {check: weak_instrument,   provenance: paper_section, source: "Card (1995) first-stage strength of nearc4"}
+        - {check: anderson_rubin_ci, provenance: methodological_followup, source: "weak-IV-robust CI as a guardrail"}
+    notes: "IV with a defensible single instrument. recommend should lead with 2SLS, F flagged."
+
+  # ---------------------------------------------------------------------------
+  # RD — sharp regression discontinuity.
+  # ---------------------------------------------------------------------------
+  - id: lee_2008_senate_rd
+    paper:
+      citation: "Lee, D. S. (2008). Randomized Experiments from Non-random Selection in U.S. House Elections. Journal of Econometrics 142(2), 675-697."
+      bib_key: lee2008randomized
+    design:
+      label: rd
+      fingerprint: {running_var: x, cutoff: 0.0, sharp: true}
+    data:
+      tier: A
+      loader: "sp.datasets.lee_2008_senate(simulated=False)"
+      args: {y: y, running_var: x, cutoff: 0.0}
+    ground_truth:
+      estimator:
+        primary: local_polynomial_rd
+        acceptable: [rdrobust, cct, local_polynomial_rd]
+        disqualifying: []
+      robustness_checks:
+        - {check: mccrary_density,        provenance: methodological_followup, source: "McCrary (2008) manipulation test — standard RD referee ask"}
+        - {check: bandwidth_sensitivity,  provenance: methodological_followup, source: "CCT (2014) bandwidth robustness [calonico2014robust]"}
+        - {check: placebo_cutoff,         provenance: methodological_followup, source: "placebo-cutoff falsification"}
+    notes: "Sharp RD. recommend should lead with local-polynomial / rdrobust."
+
+  # ---------------------------------------------------------------------------
+  # SYNTH — single-treated-unit comparative case study. Edge case: does
+  # recommend surface synthetic control (vs. defaulting to DiD/panel)?
+  # ---------------------------------------------------------------------------
+  - id: abadie_2010_prop99
+    paper:
+      citation: "Abadie, A., Diamond, A. & Hainmueller, J. (2010). Synthetic Control Methods for Comparative Case Studies. Journal of the American Statistical Association 105(490), 493-505."
+      bib_key: abadie2010synthetic
+    design:
+      label: synth
+      fingerprint: {unit: state, time: year, n_treated: 1, treated_unit: California}
+    data:
+      tier: A
+      loader: "sp.datasets.california_prop99(simulated=False)"
+      args: {y: cigsale, treatment: treated, id: state, time: year}
+    ground_truth:
+      estimator:
+        primary: synth
+        acceptable: [synth, augsynth, synthdid, gsynth, mc_panel]
+        disqualifying: []
+      robustness_checks:
+        - {check: pretreatment_fit,    provenance: paper_section, source: "ADH (2010) pre-treatment RMSPE fit"}
+        - {check: placebo_inference,   provenance: paper_section, source: "ADH (2010) in-space placebo / permutation inference"}
+    notes: "Single treated unit + long pre-period. Tests synth detection — likely a recommend GAP."
+
+  - id: abadie_2003_basque
+    paper:
+      citation: "Abadie, A. & Gardeazabal, J. (2003). The Economic Costs of Conflict: A Case Study of the Basque Country. American Economic Review 93(1), 113-132."
+      bib_key: abadie2003economic
+    design:
+      label: synth
+      fingerprint: {unit: region, time: year, n_treated: 1, treated_unit: "Basque Country"}
+    data:
+      tier: A
+      loader: "sp.datasets.basque_terrorism()"
+      args: {y: gdppc, treatment: treated, id: region, time: year}
+    ground_truth:
+      estimator:
+        primary: synth
+        acceptable: [synth, augsynth, synthdid, gsynth, mc_panel]
+        disqualifying: []
+      robustness_checks:
+        - {check: pretreatment_fit,  provenance: paper_section, source: "Abadie & Gardeazabal (2003) pre-fit"}
+        - {check: placebo_inference, provenance: methodological_followup, source: "placebo-region inference (ADH 2010 standard)"}
+    notes: "First synthetic-control paper. Same synth-detection edge case."
+
+  - id: abadie_2015_german
+    paper:
+      citation: "Abadie, A., Diamond, A. & Hainmueller, J. (2015). Comparative Politics and the Synthetic Control Method. American Journal of Political Science 59(2), 495-510."
+      bib_key: abadie2015comparative
+    design:
+      label: synth
+      fingerprint: {unit: country, time: year, n_treated: 1, treated_unit: "West Germany"}
+    data:
+      tier: A
+      loader: "sp.datasets.german_reunification()"
+      args: {y: gdppc, treatment: treated, id: country, time: year}
+    ground_truth:
+      estimator:
+        primary: synth
+        acceptable: [synth, augsynth, synthdid, gsynth, mc_panel]
+        disqualifying: []
+      robustness_checks:
+        - {check: pretreatment_fit,  provenance: paper_section, source: "ADH (2015) pre-fit"}
+        - {check: placebo_inference, provenance: paper_section, source: "ADH (2015) placebo inference"}
+    notes: "Reunification synth. Same synth-detection edge case."
+
+  # ---------------------------------------------------------------------------
+  # OBSERVATIONAL / selection-on-observables. Tests the SOO hierarchy.
+  # ---------------------------------------------------------------------------
+  - id: dehejia_wahba_1999_nsw
+    paper:
+      citation: "Dehejia, R. H. & Wahba, S. (1999). Causal Effects in Nonexperimental Studies: Reevaluating the Evaluation of Training Programs. Journal of the American Statistical Association 94(448), 1053-1062."
+      bib_key: dehejia1999causal
+    design:
+      label: observational
+      fingerprint: {selection_on_observables: true}
+    data:
+      tier: A
+      loader: "sp.datasets.nsw_dw()"
+      args: {y: re78, treatment: treat, covariates: [age, education, black, hispanic, married, nodegree, re74, re75]}
+    ground_truth:
+      estimator:
+        primary: psm
+        acceptable: [psm, dml, ipw, aipw, entropy_balance, matching, drdid, ols]
+        disqualifying: []
+      robustness_checks:
+        - {check: overlap,         provenance: paper_section,           source: "Dehejia & Wahba (1999) common-support / overlap"}
+        - {check: balance_after,   provenance: paper_section,           source: "DW (1999) covariate balance after matching"}
+        - {check: ovb_sensitivity, provenance: methodological_followup, source: "omitted-variable sensitivity (Oster / Rosenbaum)"}
+    notes: "Selection-on-observables. recommend should surface PSM/DML/balancing, not bare OLS top-1 alone."

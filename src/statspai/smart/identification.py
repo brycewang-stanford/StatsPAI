@@ -52,11 +52,12 @@ Usage
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 
+from ..exceptions import IdentificationFailure
 from ..workflow._degradation import record_degradation
 
 # ---------------------------------------------------------------------------
@@ -64,11 +65,15 @@ from ..workflow._degradation import record_degradation
 # ---------------------------------------------------------------------------
 
 
-class IdentificationError(Exception):
+class IdentificationError(IdentificationFailure):
     """Raised by ``check_identification(strict=True)`` when a blocker is found.
 
     Carries the full :class:`IdentificationReport` on ``self.report`` so
-    downstream code can still inspect findings without re-running.
+    downstream code can still inspect findings without re-running. As a
+    subclass of :class:`statspai.IdentificationFailure` it is catchable through
+    the central taxonomy — ``except sp.IdentificationFailure`` and
+    ``except sp.StatsPAIError`` both fire — and it carries the standard
+    ``recovery_hint`` / ``diagnostics`` payload an agent can branch on.
 
     Examples
     --------
@@ -79,21 +84,38 @@ class IdentificationError(Exception):
     ...         message="No variation in treatment.")],
     ...     design="cross_section", n_obs=30)
     >>> err = sp.IdentificationError(rep)
-    >>> isinstance(err, Exception)
+    >>> isinstance(err, sp.StatsPAIError)
     True
     >>> err.report.verdict
     'BLOCKERS'
     """
 
     def __init__(self, report: "IdentificationReport"):
-        self.report = report
         blockers = [f for f in report.findings if f.severity == "blocker"]
         header = (
             f"Identification has {len(blockers)} blocker(s) "
             f"({report.design} design, N={report.n_obs})"
         )
         body = "\n".join(f"  - {f.category}: {f.message}" for f in blockers)
-        super().__init__(f"{header}\n{body}" if body else header)
+        suggestions = [f.suggestion for f in blockers if getattr(f, "suggestion", "")]
+        super().__init__(
+            f"{header}\n{body}" if body else header,
+            recovery_hint=(
+                suggestions[0]
+                if suggestions
+                else "Resolve the listed identification blockers, or switch to "
+                "a design under which the estimand is identified."
+            ),
+            diagnostics={
+                "design": report.design,
+                "n_obs": report.n_obs,
+                "blockers": [
+                    {"category": f.category, "message": f.message} for f in blockers
+                ],
+            },
+        )
+        # Preserve the historical attribute for downstream inspectors.
+        self.report = report
 
 
 # ---------------------------------------------------------------------------

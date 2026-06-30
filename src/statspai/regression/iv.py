@@ -28,16 +28,17 @@ References
   Estimation. *Journal of Applied Econometrics*, 14(1), 57-67.
 """
 
-from typing import Optional, Union, Dict, Any, List, Tuple
-import pandas as pd
-import numpy as np
-from scipy import stats
 import warnings
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from ..core.base import BaseModel, BaseEstimator
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
 
 def _require_string(value: Any, name: str) -> str:
@@ -1171,6 +1172,21 @@ class IVRegression(BaseModel):
         if results.get("kappa") is not None:
             model_info["kappa"] = results["kappa"]
 
+        # Surface the first-stage strength so it is machine-readable downstream
+        # (``result.violations()`` / ``sp.audit_result``), not just printed in
+        # the human ``diagnostics`` table. ``first_stage_f`` is the binding
+        # (weakest) instrument across endogenous regressors — the quantity the
+        # Stock-Yogo weak-IV threshold applies to.
+        _fs = results.get("first_stage") or []
+        _fs_fvals = [
+            fs["f_statistic"]
+            for fs in _fs
+            if fs.get("f_statistic") is not None and np.isfinite(fs["f_statistic"])
+        ]
+        if _fs_fvals:
+            model_info["first_stage_f"] = float(min(_fs_fvals))
+        model_info["first_stage"] = [dict(fs) for fs in _fs]
+
         data_info = {
             "nobs": results["nobs"],
             "df_model": results["df_model"],
@@ -1193,15 +1209,38 @@ class IVRegression(BaseModel):
             diagnostics[f"First-stage F p-value ({endog_name})"] = fs["f_pvalue"]
             diagnostics[f"Partial R² ({endog_name})"] = fs["partial_r_squared"]
 
-        # Weak instrument warning
+        # Weak instrument warning — a typed AssumptionWarning so the fit-time
+        # signal carries the same machine-readable recovery payload an agent
+        # gets from ``result.violations()`` (recovery_hint / alternatives /
+        # diagnostics), instead of a bare string UserWarning. The "Weak
+        # instrument" prefix is preserved for callers that grep the message.
         for j, fs in enumerate(results["first_stage"]):
-            if fs["f_statistic"] < 10:
+            f_stat = fs["f_statistic"]
+            if f_stat is not None and np.isfinite(f_stat) and f_stat < 10:
                 endog_name = self._endog_names[j]
                 warnings.warn(
-                    f"Weak instrument warning: First-stage F-statistic for "
-                    f"'{endog_name}' is {fs['f_statistic']:.2f} (< 10). "
-                    f"See Stock & Yogo (2005). Consider method='liml' or 'fuller'.",
-                    UserWarning,
+                    AssumptionWarning(
+                        f"Weak instrument warning: First-stage F-statistic for "
+                        f"'{endog_name}' is {f_stat:.2f} (< 10, Stock-Yogo "
+                        f"5% bias). 2SLS is biased toward OLS and its t-test "
+                        f"over-rejects.",
+                        recovery_hint=(
+                            "Report sp.anderson_rubin_ci (weak-IV-robust, "
+                            "correct coverage at any F) or refit with "
+                            "method='liml'/'fuller' (smaller weak-IV bias); "
+                            "check sp.effective_f_test for the Olea-Pflueger F."
+                        ),
+                        diagnostics={
+                            "endogenous": endog_name,
+                            "first_stage_f": float(f_stat),
+                            "threshold": 10.0,
+                        },
+                        alternative_functions=[
+                            "sp.anderson_rubin_ci",
+                            "sp.effective_f_test",
+                            "sp.iv",
+                        ],
+                    ),
                     stacklevel=2,
                 )
 

@@ -4,8 +4,9 @@ Unified results class for all econometric models
 
 from html import escape as _html_escape
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 from ..exceptions import MethodIncompatibility
 
@@ -538,7 +539,7 @@ class EconometricResults:
         >>> result = sp.regress("y ~ x1 + x2", data=df)
         >>> result.next_steps()
         """
-        from .next_steps import econometric_next_steps, _format_steps
+        from .next_steps import _format_steps, econometric_next_steps
 
         steps = econometric_next_steps(self)
         if print_result:
@@ -546,7 +547,7 @@ class EconometricResults:
         return [s.to_dict() for s in steps]
 
     def _next_steps_html(self) -> str:
-        from .next_steps import econometric_next_steps, _steps_repr_html
+        from .next_steps import _steps_repr_html, econometric_next_steps
 
         return _steps_repr_html(econometric_next_steps(self))
 
@@ -1026,6 +1027,59 @@ class EconometricResults:
         from ..smart.citations import render_citation
 
         return render_citation(bibtex, fmt=format)
+
+    def to_appendix(
+        self,
+        format: str = "latex",
+        *,
+        include_assumptions: bool = True,
+        include_diagnostics: bool = True,
+        include_citation: bool = True,
+        include_provenance: bool = True,
+    ) -> str:
+        """Generate a *Methods and Formulas* appendix for this model.
+
+        Shares the curated, zero-hallucination methods table with
+        :class:`CausalResult` (CLAUDE.md §10). IV / 2SLS regressions resolve
+        to the instrumental-variables entry; other regression families that
+        are not in the causal methods table degrade to an explicit placeholder
+        plus the inference actually used and a provenance trace — never an
+        invented formula.
+
+        Parameters
+        ----------
+        format : {"latex", "markdown", "text"}, default ``"latex"``
+            Output format.
+        include_assumptions : bool, default True
+            Include the identifying-assumptions list (when registered).
+        include_diagnostics : bool, default True
+            Include the inference block read off ``model_info``.
+        include_citation : bool, default True
+            Append the APA-style reference from :meth:`cite`.
+        include_provenance : bool, default True
+            Append a one-line provenance trace (StatsPAI version + estimator
+            identity + methods-spec key).
+
+        Returns
+        -------
+        str
+            The assembled appendix.
+
+        Examples
+        --------
+        >>> res = sp.ivreg('y ~ x | z', data=df)
+        >>> print(res.to_appendix(format='markdown'))
+        """
+        from ..smart.methods_appendix import methods_appendix
+
+        return methods_appendix(
+            self,
+            format=format,
+            include_assumptions=include_assumptions,
+            include_diagnostics=include_diagnostics,
+            include_citation=include_citation,
+            include_provenance=include_provenance,
+        )
 
     def for_agent(self) -> Dict[str, Any]:
         """Agent-ready payload — alias for ``to_dict(detail="agent")``.
@@ -2214,18 +2268,18 @@ class CausalResult:
         """
         try:
             from docx import Document
-            from docx.shared import Pt
-            from docx.enum.text import WD_ALIGN_PARAGRAPH
             from docx.enum.table import WD_TABLE_ALIGNMENT
+            from docx.enum.text import WD_ALIGN_PARAGRAPH
+            from docx.shared import Pt
         except ImportError as e:  # pragma: no cover
             raise ImportError(
                 "python-docx required for to_word(). "
                 "Install: pip install python-docx"
             ) from e
         from ..output._aer_style import (
+            add_word_notes_paragraph,
             apply_word_booktab_rules,
             style_word_table_typography,
-            add_word_notes_paragraph,
         )
 
         doc = Document()
@@ -2449,6 +2503,62 @@ class CausalResult:
 
         return render_citation(bibtex, fmt=format)
 
+    def to_appendix(
+        self,
+        format: str = "latex",
+        *,
+        include_assumptions: bool = True,
+        include_diagnostics: bool = True,
+        include_citation: bool = True,
+        include_provenance: bool = True,
+    ) -> str:
+        """Generate a *Methods and Formulas* appendix for this result.
+
+        Emits the estimand / estimator definitions (verified LaTeX from the
+        cited source), identifying assumptions, the inference actually used
+        (read off this result), the canonical citation, and a provenance
+        trace — a referee-grade methodological disclosure that ties every
+        reported number back to a formula, a verified reference, and the
+        exact code path.
+
+        Parameters
+        ----------
+        format : {"latex", "markdown", "text"}, default ``"latex"``
+            Output format.
+        include_assumptions : bool, default True
+            Include the identifying-assumptions list.
+        include_diagnostics : bool, default True
+            Include the inference block (SE method, clustering, CI, ...).
+        include_citation : bool, default True
+            Append the APA-style reference from :meth:`cite`.
+        include_provenance : bool, default True
+            Append a one-line provenance trace (StatsPAI version + estimator
+            identity + methods-spec key).
+
+        Returns
+        -------
+        str
+            The assembled appendix. Methods text comes from the curated,
+            zero-hallucination table (CLAUDE.md §10); an unregistered method
+            degrades to an explicit placeholder rather than an invented
+            formula.
+
+        Examples
+        --------
+        >>> result = sp.did(df, y='wage', treat='treated', time='post')
+        >>> print(result.to_appendix(format='markdown'))
+        """
+        from ..smart.methods_appendix import methods_appendix
+
+        return methods_appendix(
+            self,
+            format=format,
+            include_assumptions=include_assumptions,
+            include_diagnostics=include_diagnostics,
+            include_citation=include_citation,
+            include_provenance=include_provenance,
+        )
+
     def pretrend_test(self) -> Dict[str, Any]:
         """Return pre-trend test results (DID methods)."""
         if "pretrend_test" not in self.model_info:
@@ -2477,7 +2587,7 @@ class CausalResult:
         >>> result = sp.did(df, y='wage', treat='treated', time='post')
         >>> result.next_steps()
         """
-        from .next_steps import causal_next_steps, _format_steps
+        from .next_steps import _format_steps, causal_next_steps
 
         steps = causal_next_steps(self)
         if print_result:
@@ -2485,7 +2595,7 @@ class CausalResult:
         return [s.to_dict() for s in steps]
 
     def _next_steps_html(self) -> str:
-        from .next_steps import causal_next_steps, _steps_repr_html
+        from .next_steps import _steps_repr_html, causal_next_steps
 
         return _steps_repr_html(causal_next_steps(self))
 
@@ -3276,9 +3386,9 @@ def _result_to_docx(
     """
     try:
         from docx import Document
-        from docx.shared import Pt
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
         from docx.enum.table import WD_TABLE_ALIGNMENT
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.shared import Pt
     except ImportError:
         raise ImportError(
             "python-docx required for Word export. " "Install: pip install python-docx"

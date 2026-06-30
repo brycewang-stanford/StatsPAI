@@ -76,7 +76,6 @@ def real_regress_result():
 
 
 class TestAuditExport:
-
     def test_sp_audit_is_callable(self):
         assert callable(sp.audit)
 
@@ -91,7 +90,6 @@ class TestAuditExport:
 
 
 class TestReturnShape:
-
     def test_top_level_keys(self, real_did_result):
         card = sp.audit(real_did_result)
         for k in ("method", "method_family", "checks", "summary", "coverage"):
@@ -134,7 +132,6 @@ class TestReturnShape:
 
 
 class TestFamilyRouting:
-
     def test_did_routes_to_did_family(self, real_did_result):
         assert sp.audit(real_did_result)["method_family"] == "did"
 
@@ -160,6 +157,18 @@ class TestFamilyRouting:
         names = {c["name"] for c in sp.audit(real_regress_result)["checks"]}
         assert "robust_se" in names
 
+    def test_observational_regression_checks_require_declared_treatment(
+        self, real_regress_result
+    ):
+        descriptive = {c["name"] for c in sp.audit(real_regress_result)["checks"]}
+        causal = {
+            c["name"] for c in sp.audit(real_regress_result, treatment="x")["checks"]
+        }
+
+        treatment_only = {"overlap", "balance_after", "ovb_sensitivity"}
+        assert descriptive.isdisjoint(treatment_only)
+        assert treatment_only <= causal
+
 
 # ---------------------------------------------------------------------------
 #  Status semantics: passed / failed / missing
@@ -167,7 +176,6 @@ class TestFamilyRouting:
 
 
 class TestPassedFailedMissing:
-
     def test_pretrend_passes_when_pvalue_above_threshold(self):
         r = _bare_did_result(model_info={"pretrend_test": {"pvalue": 0.50}})
         check = next(c for c in sp.audit(r)["checks"] if c["name"] == "parallel_trends")
@@ -211,7 +219,6 @@ class TestPassedFailedMissing:
 
 
 class TestTokenBudget:
-
     def test_did_under_budget(self, real_did_result):
         s = json.dumps(sp.audit(real_did_result))
         assert len(s) < 4000, (
@@ -225,7 +232,6 @@ class TestTokenBudget:
 
 
 class TestJsonSafety:
-
     def test_payload_strict_json_safe(self, real_did_result):
         # Strict json.dumps (no default= fallback) — catches numpy /
         # pandas leakage that would only break under MCP transport.
@@ -241,7 +247,6 @@ class TestJsonSafety:
 
 
 class TestEdgeCases:
-
     def test_empty_model_info_returns_all_missing(self):
         r = _bare_did_result()
         card = sp.audit(r)

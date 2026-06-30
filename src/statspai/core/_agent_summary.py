@@ -52,6 +52,12 @@ _SMD_MAX = 0.10
 #: common support.
 _OVERLAP_MIN = 0.05
 
+#: Minimum number of clusters for cluster-robust SE to be reliable. Below this,
+#: the CRVE is downward-biased and t-tests over-reject; the wild cluster
+#: bootstrap (Cameron-Gelbach-Miller 2008; MacKinnon-Webb 2017) is the standard
+#: remedy. 30 is the conservative end of the common 30-50 rule of thumb.
+_FEW_CLUSTERS_MIN = 30
+
 
 # ====================================================================== #
 #  CausalResult helpers
@@ -95,7 +101,18 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
     from .next_steps import _detect_family  # lazy to avoid cycle
 
     mi: Dict[str, Any] = result.model_info or {}
-    method_family = _detect_family((result.method or "").lower())
+    # Detect the family from the result's ``method`` attribute, falling back to
+    # ``model_info`` keys (``model_type`` / ``method``). Several estimators
+    # (e.g. IV) leave ``result.method`` unset but record an identifying
+    # ``model_type`` such as ``"IV-2SLS"`` — without this fallback their
+    # family-gated checks (weak IV, RD manipulation, …) silently never fire.
+    method_family = _detect_family((getattr(result, "method", None) or "").lower())
+    if method_family == "generic":
+        for _key in ("model_type", "method"):
+            _fam = _detect_family(str(mi.get(_key, "")).lower())
+            if _fam != "generic":
+                method_family = _fam
+                break
     out: List[Dict[str, Any]] = []
 
     # --- DID: parallel trends ------------------------------------------
@@ -148,6 +165,36 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
                     "sp.iv(..., method='liml') which has smaller weak-IV bias."
                 ),
                 "alternatives": ["sp.anderson_rubin_ci", "sp.iv"],
+            }
+        )
+
+    # --- Cluster-robust inference: too few clusters ---------------------
+    # Gated on the estimator having recorded ``n_clusters`` (i.e. cluster-robust
+    # SEs were actually requested) rather than on family, since the small-G
+    # problem applies wherever a CRVE is used.
+    n_clusters = _as_float(mi.get("n_clusters"))
+    if n_clusters is not None and n_clusters < _FEW_CLUSTERS_MIN:
+        out.append(
+            {
+                "kind": "inference",
+                "severity": "warning",
+                "test": "few_clusters",
+                "value": int(n_clusters),
+                "threshold": _FEW_CLUSTERS_MIN,
+                "message": (
+                    f"Only {int(n_clusters)} clusters (< {_FEW_CLUSTERS_MIN}) — "
+                    "cluster-robust SEs are downward-biased and t-tests "
+                    "over-reject (Cameron-Gelbach-Miller 2008)."
+                ),
+                "recovery_hint": (
+                    "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv "
+                    "for confidence intervals), which has correct size with few "
+                    "clusters."
+                ),
+                "alternatives": [
+                    "sp.wild_cluster_bootstrap",
+                    "sp.wild_cluster_ci_inv",
+                ],
             }
         )
 
@@ -345,9 +392,9 @@ def causal_agent_summary(result: Any) -> Dict[str, Any]:
         if isinstance(val, (str, int, float, bool)) or val is None:
             scalar_diagnostics[key] = val
         elif isinstance(val, (pd.DataFrame, pd.Series, np.ndarray)):
-            scalar_diagnostics[key] = (
-                f"<{type(val).__name__} shape={getattr(val, 'shape', '?')}>"
-            )
+            scalar_diagnostics[
+                key
+            ] = f"<{type(val).__name__} shape={getattr(val, 'shape', '?')}>"
         elif isinstance(val, dict):
             # One level deep is enough for most diagnostic subtrees.
             nested = {}
@@ -417,6 +464,34 @@ def econometric_violations(result: Any) -> List[Dict[str, Any]]:
                     "Use sp.anderson_rubin_ci or sp.iv(..., method='liml')."
                 ),
                 "alternatives": ["sp.anderson_rubin_ci", "sp.iv"],
+            }
+        )
+
+    # Too few clusters for reliable cluster-robust inference. Gated on the
+    # estimator having recorded ``n_clusters`` (cluster-robust SEs were
+    # requested), mirroring the fit-time warning so the two never disagree.
+    n_clusters = _as_float(mi.get("n_clusters"))
+    if n_clusters is not None and n_clusters < _FEW_CLUSTERS_MIN:
+        out.append(
+            {
+                "kind": "inference",
+                "severity": "warning",
+                "test": "few_clusters",
+                "value": int(n_clusters),
+                "threshold": _FEW_CLUSTERS_MIN,
+                "message": (
+                    f"Only {int(n_clusters)} clusters (< {_FEW_CLUSTERS_MIN}) — "
+                    "cluster-robust SEs are downward-biased and t-tests "
+                    "over-reject (Cameron-Gelbach-Miller 2008)."
+                ),
+                "recovery_hint": (
+                    "Report sp.wild_cluster_bootstrap (or sp.wild_cluster_ci_inv "
+                    "for confidence intervals), correct with few clusters."
+                ),
+                "alternatives": [
+                    "sp.wild_cluster_bootstrap",
+                    "sp.wild_cluster_ci_inv",
+                ],
             }
         )
 

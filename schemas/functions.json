@@ -31151,6 +31151,68 @@
     }
   },
   {
+    "description": "Dict-compatible parity record with a human-readable rendering.",
+    "name": "ParityStatus",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Return the full parity matrix over every registered function.",
+    "name": "parity_matrix",
+    "parameters": {
+      "properties": {
+        "fmt": {
+          "default": "records",
+          "description": "Output format. ``\"dataframe\"`` / ``\"markdown\"`` need pandas.",
+          "enum": [
+            "records",
+            "dataframe",
+            "markdown"
+          ],
+          "type": "string"
+        },
+        "source": {
+          "description": "Filter by evidence source (``\"track_a\"``, ``\"reference_parity\"``, ``\"external_parity\"``, or ``\"none\"``).",
+          "type": "string"
+        },
+        "status": {
+          "description": "Filter to one taxonomy grade (see :data:`TAXONOMY`).",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Return the cross-language parity record for one function.",
+    "name": "parity_status",
+    "parameters": {
+      "properties": {
+        "name": {
+          "description": "A registered ``sp.*`` function name (e.g. ``\"feols\"``).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Headline counts of the parity matrix -- the honest coverage snapshot.",
+    "name": "parity_summary",
+    "parameters": {
+      "properties": {},
+      "required": [],
+      "type": "object"
+    }
+  },
+  {
     "description": "Unified help entry point for StatsPAI.",
     "name": "help",
     "parameters": {
@@ -36538,6 +36600,50 @@
       },
       "required": [
         "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Generate a referee-grade *Methods and Formulas* appendix for results.",
+    "name": "methods_appendix",
+    "parameters": {
+      "properties": {
+        "format": {
+          "default": "latex",
+          "description": "Output format. ``\"latex\"`` emits ``\\subsection*`` blocks with display math; ``\"markdown\"`` emits ``###`` headings with ``$$`` math; ``\"text\"`` emits a plain-text rendering.",
+          "enum": [
+            "latex",
+            "markdown",
+            "text"
+          ],
+          "type": "string"
+        },
+        "include_assumptions": {
+          "default": true,
+          "description": "Include the identifying-assumptions list.",
+          "type": "boolean"
+        },
+        "include_citation": {
+          "default": true,
+          "description": "Append the APA-style reference from ``result.cite()``.",
+          "type": "boolean"
+        },
+        "include_diagnostics": {
+          "default": true,
+          "description": "Include the inference block (SE method, clustering, bandwidth, F, CI).",
+          "type": "boolean"
+        },
+        "results": {
+          "description": "One or more fitted result objects exposing ``method`` / ``model_info`` / ``cite``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "results"
       ],
       "type": "object"
     }

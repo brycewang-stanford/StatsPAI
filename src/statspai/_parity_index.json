@@ -1,0 +1,3879 @@
+{
+  "generator": "scripts/build_parity_index.py",
+  "records": [
+    {
+      "function": "aggte",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_honest_did_paper_parity.py",
+        "tests/external_parity/test_published_replications.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "aipw",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_paper_parity.py",
+        "tests/reference_parity/test_tmle_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "arima",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 7.362248486107534e-07,
+        "rel_vs_Stata": 9.270983902140011e-09,
+        "statistic": [
+          "ar1",
+          "ar2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "ARIMA(2,0,0)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "39_arima",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 7.362248486107534e-07,
+        "Stata": 9.270983902140011e-09
+      },
+      "python_call": "sp.arima",
+      "reference": "stats::arima",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "stats": "4.5.2"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/39_arima.py",
+        "tests/r_parity/39_arima.R",
+        "tests/stata_parity/39_arima.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "assimilative_causal",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_assimilation_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "augsynth",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 7.906189966696879e-06,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "att_augmented"
+        ],
+        "tolerance": 2e-05
+      },
+      "label": "Augmented SCM",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "18_augsynth",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 7.906189966696879e-06,
+        "Stata": null
+      },
+      "python_call": "sp.augsynth(backend=\"native\")",
+      "reference": "augsynth::augsynth",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "augsynth": "0.2.0"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "aligned",
+      "test": [
+        "tests/r_parity/18_augsynth.py",
+        "tests/r_parity/18_augsynth.R"
+      ],
+      "tier": "iterative",
+      "tolerance": "rel_est<=2e-05, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_did_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "bacon_decomposition",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 5.550363738435005e-16,
+        "rel_vs_Stata": 9.569917084916859e-09,
+        "statistic": [
+          "beta_twfe"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Goodman--Bacon decomp",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "20_bacon",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 5.550363738435005e-16,
+        "Stata": 9.569917084916859e-09
+      },
+      "python_call": "sp.bacon_decomposition",
+      "reference": "bacondecomp::bacon",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "bacondecomp": "0.1.1"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/20_bacon.py",
+        "tests/r_parity/20_bacon.R",
+        "tests/stata_parity/20_bacon.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "bcf",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bcf_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "betareg",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.155339134588547e-08,
+        "rel_vs_Stata": 3.114812276449688e-08,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1",
+          "beta_x2",
+          "ln_phi"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Beta regression",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "61_betareg",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.155339134588547e-08,
+        "Stata": 3.114812276449688e-08
+      },
+      "python_call": "sp.betareg",
+      "reference": "betareg::betareg(link.phi=\"log\")",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "betareg": "3.2.4"
+      },
+      "se_rel": {
+        "R": 0.006673114688476084,
+        "Stata": 5.953525826740444e-06
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/61_betareg.py",
+        "tests/r_parity/61_betareg.R",
+        "tests/stata_parity/61_betareg.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+    },
+    {
+      "function": "bidirectional_pci",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_proximal_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "breakdown_m",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_honest_did_paper_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "bunching",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bunching_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_honest_did_paper_parity.py",
+        "tests/external_parity/test_published_replications.py",
+        "tests/reference_parity/test_callaway_santanna_parity.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "callaway_santanna",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.2625156092532566e-15,
+        "rel_vs_Stata": 1.2625156092532566e-15,
+        "statistic": [
+          "simple_ATT"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "CS-DiD simple ATT",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "04_csdid",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.2625156092532566e-15,
+        "Stata": 1.2625156092532566e-15
+      },
+      "python_call": "sp.callaway_santanna",
+      "reference": "did::att_gt + aggte",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "did": "2.3.0"
+      },
+      "se_rel": {
+        "R": 0.003203341863034817,
+        "Stata": 0.003203341863038714
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/04_csdid.py",
+        "tests/r_parity/04_csdid.R",
+        "tests/stata_parity/04_csdid.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_causalml_book.py",
+        "tests/reference_parity/test_causal_forest_aipw_recovery.py",
+        "tests/reference_parity/test_grf_parity.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "causal_forest",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 0.0019065437058892935,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "ate_causal_forest"
+        ],
+        "tolerance": 0.005
+      },
+      "label": "Causal forest (AIPW)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "13_causal_forest",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 0.0019065437058892935,
+        "Stata": null
+      },
+      "python_call": "sp.causal_forest",
+      "reference": "grf::causal_forest",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "grf": "2.6.1"
+      },
+      "se_rel": {
+        "R": 0.07741981825307714,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "aligned",
+      "test": [
+        "tests/r_parity/13_causal_forest.py",
+        "tests/r_parity/13_causal_forest.R"
+      ],
+      "tier": "moderate",
+      "tolerance": "rel_est<=0.005, rel_se<=0.5"
+    },
+    {
+      "function": "causal_kalman",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_assimilation_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "cbps",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_matching_parity.py",
+        "tests/reference_parity/test_paper_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "clogit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.3052881476941806e-08,
+        "rel_vs_Stata": 1.3171898759677157e-08,
+        "statistic": [
+          "beta_x"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Conditional logit",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "46_clogit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.3052881476941806e-08,
+        "Stata": 1.3171898759677157e-08
+      },
+      "python_call": "sp.clogit",
+      "reference": "survival::clogit",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "survival": "3.8.3"
+      },
+      "se_rel": {
+        "R": 2.676653326706952e-09,
+        "Stata": 2.735764823259137e-09
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/46_clogit.py",
+        "tests/r_parity/46_clogit.R",
+        "tests/stata_parity/46_clogit.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "continuous_did",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_dose_response_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "cox",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 8.396307685239988e-16,
+        "rel_vs_Stata": 2.108660948980041e-10,
+        "statistic": [
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Cox proportional hazards",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "24_coxph",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 8.396307685239988e-16,
+        "Stata": 2.108660948980041e-10
+      },
+      "python_call": "sp.survival.cox",
+      "reference": "survival::coxph",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "survival": "3.8.3"
+      },
+      "se_rel": {
+        "R": 2.569513102715171e-15,
+        "Stata": 1.1859291243300805e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/24_coxph.py",
+        "tests/r_parity/24_coxph.R",
+        "tests/stata_parity/24_coxph.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "cr2_se",
+      "headline": {
+        "metric": "rel_se",
+        "rel_vs_R": 1.841976854529605e-08,
+        "rel_vs_Stata": 2.2185186743238704e-08,
+        "statistic": [
+          "cr2_(Intercept)",
+          "cr3_(Intercept)",
+          "cr2_treat",
+          "cr3_treat",
+          "cr2_year",
+          "cr3_year"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Cluster-robust CR2 SE (+ CR3 jackknife)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "53_cr2",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.1581460303540845e-14,
+        "Stata": 3.2148809694035606e-10
+      },
+      "python_call": "sp.cr2_se",
+      "reference": "clubSandwich::vcovCR(type=\"CR2\"/\"CR3\")",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "clubSandwich": "0.6.2"
+      },
+      "se_rel": {
+        "R": 1.841976854529605e-08,
+        "Stata": 2.2185186743238704e-08
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/53_cr2.py",
+        "tests/r_parity/53_cr2.R",
+        "tests/stata_parity/53_cr2.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/r_parity/31_dfl.py",
+        "tests/r_parity/31_dfl.R",
+        "tests/stata_parity/31_dfl.do"
+      ],
+      "also_in_modules": [
+        "31_dfl"
+      ],
+      "function": "decompose",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 6.272984425624262e-16,
+        "rel_vs_Stata": 1.2545968851248518e-16,
+        "statistic": [
+          "gap"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Blinder--Oaxaca",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "30_oaxaca",
+      "notes": [
+        "Grade is variant-specific: certified for the tested call (sp.decompose(\"oaxaca\")); other decompose() methods/variants may differ."
+      ],
+      "point_estimate_rel": {
+        "R": 6.272984425624262e-16,
+        "Stata": 1.2545968851248518e-16
+      },
+      "python_call": "sp.decompose(\"oaxaca\")",
+      "reference": "oaxaca::oaxaca",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "oaxaca": "0.1.5"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/30_oaxaca.py",
+        "tests/r_parity/30_oaxaca.R",
+        "tests/stata_parity/30_oaxaca.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+    },
+    {
+      "function": "dfl_decompose",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.1607068888501023e-09,
+        "rel_vs_Stata": 1.8301293513290868e-13,
+        "statistic": [
+          "gap",
+          "composition",
+          "structure"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "DFL reweighting",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "31_dfl",
+      "notes": [
+        "Alias of sp.decompose('dfl') — same estimator core, certified via Track A module 31_dfl; the registry validation_status independently marks this function certified."
+      ],
+      "point_estimate_rel": {
+        "R": 1.1607068888501023e-09,
+        "Stata": 1.8301293513290868e-13
+      },
+      "python_call": "sp.decompose(\"dfl\")",
+      "reference": "ddecompose::dfl_decompose",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "ddecompose": "1.0.0"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a_alias",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/31_dfl.py",
+        "tests/r_parity/31_dfl.R",
+        "tests/stata_parity/31_dfl.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_did_variants_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "did_imputation",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.8152801849589737e-08,
+        "rel_vs_Stata": 3.5176448029765973e-07,
+        "statistic": [
+          "att_bjs"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "BJS imputation",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "16_bjs",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.8152801849589737e-08,
+        "Stata": 3.5176448029765973e-07
+      },
+      "python_call": "sp.did_imputation",
+      "reference": "didimputation::did_imputation",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "didimputation": "0.5.1"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/16_bjs.py",
+        "tests/r_parity/16_bjs.R",
+        "tests/stata_parity/16_bjs.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "did_multiplegt",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_did_multiplegt_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "discos",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_distributional_te_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "distributional_te",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_distributional_te_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_dml_python_parity.py",
+        "tests/reference_parity/test_cross_estimator_parity.py",
+        "tests/reference_parity/test_dml_parity.py",
+        "tests/reference_parity/test_rlasso_parity.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "dml",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 0.0,
+        "rel_vs_Stata": 3.6511131166112876e-15,
+        "statistic": [
+          "theta_DML_PLR"
+        ],
+        "tolerance": 1e-10
+      },
+      "label": "DML PLR",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "08_dml",
+      "notes": [
+        "Grade is variant-specific: certified for the tested call (sp.dml(\"plr\")); other dml() methods/variants may differ."
+      ],
+      "point_estimate_rel": {
+        "R": 0.0,
+        "Stata": 3.6511131166112876e-15
+      },
+      "python_call": "sp.dml(\"plr\")",
+      "reference": "DoubleML::DoubleMLPLR",
+      "reference_versions": {
+        "DoubleML": "1.0.2",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 0.0,
+        "Stata": 6.9246557797330455e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/08_dml.py",
+        "tests/r_parity/08_dml.R",
+        "tests/stata_parity/08_dml.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-10, rel_se<=1e-10"
+    },
+    {
+      "function": "dose_response",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_dose_response_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "drdid",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.6079018717605566e-15,
+        "rel_vs_Stata": 2.1732515598004692e-16,
+        "statistic": [
+          "att"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "DR-DID (Sant'Anna-Zhao)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "38_drdid",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.6079018717605566e-15,
+        "Stata": 2.1732515598004692e-16
+      },
+      "python_call": "sp.drdid",
+      "reference": "DRDID::drdid_imp_panel",
+      "reference_versions": {
+        "DRDID": "1.2.3",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 1.1178441169314828e-11,
+        "Stata": 6.139398015849696e-12
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/38_drdid.py",
+        "tests/r_parity/38_drdid.R",
+        "tests/stata_parity/38_drdid.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "ebalance",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_matching_parity.py",
+        "tests/reference_parity/test_paper_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "etwfe",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.7847134068043535e-13,
+        "rel_vs_Stata": 3.893560809972389e-14,
+        "statistic": [
+          "att_etwfe"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Wooldridge ETWFE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "17_etwfe",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.7847134068043535e-13,
+        "Stata": 3.893560809972389e-14
+      },
+      "python_call": "sp.etwfe + sp.etwfe_emfx",
+      "reference": "etwfe::etwfe + emfx",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "etwfe": "0.6.2"
+      },
+      "se_rel": {
+        "R": 2.4035766096211474e-06,
+        "Stata": 0.0006034396606860773
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/17_etwfe.py",
+        "tests/r_parity/17_etwfe.R",
+        "tests/stata_parity/17_etwfe.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+    },
+    {
+      "function": "etwfe_emfx",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.7847134068043535e-13,
+        "rel_vs_Stata": 3.893560809972389e-14,
+        "statistic": [
+          "att_etwfe"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Wooldridge ETWFE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "17_etwfe",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.7847134068043535e-13,
+        "Stata": 3.893560809972389e-14
+      },
+      "python_call": "sp.etwfe + sp.etwfe_emfx",
+      "reference": "etwfe::etwfe + emfx",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "etwfe": "0.6.2"
+      },
+      "se_rel": {
+        "R": 2.4035766096211474e-06,
+        "Stata": 0.0006034396606860773
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/17_etwfe.py",
+        "tests/r_parity/17_etwfe.R",
+        "tests/stata_parity/17_etwfe.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_whatif_nhefs.py"
+      ],
+      "also_verified_by": [
+        "external_parity"
+      ],
+      "function": "evalue",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 5.815188234415198e-14,
+        "rel_vs_Stata": 1.1537782697795563e-16,
+        "statistic": [
+          "evalue_est_moderate",
+          "evalue_ci_moderate",
+          "evalue_est_strong",
+          "evalue_ci_strong",
+          "evalue_est_borderline",
+          "evalue_ci_borderline",
+          "evalue_est_rr_protective",
+          "evalue_ci_rr_protective",
+          "evalue_est_rr_crossnull",
+          "evalue_ci_rr_crossnull",
+          "evalue_est_rr_nonnull",
+          "evalue_ci_rr_nonnull",
+          "evalue_est_or_common",
+          "evalue_ci_or_common",
+          "evalue_est_or_rare",
+          "evalue_ci_or_rare",
+          "evalue_est_hr_common",
+          "evalue_ci_hr_common",
+          "evalue_est_hr_rare",
+          "evalue_ci_hr_rare",
+          "evalue_est_md",
+          "evalue_ci_md",
+          "evalue_est_ols",
+          "evalue_ci_ols",
+          "evalue_est_rd",
+          "evalue_ci_rd"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "E-value",
+      "last_verified": "R version 4.2.3 (2023-03-15)",
+      "module_id": "23_evalue",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 5.815188234415198e-14,
+        "Stata": 1.1537782697795563e-16
+      },
+      "python_call": "sp.evalue",
+      "reference": "EValue::evalues.RR",
+      "reference_versions": {
+        "EValue": "4.1.4",
+        "R": "R version 4.2.3 (2023-03-15)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/23_evalue.py",
+        "tests/r_parity/23_evalue.R",
+        "tests/stata_parity/23_evalue.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/r_parity/15_hdfe_cluster.py",
+        "tests/r_parity/15_hdfe_cluster.R",
+        "tests/stata_parity/15_hdfe_cluster.do"
+      ],
+      "also_in_modules": [
+        "15_hdfe_cluster"
+      ],
+      "function": "feols",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 5.181108180688351e-15,
+        "rel_vs_Stata": 2.887295942919438e-15,
+        "statistic": [
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "HDFE 2-way FE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "03_hdfe",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 5.181108180688351e-15,
+        "Stata": 2.887295942919438e-15
+      },
+      "python_call": "sp.fast.feols",
+      "reference": "fixest::feols",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 3.2505623885066544e-15,
+        "Stata": 8.368328311773695e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/03_hdfe.py",
+        "tests/r_parity/03_hdfe.R",
+        "tests/stata_parity/03_hdfe.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "fortified_pci",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_proximal_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "frontier",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.114714358537101e-08,
+        "rel_vs_Stata": 3.986891614268755e-08,
+        "statistic": [
+          "beta_intercept",
+          "beta_lnk",
+          "beta_lnl"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "SFA cross-section",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "28_frontier",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.114714358537101e-08,
+        "Stata": 3.986891614268755e-08
+      },
+      "python_call": "sp.frontier",
+      "reference": "sfaR::sfacross",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sfaR": "1.0.1"
+      },
+      "se_rel": {
+        "R": 1.2675649744094256e-05,
+        "Stata": 1.2661595215062564e-05
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/28_frontier.py",
+        "tests/r_parity/28_frontier.R",
+        "tests/stata_parity/28_frontier.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_whatif_nhefs.py",
+        "tests/reference_parity/test_tmle_parity.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "g_computation",
+      "notes": [
+        "Frozen-R fixture: single additive OLS Q makes the g-formula contrast collapse to the base-R lm standardization. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "base R stats::lm g-formula standardization (Robins 1986)",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_gformula_parity.py",
+        "tests/reference_parity/_fixtures/gformula_R.json"
+      ],
+      "tolerance": "psi 1e-8 (observed <= 7e-16; bootstrap SE pinned loosely +/-25%)"
+    },
+    {
+      "function": "g_estimation",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_whatif_nhefs.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "gardner_did",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_did_variants_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "general_bunching",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_bunching_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "gmm",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_gmm_dynamic_panel_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "gsynth",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 7.654439494200515e-14,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "att_gsynth"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Generalized SCM",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "19_gsynth",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 7.654439494200515e-14,
+        "Stata": null
+      },
+      "python_call": "sp.gsynth(backend=\"native\")",
+      "reference": "gsynth::gsynth",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "gsynth": "1.4.0"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/19_gsynth.py",
+        "tests/r_parity/19_gsynth.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "hdfe_ols",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hdfe_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_heckman_se_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "heckman",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.0291774996993754e-11,
+        "rel_vs_Stata": 1.0327697422812603e-11,
+        "statistic": [
+          "beta_intercept",
+          "beta_x"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Heckman selection",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "43_heckman",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.0291774996993754e-11,
+        "Stata": 1.0327697422812603e-11
+      },
+      "python_call": "sp.heckman",
+      "reference": "sampleSelection::heckit",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sampleSelection": "1.2.14"
+      },
+      "se_rel": {
+        "R": 3.794356273548446e-06,
+        "Stata": 3.790072038537039e-06
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/43_heckman.py",
+        "tests/r_parity/43_heckman.R",
+        "tests/stata_parity/43_heckman.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.0005"
+    },
+    {
+      "additional_tests": [
+        "tests/r_parity/10_honest_did.py",
+        "tests/r_parity/10_honest_did.R",
+        "tests/stata_parity/10_honest_did.do"
+      ],
+      "also_in_modules": [
+        "10_honest_did"
+      ],
+      "function": "honest_did",
+      "headline": {
+        "metric": "abs_est",
+        "rel_vs_R": 4.440892098500626e-16,
+        "rel_vs_Stata": 5.551115123125783e-17,
+        "statistic": [
+          "ci_lower_Mbar_0",
+          "ci_upper_Mbar_0",
+          "ci_lower_Mbar_0.5",
+          "ci_upper_Mbar_0.5",
+          "ci_lower_Mbar_1",
+          "ci_upper_Mbar_1",
+          "ci_lower_Mbar_1.5",
+          "ci_upper_Mbar_1.5",
+          "ci_lower_Mbar_2",
+          "ci_upper_Mbar_2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Honest DiD relative-mags",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "21_honest_relmags",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.7195547311636164e-15,
+        "Stata": 2.591385050468534e-16
+      },
+      "python_call": "sp.honest_did(method=\"relative_magnitude\", backend=\"honestdid\")",
+      "reference": "HonestDiD::createSensitivityResults_relativeMagnitudes",
+      "reference_versions": {
+        "HonestDiD": "0.2.8",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/21_honest_relmags.py",
+        "tests/r_parity/21_honest_relmags.R",
+        "tests/stata_parity/21_honest_relmags.do"
+      ],
+      "tier": "machine",
+      "tolerance": "abs_est<=1e-06, abs_se<=1e-06"
+    },
+    {
+      "function": "interference",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_interference_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_whatif_nhefs.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "ipw",
+      "notes": [
+        "Frozen-R fixture: sp.ipw's propensity is the unpenalized logit MLE, so Hajek ATE/ATT reduce to base-R glm + weighted means. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "base R stats::glm(binomial) + hand-rolled Hajek weighted means",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_ipw_parity.py",
+        "tests/reference_parity/_fixtures/ipw_R.json"
+      ],
+      "tolerance": "Hajek ATE/ATT estimate 1e-9 (observed <= 2e-15; SE not pinned)"
+    },
+    {
+      "function": "iv",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_regress_weights_iv_robust_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_published_replications.py",
+        "tests/reference_parity/test_iv_parity.py",
+        "tests/reference_parity/test_iv_se_parity.py",
+        "tests/reference_parity/test_liml_se_parity.py",
+        "tests/reference_parity/test_paper_parity.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "ivreg",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.143260125616902e-11,
+        "rel_vs_Stata": 1.1441798686230402e-11,
+        "statistic": [
+          "beta_(Intercept)",
+          "beta_exper",
+          "beta_expersq",
+          "beta_black",
+          "beta_south",
+          "beta_smsa",
+          "beta_educ"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "2SLS + HC1 SE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "02_iv",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.143260125616902e-11,
+        "Stata": 1.1441798686230402e-11
+      },
+      "python_call": "sp.ivreg",
+      "reference": "AER::ivreg",
+      "reference_versions": {
+        "AER": "1.2.16",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 8.029187806462681e-12,
+        "Stata": 7.614043044657219e-12
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/02_iv.py",
+        "tests/r_parity/02_iv.R",
+        "tests/stata_parity/02_iv.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_liml_se_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "liml",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.6586501143496775e-15,
+        "rel_vs_Stata": 3.0157274806357716e-16,
+        "statistic": [
+          "beta_x"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "LIML k-class IV",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "59_liml",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.6586501143496775e-15,
+        "Stata": 3.0157274806357716e-16
+      },
+      "python_call": "sp.liml",
+      "reference": "ivmodel::LIML",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "ivmodel": "1.9.1"
+      },
+      "se_rel": {
+        "R": 2.2051701637645995e-15,
+        "Stata": 3.1239910653331994e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/59_liml.py",
+        "tests/r_parity/59_liml.R",
+        "tests/stata_parity/59_liml.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "lingam",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_causal_discovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "local_projections",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.951666880274136e-15,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "irf_h0",
+          "irf_h1",
+          "irf_h2",
+          "irf_h3",
+          "irf_h4",
+          "irf_h5"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Local projections",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "34_lp",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.951666880274136e-15,
+        "Stata": null
+      },
+      "python_call": "sp.local_projections(..., identification=\"lpirfs_cholesky\")",
+      "reference": "lpirfs::lp_lin",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lpirfs": "0.2.5"
+      },
+      "se_rel": {
+        "R": 6.393165955639171e-16,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/34_lp.py",
+        "tests/r_parity/34_lp.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "logit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.7049621008984206e-11,
+        "rel_vs_Stata": 2.6926354156813963e-11,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Binary logit",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "57_logit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.7049621008984206e-11,
+        "Stata": 2.6926354156813963e-11
+      },
+      "python_call": "sp.logit",
+      "reference": "stats::glm(family=binomial(\"logit\"))",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "stats": "4.5.2"
+      },
+      "se_rel": {
+        "R": 7.214513654929957e-09,
+        "Stata": 9.695512728993329e-12
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/57_logit.py",
+        "tests/r_parity/57_logit.R",
+        "tests/stata_parity/57_logit.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "match",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_matching_parity.py",
+        "tests/reference_parity/test_psmatch2_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "matrix_completion",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_matrix_completion_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mc_panel",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_matrix_completion_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mediate",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 6.69914928633472e-15,
+        "rel_vs_Stata": 3.5805797909719945e-15,
+        "statistic": [
+          "acme",
+          "ade",
+          "total_effect"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Causal mediation",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "36_mediation",
+      "notes": [
+        "Alias of sp.mediation — same estimator core, certified via Track A module 36_mediation; the registry validation_status independently marks this function certified."
+      ],
+      "point_estimate_rel": {
+        "R": 6.69914928633472e-15,
+        "Stata": 3.5805797909719945e-15
+      },
+      "python_call": "sp.mediation",
+      "reference": "mediation::mediate",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "mediation": "4.5.1"
+      },
+      "se_rel": {
+        "R": 0.07011083474189031,
+        "Stata": 0.0320627442776731
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a_alias",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/36_mediation.py",
+        "tests/r_parity/36_mediation.R",
+        "tests/stata_parity/36_mediation.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+    },
+    {
+      "function": "mediation",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 6.69914928633472e-15,
+        "rel_vs_Stata": 3.5805797909719945e-15,
+        "statistic": [
+          "acme",
+          "ade",
+          "total_effect"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Causal mediation",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "36_mediation",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 6.69914928633472e-15,
+        "Stata": 3.5805797909719945e-15
+      },
+      "python_call": "sp.mediation",
+      "reference": "mediation::mediate",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "mediation": "4.5.1"
+      },
+      "se_rel": {
+        "R": 0.07011083474189031,
+        "Stata": 0.0320627442776731
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/36_mediation.py",
+        "tests/r_parity/36_mediation.R",
+        "tests/stata_parity/36_mediation.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+    },
+    {
+      "additional_tests": [
+        "tests/r_parity/26_glmm_logit.py",
+        "tests/r_parity/26_glmm_logit.R",
+        "tests/stata_parity/26_glmm_logit.do"
+      ],
+      "also_in_modules": [
+        "26_glmm_logit"
+      ],
+      "function": "melogit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.3923832571995887e-07,
+        "rel_vs_Stata": 8.360472866173522e-07,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "GLMM AGHQ (n=8)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "27_glmm_aghq",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.3923832571995887e-07,
+        "Stata": 8.360472866173522e-07
+      },
+      "python_call": "sp.melogit(nAGQ=8)",
+      "reference": "lme4::glmer(nAGQ=8)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lme4": "2.0.1"
+      },
+      "se_rel": {
+        "R": 0.01873243851490907,
+        "Stata": 0.01873256478175726
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/27_glmm_aghq.py",
+        "tests/r_parity/27_glmm_aghq.R",
+        "tests/stata_parity/27_glmm_aghq.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+    },
+    {
+      "function": "metalearner",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_causalml_book.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mixed",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.2939852626385808e-10,
+        "rel_vs_Stata": 4.933869216359479e-11,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "LMM",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "25_lmm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.2939852626385808e-10,
+        "Stata": 4.933869216359479e-11
+      },
+      "python_call": "sp.mixed",
+      "reference": "lme4::lmer",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "lme4": "2.0.1"
+      },
+      "se_rel": {
+        "R": 4.30721172632328e-07,
+        "Stata": 2.3629613397736553e-07
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/25_lmm.py",
+        "tests/r_parity/25_lmm.R",
+        "tests/stata_parity/25_lmm.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "mlogit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.5703380693254765e-07,
+        "rel_vs_Stata": 7.3907501616034675e-09,
+        "statistic": [
+          "class1_intercept",
+          "class1_x1",
+          "class1_x2",
+          "class2_intercept",
+          "class2_x1",
+          "class2_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Multinomial logit",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "44_mlogit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.5703380693254765e-07,
+        "Stata": 7.3907501616034675e-09
+      },
+      "python_call": "sp.mlogit",
+      "reference": "nnet::multinom",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "nnet": "7.3.20"
+      },
+      "se_rel": {
+        "R": 1.1819095468721817e-05,
+        "Stata": 1.1816644206532625e-05
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/44_mlogit.py",
+        "tests/r_parity/44_mlogit.R",
+        "tests/stata_parity/44_mlogit.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+    },
+    {
+      "function": "mr_egger",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mr_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mr_ivw",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mr_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mr_leave_one_out",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mr_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mr_median",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mr_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mr_presso",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mr_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "mr_radial",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_mr_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "multiway_cluster_vcov",
+      "headline": {
+        "metric": "rel_se",
+        "rel_vs_R": 2.086176788280662e-15,
+        "rel_vs_Stata": 2.086176788280662e-15,
+        "statistic": [
+          "beta_(Intercept)",
+          "beta_x"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Three-way cluster-robust SE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "56_multiway_cluster",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.855683018653808e-15,
+        "Stata": 1.4812967461139107e-15
+      },
+      "python_call": "sp.multiway_cluster_vcov",
+      "reference": "sandwich::vcovCL(cluster=~g1+g2+g3)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sandwich": "3.1.1"
+      },
+      "se_rel": {
+        "R": 2.086176788280662e-15,
+        "Stata": 2.086176788280662e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/56_multiway_cluster.py",
+        "tests/r_parity/56_multiway_cluster.R",
+        "tests/stata_parity/56_multiway_cluster.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_count_quantile_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "nbreg",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 5.996535822383949e-10,
+        "rel_vs_Stata": 1.2664508835450359e-10,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Negative binomial",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "42_nbreg",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 5.996535822383949e-10,
+        "Stata": 1.2664508835450359e-10
+      },
+      "python_call": "sp.nbreg",
+      "reference": "MASS::glm.nb",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 3.2958133948256576e-08,
+        "Stata": 0.0013664751803694032
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/42_nbreg.py",
+        "tests/r_parity/42_nbreg.R",
+        "tests/stata_parity/42_nbreg.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.005"
+    },
+    {
+      "function": "network_exposure",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_interference_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "notears",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_causal_discovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "oaxaca",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 6.272984425624262e-16,
+        "rel_vs_Stata": 1.2545968851248518e-16,
+        "statistic": [
+          "gap"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Blinder--Oaxaca",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "30_oaxaca",
+      "notes": [
+        "Alias of sp.decompose('oaxaca') — same estimator core, certified via Track A module 30_oaxaca; the registry validation_status independently marks this function certified."
+      ],
+      "point_estimate_rel": {
+        "R": 6.272984425624262e-16,
+        "Stata": 1.2545968851248518e-16
+      },
+      "python_call": "sp.decompose(\"oaxaca\")",
+      "reference": "oaxaca::oaxaca",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "oaxaca": "0.1.5"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a_alias",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/30_oaxaca.py",
+        "tests/r_parity/30_oaxaca.R",
+        "tests/stata_parity/30_oaxaca.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+    },
+    {
+      "function": "ologit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.7745923783381284e-07,
+        "rel_vs_Stata": 3.4626946837100987e-07,
+        "statistic": [
+          "beta_x",
+          "beta_cut1",
+          "beta_cut2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Ordered logit",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "45_ologit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.7745923783381284e-07,
+        "Stata": 3.4626946837100987e-07
+      },
+      "python_call": "sp.ologit",
+      "reference": "MASS::polr(method=\"logistic\")",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 1.9605539271125103e-06,
+        "Stata": 1.8961660667135385e-06
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/45_ologit.py",
+        "tests/r_parity/45_ologit.R",
+        "tests/stata_parity/45_ologit.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
+    },
+    {
+      "function": "oprobit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.3841710316118905e-07,
+        "rel_vs_Stata": 2.8487922683156657e-08,
+        "statistic": [
+          "beta_x",
+          "beta_cut1",
+          "beta_cut2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Ordered probit",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "49_oprobit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.3841710316118905e-07,
+        "Stata": 2.8487922683156657e-08
+      },
+      "python_call": "sp.oprobit",
+      "reference": "MASS::polr(method=\"probit\")",
+      "reference_versions": {
+        "MASS": "7.3.65",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 2.408976879614316e-07,
+        "Stata": 3.008438554549109e-07
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/49_oprobit.py",
+        "tests/r_parity/49_oprobit.R",
+        "tests/stata_parity/49_oprobit.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "overlap_weights",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_matching_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_panel_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "panel",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.692731131362188e-14,
+        "rel_vs_Stata": 1.5049565773026764e-15,
+        "statistic": [
+          "fe_beta_x1",
+          "fe_beta_x2",
+          "re_beta_x1",
+          "re_beta_x2",
+          "hausman_chi2",
+          "hausman_pvalue"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Panel FE/RE/Hausman",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "35_panel",
+      "notes": [
+        "Grade is variant-specific: certified for the tested call (sp.panel); other panel() methods/variants may differ."
+      ],
+      "point_estimate_rel": {
+        "R": 4.692731131362188e-14,
+        "Stata": 1.5049565773026764e-15
+      },
+      "python_call": "sp.panel",
+      "reference": "plm::plm + plm::phtest",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "plm": "2.6.7"
+      },
+      "se_rel": {
+        "R": 1.4838803861000666e-15,
+        "Stata": 1.4838803861000666e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/35_panel.py",
+        "tests/r_parity/35_panel.R",
+        "tests/stata_parity/35_panel.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+    },
+    {
+      "function": "particle_filter",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_assimilation_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "pc_algorithm",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_causal_discovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_count_quantile_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "poisson",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 9.186441590857061e-15,
+        "rel_vs_Stata": 8.690414334366687e-12,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Poisson ML (no FE)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "58_poisson",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 9.186441590857061e-15,
+        "Stata": 8.690414334366687e-12
+      },
+      "python_call": "sp.poisson",
+      "reference": "stats::glm(family=poisson())",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "stats": "4.5.2"
+      },
+      "se_rel": {
+        "R": 6.533816786233509e-12,
+        "Stata": 7.974541338074839e-13
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/58_poisson.py",
+        "tests/r_parity/58_poisson.R",
+        "tests/stata_parity/58_poisson.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/r_parity/47_ppmlhdfe_3fe.py",
+        "tests/r_parity/47_ppmlhdfe_3fe.R",
+        "tests/stata_parity/47_ppmlhdfe_3fe.do"
+      ],
+      "also_in_modules": [
+        "47_ppmlhdfe_3fe"
+      ],
+      "function": "ppmlhdfe",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.858012741677454e-13,
+        "rel_vs_Stata": 2.1987194400149356e-15,
+        "statistic": [
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "PPML + HDFE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "37_ppmlhdfe",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.858012741677454e-13,
+        "Stata": 2.1987194400149356e-15
+      },
+      "python_call": "sp.ppmlhdfe",
+      "reference": "fixest::fepois",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 0.005032299596820668,
+        "Stata": 0.0010035125587303819
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/37_ppmlhdfe.py",
+        "tests/r_parity/37_ppmlhdfe.R",
+        "tests/stata_parity/37_ppmlhdfe.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+    },
+    {
+      "function": "principal_strat",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_principal_strat_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "probit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.0911331087801263e-07,
+        "rel_vs_Stata": 1.587531218330286e-08,
+        "statistic": [
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Binary probit",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "48_probit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.0911331087801263e-07,
+        "Stata": 1.587531218330286e-08
+      },
+      "python_call": "sp.probit",
+      "reference": "stats::glm(family=binomial(\"probit\"))",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "stats": "4.5.2"
+      },
+      "se_rel": {
+        "R": 0.0030065310247617714,
+        "Stata": 3.4968962507259757e-09
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/48_probit.py",
+        "tests/r_parity/48_probit.R",
+        "tests/stata_parity/48_probit.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+    },
+    {
+      "function": "proximal",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_proximal_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "psm",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.1979168551331638e-15,
+        "rel_vs_Stata": 1.9965280918886044e-16,
+        "statistic": [
+          "att_psm"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "PSM 1:1 NN",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "11_psm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.1979168551331638e-15,
+        "Stata": 1.9965280918886044e-16
+      },
+      "python_call": "sp.psm",
+      "reference": "MatchIt::matchit",
+      "reference_versions": {
+        "MatchIt": "4.7.2",
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/11_psm.py",
+        "tests/r_parity/11_psm.R",
+        "tests/stata_parity/11_psm.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "psmatch2",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_psmatch2_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "qdid",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_qte_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_count_quantile_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "qreg",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.26425654449656e-15,
+        "rel_vs_Stata": 4.352342059328752e-15,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1",
+          "beta_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Quantile regression",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "40_qreg",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.26425654449656e-15,
+        "Stata": 4.352342059328752e-15
+      },
+      "python_call": "sp.qreg",
+      "reference": "quantreg::rq",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "quantreg": "6.1"
+      },
+      "se_rel": {
+        "R": 0.0734365153275581,
+        "Stata": 0.0301971898585794
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/40_qreg.py",
+        "tests/r_parity/40_qreg.R",
+        "tests/stata_parity/40_qreg.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+    },
+    {
+      "function": "qte",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_qte_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "rddensity",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.330742724719231e-11,
+        "rel_vs_Stata": 8.872412515515427e-11,
+        "statistic": [
+          "test_pvalue"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "RD density (CJM)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "09_rddensity",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.330742724719231e-11,
+        "Stata": 8.872412515515427e-11
+      },
+      "python_call": "sp.rddensity(backend=\"native\")",
+      "reference": "rddensity::rddensity",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "rddensity": "2.6"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/09_rddensity.py",
+        "tests/r_parity/09_rddensity.R",
+        "tests/stata_parity/09_rddensity.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "additional_tests": [
+        "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_published_replications.py",
+        "tests/reference_parity/test_paper_parity.py"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "rdrobust",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 7.882489506242041e-13,
+        "rel_vs_Stata": 2.4363146203957614e-10,
+        "statistic": [
+          "default_conventional_est",
+          "default_robust_est"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "RD CCT bias-corrected",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "06_rd",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 7.882489506242041e-13,
+        "Stata": 2.4363146203957614e-10
+      },
+      "python_call": "sp.rdrobust",
+      "reference": "rdrobust::rdrobust",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "rdrobust": "3.0.0"
+      },
+      "se_rel": {
+        "R": 1.2281206810660725e-12,
+        "Stata": 4.0549264088238177e-10
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/06_rd.py",
+        "tests/r_parity/06_rd.R",
+        "tests/stata_parity/06_rd.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+    },
+    {
+      "additional_tests": [
+        "tests/r_parity/14_ols_cluster.py",
+        "tests/r_parity/14_ols_cluster.R",
+        "tests/stata_parity/14_ols_cluster.do",
+        "tests/r_parity/51_newey.py",
+        "tests/r_parity/51_newey.R",
+        "tests/stata_parity/51_newey.do",
+        "tests/r_parity/55_hc2_hc3.py",
+        "tests/r_parity/55_hc2_hc3.R",
+        "tests/stata_parity/55_hc2_hc3.do",
+        "tests/external_parity/test_published_replications.py",
+        "tests/external_parity/test_whatif_nhefs.py",
+        "tests/reference_parity/test_assimilation_parity.py",
+        "tests/reference_parity/test_cross_estimator_parity.py",
+        "tests/reference_parity/test_regress_weights_iv_robust_parity.py"
+      ],
+      "also_in_modules": [
+        "14_ols_cluster",
+        "51_newey",
+        "55_hc2_hc3"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "regress",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.1433490053815496e-12,
+        "rel_vs_Stata": 1.3475038295763307e-12,
+        "statistic": [
+          "beta_(Intercept)",
+          "beta_educ",
+          "beta_exper",
+          "beta_expersq",
+          "beta_black",
+          "beta_south",
+          "beta_smsa"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "OLS + HC1 SE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "01_ols",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.1433490053815496e-12,
+        "Stata": 1.3475038295763307e-12
+      },
+      "python_call": "sp.regress",
+      "reference": "lm + sandwich::vcovHC",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sandwich": "3.1.1"
+      },
+      "se_rel": {
+        "R": 7.041700391023167e-14,
+        "Stata": 1.0181034311479634e-13
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/01_ols.py",
+        "tests/r_parity/01_ols.R",
+        "tests/stata_parity/01_ols.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "rif_decomposition",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.207656337174994e-15,
+        "rel_vs_Stata": 1.3797852107343683e-16,
+        "statistic": [
+          "total_diff"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "RIF / UQR (median)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "32_rif",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.207656337174994e-15,
+        "Stata": 1.3797852107343683e-16
+      },
+      "python_call": "sp.decomposition.rif_decomposition",
+      "reference": "dineq::rif + manual OLS",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "dineq": "0.1.0"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/32_rif.py",
+        "tests/r_parity/32_rif.R",
+        "tests/stata_parity/32_rif.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "rlasso_effects",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_rlasso_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_sdid_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "sdid",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.5617764715214995e-15,
+        "rel_vs_Stata": 7.231319526716192e-08,
+        "statistic": [
+          "att_sdid"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Synthetic DID",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "12_sdid",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.5617764715214995e-15,
+        "Stata": 7.231319526716192e-08
+      },
+      "python_call": "sp.sdid(backend=\"native\")",
+      "reference": "synthdid::synthdid_estimate",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "synthdid": "0.0.9"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/12_sdid.py",
+        "tests/r_parity/12_sdid.R",
+        "tests/stata_parity/12_sdid.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "sensemakr",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.958829735063882e-08,
+        "rel_vs_Stata": 4.958832606746692e-08,
+        "statistic": [
+          "beta_treat",
+          "rv_q"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "sensemakr",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "22_sensemakr",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.958829735063882e-08,
+        "Stata": 4.958832606746692e-08
+      },
+      "python_call": "sp.sensemakr",
+      "reference": "sensemakr::sensemakr",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sensemakr": "0.1.6"
+      },
+      "se_rel": {
+        "R": 5.1553385131263325e-08,
+        "Stata": 5.15533369080287e-08
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/22_sensemakr.py",
+        "tests/r_parity/22_sensemakr.R",
+        "tests/stata_parity/22_sensemakr.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "spillover",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_interference_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "stochastic_dominance",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_distributional_te_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "sun_abraham",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.765852183390052e-11,
+        "rel_vs_Stata": 2.7146569405442052e-11,
+        "statistic": [
+          "weighted_avg_ATT",
+          "att_rel_-4",
+          "att_rel_-3",
+          "att_rel_-2",
+          "att_rel_0",
+          "att_rel_1",
+          "att_rel_2",
+          "att_rel_3"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Sun-Abraham event study",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "05_sunab",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.765852183390052e-11,
+        "Stata": 2.7146569405442052e-11
+      },
+      "python_call": "sp.sun_abraham",
+      "reference": "fixest::sunab",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 0.17050321602357027,
+        "Stata": 0.008377993490838022
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/05_sunab.py",
+        "tests/r_parity/05_sunab.R",
+        "tests/stata_parity/05_sunab.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.25"
+    },
+    {
+      "function": "sureg",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.4616715617360695e-14,
+        "rel_vs_Stata": 1.5271195421122868e-15,
+        "statistic": [
+          "beta_eq1_intercept",
+          "beta_eq1_x1",
+          "beta_eq1_w",
+          "beta_eq2_intercept",
+          "beta_eq2_x2",
+          "beta_eq2_w"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "SUR one-step FGLS",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "60_sureg",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.4616715617360695e-14,
+        "Stata": 1.5271195421122868e-15
+      },
+      "python_call": "sp.sureg",
+      "reference": "systemfit::systemfit(method=\"SUR\", noDfCor)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "systemfit": "1.1.30"
+      },
+      "se_rel": {
+        "R": 9.973168765842004e-15,
+        "Stata": 1.6740895071247588e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/60_sureg.py",
+        "tests/r_parity/60_sureg.R",
+        "tests/stata_parity/60_sureg.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "survivor_average_causal_effect",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_principal_strat_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/r_parity/07_scm.py",
+        "tests/r_parity/07_scm.R",
+        "tests/stata_parity/07_scm.do",
+        "tests/external_parity/test_published_replications.py",
+        "tests/reference_parity/test_scm_recovery.py",
+        "tests/reference_parity/test_synth_parity.py"
+      ],
+      "also_in_modules": [
+        "07_scm"
+      ],
+      "also_verified_by": [
+        "external_parity",
+        "reference_parity"
+      ],
+      "function": "synth",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 7.775448066403412e-08,
+        "rel_vs_Stata": 7.734060059050307e-08,
+        "statistic": [
+          "avg_post_gap"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Identified classical SCM DGP",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "52_scm_unique",
+      "notes": [
+        "Grade is variant-specific: certified for the tested call (sp.synth(method=\"classic\", backend=\"native\")); other synth() methods/variants may differ."
+      ],
+      "point_estimate_rel": {
+        "R": 7.775448066403412e-08,
+        "Stata": 7.734060059050307e-08
+      },
+      "python_call": "sp.synth(method=\"classic\", backend=\"native\")",
+      "reference": "Synth::synth",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "Synth": "1.1.10"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/52_scm_unique.py",
+        "tests/r_parity/52_scm_unique.R",
+        "tests/stata_parity/52_scm_unique.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "tmle",
+      "notes": [
+        "Frozen-R fixture: single-learner LogisticRegression(penalty=None) fits the identical unpenalised MLEs and solves the same 1-D fluctuation score. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "base R stats::glm TMLE (van der Laan & Rubin 2006)",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_tmle_parity.py",
+        "tests/reference_parity/_fixtures/tmle_R.json"
+      ],
+      "tolerance": "psi 1e-9 (observed 5.6e-12), EIF SE 1e-9, epsilon 1e-8"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_count_quantile_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "tobit",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.839367745401811e-08,
+        "rel_vs_Stata": 2.839820258616991e-08,
+        "statistic": [
+          "beta_intercept",
+          "beta_x"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Tobit",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "41_tobit",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.839367745401811e-08,
+        "Stata": 2.839820258616991e-08
+      },
+      "python_call": "sp.tobit",
+      "reference": "censReg::censReg",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "censReg": "0.5.38"
+      },
+      "se_rel": {
+        "R": 1.9737336319471556e-06,
+        "Stata": 1.9737754213770836e-06
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/41_tobit.py",
+        "tests/r_parity/41_tobit.R",
+        "tests/stata_parity/41_tobit.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-05"
+    },
+    {
+      "function": "truncreg",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.337252211559114e-08,
+        "rel_vs_Stata": 9.496660506835691e-08,
+        "statistic": [
+          "beta_intercept",
+          "beta_x1",
+          "beta_x2",
+          "sigma"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Truncated regression",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "62_truncreg",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.337252211559114e-08,
+        "Stata": 9.496660506835691e-08
+      },
+      "python_call": "sp.truncreg",
+      "reference": "truncreg::truncreg(method=\"NR\")",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "truncreg": "0.2.5"
+      },
+      "se_rel": {
+        "R": 1.0957229130471526e-05,
+        "Stata": 1.1136129143961084e-05
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/62_truncreg.py",
+        "tests/r_parity/62_truncreg.R",
+        "tests/stata_parity/62_truncreg.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.0001"
+    },
+    {
+      "function": "twoway_cluster",
+      "headline": {
+        "metric": "rel_se",
+        "rel_vs_R": 7.836458778798735e-16,
+        "rel_vs_Stata": 7.836458778798735e-16,
+        "statistic": [
+          "beta_(Intercept)",
+          "beta_x"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Two-way cluster-robust SE",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "54_twoway_cluster",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.2780106392068932e-15,
+        "Stata": 2.5560212784137765e-15
+      },
+      "python_call": "sp.twoway_cluster",
+      "reference": "sandwich::vcovCL(cluster=~g1+g2)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "sandwich": "3.1.1"
+      },
+      "se_rel": {
+        "R": 7.836458778798735e-16,
+        "Stata": 7.836458778798735e-16
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/54_twoway_cluster.py",
+        "tests/r_parity/54_twoway_cluster.R",
+        "tests/stata_parity/54_twoway_cluster.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "var",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.1414769352542673e-15,
+        "rel_vs_Stata": 6.619540685000128e-15,
+        "statistic": [
+          "eq_y1__L1.y1",
+          "eq_y1__L1.y2",
+          "eq_y1__L2.y1",
+          "eq_y1__L2.y2",
+          "eq_y1___cons",
+          "eq_y2__L1.y1",
+          "eq_y2__L1.y2",
+          "eq_y2__L2.y1",
+          "eq_y2__L2.y2",
+          "eq_y2___cons"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "VAR",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "33_var",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.1414769352542673e-15,
+        "Stata": 6.619540685000128e-15
+      },
+      "python_call": "sp.var",
+      "reference": "vars::VAR",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "vars": "1.6.1"
+      },
+      "se_rel": {
+        "R": 0.012706996506370109,
+        "Stata": 1.2877754629123098e-15
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/33_var.py",
+        "tests/r_parity/33_var.R",
+        "tests/stata_parity/33_var.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.001"
+    },
+    {
+      "function": "wooldridge_did",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_did_variants_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_gmm_dynamic_panel_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "xtabond",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 8.955275850410671e-16,
+        "rel_vs_Stata": 1.4072576336359595e-15,
+        "statistic": [
+          "beta_y_lag",
+          "beta_x"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Arellano--Bond GMM",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "50_xtabond",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 8.955275850410671e-16,
+        "Stata": 1.4072576336359595e-15
+      },
+      "python_call": "sp.xtabond",
+      "reference": "plm::pgmm",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "plm": "2.6.7"
+      },
+      "se_rel": {
+        "R": 7.489731270521246e-16,
+        "Stata": 7.489731270521246e-16
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/50_xtabond.py",
+        "tests/r_parity/50_xtabond.R",
+        "tests/stata_parity/50_xtabond.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "xtfrontier",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.7751828581190894e-06,
+        "rel_vs_Stata": 0.000863925828211185,
+        "statistic": [
+          "beta_lnk",
+          "beta_lnl"
+        ],
+        "tolerance": 0.001
+      },
+      "label": "Panel SFA Pitt-Lee",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "29_panel_sfa",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.7751828581190894e-06,
+        "Stata": 0.000863925828211185
+      },
+      "python_call": "sp.xtfrontier",
+      "reference": "frontier::sfa",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "frontier": "1.1.8"
+      },
+      "se_rel": {
+        "R": 0.009844970892137693,
+        "Stata": 0.0016787905040314005
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "aligned",
+      "test": [
+        "tests/r_parity/29_panel_sfa.py",
+        "tests/r_parity/29_panel_sfa.R",
+        "tests/stata_parity/29_panel_sfa.do"
+      ],
+      "tier": "iterative",
+      "tolerance": "rel_est<=0.001, rel_se<=0.001"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_count_quantile_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "zinb",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.0514177886824158e-06,
+        "rel_vs_Stata": 2.0743774777719557e-07,
+        "statistic": [
+          "beta_count_intercept",
+          "beta_count_x1",
+          "beta_count_x2",
+          "beta_inflate_intercept",
+          "beta_inflate_z"
+        ],
+        "tolerance": 1e-05
+      },
+      "label": "Zero-inflated NB",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "64_zinb",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.0514177886824158e-06,
+        "Stata": 2.0743774777719557e-07
+      },
+      "python_call": "sp.zinb",
+      "reference": "pscl::zeroinfl(dist=\"negbin\")",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pscl": "1.5.9"
+      },
+      "se_rel": {
+        "R": 4.1928515801390134e-05,
+        "Stata": 4.225934248495957e-05
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "aligned",
+      "test": [
+        "tests/r_parity/64_zinb.py",
+        "tests/r_parity/64_zinb.R",
+        "tests/stata_parity/64_zinb.do"
+      ],
+      "tier": "iterative",
+      "tolerance": "rel_est<=1e-05, rel_se<=0.001"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_count_quantile_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "zip_model",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 7.677437423856867e-08,
+        "rel_vs_Stata": 1.053221381524032e-07,
+        "statistic": [
+          "beta_count_intercept",
+          "beta_count_x1",
+          "beta_count_x2",
+          "beta_inflate_intercept",
+          "beta_inflate_z"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Zero-inflated Poisson",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "63_zip",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 7.677437423856867e-08,
+        "Stata": 1.053221381524032e-07
+      },
+      "python_call": "sp.zip_model",
+      "reference": "pscl::zeroinfl(dist=\"poisson\")",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "pscl": "1.5.9"
+      },
+      "se_rel": {
+        "R": 5.976197248448445e-06,
+        "Stata": 5.9595774248907135e-06
+      },
+      "sides": [
+        "py",
+        "R",
+        "Stata"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/63_zip.py",
+        "tests/r_parity/63_zip.R",
+        "tests/stata_parity/63_zip.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=0.0001"
+    }
+  ],
+  "schema_version": 1,
+  "taxonomy": [
+    "bit-exact",
+    "aligned",
+    "analytical-only",
+    "external-replication",
+    "unverified"
+  ]
+}

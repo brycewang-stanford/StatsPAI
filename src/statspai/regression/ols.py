@@ -2,20 +2,18 @@
 OLS regression implementation with comprehensive features
 """
 
-from typing import Any, Callable, Dict, List, Optional, cast
-import pandas as pd
-import numpy as np
-from scipy import stats
 import warnings
+from typing import Any, Callable, Dict, List, Optional, cast
 
-from ..core.base import BaseModel, BaseEstimator
+import numpy as np
+import pandas as pd
+from scipy import stats
+
+from .._aliases import accepts_aliases
+from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
-from ..core.utils import create_design_matrices, _coerce_string_extension_dtypes
-from ..exceptions import (
-    DataInsufficient,
-    MethodIncompatibility,
-    NumericalInstability,
-)
+from ..core.utils import _coerce_string_extension_dtypes, create_design_matrices
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 _NORMAL_EQUATION_COND_MAX = 1e8
 _LOW_ORDER_DEP_MAX_WORK = 50_000
@@ -290,19 +288,16 @@ def _detect_low_order_linear_dependence(
                     )
 
 
-def _numba_kernels() -> tuple[
-    _OlsKernel,
-    _SandwichKernel,
-    _ClusterMeatKernel,
-    _HacMeatKernel,
-]:
+def _numba_kernels() -> (
+    tuple[
+        _OlsKernel,
+        _SandwichKernel,
+        _ClusterMeatKernel,
+        _HacMeatKernel,
+    ]
+):
     """Load accelerated kernels only when OLS is actually estimated."""
-    from ..core._numba_kernels import (
-        cluster_meat,
-        hac_meat,
-        ols_fit,
-        sandwich_hc,
-    )
+    from ..core._numba_kernels import cluster_meat, hac_meat, ols_fit, sandwich_hc
 
     return (
         cast(_OlsKernel, ols_fit),
@@ -419,9 +414,12 @@ class OLSEstimator(BaseEstimator):
             X_centered = X_other - x_mean
             y_centered = y - y_mean
             try:
-                slopes, _, residuals, slope_xtx_inv = (
-                    _crossprod_fit_if_well_conditioned(X_centered, y_centered)
-                )
+                (
+                    slopes,
+                    _,
+                    residuals,
+                    slope_xtx_inv,
+                ) = _crossprod_fit_if_well_conditioned(X_centered, y_centered)
             except np.linalg.LinAlgError:
                 other_names = None
                 if var_names is not None:
@@ -475,9 +473,12 @@ class OLSEstimator(BaseEstimator):
             # Use cross-products only for comfortably conditioned designs; QR
             # remains the certified fallback for hard numerical cases.
             try:
-                params, fitted_values, residuals, XtX_inv = (
-                    _crossprod_fit_if_well_conditioned(X, y)
-                )
+                (
+                    params,
+                    fitted_values,
+                    residuals,
+                    XtX_inv,
+                ) = _crossprod_fit_if_well_conditioned(X, y)
             except np.linalg.LinAlgError:
                 _detect_low_order_linear_dependence(X, var_names)
                 try:
@@ -1085,6 +1086,7 @@ class OLSRegression(BaseModel):
         return out
 
 
+@accepts_aliases(vce="robust")
 def regress(
     formula: str,
     data: pd.DataFrame,

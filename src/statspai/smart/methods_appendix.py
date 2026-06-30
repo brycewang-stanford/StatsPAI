@@ -1,0 +1,856 @@
+"""Auto-generated "Methods and Formulas" appendix for fitted results.
+
+Stata's manuals ship a *Methods and Formulas* section for every estimator;
+R packages anchor theirs to a JSS paper. For a tool that aspires to *write*
+the paper, the killer feature is that **every reported number traces back to
+(i) the estimand / estimator definition, (ii) the inference actually used, and
+(iii) a verified citation** — so a referee can audit the methodology without
+trusting the implementation blind.
+
+This module is the engineering arm of that goal. Given a fitted
+:class:`~statspai.core.results.CausalResult` it emits a compact methods
+appendix that a careful econometrics referee would accept:
+
+* **Estimand / estimator** — hand-curated, textbook-standard LaTeX definitions
+  (e.g. the 2x2 DiD double difference, the sharp-RD limit contrast, the
+  Imbens–Angrist Wald/LATE ratio). These are stored, never generated, mirroring
+  the zero-hallucination policy of :data:`CausalResult._CITATIONS` (CLAUDE.md
+  §10). An unregistered method degrades to an explicit ``(methods text not yet
+  registered)`` placeholder — never an invented formula.
+
+* **Inference** — read off the *actual* fitted object
+  (``model_info['se_method']``, cluster variables, bootstrap replications,
+  bandwidth, first-stage F, ...) plus the universal ``se`` / ``ci`` / ``pvalue``.
+  Reporting the SE *method that the code ran* — rather than transcribing a
+  sandwich formula that might not match — is both more honest and the whole
+  point of "traceability".
+
+* **Citation** — pulled from ``result.cite(...)``, which itself reads the
+  single-source ``_CITATIONS`` table / ``paper.bib``. Methods text and citation
+  resolve through the *same* key logic, so they stay in lockstep.
+
+Notes
+-----
+The estimand / estimator formulas below are standard definitions from the
+cited primary sources; standard-error *math* is deliberately **not** transcribed
+(it is reported via the method recorded on the result instead) to avoid drift
+between the appendix and the implementation.
+
+Examples
+--------
+>>> import statspai as sp
+>>> import numpy as np
+>>> import pandas as pd
+>>> rng = np.random.default_rng(0)
+>>> ids = np.repeat(np.arange(40), 2)
+>>> time = np.tile([0, 1], 40)
+>>> treat = (ids >= 20).astype(int)
+>>> y = 1.0 + 2.0 * treat * time + rng.normal(size=len(ids))
+>>> df = pd.DataFrame({"id": ids, "time": time, "treat": treat, "y": y})
+>>> res = sp.did(df, y="y", treat="treat", time="time", id="id")
+>>> txt = sp.methods_appendix(res, format="markdown")
+>>> "Estimand" in txt
+True
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Sequence, Union
+
+__all__ = ["methods_appendix", "MethodSpec"]
+
+
+@dataclass(frozen=True)
+class MethodSpec:
+    """A verified methods-appendix entry for one estimator family.
+
+    Attributes
+    ----------
+    key : str
+        Canonical lookup key (matches the citation key where possible).
+    name : str
+        Human-readable estimator name for the section heading.
+    estimand_latex : str
+        LaTeX (no delimiters) for the target parameter.
+    estimator_latex : str
+        LaTeX (no delimiters) for the sample estimator.
+    prose : str
+        One- to three-sentence plain-language description of the estimator.
+    assumptions : list of str
+        Identifying assumptions, one short clause each.
+    aliases : list of str
+        Extra keys / substrings that should resolve to this spec.
+    """
+
+    key: str
+    name: str
+    estimand_latex: str
+    estimator_latex: str
+    prose: str
+    assumptions: List[str] = field(default_factory=list)
+    aliases: List[str] = field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+#  Curated methods table — ~15 core causal estimators.
+#
+#  Every formula is a standard definition from the primary source cited via
+#  result.cite(); see module docstring. SE math is intentionally omitted and
+#  reported from the fitted object instead.
+# ---------------------------------------------------------------------------
+
+_SPECS: List[MethodSpec] = [
+    MethodSpec(
+        key="did_2x2",
+        name="Difference-in-Differences (2x2)",
+        estimand_latex=(
+            r"\tau_{\mathrm{ATT}} = "
+            r"\mathbb{E}\!\left[Y_i(1) - Y_i(0) \mid D_i = 1\right]"
+        ),
+        estimator_latex=(
+            r"\hat\tau = \left(\bar Y^{\,T}_{\mathrm{post}} "
+            r"- \bar Y^{\,T}_{\mathrm{pre}}\right)"
+            r" - \left(\bar Y^{\,C}_{\mathrm{post}} "
+            r"- \bar Y^{\,C}_{\mathrm{pre}}\right)"
+        ),
+        prose=(
+            "The canonical two-group, two-period difference-in-differences "
+            "estimator: the change in the treated group's mean outcome minus the "
+            "change in the comparison group's mean outcome."
+        ),
+        assumptions=[
+            "Parallel trends: absent treatment, treated and control means would "
+            "have moved in parallel.",
+            "No anticipation of treatment in the pre-period.",
+            "Stable group composition (SUTVA / no spillovers).",
+        ],
+        aliases=["did", "twfe_did", "2x2", "did_did"],
+    ),
+    MethodSpec(
+        key="twfe_did",
+        name="Two-Way Fixed Effects DiD",
+        estimand_latex=r"\tau_{\mathrm{ATT}} \;\; (\text{under homogeneous effects})",
+        estimator_latex=(
+            r"Y_{it} = \alpha_i + \lambda_t + \tau\, D_{it} + \varepsilon_{it};"
+            r"\quad \hat\tau = \text{OLS coefficient on } D_{it}"
+        ),
+        prose=(
+            "Two-way (unit and time) fixed-effects regression of the outcome on a "
+            "treatment indicator. With staggered timing and heterogeneous effects "
+            "the OLS coefficient is a possibly negatively weighted average of "
+            "group-time effects (Goodman-Bacon, 2021); prefer a "
+            "heterogeneity-robust estimator in that case."
+        ),
+        assumptions=[
+            "Parallel trends and no anticipation.",
+            "Homogeneous treatment effects (else negative-weighting bias under "
+            "staggered adoption).",
+        ],
+        aliases=["twfe", "fe_did"],
+    ),
+    MethodSpec(
+        key="callaway_santanna",
+        name="Callaway & Sant'Anna Group-Time ATT",
+        estimand_latex=(
+            r"\mathrm{ATT}(g,t) = \mathbb{E}\!\left[Y_t(g) - Y_t(0) \mid G_g = 1\right]"
+        ),
+        estimator_latex=(
+            r"\widehat{\mathrm{ATT}}(g,t) = "
+            r"\mathbb{E}\!\left[Y_t - Y_{g-1} \mid G=g\right]"
+            r" - \mathbb{E}\!\left[Y_t - Y_{g-1} \mid C\right],\quad"
+            r"\theta = \sum_{g,t} w(g,t)\,\widehat{\mathrm{ATT}}(g,t)"
+        ),
+        prose=(
+            "Group-time average treatment effects on the treated, identified by "
+            "comparing each treatment cohort's outcome change against a "
+            "never-treated (or not-yet-treated) comparison group, then aggregated "
+            "with user-chosen weights. The doubly robust variant additionally "
+            "models the propensity and outcome evolution."
+        ),
+        assumptions=[
+            "Conditional parallel trends relative to the comparison group.",
+            "No anticipation prior to treatment.",
+            "Overlap / common support of covariates.",
+            "Irreversibility of treatment (staggered adoption).",
+        ],
+        aliases=["cs", "callaway", "santanna", "aggte", "csdid", "group_time"],
+    ),
+    MethodSpec(
+        key="sun_abraham",
+        name="Sun & Abraham Interaction-Weighted Event Study",
+        estimand_latex=(
+            r"\mathrm{CATT}_{e,\ell} = "
+            r"\mathbb{E}\!\left[Y_{i,e+\ell}(e) - Y_{i,e+\ell}(0) "
+            r"\mid E_i = e\right]"
+        ),
+        estimator_latex=(
+            r"\hat\tau_\ell = \sum_{e} \widehat{\mathrm{CATT}}_{e,\ell}\;"
+            r"\Pr\!\left(E_i = e \mid 0 \le e+\ell \le T\right)"
+        ),
+        prose=(
+            "Interaction-weighted event-study estimator: saturate the two-way "
+            "fixed-effects specification with cohort-by-relative-period "
+            "interactions to recover clean cohort-specific effects, then average "
+            "them using sample cohort shares. This removes the contamination that "
+            "afflicts naive TWFE event-study leads/lags under heterogeneous "
+            "effects."
+        ),
+        assumptions=[
+            "Parallel trends across cohorts.",
+            "No anticipation.",
+            "Cohort shares identified within each relative period.",
+        ],
+        aliases=["sunab", "interaction_weighted", "iw_event_study"],
+    ),
+    MethodSpec(
+        key="drdid",
+        name="Doubly Robust DiD (Sant'Anna & Zhao)",
+        estimand_latex=(
+            r"\tau_{\mathrm{ATT}} = "
+            r"\mathbb{E}\!\left[Y_i(1) - Y_i(0) \mid D_i = 1\right]"
+        ),
+        estimator_latex=(
+            r"\widehat{\mathrm{ATT}}_{\mathrm{dr}} = "
+            r"\mathbb{E}\!\left[\left(w_1(D) - w_0(D,X)\right)"
+            r"\left(\Delta Y - \mu_{0,\Delta}(X)\right)\right]"
+        ),
+        prose=(
+            "Doubly robust difference-in-differences combining an outcome-"
+            "regression model for the trend, mu_{0,Delta}(X), with an inverse-"
+            "propensity weighting model, via weights w_1 (treated) and w_0 "
+            "(reweighted controls). Consistent if *either* the outcome model or "
+            "the propensity model is correctly specified."
+        ),
+        assumptions=[
+            "Conditional parallel trends given covariates X.",
+            "Overlap: 0 < propensity < 1.",
+            "Consistency if either the outcome or propensity model is correct.",
+        ],
+        aliases=["dr_did", "drdid_panel", "doubly_robust_did"],
+    ),
+    MethodSpec(
+        key="did_multiplegt",
+        name="de Chaisemartin & D'Haultfoeuille DID_M",
+        estimand_latex=(
+            r"\delta = \mathbb{E}\!\left[\sum_{(g,t)\in S} \frac{N_{g,t}}{N_S}\,"
+            r"\mathrm{ATT}(g,t)\right]"
+        ),
+        estimator_latex=(
+            r"\widehat{\mathrm{DID}}_M = \sum_{t} \frac{N_t}{N}\Big("
+            r"\Delta\bar Y^{\,\text{switchers}}_t "
+            r"- \Delta\bar Y^{\,\text{stayers}}_t\Big)"
+        ),
+        prose=(
+            "Heterogeneity-robust DiD that compares, period by period, units whose "
+            "treatment switches against units whose treatment stays constant, "
+            "averaging over all such cells. Robust to heterogeneous and "
+            "dynamic-in-the-static-version treatment effects."
+        ),
+        assumptions=[
+            "Parallel trends.",
+            "Strong exogeneity of treatment paths.",
+            "No carryover effects (for the static estimator).",
+        ],
+        aliases=["dechaisemartin", "did_m", "didmultiplegt", "did_multiplegt_dyn"],
+    ),
+    MethodSpec(
+        key="rdrobust",
+        name="Regression Discontinuity (Local Polynomial)",
+        estimand_latex=(
+            r"\tau_{\mathrm{SRD}} = \lim_{x\downarrow c}\mathbb{E}[Y\mid X=x]"
+            r" - \lim_{x\uparrow c}\mathbb{E}[Y\mid X=x]"
+        ),
+        estimator_latex=(
+            r"\hat\tau = \hat\mu_+(c) - \hat\mu_-(c),\quad "
+            r"\hat\mu_\pm = \text{local polynomial fit within bandwidth } h, "
+            r"\text{ bias-corrected (CCT)}"
+        ),
+        prose=(
+            "Sharp regression-discontinuity contrast of the outcome's right- and "
+            "left-limits at the cutoff, estimated by weighted local polynomial "
+            "regression within a data-driven bandwidth, with bias correction and "
+            "robust confidence intervals (Calonico, Cattaneo & Titiunik). The "
+            "fuzzy design divides this jump by the first-stage jump in treatment "
+            "probability."
+        ),
+        assumptions=[
+            "Continuity of potential-outcome means at the cutoff.",
+            "No precise manipulation of the running variable (density continuity).",
+            "Fuzzy design: monotonicity and a first-stage jump at the cutoff.",
+        ],
+        aliases=["rd", "rdd", "rd_robust", "rdrobust_sharp", "local_polynomial"],
+    ),
+    MethodSpec(
+        key="iv",
+        name="Instrumental Variables (2SLS / LATE)",
+        estimand_latex=(
+            r"\tau_{\mathrm{LATE}} = "
+            r"\mathbb{E}\!\left[Y_i(1) - Y_i(0) \mid \text{compliers}\right]"
+        ),
+        estimator_latex=(
+            r"\hat\tau = "
+            r"\frac{\widehat{\mathrm{Cov}}(Y,Z)}{\widehat{\mathrm{Cov}}(D,Z)};\quad"
+            r"\hat\beta_{2SLS} = \left(X' P_Z X\right)^{-1} X' P_Z Y,\;"
+            r"P_Z = Z(Z'Z)^{-1}Z'"
+        ),
+        prose=(
+            "Two-stage least squares / instrumental-variables estimator. With a "
+            "single binary instrument the just-identified Wald ratio recovers the "
+            "local average treatment effect for compliers (Imbens & Angrist); the "
+            "general 2SLS form projects the endogenous regressors onto the "
+            "instrument space."
+        ),
+        assumptions=[
+            "Instrument relevance (non-zero first stage).",
+            "Exclusion: the instrument affects Y only through D.",
+            "Independence / as-good-as-random assignment of the instrument.",
+            "Monotonicity (no defiers) for the LATE interpretation.",
+        ],
+        aliases=["2sls", "tsls", "ivreg", "liml", "late", "ivreg2", "iv_reg"],
+    ),
+    MethodSpec(
+        key="synth",
+        name="Synthetic Control Method",
+        estimand_latex=r"\tau_{1t} = Y_{1t}(1) - Y_{1t}(0),\quad t > T_0",
+        estimator_latex=(
+            r"\hat Y_{1t}(0) = \sum_{j\ge 2} w_j^{*} Y_{jt},\quad "
+            r"W^{*} = \arg\min_{W}\|X_1 - X_0 W\|_V "
+            r"\;\text{s.t.}\; w_j\ge 0,\; \textstyle\sum_j w_j = 1"
+        ),
+        prose=(
+            "Constructs a synthetic counterfactual for the treated unit as a "
+            "convex combination of control units whose weights best reproduce the "
+            "treated unit's pre-treatment outcomes and predictors. The treatment "
+            "effect is the post-treatment gap between observed and synthetic "
+            "outcomes (Abadie, Diamond & Hainmueller)."
+        ),
+        assumptions=[
+            "Treated unit lies in the convex hull of controls (no extrapolation).",
+            "Good pre-treatment fit over a long pre-period.",
+            "No anticipation and no interference from the treatment.",
+        ],
+        aliases=["sc", "synthetic_control", "scm", "abadie"],
+    ),
+    MethodSpec(
+        key="sdid",
+        name="Synthetic Difference-in-Differences",
+        estimand_latex=r"\tau_{\mathrm{ATT}}",
+        estimator_latex=(
+            r"(\hat\tau,\hat\mu,\hat\alpha,\hat\beta) = \arg\min \sum_{i,t}"
+            r"\hat\omega_i\,\hat\lambda_t"
+            r"\left(Y_{it} - \mu - \alpha_i - \beta_t - \tau D_{it}\right)^2"
+        ),
+        prose=(
+            "Synthetic difference-in-differences combines the unit-reweighting of "
+            "synthetic control with the time-reweighting and two-way structure of "
+            "DiD: it fits a weighted two-way fixed-effects regression using "
+            "data-driven unit weights omega and time weights lambda (Arkhangelsky "
+            "et al.)."
+        ),
+        assumptions=[
+            "Approximate parallel trends after reweighting.",
+            "Adequate pre-treatment fit of the synthetic unit/time weights.",
+            "No anticipation or interference.",
+        ],
+        aliases=["synthdid", "synth_did", "sequential_sdid"],
+    ),
+    MethodSpec(
+        key="psm",
+        name="Propensity Score / Nearest-Neighbor Matching",
+        estimand_latex=(
+            r"\tau_{\mathrm{ATT}} = "
+            r"\mathbb{E}\!\left[Y_i(1) - Y_i(0) \mid D_i = 1\right]"
+        ),
+        estimator_latex=(
+            r"\widehat{\mathrm{ATT}} = \frac{1}{N_1}\sum_{i:D_i=1}"
+            r"\Big(Y_i - \sum_{j} w_{ij} Y_j\Big),\quad "
+            r"w_{ij}\text{ matched on } \hat e(X)\text{ or } X"
+        ),
+        prose=(
+            "Matches each treated unit to comparable control units on the "
+            "estimated propensity score or covariates and contrasts their "
+            "outcomes, averaging over treated units to estimate the ATT (or over "
+            "all units for the ATE)."
+        ),
+        assumptions=[
+            "Unconfoundedness / conditional independence given X.",
+            "Overlap (common support) of the propensity score.",
+        ],
+        aliases=[
+            "matching",
+            "nnmatch",
+            "match",
+            "propensity_match",
+            "genmatch",
+            "optimal_match",
+        ],
+    ),
+    MethodSpec(
+        key="ipw",
+        name="Inverse Propensity Weighting",
+        estimand_latex=(
+            r"\tau_{\mathrm{ATE}} = " r"\mathbb{E}\!\left[Y_i(1) - Y_i(0)\right]"
+        ),
+        estimator_latex=(
+            r"\widehat{\mathrm{ATE}} = \frac{1}{N}\sum_{i}\left("
+            r"\frac{D_i Y_i}{\hat e(X_i)} - \frac{(1-D_i) Y_i}{1-\hat e(X_i)}\right)"
+        ),
+        prose=(
+            "Reweights observed outcomes by the inverse of the estimated "
+            "treatment probability so that the weighted treated and control "
+            "samples are covariate-balanced (Horvitz-Thompson). The stabilized "
+            "variant normalizes the weights to reduce variance."
+        ),
+        assumptions=[
+            "Unconfoundedness given X.",
+            "Overlap: 0 < e(X) < 1.",
+            "Correctly specified propensity model.",
+        ],
+        aliases=[
+            "inverse_propensity",
+            "iptw",
+            "stabilized_weights",
+            "horvitz_thompson",
+        ],
+    ),
+    MethodSpec(
+        key="aipw",
+        name="Augmented IPW (Doubly Robust ATE)",
+        estimand_latex=(
+            r"\tau_{\mathrm{ATE}} = " r"\mathbb{E}\!\left[Y_i(1) - Y_i(0)\right]"
+        ),
+        estimator_latex=(
+            r"\widehat{\mathrm{ATE}} = \frac{1}{N}\sum_i\Big[\mu_1(X_i) - \mu_0(X_i)"
+            r" + \frac{D_i\,(Y_i - \mu_1(X_i))}{\hat e(X_i)}"
+            r" - \frac{(1-D_i)\,(Y_i - \mu_0(X_i))}{1-\hat e(X_i)}\Big]"
+        ),
+        prose=(
+            "Augmented inverse-propensity-weighting estimator: the IPW score plus "
+            "an outcome-regression augmentation term. Doubly robust — consistent "
+            "if either the outcome models mu_d or the propensity e is correctly "
+            "specified — and semiparametrically efficient when both are."
+        ),
+        assumptions=[
+            "Unconfoundedness given X.",
+            "Overlap: 0 < e(X) < 1.",
+            "Consistency if either the outcome or propensity model is correct.",
+        ],
+        aliases=["augmented_ipw", "doubly_robust", "dr_ate", "aipw_ate"],
+    ),
+    MethodSpec(
+        key="dml",
+        name="Double / Debiased Machine Learning",
+        estimand_latex=(
+            r"\theta_0 \;\; "
+            r"(\text{e.g. } \mathrm{ATE}\text{ or partially-linear effect})"
+        ),
+        estimator_latex=(
+            r"\frac{1}{N}\sum_{i} \psi\!\left(W_i; \hat\theta, \hat\eta_{-k(i)}\right)"
+            r" = 0;\quad"
+            r"\hat\theta = \frac{\sum_i \check V_i \check Y_i}{\sum_i \check V_i^2}"
+            r"\;\;(\check V,\check Y\text{: cross-fitted residuals})"
+        ),
+        prose=(
+            "Estimates a low-dimensional causal parameter using a Neyman-"
+            "orthogonal score with cross-fitting: machine-learning nuisance "
+            "functions (propensity and outcome) are fit on auxiliary folds, then "
+            "the target parameter solves the orthogonal moment on the held-out "
+            "folds, immunizing it to first-order nuisance error (Chernozhukov et "
+            "al.)."
+        ),
+        assumptions=[
+            "Unconfoundedness and overlap.",
+            "Neyman orthogonality of the score.",
+            "Nuisance estimators converge faster than N^{-1/4}.",
+        ],
+        aliases=["double_ml", "debiased_ml", "dml_panel", "ddml", "partially_linear"],
+    ),
+    MethodSpec(
+        key="tmle",
+        name="Targeted Maximum Likelihood Estimation",
+        estimand_latex=r"\psi = \mathbb{E}\!\left[\mu_1(X) - \mu_0(X)\right]",
+        estimator_latex=(
+            r"\mu^{*} = \text{fluctuate}(\mu_0;\, H),\quad "
+            r"H(D,X) = \frac{D}{\hat e(X)} - \frac{1-D}{1-\hat e(X)};\quad "
+            r"\hat\psi = \frac{1}{N}\sum_i\left(\mu_1^{*}(X_i) - \mu_0^{*}(X_i)\right)"
+        ),
+        prose=(
+            "Targeted maximum likelihood: start from an initial outcome model, "
+            "then perform a targeting update along a parametric fluctuation that "
+            "uses the clever covariate H, and plug the updated model into the "
+            "substitution estimator. Doubly robust and asymptotically efficient "
+            "(van der Laan & Rubin)."
+        ),
+        assumptions=[
+            "Unconfoundedness given X.",
+            "Overlap: 0 < e(X) < 1.",
+            "Consistency if either the outcome or propensity model is correct.",
+        ],
+        aliases=["targeted_mle", "tmle_ate", "ltmle", "hal_tmle"],
+    ),
+]
+
+
+# Build the lookup index: canonical key + every alias -> spec.
+_INDEX: Dict[str, MethodSpec] = {}
+for _spec in _SPECS:
+    _INDEX[_spec.key] = _spec
+    for _alias in _spec.aliases:
+        _INDEX.setdefault(_alias, _spec)
+
+
+def _resolve_spec(result: Any) -> Optional[MethodSpec]:
+    """Resolve a result to its MethodSpec using the same logic as ``cite()``.
+
+    Tries the explicit ``_citation_key``, then the normalized ``method`` /
+    ``model_info`` hints, then a substring fallback. Returns ``None`` when no
+    spec matches (caller emits a registered-placeholder rather than guessing).
+    """
+    candidates: List[str] = []
+    ck = getattr(result, "_citation_key", None)
+    if ck:
+        candidates.append(str(ck))
+    model_info = getattr(result, "model_info", None) or {}
+    for hint_key in ("citation_key", "estimator", "model_type", "method"):
+        hint = model_info.get(hint_key) if isinstance(model_info, dict) else None
+        if hint:
+            candidates.append(str(hint))
+    method = getattr(result, "method", None)
+    if method:
+        candidates.append(str(method))
+
+    norm = [c.lower().replace(" ", "_").replace("-", "_") for c in candidates]
+    # 1. Exact match.
+    for c in norm:
+        if c in _INDEX:
+            return _INDEX[c]
+    # 2. Whole-token match (handles "synthetic_control_method" -> alias token).
+    for c in norm:
+        for tok in c.split("_"):
+            if tok and tok in _INDEX:
+                return _INDEX[tok]
+    # 3. Guarded substring fallback. Only keys of length >= 4 may match as a
+    #    substring, so short aliases ("sc", "rd", "iv", "did") can never fire
+    #    on incidental matches like the "sc" inside "ob-sc-ure".
+    for c in norm:
+        for key, spec in _INDEX.items():
+            if len(key) >= 4 and (key in c or c in key):
+                return spec
+    return None
+
+
+def _inference_lines(result: Any) -> List[str]:
+    """Human-readable inference facts read off the *fitted* object."""
+    lines: List[str] = []
+    model_info = getattr(result, "model_info", None)
+    mi: Dict[str, Any] = model_info if isinstance(model_info, dict) else {}
+
+    se_method = mi.get("se_method") or mi.get("inference_method") or mi.get("vcov")
+    if se_method:
+        lines.append(f"Standard errors: {se_method}.")
+
+    cluster = mi.get("cluster_var") or mi.get("cluster")
+    if cluster:
+        if isinstance(cluster, (list, tuple)):
+            cluster = ", ".join(str(c) for c in cluster)
+        lines.append(f"Clustered by: {cluster}.")
+
+    n_boot = (
+        mi.get("n_boot")
+        or mi.get("n_bootstrap")
+        or mi.get("n_boot_valid")
+        or mi.get("n_boot_effective")
+    )
+    if n_boot:
+        lines.append(f"Bootstrap replications: {n_boot}.")
+
+    bandwidth = mi.get("bandwidth_h") or mi.get("bandwidth")
+    if bandwidth is not None:
+        try:
+            lines.append(f"Bandwidth (h): {float(bandwidth):.4g}.")
+        except (TypeError, ValueError):
+            lines.append(f"Bandwidth (h): {bandwidth}.")
+
+    fsf = mi.get("first_stage_f") or mi.get("weak_iv_f")
+    if fsf is not None:
+        try:
+            lines.append(f"First-stage F: {float(fsf):.2f}.")
+        except (TypeError, ValueError):
+            lines.append(f"First-stage F: {fsf}.")
+
+    kernel = mi.get("kernel") or mi.get("kernel_type")
+    if kernel:
+        lines.append(f"Kernel: {kernel}.")
+
+    # Universal facts straight off the result object.
+    se = getattr(result, "se", None)
+    if se is not None:
+        try:
+            lines.append(f"Point SE: {float(se):.4g}.")
+        except (TypeError, ValueError):
+            pass
+    ci = getattr(result, "ci", None)
+    alpha = getattr(result, "alpha", None)
+    if ci is not None and isinstance(ci, (list, tuple)) and len(ci) == 2:
+        try:
+            level = int(round((1 - float(alpha)) * 100)) if alpha is not None else 95
+            lines.append(f"{level}% CI: [{float(ci[0]):.4g}, {float(ci[1]):.4g}].")
+        except (TypeError, ValueError):
+            pass
+    return lines
+
+
+def _method_identity(result: Any) -> str:
+    """Best available estimator identity recorded on the result."""
+    method = getattr(result, "method", None)
+    if not method:
+        mi = getattr(result, "model_info", None)
+        if isinstance(mi, dict):
+            method = mi.get("method") or mi.get("model_type")
+    return str(method) if method else "unknown"
+
+
+def _provenance_line(result: Any, spec: Optional[MethodSpec]) -> str:
+    """One-line, runtime-honest trace: package version + estimator + spec.
+
+    Closes the "exact code path" leg of the traceability triple (formula +
+    verified citation + code path). Only facts available at runtime are
+    reported — the installed StatsPAI version and the estimator identity the
+    result carries — never a fabricated git SHA.
+    """
+    _ver: Optional[str]
+    try:
+        from .. import __version__
+
+        _ver = __version__
+    except Exception:  # noqa: BLE001 - version is best-effort metadata
+        _ver = None
+    ver = f"StatsPAI v{_ver}" if _ver else "StatsPAI"
+    ident = _method_identity(result)
+    if spec is not None:
+        tail = f"methods spec '{spec.key}'"
+    else:
+        tail = "no methods spec registered"
+    return f"Produced by {ver}; estimator '{ident}' → {tail}."
+
+
+def _math(latex: str, fmt: str) -> str:
+    """Wrap a stored (delimiter-free) LaTeX formula for the target format."""
+    if fmt == "latex":
+        return f"\\[\n{latex}\n\\]"
+    if fmt == "markdown":
+        return f"$$\n{latex}\n$$"
+    # text
+    return f"    {latex}"
+
+
+def _one_section(
+    result: Any,
+    fmt: str,
+    *,
+    include_assumptions: bool,
+    include_diagnostics: bool,
+    include_citation: bool,
+    include_provenance: bool,
+) -> str:
+    spec = _resolve_spec(result)
+    method_name = getattr(result, "method", None) or "Estimator"
+    estimand = getattr(result, "estimand", None)
+
+    parts: List[str] = []
+
+    # --- heading -------------------------------------------------------
+    heading = spec.name if spec is not None else str(method_name)
+    if fmt == "latex":
+        parts.append(f"\\subsection*{{{heading}}}")
+    elif fmt == "markdown":
+        parts.append(f"### {heading}")
+    else:
+        parts.append(heading)
+        parts.append("=" * len(heading))
+
+    if spec is None:
+        note = (
+            f"(Methods text not yet registered for method '{method_name}'. "
+            "Estimand / inference reported from the fitted result below.)"
+        )
+        parts.append(note)
+    else:
+        parts.append(spec.prose)
+        # Estimand
+        lbl = "Estimand" if estimand is None else f"Estimand ({estimand})"
+        if fmt == "markdown":
+            parts.append(f"**{lbl}:**")
+        elif fmt == "latex":
+            parts.append(f"\\paragraph{{{lbl}.}}")
+        else:
+            parts.append(f"{lbl}:")
+        parts.append(_math(spec.estimand_latex, fmt))
+        # Estimator
+        if fmt == "markdown":
+            parts.append("**Estimator:**")
+        elif fmt == "latex":
+            parts.append("\\paragraph{Estimator.}")
+        else:
+            parts.append("Estimator:")
+        parts.append(_math(spec.estimator_latex, fmt))
+
+    # --- assumptions ---------------------------------------------------
+    if include_assumptions and spec is not None and spec.assumptions:
+        if fmt == "markdown":
+            parts.append("**Identifying assumptions:**")
+            parts.append("\n".join(f"- {a}" for a in spec.assumptions))
+        elif fmt == "latex":
+            parts.append("\\paragraph{Identifying assumptions.}")
+            parts.append("\\begin{itemize}")
+            parts.extend(f"  \\item {a}" for a in spec.assumptions)
+            parts.append("\\end{itemize}")
+        else:
+            parts.append("Identifying assumptions:")
+            parts.extend(f"  - {a}" for a in spec.assumptions)
+
+    # --- inference -----------------------------------------------------
+    if include_diagnostics:
+        inf = _inference_lines(result)
+        if inf:
+            if fmt == "markdown":
+                parts.append("**Inference (as fitted):**")
+                parts.append("\n".join(f"- {x}" for x in inf))
+            elif fmt == "latex":
+                parts.append("\\paragraph{Inference (as fitted).}")
+                parts.append("\\begin{itemize}")
+                parts.extend(f"  \\item {x}" for x in inf)
+                parts.append("\\end{itemize}")
+            else:
+                parts.append("Inference (as fitted):")
+                parts.extend(f"  - {x}" for x in inf)
+
+    # --- citation ------------------------------------------------------
+    if include_citation:
+        cite_fn = getattr(result, "cite", None)
+        if callable(cite_fn):
+            try:
+                apa = cite_fn(format="apa")
+            except Exception:  # noqa: BLE001 - cite() is best-effort here
+                apa = None
+            if apa and not str(apa).lstrip().startswith("%"):
+                if fmt == "markdown":
+                    parts.append(f"**Reference:** {apa}")
+                elif fmt == "latex":
+                    parts.append(f"\\paragraph{{Reference.}} {apa}")
+                else:
+                    parts.append(f"Reference: {apa}")
+
+    # --- provenance ----------------------------------------------------
+    if include_provenance:
+        prov = _provenance_line(result, spec)
+        if fmt == "markdown":
+            parts.append(f"*{prov}*")
+        elif fmt == "latex":
+            parts.append(f"\\paragraph{{Provenance.}} {prov}")
+        else:
+            parts.append(prov)
+
+    sep = "\n\n" if fmt != "text" else "\n"
+    return sep.join(parts)
+
+
+def methods_appendix(
+    results: Union[Any, Sequence[Any]],
+    *,
+    format: str = "latex",
+    include_assumptions: bool = True,
+    include_diagnostics: bool = True,
+    include_citation: bool = True,
+    include_provenance: bool = True,
+) -> str:
+    """Generate a referee-grade *Methods and Formulas* appendix for results.
+
+    For each fitted result, emits the estimand and estimator definitions
+    (verified LaTeX from the cited source), the identifying assumptions, the
+    inference actually used (read off the fitted object), and the canonical
+    citation. Multiple results sharing the same estimator family are emitted
+    once. Unregistered methods degrade to an explicit placeholder — never an
+    invented formula (CLAUDE.md §10).
+
+    Parameters
+    ----------
+    results : CausalResult or sequence of CausalResult
+        One or more fitted result objects exposing ``method`` / ``model_info``
+        / ``cite``.
+    format : {"latex", "markdown", "text"}, default ``"latex"``
+        Output format. ``"latex"`` emits ``\\subsection*`` blocks with display
+        math; ``"markdown"`` emits ``###`` headings with ``$$`` math;
+        ``"text"`` emits a plain-text rendering.
+    include_assumptions : bool, default True
+        Include the identifying-assumptions list.
+    include_diagnostics : bool, default True
+        Include the inference block (SE method, clustering, bandwidth, F, CI).
+    include_citation : bool, default True
+        Append the APA-style reference from ``result.cite()``.
+    include_provenance : bool, default True
+        Append a one-line provenance trace (StatsPAI version + estimator
+        identity + methods-spec key) — the "exact code path" leg of the
+        formula / citation / code-path traceability triple.
+
+    Returns
+    -------
+    str
+        The assembled appendix.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> rng = np.random.default_rng(1)
+    >>> ids = np.repeat(np.arange(40), 2)
+    >>> time = np.tile([0, 1], 40)
+    >>> treat = (ids >= 20).astype(int)
+    >>> y = 1.0 + 2.0 * treat * time + rng.normal(size=len(ids))
+    >>> df = pd.DataFrame({"id": ids, "time": time, "treat": treat, "y": y})
+    >>> res = sp.did(df, y="y", treat="treat", time="time", id="id")
+    >>> txt = sp.methods_appendix(res, format="text")
+    >>> "Estimand" in txt
+    True
+    """
+    if format not in ("latex", "markdown", "text"):
+        raise ValueError(
+            f"format must be 'latex', 'markdown' or 'text'; got {format!r}"
+        )
+
+    if isinstance(results, (list, tuple)):
+        items = list(results)
+    else:
+        items = [results]
+    if not items:
+        raise ValueError("methods_appendix requires at least one result.")
+
+    sections: List[str] = []
+    seen: set = set()
+    for res in items:
+        spec = _resolve_spec(res)
+        dedup_key = spec.key if spec is not None else id(res)
+        if dedup_key in seen:
+            continue
+        seen.add(dedup_key)
+        sections.append(
+            _one_section(
+                res,
+                format,
+                include_assumptions=include_assumptions,
+                include_diagnostics=include_diagnostics,
+                include_citation=include_citation,
+                include_provenance=include_provenance,
+            )
+        )
+
+    if format == "latex":
+        body = "\n\n".join(sections)
+        return "\\section*{Methods and Formulas}\n\n" + body
+    if format == "markdown":
+        body = "\n\n".join(sections)
+        return "## Methods and Formulas\n\n" + body
+    body = "\n\n".join(sections)
+    return "Methods and Formulas\n" + "-" * 20 + "\n\n" + body

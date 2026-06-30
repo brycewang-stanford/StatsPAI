@@ -14,26 +14,27 @@ replication support:
 
 from typing import Any
 
-from .recommend import recommend, RecommendationResult
-from .compare import compare_estimators, ComparisonResult
-from .assumptions import assumption_audit, AssumptionResult
+from .assumptions import AssumptionResult, assumption_audit
 from .audit import audit
 from .brief import brief
 from .citations import bib_for, bibtex, render_citation
+from .compare import ComparisonResult, compare_estimators
 from .detect_design import detect_design
 from .examples import examples
-from .intake import IntakeResult, design_intake
-from .preflight import preflight
-from .session import session
-from .sensitivity import sensitivity_dashboard, SensitivityDashboard
-from .publication import pub_ready, PubReadyResult
-from .replicate import replicate, list_replications
 from .identification import (
-    check_identification,
-    IdentificationReport,
     DiagnosticFinding,
     IdentificationError,
+    IdentificationReport,
+    check_identification,
 )
+from .intake import IntakeResult, design_intake
+from .methods_appendix import MethodSpec, methods_appendix
+from .preflight import preflight
+from .publication import PubReadyResult, pub_ready
+from .recommend import RecommendationResult, recommend
+from .replicate import list_replications, replicate
+from .sensitivity import SensitivityDashboard, sensitivity_dashboard
+from .session import session
 
 # verify_recommendation / verify_benchmark are lazily imported via
 # __getattr__ below so that the expensive stability-check machinery
@@ -51,6 +52,8 @@ __all__ = [
     "bib_for",
     "bibtex",
     "brief",
+    "methods_appendix",
+    "MethodSpec",
     "detect_design",
     "examples",
     "IntakeResult",

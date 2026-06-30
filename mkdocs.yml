@@ -98,6 +98,7 @@ nav:
   - "Design rationale & FAQ": joss_reviewer_qa.md
   - JSS source-audit dossier: jss_source_audit_dossier.md
   - "R/Stata parity tolerance registry": dev/r_parity_tolerances.md
+  - "Cross-language parity matrix": parity.md
   - Guides:
       - "Public health & epidemiology — overview & design→method map": guides/public_health.md
       - "Reproducing Hernán-Robins *What If* on real NHEFS (g-methods parity certification)": guides/whatif_nhefs.md

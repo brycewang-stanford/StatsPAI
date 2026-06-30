@@ -11,6 +11,7 @@ recursive-include src *.py
 recursive-include src *.pyi
 recursive-include src py.typed
 recursive-include src/statspai/schemas *.json
+include src/statspai/_parity_index.json
 
 # Include tests and fixtures so source distributions can run the shipped
 # parity/snapshot suites without regenerating reference artifacts.

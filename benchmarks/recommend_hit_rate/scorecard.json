@@ -1,0 +1,558 @@
+{
+  "corpus_version": "0.1.0-seed",
+  "statspai_version": "1.20.0",
+  "n_entries": 8,
+  "summary": {
+    "hit_rate_top1": 1.0,
+    "hit_rate_topk": 1.0,
+    "hard_miss_rate": 0.0,
+    "n_errors": 0,
+    "audit_catalog_mean_recall": 1.0,
+    "audit_dynamic_mean_recall": 1.0,
+    "n_audit_errors": 0
+  },
+  "citation_errors": [],
+  "recommend": [
+    {
+      "id": "callaway_santanna_2021_mpdta",
+      "design": "staggered_did",
+      "detected_design": "did",
+      "ranked_labels": [
+        "Callaway-Sant'Anna (2021) \u2014 staggered DID",
+        "Sun-Abraham (2021) \u2014 interaction-weighted"
+      ],
+      "ranked_tags": [
+        "callaway_santanna",
+        "sun_abraham"
+      ],
+      "status": "HIT",
+      "top1_tag": "callaway_santanna",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "borusyak_jaravel_spiess",
+        "callaway_santanna",
+        "dcdh",
+        "did_imputation",
+        "drdid",
+        "gardner",
+        "stacked_did",
+        "sun_abraham"
+      ],
+      "disqualifying": [
+        "classic_2x2",
+        "twfe"
+      ]
+    },
+    {
+      "id": "angrist_krueger_1991_qob",
+      "design": "iv",
+      "detected_design": "iv",
+      "ranked_labels": [
+        "2SLS (two-stage least squares)",
+        "LIML (robust to weak instruments)"
+      ],
+      "ranked_tags": [
+        "twosls",
+        "liml"
+      ],
+      "status": "HIT",
+      "top1_tag": "twosls",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "anderson_rubin",
+        "jive",
+        "liml",
+        "twosls"
+      ],
+      "disqualifying": [
+        "ols"
+      ]
+    },
+    {
+      "id": "card_1995_proximity",
+      "design": "iv",
+      "detected_design": "iv",
+      "ranked_labels": [
+        "2SLS (two-stage least squares)",
+        "LIML (robust to weak instruments)"
+      ],
+      "ranked_tags": [
+        "twosls",
+        "liml"
+      ],
+      "status": "HIT",
+      "top1_tag": "twosls",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "anderson_rubin",
+        "jive",
+        "liml",
+        "twosls"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "lee_2008_senate_rd",
+      "design": "rd",
+      "detected_design": "rd",
+      "ranked_labels": [
+        "Local polynomial RD (CCT 2014)"
+      ],
+      "ranked_tags": [
+        "local_polynomial_rd"
+      ],
+      "status": "HIT",
+      "top1_tag": "local_polynomial_rd",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "cct",
+        "local_polynomial_rd",
+        "rdrobust"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "abadie_2010_prop99",
+      "design": "synth",
+      "detected_design": "synth",
+      "ranked_labels": [
+        "Synthetic Control (Abadie, Diamond & Hainmueller 2010)",
+        "Augmented SCM (Ben-Michael, Feller & Rothstein 2021)",
+        "Synthetic DiD (Arkhangelsky et al. 2021)"
+      ],
+      "ranked_tags": [
+        "synth",
+        "augsynth",
+        "synthdid"
+      ],
+      "status": "HIT",
+      "top1_tag": "synth",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "augsynth",
+        "gsynth",
+        "mc_panel",
+        "synth",
+        "synthdid"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "abadie_2003_basque",
+      "design": "synth",
+      "detected_design": "synth",
+      "ranked_labels": [
+        "Synthetic Control (Abadie, Diamond & Hainmueller 2010)",
+        "Augmented SCM (Ben-Michael, Feller & Rothstein 2021)",
+        "Synthetic DiD (Arkhangelsky et al. 2021)"
+      ],
+      "ranked_tags": [
+        "synth",
+        "augsynth",
+        "synthdid"
+      ],
+      "status": "HIT",
+      "top1_tag": "synth",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "augsynth",
+        "gsynth",
+        "mc_panel",
+        "synth",
+        "synthdid"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "abadie_2015_german",
+      "design": "synth",
+      "detected_design": "synth",
+      "ranked_labels": [
+        "Synthetic Control (Abadie, Diamond & Hainmueller 2010)",
+        "Augmented SCM (Ben-Michael, Feller & Rothstein 2021)",
+        "Synthetic DiD (Arkhangelsky et al. 2021)"
+      ],
+      "ranked_tags": [
+        "synth",
+        "augsynth",
+        "synthdid"
+      ],
+      "status": "HIT",
+      "top1_tag": "synth",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "augsynth",
+        "gsynth",
+        "mc_panel",
+        "synth",
+        "synthdid"
+      ],
+      "disqualifying": []
+    },
+    {
+      "id": "dehejia_wahba_1999_nsw",
+      "design": "observational",
+      "detected_design": "observational",
+      "ranked_labels": [
+        "Propensity Score Matching (selection on observables)",
+        "Double ML (high-dimensional controls)",
+        "OLS with robust SE (naive baseline \u2014 biased under confounding)",
+        "G-computation (ATE)"
+      ],
+      "ranked_tags": [
+        "psm",
+        "dml",
+        "ols",
+        "g_computation"
+      ],
+      "status": "HIT",
+      "top1_tag": "psm",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "aipw",
+        "dml",
+        "drdid",
+        "entropy_balance",
+        "ipw",
+        "matching",
+        "ols",
+        "psm"
+      ],
+      "disqualifying": []
+    }
+  ],
+  "audit_coverage": [
+    {
+      "id": "callaway_santanna_2021_mpdta",
+      "audit_family": "did",
+      "gt_checks": [
+        "parallel_trends",
+        "bacon_decomposition",
+        "honest_did"
+      ],
+      "scored_checks": [
+        "parallel_trends",
+        "bacon_decomposition",
+        "honest_did"
+      ],
+      "covered": [
+        "parallel_trends",
+        "bacon_decomposition",
+        "honest_did"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "angrist_krueger_1991_qob",
+      "audit_family": "iv",
+      "gt_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci",
+        "overid_test"
+      ],
+      "scored_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci",
+        "overid_test"
+      ],
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci",
+        "overid_test"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "card_1995_proximity",
+      "audit_family": "iv",
+      "gt_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "scored_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "lee_2008_senate_rd",
+      "audit_family": "rd",
+      "gt_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "scored_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "abadie_2010_prop99",
+      "audit_family": "synth",
+      "gt_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "scored_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "covered": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "abadie_2003_basque",
+      "audit_family": "synth",
+      "gt_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "scored_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "covered": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "abadie_2015_german",
+      "audit_family": "synth",
+      "gt_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "scored_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "covered": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "dehejia_wahba_1999_nsw",
+      "audit_family": "matching",
+      "gt_checks": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "scored_checks": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "covered": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    }
+  ],
+  "audit_dynamic": [
+    {
+      "id": "callaway_santanna_2021_mpdta",
+      "status": "OK",
+      "audit_family": "did",
+      "scored_checks": [
+        "parallel_trends",
+        "bacon_decomposition",
+        "honest_did"
+      ],
+      "covered": [
+        "parallel_trends",
+        "bacon_decomposition",
+        "honest_did"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "bacon_decomposition",
+        "honest_did"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "angrist_krueger_1991_qob",
+      "status": "OK",
+      "audit_family": "iv",
+      "scored_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci",
+        "overid_test"
+      ],
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci",
+        "overid_test"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "anderson_rubin_ci",
+        "overid_test"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "card_1995_proximity",
+      "status": "OK",
+      "audit_family": "iv",
+      "scored_checks": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "anderson_rubin_ci"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "lee_2008_senate_rd",
+      "status": "OK",
+      "audit_family": "rd",
+      "scored_checks": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "mccrary_density",
+        "bandwidth_sensitivity",
+        "placebo_cutoff"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "abadie_2010_prop99",
+      "status": "OK",
+      "audit_family": "synth",
+      "scored_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "covered": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "placebo_inference"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "abadie_2003_basque",
+      "status": "OK",
+      "audit_family": "synth",
+      "scored_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "covered": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "placebo_inference"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "abadie_2015_german",
+      "status": "OK",
+      "audit_family": "synth",
+      "scored_checks": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "covered": [
+        "pretreatment_fit",
+        "placebo_inference"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "placebo_inference"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "dehejia_wahba_1999_nsw",
+      "status": "OK",
+      "audit_family": "matching",
+      "scored_checks": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "covered": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "overlap",
+        "balance_after",
+        "ovb_sensitivity"
+      ],
+      "dynamic_recall": 1.0
+    }
+  ]
+}

@@ -2,11 +2,15 @@
 Tests for Panel regression module (wrapping linearmodels).
 """
 
-import pytest
+import warnings
+
 import numpy as np
 import pandas as pd
-from statspai.panel import panel, PanelRegression
+import pytest
+
+import statspai as sp
 from statspai.core.results import EconometricResults
+from statspai.panel import PanelRegression, panel
 
 
 @pytest.fixture
@@ -41,7 +45,6 @@ def panel_data():
 
 
 class TestFixedEffects:
-
     def test_fe_basic(self, panel_data):
         """FE should recover slopes ≈ 2, 3 (wipes out alpha_i)."""
         result = panel(
@@ -95,9 +98,30 @@ class TestFixedEffects:
             lo, hi = float(ci.loc[v].iloc[0]), float(ci.loc[v].iloc[1])
             assert lo < float(result.params[v]) < hi
 
+    def test_fe_time_cluster_warns_and_records_few_clusters(self, panel_data):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            result = panel(
+                panel_data,
+                "y ~ x1 + x2",
+                entity="entity",
+                time="time",
+                method="fe",
+                cluster="time",
+            )
+
+        typed = [
+            w.message for w in caught if isinstance(w.message, sp.AssumptionWarning)
+        ]
+        assert typed
+        assert result.model_info["n_clusters"] == 10
+        few = [v for v in result.violations() if v.get("test") == "few_clusters"]
+        assert few
+        assert "sp.wild_cluster_bootstrap" in few[0]["alternatives"]
+        assert "sp.wild_cluster_bootstrap" in typed[0].alternative_functions
+
 
 class TestRandomEffects:
-
     def test_re_basic(self, panel_data):
         """RE should also estimate slopes approximately."""
         result = panel(
@@ -110,7 +134,6 @@ class TestRandomEffects:
 
 
 class TestPooledOLS:
-
     def test_pooled_basic(self, panel_data):
         """Pooled OLS should work and recover slopes (alpha_i ~ uncorrelated w/ x)."""
         result = panel(
@@ -132,7 +155,6 @@ class TestPooledOLS:
 
 
 class TestFirstDifference:
-
     def test_fd_basic(self, panel_data):
         """First difference also differences out alpha_i -> slopes ≈ 2, 3."""
         result = panel(
@@ -150,7 +172,6 @@ class TestFirstDifference:
 
 
 class TestBetween:
-
     def test_between_basic(self, panel_data):
         """Between estimator: only 50 entity means -> noisy but well-formed.
 
@@ -182,7 +203,6 @@ class TestBetween:
 
 
 class TestPanelGeneral:
-
     def test_summary(self, panel_data):
         result = panel(
             panel_data, "y ~ x1 + x2", entity="entity", time="time", method="fe"

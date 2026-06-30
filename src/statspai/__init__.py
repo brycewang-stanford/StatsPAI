@@ -30,31 +30,62 @@ from ._citation import citation
 
 __citation__ = citation("bibtex")
 
-from .core.results import EconometricResults, CausalResult
-from .core.effect_summary import EffectSummary, effect_summary  # noqa: E402
+# (lazy) spatial: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# NOTE: `from . import iv` would be shadowed by the `iv` function imported
+# on line 31 from `.regression.iv`, so we load the subpackage explicitly.
+import importlib as _importlib
 
 # Agent-native exception taxonomy (load early for registered estimators)
 from . import exceptions as exceptions  # noqa: F401
-from .exceptions import (
-    StatsPAIError,
-    AssumptionViolation,
-    IdentificationFailure,
-    DataInsufficient,
-    ConvergenceFailure,
-    NumericalInstability,
-    MethodIncompatibility,
-    StatsPAIWarning,
-    ConvergenceWarning,
-    AssumptionWarning,
-)
-from .regression.ols import regress
 
-# NB: ``iv`` is intentionally NOT imported here.  ``sp.iv`` resolves to the
-# callable :mod:`statspai.iv` subpackage (loaded via ``from .iv.* import``
-# below), which dispatches ``method=``/2sls/liml/fuller/gmm/jive/kernel/...
-# Importing the function at the top level would shadow the subpackage and
-# break ``sp.iv("y ~ (d ~ z)", data=df)``.
-from .regression.iv import ivreg, IVRegression
+# Eager: ``bartik`` collides (function + subpackage of same name).
+from .bartik import (
+    BartikIV,
+    ShiftSharePoliticalPanelResult,
+    ShiftSharePoliticalResult,
+    bartik,
+    shift_share_political,
+    shift_share_political_panel,
+    shift_share_se,
+    ssaggregate,
+)
+
+# Eager: ``causal_impact`` collides (function + subpackage of same name).
+from .causal_impact import CausalImpactEstimator, causal_impact, impactplot
+from .core.effect_summary import EffectSummary, effect_summary  # noqa: E402
+from .core.results import CausalResult, EconometricResults
+
+# Eager: ``deepiv`` is both a function (sp.deepiv(...)) and a subpackage.
+# Lazy-loading collides with the subpackage attachment — see the
+# "PEP 562 collision" note at the bottom of this file.
+from .deepiv import DeepIV, deepiv
+from .diagnostics import (
+    KitagawaResult,
+    RosenbaumResult,
+    WeakRobustResult,
+    anderson_rubin_test,
+    bias_factor,
+    diagnose,
+    diagnose_result,
+    effective_f_test,
+    estat,
+    evalue,
+    evalue_from_result,
+    evalue_rd,
+    hausman_test,
+    het_test,
+    kitagawa_test,
+    mccrary_test,
+    oster_bounds,
+    rddensity,
+    reset_test,
+    rosenbaum_bounds,
+    rosenbaum_gamma,
+    sensemakr,
+    tF_critical_value,
+    vif,
+    weakrobust,
+)
 
 # (lazy) forest: see _LAZY_SUBMODULES / _LAZY_ATTRS below.  Eagerly
 # importing ``forest.causal_forest`` etc. pulled ~245 sklearn submodules
@@ -63,516 +94,381 @@ from .regression.iv import ivreg, IVRegression
 # ``forest`` name does *not* collide with a top-level function (no
 # ``sp.forest`` callable export), so the standard lazy path is safe.
 from .did import (
-    did,
-    did_2x2,
-    overlap_weighted_did,
-    dl_propensity_score,
-    ddd,
-    callaway_santanna,
-    sun_abraham,
-    bacon_decomposition,
-    honest_did,
-    breakdown_m,
-    event_study,
-    did_analysis,
+    CSReport,
     DIDAnalysis,
-    did_multiplegt,
-    did_imputation,
-    bjs,
-    borusyak_jaravel_spiess,
-    stacked_did,
-    cic,
-    gardner_did,
-    did_2stage,
-    harvest_did,
     HarvestDIDResult,
-    wooldridge_did,
+    SensitivityResult,
+    aggte,
+    bacon_decomposition,
+    bacon_plot,
+    bjs,
+    bjs_pretrend_joint,
+    borusyak_jaravel_spiess,
+    breakdown_m,
+    callaway_santanna,
+    cic,
+    cohort_anchored_event_study,
+    cohort_event_study_plot,
+    cs_report,
+    ddd,
+    design_robust_event_study,
+    did,
+    did_2stage,
+    did_2x2,
+    did_analysis,
+    did_bcf,
+    did_imputation,
+    did_misclassified,
+    did_multiplegt,
+    did_plot,
+    did_report,
+    did_summary,
+    did_summary_plot,
+    did_summary_to_latex,
+    did_summary_to_markdown,
+    dl_propensity_score,
+    drdid,
+    enhanced_event_study_plot,
     etwfe,
     etwfe_emfx,
-    drdid,
-    twfe_decomposition,
-    did_bcf,
-    cohort_anchored_event_study,
-    design_robust_event_study,
-    did_misclassified,
-    did_summary,
-    did_summary_to_markdown,
-    did_summary_to_latex,
-    did_report,
-    pretrends_test,
-    pretrends_power,
-    sensitivity_rr,
-    SensitivityResult,
-    pretrends_summary,
-    parallel_trends_plot,
-    bacon_plot,
-    group_time_plot,
-    did_plot,
-    enhanced_event_study_plot,
-    treatment_rollout_plot,
-    sensitivity_plot,
-    cohort_event_study_plot,
-    did_summary_plot,
-    aggte,
-    cs_report,
-    CSReport,
+    event_study,
+    gardner_did,
     ggdid,
-    bjs_pretrend_joint,
+    group_time_plot,
+    harvest_did,
+    honest_did,
+    overlap_weighted_did,
+    parallel_trends_plot,
+    pretrends_power,
+    pretrends_summary,
+    pretrends_test,
+    sensitivity_plot,
+    sensitivity_rr,
+    stacked_did,
+    sun_abraham,
+    treatment_rollout_plot,
+    twfe_decomposition,
+    wooldridge_did,
 )
-from .rd import (
-    rdrobust,
-    rdplot,
-    rdplotdensity,
-    rdbwselect,
-    rdbwsensitivity,
-    rdbalance,
-    rdplacebo,
-    rdsummary,
-    rkd,
-    rd_honest,
-    rdit,
-    rdpower,
-    rdsampsi,
-    rdrandinf,
-    rdwinselect,
-    rdsensitivity,
-    rdrbounds,
-    rdhte,
-    rdbwhte,
-    rdhte_lincom,
-    rd_forest,
-    rd_boost,
-    rd_lasso,
-    rd_cate_summary,
-    rd_extrapolate,
-    rd_multi_extrapolate,
-    rd_external_validity,
-    rd_interference,
-    RDInterferenceResult,
-    rd_multi_score,
-    MultiScoreRDResult,
-    rd_distribution,
-    DistRDResult,
-    rd_bayes_hte,
-    BayesRDHTEResult,
-    rd_distributional_design,
-    DDDResult,
-    # v1.15 polish
-    rd_flex,
-    rd_bias_aware_fuzzy,
-    rd_discrete,
-    rd_dashboard,
-    rd_compare,
-    rd_robustness_table,
-)
-from .synth import (
-    synth,
-    SyntheticControl,
-    synthplot,
-    sdid,
-    augsynth,
-    demeaned_synth,
-    robust_synth,
-    gsynth,
-    staggered_synth,
-    conformal_synth,
-    mc_synth,
-    multi_outcome_synth,
-    scpi,
-    scest,
-    scdata,
-    discos,
-    qqsynth,
-    discos_test,
-    discos_plot,
-    stochastic_dominance,
-    synth_loo,
-    synth_time_placebo,
-    synth_donor_sensitivity,
-    synth_rmspe_filter,
-    synth_sensitivity,
-    synth_sensitivity_plot,
-    synth_power,
-    synth_mde,
-    synth_power_plot,
-    synth_compare,
-    synth_recommend,
-    SynthComparison,
-    synth_report,
-    synth_report_to_file,
-    synth_to_latex,
-    synth_to_markdown,
-    synth_to_excel,
-    german_reunification,
-    basque_terrorism,
-    california_tobacco,
-    synthdid_estimate,
-    sc_estimate,
-    did_estimate,
-    synthdid_placebo,
-    synthdid_plot,
-    synthdid_units_plot,
-    synthdid_rmse_plot,
-    california_prop99,
-)
-from .synth.sequential_sdid import sequential_sdid, SequentialSDIDResult
-from .synth.survival import synth_survival, SyntheticSurvivalResult
-from .synth.experimental_design import (
-    synth_experimental_design,
-    SynthExperimentalDesignResult,
-)
-from .matching import (
-    match,
-    MatchEstimator,
-    ebalance,
-    balanceplot,
-    psplot,
-    propensity_score,
-    overlap_plot,
-    trimming,
-    love_plot,
-    ps_balance,
-    PSBalanceResult,
-    balance_diagnostics,
-    BalanceDiagnosticsResult,
-    optimal_match,
-    cardinality_match,
-    OptimalMatchResult,
-    CardinalityMatchResult,
-    overlap_weights,
-    cbps,
-    genmatch,
-    GenMatchResult,
-    sbw,
-    SBWResult,
-    psmatch2,
-    PSMatch2Result,
-)
-from .dml import (
-    dml,
+from .dml import (  # v1.7 long-panel DML; v1.13 DML-OVB sensitivity + diagnostics
+    DMLAveragingResult,
+    DMLDiagnostics,
+    DMLPanelResult,
+    DMLSensitivityResult,
     DoubleML,
-    DoubleMLPLR,
+    DoubleMLIIVM,
     DoubleMLIRM,
     DoubleMLPLIV,
-    DoubleMLIIVM,
-    dml_model_averaging,
-    model_averaging_dml,
-    DMLAveragingResult,
-    # v1.7 long-panel DML
-    dml_panel,
-    DMLPanelResult,
-    # v1.13 DML-OVB sensitivity + diagnostics
-    dml_sensitivity,
-    DMLSensitivityResult,
+    DoubleMLPLR,
+    dml,
     dml_diagnostics,
-    DMLDiagnostics,
+    dml_model_averaging,
+    dml_panel,
+    dml_sensitivity,
+    model_averaging_dml,
 )
-
-# Eager: ``deepiv`` is both a function (sp.deepiv(...)) and a subpackage.
-# Lazy-loading collides with the subpackage attachment — see the
-# "PEP 562 collision" note at the bottom of this file.
-from .deepiv import deepiv, DeepIV
-from .panel import (
-    panel,
-    panel_compare,
-    balance_panel,
-    PanelResults,
-    PanelCompareResults,
-    PanelRegression,
-    Absorber,
-    demean,
-    absorb_ols,
-    hdfe_ols,
-    FEOLSResult,
-)
-
-# Eager: ``causal_impact`` collides (function + subpackage of same name).
-from .causal_impact import causal_impact, CausalImpactEstimator, impactplot
-from .mediation import (
-    mediate,
-    MediationAnalysis,
-    mediate_sensitivity,
-    mediate_interventional,
-    four_way_decomposition,
-    FourWayResult,
-)
-
-# Eager: ``bartik`` collides (function + subpackage of same name).
-from .bartik import (
-    bartik,
-    BartikIV,
-    ssaggregate,
-    shift_share_se,
-    shift_share_political,
-    ShiftSharePoliticalResult,
-    shift_share_political_panel,
-    ShiftSharePoliticalPanelResult,
-)
-from .output.outreg2 import OutReg2, outreg2
-from .output.modelsummary import modelsummary, coefplot, coefplot_tikz
-from .output.sumstats import sumstats, balance_table
-from .output.tab import tab
-from .output.estimates import eststo, estclear, esttab
-from .output.regression_table import (
-    regtable,
-    RegtableResult,
-    mean_comparison,
-    MeanComparisonResult,
-)
-from .output.paper_tables import (
-    paper_tables,
-    PaperTables,
-    TEMPLATES as PAPER_TABLE_TEMPLATES,
-)
-from .output.collection import Collection, CollectionItem, collect
-from .output._inline import cite
-from .output._journals import (
-    JOURNALS as JOURNAL_PRESETS,
-    list_templates as list_journal_templates,
-    get_template as get_journal_template,
-)
-from .output._lineage import (
-    Provenance,
-    attach_provenance,
-    get_provenance,
-    compute_data_hash,
-    format_provenance,
-    lineage_summary,
-)
-from .output._replication_pack import ReplicationPack, replication_pack
-from .output._gt import to_gt as gt, is_great_tables_available
-from .output._bibliography import (
-    csl_url,
-    csl_filename,
-    list_csl_styles,
-    parse_citation_to_bib,
-    make_bib_key,
-    citations_to_bib_entries,
-    write_bib,
-)
-from .postestimation import (
-    margins,
-    margins_table,
-    event_study_table,
-    marginsplot,
-    margins_at,
-    margins_at_plot,
-    contrast,
-    pwcompare,
-    test,
-    lincom,
-    postestimation_contract,
-    postestimation_report,
-)
-from .diagnostics import (
-    oster_bounds,
-    mccrary_test,
-    diagnose,
-    het_test,
-    reset_test,
-    vif,
-    sensemakr,
-    rddensity,
-    hausman_test,
-    anderson_rubin_test,
-    effective_f_test,
-    tF_critical_value,
-    evalue,
-    evalue_from_result,
-    evalue_rd,
-    bias_factor,
-    diagnose_result,
-    estat,
-    kitagawa_test,
-    KitagawaResult,
-    rosenbaum_bounds,
-    rosenbaum_gamma,
-    RosenbaumResult,
-    weakrobust,
-    WeakRobustResult,
+from .exceptions import (
+    AssumptionViolation,
+    AssumptionWarning,
+    ConvergenceFailure,
+    ConvergenceWarning,
+    DataInsufficient,
+    IdentificationFailure,
+    MethodIncompatibility,
+    NumericalInstability,
+    StatsPAIError,
+    StatsPAIWarning,
 )
 from .inference import (
-    wild_cluster_bootstrap,
-    aipw,
-    ri_test,
-    ipw,
-    bootstrap,
     BootstrapResult,
-    twoway_cluster,
-    conley,
-    pate,
-    PATEEstimator,
-    fisher_exact,
     FisherResult,
-    jackknife_se,
-    cr2_se,
-    wild_cluster_boot,
-    subcluster_wild_bootstrap,
-    wild_cluster_ci_inv,
-    multiway_cluster_vcov,
-    cluster_robust_se,
-    cr3_jackknife_vcov,
-    g_computation,
-    front_door,
-    meta_analysis,
     MetaAnalysisResult,
+    PATEEstimator,
+    aipw,
+    bootstrap,
+    cluster_robust_se,
+    conley,
+    cr2_se,
+    cr3_jackknife_vcov,
+    fisher_exact,
+    front_door,
+    g_computation,
+    ipw,
+    jackknife_se,
+    meta_analysis,
+    multiway_cluster_vcov,
+    pate,
+    ri_test,
+    subcluster_wild_bootstrap,
+    twoway_cluster,
+    wild_cluster_boot,
+    wild_cluster_bootstrap,
+    wild_cluster_ci_inv,
+)
+from .matching import (
+    BalanceDiagnosticsResult,
+    CardinalityMatchResult,
+    GenMatchResult,
+    MatchEstimator,
+    OptimalMatchResult,
+    PSBalanceResult,
+    PSMatch2Result,
+    SBWResult,
+    balance_diagnostics,
+    balanceplot,
+    cardinality_match,
+    cbps,
+    ebalance,
+    genmatch,
+    love_plot,
+    match,
+    optimal_match,
+    overlap_plot,
+    overlap_weights,
+    propensity_score,
+    ps_balance,
+    psmatch2,
+    psplot,
+    sbw,
+    trimming,
+)
+from .mediation import (
+    FourWayResult,
+    MediationAnalysis,
+    four_way_decomposition,
+    mediate,
+    mediate_interventional,
+    mediate_sensitivity,
 )
 
 # Eager: ``msm`` collides (function + subpackage of same name).
-from .msm import msm, MarginalStructuralModel, stabilized_weights
-
-# Eager: ``proximal`` collides (function + subpackage of same name).
-from .proximal import (
-    proximal,
-    ProximalCausalInference,
-    negative_control_outcome,
-    negative_control_exposure,
-    double_negative_control,
-    NegativeControlResult,
-    proximal_regression,
-    ProximalRegResult,
-    fortified_pci,
-    bidirectional_pci,
-    pci_mtp,
-    select_pci_proxies,
-    ProxyScoreResult,
+from .msm import MarginalStructuralModel, msm, stabilized_weights
+from .output._bibliography import (
+    citations_to_bib_entries,
+    csl_filename,
+    csl_url,
+    list_csl_styles,
+    make_bib_key,
+    parse_citation_to_bib,
+    write_bib,
+)
+from .output._gt import is_great_tables_available
+from .output._gt import to_gt as gt
+from .output._inline import cite
+from .output._journals import JOURNALS as JOURNAL_PRESETS
+from .output._journals import get_template as get_journal_template
+from .output._journals import list_templates as list_journal_templates
+from .output._lineage import (
+    Provenance,
+    attach_provenance,
+    compute_data_hash,
+    format_provenance,
+    get_provenance,
+    lineage_summary,
+)
+from .output._replication_pack import ReplicationPack, replication_pack
+from .output.collection import Collection, CollectionItem, collect
+from .output.estimates import estclear, eststo, esttab
+from .output.modelsummary import coefplot, coefplot_tikz, modelsummary
+from .output.outreg2 import OutReg2, outreg2
+from .output.paper_tables import TEMPLATES as PAPER_TABLE_TEMPLATES
+from .output.paper_tables import PaperTables, paper_tables
+from .output.regression_table import (
+    MeanComparisonResult,
+    RegtableResult,
+    mean_comparison,
+    regtable,
+)
+from .output.sumstats import balance_table, sumstats
+from .output.tab import tab
+from .panel import (
+    Absorber,
+    FEOLSResult,
+    PanelCompareResults,
+    PanelRegression,
+    PanelResults,
+    absorb_ols,
+    balance_panel,
+    demean,
+    hdfe_ols,
+    panel,
+    panel_compare,
+)
+from .postestimation import (
+    contrast,
+    event_study_table,
+    lincom,
+    margins,
+    margins_at,
+    margins_at_plot,
+    margins_table,
+    marginsplot,
+    postestimation_contract,
+    postestimation_report,
+    pwcompare,
+    test,
 )
 
 # Eager: ``principal_strat`` collides (function + subpackage of same name).
 from .principal_strat import (
-    principal_strat,
     PrincipalStratResult,
+    principal_strat,
     survivor_average_causal_effect,
 )
 
-# (lazy) spatial: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# NOTE: `from . import iv` would be shadowed by the `iv` function imported
-# on line 31 from `.regression.iv`, so we load the subpackage explicitly.
-import importlib as _importlib
+# Eager: ``proximal`` collides (function + subpackage of same name).
+from .proximal import (
+    NegativeControlResult,
+    ProximalCausalInference,
+    ProximalRegResult,
+    ProxyScoreResult,
+    bidirectional_pci,
+    double_negative_control,
+    fortified_pci,
+    negative_control_exposure,
+    negative_control_outcome,
+    pci_mtp,
+    proximal,
+    proximal_regression,
+    select_pci_proxies,
+)
+from .rd import (  # v1.15 polish
+    BayesRDHTEResult,
+    DDDResult,
+    DistRDResult,
+    MultiScoreRDResult,
+    RDInterferenceResult,
+    rd_bayes_hte,
+    rd_bias_aware_fuzzy,
+    rd_boost,
+    rd_cate_summary,
+    rd_compare,
+    rd_dashboard,
+    rd_discrete,
+    rd_distribution,
+    rd_distributional_design,
+    rd_external_validity,
+    rd_extrapolate,
+    rd_flex,
+    rd_forest,
+    rd_honest,
+    rd_interference,
+    rd_lasso,
+    rd_multi_extrapolate,
+    rd_multi_score,
+    rd_robustness_table,
+    rdbalance,
+    rdbwhte,
+    rdbwselect,
+    rdbwsensitivity,
+    rdhte,
+    rdhte_lincom,
+    rdit,
+    rdplacebo,
+    rdplot,
+    rdplotdensity,
+    rdpower,
+    rdrandinf,
+    rdrbounds,
+    rdrobust,
+    rdsampsi,
+    rdsensitivity,
+    rdsummary,
+    rdwinselect,
+    rkd,
+)
+
+# NB: ``iv`` is intentionally NOT imported here.  ``sp.iv`` resolves to the
+# callable :mod:`statspai.iv` subpackage (loaded via ``from .iv.* import``
+# below), which dispatches ``method=``/2sls/liml/fuller/gmm/jive/kernel/...
+# Importing the function at the top level would shadow the subpackage and
+# break ``sp.iv("y ~ (d ~ z)", data=df)``.
+from .regression.iv import IVRegression, ivreg
+from .regression.ols import regress
+from .synth import (
+    SynthComparison,
+    SyntheticControl,
+    augsynth,
+    basque_terrorism,
+    california_prop99,
+    california_tobacco,
+    conformal_synth,
+    demeaned_synth,
+    did_estimate,
+    discos,
+    discos_plot,
+    discos_test,
+    german_reunification,
+    gsynth,
+    mc_synth,
+    multi_outcome_synth,
+    qqsynth,
+    robust_synth,
+    sc_estimate,
+    scdata,
+    scest,
+    scpi,
+    sdid,
+    staggered_synth,
+    stochastic_dominance,
+    synth,
+    synth_compare,
+    synth_donor_sensitivity,
+    synth_loo,
+    synth_mde,
+    synth_power,
+    synth_power_plot,
+    synth_recommend,
+    synth_report,
+    synth_report_to_file,
+    synth_rmspe_filter,
+    synth_sensitivity,
+    synth_sensitivity_plot,
+    synth_time_placebo,
+    synth_to_excel,
+    synth_to_latex,
+    synth_to_markdown,
+    synthdid_estimate,
+    synthdid_placebo,
+    synthdid_plot,
+    synthdid_rmse_plot,
+    synthdid_units_plot,
+    synthplot,
+)
+from .synth.experimental_design import (
+    SynthExperimentalDesignResult,
+    synth_experimental_design,
+)
+from .synth.sequential_sdid import SequentialSDIDResult, sequential_sdid
+from .synth.survival import SyntheticSurvivalResult, synth_survival
 
 iv = _importlib.import_module(".iv", __name__)
 del _importlib
-# Expose Kernel IV / Continuous-LATE at top level for agent discoverability.
-from .iv.kernel_iv import kernel_iv, KernelIVResult
-from .iv.continuous_late import continuous_iv_late, ContinuousLATEResult
+# === LLM agent tool-definition surface ===
+# === Canonical datasets (consolidated facade) ===
+# === Causal-question DSL (estimand-first workflow) ===
+from . import agent  # noqa: F401 — exposed as ``sp.agent``
+from . import datasets  # noqa: F401 — exposed as ``sp.datasets``
+from . import question
+from ._agent_docs import render_agent_block, render_agent_blocks
 
-# Modern IV reporting bundle (post-2022 standard) — top-level for ergonomics.
-from .iv.iv_diag import iv_diag, iv_compare, IVDiagResult
-from .plots import binscatter, set_theme, list_themes, use_chinese
-from .plots import counterfactual_data, counterfactual_plot  # noqa: E402
-from .quasi import ancova, negd
-from .utils import (
-    label_var,
-    label_vars,
-    get_label,
-    get_labels,
-    describe,
-    pwcorr,
-    winsor,
-    read_data,
-    rowmean,
-    rowtotal,
-    rowmax,
-    rowmin,
-    rowsd,
-    rowcount,
-    rank,
-    outlier_indicator,
-    scalar_iv_projection,
-    dgp_did,
-    dgp_rd,
-    dgp_rd_kink,
-    dgp_rd_multi,
-    dgp_rd_hte,
-    dgp_rd_2d,
-    dgp_rdit,
-    dgp_iv,
-    dgp_rct,
-    dgp_panel,
-    dgp_observational,
-    dgp_cluster_rct,
-    dgp_bunching,
-    dgp_synth,
-    dgp_bartik,
-)
-from .gmm import xtabond
-from .metalearners import metalearner, SLearner, TLearner, XLearner, RLearner, DRLearner
-from .metalearners import (
-    cate_summary,
-    cate_by_group,
-    cate_plot,
-    cate_group_plot,
-    predict_cate,
-    compare_metalearners,
-    gate_test,
-    blp_test,
-)
-from .metalearners import auto_cate, AutoCATEResult
-from .metalearners import auto_cate_tuned
-from .metalearners import (
-    focal_cate,
-    FunctionalCATEResult,
-    cluster_cate,
-    ClusterCATEResult,
-)
-from .metalearners import cate_eval, CATEEvalResult
-
-# bayes — lazy-loaded (PyMC pulls heavy deps); see _LAZY_ATTRS below.
-from .regression.heckman import heckman
-from .regression.quantile import qreg, sqreg
-from .regression.tobit import tobit
-from .regression.logit_probit import logit, probit, cloglog
-from .regression.glm import glm, GLMRegression, GLMEstimator
-from .regression.count import poisson, nbreg, xtnbreg, ppmlhdfe
-
-# neural_causal — lazy-loaded (torch); see _LAZY_ATTRS below.
-from .causal_discovery import (
-    notears,
-    NOTEARS,
-    pc_algorithm,
-    PCAlgorithm,
-    lingam,
-    LiNGAMResult,
-    ges,
-    GESResult,
-    fci,
-    FCIResult,
-    icp,
-    nonlinear_icp,
-    ICPResult,
-    pcmci,
-    PCMCIResult,
-    partial_corr_pvalue,
-    lpcmci,
-    LPCMCIResult,
-    dynotears,
-    DYNOTEARSResult,
+# === Article-facing aliases (sp.rdd / sp.frontdoor / sp.xlearner / ...) ===
+# Thin wrappers around existing implementations; see _article_aliases.py
+from ._article_aliases import (  # noqa: E402,F811
+    anderson_rubin_ci,
+    conditional_lr_ci,
+    conformal_ite,
+    evalue_rr,
+    frontdoor,
+    partial_identification,
+    psm,
+    rdd,
+    tF_adjustment,
+    xlearner,
 )
 
-# Eager: ``tmle`` collides (function + subpackage of same name).
-from .tmle import (
-    tmle,
-    TMLE,
-    super_learner,
-    SuperLearner,
-    ltmle,
-    LTMLEResult,
-    ltmle_survival,
-    LTMLESurvivalResult,
-    hal_tmle,
-    HALRegressor,
-    HALClassifier,
-)
-from .policy_learning import (
-    policy_tree,
-    PolicyTree,
-    PolicyTreeResult,
-    policy_value,
-    direct_method,
-    ips,
-    snips,
-    doubly_robust,
-)
+# === Auto-race estimators (CS/SA/BJS DiD + 2SLS/LIML/JIVE IV) ===
+from ._auto_estimators import AutoDIDResult, AutoIVResult, auto_did, auto_iv
 
 # ``OPEResult`` is intentionally *not* eagerly imported from
 # ``.policy_learning`` here: the canonical class lives in
@@ -583,129 +479,564 @@ from .policy_learning import (
 # (lazy) conformal_causal: see _LAZY_SUBMODULES / _LAZY_ATTRS
 # Eager: ``bcf`` collides (function + subpackage of same name).
 from .bcf import (
-    bcf,
     BayesianCausalForest,
-    bcf_longitudinal,
-    BCFLongResult,
-    bcf_ordinal,
-    BCFOrdinalResult,
-    bcf_factor_exposure,
     BCFFactorExposureResult,
-)
-
-# Eager: ``bunching`` collides (function + subpackage of same name).
-from .bunching import bunching, BunchingEstimator, notch, NotchResult
-from .bunching import (
-    general_bunching,
-    GeneralBunchingResult,
-    kink_unified,
-    KinkUnifiedResult,
-)
-from .matrix_completion import mc_panel, MCPanel
-
-# Eager: ``dose_response`` collides (function + subpackage of same name).
-from .dose_response import dose_response, DoseResponse, vcnet, scigan, VCNetResult
-
-# (lazy) bounds: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Eager: ``interference`` collides (function + subpackage of same name).
-from .interference import (
-    spillover,
-    SpilloverEstimator,
-    network_exposure,
-    NetworkExposureResult,
-    peer_effects,
-    PeerEffectsResult,
-    network_hte,
-    inward_outward_spillover,
-    NetworkHTEResult,
-    InwardOutwardResult,
-)
-from .interference import (
-    cluster_matched_pair,
-    MatchedPairResult,
-    cluster_cross_interference,
-    CrossClusterRCTResult,
-    cluster_staggered_rollout,
-    StaggeredClusterRCTResult,
-    dnc_gnn_did,
-    DNCGNNDiDResult,
-    interference,
-    interference_available_designs,
-)
-
-# Social network analysis (sp.network). Eager so the SNA surface is on the
-# top-level namespace; the subpackage is reachable as ``sp.network``.
-from .network import (
-    network_graph,
-    Graph,
-    network_summary,
-    NetworkSummaryResult,
-    transitivity,
-    clustering,
-    reciprocity,
-    assortativity,
-    network_components,
-    ComponentsResult,
-    centrality,
-    CentralityResult,
-    degree_centrality,
-    closeness_centrality,
-    betweenness_centrality,
-    eigenvector_centrality,
-    katz_centrality,
-    pagerank,
-    bonacich_power,
-    hits,
-    community_detection,
-    CommunityResult,
-    network_modularity,
-    netlm,
-    netlogit,
-    QAPResult,
-    dyadic_regression,
-    DyadicRegressionResult,
-    ergm,
-    ERGMResult,
-    karate_club,
-    florentine_families,
-    network_plot,
-)
-
-# (lazy) dtr: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Eager: ``multi_treatment`` collides (function + subpackage of same name).
-from .multi_treatment import multi_treatment, MultiTreatment
-
-# (lazy) robustness_a: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# (lazy) survey: see _LAZY_SUBMODULES / _LAZY_ATTRS
-from .dag import (
-    dag,
-    DAG,
-    dag_example,
-    dag_examples,
-    dag_example_positions,
-    dag_simulate,
-    identify,
-    IdentificationResult,
-    rule1 as do_rule1,
-    rule2 as do_rule2,
-    rule3 as do_rule3,
-    apply_rules as do_calculus_apply,
-    RuleCheck,
-    swig,
-    SWIGGraph,
-    SCM,
-    llm_dag,
-    LLMDAGResult,
-    llm_causal_assess,
-    pairwise_causal_benchmark,
-    LLMCausalAssessResult,
-    PairwiseBenchmarkResult,
+    BCFLongResult,
+    BCFOrdinalResult,
+    bcf,
+    bcf_factor_exposure,
+    bcf_longitudinal,
+    bcf_ordinal,
 )
 
 # === Bridging theorems (DiD≡SC, EWM≡CATE, CB≡IPW, Kink≡RDD,
 #     DR-Calib, Surrogate≡PCI) ===
 # Eager: ``bridge`` collides (function + subpackage of same name).
-from .bridge import bridge, BridgeResult
+from .bridge import BridgeResult, bridge
+
+# Eager: ``bunching`` collides (function + subpackage of same name).
+from .bunching import (
+    BunchingEstimator,
+    GeneralBunchingResult,
+    KinkUnifiedResult,
+    NotchResult,
+    bunching,
+    general_bunching,
+    kink_unified,
+    notch,
+)
+
+# neural_causal — lazy-loaded (torch); see _LAZY_ATTRS below.
+from .causal_discovery import (
+    NOTEARS,
+    DYNOTEARSResult,
+    FCIResult,
+    GESResult,
+    ICPResult,
+    LiNGAMResult,
+    LPCMCIResult,
+    PCAlgorithm,
+    PCMCIResult,
+    dynotears,
+    fci,
+    ges,
+    icp,
+    lingam,
+    lpcmci,
+    nonlinear_icp,
+    notears,
+    partial_corr_pvalue,
+    pc_algorithm,
+    pcmci,
+)
+
+# === Cross-engine validation ===
+# sp.cross_validate runs one estimand through independent engines (StatsPAI,
+# pyfixest, linearmodels, DoubleML, R::fixest, Stata) and reports whether they
+# agree. Heavy backends import lazily inside each adapter, so this eager import
+# stays light (numpy / pandas only).
+from .crossval import CrossValidationResult, cross_validate
+
+# Experimental Design
+# (lazy) experimental: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Missing Data / Imputation
+# (lazy) imputation: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Mendelian Randomization
+# NOTE: v1.5 replaces the `sp.mr` module alias with a dispatcher
+# function `sp.mr(method=..., ...)` mirroring sp.synth / sp.decompose /
+# sp.dml.  Use `sp.mendelian` for module-level access.
+# (lazy) mendelian: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Expose recommend_estimator at top level too
+# (lazy) robustness_a: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# (lazy) survey: see _LAZY_SUBMODULES / _LAZY_ATTRS
+from .dag import (
+    DAG,
+    SCM,
+    IdentificationResult,
+    LLMCausalAssessResult,
+    LLMDAGResult,
+    PairwiseBenchmarkResult,
+    RuleCheck,
+    SWIGGraph,
+)
+from .dag import apply_rules as do_calculus_apply
+from .dag import (
+    dag,
+    dag_example,
+    dag_example_positions,
+    dag_examples,
+    dag_simulate,
+    identify,
+    llm_causal_assess,
+    llm_dag,
+    pairwise_causal_benchmark,
+)
+from .dag import recommend_estimator as dag_recommend_estimator
+from .dag import rule1 as do_rule1
+from .dag import rule2 as do_rule2
+from .dag import rule3 as do_rule3
+from .dag import swig
+
+# Data-source ingestion normalisers, also surfaced at top level so an agent can
+# reshape a World Bank / FRED / OECD-SDMX payload with one call before fitting.
+from .datasets.ingest import from_fred, from_sdmx, from_worldbank
+from .decomposition import (  # Tier C additions
+    GelbachResult,
+    OaxacaResult,
+    YuElwertResult,
+    available_methods,
+    bauer_sinning,
+    cfm_decompose,
+    chilean_households,
+    cps_wage,
+    das_gupta,
+    decompose,
+    dfl_decompose,
+    disparity_decompose,
+    disparity_panel,
+    fairlie,
+    ffl_decompose,
+    gap_closing,
+    gelbach,
+    inequality_index,
+    kitagawa_decompose,
+    machado_mata,
+    mediation_decompose,
+    melly_decompose,
+    mincer_wage_panel,
+    oaxaca,
+    rif_decomposition,
+    rifreg,
+    shapley_inequality,
+    source_decompose,
+    subgroup_decompose,
+    yu_elwert_decompose,
+    yun_nonlinear,
+)
+
+# Continuous Treatment DID
+from .did import continuous_did
+from .did.ddd_heterogeneous import ddd_heterogeneous
+from .did.did_multiplegt_dyn import did_multiplegt_dyn
+from .did.lp_did import lp_did
+from .did.timevarying_covariates import did_timevarying_covariates
+
+# Eager: ``dose_response`` collides (function + subpackage of same name).
+from .dose_response import DoseResponse, VCNetResult, dose_response, scigan, vcnet
+
+# High-dimensional fixed effects (pyfixest backend)
+# These are thin wrappers; actual import of pyfixest is deferred to call time
+# via fixest.wrapper._check_pyfixest, so top-level import never fails.
+from .fixest import etable, feglm, feols, fepois
+
+# Interactive Fixed Effects
+# (already imported in round 2)
+# Mixed Effects / Multilevel
+# (lazy) multilevel: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Stochastic Frontier
+# Eager: ``frontier`` collides (function + subpackage of same name).
+from .frontier import (
+    FrontierResult,
+    MalmquistResult,
+    MetafrontierResult,
+    frontier,
+    lcsf,
+    malmquist,
+    metafrontier,
+    te_rank,
+    te_summary,
+    translog_design,
+    xtfrontier,
+    zisf,
+)
+
+# General GMM
+from .gmm import gmm, xtabond
+
+# Unified help entry point (aggregates registry + docstring + category + search)
+from .help import HelpResult, help
+
+# (lazy) bounds: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``interference`` collides (function + subpackage of same name).
+from .interference import (
+    CrossClusterRCTResult,
+    DNCGNNDiDResult,
+    InwardOutwardResult,
+    MatchedPairResult,
+    NetworkExposureResult,
+    NetworkHTEResult,
+    PeerEffectsResult,
+    SpilloverEstimator,
+    StaggeredClusterRCTResult,
+    cluster_cross_interference,
+    cluster_matched_pair,
+    cluster_staggered_rollout,
+    dnc_gnn_did,
+    interference,
+    interference_available_designs,
+    inward_outward_spillover,
+    network_exposure,
+    network_hte,
+    peer_effects,
+    spillover,
+)
+from .iv.continuous_late import ContinuousLATEResult, continuous_iv_late
+
+# Modern IV reporting bundle (post-2022 standard) — top-level for ergonomics.
+from .iv.iv_diag import IVDiagResult, iv_compare, iv_diag
+
+# Expose Kernel IV / Continuous-LATE at top level for agent discoverability.
+from .iv.kernel_iv import KernelIVResult, kernel_iv
+from .matrix_completion import MCPanel, mc_panel
+from .metalearners import (
+    AutoCATEResult,
+    CATEEvalResult,
+    ClusterCATEResult,
+    DRLearner,
+    FunctionalCATEResult,
+    RLearner,
+    SLearner,
+    TLearner,
+    XLearner,
+    auto_cate,
+    auto_cate_tuned,
+    blp_test,
+    cate_by_group,
+    cate_eval,
+    cate_group_plot,
+    cate_plot,
+    cate_summary,
+    cluster_cate,
+    compare_metalearners,
+    focal_cate,
+    gate_test,
+    metalearner,
+    predict_cate,
+)
+
+# (lazy) dtr: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Eager: ``multi_treatment`` collides (function + subpackage of same name).
+from .multi_treatment import MultiTreatment, multi_treatment
+
+# Social network analysis (sp.network). Eager so the SNA surface is on the
+# top-level namespace; the subpackage is reachable as ``sp.network``.
+from .network import (
+    CentralityResult,
+    CommunityResult,
+    ComponentsResult,
+    DyadicRegressionResult,
+    ERGMResult,
+    Graph,
+    NetworkSummaryResult,
+    QAPResult,
+    assortativity,
+    betweenness_centrality,
+    bonacich_power,
+    centrality,
+    closeness_centrality,
+    clustering,
+    community_detection,
+    degree_centrality,
+    dyadic_regression,
+    eigenvector_centrality,
+    ergm,
+    florentine_families,
+    hits,
+    karate_club,
+    katz_centrality,
+    netlm,
+    netlogit,
+    network_components,
+    network_graph,
+    network_modularity,
+    network_plot,
+    network_summary,
+    pagerank,
+    reciprocity,
+    transitivity,
+)
+
+# === NEW v0.6 Round 2 ===
+# Interactive Fixed Effects
+from .panel.interactive_fe import interactive_fe
+
+# Panel Binary (Logit/Probit FE/RE)
+from .panel.panel_binary import panel_logit, panel_probit
+
+# Panel FGLS
+from .panel.panel_fgls import panel_fgls
+
+# Panel Unit Root Tests
+from .panel.unit_root import PanelUnitRootResult, panel_unitroot
+from .parity import ParityStatus, parity_matrix, parity_status, parity_summary
+from .plots import (  # noqa: E402
+    binscatter,
+    counterfactual_data,
+    counterfactual_plot,
+    list_themes,
+    set_theme,
+    use_chinese,
+)
+from .policy_learning import (
+    PolicyTree,
+    PolicyTreeResult,
+    direct_method,
+    doubly_robust,
+    ips,
+    policy_tree,
+    policy_value,
+    snips,
+)
+from .power import (
+    PowerResult,
+    mde,
+    power,
+    power_case_control,
+    power_cluster_rct,
+    power_did,
+    power_iv,
+    power_logrank,
+    power_ols,
+    power_rct,
+    power_rd,
+    power_two_proportions,
+)
+
+# Distributional Treatment Effects
+from .qte import (
+    BeyondAverageResult,
+    DistIVResult,
+    DTEResult,
+    HDPanelQTEResult,
+    QTEResult,
+    beyond_average_late,
+    dist_iv,
+    distributional_te,
+    kan_dlate,
+    qdid,
+    qte,
+    qte_hd_panel,
+)
+from .quasi import ancova, negd
+from .question import (
+    CausalQuestion,
+    EstimationResult,
+    IdentificationPlan,
+    causal_question,
+    load_preregister,
+    preregister,
+)
+
+# 2D Boundary RD (Cattaneo, Titiunik, Yu 2025)
+# Multi-cutoff / Geographic RD
+from .rd import (
+    RDMultiResult,
+    boundary_rd,
+    geographic_rd,
+    multi_cutoff_rd,
+    multi_score_rd,
+    rd2d,
+    rd2d_bw,
+    rd2d_plot,
+    rdmc,
+    rdms,
+)
+
+# (lazy) mht: see _LAZY_SUBMODULES / _LAZY_ATTRS
+from .registry import (
+    STABILITY_TIERS,
+    VALIDATION_STATUSES,
+    FailureMode,
+    agent_card,
+    agent_cards,
+    agent_schema,
+    all_schemas,
+    describe_function,
+    function_schema,
+    list_functions,
+    search_functions,
+)
+
+# Advanced IV
+from .regression.advanced_iv import jive, lasso_iv, liml
+from .regression.count import nbreg, poisson, ppmlhdfe, xtnbreg
+
+# Fractional Response & Beta Regression
+from .regression.fracreg import betareg, fracreg
+from .regression.glm import GLMEstimator, GLMRegression, glm
+
+# bayes — lazy-loaded (PyMC pulls heavy deps); see _LAZY_ATTRS below.
+from .regression.heckman import heckman
+from .regression.iv_quantile import ivqreg
+from .regression.logit_probit import cloglog, logit, probit
+from .regression.mixed_logit import mixlogit
+
+# === NEW MODULES (v0.6) ===
+# GLM & Discrete Choice — ``glm``/``logit``/``probit``/``cloglog``/
+# ``poisson``/``nbreg``/``xtnbreg``/``ppmlhdfe`` are already imported above in the
+# core regression block; we only add what's new here.
+from .regression.multinomial import clogit, mlogit, ologit, oprobit
+from .regression.quantile import qreg, sqreg
+
+# Sample Selection Models
+from .regression.selection import biprobit, etregress
+
+# SUR & 3SLS
+from .regression.sur import SURResult, sureg, three_sls
+from .regression.tobit import tobit
+
+# === NEW v0.6 Round 3 ===
+# Truncated Regression
+from .regression.truncreg import truncreg
+
+# Count Data
+from .regression.zeroinflated import hurdle, zinb, zip_model
+
+# Rigorous (data-driven) Lasso — faithful port of R's hdm package
+from .rlasso import (  # noqa: E402
+    RlassoClassifier,
+    RlassologitClassifier,
+    RlassoRegressor,
+    rlasso,
+    rlasso_effect,
+    rlasso_effects,
+    rlasso_iv,
+    rlassologit,
+    rlassologit_effect,
+    rlassologit_effects,
+)
+from .selection import SelectionResult, lasso_select, stepwise
+
+# === Smart Workflow Engine ===
+from .smart import (
+    AssumptionResult,
+    ComparisonResult,
+    DiagnosticFinding,
+    IdentificationError,
+    IdentificationReport,
+    IntakeResult,
+    PubReadyResult,
+    RecommendationResult,
+    SensitivityDashboard,
+    assumption_audit,
+    audit,
+    bib_for,
+    bibtex,
+    brief,
+    check_identification,
+    compare_estimators,
+    design_intake,
+    detect_design,
+    examples,
+    list_replications,
+    methods_appendix,
+    preflight,
+    pub_ready,
+    recommend,
+    replicate,
+    sensitivity_dashboard,
+    session,
+)
+
+# Cointegration
+# Survival / Duration
+# (lazy) survival: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Nonparametric
+# (lazy) nonparametric: see _LAZY_SUBMODULES / _LAZY_ATTRS
+# Time Series (for causal inference)
+from .timeseries import (
+    ARIMAResult,
+    BVARResult,
+    CointegrationResult,
+    GARCHResult,
+    ITSResult,
+    LocalProjectionsResult,
+    StructuralBreakResult,
+    VARResult,
+    arima,
+    bvar,
+    cusum_test,
+    engle_granger,
+    garch,
+    granger_causality,
+    irf,
+    its,
+    johansen,
+    local_projections,
+    structural_break,
+    var,
+)
+
+# Eager: ``tmle`` collides (function + subpackage of same name).
+from .tmle import (
+    TMLE,
+    HALClassifier,
+    HALRegressor,
+    LTMLEResult,
+    LTMLESurvivalResult,
+    SuperLearner,
+    hal_tmle,
+    ltmle,
+    ltmle_survival,
+    super_learner,
+    tmle,
+)
+from .utils import (
+    describe,
+    dgp_bartik,
+    dgp_bunching,
+    dgp_cluster_rct,
+    dgp_did,
+    dgp_iv,
+    dgp_observational,
+    dgp_panel,
+    dgp_rct,
+    dgp_rd,
+    dgp_rd_2d,
+    dgp_rd_hte,
+    dgp_rd_kink,
+    dgp_rd_multi,
+    dgp_rdit,
+    dgp_synth,
+    get_label,
+    get_labels,
+    label_var,
+    label_vars,
+    outlier_indicator,
+    pwcorr,
+    rank,
+    read_data,
+    rowcount,
+    rowmax,
+    rowmean,
+    rowmin,
+    rowsd,
+    rowtotal,
+    scalar_iv_projection,
+    winsor,
+)
+from .validation import (
+    ReproductionResult,
+    ReproductionStep,
+    ValidationReport,
+    coverage_matrix,
+    parity_gap_report,
+    reproduce_jss_tables,
+    validation_report,
+)
+
+# === End-to-end workflow orchestrator ===
+# After ``import statspai.causal`` (the deprecated forest-shim) Python rebinds
+# ``sp.causal`` to that submodule, shadowing this function.  The shim works
+# around it by making its module object callable (see ``causal/__init__.py``),
+# so ``sp.causal(df, y=, treatment=, ...)`` keeps dispatching to this
+# workflow function in either order.
+from .workflow import (  # noqa: F401 — ``causal`` kept for the shadowing dance
+    CausalWorkflow,
+    PaperDraft,
+    causal,
+    paper,
+)
 
 # === LLM × Causal (DAG / E-value / sensitivity priors) ===
 # (lazy) causal_llm: see _LAZY_SUBMODULES / _LAZY_ATTRS
@@ -735,295 +1066,15 @@ from .bridge import bridge, BridgeResult
 # === Longitudinal causal inference (What If Layer 4) ===
 # (lazy) longitudinal: see _LAZY_SUBMODULES / _LAZY_ATTRS
 
-# === Causal-question DSL (estimand-first workflow) ===
-from . import question
-from .question import (
-    causal_question,
-    CausalQuestion,
-    IdentificationPlan,
-    EstimationResult,
-    preregister,
-    load_preregister,
-)
 
 # === Unified sensitivity dashboard ===
 # (lazy) robustness_b: see _LAZY_SUBMODULES / _LAZY_ATTRS
 
-# === Canonical datasets (consolidated facade) ===
-from . import datasets  # noqa: F401 — exposed as ``sp.datasets``
-
-# Data-source ingestion normalisers, also surfaced at top level so an agent can
-# reshape a World Bank / FRED / OECD-SDMX payload with one call before fitting.
-from .datasets.ingest import from_worldbank, from_fred, from_sdmx
-
-# === End-to-end workflow orchestrator ===
-# After ``import statspai.causal`` (the deprecated forest-shim) Python rebinds
-# ``sp.causal`` to that submodule, shadowing this function.  The shim works
-# around it by making its module object callable (see ``causal/__init__.py``),
-# so ``sp.causal(df, y=, treatment=, ...)`` keeps dispatching to this
-# workflow function in either order.
-from .workflow import (  # noqa: F401 — ``causal`` kept for the shadowing dance
-    causal,
-    CausalWorkflow,
-    paper,
-    PaperDraft,
-)
-
-# === LLM agent tool-definition surface ===
-from . import agent  # noqa: F401 — exposed as ``sp.agent``
-
-from .power import (
-    power,
-    PowerResult,
-    power_rct,
-    power_did,
-    power_rd,
-    power_iv,
-    power_cluster_rct,
-    power_ols,
-    mde,
-    power_two_proportions,
-    power_logrank,
-    power_case_control,
-)
-from .decomposition import (
-    oaxaca,
-    gelbach,
-    OaxacaResult,
-    GelbachResult,
-    rifreg,
-    rif_decomposition,
-    # Tier C additions
-    dfl_decompose,
-    ffl_decompose,
-    machado_mata,
-    melly_decompose,
-    cfm_decompose,
-    fairlie,
-    bauer_sinning,
-    yun_nonlinear,
-    inequality_index,
-    subgroup_decompose,
-    source_decompose,
-    shapley_inequality,
-    kitagawa_decompose,
-    das_gupta,
-    gap_closing,
-    mediation_decompose,
-    disparity_decompose,
-    yu_elwert_decompose,
-    YuElwertResult,
-    decompose,
-    available_methods,
-    cps_wage,
-    chilean_households,
-    mincer_wage_panel,
-    disparity_panel,
-)
-from .selection import stepwise, lasso_select, SelectionResult
-from .qte import qdid, qte, QTEResult
-
-# (lazy) mht: see _LAZY_SUBMODULES / _LAZY_ATTRS
-from .registry import (
-    list_functions,
-    describe_function,
-    function_schema,
-    agent_schema,
-    search_functions,
-    all_schemas,
-    agent_card,
-    agent_cards,
-    FailureMode,
-    STABILITY_TIERS,
-    VALIDATION_STATUSES,
-)
-from ._agent_docs import render_agent_block, render_agent_blocks
-from .validation import (
-    ReproductionResult,
-    ReproductionStep,
-    ValidationReport,
-    coverage_matrix,
-    parity_gap_report,
-    reproduce_jss_tables,
-    validation_report,
-)
-
-# Unified help entry point (aggregates registry + docstring + category + search)
-from .help import help, HelpResult
-
-# === Article-facing aliases (sp.rdd / sp.frontdoor / sp.xlearner / ...) ===
-# Thin wrappers around existing implementations; see _article_aliases.py
-from ._article_aliases import (  # noqa: E402,F811
-    rdd,
-    frontdoor,
-    xlearner,
-    conformal_ite,
-    psm,
-    partial_identification,
-    anderson_rubin_ci,
-    conditional_lr_ci,
-    tF_adjustment,
-    evalue_rr,
-)
-
-# === Auto-race estimators (CS/SA/BJS DiD + 2SLS/LIML/JIVE IV) ===
-from ._auto_estimators import (
-    auto_did,
-    AutoDIDResult,
-    auto_iv,
-    AutoIVResult,
-)
-
-# === NEW MODULES (v0.6) ===
-# GLM & Discrete Choice — ``glm``/``logit``/``probit``/``cloglog``/
-# ``poisson``/``nbreg``/``xtnbreg``/``ppmlhdfe`` are already imported above in the
-# core regression block; we only add what's new here.
-from .regression.multinomial import mlogit, ologit, oprobit, clogit
-from .regression.mixed_logit import mixlogit
-from .regression.iv_quantile import ivqreg
-
-# Count Data
-from .regression.zeroinflated import zip_model, zinb, hurdle
-
-# Advanced IV
-from .regression.advanced_iv import liml, jive, lasso_iv
-
-# Rigorous (data-driven) Lasso — faithful port of R's hdm package
-from .rlasso import (  # noqa: E402
-    rlasso,
-    rlasso_effect,
-    rlasso_effects,
-    rlasso_iv,
-    rlassologit,
-    rlassologit_effect,
-    rlassologit_effects,
-    RlassoRegressor,
-    RlassoClassifier,
-    RlassologitClassifier,
-)
-
-# High-dimensional fixed effects (pyfixest backend)
-# These are thin wrappers; actual import of pyfixest is deferred to call time
-# via fixest.wrapper._check_pyfixest, so top-level import never fails.
-from .fixest import feols, fepois, feglm, etable
-
-# Survival / Duration
-# (lazy) survival: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Nonparametric
-# (lazy) nonparametric: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Time Series (for causal inference)
-from .timeseries import (
-    var,
-    VARResult,
-    granger_causality,
-    irf,
-    structural_break,
-    StructuralBreakResult,
-    cusum_test,
-    local_projections,
-    LocalProjectionsResult,
-    garch,
-    GARCHResult,
-    arima,
-    ARIMAResult,
-    bvar,
-    BVARResult,
-    its,
-    ITSResult,
-)
-
-# Experimental Design
-# (lazy) experimental: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Missing Data / Imputation
-# (lazy) imputation: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Mendelian Randomization
-# NOTE: v1.5 replaces the `sp.mr` module alias with a dispatcher
-# function `sp.mr(method=..., ...)` mirroring sp.synth / sp.decompose /
-# sp.dml.  Use `sp.mendelian` for module-level access.
-# (lazy) mendelian: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Expose recommend_estimator at top level too
-from .dag import recommend_estimator as dag_recommend_estimator
-
-# Multi-cutoff / Geographic RD
-from .rd import rdmc, rdms, RDMultiResult
-from .rd import (
-    multi_cutoff_rd,
-    geographic_rd,
-    boundary_rd,
-    multi_score_rd,
-)
-
-# 2D Boundary RD (Cattaneo, Titiunik, Yu 2025)
-from .rd import rd2d, rd2d_bw, rd2d_plot
-
-# Continuous Treatment DID
-from .did import continuous_did
-from .did.lp_did import lp_did
-from .did.ddd_heterogeneous import ddd_heterogeneous
-from .did.timevarying_covariates import did_timevarying_covariates
-from .did.did_multiplegt_dyn import did_multiplegt_dyn
-
-# === NEW v0.6 Round 2 ===
-# Interactive Fixed Effects
-from .panel.interactive_fe import interactive_fe
-
-# Panel Unit Root Tests
-from .panel.unit_root import panel_unitroot, PanelUnitRootResult
-
-# Cointegration
-from .timeseries import engle_granger, johansen, CointegrationResult
-
-# Fractional Response & Beta Regression
-from .regression.fracreg import fracreg, betareg
-
-# Sample Selection Models
-from .regression.selection import biprobit, etregress
-
-# Distributional Treatment Effects
-from .qte import distributional_te, DTEResult
-from .qte import (
-    dist_iv,
-    kan_dlate,
-    DistIVResult,
-    qte_hd_panel,
-    HDPanelQTEResult,
-    beyond_average_late,
-    BeyondAverageResult,
-)
 
 # Structural Estimation (BLP, production functions)
 # (lazy) structural_a: see _LAZY_SUBMODULES / _LAZY_ATTRS
 # (lazy) structural_b: see _LAZY_SUBMODULES / _LAZY_ATTRS
 
-# === Smart Workflow Engine ===
-from .smart import (
-    recommend,
-    RecommendationResult,
-    design_intake,
-    IntakeResult,
-    compare_estimators,
-    ComparisonResult,
-    assumption_audit,
-    AssumptionResult,
-    audit,
-    bib_for,
-    bibtex,
-    brief,
-    detect_design,
-    examples,
-    preflight,
-    session,
-    sensitivity_dashboard,
-    SensitivityDashboard,
-    pub_ready,
-    PubReadyResult,
-    replicate,
-    list_replications,
-    check_identification,
-    IdentificationReport,
-    DiagnosticFinding,
-    IdentificationError,
-)
 
 # verify / verify_recommendation / verify_benchmark are loaded lazily via
 # __getattr__ at the bottom of this file so that `import statspai` doesn't
@@ -1031,49 +1082,6 @@ from .smart import (
 # asks for it. Preserves the "zero overhead when verify=False" guarantee
 # in recommend().
 
-# === Cross-engine validation ===
-# sp.cross_validate runs one estimand through independent engines (StatsPAI,
-# pyfixest, linearmodels, DoubleML, R::fixest, Stata) and reports whether they
-# agree. Heavy backends import lazily inside each adapter, so this eager import
-# stays light (numpy / pandas only).
-from .crossval import cross_validate, CrossValidationResult
-
-# === NEW v0.6 Round 3 ===
-# Truncated Regression
-from .regression.truncreg import truncreg
-
-# SUR & 3SLS
-from .regression.sur import sureg, SURResult, three_sls
-
-# Panel Binary (Logit/Probit FE/RE)
-from .panel.panel_binary import panel_logit, panel_probit
-
-# Panel FGLS
-from .panel.panel_fgls import panel_fgls
-
-# Interactive Fixed Effects
-# (already imported in round 2)
-# Mixed Effects / Multilevel
-# (lazy) multilevel: see _LAZY_SUBMODULES / _LAZY_ATTRS
-# Stochastic Frontier
-# Eager: ``frontier`` collides (function + subpackage of same name).
-from .frontier import (
-    frontier,
-    xtfrontier,
-    FrontierResult,
-    metafrontier,
-    MetafrontierResult,
-    malmquist,
-    MalmquistResult,
-    translog_design,
-    zisf,
-    lcsf,
-    te_summary,
-    te_rank,
-)
-
-# General GMM
-from .gmm import gmm
 
 __all__ = [
     # Core
@@ -1623,6 +1631,10 @@ __all__ = [
     "parity_gap_report",
     "reproduce_jss_tables",
     "validation_report",
+    "ParityStatus",
+    "parity_matrix",
+    "parity_status",
+    "parity_summary",
     "help",
     "HelpResult",
     # Data Generating Processes
@@ -1776,6 +1788,7 @@ __all__ = [
     "AssumptionResult",
     "audit",
     "bib_for",
+    "methods_appendix",
     "bibtex",
     "brief",
     "detect_design",
@@ -2402,11 +2415,11 @@ del _dedupe_public_exports
 # to re-bind `sp.iv` to the submodule.
 # ---------------------------------------------------------------------
 from ._article_aliases import (  # noqa: E402,F811
-    matrix_completion,
     causal_discovery,
+    dml,
+    matrix_completion,
     mediation,
     policy_tree,
-    dml,
 )
 
 # ---------------------------------------------------------------------

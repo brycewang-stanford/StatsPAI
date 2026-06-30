@@ -1220,7 +1220,7 @@
         "symptom": "Effect unstable across bandwidth halvings"
       },
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.manski_bounds",
         "exception": "AssumptionViolation",
         "remedy": "The RD signal is noise; seek an alternative identification strategy.",
         "symptom": "Placebo cutoffs show significant 'effects'"
@@ -5147,7 +5147,7 @@
         "symptom": "Zhang-Rubin bounds include 0 and both signs"
       },
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.lee_bounds",
         "exception": "statspai.DataInsufficient",
         "remedy": "Low compliance -- report only bounds; LATE SE explodes.",
         "symptom": "Complier share near zero"
@@ -15022,9 +15022,9 @@
         "symptom": "Pipeline notes section appears in draft"
       },
       {
-        "alternative": "sp.audit_result",
+        "alternative": "sp.audit",
         "exception": "AssumptionWarning",
-        "remedy": "Call audit_result() or attach citations before rendering the paper section.",
+        "remedy": "Call sp.audit() or attach citations before rendering the paper section.",
         "symptom": "Missing citations, assumptions, or validation notes in generated text"
       }
     ],
@@ -16690,7 +16690,7 @@
     "example": "sp.multi_treatment(df, y=\"wage\", treat=\"program\", covariates=[\"age\",\"edu\"])",
     "failure_modes": [
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.manski_bounds",
         "exception": "statspai.AssumptionViolation",
         "remedy": "Violates overlap -- drop that arm or use bounds.",
         "symptom": "Some arm has near-zero propensity in the data"
@@ -20948,7 +20948,7 @@
         "symptom": "Effect unstable across bandwidth halvings"
       },
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.manski_bounds",
         "exception": "AssumptionViolation",
         "remedy": "The RD signal is noise; seek an alternative identification strategy.",
         "symptom": "Placebo cutoffs show significant 'effects'"
@@ -21190,7 +21190,7 @@
         "symptom": "Effect unstable across bandwidth halvings"
       },
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.manski_bounds",
         "exception": "AssumptionViolation",
         "remedy": "The RD signal is noise; seek an alternative identification strategy.",
         "symptom": "Placebo cutoffs show significant 'effects'"
@@ -21311,7 +21311,7 @@
         "symptom": "Effect unstable across bandwidth halvings"
       },
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.manski_bounds",
         "exception": "AssumptionViolation",
         "remedy": "The RD signal is noise; seek an alternative identification strategy.",
         "symptom": "Placebo cutoffs show significant 'effects'"
@@ -22893,7 +22893,7 @@
         "symptom": "Effect unstable across bandwidth halvings"
       },
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.manski_bounds",
         "exception": "AssumptionViolation",
         "remedy": "The RD signal is noise; seek an alternative identification strategy.",
         "symptom": "Placebo cutoffs show significant 'effects'"
@@ -34297,7 +34297,7 @@
         "symptom": "Effect unstable across bandwidth halvings"
       },
       {
-        "alternative": "sp.bounds",
+        "alternative": "sp.manski_bounds",
         "exception": "AssumptionViolation",
         "remedy": "The RD signal is noise; seek an alternative identification strategy.",
         "symptom": "Placebo cutoffs show significant 'effects'"

@@ -18,7 +18,8 @@ Usage
 >>> result = rec.run()  # execute the recommended estimator
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 
@@ -402,6 +403,17 @@ def _profile_data(
     return profile
 
 
+# Synthetic-control detection thresholds. The SCM signature is a single (or
+# very few) ever-treated unit against a substantial donor pool over a
+# multi-period panel. The bounds are deliberately tight: with this few treated
+# units the staggered-DID estimators (Callaway-Sant'Anna / Sun-Abraham) are
+# degenerate, while genuine staggered DID (hundreds of treated units) is never
+# misrouted. See benchmarks/recommend_hit_rate F-001.
+_SYNTH_MAX_TREATED = 2  # at most this many ever-treated units to call it synth
+_SYNTH_MIN_DONORS = 5  # need a donor pool of at least this many controls
+_SYNTH_MIN_PERIODS = 4  # need enough periods to fit donor weights pre/post
+
+
 def _detect_design(
     data: pd.DataFrame,
     y: str,
@@ -418,9 +430,23 @@ def _detect_design(
     if instrument:
         return "iv"
     if id_col and time_col and treatment:
-        # Check if treatment varies over time → DID
+        # Check if treatment varies over time → DID / synthetic control
         treat_varies = data.groupby(id_col)[treatment].nunique().max() > 1
         if treat_varies:
+            # Synthetic control vs staggered DID: a comparative case study has
+            # one (or a handful of) treated unit(s) and a donor pool, where a
+            # synthetic counterfactual is the right tool. Staggered DID needs
+            # many treated units with variation in adoption timing.
+            ever_treated = data.groupby(id_col)[treatment].max()
+            n_treated = int((ever_treated > 0).sum())
+            n_control = int((ever_treated <= 0).sum())
+            n_periods = int(data[time_col].nunique())
+            if (
+                n_treated <= _SYNTH_MAX_TREATED
+                and n_control >= _SYNTH_MIN_DONORS
+                and n_periods >= _SYNTH_MIN_PERIODS
+            ):
+                return "synth"
             return "did"
         else:
             return "panel"
@@ -708,6 +734,106 @@ def recommend(
                 }
             )
 
+    elif design == "synth":
+        # Single-treated-unit comparative case study → synthetic control. Derive
+        # the treated unit's name and adoption period from the treatment column
+        # so the recommendation is directly runnable via .run().
+        treated_unit_val: Any = None
+        treat_time_val: Any = None
+        if id and id in data.columns:
+            _ever = data.groupby(id)[treatment].max()
+            _treated_units = [u for u, v in _ever.items() if v and v > 0]
+            if _treated_units:
+                treated_unit_val = _treated_units[0]
+                if time and time in data.columns:
+                    _mask = (data[id] == treated_unit_val) & (data[treatment] > 0)
+                    if _mask.any():
+                        treat_time_val = data.loc[_mask, time].min()
+        n_donors = int((data.groupby(id)[treatment].max() <= 0).sum()) if id else 0
+        recommendations.append(
+            {
+                "method": "Synthetic Control (Abadie, Diamond & Hainmueller 2010)",
+                "function": "synth",
+                "reason": (
+                    "Single treated unit with a long pre-period and a donor pool "
+                    f"of {n_donors} controls — a comparative case study. "
+                    "Staggered-DID estimators are degenerate with one treated "
+                    "unit; build a synthetic counterfactual from the donor pool."
+                ),
+                "assumptions": [
+                    "Good pre-treatment fit (low RMSPE)",
+                    "No interference / spillover onto donor units",
+                    "Treated unit in the donor convex hull",
+                ],
+                "robustness": (
+                    "Check pre-treatment RMSPE, run in-space placebo inference "
+                    "(sp.synth_placebo / sp.synth_sensitivity), and "
+                    "sp.synth_time_placebo()."
+                ),
+                "code": (
+                    f"sp.synth(df, outcome='{y}', unit='{id}', time='{time}', "
+                    f"treated_unit={treated_unit_val!r}, "
+                    f"treatment_time={treat_time_val!r})"
+                ),
+                "params": {
+                    "data": data,
+                    "outcome": y,
+                    "unit": id,
+                    "time": time,
+                    "treated_unit": treated_unit_val,
+                    "treatment_time": treat_time_val,
+                    "method": "classic",
+                },
+            }
+        )
+        recommendations.append(
+            {
+                "method": "Augmented SCM (Ben-Michael, Feller & Rothstein 2021)",
+                "function": "augsynth",
+                "reason": (
+                    "Ridge-augmented SCM corrects bias when the treated unit "
+                    "falls outside the donor convex hull (imperfect pre-fit)."
+                ),
+                "code": (
+                    f"sp.augsynth(df, outcome='{y}', unit='{id}', time='{time}', "
+                    f"treated_unit={treated_unit_val!r}, "
+                    f"treatment_time={treat_time_val!r})"
+                ),
+                "params": {
+                    "data": data,
+                    "outcome": y,
+                    "unit": id,
+                    "time": time,
+                    "treated_unit": treated_unit_val,
+                    "treatment_time": treat_time_val,
+                },
+            }
+        )
+        recommendations.append(
+            {
+                "method": "Synthetic DiD (Arkhangelsky et al. 2021)",
+                "function": "synthdid_estimate",
+                "reason": (
+                    "Combines synthetic-control unit weights with DID time "
+                    "weights; doubly robust to imperfect pre-fit and mild "
+                    "parallel-trends violations."
+                ),
+                "code": (
+                    f"sp.synthdid_estimate(df, y='{y}', unit='{id}', "
+                    f"time='{time}', treat_unit={treated_unit_val!r}, "
+                    f"treat_time={treat_time_val!r})"
+                ),
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "unit": id,
+                    "time": time,
+                    "treat_unit": treated_unit_val,
+                    "treat_time": treat_time_val,
+                },
+            }
+        )
+
     elif design == "rd":
         rv = running_var or "running_var"
         cutoff_value = cutoff or 0
@@ -898,50 +1024,121 @@ def recommend(
             )
 
     elif design == "observational":
+        # Lead with a confounding-adjusting estimator, NOT bare OLS. On a
+        # selection-on-observables design, naive OLS is biased under
+        # confounding (the canonical Dehejia-Wahba 1999 result); leading with
+        # it produces a plausible-but-wrong headline whose audit only asks
+        # regression checks and misses overlap / balance. See
+        # benchmarks/recommend_hit_rate F-002.
+        #
+        # Propensity-score matching is only defined for a BINARY treatment; for
+        # a continuous / categorical dose lead with DML (which handles
+        # continuous treatment) and treat OLS-with-controls as a legitimate
+        # linear adjustment rather than a naive baseline.
+        treat_is_binary = profile.get("treat_type") == "binary"
+        # Adjusting estimators (PSM / DML) require covariates to adjust on. With
+        # no observables, selection-on-observables is vacuous and OLS /
+        # difference-in-means is all that is identified — so only then does OLS
+        # lead. PSM additionally requires a BINARY treatment; for a continuous
+        # dose, DML leads.
+        adjust_controls = [c for c in controls if c not in (treatment, y)]
+        has_controls = len(adjust_controls) > 0
+        if treat_is_binary and has_controls:
+            recommendations.append(
+                {
+                    "method": "Propensity Score Matching (selection on observables)",
+                    "function": "match",
+                    "reason": "Nonparametric causal effect under unconfoundedness; "
+                    "enforces common support and lets you check covariate balance.",
+                    "assumptions": [
+                        "Unconfoundedness (CIA)",
+                        "Common support (overlap)",
+                    ],
+                    "robustness": "Check sp.overlap_plot() / common support, "
+                    "covariate balance after matching (sp.love_plot), and "
+                    "sp.sensemakr() / sp.oster_bounds() for unobserved confounding.",
+                    "code": f"sp.match(df, y='{y}', treat='{treatment}', "
+                    f"covariates=[{ctrl_str}])",
+                    "params": {
+                        "data": data,
+                        "y": y,
+                        "treat": treatment,
+                        "covariates": controls[:10],
+                    },
+                }
+            )
+        if has_controls:
+            recommendations.append(
+                {
+                    "method": "Double ML (high-dimensional controls)",
+                    "function": "dml",
+                    "reason": "Doubly-robust causal effect; handles many controls "
+                    "without overfitting via cross-fitting"
+                    + ("." if treat_is_binary else " (and a continuous treatment)."),
+                    "assumptions": [
+                        "Unconfoundedness (CIA)",
+                        "Overlap",
+                        "Correct nuisance learners",
+                    ],
+                    "robustness": "Check overlap of estimated propensity scores and "
+                    "sp.dml_sensitivity() for unobserved confounding.",
+                    "code": f"sp.dml(df, y='{y}', treat='{treatment}', "
+                    f"covariates=[{ctrl_str}])",
+                    "params": {
+                        "data": data,
+                        "y": y,
+                        "treat": treatment,
+                        "covariates": controls[:20],
+                    },
+                }
+            )
+        if not has_controls:
+            _ols_method = "OLS with robust SE"
+            _ols_reason = (
+                "No covariates were detected to adjust on, so a "
+                "selection-on-observables adjustment is not identified; OLS / "
+                "difference-in-means is the available estimate."
+            )
+            _ols_assumptions = ["E[ε|X]=0 (exogeneity)"]
+            _ols_robust = "Run sp.sensemakr(), sp.oster_bounds(), sp.spec_curve()."
+        elif treat_is_binary:
+            _ols_method = (
+                "OLS with robust SE (naive baseline — biased under confounding)"
+            )
+            _ols_reason = (
+                "Reference point only, NOT the causal estimate: OLS is biased "
+                "when treatment is confounded. Compare against the matching / "
+                "DML estimate to gauge the selection bias."
+            )
+            _ols_assumptions = ["E[ε|X]=0 (exogeneity — implausible under selection)"]
+            _ols_robust = (
+                "Run sp.sensemakr(), sp.oster_bounds(), sp.spec_curve(); check "
+                "overlap / common support before trusting any adjustment."
+            )
+        else:
+            _ols_method = "OLS with robust SE (linear-adjustment baseline)"
+            _ols_reason = (
+                "Linear adjustment for the controls; consistent under "
+                "unconfoundedness AND linearity. Compare against DML, which "
+                "relaxes the linear functional form."
+            )
+            _ols_assumptions = [
+                "Unconfoundedness (CIA)",
+                "Correct (linear) functional form",
+            ]
+            _ols_robust = "Run sp.sensemakr(), sp.oster_bounds(), sp.spec_curve()."
         recommendations.append(
             {
-                "method": "OLS with robust SE (baseline)",
+                "method": _ols_method,
                 "function": "regress",
-                "reason": "Start with OLS as baseline. If endogeneity is a concern, "
-                "follow up with matching or IV.",
-                "assumptions": ["E[ε|X]=0 (exogeneity)", "Correct functional form"],
-                "robustness": "Run sp.sensemakr(), sp.oster_bounds(), sp.spec_curve()",
+                "reason": _ols_reason,
+                "assumptions": _ols_assumptions,
+                "robustness": _ols_robust,
                 "code": f"sp.regress('{y} ~ {treatment} + {ctrl_str}', data=df, robust='hc1')",
                 "params": {
                     "formula": f"{y} ~ {treatment}",
                     "data": data,
                     "robust": "hc1",
-                },
-            }
-        )
-        recommendations.append(
-            {
-                "method": "Propensity Score Matching (selection on observables)",
-                "function": "match",
-                "reason": "Nonparametric causal effect under unconfoundedness.",
-                "assumptions": ["Unconfoundedness (CIA)", "Common support (overlap)"],
-                "code": f"sp.match(df, y='{y}', treat='{treatment}', "
-                f"covariates=[{ctrl_str}])",
-                "params": {
-                    "data": data,
-                    "y": y,
-                    "treat": treatment,
-                    "covariates": controls[:10],
-                },
-            }
-        )
-        recommendations.append(
-            {
-                "method": "Double ML (high-dimensional controls)",
-                "function": "dml",
-                "reason": "Handles many controls without overfitting via cross-fitting.",
-                "code": f"sp.dml(df, y='{y}', treat='{treatment}', "
-                f"covariates=[{ctrl_str}])",
-                "params": {
-                    "data": data,
-                    "y": y,
-                    "treat": treatment,
-                    "covariates": controls[:20],
                 },
             }
         )
