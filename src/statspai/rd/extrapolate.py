@@ -25,7 +25,7 @@ Designs." *Journal of the American Statistical Association*, 116(536),
 [@cattaneo2021extrapolating]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -688,7 +688,7 @@ def rd_multi_extrapolate(
     cutoff_estimates = []
     for ci in cutoffs:
         try:
-            res_i = rdrobust(df, y=y, x=x, c=ci, alpha=alpha)
+            res_i = rdrobust(df, y=y, x=x, c=ci, alpha=alpha, manipulation_test=False)
             cutoff_estimates.append(
                 {
                     "cutoff": ci,

@@ -16,16 +16,21 @@ Imbens, G. and Kalyanaraman, K. (2012).
 *Review of Economic Studies*, 79(3), 933-959. [@imbens2012optimal]
 """
 
-from typing import Optional, List, Tuple, Dict, Any, Union
-from math import factorial
 import warnings
+from math import factorial
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ..exceptions import (
+    AssumptionWarning,
+    ConvergenceFailure,
+    DataInsufficient,
+    MethodIncompatibility,
+)
 
 Bandwidth = Union[float, Tuple[float, float]]
 
@@ -294,6 +299,7 @@ def rdrobust(
     random_state: Optional[int] = None,
     warn_mass_points: bool = True,
     warn_weak_first_stage: bool = True,
+    manipulation_test: bool = True,
     engine: str = "ols",
 ) -> CausalResult:
     """
@@ -850,6 +856,50 @@ def rdrobust(
 
     if rbc is not None:
         model_info["rbc_bootstrap"] = rbc
+
+    # Manipulation (McCrary) check — sorting around the cutoff is the canonical
+    # threat to RD identification. Run the density test best-effort so a
+    # significant discontinuity surfaces loudly here and in
+    # ``result.violations()``; a failure of the *test* never breaks the point
+    # estimate. Skipped by internal callers that loop over placebo cutoffs
+    # (manipulation_test=False), where a warning would be spurious.
+    if manipulation_test:
+        try:
+            from ..diagnostics.sensitivity import mccrary_test as _mccrary_test
+
+            _mc = _mccrary_test(data, x=x, c=c)
+            _mc_p = float(_mc.pvalue)
+        except (
+            DataInsufficient,
+            ConvergenceFailure,
+            ValueError,
+            RuntimeError,
+            np.linalg.LinAlgError,
+            ZeroDivisionError,
+        ) as _exc:
+            model_info["mccrary"] = {"pvalue": None, "error": type(_exc).__name__}
+        else:
+            model_info["mccrary"] = {"pvalue": _mc_p}
+            if _mc_p < 0.05:
+                warnings.warn(
+                    AssumptionWarning(
+                        f"Density manipulation at the cutoff: McCrary test "
+                        f"p = {_mc_p:.3g} < 0.05 — units may be sorting across "
+                        "the threshold, which breaks RD identification.",
+                        recovery_hint=(
+                            "Inspect sp.rddensity / sp.rdplotdensity; a donut "
+                            "hole (donut=) can probe robustness, but confirmed "
+                            "sorting makes the RD estimate suspect."
+                        ),
+                        diagnostics={"mccrary_pvalue": _mc_p, "cutoff": c},
+                        alternative_functions=[
+                            "sp.rddensity",
+                            "sp.rdplotdensity",
+                            "sp.rdrandinf",
+                        ],
+                    ),
+                    stacklevel=2,
+                )
 
     _result = CausalResult(
         method=f"{rd_type} RD Estimation",

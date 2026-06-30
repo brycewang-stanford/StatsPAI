@@ -14,6 +14,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
+import pytest
 
 import statspai as sp
 from statspai.core.results import CausalResult
@@ -185,6 +186,92 @@ class TestSynthPreFit:
         assert flagged, "an unmatchable treated trend should flag poor pre-fit"
         assert flagged[0]["value"] > flagged[0]["threshold"]
         assert "sp.synth_compare" in flagged[0]["alternatives"]
+
+
+# --------------------------------------------------------------------------- #
+#  RD — density manipulation (McCrary) at the cutoff
+# --------------------------------------------------------------------------- #
+
+
+class TestRDManipulation:
+    def _clean_rd(self, n: int = 3000, seed: int = 5) -> pd.DataFrame:
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(-1, 1, n)
+        y = 0.5 * x + 1.0 * (x >= 0) + rng.normal(0, 0.3, n)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def _manipulated_rd(self, n: int = 3000, seed: int = 8) -> pd.DataFrame:
+        rng = np.random.default_rng(seed)
+        x = rng.uniform(-1, 1, n)
+        mask = (x > -0.15) & (x < 0)  # sort just-below units to just-above
+        x[mask & (rng.uniform(size=n) < 0.7)] *= -1
+        y = 0.5 * x + 1.0 * (x >= 0) + rng.normal(0, 0.3, n)
+        return pd.DataFrame({"y": y, "x": x})
+
+    def test_clean_rd_is_silent(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            r = sp.rdrobust(self._clean_rd(), y="y", x="x", c=0)
+        assert not [w for w in caught if isinstance(w.message, sp.AssumptionWarning)]
+        assert r.model_info["mccrary"]["pvalue"] > 0.05
+        assert not [v for v in r.violations() if v.get("test") == "mccrary_density"]
+
+    def test_manipulation_warns_and_surfaces(self):
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            r = sp.rdrobust(self._manipulated_rd(), y="y", x="x", c=0)
+        typed = [
+            w.message for w in caught if isinstance(w.message, sp.AssumptionWarning)
+        ]
+        assert typed, "density manipulation should warn"
+        assert "sp.rddensity" in typed[0].alternative_functions
+        assert r.model_info["mccrary"]["pvalue"] < 0.05
+        viols = [v for v in r.violations() if v.get("test") == "mccrary_density"]
+        assert viols, "violations() must surface the manipulation the fit warned about"
+
+    def test_opt_out_skips_the_test(self):
+        r = sp.rdrobust(
+            self._manipulated_rd(), y="y", x="x", c=0, manipulation_test=False
+        )
+        assert "mccrary" not in r.model_info
+
+
+# --------------------------------------------------------------------------- #
+#  DID — staggered design must not silently run a biased TWFE 2x2
+# --------------------------------------------------------------------------- #
+
+
+def _staggered_panel(seed: int = 1) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(60):
+        g = [3, 5, 7, 0][i % 4]  # three treatment cohorts + never-treated (0)
+        for t in range(1, 9):
+            treated = 1 if (g > 0 and t >= g) else 0
+            y = 1.0 + 0.2 * t + (2.0 * (t - g + 1) if treated else 0) + rng.normal()
+            rows.append({"id": i, "year": t, "first": g, "y": y})
+    return pd.DataFrame(rows)
+
+
+def test_staggered_twfe_fails_loud_and_actionable():
+    """Forcing the naive 2x2/TWFE estimator on a staggered (multi-cohort)
+    design must raise a typed, agent-catchable error pointing to the
+    heterogeneity-robust estimators — never silently return a biased number."""
+    df = _staggered_panel()
+    with pytest.raises(sp.MethodIncompatibility) as exc:
+        sp.did(df, y="y", treat="first", time="year", id="id", method="twfe")
+    err = exc.value
+    assert isinstance(err, sp.StatsPAIError)
+    assert "sp.callaway_santanna" in err.alternative_functions
+    assert "callaway" in err.recovery_hint.lower()
+
+
+def test_default_did_handles_staggered_without_error():
+    """The default (heterogeneity-robust) path runs the same staggered design
+    fine — the loud failure is specific to forcing the biased estimator."""
+    df = _staggered_panel()
+    res = sp.did(df, y="y", treat="first", time="year", id="id")
+    assert res is not None
 
 
 # --------------------------------------------------------------------------- #
