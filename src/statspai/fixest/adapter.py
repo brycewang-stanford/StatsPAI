@@ -120,6 +120,42 @@ def _pyfixest_to_econometric_results(
     except Exception:
         pass
 
+    # Attach the within-transformed (FE-absorbed) design + outcome + coef names
+    # so the standalone SE menu (`cr2_se`, `wild_cluster_boot`, `twoway_cluster`,
+    # `conley`) can operate on the *partialled-out* model instead of re-parsing
+    # the formula and refitting plain OLS (which would mishandle the absorbed
+    # fixed effects). pyfixest stores the demeaned design as ``_X`` / ``_Y`` and
+    # the (FE-excluded) coefficient names as ``_coefnames``; within-OLS on those
+    # reproduces the feols coefficients exactly. This is purely additive — it
+    # adds ``data_info`` keys and changes no reported feols numerics. Wrapped
+    # defensively because these are pyfixest internals that can shift by version.
+    try:
+        within_x = getattr(fit, "_X", None)
+        within_y = getattr(fit, "_Y", None)
+        coefnames = getattr(fit, "_coefnames", None)
+        if (
+            within_x is not None
+            and within_y is not None
+            and coefnames is not None
+            and not getattr(fit, "_X_is_empty", False)
+        ):
+            within_x = np.asarray(within_x, dtype=float)
+            within_y = np.asarray(within_y, dtype=float).ravel()
+            names = [str(c) for c in coefnames]
+            if (
+                within_x.ndim == 2
+                and within_x.shape[0] == within_y.shape[0]
+                and within_x.shape[1] == len(names)
+            ):
+                data_info["X"] = within_x
+                data_info["y"] = within_y
+                data_info["var_names"] = names
+    except (AttributeError, TypeError, ValueError, IndexError):
+        # pyfixest internals (`_X`/`_Y`/`_coefnames`) can shift by version;
+        # if their shape/type differs, skip the optional within-design storage
+        # (the standalone SE menu then falls back to its formula re-parse).
+        pass
+
     # Store the original pyfixest object for advanced users
     result = EconometricResults(
         params=params,

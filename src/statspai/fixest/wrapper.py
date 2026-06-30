@@ -8,10 +8,16 @@ StatsPAI's ``EconometricResults``, making them compatible with
 
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
-from .adapter import _pyfixest_to_econometric_results, _multi_fit_to_results
+from ..exceptions import MethodIncompatibility
+from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
+
+#: vcov sentinels (case-insensitive) that select the wild cluster bootstrap.
+_WILD_VCOV = frozenset({"wild", "wildbootstrap", "wild_cluster", "wcr", "boottest"})
 
 
 def _check_pyfixest() -> Any:
@@ -33,6 +39,84 @@ def _check_pyfixest() -> Any:
 # --------------------------------------------------------------------------- #
 
 
+def _feols_wild(
+    fml: str,
+    data: pd.DataFrame,
+    cluster: str,
+    *,
+    reps: int,
+    weight_type: str,
+    seed: Optional[int],
+    weights: Optional[str],
+    ssc: Optional[Any],
+    fixef_rm: str,
+    collin_tol: float,
+    lean: bool,
+    extra: Dict[str, Any],
+) -> EconometricResults:
+    """Native ``feols(..., vce="wild")`` — Stata ``boottest``-style inference.
+
+    Fits the model once with cluster-robust (CRV1) SEs — which also stores the
+    within-transformed design on the result (see ``fixest/adapter.py``) — then
+    runs the WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008) on that
+    partialled-out design for every non-absorbed coefficient.  Point estimates
+    are the feols estimates; p-values and confidence intervals come from the
+    bootstrap.  This is the verified within wild bootstrap (byte-identical to
+    ``sp.regress`` on FE-demeaned data), promoted from the standalone
+    ``sp.wild_cluster_boot`` to a first-class ``vce=`` option.
+    """
+    base = feols(
+        fml,
+        data,
+        vcov={"CRV1": cluster},
+        weights=weights,
+        ssc=ssc,
+        fixef_rm=fixef_rm,
+        collin_tol=collin_tol,
+        lean=lean,
+        **extra,
+    )
+    if isinstance(base, list):
+        raise MethodIncompatibility(
+            "feols(vce='wild') does not support multiple-estimation formulas "
+            "(csw/sw/csw0). Fit each model separately."
+        )
+
+    from ..inference.jackknife import wild_cluster_boot
+
+    se = base.std_errors.copy()
+    pvals = pd.Series(np.nan, index=base.params.index, dtype=float)
+    ci_lo = pd.Series(np.nan, index=base.params.index, dtype=float)
+    ci_hi = pd.Series(np.nan, index=base.params.index, dtype=float)
+    for var in base.params.index:
+        out = wild_cluster_boot(
+            base,
+            data,
+            cluster=cluster,
+            variable=str(var),
+            n_boot=reps,
+            weight_type=weight_type,
+            seed=seed,
+        )
+        pvals[var] = out["p_boot"]
+        ci_lo[var], ci_hi[var] = out["ci_boot"]
+        se[var] = out["se_cluster"]
+
+    base.std_errors = se
+    base.pvalues = pvals
+    base.conf_int_lower = ci_lo
+    base.conf_int_upper = ci_hi
+    base.model_info = dict(base.model_info)
+    base.model_info["vcov_type"] = (
+        f"wild cluster bootstrap (Cameron-Gelbach-Miller 2008, {reps} reps, "
+        f"{weight_type})"
+    )
+    base.model_info["n_boot"] = reps
+    base.model_info["cluster"] = cluster
+    return base
+
+
+@accepts_aliases(vce="vcov")
 def feols(
     fml: str,
     data: pd.DataFrame,
@@ -43,6 +127,10 @@ def feols(
     fixef_rm: str = "none",
     collin_tol: float = 1e-6,
     lean: bool = False,
+    cluster: Optional[str] = None,
+    wild_reps: int = 999,
+    wild_weight_type: str = "rademacher",
+    seed: Optional[int] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -119,6 +207,35 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
+    # Wild cluster bootstrap path (Stata ``boottest`` / ``vce()``-style):
+    #   sp.feols("y ~ x | firm", data=df, vce="wild", cluster="firm")
+    if isinstance(vcov, str) and vcov.lower() in _WILD_VCOV:
+        if cluster is None:
+            raise MethodIncompatibility(
+                "feols(vce='wild') requires cluster=... — the wild *cluster* "
+                "bootstrap resamples residuals within clusters."
+            )
+        return _feols_wild(
+            fml,
+            data,
+            cluster,
+            reps=wild_reps,
+            weight_type=wild_weight_type,
+            seed=seed,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            lean=lean,
+            extra=kwargs,
+        )
+
+    # Grammar convenience: `cluster="firm"` is shorthand for one-way CRV1, so the
+    # SE keyword reads the same as `sp.regress(..., cluster=...)`. An explicit
+    # `vcov=` always wins if both are given.
+    if cluster is not None and vcov is None:
+        vcov = {"CRV1": cluster}
+
     pf = _check_pyfixest()
 
     pf_kwargs: Dict[str, Any] = {

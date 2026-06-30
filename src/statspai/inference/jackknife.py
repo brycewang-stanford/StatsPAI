@@ -23,7 +23,7 @@ Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 *Review of Economics and Statistics*, 90(3), 414-427. [@cameron2008bootstrap]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -245,18 +245,8 @@ def cr2_se(
     >>> cr2.model_info["se_type"]
     'CR2 (Bell-McCaffrey)'
     """
-    y_var, x_vars = _parse_formula(result.model_info.get("formula", ""), result)
+    X, Y, var_names, cl, _src = _design_from_result(result, data, cluster)
 
-    cols = [y_var] + x_vars + [cluster]
-    cols = [c for c in cols if c in data.columns]
-    df = data[cols].dropna()
-
-    Y = df[y_var].values.astype(float)
-    X_names = [v for v in x_vars if v in df.columns]
-    X = np.column_stack([np.ones(len(df)), df[X_names].values.astype(float)])
-    var_names = ["_const"] + X_names
-
-    cl = df[cluster].values
     unique_cl = np.unique(cl)
     G = len(unique_cl)
     k = X.shape[1]
@@ -425,22 +415,12 @@ def wild_cluster_boot(
 
     rng = np.random.default_rng(seed)
 
-    y_var, x_vars = _parse_formula(result.model_info.get("formula", ""), result)
-
-    cols = [y_var] + x_vars + [cluster]
-    cols = [c for c in cols if c in data.columns]
-    df = data[cols].dropna()
-
-    Y = df[y_var].values.astype(float)
-    X_names = [v for v in x_vars if v in df.columns]
-    X = np.column_stack([np.ones(len(df)), df[X_names].values.astype(float)])
-    var_names = ["_const"] + X_names
+    X, Y, var_names, cl, _src = _design_from_result(result, data, cluster)
 
     if variable not in var_names:
         raise ValueError(f"Variable '{variable}' not found. Available: {var_names}")
     test_idx = var_names.index(variable)
 
-    cl = df[cluster].values
     unique_cl = np.unique(cl)
     G = len(unique_cl)
     n = len(Y)
@@ -569,6 +549,68 @@ def _match_varname(vn: str, param_names: List[str]) -> Optional[str]:
     if vn in param_names:
         return vn
     return None
+
+
+def _design_from_result(
+    result: EconometricResults,
+    data: pd.DataFrame,
+    cluster: str,
+) -> Tuple[np.ndarray, np.ndarray, List[str], np.ndarray, str]:
+    """Return ``(X, y, var_names, cluster_array, source)`` for residual-based SEs.
+
+    Prefers the design matrix / outcome the estimator already stored on its
+    result (``data_info['X'] / ['y'] / ['var_names']``).  For a fixed-effects
+    model such as :func:`sp.feols` those stored arrays are the
+    *within-transformed* (demeaned) design and outcome, so cluster-robust / CR2
+    / wild-bootstrap inference operates on the correctly partialled-out model
+    instead of a formula re-parse that would treat the absorbed fixed effects as
+    ordinary regressors (the old path mishandled the ``|`` FE/IV separator).
+
+    Falls back to the historical formula re-parse + plain-OLS design whenever the
+    stored arrays are missing or cannot be *safely row-aligned* to ``data`` — in
+    particular when rows were dropped for missing values, the fitted sample no
+    longer matches ``data`` row-for-row, so the cluster key could not be aligned.
+    On that fallback the behaviour is byte-for-byte the previous behaviour.
+
+    The ``source`` flag (``"stored"`` / ``"reparsed"``) is returned so callers
+    and tests can assert which path ran.
+    """
+    di = getattr(result, "data_info", {}) or {}
+    stored_x = di.get("X")
+    stored_y = di.get("y")
+    stored_names = di.get("var_names")
+    if (
+        stored_x is not None
+        and stored_y is not None
+        and stored_names is not None
+        and cluster in data.columns
+    ):
+        X = np.asarray(stored_x, dtype=float)
+        y = np.asarray(stored_y, dtype=float).ravel()
+        cl_col = data[cluster]
+        # Trust the stored design only when it row-aligns to ``data`` and the
+        # cluster key is complete; otherwise the fitted sample was filtered and
+        # the rows would not correspond.
+        if (
+            X.ndim == 2
+            and X.shape[0] == len(data)
+            and y.shape[0] == X.shape[0]
+            and not cl_col.isna().any()
+        ):
+            var_names = [str(v) for v in stored_names]
+            return X, y, var_names, cl_col.to_numpy(), "stored"
+
+    # --- fallback: formula re-parse (plain-OLS design) -----------------------
+    y_var, x_vars = _parse_formula(result.model_info.get("formula", ""), result)
+    cols = [y_var] + x_vars + [cluster]
+    cols = [c for c in cols if c in data.columns]
+    df = data[cols].dropna()
+    y = df[y_var].to_numpy(dtype=float)
+    x_names = [v for v in x_vars if v in df.columns]
+    X = np.column_stack([np.ones(len(df)), df[x_names].to_numpy(dtype=float)])
+    var_names = ["_const"] + x_names
+    cl = df[cluster].to_numpy()
+    return X, y, var_names, cl, "reparsed"
 
 
 def _draw_weights(

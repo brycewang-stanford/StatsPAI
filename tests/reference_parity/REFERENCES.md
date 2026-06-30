@@ -683,3 +683,24 @@ matrix list r(b)
 The offline values are pinned as constants with a comment citing the
 command that produced them.  This gives the strong external-parity
 guarantee without requiring R/Stata in CI.
+
+## feols(vce="wild") vs Stata reghdfe + boottest
+
+`tests/reference_parity/test_feols_wild_boottest_parity.py` pins
+`sp.feols(..., vce="wild")` to Stata's `boottest` (David Roodman), the canonical
+wild cluster bootstrap implementation. Produced on a fixed 600-obs / 15-cluster
+panel with Stata 18 MP, `reghdfe` 6.13.1, `boottest` 4.5.3:
+
+```stata
+import delimited wild_parity.csv, clear
+reghdfe y x z, absorb(firm) vce(cluster firm)   // _b[x]=.06576571  _se[x]=.02719398
+boottest x, reps(99999) weighttype(rademacher) nograph
+// with 15 clusters, boottest enumerates all 2^15=32768 Rademacher draws (exact)
+// r(p)=.02630615   r(CI)=[.0089431, .12568656]
+```
+
+StatsPAI `feols(vce="wild", cluster="firm", wild_reps=99999, seed=12345)`:
+coef=0.06576571, CRV1 SE=0.02719398 (both match reghdfe to ~1e-9), wild
+p=0.026530 (vs boottest's exact 0.026306 — Monte-Carlo agreement). The data
+generator is inlined in the test so the pinned Stata values apply without
+R/Stata in CI.
