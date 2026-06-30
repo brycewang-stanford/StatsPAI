@@ -74,6 +74,22 @@ At a glance: 1,135 registered functions across 87 submodules; 339k LOC (core) + 
 
 ---
 
+## Compared With Other Python Causal Packages
+
+StatsPAI is meant to be the broad Stata/R-style workbench for applied empirical
+research, not only a single modeling family.
+
+| Package | Best fit | Where StatsPAI is different |
+| --- | --- | --- |
+| [`causallib`](https://github.com/BiomedSciAI/causallib) | Observational causal inference with a scikit-learn-style workflow: IPW, matching, standardization, doubly robust estimation, and evaluation. | StatsPAI is broader for Stata/R migration: OLS, IV, high-dimensional FE, DiD, RD, synthetic control, matching, diagnostics, validation metadata, and publication-table export in one API. |
+| [`CausalPy`](https://github.com/pymc-labs/CausalPy) | Bayesian causal analysis for quasi-experimental settings, built around PyMC models, uncertainty, and visual diagnostics. | StatsPAI prioritizes familiar Stata/R econometrics commands, frequentist workflows, cross-language parity evidence, bundled teaching datasets, and agent-ready result summaries. |
+
+Use `causallib` when you mainly want sklearn-style treatment-effect pipelines.
+Use `CausalPy` when you want Bayesian causal modeling in PyMC. Use StatsPAI when
+you want one Python package to replace the everyday Stata/R empirical workflow.
+
+---
+
 ## Beginner Examples With Results
 
 The outputs below are rounded from the bundled examples in this repository
