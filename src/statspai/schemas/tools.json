@@ -67,7 +67,7 @@
     "name": "absorb_ols"
   },
   {
-    "description": "Adjust p-values for multiple comparisons.",
+    "description": "Adjust p-values for multiple comparisons. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "method": {
@@ -1348,7 +1348,7 @@
     "name": "bcf_ordinal"
   },
   {
-    "description": "Benjamini-Hochberg (1995) FDR correction.",
+    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "pvalues": {
@@ -1794,7 +1794,7 @@
     "name": "blp_test"
   },
   {
-    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``.",
+    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "pvalues": {
@@ -9072,7 +9072,7 @@
     "name": "heckman"
   },
   {
-    "description": "Breusch-Pagan test for heteroskedasticity.",
+    "description": "Breusch-Pagan test for heteroskedasticity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "x": {
@@ -9096,7 +9096,7 @@
     "name": "het_test"
   },
   {
-    "description": "Holm (1979) step-down correction.",
+    "description": "Holm (1979) step-down correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "pvalues": {
@@ -18720,7 +18720,7 @@
     "name": "replicate"
   },
   {
-    "description": "Ramsey RESET test for functional form misspecification.",
+    "description": "Ramsey RESET test for functional form misspecification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "powers": {

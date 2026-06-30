@@ -22868,7 +22868,7 @@
     }
   },
   {
-    "description": "Breusch-Pagan test for heteroskedasticity.",
+    "description": "Breusch-Pagan test for heteroskedasticity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "het_test",
     "parameters": {
       "properties": {
@@ -22897,7 +22897,7 @@
     }
   },
   {
-    "description": "Ramsey RESET test for functional form misspecification.",
+    "description": "Ramsey RESET test for functional form misspecification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "reset_test",
     "parameters": {
       "properties": {
@@ -30571,7 +30571,7 @@
     }
   },
   {
-    "description": "Adjust p-values for multiple comparisons.",
+    "description": "Adjust p-values for multiple comparisons. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "adjust_pvalues",
     "parameters": {
       "properties": {
@@ -30592,7 +30592,7 @@
     }
   },
   {
-    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``.",
+    "description": "Bonferroni correction: ``p_adj = min(p * S, 1)``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bonferroni",
     "parameters": {
       "properties": {
@@ -30608,7 +30608,7 @@
     }
   },
   {
-    "description": "Holm (1979) step-down correction.",
+    "description": "Holm (1979) step-down correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "holm",
     "parameters": {
       "properties": {
@@ -30624,7 +30624,7 @@
     }
   },
   {
-    "description": "Benjamini-Hochberg (1995) FDR correction.",
+    "description": "Benjamini-Hochberg (1995) FDR correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "benjamini_hochberg",
     "parameters": {
       "properties": {
