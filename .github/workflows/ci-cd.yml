@@ -143,6 +143,19 @@ jobs:
       run: |
         python scripts/error_taxonomy_audit.py --check
 
+    - name: Grammar & SE-menu ratchets (public-API consistency)
+      # Two house-style ratchets (same pattern as the exception-taxonomy gate):
+      #   signature_house_style — keyword-spelling drift across the public API
+      #     (canonical vce / y / treat / cluster / weights / data); blocks new
+      #     functions that spell an inference keyword inconsistently.
+      #   se_menu_matrix — SE/vcov coverage drift; validates every referenced
+      #     estimator + SE function still resolves, and ratchets native cells
+      #     up / unsafe cells down.
+      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      run: |
+        python scripts/signature_house_style.py --check
+        python scripts/se_menu_matrix.py --check
+
     # Coverage instrumentation crashes on numpy 2.0.2 (the last numpy that
     # supports Python 3.9): under coverage's tracer numpy is imported twice,
     # which breaks the ``np._NoValue`` sentinel identity and makes reductions
