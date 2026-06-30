@@ -78,7 +78,13 @@ GENERIC_RAISE_MAX = 1902
 # dispatcher (the fallback only reads ``e.code`` / ``str(e)``, which cannot
 # fail). That is a justified best-effort error path, so the broad-handler
 # ceiling moves 586 -> 587.
-BROAD_EXCEPT_MAX = 587
+# v1.20.x paper Methods-and-Formulas appendix: paper() and
+# paper_from_question() each gained a record_degradation-guarded best-effort
+# ``except Exception`` around the optional ``result.to_appendix()`` section
+# (§7: orchestration paths catch broadly and record the degradation rather
+# than crash the draft), alongside one further best-effort orchestration
+# catch in the same release. Ceiling moves 587 -> 590.
+BROAD_EXCEPT_MAX = 590
 TAXONOMY_RAISE_MIN = 42
 
 

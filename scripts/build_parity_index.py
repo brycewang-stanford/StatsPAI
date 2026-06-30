@@ -173,6 +173,102 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "precision. Regenerate via _generate_survival_km.R."
         ),
     },
+    "bonferroni": {
+        "status": "bit-exact",
+        "reference": "base R stats::p.adjust(method='bonferroni')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "exact (atol 1e-15; observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_mht_parity.py",
+            "tests/reference_parity/_fixtures/mht_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: identical multiple-testing correction; matches "
+            "base R stats::p.adjust exactly. Regenerate via _generate_mht_R.R."
+        ),
+    },
+    "holm": {
+        "status": "bit-exact",
+        "reference": "base R stats::p.adjust(method='holm')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "exact (atol 1e-15; observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_mht_parity.py",
+            "tests/reference_parity/_fixtures/mht_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: identical step-down procedure; matches base R "
+            "stats::p.adjust exactly. Regenerate via _generate_mht_R.R."
+        ),
+    },
+    "benjamini_hochberg": {
+        "status": "bit-exact",
+        "reference": "base R stats::p.adjust(method='BH')",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "exact (atol 1e-15; observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_mht_parity.py",
+            "tests/reference_parity/_fixtures/mht_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: identical FDR step-up procedure; matches base R "
+            "stats::p.adjust exactly. Regenerate via _generate_mht_R.R."
+        ),
+    },
+    "adjust_pvalues": {
+        "status": "bit-exact",
+        "reference": "base R stats::p.adjust (bonferroni/holm/BH)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "exact (atol 1e-15; observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_mht_parity.py",
+            "tests/reference_parity/_fixtures/mht_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: dispatcher matches base R stats::p.adjust across "
+            "bonferroni/holm/BH. Regenerate via _generate_mht_R.R."
+        ),
+    },
+    "het_test": {
+        "status": "bit-exact",
+        "reference": "lmtest::bptest (studentized Breusch-Pagan)",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "lmtest": "0.9.40",
+        },
+        "tolerance": "statistic & p-value 1e-10 rel (observed ~1e-13)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_diagnostics_parity.py",
+            "tests/reference_parity/_fixtures/diagnostics_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: studentized Breusch-Pagan matches lmtest::bptest "
+            "to machine precision. Regenerate via _generate_diagnostics_R.R."
+        ),
+    },
+    "reset_test": {
+        "status": "bit-exact",
+        "reference": "lmtest::resettest(power=2:3, type='fitted')",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "lmtest": "0.9.40",
+        },
+        "tolerance": "F-statistic & p-value 1e-10 rel (observed ~1e-13)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_diagnostics_parity.py",
+            "tests/reference_parity/_fixtures/diagnostics_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: Ramsey RESET matches lmtest::resettest to machine "
+            "precision. Regenerate via _generate_diagnostics_R.R."
+        ),
+    },
 }
 
 

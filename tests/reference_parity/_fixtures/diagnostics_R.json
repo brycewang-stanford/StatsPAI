@@ -1,0 +1,18 @@
+{
+  "breusch_pagan": {
+    "statistic": 7.0529857187814766,
+    "df": 2,
+    "pvalue": 0.029407872764155386
+  },
+  "reset": {
+    "statistic": 4.6173721386334012,
+    "df1": 2,
+    "df2": 195,
+    "pvalue": 0.010983381797740834
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "lmtest_version": "0.9.40",
+    "generated_by": "tests/reference_parity/_generate_diagnostics_R.R"
+  }
+}

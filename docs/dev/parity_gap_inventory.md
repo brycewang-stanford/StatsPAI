@@ -17,12 +17,15 @@ render tables, build agent schemas, or load data; they are not estimators.
 
 | denominator | verified | total | fraction |
 | --- | ---: | ---: | ---: |
-| **estimator functions** (parity-applicable) | 113 | 964 | **11.7%** |
+| **estimator functions** (parity-applicable) | 119 | 964 | **12.3%** |
 | infra / non-estimator (parity N/A) | — | 171 | — |
-| all registered | 113 | 1135 | 9.9% |
+| all registered | 119 | 1135 | 10.5% |
 
-> Last coverage change: +`kaplan_meier`, +`logrank_test` (bit-exact vs R
-> `survival::survfit` / `survdiff`) — see the closing loop below.
+> Recent coverage gains (all bit-exact vs R): +`kaplan_meier`, +`logrank_test`
+> (`survival::survfit`/`survdiff`); +`bonferroni`, +`holm`,
+> +`benjamini_hochberg`, +`adjust_pvalues` (base R `stats::p.adjust`);
+> +`het_test`, +`reset_test` (`lmtest::bptest`/`resettest`). See the closing
+> loop below.
 
 So the real coverage metric to drive to is **verified / 964 estimators**, and
 the north-star is to raise it release over release.
@@ -42,8 +45,8 @@ functions at once.
 | decomposition | 4 / 31 | Oaxaca/DFL/RIF bit-exact; Gelbach/Das-Gupta/inequality open |
 | spatial | 0 / 35 | **EMPTY** |
 | network | 0 / 33 | **EMPTY** |
-| inference | 3 / 26 | cluster/HAC/multiway covered; bootstrap & MHT families open |
-| diagnostics | 3 / 25 | mostly analytical-feasible |
+| inference | 7 / 26 | cluster/HAC/multiway + MHT (Bonferroni/Holm/BH vs base R) covered; bootstrap open |
+| diagnostics | 5 / 25 | Breusch-Pagan + RESET bit-exact (vs lmtest); rest analytical-feasible |
 | dag | 0 / 23 | **EMPTY** |
 | epi | 0 / 20 | **EMPTY** |
 | timeseries | 3 / 20 | VAR/LP/ARIMA covered; cointegration/GARCH open |
