@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.3.0-applied"
+corpus_version: "0.4.0-frontier"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -455,3 +455,116 @@ entries:
       robustness_checks:
         - {check: parallel_trends, provenance: paper_section, source: "Acemoglu & Angrist (2001) pre-trend / event-study"}
     notes: "Real applied DiD with COMMON treatment timing — TWFE is unbiased here (no negative-weights trap), so nothing is disqualifying. Contrast with the staggered-DiD traps."
+
+  # ===========================================================================
+  # FRONTIER (gap_probe) — design families recommend was BLIND to (F-004), now
+  # routed via new design branches that wire the already-shipping estimators.
+  # gap_probe: true → scored separately (frontier coverage), excluded from the
+  # headline hit-rate and the CI ratchet. Each passes design=<X> explicitly:
+  # an agent declaring the design must get the right estimator. As detection
+  # matures, flip gap_probe off to promote into the headline.
+  # ===========================================================================
+  - id: frontier_bunching_saez2010
+    gap_probe: true
+    paper:
+      citation: "Saez, E. (2010). Do Taxpayers Bunch at Kink Points? American Economic Journal: Economic Policy."
+      bib_key: saez2010taxpayers
+    design:
+      label: bunching
+      fingerprint: {synthetic: true, running_var: income, kink: true}
+    data:
+      tier: B
+      loader: "sp.dgp_bunching(seed=31)"
+      args: {y: income, running_var: income, cutoff: 0.0, design: bunching}
+    ground_truth:
+      estimator:
+        primary: bunching
+        acceptable: [bunching, general_bunching]
+        disqualifying: []
+      robustness_checks:
+        - {check: bunching_window, provenance: methodological_followup, source: "excluded-window / polynomial-order sensitivity"}
+    notes: "Frontier: kink/notch bunching design. Was a MISS (no recommend branch); now routes to sp.bunching."
+
+  - id: frontier_rkd_card2015
+    gap_probe: true
+    paper:
+      citation: "Card, D., Lee, D. S., Pei, Z. & Weber, A. (2015). Inference on Causal Effects in a Generalized Regression Kink Design. Econometrica."
+      bib_key: card2015inference
+    design:
+      label: rkd
+      fingerprint: {synthetic: true, running_var: x, kink: true}
+    data:
+      tier: B
+      loader: "sp.dgp_rd_kink(seed=33)"
+      args: {y: y, running_var: x, cutoff: 0.0, design: rkd}
+    ground_truth:
+      estimator:
+        primary: rkd
+        acceptable: [rkd, kink_unified]
+        disqualifying: []
+      robustness_checks:
+        - {check: bandwidth_sensitivity, provenance: methodological_followup, source: "RKD bandwidth robustness (CLPW 2015)"}
+    notes: "Frontier: regression kink (slope change, not jump). Now routes to sp.rkd."
+
+  - id: frontier_ddd_gruber1994
+    gap_probe: true
+    paper:
+      citation: "Gruber, J. (1994). The Incidence of Mandated Maternity Benefits. American Economic Review."
+      bib_key: gruber1994incidence
+    design:
+      label: ddd
+      fingerprint: {synthetic: true, triple_difference: true}
+    data:
+      tier: B
+      loader: "sp.dgp_did(n_units=120, n_periods=4, staggered=False, seed=37)"
+      args: {y: y, treatment: treated, time: time, design: ddd}
+    ground_truth:
+      estimator:
+        primary: ddd
+        acceptable: [ddd]
+        disqualifying: []
+      robustness_checks:
+        - {check: parallel_trends, provenance: methodological_followup, source: "parallel trends in the difference across subgroups"}
+    notes: "Frontier: triple-difference (Gruber 1994 maternity-benefits design). Now routes to sp.ddd."
+
+  - id: frontier_bartik_gpss2020
+    gap_probe: true
+    paper:
+      citation: "Goldsmith-Pinkham, P., Sorkin, I. & Swift, H. (2020). Bartik Instruments: What, When, Why, and How. American Economic Review."
+      bib_key: goldsmithpinkham2020bartik
+    design:
+      label: bartik
+      fingerprint: {synthetic: true, shift_share: true}
+    data:
+      tier: B
+      loader: "sp.dgp_iv(n=400, seed=39)"
+      args: {y: y, treatment: treatment, design: bartik}
+    ground_truth:
+      estimator:
+        primary: bartik
+        acceptable: [bartik]
+        disqualifying: []
+      robustness_checks:
+        - {check: rotemberg_weights, provenance: methodological_followup, source: "Rotemberg weights (Goldsmith-Pinkham et al. 2020)"}
+    notes: "Frontier: shift-share / Bartik IV. Now routes to sp.bartik (card; full run needs shares/shocks)."
+
+  - id: frontier_decomposition_oaxaca1973
+    gap_probe: true
+    paper:
+      citation: "Oaxaca, R. (1973). Male-Female Wage Differentials in Urban Labor Markets. International Economic Review."
+      bib_key: oaxaca1973male
+    design:
+      label: decomposition
+      fingerprint: {real_data: true, group: female}
+    data:
+      tier: A
+      loader: "sp.cps_wage()"
+      args: {y: log_wage, treatment: female, covariates: [education, experience, tenure], design: decomposition}
+    ground_truth:
+      estimator:
+        primary: oaxaca
+        acceptable: [oaxaca, decompose]
+        disqualifying: []
+      robustness_checks:
+        - {check: detailed_contributions, provenance: methodological_followup, source: "detailed explained/unexplained split (Oaxaca-Blinder)"}
+    notes: "Frontier: between-group wage-gap decomposition. Now routes to sp.oaxaca / sp.decompose."

@@ -1183,6 +1183,129 @@ def recommend(
             }
         )
 
+    elif design == "bunching":
+        # Mass-point / kink design: the behavioural response shows up as
+        # excess mass at a policy threshold (Saez 2010; Kleven 2016).
+        _thr = cutoff if cutoff is not None else 0.0
+        recommendations.append(
+            {
+                "method": "Bunching estimator (Saez 2010; Kleven 2016)",
+                "function": "bunching",
+                "reason": "Excess mass at a kink/notch in the running variable "
+                "identifies the behavioural elasticity; estimate the "
+                "counterfactual density and the bunching mass.",
+                "assumptions": [
+                    "Smooth counterfactual density absent the threshold",
+                    "No other policy discontinuity at the threshold",
+                ],
+                "robustness": "Vary the excluded bunching window and the "
+                "polynomial order; check for round-number / heaping bunching.",
+                "code": f"sp.bunching(df, running_var='{running_var}', "
+                f"threshold={_thr})",
+                "params": {
+                    "data": data,
+                    "running_var": running_var,
+                    "threshold": _thr,
+                },
+            }
+        )
+
+    elif design == "rkd":
+        # Regression kink design: the SLOPE of the outcome in the running
+        # variable changes at the kink (Card, Lee, Pei & Weber 2015).
+        recommendations.append(
+            {
+                "method": "Regression Kink Design (Card, Lee, Pei & Weber 2015)",
+                "function": "rkd",
+                "reason": "A kink (not a jump) in the policy rule at the "
+                "threshold identifies the effect from the change in slope.",
+                "assumptions": [
+                    "Smooth density at the kink",
+                    "Continuous slope of confounders at the kink",
+                ],
+                "robustness": "Bandwidth sensitivity; placebo kinks; "
+                "McCrary-style density continuity.",
+                "code": f"sp.rkd(df, y='{y}', x='{running_var}', "
+                f"c={cutoff if cutoff is not None else 0})",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "x": running_var,
+                    "c": cutoff if cutoff is not None else 0,
+                },
+            }
+        )
+
+    elif design == "ddd":
+        # Triple-difference: a second comparison group nets out a
+        # confound that ordinary DiD cannot (Gruber 1994; Olden & Møen 2022).
+        recommendations.append(
+            {
+                "method": "Triple Difference (DDD)",
+                "function": "ddd",
+                "reason": "A second (placebo) group differences out a "
+                "group-specific shock that violates DiD parallel trends.",
+                "assumptions": [
+                    "Parallel trends in the *difference* across subgroups",
+                    "No subgroup-specific treatment-timing confounder",
+                ],
+                "robustness": "Inspect each constituent 2x2; event-study the "
+                "triple difference; honest-DiD on the DDD estimand.",
+                "code": f"sp.ddd(df, y='{y}', treat='{treatment}', "
+                f"time='{time}', subgroup='<subgroup>')",
+                "params": {
+                    "data": data,
+                    "y": y,
+                    "treat": treatment,
+                    "time": time,
+                },
+            }
+        )
+
+    elif design == "bartik":
+        # Shift-share / Bartik IV: identification from exposure shares
+        # interacted with common shocks (Goldsmith-Pinkham, Sorkin & Swift 2020).
+        recommendations.append(
+            {
+                "method": "Bartik / shift-share IV (Goldsmith-Pinkham et al. 2020)",
+                "function": "bartik",
+                "reason": "Exposure shares × common shocks instrument an "
+                "endogenous regressor; identification is the share-weighted "
+                "sum of just-identified IVs.",
+                "assumptions": [
+                    "Exogenous shares (or exogenous shocks)",
+                    "Relevance of the shift-share instrument",
+                ],
+                "robustness": "Rotemberg weights to find influential shares; "
+                "over-identification across shocks; pre-trend balance on shares.",
+                "code": f"sp.bartik(df, y='{y}', endog='{treatment}', "
+                f"shares=<shares_df>, shocks=<shocks>)",
+                "params": {"data": data, "y": y, "endog": treatment},
+            }
+        )
+
+    elif design == "decomposition":
+        # Between-group gap decomposition (Oaxaca 1973; Blinder 1973;
+        # DiNardo, Fortin & Lemieux 1996 for the distributional version).
+        _grp = treatment
+        _x = [c for c in controls if c != treatment][:10]
+        recommendations.append(
+            {
+                "method": "Oaxaca-Blinder decomposition (Oaxaca 1973; Blinder 1973)",
+                "function": "oaxaca",
+                "reason": "Split a between-group mean gap into an "
+                "explained (composition) and unexplained (structure) part.",
+                "assumptions": [
+                    "Correct (linear) conditional mean per group",
+                    "Common support of covariates across groups",
+                ],
+                "robustness": "Check the detailed contributions; for the full "
+                "distribution use sp.decompose(method='dfl'/'ffl'/'rif').",
+                "code": f"sp.oaxaca(df, y='{y}', group='{_grp}', " f"x={_x})",
+                "params": {"data": data, "y": y, "group": _grp, "x": _x},
+            }
+        )
+
     else:
         # Cross-section
         if treatment:

@@ -159,7 +159,22 @@ the already-shipping estimators (`sp.bunching` / `sp.decompose` / `sp.ddd` /
 `sp.bartik` / RKD). (3) Promote each frontier design from F-004 to a scored
 corpus entry as its branch lands.
 
-**Status.** OPEN (roadmap; tracked for the next engine-expansion phase).
+**Status.** ◐ **PARTIALLY FIXED.**
+- The `gap_probe` scoring mode is implemented: `sp.recommend_benchmark()` now
+  reports a separate **frontier coverage** metric and the headline hit-rate /
+  CI ratchet are computed over *core* designs only — so a not-yet-supported
+  design never depresses the headline or breaks the build.
+- Five frontier families now route (via new `recommend` design branches wiring
+  the already-shipping estimators): **bunching** → `sp.bunching`, **RKD** →
+  `sp.rkd`, **DDD** → `sp.ddd`, **shift-share/Bartik** → `sp.bartik`,
+  **decomposition** → `sp.oaxaca`/`sp.decompose`. All five are scored corpus
+  entries (`gap_probe: true`) at **frontier coverage 1.0 (5/5)**; locked by
+  `tests/test_recommend_frontier_designs.py`.
+- **Remaining (OPEN):** (1) *auto-detection* — these route only when the design
+  is declared via `design=`; detecting them from data is future work.
+  (2) **repeated cross-sections DiD** and (3) first-class **event-study** still
+  need branches. Promote each to a headline (`gap_probe` off) once auto-detected
+  reliably.
 
 ---
 
