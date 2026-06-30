@@ -41,21 +41,21 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | ------------------- | -----: | ----: | ----------------------------: |
 | `synth` | 22,371 | 31 | 54 |
 | `did` | 20,835 | 33 | 60 |
-| `rd` | 16,114 | 25 | 53 |
+| `rd` | 16,164 | 25 | 53 |
 | `regression` | 14,849 | 20 | 37 |
-| `smart` | 12,699 | 20 | 31 |
+| `smart` | 13,116 | 20 | 31 |
 | `output` | 11,948 | 21 | 40 |
-| `agent` | 11,701 | 31 | 0 |
+| `agent` | 11,700 | 31 | 3 |
 | `decomposition` | 8,784 | 18 | 31 |
 | `fast` | 7,564 | 16 | 0 |
 | `iv` | 7,383 | 16 | 8 |
+| `core` | 7,268 | 12 | 4 |
 | `diagnostics` | 7,120 | 12 | 25 |
 | `matching` | 7,004 | 11 | 25 |
-| `core` | 6,908 | 12 | 4 |
 | `spatial` | 6,431 | 29 | 35 |
 | `panel` | 6,185 | 12 | 17 |
 | `plots` | 6,002 | 7 | 8 |
-| `inference` | 5,572 | 15 | 24 |
+| `inference` | 5,614 | 15 | 24 |
 | `bayes` | 5,166 | 12 | 19 |
 | `dml` | 4,968 | 12 | 14 |
 | `frontier` | 4,799 | 8 | 12 |
@@ -111,11 +111,11 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `deepiv` | 801 | 2 | 2 |
 | `mht` | 768 | 2 | 6 |
 | `transport` | 760 | 5 | 8 |
+| `fixest` | 729 | 3 | 4 |
 | `msm` | 716 | 2 | 3 |
 | `assimilation` | 697 | 3 | 2 |
 | `causal_impact` | 652 | 2 | 3 |
 | `nonparametric` | 628 | 3 | 4 |
-| `fixest` | 576 | 3 | 4 |
 | `imputation` | 501 | 2 | 3 |
 | `matrix_completion` | 435 | 2 | 2 |
 | `compat` | 378 | 2 | 0 |
@@ -126,7 +126,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `checks` | 152 | 2 | 0 |
 | `causal` | 111 | 1 | 0 |
 | `schemas` | 0 | 0 | 0 |
-| **Total** | **340,208** | **700** | **1136** |
+| **Total** | **341,241** | **700** | **1139** |
 ## 3 · Causal-inference coverage matrix (full)
 
 Legend: B = broad API coverage within this comparison table; Y = implemented entry points; P = partial, scattered, or single-algorithm support; N = no first-class entry point. These are API-breadth labels, not validation tiers.
