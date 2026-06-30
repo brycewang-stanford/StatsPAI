@@ -1513,6 +1513,147 @@ class CausalResult:
             "  year={2020}\n"
             "}"
         ),
+        # --- methods-and-formulas appendix coverage (verified via paper.bib /
+        #     Crossref; see CLAUDE.md §10). Keyed by the methods_appendix spec
+        #     key so result.cite() resolves for these estimator families. ---
+        "twfe_did": (
+            "@article{goodmanbacon2021difference,\n"
+            "  title={Difference-in-differences with variation in "
+            "treatment timing},\n"
+            "  author={Goodman-Bacon, Andrew},\n"
+            "  journal={Journal of Econometrics},\n"
+            "  year={2021},\n"
+            "  doi={10.1016/j.jeconom.2021.03.014}\n"
+            "}"
+        ),
+        "psm": (
+            "@article{rosenbaum1983central,\n"
+            "  title={The central role of the propensity score in "
+            "observational studies for causal effects},\n"
+            "  author={Rosenbaum, Paul R. and Rubin, Donald B.},\n"
+            "  journal={Biometrika},\n"
+            "  volume={70},\n"
+            "  number={1},\n"
+            "  pages={41--55},\n"
+            "  year={1983},\n"
+            "  publisher={Oxford University Press},\n"
+            "  doi={10.1093/biomet/70.1.41}\n"
+            "}"
+        ),
+        "event_study": (
+            "@article{roth2023whats,\n"
+            "  title={What's trending in difference-in-differences? "
+            "A synthesis of the recent econometrics literature},\n"
+            "  author={Roth, Jonathan and Sant'Anna, Pedro H. C. and "
+            "Bilinski, Alyssa and Poe, John},\n"
+            "  journal={Journal of Econometrics},\n"
+            "  volume={235},\n"
+            "  number={2},\n"
+            "  pages={2218--2244},\n"
+            "  year={2023},\n"
+            "  doi={10.1016/j.jeconom.2023.03.008}\n"
+            "}"
+        ),
+        "ddd": (
+            "@article{olden2022triple,\n"
+            "  title={The triple difference estimator},\n"
+            "  author={Olden, Andreas and M{\\o}en, Jarle},\n"
+            "  journal={The Econometrics Journal},\n"
+            "  year={2022},\n"
+            "  doi={10.1093/ectj/utac010}\n"
+            "}"
+        ),
+        "cic": (
+            "@article{athey2006identification,\n"
+            "  title={Identification and Inference in Nonlinear "
+            "Difference-in-Differences Models},\n"
+            "  author={Athey, Susan and Imbens, Guido W.},\n"
+            "  journal={Econometrica},\n"
+            "  year={2006},\n"
+            "  doi={10.1111/j.1468-0262.2006.00668.x}\n"
+            "}"
+        ),
+        "lp_did": (
+            "@article{dube2025local,\n"
+            "  title={A Local Projections Approach to "
+            "Difference-in-Differences},\n"
+            "  author={Dube, Arindrajit and Girardi, Daniele and "
+            "Jord{\\`a}, {\\`O}scar and Taylor, Alan M.},\n"
+            "  journal={Journal of Applied Econometrics},\n"
+            "  volume={40},\n"
+            "  number={7},\n"
+            "  pages={741--758},\n"
+            "  year={2025},\n"
+            "  doi={10.1002/jae.70000}\n"
+            "}"
+        ),
+        "ols": (
+            "@book{wooldridge2010econometric,\n"
+            "  title={Econometric Analysis of Cross Section and "
+            "Panel Data},\n"
+            "  author={Wooldridge, Jeffrey M.},\n"
+            "  publisher={MIT Press},\n"
+            "  edition={2nd},\n"
+            "  year={2010},\n"
+            "  isbn={978-0-262-23258-6}\n"
+            "}"
+        ),
+        "poisson": (
+            "@article{santosilva2006log,\n"
+            "  title={The Log of Gravity},\n"
+            "  author={Santos Silva, J. M. C. and Tenreyro, "
+            "Silvana},\n"
+            "  journal={Review of Economics and Statistics},\n"
+            "  volume={88},\n"
+            "  number={4},\n"
+            "  pages={641--658},\n"
+            "  year={2006},\n"
+            "  doi={10.1162/rest.88.4.641}\n"
+            "}"
+        ),
+        "probit": (
+            "@book{wooldridge2010econometric,\n"
+            "  title={Econometric Analysis of Cross Section and "
+            "Panel Data},\n"
+            "  author={Wooldridge, Jeffrey M.},\n"
+            "  publisher={MIT Press},\n"
+            "  edition={2nd},\n"
+            "  year={2010},\n"
+            "  isbn={978-0-262-23258-6}\n"
+            "}"
+        ),
+        "qte": (
+            "@article{firpo2007efficient,\n"
+            "  title={Efficient Semiparametric Estimation of "
+            "Quantile Treatment Effects},\n"
+            "  author={Firpo, Sergio},\n"
+            "  journal={Econometrica},\n"
+            "  year={2007},\n"
+            "  doi={10.1111/j.1468-0262.2007.00738.x}\n"
+            "}"
+        ),
+        "manski_bounds": (
+            "@article{manski1990nonparametric,\n"
+            "  title={Nonparametric bounds on treatment effects},\n"
+            "  author={Manski, Charles F.},\n"
+            "  journal={American Economic Review},\n"
+            "  volume={80},\n"
+            "  number={2},\n"
+            "  pages={319--323},\n"
+            "  year={1990},\n"
+            "  publisher={American Economic Association}\n"
+            "}"
+        ),
+        "continuous_did": (
+            "@techreport{callaway2024difference,\n"
+            "  title={Difference-in-differences with a Continuous "
+            "Treatment},\n"
+            "  author={Callaway, Brantly and Goodman-Bacon, Andrew "
+            "and Sant'Anna, Pedro H.},\n"
+            "  year={2024},\n"
+            "  doi={10.3386/w32117}\n"
+            "}"
+        ),
     }
 
     def __init__(

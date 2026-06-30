@@ -334,3 +334,39 @@ def test_econ_real_regress_fit_runs():
     out = res.to_appendix(format="markdown")
     assert "Methods and Formulas" in out
     assert "Produced by StatsPAI" in out
+
+
+# --------------------------------------------------------------------------
+#  Citation coverage (the "verified reference" leg)
+# --------------------------------------------------------------------------
+
+
+def _resolves_citation(key):
+    r = _causal(key)
+    r._citation_key = key
+    apa = r.cite(format="apa")
+    return bool(apa) and not str(apa).lstrip().startswith("%")
+
+
+def test_every_spec_resolves_a_citation():
+    """Every registered methods spec must resolve to a real reference — the
+    full traceability triple (formula + verified citation + provenance)."""
+    from statspai.smart.methods_appendix import _SPECS
+
+    missing = [s.key for s in _SPECS if not _resolves_citation(s.key)]
+    assert not missing, f"specs without a resolving citation: {missing}"
+
+
+def test_newly_cited_specs_carry_doi():
+    # Spot-check a few of the specs whose citations were added for coverage.
+    for key, token in [
+        ("qte", "Firpo"),
+        ("manski_bounds", "Manski"),
+        ("cic", "Athey"),
+        ("lp_did", "Dube"),
+        ("psm", "Rosenbaum"),
+        ("ddd", "Møen"),  # exercises the {\o} -> ø diacritic path
+    ]:
+        r = _causal(key)
+        r._citation_key = key
+        assert token in r.cite(format="apa"), f"{key}: missing {token!r}"

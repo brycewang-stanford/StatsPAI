@@ -215,6 +215,11 @@ def _normalise_latex(s: str) -> str:
     )
     s = s.replace(r"{\oe}", "œ").replace(r"{\OE}", "Œ")
     s = s.replace(r"{\ae}", "æ").replace(r"{\AE}", "Æ")
+    # Slashed/ring/stroke letters: {\o}→ø (e.g. Møen), {\l}→ł, {\aa}→å, {\ss}→ß.
+    s = s.replace(r"{\o}", "ø").replace(r"{\O}", "Ø")
+    s = s.replace(r"{\l}", "ł").replace(r"{\L}", "Ł")
+    s = s.replace(r"{\aa}", "å").replace(r"{\AA}", "Å")
+    s = s.replace(r"{\ss}", "ß")
     s = s.replace(r"\&", "&").replace(r"\$", "$").replace(r"\%", "%")
     # Drop any remaining single-pair braces around plain text.
     s = re.sub(r"\{([^{}]*)\}", r"\1", s)
