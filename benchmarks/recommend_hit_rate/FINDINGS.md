@@ -170,11 +170,19 @@ corpus entry as its branch lands.
   **decomposition** → `sp.oaxaca`/`sp.decompose`. All five are scored corpus
   entries (`gap_probe: true`) at **frontier coverage 1.0 (5/5)**; locked by
   `tests/test_recommend_frontier_designs.py`.
-- **Remaining (OPEN):** (1) *auto-detection* — these route only when the design
-  is declared via `design=`; detecting them from data is future work.
-  (2) **repeated cross-sections DiD** and (3) first-class **event-study** still
-  need branches. Promote each to a headline (`gap_probe` off) once auto-detected
-  reliably.
+- **repeated cross-sections DiD** now routes: the DiD branch gates the
+  staggered (cohort) path on a panel `id`, so a no-id group-over-time design
+  gets a **pooled DiD** card instead of a broken cohort derivation. Scored entry
+  `frontier_repeated_cross_sections_did` (gap_probe). **event-study** is now a
+  first-class card in the staggered DiD recommendation (complements CS).
+- **Remaining (OPEN):** *auto-detection* of the frontier families. These route
+  only when the design is declared via `design=`. Auto-detecting bunching / RKD
+  / DDD / Bartik / decomposition / repeated-cross-sections from data alone is
+  **deliberately deferred**: the signals overlap with ordinary designs (e.g. a
+  time column + binary group looks like both repeated-cross-section DiD and a
+  plain observational study), and a false-positive frontier detection would be
+  exactly the plausible-but-wrong recommendation the moat must avoid. Declared
+  routing is the safe default; high-confidence detectors are future work.
 
 ---
 

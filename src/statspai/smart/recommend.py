@@ -656,8 +656,11 @@ def recommend(
             )
 
     elif design == "did":
-        # Staggered vs 2-period
-        if time and data[time].nunique() > 2:
+        # Staggered (panel, multi-period) needs a unit id to build cohorts.
+        # Without an id — e.g. repeated cross-sections (different individuals
+        # each period) — fall through to the pooled / classic DiD card, which
+        # does not require a panel id.
+        if time and id and data[time].nunique() > 2:
             cohort_col = f"_cohort_{treatment}"
 
             def _derive_cohort(
@@ -722,12 +725,44 @@ def recommend(
                     "raw_treat": treatment,
                 }
             )
-        else:
             recommendations.append(
                 {
-                    "method": "Classic 2×2 DID",
+                    "method": "Event-study (dynamic treatment effects)",
+                    "function": "event_study",
+                    "reason": "Trace the effect by event time: pre-periods test "
+                    "parallel trends, post-periods show the dynamic path.",
+                    "assumptions": ["Parallel trends", "No anticipation"],
+                    "robustness": "Joint pre-trend test; honest-DiD bands on the "
+                    "event-study path (sp.honest_did).",
+                    "code": f"sp.event_study(df, y='{y}', treat_time='{cohort_col}', "
+                    f"time='{time}', unit='{id}')",
+                    "params": {
+                        "data": did_data,
+                        "y": y,
+                        "treat_time": cohort_col,
+                        "time": time,
+                        "unit": id,
+                    },
+                    "prep": _derive_cohort,
+                }
+            )
+        else:
+            _rcs = bool(time and not id and data[time].nunique() > 2)
+            recommendations.append(
+                {
+                    "method": (
+                        "Classic 2×2 DID"
+                        if not _rcs
+                        else "Pooled DID (repeated cross-sections)"
+                    ),
                     "function": "did",
-                    "reason": "Two groups, two periods — classic DID is appropriate.",
+                    "reason": (
+                        "Two groups, two periods — classic DID is appropriate."
+                        if not _rcs
+                        else "Repeated cross-sections (a treated/control group "
+                        "observed over time, no panel id) — pooled DID on the "
+                        "group × post interaction."
+                    ),
                     "assumptions": ["Parallel trends", "No anticipation", "SUTVA"],
                     "code": f"sp.did(df, y='{y}', treat='{treatment}', time='{time}')",
                     "params": {"data": data, "y": y, "treat": treatment, "time": time},

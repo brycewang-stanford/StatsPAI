@@ -1,9 +1,10 @@
 {
-  "corpus_version": "0.3.0-applied",
+  "corpus_version": "0.5.0-frontier2",
   "statspai_version": "1.20.0",
-  "n_entries": 17,
-  "n_tier_a": 9,
-  "n_tier_b": 8,
+  "n_entries": 23,
+  "n_core": 17,
+  "n_tier_a": 10,
+  "n_tier_b": 13,
   "summary": {
     "hit_rate_top1": 1.0,
     "hit_rate_topk": 1.0,
@@ -12,6 +13,19 @@
     "audit_catalog_mean_recall": 1.0,
     "audit_dynamic_mean_recall": 1.0,
     "n_audit_errors": 0
+  },
+  "frontier": {
+    "n_frontier": 6,
+    "n_hit": 6,
+    "coverage": 1.0,
+    "ids": [
+      "frontier_bunching_saez2010",
+      "frontier_rkd_card2015",
+      "frontier_ddd_gruber1994",
+      "frontier_bartik_gpss2020",
+      "frontier_decomposition_oaxaca1973",
+      "frontier_repeated_cross_sections_did"
+    ]
   },
   "citation_errors": [],
   "recommend": [
@@ -22,11 +36,13 @@
       "detected_design": "did",
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
-        "Sun-Abraham (2021) \u2014 interaction-weighted"
+        "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
-        "sun_abraham"
+        "sun_abraham",
+        "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
       "hit_top1": true,
@@ -45,7 +61,8 @@
       "disqualifying": [
         "classic_2x2",
         "twfe"
-      ]
+      ],
+      "gap_probe": false
     },
     {
       "id": "angrist_krueger_1991_qob",
@@ -72,7 +89,8 @@
       ],
       "disqualifying": [
         "ols"
-      ]
+      ],
+      "gap_probe": false
     },
     {
       "id": "card_1995_proximity",
@@ -97,7 +115,8 @@
         "liml",
         "twosls"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "lee_2008_senate_rd",
@@ -119,7 +138,8 @@
         "local_polynomial_rd",
         "rdrobust"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "abadie_2010_prop99",
@@ -147,7 +167,8 @@
         "synth",
         "synthdid"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "abadie_2003_basque",
@@ -175,7 +196,8 @@
         "synth",
         "synthdid"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "abadie_2015_german",
@@ -203,7 +225,8 @@
         "synth",
         "synthdid"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "dehejia_wahba_1999_nsw",
@@ -236,7 +259,8 @@
         "ols",
         "psm"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "trap_staggered_heterogeneous_twfe",
@@ -245,11 +269,13 @@
       "detected_design": "did",
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
-        "Sun-Abraham (2021) \u2014 interaction-weighted"
+        "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
-        "sun_abraham"
+        "sun_abraham",
+        "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
       "hit_top1": true,
@@ -268,7 +294,8 @@
       "disqualifying": [
         "classic_2x2",
         "twfe"
-      ]
+      ],
+      "gap_probe": false
     },
     {
       "id": "trap_did_2x2_common_timing",
@@ -293,7 +320,8 @@
         "sun_abraham",
         "twfe"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "trap_weak_instrument",
@@ -322,7 +350,8 @@
       ],
       "disqualifying": [
         "ols"
-      ]
+      ],
+      "gap_probe": false
     },
     {
       "id": "archetype_strong_instrument",
@@ -349,7 +378,8 @@
       ],
       "disqualifying": [
         "ols"
-      ]
+      ],
+      "gap_probe": false
     },
     {
       "id": "archetype_sharp_rd",
@@ -371,7 +401,8 @@
         "local_polynomial_rd",
         "rdrobust"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "trap_fuzzy_rd",
@@ -393,7 +424,8 @@
         "local_polynomial_rd",
         "rdrobust"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "trap_observational_strong_confounding",
@@ -427,7 +459,8 @@
       ],
       "disqualifying": [
         "ols"
-      ]
+      ],
+      "gap_probe": false
     },
     {
       "id": "lalonde_1986_nsw_experimental",
@@ -459,7 +492,8 @@
         "ols",
         "psm"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
     },
     {
       "id": "acemoglu_angrist_2001_ada",
@@ -468,11 +502,13 @@
       "detected_design": "did",
       "ranked_labels": [
         "Callaway-Sant'Anna (2021) \u2014 staggered DID",
-        "Sun-Abraham (2021) \u2014 interaction-weighted"
+        "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Event-study (dynamic treatment effects)"
       ],
       "ranked_tags": [
         "callaway_santanna",
-        "sun_abraham"
+        "sun_abraham",
+        "unknown:Event-study (dynamic treatment effects)"
       ],
       "top1_tag": "callaway_santanna",
       "hit_top1": true,
@@ -487,7 +523,139 @@
         "sun_abraham",
         "twfe"
       ],
-      "disqualifying": []
+      "disqualifying": [],
+      "gap_probe": false
+    },
+    {
+      "id": "frontier_bunching_saez2010",
+      "design": "bunching",
+      "status": "HIT",
+      "detected_design": "bunching",
+      "ranked_labels": [
+        "Bunching estimator (Saez 2010; Kleven 2016)"
+      ],
+      "ranked_tags": [
+        "bunching"
+      ],
+      "top1_tag": "bunching",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "bunching",
+        "general_bunching"
+      ],
+      "disqualifying": [],
+      "gap_probe": true
+    },
+    {
+      "id": "frontier_rkd_card2015",
+      "design": "rkd",
+      "status": "HIT",
+      "detected_design": "rkd",
+      "ranked_labels": [
+        "Regression Kink Design (Card, Lee, Pei & Weber 2015)"
+      ],
+      "ranked_tags": [
+        "rkd"
+      ],
+      "top1_tag": "rkd",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "kink_unified",
+        "rkd"
+      ],
+      "disqualifying": [],
+      "gap_probe": true
+    },
+    {
+      "id": "frontier_ddd_gruber1994",
+      "design": "ddd",
+      "status": "HIT",
+      "detected_design": "ddd",
+      "ranked_labels": [
+        "Triple Difference (DDD)"
+      ],
+      "ranked_tags": [
+        "ddd"
+      ],
+      "top1_tag": "ddd",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "ddd"
+      ],
+      "disqualifying": [],
+      "gap_probe": true
+    },
+    {
+      "id": "frontier_bartik_gpss2020",
+      "design": "bartik",
+      "status": "HIT",
+      "detected_design": "bartik",
+      "ranked_labels": [
+        "Bartik / shift-share IV (Goldsmith-Pinkham et al. 2020)"
+      ],
+      "ranked_tags": [
+        "bartik"
+      ],
+      "top1_tag": "bartik",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "bartik"
+      ],
+      "disqualifying": [],
+      "gap_probe": true
+    },
+    {
+      "id": "frontier_decomposition_oaxaca1973",
+      "design": "decomposition",
+      "status": "HIT",
+      "detected_design": "decomposition",
+      "ranked_labels": [
+        "Oaxaca-Blinder decomposition (Oaxaca 1973; Blinder 1973)"
+      ],
+      "ranked_tags": [
+        "oaxaca"
+      ],
+      "top1_tag": "oaxaca",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "decompose",
+        "oaxaca"
+      ],
+      "disqualifying": [],
+      "gap_probe": true
+    },
+    {
+      "id": "frontier_repeated_cross_sections_did",
+      "design": "did",
+      "status": "HIT",
+      "detected_design": "did",
+      "ranked_labels": [
+        "Pooled DID (repeated cross-sections)"
+      ],
+      "ranked_tags": [
+        "classic_2x2"
+      ],
+      "top1_tag": "classic_2x2",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "classic_2x2",
+        "did",
+        "twfe"
+      ],
+      "disqualifying": [],
+      "gap_probe": true
     }
   ],
   "audit_coverage": [
@@ -658,6 +826,60 @@
     },
     {
       "id": "acemoglu_angrist_2001_ada",
+      "audit_family": "did",
+      "covered": [
+        "parallel_trends"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "frontier_bunching_saez2010",
+      "audit_family": "generic",
+      "covered": [],
+      "missing_from_catalog": [
+        "bunching_window"
+      ],
+      "catalog_recall": 0.0
+    },
+    {
+      "id": "frontier_rkd_card2015",
+      "audit_family": "generic",
+      "covered": [],
+      "missing_from_catalog": [
+        "bandwidth_sensitivity"
+      ],
+      "catalog_recall": 0.0
+    },
+    {
+      "id": "frontier_ddd_gruber1994",
+      "audit_family": "generic",
+      "covered": [],
+      "missing_from_catalog": [
+        "parallel_trends"
+      ],
+      "catalog_recall": 0.0
+    },
+    {
+      "id": "frontier_bartik_gpss2020",
+      "audit_family": "generic",
+      "covered": [],
+      "missing_from_catalog": [
+        "rotemberg_weights"
+      ],
+      "catalog_recall": 0.0
+    },
+    {
+      "id": "frontier_decomposition_oaxaca1973",
+      "audit_family": "generic",
+      "covered": [],
+      "missing_from_catalog": [
+        "detailed_contributions"
+      ],
+      "catalog_recall": 0.0
+    },
+    {
+      "id": "frontier_repeated_cross_sections_did",
       "audit_family": "did",
       "covered": [
         "parallel_trends"
@@ -916,6 +1138,59 @@
         "parallel_trends"
       ],
       "dynamic_recall": 1.0
+    },
+    {
+      "id": "frontier_bunching_saez2010",
+      "status": "OK",
+      "audit_family": "rd",
+      "covered": [],
+      "not_emitted": [
+        "bunching_window"
+      ],
+      "actionable_next_steps": [],
+      "dynamic_recall": 0.0
+    },
+    {
+      "id": "frontier_rkd_card2015",
+      "status": "OK",
+      "audit_family": "rd",
+      "covered": [
+        "bandwidth_sensitivity"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "bandwidth_sensitivity"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "frontier_ddd_gruber1994",
+      "status": "AUDIT_ERROR",
+      "error": "TypeError(\"ddd() missing 1 required positional argument: 'subgroup'\")",
+      "dynamic_recall": null
+    },
+    {
+      "id": "frontier_bartik_gpss2020",
+      "status": "AUDIT_ERROR",
+      "error": "TypeError(\"bartik() missing 2 required positional arguments: 'shares' and 'shocks'\")",
+      "dynamic_recall": null
+    },
+    {
+      "id": "frontier_decomposition_oaxaca1973",
+      "status": "OK",
+      "audit_family": "regression",
+      "covered": [],
+      "not_emitted": [
+        "detailed_contributions"
+      ],
+      "actionable_next_steps": [],
+      "dynamic_recall": 0.0
+    },
+    {
+      "id": "frontier_repeated_cross_sections_did",
+      "status": "AUDIT_ERROR",
+      "error": "MethodIncompatibility(\"Time variable 'time' must have exactly 2 values, got 4: [np.int64(0), np.int64(1), np.int64(2), np.int64(3)]\")",
+      "dynamic_recall": null
     }
   ]
 }

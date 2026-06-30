@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.4.0-frontier"
+corpus_version: "0.5.0-frontier2"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -568,3 +568,24 @@ entries:
       robustness_checks:
         - {check: detailed_contributions, provenance: methodological_followup, source: "detailed explained/unexplained split (Oaxaca-Blinder)"}
     notes: "Frontier: between-group wage-gap decomposition. Now routes to sp.oaxaca / sp.decompose."
+
+  - id: frontier_repeated_cross_sections_did
+    gap_probe: true
+    paper:
+      citation: "Cunningham, S. (2021). Causal Inference: The Mixtape. Yale University Press."
+      bib_key: cunningham2021causal
+    design:
+      label: did
+      fingerprint: {synthetic: true, repeated_cross_sections: true, no_panel_id: true}
+    data:
+      tier: B
+      loader: "sp.dgp_did(n_units=200, n_periods=4, staggered=False, seed=41)"
+      args: {y: y, treatment: treated, time: time, design: did}
+    ground_truth:
+      estimator:
+        primary: classic_2x2
+        acceptable: [classic_2x2, did, twfe]
+        disqualifying: []
+      robustness_checks:
+        - {check: parallel_trends, provenance: methodological_followup, source: "pre-trend test on the pooled DiD"}
+    notes: "Frontier: repeated cross-sections (a treated/control group over time, NO panel id). recommend's DiD branch now gives a pooled DiD card instead of a broken cohort derivation (auto-detection vs observational deferred — declared design=did)."

@@ -49,6 +49,7 @@ _NORMALIZE_RULES: List[Tuple[str, str]] = [
     ("stacked", "stacked_did"),
     ("chaisemartin", "dcdh"),
     ("classic 2", "classic_2x2"),
+    ("pooled did", "classic_2x2"),
     ("2×2", "classic_2x2"),
     ("2x2", "classic_2x2"),
     ("two-way fixed", "twfe"),
@@ -73,6 +74,16 @@ _NORMALIZE_RULES: List[Tuple[str, str]] = [
     ("augsynth", "augsynth"),
     ("gsynth", "gsynth"),
     ("matrix completion", "mc_panel"),
+    # frontier design families (F-004)
+    ("bunching", "bunching"),
+    ("regression kink", "rkd"),
+    ("rkd", "rkd"),
+    ("triple difference", "ddd"),
+    ("ddd", "ddd"),
+    ("bartik", "bartik"),
+    ("shift-share", "bartik"),
+    ("oaxaca", "oaxaca"),
+    ("decomposition", "oaxaca"),
     ("propensity score matching", "psm"),
     ("propensity", "psm"),
     ("double ml", "dml"),
@@ -362,29 +373,49 @@ def recommend_benchmark(
         if bk and verified and bk not in verified:
             citation_errors.append((e["id"], bk))
 
+    gap_flags = [bool(e.get("gap_probe")) for e in entries]
     rec_rows = [_score_recommend(e, sp) for e in entries]
+    for row, gp in zip(rec_rows, gap_flags):
+        row["gap_probe"] = gp
     audit_rows = [_score_audit_coverage(e, fam_map) for e in entries]
     dyn_rows = [_score_audit_dynamic(e, sp) for e in entries] if fit else []
 
-    n = len(rec_rows)
-    n_hit1 = sum(1 for r in rec_rows if r.get("hit_top1"))
-    n_hitk = sum(1 for r in rec_rows if r.get("hit_topk"))
-    n_hard = sum(1 for r in rec_rows if r.get("hard_miss"))
-    n_err = sum(1 for r in rec_rows if r.get("status", "").endswith("ERROR"))
+    # Headline metrics are over CORE designs — the families recommend is
+    # expected to handle. Frontier (``gap_probe: true``) designs are tracked
+    # separately so adding a not-yet-supported design never depresses the
+    # headline hit-rate or breaks the CI ratchet. As a frontier branch lands,
+    # flip its corpus entry's gap_probe off to promote it into the headline.
+    core = [r for r in rec_rows if not r.get("gap_probe")]
+    frontier = [r for r in rec_rows if r.get("gap_probe")]
+    core_ids = {r["id"] for r in core}
+    n = len(core)
+    n_hit1 = sum(1 for r in core if r.get("hit_top1"))
+    n_hitk = sum(1 for r in core if r.get("hit_topk"))
+    n_hard = sum(1 for r in core if r.get("hard_miss"))
+    n_err = sum(1 for r in core if r.get("status", "").endswith("ERROR"))
     recalls = [
-        a["catalog_recall"] for a in audit_rows if a["catalog_recall"] is not None
+        a["catalog_recall"]
+        for a in audit_rows
+        if a["id"] in core_ids and a["catalog_recall"] is not None
     ]
     mean_recall = sum(recalls) / len(recalls) if recalls else None
     dyn_recalls = [
-        a["dynamic_recall"] for a in dyn_rows if a.get("dynamic_recall") is not None
+        a["dynamic_recall"]
+        for a in dyn_rows
+        if a["id"] in core_ids and a.get("dynamic_recall") is not None
     ]
     mean_dyn = sum(dyn_recalls) / len(dyn_recalls) if dyn_recalls else None
-    n_audit_err = sum(1 for a in dyn_rows if a.get("status") == "AUDIT_ERROR")
+    n_audit_err = sum(
+        1 for a in dyn_rows if a["id"] in core_ids and a.get("status") == "AUDIT_ERROR"
+    )
+    n_frontier = len(frontier)
+    n_frontier_hit = sum(1 for r in frontier if r.get("hit_top1"))
 
     return {
         "corpus_version": corpus.get("corpus_version"),
         "statspai_version": getattr(sp, "__version__", "?"),
-        "n_entries": n,
+        "n_entries": len(rec_rows),
+        "n_core": n,
         "n_tier_a": sum(1 for e in entries if e.get("data", {}).get("tier") == "A"),
         "n_tier_b": sum(1 for e in entries if e.get("data", {}).get("tier") == "B"),
         "summary": {
@@ -399,6 +430,12 @@ def recommend_benchmark(
                 round(mean_dyn, 4) if mean_dyn is not None else None
             ),
             "n_audit_errors": n_audit_err,
+        },
+        "frontier": {
+            "n_frontier": n_frontier,
+            "n_hit": n_frontier_hit,
+            "coverage": round(n_frontier_hit / n_frontier, 4) if n_frontier else None,
+            "ids": [r["id"] for r in frontier],
         },
         "citation_errors": citation_errors,
         "recommend": rec_rows,
@@ -437,17 +474,21 @@ def render_markdown(card: Dict[str, Any]) -> str:
     True
     """
     s = card["summary"]
+    fr = card.get("frontier", {})
     lines = [
         "# Recommendation Hit-Rate Scorecard",
         "",
         f"- corpus: `{card['corpus_version']}`  |  statspai: `{card['statspai_version']}`"
         f"  |  entries: **{card['n_entries']}**"
-        f" ({card.get('n_tier_a', '?')} Tier-A data-backed + {card.get('n_tier_b', '?')} Tier-B synthetic)",
-        f"- **top-1 hit-rate: {s['hit_rate_top1']}**  |  top-k hit-rate: {s['hit_rate_topk']}"
+        f" ({card.get('n_core', card['n_entries'])} core + {fr.get('n_frontier', 0)} frontier;"
+        f" {card.get('n_tier_a', '?')} Tier-A + {card.get('n_tier_b', '?')} Tier-B)",
+        f"- **core top-1 hit-rate: {s['hit_rate_top1']}**  |  top-k: {s['hit_rate_topk']}"
         f"  |  hard-miss rate: {s['hard_miss_rate']}  |  errors: {s['n_errors']}",
         f"- audit catalog mean recall (static): {s['audit_catalog_mean_recall']}"
         f"  |  audit dynamic mean recall (fit+audit): {s.get('audit_dynamic_mean_recall')}"
         f"  |  audit errors: {s.get('n_audit_errors')}",
+        f"- frontier coverage (gap-probe designs recommend is being taught): "
+        f"**{fr.get('coverage')}** ({fr.get('n_hit', 0)}/{fr.get('n_frontier', 0)})",
         "",
     ]
     if card["citation_errors"]:
@@ -459,12 +500,16 @@ def render_markdown(card: Dict[str, Any]) -> str:
     lines += [
         "## recommend hit-rate (dynamic — runs on real / synthetic data)",
         "",
+        "_Frontier (gap-probe) designs are marked ⊕ and scored separately; they "
+        "do not affect the core hit-rate or the CI ratchet._",
+        "",
         "| design | id | status | detected | top-1 tag |",
         "| --- | --- | --- | --- | --- |",
     ]
     for r in card["recommend"]:
+        gp = " ⊕" if r.get("gap_probe") else ""
         lines.append(
-            f"| {r.get('design','')} | `{r['id']}` | {_STATUS_GLYPH.get(r.get('status'), r.get('status'))}"
+            f"| {r.get('design','')}{gp} | `{r['id']}` | {_STATUS_GLYPH.get(r.get('status'), r.get('status'))}"
             f" | {r.get('detected_design','')} | `{r.get('top1_tag', r.get('error',''))}` |"
         )
     if card.get("audit_dynamic"):
