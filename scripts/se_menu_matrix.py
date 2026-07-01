@@ -147,8 +147,10 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # regressors. Matches R `clubSandwich::vcovCR(ivreg, type=...)` exactly.
         "cr2_cr3": "native",
         "jackknife": "native",
-        # Conley spatial HAC for IV stays unsafe pending an `acreg` parity pass.
-        "conley": "standalone_unsafe",
+        # Native `ivreg(vce="conley", conley_lat=, conley_lon=, conley_cutoff=)`
+        # — spatial HAC on the projected 2SLS scores with acreg's planar distance
+        # (111 km/deg, cos(lat) longitude). Matches Stata `acreg ... spatial`.
+        "conley": "native",
     },
     "ppmlhdfe": {
         "classical": "native",

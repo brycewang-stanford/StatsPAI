@@ -1882,6 +1882,9 @@ def ivreg(
     wild_reps: int = 999,
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
+    conley_lat: Optional[str] = None,
+    conley_lon: Optional[str] = None,
+    conley_cutoff: Optional[float] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -2026,6 +2029,43 @@ def ivreg(
             "vcov_type"
         ] = f"{kind} cluster-robust (clubSandwich, Pustejovsky-Tipton 2018)"
         base.model_info["cluster"] = cluster
+        return base
+
+    # Conley spatial HAC: ``vce="conley"`` with coordinates + a distance cutoff.
+    if isinstance(se_kw, str) and se_kw.lower() == "conley":
+        if conley_lat is None or conley_lon is None or conley_cutoff is None:
+            from statspai.exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                "ivreg(vce='conley') requires conley_lat=, conley_lon=, and "
+                "conley_cutoff= (planar distance cutoff in km)."
+            )
+        base = iv(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=None,
+            method="2sls",
+            **kwargs,
+        )
+        from scipy import stats as _stats
+
+        from statspai.inference.iv_wild import iv_conley_vcov
+
+        cv = iv_conley_vcov(base, data, conley_lat, conley_lon, conley_cutoff)
+        se = cv["std_errors"]
+        base.std_errors = se
+        z = base.params / se
+        base.pvalues = pd.Series(
+            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+        )
+        crit = _stats.norm.ppf(0.975)
+        base.conf_int_lower = base.params - crit * se
+        base.conf_int_upper = base.params + crit * se
+        base.model_info = dict(base.model_info)
+        base.model_info[
+            "vcov_type"
+        ] = f"Conley spatial HAC (uniform, {conley_cutoff} km; acreg-compatible)"
         return base
 
     # Two-way clustering: ``cluster=["firm", "year"]`` runs 2SLS once (clustered

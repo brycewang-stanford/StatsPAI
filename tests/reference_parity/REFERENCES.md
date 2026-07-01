@@ -757,3 +757,22 @@ sqrt(diag(vcovCR(m, cluster=df$firm, type="CR3")))["d"]  # 0.05482302
 strong (0.05302589 / 0.05482302) and weak (0.31924312 / 0.33575834) panels.
 The adjustment is A_g = (I - H_g)^{-p} on the projected 2SLS regressors
 (p = 1/2 for CR2, p = 1 for CR3), with H_g = Xhat_g (Xhat'X)^{-1} Xhat_g'.
+
+## IV Conley spatial HAC vs Stata acreg
+
+`test_iv_wild_boottest_parity.py` pins `ivreg(vce="conley")` to `acreg`
+(Colella-Lalive-Sakalli-Thoenig), 500 obs with lat/lon:
+
+```stata
+ssc install acreg
+acreg y w (d = z1 z2), spatial latitude(lat) longitude(lon) dist(200)
+// _b[d]=.37557529   _se[d]=.03839704
+```
+
+`sp.ivreg(..., vce="conley", conley_lat="lat", conley_lon="lon",
+conley_cutoff=200)` matches coef and SE to machine precision. Key detail
+(read from acreg.ado): the distance is a **planar** approximation, not
+great-circle — 111 km per degree latitude and `cos(lat_b)*111` per degree
+longitude anchored at the column point b (an asymmetric weight matrix, then V
+is symmetrised). Uniform kernel inside the cutoff; no small-sample correction
+without acreg's `small` option.

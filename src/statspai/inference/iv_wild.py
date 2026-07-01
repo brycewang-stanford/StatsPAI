@@ -184,6 +184,61 @@ def iv_cr_vcov(
     return {"vcov": vcov, "std_errors": se, "var_names": names, "kind": kind_u}
 
 
+def iv_conley_vcov(
+    result: Any,
+    data: pd.DataFrame,
+    lat: str,
+    lon: str,
+    dist_cutoff: float,
+) -> Dict[str, Any]:
+    """Conley spatial-HAC covariance for 2SLS (Stata ``acreg``-compatible).
+
+    Spatial kernel on the projected 2SLS scores ``score_a = Xhat_a e_a`` with a
+    uniform weight inside ``dist_cutoff`` km. Distance follows ``acreg``'s planar
+    approximation (**not** great-circle): 111 km per degree of latitude, and
+    ``cos(lat_b) * 111`` per degree of longitude anchored at the column point
+    ``b`` — so the weight matrix is asymmetric and ``V`` is symmetrised. Matches
+    ``acreg y ... (d = z), spatial latitude() longitude() dist()`` exactly.
+    """
+    iv = getattr(result, "data_info", {}).get("iv")
+    if iv is None:
+        raise MethodIncompatibility(
+            "iv_conley_vcov requires an sp.ivreg (2SLS) result (data_info['iv'])."
+        )
+    y = np.asarray(iv["y"], dtype=float)
+    X = np.asarray(iv["X"], dtype=float)
+    W = np.asarray(iv["W"], dtype=float)
+    names = list(iv["var_names"])
+    n, k = X.shape
+
+    for c in (lat, lon):
+        if c not in data.columns or data[c].isna().any() or len(data[c]) != n:
+            raise MethodIncompatibility(
+                f"Coordinate column {c!r} must be present, complete, and "
+                "row-aligned to the fitted sample."
+            )
+    lat_v = data[lat].to_numpy(dtype=float)
+    lon_v = data[lon].to_numpy(dtype=float)
+
+    x_hat = W @ np.linalg.solve(W.T @ W, W.T) @ X
+    bread = np.linalg.inv(x_hat.T @ X)
+    beta = bread @ (x_hat.T @ y)
+    resid = y - X @ beta
+
+    # acreg planar distance: column ``b`` anchors the longitude scale.
+    lon_scale = np.cos(np.radians(lat_v)) * 111.0
+    d_lat = lat_v[:, None] - lat_v[None, :]
+    d_lon = lon_v[:, None] - lon_v[None, :]
+    dist = np.sqrt((111.0 * d_lat) ** 2 + (lon_scale[None, :] * d_lon) ** 2)
+    weig = (dist <= dist_cutoff).astype(float)
+
+    score = x_hat * resid[:, None]
+    core = bread @ (score.T @ weig @ score) @ bread
+    vcov = 0.5 * (core + core.T)  # _makesymmetric
+    se = pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    return {"vcov": vcov, "std_errors": se, "var_names": names}
+
+
 def iv_wild_bootstrap(
     result: Any,
     data: pd.DataFrame,

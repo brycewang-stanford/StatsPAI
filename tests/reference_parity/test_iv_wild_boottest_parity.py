@@ -205,3 +205,39 @@ def test_iv_cr2_cr3_match_clubsandwich_weak() -> None:
     r3 = ivreg("y ~ (d ~ z1)", data=df, vce="CR3", cluster="firm")
     assert np.isclose(float(r2.std_errors["d"]), CLUB_WEAK_CR2, atol=1e-7)
     assert np.isclose(float(r3.std_errors["d"]), CLUB_WEAK_CR3, atol=1e-7)
+
+
+# --- IV Conley spatial HAC vs Stata acreg ----------------------------------
+# acreg y w (d = z1 z2), spatial latitude(lat) longitude(lon) dist(200)
+ACREG_CONLEY_COEF_D = 0.37557529
+ACREG_CONLEY_SE_D = 0.03839704
+
+
+def _conley_panel() -> pd.DataFrame:
+    rng = np.random.default_rng(55)
+    n = 500
+    lat = rng.uniform(30, 45, n)
+    lon = rng.uniform(-120, -100, n)
+    z1 = rng.normal(size=n)
+    z2 = rng.normal(size=n)
+    u = rng.normal(size=n)
+    d = 0.7 * z1 + 0.4 * z2 + 0.6 * u + rng.normal(size=n)
+    w = rng.normal(size=n)
+    y = 1.0 + 0.3 * d + 0.4 * w + u
+    return pd.DataFrame(
+        {"y": y, "d": d, "w": w, "z1": z1, "z2": z2, "lat": lat, "lon": lon}
+    )
+
+
+def test_iv_conley_matches_acreg() -> None:
+    df = _conley_panel()
+    r = ivreg(
+        "y ~ w + (d ~ z1 + z2)",
+        data=df,
+        vce="conley",
+        conley_lat="lat",
+        conley_lon="lon",
+        conley_cutoff=200,
+    )
+    assert np.isclose(float(r.params["d"]), ACREG_CONLEY_COEF_D, atol=1e-6)
+    assert np.isclose(float(r.std_errors["d"]), ACREG_CONLEY_SE_D, atol=1e-7)

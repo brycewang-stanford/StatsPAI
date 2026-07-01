@@ -80,7 +80,7 @@ estimator, or only on `feols`?* The honest answer, tracked in
 | `fepois` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `feglm` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `regress` | ✓ | ✓ | ✓ | ○ | ○ | ○ | ○ | ○ |
-| `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ⚠ | ✓ |
+| `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ppmlhdfe` | ✓ | ✓ | ✓ | · | · | · | · | · |
 | `panel` | ✓ | ✓ | ✓ | · | · | · | · | · |
 | `callaway_santanna` | · | · | ✓ | · | · | · | · | · |
@@ -134,9 +134,13 @@ What the matrix makes explicit today:
   McCaffrey) and `vce="CR3"` (== `vce="jackknife"`) — the Pustejovsky-Tipton
   (2018) adjustment on the projected 2SLS regressors, matching R
   `clubSandwich::vcovCR(ivreg, type=...)` to machine precision.
-- **`ivreg`'s one remaining ⚠ cell is Conley** (spatial HAC): the OLS standalone
-  helper refits plain OLS and drops the two-stage structure, so its SE is not
-  trustworthy — flagged pending an IV-aware implementation + `acreg` parity.
+- **`ivreg` has native Conley spatial HAC** via
+  `vce="conley", conley_lat=, conley_lon=, conley_cutoff=` — the spatial kernel
+  on the projected 2SLS scores with Stata `acreg`'s planar distance (111 km/deg,
+  `cos(lat)` longitude), matching `acreg ... spatial` exactly.
+- **`ivreg`'s SE menu is now complete (8/8 native):** every cell — classical /
+  HC / cluster / two-way / CR2-CR3 / wild bootstrap / Conley / jackknife — is a
+  native, externally-validated option. No ⚠ cells remain in the whole matrix.
 
 This is the gap the SE-menu wiring work closes, estimator by estimator. The
 matrix is the scoreboard: the CI gate ratchets the **native** count up and the

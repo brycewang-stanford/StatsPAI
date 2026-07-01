@@ -81,8 +81,14 @@ Against the `se_menu_matrix` gate:
   Pustejovsky-Tipton (2018) adjustment on the projected 2SLS regressors; matches
   R `clubSandwich` to machine precision (strong + weak panels). Matrix cr2_cr3
   and jackknife `unsafe → native` (native 37→39, unsafe 3→1).
-- **`ivreg` last ⚠ cell — Conley** (spatial HAC): needs an IV-aware spatial-HAC
-  implementation + `acreg` parity. The only remaining unsafe cell in the matrix.
+- **IV Conley** (done): native `ivreg(vce="conley", conley_lat=, conley_lon=,
+  conley_cutoff=)`, spatial HAC on the projected 2SLS scores with acreg's planar
+  distance; matches Stata `acreg ... spatial` to machine precision. Matrix
+  conley `unsafe → native` (native 39→40, **unsafe → 0**).
+
+**`ivreg`'s SE menu is complete: 8/8 native, all externally validated** (Stata
+`boottest` / `ivreg2` / `acreg`, R `clubSandwich`). The whole coverage matrix
+now has zero `standalone_unsafe` cells.
 
 ### D5 — unify the result contract  *(collision risk: results.py)*
 - One §3-true protocol: `summary`/`plot`/`to_latex`/`to_word`/`to_excel`/`cite`
