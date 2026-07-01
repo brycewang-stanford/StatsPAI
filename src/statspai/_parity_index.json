@@ -725,6 +725,23 @@
       "tolerance": "coefficients 5e-5 abs (observed ~1e-5; IRLS convergence)"
     },
     {
+      "function": "cluster_cross_interference",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_cluster_cross_interference_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -1715,6 +1732,23 @@
         "tests/reference_parity/_fixtures/glm_ext_R.json"
       ],
       "tolerance": "coefficients 1e-10 abs (observed ~8e-15)"
+    },
+    {
+      "function": "front_door",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_front_door_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "frontier",
