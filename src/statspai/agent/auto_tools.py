@@ -110,6 +110,7 @@ def _is_agent_safe(name: str, spec: Any) -> bool:
     # against statspai to avoid false positives on SCREAMING names.
     if name[:1].isupper():
         import inspect
+
         import statspai as _sp
 
         obj = getattr(_sp, name, None)
@@ -252,7 +253,7 @@ def auto_tool_manifest(
     categories: Optional[Iterable[str]] = None,
     exclude: Optional[Iterable[str]] = None,
     *,
-    max_tools: int = 500,
+    max_tools: int = 512,
     warn_on_truncate: bool = True,
 ) -> List[Dict[str, Any]]:
     """Return MCP tool specs for every agent-safe registered function.
@@ -264,10 +265,16 @@ def auto_tool_manifest(
         :data:`DEFAULT_WHITELIST`.
     exclude : iterable of str, optional
         Extra names to skip in addition to :data:`DEFAULT_EXCLUDE`.
-    max_tools : int, default 500
+    max_tools : int, default 512
         Cap on output size.  Keeps the manifest under Anthropic/OpenAI
-        tool-list payload limits. A warning fires when more eligible
-        tools exist than the cap admits — see ``warn_on_truncate``.
+        tool-list payload limits while giving headroom above the current
+        eligible-tool count (so no agent-safe estimator — e.g. the
+        ``zip_model`` recommended by the ``excess_zeros`` recovery hint —
+        is silently dropped from the MCP surface). A warning fires when
+        more eligible tools exist than the cap admits — see
+        ``warn_on_truncate``; when that happens the truncation is
+        deterministic (alphabetically-last eligible tools drop first), so
+        the committed bundle never flaps between runs.
     warn_on_truncate : bool, default True
         Emit a ``RuntimeWarning`` when the eligible-tool count exceeds
         ``max_tools``. Set False in code paths that intentionally crop
@@ -290,7 +297,18 @@ def auto_tool_manifest(
 
     out: List[Dict[str, Any]] = []
     eligible_total = 0
-    for name, spec in _REGISTRY.items():
+    # Iterate in a stable name-sorted order rather than registry-insertion
+    # order. ``_ensure_full_registry`` populates ``_REGISTRY`` by importing
+    # submodules, and that import order is not guaranteed stable across
+    # interpreter starts (sys.modules state, parallel imports). When the
+    # eligible count exceeds ``max_tools`` the cap must therefore keep a
+    # *deterministic* subset — otherwise WHICH tools are truncated flaps
+    # between runs and the committed MCP bundle drifts non-deterministically
+    # (the ``dump_schemas --check`` pre-push gate then fails intermittently
+    # on an unchanged tree). Sorting the iteration by name makes truncation
+    # always drop the alphabetically-last eligible tools, so the manifest is
+    # a pure function of the registry contents.
+    for name, spec in sorted(_REGISTRY.items(), key=lambda kv: kv[0]):
         if name in ex:
             continue
         if spec.category not in wl:

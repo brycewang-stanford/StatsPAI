@@ -16,7 +16,6 @@ from unittest.mock import MagicMock, PropertyMock, patch
 import pytest
 
 import statspai
-
 from statspai.agent.auto_tools import (
     DEFAULT_EXCLUDE,
     DEFAULT_WHITELIST,
@@ -304,6 +303,42 @@ class TestAutoToolManifest:
             with pytest.warns(RuntimeWarning, match="truncated"):
                 result = auto_tool_manifest(max_tools=5, warn_on_truncate=True)
             assert len(result) == 5
+
+    def test_truncation_is_deterministic_by_name(self):
+        """When the cap truncates, the *same* subset survives regardless of
+        registry insertion order — the manifest is a pure function of the
+        registry contents, not of import order.
+
+        Regression test: ``_ensure_full_registry`` populates ``_REGISTRY`` by
+        importing submodules whose order is not stable across interpreter
+        starts. The truncation used to keep the insertion-order-first
+        ``max_tools`` and only sort afterward, so WHICH tools survived flapped
+        between runs and the committed MCP bundle drifted non-deterministically
+        (the ``dump_schemas --check`` gate then failed intermittently on an
+        unchanged tree). Iterating in name order before the cap fixes it: the
+        alphabetically-first ``max_tools`` always survive.
+        """
+        # Two registries with identical entries inserted in OPPOSITE orders.
+        names = [f"fn_{i:03d}" for i in range(20)]
+        forward = {n: _make_registry_entry(n, "causal") for n in names}
+        reverse = {n: _make_registry_entry(n, "causal") for n in reversed(names)}
+
+        def _manifest(registry):
+            with (
+                patch("statspai.registry._REGISTRY", registry),
+                patch("statspai.registry._ensure_full_registry"),
+            ):
+                return [
+                    t["name"]
+                    for t in auto_tool_manifest(max_tools=5, warn_on_truncate=False)
+                ]
+
+        kept_forward = _manifest(forward)
+        kept_reverse = _manifest(reverse)
+        # Insertion order must not change which tools survive the cap.
+        assert kept_forward == kept_reverse
+        # And the survivors are the alphabetically-first max_tools.
+        assert kept_forward == names[:5]
 
 
 # ======================================================================

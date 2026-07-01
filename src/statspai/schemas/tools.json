@@ -19578,6 +19578,73 @@
     "name": "rosenbaum_bounds"
   },
   {
+    "description": "Compute Rosenbaum bounds on a paired observational study.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level used to report ``gamma_critical``.",
+          "type": "number"
+        },
+        "alternative": {
+          "default": "greater",
+          "description": "Direction of the alternative hypothesis for the treatment effect.",
+          "enum": [
+            "greater",
+            "less",
+            "two-sided"
+          ],
+          "type": "string"
+        },
+        "control": {
+          "description": "Outcome in the treated / control unit of each matched pair (same length). Ignored if ``data`` is provided.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "gamma_grid": {
+          "description": "Gamma values (>= 1) over which to compute bounding p-values.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "method": {
+          "default": "wilcoxon",
+          "description": "Wilcoxon signed-rank bound (continuous) or binomial sign test (robust / binary).",
+          "enum": [
+            "wilcoxon",
+            "sign"
+          ],
+          "type": "string"
+        },
+        "pair_id": {
+          "description": "pair_id parameter (Optional[str]).",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Treatment indicator or first-treatment-period column.",
+          "type": "string"
+        },
+        "treated": {
+          "description": "Outcome in the treated / control unit of each matched pair (same length). Ignored if ``data`` is provided.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [],
+      "type": "object"
+    },
+    "name": "rosenbaum_gamma"
+  },
+  {
     "description": "Stable Balancing Weights (Zubizarreta 2015) with optional ATT/ATE Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
