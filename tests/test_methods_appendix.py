@@ -214,6 +214,16 @@ def test_econometric_result_method_present():
         ("notears", "notears"),
         ("etwfe", "etwfe"),
         ("two_way_mundlak", "etwfe"),
+        # Causal discovery / weak-IV / local projections batch-11
+        ("pc_algorithm", "pc_algorithm"),
+        ("pc", "pc_algorithm"),
+        ("fci", "fci"),
+        ("lingam", "lingam"),
+        ("ges", "ges"),
+        ("anderson_rubin", "anderson_rubin"),
+        ("ar_test", "anderson_rubin"),
+        ("local_projections", "local_projections"),
+        ("jorda_lp", "local_projections"),
     ],
 )
 def test_resolution(method, expect_key):
@@ -594,6 +604,20 @@ def test_batch10_estimators_carry_verified_citation():
         ("conley", "Conley"),
         ("notears", "Zheng"),
         ("etwfe", "Wooldridge"),
+    ]:
+        r = _causal(key)
+        r._citation_key = key
+        assert token in r.cite(format="apa"), f"{key}: missing {token!r}"
+
+
+def test_batch11_estimators_carry_verified_citation():
+    for key, token in [
+        ("pc_algorithm", "Spirtes"),
+        ("fci", "Spirtes"),
+        ("lingam", "Shimizu"),
+        ("ges", "Chickering"),
+        ("anderson_rubin", "Anderson"),
+        ("local_projections", "Jordà"),  # exercises {\`a} -> à diacritic
     ]:
         r = _causal(key)
         r._citation_key = key

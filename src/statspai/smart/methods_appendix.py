@@ -108,7 +108,9 @@ class MethodSpec:
 #  DR-learner, nonparametric IV, sensitivity to unobservables, entropy
 #  balancing, CBPS, stable balancing weights, Heckman selection, jackknife IV,
 #  super learner, Balke-Pearl bounds, Horowitz-Manski bounds, causal impact
-#  (BSTS), Conley spatial HAC, NOTEARS structure learning, extended TWFE) plus
+#  (BSTS), Conley spatial HAC, NOTEARS structure learning, extended TWFE, PC /
+#  FCI / LiNGAM / GES causal discovery, Anderson-Rubin weak-IV test, local
+#  projections) plus
 #  the
 #  common regression families (OLS, Poisson, logit, probit, panel fixed
 #  effects).
@@ -2179,6 +2181,140 @@ _SPECS: List[MethodSpec] = [
             "Correct Mundlak covariate specification.",
         ],
         aliases=["extended_twfe", "two_way_mundlak", "wooldridge_etwfe"],
+    ),
+    MethodSpec(
+        key="pc_algorithm",
+        name="PC Algorithm (Constraint-Based Discovery)",
+        estimand_latex=(r"\mathcal{G}^{*}:\ \text{CPDAG (Markov equivalence class)}"),
+        estimator_latex=(
+            r"\text{prune edges via } X \perp Y \mid S \text{ tests};\ "
+            r"\text{orient colliders; apply Meek rules}"
+        ),
+        prose=(
+            "Constraint-based structure learning: start from the complete "
+            "undirected graph, remove an edge whenever the two variables are "
+            "conditionally independent given some subset, then orient "
+            "v-structures (colliders) and propagate Meek's rules to a completed "
+            "partially directed acyclic graph (Spirtes, Glymour & Scheines)."
+        ),
+        assumptions=[
+            "Causal Markov condition and faithfulness.",
+            "Causal sufficiency (no latent confounders).",
+            "Reliable conditional-independence tests.",
+        ],
+        aliases=["pc", "pc_stable", "constraint_based"],
+    ),
+    MethodSpec(
+        key="fci",
+        name="FCI (Discovery with Latent Confounders)",
+        estimand_latex=r"\text{PAG (partial ancestral graph)}",
+        estimator_latex=(
+            r"\text{as PC, plus tests / rules admitting bidirected } "
+            r"(\leftrightarrow)\ \text{edges} \Rightarrow \text{PAG}"
+        ),
+        prose=(
+            "Extends the constraint-based approach to allow unobserved "
+            "confounders and selection bias: additional conditional-independence "
+            "tests and orientation rules yield a partial ancestral graph over "
+            "the observed variables, with bidirected edges marking latent "
+            "common causes (Spirtes et al.)."
+        ),
+        assumptions=[
+            "Markov condition and faithfulness.",
+            "Latent confounders / selection allowed (no causal sufficiency).",
+        ],
+        aliases=["fast_causal_inference", "fci_algorithm"],
+    ),
+    MethodSpec(
+        key="lingam",
+        name="LiNGAM (Linear Non-Gaussian Acyclic Model)",
+        estimand_latex=(r"X = B X + e,\quad e_j\ \text{independent, non-Gaussian}"),
+        estimator_latex=(
+            r"\text{ICA} \Rightarrow \hat W = (I-B)^{-1};\ "
+            r"\text{permute to strict lower-triangular } B "
+            r"\Rightarrow \text{causal order}"
+        ),
+        prose=(
+            "Identifies the full causal DAG (not merely its equivalence class) "
+            "for linear models with independent, non-Gaussian disturbances by "
+            "applying independent component analysis and permuting the recovered "
+            "mixing matrix to strict lower-triangular form (Shimizu, Hoyer, "
+            "Hyvärinen & Kerminen)."
+        ),
+        assumptions=[
+            "Linear structural model, acyclic.",
+            "Non-Gaussian, mutually independent disturbances.",
+            "No latent confounders.",
+        ],
+        aliases=["lingam_ica", "linear_non_gaussian"],
+    ),
+    MethodSpec(
+        key="ges",
+        name="GES (Greedy Equivalence Search)",
+        estimand_latex=(
+            r"\hat{\mathcal{G}} = \arg\max_{\mathcal{G}}\ "
+            r"\mathrm{Score}(\mathcal{G}; X)"
+        ),
+        estimator_latex=(
+            r"\text{forward: add edges to raise a decomposable score "
+            r"(BIC);}\ \text{backward: delete edges}"
+        ),
+        prose=(
+            "Score-based structure learning that greedily searches over Markov "
+            "equivalence classes — a forward edge-addition phase then a backward "
+            "edge-deletion phase on a decomposable score — provably recovering "
+            "the true equivalence class in the large-sample limit (Chickering)."
+        ),
+        assumptions=[
+            "Causal Markov condition and faithfulness.",
+            "A consistent, decomposable score (e.g. BIC).",
+        ],
+        aliases=["greedy_equivalence_search", "fges"],
+    ),
+    MethodSpec(
+        key="anderson_rubin",
+        name="Anderson-Rubin Weak-IV-Robust Test",
+        estimand_latex=(
+            r"H_0: \beta = \beta_0\ \text{(size-correct for any IV strength)}"
+        ),
+        estimator_latex=(
+            r"\text{regress } (Y - D\beta_0)\ \text{on } Z;\ "
+            r"\text{test coefficients}=0;\ "
+            r"\text{CI} = \{\beta_0: \text{not rejected}\}"
+        ),
+        prose=(
+            "A weak-instrument-robust test of the structural coefficient: under "
+            "the null the residual Y - D*beta0 is uncorrelated with the "
+            "instruments, so an F-test of that projection has correct size for "
+            "any instrument strength, and inverting it gives a robust confidence "
+            "set (Anderson & Rubin)."
+        ),
+        assumptions=[
+            "Instrument exogeneity.",
+            "Homoskedasticity for the classical form (robust variants exist).",
+        ],
+        aliases=["ar_test", "weak_iv_robust", "anderson_rubin_test"],
+    ),
+    MethodSpec(
+        key="local_projections",
+        name="Local Projections (Impulse Responses)",
+        estimand_latex=r"\mathrm{IR}(h) = \beta_h,\quad h = 0,1,2,\dots",
+        estimator_latex=(
+            r"Y_{t+h} = \alpha_h + \beta_h\,\text{shock}_t + "
+            r"\text{controls}_t + \varepsilon_{t+h}\ (\text{one per horizon})"
+        ),
+        prose=(
+            "Estimates impulse responses horizon by horizon with a sequence of "
+            "direct predictive regressions of the future outcome on the current "
+            "shock, avoiding the recursive extrapolation (and misspecification "
+            "propagation) of VAR-based responses (Jordà)."
+        ),
+        assumptions=[
+            "Shock identification / conditional exogeneity of the shock.",
+            "Correct horizon-h regression specification.",
+            "HAC inference for the induced serial correlation.",
+        ],
+        aliases=["lp_impulse_response", "jorda_lp", "local_projection"],
     ),
 ]
 

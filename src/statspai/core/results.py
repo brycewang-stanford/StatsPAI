@@ -2326,6 +2326,79 @@ class CausalResult:
             "  doi={10.2139/ssrn.3906345}\n"
             "}"
         ),
+        # --- batch 11 methods-appendix coverage (causal discovery + weak-IV
+        #     robust inference + local projections; verified via paper.bib /
+        #     Crossref / JMLR) ---
+        "pc_algorithm": (
+            "@book{spirtes2000causation,\n"
+            "  title={Causation, Prediction, and Search},\n"
+            "  author={Spirtes, Peter and Glymour, Clark and "
+            "Scheines, Richard},\n"
+            "  year={2000},\n"
+            "  edition={2nd},\n"
+            "  publisher={MIT Press},\n"
+            "  doi={10.7551/mitpress/1754.001.0001}\n"
+            "}"
+        ),
+        "fci": (
+            "@book{spirtes2000causation,\n"
+            "  title={Causation, Prediction, and Search},\n"
+            "  author={Spirtes, Peter and Glymour, Clark and "
+            "Scheines, Richard},\n"
+            "  year={2000},\n"
+            "  edition={2nd},\n"
+            "  publisher={MIT Press},\n"
+            "  doi={10.7551/mitpress/1754.001.0001}\n"
+            "}"
+        ),
+        "lingam": (
+            "@article{shimizu2006linear,\n"
+            "  title={A Linear Non-Gaussian Acyclic Model for "
+            "Causal Discovery},\n"
+            "  author={Shimizu, Shohei and Hoyer, Patrik O. and "
+            'Hyv{\\"a}rinen, Aapo and Kerminen, Antti},\n'
+            "  journal={Journal of Machine Learning Research},\n"
+            "  volume={7},\n"
+            "  pages={2003--2030},\n"
+            "  year={2006}\n"
+            "}"
+        ),
+        "ges": (
+            "@article{chickering2002optimal,\n"
+            "  title={Optimal Structure Identification With Greedy "
+            "Search},\n"
+            "  author={Chickering, David Maxwell},\n"
+            "  journal={Journal of Machine Learning Research},\n"
+            "  volume={3},\n"
+            "  pages={507--554},\n"
+            "  year={2002},\n"
+            "  doi={10.1162/153244303321897717}\n"
+            "}"
+        ),
+        "anderson_rubin": (
+            "@article{anderson1949estimation,\n"
+            "  title={Estimation of the Parameters of a Single "
+            "Equation in a Complete System of Stochastic "
+            "Equations},\n"
+            "  author={Anderson, T. W. and Rubin, Herman},\n"
+            "  journal={The Annals of Mathematical Statistics},\n"
+            "  year={1949},\n"
+            "  doi={10.1214/aoms/1177730090}\n"
+            "}"
+        ),
+        "local_projections": (
+            "@article{jorda2005estimation,\n"
+            "  title={Estimation and Inference of Impulse Responses "
+            "by Local Projections},\n"
+            "  author={Jord{\\`a}, {\\`O}scar},\n"
+            "  journal={American Economic Review},\n"
+            "  volume={95},\n"
+            "  number={1},\n"
+            "  pages={161--182},\n"
+            "  year={2005},\n"
+            "  doi={10.1257/0002828053828518}\n"
+            "}"
+        ),
     }
 
     def __init__(
