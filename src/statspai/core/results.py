@@ -1964,6 +1964,80 @@ class CausalResult:
             "  doi={10.3386/w26463}\n"
             "}"
         ),
+        # --- batch 6 methods-appendix coverage (decomposition family +
+        #     multiway clustering; verified via paper.bib) ---
+        "oaxaca": (
+            "@article{oaxaca1973male,\n"
+            "  title={Male-Female Wage Differentials in Urban Labor "
+            "Markets},\n"
+            "  author={Oaxaca, Ronald},\n"
+            "  journal={International Economic Review},\n"
+            "  volume={14},\n"
+            "  number={3},\n"
+            "  pages={693--709},\n"
+            "  year={1973},\n"
+            "  doi={10.2307/2525981}\n"
+            "}"
+        ),
+        "rif_decomposition": (
+            "@article{firpo2009unconditional,\n"
+            "  title={Unconditional Quantile Regressions},\n"
+            "  author={Firpo, Sergio and Fortin, Nicole M. and "
+            "Lemieux, Thomas},\n"
+            "  journal={Econometrica},\n"
+            "  volume={77},\n"
+            "  number={3},\n"
+            "  pages={953--973},\n"
+            "  year={2009},\n"
+            "  doi={10.3982/ECTA6822}\n"
+            "}"
+        ),
+        "dfl_decompose": (
+            "@article{dinardo1996labor,\n"
+            "  title={Labor Market Institutions and the Distribution "
+            "of Wages, 1973-1992: A Semiparametric Approach},\n"
+            "  author={DiNardo, John and Fortin, Nicole M. and "
+            "Lemieux, Thomas},\n"
+            "  journal={Econometrica},\n"
+            "  year={1996},\n"
+            "  doi={10.2307/2171954}\n"
+            "}"
+        ),
+        "gelbach": (
+            "@article{gelbach2016covariates,\n"
+            "  title={When Do Covariates Matter? And Which Ones, "
+            "and How Much?},\n"
+            "  author={Gelbach, Jonah B.},\n"
+            "  journal={Journal of Labor Economics},\n"
+            "  volume={34},\n"
+            "  number={2},\n"
+            "  pages={509--543},\n"
+            "  year={2016},\n"
+            "  doi={10.1086/683668}\n"
+            "}"
+        ),
+        "twoway_cluster": (
+            "@article{cameron2011robust,\n"
+            "  title={Robust Inference With Multiway Clustering},\n"
+            "  author={Cameron, A. Colin and Gelbach, Jonah B. and "
+            "Miller, Douglas L.},\n"
+            "  journal={Journal of Business \\& Economic "
+            "Statistics},\n"
+            "  year={2011},\n"
+            "  doi={10.1198/jbes.2010.07136}\n"
+            "}"
+        ),
+        "kitagawa": (
+            "@article{kitagawa1955components,\n"
+            "  title={Components of a Difference Between Two "
+            "Rates},\n"
+            "  author={Kitagawa, Evelyn M.},\n"
+            "  journal={Journal of the American Statistical "
+            "Association},\n"
+            "  year={1955},\n"
+            "  doi={10.2307/2281213}\n"
+            "}"
+        ),
     }
 
     def __init__(

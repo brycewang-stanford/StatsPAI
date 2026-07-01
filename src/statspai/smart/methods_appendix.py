@@ -101,7 +101,8 @@ class MethodSpec:
 #  forest, meta-learners, R-learner, Mendelian randomization, dose-response,
 #  Cox PH, Kaplan-Meier, Lee bounds, policy learning, honest DiD, Oster
 #  bounds, wild cluster bootstrap, deep IV, interference, marginal structural
-#  models, network exposure, stacked DiD, surrogate index) plus the
+#  models, network exposure, stacked DiD, surrogate index, Oaxaca / RIF / DFL /
+#  Gelbach decompositions, Kitagawa, multiway clustering) plus the
 #  common regression families (OLS, Poisson, logit, probit, panel fixed
 #  effects).
 #
@@ -1511,6 +1512,145 @@ _SPECS: List[MethodSpec] = [
             "Comparability of the surrogate-outcome link across samples.",
         ],
         aliases=["surrogate_index", "surrogate_outcome", "long_term_effect"],
+    ),
+    MethodSpec(
+        key="oaxaca",
+        name="Blinder-Oaxaca Decomposition",
+        estimand_latex=(
+            r"\Delta = \underbrace{(\bar X_A - \bar X_B)'\beta_B}"
+            r"_{\text{explained}} + \underbrace{\bar X_A'(\beta_A - \beta_B)}"
+            r"_{\text{unexplained}}"
+        ),
+        estimator_latex=(
+            r"\widehat\Delta = (\bar X_A - \bar X_B)'\hat\beta_B "
+            r"+ \bar X_A'(\hat\beta_A - \hat\beta_B)"
+        ),
+        prose=(
+            "Decomposes the mean outcome gap between two groups into an "
+            "explained part (differences in covariates, valued at reference "
+            "returns) and an unexplained part (differences in coefficients), "
+            "using group-specific OLS (Oaxaca; Blinder)."
+        ),
+        assumptions=[
+            "Correct linear specification within each group.",
+            "A chosen reference (non-discriminatory) coefficient vector.",
+            "Ignorability of the linear index.",
+        ],
+        aliases=["blinder_oaxaca", "oaxaca_blinder", "wage_decomposition"],
+    ),
+    MethodSpec(
+        key="rif_decomposition",
+        name="RIF / Unconditional Quantile Regression",
+        estimand_latex=(
+            r"\mathrm{RIF}(y;q_\tau) = q_\tau + "
+            r"\frac{\tau - \mathbf{1}\{y \le q_\tau\}}{f_Y(q_\tau)}"
+        ),
+        estimator_latex=(
+            r"\hat\gamma = \arg\min_\gamma \sum_i "
+            r"\big(\widehat{\mathrm{RIF}}(Y_i;\nu) - X_i'\gamma\big)^2\;\;"
+            r"(\text{then Oaxaca on the RIF})"
+        ),
+        prose=(
+            "Replaces the outcome with the recentered influence function of a "
+            "distributional statistic (e.g. a quantile or the Gini), so an "
+            "OLS-style regression recovers the effect of covariates on the "
+            "unconditional statistic and enables detailed decompositions (Firpo, "
+            "Fortin & Lemieux)."
+        ),
+        assumptions=[
+            "The distributional statistic admits an influence function.",
+            "Standard OLS conditions on the RIF-transformed outcome.",
+        ],
+        aliases=["rif", "rifreg", "unconditional_quantile", "ffl_decompose"],
+    ),
+    MethodSpec(
+        key="dfl_decompose",
+        name="DiNardo-Fortin-Lemieux Reweighting",
+        estimand_latex=(
+            r"\psi(x) = \frac{\Pr(A\mid x)}{\Pr(B\mid x)}\cdot" r"\frac{\Pr(B)}{\Pr(A)}"
+        ),
+        estimator_latex=(
+            r"\hat f^{C}_{Y}(y) = \int f_{Y\mid X}(y\mid x,B)\,"
+            r"\hat\psi(x)\,dF_X(x\mid B)"
+        ),
+        prose=(
+            "Semiparametric reweighting: constructs a counterfactual outcome "
+            "density by reweighting one group to match another's covariate "
+            "distribution, decomposing distributional differences into "
+            "composition and structure effects (DiNardo, Fortin & Lemieux)."
+        ),
+        assumptions=[
+            "Overlap / common support of covariates across groups.",
+            "Ignorability: conditional outcome distribution is group-invariant.",
+        ],
+        aliases=["dfl", "dinardo_fortin_lemieux", "reweighting_decomposition"],
+    ),
+    MethodSpec(
+        key="gelbach",
+        name="Gelbach Conditional Decomposition",
+        estimand_latex=(
+            r"\hat\beta_{\text{base}} - \hat\beta_{\text{full}} " r"= \sum_k \delta_k"
+        ),
+        estimator_latex=(
+            r"\delta_k = \hat\Gamma_k'\,\hat\beta_{\text{full},k},\quad "
+            r"\hat\Gamma_k: \text{ regress covariate group } k "
+            r"\text{ on the base regressors}"
+        ),
+        prose=(
+            "Attributes the change in a coefficient when controls are added to "
+            "each group of added covariates, using the omitted-variable-bias "
+            "formula — giving an order-invariant, unambiguous decomposition "
+            "(Gelbach)."
+        ),
+        assumptions=[
+            "Linear base and full models.",
+            "The full model is the reference specification.",
+        ],
+        aliases=[
+            "gelbach_decomposition",
+            "conditional_decomposition",
+            "ovb_decomposition",
+        ],
+    ),
+    MethodSpec(
+        key="twoway_cluster",
+        name="Multiway Cluster-Robust Variance",
+        estimand_latex=(
+            r"\mathrm{Var}(\hat\beta)\;\;(\text{robust to clustering "
+            r"on } G \text{ and } H)"
+        ),
+        estimator_latex=(r"\hat V = \hat V_G + \hat V_H - \hat V_{G\cap H}"),
+        prose=(
+            "Variance estimator robust to correlation along two (or more) "
+            "non-nested clustering dimensions at once: sum the one-way "
+            "cluster-robust variances and subtract the intersection (Cameron, "
+            "Gelbach & Miller)."
+        ),
+        assumptions=[
+            "Independence across the intersection cells.",
+            "The clustering dimensions capture the dependence structure.",
+        ],
+        aliases=["multiway_cluster", "two_way_cluster", "cgm_multiway"],
+    ),
+    MethodSpec(
+        key="kitagawa",
+        name="Kitagawa Rate Decomposition",
+        estimand_latex=(r"\Delta = \Delta_{\text{rate}} + \Delta_{\text{composition}}"),
+        estimator_latex=(
+            r"\Delta = \sum_i (r^A_i - r^B_i)\tfrac{w^A_i + w^B_i}{2} "
+            r"+ \sum_i (w^A_i - w^B_i)\tfrac{r^A_i + r^B_i}{2}"
+        ),
+        prose=(
+            "Decomposes the difference between two aggregate rates into a "
+            "component from differing category-specific rates and a component "
+            "from differing composition — the demographic-standardization "
+            "precursor to Oaxaca (Kitagawa)."
+        ),
+        assumptions=[
+            "Well-defined, mutually exclusive categories.",
+            "Category-specific rates and weights are observed for both groups.",
+        ],
+        aliases=["kitagawa_decompose", "rate_decomposition"],
     ),
 ]
 

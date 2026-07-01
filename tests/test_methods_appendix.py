@@ -158,6 +158,17 @@ def test_econometric_result_method_present():
         ("stacked_did", "stacked_did"),
         ("surrogate", "surrogate"),
         ("surrogate_index", "surrogate"),
+        # Decomposition family + multiway clustering batch-6
+        ("oaxaca", "oaxaca"),
+        ("blinder_oaxaca", "oaxaca"),
+        ("rif_decomposition", "rif_decomposition"),
+        ("rifreg", "rif_decomposition"),
+        ("dfl_decompose", "dfl_decompose"),
+        ("dfl", "dfl_decompose"),
+        ("gelbach", "gelbach"),
+        ("twoway_cluster", "twoway_cluster"),
+        ("multiway_cluster", "twoway_cluster"),
+        ("kitagawa", "kitagawa"),
     ],
 )
 def test_resolution(method, expect_key):
@@ -467,6 +478,20 @@ def test_batch5_estimators_carry_verified_citation():
         ("network_exposure", "Aronow"),
         ("stacked_did", "Cengiz"),
         ("surrogate", "Athey"),
+    ]:
+        r = _causal(key)
+        r._citation_key = key
+        assert token in r.cite(format="apa"), f"{key}: missing {token!r}"
+
+
+def test_batch6_estimators_carry_verified_citation():
+    for key, token in [
+        ("oaxaca", "Oaxaca"),
+        ("rif_decomposition", "Firpo"),
+        ("dfl_decompose", "DiNardo"),
+        ("gelbach", "Gelbach"),
+        ("twoway_cluster", "Cameron"),
+        ("kitagawa", "Kitagawa"),
     ]:
         r = _causal(key)
         r._citation_key = key
