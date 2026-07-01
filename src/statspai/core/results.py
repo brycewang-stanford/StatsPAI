@@ -2038,6 +2038,79 @@ class CausalResult:
             "  doi={10.2307/2281213}\n"
             "}"
         ),
+        # --- batch 7 methods-appendix coverage (RCT adjustment / conformal /
+        #     frontier / quantile decomposition / kernel & two-stage; verified
+        #     via paper.bib / Crossref / arXiv) ---
+        "lin": (
+            "@article{lin2013agnostic,\n"
+            "  title={Agnostic notes on regression adjustments to "
+            "experimental data: Reexamining Freedman's critique},\n"
+            "  author={Lin, Winston},\n"
+            "  journal={The Annals of Applied Statistics},\n"
+            "  volume={7},\n"
+            "  number={1},\n"
+            "  pages={295--318},\n"
+            "  year={2013},\n"
+            "  doi={10.1214/12-AOAS583}\n"
+            "}"
+        ),
+        "conformal": (
+            "@article{lei2021conformal,\n"
+            "  title={Conformal inference of counterfactuals and "
+            "individual treatment effects},\n"
+            "  author={Lei, Lihua and Cand{\\`e}s, "
+            "Emmanuel J.},\n"
+            "  journal={Journal of the Royal Statistical Society: "
+            "Series B (Statistical Methodology)},\n"
+            "  volume={83},\n"
+            "  number={5},\n"
+            "  pages={911--938},\n"
+            "  year={2021},\n"
+            "  publisher={Wiley},\n"
+            "  doi={10.1111/rssb.12445}\n"
+            "}"
+        ),
+        "frontier": (
+            "@article{aigner1977formulation,\n"
+            "  title={Formulation and estimation of stochastic "
+            "frontier production function models},\n"
+            "  author={Aigner, Dennis and Lovell, C.A.Knox and "
+            "Schmidt, Peter},\n"
+            "  journal={Journal of Econometrics},\n"
+            "  year={1977},\n"
+            "  doi={10.1016/0304-4076(77)90052-5}\n"
+            "}"
+        ),
+        "machado_mata": (
+            "@article{machado2005counterfactual,\n"
+            "  title={Counterfactual decomposition of changes in "
+            "wage distributions using quantile regression},\n"
+            "  author={Machado, José A. F. and Mata, José},\n"
+            "  journal={Journal of Applied Econometrics},\n"
+            "  year={2005},\n"
+            "  doi={10.1002/jae.788}\n"
+            "}"
+        ),
+        "kernel_iv": (
+            "@inproceedings{singh2019kernel,\n"
+            "  title={Kernel Instrumental Variable Regression},\n"
+            "  author={Singh, Rahul and Sahani, Maneesh and "
+            "Gretton, Arthur},\n"
+            "  booktitle={Advances in Neural Information Processing "
+            "Systems},\n"
+            "  volume={32},\n"
+            "  pages={4595--4607},\n"
+            "  year={2019}\n"
+            "}"
+        ),
+        "gardner_did": (
+            "@article{gardner2022twostage,\n"
+            "  title={Two-stage differences in differences},\n"
+            "  author={Gardner, John},\n"
+            "  journal={arXiv preprint arXiv:2207.05943},\n"
+            "  year={2022}\n"
+            "}"
+        ),
     }
 
     def __init__(

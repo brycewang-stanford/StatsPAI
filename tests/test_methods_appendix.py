@@ -169,6 +169,18 @@ def test_econometric_result_method_present():
         ("twoway_cluster", "twoway_cluster"),
         ("multiway_cluster", "twoway_cluster"),
         ("kitagawa", "kitagawa"),
+        # RCT adjustment / conformal / frontier / kernel & two-stage batch-7
+        ("lin", "lin"),
+        ("regression_adjustment", "lin"),
+        ("conformal", "conformal"),
+        ("conformal_ite", "conformal"),
+        ("frontier", "frontier"),
+        ("sfa", "frontier"),
+        ("machado_mata", "machado_mata"),
+        ("kernel_iv", "kernel_iv"),
+        ("kiv", "kernel_iv"),
+        ("gardner_did", "gardner_did"),
+        ("did2s", "gardner_did"),
     ],
 )
 def test_resolution(method, expect_key):
@@ -492,6 +504,20 @@ def test_batch6_estimators_carry_verified_citation():
         ("gelbach", "Gelbach"),
         ("twoway_cluster", "Cameron"),
         ("kitagawa", "Kitagawa"),
+    ]:
+        r = _causal(key)
+        r._citation_key = key
+        assert token in r.cite(format="apa"), f"{key}: missing {token!r}"
+
+
+def test_batch7_estimators_carry_verified_citation():
+    for key, token in [
+        ("lin", "Lin"),
+        ("conformal", "Candès"),  # exercises {\`e} -> è diacritic
+        ("frontier", "Aigner"),
+        ("machado_mata", "Machado"),
+        ("kernel_iv", "Singh"),
+        ("gardner_did", "Gardner"),
     ]:
         r = _causal(key)
         r._citation_key = key

@@ -102,7 +102,9 @@ class MethodSpec:
 #  Cox PH, Kaplan-Meier, Lee bounds, policy learning, honest DiD, Oster
 #  bounds, wild cluster bootstrap, deep IV, interference, marginal structural
 #  models, network exposure, stacked DiD, surrogate index, Oaxaca / RIF / DFL /
-#  Gelbach decompositions, Kitagawa, multiway clustering) plus the
+#  Gelbach decompositions, Kitagawa, multiway clustering, Lin RCT adjustment,
+#  conformal ITE, stochastic frontier, Machado-Mata, kernel IV, two-stage DiD)
+#  plus the
 #  common regression families (OLS, Poisson, logit, probit, panel fixed
 #  effects).
 #
@@ -1651,6 +1653,137 @@ _SPECS: List[MethodSpec] = [
             "Category-specific rates and weights are observed for both groups.",
         ],
         aliases=["kitagawa_decompose", "rate_decomposition"],
+    ),
+    MethodSpec(
+        key="lin",
+        name="Lin Regression Adjustment (RCT)",
+        estimand_latex=r"\tau_{\mathrm{ATE}} = \mathbb{E}[Y(1) - Y(0)]",
+        estimator_latex=(
+            r"Y = \alpha + \tau D + \tilde X'\beta + D\cdot\tilde X'\gamma "
+            r"+ \varepsilon,\quad \tilde X = X - \bar X"
+        ),
+        prose=(
+            "OLS regression adjustment for a randomized experiment with a full "
+            "set of treatment-by-centered-covariate interactions: it improves "
+            "the ATE estimate's precision and cannot hurt asymptotic precision, "
+            "resolving Freedman's critique (Lin)."
+        ),
+        assumptions=[
+            "Randomized treatment assignment.",
+            "Covariates centered; treatment-covariate interactions included.",
+        ],
+        aliases=["lin_estimator", "regression_adjustment", "interacted_ols"],
+    ),
+    MethodSpec(
+        key="conformal",
+        name="Conformal Inference for ITEs",
+        estimand_latex=(r"C(x): \Pr\big(Y(1)-Y(0) \in C(x)\big) \ge 1-\alpha"),
+        estimator_latex=(
+            r"C(x) = \hat\mu(x) \pm \hat q_{1-\alpha}"
+            r"\big(\{|Y_i - \hat\mu(X_i)|\}_{\text{calib}}\big)\;"
+            r"(\text{weighted for covariate shift})"
+        ),
+        prose=(
+            "Builds prediction intervals for counterfactuals and individual "
+            "treatment effects with finite-sample, distribution-free coverage "
+            "by calibrating conformity scores on a held-out fold, reweighting to "
+            "correct the treatment-induced covariate shift (Lei & Candès)."
+        ),
+        assumptions=[
+            "Exchangeability of calibration and test points.",
+            "Unconfoundedness and overlap (for the ITE target).",
+        ],
+        aliases=["conformal_ite", "conformal_prediction", "conformal_inference"],
+    ),
+    MethodSpec(
+        key="frontier",
+        name="Stochastic Frontier Analysis",
+        estimand_latex=(
+            r"Y_i = X_i'\beta + v_i - u_i,\quad "
+            r"v_i \sim N(0,\sigma_v^2),\ u_i \ge 0"
+        ),
+        estimator_latex=(
+            r"\hat\beta,\hat\sigma_v,\hat\sigma_u\ \text{by MLE};\quad "
+            r"\widehat{\mathrm{eff}}_i = \mathbb{E}[e^{-u_i}\mid v_i - u_i]"
+        ),
+        prose=(
+            "Models output as a deterministic frontier plus symmetric noise "
+            "minus a one-sided nonnegative inefficiency term; the frontier "
+            "parameters and the noise/inefficiency variances are estimated by "
+            "maximum likelihood, and unit efficiency is recovered from the "
+            "composed residual (Aigner, Lovell & Schmidt)."
+        ),
+        assumptions=[
+            "Distributional form of the composed error (e.g. half-normal u).",
+            "Correct frontier (production/cost) specification.",
+        ],
+        aliases=["sfa", "stochastic_frontier", "sfa_estimator"],
+    ),
+    MethodSpec(
+        key="machado_mata",
+        name="Machado-Mata Quantile Decomposition",
+        estimand_latex=(
+            r"\Delta q_\tau = q_\tau^A - q_\tau^B\;\;"
+            r"(\text{coefficients} + \text{covariates})"
+        ),
+        estimator_latex=(
+            r"\hat F^{C}: \text{draw } \tau\sim U(0,1),\ "
+            r"\hat Y = X_B'\hat\beta_A(\tau);\quad "
+            r"\text{Oaxaca across the simulated distribution}"
+        ),
+        prose=(
+            "Builds counterfactual outcome distributions by combining estimated "
+            "conditional quantile-regression coefficients from one group with "
+            "the covariate distribution of another, decomposing distributional "
+            "changes into coefficient and covariate effects (Machado & Mata)."
+        ),
+        assumptions=[
+            "Correct conditional quantile-regression specification.",
+            "Conditional independence in the simulation step.",
+        ],
+        aliases=["mm_decompose", "quantile_decomposition", "machado_mata_decompose"],
+    ),
+    MethodSpec(
+        key="kernel_iv",
+        name="Kernel Instrumental Variable Regression",
+        estimand_latex=(r"h:\ Y = h(X) + e,\quad \mathbb{E}[e \mid Z] = 0"),
+        estimator_latex=(
+            r"\text{(1) } \hat\mu(z) = \widehat{\mathbb{E}}[\phi(X)\mid Z{=}z];"
+            r"\quad \text{(2) } \hat h = \text{kernel ridge of } Y "
+            r"\text{ on } \hat\mu(z)"
+        ),
+        prose=(
+            "A nonparametric RKHS generalization of 2SLS: stage 1 estimates the "
+            "conditional mean embedding of features given the instrument, stage "
+            "2 kernel-ridge-regresses the outcome on that embedding to recover a "
+            "nonlinear structural function (Singh, Sahani & Gretton)."
+        ),
+        assumptions=[
+            "Instrument validity (relevance, exclusion, independence).",
+            "The structural function lies in the chosen RKHS.",
+        ],
+        aliases=["kiv", "kernel_instrumental_variable"],
+    ),
+    MethodSpec(
+        key="gardner_did",
+        name="Two-Stage DiD (Gardner)",
+        estimand_latex=r"\tau_{\mathrm{ATT}}",
+        estimator_latex=(
+            r"\text{(1) } \hat\alpha_i,\hat\lambda_t\ \text{from } D{=}0;\quad "
+            r"\text{(2) regress } (Y_{it} - \hat\alpha_i - \hat\lambda_t)"
+            r"\ \text{on treatment indicators}"
+        ),
+        prose=(
+            "A two-stage estimator: first recover unit and time fixed effects "
+            "from untreated (not-yet/never-treated) observations, then regress "
+            "the residualized outcome on treatment dummies — heterogeneity-"
+            "robust and equivalent to imputation DiD (Gardner)."
+        ),
+        assumptions=[
+            "Parallel trends and no anticipation.",
+            "Correct two-way structure for the untreated potential outcome.",
+        ],
+        aliases=["did_2stage", "two_stage_did", "did2s"],
     ),
 ]
 
