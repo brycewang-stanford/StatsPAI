@@ -1582,6 +1582,29 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "gelbach",
+      "notes": [
+        "Closed-form identity: total_change = base_coef - full_coef exactly and per-covariate deltas sum to total_change (Gelbach 2016 exact, order-invariant decomposition). = Stata b1x2 / R equivalents."
+      ],
+      "reference": "Gelbach (2016) exact conditional decomposition identity",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_gelbach_parity.py"
+      ],
+      "tolerance": "total_change + contribution sum 1e-12 abs (observed 0)"
+    },
+    {
       "function": "general_bunching",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."

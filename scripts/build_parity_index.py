@@ -757,6 +757,21 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "selector not pinned."
         ),
     },
+    "gelbach": {
+        "status": "bit-exact",
+        "reference": "Gelbach (2016) exact conditional decomposition identity",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "total_change + contribution sum 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_gelbach_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: total_change = base_coef - full_coef exactly "
+            "and per-covariate deltas sum to total_change (Gelbach 2016 exact, "
+            "order-invariant decomposition). = Stata b1x2 / R equivalents."
+        ),
+    },
 }
 
 
