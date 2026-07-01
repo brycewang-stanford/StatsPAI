@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.9.0-batch2"
+corpus_version: "0.10.0-batch3"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -583,6 +583,57 @@ entries:
       robustness_checks:
         - {check: parallel_trends, provenance: paper_section, source: "Duflo (2001) older-cohort placebo (no exposure)"}
     notes: "Real applied DiD (construction intensity × birth cohort). A heterogeneity-robust or classic estimator is valid here."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Carpenter & Dobkin (2009) minimum-drinking-age RD (mortality jumps
+  # at age 21). Citation + DOI verified via aeaweb.org (10.1257/app.1.1.164) +
+  # NBER w13374.
+  # ---------------------------------------------------------------------------
+  - id: carpenter_dobkin_2009_mlda_rd
+    paper:
+      citation: "Carpenter, C. & Dobkin, C. (2009). The Effect of Alcohol Consumption on Mortality: Regression Discontinuity Evidence from the Minimum Drinking Age. American Economic Journal: Applied Economics 1(1), 164-182."
+      bib_key: carpenter2009effect
+    design:
+      label: rd
+      fingerprint: {synthetic: true, running_var: age, cutoff: 21.0, sharp: true}
+    data:
+      tier: B
+      loader: "sp.dgp_rd(n=1500, fuzzy=False, cutoff=0.0, seed=209)"
+      args: {y: y, running_var: x, cutoff: 0.0}
+    ground_truth:
+      estimator:
+        primary: local_polynomial_rd
+        acceptable: [rdrobust, cct, local_polynomial_rd]
+        disqualifying: []
+      robustness_checks:
+        - {check: mccrary_density,       provenance: methodological_followup, source: "density continuity at age 21"}
+        - {check: bandwidth_sensitivity, provenance: paper_section,           source: "Carpenter & Dobkin (2009) bandwidth robustness"}
+    notes: "Real applied age-cutoff RD (mortality at 21). rdrobust / local-polynomial expected."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Bertrand & Mullainathan (2004) resume-audit field experiment
+  # (randomized names → callbacks). Citation + DOI verified via aeaweb.org
+  # (10.1257/0002828042002561) + NBER w9873 + JSTOR 3592802.
+  # ---------------------------------------------------------------------------
+  - id: bertrand_mullainathan_2004_audit
+    paper:
+      citation: "Bertrand, M. & Mullainathan, S. (2004). Are Emily and Greg More Employable Than Lakisha and Jamal? A Field Experiment on Labor Market Discrimination. American Economic Review 94(4), 991-1013."
+      bib_key: bertrand2004emily
+    design:
+      label: observational
+      fingerprint: {randomized_field_experiment: true, treatment_binary: true}
+    data:
+      tier: B
+      loader: "sp.dgp_observational(n=1200, confounding=0.1, seed=204)"
+      args: {y: y, treatment: treatment, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: ols
+        acceptable: [ols, psm, dml, ipw, aipw, matching]
+        disqualifying: []
+      robustness_checks:
+        - {check: balance_after, provenance: paper_section, source: "randomization balance across name groups"}
+    notes: "Randomized resume field experiment. Difference-in-means is the gold standard; a balancing estimator is also valid (recommend detects observational — it cannot know assignment was randomized)."
 
   # ===========================================================================
   # FRONTIER (gap_probe) — design families recommend was BLIND to (F-004), now
