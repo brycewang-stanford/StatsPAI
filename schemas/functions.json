@@ -23844,7 +23844,7 @@
     }
   },
   {
-    "description": "Estimate the Population Average Treatment Effect (PATE).",
+    "description": "Estimate the Population Average Treatment Effect (PATE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pate",
     "parameters": {
       "properties": {
@@ -45017,7 +45017,7 @@
     }
   },
   {
-    "description": "Front-door adjustment -- article-friendly alias for",
+    "description": "Front-door adjustment -- article-friendly alias for Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "frontdoor",
     "parameters": {
       "properties": {

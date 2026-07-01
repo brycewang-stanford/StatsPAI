@@ -7948,7 +7948,7 @@
     "name": "front_door"
   },
   {
-    "description": "Front-door adjustment -- article-friendly alias for",
+    "description": "Front-door adjustment -- article-friendly alias for Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "X": {
@@ -14524,7 +14524,7 @@
     "name": "partial_identification"
   },
   {
-    "description": "Estimate the Population Average Treatment Effect (PATE).",
+    "description": "Estimate the Population Average Treatment Effect (PATE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
