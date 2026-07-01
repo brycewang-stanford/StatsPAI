@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from ..core._agent_summary import (  # Threshold constants imported (not re-stated) so audit's verdict; cannot drift from violations() when a future correctness fix; updates a cutoff. Single source of truth for numerical thresholds.
     _COX_PH_ALPHA,
     _ESS_MIN,
+    _FEW_CLUSTERS_MIN,
     _HECKMAN_RHO_BOUNDARY,
     _OVERLAP_MIN,
     _PRETREND_ALPHA,
@@ -511,6 +512,32 @@ _REGRESSION_CHECKS: Tuple[_Check, ...] = (
         rationale="If the hazard ratio is not constant over time the Cox "
         "coefficient is a time-averaged blur, not the reported effect.",
     ),
+    # --- Few-cluster CRV inference (regression pool, evidence-gated) - #
+    # Cluster-robust SEs are downward-biased and t-tests over-reject when the
+    # number of clusters G is small (Cameron-Gelbach-Miller 2008; MacKinnon-
+    # Webb 2017 wild cluster bootstrap is the standard remedy). The gate
+    # scopes the check to fits that actually recorded ``n_clusters`` (i.e.
+    # cluster-robust SEs were used) — a plain OLS without a ``cluster=`` arg
+    # has no G to flag, so the check is silent on it.
+    _Check(
+        name="few_clusters",
+        question="Are there enough clusters for the cluster-robust SEs to "
+        "be reliable (G ≥ 30)?",
+        applies_to=("regression",),
+        requires_evidence=("n_clusters",),
+        evidence_paths=_pp(
+            ("n_clusters",),
+            ("diagnostics", "n_clusters"),
+        ),
+        threshold=_FEW_CLUSTERS_MIN,
+        compare="greater_passes",
+        suggest_function="sp.wild_cluster_boot",
+        importance="high",
+        rationale="With G < 30 the CRV t-distribution departs sharply from "
+        "asymptotic normality; the wild cluster bootstrap is the "
+        "standard remedy (Cameron-Gelbach-Miller 2008; "
+        "MacKinnon-Webb 2017).",
+    ),
 )
 
 
@@ -568,9 +595,19 @@ def _check_signature_predicate(
     signature (case-insensitive). The signature is normalised to lower
     case inside the helper so callers can pass either a pre-lowercased
     string or the original — the public contract is the docstring.
+
+    Empty ``tokens`` returns ``False`` ("N/A") rather than ``True``
+    ("no constraint") so the OR with ``_check_evidence_predicate`` at
+    the call site behaves correctly: a check that specifies ONLY
+    ``requires_evidence`` (no signature gate) must be decided
+    entirely by the evidence gate, not silently pass-through. The
+    ``if chk.requires_evidence or chk.requires_signature`` wrapper
+    at the call site skips the gate machinery entirely when both
+    are empty, so this empty→False does not break the all-empty
+    case.
     """
     if not tokens:
-        return True  # empty gate = no constraint
+        return False  # N/A — let the evidence gate decide in isolation
     sig = (signature or "").lower()
     return any(t.lower() in sig for t in tokens)
 

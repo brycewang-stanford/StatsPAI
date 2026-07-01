@@ -8928,7 +8928,7 @@
     "name": "harvest_did"
   },
   {
-    "description": "Hausman test for FE vs RE in panel data.",
+    "description": "Hausman test for FE vs RE in panel data. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9859,7 +9859,7 @@
     "name": "iv_compare"
   },
   {
-    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin). Alternatives: sp.iv, sp.anderson_rubin_ci, sp.dml. Typical minimum N: 200.",
+    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Instrument relevance (non-zero first stage); Exclusion restriction: the instrument affects the outcome only through the treatment; Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers). Pre-conditions: An instrument plausibly affecting treatment, an endogenous treatment, and an outcome; A strong first stage (assess instrument strength before interpreting estimates). Failure modes: Weak first stage -- biased point estimates and unreliable conventional SEs -> Report first-stage F / effective F and use weak-IV-robust inference (Anderson-Rubin). Alternatives: sp.iv, sp.anderson_ru...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20935,7 +20935,7 @@
     "name": "structural_break"
   },
   {
-    "description": "Subcluster wild cluster bootstrap for few-treated-clusters.",
+    "description": "Subcluster wild cluster bootstrap for few-treated-clusters. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23340,7 +23340,7 @@
     "name": "wild_cluster_boot"
   },
   {
-    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Assumptions: Errors are exchangeable within clusters (Rademacher weights are robust to most departures); Number of clusters G >= 5 for finite-sample validity. Pre-conditions: long-format dataset with a cluster identifier present; treatment / test variable varies within at least some clusters; test_var (or first column of x) is the coefficient under test. Failure modes: Multi-way clustering requested -> Multi-way wild cluster bootstrap is not yet supported; see sp.subcluster_wild_bootstrap or use cr2_se for two-way; G < 5 clusters -> Wild cluster bootstrap is unreliable below ~5 clusters; consider permutation tests (sp.ri_test). Alternatives: sp.cr2_se, sp.subcluster_wild_bootstrap, sp.ri_test. Typical minimum N: 100.",
+    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Errors are exchangeable within clusters (Rademacher weights are robust to most departures); Number of clusters G >= 5 for finite-sample validity. Pre-conditions: long-format dataset with a cluster identifier present; treatment / test variable varies within at least some clusters; test_var (or first column of x) is the coefficient under test. Failure modes: Multi-way clustering requested -> Multi-way wild cluster bootstrap is not yet supported; see sp.subcluster_wild_bootstrap or use cr2_se for two-way; G < 5 clusters -> Wild cluster bootstrap is unreliable below ~5 clusters; consider permutation tests (sp.ri_test). Alternatives: sp.cr2_se, sp.subcluster_wild_bootstrap, sp.ri_test. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
