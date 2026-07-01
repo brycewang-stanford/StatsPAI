@@ -2925,7 +2925,7 @@
       "Variance estimates require correct strata/cluster structure."
     ],
     "category": "survey",
-    "description": "Declare a complex survey design for design-corrected estimation.",
+    "description": "Declare a complex survey design for design-corrected estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "design = sp.svydesign(df, weights=\"pw\", strata=\"region\", cluster=\"psu\")",
     "failure_modes": [
       {
@@ -2943,7 +2943,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Declare a complex survey design for design-corrected estimation.",
+      "description": "Declare a complex survey design for design-corrected estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "svydesign",
       "parameters": {
         "properties": {
@@ -2978,9 +2978,10 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "tests/reference_parity/test_survey_parity.py",
       "API/unit contract evidence: tests/test_survey.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

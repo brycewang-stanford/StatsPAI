@@ -1639,7 +1639,7 @@
     }
   },
   {
-    "description": "Declare a complex survey design for design-corrected estimation.",
+    "description": "Declare a complex survey design for design-corrected estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "svydesign",
     "parameters": {
       "properties": {
@@ -29477,7 +29477,7 @@
     }
   },
   {
-    "description": "Survey-weighted mean with design-corrected standard errors.",
+    "description": "Survey-weighted mean with design-corrected standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "svymean",
     "parameters": {
       "properties": {
@@ -29506,7 +29506,7 @@
     }
   },
   {
-    "description": "Survey-weighted total with design-corrected standard errors.",
+    "description": "Survey-weighted total with design-corrected standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "svytotal",
     "parameters": {
       "properties": {
