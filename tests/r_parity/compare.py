@@ -398,6 +398,12 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # lattice. Machine tier: worst observed 8.3e-8 est / 2.0e-8 SE after the
     # bounded rho/lambda optimiser was tightened (xatol=1e-10).
     "65_spatial": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Spatial GMM: SAR spatial 2SLS (Kelejian-Prucha) vs spatialreg::stsls
+    # (W2X=FALSE) — closed-form projection, coefficients and n-k SEs agree to
+    # machine precision (~1e-15). SEM generalized-moments coefficients +
+    # lambda vs spatialreg::GMerrorsar are bit-exact (worst 4.6e-8), emitted
+    # point-only because the coefficient-SE variance estimators differ.
+    "66_spatial_gmm": {"rel_est": 1e-6, "rel_se": 1e-6},
 }
 
 
@@ -1190,6 +1196,13 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "vs spatialreg::lagsarlm/errorsarlm/Durbin, row-std rook W",
+    },
+    "66_spatial_gmm": {
+        "name": "Spatial GMM (SAR-2SLS/SEM-GMM)",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "vs spatialreg::stsls(W2X=F)/GMerrorsar; SEM point-only",
     },
 }
 

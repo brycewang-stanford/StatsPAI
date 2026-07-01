@@ -34,7 +34,7 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (65 materialized StatsPAI--R rows)
+## Modules (66 materialized StatsPAI--R rows)
 
 Module `50_xtabond` is now materialized on the R side through
 `plm::pgmm`, so all modules 01--64 have committed StatsPAI--R rows.
@@ -43,8 +43,9 @@ modules 01--52; modules 53--56 are additional R-only
 robust/cluster-SE parity rows, and modules 57--64 extend the GLM /
 IV / system / limited-dependent-variable coverage (logit, Poisson,
 LIML, SUR, beta regression, truncated regression, ZIP, ZINB).
-Module 65 opens the spatial-econometrics family, aligning the SAR /
-SEM / SDM maximum-likelihood estimators against `spatialreg`.
+Modules 65--66 open the spatial-econometrics family, aligning the SAR /
+SEM / SDM maximum-likelihood estimators and the SAR-2SLS / SEM-GMM
+moment estimators against `spatialreg`.
 
 | # | Module | StatsPAI | R / reference side |
 | --- | --- | --- | --- |
@@ -113,6 +114,7 @@ SEM / SDM maximum-likelihood estimators against `spatialreg`.
 | 63 | Zero-inflated Poisson | `sp.zip_model` | `pscl::zeroinfl(dist="poisson")` |
 | 64 | Zero-inflated NB | `sp.zinb` | `pscl::zeroinfl(dist="negbin")` |
 | 65 | Spatial ML (SAR/SEM/SDM) | `sp.sar` / `sp.sem` / `sp.sdm` | `spatialreg::lagsarlm` / `spatialreg::errorsarlm` / `spatialreg::lagsarlm(Durbin=TRUE)` |
+| 66 | Spatial GMM (SAR-2SLS/SEM-GMM) | `sp.sar_gmm` / `sp.sem_gmm` | `spatialreg::stsls(W2X=FALSE)` / `spatialreg::GMerrorsar` |
 
 ## Running
 

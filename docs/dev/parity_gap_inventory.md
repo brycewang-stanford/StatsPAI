@@ -17,7 +17,7 @@ render tables, build agent schemas, or load data; they are not estimators.
 
 | denominator | verified | total | fraction |
 | --- | ---: | ---: | ---: |
-| **estimator functions** (parity-applicable) | 151 | 964 | **15.7%** |
+| **estimator functions** (parity-applicable) | 153 | 964 | **15.9%** |
 | infra / non-estimator (parity N/A) | — | 171 | — |
 | all registered | 143 | 1139 | 12.6% |
 
@@ -46,7 +46,7 @@ functions at once.
 | panel | 7 / 36 | FE/RE/HDFE/GMM core covered; dynamic & spatial panels open |
 | mendelian | 6 / 37 | MR core has analytical recovery; cross-package MR open |
 | decomposition | 5 / 31 | Oaxaca/DFL/RIF + inequality_index (Gini/Theil/Atkinson) bit-exact; Gelbach/Das-Gupta open |
-| spatial | 3 / 35 | SAR/SEM/SDM ML bit-exact vs `spatialreg` (module 65); GMM / spatial-panel / GWR open |
+| spatial | 5 / 35 | SAR/SEM/SDM ML + SAR-2SLS/SEM-GMM bit-exact vs `spatialreg` (modules 65--66); spatial-panel / GWR / SARAR-GMM open |
 | network | 0 / 33 | **EMPTY** |
 | inference | 7 / 26 | cluster/HAC/multiway + MHT (Bonferroni/Holm/BH vs base R) covered; bootstrap open |
 | diagnostics | 5 / 25 | Breusch-Pagan + RESET bit-exact (vs lmtest); rest analytical-feasible |
@@ -70,10 +70,11 @@ functions at once.
 
 **Tier 1 — high leverage, clear cross-language sibling, large family.**
 One module here verifies many functions and closes an `EMPTY` row.
-- **spatial** (32 gap) — SAR/SEM/SDM ML now bit-exact vs `spatialreg`
-  (module 65). Remaining leads to verify: GMM estimators (`sphet`,
-  `spatialreg::stsls`/`GMerrorsar`), spatial panels (R `splm`, Stata
-  `spxtregress`), and GWR (`GWmodel`).
+- **spatial** (30 gap) — SAR/SEM/SDM ML and SAR-2SLS/SEM-GMM now bit-exact vs
+  `spatialreg` (modules 65--66). Remaining leads to verify: spatial panels
+  (R `splm`, Stata `spxtregress`), GWR (`GWmodel`), and the SARAR GMM /
+  heteroskedastic-GM estimators (reconcile the joint moment sequence against
+  `spatialreg::gstsls` / `sphet`).
 - **panel** (29 gap) — extend the existing Track A panel module: dynamic
   (`xtdpdgmm`, `plm::pgmm` beyond `xtabond`), spatial panels.
 - **epi** (20) — candidate refs: R `epiR` / `survival` / `metafor`, Stata

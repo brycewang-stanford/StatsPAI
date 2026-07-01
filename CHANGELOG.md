@@ -36,13 +36,21 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Cross-language parity — spatial ML family opened.** New Track A module
-  `65_spatial` aligns `sp.sar` / `sp.sem` / `sp.sdm` against
-  `spatialreg::lagsarlm`, `spatialreg::errorsarlm`, and
-  `spatialreg::lagsarlm(Durbin=TRUE)` (spatialreg 1.4.3 / spdep 1.4.2) on a
-  row-standardised 12×12 rook lattice. All three are graded **bit-exact**
-  (worst relative error 8.3e-8 on estimates, 2.0e-8 on SEs), moving the
-  `spatial` family from 0 verified estimators to 3 in the parity matrix.
+- **Cross-language parity — spatial family opened.** Two new Track A modules
+  (spatialreg 1.4.3 / spdep 1.4.2, row-standardised 12×12 rook lattice):
+  - `65_spatial` aligns `sp.sar` / `sp.sem` / `sp.sdm` against
+    `spatialreg::lagsarlm`, `spatialreg::errorsarlm`, and
+    `spatialreg::lagsarlm(Durbin=TRUE)` — all three **bit-exact** (worst
+    relative error 8.3e-8 on estimates, 2.0e-8 on SEs).
+  - `66_spatial_gmm` aligns `sp.sar_gmm` against `spatialreg::stsls(W2X=FALSE)`
+    (a closed-form spatial-2SLS projection — coefficients and n−k SEs agree to
+    ~1e-15) and `sp.sem_gmm` against `spatialreg::GMerrorsar` (coefficients and
+    the spatial-error `lambda` **bit-exact**, worst 4.6e-8; point-only, as the
+    two coefficient-SE variance estimators differ by convention).
+
+  Together this moves the `spatial` family from 0 verified estimators to 5.
+  `sp.sarar_gmm` is left unverified: its joint GS-lag + GM-error path does not
+  match `spatialreg::gstsls` (different moment sequence).
 - **`sp.rlasso` — rigorous (data-driven) Lasso, a faithful port of R's
   `hdm`.** A new first-class module (`statspai.rlasso`) that ports
   `hdm::rlasso` / `rlassoEffect` / `rlassoIV` line-for-line, validated to
