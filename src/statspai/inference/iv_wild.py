@@ -11,8 +11,10 @@ correlation), regenerates the endogenous regressor and the outcome, and refits
 (see ``tests/reference_parity/test_iv_wild_boottest_parity.py``).
 
 Reads the 2SLS structure stored on the ivreg result under ``data_info['iv']``.
-Single endogenous regressor (the common case) is supported; the tested
-coefficient must be that endogenous regressor.
+Supports one or more endogenous regressors; the tested coefficient must be one
+of them (the other endogenous regressors are re-estimated by 2SLS under the
+null). Validated against ``boottest`` for both the single- and two-endogenous
+cases.
 """
 
 from __future__ import annotations
@@ -46,6 +48,75 @@ def _iv_cluster_vcov(
         meat += np.outer(moments_c, moments_c)
     correction = (n_clusters / (n_clusters - 1)) * ((n - 1) / (n - k))
     return correction * bread @ meat @ bread
+
+
+def iv_twoway_vcov(
+    result: Any,
+    data: pd.DataFrame,
+    cluster1: str,
+    cluster2: str,
+) -> Dict[str, Any]:
+    """Two-way cluster-robust covariance for 2SLS (Cameron-Gelbach-Miller 2011).
+
+    Inclusion-exclusion on the IV cluster sandwich (projected regressors
+    ``AX = P_W X``): ``V = V(c1) + V(c2) - V(c1 ∩ c2)``. The finite-sample
+    factor ``(G_min/(G_min-1)) * ((n-1)/(n-k))`` with ``G_min = min(G1, G2)``
+    matches Stata ``ivreg2 ..., cluster(c1 c2) small`` and is consistent with
+    ``sp.ivreg``'s one-way cluster convention.
+
+    Returns ``{"vcov", "std_errors", "var_names", "n_clusters1/2/12"}``.
+    """
+    iv = getattr(result, "data_info", {}).get("iv")
+    if iv is None:
+        raise MethodIncompatibility(
+            "iv_twoway_vcov requires an sp.ivreg (2SLS) result (data_info['iv'])."
+        )
+    y = np.asarray(iv["y"], dtype=float)
+    X = np.asarray(iv["X"], dtype=float)
+    W = np.asarray(iv["W"], dtype=float)
+    names = list(iv["var_names"])
+    n, k = X.shape
+
+    for c in (cluster1, cluster2):
+        if c not in data.columns or data[c].isna().any() or len(data[c]) != n:
+            raise MethodIncompatibility(
+                f"Cluster column {c!r} must be present, complete, and row-aligned "
+                "to the fitted sample."
+            )
+    c1 = pd.Categorical(data[cluster1]).codes
+    c2 = pd.Categorical(data[cluster2]).codes
+    c12 = pd.factorize(pd.Series(list(zip(c1.tolist(), c2.tolist()))))[0]
+
+    P_W = W @ np.linalg.solve(W.T @ W, W.T)
+    AX = P_W @ X
+    bread = np.linalg.inv(X.T @ AX)
+    beta = bread @ (AX.T @ y)
+    resid = y - X @ beta
+
+    def _meat(codes: np.ndarray) -> np.ndarray:
+        m = np.zeros((k, k))
+        for cid in range(int(codes.max()) + 1):
+            idx = codes == cid
+            mom = (AX[idx] * resid[idx, None]).sum(axis=0)
+            m += np.outer(mom, mom)
+        return m
+
+    g1 = int(c1.max()) + 1
+    g2 = int(c2.max()) + 1
+    g12 = int(c12.max()) + 1
+    meat = _meat(c1) + _meat(c2) - _meat(c12)
+    g_min = min(g1, g2)
+    corr = (g_min / (g_min - 1)) * ((n - 1) / (n - k))
+    V = corr * bread @ meat @ bread
+    se = pd.Series(np.sqrt(np.maximum(np.diag(V), 0)), index=names)
+    return {
+        "vcov": V,
+        "std_errors": se,
+        "var_names": names,
+        "n_clusters1": g1,
+        "n_clusters2": g2,
+        "n_clusters12": g12,
+    }
 
 
 def iv_wild_bootstrap(
@@ -86,21 +157,18 @@ def iv_wild_bootstrap(
             "iv_wild_bootstrap requires an sp.ivreg (2SLS) result carrying the "
             "stored 2SLS structure (data_info['iv'])."
         )
-    if iv["n_endog"] != 1:
-        raise MethodIncompatibility(
-            "iv_wild_bootstrap currently supports a single endogenous regressor."
-        )
-
     names = list(iv["var_names"])
     if variable not in names:
         raise ValueError(f"Variable '{variable}' not found. Available: {names}")
     test_idx = names.index(variable)
-    endog_idx = iv["n_exog"]  # single endogenous column sits after the exog block
-    if test_idx != endog_idx:
+    n_exog = iv["n_exog"]
+    endog_cols = list(range(n_exog, n_exog + iv["n_endog"]))
+    if test_idx not in endog_cols:
         raise MethodIncompatibility(
-            "iv_wild_bootstrap tests the endogenous coefficient "
-            f"('{names[endog_idx]}'); got '{variable}'. For exogenous "
-            "coefficients use the OLS wild bootstrap."
+            "iv_wild_bootstrap tests an *endogenous* coefficient; got "
+            f"'{variable}'. Endogenous regressors: "
+            f"{[names[j] for j in endog_cols]}. For exogenous coefficients use "
+            "the OLS wild bootstrap."
         )
 
     y = np.asarray(iv["y"], dtype=float)
@@ -120,8 +188,7 @@ def iv_wild_bootstrap(
     rng = np.random.default_rng(seed)
 
     # --- projection / 2SLS bread (instruments are fixed across bootstrap) ---
-    WtW_inv = np.linalg.inv(W.T @ W)
-    P_W = W @ WtW_inv @ W.T  # A = P_W for kappa = 1 (2SLS)
+    P_W = W @ np.linalg.solve(W.T @ W, W.T)  # A = P_W for kappa = 1 (2SLS)
 
     def _fit(Xmat: np.ndarray, yvec: np.ndarray):
         AX = P_W @ Xmat
@@ -135,21 +202,35 @@ def iv_wild_bootstrap(
     se = float(np.sqrt(max(V_hat[test_idx, test_idx], 1e-20)))
     t_obs = (beta_hat[test_idx] - beta0) / se if se > 0 else 0.0
 
-    # --- restricted estimation under H0: beta_endog = beta0 ---
-    d = X[:, test_idx]
+    # --- restricted estimation under H0: beta_test = beta0 ---
+    # Fix the tested coefficient and re-estimate the rest by 2SLS (the *other*
+    # endogenous regressors stay endogenous), giving the restricted structural
+    # residual u_tilde. With a single endogenous regressor `Xo` is all-exogenous
+    # and this 2SLS reduces to OLS.
+    y_tilde = y - beta0 * X[:, test_idx]
     other = [j for j in range(k) if j != test_idx]
     Xo = X[:, other]
-    g = np.linalg.lstsq(Xo, y - beta0 * d, rcond=None)[0]
-    u_tilde = (y - beta0 * d) - Xo @ g
+    AXo = P_W @ Xo
+    g = np.linalg.solve(Xo.T @ AXo, AXo.T @ y_tilde)
+    u_tilde = y_tilde - Xo @ g
 
-    # --- restricted reduced form for the endogenous regressor ---
-    if efficient:
-        Wd = np.column_stack([W, u_tilde])
-        coef = np.linalg.lstsq(Wd, d, rcond=None)[0]
-        d_base = W @ coef[: W.shape[1]]  # the instrument-explained part of d
-    else:
-        d_base = P_W @ d
-    d_resid = d - d_base  # carries the wild-resampled reduced-form variation
+    # --- restricted reduced form for every endogenous regressor ---
+    # Efficient: regress each endogenous variable on the instruments AND the
+    # restricted structural residual (exploiting the u-v correlation). The
+    # instrument-explained part is the bootstrap base; the remainder is
+    # wild-resampled with the *same* weight as u_tilde.
+    n_w = W.shape[1]
+    rf_base: Dict[int, np.ndarray] = {}
+    rf_resid: Dict[int, np.ndarray] = {}
+    wd = np.column_stack([W, u_tilde]) if efficient else W
+    for e in endog_cols:
+        if efficient:
+            coef = np.linalg.lstsq(wd, X[:, e], rcond=None)[0]
+            d_base = W @ coef[:n_w]
+        else:
+            d_base = P_W @ X[:, e]
+        rf_base[e] = d_base
+        rf_resid[e] = X[:, e] - d_base
 
     # --- bootstrap ---
     t_boot = np.empty(n_boot)
@@ -157,11 +238,11 @@ def iv_wild_bootstrap(
         w_g = _draw_weights(n_clusters, weight_type, rng)
         eps = w_g[cl_codes]
         u_star = eps * u_tilde
-        d_star = d_base + eps * d_resid  # = d_base + eps*(d - d_base)
-        y_star = beta0 * d_star + Xo @ g + u_star
-        X_star = X.copy()
-        X_star[:, test_idx] = d_star
-        beta_s, V_s = _fit(X_star, y_star)
+        x_star = X.copy()
+        for e in endog_cols:
+            x_star[:, e] = rf_base[e] + eps * rf_resid[e]
+        y_star = beta0 * x_star[:, test_idx] + x_star[:, other] @ g + u_star
+        beta_s, V_s = _fit(x_star, y_star)
         se_s = float(np.sqrt(max(V_s[test_idx, test_idx], 1e-20)))
         t_boot[b] = (beta_s[test_idx] - beta0) / se_s if se_s > 0 else 0.0
 

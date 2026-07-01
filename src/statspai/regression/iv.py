@@ -1988,5 +1988,40 @@ def ivreg(
         base.model_info["cluster"] = cluster
         return base
 
+    # Two-way clustering: ``cluster=["firm", "year"]`` runs 2SLS once (clustered
+    # on the first dimension to populate the IV structure) then overrides the
+    # variance with the two-way IV sandwich (matches Stata `ivreg2, cluster(a b)
+    # small`).
+    if isinstance(cluster, (list, tuple)) and len(cluster) == 2:
+        c1, c2 = cluster
+        base = iv(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=c1,
+            method="2sls",
+            **kwargs,
+        )
+        from statspai.inference.iv_wild import iv_twoway_vcov
+
+        tw = iv_twoway_vcov(base, data, c1, c2)
+        from scipy import stats as _stats
+
+        se = tw["std_errors"]
+        base.std_errors = se
+        z = base.params / se
+        base.pvalues = pd.Series(
+            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+        )
+        crit = _stats.norm.ppf(0.975)
+        base.conf_int_lower = base.params - crit * se
+        base.conf_int_upper = base.params + crit * se
+        base.model_info = dict(base.model_info)
+        base.model_info["vcov_type"] = "two-way cluster (CGM 2011)"
+        base.model_info["cluster"] = list(cluster)
+        base.model_info["n_clusters1"] = tw["n_clusters1"]
+        base.model_info["n_clusters2"] = tw["n_clusters2"]
+        return base
+
     kwargs.setdefault("method", "2sls")
     return iv(formula=formula, data=data, robust=se_kw, cluster=cluster, **kwargs)

@@ -727,3 +727,16 @@ ivreg2 to ~1e-9; the WRE p-value matches boottest to Monte-Carlo error
 (strong 0.2016 vs 0.20155; weak 0.3415 vs 0.3412). The weak-IV panel selects
 the *efficient* reduced form (the naive variant gives 0.426), confirming the
 implementation matches boottest's WRE rather than a simpler approximation.
+
+## Multi-endogenous WRE + two-way IV cluster
+
+`test_iv_wild_boottest_parity.py` also pins:
+
+* **Two endogenous regressors** (700 obs / 22 clusters): `ivreg2 y w (d1 d2 =
+  z1 z2 z3), cluster(firm)` gives `_b[d1]=.09126668`, `_b[d2]=-.16573432`;
+  `boottest d1/d2` gives `r(p)=.21079211` / `.01408014`. StatsPAI WRE (99999
+  reps): coefs match to ~1e-8, p = 0.2101 / 0.0151 (Monte-Carlo agreement).
+* **Two-way IV cluster** (800 obs / 25×18 clusters): `ivreg2 y w (d = z1 z2),
+  cluster(firm year) small` gives `_b[d]=.31606801`, `_se[d]=.0519819`.
+  `sp.ivreg(..., cluster=["firm","year"])` matches both exactly (the
+  `(G_min/(G_min-1))*((n-1)/(n-k))` finite-sample factor equals ivreg2 `small`).

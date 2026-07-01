@@ -138,9 +138,12 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # (0.2016 vs 0.20155) and weak-IV (0.3415 vs 0.3412) regimes, and the
         # weak-IV case rules out the naive (non-efficient) variant.
         "wild_cluster_boot": "native",
+        # Native `ivreg(cluster=["a", "b"])` — two-way IV cluster sandwich
+        # (CGM 2011 inclusion-exclusion on the projected regressors). Matches
+        # Stata `ivreg2, cluster(a b) small`.
+        "twoway": "native",
         # The remaining cells stay unsafe: the OLS standalone helpers refit
         # plain OLS and silently drop the IV two-stage structure.
-        "twoway": "standalone_unsafe",
         "cr2_cr3": "standalone_unsafe",
         "conley": "standalone_unsafe",
         "jackknife": "standalone_unsafe",
