@@ -366,6 +366,78 @@ class TestRegressFewClusters:
 
 
 # --------------------------------------------------------------------------- #
+#  DML / AIPW — propensity overlap
+# --------------------------------------------------------------------------- #
+
+
+class TestDMLOverlap:
+    def _dml(self, strength: float, n: int = 1500, seed: int = 0):
+        rng = np.random.default_rng(seed)
+        x1, x2 = rng.normal(size=n), rng.normal(size=n)
+        ps = 1 / (1 + np.exp(-(strength * x1 + 0.6 * strength * x2)))
+        d = (rng.uniform(size=n) < ps).astype(int)
+        y = 1.0 + 2.0 * d + x1 + x2 + rng.normal(size=n)
+        return sp.dml(
+            pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2}),
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            model="irm",
+        )
+
+    def test_poor_overlap_is_flagged(self):
+        viols = [
+            v for v in self._dml(4.0).violations() if v.get("test") == "dml_overlap"
+        ]
+        assert viols and viols[0]["value"] > viols[0]["threshold"]
+        assert "sp.trimming" in viols[0]["alternatives"]
+
+    def test_good_overlap_is_clean(self):
+        assert not [
+            v for v in self._dml(0.6).violations() if v.get("test") == "dml_overlap"
+        ]
+
+
+# --------------------------------------------------------------------------- #
+#  GLM — logit separation & Poisson over-dispersion
+# --------------------------------------------------------------------------- #
+
+
+class TestGLMDiagnostics:
+    def test_logit_separation_is_flagged(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=300)
+        r = sp.logit("y ~ x", data=pd.DataFrame({"y": (x > 0.3).astype(int), "x": x}))
+        viols = [v for v in r.violations() if v.get("test") == "separation"]
+        assert viols and viols[0]["severity"] == "error"
+
+    def test_clean_logit_is_not_flagged(self):
+        rng = np.random.default_rng(1)
+        x = rng.normal(size=400)
+        p = 1 / (1 + np.exp(-(0.5 + 1.0 * x)))
+        y = (rng.uniform(size=400) < p).astype(int)
+        r = sp.logit("y ~ x", data=pd.DataFrame({"y": y, "x": x}))
+        assert not [v for v in r.violations() if v.get("test") == "separation"]
+
+    def test_poisson_overdispersion_is_flagged(self):
+        rng = np.random.default_rng(0)
+        x = rng.normal(size=300)
+        lam = np.exp(0.5 + 0.8 * x)
+        y = rng.poisson(lam * rng.gamma(1.0, 1.0, 300))
+        r = sp.poisson("y ~ x", data=pd.DataFrame({"y": y, "x": x}))
+        viols = [v for v in r.violations() if v.get("test") == "overdispersion"]
+        assert viols and viols[0]["value"] > viols[0]["threshold"]
+        assert "sp.nbreg" in viols[0]["alternatives"]
+
+    def test_clean_poisson_is_not_flagged(self):
+        rng = np.random.default_rng(2)
+        x = rng.normal(size=400)
+        y = rng.poisson(np.exp(0.5 + 0.8 * x))
+        r = sp.poisson("y ~ x", data=pd.DataFrame({"y": y, "x": x}))
+        assert not [v for v in r.violations() if v.get("test") == "overdispersion"]
+
+
+# --------------------------------------------------------------------------- #
 #  Taxonomy — IdentificationError is catchable through the central taxonomy
 # --------------------------------------------------------------------------- #
 

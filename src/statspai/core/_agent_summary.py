@@ -59,6 +59,24 @@ _SMD_IMBALANCE_MAX = 0.25
 #: common support.
 _OVERLAP_MIN = 0.05
 
+#: DML / AIPW propensity overlap: share of units whose cross-fitted propensity
+#: sits at or beyond the trimming bound (near 0 or 1). Above this the IRM /
+#: AIPW estimate leans on a few near-degenerate-weight units and is unstable.
+#: 0.05 fires on genuinely poor overlap (strong confounding) while clearing
+#: moderate confounding, which trims essentially nothing.
+_DML_OVERLAP_EXTREME_SHARE = 0.05
+
+#: Absolute logit/probit slope coefficient above which (quasi-)complete
+#: separation is the likely cause: an odds ratio of e^15 ≈ 3.3M is not a real
+#: effect, it is the MLE diverging when a predictor perfectly splits the outcome
+#: (Albert-Anderson 1984; Heinze-Schemper 2002). Real coefficients are O(1-5).
+_LOGIT_SEPARATION_COEF = 15.0
+
+#: Pearson dispersion (χ²/df) above which a Poisson fit is over-dispersed —
+#: its variance exceeds its mean, so model-based SEs are too small. 1.5 is a
+#: conservative bar (equidispersion is 1.0) that clears clean Poisson data.
+_POISSON_DISPERSION_MAX = 1.5
+
 #: Minimum number of clusters for cluster-robust SE to be reliable. Below this,
 #: the CRVE is downward-biased and t-tests over-reject; the wild cluster
 #: bootstrap (Cameron-Gelbach-Miller 2008; MacKinnon-Webb 2017) is the standard
@@ -329,6 +347,49 @@ def causal_violations(result: Any) -> List[Dict[str, Any]]:
             }
         )
 
+    # --- DML / AIPW: propensity overlap ---------------------------------
+    # Gated on the IRM/AIPW-specific keys: the cross-fitted propensity scores
+    # and the trimming bound the estimator already stored. A large share of
+    # units at/beyond that bound means near-degenerate inverse-propensity
+    # weights, so the estimate rests on a handful of influential observations.
+    _pscore = mi.get("_pscore")
+    if _pscore is not None and mi.get("trimming_threshold") is not None:
+        try:
+            psc = np.asarray(_pscore, dtype=float)
+            psc = psc[np.isfinite(psc)]
+        except (TypeError, ValueError):  # pragma: no cover - defensive
+            psc = np.empty(0)
+        trim = _as_float(mi.get("trimming_threshold")) or 0.01
+        if psc.size:
+            extreme = float(np.mean((psc < trim) | (psc > 1.0 - trim)))
+            if extreme > _DML_OVERLAP_EXTREME_SHARE:
+                out.append(
+                    {
+                        "kind": "assumption",
+                        "severity": "warning",
+                        "test": "dml_overlap",
+                        "value": extreme,
+                        "threshold": _DML_OVERLAP_EXTREME_SHARE,
+                        "message": (
+                            f"{extreme:.1%} of units have a propensity score at "
+                            f"or beyond the trimming bound ({trim:g}) — weak "
+                            "overlap, so the IRM/AIPW estimate leans on a few "
+                            "near-degenerate-weight units."
+                        ),
+                        "recovery_hint": (
+                            "Narrow the estimand to the overlap region with "
+                            "sp.trimming (Crump 2009), reweight with "
+                            "sp.overlap_weights (Li et al. 2018), or improve the "
+                            "propensity model (sp.cbps)."
+                        ),
+                        "alternatives": [
+                            "sp.trimming",
+                            "sp.overlap_weights",
+                            "sp.cbps",
+                        ],
+                    }
+                )
+
     # --- Bayesian: convergence ------------------------------------------
     rhat = _as_float(mi.get("rhat_max") or _safe_get(mi, "diagnostics", "rhat_max"))
     if rhat is not None and rhat > _RHAT_MAX:
@@ -582,6 +643,89 @@ def econometric_violations(result: Any) -> List[Dict[str, Any]]:
                 ],
             }
         )
+
+    # Logit / probit (quasi-)complete separation. A slope coefficient this
+    # large is the MLE diverging because a predictor perfectly splits the
+    # outcome, not a real effect — the point estimate and its SE are unusable.
+    family = (mi.get("family", "") or "").lower()
+    is_binary_glm = (
+        "logit" in model_type or "probit" in model_type or family == "binomial"
+    )
+    if is_binary_glm:
+        params = getattr(result, "params", None)
+        if params is not None:
+            try:
+                slopes = params.drop(
+                    [
+                        i
+                        for i in params.index
+                        if str(i).lower() in ("intercept", "const")
+                    ],
+                    errors="ignore",
+                )
+                max_abs = float(np.max(np.abs(slopes.values))) if len(slopes) else 0.0
+            except (AttributeError, TypeError, ValueError, KeyError):
+                max_abs = 0.0
+            if max_abs > _LOGIT_SEPARATION_COEF:
+                out.append(
+                    {
+                        "kind": "numerical",
+                        "severity": "error",
+                        "test": "separation",
+                        "value": max_abs,
+                        "threshold": _LOGIT_SEPARATION_COEF,
+                        "message": (
+                            f"A coefficient of {max_abs:.1f} indicates "
+                            "(quasi-)complete separation — a predictor perfectly "
+                            "splits the outcome and the MLE has diverged, so the "
+                            "estimate and its SE are meaningless."
+                        ),
+                        "recovery_hint": (
+                            "Use penalised logistic regression (Firth), drop or "
+                            "combine the separating predictor, or report an exact "
+                            "/ profile-likelihood interval."
+                        ),
+                        "alternatives": ["sp.logit", "sp.rlasso"],
+                    }
+                )
+
+    # Poisson over-dispersion. Compute the Pearson dispersion from the stored
+    # fitted values (not a re-fit) — variance far above the mean means Poisson
+    # SEs are too small and a negative-binomial / robust fit is warranted.
+    if "poisson" in model_type or family == "poisson":
+        di = getattr(result, "data_info", None) or {}
+        mu = di.get("fitted_values")
+        yv = di.get("y")
+        df_resid = _as_float(di.get("df_resid"))
+        if mu is not None and yv is not None and df_resid and df_resid > 0:
+            try:
+                mu_a = np.clip(np.asarray(mu, dtype=float), 1e-10, None)
+                y_a = np.asarray(yv, dtype=float)
+                dispersion = float(np.sum((y_a - mu_a) ** 2 / mu_a) / df_resid)
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                dispersion = None
+            if dispersion is not None and dispersion > _POISSON_DISPERSION_MAX:
+                out.append(
+                    {
+                        "kind": "assumption",
+                        "severity": "warning",
+                        "test": "overdispersion",
+                        "value": dispersion,
+                        "threshold": _POISSON_DISPERSION_MAX,
+                        "message": (
+                            f"Pearson dispersion = {dispersion:.2f} > "
+                            f"{_POISSON_DISPERSION_MAX} — the variance exceeds the "
+                            "mean, so Poisson standard errors are too small and "
+                            "t-tests over-reject."
+                        ),
+                        "recovery_hint": (
+                            "Refit with sp.nbreg (negative binomial) for "
+                            "over-dispersion, or keep Poisson point estimates "
+                            "with robust='hc1' SEs (quasi-Poisson)."
+                        ),
+                        "alternatives": ["sp.nbreg", "sp.zinb", "sp.poisson"],
+                    }
+                )
 
     # Non-positive SE
     ses = getattr(result, "std_errors", None)
