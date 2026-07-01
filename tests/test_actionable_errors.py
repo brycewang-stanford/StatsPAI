@@ -610,3 +610,40 @@ def test_many_clusters_do_not_trigger_few_cluster_violation():
         _citation_key="regress",
     )
     assert not [v for v in res.violations() if v.get("test") == "few_clusters"]
+
+
+# --------------------------------------------------------------------------- #
+#  sp.audit() is a superset of result.violations()
+# --------------------------------------------------------------------------- #
+
+
+def test_audit_folds_in_violations():
+    """Every live violation must appear in sp.audit()'s checklist (single
+    source of truth), with no name double-counted."""
+    rng = np.random.default_rng(0)
+    n = 1500
+    x1, x2 = rng.normal(size=n), rng.normal(size=n)
+    ps = 1 / (1 + np.exp(-(4.0 * x1 + 2.4 * x2)))
+    d = (rng.uniform(size=n) < ps).astype(int)
+    r = sp.dml(
+        pd.DataFrame(
+            {"y": 1 + 2 * d + x1 + x2 + rng.normal(size=n), "d": d, "x1": x1, "x2": x2}
+        ),
+        y="y",
+        treat="d",
+        covariates=["x1", "x2"],
+        model="irm",
+    )
+    audit = sp.audit(r)
+    names = [c["name"] for c in audit["checks"]]
+    assert len(names) == len(set(names)), "audit checklist must not double-count"
+    viol_names = {v["test"] for v in r.violations()}
+    alias = {
+        "rhat": "convergence_rhat",
+        "balance": "balance_after",
+        "pretrend": "parallel_trends",
+        "synth_prefit": "pretreatment_fit",
+    }
+    for vn in viol_names:
+        assert vn in names or alias.get(vn) in names, f"{vn} missing from audit"
+    assert "dml_overlap" in names

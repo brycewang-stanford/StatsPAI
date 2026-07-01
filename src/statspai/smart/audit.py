@@ -678,6 +678,44 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> Dict[str, Any]:
             if chk.name not in already:
                 _record(chk)
 
+    # Fold in any live ``result.violations()`` the curated pool did not already
+    # cover, so the audit checklist stays a *superset* of violations() — a
+    # single source of truth as new diagnostics land there (DML overlap, count
+    # excess-zeros, logit separation, Cox PH, few-cluster inference, …). This is
+    # read-only: violations() only inspects stored diagnostics, never re-fits.
+    # A few violation ``test`` names map to a differently-named curated check;
+    # alias them so a concern is never double-counted.
+    _viol_alias = {
+        "rhat": "convergence_rhat",
+        "balance": "balance_after",
+        "pretrend": "parallel_trends",
+        "synth_prefit": "pretreatment_fit",
+    }
+    already = {c["name"] for c in checks}
+    try:
+        live = result.violations() if hasattr(result, "violations") else []
+    except (AttributeError, TypeError, KeyError, ValueError, RuntimeError):
+        live = []
+    for v in live or []:
+        test = v.get("test")
+        if not test or test in already or _viol_alias.get(test, test) in already:
+            continue
+        already.add(test)
+        alts = v.get("alternatives") or []
+        checks.append(
+            {
+                "name": test,
+                "question": v.get("message", ""),
+                "status": "failed",
+                "severity": v.get("severity", "warning"),
+                "value": v.get("value"),
+                "threshold": v.get("threshold"),
+                "suggest_function": alts[0] if alts else "",
+                "rationale": v.get("recovery_hint", ""),
+            }
+        )
+        counts["failed"] += 1
+
     n_passed = counts["passed"]
     n_failed = counts["failed"]
     n_missing = counts["missing"]
