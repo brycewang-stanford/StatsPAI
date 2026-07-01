@@ -29535,7 +29535,7 @@
     }
   },
   {
-    "description": "Survey-weighted generalised linear model.",
+    "description": "Survey-weighted generalised linear model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "svyglm",
     "parameters": {
       "properties": {
