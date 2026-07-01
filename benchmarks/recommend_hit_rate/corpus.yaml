@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.15.0-batch8"
+corpus_version: "0.16.0-batch9"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -892,6 +892,59 @@ entries:
         - {check: overlap,       provenance: methodological_followup, source: "common support across winning amounts"}
         - {check: balance_after, provenance: paper_section,           source: "Imbens et al. (2001) covariate balance conditioning"}
     notes: "Quasi-random unearned income (lottery amount among winners) → labor supply. Selection-on-observables adjustment; a balancing estimator is expected."
+
+  # ---------------------------------------------------------------------------
+  # FRONTIER (real anchor) — Autor, Dorn & Hanson (2013) "China Syndrome", the
+  # canonical shift-share / Bartik IV. Routes to sp.bartik when design=bartik is
+  # declared (frontier: auto-detection deferred). Citation + DOI verified via
+  # aeaweb.org (10.1257/aer.103.6.2121) + RePEc.
+  # ---------------------------------------------------------------------------
+  - id: autor_dorn_hanson_2013_bartik
+    gap_probe: true
+    paper:
+      citation: "Autor, D. H., Dorn, D. & Hanson, G. H. (2013). The China Syndrome: Local Labor Market Effects of Import Competition in the United States. American Economic Review 103(6), 2121-2168."
+      bib_key: autor2013china
+    design:
+      label: iv
+      fingerprint: {synthetic: true, shift_share: true, bartik: true, real_paper: true}
+    data:
+      tier: B
+      loader: "sp.dgp_iv(n=400, seed=39)"
+      args: {y: y, treatment: treatment, design: bartik}
+    ground_truth:
+      estimator:
+        primary: bartik
+        acceptable: [bartik]
+        disqualifying: []
+      robustness_checks:
+        - {check: weak_instrument, provenance: methodological_followup, source: "shift-share exogeneity / exposure-share diagnostics (Goldsmith-Pinkham et al. 2020)"}
+    notes: "Frontier real-paper anchor: the canonical shift-share/Bartik design. Routes to sp.bartik on declared design=bartik (auto-detection deferred)."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Oreopoulos (2006) compulsory-schooling IV (schooling-law changes as
+  # instruments for years of education → earnings). Citation + DOI verified via
+  # aeaweb.org (10.1257/000282806776157641) + RePEc.
+  # ---------------------------------------------------------------------------
+  - id: oreopoulos_2006_schooling_iv
+    paper:
+      citation: "Oreopoulos, P. (2006). Estimating Average and Local Average Treatment Effects of Education when Compulsory Schooling Laws Really Matter. American Economic Review 96(1), 152-175."
+      bib_key: oreopoulos2006estimating
+    design:
+      label: iv
+      fingerprint: {synthetic: true, endogenous: education, instrument: schooling_law_change}
+    data:
+      tier: B
+      loader: "sp.dgp_iv(n=800, first_stage=0.5, seed=206)"
+      args: {y: y, treatment: treatment, instrument: instrument, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: twosls
+        acceptable: [twosls, liml, anderson_rubin, jive]
+        disqualifying: [ols]
+      robustness_checks:
+        - {check: weak_instrument,   provenance: paper_section, source: "compulsory-schooling-law first-stage strength"}
+        - {check: anderson_rubin_ci, provenance: methodological_followup, source: "weak-IV-robust CI as a guardrail"}
+    notes: "Real applied IV (compulsory-schooling-law changes instrument for education). recommend should lead with 2SLS."
 
   # ===========================================================================
   # FRONTIER (gap_probe) — design families recommend was BLIND to (F-004), now

@@ -1,10 +1,10 @@
 {
-  "corpus_version": "0.15.0-batch8",
+  "corpus_version": "0.16.0-batch9",
   "statspai_version": "1.20.0",
-  "n_entries": 40,
-  "n_core": 34,
+  "n_entries": 42,
+  "n_core": 35,
   "n_tier_a": 10,
-  "n_tier_b": 30,
+  "n_tier_b": 32,
   "summary": {
     "hit_rate_top1": 1.0,
     "hit_rate_topk": 1.0,
@@ -15,10 +15,11 @@
     "n_audit_errors": 0
   },
   "frontier": {
-    "n_frontier": 6,
-    "n_hit": 6,
+    "n_frontier": 7,
+    "n_hit": 7,
     "coverage": 1.0,
     "ids": [
+      "autor_dorn_hanson_2013_bartik",
       "frontier_bunching_saez2010",
       "frontier_rkd_card2015",
       "frontier_ddd_gruber1994",
@@ -998,6 +999,55 @@
       "gap_probe": false
     },
     {
+      "id": "autor_dorn_hanson_2013_bartik",
+      "design": "iv",
+      "status": "HIT",
+      "detected_design": "bartik",
+      "ranked_labels": [
+        "Bartik / shift-share IV (Goldsmith-Pinkham et al. 2020)"
+      ],
+      "ranked_tags": [
+        "bartik"
+      ],
+      "top1_tag": "bartik",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "bartik"
+      ],
+      "disqualifying": [],
+      "gap_probe": true
+    },
+    {
+      "id": "oreopoulos_2006_schooling_iv",
+      "design": "iv",
+      "status": "HIT",
+      "detected_design": "iv",
+      "ranked_labels": [
+        "2SLS (two-stage least squares)",
+        "LIML (robust to weak instruments)"
+      ],
+      "ranked_tags": [
+        "twosls",
+        "liml"
+      ],
+      "top1_tag": "twosls",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "anderson_rubin",
+        "jive",
+        "liml",
+        "twosls"
+      ],
+      "disqualifying": [
+        "ols"
+      ],
+      "gap_probe": false
+    },
+    {
       "id": "frontier_bunching_saez2010",
       "design": "bunching",
       "status": "HIT",
@@ -1464,6 +1514,25 @@
       "covered": [
         "overlap",
         "balance_after"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "autor_dorn_hanson_2013_bartik",
+      "audit_family": "iv",
+      "covered": [
+        "weak_instrument"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "oreopoulos_2006_schooling_iv",
+      "audit_family": "iv",
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
       ],
       "missing_from_catalog": [],
       "catalog_recall": 1.0
@@ -2002,6 +2071,26 @@
       "actionable_next_steps": [
         "overlap",
         "balance_after"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "autor_dorn_hanson_2013_bartik",
+      "status": "AUDIT_ERROR",
+      "error": "TypeError(\"bartik() missing 2 required positional arguments: 'shares' and 'shocks'\")",
+      "dynamic_recall": null
+    },
+    {
+      "id": "oreopoulos_2006_schooling_iv",
+      "status": "OK",
+      "audit_family": "iv",
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "anderson_rubin_ci"
       ],
       "dynamic_recall": 1.0
     },

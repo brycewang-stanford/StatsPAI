@@ -1,9 +1,9 @@
 # Recommendation Hit-Rate Scorecard
 
-- corpus: `0.15.0-batch8`  |  statspai: `1.20.0`  |  entries: **40** (34 core + 6 frontier; 10 Tier-A + 30 Tier-B)
+- corpus: `0.16.0-batch9`  |  statspai: `1.20.0`  |  entries: **42** (35 core + 7 frontier; 10 Tier-A + 32 Tier-B)
 - **core top-1 hit-rate: 1.0**  |  top-k: 1.0  |  hard-miss rate: 0.0  |  errors: 0
 - audit catalog mean recall (static): 1.0  |  audit dynamic mean recall (fit+audit): 1.0  |  audit errors: 0
-- frontier coverage (gap-probe designs recommend is being taught): **1.0** (6/6)
+- frontier coverage (gap-probe designs recommend is being taught): **1.0** (7/7)
 
 ## recommend hit-rate (dynamic — runs on real / synthetic data)
 
@@ -45,6 +45,8 @@ _Frontier (gap-probe) designs are marked ⊕ and scored separately; they do not 
 | did | `ditella_schargrodsky_2004_police_did` | ✓ HIT | did | `classic_2x2` |
 | iv | `angrist_evans_1998_familysize_iv` | ✓ HIT | iv | `twosls` |
 | observational | `imbens_2001_lottery_obs` | ✓ HIT | observational | `psm` |
+| iv ⊕ | `autor_dorn_hanson_2013_bartik` | ✓ HIT | bartik | `bartik` |
+| iv | `oreopoulos_2006_schooling_iv` | ✓ HIT | iv | `twosls` |
 | bunching ⊕ | `frontier_bunching_saez2010` | ✓ HIT | bunching | `bunching` |
 | rkd ⊕ | `frontier_rkd_card2015` | ✓ HIT | rkd | `rkd` |
 | ddd ⊕ | `frontier_ddd_gruber1994` | ✓ HIT | ddd | `ddd` |
@@ -90,6 +92,8 @@ _Frontier (gap-probe) designs are marked ⊕ and scored separately; they do not 
 | `ditella_schargrodsky_2004_police_did` | did | 1.0 | parallel_trends |
 | `angrist_evans_1998_familysize_iv` | iv | 1.0 | anderson_rubin_ci |
 | `imbens_2001_lottery_obs` | matching | 1.0 | overlap, balance_after |
+| `autor_dorn_hanson_2013_bartik` | — | ERR | TypeError("bartik() missing 2 required positional arguments: |
+| `oreopoulos_2006_schooling_iv` | iv | 1.0 | anderson_rubin_ci |
 | `frontier_bunching_saez2010` | rd | 0.0 | — |
 | `frontier_rkd_card2015` | rd | 1.0 | bandwidth_sensitivity |
 | `frontier_ddd_gruber1994` | — | ERR | TypeError("ddd() missing 1 required positional argument: 'su |
