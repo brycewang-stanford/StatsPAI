@@ -1,10 +1,10 @@
 {
-  "corpus_version": "0.19.0-batch12",
+  "corpus_version": "1.0.0-fifty",
   "statspai_version": "1.20.0",
-  "n_entries": 48,
-  "n_core": 41,
+  "n_entries": 50,
+  "n_core": 43,
   "n_tier_a": 10,
-  "n_tier_b": 38,
+  "n_tier_b": 40,
   "summary": {
     "hit_rate_top1": 1.0,
     "hit_rate_topk": 1.0,
@@ -1223,6 +1223,69 @@
       "gap_probe": false
     },
     {
+      "id": "chetty_looney_kroft_2009_salience",
+      "design": "observational",
+      "status": "HIT",
+      "detected_design": "observational",
+      "ranked_labels": [
+        "Propensity Score Matching (selection on observables)",
+        "Double ML (high-dimensional controls)",
+        "OLS with robust SE (naive baseline \u2014 biased under confounding)",
+        "G-computation (ATE)"
+      ],
+      "ranked_tags": [
+        "psm",
+        "dml",
+        "ols",
+        "g_computation"
+      ],
+      "top1_tag": "psm",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "aipw",
+        "dml",
+        "ipw",
+        "matching",
+        "ols",
+        "psm"
+      ],
+      "disqualifying": [],
+      "gap_probe": false
+    },
+    {
+      "id": "finkelstein_2007_medicare_did",
+      "design": "did",
+      "status": "HIT",
+      "detected_design": "did",
+      "ranked_labels": [
+        "Callaway-Sant'Anna (2021) \u2014 staggered DID",
+        "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Event-study (dynamic treatment effects)"
+      ],
+      "ranked_tags": [
+        "callaway_santanna",
+        "sun_abraham",
+        "unknown:Event-study (dynamic treatment effects)"
+      ],
+      "top1_tag": "callaway_santanna",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "callaway_santanna",
+        "classic_2x2",
+        "did",
+        "did_imputation",
+        "drdid",
+        "sun_abraham",
+        "twfe"
+      ],
+      "disqualifying": [],
+      "gap_probe": false
+    },
+    {
       "id": "frontier_bunching_saez2010",
       "design": "bunching",
       "status": "HIT",
@@ -1765,6 +1828,24 @@
       "covered": [
         "weak_instrument",
         "anderson_rubin_ci"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "chetty_looney_kroft_2009_salience",
+      "audit_family": "matching",
+      "covered": [
+        "balance_after"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "finkelstein_2007_medicare_did",
+      "audit_family": "did",
+      "covered": [
+        "parallel_trends"
       ],
       "missing_from_catalog": [],
       "catalog_recall": 1.0
@@ -2399,6 +2480,30 @@
       "actionable_next_steps": [
         "anderson_rubin_ci"
       ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "chetty_looney_kroft_2009_salience",
+      "status": "OK",
+      "audit_family": "matching",
+      "covered": [
+        "balance_after"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "balance_after"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "finkelstein_2007_medicare_did",
+      "status": "OK",
+      "audit_family": "did",
+      "covered": [
+        "parallel_trends"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [],
       "dynamic_recall": 1.0
     },
     {

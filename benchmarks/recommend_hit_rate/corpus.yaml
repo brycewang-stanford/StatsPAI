@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.19.0-batch12"
+corpus_version: "1.0.0-fifty"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -1098,6 +1098,56 @@ entries:
         - {check: weak_instrument,   provenance: paper_section, source: "nonattainment-status first-stage strength"}
         - {check: anderson_rubin_ci, provenance: methodological_followup, source: "weak-IV-robust CI as a guardrail"}
     notes: "Real applied IV (Clean Air Act nonattainment instrument for air quality → housing values). recommend should lead with 2SLS."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Chetty, Looney & Kroft (2009) tax-salience field experiment
+  # (posting tax-inclusive prices in a grocery store, randomized). Citation +
+  # DOI verified via aeaweb.org (10.1257/aer.99.4.1145) + NBER w13330.
+  # ---------------------------------------------------------------------------
+  - id: chetty_looney_kroft_2009_salience
+    paper:
+      citation: "Chetty, R., Looney, A. & Kroft, K. (2009). Salience and Taxation: Theory and Evidence. American Economic Review 99(4), 1145-1177."
+      bib_key: chetty2009salience
+    design:
+      label: observational
+      fingerprint: {randomized_field_experiment: true, treatment_binary: true}
+    data:
+      tier: B
+      loader: "sp.dgp_observational(n=1000, confounding=0.1, seed=209)"
+      args: {y: y, treatment: treatment, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: ols
+        acceptable: [ols, psm, dml, ipw, aipw, matching]
+        disqualifying: []
+      robustness_checks:
+        - {check: balance_after, provenance: paper_section, source: "randomization balance across treated vs control aisles/stores"}
+    notes: "Randomized store tax-salience field experiment. Difference-in-means is the gold standard; a balancing estimator is also valid (recommend detects observational)."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Finkelstein (2007) Medicare-introduction DiD (regions by pre-1965
+  # insurance coverage × before/after Medicare). The 50th design. Citation + DOI
+  # verified via academic.oup.com (10.1162/qjec.122.1.1) + NBER w11619.
+  # ---------------------------------------------------------------------------
+  - id: finkelstein_2007_medicare_did
+    paper:
+      citation: "Finkelstein, A. (2007). The Aggregate Effects of Health Insurance: Evidence from the Introduction of Medicare. Quarterly Journal of Economics 122(1), 1-37."
+      bib_key: finkelstein2007aggregate
+    design:
+      label: did
+      fingerprint: {synthetic: true, n_units: 150, n_periods: 5, staggered: false, region_coverage_x_time: true}
+    data:
+      tier: B
+      loader: "sp.dgp_did(n_units=150, n_periods=5, staggered=False, seed=207)"
+      args: {y: y, treatment: treated, id: unit, time: time}
+    ground_truth:
+      estimator:
+        primary: classic_2x2
+        acceptable: [callaway_santanna, sun_abraham, classic_2x2, twfe, did, drdid, did_imputation]
+        disqualifying: []
+      robustness_checks:
+        - {check: parallel_trends, provenance: paper_section, source: "Finkelstein (2007) pre-1965 regional trends by coverage"}
+    notes: "Real applied DiD (regional pre-Medicare insurance coverage × 1965 introduction). Common timing → nothing disqualifying. The 50th benchmark design."
 
   # ===========================================================================
   # FRONTIER (gap_probe) — design families recommend was BLIND to (F-004), now
