@@ -1,0 +1,99 @@
+{
+  "module": "66_spatial_gmm",
+  "side": "py",
+  "rows": [
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sar_gmm_const",
+      "estimate": 0.974364447786435,
+      "se": 0.19917412074190388,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sar_gmm_x1",
+      "estimate": 0.7344387161194063,
+      "se": 0.08631191358840778,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sar_gmm_x2",
+      "estimate": -0.46733571011865566,
+      "se": 0.08598882954695972,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sar_gmm_rho",
+      "estimate": 0.07581347788845566,
+      "se": 0.20447064348973865,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sem_gmm_const",
+      "estimate": 1.0335540129425158,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sem_gmm_x1",
+      "estimate": 0.7367077559722242,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sem_gmm_x2",
+      "estimate": -0.43459697919420187,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "66_spatial_gmm",
+      "side": "py",
+      "statistic": "sem_gmm_lambda",
+      "estimate": 0.4773828084912733,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n": 144,
+    "lattice": "12x12 rook contiguity, row-standardised (style='W')",
+    "note": "sp.sar_gmm(w_lags=1) vs spatialreg::stsls(W2X=FALSE) (coefficients + n-k SEs, bit-exact); sp.sem_gmm vs spatialreg::GMerrorsar (coefficients + lambda, point-only \u2014 SE variance-estimator convention differs)."
+  }
+}

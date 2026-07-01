@@ -392,6 +392,31 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # identical logLik to 1e-10), so the point budget is 1e-5 instead of
     # machine; worst observed gap is ~1.1e-6 est / ~4e-5 SE.
     "64_zinb": {"rel_est": 1e-5, "rel_se": 1e-3},
+    # Spatial ML: SAR/SEM/SDM coefficients, spatial parameter (rho/lambda),
+    # and full-information asymptotic SEs vs spatialreg::lagsarlm /
+    # errorsarlm / lagsarlm(Durbin=TRUE) on a 12x12 row-standardised rook
+    # lattice. Machine tier: worst observed 8.3e-8 est / 2.0e-8 SE after the
+    # bounded rho/lambda optimiser was tightened (xatol=1e-10).
+    "65_spatial": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Spatial GMM: SAR spatial 2SLS (Kelejian-Prucha) vs spatialreg::stsls
+    # (W2X=FALSE) — closed-form projection, coefficients and n-k SEs agree to
+    # machine precision (~1e-15). SEM generalized-moments coefficients +
+    # lambda vs spatialreg::GMerrorsar are bit-exact (worst 4.6e-8), emitted
+    # point-only because the coefficient-SE variance estimators differ.
+    "66_spatial_gmm": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Panel GLM: sp.feglm(family='logit') vs fixest::feglm and sp.fepois vs
+    # fixest::fepois, both absorbing a single entity FE (id). Coefficients
+    # agree to ~1e-8 (machine); SEs differ at ~1e-5 because the two IWLS
+    # implementations iterate to slightly different working-weight roots.
+    "67_panel_glm": {"rel_est": 1e-6, "rel_se": 5e-5},
+    # Within transformation (sp.demean solver='map') vs textbook mean-within.
+    # Pure algorithmic, agrees to machine tier (~3.5e-15 worst on a 20x8
+    # balanced panel). Emitted point-only (no SE — it's a linear projection).
+    "68_demean_within": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Panel balance filter: sp.balance_panel keeps only entities observed
+    # in every period, matching base R's counts == n_periods filter. The
+    # estimator is a row-filter + sort, so all rows agree to 0.0.
+    "69_balance_panel": {"rel_est": 1e-6, "rel_se": 1e-6},
 }
 
 
@@ -1177,6 +1202,41 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "flat ZINB likelihood near optimum (1e-5 budget)",
+    },
+    "65_spatial": {
+        "name": "Spatial ML (SAR/SEM/SDM)",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "vs spatialreg::lagsarlm/errorsarlm/Durbin, row-std rook W",
+    },
+    "66_spatial_gmm": {
+        "name": "Spatial GMM (SAR-2SLS/SEM-GMM)",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "vs spatialreg::stsls(W2X=F)/GMerrorsar; SEM point-only",
+    },
+    "67_panel_glm": {
+        "name": "Panel GLM (feglm / fepois)",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5",
+    },
+    "68_demean_within": {
+        "name": "Within transformation",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "sp.demean(solver='map') vs textbook mean-within",
+    },
+    "69_balance_panel": {
+        "name": "Panel balance filter",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "sp.balance_panel vs base R counts == n_periods",
     },
 }
 

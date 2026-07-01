@@ -34,7 +34,7 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (64 materialized StatsPAI--R rows)
+## Modules (69 materialized StatsPAI--R rows)
 
 Module `50_xtabond` is now materialized on the R side through
 `plm::pgmm`, so all modules 01--64 have committed StatsPAI--R rows.
@@ -43,6 +43,15 @@ modules 01--52; modules 53--56 are additional R-only
 robust/cluster-SE parity rows, and modules 57--64 extend the GLM /
 IV / system / limited-dependent-variable coverage (logit, Poisson,
 LIML, SUR, beta regression, truncated regression, ZIP, ZINB).
+Modules 65--66 open the spatial-econometrics family, aligning the SAR /
+SEM / SDM maximum-likelihood estimators and the SAR-2SLS / SEM-GMM
+moment estimators against `spatialreg`. Module 67 extends the
+absorbing-FE estimator family (sp.feols is already bit-exact against
+fixest::feols, Track A module 03) to absorbed-FE GLMs — `sp.feglm` and
+`sp.fepois` against their fixest siblings. Module 68 pins `sp.demean` to
+the textbook mean-within projection (algorithmic, machine-tier). Module
+69 aligns `sp.balance_panel` to the base R `counts == n_periods` row
+filter.
 
 | # | Module | StatsPAI | R / reference side |
 | --- | --- | --- | --- |
@@ -110,6 +119,11 @@ LIML, SUR, beta regression, truncated regression, ZIP, ZINB).
 | 62 | Truncated regression | `sp.truncreg` | `truncreg::truncreg(method="NR")` |
 | 63 | Zero-inflated Poisson | `sp.zip_model` | `pscl::zeroinfl(dist="poisson")` |
 | 64 | Zero-inflated NB | `sp.zinb` | `pscl::zeroinfl(dist="negbin")` |
+| 65 | Spatial ML (SAR/SEM/SDM) | `sp.sar` / `sp.sem` / `sp.sdm` | `spatialreg::lagsarlm` / `spatialreg::errorsarlm` / `spatialreg::lagsarlm(Durbin=TRUE)` |
+| 66 | Spatial GMM (SAR-2SLS/SEM-GMM) | `sp.sar_gmm` / `sp.sem_gmm` | `spatialreg::stsls(W2X=FALSE)` / `spatialreg::GMerrorsar` |
+| 67 | Panel GLM (feglm / fepois) | `sp.feglm` / `sp.fepois` | `fixest::feglm` (family="logit") / `fixest::fepois` |
+| 68 | Within transformation | `sp.demean` | textbook mean-within (algorithmic) |
+| 69 | Panel balance filter | `sp.balance_panel` | base R counts == n_periods |
 
 ## Running
 

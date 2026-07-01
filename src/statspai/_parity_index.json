@@ -305,6 +305,54 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "balance_panel",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 0.0,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "n_obs_balanced",
+          "n_units_kept",
+          "row0_id",
+          "row0_year",
+          "row8_id",
+          "row8_year",
+          "row15_id",
+          "row15_year"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Panel balance filter",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "69_balance_panel",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 0.0,
+        "Stata": null
+      },
+      "python_call": "sp.balance_panel",
+      "reference": "base R counts == n_periods",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/69_balance_panel.py",
+        "tests/r_parity/69_balance_panel.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
       "function": "bcf",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -906,6 +954,53 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.05"
     },
     {
+      "function": "demean",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.451924940159949e-15,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "demean_y",
+          "demean_x1_row0",
+          "demean_x2_row0",
+          "demean_x3_row0",
+          "demean_x1_row159",
+          "demean_x2_row159",
+          "demean_x3_row159"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Within transformation",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "68_demean_within",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.451924940159949e-15,
+        "Stata": null
+      },
+      "python_call": "sp.demean",
+      "reference": "textbook mean-within (algorithmic)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/68_demean_within.py",
+        "tests/r_parity/68_demean_within.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
       "function": "dfl_decompose",
       "headline": {
         "metric": "rel_est",
@@ -1400,6 +1495,51 @@
       "tolerance": "point + CI E-value 1e-12 abs (observed 0)"
     },
     {
+      "function": "feglm",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 9.712933277486466e-09,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "feglm_logit_x1",
+          "feglm_logit_x2",
+          "fepois_x1",
+          "fepois_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Panel GLM (feglm / fepois)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "67_panel_glm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 9.712933277486466e-09,
+        "Stata": null
+      },
+      "python_call": "sp.feglm / sp.fepois",
+      "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 1.8453380512369875e-05,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/67_panel_glm.py",
+        "tests/r_parity/67_panel_glm.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+    },
+    {
       "additional_tests": [
         "tests/r_parity/15_hdfe_cluster.py",
         "tests/r_parity/15_hdfe_cluster.R",
@@ -1455,6 +1595,51 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "fepois",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 9.712933277486466e-09,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "feglm_logit_x1",
+          "feglm_logit_x2",
+          "fepois_x1",
+          "fepois_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Panel GLM (feglm / fepois)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "67_panel_glm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 9.712933277486466e-09,
+        "Stata": null
+      },
+      "python_call": "sp.feglm / sp.fepois",
+      "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 1.8453380512369875e-05,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/67_panel_glm.py",
+        "tests/r_parity/67_panel_glm.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
     {
       "function": "fortified_pci",
@@ -4163,6 +4348,110 @@
       "tolerance": "AUC 1e-12 abs (observed 0)"
     },
     {
+      "function": "sar",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 8.288407604807484e-08,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "sar_const",
+          "sar_x1",
+          "sar_x2",
+          "sar_rho",
+          "sem_const",
+          "sem_x1",
+          "sem_x2",
+          "sem_lambda",
+          "sdm_const",
+          "sdm_x1",
+          "sdm_x2",
+          "sdm_W_x1",
+          "sdm_W_x2",
+          "sdm_rho"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Spatial ML (SAR/SEM/SDM)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "65_spatial",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 8.288407604807484e-08,
+        "Stata": null
+      },
+      "python_call": "sp.sar / sp.sem / sp.sdm",
+      "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "spatialreg": "1.4.3"
+      },
+      "se_rel": {
+        "R": 1.9665191253248252e-08,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/65_spatial.py",
+        "tests/r_parity/65_spatial.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "sar_gmm",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.607208996233022e-08,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "sar_gmm_const",
+          "sar_gmm_x1",
+          "sar_gmm_x2",
+          "sar_gmm_rho",
+          "sem_gmm_const",
+          "sem_gmm_x1",
+          "sem_gmm_x2",
+          "sem_gmm_lambda"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Spatial GMM (SAR-2SLS/SEM-GMM)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "66_spatial_gmm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.607208996233022e-08,
+        "Stata": null
+      },
+      "python_call": "sp.sar_gmm / sp.sem_gmm",
+      "reference": "spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "spatialreg": "1.4.3"
+      },
+      "se_rel": {
+        "R": 1.7646664423065853e-15,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/66_spatial_gmm.py",
+        "tests/r_parity/66_spatial_gmm.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
       "function": "sbw",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -4225,6 +4514,165 @@
         "tests/r_parity/12_sdid.py",
         "tests/r_parity/12_sdid.R",
         "tests/stata_parity/12_sdid.do"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "sdm",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 8.288407604807484e-08,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "sar_const",
+          "sar_x1",
+          "sar_x2",
+          "sar_rho",
+          "sem_const",
+          "sem_x1",
+          "sem_x2",
+          "sem_lambda",
+          "sdm_const",
+          "sdm_x1",
+          "sdm_x2",
+          "sdm_W_x1",
+          "sdm_W_x2",
+          "sdm_rho"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Spatial ML (SAR/SEM/SDM)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "65_spatial",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 8.288407604807484e-08,
+        "Stata": null
+      },
+      "python_call": "sp.sar / sp.sem / sp.sdm",
+      "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "spatialreg": "1.4.3"
+      },
+      "se_rel": {
+        "R": 1.9665191253248252e-08,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/65_spatial.py",
+        "tests/r_parity/65_spatial.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "sem",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 8.288407604807484e-08,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "sar_const",
+          "sar_x1",
+          "sar_x2",
+          "sar_rho",
+          "sem_const",
+          "sem_x1",
+          "sem_x2",
+          "sem_lambda",
+          "sdm_const",
+          "sdm_x1",
+          "sdm_x2",
+          "sdm_W_x1",
+          "sdm_W_x2",
+          "sdm_rho"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Spatial ML (SAR/SEM/SDM)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "65_spatial",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 8.288407604807484e-08,
+        "Stata": null
+      },
+      "python_call": "sp.sar / sp.sem / sp.sdm",
+      "reference": "spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "spatialreg": "1.4.3"
+      },
+      "se_rel": {
+        "R": 1.9665191253248252e-08,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/65_spatial.py",
+        "tests/r_parity/65_spatial.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "sem_gmm",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 4.607208996233022e-08,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "sar_gmm_const",
+          "sar_gmm_x1",
+          "sar_gmm_x2",
+          "sar_gmm_rho",
+          "sem_gmm_const",
+          "sem_gmm_x1",
+          "sem_gmm_x2",
+          "sem_gmm_lambda"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Spatial GMM (SAR-2SLS/SEM-GMM)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "66_spatial_gmm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 4.607208996233022e-08,
+        "Stata": null
+      },
+      "python_call": "sp.sar_gmm / sp.sem_gmm",
+      "reference": "spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "spatialreg": "1.4.3"
+      },
+      "se_rel": {
+        "R": 1.7646664423065853e-15,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/66_spatial_gmm.py",
+        "tests/r_parity/66_spatial_gmm.R"
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"

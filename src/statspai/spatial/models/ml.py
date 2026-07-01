@@ -19,8 +19,8 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from scipy import sparse
 from scipy import (  # noqa: F401  (sp_stats reserved for future SE work)
-    sparse,
     stats as sp_stats,
 )
 from scipy.optimize import minimize_scalar
@@ -175,10 +175,12 @@ def _make_results(
     )
 
 
-def _spatial_se_rho(
+def _sar_information_ses(
     M: sparse.csr_matrix, X: np.ndarray, beta: np.ndarray, rho: float, sigma2: float
-) -> float:
-    """Asymptotic SE of the spatial-lag parameter ``rho``.
+) -> Tuple[np.ndarray, float]:
+    """Full-information asymptotic SEs of ``(beta, rho)`` for a SAR/SDM ML fit.
+
+    Returns ``(se_beta, se_rho)`` where ``se_beta`` is a length-``k`` array.
 
     Uses the SAR information matrix (Ord 1975; Anselin 1988, *Spatial
     Econometrics*). With ``G = W (I - rho W)^{-1}`` and ``Xb = X @ beta`` the
@@ -190,10 +192,14 @@ def _spatial_se_rho(
         I_rs = tr(G) / s2
         I_ss = n / (2 s2^2)
 
-    and ``Var(rho) = [I^{-1}]_{rho,rho}``. The earlier formula dropped the
-    ``tr(G'G)`` term (a positive quantity) and replaced ``(G Xb)`` with a
-    projection of ``X``, which understated the information and overstated the
-    SE by ~50% (verified by Monte-Carlo coverage vs the empirical SD of rho).
+    We invert it **once** and read both blocks of the inverse:
+    ``Var(beta) = [I^{-1}]_{beta,beta}`` (the leading ``k x k`` block, which
+    accounts for the beta-rho covariance) and ``Var(rho) = [I^{-1}]_{rho,rho}``.
+    This is exactly the asymptotic covariance ``spatialreg::lagsarlm`` reports.
+    The naive concentrated ``sigma2 (X'X)^{-1}`` understates ``Var(beta)``
+    because it treats ``rho`` as known — for a row-standardised ``W`` it can
+    halve the intercept SE. (The earlier ``rho``-only formula already fixed the
+    ``tr(G'G)`` drop that overstated the spatial SE by ~50%.)
     """
     n, k = X.shape
     Xb = X @ beta
@@ -210,11 +216,19 @@ def _spatial_se_rho(
         Info[k + 1, k] = Info[k, k + 1]
         Info[k + 1, k + 1] = n / (2.0 * sigma2**2)
         try:
-            return float(np.sqrt(max(np.linalg.inv(Info)[k, k], 1e-12)))
+            Vc = np.linalg.inv(Info)
+            se_beta = np.sqrt(np.clip(np.diag(Vc)[:k], 1e-12, None))
+            se_rho = float(np.sqrt(max(Vc[k, k], 1e-12)))
+            return se_beta, se_rho
         except np.linalg.LinAlgError:
-            return float("nan")
-    # Large-n sparse path: 1/sqrt(I_rr) with all three terms (the small
-    # beta/sigma2 cross-terms are dropped at scale). G v = W A^{-1} v.
+            se_beta = np.sqrt(np.diag(sigma2 * np.linalg.inv(X.T @ X)))
+            return se_beta, float("nan")
+    # Large-n sparse path: the full-information Var(beta) needs a dense
+    # (I - rho W)^{-1}, which is intractable at scale, so beta falls back to
+    # the concentrated conditional SE (documented approximation). The rho SE
+    # keeps all three information terms (the small beta/sigma2 cross-terms are
+    # dropped at scale). G v = W A^{-1} v.
+    se_beta = np.sqrt(np.diag(sigma2 * np.linalg.inv(X.T @ X)))
     rng = np.random.default_rng(0)
     m_probes = 30
     A = sparse.eye(n) - rho * M
@@ -235,7 +249,8 @@ def _spatial_se_rho(
     tr_GtG = float(np.mean(np.sum(GU * GU, axis=1)))
     GXb = M @ lu.solve(Xb)
     I_rho = tr_G2 + tr_GtG + float(GXb @ GXb) / sigma2
-    return float(1.0 / np.sqrt(max(I_rho, 1e-10)))
+    se_rho = float(1.0 / np.sqrt(max(I_rho, 1e-10)))
+    return se_beta, se_rho
 
 
 def _spatial_se_lambda(M: sparse.csr_matrix, lam: float) -> float:
@@ -342,7 +357,12 @@ def sar(
         ll += _logdet(M, rho, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max), method="bounded")
+    opt = minimize_scalar(
+        neg_conc_ll,
+        bounds=(rho_min, rho_max),
+        method="bounded",
+        options={"xatol": 1e-10},
+    )
     rho_hat = float(opt.x)
 
     y_star = y - rho_hat * Wy
@@ -350,8 +370,7 @@ def sar(
     e = y_star - X @ beta
     sigma2 = float(e @ e) / n
 
-    se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
-    se_rho = _spatial_se_rho(M, X, beta, rho_hat, sigma2)
+    se_beta, se_rho = _sar_information_ses(M, X, beta, rho_hat, sigma2)
 
     var_names = ["const"] + list(indep) + ["rho"]
     params_vec = np.append(beta, rho_hat)
@@ -432,7 +451,12 @@ def sem(
         ll += _logdet(M, lam, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(neg_conc_ll, bounds=(lam_min, lam_max), method="bounded")
+    opt = minimize_scalar(
+        neg_conc_ll,
+        bounds=(lam_min, lam_max),
+        method="bounded",
+        options={"xatol": 1e-10},
+    )
     lam_hat = float(opt.x)
 
     y_star = y - lam_hat * (M @ y)
@@ -532,7 +556,12 @@ def sdm(
         ll += _logdet(M, rho, eigvals)
         return float(-ll)
 
-    opt = minimize_scalar(neg_conc_ll, bounds=(rho_min, rho_max), method="bounded")
+    opt = minimize_scalar(
+        neg_conc_ll,
+        bounds=(rho_min, rho_max),
+        method="bounded",
+        options={"xatol": 1e-10},
+    )
     rho_hat = float(opt.x)
 
     y_star = y - rho_hat * Wy
@@ -540,8 +569,7 @@ def sdm(
     e = y_star - X_aug @ beta_aug
     sigma2 = float(e @ e) / n
 
-    se_beta = np.sqrt(np.diag(sigma2 * XtX_inv))
-    se_rho = _spatial_se_rho(M, X_aug, beta_aug, rho_hat, sigma2)
+    se_beta, se_rho = _sar_information_ses(M, X_aug, beta_aug, rho_hat, sigma2)
 
     lag_names = [f"W_{v}" for v in indep]
     var_names = ["const"] + list(indep) + lag_names + ["rho"]
@@ -734,7 +762,7 @@ def sac(
         ll += _logdet(M, rho, eigvals) + _logdet(M, lam, eigvals)
         return float(-ll)
 
-    from scipy.optimize import minimize, differential_evolution
+    from scipy.optimize import differential_evolution, minimize
 
     # Multi-start: coarse global search via differential evolution, then
     # local polish with Nelder-Mead. Single-start Nelder-Mead gets stuck

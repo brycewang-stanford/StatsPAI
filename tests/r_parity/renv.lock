@@ -1463,6 +1463,18 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "spatialreg": {
+      "Package": "spatialreg",
+      "Version": "1.4.3",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "spdep": {
+      "Package": "spdep",
+      "Version": "1.4.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "splines": {
       "Package": "splines",
       "Version": "4.5.2",

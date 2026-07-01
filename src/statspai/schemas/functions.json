@@ -2398,7 +2398,7 @@
     }
   },
   {
-    "description": "Spatial Durbin Model: Y = rhoWY + Xbeta + WXtheta + epsilon with direct/indirect effects.",
+    "description": "Spatial Durbin Model: Y = rhoWY + Xbeta + WXtheta + epsilon with direct/indirect effects. Validation: certified parity evidence.",
     "name": "sdm",
     "parameters": {
       "properties": {
@@ -18140,7 +18140,7 @@
     }
   },
   {
-    "description": "Balance a panel by keeping only units observed in every time period.",
+    "description": "Balance a panel by keeping only units observed in every time period. Validation: certified parity evidence.",
     "name": "balance_panel",
     "parameters": {
       "properties": {
@@ -18648,7 +18648,7 @@
     }
   },
   {
-    "description": "Return the within-transformed ``x`` and the singleton keep mask.",
+    "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence.",
     "name": "demean",
     "parameters": {
       "properties": {
@@ -19656,7 +19656,7 @@
     }
   },
   {
-    "description": "CR3 cluster-jackknife variance (delete-one-cluster).",
+    "description": "CR3 cluster-jackknife variance (delete-one-cluster). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cr3_jackknife_vcov",
     "parameters": {
       "properties": {
@@ -23654,7 +23654,7 @@
     }
   },
   {
-    "description": "Randomization inference p-value.",
+    "description": "Randomization inference p-value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ri_test",
     "parameters": {
       "properties": {
@@ -24091,7 +24091,7 @@
     }
   },
   {
-    "description": "Leave-one-cluster-out jackknife standard errors.",
+    "description": "Leave-one-cluster-out jackknife standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "jackknife_se",
     "parameters": {
       "properties": {
@@ -30169,7 +30169,7 @@
     }
   },
   {
-    "description": "Gelbach (2016) decomposition of omitted variable bias.",
+    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "gelbach",
     "parameters": {
       "properties": {
@@ -33014,7 +33014,7 @@
     }
   },
   {
-    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest.",
+    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence.",
     "name": "fepois",
     "parameters": {
       "properties": {
@@ -41502,7 +41502,7 @@
     }
   },
   {
-    "description": "Kelejian-Prucha (1999) GMM for the spatial-error parameter lambda.",
+    "description": "Kelejian-Prucha (1999) GMM for the spatial-error parameter lambda. Validation: certified parity evidence.",
     "name": "sem_gmm",
     "parameters": {
       "properties": {
@@ -42732,7 +42732,7 @@
     }
   },
   {
-    "description": "Das Gupta (1993) multi-factor decomposition.",
+    "description": "Das Gupta (1993) multi-factor decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "das_gupta",
     "parameters": {
       "properties": {
@@ -42919,7 +42919,7 @@
     }
   },
   {
-    "description": "Subgroup decomposition (between / within) of an inequality index.",
+    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "subgroup_decompose",
     "parameters": {
       "properties": {

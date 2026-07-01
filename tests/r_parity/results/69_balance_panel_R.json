@@ -1,0 +1,108 @@
+{
+  "module": "69_balance_panel",
+  "side": "R",
+  "rows": [
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "n_obs_balanced",
+      "estimate": 16,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "n_units_kept",
+      "estimate": 4,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "row0_id",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "row0_year",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "row8_id",
+      "estimate": 3,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "row8_year",
+      "estimate": 0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "row15_id",
+      "estimate": 4,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "R",
+      "statistic": "row15_year",
+      "estimate": 3,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "filter": ["keep only entities observed in every period"],
+    "note": ["sp.balance_panel vs base R counts"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5.1",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "compiler": "4.5.2",
+      "jsonlite": "2.0.0"
+    }
+  }
+}

@@ -35,6 +35,36 @@ that can change point estimates.
 
 ---
 
+<a id="spatial-ml-fullinfo-se"></a>
+
+## Unreleased — ⚠️ `sp.sar` / `sp.sdm` report full-information coefficient SEs
+
+**What changed.** The coefficient standard errors from `sp.sar` (spatial lag)
+and `sp.sdm` (spatial Durbin) now come from the inverse of the full
+`(β, ρ, σ²)` maximum-likelihood information matrix — the same asymptotic
+covariance `spatialreg::lagsarlm` reports — instead of the concentrated
+`σ²(XᵀX)⁻¹`. The bounded `ρ`/`λ` line-search was also tightened to
+`xatol=1e-10`.
+
+**Why.** The concentrated formula treats the spatial parameter `ρ` as known,
+dropping the `β`–`ρ` covariance and understating the coefficient SEs; on a
+row-standardised `W` the intercept SE came out roughly half its correct value.
+The full information matrix was already being formed and inverted to produce the
+`ρ` SE, so the correct `Var(β)` is the leading block of that same inverse.
+Module `65_spatial` now grades `sar`/`sem`/`sdm` **bit-exact** against
+`spatialreg` (worst relative error 8.3e-8 on estimates, 2.0e-8 on SEs).
+
+**Who is affected.** Any `sp.sar` / `sp.sdm` result whose reported coefficient
+standard errors, t/z-statistics, p-values, or confidence intervals were used;
+the intercept SE moves most. Point estimates move only at the ≲1e-5 level from
+the tighter optimiser. `sp.sem` and `sp.slx` standard errors are unchanged.
+
+**Action required.** Re-run any `sp.sar` / `sp.sdm` inference; coefficient point
+estimates are substantively unchanged, but SEs (hence significance) can differ.
+No call-site change is required — this is a numerical correction.
+
+---
+
 <a id="etwfe-cgroup-simple-att"></a>
 
 ## Unreleased — ⚠️ `sp.etwfe` now honors `cgroup` and reports the R/Stata simple ATT

@@ -1,0 +1,100 @@
+{
+  "module": "69_balance_panel",
+  "side": "py",
+  "rows": [
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "n_obs_balanced",
+      "estimate": 16.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "n_units_kept",
+      "estimate": 4.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "row0_id",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "row0_year",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "row8_id",
+      "estimate": 3.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "row8_year",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "row15_id",
+      "estimate": 4.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    },
+    {
+      "module": "69_balance_panel",
+      "side": "py",
+      "statistic": "row15_year",
+      "estimate": 3.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 19,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n_obs_in": 19,
+    "n_obs_out": 16,
+    "n_units_kept": 4,
+    "note": "sp.balance_panel keeps only entities observed in every period (id=2 dropped here). The R side applies the same filter using base R counts."
+  }
+}

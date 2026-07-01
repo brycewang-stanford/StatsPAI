@@ -952,7 +952,7 @@
     "name": "balance_diagnostics"
   },
   {
-    "description": "Balance a panel by keeping only units observed in every time period.",
+    "description": "Balance a panel by keeping only units observed in every time period. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "entity": {
@@ -3944,7 +3944,7 @@
     "name": "cr2_se"
   },
   {
-    "description": "CR3 cluster-jackknife variance (delete-one-cluster).",
+    "description": "CR3 cluster-jackknife variance (delete-one-cluster). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "X": {
@@ -4249,7 +4249,7 @@
     "name": "dag_example"
   },
   {
-    "description": "Das Gupta (1993) multi-factor decomposition.",
+    "description": "Das Gupta (1993) multi-factor decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "data_a": {
@@ -4405,7 +4405,7 @@
     "name": "decompose"
   },
   {
-    "description": "Return the within-transformed ``x`` and the singleton keep mask.",
+    "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "drop_singletons": {
@@ -7437,7 +7437,7 @@
     "name": "feols"
   },
   {
-    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Assumptions: Conditional mean exponential link: E[y | x, alpha] = exp(x'beta + alpha); Strict exogeneity conditional on the absorbed fixed effects (PPML consistency). Pre-conditions: Outcome is a non-negative count or non-negative continuous variable; Fixed effects columns are categorical; absorbed groups exist. Failure modes: Convergence failure or extreme exponentiated predictions -> Drop large-magnitude regressors, rescale, or switch to OLS on log(1+y) (with caveats); Separation: some FE level perfectly predicts zero outcomes -> Drop perfectly-predicted groups and rerun; document the restriction. Alternatives: sp.feols, sp.regress, sp.panel. Typical minimum N: 200.",
+    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Assumptions: Conditional mean exponential link: E[y | x, alpha] = exp(x'beta + alpha); Strict exogeneity conditional on the absorbed fixed effects (PPML consistency). Pre-conditions: Outcome is a non-negative count or non-negative continuous variable; Fixed effects columns are categorical; absorbed groups exist. Failure modes: Convergence failure or extreme exponentiated predictions -> Drop large-magnitude regressors, rescale, or switch to OLS on log(1+y) (with caveats); Separation: some FE level perfectly predicts zero outcomes -> Drop perfectly-predicted groups and rerun; document the restriction. Alternatives: sp.feols, sp.regress, sp.panel. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "collin_tol": {
@@ -8264,7 +8264,7 @@
     "name": "gate_test"
   },
   {
-    "description": "Gelbach (2016) decomposition of omitted variable bias.",
+    "description": "Gelbach (2016) decomposition of omitted variable bias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "added_x": {
@@ -10060,7 +10060,7 @@
     "name": "ivreg"
   },
   {
-    "description": "Leave-one-cluster-out jackknife standard errors.",
+    "description": "Leave-one-cluster-out jackknife standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -18786,7 +18786,7 @@
     "name": "reset_test"
   },
   {
-    "description": "Randomization inference p-value.",
+    "description": "Randomization inference p-value. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21032,7 +21032,7 @@
     "name": "subgroup_analysis"
   },
   {
-    "description": "Subgroup decomposition (between / within) of an inequality index.",
+    "description": "Subgroup decomposition (between / within) of an inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {

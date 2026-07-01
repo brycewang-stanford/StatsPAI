@@ -18,6 +18,14 @@ These change DiD point estimates for affected staggered/switching designs. See
   the full horizon, and placebo effects use the Stata mirror sign convention.
   New parity guards cover both Stata-pinned static panels and hand-checkable
   dynamic/placebo regressions.
+- **`sp.sar` / `sp.sdm` coefficient standard errors** now come from the full
+  `(β, ρ, σ²)` information matrix (the leading block of its inverse), matching
+  `spatialreg::lagsarlm`. The previous concentrated `σ²(XᵀX)⁻¹` treated `ρ` as
+  known and understated the coefficient SEs — most visibly ~2× too small on the
+  intercept for a row-standardised `W`. Point estimates and the `ρ`/`λ` SEs are
+  substantively unchanged; the bounded `ρ`/`λ` ML optimiser was also tightened
+  (`xatol=1e-10`), shifting estimates by ≲1e-5 toward the exact MLE. `sp.sem`
+  and `sp.slx` standard errors are unaffected. See `MIGRATION.md`.
 - **`sp.etwfe` control-group and headline aggregation** now honors the public
   `cgroup` contract. The default `cgroup="notyet"` headline is the
   treated-observation-weighted simple ATT used by R `etwfe::emfx(type="simple")`
@@ -28,6 +36,38 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
+- **Cross-language parity — within-transformation pinned to textbook
+  mean-within.** New Track A module `68_demean_within` aligns
+  `sp.demean(solver="map")` against the textbook entity-mean projection
+  (algorithmic, no R package sibling). Worst observed gap is 3.5e-15 (machine
+  tier). The function is now graded **bit-exact** in the parity matrix.
+- **Cross-language parity — panel-balance filter aligned.** New Track A
+  module `69_balance_panel` aligns `sp.balance_panel` against the base R
+  `counts == n_periods` row filter on an unbalanced 5×4 panel. All eight
+  rows agree to 0.0 (bit-exact). The function is now graded **bit-exact** in
+  the parity matrix.
+- **Cross-language parity — absorbed-FE panel GLM family added.** New Track A
+  module `67_panel_glm` aligns `sp.feglm` (Bernoulli logit) and `sp.fepois`
+  against `fixest::feglm` and `fixest::fepois` (single entity fixed effect
+  absorbed by both sides). Coefficients agree to ~1e-8 (machine tier); SEs
+  differ at ~1e-5 because the two IWLS implementations iterate to slightly
+  different working-weight roots — well within the iterative tier. Both
+  functions are now graded **bit-exact** in the parity matrix.
+- **Cross-language parity — spatial family opened.** Two new Track A modules
+  (spatialreg 1.4.3 / spdep 1.4.2, row-standardised 12×12 rook lattice):
+  - `65_spatial` aligns `sp.sar` / `sp.sem` / `sp.sdm` against
+    `spatialreg::lagsarlm`, `spatialreg::errorsarlm`, and
+    `spatialreg::lagsarlm(Durbin=TRUE)` — all three **bit-exact** (worst
+    relative error 8.3e-8 on estimates, 2.0e-8 on SEs).
+  - `66_spatial_gmm` aligns `sp.sar_gmm` against `spatialreg::stsls(W2X=FALSE)`
+    (a closed-form spatial-2SLS projection — coefficients and n−k SEs agree to
+    ~1e-15) and `sp.sem_gmm` against `spatialreg::GMerrorsar` (coefficients and
+    the spatial-error `lambda` **bit-exact**, worst 4.6e-8; point-only, as the
+    two coefficient-SE variance estimators differ by convention).
+
+  Together this moves the `spatial` family from 0 verified estimators to 5.
+  `sp.sarar_gmm` is left unverified: its joint GS-lag + GM-error path does not
+  match `spatialreg::gstsls` (different moment sequence).
 - **`sp.rlasso` — rigorous (data-driven) Lasso, a faithful port of R's
   `hdm`.** A new first-class module (`statspai.rlasso`) that ports
   `hdm::rlasso` / `rlassoEffect` / `rlassoIV` line-for-line, validated to

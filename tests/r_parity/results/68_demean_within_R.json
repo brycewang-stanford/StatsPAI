@@ -1,0 +1,130 @@
+{
+  "module": "68_demean_within",
+  "side": "R",
+  "rows": [
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_y",
+      "estimate": 0.00405227894906376,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x1_row0",
+      "estimate": 0.615450579627037,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x2_row0",
+      "estimate": -1.07372004111638,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x3_row0",
+      "estimate": 0.354069993999526,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x1_row79",
+      "estimate": -0.366615345617459,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x2_row79",
+      "estimate": -0.05899187201082,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x3_row79",
+      "estimate": -0.909990850192474,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x1_row159",
+      "estimate": -1.05768516348248,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x2_row159",
+      "estimate": -1.41514702464079,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    },
+    {
+      "module": "68_demean_within",
+      "side": "R",
+      "statistic": "demean_x3_row159",
+      "estimate": 2.25932365909374,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "transform": ["within (entity-mean projection)"],
+    "note": ["sp.demean(solver='map') vs textbook mean-within; machine tier"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5.1",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "compiler": "4.5.2",
+      "jsonlite": "2.0.0"
+    }
+  }
+}

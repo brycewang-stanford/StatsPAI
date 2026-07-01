@@ -1,0 +1,165 @@
+{
+  "module": "65_spatial",
+  "side": "py",
+  "rows": [
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sar_const",
+      "estimate": 0.9233951778523454,
+      "se": 0.16679224947594562,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sar_x1",
+      "estimate": 0.8017316893681659,
+      "se": 0.0989968338512036,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sar_x2",
+      "estimate": -0.3675930028766957,
+      "se": 0.0848940983880295,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sar_rho",
+      "estimate": 0.5486991846577806,
+      "se": 0.07307320230974662,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sem_const",
+      "estimate": 1.9991990082201947,
+      "se": 0.2087980615301364,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sem_x1",
+      "estimate": 0.7905626993413403,
+      "se": 0.09795781368324921,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sem_x2",
+      "estimate": -0.31340259605841425,
+      "se": 0.08273243270584699,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sem_lambda",
+      "estimate": 0.5983424828615727,
+      "se": 0.07994004795248953,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sdm_const",
+      "estimate": 0.8986395685343747,
+      "se": 0.18514449030868121,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sdm_x1",
+      "estimate": 0.8047349571123388,
+      "se": 0.09752361534524437,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sdm_x2",
+      "estimate": -0.37104736747762285,
+      "se": 0.08439331856680644,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sdm_W_x1",
+      "estimate": -0.19482912880774533,
+      "se": 0.19066385818257212,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sdm_W_x2",
+      "estimate": -0.2846904510579388,
+      "se": 0.183340537100828,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    },
+    {
+      "module": "65_spatial",
+      "side": "py",
+      "statistic": "sdm_rho",
+      "estimate": 0.5548937152195326,
+      "se": 0.0823877486910896,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 144,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n": 144,
+    "lattice": "12x12 rook contiguity, row-standardised (style='W')",
+    "note": "sp.sar/sem/sdm ML fits vs spatialreg::lagsarlm / errorsarlm / lagsarlm(Durbin=TRUE). Coefficients and full-information asymptotic SEs match to machine tolerance."
+  }
+}

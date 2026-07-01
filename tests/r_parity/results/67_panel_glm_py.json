@@ -1,0 +1,57 @@
+{
+  "module": "67_panel_glm",
+  "side": "py",
+  "rows": [
+    {
+      "module": "67_panel_glm",
+      "side": "py",
+      "statistic": "feglm_logit_x1",
+      "estimate": 0.2854765500247103,
+      "se": 0.13680766416917184,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 360,
+      "extra": {}
+    },
+    {
+      "module": "67_panel_glm",
+      "side": "py",
+      "statistic": "feglm_logit_x2",
+      "estimate": -0.28481520551090306,
+      "se": 0.12934541064538535,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 360,
+      "extra": {}
+    },
+    {
+      "module": "67_panel_glm",
+      "side": "py",
+      "statistic": "fepois_x1",
+      "estimate": 0.23196391239724987,
+      "se": 0.04499821266079125,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    },
+    {
+      "module": "67_panel_glm",
+      "side": "py",
+      "statistic": "fepois_x2",
+      "estimate": -0.27425306074276834,
+      "se": 0.04926936104197914,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 300,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n_logit": 360,
+    "n_poisson": 300,
+    "feglm_logit_ref": "fixest::feglm(family='logit')",
+    "fepois_ref": "fixest::fepois",
+    "note": "Both estimators absorb the id fixed effect via the same demeaning path used by sp.feols (bit-exact against fixest::feols, Track A module 03); the IWLS loop adds the GLM family. Coefficients and IID SEs land bit-for-bit on the fixest siblings."
+  }
+}
