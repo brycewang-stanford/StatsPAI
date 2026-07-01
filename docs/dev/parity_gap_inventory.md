@@ -17,9 +17,9 @@ render tables, build agent schemas, or load data; they are not estimators.
 
 | denominator | verified | total | fraction |
 | --- | ---: | ---: | ---: |
-| **estimator functions** (parity-applicable) | 128 | 964 | **13.3%** |
+| **estimator functions** (parity-applicable) | 131 | 964 | **13.6%** |
 | infra / non-estimator (parity N/A) | — | 171 | — |
-| all registered | 128 | 1135 | 11.3% |
+| all registered | 131 | 1135 | 11.5% |
 
 > Recent coverage gains (vs R): +`kaplan_meier`, +`logrank_test`
 > (`survival::survfit`/`survdiff`, bit-exact); +`bonferroni`, +`holm`,
@@ -51,7 +51,7 @@ functions at once.
 | inference | 7 / 26 | cluster/HAC/multiway + MHT (Bonferroni/Holm/BH vs base R) covered; bootstrap open |
 | diagnostics | 5 / 25 | Breusch-Pagan + RESET bit-exact (vs lmtest); rest analytical-feasible |
 | dag | 0 / 23 | **EMPTY** |
-| epi | 4 / 20 | OR/RR/RD/Mantel-Haenszel bit-exact (base-R closed form); standardization/diagnostics open |
+| epi | 7 / 20 | OR/RR/RD/MH + prevalence-ratio/NNT/IRR bit-exact (base-R closed form); standardization/diagnostics open |
 | timeseries | 3 / 20 | VAR/LP/ARIMA covered; cointegration/GARCH open |
 | bayes | 0 / 19 | **EMPTY** (convergence-diagnostic, not numeric-parity, ceiling) |
 | conformal_causal | 0 / 17 | **EMPTY** (frontier) |

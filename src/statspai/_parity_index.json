@@ -1709,6 +1709,30 @@
       "tolerance": "count + zero coefficients 1e-6 abs (observed ~2e-8)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "incidence_rate_ratio",
+      "notes": [
+        "Frozen-R fixture: incidence rate ratio + conditional-binomial exact CI match the canonical base-R closed form (binom.test). Regenerate via _generate_epi_R.R."
+      ],
+      "reference": "base-R closed form (rate ratio + conditional-binomial exact CI)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_epi_parity.py",
+        "tests/reference_parity/_fixtures/epi_R.json"
+      ],
+      "tolerance": "estimate 1e-12; exact CI 1e-10 abs (observed ~3e-15)"
+    },
+    {
       "function": "interference",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -2609,6 +2633,30 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "number_needed_to_treat",
+      "notes": [
+        "Frozen-R fixture: NNT point estimate = 1/RD matches base R exactly. CI is not pinned (convention differs when the RD CI crosses zero). Regenerate via _generate_epi_R.R."
+      ],
+      "reference": "base-R closed form (NNT = 1/risk difference)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_epi_parity.py",
+        "tests/reference_parity/_fixtures/epi_R.json"
+      ],
+      "tolerance": "estimate 1e-12 abs (observed 0); CI not pinned"
+    },
+    {
       "function": "oaxaca",
       "headline": {
         "metric": "rel_est",
@@ -2982,6 +3030,30 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "prevalence_ratio",
+      "notes": [
+        "Frozen-R fixture: Katz-log prevalence ratio + CI match the canonical base-R closed form exactly. Regenerate via _generate_epi_R.R."
+      ],
+      "reference": "base-R closed form (Katz-log; = epiR::epi.2by2)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_epi_parity.py",
+        "tests/reference_parity/_fixtures/epi_R.json"
+      ],
+      "tolerance": "estimate, se_log, CI 1e-12 abs (observed ~2e-16)"
     },
     {
       "function": "principal_strat",

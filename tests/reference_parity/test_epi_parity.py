@@ -76,3 +76,30 @@ def test_mantel_haenszel_matches_R(r_reference):
     lo, hi = _g(res, "ci")
     assert lo == pytest.approx(ref["ci_lo"], abs=_TOL)
     assert hi == pytest.approx(ref["ci_hi"], abs=_TOL)
+
+
+def test_prevalence_ratio_matches_R(r_reference):
+    res = sp.prevalence_ratio(30, 70, 20, 80)
+    ref = r_reference["PR"]
+    assert _g(res, "estimate") == pytest.approx(ref["estimate"], abs=_TOL)
+    assert _g(res, "se_log") == pytest.approx(ref["se_log"], abs=_TOL)
+    lo, hi = _g(res, "ci")
+    assert lo == pytest.approx(ref["ci_lo"], abs=_TOL)
+    assert hi == pytest.approx(ref["ci_hi"], abs=_TOL)
+
+
+def test_number_needed_to_treat_matches_R(r_reference):
+    # Point estimate = 1/RD; CI convention differs when the RD CI crosses zero,
+    # so only the estimate is pinned.
+    res = sp.number_needed_to_treat(30, 70, 20, 80)
+    ref = r_reference["NNT"]["estimate"]
+    assert _g(res, "estimate") == pytest.approx(ref, abs=_TOL)
+
+
+def test_incidence_rate_ratio_matches_R(r_reference):
+    res = sp.incidence_rate_ratio(40, 100, 20, 100)
+    ref = r_reference["IRR"]
+    assert _g(res, "estimate") == pytest.approx(ref["estimate"], abs=_TOL)
+    lo, hi = _g(res, "ci")
+    assert lo == pytest.approx(ref["ci_lo"], abs=1e-10)
+    assert hi == pytest.approx(ref["ci_hi"], abs=1e-10)

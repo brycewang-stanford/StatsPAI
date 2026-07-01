@@ -416,6 +416,53 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "_generate_epi_R.R."
         ),
     },
+    "prevalence_ratio": {
+        "status": "bit-exact",
+        "reference": "base-R closed form (Katz-log; = epiR::epi.2by2)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "estimate, se_log, CI 1e-12 abs (observed ~2e-16)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_epi_parity.py",
+            "tests/reference_parity/_fixtures/epi_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: Katz-log prevalence ratio + CI match the canonical "
+            "base-R closed form exactly. Regenerate via _generate_epi_R.R."
+        ),
+    },
+    "number_needed_to_treat": {
+        "status": "bit-exact",
+        "reference": "base-R closed form (NNT = 1/risk difference)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "estimate 1e-12 abs (observed 0); CI not pinned",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_epi_parity.py",
+            "tests/reference_parity/_fixtures/epi_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: NNT point estimate = 1/RD matches base R exactly. "
+            "CI is not pinned (convention differs when the RD CI crosses zero). "
+            "Regenerate via _generate_epi_R.R."
+        ),
+    },
+    "incidence_rate_ratio": {
+        "status": "bit-exact",
+        "reference": "base-R closed form (rate ratio + conditional-binomial exact CI)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "estimate 1e-12; exact CI 1e-10 abs (observed ~3e-15)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_epi_parity.py",
+            "tests/reference_parity/_fixtures/epi_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: incidence rate ratio + conditional-binomial exact "
+            "CI match the canonical base-R closed form (binom.test). Regenerate "
+            "via _generate_epi_R.R."
+        ),
+    },
 }
 
 
