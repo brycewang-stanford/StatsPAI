@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.18.0-batch11"
+corpus_version: "0.19.0-batch12"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -1046,6 +1046,58 @@ entries:
       robustness_checks:
         - {check: parallel_trends, provenance: paper_section, source: "Bleakley (2007) pre-eradication trends by infection intensity"}
     notes: "Real applied DiD (pre-eradication hookworm intensity × cohort exposure). Heterogeneity-robust or classic DiD valid."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Black (1999) school-attendance-boundary RD (house prices just
+  # inside vs outside a boundary, differing only by assigned school). Citation +
+  # DOI verified via academic.oup.com (10.1162/003355399556070) + RePEc.
+  # ---------------------------------------------------------------------------
+  - id: black_1999_school_boundary_rd
+    paper:
+      citation: "Black, S. E. (1999). Do Better Schools Matter? Parental Valuation of Elementary Education. Quarterly Journal of Economics 114(2), 577-599."
+      bib_key: black1999schools
+    design:
+      label: rd
+      fingerprint: {synthetic: true, running_var: distance_to_boundary, cutoff: 0.0, geographic_boundary: true}
+    data:
+      tier: B
+      loader: "sp.dgp_rd(n=1500, fuzzy=False, cutoff=0.0, seed=199)"
+      args: {y: y, running_var: x, cutoff: 0.0}
+    ground_truth:
+      estimator:
+        primary: local_polynomial_rd
+        acceptable: [rdrobust, cct, local_polynomial_rd]
+        disqualifying: []
+      robustness_checks:
+        - {check: mccrary_density,       provenance: methodological_followup, source: "density of houses at the boundary"}
+        - {check: bandwidth_sensitivity, provenance: paper_section,           source: "Black (1999) boundary-distance robustness"}
+    notes: "Real applied boundary RD (house prices across school-attendance boundaries). rdrobust / local-polynomial expected."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Chay & Greenstone (2005) Clean-Air-Act IV (county nonattainment
+  # status as an instrument for air-quality changes → housing values). Citation
+  # + DOI verified via journals.uchicago.edu (10.1086/427462) + NBER w6826.
+  # ---------------------------------------------------------------------------
+  - id: chay_greenstone_2005_airquality_iv
+    paper:
+      citation: "Chay, K. Y. & Greenstone, M. (2005). Does Air Quality Matter? Evidence from the Housing Market. Journal of Political Economy 113(2), 376-424."
+      bib_key: chay2005air
+    design:
+      label: iv
+      fingerprint: {synthetic: true, endogenous: air_quality, instrument: nonattainment_status}
+    data:
+      tier: B
+      loader: "sp.dgp_iv(n=800, first_stage=0.45, seed=205)"
+      args: {y: y, treatment: treatment, instrument: instrument, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: twosls
+        acceptable: [twosls, liml, anderson_rubin, jive]
+        disqualifying: [ols]
+      robustness_checks:
+        - {check: weak_instrument,   provenance: paper_section, source: "nonattainment-status first-stage strength"}
+        - {check: anderson_rubin_ci, provenance: methodological_followup, source: "weak-IV-robust CI as a guardrail"}
+    notes: "Real applied IV (Clean Air Act nonattainment instrument for air quality → housing values). recommend should lead with 2SLS."
 
   # ===========================================================================
   # FRONTIER (gap_probe) — design families recommend was BLIND to (F-004), now
