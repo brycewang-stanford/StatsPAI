@@ -740,3 +740,20 @@ implementation matches boottest's WRE rather than a simpler approximation.
   cluster(firm year) small` gives `_b[d]=.31606801`, `_se[d]=.0519819`.
   `sp.ivreg(..., cluster=["firm","year"])` matches both exactly (the
   `(G_min/(G_min-1))*((n-1)/(n-k))` finite-sample factor equals ivreg2 `small`).
+
+## IV CR2 / CR3 vs R clubSandwich
+
+`test_iv_wild_boottest_parity.py` pins `ivreg(vce="CR2"/"CR3")` to
+`clubSandwich::vcovCR(ivreg(...), type=...)` (R 4.5, clubSandwich + AER):
+
+```r
+library(AER); library(clubSandwich)
+m <- ivreg(y ~ w + d | w + z1 + z2, data=df)     # strong panel
+sqrt(diag(vcovCR(m, cluster=df$firm, type="CR2")))["d"]  # 0.05302589
+sqrt(diag(vcovCR(m, cluster=df$firm, type="CR3")))["d"]  # 0.05482302
+```
+
+`sp.ivreg(..., vce="CR2"/"CR3")` matches to machine precision on both the
+strong (0.05302589 / 0.05482302) and weak (0.31924312 / 0.33575834) panels.
+The adjustment is A_g = (I - H_g)^{-p} on the projected 2SLS regressors
+(p = 1/2 for CR2, p = 1 for CR3), with H_g = Xhat_g (Xhat'X)^{-1} Xhat_g'.

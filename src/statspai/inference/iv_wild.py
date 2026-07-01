@@ -119,6 +119,71 @@ def iv_twoway_vcov(
     }
 
 
+def iv_cr_vcov(
+    result: Any,
+    data: pd.DataFrame,
+    cluster: str,
+    kind: str = "CR2",
+) -> Dict[str, Any]:
+    """Bias-reduced cluster-robust covariance for 2SLS (clubSandwich CR2 / CR3).
+
+    Applies the Pustejovsky-Tipton (2018) cluster adjustment on the projected
+    2SLS regressors ``Xhat = P_W X`` (with structural residuals ``e = y - Xb``):
+
+        A_g = (I_g - H_g)^{-p},   H_g = Xhat_g (Xhat'X)^{-1} Xhat_g'
+        score_g = Xhat_g' A_g e_g,   V = bread (Σ score_g score_g') bread
+
+    with ``p = 1/2`` for **CR2** (Bell-McCaffrey) and ``p = 1`` for **CR3** (the
+    jackknife-type adjustment). Both match R ``clubSandwich::vcovCR(ivreg_model,
+    type=...)`` to machine precision (see the parity test).
+    """
+    kind_u = kind.upper()
+    power = {"CR2": 0.5, "CR3": 1.0}.get(kind_u)
+    if power is None:
+        raise MethodIncompatibility("iv_cr_vcov kind must be 'CR2' or 'CR3'.")
+
+    iv = getattr(result, "data_info", {}).get("iv")
+    if iv is None:
+        raise MethodIncompatibility(
+            "iv_cr_vcov requires an sp.ivreg (2SLS) result (data_info['iv'])."
+        )
+    y = np.asarray(iv["y"], dtype=float)
+    X = np.asarray(iv["X"], dtype=float)
+    W = np.asarray(iv["W"], dtype=float)
+    names = list(iv["var_names"])
+    n, k = X.shape
+
+    cl_series = data[cluster]
+    if cl_series.isna().any() or len(cl_series) != n:
+        raise MethodIncompatibility(
+            f"Cluster column {cluster!r} must be complete and row-aligned to the "
+            "fitted sample."
+        )
+    cl_codes = pd.Categorical(cl_series).codes
+
+    x_hat = W @ np.linalg.solve(W.T @ W, W.T) @ X  # P_W X
+    bread = np.linalg.inv(x_hat.T @ X)  # (Xhat'X)^-1 = (Xhat'Xhat)^-1
+    beta = bread @ (x_hat.T @ y)
+    resid = y - X @ beta
+
+    meat = np.zeros((k, k))
+    for cid in range(int(cl_codes.max()) + 1):
+        idx = cl_codes == cid
+        xh_g = x_hat[idx]
+        e_g = resid[idx]
+        n_g = int(idx.sum())
+        i_h = np.eye(n_g) - xh_g @ bread @ xh_g.T
+        evals, evecs = np.linalg.eigh(i_h)
+        evals = np.maximum(evals, 1e-12)
+        a_g = evecs @ np.diag(evals ** (-power)) @ evecs.T
+        score = xh_g.T @ (a_g @ e_g)
+        meat += np.outer(score, score)
+
+    vcov = bread @ meat @ bread
+    se = pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    return {"vcov": vcov, "std_errors": se, "var_names": names, "kind": kind_u}
+
+
 def iv_wild_bootstrap(
     result: Any,
     data: pd.DataFrame,

@@ -77,10 +77,12 @@ Against the `se_menu_matrix` gate:
 - **Multi-endogenous WRE** (done): `iv_wild_bootstrap` handles ≥1 endogenous
   regressor (the restricted estimation re-estimates the other endogenous by
   2SLS); validated vs boottest for the two-endogenous case.
-- **`ivreg` remaining ⚠ cells** (CR2 / Conley / jackknife): the OLS standalone
-  helpers refit plain OLS and drop the IV structure. Each needs an IV-aware
-  implementation + external parity (CR2 vs R `clubSandwich` for IV; Conley vs
-  `acreg`; jackknife via leave-one-cluster-out 2SLS).
+- **IV CR2 / CR3** (done): native `ivreg(vce="CR2"/"CR3")` (== `"jackknife"`),
+  Pustejovsky-Tipton (2018) adjustment on the projected 2SLS regressors; matches
+  R `clubSandwich` to machine precision (strong + weak panels). Matrix cr2_cr3
+  and jackknife `unsafe → native` (native 37→39, unsafe 3→1).
+- **`ivreg` last ⚠ cell — Conley** (spatial HAC): needs an IV-aware spatial-HAC
+  implementation + `acreg` parity. The only remaining unsafe cell in the matrix.
 
 ### D5 — unify the result contract  *(collision risk: results.py)*
 - One §3-true protocol: `summary`/`plot`/`to_latex`/`to_word`/`to_excel`/`cite`

@@ -178,3 +178,30 @@ def test_iv_twoway_cluster_matches_ivreg2() -> None:
     r = ivreg("y ~ w + (d ~ z1 + z2)", data=df, cluster=["firm", "year"])
     assert np.isclose(float(r.params["d"]), STATA_TW_COEF_D, atol=1e-6)
     assert np.isclose(float(r.std_errors["d"]), STATA_TW_SE_D, atol=1e-5)
+
+
+# --- IV CR2 / CR3 vs R clubSandwich ----------------------------------------
+# clubSandwich::vcovCR(ivreg(...), type=...) SE of the endogenous coefficient.
+CLUB_STRONG_CR2 = 0.05302589
+CLUB_STRONG_CR3 = 0.05482302
+CLUB_WEAK_CR2 = 0.31924312
+CLUB_WEAK_CR3 = 0.33575834
+
+
+def test_iv_cr2_cr3_match_clubsandwich_strong() -> None:
+    df = _strong_panel()
+    r2 = ivreg("y ~ w + (d ~ z1 + z2)", data=df, vce="CR2", cluster="firm")
+    r3 = ivreg("y ~ w + (d ~ z1 + z2)", data=df, vce="CR3", cluster="firm")
+    assert np.isclose(float(r2.std_errors["d"]), CLUB_STRONG_CR2, atol=1e-7)
+    assert np.isclose(float(r3.std_errors["d"]), CLUB_STRONG_CR3, atol=1e-7)
+    # vce="jackknife" is an alias for CR3
+    rj = ivreg("y ~ w + (d ~ z1 + z2)", data=df, vce="jackknife", cluster="firm")
+    assert np.isclose(float(rj.std_errors["d"]), CLUB_STRONG_CR3, atol=1e-7)
+
+
+def test_iv_cr2_cr3_match_clubsandwich_weak() -> None:
+    df = _weak_panel()
+    r2 = ivreg("y ~ (d ~ z1)", data=df, vce="CR2", cluster="firm")
+    r3 = ivreg("y ~ (d ~ z1)", data=df, vce="CR3", cluster="firm")
+    assert np.isclose(float(r2.std_errors["d"]), CLUB_WEAK_CR2, atol=1e-7)
+    assert np.isclose(float(r3.std_errors["d"]), CLUB_WEAK_CR3, atol=1e-7)

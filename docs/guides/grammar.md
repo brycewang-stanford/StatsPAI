@@ -80,7 +80,7 @@ estimator, or only on `feols`?* The honest answer, tracked in
 | `fepois` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `feglm` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `regress` | ✓ | ✓ | ✓ | ○ | ○ | ○ | ○ | ○ |
-| `ivreg` | ✓ | ✓ | ✓ | ✓ | ⚠ | ✓ | ⚠ | ⚠ |
+| `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ⚠ | ✓ |
 | `ppmlhdfe` | ✓ | ✓ | ✓ | · | · | · | · | · |
 | `panel` | ✓ | ✓ | ✓ | · | · | · | · | · |
 | `callaway_santanna` | · | · | ✓ | · | · | · | · | · |
@@ -130,10 +130,13 @@ What the matrix makes explicit today:
 - **`ivreg` has native two-way clustering** via `cluster=["a", "b"]` — the
   CGM (2011) inclusion-exclusion sandwich on the projected regressors, matching
   Stata `ivreg2, cluster(a b) small`.
-- **`ivreg`'s remaining ⚠ cells are still a trap:** the OLS standalone helpers
-  (CR2 / Conley / jackknife) refit plain OLS and silently drop the two-stage
-  structure, so their SEs are not trustworthy. The matrix flags these so they
-  cannot be mistaken for support.
+- **`ivreg` has native bias-reduced cluster SEs** via `vce="CR2"` (Bell-
+  McCaffrey) and `vce="CR3"` (== `vce="jackknife"`) — the Pustejovsky-Tipton
+  (2018) adjustment on the projected 2SLS regressors, matching R
+  `clubSandwich::vcovCR(ivreg, type=...)` to machine precision.
+- **`ivreg`'s one remaining ⚠ cell is Conley** (spatial HAC): the OLS standalone
+  helper refits plain OLS and drops the two-stage structure, so its SE is not
+  trustworthy — flagged pending an IV-aware implementation + `acreg` parity.
 
 This is the gap the SE-menu wiring work closes, estimator by estimator. The
 matrix is the scoreboard: the CI gate ratchets the **native** count up and the

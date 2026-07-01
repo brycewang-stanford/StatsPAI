@@ -1988,6 +1988,46 @@ def ivreg(
         base.model_info["cluster"] = cluster
         return base
 
+    # Bias-reduced cluster SEs: ``vce="CR2"`` (Bell-McCaffrey) / ``vce="CR3"``
+    # (jackknife-type), matching R clubSandwich for 2SLS.
+    if isinstance(se_kw, str) and se_kw.lower() in ("cr2", "cr3", "jackknife"):
+        if cluster is None:
+            from statspai.exceptions import MethodIncompatibility
+
+            raise MethodIncompatibility(
+                f"ivreg(vce={se_kw!r}) requires cluster=... (a cluster-robust "
+                "small-sample correction)."
+            )
+        kind = "CR3" if se_kw.lower() in ("cr3", "jackknife") else "CR2"
+        base = iv(
+            formula=formula,
+            data=data,
+            robust="nonrobust",
+            cluster=cluster,
+            method="2sls",
+            **kwargs,
+        )
+        from scipy import stats as _stats
+
+        from statspai.inference.iv_wild import iv_cr_vcov
+
+        cr = iv_cr_vcov(base, data, cluster, kind=kind)
+        se = cr["std_errors"]
+        base.std_errors = se
+        z = base.params / se
+        base.pvalues = pd.Series(
+            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+        )
+        crit = _stats.norm.ppf(0.975)
+        base.conf_int_lower = base.params - crit * se
+        base.conf_int_upper = base.params + crit * se
+        base.model_info = dict(base.model_info)
+        base.model_info[
+            "vcov_type"
+        ] = f"{kind} cluster-robust (clubSandwich, Pustejovsky-Tipton 2018)"
+        base.model_info["cluster"] = cluster
+        return base
+
     # Two-way clustering: ``cluster=["firm", "year"]`` runs 2SLS once (clustered
     # on the first dimension to populate the IV structure) then overrides the
     # variance with the two-way IV sandwich (matches Stata `ivreg2, cluster(a b)

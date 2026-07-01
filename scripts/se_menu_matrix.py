@@ -142,11 +142,13 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # (CGM 2011 inclusion-exclusion on the projected regressors). Matches
         # Stata `ivreg2, cluster(a b) small`.
         "twoway": "native",
-        # The remaining cells stay unsafe: the OLS standalone helpers refit
-        # plain OLS and silently drop the IV two-stage structure.
-        "cr2_cr3": "standalone_unsafe",
+        # Native `ivreg(vce="CR2")` / `vce="CR3"` (== `vce="jackknife"`) — the
+        # Pustejovsky-Tipton (2018) bias-reduced adjustment on the projected 2SLS
+        # regressors. Matches R `clubSandwich::vcovCR(ivreg, type=...)` exactly.
+        "cr2_cr3": "native",
+        "jackknife": "native",
+        # Conley spatial HAC for IV stays unsafe pending an `acreg` parity pass.
         "conley": "standalone_unsafe",
-        "jackknife": "standalone_unsafe",
     },
     "ppmlhdfe": {
         "classical": "native",
