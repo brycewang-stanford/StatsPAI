@@ -9410,7 +9410,7 @@
     "name": "impactplot"
   },
   {
-    "description": "Compute a single inequality index.",
+    "description": "Compute a single inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
