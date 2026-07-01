@@ -21,11 +21,12 @@ Hosmer, D.W. & Lemeshow, S. (2000).
     *Applied Logistic Regression*, 2nd ed. Wiley. [@hosmer2000applied]
 """
 
-from typing import Callable, Optional, List, Dict, Any, Tuple
+import warnings
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
-import warnings
 
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
@@ -199,7 +200,8 @@ def _warn_if_separated(y: np.ndarray, p_hat: np.ndarray) -> None:
         return
     frac_extreme = float(np.mean((p < 1e-2) | (p > 1.0 - 1e-2)))
     if frac_extreme >= 0.99:
-        from ..exceptions import ConvergenceWarning, warn as _sp_warn
+        from ..exceptions import ConvergenceWarning
+        from ..exceptions import warn as _sp_warn
 
         _sp_warn(
             ConvergenceWarning,
@@ -728,6 +730,11 @@ def _fit_binary(
         "PCP": cls_table["pcp"],
         "AUC (ROC)": auc,
     }
+    # Surface the number of clusters so result.violations() flags few-cluster
+    # inference (the CRVE is unreliable with few clusters), consistent with
+    # sp.regress / sp.panel.
+    if cluster_arr is not None:
+        model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
 
     result = EconometricResults(
         params=params,

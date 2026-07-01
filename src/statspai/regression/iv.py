@@ -1169,6 +1169,13 @@ class IVRegression(BaseModel):
             "robust": robust,
             "cluster": cluster,
         }
+        if cluster_var is not None:
+            try:
+                _cv = np.asarray(cluster_var)
+                if _cv.ndim == 1:
+                    model_info["n_clusters"] = int(pd.Series(_cv).nunique())
+            except (TypeError, ValueError):  # pragma: no cover - defensive
+                pass
         if results.get("kappa") is not None:
             model_info["kappa"] = results["kappa"]
 

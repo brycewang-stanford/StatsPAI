@@ -99,6 +99,23 @@ def _pyfixest_to_econometric_results(
         "fixed_effects": fe_info,
     }
 
+    # --- cluster count (for few-clusters diagnostic) ---
+    # pyfixest exposes ``_G`` as a list of cluster counts (one entry per
+    # clustering dimension) when CRV standard errors are used. The smallest
+    # entry drives finite-sample cluster-robust inference, so store the min so
+    # ``result.violations()`` can flag few-cluster CRV inference just like the
+    # native regress/panel/ivreg paths. Wrapped defensively — ``_G`` is a
+    # pyfixest internal that can shift by version.
+    try:
+        if str(vcov_type).upper().startswith("CRV"):
+            g_list = getattr(fit, "_G", None)
+            if g_list is not None:
+                g_vals = [int(g) for g in np.atleast_1d(g_list)]
+                if g_vals:
+                    model_info["n_clusters"] = min(g_vals)
+    except (AttributeError, TypeError, ValueError):  # pragma: no cover
+        pass
+
     data_info: Dict[str, Any] = {
         "nobs": nobs,
         "df_resid": df_resid,

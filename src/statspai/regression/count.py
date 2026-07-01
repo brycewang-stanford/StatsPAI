@@ -12,11 +12,12 @@ References
   high-dimensional fixed effects." Stata Journal. [@cameron2013regression]
 """
 
-from typing import Optional, List, Dict, Any, Sequence, Tuple
-import pandas as pd
-import numpy as np
-from scipy import stats, optimize, special
 import warnings
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+import numpy as np
+import pandas as pd
+from scipy import optimize, special, stats
 
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
@@ -1057,6 +1058,8 @@ def poisson(
         "aic": aic,
         "bic": bic,
     }
+    if cluster_arr is not None:
+        model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
 
     data_info = {
         "nobs": n,
@@ -1323,6 +1326,8 @@ def nbreg(
         "aic": aic,
         "bic": bic,
     }
+    if cluster_arr is not None:
+        model_info["n_clusters"] = int(len(np.unique(cluster_arr)))
 
     data_info = {
         "nobs": n,

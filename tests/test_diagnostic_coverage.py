@@ -93,6 +93,66 @@ def test_panel_method_records_n_clusters_and_flags_few(method):
 
 
 # --------------------------------------------------------------------------- #
+#  Cluster-robust regressions — every ``cluster=`` estimator records n_clusters
+# --------------------------------------------------------------------------- #
+
+
+def _clustered_df(n_clusters: int, n: int = 1200, kind: str = "cont", seed: int = 1):
+    """A clustered dataset with the requested number of clusters. ``kind``
+    selects an outcome the estimator family accepts (continuous / binary /
+    count)."""
+    rng = np.random.default_rng(seed)
+    g = rng.integers(0, n_clusters, n)
+    x = rng.normal(size=n)
+    if kind == "bin":
+        y = (rng.uniform(size=n) < 1 / (1 + np.exp(-x))).astype(int)
+    elif kind == "count":
+        y = rng.poisson(np.exp(0.4 + 0.3 * x))
+    else:
+        y = x + rng.normal(size=n)
+    return pd.DataFrame(
+        {"y": y, "x": x, "g": g, "d": x + rng.normal(size=n), "z": rng.normal(size=n)}
+    )
+
+
+# (id, fitter, outcome-kind) — every regression entry point that accepts a
+# cluster spec. Each must record n_clusters so few-cluster CRV inference is
+# flagged; feols routes clusters through pyfixest's ``_G`` instead of a
+# ``cluster=`` kwarg, but must land in the same diagnostic.
+_CLUSTER_ESTIMATORS = [
+    ("regress", lambda df: sp.regress("y ~ x", data=df, cluster="g"), "cont"),
+    ("ivreg", lambda df: sp.ivreg("y ~ (d ~ z)", data=df, cluster="g"), "cont"),
+    ("logit", lambda df: sp.logit("y ~ x", data=df, cluster="g"), "bin"),
+    ("probit", lambda df: sp.probit("y ~ x", data=df, cluster="g"), "bin"),
+    ("poisson", lambda df: sp.poisson("y ~ x", data=df, cluster="g"), "count"),
+    ("nbreg", lambda df: sp.nbreg("y ~ x", data=df, cluster="g"), "count"),
+    ("feols", lambda df: sp.feols("y ~ x", data=df, vcov={"CRV1": "g"}), "cont"),
+]
+
+
+@pytest.mark.parametrize(
+    "name,fit,kind",
+    _CLUSTER_ESTIMATORS,
+    ids=[e[0] for e in _CLUSTER_ESTIMATORS],
+)
+def test_cluster_estimator_records_n_clusters_and_flags_few(name, fit, kind):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        few = fit(_clustered_df(12, kind=kind))
+        many = fit(_clustered_df(60, kind=kind))
+    assert few.model_info.get("n_clusters") == 12, (
+        f"{name}: model_info['n_clusters'] missing — few-cluster CRV inference "
+        "would be silently skipped by result.violations()"
+    )
+    assert "few_clusters" in {
+        v["test"] for v in few.violations()
+    }, f"{name}: 12 clusters did not surface as few_clusters in violations()"
+    assert "few_clusters" not in {
+        v["test"] for v in many.violations()
+    }, f"{name}: false-positive few-cluster flag with 60 clusters"
+
+
+# --------------------------------------------------------------------------- #
 #  Matching — every method records the post-match balance table
 # --------------------------------------------------------------------------- #
 
