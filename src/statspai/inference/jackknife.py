@@ -29,6 +29,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import EconometricResults
+from ..exceptions import MethodIncompatibility
 
 
 def jackknife_se(
@@ -704,3 +705,130 @@ CausalResult._CITATIONS["jackknife_cluster"] = (
     "  year={2002}\n"
     "}"
 )
+
+
+# ======================================================================
+# Efficient OLS / 2SLS cluster SE helpers (read stored design; no re-parse)
+# ======================================================================
+
+
+def _ols_correction_from_cl_codes(
+    cl_codes: np.ndarray,
+    n: int,
+    k: int,
+) -> float:
+    """Default small-sample correction for OLS cluster SE: (G/(G-1))·((n-1)/(n-k)).
+
+    Matches the convention R ``sandwich::vcovCL`` uses (and the
+    ``sp.regress`` standalone default). Returned as a float; callers that
+    want a bias-reduced CR2/CR3 over the textbook should NOT add this on top
+    (the Pustejovsky-Tipton 2018 definition already absorbs the df
+    correction differently — see the dedicated helpers below).
+    """
+    g = int(cl_codes.max()) + 1
+    return (g / (g - 1.0)) * ((n - 1) / (n - k))
+
+
+def cr_vcov_ols(
+    result: "EconometricResults",
+    cluster_codes: np.ndarray,
+    power: float = 0.5,
+    small_sample: bool = True,
+) -> "pd.Series":
+    """Pustejovsky-Tipton CR2/CR3 cluster-robust SE on the stored OLS design.
+
+    With ``power=0`` returns the textbook cluster-robust (CR0/CR1 — same
+    formula as CR2 with A=I), ``power=0.5`` is CR2 (Bell-McCaffrey), and
+    ``power=1`` is CR3 (the jackknife-type adjustment). The bias correction
+    A_g = (I - H_gg)^{-p} is built on the per-cluster hat block
+    ``H_gg = X_g (X'X)^{-1} X_g'`` (global bread — the convention R
+    ``sandwich::vcovCL(HC2/3)`` uses). With ``small_sample=True`` the
+    standard ``(G/(G-1))·((n-1)/(n-k))`` correction is applied; set it
+    ``False`` to match R's bare cluster-robust vcov (the convention used by
+    the bias-reduced CR variants of Pustejovsky-Tipton 2018).
+
+    The result must carry ``data_info['X'/'y'/'var_names']`` (every
+    ``sp.regress`` result with ``cluster=`` populated does); results
+    without stored design fall back to the formula-reparse path
+    (the legacy ``sp.cr2_se`` behavior).
+    """
+    iv = getattr(result, "data_info", None) or {}
+    if not ({"X", "y", "var_names"} <= set(iv)):
+        raise MethodIncompatibility(
+            "cr_vcov_ols needs a result with stored data_info['X'/'y'/'var_names'] "
+            "(i.e. from sp.regress with cluster=...). Use sp.cr2_se for the "
+            "reparse fallback."
+        )
+    X = np.asarray(iv["X"], dtype=float)
+    y = np.asarray(iv["y"], dtype=float).ravel()
+    names = list(iv["var_names"])
+    n, k = X.shape
+    if cluster_codes.shape != (n,):
+        raise MethodIncompatibility(
+            "cluster_codes length must equal the number of observations in the "
+            "fitted sample."
+        )
+
+    bread = np.linalg.inv(X.T @ X)  # (X'X)^-1
+    beta = bread @ (X.T @ y)
+    resid = y - X @ beta
+
+    meat = np.zeros((k, k))
+    g_set = int(cluster_codes.max()) + 1
+    for cid in range(g_set):
+        idx = cluster_codes == cid
+        X_g = X[idx]
+        r_g = resid[idx]
+        ng = int(idx.sum())
+        H_gg = X_g @ bread @ X_g.T
+        i_h = np.eye(ng) - H_gg
+        evals, evecs = np.linalg.eigh(i_h)
+        evals = np.maximum(evals, 1e-12)
+        a_g = evecs @ np.diag(evals ** (-power)) @ evecs.T
+        score = X_g.T @ (a_g @ r_g)
+        meat += np.outer(score, score)
+
+    corr = _ols_correction_from_cl_codes(cluster_codes, n, k) if small_sample else 1.0
+    vcov = corr * bread @ meat @ bread
+    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+
+
+def two_way_correction_ols(
+    result: "EconometricResults",
+    c1_codes: np.ndarray,
+    c2_codes: np.ndarray,
+    c12_codes: np.ndarray,
+    small_sample: bool = True,
+) -> "pd.Series":
+    """Two-way (Cameron-Gelbach-Miller 2011) cluster-robust SE on the OLS design.
+
+    Inclusion-exclusion on the projected-score meat ``M1 + M2 - M12``, with
+    ``M_g = (X_g' e_g)(X_g' e_g)'``.  Default correction is
+    ``(G_min/(G_min-1))·((n-1)/(n-k))`` (Stata ``reg, cluster(a b) small``
+    convention). Pass ``small_sample=False`` for the bias-reduced variant.
+    """
+    iv = getattr(result, "data_info", None) or {}
+    X = np.asarray(iv["X"], dtype=float)
+    y = np.asarray(iv["y"], dtype=float).ravel()
+    names = list(iv["var_names"])
+    n, k = X.shape
+    bread = np.linalg.inv(X.T @ X)
+    beta = bread @ (X.T @ y)
+    resid = y - X @ beta
+
+    def _meat(codes: np.ndarray) -> np.ndarray:
+        m = np.zeros((k, k))
+        for cid in range(int(codes.max()) + 1):
+            idx = codes == cid
+            s = X[idx].T @ resid[idx]
+            m += np.outer(s, s)
+        return m
+
+    meat = _meat(c1_codes) + _meat(c2_codes) - _meat(c12_codes)
+    if small_sample:
+        g_min = min(int(c1_codes.max()) + 1, int(c2_codes.max()) + 1)
+        corr = (g_min / (g_min - 1.0)) * ((n - 1) / (n - k))
+    else:
+        corr = 1.0
+    vcov = corr * bread @ meat @ bread
+    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)

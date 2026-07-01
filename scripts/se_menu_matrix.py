@@ -117,15 +117,23 @@ MATRIX: Dict[str, Dict[str, str]] = {
         "cluster": "native",
         "twoway": "native",
     },
-    "regress": {  # plain OLS — the only fully-stocked menu today
+    "regress": {
         "classical": "native",
         "hc_robust": "native",
         "cluster": "native",
-        "twoway": "standalone",
-        "cr2_cr3": "standalone",
-        "wild_cluster_boot": "standalone",
-        "conley": "standalone",
-        "jackknife": "standalone",
+        # Native `regress(cluster=["a","b"])` — CGM-2011 inclusion-exclusion two-way
+        # cluster sandwich. Matches Stata `reghdfe y x, vce(cluster a b)`.
+        "twoway": "native",
+        # Native `regress(vce="CR2"/"CR3"/"jackknife")` — Pustejovsky-Tipton 2018
+        # bias-reduced cluster-robust; matches R `sandwich::vcovCL(HC2/3)`.
+        "cr2_cr3": "native",
+        "jackknife": "native",
+        # Native `regress(vce="wild", cluster=...)` — WCR cluster bootstrap
+        # (Cameron-Gelbach-Miller 2008) on the stored OLS design.
+        "wild_cluster_boot": "native",
+        # Native `regress(vce="conley", conley_lat/lon/cutoff)` — Stata
+        # `acreg` planar-distance spatial HAC.
+        "conley": "native",
     },
     "ivreg": {  # IV
         "classical": "native",

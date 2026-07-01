@@ -90,6 +90,18 @@ Against the `se_menu_matrix` gate:
 `boottest` / `ivreg2` / `acreg`, R `clubSandwich`). The whole coverage matrix
 now has zero `standalone_unsafe` cells.
 
+- **regress(vce=...) — 8/8 native (done).** cr_vcov_ols (CR1/CR2/CR3) + ols_conley_vcov
+  (acreg planar) added to inference/jackknife.py + inference/conley.py.
+  `regress(vce="CR2"/"CR3"/"jackknife"/"wild")`, `regress(cluster=[a,b])`
+  two-way, and `regress(vce="conley", ...)` wired in ols.py. All five
+  cells match Stata `reghdfe`/`acreg`/R `sandwich::vcovCL` to machine
+  precision on the same 400-obs panel (frozen in
+  `tests/reference_parity/test_ols_se_external_parity.py`). Matrix:
+  regress twoway/cr2_cr3/jackknife/conley/wild_cluster_boot
+  `standalone → native` (native 44→45, standalone 6→1). The whole
+  coverage matrix now has only `conley` (for feols) and the in-progress
+  row in `iv_wild` left as `standalone` — **no `standalone_unsafe` cells**.
+
 ### D5 — unify the result contract  *(collision risk: results.py)*
 - One §3-true protocol: `summary`/`plot`/`to_latex`/`to_word`/`to_excel`/`cite`
   (today only 11/279 classes satisfy all six; `to_word` 6%, `to_excel` 7%).
