@@ -4430,7 +4430,7 @@
       "Direct, indirect, and total impacts are correctly decomposed via the spatial multiplier."
     ],
     "category": "spatial",
-    "description": "Spatial Durbin Model: Y = rhoWY + Xbeta + WXtheta + epsilon with direct/indirect effects.",
+    "description": "Spatial Durbin Model: Y = rhoWY + Xbeta + WXtheta + epsilon with direct/indirect effects. Validation: certified parity evidence.",
     "example": "sp.sdm(W, data=df, formula=\"crime ~ income + education\")",
     "failure_modes": [
       {
@@ -4449,7 +4449,7 @@
     ],
     "reference": "LeSage & Pace (2009)",
     "signature": {
-      "description": "Spatial Durbin Model: Y = rhoWY + Xbeta + WXtheta + epsilon with direct/indirect effects.",
+      "description": "Spatial Durbin Model: Y = rhoWY + Xbeta + WXtheta + epsilon with direct/indirect effects. Validation: certified parity evidence.",
       "name": "sdm",
       "parameters": {
         "properties": {
@@ -4477,9 +4477,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "R parity module 65_spatial",
       "API/unit contract evidence: tests/spatial/test_models_ml.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -30655,7 +30656,7 @@
       "Strict exogeneity conditional on the absorbed fixed effects (PPML consistency)."
     ],
     "category": "panel",
-    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest.",
+    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence.",
     "example": "sp.fepois('trade ~ log_dist | origin + destination', data=df)",
     "failure_modes": [
       {
@@ -30680,7 +30681,7 @@
     ],
     "reference": "silva2006log",
     "signature": {
-      "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest.",
+      "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence.",
       "name": "fepois",
       "parameters": {
         "properties": {
@@ -30734,8 +30735,10 @@
     },
     "stability": "stable",
     "typical_n_min": 200,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "R parity module 67_panel_glm"
+    ],
+    "validation_status": "certified"
   },
   {
     "alternatives": [

@@ -952,7 +952,7 @@
     "name": "balance_diagnostics"
   },
   {
-    "description": "Balance a panel by keeping only units observed in every time period.",
+    "description": "Balance a panel by keeping only units observed in every time period. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "entity": {
@@ -4405,7 +4405,7 @@
     "name": "decompose"
   },
   {
-    "description": "Return the within-transformed ``x`` and the singleton keep mask.",
+    "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "drop_singletons": {
@@ -7437,7 +7437,7 @@
     "name": "feols"
   },
   {
-    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Assumptions: Conditional mean exponential link: E[y | x, alpha] = exp(x'beta + alpha); Strict exogeneity conditional on the absorbed fixed effects (PPML consistency). Pre-conditions: Outcome is a non-negative count or non-negative continuous variable; Fixed effects columns are categorical; absorbed groups exist. Failure modes: Convergence failure or extreme exponentiated predictions -> Drop large-magnitude regressors, rescale, or switch to OLS on log(1+y) (with caveats); Separation: some FE level perfectly predicts zero outcomes -> Drop perfectly-predicted groups and rerun; document the restriction. Alternatives: sp.feols, sp.regress, sp.panel. Typical minimum N: 200.",
+    "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Assumptions: Conditional mean exponential link: E[y | x, alpha] = exp(x'beta + alpha); Strict exogeneity conditional on the absorbed fixed effects (PPML consistency). Pre-conditions: Outcome is a non-negative count or non-negative continuous variable; Fixed effects columns are categorical; absorbed groups exist. Failure modes: Convergence failure or extreme exponentiated predictions -> Drop large-magnitude regressors, rescale, or switch to OLS on log(1+y) (with caveats); Separation: some FE level perfectly predicts zero outcomes -> Drop perfectly-predicted groups and rerun; document the restriction. Alternatives: sp.feols, sp.regress, sp.panel. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "collin_tol": {
