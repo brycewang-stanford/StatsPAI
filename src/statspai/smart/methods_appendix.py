@@ -107,7 +107,9 @@ class MethodSpec:
 #  randomization inference, Bayesian causal forest, marginal treatment effects,
 #  DR-learner, nonparametric IV, sensitivity to unobservables, entropy
 #  balancing, CBPS, stable balancing weights, Heckman selection, jackknife IV,
-#  super learner) plus the
+#  super learner, Balke-Pearl bounds, Horowitz-Manski bounds, causal impact
+#  (BSTS), Conley spatial HAC, NOTEARS structure learning, extended TWFE) plus
+#  the
 #  common regression families (OLS, Poisson, logit, probit, panel fixed
 #  effects).
 #
@@ -2047,6 +2049,136 @@ _SPECS: List[MethodSpec] = [
             "A sufficiently rich library of candidate learners.",
         ],
         aliases=["superlearner", "sl_ensemble", "stacking"],
+    ),
+    MethodSpec(
+        key="balke_pearl",
+        name="Balke-Pearl Bounds (IV / Imperfect Compliance)",
+        estimand_latex=r"\mathrm{ATE} \in [\underline{\tau},\ \overline{\tau}]",
+        estimator_latex=(
+            r"\{\underline{\tau},\overline{\tau}\} = \{\min,\max\}\ "
+            r"\text{LP over response types s.t. } P(Y,D\mid Z)\ "
+            r"\text{is reproduced}"
+        ),
+        prose=(
+            "Sharp nonparametric bounds on the average treatment effect from a "
+            "binary encouragement (instrument) with imperfect compliance, "
+            "obtained by linear programming over the latent response-type "
+            "probabilities consistent with the observed joint distribution "
+            "(Balke & Pearl)."
+        ),
+        assumptions=[
+            "Instrument randomization and exclusion.",
+            "Binary instrument, treatment, and outcome.",
+            "No further parametric assumptions (sharp bounds).",
+        ],
+        aliases=["balke_pearl_bounds", "iv_bounds", "lp_bounds"],
+    ),
+    MethodSpec(
+        key="horowitz_manski",
+        name="Horowitz-Manski Bounds (Missing Data)",
+        estimand_latex=r"\tau \in [\underline{\tau},\ \overline{\tau}]",
+        estimator_latex=(
+            r"\text{fill missing } Y \text{ with } y_{\min}/y_{\max}\ "
+            r"(\text{worst case}); \text{ optionally trim by attrition rate}"
+        ),
+        prose=(
+            "Assumption-free identification regions for treatment effects in "
+            "randomized experiments with missing covariate/outcome data: replace "
+            "missing values with the extremes of the bounded outcome support to "
+            "obtain worst-case sharp bounds (Horowitz & Manski)."
+        ),
+        assumptions=[
+            "Bounded outcome support [y_min, y_max].",
+            "Randomized treatment assignment.",
+        ],
+        aliases=["horowitz_manski_bounds", "missing_data_bounds"],
+    ),
+    MethodSpec(
+        key="causal_impact",
+        name="Causal Impact (Bayesian Structural Time Series)",
+        estimand_latex=(r"\hat\phi_t = Y_t - \tilde Y_t,\quad t > T_{\text{int}}"),
+        estimator_latex=(
+            r"\tilde Y_t \sim \text{BSTS}(\text{trend} + \text{controls})\ "
+            r"\text{fit on } t \le T_{\text{int}};\ "
+            r"\text{effect} = \sum_t (Y_t - \tilde Y_t)"
+        ),
+        prose=(
+            "Infers the causal effect of an intervention on a single time series "
+            "by fitting a Bayesian structural time-series counterfactual from "
+            "the pre-intervention period and contemporaneous control series, "
+            "then differencing the observed series against the posterior "
+            "forecast (Brodersen et al.)."
+        ),
+        assumptions=[
+            "Control series are unaffected by the intervention.",
+            "The pre-period predictor relationship persists post-intervention.",
+            "No anticipation.",
+        ],
+        aliases=["bsts", "causal_impact_bsts", "bayesian_structural_ts"],
+    ),
+    MethodSpec(
+        key="conley",
+        name="Conley Spatial HAC Standard Errors",
+        estimand_latex=(
+            r"\mathrm{Var}(\hat\beta)\ \text{(spatial-correlation robust)}"
+        ),
+        estimator_latex=(
+            r"\hat V = (X'X)^{-1}\Big(\textstyle\sum_i\sum_j "
+            r"K(d_{ij})\,e_i e_j X_i X_j'\Big)(X'X)^{-1}"
+        ),
+        prose=(
+            "Heteroskedasticity- and spatial-autocorrelation-consistent "
+            "standard errors that let errors correlate across geographically "
+            "close units via a distance kernel K(d_ij) in the sandwich meat, "
+            "down-weighting to zero beyond a cutoff (Conley)."
+        ),
+        assumptions=[
+            "Known unit locations / a distance metric.",
+            "Error correlation decays with distance beyond the cutoff.",
+        ],
+        aliases=["conley_se", "spatial_hac", "conley_standard_errors"],
+    ),
+    MethodSpec(
+        key="notears",
+        name="NOTEARS (Continuous DAG Structure Learning)",
+        estimand_latex=(r"W^{*}:\ \text{weighted adjacency of the generating DAG}"),
+        estimator_latex=(
+            r"\min_{W}\ \tfrac{1}{2n}\|X - XW\|_F^2 + \lambda\|W\|_1\ "
+            r"\text{s.t. } h(W) = \mathrm{tr}(e^{W\circ W}) - d = 0"
+        ),
+        prose=(
+            "Learns a directed acyclic graph by minimizing a regularized "
+            "least-squares loss subject to a smooth algebraic acyclicity "
+            "constraint (trace of the matrix exponential of the squared weights "
+            "equals the dimension), turning combinatorial structure search into "
+            "continuous optimization (Zheng et al.)."
+        ),
+        assumptions=[
+            "Acyclicity of the true graph.",
+            "The score identifies the structure (e.g. equal-variance "
+            "linear-Gaussian).",
+        ],
+        aliases=["no_tears", "dag_learning", "continuous_dag"],
+    ),
+    MethodSpec(
+        key="etwfe",
+        name="Extended Two-Way Fixed Effects (Mundlak)",
+        estimand_latex=(r"\mathrm{ATT}(g,t)\ \to\ \text{aggregated ATT}"),
+        estimator_latex=(
+            r"Y = \alpha_g + \lambda_t + \sum_{g,t} \tau_{gt}\,"
+            r"\mathbf{1}\{G{=}g\}\mathbf{1}\{t\}D + X\text{-Mundlak terms}"
+        ),
+        prose=(
+            "A fully-interacted cohort-by-period (two-way Mundlak) regression "
+            "that recovers heterogeneity-robust group-time ATTs from a single "
+            "pooled estimation, then aggregates them to the effects of interest "
+            "(Wooldridge)."
+        ),
+        assumptions=[
+            "Conditional parallel trends and no anticipation.",
+            "Correct Mundlak covariate specification.",
+        ],
+        aliases=["extended_twfe", "two_way_mundlak", "wooldridge_etwfe"],
     ),
 ]
 

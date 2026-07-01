@@ -203,6 +203,17 @@ def test_econometric_result_method_present():
         ("jackknife_iv", "jive"),
         ("super_learner", "super_learner"),
         ("superlearner", "super_learner"),
+        # Bounds / time-series / spatial / structure-learning / etwfe batch-10
+        ("balke_pearl", "balke_pearl"),
+        ("iv_bounds", "balke_pearl"),
+        ("horowitz_manski", "horowitz_manski"),
+        ("causal_impact", "causal_impact"),
+        ("bsts", "causal_impact"),
+        ("conley", "conley"),
+        ("spatial_hac", "conley"),
+        ("notears", "notears"),
+        ("etwfe", "etwfe"),
+        ("two_way_mundlak", "etwfe"),
     ],
 )
 def test_resolution(method, expect_key):
@@ -223,8 +234,9 @@ def test_short_alias_no_false_positive():
     assert _resolve_spec(_causal("some_obscure_method")) is None
     # "iv" must not fire on the "iv" inside "derivative".
     assert _resolve_spec(_causal("derivative_estimator")) is None
-    # Horowitz-Manski bounds must NOT collapse onto the Manski worst-case spec.
-    assert _resolve_spec(_causal("horowitz_manski")) is None
+    # Horowitz-Manski bounds resolve to their OWN spec, never collapsing onto
+    # the Manski worst-case-bounds spec.
+    assert _resolve_spec(_causal("horowitz_manski")).key == "horowitz_manski"
 
 
 # --------------------------------------------------------------------------
@@ -568,6 +580,20 @@ def test_batch9_estimators_carry_verified_citation():
         ("heckman", "Heckman"),
         ("jive", "Angrist"),
         ("super_learner", "Laan"),
+    ]:
+        r = _causal(key)
+        r._citation_key = key
+        assert token in r.cite(format="apa"), f"{key}: missing {token!r}"
+
+
+def test_batch10_estimators_carry_verified_citation():
+    for key, token in [
+        ("balke_pearl", "Balke"),
+        ("horowitz_manski", "Horowitz"),
+        ("causal_impact", "Brodersen"),
+        ("conley", "Conley"),
+        ("notears", "Zheng"),
+        ("etwfe", "Wooldridge"),
     ]:
         r = _causal(key)
         r._citation_key = key

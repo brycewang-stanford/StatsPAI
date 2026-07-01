@@ -2254,6 +2254,78 @@ class CausalResult:
             "  doi={10.2202/1544-6115.1309}\n"
             "}"
         ),
+        # --- batch 10 methods-appendix coverage (bounds / time-series /
+        #     spatial / structure learning / extended TWFE; verified via
+        #     paper.bib) ---
+        "balke_pearl": (
+            "@article{balke1997bounds,\n"
+            "  title={Bounds on Treatment Effects From Studies With "
+            "Imperfect Compliance},\n"
+            "  author={Balke, Alexander and Pearl, Judea},\n"
+            "  journal={Journal of the American Statistical "
+            "Association},\n"
+            "  year={1997},\n"
+            "  doi={10.2307/2965583}\n"
+            "}"
+        ),
+        "horowitz_manski": (
+            "@article{horowitz2000nonparametric,\n"
+            "  title={Nonparametric Analysis of Randomized "
+            "Experiments with Missing Covariate and Outcome "
+            "Data},\n"
+            "  author={Horowitz, Joel L. and Manski, "
+            "Charles F.},\n"
+            "  journal={Journal of the American Statistical "
+            "Association},\n"
+            "  year={2000},\n"
+            "  doi={10.1080/01621459.2000.10473902}\n"
+            "}"
+        ),
+        "causal_impact": (
+            "@article{brodersen2015inferring,\n"
+            "  title={Inferring causal impact using Bayesian "
+            "structural time-series models},\n"
+            "  author={Brodersen, Kay H. and Gallusser, Fabian and "
+            "Koehler, Jim and Remy, Nicolas and Scott, "
+            "Steven L.},\n"
+            "  journal={The Annals of Applied Statistics},\n"
+            "  year={2015},\n"
+            "  doi={10.1214/14-aoas788}\n"
+            "}"
+        ),
+        "conley": (
+            "@article{conley1999estimation,\n"
+            "  title={GMM estimation with cross sectional "
+            "dependence},\n"
+            "  author={Conley, T.G.},\n"
+            "  journal={Journal of Econometrics},\n"
+            "  year={1999},\n"
+            "  doi={10.1016/s0304-4076(98)00084-0}\n"
+            "}"
+        ),
+        "notears": (
+            "@inproceedings{zheng2018dags,\n"
+            "  title={DAGs with NO TEARS: Continuous optimization "
+            "for structure learning},\n"
+            "  author={Zheng, Xun and Aragam, Bryon and Ravikumar, "
+            "Pradeep K. and Xing, Eric P.},\n"
+            "  booktitle={Advances in Neural Information Processing "
+            "Systems},\n"
+            "  volume={31},\n"
+            "  year={2018}\n"
+            "}"
+        ),
+        "etwfe": (
+            "@misc{wooldridge2021two,\n"
+            "  title={Two-Way Fixed Effects, the Two-Way Mundlak "
+            "Regression, and Difference-in-Differences "
+            "Estimators},\n"
+            "  author={Wooldridge, Jeffrey M.},\n"
+            "  journal={SSRN Electronic Journal},\n"
+            "  year={2021},\n"
+            "  doi={10.2139/ssrn.3906345}\n"
+            "}"
+        ),
     }
 
     def __init__(
