@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.16.0-batch9"
+corpus_version: "0.17.0-batch10"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -945,6 +945,57 @@ entries:
         - {check: weak_instrument,   provenance: paper_section, source: "compulsory-schooling-law first-stage strength"}
         - {check: anderson_rubin_ci, provenance: methodological_followup, source: "weak-IV-robust CI as a guardrail"}
     notes: "Real applied IV (compulsory-schooling-law changes instrument for education). recommend should lead with 2SLS."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Galiani, Gertler & Schargrodsky (2005) water-privatization DiD
+  # (municipalities that privatized water vs not, before/after; staggered).
+  # Citation + DOI verified via journals.uchicago.edu (10.1086/426041) + RePEc.
+  # ---------------------------------------------------------------------------
+  - id: galiani_2005_water_did
+    paper:
+      citation: "Galiani, S., Gertler, P. & Schargrodsky, E. (2005). Water for Life: The Impact of the Privatization of Water Services on Child Mortality. Journal of Political Economy 113(1), 83-120."
+      bib_key: galiani2005water
+    design:
+      label: did
+      fingerprint: {synthetic: true, n_units: 140, n_periods: 5, staggered: true}
+    data:
+      tier: B
+      loader: "sp.dgp_did(n_units=140, n_periods=5, staggered=True, seed=205)"
+      args: {y: y, treatment: treated, id: unit, time: time}
+    ground_truth:
+      estimator:
+        primary: callaway_santanna
+        acceptable: [callaway_santanna, sun_abraham, did_imputation, gardner, borusyak_jaravel_spiess, stacked_did, dcdh, drdid, classic_2x2, twfe, did]
+        disqualifying: []
+      robustness_checks:
+        - {check: parallel_trends, provenance: paper_section, source: "Galiani et al. (2005) pre-privatization trends"}
+    notes: "Real applied panel DiD (staggered water privatization → child mortality). Heterogeneity-robust or classic DiD valid."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Card, Dobkin & Maestas (2008) Medicare age-65 RD (insurance
+  # coverage / utilization jumps at 65). Citation + DOI verified via aeaweb.org
+  # (10.1257/aer.98.5.2242) + NBER w10365.
+  # ---------------------------------------------------------------------------
+  - id: card_dobkin_maestas_2008_medicare_rd
+    paper:
+      citation: "Card, D., Dobkin, C. & Maestas, N. (2008). The Impact of Nearly Universal Insurance Coverage on Health Care Utilization: Evidence from Medicare. American Economic Review 98(5), 2242-2258."
+      bib_key: card2008impact
+    design:
+      label: rd
+      fingerprint: {synthetic: true, running_var: age, cutoff: 65.0, sharp: true}
+    data:
+      tier: B
+      loader: "sp.dgp_rd(n=1500, fuzzy=False, cutoff=0.0, seed=208)"
+      args: {y: y, running_var: x, cutoff: 0.0}
+    ground_truth:
+      estimator:
+        primary: local_polynomial_rd
+        acceptable: [rdrobust, cct, local_polynomial_rd]
+        disqualifying: []
+      robustness_checks:
+        - {check: mccrary_density,       provenance: methodological_followup, source: "density continuity at age 65"}
+        - {check: bandwidth_sensitivity, provenance: paper_section,           source: "Card et al. (2008) bandwidth robustness"}
+    notes: "Real applied age-65 Medicare RD (coverage/utilization jump). rdrobust / local-polynomial expected."
 
   # ===========================================================================
   # FRONTIER (gap_probe) — design families recommend was BLIND to (F-004), now

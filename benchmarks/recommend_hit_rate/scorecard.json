@@ -1,10 +1,10 @@
 {
-  "corpus_version": "0.16.0-batch9",
+  "corpus_version": "0.17.0-batch10",
   "statspai_version": "1.20.0",
-  "n_entries": 42,
-  "n_core": 35,
+  "n_entries": 44,
+  "n_core": 37,
   "n_tier_a": 10,
-  "n_tier_b": 32,
+  "n_tier_b": 34,
   "summary": {
     "hit_rate_top1": 1.0,
     "hit_rate_topk": 1.0,
@@ -1048,6 +1048,64 @@
       "gap_probe": false
     },
     {
+      "id": "galiani_2005_water_did",
+      "design": "did",
+      "status": "HIT",
+      "detected_design": "did",
+      "ranked_labels": [
+        "Callaway-Sant'Anna (2021) \u2014 staggered DID",
+        "Sun-Abraham (2021) \u2014 interaction-weighted",
+        "Event-study (dynamic treatment effects)"
+      ],
+      "ranked_tags": [
+        "callaway_santanna",
+        "sun_abraham",
+        "unknown:Event-study (dynamic treatment effects)"
+      ],
+      "top1_tag": "callaway_santanna",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "borusyak_jaravel_spiess",
+        "callaway_santanna",
+        "classic_2x2",
+        "dcdh",
+        "did",
+        "did_imputation",
+        "drdid",
+        "gardner",
+        "stacked_did",
+        "sun_abraham",
+        "twfe"
+      ],
+      "disqualifying": [],
+      "gap_probe": false
+    },
+    {
+      "id": "card_dobkin_maestas_2008_medicare_rd",
+      "design": "rd",
+      "status": "HIT",
+      "detected_design": "rd",
+      "ranked_labels": [
+        "Local polynomial RD (CCT 2014)"
+      ],
+      "ranked_tags": [
+        "local_polynomial_rd"
+      ],
+      "top1_tag": "local_polynomial_rd",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "cct",
+        "local_polynomial_rd",
+        "rdrobust"
+      ],
+      "disqualifying": [],
+      "gap_probe": false
+    },
+    {
       "id": "frontier_bunching_saez2010",
       "design": "bunching",
       "status": "HIT",
@@ -1533,6 +1591,25 @@
       "covered": [
         "weak_instrument",
         "anderson_rubin_ci"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "galiani_2005_water_did",
+      "audit_family": "did",
+      "covered": [
+        "parallel_trends"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "card_dobkin_maestas_2008_medicare_rd",
+      "audit_family": "rd",
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
       ],
       "missing_from_catalog": [],
       "catalog_recall": 1.0
@@ -2091,6 +2168,31 @@
       "not_emitted": [],
       "actionable_next_steps": [
         "anderson_rubin_ci"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "galiani_2005_water_did",
+      "status": "OK",
+      "audit_family": "did",
+      "covered": [
+        "parallel_trends"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "card_dobkin_maestas_2008_medicare_rd",
+      "status": "OK",
+      "audit_family": "rd",
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "bandwidth_sensitivity"
       ],
       "dynamic_recall": 1.0
     },
