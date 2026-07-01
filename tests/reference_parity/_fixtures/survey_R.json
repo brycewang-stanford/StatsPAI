@@ -1,0 +1,19 @@
+{
+  "svymean": {
+    "estimate": 9.7301781828870411,
+    "se": [
+      [0.18342578465335604]
+    ]
+  },
+  "svytotal": {
+    "estimate": 3666.2279994230985,
+    "se": [
+      [93.689738014274326]
+    ]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "survey_version": "4.5",
+    "generated_by": "tests/reference_parity/_generate_survey_R.R"
+  }
+}

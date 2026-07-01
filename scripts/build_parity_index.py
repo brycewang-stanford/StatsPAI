@@ -692,6 +692,38 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "Mann-Whitney statistic (= pROC::auc / sklearn). Curve/CI not pinned."
         ),
     },
+    "svymean": {
+        "status": "bit-exact",
+        "reference": "survey::svymean (Horvitz-Thompson/Hajek + Taylor SE)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "estimate + SE 1e-10 abs (observed ~5e-15 / 8e-17)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_survey_parity.py",
+            "tests/reference_parity/_fixtures/survey_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: weights-only design survey mean + "
+            "Taylor-linearization SE match R survey::svymean to machine "
+            "precision. Regenerate via _generate_survey_R.R."
+        ),
+    },
+    "svytotal": {
+        "status": "bit-exact",
+        "reference": "survey::svytotal (Horvitz-Thompson + Taylor SE)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "estimate 1e-12 rel; SE 1e-10 rel (observed ~2e-12 / 1e-14)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_survey_parity.py",
+            "tests/reference_parity/_fixtures/survey_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: weights-only design survey total + "
+            "Taylor-linearization SE match R survey::svytotal to machine "
+            "precision. Regenerate via _generate_survey_R.R."
+        ),
+    },
 }
 
 
