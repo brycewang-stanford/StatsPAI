@@ -631,4 +631,106 @@ class TestRequiresEvidenceGate:
         assert _check_signature_predicate(("bayes", "mcmc"), "bayesian did")
         assert _check_signature_predicate(("bayes", "mcmc"), "MCMC sampler")
         assert not _check_signature_predicate(("bayes", "mcmc"), "did_2x2")
-        assert _check_signature_predicate((), "anything")  # pass-through
+        # Empty signature tokens → N/A (False), NOT pass-through. The OR
+        # composition with the evidence gate is the only caller, and an
+        # empty signature must not silently rescue a check whose evidence
+        # gate failed (e.g. a few_clusters check on a plain OLS).
+        assert not _check_signature_predicate((), "anything")
+
+
+class TestFewClustersCuratedCheck:
+    """``few_clusters`` is the second consumer of the ``requires_evidence``
+    gate (after MCMC convergence). It is a *curated* check — a careful
+    reviewer asks this whenever a result has cluster-robust SEs, not only
+    when ``violations()`` already fired. The gate is what keeps the check
+    silent on a plain OLS that never recorded an ``n_clusters`` (no
+    ``cluster=`` argument → no G to flag). Pins three properties:
+    (1) gate-scoping: check appears iff ``n_clusters`` is present,
+    (2) threshold verdict: passes when G≥30, fails when G<30, mirrors
+        ``violations()`` via the shared ``_FEW_CLUSTERS_MIN`` constant,
+    (3) cross-family suppression: a non-regression family (DID) is never
+        asked this question because ``applies_to`` is ``("regression",)``.
+    """
+
+    def test_curated_check_fires_on_few_clusters(self):
+        # Clustered fit, G=12, should surface the curated few_clusters check
+        # with status="failed" and the suggest_function for wild bootstrap.
+        r = _bare_did_result(model_info={})  # placeholder; not used
+        # Build a real cluster= regress fit; the audit gate is what we test.
+        rng = np.random.default_rng(1)
+        n = 600
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=n),
+                "x": rng.normal(size=n),
+                "g": rng.integers(0, 12, n),  # 12 clusters < 30
+            }
+        )
+        fit = sp.regress("y ~ x", data=df, cluster="g")
+        card = sp.audit(fit)
+        names = {c["name"] for c in card["checks"]}
+        assert "few_clusters" in names, (
+            f"cluster= fit with G=12 should surface curated few_clusters, "
+            f"got {names}"
+        )
+        fc = next(c for c in card["checks"] if c["name"] == "few_clusters")
+        assert fc["status"] == "failed"
+        assert fc["value"] == 12
+        assert fc["threshold"] == 30
+        assert fc["importance"] == "high"
+        assert fc["suggest_function"] == "sp.wild_cluster_boot"
+
+    def test_curated_check_passes_when_many_clusters(self):
+        # G=50 ≥ 30 → status="passed", threshold 30 met.
+        rng = np.random.default_rng(2)
+        n = 1500
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=n),
+                "x": rng.normal(size=n),
+                "g": rng.integers(0, 50, n),
+            }
+        )
+        fit = sp.regress("y ~ x", data=df, cluster="g")
+        card = sp.audit(fit)
+        fc = next(c for c in card["checks"] if c["name"] == "few_clusters")
+        assert fc["status"] == "passed"
+        assert fc["value"] == 50
+
+    def test_curated_check_silent_on_ols_without_cluster(self):
+        # Plain HC1 OLS, no cluster= arg → no n_clusters written, gate
+        # should suppress the check entirely (NOT status="missing").
+        # This is the canonical evidence-gate behaviour: surfacing
+        # "missing few_clusters" on a non-clustered OLS is exactly the
+        # noise the gate exists to silence.
+        rng = np.random.default_rng(3)
+        df = pd.DataFrame({"y": rng.normal(size=300), "x": rng.normal(size=300)})
+        fit = sp.regress("y ~ x", data=df, robust="hc1")
+        card = sp.audit(fit)
+        names = {c["name"] for c in card["checks"]}
+        assert "few_clusters" not in names, (
+            f"OLS without cluster= should be silent on few_clusters (gate "
+            f"suppression), got {names}"
+        )
+
+    def test_curated_check_consistent_with_violations(self):
+        # The curated verdict and the violations() verdict must agree on
+        # the same number — both are anchored to the same
+        # ``_FEW_CLUSTERS_MIN`` constant. If this fails it means audit
+        # and violations have drifted (the failure mode the single
+        # source of truth is meant to prevent).
+        rng = np.random.default_rng(4)
+        n = 600
+        df = pd.DataFrame(
+            {
+                "y": rng.normal(size=n),
+                "x": rng.normal(size=n),
+                "g": rng.integers(0, 12, n),
+            }
+        )
+        fit = sp.regress("y ~ x", data=df, cluster="g")
+        card = sp.audit(fit)
+        fc = next(c for c in card["checks"] if c["name"] == "few_clusters")
+        # Same constant; both surface as failed on G=12.
+        assert "few_clusters" in {v["test"] for v in fit.violations()}
+        assert fc["status"] == "failed"

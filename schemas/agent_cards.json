@@ -13262,7 +13262,7 @@
       "Independence/exogeneity of the instrument; for LATE, monotonicity (no defiers)."
     ],
     "category": "causal",
-    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult.",
+    "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.iv.iv_diag(df, y='wage', endog='educ', instruments=['nearc4','nearc2'], exog=['exper','south'], n_boot=500, ltz_gamma_sd=0.05, random_state=42)",
     "failure_modes": [
       {
@@ -13281,7 +13281,7 @@
     ],
     "reference": "Lal, Lockhart, Xu and Zu (2024) Political Analysis 32(4), 521-540. Lee, McCrary, Moreira and Porter (2022) AER 112(10), 3260-3290. Olea and Pflueger (2013) JBES 31(3), 358-369. Conley, Hansen and Rossi (2012) ReStat 94(1), 260-272. Blandhol, Bonney, Mogstad and Torgovitsky (2022/2025) NBER WP 29709. Soczynski (2024) arXiv:2011.06695.",
     "signature": {
-      "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult.",
+      "description": "Modern IV reporting bundle (R `ivDiag` analogue). Combines 2SLS point estimate, analytic + pairs/wild bootstrap SEs, Olea-Pflueger effective F, Lee-McCrary-Moreira-Porter (2022) tF-corrected critical value, Anderson-Rubin / CLR / K weak-IV-robust confidence sets, Kleibergen-Paap rk LM, Conley-Hansen-Rossi (2012) plausibly-exogenous LTZ sensitivity, and a Blandhol-Bonney-Mogstad-Torgovitsky (2022/2025) / Soczynski (2024) `TSLS-as-LATE` caveat into a single IVDiagResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "iv_diag",
       "parameters": {
         "properties": {
@@ -13381,9 +13381,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_diag_recovery_parity.py",
       "API/unit contract evidence: tests/iv/test_iv_diag.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -20813,7 +20814,7 @@
       "Number of clusters G >= 5 for finite-sample validity"
     ],
     "category": "inference",
-    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often.",
+    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.wild_cluster_bootstrap(df, y=\"y\", x=[\"d\", \"x1\"], cluster=\"state\")",
     "failure_modes": [
       {
@@ -20839,7 +20840,7 @@
     ],
     "reference": "Cameron, Gelbach & Miller (2008) RES [@cameron2008bootstrap]",
     "signature": {
-      "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often.",
+      "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "wild_cluster_bootstrap",
       "parameters": {
         "properties": {
@@ -20909,9 +20910,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_wcb_recovery_parity.py",
       "API/unit contract evidence: tests/test_inference.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -26407,7 +26409,8 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "tests/reference_parity/test_matching_parity.py"
+      "tests/reference_parity/test_matching_parity.py",
+      "tests/reference_parity/test_recovery_batch_parity.py"
     ],
     "validation_status": "validated"
   },
