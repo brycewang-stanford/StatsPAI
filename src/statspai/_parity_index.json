@@ -843,6 +843,53 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.05"
     },
     {
+      "function": "demean",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.451924940159949e-15,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "demean_y",
+          "demean_x1_row0",
+          "demean_x2_row0",
+          "demean_x3_row0",
+          "demean_x1_row159",
+          "demean_x2_row159",
+          "demean_x3_row159"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Within transformation",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "68_demean_within",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.451924940159949e-15,
+        "Stata": null
+      },
+      "python_call": "sp.demean",
+      "reference": "textbook mean-within (algorithmic)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/68_demean_within.py",
+        "tests/r_parity/68_demean_within.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
       "function": "dfl_decompose",
       "headline": {
         "metric": "rel_est",

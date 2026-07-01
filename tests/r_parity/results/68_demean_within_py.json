@@ -1,0 +1,120 @@
+{
+  "module": "68_demean_within",
+  "side": "py",
+  "rows": [
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_y",
+      "estimate": 0.0040522789490637645,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x1_row0",
+      "estimate": 0.6154505796270369,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x2_row0",
+      "estimate": -1.0737200411163816,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x3_row0",
+      "estimate": 0.35406999399952555,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x1_row80",
+      "estimate": 0.7212399663513034,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x2_row80",
+      "estimate": -0.5501177170992351,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x3_row80",
+      "estimate": -0.3560185793978362,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x1_row159",
+      "estimate": -1.0576851634824798,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x2_row159",
+      "estimate": -1.4151470246407851,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    },
+    {
+      "module": "68_demean_within",
+      "side": "py",
+      "statistic": "demean_x3_row159",
+      "estimate": 2.2593236590937424,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 160,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n": 160,
+    "note": "Within transformation M y, M X with M = I - P_id, P_id the entity-mean projection. sp.demean(solver='map') is bit-exact against the textbook mean-within; the R side computes the same projection with sum() and validates row matches at three positions per column."
+  }
+}

@@ -409,6 +409,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # agree to ~1e-8 (machine); SEs differ at ~1e-5 because the two IWLS
     # implementations iterate to slightly different working-weight roots.
     "67_panel_glm": {"rel_est": 1e-6, "rel_se": 5e-5},
+    # Within transformation (sp.demean solver='map') vs textbook mean-within.
+    # Pure algorithmic, agrees to machine tier (~3.5e-15 worst on a 20x8
+    # balanced panel). Emitted point-only (no SE — it's a linear projection).
+    "68_demean_within": {"rel_est": 1e-6, "rel_se": 1e-6},
 }
 
 
@@ -1215,6 +1219,13 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5",
+    },
+    "68_demean_within": {
+        "name": "Within transformation",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "sp.demean(solver='map') vs textbook mean-within",
     },
 }
 

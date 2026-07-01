@@ -36,6 +36,11 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
+- **Cross-language parity — within-transformation pinned to textbook
+  mean-within.** New Track A module `68_demean_within` aligns
+  `sp.demean(solver="map")` against the textbook entity-mean projection
+  (algorithmic, no R package sibling). Worst observed gap is 3.5e-15 (machine
+  tier). The function is now graded **bit-exact** in the parity matrix.
 - **Cross-language parity — absorbed-FE panel GLM family added.** New Track A
   module `67_panel_glm` aligns `sp.feglm` (Bernoulli logit) and `sp.fepois`
   against `fixest::feglm` and `fixest::fepois` (single entity fixed effect
