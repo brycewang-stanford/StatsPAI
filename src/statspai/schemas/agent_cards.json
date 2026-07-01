@@ -14417,7 +14417,7 @@
       "ITE ignorability / overlap so the treated and control nuisances are identified"
     ],
     "category": "causal",
-    "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts.",
+    "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.conformal_fair_ite(df, y=\"y\", treat=\"d\", covariates=[\"x1\",\"x2\"], protected=\"race\")",
     "failure_modes": [
       {
@@ -14443,7 +14443,7 @@
     ],
     "reference": "arXiv:2510.08724 / 2510.12822 (2025).",
     "signature": {
-      "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts.",
+      "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "conformal_fair_ite",
       "parameters": {
         "properties": {
@@ -14489,9 +14489,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_conformal_fair_ite_parity.py",
       "API/unit contract evidence: tests/test_conformal_frontiers.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

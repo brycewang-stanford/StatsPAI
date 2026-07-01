@@ -7601,7 +7601,7 @@
     }
   },
   {
-    "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts.",
+    "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "conformal_fair_ite",
     "parameters": {
       "properties": {
@@ -45089,7 +45089,7 @@
     }
   },
   {
-    "description": "Conformal ITE -- article alias for :func:`conformal_cate`.",
+    "description": "Conformal ITE -- article alias for :func:`conformal_cate`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "conformal_ite",
     "parameters": {
       "properties": {

@@ -3425,7 +3425,7 @@
     "name": "conformal"
   },
   {
-    "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts. Assumptions: Exchangeability for conformal coverage, applied within protected-group strata; Counterfactual fairness: protected attribute excluded from the outcome regression (used only for stratified calibration); ITE ignorability / overlap so the treated and control nuisances are identified. Pre-conditions: DataFrame with y, treat, predictive covariates, and a categorical protected column; Calibration set per protected stratum for group-wise conformal coverage; Optional test_data to emit fair ITE intervals on. Failure modes: A protected stratum has too few calibration rows for valid group-wise quantiles -> Collapse sparse protected categories or pool strata before calibration; protected column accidentally leaks into covariates, breaking counterfactual fairness -> Remove the protected attribute from covariates; pass it only via the protected argument. Alternatives: sp.conformal, sp.conformal_continuous. Typical minimum N: 500.",
+    "description": "Counterfactual-fair conformal prediction for ITE (2025). Wraps standard conformal ITE intervals with a demographic-parity adjustment, giving distribution-free coverage under protected-attribute shifts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Exchangeability for conformal coverage, applied within protected-group strata; Counterfactual fairness: protected attribute excluded from the outcome regression (used only for stratified calibration); ITE ignorability / overlap so the treated and control nuisances are identified. Pre-conditions: DataFrame with y, treat, predictive covariates, and a categorical protected column; Calibration set per protected stratum for group-wise conformal coverage; Optional test_data to emit fair ITE intervals on. Failure modes: A protected stratum has too few calibration rows for valid group-wise quantiles -> Collapse sparse protected categories or pool strata before calibration; protected column accidentally leaks into covariates, breaking counterfactual fairness -> Remove the protected attribute from covariates; pass it only via the protected argument. Alternatives: sp.conformal,...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -3464,7 +3464,7 @@
     "name": "conformal_fair_ite"
   },
   {
-    "description": "Conformal ITE -- article alias for :func:`conformal_cate`.",
+    "description": "Conformal ITE -- article alias for :func:`conformal_cate`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "X": {
