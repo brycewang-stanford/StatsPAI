@@ -36,7 +36,7 @@
 #   panel         : fe mundlak re
 
 schema_version: 1
-corpus_version: "0.11.0-batch4"
+corpus_version: "0.12.0-batch5"
 
 entries:
   # ---------------------------------------------------------------------------
@@ -685,6 +685,58 @@ entries:
       robustness_checks:
         - {check: parallel_trends, provenance: methodological_followup, source: "pre-period comparability of the two earnings groups"}
     notes: "Real applied 2x2 natural-experiment DiD (high- vs low-earnings groups × benefit change). Common timing → nothing disqualifying."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Ludwig & Miller (2007) Head Start funding RD (discontinuity in
+  # grant-writing assistance at the 300-poorest-county OEO cutoff). Citation +
+  # DOI verified via academic.oup.com (10.1162/qjec.122.1.159) + NBER w11702.
+  # ---------------------------------------------------------------------------
+  - id: ludwig_miller_2007_headstart_rd
+    paper:
+      citation: "Ludwig, J. & Miller, D. L. (2007). Does Head Start Improve Children's Life Chances? Evidence from a Regression Discontinuity Design. Quarterly Journal of Economics 122(1), 159-208."
+      bib_key: ludwig2007head
+    design:
+      label: rd
+      fingerprint: {synthetic: true, running_var: county_poverty_rank, cutoff: 300.0, funding_discontinuity: true}
+    data:
+      tier: B
+      loader: "sp.dgp_rd(n=1500, fuzzy=False, cutoff=0.0, seed=207)"
+      args: {y: y, running_var: x, cutoff: 0.0}
+    ground_truth:
+      estimator:
+        primary: local_polynomial_rd
+        acceptable: [rdrobust, cct, local_polynomial_rd]
+        disqualifying: []
+      robustness_checks:
+        - {check: mccrary_density,       provenance: methodological_followup, source: "density continuity at the OEO cutoff"}
+        - {check: bandwidth_sensitivity, provenance: paper_section,           source: "Ludwig & Miller (2007) bandwidth robustness"}
+    notes: "Real applied funding-cutoff RD (OEO 300-poorest-county threshold). rdrobust / local-polynomial expected."
+
+  # ---------------------------------------------------------------------------
+  # TIER B — Miguel, Satyanath & Sergenti (2004) rainfall IV (rainfall growth as
+  # an instrument for economic growth → civil conflict, African panel).
+  # Citation + DOI verified via journals.uchicago.edu (10.1086/421174) + RePEc.
+  # ---------------------------------------------------------------------------
+  - id: miguel_2004_rainfall_iv
+    paper:
+      citation: "Miguel, E., Satyanath, S. & Sergenti, E. (2004). Economic Shocks and Civil Conflict: An Instrumental Variables Approach. Journal of Political Economy 112(4), 725-753."
+      bib_key: miguel2004economic
+    design:
+      label: iv
+      fingerprint: {synthetic: true, endogenous: economic_growth, instrument: rainfall_growth, panel: true}
+    data:
+      tier: B
+      loader: "sp.dgp_iv(n=700, first_stage=0.4, seed=2004)"
+      args: {y: y, treatment: treatment, instrument: instrument, covariates: [x1, x2]}
+    ground_truth:
+      estimator:
+        primary: twosls
+        acceptable: [twosls, liml, anderson_rubin, jive]
+        disqualifying: [ols]
+      robustness_checks:
+        - {check: weak_instrument,   provenance: paper_section,           source: "Miguel et al. (2004) rainfall first-stage strength"}
+        - {check: anderson_rubin_ci, provenance: methodological_followup, source: "weak-IV-robust CI as a guardrail"}
+    notes: "Real applied IV (rainfall-growth instrument for economic growth → conflict). recommend should lead with 2SLS."
 
   # ===========================================================================
   # FRONTIER (gap_probe) — design families recommend was BLIND to (F-004), now

@@ -1,10 +1,10 @@
 {
-  "corpus_version": "0.11.0-batch4",
+  "corpus_version": "0.12.0-batch5",
   "statspai_version": "1.20.0",
-  "n_entries": 32,
-  "n_core": 26,
+  "n_entries": 34,
+  "n_core": 28,
   "n_tier_a": 10,
-  "n_tier_b": 22,
+  "n_tier_b": 24,
   "summary": {
     "hit_rate_top1": 1.0,
     "hit_rate_topk": 1.0,
@@ -772,6 +772,57 @@
       "gap_probe": false
     },
     {
+      "id": "ludwig_miller_2007_headstart_rd",
+      "design": "rd",
+      "status": "HIT",
+      "detected_design": "rd",
+      "ranked_labels": [
+        "Local polynomial RD (CCT 2014)"
+      ],
+      "ranked_tags": [
+        "local_polynomial_rd"
+      ],
+      "top1_tag": "local_polynomial_rd",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "cct",
+        "local_polynomial_rd",
+        "rdrobust"
+      ],
+      "disqualifying": [],
+      "gap_probe": false
+    },
+    {
+      "id": "miguel_2004_rainfall_iv",
+      "design": "iv",
+      "status": "HIT",
+      "detected_design": "iv",
+      "ranked_labels": [
+        "2SLS (two-stage least squares)",
+        "LIML (robust to weak instruments)"
+      ],
+      "ranked_tags": [
+        "twosls",
+        "liml"
+      ],
+      "top1_tag": "twosls",
+      "hit_top1": true,
+      "hit_topk": true,
+      "hard_miss": false,
+      "acceptable": [
+        "anderson_rubin",
+        "jive",
+        "liml",
+        "twosls"
+      ],
+      "disqualifying": [
+        "ols"
+      ],
+      "gap_probe": false
+    },
+    {
       "id": "frontier_bunching_saez2010",
       "design": "bunching",
       "status": "HIT",
@@ -1160,6 +1211,26 @@
       "audit_family": "did",
       "covered": [
         "parallel_trends"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "ludwig_miller_2007_headstart_rd",
+      "audit_family": "rd",
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "missing_from_catalog": [],
+      "catalog_recall": 1.0
+    },
+    {
+      "id": "miguel_2004_rainfall_iv",
+      "audit_family": "iv",
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
       ],
       "missing_from_catalog": [],
       "catalog_recall": 1.0
@@ -1589,6 +1660,34 @@
       "not_emitted": [],
       "actionable_next_steps": [
         "parallel_trends"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "ludwig_miller_2007_headstart_rd",
+      "status": "OK",
+      "audit_family": "rd",
+      "covered": [
+        "mccrary_density",
+        "bandwidth_sensitivity"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "bandwidth_sensitivity"
+      ],
+      "dynamic_recall": 1.0
+    },
+    {
+      "id": "miguel_2004_rainfall_iv",
+      "status": "OK",
+      "audit_family": "iv",
+      "covered": [
+        "weak_instrument",
+        "anderson_rubin_ci"
+      ],
+      "not_emitted": [],
+      "actionable_next_steps": [
+        "anderson_rubin_ci"
       ],
       "dynamic_recall": 1.0
     },
