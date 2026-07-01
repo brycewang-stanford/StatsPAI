@@ -404,6 +404,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # lambda vs spatialreg::GMerrorsar are bit-exact (worst 4.6e-8), emitted
     # point-only because the coefficient-SE variance estimators differ.
     "66_spatial_gmm": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Panel GLM: sp.feglm(family='logit') vs fixest::feglm and sp.fepois vs
+    # fixest::fepois, both absorbing a single entity FE (id). Coefficients
+    # agree to ~1e-8 (machine); SEs differ at ~1e-5 because the two IWLS
+    # implementations iterate to slightly different working-weight roots.
+    "67_panel_glm": {"rel_est": 1e-6, "rel_se": 5e-5},
 }
 
 
@@ -1203,6 +1208,13 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "vs spatialreg::stsls(W2X=F)/GMerrorsar; SEM point-only",
+    },
+    "67_panel_glm": {
+        "name": "Panel GLM (feglm / fepois)",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5",
     },
 }
 

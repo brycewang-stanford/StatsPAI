@@ -1314,6 +1314,51 @@
       "tolerance": "point + CI E-value 1e-12 abs (observed 0)"
     },
     {
+      "function": "feglm",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 9.712933277486466e-09,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "feglm_logit_x1",
+          "feglm_logit_x2",
+          "fepois_x1",
+          "fepois_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Panel GLM (feglm / fepois)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "67_panel_glm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 9.712933277486466e-09,
+        "Stata": null
+      },
+      "python_call": "sp.feglm / sp.fepois",
+      "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 1.8453380512369875e-05,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/67_panel_glm.py",
+        "tests/r_parity/67_panel_glm.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+    },
+    {
       "additional_tests": [
         "tests/r_parity/15_hdfe_cluster.py",
         "tests/r_parity/15_hdfe_cluster.R",
@@ -1369,6 +1414,51 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "fepois",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 9.712933277486466e-09,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "feglm_logit_x1",
+          "feglm_logit_x2",
+          "fepois_x1",
+          "fepois_x2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Panel GLM (feglm / fepois)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "67_panel_glm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 9.712933277486466e-09,
+        "Stata": null
+      },
+      "python_call": "sp.feglm / sp.fepois",
+      "reference": "fixest::feglm (family=\"logit\") / fixest::fepois",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 1.8453380512369875e-05,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/67_panel_glm.py",
+        "tests/r_parity/67_panel_glm.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
     },
     {
       "function": "fortified_pci",

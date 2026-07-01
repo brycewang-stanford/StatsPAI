@@ -36,6 +36,13 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
+- **Cross-language parity — absorbed-FE panel GLM family added.** New Track A
+  module `67_panel_glm` aligns `sp.feglm` (Bernoulli logit) and `sp.fepois`
+  against `fixest::feglm` and `fixest::fepois` (single entity fixed effect
+  absorbed by both sides). Coefficients agree to ~1e-8 (machine tier); SEs
+  differ at ~1e-5 because the two IWLS implementations iterate to slightly
+  different working-weight roots — well within the iterative tier. Both
+  functions are now graded **bit-exact** in the parity matrix.
 - **Cross-language parity — spatial family opened.** Two new Track A modules
   (spatialreg 1.4.3 / spdep 1.4.2, row-standardised 12×12 rook lattice):
   - `65_spatial` aligns `sp.sar` / `sp.sem` / `sp.sdm` against
