@@ -832,3 +832,55 @@ def two_way_correction_ols(
         corr = 1.0
     vcov = corr * bread @ meat @ bread
     return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+
+
+def conley_vcov_ols(
+    result: "EconometricResults",
+    data: "pd.DataFrame",
+    lat: str,
+    lon: str,
+    dist_cutoff: float,
+) -> "pd.Series":
+    """Conley spatial-HAC SE on the stored OLS/within design (acreg-compatible).
+
+    Uniform spatial kernel on the cluster-robust scores ``score_a = X_a e_a``
+    with ``acreg``'s planar distance (111 km/deg latitude, ``cos(lat_b)·111``
+    per degree longitude, anchored at the column point ``b`` — asymmetric,
+    then ``V`` is symmetrised). For a fixed-effects result the stored ``X`` is
+    the within-transformed design, so this is spatial-HAC on the partialled-out
+    model (matches ``acreg`` run on the FE-demeaned data). Reads
+    ``data_info['X'/'y'/'var_names']``.
+    """
+    iv = getattr(result, "data_info", None) or {}
+    if not ({"X", "y", "var_names"} <= set(iv)):
+        raise MethodIncompatibility(
+            "conley_vcov_ols needs a result with stored data_info['X'/'y'/"
+            "'var_names'] (sp.regress with cluster=, or sp.feols)."
+        )
+    X = np.asarray(iv["X"], dtype=float)
+    y = np.asarray(iv["y"], dtype=float).ravel()
+    names = list(iv["var_names"])
+    n, k = X.shape
+    for c in (lat, lon):
+        if c not in data.columns or data[c].isna().any() or len(data[c]) != n:
+            raise MethodIncompatibility(
+                f"Coordinate column {c!r} must be present, complete, and "
+                "row-aligned to the fitted sample."
+            )
+    lat_v = data[lat].to_numpy(dtype=float)
+    lon_v = data[lon].to_numpy(dtype=float)
+
+    bread = np.linalg.inv(X.T @ X)
+    beta = bread @ (X.T @ y)
+    resid = y - X @ beta
+
+    lon_scale = np.cos(np.radians(lat_v)) * 111.0
+    d_lat = lat_v[:, None] - lat_v[None, :]
+    d_lon = lon_v[:, None] - lon_v[None, :]
+    dist = np.sqrt((111.0 * d_lat) ** 2 + (lon_scale[None, :] * d_lon) ** 2)
+    weig = (dist <= dist_cutoff).astype(float)
+
+    score = X * resid[:, None]
+    core = bread @ (score.T @ weig @ score) @ bread
+    vcov = 0.5 * (core + core.T)
+    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)

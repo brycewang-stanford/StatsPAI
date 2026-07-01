@@ -116,6 +116,100 @@ def _feols_wild(
     return base
 
 
+def _feols_bias_reduced(
+    fml: str,
+    data: pd.DataFrame,
+    kind: str,
+    *,
+    cluster: Optional[str],
+    conley_lat: Optional[str],
+    conley_lon: Optional[str],
+    conley_cutoff: Optional[float],
+    weights: Optional[str],
+    ssc: Optional[Any],
+    fixef_rm: str,
+    collin_tol: float,
+    lean: bool,
+    extra: Dict[str, Any],
+) -> EconometricResults:
+    """CR2/CR3/jackknife (Pustejovsky-Tipton) or Conley spatial HAC on feols.
+
+    Fits the FE model once (populating the stored within design), then applies
+    the requested bias-reduced / spatial estimator to the partialled-out design.
+    CR2/CR3 match R clubSandwich (plm); Conley matches Stata acreg on the
+    FE-demeaned data.
+    """
+    from scipy import stats as _stats
+
+    from ..inference.jackknife import conley_vcov_ols, cr_vcov_ols
+
+    if kind == "conley":
+        if conley_lat is None or conley_lon is None or conley_cutoff is None:
+            raise MethodIncompatibility(
+                "feols(vce='conley') requires conley_lat=, conley_lon=, and "
+                "conley_cutoff= (planar distance cutoff in km)."
+            )
+        base = feols(
+            fml,
+            data,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            lean=lean,
+            **extra,
+        )
+    else:
+        if cluster is None:
+            raise MethodIncompatibility(
+                f"feols(vce={kind!r}) requires cluster=... (a cluster-robust "
+                "small-sample correction)."
+            )
+        base = feols(
+            fml,
+            data,
+            vcov={"CRV1": cluster},
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            lean=lean,
+            **extra,
+        )
+    if isinstance(base, list):
+        raise MethodIncompatibility(
+            f"feols(vce={kind!r}) does not support multiple-estimation formulas."
+        )
+
+    if kind == "conley":
+        se = conley_vcov_ols(base, data, conley_lat, conley_lon, conley_cutoff)
+        label = f"Conley spatial HAC (acreg planar, {conley_cutoff} km)"
+    else:
+        power = 0.5 if kind == "cr2" else 1.0
+        cl_codes = pd.Categorical(data[cluster]).codes
+        # small_sample=False matches clubSandwich's CR2/CR3 for FE (plm) exactly.
+        se = cr_vcov_ols(base, cl_codes, power=power, small_sample=False)
+        label = {
+            "cr2": "CR2 cluster-robust (clubSandwich, Pustejovsky-Tipton 2018)",
+            "cr3": "CR3 cluster-robust (clubSandwich jackknife-type)",
+            "jackknife": "CR3 cluster-robust (clubSandwich jackknife-type)",
+        }[kind]
+
+    z = base.params / se
+    base.std_errors = se
+    base.pvalues = pd.Series(
+        2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+    )
+    crit = _stats.norm.ppf(0.975)
+    base.conf_int_lower = base.params - crit * se
+    base.conf_int_upper = base.params + crit * se
+    base.model_info = dict(base.model_info)
+    base.model_info["vcov_type"] = label
+    if cluster is not None:
+        base.model_info["cluster"] = cluster
+    return base
+
+
 @accepts_aliases(vce="vcov")
 def feols(
     fml: str,
@@ -131,6 +225,9 @@ def feols(
     wild_reps: int = 999,
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
+    conley_lat: Optional[str] = None,
+    conley_lon: Optional[str] = None,
+    conley_cutoff: Optional[float] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -222,6 +319,33 @@ def feols(
             reps=wild_reps,
             weight_type=wild_weight_type,
             seed=seed,
+            weights=weights,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            lean=lean,
+            extra=kwargs,
+        )
+
+    # Bias-reduced / spatial SEs on the FE-absorbed (within) design. feols stores
+    # its within-transformed design on the result, so CR2/CR3 (Bell-McCaffrey /
+    # jackknife-type) and Conley spatial HAC operate on the partialled-out model.
+    # CR2/CR3 match R clubSandwich (plm) to machine precision; Conley matches
+    # Stata acreg run on the FE-demeaned data.
+    if isinstance(vcov, str) and vcov.lower() in (
+        "cr2",
+        "cr3",
+        "jackknife",
+        "conley",
+    ):
+        return _feols_bias_reduced(
+            fml,
+            data,
+            vcov.lower(),
+            cluster=cluster,
+            conley_lat=conley_lat,
+            conley_lon=conley_lon,
+            conley_cutoff=conley_cutoff,
             weights=weights,
             ssc=ssc,
             fixef_rm=fixef_rm,

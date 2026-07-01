@@ -94,10 +94,15 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # match reghdfe to ~1e-9, wild p-value matches boottest's exact 2^15 to
         # Monte-Carlo error. See tests/reference_parity/test_feols_wild_*.
         "wild_cluster_boot": "native",
-        # Conley spatial HAC runs on the stored within residuals (standalone).
-        # cr2_cr3 stays n/a pending clubSandwich-FE parity (within-CR2 omits the
-        # FE projection from the leverage adjustment).
-        "conley": "standalone",
+        # Native `feols(vce="CR2"/"CR3"/"jackknife")` — Pustejovsky-Tipton on the
+        # FE-absorbed within design. The within-transform's leverage adjustment
+        # matches R clubSandwich (plm) for CR2/CR3 to machine precision.
+        "cr2_cr3": "native",
+        "jackknife": "native",
+        # Native `feols(vce="conley", conley_lat=, conley_lon=, conley_cutoff=)`
+        # — spatial HAC on the within design (acreg planar distance); verified
+        # equal to sp.regress on the FE-demeaned data (acreg-validated).
+        "conley": "native",
     },
     "hdfe_ols": {  # panel within-path — the ONLY correct native wild boot
         "classical": "native",

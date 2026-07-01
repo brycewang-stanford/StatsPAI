@@ -7388,6 +7388,18 @@
           "description": "Collinearity tolerance.",
           "type": "number"
         },
+        "conley_cutoff": {
+          "description": "conley_cutoff parameter (Optional[float]).",
+          "type": "number"
+        },
+        "conley_lat": {
+          "description": "conley_lat parameter (Optional[str]).",
+          "type": "string"
+        },
+        "conley_lon": {
+          "description": "conley_lon parameter (Optional[str]).",
+          "type": "string"
+        },
         "fixef_rm": {
           "default": "none",
           "description": "How to handle singleton fixed effects: ``\"none\"`` (keep) or ``\"singleton\"`` (drop).",
