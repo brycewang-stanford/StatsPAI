@@ -115,13 +115,32 @@ class _Check:
         proportional-hazards check lives in the regression pool but must fire
         only for Cox, never for a plain OLS. Empty (the default) means the
         check applies to every result its ``applies_to`` family admits.
-    requires_bayesian : bool
-        When True, the check is only included for results that carry
-        MCMC-specific evidence (rhat / ess / divergences in model_info or
-        diagnostics, or a Bayesian method signature). This prevents
-        "missing convergence_rhat" from showing up as noise on a frequentist
-        MLE result that has no sampler to diagnose — the absence of rhat on
-        an MLE is not a missing check, it is by design.
+    requires_evidence : tuple[str, ...]
+        Optional data-presence gate. When non-empty, the check is only
+        included if the result actually has the data needed to evaluate
+        the assumption — i.e. one of the listed keys is present in the
+        result's ``model_info`` (or in the merged ``diagnostics``).
+        Empty (the default) means the check applies to every result its
+        ``applies_to`` family admits.
+        The motivating use case is MCMC convergence: asking "did your
+        rhat converge?" on a frequentist MLE that has no sampler is
+        noise; ``requires_evidence=("rhat_max", "ess_bulk_min", ...)``
+        keeps the check live only on results that could actually report
+        it. The same mechanism generalises — e.g.
+        ``requires_evidence=("n_clusters",)`` for a "few clusters"
+        sanity check that should only appear on clustered fits.
+        When the key alone is insufficient (e.g. a method whose evidence
+        is implied by a Bayesian / MCMC signature rather than a stored
+        scalar), ``requires_signature`` adds a string-substring check
+        against ``method + model_type``. Both gates are OR'd.
+    requires_signature : tuple[str, ...]
+        Optional method-signature gate, paired with ``requires_evidence``.
+        The check is included if EITHER the evidence gate is satisfied
+        OR any of these substrings appears in the method/model_type
+        signature (case-insensitive). Used by Bayesian convergence to
+        keep the check live on results that report a Bayesian method
+        but have not yet written rhat evidence (e.g. an in-progress
+        fit, or one that ran the sampler in a different code path).
     """
 
     name: str
@@ -134,7 +153,8 @@ class _Check:
     importance: str
     rationale: str
     model_type_any: Tuple[str, ...] = ()
-    requires_bayesian: bool = False
+    requires_evidence: Tuple[str, ...] = ()
+    requires_signature: Tuple[str, ...] = ()
 
 
 def _p(*keys: str) -> EvidencePaths:
@@ -347,7 +367,8 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
             "mediation",
             "generic",
         ),
-        requires_bayesian=True,
+        requires_evidence=("rhat_max", "rhat", "n_chains", "n_draws"),
+        requires_signature=("bayes", "mcmc"),
         evidence_paths=_pp(
             ("rhat_max",),
             ("diagnostics", "rhat_max"),
@@ -374,7 +395,8 @@ _CAUSAL_CHECKS: Tuple[_Check, ...] = (
             "mediation",
             "generic",
         ),
-        requires_bayesian=True,
+        requires_evidence=("rhat_max", "ess_bulk_min", "n_chains", "n_draws"),
+        requires_signature=("bayes", "mcmc"),
         evidence_paths=_pp(
             ("ess_bulk_min",),
             ("diagnostics", "ess_bulk_min"),
@@ -512,36 +534,45 @@ def _resolve_evidence(model_info: Dict[str, Any], paths: EvidencePaths) -> Any:
     return None
 
 
-# MCMC indicators — the result is Bayesian if any of these are present in
-# model_info / diagnostics. Used by the ``requires_bayesian`` gate so MCMC
-# checks (rhat / ess) only appear on results that could actually report them.
-_BAYESIAN_MCMC_KEYS = (
-    "rhat_max",
-    "rhat",
-    "ess_bulk_min",
-    "ess_bulk",
-    "ess_tail_min",
-    "ess_tail",
-    "divergences",
-    "n_chains",
-    "n_draws",
-)
+# Generic predicate helpers for the ``requires_evidence`` and
+# ``requires_signature`` gates on ``_Check``. A check is included iff its
+# evidence gate fires (any required key is present in the merged
+# model_info / diagnostics view) OR its signature gate fires (any
+# required substring appears in the method / model_type signature). The
+# ``merged`` view is what ``audit()`` already passes to ``_evaluate``;
+# we re-derive the same view here so the predicate sees the same data
+# the evaluator would have seen.
 
 
-def _result_is_bayesian(model_info: Dict[str, Any], method_label: str) -> bool:
-    """Return True if the result has MCMC evidence or a Bayesian signature.
-
-    A frequentist MLE has no rhat/ess by design, and surfacing
-    "missing convergence_rhat" on it would be noise. The check is
-    deliberately permissive — any MCMC indicator under model_info or
-    diagnostics, or a Bayesian method string, qualifies.
-    """
-    if any(k in model_info for k in _BAYESIAN_MCMC_KEYS):
-        return True
-    ml = (method_label or "").lower()
-    if "bayes" in ml or "mcmc" in ml:
-        return True
+def _check_evidence_predicate(
+    keys: Tuple[str, ...],
+    model_info: Dict[str, Any],
+    diagnostics: Dict[str, Any],
+) -> bool:
+    """True iff at least one of ``keys`` is present in model_info or
+    diagnostics (a frequentist MLE has no rhat/ess by design; surfacing
+    "missing convergence_rhat" on it is noise the gate should silence)."""
+    if not keys:
+        return True  # empty gate = no constraint
+    for k in keys:
+        if k in model_info or k in diagnostics:
+            return True
     return False
+
+
+def _check_signature_predicate(
+    tokens: Tuple[str, ...],
+    signature: str,
+) -> bool:
+    """True iff at least one of ``tokens`` appears in the method/model_type
+    signature (case-insensitive). The signature is normalised to lower
+    case inside the helper so callers can pass either a pre-lowercased
+    string or the original — the public contract is the docstring.
+    """
+    if not tokens:
+        return True  # empty gate = no constraint
+    sig = (signature or "").lower()
+    return any(t.lower() in sig for t in tokens)
 
 
 def _evaluate(check: _Check, model_info: Dict[str, Any]) -> Tuple[str, Any]:
@@ -774,15 +805,30 @@ def audit(result: Any, *, treatment: Optional[str] = None) -> Dict[str, Any]:
     # a family (e.g. Cox / Tobit / Heckman all share a broad family but each
     # carries a diagnostic the others must not be asked about).
     signature = (f"{method_label} {model_info.get('model_type', '')}").lower()
-    is_bayesian = _result_is_bayesian(model_info, method_label)
+    # The evidence gate looks at the merged model_info/diagnostics view the
+    # evaluator already receives, so it sees the same data the check would
+    # otherwise try to read. We rebuild the merge here rather than plumbing
+    # the merged dict through (it is small; a few keys).
+    diag_for_gate = getattr(result, "diagnostics", None) or {}
 
     for chk in pool:
         if family not in chk.applies_to:
             continue
         if chk.model_type_any and not any(s in signature for s in chk.model_type_any):
             continue
-        if chk.requires_bayesian and not is_bayesian:
-            continue
+        # Evidence + signature gates are OR'd: a check that needs
+        # MCMC evidence is included if EITHER the result carries
+        # rhat/ess/etc. in model_info/diagnostics OR its method/model_type
+        # signature implies the regime (e.g. a Bayesian method that has
+        # not yet written rhat evidence). This composes cleanly with
+        # model_type_any, which is AND'd against applies_to.
+        if chk.requires_evidence or chk.requires_signature:
+            evidence_ok = _check_evidence_predicate(
+                chk.requires_evidence, model_info, diag_for_gate
+            )
+            signature_ok = _check_signature_predicate(chk.requires_signature, signature)
+            if not (evidence_ok or signature_ok):
+                continue
         _record(chk)
 
     # Treatment-aware observational checks. A regression the caller declares to

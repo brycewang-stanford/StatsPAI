@@ -594,3 +594,41 @@ class TestMcmcGate:
         names = self._names(r)
         assert "convergence_rhat" in names
         assert "ess_bulk" in names
+
+
+class TestRequiresEvidenceGate:
+    """The requires_evidence / requires_signature gates let a check be
+    scoped to a regime whose data may or may not be present. The
+    motivating use is MCMC convergence (rhat/ess only on Bayesian
+    results) but the same mechanism must work for any future
+    "this assumption only matters when the model collected X" check.
+    Pins the OR semantics (evidence OR signature), the diagnostic
+    sub-dict fallback, and the empty-gate pass-through."""
+
+    def test_evidence_gate_fires_on_stored_key(self):
+        # n_clusters is the canonical example: a "panel few-clusters"
+        # check should be silent on a plain OLS that never recorded one.
+        from statspai.smart.audit import _check_evidence_predicate
+
+        assert _check_evidence_predicate(("n_clusters",), {"n_clusters": 12}, {})
+        assert not _check_evidence_predicate(("n_clusters",), {"x": 1}, {})
+
+    def test_evidence_gate_falls_back_to_diagnostics(self):
+        # panel OLS exposes n_clusters in diagnostics (not model_info);
+        # the gate must look at the merged view, not just model_info.
+        from statspai.smart.audit import _check_evidence_predicate
+
+        assert _check_evidence_predicate(("n_clusters",), {}, {"n_clusters": 12})
+
+    def test_evidence_gate_empty_is_no_op(self):
+        from statspai.smart.audit import _check_evidence_predicate
+
+        assert _check_evidence_predicate((), {"x": 1}, {})  # pass-through
+
+    def test_signature_gate_substring_match(self):
+        from statspai.smart.audit import _check_signature_predicate
+
+        assert _check_signature_predicate(("bayes", "mcmc"), "bayesian did")
+        assert _check_signature_predicate(("bayes", "mcmc"), "MCMC sampler")
+        assert not _check_signature_predicate(("bayes", "mcmc"), "did_2x2")
+        assert _check_signature_predicate((), "anything")  # pass-through
