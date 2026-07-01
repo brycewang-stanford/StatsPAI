@@ -77,8 +77,8 @@ estimator, or only on `feols`?* The honest answer, tracked in
 |---|---|---|---|---|---|---|---|---|
 | `feols` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `hdfe_ols` | ✓ | · | ✓ | ✓ | · | ✓ | · | · |
-| `fepois` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
-| `feglm` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
+| `fepois` | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ |
+| `feglm` | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ |
 | `regress` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ppmlhdfe` | ✓ | ✓ | ✓ | · | · | · | · | · |
@@ -173,6 +173,20 @@ What the matrix makes explicit today:
            vce="CR2", cluster="firm")                 # bias-reduced CR2
   sp.panel(df, "y ~ x", entity="firm", time="t", method="fe",
            cluster=["firm", "region"])                # two-way cluster
+  ```
+- **`fepois` / `feglm` have native bias-reduced cluster SEs** via `vce="CR2"`,
+  `vce="CR3"` (== `vce="jackknife"`). The GLM adjustment is the IRLS-weighted
+  generalisation of CR2 (`d = dμ/dη`, `V = Var(μ)`, working weight `w = d²/V`) on
+  the **fixed-effects-as-dummies** design, matching R
+  `clubSandwich::vcovCR(glm, type=...)` for the Poisson / logit / probit /
+  gaussian families. (Unlike OLS, the weighted projection does *not* carry the
+  CR2 leverage through FE absorption, so the dummy design is required — it is
+  guarded against high-dimensional FE, which should use `cluster=` or the wild
+  bootstrap instead.) See `tests/reference_parity/test_feglm_bias_reduced_parity.py`.
+
+  ```python
+  sp.fepois("y ~ x1 + x2 | firm", data=df, vce="CR2", cluster="clu")
+  sp.feglm("y ~ x1 | firm", data=df, family="logit", vce="CR3", cluster="clu")
   ```
 
 This is the gap the SE-menu wiring work closes, estimator by estimator. The

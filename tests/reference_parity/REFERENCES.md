@@ -83,6 +83,18 @@ same extended menu as `sp.feols`, computed on the entity-within design:
   FE-demeaned by hand, whose Conley is pinned to Stata `acreg` and whose two-way
   cluster is pinned to `reghdfe` / `ivreg2` (see `sp.regress` SE-parity tests).
 
+**GLM bias-reduced cluster SEs** (`test_feglm_bias_reduced_parity.py`).
+`sp.fepois` / `sp.feglm` with `vce="CR2"/"CR3"/"jackknife"` reproduce R
+`clubSandwich::vcovCR(glm, type=…)` for the Poisson and logit families to
+convergence precision (`atol=1e-4`; the pyfixest-vs-R IRLS μ gap is ~1e-6). The
+adjustment (`inference/jackknife.py::glm_cr_vcov`) is the IRLS-weighted
+generalisation — `d = dμ/dη`, `V = Var(μ)`, working weight `w = d²/V`, bread
+`(X' diag(w) X)^{-1}`, per-cluster weighted hat `diag(d) X_g M X_g' diag(d/V)`,
+target `Θ = diag(V)`. Because the weighted-projection FWL does **not** preserve
+the CR2 leverage under FE absorption (unlike OLS — verified: the absorbed design
+differs by ~1%), the SE is computed on the FE-as-dummies design, guarded against
+high-dimensional FE.
+
 ## What the tests verify
 
 ### Recovery tests

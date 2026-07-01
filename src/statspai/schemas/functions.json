@@ -33030,6 +33030,10 @@
     "name": "fepois",
     "parameters": {
       "properties": {
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "type": "string"
+        },
         "collin_tol": {
           "default": 1e-06,
           "description": "Collinearity tolerance.",
@@ -33083,6 +33087,10 @@
     "name": "feglm",
     "parameters": {
       "properties": {
+        "cluster": {
+          "description": "Cluster id column for ``vce=\"CR2\"/\"CR3\"/\"jackknife\"`` (also a shorthand for one-way ``{\"CRV1\": cluster}``).",
+          "type": "string"
+        },
         "data": {
           "description": "Input dataset.",
           "type": "string"
@@ -33097,7 +33105,7 @@
           "type": "string"
         },
         "vcov": {
-          "description": "Variance-covariance estimator.",
+          "description": "Variance-covariance estimator. Also accepts ``vce=\"CR2\"``/``\"CR3\"``/ ``\"jackknife\"`` (with ``cluster=``) for the clubSandwich bias-reduced cluster-robust SEs.",
           "type": "object"
         }
       },

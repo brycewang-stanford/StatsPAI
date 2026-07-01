@@ -115,12 +115,22 @@ MATRIX: Dict[str, Dict[str, str]] = {
         "hc_robust": "native",
         "cluster": "native",
         "twoway": "native",
+        # Native `fepois(vce="CR2"/"CR3"/"jackknife", cluster=...)` — the
+        # clubSandwich glm bias-reduced adjustment on the FE-as-dummies design
+        # (IRLS-weighted). Matches R `clubSandwich::vcovCR(glm(poisson))`.
+        "cr2_cr3": "native",
+        "jackknife": "native",
     },
     "feglm": {
         "classical": "native",
         "hc_robust": "native",
         "cluster": "native",
         "twoway": "native",
+        # Native `feglm(vce="CR2"/"CR3"/"jackknife", cluster=...)` — same
+        # clubSandwich glm adjustment, generalised to the logit/probit/gaussian
+        # family via d=dμ/dη, V=Var(μ). Matches R `clubSandwich::vcovCR(glm)`.
+        "cr2_cr3": "native",
+        "jackknife": "native",
     },
     "regress": {
         "classical": "native",

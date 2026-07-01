@@ -884,3 +884,92 @@ def conley_vcov_ols(
     core = bread @ (score.T @ weig @ score) @ bread
     vcov = 0.5 * (core + core.T)
     return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+
+
+def _matrix_power_sym(mat: np.ndarray, power: float, tol: float = -12.0) -> np.ndarray:
+    """Symmetric matrix power via eigendecomposition (clubSandwich ``matrix_power``).
+
+    Eigenvalues at or below ``10**tol`` are zeroed (generalised inverse), matching
+    R ``clubSandwich:::matrix_power``.
+    """
+    vals, vecs = np.linalg.eigh((mat + mat.T) / 2)
+    val_p = np.where(vals > 10.0**tol, vals**power, 0.0)
+    return (vecs * val_p) @ vecs.T
+
+
+def glm_cr_vcov(
+    X: np.ndarray,
+    y: np.ndarray,
+    family: Any,
+    cluster_codes: np.ndarray,
+    power: float = 0.5,
+) -> np.ndarray:
+    """clubSandwich CR2/CR3 cluster-robust SEs for a GLM (any exponential family).
+
+    Reproduces R ``clubSandwich::vcovCR(glm_fit, type="CR2"/"CR3")`` to machine
+    precision for the full (FE-as-dummies) design. ``power=0.5`` gives CR2
+    (Bell-McCaffrey / Pustejovsky-Tipton 2018) and ``power=1.0`` gives CR3
+    (the jackknife-type adjustment).
+
+    The estimator generalises the OLS construction with the IRLS working weights.
+    With ``d_i = dμ/dη``, ``V_i = Var(μ_i)`` and working weight ``w_i = d_i²/V_i``:
+
+    * bread ``M = (X' diag(w) X)^{-1}``,
+    * per-cluster weighted hat ``H_g = diag(d_g) X_g M X_g' diag(d_g/V_g)``,
+    * CR2 adjustment ``A_g = Θ_g^{1/2} (Θ_g^{1/2}(I-H_g)Θ_g Θ_g^{1/2})^{-1/2}
+      Θ_g^{1/2}`` with target ``Θ_g = diag(V_g)`` (CR3 uses ``A_g = (I-H_g)^{-1}``),
+    * score ``s_g = X_g' diag(d_g/V_g) A_g (y_g-μ_g)``,
+    * ``V = M (Σ_g s_g s_g') M``.
+
+    Parameters
+    ----------
+    X : ndarray (n, p)
+        Full model matrix (intercept + regressors + any FE dummies).
+    y : ndarray (n,)
+        Response.
+    family : statsmodels GLM family instance
+        E.g. ``sm.families.Poisson()`` or ``sm.families.Binomial()``.
+    cluster_codes : ndarray (n,)
+        Integer cluster labels in ``0..G-1``.
+    power : float, default 0.5
+        ``0.5`` → CR2, ``1.0`` → CR3 (== cluster jackknife).
+
+    Returns
+    -------
+    ndarray (p,)
+        Standard errors for every column of ``X`` (slice the regressor block).
+    """
+    import statsmodels.api as sm  # noqa: F401 — statsmodels is a core dependency
+
+    fit = sm.GLM(y, X, family=family).fit()
+    mu = np.asarray(fit.mu, dtype=float)
+    n, p = X.shape
+    # d = dμ/dη = 1 / (dη/dμ); V = variance(μ); working weight w = d²/V.
+    d = 1.0 / family.link.deriv(mu)
+    V = family.variance(mu)
+    w = d**2 / V
+    dV = d / V
+    M = np.linalg.inv((X * w[:, None]).T @ X)
+    e = y - mu
+
+    meat = np.zeros((p, p))
+    for cid in range(int(cluster_codes.max()) + 1):
+        idx = cluster_codes == cid
+        Xg = X[idx]
+        dg = d[idx]
+        Vg = V[idx]
+        dVg = dV[idx]
+        ng = int(idx.sum())
+        Hg = (dg[:, None]) * (Xg @ M @ Xg.T) * (dVg[None, :])
+        IH = np.eye(ng) - Hg
+        if power == 0.5:
+            thc = np.sqrt(Vg)
+            G = (thc[:, None]) * IH * (Vg * thc)[None, :]
+            A = (thc[:, None]) * _matrix_power_sym(G, -0.5) * thc[None, :]
+        else:  # CR3 / jackknife
+            A = np.linalg.inv(IH)
+        s = (Xg.T * dVg) @ (A @ e[idx])
+        meat += np.outer(s, s)
+
+    vcov = M @ meat @ M
+    return np.sqrt(np.maximum(np.diag(vcov), 0.0))

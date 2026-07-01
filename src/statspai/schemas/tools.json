@@ -7354,6 +7354,10 @@
     "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects.",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Cluster id column for ``vce=\"CR2\"/\"CR3\"/\"jackknife\"`` (also a shorthand for one-way ``{\"CRV1\": cluster}``).",
+          "type": "string"
+        },
         "family": {
           "default": "gaussian",
           "description": "GLM family: ``\"gaussian\"``, ``\"logit\"``, ``\"probit\"``.",
@@ -7364,7 +7368,7 @@
           "type": "string"
         },
         "vcov": {
-          "description": "Variance-covariance estimator.",
+          "description": "Variance-covariance estimator. Also accepts ``vce=\"CR2\"``/``\"CR3\"``/ ``\"jackknife\"`` (with ``cluster=``) for the clubSandwich bias-reduced cluster-robust SEs.",
           "type": "object"
         }
       },
@@ -7452,6 +7456,10 @@
     "description": "Estimate Poisson regression with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Assumptions: Conditional mean exponential link: E[y | x, alpha] = exp(x'beta + alpha); Strict exogeneity conditional on the absorbed fixed effects (PPML consistency). Pre-conditions: Outcome is a non-negative count or non-negative continuous variable; Fixed effects columns are categorical; absorbed groups exist. Failure modes: Convergence failure or extreme exponentiated predictions -> Drop large-magnitude regressors, rescale, or switch to OLS on log(1+y) (with caveats); Separation: some FE level perfectly predicts zero outcomes -> Drop perfectly-predicted groups and rerun; document the restriction. Alternatives: sp.feols, sp.regress, sp.panel. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
+        "cluster": {
+          "description": "Cluster identifier column for clustered standard errors.",
+          "type": "string"
+        },
         "collin_tol": {
           "default": 1e-06,
           "description": "Collinearity tolerance.",

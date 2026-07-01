@@ -210,6 +210,171 @@ def _feols_bias_reduced(
     return base
 
 
+#: vcov sentinels selecting the GLM bias-reduced cluster menu (CR2/CR3/jackknife).
+_GLM_BR_VCOV = frozenset({"cr2", "cr3", "jackknife"})
+
+
+def _sm_glm_family(family_str: Optional[str]) -> Any:
+    """Map a pyfixest family string to a statsmodels GLM family instance."""
+    from statsmodels.api import families as _fam
+
+    f = (family_str or "poisson").lower()
+    if f == "poisson":
+        return _fam.Poisson()
+    if f in ("logit", "binomial"):
+        return _fam.Binomial()
+    if f == "probit":
+        return _fam.Binomial(link=_fam.links.Probit())
+    if f == "gaussian":
+        return _fam.Gaussian()
+    raise MethodIncompatibility(
+        f"vce='CR2'/'CR3' not supported for family={family_str!r}; "
+        "supported: poisson, logit, probit, gaussian.",
+        recovery_hint="Use cluster= (CRV1) or vce='wild' instead.",
+    )
+
+
+def _feglm_bias_reduced(
+    fml: str,
+    data: pd.DataFrame,
+    kind: str,
+    *,
+    family_str: Optional[str],
+    cluster: Optional[str],
+    is_pois: bool,
+    ssc: Optional[Any],
+    fixef_rm: str,
+    collin_tol: float,
+    extra: Dict[str, Any],
+) -> EconometricResults:
+    """CR2/CR3 (Pustejovsky-Tipton) cluster-robust SEs for fepois / feglm.
+
+    Reproduces R ``clubSandwich::vcovCR(glm, type="CR2"/"CR3")`` to machine
+    precision by fitting the GLM with the fixed effects as **dummies** and
+    applying the IRLS-weighted bias-reduced adjustment (see
+    :func:`statspai.inference.jackknife.glm_cr_vcov`). Unlike OLS, the
+    weighted-projection FWL equivalence does *not* carry the CR2 leverage
+    through fixed-effect absorption, so the dummy design is required to match
+    the reference — feasible for modest FE dimensionality only.
+    """
+    from scipy import stats as _stats
+
+    from ..inference.jackknife import glm_cr_vcov
+
+    who = "fepois" if is_pois else "feglm"
+    if cluster is None:
+        raise MethodIncompatibility(
+            f"{who}(vce={kind!r}) requires cluster=... (a cluster-robust "
+            "small-sample correction).",
+            recovery_hint="Pass cluster='firm' (or another id column).",
+        )
+
+    # Canonical estimate + full result object from the native estimator.
+    if is_pois:
+        base = fepois(
+            fml,
+            data,
+            vcov={"CRV1": cluster},
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            **extra,
+        )
+    else:
+        base = feglm(fml, data, family=family_str, vcov={"CRV1": cluster}, **extra)
+    if isinstance(base, list):
+        raise MethodIncompatibility(
+            f"{who}(vce={kind!r}) does not support multiple-estimation formulas."
+        )
+
+    # Parse the formula into outcome / regressors / fixed effects.
+    lhs, rhs = fml.split("~", 1)
+    y_var = lhs.strip()
+    fe_vars: List[str] = []
+    if "|" in rhs:
+        cov_part, fe_part = rhs.split("|", 1)
+        fe_vars = [t.strip() for t in fe_part.replace("+", " ").split() if t.strip()]
+    else:
+        cov_part = rhs
+    cov_vars = [
+        t.strip() for t in cov_part.split("+") if t.strip() and t.strip() != "1"
+    ]
+
+    need = [y_var] + cov_vars + fe_vars + [cluster]
+    missing = [c for c in need if c not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"{who}(vce={kind!r}): columns {missing} not found in data."
+        )
+    work = data.loc[:, need].dropna().reset_index(drop=True)
+
+    base_n = int(base.data_info.get("nobs", len(work)))
+    if base_n != len(work):
+        raise MethodIncompatibility(
+            f"{who}(vce={kind!r}): the fitted sample ({base_n} obs) differs from "
+            f"the complete-case design ({len(work)} obs) — singleton / separation "
+            "dropping breaks the CR2/CR3 dummy-design alignment.",
+            recovery_hint="Use cluster= (CRV1) or vce='wild' for this model.",
+        )
+
+    # Align result coefficients to design columns by name (simple regressors only).
+    try:
+        cov_pos = [cov_vars.index(nm) for nm in base.params.index]
+    except ValueError:
+        raise MethodIncompatibility(
+            f"{who}(vce={kind!r}) supports simple additive regressors only; "
+            "factor() / interaction terms are not yet handled.",
+            recovery_hint="Use cluster= (CRV1) or vce='wild' for this model.",
+        )
+
+    y = work[y_var].to_numpy(dtype=float)
+    Xc = work[cov_vars].to_numpy(dtype=float)
+    blocks: List[np.ndarray] = [Xc, np.ones((len(work), 1))]
+    for fe in fe_vars:
+        d = pd.get_dummies(work[fe], prefix=fe, drop_first=True).astype(float).values
+        if d.shape[1]:
+            blocks.append(d)
+    X = np.column_stack(blocks)
+
+    # Full-dummy CR2/CR3 costs O(p^3) in the bread (p = regressors + FE dummies)
+    # plus O(n_g^3) per cluster; guard against high-dimensional FE.
+    if X.shape[1] >= len(work) or X.shape[1] > 1000:
+        raise MethodIncompatibility(
+            f"{who}(vce={kind!r}): the fixed-effects dummy design has "
+            f"{X.shape[1]} columns — too many for the full-dummy CR2/CR3 "
+            "(which cannot absorb the FE without losing the leverage the "
+            "reference needs).",
+            recovery_hint="Use cluster= (CRV1) or vce='wild' for "
+            "high-dimensional fixed effects.",
+        )
+
+    fam = _sm_glm_family("poisson" if is_pois else family_str)
+    codes = pd.factorize(work[cluster])[0]
+    power = 0.5 if kind == "cr2" else 1.0
+    se_full = glm_cr_vcov(X, y, fam, codes, power=power)
+    se = pd.Series(
+        [float(se_full[cov_pos[i]]) for i in range(len(cov_pos))],
+        index=list(base.params.index),
+    )
+
+    z = base.params / se
+    base.std_errors = se
+    base.pvalues = pd.Series(
+        2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+    )
+    crit = _stats.norm.ppf(0.975)
+    base.conf_int_lower = base.params - crit * se
+    base.conf_int_upper = base.params + crit * se
+    base.model_info = dict(base.model_info)
+    base.model_info["vcov_type"] = {
+        "cr2": "CR2 cluster-robust (clubSandwich glm, Pustejovsky-Tipton 2018)",
+        "cr3": "CR3 cluster-robust (clubSandwich glm jackknife-type)",
+        "jackknife": "CR3 cluster-robust (clubSandwich glm jackknife-type)",
+    }[kind]
+    base.model_info["cluster"] = cluster
+    return base
+
+
 @accepts_aliases(vce="vcov")
 def feols(
     fml: str,
@@ -391,6 +556,7 @@ def feols(
 # --------------------------------------------------------------------------- #
 
 
+@accepts_aliases(vce="vcov")
 def fepois(
     fml: str,
     data: pd.DataFrame,
@@ -402,6 +568,7 @@ def fepois(
     collin_tol: float = 1e-6,
     iwls_tol: float = 1e-8,
     iwls_maxiter: int = 25,
+    cluster: Optional[str] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -450,7 +617,32 @@ def fepois(
     >>> res = sp.fepois("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> "x1" in res.params.index  # doctest: +SKIP
     True
+
+    Bias-reduced cluster-robust SEs (matches R ``clubSandwich::vcovCR``):
+
+    >>> res = sp.fepois("y ~ x1 | firm", data=df, vce="CR2",  # doctest: +SKIP
+    ...                 cluster="firm")
     """
+    # Bias-reduced cluster SEs (CR2 / CR3 / jackknife) via the clubSandwich glm
+    # adjustment on the FE-as-dummies design — matches R clubSandwich exactly.
+    if isinstance(vcov, str) and vcov.lower() in _GLM_BR_VCOV:
+        return _feglm_bias_reduced(
+            fml,
+            data,
+            vcov.lower(),
+            family_str="poisson",
+            cluster=cluster,
+            is_pois=True,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            extra=kwargs,
+        )
+
+    # Grammar convenience: cluster="firm" is one-way CRV1 (reads like sp.regress).
+    if cluster is not None and vcov is None:
+        vcov = {"CRV1": cluster}
+
     pf = _check_pyfixest()
 
     pf_kwargs: Dict[str, Any] = {
@@ -482,11 +674,14 @@ def fepois(
 # --------------------------------------------------------------------------- #
 
 
+@accepts_aliases(vce="vcov")
 def feglm(
     fml: str,
     data: pd.DataFrame,
     family: str = "gaussian",
     vcov: Optional[Union[str, Dict[str, str]]] = None,
+    *,
+    cluster: Optional[str] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -501,7 +696,12 @@ def feglm(
     family : str, default "gaussian"
         GLM family: ``"gaussian"``, ``"logit"``, ``"probit"``.
     vcov : str or dict, optional
-        Variance-covariance estimator.
+        Variance-covariance estimator. Also accepts ``vce="CR2"``/``"CR3"``/
+        ``"jackknife"`` (with ``cluster=``) for the clubSandwich bias-reduced
+        cluster-robust SEs.
+    cluster : str, optional
+        Cluster id column for ``vce="CR2"/"CR3"/"jackknife"`` (also a shorthand
+        for one-way ``{"CRV1": cluster}``).
     **kwargs
         Additional arguments passed to ``pyfixest.feglm()``.
 
@@ -527,6 +727,25 @@ def feglm(
     >>> "x1" in res.params.index  # doctest: +SKIP
     True
     """
+    # Bias-reduced cluster SEs (CR2 / CR3 / jackknife) via the clubSandwich glm
+    # adjustment on the FE-as-dummies design — matches R clubSandwich exactly.
+    if isinstance(vcov, str) and vcov.lower() in _GLM_BR_VCOV:
+        return _feglm_bias_reduced(
+            fml,
+            data,
+            vcov.lower(),
+            family_str=family,
+            cluster=cluster,
+            is_pois=False,
+            ssc=None,
+            fixef_rm="none",
+            collin_tol=1e-6,
+            extra=kwargs,
+        )
+
+    if cluster is not None and vcov is None:
+        vcov = {"CRV1": cluster}
+
     pf = _check_pyfixest()
 
     pf_kwargs: Dict[str, Any] = {"fml": fml, "data": data, "family": family, **kwargs}

@@ -30702,6 +30702,10 @@
       "name": "fepois",
       "parameters": {
         "properties": {
+          "cluster": {
+            "description": "Cluster identifier column for clustered standard errors.",
+            "type": "string"
+          },
           "collin_tol": {
             "default": 1e-06,
             "description": "Collinearity tolerance.",

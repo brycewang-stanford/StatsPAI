@@ -120,6 +120,16 @@ now has zero `standalone_unsafe` cells.
   Conley / two-way match `sp.regress` on the hand-demeaned data. Matrix: panel
   twoway/cr2_cr3/jackknife/conley `na → native` (native 48→52).
   `test_panel_bias_reduced_parity.py`.
+- **fepois / feglm(vce="CR2"/"CR3"/"jackknife") — native (done).** GLM
+  bias-reduced cluster SEs via `inference/jackknife.py::glm_cr_vcov` — the
+  IRLS-weighted (`d=dμ/dη`, `V=Var(μ)`, `w=d²/V`) generalisation of the
+  Pustejovsky-Tipton adjustment, dispatched from `fixest/wrapper.py`. Matches R
+  `clubSandwich::vcovCR(glm, type=…)` for Poisson **and** logit to convergence
+  precision. Key finding: unlike OLS, the weighted-projection FWL does **not**
+  carry the CR2 leverage through FE absorption (the absorbed design differs by
+  ~1%), so the SE is computed on the FE-as-dummies design and guarded against
+  high-dimensional FE. Matrix: fepois/feglm cr2_cr3/jackknife `na → native`
+  (native 52→56). `test_feglm_bias_reduced_parity.py`.
 
 ### D5 — unify the result contract  *(collision risk: results.py)*
 - One §3-true protocol: `summary`/`plot`/`to_latex`/`to_word`/`to_excel`/`cite`
