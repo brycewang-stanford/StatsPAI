@@ -81,7 +81,7 @@ estimator, or only on `feols`?* The honest answer, tracked in
 | `feglm` | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ |
 | `regress` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `ppmlhdfe` | ✓ | ✓ | ✓ | · | · | · | · | · |
+| `ppmlhdfe` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `panel` | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ |
 | `callaway_santanna` | · | · | ✓ | · | · | · | · | · |
 | `did` | · | · | ✓ | · | · | · | · | · |
@@ -187,6 +187,15 @@ What the matrix makes explicit today:
   ```python
   sp.fepois("y ~ x1 + x2 | firm", data=df, vce="CR2", cluster="clu")
   sp.feglm("y ~ x1 | firm", data=df, family="logit", vce="CR3", cluster="clu")
+  ```
+- **`ppmlhdfe` has native two-way clustering** via `cluster=["a", "b"]` — the
+  CGM (2011) inclusion-exclusion sandwich on the FE-residualised PPML design
+  with the single `G_min/(G_min-1)` small-sample factor, **byte-identical to
+  Stata `ppmlhdfe ..., cluster(a b)`** (its one-way path already matches Stata
+  exactly). See `tests/reference_parity/test_ppmlhdfe_twoway_parity.py`.
+
+  ```python
+  sp.ppmlhdfe("y ~ x1 + x2 | o + d", data=df, cluster=["origin", "dest"])
   ```
 
 This is the gap the SE-menu wiring work closes, estimator by estimator. The

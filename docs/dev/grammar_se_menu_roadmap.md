@@ -130,6 +130,16 @@ now has zero `standalone_unsafe` cells.
   ~1%), so the SE is computed on the FE-as-dummies design and guarded against
   high-dimensional FE. Matrix: fepois/feglm cr2_cr3/jackknife `na → native`
   (native 52→56). `test_feglm_bias_reduced_parity.py`.
+- **ppmlhdfe(cluster=[a,b]) — native two-way (done).** CGM-2011 inclusion-
+  exclusion on the FE-residualised PPML design (`regression/count.py::
+  _twoway_cluster_vcov`) with the single `G_min/(G_min-1)` factor — **byte-
+  identical to Stata `ppmlhdfe ..., cluster(a b)`** (verified via Stata 18 MP;
+  the one-way path already matched Stata exactly). Matrix ppmlhdfe twoway
+  `na → native` (native 56→57). `test_ppmlhdfe_twoway_parity.py`. Note: GLM
+  CR2/CR3 is *not* offered for ppmlhdfe — the reference-matching version needs
+  the FE-as-dummies design (the absorbed CR2 differs ~1% with no published
+  reference), which defeats ppmlhdfe's high-dimensional-FE purpose; use
+  `cluster=` / two-way there.
 
 ### D5 — unify the result contract  *(collision risk: results.py)*
 - One §3-true protocol: `summary`/`plot`/`to_latex`/`to_word`/`to_excel`/`cite`

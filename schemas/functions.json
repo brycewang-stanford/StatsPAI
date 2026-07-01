@@ -22208,7 +22208,10 @@
         },
         "cluster": {
           "description": "Variable name for clustered standard errors (recommended for gravity models, e.g. cluster on country-pair).",
-          "type": "string"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "data": {
           "description": "Data containing all variables.",

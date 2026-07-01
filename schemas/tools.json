@@ -15024,7 +15024,10 @@
         },
         "cluster": {
           "description": "Variable name for clustered standard errors (recommended for gravity models, e.g. cluster on country-pair).",
-          "type": "string"
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "formula": {
           "description": "Model formula. Fixed effects can be specified via ``|``: ``\"trade ~ dist + contig | origin + destination + year\"``",

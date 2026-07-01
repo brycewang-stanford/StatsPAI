@@ -179,6 +179,10 @@ MATRIX: Dict[str, Dict[str, str]] = {
         "classical": "native",
         "hc_robust": "native",
         "cluster": "native",
+        # Native `ppmlhdfe(cluster=["a","b"])` — CGM-2011 two-way cluster on the
+        # FE-residualised PPML design with the single G_min/(G_min-1) factor.
+        # Byte-identical to Stata `ppmlhdfe ..., cluster(a b)`.
+        "twoway": "native",
     },
     "panel": {  # FE/RE — has Driscoll-Kraay (not modelled as a column here)
         "classical": "native",

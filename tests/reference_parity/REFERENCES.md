@@ -95,6 +95,17 @@ the CR2 leverage under FE absorption (unlike OLS — verified: the absorbed desi
 differs by ~1%), the SE is computed on the FE-as-dummies design, guarded against
 high-dimensional FE.
 
+**PPML HDFE two-way clustering** (`test_ppmlhdfe_twoway_parity.py`).
+`sp.ppmlhdfe(cluster=[a, b])` is the CGM-2011 inclusion-exclusion sandwich on
+the FE-residualised design with a single `G_min/(G_min-1)` small-sample factor
+(`regression/count.py::_twoway_cluster_vcov`), **byte-identical to Stata 18
+`ppmlhdfe y x1 x2, absorb(o d) cluster(ca cb)`** (frozen `x1=0.01820187`,
+`x2=0.01793071`). The one-way path already matches Stata exactly, so the
+two-way is validated end-to-end against the same reference. GLM CR2/CR3 is *not*
+offered for ppmlhdfe: the reference-matching version needs the FE-as-dummies
+design (infeasible for its high-dimensional-FE use case) and the absorbed CR2
+has no published reference.
+
 ## What the tests verify
 
 ### Recovery tests

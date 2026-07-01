@@ -13,7 +13,7 @@ References
 """
 
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -295,6 +295,49 @@ def _cluster_vcov(
     return sandwich_vcov(
         XtWX_inv, X * residuals[:, None], clusters=cluster_arr, correction="cgm"
     )
+
+
+def _twoway_cluster_vcov(
+    X: np.ndarray,
+    mu: np.ndarray,
+    residuals: np.ndarray,
+    c1_arr: np.ndarray,
+    c2_arr: np.ndarray,
+) -> np.ndarray:
+    """Two-way cluster sandwich (Cameron-Gelbach-Miller 2011).
+
+    ``V = (G_min/(G_min-1)) · bread · (M1 + M2 - M12) · bread`` on the
+    FE-residualised (``X_dm``) design, where each ``M_g`` is the *uncorrected*
+    cluster meat ``Σ_g (Σ_{i∈g} X_i r_i)(·)'`` and ``G_min = min(G1, G2)``.
+    Byte-identical to Stata ``ppmlhdfe ..., cluster(a b)`` (which applies the
+    single ``G_min/(G_min-1)`` small-sample factor to the inclusion-exclusion
+    meat — the one-way ``cluster(a)`` path reduces to ``G/(G-1)`` and matches
+    ``_cluster_vcov`` exactly).
+    """
+    W = mu
+    XtWX = X.T @ (X * W[:, None])
+    try:
+        bread = np.linalg.inv(XtWX)
+    except np.linalg.LinAlgError:
+        bread = np.linalg.pinv(XtWX)
+
+    scores = X * residuals[:, None]
+    k = X.shape[1]
+
+    def _meat(codes: np.ndarray) -> np.ndarray:
+        m = np.zeros((k, k))
+        for c in np.unique(codes):
+            s = scores[codes == c].sum(axis=0)
+            m += np.outer(s, s)
+        return m
+
+    a_codes = pd.factorize(c1_arr)[0]
+    b_codes = pd.factorize(c2_arr)[0]
+    c12 = a_codes * (int(b_codes.max()) + 1) + b_codes
+    g_min = min(len(np.unique(c1_arr)), len(np.unique(c2_arr)))
+    meat = _meat(c1_arr) + _meat(c2_arr) - _meat(c12)
+    vcov = bread @ meat @ bread * (g_min / (g_min - 1.0))
+    return vcov
 
 
 def _poisson_vcov(
@@ -1625,7 +1668,7 @@ def ppmlhdfe(
     x: Optional[List[str]] = None,
     absorb: Optional[str] = None,
     robust: str = "robust",
-    cluster: Optional[str] = None,
+    cluster: Optional[Union[str, List[str], Tuple[str, str]]] = None,
     weights: Optional[str] = None,
     separation: bool = True,
     maxiter: int = 1000,
@@ -1749,9 +1792,18 @@ def ppmlhdfe(
     if weights is not None:
         w_arr = data[weights].values.astype(np.float64)
 
-    # Cluster variable
+    # Cluster variable(s) — a single column (one-way) or a pair (two-way CGM).
     cluster_arr = None
-    if cluster is not None:
+    cluster_pair = None
+    if isinstance(cluster, (list, tuple)):
+        if len(cluster) != 2:
+            raise MethodIncompatibility(
+                "ppmlhdfe cluster= accepts a single column name or a pair "
+                f"[a, b] for two-way clustering; got {len(cluster)} entries.",
+                recovery_hint="Pass cluster='id' or cluster=['a', 'b'].",
+            )
+        cluster_pair = (data[cluster[0]].values, data[cluster[1]].values)
+    elif cluster is not None:
         cluster_arr = data[cluster].values
 
     # Separation detection
@@ -1785,7 +1837,12 @@ def ppmlhdfe(
     # variability than is identifying β), yielding HC1 SE 50% larger
     # than fixest::fepois / Stata ppmlhdfe (parity finding #6).
     X_for_vcov = X_dm if (X_dm is not None) else X
-    vcov = _poisson_vcov(X_for_vcov, mu, residuals, robust, cluster_arr)
+    if cluster_pair is not None:
+        vcov = _twoway_cluster_vcov(
+            X_for_vcov, mu, residuals, cluster_pair[0], cluster_pair[1]
+        )
+    else:
+        vcov = _poisson_vcov(X_for_vcov, mu, residuals, robust, cluster_arr)
     se = np.sqrt(np.diag(vcov))
 
     # Log-likelihood (Poisson quasi-likelihood)
@@ -1843,7 +1900,15 @@ def ppmlhdfe(
         "separation_warnings": sep_warnings,
     }
 
-    n_cluster = len(np.unique(cluster_arr)) if cluster_arr is not None else None
+    if cluster_arr is not None:
+        n_cluster = len(np.unique(cluster_arr))
+    elif cluster_pair is not None:
+        # Two-way CGM inference binds on the smaller cluster dimension.
+        n_cluster = min(
+            len(np.unique(cluster_pair[0])), len(np.unique(cluster_pair[1]))
+        )
+    else:
+        n_cluster = None
     data_info = {
         "nobs": n,
         "df_model": k,
