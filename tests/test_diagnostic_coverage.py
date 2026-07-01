@@ -334,3 +334,119 @@ def test_plain_scm_flags_unmatchable_pre_trend():
             treatment_time=1990,
         )
     assert "synth_prefit" in {v["test"] for v in r.violations()}
+
+
+# --------------------------------------------------------------------------- #
+#  Limited-dependent / survival — assumption diagnostics
+#
+#  These estimators each carry a signature assumption whose violation quietly
+#  invalidates the headline coefficient: Cox's proportional hazards, Tobit's
+#  usable variation under censoring, Heckman's numerical identification, and a
+#  logit's finiteness under separation. Each check only fires if the estimator
+#  stored the statistic it reads (ph_test / censor_pct / rho / coefs) — pin the
+#  storage AND the fire/clean behaviour so none silently regresses to a blind
+#  spot the way the IV family once did.
+# --------------------------------------------------------------------------- #
+
+
+def test_cox_flags_nonproportional_hazards():
+    """PH-violating data (covariate trends with failure time) must reject the
+    proportional-hazards test; textbook proportional data must not."""
+    rng = np.random.default_rng(11)
+    n = 700
+    t_bad = np.sort(rng.exponential(1.0, n)) + 0.01
+    x_bad = np.linspace(-2, 2, n) + rng.normal(0, 0.3, n)  # x rises with time
+    xg = np.random.default_rng(3).normal(size=n)
+    t_good = -np.log(np.random.default_rng(3).uniform(size=n)) / np.exp(0.8 * xg)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        bad = sp.cox(
+            data=pd.DataFrame({"t": t_bad, "d": np.ones(n, int), "x": x_bad}),
+            duration="t",
+            event="d",
+            x=["x"],
+        )
+        good = sp.cox(
+            data=pd.DataFrame({"t": t_good + 0.001, "d": np.ones(n, int), "x": xg}),
+            duration="t",
+            event="d",
+            x=["x"],
+        )
+    assert bad.model_info.get("ph_test") is not None, (
+        "cox: model_info['ph_test'] missing — the proportional-hazards check "
+        "would be silently skipped by result.violations()"
+    )
+    assert "proportional_hazards" in {v["test"] for v in bad.violations()}
+    assert "proportional_hazards" not in {v["test"] for v in good.violations()}
+
+
+def test_tobit_flags_extreme_censoring():
+    rng = np.random.default_rng(5)
+    n = 800
+    x = rng.normal(size=n)
+    y_bad = np.maximum(-3.0 + 1.0 * x + rng.normal(size=n), 0.0)  # ~98% at floor
+    y_good = np.maximum(1.0 + 2.0 * x + rng.normal(size=n), 0.0)  # ~33% censored
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        bad = sp.tobit(pd.DataFrame({"y": y_bad, "x": x}), y="y", x=["x"], ll=0)
+        good = sp.tobit(pd.DataFrame({"y": y_good, "x": x}), y="y", x=["x"], ll=0)
+    assert bad.model_info.get("censor_pct") is not None, (
+        "tobit: model_info['censor_pct'] missing — the extreme-censoring check "
+        "would be silently skipped by result.violations()"
+    )
+    assert "extreme_censoring" in {v["test"] for v in bad.violations()}
+    assert "extreme_censoring" not in {v["test"] for v in good.violations()}
+
+
+def test_heckman_flags_rho_boundary():
+    """When the outcome error is (near-)perfectly correlated with the selection
+    error, rho hits the ±1 boundary — a numerical red flag the check must
+    surface; a well-identified moderate-rho fit must not."""
+    rng_b = np.random.default_rng(9)
+    n = 600
+    z = rng_b.normal(size=n)
+    x = rng_b.normal(size=n)
+    u = rng_b.normal(size=n)
+    sel = 0.5 + 0.8 * z + u > 0
+    y = 1 + 2 * x + 3 * u  # outcome error == selection error => rho -> 1
+    boundary_df = pd.DataFrame(
+        {"y": np.where(sel, y, np.nan), "x": x, "z": z, "sel": sel.astype(int)}
+    )
+
+    rng_c = np.random.default_rng(5)
+    m = 2000
+    zc = rng_c.normal(size=m)
+    xc = rng_c.normal(size=m)
+    uc = rng_c.normal(size=m)
+    epsc = 0.6 * uc + np.sqrt(1 - 0.6**2) * rng_c.normal(size=m)  # rho ~ 0.6
+    selc = 0.3 + 1.0 * zc + 0.5 * xc + uc > 0
+    yc = 1 + 2 * xc + 3 * epsc
+    clean_df = pd.DataFrame(
+        {"y": np.where(selc, yc, np.nan), "x": xc, "z": zc, "sel": selc.astype(int)}
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        boundary = sp.heckman(boundary_df, y="y", x=["x"], select="sel", z=["z"])
+        clean = sp.heckman(clean_df, y="y", x=["x"], select="sel", z=["z"])
+    assert boundary.model_info.get("rho") is not None, (
+        "heckman: model_info['rho'] missing — the rho-boundary check would be "
+        "silently skipped by result.violations()"
+    )
+    assert "heckman_rho_boundary" in {v["test"] for v in boundary.violations()}
+    assert "heckman_rho_boundary" not in {v["test"] for v in clean.violations()}
+
+
+def test_logit_flags_separation():
+    rng = np.random.default_rng(0)
+    n = 400
+    xs = rng.normal(size=n)
+    y_sep = (xs > 0).astype(int)  # outcome perfectly predicted by x
+    xn = rng.normal(size=n)
+    y_clean = (rng.uniform(size=n) < 1 / (1 + np.exp(-xn))).astype(int)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        sep = sp.logit("y ~ x", data=pd.DataFrame({"y": y_sep, "x": xs}))
+        clean = sp.logit("y ~ x", data=pd.DataFrame({"y": y_clean, "x": xn}))
+    assert "separation" in {v["test"] for v in sep.violations()}
+    assert "separation" not in {v["test"] for v in clean.violations()}
