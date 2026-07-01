@@ -9,6 +9,7 @@ estimator must record the first-stage strength and flag a weak instrument, and
 none may cry wolf on a strong one. A new IV estimator that forgets the
 diagnostic fails here instead of shipping a blind spot.
 """
+
 from __future__ import annotations
 
 import warnings
@@ -450,3 +451,134 @@ def test_logit_flags_separation():
         clean = sp.logit("y ~ x", data=pd.DataFrame({"y": y_clean, "x": xn}))
     assert "separation" in {v["test"] for v in sep.violations()}
     assert "separation" not in {v["test"] for v in clean.violations()}
+
+
+# --------------------------------------------------------------------------- #
+#  Actionability contract — every violation must say what to do
+# --------------------------------------------------------------------------- #
+#
+# The suite above proves every estimator *flags* its diagnostic. This capstone
+# proves every flag is *actionable*. ``sp.audit`` folds a live violation in as
+# ``{"question": v["message"], "rationale": v["recovery_hint"],
+#    "suggest_function": v["alternatives"][0] if alternatives else ""}``. A
+# violation with an empty ``message`` or ``recovery_hint`` therefore surfaces in
+# audit as a flagged failure with no guidance — fail-loud degenerating into
+# "cries wolf". The static test below parses ``_agent_summary.py`` and asserts
+# every violation dict literal carries a non-empty ``message`` and
+# ``recovery_hint``, so a newly-added violation that forgets the recovery path
+# fails here rather than shipping an actionless finding.
+
+
+def _violation_string_value(node):
+    """Best-effort evaluation of an AST node to its string content.
+
+    Handles the four shapes the violation constructors actually use for
+    ``message`` / ``recovery_hint``: a plain ``str`` constant, an f-string
+    (``JoinedStr``), implicit/``+`` concatenation of those (``BinOp`` with
+    ``Add``), and a conditional (``a if cond else b``). Returns the
+    concatenated string, or ``None`` if the node is provably not a string
+    expression (so the caller can flag "not a string").
+    """
+    import ast
+
+    if isinstance(node, ast.Constant):
+        return node.value if isinstance(node.value, str) else None
+    if isinstance(node, ast.JoinedStr):
+        # An f-string interpolation part contributes non-empty content; only
+        # the literal pieces carry known text, so stand in "X" for {expr}.
+        return "".join(
+            p.value if isinstance(p, ast.Constant) else "X" for p in node.values
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left = _violation_string_value(node.left)
+        right = _violation_string_value(node.right)
+        if left is None and right is None:
+            return None
+        return (left or "") + (right or "")
+    if isinstance(node, ast.IfExp):
+        return _violation_string_value(node.body) or _violation_string_value(
+            node.orelse
+        )
+    return None
+
+
+def _violation_dict_literals():
+    """Every dict literal in ``_agent_summary.py`` that constructs a violation.
+
+    A violation is identified structurally by a ``"test":`` key — the field
+    ``violations()`` / ``audit`` branch on. Parsed from source (not by running
+    the constructors) so the contract holds for *every* branch, including ones
+    a fixture would find hard to trigger (e.g. NaN estimate, divergences).
+    """
+    import ast
+    import pathlib
+
+    import statspai.core._agent_summary as agg
+
+    src = pathlib.Path(agg.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict) and any(
+            isinstance(k, ast.Constant) and k.value == "test" for k in node.keys
+        ):
+            fields = {
+                k.value: v
+                for k, v in zip(node.keys, node.values)
+                if isinstance(k, ast.Constant)
+            }
+            out.append(fields)
+    return out
+
+
+def test_every_violation_is_actionable():
+    """Static contract: every violation carries a non-empty message + recovery
+    hint, so audit never flags a problem without a recovery path."""
+    import ast
+
+    literals = _violation_dict_literals()
+    # Sanity: the parser found the population (guards against a refactor that
+    # renames the field and silently empties this test).
+    assert len(literals) >= 20, (
+        f"expected >=20 violation dict literals, found {len(literals)} — did the "
+        "'test' key get renamed?"
+    )
+
+    problems = []
+    for fields in literals:
+        test_node = fields.get("test")
+        name = (
+            test_node.value
+            if isinstance(test_node, ast.Constant)
+            else "<dynamic test name>"
+        )
+        for required in ("message", "recovery_hint"):
+            if required not in fields:
+                problems.append(f"{name}: missing '{required}'")
+                continue
+            value = _violation_string_value(fields[required])
+            if value is None:
+                problems.append(f"{name}: '{required}' is not a string expression")
+            elif not value.strip():
+                problems.append(f"{name}: '{required}' is empty")
+
+    assert not problems, "non-actionable violations found:\n  " + "\n  ".join(problems)
+
+
+def test_audit_folds_live_violation_with_actionable_content():
+    """Runtime companion: a real fit that trips a violation must surface in
+    ``sp.audit`` as a failed check carrying either a suggest_function or a
+    rationale — the fold-in path, end to end."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fit = sp.regress("y ~ x", data=_clustered_df(12), cluster="g")
+    assert "few_clusters" in {v["test"] for v in fit.violations()}
+
+    card = sp.audit(fit)
+    failed = [c for c in card["checks"] if c["status"] == "failed"]
+    assert failed, "expected at least one failed check on a 12-cluster fit"
+    for c in failed:
+        assert c.get("suggest_function") or c.get("rationale"), (
+            f"audit check {c['name']!r} is a failed finding with neither a "
+            "suggest_function nor a rationale — actionless"
+        )
