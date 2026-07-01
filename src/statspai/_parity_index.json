@@ -829,6 +829,29 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "das_gupta",
+      "notes": [
+        "Closed-form identity: per-factor effects sum to the total rate gap and percentages sum to 100% (Das Gupta 1993 exact standardization decomposition)."
+      ],
+      "reference": "Das Gupta (1993) exact standardization decomposition identity",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_dasgupta_parity.py"
+      ],
+      "tolerance": "factor-effect sum + pct 1e-12 abs (observed 0)"
+    },
+    {
       "additional_tests": [
         "tests/r_parity/31_dfl.py",
         "tests/r_parity/31_dfl.R",

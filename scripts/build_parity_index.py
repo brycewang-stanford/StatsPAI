@@ -772,6 +772,21 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "order-invariant decomposition). = Stata b1x2 / R equivalents."
         ),
     },
+    "das_gupta": {
+        "status": "bit-exact",
+        "reference": "Das Gupta (1993) exact standardization decomposition identity",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "factor-effect sum + pct 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_dasgupta_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: per-factor effects sum to the total rate gap "
+            "and percentages sum to 100% (Das Gupta 1993 exact standardization "
+            "decomposition)."
+        ),
+    },
 }
 
 
