@@ -17,7 +17,7 @@ render tables, build agent schemas, or load data; they are not estimators.
 
 | denominator | verified | total | fraction |
 | --- | ---: | ---: | ---: |
-| **estimator functions** (parity-applicable) | 156 | 964 | **16.2%** |
+| **estimator functions** (parity-applicable) | 157 | 964 | **16.3%** |
 | infra / non-estimator (parity N/A) | — | 171 | — |
 | all registered | 143 | 1139 | 12.6% |
 
@@ -43,7 +43,7 @@ functions at once.
 | --- | ---: | --- |
 | causal | 58 / 407 | mega-bucket: DiD / IV / RD / synth / matching / DML / mediation / sensitivity — many sub-families already bit-exact; biggest *absolute* gap but heterogeneous |
 | regression | 24 / 40 | GLM / count / quantile / limited-dependent + fracreg/hurdle/cloglog vs R |
-| panel | 10 / 36 | FE/RE/HDFE/GMM core + absorbed-FE GLM (`feglm`/`fepois`, module 67) + within transformation (`demean`, module 68) covered; dynamic system-GMM and spatial panels open |
+| panel | 11 / 36 | FE/RE/HDFE/GMM core + absorbed-FE GLM (`feglm`/`fepois`, module 67) + within transformation (`demean`, module 68) + balance filter (`balance_panel`, module 69) covered; dynamic system-GMM and spatial panels open |
 | mendelian | 6 / 37 | MR core has analytical recovery; cross-package MR open |
 | decomposition | 5 / 31 | Oaxaca/DFL/RIF + inequality_index (Gini/Theil/Atkinson) bit-exact; Gelbach/Das-Gupta open |
 | spatial | 5 / 35 | SAR/SEM/SDM ML + SAR-2SLS/SEM-GMM bit-exact vs `spatialreg` (modules 65--66); spatial-panel / GWR / SARAR-GMM open |

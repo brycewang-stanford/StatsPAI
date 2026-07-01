@@ -282,6 +282,54 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "balance_panel",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 0.0,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "n_obs_balanced",
+          "n_units_kept",
+          "row0_id",
+          "row0_year",
+          "row8_id",
+          "row8_year",
+          "row15_id",
+          "row15_year"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Panel balance filter",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "69_balance_panel",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 0.0,
+        "Stata": null
+      },
+      "python_call": "sp.balance_panel",
+      "reference": "base R counts == n_periods",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/69_balance_panel.py",
+        "tests/r_parity/69_balance_panel.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
       "function": "bcf",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."

@@ -41,6 +41,11 @@ These change DiD point estimates for affected staggered/switching designs. See
   `sp.demean(solver="map")` against the textbook entity-mean projection
   (algorithmic, no R package sibling). Worst observed gap is 3.5e-15 (machine
   tier). The function is now graded **bit-exact** in the parity matrix.
+- **Cross-language parity — panel-balance filter aligned.** New Track A
+  module `69_balance_panel` aligns `sp.balance_panel` against the base R
+  `counts == n_periods` row filter on an unbalanced 5×4 panel. All eight
+  rows agree to 0.0 (bit-exact). The function is now graded **bit-exact** in
+  the parity matrix.
 - **Cross-language parity — absorbed-FE panel GLM family added.** New Track A
   module `67_panel_glm` aligns `sp.feglm` (Bernoulli logit) and `sp.fepois`
   against `fixest::feglm` and `fixest::fepois` (single entity fixed effect

@@ -413,6 +413,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # Pure algorithmic, agrees to machine tier (~3.5e-15 worst on a 20x8
     # balanced panel). Emitted point-only (no SE — it's a linear projection).
     "68_demean_within": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Panel balance filter: sp.balance_panel keeps only entities observed
+    # in every period, matching base R's counts == n_periods filter. The
+    # estimator is a row-filter + sort, so all rows agree to 0.0.
+    "69_balance_panel": {"rel_est": 1e-6, "rel_se": 1e-6},
 }
 
 
@@ -1226,6 +1230,13 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "sp.demean(solver='map') vs textbook mean-within",
+    },
+    "69_balance_panel": {
+        "name": "Panel balance filter",
+        "headline_filter": lambda d: True,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "sp.balance_panel vs base R counts == n_periods",
     },
 }
 
