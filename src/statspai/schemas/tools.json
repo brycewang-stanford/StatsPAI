@@ -7121,7 +7121,7 @@
     "name": "evalue_rd"
   },
   {
-    "description": "E-value computed directly from a risk ratio and its CI bounds.",
+    "description": "E-value computed directly from a risk ratio and its CI bounds. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "rare_outcome": {
