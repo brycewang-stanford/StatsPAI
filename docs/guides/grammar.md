@@ -79,7 +79,7 @@ estimator, or only on `feols`?* The honest answer, tracked in
 | `hdfe_ols` | ✓ | · | ✓ | ✓ | · | ✓ | · | · |
 | `fepois` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `feglm` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
-| `regress` | ✓ | ✓ | ✓ | ○ | ○ | ○ | ○ | ○ |
+| `regress` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ppmlhdfe` | ✓ | ✓ | ✓ | · | · | · | · | · |
 | `panel` | ✓ | ✓ | ✓ | · | · | · | · | · |
@@ -96,9 +96,21 @@ refits plain OLS — **wrong** for FE/IV) · · n/a.
 
 What the matrix makes explicit today:
 
-- **`regress` has a full, correct menu.** Wild bootstrap / CR2 / Conley /
-  jackknife attach correctly to plain OLS because its result stores the design
-  matrix and residuals.
+- **`regress` has a full, native SE menu** (8/8) — all the standalone SE
+  options are now `vce=` parameters on `sp.regress` itself:
+
+  ```python
+  sp.regress("y ~ x", df, vce="CR2", cluster="firm")       # bias-reduced CR2
+  sp.regress("y ~ x", df, vce="CR3", cluster="firm")       # bias-reduced CR3 (== jackknife)
+  sp.regress("y ~ x", df, vce="wild", cluster="firm")      # WCR cluster bootstrap
+  sp.regress("y ~ x", df, cluster=["firm","year"])          # CGM-2011 two-way
+  sp.regress("y ~ x", df, vce="conley",                    # Conley spatial HAC
+                 conley_lat="lat", conley_lon="lon", conley_cutoff=200.0)
+  ```
+
+  **Validated vs Stata `reghdfe vce(cluster firm year)`, `acreg ... spatial
+  dist()`, and R `sandwich::vcovCL(HC2/3)`** to machine precision on the
+  same 400-obs panel (see `tests/reference_parity/test_ols_se_external_parity.py`).
 - **Wild cluster bootstrap is native on `feols`** via `vce="wild"` (and on the
   panel `hdfe_ols` path). It runs the WCR bootstrap on the FE-absorbed within
   design:

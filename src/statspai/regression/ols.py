@@ -1132,6 +1132,11 @@ def regress(
     robust: str = "nonrobust",
     cluster: Optional[str] = None,
     weights: Optional[Any] = None,
+    *,
+    vce: Optional[str] = None,
+    conley_lat: Optional[str] = None,
+    conley_lon: Optional[str] = None,
+    conley_cutoff: Optional[float] = None,
     **kwargs: Any,
 ) -> EconometricResults:
     """
@@ -1224,8 +1229,170 @@ def regress(
     # re-inject when provided so the no-weights path stays byte-identical.
     if weights is not None:
         kwargs["weights"] = weights
+
+    # --- vce= dispatch (canonical alias of robust=; vce='CR2'/'CR3'/'conley'
+    # take the native efficient path on the stored design; vce=cluster=[a,b]
+    # runs CGM-2011 two-way; vce='jackknife' is an alias of CR3).
+    vce_kw = kwargs.pop("vce", None) or robust
+    if isinstance(vce_kw, str) and vce_kw.lower() in ("cr2", "cr3", "jackknife"):
+        if cluster is None:
+            raise MethodIncompatibility(
+                f"regress(vce={vce_kw!r}) requires cluster=... (a cluster-robust "
+                "small-sample adjustment)."
+            )
+        kind = "CR3" if vce_kw.lower() in ("cr3", "jackknife") else "CR2"
+        base = regress(formula=formula, data=data, robust="nonrobust", cluster=cluster)
+        from scipy import stats as _stats
+
+        from ..inference.jackknife import cr_vcov_ols
+
+        cl_codes = pd.Categorical(data[cluster]).codes
+        cl_codes = cl_codes[: len(base.data_info["y"])]  # align to fitted sample
+        se = cr_vcov_ols(
+            base, cl_codes, power=0.5 if kind == "CR2" else 1.0, small_sample=False
+        )
+        base.std_errors = se
+        z = base.params / se
+        base.pvalues = pd.Series(
+            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+        )
+        crit = _stats.norm.ppf(0.975)
+        base.conf_int_lower = base.params - crit * se
+        base.conf_int_upper = base.params + crit * se
+        base.model_info = dict(base.model_info)
+        base.model_info["vcov_type"] = (
+            f"{kind} cluster-robust (Pustejovsky-Tipton 2018; matches R "
+            "sandwich::vcovCL)"
+        )
+        base.model_info["cluster"] = cluster
+        return base
+
+    if isinstance(vce_kw, str) and vce_kw.lower() == "conley":
+        if conley_lat is None or conley_lon is None or conley_cutoff is None:
+            raise MethodIncompatibility(
+                "regress(vce='conley') requires conley_lat=, conley_lon=, and "
+                "conley_cutoff= (planar distance cutoff in km; matches Stata acreg)."
+            )
+        base = regress(formula=formula, data=data, robust="nonrobust", cluster=None)
+        from scipy import stats as _stats
+
+        from ..inference.conley import ols_conley_vcov
+
+        se = ols_conley_vcov(base, data, conley_lat, conley_lon, conley_cutoff)
+        base.std_errors = se
+        z = base.params / se
+        base.pvalues = pd.Series(
+            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+        )
+        crit = _stats.norm.ppf(0.975)
+        base.conf_int_lower = base.params - crit * se
+        base.conf_int_upper = base.params + crit * se
+        base.model_info = dict(base.model_info)
+        base.model_info[
+            "vcov_type"
+        ] = f"Conley spatial HAC (acreg planar, {conley_cutoff} km; uniform)"
+        return base
+
+    if isinstance(vce_kw, str) and vce_kw.lower() == "jackknife":
+        # leave-one-cluster-out 2SLS-style jackknife. Re-uses the same path as
+        # the dedicated ``sp.jackknife_se`` standalone.
+        if cluster is None:
+            raise MethodIncompatibility(
+                "regress(vce='jackknife') requires cluster=... ."
+            )
+        base = regress(formula=formula, data=data, robust="nonrobust", cluster=cluster)
+        from ..inference.jackknife import jackknife_se
+
+        jk = jackknife_se(base, data, cluster=cluster)
+        return jk
+
+    if isinstance(vce_kw, str) and vce_kw.lower() in (
+        "wild",
+        "wildbootstrap",
+        "wild_cluster",
+        "wcr",
+        "boottest",
+    ):
+        if cluster is None:
+            raise MethodIncompatibility(
+                "regress(vce='wild') requires cluster=... (the wild cluster "
+                "bootstrap resamples residuals within clusters)."
+            )
+        from ..inference.jackknife import wild_cluster_boot as _wcb
+
+        base = regress(
+            formula=formula,
+            data=data,
+            robust={"CRV1": cluster},
+            cluster=cluster,
+        )
+        wild_reps = kwargs.pop("wild_reps", 999)
+        wild_weight_type = kwargs.pop("wild_weight_type", "rademacher")
+        seed = kwargs.pop("seed", None)
+        se = pd.Series(np.nan, index=base.params.index, dtype=float)
+        pvals = pd.Series(np.nan, index=base.params.index, dtype=float)
+        ci_lo = pd.Series(np.nan, index=base.params.index, dtype=float)
+        ci_hi = pd.Series(np.nan, index=base.params.index, dtype=float)
+        for var in base.params.index:
+            out = _wcb(
+                base,
+                data,
+                cluster=cluster,
+                variable=str(var),
+                n_boot=wild_reps,
+                weight_type=wild_weight_type,
+                seed=seed,
+            )
+            se[var] = out["se_cluster"]
+            pvals[var] = out["p_boot"]
+            ci_lo[var], ci_hi[var] = out["ci_boot"]
+        base.std_errors = se
+        base.pvalues = pvals
+        base.conf_int_lower = ci_lo
+        base.conf_int_upper = ci_hi
+        base.model_info = dict(base.model_info)
+        base.model_info["vcov_type"] = (
+            f"WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008, "
+            f"{wild_reps} reps, {wild_weight_type})"
+        )
+        base.model_info["cluster"] = cluster
+        base.model_info["n_boot"] = wild_reps
+        return base
+
+    # Two-way: vce=cluster=[a,b] (list) takes the CGM-2011 inclusion-exclusion
+    # sandwich on the projected-score meat.
+    if isinstance(cluster, (list, tuple)) and len(cluster) == 2:
+        c1, c2 = cluster
+        base = regress(formula=formula, data=data, robust="nonrobust", cluster=c1)
+        from scipy import stats as _stats
+
+        from ..inference.jackknife import two_way_correction_ols
+
+        c1_codes = pd.Categorical(data[c1]).codes
+        c2_codes = pd.Categorical(data[c2]).codes
+        c12_codes = pd.factorize(
+            pd.Series(list(zip(c1_codes.tolist(), c2_codes.tolist())))
+        )[0]
+        c1_codes = c1_codes[: len(base.data_info["y"])]
+        c2_codes = c2_codes[: len(base.data_info["y"])]
+        c12_codes = c12_codes[: len(base.data_info["y"])]
+        se = two_way_correction_ols(base, c1_codes, c2_codes, c12_codes)
+        base.std_errors = se
+        z = base.params / se
+        base.pvalues = pd.Series(
+            2 * (1 - _stats.norm.cdf(np.abs(z))), index=base.params.index
+        )
+        crit = _stats.norm.ppf(0.975)
+        base.conf_int_lower = base.params - crit * se
+        base.conf_int_upper = base.params + crit * se
+        base.model_info = dict(base.model_info)
+        base.model_info["vcov_type"] = "two-way cluster (CGM 2011)"
+        base.model_info["cluster"] = list(cluster)
+        return base
+
     model = OLSRegression(formula=formula, data=data)
-    _result = model.fit(robust=robust, cluster=cluster, **kwargs)
+    robust_kw = vce_kw if vce_kw is not None else robust
+    _result = model.fit(robust=robust_kw, cluster=cluster, **kwargs)
     try:
         from ..output._lineage import attach_provenance as _attach_prov
 

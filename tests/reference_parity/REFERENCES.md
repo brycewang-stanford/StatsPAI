@@ -776,3 +776,24 @@ great-circle — 111 km per degree latitude and `cos(lat_b)*111` per degree
 longitude anchored at the column point b (an asymmetric weight matrix, then V
 is symmetrised). Uniform kernel inside the cutoff; no small-sample correction
 without acreg's `small` option.
+
+## regress(vce=...) — OLS standard-error cells vs Stata/R
+
+`tests/reference_parity/test_ols_se_external_parity.py` pins the native
+`sp.regress(vce=...)` cells to the same 400-obs regression panel used
+elsewhere (`ols_reg_panel.csv` under `_fixtures/`, with
+`ols_conley_panel.csv` adding synthetic lat/lon for Conley):
+
+* **CR2 / CR3 / jackknife** vs R `sandwich::vcovCL(HC2/3)` — the
+  Pustejovsky-Tipton 2018 small-sample factor on top of the
+  bias-reduced adjustment. Frozen values: `0.0267156` (HC2) and
+  `0.0284225` (HC3). Matches to 1e-5.
+* **two-way** (cluster=[a,b]) vs Stata `reghdfe y x, vce(cluster a b)`
+  (Cameron-Gelbach-Miller 2011 inclusion-exclusion). Frozen value:
+  `0.019039`. Matches to 1e-5.
+* **Conley** vs Stata `acreg y x, spatial lat lon dist(5)` (the
+  same acreg-compatible planar-distance formula we use for the IV path
+  in `iv_conley_vcov`). Frozen value: `0.05587958`. Matches to 1e-5.
+* **wild WCR**: MC-based; the test asserts a finite p in [0,1] (the
+  Stata `boottest` external parity for the WCR is already covered by
+  `test_feols_wild_boottest_parity.py`).

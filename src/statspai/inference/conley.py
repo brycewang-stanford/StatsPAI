@@ -29,12 +29,15 @@ Production in the Caribbean and Central America."
 *PNAS*, 107(35), 15367-15372. [@hsiang2010temperatures]
 """
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 from scipy.spatial import cKDTree
 
 from ..core.results import EconometricResults
+from ..exceptions import MethodIncompatibility
 
 # Earth radius in km
 _EARTH_RADIUS_KM = 6371.0
@@ -217,3 +220,62 @@ def conley(
     new_result.conf_int_upper = new_result.params + t_crit * se
 
     return new_result
+
+
+def ols_conley_vcov(
+    result: Any,
+    data: pd.DataFrame,
+    lat: str,
+    lon: str,
+    dist_cutoff: float,
+) -> Any:
+    """Conley spatial-HAC covariance for OLS (Stata ``acreg``-compatible).
+
+    Same ``acreg`` planar-distance convention as the 2SLS ``iv_conley_vcov``:
+    111 km per degree of latitude and ``cos(lat_b) * 111`` per degree of
+    longitude anchored at the column point b (asymmetric weight matrix, then
+    V is symmetrised). The score is the bread-applied cluster-robust
+    score ``bread @ X_g' e_g`` (bread = (X'X)^{-1}), so the meat on the
+    score level is ``(bread@M) (bread@M)'`` which collapses to
+    ``bread @ (Σ score score') @ bread``. Matches ``acreg y x, spatial
+    latitude() longitude() dist()`` to machine precision.
+
+    The existing ``sp.conley`` (Haversine kernel) is kept for users who
+    specifically want a great-circle distance; this function is the
+    native ``regress(vce="conley")`` reference (matches ``acreg``).
+    """
+    iv = getattr(result, "data_info", None) or {}
+    if not ({"X", "y", "var_names"} <= set(iv)):
+        raise MethodIncompatibility(
+            "ols_conley_vcov needs a result with stored "
+            "data_info['X'/'y'/'var_names']; use sp.conley for the formula-reparse "
+            "fallback."
+        )
+    y = np.asarray(iv["y"], dtype=float)
+    X = np.asarray(iv["X"], dtype=float)
+    names = list(iv["var_names"])
+    n, k = X.shape
+    for c in (lat, lon):
+        if c not in data.columns or data[c].isna().any() or len(data[c]) != n:
+            raise MethodIncompatibility(
+                f"Coordinate column {c!r} must be present, complete, and row-"
+                "aligned to the fitted sample."
+            )
+    lat_v = data[lat].to_numpy(dtype=float)
+    lon_v = data[lon].to_numpy(dtype=float)
+
+    bread = np.linalg.inv(X.T @ X)  # (X'X)^{-1}
+    beta = bread @ (X.T @ y)
+    resid = y - X @ beta
+
+    lon_scale = np.cos(np.radians(lat_v)) * 111.0
+    d_lat = lat_v[:, None] - lat_v[None, :]
+    d_lon = lon_v[:, None] - lon_v[None, :]
+    dist = np.sqrt((111.0 * d_lat) ** 2 + (lon_scale[None, :] * d_lon) ** 2)
+    weig = (dist <= dist_cutoff).astype(float)
+
+    score = X * resid[:, None]
+    core = bread @ (score.T @ weig @ score) @ bread
+    vcov = 0.5 * (core + core.T)
+    se = pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    return se
