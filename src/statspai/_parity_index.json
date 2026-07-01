@@ -2402,6 +2402,29 @@
       "tolerance": "density 1e-12 abs (observed ~3e-18 / 0)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "kitagawa_decompose",
+      "notes": [
+        "Closed-form identity: the group rate gap splits exactly into rate effect + composition effect + symmetric interaction, and gap == rate_a - rate_b (Kitagawa 1955)."
+      ],
+      "reference": "Kitagawa (1955) two-factor rate decomposition identity",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_kitagawa_decompose_parity.py"
+      ],
+      "tolerance": "gap = rate + composition + interaction 1e-12 abs (observed 0)"
+    },
+    {
       "additional_tests": [
         "tests/reference_parity/test_liml_se_parity.py"
       ],
@@ -4767,6 +4790,29 @@
         "tests/reference_parity/test_epi_diag_parity.py"
       ],
       "tolerance": "sens/spec/PPV/NPV/LR 1e-12 abs (observed 0)"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "source_decompose",
+      "notes": [
+        "Closed-form identity: per-source contribution = share * Gini-correlation * own-Gini and the contributions sum exactly to total Gini (Lerman & Yitzhaki 1985)."
+      ],
+      "reference": "Lerman-Yitzhaki (1985) Gini source decomposition identity",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_source_decompose_parity.py"
+      ],
+      "tolerance": "sum(contribution) == total_gini 1e-12 abs (observed ~1e-16)"
     },
     {
       "function": "spillover",

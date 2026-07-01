@@ -817,6 +817,36 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "(Pearl 2001; VanderWeele 2015)."
         ),
     },
+    "kitagawa_decompose": {
+        "status": "bit-exact",
+        "reference": "Kitagawa (1955) two-factor rate decomposition identity",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "gap = rate + composition + interaction 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_kitagawa_decompose_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: the group rate gap splits exactly into "
+            "rate effect + composition effect + symmetric interaction, and "
+            "gap == rate_a - rate_b (Kitagawa 1955)."
+        ),
+    },
+    "source_decompose": {
+        "status": "bit-exact",
+        "reference": "Lerman-Yitzhaki (1985) Gini source decomposition identity",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "sum(contribution) == total_gini 1e-12 abs (observed ~1e-16)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_source_decompose_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: per-source contribution = share * Gini-"
+            "correlation * own-Gini and the contributions sum exactly to total "
+            "Gini (Lerman & Yitzhaki 1985)."
+        ),
+    },
 }
 
 
