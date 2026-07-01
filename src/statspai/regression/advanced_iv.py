@@ -455,6 +455,22 @@ def jive(
     params = pd.Series(beta, index=var_names)
     std_errors = pd.Series(se, index=var_names)
 
+    # First-stage strength so result.violations() flags weak instruments — JIVE
+    # is chosen precisely under weak/many instruments, so the diagnostic belongs
+    # on the result. Additive: does not touch the JIVE point estimate or SE.
+    try:
+        from .iv import _first_stage_diagnostics
+
+        _fs = _first_stage_diagnostics(X_exog, X_endog, Z_all, n, Z_excl.shape[1])
+        _fvals = [
+            fs["f_statistic"]
+            for fs in _fs
+            if fs.get("f_statistic") is not None and np.isfinite(fs["f_statistic"])
+        ]
+    except (np.linalg.LinAlgError, ValueError, KeyError):
+        _fvals = []
+    first_stage_f = float(min(_fvals)) if _fvals else None
+
     _result = EconometricResults(
         params=params,
         std_errors=std_errors,
@@ -464,6 +480,7 @@ def jive(
             "endog_vars": x_endog,
             "instruments": z,
             "variant": variant,
+            "first_stage_f": first_stage_f,
         },
         data_info={"n_obs": n, "df_resid": n - k, "dep_var": y},
         diagnostics={"n_instruments": len(z), "n_endogenous": len(x_endog)},
