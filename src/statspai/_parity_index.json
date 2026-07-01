@@ -2815,6 +2815,29 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.1"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "mediation_decompose",
+      "notes": [
+        "Closed-form identity: total effect = natural direct + natural indirect effect (NDE + NIE), and proportion mediated = NIE / total (Pearl 2001; VanderWeele 2015)."
+      ],
+      "reference": "natural-effects mediation (Pearl 2001; VanderWeele 2015)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_mediation_decompose_parity.py"
+      ],
+      "tolerance": "total = NDE + NIE 1e-12 abs (observed 0)"
+    },
+    {
       "additional_tests": [
         "tests/r_parity/26_glmm_logit.py",
         "tests/r_parity/26_glmm_logit.R",

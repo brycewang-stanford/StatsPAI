@@ -802,6 +802,21 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "components (Shorrocks 1980)."
         ),
     },
+    "mediation_decompose": {
+        "status": "bit-exact",
+        "reference": "natural-effects mediation (Pearl 2001; VanderWeele 2015)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "total = NDE + NIE 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_mediation_decompose_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: total effect = natural direct + natural "
+            "indirect effect (NDE + NIE), and proportion mediated = NIE / total "
+            "(Pearl 2001; VanderWeele 2015)."
+        ),
+    },
 }
 
 
