@@ -75,14 +75,14 @@ estimator, or only on `feols`?* The honest answer, tracked in
 
 | estimator | classical | hc_robust | cluster | twoway | cr2_cr3 | wild_cluster_boot | conley | jackknife |
 |---|---|---|---|---|---|---|---|---|
-| `feols` | ✓ | ✓ | ✓ | ✓ | · | ✓ | ○ | · |
+| `feols` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `hdfe_ols` | ✓ | · | ✓ | ✓ | · | ✓ | · | · |
 | `fepois` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `feglm` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
 | `regress` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ppmlhdfe` | ✓ | ✓ | ✓ | · | · | · | · | · |
-| `panel` | ✓ | ✓ | ✓ | · | · | · | · | · |
+| `panel` | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ |
 | `callaway_santanna` | · | · | ✓ | · | · | · | · | · |
 | `did` | · | · | ✓ | · | · | · | · | · |
 | `dml` | ✓ | · | · | · | · | · | · | · |
@@ -153,6 +153,27 @@ What the matrix makes explicit today:
 - **`ivreg`'s SE menu is now complete (8/8 native):** every cell — classical /
   HC / cluster / two-way / CR2-CR3 / wild bootstrap / Conley / jackknife — is a
   native, externally-validated option. No ⚠ cells remain in the whole matrix.
+- **`feols` has native bias-reduced / spatial SEs** via `vce="CR2"`, `vce="CR3"`
+  (== `vce="jackknife"`) and `vce="conley"` on the FE-absorbed within design.
+  The within-transform's leverage adjustment reproduces R
+  `clubSandwich::vcovCR(plm, model="within", type=...)` to machine precision, so
+  the entire `feols` row is 8/8 native
+  (`tests/reference_parity/test_feols_bias_reduced_parity.py`).
+- **`panel(method="fe")` mirrors that menu.** The one-way entity fixed-effects
+  estimator accepts `vce="CR2"/"CR3"/"jackknife"`, `vce="conley"` (with
+  `conley_lat=/conley_lon=/conley_cutoff=`) and two-way clustering via
+  `cluster=["a", "b"]`. Since OLS on the entity-demeaned design reproduces the
+  linearmodels FE coefficients, the CR2/CR3 SEs equal the *identical*
+  `clubSandwich::vcovCR(plm)` anchor as `feols`, and Conley / two-way match
+  `sp.regress` on the hand-demeaned data (Stata `acreg` / `reghdfe`
+  conventions) — see `tests/reference_parity/test_panel_bias_reduced_parity.py`.
+
+  ```python
+  sp.panel(df, "y ~ x", entity="firm", time="t", method="fe",
+           vce="CR2", cluster="firm")                 # bias-reduced CR2
+  sp.panel(df, "y ~ x", entity="firm", time="t", method="fe",
+           cluster=["firm", "region"])                # two-way cluster
+  ```
 
 This is the gap the SE-menu wiring work closes, estimator by estimator. The
 matrix is the scoreboard: the CI gate ratchets the **native** count up and the

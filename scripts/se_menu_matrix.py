@@ -174,6 +174,20 @@ MATRIX: Dict[str, Dict[str, str]] = {
         "classical": "native",
         "hc_robust": "native",
         "cluster": "native",
+        # Native `panel(method="fe", cluster=["a","b"])` — CGM-2011 two-way
+        # cluster on the entity-within design. Equals `sp.regress(cluster=[a,b])`
+        # on the FE-demeaned data (reghdfe / ivreg2 small-sample convention).
+        "twoway": "native",
+        # Native `panel(method="fe", vce="CR2"/"CR3"/"jackknife")` —
+        # Pustejovsky-Tipton 2018 bias-reduced cluster-robust on the entity
+        # within design. Matches R `clubSandwich::vcovCR(plm, model="within")`
+        # exactly (same frozen anchor as sp.feols).
+        "cr2_cr3": "native",
+        "jackknife": "native",
+        # Native `panel(method="fe", vce="conley", conley_lat/lon/cutoff)` —
+        # spatial HAC on the entity within design (acreg planar distance).
+        # Equals `sp.regress(vce="conley")` on the FE-demeaned data.
+        "conley": "native",
     },
     "callaway_santanna": {  # influence-function + multiplier bootstrap
         "cluster": "native",

@@ -102,6 +102,25 @@ now has zero `standalone_unsafe` cells.
   coverage matrix now has only `conley` (for feols) and the in-progress
   row in `iv_wild` left as `standalone` — **no `standalone_unsafe` cells**.
 
+### R3 — bias-reduced / spatial menu on the FE estimators
+- **feols(vce=…) — 8/8 native (done).** `feols(vce="CR2"/"CR3"/"jackknife")` and
+  `feols(vce="conley", conley_lat=/lon=/cutoff=)` on the FE-absorbed within
+  design (`fixest/wrapper.py::_feols_bias_reduced`, reusing `cr_vcov_ols` /
+  `conley_vcov_ols`). The within-transform's leverage adjustment reproduces R
+  `clubSandwich::vcovCR(plm, model="within", type=…)` to machine precision
+  (frozen `PLM_CR2_X=0.056095873`, `PLM_CR3_X=0.057956013`), resolving the D4b
+  "held at na" concern — the absorbed-FE CR2 leverage *is* handled correctly by
+  the within design. Matrix: feols cr2_cr3/jackknife `na → native`, conley
+  `standalone → native` (native 44→48). `test_feols_bias_reduced_parity.py`.
+- **panel(method="fe", vce=…) — full menu (done).** `sp.panel` FE now accepts
+  `vce="CR2"/"CR3"/"jackknife"`, `vce="conley"` and two-way `cluster=[a,b]` via
+  `panel_reg.py::_panel_bias_reduced` (entity within-transform → the same OLS
+  helpers). OLS on the entity-demeaned design reproduces the linearmodels FE
+  coefficients, so CR2/CR3 hit the *identical* clubSandwich anchor as feols, and
+  Conley / two-way match `sp.regress` on the hand-demeaned data. Matrix: panel
+  twoway/cr2_cr3/jackknife/conley `na → native` (native 48→52).
+  `test_panel_bias_reduced_parity.py`.
+
 ### D5 — unify the result contract  *(collision risk: results.py)*
 - One §3-true protocol: `summary`/`plot`/`to_latex`/`to_word`/`to_excel`/`cite`
   (today only 11/279 classes satisfy all six; `to_word` 6%, `to_excel` 7%).

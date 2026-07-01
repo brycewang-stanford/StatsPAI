@@ -67,6 +67,22 @@ cluster="group")`, which `sp.panel(method='fe', cluster=<entity>)`
 reproduces. Regenerate with
 `Rscript tests/reference_parity/_fixtures/_generate_panel.R`.
 
+**Panel FE bias-reduced / spatial / two-way SE menu**
+(`test_panel_bias_reduced_parity.py`). `sp.panel(method='fe', vce=…)` gains the
+same extended menu as `sp.feols`, computed on the entity-within design:
+
+- `vce="CR2"` / `vce="CR3"` (== `vce="jackknife"`) — Pustejovsky-Tipton (2018)
+  bias-reduced cluster-robust. Because OLS on the entity-demeaned design
+  reproduces the linearmodels FE coefficients, and the within-transform's
+  leverage adjustment reproduces `clubSandwich::vcovCR(plm, model="within")`
+  exactly, the panel FE SEs equal the *identical* frozen clubSandwich reference
+  as `test_feols_bias_reduced_parity.py` (`PLM_CR2_X=0.056095873`,
+  `PLM_CR3_X=0.057956013`).
+- `vce="conley"` (spatial HAC) and two-way `cluster=[a, b]` are anchored
+  internally: `sp.panel(method='fe', …)` equals `sp.regress(…)` on the same data
+  FE-demeaned by hand, whose Conley is pinned to Stata `acreg` and whose two-way
+  cluster is pinned to `reghdfe` / `ivreg2` (see `sp.regress` SE-parity tests).
+
 ## What the tests verify
 
 ### Recovery tests

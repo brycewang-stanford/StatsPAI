@@ -38,6 +38,9 @@ from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibil
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
+# vce= values routed to the native within-design bias-reduced / spatial menu.
+_PANEL_BR_VCE = {"cr2", "cr3", "jackknife", "conley"}
+
 
 def _panel_method_error(
     message: str,
@@ -584,13 +587,17 @@ def panel(
     time: str,
     method: str = "fe",
     robust: str = "nonrobust",
-    cluster: Optional[str] = None,
+    cluster: Optional[Union[str, List[str], Tuple[str, str]]] = None,
     weights: Optional[str] = None,
     alpha: float = 0.05,
     balance: bool = False,
     lags: int = 1,
     gmm_lags: Tuple[int, Optional[int]] = (2, None),
     twostep: bool = False,
+    vce: Optional[str] = None,
+    conley_lat: Optional[str] = None,
+    conley_lon: Optional[str] = None,
+    conley_cutoff: Optional[float] = None,
 ) -> PanelResults:
     """Public ``sp.panel`` entry point — see ``_dispatch_panel_impl``
     for the full docstring on methods and parameters.
@@ -617,6 +624,10 @@ def panel(
         lags=lags,
         gmm_lags=gmm_lags,
         twostep=twostep,
+        vce=vce,
+        conley_lat=conley_lat,
+        conley_lon=conley_lon,
+        conley_cutoff=conley_cutoff,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -637,6 +648,10 @@ def panel(
                 "lags": lags,
                 "gmm_lags": list(gmm_lags),
                 "twostep": twostep,
+                "vce": vce,
+                "conley_lat": conley_lat,
+                "conley_lon": conley_lon,
+                "conley_cutoff": conley_cutoff,
             },
             data=data,
             overwrite=False,
@@ -653,7 +668,7 @@ def _dispatch_panel_impl(
     time: str,
     method: str = "fe",
     robust: str = "nonrobust",
-    cluster: Optional[str] = None,
+    cluster: Optional[Union[str, List[str], Tuple[str, str]]] = None,
     weights: Optional[str] = None,
     alpha: float = 0.05,
     balance: bool = False,
@@ -661,6 +676,11 @@ def _dispatch_panel_impl(
     lags: int = 1,
     gmm_lags: Tuple[int, Optional[int]] = (2, None),
     twostep: bool = False,
+    # Extended SE menu (bias-reduced / spatial-HAC) on the within design
+    vce: Optional[str] = None,
+    conley_lat: Optional[str] = None,
+    conley_lon: Optional[str] = None,
+    conley_cutoff: Optional[float] = None,
 ) -> PanelResults:
     """
     Unified panel regression with Stata-style syntax.
@@ -812,6 +832,33 @@ def _dispatch_panel_impl(
                 diagnostics={"n_units": n_units, "n_periods": n_periods},
                 alternative_functions=_PANEL_ALTERNATIVES,
             )
+
+    # --- Native extended SE menu on the entity-within design ---
+    # Bias-reduced (CR2 / CR3 / jackknife), spatial-HAC (Conley) and two-way
+    # cluster SEs are computed on the entity-demeaned (FE-absorbed) design via
+    # the validated OLS helpers. The within-transform's leverage adjustment
+    # reproduces R ``clubSandwich::vcovCR(plm_within, ...)`` exactly (the same
+    # anchor used by ``sp.feols``), so the panel FE row gets the full menu
+    # without touching the linearmodels path.
+    _vce_l = vce.lower() if isinstance(vce, str) else None
+    _cluster_is_pair = isinstance(cluster, (list, tuple))
+    if _vce_l in _PANEL_BR_VCE or _cluster_is_pair:
+        return _panel_bias_reduced(
+            data=data,
+            dep_var=dep_var,
+            indep_vars=indep_vars,
+            entity=entity,
+            time=time,
+            formula=formula,
+            method=canonical,
+            vce=_vce_l,
+            cluster=cluster,
+            conley_lat=conley_lat,
+            conley_lon=conley_lon,
+            conley_cutoff=conley_cutoff,
+            weights=weights,
+            alpha=alpha,
+        )
 
     # --- Route to estimator ---
     if canonical in _GMM_METHODS:
@@ -1087,6 +1134,205 @@ def _convert_lm_result(
         _indep_vars=indep_vars,
         _method=method,
         _lm_result=lm_result,
+    )
+
+
+# ======================================================================
+# Native extended SE menu on the entity-within design
+# ======================================================================
+
+
+def _panel_bias_reduced(
+    data: pd.DataFrame,
+    dep_var: str,
+    indep_vars: List[str],
+    entity: str,
+    time: str,
+    formula: str,
+    method: str,
+    *,
+    vce: Optional[str],
+    cluster: Optional[Union[str, List[str], Tuple[str, str]]],
+    conley_lat: Optional[str],
+    conley_lon: Optional[str],
+    conley_cutoff: Optional[float],
+    weights: Optional[str],
+    alpha: float,
+) -> PanelResults:
+    """Bias-reduced / spatial-HAC / two-way cluster SEs on the panel within design.
+
+    The entity-demeaned (FE-absorbed) design is handed to the OLS helpers
+    :func:`cr_vcov_ols` / :func:`two_way_correction_ols` / :func:`conley_vcov_ols`.
+    Because OLS on the entity-demeaned design reproduces the linearmodels FE
+    coefficients, and the within-transform's leverage adjustment reproduces R
+    ``clubSandwich::vcovCR(plm, model="within", ...)`` exactly, the panel FE
+    ``vce="CR2"/"CR3"/"jackknife"/"conley"`` (and two-way ``cluster=[a, b]``)
+    are numerically equal to their R references — the same anchors verified for
+    ``sp.feols`` (Pustejovsky-Tipton 2018; Conley 1999 via Stata ``acreg``;
+    Cameron-Gelbach-Miller 2011).
+
+    Only the one-way entity fixed-effects design (``method='fe'``) is supported;
+    other panel models keep the linearmodels SE menu.
+    """
+    from types import SimpleNamespace
+
+    from ..inference.jackknife import (
+        conley_vcov_ols,
+        cr_vcov_ols,
+        two_way_correction_ols,
+    )
+
+    if method != "fe":
+        raise MethodIncompatibility(
+            f"vce='{vce or 'twoway'}' (bias-reduced / spatial-HAC / two-way) is "
+            f"only available for method='fe' (entity within design), got "
+            f"method='{method}'.",
+            recovery_hint="Use method='fe', or the linearmodels SE menu "
+            "(robust=/cluster='entity'/'time'/'twoway') for other models.",
+            diagnostics={"method": method, "vce": vce},
+            alternative_functions=_PANEL_ALTERNATIVES,
+        )
+    if weights is not None:
+        raise MethodIncompatibility(
+            "Weighted panel FE is not supported for the bias-reduced / "
+            "spatial-HAC / two-way SE menu.",
+            recovery_hint="Drop weights= for vce='CR2'/'CR3'/'jackknife'/"
+            "'conley' or two-way clustering.",
+            diagnostics={"vce": vce},
+            alternative_functions=_PANEL_ALTERNATIVES,
+        )
+
+    _cluster_is_pair = isinstance(cluster, (list, tuple))
+    if _cluster_is_pair:
+        mode = "twoway"
+    elif vce == "conley":
+        mode = "conley"
+    else:
+        mode = "cr"
+
+    # Assemble the columns each mode needs and drop incomplete rows together so
+    # coordinates / cluster ids stay row-aligned to the fitted sample.
+    cols: List[str] = [dep_var] + list(indep_vars) + [entity]
+    if mode == "twoway":
+        c1, c2 = cluster[0], cluster[1]  # type: ignore[index]
+        for c in (c1, c2):
+            _require_panel_column(data, c, "cluster")
+            if c not in cols:
+                cols.append(c)
+    elif mode == "conley":
+        if conley_lat is None or conley_lon is None or conley_cutoff is None:
+            raise MethodIncompatibility(
+                "vce='conley' requires conley_lat=, conley_lon= and "
+                "conley_cutoff= (km).",
+                recovery_hint="Pass the coordinate columns and distance cutoff.",
+                diagnostics={"vce": vce},
+                alternative_functions=_PANEL_ALTERNATIVES,
+            )
+        for c in (conley_lat, conley_lon):
+            _require_panel_column(data, c, "coordinate")
+            if c not in cols:
+                cols.append(c)
+    else:
+        ccol = entity if (cluster in (None, "entity")) else str(cluster)
+        _require_panel_column(data, ccol, "cluster")
+        if ccol not in cols:
+            cols.append(ccol)
+
+    work = data[cols].dropna().reset_index(drop=True)
+    if len(work) <= len(indep_vars) + 1:
+        raise DataInsufficient(
+            "Too few complete rows for the panel within regression.",
+            recovery_hint="Check for missing values in the regressors / "
+            "coordinates / cluster columns.",
+            diagnostics={"nobs": int(len(work)), "k": len(indep_vars)},
+            alternative_functions=_PANEL_ALTERNATIVES,
+        )
+
+    # Entity within-transform (FE-absorbed design; no constant).
+    dm = work.copy()
+    for c in [dep_var] + list(indep_vars):
+        dm[c] = work[c] - work.groupby(entity)[c].transform("mean")
+    X = dm[list(indep_vars)].to_numpy(dtype=float)
+    y = dm[dep_var].to_numpy(dtype=float)
+    n, k = X.shape
+    beta = np.linalg.solve(X.T @ X, X.T @ y)
+    params = pd.Series(beta, index=list(indep_vars), name="parameter")
+    shim = SimpleNamespace(data_info={"X": X, "y": y, "var_names": list(indep_vars)})
+
+    n_clusters: Optional[int] = None
+    if mode == "cr":
+        codes = pd.factorize(work[ccol])[0]
+        power = 1.0 if vce in ("cr3", "jackknife") else 0.5
+        std_errors = cr_vcov_ols(shim, codes, power=power, small_sample=False)
+        n_clusters = int(codes.max()) + 1
+        se_label = "CR3 (jackknife)" if vce in ("cr3", "jackknife") else "CR2"
+        cluster_desc = ccol
+    elif mode == "twoway":
+        c1_codes = pd.factorize(work[c1])[0]
+        c2_codes = pd.factorize(work[c2])[0]
+        c12_codes = pd.factorize(list(zip(work[c1], work[c2])))[0]
+        std_errors = two_way_correction_ols(
+            shim, c1_codes, c2_codes, c12_codes, small_sample=True
+        )
+        n_clusters = min(int(c1_codes.max()) + 1, int(c2_codes.max()) + 1)
+        se_label = "Two-way cluster (CGM 2011)"
+        cluster_desc = f"[{c1}, {c2}]"
+    else:  # conley
+        std_errors = conley_vcov_ols(
+            shim, work, conley_lat, conley_lon, float(conley_cutoff)
+        )
+        se_label = "Conley spatial HAC"
+        cluster_desc = None
+
+    std_errors = pd.Series(
+        [float(std_errors[v]) for v in indep_vars],
+        index=list(indep_vars),
+        name="std_error",
+    )
+
+    # t-inference df: G-1 for cluster-based SEs, n-k otherwise (Conley).
+    df_resid = (n_clusters - 1) if n_clusters is not None else (n - k)
+    resid = y - X @ beta
+
+    model_info: Dict[str, Any] = {
+        "model_type": _METHOD_NAMES.get(method, method),
+        "method": method,
+        "robust": se_label,
+        "vce": vce if vce is not None else "twoway",
+        "cluster": cluster_desc,
+    }
+    if n_clusters is not None:
+        model_info["n_clusters"] = n_clusters
+        _maybe_warn_few_clusters(n_clusters, cluster_desc)
+
+    data_info = {
+        "nobs": int(n),
+        "df_model": int(k),
+        "df_resid": int(df_resid),
+        "dependent_var": dep_var,
+        "fitted_values": (X @ beta).ravel(),
+        "residuals": resid.ravel(),
+    }
+    diagnostics = {
+        "R-squared (within)": float(
+            1.0 - (resid @ resid) / float(((y - y.mean()) ** 2).sum())
+        ),
+    }
+
+    return PanelResults(
+        params=params,
+        std_errors=std_errors,
+        model_info=model_info,
+        data_info=data_info,
+        diagnostics=diagnostics,
+        _panel_data=data,
+        _formula=formula,
+        _entity=entity,
+        _time=time,
+        _dep_var=dep_var,
+        _indep_vars=list(indep_vars),
+        _method=method,
+        _lm_result=None,
     )
 
 
