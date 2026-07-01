@@ -155,6 +155,7 @@ jobs:
       run: |
         python scripts/signature_house_style.py --check
         python scripts/se_menu_matrix.py --check
+        python scripts/section3_contract_audit.py --check
 
     # Coverage instrumentation crashes on numpy 2.0.2 (the last numpy that
     # supports Python 3.9): under coverage's tracer numpy is imported twice,

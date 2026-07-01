@@ -116,6 +116,38 @@ class ResultProtocolMixin:
         """A compact booktabs table of the result's scalar fields."""
         return result_to_latex(self, caption=caption, label=label)
 
+    def to_word(self, filename: str, title: str | None = None) -> None:
+        """§3 Word (.docx) export (alias of ``to_docx``).
+
+        Fulfils the StatsPAI §3 result contract — every result class exposes
+        ``to_word`` regardless of which specific mixin/parent supplies the
+        underlying implementation. Delegates to the class's own ``to_docx`` if
+        it defines one; otherwise raises a clear ``NotImplementedError`` so the
+        contract audit (see ``scripts/result_protocol_audit.py``) can flag the
+        gap explicitly.
+        """
+        fn = getattr(self, "to_docx", None)
+        if fn is None or getattr(fn, "__isabstractmethod__", False):
+            raise NotImplementedError(
+                f"{type(self).__name__} does not implement to_docx; override "
+                "to_word or add a to_docx method to satisfy the §3 contract."
+            )
+        return fn(filename, title)
+
+    def to_excel(self, path: str, **kwargs: Any) -> Any:
+        """§3 Excel export (alias of ``to_excel``).
+
+        Same delegation pattern as ``to_word``: re-export the host class's
+        own ``to_excel`` so the §3 method name is universally available.
+        """
+        fn = getattr(self, "to_excel", None)
+        if fn is None or getattr(fn, "__isabstractmethod__", False):
+            raise NotImplementedError(
+                f"{type(self).__name__} does not implement to_excel; override "
+                "to_excel or add one to satisfy the §3 contract."
+            )
+        return fn(path, **kwargs)
+
     def cite(self, format: str = "keys") -> Any:
         """Return the estimator's verified paper.bib citation key(s).
 
