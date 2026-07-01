@@ -3145,7 +3145,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_matching_parity.py"
+        "tests/reference_parity/test_matching_parity.py",
+        "tests/reference_parity/test_recovery_batch_parity.py"
       ],
       "tolerance": ""
     },
@@ -3362,6 +3363,23 @@
         "tests/reference_parity/_fixtures/power_R.json"
       ],
       "tolerance": "power 1e-12 abs (observed ~2e-16)"
+    },
+    {
+      "function": "power_ols",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_recovery_batch_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
