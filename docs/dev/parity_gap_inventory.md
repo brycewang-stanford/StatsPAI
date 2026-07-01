@@ -17,7 +17,7 @@ render tables, build agent schemas, or load data; they are not estimators.
 
 | denominator | verified | total | fraction |
 | --- | ---: | ---: | ---: |
-| **estimator functions** (parity-applicable) | 145 | 964 | **15.0%** |
+| **estimator functions** (parity-applicable) | 146 | 964 | **15.1%** |
 | infra / non-estimator (parity N/A) | — | 171 | — |
 | all registered | 143 | 1139 | 12.6% |
 

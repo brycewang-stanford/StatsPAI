@@ -589,6 +589,21 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "_generate_power_extra_R.R."
         ),
     },
+    "evalue_rr": {
+        "status": "bit-exact",
+        "reference": "VanderWeele-Ding closed form (= R EValue package)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "point + CI E-value 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_evalue_rr_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: E-value = RR + sqrt(RR*(RR-1)) for the point "
+            "and the null-nearest CI limit, matching the R EValue package "
+            "(sp.evalue is bit-exact against it via Track A module 23)."
+        ),
+    },
 }
 
 

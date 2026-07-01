@@ -25,15 +25,15 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 83 |
+| bit-exact | 84 |
 | aligned | 7 |
 | analytical-only | 51 |
 | external-replication | 4 |
-| **verified (subtotal)** | **145** |
-| unverified | 994 |
+| **verified (subtotal)** | **146** |
+| unverified | 993 |
 | **total registered** | **1139** |
 
-## bit-exact — 83 functions
+## bit-exact — 84 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -59,6 +59,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `etwfe` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
 | `etwfe_emfx` | etwfe::etwfe + emfx | R 4.5.2; etwfe 0.6.2 | rel_est<=1e-06, rel_se<=0.001 | 1.8e-13 / 3.9e-14 | [`17_etwfe.py`](../tests/r_parity/17_etwfe.py) (+2) |
 | `evalue` | EValue::evalues.RR | R 4.2.3; EValue 4.1.4 | rel_est<=1e-06, rel_se<=1e-06 | 5.8e-14 / 1.2e-16 | [`23_evalue.py`](../tests/r_parity/23_evalue.py) (+2) |
+| `evalue_rr` | VanderWeele-Ding closed form (= R EValue package) | R 4.5.2 | point + CI E-value 1e-12 abs (observed 0) | — / — | [`test_evalue_rr_parity.py`](../tests/reference_parity/test_evalue_rr_parity.py) |
 | `feols` | fixest::feols | R 4.5.2; fixest 0.14.0 | rel_est<=1e-06, rel_se<=1e-06 | 5.2e-15 / 2.9e-15 | [`03_hdfe.py`](../tests/r_parity/03_hdfe.py) (+2) |
 | `fracreg` | stats::glm(quasibinomial('logit')) [fractional response] | R 4.5.2 | coefficients 1e-10 abs (observed ~8e-15) | — / — | [`test_glm_ext_parity.py`](../tests/reference_parity/test_glm_ext_parity.py) (+1) |
 | `frontier` | sfaR::sfacross | R 4.5.2; sfaR 1.0.1 | rel_est<=1e-06, rel_se<=5e-05 | 4.1e-08 / 4.0e-08 | [`28_frontier.py`](../tests/r_parity/28_frontier.py) (+2) |
@@ -206,6 +207,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `test` | [`test_postestimation_parity.py`](../tests/reference_parity/test_postestimation_parity.py) |
 | `wooldridge_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) |
 
-## unverified — 994 functions
+## unverified — 993 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

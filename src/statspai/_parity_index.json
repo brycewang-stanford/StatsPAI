@@ -1291,6 +1291,29 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "evalue_rr",
+      "notes": [
+        "Closed-form identity: E-value = RR + sqrt(RR*(RR-1)) for the point and the null-nearest CI limit, matching the R EValue package (sp.evalue is bit-exact against it via Track A module 23)."
+      ],
+      "reference": "VanderWeele-Ding closed form (= R EValue package)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_evalue_rr_parity.py"
+      ],
+      "tolerance": "point + CI E-value 1e-12 abs (observed 0)"
+    },
+    {
       "additional_tests": [
         "tests/r_parity/15_hdfe_cluster.py",
         "tests/r_parity/15_hdfe_cluster.R",
