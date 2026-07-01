@@ -9410,7 +9410,7 @@
     "name": "impactplot"
   },
   {
-    "description": "Compute a single inequality index.",
+    "description": "Compute a single inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -10674,7 +10674,7 @@
     "name": "liml"
   },
   {
-    "description": "Estimate a linear combination of coefficients with inference.",
+    "description": "Estimate a linear combination of coefficients with inference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -11435,7 +11435,7 @@
     "name": "manski_bounds"
   },
   {
-    "description": "Compute marginal effects from a fitted model.",
+    "description": "Compute marginal effects from a fitted model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -22506,7 +22506,7 @@
     "name": "tF_critical_value"
   },
   {
-    "description": "Wald test for linear restrictions on coefficients.",
+    "description": "Wald test for linear restrictions on coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "hypothesis": {

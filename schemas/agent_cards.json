@@ -6806,7 +6806,7 @@
       "The delta-method CI on log(1-PAF) assumes large-sample normality, which degrades when PAF is near 0 or 1."
     ],
     "category": "epi",
-    "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI.",
+    "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -6831,7 +6831,7 @@
     ],
     "reference": "Levin (1953); Greenland (2001)",
     "signature": {
-      "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI.",
+      "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "attributable_risk",
       "parameters": {
         "properties": {
@@ -6866,9 +6866,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_epi_extra_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -8744,7 +8745,7 @@
       "Linear/quadratic weights presume the category scale is genuinely ordinal with equally interpretable distances."
     ],
     "category": "epi",
-    "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting.",
+    "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -8769,7 +8770,7 @@
     ],
     "reference": "Cohen (1960); Landis & Koch (1977)",
     "signature": {
-      "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting.",
+      "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "cohen_kappa",
       "parameters": {
         "properties": {
@@ -8807,9 +8808,10 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "tests/reference_parity/test_epi_extra_parity.py",
       "API/unit contract evidence: tests/test_epi_diagnostic.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

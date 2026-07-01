@@ -3738,7 +3738,7 @@
     }
   },
   {
-    "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI.",
+    "description": "Attributable fractions in the exposed (AF) and in the population (Levin PAF) with delta-method CI. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "attributable_risk",
     "parameters": {
       "properties": {
@@ -4691,7 +4691,7 @@
     }
   },
   {
-    "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting.",
+    "description": "Cohen's kappa for inter-rater agreement on nominal or ordinal scales. Supports linear / quadratic weighting. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cohen_kappa",
     "parameters": {
       "properties": {
@@ -22259,7 +22259,7 @@
     }
   },
   {
-    "description": "Compute marginal effects from a fitted model.",
+    "description": "Compute marginal effects from a fitted model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "margins",
     "parameters": {
       "properties": {
@@ -22587,7 +22587,7 @@
     }
   },
   {
-    "description": "Wald test for linear restrictions on coefficients.",
+    "description": "Wald test for linear restrictions on coefficients. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "test",
     "parameters": {
       "properties": {
@@ -22608,7 +22608,7 @@
     }
   },
   {
-    "description": "Estimate a linear combination of coefficients with inference.",
+    "description": "Estimate a linear combination of coefficients with inference. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lincom",
     "parameters": {
       "properties": {
@@ -43225,7 +43225,7 @@
     }
   },
   {
-    "description": "Compute a single inequality index.",
+    "description": "Compute a single inequality index. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "inequality_index",
     "parameters": {
       "properties": {
