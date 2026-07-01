@@ -787,6 +787,21 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "decomposition)."
         ),
     },
+    "subgroup_decompose": {
+        "status": "bit-exact",
+        "reference": "Theil within+between exact additive identity (Shorrocks 1980)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "total == within + between 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_subgroup_decompose_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: the generalized-entropy (Theil-T/Theil-L) "
+            "inequality index decomposes exactly into within- and between-group "
+            "components (Shorrocks 1980)."
+        ),
+    },
 }
 
 

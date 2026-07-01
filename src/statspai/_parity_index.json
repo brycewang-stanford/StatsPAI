@@ -4349,6 +4349,29 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "subgroup_decompose",
+      "notes": [
+        "Closed-form identity: the generalized-entropy (Theil-T/Theil-L) inequality index decomposes exactly into within- and between-group components (Shorrocks 1980)."
+      ],
+      "reference": "Theil within+between exact additive identity (Shorrocks 1980)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_subgroup_decompose_parity.py"
+      ],
+      "tolerance": "total == within + between 1e-12 abs (observed 0)"
+    },
+    {
       "function": "sun_abraham",
       "headline": {
         "metric": "rel_est",
