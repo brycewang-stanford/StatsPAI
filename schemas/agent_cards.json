@@ -29193,7 +29193,7 @@
       "No other discontinuity coincides with the threshold."
     ],
     "category": "causal",
-    "description": "Bunching at Notches estimator (Kleven & Waseem 2013).",
+    "description": "Bunching at Notches estimator (Kleven & Waseem 2013). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.notch(df, x='income', notch_point=50000, notch_size=0.10, bin_width=500)",
     "failure_modes": [
       {
@@ -29212,7 +29212,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Bunching at Notches estimator (Kleven & Waseem 2013).",
+      "description": "Bunching at Notches estimator (Kleven & Waseem 2013). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "notch",
       "parameters": {
         "properties": {
@@ -29275,8 +29275,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_notch_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

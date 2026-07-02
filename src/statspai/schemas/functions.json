@@ -28169,7 +28169,7 @@
     }
   },
   {
-    "description": "Bunching at Notches estimator (Kleven & Waseem 2013).",
+    "description": "Bunching at Notches estimator (Kleven & Waseem 2013). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "notch",
     "parameters": {
       "properties": {
@@ -31997,7 +31997,7 @@
     }
   },
   {
-    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen).",
+    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ivqreg",
     "parameters": {
       "properties": {

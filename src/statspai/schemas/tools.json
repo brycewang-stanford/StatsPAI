@@ -10000,7 +10000,7 @@
     "name": "iv_diag"
   },
   {
-    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen).",
+    "description": "Instrumental-variable quantile regression (Chernozhukov-Hansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "add_constant": {
@@ -13442,7 +13442,7 @@
     "name": "nonlinear_icp"
   },
   {
-    "description": "Bunching at Notches estimator (Kleven & Waseem 2013). Assumptions: The counterfactual density would be smooth through the threshold absent the policy; Excess mass at the threshold reflects the behavioural elasticity of interest; No other discontinuity coincides with the threshold. Pre-conditions: A behavioural choice variable (earnings, hours, ...) with a known kink or notch in the budget/choice set; A visible empirical density of the running variable around the threshold. Failure modes: Round-number heaping or a coincident policy contaminates the bunching mass -> Exclude heaping points, widen the excluded region, and test the counterfactual polynomial order. Alternatives: sp.rdrobust, sp.rkd. Typical minimum N: 500.",
+    "description": "Bunching at Notches estimator (Kleven & Waseem 2013). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The counterfactual density would be smooth through the threshold absent the policy; Excess mass at the threshold reflects the behavioural elasticity of interest; No other discontinuity coincides with the threshold. Pre-conditions: A behavioural choice variable (earnings, hours, ...) with a known kink or notch in the budget/choice set; A visible empirical density of the running variable around the threshold. Failure modes: Round-number heaping or a coincident policy contaminates the bunching mass -> Exclude heaping points, widen the excluded region, and test the counterfactual polynomial order. Alternatives: sp.rdrobust, sp.rkd. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
