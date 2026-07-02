@@ -34018,7 +34018,7 @@
     }
   },
   {
-    "description": "Structural break detection.",
+    "description": "Structural break detection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "structural_break",
     "parameters": {
       "properties": {
@@ -34122,7 +34122,7 @@
     }
   },
   {
-    "description": "CUSUM test for parameter stability.",
+    "description": "CUSUM test for parameter stability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cusum_test",
     "parameters": {
       "properties": {
@@ -35292,7 +35292,7 @@
     }
   },
   {
-    "description": "Engle-Granger (1987) two-step cointegration test.",
+    "description": "Engle-Granger (1987) two-step cointegration test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "engle_granger",
     "parameters": {
       "properties": {

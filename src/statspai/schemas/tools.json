@@ -4189,7 +4189,7 @@
     "name": "cuminc"
   },
   {
-    "description": "CUSUM test for parameter stability.",
+    "description": "CUSUM test for parameter stability. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -6633,7 +6633,7 @@
     "name": "effective_f_test"
   },
   {
-    "description": "Engle-Granger (1987) two-step cointegration test.",
+    "description": "Engle-Granger (1987) two-step cointegration test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21028,7 +21028,7 @@
     "name": "stochastic_dominance"
   },
   {
-    "description": "Structural break detection.",
+    "description": "Structural break detection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
