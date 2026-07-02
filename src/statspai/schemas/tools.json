@@ -8574,7 +8574,7 @@
     "name": "ggdid"
   },
   {
-    "description": "Fit a Generalized Linear Model.",
+    "description": "Fit a Generalized Linear Model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
