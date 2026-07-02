@@ -28826,7 +28826,7 @@
       "No concurrent intervention affects the controls."
     ],
     "category": "causal",
-    "description": "Evaluate the expected value of a treatment policy.",
+    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -28844,7 +28844,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Evaluate the expected value of a treatment policy.",
+      "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "policy_value",
       "parameters": {
         "properties": {
@@ -28866,8 +28866,11 @@
     },
     "stability": "stable",
     "typical_n_min": 50,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_policy_tree_parity.py",
+      "tests/reference_parity/test_policy_value_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

@@ -14929,7 +14929,7 @@
     "name": "poisson"
   },
   {
-    "description": "Doubly-robust policy-tree -- article-facing alias.",
+    "description": "Doubly-robust policy-tree -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "X": {
@@ -14975,7 +14975,7 @@
     "name": "policy_tree"
   },
   {
-    "description": "Evaluate the expected value of a treatment policy. Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
+    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "policy": {

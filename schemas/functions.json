@@ -27547,7 +27547,7 @@
     }
   },
   {
-    "description": "Doubly-robust policy-tree -- article-facing alias.",
+    "description": "Doubly-robust policy-tree -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "policy_tree",
     "parameters": {
       "properties": {
@@ -27758,7 +27758,7 @@
     }
   },
   {
-    "description": "Evaluate the expected value of a treatment policy.",
+    "description": "Evaluate the expected value of a treatment policy. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "policy_value",
     "parameters": {
       "properties": {
