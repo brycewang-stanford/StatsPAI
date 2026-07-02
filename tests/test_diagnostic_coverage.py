@@ -669,3 +669,90 @@ def test_recovery_pointers_resolve_to_registered_functions(source):
         "recovery pointers name functions that are not registered — an agent "
         "following the hint hits AttributeError:\n  " + "\n  ".join(dead)
     )
+
+
+# --------------------------------------------------------------------------- #
+#  Prose reachability — sp.xxx mentioned inline in guidance text must resolve
+# --------------------------------------------------------------------------- #
+#
+# The two tests above cover the *structured* recovery pointers (a violation's
+# ``alternatives`` list, an audit check's ``suggest_function``). But guidance
+# text itself — ``recovery_hint`` / ``rationale`` / ``message`` / ``question``
+# — routinely names functions inline ("Report sp.wild_cluster_bootstrap …",
+# "use sp.iv_bounds …"). An LLM agent reads that prose and calls what it names,
+# so an inline ``sp.xxx`` that has been renamed or never existed is just as much
+# a dead link as a broken list entry. This closes the loop: every ``sp.xxx`` an
+# agent can encounter — structured OR prose — resolves to a callable.
+
+
+def _prose_sp_pointers():
+    """Every ``sp.xxx`` token appearing inside an agent-facing prose field
+    (``recovery_hint`` / ``rationale`` / ``message`` / ``question``) across
+    ``src/statspai``. Handles str / f-string / (+)-concat / conditional
+    string expressions; strips trailing sentence punctuation."""
+    import ast
+    import importlib
+    import pathlib
+    import re
+
+    prose_keys = {"recovery_hint", "rationale", "message", "question"}
+    token = re.compile(r"\bsp\.[A-Za-z_][A-Za-z0-9_.]*")
+
+    def _text(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return "".join(_text(p) or "" for p in node.values)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            return (_text(node.left) or "") + (_text(node.right) or "")
+        if isinstance(node, ast.IfExp):
+            return (_text(node.body) or "") + (_text(node.orelse) or "")
+        return ""
+
+    pkg_root = pathlib.Path(importlib.import_module("statspai").__file__).parent
+    refs: dict = {}
+
+    def _scan(text, origin):
+        for m in token.findall(text):
+            refs.setdefault(m.rstrip("."), set()).add(origin)
+
+    for path in pkg_root.rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        origin = str(path.relative_to(pkg_root))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.keyword) and node.arg in prose_keys:
+                _scan(_text(node.value), origin)
+            elif isinstance(node, ast.Dict):
+                for k, v in zip(node.keys, node.values):
+                    if isinstance(k, ast.Constant) and k.value in prose_keys:
+                        _scan(_text(v), origin)
+    return refs
+
+
+def test_prose_recovery_pointers_resolve():
+    """Every ``sp.xxx`` named inline in guidance prose must resolve to a
+    callable on the ``sp`` namespace — an LLM reading the hint calls what it
+    names, so a renamed/absent inline pointer is a dead link too."""
+    refs = _prose_sp_pointers()
+    assert len(refs) >= 30, (
+        f"expected >=30 inline prose pointers, found {len(refs)} — did a prose "
+        "field get renamed, or the scanner break?"
+    )
+
+    dead = []
+    for ref in sorted(refs):
+        obj = sp
+        for part in ref.split(".")[1:]:  # walk past the leading 'sp'
+            obj = getattr(obj, part, None)
+            if obj is None:
+                break
+        if not callable(obj):
+            dead.append(f"{ref} <- {sorted(refs[ref])}")
+
+    assert not dead, (
+        "guidance prose names sp.xxx pointers that do not resolve to a callable "
+        "— an agent reading the hint hits AttributeError:\n  " + "\n  ".join(dead)
+    )
