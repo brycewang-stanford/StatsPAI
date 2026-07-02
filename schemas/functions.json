@@ -2668,7 +2668,7 @@
     }
   },
   {
-    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified.",
+    "description": "Interventional (in)direct effects (VanderWeele, Vansteelandt, Robins 2014). Identifies mediation effects in the presence of treatment-induced mediator-outcome confounders where natural (in)direct effects are not identified. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mediate_interventional",
     "parameters": {
       "properties": {
@@ -44162,7 +44162,7 @@
     }
   },
   {
-    "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG.",
+    "description": "Run FCI. Returns a :class:`FCIResult` with the learned PAG. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "fci",
     "parameters": {
       "properties": {
