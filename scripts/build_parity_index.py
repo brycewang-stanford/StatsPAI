@@ -1049,6 +1049,21 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "(j vs k == coef[T.j] - coef[T.k]) exactly."
         ),
     },
+    "bootstrap": {
+        "status": "bit-exact",
+        "reference": "nonparametric bootstrap contract (Efron 1979)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10%",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_bootstrap_parity.py",
+        ],
+        "note": (
+            "Exact contract: estimate == statistic(full sample) and se == "
+            "std(boot_distribution, ddof=1) to machine precision; the mean's "
+            "bootstrap SE is consistent with the analytic sd/sqrt(n)."
+        ),
+    },
 }
 
 

@@ -502,6 +502,29 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "function": "bootstrap",
+      "notes": [
+        "Exact contract: estimate == statistic(full sample) and se == std(boot_distribution, ddof=1) to machine precision; the mean's bootstrap SE is consistent with the analytic sd/sqrt(n)."
+      ],
+      "reference": "nonparametric bootstrap contract (Efron 1979)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_bootstrap_parity.py"
+      ],
+      "tolerance": "estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10%"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "breakdown_frontier",
       "notes": [
         "Closed-form identity: breakdown point == estimate, its CI == estimate - z*se, and bounds == estimate +/- max_violation (Masten & Poirier 2021 breakdown-frontier framework)."
@@ -2378,6 +2401,23 @@
       ],
       "tier": "machine",
       "tolerance": "abs_est<=1e-06, abs_se<=1e-06"
+    },
+    {
+      "function": "horowitz_manski",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_horowitz_manski_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -5006,6 +5046,23 @@
         "tests/reference_parity/test_auc_parity.py"
       ],
       "tolerance": "AUC 1e-12 abs (observed 0)"
+    },
+    {
+      "function": "romano_wolf",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_romano_wolf_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "sar",
