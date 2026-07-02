@@ -5,6 +5,29 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="dist-iv-binary-instrument-nan"></a>
+
+## Unreleased — ⚠️ `sp.dist_iv` / `sp.kan_dlate` no longer NaN on binary instruments
+
+**What changed.** The distributional-IV Wald estimator split the instrument at
+`Z > median(Z)`. For a binary `Z` with more 1s than 0s the median is 1, so the
+high group (`Z > 1`) was empty and `late_q` came back all-`NaN` with no error —
+about half of ordinary data draws. The split now falls back to `Z >= median`
+when the strict split is degenerate, so a binary instrument always separates
+into its two levels; it returns NaN only when `Z` is constant.
+
+**Why.** A silently all-NaN point estimate is a correctness failure — the
+function ran to completion and returned a result object full of NaNs.
+
+**Who is affected.** Any `sp.dist_iv` / `sp.kan_dlate` call whose instrument is
+binary (or discrete with the median on the top support point). Draws that
+already produced finite estimates are numerically unchanged.
+
+**Action.** Re-run affected calls; previously-NaN quantiles now carry the
+correct Wald LATE. No API change.
+
+---
+
 <a id="contrast-pwcompare-categorical"></a>
 
 ## Unreleased — ⚠️ `sp.contrast` / `sp.pwcompare` now fire `C(var)` factor dummies

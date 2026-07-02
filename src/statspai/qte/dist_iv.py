@@ -152,7 +152,18 @@ def dist_iv(
         # Wald-style quantile IV estimator (single binary instrument):
         # LATE_q = [F^{-1}(q | Z=1) - F^{-1}(q | Z=0)] /
         #         [P(D=1 | Z=1) - P(D=1 | Z=0)]
-        Z_high = (Zi > np.median(Zi)).astype(int)
+        # Split Z into high/low groups at the median.  A strict ``> median``
+        # split leaves the high group EMPTY whenever the median sits on a mass
+        # point at the top of a discrete instrument's support (e.g. a binary Z
+        # with more 1s than 0s => median == 1 => no Z > 1).  Fall back to a
+        # ``>= median`` split so both groups are non-empty; only give up when
+        # the instrument is genuinely constant.
+        med = np.median(Zi)
+        Z_high = (Zi > med).astype(int)
+        if Z_high.sum() == 0 or Z_high.sum() == len(Zi):
+            Z_high = (Zi >= med).astype(int)
+        if Z_high.sum() == 0 or Z_high.sum() == len(Zi):
+            return np.nan
         try:
             num = np.quantile(Yi[Z_high == 1], q) - np.quantile(Yi[Z_high == 0], q)
             denom = Di[Z_high == 1].mean() - Di[Z_high == 0].mean()

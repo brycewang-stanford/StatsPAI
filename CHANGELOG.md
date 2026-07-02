@@ -9,6 +9,16 @@ All notable changes to StatsPAI will be documented in this file.
 These change DiD point estimates for affected staggered/switching designs. See
 `MIGRATION.md` before comparing new output to earlier StatsPAI runs.
 
+- **`sp.dist_iv` / `sp.kan_dlate` with a binary instrument** no longer return a
+  silent all-`NaN` `late_q`. The Wald quantile-LATE split used a strict
+  `Z > median(Z)` rule, which leaves the high group empty whenever the median
+  sits on the top mass point of a discrete instrument (a binary `Z` with more
+  1s than 0s has `median == 1`, so `Z > 1` is empty) — roughly half of ordinary
+  data draws returned NaN at every quantile with no error. The split now falls
+  back to `Z >= median` so both instrument groups are non-empty, giving up (a
+  single NaN) only when the instrument is genuinely constant. Estimates on the
+  previously-working draws (including the documented `seed=42` example) are
+  unchanged. New guard: `tests/reference_parity/test_dist_iv_parity.py`.
 - **`sp.contrast` / `sp.pwcompare` with `C(var)` categoricals** now return the
   correct treatment contrasts instead of all zeros. The predictive-margin
   engine matched design-matrix terms by raw column name, so a model fit with a
