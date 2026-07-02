@@ -129,6 +129,7 @@ nav:
       - "Cross-engine validation (sp.cross_validate — StatsPAI vs R/Stata/pyfixest/DoubleML)": guides/cross_engine_validation.md
       - "From a data MCP to an estimate (World Bank / FRED / OECD ingestion)": guides/data_mcp_ingestion.md
       - "Robustness workflow": guides/robustness_workflow.md
+      - "One SE grammar — the vce= menu and its verified references": guides/grammar.md
       - "Automatic diagnostics — what result.violations() / sp.audit() check": guides/diagnostics.md
       - "Sensitivity analysis — which tool for which design": guides/sensitivity_analysis.md
       - "Mediation & causal pathways (ACME/ADE, front-door, Gelbach)": guides/mediation.md

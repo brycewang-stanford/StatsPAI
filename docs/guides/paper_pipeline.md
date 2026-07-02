@@ -186,7 +186,7 @@ suitable for round-tripping through agent tool calls.
 | --- | --- | --- | --- |
 | ValueError 'Could not determine the outcome y' | `ValueError` | Pass `y=...` explicitly or include 'effect of X on Y' in the question text |  |
 | Pipeline notes section appears in draft | `(none — informational)` | One pipeline stage failed; inspect `draft.workflow.diagnostics` and pipeline_errors |  |
-| Missing citations, assumptions, or validation notes in generated text | `AssumptionWarning` | Call audit_result() or attach citations before rendering the paper section. | `sp.audit_result` |
+| Missing citations, assumptions, or validation notes in generated text | `AssumptionWarning` | Call sp.audit() or attach citations before rendering the paper section. | `sp.audit` |
 
 **Alternatives (ranked)**
 - `sp.causal`

@@ -159,7 +159,7 @@ r.plot()           # Falls back to coefplot; use sp.rdplot for binscatter
 | McCrary density test p < 0.05 | `AssumptionViolation` | Use donut-hole RD (donut=<δ>) or partial-identification bounds. | `sp.rdrobust` |
 | Covariate imbalance at cutoff (sp.rdbalance rejects) | `AssumptionViolation` | Include covariates as controls, narrow bandwidth, or report as caveat. |  |
 | Effect unstable across bandwidth halvings | `AssumptionWarning` | Report sp.rdbwsensitivity and sp.rd_honest (Armstrong-Kolesár honest CI). | `sp.rd_honest` |
-| Placebo cutoffs show significant 'effects' | `AssumptionViolation` | The RD signal is noise; seek an alternative identification strategy. | `sp.bounds` |
+| Placebo cutoffs show significant 'effects' | `AssumptionViolation` | The RD signal is noise; seek an alternative identification strategy. | `sp.manski_bounds` |
 
 **Alternatives (ranked)**
 - `sp.rd_honest`
