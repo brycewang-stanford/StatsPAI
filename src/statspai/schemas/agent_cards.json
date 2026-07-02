@@ -33829,7 +33829,7 @@
       "Acyclicity; LiNGAM additionally assumes a linear non-Gaussian model."
     ],
     "category": "causal",
-    "description": "Greedy Equivalence Search.",
+    "description": "Greedy Equivalence Search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -33848,7 +33848,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Greedy Equivalence Search.",
+      "description": "Greedy Equivalence Search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ges",
       "parameters": {
         "properties": {
@@ -33870,8 +33870,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_ges_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

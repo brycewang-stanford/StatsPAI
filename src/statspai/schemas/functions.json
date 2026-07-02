@@ -44128,7 +44128,7 @@
     }
   },
   {
-    "description": "Greedy Equivalence Search.",
+    "description": "Greedy Equivalence Search. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ges",
     "parameters": {
       "properties": {
