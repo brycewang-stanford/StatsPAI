@@ -35600,7 +35600,7 @@
     }
   },
   {
-    "description": "Bivariate probit model.",
+    "description": "Bivariate probit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "biprobit",
     "parameters": {
       "properties": {
