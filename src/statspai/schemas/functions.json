@@ -7119,7 +7119,7 @@
     }
   },
   {
-    "description": "LATE with a continuous instrument (Xie et al. 2025). Estimates the LATE on the maximal complier class via quantile-bin Wald ratios, weighted by the bin-pair with the largest first-stage response.",
+    "description": "LATE with a continuous instrument (Xie et al. 2025). Estimates the LATE on the maximal complier class via quantile-bin Wald ratios, weighted by the bin-pair with the largest first-stage response. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "continuous_iv_late",
     "parameters": {
       "properties": {
@@ -7563,7 +7563,7 @@
     }
   },
   {
-    "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean.",
+    "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "beyond_average_late",
     "parameters": {
       "properties": {

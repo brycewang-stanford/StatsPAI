@@ -13488,7 +13488,7 @@
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
     ],
     "category": "causal",
-    "description": "LATE with a continuous instrument (Xie et al. 2025). Estimates the LATE on the maximal complier class via quantile-bin Wald ratios, weighted by the bin-pair with the largest first-stage response.",
+    "description": "LATE with a continuous instrument (Xie et al. 2025). Estimates the LATE on the maximal complier class via quantile-bin Wald ratios, weighted by the bin-pair with the largest first-stage response. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.continuous_iv_late(df, y=\"y\", treat=\"d\", instrument=\"z\", n_quantiles=5)",
     "failure_modes": [
       {
@@ -13534,7 +13534,7 @@
     ],
     "reference": "Zeng et al. (2025). arXiv:2504.03063.",
     "signature": {
-      "description": "LATE with a continuous instrument (Xie et al. 2025). Estimates the LATE on the maximal complier class via quantile-bin Wald ratios, weighted by the bin-pair with the largest first-stage response.",
+      "description": "LATE with a continuous instrument (Xie et al. 2025). Estimates the LATE on the maximal complier class via quantile-bin Wald ratios, weighted by the bin-pair with the largest first-stage response. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "continuous_iv_late",
       "parameters": {
         "properties": {
@@ -13587,9 +13587,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_continuous_iv_late_parity.py",
       "API/unit contract evidence: tests/test_continuous_iv_late.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -14346,7 +14347,7 @@
       "For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function)."
     ],
     "category": "causal",
-    "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean.",
+    "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.beyond_average_late(df, y=\"y\", treat=\"d\", instrument=\"z\")",
     "failure_modes": [
       {
@@ -14365,7 +14366,7 @@
     ],
     "reference": "Byambadalai, Hirata, Oka & Yasui (2025). arXiv:2509.15594.",
     "signature": {
-      "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean.",
+      "description": "Beyond-average LATE (Xie-Wu 2025). Identifies the entire treatment-effect distribution among compliers under incomplete compliance, not just its mean. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "beyond_average_late",
       "parameters": {
         "properties": {
@@ -14405,9 +14406,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_beyond_average_late_parity.py",
       "API/unit contract evidence: tests/test_v101_verified_fixes.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
