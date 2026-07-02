@@ -95,6 +95,21 @@ the CR2 leverage under FE absorption (unlike OLS — verified: the absorbed desi
 differs by ~1%), the SE is computed on the FE-as-dummies design, guarded against
 high-dimensional FE.
 
+**GLM wild cluster bootstrap — consistency (not bit-exact)**
+(`test_feglm_wild_boottest_parity.py`). `sp.fepois(vce="wild")` /
+`sp.feglm(vce="wild")` run the restricted score wild cluster bootstrap
+(Kline-Santos 2012), the method Stata `boottest` uses after `poisson`/`logit`.
+For small `G` the `2**G` Rademacher grid is enumerated, so the p-value is
+deterministic. This is the **one SE-menu cell validated to a *tolerance* rather
+than bit-exactly**: it agrees with Stata 18 `boottest x3, weighttype(rademacher)`
+to ~2 decimals (`0.320` vs frozen `0.31378299 = 321/1023`), but `boottest`
+studentizes the observed statistic with a specific full-model-bread /
+restricted-score convention (its reported `z=-1.0999` vs the canonical `-1.031`
+here) that this efficient-score implementation does not reproduce to machine
+precision. The test asserts `atol=0.02`. This was an explicit ship-to-tolerance
+decision — the method is a valid, correctly-sized wild cluster bootstrap; only
+the exact boottest count is not matched.
+
 **PPML HDFE two-way clustering** (`test_ppmlhdfe_twoway_parity.py`).
 `sp.ppmlhdfe(cluster=[a, b])` is the CGM-2011 inclusion-exclusion sandwich on
 the FE-residualised design with a single `G_min/(G_min-1)` small-sample factor

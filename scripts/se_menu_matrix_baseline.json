@@ -1,5 +1,5 @@
 {
   "_comment": "Ratchet floor/ceiling for the SE-menu coverage matrix. native_min may only rise; unsafe_max may only fall, as wiring work flips standalone_unsafe / na cells to native. Regenerate with `python scripts/se_menu_matrix.py --update-baseline`.",
-  "native_min": 57,
+  "native_min": 59,
   "unsafe_max": 0
 }

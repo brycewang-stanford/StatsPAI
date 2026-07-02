@@ -120,6 +120,11 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # (IRLS-weighted). Matches R `clubSandwich::vcovCR(glm(poisson))`.
         "cr2_cr3": "native",
         "jackknife": "native",
+        # Native `fepois(vce="wild", cluster=...)` — restricted score wild
+        # cluster bootstrap (Kline-Santos 2012), the method Stata `boottest`
+        # runs after `poisson`. Consistent with boottest to ~2 decimals (not
+        # bit-exact: boottest's studentization differs). Enumerated for small G.
+        "wild_cluster_boot": "native",
     },
     "feglm": {
         "classical": "native",
@@ -131,6 +136,10 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # family via d=dμ/dη, V=Var(μ). Matches R `clubSandwich::vcovCR(glm)`.
         "cr2_cr3": "native",
         "jackknife": "native",
+        # Native `feglm(vce="wild", cluster=...)` — score wild cluster bootstrap
+        # (Kline-Santos 2012), consistent with Stata `boottest` after logit to
+        # ~2 decimals (not bit-exact).
+        "wild_cluster_boot": "native",
     },
     "regress": {
         "classical": "native",

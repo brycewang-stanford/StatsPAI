@@ -33065,6 +33065,10 @@
           "description": "IWLS convergence tolerance.",
           "type": "number"
         },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
         "ssc": {
           "description": "Small-sample correction.",
           "type": "string"
@@ -33076,6 +33080,16 @@
         "weights": {
           "description": "Column name for regression weights.",
           "type": "string"
+        },
+        "wild_reps": {
+          "default": 9999,
+          "description": "wild_reps parameter (int).",
+          "type": "integer"
+        },
+        "wild_weight_type": {
+          "default": "rademacher",
+          "description": "wild_weight_type parameter (str).",
+          "type": "string"
         }
       },
       "required": [
@@ -33086,7 +33100,7 @@
     }
   },
   {
-    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects.",
+    "description": "Estimate GLM (logit, probit, Gaussian) with high-dimensional fixed effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "feglm",
     "parameters": {
       "properties": {
@@ -33107,9 +33121,23 @@
           "description": "pyfixest formula.",
           "type": "string"
         },
+        "seed": {
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
         "vcov": {
           "description": "Variance-covariance estimator. Also accepts ``vce=\"CR2\"``/``\"CR3\"``/ ``\"jackknife\"`` (with ``cluster=``) for the clubSandwich bias-reduced cluster-robust SEs.",
           "type": "object"
+        },
+        "wild_reps": {
+          "default": 9999,
+          "description": "wild_reps parameter (int).",
+          "type": "integer"
+        },
+        "wild_weight_type": {
+          "default": "rademacher",
+          "description": "wild_weight_type parameter (str).",
+          "type": "string"
         }
       },
       "required": [

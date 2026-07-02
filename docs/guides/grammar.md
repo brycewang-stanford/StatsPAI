@@ -77,8 +77,8 @@ estimator, or only on `feols`?* The honest answer, tracked in
 |---|---|---|---|---|---|---|---|---|
 | `feols` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `hdfe_ols` | ✓ | · | ✓ | ✓ | · | ✓ | · | · |
-| `fepois` | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ |
-| `feglm` | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ |
+| `fepois` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
+| `feglm` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
 | `regress` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ppmlhdfe` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
@@ -187,6 +187,19 @@ What the matrix makes explicit today:
   ```python
   sp.fepois("y ~ x1 + x2 | firm", data=df, vce="CR2", cluster="clu")
   sp.feglm("y ~ x1 | firm", data=df, family="logit", vce="CR3", cluster="clu")
+  ```
+- **`fepois` / `feglm` also have a native wild cluster bootstrap** via
+  `vce="wild"` — the restricted **score wild cluster bootstrap** (Kline-Santos
+  2012), the method Stata `boottest` runs after `poisson` / `logit`. It returns
+  wild-bootstrap p-values per coefficient (SE/CI stay cluster-robust). It is
+  *consistent with* `boottest` — agreeing on the enumerated p-value to ~2
+  decimals — but **not bit-exact** (`boottest` uses a specific full-model-bread /
+  restricted-score studentization). So the answer to *"is wild cluster bootstrap
+  usable on any estimator or only `feols`?"* is now: **`regress`, `feols`,
+  `ivreg` (WRE), `fepois`, `feglm` all have a native `vce="wild"`.**
+
+  ```python
+  sp.fepois("y ~ x1 + x2 | firm", data=df, vce="wild", cluster="clu")
   ```
 - **`ppmlhdfe` has native two-way clustering** via `cluster=["a", "b"]` — the
   CGM (2011) inclusion-exclusion sandwich on the FE-residualised PPML design

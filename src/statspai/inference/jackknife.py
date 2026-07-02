@@ -973,3 +973,112 @@ def glm_cr_vcov(
 
     vcov = M @ meat @ M
     return np.sqrt(np.maximum(np.diag(vcov), 0.0))
+
+
+def glm_score_wild_boot(
+    X: np.ndarray,
+    y: np.ndarray,
+    family: Any,
+    cluster_codes: np.ndarray,
+    test_idx: int,
+    *,
+    n_boot: int = 9999,
+    weight_type: str = "rademacher",
+    seed: Optional[int] = None,
+    enumerate_max_G: int = 14,
+) -> Dict[str, float]:
+    """Score wild cluster bootstrap for one GLM coefficient (Kline-Santos 2012).
+
+    The restricted (null-imposed) score wild cluster bootstrap — the method
+    Stata ``boottest`` runs after ``poisson``/``logit``. It is *consistent with*
+    ``boottest`` (agrees on the p-value to ~2 decimals) but not bit-identical:
+    ``boottest`` uses a specific full-model-bread / restricted-score
+    studentization that this canonical restricted efficient-score version does
+    not reproduce to machine precision.
+
+    Algorithm (test of ``H0: beta[test_idx] = 0``):
+
+    1. Fit the **restricted** GLM (drop column ``test_idx``) → fitted ``mu_tilde``.
+    2. Efficient-score influence for the tested coefficient on the full design,
+       evaluated at the restricted fit: ``g_i = (A @ s_i)[test_idx]`` with
+       ``s_i = X_i · (d/V) · (y_i - mu_tilde_i)`` and ``A = (X' diag(w) X)^{-1}``
+       (``d = dμ/dη``, ``V = Var(μ)``, ``w = d²/V`` at ``mu_tilde``).
+    3. Cluster sums ``q_c = Σ_{i∈c} g_i``; studentized statistic
+       ``t = (Σ_c q_c) / sqrt(Σ_c q_c²)``.
+    4. Wild weights ``w_c`` per cluster; bootstrap statistic
+       ``t*_b = (Σ_c w_c q_c) / sqrt(Σ_c w_c² q_c²)``. When ``2**G <=
+       enumerate_max_G``-implied cap the full ``2**G`` Rademacher grid is
+       enumerated (deterministic, exact for the design); otherwise ``n_boot``
+       draws are sampled with ``seed``.
+    5. ``p = mean(|t*_b| >= |t_obs|)``.
+
+    Returns ``{"p_boot", "t_obs", "n_reps", "enumerated"}``.
+    """
+    import statsmodels.api as sm  # noqa: F401 — core dependency
+
+    n, k = X.shape
+    keep = [c for c in range(k) if c != test_idx]
+    X_rest = X[:, keep]
+    fit_r = sm.GLM(y, X_rest, family=family).fit()
+    mu = np.asarray(fit_r.mu, dtype=float)
+    d = 1.0 / family.link.deriv(mu)
+    V = family.variance(mu)
+    w = d**2 / V
+    A = np.linalg.inv((X * w[:, None]).T @ X)
+    scores = X * ((d / V) * (y - mu))[:, None]
+    g = scores @ A[test_idx]  # efficient-score influence, per obs
+
+    G = int(cluster_codes.max()) + 1
+    q = np.array([g[cluster_codes == c].sum() for c in range(G)])
+    denom_obs = np.sqrt((q**2).sum())
+    if denom_obs <= 0:
+        return {"p_boot": 1.0, "t_obs": 0.0, "n_reps": 0, "enumerated": 0.0}
+    t_obs = q.sum() / denom_obs
+
+    enumerate_it = G <= enumerate_max_G
+    if enumerate_it:
+        from itertools import product
+
+        exceed = 0
+        reps = 0
+        for signs in product((1.0, -1.0), repeat=G):
+            wv = np.asarray(signs)
+            tb = (wv * q).sum() / np.sqrt(((wv * q) ** 2).sum())
+            reps += 1
+            if abs(tb) >= abs(t_obs) - 1e-12:
+                exceed += 1
+        p_boot = exceed / reps
+    else:
+        rng = np.random.default_rng(seed)
+        draws = _draw_wild_weights(weight_type, (n_boot, G), rng)
+        num = draws @ q
+        den = np.sqrt((draws**2) @ (q**2))
+        tb = num / den
+        exceed = int(np.sum(np.abs(tb) >= abs(t_obs) - 1e-12))
+        # MacKinnon (1+exceed)/(1+B) convention for sampled bootstraps.
+        p_boot = (1 + exceed) / (1 + n_boot)
+        reps = n_boot
+
+    return {
+        "p_boot": float(p_boot),
+        "t_obs": float(t_obs),
+        "n_reps": float(reps),
+        "enumerated": float(enumerate_it),
+    }
+
+
+def _draw_wild_weights(
+    weight_type: str, shape: Tuple[int, int], rng: "np.random.Generator"
+) -> np.ndarray:
+    """Cluster wild weights. Rademacher (±1) or Webb 6-point."""
+    wt = weight_type.lower()
+    if wt in ("rademacher", "rade"):
+        return rng.choice((-1.0, 1.0), size=shape)
+    if wt == "webb":
+        pts = np.array(
+            [-np.sqrt(1.5), -1.0, -np.sqrt(0.5), np.sqrt(0.5), 1.0, np.sqrt(1.5)]
+        )
+        return rng.choice(pts, size=shape)
+    raise MethodIncompatibility(
+        f"Unknown wild weight_type {weight_type!r}; use 'rademacher' or 'webb'."
+    )

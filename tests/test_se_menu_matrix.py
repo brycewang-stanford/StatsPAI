@@ -48,15 +48,23 @@ def test_status_counts_consistent() -> None:
 
 
 def test_native_wild_boot_estimators() -> None:
-    """Native + correct wild cluster bootstrap, all externally validated against
-    Stata ``boottest`` (feols/ivreg/hdfe_ols) or via the stored-OLS design
-    (regress)."""
+    """Native + correct wild cluster bootstrap: externally validated against
+    Stata ``boottest`` (feols/ivreg/hdfe_ols), via the stored-OLS design
+    (regress), or consistency-validated to ~2 decimals vs ``boottest``'s score
+    bootstrap (fepois/feglm — see test_feglm_wild_boottest_parity)."""
     from se_menu_matrix import MATRIX, _cell  # type: ignore
 
     native_wild = sorted(
         est for est in MATRIX if _cell(est, "wild_cluster_boot") == "native"
     )
-    assert native_wild == ["feols", "hdfe_ols", "ivreg", "regress"], native_wild
+    assert native_wild == [
+        "feglm",
+        "feols",
+        "fepois",
+        "hdfe_ols",
+        "ivreg",
+        "regress",
+    ], native_wild
 
 
 def test_ratchet_holds() -> None:

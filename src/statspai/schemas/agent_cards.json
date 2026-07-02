@@ -30737,6 +30737,10 @@
             "description": "IWLS convergence tolerance.",
             "type": "number"
           },
+          "seed": {
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
           "ssc": {
             "description": "Small-sample correction.",
             "type": "string"
@@ -30747,6 +30751,16 @@
           },
           "weights": {
             "description": "Column name for regression weights.",
+            "type": "string"
+          },
+          "wild_reps": {
+            "default": 9999,
+            "description": "wild_reps parameter (int).",
+            "type": "integer"
+          },
+          "wild_weight_type": {
+            "default": "rademacher",
+            "description": "wild_weight_type parameter (str).",
             "type": "string"
           }
         },

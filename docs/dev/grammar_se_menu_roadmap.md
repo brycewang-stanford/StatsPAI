@@ -130,6 +130,17 @@ now has zero `standalone_unsafe` cells.
   ~1%), so the SE is computed on the FE-as-dummies design and guarded against
   high-dimensional FE. Matrix: fepois/feglm cr2_cr3/jackknife `na → native`
   (native 52→56). `test_feglm_bias_reduced_parity.py`.
+- **fepois / feglm(vce="wild") — native (done, consistency-validated).** Restricted
+  score wild cluster bootstrap (Kline-Santos 2012) via
+  `inference/jackknife.py::glm_score_wild_boot`, the method Stata `boottest` runs
+  after `poisson`/`logit`. Enumerates the 2^G Rademacher grid for small G
+  (deterministic). **Consistent with boottest to ~2 decimals but NOT bit-exact**
+  (0.320 vs 0.31378 for the frozen x3 case): boottest studentizes the observed
+  statistic with a full-model-bread / restricted-score convention (its z=-1.0999
+  vs the canonical -1.031) that this efficient-score version does not reproduce.
+  Shipped per an explicit ship-to-tolerance decision; REFERENCES/docstrings state
+  the non-bit-exactness plainly. Matrix fepois/feglm wild_cluster_boot
+  `na → native` (native 57→59). `test_feglm_wild_boottest_parity.py`.
 - **ppmlhdfe(cluster=[a,b]) — native two-way (done).** CGM-2011 inclusion-
   exclusion on the FE-residualised PPML design (`regression/count.py::
   _twoway_cluster_vcov`) with the single `G_min/(G_min-1)` factor — **byte-

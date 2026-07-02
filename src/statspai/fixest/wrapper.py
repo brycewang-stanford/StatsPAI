@@ -375,6 +375,140 @@ def _feglm_bias_reduced(
     return base
 
 
+def _feglm_wild(
+    fml: str,
+    data: pd.DataFrame,
+    *,
+    family_str: Optional[str],
+    cluster: Optional[str],
+    is_pois: bool,
+    n_boot: int,
+    weight_type: str,
+    seed: Optional[int],
+    ssc: Optional[Any],
+    fixef_rm: str,
+    collin_tol: float,
+    extra: Dict[str, Any],
+) -> EconometricResults:
+    """Score wild cluster bootstrap p-values for fepois / feglm.
+
+    Runs the restricted (null-imposed) score wild cluster bootstrap of
+    Kline-Santos (2012) — the method Stata ``boottest`` uses after ``poisson`` /
+    ``logit`` — on the fixed-effects-as-dummies design (see
+    :func:`statspai.inference.jackknife.glm_score_wild_boot`). It is *consistent
+    with* ``boottest`` (agrees on the bootstrap p-value to ~2 decimals) but not
+    bit-identical: ``boottest`` applies a specific full-model-bread /
+    restricted-score studentization this canonical version does not reproduce
+    exactly. Point estimates and SE/CI stay the cluster-robust (CRV1) values;
+    only the p-values are replaced by the wild-bootstrap p-values.
+    """
+    from ..inference.jackknife import glm_score_wild_boot
+
+    who = "fepois" if is_pois else "feglm"
+    if cluster is None:
+        raise MethodIncompatibility(
+            f"{who}(vce='wild') requires cluster=... — the wild *cluster* "
+            "bootstrap resamples cluster scores.",
+            recovery_hint="Pass cluster='firm' (or another id column).",
+        )
+
+    if is_pois:
+        base = fepois(
+            fml,
+            data,
+            vcov={"CRV1": cluster},
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            **extra,
+        )
+    else:
+        base = feglm(fml, data, family=family_str, vcov={"CRV1": cluster}, **extra)
+    if isinstance(base, list):
+        raise MethodIncompatibility(
+            f"{who}(vce='wild') does not support multiple-estimation formulas."
+        )
+
+    lhs, rhs = fml.split("~", 1)
+    y_var = lhs.strip()
+    fe_vars: List[str] = []
+    if "|" in rhs:
+        cov_part, fe_part = rhs.split("|", 1)
+        fe_vars = [t.strip() for t in fe_part.replace("+", " ").split() if t.strip()]
+    else:
+        cov_part = rhs
+    cov_vars = [
+        t.strip() for t in cov_part.split("+") if t.strip() and t.strip() != "1"
+    ]
+
+    need = [y_var] + cov_vars + fe_vars + [cluster]
+    missing = [c for c in need if c not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"{who}(vce='wild'): columns {missing} not found in data."
+        )
+    work = data.loc[:, need].dropna().reset_index(drop=True)
+    if int(base.data_info.get("nobs", len(work))) != len(work):
+        raise MethodIncompatibility(
+            f"{who}(vce='wild'): the fitted sample differs from the complete-case "
+            "design (singleton / separation dropping) — cannot align the wild "
+            "bootstrap design.",
+            recovery_hint="Use cluster= (CRV1) for this model.",
+        )
+    try:
+        [cov_vars.index(nm) for nm in base.params.index]
+    except ValueError:
+        raise MethodIncompatibility(
+            f"{who}(vce='wild') supports simple additive regressors only; "
+            "factor() / interaction terms are not yet handled.",
+            recovery_hint="Use cluster= (CRV1) for this model.",
+        )
+
+    y = work[y_var].to_numpy(dtype=float)
+    Xc = work[cov_vars].to_numpy(dtype=float)
+    blocks: List[np.ndarray] = [Xc, np.ones((len(work), 1))]
+    for fe in fe_vars:
+        d = pd.get_dummies(work[fe], prefix=fe, drop_first=True).astype(float).values
+        if d.shape[1]:
+            blocks.append(d)
+    X = np.column_stack(blocks)
+    if X.shape[1] >= len(work) or X.shape[1] > 1000:
+        raise MethodIncompatibility(
+            f"{who}(vce='wild'): the fixed-effects dummy design has "
+            f"{X.shape[1]} columns — too many for the dummy-design score "
+            "bootstrap (which refits the GLM per coefficient).",
+            recovery_hint="Use cluster= (CRV1) for high-dimensional fixed effects.",
+        )
+
+    fam = _sm_glm_family("poisson" if is_pois else family_str)
+    codes = pd.factorize(work[cluster])[0]
+    pvals = {}
+    for nm in base.params.index:
+        out = glm_score_wild_boot(
+            X,
+            y,
+            fam,
+            codes,
+            test_idx=cov_vars.index(nm),
+            n_boot=n_boot,
+            weight_type=weight_type,
+            seed=seed,
+        )
+        pvals[nm] = out["p_boot"]
+
+    base.pvalues = pd.Series(
+        [pvals[nm] for nm in base.params.index], index=base.params.index
+    )
+    base.model_info = dict(base.model_info)
+    base.model_info["vcov_type"] = (
+        f"score wild cluster bootstrap (Kline-Santos 2012, {weight_type}); "
+        "point estimates + SE/CI are cluster-robust CRV1"
+    )
+    base.model_info["cluster"] = cluster
+    base.model_info["n_boot"] = n_boot
+    return base
+
+
 @accepts_aliases(vce="vcov")
 def feols(
     fml: str,
@@ -569,6 +703,9 @@ def fepois(
     iwls_tol: float = 1e-8,
     iwls_maxiter: int = 25,
     cluster: Optional[str] = None,
+    wild_reps: int = 9999,
+    wild_weight_type: str = "rademacher",
+    seed: Optional[int] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -623,6 +760,23 @@ def fepois(
     >>> res = sp.fepois("y ~ x1 | firm", data=df, vce="CR2",  # doctest: +SKIP
     ...                 cluster="firm")
     """
+    # Score wild cluster bootstrap p-values (Kline-Santos 2012, boottest-style).
+    if isinstance(vcov, str) and vcov.lower() in _WILD_VCOV:
+        return _feglm_wild(
+            fml,
+            data,
+            family_str="poisson",
+            cluster=cluster,
+            is_pois=True,
+            n_boot=wild_reps,
+            weight_type=wild_weight_type,
+            seed=seed,
+            ssc=ssc,
+            fixef_rm=fixef_rm,
+            collin_tol=collin_tol,
+            extra=kwargs,
+        )
+
     # Bias-reduced cluster SEs (CR2 / CR3 / jackknife) via the clubSandwich glm
     # adjustment on the FE-as-dummies design — matches R clubSandwich exactly.
     if isinstance(vcov, str) and vcov.lower() in _GLM_BR_VCOV:
@@ -682,6 +836,9 @@ def feglm(
     vcov: Optional[Union[str, Dict[str, str]]] = None,
     *,
     cluster: Optional[str] = None,
+    wild_reps: int = 9999,
+    wild_weight_type: str = "rademacher",
+    seed: Optional[int] = None,
     **kwargs: Any,
 ) -> Union[EconometricResults, List[EconometricResults]]:
     """
@@ -727,6 +884,23 @@ def feglm(
     >>> "x1" in res.params.index  # doctest: +SKIP
     True
     """
+    # Score wild cluster bootstrap p-values (Kline-Santos 2012, boottest-style).
+    if isinstance(vcov, str) and vcov.lower() in _WILD_VCOV:
+        return _feglm_wild(
+            fml,
+            data,
+            family_str=family,
+            cluster=cluster,
+            is_pois=False,
+            n_boot=wild_reps,
+            weight_type=wild_weight_type,
+            seed=seed,
+            ssc=None,
+            fixef_rm="none",
+            collin_tol=1e-6,
+            extra=kwargs,
+        )
+
     # Bias-reduced cluster SEs (CR2 / CR3 / jackknife) via the clubSandwich glm
     # adjustment on the FE-as-dummies design — matches R clubSandwich exactly.
     if isinstance(vcov, str) and vcov.lower() in _GLM_BR_VCOV:
