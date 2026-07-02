@@ -10,11 +10,11 @@ import pytest
 
 import statspai as sp
 from statspai.agent import (
-    tool_manifest,
-    execute_tool,
-    TOOL_REGISTRY,
-    remediate,
     REMEDIATIONS,
+    TOOL_REGISTRY,
+    execute_tool,
+    remediate,
+    tool_manifest,
 )
 
 
@@ -544,7 +544,7 @@ class TestStatsPAIErrorBridge:
         err = IdentificationFailure(
             "estimand not identified without a valid instrument",
             recovery_hint="provide a valid instrument or use bounds",
-            alternative_functions=["sp.bounds"],
+            alternative_functions=["sp.iv_bounds"],
         )
         out = remediate(err)
         assert out["matched"]

@@ -46,7 +46,6 @@ def under_identified_iv_df() -> pd.DataFrame:
 
 
 class TestExecuteToolStructuredError:
-
     def test_legacy_fields_still_present(self, under_identified_iv_df):
         out = execute_tool(
             "ivreg",
@@ -108,7 +107,7 @@ class TestExecuteToolStructuredError:
         )
         alts = out["error_payload"]["alternative_functions"]
         assert isinstance(alts, list)
-        assert "sp.bounds" in alts
+        assert "sp.iv_bounds" in alts
 
     def test_recovery_hint_present(self, under_identified_iv_df):
         out = execute_tool(
@@ -193,7 +192,7 @@ class TestAllStatsPAIErrorSubclassesRoundTrip:
             (
                 "IdentificationFailure",
                 "identification_failure",
-                {"alternative_functions": ["sp.bounds"]},
+                {"alternative_functions": ["sp.iv_bounds"]},
             ),
             (
                 "DataInsufficient",
@@ -258,7 +257,6 @@ class _raiser_factory:
 
 
 class TestMalformedDiagnosticsFallback:
-
     def test_unserialisable_diagnostics_degrade_gracefully(self, monkeypatch):
         """If a caller stuffs a non-serialisable value into
         ``diagnostics`` and ``e.to_dict()`` somehow blows up, the
@@ -306,7 +304,6 @@ class TestMalformedDiagnosticsFallback:
 
 
 class TestMcpToolsCallErrorEnvelope:
-
     def test_tools_call_propagates_structured_error(
         self, tmp_path, under_identified_iv_df
     ):
@@ -340,7 +337,7 @@ class TestMcpToolsCallErrorEnvelope:
         payload = json.loads(text)
         # The structured payload must survive the MCP envelope.
         assert payload["error_kind"] == "method_incompatibility"
-        assert "sp.bounds" in (payload["error_payload"]["alternative_functions"])
+        assert "sp.iv_bounds" in (payload["error_payload"]["alternative_functions"])
 
     def test_statspai_error_class_export_unchanged(self):
         # Smoke check: the bridge depends on isinstance() so the error

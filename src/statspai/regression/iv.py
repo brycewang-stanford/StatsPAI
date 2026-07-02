@@ -104,10 +104,11 @@ def _k_class_fit(
             recovery_hint=(
                 "Add more instruments (order condition: m ≥ k2), or drop "
                 "one endogenous variable. For partial identification use "
-                "sp.bounds."
+                "sp.iv_bounds (Nevo-Rosen bounds from the instruments you "
+                "have) or sp.manski_bounds (assumption-free worst case)."
             ),
             diagnostics={"n_instruments": m, "n_endogenous": k2},
-            alternative_functions=["sp.bounds"],
+            alternative_functions=["sp.iv_bounds", "sp.manski_bounds"],
         )
 
     # Full instrument matrix: [X_exog, Z]
@@ -318,10 +319,11 @@ def _gmm_fit(
             recovery_hint=(
                 "Add more instruments (order condition: m ≥ k2), or drop "
                 "one endogenous variable. For partial identification use "
-                "sp.bounds."
+                "sp.iv_bounds (Nevo-Rosen bounds from the instruments you "
+                "have) or sp.manski_bounds (assumption-free worst case)."
             ),
             diagnostics={"n_instruments": m, "n_endogenous": k2},
-            alternative_functions=["sp.bounds"],
+            alternative_functions=["sp.iv_bounds", "sp.manski_bounds"],
         )
 
     W = np.column_stack([X_exog, Z])
@@ -460,10 +462,11 @@ def _jive_fit(
             recovery_hint=(
                 "Add more instruments (order condition: m ≥ k2), or drop "
                 "one endogenous variable. For partial identification use "
-                "sp.bounds."
+                "sp.iv_bounds (Nevo-Rosen bounds from the instruments you "
+                "have) or sp.manski_bounds (assumption-free worst case)."
             ),
             diagnostics={"n_instruments": m, "n_endogenous": k2},
-            alternative_functions=["sp.bounds"],
+            alternative_functions=["sp.iv_bounds", "sp.manski_bounds"],
         )
 
     W = np.column_stack([X_exog, Z])

@@ -13,10 +13,10 @@ import pytest
 
 import statspai as sp
 from statspai.exceptions import (
-    MethodIncompatibility,
     DataInsufficient,
-    NumericalInstability,
     IdentificationFailure,
+    MethodIncompatibility,
+    NumericalInstability,
 )
 
 # ====================================================================== #
@@ -84,7 +84,7 @@ class TestIVUnderIdentified:
             sp.ivreg("y ~ (d1 + d2 ~ z)", data=df)
         err = excinfo.value
         assert err.diagnostics["n_instruments"] < err.diagnostics["n_endogenous"]
-        assert "sp.bounds" in err.alternative_functions
+        assert "sp.iv_bounds" in err.alternative_functions
 
     def test_still_catches_as_value_error(self):
         rng = np.random.default_rng(0)
@@ -348,3 +348,91 @@ class TestOptimalMatchInsufficient:
                 covariates=["x1"],
             )
         assert excinfo.value.diagnostics["n_control"] == 0
+
+
+# ====================================================================== #
+#  Reachability contract — every alternative_functions pointer must resolve
+# ====================================================================== #
+#
+# A StatsPAIError's ``alternative_functions`` is a list of ``sp.xxx`` names an
+# agent is told to try when the primary call fails. If one of those names does
+# not resolve to a callable on the ``sp`` namespace, the agent follows the
+# recovery straight into an AttributeError — the recovery channel becomes a
+# trap. This was real: ``sp.iv_bounds`` was shipped as ``sp.bounds`` (a module,
+# not a callable) at three IV under-identification raise sites. This test scans
+# every ``alternative_functions=[...]`` literal in the source tree and asserts
+# each pointer resolves, so no future raise site can ship a dead recovery link.
+
+
+def _resolve_sp_pointer(ref: str):
+    """Walk the dotted ``sp.xxx[.yyy]`` path on the statspai namespace exactly
+    as an agent would when calling it. Returns True if it lands on a callable,
+    False if any attribute is missing / not callable, None if ``ref`` is not an
+    ``sp.`` pointer (those are reported separately, never silently passed)."""
+    if not ref or not ref.startswith("sp."):
+        return None
+    obj = sp
+    for part in ref[3:].split("."):
+        obj = getattr(obj, part, None)
+        if obj is None:
+            return False
+    return callable(obj)
+
+
+def _alternative_function_pointers():
+    """Every string literal appearing in an ``alternative_functions=[...]``
+    keyword across ``src/statspai`` — one entry per (pointer, file) so a dead
+    link's origin is reportable. Parsed from source (not by triggering every
+    raise site) so all ~150 call sites are covered in microseconds."""
+    import ast
+    import importlib
+    import pathlib
+
+    pkg_root = pathlib.Path(importlib.import_module("statspai").__file__).parent
+    refs: dict = {}
+    for path in pkg_root.rglob("*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:
+            continue
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.keyword)
+                and node.arg == "alternative_functions"
+                and isinstance(node.value, ast.List)
+            ):
+                for elt in node.value.elts:
+                    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                        refs.setdefault(elt.value, set()).add(
+                            str(path.relative_to(pkg_root))
+                        )
+    return refs
+
+
+def test_exception_alternative_functions_resolve():
+    """Every ``alternative_functions`` recovery pointer names a callable on the
+    ``sp`` namespace — a dead pointer turns the recovery channel into a trap."""
+    refs = _alternative_function_pointers()
+    # Sanity: the scan found the population (guards against a rename that would
+    # silently empty this contract).
+    assert len(refs) >= 30, (
+        f"expected >=30 distinct alternative_functions pointers, found "
+        f"{len(refs)} — did the keyword get renamed?"
+    )
+
+    dead, non_sp = [], []
+    for ref in sorted(refs):
+        status = _resolve_sp_pointer(ref)
+        if status is False:
+            dead.append(f"{ref} <- {sorted(refs[ref])}")
+        elif status is None:
+            non_sp.append(f"{ref} <- {sorted(refs[ref])}")
+
+    assert not dead, (
+        "alternative_functions name unresolvable pointers — an agent following "
+        "the recovery hits AttributeError:\n  " + "\n  ".join(dead)
+    )
+    assert not non_sp, (
+        "alternative_functions contains non-sp. pointers (agents expect "
+        "callable sp.xxx names):\n  " + "\n  ".join(non_sp)
+    )
