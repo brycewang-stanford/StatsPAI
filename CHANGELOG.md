@@ -67,6 +67,25 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
+- **Parity index coverage expansion — 222 estimators now carry a graded parity
+  record (125 bit-exact), queryable via `sp.parity_status()` /
+  `sp.parity_summary()`.** This pass added closed-form / known-truth guards
+  across decomposition (Gelbach, Das-Gupta, Kitagawa, Lerman-Yitzhaki source,
+  subgroup-Theil, natural-effects mediation, interventional effects),
+  robustness (`sensemakr`, `oster_delta`, `breakdown_frontier`), inference
+  (`bootstrap`, `lrtest`, `icc`, `fisher_exact`, `romano_wolf`,
+  `anderson_rubin_test`, `effective_f_test`, `tF_critical_value`), bounds
+  (`manski_bounds`, `lee_bounds`, `selection_bounds`, `horowitz_manski`),
+  policy learning (`policy_value`, `policy_tree`), postestimation (`margins_at`,
+  `mr` IVW), time series (`structural_break`, `cusum_test`, `engle_granger`),
+  causal discovery (`fci`, `ges` CPDAGs), conformal (`conformal_ite`,
+  `conformal_fair_ite`), interference (`cluster_cross_interference`),
+  transportability (`pate`, `front_door`), QTE (`ivqreg`, `beyond_average_late`,
+  `continuous_iv_late`, `dist_iv`), and the first network rows
+  (`degree_centrality`, `betweenness_centrality`, `clustering`). Every record
+  traces to a committed `tests/reference_parity/` guard; grades are honest
+  (bit-exact only for machine-precision identities, analytical-only for
+  DGP-recovery / coverage guarantees). See `docs/dev/parity_gap_inventory.md`.
 - **Universal SE menu — every regression-family estimator is now 8/8 native,
   externally validated.** The reviewer question *"is wild cluster bootstrap
   usable on any estimator or only `feols`?"* now has a clean answer: `regress`,
