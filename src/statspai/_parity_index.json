@@ -1563,6 +1563,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_feglm_wild_boottest_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "feglm",
       "headline": {
         "metric": "rel_est",
@@ -1665,6 +1671,12 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_feglm_wild_boottest_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "fepois",
       "headline": {
         "metric": "rel_est",
