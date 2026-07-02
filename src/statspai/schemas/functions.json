@@ -37485,7 +37485,7 @@
     }
   },
   {
-    "description": "Three-Stage Least Squares (3SLS).",
+    "description": "Three-Stage Least Squares (3SLS). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "three_sls",
     "parameters": {
       "properties": {

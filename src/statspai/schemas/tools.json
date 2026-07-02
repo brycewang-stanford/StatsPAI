@@ -22736,7 +22736,7 @@
     "name": "test_calibration"
   },
   {
-    "description": "Three-Stage Least Squares (3SLS).",
+    "description": "Three-Stage Least Squares (3SLS). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
