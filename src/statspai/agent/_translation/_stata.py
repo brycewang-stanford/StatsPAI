@@ -533,8 +533,11 @@ def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
         "treated_unit": _coerce_scalar(trunit),
         "treatment_time": _coerce_scalar(trperiod),
     }
+    # sp.synth's covariate argument is ``covariates`` (not ``predictors``);
+    # emitting the wrong name means execute_tool silently drops it and the
+    # synthetic control is fit with no predictors — wrong weights, no error.
     if predictors:
-        args["predictors"] = predictors
+        args["covariates"] = predictors
     notes: List[str] = []
     if unit == "<unit_col>" or time == "<time_col>":
         notes.append(
@@ -546,7 +549,7 @@ def _h_synth(cmd: StataCommand) -> Dict[str, Any]:
         f"sp.synth(data=df, outcome={outcome!r}, unit={unit!r}, "
         f"time={time!r}, treated_unit={args['treated_unit']!r}, "
         f"treatment_time={args['treatment_time']!r}"
-        + (f", predictors={predictors!r}" if predictors else "")
+        + (f", covariates={predictors!r}" if predictors else "")
         + ")"
     )
     return _emit("synth", args, python, notes)
@@ -1045,10 +1048,19 @@ def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
     if cluster:
         cluster = cluster.split()[0]
     formula = _build_formula(y, xs)
-    args: Dict[str, Any] = {"formula": formula, "fe": fe_list}
+    # sp.ppmlhdfe's fixed-effects argument is ``absorb`` — a "+"-joined STRING
+    # ("orig + dest + year"), not a list under the name ``fe``. The old ``fe``
+    # list was silently dropped by dispatch (wrong name) so the FE vanished and
+    # the fit degenerated to plain Poisson with no error — silent wrong results.
+    absorb_str = " + ".join(fe_list)
+    args: Dict[str, Any] = {"formula": formula}
+    if absorb_str:
+        args["absorb"] = absorb_str
     if cluster:
         args["cluster"] = cluster
-    code_pairs = ["data=df", f"fe={fe_list!r}"]
+    code_pairs = ["data=df"]
+    if absorb_str:
+        code_pairs.append(f"absorb={absorb_str!r}")
     if cluster:
         code_pairs.append(f"cluster={cluster!r}")
     python = f"sp.ppmlhdfe({formula!r}, {', '.join(code_pairs)})"
@@ -1062,35 +1074,25 @@ def _h_ppmlhdfe(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_mlogit(cmd: StataCommand) -> Dict[str, Any]:
-    """``mlogit choice age income, baseoutcome(1)`` → multinomial logit.
+    """``mlogit choice age income, baseoutcome(1)`` → ``sp.mlogit``.
 
-    No 1:1 sp helper exists; we translate to a ``method='mlogit'``
-    GLM call as a fallback and surface a note. Users with strict
-    multinomial needs should fall back to statsmodels via the result.
+    StatsPAI ships a dedicated multinomial-logit estimator; target it directly
+    (sp.glm has no 'multinomial' family and would reject ``base_outcome`` — the
+    old glm fallback was a dead on-ramp).
     """
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error("mlogit requires an outcome variable", command="mlogit")
     formula = _build_formula(y, xs)
-    args: Dict[str, Any] = {
-        "formula": formula,
-        "family": "multinomial",
-    }
+    args: Dict[str, Any] = {"formula": formula}
     base = cmd.options.get("baseoutcome")
     if base is not None:
-        args["base_outcome"] = _coerce_scalar(base)
-    notes = [
-        "StatsPAI doesn't ship a dedicated mlogit; "
-        "sp.glm(family='multinomial') is the closest. "
-        "For full diagnostics use statsmodels.MNLogit on the "
-        "fitted result via .raw_model."
-    ]
+        args["base"] = _coerce_scalar(base)
     code_kwargs = ", ".join(
-        ["data=df", "family='multinomial'"]
-        + ([f"base_outcome={args['base_outcome']!r}"] if "base_outcome" in args else [])
+        ["data=df"] + ([f"base={args['base']!r}"] if "base" in args else [])
     )
-    python = f"sp.glm({formula!r}, {code_kwargs})"
-    return _emit("glm", args, python, notes)
+    python = f"sp.mlogit({formula!r}, {code_kwargs})"
+    return _emit("mlogit", args, python)
 
 
 def _h_oprobit(cmd: StataCommand) -> Dict[str, Any]:

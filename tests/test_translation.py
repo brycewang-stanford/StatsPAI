@@ -561,24 +561,23 @@ TIER2_ROUND_TRIPS = [
 
 
 TIER3_ROUND_TRIPS = [
-    # Poisson HDFE
+    # Poisson HDFE — absorb is a "+"-joined string (sp.ppmlhdfe's real arg)
     (
         "ppmlhdfe trade gravity, absorb(orig dest year) cluster(orig)",
         "ppmlhdfe",
         {
             "formula": "trade ~ gravity",
-            "fe": ["orig", "dest", "year"],
+            "absorb": "orig + dest + year",
             "cluster": "orig",
         },
     ),
-    # Multinomial / ordinal
+    # Multinomial — targets the dedicated sp.mlogit (base=), not sp.glm
     (
         "mlogit choice age income, baseoutcome(1)",
-        "glm",
+        "mlogit",
         {
             "formula": "choice ~ age + income",
-            "family": "multinomial",
-            "base_outcome": 1,
+            "base": 1,
         },
     ),
     (
@@ -794,28 +793,33 @@ _NON_EXECUTABLE_TOOLS = frozenset(
 )
 
 
-def _required_params(tool):
-    """Required parameters of ``sp.<tool>`` (no default, not *args/**kwargs,
-    excluding ``self``/``data``). Returns None if ``sp.<tool>`` is not a
-    callable — i.e. the translation named a tool an agent cannot run."""
+def _tool_param_info(tool):
+    """``(named_params, required_params, has_var_keyword)`` for ``sp.<tool>``,
+    excluding ``self``/``data``. Returns ``(None, None, None)`` if ``sp.<tool>``
+    is not callable — i.e. the translation named a tool an agent cannot run."""
     import inspect
 
     import statspai as sp
 
     fn = getattr(sp, tool, None)
     if not callable(fn):
-        return None
+        return None, None, None
     try:
         sig = inspect.signature(fn)
     except (ValueError, TypeError):
-        return set()
-    return {
-        name
-        for name, p in sig.parameters.items()
-        if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
-        and name not in ("self", "data")
-        and p.default is p.empty
-    }
+        return set(), set(), True
+    named, required = set(), set()
+    has_kwargs = False
+    for name, p in sig.parameters.items():
+        if p.kind == p.VAR_KEYWORD:
+            has_kwargs = True
+            continue
+        if p.kind == p.VAR_POSITIONAL or name in ("self", "data"):
+            continue
+        named.add(name)
+        if p.default is p.empty:
+            required.add(name)
+    return named, required, has_kwargs
 
 
 def _structural_exec_problems(commands, translate):
@@ -827,16 +831,31 @@ def _structural_exec_problems(commands, translate):
         tool = out["tool"]
         if tool in _NON_EXECUTABLE_TOOLS:
             continue
-        required = _required_params(tool)
-        if required is None:
+        named, required, has_kwargs = _tool_param_info(tool)
+        if named is None:
             problems.append(f"[{cmd}] -> sp.{tool} is NOT callable (dead on-ramp)")
             continue
-        missing = required - set(out["arguments"])
+        args = set(out["arguments"])
+        missing = required - args
         if missing:
             problems.append(
                 f"[{cmd}] -> sp.{tool} missing required {sorted(missing)} "
-                f"(emitted args {sorted(out['arguments'])})"
+                f"(emitted args {sorted(args)})"
             )
+        # An emitted arg that is neither a named parameter nor absorbed by
+        # **kwargs is silently dropped at dispatch — the translation thinks it
+        # set an option that vanishes, so the fit runs with wrong inputs and no
+        # error (the ppmlhdfe fe=/absorb=, mlogit, and synth predictors=/
+        # covariates= bugs were exactly this). Only flag when the tool has no
+        # **kwargs — a **kwargs tool may legitimately forward the arg.
+        if not has_kwargs:
+            dropped = args - named
+            if dropped:
+                problems.append(
+                    f"[{cmd}] -> sp.{tool} has no such parameter(s) {sorted(dropped)} "
+                    f"and no **kwargs — they are SILENTLY DROPPED at dispatch "
+                    f"(wrong-results on-ramp)"
+                )
     return problems
 
 
