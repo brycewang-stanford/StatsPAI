@@ -1162,6 +1162,26 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "covariance d.o.f. convention). Regenerate via _generate_threesls_R.R."
         ),
     },
+    "biprobit": {
+        "status": "bit-exact",
+        "reference": "R VGAM::vglm(binom2.rho) bivariate probit",
+        "reference_versions": {
+            "R": "R version 4.5.2 (2025-10-31)",
+            "VGAM": "1.1.14",
+        },
+        "tolerance": "coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_biprobit_parity.py",
+            "tests/reference_parity/_fixtures/biprobit_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: both maximize the same joint bivariate-normal "
+            "likelihood, so the two equations' coefficients and the error "
+            "correlation rho match R VGAM to the shared optimizer tolerance "
+            "on a committed dataset. Regenerate via _generate_biprobit_R.R."
+        ),
+    },
 }
 
 

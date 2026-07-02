@@ -518,6 +518,31 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "function": "biprobit",
+      "notes": [
+        "Frozen-R fixture: both maximize the same joint bivariate-normal likelihood, so the two equations' coefficients and the error correlation rho match R VGAM to the shared optimizer tolerance on a committed dataset. Regenerate via _generate_biprobit_R.R."
+      ],
+      "reference": "R VGAM::vglm(binom2.rho) bivariate probit",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "VGAM": "1.1.14"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_biprobit_parity.py",
+        "tests/reference_parity/_fixtures/biprobit_R.json"
+      ],
+      "tolerance": "coef / rho 1e-6 abs (observed <= 2e-7); logLik 1e-6 rel"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "bonferroni",
       "notes": [
         "Frozen-R fixture: identical multiple-testing correction; matches base R stats::p.adjust exactly. Regenerate via _generate_mht_R.R."
@@ -1653,6 +1678,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_engle_granger_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "etregress",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_etregress_parity.py"
       ],
       "tolerance": ""
     },

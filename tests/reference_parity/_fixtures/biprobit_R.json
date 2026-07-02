@@ -1,0 +1,13 @@
+{
+  "eq1_intercept": 0.33915858431820317,
+  "eq1_x": 0.73928895101007941,
+  "eq2_intercept": -0.18243683324731938,
+  "eq2_x": 0.49280613187727784,
+  "rho": 0.37582647607410347,
+  "loglik": -3434.4522608660504,
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "VGAM_version": "1.1.14",
+    "generated_by": "tests/reference_parity/_generate_biprobit_R.R"
+  }
+}
