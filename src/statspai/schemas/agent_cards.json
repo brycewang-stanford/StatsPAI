@@ -29875,7 +29875,7 @@
       "Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved."
     ],
     "category": "causal",
-    "description": "Oster (2019) coefficient stability bounds and delta* computation.",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.oster_delta( data=df, y=\"wage\", x_base=[\"education\"], x_controls=[\"experience\", \"tenure\"], r_max=1.3, )",
     "failure_modes": [
       {
@@ -29894,7 +29894,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Oster (2019) coefficient stability bounds and delta* computation.",
+      "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "oster_delta",
       "parameters": {
         "properties": {
@@ -29968,8 +29968,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_oster_delta_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -30074,7 +30076,7 @@
       "Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved."
     ],
     "category": "causal",
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions.",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.breakdown_frontier( estimate=0.05, se=0.02, assumption=\"parallel_trends\", max_violation=0.1, )",
     "failure_modes": [
       {
@@ -30093,7 +30095,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions.",
+      "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "breakdown_frontier",
       "parameters": {
         "properties": {
@@ -30135,8 +30137,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_breakdown_frontier_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

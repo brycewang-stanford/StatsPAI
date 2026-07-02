@@ -28836,7 +28836,7 @@
     }
   },
   {
-    "description": "Oster (2019) coefficient stability bounds and delta* computation.",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "oster_delta",
     "parameters": {
       "properties": {
@@ -28967,7 +28967,7 @@
     }
   },
   {
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions.",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "breakdown_frontier",
     "parameters": {
       "properties": {

@@ -1927,7 +1927,7 @@
     "name": "boundary_rd"
   },
   {
-    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Masten-Poirier (2021) breakdown frontier for qualitative conclusions. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -13853,7 +13853,7 @@
     "name": "oster_bounds"
   },
   {
-    "description": "Oster (2019) coefficient stability bounds and delta* computation. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Oster (2019) coefficient stability bounds and delta* computation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
