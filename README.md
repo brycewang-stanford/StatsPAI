@@ -4,7 +4,7 @@
   <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/logo/readme-1.png" alt="StatsPAI - Python-native Stata and R replacement for applied causal inference" width="780">
 </p>
 
-# StatsPAI: a Python-native Stata/R replacement for applied causal inference
+# StatsPAI: an Agent&Python-native Stata/R replacement for applied causal inference
 
 [![PyPI version](https://img.shields.io/pypi/v/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
 [![Python versions](https://img.shields.io/pypi/pyversions/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
