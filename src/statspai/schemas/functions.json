@@ -51980,7 +51980,7 @@
     }
   },
   {
-    "description": "Eigenvector centrality (leading eigenvector of the adjacency matrix).",
+    "description": "Eigenvector centrality (leading eigenvector of the adjacency matrix). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "eigenvector_centrality",
     "parameters": {
       "properties": {
