@@ -20,17 +20,20 @@ Ferrari, S.L.P. & Cribari-Neto, F. (2004).
 *Journal of Applied Statistics*, 31(7), 799-815. [@ferrari2004beta]
 """
 
-from typing import Callable, Optional, List
+from typing import Callable, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 from scipy.special import gammaln
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
 
 
+@accepts_aliases(vce="robust")
 def fracreg(
     data: pd.DataFrame = None,
     y: Optional[str] = None,
@@ -210,6 +213,7 @@ def fracreg(
     )
 
 
+@accepts_aliases(vce="robust")
 def betareg(
     data: pd.DataFrame = None,
     y: Optional[str] = None,

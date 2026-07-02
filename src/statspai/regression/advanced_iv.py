@@ -35,10 +35,12 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
 
 
+@accepts_aliases(vce="robust")
 def liml(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -316,6 +318,7 @@ def liml(
     return _result
 
 
+@accepts_aliases(vce="robust")
 def jive(
     data: pd.DataFrame,
     y: str,
@@ -509,6 +512,7 @@ def jive(
     return _result
 
 
+@accepts_aliases(vce="robust")
 def lasso_iv(
     data: pd.DataFrame,
     y: str,

@@ -18,6 +18,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..core.results import CausalResult
 
 __all__ = ["ancova", "negd"]
@@ -148,6 +149,7 @@ def _fit_adjusted(
     )
 
 
+@accepts_aliases(vce="robust")
 def ancova(
     data: pd.DataFrame,
     outcome: str,
@@ -215,6 +217,7 @@ def ancova(
     )
 
 
+@accepts_aliases(vce="robust")
 def negd(
     data: pd.DataFrame,
     group: str,

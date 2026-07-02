@@ -15,16 +15,18 @@ Supports:
 - Diagnostics for share vs. shock exogeneity
 """
 
-from typing import Optional, List
 import warnings
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..core.results import EconometricResults, CausalResult
+from .._aliases import accepts_aliases
+from ..core.results import CausalResult, EconometricResults
 
 
+@accepts_aliases(vce="robust")
 def bartik(
     data: pd.DataFrame,
     y: str,

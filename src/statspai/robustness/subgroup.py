@@ -23,13 +23,14 @@ Usage
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -440,6 +441,7 @@ def _interaction_het_test(
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(vce="robust")
 def subgroup_analysis(
     data: pd.DataFrame,
     formula: str,

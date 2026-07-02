@@ -60,6 +60,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from .._aliases import accepts_aliases
 from ..diagnostics.weak_iv import anderson_rubin_test, tF_critical_value
 
 
@@ -736,6 +737,7 @@ def _check_tsls_late_caveat(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(vce="vcov")
 def iv_diag(
     data: pd.DataFrame,
     y: str,
@@ -1167,8 +1169,9 @@ def iv_compare(
     >>> [round(b, 2) for b in tab['estimate']]  # true beta 1.5
     [1.41, 1.41, 1.42, 1.33]
     """
-    from . import _dispatch  # late import to avoid circulars
     from scipy import stats
+
+    from . import _dispatch  # late import to avoid circulars
 
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
 

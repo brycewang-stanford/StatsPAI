@@ -40,11 +40,13 @@ Andrews, I., Stock, J.H. and Sun, L. (2019).
 Practice." *Annual Review of Economics*, 11, 727-753. [@andrews2019weak]
 """
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from .._aliases import accepts_aliases
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Internal helpers
@@ -87,6 +89,7 @@ def _prep_matrices(
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(vce="vcov")
 def effective_f_test(
     data: pd.DataFrame,
     endog: str,
@@ -345,6 +348,7 @@ def tF_critical_value(first_stage_F: float, alpha: float = 0.05) -> float:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+@accepts_aliases(vce="vcov")
 def anderson_rubin_test(
     data: pd.DataFrame,
     y: str,
@@ -705,6 +709,7 @@ class WeakRobustResult:
         return self.summary()
 
 
+@accepts_aliases(vce="vcov")
 def weakrobust(
     data: pd.DataFrame,
     y: str,

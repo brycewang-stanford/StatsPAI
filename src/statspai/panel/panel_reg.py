@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
 
@@ -1665,6 +1666,7 @@ def _fit_gmm(
 # ======================================================================
 
 
+@accepts_aliases(vce="robust")
 def panel_compare(
     data: pd.DataFrame,
     formula: str,

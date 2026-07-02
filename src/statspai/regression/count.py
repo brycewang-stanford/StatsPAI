@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, special, stats
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ..core.utils import parse_formula
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
@@ -932,6 +933,7 @@ def _overdispersion_test(y: np.ndarray, mu: np.ndarray) -> Tuple[float, float]:
 # ===========================================================================
 
 
+@accepts_aliases(vce="robust")
 def poisson(
     formula: Optional[str] = None,
     data: pd.DataFrame = None,
@@ -1143,6 +1145,7 @@ def poisson(
     )
 
 
+@accepts_aliases(vce="robust")
 def nbreg(
     formula: Optional[str] = None,
     data: pd.DataFrame = None,
@@ -1410,6 +1413,7 @@ def nbreg(
     )
 
 
+@accepts_aliases(vce="robust")
 def xtnbreg(
     formula: Optional[str] = None,
     data: pd.DataFrame = None,
@@ -1661,6 +1665,7 @@ def xtnbreg(
     )
 
 
+@accepts_aliases(vce="robust")
 def ppmlhdfe(
     formula: Optional[str] = None,
     data: pd.DataFrame = None,

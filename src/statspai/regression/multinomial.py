@@ -25,15 +25,16 @@ McFadden, D. (1973).
 """
 
 import warnings
-from typing import Callable, Optional, List, Dict, Any, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import optimize, stats
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
-from ._optim_helpers import robust_convergence
 from ..core.utils import parse_formula
+from ._optim_helpers import robust_convergence
 
 LinkFunc = Callable[[np.ndarray], np.ndarray]
 
@@ -182,6 +183,7 @@ def _ordered_probit_pdf(z: np.ndarray) -> np.ndarray:
 # ====================================================================
 
 
+@accepts_aliases(vce="robust")
 def mlogit(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -959,6 +961,7 @@ def _ordered_model(
     return result
 
 
+@accepts_aliases(vce="robust")
 def ologit(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -1041,6 +1044,7 @@ def ologit(
     )
 
 
+@accepts_aliases(vce="robust")
 def oprobit(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -1122,6 +1126,7 @@ def oprobit(
 # ====================================================================
 
 
+@accepts_aliases(vce="robust")
 def clogit(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,

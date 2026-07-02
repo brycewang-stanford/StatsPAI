@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ..core.utils import create_design_matrices
 
@@ -771,6 +772,7 @@ def _fit_binary(
 # =========================================================================
 
 
+@accepts_aliases(vce="robust")
 def logit(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -861,6 +863,7 @@ def logit(
     )
 
 
+@accepts_aliases(vce="robust")
 def probit(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -944,6 +947,7 @@ def probit(
     )
 
 
+@accepts_aliases(vce="robust")
 def cloglog(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,

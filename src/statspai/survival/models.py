@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 
 # ---------------------------------------------------------------------------
@@ -990,6 +991,7 @@ def _schoenfeld_residuals(
 # ===================================================================
 
 
+@accepts_aliases(vce="robust")
 def cox(
     formula: Optional[str] = None,
     data: pd.DataFrame = None,
@@ -1316,6 +1318,7 @@ def _loglogistic_loglik(
     return float(-ll.sum())
 
 
+@accepts_aliases(vce="robust")
 def survreg(
     formula: Optional[str] = None,
     data: pd.DataFrame = None,

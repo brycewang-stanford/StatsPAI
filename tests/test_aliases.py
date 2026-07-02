@@ -88,3 +88,84 @@ def test_stacked_decorators_merge_alias_record() -> None:
 def test_empty_map_rejected() -> None:
     with pytest.raises(ValueError):
         accepts_aliases()
+
+
+def test_vce_alias_roster_se_theme() -> None:
+    """Every SE-bearing estimator/diagnostic in the grammar-convergence roster
+    accepts the canonical ``vce=`` spelling (forwarded to its legacy
+    ``robust=`` / ``vcov=`` / ``se_type=`` parameter). Additive-only during
+    JSS review; the post-review rename flips the map."""
+    import statspai as sp
+
+    roster = [
+        "auto_iv",
+        "bartik",
+        "anderson_rubin_test",
+        "effective_f_test",
+        "weakrobust",
+        "iv_diag",
+        "panel_logit",
+        "panel_probit",
+        "panel_compare",
+        "ancova",
+        "negd",
+        "liml",
+        "jive",
+        "lasso_iv",
+        "nbreg",
+        "xtnbreg",
+        "poisson",
+        "ppmlhdfe",
+        "fracreg",
+        "betareg",
+        "glm",
+        "logit",
+        "probit",
+        "cloglog",
+        "mlogit",
+        "ologit",
+        "oprobit",
+        "clogit",
+        "biprobit",
+        "etregress",
+        "truncreg",
+        "zip_model",
+        "zinb",
+        "hurdle",
+        "subgroup_analysis",
+        "spatial_did",
+        "cox",
+        "survreg",
+        # wired natively earlier in the campaign:
+        "regress",
+        "feols",
+        "fepois",
+        "feglm",
+    ]
+    missing = [
+        name
+        for name in roster
+        if "vce" not in getattr(getattr(sp, name), "__statspai_aliases__", {})
+        and "vce" not in str(getattr(getattr(sp, name), "__doc__", ""))
+        and name not in ("regress",)  # regress takes vce= natively
+    ]
+    assert not missing, f"functions missing the vce= spelling: {missing}"
+
+
+def test_vce_alias_forwards_in_estimator() -> None:
+    """vce= and the legacy spelling produce identical results end-to-end."""
+    import numpy as np
+    import pandas as pd
+
+    import statspai as sp
+
+    rng = np.random.default_rng(0)
+    n = 300
+    x = rng.normal(size=n)
+    y = (rng.random(n) < 1 / (1 + np.exp(-x))).astype(int)
+    df = pd.DataFrame({"y": y, "x": x})
+    a = sp.logit("y ~ x", df, vce="hc1")
+    b = sp.logit("y ~ x", df, robust="hc1")
+    assert float(a.std_errors["x"]) == float(b.std_errors["x"])
+    with pytest.raises(TypeError):
+        sp.logit("y ~ x", df, vce="hc1", robust="hc1")

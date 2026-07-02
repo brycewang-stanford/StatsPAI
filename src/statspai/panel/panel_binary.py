@@ -18,9 +18,12 @@ Wooldridge, J.M. (2010). Econometric Analysis of Cross Section and Panel Data.
 """
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize, special
+from scipy import optimize, special, stats
+
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 
 # --------------- helpers ---------------
@@ -351,6 +354,7 @@ def _wrap_re_result(
 # ====================== Public API ======================
 
 
+@accepts_aliases(vce="robust")
 def panel_logit(
     data: pd.DataFrame,
     y: str,
@@ -483,6 +487,7 @@ def panel_logit(
     )
 
 
+@accepts_aliases(vce="robust")
 def panel_probit(
     data: pd.DataFrame,
     y: str,

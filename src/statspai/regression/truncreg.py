@@ -13,12 +13,14 @@ Hausman, J.A. & Wise, D.A. (1977).
 Estimation." *Econometrica*, 45(4), 919-938. [@hausman1977social]
 """
 
-from typing import Optional, List, Any
+from typing import Any, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 from scipy.optimize import minimize
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ._optim_helpers import robust_convergence
 
@@ -27,6 +29,7 @@ def _as_float_array(value: Any) -> np.ndarray:
     return np.asarray(value, dtype=float)
 
 
+@accepts_aliases(vce="robust")
 def truncreg(
     data: Optional[pd.DataFrame] = None,
     y: Optional[str] = None,

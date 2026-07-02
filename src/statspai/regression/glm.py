@@ -12,15 +12,17 @@ References
 - Cameron, A.C. and Trivedi, P.K. (2005). Microeconometrics: Methods and Applications. [@mccullagh1989generalized]
 """
 
-from typing import Optional, Union, Dict, Any, List, Type
-import pandas as pd
-import numpy as np
-from scipy import stats, optimize, special
 import warnings
+from typing import Any, Dict, List, Optional, Type, Union
 
-from ..core.base import BaseModel, BaseEstimator
+import numpy as np
+import pandas as pd
+from scipy import optimize, special, stats
+
+from .._aliases import accepts_aliases
+from ..core.base import BaseEstimator, BaseModel
 from ..core.results import EconometricResults
-from ..core.utils import create_design_matrices, _coerce_string_extension_dtypes
+from ..core.utils import _coerce_string_extension_dtypes, create_design_matrices
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
 
@@ -1598,6 +1600,7 @@ class GLMRegression(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+@accepts_aliases(vce="robust")
 def glm(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,

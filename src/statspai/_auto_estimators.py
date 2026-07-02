@@ -26,6 +26,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ._aliases import accepts_aliases
 from .exceptions import MethodIncompatibility
 
 __all__ = [
@@ -599,6 +600,7 @@ def _se(result: Any, name: str) -> Optional[float]:
     return None
 
 
+@accepts_aliases(vce="robust")
 def auto_iv(
     data: pd.DataFrame,
     y: str,
@@ -671,8 +673,8 @@ def auto_iv(
         required.append(cluster)
     _require_columns(data, required, context="auto_iv")
 
+    from .regression.advanced_iv import jive, liml
     from .regression.iv import iv as iv_regress
-    from .regression.advanced_iv import liml, jive
 
     # 2SLS uses formula-style; LIML / JIVE use explicit column lists.
     # statspai's IV formula convention: "y ~ (endog ~ z1 + z2) + exog1 + ..."

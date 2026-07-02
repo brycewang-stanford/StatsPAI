@@ -31,15 +31,16 @@ Mullahy, J. (1986).
 *Journal of Econometrics*, 33(3), 341-365. [@mullahy1986specification]
 """
 
-from typing import Callable, Optional, List, Dict, Any, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize, special
+from scipy import optimize, special, stats
 
+from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
-from ._optim_helpers import robust_convergence
 from ..core.utils import parse_formula
+from ._optim_helpers import robust_convergence
 
 # ---------------------------------------------------------------------------
 # Helper utilities
@@ -239,6 +240,7 @@ def _vuong_test(
 # ===================================================================
 
 
+@accepts_aliases(vce="robust")
 def zip_model(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -551,6 +553,7 @@ def _compute_zip_score_obs(
 # ===================================================================
 
 
+@accepts_aliases(vce="robust")
 def zinb(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,
@@ -833,6 +836,7 @@ def _compute_zi_score_obs(
 # ===================================================================
 
 
+@accepts_aliases(vce="robust")
 def hurdle(
     formula: Optional[str] = None,
     data: Optional[pd.DataFrame] = None,

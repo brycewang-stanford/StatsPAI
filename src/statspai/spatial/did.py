@@ -46,6 +46,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._aliases import accepts_aliases
 from ..core.results import SummaryText, _to_jsonable
 from ..exceptions import DataInsufficient, MethodIncompatibility
 
@@ -1143,6 +1144,7 @@ def _spatial_diagnostics(
     return diagnostics
 
 
+@accepts_aliases(vce="se_type")
 def spatial_did(
     data: pd.DataFrame,
     y: str,
