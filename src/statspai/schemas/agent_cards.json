@@ -4494,7 +4494,7 @@
       "BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution."
     ],
     "category": "inference",
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs.",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.bootstrap(df, lambda d: d[\"y\"].mean(), n_boot=2000)",
     "failure_modes": [
       {
@@ -4520,7 +4520,7 @@
     ],
     "reference": "Efron & Tibshirani (1993)",
     "signature": {
-      "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs.",
+      "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bootstrap",
       "parameters": {
         "properties": {
@@ -4562,9 +4562,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "tests/reference_parity/test_bootstrap_parity.py",
       "API/unit contract evidence: tests/test_round3.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -29697,7 +29698,7 @@
       "Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved."
     ],
     "category": "causal",
-    "description": "Horowitz-Manski (2000) bounds conditioning on covariates.",
+    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.horowitz_manski( data=df, y=\"wage\", treatment=\"trained\", covariates=[\"age\", \"education\"], y_lower=0, y_upper=100, )",
     "failure_modes": [
       {
@@ -29716,7 +29717,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Horowitz-Manski (2000) bounds conditioning on covariates.",
+      "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "horowitz_manski",
       "parameters": {
         "properties": {
@@ -29774,8 +29775,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_horowitz_manski_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

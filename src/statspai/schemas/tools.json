@@ -1810,7 +1810,7 @@
     "name": "bonferroni"
   },
   {
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Assumptions: Observations (or clusters/blocks) are exchangeable under the resampling scheme used; cluster= resamples whole clusters, block= preserves within-block ordering for serial dependence; The statistic callable is a smooth, well-defined functional of the data so its sampling distribution is approximable by resampling; BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution. Pre-conditions: statistic is a deterministic callable returning a finite scalar on any resampled DataFrame; Enough independent resampling units (rows, clusters, or blocks) to populate n_boot replicates; Specify cluster= or block= when data are clustered/serially dependent rather than iid. Failure modes: Few clusters yields anti-conservative CIs / wildly unstable bootstrap distribution -> Use a wild cluster bootstrap with Rademacher weights when the number of clusters is small (<~40); Statistic raises or returns NaN on a resample (e.g., a level drops out), aborting the loop -> Make the statistic robust to missing categories/empty stra...",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Observations (or clusters/blocks) are exchangeable under the resampling scheme used; cluster= resamples whole clusters, block= preserves within-block ordering for serial dependence; The statistic callable is a smooth, well-defined functional of the data so its sampling distribution is approximable by resampling; BCa intervals further assume an estimable bias/acceleration; percentile/normal CIs assume approximate pivotality of the resampled distribution. Pre-conditions: statistic is a deterministic callable returning a finite scalar on any resampled DataFrame; Enough independent resampling units (rows, clusters, or blocks) to populate n_boot replicates; Specify cluster= or block= when data are clustered/serially dependent rather than iid. Failure modes: Few clusters yields anti-conservative CIs / wildly unstable bootstrap distribution -> Use a wild cluster bootstrap with Rademacher weights when the number of clusters is small (<~40); Statistic raises or returns NaN on a resample (e...",
     "input_schema": {
       "properties": {
         "ci_method": {
@@ -9293,7 +9293,7 @@
     "name": "honest_variance"
   },
   {
-    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
+    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Only weak (set-identifying) assumptions are imposed; the result is an interval, not a point; Lee bounds add monotonicity of selection; Oster's delta adds proportional selection on observed vs. unobserved. Pre-conditions: The data needed for the point-identifying analysis, plus the weakest credible identifying restriction; For Lee bounds: a binary selection/attrition indicator. Failure modes: Bounds are too wide to be informative -> Add a credible auxiliary restriction (monotone treatment response, instrument) to tighten the bounds. Alternatives: sp.oster_delta, sp.lee_bounds, sp.manski_bounds. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19503,7 +19503,7 @@
     "name": "robustness_report"
   },
   {
-    "description": "Romano-Wolf stepdown adjusted p-values for multiple outcomes.",
+    "description": "Romano-Wolf stepdown adjusted p-values for multiple outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {

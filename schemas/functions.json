@@ -2424,7 +2424,7 @@
     }
   },
   {
-    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs.",
+    "description": "General bootstrap inference: nonparametric, cluster, block. Percentile/BCa/normal CIs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bootstrap",
     "parameters": {
       "properties": {
@@ -28721,7 +28721,7 @@
     }
   },
   {
-    "description": "Horowitz-Manski (2000) bounds conditioning on covariates.",
+    "description": "Horowitz-Manski (2000) bounds conditioning on covariates. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "horowitz_manski",
     "parameters": {
       "properties": {
@@ -30558,7 +30558,7 @@
     }
   },
   {
-    "description": "Romano-Wolf stepdown adjusted p-values for multiple outcomes.",
+    "description": "Romano-Wolf stepdown adjusted p-values for multiple outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "romano_wolf",
     "parameters": {
       "properties": {
