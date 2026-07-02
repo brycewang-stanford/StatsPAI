@@ -129,6 +129,27 @@ RNG stream that necessarily differs from Stata's. An earlier sampled-mode
 reference (`reps(1023)` → `p=0.31378299`) predated the enumeration finding and
 was superseded by the enumerated targets above.
 
+**hdfe_ols extended `vce=` menu** (`test_hdfe_ols_se_menu_parity.py`).
+`sp.hdfe_ols` computes the canonical menu on its absorber's within design:
+`vce="robust"/"hc1"` is HC1 with **reghdfe's** `N/(N-k-df_a)` small-sample
+factor, frozen against Stata 18 `reghdfe y x z, absorb(firm) vce(robust)`
+(`se_x=0.0431561136`, `se_z=0.0467233768`, `df_r=480`) — the factor was pinned
+numerically (`N/(N-k)` and plain HC0 both reject). `vce="CR2"/"CR3"/"jackknife"`
+reuse the *identical* frozen `clubSandwich::vcovCR(plm, model="within")` anchor
+as `sp.feols`/`sp.panel` via the extracted `cr_vcov_matrix` core;
+`vce="conley"` equals `sp.regress(vce="conley")` on the hand-demeaned data
+(acreg-pinned). `vce="wild"` is a grammar alias for the already-validated
+native WCR path.
+
+**panel FE wild cluster bootstrap**
+(`test_panel_bias_reduced_parity.py::test_panel_fe_wild_byte_identical_to_regress_on_demeaned`).
+`sp.panel(method="fe", vce="wild", cluster=...)` runs the WCR bootstrap on the
+entity-within design through the **same** `inference.jackknife.wild_cluster_boot`
+engine as `sp.regress(vce="wild")`, so with the same seed the p-values are
+byte-identical to regress on the hand-demeaned data (whose wild path is pinned
+to Stata `boottest`). The test includes a true-null covariate so the anchor is
+discriminating (`0 < p < 1`), not a degenerate `p=0` comparison.
+
 **PPML HDFE two-way clustering** (`test_ppmlhdfe_twoway_parity.py`).
 `sp.ppmlhdfe(cluster=[a, b])` is the CGM-2011 inclusion-exclusion sandwich on
 the FE-residualised design with a single `G_min/(G_min-1)` small-sample factor

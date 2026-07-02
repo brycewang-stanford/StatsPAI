@@ -104,11 +104,23 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # equal to sp.regress on the FE-demeaned data (acreg-validated).
         "conley": "native",
     },
-    "hdfe_ols": {  # panel within-path — the ONLY correct native wild boot
+    "hdfe_ols": {  # native-numpy reghdfe-style HDFE within path
         "classical": "native",
+        # Native `hdfe_ols(vce="robust"/"hc1"/"hc0")` — HC on the within design
+        # with reghdfe's N/(N-k-df_a) factor. Matches Stata
+        # `reghdfe ..., vce(robust)` exactly (frozen reference).
+        "hc_robust": "native",
         "cluster": "native",
         "twoway": "native",
         "wild_cluster_boot": "native",
+        # Native `hdfe_ols(vce="CR2"/"CR3"/"jackknife", cluster=...)` —
+        # Pustejovsky-Tipton on the within design; identical frozen
+        # clubSandwich plm anchor as feols/panel.
+        "cr2_cr3": "native",
+        "jackknife": "native",
+        # Native `hdfe_ols(vce="conley", conley_lat/lon/cutoff)` — acreg planar
+        # spatial HAC on the within design; equals sp.regress on FE-demeaned data.
+        "conley": "native",
     },
     "fepois": {
         "classical": "native",
@@ -212,6 +224,12 @@ MATRIX: Dict[str, Dict[str, str]] = {
         # spatial HAC on the entity within design (acreg planar distance).
         # Equals `sp.regress(vce="conley")` on the FE-demeaned data.
         "conley": "native",
+        # Native `panel(method="fe", vce="wild", cluster=...)` — WCR wild
+        # cluster bootstrap on the entity within design via the SAME engine as
+        # sp.regress(vce="wild"): byte-identical p-values to regress on the
+        # hand-demeaned data with the same seed (regress wild is pinned to
+        # Stata boottest).
+        "wild_cluster_boot": "native",
     },
     "callaway_santanna": {  # influence-function + multiplier bootstrap
         "cluster": "native",

@@ -762,6 +762,23 @@ def cr_vcov_ols(
     X = np.asarray(iv["X"], dtype=float)
     y = np.asarray(iv["y"], dtype=float).ravel()
     names = list(iv["var_names"])
+    vcov = cr_vcov_matrix(X, y, cluster_codes, power=power, small_sample=small_sample)
+    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+
+
+def cr_vcov_matrix(
+    X: np.ndarray,
+    y: np.ndarray,
+    cluster_codes: np.ndarray,
+    power: float = 0.5,
+    small_sample: bool = True,
+) -> np.ndarray:
+    """Full Pustejovsky-Tipton CR vcov matrix for an explicit OLS design.
+
+    The computation behind :func:`cr_vcov_ols`, exposed for callers that hold
+    the (within-transformed) design directly and need the full covariance
+    matrix rather than just the SE diagonal (e.g. ``sp.hdfe_ols``).
+    """
     n, k = X.shape
     if cluster_codes.shape != (n,):
         raise MethodIncompatibility(
@@ -789,8 +806,7 @@ def cr_vcov_ols(
         meat += np.outer(score, score)
 
     corr = _ols_correction_from_cl_codes(cluster_codes, n, k) if small_sample else 1.0
-    vcov = corr * bread @ meat @ bread
-    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    return corr * bread @ meat @ bread
 
 
 def two_way_correction_ols(
@@ -860,16 +876,36 @@ def conley_vcov_ols(
     X = np.asarray(iv["X"], dtype=float)
     y = np.asarray(iv["y"], dtype=float).ravel()
     names = list(iv["var_names"])
-    n, k = X.shape
+    n = X.shape[0]
     for c in (lat, lon):
         if c not in data.columns or data[c].isna().any() or len(data[c]) != n:
             raise MethodIncompatibility(
                 f"Coordinate column {c!r} must be present, complete, and "
                 "row-aligned to the fitted sample."
             )
-    lat_v = data[lat].to_numpy(dtype=float)
-    lon_v = data[lon].to_numpy(dtype=float)
+    vcov = conley_vcov_matrix(
+        X,
+        y,
+        data[lat].to_numpy(dtype=float),
+        data[lon].to_numpy(dtype=float),
+        dist_cutoff,
+    )
+    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
 
+
+def conley_vcov_matrix(
+    X: np.ndarray,
+    y: np.ndarray,
+    lat_v: np.ndarray,
+    lon_v: np.ndarray,
+    dist_cutoff: float,
+) -> np.ndarray:
+    """Full Conley spatial-HAC vcov matrix for an explicit OLS design.
+
+    The computation behind :func:`conley_vcov_ols` (acreg planar-distance
+    convention), exposed for callers that hold the (within-transformed) design
+    directly (e.g. ``sp.hdfe_ols``).
+    """
     bread = np.linalg.inv(X.T @ X)
     beta = bread @ (X.T @ y)
     resid = y - X @ beta
@@ -882,8 +918,7 @@ def conley_vcov_ols(
 
     score = X * resid[:, None]
     core = bread @ (score.T @ weig @ score) @ bread
-    vcov = 0.5 * (core + core.T)
-    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    return 0.5 * (core + core.T)
 
 
 def _matrix_power_sym(mat: np.ndarray, power: float, tol: float = -12.0) -> np.ndarray:

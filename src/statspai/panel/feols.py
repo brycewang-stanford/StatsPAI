@@ -206,10 +206,14 @@ def feols(
     weights: Optional[Union[str, np.ndarray]] = None,
     cluster: Optional[Union[str, List[str]]] = None,
     se_type: Optional[str] = None,
+    vce: Optional[str] = None,
     wild: bool = False,
     wild_n_boot: int = 999,
     wild_weight_type: str = "webb",
     wild_seed: Optional[int] = None,
+    conley_lat: Optional[str] = None,
+    conley_lon: Optional[str] = None,
+    conley_cutoff: Optional[float] = None,
     alpha: float = 0.05,
     drop_singletons: bool = True,
     tol: float = 1e-8,
@@ -230,6 +234,20 @@ def feols(
     se_type : {'iid', 'cluster', 'multiway_cluster', 'wild_cluster'}
         Override automatic inference of SE type. Usually inferred from
         ``cluster`` / ``wild``.
+    vce : str, optional
+        Canonical SE-menu keyword (matches ``sp.regress`` / ``sp.feols``):
+
+        - ``"robust"`` / ``"hc1"`` — heteroskedasticity-robust on the
+          FE-absorbed design with reghdfe's small-sample factor
+          ``N/(N-k-df_a)``; matches Stata ``reghdfe ..., vce(robust)``.
+        - ``"hc0"`` — no small-sample factor.
+        - ``"CR2"`` / ``"CR3"`` / ``"jackknife"`` — Pustejovsky-Tipton (2018)
+          bias-reduced cluster-robust on the within design (requires
+          ``cluster=``, one-way); matches R ``clubSandwich::vcovCR(plm)``.
+        - ``"conley"`` — Conley spatial HAC on the within design (requires
+          ``conley_lat=/conley_lon=/conley_cutoff=``; Stata ``acreg`` planar
+          distance convention).
+        - ``"wild"`` — shorthand for ``wild=True`` (requires ``cluster=``).
     wild : bool, default False
         If True (and ``cluster`` is given), return wild-cluster-bootstrap
         p-values / CIs alongside classical cluster SE. Applied variable-
@@ -238,6 +256,10 @@ def feols(
         Bootstrap replications.
     wild_weight_type : {'rademacher', 'webb', 'mammen'}
     wild_seed : int, optional
+    conley_lat, conley_lon : str, optional
+        Coordinate columns (decimal degrees) for ``vce="conley"``.
+    conley_cutoff : float, optional
+        Conley distance cutoff in km for ``vce="conley"``.
     alpha : float
     drop_singletons : bool
     tol, maxiter : convergence controls for the absorber.
@@ -271,10 +293,47 @@ def feols(
     >>> sorted(res.coef.index.tolist())
     ['educ', 'exper']
     """
+    # --- canonical vce= keyword (matches sp.regress / sp.feols) -------------
+    _HC_VCE = {"robust": True, "hc_robust": True, "hc1": True, "hc0": False}
+    _BR_VCE = {"cr2": 0.5, "cr3": 1.0, "jackknife": 1.0}
+    _vce = vce.lower() if isinstance(vce, str) else None
+    if _vce in ("wild", "wildbootstrap", "wild_cluster", "wcr", "boottest"):
+        wild = True
+        _vce = None
+    if (
+        _vce is not None
+        and _vce not in _HC_VCE
+        and _vce not in _BR_VCE
+        and (_vce != "conley")
+    ):
+        raise ValueError(
+            f"hdfe_ols vce={vce!r} not recognised; use 'robust'/'hc1'/'hc0', "
+            "'CR2'/'CR3'/'jackknife', 'conley', or 'wild'."
+        )
+    if _vce is not None and weights is not None:
+        raise ValueError(
+            f"hdfe_ols vce={vce!r} does not support weights= — the extended "
+            "SE menu is unweighted."
+        )
+    if _vce in _BR_VCE and (cluster is None or not isinstance(cluster, str)):
+        raise ValueError(
+            f"hdfe_ols vce={vce!r} requires cluster='<one column>' (one-way)."
+        )
+    if _vce == "conley" and (
+        conley_lat is None or conley_lon is None or conley_cutoff is None
+    ):
+        raise ValueError(
+            "hdfe_ols vce='conley' requires conley_lat=, conley_lon= and "
+            "conley_cutoff= (km)."
+        )
+
     lhs, x_vars, fe_vars = _parse_formula(formula)
 
     # Collect all columns (y, x's, fe's, cluster, weight)
     cols = [lhs] + list(x_vars) + list(fe_vars)
+    if _vce == "conley":
+        # Coordinates ride along the same dropna so they stay row-aligned.
+        cols += [conley_lat, conley_lon]
     if cluster is not None:
         cluster_names = [cluster] if isinstance(cluster, str) else list(cluster)
         cols += cluster_names
@@ -328,6 +387,11 @@ def feols(
             raise ValueError(
                 "Need at least one regressor or one FE."
             )  # pragma: no cover
+        if _vce is not None:
+            raise ValueError(
+                f"hdfe_ols vce={vce!r} needs at least one absorbed fixed "
+                "effect; use sp.regress for the no-FE SE menu."
+            )
         return _ols_no_fe(df, lhs, x_vars, w_arr, cluster_names, alpha, formula)
 
     cluster_arr = None
@@ -425,6 +489,71 @@ def feols(
         cluster_info["wild_p"] = p_wild
         cluster_info["wild_ci"] = ci_wild
         se_type = "wild_cluster"
+
+    # --- extended vce menu on the FE-absorbed (within) design ---------------
+    # HC (reghdfe convention), CR2/CR3/jackknife (clubSandwich plm), Conley
+    # (acreg planar). Same verified estimators as sp.regress / sp.feols /
+    # sp.panel — computed on the absorber's within-transformed design.
+    if _vce is not None:
+        from ..inference.jackknife import conley_vcov_matrix, cr_vcov_matrix
+
+        ab = result["absorber"]
+        mask = ab.keep_mask
+        df_sub = df.iloc[mask].reset_index(drop=True)
+        yw = ab.demean(
+            df_sub[lhs].to_numpy(dtype=np.float64), copy=True, already_masked=True
+        )
+        Xw = ab.demean(
+            df_sub[x_vars].to_numpy(dtype=np.float64), copy=True, already_masked=True
+        )
+        n_w, k_w = Xw.shape
+
+        if _vce in _HC_VCE:
+            bread = np.linalg.inv(Xw.T @ Xw)
+            e_w = yw - Xw @ (bread @ (Xw.T @ yw))
+            meat = (Xw * e_w[:, None]).T @ (Xw * e_w[:, None])
+            vc = bread @ meat @ bread
+            if _HC_VCE[_vce]:  # HC1 with reghdfe's N/(N - k - df_a) factor
+                vc = vc * (n_w / df_resid)
+            vcov = vc
+            se_type = f"hc_robust ({_vce}, reghdfe N/(N-k-df_a))"
+            df_infer = df_resid
+        elif _vce in _BR_VCE:
+            codes = pd.Categorical(df_sub[cluster]).codes
+            # small_sample=False matches clubSandwich CR2/CR3 for FE exactly.
+            vcov = cr_vcov_matrix(
+                Xw, yw, codes, power=_BR_VCE[_vce], small_sample=False
+            )
+            n_cl = int(codes.max()) + 1
+            se_type = {
+                "cr2": "CR2 cluster-robust (clubSandwich, Pustejovsky-Tipton)",
+                "cr3": "CR3 cluster-robust (clubSandwich jackknife-type)",
+                "jackknife": "CR3 cluster-robust (clubSandwich jackknife-type)",
+            }[_vce]
+            cluster_info = {"cluster": [cluster], "n_clusters": [n_cl]}
+            df_infer = n_cl - 1
+        else:  # conley
+            vcov = conley_vcov_matrix(
+                Xw,
+                yw,
+                df_sub[conley_lat].to_numpy(dtype=np.float64),
+                df_sub[conley_lon].to_numpy(dtype=np.float64),
+                float(conley_cutoff),
+            )
+            se_type = f"Conley spatial HAC (acreg planar, {conley_cutoff} km)"
+            df_infer = n_w - k_w
+
+        se = pd.Series(
+            np.sqrt(np.maximum(np.diag(vcov), 0)), index=x_names, name="std_err"
+        )
+        t_crit = stats.t.ppf(1 - alpha / 2, df_infer)
+        t_stats = coef / se.replace(0, np.nan)
+        pvals = pd.Series(
+            2 * (1 - stats.t.cdf(np.abs(t_stats.fillna(0)), df_infer)),
+            index=x_names,
+        )
+        ci_lo = coef - t_crit * se
+        ci_hi = coef + t_crit * se
 
     return FEOLSResult(
         params=coef,

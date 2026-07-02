@@ -76,13 +76,13 @@ estimator, or only on `feols`?* The honest answer, tracked in
 | estimator | classical | hc_robust | cluster | twoway | cr2_cr3 | wild_cluster_boot | conley | jackknife |
 |---|---|---|---|---|---|---|---|---|
 | `feols` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `hdfe_ols` | ✓ | · | ✓ | ✓ | · | ✓ | · | · |
+| `hdfe_ols` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `fepois` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
 | `feglm` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ |
 | `regress` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ivreg` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ppmlhdfe` | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
-| `panel` | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | ✓ |
+| `panel` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `callaway_santanna` | · | · | ✓ | · | · | · | · | · |
 | `did` | · | · | ✓ | · | · | · | · | · |
 | `dml` | ✓ | · | · | · | · | · | · | · |
@@ -212,6 +212,22 @@ What the matrix makes explicit today:
 
   ```python
   sp.ppmlhdfe("y ~ x1 + x2 | o + d", data=df, cluster=["origin", "dest"])
+  ```
+- **`hdfe_ols` and `panel` complete their rows (8/8).** `hdfe_ols` gains the
+  canonical `vce=` menu on its absorber's within design: `vce="robust"/"hc1"`
+  (HC1 with **reghdfe's** `N/(N-k-df_a)` factor — matches Stata
+  `reghdfe, vce(robust)` exactly), `vce="CR2"/"CR3"/"jackknife"` (same frozen
+  clubSandwich plm anchor as `feols`/`panel`), `vce="conley"`, and
+  `vce="wild"` as shorthand for its native WCR bootstrap. `panel(method="fe")`
+  gains `vce="wild"` — the **same WCR engine** as `sp.regress(vce="wild")` on
+  the entity-within design, byte-identical p-values to regress on the
+  hand-demeaned data with the same seed. **Every regression-family estimator
+  (`regress`, `feols`, `ivreg`, `panel`, `hdfe_ols`) is now 8/8 native.**
+
+  ```python
+  sp.hdfe_ols("y ~ x | firm + year", data=df, vce="robust")        # reghdfe HC1
+  sp.panel(df, "y ~ x", entity="firm", time="t", method="fe",
+           vce="wild", cluster="firm", seed=42)                    # WCR bootstrap
   ```
 
 This is the gap the SE-menu wiring work closes, estimator by estimator. The

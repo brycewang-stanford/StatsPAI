@@ -38,8 +38,9 @@ from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibil
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
-# vce= values routed to the native within-design bias-reduced / spatial menu.
-_PANEL_BR_VCE = {"cr2", "cr3", "jackknife", "conley"}
+# vce= values routed to the native within-design bias-reduced / spatial /
+# wild-bootstrap menu.
+_PANEL_BR_VCE = {"cr2", "cr3", "jackknife", "conley", "wild"}
 
 
 def _panel_method_error(
@@ -598,6 +599,9 @@ def panel(
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    wild_reps: int = 999,
+    wild_weight_type: str = "rademacher",
+    seed: Optional[int] = None,
 ) -> PanelResults:
     """Public ``sp.panel`` entry point — see ``_dispatch_panel_impl``
     for the full docstring on methods and parameters.
@@ -628,6 +632,9 @@ def panel(
         conley_lat=conley_lat,
         conley_lon=conley_lon,
         conley_cutoff=conley_cutoff,
+        wild_reps=wild_reps,
+        wild_weight_type=wild_weight_type,
+        seed=seed,
     )
     try:
         from ..output._lineage import attach_provenance as _attach_prov
@@ -676,11 +683,14 @@ def _dispatch_panel_impl(
     lags: int = 1,
     gmm_lags: Tuple[int, Optional[int]] = (2, None),
     twostep: bool = False,
-    # Extended SE menu (bias-reduced / spatial-HAC) on the within design
+    # Extended SE menu (bias-reduced / spatial-HAC / wild) on the within design
     vce: Optional[str] = None,
     conley_lat: Optional[str] = None,
     conley_lon: Optional[str] = None,
     conley_cutoff: Optional[float] = None,
+    wild_reps: int = 999,
+    wild_weight_type: str = "rademacher",
+    seed: Optional[int] = None,
 ) -> PanelResults:
     """
     Unified panel regression with Stata-style syntax.
@@ -858,6 +868,9 @@ def _dispatch_panel_impl(
             conley_cutoff=conley_cutoff,
             weights=weights,
             alpha=alpha,
+            wild_reps=wild_reps,
+            wild_weight_type=wild_weight_type,
+            seed=seed,
         )
 
     # --- Route to estimator ---
@@ -1158,8 +1171,11 @@ def _panel_bias_reduced(
     conley_cutoff: Optional[float],
     weights: Optional[str],
     alpha: float,
+    wild_reps: int = 999,
+    wild_weight_type: str = "rademacher",
+    seed: Optional[int] = None,
 ) -> PanelResults:
-    """Bias-reduced / spatial-HAC / two-way cluster SEs on the panel within design.
+    """Bias-reduced / spatial / wild / two-way cluster SEs on the within design.
 
     The entity-demeaned (FE-absorbed) design is handed to the OLS helpers
     :func:`cr_vcov_ols` / :func:`two_way_correction_ols` / :func:`conley_vcov_ols`.
@@ -1207,6 +1223,8 @@ def _panel_bias_reduced(
         mode = "twoway"
     elif vce == "conley":
         mode = "conley"
+    elif vce == "wild":
+        mode = "wild"
     else:
         mode = "cr"
 
@@ -1260,12 +1278,46 @@ def _panel_bias_reduced(
     shim = SimpleNamespace(data_info={"X": X, "y": y, "var_names": list(indep_vars)})
 
     n_clusters: Optional[int] = None
+    wild_pvals: Optional[Dict[str, float]] = None
+    wild_ci: Optional[Dict[str, Tuple[float, float]]] = None
     if mode == "cr":
         codes = pd.factorize(work[ccol])[0]
         power = 1.0 if vce in ("cr3", "jackknife") else 0.5
         std_errors = cr_vcov_ols(shim, codes, power=power, small_sample=False)
         n_clusters = int(codes.max()) + 1
         se_label = "CR3 (jackknife)" if vce in ("cr3", "jackknife") else "CR2"
+        cluster_desc = ccol
+    elif mode == "wild":
+        # WCR wild cluster bootstrap (Cameron-Gelbach-Miller 2008) on the
+        # within design — the SAME engine `sp.regress(vce="wild")` uses, so
+        # panel FE wild is byte-identical to regress on the hand-demeaned
+        # data with the same seed. SEs stay CR1; p-values / CIs come from
+        # the bootstrap.
+        from ..inference.jackknife import wild_cluster_boot
+
+        se_vals: Dict[str, float] = {}
+        wild_pvals = {}
+        wild_ci = {}
+        for v in indep_vars:
+            out = wild_cluster_boot(
+                shim,
+                work,
+                cluster=ccol,
+                variable=str(v),
+                n_boot=wild_reps,
+                weight_type=wild_weight_type,
+                seed=seed,
+                alpha=alpha,
+            )
+            se_vals[v] = float(out["se_cluster"])
+            wild_pvals[v] = float(out["p_boot"])
+            wild_ci[v] = (float(out["ci_boot"][0]), float(out["ci_boot"][1]))
+        std_errors = pd.Series(se_vals)
+        n_clusters = int(pd.factorize(work[ccol])[0].max()) + 1
+        se_label = (
+            f"wild cluster bootstrap (Cameron-Gelbach-Miller 2008, "
+            f"{wild_reps} reps, {wild_weight_type})"
+        )
         cluster_desc = ccol
     elif mode == "twoway":
         c1_codes = pd.factorize(work[c1])[0]
@@ -1304,6 +1356,8 @@ def _panel_bias_reduced(
     if n_clusters is not None:
         model_info["n_clusters"] = n_clusters
         _maybe_warn_few_clusters(n_clusters, cluster_desc)
+    if mode == "wild":
+        model_info["n_boot"] = wild_reps
 
     data_info = {
         "nobs": int(n),
@@ -1319,7 +1373,7 @@ def _panel_bias_reduced(
         ),
     }
 
-    return PanelResults(
+    res = PanelResults(
         params=params,
         std_errors=std_errors,
         model_info=model_info,
@@ -1334,6 +1388,19 @@ def _panel_bias_reduced(
         _method=method,
         _lm_result=None,
     )
+    if wild_pvals is not None:
+        # Point estimates + CR1 SEs stand; p-values and CIs come from the
+        # wild bootstrap (mirrors sp.regress(vce="wild")).
+        res.pvalues = pd.Series(
+            [wild_pvals[v] for v in indep_vars], index=list(indep_vars)
+        )
+        res.conf_int_lower = pd.Series(
+            [wild_ci[v][0] for v in indep_vars], index=list(indep_vars)
+        )
+        res.conf_int_upper = pd.Series(
+            [wild_ci[v][1] for v in indep_vars], index=list(indep_vars)
+        )
+    return res
 
 
 # ======================================================================

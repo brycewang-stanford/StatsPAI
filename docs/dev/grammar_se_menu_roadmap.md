@@ -149,6 +149,24 @@ now has zero `standalone_unsafe` cells.
   p=0.95703125, logit x1 p=0.00390625); tie margins ≥ 4.6e-4 make the
   exact-equality tests stable. Matrix fepois/feglm wild_cluster_boot
   `na → native` (native 57→59). `test_feglm_wild_boottest_parity.py`.
+- **hdfe_ols(vce=…) — 8/8 native (done).** The native-numpy HDFE estimator
+  gains the canonical `vce=` menu on its absorber's within design:
+  `robust`/`hc1`/`hc0` (HC with reghdfe's `N/(N-k-df_a)` factor — frozen Stata
+  `reghdfe, vce(robust)` reference se_x=0.0431561136), `CR2`/`CR3`/`jackknife`
+  (identical frozen clubSandwich plm anchor as feols/panel, via the new
+  `cr_vcov_matrix` core extracted from `cr_vcov_ols`), `conley` (via
+  `conley_vcov_matrix`; equals sp.regress on FE-demeaned data), and `wild` as
+  shorthand for its native WCR path. Matrix hdfe_ols
+  hc_robust/cr2_cr3/jackknife/conley `na → native` (native 59→63).
+  `test_hdfe_ols_se_menu_parity.py`.
+- **panel(method="fe", vce="wild") — native (done).** WCR wild cluster
+  bootstrap on the entity-within design through the SAME
+  `inference.jackknife.wild_cluster_boot` engine as `sp.regress(vce="wild")`:
+  byte-identical p-values to regress on the hand-demeaned data with the same
+  seed (discriminating null-covariate anchor). SEs stay CR1; p/CI from the
+  bootstrap. Matrix panel wild_cluster_boot `na → native` (native 63→64).
+  **Every regression-family estimator (regress/feols/ivreg/panel/hdfe_ols) is
+  now 8/8 native.** `test_panel_bias_reduced_parity.py::test_panel_fe_wild_*`.
 - **ppmlhdfe(cluster=[a,b]) — native two-way (done).** CGM-2011 inclusion-
   exclusion on the FE-residualised PPML design (`regression/count.py::
   _twoway_cluster_vcov`) with the single `G_min/(G_min-1)` factor — **byte-

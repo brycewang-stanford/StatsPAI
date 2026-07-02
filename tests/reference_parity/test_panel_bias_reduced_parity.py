@@ -141,3 +141,34 @@ def test_panel_fe_twoway_matches_regress_on_demeaned() -> None:
         dm[c] = df[c] - df.groupby("firm")[c].transform("mean")
     r = regress("y ~ x - 1", dm, cluster=["firm", "region"])
     assert np.isclose(float(f.std_errors["x"]), float(r.std_errors["x"]), atol=1e-9)
+
+
+def test_panel_fe_wild_byte_identical_to_regress_on_demeaned() -> None:
+    """panel(method='fe', vce='wild') runs the SAME WCR engine as
+    sp.regress(vce='wild') on the within design, so with the same seed the
+    bootstrap p-values are byte-identical to regress on the hand-demeaned
+    data (whose wild path is pinned to Stata boottest). The null covariate
+    w0 makes the anchor discriminating (0 < p < 1)."""
+    df = _fe_panel()
+    rng = np.random.default_rng(7)
+    df = df.assign(w0=rng.normal(size=len(df)))  # true effect = 0
+    f = panel(
+        df,
+        "y ~ x + z + w0",
+        entity="firm",
+        time="t",
+        method="fe",
+        vce="wild",
+        cluster="firm",
+        seed=99,
+    )
+    dm = df.copy()
+    for c in ("y", "x", "z", "w0"):
+        dm[c] = df[c] - df.groupby("firm")[c].transform("mean")
+    r = regress("y ~ x + z + w0 - 1", dm, vce="wild", cluster="firm", seed=99)
+    for v in ("x", "z", "w0"):
+        assert float(f.pvalues[v]) == float(r.pvalues[v])
+    assert 0.0 < float(f.pvalues["w0"]) < 1.0
+    assert "wild cluster bootstrap" in f.model_info["robust"]
+    # CIs come from the bootstrap and are populated.
+    assert float(f.conf_int_lower["x"]) < float(f.conf_int_upper["x"])

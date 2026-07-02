@@ -26229,6 +26229,18 @@
             },
             "type": "array"
           },
+          "conley_cutoff": {
+            "description": "Conley distance cutoff in km for ``vce=\"conley\"``.",
+            "type": "number"
+          },
+          "conley_lat": {
+            "description": "Coordinate columns (decimal degrees) for ``vce=\"conley\"``.",
+            "type": "string"
+          },
+          "conley_lon": {
+            "description": "Coordinate columns (decimal degrees) for ``vce=\"conley\"``.",
+            "type": "string"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
@@ -26261,6 +26273,10 @@
             "default": 1e-08,
             "description": "Numerical convergence tolerance.",
             "type": "number"
+          },
+          "vce": {
+            "description": "Canonical SE-menu keyword (matches ``sp.regress`` / ``sp.feols``): - ``\"robust\"`` / ``\"hc1\"`` -- heteroskedasticity-robust on the FE-absorbed design with reghdfe's small-sample factor ``N/(N-k-df_a)``; matches Stata ``reghdfe ..., vce(robust)``. - ``\"hc0\"`` -- no small-sample factor. - ``\"CR2\"`` / ``\"CR3\"`` / ``\"jackknife\"`` -- Pustejovsky-Tipton (2018) bias-reduced cluster-robust on the within design (requires ``cluster=``, one-way); matches R ``clubSandwich::vcovCR(plm)``. - ``\"conley\"`` -- Conley spatial HAC on the within design (requires ``conley_lat=/conley_lon=/conley_cutoff=``; Stata ``acreg`` planar distance convention). - ``\"wild\"`` -- shorthand for ``wild=True`` (requires ``cluster=``).",
+            "type": "string"
           },
           "weights": {
             "description": "Observation weights. Column name or raw array.",

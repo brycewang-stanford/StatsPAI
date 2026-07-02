@@ -63,6 +63,7 @@ def test_native_wild_boot_estimators() -> None:
         "fepois",
         "hdfe_ols",
         "ivreg",
+        "panel",
         "regress",
     ], native_wild
 
