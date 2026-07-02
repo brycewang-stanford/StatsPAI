@@ -1125,6 +1125,23 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "iteration fix. = igraph/networkx eigenvector convention."
         ),
     },
+    "glm": {
+        "status": "bit-exact",
+        "reference": "base R stats::glm (binomial logit + Poisson log)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "coef / logLik / AIC 1e-8 abs (observed <= 5e-13); SE ~1e-3 rel",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_glm_parity.py",
+            "tests/reference_parity/_fixtures/glm_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture: IRLS converges to the identical unpenalized MLE, "
+            "so coefficients, maximized log-likelihood, and AIC match base R "
+            "stats::glm to machine precision on a committed dataset; model-based "
+            "SEs align to ~1e-3 relative. Regenerate via _generate_glm_R.R."
+        ),
+    },
 }
 
 

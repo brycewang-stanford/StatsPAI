@@ -2275,6 +2275,30 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "glm",
+      "notes": [
+        "Frozen-R fixture: IRLS converges to the identical unpenalized MLE, so coefficients, maximized log-likelihood, and AIC match base R stats::glm to machine precision on a committed dataset; model-based SEs align to ~1e-3 relative. Regenerate via _generate_glm_R.R."
+      ],
+      "reference": "base R stats::glm (binomial logit + Poisson log)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_glm_parity.py",
+        "tests/reference_parity/_fixtures/glm_R.json"
+      ],
+      "tolerance": "coef / logLik / AIC 1e-8 abs (observed <= 5e-13); SE ~1e-3 rel"
+    },
+    {
       "function": "gmm",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
