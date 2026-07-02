@@ -87,6 +87,23 @@
       "tolerance": ""
     },
     {
+      "function": "anderson_rubin_test",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_anderson_rubin_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "arima",
       "headline": {
         "metric": "rel_est",
@@ -1493,6 +1510,23 @@
       "test": [
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_paper_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "effective_f_test",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_anderson_rubin_parity.py"
       ],
       "tolerance": ""
     },
@@ -5908,6 +5942,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "tF_critical_value",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_tf_critical_value_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "test",
