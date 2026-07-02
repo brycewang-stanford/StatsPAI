@@ -1064,6 +1064,51 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "bootstrap SE is consistent with the analytic sd/sqrt(n)."
         ),
     },
+    "degree_centrality": {
+        "status": "bit-exact",
+        "reference": "Freeman normalized degree centrality (deg_i / (n-1))",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "centrality 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_network_centrality_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: normalized degree centrality equals "
+            "deg_i / (n-1) exactly on canonical graphs (star hub 1.0, "
+            "leaves 1/4; triangle all 1.0). = igraph/networkx degree."
+        ),
+    },
+    "betweenness_centrality": {
+        "status": "bit-exact",
+        "reference": "Freeman betweenness centrality (shortest-path mediation)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "centrality 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_network_centrality_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: normalized betweenness is exact on canonical "
+            "graphs (star hub 1.0 on every leaf-pair path, leaves 0; path "
+            "midpoint 1.0). = igraph/networkx betweenness."
+        ),
+    },
+    "clustering": {
+        "status": "bit-exact",
+        "reference": "local clustering coefficient (Watts-Strogatz 1998)",
+        "reference_versions": {"R": "R version 4.5.2 (2025-10-31)"},
+        "tolerance": "coefficient 1e-12 abs (observed 0)",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_network_centrality_parity.py",
+        ],
+        "note": (
+            "Closed-form identity: local clustering = 2*triangles_i / "
+            "(deg_i*(deg_i-1)) exactly (triangle all 1.0, star / path all 0). "
+            "= igraph/networkx transitivity(local)."
+        ),
+    },
 }
 
 

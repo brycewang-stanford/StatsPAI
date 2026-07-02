@@ -458,6 +458,29 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.01"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "betweenness_centrality",
+      "notes": [
+        "Closed-form identity: normalized betweenness is exact on canonical graphs (star hub 1.0 on every leaf-pair path, leaves 0; path midpoint 1.0). = igraph/networkx betweenness."
+      ],
+      "reference": "Freeman betweenness centrality (shortest-path mediation)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_network_centrality_parity.py"
+      ],
+      "tolerance": "centrality 1e-12 abs (observed 0)"
+    },
+    {
       "function": "beyond_average_late",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -825,6 +848,29 @@
       "also_verified_by": [
         "reference_parity"
       ],
+      "function": "clustering",
+      "notes": [
+        "Closed-form identity: local clustering = 2*triangles_i / (deg_i*(deg_i-1)) exactly (triangle all 1.0, star / path all 0). = igraph/networkx transitivity(local)."
+      ],
+      "reference": "local clustering coefficient (Watts-Strogatz 1998)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_network_centrality_parity.py"
+      ],
+      "tolerance": "coefficient 1e-12 abs (observed 0)"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "cohen_kappa",
       "notes": [
         "Frozen-R fixture: unweighted Cohen's kappa + observed/expected agreement match base R exactly (SE convention-specific, not pinned). Regenerate via _generate_epi_extra_R.R."
@@ -1140,6 +1186,29 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=0.05"
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "degree_centrality",
+      "notes": [
+        "Closed-form identity: normalized degree centrality equals deg_i / (n-1) exactly on canonical graphs (star hub 1.0, leaves 1/4; triangle all 1.0). = igraph/networkx degree."
+      ],
+      "reference": "Freeman normalized degree centrality (deg_i / (n-1))",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_network_centrality_parity.py"
+      ],
+      "tolerance": "centrality 1e-12 abs (observed 0)"
     },
     {
       "function": "demean",
