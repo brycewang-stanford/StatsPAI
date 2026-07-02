@@ -158,11 +158,16 @@ TIER1_ROUND_TRIPS = [
             "cluster": "worker_id",
         },
     ),
-    # did_imputation
+    # did_imputation (Borusyak positional syntax: Y i t Ei)
     (
-        "did_imputation y, treatment(treat) horizons(0 1 2)",
+        "did_imputation y unit period first_treat",
         "did_imputation",
-        {"y": "y", "treat": "treat", "horizons": [0, 1, 2]},
+        {
+            "y": "y",
+            "group": "unit",
+            "time": "period",
+            "first_treat": "first_treat",
+        },
     ),
     # synth
     (
@@ -262,16 +267,18 @@ R_ROUND_TRIPS = [
         "glm",
         {"formula": "y ~ x", "family": "gaussian"},
     ),
-    # Multilevel / GLMM
+    # Multilevel / GLMM — parsed into y / x_fixed / group (the sp.mixed /
+    # sp.melogit signature), targeting the real callables (sp.multilevel is a
+    # package, sp.glmer does not exist).
     (
         "lmer(y ~ x + (1|group), data = df)",
-        "multilevel",
-        {"formula": "y ~ x + (1|group)"},
+        "mixed",
+        {"y": "y", "x_fixed": ["x"], "group": "group"},
     ),
     (
         "glmer(y ~ x + (1|group), family = binomial, data = df)",
-        "glmer",
-        {"formula": "y ~ x + (1|group)", "family": "binomial"},
+        "melogit",
+        {"y": "y", "x_fixed": ["x"], "group": "group"},
     ),
     # Panel
     (
@@ -477,13 +484,13 @@ TIER2_ROUND_TRIPS = [
     (
         "tobit hours wage kids, ll(0) ul(80)",
         "tobit",
-        {"formula": "hours ~ wage + kids", "lower": 0.0, "upper": 80.0},
+        {"y": "hours", "x": ["wage", "kids"], "ll": 0.0, "ul": 80.0},
     ),
     # Selection
     (
         "heckman wage education, select(employed = age kids)",
         "heckman",
-        {"formula": "wage ~ education", "select_formula": "employed ~ age + kids"},
+        {"y": "wage", "x": ["education"], "select": "employed", "z": ["age", "kids"]},
     ),
     # RD ancillary
     ("rdplot y x, c(0)", "rdplot", {"y": "y", "x": "x", "c": 0.0}),
@@ -579,22 +586,18 @@ TIER3_ROUND_TRIPS = [
         "glm",
         {"formula": "grade ~ x1 + x2", "family": "ordered_probit"},
     ),
-    # Dynamic panel GMM
+    # Dynamic panel GMM (xtabond = difference GMM; xtdpdsys = system GMM, which
+    # sp.xtabond does not yet implement — see TestUnsupportedButHonest below).
     (
         "xtabond y x1 x2, twostep robust i(firm)",
         "xtabond",
         {"y": "y", "x": ["x1", "x2"], "id": "firm", "twostep": True, "robust": True},
     ),
-    (
-        "xtdpdsys y x1, twostep i(unit)",
-        "xtdpdsys",
-        {"y": "y", "x": ["x1"], "id": "unit", "twostep": True},
-    ),
     # Bunching
     (
         "bunching income, c(50000) bw(2000)",
         "bunching",
-        {"x": "income", "c": 50000.0, "bandwidth": 2000.0},
+        {"running_var": "income", "threshold": 50000.0, "bin_width": 2000.0},
     ),
     # boottest (post-estimation)
     (
@@ -640,7 +643,15 @@ class TestTier3EdgeCases:
     def test_bunching_default_cutoff(self):
         out = from_stata("bunching income")
         assert out["ok"] is True
-        assert out["arguments"]["c"] == 0.0
+        assert out["arguments"]["threshold"] == 0.0
+
+    def test_xtdpdsys_fails_loud_as_unsupported(self):
+        # Blundell-Bond system GMM is not implemented (sp.xtabond raises
+        # NotImplementedError for method='system'). The translator must fail
+        # loud with the difference-GMM fallback, not emit a dead sp.xtdpdsys.
+        out = from_stata("xtdpdsys y x1, twostep i(unit)")
+        assert out["ok"] is False
+        assert "xtabond" in out.get("suggestions", [])
 
 
 @pytest.mark.parametrize("stata,tool,subset", TIER2_ROUND_TRIPS)
@@ -732,6 +743,10 @@ class TestStataHandlerCoverage:
             # of the command name).
             cmd = re.sub(r"[^a-z0-9_].*$", "", head.lower())
             covered.add(cmd)
+        # Commands whose contract is a dedicated behaviour test rather than a
+        # round-trip (they intentionally do not produce a runnable payload):
+        #   xtdpdsys — system GMM unsupported → test_xtdpdsys_fails_loud_as_unsupported
+        covered.add("xtdpdsys")
         # Each handler should have at least one alias covered.
         handler_to_aliases = {}
         for alias, h in STATA_COMMAND_MAP.items():
@@ -744,3 +759,98 @@ class TestStataHandlerCoverage:
         assert not uncovered_handlers, (
             f"these handler aliases have no round-trip test: " f"{uncovered_handlers}"
         )
+
+
+# ----------------------------------------------------------------------
+# Structural executability — every translated payload must be runnable
+# ----------------------------------------------------------------------
+#
+# A migration on-ramp that emits a payload the user cannot run is worse than
+# none. The fixest bug (tool='fixest' + sp.fixest(formula=...), when sp.fixest
+# is a package and feols wants fml=) was one instance; the sweep that followed
+# found tobit / heckman / bunching / did_imputation / lmer / glmer / xtdpdsys
+# all emitting a non-callable tool or the wrong argument names. This contract
+# translates every round-trip command and asserts the emitted (tool, arguments)
+# is structurally runnable: the tool resolves to a callable on sp, and every
+# REQUIRED parameter of that callable (bar ``data``, injected at dispatch) is
+# present in the arguments. A newly-added handler that targets a non-existent
+# tool or misnames an argument fails here instead of shipping a dead on-ramp.
+
+#: Tools that legitimately cannot yield a standalone runnable payload from a
+#: single command — postestimation acts on a prior fitted result, and setup
+#: commands declare structure with no estimator target. Each is exercised by a
+#: dedicated behaviour test elsewhere in this file.
+_NON_EXECUTABLE_TOOLS = frozenset(
+    {
+        # postestimation — need a fitted ``result``
+        "margins",
+        "contrast",
+        "test",
+        "wild_cluster_bootstrap",
+        "mi_estimate",
+        # setup / declaration — no estimator target (no-op)
+        "xtset",
+    }
+)
+
+
+def _required_params(tool):
+    """Required parameters of ``sp.<tool>`` (no default, not *args/**kwargs,
+    excluding ``self``/``data``). Returns None if ``sp.<tool>`` is not a
+    callable — i.e. the translation named a tool an agent cannot run."""
+    import inspect
+
+    import statspai as sp
+
+    fn = getattr(sp, tool, None)
+    if not callable(fn):
+        return None
+    try:
+        sig = inspect.signature(fn)
+    except (ValueError, TypeError):
+        return set()
+    return {
+        name
+        for name, p in sig.parameters.items()
+        if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+        and name not in ("self", "data")
+        and p.default is p.empty
+    }
+
+
+def _structural_exec_problems(commands, translate):
+    problems = []
+    for cmd in commands:
+        out = translate(cmd)
+        if not out.get("ok"):
+            continue  # fail-loud / partial translations are covered elsewhere
+        tool = out["tool"]
+        if tool in _NON_EXECUTABLE_TOOLS:
+            continue
+        required = _required_params(tool)
+        if required is None:
+            problems.append(f"[{cmd}] -> sp.{tool} is NOT callable (dead on-ramp)")
+            continue
+        missing = required - set(out["arguments"])
+        if missing:
+            problems.append(
+                f"[{cmd}] -> sp.{tool} missing required {sorted(missing)} "
+                f"(emitted args {sorted(out['arguments'])})"
+            )
+    return problems
+
+
+def test_stata_translations_are_structurally_executable():
+    commands = [
+        c for c, _, _ in TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS + TIER3_ROUND_TRIPS
+    ]
+    problems = _structural_exec_problems(commands, from_stata)
+    assert not problems, "dead / unrunnable Stata translations:\n  " + "\n  ".join(
+        problems
+    )
+
+
+def test_r_translations_are_structurally_executable():
+    commands = [c for c, _, _ in R_ROUND_TRIPS]
+    problems = _structural_exec_problems(commands, from_r)
+    assert not problems, "dead / unrunnable R translations:\n  " + "\n  ".join(problems)

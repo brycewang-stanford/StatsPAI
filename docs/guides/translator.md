@@ -68,7 +68,7 @@ Flagship R mappings:
 | --- | --- |
 | `feols` / `felm` (fixest / lfe) | `sp.feols` |
 | `lm` / `glm` | `sp.regress` / `sp.glm` |
-| `plm`, `lmer` / `glmer` | `sp.panel` / `sp.multilevel` / `sp.meglm` |
+| `plm`, `lmer` / `glmer` | `sp.panel` / `sp.mixed` / `sp.melogit` (or `sp.meglm`) |
 | `att_gt` / `did` | `sp.callaway_santanna` |
 | `matchit` (MatchIt) | `sp.match` |
 

@@ -326,35 +326,79 @@ def _h_glm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     return _emit("glm", args, python)
 
 
+def _parse_lme4_formula(formula: str) -> Optional[Tuple[str, List[str], str]]:
+    """Parse an lme4 mixed-model formula into ``(y, x_fixed, group)``.
+
+    ``y ~ x1 + x2 + (1 | group)`` → ``("y", ["x1", "x2"], "group")``. Returns
+    ``None`` if there is no ``~`` or no ``(... | group)`` random-effect term.
+    Only the first grouping factor is captured (sp.mixed / sp.meglm take a
+    single ``group``); a second one is surfaced as a note by the caller.
+    """
+    if "~" not in formula:
+        return None
+    lhs, rhs = formula.split("~", 1)
+    y = lhs.strip()
+    re_terms = re.findall(r"\(([^)]*\|[^)]*)\)", rhs)
+    if not re_terms:
+        return None
+    # First random-effect grouping factor: right side of the first ``|``.
+    group = re_terms[0].split("|", 1)[1].strip()
+    # Fixed part = rhs with every (... | ...) term removed.
+    fixed_rhs = re.sub(r"\([^)]*\|[^)]*\)", "", rhs)
+    x_fixed = [
+        t.strip()
+        for t in fixed_rhs.split("+")
+        if t.strip() and t.strip() not in ("1", "0", "")
+    ]
+    return y, x_fixed, group
+
+
 def _h_glmer(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     """R `lme4::glmer(y ~ x + (1|group), family=binomial, data=df)` →
-    ``sp.glmer`` / multilevel GLM. The ``(1|group)`` random-effect
-    syntax passes through verbatim — sp's multilevel module accepts
-    the same shape."""
+    ``sp.meglm`` (or ``sp.melogit`` for a binomial family)."""
     formula = pos[0] if pos else kw.get("formula")
     if not formula:
         return _emit_error("glmer requires a formula as the first argument")
-    formula = _strip_quotes(formula)
+    parsed = _parse_lme4_formula(_strip_quotes(formula))
+    if parsed is None:
+        return _emit_error(
+            "glmer needs a mixed-model formula `y ~ x + (1|group)`",
+            command="glmer",
+        )
+    y, x_fixed, group = parsed
     family = (
         _strip_quotes(kw.get("family", "gaussian")) if kw.get("family") else "gaussian"
     )
-    args: Dict[str, Any] = {"formula": formula, "family": family}
-    notes: List[str] = []
-    code_pairs = ["data=df", f"family={family!r}"]
-    python = f"sp.glmer({formula!r}, {', '.join(code_pairs)})"
-    return _emit("glmer", args, python, notes)
+    # Binomial → the dedicated sp.melogit; any other family → the general
+    # sp.meglm(family=...). Both take y / x_fixed / group explicitly.
+    if "binomial" in family.lower():
+        args: Dict[str, Any] = {"y": y, "x_fixed": x_fixed, "group": group}
+        python = f"sp.melogit(data=df, y={y!r}, x_fixed={x_fixed!r}, group={group!r})"
+        return _emit("melogit", args, python)
+    args = {"y": y, "x_fixed": x_fixed, "group": group, "family": family}
+    python = (
+        f"sp.meglm(data=df, y={y!r}, x_fixed={x_fixed!r}, "
+        f"group={group!r}, family={family!r})"
+    )
+    return _emit("meglm", args, python)
 
 
 def _h_lmer(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
-    """R `lme4::lmer(y ~ x + (1|group), data=df)` → ``sp.multilevel`` /
-    Gaussian random effects."""
+    """R `lme4::lmer(y ~ x + (1|group), data=df)` → ``sp.mixed`` (Gaussian
+    linear mixed model)."""
     formula = pos[0] if pos else kw.get("formula")
     if not formula:
         return _emit_error("lmer requires a formula as the first argument")
-    formula = _strip_quotes(formula)
-    args: Dict[str, Any] = {"formula": formula}
-    python = f"sp.multilevel({formula!r}, data=df)"
-    return _emit("multilevel", args, python)
+    parsed = _parse_lme4_formula(_strip_quotes(formula))
+    if parsed is None:
+        return _emit_error(
+            "lmer needs a mixed-model formula `y ~ x + (1|group)`",
+            command="lmer",
+        )
+    y, x_fixed, group = parsed
+    args: Dict[str, Any] = {"y": y, "x_fixed": x_fixed, "group": group}
+    python = f"sp.mixed(data=df, y={y!r}, x_fixed={x_fixed!r}, group={group!r})"
+    return _emit("mixed", args, python)
 
 
 def _h_plm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:

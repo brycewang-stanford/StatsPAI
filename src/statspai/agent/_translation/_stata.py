@@ -468,37 +468,43 @@ def _h_didregress(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_did_imputation(cmd: StataCommand) -> Dict[str, Any]:
-    """``did_imputation y, treatment(treat) horizons(0 1 2)`` →
-    ``sp.did_imputation``. Borusyak-Jaravel-Spiess imputation estimator."""
-    if not cmd.varlist:
+    """``did_imputation Y i t Ei`` → ``sp.did_imputation``.
+
+    Borusyak-Jaravel-Spiess imputation estimator. The Stata command is
+    positional: outcome, unit-id, time, and the cohort/first-treatment column
+    (``Ei``; 0 or missing = never treated). sp.did_imputation takes these as
+    ``y`` / ``group`` / ``time`` / ``first_treat`` — matching its signature so
+    the payload runs.
+    """
+    if len(cmd.varlist) < 4:
         return _emit_error(
-            "did_imputation requires an outcome variable", command="did_imputation"
-        )
-    y = cmd.varlist[0]
-    treat = cmd.options.get("treatment") or cmd.options.get("treat")
-    if not treat:
-        return _emit_error(
-            "did_imputation needs `treatment(<col>)` (treatment indicator).",
+            "did_imputation is positional: `did_imputation Y i t Ei` (outcome, "
+            "unit-id, time, first-treatment cohort).",
             command="did_imputation",
         )
-    args: Dict[str, Any] = {"y": y, "treat": treat}
-    horizons = cmd.options.get("horizons")
-    if horizons:
+    y, group, time, first_treat = cmd.varlist[:4]
+    args: Dict[str, Any] = {
+        "y": y,
+        "group": group,
+        "time": time,
+        "first_treat": first_treat,
+    }
+    horizon = cmd.options.get("horizon") or cmd.options.get("horizons")
+    if horizon:
         try:
-            args["horizons"] = [int(x) for x in horizons.split()]
-        except ValueError:
-            args["horizons"] = horizons
-    pre = cmd.options.get("pretrends")
-    if pre:
-        try:
-            args["pretrends"] = [int(x) for x in pre.split()]
-        except ValueError:
-            args["pretrends"] = pre
-    python = (
-        f"sp.did_imputation(data=df, y={y!r}, treat={treat!r}"
-        + (f", horizons={args['horizons']!r}" if "horizons" in args else "")
-        + ")"
-    )
+            args["horizon"] = int(horizon.split()[-1])
+        except (ValueError, AttributeError, IndexError):
+            pass
+    code_pairs = [
+        "data=df",
+        f"y={y!r}",
+        f"group={group!r}",
+        f"time={time!r}",
+        f"first_treat={first_treat!r}",
+    ]
+    if "horizon" in args:
+        code_pairs.append(f"horizon={args['horizon']}")
+    python = f"sp.did_imputation({', '.join(code_pairs)})"
     return _emit("did_imputation", args, python)
 
 
@@ -691,59 +697,60 @@ def _h_glm_like(cmd: StataCommand, *, sp_fn: str, display_name: str) -> Dict[str
 
 
 def _h_tobit(cmd: StataCommand) -> Dict[str, Any]:
-    """``tobit y x, ll(0) ul(100)`` → ``sp.tobit``."""
+    """``tobit y x, ll(0) ul(100)`` → ``sp.tobit(y=..., x=[...], ll=, ul=)``."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error("tobit requires an outcome variable", command="tobit")
-    args: Dict[str, Any] = {"formula": _build_formula(y, xs)}
-    ll = cmd.options.get("ll")
-    ul = cmd.options.get("ul")
-    if ll is not None:
-        try:
-            args["lower"] = float(ll)
-        except (TypeError, ValueError):
-            pass
-    if ul is not None:
-        try:
-            args["upper"] = float(ul)
-        except (TypeError, ValueError):
-            pass
-    code_pairs = ["data=df"]
-    if "lower" in args:
-        code_pairs.append(f"lower={args['lower']}")
-    if "upper" in args:
-        code_pairs.append(f"upper={args['upper']}")
-    python = f"sp.tobit({args['formula']!r}, {', '.join(code_pairs)})"
+    # sp.tobit takes y / x / ll / ul explicitly — not a formula (matching its
+    # signature is what makes the payload runnable).
+    args: Dict[str, Any] = {"y": y, "x": list(xs)}
+    for stata_opt, kw_name in (("ll", "ll"), ("ul", "ul")):
+        raw = cmd.options.get(stata_opt)
+        if raw is not None:
+            try:
+                args[kw_name] = float(raw)
+            except (TypeError, ValueError):
+                pass
+    code_pairs = ["data=df", f"y={y!r}", f"x={list(xs)!r}"]
+    for kw_name in ("ll", "ul"):
+        if kw_name in args:
+            code_pairs.append(f"{kw_name}={args[kw_name]}")
+    python = f"sp.tobit({', '.join(code_pairs)})"
     return _emit("tobit", args, python)
 
 
 def _h_heckman(cmd: StataCommand) -> Dict[str, Any]:
-    """``heckman y x, select(employed = age kids)`` → ``sp.heckman``."""
+    """``heckman y x, select(employed = age kids)`` →
+    ``sp.heckman(y=..., x=[...], select=..., z=[...])``."""
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error("heckman requires an outcome variable", command="heckman")
-    formula = _build_formula(y, xs)
     select = cmd.options.get("select")
     if not select:
         return _emit_error(
             "heckman needs `select(<eq>)` (selection equation).", command="heckman"
         )
-    # Stata syntax: ``select(d = z1 z2)`` or just ``select(z1 z2)``
+    # Stata syntax: ``select(d = z1 z2)``
     import re
 
     m = re.match(r"^\s*(\S+)\s*=\s*(.+)$", select)
-    if m:
-        select_lhs, select_rhs = m.group(1), m.group(2).strip()
-        select_formula = f"{select_lhs} ~ {select_rhs.replace(' ', ' + ')}"
-    else:
+    if not m:
         return _emit_error(
             "heckman select() must be `selectvar = covariates`", command="heckman"
         )
+    select_var = m.group(1)
+    z_vars = [v for v in m.group(2).split() if v]
+    # sp.heckman takes y / x / select / z explicitly — matching its signature.
     args: Dict[str, Any] = {
-        "formula": formula,
-        "select_formula": select_formula,
+        "y": y,
+        "x": list(xs),
+        "select": select_var,
+        "z": z_vars,
     }
-    python = f"sp.heckman({formula!r}, " f"select_formula={select_formula!r}, data=df)"
+    python = (
+        f"sp.heckman(data=df, y={y!r}, x={list(xs)!r}, "
+        f"select={select_var!r}, z={z_vars!r})"
+    )
     return _emit("heckman", args, python)
 
 
@@ -1112,6 +1119,18 @@ def _h_xtabond_family(cmd: StataCommand, *, sp_kind: str) -> Dict[str, Any]:
     y, xs = _split_varlist_y_x(cmd.varlist)
     if y is None:
         return _emit_error(f"{sp_kind} requires an outcome variable", command=sp_kind)
+    if sp_kind == "xtdpdsys":
+        # xtdpdsys is Blundell-Bond *system* GMM, which sp.xtabond does not yet
+        # implement (it raises NotImplementedError). Emitting tool='xtdpdsys'
+        # (no such callable) or xtabond(method='system') (raises) would be a dead
+        # on-ramp — fail loud with the honest fallback instead.
+        return _emit_error(
+            "xtdpdsys (Blundell-Bond system GMM) is not yet available — "
+            "sp.xtabond currently implements difference GMM only. Use "
+            "`xtabond` for the Arellano-Bond difference-GMM estimator.",
+            command="xtdpdsys",
+            suggestions=["xtabond"],
+        )
     panel_id = cmd.options.get("i") or cmd.options.get("id") or "<panel_id>"
     args: Dict[str, Any] = {
         "y": y,
@@ -1163,22 +1182,24 @@ def _h_bunching(cmd: StataCommand) -> Dict[str, Any]:
         return _emit_error(
             "bunching requires a running-variable column", command="bunching"
         )
-    x = cmd.varlist[0]
+    running_var = cmd.varlist[0]
     cutoff = cmd.options.get("c", "0")
     try:
-        c = float(cutoff) if cutoff is not None else 0.0
+        threshold = float(cutoff) if cutoff is not None else 0.0
     except (TypeError, ValueError):
-        c = 0.0
+        threshold = 0.0
     bandwidth = cmd.options.get("bw") or cmd.options.get("bandwidth")
-    args: Dict[str, Any] = {"x": x, "c": c}
+    # sp.bunching takes running_var / threshold / bin_width — matching its
+    # signature so the payload runs.
+    args: Dict[str, Any] = {"running_var": running_var, "threshold": threshold}
     if bandwidth:
         try:
-            args["bandwidth"] = float(bandwidth)
+            args["bin_width"] = float(bandwidth)
         except (TypeError, ValueError):
             pass
-    code_pairs = ["data=df", f"x={x!r}", f"c={c}"]
-    if "bandwidth" in args:
-        code_pairs.append(f"bandwidth={args['bandwidth']}")
+    code_pairs = ["data=df", f"running_var={running_var!r}", f"threshold={threshold}"]
+    if "bin_width" in args:
+        code_pairs.append(f"bin_width={args['bin_width']}")
     python = f"sp.bunching({', '.join(code_pairs)})"
     return _emit("bunching", args, python)
 
