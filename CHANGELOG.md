@@ -78,14 +78,17 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Parity index coverage expansion — 222 estimators now carry a graded parity
-  record (125 bit-exact), queryable via `sp.parity_status()` /
-  `sp.parity_summary()`.** This pass added closed-form / known-truth guards
-  across decomposition (Gelbach, Das-Gupta, Kitagawa, Lerman-Yitzhaki source,
-  subgroup-Theil, natural-effects mediation, interventional effects),
-  robustness (`sensemakr`, `oster_delta`, `breakdown_frontier`), inference
-  (`bootstrap`, `lrtest`, `icc`, `fisher_exact`, `romano_wolf`,
-  `anderson_rubin_test`, `effective_f_test`, `tF_critical_value`), bounds
+- **Parity index coverage expansion — 248 estimators now carry a graded
+  parity record (129 bit-exact), queryable via `sp.parity_status()` /
+  `sp.parity_summary()`. Across multiple sessions this pass added closed-form
+  / known-truth guards across decomposition (Gelbach, Das-Gupta, Kitagawa,
+  Lerman-Yitzhaki source, subgroup-Theil, natural-effects mediation,
+  interventional effects, four-way-decomposition, sensitivity-mr_DL,
+  partial_corr_pvalue, immigration_quartet, etc.), robustness (`sensemakr`,
+  `oster_delta`, `breakdown_frontier`), inference (`bootstrap`, `lrtest`,
+  `icc`, `fisher_exact`, `romano_wolf`, `anderson_rubin_test`,
+  `effective_f_test`, `tF_critical_value`, `mr_f_statistic`, `mr_steiger`,
+  `mr_mode`, `meta_analysis`, `cluster_robust_se`), bounds
   (`manski_bounds`, `lee_bounds`, `selection_bounds`, `horowitz_manski`),
   policy learning (`policy_value`, `policy_tree`), postestimation (`margins_at`,
   `mr` IVW), time series (`structural_break`, `cusum_test`, `engle_granger`),
