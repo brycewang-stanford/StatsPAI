@@ -3556,7 +3556,7 @@
     "name": "conformal_synth"
   },
   {
-    "description": "Compute Conley (1999) spatial HAC standard errors.",
+    "description": "Compute Conley (1999) spatial HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {

@@ -23844,7 +23844,7 @@
     }
   },
   {
-    "description": "Compute Conley (1999) spatial HAC standard errors.",
+    "description": "Compute Conley (1999) spatial HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "conley",
     "parameters": {
       "properties": {
