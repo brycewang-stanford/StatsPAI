@@ -21773,7 +21773,7 @@
     }
   },
   {
-    "description": "Simultaneous quantile regression at multiple quantiles.",
+    "description": "Simultaneous quantile regression at multiple quantiles. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sqreg",
     "parameters": {
       "properties": {
@@ -30339,7 +30339,7 @@
     }
   },
   {
-    "description": "Stepwise variable selection for OLS regression.",
+    "description": "Stepwise variable selection for OLS regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "stepwise",
     "parameters": {
       "properties": {
@@ -32369,7 +32369,7 @@
     }
   },
   {
-    "description": "Jackknife Instrumental Variables Estimation (JIVE).",
+    "description": "Jackknife Instrumental Variables Estimation (JIVE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "jive",
     "parameters": {
       "properties": {

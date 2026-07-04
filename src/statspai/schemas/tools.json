@@ -10174,7 +10174,7 @@
     "name": "jackknife_se"
   },
   {
-    "description": "Jackknife Instrumental Variables Estimation (JIVE).",
+    "description": "Jackknife Instrumental Variables Estimation (JIVE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20787,7 +20787,7 @@
     "name": "spillover"
   },
   {
-    "description": "Simultaneous quantile regression at multiple quantiles.",
+    "description": "Simultaneous quantile regression at multiple quantiles. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20997,7 +20997,7 @@
     "name": "staggered_synth"
   },
   {
-    "description": "Stepwise variable selection for OLS regression.",
+    "description": "Stepwise variable selection for OLS regression. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha_in": {
