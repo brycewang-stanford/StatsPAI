@@ -30474,7 +30474,7 @@
       "Monotonicity (for LATE interpretation under heterogeneous effects)"
     ],
     "category": "regression",
-    "description": "LASSO-selected instrumental variables.",
+    "description": "LASSO-selected instrumental variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.lasso_iv(df, y='lwage', x_endog=['educ'], x_exog=['exper'], z=[f'qob_{i}' for i in range(40)])",
     "failure_modes": [
       {
@@ -30512,7 +30512,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "LASSO-selected instrumental variables.",
+      "description": "LASSO-selected instrumental variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "lasso_iv",
       "parameters": {
         "properties": {
@@ -30575,8 +30575,10 @@
     },
     "stability": "stable",
     "typical_n_min": 100,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_lasso_iv_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

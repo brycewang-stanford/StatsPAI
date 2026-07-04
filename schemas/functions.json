@@ -32431,7 +32431,7 @@
     }
   },
   {
-    "description": "LASSO-selected instrumental variables.",
+    "description": "LASSO-selected instrumental variables. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lasso_iv",
     "parameters": {
       "properties": {
