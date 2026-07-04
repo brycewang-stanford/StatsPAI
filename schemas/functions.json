@@ -19643,7 +19643,7 @@
     }
   },
   {
-    "description": "Return cluster-robust standard errors (diagonal sqrt of vcov).",
+    "description": "Return cluster-robust standard errors (diagonal sqrt of vcov). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cluster_robust_se",
     "parameters": {
       "properties": {
