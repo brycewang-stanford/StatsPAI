@@ -7052,7 +7052,7 @@
       "Tarone's correction is applied so the statistic is consistent with the MH common-OR estimator used to compute expected cells."
     ],
     "category": "epi",
-    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction.",
+    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -7077,7 +7077,7 @@
     ],
     "reference": "Breslow & Day (1980); Tarone (1985)",
     "signature": {
-      "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction.",
+      "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "breslow_day_test",
       "parameters": {
         "properties": {
@@ -7100,10 +7100,11 @@
     "stability": "stable",
     "typical_n_min": 40,
     "validation_notes": [
+      "tests/reference_parity/test_breslow_day_parity.py",
       "API/unit contract evidence: tests/test_epi.py",
       "API/unit contract evidence: tests/test_epi_diagnostic.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -7290,7 +7291,7 @@
       "Temporality and the other eight viewpoints are treated as exchangeable contributions to a mean score (no formal weighting of necessity)."
     ],
     "category": "epi",
-    "description": "Structured 9-viewpoint Bradford-Hill causal-assessment rubric with prerequisite check (temporality required) and narrative verdict.",
+    "description": "Structured 9-viewpoint Bradford-Hill causal-assessment rubric with prerequisite check (temporality required) and narrative verdict. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -7315,7 +7316,7 @@
     ],
     "reference": "Hill (1965)",
     "signature": {
-      "description": "Structured 9-viewpoint Bradford-Hill causal-assessment rubric with prerequisite check (temporality required) and narrative verdict.",
+      "description": "Structured 9-viewpoint Bradford-Hill causal-assessment rubric with prerequisite check (temporality required) and narrative verdict. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bradford_hill",
       "parameters": {
         "properties": {
@@ -7371,9 +7372,10 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
+      "tests/reference_parity/test_bradford_hill_parity.py",
       "API/unit contract evidence: tests/test_epi.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

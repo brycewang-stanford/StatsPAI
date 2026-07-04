@@ -3846,7 +3846,7 @@
     }
   },
   {
-    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction.",
+    "description": "Breslow-Day test for homogeneity of the odds ratio across strata, with Tarone correction. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "breslow_day_test",
     "parameters": {
       "properties": {
@@ -3952,7 +3952,7 @@
     }
   },
   {
-    "description": "Structured 9-viewpoint Bradford-Hill causal-assessment rubric with prerequisite check (temporality required) and narrative verdict.",
+    "description": "Structured 9-viewpoint Bradford-Hill causal-assessment rubric with prerequisite check (temporality required) and narrative verdict. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bradford_hill",
     "parameters": {
       "properties": {
