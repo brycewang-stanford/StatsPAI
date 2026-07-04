@@ -20928,6 +20928,7 @@
     "typical_n_min": 100,
     "validation_notes": [
       "tests/reference_parity/test_wcb_recovery_parity.py",
+      "tests/reference_parity/test_wild_cluster_boot_parity.py",
       "API/unit contract evidence: tests/test_inference.py"
     ],
     "validation_status": "validated"
