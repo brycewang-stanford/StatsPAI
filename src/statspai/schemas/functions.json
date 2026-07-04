@@ -53516,7 +53516,7 @@
     }
   },
   {
-    "description": "Parametric four-way decomposition of TE = CDE + INT_ref + INT_med + PIE.",
+    "description": "Parametric four-way decomposition of TE = CDE + INT_ref + INT_med + PIE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "four_way_decomposition",
     "parameters": {
       "properties": {
