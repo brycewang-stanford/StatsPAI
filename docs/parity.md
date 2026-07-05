@@ -27,10 +27,10 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 129 |
 | aligned | 7 |
-| analytical-only | 116 |
+| analytical-only | 117 |
 | external-replication | 4 |
-| **verified (subtotal)** | **256** |
-| unverified | 883 |
+| **verified (subtotal)** | **257** |
+| unverified | 882 |
 | **total registered** | **1139** |
 
 ## bit-exact — 129 functions
@@ -194,7 +194,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `metalearner` | [`test_causalml_book.py`](../tests/external_parity/test_causalml_book.py) |
 
-## analytical-only — 116 functions
+## analytical-only — 117 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -249,6 +249,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `hdfe_ols` | [`test_hdfe_parity.py`](../tests/reference_parity/test_hdfe_parity.py) |
 | `horowitz_manski` | [`test_horowitz_manski_parity.py`](../tests/reference_parity/test_horowitz_manski_parity.py) |
 | `interference` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
+| `ipcw` | [`test_ipcw_parity.py`](../tests/reference_parity/test_ipcw_parity.py) |
 | `iv` | [`test_regress_weights_iv_robust_parity.py`](../tests/reference_parity/test_regress_weights_iv_robust_parity.py) |
 | `iv_diag` | [`test_diag_recovery_parity.py`](../tests/reference_parity/test_diag_recovery_parity.py) |
 | `ivqreg` | [`test_ivqreg_parity.py`](../tests/reference_parity/test_ivqreg_parity.py) |
@@ -317,6 +318,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `wild_cluster_ci_inv` | [`test_wild_cluster_ci_inv_parity.py`](../tests/reference_parity/test_wild_cluster_ci_inv_parity.py) |
 | `wooldridge_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) |
 
-## unverified — 883 functions
+## unverified — 882 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).
