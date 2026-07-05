@@ -1029,27 +1029,24 @@ def _h_test(cmd: StataCommand) -> Dict[str, Any]:
 
 
 def _h_xtset(cmd: StataCommand) -> Dict[str, Any]:
-    """``xtset id year`` — Stata panel declaration. Pure metadata."""
+    """``xtset id year`` / ``tsset`` — Stata panel declaration. No sp
+    equivalent: pass ``entity=`` / ``time=`` (or id/time kwargs) to
+    estimators like ``sp.panel`` directly. Fail loud so agents do not
+    silently run with a missing panel structure."""
     if not cmd.varlist:
         return _emit_error(
-            "xtset requires panel id (and optionally time)", command="xtset"
+            "xtset requires a panel id (and optionally time)", command="xtset"
         )
     panel_id = cmd.varlist[0]
     panel_time = cmd.varlist[1] if len(cmd.varlist) > 1 else None
-    notes = [
-        (
-            f"sp doesn't need an `xtset`-style declaration — pass "
-            f"id={panel_id!r}"
-            + (f" and time={panel_time!r}" if panel_time else "")
-            + " to estimators directly. This translation is a no-op "
-            "but lets agents acknowledge the panel structure."
-        )
-    ]
-    args: Dict[str, Any] = {"id": panel_id}
-    if panel_time:
-        args["time"] = panel_time
-    python = "# xtset is a no-op in StatsPAI; pass id + time directly to estimators."
-    return _emit("xtset", args, python, notes)
+    note = (
+        "sp has no xtset/tsset equivalent. Pass "
+        f"entity={panel_id!r}"
+        + (f" and time={panel_time!r}" if panel_time else "")
+        + " to estimators like sp.panel / sp.xtreg / sp.feols "
+        "(entity / id) directly."
+    )
+    return _emit_error(note, command="xtset", suggestions=["panel", "feols"])
 
 
 # ---------------------------------------------------------------------------

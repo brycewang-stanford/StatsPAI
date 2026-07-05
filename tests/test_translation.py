@@ -562,9 +562,8 @@ TIER2_ROUND_TRIPS = [
     ("margins, dydx(treat)", "margins", {"dydx": ["treat"]}),
     ("contrast x1", "contrast", {"terms": ["x1"]}),
     ("test x1 x2", "test", {"terms": ["x1", "x2"]}),
-    # Panel declaration (no-op)
-    ("xtset id year", "xtset", {"id": "id", "time": "year"}),
-    ("tsset year", "xtset", {"id": "year"}),
+    # xtset / tsset are intentionally excluded: no sp equivalent, the
+    # translator now fails loud with a note pointing at sp.panel / sp.feols.
 ]
 
 
@@ -704,9 +703,15 @@ class TestTier2EdgeCases:
         assert "time" in out["error"]
 
     def test_xtset_handles_time_only_form(self):
+        # xtset / tsset have no sp equivalent — the translator must fail
+        # loud (ok=False) with a note pointing at sp.panel / sp.feols, not
+        # silently emit a dead tool name + placeholder.
         out = from_stata("tsset year")
-        assert out["ok"] is True
-        assert out["arguments"]["id"] == "year"
+        assert out["ok"] is False
+        assert (
+            "panel" in out.get("error", "").lower()
+            or "feols" in out.get("error", "").lower()
+        )
 
     def test_tobit_string_bounds_ignored(self):
         # ``ll(.)`` is Stata's missing literal; we should ignore.
@@ -753,7 +758,10 @@ class TestStataHandlerCoverage:
         # Commands whose contract is a dedicated behaviour test rather than a
         # round-trip (they intentionally do not produce a runnable payload):
         #   xtdpdsys — system GMM unsupported → test_xtdpdsys_fails_loud_as_unsupported
+        #   xtset / tsset — no sp equivalent; translator fails loud →
+        #     test_xtset_handles_time_only_form
         covered.add("xtdpdsys")
+        covered.add("xtset")
         # Each handler should have at least one alias covered.
         handler_to_aliases = {}
         for alias, h in STATA_COMMAND_MAP.items():
@@ -1179,3 +1187,176 @@ def test_python_code_and_arguments_describe_the_same_call(command, channel):
     POSTEST = {"margins", "contrast", "test", "wild_cluster_bootstrap", "mi_estimate"}
     allow = out.get("tool") in POSTEST
     _code_args_agree(out, allow_postest=allow)
+
+
+# ----------------------------------------------------------------------
+# Unified 4-channel sweep — one test, one failure path
+# ----------------------------------------------------------------------
+#
+# Translation trust has four faces; running them as a single sweep gives a
+# unified failure message that points at the exact channel that broke,
+# rather than four separate test failures. A bug that affects multiple
+# channels (e.g. plm signature drift surfaced as both a "dispatch" failure
+# and an "args↔code" failure) is now reported once, with the deepest channel
+# that actually caught it.
+#
+# Order matches the trust chain:
+#   1. dispatchable   — the tool is callable and the payload runs.
+#   2. lossless        — no required arg is silently dropped.
+#   3. consistent     — python_code and arguments describe the same call.
+#   4. self-consistent — the emitted code can be parsed back to its keys.
+#
+# Numerical equivalence (the fourth trust contract, in a separate suite)
+# is excluded here because it needs synthetic data; this sweep is
+# structural-only so it runs in microseconds across every command.
+
+
+POSTEST_TOOLS = {"margins", "contrast", "test", "wild_cluster_bootstrap", "mi_estimate"}
+
+
+def _channel_dispatchable(out, df):
+    """Channel 1: payload is dispatchable — tool exists, args accepted, runs."""
+    if out.get("tool") in POSTEST_TOOLS:
+        return  # partial translations handled by postest allowlist
+    import statspai as sp
+
+    tool = out["tool"]
+    fn = getattr(sp, tool, None)
+    if fn is None or not callable(fn):
+        raise AssertionError(
+            f"channel=dispatchable: sp.{tool} is not callable — "
+            f"the translated tool name is a dead on-ramp."
+        )
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        try:
+            res = fn(data=df, **out["arguments"])
+        except TypeError as e:
+            raise AssertionError(
+                f"channel=dispatchable: sp.{tool}(**{out['arguments']}) raised "
+                f"TypeError — {e}. An argument name is likely wrong or a required "
+                f"kwarg is missing."
+            ) from None
+        except Exception:
+            # Numerical / convergence errors are not the dispatch channel's
+            # concern — they belong to numerical faithfulness.
+            return
+
+
+def _channel_lossless(out):
+    """Channel 2: no arg name in arguments is silently dropped by dispatch."""
+    if out.get("tool") in POSTEST_TOOLS:
+        return
+    import inspect
+
+    import statspai as sp
+
+    tool = out["tool"]
+    fn = getattr(sp, tool, None)
+    if fn is None:
+        return
+    try:
+        sig = inspect.signature(fn)
+    except (ValueError, TypeError):
+        return
+    has_var_kwargs = any(p.kind == p.VAR_KEYWORD for p in sig.parameters.values())
+    if has_var_kwargs:
+        return  # unknown kwargs land in **kwargs; only the structural test
+        # (channel 3) can catch silent drops there.
+    accepted = {
+        p.name
+        for p in sig.parameters.values()
+        if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+    }
+    unknown = set(out["arguments"]) - accepted - {"data"}
+    assert not unknown, (
+        f"channel=lossless: tool sp.{tool} rejects {sorted(unknown)} (no "
+        f"**kwargs to absorb them). One of those args is being silently dropped "
+        f"at dispatch — the call shape looks runnable but fits a different model."
+    )
+
+
+def _channel_consistent(out):
+    """Channel 3: python_code and arguments describe the same call.
+
+    Both must be derivable from one another. A divergence means a user
+    who copy-pastes the python_code gets a different model than a user who
+    dispatches (tool, arguments).
+    """
+    allow = out.get("tool") in POSTEST_TOOLS
+    _code_args_agree(out, allow_postest=allow)
+
+
+def _channel_self_consistent(out):
+    """Channel 4: the emitted python_code can be parsed back to its keys.
+
+    This is the lightest channel — it just confirms the code is syntactically
+    a real sp.<tool> call with extractable kwargs. Catches malformed strings,
+    placeholder snippets that were never real code, etc.
+    """
+    code = out.get("python_code", "")
+    if not code or code.lstrip().startswith("#"):
+        if out.get("tool") in POSTEST_TOOLS:
+            return
+        raise AssertionError(
+            f"channel=self_consistent: python_code is a placeholder/comment: "
+            f"{code!r} — the translator emitted no runnable call."
+        )
+    parsed = _parse_python_call(code)
+    if parsed is None:
+        raise AssertionError(
+            f"channel=self_consistent: python_code is not parseable: {code!r}"
+        )
+
+
+#: Same dataset shape used by the numerical-equivalence contract — built
+#: lazily so the sweep is cheap on commands that don't need a dataframe.
+def _sweep_df():
+    import pandas as pd
+
+    return _num_df()
+
+
+@pytest.mark.parametrize(
+    "command,channel",
+    [
+        *[
+            (c[0], "stata")
+            for c in TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS + TIER3_ROUND_TRIPS
+        ],
+        *[(c[0], "r") for c in R_ROUND_TRIPS],
+    ],
+    ids=lambda x: x if isinstance(x, str) else x[:50],
+)
+def test_unified_translation_trust_sweep(command, channel):
+    """For every (non-postest) translation, all four trust channels must
+    pass: dispatchable, lossless, consistent, self-consistent. A single
+    failure points at the violated channel; if multiple channels break, we
+    surface all of them so the regression can be diagnosed in one read."""
+    translate = from_stata if channel == "stata" else from_r
+    out = translate(command)
+    if not out.get("ok"):
+        # translators already fail-loud with suggestions; covered by the
+        # existing dispatch-policy tests. Skip — nothing for the sweep to
+        # verify.
+        return
+    failures: list = []
+    for name, fn in (
+        ("self_consistent", _channel_self_consistent),
+        ("dispatchable", _channel_dispatchable),
+        ("lossless", _channel_lossless),
+        ("consistent", _channel_consistent),
+    ):
+        try:
+            if name == "dispatchable":
+                fn(out, _sweep_df())
+            else:
+                fn(out)
+        except AssertionError as e:
+            failures.append(str(e))
+    assert not failures, (
+        f"translation trust sweep failed for {command!r} on "
+        f"{len(failures)} channel(s):\n  " + "\n  ".join(failures)
+    )
