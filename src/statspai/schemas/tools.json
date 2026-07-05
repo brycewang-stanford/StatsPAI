@@ -23591,7 +23591,7 @@
     "name": "wild_cluster_bootstrap"
   },
   {
-    "description": "Confidence interval via bootstrap p-value inversion.",
+    "description": "Confidence interval via bootstrap p-value inversion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {

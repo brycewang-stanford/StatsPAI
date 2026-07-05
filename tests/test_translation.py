@@ -280,27 +280,35 @@ R_ROUND_TRIPS = [
         "melogit",
         {"y": "y", "x_fixed": ["x"], "group": "group"},
     ),
-    # Panel
+    # Panel — sp.panel uses keyword args entity/time (not id/time); entity must
+    # be supplied (error otherwise) so the test case keeps index=c("id","t").
     (
         'plm(y ~ x, data = df, model = "within", index = c("id", "t"))',
         "panel",
-        {"formula": "y ~ x", "method": "within", "id": "id", "time": "t"},
+        {"formula": "y ~ x", "entity": "id", "time": "t", "method": "within"},
     ),
     (
-        'plm(y ~ x, data = df, model = "random")',
+        'plm(y ~ x, data = df, model = "random", index = c("id", "t"))',
         "panel",
-        {"formula": "y ~ x", "method": "random"},
+        {"formula": "y ~ x", "entity": "id", "time": "t", "method": "random"},
     ),
-    # MatchIt
+    # MatchIt — sp.match takes y (outcome) / treat / covariates (kw), not
+    # a formula. Translator uses the LHS as outcome and falls back to LHS
+    # as treatment if no ``treat=`` override is given.
     (
         'matchit(treat ~ x1 + x2, data = df, method = "nearest")',
         "match",
-        {"formula": "treat ~ x1 + x2", "method": "nn"},
+        {
+            "y": "treat",
+            "treat": "treat",
+            "covariates": ["x1", "x2"],
+            "method": "nearest",
+        },
     ),
     (
         'matchit(treat ~ x1, data = df, method = "genetic")',
         "match",
-        {"formula": "treat ~ x1", "method": "genmatch"},
+        {"y": "treat", "treat": "treat", "covariates": ["x1"], "method": "genetic"},
     ),
 ]
 
@@ -551,7 +559,7 @@ TIER2_ROUND_TRIPS = [
         },
     ),
     # Postestimation
-    ("margins, dydx(treat)", "margins", {"variables": [], "dydx": ["treat"]}),
+    ("margins, dydx(treat)", "margins", {"dydx": ["treat"]}),
     ("contrast x1", "contrast", {"terms": ["x1"]}),
     ("test x1 x2", "test", {"terms": ["x1", "x2"]}),
     # Panel declaration (no-op)
@@ -1009,3 +1017,165 @@ def test_cross_translator_hdfe_agrees_numerically():
         df,
         "reghdfe vs feols",
     )
+
+
+# ----------------------------------------------------------------------
+# python_code ↔ arguments round-trip — copy-paste must match dispatch
+# ----------------------------------------------------------------------
+#
+# Each translation emits BOTH a ``python_code`` string (for an LLM to paste
+# into a chat reply) AND a structured ``arguments`` dict (for an LLM to
+# dispatch via tools/call). An agent following one path and a user following
+# the other must reach the same model. The previous round of fixes caught
+# a real divergence here: ``_h_glm_like`` was writing ``args["robust"]`` but
+# leaving it out of ``python_code`` — copy-paste ran the wrong model while
+# dispatch ran the right one, with no error from either path. This contract
+# parses the emitted code back to a dict and asserts equality with the
+# structured ``arguments``, mod the data carrier (``data=df``).
+
+
+def _parse_python_call(code):
+    """Parse ``sp.fn(args..., kw=val)`` and return (tool, kwargs) where every
+    value is a plain Python value. Returns None on parse failure or a
+    placeholder / comment snippet.
+    """
+    import ast
+
+    try:
+        tree = ast.parse(code, mode="exec")
+    except SyntaxError:
+        return None
+    if not tree.body or not isinstance(tree.body[0], ast.Expr):
+        return None
+    call = tree.body[0].value
+    if not isinstance(call, ast.Call):
+        return None
+    f = call.func
+    if isinstance(f, ast.Name):
+        tool = f.id
+    elif isinstance(f, ast.Attribute):
+        tool = f"sp.{f.attr}"
+    else:
+        return None
+    out = {}
+
+    def _val(v):
+        if isinstance(v, (ast.List, ast.Dict, ast.Tuple, ast.Set)):
+            try:
+                return ast.literal_eval(v)
+            except Exception:
+                return ast.unparse(v)
+        if isinstance(v, ast.Constant):
+            return v.value
+        if isinstance(v, ast.Name):
+            return v.id
+        if (
+            isinstance(v, ast.UnaryOp)
+            and isinstance(v.op, ast.USub)
+            and isinstance(v.operand, ast.Constant)
+        ):
+            return -v.operand.value
+        return ast.unparse(v)
+
+    for k in call.keywords or []:
+        if k.arg is None:
+            continue
+        out[k.arg] = _val(k.value)
+    import inspect
+
+    try:
+        sig = inspect.signature(
+            getattr(__import__("statspai"), tool.removeprefix("sp."), None)
+        )
+    except Exception:
+        sig = None
+    params = list(sig.parameters.values()) if sig else []
+    for pos, a in enumerate(call.args):
+        if pos < len(params):
+            out[params[pos].name] = _val(a)
+        else:
+            out[f"_pos{pos}"] = _val(a)
+    return tool, out
+
+
+def _code_args_agree(payload, *, allow_postest=False):
+    """Assert python_code and arguments describe the same ``sp.<tool>`` call.
+
+    A few tools (margins / contrast / test / boottest / wild_cluster_boot) take
+    a fitted result as a positional argument, so ``python_code`` references
+    ``result`` while ``arguments`` does not — the agent is expected to pipe
+    the result in. That is a partial translation by design; pass
+    ``allow_postest=True`` to allow that asymmetry. Otherwise every
+    key in args must appear in code with the same value (and vice versa
+    for keys in code that are not the data carrier).
+    """
+    code = payload.get("python_code", "")
+    if not code or code.lstrip().startswith("#"):
+        return  # placeholder / comment snippet
+    parsed = _parse_python_call(code)
+    if parsed is None:
+        return
+    tool, code_args = parsed
+    expected_tool = f"sp.{payload['tool']}"
+    if tool != expected_tool:
+        raise AssertionError(
+            f"{payload.get('python_code', '')!r}: tool mismatch — "
+            f"python_code calls {tool!r} but arguments target {expected_tool!r}."
+        )
+    args = dict(payload["arguments"])
+    args.pop("data", None)
+    code_args.pop("data", None)
+    # Allow postestimation tools (margins / contrast / test / wild_cluster_boot):
+    # they take a fitted ``result`` as the first argument in python_code while
+    # args has no ``result`` key (the agent pipes the previous estimator's
+    # result_id in). Match either positional ``_pos0`` or keyword ``result``.
+    if allow_postest:
+        if code_args.get("_pos0") == "result":
+            code_args.pop("_pos0", None)
+        if code_args.get("result") == "result":
+            code_args.pop("result", None)
+    for k, v in code_args.items():
+        if k.startswith("_pos"):
+            # Extra positional with no parameter name — can't match. Skip
+            # unless the handler explicitly named it elsewhere.
+            continue
+        if k not in args:
+            raise AssertionError(
+                f"{code!r}: key {k!r}={v!r} present in python_code but not "
+                f"in arguments (args={args})."
+            )
+        if args[k] != v:
+            raise AssertionError(
+                f"{code!r}: key {k!r} mismatch — python_code has {v!r}, "
+                f"arguments has {args[k]!r}."
+            )
+    for k, v in args.items():
+        if k not in code_args:
+            raise AssertionError(
+                f"{code!r}: key {k!r}={v!r} present in arguments but not "
+                f"in python_code (code_args={code_args})."
+            )
+
+
+@pytest.mark.parametrize(
+    "command,channel",
+    [
+        *[
+            (c[0], "stata")
+            for c in TIER1_ROUND_TRIPS + TIER2_ROUND_TRIPS + TIER3_ROUND_TRIPS
+        ],
+        *[(c[0], "r") for c in R_ROUND_TRIPS],
+    ],
+    ids=lambda x: x if isinstance(x, str) else x[:50],
+)
+def test_python_code_and_arguments_describe_the_same_call(command, channel):
+    """For every (non-postest) translation, parsing the emitted ``python_code``
+    back to kwargs must equal the structured ``arguments`` dict — a copy-paste
+    user and a dispatch user reach the same model."""
+    translate = from_stata if channel == "stata" else from_r
+    out = translate(command)
+    if not out.get("ok"):
+        return
+    POSTEST = {"margins", "contrast", "test", "wild_cluster_bootstrap", "mi_estimate"}
+    allow = out.get("tool") in POSTEST
+    _code_args_agree(out, allow_postest=allow)

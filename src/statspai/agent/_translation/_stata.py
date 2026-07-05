@@ -692,9 +692,14 @@ def _h_glm_like(cmd: StataCommand, *, sp_fn: str, display_name: str) -> Dict[str
         args["robust"] = robust
     if cluster:
         args["cluster"] = cluster
+    # python_code and arguments must describe the SAME call (round-trip
+    # contract). Build code_pairs from the same args we just populated so
+    # copy-paste and dispatch can never diverge.
     code_pairs = ["data=df"]
-    if cluster:
+    if "cluster" in args:
         code_pairs.append(f"cluster={cluster!r}")
+    if "robust" in args:
+        code_pairs.append(f"robust={robust!r}")
     python = f"sp.{sp_fn}({formula!r}, " + ", ".join(code_pairs) + ")"
     return _emit(sp_fn, args, python)
 
@@ -967,20 +972,32 @@ def _h_psmatch2(cmd: StataCommand) -> Dict[str, Any]:
 def _h_margins(cmd: StataCommand) -> Dict[str, Any]:
     """Stata `margins`/`marginsplot` — emit a hint to use sp.margins()."""
     targets = cmd.varlist or []
-    args: Dict[str, Any] = {"variables": targets}
+    args: Dict[str, Any] = {}
+    # Only include a key in args if it has a real value — otherwise the
+    # python_code/args round-trip check sees an empty list on the args
+    # side and a missing key on the code side (the handler omits empty
+    # pairs from the emitted call). Treat empty varlist as "no variables"
+    # rather than a sentinel list.
+    if targets:
+        args["variables"] = targets
     if "dydx" in cmd.options and cmd.options["dydx"]:
         args["dydx"] = cmd.options["dydx"].split()
     if "at" in cmd.options:
         args["at"] = cmd.options["at"]
-    python = (
-        f"sp.margins(result, variables={targets!r})"
-        if targets
-        else "sp.margins(result)"
-    )
     notes = [
         "sp.margins takes a fitted result, not data — pipe the "
         "previous estimator's result_id (or fit a model first)."
     ]
+    # Round-trip contract: copy-paste and dispatch must describe the same call.
+    # Build python_code from args, leaving ``result`` as a literal (the agent
+    # pipes the prior estimator's result_id at copy-paste time).
+    code_pairs = ["result"]
+    for k in ("variables", "dydx", "at"):
+        v = args.get(k)
+        if v is None or v == "" or v == [] or v == {}:
+            continue
+        code_pairs.append(f"{k}={v!r}")
+    python = f"sp.margins({', '.join(code_pairs)})"
     return _emit("margins", args, python, notes)
 
 
@@ -988,20 +1005,26 @@ def _h_contrast(cmd: StataCommand) -> Dict[str, Any]:
     """Stata `contrast` — pairwise comparisons of a categorical."""
     targets = cmd.varlist or []
     args: Dict[str, Any] = {"terms": targets}
-    python = f"sp.contrast(result, terms={targets!r})"
     notes = [
         "sp.contrast takes a fitted result; pipe the previous " "estimator's result_id."
     ]
+    code_pairs = ["result"]
+    if args["terms"]:
+        code_pairs.append(f"terms={args['terms']!r}")
+    python = f"sp.contrast({', '.join(code_pairs)})"
     return _emit("contrast", args, python, notes)
 
 
 def _h_test(cmd: StataCommand) -> Dict[str, Any]:
     """Stata `test x1 x2` — Wald test of joint significance."""
     args: Dict[str, Any] = {"terms": cmd.varlist}
-    python = f"sp.test(result, terms={cmd.varlist!r})"
     notes = [
         "sp.test takes a fitted result; pipe the previous " "estimator's result_id."
     ]
+    code_pairs = ["result"]
+    if args["terms"]:
+        code_pairs.append(f"terms={args['terms']!r}")
+    python = f"sp.test({', '.join(code_pairs)})"
     return _emit("test", args, python, notes)
 
 
@@ -1246,11 +1269,13 @@ def _h_boottest(cmd: StataCommand) -> Dict[str, Any]:
         "sp.wild_cluster_bootstrap takes a fitted result as the "
         "first arg — pipe the previous estimator's result_id."
     ]
+    # Round-trip contract: code must mirror args (besides the ``result``
+    # carrier) so copy-paste and dispatch agree.
     code_pairs = ["result"]
-    if "B" in args:
-        code_pairs.append(f"B={args['B']}")
-    if "cluster" in args:
-        code_pairs.append(f"cluster={args['cluster']!r}")
+    for k in ("hypothesis", "B", "cluster"):
+        if k in args and args[k] not in (None, "", []):
+            v = args[k]
+            code_pairs.append(f"{k}={v!r}" if isinstance(v, str) else f"{k}={v}")
     python = f"sp.wild_cluster_bootstrap({', '.join(code_pairs)})"
     return _emit("wild_cluster_bootstrap", args, python, notes)
 

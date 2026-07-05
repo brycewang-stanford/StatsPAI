@@ -403,7 +403,13 @@ def _h_lmer(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
 
 def _h_plm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     """R `plm(y ~ x, data=df, model='within', index=c('id','t'))` →
-    ``sp.panel`` with the chosen estimator."""
+    ``sp.panel(data=df, formula=..., entity=..., time=..., method=...)``.
+
+    sp.panel's signature is keyword-only for the model side — passing the
+    formula positionally would collide with the implicit ``data`` parameter.
+    The old code emitted the formula as a positional arg, which silently
+    shadowed ``data`` and produced a dead on-ramp.
+    """
     formula = pos[0] if pos else kw.get("formula")
     if not formula:
         return _emit_error("plm requires a formula as the first argument")
@@ -417,53 +423,103 @@ def _h_plm(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     panel_keys: List[str] = []
     if index:
         panel_keys = _parse_c_vector(index)
-    args: Dict[str, Any] = {"formula": formula, "method": model}
-    if panel_keys:
-        args["id"] = panel_keys[0]
-        if len(panel_keys) > 1:
-            args["time"] = panel_keys[1]
-    code_pairs = ["data=df", f"method={model!r}"]
-    if "id" in args:
-        code_pairs.append(f"id={args['id']!r}")
+    if not panel_keys:
+        return _emit_error(
+            "plm needs `index=c(id_col)` (and optionally `t_col`) to identify "
+            "the panel structure; sp.panel(entity=..., time=...) takes those "
+            "column names directly.",
+            command="plm",
+        )
+    args: Dict[str, Any] = {"formula": formula, "entity": panel_keys[0]}
+    if len(panel_keys) > 1:
+        args["time"] = panel_keys[1]
+    args["method"] = model
+    code_pairs = ["data=df", f"formula={formula!r}", f"entity={panel_keys[0]!r}"]
     if "time" in args:
         code_pairs.append(f"time={args['time']!r}")
-    python = f"sp.panel({formula!r}, {', '.join(code_pairs)})"
+    code_pairs.append(f"method={model!r}")
+    python = f"sp.panel({', '.join(code_pairs)})"
     return _emit("panel", args, python)
 
 
 def _h_matchit(pos: List[str], kw: Dict[str, str], _: List[str]) -> Dict[str, Any]:
     """R `MatchIt::matchit(treat ~ x1 + x2, data=df, method='nearest')` →
-    ``sp.match``."""
+    ``sp.match(data=df, y=..., treat=..., covariates=[...], method=...)``.
+
+    sp.match takes y / treat / covariates as required keyword args, not a
+    formula. The old emit (`sp.match('formula', data=df, method=...)`) hit a
+    multiple-values-for-data TypeError on every call. We parse the LHS/RHS,
+    surface a useful error if a variable is missing, and pass the new shape
+    to both ``arguments`` and ``python_code``.
+    """
     formula = pos[0] if pos else kw.get("formula")
     if not formula:
         return _emit_error("matchit requires a formula as the first argument")
-    formula = _strip_quotes(formula)
+    parts = [s.strip() for s in formula.split("~", 1)]
+    if len(parts) != 2:
+        return _emit_error(
+            "matchit expects a two-sided formula `y ~ x1 + x2`", command="matchit"
+        )
+    outcome, rhs = parts
+    covariates = [c.strip() for c in rhs.split("+") if c.strip()]
+    if not outcome or not covariates:
+        return _emit_error(
+            "matchit formula must declare both the outcome (`y ~`) and at "
+            "least one covariate; got " + formula,
+            command="matchit",
+        )
+    # sp.match takes a separate treatment column — in matchit it is passed
+    # via `treat=` (default: same as the LHS when the user writes `trt ~ x`).
+    # The matchit spec lets users write any variable on the LHS and put the
+    # treatment in `treat=`, so we look for an explicit override.
+    treat = _strip_quotes(kw.get("treat", outcome))
     method = (
         _strip_quotes(kw.get("method", "nearest")).lower()
         if kw.get("method")
         else "nearest"
     )
-    # Map MatchIt method names → sp.match method names where they differ.
+    # Map MatchIt method names → sp.match's actual method names.
+    # Previous alias list ("nearest" -> "nn") was wrong: "nn" is not a valid
+    # sp.match method — the valid names are cardinality / cbps / cem / genetic /
+    # mahalanobis / nearest / optimal / subclass / full.
     method_alias = {
-        "nearest": "nn",
-        "exact": "exact",
+        "nearest": "nearest",
+        "exact": "subclass",  # sp.match's exact-style falls under subclass
         "cem": "cem",
         "subclass": "subclass",
         "optimal": "optimal",
         "full": "full",
-        "genetic": "genmatch",
+        "genetic": "genetic",
+        "mahalanobis": "mahalanobis",
+        "cardinality": "cardinality",
+        "cbps": "cbps",
     }
     sp_method = method_alias.get(method, method)
-    args: Dict[str, Any] = {"formula": formula, "method": sp_method}
+    args: Dict[str, Any] = {
+        "y": outcome,
+        "treat": treat,
+        "covariates": covariates,
+        "method": sp_method,
+    }
     notes: List[str] = []
     if method != sp_method:
         notes.append(
-            f"MatchIt method '{method}' mapped to sp.match " f"method='{sp_method}'."
+            f"MatchIt method '{method}' mapped to sp.match method='{sp_method}'."
         )
     distance = kw.get("distance")
     if distance:
         args["distance"] = _strip_quotes(distance)
-    python = f"sp.match({formula!r}, data=df, method={sp_method!r})"
+        notes.append("sp.match('distance=...') may not apply to all methods.")
+    code_pairs = [
+        "data=df",
+        f"y={outcome!r}",
+        f"treat={treat!r}",
+        f"covariates={covariates!r}",
+        f"method={sp_method!r}",
+    ]
+    if "distance" in args:
+        code_pairs.append(f"distance={args['distance']!r}")
+    python = f"sp.match({', '.join(code_pairs)})"
     return _emit("match", args, python, notes)
 
 
