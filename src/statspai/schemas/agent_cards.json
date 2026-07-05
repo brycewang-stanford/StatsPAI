@@ -11339,7 +11339,7 @@
       "Monotonicity when interpreting LATE on genetically-shifted subpopulation"
     ],
     "category": "mendelian",
-    "description": "Sample-overlap-corrected IVW MR (Burgess-Davies-Thompson 2016 closed-form correction). Removes first-order bias when exposure and outcome GWAS share participants; requires overlap_fraction and overlap_rho (e.g. from LD-score regression).",
+    "description": "Sample-overlap-corrected IVW MR (Burgess-Davies-Thompson 2016 closed-form correction). Removes first-order bias when exposure and outcome GWAS share participants; requires overlap_fraction and overlap_rho (e.g. from LD-score regression). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.mr_lap(bx, by, sx, sy, overlap_fraction=0.4, overlap_rho=0.18)",
     "failure_modes": [
       {
@@ -11378,7 +11378,7 @@
     ],
     "reference": "Burgess, Davies & Thompson (2016) Genet Epidemiol 40(7); Mounier & Kutalik (2023) Genet Epidemiol 47(4).",
     "signature": {
-      "description": "Sample-overlap-corrected IVW MR (Burgess-Davies-Thompson 2016 closed-form correction). Removes first-order bias when exposure and outcome GWAS share participants; requires overlap_fraction and overlap_rho (e.g. from LD-score regression).",
+      "description": "Sample-overlap-corrected IVW MR (Burgess-Davies-Thompson 2016 closed-form correction). Removes first-order bias when exposure and outcome GWAS share participants; requires overlap_fraction and overlap_rho (e.g. from LD-score regression). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "mr_lap",
       "parameters": {
         "properties": {
@@ -11426,9 +11426,10 @@
     "stability": "stable",
     "typical_n_min": 10,
     "validation_notes": [
+      "tests/reference_parity/test_mr_lap_parity.py",
       "API/unit contract evidence: tests/test_mr_frontier.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
