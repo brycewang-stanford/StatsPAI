@@ -274,6 +274,31 @@ the intervention in this replica.
 
 ---
 
+## Export Results
+
+Every result object ships with `Stata`-style and `R` (modelsummary/broom)
+exporters. One call drops a multi-sheet `.xlsx` or a Word table that you can
+hand to a co-author.
+
+```python
+sp.outreg2(r1, r2, filename="results.xlsx")            # Excel, Stata-style
+sp.modelsummary(r1, r2, output="table.docx")            # Word, modelsummary-style
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/assets/export-card-xlsx.png" alt="sp.outreg2 export — Card 1995 OLS + IV table" width="820">
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/assets/export-lalonde-xlsx.png" alt="sp.outreg2 export — LaLonde/NSW propensity-score table" width="820">
+</p>
+
+The screenshots above are the `.xlsx` output of `sp.outreg2` on the Card (1995)
+OLS + IV pair and the LaLonde/NSW propensity-score regression. Each sheet
+contains the coefficient table, model-fit statistics, and significance stars
+in the format your journal template expects.
+
+---
+
 ## Interactive Plot Editing
 
 If you miss Stata's Graph Editor, use `sp.interactive(fig)` on any matplotlib
