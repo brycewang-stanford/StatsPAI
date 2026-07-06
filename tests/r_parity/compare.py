@@ -68,6 +68,36 @@ STATA_SKIP_REASON: dict[str, str] = {
         "does not recover the R gsynth convention. No like-for-like Stata "
         "bridge is materialized yet."
     ),
+    "65_spatial": (
+        "R-referenced module: the SAR/SEM/SDM maximum-likelihood headline is "
+        "pinned to spatialreg::lagsarlm / errorsarlm (spatialreg 1.4-3). "
+        "Stata's spregress is the natural analog but follows a distinct "
+        "ML/estimand convention; no like-for-like Stata artifact is "
+        "materialized yet."
+    ),
+    "66_spatial_gmm": (
+        "R-referenced module: the SAR-2SLS / SEM-GMM headline is pinned to "
+        "spatialreg::stsls(W2X=FALSE) / GMerrorsar (spatialreg 1.4-3). "
+        "Stata's spregress, gs2sls is the natural analog but follows a "
+        "distinct instrument/moment convention; no like-for-like Stata "
+        "artifact is materialized yet."
+    ),
+    "67_panel_glm": (
+        "R-referenced module: absorbed-FE Poisson/GLM is pinned to its "
+        "fixest siblings (fepois/feglm, fixest 0.14.0). Stata ppmlhdfe is "
+        "the natural analog but no like-for-like Stata artifact is "
+        "materialized for this module yet."
+    ),
+    "68_demean_within": (
+        "algorithmic module: the within (mean-deviation) transformation is "
+        "an exact textbook identity checked against a base-R recomputation, "
+        "not an external estimator. No Stata artifact is materialized."
+    ),
+    "69_balance_panel": (
+        "algorithmic module: the balanced-panel filter is the base-R "
+        "counts == n_periods row selection, an exact identity rather than "
+        "an external estimator. No Stata artifact is materialized."
+    ),
 }
 
 TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [

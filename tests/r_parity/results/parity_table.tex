@@ -78,4 +78,9 @@ Module & Method & Worst headline diff & Verdict \\
 \code{62\_truncreg} & Truncated regression ML & rel $\le 3.3e-08$ & \textbf{PASS} \\
 \code{63\_zip} & Zero-inflated Poisson & rel $\le 7.7e-08$ & \textbf{PASS} \\
 \code{64\_zinb} & Zero-inflated NB & rel $\le 1.1e-06$ {\footnotesize (flat ZINB likelihood near optimum (1e-5 budget))} & \textbf{PASS} \\
+\code{65\_spatial} & Spatial ML (SAR/SEM/SDM) & rel $\le 8.3e-08$ {\footnotesize (vs spatialreg::lagsarlm/errorsarlm/Durbin, row-std rook W)} & \textbf{PASS} \\
+\code{66\_spatial\_gmm} & Spatial GMM (SAR-2SLS/SEM-GMM) & rel $\le 4.6e-08$ {\footnotesize (vs spatialreg::stsls(W2X=F)/GMerrorsar; SEM point-only)} & \textbf{PASS} \\
+\code{67\_panel\_glm} & Panel GLM (feglm / fepois) & rel $\le 9.7e-09$ {\footnotesize (vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5)} & \textbf{PASS} \\
+\code{68\_demean\_within} & Within transformation & rel $\le 3.5e-15$ {\footnotesize (sp.demean(solver='map') vs textbook mean-within)} & \textbf{PASS} \\
+\code{69\_balance\_panel} & Panel balance filter & rel $\le 0$ {\footnotesize (sp.balance_panel vs base R counts == n_periods)} & \textbf{PASS} \\
 \end{longtable}
