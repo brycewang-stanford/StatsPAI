@@ -7909,7 +7909,7 @@
     }
   },
   {
-    "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor.",
+    "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bcf_factor_exposure",
     "parameters": {
       "properties": {
@@ -18444,7 +18444,7 @@
     }
   },
   {
-    "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023).",
+    "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rate",
     "parameters": {
       "properties": {
@@ -18495,7 +18495,7 @@
     }
   },
   {
-    "description": "Half-sample bootstrap variance of the ATE/GATE estimate.",
+    "description": "Half-sample bootstrap variance of the ATE/GATE estimate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "honest_variance",
     "parameters": {
       "properties": {
@@ -21021,7 +21021,7 @@
     }
   },
   {
-    "description": "Estimate geo-experiment lift via synthetic control.",
+    "description": "Estimate geo-experiment lift via synthetic control. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "geolift",
     "parameters": {
       "properties": {
@@ -25727,7 +25727,7 @@
     }
   },
   {
-    "description": "Bayesian synthetic control.",
+    "description": "Bayesian synthetic control. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_synth",
     "parameters": {
       "properties": {

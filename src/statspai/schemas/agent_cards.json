@@ -14847,7 +14847,7 @@
       "The BART/forest priors are appropriate for the outcome scale."
     ],
     "category": "causal",
-    "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor.",
+    "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.bcf_factor_exposure(df, y=\"Y\", exposures=[\"z1\",\"z2\",\"z3\"], covariates=[\"x1\",\"x2\"], n_factors=2)",
     "failure_modes": [
       {
@@ -14865,7 +14865,7 @@
     ],
     "reference": "arXiv:2601.16595 (2026).",
     "signature": {
-      "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor.",
+      "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bcf_factor_exposure",
       "parameters": {
         "properties": {
@@ -14933,9 +14933,10 @@
     "stability": "stable",
     "typical_n_min": 250,
     "validation_notes": [
+      "tests/reference_parity/test_bcf_factor_exposure_parity.py",
       "API/unit contract evidence: tests/test_bcf_ordinal.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -25908,7 +25909,7 @@
       "Honesty: separate subsamples are used to choose splits and to estimate effects."
     ],
     "category": "causal",
-    "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023).",
+    "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -25926,7 +25927,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023).",
+      "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rate",
       "parameters": {
         "properties": {
@@ -25978,8 +25979,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_forest_rate_honest_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -25993,7 +25996,7 @@
       "Honesty: separate subsamples are used to choose splits and to estimate effects."
     ],
     "category": "causal",
-    "description": "Half-sample bootstrap variance of the ATE/GATE estimate.",
+    "description": "Half-sample bootstrap variance of the ATE/GATE estimate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -26011,7 +26014,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Half-sample bootstrap variance of the ATE/GATE estimate.",
+      "description": "Half-sample bootstrap variance of the ATE/GATE estimate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "honest_variance",
       "parameters": {
         "properties": {
@@ -26041,8 +26044,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_forest_rate_honest_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

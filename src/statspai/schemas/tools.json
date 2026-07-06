@@ -1170,7 +1170,7 @@
     "name": "bcf"
   },
   {
-    "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor. Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
+    "description": "BCF on PCA-factor scores of a high-dimensional exposure vector (arXiv:2601.16595, 2026). Compresses exposures via SVD or user-supplied loadings, then fits one BCF per factor. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness and overlap; The BART/forest priors are appropriate for the outcome scale. Pre-conditions: Covariates, treatment, and outcome; a propensity model is fit internally to limit regularization-induced confounding. Failure modes: MCMC diagnostics fail to converge, or estimates are sensitive to the prior -> Increase draws/tuning, re-scale the outcome, and report posterior diagnostics. Alternatives: sp.dml, sp.auto_cate, sp.causal_forest. Typical minimum N: 250.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9288,7 +9288,7 @@
     "name": "honest_did_from_result"
   },
   {
-    "description": "Half-sample bootstrap variance of the ATE/GATE estimate. Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
+    "description": "Half-sample bootstrap variance of the ATE/GATE estimate. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "X": {
@@ -16149,7 +16149,7 @@
     "name": "qte_hd_panel"
   },
   {
-    "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
+    "description": "Rank-Average Treatment Effect (Yadlowsky et al. 2023). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "T": {

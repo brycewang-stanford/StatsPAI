@@ -78,7 +78,7 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Parity index coverage expansion — 248 estimators now carry a graded
+- **Parity index coverage expansion — 262 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
   `sp.parity_summary()`. Across multiple sessions this pass added closed-form
   / known-truth guards across decomposition (Gelbach, Das-Gupta, Kitagawa,
@@ -95,8 +95,12 @@ These change DiD point estimates for affected staggered/switching designs. See
   causal discovery (`fci`, `ges` CPDAGs), conformal (`conformal_ite`,
   `conformal_fair_ite`), interference (`cluster_cross_interference`),
   transportability (`pate`, `front_door`), QTE (`ivqreg`, `beyond_average_late`,
-  `continuous_iv_late`, `dist_iv`), and the first network rows
-  (`degree_centrality`, `betweenness_centrality`, `clustering`). Every record
+  `continuous_iv_late`, `dist_iv`), the first network rows
+  (`degree_centrality`, `betweenness_centrality`, `clustering`), and the
+  causal-forest / synthetic-control aggregates (`rate` AUTOC sign anchor +
+  `honest_variance` mean-CATE identity, `geolift` exact convex-combo lift
+  recovery, `bcf_factor_exposure` adding-up identities + effect recovery,
+  `bayes_synth` Dirichlet-simplex ATT recovery). Every record
   traces to a committed `tests/reference_parity/` guard; grades are honest
   (bit-exact only for machine-precision identities, analytical-only for
   DGP-recovery / coverage guarantees). See `docs/dev/parity_gap_inventory.md`.
