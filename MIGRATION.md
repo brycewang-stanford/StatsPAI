@@ -5,6 +5,31 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="callaway-santanna-nevertreated-no-control"></a>
+
+## Unreleased — ⚠️ `sp.callaway_santanna` fails loudly with an empty never-treated control
+
+**What changed.** `sp.callaway_santanna(control_group="nevertreated")` on a
+panel where every unit is eventually treated (no `g=0` units) used to return a
+silent `ATT = 0.0`: each `ATT(g,t)` had no comparison cell, returned `0.0`, and
+those aggregated to a headline `0.0` with no warning. It now raises
+`MethodIncompatibility`.
+
+**Why.** `0.0` is a specific wrong number that reads as "no treatment effect,"
+so a mis-specified control group produced a plausible-looking but meaningless
+estimate instead of an error (§7 — fail loudly).
+
+**Who is affected.** Only calls that requested `control_group="nevertreated"`
+on a panel with zero never-treated units. Any panel with at least one
+never-treated unit (including `NaN`/`inf`-coded, which are treated as
+never-treated) is unchanged, and `control_group="notyettreated"` is unchanged.
+
+**Action.** Use `control_group="notyettreated"` (later-treated cohorts serve as
+controls), or add never-treated units to the panel. No previously-valid
+estimate changes.
+
+---
+
 <a id="eigenvector-centrality-bipartite"></a>
 
 ## Unreleased — ⚠️ `sp.eigenvector_centrality` fixed on bipartite graphs

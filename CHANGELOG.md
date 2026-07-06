@@ -9,6 +9,18 @@ All notable changes to StatsPAI will be documented in this file.
 These change DiD point estimates for affected staggered/switching designs. See
 `MIGRATION.md` before comparing new output to earlier StatsPAI runs.
 
+- **`sp.callaway_santanna(control_group="nevertreated")` now fails loudly when
+  the panel has no never-treated units** instead of silently returning
+  `ATT = 0.0`. With every unit eventually treated, each `ATT(g,t)` lost its
+  comparison cell and returned `0.0`, which aggregated to a headline ATT of
+  `0.0` — a wrong number that reads as "no effect" rather than an error (no
+  warning was emitted). The estimator now raises `MethodIncompatibility` with a
+  hint to use `control_group="notyettreated"` or add never-treated units. The
+  internal group encoding treats `NaN`/`inf` `g` as never-treated (0), so a
+  panel with any never-treated (including `NaN`-coded) unit is unaffected, and
+  `control_group="notyettreated"` is unaffected. No previously-valid estimate
+  moves — only the silent `0.0` degenerate path changes. New guard:
+  `tests/tier_eg/test_did_robustness.py::test_cs_no_never_treated_control_documented`.
 - **`sp.eigenvector_centrality` on bipartite graphs** now returns the true
   leading eigenvector instead of a spurious near-uniform vector. The score was
   computed by naive power iteration `x <- A x`, which *oscillates* on a

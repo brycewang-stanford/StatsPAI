@@ -1,5 +1,13 @@
 # FINDING — `sp.callaway_santanna` silent ATT=0.0 when `control_group="nevertreated"` has no never-treated units
 
+> **STATUS: RESOLVED (2026-07-06).** Fixed in `callaway_santanna.py` with an
+> up-front guard that raises `MethodIncompatibility` when
+> `control_group="nevertreated"` and the panel has no never-treated units
+> (NaN/inf `g` mirror the internal never-treated encoding). No previously-valid
+> estimate moves; only the silent `0.0` path changes. §12 logged in CHANGELOG
+> (⚠️ Correctness) + MIGRATION (#callaway-santanna-nevertreated-no-control).
+> The Tier G guard now takes the raise branch. 247 callaway/cs tests green.
+
 **Surfaced by:** `tests/tier_eg/test_did_robustness.py::test_cs_no_never_treated_control_documented`
 (did Tier G module, 2026-07-06).
 

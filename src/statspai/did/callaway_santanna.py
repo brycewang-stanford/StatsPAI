@@ -293,6 +293,29 @@ def callaway_santanna(
     panel = _require_bool(panel, argument="panel")
     _require_columns(data, (y, g, t, i, *(x or [])), function="callaway_santanna")
 
+    # Fail loudly when the requested never-treated comparison group is empty.
+    # With no never-treated units every ATT(g,t) loses its control cell and
+    # returns 0.0, which silently aggregates to a headline ATT of 0.0 — a wrong
+    # number that reads as "no effect" rather than an error. The internal group
+    # encoding treats NaN / inf `g` as never-treated (0), so mirror that here.
+    if control_group == "nevertreated":
+        g_clean = data[g].fillna(0).replace([np.inf, -np.inf], 0)
+        if not (g_clean == 0).any():
+            raise MethodIncompatibility(
+                "control_group='nevertreated' but the panel has no "
+                "never-treated units (every unit is eventually treated), so "
+                "there is no valid comparison group.",
+                recovery_hint=(
+                    "Use control_group='notyettreated', or add never-treated "
+                    "units (g=0) to the panel."
+                ),
+                diagnostics={
+                    "function": "callaway_santanna",
+                    "control_group": control_group,
+                    "n_never_treated": 0,
+                },
+            )
+
     # ---- Repeated cross-sections branch --------------------------------
     if not panel:
         if estimator != "reg":
