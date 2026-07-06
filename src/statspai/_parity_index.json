@@ -3340,6 +3340,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_local_projections_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "local_projections",
       "headline": {
         "metric": "rel_est",
