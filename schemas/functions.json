@@ -18378,7 +18378,7 @@
     }
   },
   {
-    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020).",
+    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "calibration_test",
     "parameters": {
       "properties": {
@@ -18411,7 +18411,7 @@
     }
   },
   {
-    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020).",
+    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "test_calibration",
     "parameters": {
       "properties": {

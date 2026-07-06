@@ -25775,7 +25775,7 @@
       "Honesty: separate subsamples are used to choose splits and to estimate effects."
     ],
     "category": "causal",
-    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020).",
+    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -25793,7 +25793,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020).",
+      "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "calibration_test",
       "parameters": {
         "properties": {
@@ -25827,8 +25827,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_calibration_test_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -25842,7 +25844,7 @@
       "Honesty: separate subsamples are used to choose splits and to estimate effects."
     ],
     "category": "causal",
-    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020).",
+    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -25860,7 +25862,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020).",
+      "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "test_calibration",
       "parameters": {
         "properties": {
@@ -25894,8 +25896,10 @@
     },
     "stability": "stable",
     "typical_n_min": 1000,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_calibration_test_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

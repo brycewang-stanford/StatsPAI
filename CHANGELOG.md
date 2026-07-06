@@ -78,9 +78,10 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Parity index coverage expansion — 262 estimators now carry a graded
+- **Parity index coverage expansion — 264 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
-  `sp.parity_summary()`. Across multiple sessions this pass added closed-form
+  `sp.parity_summary()`. This closes the Tier-D worklist of reference-less
+  estimators to zero. Across multiple sessions this pass added closed-form
   / known-truth guards across decomposition (Gelbach, Das-Gupta, Kitagawa,
   Lerman-Yitzhaki source, subgroup-Theil, natural-effects mediation,
   interventional effects, four-way-decomposition, sensitivity-mr_DL,
@@ -100,7 +101,8 @@ These change DiD point estimates for affected staggered/switching designs. See
   causal-forest / synthetic-control aggregates (`rate` AUTOC sign anchor +
   `honest_variance` mean-CATE identity, `geolift` exact convex-combo lift
   recovery, `bcf_factor_exposure` adding-up identities + effect recovery,
-  `bayes_synth` Dirichlet-simplex ATT recovery). Every record
+  `bayes_synth` Dirichlet-simplex ATT recovery, `calibration_test` /
+  `test_calibration` BLP heterogeneity detection). Every record
   traces to a committed `tests/reference_parity/` guard; grades are honest
   (bit-exact only for machine-precision identities, analytical-only for
   DGP-recovery / coverage guarantees). See `docs/dev/parity_gap_inventory.md`.

@@ -2191,7 +2191,7 @@
     "name": "calibrate_confounding_strength"
   },
   {
-    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
+    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "T": {
@@ -22715,7 +22715,7 @@
     "name": "test"
   },
   {
-    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
+    "description": "BLP-of-CATE calibration test (Chernozhukov-Demirer-Duflo-Fernandez-Val 2020). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity; Honesty: separate subsamples are used to choose splits and to estimate effects. Pre-conditions: Covariates, treatment, and outcome with enough data to grow an honest forest. Failure modes: Calibration test rejects -- the forest's heterogeneity is not well calibrated -> Increase the sample / number of trees, or fall back to a doubly-robust learner. Alternatives: sp.dml, sp.auto_cate, sp.tmle. Typical minimum N: 1000.",
     "input_schema": {
       "properties": {
         "T": {

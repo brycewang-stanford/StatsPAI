@@ -729,6 +729,23 @@
       "tolerance": ""
     },
     {
+      "function": "calibration_test",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_calibration_test_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_honest_did_paper_parity.py",
@@ -785,6 +802,7 @@
     {
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
+        "tests/reference_parity/test_calibration_test_parity.py",
         "tests/reference_parity/test_causal_forest_aipw_recovery.py",
         "tests/reference_parity/test_forest_ate_parity.py",
         "tests/reference_parity/test_forest_rate_honest_parity.py",
@@ -6704,6 +6722,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_postestimation_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "test_calibration",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_calibration_test_parity.py"
       ],
       "tolerance": ""
     },

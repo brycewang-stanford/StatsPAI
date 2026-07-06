@@ -89,7 +89,7 @@ _PRESENTATION_RE = re.compile(
     r"(plot$|^plot_|_plot_|plotdensity|_map$|_report|_summary$|_table$|_to_|"
     r"_dashboard|_compare$|^compare_|_examples?$|_card$|marginsplot|psplot|"
     r"_to_latex|_to_word|_to_excel|_to_markdown|_to_file|"
-    r"_simulate$|_positions$|^dag_example)"
+    r"_simulate$|_positions$|^dag_example|^parity_)"
 )
 
 
