@@ -101,7 +101,7 @@ A core estimator's Tier E suite should cover, where the relation is *defined*:
 | iv     | `tests/tier_eg/test_iv_invariance.py`    | `tests/tier_eg/test_iv_robustness.py`    | 11 | 9 | ✅ E1,E2,E3,E4,E5,E8,E9,instr-scale; G1,G2,G3,G4,G6,G8 |
 | dml    | `tests/tier_eg/test_dml_invariance.py`   | `tests/tier_eg/test_dml_robustness.py`   | 9 | 7 | ✅ seed-det,E2,E3,E8,treat-scale,cross-fit-band; G missing/folds/irm/constant-d/NaN |
 | panel  | `tests/tier_eg/test_panel_invariance.py` | `tests/tier_eg/test_panel_robustness.py` | 11 | 7 | ✅ E1-E6,E8,E9 (fe+twoway); G1,G4,G5,G7,G8 + OBS-1 |
-| did    | `tests/tier_eg/test_did_invariance.py`   | `tests/tier_eg/test_did_robustness.py`   | — | — | ☐ |
+| did    | `tests/tier_eg/test_did_invariance.py`   | `tests/tier_eg/test_did_robustness.py`   | 14 | 9 | ✅ 2x2 E1,E2,E3,E5,E6,E7,E8; CS E1,E2,E3,E5,E8,ctrl-group-agree; G9,G10,G5,G8,G1(NaN/inf); CS missing-id,NaN,no-never-ctrl (FINDING) |
 | rd     | `tests/tier_eg/test_rd_invariance.py`    | `tests/tier_eg/test_rd_robustness.py`    | 11 | 7 | ✅ E1,E3,E12,run-scale,reflection; G1,G2,G3,G8,one-sided,weights-NotImpl |
 | synth  | `tests/tier_eg/test_synth_invariance.py` | `tests/tier_eg/test_synth_robustness.py` | 8 | 6 | ✅ E1,E2,E3,E13(donor-relabel); G1,treated-absent,pre/post-period,missing,single-donor |
 
@@ -188,3 +188,20 @@ left for the maintainer to sync (deliberately NOT fixed here).
 - [x] One observation surfaced (**OBS-1**, panel constant-regressor quirk),
       logged above; confirmed **upstream linearmodels** semantics, NOT a §12
       numerical regression → no silent fix made.
+
+## Session log
+
+### 2026-07-06 — did module completed + CS gap surfaced
+- The `did` Tier E/G files already existed and were green (20 tests) but the
+  per-module table still read `☐` — a stale tracker, now corrected to ✅.
+- **Deepened the thinner staggered (Callaway–Sant'Anna) half** from 3 E / 2 G
+  to 6 E / 3 G: added CS E5 (unit duplication point-invariance), CS E8
+  (covariate column reorder), a methodological never-vs-not-yet control-group
+  agreement (banded), and a documented no-never-treated-control robustness
+  case. Module now 14 E / 9 G; `pytest tests/tier_eg/ -q` → **111 passed**.
+- **⚠️ FINDING (reported, NOT fixed — §12):**
+  `.tier_eg_campaign/FINDING_cs_nevertreated_no_control.md`.
+  `sp.callaway_santanna(control_group="nevertreated")` with zero never-treated
+  units returns a silent `ATT = 0.0` (undefined cells aggregate to 0) instead
+  of failing loudly. Reproduced on seeds 3/7/11, zero warnings. Guard pins
+  both acceptable outcomes so the fix is a deliberate, test-visible change.

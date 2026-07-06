@@ -170,3 +170,39 @@ def test_cs_outcome_scale_equivariant(staggered_df, a):
     base = _cs(staggered_df)
     got = _cs(staggered_df.assign(y=a * staggered_df["y"]))
     assert_scaled(coef(base), coef(got), a, rtol=1e-6, what="CS ATT (y scale)")
+
+
+# E5 — CS unit duplication: the ATT(g,t) aggregation is a mean over units, so
+# doubling every unit (with fresh ids) leaves the point estimate unchanged.
+def test_cs_duplication_point_invariant(staggered_df):
+    base = _cs(staggered_df)
+    dup = pd.concat(
+        [staggered_df, staggered_df.assign(id=staggered_df["id"] + 100000)],
+        ignore_index=True,
+    )
+    got = _cs(dup)
+    assert_invariant(coef(base), coef(got), rtol=1e-6, what="CS ATT (dup)")
+
+
+# E8 — CS covariate column reordering leaves the doubly-robust ATT unchanged.
+def test_cs_covariate_reorder_invariant(staggered_df):
+    rng = np.random.default_rng(0)
+    d = staggered_df.copy()
+    d["c1"] = rng.normal(size=len(d))
+    d["c2"] = rng.normal(size=len(d))
+    a = _cs(d, x=["c1", "c2"])
+    b = _cs(d, x=["c2", "c1"])
+    assert_invariant(coef(a), coef(b), rtol=1e-7, what="CS ATT (cov reorder)")
+
+
+# Methodological invariance — under no anticipation and (conditional) parallel
+# trends, the never-treated and not-yet-treated control groups both identify
+# the same ATT, so the two estimates agree up to sampling noise (banded, NOT
+# an exact FP identity: the control sets and their weights genuinely differ).
+def test_cs_control_group_agreement(staggered_df):
+    never = coef(_cs(staggered_df, control_group="nevertreated"))
+    notyet = coef(_cs(staggered_df, control_group="notyettreated"))
+    assert abs(never - notyet) <= 0.3, (
+        f"never-treated ({never:.3f}) and not-yet-treated ({notyet:.3f}) "
+        "controls disagree beyond the sampling band under a clean DGP"
+    )

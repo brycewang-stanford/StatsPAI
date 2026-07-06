@@ -119,3 +119,31 @@ def test_cs_nan_rows_finite():
     got = sp.callaway_santanna(dirty, y="y", g="g", t="time", i="id")
     assert np.isfinite(coef(got)), "NaN rows poisoned the CS ATT"
     np.testing.assert_allclose(coef(got), coef(clean), rtol=0.15)
+
+
+# --------------------------------------------------------------------------- #
+# Documented gap — nevertreated control requested but no never-treated units   #
+# (§7 fail-loud gap; reported to maintainer, see .tier_eg_campaign FINDINGS)   #
+# --------------------------------------------------------------------------- #
+@pytest.mark.filterwarnings("ignore")
+def test_cs_no_never_treated_control_documented():
+    """``control_group='nevertreated'`` with *zero* never-treated units
+    currently returns a silent ``ATT = 0.0`` (every ATT(g,t) is undefined for
+    lack of a valid comparison group, and the undefined cells aggregate to 0)
+    rather than failing loudly — a §7 gap logged for the maintainer.
+
+    Pin *both* acceptable outcomes so that adding a no-control guard later is a
+    deliberate, test-visible change: either the call raises with a usable
+    message, or it reproduces the documented silent-zero.
+    """
+    d = make_staggered_did(n_units=150, seed=3)
+    d_all = d[d["g"] != 0].copy()  # drop every never-treated unit
+    try:
+        got = sp.callaway_santanna(
+            d_all, y="y", g="g", t="time", i="id", control_group="nevertreated"
+        )
+    except Exception as e:
+        assert str(e).strip()  # acceptable: a no-control guard was added
+        return
+    # current behaviour: silent degenerate ATT = 0.0 (the reported gap).
+    assert coef(got) == 0.0
