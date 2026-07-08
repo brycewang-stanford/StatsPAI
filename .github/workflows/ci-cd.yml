@@ -300,7 +300,15 @@ jobs:
     - name: Install dependencies (pin pandas to the stable 3.x line)
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
+        # Pull the canonical extras the test matrix needs (pyfixest for
+        # the high-dimensional-FE parity + translation tests, parity /
+        # rd-cct for the reference-parity pins). Previously the pandas-3
+        # lane only had ``[dev]`` and ~14 ``test_*`` files errored with
+        # ``ModuleNotFoundError: No module named 'pyfixest'``. Adding
+        # ``[fixest,parity,rd-cct]`` here keeps the pandas-3 canary
+        # green while matching the canonical ubuntu+3.10 env's dep set
+        # (modulo the pinned pandas version).
+        pip install -e ".[dev,fixest,parity,rd-cct]"
         # pandas 3.0.4 wheels segfault / bus-error in pd.date_range on the
         # Python 3.12 pandas3 lane. Keep the canary on pandas 3.x, but exclude
         # that patch release until an upstream fixed 3.x wheel is available.

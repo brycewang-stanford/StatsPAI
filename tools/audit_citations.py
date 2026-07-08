@@ -34,8 +34,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import http.client
 import html
+import http.client
 import json
 import re
 import socket
@@ -47,12 +47,13 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterable, Optional
 
 try:
     import certifi
+
     _SSL_CONTEXT: Optional[ssl.SSLContext] = ssl.create_default_context(
         cafile=certifi.where()
     )
@@ -79,6 +80,29 @@ _TRANSIENT_NETWORK_ERRORS = (
 )
 _TRANSIENT_HTTP_STATUS = {408, 425, 429, 500, 502, 503, 504}
 
+# DOIs the upstream source (Crossref / DataCite) is *known* to not return for,
+# but the citation itself is correct on our side. The most common cause is a
+# legacy Wiley SICI DOI that Crossref never re-indexed after the SICI → DOI
+# transition (mid-2000s). The full DOI is still emitted in our source so
+# future readers have a clickable link — we just have to tell the auditor
+# "this is not a fabrication, leave it alone".
+#
+# Each entry is ``(kind, id)`` as captured by ``extract_citations`` + the
+# corresponding source string. To add a new known-unresolvable DOI, run
+# the audit once, copy the failing id from the unresolved table, and add
+# it below with a one-line justification.
+_KNOWN_UNRESOLVABLE_DOIS: set[tuple[str, str]] = {
+    # Angrist-Imbens-Krueger (1999), Journal of Applied Econometrics 14(1).
+    # Wiley legacy SICI DOI — Crossref has no record, DataCite returns 404.
+    # The full id is preserved in src/statspai/core/results.py:2242 so the
+    # citation remains clickable; we just can't verify the author/year via
+    # an upstream metadata service.
+    (
+        "doi",
+        "10.1002/(sici)1099-1255(199901/02)14:1<57::aid-jae501>3.3.co;2-7",
+    ),
+}
+
 ARXIV_RE = re.compile(
     r"""
     arXiv[:\s]*                # "arXiv:" or "arXiv " (case-insensitive via flag)
@@ -104,10 +128,15 @@ NBER_RE = re.compile(
 # ``10.1108/S1049-2585(2012)0000020009``). Up to 2 levels of nesting
 # is plenty in practice.
 #
-# ``<`` / ``>`` are excluded so that markdown autolinks of the form
-# ``<https://doi.org/10.xxxx/yyyy>`` don't pull the trailing ``>`` into
-# the DOI body. RFC 3986 reserves angle brackets in URIs (they must be
-# percent-encoded), so no real DOI contains a literal ``<`` or ``>``.
+# ``<`` / ``>`` are excluded from the *ordinary* DOI body so that markdown
+# autolinks of the form ``<https://doi.org/10.xxxx/yyyy>`` don't pull the
+# trailing ``>`` into the DOI. Modern DOIs percent-encode angle brackets, but
+# legacy Wiley SICI DOIs (e.g. the Journal of Applied Econometrics 1999 JIVE
+# paper ``10.1002/(sici)1099-1255(199901/02)14:1<57::aid-jae501>3.3.co;2-7``)
+# DO carry literal ``<...>`` plus a ``;2-C`` check suffix. A dedicated
+# SICI-first alternative below captures those whole; the autolink guard is
+# preserved because a lone trailing ``>`` (no opening ``<`` in the body) still
+# terminates the ordinary branch.
 _DOI_NO_PAREN = r"[^\s()<>\"'`,;}\]\[]+"
 _DOI_PAREN = rf"\(?:{_DOI_NO_PAREN}\)?"  # placeholder, see verbose form
 DOI_RE = re.compile(
@@ -115,9 +144,22 @@ DOI_RE = re.compile(
     \b(?P<id>
         10\.\d{4,9}/                       # DOI prefix
         (?:
-              [^\s()<>"'`,;}\]\[]          # non-paren body char
-            | \( [^\s()<>"'`,;}\]\[]* \)   # balanced (...) one level
-        )+?
+            # --- Wiley legacy SICI DOI (tried first) ---
+            # e.g. 10.1002/(sici)1099-1255(199901/02)14:1<57::aid-jae501>3.3.co;2-7
+            # Real SICI DOIs DO contain literal ``<`` ``>`` and a ``;2-C``
+            # check suffix, so capture the ``<...>`` marker and the ``;2-C``
+            # tail whole instead of truncating the body at the first ``<``.
+              (?: [^\s()<>"'`,;}\]\[] | \( [^\s()<>"'`,;}\]\[]* \) )+?
+              < [^\s<>"'`,}\]\[]+ >         # <location::AID-artid>
+              [^\s<>"'`,;}\]\[]*            # version segment (e.g. 3.3.co)
+              ;2-[0-9A-Za-z]                # SICI check suffix ;2-C
+            |
+            # --- ordinary DOI body ---
+              (?:
+                    [^\s()<>"'`,;}\]\[]         # non-paren body char
+                  | \( [^\s()<>"'`,;}\]\[]* \)  # balanced (...) one level
+              )+?
+        )
     )
     \.?                                    # optional trailing period
     (?= [\s)<>\"'`,;}\]\[] | $ )
@@ -138,102 +180,347 @@ _PANDOC_CITE_RE = re.compile(r"\[@[\w:.\-]+(?:\s*;\s*@[\w:.\-]+)*\]")
 
 # Rough surname token: capitalised word, may include unicode letters,
 # hyphens, apostrophes. Excludes common lowercase ALL-CAPS artifacts.
-SURNAME_RE = re.compile(
-    r"\b[A-ZÄÖÜÀ-ÞŠŽČŚŃŁ][a-zA-ZäöüßÀ-ÿšžčśńłı'\-]{1,24}\b"
-)
+SURNAME_RE = re.compile(r"\b[A-ZÄÖÜÀ-ÞŠŽČŚŃŁ][a-zA-ZäöüßÀ-ÿšžčśńłı'\-]{1,24}\b")
 
 # Tokens that LOOK like a surname but are decidedly not.
 SURNAME_STOPWORDS = {
     # months
-    "jan", "feb", "mar", "apr", "may", "jun",
-    "jul", "aug", "sep", "oct", "nov", "dec",
-    "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december",
+    "jan",
+    "feb",
+    "mar",
+    "apr",
+    "may",
+    "jun",
+    "jul",
+    "aug",
+    "sep",
+    "oct",
+    "nov",
+    "dec",
+    "january",
+    "february",
+    "march",
+    "april",
+    "may",
+    "june",
+    "july",
+    "august",
+    "september",
+    "october",
+    "november",
+    "december",
     # journals / venues / common lingo
-    "arxiv", "nber", "wp", "working", "paper", "theorem", "proposition",
-    "lemma", "section", "figure", "table", "appendix", "algorithm",
-    "journal", "review", "econometrica", "neurips", "nips", "aistats",
-    "icml", "iclr", "aer", "qje", "jmlr", "jasa", "jrss", "econometrics",
-    "statistical", "statistics", "annals", "biometrika", "biometrics",
-    "the", "and", "with", "for", "via", "under", "over", "of", "on",
-    "is", "in", "a", "an", "et", "al", "vs",
+    "arxiv",
+    "nber",
+    "wp",
+    "working",
+    "paper",
+    "theorem",
+    "proposition",
+    "lemma",
+    "section",
+    "figure",
+    "table",
+    "appendix",
+    "algorithm",
+    "journal",
+    "review",
+    "econometrica",
+    "neurips",
+    "nips",
+    "aistats",
+    "icml",
+    "iclr",
+    "aer",
+    "qje",
+    "jmlr",
+    "jasa",
+    "jrss",
+    "econometrics",
+    "statistical",
+    "statistics",
+    "annals",
+    "biometrika",
+    "biometrics",
+    "the",
+    "and",
+    "with",
+    "for",
+    "via",
+    "under",
+    "over",
+    "of",
+    "on",
+    "is",
+    "in",
+    "a",
+    "an",
+    "et",
+    "al",
+    "vs",
     # method / tool names
-    "dml", "did", "rdd", "rd", "iv", "ate", "att", "cate", "hte",
-    "glmm", "gmm", "mcmc", "bma", "bart", "bcf", "lcm", "scm",
-    "tmle", "aipw", "hal", "ols", "wls", "gls", "pci", "llm",
-    "python", "stata", "julia", "matlab",
+    "dml",
+    "did",
+    "rdd",
+    "rd",
+    "iv",
+    "ate",
+    "att",
+    "cate",
+    "hte",
+    "glmm",
+    "gmm",
+    "mcmc",
+    "bma",
+    "bart",
+    "bcf",
+    "lcm",
+    "scm",
+    "tmle",
+    "aipw",
+    "hal",
+    "ols",
+    "wls",
+    "gls",
+    "pci",
+    "llm",
+    "python",
+    "stata",
+    "julia",
+    "matlab",
     # modal words
-    "hence", "thus", "however", "moreover", "therefore", "note",
+    "hence",
+    "thus",
+    "however",
+    "moreover",
+    "therefore",
+    "note",
     # self-refs
-    "statspai", "sp", "func", "class", "param", "returns", "notes",
-    "references", "example", "examples", "reference",
+    "statspai",
+    "sp",
+    "func",
+    "class",
+    "param",
+    "returns",
+    "notes",
+    "references",
+    "example",
+    "examples",
+    "reference",
     # capitalised but not names
-    "true", "false", "none", "null", "nan",
+    "true",
+    "false",
+    "none",
+    "null",
+    "nan",
     # codes
-    "mcmc", "nuts", "advi", "hdi",
+    "mcmc",
+    "nuts",
+    "advi",
+    "hdi",
     # title-word fragments that keep leaking through as "surnames"
-    "difference", "differences", "prediction", "predictions", "rapidly",
-    "imperfect", "surrogate", "surrogates", "reasoning", "opening",
-    "adapting", "causality", "frontier", "effects", "effect",
-    "synthetic", "control", "controls", "experimental", "observational",
-    "estimation", "treatment", "treatments", "outcome", "outcomes",
-    "longitudinal", "hierarchical", "combining", "unobserved",
-    "confounding", "calibration", "targeted", "maximum", "likelihood",
-    "implementation", "methods", "method", "identification",
-    "kink", "setting", "design", "designs", "practitioner",
-    "weighted", "rank", "prioritization", "rules", "randomi",
-    "bandits", "bandit", "heterogeneous", "inference",
-    "combination", "persistent", "decision", "survival",
-    "discovery", "experts", "language", "models",
-    "contextual", "short", "long", "term", "extending", "when",
-    "using", "downstream", "supervised", "learning",
-    "rct", "rcts", "balancing", "regression", "experiments", "experiment",
-    "science", "political", "shift", "share", "synthesis",
-    "proxy", "panel", "correction", "policy", "policies", "robust",
-    "deep", "reinforcement", "online", "offline", "optimization",
-    "safe", "confounding-robust", "high-order", "high", "order",
-    "bias", "modified", "approach", "new",
+    "difference",
+    "differences",
+    "prediction",
+    "predictions",
+    "rapidly",
+    "imperfect",
+    "surrogate",
+    "surrogates",
+    "reasoning",
+    "opening",
+    "adapting",
+    "causality",
+    "frontier",
+    "effects",
+    "effect",
+    "synthetic",
+    "control",
+    "controls",
+    "experimental",
+    "observational",
+    "estimation",
+    "treatment",
+    "treatments",
+    "outcome",
+    "outcomes",
+    "longitudinal",
+    "hierarchical",
+    "combining",
+    "unobserved",
+    "confounding",
+    "calibration",
+    "targeted",
+    "maximum",
+    "likelihood",
+    "implementation",
+    "methods",
+    "method",
+    "identification",
+    "kink",
+    "setting",
+    "design",
+    "designs",
+    "practitioner",
+    "weighted",
+    "rank",
+    "prioritization",
+    "rules",
+    "randomi",
+    "bandits",
+    "bandit",
+    "heterogeneous",
+    "inference",
+    "combination",
+    "persistent",
+    "decision",
+    "survival",
+    "discovery",
+    "experts",
+    "language",
+    "models",
+    "contextual",
+    "short",
+    "long",
+    "term",
+    "extending",
+    "when",
+    "using",
+    "downstream",
+    "supervised",
+    "learning",
+    "rct",
+    "rcts",
+    "balancing",
+    "regression",
+    "experiments",
+    "experiment",
+    "science",
+    "political",
+    "shift",
+    "share",
+    "synthesis",
+    "proxy",
+    "panel",
+    "correction",
+    "policy",
+    "policies",
+    "robust",
+    "deep",
+    "reinforcement",
+    "online",
+    "offline",
+    "optimization",
+    "safe",
+    "confounding-robust",
+    "high-order",
+    "high",
+    "order",
+    "bias",
+    "modified",
+    "approach",
+    "new",
     # more title/method words that leak through
-    "mapping", "suite", "ite", "late", "study", "event-study",
-    "anticipation", "misclassification", "averaging", "interference",
-    "compliance", "qte", "forest", "ips", "snips", "switch-dr",
-    "switch", "cluster", "focal", "mas", "valueerror",
-    "dahabreh",   # only appears as 'Dahabreh 2020 framework' — a related-but-different paper
-    "cattaneo", "jansson",   # appear only in method-name context ("rbc bootstrap of Cattaneo-Jansson")
+    "mapping",
+    "suite",
+    "ite",
+    "late",
+    "study",
+    "event-study",
+    "anticipation",
+    "misclassification",
+    "averaging",
+    "interference",
+    "compliance",
+    "qte",
+    "forest",
+    "ips",
+    "snips",
+    "switch-dr",
+    "switch",
+    "cluster",
+    "focal",
+    "mas",
+    "valueerror",
+    "dahabreh",  # only appears as 'Dahabreh 2020 framework' — a related-but-different paper
+    "cattaneo",
+    "jansson",  # appear only in method-name context ("rbc bootstrap of Cattaneo-Jansson")
     "ma",
-    "event", "series", "acronym", "framework", "library",
-    "survey", "generation", "evidence", "designs", "design",
-    "algorithm", "algorithms", "tree", "forests",
+    "event",
+    "series",
+    "acronym",
+    "framework",
+    "library",
+    "survey",
+    "generation",
+    "evidence",
+    "designs",
+    "design",
+    "algorithm",
+    "algorithms",
+    "tree",
+    "forests",
     # title-word fragments (paper titles quoted in docs / specs)
-    "simple", "globally", "convergent", "accelerating", "convergence",
+    "simple",
+    "globally",
+    "convergent",
+    "accelerating",
+    "convergence",
     # ML method/architecture tokens that hyphenate into faux-surnames
-    "q-network", "q-networks", "q-learning", "q-function", "q-functions",
-    "deep-q", "dqn", "ddqn", "ppo", "a3c", "trpo",
-    "actor-critic", "soft-actor-critic", "double-dqn",
+    "q-network",
+    "q-networks",
+    "q-learning",
+    "q-function",
+    "q-functions",
+    "deep-q",
+    "dqn",
+    "ddqn",
+    "ppo",
+    "a3c",
+    "trpo",
+    "actor-critic",
+    "soft-actor-critic",
+    "double-dqn",
     # Python typing class names that appear in registry.py code blocks
     # ("FunctionSpec(...)" / "ParamSpec(...)") and read as PascalCase
     # surnames after _normalise().
-    "functionspec", "paramspec",
+    "functionspec",
+    "paramspec",
     # title-word fragments leaking through from quoted paper titles
     # (Blinder/Oaxaca/Neumark/Cotton/Reimers/Kline decomposition canon
     # + Fairlie logit/probit + DiNardo-Fortin-Lemieux institutions +
     # VanderWeele mediation + Gelbach "which ones" + Kline "Papers &
     # Proceedings"). Verified against author lists on Crossref so none
     # of these are real surnames in our citation corpus.
-    "form", "ones", "papers", "behavior", "mediation",
-    "economics", "economic", "hispanic", "institutions", "logit",
+    "form",
+    "ones",
+    "papers",
+    "behavior",
+    "mediation",
+    "economics",
+    "economic",
+    "hispanic",
+    "institutions",
+    "logit",
     # "ses" = "OLS SEs" leaks via the IGNORECASE bug fixed below; keep
     # it stopworded as belt+braces.
     "ses",
     # CHANGELOG / docstring meta-text words ("Verified via Crossref")
-    "crossref", "verified", "datacite", "openalex", "scite",
+    "crossref",
+    "verified",
+    "datacite",
+    "openalex",
+    "scite",
     # Andrews (1993) structural-break title canon: "Tests for Parameter
     # Instability and Structural Change with Unknown Change Point"
     # (doi:10.2307/2951764). The cite_boundary chop at "(1993)." drops the
     # "Andrews" author token, leaving the quoted title in scope; "Instability"
     # then reads as a phantom because it is directly followed by "and". These
     # are common-noun title words, never surnames in our citation corpus.
-    "instability", "structural", "constancy", "unknown",
+    "instability",
+    "structural",
+    "constancy",
+    "unknown",
 }
 
 
@@ -246,12 +533,12 @@ SURNAME_STOPWORDS = {
 class Citation:
     """One extracted citation reference in the codebase."""
 
-    kind: str                   # 'arxiv' | 'nber' | 'doi'
+    kind: str  # 'arxiv' | 'nber' | 'doi'
     id: str
     file: str
     line: int
-    claim_block: str            # ~±3 lines of context (for author presence)
-    same_line: str = ""         # the single source line (for phantom check)
+    claim_block: str  # ~±3 lines of context (for author presence)
+    same_line: str = ""  # the single source line (for phantom check)
     claimed_year: Optional[int] = None
 
 
@@ -259,10 +546,10 @@ class Citation:
 class PaperMeta:
     """Ground-truth metadata from primary source."""
 
-    authors: list[str]          # full names
+    authors: list[str]  # full names
     title: str
     year: int
-    source: str                 # 'arxiv' | 'nber' | 'crossref'
+    source: str  # 'arxiv' | 'nber' | 'crossref'
 
     def last_names(self) -> list[str]:
         return [_normalise(_last_name(a)) for a in self.authors]
@@ -274,7 +561,7 @@ class Verdict:
 
     citation: Citation
     truth: Optional[PaperMeta]
-    status: str                 # 'ok' | 'mismatch' | 'unresolved'
+    status: str  # 'ok' | 'mismatch' | 'unresolved'
     issues: list[str] = field(default_factory=list)
 
 
@@ -289,16 +576,18 @@ _PUNCT_TO_SPACE = re.compile(r"[^\w\s'-]", re.UNICODE)
 # sources. Crossref emits curly U+2019 in author names ("D’Haultfœuille"),
 # Python source typically uses straight U+0027 ("D'Haultfœuille"); without
 # this fold the same surname tokenises differently on each side.
-_APOSTROPHE_FOLD = str.maketrans({
-    "’": "'",  # right single quotation mark
-    "‘": "'",  # left single quotation mark
-    "ʼ": "'",  # modifier letter apostrophe
-    "′": "'",  # prime
-    "´": "'",  # acute accent (occasionally misused as apostrophe)
-    "‐": "-",  # hyphen
-    "‑": "-",  # non-breaking hyphen
-    "–": "-",  # en dash
-})
+_APOSTROPHE_FOLD = str.maketrans(
+    {
+        "’": "'",  # right single quotation mark
+        "‘": "'",  # left single quotation mark
+        "ʼ": "'",  # modifier letter apostrophe
+        "′": "'",  # prime
+        "´": "'",  # acute accent (occasionally misused as apostrophe)
+        "‐": "-",  # hyphen
+        "‑": "-",  # non-breaking hyphen
+        "–": "-",  # en dash
+    }
+)
 
 
 def _strip_diacritics(s: str) -> str:
@@ -394,9 +683,7 @@ def _http_get(
         if sleep and attempt == 0:
             time.sleep(sleep)
         try:
-            with urllib.request.urlopen(
-                req, timeout=30, context=_SSL_CONTEXT
-            ) as resp:
+            with urllib.request.urlopen(req, timeout=30, context=_SSL_CONTEXT) as resp:
                 data = resp.read()
             break
         except urllib.error.HTTPError as e:
@@ -408,12 +695,12 @@ def _http_get(
             )
             delay = retry_after
             if delay is None:
-                delay = min(30.0, max(sleep, 1.0) * (2 ** attempt))
+                delay = min(30.0, max(sleep, 1.0) * (2**attempt))
             time.sleep(delay)
         except _TRANSIENT_NETWORK_ERRORS:
             if attempt >= max_retries - 1:
                 raise
-            delay = min(30.0, max(sleep, 1.0) * (2 ** attempt))
+            delay = min(30.0, max(sleep, 1.0) * (2**attempt))
             time.sleep(delay)
     else:  # pragma: no cover - loop either breaks or raises
         raise RuntimeError(f"unreachable retry state for {url}")
@@ -460,18 +747,18 @@ def extract_citations(roots: Iterable[Path]) -> list[Citation]:
                             if k < 0:
                                 break
                             ln = lines[k]
-                            if not ln.strip():           # blank line
+                            if not ln.strip():  # blank line
                                 boundary_line = k + 1
                                 break
                             if re.match(r"^\s*[-*•]\s|^\s*\d+\.\s", ln):
-                                boundary_line = k        # bullet opener
+                                boundary_line = k  # bullet opener
                                 break
-                        start = (boundary_line
-                                 if boundary_line is not None
-                                 else max(0, i - 3))
-                        block = "\n".join(
-                            lines[start: min(len(lines), i + 4)]
+                        start = (
+                            boundary_line
+                            if boundary_line is not None
+                            else max(0, i - 3)
                         )
+                        block = "\n".join(lines[start : min(len(lines), i + 4)])
                         # Mask ALL arXiv id patterns before year search —
                         # the leading 4 digits of an arXiv id (e.g.
                         # "2009.10982") would otherwise be mis-read as a
@@ -484,15 +771,17 @@ def extract_citations(roots: Iterable[Path]) -> list[Citation]:
                         if year_m is None:
                             year_m = YEAR_RE.search(block_for_year)
                         year = int(year_m.group(1)) if year_m else None
-                        out.append(Citation(
-                            kind=kind,
-                            id=m.group("id"),
-                            file=str(path.relative_to(REPO_ROOT)),
-                            line=i + 1,
-                            claim_block=block,
-                            claimed_year=year,
-                            same_line=line,
-                        ))
+                        out.append(
+                            Citation(
+                                kind=kind,
+                                id=m.group("id"),
+                                file=str(path.relative_to(REPO_ROOT)),
+                                line=i + 1,
+                                claim_block=block,
+                                claimed_year=year,
+                                same_line=line,
+                            )
+                        )
     return out
 
 
@@ -517,19 +806,20 @@ def verify_arxiv(
     result: dict[str, PaperMeta] = {}
     ns = {"atom": "http://www.w3.org/2005/Atom"}
     for start in range(0, len(ids), 100):
-        chunk = ids[start:start + 100]
-        url = (
-            "https://export.arxiv.org/api/query?"
-            + urllib.parse.urlencode({
+        chunk = ids[start : start + 100]
+        url = "https://export.arxiv.org/api/query?" + urllib.parse.urlencode(
+            {
                 "id_list": ",".join(chunk),
                 "max_results": len(chunk),
-            })
+            }
         )
         try:
             xml_bytes = _http_get(url, refresh=refresh, sleep=3.0)
         except _TRANSIENT_NETWORK_ERRORS as e:
-            print(f"[arxiv] HTTP/network error {e!r} for chunk starting {chunk[0]}",
-                  file=sys.stderr)
+            print(
+                f"[arxiv] HTTP/network error {e!r} for chunk starting {chunk[0]}",
+                file=sys.stderr,
+            )
             if transient is not None:
                 transient.update(chunk)
             continue
@@ -644,13 +934,13 @@ def _verify_datacite_one(doi: str, refresh: bool = False) -> Optional[PaperMeta]
     creators = attrs.get("creators", []) or []
     authors = []
     for c in creators:
-        name = c.get("name") or " ".join(filter(None, [
-            c.get("givenName"), c.get("familyName")
-        ]))
+        name = c.get("name") or " ".join(
+            filter(None, [c.get("givenName"), c.get("familyName")])
+        )
         if name:
             authors.append(name)
     titles = attrs.get("titles", []) or []
-    title = (titles[0].get("title", "").strip() if titles else "")
+    title = titles[0].get("title", "").strip() if titles else ""
     year = int(attrs.get("publicationYear") or 0)
     return PaperMeta(
         authors=authors,
@@ -753,8 +1043,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     # every author). Phantom-name check still runs below; if something
     # pretending to be an author is on the claim line, that WILL flag.
     truth_present_in_claim = [
-        a for a in truth.authors
-        if _normalise(_last_name(a)) in all_claim_tokens
+        a for a in truth.authors if _normalise(_last_name(a)) in all_claim_tokens
     ]
     is_bare_reference = len(truth_present_in_claim) == 0
 
@@ -766,11 +1055,25 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     # window still registers as bibtex. We re-use this flag for both
     # the missing-author and phantom-author checks.
     _bibtex_markers = (
-        "author={", "title={", "journal={", "booktitle={",
-        "year={", "doi={", "volume={", "number={", "pages={",
-        "publisher={", "@article{", "@inproceedings{", "@book{",
-        "@misc{", "@techreport{", "@phdthesis{", "@software{",
-        "@unpublished{", "@incollection{",
+        "author={",
+        "title={",
+        "journal={",
+        "booktitle={",
+        "year={",
+        "doi={",
+        "volume={",
+        "number={",
+        "pages={",
+        "publisher={",
+        "@article{",
+        "@inproceedings{",
+        "@book{",
+        "@misc{",
+        "@techreport{",
+        "@phdthesis{",
+        "@software{",
+        "@unpublished{",
+        "@incollection{",
     )
     is_bibtex = any(m in c.claim_block for m in _bibtex_markers)
 
@@ -782,18 +1085,26 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     # marked as wrong. Phantom-author detection on this prose would
     # flag the just-fixed names — skip it.
     _fix_meta_markers = (
-        "invented name",  "invented co-authors",  "fictional author",
-        "previously listed",  "corrected from",  "was a misattribution",
-        "wrong author",  "incorrect author",  "mis-attributed",
-        "misattributed",  "typo",
+        "invented name",
+        "invented co-authors",
+        "fictional author",
+        "previously listed",
+        "corrected from",
+        "was a misattribution",
+        "wrong author",
+        "incorrect author",
+        "mis-attributed",
+        "misattributed",
+        "typo",
     )
     _claim_block_lower = c.claim_block.lower()
     is_fix_meta = any(m in _claim_block_lower for m in _fix_meta_markers)
 
     # 1) missing truth authors (claim lacks someone actually on the paper)
     has_et_al = "et al" in claim_norm
-    missing = [a for a in truth.authors
-               if _normalise(_last_name(a)) not in all_claim_tokens]
+    missing = [
+        a for a in truth.authors if _normalise(_last_name(a)) not in all_claim_tokens
+    ]
     # tolerate "et al." shorthand *only* when claim keeps the leading author(s)
     if missing and has_et_al:
         # require at least the first truth author to appear
@@ -801,8 +1112,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         if first and first in claim_tokens:
             # acceptable shorthand
             missing = []
-    if (missing and not is_bare_reference and not is_bibtex
-            and not is_fix_meta):
+    if missing and not is_bare_reference and not is_bibtex and not is_fix_meta:
         # Bibtex blocks frequently span more than ±3 lines (Python
         # triple-quoted literals embed full entries), so a partial
         # author hit inside the window is not evidence of a real
@@ -810,9 +1120,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         # Fix-meta prose ("previously listed X — those are invented
         # names. Correct authors: Y, Z") deliberately mentions wrong
         # author tokens; skip the missing check there too.
-        issues.append(
-            f"missing author(s) in claim: {', '.join(missing)}"
-        )
+        issues.append(f"missing author(s) in claim: {', '.join(missing)}")
 
     # 2) phantom authors — surnames in the leading part of the claim that
     #    aren't among truth authors. Restrict to a narrow span: between
@@ -870,7 +1178,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     for other_re in (ARXIV_RE, NBER_RE, DOI_RE, _PANDOC_CITE_RE):
         other_matches = list(other_re.finditer(before_id))
         if other_matches:
-            before_id = before_id[other_matches[-1].end():]
+            before_id = before_id[other_matches[-1].end() :]
     # Multi-citation reference fields stack 5+ citations in one string
     # (registry.py FunctionSpec.reference fields, software-paper bullet lists,
     # etc.). When prior citations don't carry a parseable id (no DOI /
@@ -884,21 +1192,21 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     # split adjacent citations across lines with intervening
     # ``"\n    "`` quote / whitespace runs.
     cite_boundary = re.compile(
-        r"\(\d{4}(?:[/-]\d{2,4})?\)"     # (2024)  or  (2022/2025)
-        r"[^.]*?"                         # journal name + volume/issue
-                                          # (allow internal parens like
-                                          #  "AER 112(10), 3260-3290")
-        r"\.\s*"                          # closing period
-        r"(?:[\"'\s]|\\n)*"               # optional quotes/newlines
-                                          # between concatenated string
-                                          # literals
-        r"(?=[A-Z][a-z])"                 # next token is a capitalised
-                                          # word (a real surname, not
-                                          # an initial)
+        r"\(\d{4}(?:[/-]\d{2,4})?\)"  # (2024)  or  (2022/2025)
+        r"[^.]*?"  # journal name + volume/issue
+        # (allow internal parens like
+        #  "AER 112(10), 3260-3290")
+        r"\.\s*"  # closing period
+        r"(?:[\"'\s]|\\n)*"  # optional quotes/newlines
+        # between concatenated string
+        # literals
+        r"(?=[A-Z][a-z])"  # next token is a capitalised
+        # word (a real surname, not
+        # an initial)
     )
     boundary_matches = list(cite_boundary.finditer(before_id))
     if boundary_matches:
-        before_id = before_id[boundary_matches[-1].end():]
+        before_id = before_id[boundary_matches[-1].end() :]
     # Strip book-chapter editor/title segments: " In Editor1 & Editor2
     # (eds), Book Title (Series, Vol. N). " — none of those tokens are
     # the chapter's authors and they otherwise read as phantom names.
@@ -907,7 +1215,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     # then close on the optional series ``(...)``  + trailing ``.``.
     before_id = re.sub(
         r"\bIn\s+[^()]*?\(eds?\.?\)\s*,?\s*[^()]*?"
-        r"(?:\s*\([^)]*\))?"     # optional "(Series, Vol. N)"
+        r"(?:\s*\([^)]*\))?"  # optional "(Series, Vol. N)"
         r"\s*\.\s*",
         " ",
         before_id,
@@ -938,9 +1246,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         # Hyphen-compound titles (e.g. "Difference-in-Differences",
         # "Rank-Weighted") should not read as surnames when ANY part is
         # a known title-word stopword.
-        if "-" in norm and any(
-            part in SURNAME_STOPWORDS for part in norm.split("-")
-        ):
+        if "-" in norm and any(part in SURNAME_STOPWORDS for part in norm.split("-")):
             continue
         # Hyphen-joined author lists (e.g. "Athey-Chetty-Imbens-Kang")
         # are a valid short form when 2+ components are truth authors.
@@ -979,14 +1285,14 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
             # uppercase next token (initial, ampersand-then-name,
             # "and Surname", etc.).
             patt = re.compile(
-                rf"\b{re.escape(p)}\b"                          # surname
+                rf"\b{re.escape(p)}\b"  # surname
                 rf"\s*"
                 rf"(?:"
-                rf"  ,\s*(?-i:[A-Z])\.?"                        # ", J." / ", J"
-                rf"  | \s*&\s*(?-i:[A-Z])"                      # " & Smith"
-                rf"  | \s+and\s+(?-i:[A-Z][a-z])"               # " and Smith"
-                rf"  | \s+et\s+al"                              # " et al"
-                rf"  | \s*\("                                   # " ("
+                rf"  ,\s*(?-i:[A-Z])\.?"  # ", J." / ", J"
+                rf"  | \s*&\s*(?-i:[A-Z])"  # " & Smith"
+                rf"  | \s+and\s+(?-i:[A-Z][a-z])"  # " and Smith"
+                rf"  | \s+et\s+al"  # " et al"
+                rf"  | \s*\("  # " ("
                 rf")",
                 re.IGNORECASE | re.VERBOSE,
             )
@@ -1018,6 +1324,11 @@ def build_report(verdicts: list[Verdict]) -> str:
     ok = [v for v in verdicts if v.status == "ok"]
     mismatch = [v for v in verdicts if v.status == "mismatch"]
     unresolved = [v for v in verdicts if v.status == "unresolved"]
+    known_unresolvable = [
+        v
+        for v in unresolved
+        if (v.citation.kind, v.citation.id) in _KNOWN_UNRESOLVABLE_DOIS
+    ]
 
     lines = [
         "# StatsPAI Citation Audit Report",
@@ -1025,7 +1336,9 @@ def build_report(verdicts: list[Verdict]) -> str:
         f"Scanned citations: **{len(verdicts)}** total | "
         f"✅ OK: **{len(ok)}** | "
         f"⚠️ MISMATCH: **{len(mismatch)}** | "
-        f"❓ UNRESOLVED: **{len(unresolved)}**",
+        f"❓ UNRESOLVED: **{len(unresolved)}** "
+        f"(of which **{len(known_unresolvable)}** are known-unresolvable — "
+        "documented legacy ids; see `tools/audit_citations.py:_KNOWN_UNRESOLVABLE_DOIS`)",
         "",
         "Source: arXiv API (batch), NBER HTML meta, Crossref API.",
         "All responses cached under `tools/.citation_cache/`.",
@@ -1083,30 +1396,39 @@ def build_report(verdicts: list[Verdict]) -> str:
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--roots", nargs="+", default=list(DEFAULT_ROOTS),
+        "--roots",
+        nargs="+",
+        default=list(DEFAULT_ROOTS),
         help="Directories to scan (default: src docs)",
     )
     parser.add_argument(
-        "--kinds", nargs="+", default=["arxiv", "nber", "doi"],
+        "--kinds",
+        nargs="+",
+        default=["arxiv", "nber", "doi"],
         choices=["arxiv", "nber", "doi"],
         help="Which citation kinds to verify",
     )
     parser.add_argument(
-        "--out", default=str(DEFAULT_OUT),
+        "--out",
+        default=str(DEFAULT_OUT),
         help="Output markdown report path",
     )
     parser.add_argument(
-        "--refresh", action="store_true",
+        "--refresh",
+        action="store_true",
         help="Bypass the HTTP cache",
     )
     parser.add_argument(
-        "--json", dest="json_out", default=None,
+        "--json",
+        dest="json_out",
+        default=None,
         help="Also dump structured verdicts to this JSON path",
     )
     parser.add_argument(
-        "--strict", action="store_true",
+        "--strict",
+        action="store_true",
         help="Also exit non-zero if any citation is unresolved "
-             "(default: only mismatches fail)",
+        "(default: only mismatches fail)",
     )
     args = parser.parse_args(argv)
 
@@ -1126,8 +1448,10 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     for kind, items in by_kind.items():
         unique = sorted({c.id for c in items})
-        print(f"  {kind}: {len(items)} occurrences / {len(unique)} unique",
-              file=sys.stderr)
+        print(
+            f"  {kind}: {len(items)} occurrences / {len(unique)} unique",
+            file=sys.stderr,
+        )
 
     truth: dict[tuple[str, str], PaperMeta] = {}
     # Ids whose primary source couldn't be reached (rate limit / network)
@@ -1163,6 +1487,20 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     verdicts: list[Verdict] = []
     for c in citations:
+        if (c.kind, c.id) in _KNOWN_UNRESOLVABLE_DOIS:
+            verdicts.append(
+                Verdict(
+                    citation=c,
+                    truth=None,
+                    status="unresolved",
+                    issues=[
+                        "known unresolvable: upstream (Crossref / DataCite) "
+                        "does not return metadata for this legacy DOI; "
+                        "see _KNOWN_UNRESOLVABLE_DOIS in tools/audit_citations.py"
+                    ],
+                )
+            )
+            continue
         t = truth.get((c.kind, c.id))
         if t is None:
             verdicts.append(Verdict(citation=c, truth=None, status="unresolved"))
@@ -1179,15 +1517,17 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.json_out:
         payload = []
         for v in verdicts:
-            payload.append({
-                "status": v.status,
-                "issues": v.issues,
-                "citation": asdict(v.citation),
-                "truth": asdict(v.truth) if v.truth else None,
-            })
-        Path(args.json_out).write_text(json.dumps(payload, indent=2,
-                                                  ensure_ascii=False),
-                                       encoding="utf-8")
+            payload.append(
+                {
+                    "status": v.status,
+                    "issues": v.issues,
+                    "citation": asdict(v.citation),
+                    "truth": asdict(v.truth) if v.truth else None,
+                }
+            )
+        Path(args.json_out).write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
         print(f"wrote {args.json_out}", file=sys.stderr)
 
     n_mismatch = sum(1 for v in verdicts if v.status == "mismatch")
@@ -1195,16 +1535,27 @@ def main(argv: Optional[list[str]] = None) -> int:
     n_ok = sum(1 for v in verdicts if v.status == "ok")
     # Split unresolved into genuine misses (source reachable, id absent —
     # a real §10 problem) vs transient (source unreachable / throttled —
-    # an infrastructure hiccup, not a fabricated citation).
+    # an infrastructure hiccup, not a fabricated citation) vs known-
+    # unresolvable (the upstream source does not return metadata for this
+    # legacy id, but the citation itself is correct — see
+    # ``_KNOWN_UNRESOLVABLE_DOIS`` at the top of this module).
+    n_unresolved_known = sum(
+        1
+        for v in verdicts
+        if v.status == "unresolved"
+        and (v.citation.kind, v.citation.id) in _KNOWN_UNRESOLVABLE_DOIS
+    )
     n_unresolved_transient = sum(
-        1 for v in verdicts
+        1
+        for v in verdicts
         if v.status == "unresolved"
         and (v.citation.kind, v.citation.id) in transient_keys
     )
-    n_unresolved_genuine = n_unresolved - n_unresolved_transient
+    n_unresolved_genuine = n_unresolved - n_unresolved_transient - n_unresolved_known
     print(
         f"summary: {n_ok} ok / {n_mismatch} mismatch / {n_unresolved} unresolved "
-        f"({n_unresolved_genuine} genuine / {n_unresolved_transient} transient)",
+        f"({n_unresolved_genuine} genuine / {n_unresolved_transient} transient / "
+        f"{n_unresolved_known} known-unresolvable)",
         file=sys.stderr,
     )
 

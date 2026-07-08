@@ -1349,7 +1349,15 @@ def _panel_bias_reduced(
     elif mode == "twoway":
         c1_codes = pd.factorize(work[c1])[0]
         c2_codes = pd.factorize(work[c2])[0]
-        c12_codes = pd.factorize(list(zip(work[c1], work[c2])))[0]
+        # pandas >= 3 dropped ``pd.factorize``'s accept-list-of-tuples path;
+        # build a MultiIndex from the (c1, c2) pairs so the codes are stable
+        # across the 2.x → 3.x transition. NaN on either side sorts to the
+        # end of uniques and gets its own code, so ``dropna=False`` is the
+        # natural default here (we keep NaN pairs as their own cluster
+        # to avoid silently changing the cluster count relative to pandas 2.x).
+        c12_codes = pd.factorize(
+            pd.MultiIndex.from_arrays([work[c1].to_numpy(), work[c2].to_numpy()]),
+        )[0]
         std_errors = two_way_correction_ols(
             shim, c1_codes, c2_codes, c12_codes, small_sample=True
         )

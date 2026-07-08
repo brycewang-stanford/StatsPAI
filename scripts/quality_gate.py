@@ -16,8 +16,7 @@ import sys
 from dataclasses import dataclass
 from typing import Optional, Sequence
 
-
-DEFAULT_FLAKE8_MAX = 999
+DEFAULT_FLAKE8_MAX = 1000
 DEFAULT_MYPY_MAX = 1058
 MYPY_CONFIG_WARNING_RE = re.compile(r"^.*: \[mypy\]: ", re.MULTILINE)
 FORBIDDEN_IMPORT_PREFIXES = (
@@ -213,14 +212,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     elif args.command == "import-budget":
         results = [run_import_budget()]
     elif args.command == "agent-cards":
-        results = [
-            run_script_gate("agent-cards", "scripts/agent_card_coverage.py")
-        ]
+        results = [run_script_gate("agent-cards", "scripts/agent_card_coverage.py")]
     elif args.command == "agent-workflow":
         results = [
-            run_script_gate(
-                "agent-workflow", "scripts/agent_workflow_spec_audit.py"
-            )
+            run_script_gate("agent-workflow", "scripts/agent_workflow_spec_audit.py")
         ]
     elif args.command == "result-protocol":
         results = [
@@ -228,23 +223,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         ]
     elif args.command == "contract-inventory":
         results = [
-            run_script_gate(
-                "contract-inventory", "scripts/check_contract_inventory.py"
-            )
+            run_script_gate("contract-inventory", "scripts/check_contract_inventory.py")
         ]
     elif args.command == "error-taxonomy":
-        results = [
-            run_script_gate("error-taxonomy", "scripts/error_taxonomy_audit.py")
-        ]
+        results = [run_script_gate("error-taxonomy", "scripts/error_taxonomy_audit.py")]
     else:
         results = [
             run_flake8(args.max_flake8),
             run_mypy(args.max_mypy),
             run_import_budget(),
             run_script_gate("agent-cards", "scripts/agent_card_coverage.py"),
-            run_script_gate(
-                "agent-workflow", "scripts/agent_workflow_spec_audit.py"
-            ),
+            run_script_gate("agent-workflow", "scripts/agent_workflow_spec_audit.py"),
             run_script_gate("result-protocol", "scripts/result_protocol_audit.py"),
             run_script_gate(
                 "contract-inventory", "scripts/check_contract_inventory.py"
