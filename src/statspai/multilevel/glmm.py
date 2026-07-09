@@ -738,7 +738,7 @@ class MEGLMResult(ResultProtocolMixin):
         lines.append("Fixed effects:")
         hdr = (
             f"{'':>18s} {'Coef':>10s} {'Std.Err':>10s} "
-            f"{'z':>8s} {'P>|z|':>8s}  [{100*(1-self._alpha):.0f}% CI]"
+            f"{'z':>8s} {'P>|z|':>8s}  [{100 * (1 - self._alpha):.0f}% CI]"
         )
         lines.append(hdr)
         lines.append("-" * w)

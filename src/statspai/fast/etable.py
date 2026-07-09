@@ -179,7 +179,7 @@ def etable(
 
     col_names: List[str]
     if names is None:
-        col_names = [f"({i+1})" for i in range(len(fits))]
+        col_names = [f"({i + 1})" for i in range(len(fits))]
     else:
         col_names = list(_string_sequence(names, name="names", allow_none=False) or [])
     if len(col_names) != len(fits):

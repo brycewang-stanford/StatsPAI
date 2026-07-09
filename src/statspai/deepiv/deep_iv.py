@@ -410,8 +410,8 @@ class DeepIV:
                 epoch_loss += loss.item() * len(t_batch)
             if self.verbose and (epoch + 1) % 20 == 0:
                 print(
-                    f"  Stage 1 epoch {epoch+1}/{self.first_stage_epochs}, "
-                    f"loss={epoch_loss/n:.4f}"
+                    f"  Stage 1 epoch {epoch + 1}/{self.first_stage_epochs}, "
+                    f"loss={epoch_loss / n:.4f}"
                 )
 
         mdn.eval()
@@ -490,8 +490,8 @@ class DeepIV:
 
             if self.verbose and (epoch + 1) % 20 == 0:
                 print(
-                    f"  Stage 2 epoch {epoch+1}/{self.second_stage_epochs}, "
-                    f"loss={epoch_loss/n:.4f}"
+                    f"  Stage 2 epoch {epoch + 1}/{self.second_stage_epochs}, "
+                    f"loss={epoch_loss / n:.4f}"
                 )
 
         response_net.eval()

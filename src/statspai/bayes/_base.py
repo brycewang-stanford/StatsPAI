@@ -315,7 +315,7 @@ class BayesianCausalResult:
             f"  Posterior mean:   {self.posterior_mean:.4f}",
             f"  Posterior median: {self.posterior_median:.4f}",
             f"  Posterior SD:     {self.posterior_sd:.4f}",
-            f"  {int(self.hdi_prob*100)}% HDI:          "
+            f"  {int(self.hdi_prob * 100)}% HDI:          "
             f"[{self.hdi_lower:.4f}, {self.hdi_upper:.4f}]",
             f"  P({self.estimand} > 0):      {self.prob_positive:.3f}",
         ]

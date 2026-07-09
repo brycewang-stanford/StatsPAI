@@ -228,7 +228,7 @@ def plot_ar_confidence_set(
         crit,
         linestyle="--",
         color="#d62728",
-        label=f"{int(level*100)}% critical F = {crit:.2f}",
+        label=f"{int(level * 100)}% critical F = {crit:.2f}",
     )
     # Shade the confidence set
     if in_set.any():
@@ -239,7 +239,7 @@ def plot_ar_confidence_set(
             where=in_set,
             color="#2ca02c",
             alpha=0.18,
-            label=f"{int(level*100)}% AR set",
+            label=f"{int(level * 100)}% AR set",
         )
         lo, hi = beta_grid[in_set].min(), beta_grid[in_set].max()
         ax.axvline(lo, color="#2ca02c", lw=0.8, linestyle=":")

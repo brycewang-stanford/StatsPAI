@@ -62,7 +62,7 @@ class BayesianIVResult:
             f"{'-' * 56}\n"
             f"  Posterior mean        : {self.posterior_mean:>10.4f}\n"
             f"  Posterior SD          : {self.posterior_sd:>10.4f}\n"
-            f"  {int(self.hpd_level*100)}% HPD interval      : "
+            f"  {int(self.hpd_level * 100)}% HPD interval      : "
             f"[{self.hpd_lower:.4f}, {self.hpd_upper:.4f}]\n"
             f"  Draws (post-warmup)  : {self.n_draws}\n"
             f"  Acceptance rate      : {self.acceptance_rate:.3f}\n"

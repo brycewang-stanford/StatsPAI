@@ -52,8 +52,8 @@ class SurveyResult:
                 "Std.Err": self.std_error,
                 "t": self.t_values,
                 "p": self.p_values,
-                f"CI({1-self.alpha:.0%}) lo": self.ci_lower,
-                f"CI({1-self.alpha:.0%}) hi": self.ci_upper,
+                f"CI({1 - self.alpha:.0%}) lo": self.ci_lower,
+                f"CI({1 - self.alpha:.0%}) hi": self.ci_upper,
                 "DEFF": self.deff,
             }
         )

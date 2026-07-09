@@ -665,7 +665,7 @@ class PSMatch2Result:
             f"  ATT               : {self.att:.4f}",
             f"  Std. err. ({se_method:<8}): {self.se:.4f}",
             f"  p-value           : {self.pvalue:.4f}",
-            f"  {int((1-self.alpha)*100)}% CI            : "
+            f"  {int((1 - self.alpha) * 100)}% CI            : "
             f"[{self.ci[0]:.4f}, {self.ci[1]:.4f}]",
             "=" * 62,
             f"Matched-sample variables on .matched_data: {cols}",
@@ -688,7 +688,7 @@ class PSMatch2Result:
                 ("Std. err.", f"{self.se:.4f}"),
                 ("p-value", f"{self.pvalue:.4f}"),
                 (
-                    f"{int((1-self.alpha)*100)}% CI",
+                    f"{int((1 - self.alpha) * 100)}% CI",
                     f"[{self.ci[0]:.4f}, {self.ci[1]:.4f}]",
                 ),
                 ("Treated (matched)", f"{self.n_matched_treated} / {self.n_treated}"),

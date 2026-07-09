@@ -814,7 +814,7 @@ class TARNet:
                     if best_state is not None:
                         _restore_modules(best_state, repr_net, head_0, head_1)
                     if self.verbose:
-                        print(f"  TARNet early stopped at epoch {epoch+1}")
+                        print(f"  TARNet early stopped at epoch {epoch + 1}")
                     break
 
             history.append(
@@ -827,7 +827,8 @@ class TARNet:
 
             if self.verbose and (epoch + 1) % 50 == 0:
                 print(
-                    f"  TARNet epoch {epoch+1}/{self.epochs}, " f"loss={train_loss:.6f}"
+                    f"  TARNet epoch {epoch + 1}/{self.epochs}, "
+                    f"loss={train_loss:.6f}"
                 )
 
         # Predict CATE
@@ -1183,7 +1184,7 @@ class CFRNet:
                     if best_state is not None:
                         _restore_modules(best_state, repr_net, head_0, head_1)
                     if self.verbose:
-                        print(f"  CFRNet early stopped at epoch {epoch+1}")
+                        print(f"  CFRNet early stopped at epoch {epoch + 1}")
                     break
 
             history.append(
@@ -1199,7 +1200,7 @@ class CFRNet:
 
             if self.verbose and (epoch + 1) % 50 == 0:
                 print(
-                    f"  CFRNet epoch {epoch+1}/{self.epochs}, "
+                    f"  CFRNet epoch {epoch + 1}/{self.epochs}, "
                     f"MSE={train_loss:.6f}, "
                     f"IPM={train_ipm:.6f}"
                 )
@@ -1592,7 +1593,7 @@ class DragonNet:
                             with torch.no_grad():
                                 epsilon.copy_(best_epsilon)
                     if self.verbose:
-                        print(f"  DragonNet early stopped at epoch {epoch+1}")
+                        print(f"  DragonNet early stopped at epoch {epoch + 1}")
                     break
 
             history.append(
@@ -1608,7 +1609,7 @@ class DragonNet:
 
             if self.verbose and (epoch + 1) % 50 == 0:
                 print(
-                    f"  DragonNet epoch {epoch+1}/{self.epochs}, "
+                    f"  DragonNet epoch {epoch + 1}/{self.epochs}, "
                     f"MSE={train_mse:.6f}, "
                     f"Prop={train_prop:.6f}, "
                     f"TReg={train_treg:.6f}"

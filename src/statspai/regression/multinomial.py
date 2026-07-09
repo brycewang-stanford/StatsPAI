@@ -274,7 +274,7 @@ def mlogit(
     if J < 3:
         raise ValueError(f"mlogit requires J >= 3 categories, got {J}.")
     if base < 0 or base >= J:
-        raise ValueError(f"base must be in [0, {J-1}], got {base}.")
+        raise ValueError(f"base must be in [0, {J - 1}], got {base}.")
 
     cat_map = {c: j for j, c in enumerate(categories)}
     Y_idx = np.array([cat_map[v] for v in Y_raw])
@@ -899,7 +899,7 @@ def _ordered_model(
 
     # --- Build results ---
     # Params: beta coefficients + cutpoints
-    param_names = var_names + [f"/cut{j+1}" for j in range(n_cuts)]
+    param_names = var_names + [f"/cut{j + 1}" for j in range(n_cuts)]
     all_coefs = np.concatenate([beta_hat, kappa_hat])
     all_se = np.concatenate([se_beta, se_kappa])
 
@@ -912,7 +912,7 @@ def _ordered_model(
         "n_categories": J,
         "categories": list(categories),
         "cutpoints": dict(
-            zip([f"cut{j+1}" for j in range(n_cuts)], kappa_hat.tolist())
+            zip([f"cut{j + 1}" for j in range(n_cuts)], kappa_hat.tolist())
         ),
         "log_likelihood": float(ll),
         "log_likelihood_0": float(ll_0),

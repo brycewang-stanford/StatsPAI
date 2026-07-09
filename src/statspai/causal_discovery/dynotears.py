@@ -81,7 +81,7 @@ class DYNOTEARSResult:
                 "=" * 60,
                 f"  variables     : {self.variables}",
                 f"  lags          : {self.lag}",
-                f"  edges (W/cont): {W_nz}/{d*(d-1)}",
+                f"  edges (W/cont): {W_nz}/{d * (d - 1)}",
                 f"  edges (A/lag) : {A_nz}/{self.lag * d * d}",
                 f"  loss          : {self.loss:.6f}",
                 f"  threshold     : {self.threshold}",

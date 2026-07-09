@@ -720,7 +720,7 @@ def _add_sensemakr(
                 value=rv_q,
                 severity=sev,
                 interpretation=(
-                    f"RV = {rv_q:.3f} — confounders explaining ≥ {rv_q*100:.1f}% "
+                    f"RV = {rv_q:.3f} — confounders explaining ≥ {rv_q * 100:.1f}% "
                     "of treatment & outcome residual variance would null the result"
                 ),
             )

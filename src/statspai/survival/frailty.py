@@ -80,7 +80,7 @@ class FrailtyResult:
             f"Events         : {self.n_events}",
             f"Clusters       : {self.n_clusters}",
             f"Theta (frailty): {self.theta:.4f}  "
-            f"(frailty variance = {1/self.theta:.4f})",
+            f"(frailty variance = {1 / self.theta:.4f})",
             f"Log-Lik        : {self.log_likelihood:.4f}",
             f"Concordance    : {self.concordance:.4f}",
             "",

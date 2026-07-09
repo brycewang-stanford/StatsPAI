@@ -298,7 +298,7 @@ def rdit(
     if n_eff < 2 * (p + 1):
         raise ValueError(
             f"Only {n_eff} observations within bandwidth "
-            f"h={h_value:.2f}. Need at least {2*(p+1)}."
+            f"h={h_value:.2f}. Need at least {2 * (p + 1)}."
         )
 
     # Kernel weights (canonical definition in ._core)

@@ -129,6 +129,33 @@ def test_doi_regex_stops_at_sentence_period():
     assert m.group("id") == "10.1234/xyz"
 
 
+def test_doi_regex_captures_legacy_sici_doi():
+    """Regression: legacy Wiley SICI DOIs carry literal ``<...>`` and a
+    ``;2-C`` check suffix (Journal of Applied Econometrics 1999 JIVE paper,
+    ``angrist1999jackknife``). The old regex excluded ``<``/``>`` outright and
+    truncated the id at the first ``<`` (``...14:1``), which came back 404
+    UNRESOLVED and red the Citation-Audit gate. The SICI-first alternative
+    must now capture the whole DOI so Crossref resolves it verbatim."""
+    sici = "10.1002/(sici)1099-1255(199901/02)14:1<57::aid-jae501>3.3.co;2-7"
+    for line in (
+        f"  doi={{{sici}}}",  # bibtex doi={...} field
+        f'    "  doi={{{sici}}}\\n"',  # inside a Python string literal
+    ):
+        m = ac.DOI_RE.search(line)
+        assert m is not None, line
+        assert m.group("id") == sici, m.group("id")
+
+
+def test_doi_regex_sici_change_preserves_autolink_guard():
+    """The SICI branch must NOT regress the markdown-autolink guard: a lone
+    trailing ``>`` (no opening ``<`` inside the body) still terminates an
+    ordinary DOI rather than being swallowed."""
+    m = ac.DOI_RE.search("<https://doi.org/10.1234/abcd.5678> link")
+    assert m is not None
+    assert m.group("id") == "10.1234/abcd.5678"
+    assert ">" not in m.group("id")
+
+
 # ---------------------------------------------------------------------------
 # Network failures — must degrade to unresolved, not traceback
 # ---------------------------------------------------------------------------

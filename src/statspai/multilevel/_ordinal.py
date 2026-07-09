@@ -582,7 +582,7 @@ def meologit(
                 vc[f"cov({random_names[j]},{random_names[i]})"] = float(G_hat[i, j])
                 vc[f"corr({random_names[j]},{random_names[i]})"] = float(corr)
 
-    threshold_names = [f"cut{k+1}|{levels[k]}/{levels[k+1]}" for k in range(K - 1)]
+    threshold_names = [f"cut{k + 1}|{levels[k]}/{levels[k + 1]}" for k in range(K - 1)]
     method = "laplace" if nAGQ == 1 else f"AGHQ(nAGQ={nAGQ})"
 
     return MEGLMResult(

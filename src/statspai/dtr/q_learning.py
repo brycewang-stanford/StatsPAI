@@ -64,7 +64,7 @@ class QLearningResult:
             "Optimal-rule coefficients per stage (linear Q):",
         ]
         for k, coefs in enumerate(self.stage_coefs):
-            lines.append(f"  stage {k+1}: {coefs}")
+            lines.append(f"  stage {k + 1}: {coefs}")
         return "\n".join(lines)
 
     def __repr__(self) -> str:  # pragma: no cover

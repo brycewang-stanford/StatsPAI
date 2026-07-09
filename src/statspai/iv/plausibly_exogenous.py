@@ -55,7 +55,7 @@ class PlausiblyExogenousResult:
             f"Plausibly exogenous IV — {self.method}",
             "-" * 48,
             f"  Point estimate (γ=0) : {self.beta_hat:>10.4f}   SE={self.se_hat:.4f}",
-            f"  Sensitivity CI ({int(self.ci_level*100)}%): "
+            f"  Sensitivity CI ({int(self.ci_level * 100)}%): "
             f"[{self.ci_lower:.4f}, {self.ci_upper:.4f}]",
             f"  γ grid size          : {len(self.gamma_grid)}",
         ]

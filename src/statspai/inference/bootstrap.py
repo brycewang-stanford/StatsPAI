@@ -76,7 +76,7 @@ class BootstrapResult(ResultProtocolMixin):
             "Bootstrap Inference",
             f"  Estimate:   {self.estimate:.6f}",
             f"  Std. Error: {self.se:.6f}",
-            f"  CI ({1-self.alpha:.0%}):    [{self.ci_lower:.6f}, {self.ci_upper:.6f}]  ({self.ci_method})",
+            f"  CI ({1 - self.alpha:.0%}):    [{self.ci_lower:.6f}, {self.ci_upper:.6f}]  ({self.ci_method})",
             f"  p-value:    {self.pvalue:.4f}",
             f"  Replications: {self.n_boot}",
         ]
@@ -299,7 +299,11 @@ def _bca_ci(
     jack_stats = jack_stats[: min(n, 200)]
     jack_mean = np.mean(jack_stats)
     diff = jack_mean - jack_stats
-    a = np.sum(diff**3) / (6 * (np.sum(diff**2)) ** 1.5) if np.sum(diff**2) > 0 else 0
+    a = (
+        np.sum(diff**3) / (6 * (np.sum(diff**2)) ** 1.5)
+        if np.sum(diff**2) > 0
+        else 0
+    )
 
     # Adjusted quantiles
     z_alpha = sp_stats.norm.ppf(alpha / 2)

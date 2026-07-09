@@ -509,8 +509,8 @@ def render_markdown(card: Dict[str, Any]) -> str:
     for r in card["recommend"]:
         gp = " ⊕" if r.get("gap_probe") else ""
         lines.append(
-            f"| {r.get('design','')}{gp} | `{r['id']}` | {_STATUS_GLYPH.get(r.get('status'), r.get('status'))}"
-            f" | {r.get('detected_design','')} | `{r.get('top1_tag', r.get('error',''))}` |"
+            f"| {r.get('design', '')}{gp} | `{r['id']}` | {_STATUS_GLYPH.get(r.get('status'), r.get('status'))}"
+            f" | {r.get('detected_design', '')} | `{r.get('top1_tag', r.get('error', ''))}` |"
         )
     if card.get("audit_dynamic"):
         lines += [
@@ -522,7 +522,7 @@ def render_markdown(card: Dict[str, Any]) -> str:
         ]
         for a in card["audit_dynamic"]:
             if a.get("status") == "AUDIT_ERROR":
-                lines.append(f"| `{a['id']}` | — | ERR | {a.get('error','')[:60]} |")
+                lines.append(f"| `{a['id']}` | — | ERR | {a.get('error', '')[:60]} |")
                 continue
             steps = ", ".join(a.get("actionable_next_steps", [])) or "—"
             lines.append(

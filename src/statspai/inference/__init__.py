@@ -12,7 +12,6 @@ from .conley import conley
 from .front_door import front_door
 from .g_computation import g_computation
 from .ipw import ipw
-from .iv_wild import iv_wild_bootstrap
 from .jackknife import cr2_se, jackknife_se, wild_cluster_boot
 from .meta_analysis import MetaAnalysisResult, meta_analysis
 from .multiway_cluster import (

@@ -17,12 +17,11 @@ Usage
 """
 
 from typing import Any, List, Optional
+
 import numpy as np
 import pandas as pd
 
-from ..workflow._degradation import (
-    record_degradation,
-)
+from ..workflow._degradation import record_degradation
 
 
 class AssumptionCheck:
@@ -50,7 +49,9 @@ class AssumptionCheck:
         status = (
             "✓ PASS"
             if self.passed
-            else "✗ FAIL" if self.passed is False else "? INCONCLUSIVE"
+            else "✗ FAIL"
+            if self.passed is False
+            else "? INCONCLUSIVE"
         )
         return f"{status} | {self.assumption}: {self.test_name}"
 
@@ -532,7 +533,7 @@ def _audit_linear(
                 passed=n / max(k, 1) > 10,
                 statistic=n / max(k, 1),
                 p_value=None,
-                detail=f"N={n}, k={k}, ratio={n/max(k,1):.0f}",
+                detail=f"N={n}, k={k}, ratio={n / max(k, 1):.0f}",
                 remedy="Reduce number of regressors or increase sample size",
             )
         )
@@ -870,7 +871,7 @@ def _audit_generic(
                 passed=n > 30 and n / max(k, 1) > 5,
                 statistic=n,
                 p_value=None,
-                detail=f"N/k ratio = {n/max(k,1):.0f}",
+                detail=f"N/k ratio = {n / max(k, 1):.0f}",
                 remedy="Increase sample or reduce model complexity.",
             )
         )

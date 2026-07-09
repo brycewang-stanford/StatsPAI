@@ -98,7 +98,7 @@ class RecommendationResult:
 
         for i, rec in enumerate(self.recommendations):
             star = "★" if i == 0 else "○"
-            lines.append(f"\n  {star} #{i+1}: {rec['method']}")
+            lines.append(f"\n  {star} #{i + 1}: {rec['method']}")
             lines.append(f"    Function: sp.{rec['function']}()")
             lines.append(f"    Why: {rec['reason']}")
             if rec.get("assumptions"):
@@ -118,8 +118,8 @@ class RecommendationResult:
                     lines.append(
                         f"    Stability: score={v['score']:.0f}/100  "
                         f"(resample={stab:.0f}, placebo={plac:.0f}, "
-                        f"subsample={subs:.0f}, B={v.get('B_used','?')}, "
-                        f"{v.get('elapsed_s',0):.1f}s)  "
+                        f"subsample={subs:.0f}, B={v.get('B_used', '?')}, "
+                        f"{v.get('elapsed_s', 0):.1f}s)  "
                         f"[measures resampling stability, NOT identification validity]"
                     )
 
@@ -127,7 +127,7 @@ class RecommendationResult:
         lines.append("SUGGESTED WORKFLOW")
         lines.append(f"{'─' * 70}")
         for i, step in enumerate(self._workflow_steps()):
-            lines.append(f"  {i+1}. {step}")
+            lines.append(f"  {i + 1}. {step}")
 
         lines.append("\n" + "=" * 70)
         return "\n".join(lines)

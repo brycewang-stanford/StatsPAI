@@ -313,8 +313,8 @@ def dml_diagnostics(result: Any, clip: float = 0.02) -> DMLDiagnostics:
         overlap_warning = None
         if n_low + n_high > 0:
             overlap_warning = (
-                f"{n_low + n_high} units ({(n_low+n_high)/n*100:.1f}%) "
-                f"have propensity outside [{clip}, {1-clip}]."
+                f"{n_low + n_high} units ({(n_low + n_high) / n * 100:.1f}%) "
+                f"have propensity outside [{clip}, {1 - clip}]."
             )
     else:
         overlap_label = r"Treatment residual $|D - \hat m(X)|$"

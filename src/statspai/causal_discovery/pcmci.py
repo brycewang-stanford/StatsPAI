@@ -129,7 +129,7 @@ def _make_lagged(X: np.ndarray, tau_max: int) -> Tuple[np.ndarray, np.ndarray]:
     if tau_max < 1:
         raise ValueError("tau_max must be >= 1")
     if T <= tau_max + 1:
-        raise ValueError(f"Need at least tau_max+2 = {tau_max+2} time points.")
+        raise ValueError(f"Need at least tau_max+2 = {tau_max + 2} time points.")
     Y = X[tau_max:]  # (T - tau_max, d)
     blocks = []
     for lag in range(1, tau_max + 1):

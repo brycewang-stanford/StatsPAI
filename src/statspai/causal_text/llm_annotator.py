@@ -170,7 +170,7 @@ class LLMAnnotatorResult(CausalResult):
             f"(SE = {self.naive_se:.4f})",
             f"  Correction factor : {self.correction_factor:.4f}",
             f"  Corrected estimate: {self.estimate:.4f} " f"(SE = {self.se:.4f})",
-            f"  {int((1-self.alpha)*100)}% CI            : "
+            f"  {int((1 - self.alpha) * 100)}% CI            : "
             f"[{self.ci[0]:.4f}, {self.ci[1]:.4f}]",
             f"  p-value           : {self.pvalue:.4f}",
             f"  N obs             : {self.n_obs}",

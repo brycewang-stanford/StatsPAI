@@ -795,7 +795,7 @@ def _eda_block(
     if not miss.empty:
         lines.append("- Missingness (top 5):")
         for col, frac in miss.head(5).items():
-            lines.append(f"    - `{col}`: {frac*100:.1f}%")
+            lines.append(f"    - `{col}`: {frac * 100:.1f}%")
     else:
         lines.append("- Missingness: none detected in the analysis frame.")
     if y and y in data.columns:
@@ -1802,7 +1802,7 @@ def paper_from_question(
     if not miss.empty:
         data_lines.append("- Missingness (top 5):")
         for col, frac in miss.head(5).items():
-            data_lines.append(f"    - `{col}`: {frac*100:.1f}%")
+            data_lines.append(f"    - `{col}`: {frac * 100:.1f}%")
     else:
         data_lines.append("- Missingness: none detected in the analysis frame.")
     if q.outcome in data.columns:

@@ -69,7 +69,7 @@ class ALearningResult:
         ]
         for k, psi_k in enumerate(self.psi):
             lines.append(
-                f"  stage {k+1} psi (contrast coef): {np.round(psi_k, 4).tolist()}"
+                f"  stage {k + 1} psi (contrast coef): {np.round(psi_k, 4).tolist()}"
             )
         return "\n".join(lines)
 

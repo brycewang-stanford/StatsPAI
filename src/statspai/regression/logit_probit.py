@@ -663,10 +663,10 @@ def _fit_binary(
             {
                 "OR": or_vals,
                 "Std. Err.": or_se,
-                f"[{alpha/2:.3f}": np.exp(
+                f"[{alpha / 2:.3f}": np.exp(
                     beta - stats.norm.ppf(1 - alpha / 2) * std_errors
                 ),
-                f"{1-alpha/2:.3f}]": np.exp(
+                f"{1 - alpha / 2:.3f}]": np.exp(
                     beta + stats.norm.ppf(1 - alpha / 2) * std_errors
                 ),
             },

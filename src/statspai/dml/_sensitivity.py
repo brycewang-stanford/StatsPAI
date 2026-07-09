@@ -129,7 +129,7 @@ class DMLSensitivityResult:
             f"(SE {self.se:.4f})",
             f"  Robustness value RV_q (q={self.q})   : "
             f"{self.rv_q:.4f}   "
-            f"({self.rv_q*100:.2f}% partial R^2 to shrink to {1-self.q:.0%})",
+            f"({self.rv_q * 100:.2f}% partial R^2 to shrink to {1 - self.q:.0%})",
             f"  Robustness value RV_qa (alpha={self.alpha})   : "
             f"{self.rv_qa:.4f}   "
             "(strength to lose significance)",

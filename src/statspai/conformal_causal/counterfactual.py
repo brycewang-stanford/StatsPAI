@@ -97,9 +97,9 @@ class ConformalCounterfactualResult:
         return (
             "Conformal counterfactual prediction intervals\n"
             f"  method              : {self.method}\n"
-            f"  coverage target     : {100*(1-self.alpha):.0f}%\n"
+            f"  coverage target     : {100 * (1 - self.alpha):.0f}%\n"
             f"  empirical coverage  : "
-            f"{100*self.marginal_coverage_estimate:.2f}%  (calibration arm)\n"
+            f"{100 * self.marginal_coverage_estimate:.2f}%  (calibration arm)\n"
             f"  n test points       : {len(self.X)}\n"
             f"  mean width Y(1) band: "
             f"{np.mean(self.upper_Y1 - self.lower_Y1):.4f}\n"
@@ -159,7 +159,7 @@ class ConformalITEResult:
         return (
             "Conformal prediction intervals for ITE τ(x) = Y(1) - Y(0)\n"
             f"  method              : {self.method}\n"
-            f"  coverage target     : {100*(1-self.alpha):.0f}%\n"
+            f"  coverage target     : {100 * (1 - self.alpha):.0f}%\n"
             f"  mean interval width : {w:.4f}\n"
             f"  n test points       : {len(self.X)}"
         )

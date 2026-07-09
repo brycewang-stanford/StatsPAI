@@ -557,7 +557,7 @@ class CSReport:
         lines.append(
             f"Overall ATT  =  {o['estimate']:.4f}   "
             f"SE = {o['se']:.4f}   "
-            f"{int(100*(1-m.get('alpha', 0.05)))}% CI = "
+            f"{int(100 * (1 - m.get('alpha', 0.05)))}% CI = "
             f"[{o['ci_lower']:.4f}, {o['ci_upper']:.4f}]   "
             f"p = {o['pvalue']:.4g}"
         )

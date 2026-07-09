@@ -522,7 +522,7 @@ def anderson_rubin_test(
             f"First-stage F = {f_first:.2f}, Effective F = {f_eff:.2f}. "
             f"{f_result['strength']}. "
             f"AR test at h0={h0}: F({df1},{df2}) = {ar_f:.2f}, p = {ar_p:.4f}. "
-            f"AR {100*(1-alpha):.0f}% CI: [{ar_ci[0]:.4f}, {ar_ci[1]:.4f}]. "
+            f"AR {100 * (1 - alpha):.0f}% CI: [{ar_ci[0]:.4f}, {ar_ci[1]:.4f}]. "
             + (
                 f"LMMP tF critical value (F = {f_first:.1f}): {tF_c:.2f} "
                 f"(vs. naive 1.96)."
@@ -674,7 +674,7 @@ class WeakRobustResult:
             "Weak-IV-robust tests under H0:",
             f"  Anderson–Rubin F            : {d['ar_stat']:10.4f}"
             f"   p = {d['ar_pvalue']:.4f}",
-            f"  AR  {100*(1-self.alpha):.0f}% CI                  : "
+            f"  AR  {100 * (1 - self.alpha):.0f}% CI                  : "
             f"[{d['ar_ci'][0]:.4f}, {d['ar_ci'][1]:.4f}]",
         ]
         if d.get("clr_stat") is not None:
@@ -684,7 +684,7 @@ class WeakRobustResult:
             )
             if d.get("clr_ci") is not None:
                 lines.append(
-                    f"  CLR {100*(1-self.alpha):.0f}% CI                  : "
+                    f"  CLR {100 * (1 - self.alpha):.0f}% CI                  : "
                     f"[{d['clr_ci'][0]:.4f}, {d['clr_ci'][1]:.4f}]"
                 )
         if d.get("k_stat") is not None:
@@ -694,7 +694,7 @@ class WeakRobustResult:
             )
             if d.get("k_ci") is not None:
                 lines.append(
-                    f"  K   {100*(1-self.alpha):.0f}% CI                  : "
+                    f"  K   {100 * (1 - self.alpha):.0f}% CI                  : "
                     f"[{d['k_ci'][0]:.4f}, {d['k_ci'][1]:.4f}]"
                 )
         if d.get("tF_critical_value") is not None:

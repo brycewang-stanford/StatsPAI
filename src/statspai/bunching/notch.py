@@ -164,7 +164,7 @@ class NotchResult:
         lines += [
             "-" * 65,
             f"  p-value               : {self.pvalue:.4f}",
-            f"  {100*(1-self.alpha):.0f}% CI (B)          "
+            f"  {100 * (1 - self.alpha):.0f}% CI (B)          "
             f"  : [{ci_lo:,.2f}, {ci_hi:,.2f}]",
             "=" * 65,
         ]
@@ -284,7 +284,7 @@ class NotchResult:
             ("SE (B)", f"{self.se_bunching:,.4f}"),
             ("p-value", f"{self.pvalue:.4f}"),
             (
-                f"{100*(1-self.alpha):.0f}% CI",
+                f"{100 * (1 - self.alpha):.0f}% CI",
                 f"[{self.ci[0]:,.2f}, {self.ci[1]:,.2f}]",
             ),
             ("N", f"{self.n_obs:,}"),

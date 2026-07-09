@@ -80,7 +80,7 @@ class SNMMResult:
             f"  V (blip-adjusted mean) : {self.value:.4f}",
         ]
         for k, p in enumerate(self.blip_params):
-            lines.append(f"  stage {k+1} psi: {np.round(p, 4).tolist()}")
+            lines.append(f"  stage {k + 1} psi: {np.round(p, 4).tolist()}")
         return "\n".join(lines)
 
     def __repr__(self) -> str:  # pragma: no cover

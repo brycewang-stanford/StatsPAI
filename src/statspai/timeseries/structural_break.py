@@ -155,7 +155,7 @@ class StructuralBreakResult:
         if self.f_stats is not None:
             if isinstance(self.f_stats, (list, np.ndarray)):
                 for i, (f, p) in enumerate(zip(self.f_stats, self.p_values)):
-                    lines.append(f"  Break {i+1}: F = {f:.4f}, p = {p:.4f}")
+                    lines.append(f"  Break {i + 1}: F = {f:.4f}, p = {p:.4f}")
             else:
                 lines.append(f"F-statistic: {self.f_stats:.4f}")
                 lines.append(f"P-value: {self.p_values:.4f}")

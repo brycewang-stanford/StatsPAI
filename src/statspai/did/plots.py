@@ -1548,7 +1548,7 @@ def ggdid(
                 df["cband_upper"],
                 color=band_color,
                 alpha=0.25,
-                label=f"Uniform {int(100*(1-result.alpha))}% band",
+                label=f"Uniform {int(100 * (1 - result.alpha))}% band",
             )
         if show_pointwise:
             ax.fill_between(
@@ -1557,7 +1557,7 @@ def ggdid(
                 df["ci_upper"],
                 color=point_color,
                 alpha=0.18,
-                label=f"Pointwise {int(100*(1-result.alpha))}% CI",
+                label=f"Pointwise {int(100 * (1 - result.alpha))}% CI",
             )
         post = x >= 0
         pre = x < 0
@@ -1598,7 +1598,7 @@ def ggdid(
             color=point_color,
             capsize=5,
             markersize=7,
-            label=f"Pointwise {int(100*(1-result.alpha))}% CI",
+            label=f"Pointwise {int(100 * (1 - result.alpha))}% CI",
         )
         if show_uniform and has_cband:
             ax.errorbar(
@@ -1610,7 +1610,7 @@ def ggdid(
                 capsize=10,
                 linewidth=2,
                 alpha=0.6,
-                label=f"Uniform {int(100*(1-result.alpha))}% band",
+                label=f"Uniform {int(100 * (1 - result.alpha))}% band",
             )
         ax.axvline(0, color="gray", linestyle="--", linewidth=0.8)
         ax.set_yticks(yvals)
@@ -1629,7 +1629,7 @@ def ggdid(
                 df["cband_upper"],
                 color=band_color,
                 alpha=0.25,
-                label=f"Uniform {int(100*(1-result.alpha))}% band",
+                label=f"Uniform {int(100 * (1 - result.alpha))}% band",
             )
         if show_pointwise:
             ax.fill_between(
@@ -1638,7 +1638,7 @@ def ggdid(
                 df["ci_upper"],
                 color=point_color,
                 alpha=0.18,
-                label=f"Pointwise {int(100*(1-result.alpha))}% CI",
+                label=f"Pointwise {int(100 * (1 - result.alpha))}% CI",
             )
         ax.plot(x, est, "o-", color=point_color, linewidth=2, markersize=7)
         ax.axhline(0, color="gray", linestyle="--", linewidth=0.8)

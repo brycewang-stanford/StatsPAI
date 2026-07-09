@@ -606,7 +606,7 @@ def discos_plot(
             ci_hi,
             alpha=ci_alpha,
             color=color,
-            label=f"{int(100*(1-result.alpha))}% CI",
+            label=f"{int(100 * (1 - result.alpha))}% CI",
         )
         ax.plot(tau, eff, color=color, linewidth=1.5, label="Δ(τ)")
         ax.axhline(y=0, color="gray", linestyle="--", linewidth=0.8)

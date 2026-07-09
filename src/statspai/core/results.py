@@ -223,8 +223,8 @@ class EconometricResults:
                 "Std. Error": self.std_errors,
                 "t-statistic": self.tvalues,
                 "P>|t|": self.pvalues,
-                f"[{alpha/2:.3f}": self.conf_int_lower,
-                f"{1-alpha/2:.3f}]": self.conf_int_upper,
+                f"[{alpha / 2:.3f}": self.conf_int_lower,
+                f"{1 - alpha / 2:.3f}]": self.conf_int_upper,
             }
         )
 
@@ -275,7 +275,7 @@ class EconometricResults:
         upper = self.params + t_crit * self.std_errors
 
         return pd.DataFrame(
-            {f"{alpha/2:.3f}": lower, f"{1-alpha/2:.3f}": upper},
+            {f"{alpha / 2:.3f}": lower, f"{1 - alpha / 2:.3f}": upper},
             index=self.params.index,
         )
 
@@ -2239,8 +2239,7 @@ class CausalResult:
             "Krueger, A. B.},\n"
             "  journal={Journal of Applied Econometrics},\n"
             "  year={1999},\n"
-            "  doi={10.1002/(sici)1099-1255(199901/02)14:1<57::"
-            "aid-jae501>3.3.co;2-7}\n"
+            "  doi={10.1002/(sici)1099-1255(199901/02)14:1<57::aid-jae501>3.3.co;2-7}\n"
             "}"
         ),
         "super_learner": (
@@ -4270,7 +4269,7 @@ class CausalResult:
                 h.append("</tr>")
             if len(self.detail) > max_rows:
                 h.append(
-                    f'<tr><td colspan="{len(cols)}" style="text-align:center;color:#94A3B8;">... {len(self.detail)-max_rows} more</td></tr>'
+                    f'<tr><td colspan="{len(cols)}" style="text-align:center;color:#94A3B8;">... {len(self.detail) - max_rows} more</td></tr>'
                 )
             h.append("</table></details>")
 

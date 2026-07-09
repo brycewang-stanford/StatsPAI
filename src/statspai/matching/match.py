@@ -1838,7 +1838,7 @@ def psplot(
             linestyle="--",
             linewidth=1,
             alpha=0.7,
-            label=f"Trim [{trim:.2f}, {1-trim:.2f}]",
+            label=f"Trim [{trim:.2f}, {1 - trim:.2f}]",
         )
         ax.axvline(x=1 - trim, color="#8E44AD", linestyle="--", linewidth=1, alpha=0.7)
 

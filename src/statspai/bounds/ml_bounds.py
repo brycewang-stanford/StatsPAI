@@ -115,7 +115,7 @@ class MLBoundsResult:
             f"  Adaptive ML plug : [{self.adaptive_lower:.4f}, "
             f"{self.adaptive_upper:.4f}]   width="
             f"{self.adaptive_upper - self.adaptive_lower:.4f}\n"
-            f"  Bootstrap-inflated {100*(1-self.alpha):.0f}% band :\n"
+            f"  Bootstrap-inflated {100 * (1 - self.alpha):.0f}% band :\n"
             f"      [{self.lower:.4f}, {self.upper:.4f}]\n"
             f"  Centre shift vs Manski (ML plug - Manski midpoint) : "
             f"{self.center_shift():+.4f}\n"

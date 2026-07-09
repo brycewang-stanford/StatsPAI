@@ -336,7 +336,7 @@ def rdrandinf(
     n_obs = len(df_w)
     if n_obs < 4:
         raise ValueError(  # pragma: no cover
-            f"Only {n_obs} observations in window [{c+wl_value}, {c+wr_value}]. "
+            f"Only {n_obs} observations in window [{c + wl_value}, {c + wr_value}]. "
             "Widen the window or check your data."
         )
 
@@ -641,7 +641,7 @@ def rdwinselect(
         qs = [0.25, 0.5, 0.75]
         pseudo_names = []
         for q in qs:
-            cname = f"_x_q{int(q*100)}"
+            cname = f"_x_q{int(q * 100)}"
             data = data.copy()
             data[cname] = (data[x] <= np.quantile(xv, q)).astype(float)
             pseudo_names.append(cname)

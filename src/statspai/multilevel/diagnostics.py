@@ -27,7 +27,7 @@ class ICCResult:
     def summary(self) -> str:
         return (
             f"ICC = {self.estimate:.4f}  (SE = {self.se:.4f}, "
-            f"{100*(1-self.alpha):.0f}% CI [{self.ci_lower:.4f}, "
+            f"{100 * (1 - self.alpha):.0f}% CI [{self.ci_lower:.4f}, "
             f"{self.ci_upper:.4f}])"
         )
 
