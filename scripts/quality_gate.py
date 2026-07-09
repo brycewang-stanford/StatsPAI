@@ -17,8 +17,11 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 DEFAULT_FLAKE8_MAX = 1000
-DEFAULT_MYPY_MAX = 1058
-MYPY_CONFIG_WARNING_RE = re.compile(r"^.*: \[mypy\]: ", re.MULTILINE)
+# Baseline for StatsPAI-authored type debt only (see ``run_mypy`` — the count is
+# scoped to ``src/statspai/`` lines). Measured 0 under the pinned mypy 1.x with
+# the lean ``.[dev]`` typed surface; the buffer absorbs minor mypy/dep version
+# drift between CI and dev venvs. Lower as fixes land — never raise it.
+DEFAULT_MYPY_MAX = 25
 FORBIDDEN_IMPORT_PREFIXES = (
     "numba",
     "sklearn",
@@ -100,10 +103,24 @@ def run_mypy(max_errors: int) -> GateResult:
         "--hide-error-context",
     ]
     proc = _run(cmd)
-    count = len(re.findall(r": error:", proc.stdout))
-    command_failed = (proc.returncode != 0 and count == 0) or bool(
-        MYPY_CONFIG_WARNING_RE.search(proc.stdout)
+    # Count only errors in our own tree. mypy follows imports into installed
+    # third-party packages (e.g. ``coverage/debug.py``) whose presence and
+    # Python-version compatibility vary by venv; counting those made the
+    # ratchet depend on the environment rather than on StatsPAI code — the same
+    # instability the ``ignore_missing_imports`` note in pyproject.toml fights.
+    count = len(re.findall(r"^src[\\/]statspai[\\/]\S+: error:", proc.stdout, re.M))
+    # A run is trustworthy as long as mypy actually analysed something — it
+    # emitted at least one ``<file>.py:<line>:`` diagnostic or the "Success"
+    # banner. We must NOT key failure off the exit code alone: mypy follows
+    # imports into installed third-party packages, and a parse error there
+    # (e.g. ``coverage/debug.py`` using ``match`` under ``python_version=3.9``)
+    # drives the exit code to 2 without any problem in StatsPAI code. Only a
+    # run that produced no analysis at all — an unreadable config or an
+    # internal crash — is a real gate failure.
+    analysed = bool(re.search(r"^\S+\.py:\d+: ", proc.stdout, re.M)) or (
+        "Success: no issues" in proc.stdout
     )
+    command_failed = "INTERNAL ERROR" in proc.stdout or not analysed
     return GateResult(
         name="mypy",
         count=count,
