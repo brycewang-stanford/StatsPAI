@@ -423,6 +423,7 @@ def coverage_matrix(
     root, _warnings = _coerce_repo_root(repo_root)
 
     import pandas as pd
+
     import statspai as sp
 
     parity_rows = _parity_module_rows(root, sp) if root is not None else []
@@ -556,9 +557,29 @@ def _stata_skip_reasons(root: Path) -> Dict[str, str]:
 
 
 def _stata_gap_status(skip_reason: str) -> str:
-    """Classify a Stata skip reason without collapsing all skips to no-reference."""
+    """Classify a Stata skip reason without collapsing all skips to no-reference.
+
+    Recognises three phrasings for the "Stata analog exists, but our bridge
+    has not been written yet" semantics:
+
+    * "bridge artifact not materialized" — used by 13_causal_forest / 18_augsynth /
+      19_gsynth when Stata has a published command but the local bridge has not
+      been published yet (see tests/r_parity/compare.py::STATA_SKIP_REASON).
+    * "licensed stata rerun" — historical phrasing for rerun-dependent bridges.
+    * "artifact is materialized" — used by R-referenced modules (65_spatial /
+      66_spatial_gmm / 67_panel_glm: "no like-for-like Stata artifact is
+      materialized yet") and algorithmic modules (68_demean_within /
+      69_balance_panel: "No Stata artifact is materialized"). Same
+      semantics as the first clause — canonical analog is documented but
+      the like-for-like bridge has not been built — but spelled differently
+      because there's no upstream Stata command name to prefix with.
+    """
     reason = skip_reason.lower()
-    if "bridge artifact not materialized" in reason or "licensed stata rerun" in reason:
+    if (
+        "bridge artifact not materialized" in reason
+        or "licensed stata rerun" in reason
+        or "artifact is materialized" in reason
+    ):
         return "stata_bridge_not_materialized"
     return "no_canonical_stata_reference"
 
