@@ -300,6 +300,27 @@ These change DiD point estimates for affected staggered/switching designs. See
   dedicated `sp.rlasso` port — `sp.rlasso_iv` reproduces `hdm::rlassoIV`
   exactly — and `bch_post_lasso_iv` is deprecated. See the `sp.rlasso`
   entry above.)
+- **Quality gate (`scripts/quality_gate.py`).** The `mypy` debt ratchet now
+  counts only StatsPAI-authored errors (lines under `src/statspai/`), so errors
+  mypy surfaces while following imports into installed third-party packages no
+  longer inflate the count in a venv-dependent way — the same environment
+  stability the `ignore_missing_imports` config note already targets. Failure
+  detection no longer keys off the exit code or a config-warning regex (a
+  third-party parse error under `python_version = 3.9`, or a newer mypy's
+  deprecation *note* about that floor, drove the gate to a spurious permanent
+  failure); a run is now trusted whenever mypy actually produced analysis. With
+  the count reflecting only our code — measured at 0 under the pinned mypy 1.x —
+  `DEFAULT_MYPY_MAX` is tightened from `1058` to `25`, converting a dormant
+  ratchet into a live one. New guards in `tests/test_import_budget.py`.
+- **`StatsPAI_full_data_analysis_skill/SKILL.md`.** The frontmatter description,
+  keyword list, and triggers now advertise the distributional / gap-decomposition
+  family (`sp.oaxaca`, `sp.kitagawa_decompose`, `sp.dfl_decompose`, `sp.gelbach`,
+  `sp.fairlie`, `sp.rif_decomposition` via the `sp.decompose` dispatcher), which
+  the runtime already ships but the skill never surfaced, so downstream skill
+  family-tagging no longer reports zero coverage for it (closes #35). The
+  `SkillOpt-style execution gate (task-local card)` subsection (the `best_skill`
+  card plus its seven promotion rules) is restored inside the operating-loop
+  section so the weekly downstream sync gate stops re-deleting it (closes #34).
 
 ### Deprecated
 
