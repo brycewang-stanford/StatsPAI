@@ -357,6 +357,14 @@ These change DiD point estimates for affected staggered/switching designs. See
   and libpysal weights work; calls that passed a raw NumPy array (the only
   path that worked before) are numerically unchanged. New guard:
   `tests/reference_parity/test_spatial_models_parity.py::test_spatial_iv_accepts_native_W_object`.
+- **`sp.peer_effects` and the `sp.network` graph layer now accept a native
+  StatsPAI `W` object.** Both carried the same `W.full()[0]` first-row bug as
+  `spatial_iv` (peer_effects raised `AxisError: axis 1 is out of bounds` on the
+  row-normalisation; `network._to_dense` silently returned a length-`n` vector
+  instead of the `(n, n)` adjacency). Both now detect the libpysal `(array,
+  ids)` tuple form and otherwise use the dense array directly. Raw-array /
+  scipy-sparse inputs are unaffected. New guard:
+  `tests/reference_parity/test_peer_effects_parity.py::test_peer_effects_accepts_native_W_object`.
 
 ## [1.20.0] — 2026-06-22
 

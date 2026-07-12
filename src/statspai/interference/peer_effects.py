@@ -167,7 +167,12 @@ def peer_effects(
     X = df[cov].to_numpy(dtype=float) if cov else np.zeros((n, 0))
 
     if hasattr(W, "full"):
-        W_mat = np.asarray(W.full()[0], dtype=float)
+        full = W.full()
+        # StatsPAI ``W.full()`` returns the dense (n, n) array; libpysal's
+        # ``W.full()`` returns a ``(array, ids)`` tuple. Accept both.
+        if isinstance(full, tuple):
+            full = full[0]
+        W_mat = np.asarray(full, dtype=float)
     elif hasattr(W, "toarray"):
         W_mat = np.asarray(W.toarray(), dtype=float)
     else:
