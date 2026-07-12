@@ -90,7 +90,7 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Parity index coverage expansion — 299 estimators now carry a graded
+- **Parity index coverage expansion — 305 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
   `sp.parity_summary()`. This closes the Tier-D worklist of reference-less
   estimators to zero. Across multiple sessions this pass added closed-form
@@ -133,7 +133,12 @@ These change DiD point estimates for affected staggered/switching designs. See
   ordering), conformal causal inference (`weighted_conformal_prediction`
   marginal coverage, `conformal_ite_interval` coverage + ATE point,
   `conformal_cate`), and shift-share (`ssaggregate` Borusyak-Hull-Jaravel
-  location-level equivalence). Every record
+  location-level equivalence). Finally, the Bayesian and policy-weight layers:
+  `bayes_iv` / `bayes_rd` posterior recovery with `rhat < 1.01` / adequate ESS
+  convergence guards (skipped without the `[bayes]` extra), and the
+  Mogstad-Santos-Torgovitsky `policy_weight_ate` / `policy_weight_subsidy` /
+  `policy_weight_marginal` / `policy_weight_observed_prte` closed-form weight
+  identities. Every record
   traces to a committed `tests/reference_parity/` guard; grades are honest
   (bit-exact only for machine-precision identities, analytical-only for
   DGP-recovery / coverage guarantees). See `docs/dev/parity_gap_inventory.md`.

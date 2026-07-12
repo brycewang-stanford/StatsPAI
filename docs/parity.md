@@ -27,10 +27,10 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 129 |
 | aligned | 7 |
-| analytical-only | 159 |
+| analytical-only | 165 |
 | external-replication | 4 |
-| **verified (subtotal)** | **299** |
-| unverified | 840 |
+| **verified (subtotal)** | **305** |
+| unverified | 834 |
 | **total registered** | **1139** |
 
 ## bit-exact — 129 functions
@@ -194,7 +194,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `metalearner` | [`test_causalml_book.py`](../tests/external_parity/test_causalml_book.py) |
 
-## analytical-only — 159 functions
+## analytical-only — 165 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -205,6 +205,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `assimilative_causal` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `attrition_test` | [`test_attrition_test_parity.py`](../tests/reference_parity/test_attrition_test_parity.py) |
 | `average_treatment_effect` | [`test_forest_ate_parity.py`](../tests/reference_parity/test_forest_ate_parity.py) |
+| `bayes_iv` | [`test_bayes_diagnostics_parity.py`](../tests/reference_parity/test_bayes_diagnostics_parity.py) |
+| `bayes_rd` | [`test_bayes_diagnostics_parity.py`](../tests/reference_parity/test_bayes_diagnostics_parity.py) |
 | `bayes_synth` | [`test_bayes_synth_parity.py`](../tests/reference_parity/test_bayes_synth_parity.py) |
 | `bcf` | [`test_bcf_parity.py`](../tests/reference_parity/test_bcf_parity.py) |
 | `bcf_factor_exposure` | [`test_bcf_factor_exposure_parity.py`](../tests/reference_parity/test_bcf_factor_exposure_parity.py) |
@@ -320,6 +322,10 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `pc_algorithm` | [`test_causal_discovery_parity.py`](../tests/reference_parity/test_causal_discovery_parity.py) |
 | `peer_effects` | [`test_peer_effects_parity.py`](../tests/reference_parity/test_peer_effects_parity.py) |
 | `policy_tree` | [`test_policy_tree_parity.py`](../tests/reference_parity/test_policy_tree_parity.py) |
+| `policy_weight_ate` | [`test_policy_weight_parity.py`](../tests/reference_parity/test_policy_weight_parity.py) |
+| `policy_weight_marginal` | [`test_policy_weight_parity.py`](../tests/reference_parity/test_policy_weight_parity.py) |
+| `policy_weight_observed_prte` | [`test_policy_weight_parity.py`](../tests/reference_parity/test_policy_weight_parity.py) |
+| `policy_weight_subsidy` | [`test_policy_weight_parity.py`](../tests/reference_parity/test_policy_weight_parity.py) |
 | `power_ols` | [`test_recovery_batch_parity.py`](../tests/reference_parity/test_recovery_batch_parity.py) |
 | `principal_strat` | [`test_principal_strat_parity.py`](../tests/reference_parity/test_principal_strat_parity.py) |
 | `proximal` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
@@ -360,6 +366,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `wild_cluster_ci_inv` | [`test_wild_cluster_ci_inv_parity.py`](../tests/reference_parity/test_wild_cluster_ci_inv_parity.py) |
 | `wooldridge_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) |
 
-## unverified — 840 functions
+## unverified — 834 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).
