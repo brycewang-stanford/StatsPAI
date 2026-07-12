@@ -48,8 +48,13 @@ def _to_dense(adjacency: GraphLike) -> np.ndarray:
     """Coerce an adjacency-like object to a dense ``float`` ndarray."""
     if _HAVE_SCIPY and issparse(adjacency):
         return np.asarray(adjacency.toarray(), dtype=float)
-    if hasattr(adjacency, "full"):  # libpysal-style W object
-        return np.asarray(adjacency.full()[0], dtype=float)
+    if hasattr(adjacency, "full"):  # W-like object
+        full = adjacency.full()
+        # StatsPAI ``W.full()`` returns the dense (n, n) array; libpysal's
+        # ``W.full()`` returns a ``(array, ids)`` tuple. Accept both.
+        if isinstance(full, tuple):
+            full = full[0]
+        return np.asarray(full, dtype=float)
     if hasattr(adjacency, "toarray"):
         return np.asarray(adjacency.toarray(), dtype=float)
     return np.asarray(adjacency, dtype=float)

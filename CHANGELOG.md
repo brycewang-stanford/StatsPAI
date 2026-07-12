@@ -90,7 +90,7 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Parity index coverage expansion — 264 estimators now carry a graded
+- **Parity index coverage expansion — 305 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
   `sp.parity_summary()`. This closes the Tier-D worklist of reference-less
   estimators to zero. Across multiple sessions this pass added closed-form
@@ -114,7 +114,31 @@ These change DiD point estimates for affected staggered/switching designs. See
   `honest_variance` mean-CATE identity, `geolift` exact convex-combo lift
   recovery, `bcf_factor_exposure` adding-up identities + effect recovery,
   `bayes_synth` Dirichlet-simplex ATT recovery, `calibration_test` /
-  `test_calibration` BLP heterogeneity detection). Every record
+  `test_calibration` BLP heterogeneity detection). A later pass extended the
+  guards across the spatial, time-series, panel, survival, frontier and
+  distributional-decomposition families: spatial autocorrelation
+  (`moran_local`, `getis_ord_local`, `join_counts` on a segregated field) and
+  spatial regression (`slx` = augmented OLS, `sac` / `sarar_gmm` rho recovery,
+  `spatial_did` effect + no-spurious-spillover, `spatial_iv`, `spatial_panel`);
+  time series (`garch` persistence, `granger_causality` direction, `irf` =
+  closed-form `A**h`, `johansen` rank, `panel_unitroot`, `bvar` Minnesota
+  prior, `its` level shift); panel (`panel_fgls`, `interactive_fe`,
+  `panel_logit`, `panel_probit`); competing risks (`cuminc` CIF closed form +
+  Gray's test, `finegray`, `cox_frailty`); efficiency frontiers (`malmquist`
+  `M = EC·TC` identity, `metafrontier` envelope + technology-gap ratio); and
+  decompositions (`rifreg`-at-mean = OLS, `shapley_inequality` additivity,
+  `fairlie` and `ffl_decompose` aggregate identities). A further pass added
+  interference (`peer_effects` linear-in-means recovery), transportability
+  (`transport_generalize` homogeneous-effect invariance + covariate-shift
+  ordering), conformal causal inference (`weighted_conformal_prediction`
+  marginal coverage, `conformal_ite_interval` coverage + ATE point,
+  `conformal_cate`), and shift-share (`ssaggregate` Borusyak-Hull-Jaravel
+  location-level equivalence). Finally, the Bayesian and policy-weight layers:
+  `bayes_iv` / `bayes_rd` posterior recovery with `rhat < 1.01` / adequate ESS
+  convergence guards (skipped without the `[bayes]` extra), and the
+  Mogstad-Santos-Torgovitsky `policy_weight_ate` / `policy_weight_subsidy` /
+  `policy_weight_marginal` / `policy_weight_observed_prte` closed-form weight
+  identities. Every record
   traces to a committed `tests/reference_parity/` guard; grades are honest
   (bit-exact only for machine-precision identities, analytical-only for
   DGP-recovery / coverage guarantees). See `docs/dev/parity_gap_inventory.md`.
@@ -329,6 +353,29 @@ These change DiD point estimates for affected staggered/switching designs. See
   agree numerically with `hdm` (≈17× off on eminent domain). Use the new,
   parity-tested `sp.rlasso_iv` instead. Behaviour is unchanged during the
   deprecation window; see [`MIGRATION.md`](MIGRATION.md).
+
+### Fixed
+
+- **`sp.spatial_iv` now accepts a native StatsPAI `W` object.** Passing a
+  weights object built by `sp.queen_weights` / `sp.rook_weights` /
+  `sp.knn_weights` (the natural way to get spatial weights) raised an opaque
+  `IndexError: tuple index out of range` deep inside the estimator. `_coerce_W`
+  assumed the libpysal convention where `W.full()` returns a `(array, ids)`
+  tuple and indexed `W.full()[0]`, but StatsPAI's own `W.full()` returns the
+  dense `(n, n)` array directly — so `[0]` sliced out the first *row*, a
+  length-`n` vector, and the matrix multiply collapsed. The coercion now
+  detects the tuple form and otherwise uses the array as-is, so both StatsPAI
+  and libpysal weights work; calls that passed a raw NumPy array (the only
+  path that worked before) are numerically unchanged. New guard:
+  `tests/reference_parity/test_spatial_models_parity.py::test_spatial_iv_accepts_native_W_object`.
+- **`sp.peer_effects` and the `sp.network` graph layer now accept a native
+  StatsPAI `W` object.** Both carried the same `W.full()[0]` first-row bug as
+  `spatial_iv` (peer_effects raised `AxisError: axis 1 is out of bounds` on the
+  row-normalisation; `network._to_dense` silently returned a length-`n` vector
+  instead of the `(n, n)` adjacency). Both now detect the libpysal `(array,
+  ids)` tuple form and otherwise use the dense array directly. Raw-array /
+  scipy-sparse inputs are unaffected. New guard:
+  `tests/reference_parity/test_peer_effects_parity.py::test_peer_effects_accepts_native_W_object`.
 
 ## [1.20.0] — 2026-06-22
 

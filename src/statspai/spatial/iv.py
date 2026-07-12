@@ -103,7 +103,12 @@ class SpatialIVResult:
 
 def _coerce_W(W: Any) -> np.ndarray:
     if hasattr(W, "full"):
-        return np.asarray(W.full()[0], dtype=float)
+        full = W.full()
+        # StatsPAI ``W.full()`` returns the dense (n, n) array; libpysal's
+        # ``W.full()`` returns a ``(array, ids)`` tuple. Accept both.
+        if isinstance(full, tuple):
+            full = full[0]
+        return np.asarray(full, dtype=float)
     if hasattr(W, "toarray"):
         return np.asarray(W.toarray(), dtype=float)
     return np.asarray(W, dtype=float)
