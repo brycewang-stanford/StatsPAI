@@ -330,6 +330,21 @@ These change DiD point estimates for affected staggered/switching designs. See
   parity-tested `sp.rlasso_iv` instead. Behaviour is unchanged during the
   deprecation window; see [`MIGRATION.md`](MIGRATION.md).
 
+### Fixed
+
+- **`sp.spatial_iv` now accepts a native StatsPAI `W` object.** Passing a
+  weights object built by `sp.queen_weights` / `sp.rook_weights` /
+  `sp.knn_weights` (the natural way to get spatial weights) raised an opaque
+  `IndexError: tuple index out of range` deep inside the estimator. `_coerce_W`
+  assumed the libpysal convention where `W.full()` returns a `(array, ids)`
+  tuple and indexed `W.full()[0]`, but StatsPAI's own `W.full()` returns the
+  dense `(n, n)` array directly — so `[0]` sliced out the first *row*, a
+  length-`n` vector, and the matrix multiply collapsed. The coercion now
+  detects the tuple form and otherwise uses the array as-is, so both StatsPAI
+  and libpysal weights work; calls that passed a raw NumPy array (the only
+  path that worked before) are numerically unchanged. New guard:
+  `tests/reference_parity/test_spatial_models_parity.py::test_spatial_iv_accepts_native_W_object`.
+
 ## [1.20.0] — 2026-06-22
 
 ### ⚠️ Correctness
