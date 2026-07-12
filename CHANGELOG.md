@@ -90,7 +90,7 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Parity index coverage expansion — 264 estimators now carry a graded
+- **Parity index coverage expansion — 293 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
   `sp.parity_summary()`. This closes the Tier-D worklist of reference-less
   estimators to zero. Across multiple sessions this pass added closed-form
@@ -114,7 +114,20 @@ These change DiD point estimates for affected staggered/switching designs. See
   `honest_variance` mean-CATE identity, `geolift` exact convex-combo lift
   recovery, `bcf_factor_exposure` adding-up identities + effect recovery,
   `bayes_synth` Dirichlet-simplex ATT recovery, `calibration_test` /
-  `test_calibration` BLP heterogeneity detection). Every record
+  `test_calibration` BLP heterogeneity detection). A later pass extended the
+  guards across the spatial, time-series, panel, survival, frontier and
+  distributional-decomposition families: spatial autocorrelation
+  (`moran_local`, `getis_ord_local`, `join_counts` on a segregated field) and
+  spatial regression (`slx` = augmented OLS, `sac` / `sarar_gmm` rho recovery,
+  `spatial_did` effect + no-spurious-spillover, `spatial_iv`, `spatial_panel`);
+  time series (`garch` persistence, `granger_causality` direction, `irf` =
+  closed-form `A**h`, `johansen` rank, `panel_unitroot`, `bvar` Minnesota
+  prior, `its` level shift); panel (`panel_fgls`, `interactive_fe`,
+  `panel_logit`, `panel_probit`); competing risks (`cuminc` CIF closed form +
+  Gray's test, `finegray`, `cox_frailty`); efficiency frontiers (`malmquist`
+  `M = EC·TC` identity, `metafrontier` envelope + technology-gap ratio); and
+  decompositions (`rifreg`-at-mean = OLS, `shapley_inequality` additivity,
+  `fairlie` and `ffl_decompose` aggregate identities). Every record
   traces to a committed `tests/reference_parity/` guard; grades are honest
   (bit-exact only for machine-precision identities, analytical-only for
   DGP-recovery / coverage guarantees). See `docs/dev/parity_gap_inventory.md`.
