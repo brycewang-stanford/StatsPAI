@@ -90,7 +90,7 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
-- **Parity index coverage expansion — 293 estimators now carry a graded
+- **Parity index coverage expansion — 299 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
   `sp.parity_summary()`. This closes the Tier-D worklist of reference-less
   estimators to zero. Across multiple sessions this pass added closed-form
@@ -127,7 +127,13 @@ These change DiD point estimates for affected staggered/switching designs. See
   Gray's test, `finegray`, `cox_frailty`); efficiency frontiers (`malmquist`
   `M = EC·TC` identity, `metafrontier` envelope + technology-gap ratio); and
   decompositions (`rifreg`-at-mean = OLS, `shapley_inequality` additivity,
-  `fairlie` and `ffl_decompose` aggregate identities). Every record
+  `fairlie` and `ffl_decompose` aggregate identities). A further pass added
+  interference (`peer_effects` linear-in-means recovery), transportability
+  (`transport_generalize` homogeneous-effect invariance + covariate-shift
+  ordering), conformal causal inference (`weighted_conformal_prediction`
+  marginal coverage, `conformal_ite_interval` coverage + ATE point,
+  `conformal_cate`), and shift-share (`ssaggregate` Borusyak-Hull-Jaravel
+  location-level equivalence). Every record
   traces to a committed `tests/reference_parity/` guard; grades are honest
   (bit-exact only for machine-precision identities, analytical-only for
   DGP-recovery / coverage guarantees). See `docs/dev/parity_gap_inventory.md`.
