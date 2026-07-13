@@ -305,9 +305,10 @@ def test_proximal_surrogate_index_runs_with_valid_proxy():
     stage1_x = np.column_stack([obs_ones, obs["W"].to_numpy(float)])
     beta1, *_ = np.linalg.lstsq(stage1_x, obs[["S"]].to_numpy(float), rcond=None)
     s_hat = stage1_x @ beta1
-    stage2_x = np.column_stack([obs_ones, obs["W"].to_numpy(float), s_hat])
+    # 2SLS second stage excludes the instrument W (exclusion restriction).
+    stage2_x = np.column_stack([obs_ones, s_hat])
     beta2, *_ = np.linalg.lstsq(stage2_x, obs["Y"].to_numpy(float), rcond=None)
-    bridge_slope = beta2[2]
+    bridge_slope = beta2[1]
     treated = exp["T"].to_numpy(bool)
     expected = bridge_slope * (
         exp.loc[treated, "S"].mean() - exp.loc[~treated, "S"].mean()
