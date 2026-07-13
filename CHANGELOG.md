@@ -90,6 +90,29 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Added
 
+- **Analytical parity coverage for 10 previously uncovered estimator
+  families** — structural (`olley_pakes`, `levinsohn_petrin`,
+  `ackerberg_caves_frazer`, `wooldridge_prod`, `prod_fn`, `markup`, `blp`),
+  longitudinal regimes (`longitudinal_analyze`, `longitudinal_contrast`,
+  `regime`, `always_treat`, `never_treat`), `msm`, parametric g-formula
+  (`gformula_ice_fn`, `gformula_mc`), fairness (`demographic_parity`,
+  `equalized_odds`, `fairness_audit`, `orthogonal_to_bias`,
+  `counterfactual_fairness`, `evidence_without_injustice`), multiple
+  imputation (`mice`, `mi_estimate`), `multi_treatment`, off-policy
+  evaluation (`sharp_ope_unobserved`, `causal_policy_forest`), surrogate
+  index (`surrogate_index`, `long_term_from_short`,
+  `proximal_surrogate_index`), and target-trial emulation
+  (`target_trial_protocol`, `target_trial_emulate`, `clone_censor_weight`,
+  `immortal_time_check`, `target_trial_checklist`, `target_trial_report`).
+  Each family gets deterministic-DGP known-truth recovery tests plus
+  machine-precision internal identities under
+  `tests/reference_parity/test_<family>_parity.py`; the parity index now
+  carries 340 graded records. Known limitation surfaced (not fixed here):
+  `proximal_surrogate_index`'s second-stage design `[1, W, S_hat]` is
+  exactly rank-deficient (`S_hat` is affine in `W`), so its confounded-ATE
+  point estimate depends on the scale of the proxy `W`; the recovery test
+  is skipped with a documented reason pending a ⚠️ correctness fix.
+
 - **Parity index coverage expansion — 305 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
   `sp.parity_summary()`. This closes the Tier-D worklist of reference-less

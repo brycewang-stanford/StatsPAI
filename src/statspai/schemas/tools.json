@@ -2125,7 +2125,7 @@
     "name": "bunching"
   },
   {
-    "description": "Bayesian VAR with Minnesota (Litterman) prior.",
+    "description": "Bayesian VAR with Minnesota (Litterman) prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "lags": {
@@ -3862,7 +3862,7 @@
     "name": "cox"
   },
   {
-    "description": "Cox proportional hazards with shared gamma frailty.",
+    "description": "Cox proportional hazards with shared gamma frailty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4159,7 +4159,7 @@
     "name": "cs_report"
   },
   {
-    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen).",
+    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7259,7 +7259,7 @@
     "name": "examples"
   },
   {
-    "description": "Fairlie (2005) nonlinear decomposition for binary outcomes.",
+    "description": "Fairlie (2005) nonlinear decomposition for binary outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "group": {
@@ -7557,7 +7557,7 @@
     "name": "fepois"
   },
   {
-    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Assumptions: Firpo-Fortin-Lemieux RIF regression: small perturbations to the covariate distribution induce small changes in the distributional statistic; Linear approximation of the recentered influence function is locally valid. Pre-conditions: Outcome is continuous (e.g. log earnings) with adequate distributional support; Covariates explain a non-trivial share of outcome variation across groups. Failure modes: RIF instability at extreme quantiles -> Avoid quantiles below ~0.05 or above ~0.95; widen the kernel bandwidth. Alternatives: sp.dfl_decompose, sp.oaxaca, sp.rif_decomposition. Typical minimum N: 500.",
+    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Firpo-Fortin-Lemieux RIF regression: small perturbations to the covariate distribution induce small changes in the distributional statistic; Linear approximation of the recentered influence function is locally valid. Pre-conditions: Outcome is continuous (e.g. log earnings) with adequate distributional support; Covariates explain a non-trivial share of outcome variation across groups. Failure modes: RIF instability at extreme quantiles -> Avoid quantiles below ~0.05 or above ~0.95; widen the kernel bandwidth. Alternatives: sp.dfl_decompose, sp.oaxaca, sp.rif_decomposition. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7642,7 +7642,7 @@
     "name": "ffl_decompose"
   },
   {
-    "description": "Fine & Gray (1999) proportional subdistribution hazards model.",
+    "description": "Fine & Gray (1999) proportional subdistribution hazards model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -8215,7 +8215,7 @@
     "name": "gap_closing"
   },
   {
-    "description": "Fit GARCH(p,q) by conditional Gaussian MLE.",
+    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "mean": {
@@ -8701,7 +8701,7 @@
     "name": "gmm"
   },
   {
-    "description": "Granger causality test.",
+    "description": "Granger causality test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "caused": {
@@ -9532,7 +9532,7 @@
     "name": "inequality_index"
   },
   {
-    "description": "Interactive fixed effects estimator (Bai 2009).",
+    "description": "Interactive fixed effects estimator (Bai 2009). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9730,7 +9730,7 @@
     "name": "ipw"
   },
   {
-    "description": "Compute impulse response functions from VAR.",
+    "description": "Compute impulse response functions from VAR. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "impulse": {
@@ -9764,7 +9764,7 @@
     "name": "irf"
   },
   {
-    "description": "Segmented regression for interrupted time series.",
+    "description": "Segmented regression for interrupted time series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -10231,7 +10231,7 @@
     "name": "jive"
   },
   {
-    "description": "Johansen (1991) cointegration test.",
+    "description": "Johansen (1991) cointegration test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -13036,7 +13036,7 @@
     "name": "mr"
   },
   {
-    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
+    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "baseline": {
@@ -13192,7 +13192,7 @@
     "name": "multi_score_rd"
   },
   {
-    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Assumptions: Generalised unconfoundedness: Y(a) perp T | X for all a; Generalised overlap: 0 < P(T=a | X) < 1 for each arm a; SUTVA across arms. Pre-conditions: treat is integer-valued with >= 2 distinct levels; covariates comprise the confounding set; enough units per treatment arm (>= 50 per arm). Failure modes: Some arm has near-zero propensity in the data -> Violates overlap -- drop that arm or use bounds; Tiny treatment cells (< 30) -> Collapse sparse arms or use regularised multinomial propensity. Alternatives: sp.multi_arm_forest, sp.dml, sp.metalearner. Typical minimum N: 300.",
+    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Generalised unconfoundedness: Y(a) perp T | X for all a; Generalised overlap: 0 < P(T=a | X) < 1 for each arm a; SUTVA across arms. Pre-conditions: treat is integer-valued with >= 2 distinct levels; covariates comprise the confounding set; enough units per treatment arm (>= 50 per arm). Failure modes: Some arm has near-zero propensity in the data -> Violates overlap -- drop that arm or use bounds; Tiny treatment cells (< 30) -> Collapse sparse arms or use regularised multinomial propensity. Alternatives: sp.multi_arm_forest, sp.dml, sp.metalearner. Typical minimum N: 300.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14210,7 +14210,7 @@
     "name": "panel_compare"
   },
   {
-    "description": "Panel FGLS (Feasible Generalized Least Squares).",
+    "description": "Panel FGLS (Feasible Generalized Least Squares). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14269,7 +14269,7 @@
     "name": "panel_fgls"
   },
   {
-    "description": "Panel logit model.",
+    "description": "Panel logit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14337,7 +14337,7 @@
     "name": "panel_logit"
   },
   {
-    "description": "Panel probit model.",
+    "description": "Panel probit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14405,7 +14405,7 @@
     "name": "panel_probit"
   },
   {
-    "description": "Panel unit root test.",
+    "description": "Panel unit root test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "id": {
@@ -18996,7 +18996,7 @@
     "name": "rif_decomposition"
   },
   {
-    "description": "RIF regression (Firpo, Fortin & Lemieux 2009).",
+    "description": "RIF regression (Firpo, Fortin & Lemieux 2009). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "formula": {
@@ -20587,7 +20587,7 @@
     "name": "session"
   },
   {
-    "description": "Shorrocks-Shapley decomposition of an inequality index across",
+    "description": "Shorrocks-Shapley decomposition of an inequality index across Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "index": {

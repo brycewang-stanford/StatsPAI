@@ -4833,7 +4833,7 @@
       "Correct specification of the treatment and/or outcome models."
     ],
     "category": "causal",
-    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever.",
+    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.msm(panel, y=\"Y\", treat=\"A\", id=\"id\", time=\"t\", time_varying=[\"L_lag\"], baseline=[\"V\"])",
     "failure_modes": [
       {
@@ -4852,7 +4852,7 @@
     ],
     "reference": "Robins, Hernan & Brumback (2000); Cole & Hernan (2008)",
     "signature": {
-      "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever.",
+      "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "msm",
       "parameters": {
         "properties": {
@@ -4929,10 +4929,11 @@
     "stability": "stable",
     "typical_n_min": 300,
     "validation_notes": [
+      "tests/reference_parity/test_msm_family_parity.py",
       "API/unit contract evidence: tests/test_msm.py",
       "API/unit contract evidence: tests/test_escape_hatches.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -5466,7 +5467,7 @@
       "HMC convergence within thresholds"
     ],
     "category": "bayes",
-    "description": "Bayesian sharp Regression Discontinuity -- full posterior over the RD jump via local polynomial with prior regularisation on bandwidth and bias-correction slopes. Reports HDI, rhat, ESS, divergences.",
+    "description": "Bayesian sharp Regression Discontinuity -- full posterior over the RD jump via local polynomial with prior regularisation on bandwidth and bias-correction slopes. Reports HDI, rhat, ESS, divergences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.bayes_rd(df, y=\"y\", running=\"running_var\", cutoff=0.0)",
     "failure_modes": [
       {
@@ -5493,7 +5494,7 @@
     ],
     "reference": "Chib & Jacobi (2016); Branson et al. (2019)",
     "signature": {
-      "description": "Bayesian sharp Regression Discontinuity -- full posterior over the RD jump via local polynomial with prior regularisation on bandwidth and bias-correction slopes. Reports HDI, rhat, ESS, divergences.",
+      "description": "Bayesian sharp Regression Discontinuity -- full posterior over the RD jump via local polynomial with prior regularisation on bandwidth and bias-correction slopes. Reports HDI, rhat, ESS, divergences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_rd",
       "parameters": {
         "properties": {
@@ -5546,9 +5547,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_bayes_diagnostics_parity.py",
       "API/unit contract evidence: tests/test_bayes_rd.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -5770,7 +5772,7 @@
       "Eligibility and time-zero rules avoid immortal-time bias."
     ],
     "category": "target_trial",
-    "description": "Create a 7-component target trial protocol (Hernan-Robins / JAMA 2022 framework). Formalizes eligibility, treatment strategies, time zero, follow-up, outcome, causal contrast, and analysis plan before any estimation.",
+    "description": "Create a 7-component target trial protocol (Hernan-Robins / JAMA 2022 framework). Formalizes eligibility, treatment strategies, time zero, follow-up, outcome, causal contrast, and analysis plan before any estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.target_trial_protocol(eligibility=\"age>=50\", treatment_strategies=[\"statin\", \"none\"], assignment=\"treat\", time_zero=\"enroll\", followup_end=\"end\", outcome=\"event\")",
     "failure_modes": [
       {
@@ -5788,7 +5790,7 @@
     ],
     "reference": "Hernan & Robins (2016); JAMA (2022)",
     "signature": {
-      "description": "Create a 7-component target trial protocol (Hernan-Robins / JAMA 2022 framework). Formalizes eligibility, treatment strategies, time zero, follow-up, outcome, causal contrast, and analysis plan before any estimation.",
+      "description": "Create a 7-component target trial protocol (Hernan-Robins / JAMA 2022 framework). Formalizes eligibility, treatment strategies, time zero, follow-up, outcome, causal contrast, and analysis plan before any estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "target_trial_protocol",
       "parameters": {
         "properties": {
@@ -5866,9 +5868,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "tests/reference_parity/test_target_trial_parity.py",
       "API/unit contract evidence: tests/test_target_trial.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -5880,7 +5883,7 @@
       "Correct censoring and treatment-weight models."
     ],
     "category": "target_trial",
-    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW.",
+    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -5898,7 +5901,7 @@
     ],
     "reference": "Cain et al. 2010; Hernan et al. 2016",
     "signature": {
-      "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW.",
+      "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "clone_censor_weight",
       "parameters": {
         "properties": {
@@ -5948,9 +5951,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_target_trial_parity.py",
       "API/unit contract evidence: tests/test_target_trial.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -7993,7 +7997,7 @@
       "No structural positivity violations over treatment histories."
     ],
     "category": "longitudinal",
-    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime.",
+    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.longitudinal_analyze(df, id='pid', time='visit', treatment='drug', outcome='cd4', time_varying=['cd4_lag'], regime='if cd4_lag < 200 then 1 else 0')",
     "failure_modes": [
       {
@@ -8011,7 +8015,7 @@
     ],
     "reference": "Hernan & Robins (2020) Causal Inference: What If",
     "signature": {
-      "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime.",
+      "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "longitudinal_analyze",
       "parameters": {
         "properties": {
@@ -8092,9 +8096,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_longitudinal_parity.py",
       "API/unit contract evidence: tests/test_longitudinal.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -8108,7 +8113,7 @@
       "The contrast SE uses an independence-style delta approximation, assuming negligible covariance between the two regime estimates."
     ],
     "category": "longitudinal",
-    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE.",
+    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -8134,7 +8139,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE.",
+      "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "longitudinal_contrast",
       "parameters": {
         "properties": {
@@ -8182,9 +8187,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_longitudinal_parity.py",
       "API/unit contract evidence: tests/test_longitudinal.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -8197,7 +8203,7 @@
       "K matches the intended number of decision points when rule is a scalar or sequence."
     ],
     "category": "longitudinal",
-    "description": "Build a dynamic or static treatment regime from a string DSL, list, callable, or scalar. Supports 'if <cond> then <a> else <b>', 'always_treat', 'never_treat', and arbitrary safe expressions. Parsed via a whitelisted AST walker -- no dynamic code execution.",
+    "description": "Build a dynamic or static treatment regime from a string DSL, list, callable, or scalar. Supports 'if <cond> then <a> else <b>', 'always_treat', 'never_treat', and arbitrary safe expressions. Parsed via a whitelisted AST walker -- no dynamic code execution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.regime(\"if cd4 < 200 then 1 else 0\")",
     "failure_modes": [
       {
@@ -8223,7 +8229,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Build a dynamic or static treatment regime from a string DSL, list, callable, or scalar. Supports 'if <cond> then <a> else <b>', 'always_treat', 'never_treat', and arbitrary safe expressions. Parsed via a whitelisted AST walker -- no dynamic code execution.",
+      "description": "Build a dynamic or static treatment regime from a string DSL, list, callable, or scalar. Supports 'if <cond> then <a> else <b>', 'always_treat', 'never_treat', and arbitrary safe expressions. Parsed via a whitelisted AST walker -- no dynamic code execution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "regime",
       "parameters": {
         "properties": {
@@ -8253,9 +8259,10 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
+      "tests/reference_parity/test_longitudinal_parity.py",
       "API/unit contract evidence: tests/test_longitudinal.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -9230,7 +9237,7 @@
       "Treatment is randomised (or ignorable) in the experimental sample"
     ],
     "category": "surrogate",
-    "description": "Athey-Chetty-Imbens-Kang surrogate-index estimator for the long-term ATE: combines an experimental sample (treatment + short-term surrogate) with an observational sample (surrogate + long-term outcome) to extrapolate the effect on the long-term outcome.",
+    "description": "Athey-Chetty-Imbens-Kang surrogate-index estimator for the long-term ATE: combines an experimental sample (treatment + short-term surrogate) with an observational sample (surrogate + long-term outcome) to extrapolate the effect on the long-term outcome. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.surrogate_index(exp, obs, treatment='T', surrogates=['s1','s2'], long_term_outcome='Y')",
     "failure_modes": [
       {
@@ -9262,7 +9269,7 @@
     ],
     "reference": "Athey, Chetty, Imbens & Kang (2019). NBER WP 26463.",
     "signature": {
-      "description": "Athey-Chetty-Imbens-Kang surrogate-index estimator for the long-term ATE: combines an experimental sample (treatment + short-term surrogate) with an observational sample (surrogate + long-term outcome) to extrapolate the effect on the long-term outcome.",
+      "description": "Athey-Chetty-Imbens-Kang surrogate-index estimator for the long-term ATE: combines an experimental sample (treatment + short-term surrogate) with an observational sample (surrogate + long-term outcome) to extrapolate the effect on the long-term outcome. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "surrogate_index",
       "parameters": {
         "properties": {
@@ -9325,9 +9332,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_surrogate_parity.py",
       "API/unit contract evidence: tests/test_surrogate.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -9342,7 +9350,7 @@
       "Treatment is sustained/long-term and the short-run waves capture its full downstream path"
     ],
     "category": "surrogate",
-    "description": "Long-term ATE under multi-wave short-term surrogates; extends the classical surrogate index to sustained treatments via iterated conditional expectations (Ghassami et al. 2024).",
+    "description": "Long-term ATE under multi-wave short-term surrogates; extends the classical surrogate index to sustained treatments via iterated conditional expectations (Ghassami et al. 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.long_term_from_short(exp, obs, treatment='T', surrogates_waves=[['s1'],['s2','s3']], long_term_outcome='Y')",
     "failure_modes": [
       {
@@ -9374,7 +9382,7 @@
     ],
     "reference": "Tran, Bibaut & Kallus (arXiv:2311.08527, 2023).",
     "signature": {
-      "description": "Long-term ATE under multi-wave short-term surrogates; extends the classical surrogate index to sustained treatments via iterated conditional expectations (Ghassami et al. 2024).",
+      "description": "Long-term ATE under multi-wave short-term surrogates; extends the classical surrogate index to sustained treatments via iterated conditional expectations (Ghassami et al. 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "long_term_from_short",
       "parameters": {
         "properties": {
@@ -9427,9 +9435,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_surrogate_parity.py",
       "API/unit contract evidence: tests/test_surrogate.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -10409,7 +10418,7 @@
       "Logged rewards are observed for the chosen action only (bandit feedback)"
     ],
     "category": "ope",
-    "description": "Sharp bounds on off-policy value under unobserved confounding via the marginal-sensitivity Gamma-model (Kallus, Mao, Uehara 2025).",
+    "description": "Sharp bounds on off-policy value under unobserved confounding via the marginal-sensitivity Gamma-model (Kallus, Mao, Uehara 2025). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -10434,7 +10443,7 @@
     ],
     "reference": "Hess, Frauen, Melnychuk & Feuerriegel (arXiv:2502.13022, 2025).",
     "signature": {
-      "description": "Sharp bounds on off-policy value under unobserved confounding via the marginal-sensitivity Gamma-model (Kallus, Mao, Uehara 2025).",
+      "description": "Sharp bounds on off-policy value under unobserved confounding via the marginal-sensitivity Gamma-model (Kallus, Mao, Uehara 2025). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "sharp_ope_unobserved",
       "parameters": {
         "properties": {
@@ -10477,9 +10486,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_ope_parity.py",
       "API/unit contract evidence: tests/test_ope_extensions.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -10491,7 +10501,7 @@
       "Sufficient overlap for learned policy comparisons."
     ],
     "category": "ope",
-    "description": "Forest of doubly-robust policy trees: ensembles depth-limited trees over AIPW-scored actions to reduce variance and give honest policy-value SE (2025).",
+    "description": "Forest of doubly-robust policy trees: ensembles depth-limited trees over AIPW-scored actions to reduce variance and give honest policy-value SE (2025). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -10510,7 +10520,7 @@
     ],
     "reference": "arXiv:2512.22846 (2025).",
     "signature": {
-      "description": "Forest of doubly-robust policy trees: ensembles depth-limited trees over AIPW-scored actions to reduce variance and give honest policy-value SE (2025).",
+      "description": "Forest of doubly-robust policy trees: ensembles depth-limited trees over AIPW-scored actions to reduce variance and give honest policy-value SE (2025). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "causal_policy_forest",
       "parameters": {
         "properties": {
@@ -10556,9 +10566,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_ope_parity.py",
       "API/unit contract evidence: tests/test_ope_extensions.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -10964,7 +10975,7 @@
       "HMC convergence diagnostics within thresholds"
     ],
     "category": "bayes",
-    "description": "Bayesian instrumental variables with full posterior over structural parameters. Handles weak instruments via shrinkage priors and reports posterior mass near zero on the first-stage coefficient.",
+    "description": "Bayesian instrumental variables with full posterior over structural parameters. Handles weak instruments via shrinkage priors and reports posterior mass near zero on the first-stage coefficient. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.bayes_iv(df, y='wage', treat='education', instrument='quarter_of_birth')",
     "failure_modes": [
       {
@@ -10996,7 +11007,7 @@
     ],
     "reference": "Kleibergen & Zivot (2003); Chen et al. (2018) weak-IV Bayesian",
     "signature": {
-      "description": "Bayesian instrumental variables with full posterior over structural parameters. Handles weak instruments via shrinkage priors and reports posterior mass near zero on the first-stage coefficient.",
+      "description": "Bayesian instrumental variables with full posterior over structural parameters. Handles weak instruments via shrinkage priors and reports posterior mass near zero on the first-stage coefficient. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "bayes_iv",
       "parameters": {
         "properties": {
@@ -11051,10 +11062,11 @@
     "stability": "stable",
     "typical_n_min": 300,
     "validation_notes": [
+      "tests/reference_parity/test_bayes_diagnostics_parity.py",
       "API/unit contract evidence: tests/test_bayes_iv.py",
       "API/unit contract evidence: tests/test_bayes_iv_per_instrument.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -11892,7 +11904,7 @@
       "Checklist items marked TODO require human completion before submission."
     ],
     "category": "target_trial",
-    "description": "Render the JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist as a completed Markdown table, auto-filled from a TargetTrialResult and flagged for any remaining TODO items.",
+    "description": "Render the JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist as a completed Markdown table, auto-filled from a TargetTrialResult and flagged for any remaining TODO items. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.target_trial_checklist(res, fmt='markdown')",
     "failure_modes": [
       {
@@ -11910,7 +11922,7 @@
     ],
     "reference": "Hernan et al. (2025). TARGET Statement. JAMA/BMJ Sept 2025.",
     "signature": {
-      "description": "Render the JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist as a completed Markdown table, auto-filled from a TargetTrialResult and flagged for any remaining TODO items.",
+      "description": "Render the JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist as a completed Markdown table, auto-filled from a TargetTrialResult and flagged for any remaining TODO items. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "target_trial_checklist",
       "parameters": {
         "properties": {
@@ -11937,9 +11949,10 @@
     "stability": "stable",
     "typical_n_min": 1,
     "validation_notes": [
+      "tests/reference_parity/test_target_trial_parity.py",
       "API/unit contract evidence: tests/test_api_stable_evidence.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -12318,7 +12331,7 @@
       "Protected-attribute interventions are well-defined in the application context."
     ],
     "category": "fairness",
-    "description": "Kusner-Loftus-Russell-Silva (2018) counterfactual-fairness test: compares factual vs. SCM-intervened predictions to measure path-specific dependence of a classifier on the protected attribute.",
+    "description": "Kusner-Loftus-Russell-Silva (2018) counterfactual-fairness test: compares factual vs. SCM-intervened predictions to measure path-specific dependence of a classifier on the protected attribute. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.counterfactual_fairness(df, predictor=model.predict_proba, protected='gender', scm_intervention=scm_fn)",
     "failure_modes": [
       {
@@ -12336,7 +12349,7 @@
     ],
     "reference": "Kusner, Loftus, Russell, Silva (2018), NeurIPS.",
     "signature": {
-      "description": "Kusner-Loftus-Russell-Silva (2018) counterfactual-fairness test: compares factual vs. SCM-intervened predictions to measure path-specific dependence of a classifier on the protected attribute.",
+      "description": "Kusner-Loftus-Russell-Silva (2018) counterfactual-fairness test: compares factual vs. SCM-intervened predictions to measure path-specific dependence of a classifier on the protected attribute. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "counterfactual_fairness",
       "parameters": {
         "properties": {
@@ -12374,9 +12387,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_fairness_parity.py",
       "API/unit contract evidence: tests/test_fairness.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -12392,7 +12406,7 @@
       "In-sample orthogonality to A is an acceptable relaxation of counterfactual fairness (no explicit SCM required)"
     ],
     "category": "fairness",
-    "description": "Residualize features against the protected attribute as a pre-processing step toward counterfactual fairness.",
+    "description": "Residualize features against the protected attribute as a pre-processing step toward counterfactual fairness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.orthogonal_to_bias(df, features=['income','edu'], protected='gender')",
     "failure_modes": [
       {
@@ -12417,7 +12431,7 @@
     ],
     "reference": "Chen & Zhu (arXiv:2403.17852v3, 2024).",
     "signature": {
-      "description": "Residualize features against the protected attribute as a pre-processing step toward counterfactual fairness.",
+      "description": "Residualize features against the protected attribute as a pre-processing step toward counterfactual fairness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "orthogonal_to_bias",
       "parameters": {
         "properties": {
@@ -12448,9 +12462,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_fairness_parity.py",
       "API/unit contract evidence: tests/test_fairness.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -12465,7 +12480,7 @@
       "Protected attribute may be multi-valued but groups are well-populated"
     ],
     "category": "fairness",
-    "description": "Demographic-parity gap between groups defined by the protected attribute.",
+    "description": "Demographic-parity gap between groups defined by the protected attribute. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -12490,7 +12505,7 @@
     ],
     "reference": "EEOC 80%-rule; Dwork et al. (2012).",
     "signature": {
-      "description": "Demographic-parity gap between groups defined by the protected attribute.",
+      "description": "Demographic-parity gap between groups defined by the protected attribute. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "demographic_parity",
       "parameters": {
         "properties": {
@@ -12523,9 +12538,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_fairness_parity.py",
       "API/unit contract evidence: tests/test_fairness.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -12540,7 +12556,7 @@
       "Label quality is reliable since the metric conditions on true outcomes"
     ],
     "category": "fairness",
-    "description": "Hardt-Price-Srebro equalized-odds gap -- max of TPR and FPR group differences.",
+    "description": "Hardt-Price-Srebro equalized-odds gap -- max of TPR and FPR group differences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -12565,7 +12581,7 @@
     ],
     "reference": "Hardt, Price, Srebro (2016), NeurIPS.",
     "signature": {
-      "description": "Hardt-Price-Srebro equalized-odds gap -- max of TPR and FPR group differences.",
+      "description": "Hardt-Price-Srebro equalized-odds gap -- max of TPR and FPR group differences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "equalized_odds",
       "parameters": {
         "properties": {
@@ -12603,9 +12619,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_fairness_parity.py",
       "API/unit contract evidence: tests/test_fairness.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -12618,7 +12635,7 @@
       "Fairness metrics are descriptive unless tied to a causal estimand."
     ],
     "category": "fairness",
-    "description": "One-shot dashboard combining demographic parity, equalized odds, and (optionally) counterfactual fairness.",
+    "description": "One-shot dashboard combining demographic parity, equalized odds, and (optionally) counterfactual fairness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -12637,7 +12654,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "One-shot dashboard combining demographic parity, equalized odds, and (optionally) counterfactual fairness.",
+      "description": "One-shot dashboard combining demographic parity, equalized odds, and (optionally) counterfactual fairness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "fairness_audit",
       "parameters": {
         "properties": {
@@ -12677,9 +12694,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_fairness_parity.py",
       "API/unit contract evidence: tests/test_fairness.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -12694,7 +12712,7 @@
       "Comparability of the bridge/structure across the experimental and observational samples"
     ],
     "category": "surrogate",
-    "description": "Proximal surrogate-index estimator: long-term ATE when an unobserved U confounds S->Y, using a proxy W and 2SLS-style bridge-function identification (Imbens-Kallus-Mao-Wang 2025, JRSS-B).",
+    "description": "Proximal surrogate-index estimator: long-term ATE when an unobserved U confounds S->Y, using a proxy W and 2SLS-style bridge-function identification (Imbens-Kallus-Mao-Wang 2025, JRSS-B). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.proximal_surrogate_index(exp, obs, treatment='T', surrogates=['s'], proxies=['w'], long_term_outcome='Y')",
     "failure_modes": [
       {
@@ -12726,7 +12744,7 @@
     ],
     "reference": "Imbens, Kallus, Mao & Wang (2025). JRSS-B 87(2), 362-388. arXiv:2202.07234.",
     "signature": {
-      "description": "Proximal surrogate-index estimator: long-term ATE when an unobserved U confounds S->Y, using a proxy W and 2SLS-style bridge-function identification (Imbens-Kallus-Mao-Wang 2025, JRSS-B).",
+      "description": "Proximal surrogate-index estimator: long-term ATE when an unobserved U confounds S->Y, using a proxy W and 2SLS-style bridge-function identification (Imbens-Kallus-Mao-Wang 2025, JRSS-B). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "proximal_surrogate_index",
       "parameters": {
         "properties": {
@@ -12787,9 +12805,10 @@
     "stability": "stable",
     "typical_n_min": 1000,
     "validation_notes": [
+      "tests/reference_parity/test_surrogate_parity.py",
       "API/unit contract evidence: tests/test_surrogate.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -16729,7 +16748,7 @@
       "Correctly specified (or ML-approximated) nuisance models"
     ],
     "category": "causal",
-    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level.",
+    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.multi_treatment(df, y=\"wage\", treat=\"program\", covariates=[\"age\",\"edu\"])",
     "failure_modes": [
       {
@@ -16756,7 +16775,7 @@
     ],
     "reference": "Robins et al. (1994); Imbens (2000); Yang et al. (2016)",
     "signature": {
-      "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level.",
+      "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "multi_treatment",
       "parameters": {
         "properties": {
@@ -16806,9 +16825,10 @@
     "stability": "stable",
     "typical_n_min": 300,
     "validation_notes": [
+      "tests/reference_parity/test_multi_treatment_parity.py",
       "API/unit contract evidence: tests/test_phase9to14.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -19197,7 +19217,7 @@
       "OP/LP beta_l identification fails when labor responds linearly to current omega (use ACF instead -- Ackerberg et al. 2015)."
     ],
     "category": "structural",
-    "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM).",
+    "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.prod_fn(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\", method=\"acf\", functional_form=\"translog\", boot_reps=200, seed=0)",
     "failure_modes": [
       {
@@ -19236,7 +19256,7 @@
     ],
     "reference": "Olley & Pakes (1996, Econometrica); Levinsohn & Petrin (2003, RES); Ackerberg, Caves & Frazer (2015, Econometrica); Wooldridge (2009, EL).",
     "signature": {
-      "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM).",
+      "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "prod_fn",
       "parameters": {
         "properties": {
@@ -19326,9 +19346,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_structural_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -19343,7 +19364,7 @@
       "Capital is predetermined; first-order Markov productivity; optional selection correction for survival"
     ],
     "category": "structural",
-    "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work.",
+    "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.olley_pakes(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"i\", panel_id=\"id\", time=\"year\")",
     "failure_modes": [
       {
@@ -19368,7 +19389,7 @@
     ],
     "reference": "Olley & Pakes (1996, Econometrica) [@olley1996dynamics]",
     "signature": {
-      "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work.",
+      "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "olley_pakes",
       "parameters": {
         "properties": {
@@ -19453,9 +19474,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_structural_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -19470,7 +19492,7 @@
       "First-order Markov productivity process; capital is predetermined relative to current shock"
     ],
     "category": "structural",
-    "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification.",
+    "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.levinsohn_petrin(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\")",
     "failure_modes": [
       {
@@ -19495,7 +19517,7 @@
     ],
     "reference": "Levinsohn & Petrin (2003, Rev. Econ. Stud.) [@levinsohn2003estimating]",
     "signature": {
-      "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification.",
+      "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "levinsohn_petrin",
       "parameters": {
         "properties": {
@@ -19575,9 +19597,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_structural_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -19592,7 +19615,7 @@
       "Timing: state inputs predetermined, free inputs set jointly with the proxy"
     ],
     "category": "structural",
-    "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf.",
+    "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.acf(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\", boot_reps=200, seed=0)",
     "failure_modes": [
       {
@@ -19617,7 +19640,7 @@
     ],
     "reference": "Ackerberg, Caves & Frazer (2015, Econometrica) [@ackerberg2015identification]",
     "signature": {
-      "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf.",
+      "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ackerberg_caves_frazer",
       "parameters": {
         "properties": {
@@ -19697,9 +19720,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_structural_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -19714,7 +19738,7 @@
       "Instruments equal the regressors; capital predetermined, proxy positive"
     ],
     "category": "structural",
-    "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap.",
+    "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.wooldridge_prod(df, output=\"y\", free=\"l\", state=\"k\", proxy=\"m\", panel_id=\"id\", time=\"year\")",
     "failure_modes": [
       {
@@ -19739,7 +19763,7 @@
     ],
     "reference": "Wooldridge (2009, Economics Letters) [@wooldridge2009estimating]",
     "signature": {
-      "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap.",
+      "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "wooldridge_prod",
       "parameters": {
         "properties": {
@@ -19810,9 +19834,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_structural_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -20199,7 +20224,7 @@
       "Optional eta-correction removes the stage-1 i.i.d. output shock before forming the cost share (De Loecker-Warzynski 2012, eq. 6)"
     ],
     "category": "structural",
-    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming).",
+    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "mu = sp.markup(res, revenue=\"log_rev\", input_cost=\"log_mat\", flexible_input=\"m\")",
     "failure_modes": [
       {
@@ -20224,7 +20249,7 @@
     ],
     "reference": "De Loecker & Warzynski (2012, AER) [@deloecker2012markups]",
     "signature": {
-      "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming).",
+      "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "markup",
       "parameters": {
         "properties": {
@@ -20262,9 +20287,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "tests/reference_parity/test_structural_parity.py",
       "API/unit contract evidence: tests/test_prod_fn.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -33391,7 +33417,7 @@
       "Linear approximation of the recentered influence function is locally valid."
     ],
     "category": "decomposition",
-    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition.",
+    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.ffl_decompose(data=df, y='log_wage', group='female', x=['education'], stat='variance')",
     "failure_modes": [
       {
@@ -33410,7 +33436,7 @@
     ],
     "reference": "firpo2009unconditional",
     "signature": {
-      "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition.",
+      "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ffl_decompose",
       "parameters": {
         "properties": {
@@ -33501,8 +33527,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_decomposition_family_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
