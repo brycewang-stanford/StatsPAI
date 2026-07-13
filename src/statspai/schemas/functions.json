@@ -2593,7 +2593,7 @@
     }
   },
   {
-    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever.",
+    "description": "Marginal Structural Models for time-varying treatments with time-varying confounders. Uses stabilized IPTW and cluster-robust inference. Handles binary or continuous treatment; exposure summary can be current, cumulative, or ever. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "msm",
     "parameters": {
       "properties": {
@@ -2931,7 +2931,7 @@
     }
   },
   {
-    "description": "Bayesian sharp Regression Discontinuity -- full posterior over the RD jump via local polynomial with prior regularisation on bandwidth and bias-correction slopes. Reports HDI, rhat, ESS, divergences.",
+    "description": "Bayesian sharp Regression Discontinuity -- full posterior over the RD jump via local polynomial with prior regularisation on bandwidth and bias-correction slopes. Reports HDI, rhat, ESS, divergences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_rd",
     "parameters": {
       "properties": {
@@ -3091,7 +3091,7 @@
     }
   },
   {
-    "description": "Create a 7-component target trial protocol (Hernan-Robins / JAMA 2022 framework). Formalizes eligibility, treatment strategies, time zero, follow-up, outcome, causal contrast, and analysis plan before any estimation.",
+    "description": "Create a 7-component target trial protocol (Hernan-Robins / JAMA 2022 framework). Formalizes eligibility, treatment strategies, time zero, follow-up, outcome, causal contrast, and analysis plan before any estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "target_trial_protocol",
     "parameters": {
       "properties": {
@@ -3167,7 +3167,7 @@
     }
   },
   {
-    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW.",
+    "description": "Clone-Censor-Weight (CCW) for sustained-treatment target trials. Clones each subject per strategy, artificially censors on deviation, and re-weights via IPCW. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "clone_censor_weight",
     "parameters": {
       "properties": {
@@ -3561,7 +3561,7 @@
     }
   },
   {
-    "description": "Parametric g-formula via Iterative Conditional Expectation (ICE) -- sequential regression of the outcome on treatment and time-varying confounders, with recursive plug-in of the target strategy. Consistent under correctly-specified nuisance models; handles time-varying confounding that vanilla adjustment cannot.",
+    "description": "Parametric g-formula via Iterative Conditional Expectation (ICE) -- sequential regression of the outcome on treatment and time-varying confounders, with recursive plug-in of the target strategy. Consistent under correctly-specified nuisance models; handles time-varying confounding that vanilla adjustment cannot. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "gformula_ice_fn",
     "parameters": {
       "properties": {
@@ -4228,7 +4228,7 @@
     }
   },
   {
-    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime.",
+    "description": "Unified longitudinal causal-effect estimator. Auto-routes to IPW (no time-varying confounders) / MSM (dynamic regime with time-varying confounders) / parametric g-formula ICE (static regime). Accepts a string DSL or callable for the treatment regime. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "longitudinal_analyze",
     "parameters": {
       "properties": {
@@ -4307,7 +4307,7 @@
     }
   },
   {
-    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE.",
+    "description": "Plug-in estimator of E[Y(regime_a)] - E[Y(regime_b)] with delta-method SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "longitudinal_contrast",
     "parameters": {
       "properties": {
@@ -4353,7 +4353,7 @@
     }
   },
   {
-    "description": "Build a dynamic or static treatment regime from a string DSL, list, callable, or scalar. Supports 'if <cond> then <a> else <b>', 'always_treat', 'never_treat', and arbitrary safe expressions. Parsed via a whitelisted AST walker -- no dynamic code execution.",
+    "description": "Build a dynamic or static treatment regime from a string DSL, list, callable, or scalar. Supports 'if <cond> then <a> else <b>', 'always_treat', 'never_treat', and arbitrary safe expressions. Parsed via a whitelisted AST walker -- no dynamic code execution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "regime",
     "parameters": {
       "properties": {
@@ -4381,7 +4381,7 @@
     }
   },
   {
-    "description": "Render a target-trial emulation result as a structured Methods + Results block (Markdown / LaTeX / plain text), tracking the JAMA 2022 7-component spec.",
+    "description": "Render a target-trial emulation result as a structured Methods + Results block (Markdown / LaTeX / plain text), tracking the JAMA 2022 7-component spec. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "target_trial_report",
     "parameters": {
       "properties": {
@@ -5002,7 +5002,7 @@
     }
   },
   {
-    "description": "Athey-Chetty-Imbens-Kang surrogate-index estimator for the long-term ATE: combines an experimental sample (treatment + short-term surrogate) with an observational sample (surrogate + long-term outcome) to extrapolate the effect on the long-term outcome.",
+    "description": "Athey-Chetty-Imbens-Kang surrogate-index estimator for the long-term ATE: combines an experimental sample (treatment + short-term surrogate) with an observational sample (surrogate + long-term outcome) to extrapolate the effect on the long-term outcome. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "surrogate_index",
     "parameters": {
       "properties": {
@@ -5063,7 +5063,7 @@
     }
   },
   {
-    "description": "Long-term ATE under multi-wave short-term surrogates; extends the classical surrogate index to sustained treatments via iterated conditional expectations (Ghassami et al. 2024).",
+    "description": "Long-term ATE under multi-wave short-term surrogates; extends the classical surrogate index to sustained treatments via iterated conditional expectations (Ghassami et al. 2024). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "long_term_from_short",
     "parameters": {
       "properties": {
@@ -5575,7 +5575,7 @@
     }
   },
   {
-    "description": "Sharp bounds on off-policy value under unobserved confounding via the marginal-sensitivity Gamma-model (Kallus, Mao, Uehara 2025).",
+    "description": "Sharp bounds on off-policy value under unobserved confounding via the marginal-sensitivity Gamma-model (Kallus, Mao, Uehara 2025). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sharp_ope_unobserved",
     "parameters": {
       "properties": {
@@ -5616,7 +5616,7 @@
     }
   },
   {
-    "description": "Forest of doubly-robust policy trees: ensembles depth-limited trees over AIPW-scored actions to reduce variance and give honest policy-value SE (2025).",
+    "description": "Forest of doubly-robust policy trees: ensembles depth-limited trees over AIPW-scored actions to reduce variance and give honest policy-value SE (2025). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "causal_policy_forest",
     "parameters": {
       "properties": {
@@ -5866,7 +5866,7 @@
     }
   },
   {
-    "description": "Bayesian instrumental variables with full posterior over structural parameters. Handles weak instruments via shrinkage priors and reports posterior mass near zero on the first-stage coefficient.",
+    "description": "Bayesian instrumental variables with full posterior over structural parameters. Handles weak instruments via shrinkage priors and reports posterior mass near zero on the first-stage coefficient. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bayes_iv",
     "parameters": {
       "properties": {
@@ -6258,7 +6258,7 @@
     }
   },
   {
-    "description": "Render the JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist as a completed Markdown table, auto-filled from a TargetTrialResult and flagged for any remaining TODO items.",
+    "description": "Render the JAMA/BMJ 2025 TARGET Statement 21-item reporting checklist as a completed Markdown table, auto-filled from a TargetTrialResult and flagged for any remaining TODO items. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "target_trial_checklist",
     "parameters": {
       "properties": {
@@ -6483,7 +6483,7 @@
     }
   },
   {
-    "description": "Kusner-Loftus-Russell-Silva (2018) counterfactual-fairness test: compares factual vs. SCM-intervened predictions to measure path-specific dependence of a classifier on the protected attribute.",
+    "description": "Kusner-Loftus-Russell-Silva (2018) counterfactual-fairness test: compares factual vs. SCM-intervened predictions to measure path-specific dependence of a classifier on the protected attribute. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "counterfactual_fairness",
     "parameters": {
       "properties": {
@@ -6519,7 +6519,7 @@
     }
   },
   {
-    "description": "Residualize features against the protected attribute as a pre-processing step toward counterfactual fairness.",
+    "description": "Residualize features against the protected attribute as a pre-processing step toward counterfactual fairness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "orthogonal_to_bias",
     "parameters": {
       "properties": {
@@ -6548,7 +6548,7 @@
     }
   },
   {
-    "description": "Demographic-parity gap between groups defined by the protected attribute.",
+    "description": "Demographic-parity gap between groups defined by the protected attribute. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "demographic_parity",
     "parameters": {
       "properties": {
@@ -6579,7 +6579,7 @@
     }
   },
   {
-    "description": "Hardt-Price-Srebro equalized-odds gap -- max of TPR and FPR group differences.",
+    "description": "Hardt-Price-Srebro equalized-odds gap -- max of TPR and FPR group differences. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "equalized_odds",
     "parameters": {
       "properties": {
@@ -6615,7 +6615,7 @@
     }
   },
   {
-    "description": "One-shot dashboard combining demographic parity, equalized odds, and (optionally) counterfactual fairness.",
+    "description": "One-shot dashboard combining demographic parity, equalized odds, and (optionally) counterfactual fairness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "fairness_audit",
     "parameters": {
       "properties": {
@@ -6653,7 +6653,7 @@
     }
   },
   {
-    "description": "Proximal surrogate-index estimator: long-term ATE when an unobserved U confounds S->Y, using a proxy W and 2SLS-style bridge-function identification (Imbens-Kallus-Mao-Wang 2025, JRSS-B).",
+    "description": "Proximal surrogate-index estimator: long-term ATE when an unobserved U confounds S->Y, using a proxy W and 2SLS-style bridge-function identification (Imbens-Kallus-Mao-Wang 2025, JRSS-B). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "proximal_surrogate_index",
     "parameters": {
       "properties": {
@@ -7719,7 +7719,7 @@
     }
   },
   {
-    "description": "Kwak-Pleasants (2025) evidence-without-injustice counterfactual fairness test. Freezes admissible-evidence features at their factual values and tests whether predictions still change under do(A=a').",
+    "description": "Kwak-Pleasants (2025) evidence-without-injustice counterfactual fairness test. Freezes admissible-evidence features at their factual values and tests whether predictions still change under do(A=a'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "evidence_without_injustice",
     "parameters": {
       "properties": {
@@ -9380,7 +9380,7 @@
     }
   },
   {
-    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level.",
+    "description": "Effects of multi-valued (3+ level) treatments via AIPW. Returns pairwise contrasts versus a reference level. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "multi_treatment",
     "parameters": {
       "properties": {
@@ -10681,7 +10681,7 @@
     }
   },
   {
-    "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM).",
+    "description": "Production function estimator (Cobb-Douglas) -- unified method= dispatcher. Solves the simultaneity between input choices and unobserved productivity by inverting an input policy as a control function. method= selects: 'op' (Olley-Pakes 1996, investment proxy), 'lp' (Levinsohn-Petrin 2003, intermediate-input proxy), 'acf' (Ackerberg-Caves-Frazer 2015, corrected identification -- DEFAULT), 'wrdg' (Wooldridge 2009, one-step joint GMM). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "prod_fn",
     "parameters": {
       "properties": {
@@ -10769,7 +10769,7 @@
     }
   },
   {
-    "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work.",
+    "description": "Olley-Pakes (1996) production function estimator. Two-stage control function with INVESTMENT as the productivity proxy. Drops zero-investment firms (required for the inversion). Note: beta_l identification can fail if labor responds to current productivity (ACF critique) -- prefer sp.acf for modern work. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "olley_pakes",
     "parameters": {
       "properties": {
@@ -10852,7 +10852,7 @@
     }
   },
   {
-    "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification.",
+    "description": "Levinsohn-Petrin (2003) production function estimator. Uses intermediate inputs (materials/energy) as proxy -- avoids the OP zero-investment selection problem. Same ACF caveat applies to beta_l identification: prefer sp.acf for rigorous identification. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "levinsohn_petrin",
     "parameters": {
       "properties": {
@@ -10930,7 +10930,7 @@
     }
   },
   {
-    "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf.",
+    "description": "Ackerberg-Caves-Frazer (2015) production function estimator. Modern default. Corrects the OP/LP identification problem: all coefficient identification moves to stage 2, with free inputs instrumented by their lagged values and state inputs at the contemporaneous level. Aliased as sp.acf. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ackerberg_caves_frazer",
     "parameters": {
       "properties": {
@@ -11008,7 +11008,7 @@
     }
   },
   {
-    "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap.",
+    "description": "Wooldridge (2009) one-step GMM production function estimator. Stacks the level equation and the productivity-substituted equation into a single nonlinear LS problem. More efficient than two-step ACF; covariance matrix available without bootstrap. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "wooldridge_prod",
     "parameters": {
       "properties": {
@@ -11316,7 +11316,7 @@
     }
   },
   {
-    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming).",
+    "description": "De Loecker & Warzynski (2012) firm-time markup estimator. Takes a fitted ProductionResult plus revenue and input-cost columns; returns mu_it = theta_v_it * (PQ)/(P_v V) where theta_v is the output elasticity of the flexible input. Cobb-Douglas only for now (translog forthcoming). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "markup",
     "parameters": {
       "properties": {
@@ -22858,7 +22858,7 @@
     }
   },
   {
-    "description": "Shift-share IV estimation with AKM (2019) corrected standard errors.",
+    "description": "Shift-share IV estimation with AKM (2019) corrected standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ssaggregate",
     "parameters": {
       "properties": {
@@ -24636,7 +24636,7 @@
     }
   },
   {
-    "description": "Spatial DiD with direct and spillover treatment effects.",
+    "description": "Spatial DiD with direct and spillover treatment effects. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "spatial_did",
     "parameters": {
       "properties": {
@@ -24886,7 +24886,7 @@
     }
   },
   {
-    "description": "Spatial 2SLS estimator.",
+    "description": "Spatial 2SLS estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "spatial_iv",
     "parameters": {
       "properties": {
@@ -26500,7 +26500,7 @@
     }
   },
   {
-    "description": "Uniform weight = 1 on every grid point.",
+    "description": "Uniform weight = 1 on every grid point. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "policy_weight_ate",
     "parameters": {
       "properties": {},
@@ -26509,7 +26509,7 @@
     }
   },
   {
-    "description": "Weight = 1 on ``[u_lo, u_hi]``; 0 elsewhere.",
+    "description": "Weight = 1 on ``[u_lo, u_hi]``; 0 elsewhere. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "policy_weight_subsidy",
     "parameters": {
       "properties": {
@@ -26546,7 +26546,7 @@
     }
   },
   {
-    "description": "Marginal PRTE at a specific propensity level ``u_star``.",
+    "description": "Marginal PRTE at a specific propensity level ``u_star``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "policy_weight_marginal",
     "parameters": {
       "properties": {
@@ -26567,7 +26567,7 @@
     }
   },
   {
-    "description": "True **CHV-2011 PRTE** weights from the observed propensity",
+    "description": "True **CHV-2011 PRTE** weights from the observed propensity Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "policy_weight_observed_prte",
     "parameters": {
       "properties": {
@@ -27825,7 +27825,7 @@
     }
   },
   {
-    "description": "Compute conformal prediction intervals for CATE.",
+    "description": "Compute conformal prediction intervals for CATE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "conformal_cate",
     "parameters": {
       "properties": {
@@ -33497,7 +33497,7 @@
     }
   },
   {
-    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen).",
+    "description": "Cumulative incidence functions for competing risks (Aalen-Johansen). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cuminc",
     "parameters": {
       "properties": {
@@ -33532,7 +33532,7 @@
     }
   },
   {
-    "description": "Fine & Gray (1999) proportional subdistribution hazards model.",
+    "description": "Fine & Gray (1999) proportional subdistribution hazards model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "finegray",
     "parameters": {
       "properties": {
@@ -34008,7 +34008,7 @@
     }
   },
   {
-    "description": "Granger causality test.",
+    "description": "Granger causality test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "granger_causality",
     "parameters": {
       "properties": {
@@ -34038,7 +34038,7 @@
     }
   },
   {
-    "description": "Compute impulse response functions from VAR.",
+    "description": "Compute impulse response functions from VAR. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "irf",
     "parameters": {
       "properties": {
@@ -34657,7 +34657,7 @@
     }
   },
   {
-    "description": "Multiple Imputation by Chained Equations (MICE).",
+    "description": "Multiple Imputation by Chained Equations (MICE). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mice",
     "parameters": {
       "properties": {
@@ -34750,7 +34750,7 @@
     }
   },
   {
-    "description": "Run an estimator on each imputed dataset and combine using Rubin's rules.",
+    "description": "Run an estimator on each imputed dataset and combine using Rubin's rules. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "mi_estimate",
     "parameters": {
       "properties": {
@@ -35186,7 +35186,7 @@
     }
   },
   {
-    "description": "Interactive fixed effects estimator (Bai 2009).",
+    "description": "Interactive fixed effects estimator (Bai 2009). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "interactive_fe",
     "parameters": {
       "properties": {
@@ -35255,7 +35255,7 @@
     }
   },
   {
-    "description": "Panel unit root test.",
+    "description": "Panel unit root test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "panel_unitroot",
     "parameters": {
       "properties": {
@@ -35383,7 +35383,7 @@
     }
   },
   {
-    "description": "Johansen (1991) cointegration test.",
+    "description": "Johansen (1991) cointegration test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "johansen",
     "parameters": {
       "properties": {
@@ -35881,7 +35881,7 @@
     }
   },
   {
-    "description": "Estimate a BLP random-coefficients logit demand model.",
+    "description": "Estimate a BLP random-coefficients logit demand model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "blp",
     "parameters": {
       "properties": {
@@ -37538,7 +37538,7 @@
     }
   },
   {
-    "description": "Panel logit model.",
+    "description": "Panel logit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "panel_logit",
     "parameters": {
       "properties": {
@@ -37611,7 +37611,7 @@
     }
   },
   {
-    "description": "Panel probit model.",
+    "description": "Panel probit model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "panel_probit",
     "parameters": {
       "properties": {
@@ -37684,7 +37684,7 @@
     }
   },
   {
-    "description": "Panel FGLS (Feasible Generalized Least Squares).",
+    "description": "Panel FGLS (Feasible Generalized Least Squares). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "panel_fgls",
     "parameters": {
       "properties": {
@@ -38794,7 +38794,7 @@
     }
   },
   {
-    "description": "Estimate a metafrontier across ``K`` groups.",
+    "description": "Estimate a metafrontier across ``K`` groups. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "metafrontier",
     "parameters": {
       "properties": {
@@ -38903,7 +38903,7 @@
     }
   },
   {
-    "description": "Compute the Malmquist productivity index via period-by-period SFA.",
+    "description": "Compute the Malmquist productivity index via period-by-period SFA. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "malmquist",
     "parameters": {
       "properties": {
@@ -40874,7 +40874,7 @@
     }
   },
   {
-    "description": "Local Moran's I (LISA) -- per-location spatial association.",
+    "description": "Local Moran's I (LISA) -- per-location spatial association. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "moran_local",
     "parameters": {
       "properties": {
@@ -41015,7 +41015,7 @@
     }
   },
   {
-    "description": "Local Getis-Ord Gi / Gi* -- hotspot and coldspot detection.",
+    "description": "Local Getis-Ord Gi / Gi* -- hotspot and coldspot detection. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "getis_ord_local",
     "parameters": {
       "properties": {
@@ -41050,7 +41050,7 @@
     }
   },
   {
-    "description": "Join-count statistics for a binary spatial variable.",
+    "description": "Join-count statistics for a binary spatial variable. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "join_counts",
     "parameters": {
       "properties": {
@@ -41476,7 +41476,7 @@
     }
   },
   {
-    "description": "SAC / SARAR: combined spatial lag + spatial error model.",
+    "description": "SAC / SARAR: combined spatial lag + spatial error model. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sac",
     "parameters": {
       "properties": {
@@ -41512,7 +41512,7 @@
     }
   },
   {
-    "description": "Spatial Lag of X (SLX) model: ``Y = Xbeta + WXtheta + epsilon``.",
+    "description": "Spatial Lag of X (SLX) model: ``Y = Xbeta + WXtheta + epsilon``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "slx",
     "parameters": {
       "properties": {
@@ -41588,7 +41588,7 @@
     }
   },
   {
-    "description": "Combined GMM: Kelejian-Prucha SAR 2SLS then SEM GMM on residuals.",
+    "description": "Combined GMM: Kelejian-Prucha SAR 2SLS then SEM GMM on residuals. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "sarar_gmm",
     "parameters": {
       "properties": {
@@ -41658,7 +41658,7 @@
     }
   },
   {
-    "description": "Fit a spatial panel model by concentrated ML (Elhorst 2014).",
+    "description": "Fit a spatial panel model by concentrated ML (Elhorst 2014). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "spatial_panel",
     "parameters": {
       "properties": {
@@ -42428,7 +42428,7 @@
     }
   },
   {
-    "description": "RIF regression (Firpo, Fortin & Lemieux 2009).",
+    "description": "RIF regression (Firpo, Fortin & Lemieux 2009). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rifreg",
     "parameters": {
       "properties": {
@@ -42523,7 +42523,7 @@
     }
   },
   {
-    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition.",
+    "description": "Firpo-Fortin-Lemieux two-step detailed distributional decomposition. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ffl_decompose",
     "parameters": {
       "properties": {
@@ -42613,7 +42613,7 @@
     }
   },
   {
-    "description": "Fairlie (2005) nonlinear decomposition for binary outcomes.",
+    "description": "Fairlie (2005) nonlinear decomposition for binary outcomes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "fairlie",
     "parameters": {
       "properties": {
@@ -43380,7 +43380,7 @@
     }
   },
   {
-    "description": "Shorrocks-Shapley decomposition of an inequality index across",
+    "description": "Shorrocks-Shapley decomposition of an inequality index across Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "shapley_inequality",
     "parameters": {
       "properties": {
@@ -44083,7 +44083,7 @@
     }
   },
   {
-    "description": "Cox proportional hazards with shared gamma frailty.",
+    "description": "Cox proportional hazards with shared gamma frailty. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cox_frailty",
     "parameters": {
       "properties": {
@@ -44480,7 +44480,7 @@
     }
   },
   {
-    "description": "Bayesian VAR with Minnesota (Litterman) prior.",
+    "description": "Bayesian VAR with Minnesota (Litterman) prior. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bvar",
     "parameters": {
       "properties": {
@@ -44574,7 +44574,7 @@
     }
   },
   {
-    "description": "Fit GARCH(p,q) by conditional Gaussian MLE.",
+    "description": "Fit GARCH(p,q) by conditional Gaussian MLE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "garch",
     "parameters": {
       "properties": {
@@ -46295,7 +46295,7 @@
     }
   },
   {
-    "description": "Emulate the target trial defined by ``protocol``.",
+    "description": "Emulate the target trial defined by ``protocol``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "target_trial_emulate",
     "parameters": {
       "properties": {
@@ -46334,7 +46334,7 @@
     }
   },
   {
-    "description": "Flag subjects whose follow-up begins *before* treatment",
+    "description": "Flag subjects whose follow-up begins *before* treatment Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "immortal_time_check",
     "parameters": {
       "properties": {
@@ -46445,7 +46445,7 @@
     }
   },
   {
-    "description": "Transport an RCT effect to ``target_population``.",
+    "description": "Transport an RCT effect to ``target_population``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "transport_generalize",
     "parameters": {
       "properties": {
@@ -46533,7 +46533,7 @@
     }
   },
   {
-    "description": "Monte-Carlo parametric g-formula estimate of :math:`E[Y(g)]`.",
+    "description": "Monte-Carlo parametric g-formula estimate of :math:`E[Y(g)]`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "gformula_mc",
     "parameters": {
       "properties": {
@@ -47318,7 +47318,7 @@
     }
   },
   {
-    "description": "Convenience: the always-treat regime over K periods.",
+    "description": "Convenience: the always-treat regime over K periods. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "always_treat",
     "parameters": {
       "properties": {
@@ -47333,7 +47333,7 @@
     }
   },
   {
-    "description": "Convenience: the never-treat regime over K periods.",
+    "description": "Convenience: the never-treat regime over K periods. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "never_treat",
     "parameters": {
       "properties": {
@@ -52530,7 +52530,7 @@
     }
   },
   {
-    "description": "Fit the linear-in-means peer-effects model via 2SLS.",
+    "description": "Fit the linear-in-means peer-effects model via 2SLS. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "peer_effects",
     "parameters": {
       "properties": {
@@ -52628,7 +52628,7 @@
     }
   },
   {
-    "description": "Split conformal prediction with per-calibration-point weights.",
+    "description": "Split conformal prediction with per-calibration-point weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "weighted_conformal_prediction",
     "parameters": {
       "properties": {
@@ -52788,7 +52788,7 @@
     }
   },
   {
-    "description": "Conformal prediction intervals for the individual treatment",
+    "description": "Conformal prediction intervals for the individual treatment Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "conformal_ite_interval",
     "parameters": {
       "properties": {
@@ -53620,7 +53620,7 @@
     }
   },
   {
-    "description": "Segmented regression for interrupted time series.",
+    "description": "Segmented regression for interrupted time series. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "its",
     "parameters": {
       "properties": {
