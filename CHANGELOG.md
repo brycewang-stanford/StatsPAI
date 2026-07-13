@@ -113,6 +113,28 @@ These change DiD point estimates for affected staggered/switching designs. See
   point estimate depends on the scale of the proxy `W`; the recovery test
   is skipped with a documented reason pending a ⚠️ correctness fix.
 
+  The 10 new test files shipped in PR #39 (`f9cc2932`, merged despite
+  the misleading title `feat(parity): analytical-only mice + mi_estimate
+  Rubin-rules recovery (#39)`, which only highlights the imputation
+  family) are:
+
+  | test file | estimator family covered |
+  | --- | --- |
+  | `tests/reference_parity/test_structural_parity.py` | structural (`olley_pakes`, `levinsohn_petrin`, `ackerberg_caves_frazer`, `wooldridge_prod`, `prod_fn`, `markup`, `blp`) |
+  | `tests/reference_parity/test_longitudinal_parity.py` | longitudinal regimes (`longitudinal_analyze`, `longitudinal_contrast`, `regime`, `always_treat`, `never_treat`) |
+  | `tests/reference_parity/test_msm_family_parity.py` | `msm` |
+  | `tests/reference_parity/test_gformula_family_parity.py` | parametric g-formula (`gformula_ice_fn`, `gformula_mc`) |
+  | `tests/reference_parity/test_fairness_parity.py` | fairness (`demographic_parity`, `equalized_odds`, `fairness_audit`, `orthogonal_to_bias`, `counterfactual_fairness`, `evidence_without_injustice`) |
+  | `tests/reference_parity/test_imputation_parity.py` | multiple imputation (`mice`, `mi_estimate`) |
+  | `tests/reference_parity/test_multi_treatment_parity.py` | `multi_treatment` |
+  | `tests/reference_parity/test_ope_parity.py` | off-policy evaluation (`sharp_ope_unobserved`, `causal_policy_forest`) |
+  | `tests/reference_parity/test_surrogate_parity.py` | surrogate index (`surrogate_index`, `long_term_from_short`, `proximal_surrogate_index`) |
+  | `tests/reference_parity/test_target_trial_parity.py` | target-trial emulation (`target_trial_protocol`, `target_trial_emulate`, `clone_censor_weight`, `immortal_time_check`, `target_trial_checklist`, `target_trial_report`) |
+
+  See [`docs/dev/parity_pr39.md`](docs/dev/parity_pr39.md) for the
+  reviewer-facing rationale (why the title was narrower than the body,
+  what to expect on `git log` / JOSS audit).
+
 - **Parity index coverage expansion — 305 estimators now carry a graded
   parity record (129 bit-exact), queryable via `sp.parity_status()` /
   `sp.parity_summary()`. This closes the Tier-D worklist of reference-less
