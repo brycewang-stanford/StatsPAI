@@ -11,9 +11,9 @@ evidence itself). Every claim below links to a file you can open.
 
 ## Scope & quality
 
-### With 1,000+ functions across 81 submodules, how can a reviewer trust the breadth?
+### With 1,100+ functions across 87 submodules, how can a reviewer trust the breadth?
 
-StatsPAI does **not** ask reviewers to take 1,020 functions on faith. Three
+StatsPAI does **not** ask reviewers to take 1,139 functions on faith. Three
 mechanisms make the breadth auditable rather than assertable:
 
 1. **Validation tiering is explicit and machine-readable.** Parity-backed

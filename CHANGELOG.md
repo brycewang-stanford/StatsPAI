@@ -336,6 +336,19 @@ These change DiD point estimates for affected staggered/switching designs. See
 
 ### Changed
 
+- **Docs (JOSS maintenance): registry-count claims re-aligned to the live
+  registry.** `paper.md`, `docs/joss_validation_dossier.md`,
+  `docs/joss_reviewer_qa.md`, and `docs/agent_cards_spec.md` still quoted the
+  release-1.16.0 snapshot (1,020 functions / 81 submodules); they now reflect
+  the 1.20.0 reality reported by `python scripts/registry_stats.py` (1,139
+  functions / 87 submodules; `paper.md` uses drift-proof floors "more than
+  1,100 / more than 80"). The local-only JSS release-gate expectations in
+  `tests/test_jss_release_manifest.py` were refreshed to the current
+  `validation_status` distribution (certified 66, validated 271, api_stable
+  799, experimental 3; certified+validated 337 — previously 61/50/1016/3 and
+  111). Documentation and test-expectation maintenance only — no estimator or
+  numerical-path changes.
+
 - **Docs / citations.** Added the verified `hdm` (Chernozhukov, Hansen &
   Spindler, *The R Journal* 8(2), 2016, doi `10.32614/RJ-2016-040`) and
   Chiang–Kato–Ma–Sasaki (*JBES* 40(3), 2022, doi
