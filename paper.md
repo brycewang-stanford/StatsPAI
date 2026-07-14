@@ -38,8 +38,8 @@ variables, the modern difference-in-differences and
 regression-discontinuity toolkits, synthetic control and matching, and
 machine-learning estimators of heterogeneous treatment effects —
 together with the diagnostics, robustness checks, and reporting that
-surround them. The full catalogue of more than 1,000 registered
-functions across 81 submodules is enumerated in the package
+surround them. The full catalogue of more than 1,100 registered
+functions across more than 80 submodules is enumerated in the package
 documentation rather than here.
 
 The package is designed for policy evaluation, social science and

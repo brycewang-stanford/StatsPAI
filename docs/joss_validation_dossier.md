@@ -9,8 +9,8 @@ research software. It is intentionally factual and reproducible.
 - Package archive: <https://doi.org/10.5281/zenodo.19933900>
 - PyPI: <https://pypi.org/project/StatsPAI/>
 - License: MIT, with a plain-text `LICENSE` file in the repository.
-- Current release at the time of this dossier: `1.16.0`, released on
-  2026-05-29.
+- Current release at the time of this dossier: `1.20.0`, released on
+  2026-06-22.
 - Public GitHub repository creation date: 2025-07-26.
 - Public repository activity signals as of 2026-06-01: 212 stars, 39 forks,
   23 GitHub releases, and 1 public external user issue in addition to
@@ -19,8 +19,8 @@ research software. It is intentionally factual and reproducible.
 ## Software Scope
 
 StatsPAI exposes a unified Python interface for causal inference and applied
-econometrics. As of release `1.16.0`, the registry reports 1,020 public
-functions across 81 submodules:
+econometrics. As of release `1.20.0`, the registry reports 1,139 public
+functions across 87 submodules:
 
 ```bash
 python scripts/registry_stats.py --check

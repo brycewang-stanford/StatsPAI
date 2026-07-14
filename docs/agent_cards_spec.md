@@ -66,7 +66,7 @@ Tier-B:
 | `typical_n_min` | Rule-of-thumb minimum sample size; `None` allowed only when no rule exists. | Documented in `validation_notes` if `None`. |
 
 The target is **70% of independent design points**, not 70% of the
-1,020-function surface.  Many functions are method variants behind a
+1,139-function surface.  Many functions are method variants behind a
 dispatcher (`sp.synth(method=...)` has 20+) and should inherit from
 their parent via `FunctionSpec.inherits_from` (Sprint 2).  See the
 collapse-strategy doc once it lands.
