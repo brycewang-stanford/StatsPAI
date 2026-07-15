@@ -16,7 +16,7 @@
 
 | | |
 | --- | --- |
-| 版本 | `1.19.0`（见 [`pyproject.toml`](pyproject.toml)） |
+| 版本 | `1.20.0`（见 [`pyproject.toml`](pyproject.toml)） |
 | Python | 3.9 – 3.13 |
 | License | MIT |
 | 作者 | Biaoyue (Bryce) Wang · <brycew6m@stanford.edu> · CoPaper.AI / Stanford REAP |
@@ -29,7 +29,7 @@
 
 ```text
 StatsPAI/
-├── src/statspai/          # 主包：83 子模块 / 1,100+ 函数（实时数 `python scripts/registry_stats.py`）
+├── src/statspai/          # 主包：87 子模块 / 1,139 函数（实时数 `python scripts/registry_stats.py`）
 │   ├── __init__.py          # 对外 API 入口
 │   ├── registry.py          # 函数注册表（sp.help / sp.list_functions 依赖）
 │   ├── help.py              # sp.help / sp.describe_function / sp.function_schema
@@ -265,7 +265,7 @@ python scripts/registry_stats.py --table        # 重生 docs/stats.md 的按模
 
 ---
 
-*最后更新：2026-06-21。过期信息会蔓延到每一次 agent 会话——持续维护本文件。*
+*最后更新：2026-07-15。过期信息会蔓延到每一次 agent 会话——持续维护本文件。*
 
 ## 其它关键事项
 - 目前的修改，默认不要影响到 joss 论文的审稿：https://github.com/openjournals/joss-reviews/issues/10604。万一有影响到，千万一定要特别提醒。
