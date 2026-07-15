@@ -16,7 +16,7 @@ crate-type = ["cdylib"]
 # Pin PyO3 conservatively: abi3 compatibility across Python 3.9-3.13
 pyo3 = { version = "0.21", features = ["extension-module", "abi3-py39"] }
 numpy = "0.21"
-ndarray = "0.15"
+ndarray = "0.16"
 rayon = "1.10"
 
 [profile.release]
