@@ -55,6 +55,10 @@ One commit, **19 files changed, +3728 / -362**, on `main` at
    confounded-ATE point estimate is **skipped with a documented reason**
    pending a correctness fix. This is a non-functional finding called out
    in the CHANGELOG entry — not a regression.
+   *(Follow-up: the ⚠️ correctness fix landed right after this PR — the
+   second stage now excludes `W`, the recovery test is un-skipped, and a
+   proxy-unit-invariance guard was added. See the CHANGELOG `[Unreleased]`
+   Correctness entry and `MIGRATION.md`.)*
 
 ---
 
