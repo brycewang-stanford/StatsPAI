@@ -731,13 +731,15 @@ def proximal_surrogate_index(
     Relaxes the surrogacy assumption ``Y ⟂ T | S`` by allowing an
     unobserved ``U`` that confounds ``S → Y``. Identification uses a proxy
     ``W`` satisfying the two-stage completeness conditions of Imbens,
-    Kallus, Mao & Wang (2025, JRSS-B). In linear-Gaussian form the
-    bridge function ``h(s, x)`` solves
+    Kallus, Mao & Wang (2025, JRSS-B). In linear form the bridge
+    function ``h(s, x)`` solves the moment condition
 
-        E[Y | S, X, W] = W' * α + β * h(S, X)
+        E[ (Y - h(S, X)) * g(W, X) ] = 0,   g(W, X) = [1, W, X]
 
     which we estimate by two-stage least squares with ``W`` instrumenting
-    for the unobserved structure.
+    ``S`` — the proxies are excluded from the structural equation, exactly
+    as in classical IV. Identification requires at least as many proxies
+    as surrogates.
 
     Parameters
     ----------
@@ -796,7 +798,17 @@ def proximal_surrogate_index(
             "otherwise reduce to sp.surrogate.surrogate_index().",
             alternative_functions=["sp.surrogate_index"],
         )
-    feat_s = list(surrogates) + cov_list
+    if len(proxies) < len(surrogates):
+        raise MethodIncompatibility(
+            "Proximal bridge is under-identified: need at least as many "
+            f"proxies as surrogates (got {len(proxies)} proxies for "
+            f"{len(surrogates)} surrogates).",
+            recovery_hint="Add proxy columns or drop surrogates.",
+            diagnostics={
+                "n_proxies": len(proxies),
+                "n_surrogates": len(surrogates),
+            },
+        )
     cols_o = {long_term_outcome, *surrogates, *proxies, *cov_list}
     cols_e = {treatment, *surrogates, *cov_list}
     missing_o = cols_o - set(observational.columns)
@@ -807,38 +819,59 @@ def proximal_surrogate_index(
     def _bridge_predict(
         obs_df: pd.DataFrame,
     ) -> Callable[[np.ndarray, Optional[np.ndarray]], np.ndarray]:
-        """Solve E[Y|S,X,W] = Wα + h(S,X) by 2SLS.
+        """Solve the linear bridge moment E[(Y - h(S,X)) g(W,X)] = 0 by 2SLS.
 
-        First stage: regress S on W (and X) → S_hat(W, X)
-        Second stage: regress Y on W, S_hat(W, X), X
-        Bridge function h(s, x) is defined by the S-coefficients in stage 2
-        applied to the *observed* (not projected) s.
+        The bridge ``h(s, x) = c0 + s'beta_s + x'beta_x`` is identified by
+        orthogonality of the bridge residual to the instruments
+        ``g(W, X) = [1, W, X]`` — the proxies ``W`` are *excluded* from the
+        structural equation (classical IV exclusion).
+
+        First stage: regress S on [1, W, X] → S_hat(W, X)
+        Second stage: regress Y on [1, S_hat, X]
+        Bridge function h(s, x) applies the stage-2 S-coefficients to the
+        *observed* (not projected) s.
         """
-        S_o = _as_matrix(obs_df, feat_s)  # n_o × p_s+p_x
+        S_o = _as_matrix(obs_df, list(surrogates))  # n_o × p_s
         W_o = _as_matrix(obs_df, list(proxies))  # n_o × p_w
         Y_o = _require_finite_vector(
             obs_df[long_term_outcome].to_numpy(dtype=float), long_term_outcome
         )
         n_o = S_o.shape[0]
         ones = np.ones((n_o, 1))
+        p_s = len(surrogates)
         # Stage 1: S_hat ~ [1, W, X]
         X_stage1 = np.column_stack([ones, W_o])
         if cov_list:
             X_stage1 = np.column_stack([X_stage1, _as_matrix(obs_df, cov_list)])
         beta1, *_ = np.linalg.lstsq(X_stage1, S_o, rcond=None)
         S_hat_o = X_stage1 @ beta1
-        # Stage 2: Y ~ [1, W, S_hat, X]
-        X_stage2 = np.column_stack([ones, W_o, S_hat_o])
+        # Stage 2: Y ~ [1, S_hat, X]. W must NOT appear here: S_hat is an
+        # exact affine function of [1, W, X], so including W makes the
+        # design rank-deficient and beta_s a minimum-norm lstsq artifact
+        # that depends on the units of W.
+        X_stage2 = np.column_stack([ones, S_hat_o])
         if cov_list:
             X_stage2 = np.column_stack([X_stage2, _as_matrix(obs_df, cov_list)])
+        rank = np.linalg.matrix_rank(X_stage2)
+        if rank < X_stage2.shape[1]:
+            raise DataInsufficient(
+                "Proximal first stage is rank-deficient: the proxies W do "
+                "not span the surrogates S (projected S_hat columns are "
+                "collinear). The bridge slope is not identified.",
+                recovery_hint=(
+                    "Use proxies that predict each surrogate independently, "
+                    "or reduce the number of surrogates."
+                ),
+                diagnostics={
+                    "stage2_rank": int(rank),
+                    "stage2_cols": int(X_stage2.shape[1]),
+                    "proxies": list(proxies),
+                },
+            )
         beta2, *_ = np.linalg.lstsq(X_stage2, Y_o, rcond=None)
-        # Extract the S-part coefficients: after [1, W]
-        p_w = W_o.shape[1]
-        s_start = 1 + p_w
-        s_end = s_start + S_hat_o.shape[1]
-        beta_s = beta2[s_start:s_end]
+        beta_s = beta2[1 : 1 + p_s]
         intercept = beta2[0]
-        beta_x = beta2[s_end:] if cov_list else None
+        beta_x = beta2[1 + p_s :] if cov_list else None
 
         def predict(
             S_exp: np.ndarray, X_exp: Optional[np.ndarray] = None

@@ -6,9 +6,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
-These change DiD point estimates for affected staggered/switching designs. See
-`MIGRATION.md` before comparing new output to earlier StatsPAI runs.
+These change point estimates (or turn silent wrong answers into errors) for
+the affected calls. See `MIGRATION.md` before comparing new output to earlier
+StatsPAI runs.
 
+- **`sp.proximal_surrogate_index` point estimates no longer depend on the
+  units of the proxy `W`.** The linear bridge was fit with a second-stage
+  design `[1, W, S_hat, X]`, but `S_hat` (the stage-1 projection of `S` on
+  `[1, W, X]`) is an exact affine function of those columns, so the design
+  was rank-deficient and the "bridge slope" was `np.linalg.lstsq`'s
+  minimum-norm artifact — rescaling `W` by 10 moved the confounded-ATE
+  estimate by two orders of magnitude on identical data. The second stage
+  now excludes `W` (classical 2SLS exclusion: `Y ~ [1, S_hat, X]`, i.e. the
+  bridge moment `E[(Y - h(S,X)) · (1, W, X)'] = 0`), making the estimate
+  invariant to instrument scaling and recovering the true long-term ATE on
+  the persistent-confounding DGP (population bridge slope
+  `Cov(Y,W)/Cov(S,W)`). Every previous `proximal_surrogate_index` estimate
+  moves — earlier numbers were unit-dependent artifacts. Also new:
+  under-identification (`len(proxies) < len(surrogates)`) and a
+  rank-deficient projected first stage now raise loudly instead of
+  returning a minimum-norm solution. Guards:
+  `tests/reference_parity/test_surrogate_parity.py::test_proximal_surrogate_index_recovers_confounded_ate`
+  (previously skipped) and `::test_proximal_surrogate_index_invariant_to_proxy_units`.
 - **`sp.callaway_santanna(control_group="nevertreated")` now fails loudly when
   the panel has no never-treated units** instead of silently returning
   `ATT = 0.0`. With every unit eventually treated, each `ATT(g,t)` lost its
@@ -107,11 +126,10 @@ These change DiD point estimates for affected staggered/switching designs. See
   Each family gets deterministic-DGP known-truth recovery tests plus
   machine-precision internal identities under
   `tests/reference_parity/test_<family>_parity.py`; the parity index now
-  carries 340 graded records. Known limitation surfaced (not fixed here):
-  `proximal_surrogate_index`'s second-stage design `[1, W, S_hat]` is
-  exactly rank-deficient (`S_hat` is affine in `W`), so its confounded-ATE
-  point estimate depends on the scale of the proxy `W`; the recovery test
-  is skipped with a documented reason pending a ⚠️ correctness fix.
+  carries 340 graded records. This pass surfaced the
+  `proximal_surrogate_index` rank-deficient-bridge limitation, fixed in
+  the ⚠️ Correctness entry above (the recovery test that documented the
+  skip is now enabled).
 
   The 10 new test files shipped in PR #39 (`f9cc2932`, merged despite
   the misleading title `feat(parity): analytical-only mice + mi_estimate

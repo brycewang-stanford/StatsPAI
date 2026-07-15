@@ -5,6 +5,40 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="proximal-surrogate-index-bridge-2sls"></a>
+
+## Unreleased — ⚠️ `sp.proximal_surrogate_index` bridge is now proper 2SLS
+
+**What changed.** The linear bridge `h(s, x)` used to be read off a
+second-stage regression of `Y` on `[1, W, S_hat, X]`. Because `S_hat` — the
+first-stage projection of `S` on `[1, W, X]` — is an exact affine function of
+those same columns, that design matrix is rank-deficient, and the reported
+"bridge slope" was whatever minimum-norm split `np.linalg.lstsq` happened to
+return. Concretely, the point estimate depended on the *units* of the proxy
+`W`: on a fixed persistent-confounding DGP with true ATE 1.32, the estimate
+was 0.49 with `W` as given, 0.008 with `W×10`, and 1.22 with `W×0.01`. The
+second stage now excludes `W` (`Y ~ [1, S_hat, X]`), which solves the correct
+bridge moment `E[(Y - h(S,X)) · (1, W, X)'] = 0` — classical 2SLS with the
+proxies as excluded instruments. Estimates are now invariant to rescaling `W`
+and recover the true long-term ATE in the linear model.
+
+**Why.** A point estimate that changes by two orders of magnitude when a proxy
+switches from dollars to cents is not an estimate of anything (§7 — numerical
+correctness is the floor).
+
+**Who is affected.** Every previous `sp.proximal_surrogate_index` call —
+earlier point estimates, SEs, and CIs were unit-dependent artifacts and should
+be discarded, not compared against the new output. `sp.surrogate_index` and
+`sp.long_term_from_short` are untouched.
+
+**Action.** Re-run affected analyses. Two calls that previously "worked" now
+raise: fewer proxies than surrogates raises `MethodIncompatibility`
+(under-identified order condition), and proxies whose first-stage projections
+are collinear raise `DataInsufficient` (rank condition). Both used to return
+minimum-norm artifacts silently.
+
+---
+
 <a id="callaway-santanna-nevertreated-no-control"></a>
 
 ## Unreleased — ⚠️ `sp.callaway_santanna` fails loudly with an empty never-treated control

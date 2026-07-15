@@ -17,13 +17,13 @@ ATE_Y = b_Y * b_21 * tau_1. A zero-effect-on-surrogates DGP must give
 ATE ~ 0 for every variant, because each estimator is (slope) x (mean
 surrogate contrast) and the contrast vanishes. Analytical evidence tier.
 
-The proximal variant's truth-recovery test is skipped: its stage-2
-design matrix [1, W, S_hat] is exactly rank-deficient (S_hat is an
-affine function of W), so the "bridge slope" is a minimum-norm lstsq
-artifact that depends on the *units* of the proxy W (verified: scaling
-W by 10 changes the point estimate by two orders of magnitude on
-identical data). Only its zero-effect identity is unit-invariant and is
-tested here.
+The proximal variant fits a linear bridge h(s) by 2SLS with W
+instrumenting S (moment condition E[(Y - h(S)) * (1, W)'] = 0). On the
+persistent-confounding DGP T -> U -> (S, Y) with W = U + noise the
+population bridge slope is Cov(Y, W)/Cov(S, W) = beta + gamma/a_s, so
+the estimator recovers ATE = (beta*a_s + gamma)*tau_u exactly in
+population, and — like any 2SLS — the point estimate is invariant to
+rescaling the instrument W. Both properties are tested here.
 """
 
 from __future__ import annotations
@@ -62,9 +62,7 @@ def _single_wave_data(tau_s: float, seed: int):
     T = rng.binomial(1, 0.5, size=n_exp).astype(float)
     exp = pd.DataFrame({"T": T, "S": 0.5 + tau_s * T + rng.normal(0, 1, n_exp)})
     S_o = rng.normal(0.5, 1.0, size=n_obs)
-    obs = pd.DataFrame(
-        {"S": S_o, "Y": 2.0 + B_OBS * S_o + rng.normal(0, 0.5, n_obs)}
-    )
+    obs = pd.DataFrame({"S": S_o, "Y": 2.0 + B_OBS * S_o + rng.normal(0, 0.5, n_obs)})
     return exp, obs
 
 
@@ -243,22 +241,6 @@ def test_proximal_surrogate_index_null_effect_under_confounding():
     assert res.se > 0
 
 
-@pytest.mark.skip(
-    reason=(
-        "proximal_surrogate_index cannot recover a known nonzero long-term "
-        "ATE: stage 2 regresses Y on [1, W, S_hat] where S_hat is an exact "
-        "affine function of [1, W], so the design matrix is rank-deficient "
-        "and the 'bridge slope' is np.linalg.lstsq's minimum-norm artifact. "
-        "Verified numerically: on a fixed persistent-confounding DGP "
-        "(T -> U -> (S, Y), W proxying U; true ATE = 1.32) the estimate is "
-        "0.49 at unit proxy scale, 0.008 with W*10, and 1.22 with W*0.01 — "
-        "the point estimate depends on the units of W. A correct linear "
-        "bridge (Y on [1, S_hat] only, i.e. E[(Y - h(S)) W] = 0) equals "
-        "beta + gamma/a_s and does recover the truth on this DGP. Fixing "
-        "this changes numerical output => needs a CHANGELOG'd correctness "
-        "fix, not a test-side workaround."
-    )
-)
 def test_proximal_surrogate_index_recovers_confounded_ate():
     exp, obs = _proximal_data(tau_u=0.6, seed=47)
     res = sp.proximal_surrogate_index(
@@ -272,4 +254,51 @@ def test_proximal_surrogate_index_recovers_confounded_ate():
         random_state=3,
     )
     # True ATE = (beta*a_s + gamma) * tau_u = (1.5 + 0.7) * 0.6 = 1.32.
+    # Population bridge slope Cov(Y,W)/Cov(S,W) = 1.5 + 0.7/1.0 = 2.2 and
+    # E[S|T=1] - E[S|T=0] = a_s * tau_u = 0.6; slope noise is O(1/sqrt(n_o))
+    # and contrast noise ~ 0.032, so 0.15 covers > 2 se of the product.
     assert res.estimate == pytest.approx(1.32, abs=0.15)
+    lo, hi = res.ci
+    assert lo < 1.32 < hi
+
+
+def test_proximal_surrogate_index_invariant_to_proxy_units():
+    # 2SLS is invariant to nonsingular transformations of the instrument
+    # set: rescaling W (kg -> g, dollars -> cents) must not move the point
+    # estimate. This is the regression guard for the pre-fix bug where the
+    # rank-deficient stage-2 design [1, W, S_hat] made the estimate depend
+    # on the units of W (0.49 vs 0.008 vs 1.22 for W*1 / W*10 / W*0.01).
+    exp, obs = _proximal_data(tau_u=0.6, seed=48)
+    kwargs = dict(
+        treatment="T",
+        surrogates=["S"],
+        proxies=["W"],
+        long_term_outcome="Y",
+        n_boot=100,
+        random_state=4,
+    )
+    res_base = sp.proximal_surrogate_index(exp, obs, **kwargs)
+    res_x10 = sp.proximal_surrogate_index(exp, obs.assign(W=10.0 * obs["W"]), **kwargs)
+    res_x001 = sp.proximal_surrogate_index(exp, obs.assign(W=0.01 * obs["W"]), **kwargs)
+    assert res_x10.estimate == pytest.approx(res_base.estimate, abs=1e-10)
+    assert res_x001.estimate == pytest.approx(res_base.estimate, abs=1e-10)
+
+
+def test_proximal_surrogate_index_underidentified_raises():
+    # One proxy cannot instrument two surrogates (order condition):
+    # the bridge slope vector is not identified and the estimator must
+    # fail loudly instead of returning a minimum-norm artifact.
+    exp, obs = _proximal_data(tau_u=0.6, seed=49)
+    exp2 = exp.assign(S2=exp["S"] * 0.5 + 1.0)
+    obs2 = obs.assign(S2=obs["S"] * 0.5 + 1.0)
+    with pytest.raises(sp.MethodIncompatibility, match="under-identified"):
+        sp.proximal_surrogate_index(
+            exp2,
+            obs2,
+            treatment="T",
+            surrogates=["S", "S2"],
+            proxies=["W"],
+            long_term_outcome="Y",
+            n_boot=100,
+            random_state=5,
+        )
