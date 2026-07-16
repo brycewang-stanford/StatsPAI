@@ -1,5 +1,24 @@
 # StatsPAI 全量测试结果报告
 
+> **维护说明（2026-07-16）**: repo-improvement pass（导出协议全覆盖 + 静默降级修复 +
+> schema 补全 + 文档同步）后的默认全量回归，在 Claude Code 远程容器完成。
+> **命令**: `python -m pytest -q --no-cov`
+> **环境**: Python 3.11.15 (Linux x86_64) · StatsPAI v1.20.0 源码树（editable install，`STATSPAI_SKIP_RUST=1`）
+> **最终结果**: ✅ **12,871 passed, 200 skipped, 37 deselected, 3 xfailed, 998 warnings** · **2h00m**
+> （容器为共享 CPU，绝对耗时不可与本地基线比较）
+> **首轮 17 个失败已全部归零**：16 个源于容器未装 `pyfixest`（装上
+> `pyfixest 0.60.0` 后 245 个相关测试全过，含 golden_master / translation /
+> se_menu / GLM parity），1 个是本次 registry 变参 schema 回退把 `etable` 的
+> `*results` 注解降成 `Any`，已当场修复并由
+> `tests/test_auto_spec_type_resolution.py` 守护。
+> **补充校验**: `scripts/quality_gate.py all`（flake8 999≤1000 · mypy 1≤25 ·
+> import-budget/agent-cards/result-protocol/error-taxonomy 全过）、
+> `scripts/registry_stats.py --check`、`scripts/dump_schemas.py --check`、
+> `scripts/help_coverage.py --check`、`scripts/signature_house_style.py --check`、
+> `scripts/examples_coverage.py --check` 均通过。
+>
+> 下方 2026-05-17 / 2026-05-03 的记录保留为历史基线；当前验收以本段为准。
+
 > **维护说明（2026-05-17）**: 本次 hardening 已在本地 `.venv` 完成默认全量回归。
 > **命令**: `.venv/bin/python -m pytest -q --no-cov`
 > **环境**: Python 3.9.6 · StatsPAI v1.15.1

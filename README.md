@@ -66,7 +66,7 @@ StatsPAI ships teaching datasets such as Card (1995), Callaway-Sant'Anna
 `mpdta`, Lee (2008) RD, LaLonde/NSW, and California Proposition 99. The examples
 below run offline after installation.
 
-At a glance: 1,139 registered functions across 87 submodules; 339k LOC (core) + 182k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
+At a glance: 1,139 registered functions across 87 submodules; 348k LOC (core) + 200k LOC (tests). Run `python scripts/registry_stats.py` to reproduce these numbers.
 
 ---
 

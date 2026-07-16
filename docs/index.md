@@ -1,7 +1,7 @@
 # StatsPAI
 
 **Validation-tiered Python workflows for causal inference and applied
-econometrics.** One `import statspai as sp` exposes **1,000+ registered
+econometrics.** One `import statspai as sp` exposes **1,139 registered
 functions** across 87 submodules (live count: `python
 scripts/registry_stats.py`) spanning classical regression, staggered
 DiD, regression discontinuity,
@@ -11,13 +11,14 @@ mixed-effects, modern ML causal inference, the full three-school
 modules (bridging theorems, fairness, surrogates, PCMCI, TMLE survival,
 etc.), and manuscript/reporting output in Word / Excel / LaTeX / HTML.
 
-> **Current release: v1.19.0 (2026-06-20)** — cross-engine validation
-> (`sp.cross_validate` runs the same OLS/FE/IV/DML/DiD model through
-> StatsPAI, pyfixest, linearmodels, DoubleML, R `fixest`/`did`, and Stata,
-> then reports an honest AGREE / PARTIAL / DISAGREE verdict), data-MCP
-> ingestion normalisers (`sp.from_worldbank` / `sp.from_fred` /
-> `sp.from_sdmx`), and a numpy/scipy-native social-network-analysis module
-> (`sp.network`). See the [changelog](changelog.md) for detail.
+> **Current release: v1.20.0 (2026-06-22)** — a batch of ⚠️ inference
+> correctness fixes (CUSUM linear boundary, genuine Imbens–Manski CIs for
+> `sp.lee_bounds`, CCT kernel-squared robust RD variance, Hotelling-T²
+> pre-trend test for `sp.callaway_santanna`, nested-FE cluster DOF in the
+> native HDFE backend), building on v1.19.0's cross-engine validation
+> (`sp.cross_validate`), data-MCP ingestion normalisers
+> (`sp.from_worldbank` / `sp.from_fred` / `sp.from_sdmx`), and the
+> `sp.network` module. See the [changelog](changelog.md) for detail.
 
 ```python
 import statspai as sp
@@ -30,7 +31,12 @@ rpt = sp.cs_report(data, y='y', g='g', t='t', i='id',
 
 ## What's inside
 
-### Release highlights (v0.9.17 → v1.5.0)
+### Release highlights (early era: v0.9.17 → v1.5.0)
+
+> For everything after v1.5.0 — the P1 agent-native surface
+> (`sp.causal_question`, `sp.paper()`, LLM-DAG), cross-engine validation
+> (`sp.cross_validate`), the parity index, and the v1.20.0 inference
+> correctness batch — see the [changelog](changelog.md).
 
 | Release | Focus | Headline |
 | --- | --- | --- |
@@ -168,7 +174,7 @@ reference — together with this package:
   title   = {StatsPAI: Validation-Tiered Causal Inference and
              Econometrics Workflows for Python},
   year    = {2026},
-  version = {1.19.0},
+  version = {1.20.0},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```

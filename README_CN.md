@@ -10,6 +10,7 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/StatsPAI.svg)](https://pypi.org/project/StatsPAI/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/brycewang-stanford/statspai/blob/main/LICENSE)
 [![Tests](https://github.com/brycewang-stanford/statspai/workflows/CI%2FCD%20Pipeline/badge.svg)](https://github.com/brycewang-stanford/statspai/actions)
+[![Docs](https://img.shields.io/badge/docs-mkdocs--material-blue.svg)](https://brycewang-stanford.github.io/StatsPAI/)
 [![PyPI Downloads](https://static.pepy.tech/personalized-badge/statspai?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/statspai)
 [![status](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332/status.svg)](https://joss.theoj.org/papers/9f1c837b1b1df7adfcdd538c3698e332)
 [![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.19933900-blue.svg)](https://doi.org/10.5281/zenodo.19933900)
@@ -49,7 +50,7 @@ print(sp.datasets.list_datasets()[["name", "design", "n_obs"]].head())
 
 StatsPAI 随包带有 Card (1995)、Callaway-Sant'Anna `mpdta`、Lee (2008) RD、LaLonde/NSW、California Proposition 99 等教学数据集。下面的例子安装后可以离线运行。
 
-一眼概览：1,139 个注册函数，分布在 87 个子模块；339k 行核心代码 + 182k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,139 个注册函数，分布在 87 个子模块；348k 行核心代码 + 200k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 
@@ -253,6 +254,29 @@ Nevada   0.1580
 
 ---
 
+## 导出结果
+
+每个结果对象都自带 Stata 风格与 R（modelsummary/broom）风格的导出器。一行代码就能生成
+多 sheet 的 `.xlsx` 或可以直接交给合作者的 Word 表格。
+
+```python
+sp.outreg2(r1, r2, filename="results.xlsx")            # Excel，Stata 风格
+sp.modelsummary(r1, r2, output="table.docx")            # Word，modelsummary 风格
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/assets/export-card-xlsx.png" alt="sp.outreg2 导出 — Card 1995 OLS + IV 表" width="820">
+</p>
+<p align="center">
+  <img src="https://raw.githubusercontent.com/brycewang-stanford/StatsPAI/main/docs/assets/export-lalonde-xlsx.png" alt="sp.outreg2 导出 — LaLonde/NSW 倾向得分表" width="820">
+</p>
+
+上面的截图是 `sp.outreg2` 在 Card (1995) OLS + IV 组合与 LaLonde/NSW 倾向得分回归上
+输出的 `.xlsx`：每个 sheet 都包含系数表、模型拟合统计量和显著性星号，格式与期刊模板
+的要求一致。
+
+---
+
 ## 交互式图表编辑
 
 如果你怀念 Stata 的 Graph Editor，可以对 StatsPAI 返回的任意 matplotlib 图使用
@@ -337,6 +361,30 @@ print(sp.list_functions(validation_status="certified")[:5])
 - experimental：前沿或实验性工作流。
 
 Agent 可读元数据可通过 `sp.list_functions()`、`sp.describe_function()`、`sp.function_schema()` 获取。
+
+### 跨语言对齐，可查询
+
+上面的验证层级背后有一套更细、可审计的支撑：**parity 索引**。每个通过验证的函数都记录
+了*它对齐的参考实现是什么、容差是多少、由哪个测试守护、实际匹配到什么程度*。每一行都
+能追溯到一个已提交的测试工件（版本锁定的 StatsPAI ↔ R ↔ Stata 对齐 harness，通过
+`renv.lock` 加逐次运行的 provenance 固定）——没有任何结论是"凭记忆"断言的。
+
+```python
+import statspai as sp
+
+sp.parity_status("feols")
+# {'status': 'bit-exact', 'reference': 'fixest::feols',
+#  'reference_versions': {'R': '...4.5.2...', 'fixest': '0.14.0'},
+#  'tolerance': 'rel_est<=1e-06, rel_se<=1e-06', 'headline': {...}, 'test': [...]}
+
+sp.parity_summary()              # 诚实的覆盖统计（已验证 vs 未验证）
+sp.parity_matrix(status="bit-exact")
+```
+
+等级：`bit-exact`（相对指定 R/Stata 参考实现达到机器精度）、`aligned`（有文档说明的较宽
+容差）、`analytical-only`（能还原已知 DGP 真值）、`external-replication`（对齐已发表论文
+数字）、`unverified`（已注册但**尚**无 parity 证据——诚实标注的缺口）。完整的自动生成
+矩阵发布在 [docs/parity.md](https://brycewang-stanford.github.io/StatsPAI/parity/)。
 
 ---
 

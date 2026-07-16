@@ -109,6 +109,75 @@ StatsPAI runs.
 
 ### Added
 
+- **Every result class now exposes the full export protocol**
+  (`to_dict` / `to_latex` / `to_markdown` / `to_excel` / `to_word` / `cite`).
+  `ResultProtocolMixin` gained real default implementations —
+  `to_markdown()` (GitHub table of the scalar fields), `to_excel()`
+  (two-column Field/Value `.xlsx` via openpyxl), and `to_word()` (delegates
+  to a bespoke `to_docx` when the class defines one, else writes a
+  Field/Value `.docx` table via python-docx) — and the mixin was attached
+  to the ~165 result classes that previously only had `.summary()`
+  (epi, iv, rd, fast, conformal_causal, causal_discovery, survival, bayes,
+  timeseries, spatial, smart, causal_rl, mendelian, bounds, qte,
+  decomposition, and ~25 more modules) — all 286 result classes now
+  expose the full protocol. Bespoke exporters always win over the mixin
+  defaults (ordinary MRO), so no existing output changes. `cite()` remains
+  zero-hallucination: it only returns verified `paper.bib` keys.
+- **`sp.function_schema` now returns real parameter lists for the 9
+  dispatchers that previously exposed empty schemas** (`multi_cutoff_rd`,
+  `geographic_rd`, `boundary_rd`, `multi_score_rd`, `anderson_rubin_ci`,
+  `conditional_lr_ci`, `prevalence_ratio`, `diagnostic_test`, `etable`).
+  Thin `*args/**kwargs` aliases now transplant their target's
+  `__signature__` (so `help()` is informative too), and purely variadic
+  dispatchers fall back to their documented NumPy-style `Parameters`
+  section when the signature carries no named parameters.
+- **`sp.rd` dispatcher docstring gained a runnable doctest example**
+  (default CCT path + `method="honest"`), closing the last Tier-1
+  dispatcher without a `>>>` example.
+- **New loud-fallback contract tests** (`tests/test_loud_fallbacks.py`)
+  pinning the silent-degradation fixes below.
+
+### Fixed
+
+- **`ResultProtocolMixin.to_excel` recursed forever.** The mixin's
+  `to_excel` delegated to `getattr(self, "to_excel")` — i.e. itself — so
+  any inheriting result class that did not override it raised
+  `RecursionError` on the first call. It now writes a real workbook.
+- **Silent solver/degradation paths now warn (§7 失败要响亮):**
+  - `sp.qreg`: when the exact HiGHS linear-programming quantile solve
+    fails, the IRLS fallback now emits a `RuntimeWarning` (the IRLS
+    solution is approximate) instead of switching silently.
+  - `sp.principal_strat` (all three methods): bootstrap-replicate failures
+    now surface through the shared `bootstrap_se` helper — a
+    `RuntimeWarning` reports the failure fraction, and a collapsed
+    bootstrap yields an honest `NaN` SE. Healthy-path numerics unchanged.
+  - `sp.regtable(apply_coef=...)`: a user transform (or its derivative)
+    that raises now warns that the cell is reported untransformed /
+    without the delta-method rescaling, instead of silently mixing
+    transformed and untransformed cells in one table.
+  - pyfixest adapter: failures to attach `residuals` / `fitted_values`
+    now warn (previously they silently disabled `cr2_se` /
+    `wild_cluster_boot` / `conley` downstream).
+  - Rust HDFE `singleton_mask` errors now warn once per process before
+    the (numerically identical) NumPy fallback.
+
+### Docs
+
+- `docs/index.md` un-staled: banner and BibTeX now say v1.20.0, headline
+  count updated to the live 1,139 functions, and the release-highlights
+  table is explicitly labelled as the early-era (≤v1.5.0) table with a
+  pointer to the changelog for everything newer. `registry_stats.py
+  --check` now pins the exact function count in `docs/index.md` (was a
+  loose "1,000+").
+- `docs/stats.md` §1/§2 reconciled and regenerated from the live tree
+  (702 files / 347,786 LOC core; 1,052 files / 199,714 LOC tests);
+  README at-a-glance LOC figures refreshed (EN + CN).
+- `README_CN.md` re-synced with `README.md`: ported the missing "Export
+  Results" section, the "Cross-language parity, made queryable"
+  subsection, and the Docs badge.
+- `mkdocs.yml`: `guides/reproducibility.md` and `guides/translator.md`
+  are now reachable from the nav.
+
 - **Analytical parity coverage for 10 previously uncovered estimator
   families** — structural (`olley_pakes`, `levinsohn_petrin`,
   `ackerberg_caves_frazer`, `wooldridge_prod`, `prod_fn`, `markup`, `blp`),

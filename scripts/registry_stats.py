@@ -293,7 +293,7 @@ def check_drift(stats: dict) -> int:
             f"{mods} 个子模块",
         ),
         DOCS_INDEX: (
-            "1,000+ registered functions",
+            f"{fns_text} registered functions",
             f"across {mods} submodules",
         ),
         DOCS_REFERENCE_INDEX: (
