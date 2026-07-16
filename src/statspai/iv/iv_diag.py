@@ -61,11 +61,12 @@ import numpy as np
 import pandas as pd
 
 from .._aliases import accepts_aliases
+from .._result_serialize import ResultProtocolMixin
 from ..diagnostics.weak_iv import anderson_rubin_test, tF_critical_value
 
 
 @dataclass
-class IVDiagResult:
+class IVDiagResult(ResultProtocolMixin):
     """Container for :func:`iv_diag` output.
 
     Attributes

@@ -29,12 +29,13 @@ import numpy as np
 import pandas as pd
 
 from .pcmci import partial_corr_pvalue
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["lpcmci", "LPCMCIResult"]
 
 
 @dataclass
-class LPCMCIResult:
+class LPCMCIResult(ResultProtocolMixin):
     """Output of :func:`lpcmci`.
 
     Examples

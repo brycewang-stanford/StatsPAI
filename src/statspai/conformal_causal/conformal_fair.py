@@ -15,10 +15,11 @@ from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class FairConformalResult:
+class FairConformalResult(ResultProtocolMixin):
     """Fairness-aware conformal ITE intervals.
 
     Examples

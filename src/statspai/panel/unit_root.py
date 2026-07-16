@@ -22,9 +22,10 @@ from typing import Optional, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
-class PanelUnitRootResult:
+class PanelUnitRootResult(ResultProtocolMixin):
     """Results from panel unit root test.
 
     Returned by :func:`panel_unitroot`. Holds the pooled test statistic and

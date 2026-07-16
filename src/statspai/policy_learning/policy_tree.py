@@ -26,6 +26,7 @@ import pandas as pd
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 # sklearn is imported lazily inside the methods that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -41,7 +42,7 @@ TreeNode = Dict[str, Any]
 # ======================================================================
 
 
-class PolicyTreeResult(dict):
+class PolicyTreeResult(dict, ResultProtocolMixin):
     """Result of :func:`policy_tree`.
 
     Inherits from :class:`dict` so the legacy ``result['policy']`` API

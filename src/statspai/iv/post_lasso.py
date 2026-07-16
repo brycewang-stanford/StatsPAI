@@ -45,10 +45,11 @@ from typing import Any, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class PostLassoResult:
+class PostLassoResult(ResultProtocolMixin):
     """Return of :func:`bch_post_lasso_iv`."""
 
     beta: pd.Series

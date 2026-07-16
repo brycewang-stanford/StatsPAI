@@ -15,10 +15,11 @@ from typing import List, Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MultiDPConformalResult:
+class MultiDPConformalResult(ResultProtocolMixin):
     """Multi-decision-point conformal ITE intervals.
 
     Examples

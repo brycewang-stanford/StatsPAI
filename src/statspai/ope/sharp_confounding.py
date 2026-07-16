@@ -28,6 +28,7 @@ from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegress
 from sklearn.tree import DecisionTreeClassifier
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "sharp_ope_unobserved",
@@ -111,7 +112,7 @@ def _normalize_covariates(covariates: Sequence[str] | str) -> List[str]:
 
 
 @dataclass
-class SharpOPEResult:
+class SharpOPEResult(ResultProtocolMixin):
     """Output of :func:`sharp_ope_unobserved`."""
 
     gamma: float
@@ -135,7 +136,7 @@ class SharpOPEResult:
 
 
 @dataclass
-class CausalPolicyForestResult:
+class CausalPolicyForestResult(ResultProtocolMixin):
     """Output of :func:`causal_policy_forest`."""
 
     policy_value: float

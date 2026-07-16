@@ -13,10 +13,11 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class OfflineSafeResult:
+class OfflineSafeResult(ResultProtocolMixin):
     """Output of safe offline policy learning.
 
     Returned by :func:`offline_safe_policy`. Holds the per-state action

@@ -35,10 +35,11 @@ from typing import Any, Iterable, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class PlausiblyExogenousResult:
+class PlausiblyExogenousResult(ResultProtocolMixin):
     method: str
     beta_hat: float
     se_hat: float

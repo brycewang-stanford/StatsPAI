@@ -37,6 +37,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "harvest_did",
@@ -50,7 +51,7 @@ __all__ = [
 
 
 @dataclass
-class HarvestDIDResult:
+class HarvestDIDResult(ResultProtocolMixin):
     """Full diagnostic output of :func:`harvest_did`.
 
     Examples

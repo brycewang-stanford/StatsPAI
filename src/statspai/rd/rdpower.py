@@ -24,10 +24,11 @@ from typing import Optional
 
 import numpy as np
 from scipy import stats as sp_stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class RDPowerResult:
+class RDPowerResult(ResultProtocolMixin):
     power: float
     mde: float
     alpha: float
@@ -55,7 +56,7 @@ class RDPowerResult:
 
 
 @dataclass
-class RDSampSiResult:
+class RDSampSiResult(ResultProtocolMixin):
     n_left: int
     n_right: int
     n_total: int

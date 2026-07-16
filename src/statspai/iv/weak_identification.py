@@ -44,6 +44,7 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import IdentificationFailure
+from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Data containers
@@ -51,7 +52,7 @@ from ..exceptions import IdentificationFailure
 
 
 @dataclass
-class KleibergenPaapResult:
+class KleibergenPaapResult(ResultProtocolMixin):
     """Container for Kleibergen-Paap rk test output."""
 
     rk_wald: float
@@ -78,7 +79,7 @@ class KleibergenPaapResult:
 
 
 @dataclass
-class SandersonWindmeijerResult:
+class SandersonWindmeijerResult(ResultProtocolMixin):
     """Sanderson-Windmeijer conditional F for each endogenous variable."""
 
     endog_names: List[str]
@@ -111,7 +112,7 @@ class SandersonWindmeijerResult:
 
 
 @dataclass
-class CLRResult:
+class CLRResult(ResultProtocolMixin):
     """Moreira (2003) CLR test."""
 
     statistic: float

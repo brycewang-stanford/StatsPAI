@@ -18,9 +18,10 @@ from typing import Any, Optional, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
-class LPolyResult:
+class LPolyResult(ResultProtocolMixin):
     """Results from local polynomial regression.
 
     Examples

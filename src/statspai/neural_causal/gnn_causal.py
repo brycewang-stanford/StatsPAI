@@ -45,6 +45,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 _GNN_CAUSAL_ALTERNATIVES = [
     "sp.gnn_causal",
@@ -86,7 +87,7 @@ def _normalize_covariates(covariates: Sequence[str] | str) -> list[str]:
 
 
 @dataclass
-class GNNCausalResult:
+class GNNCausalResult(ResultProtocolMixin):
     ate: float
     se: float
     ci: tuple[float, float]

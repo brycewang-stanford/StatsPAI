@@ -20,10 +20,11 @@ import numpy as np
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class GeneralBunchingResult:
+class GeneralBunchingResult(ResultProtocolMixin):
     """Output of high-order bunching design.
 
     Carries the naive (Saez first-order) elasticity, the high-order

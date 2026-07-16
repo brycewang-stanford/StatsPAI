@@ -33,6 +33,7 @@ from scipy import stats as sp_stats
 from scipy.optimize import minimize
 
 from .models import _parse_formula
+from .._result_serialize import ResultProtocolMixin
 
 AFTFamily = Literal["exponential", "weibull", "lognormal", "loglogistic"]
 
@@ -65,7 +66,7 @@ def _aft_log_likelihood(
 
 
 @dataclass
-class AFTResult:
+class AFTResult(ResultProtocolMixin):
     beta: np.ndarray
     se: np.ndarray
     sigma: float

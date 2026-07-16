@@ -48,6 +48,7 @@ from ._validation import (
     positive_int as _positive_int,
     positive_weight_mass as _positive_weight_mass,
 )
+from .._result_serialize import ResultProtocolMixin
 
 # ---------------------------------------------------------------------------
 # Result type
@@ -55,7 +56,7 @@ from ._validation import (
 
 
 @dataclass
-class FeolsResult:
+class FeolsResult(ResultProtocolMixin):
     """Outcome of :func:`feols`.
 
     Attribute names mirror :class:`FePoisResult` so downstream code

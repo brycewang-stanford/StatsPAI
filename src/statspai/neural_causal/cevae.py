@@ -26,10 +26,11 @@ from dataclasses import dataclass
 from typing import Any
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class CEVAEResult:
+class CEVAEResult(ResultProtocolMixin):
     """Container for CEVAE estimates (ATE, unit-level ITE, loss history).
 
     Examples

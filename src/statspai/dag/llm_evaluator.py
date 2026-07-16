@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "llm_causal_assess",
@@ -32,7 +33,7 @@ __all__ = [
 
 
 @dataclass
-class LLMCausalAssessResult:
+class LLMCausalAssessResult(ResultProtocolMixin):
     """Output of :func:`llm_causal_assess`.
 
     Attributes
@@ -90,7 +91,7 @@ class LLMCausalAssessResult:
 
 
 @dataclass
-class PairwiseBenchmarkResult:
+class PairwiseBenchmarkResult(ResultProtocolMixin):
     """Output of :func:`pairwise_causal_benchmark`.
 
     Attributes

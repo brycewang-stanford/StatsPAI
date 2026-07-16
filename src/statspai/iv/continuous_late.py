@@ -15,10 +15,11 @@ import numpy as np
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class ContinuousLATEResult:
+class ContinuousLATEResult(ResultProtocolMixin):
     """Continuous-instrument LATE on the maximal complier class.
 
     Returned by :func:`sp.continuous_iv_late`. Holds the LATE estimate,

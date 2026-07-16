@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "counterfactual_fairness",
@@ -30,7 +31,7 @@ __all__ = [
 
 
 @dataclass
-class FairnessResult:
+class FairnessResult(ResultProtocolMixin):
     """Single fairness diagnostic."""
 
     metric: str

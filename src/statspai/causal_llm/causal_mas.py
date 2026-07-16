@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .llm_dag import _classify_variable
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["causal_mas", "CausalMASResult"]
 
@@ -42,7 +43,7 @@ __all__ = ["causal_mas", "CausalMASResult"]
 
 
 @dataclass
-class CausalMASResult:
+class CausalMASResult(ResultProtocolMixin):
     """Structured output of :func:`causal_mas`.
 
     Attributes

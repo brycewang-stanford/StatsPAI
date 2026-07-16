@@ -43,10 +43,11 @@ import numpy as np
 import pandas as pd
 
 from .sfa import FrontierResult, frontier as _frontier
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MalmquistResult:
+class MalmquistResult(ResultProtocolMixin):
     """Container for Malmquist productivity index decomposition.
 
     Examples

@@ -44,10 +44,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MTEResult:
+class MTEResult(ResultProtocolMixin):
     """Marginal treatment effects result."""
 
     poly_degree: int

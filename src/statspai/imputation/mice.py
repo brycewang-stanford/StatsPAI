@@ -21,9 +21,10 @@ from typing import Optional, List, Dict, Any, Union
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
-class MICEResult:
+class MICEResult(ResultProtocolMixin):
     """Results from MICE imputation.
 
     Examples

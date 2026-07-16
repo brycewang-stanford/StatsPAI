@@ -23,12 +23,13 @@ from typing import Any, Optional, Sequence
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["bayes_dml", "BayesianDMLResult"]
 
 
 @dataclass
-class BayesianDMLResult:
+class BayesianDMLResult(ResultProtocolMixin):
     """Bayesian DML posterior summary."""
 
     posterior_mean: float

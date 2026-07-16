@@ -35,6 +35,7 @@ from typing import Any, Callable, Dict, List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "assimilative_causal",
@@ -49,7 +50,7 @@ __all__ = [
 
 
 @dataclass
-class AssimilationResult:
+class AssimilationResult(ResultProtocolMixin):
     """Output of :func:`assimilative_causal` / :func:`causal_kalman`.
 
     Attributes

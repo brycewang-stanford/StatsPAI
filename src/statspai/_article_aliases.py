@@ -588,6 +588,18 @@ def anderson_rubin_ci(*args: Any, **kwargs: Any) -> Any:
     return _impl(*args, **kwargs)
 
 
+def _transplant_signature(wrapper: Any, target: Any) -> None:
+    """Expose ``target``'s signature on a ``*args/**kwargs`` re-export.
+
+    Keeps ``help()`` / ``sp.function_schema`` / agent tooling informative
+    for thin aliases without duplicating the parameter list by hand.
+    Runtime forwarding is unchanged.
+    """
+    import inspect
+
+    wrapper.__signature__ = inspect.signature(target)
+
+
 def conditional_lr_ci(*args: Any, **kwargs: Any) -> Any:
     """Moreira (2003) CLR confidence set — re-export of
     :func:`statspai.iv.weak_iv_ci.conditional_lr_ci`.
@@ -621,6 +633,18 @@ def conditional_lr_ci(*args: Any, **kwargs: Any) -> Any:
     from .iv.weak_iv_ci import conditional_lr_ci as _impl
 
     return _impl(*args, **kwargs)
+
+
+def _transplant_weak_iv_signatures() -> None:
+    # Imported here (not at module top) to preserve this module's lazy
+    # import contract for the iv subpackage.
+    from .iv import weak_iv_ci as _wivc
+
+    _transplant_signature(anderson_rubin_ci, _wivc.anderson_rubin_ci)
+    _transplant_signature(conditional_lr_ci, _wivc.conditional_lr_ci)
+
+
+_transplant_weak_iv_signatures()
 
 
 # ---------------------------------------------------------------------------

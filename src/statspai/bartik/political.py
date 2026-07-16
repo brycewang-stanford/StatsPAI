@@ -46,6 +46,7 @@ from scipy import stats
 from ..core.results import CausalResult, EconometricResults
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from .shift_share import bartik as _bartik_cs
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "shift_share_political",
@@ -56,7 +57,7 @@ __all__ = [
 
 
 @dataclass
-class ShiftSharePoliticalResult:
+class ShiftSharePoliticalResult(ResultProtocolMixin):
     """Structured output of :func:`shift_share_political`.
 
     Wraps a standard :class:`CausalResult` (point + SEs) plus the two
@@ -598,7 +599,7 @@ def shift_share_political(
 
 
 @dataclass
-class ShiftSharePoliticalPanelResult:
+class ShiftSharePoliticalPanelResult(ResultProtocolMixin):
     """Structured output of :func:`shift_share_political_panel`.
 
     Attributes

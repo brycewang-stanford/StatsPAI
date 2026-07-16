@@ -21,6 +21,7 @@ from typing import Any, Callable, Dict, Tuple
 
 import numpy as np
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 # Registered bridge implementations. New bridges register themselves at
 # import time by inserting (kind, callable) into _BRIDGES.
@@ -42,7 +43,7 @@ def _register(
 
 
 @dataclass
-class BridgeResult:
+class BridgeResult(ResultProtocolMixin):
     """
     Result of a bridging-theorem comparison.
 

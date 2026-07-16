@@ -20,10 +20,11 @@ import numpy as np
 
 from .gwr import gwr, KernelName
 from .bandwidth import gwr_bandwidth
+from ..._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MGWRResult:
+class MGWRResult(ResultProtocolMixin):
     params: np.ndarray  # (n, k)
     predicted: np.ndarray  # (n,)
     residuals: np.ndarray  # (n,)

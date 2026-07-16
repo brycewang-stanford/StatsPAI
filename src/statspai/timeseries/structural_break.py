@@ -27,6 +27,7 @@ from functools import lru_cache
 from typing import List, Dict, Any, Optional
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 _SUPF_SEED = 20240601
 
@@ -94,7 +95,7 @@ def _supf_pvalue(stat: float, q: int, n: int, trimming: float) -> float:
     return float((1 + np.count_nonzero(null >= stat)) / (null.size + 1))
 
 
-class StructuralBreakResult:
+class StructuralBreakResult(ResultProtocolMixin):
     """Results from structural break tests.
 
     Returned by :func:`structural_break`. Holds the detected break

@@ -19,9 +19,10 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 
-class KDensityResult:
+class KDensityResult(ResultProtocolMixin):
     """Results from kernel density estimation.
 
     Examples

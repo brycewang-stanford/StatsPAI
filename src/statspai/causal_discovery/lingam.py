@@ -27,6 +27,7 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 # --------------------------------------------------------------------- #
 #  Helper: pairwise independence measure
@@ -81,7 +82,7 @@ def _mi_quadratic(x: np.ndarray, y: np.ndarray) -> float:
 
 
 @dataclass
-class LiNGAMResult:
+class LiNGAMResult(ResultProtocolMixin):
     """Result of a :func:`lingam` (DirectLiNGAM) fit.
 
     Attributes

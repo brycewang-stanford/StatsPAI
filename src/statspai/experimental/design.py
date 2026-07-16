@@ -22,9 +22,10 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import StatsPAIWarning
+from .._result_serialize import ResultProtocolMixin
 
 
-class RandomizationResult:
+class RandomizationResult(ResultProtocolMixin):
     """Results from randomization.
 
     Produced by :func:`randomize`. Carries the assigned data frame
@@ -98,7 +99,7 @@ class RandomizationResult:
         return "\n".join(lines)
 
 
-class BalanceResult:
+class BalanceResult(ResultProtocolMixin):
     """Results from balance check.
 
     Produced by :func:`balance_check`. Exposes the per-covariate balance

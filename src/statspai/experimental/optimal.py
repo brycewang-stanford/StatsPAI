@@ -15,9 +15,10 @@ from typing import List, Optional
 
 import numpy as np
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
-class OptimalDesignResult:
+class OptimalDesignResult(ResultProtocolMixin):
     """Results from optimal design calculation.
 
     Returned by :func:`optimal_design`. Carries the required total / per-arm

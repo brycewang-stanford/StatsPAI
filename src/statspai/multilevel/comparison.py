@@ -27,10 +27,11 @@ from typing import Any
 
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class LRTestResult:
+class LRTestResult(ResultProtocolMixin):
     chi2: float
     df: float
     p_value: float

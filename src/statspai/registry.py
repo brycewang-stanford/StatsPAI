@@ -13477,6 +13477,33 @@ def _auto_spec_from_callable(name: str, obj: Any) -> Optional[FunctionSpec]:
                 )
             )
 
+    if not params and doc_params:
+        # Purely variadic signature (``*results, **kwargs``) or no signature
+        # at all, but the docstring documents parameters — fall back to the
+        # documented list so dispatchers like ``etable`` don't expose an
+        # empty schema to agents. Requiredness is unknowable here, so every
+        # parameter is marked optional. When the docstring gives no type,
+        # recover it from the (variadic) signature annotation if present.
+        sig_annots: Dict[str, Any] = {}
+        if sig is not None:
+            sig_annots = {p.name: p.annotation for p in sig.parameters.values()}
+        for pname, meta in doc_params.items():
+            doc_type = str(meta.get("type") or "")
+            if not doc_type and pname in sig_annots:
+                doc_type = _stringify_annotation(sig_annots[pname])
+            if not doc_type or doc_type == "Any":
+                doc_type = "str" if meta.get("enum") else doc_type or "Any"
+            params.append(
+                ParamSpec(
+                    name=pname,
+                    type=doc_type,
+                    required=False,
+                    default=None,
+                    description=str(meta.get("description") or ""),
+                    enum=meta.get("enum"),
+                )
+            )
+
     desc = _first_doc_line(doc) or f"({name} — no description)"
     category = _infer_category(obj)
     spec = FunctionSpec(

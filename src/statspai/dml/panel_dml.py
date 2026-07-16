@@ -67,6 +67,7 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["DMLPanelResult", "dml_panel"]
 
@@ -105,7 +106,7 @@ def _require_column_name(name: Any, label: str) -> None:
 
 
 @dataclass
-class DMLPanelResult:
+class DMLPanelResult(ResultProtocolMixin):
     """Output of :func:`dml_panel`.
 
     Attributes

@@ -28,13 +28,14 @@ from typing import Any, Optional, List
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 # ══════════════════════════════════════════════════════════════════════
 #  QTEResult
 # ══════════════════════════════════════════════════════════════════════
 
 
-class QTEResult:
+class QTEResult(ResultProtocolMixin):
     """Container for quantile treatment effect estimates.
 
     Attributes

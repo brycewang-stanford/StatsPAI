@@ -44,10 +44,11 @@ from typing import Optional, Sequence, Dict, Any
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class ManyWeakIVResult:
+class ManyWeakIVResult(ResultProtocolMixin):
     estimator: str
     estimate: float
     se: float

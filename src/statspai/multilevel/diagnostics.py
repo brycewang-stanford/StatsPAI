@@ -12,10 +12,11 @@ from typing import Any, Optional
 
 import numpy as np
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class ICCResult:
+class ICCResult(ResultProtocolMixin):
     """Container for an ICC estimate with a delta-method Wald CI."""
 
     estimate: float

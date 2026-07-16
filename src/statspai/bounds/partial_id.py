@@ -39,6 +39,7 @@ from scipy import stats as sp_stats
 from dataclasses import dataclass, field
 
 from ..core.results import CausalResult
+from .._result_serialize import ResultProtocolMixin
 
 # ======================================================================
 # BoundsResult — Shared result class for all bounding methods
@@ -46,7 +47,7 @@ from ..core.results import CausalResult
 
 
 @dataclass
-class BoundsResult:
+class BoundsResult(ResultProtocolMixin):
     """Result container for partial identification / bounds estimation.
 
     Attributes

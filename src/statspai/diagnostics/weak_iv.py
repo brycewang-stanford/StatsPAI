@@ -47,6 +47,7 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Internal helpers
@@ -549,7 +550,7 @@ def _kstat_and_pvalue_at(k_cs: Any, h0: float) -> Tuple[float, float]:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-class WeakRobustResult:
+class WeakRobustResult(ResultProtocolMixin):
     """Container holding the unified weak-IV-robust panel.
 
     Returned by :func:`sp.weakrobust`. Supports dict-style lookup

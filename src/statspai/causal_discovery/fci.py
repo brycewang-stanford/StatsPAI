@@ -54,6 +54,7 @@ from typing import Dict, List, Optional, Sequence, Set, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 # Edge-mark constants used in the mark matrix.
 MARK_NONE = 0  # no edge
@@ -70,7 +71,7 @@ _MARK_SYMBOL = {
 
 
 @dataclass
-class FCIResult:
+class FCIResult(ResultProtocolMixin):
     """Partial Ancestral Graph (PAG) learned by :func:`fci`.
 
     Attributes

@@ -30,6 +30,7 @@ studies with binary data." *American Journal of Epidemiology*, 159(7),
 
 from __future__ import annotations
 
+import inspect as _inspect
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -41,6 +42,7 @@ from ..exceptions import (
     MethodIncompatibility,
     NumericalInstability,
 )
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "OR2x2Result",
@@ -177,7 +179,7 @@ def _z_crit(alpha: float) -> float:
 
 
 @dataclass
-class OR2x2Result:
+class OR2x2Result(ResultProtocolMixin):
     """Result of a 2x2 odds-ratio calculation."""
 
     estimate: float
@@ -202,7 +204,7 @@ class OR2x2Result:
 
 
 @dataclass
-class RR2x2Result:
+class RR2x2Result(ResultProtocolMixin):
     """Result of a 2x2 relative-risk (risk-ratio) calculation."""
 
     estimate: float
@@ -225,7 +227,7 @@ class RR2x2Result:
 
 
 @dataclass
-class RD2x2Result:
+class RD2x2Result(ResultProtocolMixin):
     """Result of a 2x2 risk-difference calculation."""
 
     estimate: float
@@ -246,7 +248,7 @@ class RD2x2Result:
 
 
 @dataclass
-class ARResult:
+class ARResult(ResultProtocolMixin):
     """Attributable-risk quantities (Levin 1953, Miettinen 1974)."""
 
     # AR% among the exposed (a.k.a. attributable fraction in exposed)
@@ -268,7 +270,7 @@ class ARResult:
 
 
 @dataclass
-class IRRResult:
+class IRRResult(ResultProtocolMixin):
     """Incidence rate ratio from person-time data."""
 
     estimate: float
@@ -297,7 +299,7 @@ class IRRResult:
 
 
 @dataclass
-class NNTResult:
+class NNTResult(ResultProtocolMixin):
     estimate: float
     ci: tuple[float, float]
     risk_difference: float
@@ -531,6 +533,13 @@ def prevalence_ratio(*args: Any, **kwargs: Any) -> RR2x2Result:
         risk_unexposed=result.risk_unexposed,
         method="prevalence-ratio",
     )
+
+
+# Expose relative_risk's real parameter list on the thin alias so
+# introspection (help(), sp.function_schema, agent tooling) is informative.
+prevalence_ratio.__signature__ = _inspect.signature(  # type: ignore[attr-defined]
+    relative_risk
+)
 
 
 # --------------------------------------------------------------------------- #

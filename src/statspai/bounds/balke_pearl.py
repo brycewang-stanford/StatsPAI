@@ -45,10 +45,11 @@ from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class BalkePearlResult:
+class BalkePearlResult(ResultProtocolMixin):
     lower: float
     upper: float
     width: float

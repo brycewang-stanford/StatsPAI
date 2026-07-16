@@ -8,6 +8,7 @@ methodology document uses, so that ``sp.geographic_rd(...)`` and
 
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 from ..core.results import CausalResult
@@ -147,3 +148,15 @@ def multi_score_rd(*args: Any, **kwargs: Any) -> MultiScoreRDResult:
     0.137
     """
     return rd_multi_score(*args, **kwargs)
+
+
+# Transplant the canonical estimators' signatures onto the thin aliases so
+# introspection (``help()``, ``sp.function_schema``, agent tooling) sees the
+# real parameter list instead of ``*args/**kwargs``. Runtime behaviour is
+# unchanged — the wrappers still forward everything verbatim.
+multi_cutoff_rd.__signature__ = inspect.signature(rdmc)  # type: ignore[attr-defined]
+geographic_rd.__signature__ = inspect.signature(rdms)  # type: ignore[attr-defined]
+boundary_rd.__signature__ = inspect.signature(rd2d)  # type: ignore[attr-defined]
+multi_score_rd.__signature__ = inspect.signature(  # type: ignore[attr-defined]
+    rd_multi_score
+)

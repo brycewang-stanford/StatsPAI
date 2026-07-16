@@ -41,13 +41,14 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional, Sequence, Tuple, Any
 
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 Edge = Tuple[str, str]
 Oracle = Callable[[Sequence[str], Dict[str, str]], List[Edge]]
 
 
 @dataclass
-class LLMDAGResult:
+class LLMDAGResult(ResultProtocolMixin):
     """Merged LLM-oracle / CI-test DAG returned by :func:`llm_dag`.
 
     Attributes

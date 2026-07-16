@@ -28,13 +28,14 @@ import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from .._result_serialize import ResultProtocolMixin
 
 # ======================================================================
 # NotchResult
 # ======================================================================
 
 
-class NotchResult:
+class NotchResult(ResultProtocolMixin):
     """
     Result container for notch bunching analysis.
 

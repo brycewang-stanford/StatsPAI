@@ -30,6 +30,7 @@ import pandas as pd
 from ..exceptions import MethodIncompatibility
 from ._result_protocol import jsonable as _jsonable
 from ._validation import nonnegative_finite_float, positive_int
+from .._result_serialize import ResultProtocolMixin
 
 _BackendFn = Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
 
@@ -161,7 +162,7 @@ def _detect_backends() -> Dict[str, _Backend]:
 
 
 @dataclass
-class HDFEBenchResult:
+class HDFEBenchResult(ResultProtocolMixin):
     """Output of :func:`hdfe_bench`.
 
     Attributes

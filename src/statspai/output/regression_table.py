@@ -723,15 +723,28 @@ class RegtableResult:
         if self.apply_coef is not None:
             try:
                 b_new = float(self.apply_coef(b))
-            except Exception:
-                b_new = b  # transform raised; leave unchanged
+            except Exception as exc:
+                b_new = b  # transform raised; leave unchanged — but say so
+                warnings.warn(
+                    f"apply_coef raised {type(exc).__name__} for b={b!r}; "
+                    "this cell is reported UNtransformed. Check the "
+                    "transform's domain.",
+                    RuntimeWarning,
+                    stacklevel=4,
+                )
             if se is not None and self.apply_coef_deriv is not None:
                 try:
                     deriv = float(self.apply_coef_deriv(b))
                     se_new: Optional[float] = abs(deriv) * float(se)
                     return b_new, se_new
-                except Exception:
-                    pass
+                except Exception as exc:
+                    warnings.warn(
+                        f"apply_coef_deriv raised {type(exc).__name__} for "
+                        f"b={b!r}; this cell's SE is reported without the "
+                        "delta-method rescaling.",
+                        RuntimeWarning,
+                        stacklevel=4,
+                    )
             return b_new, se
         if self._model_eform(flat_idx) and np.isfinite(b):
             b_new = float(np.exp(b))

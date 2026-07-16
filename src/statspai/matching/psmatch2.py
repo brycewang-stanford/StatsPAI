@@ -44,6 +44,7 @@ import pandas as pd
 from ..core.results import CausalResult, SummaryText
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from . import _matched_frame as _mf
+from .._result_serialize import ResultProtocolMixin
 
 if TYPE_CHECKING:
     from .ps_diagnostics import BalanceDiagnosticsResult
@@ -133,7 +134,7 @@ def _normalize_columns(columns: Any, role: str) -> List[str]:
 # ======================================================================
 
 
-class PSMatch2Result:
+class PSMatch2Result(ResultProtocolMixin):
     """Container for a ``sp.psmatch2`` run.
 
     Attributes

@@ -33,10 +33,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class ICPResult:
+class ICPResult(ResultProtocolMixin):
     """Result of an Invariant Causal Prediction run (:func:`icp`).
 
     Attributes

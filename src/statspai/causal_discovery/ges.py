@@ -20,6 +20,7 @@ from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 def _bic_score_local(data: np.ndarray, j: int, parents: List[int]) -> float:
@@ -101,7 +102,7 @@ def _dag_to_cpdag(adj: np.ndarray) -> np.ndarray:
 
 
 @dataclass
-class GESResult:
+class GESResult(ResultProtocolMixin):
     """Result of :func:`ges` — a CPDAG (Markov equivalence class).
 
     Attributes

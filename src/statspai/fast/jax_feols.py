@@ -45,6 +45,7 @@ from ._validation import (
     positive_int as _positive_int,
     positive_weight_mass as _positive_weight_mass,
 )
+from .._result_serialize import ResultProtocolMixin
 
 # ---------------------------------------------------------------------------
 # JAX availability + helpers (mirrors jax_backend.py's policy)
@@ -561,7 +562,7 @@ def feols_jax(
 
 
 @dataclass
-class FeolsBootstrapResult:
+class FeolsBootstrapResult(ResultProtocolMixin):
     """Outcome of :func:`feols_jax_bootstrap`.
 
     Attributes

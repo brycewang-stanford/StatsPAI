@@ -18,10 +18,11 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class CausalDQNResult:
+class CausalDQNResult(ResultProtocolMixin):
     """Output of confounding-robust Q-learning (:func:`causal_dqn`).
 
     Attributes

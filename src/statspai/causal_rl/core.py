@@ -21,6 +21,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "causal_bandit",
@@ -38,7 +39,7 @@ __all__ = [
 
 
 @dataclass
-class CausalBanditResult:
+class CausalBanditResult(ResultProtocolMixin):
     optimal_arm: int
     expected_rewards: np.ndarray
     arm_labels: List[str]
@@ -60,7 +61,7 @@ class CausalBanditResult:
 
 
 @dataclass
-class CFPolicyResult:
+class CFPolicyResult(ResultProtocolMixin):
     expected_value_logged: float
     expected_value_target: float
     improvement: float

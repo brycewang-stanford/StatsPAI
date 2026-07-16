@@ -25,10 +25,11 @@ import pandas as pd
 from scipy.optimize import minimize
 
 from ..regression._optim_helpers import hessian_cov
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class GARCHResult:
+class GARCHResult(ResultProtocolMixin):
     """Fitted GARCH(p,q) model returned by :func:`garch`.
 
     Holds the conditional-variance parameters, the volatility path, and

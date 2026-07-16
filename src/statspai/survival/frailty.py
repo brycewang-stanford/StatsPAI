@@ -31,10 +31,11 @@ import pandas as pd
 from scipy.optimize import minimize_scalar
 
 from .models import _parse_formula
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class FrailtyResult:
+class FrailtyResult(ResultProtocolMixin):
     beta: np.ndarray
     se: np.ndarray
     var_names: List[str]

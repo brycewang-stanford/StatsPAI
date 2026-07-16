@@ -16,10 +16,11 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class KinkUnifiedResult:
+class KinkUnifiedResult(ResultProtocolMixin):
     """Joint RDD + RKD + Bunching estimate at a common cutoff.
 
     Produced by :func:`kink_unified`. Holds the RDD level shift, the RKD

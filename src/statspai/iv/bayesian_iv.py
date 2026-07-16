@@ -38,10 +38,11 @@ from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class BayesianIVResult:
+class BayesianIVResult(ResultProtocolMixin):
     """Posterior from Bayesian IV."""
 
     posterior_draws: np.ndarray

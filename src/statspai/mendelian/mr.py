@@ -28,9 +28,10 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
-class MRResult:
+class MRResult(ResultProtocolMixin):
     """Results from Mendelian Randomization analysis.
 
     Returned by :func:`mendelian_randomization`. Holds the per-method

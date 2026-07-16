@@ -39,10 +39,11 @@ import pandas as pd
 from scipy import stats
 
 from sklearn.ensemble import RandomForestRegressor
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class IVForestResult:
+class IVForestResult(ResultProtocolMixin):
     late: float
     se: float
     ci: tuple

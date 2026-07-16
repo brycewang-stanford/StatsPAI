@@ -49,6 +49,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from ..core.results import SummaryText, _to_jsonable
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 _EPS = 1e-12
 _EARTH_RADIUS_KM = 6371.0
@@ -93,7 +94,7 @@ def _require_column_name(name: str, label: str) -> None:
 
 
 @dataclass
-class SpatialDiDResult:
+class SpatialDiDResult(ResultProtocolMixin):
     """Result object for :func:`spatial_did`.
 
     The object intentionally exposes both a spatial-DiD-specific surface

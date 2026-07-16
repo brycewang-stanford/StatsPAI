@@ -26,6 +26,7 @@ from typing import Dict, Sequence
 
 import numpy as np
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "synthesise_evidence",
@@ -38,7 +39,7 @@ __all__ = [
 
 
 @dataclass
-class EvidenceSynthesisResult:
+class EvidenceSynthesisResult(ResultProtocolMixin):
     """Output of :func:`synthesise_evidence`."""
 
     pooled_estimate: float
@@ -69,7 +70,7 @@ class EvidenceSynthesisResult:
 
 
 @dataclass
-class HeterogeneityResult:
+class HeterogeneityResult(ResultProtocolMixin):
     """Effect-heterogeneity diagnostic."""
 
     tau2: float  # between-study variance
@@ -91,7 +92,7 @@ class HeterogeneityResult:
 
 
 @dataclass
-class ConcordanceResult:
+class ConcordanceResult(ResultProtocolMixin):
     """RCT-vs-RWD concordance report."""
 
     rwd_inside_rct_ci: bool

@@ -36,6 +36,7 @@ from scipy import stats
 from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
@@ -393,7 +394,7 @@ class PanelResults(EconometricResults):
         return PanelCompareResults(self, other)
 
 
-class PanelCompareResults:
+class PanelCompareResults(ResultProtocolMixin):
     """Side-by-side comparison of two panel models.
 
     Produced by :meth:`PanelResults.compare`. Holds the two fitted models

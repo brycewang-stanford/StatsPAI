@@ -39,10 +39,11 @@ import pandas as pd
 from scipy import stats
 
 from .hdfe import Absorber, absorb_ols
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class FEOLSResult:
+class FEOLSResult(ResultProtocolMixin):
     """Result of ``sp.feols()``.
 
     Attributes

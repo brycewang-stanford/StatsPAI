@@ -46,6 +46,7 @@ from typing import Callable, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Conditional-independence test (default: partial correlation)
@@ -149,7 +150,7 @@ def _coord(var: int, lag: int, d: int) -> int:
 
 
 @dataclass
-class PCMCIResult:
+class PCMCIResult(ResultProtocolMixin):
     """PCMCI output — lag-specific adjacency + discovered links.
 
     Returned by :func:`pcmci`. Bundles the lag-specific p-value tensor

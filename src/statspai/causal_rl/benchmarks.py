@@ -20,10 +20,11 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class BanditBenchmarkResult:
+class BanditBenchmarkResult(ResultProtocolMixin):
     """Output from a causal-RL benchmark run.
 
     Returned by :func:`causal_rl_benchmark`. Holds the generated transition

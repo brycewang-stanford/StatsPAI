@@ -31,6 +31,7 @@ from typing import Any, Dict, Optional, List, Tuple, Union
 import numpy as np
 import pandas as pd
 from scipy import stats, optimize
+from .._result_serialize import ResultProtocolMixin
 
 # ======================================================================
 # Propensity score estimation
@@ -402,7 +403,7 @@ def _ks_stat(
 # ======================================================================
 
 
-class PSBalanceResult:
+class PSBalanceResult(ResultProtocolMixin):
     """Container for propensity score balance diagnostics.
 
     Attributes
@@ -475,7 +476,7 @@ class PSBalanceResult:
         return self.summary()
 
 
-class BalanceDiagnosticsResult:
+class BalanceDiagnosticsResult(ResultProtocolMixin):
     """Container for raw/weighted matching balance diagnostics.
 
     Returned by :func:`sp.balance_diagnostics`. Holds a per-covariate

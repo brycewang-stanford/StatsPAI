@@ -34,6 +34,7 @@ Scandinavian Journal of Statistics 35(2), 335–353.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import List, Optional, Sequence, Tuple, Union
 
@@ -186,14 +187,30 @@ def _detect_singletons_numpy(fe_codes_raw: List[np.ndarray], n: int) -> np.ndarr
     return keep
 
 
+_RUST_SINGLETON_WARNED = False
+
+
 def _detect_singletons(fe_codes_raw: List[np.ndarray], n: int) -> np.ndarray:
     """Singleton mask. Prefers the Rust path; falls back to NumPy."""
+    global _RUST_SINGLETON_WARNED
     if _HAS_RUST and len(fe_codes_raw) > 0:
         try:
             mask_u8 = _rust.singleton_mask(list(fe_codes_raw))  # type: ignore
             return np.asarray(mask_u8.astype(bool, copy=False))
-        except Exception:
-            pass
+        except Exception as exc:
+            # Numerically identical NumPy fallback — but the accelerated
+            # path *erroring* (as opposed to Rust being absent) is a bug
+            # signal, so surface it once per process (§7: fail loudly).
+            if not _RUST_SINGLETON_WARNED:
+                _RUST_SINGLETON_WARNED = True
+                warnings.warn(
+                    "statspai_hdfe Rust singleton_mask raised "
+                    f"{type(exc).__name__}: {exc}; falling back to the "
+                    "NumPy implementation (results identical, slower). "
+                    "Further occurrences are silenced for this process.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
     return _detect_singletons_numpy(fe_codes_raw, n)
 
 

@@ -8,17 +8,24 @@ controls, proximal, four-way mediation, network spillover, ITS, Rosenbaum
 bounds, longitudinal TMLE, QTE, robustness, transport, … and the BCF / MR
 extensions) historically only had `.summary()`.
 
-`ResultProtocolMixin` gives any such dataclass the three methods in one line of
-inheritance, reusing the existing `core.results._to_jsonable` converter so the
-serialisation logic lives in exactly one place (CLAUDE.md §4):
+`ResultProtocolMixin` gives any such dataclass the full export protocol in one
+line of inheritance, reusing the existing `core.results._to_jsonable` converter
+so the serialisation logic lives in exactly one place (CLAUDE.md §4):
 
-* ``to_dict()``  — JSON-safe ``{field: value}`` (numpy / pandas / NaN aware).
-* ``to_latex()`` — a compact ``booktabs`` table of the scalar fields.
+* ``to_dict()``     — JSON-safe ``{field: value}`` (numpy / pandas / NaN aware).
+* ``to_latex()``    — a compact ``booktabs`` table of the scalar fields.
+* ``to_markdown()`` — the same table as GitHub-flavoured markdown.
+* ``to_excel()``    — a two-column Field/Value ``.xlsx`` sheet (openpyxl).
+* ``to_word()``     — the class's own ``to_docx`` when defined, else a
+  Field/Value ``.docx`` table (python-docx).
 * ``cite()``     — the **verified** paper.bib key(s) the estimator is based on
   (set via the ``_citation_keys`` class attribute), or an honest placeholder.
   Zero-hallucination (CLAUDE.md §10): keys are pointers into ``paper.bib`` — the
   single source of truth — never a generated citation string. Resolve a key to
   full BibTeX with ``sp.bibtex(keys=[...])``.
+
+Subclass methods always win: the mixin's defaults only run when the host class
+does not define the method itself (ordinary Python MRO).
 """
 
 from __future__ import annotations
@@ -30,17 +37,29 @@ from .core.results import _to_jsonable
 
 
 def result_to_dict(obj: Any) -> Dict[str, Any]:
-    """Return a JSON-safe ``{field: value}`` mapping for a result dataclass.
+    """Return a JSON-safe ``{field: value}`` mapping for a result object.
 
     Every field is passed through ``core.results._to_jsonable`` so numpy
     scalars/arrays, pandas Series/DataFrames and NaN/Inf are converted to
     JSON-friendly values (``json.dumps`` never raises on the result).
+
+    Dataclasses use their declared fields; plain result classes fall back
+    to their public, non-callable instance attributes so the export
+    protocol also covers the handful of non-dataclass result types.
     """
-    if not is_dataclass(obj):
+    if is_dataclass(obj):
+        return {f.name: _to_jsonable(getattr(obj, f.name)) for f in fields(obj)}
+    attrs = getattr(obj, "__dict__", None)
+    if attrs is None:
         raise TypeError(
-            f"result_to_dict expects a result dataclass, got " f"{type(obj).__name__}."
+            "result_to_dict expects a result dataclass or an object with "
+            f"instance attributes, got {type(obj).__name__}."
         )
-    return {f.name: _to_jsonable(getattr(obj, f.name)) for f in fields(obj)}
+    return {
+        k: _to_jsonable(v)
+        for k, v in attrs.items()
+        if not k.startswith("_") and not callable(v)
+    }
 
 
 def _fmt_scalar(v: Any) -> str:
@@ -51,6 +70,25 @@ def _fmt_scalar(v: Any) -> str:
     if isinstance(v, float):
         return f"{v:.4g}"
     return str(v).replace("_", r"\_").replace("%", r"\%").replace("&", r"\&")
+
+
+def result_export_rows(obj: Any) -> "list[Tuple[str, Any]]":
+    """``(field, value)`` rows for tabular export of a result dataclass.
+
+    Scalars pass through natively (so Excel keeps numeric cells); list /
+    dict / array fields are summarised as ``[N items]`` rather than dumped,
+    mirroring :func:`result_to_latex`. ``None`` fields are dropped.
+    """
+    rows: list[Tuple[str, Any]] = []
+    for key, val in result_to_dict(obj).items():
+        if val is None:
+            continue
+        if isinstance(val, (list, dict)):
+            n = len(val)
+            rows.append((key, f"[{n} item{'s' if n != 1 else ''}]"))
+        else:
+            rows.append((key, val))
+    return rows
 
 
 def result_to_latex(
@@ -116,37 +154,69 @@ class ResultProtocolMixin:
         """A compact booktabs table of the result's scalar fields."""
         return result_to_latex(self, caption=caption, label=label)
 
-    def to_word(self, filename: str, title: str | None = None) -> None:
-        """§3 Word (.docx) export (alias of ``to_docx``).
+    def to_markdown(self) -> str:
+        """GitHub-flavoured markdown table of the result's scalar fields."""
+        rows = result_export_rows(self)
+        lines = [
+            f"### {type(self).__name__}",
+            "",
+            "| Field | Value |",
+            "| --- | --- |",
+        ]
+        for key, val in rows:
+            disp = f"{val:.6g}" if isinstance(val, float) else str(val)
+            disp = disp.replace("|", r"\|")
+            lines.append(f"| {key} | {disp} |")
+        return "\n".join(lines)
 
-        Fulfils the StatsPAI §3 result contract — every result class exposes
-        ``to_word`` regardless of which specific mixin/parent supplies the
-        underlying implementation. Delegates to the class's own ``to_docx`` if
-        it defines one; otherwise raises a clear ``NotImplementedError`` so the
-        contract audit (see ``scripts/result_protocol_audit.py``) can flag the
-        gap explicitly.
+    def to_word(self, filename: str, title: str | None = None) -> str:
+        """§3 Word (.docx) export.
+
+        Uses the class's own ``to_docx`` when it defines one (bespoke
+        renderers win); otherwise writes a two-column Field/Value table of
+        the scalar fields via ``python-docx`` (a core dependency).
         """
         fn = getattr(self, "to_docx", None)
-        if fn is None or getattr(fn, "__isabstractmethod__", False):
-            raise NotImplementedError(
-                f"{type(self).__name__} does not implement to_docx; override "
-                "to_word or add a to_docx method to satisfy the §3 contract."
+        if fn is not None and not getattr(fn, "__isabstractmethod__", False):
+            fn(filename, title)
+            return filename
+
+        from docx import Document
+
+        doc = Document()
+        doc.add_heading(title or type(self).__name__, level=1)
+        rows = result_export_rows(self)
+        table = doc.add_table(rows=len(rows) + 1, cols=2)
+        table.style = "Light Grid Accent 1"
+        table.rows[0].cells[0].text = "Field"
+        table.rows[0].cells[1].text = "Value"
+        for i, (key, val) in enumerate(rows, start=1):
+            table.rows[i].cells[0].text = str(key)
+            table.rows[i].cells[1].text = (
+                f"{val:.6g}" if isinstance(val, float) else str(val)
             )
-        return fn(filename, title)
+        doc.save(filename)
+        return filename
 
-    def to_excel(self, path: str, **kwargs: Any) -> Any:
-        """§3 Excel export (alias of ``to_excel``).
+    def to_excel(self, path: str, **kwargs: Any) -> str:
+        """§3 Excel (.xlsx) export.
 
-        Same delegation pattern as ``to_word``: re-export the host class's
-        own ``to_excel`` so the §3 method name is universally available.
+        Writes the scalar fields as a two-column Field/Value sheet via
+        pandas/openpyxl (core dependencies). Subclasses with a bespoke
+        ``to_excel`` shadow this default automatically (Python MRO).
+
+        .. note::
+           Until 2026-07 this method delegated to ``getattr(self,
+           "to_excel")`` — i.e. *itself* — so any subclass that did not
+           override it recursed forever. It now writes a real workbook.
         """
-        fn = getattr(self, "to_excel", None)
-        if fn is None or getattr(fn, "__isabstractmethod__", False):
-            raise NotImplementedError(
-                f"{type(self).__name__} does not implement to_excel; override "
-                "to_excel or add one to satisfy the §3 contract."
-            )
-        return fn(path, **kwargs)
+        import pandas as pd
+
+        rows = result_export_rows(self)
+        frame = pd.DataFrame(rows, columns=["Field", "Value"])
+        sheet = kwargs.pop("sheet_name", type(self).__name__[:31])
+        frame.to_excel(path, index=False, sheet_name=sheet, **kwargs)
+        return path
 
     def cite(self, format: str = "keys") -> Any:
         """Return the estimator's verified paper.bib citation key(s).

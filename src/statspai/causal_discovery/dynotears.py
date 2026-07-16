@@ -31,12 +31,13 @@ from typing import List, Optional, Sequence
 import numpy as np
 import pandas as pd
 from scipy import linalg, optimize
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = ["dynotears", "DYNOTEARSResult"]
 
 
 @dataclass
-class DYNOTEARSResult:
+class DYNOTEARSResult(ResultProtocolMixin):
     """Output of :func:`dynotears`.
 
     Examples

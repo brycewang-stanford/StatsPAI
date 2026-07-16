@@ -22,9 +22,10 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
-class RecommendationResult:
+class RecommendationResult(ResultProtocolMixin):
     """Result from the estimator recommendation engine.
 
     Returned by :func:`recommend`. Holds a ranked list of estimator

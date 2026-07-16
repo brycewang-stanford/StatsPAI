@@ -45,6 +45,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "CumIncResult",
@@ -58,7 +59,7 @@ __all__ = [
 #  Result objects
 # --------------------------------------------------------------------------- #
 @dataclass
-class CumIncResult:
+class CumIncResult(ResultProtocolMixin):
     """Cumulative incidence functions for competing risks.
 
     Attributes
@@ -176,7 +177,7 @@ class CumIncResult:
 
 
 @dataclass
-class FineGrayResult:
+class FineGrayResult(ResultProtocolMixin):
     """Fine-Gray proportional subdistribution hazards model result.
 
     Attributes

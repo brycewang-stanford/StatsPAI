@@ -16,6 +16,7 @@ from scipy import optimize, stats
 
 from .._aliases import accepts_aliases
 from ..core.results import EconometricResults
+from .._result_serialize import ResultProtocolMixin
 
 # ---------------------------------------------------------------------------
 # Formula parser (local)
@@ -257,7 +258,7 @@ class CoxResult(EconometricResults):
 # ===================================================================
 
 
-class KMResult:
+class KMResult(ResultProtocolMixin):
     """
     Kaplan-Meier survival analysis result.
 

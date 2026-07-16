@@ -28,6 +28,7 @@ import pandas as pd
 
 from ._aliases import accepts_aliases
 from .exceptions import MethodIncompatibility
+from ._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "auto_did",
@@ -176,7 +177,7 @@ def _candidate_status(candidates: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 @dataclass
-class AutoDIDResult:
+class AutoDIDResult(ResultProtocolMixin):
     """Leaderboard + winner from :func:`auto_did`.
 
     Attributes
@@ -489,7 +490,7 @@ def auto_did(
 
 
 @dataclass
-class AutoIVResult:
+class AutoIVResult(ResultProtocolMixin):
     """Leaderboard + winner from :func:`auto_iv`.
 
     Mirrors :class:`AutoDIDResult` but for IV estimators.

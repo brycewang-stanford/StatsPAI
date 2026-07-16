@@ -49,10 +49,11 @@ from .within import within as _within
 from .inference import crve as _crve
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class EventStudyResult:
+class EventStudyResult(ResultProtocolMixin):
     """Outcome of :func:`event_study`."""
 
     formula: str

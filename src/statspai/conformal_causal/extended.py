@@ -25,6 +25,7 @@ from typing import Any, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "conformal_continuous",
@@ -35,7 +36,7 @@ __all__ = [
 
 
 @dataclass
-class ContinuousConformalResult:
+class ContinuousConformalResult(ResultProtocolMixin):
     """Output of :func:`conformal_continuous`."""
 
     alpha: float
@@ -61,7 +62,7 @@ class ContinuousConformalResult:
 
 
 @dataclass
-class InterferenceConformalResult:
+class InterferenceConformalResult(ResultProtocolMixin):
     """Output of :func:`conformal_interference`."""
 
     alpha: float

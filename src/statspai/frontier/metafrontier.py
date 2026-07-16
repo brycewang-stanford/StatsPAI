@@ -44,10 +44,11 @@ import pandas as pd
 from scipy.optimize import linprog
 
 from .sfa import FrontierResult, frontier as _frontier
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MetafrontierResult:
+class MetafrontierResult(ResultProtocolMixin):
     """Container for a metafrontier fit.
 
     Examples

@@ -38,6 +38,7 @@ import pandas as pd
 from ..exceptions import DataInsufficient
 from .._input_validation import require_columns
 from ._core import solve_simplex_weights
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "synth_experimental_design",
@@ -51,7 +52,7 @@ __all__ = [
 
 
 @dataclass
-class SynthExperimentalDesignResult:
+class SynthExperimentalDesignResult(ResultProtocolMixin):
     """Structured output of :func:`synth_experimental_design`.
 
     Attributes

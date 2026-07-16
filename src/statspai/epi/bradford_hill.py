@@ -22,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional
 
 import numpy as np
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "BradfordHillResult",
@@ -46,7 +47,7 @@ _PREREQUISITES = ("temporality",)
 
 
 @dataclass
-class BradfordHillResult:
+class BradfordHillResult(ResultProtocolMixin):
     scores: Dict[str, float]
     evidence: Dict[str, str]
     total: float

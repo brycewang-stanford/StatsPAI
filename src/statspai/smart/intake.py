@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+from .._result_serialize import ResultProtocolMixin
 
 
 DESIGN_INTAKE_OUTCOMES = (
@@ -15,7 +16,7 @@ DESIGN_INTAKE_OUTCOMES = (
 
 
 @dataclass
-class IntakeResult:
+class IntakeResult(ResultProtocolMixin):
     """Structured routing outcome before estimator selection.
 
     Examples

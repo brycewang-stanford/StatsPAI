@@ -37,6 +37,29 @@ Regression-discontinuity tools exposed through the StatsPAI API:
 - Density manipulation testing (CJM 2020)
 - Bandwidth sensitivity, covariate balance, placebo cutoff tests
 - Power analysis and sample size calculations
+
+Examples
+--------
+``sp.rd`` is a callable dispatcher: the default path is the CCT
+robust bias-corrected estimator (``method="rdrobust"``), and every
+other RD variant is one ``method=`` away.
+
+>>> import numpy as np
+>>> import pandas as pd
+>>> import statspai as sp
+>>> rng = np.random.default_rng(42)
+>>> n = 1000
+>>> x = rng.uniform(-1, 1, n)
+>>> y = 0.8 * (x >= 0) + 0.5 * x + rng.normal(0, 0.3, n)
+>>> df = pd.DataFrame({"x": x, "y": y})
+>>> res = sp.rd(df, y="y", x="x", c=0)          # CCT robust bias-corrected
+>>> type(res).__name__
+'CausalResult'
+>>> round(float(res.estimate), 3)
+0.844
+>>> honest = sp.rd(df, y="y", x="x", c=0, method="honest")
+>>> round(float(honest.estimate), 3)            # Armstrong-Kolesar honest CI
+0.781
 """
 
 from .rdrobust import rdrobust, rdplot, rdplotdensity

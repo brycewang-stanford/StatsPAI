@@ -2,6 +2,7 @@
 Adapter to convert pyfixest result objects into StatsPAI EconometricResults.
 """
 
+import warnings
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -122,20 +123,34 @@ def _pyfixest_to_econometric_results(
         "n_params": k,
     }
 
-    # Try to attach residuals and fitted values
+    # Try to attach residuals and fitted values. A failure here silently
+    # disables the standalone SE menu (`cr2_se`, `wild_cluster_boot`, ...)
+    # downstream, so it must leave a trace (§7).
     try:
         resids = fit.resid()
         if resids is not None:
             data_info["residuals"] = np.asarray(resids)
-    except Exception:
-        pass
+    except Exception as exc:
+        warnings.warn(
+            f"pyfixest fit.resid() raised {type(exc).__name__}: {exc}; "
+            "residuals are not attached to the result, so standalone "
+            "re-inference helpers (cr2_se, wild_cluster_boot, conley) "
+            "will not work on it.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
     try:
         fv = fit.predict()
         if fv is not None:
             data_info["fitted_values"] = np.asarray(fv)
-    except Exception:
-        pass
+    except Exception as exc:
+        warnings.warn(
+            f"pyfixest fit.predict() raised {type(exc).__name__}: {exc}; "
+            "fitted values are not attached to the result.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
 
     # Attach the within-transformed (FE-absorbed) design + outcome + coef names
     # so the standalone SE menu (`cr2_se`, `wild_cluster_boot`, `twoway_cluster`,

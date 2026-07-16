@@ -19,9 +19,10 @@ True
 """
 
 from typing import Optional, List, Dict, Any
+from .._result_serialize import ResultProtocolMixin
 
 
-class PubReadyResult:
+class PubReadyResult(ResultProtocolMixin):
     """Publication readiness checklist results.
 
     Returned by :func:`pub_ready`. Holds the venue, the resolved checklist

@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 from ..workflow._degradation import record_degradation
+from .._result_serialize import ResultProtocolMixin
 
 
 class AssumptionCheck:
@@ -56,7 +57,7 @@ class AssumptionCheck:
         return f"{status} | {self.assumption}: {self.test_name}"
 
 
-class AssumptionResult:
+class AssumptionResult(ResultProtocolMixin):
     """Results from comprehensive assumption audit.
 
     Returned by :func:`statspai.assumption_audit`. Bundles the per-check

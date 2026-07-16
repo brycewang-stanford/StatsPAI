@@ -29,11 +29,13 @@ under a receiver operating characteristic (ROC) curve." *Radiology*,
 
 from __future__ import annotations
 
+import inspect as _inspect
 from dataclasses import dataclass
 from typing import Any, Optional
 
 import numpy as np
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "DiagnosticTestResult",
@@ -53,7 +55,7 @@ __all__ = [
 
 
 @dataclass
-class DiagnosticTestResult:
+class DiagnosticTestResult(ResultProtocolMixin):
     """Container for binary diagnostic-test performance metrics.
 
     Returned by :func:`sensitivity_specificity` / :func:`diagnostic_test`.
@@ -210,13 +212,20 @@ def diagnostic_test(*args: Any, **kwargs: Any) -> DiagnosticTestResult:
     return sensitivity_specificity(*args, **kwargs)
 
 
+# Expose sensitivity_specificity's real parameter list on the thin alias so
+# introspection (help(), sp.function_schema, agent tooling) is informative.
+diagnostic_test.__signature__ = _inspect.signature(  # type: ignore[attr-defined]
+    sensitivity_specificity
+)
+
+
 # --------------------------------------------------------------------------- #
 #  ROC curve + AUC
 # --------------------------------------------------------------------------- #
 
 
 @dataclass
-class ROCResult:
+class ROCResult(ResultProtocolMixin):
     """Container for ROC-curve coordinates and AUC inference.
 
     Returned by :func:`roc_curve`.  Holds the sweep ``thresholds`` and the
@@ -352,7 +361,7 @@ def auc(y_true: Any, scores: Any) -> float:
 
 
 @dataclass
-class KappaResult:
+class KappaResult(ResultProtocolMixin):
     """Container for Cohen's kappa inter-rater agreement.
 
     Returned by :func:`cohen_kappa`.  Holds ``kappa`` with its standard

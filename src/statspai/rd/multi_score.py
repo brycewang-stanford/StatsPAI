@@ -17,10 +17,11 @@ import numpy as np
 import pandas as pd
 
 from ._core import _kernel_fn
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MultiScoreRDResult:
+class MultiScoreRDResult(ResultProtocolMixin):
     """Multi-score RDD effect on the eligibility boundary.
 
     Attributes

@@ -40,10 +40,11 @@ from typing import Optional, Sequence, Dict, Any
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class SpatialIVResult:
+class SpatialIVResult(ResultProtocolMixin):
     """Container for :func:`spatial_iv` Kelejian-Prucha S2SLS estimates.
 
     Attributes

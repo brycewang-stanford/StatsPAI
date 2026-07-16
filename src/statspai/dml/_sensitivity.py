@@ -48,10 +48,11 @@ from typing import Optional, Sequence, Dict, Any, List
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class DMLSensitivityResult:
+class DMLSensitivityResult(ResultProtocolMixin):
     """Output of :func:`dml_sensitivity`.
 
     Attributes

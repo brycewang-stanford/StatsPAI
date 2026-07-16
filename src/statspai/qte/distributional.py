@@ -17,13 +17,14 @@ from typing import Any, Callable, Dict, Optional, List
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 # ══════════════════════════════════════════════════════════════════════
 #  DTEResult
 # ══════════════════════════════════════════════════════════════════════
 
 
-class DTEResult:
+class DTEResult(ResultProtocolMixin):
     """Container for distributional treatment effect estimates.
 
     Returned by :func:`distributional_te`. Carries the DTE curve over a

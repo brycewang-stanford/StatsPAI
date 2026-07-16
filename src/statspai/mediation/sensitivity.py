@@ -29,10 +29,11 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MediateSensitivityResult:
+class MediateSensitivityResult(ResultProtocolMixin):
     rho_grid: np.ndarray  # (n_grid,)
     acme_at_rho: np.ndarray  # (n_grid,)
     rho_at_zero: Optional[float]  # ρ where ACME crosses zero

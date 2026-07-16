@@ -30,6 +30,7 @@ from scipy import stats as sp_stats
 
 from ._common import influence_function as _influence_function
 from ._results import DecompResultMixin
+from .._result_serialize import ResultProtocolMixin
 
 StatisticKind = Literal[
     "quantile",
@@ -111,7 +112,7 @@ def rif_values(
 
 
 @dataclass
-class RIFResult(DecompResultMixin):
+class RIFResult(DecompResultMixin, ResultProtocolMixin):
     method_name: ClassVar[str] = "RIF Regression"
     bib_keys: ClassVar[Tuple[str, ...]] = (
         "firpo2009unconditional",
@@ -214,7 +215,7 @@ def rifreg(
 
 
 @dataclass
-class RIFDecompositionResult(DecompResultMixin):
+class RIFDecompositionResult(DecompResultMixin, ResultProtocolMixin):
     method_name: ClassVar[str] = "RIF Oaxaca-Blinder Decomposition"
     bib_keys: ClassVar[Tuple[str, ...]] = (
         "firpo2009unconditional",

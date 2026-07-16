@@ -43,6 +43,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from .._result_serialize import ResultProtocolMixin
+
 # ════════════════════════════════════════════════════════════════════════
 # Shared visual style for every decomposition plot
 # ════════════════════════════════════════════════════════════════════════
@@ -290,12 +292,17 @@ _CITATIONS: Dict[str, str] = {
 # ════════════════════════════════════════════════════════════════════════
 
 
-class DecompResultMixin:
+class DecompResultMixin(ResultProtocolMixin):
     """Common surface for every decomposition result class.
 
     Adds ``confint``, ``cite``, ``to_dict``, ``to_json``, ``to_excel``,
     ``to_word`` while leaving any existing ``summary`` / ``to_latex`` /
     ``plot`` / ``_repr_html_`` defined on the subclass untouched.
+    Inherits :class:`statspai._result_serialize.ResultProtocolMixin` so
+    the methods it does *not* define itself (``to_markdown``, and
+    ``to_latex`` for subclasses without a bespoke one) fall back to the
+    package-wide export protocol; everything defined here wins over the
+    protocol defaults (ordinary MRO).
     """
 
     #: Pretty label used in plot titles / Word headings.

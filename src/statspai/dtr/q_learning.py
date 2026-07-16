@@ -40,10 +40,11 @@ import numpy as np
 import pandas as pd
 
 from sklearn.linear_model import LinearRegression
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class QLearningResult:
+class QLearningResult(ResultProtocolMixin):
     stage_coefs: List[Dict[str, float]]
     value: float
     optimal_actions: np.ndarray  # (n, K)

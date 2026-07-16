@@ -27,10 +27,11 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class BVARResult:
+class BVARResult(ResultProtocolMixin):
     """Posterior summary of a Bayesian VAR with Minnesota prior.
 
     Produced by :func:`bvar`. Holds the posterior-mean coefficient matrix

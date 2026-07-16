@@ -17,6 +17,7 @@ from typing import Sequence
 
 import numpy as np
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "StandardizedRateResult",
@@ -27,7 +28,7 @@ __all__ = [
 
 
 @dataclass
-class StandardizedRateResult:
+class StandardizedRateResult(ResultProtocolMixin):
     rate: float
     ci: tuple[float, float]
     stratum_rates: np.ndarray
@@ -44,7 +45,7 @@ class StandardizedRateResult:
 
 
 @dataclass
-class SMRResult:
+class SMRResult(ResultProtocolMixin):
     smr: float
     ci: tuple[float, float]
     observed: float

@@ -31,6 +31,7 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 # --------------------------------------------------------------------------- #
 # Result class
@@ -38,7 +39,7 @@ import pandas as pd
 
 
 @dataclass
-class KitagawaResult:
+class KitagawaResult(ResultProtocolMixin):
     """
     Result of the Kitagawa (2015) LATE validity test.
 

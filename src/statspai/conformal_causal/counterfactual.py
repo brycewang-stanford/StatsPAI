@@ -41,6 +41,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, clone
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
+from .._result_serialize import ResultProtocolMixin
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Result containers
@@ -48,7 +49,7 @@ from sklearn.linear_model import LogisticRegression
 
 
 @dataclass
-class ConformalCounterfactualResult:
+class ConformalCounterfactualResult(ResultProtocolMixin):
     """Counterfactual prediction intervals under each potential outcome.
 
     Returned by :func:`conformal_counterfactual`; holds per-arm
@@ -112,7 +113,7 @@ class ConformalCounterfactualResult:
 
 
 @dataclass
-class ConformalITEResult:
+class ConformalITEResult(ResultProtocolMixin):
     """Prediction intervals for the individual treatment effect τ(x).
 
     Returned by :func:`conformal_ite_interval`; holds the point

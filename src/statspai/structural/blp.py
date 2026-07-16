@@ -37,6 +37,7 @@ import pandas as pd
 from scipy import optimize, stats
 
 from ..core.results import EconometricResults
+from .._result_serialize import ResultProtocolMixin
 
 # ---------------------------------------------------------------------------
 # Halton sequence generator for quasi-Monte Carlo integration
@@ -403,7 +404,7 @@ def _compute_elasticities(
 # ---------------------------------------------------------------------------
 
 
-class BLPResult:
+class BLPResult(ResultProtocolMixin):
     """
     Results from BLP demand estimation.
 

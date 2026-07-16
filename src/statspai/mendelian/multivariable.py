@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "mr_multivariable",
@@ -43,7 +44,7 @@ __all__ = [
 
 
 @dataclass
-class MVMRResult:
+class MVMRResult(ResultProtocolMixin):
     """Multivariable MR output."""
 
     exposures: List[str]
@@ -70,7 +71,7 @@ class MVMRResult:
 
 
 @dataclass
-class MediationMRResult:
+class MediationMRResult(ResultProtocolMixin):
     """Two-step MR output."""
 
     exposure: str
@@ -103,7 +104,7 @@ class MediationMRResult:
 
 
 @dataclass
-class MRBMAResult:
+class MRBMAResult(ResultProtocolMixin):
     """MR-BMA (Bayesian Model Averaging) output."""
 
     exposures: List[str]

@@ -39,6 +39,7 @@ import pandas as pd
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from ._result_protocol import distribution_summary as _distribution_summary
 from ._result_protocol import jsonable as _jsonable
+from .._result_serialize import ResultProtocolMixin
 
 
 def _factorize_cluster_labels(
@@ -262,7 +263,7 @@ def crve(
 
 
 @dataclass
-class BootTestResult:
+class BootTestResult(ResultProtocolMixin):
     """Outcome of :func:`boottest`."""
 
     null_coef: int
@@ -517,7 +518,7 @@ def boottest(
 
 
 @dataclass
-class BootWaldResult:
+class BootWaldResult(ResultProtocolMixin):
     """Outcome of :func:`boottest_wald` (joint hypothesis bootstrap)."""
 
     R: np.ndarray
@@ -1017,7 +1018,7 @@ def cluster_dof_wald_bm(
 
 
 @dataclass(frozen=True)
-class WaldTestResult:
+class WaldTestResult(ResultProtocolMixin):
     """Outcome of a cluster-robust Wald test under CR2 sandwich.
 
     Mirrors the contents of R ``clubSandwich::Wald_test(...)`` so that

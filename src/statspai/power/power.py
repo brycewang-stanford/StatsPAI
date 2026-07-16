@@ -20,6 +20,7 @@ import numpy as np
 from scipy.stats import norm
 
 from ..exceptions import ConvergenceFailure
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "power",
@@ -45,7 +46,7 @@ _DESIGN_FUNCTIONS: Dict[str, Callable[..., "PowerResult"]] = {}
 # ---------------------------------------------------------------------------
 
 
-class PowerResult:
+class PowerResult(ResultProtocolMixin):
     """Container for power analysis results.
 
     Attributes

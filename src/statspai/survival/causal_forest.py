@@ -63,6 +63,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 _SURVIVAL_FOREST_ALTERNATIVES = [
     "sp.survival.causal_survival_forest",
@@ -104,7 +105,7 @@ def _normalize_covariates(covariates: Sequence[str] | str) -> list[str]:
 
 
 @dataclass
-class CausalSurvivalForestResult:
+class CausalSurvivalForestResult(ResultProtocolMixin):
     ate_rmst: float
     se: float
     ci: tuple[float, float]

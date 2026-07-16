@@ -18,9 +18,10 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import StatsPAIWarning
+from .._result_serialize import ResultProtocolMixin
 
 
-class AttritionResult:
+class AttritionResult(ResultProtocolMixin):
     """Results from attrition analysis.
 
     Produced by :func:`attrition_test`. Exposes overall / arm-specific

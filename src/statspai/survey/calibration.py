@@ -25,10 +25,11 @@ from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class CalibrationResult:
+class CalibrationResult(ResultProtocolMixin):
     calibrated_weights: np.ndarray
     method: str
     converged: bool

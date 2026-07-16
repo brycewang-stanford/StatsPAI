@@ -20,10 +20,11 @@ import numpy as np
 import pandas as pd
 
 from ._core import _kernel_fn
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class DDDResult:
+class DDDResult(ResultProtocolMixin):
     """Distributional discontinuity design output.
 
     Attributes

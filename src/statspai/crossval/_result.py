@@ -21,6 +21,7 @@ from ._agreement import (
     AgreementReport,
     EngineEstimate,
 )
+from .._result_serialize import ResultProtocolMixin
 
 try:  # SummaryText gives nice terminal + notebook rendering; degrade to str.
     from ..core.results import SummaryText
@@ -55,7 +56,7 @@ _VERDICT_GLOSS = {
 }
 
 
-class CrossValidationResult:
+class CrossValidationResult(ResultProtocolMixin):
     """Outcome of cross-validating one estimand across several engines.
 
     Attributes

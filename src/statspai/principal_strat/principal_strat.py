@@ -59,11 +59,13 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._bootstrap import bootstrap_se
 from ..core.results import CausalResult
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class PrincipalStratResult:
+class PrincipalStratResult(ResultProtocolMixin):
     """
     Principal stratification result.
 
@@ -400,11 +402,19 @@ def _fit_monotonicity(
     def _ci(
         boot_arr: np.ndarray,
         ppoint: float,
+        stat: str = "estimate",
     ) -> Tuple[float, Tuple[float, float], float]:
-        valid = ~np.isnan(boot_arr)
-        if valid.sum() < 2:
+        # bootstrap_se warns on failed replicates and returns NaN (never a
+        # fabricated value) when fewer than 2 replicates survived (§7).
+        # No warning when the point estimate itself is NaN (stratum empty
+        # by design) — every replicate is then NaN too, not "failed".
+        se = bootstrap_se(
+            boot_arr,
+            label=f"principal_strat monotonicity bootstrap [{stat}]",
+            warn=bool(np.isfinite(ppoint)),
+        )
+        if not np.isfinite(se):
             return float("nan"), (float("nan"), float("nan")), float("nan")
-        se = float(np.nanstd(boot_arr, ddof=1))
         lo = float(np.nanpercentile(boot_arr, 100 * alpha / 2))
         hi = float(np.nanpercentile(boot_arr, 100 * (1 - alpha / 2)))
         if np.isnan(ppoint) or se == 0:
@@ -414,9 +424,9 @@ def _fit_monotonicity(
             pv = float(2 * (1 - stats.norm.cdf(abs(z))))
         return se, (lo, hi), pv
 
-    se_tc, ci_tc, pv_tc = _ci(boot_tau, point["tau_c"])
-    se_lo, ci_lo, _ = _ci(boot_lo, point["sace_lo"])
-    se_hi, ci_hi, _ = _ci(boot_hi, point["sace_hi"])
+    se_tc, ci_tc, pv_tc = _ci(boot_tau, point["tau_c"], stat="tau_c")
+    se_lo, ci_lo, _ = _ci(boot_lo, point["sace_lo"], stat="sace_lo")
+    se_hi, ci_hi, _ = _ci(boot_hi, point["sace_hi"], stat="sace_hi")
 
     effects = pd.DataFrame(
         [
@@ -624,13 +634,17 @@ def _fit_instrument_air(
     def _ci(
         boot_arr: np.ndarray,
         ppoint: float,
+        stat: str = "estimate",
     ) -> Tuple[float, Tuple[float, float], float]:
         if not np.isfinite(ppoint):
             return float("nan"), (float("nan"), float("nan")), float("nan")
-        valid = ~np.isnan(boot_arr)
-        if valid.sum() < 2:
+        # bootstrap_se warns on failed replicates and returns NaN (never a
+        # fabricated value) when fewer than 2 replicates survived (§7).
+        se = bootstrap_se(
+            boot_arr, label=f"principal_strat instrument-AIR bootstrap [{stat}]"
+        )
+        if not np.isfinite(se):
             return float("nan"), (float("nan"), float("nan")), float("nan")
-        se = float(np.nanstd(boot_arr, ddof=1))
         lo = float(np.nanpercentile(boot_arr, 100 * alpha / 2))
         hi = float(np.nanpercentile(boot_arr, 100 * (1 - alpha / 2)))
         if np.isnan(ppoint) or se == 0:
@@ -640,9 +654,9 @@ def _fit_instrument_air(
             pv = float(2 * (1 - stats.norm.cdf(abs(z))))
         return se, (lo, hi), pv
 
-    se_y, ci_y, pv_y = _ci(boot_y, point["tau_y"])
-    se_s, ci_s, pv_s = _ci(boot_s, point["tau_s"])
-    se_pi, ci_pi, _ = _ci(boot_pi, point["pi_c_z"])
+    se_y, ci_y, pv_y = _ci(boot_y, point["tau_y"], stat="tau_y")
+    se_s, ci_s, pv_s = _ci(boot_s, point["tau_s"], stat="tau_s")
+    se_pi, ci_pi, _ = _ci(boot_pi, point["pi_c_z"], stat="pi_c_z")
 
     effects = pd.DataFrame(
         [
@@ -911,11 +925,19 @@ def _fit_principal_score(
     def _ci(
         arr: np.ndarray,
         ppoint: float,
+        stat: str = "estimate",
     ) -> Tuple[float, Tuple[float, float], float]:
-        valid = ~np.isnan(arr)
-        if valid.sum() < 2:
+        # bootstrap_se warns on failed replicates and returns NaN (never a
+        # fabricated value) when fewer than 2 replicates survived (§7).
+        # No warning when the point estimate itself is NaN (stratum empty
+        # by design) — every replicate is then NaN too, not "failed".
+        se = bootstrap_se(
+            arr,
+            label=f"principal_strat principal-score bootstrap [{stat}]",
+            warn=bool(np.isfinite(ppoint)),
+        )
+        if not np.isfinite(se):
             return float("nan"), (float("nan"), float("nan")), float("nan")
-        se = float(np.nanstd(arr, ddof=1))
         lo = float(np.nanpercentile(arr, 100 * alpha / 2))
         hi = float(np.nanpercentile(arr, 100 * (1 - alpha / 2)))
         pv = (
@@ -931,7 +953,7 @@ def _fit_principal_score(
         ("Always-taker PCE", "tau_a"),
         ("Never-taker PCE", "tau_n"),
     ]:
-        se, ci, pv = _ci(boot[key], point[key])
+        se, ci, pv = _ci(boot[key], point[key], stat=key)
         rows.append(
             {
                 "stratum": label,

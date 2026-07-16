@@ -21,9 +21,10 @@ Gaussian Vector Autoregressive Models." *Econometrica*, 59(6),
 from typing import Optional, List, Any
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
-class CointegrationResult:
+class CointegrationResult(ResultProtocolMixin):
     """Results from cointegration test.
 
     Produced by :func:`engle_granger` (and the Johansen routine). Exposes

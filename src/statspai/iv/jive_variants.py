@@ -36,10 +36,11 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class JIVEResult:
+class JIVEResult(ResultProtocolMixin):
     method: str
     params: pd.Series
     std_errors: pd.Series

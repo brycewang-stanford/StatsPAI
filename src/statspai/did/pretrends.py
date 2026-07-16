@@ -33,6 +33,7 @@ from ..exceptions import (
     MethodIncompatibility,
     NumericalInstability,
 )
+from .._result_serialize import ResultProtocolMixin
 
 # ────────────────────────────────────────────────────────────────────
 # Helpers
@@ -577,7 +578,7 @@ def pretrends_power(
 
 
 @dataclass
-class SensitivityResult:
+class SensitivityResult(ResultProtocolMixin):
     """Result of Rambachan & Roth (2023) sensitivity analysis.
 
     Attributes

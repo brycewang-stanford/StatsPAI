@@ -17,10 +17,11 @@ import numpy as np
 import pandas as pd
 
 from ._core import _kernel_fn
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class DistRDResult:
+class DistRDResult(ResultProtocolMixin):
     """RDD effect on each quantile.
 
     Attributes

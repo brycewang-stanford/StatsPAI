@@ -14,10 +14,11 @@ from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class KernelIVResult:
+class KernelIVResult(ResultProtocolMixin):
     """Output of kernel IV regression.
 
     Returned by :func:`sp.kernel_iv`. Holds the treatment grid, the

@@ -36,6 +36,7 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "surrogate_index",
@@ -51,7 +52,7 @@ __all__ = [
 
 
 @dataclass
-class SurrogateResult:
+class SurrogateResult(ResultProtocolMixin):
     """Structured container for surrogate-index estimation artefacts."""
 
     estimate: float

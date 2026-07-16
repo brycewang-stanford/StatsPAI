@@ -30,6 +30,7 @@ import pandas as pd
 from scipy.optimize import minimize_scalar
 
 from ..models.ml import _coerce_W
+from ..._result_serialize import ResultProtocolMixin
 
 EffectKind = Literal["fe", "twoways"]
 ModelKind = Literal["sar", "sem", "sdm"]
@@ -74,7 +75,7 @@ def _within_transform(arr: np.ndarray, effects: EffectKind) -> np.ndarray:
 
 
 @dataclass
-class SpatialPanelResult:
+class SpatialPanelResult(ResultProtocolMixin):
     params: pd.Series  # [x1, x2, …, ρ or λ]
     std_errors: pd.Series
     model: ModelKind

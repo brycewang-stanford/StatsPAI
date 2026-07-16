@@ -27,10 +27,11 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class IVDMLResult:
+class IVDMLResult(ResultProtocolMixin):
     """Output of IV × DML."""
 
     estimate: float

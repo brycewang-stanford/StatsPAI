@@ -34,9 +34,10 @@ import warnings
 
 from ..core.results import CausalResult
 from ._core import _kernel_fn
+from .._result_serialize import ResultProtocolMixin
 
 
-class RDMultiResult:
+class RDMultiResult(ResultProtocolMixin):
     """Results from multi-cutoff/multi-score RD.
 
     Returned by :func:`rdmc`. Holds per-cutoff estimates in

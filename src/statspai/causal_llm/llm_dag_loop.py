@@ -60,6 +60,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
+from .._result_serialize import ResultProtocolMixin
 
 __all__ = [
     "llm_dag_constrained",
@@ -75,7 +76,7 @@ __all__ = [
 
 
 @dataclass
-class LLMConstrainedDAGResult:
+class LLMConstrainedDAGResult(ResultProtocolMixin):
     """Output of :func:`llm_dag_constrained`.
 
     Attributes
@@ -187,7 +188,7 @@ class LLMConstrainedDAGResult:
 
 
 @dataclass
-class DAGValidationResult:
+class DAGValidationResult(ResultProtocolMixin):
     """Output of :func:`llm_dag_validate`.
 
     Attributes

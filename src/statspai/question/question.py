@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -196,7 +197,7 @@ class IdentificationPlan:
 
 
 @dataclass
-class EstimationResult:
+class EstimationResult(ResultProtocolMixin):
     """Unified view of a causal-question estimate.
 
     Thin wrapper that preserves the underlying estimator's full result

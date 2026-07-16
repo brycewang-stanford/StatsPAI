@@ -31,6 +31,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from .._result_serialize import ResultProtocolMixin
 
 StatFn = Callable[[np.ndarray, np.ndarray], float]
 Permuter = Callable[[], np.ndarray]
@@ -41,7 +42,7 @@ Permuter = Callable[[], np.ndarray]
 # ======================================================================
 
 
-class FisherResult:
+class FisherResult(ResultProtocolMixin):
     """
     Result container for Fisher's exact permutation test.
 

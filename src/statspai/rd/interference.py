@@ -19,10 +19,11 @@ import numpy as np
 import pandas as pd
 
 from ._core import _kernel_fn
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class RDInterferenceResult:
+class RDInterferenceResult(ResultProtocolMixin):
     """Direct + spillover RDD effects under network interference.
 
     Returned by :func:`rd_interference`. Carries the boundary direct

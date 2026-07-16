@@ -24,9 +24,10 @@ import pandas as pd
 from scipy import stats
 
 from ..exceptions import MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 
-class VARResult:
+class VARResult(ResultProtocolMixin):
     """Results from VAR estimation.
 
     Returned by :func:`var`; carries coefficient tables, the residual

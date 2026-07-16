@@ -5,39 +5,39 @@
     "data": 5,
     "outcome": 55,
     "se": 58,
-    "treatment": 62,
+    "treatment": 63,
     "weights": 5
   },
   "coverage": {
     "cluster": {
-      "canonical": 99,
-      "canonical_pct": 98.0,
+      "canonical": 101,
+      "canonical_pct": 98.1,
       "legacy": 2,
-      "total": 101
+      "total": 103
     },
     "data": {
-      "canonical": 486,
+      "canonical": 492,
       "canonical_pct": 99.0,
       "legacy": 5,
-      "total": 491
+      "total": 497
     },
     "outcome": {
-      "canonical": 313,
-      "canonical_pct": 85.1,
+      "canonical": 319,
+      "canonical_pct": 85.3,
       "legacy": 55,
-      "total": 368
+      "total": 374
     },
     "se": {
-      "canonical": 9,
-      "canonical_pct": 13.4,
+      "canonical": 15,
+      "canonical_pct": 20.5,
       "legacy": 58,
-      "total": 67
+      "total": 73
     },
     "treatment": {
       "canonical": 98,
-      "canonical_pct": 61.3,
-      "legacy": 62,
-      "total": 160
+      "canonical_pct": 60.9,
+      "legacy": 63,
+      "total": 161
     },
     "weights": {
       "canonical": 39,
@@ -48,8 +48,8 @@
   },
   "totals": {
     "acknowledged_false_friends": 41,
-    "introspected": 822,
-    "public_callables": 852,
-    "violations": 187
+    "introspected": 833,
+    "public_callables": 855,
+    "violations": 188
   }
 }

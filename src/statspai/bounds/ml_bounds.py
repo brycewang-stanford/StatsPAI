@@ -69,10 +69,11 @@ from sklearn.base import BaseEstimator, clone
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MLBoundsResult:
+class MLBoundsResult(ResultProtocolMixin):
     """ATE bounds produced by :func:`ml_bounds`."""
 
     lower: float

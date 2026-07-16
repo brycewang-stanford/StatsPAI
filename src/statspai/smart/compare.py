@@ -28,9 +28,10 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 import warnings
+from .._result_serialize import ResultProtocolMixin
 
 
-class ComparisonResult:
+class ComparisonResult(ResultProtocolMixin):
     """Results from multi-estimator comparison.
 
     Returned by :func:`compare_estimators`. Bundles the per-method fitted

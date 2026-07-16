@@ -25,10 +25,11 @@ from typing import List, Optional
 import numpy as np
 import pandas as pd
 from scipy import stats
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class ConformalDensityResult:
+class ConformalDensityResult(ResultProtocolMixin):
     """Conditional-density conformal ITE intervals.
 
     Produced by :func:`conformal_density_ite`. Holds the per-test-point

@@ -19,6 +19,7 @@ Chernozhukov, V. and Hansen, C. (2005).
 *Econometrica*, 73(1), 245-261. [@chernozhukov2005model]
 """
 
+import warnings
 from typing import Optional, List, Tuple
 
 import numpy as np
@@ -246,10 +247,20 @@ def _qreg_fit(Y: np.ndarray, X: np.ndarray, tau: float) -> np.ndarray:
         )
         if result.success:
             return _as_float_array(result.x[:k])
-    except Exception:
-        pass
+        _lp_note = f"linprog did not converge (status={result.status})"
+    except Exception as exc:  # pragma: no cover - solver-dependent
+        _lp_note = f"linprog raised {type(exc).__name__}: {exc}"
 
-    # Fallback: iteratively reweighted least squares
+    # Fallback: iteratively reweighted least squares. The IRLS solution is
+    # an approximation to the exact LP quantile fit, so switching solvers
+    # must be loud (§7), not silent.
+    warnings.warn(
+        f"quantile regression LP solver failed ({_lp_note}); falling back "
+        "to iteratively reweighted least squares. Coefficients may differ "
+        "slightly from the exact linear-programming solution.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
     return _qreg_irls(Y, X, tau)
 
 

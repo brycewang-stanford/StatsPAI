@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
+from .._result_serialize import ResultProtocolMixin
 
 # ---------------------------------------------------------------------------
 # Optional-dependency guard
@@ -186,7 +187,7 @@ def _az_hdi_compat(samples: Any, hdi_prob: float = 0.95) -> np.ndarray:
 
 
 @dataclass
-class BayesianCausalResult:
+class BayesianCausalResult(ResultProtocolMixin):
     """Summary of a Bayesian causal fit.
 
     A sibling of :class:`statspai.core.results.CausalResult` that

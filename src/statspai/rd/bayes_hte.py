@@ -16,10 +16,11 @@ import numpy as np
 import pandas as pd
 
 from ._core import _kernel_fn
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class BayesRDHTEResult:
+class BayesRDHTEResult(ResultProtocolMixin):
     """Bayesian RDD with HTE posterior summaries.
 
     Returned by :func:`rd_bayes_hte`. ``posterior_mean`` / ``posterior_sd`` /

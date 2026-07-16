@@ -40,10 +40,11 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class NPIVResult:
+class NPIVResult(ResultProtocolMixin):
     """Nonparametric IV estimation result."""
 
     h_values: np.ndarray

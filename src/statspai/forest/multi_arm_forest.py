@@ -39,10 +39,11 @@ from scipy import stats
 
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LogisticRegression
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class MultiArmForestResult:
+class MultiArmForestResult(ResultProtocolMixin):
     arms: Sequence[int]
     ate: Dict[int, float]
     ate_se: Dict[int, float]

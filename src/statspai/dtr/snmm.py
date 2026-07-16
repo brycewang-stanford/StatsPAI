@@ -60,10 +60,11 @@ import numpy as np
 import pandas as pd
 
 from sklearn.linear_model import LogisticRegression
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class SNMMResult:
+class SNMMResult(ResultProtocolMixin):
     blip_params: List[np.ndarray]
     optimal_actions: np.ndarray
     value: float

@@ -21,6 +21,7 @@ from typing import Any, Literal, Optional
 
 import numpy as np
 from scipy.spatial import cKDTree
+from ..._result_serialize import ResultProtocolMixin
 
 KernelName = Literal["gaussian", "bisquare", "exponential"]
 
@@ -82,7 +83,7 @@ def _weights_row(
 
 
 @dataclass
-class GWRResult:
+class GWRResult(ResultProtocolMixin):
     params: np.ndarray  # (n, k)
     predicted: np.ndarray  # (n,)
     residuals: np.ndarray  # (n,)

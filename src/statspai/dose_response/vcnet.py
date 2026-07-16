@@ -48,10 +48,11 @@ import pandas as pd
 from scipy.interpolate import BSpline
 
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from .._result_serialize import ResultProtocolMixin
 
 
 @dataclass
-class VCNetResult:
+class VCNetResult(ResultProtocolMixin):
     """Dose-response curve returned by :func:`vcnet` / :func:`scigan`.
 
     Attributes

@@ -48,6 +48,7 @@ from ._validation import (
     positive_int as _positive_int,
     positive_weight_mass as _positive_weight_mass,
 )
+from .._result_serialize import ResultProtocolMixin
 
 # Optional Rust kernel for the weighted IRLS-internal demean. When available,
 # the dispatcher below routes to it; when not, the pure-NumPy fallback runs.
@@ -66,7 +67,7 @@ except ImportError:  # pragma: no cover  - exercised in CI on no-Rust wheels
 
 
 @dataclass
-class FePoisResult:
+class FePoisResult(ResultProtocolMixin):
     """Outcome of :func:`fepois`.
 
     Attributes mirror pyfixest / fixest naming so that downstream code
