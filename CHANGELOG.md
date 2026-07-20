@@ -17,6 +17,11 @@ All notable changes to StatsPAI will be documented in this file.
   `sp.session()` warns when torch/jax RNG snapshot/seed/restore fails
   (fake-torch harness) and that `sp.dist_iv` warns when the quantile-IV
   point estimate itself is NaN (degenerate instrument).
+- **All six core modules now meet the ≥95% coverage target.** 139 new
+  assertions-first gap-fill tests (`test_cov95_did_gapfill_r2.py`,
+  `test_cov95_rd_gapfill_r2.py`, `test_cov95_synth_gapfill_r2.py`)
+  lift `did` 93.3% → 95.9% (+171 lines), `rd` +52 lines, `synth` +65
+  lines; `iv` / `dml` / `panel` were already above target.
 
 ### Changed
 
