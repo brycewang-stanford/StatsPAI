@@ -337,7 +337,7 @@ def did(
 
     Goodman-Bacon, A. (2021). Difference-in-differences with variation in
     treatment timing. *Journal of Econometrics*, 225(2), 254-277.
-    [@goodman2021difference]
+    [@goodmanbacon2021difference]
 
     Examples
     --------
