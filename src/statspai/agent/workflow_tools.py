@@ -22,6 +22,7 @@ the MCP layer doesn't need to special-case their content blocks.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
@@ -1099,7 +1100,13 @@ def _extract_event_study(obj: Any) -> Tuple[Any, Any, Any, Any]:
         sigma_arr = np.asarray(sigma, dtype=float)
         if sigma_arr.ndim == 1:
             sigma_arr = np.diag(sigma_arr)
-    except Exception:
+    except Exception as exc:
+        warnings.warn(
+            "honest_did fallback: event-study betas/sigma on the cached "
+            f"result could not be coerced to float arrays ({exc!r}); "
+            "the sensitivity analysis will be skipped.",
+            stacklevel=2,
+        )
         return None, None, None, None
     if n_pre is None or n_post is None:
         # Heuristic: half-and-half when caller didn't tell us

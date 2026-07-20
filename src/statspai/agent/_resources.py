@@ -136,13 +136,15 @@ def function_detail(name: str) -> Optional[Dict[str, Any]]:
     auto-generated layer but lack a hand-curated registry spec.
     """
     # Try the registry first — it has the agent-native metadata.
+    # Only unknown-name / missing-registry lookups may fall through to the
+    # synthesized card; a genuine registry bug must stay visible.
     try:
         from ..registry import agent_card as _agent_card
 
         card = _agent_card(name)
         if card:
             return card
-    except Exception:
+    except (ImportError, KeyError, LookupError):
         pass
 
     # Fallback: synthesise from the merged manifest so any registered

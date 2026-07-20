@@ -241,3 +241,90 @@ class TestSessionState:
         with sp.session(seed=42) as state:
             assert hasattr(state, "seed")
             assert hasattr(state, "jax_key")
+
+
+# ---------------------------------------------------------------------------
+#  Loud degradation: torch / jax RNG hook failures must warn, not pass
+#  (CLAUDE.md §3.7 — paid down 2026-07-20)
+# ---------------------------------------------------------------------------
+
+
+class _FakeTorchRandom:
+    def __init__(self, snapshot_ok=True, restore_ok=True):
+        self._snapshot_ok = snapshot_ok
+        self._restore_ok = restore_ok
+
+    def get_rng_state(self):
+        if not self._snapshot_ok:
+            raise RuntimeError("snapshot boom")
+        return b"fake-state"
+
+    def set_rng_state(self, state):
+        if not self._restore_ok:
+            raise RuntimeError("restore boom")
+
+
+class _FakeTorch:
+    """Minimal torch stand-in: no ``cuda`` attribute, controllable failures."""
+
+    def __init__(self, snapshot_ok=True, seed_ok=True, restore_ok=True):
+        self.random = _FakeTorchRandom(snapshot_ok, restore_ok)
+        self._seed_ok = seed_ok
+
+    def manual_seed(self, seed):
+        if not self._seed_ok:
+            raise RuntimeError("seed boom")
+
+
+class TestLoudTorchJaxDegradation:
+
+    def test_snapshot_failure_warns(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "torch", _FakeTorch(snapshot_ok=False))
+        with pytest.warns(sp.StatsPAIWarning, match="snapshot PyTorch"):
+            with sp.session(seed=42):
+                pass
+
+    def test_seed_failure_warns(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "torch", _FakeTorch(seed_ok=False))
+        with pytest.warns(sp.StatsPAIWarning, match="could not seed PyTorch"):
+            with sp.session(seed=42):
+                pass
+
+    def test_restore_failure_warns(self, monkeypatch):
+        monkeypatch.setitem(sys.modules, "torch", _FakeTorch(restore_ok=False))
+        with pytest.warns(sp.StatsPAIWarning, match="restore the prior PyTorch"):
+            with sp.session(seed=42):
+                pass
+
+    def test_jax_key_failure_warns(self, monkeypatch):
+        class _FakeJaxRandom:
+            @staticmethod
+            def PRNGKey(seed):
+                raise RuntimeError("prngkey boom")
+
+        class _FakeJax:
+            random = _FakeJaxRandom()
+
+        monkeypatch.setitem(sys.modules, "jax", _FakeJax())
+        with pytest.warns(sp.StatsPAIWarning, match="JAX PRNGKey"):
+            with sp.session(seed=42) as state:
+                assert state.jax_key is None
+
+    def test_healthy_fake_torch_no_warning(self, monkeypatch):
+        import warnings as _warnings
+
+        monkeypatch.setitem(sys.modules, "torch", _FakeTorch())
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", sp.StatsPAIWarning)
+            with sp.session(seed=42):
+                pass
+
+    def test_torch_opt_out_skips_fake(self, monkeypatch):
+        # torch=False must not touch the (broken) fake at all.
+        import warnings as _warnings
+
+        monkeypatch.setitem(sys.modules, "torch", _FakeTorch(snapshot_ok=False))
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("error", sp.StatsPAIWarning)
+            with sp.session(seed=42, torch=False):
+                pass

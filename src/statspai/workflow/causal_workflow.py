@@ -791,7 +791,11 @@ class CausalWorkflow:
                         try:
                             ci_df = ci_arr()
                             ci = (float(ci_df.loc[key, 0]), float(ci_df.loc[key, 1]))
-                        except Exception:
+                        except (KeyError, IndexError, TypeError, ValueError, AttributeError):
+                            # CI table shape varies across result classes;
+                            # a missing CI column is display-only. Anything
+                            # else (a genuine bug) propagates to the outer
+                            # handler, which warns + records.
                             ci = None
                     else:
                         ci = None
@@ -1113,7 +1117,18 @@ class CausalWorkflow:
                     cate_vec = result.cate
                 elif hasattr(result, "model_info"):
                     cate_vec = result.model_info.get("cate")
-            except Exception:
+            except Exception as exc:
+                from ._degradation import record_degradation
+
+                record_degradation(
+                    self,
+                    section="CausalWorkflow.cate._extract_cate",
+                    exc=exc,
+                    detail=(
+                        f"learner={label}: per-unit CATE extraction failed; "
+                        "row falls back to the summary ATE"
+                    ),
+                )
                 cate_vec = None
             if cate_vec is None:
                 # Fall back to the summary ATE alone

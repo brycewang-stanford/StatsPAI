@@ -396,8 +396,13 @@ def _fit_ivqreg_one(
                     alpha_hat = np.array([float(res.x)])
                     coef_hat = coef_ref
                     b_hat = b_ref
-            except Exception:
-                pass
+            except Exception as exc:
+                warnings.warn(
+                    "ivqreg: Brent refinement of the profile objective "
+                    f"failed ({exc!r}); keeping the grid-search optimum "
+                    f"α̂={best[3]:.6g} (valid, but not locally refined).",
+                    stacklevel=2,
+                )
 
         beta_hat = coef_hat[:kx]
         if verbose:

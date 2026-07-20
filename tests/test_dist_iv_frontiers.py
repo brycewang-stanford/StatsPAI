@@ -119,3 +119,34 @@ def test_beyond_average_invalid_instrument():
     )
     with pytest.raises(ValueError, match="binary"):
         sp.beyond_average_late(df, y="y", treat="treat", instrument="z")
+
+
+class TestDistIVLoudNaNPoint:
+    """dist_iv must WARN when the point estimate itself is NaN (§3.7)."""
+
+    def test_constant_instrument_warns(self):
+        rng = np.random.default_rng(3)
+        n = 200
+        df = pd.DataFrame(
+            {
+                "y": rng.standard_normal(n),
+                "treat": (rng.uniform(size=n) < 0.5).astype(int),
+                "z": np.ones(n, dtype=int),  # degenerate: no variation
+            }
+        )
+        with pytest.warns(UserWarning, match="POINT estimate is NaN"):
+            res = sp.dist_iv(
+                df, y="y", treat="treat", instrument="z", n_boot=10
+            )
+        assert np.isnan(res.late_q).all()
+
+    def test_healthy_instrument_no_nan_warning(self, iv_data):
+        import warnings as _warnings
+
+        with _warnings.catch_warnings():
+            _warnings.filterwarnings(
+                "error", message=".*POINT estimate is NaN.*"
+            )
+            sp.dist_iv(
+                iv_data, y="y", treat="treat", instrument="z", n_boot=20
+            )

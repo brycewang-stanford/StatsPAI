@@ -1115,7 +1115,9 @@ def _reviewer_audit_section(
         try:
             if rec is not None and rec.recommendations:
                 est_name = rec.recommendations[0].get("function")
-        except Exception:
+        except (AttributeError, IndexError, KeyError, TypeError):
+            # Recommendation payload shape varies by workflow age; a
+            # malformed entry only suppresses the registry-evidence line.
             est_name = None
     if est_name:
         try:
@@ -1354,7 +1356,7 @@ def paper(
     _CQ: Any
     try:
         from ..question.question import CausalQuestion as _CQ
-    except Exception:
+    except ImportError:
         _CQ = None  # pragma: no cover — package-internal
     if _CQ is not None and isinstance(data, _CQ):
         if question is None:

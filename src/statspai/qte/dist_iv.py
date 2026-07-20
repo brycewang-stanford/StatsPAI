@@ -174,6 +174,16 @@ def dist_iv(
             return np.nan
 
     late_q = np.array([_quantile_iv(Y, D, Z, X, q) for q in quantiles])
+    if not np.isfinite(late_q).all():
+        import warnings
+
+        n_bad = int((~np.isfinite(late_q)).sum())
+        warnings.warn(
+            f"dist_iv: the quantile-IV POINT estimate is NaN for "
+            f"{n_bad}/{len(quantiles)} quantile(s) — degenerate instrument "
+            f"split or first stage below 1e-6 at those quantiles.",
+            stacklevel=2,
+        )
 
     # Bootstrap SE
     boot = np.full((n_boot, len(quantiles)), np.nan)

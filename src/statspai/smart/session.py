@@ -54,7 +54,10 @@ from __future__ import annotations
 import contextlib
 import os
 import random
+import warnings
 from typing import Any, Iterator, Optional
+
+from ..exceptions import StatsPAIWarning
 
 
 @contextlib.contextmanager
@@ -154,8 +157,13 @@ def session(
             snapshots["torch_cpu"] = _torch.random.get_rng_state()
             if hasattr(_torch, "cuda") and _torch.cuda.is_available():
                 snapshots["torch_cuda"] = _torch.cuda.get_rng_state_all()
-        except Exception:
-            pass
+        except Exception as exc:
+            warnings.warn(
+                "sp.session(): could not snapshot PyTorch RNG state — "
+                f"torch state will NOT be restored on exit ({exc!r}).",
+                StatsPAIWarning,
+                stacklevel=3,
+            )
 
     # ---- apply new seed ---- #
     if seed is not None:
@@ -170,14 +178,24 @@ def session(
                 _torch.manual_seed(seed)
                 if hasattr(_torch, "cuda") and _torch.cuda.is_available():
                     _torch.cuda.manual_seed_all(seed)
-            except Exception:
-                pass
+            except Exception as exc:
+                warnings.warn(
+                    "sp.session(): could not seed PyTorch — torch draws "
+                    f"inside this block are NOT reproducible ({exc!r}).",
+                    StatsPAIWarning,
+                    stacklevel=3,
+                )
         if jax and "jax" in sys.modules:
             try:
                 _jax = sys.modules["jax"]
                 state.jax_key = _jax.random.PRNGKey(seed)
-            except Exception:
-                pass
+            except Exception as exc:
+                warnings.warn(
+                    "sp.session(): could not build a JAX PRNGKey — "
+                    f"state.jax_key stays None ({exc!r}).",
+                    StatsPAIWarning,
+                    stacklevel=3,
+                )
 
     try:
         yield state
@@ -198,8 +216,13 @@ def session(
                 _torch.random.set_rng_state(snapshots["torch_cpu"])
                 if "torch_cuda" in snapshots:
                     _torch.cuda.set_rng_state_all(snapshots["torch_cuda"])
-            except Exception:
-                pass
+            except Exception as exc:
+                warnings.warn(
+                    "sp.session(): could not restore the prior PyTorch RNG "
+                    f"state — torch state leaks out of the block ({exc!r}).",
+                    StatsPAIWarning,
+                    stacklevel=2,
+                )
 
 
 __all__ = ["session"]

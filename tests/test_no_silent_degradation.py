@@ -52,19 +52,22 @@ TEST_ROOTS = [REPO_ROOT / "tests"]
 # explaining why a new silent-degradation path is acceptable.
 #
 # Current debt snapshot:
-#   bare swallow (4):
-#     smart/session.py:153, 170, 176, 198
+#   bare swallow (0):
+#     (smart/session.py:153, 170, 176, 198 paid down 2026-07-20 — torch/jax
+#      RNG snapshot/seed/restore failures now warn with StatsPAIWarning)
 #     (smart/citations.py:422 paid down 2026-06-21 — unsupported
 #      cite(format="json") fallbacks now catch specific exceptions)
 #     (smart/verify.py:118, 148 paid down 2026-06-21 — array coercion
 #      fallbacks now catch TypeError/ValueError only)
 #     (workflow/causal_workflow.py:667 paid down 2026-06-10 —
 #      _extract_effect now routes through record_degradation)
-#   silent None fallback (4):
-#     workflow/causal_workflow.py:662, 886
-#     workflow/paper.py:1043, 1255
-BARE_SWALLOW_MAX = 4
-SILENT_NONE_MAX = 4
+#   silent None fallback (0):
+#     (workflow/causal_workflow.py CI-extraction + CATE-extraction and
+#      workflow/paper.py recommendation-name + CausalQuestion-import paid
+#      down 2026-07-20 — narrowed to specific exceptions or routed through
+#      record_degradation)
+BARE_SWALLOW_MAX = 0
+SILENT_NONE_MAX = 0
 PATH_DIFFERS_SKIP_MAX = 0  # cleaned up 2026-05-28; do not let it regrow
 
 
