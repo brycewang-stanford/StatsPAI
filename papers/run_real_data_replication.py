@@ -156,13 +156,13 @@ def replicate_lalonde_real():
     ols_se = ols.std_errors["treat"]
 
     # === 3. PSM ===
-    psm = sp.match(df, y="re78", treat="treat", covariates=covs)
+    psm = sp.match(df, y="re78", treat="treat", covariates=covs, se_method="abadie_imbens")
 
     # === 4. DML ===
     dml = sp.dml(df, y="re78", treat="treat", covariates=covs)
 
     # === 5. AIPW ===
-    aipw = sp.aipw(df, y="re78", treat="treat", covariates=covs)
+    aipw = sp.aipw(df, y="re78", treat="treat", covariates=covs, seed=42)
 
     print(f"\n  {'Estimator':<25} {'Estimate ($)':>12} {'SE ($)':>10} {'Published':>12}")
     print(f"  {'-'*62}")
@@ -282,6 +282,8 @@ if __name__ == "__main__":
     print("StatsPAI Paper — Precise Replication with REAL Data")
     print("=" * 75)
     print(f"StatsPAI version: {sp.__version__}")
+    import sklearn, numpy as _np_v
+    print(f"NumPy {_np_v.__version__} / scikit-learn {sklearn.__version__}")
     print()
 
     ols_educ, iv_educ = replicate_card_real()

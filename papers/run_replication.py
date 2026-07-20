@@ -81,13 +81,18 @@ def replication_card_1995():
 def replication_lee_2008():
     print("\n" + "=" * 75)
     print("REPLICATION 2: Lee (2008) — RD Incumbency Advantage")
-    print("Published benchmark: LATE ≈ 0.08 (8 pp)")
+    print("Published benchmark: ≈ 7.99 pp (Lee 2008); R rdrobust parity pinned")
     print("Source: Lee (2008), Journal of Econometrics")
     print("=" * 75)
 
+    # sp.replicate returns the canonical (data, report) pair. The Lee (2008)
+    # frame is the REAL rdrobust::rdrobust_RDsenate extract (n=1390):
+    # x = lagged Democratic margin, y = vote share in percent points (0-100).
+    # kernel='triangular' + bwselect='cct' reproduces the R rdrobust
+    # numbers pinned in the dataset attrs (robust ~7.51pp vs Lee's ~7.99pp).
     data, _ = sp.replicate("lee_2008")
 
-    rd = sp.rdrobust(data, y="voteshare_next", x="margin", c=0)
+    rd = sp.rdrobust(data, y="y", x="x", c=0, kernel="triangular", bwselect="cct")
 
     print(f"\n  RD Estimate:     {rd.estimate:.4f}")
     print(f"  SE:              {rd.se:.4f}")
@@ -97,12 +102,16 @@ def replication_lee_2008():
     print(f"  95% CI:          [{ci[0]:.4f}, {ci[1]:.4f}]")
     print(f"  p-value:         {rd.pvalue:.4f}")
     print(f"  N = {len(data)}")
-    print(f"  Published LATE ≈ 0.08")
-    print(f"  Difference from published: {abs(rd.estimate - 0.08):.4f}")
+    print(f"  Published (Lee 2008, headline) ≈ 7.99 pp")
+    print(f"  Difference from published: {abs(rd.estimate - 7.99):.2f} pp")
+    print(
+        "  (Robust bias-corrected estimate; the conventional local-linear "
+        "estimate sits closer to Lee's original headline.)"
+    )
 
     # McCrary density test
     try:
-        mccrary = sp.mccrary_test(data, x="margin", c=0)
+        mccrary = sp.mccrary_test(data, x="x", c=0)
         print(f"  McCrary test p-value: {mccrary.pvalue:.4f} (no manipulation)")
     except Exception as e:
         print(f"  McCrary test: {str(e)[:60]}")
@@ -169,7 +178,7 @@ def replication_lalonde_1986():
     print("=" * 75)
 
     data, _ = sp.replicate("lalonde_1986")
-    covs = ["age", "education", "black", "hispanic", "married", "nodegree", "re74", "re75"]
+    covs = ["age", "educ", "black", "hispanic", "married", "nodegree", "re74", "re75"]
 
     # Experimental estimate (simple difference in means)
     treated = data[data["treat"] == 1]["re78"]
@@ -186,13 +195,13 @@ def replication_lalonde_1986():
     ols_se = ols.std_errors["treat"]
 
     # PSM
-    psm = sp.match(data, y="re78", treat="treat", covariates=covs)
+    psm = sp.match(data, y="re78", treat="treat", covariates=covs, se_method="abadie_imbens")
 
     # DML
     dml = sp.dml(data, y="re78", treat="treat", covariates=covs)
 
     # AIPW
-    aipw = sp.aipw(data, y="re78", treat="treat", covariates=covs)
+    aipw = sp.aipw(data, y="re78", treat="treat", covariates=covs, seed=42)
 
     print(f"\n  {'Estimator':<25} {'Estimate':>10} {'SE':>10}")
     print(f"  {'-'*47}")
@@ -318,6 +327,8 @@ if __name__ == "__main__":
     print("StatsPAI Paper — External Validation Experiments")
     print("=" * 75)
     print(f"StatsPAI version: {sp.__version__}")
+    import sklearn, numpy as _np_v
+    print(f"NumPy {_np_v.__version__} / scikit-learn {sklearn.__version__}")
     print()
 
     replication_card_1995()

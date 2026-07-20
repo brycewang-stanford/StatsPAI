@@ -76,14 +76,17 @@ def run_table1():
 
     # --- PSM ---
     t0 = time.time()
-    r_match = sp.match(df_obs, y="y", treat="treatment", covariates=["x1", "x2"])
+    r_match = sp.match(
+        df_obs, y="y", treat="treatment", covariates=["x1", "x2"],
+        se_method="abadie_imbens",
+    )
     dt = time.time() - t0
     ci_l, ci_u = get_ci(r_match)
     results.append(("PSM", true, r_match.estimate, r_match.se, ci_l <= true <= ci_u, dt))
 
     # --- AIPW ---
     t0 = time.time()
-    r_aipw = sp.aipw(df_obs, y="y", treat="treatment", covariates=["x1", "x2"])
+    r_aipw = sp.aipw(df_obs, y="y", treat="treatment", covariates=["x1", "x2"], seed=42)
     dt = time.time() - t0
     ci_l, ci_u = get_ci(r_aipw)
     results.append(("AIPW", true, r_aipw.estimate, r_aipw.se, ci_l <= true <= ci_u, dt))
@@ -134,15 +137,31 @@ def run_table3(df_obs, dml_est, psm_est, aipw_est):
 
 
 def run_table4():
-    """Table 4: Meta-learner comparison."""
+    """Table 4: Meta-learner CATE comparison.
+
+    Since v1.11.4 ``sp.metalearner`` reports the population ATE and its
+    SE via the AIPW influence function REGARDLESS of ``learner=`` (the
+    old per-learner bootstrap SE treated tau-hat as fixed and severely
+    under-covered).  The ATE row is therefore learner-invariant by
+    design, and the meaningful comparison across learners is the
+    quality of the individual CATE surface tau-hat(x).  We use a
+    heterogeneous RCT DGP with known truth tau(x) = 1 + 0.5*x1 and
+    report per-learner RMSE and correlation against that truth.
+    """
     print("\n" + "=" * 75)
-    print("TABLE 4: Meta-Learner ATE Estimates (RCT Data, True ATE = 1.000)")
+    print("TABLE 4: Meta-Learner CATE Quality (heterogeneous RCT,")
+    print("         true tau(x) = 1 + 0.5*x1, true ATE = 1.000)")
     print("=" * 75)
 
-    df_rct = sp.dgp_rct(n=2000, effect=1.0, heterogeneous=False, seed=42)
+    df_rct = sp.dgp_rct(n=2000, effect=1.0, heterogeneous=True, seed=42)
+    tau_true = 1.0 * (1.0 + 0.5 * df_rct["x1"].to_numpy())
 
-    print(f"{'Learner':<14} {'ATE':>10} {'SE':>8} {'Time(s)':>8}")
-    print("-" * 42)
+    ate_shown = False
+    print(
+        f"{'Learner':<12} {'CATE RMSE':>10} {'corr(tau,tau_hat)':>18} "
+        f"{'Time(s)':>8}"
+    )
+    print("-" * 52)
     for lrn in ["s", "t", "x", "r", "dr"]:
         t0 = time.time()
         r = sp.metalearner(
@@ -150,7 +169,17 @@ def run_table4():
             covariates=["x1", "x2", "x3"], learner=lrn,
         )
         dt = time.time() - t0
-        print(f"{lrn.upper()}-Learner     {r.estimate:>10.4f} {r.se:>8.4f} {dt:>8.3f}")
+        cate = np.asarray(r.model_info["cate"], dtype=float)
+        rmse = float(np.sqrt(np.mean((cate - tau_true) ** 2)))
+        corr = float(np.corrcoef(cate, tau_true)[0, 1])
+        print(f"{lrn.upper()}-Learner  {rmse:>10.4f} {corr:>18.4f} {dt:>8.3f}")
+        if not ate_shown:
+            ci_l, ci_u = get_ci(r)
+            print(
+                f"  (learner-invariant AIPW ATE = {r.estimate:.4f}, "
+                f"SE = {r.se:.4f}, 95% CI = [{ci_l:.4f}, {ci_u:.4f}])"
+            )
+            ate_shown = True
 
 
 def run_table5(n_sims=200):
@@ -201,6 +230,26 @@ def run_table5(n_sims=200):
         print(f"{name:<18} {true:>8.3f} {np.mean(biases):>10.4f} {rmse:>8.4f} {coverage:>9.1f}%")
 
 
+def _warm_up():
+    """Trigger lazy imports + first-call JIT so the timed runs in the
+    tables measure estimation cost, not one-off import overhead."""
+    df = sp.dgp_did(n_units=20, n_periods=4, effect=1.0, seed=0)
+    df["post"] = (df["time"] >= 2).astype(int)
+    sp.did_2x2(df, y="y", treat="group", time="post")
+    sp.rdrobust(sp.dgp_rd(n=300, effect=0.5, seed=0), y="y", x="x", c=0.0)
+    df_iv_w = sp.dgp_iv(n=300, effect=0.5, first_stage=0.4, seed=0)
+    sp.ivreg("y ~ (treatment ~ instrument) + x1 + x2", data=df_iv_w)
+    df_obs_w = sp.dgp_observational(n=300, effect=0.5, confounding=0.3, seed=0)
+    sp.dml(df_obs_w, y="y", treat="treatment", covariates=["x1", "x2"])
+    sp.match(df_obs_w, y="y", treat="treatment", covariates=["x1", "x2"])
+    sp.aipw(df_obs_w, y="y", treat="treatment", covariates=["x1", "x2"], seed=42)
+    df_rct_w = sp.dgp_rct(n=300, effect=1.0, heterogeneous=True, seed=0)
+    sp.metalearner(
+        df_rct_w, y="y", treat="treatment",
+        covariates=["x1", "x2", "x3"], learner="s",
+    )
+
+
 if __name__ == "__main__":
     np.random.seed(42)
 
@@ -208,7 +257,11 @@ if __name__ == "__main__":
     print("=" * 75)
     print(f"StatsPAI version: {sp.__version__}")
     print(f"NumPy version: {np.__version__}")
+    import sklearn
+    print(f"scikit-learn version: {sklearn.__version__}")
     print()
+
+    _warm_up()
 
     # Table 1
     t1_results, df_iv, df_obs = run_table1()
