@@ -4,6 +4,51 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **References sections on core estimator docstrings.** `sp.did`,
+  `sp.did_2x2`, `sp.iv` (module + `IVRegression` + legacy `ivreg`),
+  `sp.metalearner`, `sp.match`, `sp.aipw`, `sp.aggte`, `sp.event_study`,
+  and `sp.tmle` now cite their foundational literature with `paper.bib`
+  keys (all entries verified via Crossref/DOI; `goodman2021difference`
+  added to the root `paper.bib` from the already-verified `papers/`
+  copy).
+- **Loud-degradation regression tests.** New tests pin that
+  `sp.session()` warns when torch/jax RNG snapshot/seed/restore fails
+  (fake-torch harness) and that `sp.dist_iv` warns when the quantile-IV
+  point estimate itself is NaN (degenerate instrument).
+
+### Changed
+
+- **`sp.session()` RNG hooks fail loudly.** The four
+  `except Exception: pass` sites around torch/jax RNG
+  snapshot/seed/restore now emit `StatsPAIWarning` describing exactly
+  which reproducibility guarantee was lost. The
+  `tests/test_no_silent_degradation.py` ratchet is now at
+  `BARE_SWALLOW_MAX = 0` / `SILENT_NONE_MAX = 0` — the orchestration
+  silent-degradation debt is fully paid down.
+- **`sp.dist_iv`** warns when the point estimate is NaN for any
+  requested quantile (degenerate instrument split or first stage below
+  1e-6) instead of returning silent NaNs; **`sp.ivqreg`** warns when
+  Brent refinement of the profile objective fails and the grid-search
+  optimum is retained; `CausalWorkflow.cate()` routes per-learner CATE
+  extraction failures through `record_degradation`; narrow-except
+  cleanups in `workflow/paper.py`, `workflow/causal_workflow.py`, and
+  `agent/_resources.py` stop masking genuine registry/coercion bugs.
+- **Paper materials (`papers/`) regenerated and hardened.** The arXiv
+  manuscript draft is renamed to `statspai-paper-arxiv.md` (fixing the
+  misspelled filename), rewritten against v1.20.0 reality (1,139
+  functions / 87 submodules, validation-tier and parity-matrix
+  infrastructure, agent-native P1 features), and all result tables are
+  regenerated with pinned software versions. `run_experiments.py` gains
+  a timing warm-up, a seeded `sp.aipw` call, Abadie–Imbens matching SEs,
+  and a CATE-quality (RMSE/correlation vs known truth) meta-learner
+  table replacing the pre-v1.11.4 per-learner ATE framing;
+  `run_replication.py`'s Lee (2008) exercise now runs on the real
+  `rdrobust` Senate extract with the pinned triangular/CCT
+  configuration (robust estimate 7.51pp vs Lee's ≈7.99pp headline)
+  instead of crashing on stale column names.
+
 ### ⚠️ Correctness
 
 These change point estimates (or turn silent wrong answers into errors) for
