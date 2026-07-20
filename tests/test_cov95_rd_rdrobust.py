@@ -116,10 +116,16 @@ def test_rdrobust_cct_lee_bandwidth_preserves_reference_precision():
     df = sp.datasets.lee_2008_senate()
     res = sp.rdrobust(df, y="voteshare_next", x="margin", c=0, bwselect="cct")
 
+    # abs=1e-9 (not 1e-12): the official rdrobust port drifts at the
+    # ~1e-12 level between releases in the bias bandwidth b (observed
+    # 0.2755756160782371 on 1.3.x vs 0.2755756160793121 on 2.0.0, h
+    # unchanged). The point of this test is that delegation preserves
+    # the reference's full float precision instead of rounding — nine
+    # pinned decimals still catch any such truncation.
     assert res.model_info["bandwidth_h"] == pytest.approx(
-        0.17578426639940303, abs=1e-12
+        0.17578426639940303, abs=1e-9
     )
-    assert res.model_info["bandwidth_b"] == pytest.approx(0.2755756160782371, abs=1e-12)
+    assert res.model_info["bandwidth_b"] == pytest.approx(0.2755756160782371, abs=1e-9)
     assert (
         abs(res.model_info["bandwidth_h"] - round(res.model_info["bandwidth_h"], 6))
         > 1e-8
