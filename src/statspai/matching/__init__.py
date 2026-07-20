@@ -194,6 +194,16 @@ def match(
     -------
     Result object whose type depends on ``method``.
 
+    References
+    ----------
+    Rosenbaum, P. R. and Rubin, D. B. (1983). The central role of the
+    propensity score in observational studies for causal effects.
+    *Biometrika*, 70(1), 41-55. [@rosenbaum1983central]
+
+    Abadie, A. and Imbens, G. W. (2006). Large Sample Properties of
+    Matching Estimators for Average Treatment Effects. *Econometrica*,
+    74(1), 235-267. [@abadie2006large]
+
     Examples
     --------
     >>> import statspai as sp

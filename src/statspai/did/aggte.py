@@ -108,6 +108,12 @@ def aggte(
         ``.detail`` is a tidy frame with one row per aggregation cell and
         both pointwise and (if requested) uniform bands.
 
+    References
+    ----------
+    Callaway, B. and Sant'Anna, P. H. C. (2021). Difference-in-differences
+    with multiple time periods. *Journal of Econometrics*, 225(2),
+    200-230. [@callaway2021difference]
+
     Examples
     --------
     >>> import statspai as sp

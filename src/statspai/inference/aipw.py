@@ -76,6 +76,17 @@ def aipw(
     CausalResult
         Doubly robust treatment effect estimate.
 
+    References
+    ----------
+    Robins, J. M., Rotnitzky, A. and Zhao, L. P. (1994). Estimation of
+    Regression Coefficients When Some Regressors are not Always Observed.
+    *Journal of the American Statistical Association*.
+    doi:10.1080/01621459.1994.10476818 [@robins1994estimation]
+
+    Glynn, A. N. and Quinn, K. M. (2010). An Introduction to the
+    Augmented Inverse Propensity Weighted Estimator. *Political
+    Analysis*. doi:10.1093/pan/mpp036 [@glynn2010introduction]
+
     Examples
     --------
     >>> import statspai as sp

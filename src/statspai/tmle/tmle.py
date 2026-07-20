@@ -96,6 +96,12 @@ def tmle(
     -------
     CausalResult
 
+    References
+    ----------
+    van der Laan, M. J. and Rose, S. (2011). *Targeted Learning: Causal
+    Inference for Observational and Experimental Data*. Springer.
+    [@vanderlaan2011targeted]
+
     Examples
     --------
     >>> import statspai as sp, numpy as np, pandas as pd

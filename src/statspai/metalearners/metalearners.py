@@ -855,6 +855,17 @@ def metalearner(
     coverage. ⚠️ This is a correctness fix; numerical results will
     change for non-DR learners.
 
+    References
+    ----------
+    Künzel, S. R., Sekhon, J. S., Bickel, P. J. and Yu, B. (2019).
+    Metalearners for estimating heterogeneous treatment effects using
+    machine learning. *Proceedings of the National Academy of Sciences*,
+    116(10), 4156-4165. [@kunzel2019metalearners]
+
+    Kennedy, E. H. (2023). Towards optimal doubly robust estimation of
+    heterogeneous causal effects. *Electronic Journal of Statistics*,
+    17(2), 3008-3049. [@kennedy2023towards]
+
     Examples
     --------
     >>> import statspai as sp

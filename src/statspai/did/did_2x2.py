@@ -139,6 +139,17 @@ def did_2x2(
     CausalResult
         Results with ATT estimate, standard errors, and diagnostics.
 
+    References
+    ----------
+    Card, D. and Krueger, A. B. (1994). Minimum Wages and Employment: A
+    Case Study of the Fast-Food Industry in New Jersey and Pennsylvania.
+    *American Economic Review*, 84(4), 772-793.
+    [@cardkrueger1994minimum]
+
+    Angrist, J. D. and Pischke, J.-S. (2009). *Mostly Harmless
+    Econometrics: An Empiricist's Companion*. Princeton University Press.
+    [@angrist2009mostly]
+
     Examples
     --------
     >>> import statspai as sp

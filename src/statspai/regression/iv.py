@@ -819,6 +819,17 @@ class IVRegression(BaseModel):
     y, X_exog, X_endog, Z, var_names : array-like, optional
         Alternative to formula interface.
 
+    References
+    ----------
+    Angrist, J. D., Imbens, G. W. and Rubin, D. B. (1996). Identification
+    of Causal Effects Using Instrumental Variables. *Journal of the
+    American Statistical Association*. doi:10.1080/01621459.1996.10476902
+    [@angrist1996identification]
+
+    Angrist, J. D. and Pischke, J.-S. (2009). *Mostly Harmless
+    Econometrics: An Empiricist's Companion*. Princeton University Press.
+    [@angrist2009mostly]
+
     Examples
     --------
     >>> import statspai as sp
@@ -1922,6 +1933,13 @@ def ivreg(
     Returns
     -------
     EconometricResults
+
+    References
+    ----------
+    Angrist, J. D., Imbens, G. W. and Rubin, D. B. (1996). Identification
+    of Causal Effects Using Instrumental Variables. *Journal of the
+    American Statistical Association*. doi:10.1080/01621459.1996.10476902
+    [@angrist1996identification]
 
     Examples
     --------

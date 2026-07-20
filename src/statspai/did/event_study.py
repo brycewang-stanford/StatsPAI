@@ -95,6 +95,17 @@ def event_study(
 
         Call ``result.event_study_plot()`` to visualize.
 
+    References
+    ----------
+    Freyaldenhoven, S., Hansen, C. and Shapiro, J. M. (2019). Pre-event
+    Trends in the Panel Event-Study Design. Working paper (Federal
+    Reserve Bank of Philadelphia). doi:10.21799/frbp.wp.2019.27
+    [@freyaldenhoven2019event]
+
+    Sun, L. and Abraham, S. (2021). Estimating dynamic treatment effects
+    in event studies with heterogeneous treatment effects. *Journal of
+    Econometrics*, 225(2), 175-199. [@sun2021estimating]
+
     Examples
     --------
     >>> import statspai as sp

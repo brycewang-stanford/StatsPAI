@@ -49,6 +49,17 @@ Diagnostics (``anderson_rubin_test``, ``effective_f_test``,
 remain standalone — they are not estimators and intentionally do not show
 up in the ``method=`` table.
 
+References
+----------
+Angrist, J. D., Imbens, G. W. and Rubin, D. B. (1996). Identification
+of Causal Effects Using Instrumental Variables. *Journal of the
+American Statistical Association*. doi:10.1080/01621459.1996.10476902
+[@angrist1996identification]
+
+Angrist, J. D. and Pischke, J.-S. (2009). *Mostly Harmless
+Econometrics: An Empiricist's Companion*. Princeton University Press.
+[@angrist2009mostly]
+
 Examples
 --------
 >>> import numpy as np

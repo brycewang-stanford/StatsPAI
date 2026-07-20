@@ -325,6 +325,20 @@ def did(
         Estimation results with ``.summary()``, ``.plot()``,
         ``.to_latex()``, ``.cite()`` methods.
 
+    References
+    ----------
+    Callaway, B. and Sant'Anna, P. H. C. (2021). Difference-in-differences
+    with multiple time periods. *Journal of Econometrics*, 225(2),
+    200-230. [@callaway2021difference]
+
+    Sant'Anna, P. H. C. and Zhao, J. (2020). Doubly Robust
+    Difference-in-Differences Estimators. *Journal of Econometrics*,
+    219(1), 101-122. [@santanna2020doubly]
+
+    Goodman-Bacon, A. (2021). Difference-in-differences with variation in
+    treatment timing. *Journal of Econometrics*, 225(2), 254-277.
+    [@goodman2021difference]
+
     Examples
     --------
     >>> import statspai as sp
