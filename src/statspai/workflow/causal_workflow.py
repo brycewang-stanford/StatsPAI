@@ -791,7 +791,13 @@ class CausalWorkflow:
                         try:
                             ci_df = ci_arr()
                             ci = (float(ci_df.loc[key, 0]), float(ci_df.loc[key, 1]))
-                        except (KeyError, IndexError, TypeError, ValueError, AttributeError):
+                        except (
+                            KeyError,
+                            IndexError,
+                            TypeError,
+                            ValueError,
+                            AttributeError,
+                        ):
                             # CI table shape varies across result classes;
                             # a missing CI column is display-only. Anything
                             # else (a genuine bug) propagates to the outer
