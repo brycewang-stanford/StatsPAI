@@ -30,6 +30,7 @@ does not define the method itself (ordinary Python MRO).
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import fields, is_dataclass
 from typing import Any, ClassVar, Dict, Tuple
 
@@ -44,8 +45,15 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
     JSON-friendly values (``json.dumps`` never raises on the result).
 
     Dataclasses use their declared fields; plain result classes fall back
-    to their public, non-callable instance attributes so the export
-    protocol also covers the handful of non-dataclass result types.
+    to their public, non-callable instance attributes **plus** the public
+    ``property`` descriptors declared on the class, so the export protocol
+    also covers the handful of non-dataclass result types.
+
+    The property sweep matters: a result class may keep all of its state in
+    private attributes (``self._tables``) and expose it exclusively through
+    read-only properties (``KMResult.survival_table``). Harvesting only
+    ``__dict__`` returned ``{}`` for such classes, which silently produced
+    empty .xlsx / .docx exports instead of failing loudly (CLAUDE.md §7).
     """
     if is_dataclass(obj):
         return {f.name: _to_jsonable(getattr(obj, f.name)) for f in fields(obj)}
@@ -55,11 +63,23 @@ def result_to_dict(obj: Any) -> Dict[str, Any]:
             "result_to_dict expects a result dataclass or an object with "
             f"instance attributes, got {type(obj).__name__}."
         )
-    return {
+    out: Dict[str, Any] = {
         k: _to_jsonable(v)
         for k, v in attrs.items()
         if not k.startswith("_") and not callable(v)
     }
+    for klass in type(obj).__mro__:
+        for name, member in vars(klass).items():
+            if name.startswith("_") or name in out:
+                continue
+            if not isinstance(member, property):
+                continue
+            # Deliberately not guarded: a property that raises is a real
+            # defect in the result class, and swallowing it here would
+            # reproduce exactly the silent-empty-export bug this sweep
+            # exists to fix (CLAUDE.md §7).
+            out[name] = _to_jsonable(getattr(obj, name))
+    return out
 
 
 def _fmt_scalar(v: Any) -> str:
@@ -72,12 +92,57 @@ def _fmt_scalar(v: Any) -> str:
     return str(v).replace("_", r"\_").replace("%", r"\%").replace("&", r"\&")
 
 
+def _accepts_second_positional(fn: Any) -> bool:
+    """True when ``fn`` can be called as ``fn(a, b)``.
+
+    Bespoke ``to_docx`` renderers come in both ``(filename)`` and
+    ``(filename, title)`` shapes; calling the former with a title raises
+    ``TypeError``. Unintrospectable callables are assumed to accept it, so
+    the historical two-argument call is preserved.
+    """
+    import inspect
+
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return True
+    positional = 0
+    for param in sig.parameters.values():
+        if param.kind is param.VAR_POSITIONAL:
+            return True
+        if param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD):
+            positional += 1
+    return positional >= 2
+
+
+def _warn_if_no_rows(obj: Any, n_rows: int) -> None:
+    """Warn when a result yields nothing exportable (CLAUDE.md §7).
+
+    Writing a header-only .xlsx / .docx and reporting success is a silent
+    degradation: the caller gets a file that looks valid and contains no
+    data. Surface it instead.
+    """
+    if n_rows:
+        return
+    warnings.warn(
+        f"{type(obj).__name__} produced no exportable fields; the export "
+        "will contain only a header row. This usually means the result "
+        "class keeps its state in private attributes without public "
+        "properties, so nothing could be harvested.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+
+
 def result_export_rows(obj: Any) -> "list[Tuple[str, Any]]":
     """``(field, value)`` rows for tabular export of a result dataclass.
 
     Scalars pass through natively (so Excel keeps numeric cells); list /
     dict / array fields are summarised as ``[N items]`` rather than dumped,
     mirroring :func:`result_to_latex`. ``None`` fields are dropped.
+
+    Warns (rather than silently writing an empty file) when the result
+    exposes nothing exportable.
     """
     rows: list[Tuple[str, Any]] = []
     for key, val in result_to_dict(obj).items():
@@ -88,6 +153,7 @@ def result_export_rows(obj: Any) -> "list[Tuple[str, Any]]":
             rows.append((key, f"[{n} item{'s' if n != 1 else ''}]"))
         else:
             rows.append((key, val))
+    _warn_if_no_rows(obj, len(rows))
     return rows
 
 
@@ -112,6 +178,7 @@ def result_to_latex(
         else:
             disp = _fmt_scalar(val)
         rows.append((str(key).replace("_", r"\_"), disp))
+    _warn_if_no_rows(obj, len(rows))
     cap = caption or type(obj).__name__
     body = " \\\\\n".join(f"  {k} & {v}" for k, v in rows)
     lines = [
@@ -165,7 +232,11 @@ class ResultProtocolMixin:
         ]
         for key, val in rows:
             disp = f"{val:.6g}" if isinstance(val, float) else str(val)
-            disp = disp.replace("|", r"\|")
+            # A literal newline ends the table row and orphans the rest of
+            # the value as body text, silently truncating the table; a bare
+            # pipe opens a spurious column.
+            disp = disp.replace("|", r"\|").replace("\r\n", " ").replace("\n", " ")
+            disp = disp.replace("\r", " ")
             lines.append(f"| {key} | {disp} |")
         return "\n".join(lines)
 
@@ -175,10 +246,17 @@ class ResultProtocolMixin:
         Uses the class's own ``to_docx`` when it defines one (bespoke
         renderers win); otherwise writes a two-column Field/Value table of
         the scalar fields via ``python-docx`` (a core dependency).
+
+        ``to_docx`` implementations differ in whether they accept a title
+        (``to_docx(filename)`` vs ``to_docx(filename, title)``), so the
+        title is only forwarded when the callee actually accepts it.
         """
         fn = getattr(self, "to_docx", None)
         if fn is not None and not getattr(fn, "__isabstractmethod__", False):
-            fn(filename, title)
+            if title is None or not _accepts_second_positional(fn):
+                fn(filename)
+            else:
+                fn(filename, title)
             return filename
 
         from docx import Document

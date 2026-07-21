@@ -189,6 +189,35 @@ StatsPAI runs.
 
 ### Fixed
 
+- **`sp.kaplan_meier` exported empty files without warning.** `KMResult`
+  is not a dataclass and keeps all of its state in private attributes
+  (`_tables`, `_alpha`, `_provenance`), exposing the data through the
+  `survival_table` / `median_survival` properties. The mixin's
+  non-dataclass fallback harvested only public `__dict__` entries, so
+  `to_dict()` returned `{}` and `to_excel` / `to_word` / `to_markdown` /
+  `to_latex` produced header-only artifacts while reporting success — a
+  silent degradation (§7). `result_to_dict` now also sweeps public
+  `property` descriptors declared on the class, and a result that yields
+  nothing exportable raises a `RuntimeWarning` instead of quietly writing
+  an empty workbook. `KMResult` was the only affected class (audited
+  across all 254 mixin-bearing result classes); no numeric output moves.
+- **`ResultProtocolMixin.to_markdown` truncated tables on multi-line
+  values.** A literal `\n` inside a field value ended the table row and
+  orphaned the remainder as body text, silently dropping every subsequent
+  row. Newlines (and `\r`) are now collapsed to spaces; pipes stay escaped.
+- **`ResultProtocolMixin.to_word` could raise `TypeError` on bespoke
+  renderers.** The delegation branch always called `to_docx(filename,
+  title)`, but `to_docx(self, filename)` implementations exist (e.g.
+  `RegtableResult`). The title is now forwarded only when the callee
+  accepts a second positional argument.
+- **`sp.rifreg` / `sp.source_decompose` could not export to Excel.** The
+  decomposition `to_excel` raised `RuntimeError: Result has no exportable
+  panels` for results carrying no DataFrame panel, making `.to_excel()`
+  unusable on those classes despite the §3 contract promising it. They now
+  fall back to the single Field/Value sheet; the `path=None` bytes branch
+  is unchanged.
+- **New regression guards** in `tests/test_export_protocol_regressions.py`
+  pinning all four defects above.
 - **`ResultProtocolMixin.to_excel` recursed forever.** The mixin's
   `to_excel` delegated to `getattr(self, "to_excel")` — i.e. itself — so
   any inheriting result class that did not override it raised

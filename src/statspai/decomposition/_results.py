@@ -34,16 +34,16 @@ subclass; it only fills in the gaps.
 from __future__ import annotations
 
 import contextlib
-from dataclasses import is_dataclass, asdict
-from typing import Any, ClassVar, Dict, Mapping, Optional, Tuple, Union
 import io
 import json
+from dataclasses import asdict, is_dataclass
+from typing import Any, ClassVar, Dict, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .._result_serialize import ResultProtocolMixin
+from .._result_serialize import ResultProtocolMixin, result_export_rows, result_to_dict
 
 # ════════════════════════════════════════════════════════════════════════
 # Shared visual style for every decomposition plot
@@ -424,6 +424,16 @@ class DecompResultMixin(ResultProtocolMixin):
         and any other DataFrame attribute (e.g. ``quantile_grid``,
         ``cdf_grid``, ``group_stats``) become individual sheets.
 
+        Results that expose no DataFrame panel at all (e.g. ``RIFResult``,
+        ``SourceDecompResult``) fall back to the single Field/Value sheet
+        that :class:`~statspai._result_serialize.ResultProtocolMixin`
+        renders, rather than refusing to export. Until 2026-07 this path
+        raised ``RuntimeError``, which made ``.to_excel()`` unusable on
+        those classes despite the §3 result contract promising it. A
+        result with neither panels *nor* scalar fields is genuinely empty
+        and still raises — writing a header-only workbook and reporting
+        success would be a silent degradation (CLAUDE.md §7).
+
         Parameters
         ----------
         path : str or None
@@ -436,7 +446,10 @@ class DecompResultMixin(ResultProtocolMixin):
         """
         sheets = self._dataframe_panels()
         if not sheets:
-            raise RuntimeError("Result has no exportable panels; nothing to write.")
+            rows = result_export_rows(self) if result_to_dict(self) else []
+            if not rows:
+                raise RuntimeError("Result has no exportable panels; nothing to write.")
+            sheets = {"Result": pd.DataFrame(rows, columns=["Field", "Value"])}
         buf: io.BytesIO
         if path is None:
             buf = io.BytesIO()
