@@ -307,20 +307,40 @@ def _pipeline_did(
     honest_payload: Optional[Dict[str, Any]] = None
     honest_fn = getattr(sp, "honest_did", None)
     if honest_fn is not None:
-        from .workflow_tools import _extract_event_study, _listify_sigma
+        # NOTE: this used to call honest_did(betas=, sigma=, num_pre_periods=,
+        # num_post_periods=, method="SD"). No such signature exists — the
+        # current one is honest_did(result, e=, m_grid=, method=, alpha=,
+        # backend=). Every invocation therefore raised TypeError and the stage
+        # recorded a failure, so this branch of pipeline_did never once
+        # produced honest CIs. It now passes the fitted result through, which
+        # is what honest_did actually takes.
+        from .workflow_tools import _coerce_event_study_result
 
-        betas, sigma, n_pre, n_post = _extract_event_study(primary)
-        if betas is not None and sigma is not None:
-            honest, err = _safe_call(
-                honest_fn,
-                betas=list(betas),
-                sigma=_listify_sigma(sigma),
-                num_pre_periods=int(n_pre),
-                num_post_periods=int(n_post),
-                method="SD",
+        # The guard used to be `_extract_event_study(primary)` returning
+        # non-None betas/sigma. That helper does not recognise the shape
+        # sp.event_study actually produces, so it returns None even for a
+        # genuine event study and the stage was skipped every time — the
+        # second reason this branch never ran. honest_did only needs a result
+        # it can read an event-study table off, so ask it directly and report
+        # whatever comes back.
+        coerced = _coerce_event_study_result(primary)
+        if coerced is None:
+            stages.append(
+                _stage(
+                    "honest_did", "skipped", "no event-study betas in primary result"
+                )
             )
+        else:
+            honest, err = _safe_call(honest_fn, coerced, e=0, method="smoothness")
             if err:
-                stages.append(_stage("honest_did", "failed", err))
+                # "This estimator has no event-study table" (e.g. a plain 2x2
+                # DiD, which has no pre-periods) is inapplicability, not
+                # breakage — reporting it as a failure trains readers to
+                # ignore the status field.
+                inapplicable = "MethodIncompatibility" in str(err)
+                stages.append(
+                    _stage("honest_did", "skipped" if inapplicable else "failed", err)
+                )
             else:
                 honest_payload = _light_serialize(honest)
                 stages.append(
@@ -330,14 +350,6 @@ def _pipeline_did(
                         _short_estimate(honest) or "computed",
                     )
                 )
-        else:
-            stages.append(
-                _stage(
-                    "honest_did",
-                    "skipped",
-                    "no event-study betas in primary result",
-                )
-            )
 
     # Stage 5: Bacon decomposition (only meaningful for staggered TWFE)
     if cohort and unit_id:
@@ -784,7 +796,9 @@ def _pipeline_rd(
             import matplotlib
 
             matplotlib.use("Agg", force=False)
-            import matplotlib.pyplot as plt, io  # noqa: E401
+            import io
+
+            import matplotlib.pyplot as plt  # noqa: E401
 
             fig_or_obj, err = _safe_call(plot_fn, data, y=y, x=x, c=c)
             if not err:

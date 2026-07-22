@@ -50,7 +50,7 @@ print(sp.datasets.list_datasets()[["name", "design", "n_obs"]].head())
 
 StatsPAI 随包带有 Card (1995)、Callaway-Sant'Anna `mpdta`、Lee (2008) RD、LaLonde/NSW、California Proposition 99 等教学数据集。下面的例子安装后可以离线运行。
 
-一眼概览：1,139 个注册函数，分布在 87 个子模块；348k 行核心代码 + 200k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
+一眼概览：1,145 个注册函数，分布在 87 个子模块；352k 行核心代码 + 200k 行测试。运行 `python scripts/registry_stats.py` 可复现这些数字。
 
 ---
 

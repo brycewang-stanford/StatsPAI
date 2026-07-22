@@ -34,22 +34,19 @@ estimators with heterogeneous treatment effects. AER 110(9): 2964–2996.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional, Tuple, cast
 
 import numpy as np
 import pandas as pd
 
-from ..exceptions import (
-    DataInsufficient,
-    MethodIncompatibility,
-    NumericalInstability,
-)
-from .within import within as _within
-from .inference import crve as _crve
+from .._result_serialize import ResultProtocolMixin
+from ..did.event_study import _build_bins, _resolve_ref_set
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from ._result_protocol import jsonable as _jsonable
 from ._result_protocol import tidy_records as _tidy_records
-from .._result_serialize import ResultProtocolMixin
+from .inference import crve as _crve
+from .within import within as _within
 
 
 @dataclass
@@ -65,9 +62,15 @@ class EventStudyResult(ResultProtocolMixin):
     n_clusters: Optional[int]
     cluster_var: Optional[str]
     reference_event_time: int
+    #: ``(start, end)`` for each estimated coefficient. Point bins have
+    #: ``start == end``; with ``bin_width`` set they span several periods.
+    bins: list = field(default_factory=list)
+    #: ``(start, end)`` for each omitted reference bin.
+    reference_bins: list = field(default_factory=list)
+    bin_width: Optional[int] = None
 
     def tidy(self) -> pd.DataFrame:
-        return pd.DataFrame(
+        out = pd.DataFrame(
             {
                 "event_time": self.event_times,
                 "Estimate": self.coefs,
@@ -76,6 +79,11 @@ class EventStudyResult(ResultProtocolMixin):
                 "ci_upper": self.coefs + 1.96 * self.ses,
             }
         )
+        if self.bins and any(b[0] != b[1] for b in self.bins):
+            out.insert(1, "bin_start", [b[0] for b in self.bins])
+            out.insert(2, "bin_end", [b[1] for b in self.bins])
+            out.insert(3, "bin_label", [f"[{b[0]}, {b[1]}]" for b in self.bins])
+        return out
 
     def plot(self, ax: Any = None) -> Any:  # pragma: no cover  - cosmetic
         try:
@@ -158,9 +166,10 @@ def event_study(
     time: str,
     event_time: str,
     window: Optional[Tuple[int, int]] = None,
-    reference: int = -1,
+    reference: Any = -1,
     cluster: Optional[str] = None,
     drop_singletons: bool = True,
+    bin_width: Optional[int] = None,
 ) -> EventStudyResult:
     """Two-way-FE event study on the Phase 1+ HDFE stack.
 
@@ -182,12 +191,24 @@ def event_study(
         Truncate event-time dummies to ``[lo, hi]``. Outside the window,
         rows are kept (so the unit FE still soaks up their level) but
         not given individual coefficients.
-    reference : int, default -1
-        Event-time period to use as the omitted reference category.
+    reference : int, (str, int) or sequence of int, default -1
+        Omitted reference category. Mirrors ``sp.event_study``:
+
+        * ``int`` -- a single omitted event time (classic).
+        * ``(op, bound)`` -- an interval, e.g. ``("<=", -50)`` or
+          ``(">=", 20)``; every event time in range satisfying the
+          comparison is pooled into the omitted base.
+        * sequence of int -- an explicit omitted span, e.g. ``[-3, -2, -1]``.
     cluster : str, optional
         Column name to cluster standard errors on. Default: cluster on
         ``unit`` (the conventional choice for panel DiD).
     drop_singletons : bool
+    bin_width : int, optional
+        Group event times into bins of this width instead of one
+        coefficient per period. Bins are anchored at the treatment
+        boundary (``-1`` and ``0`` never share a bin), matching
+        ``sp.event_study(bin_width=...)``. ``event_times`` then reports
+        each bin's left edge; ``bins`` reports the ``(start, end)`` pairs.
 
     Returns
     -------
@@ -221,11 +242,24 @@ def event_study(
         raise MethodIncompatibility(
             f"fast.event_study: data missing cluster column {cluster_col!r}"
         )
-    if not isinstance(reference, (int, np.integer)):
+    # A plain-int reference with no binning keeps the historical code path
+    # byte-for-byte; the richer specs engage the shared resolver below.
+    simple_reference = (
+        isinstance(reference, (int, np.integer))
+        and not isinstance(reference, (bool, np.bool_))
+        and bin_width is None
+    )
+    if simple_reference:
+        reference = int(reference)
+    elif isinstance(reference, (bool, np.bool_)) or not isinstance(
+        reference, (int, np.integer, tuple, list, set, np.ndarray)
+    ):
+        # Scalars that are not integers (e.g. -1.5, None, "x") keep the
+        # original error; only tuple/list/set forms reach the richer resolver.
         raise MethodIncompatibility(
-            "fast.event_study: reference must be an integer event-time offset"
+            "fast.event_study: reference must be an integer event-time offset, "
+            "an interval such as ('<=', -50), or a span such as [-3, -2, -1]"
         )
-    reference = int(reference)
     if window is not None:
         try:
             lo, hi = window
@@ -293,14 +327,67 @@ def event_study(
         finite &= (et_int >= lo) & (et_int <= hi)
 
     # Use pd.Categorical so we control the level set
-    levels = sorted({v for v in et_int[finite] if v != reference})
+    if simple_reference:
+        levels = sorted({v for v in et_int[finite] if v != reference})
+        bins: list[tuple[int, int]] = [(int(lv), int(lv)) for lv in levels]
+        ref_bins: list[tuple[int, int]] = []
+    else:
+        observed = [int(v) for v in et_int[finite]]
+        if not observed:
+            raise DataInsufficient(
+                "fast.event_study: no finite event times after filtering; "
+                "check event_time / window"
+            )
+        if window is not None:
+            lo_r, hi_r = window
+        else:
+            lo_r, hi_r = min(observed), max(observed)
+        ref_times, ref_canonical = _resolve_ref_set(reference, int(lo_r), int(hi_r))
+        bin_of = _build_bins(int(lo_r), int(hi_r), bin_width)
+        ref_set = set(ref_times)
+        members: dict[tuple[int, int], list[int]] = {}
+        for t in range(int(lo_r), int(hi_r) + 1):
+            members.setdefault(bin_of[t], []).append(t)
+        ref_bins = []
+        for b, mem in members.items():
+            in_ref = [t for t in mem if t in ref_set]
+            if not in_ref:
+                continue
+            if len(in_ref) != len(mem):
+                raise MethodIncompatibility(
+                    f"fast.event_study: the reference span {sorted(ref_set)} "
+                    f"cuts bin [{b[0]}, {b[1]}] in half (it omits "
+                    f"{sorted(in_ref)} but keeps {sorted(set(mem) - ref_set)}). "
+                    "A partially-omitted bin has no coherent interpretation. "
+                    f"Align the reference to the bin edges, e.g. "
+                    f"reference=('<=', {b[1]}), or drop bin_width."
+                )
+            ref_bins.append(b)
+        bins = sorted(b for b in members if b not in set(ref_bins))
+        # Keep only bins that actually carry observations.
+        observed_set = set(observed)
+        bins = [
+            b for b in bins if any(t in observed_set for t in range(b[0], b[1] + 1))
+        ]
+        levels = [b[0] for b in bins]
+        del ref_canonical
     if not levels:
         raise DataInsufficient(
             "fast.event_study: no event-time dummies after filtering; "
             "check event_time / window"
         )
+
+    def _dummy_name(start: int, end: int) -> str:
+        # Point bins keep the historical ``et_<k>`` name.
+        return f"et_{start}" if start == end else f"et_{start}_{end}"
+
     dummies = pd.DataFrame(
-        {f"et_{lv}": ((et_int == lv) & finite).astype(np.float64) for lv in levels},
+        {
+            _dummy_name(b[0], b[1]): (
+                finite & (et_int >= b[0]) & (et_int <= b[1])
+            ).astype(np.float64)
+            for b in bins
+        },
         index=df.index,
     )
     dummy_cols = list(dummies.columns)
@@ -351,7 +438,12 @@ def event_study(
         n_kept=int(wt.n_kept),
         n_clusters=int(np.unique(cluster_arr).size),
         cluster_var=cluster_col,
-        reference_event_time=reference,
+        reference_event_time=(
+            reference if simple_reference else int(min(b[0] for b in ref_bins))
+        ),
+        bins=[(int(b[0]), int(b[1])) for b in bins],
+        reference_bins=[(int(b[0]), int(b[1])) for b in ref_bins],
+        bin_width=None if bin_width is None else int(bin_width),
     )
 
 

@@ -364,7 +364,7 @@
     }
   },
   {
-    "description": "Difference-in-Differences. Supports 2x2, DDD, staggered (Callaway-Sant'Anna, Sun-Abraham), and Synthetic DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Difference-in-Differences. Supports 2x2, DDD, staggered (Callaway-Sant'Anna, Sun-Abraham), and Synthetic DID. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment is continuous / dose-valued rather than binary -- use sp.continuous_did or sp.dose_response; exactly one treated unit -- DiD inference is not credible with one treated cluster; use sp.synth or sp.sdid; no pre-treatment period exists -- parallel trends is untestable and the event study cannot be identified.",
     "name": "did",
     "parameters": {
       "properties": {
@@ -542,7 +542,7 @@
     }
   },
   {
-    "description": "Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption. Validation: certified evidence with scoped limitations. Known limitations: panel=False (repeated cross-sections) currently requires estimator='reg' and control_group='nevertreated'; the IPW and DR variants for RCS are planned for a future release.",
+    "description": "Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption. Validation: certified evidence with scoped limitations. Known limitations: panel=False (repeated cross-sections) currently requires estimator='reg' and control_group='nevertreated'; the IPW and DR variants for RCS are planned for a future release. Do NOT use when: all treated units adopt in the same period (a plain 2x2 or block design) -- CS reduces to the same estimand at much higher cost; use sp.did(method='2x2'); there is neither a never-treated group nor a not-yet-treated cohort -- no valid comparison group exists for ATT(g,t); only one pre-treatment period per cohort -- no pre-trend evidence and no event-study leads are estimable. Cost: Runtime scales with (number of cohorts x number of periods): one doubly-robust 2x2 estimate plus an influence function per (g,t) cell. Memory is O(n) -- the hazard is wall-clock on many-cohort panels, not RAM.",
     "name": "callaway_santanna",
     "parameters": {
       "properties": {
@@ -771,7 +771,7 @@
     }
   },
   {
-    "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required.",
+    "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required. Do NOT use when: many units are treated at once -- classic SCM is built for one (or few) treated units; use sp.gsynth, sp.sdid or sp.callaway_santanna; the pre-treatment window is short (fewer than ~10 periods) -- the donor weights overfit noise and pre-period fit stops being evidence; the treated unit's pre-period outcome lies outside the convex hull of the donors -- no non-negative weighting can match it; check the pre-period RMSPE and consider sp.augsynth. Cost: One constrained optimisation over the donor simplex per fit. placebo=True / inference re-runs the whole fit once per donor, so runtime is roughly (donors + 1) x a single fit -- the usual reason a synth call feels slow.",
     "name": "synth",
     "parameters": {
       "properties": {
@@ -1264,7 +1264,7 @@
     }
   },
   {
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
     "name": "match",
     "parameters": {
       "properties": {
@@ -2232,7 +2232,7 @@
     }
   },
   {
-    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that.",
+    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna.",
     "name": "event_study",
     "parameters": {
       "properties": {
@@ -2300,7 +2300,7 @@
     }
   },
   {
-    "description": "Augmented Synthetic Control with ridge bias correction (Ben-Michael et al. 2021). Validation: certified parity evidence.",
+    "description": "Augmented Synthetic Control with ridge bias correction (Ben-Michael et al. 2021). Validation: certified parity evidence. Do NOT use when: pre-treatment fit from plain sp.synth is already good -- the ridge augmentation mainly buys bias correction for poor fit and adds a tuning parameter to justify; many treated units -- use sp.gsynth or sp.sdid.",
     "name": "augsynth",
     "parameters": {
       "properties": {
@@ -9643,7 +9643,7 @@
     }
   },
   {
-    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights.",
+    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
     "name": "did_2x2",
     "parameters": {
       "properties": {
@@ -9763,7 +9763,7 @@
     }
   },
   {
-    "description": "Sun-Abraham (2021) interaction-weighted event-study. Fixes the contamination in dynamic event-study TWFE coefficients from other relative-time bins by using cohort-specific interaction weights. Canonical companion to Callaway-Sant'Anna for event studies. Validation: certified parity evidence.",
+    "description": "Sun-Abraham (2021) interaction-weighted event-study. Fixes the contamination in dynamic event-study TWFE coefficients from other relative-time bins by using cohort-specific interaction weights. Canonical companion to Callaway-Sant'Anna for event studies. Validation: certified parity evidence. Do NOT use when: all units adopt treatment simultaneously -- the cohort x relative-time interactions collapse; use sp.did(method='2x2'); cohorts are very small (a handful of units each) -- interaction-weighted estimates become noisy and the cohort-share weights unstable. Cost: Builds a saturated cohort x relative-time interaction design: columns grow as (cohorts x event-time window), so a wide window on a many-cohort panel produces a large dense design matrix. Trim via event_window=.",
     "name": "sun_abraham",
     "parameters": {
       "properties": {
@@ -9831,7 +9831,7 @@
     }
   },
   {
-    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics.",
+    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics. Do NOT use when: there is no never-treated (or not-yet-treated) group to fit the untreated-potential-outcome model on -- imputation has no estimation sample; the design is a simple 2x2 -- sp.did(method='2x2') is the same estimand and far cheaper; pre-trends are visibly non-parallel -- BJS imputes Y(0) from a two-way model that assumes them away, so violations are absorbed silently rather than surfaced. Cost: Fits the untreated two-way model once, then imputes; cheap in memory. vce='bootstrap' multiplies total runtime by n_boot -- budget accordingly before raising n_boot.",
     "name": "did_imputation",
     "parameters": {
       "properties": {
@@ -9890,7 +9890,7 @@
     }
   },
   {
-    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence.",
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost.",
     "name": "wooldridge_did",
     "parameters": {
       "properties": {
@@ -9942,7 +9942,7 @@
     }
   },
   {
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
     "name": "etwfe",
     "parameters": {
       "properties": {
@@ -10015,7 +10015,7 @@
     }
   },
   {
-    "description": "Goodman-Bacon (2021) decomposition of the TWFE DiD coefficient into a weighted sum of underlying 2x2 DID comparisons: treated-vs-never, treated-vs-notyet, earlier-vs-later. Diagnoses when TWFE is contaminated by already-treated units acting as controls. Validation: certified parity evidence.",
+    "description": "Goodman-Bacon (2021) decomposition of the TWFE DiD coefficient into a weighted sum of underlying 2x2 DID comparisons: treated-vs-never, treated-vs-notyet, earlier-vs-later. Diagnoses when TWFE is contaminated by already-treated units acting as controls. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- with a single adoption date there is exactly one 2x2 comparison and the decomposition is uninformative; the panel is unbalanced or has never-treated units only -- the weights are defined for staggered two-way comparisons. Cost: Enumerates every pair of timing groups: O(G^2) 2x2 regressions for G distinct adoption dates. Fine for a handful of cohorts, slow when adoption dates are near-continuous (e.g. a distinct date per unit).",
     "name": "bacon_decomposition",
     "parameters": {
       "properties": {
@@ -10065,8 +10065,20 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "covariates": {
+          "description": "Covariates for the Athey-Imbens (2006 p.466) two-step estimator; 'C(col)' / 'i.col' terms are absorbed as fixed effects",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "data": {
           "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "first_stage": {
+          "default": "feols",
+          "description": "First-stage residualizer (only 'feols' supported)",
           "type": "string"
         },
         "group": {
@@ -10113,7 +10125,7 @@
     }
   },
   {
-    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments.",
+    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
     "name": "stacked_did",
     "parameters": {
       "properties": {
@@ -10346,7 +10358,7 @@
     }
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "name": "did_multiplegt_dyn",
     "parameters": {
       "properties": {
@@ -11653,7 +11665,7 @@
     }
   },
   {
-    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop.",
     "name": "wild_cluster_bootstrap",
     "parameters": {
       "properties": {
@@ -12515,7 +12527,7 @@
     }
   },
   {
-    "description": "Rambachan & Roth (2023) sensitivity analysis for parallel trends. Validation: certified parity evidence.",
+    "description": "Rambachan & Roth (2023) sensitivity analysis for parallel trends. Validation: certified parity evidence. Do NOT use when: the fitted result carries fewer than two pre-treatment event study coefficients -- the relative-magnitude restriction is defined against max|pre-period violation| and has nothing to scale against; the design is a 2x2 with no leads -- there is no pre-period violation to bound; report the standard CI instead.",
     "name": "honest_did",
     "parameters": {
       "properties": {
@@ -12654,7 +12666,7 @@
     }
   },
   {
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator.",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
     "name": "bjs",
     "parameters": {
       "properties": {
@@ -12732,7 +12744,7 @@
     }
   },
   {
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator.",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2').",
     "name": "borusyak_jaravel_spiess",
     "parameters": {
       "properties": {
@@ -12989,6 +13001,123 @@
       },
       "required": [
         "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Run the full parallel-trends robustness pipeline on a DiD result. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "parallel_trends_robustness",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "delta": {
+          "description": "Hypothesised pre-trend violation passed to ``pretrends_power``.",
+          "type": "string"
+        },
+        "e": {
+          "default": 0,
+          "description": "Relative time whose effect the sensitivity analysis targets.",
+          "type": "integer"
+        },
+        "families": {
+          "default": [
+            "SD",
+            "RM"
+          ],
+          "description": "Restriction families. ``\"SD\"`` maps to ``honest_did``'s ``method='smoothness'`` (bounded second differences); ``\"RM\"`` maps to ``method='relative_magnitude'``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "m_grid": {
+          "description": "Grid of violation magnitudes. Default: the ``honest_did`` default, multiples of the standard error at ``e``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "result": {
+          "description": "A fitted DiD/event-study result carrying event-study estimates in ``result.model_info['event_study']`` (e.g. from ``sp.event_study``, ``sp.callaway_santanna``, ``sp.sun_abraham``). .. note:: If the result does not carry a pre-period covariance matrix in ``model_info['vcv_pre']``, the pre-trend test and power fall back to assuming the pre-period coefficients are mutually independent and warn loudly. ``sp.event_study`` computes the full cluster-robust covariance; pass ``expose_pre_vcov=True`` to it to have this pipeline use the correct covariance instead of the diagonal fallback.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Bundled pre-trends power + honest-DiD sensitivity for one DiD result.",
+    "name": "ParallelTrendsRobustnessResult",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "att": {
+          "description": "att parameter (float).",
+          "type": "number"
+        },
+        "att_se": {
+          "description": "att_se parameter (float).",
+          "type": "number"
+        },
+        "breakdown": {
+          "description": "breakdown parameter (Dict[str, float]).",
+          "type": "object"
+        },
+        "ci_grid": {
+          "description": "Grid of ci values to evaluate.",
+          "type": "string"
+        },
+        "e": {
+          "default": 0,
+          "description": "e parameter (int).",
+          "type": "integer"
+        },
+        "families": {
+          "default": null,
+          "description": "families parameter (List[str]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "power_table": {
+          "description": "power_table parameter (pd.DataFrame).",
+          "type": "string"
+        },
+        "pretrend_power": {
+          "default": null,
+          "description": "pretrend_power parameter (Dict[str, Any]).",
+          "type": "object"
+        },
+        "pretrend_test": {
+          "default": null,
+          "description": "pretrend_test parameter (Dict[str, Any]).",
+          "type": "object"
+        },
+        "verdict": {
+          "description": "verdict parameter (str).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "power_table",
+        "ci_grid",
+        "breakdown",
+        "verdict",
+        "att",
+        "att_se"
       ],
       "type": "object"
     }
@@ -15666,7 +15795,7 @@
     }
   },
   {
-    "description": "Generalized Synthetic Control via interactive fixed effects. Validation: certified parity evidence.",
+    "description": "Generalized Synthetic Control via interactive fixed effects. Validation: certified parity evidence. Do NOT use when: there is only one treated unit and a short pre-period -- the interactive fixed-effects factors are not identified; use sp.synth; fewer pre-treatment periods than the number of factors being fit -- factor estimation is degenerate. Cost: Cross-validating n_factors refits the factor model cv_folds x max_factors times, and placebo/bootstrap inference refits again per replication -- runtime is multiplicative in those three knobs. Pin n_factors to skip the CV sweep.",
     "name": "gsynth",
     "parameters": {
       "properties": {
@@ -15880,7 +16009,7 @@
     }
   },
   {
-    "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence.",
+    "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence. Do NOT use when: there is no clean pre-treatment block for every unit -- the unit and time weights are fit on the pre-period grid. Cost: Placebo / bootstrap standard errors refit the full weighting problem n_reps times; the point estimate alone is cheap. Lower n_reps while iterating.",
     "name": "sdid",
     "parameters": {
       "properties": {
@@ -18613,13 +18742,24 @@
           "type": "boolean"
         },
         "fe_data": {
-          "description": "FE columns. Must have no NaN.",
+          "description": "FE columns. Must have no NaN. May be ``None`` (or an ``(n, 0)`` array) when only varying-slope terms are absorbed, in which case ``n_obs`` is inferred from ``slopes``.",
           "type": "string"
         },
         "maxiter": {
           "default": 10000,
           "description": "Maximum alternating-projection iterations.",
           "type": "integer"
+        },
+        "n_obs": {
+          "description": "Row count, required only when ``fe_data`` is ``None`` and ``slopes`` is empty.",
+          "type": "integer"
+        },
+        "slopes": {
+          "description": "Varying-slope terms to absorb alongside ``fe_data``. Each counts as one more absorbed dimension in the alternating projections.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "solver": {
           "default": "map",
@@ -18648,6 +18788,37 @@
     }
   },
   {
+    "description": "A varying-slope absorbed term.",
+    "name": "SlopeSpec",
+    "parameters": {
+      "properties": {
+        "group": {
+          "description": "Group or cohort identifier.",
+          "type": "string"
+        },
+        "name": {
+          "default": "slope",
+          "description": "name parameter (ForwardRef('str')).",
+          "type": "string"
+        },
+        "with_intercept": {
+          "default": false,
+          "description": "with_intercept parameter (ForwardRef('bool')).",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "group",
+        "x"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Return the within-transformed ``x`` and the singleton keep mask. Validation: certified parity evidence.",
     "name": "demean",
     "parameters": {
@@ -18658,13 +18829,20 @@
           "type": "boolean"
         },
         "fe": {
-          "description": "fe parameter (Union[pd.DataFrame, np.ndarray]).",
+          "description": "fe parameter (Union[pd.DataFrame, np.ndarray, None]).",
           "type": "string"
         },
         "maxiter": {
           "default": 10000,
           "description": "maxiter parameter (int).",
           "type": "integer"
+        },
+        "slopes": {
+          "description": "slopes parameter (Optional[Sequence[SlopeSpec]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "solver": {
           "default": "map",
@@ -18727,6 +18905,13 @@
           "description": "If True, also return the ``Absorber`` object for reuse.",
           "type": "boolean"
         },
+        "slopes": {
+          "description": "slopes parameter (Optional[Sequence[SlopeSpec]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "solver": {
           "default": "map",
           "description": "Within-transformation backend. See :class:`Absorber`.",
@@ -18760,7 +18945,7 @@
     }
   },
   {
-    "description": "reghdfe-style OLS with high-dimensional fixed effects. Validation: certified parity evidence.",
+    "description": "reghdfe-style OLS with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); use sp.conley on the fitted result instead. Cost: Absorption is linear in n. vce='conley' is the exception: the within-transformed design goes through conley_vcov_matrix, which builds dense n x n distance and kernel matrices -- ~80 GB at n=100,000. vce='cr2'/'cr3' are per-cluster and cheap by comparison.",
     "name": "hdfe_ols",
     "parameters": {
       "properties": {
@@ -18798,7 +18983,7 @@
           "type": "boolean"
         },
         "formula": {
-          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional.",
+          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar.",
           "type": "string"
         },
         "maxiter": {
@@ -19280,7 +19465,7 @@
     }
   },
   {
-    "description": "Genetic Matching for ATT estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Genetic Matching for ATT estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Genetic search: population_size x generations full matching + balance evaluations (default 40 x 20 = 800 matching passes), each of which builds a pairwise distance matrix. Budget it as hundreds of sp.match calls, not one.",
     "name": "genmatch",
     "parameters": {
       "properties": {
@@ -22209,7 +22394,7 @@
     }
   },
   {
-    "description": "Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects. Validation: certified parity evidence.",
+    "description": "Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); vce='conley' with high-dimensional fixed effects -- the conleyreg-matching construction is dummy-based and raises MethodIncompatibility past 1,000 dummy columns; use cluster= (CRV1) there. Cost: IRLS is linear in n. vce='conley' builds the FE-as-dummies design plus dense n x n great-circle distance and kernel matrices (glm_conley_vcov) -- ~0.8 GB at n=10,000 and ~80 GB at n=100,000 -- and it refuses designs with >= n or > 1,000 dummy columns. Use cluster= (CRV1) instead at that scale.",
     "name": "ppmlhdfe",
     "parameters": {
       "properties": {
@@ -23844,7 +24029,7 @@
     }
   },
   {
-    "description": "Compute Conley (1999) spatial HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
     "name": "conley",
     "parameters": {
       "properties": {
@@ -23854,17 +24039,30 @@
           "type": "number"
         },
         "data": {
-          "description": "Data with latitude and longitude columns (in **degrees**).",
+          "description": "Data with latitude and longitude columns (in **degrees**), row-aligned to the fitted sample.",
           "type": "string"
         },
         "dist_cutoff": {
           "description": "Distance cutoff *h* in kilometres. Pairs farther apart than this receive zero weight.",
           "type": "number"
         },
+        "distance": {
+          "default": "haversine",
+          "description": "``\"haversine\"`` uses great-circle distance on a sphere of radius 6371 km, and is symmetric. ``\"planar\"`` reproduces ``acreg``'s convention exactly: 111 km per degree of latitude and ``cos(lat_ref) * 111`` km per degree of longitude, anchored at the *reference* point, which makes the distance asymmetric; the resulting covariance is symmetrised the same way ``acreg`` does (Mata ``_makesymmetric``, which mirrors the lower triangle). Choose ``\"planar\"`` for bit-level ``acreg`` parity, ``\"haversine\"`` for a proper great-circle metric.",
+          "type": "string"
+        },
         "kernel": {
           "default": "uniform",
-          "description": "Kernel function: ``\"uniform\"`` (indicator) or ``\"bartlett\"`` (linearly declining weight).",
+          "description": "Spatial kernel: ``\"uniform\"`` (indicator) or ``\"bartlett\"`` (linearly declining weight ``1 - d/h``).",
           "type": "string"
+        },
+        "lag_cutoff": {
+          "description": "Serial-correlation bandwidth in periods, for pairs within the same unit. Requires ``time``.",
+          "type": "integer"
+        },
+        "lag_cutoff_cross": {
+          "description": "Time bandwidth for pairs drawn from *different* units -- ``acreg``'s ``lagdist()``. Defaults to ``0`` (``acreg``'s default), i.e. contemporaneous cross-unit correlation only.",
+          "type": "integer"
         },
         "lat": {
           "description": "Column name for latitude.",
@@ -23876,6 +24074,19 @@
         },
         "result": {
           "description": "Fitted OLS result. Must have ``data_info`` containing ``'X'`` (design matrix), ``'y'`` (response), and ``'residuals'``.",
+          "type": "string"
+        },
+        "time": {
+          "description": "Column name holding the time period. Must be integer-valued. Requires ``lag_cutoff`` and ``unit``.",
+          "type": "string"
+        },
+        "time_kernel": {
+          "default": "bartlett",
+          "description": "Time kernel: ``\"bartlett\"`` (``1 - |dt| / (lag_cutoff + 1)``, the Newey-West convention, matching ``acreg``'s ``hac bartlett``) or ``\"uniform\"`` (indicator, matching ``acreg`` without ``hac``).",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Column name identifying the panel unit. Enables panel de-duplication: the spatial neighbour search runs on the distinct unit coordinates rather than on every row, so a unit observed T times costs one point in the KD-tree instead of T.",
           "type": "string"
         }
       },
@@ -28370,7 +28581,7 @@
     }
   },
   {
-    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels.",
     "name": "mc_panel",
     "parameters": {
       "properties": {
@@ -30789,7 +31000,7 @@
       "properties": {
         "agent_native": {
           "default": false,
-          "description": "When True, attach a top-level ``x_statspai`` extension block carrying identifying assumptions, data pre-conditions, failure modes, ranked alternatives, stability / validation tier and ``typical_n_min`` -- so an LLM planner can reason about *whether* to call the tool inside the same schema it already reads, with no extra :func:`agent_card` round-trip. The base ``name`` / ``description`` / ``parameters`` shape is unchanged, so the schema still works with strict tool-calling APIs.",
+          "description": "When True, attach a top-level ``x_statspai`` extension block carrying identifying assumptions, data pre-conditions, failure modes, ranked alternatives, stability / validation tier, ``typical_n_min``, and the negative-guidance pair ``not_recommended_when`` / ``cost_profile`` -- so an LLM planner can reason about *whether* to call the tool inside the same schema it already reads, with no extra :func:`agent_card` round-trip. (The negative guidance is also folded into the plain ``description`` as ``Do NOT use when: ...`` / ``Cost: ...``, so callers that read nothing but ``description`` still see it.) The base ``name`` / ``description`` / ``parameters`` shape is unchanged, so the schema still works with strict tool-calling APIs.",
           "type": "boolean"
         },
         "name": {
@@ -32997,7 +33208,7 @@
     }
   },
   {
-    "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence.",
+    "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows.",
     "name": "feols",
     "parameters": {
       "properties": {
@@ -37063,7 +37274,7 @@
     }
   },
   {
-    "description": "Resolve verified BibTeX entries from ``paper.bib`` by citation key.",
+    "description": "Resolve verified BibTeX entries from ``paper.bib`` by citation key. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "bibtex",
     "parameters": {
       "properties": {
@@ -39716,7 +39927,7 @@
     }
   },
   {
-    "description": "Prediction intervals for synthetic control methods.",
+    "description": "Prediction intervals for synthetic control methods. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= parallelises it.",
     "name": "scpi",
     "parameters": {
       "properties": {
@@ -40595,7 +40806,7 @@
     }
   },
   {
-    "description": "Run multiple SCM variants and compare them side by side.",
+    "description": "Run multiple SCM variants and compare them side by side. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
     "name": "synth_compare",
     "parameters": {
       "properties": {
@@ -41376,6 +41587,115 @@
       },
       "required": [
         "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Length of linear features falling inside each polygon.",
+    "name": "line_length_in_polygon",
+    "parameters": {
+      "properties": {
+        "allow_geographic": {
+          "default": false,
+          "description": "Opt out of the projected-CRS requirement. Only set this if you have verified the CRS units are metres.",
+          "type": "boolean"
+        },
+        "lines_gdf": {
+          "description": "Linear features. Must be ``LineString`` / ``MultiLineString``.",
+          "type": "string"
+        },
+        "polygon_id": {
+          "description": "Column in ``polygons_gdf`` identifying each unit. Defaults to the index of ``polygons_gdf``.",
+          "type": "string"
+        },
+        "polygons_gdf": {
+          "description": "Areal units. Must be ``Polygon`` / ``MultiPolygon``.",
+          "type": "string"
+        },
+        "unit": {
+          "default": "km",
+          "description": "Output unit.",
+          "enum": [
+            "km",
+            "m"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "lines_gdf",
+        "polygons_gdf"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Share of point features lying within a buffer of the linear features.",
+    "name": "share_within_buffer",
+    "parameters": {
+      "properties": {
+        "allow_geographic": {
+          "default": false,
+          "description": "Opt out of the projected-CRS requirement.",
+          "type": "boolean"
+        },
+        "buffer_km": {
+          "default": 10.0,
+          "description": "Buffer radius in kilometres. Must be strictly positive.",
+          "type": "number"
+        },
+        "group_col": {
+          "description": "Column in ``points_gdf`` to group by (e.g. ``'county_id'``). If omitted the share is computed over all points.",
+          "type": "string"
+        },
+        "lines_gdf": {
+          "description": "Linear features to buffer (e.g. the canal).",
+          "type": "string"
+        },
+        "points_gdf": {
+          "description": "Point features (e.g. market towns).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "points_gdf",
+        "lines_gdf"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Distance from each point to the nearest target feature.",
+    "name": "distance_to_feature",
+    "parameters": {
+      "properties": {
+        "allow_geographic": {
+          "default": false,
+          "description": "Opt out of the projected-CRS requirement.",
+          "type": "boolean"
+        },
+        "points_gdf": {
+          "description": "Point features.",
+          "type": "string"
+        },
+        "target_gdf": {
+          "description": "Target layer of any geometry type; the nearest distance to the union of its features is returned. Points inside a target polygon get ``0``.",
+          "type": "string"
+        },
+        "unit": {
+          "default": "km",
+          "description": "Output unit.",
+          "enum": [
+            "km",
+            "m"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "points_gdf",
+        "target_gdf"
       ],
       "type": "object"
     }
@@ -44117,7 +44437,7 @@
     }
   },
   {
-    "description": "Optimal 1:1 matching via the Hungarian algorithm.",
+    "description": "Optimal 1:1 matching via the Hungarian algorithm. Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
     "name": "optimal_match",
     "parameters": {
       "properties": {

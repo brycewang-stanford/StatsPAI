@@ -23,6 +23,17 @@ This converges linearly. To get industrial speed we use the Irons-Tuck /
 Aitken scalar acceleration (Δ²), which cuts iteration count by 3-10x for
 the typical panel case. See Correia (2017) §2.3 for details.
 
+Varying slopes
+--------------
+Besides ordinary FE dimensions, the absorber handles *varying-slope*
+terms — Stata's ``absorb(i.g#c.x)`` / ``absorb(i.g##c.x)`` and fixest's
+``g[[x]]`` / ``g[x]``. These absorb the columns ``x · 1[g = j]`` (one
+slope per level of ``g``), optionally alongside the level dummies. The
+corresponding projection residualizes ``x``-wise *within* each level
+rather than de-meaning, and participates in the alternating projections
+on the same footing as an ordinary FE. See :class:`SlopeSpec` and
+``_hdfe_kernels.sweep_slope``.
+
 Singleton detection
 -------------------
 Observations whose FE group has only one observation do not contribute to
@@ -54,12 +65,18 @@ fit models with high-dimensional fixed effects." Stata Journal, 10(4).
 
 from __future__ import annotations
 
-from typing import Any, List, Optional, Tuple, Union
+import warnings
+from typing import Any, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
 
 _VALID_SOLVERS = ("map", "lsmr", "lsqr")
+
+# Relative tolerance below which a per-level slope normal equation counts as
+# rank-deficient. Compared against that level's own uncentered second moment
+# ``Σ w x²``, so it is scale-free in the units of ``x``.
+_SLOPE_RANK_TOL = 1e-12
 
 
 def _hdfe_kernels() -> Any:
@@ -86,6 +103,29 @@ def _factorize(fe: np.ndarray) -> Tuple[np.ndarray, int]:
             "HDFE: NaN values in fixed-effect column are not allowed."
         )  # pragma: no cover
     return codes.astype(np.int64), len(uniq)
+
+
+def _factorize_multi(cols: Sequence[np.ndarray]) -> Tuple[np.ndarray, int]:
+    """Factorize the *combination* of several label columns.
+
+    Returns dense codes in ``[0, G)`` identifying each distinct observed
+    tuple, plus ``G``.
+
+    Implemented by combining integer codes in mixed radix rather than by
+    joining string representations. String joining is not safe here: a
+    separator that can appear in the data merges distinct groups, and
+    ``pd.factorize`` truncates object strings at an embedded NUL byte, so
+    even ``"\\0"`` — the usual "impossible" separator — silently collapses
+    ``("0", "1")`` and ``("0", "2")`` into one group. Re-factorizing after
+    every merge keeps the running code range at most ``n``, so the
+    ``codes * G_k + c_k`` product cannot overflow int64.
+    """
+    codes, _ = _factorize(np.asarray(cols[0]))
+    for c in cols[1:]:
+        ck, Gk = _factorize(np.asarray(c))
+        codes, _ = _factorize(codes * Gk + ck)
+    G = int(codes.max()) + 1 if codes.size else 0
+    return codes, G
 
 
 def _group_mean_sweep(
@@ -131,7 +171,13 @@ def _map_ap(
     weights: Optional[np.ndarray],
     wsum_list: Optional[List[np.ndarray]],
 ) -> None:
-    """One full alternating-projection sweep over all FE dimensions (in place)."""
+    """One full alternating-projection sweep over all FE dimensions (in place).
+
+    Currently unused — :meth:`Absorber.demean` drives the AP loop through
+    :func:`_group_mean_sweep_seq`. Note that this helper handles ordinary
+    FE dimensions only; it does **not** apply varying-slope terms, so do
+    not wire it back in without adding a ``slope_ops`` pass.
+    """
     K = len(fe_codes)
     for k in range(K):
         _group_mean_sweep(
@@ -167,6 +213,131 @@ def _aitken_accelerate(x0: np.ndarray, x1: np.ndarray, x2: np.ndarray) -> np.nda
         return x2
     alpha = float(dx1 @ d2) / denom
     return np.asarray(x0 - alpha * dx1)
+
+
+# ======================================================================
+# Varying slopes
+# ======================================================================
+
+
+class SlopeSpec(NamedTuple):
+    """A varying-slope absorbed term.
+
+    Represents Stata's ``absorb(i.g#c.x)`` / ``absorb(i.g##c.x)`` and
+    fixest's ``| g[[x]]`` / ``| g[x]``.
+
+    Attributes
+    ----------
+    group : ndarray (n,)
+        Raw group labels (numeric or object). Factorized internally.
+    x : ndarray (n,)
+        Continuous variable whose coefficient varies across levels of
+        ``group``.
+    with_intercept : bool
+        False → absorb only the ``G`` slope columns ``x · 1[g = j]``
+        (Stata ``#``, fixest ``[[x]]``). True → additionally absorb the
+        ``G`` level intercepts ``1[g = j]`` (Stata ``##``, fixest
+        ``[x]``).
+    name : str
+        Display name, used in diagnostics and warnings.
+    """
+
+    group: np.ndarray
+    x: np.ndarray
+    with_intercept: bool = False
+    name: str = "slope"
+
+
+class _SlopeOp(NamedTuple):
+    """Pre-factorized, pre-conditioned slope projector (internal)."""
+
+    codes: np.ndarray
+    x: np.ndarray
+    gsum: np.ndarray
+    xsum: np.ndarray
+    inv_denom: np.ndarray
+    with_intercept: bool
+    n_levels: int
+    n_degenerate: int
+    name: str
+
+
+def _slope_stats(
+    codes: np.ndarray,
+    x: np.ndarray,
+    n_levels: int,
+    with_intercept: bool,
+    weights: Optional[np.ndarray],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+    """Per-level sufficient statistics for a varying-slope projection.
+
+    Returns ``(gsum, xsum, inv_denom, n_degenerate)`` where ``gsum`` is
+    ``Σ w`` (or the group count), ``xsum`` is ``Σ w·x``, and ``inv_denom``
+    is the reciprocal of the normal-equation denominator with ``0.0``
+    marking rank-deficient levels.
+
+    The denominator is ``Σ w·x²`` for a slope-only term and the *centered*
+    ``Σ w·x² − (Σ w·x)² / Σ w`` when level intercepts are also absorbed.
+    A level is declared rank-deficient when that denominator collapses
+    relative to the level's own uncentered second moment — which is
+    exactly the single-observation and zero-within-level-variance cases.
+    """
+    w = np.ones_like(x) if weights is None else weights
+    gsum = np.bincount(codes, weights=w, minlength=n_levels)
+    xsum = np.bincount(codes, weights=w * x, minlength=n_levels)
+    xxsum = np.bincount(codes, weights=w * x * x, minlength=n_levels)
+
+    if with_intercept:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            denom = xxsum - np.where(
+                gsum > 0, xsum**2 / np.where(gsum > 0, gsum, 1.0), 0.0
+            )
+    else:
+        denom = xxsum
+
+    # Rank test relative to the level's own uncentered second moment: a level
+    # with all-zero x (xxsum == 0) or with x collinear with the intercept
+    # (denom ≈ 0) is degenerate. Never divides by ~0.
+    ok = denom > _SLOPE_RANK_TOL * xxsum
+    inv_denom = np.zeros(n_levels, dtype=np.float64)
+    np.divide(1.0, denom, out=inv_denom, where=ok)
+    n_degenerate = int((~ok).sum())
+    return (
+        np.ascontiguousarray(gsum, dtype=np.float64),
+        np.ascontiguousarray(xsum, dtype=np.float64),
+        inv_denom,
+        n_degenerate,
+    )
+
+
+def _slope_sweep(
+    col: np.ndarray,
+    op: _SlopeOp,
+    weights: Optional[np.ndarray],
+) -> None:
+    """Apply one varying-slope projection to ``col`` in place (1D)."""
+    kernels = _hdfe_kernels()
+    if weights is None:
+        kernels.sweep_slope(
+            col,
+            op.x,
+            op.codes,
+            op.gsum,
+            op.xsum,
+            op.inv_denom,
+            op.with_intercept,
+        )
+    else:
+        kernels.sweep_slope_weighted(
+            col,
+            op.x,
+            weights,
+            op.codes,
+            op.gsum,
+            op.xsum,
+            op.inv_denom,
+            op.with_intercept,
+        )
 
 
 # ======================================================================
@@ -224,8 +395,10 @@ class Absorber:
 
     Parameters
     ----------
-    fe_data : DataFrame or ndarray (n, K)
-        FE columns. Must have no NaN.
+    fe_data : DataFrame, ndarray (n, K), or None
+        FE columns. Must have no NaN. May be ``None`` (or an ``(n, 0)``
+        array) when only varying-slope terms are absorbed, in which case
+        ``n_obs`` is inferred from ``slopes``.
     weights : ndarray (n,), optional
         Observation weights. If given, weighted means are used.
     drop_singletons : bool, default True
@@ -246,6 +419,12 @@ class Absorber:
         sparse FE design matrix — more robust for ill-conditioned or
         highly nested FE structures. See the migration guide for how
         this maps to ``pyreghdfe``.
+    slopes : sequence of SlopeSpec, optional
+        Varying-slope terms to absorb alongside ``fe_data``. Each counts
+        as one more absorbed dimension in the alternating projections.
+    n_obs : int, optional
+        Row count, required only when ``fe_data`` is ``None`` and
+        ``slopes`` is empty.
 
     Attributes
     ----------
@@ -259,6 +438,12 @@ class Absorber:
         Number of singleton observations removed.
     n_fe : list of int
         Number of groups per FE dimension (post-prune).
+    slope_ops : list
+        Pre-conditioned varying-slope projectors (post-prune). Each
+        exposes ``n_levels`` and ``n_degenerate`` (levels whose
+        within-level design is rank-deficient and absorbs nothing).
+    n_slope_levels : list of int
+        Number of levels per varying-slope term (post-prune).
 
     Examples
     --------
@@ -289,6 +474,8 @@ class Absorber:
         "n_kept",
         "n_dropped",
         "n_fe",
+        "slope_ops",
+        "n_slope_levels",
         "tol",
         "maxiter",
         "accelerate",
@@ -299,19 +486,32 @@ class Absorber:
 
     def __init__(
         self,
-        fe_data: Union[pd.DataFrame, np.ndarray],
+        fe_data: Union[pd.DataFrame, np.ndarray, None],
         weights: Optional[np.ndarray] = None,
         drop_singletons: bool = True,
         tol: float = 1e-8,
         maxiter: int = 10_000,
         accelerate: bool = True,
         solver: str = "map",
+        slopes: Optional[Sequence[SlopeSpec]] = None,
+        n_obs: Optional[int] = None,
     ) -> None:
         if solver not in _VALID_SOLVERS:
             raise ValueError(
                 f"solver={solver!r} invalid; expected one of {_VALID_SOLVERS}."
             )
-        if isinstance(fe_data, pd.DataFrame):
+        slope_specs: List[SlopeSpec] = list(slopes) if slopes else []
+
+        if fe_data is None:
+            if n_obs is None:
+                if not slope_specs:
+                    raise ValueError(
+                        "HDFE: at least one fixed-effect column or one slope "
+                        "term is required."
+                    )
+                n_obs = int(np.asarray(slope_specs[0].group).shape[0])
+            fe_arr = np.empty((int(n_obs), 0))
+        elif isinstance(fe_data, pd.DataFrame):
             fe_arr = fe_data.values
         else:
             fe_arr = np.asarray(fe_data)
@@ -319,10 +519,18 @@ class Absorber:
                 fe_arr = fe_arr.reshape(-1, 1)
 
         n, K = fe_arr.shape
-        if K == 0:
+        if K == 0 and not slope_specs:
             raise ValueError(
-                "HDFE: at least one fixed-effect column required."
-            )  # pragma: no cover
+                "HDFE: at least one fixed-effect column or one slope term is "
+                "required."
+            )
+        for spec in slope_specs:
+            if np.asarray(spec.group).shape[0] != n or np.asarray(spec.x).shape[0] != n:
+                raise ValueError(
+                    f"HDFE: slope term {spec.name!r} has length "
+                    f"{np.asarray(spec.group).shape[0]} but the absorber was "
+                    f"built on {n} rows."
+                )
 
         # Factorize each FE column
         fe_codes_raw: List[np.ndarray] = []
@@ -330,9 +538,17 @@ class Absorber:
             codes_k, _ = _factorize(fe_arr[:, k])
             fe_codes_raw.append(codes_k)
 
+        # The categorical part of a slope term participates in singleton
+        # detection exactly like an ordinary FE — this is what reghdfe does
+        # (``absorb(i.g#c.x)`` on a panel with one-observation ``g`` levels
+        # reports those rows in ``e(num_singletons)``).
+        slope_codes_raw: List[np.ndarray] = [
+            _factorize(np.asarray(spec.group))[0] for spec in slope_specs
+        ]
+
         # Singleton pruning
         if drop_singletons:
-            keep_mask = _detect_singletons(fe_arr, fe_codes_raw)
+            keep_mask = _detect_singletons(fe_arr, fe_codes_raw + slope_codes_raw)
         else:
             keep_mask = np.ones(n, dtype=bool)
         n_kept = int(keep_mask.sum())
@@ -366,6 +582,48 @@ class Absorber:
             wsum_list = None
             self.weights = None
 
+        # Build the slope projectors on the surviving rows.
+        slope_ops: List[_SlopeOp] = []
+        for spec, codes_raw in zip(slope_specs, slope_codes_raw):
+            codes_kept = codes_raw[keep_mask]
+            dense, uniq = pd.factorize(codes_kept, sort=False, use_na_sentinel=True)
+            dense = np.ascontiguousarray(dense, dtype=np.int64)
+            G = len(uniq)
+            x_kept = np.ascontiguousarray(
+                np.asarray(spec.x, dtype=np.float64)[keep_mask]
+            )
+            if not np.all(np.isfinite(x_kept)):
+                raise ValueError(
+                    f"HDFE: slope term {spec.name!r} has non-finite values in "
+                    "its continuous variable; drop or impute them first."
+                )
+            gsum, xsum, inv_denom, n_deg = _slope_stats(
+                dense, x_kept, G, spec.with_intercept, self.weights
+            )
+            if n_deg:
+                warnings.warn(
+                    f"HDFE: slope term {spec.name!r} has {n_deg} of {G} level(s) "
+                    "with a rank-deficient within-level design (single "
+                    "observation, or no within-level variation in the "
+                    "continuous variable). Those levels absorb nothing and are "
+                    "excluded from dof_fe; the slope is not identified there.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            slope_ops.append(
+                _SlopeOp(
+                    codes=dense,
+                    x=x_kept,
+                    gsum=gsum,
+                    xsum=xsum,
+                    inv_denom=inv_denom,
+                    with_intercept=bool(spec.with_intercept),
+                    n_levels=G,
+                    n_degenerate=n_deg,
+                    name=spec.name,
+                )
+            )
+
         self.fe_codes = fe_codes
         self.counts_list = counts_list
         self.wsum_list = wsum_list
@@ -373,6 +631,8 @@ class Absorber:
         self.n_kept = n_kept
         self.n_dropped = n_dropped
         self.n_fe = n_fe
+        self.slope_ops = slope_ops
+        self.n_slope_levels = [op.n_levels for op in slope_ops]
         self.tol = tol
         self.maxiter = maxiter
         self.accelerate = accelerate
@@ -424,17 +684,29 @@ class Absorber:
         counts_list = self.counts_list
         wsum_list = self.wsum_list
         weights = self.weights
+        slope_ops = self.slope_ops
         K = len(fe_codes)
+        # A varying-slope term is one more absorbed dimension in the
+        # alternating projection, exactly like an ordinary FE. An
+        # intercept-bearing slope term still counts as ONE dimension because
+        # the [1, x] within-level fit is done jointly (see _hdfe_kernels).
+        n_dims = K + len(slope_ops)
 
-        # K=1: closed-form
-        if K == 1:
-            _group_mean_sweep(
-                x,
-                fe_codes[0],
-                counts_list[0],
-                weights,
-                wsum_list[0] if wsum_list else None,
-            )
+        # Single absorbed dimension: closed-form, no iteration needed.
+        if n_dims == 1:
+            if K == 1:
+                _group_mean_sweep(
+                    x,
+                    fe_codes[0],
+                    counts_list[0],
+                    weights,
+                    wsum_list[0] if wsum_list else None,
+                )
+            else:
+                for j in range(x.shape[1]):
+                    col = np.ascontiguousarray(x[:, j])
+                    _slope_sweep(col, slope_ops[0], weights)
+                    x[:, j] = col
             self._converged = True
             self._iters = 1
             return x.ravel() if squeeze else x
@@ -457,6 +729,7 @@ class Absorber:
                     solver=self.solver,
                     tol=tol,
                     maxiter=maxiter,
+                    slope_ops=slope_ops,
                 )
                 x[:, j] = r
                 self._iters = max(self._iters, iters)
@@ -476,7 +749,9 @@ class Absorber:
             converged = False
             for it in range(maxiter):
                 col_before = col.copy()
-                _group_mean_sweep_seq(col, fe_codes, counts_list, weights, wsum_list)
+                _group_mean_sweep_seq(
+                    col, fe_codes, counts_list, weights, wsum_list, slope_ops
+                )
                 dx = np.max(np.abs(col - col_before)) / base_scale
                 if dx < tol:
                     converged = True
@@ -508,9 +783,14 @@ class Absorber:
         return self.demean(x, copy=copy)
 
     def __repr__(self) -> str:
+        slope = (
+            f", slopes={[(op.name, op.n_levels) for op in self.slope_ops]}"
+            if self.slope_ops
+            else ""
+        )
         return (
             f"Absorber(K={len(self.fe_codes)}, n_kept={self.n_kept}, "
-            f"n_dropped={self.n_dropped}, groups={self.n_fe})"
+            f"n_dropped={self.n_dropped}, groups={self.n_fe}{slope})"
         )
 
 
@@ -520,8 +800,15 @@ def _group_mean_sweep_seq(
     counts_list: List[np.ndarray],
     weights: Optional[np.ndarray],
     wsum_list: Optional[List[np.ndarray]],
+    slope_ops: Optional[Sequence[_SlopeOp]] = None,
 ) -> None:
-    """One full sequential sweep over all K dimensions (in place, 1D).
+    """One full sequential sweep over all absorbed dimensions (in place, 1D).
+
+    Ordinary FE dimensions are swept first, then any varying-slope terms.
+    Alternating projections converge to the projection onto the orthogonal
+    complement of the *union* of the absorbed spans regardless of the order
+    in which the individual projectors are applied (von Neumann 1933), so
+    slope terms participate on exactly the same footing as plain FEs.
 
     Dispatches to :mod:`_hdfe_kernels` for Numba-accelerated kernels.
     """
@@ -534,6 +821,9 @@ def _group_mean_sweep_seq(
         assert wsum_list is not None
         for k in range(K):
             kernels.sweep_weighted(col, weights, fe_codes[k], wsum_list[k])
+    if slope_ops:
+        for op in slope_ops:
+            _slope_sweep(col, op, weights)
 
 
 # ======================================================================
@@ -544,12 +834,14 @@ def _group_mean_sweep_seq(
 def _build_fe_design(
     fe_codes: List[np.ndarray],
     n_rows: int,
+    slope_ops: Optional[Sequence[_SlopeOp]] = None,
 ) -> Any:
-    """Horizontally stack one-hot FE indicator matrices into a sparse CSR.
+    """Horizontally stack the absorbed design blocks into a sparse CSR.
 
-    Each FE dimension contributes an ``(n_rows, G_k)`` indicator block.
-    The concatenated ``D`` has shape ``(n_rows, sum_k G_k)`` and is the
-    design matrix of the fixed-effect dummies.
+    Each FE dimension contributes an ``(n_rows, G_k)`` indicator block. A
+    varying-slope term contributes an ``(n_rows, G)`` block holding ``x``
+    in the level's column instead of ``1`` — and, when the term also
+    absorbs level intercepts, a plain indicator block alongside it.
     """
     from scipy import sparse as _sp
 
@@ -559,6 +851,16 @@ def _build_fe_design(
         G = int(codes.max()) + 1
         data = np.ones(n_rows, dtype=np.float64)
         blocks.append(_sp.csr_matrix((data, (rows, codes)), shape=(n_rows, G)))
+    for op in slope_ops or ():
+        if op.with_intercept:
+            blocks.append(
+                _sp.csr_matrix(
+                    (np.ones(n_rows), (rows, op.codes)), shape=(n_rows, op.n_levels)
+                )
+            )
+        blocks.append(
+            _sp.csr_matrix((op.x, (rows, op.codes)), shape=(n_rows, op.n_levels))
+        )
     return _sp.hstack(blocks, format="csr")
 
 
@@ -569,6 +871,7 @@ def _solve_krylov(
     solver: str,
     tol: float,
     maxiter: int,
+    slope_ops: Optional[Sequence[_SlopeOp]] = None,
 ) -> Tuple[np.ndarray, int, bool]:
     """One-column within-transformation via scipy.sparse.linalg.
 
@@ -579,7 +882,7 @@ def _solve_krylov(
     from scipy.sparse.linalg import lsmr, lsqr
 
     n = x.shape[0]
-    D = _build_fe_design(fe_codes, n)
+    D = _build_fe_design(fe_codes, n, slope_ops)
 
     if weights is not None:
         sw = np.sqrt(weights)
@@ -618,12 +921,13 @@ def _solve_krylov(
 
 def demean(
     x: np.ndarray,
-    fe: Union[pd.DataFrame, np.ndarray],
+    fe: Union[pd.DataFrame, np.ndarray, None],
     weights: Optional[np.ndarray] = None,
     drop_singletons: bool = True,
     tol: float = 1e-8,
     maxiter: int = 10_000,
     solver: str = "map",
+    slopes: Optional[Sequence[SlopeSpec]] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Return the within-transformed ``x`` and the singleton keep mask.
 
@@ -653,6 +957,8 @@ def demean(
         tol=tol,
         maxiter=maxiter,
         solver=solver,
+        slopes=slopes,
+        n_obs=np.asarray(x).shape[0],
     )
     xw = ab.demean(x)
     return xw, ab.keep_mask
@@ -666,7 +972,7 @@ def demean(
 def absorb_ols(
     y: np.ndarray,
     X: np.ndarray,
-    fe: Union[pd.DataFrame, np.ndarray],
+    fe: Union[pd.DataFrame, np.ndarray, None],
     weights: Optional[np.ndarray] = None,
     cluster: Optional[Union[np.ndarray, List[np.ndarray]]] = None,
     drop_singletons: bool = True,
@@ -674,6 +980,7 @@ def absorb_ols(
     maxiter: int = 10_000,
     return_absorber: bool = False,
     solver: str = "map",
+    slopes: Optional[Sequence[SlopeSpec]] = None,
 ) -> dict:
     """OLS with absorbed high-dimensional fixed effects (reghdfe-style).
 
@@ -744,6 +1051,8 @@ def absorb_ols(
         tol=tol,
         maxiter=maxiter,
         solver=solver,
+        slopes=slopes,
+        n_obs=n,
     )
     yw = ab.demean(y)
     Xw = ab.demean(X)
@@ -764,14 +1073,15 @@ def absorb_ols(
         coef = np.linalg.lstsq(XtX, Xty, rcond=None)[0]
     resid = yw - Xw @ coef
 
-    # DOF: n - p - Σ(G_k - 1) - 1_if_first_fe (the "one lost for mean" already in
-    # each FE's G-1; common intercept overlap handled by subtracting (K-1))
-    dof_fe = _absorbed_fe_dof(ab.n_fe)
+    # DOF: n - p - absorbed. Intercept-bearing FE dimensions share one
+    # constant between them (hence the K-1 credit); varying-slope terms are
+    # charged in full. See _absorbed_total_dof.
+    dof_fe = _absorbed_total_dof(ab.n_fe, ab.slope_ops)
     df_resid = ab.n_kept - p - dof_fe
     if df_resid <= 0:
         raise ValueError(  # pragma: no cover
-            f"Degrees of freedom exhausted: n_kept={ab.n_kept}, p={p}, dof_fe={dof_fe}. "
-            "Reduce regressors or drop a FE dimension."
+            f"Degrees of freedom exhausted: n_kept={ab.n_kept}, p={p}, "
+            f"dof_fe={dof_fe}. Reduce regressors or drop a FE dimension."
         )
 
     # Within R² (FE already swept)
@@ -803,6 +1113,7 @@ def absorb_ols(
             ab.fe_codes,
             ab.n_fe,
             cluster_sub,
+            ab.slope_ops,
         )
         vcov = _cluster_sandwich(
             Xw,
@@ -835,6 +1146,9 @@ def absorb_ols(
         "converged": ab._converged,
         "iters": ab._iters,
         "n_fe": ab.n_fe,
+        "n_slope_levels": ab.n_slope_levels,
+        "slope_names": [op.name for op in ab.slope_ops],
+        "n_slope_degenerate": [op.n_degenerate for op in ab.slope_ops],
     }
     if return_absorber:
         out["absorber"] = ab
@@ -851,6 +1165,48 @@ def _absorbed_fe_dof(fe_counts: List[int]) -> int:
     if not fe_counts:
         return 0
     return int(sum(int(G) for G in fe_counts) - (len(fe_counts) - 1))
+
+
+def _slope_intercept_counts(slope_ops: Sequence[_SlopeOp]) -> List[int]:
+    """Level counts of the intercept-bearing part of each slope term."""
+    return [op.n_levels for op in slope_ops if op.with_intercept]
+
+
+def _slope_dof(slope_ops: Sequence[_SlopeOp]) -> int:
+    """Slope parameters actually absorbed, net of rank-deficient levels.
+
+    A level whose within-level design is rank-deficient — an all-zero ``x``,
+    or (in the intercept-bearing case) an ``x`` collinear with the constant
+    — contributes a linearly dependent column that absorbs nothing, so it
+    must not be charged. ``reghdfe`` reaches the same number through its
+    ``Redundant`` column: ``absorb(big i.g#c.zc)`` with ``zc`` constant
+    within ``g`` reports ``40 categories − 1 redundant = 39``.
+    """
+    return int(sum(op.n_levels - op.n_degenerate for op in slope_ops))
+
+
+def _absorbed_total_dof(
+    fe_counts: List[int],
+    slope_ops: Sequence[_SlopeOp],
+) -> int:
+    """Absorbed parameter count including varying-slope terms (``e(df_a)``).
+
+    A varying-slope term absorbs ``G`` parameters — one slope per level —
+    and **not** ``G - 1``: the columns ``x · 1[g = j]`` do not contain the
+    constant, so no level is redundant against the intercept. Only the
+    intercept-bearing dimensions (ordinary FEs, plus the ``1[g = j]`` block
+    of an ``i.g##c.x`` term) share the single constant and therefore give
+    up ``K_intercept - 1`` degrees of freedom between them.
+
+    Verified against Stata ``reghdfe``'s ``e(df_a)`` — see
+    ``tests/test_hdfe_varying_slopes.py``. Example:
+    ``absorb(county i.pref#c.year)`` with 30 counties and 6 prefectures
+    reports ``e(df_a) = 36 = 30 + 6``, not ``35``.
+    """
+    intercept_counts = list(fe_counts) + _slope_intercept_counts(slope_ops)
+    dof = _absorbed_fe_dof(intercept_counts) if intercept_counts else 0
+    dof += _slope_dof(slope_ops)
+    return int(dof)
 
 
 def _codes_nested_in_cluster(
@@ -873,8 +1229,17 @@ def _cluster_effective_fe_dof(
     fe_codes: List[np.ndarray],
     fe_counts: List[int],
     cluster: Union[np.ndarray, List[np.ndarray]],
+    slope_ops: Sequence[_SlopeOp] = (),
 ) -> Tuple[int, List[bool]]:
-    """Return FE dof charged to CRV1 after omitting cluster-nested FEs."""
+    """Return FE dof charged to CRV1 after omitting cluster-nested FEs.
+
+    Varying-slope terms are always charged in full. A slope column
+    ``x · 1[g = j]`` is not constant within a cluster even when ``g`` is
+    nested in it, so the nesting redundancy that lets an ordinary FE be
+    dropped does not apply — this matches ``reghdfe``, which reports
+    ``e(df_a) = 6`` for ``absorb(county i.pref#c.year) vce(cluster county)``
+    (county dropped as nested, the 6 slopes retained).
+    """
     if not isinstance(cluster, list):
         clusters_list = [np.asarray(cluster)]
     else:
@@ -889,15 +1254,21 @@ def _cluster_effective_fe_dof(
                 for cluster_codes in cluster_codes_list
             )
         )
+    slope_dof = _slope_dof(slope_ops)
 
     if not any(nested):
-        return _absorbed_fe_dof(fe_counts), nested
+        return _absorbed_total_dof(fe_counts, slope_ops), nested
     effective_counts = [
         int(n_fe) for n_fe, is_nested in zip(fe_counts, nested) if not is_nested
     ]
+    effective_counts += _slope_intercept_counts(slope_ops)
     if not effective_counts:
-        return 1, nested
-    return _absorbed_fe_dof(effective_counts), nested
+        # Every intercept-bearing dimension is nested in a cluster and so
+        # drops out of the CRV1 parameter count — but the constant itself
+        # is not nested away and is still an estimated parameter, so it is
+        # charged its single degree of freedom on top of the slopes.
+        return slope_dof + 1, nested
+    return _absorbed_fe_dof(effective_counts) + slope_dof, nested
 
 
 def _cluster_sandwich(
@@ -939,11 +1310,13 @@ def _cluster_sandwich(
         M = len(clusters_list)
         for r in range(1, M + 1):
             for combo in combinations(range(M), r):
-                # intersection cluster: tuple of labels
-                inter = np.stack([clusters_list[i] for i in combo], axis=1)
-                inter_codes, _ = _factorize(
-                    pd.DataFrame(inter).astype(str).agg("\0".join, axis=1).values
-                )
+                # Intersection cluster: one group per distinct label tuple.
+                # ⚠ correctness fix — this previously joined the labels with
+                # "\0" and factorized the resulting strings, but pandas
+                # truncates object strings at a NUL byte, so every
+                # intersection collapsed back onto its first cluster
+                # variable and the inclusion-exclusion terms were wrong.
+                inter_codes, _ = _factorize_multi([clusters_list[i] for i in combo])
                 V += ((-1) ** (r + 1)) * _one_way(inter_codes)
         # PSD correction
         eigvals, eigvecs = np.linalg.eigh(V)
@@ -955,6 +1328,7 @@ def _cluster_sandwich(
 
 __all__ = [
     "Absorber",
+    "SlopeSpec",
     "demean",
     "absorb_ols",
 ]

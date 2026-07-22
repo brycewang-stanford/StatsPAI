@@ -36,7 +36,7 @@ from ..exceptions import MethodIncompatibility
 from .feols import FEOLSResult
 from .feols import feols as hdfe_feols
 from .feols import hdfe_ols
-from .hdfe import Absorber, absorb_ols, demean
+from .hdfe import Absorber, SlopeSpec, absorb_ols, demean
 from .panel_binary import panel_logit, panel_probit
 from .panel_plots import plot_within_between
 
@@ -282,6 +282,7 @@ __all__ = [
     "plot_within_between",
     # HDFE primitives (native Python)
     "Absorber",
+    "SlopeSpec",
     "demean",
     "absorb_ols",
     "hdfe_feols",

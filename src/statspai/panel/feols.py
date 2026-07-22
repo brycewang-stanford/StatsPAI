@@ -14,7 +14,34 @@ The pipe ``|`` separates regressors from absorbed fixed effects.
     "y ~ x1 + x2 | firm + year"     → two-way FE (firm, year)
     "y ~ x1 | firm + year + state"  → three-way FE
 
-Variables on both sides are bare column names (no Patsy syntax).
+The same term grammar is accepted on **both** sides of ``|``:
+
+    x            bare column
+    c.x          explicit continuous marker
+    i.f / i(f)   explicit categorical marker (base level omitted)
+    a:b          interaction of a and b
+    a*b          a + b + a:b (full factorial)
+    f1^f2        interacted categorical — one group per level combination
+    i.f#c.x      varying slope only        (Stata ``absorb(i.f#c.x)``)
+    i.f##c.x     group intercepts + slope  (Stata ``absorb(i.f##c.x)``)
+    f[[x]]       varying slope only        (fixest ``f[[x]]``)
+    f[x]         group intercepts + slope  (fixest ``f[x]``)
+
+Varying slopes
+--------------
+``i.f#c.x`` absorbs the columns ``x · 1[f = j]`` — one slope per level of
+``f``, with no intercepts — matching Stata's ``#``. ``i.f##c.x`` also
+absorbs the level dummies. Absorbing a slope term is equivalent by FWL to
+putting the same columns on the right-hand side, and is verified against
+``reghdfe`` in ``tests/test_hdfe_varying_slopes.py``.
+
+A varying-slope term consumes ``G`` degrees of freedom (one per level),
+not ``G - 1``: the slope columns do not contain the constant, so no level
+is redundant against the intercept.
+
+Anything else — arbitrary expressions such as ``np.log(x)`` or ``I(x**2)``
+— is rejected with a message naming the offending term. Use ``sp.feols``
+(pyfixest-backed) for the full Patsy/formulaic grammar.
 
 Inference
 ---------
@@ -32,14 +59,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from itertools import combinations
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
-from .hdfe import Absorber, absorb_ols
 from .._result_serialize import ResultProtocolMixin
+from .hdfe import Absorber, SlopeSpec, _factorize_multi, absorb_ols
 
 
 @dataclass
@@ -170,29 +198,374 @@ _FORMULA_RE = re.compile(
     re.VERBOSE,
 )
 
+_NAME = r"[A-Za-z_][A-Za-z_0-9]*"
 
-def _parse_formula(formula: str) -> tuple[str, List[str], List[str]]:
+_SUPPORTED_SYNTAX = (
+    "supported term syntax (both sides of '|'):\n"
+    "  x                bare column\n"
+    "  c.x              explicit continuous marker\n"
+    "  i.f  / i(f)      explicit categorical marker\n"
+    "  a:b              interaction of a and b\n"
+    "  a*b              a + b + a:b (full factorial)\n"
+    "  f1^f2            interacted categorical (combined group)\n"
+    "  i.f#c.x          varying slope only      (Stata absorb(i.f#c.x))\n"
+    "  i.f##c.x         group intercepts + slope (Stata absorb(i.f##c.x))\n"
+    "  f[x]             group intercepts + slope (fixest f[x])\n"
+    "  f[[x]]           varying slope only       (fixest f[[x]])"
+)
+
+
+@dataclass(frozen=True)
+class _Atom:
+    """One column reference inside an interaction, with its type marking."""
+
+    name: str
+    categorical: bool
+
+
+@dataclass(frozen=True)
+class _Term:
+    """A single parsed formula term.
+
+    ``kind='inter'`` covers bare columns, ``i.f``, ``a:b`` and ``f1^f2``
+    uniformly: they are all interactions of one or more :class:`_Atom`.
+    ``kind='slope'`` is a varying-slope term.
+    """
+
+    kind: str
+    atoms: tuple = ()
+    group: str = ""
+    x: str = ""
+    with_intercept: bool = False
+
+    @property
+    def columns(self) -> List[str]:
+        if self.kind == "slope":
+            return [self.group, self.x]
+        return [a.name for a in self.atoms]
+
+    @property
+    def label(self) -> str:
+        if self.kind == "slope":
+            sep = "##" if self.with_intercept else "#"
+            return f"i.{self.group}{sep}c.{self.x}"
+        return ":".join(
+            (f"i.{a.name}" if a.categorical else a.name) for a in self.atoms
+        )
+
+    @property
+    def is_plain_name(self) -> bool:
+        """True for a bare column name — the legacy-compatible fast path."""
+        return (
+            self.kind == "inter"
+            and len(self.atoms) == 1
+            and not self.atoms[0].categorical
+        )
+
+
+def _split_top(s: str, seps: str) -> List[str]:
+    """Split ``s`` on any char in ``seps`` at bracket depth zero."""
+    out: List[str] = []
+    buf: List[str] = []
+    depth = 0
+    for ch in s:
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        if depth == 0 and ch in seps:
+            out.append("".join(buf))
+            buf = []
+        else:
+            buf.append(ch)
+    out.append("".join(buf))
+    return [t.strip() for t in out]
+
+
+def _parse_atom(tok: str, side: str) -> _Term:
+    """Parse one indivisible term (no top-level ``+``, ``*`` or ``:``)."""
+    t = tok.strip()
+
+    # --- varying slopes -----------------------------------------------------
+    # Stata: i.f#c.x / i.f##c.x  (and the reversed c.x#i.f / c.x##i.f)
+    m = re.match(rf"^i\.({_NAME})(##|#)c\.({_NAME})$", t)
+    if m:
+        return _Term(
+            kind="slope",
+            group=m.group(1),
+            x=m.group(3),
+            with_intercept=(m.group(2) == "##"),
+        )
+    m = re.match(rf"^c\.({_NAME})(##|#)i\.({_NAME})$", t)
+    if m:
+        return _Term(
+            kind="slope",
+            group=m.group(3),
+            x=m.group(1),
+            with_intercept=(m.group(2) == "##"),
+        )
+    # fixest: f[[x]] = slope only, f[x] = intercepts + slope
+    m = re.match(rf"^({_NAME})\[\[({_NAME})\]\]$", t)
+    if m:
+        return _Term(kind="slope", group=m.group(1), x=m.group(2), with_intercept=False)
+    m = re.match(rf"^({_NAME})\[({_NAME})\]$", t)
+    if m:
+        return _Term(kind="slope", group=m.group(1), x=m.group(2), with_intercept=True)
+
+    # --- interacted categoricals: f1^f2^f3 ----------------------------------
+    if "^" in t:
+        parts = _split_top(t, "^")
+        atoms = []
+        for p in parts:
+            mm = re.match(rf"^(?:i\.)?({_NAME})$", p)
+            if not mm:
+                raise ValueError(
+                    f"feols: cannot parse {p!r} inside the interacted term "
+                    f"{t!r} on the {side} of '|'. Operands of '^' must be "
+                    f"column names.\n{_SUPPORTED_SYNTAX}"
+                )
+            atoms.append(_Atom(mm.group(1), True))
+        return _Term(kind="inter", atoms=tuple(atoms))
+
+    # --- single atoms -------------------------------------------------------
+    m = re.match(rf"^i\.({_NAME})$", t) or re.match(rf"^i\(\s*({_NAME})\s*\)$", t)
+    if m:
+        return _Term(kind="inter", atoms=(_Atom(m.group(1), True),))
+    m = re.match(rf"^c\.({_NAME})$", t)
+    if m:
+        return _Term(kind="inter", atoms=(_Atom(m.group(1), False),))
+    m = re.match(rf"^({_NAME})$", t)
+    if m:
+        return _Term(kind="inter", atoms=(_Atom(m.group(1), False),))
+
+    raise ValueError(
+        f"feols: cannot parse the term {t!r} on the {side} of '|'.\n"
+        f"{_SUPPORTED_SYNTAX}"
+    )
+
+
+def _parse_term(tok: str, side: str) -> List[_Term]:
+    """Parse one ``+``-separated token, expanding ``*`` and ``:``."""
+    t = tok.strip()
+
+    # a*b*c -> all main effects and all interactions (R/Stata factorial).
+    star = _split_top(t, "*")
+    if len(star) > 1:
+        if any(not p for p in star):
+            raise ValueError(
+                f"feols: malformed '*' interaction {t!r} on the {side} of "
+                f"'|'.\n{_SUPPORTED_SYNTAX}"
+            )
+        base = [_parse_atom(p, side) for p in star]
+        if any(b.kind == "slope" for b in base):
+            raise ValueError(
+                f"feols: '*' cannot combine varying-slope terms ({t!r} on the "
+                f"{side} of '|'). Write the slope term as its own '+' term.\n"
+                f"{_SUPPORTED_SYNTAX}"
+            )
+        out: List[_Term] = []
+        for r in range(1, len(base) + 1):
+            for combo in combinations(range(len(base)), r):
+                atoms: tuple = sum((base[i].atoms for i in combo), ())
+                out.append(_Term(kind="inter", atoms=atoms))
+        return out
+
+    # a:b -> a single interaction term
+    colon = _split_top(t, ":")
+    if len(colon) > 1:
+        if any(not p for p in colon):
+            raise ValueError(
+                f"feols: malformed ':' interaction {t!r} on the {side} of "
+                f"'|'.\n{_SUPPORTED_SYNTAX}"
+            )
+        parts = [_parse_atom(p, side) for p in colon]
+        if any(p.kind == "slope" for p in parts):
+            raise ValueError(
+                f"feols: ':' cannot combine varying-slope terms ({t!r} on the "
+                f"{side} of '|'). Write the slope term as its own '+' term.\n"
+                f"{_SUPPORTED_SYNTAX}"
+            )
+        atoms = sum((p.atoms for p in parts), ())
+        return [_Term(kind="inter", atoms=atoms)]
+
+    return [_parse_atom(t, side)]
+
+
+def _parse_side(s: str, side: str) -> List[_Term]:
+    if not s.strip():
+        return []
+    terms: List[_Term] = []
+    tokens = _split_top(s, "+")
+    if any(not tok for tok in tokens):
+        # An empty slot between '+' signs is a typo, not an empty side (an
+        # entirely blank side short-circuits above). Do not silently drop it.
+        raise ValueError(
+            f"feols: dangling '+' in {s.strip()!r} on the {side} of '|'.\n"
+            f"{_SUPPORTED_SYNTAX}"
+        )
+    for tok in tokens:
+        if tok == "1":
+            continue
+        if tok == "0":
+            raise ValueError(
+                f"feols: '0' (suppress intercept) is not supported on the "
+                f"{side} of '|'; the absorbed fixed effects already carry the "
+                f"constant.\n{_SUPPORTED_SYNTAX}"
+            )
+        terms.extend(_parse_term(tok, side))
+    return terms
+
+
+def _parse_formula(formula: str) -> tuple[str, List[_Term], List[_Term]]:
+    """Parse ``"y ~ rhs | fe"`` into a LHS name and two term lists.
+
+    Both sides accept the same grammar (see ``_SUPPORTED_SYNTAX``). Bare
+    column names parse to a single continuous :class:`_Atom` and are
+    materialized through the legacy fast path, so plain formulas behave
+    exactly as before.
+    """
     m = _FORMULA_RE.match(formula)
     if not m:
-        raise ValueError(f"Could not parse formula: {formula!r}")
+        raise ValueError(
+            f"feols: could not parse formula {formula!r}. Expected "
+            f"'y ~ x1 + x2 | fe1 + fe2' with a single '~' and at most one "
+            f"'|'.\n{_SUPPORTED_SYNTAX}"
+        )
     lhs = m.group("lhs").strip()
-    rhs_str = (m.group("rhs") or "").strip()
-    fe_str = (m.group("fe") or "").strip()
+    x_terms = _parse_side((m.group("rhs") or ""), "left")
+    fe_terms = _parse_side((m.group("fe") or ""), "right")
+    return lhs, x_terms, fe_terms
 
-    def _split(s: str) -> List[str]:
-        if not s:
-            return []
-        tokens = [t.strip() for t in s.split("+")]
-        tokens = [t for t in tokens if t and t != "1"]
-        if any(not re.match(r"^[A-Za-z_][A-Za-z_0-9]*$", t) for t in tokens):
-            raise ValueError(  # pragma: no cover
-                f"Only bare column names are supported in feols formulas; got: {s!r}"
-            )
-        return tokens
 
-    x_vars = _split(rhs_str)
-    fe_vars = _split(fe_str)
-    return lhs, x_vars, fe_vars
+# ======================================================================
+# Term materialization
+# ======================================================================
+
+
+def _dummies(values: pd.Series, drop_first: bool) -> tuple[np.ndarray, List[str]]:
+    """Level indicators for ``values``, Stata-style (levels sorted, base first)."""
+    levels = sorted(pd.unique(values.dropna()), key=lambda v: (str(type(v)), v))
+    if drop_first:
+        levels = levels[1:]
+    cols = [(values == lv).to_numpy(dtype=np.float64) for lv in levels]
+    names = [str(lv) for lv in levels]
+    if not cols:
+        return np.empty((len(values), 0)), []
+    return np.column_stack(cols), names
+
+
+def _materialize_rhs(
+    df: pd.DataFrame, terms: List[_Term]
+) -> tuple[np.ndarray, List[str]]:
+    """Build the regressor matrix for the left side of ``|``.
+
+    A bare column contributes itself. A categorical atom contributes
+    base-omitted level indicators. An interaction multiplies its atoms
+    together (expanding every categorical one). A varying-slope term
+    contributes the same columns Stata's ``regress`` would build for
+    ``i.f#c.x`` / ``i.f##c.x``.
+    """
+    # Fast path: all bare names -> exactly the legacy behaviour.
+    if terms and all(t.is_plain_name for t in terms):
+        names = [t.atoms[0].name for t in terms]
+        return df[names].to_numpy(dtype=np.float64), names
+
+    blocks: List[np.ndarray] = []
+    names_out: List[str] = []
+    for t in terms:
+        if t.kind == "slope":
+            g = df[t.group]
+            x = df[t.x].to_numpy(dtype=np.float64)
+            if t.with_intercept:
+                # Stata i.f##c.x == i.f (base omitted) + c.x + i.f#c.x (base
+                # omitted): the base level's slope is carried by c.x.
+                dm, lv = _dummies(g, drop_first=True)
+                blocks.append(dm)
+                names_out += [f"{t.group}::{v}" for v in lv]
+                blocks.append(x.reshape(-1, 1))
+                names_out.append(t.x)
+                blocks.append(dm * x[:, None])
+                names_out += [f"{t.group}::{v}#{t.x}" for v in lv]
+            else:
+                dm, lv = _dummies(g, drop_first=False)
+                blocks.append(dm * x[:, None])
+                names_out += [f"{t.group}::{v}#{t.x}" for v in lv]
+            continue
+
+        block = np.ones((len(df), 1))
+        labels = [""]
+        for atom in t.atoms:
+            if atom.categorical:
+                dm, lv = _dummies(df[atom.name], drop_first=True)
+                new_labels = [f"{atom.name}::{v}" for v in lv]
+            else:
+                dm = df[atom.name].to_numpy(dtype=np.float64).reshape(-1, 1)
+                new_labels = [atom.name]
+            # Column-wise (Khatri-Rao) product of what we have so far with
+            # this atom's expansion.
+            new_block = np.empty((len(df), block.shape[1] * dm.shape[1]))
+            new_lab: List[str] = []
+            k = 0
+            for i in range(block.shape[1]):
+                for j in range(dm.shape[1]):
+                    new_block[:, k] = block[:, i] * dm[:, j]
+                    k += 1
+                    new_lab.append(
+                        f"{labels[i]}:{new_labels[j]}" if labels[i] else new_labels[j]
+                    )
+            block, labels = new_block, new_lab
+        blocks.append(block)
+        names_out += labels
+
+    if not blocks:
+        return np.empty((len(df), 0)), []
+    return np.column_stack(blocks), names_out
+
+
+def _materialize_fe(
+    df: pd.DataFrame, terms: List[_Term]
+) -> tuple[Optional[np.ndarray], List[SlopeSpec], List[str]]:
+    """Split absorbed terms into an FE label matrix and varying-slope specs.
+
+    On the absorbed side every non-slope atom is categorical by
+    construction — ``a:b`` and ``a^b`` both mean "one fixed effect per
+    observed combination", matching ``fixest``'s ``fe1^fe2``.
+    """
+    fe_terms = [t for t in terms if t.kind != "slope"]
+    slope_terms = [t for t in terms if t.kind == "slope"]
+
+    fe_names = [t.label for t in fe_terms]
+    fe_mat: Optional[np.ndarray]
+    if not fe_terms:
+        fe_mat = None
+    elif all(len(t.atoms) == 1 for t in fe_terms):
+        # Fast path: all single columns -> exactly the legacy behaviour.
+        fe_mat = df[[t.atoms[0].name for t in fe_terms]].to_numpy()
+        fe_names = [t.atoms[0].name for t in fe_terms]
+    else:
+        cols = []
+        for t in fe_terms:
+            if len(t.atoms) == 1:
+                cols.append(df[t.atoms[0].name].to_numpy())
+            else:
+                # One absorbed group per distinct level combination. Uses
+                # integer code combination, not string joining — see
+                # hdfe._factorize_multi for why the latter is unsafe.
+                cols.append(
+                    _factorize_multi([df[a.name].to_numpy() for a in t.atoms])[0]
+                )
+        fe_mat = np.column_stack(cols)
+
+    slopes = [
+        SlopeSpec(
+            group=df[t.group].to_numpy(),
+            x=df[t.x].to_numpy(dtype=np.float64),
+            with_intercept=t.with_intercept,
+            name=t.label,
+        )
+        for t in slope_terms
+    ]
+    return fe_mat, slopes, fe_names
 
 
 # ======================================================================
@@ -226,7 +599,10 @@ def feols(
     ----------
     formula : str
         ``"y ~ x1 + x2 | fe1 + fe2 + fe3"``. The ``| fe...`` part is
-        optional.
+        optional. Both sides accept bare names, ``c.x`` / ``i.f``,
+        ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms
+        ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` — see the
+        module docstring for the full grammar.
     data : DataFrame
     weights : str or ndarray, optional
         Observation weights. Column name or raw array.
@@ -328,10 +704,12 @@ def feols(
             "conley_cutoff= (km)."
         )
 
-    lhs, x_vars, fe_vars = _parse_formula(formula)
+    lhs, x_terms, fe_terms = _parse_formula(formula)
+    x_vars = [c for t in x_terms for c in t.columns]
+    fe_vars = [t.label for t in fe_terms]
 
     # Collect all columns (y, x's, fe's, cluster, weight)
-    cols = [lhs] + list(x_vars) + list(fe_vars)
+    cols = [lhs] + x_vars + [c for t in fe_terms for c in t.columns]
     if _vce == "conley":
         # Coordinates ride along the same dropna so they stay row-aligned.
         cols += [conley_lat, conley_lon]
@@ -352,13 +730,12 @@ def feols(
         )  # pragma: no cover
 
     y_arr = df[lhs].to_numpy(dtype=np.float64)
-    if not x_vars:
+    if not x_terms:
         # Pure absorption (predict y from FE only) — trivial. Fit a constant.
         X_arr = np.ones((len(df), 1))
         x_names = ["_const"]
     else:
-        X_arr = df[x_vars].to_numpy(dtype=np.float64)
-        x_names = list(x_vars)
+        X_arr, x_names = _materialize_rhs(df, x_terms)
 
     w_arr = None
     if w_col is not None:
@@ -380,11 +757,12 @@ def feols(
                 f"or {len(df)}."
             )
 
-    if fe_vars:
-        fe_mat = df[fe_vars].to_numpy()
+    if fe_terms:
+        fe_mat, slope_specs, fe_vars = _materialize_fe(df, fe_terms)
     else:
+        fe_mat, slope_specs = None, []
         # No FE -> fall back to plain OLS/WLS with intercept.
-        if not x_vars:
+        if not x_terms:
             raise ValueError(
                 "Need at least one regressor or one FE."
             )  # pragma: no cover
@@ -393,7 +771,7 @@ def feols(
                 f"hdfe_ols vce={vce!r} needs at least one absorbed fixed "
                 "effect; use sp.regress for the no-FE SE menu."
             )
-        return _ols_no_fe(df, lhs, x_vars, w_arr, cluster_names, alpha, formula)
+        return _ols_no_fe(df, lhs, X_arr, x_names, w_arr, cluster_names, alpha, formula)
 
     cluster_arr = None
     if cluster_names:
@@ -411,6 +789,7 @@ def feols(
         tol=tol,
         maxiter=maxiter,
         return_absorber=True,
+        slopes=slope_specs,
     )
 
     coef = pd.Series(result["coef"], index=x_names, name="coef")
@@ -463,7 +842,7 @@ def feols(
             df_sub[lhs].to_numpy(dtype=np.float64), copy=True, already_masked=True
         )
         Xw = ab.demean(
-            df_sub[x_vars].to_numpy(dtype=np.float64), copy=True, already_masked=True
+            _materialize_rhs(df_sub, x_terms)[0], copy=True, already_masked=True
         )
         cl_w = df_sub[cluster_names[0]].to_numpy()
 
@@ -496,6 +875,7 @@ def feols(
     # (acreg planar). Same verified estimators as sp.regress / sp.feols /
     # sp.panel — computed on the absorber's within-transformed design.
     if _vce is not None:
+        from ..inference._psd import se_from_vcov
         from ..inference.jackknife import conley_vcov_matrix, cr_vcov_matrix
 
         ab = result["absorber"]
@@ -505,7 +885,7 @@ def feols(
             df_sub[lhs].to_numpy(dtype=np.float64), copy=True, already_masked=True
         )
         Xw = ab.demean(
-            df_sub[x_vars].to_numpy(dtype=np.float64), copy=True, already_masked=True
+            _materialize_rhs(df_sub, x_terms)[0], copy=True, already_masked=True
         )
         n_w, k_w = Xw.shape
 
@@ -544,9 +924,19 @@ def feols(
             se_type = f"Conley spatial HAC (acreg planar, {conley_cutoff} km)"
             df_infer = n_w - k_w
 
-        se = pd.Series(
-            np.sqrt(np.maximum(np.diag(vcov), 0)), index=x_names, name="std_err"
-        )
+        if _vce == "conley":
+            # Kernel-weighted HAC is not PSD by construction; a negative
+            # variance is estimator failure, not rounding, so it must not be
+            # clamped to 0 (see inference/_psd.py).
+            se = pd.Series(
+                se_from_vcov(vcov, list(x_names), estimator=se_type),
+                index=x_names,
+                name="std_err",
+            )
+        else:
+            se = pd.Series(
+                np.sqrt(np.maximum(np.diag(vcov), 0)), index=x_names, name="std_err"
+            )
         t_crit = stats.t.ppf(1 - alpha / 2, df_infer)
         t_stats = coef / se.replace(0, np.nan)
         pvals = pd.Series(
@@ -589,7 +979,8 @@ def feols(
 def _ols_no_fe(
     df: pd.DataFrame,
     lhs: str,
-    x_vars: List[str],
+    X_arr: np.ndarray,
+    x_names: List[str],
     weights: Optional[np.ndarray],
     cluster_names: List[str],
     alpha: float,
@@ -597,8 +988,8 @@ def _ols_no_fe(
 ) -> FEOLSResult:
     """Plain OLS/WLS with intercept when no FE is absorbed."""
     y = df[lhs].to_numpy(dtype=np.float64)
-    X = np.column_stack([np.ones(len(df)), df[x_vars].to_numpy(dtype=np.float64)])
-    names = ["_const"] + list(x_vars)
+    X = np.column_stack([np.ones(len(df)), X_arr])
+    names = ["_const"] + list(x_names)
     n, k = X.shape
 
     w = None if weights is None else np.asarray(weights, dtype=np.float64).ravel()

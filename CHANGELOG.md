@@ -6,6 +6,56 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **Conley spatial + time HAC (`sp.conley`).** `sp.conley` gains `time=`,
+  `lag_cutoff=`, `time_kernel=`, `unit=`, `lag_cutoff_cross=`, and
+  `distance=` for a full spatio-temporal HAC in the Hsiang (2010) / Stata
+  `acreg` style: a spatial kernel times a time kernel (uniform or Bartlett),
+  with per-`unit` de-duplication so the KD-tree is built on the distinct
+  locations (e.g. 575 counties) rather than every panel row. Standard errors
+  match Stata `acreg ..., spatial lag() id() time() hac bartlett` to ~1e-14
+  and the 575×262 = 150,650-row stress case runs in ~2 s at ~280 MB (the
+  dense form would need ~180 GB). Spatial-only calls are bit-identical to
+  before. [@conley1999estimation; @hsiang2010temperatures]
+- **Varying-slope fixed effects in the native HDFE kernel.** `sp.hdfe_ols`
+  now absorbs `i.f#c.x` (slope-only) and `i.f##c.x` (intercept + slope),
+  plus the fixest `f[x]` / `f[[x]]` forms, via new `sweep_slope` kernels in
+  the alternating-projections engine (weighted paths included). Coefficients,
+  SEs, and `e(df_a)` match Stata `reghdfe absorb(i.f#c.x)` to ~1e-6 across
+  19 kernel and 41 formula configurations. The `panel/feols.py` parser now
+  accepts `a:b`, `a*b`, `f1^f2`, `i.f#c.x`, `i.f##c.x`, and `f[x]` on both
+  sides of `|`, matching the pyfixest-backed `sp.feols`. `sp.SlopeSpec`
+  exposes the programmatic form.
+- **Event-study binning and interval reference periods.** `sp.event_study`
+  gains `bin_width=` (decade-style bins anchored at the treatment boundary,
+  so τ=-1 and τ=0 never share a bin) and an extended `ref_period=` accepting
+  `("<=", -50)` / `(">=", 20)` / `[-3, -2, -1]` for a whole omitted base
+  span — the standard AER event-study layout. Plain-int `ref_period` is
+  bit-identical to before.
+- **`sp.parallel_trends_robustness`.** One call chains the joint pre-trend
+  test, Roth (2022) power, and Rambachan-Roth (2023) honest CIs with a
+  breakdown `Mbar*` per restriction family (SD / RM), returning a result
+  with `.summary()` / `.plot()` / `.to_latex()` and a one-line verdict.
+  [@rambachan2023more; @roth2022pretest]
+- **`sp.cic` covariates (Athey-Imbens two-step).** `sp.cic(..., covariates=)`
+  residualizes on the covariates and the group×time design (A&I 2006 p. 466)
+  and bootstraps **both** stages jointly, re-fitting the first stage inside
+  every replicate. Bootstrapping step 2 alone (the hand-rolled
+  feols→residuals→cic recipe) holds the first-stage coefficients fixed and
+  understates the SE by ~4-8%.
+- **GIS panel pre-processing (`sp.line_length_in_polygon`,
+  `sp.share_within_buffer`, `sp.distance_to_feature`).** Thin geopandas
+  wrappers (optional `pip install statspai[spatial]` extra) with a strict CRS
+  guard: they refuse to compute a length or buffer in a geographic CRS
+  (degrees) and name a suitable projection instead, rather than returning
+  plausible-but-meaningless numbers. New guide
+  `docs/guides/gis_panel_construction.md`.
+- **Agent-native negative guidance.** `FunctionSpec` gains
+  `not_recommended_when` and `cost_profile`; ~26 high-risk entries (the DiD
+  family, the dense-`O(n²)` `feols`/`hdfe_ols`/`ppmlhdfe` `vce="conley"`
+  paths, the synth family, `optimal_match`) now tell an agent when *not* to
+  call them and what they cost, surfaced on the description, agent card, and
+  JSON schema.
+
 - **References sections on core estimator docstrings.** `sp.did`,
   `sp.did_2x2`, `sp.iv` (module + `IVRegression` + legacy `ivreg`),
   `sp.metalearner`, `sp.match`, `sp.aipw`, `sp.aggte`, `sp.event_study`,
@@ -25,6 +75,42 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.feols` refuses silently-dropped varying slopes.** The pyfixest
+  backend accepts `y ~ d | county + pref[year]` but does not absorb the
+  slope — it returned the same estimate as `y ~ d | county` (off Stata
+  `reghdfe` by ~5× on the test fixture) with no warning. `sp.feols` /
+  `sp.fepois` / `sp.feglm` now raise `MethodIncompatibility` naming the two
+  correct paths (`i(f, x)` on the RHS, or `sp.hdfe_ols` with `i.f#c.x`).
+- **Conley SE coordinate alignment fails loudly instead of mis-pairing.**
+  When the estimator dropped rows (missing values / singleton FE), the
+  `vce="conley"` path had no reliable record of which rows survived, so
+  positional coordinate pairing could attach a residual to the wrong
+  location. It now requires the coordinate frame to line up one-to-one with
+  the design and, when it doesn't, raises with a `dropna`/`reset_index`
+  recipe rather than guessing.
+- **`sp.event_study` exposes the pre-period covariance (opt-in this
+  release).** It now computes the full cluster-robust covariance of the
+  event-time coefficients (always in `model_info['vcov']`). The pre-period
+  submatrix that flips `pretrends_test` / `pretrends_power` /
+  `sensitivity_rr` / `honest_did` from the historical diagonal
+  (independent-pre-coefficients) approximation onto the correct covariance
+  is written only with `expose_pre_vcov=True` for now, to hold published
+  honest-DiD numbers stable during the JOSS review; the diagonal fallback
+  still fires by default **and now warns loudly** that it is assuming
+  independence. The default becomes the full covariance in a future release
+  (as a flagged ⚠️ correctness fix).
+- **`sp.pipeline_did`'s honest-DiD stage now runs.** It called
+  `honest_did(betas=, sigma=, num_pre_periods=, …)`, a signature that has
+  not existed for several releases, so the stage raised and was recorded as
+  `failed` on every run; a second guard using a stale extractor skipped it
+  even when the call was fixed. Both are corrected, and an inapplicable
+  design (a 2×2 DiD with no pre-periods) is now reported as `skipped`, not
+  `failed`. Dead legacy `betas=/sigma=` branches removed from
+  `agent/workflow_tools.py` and `agent/pipeline_tools.py`.
+- **Recoverable agent-tool argument errors.** Missing-argument errors on the
+  agent surface (`detect_design`, `preflight`, `cross_validate`,
+  `honest_did_from_result`) now follow "expected argument X, got […]; try
+  `corrected_call(...)`" instead of a bare requirement string.
 - **`sp.session()` RNG hooks fail loudly.** The four
   `except Exception: pass` sites around torch/jax RNG
   snapshot/seed/restore now emit `StatsPAIWarning` describing exactly
@@ -60,6 +146,38 @@ These change point estimates (or turn silent wrong answers into errors) for
 the affected calls. See `MIGRATION.md` before comparing new output to earlier
 StatsPAI runs.
 
+- **`sp.cic` now reproduces the Athey-Imbens estimator (Stata `cic`).** The
+  step-2 counterfactual composed the empirical CDFs with the control-post
+  (`y01`) and treated-pre (`y10`) cells transposed relative to A&I (2006)
+  eq. 9, and used linearly-interpolated CDF/quantile functions on a finite τ
+  grid instead of the step-function ECDF and its generalized inverse. The
+  unconditional ATT converged ~0.5% away from the reference (2.8% with
+  covariates). It now computes `k(y) = F_01⁻¹(F_00(y))` on the step ECDF and
+  matches Kranker's Stata `cic` (a direct port of the A&I Matlab) to the
+  printed digits — e.g. 2.999904 on the test fixture, where the old
+  grid-dependent code gave 3.01792 at the default `n_grid=200` (3.01388 in
+  the large-grid limit).
+  Every `sp.cic` point estimate and QTE moves slightly. [@athey2006identification]
+- **Multiway cluster-robust SEs in the panel HDFE path no longer collapse.**
+  `sp.hdfe_ols` / `sp.feols`' native N-way cluster sandwich built its
+  intersection clusters by `"\0".join`-ing the dimension labels, but
+  `pd.factorize` truncates object strings at an embedded NUL byte — so every
+  intersection collapsed onto its first cluster variable and, e.g.,
+  `cluster(prov, year)` and `cluster(pref, year)` returned *identical* SEs.
+  Replaced with a mixed-radix integer code combination (`_factorize_multi`),
+  mirroring the v1.17.0 fix already applied to the standalone
+  `sp.multiway_cluster_vcov` inference path. Two-way and higher cluster SEs
+  from the panel HDFE path change (toward Stata `reghdfe`).
+- **Conley non-positive-definite variances now report `nan`, not `0`.**
+  Kernel-weighted spatial HAC is not PSD by construction; with a uniform
+  kernel `S'WS` routinely lands with negative diagonal entries (Stata `acreg`
+  reports those SEs as missing). Every Conley path
+  (`sp.conley`, `feols`/`hdfe_ols` `vce="conley"`) previously ran the
+  variance through `sqrt(max(V, 0))`, silently turning a negative variance
+  into `se = 0` — i.e. `t = ∞`, `p = 0`. Such terms now return `nan` with a
+  loud `RuntimeWarning` naming remedies (rounding-level negatives are still
+  clamped silently). The underlying covariance is unchanged and still matches
+  `acreg` to ~1e-12 where it is PSD.
 - **`sp.proximal_surrogate_index` point estimates no longer depend on the
   units of the proxy `W`.** The linear bridge was fit with a second-stage
   design `[1, W, S_hat, X]`, but `S_hat` (the stage-1 projection of `S` on

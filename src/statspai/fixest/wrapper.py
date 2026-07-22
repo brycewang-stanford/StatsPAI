@@ -6,6 +6,7 @@ StatsPAI's ``EconometricResults``, making them compatible with
 ``outreg2`` and the rest of the StatsPAI ecosystem.
 """
 
+import re
 from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
@@ -18,6 +19,57 @@ from .adapter import _multi_fit_to_results, _pyfixest_to_econometric_results
 
 #: vcov sentinels (case-insensitive) that select the wild cluster bootstrap.
 _WILD_VCOV = frozenset({"wild", "wildbootstrap", "wild_cluster", "wcr", "boottest"})
+
+#: fixest-style varying-slope FE, e.g. ``firm[year]`` / ``firm[[year]]``.
+_VARYING_SLOPE_RE = re.compile(r"([A-Za-z_]\w*)\s*\[\[?\s*([^\]]+?)\s*\]\]?")
+
+#: Stata-style varying-slope FE, e.g. ``i.pref#c.year``.
+_STATA_SLOPE_RE = re.compile(r"i\.\s*([A-Za-z_]\w*)\s*#\s*c\.\s*([A-Za-z_]\w*)")
+
+
+def _fe_part(fml: str) -> str:
+    """Return the fixed-effects segment of a fixest formula (empty if none).
+
+    ``y ~ x | fe1 + fe2`` -> ``fe1 + fe2``. For IV formulas
+    (``y ~ x | fe | d ~ z``) only the FE segment is returned.
+    """
+    parts = fml.split("|")
+    return parts[1] if len(parts) > 1 else ""
+
+
+def _reject_silent_varying_slopes(fml: str) -> None:
+    """Fail loudly on varying-slope FE syntax that pyfixest silently ignores.
+
+    pyfixest (as of 0.50.1) *parses* ``y ~ d | county + pref[year]`` without
+    error but never absorbs the slope: the fit is bit-identical to
+    ``y ~ d | county``. Stata's ``reghdfe absorb(county i.pref#c.year)``
+    absorbs it, so the two disagree — silently, and by a wide margin.
+
+    Returning a quietly-wrong coefficient is the worst possible outcome, so we
+    refuse to run and point at the two paths that are actually correct.
+    """
+    fe = _fe_part(fml)
+    if not fe:
+        return
+
+    slope = _VARYING_SLOPE_RE.search(fe)
+    stata = _STATA_SLOPE_RE.search(fe)
+    if slope is None and stata is None:
+        return
+
+    factor, var = (slope or stata).groups()  # type: ignore[union-attr]
+    shown = (slope or stata).group(0)  # type: ignore[union-attr]
+    raise MethodIncompatibility(
+        f"feols() cannot absorb the varying slope {shown!r}: the pyfixest "
+        f"backend accepts this syntax but silently drops the slope, returning "
+        f"the same estimate as if you had omitted it entirely.\n"
+        f"Two paths give the correct (Stata reghdfe-equivalent) answer:\n"
+        f"  1. Estimate the slope instead of absorbing it — move it to the "
+        f"right-hand side:\n"
+        f"       sp.feols('... + i({factor}, {var}) | <other FE>', data=...)\n"
+        f"  2. Absorb it with StatsPAI's own HDFE kernel:\n"
+        f"       sp.hdfe_ols('... | <other FE> + i.{factor}#c.{var}', data=...)"
+    )
 
 
 def _check_pyfixest() -> Any:
@@ -755,6 +807,8 @@ def feols(
     >>> r2 = sp.feols("y ~ x1 | firm", data=df)  # doctest: +SKIP
     >>> sp.outreg2(r1, r2, filename="table.xlsx")  # doctest: +SKIP
     """
+    _reject_silent_varying_slopes(fml)
+
     # Wild cluster bootstrap path (Stata ``boottest`` / ``vce()``-style):
     #   sp.feols("y ~ x | firm", data=df, vce="wild", cluster="firm")
     if isinstance(vcov, str) and vcov.lower() in _WILD_VCOV:
@@ -935,6 +989,8 @@ def fepois(
     >>> res = sp.fepois("y ~ x1 | firm", data=df, vce="CR2",  # doctest: +SKIP
     ...                 cluster="firm")
     """
+    _reject_silent_varying_slopes(fml)
+
     # Conley spatial HAC (conleyreg spherical convention).
     if isinstance(vcov, str) and vcov.lower() == "conley":
         if weights is not None:
@@ -1100,6 +1156,8 @@ def feglm(
     >>> "x1" in res.params.index  # doctest: +SKIP
     True
     """
+    _reject_silent_varying_slopes(fml)
+
     # Conley spatial HAC (conleyreg spherical convention).
     if isinstance(vcov, str) and vcov.lower() == "conley":
         return _feglm_conley(

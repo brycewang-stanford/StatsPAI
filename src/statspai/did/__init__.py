@@ -65,6 +65,10 @@ from .pretrends import (
     sensitivity_rr,
 )
 from .report import CSReport, cs_report
+from .robustness_pipeline import (
+    ParallelTrendsRobustnessResult,
+    parallel_trends_robustness,
+)
 from .stacked_did import stacked_did
 from .summary import (
     did_report,
@@ -760,6 +764,8 @@ __all__ = [
     "sensitivity_rr",
     "SensitivityResult",
     "pretrends_summary",
+    "parallel_trends_robustness",
+    "ParallelTrendsRobustnessResult",
     # Plots
     "parallel_trends_plot",
     "bacon_plot",

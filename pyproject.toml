@@ -102,6 +102,17 @@ bayes = [
     "pymc>=5.0",
     "arviz>=0.15",
 ]
+spatial = [
+    # Optional GIS stack. Required by ``statspai.spatial.utils`` (shapefile ->
+    # panel pre-processing) and by the geometry-backed spatial weights in
+    # ``statspai.spatial.weights``; both soft-import geopandas and raise an
+    # actionable ImportError when it is absent, so the core install stays lean.
+    # See docs/guides/gis_panel_construction.md.
+    "geopandas>=0.14",
+    "libpysal>=4.10",
+    "shapely>=2.0",
+    "matplotlib>=3.8",
+]
 text = [
     "sentence-transformers>=2.2.0",
 ]

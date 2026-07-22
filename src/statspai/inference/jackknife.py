@@ -30,6 +30,7 @@ import pandas as pd
 
 from ..core.results import EconometricResults
 from ..exceptions import MethodIncompatibility
+from ._psd import se_from_vcov
 
 
 def jackknife_se(
@@ -877,20 +878,75 @@ def conley_vcov_ols(
     y = np.asarray(iv["y"], dtype=float).ravel()
     names = list(iv["var_names"])
     n = X.shape[0]
-    for c in (lat, lon):
-        if c not in data.columns or data[c].isna().any() or len(data[c]) != n:
-            raise MethodIncompatibility(
-                f"Coordinate column {c!r} must be present, complete, and "
-                "row-aligned to the fitted sample."
-            )
+    coords = _align_to_fitted_sample(data, [lat, lon], n)
     vcov = conley_vcov_matrix(
         X,
         y,
-        data[lat].to_numpy(dtype=float),
-        data[lon].to_numpy(dtype=float),
+        coords[lat].to_numpy(dtype=float),
+        coords[lon].to_numpy(dtype=float),
         dist_cutoff,
     )
-    return pd.Series(np.sqrt(np.maximum(np.diag(vcov), 0)), index=names)
+    return pd.Series(
+        se_from_vcov(
+            vcov, names, estimator="Conley spatial HAC (uniform kernel, acreg planar)"
+        ),
+        index=names,
+    )
+
+
+def _align_to_fitted_sample(
+    data: "pd.DataFrame",
+    columns: "List[str]",
+    n: int,
+) -> "pd.DataFrame":
+    """Return ``data[columns]``, refusing unless it lines up with the design.
+
+    Spatial HAC pairs each observation's score with that observation's
+    coordinates, so the coordinate rows and the design rows must be the same
+    observations in the same order. The estimator drops rows with NA in any
+    model column (and optionally singleton FE groups), which silently breaks
+    that correspondence: score *i* would be attributed to some other unit's
+    location, and nothing in the output would look wrong.
+
+    We cannot repair this automatically. pyfixest does not expose a
+    trustworthy record of which rows survived — ``fit._data.index`` is reset
+    to a positional range for several common index types, and for a shuffled
+    integer index those positional labels still pass an ``isin`` check while
+    referring to different rows. So the only safe contract is positional, and
+    a length mismatch is a hard error telling the caller how to fix it.
+    """
+    missing = [c for c in columns if c not in data.columns]
+    if missing:
+        raise MethodIncompatibility(
+            f"Column(s) {missing} not found in data. Available: "
+            f"{list(data.columns)[:20]}"
+        )
+
+    if len(data) != n:
+        raise MethodIncompatibility(
+            f"`data` has {len(data)} rows but the fitted design has {n}: "
+            f"{len(data) - n} row(s) were dropped during estimation (missing "
+            f"values in a model column, or singleton fixed-effect groups). "
+            f"Spatial HAC needs coordinates aligned one-to-one with the "
+            f"design, and which rows were dropped is not recoverable from the "
+            f"fit, so pairing them positionally now would attach each "
+            f"residual to the wrong location.\n"
+            f"Fix: restrict the frame to complete cases first, then estimate "
+            f"on it —\n"
+            f"    cols = [<y>, <x vars>, <fe vars>, {columns!r}]\n"
+            f"    data = data.dropna(subset=cols).reset_index(drop=True)\n"
+            f"so the coordinates and the design describe the same rows."
+        )
+
+    sub = data.loc[:, columns]
+    bad = [c for c in columns if sub[c].isna().any()]
+    if bad:
+        raise MethodIncompatibility(
+            f"Coordinate column(s) {bad} contain missing values. Spatial HAC "
+            f"needs a location for every observation in the design; drop those "
+            f"rows (and re-estimate) before requesting Conley SEs."
+        )
+    return sub
 
 
 def conley_vcov_matrix(

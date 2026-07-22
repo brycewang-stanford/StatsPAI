@@ -102,17 +102,29 @@ def tool_manifest(*, curated_only: bool = False) -> List[Dict[str, Any]]:
     # closes the chained "fit → audit → sensitivity" loop. Append
     # before the auto-merge so collisions on auto-generated stubs of
     # the same name resolve to the hand-curated version.
-    from ..workflow_tools import workflow_tool_manifest
     from ..pipeline_tools import pipeline_tool_manifest
+    from ..workflow_tools import workflow_tool_manifest
+
+    # Curated workflow/pipeline tools carry a hand-written description but,
+    # like the TOOL_REGISTRY entries above, must still advertise their
+    # registry validation tier so the manifest wording stays consistent with
+    # `describe_function(...)['validation_status']` (a "validated" tool such
+    # as `bibtex` otherwise silently omits its tier line).
+    def _with_tier(entry: Dict[str, Any]) -> Dict[str, Any]:
+        out = dict(entry)
+        out["description"] = _description_with_validation_tier(
+            entry.get("description", ""), entry["name"]
+        )
+        return out
 
     seen = {t["name"] for t in curated}
     for wt in workflow_tool_manifest():
         if wt["name"] not in seen:
-            curated.append(wt)
+            curated.append(_with_tier(wt))
             seen.add(wt["name"])
     for pt in pipeline_tool_manifest():
         if pt["name"] not in seen:
-            curated.append(pt)
+            curated.append(_with_tier(pt))
             seen.add(pt["name"])
 
     if curated_only:
@@ -247,10 +259,7 @@ def execute_tool(
     # Workflow / result-handle tools live outside the curated
     # TOOL_REGISTRY (they're synthesised) but must be dispatched here so
     # the MCP layer never needs to know about a separate registry.
-    from ..workflow_tools import (
-        WORKFLOW_TOOL_NAMES,
-        execute_workflow_tool,
-    )
+    from ..workflow_tools import WORKFLOW_TOOL_NAMES, execute_workflow_tool
 
     if name in WORKFLOW_TOOL_NAMES:
         return execute_workflow_tool(
@@ -265,10 +274,7 @@ def execute_tool(
     # Composite pipeline tools (pipeline_did / pipeline_iv / pipeline_rd
     # — multi-stage end-to-end workflows). They embed result-cache
     # writes themselves, so we don't re-cache here.
-    from ..pipeline_tools import (
-        PIPELINE_TOOL_NAMES,
-        execute_pipeline_tool,
-    )
+    from ..pipeline_tools import PIPELINE_TOOL_NAMES, execute_pipeline_tool
 
     if name in PIPELINE_TOOL_NAMES:
         return execute_pipeline_tool(

@@ -32,33 +32,27 @@ Examples
 >>> lms = sp.lm_tests("y ~ x1 + x2", df, w)
 """
 
-from .models import sar, sem, sdm, SpatialModel
-from .models.ml import slx, sac
-from .models.gmm import sar_gmm, sem_gmm, sarar_gmm
+from .did import SpatialDiDResult, spatial_did
+from .esda import geary, getis_ord_g, getis_ord_local, join_counts, moran, moran_local
+from .esda.plots import lisa_cluster_map, moran_plot
+from .gwr import GWRResult, MGWRResult, gwr, gwr_bandwidth, mgwr
+from .iv import SpatialIVResult, spatial_iv
+from .models import SpatialModel, sar, sdm, sem
 from .models.diagnostics import lm_tests, moran_residuals
+from .models.gmm import sar_gmm, sarar_gmm, sem_gmm
 from .models.impacts import impacts
-from .gwr import gwr, mgwr, gwr_bandwidth, GWRResult, MGWRResult
-from .panel import spatial_panel, SpatialPanelResult
+from .models.ml import sac, slx
+from .panel import SpatialPanelResult, spatial_panel
+from .utils import distance_to_feature, line_length_in_polygon, share_within_buffer
 from .weights import (
     W,
-    queen_weights,
-    rook_weights,
-    knn_weights,
+    block_weights,
     distance_band,
     kernel_weights,
-    block_weights,
+    knn_weights,
+    queen_weights,
+    rook_weights,
 )
-from .esda import (
-    moran,
-    moran_local,
-    geary,
-    getis_ord_g,
-    getis_ord_local,
-    join_counts,
-)
-from .esda.plots import moran_plot, lisa_cluster_map
-from .did import spatial_did, SpatialDiDResult
-from .iv import spatial_iv, SpatialIVResult
 
 __all__ = [
     # weights
@@ -106,4 +100,8 @@ __all__ = [
     "SpatialDiDResult",
     "spatial_iv",
     "SpatialIVResult",
+    # GIS pre-processing (optional geopandas extra)
+    "line_length_in_polygon",
+    "share_within_buffer",
+    "distance_to_feature",
 ]

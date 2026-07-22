@@ -576,6 +576,41 @@ def execute_workflow_tool(
 # ----------------------------------------------------------------------
 
 
+def _missing_argument_error(
+    *,
+    tool: str,
+    argument: str,
+    arguments: Dict[str, Any],
+    corrected: str,
+    hint: str = "",
+) -> Dict[str, Any]:
+    """Build a *recoverable* "wrong/missing argument" payload.
+
+    Agent-usability rule (CLAUDE.md §3.2 / §7): an error an agent cannot act
+    on costs a whole turn of guessing.  Every argument error on the
+    agent-facing surface therefore states three things — what was expected,
+    what actually arrived, and a corrected call the agent can copy — instead
+    of the bare ``"<tool> requires <arg>"`` this replaces.
+
+    ``got`` lists the keys the caller *did* send, which is what makes a
+    near-miss (``betas=`` for ``result=``, ``df=`` for ``data_path=``)
+    self-diagnosing rather than a guessing game.
+    """
+    got = sorted(k for k, v in arguments.items() if v is not None)
+    payload: Dict[str, Any] = {
+        "error": (
+            f"{tool}: expected argument `{argument}`, got "
+            f"{got if got else 'no arguments'}"
+        ),
+        "expected_argument": argument,
+        "got_arguments": got,
+        "try": corrected,
+    }
+    if hint:
+        payload["hint"] = hint
+    return payload
+
+
 def _need_result(rid: Optional[str]) -> Any:
     """Resolve a result_id to its cached object or raise a friendly dict."""
     if not rid:
@@ -955,65 +990,61 @@ def _tool_honest_did_from_result(
         "smoothness": "smoothness",
         "relative_magnitude": "relative_magnitude",
     }.get(method_key, method_arg)
-    legacy_method = {
-        "sd": "SD",
-        "smoothness": "SD",
-        "rm": "RM",
-        "relative_magnitude": "RM",
-    }.get(method_key, method_arg)
     event_time = int(arguments.get("e", 0))
     m_bar = arguments.get("m_bar")
     m_grid = [float(m_bar)] if m_bar is not None else None
 
     event_result = _coerce_event_study_result(obj)
-    current_api_failed: Optional[Exception] = None
+    call_kwargs: Dict[str, Any] = {"e": event_time, "method": method}
+    if m_grid is not None:
+        call_kwargs["m_grid"] = m_grid
     try:
-        kwargs = {"e": event_time, "method": method}
-        if m_grid is not None:
-            kwargs["m_grid"] = m_grid
-        result = fn(event_result, **kwargs)
+        result = fn(event_result, **call_kwargs)
     except Exception as exc:
-        current_api_failed = exc
+        # There is deliberately no legacy fallback here.  A branch that
+        # re-called ``sp.honest_did(betas=..., sigma=...,
+        # num_pre_periods=..., num_post_periods=..., method=...)`` used to
+        # live at this spot; that signature no longer exists — the current
+        # one is ``honest_did(result, e=0, m_grid=None, method=...)`` — so
+        # the branch could only ever raise ``TypeError: honest_did() got an
+        # unexpected keyword argument 'betas'``, masking the real upstream
+        # error behind a bogus one.  Report what actually happened instead.
+        from .remediation import remediate
 
-    if current_api_failed is not None:
-        betas, sigma, n_pre, n_post = _extract_event_study(obj)
-        if betas is None or sigma is None:
-            return {
-                "error": (
-                    "could not extract event-study coefficients + "
-                    "covariance from the cached result"
-                ),
-                "hint": (
-                    "honest_did_from_result expects a result fitted by "
-                    "sp.event_study / sp.callaway_santanna / "
-                    "sp.did_imputation / sp.sun_abraham. Run one of "
-                    "those with as_handle=true first."
-                ),
-                "upstream_error": (
-                    f"{type(current_api_failed).__name__}: {current_api_failed}"
-                ),
-            }
-        kwargs = dict(
-            betas=list(betas),
-            sigma=_listify_sigma(sigma),
-            num_pre_periods=int(n_pre),
-            num_post_periods=int(n_post),
-            method=legacy_method,
+        rendered = ", ".join(
+            [f"<result_id={rid!r}>"] + [f"{k}={v!r}" for k, v in call_kwargs.items()]
         )
-        if m_bar is not None:
-            kwargs["m_bar"] = float(m_bar)
-        try:
-            result = fn(**kwargs)
-        except Exception as e:
-            from .remediation import remediate
-
-            return {
-                "error": f"{type(e).__name__}: {e}",
-                "remediation": remediate(
-                    e,
-                    context={"tool": "honest_did_from_result"},
-                ),
-            }
+        payload: Dict[str, Any] = {
+            "error": f"{type(exc).__name__}: {exc}",
+            "failed_call": f"sp.honest_did({rendered})",
+            "hint": (
+                "sp.honest_did takes a fitted result as its first positional "
+                "argument: honest_did(result, e=0, m_grid=None, "
+                "method='smoothness'|'relative_magnitude'). It does NOT take "
+                "betas= / sigma= / num_pre_periods= / num_post_periods=. "
+                "honest_did_from_result expects a result_id produced by "
+                "sp.event_study / sp.callaway_santanna / sp.did_imputation / "
+                "sp.sun_abraham — run one of those with as_handle=true first."
+            ),
+            "remediation": remediate(
+                exc,
+                context={"tool": "honest_did_from_result"},
+            ),
+        }
+        betas, sigma, _n_pre, _n_post = _extract_event_study(obj)
+        if betas is None or sigma is None:
+            payload["diagnosis"] = (
+                "no event-study coefficients + covariance could be found on "
+                "the cached result, so it is very likely not an event-study "
+                "/ staggered-DiD result at all."
+            )
+        else:
+            payload["diagnosis"] = (
+                "event-study coefficients were found on the cached result, so "
+                "the failure is in sp.honest_did itself rather than in the "
+                "shape of the upstream result."
+            )
+        return payload
 
     if isinstance(result, pd.DataFrame):
         out = {
@@ -1135,7 +1166,12 @@ def _tool_detect_design(
     as_handle: bool,
 ) -> Dict[str, Any]:
     if data is None:
-        return {"error": "detect_design requires data_path"}
+        return _missing_argument_error(
+            tool="detect_design",
+            argument="data_path",
+            arguments=arguments,
+            corrected="detect_design(data_path='panel.csv')",
+        )
     import statspai as sp
 
     fn = getattr(sp, "detect_design", None)
@@ -1178,7 +1214,12 @@ def _tool_preflight(
     as_handle: bool,
 ) -> Dict[str, Any]:
     if data is None:
-        return {"error": "preflight requires data_path"}
+        return _missing_argument_error(
+            tool="preflight",
+            argument="data_path",
+            arguments=arguments,
+            corrected="preflight(data_path='panel.csv', method='did')",
+        )
     import statspai as sp
 
     fn = getattr(sp, "preflight", None)
@@ -1186,7 +1227,16 @@ def _tool_preflight(
         return {"error": "sp.preflight is not available"}
     method = arguments.get("method")
     if not method:
-        return {"error": "preflight requires `method`"}
+        return _missing_argument_error(
+            tool="preflight",
+            argument="method",
+            arguments=arguments,
+            corrected="preflight(data_path='panel.csv', method='did')",
+            hint=(
+                "`method` names the design you are about to run — e.g. "
+                "'did', 'iv', 'rd', 'synth'."
+            ),
+        )
     kwargs = {k: v for k, v in arguments.items() if k != "method" and v is not None}
     try:
         out = fn(data, method, **kwargs)
@@ -1218,7 +1268,12 @@ def _tool_cross_validate(
 ) -> Dict[str, Any]:
     """Run sp.cross_validate on freshly-loaded data and serialise the verdict."""
     if data is None:
-        return {"error": "cross_validate requires data_path"}
+        return _missing_argument_error(
+            tool="cross_validate",
+            argument="data_path",
+            arguments=arguments,
+            corrected="cross_validate(data_path='panel.csv', estimand='att')",
+        )
     import statspai as sp
 
     fn = getattr(sp, "cross_validate", None)
@@ -1226,7 +1281,12 @@ def _tool_cross_validate(
         return {"error": "sp.cross_validate is not available"}
     estimand = arguments.get("estimand")
     if not estimand:
-        return {"error": "cross_validate requires `estimand`"}
+        return _missing_argument_error(
+            tool="cross_validate",
+            argument="estimand",
+            arguments=arguments,
+            corrected="cross_validate(data_path='panel.csv', estimand='att')",
+        )
     kwargs = {
         k: v for k, v in arguments.items() if k not in ("estimand",) and v is not None
     }
@@ -1368,8 +1428,8 @@ def _coerce_to_fig(ret: Any) -> Any:
     """Best-effort: turn whatever a plot helper returned into a Figure."""
     try:
         import matplotlib.pyplot as plt
-        from matplotlib.figure import Figure
         from matplotlib.axes import Axes
+        from matplotlib.figure import Figure
     except Exception:
         return None
     if isinstance(ret, Figure):

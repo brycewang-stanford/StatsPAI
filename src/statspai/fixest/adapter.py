@@ -182,6 +182,18 @@ def _pyfixest_to_econometric_results(
                 data_info["X"] = within_x
                 data_info["y"] = within_y
                 data_info["var_names"] = names
+
+                # NOTE: we deliberately do *not* record `fit._data.index` as
+                # the estimation sample's row labels. pyfixest does not
+                # guarantee it: for a shifted-integer or string index it comes
+                # back as a positional RangeIndex, and for a shuffled integer
+                # index those positional labels still *look* like a valid
+                # subset of the caller's index while pointing at entirely
+                # different rows. Aligning per-row data (Conley coordinates,
+                # cluster ids) on that would mis-pair observations silently —
+                # worse than refusing. Callers that need row alignment must
+                # drop incomplete rows before estimating; see
+                # inference/jackknife.py::_align_to_fitted_sample.
     except (AttributeError, TypeError, ValueError, IndexError):
         # pyfixest internals (`_X`/`_Y`/`_coefnames`) can shift by version;
         # if their shape/type differs, skip the optional within-design storage

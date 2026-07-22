@@ -21,6 +21,7 @@ References
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
@@ -28,12 +29,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
-from ..exceptions import (
-    DataInsufficient,
-    MethodIncompatibility,
-    NumericalInstability,
-)
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 # ────────────────────────────────────────────────────────────────────
 # Helpers
@@ -276,6 +273,22 @@ def _pre_vcv(
     if hasattr(result, "model_info") and isinstance(result.model_info, dict):
         vcv = result.model_info.get("vcv_pre", None)
     if vcv is None:
+        warnings.warn(
+            f"{context}: no pre-period covariance matrix found in "
+            "`result.model_info['vcv_pre']`, so the pre-treatment event-study "
+            "coefficients are being treated as MUTUALLY INDEPENDENT "
+            "(diagonal covariance). They are not independent in general: they "
+            "share an omitted reference period and the same unit/time fixed "
+            "effects, so the off-diagonal covariances are typically large and "
+            "negative. Wald pre-trend statistics, Roth (2022) power, and "
+            "Rambachan-Roth breakdown Mbar computed from this fallback can be "
+            "materially misstated. Supply the full pre-period covariance via "
+            "`result.model_info['vcv_pre']` — sp.event_study computes it and "
+            "will write it when called with `expose_pre_vcov=True` (opt-in "
+            "during the current release; it becomes the default afterwards).",
+            UserWarning,
+            stacklevel=3,
+        )
         return np.diag(se_pre**2)
     try:
         out = np.asarray(vcv, dtype=float)
@@ -812,6 +825,20 @@ def sensitivity_rr(
     Returns
     -------
     SensitivityResult
+
+    Notes
+    -----
+    .. versionchanged:: next
+       The pre-period trend is now fitted by **generalised** least squares
+       using the full pre-period covariance from
+       ``result.model_info['vcv_pre']`` when it is available
+       (``sp.event_study`` supplies it). Previously the fit always used
+       diagonal ``1/se**2`` weights, i.e. it assumed the pre-treatment
+       event-study coefficients were mutually independent -- they are not,
+       since they share the omitted reference period and the unit/time
+       fixed effects. Breakdown ``Mbar`` values therefore move slightly
+       relative to earlier releases. When no covariance is available the
+       diagonal fallback is still used, but it now warns loudly.
         Object with ``.summary()``, ``.plot()``, ``.mbar_grid``,
         ``.ci_lower``, ``.ci_upper``, ``.breakdown_mbar``.
 
@@ -885,12 +912,38 @@ def sensitivity_rr(
     pre_est = _finite_vector(pre[est_col], est_col, context)
 
     if len(pre_t) >= 2:
-        # Weighted least squares through pre-period estimates
+        # Generalised least squares through the pre-period estimates.
+        #
+        # The pre-treatment event-study coefficients are NOT independent: they
+        # share an omitted reference period and the same unit/time fixed
+        # effects.  When the full pre-period covariance is available we use
+        # its inverse as the GLS weight matrix; otherwise we fall back to the
+        # diagonal 1/se^2 weights (and `_pre_vcv` warns loudly about it).
+        # The reference period (se == 0, coefficient pinned to 0 by
+        # construction) keeps its near-infinite diagonal weight so the fitted
+        # line still passes through it, exactly as before.
         pre_se = _finite_vector(pre[se_col], se_col, context)
         _require_nonnegative(pre_se, se_col, context)
         weights = 1.0 / (pre_se**2 + 1e-16)
-        # WLS: y = a + b*t
         W = np.diag(weights)
+        estimated_s = pre_se > 0
+        if estimated_s.any():
+            vcv_s = _pre_vcv(
+                result,
+                pre_se[estimated_s],
+                estimated_s,
+                len(pre_se),
+                int(estimated_s.sum()),
+                context,
+            )
+            try:
+                W_est = np.linalg.inv(vcv_s)
+            except np.linalg.LinAlgError:
+                W_est = None
+            if W_est is not None:
+                idx = np.where(estimated_s)[0]
+                W[np.ix_(idx, idx)] = W_est
+        # GLS: y = a + b*t
         X = np.column_stack([np.ones(len(pre_t)), pre_t])
         XtWX = X.T @ W @ X
         XtWy = X.T @ W @ pre_est

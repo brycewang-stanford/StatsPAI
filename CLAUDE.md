@@ -271,12 +271,6 @@ python scripts/registry_stats.py --table        # 重生 docs/stats.md 的按模
 - 目前的修改，默认不要影响到 joss 论文的审稿：https://github.com/openjournals/joss-reviews/issues/10604。万一有影响到，千万一定要特别提醒。
 - **审稿期：自由迭代，不碰 Release。** 审稿进行中可以照常 commit / push / 发 PyPI 新版 / 打 tag —— 这些都**不触发 Zenodo 归档**、不打乱审稿（JOSS 锚的是 concept DOI `10.5281/zenodo.19933900`（永远指向最新归档）+ 仓库，不卡版本号）。**唯一开关是"Publish 一个 GitHub Release"**：只有它会触发 GitHub↔Zenodo 自动归档、铸出**永久不可删的 version DOI**。所以**审稿接收前不要随手发 GitHub Release**（PyPI 发版没关系）。等论文被接收那一刻再：定版 tag → 发 GitHub Release → 拿 version DOI → 回填 `paper`。当前 Zenodo 已归档到 **v1.17.0**（version DOI `10.5281/zenodo.20568882`）。
 - **提交闸门（同 §9 顶部"提交闸门"，二者是同一条规则、最高优先级）**：默认**禁止** commit / push，必须等用户在本会话明确授权才放行；每次会话结束也**不自动提交**，先用中文总结、与用户讨论，等用户指示。
-- 先不要 commit 和 push！
-- 先不要 commit 和 push！
-- 先不要 commit 和 push！
 
-- 你的思考和推理过程请你使用英文进行。但是最后的总结请你使用中文和我讨论。
 
-- 你的思考和推理过程请你使用英文进行。但是最后的总结请你使用中文和我讨论。
-
-- 你的思考和推理过程请你使用英文进行。但是最后的总结请你使用中文和我讨论。
+- Please think and talk with me in English.

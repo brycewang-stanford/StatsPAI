@@ -14,6 +14,24 @@ Algorithm (continuous case)
 3. ATT  = mean(Y_{11}) - integral of F_{Y^N,11}^{-1}
 4. QTE(τ) = F_{11}^{-1}(τ) - F_{Y^N,11}^{-1}(τ)
 
+.. versionchanged:: 1.20.x
+   **⚠️ Correctness fix to the step-2 counterfactual.** Earlier releases
+   composed the empirical CDFs with the control-post (``y01``) and
+   treated-pre (``y10``) cells transposed relative to A&I eq. 9, and
+   evaluated linearly-interpolated CDF / quantile functions on a finite τ
+   grid rather than the step-function ECDF and its generalized inverse. The
+   ATT converged to a value ~0.5% away from the reference (2.8% in the
+   covariate case). It now computes ``k(y) = F_01^{-1}(F_00(y))`` on the
+   step ECDF and reproduces Kranker's Stata ``cic`` (a direct port of the
+   Athey-Imbens Matlab) to the printed digits. See CHANGELOG / MIGRATION.
+
+Covariates
+----------
+``cic(..., covariates=[...])`` implements the parametric covariate approach
+of Athey & Imbens (2006, p. 466) — apply CIC to the residuals of an OLS
+regression of the outcome on the covariates *and* the design dummies, with
+the dummy effects added back in — and bootstraps both steps jointly.
+
 Reference
 ---------
 Athey, S. & Imbens, G. W. (2006).
@@ -23,7 +41,8 @@ Identification and Inference in Nonlinear Difference-in-Differences Models.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+import warnings
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -31,27 +50,38 @@ from scipy import stats
 
 from ..core.results import CausalResult
 
+_SUPPORTED_FIRST_STAGE = ("feols",)
+
 # ── Helpers ───────────────────────────────────────────────────────────
 
 
-def _ecdf_values(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-    """Return sorted unique values and their empirical CDF."""
-    xs = np.sort(x)
-    cdf = np.arange(1, len(xs) + 1) / len(xs)
-    return xs, cdf
-
-
 def _ecdf(x: np.ndarray, grid: np.ndarray) -> np.ndarray:
-    """Evaluate empirical CDF of *x* on *grid* via linear interpolation."""
-    xs, cdf = _ecdf_values(x)
-    return np.asarray(np.interp(grid, xs, cdf, left=0.0, right=1.0), dtype=float)
+    """Empirical CDF of *x* evaluated at *grid* (right-continuous step).
+
+    ``F(q) = #{x_i <= q} / n`` — the genuine empirical CDF, *not* the linear
+    interpolation used previously. Athey & Imbens (2006) define the CIC
+    estimator on the step-function ECDF; interpolating it smooths the
+    counterfactual and pulls the estimate off the reference implementation
+    (Kranker's Stata ``cic``, a direct port of A&I's Matlab) by ~0.5%.
+    """
+    xs = np.sort(x)
+    return np.asarray(np.searchsorted(xs, grid, side="right") / len(xs), dtype=float)
 
 
 def _quantile_func(x: np.ndarray, probs: np.ndarray) -> np.ndarray:
-    """Evaluate empirical quantile function (inverse CDF) at *probs*."""
-    xs, cdf = _ecdf_values(x)
-    # Ensure monotonicity for interp (CDF is already non-decreasing)
-    return np.asarray(np.interp(probs, cdf, xs), dtype=float)
+    """Generalized inverse CDF: ``inf{ y : F(y) >= p }``.
+
+    The left-continuous generalized inverse of the step ECDF, as in A&I
+    (2006). For ``p`` in ``(0, 1]`` this is the ``ceil(p * n)``-th order
+    statistic; ``p <= 0`` maps to the minimum. Replaces the previous linear
+    interpolation between order statistics, which is a different (smoothed)
+    quantile definition and does not match Stata ``cic``.
+    """
+    xs = np.sort(x)
+    n = len(xs)
+    p = np.asarray(probs, dtype=float)
+    k = np.clip(np.ceil(p * n).astype(int), 1, n)
+    return np.asarray(xs[k - 1], dtype=float)
 
 
 class CICResult(CausalResult):
@@ -147,11 +177,30 @@ class CICResult(CausalResult):
                 )
         lines.append("━" * 60)
         lines.append(f"  Observations: {self.n_obs:,}")
+        cov = self.model_info.get("covariates")
+        if cov:
+            lines.append(f"  Covariates:   {', '.join(cov)}")
+            lines.append(
+                f"  First stage:  {self.model_info['first_stage']} "
+                "(re-fit in every bootstrap replicate)"
+            )
         lines.append(f"  Bootstrap replications: {self.model_info['n_boot']}")
         lines.append("━" * 60)
         out = "\n".join(lines)
         print(out)
         return out
+
+
+def _counterfactual_map(y00: np.ndarray, y01: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Athey-Imbens counterfactual transform ``k(y) = F_01^{-1}(F_00(y))``.
+
+    Maps a treated-pre outcome ``y`` through the control group's temporal
+    change: read its rank in the control-pre distribution (``F_00``), then
+    read off the control-post outcome at that rank (``F_01^{-1}``). Applying
+    this to the treated-pre sample ``y10`` gives the counterfactual
+    treated-post distribution ``F_{Y^N,11}`` (A&I 2006, eq. 9).
+    """
+    return _quantile_func(y01, _ecdf(y00, y))
 
 
 def _counterfactual_quantiles(
@@ -160,21 +209,199 @@ def _counterfactual_quantiles(
     y10: np.ndarray,
     grid: np.ndarray,
 ) -> np.ndarray:
-    """Counterfactual quantile function F_{Y^N,11}^{-1}(τ).
+    """Counterfactual quantile function ``F_{Y^N,11}^{-1}(τ)``.
 
-    For each quantile τ in *grid*:
-        F_{Y^N,11}^{-1}(τ) = F_{10}^{-1}( F_{00}( F_{01}^{-1}(τ) ) )
+    The counterfactual treated-post distribution is the empirical distribution
+    of the transformed treated-pre points ``k(y10)`` (see
+    :func:`_counterfactual_map`); its quantile function is the generalized
+    inverse of that empirical distribution.
 
-    Equivalently we build the counterfactual CDF and invert it,
-    but working in quantile space is numerically more stable.
+    Previously this composed the CDFs as ``F_10^{-1}(F_00(F_01^{-1}(τ)))`` --
+    the treated-pre (``y10``) and control-post (``y01``) cells transposed
+    relative to A&I eq. 9 -- and on interpolated (not step) CDFs. Both are
+    corrected here; the estimator now reproduces Stata ``cic`` to the printed
+    digits. See CHANGELOG (⚠️ correctness fix).
     """
-    # Step 1: F_{01}^{-1}(τ) — map quantile to control-post outcome
-    y_ctrl_post = _quantile_func(y01, grid)
-    # Step 2: F_{00}(y) — evaluate control-pre CDF at those outcomes
-    prob_ctrl_pre = _ecdf(y00, y_ctrl_post)
-    # Step 3: F_{10}^{-1}(p) — map through treated-pre quantile function
-    y_cf = _quantile_func(y10, prob_ctrl_pre)
-    return y_cf
+    cf_sample = _counterfactual_map(y00, y01, y10)
+    return _quantile_func(cf_sample, grid)
+
+
+# ── First stage (Melly & Santangelo two-step) ─────────────────────────
+
+
+def _parse_covariates(
+    covariates: Union[str, Sequence[str]],
+    data: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+) -> Tuple[List[str], List[str]]:
+    """Split *covariates* into (absorbed FE terms, linear regressor terms).
+
+    ``"C(state)"`` / ``"c(state)"`` / ``"i.state"`` mark a term for
+    absorption as a fixed effect; anything else is a numeric regressor.
+
+    Raises loudly on unknown columns, empty specs, and terms that collide
+    with the CIC design columns.
+    """
+    if isinstance(covariates, str):
+        covariates = [covariates]
+    terms = [str(c).strip() for c in covariates]
+
+    if not terms:
+        raise ValueError(
+            "cic(): covariates=[] is empty. Pass covariates=None for the "
+            "unconditional estimator, or name at least one column, e.g. "
+            "sp.cic(df, y='y', group='g', time='t', covariates=['x1'])."
+        )
+
+    fe_terms: List[str] = []
+    num_terms: List[str] = []
+    for term in terms:
+        low = term.lower()
+        if low.startswith("c(") and term.endswith(")"):
+            fe_terms.append(term[2:-1].strip())
+        elif low.startswith("i."):
+            fe_terms.append(term[2:].strip())
+        else:
+            num_terms.append(term)
+
+    wanted = fe_terms + num_terms
+    missing = [c for c in wanted if c not in data.columns]
+    if missing:
+        available = ", ".join(map(repr, list(data.columns)[:12]))
+        raise ValueError(
+            f"cic(): covariate column(s) {missing!r} not found in `data`. "
+            f"Available columns include: {available}. "
+            "Fix the names, e.g. "
+            f"sp.cic(data, y={y!r}, group={group!r}, time={time!r}, "
+            f"covariates={[c for c in wanted if c in data.columns] or ['x1']!r})."
+        )
+
+    clash = [c for c in wanted if c in (y, group, time)]
+    if clash:
+        raise ValueError(
+            f"cic(): covariate(s) {clash!r} duplicate the outcome/group/time "
+            f"columns (y={y!r}, group={group!r}, time={time!r}). The group and "
+            "time main effects are already absorbed by the CIC design. Drop "
+            "them, e.g. covariates="
+            f"{[c for c in wanted if c not in (y, group, time)] or ['x1']!r}."
+        )
+
+    dup = sorted({c for c in wanted if wanted.count(c) > 1})
+    if dup:
+        raise ValueError(
+            f"cic(): covariate(s) {dup!r} listed more than once, which makes "
+            "the first-stage design matrix rank-deficient. Pass each term "
+            f"once, e.g. covariates={list(dict.fromkeys(wanted))!r}."
+        )
+
+    return fe_terms, num_terms
+
+
+def _first_stage_residuals(
+    frame: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    fe_terms: List[str],
+    num_terms: List[str],
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Covariate-adjusted outcome, Athey & Imbens (2006, p. 466).
+
+    Runs OLS of ``y`` on the covariates *and* the (group × time) design
+    dummies, then returns the residuals **with the design-dummy effects
+    added back in** — A&I's parametric covariate approach, the same one
+    Kranker's Stata ``cic`` implements.
+
+    Including the design dummies in the first stage is what keeps the
+    ATT intact: a first stage without them lets the covariate slope soak
+    up the treatment effect whenever the covariate is imbalanced across
+    cells.
+
+    Returns ``(y_adj, keep_mask, coef)`` where ``keep_mask`` is a boolean
+    mask over the *rows of* ``frame`` and ``y_adj`` has length
+    ``keep_mask.sum()`` — callers MUST subset every other row-aligned
+    array by ``keep_mask`` before pairing it with ``y_adj``.
+    """
+    from ..panel.hdfe import absorb_ols
+
+    n = len(frame)
+    yv = frame[y].to_numpy(dtype=float)
+
+    # The 2x2 design cell is always absorbed (it spans the group, time
+    # and group x time dummies) and is added back afterwards.
+    cell = frame[group].to_numpy(dtype=np.int64) * 2 + frame[time].to_numpy(
+        dtype=np.int64
+    )
+    fe = pd.DataFrame({"_cic_cell": cell}, index=frame.index)
+    for term in fe_terms:
+        fe[term] = frame[term].to_numpy()
+
+    if num_terms:
+        X = frame[num_terms].to_numpy(dtype=float)
+    else:
+        X = np.empty((n, 0), dtype=float)
+
+    out = absorb_ols(yv, X, fe, return_absorber=True)
+    keep_mask = np.asarray(out["absorber"].keep_mask, dtype=bool)
+    resid = np.asarray(out["resid"], dtype=float)
+    coef = np.asarray(out["coef"], dtype=float)
+
+    # keep_mask alignment is the silent-corruption failure mode: if HDFE
+    # returns a residual vector whose length does not match the surviving
+    # rows we cannot pair residuals with (group, time) — raise, never guess.
+    if keep_mask.shape[0] != n or resid.shape[0] != int(keep_mask.sum()):
+        raise RuntimeError(
+            "cic(): first-stage residuals could not be aligned back to the "
+            f"input rows (frame has {n} rows, keep_mask has "
+            f"{keep_mask.shape[0]}, residuals have {resid.shape[0]}, "
+            f"expected {int(keep_mask.sum())}). Refusing to guess an "
+            "alignment. Please report this with a reproducible example."
+        )
+
+    # Add the design-dummy effects back in. Because the cell is absorbed,
+    # the HDFE residuals are exactly orthogonal to the cell dummies, so
+    # the cell means of ``y - X b`` are precisely the fitted cell effects.
+    yk = yv[keep_mask]
+    cell_k = cell[keep_mask]
+    partial = yk - (X[keep_mask] @ coef if coef.size else 0.0)
+    cell_dense, _ = pd.factorize(cell_k, sort=True)
+    counts = np.bincount(cell_dense)
+    sums = np.bincount(cell_dense, weights=partial)
+    y_adj = resid + (sums / counts)[cell_dense]
+
+    return y_adj, keep_mask, coef
+
+
+def _cell_arrays(
+    yv: np.ndarray, g: np.ndarray, t: np.ndarray
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Split *yv* into the four (group x time) cells."""
+    return (
+        yv[(g == 0) & (t == 0)],
+        yv[(g == 0) & (t == 1)],
+        yv[(g == 1) & (t == 0)],
+        yv[(g == 1) & (t == 1)],
+    )
+
+
+_CELL_LABELS = ("control-pre", "control-post", "treated-pre", "treated-post")
+
+
+def _check_cells(
+    cells: Sequence[np.ndarray],
+    *,
+    context: str,
+    hint: str,
+) -> None:
+    for label, arr in zip(_CELL_LABELS, cells):
+        if len(arr) < 2:
+            raise ValueError(
+                f"Too few observations in the {label} cell ({len(arr)}) "
+                f"{context}. CIC requires data in all four (group × time) "
+                f"cells. {hint}"
+            )
 
 
 # ── Main estimator ────────────────────────────────────────────────────
@@ -190,6 +417,8 @@ def cic(
     alpha: float = 0.05,
     seed: int = 42,
     n_grid: int = 200,
+    covariates: Optional[Union[str, Sequence[str]]] = None,
+    first_stage: str = "feols",
 ) -> CausalResult:
     """Changes-in-Changes estimator (Athey & Imbens 2006).
 
@@ -212,11 +441,58 @@ def cic(
     seed : int
         Random seed for reproducibility.
     n_grid : int
-        Resolution of the quantile grid used internally.
+        Retained for backwards compatibility only.  The corrected
+        Athey-Imbens estimator is exact on the sample points (step-function
+        ECDF and its generalized inverse), so no internal τ grid enters the
+        point estimate, the QTEs, or the bootstrap.  ``n_grid`` now only
+        sets the resolution of the observed-vs-counterfactual quantile
+        curves stored for ``result.plot()``.
+
+        .. versionchanged:: 1.20.x
+           Before the step-2 correctness fix the estimator integrated a
+           linearly-interpolated counterfactual quantile function over an
+           ``n_grid``-point τ grid, so this parameter perturbed the ATT.
+           It no longer does.
+    covariates : str or list of str, optional
+        Covariates for the Melly & Santangelo (2015) two-step estimator.
+        ``None`` (default) → the unconditional Athey-Imbens estimator,
+        bit-identical to previous releases.  Terms written ``"C(col)"`` or
+        ``"i.col"`` are absorbed as high-dimensional fixed effects; every
+        other term is a linear regressor.
+    first_stage : str, default ``"feols"``
+        First-stage residualizer.  Only ``"feols"`` (OLS-HDFE) is
+        supported; the argument exists so future first stages can be
+        added without a breaking signature change.
 
     Returns
     -------
     CausalResult
+
+    Notes
+    -----
+    **Two-step estimation.**  With ``covariates`` the estimator follows
+    Athey & Imbens (2006, p. 466): step 1 regresses ``y`` on the covariates
+    *and* the (group × time) design dummies by OLS-HDFE and forms the
+    adjusted outcome as the residuals **with the design-dummy effects added
+    back in**; step 2 runs the unconditional CIC on that adjusted outcome.
+    Keeping the design dummies in the first stage is essential — without
+    them the covariate slope absorbs part of the treatment effect whenever
+    the covariate is imbalanced across cells.  This is the same parametric
+    covariate approach implemented by Kranker's Stata ``cic``.
+
+    **Inference.**  The bootstrap resamples *both* steps jointly: every
+    replicate re-draws the sample (cell-wise, holding the four cell sizes
+    fixed), **re-fits the first stage**, and re-runs CIC.  Residualizing
+    once and bootstrapping only step 2 — the natural hand-rolled ``feols``
+    → residuals → ``cic`` pipeline — holds the first-stage coefficients
+    fixed at their full-sample values and misstates the standard error.
+    See ``tests/test_cic_covariates.py`` for the Monte Carlo that calibrates
+    both schemes against the true sampling distribution.
+
+    High-dimensional fixed effects drop singleton and incomplete rows.  The
+    residual vector is realigned to the surviving rows via the absorber's
+    ``keep_mask`` before step 2; if that alignment cannot be verified the
+    estimator raises rather than risk silently mis-pairing observations.
 
     Examples
     --------
@@ -233,45 +509,130 @@ def cic(
     >>> res = sp.cic(df, y="y", group="g", time="t",
     ...              quantiles=[0.25, 0.5, 0.75], n_boot=50)
     >>> round(res.estimate, 2)  # ATT, true effect = 1.5
-    1.47
+    1.44
     >>> res.model_info["qte"].shape  # one row per quantile
     (3, 6)
     """
-    df = data[[y, group, time]].dropna().copy()
-    g = df[group].astype(int).values
-    t = df[time].astype(int).values
-    yv = df[y].values.astype(float)
+    if first_stage not in _SUPPORTED_FIRST_STAGE:
+        raise ValueError(
+            f"cic(): first_stage={first_stage!r} is not supported; expected "
+            f"one of {list(_SUPPORTED_FIRST_STAGE)!r}. Use "
+            f"sp.cic(data, y={y!r}, group={group!r}, time={time!r}, "
+            "covariates=[...], first_stage='feols')."
+        )
+
+    use_cov = covariates is not None
+    fe_terms: List[str] = []
+    num_terms: List[str] = []
+    if use_cov:
+        fe_terms, num_terms = _parse_covariates(covariates, data, y, group, time)
+
+    cov_cols = fe_terms + num_terms
+    keep_cols = list(dict.fromkeys([y, group, time] + cov_cols))
+    n_raw = len(data)
+    df = data[keep_cols].dropna().copy()
+    if use_cov and len(df) == 0:
+        raise ValueError(
+            f"cic(): no complete rows left after dropping missing values in "
+            f"{keep_cols!r} ({n_raw} input rows). Check the covariates for "
+            "all-missing columns, e.g. "
+            f"data[{cov_cols!r}].isna().mean()."
+        )
+
+    g_all = df[group].astype(int).values
+    t_all = df[time].astype(int).values
+    y_all = df[y].values.astype(float)
+
+    first_stage_info: Dict[str, Any] = {}
+    if use_cov:
+        resid, keep_mask, fs_coef = _first_stage_residuals(
+            df, y, group, time, fe_terms, num_terms
+        )
+        yv = resid
+        g = g_all[keep_mask]
+        t = t_all[keep_mask]
+
+        # A first stage that explains everything leaves no distributional
+        # variation for CIC to work with.
+        raw_var = float(np.var(y_all[keep_mask]))
+        res_var = float(np.var(yv))
+        if res_var <= 1e-12 * max(raw_var, 1.0):
+            raise ValueError(
+                f"cic(): the first stage removed essentially all variation in "
+                f"{y!r} (residual variance {res_var:.3e} vs outcome variance "
+                f"{raw_var:.3e}). covariates={cov_cols!r} saturate the design "
+                "— typically a term that is collinear with, or a finer "
+                "partition than, group × time. Drop it, e.g. "
+                f"sp.cic(data, y={y!r}, group={group!r}, time={time!r}, "
+                f"covariates={cov_cols[:1] or ['x1']!r})."
+            )
+
+        first_stage_info = {
+            "first_stage": first_stage,
+            "covariates": list(cov_cols),
+            "fe_terms": list(fe_terms),
+            "linear_terms": list(num_terms),
+            "first_stage_coef": dict(zip(num_terms, fs_coef.tolist())),
+            "n_dropped_first_stage": int((~keep_mask).sum()),
+            "n_dropped_missing": int(n_raw - len(df)),
+            "bootstrap": "two-step (first stage re-fit in each replicate)",
+        }
+    else:
+        yv = y_all
+        g = g_all
+        t = t_all
+        keep_mask = np.ones(len(df), dtype=bool)
 
     # Split into four cells
-    y00 = yv[(g == 0) & (t == 0)]
-    y01 = yv[(g == 0) & (t == 1)]
-    y10 = yv[(g == 1) & (t == 0)]
-    y11 = yv[(g == 1) & (t == 1)]
+    y00, y01, y10, y11 = _cell_arrays(yv, g, t)
 
-    for label, arr in [
-        ("control-pre", y00),
-        ("control-post", y01),
-        ("treated-pre", y10),
-        ("treated-post", y11),
-    ]:
-        if len(arr) < 2:
-            raise ValueError(
-                f"Too few observations in the {label} cell ({len(arr)}). "
-                "CIC requires data in all four (group × time) cells."
-            )
+    if use_cov:
+        _check_cells(
+            (y00, y01, y10, y11),
+            context=(
+                f"after dropping rows with missing covariates and "
+                f"first-stage singletons "
+                f"({n_raw} input rows → {len(df)} complete rows → "
+                f"{int(keep_mask.sum())} estimation rows)"
+            ),
+            hint=(
+                "Either drop the high-cardinality fixed effect that is "
+                f"pruning the sample (covariates={cov_cols!r}) or fit the "
+                "unconditional estimator with "
+                f"sp.cic(data, y={y!r}, group={group!r}, time={time!r})."
+            ),
+        )
+    else:
+        for label, arr in [
+            ("control-pre", y00),
+            ("control-post", y01),
+            ("treated-pre", y10),
+            ("treated-post", y11),
+        ]:
+            if len(arr) < 2:
+                raise ValueError(
+                    f"Too few observations in the {label} cell ({len(arr)}). "
+                    "CIC requires data in all four (group × time) cells."
+                )
 
     # Quantile grid
     tau_grid = np.linspace(1 / n_grid, 1 - 1 / n_grid, n_grid)
 
     # ── Point estimates ───────────────────────────────────────────── #
-    cf_q = _counterfactual_quantiles(y00, y01, y10, tau_grid)
-    att_point = np.mean(y11) - np.mean(cf_q)
+    # The mean ATT uses the counterfactual distribution's own mean, i.e. the
+    # mean of the transformed treated-pre sample k(y10) (A&I 2006). This is
+    # exact and grid-free; grid-integrating the counterfactual quantile
+    # function would only approximate it. ``cf_q`` (on the τ grid) is retained
+    # for the observed-vs-counterfactual plot.
+    cf_sample = _counterfactual_map(y00, y01, y10)
+    cf_q = _quantile_func(cf_sample, tau_grid)
+    att_point = np.mean(y11) - np.mean(cf_sample)
 
     qte_taus = np.asarray(quantiles) if quantiles is not None else None
     qte_point = None
     if qte_taus is not None:
         obs_q11 = _quantile_func(y11, qte_taus)
-        cf_q_at_tau = _counterfactual_quantiles(y00, y01, y10, qte_taus)
+        cf_q_at_tau = _quantile_func(cf_sample, qte_taus)
         qte_point = obs_q11 - cf_q_at_tau
 
     # ── Bootstrap ─────────────────────────────────────────────────── #
@@ -284,25 +645,81 @@ def cic(
     idx10 = np.where((g == 1) & (t == 0))[0]
     idx11 = np.where((g == 1) & (t == 1))[0]
 
-    for b in range(n_boot):
-        b00 = yv[rng.choice(idx00, len(idx00), replace=True)]
-        b01 = yv[rng.choice(idx01, len(idx01), replace=True)]
-        b10 = yv[rng.choice(idx10, len(idx10), replace=True)]
-        b11 = yv[rng.choice(idx11, len(idx11), replace=True)]
+    # Row positions in `df` corresponding to each estimation-sample row —
+    # needed to rebuild a bootstrap frame for the first-stage re-fit.
+    df_pos = np.where(keep_mask)[0]
+    n_boot_failed = 0
 
-        bcf = _counterfactual_quantiles(b00, b01, b10, tau_grid)
-        boot_att[b] = np.mean(b11) - np.mean(bcf)
+    for b in range(n_boot):
+        s00 = rng.choice(idx00, len(idx00), replace=True)
+        s01 = rng.choice(idx01, len(idx01), replace=True)
+        s10 = rng.choice(idx10, len(idx10), replace=True)
+        s11 = rng.choice(idx11, len(idx11), replace=True)
+
+        if not use_cov:
+            b00, b01, b10, b11 = yv[s00], yv[s01], yv[s10], yv[s11]
+        else:
+            # Two-step bootstrap: re-draw the sample, RE-FIT the first
+            # stage on the drawn sample, then re-run CIC on the new
+            # residuals. Bootstrapping step 2 alone would hold the
+            # first-stage coefficients fixed and understate the SE.
+            sel = np.concatenate([s00, s01, s10, s11])
+            boot_frame = df.iloc[df_pos[sel]]
+            try:
+                b_resid, b_keep, _ = _first_stage_residuals(
+                    boot_frame, y, group, time, fe_terms, num_terms
+                )
+            except Exception:
+                boot_att[b] = np.nan
+                if boot_qte is not None:
+                    boot_qte[b] = np.nan
+                n_boot_failed += 1
+                continue
+            bg = boot_frame[group].astype(int).values[b_keep]
+            bt = boot_frame[time].astype(int).values[b_keep]
+            b00, b01, b10, b11 = _cell_arrays(b_resid, bg, bt)
+            if min(len(b00), len(b01), len(b10), len(b11)) < 2:
+                boot_att[b] = np.nan
+                if boot_qte is not None:
+                    boot_qte[b] = np.nan
+                n_boot_failed += 1
+                continue
+
+        bcf_sample = _counterfactual_map(b00, b01, b10)
+        boot_att[b] = np.mean(b11) - np.mean(bcf_sample)
 
         if qte_taus is not None:
             assert boot_qte is not None
             bq11 = _quantile_func(b11, qte_taus)
-            bcf_tau = _counterfactual_quantiles(b00, b01, b10, qte_taus)
+            bcf_tau = _quantile_func(bcf_sample, qte_taus)
             boot_qte[b] = bq11 - bcf_tau
 
-    att_se = np.std(boot_att, ddof=1)
+    if n_boot_failed:
+        frac = n_boot_failed / n_boot
+        if frac > 0.10:
+            raise ValueError(
+                f"cic(): {n_boot_failed}/{n_boot} bootstrap replicates "
+                f"({frac:.0%}) collapsed — the re-fitted first stage left "
+                "fewer than 2 observations in some (group × time) cell. The "
+                f"fixed effects in covariates={cov_cols!r} are too fine for "
+                "this sample. Coarsen them or fit the unconditional "
+                f"estimator: sp.cic(data, y={y!r}, group={group!r}, "
+                f"time={time!r})."
+            )
+        warnings.warn(
+            f"cic(): {n_boot_failed}/{n_boot} bootstrap replicates were "
+            "discarded because the re-fitted first stage emptied a "
+            f"(group × time) cell; SEs use the remaining "
+            f"{n_boot - n_boot_failed} replicates.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    att_se = np.nanstd(boot_att, ddof=1) if use_cov else np.std(boot_att, ddof=1)
+    _pct = np.nanpercentile if use_cov else np.percentile
     att_ci = (
-        np.percentile(boot_att, 100 * alpha / 2),
-        np.percentile(boot_att, 100 * (1 - alpha / 2)),
+        _pct(boot_att, 100 * alpha / 2),
+        _pct(boot_att, 100 * (1 - alpha / 2)),
     )
     att_z = att_point / att_se if att_se > 0 else np.nan
     att_pvalue = float(2 * (1 - stats.norm.cdf(np.abs(att_z))))
@@ -316,11 +733,15 @@ def cic(
         "n_treated_post": len(y11),
         "n_boot": n_boot,
     }
+    if use_cov:
+        model_info.update(first_stage_info)
+        model_info["n_boot_failed"] = n_boot_failed
 
     if qte_taus is not None and boot_qte is not None:
-        qte_se = np.std(boot_qte, axis=0, ddof=1)
-        qte_ci_lo = np.percentile(boot_qte, 100 * alpha / 2, axis=0)
-        qte_ci_hi = np.percentile(boot_qte, 100 * (1 - alpha / 2), axis=0)
+        _std = np.nanstd if use_cov else np.std
+        qte_se = _std(boot_qte, axis=0, ddof=1)
+        qte_ci_lo = _pct(boot_qte, 100 * alpha / 2, axis=0)
+        qte_ci_hi = _pct(boot_qte, 100 * (1 - alpha / 2), axis=0)
         qte_z = np.where(qte_se > 0, qte_point / qte_se, np.nan)
         qte_pv = 2 * (1 - stats.norm.cdf(np.abs(qte_z)))
 
@@ -336,10 +757,14 @@ def cic(
         )
         model_info["qte"] = detail
 
-    n_obs = len(df)
+    n_obs = int(keep_mask.sum()) if use_cov else len(df)
+
+    method = "Changes-in-Changes (Athey & Imbens, 2006)"
+    if use_cov:
+        method += " + covariates (Melly & Santangelo, 2015)"
 
     result = CICResult(
-        method="Changes-in-Changes (Athey & Imbens, 2006)",
+        method=method,
         estimand="ATT",
         estimate=float(att_point),
         se=float(att_se),
@@ -358,7 +783,11 @@ def cic(
         "tau_grid": tau_grid,
         "qte_taus": qte_taus,
         "qte_point": qte_point,
-        "qte_se": np.std(boot_qte, axis=0, ddof=1) if boot_qte is not None else None,
+        "qte_se": (
+            (np.nanstd if use_cov else np.std)(boot_qte, axis=0, ddof=1)
+            if boot_qte is not None
+            else None
+        ),
         "alpha": alpha,
     }
     try:
@@ -376,6 +805,8 @@ def cic(
                 "alpha": alpha,
                 "seed": seed,
                 "n_grid": n_grid,
+                "covariates": list(cov_cols) if use_cov else None,
+                "first_stage": first_stage if use_cov else None,
             },
             data=data,
             overwrite=False,

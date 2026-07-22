@@ -104,9 +104,22 @@ class FunctionSpec:
     """Machine-readable specification for a StatsPAI function.
 
     Agent-native fields (``assumptions`` / ``failure_modes`` /
-    ``alternatives`` / ``typical_n_min`` / ``pre_conditions``) are
-    optional — any entry without them still renders correctly; only
-    the agent-card layer surfaces the extras.
+    ``alternatives`` / ``typical_n_min`` / ``pre_conditions`` /
+    ``not_recommended_when`` / ``cost_profile``) are optional — any entry
+    without them still renders correctly; only the agent-card layer
+    surfaces the extras.
+
+    The fields split by the question they answer, which is what lets an
+    agent plan instead of trial-and-error:
+
+    * ``pre_conditions`` — *may I call this?* (data-shape gates)
+    * ``assumptions`` — *what must be true for the estimate to mean
+      anything?* (identification)
+    * ``not_recommended_when`` — *should I call this?* (negative
+      guidance: valid calls that are still the wrong tool)
+    * ``cost_profile`` — *can I afford it?* (runtime / memory scaling)
+    * ``failure_modes`` — *it raised, now what?* (recovery)
+    * ``alternatives`` — *what do I call instead?*
 
     Stability and validation layering
     ------------------
@@ -158,6 +171,30 @@ class FunctionSpec:
     """Ranked ``sp.xxx`` fallbacks when this estimator is a poor fit."""
     typical_n_min: Optional[int] = None
     """Rule-of-thumb minimum sample size; ``None`` if not applicable."""
+    not_recommended_when: List[str] = field(default_factory=list)
+    """**Negative** guidance: situations where this function is a poor
+    choice even though the call would technically succeed.
+
+    ``pre_conditions`` answer "may I call this?" and ``failure_modes``
+    answer "it raised — now what?".  Neither covers the most expensive
+    agent mistake observed in practice: a call that is *valid and
+    returns*, but was the wrong tool — e.g. running
+    ``sp.callaway_santanna`` on a plain 2x2 design (correct, far slower,
+    identical estimand as ``sp.did(method='2x2')``).
+
+    Each entry is one short sentence in the canonical form
+    ``"<situation> — <what to do instead>"`` so an agent can pattern-match
+    the situation against its data before spending the call."""
+    cost_profile: str = ""
+    """Runtime / memory scaling, stated concretely enough to plan against.
+
+    Populate wherever a call can plausibly exhaust memory or wall-clock at
+    realistic n — most importantly the paths that materialise a dense
+    ``n x n`` matrix.  State the complexity **and** a worked figure, e.g.
+    ``"Memory O(n^2): materialises dense n x n distance/kernel matrices;
+    ~157 GB at n=140,000."``  Empty string means "no notable scaling
+    hazard" — it is deliberately not ``None`` so agents can treat the
+    field as a plain string."""
     # ------------------------------------------------------------------ #
     #  Stability layering (parity-grade vs. frontier-grade)
     # ------------------------------------------------------------------ #
@@ -261,6 +298,20 @@ class FunctionSpec:
                 joined = "; ".join(cleaned_limitations)
                 description = f"{description} Known limitations: {joined}."
 
+        # Negative guidance + scaling cost ride in the description too, not
+        # only in ``x_statspai``: plain OpenAI/Anthropic tool-callers read
+        # nothing but this field, and "when NOT to use" is exactly the fact
+        # that stops a wrong-tool or out-of-memory call before it happens.
+        cleaned_avoid = [
+            str(item).strip().rstrip(".;")
+            for item in self.not_recommended_when
+            if str(item).strip()
+        ]
+        if cleaned_avoid:
+            description = f"{description} Do NOT use when: {'; '.join(cleaned_avoid)}."
+        if self.cost_profile.strip():
+            description = f"{description} Cost: {self.cost_profile.strip()}"
+
         return {
             "name": self.name,
             "description": description,
@@ -305,6 +356,8 @@ class FunctionSpec:
             "failure_modes": card["failure_modes"],
             "alternatives": card["alternatives"],
             "typical_n_min": card["typical_n_min"],
+            "not_recommended_when": card["not_recommended_when"],
+            "cost_profile": card["cost_profile"],
             "reference": card["reference"],
         }
         return schema
@@ -342,6 +395,8 @@ class FunctionSpec:
             failure_modes = [fm.to_dict() for fm in self.failure_modes]
             alternatives = list(self.alternatives)
             typical_n_min = self.typical_n_min
+            not_recommended_when = list(self.not_recommended_when)
+            cost_profile = self.cost_profile
         else:
             (
                 assumptions,
@@ -349,6 +404,8 @@ class FunctionSpec:
                 failure_modes,
                 alternatives,
                 typical_n_min,
+                not_recommended_when,
+                cost_profile,
             ) = merged
 
         signature = self.to_openai_schema()
@@ -367,6 +424,8 @@ class FunctionSpec:
             "failure_modes": failure_modes,
             "alternatives": alternatives,
             "typical_n_min": typical_n_min,
+            "not_recommended_when": not_recommended_when,
+            "cost_profile": cost_profile,
             "reference": self.reference,
             "example": self.example,
             "inherits_from": self.inherits_from,
@@ -382,7 +441,9 @@ _INHERIT_MAX_DEPTH = 5
 def _merge_inherited_view(
     spec: "FunctionSpec",
 ) -> Optional[
-    "Tuple[List[str], List[str], List[Dict[str, Any]], List[str], Optional[int]]"
+    "Tuple["
+    "List[str], List[str], List[Dict[str, Any]], List[str], Optional[int], "
+    "List[str], str]"
 ]:
     """Walk ``spec.inherits_from`` and union the agent-native lists.
 
@@ -397,6 +458,10 @@ def _merge_inherited_view(
     * ``failure_modes`` — concatenated, deduped by ``(symptom, exception)``.
     * ``typical_n_min`` — child's value wins if not ``None``; otherwise
       take the first non-``None`` value found walking the chain.
+    * ``not_recommended_when`` — unioned like ``assumptions``.
+    * ``cost_profile`` — child's value wins if non-empty; otherwise the
+      first non-empty value walking the chain (a variant that shares its
+      parent's scaling behaviour need not restate it).
     """
     if not spec.inherits_from:
         return None
@@ -451,7 +516,23 @@ def _merge_inherited_view(
             typical_n_min = s.typical_n_min
             break
 
-    return assumptions, pre_conditions, failure_modes, alternatives, typical_n_min
+    not_recommended_when = _union_strs(lambda s: s.not_recommended_when)
+
+    cost_profile = ""
+    for s in chain:
+        if s.cost_profile.strip():
+            cost_profile = s.cost_profile
+            break
+
+    return (
+        assumptions,
+        pre_conditions,
+        failure_modes,
+        alternatives,
+        typical_n_min,
+        not_recommended_when,
+        cost_profile,
+    )
 
 
 # ====================================================================== #
@@ -463,6 +544,7 @@ _BASE_REGISTRY_BUILT = False
 _VALIDATION_EVIDENCE_APPLIED = False
 _AGENT_CARD_SEEDS_APPLIED = False
 _BASELINE_CARDS_APPLIED = False
+_NEGATIVE_GUIDANCE_APPLIED = False
 
 
 def register(spec: FunctionSpec) -> FunctionSpec:
@@ -9709,6 +9791,22 @@ def _build_registry() -> None:
                 ParamSpec(
                     "n_grid", "int", False, 200, "Grid size for inverse-CDF mapping"
                 ),
+                ParamSpec(
+                    "covariates",
+                    "list",
+                    False,
+                    None,
+                    "Covariates for the Athey-Imbens (2006 p.466) two-step "
+                    "estimator; 'C(col)' / 'i.col' terms are absorbed as "
+                    "fixed effects",
+                ),
+                ParamSpec(
+                    "first_stage",
+                    "str",
+                    False,
+                    "feols",
+                    "First-stage residualizer (only 'feols' supported)",
+                ),
             ],
             returns="CausalResult with quantile-specific effects in detail",
             example='sp.cic(df, y="y", group="d", time="t")',
@@ -13642,6 +13740,408 @@ def _scan_reference_tests(root: Path) -> Dict[str, List[str]]:
     return evidence
 
 
+#: Curated **negative** guidance + scaling cost, keyed by function name.
+#:
+#: Motivation (agent-usability review, AER replication attempt): every
+#: registry description said when to *use* a function and none said when
+#: **not** to.  Two failures cost the reviewing agent real time:
+#:
+#: 1. ``sp.callaway_santanna`` on a plain 2x2 design — valid, far slower,
+#:    and numerically the same estimand as ``sp.did(method='2x2')``.
+#: 2. ``sp.feols(vce='conley')`` at n ~ 140,000 — the acreg-convention
+#:    Conley path materialises dense ``n x n`` distance/kernel matrices
+#:    (``inference/jackknife.conley_vcov_matrix``), i.e. ~157 GB, and the
+#:    process was OOM-killed.
+#:
+#: Scope is deliberately ~25 entries, not the full surface: these are the
+#: paths where a *successful-looking* call is the wrong move, or where the
+#: memory profile is quadratic.  Entries are applied extend-missing (see
+#: :func:`_apply_agent_card_seeds`) so a hand-written ``FunctionSpec``
+#: always keeps the last word.
+#:
+#: ``cost_profile`` claims are per-path and verified against the source —
+#: notably ``sp.conley`` itself is **cheap** (scipy ``cKDTree`` ball
+#: query, only within-cutoff pairs are formed) and is documented as the
+#: safe alternative rather than tarred with the dense paths' cost.
+_NEGATIVE_GUIDANCE_SEEDS: Dict[str, Dict[str, Any]] = {
+    # ---------------------------------------------------------------- #
+    #  DiD family — the "valid but wrong tool" cluster
+    # ---------------------------------------------------------------- #
+    "did": {
+        "not_recommended_when": [
+            "treatment is continuous / dose-valued rather than binary — "
+            "use sp.continuous_did or sp.dose_response",
+            "exactly one treated unit — DiD inference is not credible with "
+            "one treated cluster; use sp.synth or sp.sdid",
+            "no pre-treatment period exists — parallel trends is untestable "
+            "and the event study cannot be identified",
+        ],
+    },
+    "did_2x2": {
+        "not_recommended_when": [
+            "treatment timing is staggered across units — the TWFE 2x2 "
+            "estimate is a negative-weighted mix (Goodman-Bacon 2021); use "
+            "sp.callaway_santanna, sp.sun_abraham or sp.did_imputation",
+        ],
+    },
+    "callaway_santanna": {
+        "not_recommended_when": [
+            "all treated units adopt in the same period (a plain 2x2 or "
+            "block design) — CS reduces to the same estimand at much higher "
+            "cost; use sp.did(method='2x2')",
+            "there is neither a never-treated group nor a not-yet-treated "
+            "cohort — no valid comparison group exists for ATT(g,t)",
+            "only one pre-treatment period per cohort — no pre-trend "
+            "evidence and no event-study leads are estimable",
+        ],
+        "cost_profile": (
+            "Runtime scales with (number of cohorts x number of periods): "
+            "one doubly-robust 2x2 estimate plus an influence function per "
+            "(g,t) cell. Memory is O(n) — the hazard is wall-clock on "
+            "many-cohort panels, not RAM."
+        ),
+    },
+    "sun_abraham": {
+        "not_recommended_when": [
+            "all units adopt treatment simultaneously — the cohort x "
+            "relative-time interactions collapse; use sp.did(method='2x2')",
+            "cohorts are very small (a handful of units each) — "
+            "interaction-weighted estimates become noisy and the "
+            "cohort-share weights unstable",
+        ],
+        "cost_profile": (
+            "Builds a saturated cohort x relative-time interaction design: "
+            "columns grow as (cohorts x event-time window), so a wide "
+            "window on a many-cohort panel produces a large dense design "
+            "matrix. Trim via event_window=."
+        ),
+    },
+    "did_imputation": {
+        "not_recommended_when": [
+            "there is no never-treated (or not-yet-treated) group to fit "
+            "the untreated-potential-outcome model on — imputation has no "
+            "estimation sample",
+            "the design is a simple 2x2 — sp.did(method='2x2') is the same "
+            "estimand and far cheaper",
+            "pre-trends are visibly non-parallel — BJS imputes Y(0) from a "
+            "two-way model that assumes them away, so violations are "
+            "absorbed silently rather than surfaced",
+        ],
+        "cost_profile": (
+            "Fits the untreated two-way model once, then imputes; cheap in "
+            "memory. vce='bootstrap' multiplies total runtime by n_boot — "
+            "budget accordingly before raising n_boot."
+        ),
+    },
+    "borusyak_jaravel_spiess": {
+        "not_recommended_when": [
+            "no never-treated or not-yet-treated observations remain — the "
+            "imputation model cannot be fit",
+            "the design is a simple 2x2 — use sp.did(method='2x2')",
+        ],
+    },
+    "bjs": {
+        "not_recommended_when": [
+            "no never-treated or not-yet-treated observations remain — the "
+            "imputation model cannot be fit",
+            "the design is a simple 2x2 — use sp.did(method='2x2')",
+        ],
+    },
+    "etwfe": {
+        "not_recommended_when": [
+            "all units adopt at the same time — the cohort x period "
+            "saturation is redundant; use sp.did(method='2x2')",
+        ],
+        "cost_profile": (
+            "Saturated cohort x period interaction design: the number of "
+            "regressors grows as O(cohorts x periods), so many-cohort "
+            "many-period panels produce a wide dense design and a slow "
+            "solve. Check the cohort x period grid size before calling."
+        ),
+    },
+    "wooldridge_did": {
+        "not_recommended_when": [
+            "treatment timing is not staggered — the extended TWFE "
+            "saturation buys nothing over sp.did(method='2x2')",
+        ],
+        "cost_profile": (
+            "Like sp.etwfe: regressor count grows as O(cohorts x periods) "
+            "from the saturated interactions, so the design matrix — not "
+            "the sample size — is the binding cost."
+        ),
+    },
+    "stacked_did": {
+        "not_recommended_when": [
+            "there is a single adoption cohort — stacking produces one "
+            "sub-experiment and is equivalent to sp.did(method='2x2')",
+        ],
+        "cost_profile": (
+            "Duplicates rows into one sub-experiment per treated cohort: "
+            "the stacked dataset is roughly O(n x number of cohorts) before "
+            "the event window trims it. Narrow window= to bound memory."
+        ),
+    },
+    "did_multiplegt_dyn": {
+        "cost_profile": (
+            "Bootstrap inference dominates: total runtime is roughly n_boot "
+            "x (one full estimation pass). The default n_boot is fine for a "
+            "final table but expensive inside a search loop — lower it while "
+            "iterating."
+        ),
+    },
+    "event_study": {
+        "not_recommended_when": [
+            "only one pre-treatment period is available — there are no "
+            "leads to test parallel trends with, so the plot cannot support "
+            "a pre-trend claim",
+            "treatment timing is staggered and heterogeneous — a pooled "
+            "TWFE event study contaminates leads with other cohorts' "
+            "treated periods; use sp.sun_abraham or sp.callaway_santanna",
+        ],
+    },
+    "bacon_decomposition": {
+        "not_recommended_when": [
+            "treatment timing is not staggered — with a single adoption "
+            "date there is exactly one 2x2 comparison and the "
+            "decomposition is uninformative",
+            "the panel is unbalanced or has never-treated units only — the "
+            "weights are defined for staggered two-way comparisons",
+        ],
+        "cost_profile": (
+            "Enumerates every pair of timing groups: O(G^2) 2x2 "
+            "regressions for G distinct adoption dates. Fine for a handful "
+            "of cohorts, slow when adoption dates are near-continuous "
+            "(e.g. a distinct date per unit)."
+        ),
+    },
+    "honest_did": {
+        "not_recommended_when": [
+            "the fitted result carries fewer than two pre-treatment event "
+            "study coefficients — the relative-magnitude restriction is "
+            "defined against max|pre-period violation| and has nothing to "
+            "scale against",
+            "the design is a 2x2 with no leads — there is no pre-period "
+            "violation to bound; report the standard CI instead",
+        ],
+    },
+    # ---------------------------------------------------------------- #
+    #  Conley / spatial SE — the dense O(n^2) cluster
+    # ---------------------------------------------------------------- #
+    "feols": {
+        "not_recommended_when": [
+            "vce='conley' on more than ~20,000 rows — that path is dense "
+            "O(n^2) (see cost); use sp.conley on the fitted result, which "
+            "is sparse and scales",
+        ],
+        "cost_profile": (
+            "Default (OLS / HC / CRV1) is linear in n. vce='conley' is the "
+            "exception: it calls conley_vcov_matrix, which materialises "
+            "several dense n x n float64 arrays (lat/lon differences, "
+            "distances, the uniform kernel) — ~0.8 GB at n=10,000, ~80 GB "
+            "at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse "
+            "cKDTree) above ~20,000 rows."
+        ),
+    },
+    "hdfe_ols": {
+        "not_recommended_when": [
+            "vce='conley' on more than ~20,000 rows — dense O(n^2) memory "
+            "(see cost); use sp.conley on the fitted result instead",
+        ],
+        "cost_profile": (
+            "Absorption is linear in n. vce='conley' is the exception: the "
+            "within-transformed design goes through conley_vcov_matrix, "
+            "which builds dense n x n distance and kernel matrices — ~80 GB "
+            "at n=100,000. vce='cr2'/'cr3' are per-cluster and cheap by "
+            "comparison."
+        ),
+    },
+    "ppmlhdfe": {
+        "not_recommended_when": [
+            "vce='conley' on more than ~20,000 rows — dense O(n^2) memory "
+            "(see cost)",
+            "vce='conley' with high-dimensional fixed effects — the "
+            "conleyreg-matching construction is dummy-based and raises "
+            "MethodIncompatibility past 1,000 dummy columns; use "
+            "cluster= (CRV1) there",
+        ],
+        "cost_profile": (
+            "IRLS is linear in n. vce='conley' builds the FE-as-dummies "
+            "design plus dense n x n great-circle distance and kernel "
+            "matrices (glm_conley_vcov) — ~0.8 GB at n=10,000 and ~80 GB at "
+            "n=100,000 — and it refuses designs with >= n or > 1,000 dummy "
+            "columns. Use cluster= (CRV1) instead at that scale."
+        ),
+    },
+    "conley": {
+        "cost_profile": (
+            "Sparse and scale-safe: a scipy cKDTree ball query enumerates "
+            "only observation pairs within dist_cutoff, so memory is "
+            "O(n + pairs-within-cutoff) rather than O(n^2). This is the "
+            "recommended Conley path on large samples — unlike "
+            "feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. "
+            "Cost still grows with dist_cutoff: a cutoff large enough to "
+            "link most observations recovers the quadratic pair count."
+        ),
+    },
+    # ---------------------------------------------------------------- #
+    #  Synthetic control family
+    # ---------------------------------------------------------------- #
+    "synth": {
+        "not_recommended_when": [
+            "many units are treated at once — classic SCM is built for one "
+            "(or few) treated units; use sp.gsynth, sp.sdid or "
+            "sp.callaway_santanna",
+            "the pre-treatment window is short (fewer than ~10 periods) — "
+            "the donor weights overfit noise and pre-period fit stops being "
+            "evidence",
+            "the treated unit's pre-period outcome lies outside the convex "
+            "hull of the donors — no non-negative weighting can match it; "
+            "check the pre-period RMSPE and consider sp.augsynth",
+        ],
+        "cost_profile": (
+            "One constrained optimisation over the donor simplex per fit. "
+            "placebo=True / inference re-runs the whole fit once per donor, "
+            "so runtime is roughly (donors + 1) x a single fit — the usual "
+            "reason a synth call feels slow."
+        ),
+    },
+    "augsynth": {
+        "not_recommended_when": [
+            "pre-treatment fit from plain sp.synth is already good — the "
+            "ridge augmentation mainly buys bias correction for poor fit "
+            "and adds a tuning parameter to justify",
+            "many treated units — use sp.gsynth or sp.sdid",
+        ],
+    },
+    "gsynth": {
+        "not_recommended_when": [
+            "there is only one treated unit and a short pre-period — the "
+            "interactive fixed-effects factors are not identified; use "
+            "sp.synth",
+            "fewer pre-treatment periods than the number of factors being "
+            "fit — factor estimation is degenerate",
+        ],
+        "cost_profile": (
+            "Cross-validating n_factors refits the factor model cv_folds x "
+            "max_factors times, and placebo/bootstrap inference refits "
+            "again per replication — runtime is multiplicative in those "
+            "three knobs. Pin n_factors to skip the CV sweep."
+        ),
+    },
+    "scpi": {
+        "cost_profile": (
+            "Prediction intervals come from a simulation step on top of the "
+            "point fit, so runtime is dominated by the number of "
+            "simulations rather than n. cores= parallelises it."
+        ),
+    },
+    "sdid": {
+        "not_recommended_when": [
+            "there is no clean pre-treatment block for every unit — the "
+            "unit and time weights are fit on the pre-period grid",
+        ],
+        "cost_profile": (
+            "Placebo / bootstrap standard errors refit the full weighting "
+            "problem n_reps times; the point estimate alone is cheap. Lower "
+            "n_reps while iterating."
+        ),
+    },
+    "mc_panel": {
+        "not_recommended_when": [
+            "the panel is nearly fully treated — matrix completion needs a "
+            "substantial observed-control block to recover the low-rank "
+            "structure",
+        ],
+        "cost_profile": (
+            "Iterative soft-impute: one SVD of the N x T outcome matrix per "
+            "iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap "
+            "multiplies the whole loop — this is the dominant cost on wide "
+            "panels."
+        ),
+    },
+    "synth_compare": {
+        "cost_profile": (
+            "Runs every estimator in methods= end to end, so cost is the "
+            "sum of the individual fits — and each placebo-enabled member "
+            "internally re-runs once per donor. Expect it to be the "
+            "slowest call in a synthetic-control workflow; narrow methods= "
+            "once you have shortlisted."
+        ),
+    },
+    # ---------------------------------------------------------------- #
+    #  Matching — dense pairwise distance / search-loop cost
+    # ---------------------------------------------------------------- #
+    "optimal_match": {
+        "not_recommended_when": [
+            "either arm has more than ~10,000 units — the assignment "
+            "problem is superquadratic (see cost); use sp.psm or sp.match "
+            "(greedy nearest-neighbour) at that scale",
+        ],
+        "cost_profile": (
+            "Materialises the dense n_treated x n_control distance matrix, "
+            "then solves a linear sum assignment (Hungarian, ~O(n^3) worst "
+            "case). Both memory and time degrade sharply past a few "
+            "thousand units per arm."
+        ),
+    },
+    "genmatch": {
+        "cost_profile": (
+            "Genetic search: population_size x generations full matching + "
+            "balance evaluations (default 40 x 20 = 800 matching passes), "
+            "each of which builds a pairwise distance matrix. Budget it as "
+            "hundreds of sp.match calls, not one."
+        ),
+    },
+    "match": {
+        "cost_profile": (
+            "Builds the dense n_treated x n_control distance matrix via "
+            "scipy cdist before selecting neighbours: memory is "
+            "O(n_treated x n_control). Comfortable into the thousands per "
+            "arm; use a caliper or coarser blocking beyond that."
+        ),
+    },
+    # ---------------------------------------------------------------- #
+    #  Resampling inference
+    # ---------------------------------------------------------------- #
+    "wild_cluster_bootstrap": {
+        "not_recommended_when": [
+            "the number of clusters is large (say > 50) — ordinary CRV1 "
+            "standard errors are already reliable and much cheaper",
+        ],
+        "cost_profile": (
+            "Runtime is roughly n_boot x (one restricted refit). This is "
+            "the intended trade for few-cluster validity — do not raise "
+            "n_boot inside an outer search loop."
+        ),
+    },
+}
+
+
+def _apply_negative_guidance_seeds() -> None:
+    """Attach curated "don't use when" / scaling-cost metadata.
+
+    Applied extend-missing, exactly like :func:`_apply_agent_card_seeds`:
+    a hand-written :class:`FunctionSpec` that already states its own
+    negative guidance keeps it, and ``cost_profile`` is only filled when
+    currently empty.  Names absent from the registry are skipped so the
+    seed table cannot break import when a function is renamed.
+    """
+    global _NEGATIVE_GUIDANCE_APPLIED
+    if _NEGATIVE_GUIDANCE_APPLIED:
+        return
+    for name, meta in _NEGATIVE_GUIDANCE_SEEDS.items():
+        spec = _REGISTRY.get(name)
+        if spec is None:
+            continue
+        for value in meta.get("not_recommended_when", []):
+            if value and value not in spec.not_recommended_when:
+                spec.not_recommended_when.append(value)
+        cost = str(meta.get("cost_profile", "")).strip()
+        if cost and not spec.cost_profile.strip():
+            spec.cost_profile = cost
+    _NEGATIVE_GUIDANCE_APPLIED = True
+
+
 def _apply_validation_evidence() -> None:
     """Attach validation evidence tiers after full registry expansion.
 
@@ -13843,6 +14343,7 @@ def _ensure_full_registry() -> None:
         _apply_validation_evidence()
         _apply_agent_card_seeds()
         _apply_baseline_cards()
+        _apply_negative_guidance_seeds()
         return
 
     import statspai as _sp  # safe: called post-import from user code
@@ -13874,6 +14375,7 @@ def _ensure_full_registry() -> None:
     _apply_validation_evidence()
     _apply_agent_card_seeds()
     _apply_baseline_cards()
+    _apply_negative_guidance_seeds()
 
 
 # ====================================================================== #
@@ -13983,9 +14485,13 @@ def function_schema(name: str, *, agent_native: bool = False) -> Dict[str, Any]:
     agent_native : bool, default False
         When True, attach a top-level ``x_statspai`` extension block carrying
         identifying assumptions, data pre-conditions, failure modes, ranked
-        alternatives, stability / validation tier and ``typical_n_min`` — so an
-        LLM planner can reason about *whether* to call the tool inside the same
-        schema it already reads, with no extra :func:`agent_card` round-trip.
+        alternatives, stability / validation tier, ``typical_n_min``, and the
+        negative-guidance pair ``not_recommended_when`` / ``cost_profile`` — so
+        an LLM planner can reason about *whether* to call the tool inside the
+        same schema it already reads, with no extra :func:`agent_card`
+        round-trip.  (The negative guidance is also folded into the plain
+        ``description`` as ``Do NOT use when: ...`` / ``Cost: ...``, so callers
+        that read nothing but ``description`` still see it.)
         The base ``name`` / ``description`` / ``parameters`` shape is unchanged,
         so the schema still works with strict tool-calling APIs.
 
@@ -14211,6 +14717,12 @@ def agent_cards(
             or card.get("pre_conditions")
             or card.get("limitations")
             or card.get("typical_n_min") is not None
+            # Negative guidance and scaling cost are signal in their own
+            # right — a card whose *only* content is "don't call this at
+            # n>20k, it allocates n x n" is precisely the card an agent
+            # most needs, so it must not be filtered out as empty.
+            or card.get("not_recommended_when")
+            or str(card.get("cost_profile") or "").strip()
         ):
             continue
         out.append(card)

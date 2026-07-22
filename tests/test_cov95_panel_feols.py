@@ -13,9 +13,9 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.panel.feols import feols, FEOLSResult
 from statspai.panel import _hdfe_kernels as kernels
 from statspai.panel import hdfe_rust
+from statspai.panel.feols import FEOLSResult, feols
 
 
 @pytest.fixture
@@ -137,7 +137,10 @@ def test_feols_bad_formula_raises(fe_df):
 
 
 def test_feols_non_bare_column_raises(fe_df):
-    with pytest.raises(ValueError, match="bare column names"):
+    # Arbitrary expressions are still rejected. The message changed when the
+    # parser gained i.f#c.x / f[x] / a:b / a*b / f1^f2 support — "only bare
+    # column names" is no longer an accurate description of what is allowed.
+    with pytest.raises(ValueError, match="cannot parse the term"):
         feols("y ~ np.log(x1) | firm", data=fe_df)
 
 

@@ -5,6 +5,93 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="cic-athey-imbens-step2"></a>
+
+## Unreleased — ⚠️ `sp.cic` now reproduces the Athey-Imbens estimator
+
+**What changed.** The step-2 counterfactual in `sp.cic` had two defects: it
+composed the empirical CDFs with the control-post (`y01`) and treated-pre
+(`y10`) cells transposed relative to Athey & Imbens (2006) eq. 9, and it used
+linearly-interpolated CDF / quantile functions on a finite τ grid instead of
+the step-function ECDF and its generalized inverse. It now computes the
+counterfactual map `k(y) = F_01⁻¹(F_00(y))` on the step ECDF.
+
+**Effect.** The unconditional ATT converged ~0.5% away from the reference
+(2.8% with covariates); it now matches Kranker's Stata `cic` (a direct port of
+the A&I Matlab) to the printed digits — e.g. 2.999904 on the test fixture, where the old
+grid-dependent code gave 3.01792 at the default `n_grid=200` (3.01388 in the
+large-grid limit). Every `sp.cic` point estimate and QTE moves
+slightly.
+
+**Who is affected.** Anyone who ran `sp.cic`. If you have recorded CIC numbers
+from an earlier release, re-run them; the new values are the correct A&I
+estimates. There is no flag to restore the old behavior — it was a bug.
+
+<a id="panel-hdfe-multiway-cluster-nul"></a>
+
+## Unreleased — ⚠️ Panel HDFE multiway cluster SEs no longer collapse
+
+**What changed.** `sp.hdfe_ols` / `sp.feols`' native N-way cluster sandwich
+formed its intersection clusters by joining the dimension labels with a `"\0"`
+separator, but `pd.factorize` truncates object strings at an embedded NUL
+byte. Every intersection therefore collapsed onto its first cluster variable,
+so distinct specifications such as `cluster(prov, year)` and
+`cluster(pref, year)` returned *identical* standard errors. Replaced with a
+mixed-radix integer code combination, mirroring the fix already applied to the
+standalone `sp.multiway_cluster_vcov` inference path in v1.17.0.
+
+**Effect.** Two-way and higher cluster-robust SEs from the panel HDFE path
+change, toward Stata `reghdfe`. One-way clustering and non-clustered SEs are
+unaffected.
+
+**Who is affected.** Anyone using `vcov={"CRV1": [a, b]}`-style multiway
+clustering through `sp.hdfe_ols` / native `sp.feols`. Re-run affected models.
+
+<a id="conley-non-psd-nan"></a>
+
+## Unreleased — ⚠️ Conley non-PSD variances report `nan`, not `0`
+
+**What changed.** Kernel-weighted spatial HAC is not positive semi-definite in
+finite samples; with a uniform kernel `S'WS` routinely has negative diagonal
+entries. Every Conley path used `sqrt(max(V, 0))`, which turned a negative
+variance into `se = 0` — reported downstream as `t = ∞`, `p = 0`. Affected
+terms now return `nan` with a loud `RuntimeWarning` (Stata `acreg` reports the
+same terms as missing). Rounding-level negatives are still clamped to 0
+silently.
+
+**Effect.** Where the Conley covariance was non-PSD, SEs that used to read
+`0.0` now read `nan`. The covariance itself is unchanged (and still matches
+`acreg` to ~1e-12 where it is PSD), so any SE that was previously non-zero is
+unchanged.
+
+**Remedies** named in the warning: widen/narrow the distance cutoff, use
+`kernel="bartlett"` (tapered kernels are far better behaved than the uniform
+indicator), or check whether the coordinates are collinear with the absorbed
+fixed effects.
+
+<a id="event-study-pre-vcov-optin"></a>
+
+## Unreleased — `sp.event_study` pre-period covariance (opt-in this release)
+
+**What changed.** `sp.event_study` now computes the full cluster-robust
+covariance of the event-time coefficients (always available in
+`model_info['vcov']`). The pre-period submatrix `model_info['vcv_pre']` —
+which `pretrends_test`, `pretrends_power`, `sensitivity_rr`, and `honest_did`
+use in place of the historical diagonal (independent-pre-coefficients)
+approximation — is written **only** when you pass `expose_pre_vcov=True`.
+
+**Why opt-in for now.** Switching the default would move published honest-DiD
+and pre-trend numbers during the live JOSS review. By default the diagonal
+fallback still fires — but it now **warns loudly** that it is assuming the
+pre-period coefficients are independent (they are not; they share the omitted
+reference period and the fixed effects). The correct full covariance becomes
+the default in a future release, at which point it will be logged as a flagged
+⚠️ correctness fix.
+
+**What to do.** For statistically correct honest-DiD / power today, pass
+`expose_pre_vcov=True` to `sp.event_study`. To reproduce numbers from an
+earlier release, do nothing — the default is unchanged.
+
 <a id="proximal-surrogate-index-bridge-2sls"></a>
 
 ## Unreleased — ⚠️ `sp.proximal_surrogate_index` bridge is now proper 2SLS

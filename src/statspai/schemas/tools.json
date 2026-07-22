@@ -33,6 +33,13 @@
           "description": "If True, also return the ``Absorber`` object for reuse.",
           "type": "boolean"
         },
+        "slopes": {
+          "description": "slopes parameter (Optional[Sequence[SlopeSpec]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "solver": {
           "default": "map",
           "description": "Within-transformation backend. See :class:`Absorber`.",
@@ -482,7 +489,7 @@
     "name": "audit_result"
   },
   {
-    "description": "Augmented Synthetic Control with ridge bias correction (Ben-Michael et al. 2021). Validation: certified parity evidence. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
+    "description": "Augmented Synthetic Control with ridge bias correction (Ben-Michael et al. 2021). Validation: certified parity evidence. Do NOT use when: pre-treatment fit from plain sp.synth is already good -- the ridge augmentation mainly buys bias correction for poor fit and adds a tuning parameter to justify; many treated units -- use sp.gsynth or sp.sdid. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect...",
     "input_schema": {
       "properties": {
         "backend": {
@@ -1537,7 +1544,7 @@
     "name": "bib_for"
   },
   {
-    "description": "Return verified BibTeX entries from paper.bib (StatsPAI's single source of truth for citations). Pass one or more bib keys (e.g. 'callaway2021difference'). NEVER invent citations -- call this tool instead. Unknown keys return an empty entry plus a list of close matches.",
+    "description": "Return verified BibTeX entries from paper.bib (StatsPAI's single source of truth for citations). Pass one or more bib keys (e.g. 'callaway2021difference'). NEVER invent citations -- call this tool instead. Unknown keys return an empty entry plus a list of close matches. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "keys": {
@@ -1660,7 +1667,7 @@
     "name": "biprobit"
   },
   {
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Assumptions: Conditional parallel trends between treated and comparison groups absent treatment; No anticipation of treatment before its onset; Treatment effects may be heterogeneous across cohorts and time (no homogeneity required). Pre-conditions: Panel or repeated cross-section with a unit (or group) identifier and a time identifier; At least one never-treated or not-yet-treated comparison group; Pre-treatment periods to assess parallel trends. Failure modes: Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation) -> Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates; Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights -> Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage). Alternatives: sp.callaway_santanna, sp.did, sp.honest_did. Typical minimum N: 100.",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2'). Assumptions: Conditional parallel trends between treated and comparison groups absent treatment; No anticipation of treatment before its onset; Treatment effects may be heterogeneous across cohorts and time (no homogeneity required). Pre-conditions: Panel or repeated cross-section with a unit (or group) identifier and a time identifier; At least one never-treated or not-yet-treated comparison group; Pre-treatment periods to assess parallel trends. Failure modes: Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation) -> Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates; Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights -> Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage). Alternatives: sp.callaway_santanna, sp.did, sp.honest_did. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -1891,7 +1898,7 @@
     "name": "bootstrap"
   },
   {
-    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Assumptions: Conditional parallel trends between treated and comparison groups absent treatment; No anticipation of treatment before its onset; Treatment effects may be heterogeneous across cohorts and time (no homogeneity required). Pre-conditions: Panel or repeated cross-section with a unit (or group) identifier and a time identifier; At least one never-treated or not-yet-treated comparison group; Pre-treatment periods to assess parallel trends. Failure modes: Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation) -> Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates; Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights -> Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage); Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. Alternatives: sp.callaway_santanna, sp.did, sp.honest_did, sp.sun_abraham. Typical minimum N: 100.",
+    "description": "Borusyak, Jaravel & Spiess (2024) imputation DID estimator. Do NOT use when: no never-treated or not-yet-treated observations remain -- the imputation model cannot be fit; the design is a simple 2x2 -- use sp.did(method='2x2'). Assumptions: Conditional parallel trends between treated and comparison groups absent treatment; No anticipation of treatment before its onset; Treatment effects may be heterogeneous across cohorts and time (no homogeneity required). Pre-conditions: Panel or repeated cross-section with a unit (or group) identifier and a time identifier; At least one never-treated or not-yet-treated comparison group; Pre-treatment periods to assess parallel trends. Failure modes: Pre-treatment event-study coefficients are jointly non-zero (pre-trend violation) -> Use honest DiD bounds to quantify robustness to trend violations, or condition on covariates; Two-way fixed-effects estimate is contaminated by 'forbidden' comparisons / negative weights -> Use a heterogeneity-robust estimator (Callaway-Sant'Anna, Borusyak et al., Gardner two-stage); Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -3045,6 +3052,18 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "covariates": {
+          "description": "Covariates for the Athey-Imbens (2006 p.466) two-step estimator; 'C(col)' / 'i.col' terms are absorbed as fixed effects",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "first_stage": {
+          "default": "feols",
+          "description": "First-stage residualizer (only 'feols' supported)",
+          "type": "string"
+        },
         "group": {
           "description": "Treatment-group indicator (0/1)",
           "type": "string"
@@ -3721,7 +3740,7 @@
     "name": "conformal_synth"
   },
   {
-    "description": "Compute Conley (1999) spatial HAC standard errors. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Compute Conley (1999) spatial -- and optionally spatio-temporal -- HAC Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Sparse and scale-safe: a scipy cKDTree ball query enumerates only observation pairs within dist_cutoff, so memory is O(n + pairs-within-cutoff) rather than O(n^2). This is the recommended Conley path on large samples -- unlike feols(vce='conley') / hdfe_ols(vce='conley'), which are dense. Cost still grows with dist_cutoff: a cutoff large enough to link most observations recovers the quadratic pair count.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -3733,10 +3752,23 @@
           "description": "Distance cutoff *h* in kilometres. Pairs farther apart than this receive zero weight.",
           "type": "number"
         },
+        "distance": {
+          "default": "haversine",
+          "description": "``\"haversine\"`` uses great-circle distance on a sphere of radius 6371 km, and is symmetric. ``\"planar\"`` reproduces ``acreg``'s convention exactly: 111 km per degree of latitude and ``cos(lat_ref) * 111`` km per degree of longitude, anchored at the *reference* point, which makes the distance asymmetric; the resulting covariance is symmetrised the same way ``acreg`` does (Mata ``_makesymmetric``, which mirrors the lower triangle). Choose ``\"planar\"`` for bit-level ``acreg`` parity, ``\"haversine\"`` for a proper great-circle metric.",
+          "type": "string"
+        },
         "kernel": {
           "default": "uniform",
-          "description": "Kernel function: ``\"uniform\"`` (indicator) or ``\"bartlett\"`` (linearly declining weight).",
+          "description": "Spatial kernel: ``\"uniform\"`` (indicator) or ``\"bartlett\"`` (linearly declining weight ``1 - d/h``).",
           "type": "string"
+        },
+        "lag_cutoff": {
+          "description": "Serial-correlation bandwidth in periods, for pairs within the same unit. Requires ``time``.",
+          "type": "integer"
+        },
+        "lag_cutoff_cross": {
+          "description": "Time bandwidth for pairs drawn from *different* units -- ``acreg``'s ``lagdist()``. Defaults to ``0`` (``acreg``'s default), i.e. contemporaneous cross-unit correlation only.",
+          "type": "integer"
         },
         "lat": {
           "description": "Column name for latitude.",
@@ -3748,6 +3780,19 @@
         },
         "result": {
           "description": "Fitted OLS result. Must have ``data_info`` containing ``'X'`` (design matrix), ``'y'`` (response), and ``'residuals'``.",
+          "type": "string"
+        },
+        "time": {
+          "description": "Column name holding the time period. Must be integer-valued. Requires ``lag_cutoff`` and ``unit``.",
+          "type": "string"
+        },
+        "time_kernel": {
+          "default": "bartlett",
+          "description": "Time kernel: ``\"bartlett\"`` (``1 - |dt| / (lag_cutoff + 1)``, the Newey-West convention, matching ``acreg``'s ``hac bartlett``) or ``\"uniform\"`` (indicator, matching ``acreg`` without ``hac``).",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Column name identifying the panel unit. Enables panel de-duplication: the spatial neighbour search runs on the distinct unit coordinates rather than on every row, so a unit observed T times costs one point in the KD-tree instead of T.",
           "type": "string"
         }
       },
@@ -4579,13 +4624,20 @@
           "type": "boolean"
         },
         "fe": {
-          "description": "fe parameter (Union[pd.DataFrame, np.ndarray]).",
+          "description": "fe parameter (Union[pd.DataFrame, np.ndarray, None]).",
           "type": "string"
         },
         "maxiter": {
           "default": 10000,
           "description": "maxiter parameter (int).",
           "type": "integer"
+        },
+        "slopes": {
+          "description": "slopes parameter (Optional[Sequence[SlopeSpec]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "solver": {
           "default": "map",
@@ -5032,7 +5084,7 @@
     "name": "did_2stage"
   },
   {
-    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Assumptions: Parallel trends; No anticipation; SUTVA (no spillovers). Pre-conditions: data has exactly two time periods (pre, post); treat is 0/1 constant within unit (unit-level, not time-varying); at least a handful of treated and control units. Failure modes: Staggered timing (> 2 periods with varying treat start) -> Use sp.callaway_santanna / sp.sun_abraham / sp.did_imputation; Very few clusters at the group level -> Use wild cluster bootstrap via sp.wild_cluster_bootstrap; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. Alternatives: sp.drdid, sp.did_analysis, sp.callaway_santanna, sp.sun_abraham. Typical minimum N: 30.",
+    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation. Assumptions: Parallel trends; No anticipation; SUTVA (no spillovers). Pre-conditions: data has exactly two time periods (pre, post); treat is 0/1 constant within unit (unit-level, not time-varying); at least a handful of treated and control units. Failure modes: Staggered timing (> 2 periods with varying treat start) -> Use sp.callaway_santanna / sp.sun_abraham / sp.did_imputation; Very few clusters at the group level -> Use wild cluster bootstrap via sp.wild_cluster_bootstrap; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna. Alternatives: sp.drdid, sp.did_analysis, sp.callaway_santanna, sp.sun_abraham. Typical minimum N: 30.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5229,7 +5281,7 @@
     "name": "did_estimate"
   },
   {
-    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics. Assumptions: Parallel trends in absolute levels; No anticipation (no pre-treatment reaction); SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat encodes cohort (first treated period or 0); >= 1 never-treated unit OR >= 1 late-treated cohort. Failure modes: All units treated (no untreated observations to fit) -> Impossible to impute Y(0); use sp.did_multiplegt if on/off switching; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation. Alternatives: sp.ca...",
+    "description": "Borusyak-Jaravel-Spiess (2024) imputation DiD. Fits a TWFE model on untreated observations only, imputes counterfactual Y(0) for treated obs, and averages the imputation residuals. Efficient under no-anticipation + parallel trends; analytical SE via bjs_inference. Validation: certified evidence with scoped limitations. Known limitations: R/Stata parity is for the documented untreated-only TWFE and simple ATT aggregation convention only; event-study and SE rows are backend-specific diagnostics. Do NOT use when: there is no never-treated (or not-yet-treated) group to fit the untreated-potential-outcome model on -- imputation has no estimation sample; the design is a simple 2x2 -- sp.did(method='2x2') is the same estimand and far cheaper; pre-trends are visibly non-parallel -- BJS imputes Y(0) from a two-way model that assumes them away, so violations are absorbed silently rather than surfaced. Cost: Fits the untreated two-way model once, then imputes; cheap in memory. vce='bootstrap' multiplies total runtime by n_boot -- budget accordingly before raising n_boot. Assumptions: Parallel trends in absolute levels; No anticipation (no pre-treatment reaction); SUTVA. Pre-conditions: panel...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -5399,7 +5451,7 @@
     "name": "did_multiplegt"
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented. Assumptions: Parallel trends between switchers and controls per horizon; No anticipation prior to F; Stable control treatment across horizon window. Pre-conditions: long-format panel with binary time-varying treatment; at least some units switching on from d=0 to d=1; enough horizons pre/post to compute long differences. Failure modes: No units switch from 0 to 1 -> did_multiplegt_dyn identifies from switch-on events. U...",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating. Assumptions: Parallel trends between switchers and controls per horizon; No anticipation prior to F; Stable control treatment across horizon window. Pre-conditions: long-format panel with binary time-varying treatme...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7044,7 +7096,7 @@
     "name": "etregress"
   },
   {
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Alternatives: sp.wooldridge_did, sp.callaway_santanna, sp.did_imputation. Typical minimum N: 50.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling. Alternatives: sp.wooldridge_did, sp.callaway_santanna, sp.did_imputation. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7324,7 +7376,7 @@
     "name": "evalue_rr"
   },
   {
-    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Assumptions: Parallel trends across event time; No anticipation beyond window lead; SUTVA. Pre-conditions: panel with unit x time x outcome; treat_time column gives first-treatment period (or 0/NaN). Failure modes: Staggered heterogeneity -- TWFE event-study biased -> Use sp.sun_abraham for contamination-robust event-study coefficients. Alternatives: sp.sun_abraham, sp.callaway_santanna, sp.did_imputation. Typical minimum N: 50.",
+    "description": "Traditional OLS event-study with entity and time FEs. Generates relative-time dummies around the treatment date, omits a reference period, and estimates via TWFE + optional clustered SE. Exposed for users who want the classical specification alongside CS / SA / BJS; not robust to staggered-effect heterogeneity -- use sp.sun_abraham for that. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: only one pre-treatment period is available -- there are no leads to test parallel trends with, so the plot cannot support a pre-trend claim; treatment timing is staggered and heterogeneous -- a pooled TWFE event study contaminates leads with other cohorts' treated periods; use sp.sun_abraham or sp.callaway_santanna. Assumptions: Parallel trends across event time; No anticipation beyond window lead; SUTVA. Pre-conditions: panel with unit x time x outcome; treat_time column gives first-treatment period (or 0/NaN). Failure modes: Staggered heterogeneity -- TWFE event-study biased -> Use sp.sun_abraham for contamination-robust event-study coefficients. Alternatives: sp.sun_abraham, sp.callaway_santanna, sp.did_imputation. Typica...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7580,7 +7632,7 @@
     "name": "feglm"
   },
   {
-    "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Assumptions: Strict exogeneity conditional on the absorbed fixed effects; No perfect collinearity after FE absorption (within-transformation rank); Cluster structure for `vcov={'CRV1': '...'}` matches the relevant dependence. Pre-conditions: Data is a long-format DataFrame; FE columns are categorical or convertible; Every absorbed FE level has more than one observation (singleton dropping behaviour controlled by `drop_singletons`); Optional IV stage: instruments are at least as many as endogenous regressors. Failure modes: Singleton groups dropped warning -> Aggregate small categories or accept the drop; verify estimand is unchanged; Slow convergence on > 3 high-cardinality FEs -> Reduce FE dimension, switch to Rust HDFE backend, or simplify the model. Alternatives: sp.panel, sp.regress, sp.hdfe_ols. Typical minimum N: 100.",
+    "description": "Estimate OLS / IV with high-dimensional fixed effects via pyfixest. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- that path is dense O(n^2) (see cost); use sp.conley on the fitted result, which is sparse and scales. Cost: Default (OLS / HC / CRV1) is linear in n. vce='conley' is the exception: it calls conley_vcov_matrix, which materialises several dense n x n float64 arrays (lat/lon differences, distances, the uniform kernel) -- ~0.8 GB at n=10,000, ~80 GB at n=100,000, ~157 GB at n=140,000. Prefer sp.conley (sparse cKDTree) above ~20,000 rows. Assumptions: Strict exogeneity conditional on the absorbed fixed effects; No perfect collinearity after FE absorption (within-transformation rank); Cluster structure for `vcov={'CRV1': '...'}` matches the relevant dependence. Pre-conditions: Data is a long-format DataFrame; FE columns are categorical or convertible; Every absorbed FE level has more than one observation (singleton dropping behaviour controlled by `drop_singletons`); Optional IV stage: instruments are at least as many as endogenous regressors. Failure modes: Singleton groups dropped warning -> Aggregate small categories or...",
     "input_schema": {
       "properties": {
         "cluster": {
@@ -8601,7 +8653,7 @@
     "name": "general_bunching"
   },
   {
-    "description": "Genetic Matching for ATT estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Genetic Matching for ATT estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Genetic search: population_size x generations full matching + balance evaluations (default 40 x 20 = 800 matching passes), each of which builds a pairwise distance matrix. Budget it as hundreds of sp.match calls, not one. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9002,7 +9054,7 @@
     "name": "group_time_plot"
   },
   {
-    "description": "Generalized Synthetic Control via interactive fixed effects. Validation: certified parity evidence. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
+    "description": "Generalized Synthetic Control via interactive fixed effects. Validation: certified parity evidence. Do NOT use when: there is only one treated unit and a short pre-period -- the interactive fixed-effects factors are not identified; use sp.synth; fewer pre-treatment periods than the number of factors being fit -- factor estimation is degenerate. Cost: Cross-validating n_factors refits the factor model cv_folds x max_factors times, and placebo/bootstrap inference refits again per replication -- runtime is multiplicative in those three knobs. Pin n_factors to skip the CV sweep. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add don...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9254,7 +9306,7 @@
     "name": "hausman_test"
   },
   {
-    "description": "reghdfe-style OLS with high-dimensional fixed effects. Validation: certified parity evidence. Assumptions: Linear conditional mean after absorbing high-dimensional fixed effects (Frisch-Waugh-Lovell); Exogeneity of regressors conditional on the absorbed fixed-effect dimensions; Clustered SEs require enough clusters for asymptotics; multiway cluster needs each dimension well-populated. Pre-conditions: Continuous outcome; Fixed-effect factor variable(s) in the '| fe1 + fe2' part of the formula. Failure modes: Singleton groups absorb their own observations and bias clustered SEs -> Keep drop_singletons=True so singletons are removed before estimation; Alternating-projections absorber does not converge -> Raise maxiter / loosen tol, or reduce the number of FE dimensions; Too few clusters make wild/cluster inference unreliable -> Use a wild-cluster bootstrap or cluster at a coarser level. Alternatives: sp.feols, sp.regress, sp.qreg. Typical minimum N: 500.",
+    "description": "reghdfe-style OLS with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); use sp.conley on the fitted result instead. Cost: Absorption is linear in n. vce='conley' is the exception: the within-transformed design goes through conley_vcov_matrix, which builds dense n x n distance and kernel matrices -- ~80 GB at n=100,000. vce='cr2'/'cr3' are per-cluster and cheap by comparison. Assumptions: Linear conditional mean after absorbing high-dimensional fixed effects (Frisch-Waugh-Lovell); Exogeneity of regressors conditional on the absorbed fixed-effect dimensions; Clustered SEs require enough clusters for asymptotics; multiway cluster needs each dimension well-populated. Pre-conditions: Continuous outcome; Fixed-effect factor variable(s) in the '| fe1 + fe2' part of the formula. Failure modes: Singleton groups absorb their own observations and bias clustered SEs -> Keep drop_singletons=True so singletons are removed before estimation; Alternating-projections absorber does not converge -> Raise maxiter / loosen tol, or reduce the number of FE dimensions; Too few clusters make wi...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -9287,7 +9339,7 @@
           "type": "boolean"
         },
         "formula": {
-          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional.",
+          "description": "``\"y ~ x1 + x2 | fe1 + fe2 + fe3\"``. The ``| fe...`` part is optional. Both sides accept bare names, ``c.x`` / ``i.f``, ``a:b``, ``a*b``, ``f1^f2`` and the varying-slope forms ``i.f#c.x`` / ``i.f##c.x`` / ``f[[x]]`` / ``f[x]`` -- see the module docstring for the full grammar.",
           "type": "string"
         },
         "maxiter": {
@@ -11947,7 +11999,7 @@
     "name": "marginsplot"
   },
   {
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support: treated X-values are in the control X-support; SUTVA: no interference between matched units. Pre-conditions: binary treatment 0/1; covariates are pre-treatment (temporally prior to D); enough control units for each treated unit under the chosen method (k:1 matching). Failure modes: Covariate imbalance after matching (max |SMD| > 0.1) -> Re-match with stricter caliper, add interactions, or switch to sp.ebalance (entropy balancing); Poor propensity score overlap (density plots, treated mass where controls are sparse) -> Apply sp.trimming (Crump 2009) or redefine the estimand to the overlap region; Too few matched controls per treated unit -> Relax caliper, allow with-replacement, or use entropy balancing / overlap weights. Alternatives: sp.ebalance, sp.cbps, sp.optimal_match, sp.sbw. Typical minimum N: 200.",
+    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support: treated X-values are in the control X-support; SUTVA: no interference between matched units. Pre-conditions: binary treatment 0/1; covariates are pre-treatment (temporally prior to D); enough control units for each treated unit under the chosen method (k:1 matching). Failure modes: Covariate imbalance after matching (max |SMD| > 0.1) -> Re-match with stricter caliper, add interactions, or switch to sp.ebalance (entropy balancing); Poor propensity score overlap (density plots, treated mass where controls are sparse) -> Apply sp.trimming (Crump 2009) or redefine the estimand to the overlap region; Too few matched controls per treated unit -> Relax caliper, allow with-replacement, or use entropy balancing /...",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -12017,7 +12069,7 @@
     "name": "matrix_completion"
   },
   {
-    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
+    "description": "Estimate treatment effects using matrix completion. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the panel is nearly fully treated -- matrix completion needs a substantial observed-control block to recover the low-rank structure. Cost: Iterative soft-impute: one SVD of the N x T outcome matrix per iteration, i.e. O(max_iter x N x T x min(N,T)). n_bootstrap multiplies the whole loop -- this is the dominant cost on wide panels. Assumptions: The relationship between the treated unit and controls is stable absent the intervention (causal_impact); Matrix-completion: the untreated potential outcomes follow a low-rank factor structure with treatment as the missingness pattern; No concurrent intervention affects the controls. Pre-conditions: A treated unit with a pre-period and a set of control series, or a panel with a low-rank structure. Failure modes: Pre-period fit is poor or controls are themselves affected by the intervention -> Re-select controls, lengthen the pre-period, or use synthetic-control / DiD diagnostics. Alternatives: sp.synth, sp.sdid, sp.gsynth. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -14075,7 +14127,7 @@
     "name": "oprobit"
   },
   {
-    "description": "Optimal 1:1 matching via the Hungarian algorithm. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_score, sp.cbps, sp.ebalance, sp.dml. Typical minimum N: 200.",
+    "description": "Optimal 1:1 matching via the Hungarian algorithm. Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_s...",
     "input_schema": {
       "properties": {
         "caliper": {
@@ -14810,6 +14862,54 @@
     "name": "parallel_trends_plot"
   },
   {
+    "description": "Run the full parallel-trends robustness pipeline on a DiD result. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "delta": {
+          "description": "Hypothesised pre-trend violation passed to ``pretrends_power``.",
+          "type": "string"
+        },
+        "e": {
+          "default": 0,
+          "description": "Relative time whose effect the sensitivity analysis targets.",
+          "type": "integer"
+        },
+        "families": {
+          "default": [
+            "SD",
+            "RM"
+          ],
+          "description": "Restriction families. ``\"SD\"`` maps to ``honest_did``'s ``method='smoothness'`` (bounded second differences); ``\"RM\"`` maps to ``method='relative_magnitude'``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "m_grid": {
+          "description": "Grid of violation magnitudes. Default: the ``honest_did`` default, multiples of the standard error at ``e``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "result": {
+          "description": "A fitted DiD/event-study result carrying event-study estimates in ``result.model_info['event_study']`` (e.g. from ``sp.event_study``, ``sp.callaway_santanna``, ``sp.sun_abraham``). .. note:: If the result does not carry a pre-period covariance matrix in ``model_info['vcv_pre']``, the pre-trend test and power fall back to assuming the pre-period coefficients are mutually independent and warn loudly. ``sp.event_study`` computes the full cluster-robust covariance; pass ``expose_pre_vcov=True`` to it to have this pipeline use the correct covariance instead of the diagonal fallback.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    },
+    "name": "parallel_trends_robustness"
+  },
+  {
     "description": "Partial-correlation p-value for H0: ``X Y | Z``.",
     "input_schema": {
       "properties": {
@@ -15369,7 +15469,7 @@
     "name": "postestimation_report"
   },
   {
-    "description": "Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects. Validation: certified parity evidence.",
+    "description": "Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); vce='conley' with high-dimensional fixed effects -- the conleyreg-matching construction is dummy-based and raises MethodIncompatibility past 1,000 dummy columns; use cluster= (CRV1) there. Cost: IRLS is linear in n. vce='conley' builds the FE-as-dummies design plus dense n x n great-circle distance and kernel matrices (glm_conley_vcov) -- ~0.8 GB at n=10,000 and ~80 GB at n=100,000 -- and it refuses designs with >= n or > 1,000 dummy columns. Use cluster= (CRV1) instead at that scale.",
     "input_schema": {
       "properties": {
         "absorb": {
@@ -20275,7 +20375,7 @@
     "name": "scigan"
   },
   {
-    "description": "Prediction intervals for synthetic control methods. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
+    "description": "Prediction intervals for synthetic control methods. Cost: Prediction intervals come from a simulation step on top of the point fit, so runtime is dominated by the number of simulations rather than n. cores= parallelises it. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimu...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -20350,7 +20450,7 @@
     "name": "scpi"
   },
   {
-    "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence. Assumptions: Parallel trends in the absence of treatment, after the synthetic/DiD weighting; No anticipation and no interference between units (SUTVA); The control pool's outcome process is stable around the intervention. Pre-conditions: Panel with treated and control units and a clear treatment date; Pre-treatment periods available to assess comparability of trends. Failure modes: Weighted pre-treatment trends still diverge between treated and synthetic control -> Inspect the unit/time weights and pre-trend fit; consider event-study DiD with honest bounds. Alternatives: sp.synth, sp.augsynth, sp.callaway_santanna, sp.gardner_did. Typical minimum N: 15.",
+    "description": "Synthetic Difference-in-Differences estimator (and SC / DID variants). Validation: certified parity evidence. Do NOT use when: there is no clean pre-treatment block for every unit -- the unit and time weights are fit on the pre-period grid. Cost: Placebo / bootstrap standard errors refit the full weighting problem n_reps times; the point estimate alone is cheap. Lower n_reps while iterating. Assumptions: Parallel trends in the absence of treatment, after the synthetic/DiD weighting; No anticipation and no interference between units (SUTVA); The control pool's outcome process is stable around the intervention. Pre-conditions: Panel with treated and control units and a clear treatment date; Pre-treatment periods available to assess comparability of trends. Failure modes: Weighted pre-treatment trends still diverge between treated and synthetic control -> Inspect the unit/time weights and pre-trend fit; consider event-study DiD with honest bounds. Alternatives: sp.synth, sp.augsynth, sp.callaway_santanna, sp.gardner_did. Typical minimum N: 15.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21170,7 +21270,7 @@
     "name": "stabilized_weights"
   },
   {
-    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Assumptions: Parallel trends within each sub-experiment; No anticipation within window; SUTVA. Pre-conditions: staggered adoption with >= 2 cohorts; window horizon available per cohort (else dropped). Failure modes: No clean controls for the latest cohort -> Late cohort's sub-experiment is dropped; check coverage in model_info. Consider sp.callaway_santanna. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation. Typical minimum N: 100.",
+    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory. Assumptions: Parallel trends within each sub-experiment; No anticipation within window; SUTVA. Pre-conditions: staggered adoption with >= 2 cohorts; window horizon available per cohort (else dropped). Failure modes: No clean controls for the latest cohort -> Late cohort's sub-experiment is dropped; check coverage in model_info. Consider sp.callaway_santanna. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21550,7 +21650,7 @@
     "name": "subgroup_decompose"
   },
   {
-    "description": "Sun-Abraham (2021) interaction-weighted event-study. Fixes the contamination in dynamic event-study TWFE coefficients from other relative-time bins by using cohort-specific interaction weights. Canonical companion to Callaway-Sant'Anna for event studies. Validation: certified parity evidence. Assumptions: Parallel trends across cohorts; No anticipation within event_window lead horizon; SUTVA. Pre-conditions: panel with unit x time x outcome; g is the first-treatment period (int), 0 / NaN for never-treated; >= 2 pre-periods per cohort for event-study leads. Failure modes: No never-treated cohort when control_group='nevertreated' -> Pass control_group='notyettreated' or add never-treated units; Pre-trend joint test p < 0.05 (or underpowered at 0.10) -> Use sp.sensitivity_rr (Rambachan & Roth honest CI) or switch to sp.callaway_santanna; Staggered treatment timing with TWFE method -> TWFE can give negative weights; use Callaway-Sant'Anna, Sun-Abraham, or BJS imputation. Alternatives: sp.callaway_santanna, sp.did_imputation, sp.gardner_did, sp.wooldridge_did. Typical minimum N: 50.",
+    "description": "Sun-Abraham (2021) interaction-weighted event-study. Fixes the contamination in dynamic event-study TWFE coefficients from other relative-time bins by using cohort-specific interaction weights. Canonical companion to Callaway-Sant'Anna for event studies. Validation: certified parity evidence. Do NOT use when: all units adopt treatment simultaneously -- the cohort x relative-time interactions collapse; use sp.did(method='2x2'); cohorts are very small (a handful of units each) -- interaction-weighted estimates become noisy and the cohort-share weights unstable. Cost: Builds a saturated cohort x relative-time interaction design: columns grow as (cohorts x event-time window), so a wide window on a many-cohort panel produces a large dense design matrix. Trim via event_window=. Assumptions: Parallel trends across cohorts; No anticipation within event_window lead horizon; SUTVA. Pre-conditions: panel with unit x time x outcome; g is the first-treatment period (int), 0 / NaN for never-treated; >= 2 pre-periods per cohort for event-study leads. Failure modes: No never-treated cohort when control_group='nevertreated' -> Pass control_group='notyettreated' or add never-treated units; Pre-tren...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -21821,7 +21921,7 @@
     "name": "survreg"
   },
   {
-    "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required. Assumptions: Treatment effect on the treated is identified by the counterfactual implicit in the donor weights; No spillover from treated unit to donors (SUTVA); Donor pool contains units whose outcomes plausibly track the treated counterfactual. Pre-conditions: panel data in long form (unit x time x outcome); single treated unit (classic) or a treatment-timing column (staggered); >= 10 donor (untreated) units with...",
+    "description": "Unified synthetic control estimator. method= selects variant: 'classic', 'demeaned', 'detrended', 'unconstrained', 'elastic_net', 'augmented', 'sdid', 'gsynth', 'staggered'. inference= selects: 'placebo', 'conformal', 'bootstrap', 'jackknife'. Validation: certified evidence with scoped limitations. Known limitations: Classical SCM certification is specification-specific: ADH/Synth parity requires passing the same special_predictors recipe; the default outcome-only V=I path is a documented Kaul-style convention; Default native classical SCM can differ from Synth on Basque-style panels by a documented local-optimum convention (the outer V optimisation has multiple near-equivalent minima); use backend='synth' or canonical special_predictors when exact R parity is required. Do NOT use when: many units are treated at once -- classic SCM is built for one (or few) treated units; use sp.gsynth, sp.sdid or sp.callaway_santanna; the pre-treatment window is short (fewer than ~10 periods) -- the donor weights overfit noise and pre-period fit stops being evidence; the treated unit's pre-period outcome lies outside the convex hull of the donors -- no non-negative weighting can match it; check t...",
     "input_schema": {
       "properties": {
         "backend": {
@@ -21873,7 +21973,7 @@
     "name": "synth"
   },
   {
-    "description": "Run multiple SCM variants and compare them side by side.",
+    "description": "Run multiple SCM variants and compare them side by side. Cost: Runs every estimator in methods= end to end, so cost is the sum of the individual fits -- and each placebo-enabled member internally re-runs once per donor. Expect it to be the slowest call in a synthetic-control workflow; narrow methods= once you have shortlisted.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23819,7 +23919,7 @@
     "name": "wild_cluster_boot"
   },
   {
-    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Errors are exchangeable within clusters (Rademacher weights are robust to most departures); Number of clusters G >= 5 for finite-sample validity. Pre-conditions: long-format dataset with a cluster identifier present; treatment / test variable varies within at least some clusters; test_var (or first column of x) is the coefficient under test. Failure modes: Multi-way clustering requested -> Multi-way wild cluster bootstrap is not yet supported; see sp.subcluster_wild_bootstrap or use cr2_se for two-way; G < 5 clusters -> Wild cluster bootstrap is unreliable below ~5 clusters; consider permutation tests (sp.ri_test). Alternatives: sp.cr2_se, sp.subcluster_wild_bootstrap, sp.ri_test. Typical minimum N: 100.",
+    "description": "Cameron-Gelbach-Miller (2008) wild cluster bootstrap -- the canonical fix for cluster-robust inference with few clusters (G < 30). Re-samples cluster-level Rademacher weights to construct a percentile-t reference distribution that has correct size when the standard cluster-robust z-test rejects too often. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: the number of clusters is large (say > 50) -- ordinary CRV1 standard errors are already reliable and much cheaper. Cost: Runtime is roughly n_boot x (one restricted refit). This is the intended trade for few-cluster validity -- do not raise n_boot inside an outer search loop. Assumptions: Errors are exchangeable within clusters (Rademacher weights are robust to most departures); Number of clusters G >= 5 for finite-sample validity. Pre-conditions: long-format dataset with a cluster identifier present; treatment / test variable varies within at least some clusters; test_var (or first column of x) is the coefficient under test. Failure modes: Multi-way clustering requested -> Multi-way wild cluster bootstrap is not yet supported; see sp.subcluster_wild_bootstrap...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -23944,7 +24044,7 @@
     "name": "wild_cluster_ci_inv"
   },
   {
-    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Assumptions: Parallel trends per cohort; No anticipation; SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat cohort column (first period treated, 0 = never). Failure modes: Singleton cohorts with one unit -> Aggregate small cohorts or drop them. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.etwfe. Typical minimum N: 50.",
+    "description": "Wooldridge (2021) extended TWFE (ETWFE). Saturated TWFE regression with cohort x post interactions; recovers cohort-specific ATTs. Numerically equivalent to CS / SA / BJS under the saturated specification. Validation: certified parity evidence. Do NOT use when: treatment timing is not staggered -- the extended TWFE saturation buys nothing over sp.did(method='2x2'). Cost: Like sp.etwfe: regressor count grows as O(cohorts x periods) from the saturated interactions, so the design matrix -- not the sample size -- is the binding cost. Assumptions: Parallel trends per cohort; No anticipation; SUTVA. Pre-conditions: panel with unit x time x outcome; first_treat cohort column (first period treated, 0 = never). Failure modes: Singleton cohorts with one unit -> Aggregate small cohorts or drop them. Alternatives: sp.callaway_santanna, sp.sun_abraham, sp.did_imputation, sp.etwfe. Typical minimum N: 50.",
     "input_schema": {
       "properties": {
         "alpha": {
