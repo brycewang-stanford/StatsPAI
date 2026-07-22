@@ -240,6 +240,19 @@ class SlopeSpec(NamedTuple):
         ``[x]``).
     name : str
         Display name, used in diagnostics and warnings.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(0)
+    >>> g = np.repeat(np.arange(4), 25)
+    >>> x = rng.normal(size=100)
+    >>> spec = sp.SlopeSpec(group=g, x=x, with_intercept=False, name="i.g#c.x")
+    >>> spec.with_intercept
+    False
+    >>> spec.name
+    'i.g#c.x'
     """
 
     group: np.ndarray
