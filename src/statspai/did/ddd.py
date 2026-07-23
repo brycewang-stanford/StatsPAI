@@ -27,7 +27,7 @@ Olden, A. and Møen, J. (2022).
 *The Econometrics Journal*, 25(3), 531-553. [@olden2022triple]
 """
 
-from typing import Optional, List
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -237,7 +237,10 @@ def ddd(
         vcov = correction * XtX_inv @ meat @ XtX_inv
     elif robust:
         if w is not None:
-            hc1_weights = (n / (n - k)) * (w * resid**2)
+            # ⚠️ correctness fix (2026-07): the WLS score is w_i x_i e_i, so
+            # the HC1 meat is Σ w_i² e_i² x_i x_i' (Stata aweight-robust /
+            # R sandwich convention); see the same fix in did_2x2.py.
+            hc1_weights = (n / (n - k)) * (w**2 * resid**2)
         else:
             hc1_weights = (n / (n - k)) * resid**2
         meat = X.T @ np.diag(hc1_weights) @ X

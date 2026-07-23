@@ -827,7 +827,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'.",
+    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.ddd(df, y=\"y\", treat=\"policy_state\", time=\"year\", subgroup=\"eligible\")",
     "failure_modes": [
       {
@@ -847,7 +847,7 @@
     ],
     "reference": "Gruber (1994) JPE -- classical DDD; Olden & Men (2022) [@olden2022triple] -- heterogeneity-robust variant (separate function on the roadmap).",
     "signature": {
-      "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'.",
+      "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ddd",
       "parameters": {
         "properties": {
@@ -910,10 +910,11 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py",
       "API/unit contract evidence: tests/test_did.py",
       "API/unit contract evidence: tests/test_did_frontiers.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -17640,7 +17641,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
+    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
     "example": "sp.did_2x2(df, y=\"earnings\", treat=\"treated\", time=\"year\")",
     "failure_modes": [
       {
@@ -17700,7 +17701,7 @@
     ],
     "reference": "Card & Krueger (1994); Angrist & Pischke (2009) MHE Ch.5",
     "signature": {
-      "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
+      "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
       "name": "did_2x2",
       "parameters": {
         "properties": {
@@ -17758,10 +17759,11 @@
     "stability": "stable",
     "typical_n_min": 30,
     "validation_notes": [
+      "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py",
       "API/unit contract evidence: tests/reference_parity/test_did_parity.py",
       "API/unit contract evidence: tests/coverage_monte_carlo/test_coverage.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

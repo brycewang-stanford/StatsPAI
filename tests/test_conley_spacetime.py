@@ -167,6 +167,32 @@ def test_moving_unit_coordinates_raise(geo_panel):
         sp.conley(r, df, "lat", "lon", 300.0, time="t", lag_cutoff=2, unit="id")
 
 
+def test_duplicate_unit_time_rows_raise(geo_panel):
+    """⚠️ 2026-07: duplicated (unit, time) cells must fail loudly.
+
+    The cross-unit block's cell lookup is single-valued (last-write-wins),
+    so before this guard a duplicated cell silently dropped all duplicates
+    but one from the cross-unit terms while the within-unit block kept
+    every row — wrong SEs with no signal. Realistic trigger: passing a
+    coarser geography than the row level (e.g. unit="county" on plant
+    rows), which passes the coordinate-constancy check. Stata's acreg
+    refuses repeated id-time for the same reason.
+    """
+    df = pd.concat([geo_panel, geo_panel.iloc[[0]]], ignore_index=True)
+    r = sp.regress("y ~ x1 + x2", data=df)
+    with pytest.raises(ValueError, match="does not uniquely index"):
+        sp.conley(r, df, "lat", "lon", 300.0, time="t", lag_cutoff=2, unit="id")
+
+
+def test_duplicate_guard_allows_unique_panel(geo_panel):
+    """Edge: the guard must not fire on a clean one-row-per-cell panel."""
+    r = sp.regress("y ~ x1 + x2", data=geo_panel)
+    res = sp.conley(
+        r, geo_panel, "lat", "lon", 300.0, time="t", lag_cutoff=2, unit="id"
+    )
+    assert np.all(np.isfinite(res.std_errors.to_numpy()))
+
+
 def test_non_integer_time_raises(geo_panel):
     df = geo_panel.copy()
     df["t"] = df["t"] + 0.5

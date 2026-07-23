@@ -418,7 +418,7 @@
     }
   },
   {
-    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'.",
+    "description": "Triple Differences (DDD) estimator. Adds a within-treatment-group subgroup that is unaffected by treatment as an additional control dimension, relaxing parallel trends from 'same trend across groups' to 'same differential trend across subgroups within groups'. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ddd",
     "parameters": {
       "properties": {
@@ -9643,7 +9643,7 @@
     }
   },
   {
-    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
+    "description": "Canonical 2x2 DID: two groups (treated / control) x two periods (pre / post). Point estimate via either group-means differencing or OLS on the treat x post interaction; optional covariates, robust / cluster SE, and sample weights. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: treatment timing is staggered across units -- the TWFE 2x2 estimate is a negative-weighted mix (Goodman-Bacon 2021); use sp.callaway_santanna, sp.sun_abraham or sp.did_imputation.",
     "name": "did_2x2",
     "parameters": {
       "properties": {

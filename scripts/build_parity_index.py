@@ -1182,6 +1182,40 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "on a committed dataset. Regenerate via _generate_biprobit_R.R."
         ),
     },
+    "did_2x2": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP regress [aw=w], robust (aweight HC1)",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": "b / se 1e-12 abs (observed <= 3e-16)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py",
+        ],
+        "note": (
+            "Frozen-Stata anchor (captured live 2026-07-23, asdouble import): "
+            "weighted HC1-robust 2x2 DiD matches regress y treat post tp "
+            "[aw=w], robust to machine precision on a deterministic seed-"
+            "20260723 dataset. Pins the 2026-07 w->w^2 sandwich-meat "
+            "correctness fix."
+        ),
+    },
+    "ddd": {
+        "status": "bit-exact",
+        "reference": "Stata 18 MP regress [aw=w], robust (aweight HC1)",
+        "reference_versions": {"Stata": "18 MP"},
+        "tolerance": "b / se 1e-12 abs (observed <= 3e-15)",
+        "sides": ["py", "Stata"],
+        "test": [
+            "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py",
+        ],
+        "note": (
+            "Frozen-Stata anchor (captured live 2026-07-23, asdouble import): "
+            "weighted HC1-robust triple-difference matches the saturated "
+            "regress ... tps [aw=w], robust coefficient to machine precision "
+            "on the same seed-20260723 dataset as did_2x2. Pins the 2026-07 "
+            "w->w^2 sandwich-meat correctness fix."
+        ),
+    },
 }
 
 

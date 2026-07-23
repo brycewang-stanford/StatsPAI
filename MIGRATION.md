@@ -92,6 +92,102 @@ the default in a future release, at which point it will be logged as a flagged
 `expose_pre_vcov=True` to `sp.event_study`. To reproduce numbers from an
 earlier release, do nothing — the default is unchanged.
 
+<a id="event-study-headline-att-se"></a>
+
+## Unreleased — ⚠️ Event-study headline ATT SE uses the full covariance
+
+**What changed.** Three event-study estimators reported a headline ("overall
+ATT") standard error that treated the post-period event-time coefficients as
+independent:
+
+- `sp.event_study`: `sqrt(mean(se²)/m)` → now `sqrt(w'Vw)` with `w = 1/m`
+  over the post-period block of the cluster-robust `model_info["vcov"]`.
+- `sp.design_robust_event_study`: same formula swap on its cluster-robust
+  vcov (validated against a 400-draw cluster bootstrap of the full
+  procedure: analytic 0.3065 vs bootstrap 0.3101; the old formula gave
+  0.2414).
+- `sp.cohort_anchored_event_study`: the per-event-time bootstrap loops were
+  merged into one **joint** cluster bootstrap; the headline SE is now the
+  bootstrap SD of the post-period average itself.
+
+Event-time coefficients share a reference period and fixed effects, so their
+covariance is large and positive; the independence approximation understated
+the headline SE — by ~2× on a realistic staggered test panel.
+
+Additionally, `sp.event_study`'s `model_info["pretrend_test"]` is now a
+**cluster-robust Wald test** (`F(q, G-1)` on the same vcov as the printed
+SEs) instead of a classical homoskedastic F-test, and the `or 1e-6`
+fabricated-SE fallback in `design_robust` / `cohort_anchored` is gone (an
+unavailable SE is `NaN` plus a warning).
+
+**Effect.** Headline `se` / `pvalue` / `ci` change (typically wider /
+less significant) for every call to these three functions; headline
+`estimate` and the per-coefficient rows are unchanged. Downstream,
+`sp.parallel_trends_robustness` breakdown values shift slightly (e.g.
+0.504 → 0.485 on the covariance-export test fixture). `pretrend_test`
+statistics/p-values change under clustering; the dict gains `df_denom`.
+
+**Who is affected.** Anyone quoting the overall ATT inference or the inline
+pre-trend test from these estimators. Re-run affected models; the new values
+are the correct ones. There is no flag to restore the old behavior — it was
+a bug. (This is separate from the `expose_pre_vcov` opt-in above, which
+remains opt-in during the JOSS review: that flag governs what the
+*downstream pre-trend tools* consume, whereas this fix governs the headline
+aggregation, whose correct covariance was already computed unconditionally.)
+
+<a id="did2x2-ddd-weighted-robust"></a>
+
+## Unreleased — ⚠️ Weighted robust SEs in `sp.did_2x2` / `sp.ddd`
+
+**What changed.** With analytic weights, the `robust=True` (HC1) branch
+built the sandwich meat as `X'diag(w·e²)X`; the WLS score is `w·x·e`, so the
+correct meat is `Σ w²e²xx'` (Stata aweight-robust / R `sandwich`
+convention). The cluster branch always squared the score correctly.
+
+**Effect.** `sp.did_2x2(..., weights=, robust=True)` and
+`sp.ddd(..., weights=, robust=True)` SEs change (~9% on dispersed weights)
+and now match Stata 18 MP `regress ..., [aw=w] robust` to machine precision
+(pinned in `tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py`).
+Point estimates, unweighted SEs, and clustered SEs are unchanged.
+
+**Who is affected.** Only weighted + `robust=True` calls. Re-run them.
+
+<a id="parallel-trends-robustness-inf-verdict"></a>
+
+## Unreleased — ⚠️ `sp.parallel_trends_robustness` verdict at `Mbar* = ∞`
+
+**What changed.** When the honest CI still excludes zero at the top of the
+search range (`Mbar = 1e4`), the breakdown is `inf` — maximal robustness.
+The verdict builder's `not np.isfinite(...)` guard routed that case into the
+"NOT robust: the CI already includes zero at M = 0" sentence — the exact
+opposite conclusion. `inf` now yields a "robust over the entire searched
+range" verdict; failed (NaN) families are excluded from the binding-family
+comparison and listed in an explicit note instead of silently (and
+order-dependently) participating in the `min`.
+
+**Effect.** Only the `verdict` string changes. The `breakdown` and
+`ci_grid` tables were always correct.
+
+**Who is affected.** Anyone (human or agent) who read `result.verdict` for
+a large effect measured in raw units. Re-read those verdicts.
+
+<a id="conley-duplicate-unit-time"></a>
+
+## Unreleased — ⚠️ `sp.conley` rejects duplicated `(unit, time)` rows
+
+**What changed.** The spatio-temporal path (`time=` + `unit=`) resolves the
+cross-unit block through a single-valued `(unit, time) → row` lookup. With
+more than one row per unit-period (e.g. plant-level rows with
+`unit="county"`), the cross-unit terms silently kept only the last duplicate
+row while the within-unit terms kept all rows — wrong SEs with no signal.
+`sp.conley` now raises a `ValueError` naming the offending unit, matching
+Stata `acreg`'s repeated-id-time restriction.
+
+**Effect.** Previously-silent wrong answers become an immediate error.
+
+**What to do.** Aggregate your data to one row per `(unit, time)`, or pass
+the true row-level identifier as `unit=` if each row is its own location.
+
 <a id="proximal-surrogate-index-bridge-2sls"></a>
 
 ## Unreleased — ⚠️ `sp.proximal_surrogate_index` bridge is now proper 2SLS

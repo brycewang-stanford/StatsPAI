@@ -610,6 +610,27 @@ def conley(
                     "collapse each unit to one coordinate."
                 )
 
+        # One row per (unit, time): the cross-unit block's cell lookup is
+        # single-valued, so a duplicated cell would silently keep only the
+        # last duplicate row in cross-unit terms while the within-unit
+        # block keeps every row — an inconsistent hybrid with wrong SEs
+        # (verified against a dense reference). Stata's acreg refuses
+        # repeated id-time pairs for the same reason; fail loudly.
+        cell = unit_codes * np.int64(n_times) + time_codes
+        cell_counts = np.bincount(cell, minlength=n_units * n_times)
+        if (cell_counts > 1).any():
+            n_dup = int((cell_counts > 1).sum())
+            dup_unit = unit_labels[cell == int(np.argmax(cell_counts))][0]
+            raise ValueError(
+                f"`unit`={unit!r} x `time`={time!r} does not uniquely index "
+                f"the rows: {n_dup} (unit, time) cell(s) contain more than "
+                f"one row (e.g. unit {dup_unit!r}). The spatio-temporal HAC "
+                "requires one row per unit-period (Stata's acreg imposes the "
+                "same restriction). Aggregate the data to one row per "
+                "(unit, time), or pass the row-level identifier as `unit=` "
+                "if each row really is its own location."
+            )
+
         cross = 0 if lag_cutoff_cross is None else int(lag_cutoff_cross)
         if int(lag_cutoff) < 0 or cross < 0:
             raise ValueError(

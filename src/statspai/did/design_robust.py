@@ -16,6 +16,7 @@ This module implements:
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -136,6 +137,7 @@ def design_robust_event_study(
     except np.linalg.LinAlgError:
         beta = np.zeros(len(es_cols))
         se_beta = np.full(len(es_cols), np.nan)
+        vcov = np.full((len(es_cols), len(es_cols)), np.nan)
 
     # Implicit TWFE weights: ω_k = X'X⁻¹ X'D_k where D_k indicates the
     # rel-time-k cell. Negative ω flags contamination.
@@ -153,14 +155,32 @@ def design_robust_event_study(
         }
     )
 
-    # Headline: avg post-treatment effect
-    post = es_df[es_df["rel_time"] >= 0]
-    if post.empty:
-        att_avg = float(es_df["att"].mean())
-        se_avg = float(es_df["se"].mean()) or 1e-6
+    # Headline: avg post-treatment effect.
+    # ⚠️ correctness fix (2026-07): the SE of the post-period average is
+    # sqrt(w' V w) with w = 1/m, using the full cluster-robust ``vcov``
+    # computed above.  The historical formula sqrt(sum se_k^2)/m assumed
+    # independent event-time coefficients (they share a reference period
+    # and fixed effects, so off-diagonals are large), and a failed vcov
+    # was papered over with a fabricated 1e-6 SE instead of NaN.
+    head_js = [j for j, k in enumerate(rel_times) if k >= 0]
+    if not head_js:  # no post period estimable: average all coefficients
+        head_js = list(range(len(rel_times)))
+    m_head = len(head_js)
+    att_avg = float(np.mean(beta[head_js]))
+    w_head = np.full(m_head, 1.0 / m_head)
+    v_head = vcov[np.ix_(head_js, head_js)]
+    var_head = float(w_head @ v_head @ w_head)
+    if np.isfinite(var_head) and var_head > 0:
+        se_avg = float(np.sqrt(var_head))
     else:
-        att_avg = float(post["att"].mean())
-        se_avg = float(np.sqrt((post["se"] ** 2).sum()) / len(post)) or 1e-6
+        warnings.warn(
+            "design_robust_event_study: cluster-robust vcov of the headline "
+            "average is unavailable (singular design or degenerate variance); "
+            "reporting SE as NaN.",
+            UserWarning,
+            stacklevel=2,
+        )
+        se_avg = float("nan")
 
     # Negative-weight contamination diagnostic
     n_negative = int(np.sum(beta < 0)) if leads > 0 else 0

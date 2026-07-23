@@ -99,14 +99,20 @@ def test_design_robust(staggered_panel):
     es = res.model_info["event_study"]
     assert isinstance(es, pd.DataFrame)
     assert "diagnostics" in res.model_info
+    # ⚠️ correctness fix (2026-07): the headline SE is now sqrt(w'Vw) over
+    # the post-period block of the cluster-robust vcov instead of the
+    # independence approximation sqrt(sum se_k^2)/m.  Cross-validated
+    # against a 400-draw cluster bootstrap of the full procedure on this
+    # fixture: bootstrap SE 0.31009 vs analytic 0.30652 (the old pinned
+    # 0.24139 was ~22% below the bootstrap truth).
     np.testing.assert_allclose(
         [res.estimate, res.se, res.pvalue, res.ci[0], res.ci[1]],
         [
             1.2398673925548866,
-            0.24138955398202597,
-            2.8008774366483635e-07,
-            0.7667525605059285,
-            1.7129822246038446,
+            0.30651882192011204,
+            5.2324029183870024e-05,
+            0.6391015410078206,
+            1.8406332441019528,
         ],
         atol=1e-12,
     )

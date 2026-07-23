@@ -175,11 +175,16 @@ class TestCovarianceExport:
         """sensitivity_rr's GLS pre-trend slope now uses the covariance.
 
         With a genuine differential pre-trend (seed=7 panel) the breakdown
-        Mbar* moves from 0.500 (diagonal) to 0.504 (true covariance), and
+        Mbar* moves from 0.481 (diagonal) to 0.485 (true covariance), and
         the joint Wald statistic from 64.98 down to 38.74 -- the diagonal
         fallback OVERSTATED the evidence against parallel trends by 68%,
         because it double-counts the shared component of the correlated
         pre-period coefficients.
+
+        (Baseline note, 2026-07 ⚠️ correctness fix: both breakdown values
+        shifted from 0.504/0.500 when the headline ATT SE moved from the
+        independence approximation onto the full w'Vw covariance form --
+        a wider, correct CI breaks down at a slightly smaller Mbar.)
         """
         df = _panel(n_units=120, n_periods=11, treat_at=6, pre_trend=0.12, seed=7)
         r = sp.event_study(
@@ -203,8 +208,8 @@ class TestCovarianceExport:
         t_true = sp.pretrends_test(r)
 
         assert s_true.breakdown_mbar != s_diag.breakdown_mbar
-        assert s_true.breakdown_mbar == pytest.approx(0.504, abs=2e-3)
-        assert s_diag.breakdown_mbar == pytest.approx(0.500, abs=2e-3)
+        assert s_true.breakdown_mbar == pytest.approx(0.485, abs=2e-3)
+        assert s_diag.breakdown_mbar == pytest.approx(0.481, abs=2e-3)
         assert t_true["statistic"] == pytest.approx(38.742, abs=0.05)
         assert t_diag["statistic"] == pytest.approx(64.975, abs=0.05)
         assert t_diag["statistic"] > t_true["statistic"]
@@ -728,6 +733,46 @@ class TestParallelTrendsRobustness:
         out, _ = rob
         assert "\n" not in out.verdict
         assert "survives up to Mbar" in out.verdict or "NOT robust" in out.verdict
+
+    def test_verdict_inf_breakdown_is_reported_as_robust(self):
+        """⚠️ correctness fix (2026-07): ``inf`` breakdown = maximal robustness.
+
+        ``_breakdown_for_family`` returns ``inf`` when the honest CI still
+        excludes zero at the upper search bound.  The historical guard
+        ``not np.isfinite(weakest)`` routed that (and NaN) into the
+        "NOT robust ... at M = 0" message — the exact opposite verdict.
+        """
+        from statspai.did.robustness_pipeline import _build_verdict
+
+        inf = float("inf")
+        v = _build_verdict(
+            {"SD": inf, "RM": inf}, pd.DataFrame(), {"power": 0.9}, att=5.0, e=0
+        )
+        assert "NOT robust" not in v
+        assert "robust over the entire searched range" in v
+
+    def test_verdict_nan_families_excluded_not_inverted(self):
+        """NaN families are excluded (with a note), never treated as binding."""
+        from statspai.did.robustness_pipeline import _build_verdict
+
+        v = _build_verdict(
+            {"SD": float("nan"), "RM": 0.7}, pd.DataFrame(), {}, att=1.0, e=0
+        )
+        assert "Mbar = 0.7" in v
+        assert "NOT robust" not in v
+        assert "failed to evaluate" in v and "SD" in v
+        # All-NaN: no verdict, not a fabricated one.
+        v_all = _build_verdict({"SD": float("nan")}, pd.DataFrame(), {}, att=1.0, e=0)
+        assert "no verdict available" in v_all
+
+    def test_verdict_mixed_inf_and_finite_binds_on_finite(self):
+        from statspai.did.robustness_pipeline import _build_verdict
+
+        v = _build_verdict(
+            {"SD": float("inf"), "RM": 0.4}, pd.DataFrame(), {}, att=1.0, e=0
+        )
+        assert "Mbar = 0.4" in v and "(RM)" in v
+        assert "NOT robust" not in v
 
     def test_verdict_reports_non_robustness(self):
         """Edge: a null effect must be reported as not robust at M = 0."""

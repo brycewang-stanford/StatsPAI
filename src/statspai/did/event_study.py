@@ -581,30 +581,40 @@ def event_study(
                 continue
             vcv_pre[a, b] = vcov_event[pos_of[t_a], pos_of[t_b]]
 
-    # --- Pre-trend test (joint F-test on pre-treatment coefficients) ---
+    # --- Pre-trend test (joint Wald test on pre-treatment coefficients) ---
+    # ⚠️ correctness fix (2026-07): the joint test now uses the same
+    # cluster-robust ``vcov_event`` block as the per-coefficient SEs.  The
+    # historical version plugged the classical homoskedastic ``sigma2 *
+    # (X'X)^{-1}`` into the quadratic form, so with serially correlated
+    # panel errors the reported pre-trend p-value was inconsistent with the
+    # (cluster-robust) SEs printed next to it.
     pre_indices = [i for i, k_val in enumerate(rel_periods) if k_val < 0]
-    pretrend_result = _joint_f_test(
-        beta,
-        XtX_inv,
-        pre_indices,
-        resid,
-        n,
-        k,
-        w=w_arr,
-    )
+    n_clusters = len(np.unique(cluster_ids))
+    pretrend_result = _joint_wald_test(beta, vcov_event, pre_indices, n_clusters)
 
     # --- Overall ATT (average of post-treatment coefficients) ---
+    # ⚠️ correctness fix (2026-07): the headline SE is now
+    # sqrt(w' V w) with w = 1/m over the post-period coefficients, using
+    # the full cluster-robust covariance ``vcov_event``.  The historical
+    # formula sqrt(mean(se^2)/m) assumed the event-time coefficients were
+    # independent; they share a reference period and fixed effects, so the
+    # off-diagonal covariance terms are large and the old SE could be
+    # understated by ~2x on realistic staggered panels.
     post = event_study_df[event_study_df["relative_time"] >= 0]
     post_nonref = post[~post["is_reference"]]
     att = float(post_nonref["estimate"].mean()) if len(post_nonref) > 0 else 0.0
-    att_se = (
-        float(np.sqrt(np.mean(post_nonref["se"] ** 2) / len(post_nonref)))
-        if len(post_nonref) > 0
-        else 0.0
-    )
+    if len(post_nonref) > 0:
+        post_pos = [
+            pos_of[int(t)] for t in post_nonref["relative_time"] if int(t) in pos_of
+        ]
+        m_post = len(post_pos)
+        w_agg = np.full(m_post, 1.0 / m_post)
+        v_post = vcov_event[np.ix_(post_pos, post_pos)]
+        att_var = float(w_agg @ v_post @ w_agg)
+        att_se = float(np.sqrt(att_var)) if att_var > 0 else 0.0
+    else:
+        att_se = 0.0
     att_p = float(2 * (1 - sp_stats.norm.cdf(abs(att / att_se)))) if att_se > 0 else 1.0
-
-    n_clusters = len(np.unique(cluster_ids))
 
     _result = CausalResult(
         method="OLS Event Study (TWFE)",
@@ -788,41 +798,42 @@ def _cluster_se(
     return se, np.asarray(vcov, dtype=float)
 
 
-def _joint_f_test(
+def _joint_wald_test(
     beta: np.ndarray,
-    XtX_inv: np.ndarray,
+    vcov: np.ndarray,
     indices: List[int],
-    resid: np.ndarray,
-    n: int,
-    k: int,
-    w: Optional[np.ndarray] = None,
+    n_clusters: int,
 ) -> dict:
-    """Joint F-test for subset of coefficients being zero."""
+    """Cluster-robust joint Wald test for a subset of coefficients being zero.
+
+    Uses the same cluster-robust covariance as the per-coefficient SEs
+    (Stata convention: F(q, G-1) with the CRV1 vcov).  The pre-2026-07
+    version of this test plugged the classical homoskedastic
+    ``sigma2 * (X'X)^{-1}`` into the quadratic form, which is invalid
+    under within-cluster serial correlation.
+    """
     if not indices:
         return {"statistic": 0.0, "pvalue": 1.0, "df": 0}
 
     q = len(indices)
-    beta_sub = beta[np.array(indices)]
-
-    # Submatrix of variance
     idx = np.array(indices)
-    V_sub = XtX_inv[np.ix_(idx, idx)]
-    if w is not None:
-        sigma2 = np.sum(w * resid**2) / (n - k)
-    else:
-        sigma2 = np.sum(resid**2) / (n - k)
+    beta_sub = beta[idx]
+    V_sub = vcov[np.ix_(idx, idx)]
 
     try:
-        V_inv = np.linalg.inv(sigma2 * V_sub)
-        f_stat = float(beta_sub @ V_inv @ beta_sub / q)
+        wald = float(beta_sub @ np.linalg.solve(V_sub, beta_sub))
     except np.linalg.LinAlgError:
-        f_stat = 0.0
-
-    pvalue = float(1 - sp_stats.f.cdf(f_stat, q, n - k))
+        # Singular pre-period covariance block: fall back to a
+        # pseudo-inverse rather than reporting a fabricated zero statistic.
+        wald = float(beta_sub @ np.linalg.pinv(V_sub) @ beta_sub)
+    f_stat = wald / q
+    df_denom = max(n_clusters - 1, 1)
+    pvalue = float(1 - sp_stats.f.cdf(f_stat, q, df_denom))
 
     return {
         "statistic": round(f_stat, 4),
         "pvalue": round(pvalue, 4),
         "df": q,
-        "test": "Joint F-test on pre-treatment coefficients",
+        "df_denom": df_denom,
+        "test": "Cluster-robust joint Wald test on pre-treatment coefficients",
     }

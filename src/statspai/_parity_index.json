@@ -617,6 +617,23 @@
       "tolerance": ""
     },
     {
+      "function": "bibtex",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_rebel_canal_published.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "bidirectional_pci",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -1254,6 +1271,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
         "tests/reference_parity/test_conley_parity.py"
       ],
       "tolerance": ""
@@ -1518,6 +1536,29 @@
       "tolerance": "factor-effect sum + pct 1e-12 abs (observed 0)"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ddd",
+      "notes": [
+        "Frozen-Stata anchor (captured live 2026-07-23, asdouble import): weighted HC1-robust triple-difference matches the saturated regress ... tps [aw=w], robust coefficient to machine precision on the same seed-20260723 dataset as did_2x2. Pins the 2026-07 w->w^2 sandwich-meat correctness fix."
+      ],
+      "reference": "Stata 18 MP regress [aw=w], robust (aweight HC1)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py"
+      ],
+      "tolerance": "b / se 1e-12 abs (observed <= 3e-15)"
+    },
+    {
       "additional_tests": [
         "tests/r_parity/31_dfl.py",
         "tests/r_parity/31_dfl.R",
@@ -1722,6 +1763,29 @@
         "tests/reference_parity/test_did2x2_wild_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "did_2x2",
+      "notes": [
+        "Frozen-Stata anchor (captured live 2026-07-23, asdouble import): weighted HC1-robust 2x2 DiD matches regress y treat post tp [aw=w], robust to machine precision on a deterministic seed-20260723 dataset. Pins the 2026-07 w->w^2 sandwich-meat correctness fix."
+      ],
+      "reference": "Stata 18 MP regress [aw=w], robust (aweight HC1)",
+      "reference_versions": {
+        "Stata": "18 MP"
+      },
+      "sides": [
+        "py",
+        "Stata"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py"
+      ],
+      "tolerance": "b / se 1e-12 abs (observed <= 3e-16)"
     },
     {
       "additional_tests": [
@@ -2276,6 +2340,23 @@
         "tests/reference_parity/test_evalue_rr_parity.py"
       ],
       "tolerance": "point + CI E-value 1e-12 abs (observed 0)"
+    },
+    {
+      "function": "event_study",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_rebel_canal_published.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "evidence_without_injustice",
@@ -5663,6 +5744,23 @@
       "tolerance": ""
     },
     {
+      "function": "parallel_trends_robustness",
+      "notes": [
+        "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
+      ],
+      "reference": "published reference values (tests/external_parity/PUBLISHED_REFERENCE_VALUES.md)",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "external_parity",
+      "status": "external-replication",
+      "test": [
+        "tests/external_parity/test_rebel_canal_published.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "particle_filter",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -6539,6 +6637,7 @@
         "tests/external_parity/test_published_replications.py",
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_assimilation_parity.py",
+        "tests/reference_parity/test_conley_acreg_spacetime_parity.py",
         "tests/reference_parity/test_conley_parity.py",
         "tests/reference_parity/test_contrast_pwcompare_parity.py",
         "tests/reference_parity/test_cross_estimator_parity.py",

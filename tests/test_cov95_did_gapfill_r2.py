@@ -529,15 +529,19 @@ def test_honest_r_backend_bad_solver_raises(cs_result):
         sp.honest_did(cs_result, backend="honestdid", honestdid_method="bogus")
 
 
-def test_honest_r_backend_without_rscript_raises(cs_result, tmp_path, monkeypatch):
-    # Empty PATH (and no Rscript at the standard macOS locations on this
-    # runner) → the backend must fail loudly with an ImportError.
-    monkeypatch.setenv("PATH", str(tmp_path))
-    pytest.importorskip("shutil")
-    import shutil as _shutil
+def test_honest_r_backend_without_rscript_raises(cs_result, monkeypatch):
+    # No resolvable Rscript → the backend must fail loudly with an
+    # ImportError.  ``_find_rscript`` intentionally falls back to the
+    # standard macOS install locations even when PATH is empty, so an
+    # empty-PATH simulation is machine-dependent (it passed on CI but
+    # failed on any runner with R installed at a standard location);
+    # patch the resolver itself to model "no Rscript anywhere".
+    import importlib
 
-    if _shutil.which("Rscript") is not None:  # pragma: no cover
-        pytest.skip("Rscript unexpectedly available")
+    # ``statspai.did.honest_did`` the *attribute* is the re-exported
+    # function; fetch the module object explicitly.
+    honest_mod = importlib.import_module("statspai.did.honest_did")
+    monkeypatch.setattr(honest_mod, "_find_rscript", lambda: None)
     with pytest.raises(ImportError, match="Rscript"):
         sp.honest_did(cs_result, backend="honestdid")
 

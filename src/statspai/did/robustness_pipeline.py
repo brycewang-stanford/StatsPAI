@@ -581,25 +581,53 @@ def _build_verdict(
     if not breakdown:
         return "No restriction family was evaluated; no verdict available."
 
-    # The binding family is the one that breaks down first.
-    weakest_fam = min(breakdown, key=lambda f: breakdown[f])
-    weakest = breakdown[weakest_fam]
+    # ⚠️ correctness fix (2026-07): ``_breakdown_for_family`` returns
+    # ``inf`` when the honest CI still excludes zero at the upper search
+    # bound — the MOST robust possible outcome.  The historical guard
+    # ``not np.isfinite(weakest)`` routed that case (and NaN failures)
+    # into the "NOT robust at M = 0" message, announcing the exact
+    # opposite of the truth.  NaN families are also excluded from the
+    # ``min`` below, whose result was otherwise order-dependent.
+    evaluated = {f: v for f, v in breakdown.items() if not np.isnan(v)}
+    failed_fams = sorted(set(breakdown) - set(evaluated))
+    if not evaluated:
+        return (
+            "Every restriction family failed to evaluate (breakdown Mbar* "
+            "is undefined); no verdict available."
+        )
 
-    if not np.isfinite(weakest) or weakest <= 0.0:
+    # The binding family is the one that breaks down first.
+    weakest_fam = min(evaluated, key=lambda f: evaluated[f])
+    weakest = evaluated[weakest_fam]
+
+    if weakest <= 0.0:
         core = (
             f"The effect at e = {e} is NOT robust: the confidence interval "
             f"already includes zero at M = 0 under the {weakest_fam} "
             "restriction, i.e. before allowing any violation of parallel "
             "trends."
         )
+    elif np.isinf(weakest):
+        fams = ", ".join(sorted(evaluated))
+        core = (
+            f"The conclusion (ATT = {att:.4g} at e = {e}) is robust over "
+            "the entire searched range: the honest confidence interval "
+            "still excludes zero at the upper search bound under every "
+            f"evaluated restriction family [{fams}]."
+        )
     else:
         parts = ", ".join(
-            f"{fam} Mbar* = {breakdown[fam]:.4g}" for fam in sorted(breakdown)
+            f"{fam} Mbar* = {evaluated[fam]:.4g}" for fam in sorted(evaluated)
         )
         core = (
             f"The conclusion (ATT = {att:.4g} at e = {e}) survives up to "
             f"Mbar = {weakest:.4g} under the binding ({weakest_fam}) "
             f"restriction [{parts}]."
+        )
+    if failed_fams:
+        core += (
+            " Note: the following restriction families failed to evaluate "
+            f"and are excluded from the verdict: {', '.join(failed_fams)}."
         )
 
     pw = float(power.get("power", float("nan")))

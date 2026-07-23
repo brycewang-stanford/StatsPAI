@@ -274,6 +274,65 @@ StatsPAI runs.
   `etwfe(cgroup="never")`. `sp.wooldridge_did` remains the historical saturated
   TWFE helper, and `sp.etwfe_emfx(..., weighting=)` still exposes the historical
   cohort-share aggregation through `weighting="cohort"`.
+- **`sp.event_study` headline ATT SE now uses the full coefficient
+  covariance.** The overall ATT is the mean of the post-period event-time
+  coefficients, but its SE was computed as `sqrt(mean(se²)/m)` — treating
+  those coefficients as independent even though the full cluster-robust
+  covariance was computed (and returned in `model_info["vcov"]`) right above.
+  Event-time coefficients share a reference period and fixed effects, so the
+  off-diagonal terms are large: on a 60-unit staggered test panel the old
+  headline SE was 0.129 vs. the correct `w'Vw` value 0.226 (~2× understated;
+  p-values and CIs correspondingly overstated significance). The headline
+  `estimate` is unchanged; `se` / `pvalue` / `ci` move for every
+  `sp.event_study` call. The same independence approximation is fixed in
+  `sp.design_robust_event_study` (validated against a 400-draw cluster
+  bootstrap of the full procedure: analytic 0.3065 vs bootstrap 0.3101,
+  where the old formula gave 0.2414) and `sp.cohort_anchored_event_study`
+  (the per-event-time bootstrap loops were merged into one joint
+  cluster-bootstrap so the headline SE is the bootstrap SD of the
+  post-period average itself; the old per-`k` loops also re-seeded
+  `default_rng(0)` per event time, so this is faster as well). The
+  `or 1e-6` fabricated-SE fallback in both helpers is gone — an
+  unavailable SE is now `NaN` plus a warning, never a made-up number.
+- **`sp.event_study` pre-trend joint test is now cluster-robust.** The
+  per-coefficient SEs were cluster-robust, but `model_info["pretrend_test"]`
+  plugged the classical homoskedastic `σ²(X'X)⁻¹` into the joint F quadratic
+  form — invalid under within-cluster serial correlation and inconsistent
+  with the SEs printed next to it. It is now a Wald test on the same
+  cluster-robust `vcov` block with `F(q, G-1)` (Stata convention); the
+  result dict gains a `df_denom` key and the `test` label changed to
+  `"Cluster-robust joint Wald test on pre-treatment coefficients"`.
+- **Weighted HC1-robust SEs in `sp.did_2x2` / `sp.ddd` (Stata parity).**
+  With analytic weights the `robust=True` branch built the sandwich meat as
+  `X'diag(w·e²)X`, but the WLS score is `w·x·e`, so the correct meat is
+  `Σ w²e²xx'` (Stata aweight-robust / R `sandwich` convention). SEs were ~9%
+  off Stata `regress ..., [aw=w] robust` on dispersed weights — while the
+  cluster branch in the same functions squared the score correctly all
+  along. Both now match Stata 18 MP to machine precision (~2e-16), pinned in
+  `tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py`.
+  Unweighted and clustered SEs are unchanged.
+- **`sp.parallel_trends_robustness` no longer inverts the verdict for
+  maximally robust effects.** `_breakdown_for_family` returns `inf` when the
+  honest CI still excludes zero at the upper search bound (`Mbar = 1e4`) —
+  the most robust possible outcome — but the verdict builder's
+  `not np.isfinite(...)` guard routed `inf` into the "NOT robust: the CI
+  already includes zero at M = 0" message: the exact opposite of the truth,
+  for any effect large relative to its SE (e.g. outcomes in raw currency
+  units). `inf` now gets its own "robust over the entire searched range"
+  verdict; NaN (failed) families are excluded from the binding-family `min`
+  (previously order-dependent) and reported in an explicit note. The
+  `breakdown` / `ci_grid` tables were always correct — only the verdict
+  sentence was wrong.
+- **`sp.conley` refuses duplicated `(unit, time)` cells.** The
+  spatio-temporal cross-unit block resolves rows through a single-valued
+  `(unit, time) → row` lookup (last-write-wins), so a duplicated cell
+  silently kept only one duplicate row in the cross-unit terms while the
+  within-unit block kept them all — an inconsistent hybrid with wrong SEs
+  (a dense-reference check diverges by O(1) on the meat with one duplicate
+  row and agrees to ~9e-16 without). Realistic trigger: passing a coarser
+  geography than the row level (`unit="county"` on plant rows), which
+  passes the coordinate-constancy guard. Now raises a `ValueError` naming
+  the offending unit — the same restriction Stata's `acreg` imposes.
 
 ### Added
 
