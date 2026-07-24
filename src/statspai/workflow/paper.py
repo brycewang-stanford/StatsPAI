@@ -1142,6 +1142,12 @@ def _reviewer_audit_section(
                 f"- **Registry**: lookup for `sp.{est_name}` failed "
                 f"({type(exc).__name__}: {exc})."
             )
+            record_degradation(
+                degradations,
+                section="reviewer_audit: registry lookup",
+                exc=exc,
+                detail=f"estimator={est_name!r}",
+            )
 
     # Identification report.
     diag = getattr(workflow, "diagnostics", None) if workflow is not None else None
@@ -1171,6 +1177,12 @@ def _reviewer_audit_section(
                 f"- **Post-estimation surface**: unavailable "
                 f"({type(exc).__name__}: {exc})."
             )
+            record_degradation(
+                degradations,
+                section="reviewer_audit: postestimation contract",
+                exc=exc,
+                detail=f"result_class={type(target).__name__}",
+            )
 
         violations = getattr(target, "violations", None)
         if callable(violations):
@@ -1189,6 +1201,12 @@ def _reviewer_audit_section(
                 lines.append(
                     f"- **Result violations**: check failed "
                     f"({type(exc).__name__}: {exc})."
+                )
+                record_degradation(
+                    degradations,
+                    section="reviewer_audit: result violations check",
+                    exc=exc,
+                    detail=f"result_class={type(target).__name__}",
                 )
 
         prov = get_provenance(target)

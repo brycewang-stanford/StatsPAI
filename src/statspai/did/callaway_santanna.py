@@ -23,15 +23,16 @@ Sant'Anna, P.H.C. and Zhao, J. (2020).
 
 from __future__ import annotations
 
+import warnings
 from numbers import Real
-from typing import Optional, List, Dict, Tuple, Any, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 
 
 class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
@@ -808,7 +809,21 @@ def _reg_att(
             xbar_treat = np.mean(w1[:, None] * x_const, axis=0)
             lever = x_const @ (np.linalg.pinv(a_mat).T @ xbar_treat)
             control_adjust = c * resid * lever
-        except Exception:
+        except Exception as exc:
+            # The user requested a covariate-adjusted outcome regression but
+            # the control OLS failed (collinear / degenerate design). Fall
+            # back to the control-mean estimator, but do NOT do so silently:
+            # this changes the point estimate from covariate-adjusted to
+            # unconditional (CLAUDE.md §3.7 — fail loudly).
+            warnings.warn(
+                "callaway_santanna: the covariate-adjusted outcome "
+                f"regression failed ({type(exc).__name__}: {exc}); this "
+                "ATT(g,t) falls back to the UNADJUSTED control-mean "
+                "estimator, so it is no longer covariate-adjusted. Check "
+                "for collinear or degenerate covariates.",
+                ConvergenceWarning,
+                stacklevel=2,
+            )
             m0 = np.mean(dy[c_mask]) if c_count > 0 else 0.0
             m_hat = np.full(n, m0)
             resid = dy - m_hat
@@ -848,7 +863,19 @@ def _estimate_pscore(
         logit = sm.Logit(d, x_const)
         result = logit.fit(disp=0, maxiter=500, warn_convergence=False)
         pscore = np.asarray(result.predict(x_const), dtype=float)
-    except Exception:
+    except Exception as exc:
+        # Covariates were supplied (checked above) but the logit failed:
+        # falling back to a constant propensity silently turns IPW/DR into a
+        # plain reweighting. Warn (CLAUDE.md §3.7).
+        warnings.warn(
+            "callaway_santanna: the covariate propensity-score logit failed "
+            f"({type(exc).__name__}: {exc}); this ATT(g,t) falls back to a "
+            "CONSTANT (unconditional) propensity, so IPW/DR reweighting is "
+            "no longer covariate-adjusted. Check for separated or collinear "
+            "covariates.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
         pscore = np.full(n, p_d)
 
     return np.clip(pscore, 1e-6, 1 - 1e-6)
@@ -880,7 +907,17 @@ def _estimate_outcome_reg(
         ols = sm.OLS(dy[c_mask], x_const)
         result = ols.fit()
         m_hat = np.asarray(result.predict(sm.add_constant(x)), dtype=float)
-    except Exception:
+    except Exception as exc:
+        # Covariates supplied but the control OLS failed: the control-mean
+        # fallback drops the covariate adjustment silently. Warn (§3.7).
+        warnings.warn(
+            "callaway_santanna: the covariate outcome regression E[dY|X,D=0] "
+            f"failed ({type(exc).__name__}: {exc}); this ATT(g,t) falls back "
+            "to the UNADJUSTED control mean and is no longer covariate-"
+            "adjusted. Check for collinear or degenerate covariates.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
         m_hat = np.full(n, np.mean(dy[c_mask]))
 
     return m_hat

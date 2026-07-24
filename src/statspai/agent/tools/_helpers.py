@@ -161,8 +161,12 @@ def _default_serializer(r: Any, *, detail: str = "agent") -> Dict[str, Any]:
                     "p_value": _get(getattr(r, "pvalues", None), k, pos),
                 }
             out["coefficients"] = coefs
-        except Exception:
-            pass
+        except Exception as exc:
+            # §3.7: don't silently drop the coefficient block — a downstream
+            # agent would then report "no coefficients" with no way to tell a
+            # genuinely coefficient-free result from a serialization failure
+            # (e.g. std_errors misaligned with params). Surface a marker.
+            out["coefficients_error"] = f"{type(exc).__name__}: {exc}"
     if hasattr(r, "diagnostics"):
         diag = {}
         for k, v in r.diagnostics.items():

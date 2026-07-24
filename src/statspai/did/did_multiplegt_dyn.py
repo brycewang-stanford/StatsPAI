@@ -65,12 +65,14 @@ faithful implementation.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from . import _core as _dc
 
@@ -231,7 +233,7 @@ def did_multiplegt_dyn(
                 if row is not None:
                     boot_hist[b, j] = row["delta_l"]
         except Exception:
-            continue
+            continue  # replicate stays NaN; bootstrap_se tracks the failure
 
     # Per-horizon SE + CI
     es_rows: List[Dict[str, Any]] = []
@@ -253,7 +255,7 @@ def did_multiplegt_dyn(
             )
             continue
         est = row["delta_l"]
-        se = float(np.nanstd(boot_hist[:, j], ddof=1))
+        se = _bootstrap_se(boot_hist[:, j], label=f"did.multiplegt_dyn[h={h}]")
         p = (
             float(2 * (1 - stats.norm.cdf(abs(est / se))))
             if (se > 0 and np.isfinite(se))
@@ -291,11 +293,15 @@ def did_multiplegt_dyn(
         dtype=float,
     )
     headline = float(np.nanmean(dyn_est)) if dyn_est.size else np.nan
-    # SE: cross-horizon bootstrap of the average.
+    # SE: cross-horizon bootstrap of the average. A replicate contributes
+    # only when at least one dynamic horizon was estimated; a fully-failed
+    # draw stays NaN so bootstrap_se can surface the failure rate.
     if dyn_idx:
-        boot_avg = np.nanmean(boot_hist[:, dyn_idx], axis=1)
-        boot_avg = boot_avg[np.isfinite(boot_avg)]
-        se_avg = float(np.std(boot_avg, ddof=1)) if boot_avg.size > 1 else np.nan
+        with warnings.catch_warnings():
+            # nanmean of an all-NaN replicate row is an intended NaN.
+            warnings.simplefilter("ignore", RuntimeWarning)
+            boot_avg = np.nanmean(boot_hist[:, dyn_idx], axis=1)
+        se_avg = _bootstrap_se(boot_avg, label="did.multiplegt_dyn.headline")
     else:
         se_avg = np.nan
 

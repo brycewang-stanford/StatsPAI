@@ -758,8 +758,10 @@ def _result_summary_for_interpretation(obj: Any, *, detail: str) -> Dict[str, An
         struct = _default_serializer(obj, detail=detail)
         if isinstance(struct, dict) and struct:
             summary["fields"] = struct
-    except Exception:
-        pass
+    except Exception as exc:
+        # §3.7: surface, don't swallow — an empty "fields" would otherwise
+        # read as "the result carried no structured data".
+        summary["fields_error"] = f"{type(exc).__name__}: {exc}"
 
     return summary
 

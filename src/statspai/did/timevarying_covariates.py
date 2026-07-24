@@ -33,6 +33,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from . import _core as _dc
 
@@ -169,9 +170,9 @@ def did_timevarying_covariates(
             )
             boot_overall[b] = best["att_overall"]
         except Exception:
-            continue
+            continue  # replicate stays NaN; bootstrap_se tracks the failure
 
-    se = float(np.nanstd(boot_overall, ddof=1))
+    se = _bootstrap_se(boot_overall, label="did.timevarying_covariates")
     est = float(main["att_overall"])
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     if se > 0 and np.isfinite(se):

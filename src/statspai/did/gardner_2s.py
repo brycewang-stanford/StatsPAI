@@ -43,6 +43,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 
 __all__ = ["gardner_did", "did_2stage"]
@@ -76,9 +77,15 @@ def _gardner_cluster_bootstrap(
     rows_by_cluster = {c: df[df[cluster] == c] for c in clusters}
     ctrl = controls if controls else None
 
-    boot_overall: List[float] = []
-    boot_coefs: Dict[str, List[float]] = {nm: [] for nm in names}
-    for _ in range(int(n_boot)):
+    n_boot_int = int(n_boot)
+    # Pre-size to the full attempt count so failed replicates stay NaN and
+    # bootstrap_se can surface the failure rate loudly (CLAUDE.md §3.7)
+    # instead of silently computing the SD over survivors only.
+    boot_overall = np.full(n_boot_int, np.nan, dtype=float)
+    boot_coefs: Dict[str, np.ndarray] = {
+        nm: np.full(n_boot_int, np.nan, dtype=float) for nm in names
+    }
+    for b in range(n_boot_int):
         drawn = rng.choice(n_g, size=n_g, replace=True)
         parts = []
         for j, ci in enumerate(drawn):
@@ -103,20 +110,18 @@ def _gardner_cluster_bootstrap(
                 vce="none",
             )
         except Exception:
-            continue
+            continue  # replicate stays NaN; bootstrap_se tracks the failure
         if np.isfinite(r.estimate):
-            boot_overall.append(float(r.estimate))
+            boot_overall[b] = float(r.estimate)
         es = r.model_info.get("event_study") if event_study else None
         if es:
             for nm in names:
-                boot_coefs[nm].append(float(es["coef"].get(nm, np.nan)))
+                boot_coefs[nm][b] = float(es["coef"].get(nm, np.nan))
 
-    arr = np.asarray(boot_overall, dtype=float)
-    overall_se = float(np.std(arr, ddof=1)) if arr.size > 1 else float("nan")
+    overall_se = _bootstrap_se(boot_overall, label="did.gardner.overall")
     se_dict: Dict[str, float] = {}
     for nm in names:
-        vals = np.asarray([v for v in boot_coefs[nm] if np.isfinite(v)], dtype=float)
-        se_dict[nm] = float(np.std(vals, ddof=1)) if vals.size > 1 else float("nan")
+        se_dict[nm] = _bootstrap_se(boot_coefs[nm], label=f"did.gardner[{nm}]")
     if not event_study and names:
         se_dict[names[0]] = overall_se
     return se_dict, overall_se

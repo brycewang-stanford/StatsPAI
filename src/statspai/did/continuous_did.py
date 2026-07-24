@@ -30,10 +30,12 @@ de Chaisemartin, C. & D'Haultfœuille, X. (2018).
 """
 
 from typing import List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 
 
@@ -392,7 +394,7 @@ def _continuous_did_att_gt(
             b_c_pre = boot_ctrl.loc[boot_ctrl[post] == 0, y].mean()
             boot_atts[b] = (b_g_post - b_g_pre) - (b_c_post - b_c_pre)
 
-        se = np.nanstd(boot_atts, ddof=1)
+        se = _bootstrap_se(boot_atts, label="did.continuous.dose_att")
         dose_midpoint = dose_baseline[group_ids].mean()
 
         results_rows.append(
@@ -688,10 +690,10 @@ def _continuous_did_cgs(
             )
             boot_acrt[b] = float(np.nanmean(np.gradient(curve_b, grid)))
         except Exception:
-            continue
+            continue  # replicate stays NaN; bootstrap_se tracks the failure
 
-    se_att = float(np.nanstd(boot_att, ddof=1))
-    se_acrt = float(np.nanstd(boot_acrt, ddof=1))
+    se_att = _bootstrap_se(boot_att, label="did.continuous.att_overall")
+    se_acrt = _bootstrap_se(boot_acrt, label="did.continuous.acrt_overall")
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     p_att = (
         float(2 * (1 - stats.norm.cdf(abs(att_overall / se_att))))

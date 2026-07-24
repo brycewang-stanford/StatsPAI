@@ -126,6 +126,27 @@ All notable changes to StatsPAI will be documented in this file.
   extraction failures through `record_degradation`; narrow-except
   cleanups in `workflow/paper.py`, `workflow/causal_workflow.py`, and
   `agent/_resources.py` stop masking genuine registry/coercion bugs.
+- **Silent nuisance / bootstrap degradations across the DiD & DR family now
+  fail loudly.** A second silent-degradation audit closed a further batch of
+  `except Exception` sites that had degraded numerical results without a
+  signal: (a) `sp.callaway_santanna`'s covariate propensity-score logit and
+  outcome regression, and `sp.aipw`'s propensity/outcome nuisances, now emit
+  a `ConvergenceWarning` when a covariate fit fails and the estimator falls
+  back to an unconditional (constant) nuisance — previously the point
+  estimate (CS) or the influence-function SE (AIPW) silently changed with no
+  warning; (b) six DiD bootstrap loops (`gardner_did`, `did_imputation`,
+  `did_timevarying_covariates`, `ddd_heterogeneous`, `did_multiplegt_dyn`,
+  `continuous_did`) migrated from `except: continue` + `np.nanstd` over
+  survivors to the shared `core._bootstrap.bootstrap_se`, which reports the
+  replicate failure rate (e.g. "3/199 replicates failed"); (c)
+  `CausalWorkflow.estimate()`'s two estimator-substitution fallbacks now
+  call `record_degradation` (emit `WorkflowDegradedWarning` + populate
+  `wf.degradations`) instead of only a free-text pipeline note; (d) the
+  agent serializer surfaces a `coefficients_error` / `fields_error` marker
+  instead of silently dropping the coefficient block, and `paper.py`'s
+  reviewer-audit catch sites record degradations. Point estimates and SEs on
+  the healthy (non-failure) path are unchanged; only the previously-silent
+  failure paths now warn.
 - **Paper materials (`papers/`) regenerated and hardened.** The arXiv
   manuscript draft is renamed to `statspai-paper-arxiv.md` (fixing the
   misspelled filename), rewritten against v1.20.0 reality (1,139

@@ -190,3 +190,87 @@ def test_panel_unitroot_warns_when_units_dropped():
     with pytest.warns(RuntimeWarning, match="computed over 6/7 units"):
         res = sp.panel_unitroot(df, variable="gdp", id="id", time="time", test="ips")
     assert res.n_units == 6
+
+
+# ---------------------------------------------------------------------------
+# WS-B1: callaway_santanna nuisance estimators silently reverting to the
+#        unconditional estimator (changes the POINT estimate).
+# ---------------------------------------------------------------------------
+
+
+def _cs_panel(n_units=60, seed=0):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for u in range(n_units):
+        g = int(rng.choice([3, 5, 0]))
+        xu = rng.normal()
+        for t in range(6):
+            d = 1 if (g > 0 and t >= g) else 0
+            y = u * 0.1 + t * 0.2 + 1.5 * d + 0.5 * xu + rng.normal(0, 0.5)
+            rows.append({"id": u, "t": t, "g": g, "y": y, "x": xu})
+    return pd.DataFrame(rows)
+
+
+def test_callaway_santanna_warns_when_pscore_logit_degrades():
+    """A covariate perfectly separated in the control group makes the
+    propensity logit fail; CS must warn that the ATT(g,t) reverts to a
+    constant (unconditional) propensity rather than silently doing so."""
+    df = _cs_panel()
+    # Covariate constant within the never/not-yet-treated control -> separation.
+    df["xbad"] = (df["g"] > 0).astype(float)
+    with pytest.warns(sp.ConvergenceWarning, match="no longer covariate-adjusted"):
+        sp.callaway_santanna(
+            df, y="y", t="t", i="id", g="g", x=["xbad"], estimator="dr"
+        )
+
+
+def test_callaway_santanna_clean_covariate_run_is_quiet():
+    """The happy path must NOT emit a spurious degradation warning."""
+    df = _cs_panel()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", sp.ConvergenceWarning)
+        res = sp.callaway_santanna(
+            df, y="y", t="t", i="id", g="g", x=["x"], estimator="dr"
+        )
+    assert np.isfinite(res.estimate)
+
+
+# ---------------------------------------------------------------------------
+# WS-B2: AIPW nuisance failures silently replaced by constants (invalidates
+#        the influence-function SE).
+# ---------------------------------------------------------------------------
+
+
+def test_aipw_fit_propensity_warns_on_failure():
+    """Contract-level: the propensity helper warns and returns the constant
+    marginal when the logit cannot be fit."""
+    aipw_mod = importlib.import_module("statspai.inference.aipw")
+    # A degenerate design (single column of zeros) makes the logit singular.
+    X_train = np.zeros((20, 1))
+    D_train = np.r_[np.ones(10), np.zeros(10)]
+    X_test = np.zeros((5, 1))
+    with pytest.warns(sp.ConvergenceWarning, match="no longer valid"):
+        out = aipw_mod._fit_propensity(X_train, D_train, X_test)
+    assert np.allclose(out, D_train.mean())
+
+
+# ---------------------------------------------------------------------------
+# WS-B5: agent serializer silently dropping the coefficient block.
+# ---------------------------------------------------------------------------
+
+
+def test_agent_serializer_surfaces_coefficient_failure():
+    """A result whose std_errors are misaligned with params must yield a
+    ``coefficients_error`` marker, not a silently missing coefficient block."""
+    from statspai.agent.tools._helpers import _default_serializer
+
+    class _Misaligned:
+        estimand = "ATT"
+        method = "demo"
+        params = pd.Series([1.0, 2.0], index=["a", "b"])
+        std_errors = pd.Series([0.1], index=["a"])  # missing 'b' -> KeyError
+        pvalues = None
+
+    out = _default_serializer(_Misaligned())
+    assert "coefficients_error" in out
+    assert "coefficients" not in out

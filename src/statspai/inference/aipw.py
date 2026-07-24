@@ -24,6 +24,7 @@ Hansen, C., Newey, W. and Robins, J. (2018).
 *The Econometrics Journal*, 21(1), C1-C68. [@chernozhukov2018double]
 """
 
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -31,6 +32,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import ConvergenceWarning
 
 
 def aipw(
@@ -243,7 +245,19 @@ def _fit_propensity(
         logit = sm.Logit(D_train, X_tr)
         res = logit.fit(disp=0, maxiter=300, warn_convergence=False)
         return np.asarray(np.clip(res.predict(X_te), 0.01, 0.99), dtype=float)
-    except Exception:
+    except Exception as exc:
+        # A constant propensity turns AIPW into regression-adjustment-only,
+        # and the influence-function SE (which assumes both nuisances were
+        # fit) is then wrong. Do not degrade silently (CLAUDE.md §3.7).
+        warnings.warn(
+            "aipw: the propensity-score logit failed "
+            f"({type(exc).__name__}: {exc}); falling back to a CONSTANT "
+            "propensity. The AIPW estimate reduces to outcome-regression "
+            "adjustment and its influence-function standard error is no "
+            "longer valid. Check for separated or collinear covariates.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
         return np.full(len(X_test), np.mean(D_train))
 
 
@@ -263,7 +277,18 @@ def _fit_outcome(
         ols = sm.OLS(Y_train, X_tr)
         res = ols.fit()
         return np.asarray(res.predict(X_te), dtype=float)
-    except Exception:
+    except Exception as exc:
+        # A constant outcome model turns AIPW into IPW-only; the
+        # influence-function SE is then wrong. Warn (CLAUDE.md §3.7).
+        warnings.warn(
+            "aipw: the outcome regression failed "
+            f"({type(exc).__name__}: {exc}); falling back to a CONSTANT "
+            "outcome model. The AIPW estimate reduces to inverse-propensity "
+            "weighting and its influence-function standard error is no "
+            "longer valid. Check for collinear or degenerate covariates.",
+            ConvergenceWarning,
+            stacklevel=2,
+        )
         return np.full(len(X_test), np.mean(Y_train))
 
 

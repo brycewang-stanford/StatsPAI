@@ -15,13 +15,14 @@ Borusyak, K., Jaravel, X. and Spiess, J. (2024).
 """
 
 import warnings
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import sparse, stats
 from scipy.sparse.linalg import lsqr
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 
 
@@ -49,8 +50,9 @@ def _didimp_cluster_bootstrap(
     rows_by_cluster = {c: data[data[cluster] == c] for c in clusters}
     ctrl = controls if controls else None
 
-    boot: List[float] = []
-    for _ in range(int(n_boot)):
+    n_boot_int = int(n_boot)
+    boot = np.full(n_boot_int, np.nan, dtype=float)
+    for b in range(n_boot_int):
         drawn = rng.choice(n_g, size=n_g, replace=True)
         parts = []
         for j, ci in enumerate(drawn):
@@ -72,11 +74,10 @@ def _didimp_cluster_bootstrap(
                 vce="none",
             )
         except Exception:
-            continue
+            continue  # replicate stays NaN; bootstrap_se tracks the failure
         if np.isfinite(r.estimate):
-            boot.append(float(r.estimate))
-    arr = np.asarray(boot, dtype=float)
-    return float(np.std(arr, ddof=1)) if arr.size > 1 else float("nan")
+            boot[b] = float(r.estimate)
+    return _bootstrap_se(boot, label="did.imputation")
 
 
 def did_imputation(

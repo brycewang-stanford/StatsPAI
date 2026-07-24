@@ -220,6 +220,7 @@ class CausalWorkflow:
                 # to see the reason before the recommender silently
                 # hands back an OLS regression instead.
                 import warnings as _warnings
+
                 from ..exceptions import StatsPAIWarning as _StatsPAIWarning
 
                 self._note(
@@ -268,6 +269,17 @@ class CausalWorkflow:
                     f"{type(exc).__name__}: {exc}; fell back to the "
                     "top recommendation output."
                 )
+                # §3.7: substituting a differently-specified estimator is a
+                # silent-degradation risk — emit WorkflowDegradedWarning and
+                # record it, not just a free-text pipeline note.
+                from ._degradation import record_degradation
+
+                record_degradation(
+                    self,
+                    section="estimate: covariate-adjusted OLS path",
+                    exc=exc,
+                    detail="fell back to the top recommendation estimator",
+                )
                 # fall through to generic path below
 
         # Run the top recommendation via RecommendationResult.run()
@@ -281,6 +293,17 @@ class CausalWorkflow:
                 "RecommendationResult.run() failed with "
                 f"{type(e).__name__}: {e}; using the direct fallback "
                 f"estimator for design '{self.design}'."
+            )
+            # §3.7: the direct fallback may run a differently-specified
+            # estimator than the recommendation — surface it loudly.
+            from ._degradation import record_degradation
+
+            record_degradation(
+                self,
+                section="estimate: RecommendationResult.run()",
+                exc=e,
+                detail=f"using the direct fallback estimator for design "
+                f"'{self.design}'",
             )
             self.result = self._fallback_estimate(error=e)
         self._mark("estimate")

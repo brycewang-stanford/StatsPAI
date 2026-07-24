@@ -54,6 +54,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from . import _core as _dc
 
@@ -188,14 +189,14 @@ def ddd_heterogeneous(
         try:
             best = _estimate(bdf)
         except Exception:
-            continue
+            continue  # replicate stays NaN; bootstrap_se tracks the failure
         boot_overall[b] = best["ddd_overall"]
         plac_vals = [r["did_placebo"] for r in best["cell_estimates"]]
         # Align by (g, t) — assume same order if #cells matches.
         if len(plac_vals) == boot_placebo_gt.shape[1]:
             boot_placebo_gt[b, :] = plac_vals
 
-    se_overall = float(np.nanstd(boot_overall, ddof=1))
+    se_overall = _bootstrap_se(boot_overall, label="did.ddd_heterogeneous")
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     est = float(main["ddd_overall"])
     if se_overall > 0 and np.isfinite(se_overall):
