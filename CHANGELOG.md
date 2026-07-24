@@ -387,6 +387,43 @@ StatsPAI runs.
 
 ### Fixed
 
+- **`CausalResult.to_latex()` emitted non-compiling LaTeX.** The
+  `tablenotes` block sat directly inside `\begin{table}` with no
+  `threeparttable` wrapper, so pasting the default DiD/RD table into a paper
+  hard-failed pdflatex with `Environment tablenotes undefined`. The body is
+  now wrapped in `threeparttable` (verified to compile) and the method gains
+  a `path=` kwarg to write the source to file, matching every sibling
+  exporter (`to_markdown` / `to_html` / `to_excel` / `to_word`). `caption` /
+  `label` become keyword-only; a single positional argument is now the file
+  path (`r.to_latex("att.tex")`), which is what the docs already showed.
+- **`sp.bootstrap` BCa intervals had a biased acceleration jackknife.**
+  Three defects in the `ci_method="bca"` path: (a) a failed leave-one-out
+  replicate was imputed with `theta_hat`, zeroing its deviation and biasing
+  the acceleration `a` toward 0 (BCa silently degrading toward BC) — failures
+  are now dropped and reported via `RuntimeWarning`; (b) the jackknife was
+  capped at the *first* 200 rows, which is systematically biased when the
+  data are ordered — it now takes a random 200-unit subsample with a loud
+  warning that `a` is approximate; (c) under `cluster=` the jackknife deleted
+  individual rows while the bootstrap resampled clusters — it now
+  leave-one-cluster-out, matching the resampling unit.
+- **Four registered functions were unreachable as `sp.<name>`.**
+  `particle_filter`, `openai_client`, `anthropic_client`, and `echo_client`
+  appeared in `sp.list_functions()` but only resolved via the submodule path
+  (`sp.assimilation.*` / `sp.causal_llm.*`), so an agent iterating the
+  registry and calling `getattr(sp, name)` crashed on those four. They are
+  now lazily re-exported at top level (design principle #1); all 1,145
+  registry names resolve as `sp.<name>`, and cold-import laziness is
+  preserved (verified `statspai.causal_llm` is not eagerly imported).
+- **Estimators no longer reset the caller's global NumPy/torch RNG.**
+  `sp.notears`, `sp.deep_iv`, the neural-causal models (`tarnet` / `cfrnet` /
+  `dragonnet`), and the DML cross-fit engine called `np.random.seed(...)` /
+  `torch.manual_seed(...)` on the *global* RNG because the libraries they
+  wrap read from it — silently resetting a user's own random stream
+  mid-session (a hard-to-trace reproducibility bug). A new
+  `preserve_global_rng` decorator snapshots and restores the global RNG
+  state around each fit; internal draws are byte-identical (same
+  `random_state` → same result, verified), so no numbers move — only the
+  leak is removed.
 - **`sp.kaplan_meier` exported empty files without warning.** `KMResult`
   is not a dataclass and keeps all of its state in private attributes
   (`_tables`, `_alpha`, `_provenance`), exposing the data through the

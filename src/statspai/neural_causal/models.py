@@ -42,12 +42,14 @@ Advances in Neural Information Processing Systems, 32. [@shi2019adapting]
 """
 
 import copy
-from typing import Optional, List, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ..utils._rng import preserve_global_rng
 
 # ======================================================================
 # Public API - functional interface
@@ -705,10 +707,11 @@ class TARNet:
         self.min_delta = min_delta
         self.verbose = verbose
 
+    @preserve_global_rng
     def fit(self) -> CausalResult:
         """Fit TARNet and return treatment effect estimates."""
         torch, nn = _check_torch()
-        from torch.utils.data import TensorDataset, DataLoader
+        from torch.utils.data import DataLoader, TensorDataset
 
         torch.manual_seed(self.random_state)
         np.random.seed(self.random_state)
@@ -1052,10 +1055,11 @@ class CFRNet:
         self.min_delta = min_delta
         self.verbose = verbose
 
+    @preserve_global_rng
     def fit(self) -> CausalResult:
         """Fit CFRNet and return treatment effect estimates."""
         torch, nn = _check_torch()
-        from torch.utils.data import TensorDataset, DataLoader
+        from torch.utils.data import DataLoader, TensorDataset
 
         torch.manual_seed(self.random_state)
         np.random.seed(self.random_state)
@@ -1409,10 +1413,11 @@ class DragonNet:
         self.min_delta = min_delta
         self.verbose = verbose
 
+    @preserve_global_rng
     def fit(self) -> CausalResult:
         """Fit DragonNet and return treatment effect estimates."""
         torch, nn = _check_torch()
-        from torch.utils.data import TensorDataset, DataLoader
+        from torch.utils.data import DataLoader, TensorDataset
 
         torch.manual_seed(self.random_state)
         np.random.seed(self.random_state)

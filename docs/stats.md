@@ -72,7 +72,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `neural_causal` | 3,220 | 6 | 16 |
 | `structural` | 3,149 | 9 | 12 |
 | `forest` | 3,024 | 5 | 8 |
-| `causal_llm` | 2,972 | 10 | 11 |
+| `causal_llm` | 2,972 | 10 | 14 |
 | `robustness` | 2,664 | 6 | 11 |
 | `crossval` | 2,644 | 7 | 2 |
 | `bounds` | 2,577 | 5 | 9 |
@@ -113,7 +113,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `mht` | 768 | 2 | 6 |
 | `transport` | 761 | 5 | 8 |
 | `msm` | 716 | 2 | 3 |
-| `assimilation` | 698 | 3 | 2 |
+| `assimilation` | 698 | 3 | 3 |
 | `causal_impact` | 652 | 2 | 3 |
 | `nonparametric` | 630 | 3 | 4 |
 | `imputation` | 502 | 2 | 3 |

@@ -167,6 +167,59 @@ class TestBootstrap:
         assert result.ci_method == "bca"
         assert result.ci_lower < result.ci_upper
 
+    def test_bca_cluster_jackknife_deletes_clusters(self):
+        """BCa under cluster= must leave-one-cluster-out (matching the
+        cluster bootstrap), not delete rows."""
+        from statspai import bootstrap
+
+        rng = np.random.RandomState(0)
+        n = 120
+        df = pd.DataFrame({"y": rng.randn(n) + 2, "cl": rng.randint(0, 12, n)})
+        res = bootstrap(
+            df,
+            lambda d: float(d["y"].mean()),
+            n_boot=300,
+            ci_method="bca",
+            cluster="cl",
+            seed=1,
+        )
+        assert res.ci_lower < res.estimate < res.ci_upper
+
+    def test_bca_warns_and_subsamples_large_jackknife(self):
+        """>200 units: the acceleration jackknife is capped with a loud
+        warning rather than silently using only the first 200 rows."""
+        from statspai import bootstrap
+
+        rng = np.random.RandomState(1)
+        df = pd.DataFrame({"y": rng.randn(500)})
+        with pytest.warns(RuntimeWarning, match="capped for cost"):
+            bootstrap(
+                df,
+                lambda d: float(d["y"].mean()),
+                n_boot=200,
+                ci_method="bca",
+                seed=2,
+            )
+
+    def test_bca_warns_on_failed_jackknife_points(self):
+        """Failed jackknife replicates are dropped (not imputed with
+        theta_hat, which biases the acceleration toward 0) and reported."""
+        from statspai import bootstrap
+
+        rng = np.random.RandomState(2)
+        df = pd.DataFrame({"y": rng.randn(50)})
+        calls = {"n": 0}
+
+        def flaky(d):
+            calls["n"] += 1
+            if len(d) == 49 and calls["n"] % 5 == 0:
+                raise ValueError("boom")
+            return float(d["y"].mean())
+
+        with pytest.warns(RuntimeWarning, match="jackknife replicate"):
+            res = bootstrap(df, flaky, n_boot=200, ci_method="bca", seed=3)
+        assert np.isfinite(res.ci_lower) and np.isfinite(res.ci_upper)
+
     def test_bootstrap_summary(self):
         from statspai import bootstrap
 

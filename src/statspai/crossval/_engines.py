@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 
+from ..utils._rng import preserve_global_rng
 from ._agreement import (
     STATUS_ERROR,
     STATUS_OK,
@@ -68,7 +69,8 @@ class EngineAdapter(ABC):
         return True, ""
 
     @abstractmethod
-    def _fit(self, spec: EstimandSpec) -> EngineEstimate: ...
+    def _fit(self, spec: EstimandSpec) -> EngineEstimate:
+        ...
 
     # -- public ----------------------------------------------------------- #
     def run(self, spec: EstimandSpec) -> EngineEstimate:
@@ -354,6 +356,7 @@ class DoublemlAdapter(EngineAdapter):
             return False, f"doubleml/sklearn not importable: {type(e).__name__}"
         return True, ""
 
+    @preserve_global_rng
     def _fit(self, spec: EstimandSpec) -> EngineEstimate:
         import doubleml as dml
         from sklearn.ensemble import RandomForestRegressor

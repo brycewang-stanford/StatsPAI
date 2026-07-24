@@ -3302,15 +3302,38 @@ class CausalResult:
         return path
 
     def to_latex(
-        self, caption: Optional[str] = None, label: Optional[str] = None
+        self,
+        path: Optional[str] = None,
+        *,
+        caption: Optional[str] = None,
+        label: Optional[str] = None,
     ) -> str:
-        """Generate a LaTeX table of the results."""
+        """Generate a LaTeX table of the results.
+
+        Parameters
+        ----------
+        path : str, optional
+            If given, the LaTeX source is also written to this file
+            (UTF-8). The string is always returned.
+        caption : str, optional
+            ``\\caption{...}`` text.
+        label : str, optional
+            ``\\label{...}`` cross-reference id.
+
+        Notes
+        -----
+        The table body is wrapped in a ``threeparttable`` environment so the
+        ``tablenotes`` block below the tabular is valid LaTeX; the rendered
+        source therefore requires ``\\usepackage{threeparttable}`` (and
+        ``booktabs`` is not needed — plain ``\\hline`` rules are used).
+        """
         caption = caption or f"{self.method} Results"
         label = label or "tab:causal_result"
 
         lines = [
             "\\begin{table}[htbp]",
             "\\centering",
+            "\\begin{threeparttable}",
             f"\\caption{{{caption}}}",
             f"\\label{{{label}}}",
         ]
@@ -3393,9 +3416,15 @@ class CausalResult:
             "\\item Standard errors in parentheses.",
             "\\item * p<0.1, ** p<0.05, *** p<0.01",
             "\\end{tablenotes}",
+            "\\end{threeparttable}",
             "\\end{table}",
         ]
-        return "\n".join(lines)
+        latex = "\n".join(lines)
+        if path is not None:
+            from pathlib import Path
+
+            Path(path).write_text(latex, encoding="utf-8")
+        return latex
 
     def cite(self, format: str = "bibtex") -> Any:
         """Return the canonical citation for this estimator.

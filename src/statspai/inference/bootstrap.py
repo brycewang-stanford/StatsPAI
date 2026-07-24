@@ -22,6 +22,7 @@ Cameron, A.C., Gelbach, J.B. and Miller, D.L. (2008).
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import Callable, List, Optional
 
@@ -286,24 +287,70 @@ def _bca_ci(
     prop_less = np.mean(boot_stats < theta_hat)
     z0 = sp_stats.norm.ppf(max(min(prop_less, 0.999), 0.001))
 
-    # Acceleration factor a (jackknife)
-    n = len(data)
-    jack_stats: np.ndarray = np.empty(n)
-    for i in range(min(n, 200)):  # cap jackknife iterations
-        jack_data = data.drop(data.index[i]).reset_index(drop=True)
-        try:
-            jack_stats[i] = statistic(jack_data)
-        except Exception:
-            jack_stats[i] = theta_hat
+    # Acceleration factor a (jackknife).
+    #
+    # The jackknife leave-one-out unit must match the *resampling* unit of
+    # the bootstrap that produced ``boot_stats``: with ``cluster=`` the
+    # bootstrap resamples clusters, so the jackknife deletes whole clusters
+    # (leave-one-cluster-out), not individual rows — otherwise ``a`` is
+    # estimated on a different design than the interval it corrects.
+    _JACK_CAP = 200
+    if cluster is not None and cluster in data.columns:
+        units = list(pd.unique(data[cluster]))
 
-    jack_stats = jack_stats[: min(n, 200)]
-    jack_mean = np.mean(jack_stats)
-    diff = jack_mean - jack_stats
-    a = (
-        np.sum(diff**3) / (6 * (np.sum(diff**2)) ** 1.5)
-        if np.sum(diff**2) > 0
-        else 0
-    )
+        def _delete(u: object) -> pd.DataFrame:
+            return data[data[cluster] != u].reset_index(drop=True)
+
+    else:
+        units = list(range(len(data)))
+
+        def _delete(u: object) -> pd.DataFrame:
+            return data.drop(data.index[u]).reset_index(drop=True)
+
+    # Cap the jackknife for cost. Sample the units *at random* rather than
+    # taking the first K, whose statistic is systematically biased when the
+    # data are ordered (by group, time, …); warn that ``a`` is approximate.
+    n_units = len(units)
+    if n_units > _JACK_CAP:
+        pick = rng.choice(n_units, size=_JACK_CAP, replace=False)
+        units = [units[int(k)] for k in pick]
+        warnings.warn(
+            f"bootstrap: BCa acceleration is estimated from a random "
+            f"{_JACK_CAP}-unit jackknife subsample of {n_units} "
+            f"{'clusters' if cluster is not None else 'observations'} "
+            "(exact jackknife capped for cost); the interval endpoints are "
+            "approximate.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    jack_vals: List[float] = []
+    n_failed = 0
+    for u in units:
+        try:
+            jack_vals.append(float(statistic(_delete(u))))
+        except Exception:
+            # Do NOT impute theta_hat: a zeroed deviation biases the
+            # acceleration toward 0 (BCa silently degrades to BC). Drop the
+            # point and surface the loss instead.
+            n_failed += 1
+    if n_failed:
+        warnings.warn(
+            f"bootstrap: {n_failed}/{len(units)} BCa jackknife replicate(s) "
+            "failed and were dropped from the acceleration estimate.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+    jack_stats = np.asarray(jack_vals, dtype=float)
+    if jack_stats.size < 2:
+        # Too few usable jackknife points to estimate acceleration.
+        a = 0.0
+    else:
+        jack_mean = np.mean(jack_stats)
+        diff = jack_mean - jack_stats
+        denom = np.sum(diff**2)
+        a = float(np.sum(diff**3) / (6 * denom**1.5)) if denom > 0 else 0.0
 
     # Adjusted quantiles
     z_alpha = sp_stats.norm.ppf(alpha / 2)

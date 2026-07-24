@@ -2637,7 +2637,18 @@ _register_lazy(
     "assimilation",
     "assimilative_causal",
     "causal_kalman",
+    "particle_filter",
     "AssimilationResult",
+)
+# The three causal_llm SDK-adapter factories are advertised in the registry
+# (sp.list_functions), so honor design principle #1 and make them reachable
+# as sp.<name> — not only sp.causal_llm.<name>. An agent iterating the
+# registry and calling getattr(sp, name) previously crashed on these four.
+_register_lazy(
+    "causal_llm",
+    "openai_client",
+    "anthropic_client",
+    "echo_client",
 )
 _register_lazy(
     "surrogate",

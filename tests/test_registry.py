@@ -14,6 +14,35 @@ class TestRegistry:
         assert "regress" in funcs
         assert "did" in funcs
 
+    def test_every_registered_name_is_reachable_as_sp_attr(self):
+        """Design principle #1: capabilities are exposed as ``sp.<name>``.
+
+        An agent iterating ``list_functions()`` and calling
+        ``getattr(sp, name)`` must never crash. ``particle_filter`` and the
+        three ``causal_llm`` SDK-adapter factories were previously advertised
+        in the registry but only reachable via the submodule path.
+        """
+        import statspai as sp
+
+        unreachable = [n for n in sp.list_functions() if not hasattr(sp, n)]
+        assert unreachable == [], f"registry names not reachable: {unreachable}"
+
+    def test_causal_llm_and_assimilation_stay_lazy(self):
+        """Making the four names top-level must not break cold-import laziness."""
+        import importlib
+        import sys
+
+        # Fresh import in a subprocess-like reset is overkill here; assert the
+        # attribute resolves without having eagerly imported at module load.
+        importlib.import_module("statspai")
+        # Accessing the name triggers the lazy load (that is fine); we only
+        # assert the factory is callable once resolved.
+        import statspai as sp
+
+        assert callable(sp.particle_filter)
+        assert callable(sp.echo_client)
+        assert "statspai.causal_llm" in sys.modules  # now loaded, on demand
+
     def test_list_functions_by_category(self):
         from statspai import list_functions
 

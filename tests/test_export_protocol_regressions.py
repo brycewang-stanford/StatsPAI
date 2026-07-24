@@ -185,3 +185,47 @@ class TestPanellessDecompositionExport:
         result = sp.rifreg("y ~ x", data=self._frame(), statistic="quantile", tau=0.5)
         payload = result.to_excel(None)
         assert isinstance(payload, bytes) and payload
+
+
+class TestCausalResultLatex:
+    """CausalResult.to_latex emits compilable LaTeX and accepts path= (defect 6).
+
+    The ``tablenotes`` block previously sat directly inside ``table`` with no
+    ``threeparttable`` wrapper, so pdflatex hard-failed with
+    ``Environment tablenotes undefined``; and the method took no ``path=``
+    kwarg while every sibling exporter did.
+    """
+
+    @staticmethod
+    def _did_result():
+        rng = np.random.default_rng(0)
+        n = 400
+        d = rng.integers(0, 2, n)
+        post = rng.integers(0, 2, n)
+        y = 1 + 0.5 * d + 0.3 * post + 1.2 * d * post + rng.normal(0, 1, n)
+        df = pd.DataFrame({"y": y, "d": d, "post": post})
+        return sp.did_2x2(df, y="y", treat="d", time="post")
+
+    def test_tablenotes_wrapped_in_threeparttable(self):
+        tex = self._did_result().to_latex()
+        assert tex.count("\\begin{threeparttable}") == 1
+        assert tex.count("\\end{threeparttable}") == 1
+        # tablenotes must sit *inside* the threeparttable environment.
+        assert (
+            tex.index("\\begin{threeparttable}")
+            < tex.index("\\begin{tablenotes}")
+            < tex.index("\\end{threeparttable}")
+            < tex.index("\\end{table}")
+        )
+
+    def test_path_kwarg_writes_file(self, tmp_path):
+        path = tmp_path / "att.tex"
+        ret = self._did_result().to_latex(path=str(path))
+        assert path.exists()
+        assert path.read_text(encoding="utf-8") == ret
+
+    def test_positional_path_writes_file(self, tmp_path):
+        # docs style: r.to_latex("att.tex") — first positional arg is the path.
+        path = tmp_path / "att_pos.tex"
+        self._did_result().to_latex(str(path))
+        assert path.exists()

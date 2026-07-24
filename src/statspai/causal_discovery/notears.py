@@ -18,11 +18,14 @@ Zheng, X., Aragam, B., Ravikumar, P., & Xing, E. P. (2018).
 Advances in Neural Information Processing Systems, 31. [@zheng2018dags]
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
 from scipy.linalg import expm
+from scipy.optimize import minimize
+
+from ..utils._rng import preserve_global_rng
 
 # ======================================================================
 # Public API
@@ -171,6 +174,7 @@ class NOTEARS:
         self.w_threshold = w_threshold
         self.random_state = random_state
 
+    @preserve_global_rng
     def fit(self) -> Dict[str, Any]:
         """Run NOTEARS and return the learned DAG."""
         np.random.seed(self.random_state)

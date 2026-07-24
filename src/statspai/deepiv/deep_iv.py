@@ -71,13 +71,15 @@ Muandet, K., Mehrjou, A., Lee, S. K., & Raj, A. (2020).
     "Dual Instrumental Variable Regression." NeurIPS 2020.
 """
 
-from typing import Optional, List, Any, Tuple
 import math
+from typing import Any, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
 from ..core.results import CausalResult
+from ..utils._rng import preserve_global_rng
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -336,6 +338,7 @@ class DeepIV:
         if self.n_gradient_samples < 0:
             raise ValueError("n_gradient_samples must be >= 0")
 
+    @preserve_global_rng
     def fit(self) -> CausalResult:
         """
         Fit the DeepIV model and return causal effect estimates.
@@ -347,7 +350,7 @@ class DeepIV:
         try:
             import torch
             import torch.optim as optim
-            from torch.utils.data import TensorDataset, DataLoader
+            from torch.utils.data import DataLoader, TensorDataset
         except ImportError:
             raise ImportError(
                 "PyTorch is required for DeepIV. "
