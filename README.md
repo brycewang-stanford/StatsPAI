@@ -433,6 +433,15 @@ but no parity evidence attached **yet** — the honest gap). The full,
 auto-generated matrix is published at
 [docs/parity.md](https://brycewang-stanford.github.io/StatsPAI/parity/).
 
+Beyond point-parity, a Track-B coverage study runs `B=1000` Monte Carlo
+replications per estimator and checks that 95% confidence intervals hit their
+nominal rate on known-truth DGPs. The seven materialized nominal rows — OLS on
+an RCT (0.952), a 2×2 DiD (0.955), strong-instrument IV (0.962),
+Callaway–Sant'Anna staggered ATT (0.946), entropy balancing (1.000), DML IRM
+ATE (0.969), and a causal-forest AIPW ATE (0.977) — all land in or above the
+acceptance band around nominal 0.95; the committed artifacts live under
+`tests/coverage_monte_carlo/results_b1000/`.
+
 ---
 
 ## Changelog
