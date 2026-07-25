@@ -44,7 +44,10 @@ It is meant to be a practical replacement path for new Python-first work:
 StatsPAI is not a promise that every Stata/R command is bit-for-bit identical.
 When exact external parity matters, use the `validation_status` metadata,
 the reference-parity tests, and `sp.cross_validate` to see what has been
-certified for that estimator.
+certified for that estimator. `validation_status` distinguishes
+certified/validated evidence from API-stable breadth: a `certified` or
+`validated` symbol carries numerical evidence, while `api_stable` denotes a
+stable interface without a numerical-parity claim.
 
 ---
 

@@ -30,7 +30,7 @@ StatsPAI 面向那些原本需要在 Stata、R 和 Python 之间来回切换的�
   和 [`Paper-WorkFlow`](https://github.com/brycewang-stanford/Paper-WorkFlow)
   可以和 StatsPAI 以及 agent 一起使用，作为方法选择、期刊要求、论文流程和可复现检查的技能层。
 
-这不是说每个 Stata/R 命令都已经逐字节复现。需要严肃对齐时，请看函数的 `validation_status`、参考对齐测试和 `sp.cross_validate`。
+这不是说每个 Stata/R 命令都已经逐字节复现。需要严肃对齐时，请看函数的 `validation_status`、参考对齐测试和 `sp.cross_validate`。`validation_status` 把 certified / validated / api_stable 三档区分开：certified / validated 表示有数值证据，api_stable 只表示接口稳定、并非数值验证。完整的分级普查见 `docs/jss_source_audit_dossier.md`。
 
 ---
 
