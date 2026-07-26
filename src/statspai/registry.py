@@ -1228,6 +1228,37 @@ def _build_registry() -> None:
                 ParamSpec(
                     "panel", "bool", False, True, "False means repeated cross-sections"
                 ),
+                ParamSpec(
+                    "clustervars",
+                    "list",
+                    False,
+                    None,
+                    "Cluster variable(s) for the multiplier bootstrap; unit id implied, at most one extra time-invariant variable (R did::att_gt clustervars / Stata csdid cluster())",
+                ),
+                ParamSpec(
+                    "bstrap",
+                    "bool",
+                    False,
+                    False,
+                    "Multiplier-bootstrap SEs per ATT(g,t) instead of analytic (R did / Stata csdid wboot)",
+                ),
+                ParamSpec("biters", "int", False, 1000, "Bootstrap replications"),
+                ParamSpec(
+                    "cband",
+                    "bool",
+                    False,
+                    False,
+                    "Uniform (sup-t) confidence bands across all ATT(g,t); requires bstrap=True",
+                ),
+                ParamSpec(
+                    "boot_weight_type",
+                    "str",
+                    False,
+                    "rademacher",
+                    "Multiplier weight distribution (rademacher matches R did's implementation)",
+                    ["rademacher", "mammen"],
+                ),
+                ParamSpec("random_state", "int", False, None),
             ],
             returns="CausalResult",
             example='sp.callaway_santanna(df, y="earnings", g="first_treat", t="year", i="worker")',
@@ -9486,6 +9517,48 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("cluster", "str", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "pretrends",
+                    "int",
+                    False,
+                    None,
+                    "Estimate k placebo pre-trend coefficients (-k..-1) and report their joint Wald test (Stata: pretrends(k))",
+                ),
+                ParamSpec(
+                    "balanced",
+                    "bool",
+                    False,
+                    False,
+                    "Keep only eventually-treated units observed at every non-negative requested horizon (Stata: hbalance)",
+                ),
+                ParamSpec(
+                    "min_n",
+                    "int",
+                    False,
+                    None,
+                    "Drop event-study horizons with fewer treated observations (Stata: minn())",
+                ),
+                ParamSpec(
+                    "hetby",
+                    "str",
+                    False,
+                    None,
+                    "Report heterogeneous ATTs by a time-invariant unit-level variable (Stata: hetby())",
+                ),
+                ParamSpec(
+                    "save_weights",
+                    "bool",
+                    False,
+                    False,
+                    "Store exact estimation weights w with ATT = w'y in model_info (Stata: saveweights())",
+                ),
+                ParamSpec(
+                    "save_residuals",
+                    "bool",
+                    False,
+                    False,
+                    "Store untreated-fit residuals in model_info (Stata: saveresid())",
+                ),
             ],
             returns="CausalResult",
             example=(
@@ -11291,6 +11364,113 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["callaway_santanna", "sun_abraham", "did_imputation"],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="influence_functions",
+            category="causal",
+            description=(
+                "Export the per-unit influence functions of a "
+                "Callaway-Sant'Anna fit as a tidy, self-contained "
+                "DataFrame (optionally written to disk) — the StatsPAI "
+                "equivalent of Stata csdid saverif().  Feed the export "
+                "to sp.aggte_from_influence for post-hoc custom "
+                "aggregation without refitting or re-loading the data."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "CausalResult",
+                    True,
+                    description="Output of sp.callaway_santanna",
+                ),
+                ParamSpec(
+                    "path",
+                    "str",
+                    False,
+                    None,
+                    "Optional file path — .parquet via to_parquet, anything else via to_csv",
+                ),
+            ],
+            returns="DataFrame",
+            example="sp.influence_functions(cs_result, path='cs_rif.csv')",
+            tags=[
+                "did",
+                "influence_function",
+                "callaway_santanna",
+                "saverif",
+                "export",
+            ],
+            reference="Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
+            pre_conditions=[
+                "result was produced by sp.callaway_santanna",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="result carries no influence functions",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Fit with sp.callaway_santanna first; other estimators do not store the (g,t) influence-function grid.",
+                    alternative="callaway_santanna",
+                ),
+            ],
+            alternatives=["aggte", "aggte_from_influence"],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="aggte_from_influence",
+            category="causal",
+            description=(
+                "Aggregate Callaway-Sant'Anna group-time ATTs directly "
+                "from an influence-function export (DataFrame or file "
+                "path from sp.influence_functions) — event-study, group, "
+                "calendar, or overall summaries with multiplier-bootstrap "
+                "inference, no refit and no original data required.  The "
+                "post-hoc half of the Stata csdid saverif() workflow."
+            ),
+            params=[
+                ParamSpec(
+                    "source",
+                    "DataFrame|str",
+                    True,
+                    description="Frame from sp.influence_functions, or path to one (.parquet or CSV)",
+                ),
+                ParamSpec(
+                    "type",
+                    "str",
+                    False,
+                    "simple",
+                    "Aggregation type",
+                    ["simple", "dynamic", "group", "calendar"],
+                ),
+            ],
+            returns="CausalResult",
+            example="sp.aggte_from_influence('cs_rif.csv', type='dynamic', min_e=-4, max_e=8)",
+            tags=[
+                "did",
+                "aggregation",
+                "influence_function",
+                "callaway_santanna",
+                "saverif",
+            ],
+            reference="Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
+            pre_conditions=[
+                "source was produced by sp.influence_functions",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="influence frame is missing required columns",
+                    exception="statspai.MethodIncompatibility",
+                    remedy="Re-export with sp.influence_functions(result, path).",
+                    alternative="influence_functions",
+                ),
+            ],
+            alternatives=["aggte", "influence_functions"],
             typical_n_min=50,
         )
     )

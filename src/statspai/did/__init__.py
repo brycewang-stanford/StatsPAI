@@ -46,6 +46,7 @@ from .event_study import event_study
 from .gardner_2s import did_2stage, gardner_did
 from .harvest import HarvestDIDResult, harvest_did
 from .honest_did import breakdown_m, honest_did
+from .influence import aggte_from_influence, influence_functions
 from .misclassified import did_misclassified
 from .overlap_did import dl_propensity_score, overlap_weighted_did
 from .plots import bacon_plot, cohort_event_study_plot, did_plot, did_summary_plot
@@ -723,6 +724,8 @@ __all__ = [
     "ddd",
     "callaway_santanna",
     "aggte",
+    "influence_functions",
+    "aggte_from_influence",
     "cs_report",
     "CSReport",
     "bjs_pretrend_joint",

@@ -1149,6 +1149,37 @@
             ],
             "type": "string"
           },
+          "biters": {
+            "default": 1000,
+            "description": "Bootstrap replications",
+            "type": "integer"
+          },
+          "boot_weight_type": {
+            "default": "rademacher",
+            "description": "Multiplier weight distribution (rademacher matches R did's implementation)",
+            "enum": [
+              "rademacher",
+              "mammen"
+            ],
+            "type": "string"
+          },
+          "bstrap": {
+            "default": false,
+            "description": "Multiplier-bootstrap SEs per ATT(g,t) instead of analytic (R did / Stata csdid wboot)",
+            "type": "boolean"
+          },
+          "cband": {
+            "default": false,
+            "description": "Uniform (sup-t) confidence bands across all ATT(g,t); requires bstrap=True",
+            "type": "boolean"
+          },
+          "clustervars": {
+            "description": "Cluster variable(s) for the multiplier bootstrap; unit id implied, at most one extra time-invariant variable (R did::att_gt clustervars / Stata csdid cluster())",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "control_group": {
             "default": "nevertreated",
             "description": "Control group",
@@ -1184,6 +1215,10 @@
             "default": true,
             "description": "False means repeated cross-sections",
             "type": "boolean"
+          },
+          "random_state": {
+            "description": "Random seed or RandomState for reproducible stochastic steps.",
+            "type": "integer"
           },
           "t": {
             "description": "Time period column",
@@ -18112,6 +18147,11 @@
             "description": "Significance level for confidence intervals and tests.",
             "type": "number"
           },
+          "balanced": {
+            "default": false,
+            "description": "Keep only eventually-treated units observed at every non-negative requested horizon (Stata: hbalance)",
+            "type": "boolean"
+          },
           "cluster": {
             "description": "Cluster identifier column for clustered standard errors.",
             "type": "string"
@@ -18135,12 +18175,34 @@
             "description": "Unit identifier",
             "type": "string"
           },
+          "hetby": {
+            "description": "Report heterogeneous ATTs by a time-invariant unit-level variable (Stata: hetby())",
+            "type": "string"
+          },
           "horizon": {
             "description": "Relative-time leads / lags (default: all available)",
             "items": {
               "type": "string"
             },
             "type": "array"
+          },
+          "min_n": {
+            "description": "Drop event-study horizons with fewer treated observations (Stata: minn())",
+            "type": "integer"
+          },
+          "pretrends": {
+            "description": "Estimate k placebo pre-trend coefficients (-k..-1) and report their joint Wald test (Stata: pretrends(k))",
+            "type": "integer"
+          },
+          "save_residuals": {
+            "default": false,
+            "description": "Store untreated-fit residuals in model_info (Stata: saveresid())",
+            "type": "boolean"
+          },
+          "save_weights": {
+            "default": false,
+            "description": "Store exact estimation weights w with ATT = w'y in model_info (Stata: saveweights())",
+            "type": "boolean"
           },
           "time": {
             "description": "Time period column",
@@ -21017,6 +21079,115 @@
   },
   {
     "alternatives": [
+      "aggte",
+      "aggte_from_influence"
+    ],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data.",
+    "example": "sp.influence_functions(cs_result, path='cs_rif.csv')",
+    "failure_modes": [
+      {
+        "alternative": "callaway_santanna",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Fit with sp.callaway_santanna first; other estimators do not store the (g,t) influence-function grid.",
+        "symptom": "result carries no influence functions"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "influence_functions",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "result was produced by sp.callaway_santanna"
+    ],
+    "reference": "Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
+    "signature": {
+      "description": "Export the per-unit influence functions of a Callaway-Sant'Anna fit as a tidy, self-contained DataFrame (optionally written to disk) -- the StatsPAI equivalent of Stata csdid saverif(). Feed the export to sp.aggte_from_influence for post-hoc custom aggregation without refitting or re-loading the data.",
+      "name": "influence_functions",
+      "parameters": {
+        "properties": {
+          "path": {
+            "description": "Optional file path -- .parquet via to_parquet, anything else via to_csv",
+            "type": "string"
+          },
+          "result": {
+            "description": "Output of sp.callaway_santanna",
+            "type": "string"
+          }
+        },
+        "required": [
+          "result"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
+      "aggte",
+      "influence_functions"
+    ],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow.",
+    "example": "sp.aggte_from_influence('cs_rif.csv', type='dynamic', min_e=-4, max_e=8)",
+    "failure_modes": [
+      {
+        "alternative": "influence_functions",
+        "exception": "statspai.MethodIncompatibility",
+        "remedy": "Re-export with sp.influence_functions(result, path).",
+        "symptom": "influence frame is missing required columns"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "aggte_from_influence",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "source was produced by sp.influence_functions"
+    ],
+    "reference": "Callaway & Sant'Anna (2021) JoE [@callaway2021difference]",
+    "signature": {
+      "description": "Aggregate Callaway-Sant'Anna group-time ATTs directly from an influence-function export (DataFrame or file path from sp.influence_functions) -- event-study, group, calendar, or overall summaries with multiplier-bootstrap inference, no refit and no original data required. The post-hoc half of the Stata csdid saverif() workflow.",
+      "name": "aggte_from_influence",
+      "parameters": {
+        "properties": {
+          "source": {
+            "description": "Frame from sp.influence_functions, or path to one (.parquet or CSV)",
+            "type": "string"
+          },
+          "type": {
+            "default": "simple",
+            "description": "Aggregation type",
+            "enum": [
+              "simple",
+              "dynamic",
+              "group",
+              "calendar"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [],
+    "validation_status": "api_stable"
+  },
+  {
+    "alternatives": [
       "sensitivity_rr",
       "honest_did",
       "event_study"
@@ -22225,6 +22396,11 @@
             "description": "Significance level for confidence intervals.",
             "type": "number"
           },
+          "balanced": {
+            "default": false,
+            "description": "Stata ``did_imputation, hbalance``: keep only eventually-treated units observed at *every* requested horizon, so the event-study composition is stable across ``k`` (no cohort churn). Never-treated units are always kept. Requires ``horizon`` (or ``pretrends``). Warns with the number of units dropped.",
+            "type": "boolean"
+          },
           "boot_seed": {
             "default": 0,
             "description": "Seed for the cluster bootstrap (deterministic results).",
@@ -22253,6 +22429,10 @@
             "description": "Unit identifier column.",
             "type": "string"
           },
+          "hetby": {
+            "description": "Stata ``did_imputation, hetby(varname)``: report heterogeneous overall ATTs by the levels of a **time-invariant** unit-level variable. Results land in ``model_info['hetby']`` (one row per",
+            "type": "string"
+          },
           "horizon": {
             "description": "Relative time periods for event study estimates, e.g. ``list(range(-5, 6))``. If ``None``, reports only the overall ATT (no event study disaggregation).",
             "items": {
@@ -22260,10 +22440,28 @@
             },
             "type": "array"
           },
+          "min_n": {
+            "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test.",
+            "type": "integer"
+          },
           "n_boot": {
             "default": 199,
             "description": "Number of cluster-bootstrap replications when ``vce='bootstrap'``.",
             "type": "integer"
+          },
+          "pretrends": {
+            "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
+            "type": "integer"
+          },
+          "save_residuals": {
+            "default": false,
+            "description": "Stata ``did_imputation, saveresid()``: store the untreated-fit residuals ``y - y0`` in ``model_info['residuals']`` (aligned with the rows of ``data``; ``NaN`` on treated rows, whose ``y - y0`` is the treatment effect, not a residual).",
+            "type": "boolean"
+          },
+          "save_weights": {
+            "default": false,
+            "description": "Stata ``did_imputation, saveweights()``: store the exact estimation weights ``w`` such that ``ATT = w'y`` in ``model_info['estimation_weights']`` (aligned with the rows of ``data``). Treated rows get ``1/N1``; untreated rows get the (negative) imputation weights implied by the FE projection -- useful for diagnosing which comparisons drive the estimate.",
+            "type": "boolean"
           },
           "time": {
             "description": "Time period column.",
@@ -22389,6 +22587,11 @@
             "description": "Significance level for confidence intervals.",
             "type": "number"
           },
+          "balanced": {
+            "default": false,
+            "description": "Stata ``did_imputation, hbalance``: keep only eventually-treated units observed at *every* requested horizon, so the event-study composition is stable across ``k`` (no cohort churn). Never-treated units are always kept. Requires ``horizon`` (or ``pretrends``). Warns with the number of units dropped.",
+            "type": "boolean"
+          },
           "boot_seed": {
             "default": 0,
             "description": "Seed for the cluster bootstrap (deterministic results).",
@@ -22417,6 +22620,10 @@
             "description": "Unit identifier column.",
             "type": "string"
           },
+          "hetby": {
+            "description": "Stata ``did_imputation, hetby(varname)``: report heterogeneous overall ATTs by the levels of a **time-invariant** unit-level variable. Results land in ``model_info['hetby']`` (one row per",
+            "type": "string"
+          },
           "horizon": {
             "description": "Relative time periods for event study estimates, e.g. ``list(range(-5, 6))``. If ``None``, reports only the overall ATT (no event study disaggregation).",
             "items": {
@@ -22424,10 +22631,28 @@
             },
             "type": "array"
           },
+          "min_n": {
+            "description": "Stata ``did_imputation, minn(#)``: drop event-study horizons with fewer than ``min_n`` treated observations (they are noisy and dominated by a single cohort). Dropped horizons are listed in a warning and excluded from the pre-trend test.",
+            "type": "integer"
+          },
           "n_boot": {
             "default": 199,
             "description": "Number of cluster-bootstrap replications when ``vce='bootstrap'``.",
             "type": "integer"
+          },
+          "pretrends": {
+            "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
+            "type": "integer"
+          },
+          "save_residuals": {
+            "default": false,
+            "description": "Stata ``did_imputation, saveresid()``: store the untreated-fit residuals ``y - y0`` in ``model_info['residuals']`` (aligned with the rows of ``data``; ``NaN`` on treated rows, whose ``y - y0`` is the treatment effect, not a residual).",
+            "type": "boolean"
+          },
+          "save_weights": {
+            "default": false,
+            "description": "Stata ``did_imputation, saveweights()``: store the exact estimation weights ``w`` such that ``ATT = w'y`` in ``model_info['estimation_weights']`` (aligned with the rows of ``data``). Treated rows get ``1/N1``; untreated rows get the (negative) imputation weights implied by the FE projection -- useful for diagnosing which comparisons drive the estimate.",
+            "type": "boolean"
           },
           "time": {
             "description": "Time period column.",

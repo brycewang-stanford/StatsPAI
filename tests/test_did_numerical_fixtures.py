@@ -109,18 +109,22 @@ def test_overall_att_matches_pinned(cs_fixture):
 # --------------------------------------------------------------------------- #
 
 PINNED_EVENT_STUDY = {
-    # Re-pinned 2026-05-05 after the v1.13 simple-ATT IF-scaling fix.
-    -6: (0.082153, 0.602161),
-    -5: (0.284830, 0.536783),
-    -4: (0.135512, 0.419463),
-    -3: (0.427031, 0.295390),
-    -2: (-0.183822, 0.342370),
-    0: (0.356390, 0.303102),
-    1: (1.024010, 0.265289),
-    2: (1.378177, 0.445609),
-    3: (1.663324, 0.368396),
-    4: (2.299304, 0.553597),
-    5: (2.862484, 0.511114),
+    # Re-pinned 2026-07-25 (v1.21): multiplier-bootstrap weights switched
+    # from Mammen to Rademacher to match what R `did` actually draws
+    # (BMisc::multiplier_bootstrap). ATT point estimates unchanged; the
+    # SEs moved by bootstrap-draw noise only (same asymptotic variance).
+    # Previous pins (2026-05-05, v1.13 IF-scaling fix) kept in history.
+    -6: (0.082153, 0.554551),
+    -5: (0.284830, 0.501990),
+    -4: (0.135512, 0.410571),
+    -3: (0.427031, 0.299943),
+    -2: (-0.183822, 0.362842),
+    0: (0.356390, 0.311850),
+    1: (1.024010, 0.236992),
+    2: (1.378177, 0.484091),
+    3: (1.663324, 0.374627),
+    4: (2.299304, 0.550773),
+    5: (2.862484, 0.511380),
 }
 
 

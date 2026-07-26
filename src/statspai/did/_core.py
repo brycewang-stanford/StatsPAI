@@ -211,6 +211,139 @@ def influence_function_se(
 
 
 # ----------------------------------------------------------------------
+# Multiplier bootstrap (Callaway–Sant'Anna / R did::mboot convention)
+# ----------------------------------------------------------------------
+
+
+def multiplier_bootstrap(
+    psi: np.ndarray,
+    n_units: int,
+    alpha: float,
+    n_boot: int,
+    random_state: Optional[int] = None,
+    *,
+    weight_type: str = "rademacher",
+    cluster_ids: Optional[np.ndarray] = None,
+) -> Tuple[np.ndarray, float]:
+    """Multiplier bootstrap on influence functions, following R ``did::mboot``.
+
+    Parameters
+    ----------
+    psi : ndarray, shape (n, K)
+        Influence functions of the K estimands, one row per unit
+        (or per observation for repeated cross-sections).
+    n_units : int
+        Number of rows the influence functions are scaled to (the ``n``
+        in ``Var(θ̂) = E[ψ²]/n``). Usually ``psi.shape[0]``.
+    alpha : float
+        Nominal level for the uniform (sup-t) critical value.
+    n_boot : int
+        Number of bootstrap replications.
+    random_state : int, optional
+        Seed for the multiplier draws.
+    weight_type : {'rademacher', 'mammen'}, default 'rademacher'
+        Multiplier distribution. ``'rademacher'`` (±1) matches what the
+        R ``did`` package actually draws (``BMisc::multiplier_bootstrap``
+        — its docs cite Mammen 1993, but the implementation is
+        Rademacher; verified empirically against BMisc 1.4.x).
+        ``'mammen'`` is the Mammen (1993) two-point distribution of
+        CS2021 §4.2, available in Stata ``csdid`` via ``wbtype(mammen)``.
+    cluster_ids : ndarray of shape (n,), optional
+        Cluster membership per row. When given, rows are collapsed to
+        cluster *means* and the bootstrap runs over ``n_clusters`` rows —
+        exactly the R ``did::mboot`` clustering convention.
+
+    Returns
+    -------
+    se : ndarray of shape (K,)
+        Pointwise bootstrap standard errors (IQR-rescaled, robust to
+        heavy-tailed multiplier draws — same rescaling as R ``did``).
+    crit_unif : float
+        Uniform (sup-t) critical value at level ``1 - alpha``. Never
+        smaller than the pointwise Normal quantile.
+
+    References
+    ----------
+    Callaway, B. and Sant'Anna, P.H.C. (2021). "Difference-in-Differences
+    with Multiple Time Periods." *Journal of Econometrics*, 225(2),
+    200-230, Section 4.2. [@callaway2021difference]
+
+    Mammen, E. (1993). "Bootstrap and Wild Bootstrap for High Dimensional
+    Linear Models." *Annals of Statistics*, 21(1), 255-285.
+    [@mammen1993bootstrap]
+    """
+    psi = np.asarray(psi, dtype=float)
+    if psi.ndim == 1:
+        psi = psi[:, None]
+    if weight_type not in ("mammen", "rademacher"):
+        raise ValueError(
+            f"weight_type must be 'mammen' or 'rademacher', got {weight_type!r}"
+        )
+
+    # Collapse to cluster means (R did::mboot: rowsum(if)/cluster_n) so the
+    # bootstrap resamples clusters, not units.
+    if cluster_ids is not None:
+        cluster_ids = np.asarray(cluster_ids)
+        if cluster_ids.shape[0] != psi.shape[0]:
+            raise ValueError(
+                f"cluster_ids length {cluster_ids.shape[0]} ≠ psi rows "
+                f"{psi.shape[0]}"
+            )
+        codes, uniq = pd.factorize(cluster_ids, sort=True)
+        n_clusters = len(uniq)
+        sums = np.zeros((n_clusters, psi.shape[1]))
+        np.add.at(sums, codes, psi)
+        counts = np.bincount(codes, minlength=n_clusters).astype(float)
+        psi_boot = sums / counts[:, None]
+        n_eff = n_clusters
+    else:
+        psi_boot = psi
+        n_eff = int(n_units)
+
+    rng = np.random.default_rng(random_state)
+    n_rows = psi_boot.shape[0]
+
+    if weight_type == "mammen":
+        # Two-point Mammen weights with mean 0, variance 1.
+        # P(V = (1-√5)/2) = (√5+1)/(2√5); P(V = (1+√5)/2) = (√5-1)/(2√5).
+        sqrt5 = np.sqrt(5.0)
+        a, b = (1 - sqrt5) / 2.0, (1 + sqrt5) / 2.0
+        pa = (sqrt5 + 1.0) / (2.0 * sqrt5)
+        u = rng.random((n_boot, n_rows))
+        V = np.where(u < pa, a, b)
+    else:  # rademacher
+        V = rng.integers(0, 2, size=(n_boot, n_rows)) * 2.0 - 1.0
+
+    # Bootstrap draws of the K linear combinations, centered under
+    # H0: θ_true = θ̂ (influence functions are asymptotically mean-zero;
+    # centering removes the finite-sample mean).
+    psi_centered = psi_boot - psi_boot.mean(axis=0, keepdims=True)
+    boot = V @ psi_centered / n_eff
+
+    # Pointwise SEs from bootstrap, IQR-rescaled (R did convention —
+    # robust to heavy tails in multiplier weights compared to raw std).
+    # method='inverted_cdf' matches R's quantile(type = 1): with few
+    # clusters the multiplier distribution is discrete and the quantile
+    # convention shifts SEs by several percent — parity requires R's.
+    q75 = np.quantile(boot, 0.75, axis=0, method="inverted_cdf")
+    q25 = np.quantile(boot, 0.25, axis=0, method="inverted_cdf")
+    iqr_norm = stats.norm.ppf(0.75) - stats.norm.ppf(0.25)
+    se = (q75 - q25) / iqr_norm
+    # Guard against degenerate columns (e.g. a singleton cell).
+    fallback_std = boot.std(axis=0, ddof=1)
+    se = np.where(se > 0, se, fallback_std)
+    se = np.where(se > 0, se, 1e-12)
+
+    # Uniform (sup-t) critical value (R: quantile type = 1).
+    max_t = np.max(np.abs(boot) / se, axis=1)
+    crit_unif = float(np.quantile(max_t, 1 - alpha, method="inverted_cdf"))
+    # Never shrink below the pointwise Normal quantile.
+    crit_unif = max(crit_unif, float(stats.norm.ppf(1 - alpha / 2)))
+
+    return np.asarray(se, dtype=float), crit_unif
+
+
+# ----------------------------------------------------------------------
 # Joint Wald test
 # ----------------------------------------------------------------------
 

@@ -8,10 +8,13 @@ Implements the four aggregation schemes of Callaway & Sant'Anna (2021):
 - ``group``    — average ATT per cohort g across its post-treatment periods
 - ``calendar`` — average ATT per calendar time t across already-treated cohorts
 
-Inference is by Mammen (1993) multiplier bootstrap applied to the influence
-functions of the underlying ATT(g, t) estimates.  This reproduces the
-uniform (simultaneous) confidence bands that are the signature of the R
-package ``did`` / Python package ``csdid``.
+Inference is by multiplier bootstrap applied to the influence functions
+of the underlying ATT(g, t) estimates, with Rademacher (±1) weights —
+matching what the R package ``did`` actually draws via
+``BMisc::multiplier_bootstrap`` (its docs cite Mammen 1993, but the
+implementation is Rademacher).  This reproduces the uniform
+(simultaneous) confidence bands that are the signature of R ``did`` /
+Stata ``csdid``.
 
 References
 ----------
@@ -36,6 +39,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 
 # ======================================================================
 # Public API
@@ -76,8 +80,9 @@ def aggte(
     na_rm : bool, default True
         Drop ATT(g, t) with missing / infinite SE before aggregating.
     bstrap : bool, default True
-        If ``True``, compute SE / CI by Mammen multiplier bootstrap on the
-        influence functions. If ``False``, fall back to the analytic
+        If ``True``, compute SE / CI by multiplier bootstrap (Rademacher
+        weights, matching the R ``did`` implementation) on the influence
+        functions. If ``False``, fall back to the analytic
         (delta-method) SE already attached to each ATT(g, t).
     boot_type : {'multiplier'}, default 'multiplier'
         Only ``'multiplier'`` is supported; kept for ``csdid`` parity.
@@ -198,6 +203,10 @@ def aggte(
     att_vec = detail["att"].values
     est_cells = W @ att_vec  # shape (K,)
 
+    # Cluster ids attached by callaway_santanna(clustervars=...) — the
+    # bootstrap then resamples clusters instead of units (R did::mboot).
+    cluster_ids = model_info.get("_cluster_ids")
+
     # SE + CI per cell, plus uniform band if requested.
     if bstrap and inf_matrix is not None:
         se_cells, crit_unif = _multiplier_bootstrap(
@@ -207,6 +216,7 @@ def aggte(
             alpha,
             n_boot,
             random_state,
+            cluster_ids=cluster_ids,
         )
     else:
         se_cells = _analytic_se(W, detail)
@@ -258,8 +268,22 @@ def aggte(
             w_overall = np.full(W.shape[0], 1.0 / W.shape[0])
         overall_est = float(w_overall @ est_cells)
         if bstrap and inf_matrix is not None:
-            agg_inf = (w_overall @ W) @ inf_matrix.T
-            overall_se = float(np.sqrt(np.mean(agg_inf**2) / n_units))
+            if cluster_ids is not None:
+                # Cluster-aware: bootstrap the single overall combination
+                # so the SE resamples clusters like the per-cell SEs do.
+                se_overall_arr, _ = _multiplier_bootstrap(
+                    (w_overall @ W).reshape(1, -1),
+                    inf_matrix,
+                    n_units,
+                    alpha,
+                    n_boot,
+                    random_state,
+                    cluster_ids=cluster_ids,
+                )
+                overall_se = float(se_overall_arr[0])
+            else:
+                agg_inf = (w_overall @ W) @ inf_matrix.T
+                overall_se = float(np.sqrt(np.mean(agg_inf**2) / n_units))
         else:
             overall_se = float(np.sqrt(np.sum((w_overall**2) * se_cells**2)))
 
@@ -298,7 +322,8 @@ def aggte(
         _citation_key="callaway_santanna",
     )
     try:
-        from ..output._lineage import attach_provenance as _attach_prov, get_provenance
+        from ..output._lineage import attach_provenance as _attach_prov
+        from ..output._lineage import get_provenance
 
         upstream = get_provenance(result)
         _attach_prov(
@@ -486,8 +511,14 @@ def _multiplier_bootstrap(
     alpha: float,
     n_boot: int,
     random_state: Optional[int],
+    cluster_ids: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, float]:
-    """Mammen (1993) multiplier bootstrap on the influence functions.
+    """Multiplier bootstrap (Rademacher weights) on the influence functions.
+
+    Thin wrapper over :func:`statspai.did._core.multiplier_bootstrap`
+    that first forms the K linear combinations ``ψ = IF · W'``. When
+    ``cluster_ids`` is given the bootstrap resamples clusters (R
+    ``did::mboot`` convention).
 
     Returns
     -------
@@ -496,42 +527,13 @@ def _multiplier_bootstrap(
     crit_unif : float
         Uniform (sup-t) critical value at level ``1 - alpha``.
     """
-    rng = np.random.default_rng(random_state)
-    # Influence functions of the K linear combinations: shape (n, K)
     psi = inf_matrix @ W.T  # (n_units, K)
-    n = psi.shape[0]
-    # Two-point Mammen weights with mean 0, variance 1.
-    # P(V = (1-√5)/2) = (√5+1)/(2√5); P(V = (1+√5)/2) = (√5-1)/(2√5).
-    sqrt5 = np.sqrt(5.0)
-    a, b = (1 - sqrt5) / 2.0, (1 + sqrt5) / 2.0
-    pa = (sqrt5 + 1.0) / (2.0 * sqrt5)
-
-    # shape: (n_boot, n_units)
-    u = rng.random((n_boot, n))
-    V = np.where(u < pa, a, b)
-
-    # Bootstrap linear-combo draws: (n_boot, K) = V @ psi / n_units
-    # Subtract the sample mean (centered around 0 under H0: θ_true = θ̂).
-    psi_centered = psi - psi.mean(axis=0, keepdims=True)
-    boot = V @ psi_centered / n
-
-    # Pointwise SEs from bootstrap.  Use the IQR-based rescaling that
-    # the R package `did` uses (Callaway & Sant'Anna 2021, Sec. 4.2,
-    # implementation details) — robust to heavy tails in multiplier
-    # weights compared to raw std.
-    q75 = np.quantile(boot, 0.75, axis=0)
-    q25 = np.quantile(boot, 0.25, axis=0)
-    iqr_norm = stats.norm.ppf(0.75) - stats.norm.ppf(0.25)
-    se_cells = (q75 - q25) / iqr_norm
-    # Guard against degenerate columns (e.g. a singleton cell).
-    fallback_std = boot.std(axis=0, ddof=1)
-    se_cells = np.where(se_cells > 0, se_cells, fallback_std)
-    se_cells = np.where(se_cells > 0, se_cells, 1e-12)
-
-    # Uniform (sup-t) critical value.
-    max_t = np.max(np.abs(boot) / se_cells, axis=1)
-    crit_unif = float(np.quantile(max_t, 1 - alpha))
-    # Never shrink below pointwise Normal quantile.
-    crit_unif = max(crit_unif, stats.norm.ppf(1 - alpha / 2))
-
-    return se_cells, crit_unif
+    return _core_multiplier_bootstrap(
+        psi,
+        n_units,
+        alpha,
+        n_boot,
+        random_state,
+        weight_type="rademacher",
+        cluster_ids=cluster_ids,
+    )

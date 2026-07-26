@@ -6,6 +6,72 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **CS inference parity batch (Stata `csdid` / R `did` gap-closure, part 1).**
+  `sp.callaway_santanna` gains the full R `did::att_gt` inference surface:
+  `bstrap=` (multiplier-bootstrap SEs per ATT(g,t) — the Stata
+  `csdid, wboot` path), `biters=` (replications; Stata `reps()`),
+  `cband=` (uniform sup-t confidence bands, `cband_lower`/`cband_upper`
+  columns in `.detail` + `model_info['crit_val_uniform']`),
+  `clustervars=` (two-level clustering beyond the unit id, R `mboot`
+  convention: at most one extra time-invariant variable; requires
+  `bstrap=True` — analytic SEs would silently understate otherwise, so
+  passing `clustervars` without `bstrap` raises), `boot_weight_type=`
+  (`'rademacher'`/`'mammen'`), and `random_state=`. `sp.aggte` picks up
+  the cluster ids automatically, so downstream aggregations inherit the
+  clustering. Parity vs R `did` 2.3.0 (`biters=9999`): ATT(g,t) point
+  estimates ≤ 1e-6, bootstrap SEs within 3%, uniform critical values
+  within 2%, clustered SEs within 10% (15-cluster fixture; see
+  `tests/reference_parity/test_cs_inference_parity.py`).
+- **Influence-function export + post-hoc aggregation (Stata
+  `csdid saverif()` equivalent).** New `sp.influence_functions(result,
+  path=)` exports the per-unit ATT(g,t) influence functions of a
+  `callaway_santanna` fit as a tidy, self-contained DataFrame (CSV /
+  parquet), and `sp.aggte_from_influence(source, type=, **aggte_opts)`
+  recomputes any aggregation — event-study, group, calendar, overall,
+  with multiplier bootstrap and uniform bands — from the export alone,
+  no refit and no original data. Round-trips are exact
+  (`aggte_from_influence(influence_functions(cs))` ≡ `aggte(cs)` at the
+  same seed), including clustered fits (a `cluster` column is carried
+  through). New shared primitive `did._core.multiplier_bootstrap`
+  hosts the (cluster-aware, weight-type-aware) bootstrap used by both
+  paths.
+- **BJS `did_imputation` depth batch (Stata `did_imputation` gap-closure,
+  part 2).** Six new options mirroring Borusyak-Jaravel-Spiess's Stata
+  command: `pretrends=k` (estimate the k placebo horizons `-k..-1` and
+  report their joint Wald in `model_info['pretrend_test']`; the in-fit
+  test stays independence-based/conservative and points to
+  `sp.bjs_pretrend_joint` for the covariance-aware version),
+  `balanced=True` (Stata `hbalance` — keep only eventually-treated units
+  observed at every non-negative requested horizon, with a loud warning
+  listing drops; the `vce='bootstrap'` resample uses the balanced
+  sample), `min_n=` (Stata `minn()` — drop thin event-study horizons,
+  excluded from the pre-trend test), `hetby=` (heterogeneous ATTs by a
+  time-invariant unit variable, IF-based SEs, in
+  `model_info['hetby']`), `save_weights=True` (Stata `saveweights()` —
+  the exact estimation weights `w` with `ATT = w'y`, treated rows
+  `1/N1`, untreated rows the negative FE-projection weights; the
+  identity `w'y == ATT` is test-enforced), and `save_residuals=True`
+  (Stata `saveresid()` — untreated-fit residuals, `NaN` on treated
+  rows). Aliases `sp.bjs` / `sp.borusyak_jaravel_spiess` inherit all
+  six.
+
+### Changed
+
+- ⚠️ **Multiplier-bootstrap weights: Mammen → Rademacher (R parity).**
+  The CS multiplier bootstrap (`sp.aggte`, and the new
+  `sp.callaway_santanna(bstrap=True)`) now draws Rademacher (±1)
+  weights by default instead of Mammen two-point weights. The R `did`
+  package's documentation cites Mammen (1993), but what its
+  implementation actually draws is Rademacher
+  (`BMisc::multiplier_bootstrap`; verified empirically against BMisc
+  1.4.x — the weights take values ±1 with equal probability). With few
+  clusters the two distributions give visibly different IQR-rescaled
+  SEs (up to ~10% at 15 clusters), so matching R requires matching the
+  implementation, not the citation. Point estimates are unchanged;
+  bootstrap SEs move by draw noise (same asymptotic variance). Pinned
+  test values re-pinned; `boot_weight_type='mammen'` remains available
+  on `sp.callaway_santanna`.
+
 - **Conley spatial + time HAC (`sp.conley`).** `sp.conley` gains `time=`,
   `lag_cutoff=`, `time_kernel=`, `unit=`, `lag_cutoff_cross=`, and
   `distance=` for a full spatio-temporal HAC in the Hsiang (2010) / Stata

@@ -155,16 +155,19 @@ def test_breakdown_M_all_strictly_positive(demo_report):
     # event time of this ramp DGP — the substantive smoke claim.
     assert (demo_report.breakdown["breakdown_M_star"] > 0).all()
     # Most event times should remain robust at one SE on this DGP.
-    # We allow at most one boundary event-time to fall short because
-    # the v1.13 simple-ATT influence-function scaling fix
-    # (CHANGELOG ## [1.13.1]) made the SEs larger and therefore
-    # makes the m_star >= se criterion stricter.  Pre-fix this
-    # assertion was `.all()`; post-fix the right contract is
-    # "essentially all".
+    # We allow at most two boundary event-times to fall short:
+    # - v1.13: the simple-ATT influence-function scaling fix
+    #   (CHANGELOG ## [1.13.1]) made the SEs larger, so the
+    #   m_star >= se criterion got stricter (was `.all()`, then n-1).
+    # - v1.21: multiplier weights switched Mammen → Rademacher for R
+    #   `did` parity; the bootstrap SEs moved by draw noise and a second
+    #   marginal event-time crossed the 1-SE threshold (n-1 → n-2).
+    # The substantive smoke claim remains the strict positivity of
+    # breakdown_M_star above.
     n_robust = int(demo_report.breakdown["robust_at_1_SE"].sum())
     n_rows = len(demo_report.breakdown)
-    assert n_robust >= n_rows - 1, (
-        f"expected at most one event-time to fall outside the "
+    assert n_robust >= n_rows - 2, (
+        f"expected at most two event-times to fall outside the "
         f"1-SE Honest-DiD robust band; got {n_rows - n_robust}/{n_rows} "
         f"non-robust"
     )

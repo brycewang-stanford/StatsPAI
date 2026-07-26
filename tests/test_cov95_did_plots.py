@@ -23,11 +23,10 @@ import matplotlib
 
 matplotlib.use("Agg")  # headless
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.figure import Figure  # noqa: E402
-
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
+from matplotlib.figure import Figure  # noqa: E402
 
 import statspai as sp  # noqa: E402
 from statspai.did.plots import event_study_plot  # noqa: E402 (not top-level)
@@ -89,9 +88,12 @@ def test_ggdid_simple(cs_result):
         ],
         [
             3.096126829333214,
-            0.06764777834888368,
-            2.9635396201352537,
-            3.2287140385311743,
+            # Bootstrap SE/CI under Rademacher multiplier weights (v1.21:
+            # switched from Mammen to match R did's actual implementation,
+            # BMisc::multiplier_bootstrap).
+            0.0732881415369201,
+            2.9524847114269765,
+            3.2397689472394515,
             4,
             1,
         ],

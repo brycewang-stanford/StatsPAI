@@ -33,6 +33,7 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 
 
 class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
@@ -193,6 +194,12 @@ def callaway_santanna(
     anticipation: int = 0,
     alpha: float = 0.05,
     panel: bool = True,
+    clustervars: Optional[Sequence[str] | str] = None,
+    bstrap: bool = False,
+    biters: int = 1000,
+    cband: bool = False,
+    boot_weight_type: str = "rademacher",
+    random_state: Optional[int] = None,
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -225,6 +232,38 @@ def callaway_santanna(
         Sant'Anna (2021), Section 3.2.
     alpha : float, default 0.05
         Significance level.
+    clustervars : str or list of str, optional
+        Cluster variable(s) for the multiplier bootstrap, mirroring R
+        ``did::att_gt(clustervars=...)`` (Stata: ``csdid, cluster()``).
+        The unit id ``i`` is always implied and may be included or
+        omitted; at most **one** additional variable is allowed, and it
+        must be time-invariant within unit.  Clustering beyond the unit
+        level requires ``bstrap=True`` — analytic SEs do not account for
+        it, so passing ``clustervars`` with ``bstrap=False`` raises.
+    bstrap : bool, default False
+        If ``True``, replace the analytic (delta-method) SEs of each
+        ATT(g, t) with multiplier-bootstrap SEs on the influence
+        functions — the R ``did`` / Stata ``csdid wboot`` inference
+        path.  Default ``False`` preserves the analytic SEs (note R's
+        ``att_gt`` defaults to ``bstrap=TRUE``; set ``bstrap=True`` for
+        exact R-default parity).
+    biters : int, default 1000
+        Number of multiplier-bootstrap replications (R: ``biters``,
+        Stata: ``reps()``).
+    cband : bool, default False
+        If ``True``, additionally report *uniform* (simultaneous)
+        confidence bands across all ATT(g, t) via the sup-t bootstrap
+        critical value — columns ``cband_lower`` / ``cband_upper`` in
+        ``.detail``.  Requires ``bstrap=True``.
+    boot_weight_type : {'rademacher', 'mammen'}, default 'rademacher'
+        Multiplier weight distribution.  ``'rademacher'`` (±1) matches
+        what the R ``did`` package actually draws
+        (``BMisc::multiplier_bootstrap``; its docs cite Mammen 1993 but
+        the implementation is Rademacher).  ``'mammen'`` is the Mammen
+        (1993) two-point distribution of CS2021 §4.2 (Stata:
+        ``csdid, wbtype(mammen)``).
+    random_state : int, optional
+        Seed for the multiplier bootstrap.
     panel : bool, default True
         If ``True`` (default), treat the data as a balanced panel and
         estimate ATT(g, t) via within-unit first differences.
@@ -292,7 +331,68 @@ def callaway_santanna(
     )
     alpha = _require_alpha(alpha)
     panel = _require_bool(panel, argument="panel")
-    _require_columns(data, (y, g, t, i, *(x or [])), function="callaway_santanna")
+    bstrap = _require_bool(bstrap, argument="bstrap")
+    cband = _require_bool(cband, argument="cband")
+    biters = _require_int_at_least(biters, argument="biters", minimum=1)
+    boot_weight_type = _require_string_option(
+        boot_weight_type,
+        argument="boot_weight_type",
+        valid=("mammen", "rademacher"),
+    )
+    clustervars = _coerce_optional_columns(clustervars, argument="clustervars")
+    _require_columns(
+        data,
+        (y, g, t, i, *(x or []), *(clustervars or [])),
+        function="callaway_santanna",
+    )
+
+    if cband and not bstrap:
+        raise MethodIncompatibility(
+            "cband=True (uniform confidence bands) requires bstrap=True — "
+            "the sup-t critical value comes from the multiplier bootstrap.",
+            recovery_hint="Pass bstrap=True together with cband=True.",
+            diagnostics={"bstrap": bstrap, "cband": cband},
+        )
+
+    # Resolve extra cluster variable (beyond the unit id), R did::mboot
+    # convention: idname is always implied; at most one extra variable.
+    extra_cluster: Optional[str] = None
+    if clustervars:
+        extras = [c for c in clustervars if c != i]
+        if len(extras) > 1:
+            raise MethodIncompatibility(
+                f"clustervars supports at most one variable beyond the unit "
+                f"id {i!r}, got {extras}.",
+                recovery_hint="Pass clustervars=[i, one_cluster_var].",
+                diagnostics={"clustervars": clustervars, "extras": extras},
+            )
+        extra_cluster = extras[0] if extras else None
+    if extra_cluster is not None and not bstrap:
+        raise MethodIncompatibility(
+            "Clustering beyond the unit level requires bstrap=True — the "
+            "analytic SEs do not account for within-cluster dependence, so "
+            "reporting them under clustervars would silently understate "
+            "uncertainty.",
+            recovery_hint="Pass bstrap=True together with clustervars.",
+            diagnostics={"clustervars": clustervars, "bstrap": bstrap},
+        )
+    if extra_cluster is not None:
+        nuniq = data.groupby(i)[extra_cluster].nunique(dropna=False)
+        if (nuniq > 1).any():
+            bad = nuniq[nuniq > 1].index.tolist()[:5]
+            raise MethodIncompatibility(
+                f"Cluster variable {extra_cluster!r} is time-varying within "
+                f"unit (e.g. units {bad}) — the CS multiplier bootstrap "
+                "requires a time-invariant cluster membership.",
+                recovery_hint=(
+                    "Use a time-invariant cluster variable (R did::mboot "
+                    "imposes the same restriction)."
+                ),
+                diagnostics={
+                    "clustervar": extra_cluster,
+                    "n_time_varying_units": int((nuniq > 1).sum()),
+                },
+            )
 
     # Fail loudly when the requested never-treated comparison group is empty.
     # With no never-treated units every ATT(g,t) loses its control cell and
@@ -334,6 +434,22 @@ def callaway_santanna(
                 "panel=False currently requires control_group='nevertreated'.",
                 recovery_hint="Use control_group='nevertreated' with panel=False.",
                 diagnostics={"panel": panel, "control_group": control_group},
+            )
+        if bstrap or clustervars:
+            raise CallawayNotImplemented(
+                "panel=False (repeated cross-sections) does not yet support "
+                "bstrap / clustervars — the multiplier bootstrap is currently "
+                "wired for the panel branch only.",
+                recovery_hint=(
+                    "Use analytic SEs with panel=False, or aggregate via "
+                    "sp.aggte(result, bstrap=True) which bootstraps the "
+                    "observation-level influence functions."
+                ),
+                diagnostics={
+                    "panel": panel,
+                    "bstrap": bstrap,
+                    "clustervars": clustervars,
+                },
             )
         return _callaway_santanna_rcs(
             data=data,
@@ -419,6 +535,54 @@ def callaway_santanna(
     # Stack influence functions: (n_units, n_gt_pairs)
     inf_matrix = np.column_stack(inf_funcs_list) if inf_funcs_list else None
 
+    # 3.5 Optional multiplier-bootstrap inference (R did::att_gt bstrap
+    # path).  Replaces the analytic SEs of each ATT(g,t) with bootstrap
+    # SEs and, when cband=True, adds uniform (sup-t) confidence bands.
+    cluster_ids: Optional[np.ndarray] = None
+    if extra_cluster is not None:
+        cluster_ids = (
+            data.groupby(i)[extra_cluster].first().reindex(unit_info.index).to_numpy()
+        )
+    boot_cfg: Optional[Dict[str, Any]] = None
+    crit_val_uniform: Optional[float] = None
+    if bstrap and inf_matrix is not None:
+        boot_cfg = {
+            "n_boot": biters,
+            "random_state": random_state,
+            "weight_type": boot_weight_type,
+            "cluster_ids": cluster_ids,
+        }
+        se_boot, crit = _core_multiplier_bootstrap(
+            inf_matrix,
+            n_units,
+            alpha,
+            biters,
+            random_state,
+            weight_type=boot_weight_type,
+            cluster_ids=cluster_ids,
+        )
+        # Keep degenerate cells (empty (g,t) → zero IF, analytic se=inf)
+        # flagged as inf rather than reporting the bootstrap's ~0 SE.
+        valid_se = np.isfinite(detail["se"].values)
+        se_new = np.where(valid_se, se_boot, np.inf)
+        att_vals = detail["att"].values
+        with np.errstate(divide="ignore", invalid="ignore"):
+            z_stat = np.where(
+                np.isfinite(se_new) & (se_new > 0), att_vals / se_new, 0.0
+            )
+        detail["se"] = se_new
+        detail["pvalue"] = np.where(
+            np.isfinite(se_new) & (se_new > 0),
+            2 * (1 - stats.norm.cdf(np.abs(z_stat))),
+            1.0,
+        )
+        detail["ci_lower"] = att_vals - z_crit * se_new
+        detail["ci_upper"] = att_vals + z_crit * se_new
+        if cband:
+            crit_val_uniform = crit
+            detail["cband_lower"] = att_vals - crit * se_new
+            detail["cband_upper"] = att_vals + crit * se_new
+
     # 4. Cohort sizes (for weighting)
     cohort_sizes = unit_info[g].value_counts()
 
@@ -435,6 +599,7 @@ def callaway_santanna(
         cohort_sizes,
         n_units,
         alpha,
+        boot_cfg=boot_cfg,
     )
 
     # 6. Event study aggregation
@@ -444,6 +609,7 @@ def callaway_santanna(
         cohort_sizes,
         n_units,
         alpha,
+        boot_cfg=boot_cfg,
     )
 
     # 7. Pre-trend test
@@ -462,6 +628,18 @@ def callaway_santanna(
         "event_study": event_study,
         "pretrend_test": pretrend,
         "cohort_sizes": cohort_sizes,
+        "clustervars": clustervars,
+        "bstrap": bstrap,
+        "biters": biters if bstrap else 0,
+        "cband": cband,
+        "boot_weight_type": boot_weight_type if bstrap else None,
+        "crit_val_uniform": crit_val_uniform,
+        # Private plumbing: aligned with the influence-function rows.
+        # Consumed by sp.aggte (cluster-aware bootstrap) and
+        # sp.influence_functions (unit-labelled export).
+        "_cluster_ids": cluster_ids,
+        "_unit_ids": unit_info.index.to_numpy(),
+        "_unit_cohorts": unit_info[g].to_numpy(),
     }
 
     _result = CausalResult(
@@ -496,6 +674,12 @@ def callaway_santanna(
                 "anticipation": anticipation,
                 "alpha": alpha,
                 "panel": panel,
+                "clustervars": clustervars,
+                "bstrap": bstrap,
+                "biters": biters,
+                "cband": cband,
+                "boot_weight_type": boot_weight_type,
+                "random_state": random_state,
             },
             data=data,
             overwrite=False,
@@ -934,8 +1118,14 @@ def _aggregate_simple(
     cohort_sizes: pd.Series,
     n_total: int,
     alpha: float,
+    boot_cfg: Optional[Dict[str, Any]] = None,
 ) -> Tuple[float, float, float, Tuple[float, float]]:
-    """Simple aggregation: group-size-weighted average of post-treatment ATTs."""
+    """Simple aggregation: group-size-weighted average of post-treatment ATTs.
+
+    When ``boot_cfg`` is given (bstrap=True path), the SE of the
+    aggregated ATT comes from the multiplier bootstrap on the aggregated
+    influence function instead of the analytic plug-in.
+    """
     if len(post_detail) == 0:
         return 0.0, np.inf, 1.0, (np.nan, np.nan)
 
@@ -946,7 +1136,19 @@ def _aggregate_simple(
 
     if post_inf is not None and post_inf.shape[1] > 0:
         inf_agg = post_inf @ weights
-        se_agg = float(np.sqrt(np.mean(inf_agg**2) / n_total))
+        if boot_cfg is not None:
+            se_arr, _ = _core_multiplier_bootstrap(
+                inf_agg,
+                n_total,
+                alpha,
+                boot_cfg["n_boot"],
+                boot_cfg["random_state"],
+                weight_type=boot_cfg["weight_type"],
+                cluster_ids=boot_cfg["cluster_ids"],
+            )
+            se_agg = float(se_arr[0])
+        else:
+            se_agg = float(np.sqrt(np.mean(inf_agg**2) / n_total))
     else:
         se_agg = float(
             np.sqrt(np.average(post_detail["se"].values ** 2, weights=weights))
@@ -966,12 +1168,19 @@ def _aggregate_event_study(
     cohort_sizes: pd.Series,
     n_total: int,
     alpha: float,
+    boot_cfg: Optional[Dict[str, Any]] = None,
 ) -> pd.DataFrame:
-    """Event study aggregation: average ATT by relative time e = t − g."""
+    """Event study aggregation: average ATT by relative time e = t − g.
+
+    When ``boot_cfg`` is given (bstrap=True path), the per-event-time SEs
+    come from a joint multiplier bootstrap over all event-time
+    combinations instead of the analytic plug-in.
+    """
     relative_times = sorted(detail["relative_time"].unique())
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
     rows = []
+    psi_cols: List[np.ndarray] = []
     for e in relative_times:
         mask = detail["relative_time"] == e
         sub = detail[mask]
@@ -990,6 +1199,7 @@ def _aggregate_event_study(
             col_idx = np.where(mask.values)[0]
             inf_e = inf_matrix[:, col_idx] @ weights
             se_e = float(np.sqrt(np.mean(inf_e**2) / n_total))
+            psi_cols.append(inf_e)
         else:
             se_e = float(np.sqrt(np.average(sub["se"].values ** 2, weights=weights)))
 
@@ -1006,7 +1216,32 @@ def _aggregate_event_study(
             }
         )
 
-    return pd.DataFrame(rows)
+    es = pd.DataFrame(rows)
+
+    # Bootstrap SEs (one joint multiplier pass over all event times) —
+    # keeps the convenience event study consistent with the bstrap=True
+    # detail SEs.  The canonical event study remains sp.aggte('dynamic').
+    if boot_cfg is not None and psi_cols and len(es) == len(psi_cols):
+        se_vec, _ = _core_multiplier_bootstrap(
+            np.column_stack(psi_cols),
+            n_total,
+            alpha,
+            boot_cfg["n_boot"],
+            boot_cfg["random_state"],
+            weight_type=boot_cfg["weight_type"],
+            cluster_ids=boot_cfg["cluster_ids"],
+        )
+        att_vals = es["att"].values
+        es["se"] = se_vec
+        with np.errstate(divide="ignore", invalid="ignore"):
+            z_stat = np.where(se_vec > 0, att_vals / se_vec, 0.0)
+        es["pvalue"] = np.where(
+            se_vec > 0, 2 * (1 - stats.norm.cdf(np.abs(z_stat))), 1.0
+        )
+        es["ci_lower"] = att_vals - z_crit * se_vec
+        es["ci_upper"] = att_vals + z_crit * se_vec
+
+    return es
 
 
 # ======================================================================
@@ -1228,6 +1463,11 @@ def _callaway_santanna_rcs(
         "event_study": event_study,
         "pretrend_test": pretrend,
         "cohort_sizes": cohort_sizes,
+        # Private plumbing for sp.influence_functions: RCS influence
+        # functions are observation-level, so "units" are row positions.
+        "_cluster_ids": None,
+        "_unit_ids": df.index.to_numpy(),
+        "_unit_cohorts": g_arr,
     }
     if covariate_info is not None:
         model_info.update(covariate_info)
