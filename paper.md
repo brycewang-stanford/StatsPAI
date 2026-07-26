@@ -33,24 +33,24 @@ applied econometrics. It gives empirical researchers a single interface
 for estimating, diagnosing, comparing, and reporting models that are
 otherwise spread across many specialized packages or proprietary
 statistical environments. A single `import statspai as sp` reaches
-estimators for the main families of applied work — regression and panel
+estimators for the main families of applied work: regression and panel
 models, instrumental variables, the modern difference-in-differences and
 regression-discontinuity toolkits, synthetic control and matching, and
-machine-learning estimators of heterogeneous treatment effects —
-together with the diagnostics, robustness checks, and reporting that
-surround them. The full catalogue of more than 1,100 registered
+machine-learning estimators of heterogeneous treatment effects. It also
+covers the diagnostics, robustness checks, and reporting that surround
+them. The full catalogue of more than 1,100 registered
 functions across more than 80 submodules is enumerated in the package
 documentation rather than here.
 
 Results from the mature estimators share a common reporting surface, so
 the same calls produce a summary, a figure, a LaTeX or Word table, or a
 citation. `StatsPAI` is also agent-native: every registered function
-exposes a machine-readable schema — a structured description of its
-arguments and outputs that a program can parse directly — together with
-structured failure metadata. This lets LLM-driven research assistants
-discover estimators, choose among alternatives, and surface a method's
-assumptions without parsing free-form prose, the capability that most
-distinguishes `StatsPAI` from a conventional estimator library. The
+exposes a machine-readable schema, a structured description of its
+arguments and outputs that a program can parse directly, together with
+structured failure metadata. Such schemas let LLM-driven research
+assistants discover estimators, choose among alternatives, and surface a
+method's assumptions without parsing free-form prose, the capability that
+most distinguishes `StatsPAI` from a conventional estimator library. The
 source code is available at
 [https://github.com/brycewang-stanford/StatsPAI](https://github.com/brycewang-stanford/StatsPAI)
 and archived on Zenodo [@wang2026statspai].
@@ -106,15 +106,16 @@ the high-dimensional econometrics workflow inside the same
 agent-addressable interface used for the rest of the package.
 
 The general-purpose regression toolkits applied economists already rely
-on — `statsmodels` and `linearmodels` in Python, or `fixest` in R — sit
-at a different layer, supplying core regression machinery that `StatsPAI`
-builds on rather than competes with. Its contribution is therefore the
-integration layer itself, not a single better estimator: contributing one
-more estimator to each existing project would still leave users with
+on, such as `statsmodels` and `linearmodels` in Python or `fixest` in R,
+sit at a different layer, supplying core regression machinery that
+`StatsPAI` builds on rather than competes with. Its contribution is
+therefore the integration layer itself, not a single better estimator:
+contributing one more estimator to each existing project would still
+leave users with
 incompatible result classes, separate diagnostic conventions, and no
 unified agent-facing schema. `StatsPAI` earns a standalone existence by
-being the layer that makes a heterogeneous collection of estimators —
-classical and machine-learning, Python-native and R/Stata-aligned —
+being the layer that makes a heterogeneous collection of estimators
+(classical and machine-learning, Python-native and R/Stata-aligned)
 behave as one coherent, agent-addressable workspace, with broad method
 coverage, shared reporting, explicit citations, stable/experimental API
 metadata, and cross-language parity checks.
@@ -151,7 +152,7 @@ It is distributed via PyPI under the MIT license.
 These choices carry costs worth stating plainly. A shared result
 interface means adding or upgrading an estimator is never purely local,
 and the reporting and export hooks are guaranteed only for the mature
-estimators — which is why auxiliary helpers advertise narrower
+estimators, which is why auxiliary helpers advertise narrower
 capabilities through the registry rather than claiming a uniformity they
 do not have. Favouring breadth also trades against depth: for any single
 design, a dedicated package may expose more edge-case options than
@@ -160,10 +161,11 @@ the default install, which runs on a pure-Python NumPy/SciPy stack and
 reaches for the PyTorch, JAX, or Rust backends only when present, holding
 those accelerated paths to the same documented numerical tolerances as
 the fallbacks. The Rust/PyO3 kernel in particular carries a
-compiled-language build cost — platform-specific wheels or a Rust
-toolchain, plus a separately maintained crate — contained by keeping it
-optional, with transparent pure-Python fallback. We accept these costs
-deliberately: for researchers who must compare estimators, switch
+compiled-language build cost: platform-specific wheels or a Rust
+toolchain, plus a separately maintained crate. We contain this by
+keeping the kernel optional, with transparent pure-Python fallback. We
+accept these costs deliberately: for researchers who must compare
+estimators, switch
 designs, and produce reproducible output within one project, a single
 coherent, agent-addressable interface outweighs the loss of per-method
 specialization.
@@ -180,14 +182,14 @@ agree to machine precision; iterative and machine-learning estimators
 agree within pre-registered, documented tolerances, and the few remaining
 convention gaps are disclosed rather than hidden. Within this harness,
 the high-dimensional methods reproduce the published worked examples of
-the `hdm` package [@chernozhukov2016hdm] — its growth-convergence,
-institutions-and-development, and gender-wage-gap applications — and the
+the `hdm` package [@chernozhukov2016hdm] (its growth-convergence,
+institutions-and-development, and gender-wage-gap applications), and the
 double-machine-learning estimators are checked against `DoubleML`
 [@bach2022doubleml; @bach2024doubleml] on shared data, an independent
 check against those established reference implementations. The second
 track calibrates the simulated teaching datasets in `sp.datasets` so that
 the canonical estimator recovers values near well-known published
-results — returns-to-schooling IV (Card), job-training
+results: returns-to-schooling IV (Card), job-training
 (LaLonde/Dehejia-Wahba), RD elections (Lee), multi-period
 difference-in-differences (Callaway-Sant'Anna), and synthetic control;
 because these datasets are simulated rather than the original study data,
