@@ -21125,7 +21125,10 @@
     },
     "stability": "stable",
     "typical_n_min": 50,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_cs_inference.py",
+      "API/unit contract evidence: tests/test_cs_rcs.py"
+    ],
     "validation_status": "api_stable"
   },
   {
@@ -21183,7 +21186,10 @@
     },
     "stability": "stable",
     "typical_n_min": 50,
-    "validation_notes": [],
+    "validation_notes": [
+      "API/unit contract evidence: tests/test_cs_inference.py",
+      "API/unit contract evidence: tests/test_cs_rcs.py"
+    ],
     "validation_status": "api_stable"
   },
   {

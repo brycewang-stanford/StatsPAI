@@ -30,8 +30,8 @@ sp.parity_summary()           # honest coverage counts
 | analytical-only | 200 |
 | external-replication | 7 |
 | **verified (subtotal)** | **345** |
-| unverified | 800 |
-| **total registered** | **1145** |
+| unverified | 802 |
+| **total registered** | **1147** |
 
 ## bit-exact — 131 functions
 
@@ -406,6 +406,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `wooldridge_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) |
 | `wooldridge_prod` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 
-## unverified — 800 functions
+## unverified — 802 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

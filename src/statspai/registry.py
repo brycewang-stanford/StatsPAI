@@ -1233,14 +1233,17 @@ def _build_registry() -> None:
                     "list",
                     False,
                     None,
-                    "Cluster variable(s) for the multiplier bootstrap; unit id implied, at most one extra time-invariant variable (R did::att_gt clustervars / Stata csdid cluster())",
+                    "Cluster variable(s) for the multiplier bootstrap; unit id "
+                    "implied, at most one extra time-invariant variable "
+                    "(R did::att_gt clustervars / Stata csdid cluster())",
                 ),
                 ParamSpec(
                     "bstrap",
                     "bool",
                     False,
                     False,
-                    "Multiplier-bootstrap SEs per ATT(g,t) instead of analytic (R did / Stata csdid wboot)",
+                    "Multiplier-bootstrap SEs per ATT(g,t) instead of analytic "
+                    "(R did / Stata csdid wboot)",
                 ),
                 ParamSpec("biters", "int", False, 1000, "Bootstrap replications"),
                 ParamSpec(
@@ -1248,14 +1251,16 @@ def _build_registry() -> None:
                     "bool",
                     False,
                     False,
-                    "Uniform (sup-t) confidence bands across all ATT(g,t); requires bstrap=True",
+                    "Uniform (sup-t) confidence bands across all ATT(g,t); "
+                    "requires bstrap=True",
                 ),
                 ParamSpec(
                     "boot_weight_type",
                     "str",
                     False,
                     "rademacher",
-                    "Multiplier weight distribution (rademacher matches R did's implementation)",
+                    "Multiplier weight distribution "
+                    "(rademacher matches R did's implementation)",
                     ["rademacher", "mammen"],
                 ),
                 ParamSpec("random_state", "int", False, None),
@@ -9522,35 +9527,40 @@ def _build_registry() -> None:
                     "int",
                     False,
                     None,
-                    "Estimate k placebo pre-trend coefficients (-k..-1) and report their joint Wald test (Stata: pretrends(k))",
+                    "Estimate k placebo pre-trend coefficients (-k..-1) and "
+                    "report their joint Wald test (Stata: pretrends(k))",
                 ),
                 ParamSpec(
                     "balanced",
                     "bool",
                     False,
                     False,
-                    "Keep only eventually-treated units observed at every non-negative requested horizon (Stata: hbalance)",
+                    "Keep only eventually-treated units observed at every "
+                    "non-negative requested horizon (Stata: hbalance)",
                 ),
                 ParamSpec(
                     "min_n",
                     "int",
                     False,
                     None,
-                    "Drop event-study horizons with fewer treated observations (Stata: minn())",
+                    "Drop event-study horizons with fewer treated observations "
+                    "(Stata: minn())",
                 ),
                 ParamSpec(
                     "hetby",
                     "str",
                     False,
                     None,
-                    "Report heterogeneous ATTs by a time-invariant unit-level variable (Stata: hetby())",
+                    "Report heterogeneous ATTs by a time-invariant unit-level "
+                    "variable (Stata: hetby())",
                 ),
                 ParamSpec(
                     "save_weights",
                     "bool",
                     False,
                     False,
-                    "Store exact estimation weights w with ATT = w'y in model_info (Stata: saveweights())",
+                    "Store exact estimation weights w with ATT = w'y in "
+                    "model_info (Stata: saveweights())",
                 ),
                 ParamSpec(
                     "save_residuals",
@@ -11368,6 +11378,15 @@ def _build_registry() -> None:
         )
     )
 
+    # -- Callaway-Sant'Anna influence-function export / post-hoc aggregation - #
+    # Round-trip contract (aggte_from_influence == aggte on the same fit) and
+    # the export schema are pinned by unit tests rather than an R fixture: the
+    # numerical parity evidence lives on ``callaway_santanna`` / ``aggte``,
+    # which these two wrap without re-estimating anything.
+    _cs_influence_api_evidence = [
+        "API/unit contract evidence: tests/test_cs_inference.py",
+        "API/unit contract evidence: tests/test_cs_rcs.py",
+    ]
     register(
         FunctionSpec(
             name="influence_functions",
@@ -11392,7 +11411,8 @@ def _build_registry() -> None:
                     "str",
                     False,
                     None,
-                    "Optional file path — .parquet via to_parquet, anything else via to_csv",
+                    "Optional file path — .parquet via to_parquet, "
+                    "anything else via to_csv",
                 ),
             ],
             returns="DataFrame",
@@ -11412,12 +11432,16 @@ def _build_registry() -> None:
                 FailureMode(
                     symptom="result carries no influence functions",
                     exception="statspai.MethodIncompatibility",
-                    remedy="Fit with sp.callaway_santanna first; other estimators do not store the (g,t) influence-function grid.",
+                    remedy=(
+                        "Fit with sp.callaway_santanna first; other estimators "
+                        "do not store the (g,t) influence-function grid."
+                    ),
                     alternative="callaway_santanna",
                 ),
             ],
             alternatives=["aggte", "aggte_from_influence"],
             typical_n_min=50,
+            validation_notes=_cs_influence_api_evidence,
         )
     )
 
@@ -11438,7 +11462,10 @@ def _build_registry() -> None:
                     "source",
                     "DataFrame|str",
                     True,
-                    description="Frame from sp.influence_functions, or path to one (.parquet or CSV)",
+                    description=(
+                        "Frame from sp.influence_functions, or path to one "
+                        "(.parquet or CSV)"
+                    ),
                 ),
                 ParamSpec(
                     "type",
@@ -11450,7 +11477,10 @@ def _build_registry() -> None:
                 ),
             ],
             returns="CausalResult",
-            example="sp.aggte_from_influence('cs_rif.csv', type='dynamic', min_e=-4, max_e=8)",
+            example=(
+                "sp.aggte_from_influence('cs_rif.csv', type='dynamic', "
+                "min_e=-4, max_e=8)"
+            ),
             tags=[
                 "did",
                 "aggregation",
@@ -11472,6 +11502,7 @@ def _build_registry() -> None:
             ],
             alternatives=["aggte", "influence_functions"],
             typical_n_min=50,
+            validation_notes=_cs_influence_api_evidence,
         )
     )
 

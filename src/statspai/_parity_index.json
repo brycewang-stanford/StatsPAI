@@ -869,7 +869,8 @@
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/external_parity/test_published_replications.py",
-        "tests/reference_parity/test_callaway_santanna_parity.py"
+        "tests/reference_parity/test_callaway_santanna_parity.py",
+        "tests/reference_parity/test_cs_inference_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
