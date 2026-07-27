@@ -55,7 +55,7 @@ jobs:
     outputs:
       has_rust: ${{ steps.detect.outputs.has_rust }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - id: detect
         name: Detect a maturin (PyO3) build backend
         run: |
@@ -120,7 +120,7 @@ jobs:
       CIBW_ARCHS_LINUX: ${{ matrix.arch }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -151,7 +151,7 @@ jobs:
     if: needs.check_rust_present.outputs.has_rust == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
