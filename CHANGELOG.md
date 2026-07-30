@@ -67,6 +67,19 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **`sp.callaway_santanna` now warns on unbalanced panels.** ATT(g, t) is
+  built from within-unit differences `Y_t − Y_base`, so a unit missing
+  either period silently drops out of that cell and the effective sample
+  varies cell to cell. R `did` takes a different route entirely —
+  `allow_unbalanced_panel=TRUE` switches to the repeated cross-section
+  estimator — so the two disagree materially on identical data
+  (−0.0295 vs −0.0595 on a holed-out `did::mpdta`). StatsPAI previously
+  accepted such input silently and returned the panel-differenced
+  answer, which reads as a parity failure when it is an estimator
+  difference. The warning reports how many units and unit-period cells
+  are missing and points at `sp.balance_panel`. Balanced input is
+  unaffected and stays silent; no numerical output changed. Native
+  repeated-cross-section support for CS remains open work.
 - **`sp.honest_did(backend='native')` now warns that it is not the
   Rambachan-Roth confidence set.** The native path returns
   `θ̂ ± bias_bound ± z·SE` — the worst-case bias added to an ordinary Wald

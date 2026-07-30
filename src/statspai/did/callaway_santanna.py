@@ -721,6 +721,33 @@ def _prepare_panel(
     # Pivot outcome to wide: rows = units, columns = time periods
     y_wide = data.pivot_table(index=i, columns=t, values=y, aggfunc="first")
 
+    # An unbalanced panel silently changes the estimand here: ATT(g, t) is
+    # built from within-unit differences Y_t - Y_base, so any unit missing
+    # either period drops out of that cell.  R ``did`` takes a different
+    # route — ``allow_unbalanced_panel=TRUE`` switches to the repeated
+    # cross-section estimator ("Proceeding as such") — so the two disagree
+    # substantially on the same data.  Warn rather than let the divergence
+    # pass as a parity failure.  (§7: fail loudly.)
+    _n_missing = int(y_wide.isna().to_numpy().sum())
+    if _n_missing:
+        _n_cells = int(y_wide.size)
+        _n_incomplete = int(y_wide.isna().any(axis=1).sum())
+        warnings.warn(
+            f"callaway_santanna: unbalanced panel — {_n_incomplete} of "
+            f"{y_wide.shape[0]} units are missing at least one period "
+            f"({_n_missing}/{_n_cells} unit-period cells absent). ATT(g, t) "
+            "is formed from within-unit differences, so units missing "
+            "either the base or the comparison period drop out of that "
+            "cell; the effective sample varies across cells. R `did` "
+            "instead handles this with allow_unbalanced_panel=TRUE, which "
+            "switches to the repeated cross-section estimator, so its "
+            "numbers will differ — this is an estimator difference, not a "
+            "bug on either side. Balance the panel first (e.g. "
+            "sp.balance_panel) if you need a single fixed sample.",
+            UserWarning,
+            stacklevel=3,
+        )
+
     # Unit-level info (first occurrence per unit)
     info_cols = [g] + (x or [])
     unit_info = data.groupby(i)[info_cols].first()

@@ -45,7 +45,9 @@ from __future__ import annotations
 
 import hashlib
 import pathlib
+import warnings
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -146,3 +148,35 @@ def test_post_treatment_is_base_period_invariant(mpdta):
         post = frame.loc[frame["relative_time"] >= 0]
         for e, att in zip(post["relative_time"], post["att"]):
             assert att == pytest.approx(R_STATA_DYNAMIC[e], abs=1e-6)
+
+
+# ---------------------------------------------------------------------------
+# Unbalanced panels: StatsPAI and R use different estimators, so say so
+# ---------------------------------------------------------------------------
+
+
+def test_unbalanced_panel_warns_about_the_estimator_difference(mpdta):
+    """An unbalanced panel must not silently change the answer.
+
+    ATT(g, t) is built from within-unit differences, so a unit missing either
+    period drops out of that cell and the effective sample varies cell to
+    cell.  R ``did`` instead switches to the repeated cross-section estimator
+    under ``allow_unbalanced_panel=TRUE``, which gives a materially different
+    number on the same data (-0.0295 vs -0.0595 on this fixture).  Neither is
+    a bug, but a user comparing the two deserves to be told.
+    """
+    rng = np.random.default_rng(5)
+    holes = rng.choice(len(mpdta), size=250, replace=False)
+    unbalanced = mpdta.drop(index=mpdta.index[holes])
+
+    with pytest.warns(UserWarning, match="unbalanced panel"):
+        sp.callaway_santanna(
+            unbalanced, y="lemp", g="first_treat", t="year", i="countyreal"
+        )
+
+
+def test_balanced_panel_does_not_warn(mpdta):
+    """The warning must not fire on the ordinary balanced case."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        sp.callaway_santanna(mpdta, y="lemp", g="first_treat", t="year", i="countyreal")
