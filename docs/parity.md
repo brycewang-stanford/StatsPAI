@@ -267,7 +267,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `front_door` | [`test_front_door_parity.py`](../tests/reference_parity/test_front_door_parity.py) |
 | `frontdoor` | [`test_frontdoor_parity.py`](../tests/reference_parity/test_frontdoor_parity.py) |
 | `garch` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
-| `gardner_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) |
+| `gardner_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) (+1) |
 | `geary` | [`test_geary_parity.py`](../tests/reference_parity/test_geary_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
 | `genmatch` | [`test_matching_recovery_parity.py`](../tests/reference_parity/test_matching_recovery_parity.py) |

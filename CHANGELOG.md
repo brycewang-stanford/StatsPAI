@@ -4,8 +4,129 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- **`sp.callaway_santanna(base_period='varying')` omitted the `e = −1`
+  event-study placebo.** The (g, t) grid builder skipped
+  `t == g − 1 − anticipation` for *every* base-period scheme, on the
+  reasoning that it is the reference period. That holds only under
+  `base_period='universal'`; under `'varying'` the base for `t = g−1` is
+  `g−2`, so ATT(g, g−1) is a genuine estimable placebo — the one R `did`
+  and Stata `csdid` both report. With the cell restored,
+  `base_period='varying'` now matches **both** references to the printed
+  precision across the *entire* event study rather than only the
+  post-treatment half. On canonical `did::mpdta`: `e−3 = +0.030507`,
+  `e−2 = −0.000563`, `e−1 = −0.024459`, `e0 = −0.019932`,
+  `e1 = −0.050957`, `e2 = −0.137259`, `e3 = −0.100811`. The default
+  `base_period='universal'` path is untouched, and post-treatment
+  coefficients are unchanged under both schemes. Downstream consumers of
+  the pre-period vector (`sp.honest_did`, `sp.sensitivity_rr`,
+  `sp.pretrends_test`) now see one additional pre-period under
+  `'varying'`, which shifts their output. New parity guard:
+  `tests/reference_parity/test_cs_base_period_parity.py`.
+  See [MIGRATION](MIGRATION.md#cs-varying-base-period-e-minus-1).
+- **`sp.aggte(type='group')` overall ATT was an unweighted mean of the
+  cohort effects.** R `did::aggte(type="group")` reports
+  `sum_g (p_g / sum_g p_g) * θ(g)` — each cohort weighted by its share of
+  treated units. StatsPAI collapsed the θ(g) vector with equal `1/K`
+  weights, so the overall figure was only right when every cohort
+  happened to be the same size. The `cohort_sizes` series was already
+  plumbed through from `sp.callaway_santanna` and was being passed into
+  the weight builder unused. Per-cohort θ(g) values in `.detail` were
+  always correct; only the headline scalar moves. Surfaced by the
+  `mpdta` reconciliation in the DiD reconciliation study.
+  See [MIGRATION](MIGRATION.md#aggte-group-overall-weighting).
+- **`sp.aggte(..., bstrap=False)` standard errors were anti-conservative
+  by roughly a third.** The non-bootstrap path summed the per-cell
+  variances as though the ATT(g, t) cells were independent
+  (`sqrt(Σ wₖ² seₖ²)`). They are not: cells share control units, so the
+  omitted covariances are large and positive. Measured against the
+  multiplier bootstrap on simulated staggered panels the analytic SE
+  averaged **0.635×** the correct value, which turns a nominal 5% Wald
+  test into a ~21–23% rejection rate under a true null. Both the
+  per-cell and the overall SE now aggregate through the influence
+  functions (`sqrt(mean((Ψ w)²)/n)`), which is what R `did` reports and
+  what the `bstrap=True` branch already computed for the overall
+  estimate. `sp.aggte` defaults to `bstrap=True`, so callers on the
+  default path were unaffected; the bug bit explicit `bstrap=False`
+  callers and the automatic fallback taken when no influence matrix is
+  available. A side effect is that `sp.aggte(type='simple',
+  bstrap=False)` now agrees with `sp.callaway_santanna`'s own headline
+  SE, which it previously contradicted for the identical estimand.
+  `sp.callaway_santanna`'s headline SE was already covariance-aware and
+  does **not** change. See
+  [MIGRATION](MIGRATION.md#aggte-analytic-se-covariance).
+- **Both `sp.aggte` fixes are now verified against R `did` 2.3.0** on
+  canonical `did::mpdta`: all four aggregations (`simple`, `group`,
+  `calendar`, `dynamic`) match `did::aggte` to 10 decimal places on the
+  point estimate — including the previously-wrong `group` overall
+  (−0.0310182822) — and the analytic SEs land within 2.5% of R's, where
+  the old independence formula gave ~0.64x. New guard:
+  `tests/reference_parity/test_aggte_mpdta_parity.py` (12 ATT(g,t) cells
+  plus all four aggregations).
+
+### Changed
+
+- **`sp.honest_did(backend='native')` now warns that it is not the
+  Rambachan-Roth confidence set.** The native path returns
+  `θ̂ ± bias_bound ± z·SE` — the worst-case bias added to an ordinary Wald
+  interval — not the FLCI or the ARP conditional/hybrid confidence set,
+  and it ignores the pre-period covariance structure. Verified against R
+  `HonestDiD` 0.2.8 on canonical `did::mpdta`: the two agree to <5e-3
+  under `method='relative_magnitude'`, but under `method='smoothness'`
+  the native interval is **narrower at every M tested** (width 0.046 vs
+  0.051 at M=0; 0.086 vs 0.097 at M=0.02), with the gap widening in M.
+  Narrower means it *overstates* robustness to parallel-trends
+  violations, so this is now a loud `UserWarning` pointing at
+  `backend='r'` for publication-grade intervals, rather than a docstring
+  footnote. No numerical output changed. Implementing a native FLCI
+  remains open. New guard:
+  `tests/reference_parity/test_honest_did_backend_parity.py`.
+
 ### Added
 
+- **Nonlinear ETWFE — `sp.etwfe(family='poisson'|'logit')`.** Wooldridge
+  (2023) staggered DiD for count and binary outcomes, closing the largest
+  capability gap in the DiD family: until now every DiD estimator in
+  StatsPAI forced a linear model, so count outcomes (mortality, arrests,
+  patents), binary outcomes (employment, take-up), and shares had no
+  correct estimator. Fits the saturated Wooldridge/Mundlak design —
+  cohort dummies + period dummies + post-treatment cohort×period
+  interactions — by maximum likelihood with cluster-robust SEs, then
+  reports the **average marginal effect on the response scale** with a
+  delta-method SE. That is the R `etwfe::emfx(type='simple')` estimand,
+  so a Poisson fit returns an effect in counts and a logit fit a
+  probability difference, not a link-scale coefficient.
+  `model_info['event_study']` carries the per-event-time AMEs and
+  `.detail` the per-cohort AMEs.
+
+  Verified against R `etwfe` 0.6.2 on simulated panels: the simple AME
+  matches to **1e-10** for both families (Poisson 1.2720480537, logit
+  0.2438009516) and every event-time AME to 1e-6, with SEs agreeing to
+  ~1e-5 relative (`fixest` and `statsmodels` apply different
+  finite-sample corrections to the clustered sandwich). Both R-generated
+  fixtures are committed. New guard:
+  `tests/reference_parity/test_etwfe_glm_parity.py` (19 tests).
+
+  `family=None`/`'gaussian'` is the default and the existing linear path
+  is byte-for-byte unchanged (mpdta `cgroup='notyet'` still −0.0477099183).
+  The nonlinear branch **raises** rather than silently ignoring `xvar`,
+  `panel=False`, or `cgroup='nevertreated'`, and rejects negative
+  outcomes under Poisson / non-0-1 outcomes under logit.
+- **Cross-software parity coverage for `sp.sun_abraham` and
+  `sp.gardner_did`** on the canonical `did::mpdta` panel, closing two
+  rows that previously had no matched-option runner
+  (`tests/reference_parity/test_sunab_did2s_mpdta_parity.py`). Against
+  `fixest` 0.14.0, every Sun-Abraham IW event-study coefficient matches
+  `fixest::sunab` to ≤1e-6 and the SEs to ≤1%; `aggregation='fixest_att'`
+  reproduces `fixest::summary(agg='att')` to 1e-8 (−0.0399512752).
+  Against `did2s` 1.2.1, `sp.gardner_did`'s point estimate matches to
+  ~1e-8 (−0.0477099). Two conventions are now pinned rather than
+  folklore: `sp.sun_abraham` defaults to `aggregation='event_time'`
+  (equal-weighted across event times), which on this unbalanced panel
+  gives −0.0772 against `fixest`'s treated-cohort-size-weighted −0.0400;
+  and `sp.gardner_did`'s default analytic SE runs ~18% below R's
+  two-stage SE, which `vce='bootstrap'` recovers to within ~3%.
 - **CS inference parity batch (Stata `csdid` / R `did` gap-closure, part 1).**
   `sp.callaway_santanna` gains the full R `did::att_gt` inference surface:
   `bstrap=` (multiplier-bootstrap SEs per ATT(g,t) — the Stata

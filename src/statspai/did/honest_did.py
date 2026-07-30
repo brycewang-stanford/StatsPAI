@@ -27,9 +27,10 @@ import json
 import shutil
 import subprocess
 import tempfile
+import warnings
 from numbers import Real
 from pathlib import Path
-from typing import Any, Optional, List, Sequence, cast
+from typing import Any, List, Optional, Sequence, cast
 
 import numpy as np
 import pandas as pd
@@ -145,14 +146,25 @@ def honest_did(
     alpha : float, default 0.05
         Significance level.
     backend : {'native', 'honestdid', 'r'}, default 'native'
-        ``'native'`` uses StatsPAI's dependency-light analytic
-        intervals. ``'honestdid'``/``'r'`` delegates to the R
-        ``HonestDiD`` package through ``Rscript`` and returns the
-        reference package's finite-sample conditional intervals. The
-        R backend is mainly useful when exact parity with
-        ``HonestDiD::createSensitivityResults_relativeMagnitudes`` is
-        required; the default native path remains available without an
-        R installation.
+        ``'native'`` uses StatsPAI's dependency-light **worst-case-bias**
+        intervals: ``θ̂ ± bias_bound ± z_{α/2}·SE``. This is *not* the
+        Rambachan-Roth fixed-length confidence interval (FLCI) or their
+        ARP conditional/hybrid confidence set — it adds the worst-case
+        bias to an ordinary Wald interval rather than solving the
+        partial-identification problem, and it ignores the pre-period
+        covariance structure. The two agree closely for
+        ``method='relative_magnitude'`` but diverge materially for
+        ``method='smoothness'``, where the native interval can be
+        **narrower** than the reference and therefore overstate
+        robustness (on canonical ``did::mpdta`` at ``M=0.02``: native
+        width 0.086 vs ``HonestDiD`` 0.097).
+
+        ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package
+        through ``Rscript`` and returns the reference package's
+        confidence sets. **Use the R backend for any number that goes in
+        a paper**; the native path is for exploration and for
+        environments without R. Passing ``backend='native'`` emits a
+        :class:`UserWarning` to that effect.
     honestdid_method : {'C-LF', 'Conditional', 'FLCI', 'C-F'}, optional
         Solver method passed to the R ``HonestDiD`` backend. The default
         preserves HonestDiD defaults: ``'C-LF'`` for
@@ -236,6 +248,23 @@ def honest_did(
             ),
             diagnostics={"backend": backend},
         )
+
+    # The native path is a worst-case-bias interval, not the Rambachan-Roth
+    # partial-identification confidence set.  It can be *narrower* than the
+    # reference under the smoothness restriction and therefore overstate
+    # robustness, so say so rather than let it pass for HonestDiD output.
+    warnings.warn(
+        "honest_did(backend='native') returns a worst-case-bias interval "
+        "(theta_hat +/- bias_bound +/- z*SE), not the Rambachan-Roth FLCI or "
+        "ARP conditional/hybrid confidence set: it adds the worst-case bias "
+        "to a Wald interval and ignores the pre-period covariance structure. "
+        f"For method={method!r} this can differ materially from the reference "
+        "(under 'smoothness' the native interval can be narrower, overstating "
+        "robustness). Pass backend='r' (requires R + the HonestDiD package) "
+        "for publication-grade sensitivity intervals.",
+        UserWarning,
+        stacklevel=2,
+    )
 
     es = _extract_event_study(result)
     z_crit = stats.norm.ppf(1 - alpha / 2)

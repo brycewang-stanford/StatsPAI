@@ -9675,7 +9675,10 @@ def _build_registry() -> None:
                 "mirroring the R etwfe package. The headline reports the "
                 "treated-observation-weighted simple ATT from "
                 "etwfe::emfx(type='simple') / Stata jwdid, with cgroup "
-                "selecting not-yet-treated or never-treated controls."
+                "selecting not-yet-treated or never-treated controls. "
+                "family='poisson'/'logit' switches to Wooldridge (2023) "
+                "nonlinear ETWFE for count / binary outcomes, reporting the "
+                "average marginal effect on the response scale."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -9704,6 +9707,19 @@ def _build_registry() -> None:
                     "panel=True.",
                     ["notyet", "nevertreated"],
                 ),
+                ParamSpec(
+                    "family",
+                    "str",
+                    False,
+                    None,
+                    "Outcome model. None/'gaussian' is the linear ETWFE. "
+                    "'poisson' (counts) and 'logit' (binary) fit Wooldridge "
+                    "(2023) nonlinear ETWFE by MLE and report the average "
+                    "marginal effect on the response scale, matching R "
+                    "etwfe::emfx. The nonlinear branch requires panel=True, "
+                    "cgroup='notyet', and no xvar.",
+                    ["gaussian", "poisson", "logit", "binomial"],
+                ),
             ],
             returns="CausalResult",
             example='sp.etwfe(df, y="y", group="i", time="t", first_treat="g")',
@@ -9724,6 +9740,12 @@ def _build_registry() -> None:
                 "cross-sections) is not yet supported; pass either "
                 "panel=True with cgroup='nevertreated' or panel=False with "
                 "cgroup='notyet'",
+                "family='poisson'/'logit' with xvar, panel=False, or "
+                "cgroup='nevertreated' is not yet supported; these raise "
+                "rather than being silently ignored",
+                "family='poisson'/'logit' reports an average marginal effect "
+                "on the response scale (counts / probability) rather than a "
+                "link-scale coefficient — the R etwfe::emfx convention",
             ],
         )
     )

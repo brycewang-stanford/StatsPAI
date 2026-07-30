@@ -7204,7 +7204,7 @@
     "name": "etregress"
   },
   {
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling. Alternatives: sp.wooldridge_did, sp.callaway_santanna, sp.did_imputation. Typical minimum N: 50.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or p...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -7231,6 +7231,16 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "family": {
+          "description": "Outcome model. None/'gaussian' is the linear ETWFE. 'poisson' (counts) and 'logit' (binary) fit Wooldridge (2023) nonlinear ETWFE by MLE and report the average marginal effect on the response scale, matching R etwfe::emfx. The nonlinear branch requires panel=True, cgroup='notyet', and no xvar.",
+          "enum": [
+            "gaussian",
+            "poisson",
+            "logit",
+            "binomial"
+          ],
+          "type": "string"
         },
         "first_treat": {
           "description": "first_treat parameter (str).",

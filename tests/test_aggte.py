@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.did import callaway_santanna, aggte
+from statspai.did import aggte, callaway_santanna
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #
@@ -218,6 +218,7 @@ def test_dynamic_overall_averages_post_event_only(cs_result):
 def test_aggte_rejects_non_cs_result():
     """Passing SA / BJS output must raise a clear error instead of KeyError."""
     import numpy as np
+
     import statspai as sp
 
     rng = np.random.default_rng(0)
@@ -234,3 +235,58 @@ def test_aggte_rejects_non_cs_result():
     sa = sp.sun_abraham(df, y="y", g="g", t="t", i="i")
     with pytest.raises(ValueError, match="Callaway"):
         aggte(sa, type="dynamic", n_boot=50, random_state=0)
+
+
+# --------------------------------------------------------------------------- #
+# Regression: v1.21 correctness fixes surfaced by the JAE reconciliation audit #
+# --------------------------------------------------------------------------- #
+
+
+def test_group_overall_is_cohort_size_weighted(cs_result):
+    """``type='group'`` overall must weight θ(g) by each cohort's treated size.
+
+    R ``did::aggte(type="group")`` reports sum_g (p_g / sum p_g) * θ(g).
+    StatsPAI used an unweighted 1/K mean, which only coincides when all
+    cohorts happen to be the same size (⚠️ correctness fix, v1.21).
+    """
+    out = aggte(cs_result, type="group", bstrap=False)
+    sizes = cs_result.model_info["cohort_sizes"]
+    theta = out.detail["att"].values
+    w = np.array([float(sizes.get(int(g), 0.0)) for g in out.detail["group"]])
+    w = w / w.sum()
+
+    assert out.estimate == pytest.approx(float(w @ theta), rel=1e-12, abs=1e-12)
+    # Guard against a silent regression to the equal-weight mean whenever
+    # the cohorts are genuinely unequally sized.
+    if np.ptp(w) > 1e-12:
+        assert out.estimate != pytest.approx(float(theta.mean()), abs=1e-9)
+
+
+@pytest.mark.parametrize("typ", ["simple", "dynamic", "group", "calendar"])
+def test_analytic_se_carries_cross_cell_covariance(cs_result, typ):
+    """``bstrap=False`` must not sum per-cell variances as if independent.
+
+    ATT(g, t) cells share control units, so ignoring their covariance made
+    the analytic SE roughly 0.64x the truth — a nominal 5% test then
+    rejected ~21-23% of the time (⚠️ correctness fix, v1.21).  The
+    influence-function aggregation must land close to the multiplier
+    bootstrap instead.
+    """
+    analytic = aggte(cs_result, type=typ, bstrap=False)
+    boot = aggte(cs_result, type=typ, bstrap=True, n_boot=1000, random_state=0)
+
+    assert analytic.se == pytest.approx(boot.se, rel=0.15)
+    assert analytic.detail["se"].values == pytest.approx(
+        boot.detail["se"].values, rel=0.25
+    )
+
+
+def test_aggte_simple_se_matches_cs_headline(cs_result):
+    """The simple aggregation is the same estimand as the CS headline ATT.
+
+    Its analytic SE must therefore agree with ``callaway_santanna``'s own
+    influence-function SE; previously aggte reported ~0.64x of it.
+    """
+    out = aggte(cs_result, type="simple", bstrap=False)
+    assert out.estimate == pytest.approx(cs_result.estimate, rel=1e-10, abs=1e-10)
+    assert out.se == pytest.approx(cs_result.se, rel=1e-8, abs=1e-10)

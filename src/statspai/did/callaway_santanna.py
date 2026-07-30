@@ -763,8 +763,13 @@ def _get_gt_pairs(
         universal_base = max(available_pre)
 
         for t_val in time_periods:
-            if t_val == universal_base:
-                continue  # skip the base period itself
+            # Under the universal scheme g−1−δ *is* the reference period, so
+            # ATT(g, g−1−δ) is zero by construction and is not reported.
+            # Under 'varying' it is not the reference — its base is the
+            # period before it — so it is a genuine, estimable placebo
+            # (event time e = −1, which R ``did`` / Stata ``csdid`` report).
+            if base_period == "universal" and t_val == universal_base:
+                continue
 
             if base_period == "varying" and t_val < g_val:
                 pre_of_t = [tp for tp in time_periods if tp <= t_val - 1 - anticipation]

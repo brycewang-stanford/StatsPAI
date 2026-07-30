@@ -6,6 +6,7 @@ Implements the four aggregation schemes of Callaway & Sant'Anna (2021):
 - ``simple``   — cohort-size-weighted average over all post-treatment (g, t)
 - ``dynamic``  — event-study: average ATT by relative time e = t − g
 - ``group``    — average ATT per cohort g across its post-treatment periods
+  (the reported overall weights those θ(g) by treated cohort size)
 - ``calendar`` — average ATT per calendar time t across already-treated cohorts
 
 Inference is by multiplier bootstrap applied to the influence functions
@@ -82,8 +83,9 @@ def aggte(
     bstrap : bool, default True
         If ``True``, compute SE / CI by multiplier bootstrap (Rademacher
         weights, matching the R ``did`` implementation) on the influence
-        functions. If ``False``, fall back to the analytic
-        (delta-method) SE already attached to each ATT(g, t).
+        functions — required for the uniform ``cband``. If ``False``, use
+        the closed-form influence-function SE instead, which carries the
+        same cross-cell covariances but gives pointwise intervals only.
     boot_type : {'multiplier'}, default 'multiplier'
         Only ``'multiplier'`` is supported; kept for ``csdid`` parity.
     n_boot : int, default 1000
@@ -106,7 +108,8 @@ def aggte(
         - ``'simple'``   — the single cohort-share-weighted overall ATT
         - ``'dynamic'``  — simple average of *post-treatment* event times
           (e ≥ 0); pre-treatment cells are placebos and excluded
-        - ``'group'``    — simple average of the per-cohort θ(g) estimates
+        - ``'group'``    — treated-cohort-size weighted average of the
+          per-cohort θ(g) estimates
         - ``'calendar'`` — simple average of the per-calendar-time θ(t)
           estimates
 
@@ -218,6 +221,16 @@ def aggte(
             random_state,
             cluster_ids=cluster_ids,
         )
+    elif inf_matrix is not None:
+        # ⚠️ correctness fix: the non-bootstrap path used to sum the
+        # per-cell variances as if the ATT(g, t) cells were independent.
+        # They are not — cells share control units, so the omitted
+        # covariances are large and positive and the SE came out ~0.64x
+        # the truth.  Aggregate through the influence functions instead,
+        # which is the same estimator R ``did`` uses and matches the
+        # ``bstrap=True`` branch below.
+        se_cells = _analytic_se_influence(W, inf_matrix, n_units)
+        crit_unif = stats.norm.ppf(1 - alpha / 2)
     else:
         se_cells = _analytic_se(W, detail)
         crit_unif = stats.norm.ppf(1 - alpha / 2)
@@ -246,8 +259,9 @@ def aggte(
     #   dynamic  : simple average of POST-treatment event times only
     #              (pre-treatment cells are placebos, not part of the
     #              overall causal summary)
-    #   group    : simple average across cohorts (all post-treatment by
-    #              construction of the θ(g) weights)
+    #   group    : treated-cohort-size weighted average of the θ(g)
+    #              (R did::aggte weights each cohort by its share of
+    #              treated units, not equally — ⚠️ corrected)
     #   calendar : simple average across calendar times (all post-treatment
     #              by construction)
     if type == "simple":
@@ -264,6 +278,21 @@ def aggte(
             idx = np.where(post_mask_agg)[0]
             w_overall = np.zeros(W.shape[0])
             w_overall[idx] = 1.0 / idx.size
+        elif type == "group":
+            # ⚠️ correctness fix: R ``did::aggte(type="group")`` reports
+            # the overall as sum_g (p_g / sum p_g) * theta(g), i.e. weighted
+            # by each cohort's share of treated units.  We used 1/K.
+            shares = _cohort_weight_series(detail, cohort_sizes)
+            w_overall = np.array(
+                [float(shares.get(int(g), 0.0)) for g in labels], dtype=float
+            )
+            s_overall = w_overall.sum()
+            if s_overall <= 0:
+                # No usable cohort sizes — fall back to the equal-weight mean
+                # rather than emitting a zero-weight (and hence zero) ATT.
+                w_overall = np.full(W.shape[0], 1.0 / W.shape[0])
+            else:
+                w_overall = w_overall / s_overall
         else:
             w_overall = np.full(W.shape[0], 1.0 / W.shape[0])
         overall_est = float(w_overall @ est_cells)
@@ -284,6 +313,15 @@ def aggte(
             else:
                 agg_inf = (w_overall @ W) @ inf_matrix.T
                 overall_se = float(np.sqrt(np.mean(agg_inf**2) / n_units))
+        elif inf_matrix is not None:
+            # ⚠️ correctness fix: same independence bug as the per-cell
+            # path above — aggregate through the influence functions so the
+            # cross-cell covariances are carried.
+            overall_se = float(
+                _analytic_se_influence(
+                    (w_overall @ W).reshape(1, -1), inf_matrix, n_units
+                )[0]
+            )
         else:
             overall_se = float(np.sqrt(np.sum((w_overall**2) * se_cells**2)))
 
@@ -498,8 +536,32 @@ def _apply_balance_e(
 # ======================================================================
 
 
+def _analytic_se_influence(
+    W: np.ndarray,
+    inf_matrix: np.ndarray,
+    n_units: int,
+) -> np.ndarray:
+    """Covariance-aware analytic SE for each row of ``W``.
+
+    Forms ψ = Ψ W′ (one column per aggregation cell) and returns
+    ``sqrt(mean(ψ²) / n)`` — the influence-function standard error R
+    ``did`` reports, and the closed-form limit of the multiplier
+    bootstrap in :func:`_multiplier_bootstrap`.  Because it works on the
+    influence functions rather than the per-cell variances, it carries
+    the covariance between ATT(g, t) cells that share control units.
+    """
+    psi = inf_matrix @ W.T  # (n_units, K)
+    return np.asarray(np.sqrt(np.mean(psi**2, axis=0) / n_units), dtype=float)
+
+
 def _analytic_se(W: np.ndarray, detail: pd.DataFrame) -> np.ndarray:
-    """Conservative SE assuming independence across (g, t)."""
+    """Last-resort SE that *assumes independence* across (g, t).
+
+    Only used when no influence-function matrix is available.  ATT(g, t)
+    cells share control units, so the omitted covariances are positive
+    and this understates the SE — it is **anti-conservative**, not
+    conservative.  Prefer :func:`_analytic_se_influence`.
+    """
     v = detail["se"].values ** 2
     return np.asarray(np.sqrt((W**2) @ v), dtype=float)
 

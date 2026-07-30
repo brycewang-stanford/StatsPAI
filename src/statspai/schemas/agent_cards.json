@@ -13242,7 +13242,8 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "tests/reference_parity/test_did_variants_parity.py"
+      "tests/reference_parity/test_did_variants_parity.py",
+      "tests/reference_parity/test_sunab_did2s_mpdta_parity.py"
     ],
     "validation_status": "validated"
   },
@@ -18338,12 +18339,14 @@
     "assumptions": [],
     "category": "causal",
     "cost_profile": "Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
-    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
+    "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
     "example": "sp.etwfe(df, y=\"y\", group=\"i\", time=\"t\", first_treat=\"g\")",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [
       "cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'",
+      "family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored",
+      "family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention",
       "cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'."
     ],
     "name": "etwfe",
@@ -18353,7 +18356,7 @@
     "pre_conditions": [],
     "reference": "Wooldridge (2021) [@wooldridge2021two]",
     "signature": {
-      "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
+      "description": "Extended Two-Way Fixed Effects (Wooldridge 2021). Explicit API mirroring the R etwfe package. The headline reports the treated-observation-weighted simple ATT from etwfe::emfx(type='simple') / Stata jwdid, with cgroup selecting not-yet-treated or never-treated controls. family='poisson'/'logit' switches to Wooldridge (2023) nonlinear ETWFE for count / binary outcomes, reporting the average marginal effect on the response scale. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported; pass either panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'; family='poisson'/'logit' with xvar, panel=False, or cgroup='nevertreated' is not yet supported; these raise rather than being silently ignored; family='poisson'/'logit' reports an average marginal effect on the response scale (counts / probability) rather than a link-scale coefficient -- the R etwfe::emfx convention; cgroup='nevertreated' combined with panel=False (repeated cross-sections) is not yet supported. Use panel=True with cgroup='nevertreated' or panel=False with cgroup='notyet'. Do NOT use when: all units adopt at the same time -- the cohort x period saturation is redundant; use sp.did(method='2x2'). Cost: Saturated cohort x period interaction design: the number of regressors grows as O(cohorts x periods), so many-cohort many-period panels produce a wide dense design and a slow solve. Check the cohort x period grid size before calling.",
       "name": "etwfe",
       "parameters": {
         "properties": {
@@ -18384,6 +18387,16 @@
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "family": {
+            "description": "Outcome model. None/'gaussian' is the linear ETWFE. 'poisson' (counts) and 'logit' (binary) fit Wooldridge (2023) nonlinear ETWFE by MLE and report the average marginal effect on the response scale, matching R etwfe::emfx. The nonlinear branch requires panel=True, cgroup='notyet', and no xvar.",
+            "enum": [
+              "gaussian",
+              "poisson",
+              "logit",
+              "binomial"
+            ],
             "type": "string"
           },
           "first_treat": {
@@ -18428,9 +18441,10 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "tests/reference_parity/test_etwfe_glm_parity.py",
       "Default cgroup='notyet' and cgroup='nevertreated' are pinned against R etwfe / Stata jwdid simple ATT values on did::mpdta. The historical cohort-share aggregation remains available via etwfe_emfx(..., weighting='cohort')."
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -21072,6 +21086,8 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "tests/reference_parity/test_aggte_mpdta_parity.py",
+      "tests/reference_parity/test_cs_base_period_parity.py",
       "tests/external_parity/test_honest_did_paper_parity.py",
       "tests/external_parity/test_published_replications.py"
     ],
@@ -22216,7 +22232,7 @@
           },
           "backend": {
             "default": "native",
-            "description": "``'native'`` uses StatsPAI's dependency-light analytic intervals. ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package through ``Rscript`` and returns the reference package's finite-sample conditional intervals. The R backend is mainly useful when exact parity with ``HonestDiD::createSensitivityResults_relativeMagnitudes`` is required; the default native path remains available without an R installation.",
+            "description": "``'native'`` uses StatsPAI's dependency-light **worst-case-bias**",
             "enum": [
               "native",
               "honestdid",

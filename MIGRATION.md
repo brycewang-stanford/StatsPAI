@@ -5,6 +5,97 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="cs-varying-base-period-e-minus-1"></a>
+
+## Unreleased — ⚠️ `base_period='varying'` now reports the `e = −1` placebo
+
+**What changed.** `sp.callaway_santanna`'s (g, t) grid builder skipped
+`t == g − 1 − anticipation` under *every* base-period scheme. Under
+`base_period='universal'` that is correct — it is the reference period and
+ATT(g, g−1) is zero by construction. Under `base_period='varying'` it is not
+the reference: the base for `t = g−1` is `g−2`, so ATT(g, g−1) is an estimable
+pre-treatment placebo. R `did` and Stata `csdid` both report it; StatsPAI
+dropped it.
+
+**Effect.** Under `base_period='varying'` the event study gains one row at
+`e = −1`. On canonical `did::mpdta` that cell is −0.024459, matching R `did`
+2.3.0 and Stata `csdid` to the printed precision — and with it restored the
+*entire* varying event study now agrees with both references, where previously
+only the post-treatment half did.
+
+Post-treatment coefficients do not move, under either scheme. The default
+`base_period='universal'` path is completely unchanged.
+
+**Who is affected.** Users of `base_period='varying'`, and in particular
+anything that consumes the pre-period vector:
+
+- `sp.honest_did` / `sp.sensitivity_rr` — one more pre-period enters the
+  Rambachan–Roth restriction set, so breakdown values and robust CIs shift.
+- `sp.pretrends_test` / `sp.pretrends_power` — the joint pre-trend test gains a
+  degree of freedom.
+
+Re-run these if you have recorded output from `base_period='varying'`. If you
+need the old event-time grid for comparison, `base_period='universal'` is
+unchanged, but note it is a *different* placebo estimand, not the old buggy
+one. There is no flag to restore the omission — it was a bug.
+
+<a id="aggte-group-overall-weighting"></a>
+
+## Unreleased — ⚠️ `sp.aggte(type='group')` overall ATT is now cohort-size weighted
+
+**What changed.** The per-cohort effects θ(g) were correct, but collapsing them
+into the single reported `.estimate` used equal `1/K` weights. R
+`did::aggte(type="group")` weights each cohort by its share of treated units:
+`sum_g (p_g / sum_g p_g) * θ(g)`. The `cohort_sizes` series needed for this was
+already being computed by `sp.callaway_santanna` and passed into the weight
+builder, where it was silently ignored.
+
+**Effect.** Only the headline scalar (`.estimate`, `.se`, `.pvalue`, `.ci`) of
+`sp.aggte(type='group')` moves. The `.detail` frame — one row per cohort — is
+unchanged. The size of the shift depends on how unequal the cohorts are and how
+much the effect varies across them; it is exactly zero when all treated cohorts
+are the same size. On a 300-unit simulated panel the overall went from
+0.4315153 to 0.4317301.
+
+**Who is affected.** Anyone who read the overall number off
+`sp.aggte(type='group')`. `type='simple'`, `'dynamic'`, and `'calendar'` are
+unaffected — `simple` was already cohort-share weighted, and R reports the
+dynamic and calendar overalls as unweighted means across event times and
+calendar periods respectively, which is what StatsPAI already did. Re-run and
+use the new value; there is no flag to restore the old behavior.
+
+<a id="aggte-analytic-se-covariance"></a>
+
+## Unreleased — ⚠️ `sp.aggte(bstrap=False)` standard errors were ~0.64× too small
+
+**What changed.** With `bstrap=False`, `sp.aggte` combined the per-cell
+standard errors as `sqrt(Σ wₖ² seₖ²)` — the formula for *independent* cells.
+ATT(g, t) cells are not independent: they are built from overlapping sets of
+control units, so the omitted covariance terms are large and positive. Both the
+per-cell and the overall SE now aggregate through the influence functions,
+`sqrt(mean((Ψw)²)/n)`, matching R `did` and matching what this function's own
+`bstrap=True` branch already used for the overall estimate.
+
+**Effect.** SEs on the `bstrap=False` path get larger — on simulated staggered
+panels the old value averaged **0.635×** the multiplier-bootstrap SE, so a
+nominal 5% Wald test of a true null was rejecting about 21–23% of the time.
+Confidence intervals widen accordingly and some previously "significant"
+aggregations will stop being significant. Point estimates do not move.
+
+**Who is affected.**
+
+- Callers who passed `bstrap=False` explicitly.
+- Callers whose result carried no influence-function matrix, where `aggte`
+  forces `bstrap=False` internally.
+- **Not** the default path: `sp.aggte` ships `bstrap=True`.
+- **Not** `sp.callaway_santanna`'s own headline SE, which already aggregated
+  through the influence functions and is numerically unchanged.
+
+If you have recorded SEs or p-values from `sp.aggte(..., bstrap=False)`,
+re-run them. The new values are the correct ones; there is no flag to restore
+the old behavior. As before, `bstrap=True` additionally gives you the uniform
+sup-t bands, which the analytic path cannot produce.
+
 <a id="cic-athey-imbens-step2"></a>
 
 ## Unreleased — ⚠️ `sp.cic` now reproduces the Athey-Imbens estimator

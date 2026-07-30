@@ -81,6 +81,11 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
     "etwfe": [
         "aggregation-convention sensitive",
         "cohort-share weighting convention",
+        # Describes what the nonlinear branch *returns* (a response-scale
+        # average marginal effect, matching R etwfe::emfx) rather than a code
+        # path that raises, so it is descriptive.  The numeric claim is pinned
+        # in tests/reference_parity/test_etwfe_glm_parity.py.
+        "reports an average marginal effect",
     ],
     "rddensity": [
         "not a reference-parity guarantee",
@@ -101,6 +106,7 @@ def _runtime_map() -> (
 ):
     """Build the (function_name, limitation_substring) -> (call, exc) map."""
     import statspai as sp
+    from statspai.exceptions import MethodIncompatibility
 
     rng = np.random.default_rng(0)
     n = 200
@@ -164,6 +170,18 @@ def _runtime_map() -> (
                 panel=False,
             ),
             NotImplementedError,
+        ),
+        ("etwfe", "family='poisson'/'logit' with xvar"): (
+            lambda: sp.etwfe(
+                df_panel,
+                y="y",
+                group="i",
+                time="t",
+                first_treat="g",
+                family="poisson",
+                xvar="dose",
+            ),
+            MethodIncompatibility,
         ),
         ("rdrobust", "observation-level weights"): (
             lambda: sp.rdrobust(

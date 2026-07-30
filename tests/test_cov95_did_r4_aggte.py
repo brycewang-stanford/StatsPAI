@@ -94,7 +94,8 @@ def test_aggte_balance_e(cs_result):
 
 
 def test_aggte_analytic_fallback(cs_result):
-    # bstrap=False -> conservative analytic SEs (no influence-fn path)
+    # bstrap=False -> covariance-aware analytic SEs from the influence
+    # functions (no bootstrap draws, so pointwise intervals only)
     agg = sp.aggte(cs_result, type="group", bstrap=False)
     assert np.isfinite(agg.se) and agg.se > 0
     _ci_ok(agg)

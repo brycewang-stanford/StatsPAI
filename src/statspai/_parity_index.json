@@ -68,6 +68,13 @@
       "tolerance": "coefficients & log-scale 5e-5 abs (observed ~1e-5)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_aggte_mpdta_parity.py",
+        "tests/reference_parity/test_cs_base_period_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "aggte",
       "notes": [
         "Reproduces published-paper numbers on a calibrated replica. See tests/external_parity/PUBLISHED_REFERENCE_VALUES.md."
@@ -869,8 +876,11 @@
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_honest_did_paper_parity.py",
         "tests/external_parity/test_published_replications.py",
+        "tests/reference_parity/test_aggte_mpdta_parity.py",
         "tests/reference_parity/test_callaway_santanna_parity.py",
-        "tests/reference_parity/test_cs_inference_parity.py"
+        "tests/reference_parity/test_cs_base_period_parity.py",
+        "tests/reference_parity/test_cs_inference_parity.py",
+        "tests/reference_parity/test_honest_did_backend_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -2157,6 +2167,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_etwfe_glm_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "etwfe",
       "headline": {
         "metric": "rel_est",
@@ -2201,6 +2217,12 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.001"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_etwfe_glm_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "etwfe_emfx",
       "headline": {
         "metric": "rel_est",
@@ -2850,7 +2872,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_did_variants_parity.py"
+        "tests/reference_parity/test_did_variants_parity.py",
+        "tests/reference_parity/test_sunab_did2s_mpdta_parity.py"
       ],
       "tolerance": ""
     },
@@ -3268,10 +3291,14 @@
       "additional_tests": [
         "tests/r_parity/10_honest_did.py",
         "tests/r_parity/10_honest_did.R",
-        "tests/stata_parity/10_honest_did.do"
+        "tests/stata_parity/10_honest_did.do",
+        "tests/reference_parity/test_honest_did_backend_parity.py"
       ],
       "also_in_modules": [
         "10_honest_did"
+      ],
+      "also_verified_by": [
+        "reference_parity"
       ],
       "function": "honest_did",
       "headline": {
@@ -7660,6 +7687,12 @@
       "tolerance": "total == within + between 1e-12 abs (observed 0)"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_sunab_did2s_mpdta_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "sun_abraham",
       "headline": {
         "metric": "rel_est",
