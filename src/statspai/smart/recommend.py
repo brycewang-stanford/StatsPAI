@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -682,6 +683,67 @@ def recommend(
                 return out
 
             did_data = _derive_cohort(data)
+
+            # Collapsing a time-varying indicator to "first treated at g" is
+            # lossless only when treatment is absorbing.  When it reverts,
+            # every cohort-based estimator silently treats post-reversal
+            # periods as still-treated and is biased toward zero, so route
+            # to the estimators that accept the indicator directly.
+            _absorbing = None
+            try:
+                from ..did._absorbing import check_absorbing as _chk
+
+                _absorbing = _chk(data, unit=id, time=time, treatment=treatment)
+            except Exception:  # pragma: no cover - diagnostic must not break routing
+                _absorbing = None
+
+            if _absorbing is not None and not _absorbing.is_absorbing:
+                warnings_list.append(_absorbing.summary())
+                recommendations.append(
+                    {
+                        "method": (
+                            "de Chaisemartin-D'Haultfoeuille (2020) — "
+                            "DID_M with treatment switching"
+                        ),
+                        "function": "did_multiplegt",
+                        "reason": (
+                            f"Treatment is not absorbing: "
+                            f"{_absorbing.n_reverting_units} of "
+                            f"{_absorbing.n_units} units switch treatment off "
+                            "again. Cohort-based estimators (Callaway-"
+                            "Sant'Anna, Sun-Abraham, imputation, ETWFE) "
+                            "collapse the panel to a first-treatment period "
+                            "and discard the reversal, which biases the "
+                            "estimate toward zero."
+                        ),
+                        "assumptions": [
+                            "Parallel trends",
+                            "No anticipation",
+                            "Treatment may switch on and off",
+                        ],
+                        "robustness": (
+                            "Cross-check with sp.lp_did (also stable, also "
+                            "accepts a reverting treatment) and "
+                            "sp.did_multiplegt_dyn for the 2024 "
+                            "intertemporal version (experimental; pass "
+                            "allow_experimental=True to surface it). Run "
+                            "sp.check_absorbing() to quantify the reversals."
+                        ),
+                        "code": (
+                            f"sp.did_multiplegt(df, y={y!r}, "
+                            f"group={id!r}, time={time!r}, "
+                            f"treatment={treatment!r})"
+                        ),
+                        "params": {
+                            "data": data,
+                            "y": y,
+                            "group": id,
+                            "time": time,
+                            "treatment": treatment,
+                        },
+                    }
+                )
+
             recommendations.append(
                 {
                     "method": "Callaway-Sant'Anna (2021) — staggered DID",

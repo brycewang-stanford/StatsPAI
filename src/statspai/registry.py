@@ -11801,6 +11801,65 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="check_absorbing",
+            category="causal",
+            description=(
+                "Detect non-absorbing (reverting) treatment in a panel. "
+                "Cohort-based DiD estimators (callaway_santanna, "
+                "sun_abraham, did_imputation, etwfe, stacked_did) represent "
+                "treatment by the first-treated period, which is lossless "
+                "only when treatment never turns off. Under reversal they "
+                "treat post-reversal periods as still-treated and are biased "
+                "toward zero — on a 150-unit panel with a third of units "
+                "reverting, callaway_santanna returns 0.71 against a true "
+                "ATT of 1.5, silently, because it never sees the "
+                "time-varying indicator. Run this on the raw panel before "
+                "picking an estimator."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("unit", "str", True, description="Unit id column"),
+                ParamSpec("time", "str", True, description="Time column"),
+                ParamSpec(
+                    "treatment",
+                    "str",
+                    True,
+                    description=(
+                        "Time-varying 0/1 treatment indicator. A cohort / "
+                        "first-treatment column cannot express reversal, so "
+                        "passing one makes the check meaningless."
+                    ),
+                ),
+                ParamSpec(
+                    "strict",
+                    "bool",
+                    False,
+                    False,
+                    "Raise MethodIncompatibility instead of returning when "
+                    "treatment reverts; use as a guard in front of a "
+                    "cohort-based estimator.",
+                ),
+            ],
+            returns=(
+                "AbsorbingCheck with is_absorbing / n_reverting_units / "
+                "n_reversals / first_reversal_period and .summary()"
+            ),
+            example='sp.check_absorbing(df, unit="i", time="t", treatment="d")',
+            tags=["did", "diagnostic", "panel", "absorbing", "causal"],
+            reference=(
+                "de Chaisemartin & D'Haultfoeuille (2024) "
+                "[@dechaisemartin2024difference]"
+            ),
+            alternatives=["did_multiplegt", "lp_did", "did_multiplegt_dyn"],
+            pre_conditions=[
+                "long panel with unit x time x time-varying treatment",
+                "treatment column is numeric (0/1)",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="pretrends_equivalence",
             category="causal",
             description=(

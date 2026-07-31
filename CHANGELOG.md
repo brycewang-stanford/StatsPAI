@@ -6,6 +6,35 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.check_absorbing` — detect reverting treatment before it silently
+  biases a cohort estimator (WP-6).** Callaway-Sant'Anna, Sun-Abraham,
+  `did_imputation`, ETWFE and `stacked_did` all represent treatment by the
+  period a unit is *first* treated. That is lossless only when treatment is
+  absorbing; under reversal they treat post-reversal periods as
+  still-treated and collapse toward zero. On a 150-unit panel where a third
+  of units switch on at t=4 and off at t=7 (true ATT 1.5),
+  `sp.callaway_santanna` returns **0.71 — a 53% error, with no warning**,
+  because `(y, g, t, i)` simply does not contain the reversal.
+
+  Because the cohort estimators cannot see the indicator, the check lives
+  upstream. `sp.recommend` now runs it and, on a reverting panel, leads with
+  `sp.did_multiplegt` (stable, Stata-validated, designed for switching)
+  instead of Callaway-Sant'Anna, and records the reversal in
+  `.warnings`. Absorbing panels are unaffected and stay silent.
+
+  Cross-checked against R `fect` 2.4.1 on the committed reverting fixture:
+  the reversal-capable estimators cluster near the truth
+  (`sp.did_multiplegt` and `sp.lp_did` ~1.43, R `fect` 1.405) while the
+  cohort estimator sits at 0.71. New guards:
+  `tests/test_absorbing_treatment.py` (12 tests) and
+  `tests/reference_parity/test_absorbing_reference.py` (4).
+
+  Also pinned while investigating: `sp.lp_did`'s h=0 estimate coincides
+  with `sp.did_multiplegt` to machine precision **by construction** — with
+  not-yet-treated clean controls the LP-DiD h=0 contrast *is* the dCDH
+  switcher-vs-stayer cell — while their standard errors differ. That
+  identity now has a test so it is not mistaken for a wiring bug.
+
 - **The two remaining unpinned conventions in the ML-causal block are now
   asserted rather than described.** `sp.gmm`'s `vcov='iid'` and
   `vcov='mds'` estimate `S` by the same moment outer product — correct
