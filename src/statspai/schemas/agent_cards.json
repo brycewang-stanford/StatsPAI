@@ -21314,6 +21314,95 @@
   },
   {
     "alternatives": [
+      "callaway_santanna",
+      "did_imputation",
+      "sun_abraham"
+    ],
+    "assumptions": [
+      "treatment timing is randomly assigned (this is the identifying assumption; parallel trends is neither assumed nor sufficient)",
+      "balanced panel"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
+    "example": "sp.staggered_rollout(df, y=\"y\", i=\"unit\", t=\"time\", g=\"first_treat\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "staggered_rollout",
+    "not_recommended_when": [
+      "adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead"
+    ],
+    "pre_conditions": [
+      "balanced panel with at least two cohorts",
+      "each cohort has at least two units so the within-cohort covariance is estimable"
+    ],
+    "reference": "Roth & Sant'Anna (2023) [@roth2023efficient]",
+    "signature": {
+      "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
+      "name": "staggered_rollout",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "efficient": {
+            "default": true,
+            "description": "Use the optimal pre-period control weights; False gives the plug-in estimator",
+            "type": "boolean"
+          },
+          "estimand": {
+            "default": "simple",
+            "description": "Weighting: 'simple' (per treated cell), 'cohort' (within-cohort average first), 'calendar' (within-period average first)",
+            "enum": [
+              "simple",
+              "cohort",
+              "calendar"
+            ],
+            "type": "string"
+          },
+          "g": {
+            "description": "First-treatment period; never-treated may be 0, NaN or inf",
+            "type": "string"
+          },
+          "i": {
+            "description": "Unit identifier",
+            "type": "string"
+          },
+          "t": {
+            "description": "Time period",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "i",
+          "t",
+          "g"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 50,
+    "validation_notes": [
+      "tests/reference_parity/test_staggered_rollout_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alternatives": [
       "pretrends_test",
       "pretrends_power",
       "honest_did"

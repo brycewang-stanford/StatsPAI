@@ -21629,6 +21629,57 @@
     "name": "stacked_did"
   },
   {
+    "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead. Assumptions: treatment timing is randomly assigned (this is the identifying assumption; parallel trends is neither assumed nor sufficient); balanced panel. Pre-conditions: balanced panel with at least two cohorts; each cohort has at least two units so the within-cohort covariance is estimable. Alternatives: sp.callaway_santanna, sp.did_imputation, sp.sun_abraham. Typical minimum N: 50.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "efficient": {
+          "default": true,
+          "description": "Use the optimal pre-period control weights; False gives the plug-in estimator",
+          "type": "boolean"
+        },
+        "estimand": {
+          "default": "simple",
+          "description": "Weighting: 'simple' (per treated cell), 'cohort' (within-cohort average first), 'calendar' (within-period average first)",
+          "enum": [
+            "simple",
+            "cohort",
+            "calendar"
+          ],
+          "type": "string"
+        },
+        "g": {
+          "description": "First-treatment period; never-treated may be 0, NaN or inf",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "t": {
+          "description": "Time period",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "g",
+        "i",
+        "t",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "staggered_rollout"
+  },
+  {
     "description": "Staggered Adoption Synthetic Control. Assumptions: A convex (or regularized) combination of donor units reproduces the treated unit's pre-treatment outcome path; No interference: the treatment does not affect the donor units (SUTVA); No anticipation before the treatment date. Pre-conditions: Panel of one or more treated units plus an untreated donor pool, observed over time; Pre-treatment window long enough to fit donor weights (rule of thumb: more pre-periods than donors used); Outcome observed for every unit in every period. Failure modes: Large pre-treatment RMSPE -- the synthetic unit fails to track the treated unit before treatment -> Add donors / predictors, lengthen the pre-period, or use a bias-corrected estimator (sdid, augsynth); Placebo / permutation inference shows the estimate is not extreme relative to donors -> Report the placebo distribution honestly; the effect may not be distinguishable from noise. Alternatives: sp.sdid, sp.augsynth, sp.gsynth, sp.callaway_santanna. Typical minimum N: 15.",
     "input_schema": {
       "properties": {

@@ -25,6 +25,31 @@ All notable changes to StatsPAI will be documented in this file.
   equal the AIPW score to 1e-12, which separates "our nuisance models
   differ from econml's" (a modelling choice) from "our doubly-robust
   score is wrong" (a defect).
+- **`sp.staggered_rollout` — Roth & Sant'Anna (2023) efficient design-based
+  DiD (WP-3).** When adoption *timing* is randomised (policy lotteries,
+  phased launches, wave-randomised RCTs), parallel trends is neither what
+  the design delivers nor what should be assumed. This estimator
+  identifies off the randomisation and is efficient in the class of linear
+  combinations of cohort-period means, using each cohort's last
+  pre-treatment period as an optimal control moment
+  (`beta* = Xvar^-1 X_theta_cov`). `efficient=False` gives the plug-in;
+  `estimand=` selects `'simple'` / `'cohort'` / `'calendar'` weighting.
+  Inference is the conservative (Neyman) variance.
+
+  Parity vs R `staggered` 1.2.2 on canonical `did::mpdta`: all six
+  `estimand` × `efficient` combinations match to **≤1e-8** on both the
+  point estimate and the SE (`simple`/efficient −0.0470539142, SE
+  0.0116138788). New guard:
+  `tests/reference_parity/test_staggered_rollout_parity.py` (18 tests).
+
+  Two traps are closed by construction. R's `staggered` requires
+  never-treated units coded `g = Inf` and silently returns −0.3704 instead
+  of −0.0471 when they arrive as `0`; `sp.staggered_rollout` accepts `0` /
+  `NaN` / `inf` and normalises. And because this is a **different
+  estimand** from `sp.callaway_santanna` (−0.0471 vs −0.0400 on mpdta,
+  where timing is *not* randomised), the registry records random adoption
+  timing as the identifying assumption and flags the estimator as
+  not-recommended for observational rollouts.
 
 - **Dynamic panel GMM, substantially rebuilt** (`sp.xtabond`, new
   `sp.xtdpdsys`). The 2026-07 classic-design audit rated this the weakest

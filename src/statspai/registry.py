@@ -11721,6 +11721,86 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="staggered_rollout",
+            category="causal",
+            description=(
+                "Efficient DiD for a randomised staggered rollout (Roth & "
+                "Sant'Anna 2023). Identifies off random adoption *timing*, "
+                "not parallel trends, so it is the right estimator for "
+                "policy lotteries, phased launches and wave-randomised RCTs "
+                "— and the wrong one for observational rollouts. Uses the "
+                "cohort's pre-treatment moments as optimal controls; "
+                "efficient=False gives the plug-in."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec("i", "str", True, description="Unit identifier"),
+                ParamSpec("t", "str", True, description="Time period"),
+                ParamSpec(
+                    "g",
+                    "str",
+                    True,
+                    description=(
+                        "First-treatment period; never-treated may be 0, " "NaN or inf"
+                    ),
+                ),
+                ParamSpec(
+                    "estimand",
+                    "str",
+                    False,
+                    "simple",
+                    "Weighting: 'simple' (per treated cell), 'cohort' "
+                    "(within-cohort average first), 'calendar' (within-period "
+                    "average first)",
+                    ["simple", "cohort", "calendar"],
+                ),
+                ParamSpec(
+                    "efficient",
+                    "bool",
+                    False,
+                    True,
+                    "Use the optimal pre-period control weights; False gives "
+                    "the plug-in estimator",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns="CausalResult (conservative Neyman SE)",
+            example=(
+                'sp.staggered_rollout(df, y="y", i="unit", t="time", '
+                'g="first_treat")'
+            ),
+            tags=[
+                "did",
+                "staggered",
+                "design-based",
+                "randomization",
+                "causal",
+                "r_parity",
+            ],
+            reference="Roth & Sant'Anna (2023) [@roth2023efficient]",
+            alternatives=["callaway_santanna", "did_imputation", "sun_abraham"],
+            assumptions=[
+                "treatment timing is randomly assigned (this is the "
+                "identifying assumption; parallel trends is neither assumed "
+                "nor sufficient)",
+                "balanced panel",
+            ],
+            not_recommended_when=[
+                "adoption timing was not randomised — use a parallel-trends "
+                "estimator such as sp.callaway_santanna instead",
+            ],
+            pre_conditions=[
+                "balanced panel with at least two cohorts",
+                "each cohort has at least two units so the within-cohort "
+                "covariance is estimable",
+            ],
+            typical_n_min=50,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="pretrends_equivalence",
             category="causal",
             description=(

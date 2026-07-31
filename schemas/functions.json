@@ -11761,6 +11761,62 @@
     }
   },
   {
+    "description": "Efficient DiD for a randomised staggered rollout (Roth & Sant'Anna 2023). Identifies off random adoption *timing*, not parallel trends, so it is the right estimator for policy lotteries, phased launches and wave-randomised RCTs -- and the wrong one for observational rollouts. Uses the cohort's pre-treatment moments as optimal controls; efficient=False gives the plug-in. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: adoption timing was not randomised -- use a parallel-trends estimator such as sp.callaway_santanna instead.",
+    "name": "staggered_rollout",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "efficient": {
+          "default": true,
+          "description": "Use the optimal pre-period control weights; False gives the plug-in estimator",
+          "type": "boolean"
+        },
+        "estimand": {
+          "default": "simple",
+          "description": "Weighting: 'simple' (per treated cell), 'cohort' (within-cohort average first), 'calendar' (within-period average first)",
+          "enum": [
+            "simple",
+            "cohort",
+            "calendar"
+          ],
+          "type": "string"
+        },
+        "g": {
+          "description": "First-treatment period; never-treated may be 0, NaN or inf",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "t": {
+          "description": "Time period",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "i",
+        "t",
+        "g"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Pre-trend equivalence tests (Liu, Wang & Xu 2024, the fect diagnostic panel). Reverses the usual null: instead of testing whether pre-period effects are zero, tests whether they are demonstrably *small*. Failing to reject 'no pre-trend' is often just low power (Roth 2022), so the conventional test alone overstates the evidence for parallel trends. Reports the joint F test alongside its non-central-F and TOST equivalence counterparts, where a *small* p-value is the reassuring outcome. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: the TOST is computed only when tost_threshold is supplied; there is no universal outcome-scale default, so it is not invented.",
     "name": "pretrends_equivalence",
     "parameters": {

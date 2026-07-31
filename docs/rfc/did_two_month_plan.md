@@ -97,22 +97,34 @@ RCS 没有个体配对，需要一条**长表路径**。
 
 ---
 
-## WP-3 · Roth & Sant'Anna (2023) 高效交错估计量 — 第 4 周
+## WP-3 · Roth & Sant'Anna (2023) 高效交错估计量 — ✅ 已完成
 
 **问题**：处理时机真随机（政策抽签、分批上线、RCT rollout）时，设计型推断才是正确的，目前完全没有。
 
-**方案**：新增 `sp.staggered_rollout(df, i, t, g, y, estimand=)`，
-实现 Roth-Sant'Anna 的高效 GMM 估计量 + 设计型方差；同时提供 `estimand='simple'/'cohort'/'calendar'/'eventstudy'`
-以及他们的 `staggered_cs` / `staggered_sa` 包装。
+**已交付**：`did/_staggered_rollout.py` + `sp.staggered_rollout`，对齐 R `staggered` 1.2.2，
+6 组 `estimand × efficient` 的**点估计和保守（Neyman）SE 均 ≤1e-8**：
 
-**参考**：R `staggered` 1.2.2。`did::mpdta` 上 `estimand='simple'` = −0.3704347696（SE 0.1256399086）——
-注意这与 CS 的 −0.0400 **不可直接比较**，估计量不同（随机时机 vs 平行趋势）。
+| estimand | efficient | plug-in |
+|---|---:|---:|
+| simple | −0.0470539142 (se .0116138788) | −0.0397636256 (se .0118272142) |
+| cohort | −0.0298479506 (se .0125571289) | −0.0304622281 (se .0125590491) |
+| calendar | −0.0579882830 (se .0144374235) | −0.0442670835 (se .0157172229) |
 
-**验收**：4 种 estimand 对 R ≤1e-6；registry 注册 + `sp.recommend` 在检测到随机 rollout 时能推荐它。
+⚠️ **更正**：本文档早先版本记的 `simple` = −0.3704347696 是**错的**，来自 never-treated
+编码陷阱——R 的 `staggered` 要求 `g = Inf`，喂 `g = 0` 会把未处理组读成"样本前已处理的队列"，
+静默给出 −0.3704 而不报错。`sp.staggered_rollout` 接受 `0`/`NaN`/`inf` 并统一归一化，
+该陷阱从公开 API 不可达（`test_never_treated_coding_is_normalised` 盯住）。
+
+估计量结构：按队列折叠成均值路径，`A_theta` 放在结果期、`A_0` 放在队列的 `g−1` 预处理期
+（随机时机下期望为零，故是无偏控制），`beta* = Xvar⁻¹ X_theta_cov`。
+
+**遗留**：`estimand='eventtime'` 以及 `staggered_cs` / `staggered_sa` 包装未做
+（后两者只是把权重换成 CS / SA 的约定，不是新识别）。
+测试 `tests/reference_parity/test_staggered_rollout_parity.py`（18 项）。
 
 ---
 
-## WP-4 · `fect` 反事实估计量诊断 — 第 5 周
+## WP-4 · `fect` 反事实估计量诊断 — ✅ 已完成（诊断层）
 
 **问题**：`interactive_fe` 目前**零诊断**，整个文件只有一个函数。
 Liu-Wang-Xu (2024, AJPS) 之后，TSCS 平行趋势检验的标准做法是 F 检验 + 等价性检验（TOST）+ 掩码窗口安慰剂。
