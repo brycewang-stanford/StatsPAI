@@ -40127,7 +40127,7 @@
     "parameters": {
       "properties": {
         "W": {
-          "description": "Weighting matrix (q x q). If None, uses identity (one-step) then optimal (two-step).",
+          "description": "Weighting matrix ``(q, q)`` for the first step. Defaults to the identity. Supplying one and asking for ``se='unadjusted'`` warns unless it happens to be efficient.",
           "type": "string"
         },
         "alpha": {
@@ -40135,8 +40135,25 @@
           "description": "Significance level for confidence intervals and tests.",
           "type": "number"
         },
+        "center": {
+          "default": false,
+          "description": "Centre the moments before forming ``S``. ``False`` matches Stata, ``True`` matches R's ``gmm``.",
+          "type": "boolean"
+        },
+        "cluster": {
+          "description": "Group labels, one per moment row. Required when ``vcov='cluster'``.",
+          "type": "string"
+        },
         "data": {
-          "description": "Data passed to moment_fn.",
+          "description": "Passed through to ``moment_fn``.",
+          "type": "string"
+        },
+        "hac_bandwidth": {
+          "description": "Bartlett bandwidth for ``vcov='hac'``; the kernel vanishes at ``lag == hac_bandwidth``.",
+          "type": "integer"
+        },
+        "jacobian": {
+          "description": "``D(theta, data) -> ndarray`` of shape ``(q, k)``, the derivative of the *average* moment. Supplying it removes finite-difference error from the standard errors and from the affine test.",
           "type": "string"
         },
         "maxiter": {
@@ -40146,15 +40163,21 @@
         },
         "method": {
           "default": "twostep",
-          "description": "'onestep', 'twostep', 'iterative', 'cue' (continuously updated).",
+          "description": "Estimator or algorithm variant to use.",
+          "enum": [
+            "onestep",
+            "twostep",
+            "iterative",
+            "cue"
+          ],
           "type": "string"
         },
         "moment_fn": {
-          "description": "Function g(theta, data) -> np.ndarray of shape (n, q) returning moment conditions for each observation.",
+          "description": "``g(theta, data) -> ndarray`` of shape ``(n, q)``: the moment contribution of each observation.",
           "type": "string"
         },
         "param_names": {
-          "description": "Names for parameters.",
+          "description": "param_names parameter (Optional[List[str]]).",
           "items": {
             "type": "string"
           },
@@ -40162,17 +40185,32 @@
         },
         "se": {
           "default": "robust",
-          "description": "'robust' (HAC-type), 'unadjusted'.",
+          "description": "``'robust'`` returns the sandwich, valid for any ``W``. ``'unadjusted'`` returns the efficient-GMM variance ``(D'WD)^{-1}/n``, which describes the estimator *only* at the efficient weight; otherwise it warns.",
+          "enum": [
+            "robust",
+            "unadjusted"
+          ],
           "type": "string"
         },
         "theta0": {
-          "description": "Initial parameter vector.",
+          "description": "Starting values. Also the expansion point for the closed form when the moments are affine.",
           "type": "string"
         },
         "tol": {
           "default": 1e-08,
           "description": "Numerical convergence tolerance.",
           "type": "number"
+        },
+        "vcov": {
+          "default": "mds",
+          "description": "Estimator for the moment covariance ``S``.",
+          "enum": [
+            "mds",
+            "iid",
+            "hac",
+            "cluster"
+          ],
+          "type": "string"
         }
       },
       "required": [
