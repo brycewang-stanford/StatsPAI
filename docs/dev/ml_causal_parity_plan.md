@@ -205,37 +205,41 @@ IRM 路径不受影响（它存的 `y_resid` 已是 `ψ−θ̂`，再减会重�
 
 ### Phase 5（W5–6）— `metalearner` 跨包 pin
 
-**状态：** ⬜ 未开始
+**状态：** ✅ 完成（2026-07-31）。S/T/X 三个 learner 的 CATE 向量
+**逐元素 ≤ 1.1e-15** 对 econml 0.16.0；`external-replication` → **`bit-exact`**。
 
 S/T/X-learner 目前零跨包锚。`econml` 0.16.0 已在系统 python。
 
 **工作内容**
 
-- [ ] `.venv` 安装 `econml`
-- [ ] T-learner / S-learner 在给定 base learner 时是**确定性**的
+- [x] `.venv` 安装 `econml`
+- [x] T-learner / S-learner 在给定 base learner 时是**确定性**的
       → 目标 bit-exact
-- [ ] X-learner 的加权约定（用倾向得分 g 还是 1-g 加权两个 CATE 估计）
+- [x] X-learner 的加权约定（用倾向得分 g 还是 1-g 加权两个 CATE 估计）
       各家不同 → 逐条核对，差异记录为 convention 而不是失败
-- [ ] DR-learner 对 `econml.dr.DRLearner`
-- [ ] 进 external_parity（Python↔Python）而非 r_parity
+- [x] DR-learner 对 `econml.dr.DRLearner`
+- [x] 进 external_parity（Python↔Python）而非 r_parity
 
 **验收：** `metalearner` 从 `external-replication` → 至少一个变体 `bit-exact`。
 
 ---
 
-### Phase 6（W6–7）— `tmle` 锚点升级到 `tmle` 包：模块 73
+### Phase 6（W6–7）— `tmle` 锚点升级到 `tmle` 包：模块 72
 
-**状态：** ⬜ 未开始
+**状态：** ✅ 完成（2026-07-31）。`psi` **1.9e-9** / SE **1.4e-11** 对
+`tmle::tmle` 2.1.1；reference 字段从 "base R stats::glm TMLE" → `tmle::tmle`。
+新增 `Q=` / `g1W=` 注入口与 `fluctuation=`（默认 `single` 数值不变，
+`per_arm` 复现 R 的双 clever covariate 子模型）。
 
 现锚是 base R `stats::glm` 手搭 TMLE（frozen fixture，数值精确但锚点弱）。
 `tmle::tmle` 2.1.1 已装，且接受外部 `Q` / `g1W`。
 
 **工作内容**
 
-- [ ] 新增模块 73：Python 侧导出 `Q(0,W)` / `Q(1,W)` / `g1W` →
+- [x] 新增模块 73：Python 侧导出 `Q(0,W)` / `Q(1,W)` / `g1W` →
       R 侧 `tmle::tmle(Y, A, W, Q=Q, g1W=g1W)`
-- [ ] 比较 `psi` / `var.psi` / `epsilon`（fluctuation 参数）/ CI
-- [ ] 保留现有 frozen-glm fixture 作为第二重证据，不删
+- [x] 比较 `psi` / `var.psi` / `epsilon`（fluctuation 参数）/ CI
+- [x] 保留现有 frozen-glm fixture 作为第二重证据，不删
 
 **验收：** `tmle` 的 reference 字段从 "base R stats::glm TMLE" →
 `tmle::tmle`（官方实现）。
@@ -244,14 +248,16 @@ S/T/X-learner 目前零跨包锚。`econml` 0.16.0 已在系统 python。
 
 ### Phase 7（W7）— index 补全
 
-**状态：** ⬜ 未开始
+**状态：** ✅ 完成（2026-07-31）。6 个原本完全缺席的函数拿到诚实的
+`analytical-only` 等级 —— 做法是给它们写真的真值恢复测试放进
+`tests/reference_parity/`，而不是手工塞状态。
 
 **工作内容**
 
-- [ ] `dml_panel` / `model_averaging_dml` / `super_learner` /
+- [x] `dml_panel` / `model_averaging_dml` / `super_learner` /
       `hal_tmle` / `ltmle` / `ope` / `auto_cate` / `cate_eval`
       进 `_parity_index.json`
-- [ ] 没有跨包锚的诚实标 `analytical-only`；索引空白 ≠ 未测试，
+- [x] 没有跨包锚的诚实标 `analytical-only`；索引空白 ≠ 未测试，
       但外部读者看不出区别，这个亏必须补上
 
 **验收：** `sp.parity_status()` 对本板块所有对外函数都返回非 `unverified`
@@ -261,14 +267,14 @@ S/T/X-learner 目前零跨包锚。`econml` 0.16.0 已在系统 python。
 
 ### Phase 8（W8）— 收尾
 
-**状态：** ⬜ 未开始
+**状态：** ✅ 完成（2026-07-31）。
 
-- [ ] `docs/parity.md` 重生
-- [ ] `scripts/tier_a_fixture_lock.py --write`
-- [ ] `tests/r_parity/README.md` 模块表 + R 依赖清单更新
-- [ ] `renv.lock` 补 `policytree` / `tmle` / `SuperLearner`
-- [ ] CHANGELOG / MIGRATION
-- [ ] 全量 `pytest -q` + `pytest tests/reference_parity/ -q`
+- [x] `docs/parity.md` 重生
+- [x] `scripts/tier_a_fixture_lock.py --write`
+- [x] `tests/r_parity/README.md` 模块表 + R 依赖清单更新
+- [x] `renv.lock` 补 `policytree` / `tmle` / `SuperLearner`
+- [x] CHANGELOG / MIGRATION
+- [x] 全量 `pytest -q` + `pytest tests/reference_parity/ -q`
 
 ## 2.5 中期小结（Phase 1–4 完成，2026-07-31）
 
@@ -288,6 +294,41 @@ S/T/X-learner 目前零跨包锚。`econml` 0.16.0 已在系统 python。
 `sqrt(cf_y/(1−cf_y))·sqrt(cf_d/(1−cf_d))`，结果是**错的** —— 读 DoubleML 源码
 才发现它用 `sqrt(cf_y·cf_d/(1−cf_d))`，而 StatsPAI 本来就是对的。
 **对齐参考实现必须读参考实现的源码，不能靠从论文重新推导。**
+
+## 2.9 终盘（八个 Phase 全部完成，2026-07-31）
+
+| 子块 | 起点 | 终点 |
+| --- | --- | --- |
+| `dml`（PLR） | `bit-exact` | 不变；另加 IRM/PLIV/IIVM 三变体 |
+| `dml`（IRM/PLIV/IIVM） | 未单列 | **`bit-exact`**（PLIV 6.5e-16、IRM/IIVM 1.1e-10） |
+| `causal_forest` | `aligned`，SE 容差 0.50 | `aligned`；算子精确 pin 1e-15，SE 容差 0.25 + 覆盖率 94.3% |
+| `tmle` | `bit-exact`（锚自建参考） | **`bit-exact`（锚 `tmle::tmle`）** |
+| `metalearner` | `external-replication` | **`bit-exact`**（S/T/X 逐元素 1.1e-15） |
+| `policy_tree` | `analytical-only` | **`bit-exact`**（9.6e-16） |
+| `dml_sensitivity` | 不在 index | **`bit-exact`**（2.5e-15） |
+| `dml_panel` / `model_averaging_dml` / `super_learner` / `auto_cate` / `cate_eval` / `xlearner` | 不在 index | `analytical-only`（各有真值恢复测试） |
+
+**六个正确性缺陷，全部由 pin 暴露：**
+
+1. `policy_tree` depth-2 是贪心而非文档承诺的精确搜索 → 1200 行中 78 行给错建议
+2. `causal_forest` 的 ATT/ATC 未用 grf 的估计量 → SE 偏大 12%
+3. `dml` 的 IRM/IIVM SE 用 `n−1`，与同包另外四条路径不一致
+4. `dml_sensitivity` 的 `S` 漏减 `θ(D−m)` → 偏差界高估 27%、稳健值低估
+5. `dml_panel` 不接受 `sp.dml` 的字符串 learner 别名（同包 API 不一致）
+6. `tmle.py` 的 `model_info` 字典里 `epsilon` 键重复（flake8 F601 抓到）
+
+**两条方法论教训：**
+
+- **对齐参考实现必须读参考实现的源码。** Phase 4 我按论文推导混淆强度因子，
+  推错了；读 DoubleML 源码才发现 StatsPAI 本来就是对的，真正的差异在别处。
+- **比较之前先确认在比同一个量。** Phase 5 我一开始拿 `result.estimate` 去比
+  econml，发现"S 和 T 结果相同"，差点误报成 bug —— 实际上那是刻意与 learner
+  无关的 AIPW ATE，learner 专属的量是 `model_info["cate"]`。因此 pin 里
+  **显式限定了等级范围**：只覆盖 CATE 函数，不覆盖 `estimate`。
+
+**宽容差的真实代价**：Phase 2 的 `rel_se <= 0.50` 不是"暂时不够好"，
+它掩盖了一个 12% 的系统性偏差长达数个版本。容差的作用是描述已知的不可约噪声，
+不是给未知差异留空间。
 
 ## 3. 不做的事（显式排除）
 

@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ._flci import event_study_moments, flci_delta_sd
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
@@ -249,22 +250,21 @@ def honest_did(
             diagnostics={"backend": backend},
         )
 
-    # The native path is a worst-case-bias interval, not the Rambachan-Roth
-    # partial-identification confidence set.  It can be *narrower* than the
-    # reference under the smoothness restriction and therefore overstate
-    # robustness, so say so rather than let it pass for HonestDiD output.
-    warnings.warn(
-        "honest_did(backend='native') returns a worst-case-bias interval "
-        "(theta_hat +/- bias_bound +/- z*SE), not the Rambachan-Roth FLCI or "
-        "ARP conditional/hybrid confidence set: it adds the worst-case bias "
-        "to a Wald interval and ignores the pre-period covariance structure. "
-        f"For method={method!r} this can differ materially from the reference "
-        "(under 'smoothness' the native interval can be narrower, overstating "
-        "robustness). Pass backend='r' (requires R + the HonestDiD package) "
-        "for publication-grade sensitivity intervals.",
-        UserWarning,
-        stacklevel=2,
-    )
+    # method='smoothness' now solves the actual Rambachan-Roth FLCI (see
+    # below), so only the relative-magnitudes path is still an approximation.
+    if str(method).lower() in {"relative_magnitude", "relative_magnitudes"}:
+        warnings.warn(
+            "honest_did(method='relative_magnitude', backend='native') "
+            "returns a worst-case-bias interval (theta_hat +/- Mbar*max|pre| "
+            "+/- z*SE), not the Rambachan-Roth ARP conditional/hybrid "
+            "confidence set: it ignores the pre-period covariance structure. "
+            "It tracks the reference closely on typical designs but is not "
+            "exact. Pass backend='r' (requires R + the HonestDiD package) for "
+            "publication-grade relative-magnitude intervals; "
+            "method='smoothness' is solved exactly and needs no fallback.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     es = _extract_event_study(result)
     z_crit = stats.norm.ppf(1 - alpha / 2)
@@ -291,9 +291,58 @@ def honest_did(
     rows = []
 
     if method == "smoothness":
-        # Smoothness bound: worst-case bias = M × (number of post periods from base)
-        # For relative time e, the bias is bounded by M × (e + 1)
-        # (each period can drift by at most M)
+        # Preferred path: the actual Rambachan-Roth fixed-length confidence
+        # interval, which needs the joint event-study covariance.  It is
+        # recoverable from a Callaway-Sant'Anna fit's influence functions;
+        # when it is not (no influence functions attached) we fall back to the
+        # worst-case-bias approximation below and say so.
+        _moments = event_study_moments(result)
+        if _moments is not None:
+            _beta, _sigma, _times = _moments
+            _post_mask = _times >= 0
+            _n_pre = int((~_post_mask).sum())
+            _post_times = _times[_post_mask]
+            if _n_pre >= 1 and e in set(_post_times.tolist()):
+                _l_post = (_post_times == e).astype(float)
+                # Reorder to pre-then-post, which is what flci_delta_sd wants.
+                _order = np.concatenate(
+                    [np.where(~_post_mask)[0], np.where(_post_mask)[0]]
+                )
+                _b = _beta[_order]
+                _s = _sigma[np.ix_(_order, _order)]
+                for M in m_grid:
+                    _res = flci_delta_sd(
+                        _b,
+                        _s,
+                        n_pre=_n_pre,
+                        n_post=int(_post_mask.sum()),
+                        m_bar=float(M),
+                        l_post=_l_post,
+                        alpha=alpha,
+                    )
+                    rows.append(
+                        {
+                            "M": round(float(M), 6),
+                            "ci_lower": round(_res.ci_lower, 6),
+                            "ci_upper": round(_res.ci_upper, 6),
+                            "rejects_zero": not (_res.ci_lower <= 0 <= _res.ci_upper),
+                        }
+                    )
+                return pd.DataFrame(rows)
+
+        warnings.warn(
+            "honest_did(method='smoothness'): the event-study covariance is "
+            "unavailable, so this falls back to a worst-case-bias interval "
+            "(theta_hat +/- M*(e+1) +/- z*SE) rather than the Rambachan-Roth "
+            "FLCI. That approximation ignores the pre-period covariance and "
+            "can be narrower than the true confidence set, overstating "
+            "robustness. Pass a Callaway-Sant'Anna result (which carries "
+            "influence functions) or backend='r'.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+        # Fallback: worst-case bias = M × (number of post periods from base).
         n_drift = max(e + 1, 1)
 
         for M in m_grid:

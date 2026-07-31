@@ -97,6 +97,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "bitops": {
+      "Package": "bitops",
+      "Version": "1.0.9",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "BMisc": {
       "Package": "BMisc",
       "Version": "1.4.8",
@@ -141,6 +147,12 @@
     "caret": {
       "Package": "caret",
       "Version": "7.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "caTools": {
+      "Package": "caTools",
+      "Version": "1.18.4",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -263,6 +275,12 @@
     "curl": {
       "Package": "curl",
       "Version": "7.1.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "cvAUC": {
+      "Package": "cvAUC",
+      "Version": "1.1.4",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -534,6 +552,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "gam": {
+      "Package": "gam",
+      "Version": "1.22.7",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "generics": {
       "Package": "generics",
       "Version": "0.1.4",
@@ -564,6 +588,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "glmnet": {
+      "Package": "glmnet",
+      "Version": "4.1.10",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "globals": {
       "Package": "globals",
       "Version": "0.19.1",
@@ -585,6 +615,12 @@
     "gower": {
       "Package": "gower",
       "Version": "1.0.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "gplots": {
+      "Package": "gplots",
+      "Version": "3.3.0",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -624,6 +660,12 @@
     "gtable": {
       "Package": "gtable",
       "Version": "0.3.6",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "gtools": {
+      "Package": "gtools",
+      "Version": "3.9.5",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1087,6 +1129,12 @@
       "Version": "7.3.20",
       "Source": "R"
     },
+    "nnls": {
+      "Package": "nnls",
+      "Version": "1.6",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "numDeriv": {
       "Package": "numDeriv",
       "Version": "2016.8.1.1",
@@ -1416,6 +1464,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "ROCR": {
+      "Package": "ROCR",
+      "Version": "1.0.12",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "rpart": {
       "Package": "rpart",
       "Version": "4.1.24",
@@ -1586,6 +1640,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "SuperLearner": {
+      "Package": "SuperLearner",
+      "Version": "2.0.40",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "survival": {
       "Package": "survival",
       "Version": "3.8.3",
@@ -1670,6 +1730,12 @@
     "tinytex": {
       "Package": "tinytex",
       "Version": "0.59",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "tmle": {
+      "Package": "tmle",
+      "Version": "2.1.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },

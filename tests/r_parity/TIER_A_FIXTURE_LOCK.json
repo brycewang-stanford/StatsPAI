@@ -1,5 +1,5 @@
 {
-  "aggregate_sha256": "dc8b7861c6603877e9a1a36ced515c537771b75ddd73b67c5be35bde7b783493",
+  "aggregate_sha256": "3613fc49b5dce23a64e07233f44feaab83b232dfca03a37b0605d7d7bd7ebed0",
   "counts": {
     "files": 504,
     "input_csvs": 70,
@@ -748,9 +748,9 @@
       "sha256": "c5f403731aac81b053c3cda47d7dfca7d2aa70a69c3f8aee54c608c4e021084e"
     },
     {
-      "bytes": 6138,
+      "bytes": 6177,
       "path": "tests/r_parity/R_ENVIRONMENT.md",
-      "sha256": "207ce4d1c673b677ef98040984359490d967abaf4c01b9952253372cc07b62d8"
+      "sha256": "4a6238c4668e9e84ebc22a4f8c12e1b13f4c71c83c853051150d7db51f1cfa1d"
     },
     {
       "bytes": 5229,
@@ -763,9 +763,9 @@
       "sha256": "f5223ef586f245f3002780ed1893e2457a04a08a53aa29de93747f31d25bc2d2"
     },
     {
-      "bytes": 4456,
+      "bytes": 4464,
       "path": "tests/r_parity/_gen_renv_lock.R",
-      "sha256": "01b61daec25dfecaf77eab32dcc33f8f098788b0988eadf599c4adc2ff06c65c"
+      "sha256": "fd04b73dca8dcc0b00dcfdd975ef5616cf7535d293adb61cf9a13470a9477717"
     },
     {
       "bytes": 70463,
@@ -1123,9 +1123,9 @@
       "sha256": "e5e56f9033a378173b1d53f3869b8c45c24b48b7ed041bfd7a4d17b0d2b7ded8"
     },
     {
-      "bytes": 40318,
+      "bytes": 41778,
       "path": "tests/r_parity/renv.lock",
-      "sha256": "40a1f71b106c71b0c3103b6418f7ad03f2b6a364a799c5b17e76b3593fde0aa6"
+      "sha256": "16323f76f1583f9033c9d542de9e470e6866558eed647d686e07cf2190e2bbab"
     },
     {
       "bytes": 2429,

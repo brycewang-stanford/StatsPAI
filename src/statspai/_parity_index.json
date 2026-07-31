@@ -8453,7 +8453,8 @@
       "python_call": "sp.tmle(fluctuation=\"per_arm\")",
       "reference": "tmle::tmle",
       "reference_versions": {
-        "R": "R version 4.5.2 (2025-10-31)"
+        "R": "R version 4.5.2 (2025-10-31)",
+        "tmle": "2.1.1"
       },
       "se_rel": {
         "R": 1.4128869789684658e-11,

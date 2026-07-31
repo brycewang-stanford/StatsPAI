@@ -356,6 +356,53 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **TMLE re-anchored to `tmle::tmle` (Track A module 72).** `sp.tmle` was
+  already `bit-exact`, but against a *frozen base-R fixture* — a
+  hand-rolled `stats::glm` TMLE written for the occasion. That certifies
+  arithmetic against a reference StatsPAI itself specified. The anchor is
+  now `tmle` 2.1.1 itself: `psi` agrees to **1.9e-9** and the standard
+  error to **1.4e-11**, with the initial `Q` / `g1W` fits shared through
+  the CSV so the row grades the targeting step alone. The frozen-glm
+  fixture is retained as independent second evidence.
+  `sp.parity_status('tmle')['reference']` now reads `tmle::tmle`.
+- **`sp.tmle` gains `Q=`, `g1W=` and `fluctuation=`.** `Q` (an `(n, 2)`
+  matrix of `[Q(0,W), Q(1,W)]`, matching `tmle::tmle`'s argument) and
+  `g1W` bypass the Super Learner stage entirely, so the targeting step
+  can be driven by externally-estimated nuisances. `fluctuation=`
+  selects the submodel: the default `'single'` is the documented
+  one-clever-covariate fit with a scalar `epsilon` (unchanged numerics);
+  `'per_arm'` is the two-covariate submodel the R package uses and
+  reports a 2-vector. The two are asymptotically equivalent but differ
+  at finite *n* — about 1.3e-3 relatively on the module-72 fixture —
+  which is why the parity row pins `'per_arm'` while the default stays
+  put. `model_info` gains `epsilon_vec`, `fluctuation` and
+  `nuisance_source`; `epsilon` keeps its scalar type under `'single'`
+  and is `None` under `'per_arm'`, where no scalar exists.
+- **Meta-learner cross-package parity.** `sp.metalearner` carried only an
+  `external-replication` grade: it reproduced DGP truths from the
+  CausalML book, which certifies consistency, not that it computes the
+  same function as anyone else. The S-, T- and X-learner CATE **vectors**
+  are now pinned **elementwise** against `econml.metalearners`
+  (observed max |Δ| ≤ 1.1e-15), moving the record to `bit-exact`. The
+  grade is explicitly scoped: it covers the CATE functions that
+  `learner=` selects, not `result.estimate`, which is a doubly-robust
+  AIPW ATE invariant to `learner=` by design.
+- **`sp.dml_panel` accepts the same learner aliases as `sp.dml`.**
+  `sp.dml(ml_g='linear')` worked while `sp.dml_panel(ml_g='linear')`
+  failed inside scikit-learn's `clone()` with a message naming neither
+  the parameter nor the accepted values. Both now route through
+  `resolve_learner`.
+- **Six DML / ML-causal estimators entered the parity index.**
+  `dml_panel`, `model_averaging_dml`, `super_learner`, `auto_cate`,
+  `cate_eval` and `xlearner` were **absent from `sp.parity_status`
+  entirely** — indistinguishable, to a user or to `docs/parity.md`, from
+  estimators with no evidence at all, despite having unit tests.
+  `tests/reference_parity/test_ml_causal_recovery_parity.py` gives each a
+  known-truth recovery or exact-identity check, so all six now carry an
+  honest `analytical-only` grade. The tests are written to discriminate:
+  the X-learner check requires correlation with the true CATE *surface*
+  rather than only its mean, and the `cate_eval` check requires RATE to
+  separate the true CATE from a constant one.
 - **`sp.dml_sensitivity` pinned to `doubleml`'s `sensitivity_analysis`.**
   The DML omitted-variable-bias analysis had no cross-package reference
   and was absent from the parity index. It is now pinned in

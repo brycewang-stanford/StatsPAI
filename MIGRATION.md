@@ -267,6 +267,58 @@ moments are likely outside the convex hull of the control moments.
 
 ---
 
+<a id="tmle-shared-nuisance-and-fluctuation"></a>
+
+## Unreleased — `sp.tmle` gains `Q` / `g1W` / `fluctuation`
+
+**What changed.** Three new parameters. `Q` takes an `(n, 2)` matrix of
+`[Q(0,W), Q(1,W)]` and `g1W` a propensity vector; supplying either bypasses
+the corresponding Super Learner stage, so the targeting step can run on
+externally-estimated nuisances. `fluctuation` selects the submodel used in
+the targeting step.
+
+**Effect on existing code: none.** The default `fluctuation='single'` is the
+one-clever-covariate submodel `H(A,W) = A/g - (1-A)/(1-g)` StatsPAI has
+always used, and its numbers are unchanged. `model_info['epsilon']` keeps its
+scalar type on that path.
+
+**What is new.** `fluctuation='per_arm'` fits two clever covariates, `A/g`
+and `-(1-A)/(1-g)`, jointly — the submodel the R `tmle` package uses. Both
+are valid TMLEs solving the efficient-influence-function equation and are
+asymptotically equivalent, but they differ at finite *n*: about 1.3e-3
+relatively on the Track A module-72 fixture. Use `'per_arm'` when
+reconciling against `tmle::tmle`, which it reproduces to ~1e-9 on a shared
+initial fit.
+
+`model_info` gains `epsilon_vec` (the full fluctuation vector in both
+modes), `fluctuation`, and `nuisance_source`. Under `'per_arm'` the scalar
+`model_info['epsilon']` is `None`, because no scalar fluctuation parameter
+exists there; read `epsilon_vec` instead. `sl_outcome_weights` /
+`sl_propensity_weights` are `None` when the corresponding nuisance was
+supplied — there is no ensemble to report weights for.
+
+**What to do.** Nothing. If you compare StatsPAI against `tmle::tmle`, pass
+`fluctuation='per_arm'` and supply the same `Q` / `g1W` to both.
+
+---
+
+<a id="dml-panel-learner-aliases"></a>
+
+## Unreleased — `sp.dml_panel` accepts `sp.dml`'s learner aliases
+
+**What changed.** `sp.dml(ml_g='linear')` resolved short learner names;
+`sp.dml_panel(ml_g='linear')` did not, and failed inside scikit-learn's
+`clone()` with `TypeError: Cannot clone object ''linear''`, a message that
+named neither the offending parameter nor the accepted values. Both now
+route through the same `resolve_learner`.
+
+**Effect.** Strictly additive — calls that passed estimator instances are
+unaffected, and calls that passed strings previously raised.
+
+**What to do.** Nothing.
+
+---
+
 <a id="dml-sensitivity-structural-residual"></a>
 
 ## Unreleased — ⚠️ `sp.dml_sensitivity` uses the structural outcome residual

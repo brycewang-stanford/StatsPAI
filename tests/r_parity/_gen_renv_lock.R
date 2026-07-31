@@ -39,7 +39,7 @@ REFERENCE_PKGS <- c(
   # to silently drop them.)
   "spatialreg",
   # Module 70+: policy learning / targeted learning references.
-  "policytree"
+  "policytree", "tmle"
 )
 
 ip <- installed.packages()

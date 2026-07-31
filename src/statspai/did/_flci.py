@@ -12,7 +12,7 @@ estimator
 
 .. math::
 
-    \\hat\\theta(l) = l_{post}' \\hat\\beta_{post} - l_{pre}' \\hat\\beta_{pre}
+    \\hat\\theta(l) = l_{pre}' \\hat\\beta_{pre} + l_{post}' \\hat\\beta_{post}
 
 whose half-length is ``q_{1-alpha}(|N(bias/h, 1)|) * h``, where ``h`` bounds the
 estimator's standard deviation and ``bias`` is the worst-case bias over the
@@ -59,7 +59,60 @@ from scipy import optimize, stats
 
 from ..exceptions import ConvergenceFailure, MethodIncompatibility
 
-__all__ = ["FLCIResult", "flci_delta_sd", "folded_normal_quantile"]
+__all__ = [
+    "FLCIResult",
+    "event_study_moments",
+    "flci_delta_sd",
+    "folded_normal_quantile",
+]
+
+
+def event_study_moments(result) -> Optional[tuple]:
+    """Extract ``(betahat, sigma, event_times)`` for the event study.
+
+    The FLCI needs the *joint* covariance of the event-study coefficients —
+    that is exactly what the old worst-case-bias path threw away. A
+    Callaway-Sant'Anna fit carries per-unit influence functions for each
+    ATT(g, t) cell, so the event-study covariance is
+    ``W (Psi' Psi / n^2) W'`` where ``W`` is the event-study aggregation
+    weight matrix.
+
+    Returns ``None`` when the covariance cannot be recovered (no influence
+    functions attached), so callers can fall back rather than fabricate one.
+    """
+    inf_matrix = getattr(result, "_influence_funcs", None)
+    detail = getattr(result, "detail", None)
+    if inf_matrix is None or detail is None:
+        return None
+    required = {"group", "relative_time", "att"}
+    if not required.issubset(set(detail.columns)):
+        return None
+
+    model_info = getattr(result, "model_info", None) or {}
+    n_units = model_info.get("n_units", getattr(result, "n_obs", None))
+    if not n_units:
+        return None
+
+    try:
+        from .aggte import _weights_dynamic
+    except ImportError:  # pragma: no cover - internal layout guard
+        return None
+
+    finite = np.isfinite(np.asarray(detail["att"], dtype=float))
+    if not finite.all():
+        detail = detail.loc[finite].reset_index(drop=True)
+        inf_matrix = inf_matrix[:, np.asarray(finite)]
+
+    labels, weights = _weights_dynamic(
+        detail, model_info.get("cohort_sizes"), -np.inf, np.inf
+    )
+    if weights.shape[0] < 2:
+        return None
+
+    betahat = weights @ np.asarray(detail["att"], dtype=float)
+    psi = np.asarray(inf_matrix, dtype=float) @ weights.T
+    sigma = (psi.T @ psi) / float(n_units) ** 2
+    return betahat, sigma, np.asarray(labels, dtype=int)
 
 
 class FLCIResult(NamedTuple):
@@ -214,9 +267,7 @@ def flci_delta_sd(
         h_max = h_min * 1.5 + 1e-8
 
     def worst_case_bias(h: float):
-        cons = base_cons + [
-            {"type": "ineq", "fun": lambda x, h=h: h**2 - variance(x)}
-        ]
+        cons = base_cons + [{"type": "ineq", "fun": lambda x, h=h: h**2 - variance(x)}]
         fit = optimize.minimize(
             lambda x: const + x[:n_pre].sum(),
             x0,
@@ -251,7 +302,11 @@ def flci_delta_sd(
         w_to_l[col + 1, col] = -1.0
     l_pre = w_to_l @ w
 
-    estimate = float(l_post @ betahat[n_pre:] - l_pre @ betahat[:n_pre])
+    # The affine estimator is the full weight vector dotted with betahat.
+    # `_w_to_l` already carries the sign that turns w into the pre-period
+    # extrapolation weights, so this is an addition, not a subtraction --
+    # matching HonestDiD's `optimalVec = c(optimal.l, l_vec)`.
+    estimate = float(l_pre @ betahat[:n_pre] + l_post @ betahat[n_pre:])
     return FLCIResult(
         estimate=estimate,
         half_length=float(half_length),

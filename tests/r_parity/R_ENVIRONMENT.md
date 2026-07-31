@@ -107,6 +107,7 @@ an intentional fixture change with
 | `Synth` | 1.1.10 | 07 (classical SCM) |
 | `synthdid` | 0.0.9 | 12 (synthetic DiD) |
 | `systemfit` | 1.1.30 | 60 (SUR FGLS) |
+| `tmle` | 2.1.1 | 72 (targeted MLE) |
 | `truncreg` | 0.2.5 | 62 (truncated regression) |
 | `vars` | 1.6.1 | 33 (VAR) |
 | `jsonlite` | 2.0.0 | (harness I/O — full-precision result serialisation) |
