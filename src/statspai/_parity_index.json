@@ -918,8 +918,7 @@
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_fect_equivalence_parity.py",
-        "tests/reference_parity/test_honest_did_backend_parity.py",
-        "tests/reference_parity/test_staggered_rollout_parity.py"
+        "tests/reference_parity/test_honest_did_backend_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -4973,7 +4972,7 @@
       ],
       "function": "metalearner",
       "notes": [
-        "Scope: the grade covers the CATE functions, which is what learner= selects. It does NOT cover result.estimate, which sp.metalearner reports as a doubly-robust AIPW ATE (model_info['ate_method'] == 'aipw_dr_pseudo_outcome') and which is deliberately invariant to learner=; that quantity's evidence is the CausalML-book replication in tests/external_parity/test_causalml_book.py. The R-learner and DR-learner variants are not pinned: both cross-fit, and neither engine exposes a shared fold partition for them."
+        "Scope: the grade covers the CATE functions, which is what learner= selects. It does NOT cover result.estimate, which sp.metalearner reports as a doubly-robust AIPW ATE (model_info['ate_method'] == 'aipw_dr_pseudo_outcome') and which is deliberately invariant to learner=; that quantity's evidence is the CausalML-book replication in tests/external_parity/test_causalml_book.py. The DR-learner is not pinned elementwise and cannot be: StatsPAI fits the outcome nuisance per arm while econml's DRLearner fits one joint regression on [X, T], so with a linear learner the two agree only when the treatment effect is constant (max elementwise gap 5.2e-2 under a heterogeneous effect, 4.7e-3 under a constant one, on a shared fold partition). What is pinned for DR is the operator: given the cross-fitted nuisances StatsPAI actually used, the pseudo-outcome is asserted to equal the AIPW score to 1e-12, and the per-arm-vs-joint mechanism is itself asserted. The R-learner is not pinned."
       ],
       "reference": "econml.metalearners SLearner / TLearner / XLearner",
       "reference_versions": {},
@@ -7974,23 +7973,6 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_stabilized_weights_parity.py"
-      ],
-      "tolerance": ""
-    },
-    {
-      "function": "staggered_rollout",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
-        "tests/reference_parity/test_staggered_rollout_parity.py"
       ],
       "tolerance": ""
     },

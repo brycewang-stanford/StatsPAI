@@ -242,9 +242,17 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "(model_info['ate_method'] == 'aipw_dr_pseudo_outcome') and "
             "which is deliberately invariant to learner=; that quantity's "
             "evidence is the CausalML-book replication in "
-            "tests/external_parity/test_causalml_book.py. The R-learner and "
-            "DR-learner variants are not pinned: both cross-fit, and "
-            "neither engine exposes a shared fold partition for them."
+            "tests/external_parity/test_causalml_book.py. The DR-learner is "
+            "not pinned elementwise and cannot be: StatsPAI fits the outcome "
+            "nuisance per arm while econml's DRLearner fits one joint "
+            "regression on [X, T], so with a linear learner the two agree "
+            "only when the treatment effect is constant (max elementwise gap "
+            "5.2e-2 under a heterogeneous effect, 4.7e-3 under a constant "
+            "one, on a shared fold partition). What is pinned for DR is the "
+            "operator: given the cross-fitted nuisances StatsPAI actually "
+            "used, the pseudo-outcome is asserted to equal the AIPW score to "
+            "1e-12, and the per-arm-vs-joint mechanism is itself asserted. "
+            "The R-learner is not pinned."
         ),
     },
     "dml_sensitivity": {

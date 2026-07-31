@@ -27,11 +27,11 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 137 |
 | aligned | 10 |
-| analytical-only | 212 |
+| analytical-only | 211 |
 | external-replication | 6 |
-| **verified (subtotal)** | **365** |
+| **verified (subtotal)** | **364** |
 | unverified | 786 |
-| **total registered** | **1151** |
+| **total registered** | **1150** |
 
 ## bit-exact — 137 functions
 
@@ -207,7 +207,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 212 functions
+## analytical-only — 211 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -400,7 +400,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `sqreg` | [`test_sqreg_parity.py`](../tests/reference_parity/test_sqreg_parity.py) |
 | `ssaggregate` | [`test_bartik_ssagg_parity.py`](../tests/reference_parity/test_bartik_ssagg_parity.py) |
 | `stabilized_weights` | [`test_stabilized_weights_parity.py`](../tests/reference_parity/test_stabilized_weights_parity.py) |
-| `staggered_rollout` | [`test_staggered_rollout_parity.py`](../tests/reference_parity/test_staggered_rollout_parity.py) |
 | `stepwise` | [`test_stepwise_parity.py`](../tests/reference_parity/test_stepwise_parity.py) |
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_break` | [`test_structural_break_parity.py`](../tests/reference_parity/test_structural_break_parity.py) |

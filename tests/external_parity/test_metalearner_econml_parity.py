@@ -57,6 +57,7 @@ from sklearn.linear_model import (  # noqa: E402
     LinearRegression,
     LogisticRegression,
 )
+from sklearn.model_selection import KFold  # noqa: E402
 
 N = 1200
 K = 3
@@ -180,3 +181,125 @@ def test_reported_ate_is_the_aipw_estimand_not_the_cate_mean(fixture):
         )
     assert estimates["s"] == pytest.approx(estimates["t"], rel=1e-12)
     assert estimates["s"] == pytest.approx(estimates["x"], rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# DR-learner: why it is not pinned elementwise, and what is pinned instead
+# ---------------------------------------------------------------------------
+
+
+def test_dr_pseudo_outcome_is_the_aipw_score_of_its_own_nuisances():
+    """The operator is exact even though the end-to-end fit is not.
+
+    ``sp.metalearner(learner='dr')`` cannot be compared elementwise with
+    ``econml``'s ``DRLearner`` because the two parameterise the outcome
+    nuisance differently (see the next test). What *is* exactly checkable
+    is the piece in between: given the cross-fitted ``mu1``, ``mu0`` and
+    ``e`` that StatsPAI actually used, the pseudo-outcome must be the
+    textbook AIPW score. Pinning that separates "our nuisance models
+    differ from econml's" — a modelling choice — from "our doubly-robust
+    score is wrong", which would be a defect.
+    """
+    rng = np.random.default_rng(17)
+    n = 900
+    X = rng.normal(size=(n, 3))
+    e = 0.5 + 0.25 * np.tanh(X[:, 0])
+    d = (rng.uniform(size=n) < e).astype(int)
+    y = X[:, 0] + (1.0 + 0.5 * X[:, 1]) * d + rng.normal(scale=0.5, size=n)
+    df = pd.DataFrame(X, columns=COVARIATES)
+    df["d"], df["y"] = d, y
+
+    res = sp.metalearner(
+        df,
+        y="y",
+        treat="d",
+        covariates=COVARIATES,
+        learner="dr",
+        outcome_model=_lin(),
+        propensity_model=_log(),
+        cate_model=_lin(),
+        n_folds=5,
+        n_bootstrap=0,
+    )
+    est = res.model_info["_estimator"]
+    diag = est._pseudo_diag
+    mu1 = np.asarray(diag["mu1_hat"], dtype=float)
+    mu0 = np.asarray(diag["mu0_hat"], dtype=float)
+    e_hat = np.asarray(diag["e_hat"], dtype=float)
+
+    expected = mu1 - mu0 + d * (y - mu1) / e_hat - (1 - d) * (y - mu0) / (1 - e_hat)
+    np.testing.assert_allclose(
+        np.asarray(est._pseudo_outcomes, dtype=float),
+        expected,
+        rtol=0,
+        atol=1e-12,
+        err_msg="the DR pseudo-outcome is not the AIPW score of its own "
+        "cross-fitted nuisances",
+    )
+
+
+def test_dr_gap_to_econml_is_the_outcome_model_parameterisation():
+    """Locate the DR difference rather than leaving it unexplained.
+
+    StatsPAI fits the outcome nuisance **per arm** (a model on the treated
+    rows and another on the controls); ``econml``'s ``DRLearner`` fits one
+    joint regression on ``[X, T]``. With a linear learner the joint model
+    can only express a constant treatment effect, so the two agree when
+    the effect really is constant and separate when it is not.
+
+    Making that the assertion turns an unexplained numerical gap into a
+    identified, testable mechanism: if the gap ever stopped shrinking
+    under a constant effect, the explanation recorded in the parity index
+    would be wrong.
+    """
+
+    def _gap(tau_of_x) -> float:
+        rng = np.random.default_rng(3)
+        n = 1200
+        X = rng.normal(size=(n, 3))
+        e = 0.5 + 0.25 * np.tanh(X[:, 0])
+        d = (rng.uniform(size=n) < e).astype(int)
+        y = X[:, 0] + tau_of_x(X) * d + rng.normal(scale=0.5, size=n)
+        df = pd.DataFrame(X, columns=COVARIATES)
+        df["d"], df["y"] = d, y
+
+        ours = np.asarray(
+            sp.metalearner(
+                df,
+                y="y",
+                treat="d",
+                covariates=COVARIATES,
+                learner="dr",
+                outcome_model=_lin(),
+                propensity_model=_log(),
+                cate_model=_lin(),
+                n_folds=5,
+                n_bootstrap=0,
+            ).model_info["cate"],
+            dtype=float,
+        )
+        # StatsPAI cross-fits with KFold(5, shuffle=True, random_state=42);
+        # handing econml the identical partition removes the split as a
+        # source of difference.
+        from econml.dr import DRLearner
+
+        ref = DRLearner(
+            model_propensity=_log(),
+            model_regression=_lin(),
+            model_final=_lin(),
+            cv=list(KFold(n_splits=5, shuffle=True, random_state=42).split(X)),
+            random_state=42,
+        )
+        ref.fit(y, d, X=X)
+        return float(
+            np.abs(ours - np.asarray(ref.effect(X), dtype=float).ravel()).max()
+        )
+
+    heterogeneous = _gap(lambda X: 1.0 + 0.5 * X[:, 1])
+    constant = _gap(lambda X: np.full(len(X), 1.0))
+    assert constant < heterogeneous / 5.0, (
+        f"gap under a constant effect ({constant:.3e}) is not much smaller "
+        f"than under a heterogeneous one ({heterogeneous:.3e}); the "
+        "per-arm-vs-joint outcome-model explanation for the DR difference "
+        "no longer holds and the parity index note needs revisiting."
+    )

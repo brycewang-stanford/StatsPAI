@@ -6,6 +6,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **The two remaining unpinned conventions in the ML-causal block are now
+  asserted rather than described.** `sp.gmm`'s `vcov='iid'` and
+  `vcov='mds'` estimate `S` by the same moment outer product — correct
+  for moments independent across observations, and what R's `gmm` does
+  (its `twostep_iid` and `twostep_mds` fixtures are identical to the last
+  digit) — but that equivalence lived only in a source comment. It is now
+  a test, alongside checks that `hac_bandwidth=1` reduces exactly to the
+  MDS form and that `center=` is not a no-op. For `sp.metalearner`'s
+  DR-learner, the gap against `econml` is now *attributed* instead of
+  merely noted: StatsPAI fits the outcome nuisance per arm while econml's
+  `DRLearner` fits one joint regression on `[X, T]`, so with a linear
+  learner the two agree only when the treatment effect is constant — the
+  maximum elementwise gap falls from 5.2e-2 to 4.7e-3 when the effect is
+  made constant on a shared fold partition, and that contrast is itself
+  asserted. What *is* pinned exactly for DR is the operator: given the
+  cross-fitted nuisances StatsPAI actually used, the pseudo-outcome must
+  equal the AIPW score to 1e-12, which separates "our nuisance models
+  differ from econml's" (a modelling choice) from "our doubly-robust
+  score is wrong" (a defect).
+
 - **Dynamic panel GMM, substantially rebuilt** (`sp.xtabond`, new
   `sp.xtdpdsys`). The 2026-07 classic-design audit rated this the weakest
   classic design in the package: two exported functions, one materialised

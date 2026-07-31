@@ -263,6 +263,85 @@ class TestAffineDetection:
         )
 
 
+class TestMomentCovarianceConventions:
+    """``vcov`` and ``center`` are conventions, so pin what they mean."""
+
+    def test_iid_and_mds_coincide_for_cross_sectional_moments(self, sample, rref):
+        """Documented equivalence, asserted rather than left in a comment.
+
+        ``sp.gmm`` estimates ``S`` by the moment outer product under both
+        ``vcov='iid'`` and ``vcov='mds'``. That is not a shortcut: for
+        moments that are independent across observations the two
+        assumptions imply the same ``S``, and they separate only through
+        the serial-correlation term that ``vcov='hac'`` adds. R's ``gmm``
+        agrees — its ``twostep_iid`` and ``twostep_mds`` fixtures are
+        identical to the last digit, which is why the two reference rows
+        below are the same numbers.
+
+        Without this test the equivalence lives only in a source comment,
+        and a future change that gave ``'iid'`` a genuinely homoskedastic
+        ``S`` would silently break parity with R instead of failing here.
+        """
+        assert rref["twostep_iid"] == rref["twostep_mds"], (
+            "the R fixture no longer reports iid and MDS as identical; the "
+            "equivalence this test documents has to be re-derived."
+        )
+        iid = _fit(sample, method="twostep", vcov="iid")
+        mds = _fit(sample, method="twostep", vcov="mds")
+        np.testing.assert_allclose(
+            iid.params.to_numpy(float), mds.params.to_numpy(float), rtol=0, atol=0
+        )
+        np.testing.assert_allclose(
+            iid.std_errors.to_numpy(float),
+            mds.std_errors.to_numpy(float),
+            rtol=0,
+            atol=0,
+        )
+        assert iid.diagnostics["J_stat"] == mds.diagnostics["J_stat"]
+
+    def test_hac_departs_from_mds_once_a_lag_is_included(self, sample):
+        """The serial-correlation term is what makes 'hac' different.
+
+        ``hac_bandwidth=1`` weights no lags, so it must reduce exactly to
+        the outer product; a bandwidth above 1 must not.
+        """
+        mds = _fit(sample, method="twostep", vcov="mds")
+        hac1 = _fit(sample, method="twostep", vcov="hac", hac_bandwidth=1)
+        hac2 = _fit(sample, method="twostep", vcov="hac", hac_bandwidth=2)
+        np.testing.assert_allclose(
+            hac1.std_errors.to_numpy(float),
+            mds.std_errors.to_numpy(float),
+            rtol=1e-12,
+            err_msg="bandwidth 1 includes no lags and must equal the MDS form",
+        )
+        assert not np.allclose(
+            hac2.std_errors.to_numpy(float), mds.std_errors.to_numpy(float)
+        ), "bandwidth 2 weights one lag and must differ from the MDS form"
+
+    def test_centring_changes_the_answer_and_is_not_a_no_op(self, sample):
+        """``center`` selects R's convention over Stata's; it must bite.
+
+        If centring ever became a no-op the module would silently report
+        Stata's ``S`` while claiming R's, which is precisely the class of
+        convention drift the parity harness exists to catch.
+        """
+        centred = _fit(sample, method="twostep")  # _fit passes center=True
+        uncentred = sp.gmm(
+            moment_fn,
+            np.zeros(2),
+            sample,
+            param_names=["_cons", "x1"],
+            jacobian=jacobian,
+            center=False,
+            method="twostep",
+        )
+        assert not np.allclose(
+            centred.std_errors.to_numpy(float),
+            uncentred.std_errors.to_numpy(float),
+            rtol=1e-9,
+        ), "centring the moment covariance had no effect on the standard errors"
+
+
 class TestVarianceSemantics:
     """``se='unadjusted'`` is only the estimator's variance when W is efficient."""
 
