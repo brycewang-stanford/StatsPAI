@@ -156,7 +156,9 @@ def _runtime_map() -> (
             ),
             NotImplementedError,
         ),
-        ("callaway_santanna", "panel=False"): (
+        ("callaway_santanna", "clustervars"): (
+            # estimator='dr' / control_group='notyettreated' are now supported
+            # under panel=False; clustervars is the remaining gap.
             lambda: sp.callaway_santanna(
                 df_panel,
                 y="y",
@@ -165,6 +167,7 @@ def _runtime_map() -> (
                 i="i",
                 panel=False,
                 estimator="dr",
+                clustervars="i",
             ),
             NotImplementedError,
         ),

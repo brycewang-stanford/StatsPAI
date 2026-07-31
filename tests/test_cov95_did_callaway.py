@@ -105,13 +105,9 @@ def test_cs_input_validation():
         )
     with pytest.raises(ValueError, match="anticipation"):
         sp.callaway_santanna(df, y="y", g="g", t="time", i="unit", anticipation=-1)
-    # panel=False only supports estimator='reg' — other estimators fail loudly.
-    with pytest.raises((ValueError, NotImplementedError)):
-        sp.callaway_santanna(
-            df, y="y", g="g", t="time", i="unit", panel=False, estimator="dr"
-        )
-    # panel=False also requires the never-treated control group.
-    with pytest.raises((ValueError, NotImplementedError)):
+    # panel=False now supports all three estimators and both control groups;
+    # clustervars is the remaining gap and must still fail loudly.
+    with pytest.raises((ValueError, NotImplementedError), match="clustervars"):
         sp.callaway_santanna(
             df,
             y="y",
@@ -119,6 +115,6 @@ def test_cs_input_validation():
             t="time",
             i="unit",
             panel=False,
-            estimator="reg",
-            control_group="notyettreated",
+            estimator="dr",
+            clustervars="unit",
         )

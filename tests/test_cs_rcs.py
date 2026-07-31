@@ -104,7 +104,7 @@ def test_cs_report_accepts_rcs_result(rcs_result):
         rcs_result.estimate,
         rel=1e-6,
     )
-    assert rpt.meta["estimator"] == "REG (RCS)"
+    assert rpt.meta["estimator"].startswith("REG (RCS")
 
 
 def test_honest_did_on_rcs_result(rcs_result):
@@ -137,23 +137,44 @@ def test_rcs_accepts_covariates():
     assert r.model_info["covariates"] == ["x1"]
 
 
-def test_rcs_rejects_non_reg_estimator():
+@pytest.mark.parametrize("estimator", ["dr", "ipw", "reg"])
+def test_rcs_accepts_all_estimators(estimator):
+    """DR / IPW / REG all run under panel=False.
+
+    These used to raise NotImplementedError; the (g, t) loop now dispatches to
+    the Sant'Anna-Zhao repeated-cross-section estimators, matching what R
+    did::att_gt(panel=FALSE) does.  Numerical parity lives in
+    tests/reference_parity/test_cs_rcs_parity.py.
+    """
     df = _rcs_panel(seed=2)
-    with pytest.raises(NotImplementedError, match="estimator='reg'"):
-        callaway_santanna(
-            df,
-            y="y",
-            g="g",
-            t="t",
-            i="obs",
-            estimator="dr",
-            panel=False,
-        )
+    r = callaway_santanna(
+        df, y="y", g="g", t="t", i="obs", estimator=estimator, panel=False
+    )
+    assert r.model_info["panel"] is False
+    assert np.isfinite(r.estimate)
 
 
-def test_rcs_rejects_notyettreated_control():
+def test_rcs_accepts_notyettreated_control():
+    """control_group='notyettreated' used to raise under panel=False."""
     df = _rcs_panel(seed=3)
-    with pytest.raises(NotImplementedError, match="nevertreated"):
+    r = callaway_santanna(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="obs",
+        estimator="dr",
+        control_group="notyettreated",
+        panel=False,
+    )
+    assert r.model_info["control_group"] == "notyettreated"
+    assert np.isfinite(r.estimate)
+
+
+def test_rcs_rejects_clustervars():
+    """clustervars is still unsupported under panel=False — fail loudly."""
+    df = _rcs_panel(seed=3)
+    with pytest.raises(NotImplementedError, match="clustervars"):
         callaway_santanna(
             df,
             y="y",
@@ -161,8 +182,8 @@ def test_rcs_rejects_notyettreated_control():
             t="t",
             i="obs",
             estimator="reg",
-            control_group="notyettreated",
             panel=False,
+            clustervars="obs",
         )
 
 
@@ -233,7 +254,7 @@ def test_rcs_with_covariate_runs():
         df, y="y", g="g", t="t", i="obs", x=["x1"], panel=False, estimator="reg"
     )
     assert r.model_info["panel"] is False
-    assert "covariates" in r.model_info["estimator"]
+    assert "RCS" in r.model_info["estimator"]
     assert r.model_info["covariates"] == ["x1"]
     assert r.estimate > 0 and r.pvalue < 0.01
 

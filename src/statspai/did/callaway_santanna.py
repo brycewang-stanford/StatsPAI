@@ -419,37 +419,17 @@ def callaway_santanna(
 
     # ---- Repeated cross-sections branch --------------------------------
     if not panel:
-        if estimator != "reg":
-            raise CallawayNotImplemented(
-                "panel=False currently only supports estimator='reg' "
-                "(unconditional / covariate-adjusted 2×2 cell-mean DID).  "
-                "IPW / DR for RCS are planned for a future release.",
-                recovery_hint=(
-                    "Use estimator='reg' with panel=False, or use panel=True."
-                ),
-                diagnostics={"panel": panel, "estimator": estimator},
-            )
-        if control_group != "nevertreated":
-            raise CallawayNotImplemented(
-                "panel=False currently requires control_group='nevertreated'.",
-                recovery_hint="Use control_group='nevertreated' with panel=False.",
-                diagnostics={"panel": panel, "control_group": control_group},
-            )
-        if bstrap or clustervars:
+        if clustervars:
             raise CallawayNotImplemented(
                 "panel=False (repeated cross-sections) does not yet support "
-                "bstrap / clustervars — the multiplier bootstrap is currently "
-                "wired for the panel branch only.",
+                "clustervars — observations are not nested in units here, so "
+                "the cluster bootstrap needs a separate design.",
                 recovery_hint=(
-                    "Use analytic SEs with panel=False, or aggregate via "
+                    "Drop clustervars, or aggregate via "
                     "sp.aggte(result, bstrap=True) which bootstraps the "
                     "observation-level influence functions."
                 ),
-                diagnostics={
-                    "panel": panel,
-                    "bstrap": bstrap,
-                    "clustervars": clustervars,
-                },
+                diagnostics={"panel": panel, "clustervars": clustervars},
             )
         return _callaway_santanna_rcs(
             data=data,
@@ -460,6 +440,8 @@ def callaway_santanna(
             base_period=base_period,
             anticipation=anticipation,
             alpha=alpha,
+            estimator=estimator,
+            control_group=control_group,
         )
 
     # 1. Prepare panel data
@@ -1497,11 +1479,7 @@ def _callaway_santanna_rcs(
     # The Sant'Anna-Zhao RCS estimators (matching R did's panel=FALSE path)
     # consume raw covariates directly; the legacy cell-mean path residualises
     # first and then differences means, so the two must not be mixed.
-    x_mat = (
-        df[list(x)].to_numpy(dtype=float)
-        if (x and estimator in {"dr", "ipw"})
-        else None
-    )
+    x_mat = df[list(x)].to_numpy(dtype=float) if x else None
     use_sz = estimator in {"dr", "ipw"} or (estimator == "reg" and bool(x))
 
     for g_val, t_val, base_val in gt_pairs:
@@ -1510,7 +1488,7 @@ def _callaway_santanna_rcs(
                 y_raw_arr,
                 g_arr,
                 t_arr,
-                df[list(x)].to_numpy(dtype=float) if x else None,
+                x_mat,
                 g_val=g_val,
                 t_val=t_val,
                 base_val=base_val,
@@ -1567,8 +1545,12 @@ def _callaway_santanna_rcs(
     pretrend = _pretrend_test(detail, inf_matrix, n_obs)
 
     model_info: Dict[str, Any] = {
-        "estimator": "REG (RCS)" + (" + covariates" if x else ""),
-        "control_group": "nevertreated",
+        "estimator": (
+            f"{estimator.upper()} (RCS, Sant'Anna-Zhao)"
+            if use_sz
+            else "REG (RCS, cell-mean)" + (" + covariates" if x else "")
+        ),
+        "control_group": control_group,
         "base_period": base_period,
         "anticipation": anticipation,
         "panel": False,

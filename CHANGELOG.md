@@ -303,6 +303,15 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **⚠️ `sp.callaway_santanna(panel=False, estimator='reg')` with covariates
+  changed estimator.** It previously residualised the outcome on the
+  covariates using the never-treated pool with period fixed effects and
+  then took 2×2 cell-mean differences — a StatsPAI-specific approximation
+  with no reference implementation behind it. It now calls the
+  Sant'Anna-Zhao `reg_did_rc` inside each (g, t) cell, which is what R
+  `did` does. ATT and SE both move; in exchange the result now matches R
+  to ~1e-11. Repeated cross-sections *without* covariates are unchanged.
+  See [MIGRATION](MIGRATION.md#cs-rcs-reg-covariates).
 - **`sp.callaway_santanna` now warns on unbalanced panels.** ATT(g, t) is
   built from within-unit differences `Y_t − Y_base`, so a unit missing
   either period silently drops out of that cell and the effective sample
@@ -456,6 +465,28 @@ All notable changes to StatsPAI will be documented in this file.
   weights laid out over every retained row (treated = 1) so they can be
   joined back onto the input frame. `weights` remains control-only, the
   `ebal` convention. `max_standardized_moment_gap` is also recorded.
+- **Repeated cross-sections for `sp.callaway_santanna` (WP-1).**
+  `panel=False` previously accepted only `estimator='reg'`, forced
+  `control_group='nevertreated'`, and refused `bstrap` — which left
+  CPS/ACS/DHS-style data with no usable estimator. The (g, t) loop now
+  hands each two-period sub-sample to the matching Sant'Anna-Zhao
+  estimator, which is what R `did::att_gt(panel=FALSE)` does (confirmed
+  from `did:::compute.att_gt`): `dr`→`DRDID::drdid_rc`,
+  `ipw`→`std_ipw_did_rc`, `reg`→`reg_did_rc`. All three estimators, both
+  control groups, and `bstrap` now work, and the per-cell influence
+  functions feed `sp.aggte`'s multiplier bootstrap and event-study
+  aggregation unchanged.
+
+  Parity vs R `did` 2.3.0 on `did::mpdta` (`xformla=~lpop`): all six
+  `est_method` × `control_group` combinations match to **≤1e-11** on the
+  point estimate and ≤0.15% on the SE. New guards:
+  `tests/reference_parity/test_cs_rcs_parity.py` (20 tests) and
+  `tests/reference_parity/test_drdid_rc_parity.py` (12 tests) for the
+  underlying primitives in the new `statspai.did._rcs` module.
+
+  `clustervars` remains unsupported under `panel=False` and raises —
+  observations are not nested in units there, so the cluster bootstrap
+  needs a separate design.
 - **Nonlinear ETWFE — `sp.etwfe(family='poisson'|'logit')`.** Wooldridge
   (2023) staggered DiD for count and binary outcomes, closing the largest
   capability gap in the DiD family: until now every DiD estimator in

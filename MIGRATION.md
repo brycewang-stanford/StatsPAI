@@ -419,6 +419,28 @@ name exactly.
 
 ---
 
+<a id="cs-rcs-reg-covariates"></a>
+
+## Unreleased — ⚠️ `callaway_santanna(panel=False, estimator='reg', x=[...])` changed estimator
+
+**What changed.** Repeated cross-sections with covariates previously used a
+StatsPAI-specific approximation: the outcome was residualised on the covariates
+using the never-treated pool with period fixed effects, and then plain 2×2
+cell-mean differences were taken. R `did` instead calls
+`DRDID::reg_did_rc`, which fits period- and group-specific outcome regressions
+inside each (g, t) cell. StatsPAI now does the same.
+
+**Effect.** ATT and SE both move for `panel=False` **with covariates**. In
+exchange the estimator now reproduces R `did::att_gt(panel=FALSE,
+est_method="reg", xformla=...)` to ~1e-11 on `did::mpdta`
+(−0.0419686124 with never-treated controls).
+
+**Who is affected.** Only `panel=False` calls that pass `x=`. Repeated
+cross-sections *without* covariates are unchanged (still the cell-mean DiD, and
+still equal to the unconditional panel simple ATT). Panel calls are entirely
+unaffected. Re-run and use the new values; the old path was an approximation
+with no reference implementation behind it.
+
 <a id="cs-varying-base-period-e-minus-1"></a>
 
 ## Unreleased — ⚠️ `base_period='varying'` now reports the `e = −1` placebo

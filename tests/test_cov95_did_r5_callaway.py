@@ -17,15 +17,15 @@ import pytest
 
 from statspai.did.callaway_santanna import (
     CallawayNotImplemented,
-    callaway_santanna,
-    _get_gt_pairs,
-    _estimate_pscore,
-    _estimate_outcome_reg,
-    _aggregate_simple,
     _aggregate_event_study,
-    _pretrend_test,
+    _aggregate_simple,
+    _estimate_outcome_reg,
+    _estimate_pscore,
     _estimate_single_att_rcs,
+    _get_gt_pairs,
+    _pretrend_test,
     _rcs_residualise_on_controls,
+    callaway_santanna,
 )
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
 
@@ -90,8 +90,8 @@ def test_validation_errors_expose_taxonomy_and_scalar_x():
     assert np.isfinite(r.estimate)
     with pytest.raises(MethodIncompatibility, match="estimator must be"):
         callaway_santanna(df, y="y", g="g", t="t", i="i", estimator="bogus")
-    with pytest.raises(CallawayNotImplemented, match="estimator='reg'"):
-        callaway_santanna(df, y="y", g="g", t="t", i="i", panel=False, estimator="dr")
+    with pytest.raises(CallawayNotImplemented, match="clustervars"):
+        callaway_santanna(df, y="y", g="g", t="t", i="i", panel=False, clustervars="i")
 
 
 def test_no_cohorts_raises():
@@ -286,34 +286,38 @@ def test_rcs_basic():
     assert r.model_info["panel"] is False
 
 
-def test_rcs_with_covariates_residualises():
+def test_rcs_with_covariates_uses_santanna_zhao():
+    """RCS + covariates now routes to DRDID::reg_did_rc, not residualisation."""
     df = make_panel(x=True)
     r = callaway_santanna(
         df, y="y", g="g", t="t", i="i", x=["x1"], panel=False, estimator="reg"
     )
     assert np.isfinite(r.estimate)
-    assert "covariates" in r.model_info["estimator"]
+    assert "Sant'Anna-Zhao" in r.model_info["estimator"]
 
 
-def test_rcs_requires_reg():
+@pytest.mark.parametrize("estimator", ["dr", "ipw", "reg"])
+def test_rcs_supports_all_estimators(estimator):
     df = make_panel()
-    with pytest.raises(NotImplementedError, match="estimator='reg'"):
-        callaway_santanna(df, y="y", g="g", t="t", i="i", panel=False, estimator="dr")
+    r = callaway_santanna(
+        df, y="y", g="g", t="t", i="i", panel=False, estimator=estimator
+    )
+    assert np.isfinite(r.estimate)
 
 
-def test_rcs_requires_nevertreated():
+def test_rcs_supports_notyettreated():
     df = make_panel()
-    with pytest.raises(NotImplementedError, match="nevertreated"):
-        callaway_santanna(
-            df,
-            y="y",
-            g="g",
-            t="t",
-            i="i",
-            panel=False,
-            estimator="reg",
-            control_group="notyettreated",
-        )
+    r = callaway_santanna(
+        df,
+        y="y",
+        g="g",
+        t="t",
+        i="i",
+        panel=False,
+        estimator="dr",
+        control_group="notyettreated",
+    )
+    assert r.model_info["control_group"] == "notyettreated"
 
 
 def test_rcs_missing_column():

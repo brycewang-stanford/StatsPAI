@@ -1309,9 +1309,9 @@ def _build_registry() -> None:
             ],
             typical_n_min=50,
             limitations=[
-                "panel=False (repeated cross-sections) currently requires "
-                "estimator='reg' and control_group='nevertreated'; the IPW "
-                "and DR variants for RCS are planned for a future release",
+                "clustervars is not yet supported when panel=False (repeated "
+                "cross-sections); observations are not nested in units there, "
+                "so the cluster bootstrap needs a separate design",
             ],
         )
     )

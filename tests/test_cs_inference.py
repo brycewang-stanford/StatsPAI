@@ -153,8 +153,25 @@ class TestBstrap:
                 boot_weight_type="webb",
             )
 
-    def test_rcs_bstrap_not_implemented(self, panel):
-        with pytest.raises(NotImplementedError):
+    def test_rcs_bstrap_now_supported(self, panel):
+        """bstrap used to raise under panel=False; the RCS influence
+        functions now feed the multiplier bootstrap."""
+        r = sp.callaway_santanna(
+            panel,
+            y="y",
+            g="g",
+            t="t",
+            i="i",
+            panel=False,
+            estimator="reg",
+            bstrap=True,
+            biters=200,
+            random_state=0,
+        )
+        assert r.se > 0
+
+    def test_rcs_clustervars_still_raises(self, panel):
+        with pytest.raises(NotImplementedError, match="clustervars"):
             sp.callaway_santanna(
                 panel,
                 y="y",
@@ -163,7 +180,7 @@ class TestBstrap:
                 i="i",
                 panel=False,
                 estimator="reg",
-                bstrap=True,
+                clustervars="i",
             )
 
 
