@@ -10773,7 +10773,7 @@
     }
   },
   {
-    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``.",
+    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "lp_did",
     "parameters": {
       "properties": {
@@ -11812,6 +11812,42 @@
         "i",
         "t",
         "g"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Detect non-absorbing (reverting) treatment in a panel. Cohort-based DiD estimators (callaway_santanna, sun_abraham, did_imputation, etwfe, stacked_did) represent treatment by the first-treated period, which is lossless only when treatment never turns off. Under reversal they treat post-reversal periods as still-treated and are biased toward zero -- on a 150-unit panel with a third of units reverting, callaway_santanna returns 0.71 against a true ATT of 1.5, silently, because it never sees the time-varying indicator. Run this on the raw panel before picking an estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "check_absorbing",
+    "parameters": {
+      "properties": {
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "strict": {
+          "default": false,
+          "description": "Raise MethodIncompatibility instead of returning when treatment reverts; use as a guard in front of a cohort-based estimator.",
+          "type": "boolean"
+        },
+        "time": {
+          "description": "Time column",
+          "type": "string"
+        },
+        "treatment": {
+          "description": "Time-varying 0/1 treatment indicator. A cohort / first-treatment column cannot express reversal, so passing one makes the check meaningless.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit id column",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "unit",
+        "time",
+        "treatment"
       ],
       "type": "object"
     }

@@ -17754,6 +17754,7 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
+      "tests/reference_parity/test_absorbing_reference.py",
       "tests/reference_parity/test_did_multiplegt_parity.py"
     ],
     "validation_status": "validated"
@@ -19622,7 +19623,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``.",
+    "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.lp_did(df, y=\"y\", unit=\"i\", time=\"t\", treatment=\"d\", horizons=(-3, 5))",
     "failure_modes": [
       {
@@ -19649,7 +19650,7 @@
     ],
     "reference": "Dube, Girardi, Jorda & Taylor (2023) NBER Working Paper [pending verification -- NBER WP ID + arXiv ID not yet added to paper.bib]. Jorda (2005) AER on local projections more broadly.",
     "signature": {
-      "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``.",
+      "description": "Local-Projections DiD (Dube-Girardi-Jorda-Taylor 2023). At each event-time horizon h in {-P, ..., H}, runs a separate OLS of Y_{t+h} - Y_{t-1} on the treatment change Deltad_{t} with time FE and cluster-robust SE, using 'not-yet-treated' or 'never-treated' units as controls. Event-study beta_h paths are returned in ``model_info['event_study']``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "lp_did",
       "parameters": {
         "properties": {
@@ -19728,9 +19729,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "tests/reference_parity/test_absorbing_reference.py",
       "API/unit contract evidence: tests/test_lp_did.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -21398,6 +21400,70 @@
     "typical_n_min": 50,
     "validation_notes": [
       "tests/reference_parity/test_staggered_rollout_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alternatives": [
+      "did_multiplegt",
+      "lp_did",
+      "did_multiplegt_dyn"
+    ],
+    "assumptions": [],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Detect non-absorbing (reverting) treatment in a panel. Cohort-based DiD estimators (callaway_santanna, sun_abraham, did_imputation, etwfe, stacked_did) represent treatment by the first-treated period, which is lossless only when treatment never turns off. Under reversal they treat post-reversal periods as still-treated and are biased toward zero -- on a 150-unit panel with a third of units reverting, callaway_santanna returns 0.71 against a true ATT of 1.5, silently, because it never sees the time-varying indicator. Run this on the raw panel before picking an estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "example": "sp.check_absorbing(df, unit=\"i\", time=\"t\", treatment=\"d\")",
+    "failure_modes": [],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "check_absorbing",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "long panel with unit x time x time-varying treatment",
+      "treatment column is numeric (0/1)"
+    ],
+    "reference": "de Chaisemartin & D'Haultfoeuille (2024) [@dechaisemartin2024difference]",
+    "signature": {
+      "description": "Detect non-absorbing (reverting) treatment in a panel. Cohort-based DiD estimators (callaway_santanna, sun_abraham, did_imputation, etwfe, stacked_did) represent treatment by the first-treated period, which is lossless only when treatment never turns off. Under reversal they treat post-reversal periods as still-treated and are biased toward zero -- on a 150-unit panel with a third of units reverting, callaway_santanna returns 0.71 against a true ATT of 1.5, silently, because it never sees the time-varying indicator. Run this on the raw panel before picking an estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "check_absorbing",
+      "parameters": {
+        "properties": {
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "strict": {
+            "default": false,
+            "description": "Raise MethodIncompatibility instead of returning when treatment reverts; use as a guard in front of a cohort-based estimator.",
+            "type": "boolean"
+          },
+          "time": {
+            "description": "Time column",
+            "type": "string"
+          },
+          "treatment": {
+            "description": "Time-varying 0/1 treatment indicator. A cohort / first-treatment column cannot express reversal, so passing one makes the check meaningless.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Unit id column",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "unit",
+          "time",
+          "treatment"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": null,
+    "validation_notes": [
+      "tests/reference_parity/test_absorbing_reference.py"
     ],
     "validation_status": "validated"
   },
