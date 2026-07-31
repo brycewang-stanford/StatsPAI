@@ -263,7 +263,7 @@ def honest_did(
             "confidence set: it ignores the pre-period covariance structure. "
             "It tracks the reference closely on typical designs but is not "
             "exact. Pass backend='r' (requires R + the HonestDiD package) for "
-            "publication-grade relative-magnitude intervals; "
+            "reference-backed relative-magnitude intervals; "
             "method='smoothness' is solved exactly and needs no fallback.",
             UserWarning,
             stacklevel=2,

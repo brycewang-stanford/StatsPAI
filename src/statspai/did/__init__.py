@@ -28,6 +28,7 @@ import pandas as pd
 
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._equivalence import EquivalenceResult, pretrend_equivalence, pretrends_equivalence
 from .aggte import aggte
 from .analysis import DIDAnalysis, did_analysis
 from .bacon import bacon_decomposition
@@ -745,7 +746,10 @@ __all__ = [
     "did_2stage",
     "harvest_did",
     "HarvestDIDResult",
+    "EquivalenceResult",
     "cic",
+    "pretrend_equivalence",
+    "pretrends_equivalence",
     # Wooldridge / DR-DID / TWFE decomposition
     "wooldridge_did",
     "etwfe",

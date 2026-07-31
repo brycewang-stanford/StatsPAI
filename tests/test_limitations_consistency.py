@@ -96,6 +96,12 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # in tests/reference_parity/test_etwfe_glm_parity.py.
         "reports an average marginal effect",
     ],
+    "pretrends_equivalence": [
+        # Describes an intentionally absent default (the equivalence bound is
+        # a substantive judgement in outcome units), not a code path that
+        # raises. Pinned in test_fect_equivalence_parity.py.
+        "the TOST is computed only when tost_threshold is supplied",
+    ],
     "rddensity": [
         "not a reference-parity guarantee",
     ],

@@ -11721,6 +11721,85 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="pretrends_equivalence",
+            category="causal",
+            description=(
+                "Pre-trend equivalence tests (Liu, Wang & Xu 2024, the fect "
+                "diagnostic panel). Reverses the usual null: instead of "
+                "testing whether pre-period effects are zero, tests whether "
+                "they are demonstrably *small*. Failing to reject 'no "
+                "pre-trend' is often just low power (Roth 2022), so the "
+                "conventional test alone overstates the evidence for "
+                "parallel trends. Reports the joint F test alongside its "
+                "non-central-F and TOST equivalence counterparts, where a "
+                "*small* p-value is the reassuring outcome."
+            ),
+            params=[
+                ParamSpec(
+                    "result",
+                    "CausalResult",
+                    True,
+                    description=(
+                        "DiD result carrying an event study and influence "
+                        "functions (e.g. sp.callaway_santanna)"
+                    ),
+                ),
+                ParamSpec(
+                    "f_threshold",
+                    "float",
+                    False,
+                    0.6,
+                    "Dimensionless effect-size bound for the F equivalence "
+                    "test (fect's default)",
+                ),
+                ParamSpec(
+                    "tost_threshold",
+                    "float",
+                    False,
+                    None,
+                    "Equivalence bound in outcome units. Omitted by default "
+                    "because there is no defensible universal scale for "
+                    "'negligible pre-trend'; the TOST is skipped when it is "
+                    "not supplied. fect uses 0.36 * residual SD.",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns=(
+                "EquivalenceResult with f_stat / f_pvalue / "
+                "f_equivalence_pvalue / tost_pvalue and .verdict()"
+            ),
+            example="sp.pretrends_equivalence(cs_result, tost_threshold=0.05)",
+            tags=[
+                "did",
+                "pretrends",
+                "parallel-trends",
+                "equivalence",
+                "diagnostic",
+                "causal",
+                "r_parity",
+            ],
+            reference=(
+                "Liu, Wang & Xu (2024) AJPS [@liu2024practical]; "
+                "Roth (2022) [@roth2022pretest]"
+            ),
+            alternatives=["pretrends_test", "pretrends_power", "honest_did"],
+            pre_conditions=[
+                "result carries influence functions so the joint pre-period "
+                "covariance can be recovered",
+                "at least two pre-treatment periods (one is absorbed as the "
+                "normalisation reference)",
+                "more treated units than pre-periods",
+            ],
+            limitations=[
+                "the TOST is computed only when tost_threshold is supplied; "
+                "there is no universal outcome-scale default, so it is not "
+                "invented",
+            ],
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="pretrends_test",
             category="causal",
             description=(

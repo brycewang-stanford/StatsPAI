@@ -27,11 +27,11 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 137 |
 | aligned | 10 |
-| analytical-only | 204 |
+| analytical-only | 205 |
 | external-replication | 6 |
-| **verified (subtotal)** | **357** |
+| **verified (subtotal)** | **358** |
 | unverified | 792 |
-| **total registered** | **1149** |
+| **total registered** | **1150** |
 
 ## bit-exact — 137 functions
 
@@ -207,7 +207,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 204 functions
+## analytical-only — 205 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -366,6 +366,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `policy_weight_observed_prte` | [`test_policy_weight_parity.py`](../tests/reference_parity/test_policy_weight_parity.py) |
 | `policy_weight_subsidy` | [`test_policy_weight_parity.py`](../tests/reference_parity/test_policy_weight_parity.py) |
 | `power_ols` | [`test_recovery_batch_parity.py`](../tests/reference_parity/test_recovery_batch_parity.py) |
+| `pretrends_equivalence` | [`test_fect_equivalence_parity.py`](../tests/reference_parity/test_fect_equivalence_parity.py) |
 | `principal_strat` | [`test_principal_strat_parity.py`](../tests/reference_parity/test_principal_strat_parity.py) |
 | `prod_fn` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `proximal` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |

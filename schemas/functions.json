@@ -11761,6 +11761,36 @@
     }
   },
   {
+    "description": "Pre-trend equivalence tests (Liu, Wang & Xu 2024, the fect diagnostic panel). Reverses the usual null: instead of testing whether pre-period effects are zero, tests whether they are demonstrably *small*. Failing to reject 'no pre-trend' is often just low power (Roth 2022), so the conventional test alone overstates the evidence for parallel trends. Reports the joint F test alongside its non-central-F and TOST equivalence counterparts, where a *small* p-value is the reassuring outcome. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: the TOST is computed only when tost_threshold is supplied; there is no universal outcome-scale default, so it is not invented.",
+    "name": "pretrends_equivalence",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "f_threshold": {
+          "default": 0.6,
+          "description": "Dimensionless effect-size bound for the F equivalence test (fect's default)",
+          "type": "number"
+        },
+        "result": {
+          "description": "DiD result carrying an event study and influence functions (e.g. sp.callaway_santanna)",
+          "type": "string"
+        },
+        "tost_threshold": {
+          "description": "Equivalence bound in outcome units. Omitted by default because there is no defensible universal scale for 'negligible pre-trend'; the TOST is skipped when it is not supplied. fect uses 0.36 * residual SD.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference.",
     "name": "pretrends_test",
     "parameters": {

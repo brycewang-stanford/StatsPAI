@@ -355,7 +355,7 @@ All notable changes to StatsPAI will be documented in this file.
 - **⚠️ The R backend was itself being fed `diag(se²)`.**
   `sp.honest_did(backend='r')` built its own diagonal covariance from the
   reported SEs, discarding the cross-period covariance — so the
-  "publication-grade" path was solving a different problem from the one
+  reference-backed path was solving a different problem from the one
   Rambachan-Roth define, and the two backends could not be compared. Both
   now receive the full event-study covariance, recovered from the
   Callaway-Sant'Anna influence functions as `W (Ψ'Ψ/n²) W'`. With matched
@@ -408,7 +408,7 @@ All notable changes to StatsPAI will be documented in this file.
   0.051 at M=0; 0.086 vs 0.097 at M=0.02), with the gap widening in M.
   Narrower means it *overstates* robustness to parallel-trends
   violations, so this is now a loud `UserWarning` pointing at
-  `backend='r'` for publication-grade intervals, rather than a docstring
+  `backend='r'` for reference-backed intervals, rather than a docstring
   footnote. No numerical output changed. Implementing a native FLCI
   remains open. New guard:
   `tests/reference_parity/test_honest_did_backend_parity.py`.
