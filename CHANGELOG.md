@@ -49,6 +49,34 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.ltmle` standard errors were 250–400× too small: the efficient
+  influence curve was missing its martingale term.** The LTMLE influence
+  curve is `Σ_k H_k (Q*_{k+1} − Q*_k) + (Q*_1 − ψ)`. Only the second
+  term was computed, so the reported SE was the dispersion of a *fitted
+  conditional mean* rather than the sampling variability of the
+  estimator. On a two-period DGP with a known ATE the reported SE came
+  out 0.00024 against a Monte-Carlo standard deviation of 0.059 at
+  n = 500 — a factor of 250 — and the gap widened with n (353× at
+  n = 2000, 405× at n = 8000) because the quantity was not even
+  converging at the √n rate. **Every confidence interval, p-value and
+  `.summary()` significance mark `sp.ltmle` produced was meaningless**;
+  the point estimate was unaffected. The martingale sum is now
+  accumulated across time points, giving SE/Monte-Carlo ratios of
+  1.03–1.04 and a stable `se·√n`. Because the module targets with a
+  one-step rather than a fully iterated fluctuation, the term is near
+  zero but not identically so, leaving the SE mildly anti-conservative:
+  measured over 200 replications it is ~13% below the Monte-Carlo
+  standard deviation at n = 1000 (coverage 0.905) and ~7% below at
+  n = 4000 (coverage 0.930). Those figures, and the remaining gap, are
+  now stated in the function's Notes rather than described only as a
+  qualitative caveat. New guards:
+  `tests/reference_parity/test_ml_causal_recovery_parity_round2.py`
+  compares the reported SE against the estimator's Monte-Carlo
+  dispersion and checks that `se·√n` is stable across n — the only kind
+  of test that catches a missing influence-curve term, since no
+  single-fit assertion can see it.
+  See [MIGRATION](MIGRATION.md#ltmle-influence-curve-martingale-term).
+
 - **`sp.gmm(se='unadjusted')` silently understated the variance under any
   inefficient weight.** `(D'WD)⁻¹/n` is the variance of the GMM estimator
   *only* when `W` is the efficient weight `S⁻¹`; under any other weight —

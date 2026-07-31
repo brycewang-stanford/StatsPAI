@@ -5,6 +5,44 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="ltmle-influence-curve-martingale-term"></a>
+
+## Unreleased — ⚠️ `sp.ltmle` standard errors were 250–400× too small
+
+**What changed.** The efficient influence curve for LTMLE is
+
+    sum_k H_k (Q*_{k+1} - Q*_k)  +  (Q*_1 - psi)
+
+Only the second term was being computed. What the function reported as a
+standard error was therefore the dispersion of a fitted conditional mean, not
+the sampling variability of the estimator. The martingale sum is now
+accumulated across time points.
+
+**Effect.** Point estimates are **unchanged**. Standard errors, confidence
+intervals, p-values and any significance marks in `.summary()` all change, and
+the old ones were not usable: on a two-period DGP with a known ATE the
+reported SE was 0.00024 where the estimator's actual Monte-Carlo standard
+deviation was 0.059 (n = 500). The discrepancy grew with sample size — 353× at
+n = 2000, 405× at n = 8000 — because the reported quantity was not converging
+at the √n rate at all.
+
+**What to do.** Re-run anything that used `sp.ltmle` for inference. Any
+conclusion that rested on an `sp.ltmle` confidence interval or p-value should
+be treated as unsupported until recomputed; intervals will be roughly two
+orders of magnitude wider.
+
+**Remaining limitation, now quantified.** The module targets with a one-step
+fluctuation rather than iterating to convergence, so the martingale sum is
+near zero but not identically zero and the SE stays mildly anti-conservative.
+Over 200 replications it runs ~13% below the Monte-Carlo standard deviation at
+n = 1000 (nominal-95% coverage 0.905) and ~7% below at n = 4000 (coverage
+0.930). This is stated with those numbers in the function's Notes. For
+inference needing honest coverage with flexible ML nuisances, a full
+CV-LTMLE / iterated-targeting path is still the right tool and is tracked as a
+follow-up.
+
+---
+
 <a id="gmm-unadjusted-variance-and-conventions"></a>
 
 ## Unreleased — ⚠️ `sp.gmm` variance, closed form, and HAC conventions
