@@ -918,7 +918,8 @@
         "tests/reference_parity/test_cs_inference_parity.py",
         "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_fect_equivalence_parity.py",
-        "tests/reference_parity/test_honest_did_backend_parity.py"
+        "tests/reference_parity/test_honest_did_backend_parity.py",
+        "tests/reference_parity/test_staggered_rollout_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -7973,6 +7974,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_stabilized_weights_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "staggered_rollout",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_staggered_rollout_parity.py"
       ],
       "tolerance": ""
     },
