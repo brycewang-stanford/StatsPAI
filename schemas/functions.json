@@ -12799,7 +12799,7 @@
         },
         "backend": {
           "default": "native",
-          "description": "``'native'`` uses StatsPAI's dependency-light **worst-case-bias**",
+          "description": "``'native'`` solves the problem in Python. For ``method='smoothness'`` it computes the true Rambachan-Roth **fixed-length confidence interval**: the optimal affine estimator under ``Delta^SD(M)``, obtained from a convex program over the event-study covariance. On canonical ``did::mpdta`` it agrees with R ``HonestDiD`` to ~7e-5 on the interval width, the residual being ``HonestDiD``'s own Monte-Carlo folded-normal quantile. This needs the joint event-study covariance, which is recovered from a Callaway-Sant'Anna fit's influence functions; if it is unavailable the function falls back to a worst-case-bias interval and warns. For ``method='relative_magnitude'`` the native path is still the worst-case-bias approximation ``theta +/- M*max|delta_pre| +/- z*SE``. It tracks the reference closely but is not exact, and it warns. ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package through ``Rscript``. It is handed the same full covariance when one is recoverable; only when it is not does it fall back to ``diag(se2)``, which discards the (large, positive) cross-period covariance and materially changes the confidence set.",
           "enum": [
             "native",
             "honestdid",

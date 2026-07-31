@@ -4,13 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.did import (
-    aggte,
-    breakdown_m,
-    callaway_santanna,
-    honest_did,
-    sun_abraham,
-)
+from statspai.did import aggte, breakdown_m, callaway_santanna, honest_did, sun_abraham
 
 
 @pytest.fixture(scope="module")
@@ -50,17 +44,22 @@ def test_honest_did_legacy_still_works(cs_result):
     assert s["rejects_zero"].iloc[0]  # M=0 rejects zero
 
 
-def test_legacy_and_aggte_agree_at_point_estimate(cs_result):
-    """With M=0 both paths reduce to the pointwise CI; differ only by
-    bootstrap vs analytic SE."""
+def test_legacy_and_aggte_paths_both_produce_intervals(cs_result):
+    """Both entry points yield usable sensitivity tables.
+
+    They do *not* share a midpoint: the CS result carries influence functions,
+    so it gets the true FLCI whose centre is the optimal affine estimator
+    (which extrapolates the pre-trend); an aggte result without them falls back
+    to the worst-case-bias interval centred on theta_hat.  Asserting equality
+    here would be asserting that the FLCI was never implemented.
+    """
     s_cs = honest_did(cs_result, e=1)
     es = aggte(cs_result, type="dynamic", random_state=0, n_boot=500)
     s_es = honest_did(es, e=1)
 
-    # M=0 row's midpoint = theta_hat in both cases.
-    mid_cs = 0.5 * (s_cs["ci_lower"].iloc[0] + s_cs["ci_upper"].iloc[0])
-    mid_es = 0.5 * (s_es["ci_lower"].iloc[0] + s_es["ci_upper"].iloc[0])
-    assert mid_cs == pytest.approx(mid_es, rel=1e-6, abs=1e-6)
+    for tbl in (s_cs, s_es):
+        assert len(tbl) > 0
+        assert (tbl["ci_upper"] >= tbl["ci_lower"]).all()
 
 
 def test_honest_did_missing_event_study_raises():

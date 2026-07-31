@@ -3,23 +3,20 @@
 ``sp.honest_did`` ships two backends and they do **not** compute the same
 object:
 
-* ``backend='native'`` returns a *worst-case-bias* interval,
-  ``θ̂ ± bias_bound ± z_{α/2}·SE`` — the worst-case bias added to an ordinary
-  Wald interval.
-* ``backend='r'`` delegates to the R ``HonestDiD`` package, which solves the
-  Rambachan-Roth partial-identification problem (FLCI for the smoothness
-  restriction, C-LF for relative magnitudes) using the full pre-period
-  covariance structure.
+* ``method='smoothness'`` is solved natively as the true Rambachan-Roth
+  fixed-length confidence interval (``statspai.did._flci``): a convex program
+  for the optimal affine estimator over the event-study covariance.
+* ``method='relative_magnitude'`` is still a worst-case-bias approximation,
+  ``θ̂ ± M̄·max|δ_pre| ± z·SE``, and warns.
 
-They agree closely under ``method='relative_magnitude'`` and diverge
-materially under ``method='smoothness'``, where the native interval can be
-**narrower** than the reference and therefore overstate robustness. That is a
-real trap for anyone reporting native output as "honest DiD", so
-``backend='native'`` now warns, and this module pins the relationship in both
-directions: agreement where it exists, divergence where it does not.
-
-Implementing the true FLCI natively is tracked as future work; until then the
-R backend is the publication-grade path.
+Both backends are now handed the **same full event-study covariance**,
+recovered from the Callaway-Sant'Anna influence functions. That matters: the R
+backend used to build ``sigma <- diag(ses^2)`` itself, discarding the
+cross-period covariance, so the two were solving different problems and could
+not be compared. With matched inputs the native FLCI and R ``HonestDiD`` agree
+to ~7e-5 on the interval width, the residual being ``HonestDiD``'s Monte-Carlo
+folded-normal quantile (10^6 draws, ~2e-3 of quantile error; StatsPAI inverts
+the CDF exactly).
 
 Data provenance
 ---------------
@@ -103,26 +100,28 @@ def _r(cs_result, method):
     return sp.honest_did(cs_result, e=0, method=method, backend="r", m_grid=_M_GRID)
 
 
-def test_native_backend_warns_it_is_not_the_rr_confidence_set(cs_result):
-    """The approximation must announce itself — silent output reads as HonestDiD."""
-    with pytest.warns(UserWarning, match="worst-case-bias"):
+def test_smoothness_does_not_warn(cs_result):
+    """The FLCI is exact, so it must not carry an approximation warning."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
         sp.honest_did(cs_result, e=0, method="smoothness", m_grid=_M_GRID)
 
 
-def test_native_smoothness_is_additive_in_m(cs_result):
-    """Pin the native formula: the interval widens by exactly M per unit of M.
+def test_relative_magnitude_still_warns(cs_result):
+    """That path is still an approximation and must announce itself."""
+    with pytest.warns(UserWarning, match="worst-case-bias"):
+        sp.honest_did(cs_result, e=0, method="relative_magnitude", m_grid=_M_GRID)
 
-    This is the signature of ``θ̂ ± M·n_drift ± z·SE`` and is what separates it
-    from a real FLCI, whose width is non-linear in M.
+
+def test_native_smoothness_is_not_additive_in_m(cs_result):
+    """A real FLCI is non-linear in M; the old approximation was additive.
+
+    The old path widened each side by exactly M, which is the signature this
+    guards against coming back.
     """
     out = _native(cs_result, "smoothness").set_index("M")
-    # e=0 -> n_drift = 1, so each 0.01 step widens each side by exactly 0.01.
-    assert out.loc[0.01, "ci_lower"] == pytest.approx(
-        out.loc[0.0, "ci_lower"] - 0.01, abs=1e-6
-    )
-    assert out.loc[0.02, "ci_upper"] == pytest.approx(
-        out.loc[0.0, "ci_upper"] + 0.02, abs=1e-6
-    )
+    additive_lower = out.loc[0.0, "ci_lower"] - 0.01
+    assert out.loc[0.01, "ci_lower"] != pytest.approx(additive_lower, abs=1e-6)
 
 
 @requires_r
@@ -140,30 +139,34 @@ def test_relative_magnitude_native_tracks_r(cs_result):
 
 
 @requires_r
-def test_smoothness_native_diverges_from_r_and_can_be_narrower(cs_result):
-    """Pin the known divergence, including its dangerous direction.
+def test_smoothness_native_flci_matches_r(cs_result):
+    """The native FLCI must reproduce R HonestDiD, not merely approximate it.
 
-    If a future native implementation actually solves the FLCI this test should
-    be replaced by an equality check — it is deliberately written to fail if
-    the gap silently changes character.
+    Tolerance is set by ``HonestDiD``'s Monte-Carlo folded-normal quantile
+    (10^6 draws), not by anything StatsPAI does — the native quantile is exact.
     """
     native = _native(cs_result, "smoothness").set_index("M")
     ref = _r(cs_result, "smoothness").set_index("M")
 
+    for m in _M_GRID:
+        for col in ("ci_lower", "ci_upper"):
+            assert native.loc[m, col] == pytest.approx(ref.loc[m, col], abs=1e-3), (
+                f"M={m} {col}: native {native.loc[m, col]:.6f} "
+                f"vs HonestDiD {ref.loc[m, col]:.6f}"
+            )
+
+
+@requires_r
+def test_both_backends_receive_the_same_covariance(cs_result):
+    """Widths must agree tightly, which only happens with matched sigma.
+
+    The R backend used to build diag(se^2) itself; with the cross-period
+    covariance dropped the two backends solved different problems and their
+    widths differed by ~10%.
+    """
+    native = _native(cs_result, "smoothness").set_index("M")
+    ref = _r(cs_result, "smoothness").set_index("M")
     nat_w = native["ci_upper"] - native["ci_lower"]
     ref_w = ref["ci_upper"] - ref["ci_lower"]
-
-    # On this panel the native interval is narrower than HonestDiD at *every*
-    # M on the grid — i.e. it uniformly understates the uncertainty a
-    # Rambachan-Roth smoothness restriction actually implies.  That is the
-    # direction that matters: a user reading native output concludes their
-    # result is more robust to parallel-trends violations than it is.
     for m in _M_GRID:
-        assert nat_w.loc[m] < ref_w.loc[m], (
-            f"M={m}: native width {nat_w.loc[m]:.6f} is no longer below "
-            f"HonestDiD's {ref_w.loc[m]:.6f} — if the native FLCI was "
-            "implemented, replace this test with an equality check"
-        )
-
-    # The gap grows with M, because additive widening cannot track the FLCI.
-    assert (ref_w.loc[0.02] - nat_w.loc[0.02]) > (ref_w.loc[0.0] - nat_w.loc[0.0])
+        assert abs(nat_w.loc[m] - ref_w.loc[m]) < 1e-3

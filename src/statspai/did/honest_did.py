@@ -36,9 +36,9 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ._flci import event_study_moments, flci_delta_sd
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ._flci import event_study_moments, flci_delta_sd
 
 
 def _require_string(value: Any, *, argument: str) -> str:
@@ -147,25 +147,28 @@ def honest_did(
     alpha : float, default 0.05
         Significance level.
     backend : {'native', 'honestdid', 'r'}, default 'native'
-        ``'native'`` uses StatsPAI's dependency-light **worst-case-bias**
-        intervals: ``θ̂ ± bias_bound ± z_{α/2}·SE``. This is *not* the
-        Rambachan-Roth fixed-length confidence interval (FLCI) or their
-        ARP conditional/hybrid confidence set — it adds the worst-case
-        bias to an ordinary Wald interval rather than solving the
-        partial-identification problem, and it ignores the pre-period
-        covariance structure. The two agree closely for
-        ``method='relative_magnitude'`` but diverge materially for
-        ``method='smoothness'``, where the native interval can be
-        **narrower** than the reference and therefore overstate
-        robustness (on canonical ``did::mpdta`` at ``M=0.02``: native
-        width 0.086 vs ``HonestDiD`` 0.097).
+        ``'native'`` solves the problem in Python.
+
+        For ``method='smoothness'`` it computes the true Rambachan-Roth
+        **fixed-length confidence interval**: the optimal affine estimator
+        under ``Δ^SD(M)``, obtained from a convex program over the
+        event-study covariance. On canonical ``did::mpdta`` it agrees with
+        R ``HonestDiD`` to ~7e-5 on the interval width, the residual being
+        ``HonestDiD``'s own Monte-Carlo folded-normal quantile. This needs
+        the joint event-study covariance, which is recovered from a
+        Callaway-Sant'Anna fit's influence functions; if it is
+        unavailable the function falls back to a worst-case-bias interval
+        and warns.
+
+        For ``method='relative_magnitude'`` the native path is still the
+        worst-case-bias approximation ``θ̂ ± M̄·max|δ_pre| ± z·SE``. It
+        tracks the reference closely but is not exact, and it warns.
 
         ``'honestdid'``/``'r'`` delegates to the R ``HonestDiD`` package
-        through ``Rscript`` and returns the reference package's
-        confidence sets. **Use the R backend for any number that goes in
-        a paper**; the native path is for exploration and for
-        environments without R. Passing ``backend='native'`` emits a
-        :class:`UserWarning` to that effect.
+        through ``Rscript``. It is handed the same full covariance when
+        one is recoverable; only when it is not does it fall back to
+        ``diag(se²)``, which discards the (large, positive) cross-period
+        covariance and materially changes the confidence set.
     honestdid_method : {'C-LF', 'Conditional', 'FLCI', 'C-F'}, optional
         Solver method passed to the R ``HonestDiD`` backend. The default
         preserves HonestDiD defaults: ``'C-LF'`` for
@@ -522,7 +525,17 @@ if (length(post_idx) != 1) {
 }
 betahat <- c(pre$att, post$att)
 ses <- c(pre$se, post$se)
-sigma <- diag(ses^2)
+# Full event-study covariance when StatsPAI could recover it from the
+# influence functions; a diagonal built from the SEs otherwise. The
+# diagonal discards the (large, positive) cross-period covariance and
+# materially changes the confidence set, so it is a fallback, not a
+# convention.
+if (length(args) >= 7 && nzchar(args[[7]]) && file.exists(args[[7]])) {
+  sigma <- as.matrix(utils::read.csv(args[[7]], header = FALSE))
+  dimnames(sigma) <- NULL
+} else {
+  sigma <- diag(ses^2)
+}
 l_vec <- rep(0, nrow(post))
 l_vec[post_idx] <- 1
 l_vec <- matrix(l_vec, ncol = 1)
@@ -565,6 +578,29 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
         script_path = tmp_path / "run_honestdid.R"
         es[["relative_time", "att", "se"]].to_csv(csv_path, index=False)
         script_path.write_text(r_code, encoding="utf-8")
+
+        # Hand R the full event-study covariance when we can recover it.
+        # Feeding HonestDiD diag(se^2) silently drops the cross-period
+        # covariance, which changes the confidence set materially.
+        sigma_path = ""
+        _moments = event_study_moments(result)
+        if _moments is not None:
+            _beta_r, _sigma_r, _times_r = _moments
+            _es_times = es["relative_time"].to_numpy()
+            if len(_times_r) == len(_es_times) and set(_times_r) == set(_es_times):
+                _order_r = np.concatenate(
+                    [
+                        np.where(_times_r < 0)[0][np.argsort(_times_r[_times_r < 0])],
+                        np.where(_times_r >= 0)[0][np.argsort(_times_r[_times_r >= 0])],
+                    ]
+                )
+                _sig_path = tmp_path / "sigma.csv"
+                np.savetxt(
+                    _sig_path,
+                    _sigma_r[np.ix_(_order_r, _order_r)],
+                    delimiter=",",
+                )
+                sigma_path = str(_sig_path)
         grid_arg = ",".join(f"{float(m):.17g}" for m in m_grid)
         method_arg = (
             "relative_magnitude"
@@ -581,6 +617,7 @@ cat(jsonlite::toJSON(out, dataframe = "rows", auto_unbox = TRUE,
                 grid_arg,
                 f"{float(e):.17g}",
                 honestdid_method_arg,
+                sigma_path,
             ],
             check=False,
             capture_output=True,

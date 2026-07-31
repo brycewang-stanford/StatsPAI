@@ -316,6 +316,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **⚠️ `sp.honest_did(method='smoothness')` now solves the real
+  Rambachan-Roth FLCI (WP-2).** The native path used to return
+  `θ̂ ± M·(e+1) ± z·SE` — a worst-case bias bolted onto a Wald interval,
+  which ignored the pre-period covariance and came out *narrower* than
+  the reference, overstating robustness. It now computes the optimal
+  fixed-length confidence interval: a convex program (linear objective,
+  linear constraints, one convex quadratic — solved with SLSQP, no new
+  dependency) for the optimal affine estimator over the event-study
+  covariance, in the new `statspai.did._flci` module.
+
+- **⚠️ The R backend was itself being fed `diag(se²)`.**
+  `sp.honest_did(backend='r')` built its own diagonal covariance from the
+  reported SEs, discarding the cross-period covariance — so the
+  "publication-grade" path was solving a different problem from the one
+  Rambachan-Roth define, and the two backends could not be compared. Both
+  now receive the full event-study covariance, recovered from the
+  Callaway-Sant'Anna influence functions as `W (Ψ'Ψ/n²) W'`. With matched
+  inputs the native FLCI and R `HonestDiD` 0.2.8 agree to **~7e-5** on the
+  interval width on canonical `did::mpdta`; the residual is `HonestDiD`'s
+  own Monte-Carlo folded-normal quantile (10⁶ draws, ~2e-3 of quantile
+  error), where StatsPAI inverts the CDF exactly.
+
+  Two consequences worth knowing: the interval is no longer centred on
+  `θ̂` (its centre is the optimal affine estimator, which extrapolates the
+  pre-trend), and `M=0` no longer reduces to the Wald interval —
+  `Δ^SD(0)` still permits an arbitrary linear pre-trend. R behaves the
+  same way. `method='relative_magnitude'` remains a worst-case-bias
+  approximation and still warns; a native ARP conditional/hybrid solver is
+  the remaining gap. New guard:
+  `tests/reference_parity/test_honest_did_backend_parity.py`.
+  See [MIGRATION](MIGRATION.md#honest-did-flci).
+
+
 - **⚠️ `sp.callaway_santanna(panel=False, estimator='reg')` with covariates
   changed estimator.** It previously residualised the outcome on the
   covariates using the never-treated pool with period fixed effects and

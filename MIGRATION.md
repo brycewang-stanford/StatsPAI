@@ -534,6 +534,36 @@ name exactly.
 
 ---
 
+<a id="honest-did-flci"></a>
+
+## Unreleased — ⚠️ `sp.honest_did(method='smoothness')` now returns the real FLCI
+
+**What changed.** The native smoothness path returned
+`θ̂ ± M·(e+1) ± z·SE`: the worst-case bias added to an ordinary Wald interval.
+That is not the Rambachan-Roth confidence set — it ignores the pre-period
+covariance and was *narrower* than the reference at every M, overstating how
+robust a result is to parallel-trends violations. It now solves the actual
+fixed-length confidence interval.
+
+Separately, `backend='r'` was building `sigma <- diag(ses^2)` before calling
+`HonestDiD`, discarding the cross-period covariance. Both backends now receive
+the full event-study covariance recovered from the influence functions.
+
+**Effect.** All `method='smoothness'` intervals move. Two changes will look
+surprising and are correct:
+
+- **The interval is no longer centred on the event-study coefficient.** Its
+  centre is the optimal affine estimator, which extrapolates the pre-trend.
+- **`M=0` no longer equals the Wald interval.** `Δ^SD(0)` still permits an
+  arbitrary *linear* pre-trend, so the M=0 FLCI prices in that extrapolation.
+  R `HonestDiD` behaves identically.
+
+**Who is affected.** Anyone reporting `sp.honest_did(method='smoothness')`.
+Re-run; the new numbers agree with R `HonestDiD` to ~7e-5 on width. If the
+event-study covariance cannot be recovered (a result carrying no influence
+functions), the old approximation is still used and now warns.
+`method='relative_magnitude'` is unchanged and still approximate.
+
 <a id="cs-rcs-reg-covariates"></a>
 
 ## Unreleased — ⚠️ `callaway_santanna(panel=False, estimator='reg', x=[...])` changed estimator

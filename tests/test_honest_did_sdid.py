@@ -2,23 +2,23 @@
 Tests for Rambachan-Roth honest DID and Synthetic DID.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.did import callaway_santanna, honest_did, breakdown_m
+from statspai.core.results import CausalResult
+from statspai.did import breakdown_m, callaway_santanna, honest_did
 from statspai.synth.sdid import (
+    california_prop99,
+    did_estimate,
+    sc_estimate,
     sdid,
     synthdid_estimate,
-    sc_estimate,
-    did_estimate,
     synthdid_placebo,
     synthdid_plot,
-    synthdid_units_plot,
     synthdid_rmse_plot,
-    california_prop99,
+    synthdid_units_plot,
 )
-from statspai.core.results import CausalResult
 
 # ======================================================================
 # Fixtures
@@ -88,15 +88,25 @@ class TestHonestDID:
         assert "ci_upper" in result.columns
         assert "rejects_zero" in result.columns
 
-    def test_m_zero_matches_original(self, staggered_panel):
-        """At M=0 (exact parallel trends), CI should match standard CI."""
+    def test_m_zero_is_the_flci_not_the_wald_interval(self, staggered_panel):
+        """At M=0 the FLCI is *not* the ordinary Wald interval.
+
+        Delta^SD(0) still permits an arbitrary *linear* pre-trend, so the M=0
+        FLCI reflects the cost of extrapolating that trend and is a genuinely
+        different (and generally shifted) interval.  R HonestDiD behaves the
+        same way.  This used to assert equality, which only held because the
+        native path was a Wald interval with a bias term bolted on.
+        """
         r = callaway_santanna(staggered_panel, y="y", g="g", t="time", i="unit")
         result = honest_did(r, e=0, m_grid=[0])
         es = r.model_info["event_study"]
         target = es[es["relative_time"] == 0].iloc[0]
-        # At M=0, honest CI = standard CI
-        assert abs(result.iloc[0]["ci_lower"] - target["ci_lower"]) < 0.01
-        assert abs(result.iloc[0]["ci_upper"] - target["ci_upper"]) < 0.01
+
+        assert result.iloc[0]["ci_upper"] > result.iloc[0]["ci_lower"]
+        # Same order of magnitude as the pointwise CI, but not identical.
+        width = result.iloc[0]["ci_upper"] - result.iloc[0]["ci_lower"]
+        pointwise = target["ci_upper"] - target["ci_lower"]
+        assert 0.2 * pointwise < width < 5.0 * pointwise
 
     def test_ci_widens_with_m(self, staggered_panel):
         """CIs should widen as M increases."""
