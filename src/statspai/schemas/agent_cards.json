@@ -14076,7 +14076,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "TMLE with Highly Adaptive Lasso (HAL) nuisance learners (Qian & van der Laan 2025). The stable 'delta' variant plugs HAL into standard TMLE. The reserved 'projection' variant raises NotImplementedError until the Riesz-projection targeting step has reference parity. Known limitations: variant='projection' raises NotImplementedError -- the Riesz-projection targeting step from Li-Qiu-Wang-vdL (2025) Section 3.2 is not yet ported (the v1.11.x code path was a no-op on the point estimate; see CHANGELOG). The implementation roadmap and parity-test gates are in docs/rfc/hal_tmle_projection.md.",
+    "description": "TMLE with Highly Adaptive Lasso (HAL) nuisance learners (Qian & van der Laan 2025). The stable 'delta' variant plugs HAL into standard TMLE. The reserved 'projection' variant raises NotImplementedError until the Riesz-projection targeting step has reference parity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: variant='projection' raises NotImplementedError -- the Riesz-projection targeting step from Li-Qiu-Wang-vdL (2025) Section 3.2 is not yet ported (the v1.11.x code path was a no-op on the point estimate; see CHANGELOG). The implementation roadmap and parity-test gates are in docs/rfc/hal_tmle_projection.md.",
     "example": "sp.hal_tmle(df, y=\"y\", treat=\"d\", covariates=[\"x1\",\"x2\",\"x3\"])",
     "failure_modes": [
       {
@@ -14098,7 +14098,7 @@
     ],
     "reference": "Li, Qiu, Wang & van der Laan (2025). arXiv:2506.17214.",
     "signature": {
-      "description": "TMLE with Highly Adaptive Lasso (HAL) nuisance learners (Qian & van der Laan 2025). The stable 'delta' variant plugs HAL into standard TMLE. The reserved 'projection' variant raises NotImplementedError until the Riesz-projection targeting step has reference parity. Known limitations: variant='projection' raises NotImplementedError -- the Riesz-projection targeting step from Li-Qiu-Wang-vdL (2025) Section 3.2 is not yet ported (the v1.11.x code path was a no-op on the point estimate; see CHANGELOG). The implementation roadmap and parity-test gates are in docs/rfc/hal_tmle_projection.md.",
+      "description": "TMLE with Highly Adaptive Lasso (HAL) nuisance learners (Qian & van der Laan 2025). The stable 'delta' variant plugs HAL into standard TMLE. The reserved 'projection' variant raises NotImplementedError until the Riesz-projection targeting step has reference parity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: variant='projection' raises NotImplementedError -- the Riesz-projection targeting step from Li-Qiu-Wang-vdL (2025) Section 3.2 is not yet ported (the v1.11.x code path was a no-op on the point estimate; see CHANGELOG). The implementation roadmap and parity-test gates are in docs/rfc/hal_tmle_projection.md.",
       "name": "hal_tmle",
       "parameters": {
         "properties": {
@@ -14181,9 +14181,10 @@
     "stability": "stable",
     "typical_n_min": 400,
     "validation_notes": [
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py",
       "API/unit contract evidence: tests/test_hal_tmle.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -29330,7 +29331,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Optuna-tuned CATE learner race -- nuisance, per-learner, or both.",
+    "description": "Optuna-tuned CATE learner race -- nuisance, per-learner, or both. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -29350,7 +29351,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Optuna-tuned CATE learner race -- nuisance, per-learner, or both.",
+      "description": "Optuna-tuned CATE learner race -- nuisance, per-learner, or both. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "auto_cate_tuned",
       "parameters": {
         "properties": {
@@ -29459,8 +29460,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -36524,7 +36527,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes.",
+    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -36544,7 +36547,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "LTMLE for a discrete-time survival outcome under dynamic regimes.",
+      "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ltmle_survival",
       "parameters": {
         "properties": {
@@ -36623,8 +36626,10 @@
     },
     "stability": "stable",
     "typical_n_min": 400,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -37552,7 +37557,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Functional doubly-robust CATE estimator.",
+    "description": "Functional doubly-robust CATE estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -37572,7 +37577,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Functional doubly-robust CATE estimator.",
+      "description": "Functional doubly-robust CATE estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "focal_cate",
       "parameters": {
         "properties": {
@@ -37619,8 +37624,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -37635,7 +37642,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Cluster-based CATE estimator.",
+    "description": "Cluster-based CATE estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -37655,7 +37662,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Cluster-based CATE estimator.",
+      "description": "Cluster-based CATE estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "cluster_cate",
       "parameters": {
         "properties": {
@@ -37705,8 +37712,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -38674,7 +38683,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Longitudinal TMLE for static regime contrasts.",
+    "description": "Longitudinal TMLE for static regime contrasts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -38693,7 +38702,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Longitudinal TMLE for static regime contrasts.",
+      "description": "Longitudinal TMLE for static regime contrasts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "ltmle",
       "parameters": {
         "properties": {
@@ -38787,8 +38796,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_ml_causal_recovery_parity_round2.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

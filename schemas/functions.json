@@ -7345,7 +7345,7 @@
     }
   },
   {
-    "description": "TMLE with Highly Adaptive Lasso (HAL) nuisance learners (Qian & van der Laan 2025). The stable 'delta' variant plugs HAL into standard TMLE. The reserved 'projection' variant raises NotImplementedError until the Riesz-projection targeting step has reference parity. Known limitations: variant='projection' raises NotImplementedError -- the Riesz-projection targeting step from Li-Qiu-Wang-vdL (2025) Section 3.2 is not yet ported (the v1.11.x code path was a no-op on the point estimate; see CHANGELOG). The implementation roadmap and parity-test gates are in docs/rfc/hal_tmle_projection.md.",
+    "description": "TMLE with Highly Adaptive Lasso (HAL) nuisance learners (Qian & van der Laan 2025). The stable 'delta' variant plugs HAL into standard TMLE. The reserved 'projection' variant raises NotImplementedError until the Riesz-projection targeting step has reference parity. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: variant='projection' raises NotImplementedError -- the Riesz-projection targeting step from Li-Qiu-Wang-vdL (2025) Section 3.2 is not yet ported (the v1.11.x code path was a no-op on the point estimate; see CHANGELOG). The implementation roadmap and parity-test gates are in docs/rfc/hal_tmle_projection.md.",
     "name": "hal_tmle",
     "parameters": {
       "properties": {
@@ -26167,7 +26167,7 @@
     }
   },
   {
-    "description": "Optuna-tuned CATE learner race -- nuisance, per-learner, or both.",
+    "description": "Optuna-tuned CATE learner race -- nuisance, per-learner, or both. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "auto_cate_tuned",
     "parameters": {
       "properties": {
@@ -50038,7 +50038,7 @@
     }
   },
   {
-    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes.",
+    "description": "LTMLE for a discrete-time survival outcome under dynamic regimes. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ltmle_survival",
     "parameters": {
       "properties": {
@@ -52147,7 +52147,7 @@
     }
   },
   {
-    "description": "Functional doubly-robust CATE estimator.",
+    "description": "Functional doubly-robust CATE estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "focal_cate",
     "parameters": {
       "properties": {
@@ -52229,7 +52229,7 @@
     }
   },
   {
-    "description": "Cluster-based CATE estimator.",
+    "description": "Cluster-based CATE estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "cluster_cate",
     "parameters": {
       "properties": {
@@ -55054,7 +55054,7 @@
     }
   },
   {
-    "description": "Longitudinal TMLE for static regime contrasts.",
+    "description": "Longitudinal TMLE for static regime contrasts. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "ltmle",
     "parameters": {
       "properties": {
