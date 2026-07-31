@@ -557,7 +557,7 @@
     "name": "augsynth"
   },
   {
-    "description": "Race several meta-learners and return a scored leaderboard + winner. Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
+    "description": "Race several meta-learners and return a scored leaderboard + winner. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -2440,7 +2440,7 @@
     "name": "california_tobacco"
   },
   {
-    "description": "Staggered DID (Callaway-Sant'Anna 2021): group-time ATT with doubly-robust, IPW, or regression-adjusted estimators. Robust to heterogeneous treatment effects where TWFE fails. Requires a cohort column g (first-treatment period; 0 = never-treated). Validation: certified evidence with scoped limitations. Known limitations: panel=False (repeated cross-sections) currently requires estimator='reg' and control_group='nevertreated'; the IPW and DR variants for RCS are planned for a future release.",
+    "description": "Staggered DID (Callaway-Sant'Anna 2021): group-time ATT with doubly-robust, IPW, or regression-adjusted estimators. Robust to heterogeneous treatment effects where TWFE fails. Requires a cohort column g (first-treatment period; 0 = never-treated). Validation: certified evidence with scoped limitations. Known limitations: clustervars is not yet supported when panel=False (repeated cross-sections); observations are not nested in units there, so the cluster bootstrap needs a separate design.",
     "input_schema": {
       "properties": {
         "control_group": {
@@ -2552,7 +2552,7 @@
     "name": "cate_by_group"
   },
   {
-    "description": "Evaluate any CATE estimator via RATE / AUTOC / Qini (Yadlowsky 2025). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
+    "description": "Evaluate any CATE estimator via RATE / AUTOC / Qini (Yadlowsky 2025). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness given the covariates; Overlap / positivity across the covariate space; Nuisance functions are estimated consistently; cross-fitting controls overfitting bias. Pre-conditions: Covariates, a treatment indicator, and an outcome for each unit; Enough data to fit flexible nuisance models with sample-splitting / cross-fitting. Failure modes: CATE estimates are unstable or extrapolate beyond the covariate support -> Restrict to the overlap region, increase data, or use a doubly-robust learner (DR-/R-learner). Alternatives: sp.dml, sp.causal_forest, sp.tmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "T": {
@@ -3125,7 +3125,7 @@
     "name": "chilean_households"
   },
   {
-    "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Assumptions: Rank-invariance of untreated potential outcomes across periods; Time-invariant group-level production technology (distributional DiD); SUTVA. Pre-conditions: continuous-ish outcome with sufficient support overlap between treated and control; 2 periods, 2 groups. Failure modes: Discrete outcome with few support points -> CIC quantile transformation degenerates; use sp.qte or sp.drdid for mean effects. Alternatives: sp.qte, sp.drdid, sp.did_2x2. Typical minimum N: 200.",
+    "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Rank-invariance of untreated potential outcomes across periods; Time-invariant group-level production technology (distributional DiD); SUTVA. Pre-conditions: continuous-ish outcome with sufficient support overlap between treated and control; 2 periods, 2 groups. Failure modes: Discrete outcome with few support points -> CIC quantile transformation degenerates; use sp.qte or sp.drdid for mean effects. Alternatives: sp.qte, sp.drdid, sp.did_2x2. Typical minimum N: 200.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -6582,7 +6582,7 @@
     "name": "dml_model_averaging"
   },
   {
-    "description": "Long-panel Double/Debiased ML for static panel models with fixed effects (Clarke & Polselli 2025, simplified). Absorbs unit (and optional time) fixed effects via within-transform, cross-fits ML nuisance learners with folds that split units, and reports cluster-robust SE at the unit level. PLR moment (continuous or binary treatment). Assumptions: Conditional unconfoundedness within unit: E[epsilon_it | X_it, alpha_i, lambda_t] = 0; Strict exogeneity conditional on covariates (weaker than standard FE); Nuisance learners converge fast enough (op(n^{-1/4})) after within-transform. Pre-conditions: long panel: at least unit and outcome columns; include_time_fe=True needs time column; enough units (clusters) for cluster-robust SE -- >= 30 ideally; enough periods per unit for within-transform to leave variation in the treatment. Failure modes: Few units (< 30) -- cluster-robust SE under-coverage -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 jackknife; Within-unit variation in treatment is near zero -> Unit FE absorbs almost all treatment variation -- switch to between estimator or cross-section; Nuisance cross-val R2 near zero on demeaned outcomes -> ML nuisances not le...",
+    "description": "Long-panel Double/Debiased ML for static panel models with fixed effects (Clarke & Polselli 2025, simplified). Absorbs unit (and optional time) fixed effects via within-transform, cross-fits ML nuisance learners with folds that split units, and reports cluster-robust SE at the unit level. PLR moment (continuous or binary treatment). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional unconfoundedness within unit: E[epsilon_it | X_it, alpha_i, lambda_t] = 0; Strict exogeneity conditional on covariates (weaker than standard FE); Nuisance learners converge fast enough (op(n^{-1/4})) after within-transform. Pre-conditions: long panel: at least unit and outcome columns; include_time_fe=True needs time column; enough units (clusters) for cluster-robust SE -- >= 30 ideally; enough periods per unit for within-transform to leave variation in the treatment. Failure modes: Few units (< 30) -- cluster-robust SE under-coverage -> Use wild cluster bootstrap (sp.wild_cluster_bootstrap) or CR3 jackknife; Within-unit variation in treatment is near zero -> Unit FE absorbs almost all treatment variation -- switch to between...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12147,7 +12147,7 @@
     "name": "marginsplot"
   },
   {
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; matching with replacement resolves ties by taking the first nearest control only, whereas Matching::Match(ties=TRUE) averages over all tied controls, so with-replacement point estimates can differ from that reference. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support: treated X-values are in the control X-support; SUTVA: no interference between matched units. Pre-conditions: binary treat...",
+    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; bias_correction=True follows a different convention from Matching::Match's BiasAdjust: StatsPAI regresses on the full covariate vector with unweighted OLS over all controls, the reference regresses on the matching variables weighted by match counts, so bias-corrected estimates can differ from it by about 0.1%. The uncorrected estimate and its Abadie-Imbens standard error are exact. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CI...",
     "input_schema": {
       "properties": {
         "caliper_scale": {
@@ -12200,6 +12200,32 @@
         },
         "outcome": {
           "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        },
+        "se_method": {
+          "default": "auto",
+          "description": "Standard error. 'abadie_imbens' is the sample-ATT conditional variance (Stata psmatch2 ai()); 'abadie_imbens_pop' is the population-ATT variance Matching::Match reports; 'psmatch2' the analytic Stata SE; 'ai' the simple matched-pair SE.",
+          "enum": [
+            "auto",
+            "ai",
+            "psmatch2",
+            "abadie_imbens",
+            "abadie_imbens_pop"
+          ],
+          "type": "string"
+        },
+        "tie_tolerance": {
+          "default": 0.0,
+          "description": "With ties='all', how close squared distances (scaled by the variance of the distance measure) must be to count as tied. 1e-5 reproduces Matching::Match's distance.tolerance default.",
+          "type": "number"
+        },
+        "ties": {
+          "default": "first",
+          "description": "How equidistant controls are handled under matching with replacement. 'first' keeps the lowest-index one; 'all' pools them and splits the weight (the Matching::Match convention, which removes the row-order dependence).",
+          "enum": [
+            "first",
+            "all"
+          ],
           "type": "string"
         },
         "treatment": {
@@ -13401,7 +13427,7 @@
     "name": "mlogit"
   },
   {
-    "description": "Model-averaging / stacking DML-PLR estimator.",
+    "description": "Model-averaging / stacking DML-PLR estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -16663,7 +16689,7 @@
     "name": "qte"
   },
   {
-    "description": "High-dimensional panel QTE via LASSO-selected controls. Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
+    "description": "Panel quantile treatment effects with high-dimensional controls. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -16672,19 +16698,38 @@
           "type": "number"
         },
         "covariates": {
-          "description": "High-dim candidate control set.",
+          "description": "Candidate control set; narrowed by double-selection LASSO.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "lasso_alpha": {
-          "default": 0.01,
-          "description": "lasso_alpha parameter (float).",
+          "description": "Penalty on standardised covariates. ``None`` uses the Belloni-Chernozhukov-Hansen plug-in penalty.",
           "type": "number"
         },
+        "method": {
+          "default": "canay",
+          "description": "See the module docstring. ``'canay'`` assumes the individual effect is a pure location shift and needs a reasonably long panel.",
+          "enum": [
+            "canay",
+            "dummy_fe",
+            "pooled"
+          ],
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer"
+        },
         "quantiles": {
-          "description": "Defaults to (0.1, 0.25, 0.5, 0.75, 0.9).",
+          "description": "Defaults to ``(0.1, 0.25, 0.5, 0.75, 0.9)``.",
+          "type": "string"
+        },
+        "se": {
+          "default": "bootstrap",
+          "description": "``'bootstrap'`` resamples **units**, preserving within-unit dependence. There is no analytic option: Canay's two-step variance depends on the first step, and a naive quantile-regression SE would understate it.",
           "type": "string"
         },
         "seed": {
@@ -20368,10 +20413,12 @@
         },
         "tolerance_scale": {
           "default": "sd",
-          "description": "Whether ``delta`` is in SD units (standard) or raw units.",
+          "description": "Standard deviation ``delta`` is quoted in. ``'sd'`` is the full-sample sd; ``'target'`` the sd of the group being matched to and ``'group'`` the sd of the group being reweighted, matching ``sbw::sbw``'s ``bal_std=\"target\"`` / ``\"group\"``; ``'raw'`` is unstandardised.",
           "enum": [
             "sd",
-            "raw"
+            "raw",
+            "target",
+            "group"
           ],
           "type": "string"
         },
@@ -21894,7 +21941,7 @@
     "name": "sun_abraham"
   },
   {
-    "description": "Fit a Super Learner ensemble. Assumptions: Unconfoundedness (sequential exchangeability for longitudinal/LTMLE); Positivity / overlap of treatment given history; At least one nuisance (outcome or treatment) is estimated consistently; the targeting step gives double robustness. Pre-conditions: Covariates, treatment, and outcome (for survival/longitudinal variants: time-to-event and time-varying covariates); Enough data to fit a Super Learner / HAL nuisance library. Failure modes: Near-positivity violations create extreme clever-covariate weights -> Truncate weights, restrict the estimand, or report a positivity diagnostic. Alternatives: sp.dml, sp.ipw, sp.g_computation. Typical minimum N: 400.",
+    "description": "Fit a Super Learner ensemble. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness (sequential exchangeability for longitudinal/LTMLE); Positivity / overlap of treatment given history; At least one nuisance (outcome or treatment) is estimated consistently; the targeting step gives double robustness. Pre-conditions: Covariates, treatment, and outcome (for survival/longitudinal variants: time-to-event and time-varying covariates); Enough data to fit a Super Learner / HAL nuisance library. Failure modes: Near-positivity violations create extreme clever-covariate weights -> Truncate weights, restrict the estimand, or report a positivity diagnostic. Alternatives: sp.dml, sp.ipw, sp.g_computation. Typical minimum N: 400.",
     "input_schema": {
       "properties": {
         "X": {
@@ -23356,7 +23403,7 @@
     "name": "three_sls"
   },
   {
-    "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1 on the estimand support; Consistent estimation of at least one of Q(a, x) = E[Y|A, X] or g(x) = P(A=1|X) (double robustness). Pre-conditions: binary treatment 0/1; covariates comprise the confounding set; n >= 500 for asymptotic efficiency. Failure modes: Extreme propensity scores (ATE IF denominator ~ 0) -> Bound propensity scores away from 0/1 (e.g. 0.025 / 0.975) or trim; Super-learner cross-validated risk not improving over baseline -> Nuisances not learnable; widen the candidate library or use stronger base learners. Alternatives: sp.dml, sp.aipw, sp.metalearner, sp.ltmle. Typical minimum N: 500.",
+    "description": "Targeted Maximum Likelihood Estimation for ATE/ATT with double-robustness. Validation: certified parity evidence. Assumptions: Unconfoundedness: Y(d) perp D | X; Overlap: 0 < P(D=1 | X) < 1 on the estimand support; Consistent estimation of at least one of Q(a, x) = E[Y|A, X] or g(x) = P(A=1|X) (double robustness). Pre-conditions: binary treatment 0/1; covariates comprise the confounding set; n >= 500 for asymptotic efficiency. Failure modes: Extreme propensity scores (ATE IF denominator ~ 0) -> Bound propensity scores away from 0/1 (e.g. 0.025 / 0.975) or trim; Super-learner cross-validated risk not improving over baseline -> Nuisances not learnable; widen the candidate library or use stronger base learners. Alternatives: sp.dml, sp.aipw, sp.metalearner, sp.ltmle. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "covariates": {
@@ -24272,7 +24319,7 @@
     "name": "wooldridge_did"
   },
   {
-    "description": "X-Learner CATE -- article alias for :func:`metalearner(learner='x')`.",
+    "description": "X-Learner CATE -- article alias for :func:`metalearner(learner='x')`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "X": {
@@ -24304,6 +24351,18 @@
     "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence. Assumptions: No second-order serial correlation in differenced errors; Internal instruments are valid and not too numerous. Pre-conditions: Panel data include unit, time, outcome, and lagged dependent variable structure; Number of time periods is moderate relative to units. Failure modes: Instrument proliferation or AR(2) test rejects -> Collapse instruments, reduce lag depth, or compare with fixed-effects estimates. Alternatives: sp.panel, sp.feols. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
+        "collapse": {
+          "default": false,
+          "description": "Collapse instruments (Roodman 2009) to curb proliferation",
+          "type": "boolean"
+        },
+        "endogenous": {
+          "description": "Endogenous regressors (own lags 2+ as instruments)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "id": {
           "default": "id",
           "description": "Unit identifier",
@@ -24316,17 +24375,35 @@
         },
         "method": {
           "default": "difference",
-          "description": "difference or system",
+          "description": "difference (Arellano-Bond), system (Blundell-Bond) or ah (Anderson-Hsiao IV)",
           "enum": [
             "difference",
-            "system"
+            "system",
+            "ah"
           ],
           "type": "string"
+        },
+        "orthogonal": {
+          "default": false,
+          "description": "Forward orthogonal deviations instead of first differences",
+          "type": "boolean"
+        },
+        "predetermined": {
+          "description": "Predetermined regressors (own lags 1+ as instruments)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "time": {
           "default": "time",
           "description": "Time column",
           "type": "string"
+        },
+        "time_dummies": {
+          "default": false,
+          "description": "Add period dummies as regressors and instruments",
+          "type": "boolean"
         },
         "twostep": {
           "default": false,
@@ -24399,6 +24476,73 @@
       "type": "object"
     },
     "name": "xtdpdsys"
+  },
+  {
+    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level.",
+          "type": "number"
+        },
+        "bias_order": {
+          "default": 2,
+          "description": "How many terms of the Bun-Kiviet expansion to subtract: ``O(1/T)``, ``O(1/NT)``, or ``O(1/NT^2)``. Bun & Kiviet (2003) find diminishing returns beyond the second.",
+          "enum": [
+            "1",
+            "2",
+            "3"
+          ],
+          "type": "integer"
+        },
+        "bootstrap": {
+          "default": 0,
+          "description": "Number of parametric-bootstrap replications for the standard errors. **The reported analytic standard errors are the LSDV ones and do not account for the bias correction**, exactly as in Stata's ``xtlsdvc``; set this to get honest ones. 0 skips the bootstrap and warns.",
+          "type": "integer"
+        },
+        "id": {
+          "default": "id",
+          "description": "Unit and period identifiers.",
+          "type": "string"
+        },
+        "initial": {
+          "default": "ab",
+          "description": "Consistent estimator used to evaluate the bias expression: Arellano-Bond, Anderson-Hsiao, or Blundell-Bond system GMM. The correction is only as good as this input, and the three can disagree materially on a persistent series -- ``'bb'`` is the safer choice there, for the same reason system GMM is.",
+          "enum": [
+            "ab",
+            "ah",
+            "bb"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed for the bootstrap.",
+          "type": "integer"
+        },
+        "time": {
+          "default": "time",
+          "description": "Unit and period identifiers.",
+          "type": "string"
+        },
+        "x": {
+          "description": "Strictly exogenous regressors. Accepts the same lag-operator syntax",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable. Its first lag is added automatically -- do **not** pass a hand-built lag in ``x``.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtlsdvc"
   },
   {
     "description": "Fit panel negative-binomial regression. Use model='fe' for explicit entity fixed effects via nbreg, or model='re' for a random-intercept NB-2 GLMM via menbreg. Do not use feols for negative-binomial outcomes.",

@@ -34,7 +34,7 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (71 materialized StatsPAI--R rows)
+## Modules (72 materialized StatsPAI--R rows)
 
 Module `50_xtabond` is now materialized on the R side through
 `plm::pgmm`, so all modules 01--64 have committed StatsPAI--R rows.
@@ -131,6 +131,7 @@ a shared explicit fold partition.
 | 68 | Within transformation | `sp.demean` | textbook mean-within (algorithmic) |
 | 69 | Panel balance filter | `sp.balance_panel` | base R counts == n_periods |
 | 70 | Policy tree (exact, depth 1--2) | `sp.policy_tree` | `policytree::policy_tree` |
+| 72 | TMLE (targeting step) | `sp.tmle(fluctuation="per_arm")` | `tmle::tmle` |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running
@@ -210,7 +211,7 @@ CRAN: `AER`, `fixest`, `did`, `HonestDiD`, `Synth`, `rdrobust`,
 `lme4`, `oaxaca`, `sfaR`, `frontier`, `etwfe`, `gsynth`,
 `ddecompose`, `dineq`, `vars`, `lpirfs`, `mediation`,
 `survival`, `plm`, `Matching`, `DRDID`, `forecast`, `quantreg`,
-`censReg`, `MASS`, `sampleSelection`, `nnet`, `lmtest`, `policytree`.
+`censReg`, `MASS`, `sampleSelection`, `nnet`, `lmtest`, `policytree`, `tmle`.
 
 Module 71 additionally uses `mlr3` / `mlr3learners` (already required by
 module 08) for the `regr.lm` and `classif.log_reg` nuisance learners.

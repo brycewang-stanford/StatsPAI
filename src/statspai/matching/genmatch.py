@@ -1,16 +1,24 @@
 """
 Genetic Matching (Diamond & Sekhon 2013).
 
-The user-supplied generalised Mahalanobis distance is
+The generalised distance is
 
 .. math::
 
-    d_W(x_i, x_j) = (x_i - x_j)^\\top S^{-1/2}\\, W\\, S^{-1/2} (x_i - x_j),
+    d_W(x_i, x_j) = (x_i - x_j)^\\top S_d^{-1/2}\\, W\\, S_d^{-1/2} (x_i - x_j),
 
-where :math:`S` is the sample covariance of covariates and :math:`W`
-is a diagonal weight matrix found by a genetic (evolutionary) search
-that maximises the *minimum* across-covariate balance p-value
-(Kolmogorov-Smirnov + t-tests, following the `Matching` R package).
+where :math:`S_d` is the **diagonal** matrix of full-sample covariate
+variances and :math:`W` is a diagonal weight matrix found by a genetic
+(evolutionary) search that maximises the *minimum* across-covariate
+balance p-value (Kolmogorov-Smirnov + t-tests, following the `Matching`
+R package).
+
+:math:`S_d` is diagonal, not the full covariance: that is the metric
+``Matching::Match(Weight = 3, Weight.matrix = W)`` implements, and it is
+verified pair-for-pair against that function in
+``tests/reference_parity/test_matching_r_parity.py``. The genetic search
+itself is stochastic and is not reproducible across languages, so what is
+pinned is the deterministic matching kernel given a supplied ``W``.
 
 Outputs
 -------
@@ -29,7 +37,7 @@ and Statistics*, 95(3), 932-945. [@diamond2013genetic]
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Any, Sequence, Optional
+from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 import pandas as pd
@@ -105,7 +113,8 @@ def _ks_p(x_t: np.ndarray, x_c: np.ndarray, failures: Optional[list] = None) -> 
     try:
         return float(stats.ks_2samp(x_t, x_c).pvalue)
     except Exception as exc:
-        from ..exceptions import StatsPAIWarning, warn as _sp_warn
+        from ..exceptions import StatsPAIWarning
+        from ..exceptions import warn as _sp_warn
 
         _sp_warn(
             StatsPAIWarning,
@@ -121,11 +130,17 @@ def _ks_p(x_t: np.ndarray, x_c: np.ndarray, failures: Optional[list] = None) -> 
 def _match_with_weights(
     X_t: np.ndarray, X_c: np.ndarray, w: np.ndarray, k_nn: int = 1
 ) -> np.ndarray:
-    """k-NN match with weighted Mahalanobis distance."""
-    # Standardise columns (covariance-based whitening omitted for speed;
-    # we just use inverse variances as a first-order proxy).
-    mu = X_c.mean(axis=0, keepdims=True)
-    sd = X_c.std(axis=0, keepdims=True) + 1e-12
+    """k-NN match under ``d = D' S_d^{-1/2} W S_d^{-1/2} D``.
+
+    ``S_d`` is the diagonal matrix of *full-sample* covariate variances
+    (denominator ``n-1``). That is the metric ``Matching::Match(Weight = 3,
+    Weight.matrix = W)`` uses, verified pair-for-pair against it; scaling by
+    the control group's variances instead (as this did before v1.21)
+    silently changes which controls are selected.
+    """
+    X_all = np.vstack([X_t, X_c])
+    mu = X_all.mean(axis=0, keepdims=True)
+    sd = X_all.std(axis=0, ddof=1, keepdims=True) + 1e-12
     Xt = (X_t - mu) / sd
     Xc = (X_c - mu) / sd
     W = np.sqrt(np.clip(w, 0, None))

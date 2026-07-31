@@ -85,4 +85,5 @@ Module & Method & Worst headline diff & Verdict \\
 \code{69\_balance\_panel} & Panel balance filter & rel $\le 0$ {\footnotesize (sp.balance_panel vs base R counts == n_periods)} & \textbf{PASS} \\
 \code{70\_policy\_tree} & Policy tree (exact, depth 1--2) & rel $\le 9.6e-16$ {\footnotesize (shared AIPW scores; exact welfare optimum vs policytree, all 1200 per-row policy decisions identical at both depths)} & \textbf{PASS} \\
 \code{71\_dml\_family} & DML family (IRM / PLIV / IIVM) & rel $\le 9.1e-11$ {\footnotesize (shared explicit fold_id across all three DoubleML model classes; PLIV at the floating-point floor, IRM/IIVM limited by the logistic-MLE optimiser)} & \textbf{PASS} \\
+\code{72\_tmle} & TMLE (targeting step) & rel $\le 1.9e-09$ {\footnotesize (shared initial Q / g1W; per-arm fluctuation matching tmle::tmle's submodel)} & \textbf{PASS} \\
 \end{longtable}

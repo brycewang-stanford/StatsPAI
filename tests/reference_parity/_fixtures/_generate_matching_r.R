@@ -165,6 +165,64 @@ res$logit_ps <- list(
   sd_ps = sd(fitted(fit_ps))
 )
 
+## --- 7. Matching::Match — ties, AI variance, bias adjustment ---------
+# `Match` pools controls whose squared inverse-variance-weighted distance
+# is within `distance.tolerance` (1e-5) of the minimum, and reports the
+# Abadie-Imbens *population* ATT variance (Var.calc = 0, sample = FALSE).
+suppressPackageStartupMessages(library(Matching))
+for (MM in c(1L, 3L)) {
+  for (bias in c(FALSE, TRUE)) {
+    mm <- Matching::Match(Y = Y, Tr = Tr, X = df$ps, estimand = "ATT",
+                          M = MM, replace = TRUE, ties = TRUE,
+                          BiasAdjust = bias, Var.calc = 0)
+    key <- sprintf("aimatch_M%d_bias%s", MM, ifelse(bias, "T", "F"))
+    res[[key]] <- list(est = mm$est[1], se = mm$se[1],
+                       n_pair_rows = length(mm$index.treated))
+  }
+}
+
+## --- 8. sbw::sbw — both standardisation conventions -------------------
+suppressPackageStartupMessages(library(sbw))
+sbw_dat <- df[, c("treat", COV)]
+for (std in c("target", "group")) {
+  for (tol in c(0.05, 0.02)) {
+    bal <- list(bal_cov = COV, bal_alg = FALSE, bal_tol = tol, bal_std = std)
+    f <- try(sbw::sbw(dat = sbw_dat, ind = "treat", out = NULL, bal = bal,
+                      par = list(par_est = "att"),
+                      sol = list(sol_nam = "quadprog")), silent = TRUE)
+    key <- sprintf("sbw_%s_%s", std, sub("\\.", "", format(tol, nsmall = 2)))
+    if (inherits(f, "try-error")) { res[[key]] <- list(error = "solver failed"); next }
+    w <- f$dat_weights$sbw_weights[f$dat_weights$treat == 0]
+    res[[key]] <- list(
+      att = mean(Y[Tr == 1]) - sum(Y[Tr == 0] * w) / sum(w),
+      bal_tol = tol, bal_std = std
+    )
+  }
+}
+
+## --- 9. Genetic-matching kernel: supplied diagonal weight matrix ------
+# The genetic search is stochastic and not reproducible across languages;
+# what is pinned is the deterministic distance + 1-NN kernel it searches
+# over, given a fixed W. Matching's Weight = 3 metric is
+# `diag(1/var) %*% W` on the full-sample variances.
+GEN_W <- c(1, 2, 1, 3, 1, 1, 2, 1)
+mg <- Matching::Match(Y = Y, Tr = Tr, X = X, estimand = "ATT", M = 1L,
+                      replace = TRUE, ties = TRUE, Weight = 3,
+                      Weight.matrix = diag(GEN_W), Var.calc = 0)
+gp <- data.frame(it = mg$index.treated, ic = mg$index.control)
+# Keep only treated units with a unique match, so the row is about the
+# metric rather than about tie pooling.
+tab <- table(gp$it)
+uniq <- gp[gp$it %in% as.integer(names(tab)[tab == 1L]), ]
+res$genmatch_weight_matrix <- list(
+  w_diag = GEN_W,
+  est_all = mg$est[1],
+  n_pair_rows = nrow(gp),
+  n_unique_treated = nrow(uniq),
+  unique_treated = as.integer(uniq$it - 1L),
+  unique_control = as.integer(uniq$ic - 1L)
+)
+
 res$`_meta` <- list(
   generated_by = "_generate_matching_r.R",
   r_version = paste(R.version$major, R.version$minor, sep = "."),
@@ -172,7 +230,9 @@ res$`_meta` <- list(
     MatchIt = as.character(packageVersion("MatchIt")),
     CBPS = as.character(packageVersion("CBPS")),
     ebal = as.character(packageVersion("ebal")),
-    optmatch = as.character(packageVersion("optmatch"))
+    optmatch = as.character(packageVersion("optmatch")),
+    Matching = as.character(packageVersion("Matching")),
+    sbw = as.character(packageVersion("sbw"))
   )
 )
 

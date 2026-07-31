@@ -153,8 +153,12 @@ def sbw(
     objective : {'variance', 'entropy'}, default 'variance'
         Dispersion objective. ``'variance'`` minimises Σ w_i²;
         ``'entropy'`` minimises Σ w_i log(n · w_i) (KL from uniform).
-    tolerance_scale : {'sd', 'raw'}, default 'sd'
-        Whether ``delta`` is in SD units (standard) or raw units.
+    tolerance_scale : {'sd', 'raw', 'target', 'group'}, default 'sd'
+        Standard deviation ``delta`` is quoted in. ``'sd'`` is the
+        full-sample sd; ``'target'`` the sd of the group being matched to
+        and ``'group'`` the sd of the group being reweighted, matching
+        ``sbw::sbw``'s ``bal_std="target"`` / ``"group"``; ``'raw'`` is
+        unstandardised.
     include_squares : bool, default False
         Also balance second-moments (w_j² columns).
     alpha : float, default 0.05
@@ -213,7 +217,39 @@ def sbw(
     else:
         cov_names = list(covariates)
 
-    sd = X.std(axis=0, ddof=0)
+    # Which standard deviation `delta` is measured in. Not cosmetic: on
+    # MatchIt::lalonde the ATT moves by ~1% between conventions at the same
+    # nominal tolerance, so a tolerance quoted without its scale is not
+    # reproducible.
+    #
+    #   'sd'     full-sample sd, population denominator (StatsPAI legacy)
+    #   'target' sd of the group being *matched to* (treated under ATT)
+    #            -- sbw::sbw's bal_std="target"
+    #   'group'  sd of the group being *reweighted* (controls under ATT)
+    #            -- sbw::sbw's bal_std="group"
+    #   'raw'    unstandardised -- sbw::sbw's bal_std="manual"
+    if tolerance_scale not in ("sd", "raw", "target", "group"):
+        raise ValueError(
+            "tolerance_scale must be 'sd', 'raw', 'target' or 'group', "
+            f"got {tolerance_scale!r}"
+        )
+    if tolerance_scale == "raw":
+        sd = np.ones(X.shape[1], dtype=float)
+    elif tolerance_scale == "sd":
+        sd = X.std(axis=0, ddof=0)
+    else:
+        if estimand == "ate":
+            raise ValueError(
+                "tolerance_scale='target'/'group' is defined relative to a "
+                "treated-vs-control contrast and is ambiguous for "
+                "estimand='ate'; use 'sd' or 'raw'."
+            )
+        att_like = estimand == "att"
+        if tolerance_scale == "target":
+            ref = X[T == 1] if att_like else X[T == 0]
+        else:
+            ref = X[T == 0] if att_like else X[T == 1]
+        sd = ref.std(axis=0, ddof=1)
     sd = np.where(sd < 1e-12, 1.0, sd)
 
     # ── Broadcast delta ───────────────────────────────────────────────
@@ -224,7 +260,7 @@ def sbw(
         delta_vec = np.asarray(delta, dtype=float).reshape(-1)
         if delta_vec.size != X.shape[1]:
             raise ValueError(f"delta must be scalar or length {X.shape[1]}")
-    tol_vec = delta_vec * (sd if tolerance_scale == "sd" else np.ones_like(sd))
+    tol_vec = delta_vec * sd
 
     # ── Solve weights per estimand ────────────────────────────────────
     if estimand == "att":

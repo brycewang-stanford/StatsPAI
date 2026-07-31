@@ -29,6 +29,8 @@ import statspai as sp
 | $T$ large enough that instruments outnumber units | add `collapse=True` |
 | Heteroskedasticity suspected (i.e. almost always) | `twostep=True, robust=True` |
 | Anything with a time dimension shared across units | `time_dummies=True` |
+| Firms nested in industries / regions | `cluster='ind'` |
+| Sanity check that instruments aren't driving the result | `method='ah'` |
 
 A defensible default for a typical short panel:
 
@@ -178,6 +180,61 @@ lags beyond the deepest regressor lag, so
 
 ---
 
+## 5b. Beyond two steps
+
+`steps=` generalises `twostep`:
+
+| `steps` | What it does |
+| --- | --- |
+| `1`, `2` | one- and two-step (`steps=2` is exactly `twostep=True`) |
+| `3`, `4`, … | repeat the recursion — re-estimate the weight at the current residuals, re-solve |
+| `'iterated'` | run the recursion to a fixed point, where the coefficients and the weight they imply are mutually consistent |
+| `'cue'` | continuously-updated: re-evaluate the weight *inside* the objective, so the estimate never depends on preliminary residuals at all |
+
+Two-step's dependence on the first-step residuals is exactly what the
+Windmeijer correction exists to patch; iterated and CUE remove it instead.
+The price is that CUE optimises a non-convex objective numerically —
+`model_info['converged']` tells you whether it got there.
+
+On a heavily over-identified fit these can sit well away from the two-step
+estimate. That is information about the instrument set, not noise: try
+`collapse=True` and see whether they converge on each other.
+
+## 5c. Anderson–Hsiao as a robustness check
+
+```python
+sp.xtabond(df, y="n", x=["w", "k"], id="id", time="year", method="ah")
+```
+
+Anderson & Hsiao (1981) use a *single* pooled instrument for the differenced
+lagged dependent variable — `y_{t-2}` in levels, or `Δy_{t-2}` with
+`ah_instrument='differences'` — rather than the block-diagonal set. It is
+consistent but inefficient, and that is the point: with one instrument,
+instrument proliferation cannot be driving the answer. A large gap between
+`method='ah'` and `sp.xtabond`'s default is evidence about the instrument
+set rather than about the data.
+
+## 5d. Clustering
+
+```python
+sp.xtabond(df, y="n", x=["w", "k"], id="id", time="year", cluster="ind")
+```
+
+The moment conditions are summed within a unit by construction, so the
+cluster must be at least as **coarse** as the unit — industry, region,
+cohort. A finer variable raises rather than silently producing
+anti-conservative standard errors. Only the meat of the sandwich re-groups;
+the one-step weight stays a within-unit object.
+
+Two-step estimation with fewer clusters than moment conditions is refused:
+the efficient weight is the inverse of a covariance whose rank cannot exceed
+the cluster count, so the estimate would be an artefact of whichever
+generalized inverse ran. Use `collapse=True` to get the moment count under
+the cluster count, or stay with one-step (whose cluster-robust standard
+errors are valid at any cluster count).
+
+---
+
 ## 6. Reading the diagnostics
 
 ```python
@@ -200,6 +257,16 @@ mi["difference_in_hansen"]
 - A Hansen p-value of exactly 1.00, or anything above ~0.9 with a large
   instrument count, is a red flag rather than a clean bill of health.
 
+All of this is also available through the Stata-style postestimation
+surface, which formats it rather than making you read `model_info`:
+
+```python
+sp.estat(res, "abond")      # AR(1) / AR(2)
+sp.estat(res, "sargan")     # Sargan and Hansen J side by side
+sp.estat(res, "difhansen")  # difference-in-Hansen, per instrument subset
+sp.estat(res, "all")        # all three
+```
+
 ---
 
 ## 7. Known limits
@@ -210,10 +277,6 @@ mi["difference_in_hansen"]
   coefficients differ from Stata by roughly 2–6%. Both estimators remain
   consistent; only finite-sample efficiency differs. A warning fires, and
   `orthogonal=True` is the better answer on such panels anyway.
-- **Two-step AR test.** The Windmeijer correction is applied to the
-  coefficient SEs but not yet to the AR-test variance, so the two-step AR
-  $z$ differs from Stata's by ~0.1% (difference GMM). One-step AR statistics
-  are exact.
 - **Sargan scale.** StatsPAI follows `xtabond`
   ($\hat\sigma^2 = \hat e^{*\prime}\hat e^{*}/(2(N^{*}-k))$ over transformed
   rows); `xtabond2` divides by $2N^{*}$, so its Sargan sits a factor
@@ -230,9 +293,15 @@ mi["difference_in_hansen"]
 - Arellano, M. and Bover, O. (1995). Another look at the instrumental
   variable estimation of error-components models. *Journal of Econometrics*
   68(1), 29–51.
+- Anderson, T.W. and Hsiao, C. (1981). Estimation of dynamic models with
+  error components. *Journal of the American Statistical Association*
+  76(375), 598–606.
 - Blundell, R. and Bond, S. (1998). Initial conditions and moment
   restrictions in dynamic panel data models. *Journal of Econometrics*
   87(1), 115–143.
+- Hansen, L.P., Heaton, J. and Yaron, A. (1996). Finite-sample properties of
+  some alternative GMM estimators. *Journal of Business & Economic
+  Statistics* 14(3), 262–280.
 - Nickell, S. (1981). Biases in dynamic models with fixed effects.
   *Econometrica* 49(6), 1417–1426.
 - Roodman, D. (2009). How to do xtabond2: An introduction to difference and

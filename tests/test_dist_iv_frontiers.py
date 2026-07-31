@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -89,19 +91,33 @@ def test_kan_dlate(iv_data):
 
 
 def test_qte_hd_panel(panel_qte_data):
-    res = sp.qte_hd_panel(
-        panel_qte_data,
-        y="y",
-        treat="treat",
-        unit="unit",
-        time="time",
-        covariates=[f"x{i}" for i in range(5)],
-        quantiles=np.array([0.25, 0.5, 0.75]),
-    )
+    """True effect is a constant 1.0; assert recovery, not frozen digits.
+
+    The previous expectations came from the pre-1.21 within-demeaning path,
+    which is inconsistent off pure location shifts. This fixture has only
+    T = 4, so Canay's first step is noisy; the accompanying short-panel
+    warning is asserted in test_hd_panel_qte.py::test_short_panel_warns
+    (Python emits each warn() call site only once per session, so it cannot
+    be asserted in two places).
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        res = sp.qte_hd_panel(
+            panel_qte_data,
+            y="y",
+            treat="treat",
+            unit="unit",
+            time="time",
+            covariates=[f"x{i}" for i in range(5)],
+            quantiles=np.array([0.25, 0.5, 0.75]),
+            se="none",
+        )
     assert isinstance(res, sp.HDPanelQTEResult)
     assert len(res.qte) == 3
-    np.testing.assert_allclose(res.qte, [0.83499144, 1.15884398, 1.1358614], atol=5e-9)
-    np.testing.assert_allclose(res.se, [0.41172991, 0.44621274, 0.46754694], atol=5e-9)
+    # Wide band: 30 units x 4 periods is a small, short panel.
+    np.testing.assert_allclose(res.qte, 1.0, atol=0.6)
+    # SEs must be absent, not fabricated, when se='none'.
+    assert np.all(np.isnan(res.se))
 
 
 def test_beyond_average(iv_data):

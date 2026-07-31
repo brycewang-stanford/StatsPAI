@@ -1,0 +1,37 @@
+{
+  "module": "72_tmle",
+  "side": "py",
+  "rows": [
+    {
+      "module": "72_tmle",
+      "side": "py",
+      "statistic": "psi_tmle_ate",
+      "estimate": 0.2604261238572103,
+      "se": 0.029016768083249527,
+      "ci_lo": 0.2035543034662899,
+      "ci_hi": 0.31729794424813074,
+      "n": 1200,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "seed": 42,
+    "covariates": [
+      "w1",
+      "w2",
+      "w3"
+    ],
+    "outcome_type": "binary",
+    "fluctuation": "per_arm",
+    "gbound": 1e-08,
+    "epsilon": [
+      -0.008233128951368853,
+      0.014353748930566993
+    ],
+    "epsilon_basis_note": "The two engines report epsilon in different bases, so the vectors are not elementwise comparable and are deliberately not emitted as parity rows. StatsPAI fits on the columns [A/g, -(1-A)/(1-g)]; tmle::tmle fits on [(1-A)/(1-g), A/g]. The two spans -- and therefore the fluctuated Q* and psi -- are identical, which is what the psi_tmle_ate row checks; the coefficient vectors differ only by that reordering and sign flip.",
+    "nuisance": "Q(0,W) / Q(1,W) / g1W are unpenalised logistic MLEs computed once on the Python side and shipped to R in the CSV, so only the targeting step differs between engines.",
+    "single_fluctuation_psi": 0.2607657382122566,
+    "single_fluctuation_se": 0.028988666156697578,
+    "convention_note": "StatsPAI's documented default fluctuation='single' uses one clever covariate H = A/g - (1-A)/(1-g) and a scalar epsilon (van der Laan & Rubin 2006); tmle::tmle fluctuates along two per-arm covariates and reports a 2-vector epsilon. Both solve the EIF equation and are asymptotically equivalent, but differ at finite n: on this fixture psi is 0.260765738 under 'single' versus 0.260426124 under 'per_arm' (rel gap ~1.3e-3). The parity row pins 'per_arm', the convention tmle::tmle uses; the 'single' value is recorded here so the size of the gap stays visible."
+  }
+}

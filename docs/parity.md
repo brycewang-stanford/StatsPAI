@@ -25,15 +25,15 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 135 |
-| aligned | 9 |
-| analytical-only | 197 |
+| bit-exact | 136 |
+| aligned | 10 |
+| analytical-only | 204 |
 | external-replication | 7 |
-| **verified (subtotal)** | **348** |
-| unverified | 800 |
+| **verified (subtotal)** | **357** |
+| unverified | 791 |
 | **total registered** | **1148** |
 
-## bit-exact — 135 functions
+## bit-exact — 136 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -152,6 +152,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `roc_curve` | Mann-Whitney rank AUC (= pROC::auc / sklearn) | R 4.5.2 | AUC 1e-12 abs (observed 0) | — / — | [`test_auc_parity.py`](../tests/reference_parity/test_auc_parity.py) |
 | `sar` | spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE) | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 8.3e-08 / — | [`65_spatial.py`](../tests/r_parity/65_spatial.py) (+1) |
 | `sar_gmm` | spatialreg::stsls(W2X=FALSE) / spatialreg::GMerrorsar | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 4.6e-08 / — | [`66_spatial_gmm.py`](../tests/r_parity/66_spatial_gmm.py) (+1) |
+| `sbw` | sbw::sbw 1.2 (Zubizarreta 2015), quadprog solver | — | ATT rel <= 1e-8 (observed <= 4e-10) under both standardisation conventions: tolerance_scale='target' == bal_std='target' and 'group' == bal_std='group', at bal_tol 0.05 and 0.02. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `sdid` | synthdid::synthdid_estimate | R 4.5.2; synthdid 0.0.9 | rel_est<=1e-06, rel_se<=1e-06 | 2.6e-15 / 7.2e-08 | [`12_sdid.py`](../tests/r_parity/12_sdid.py) (+2) |
 | `sdm` | spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE) | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 8.3e-08 / — | [`65_spatial.py`](../tests/r_parity/65_spatial.py) (+1) |
 | `sem` | spatialreg::lagsarlm / spatialreg::errorsarlm / spatialreg::lagsarlm(Durbin=TRUE) | R 4.5.2; spatialreg 1.4.3 | rel_est<=1e-06, rel_se<=1e-06 | 8.3e-08 / — | [`65_spatial.py`](../tests/r_parity/65_spatial.py) (+1) |
@@ -167,7 +168,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `svytotal` | survey::svytotal (Horvitz-Thompson + Taylor SE) | R 4.5.2 | estimate 1e-12 rel; SE 1e-10 rel (observed ~2e-12 / 1e-14) | — / — | [`test_survey_parity.py`](../tests/reference_parity/test_survey_parity.py) (+1) |
 | `synth` | Synth::synth | R 4.5.2; Synth 1.1.10 | rel_est<=1e-06, rel_se<=1e-06 | 7.8e-08 / 7.7e-08 | [`52_scm_unique.py`](../tests/r_parity/52_scm_unique.py) (+2) |
 | `three_sls` | R systemfit::systemfit(method='3SLS') | R 4.5.2; systemfit 1.1.30 | coef 1e-9 abs (observed <= 1e-15); SE ~5e-3 rel | — / — | [`test_threesls_parity.py`](../tests/reference_parity/test_threesls_parity.py) (+1) |
-| `tmle` | base R stats::glm TMLE (van der Laan & Rubin 2006) | — | psi 1e-9 (observed 5.6e-12), EIF SE 1e-9, epsilon 1e-8 | — / — | [`test_tmle_parity.py`](../tests/reference_parity/test_tmle_parity.py) (+1) |
+| `tmle` | tmle::tmle | R 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 1.9e-09 / — | [`72_tmle.py`](../tests/r_parity/72_tmle.py) (+1) |
 | `tobit` | censReg::censReg | R 4.5.2; censReg 0.5.38 | rel_est<=1e-06, rel_se<=1e-05 | 2.8e-08 / 2.8e-08 | [`41_tobit.py`](../tests/r_parity/41_tobit.py) (+2) |
 | `truncreg` | truncreg::truncreg(method="NR") | R 4.5.2; truncreg 0.2.5 | rel_est<=1e-06, rel_se<=0.0001 | 3.3e-08 / 9.5e-08 | [`62_truncreg.py`](../tests/r_parity/62_truncreg.py) (+2) |
 | `twoway_cluster` | sandwich::vcovCL(cluster=~g1+g2) | R 4.5.2; sandwich 3.1.1 | rel_est<=1e-06, rel_se<=1e-06 | 7.8e-16 / 7.8e-16 | [`54_twoway_cluster.py`](../tests/r_parity/54_twoway_cluster.py) (+2) |
@@ -175,7 +176,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `xtabond` | plm::pgmm | R 4.5.2; plm 2.6.7 | rel_est<=1e-06, rel_se<=1e-06 | 9.0e-16 / 1.4e-15 | [`50_xtabond.py`](../tests/r_parity/50_xtabond.py) (+2) |
 | `zip_model` | pscl::zeroinfl(dist="poisson") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-06, rel_se<=0.0001 | 7.7e-08 / 1.1e-07 | [`63_zip.py`](../tests/r_parity/63_zip.py) (+2) |
 
-## aligned — 9 functions
+## aligned — 10 functions
 
 Agreement within a documented, pre-registered looser tolerance.
 
@@ -186,6 +187,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `causal_forest` | grf::causal_forest | R 4.5.2; grf 2.6.1 | rel_est<=0.01, rel_se<=0.25 | 1.9e-03 / — | [`13_causal_forest.py`](../tests/r_parity/13_causal_forest.py) (+1) |
 | `cbps` | CBPS::CBPS 0.24 (Imai & Ratkovic 2014) | — | ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the balance block by n/n_1 and stops off-stationarity; StatsPAI is asserted to attain strictly better covariate balance instead. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `cloglog` | stats::glm(binomial('cloglog')) | R 4.5.2 | coefficients 5e-5 abs (observed ~1e-5; IRLS convergence) | — / — | [`test_glm_ext_parity.py`](../tests/reference_parity/test_glm_ext_parity.py) (+1) |
+| `genmatch` | Matching::Match 4.10-15 (Weight = 3, Weight.matrix) | — | Deterministic kernel only: given the same diagonal W, the 1-NN assignment agrees with Matching::Match on all 163 uniquely matched treated units on MatchIt::lalonde. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `optimal_match` | optmatch::pairmatch 0.10.8 on a logit propensity score | — | Total matched distance <= optmatch's (1 + 1e-6). The matched pairs are not pinned: the assignment problem is degenerate on this data, so equally optimal solutions report different ATTs. | — / — | [`test_matching_r_parity.py`](../tests/reference_parity/test_matching_r_parity.py) (+1) |
 | `survreg` | survival::survreg (Weibull AFT) | R 4.5.2; survival 3.8.3 | coefficients & log-scale 5e-5 abs (observed ~1e-5) | — / — | [`test_aft_parity.py`](../tests/reference_parity/test_aft_parity.py) (+1) |
 | `xtfrontier` | frontier::sfa | R 4.5.2; frontier 1.1.8 | rel_est<=0.001, rel_se<=0.001 | 2.8e-06 / 8.6e-04 | [`29_panel_sfa.py`](../tests/r_parity/29_panel_sfa.py) (+2) |
@@ -202,10 +204,10 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `breakdown_m` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) |
 | `event_study` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
-| `metalearner` | [`test_causalml_book.py`](../tests/external_parity/test_causalml_book.py) |
+| `metalearner` | [`test_causalml_book.py`](../tests/external_parity/test_causalml_book.py) (+1) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 197 functions
+## analytical-only — 204 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -217,6 +219,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `anderson_rubin_test` | [`test_anderson_rubin_parity.py`](../tests/reference_parity/test_anderson_rubin_parity.py) |
 | `assimilative_causal` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `attrition_test` | [`test_attrition_test_parity.py`](../tests/reference_parity/test_attrition_test_parity.py) |
+| `auto_cate` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `average_treatment_effect` | [`test_forest_ate_parity.py`](../tests/reference_parity/test_forest_ate_parity.py) |
 | `bayes_iv` | [`test_bayes_diagnostics_parity.py`](../tests/reference_parity/test_bayes_diagnostics_parity.py) |
 | `bayes_rd` | [`test_bayes_diagnostics_parity.py`](../tests/reference_parity/test_bayes_diagnostics_parity.py) |
@@ -231,8 +234,10 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
 | `bvar` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
 | `calibration_test` | [`test_calibration_test_parity.py`](../tests/reference_parity/test_calibration_test_parity.py) |
+| `cate_eval` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `causal_kalman` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `causal_policy_forest` | [`test_ope_parity.py`](../tests/reference_parity/test_ope_parity.py) |
+| `cic` | [`test_qdid_parity.py`](../tests/reference_parity/test_qdid_parity.py) |
 | `clone_censor_weight` | [`test_target_trial_parity.py`](../tests/reference_parity/test_target_trial_parity.py) |
 | `cluster_cross_interference` | [`test_cluster_cross_interference_parity.py`](../tests/reference_parity/test_cluster_cross_interference_parity.py) |
 | `cluster_robust_se` | [`test_cluster_robust_se_parity.py`](../tests/reference_parity/test_cluster_robust_se_parity.py) |
@@ -249,11 +254,13 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `cuminc` | [`test_competing_risks_parity.py`](../tests/reference_parity/test_competing_risks_parity.py) |
 | `cusum_test` | [`test_cusum_test_parity.py`](../tests/reference_parity/test_cusum_test_parity.py) |
 | `demographic_parity` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
+| `describe_function` | [`test_qdid_parity.py`](../tests/reference_parity/test_qdid_parity.py) |
 | `did` | [`test_did2x2_wild_parity.py`](../tests/reference_parity/test_did2x2_wild_parity.py) |
 | `did_multiplegt` | [`test_did_multiplegt_parity.py`](../tests/reference_parity/test_did_multiplegt_parity.py) |
 | `discos` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `dist_iv` | [`test_dist_iv_parity.py`](../tests/reference_parity/test_dist_iv_parity.py) |
-| `distributional_te` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
+| `distributional_te` | [`test_distributional_te_inference.py`](../tests/reference_parity/test_distributional_te_inference.py) (+1) |
+| `dml_panel` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `dose_response` | [`test_dose_response_parity.py`](../tests/reference_parity/test_dose_response_parity.py) |
 | `effective_f_test` | [`test_anderson_rubin_parity.py`](../tests/reference_parity/test_anderson_rubin_parity.py) |
 | `engle_granger` | [`test_engle_granger_parity.py`](../tests/reference_parity/test_engle_granger_parity.py) |
@@ -274,13 +281,12 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `gardner_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) (+1) |
 | `geary` | [`test_geary_parity.py`](../tests/reference_parity/test_geary_parity.py) |
 | `general_bunching` | [`test_bunching_parity.py`](../tests/reference_parity/test_bunching_parity.py) |
-| `genmatch` | [`test_matching_recovery_parity.py`](../tests/reference_parity/test_matching_recovery_parity.py) |
 | `geolift` | [`test_geolift_parity.py`](../tests/reference_parity/test_geolift_parity.py) |
 | `ges` | [`test_ges_parity.py`](../tests/reference_parity/test_ges_parity.py) |
 | `getis_ord_local` | [`test_esda_local_parity.py`](../tests/reference_parity/test_esda_local_parity.py) |
 | `gformula_ice_fn` | [`test_gformula_family_parity.py`](../tests/reference_parity/test_gformula_family_parity.py) |
 | `gformula_mc` | [`test_gformula_family_parity.py`](../tests/reference_parity/test_gformula_family_parity.py) |
-| `gmm` | [`test_gmm_dynamic_panel_parity.py`](../tests/reference_parity/test_gmm_dynamic_panel_parity.py) |
+| `gmm` | [`test_general_gmm_parity.py`](../tests/reference_parity/test_general_gmm_parity.py) (+1) |
 | `granger_causality` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
 | `grapple` | [`test_grapple_parity.py`](../tests/reference_parity/test_grapple_parity.py) |
 | `hausman_test` | [`test_diag_recovery_parity.py`](../tests/reference_parity/test_diag_recovery_parity.py) |
@@ -319,6 +325,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `metafrontier` | [`test_frontier_efficiency_parity.py`](../tests/reference_parity/test_frontier_efficiency_parity.py) |
 | `mi_estimate` | [`test_imputation_parity.py`](../tests/reference_parity/test_imputation_parity.py) |
 | `mice` | [`test_imputation_parity.py`](../tests/reference_parity/test_imputation_parity.py) |
+| `model_averaging_dml` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `moran` | [`test_moran_parity.py`](../tests/reference_parity/test_moran_parity.py) |
 | `moran_local` | [`test_esda_local_parity.py`](../tests/reference_parity/test_esda_local_parity.py) |
 | `mr_cml` | [`test_mr_cml_parity.py`](../tests/reference_parity/test_mr_cml_parity.py) |
@@ -364,8 +371,9 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `proximal` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `proximal_surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `psmatch2` | [`test_psmatch2_parity.py`](../tests/reference_parity/test_psmatch2_parity.py) |
-| `qdid` | [`test_qte_parity.py`](../tests/reference_parity/test_qte_parity.py) |
-| `qte` | [`test_firpo_qte_parity.py`](../tests/reference_parity/test_firpo_qte_parity.py) (+1) |
+| `qdid` | [`test_qdid_parity.py`](../tests/reference_parity/test_qdid_parity.py) (+1) |
+| `qte` | [`test_firpo_qte_parity.py`](../tests/reference_parity/test_firpo_qte_parity.py) (+2) |
+| `qte_hd_panel` | [`test_hd_panel_qte.py`](../tests/reference_parity/test_hd_panel_qte.py) |
 | `rate` | [`test_forest_rate_honest_parity.py`](../tests/reference_parity/test_forest_rate_honest_parity.py) |
 | `regime` | [`test_longitudinal_parity.py`](../tests/reference_parity/test_longitudinal_parity.py) |
 | `ri_test` | [`test_recovery_batch2_parity.py`](../tests/reference_parity/test_recovery_batch2_parity.py) |
@@ -374,7 +382,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `romano_wolf` | [`test_romano_wolf_parity.py`](../tests/reference_parity/test_romano_wolf_parity.py) |
 | `sac` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
 | `sarar_gmm` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
-| `sbw` | [`test_matching_recovery_parity.py`](../tests/reference_parity/test_matching_recovery_parity.py) |
 | `selection_bounds` | [`test_selection_bounds_parity.py`](../tests/reference_parity/test_selection_bounds_parity.py) |
 | `shapley_inequality` | [`test_decomposition_family_parity.py`](../tests/reference_parity/test_decomposition_family_parity.py) |
 | `sharp_ope_unobserved` | [`test_ope_parity.py`](../tests/reference_parity/test_ope_parity.py) |
@@ -390,6 +397,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `stochastic_dominance` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `structural_break` | [`test_structural_break_parity.py`](../tests/reference_parity/test_structural_break_parity.py) |
 | `subcluster_wild_bootstrap` | [`test_wcb_recovery_parity.py`](../tests/reference_parity/test_wcb_recovery_parity.py) |
+| `super_learner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
 | `survivor_average_causal_effect` | [`test_principal_strat_parity.py`](../tests/reference_parity/test_principal_strat_parity.py) |
 | `svydesign` | [`test_survey_parity.py`](../tests/reference_parity/test_survey_parity.py) |
@@ -407,8 +415,9 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `wild_cluster_ci_inv` | [`test_wild_cluster_ci_inv_parity.py`](../tests/reference_parity/test_wild_cluster_ci_inv_parity.py) |
 | `wooldridge_did` | [`test_did_variants_parity.py`](../tests/reference_parity/test_did_variants_parity.py) |
 | `wooldridge_prod` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
+| `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `xtdpdsys` | [`test_dynpanel_abdata_parity.py`](../tests/reference_parity/test_dynpanel_abdata_parity.py) |
 
-## unverified — 800 functions
+## unverified — 791 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

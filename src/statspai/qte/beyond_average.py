@@ -19,7 +19,7 @@ abadie2002bootstrap, abadie2003semiparametric, byambadalai2025beyond
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -64,6 +64,44 @@ class BeyondAverageResult(ResultProtocolMixin):
     ci_high: np.ndarray
     complier_share: float
     n_obs: int
+
+    def plot(self, ax: Any = None) -> Any:
+        """Plot the complier LATE curve with its CI band. Returns (fig, ax)."""
+        import matplotlib.pyplot as plt
+
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(8, 5))
+        else:
+            fig = ax.get_figure()
+        ax.plot(
+            self.quantiles,
+            self.late_q,
+            "o-",
+            color="#2c7bb6",
+            lw=2,
+            label="Complier LATE",
+        )
+        ax.fill_between(
+            self.quantiles, self.ci_low, self.ci_high, alpha=0.2, color="#2c7bb6"
+        )
+        ax.axhline(0, color="grey", ls="--", lw=0.8)
+        ax.set_xlabel("Quantile (tau)")
+        ax.set_ylabel("Complier LATE")
+        ax.set_title(f"Distributional LATE (complier share {self.complier_share:.3f})")
+        ax.legend()
+        fig.tight_layout()
+        return fig, ax
+
+    def to_frame(self) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "quantile": self.quantiles,
+                "late": self.late_q,
+                "se": self.se_q,
+                "ci_low": self.ci_low,
+                "ci_high": self.ci_high,
+            }
+        )
 
     def summary(self) -> str:
         rows = [

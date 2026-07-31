@@ -260,9 +260,15 @@ def test_standalone_genmatch_still_works(match_data):
         generations=2,
     )
     assert r is not None
+    # Golden values moved in v1.21 when the genetic-matching distance was
+    # corrected to standardise by the full-sample variances (the metric
+    # Matching::Match implements) instead of the control group's. The
+    # weights are unchanged because the genetic search operates on the
+    # already-standardised scale; only the assignment moves.
+    # See MIGRATION.md#genmatch-variance-basis.
     np.testing.assert_allclose(
         [r.att, r.att_se, r.n_treated, r.n_obs],
-        [2.128748453405153, 0.10217364088184239, 198, 400],
+        [2.111211789654289, 0.10214535711055095, 198, 400],
         atol=1e-12,
     )
     np.testing.assert_allclose(

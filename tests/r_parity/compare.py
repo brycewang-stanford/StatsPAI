@@ -98,6 +98,15 @@ STATA_SKIP_REASON: dict[str, str] = {
         "counts == n_periods row selection, an exact identity rather than "
         "an external estimator. No Stata artifact is materialized."
     ),
+    "72_tmle": (
+        "bridge artifact not materialized: the TMLE targeting step is "
+        "pinned to tmle::tmle (tmle 2.1.1). Stata has no official TMLE "
+        "command; the user-written eltmle wraps the same R package rather "
+        "than providing an independent implementation, so a Stata row "
+        "would re-measure the R reference through a shell rather than "
+        "cross-validate it. No like-for-like Stata artifact is "
+        "materialized."
+    ),
     "71_dml_family": (
         "bridge artifact not materialized: the IRM / PLIV / IIVM model "
         "classes are pinned to DoubleML (R, 1.0.2). Stata's ddml is the "
@@ -487,6 +496,11 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # logistic nuisance solved by lbfgs on one side and IRLS on the other,
     # which sets the observed worst at 1.1e-10.
     "71_dml_family": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # TMLE targeting step on a shared initial fit (Q and g1W supplied to
+    # both engines), binary outcome so neither side rescales Y. The
+    # residual is Newton-iteration tolerance on the fluctuation
+    # parameters: observed 1.9e-9 on psi and 1.4e-11 on the SE.
+    "72_tmle": {"rel_est": 1e-6, "rel_se": 1e-6},
 }
 
 
@@ -1317,6 +1331,16 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "sp.balance_panel vs base R counts == n_periods",
+    },
+    "72_tmle": {
+        "name": "TMLE (targeting step)",
+        "headline_filter": lambda d: d.statistic == "psi_tmle_ate",
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "shared initial Q / g1W; per-arm fluctuation matching "
+            "tmle::tmle's submodel"
+        ),
     },
     "71_dml_family": {
         "name": "DML family (IRM / PLIV / IIVM)",

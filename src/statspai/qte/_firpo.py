@@ -55,6 +55,7 @@ from ._core import kernel_density_at, weighted_quantile
 __all__ = [
     "firpo_weights",
     "firpo_quantiles",
+    "firpo_influence_matrix",
     "firpo_influence_se",
     "weighted_checkfun",
 ]
@@ -122,6 +123,42 @@ def firpo_quantiles(
     q1 = weighted_quantile(Y, taus, w1)
     q0 = weighted_quantile(Y, taus, w0)
     return q1, q0
+
+
+def firpo_influence_matrix(
+    Y: np.ndarray,
+    D: np.ndarray,
+    pscore: np.ndarray,
+    taus: np.ndarray,
+    q1: np.ndarray,
+    q0: np.ndarray,
+    estimand: str = "qte",
+) -> np.ndarray:
+    """Per-observation influence values, shape ``(n, len(taus))``.
+
+    Row ``i``, column ``k`` is observation ``i``'s contribution to
+    ``QTE_hat(tau_k) - QTE(tau_k)``. Feeding this to
+    :func:`statspai.qte._core.uniform_band` gives a band with *simultaneous*
+    coverage, and to :func:`statspai.qte._core.functional_test` gives tests
+    of curve-level hypotheses.
+    """
+    Y = np.asarray(Y, dtype=float)
+    n = len(Y)
+    w1, w0 = firpo_weights(D, pscore, estimand)
+    ew1, ew0 = float(np.mean(w1)), float(np.mean(w0))
+    out = np.full((n, len(taus)), np.nan)
+    if ew1 <= 0 or ew0 <= 0:
+        return out
+
+    f1 = kernel_density_at(Y, q1, weights=w1)
+    f0 = kernel_density_at(Y, q0, weights=w0)
+    for j, tau in enumerate(taus):
+        if not (np.isfinite(f1[j]) and np.isfinite(f0[j])):
+            continue
+        psi1 = -w1 * ((Y <= q1[j]).astype(float) - tau) / (ew1 * f1[j])
+        psi0 = -w0 * ((Y <= q0[j]).astype(float) - tau) / (ew0 * f0[j])
+        out[:, j] = psi1 - psi0
+    return out
 
 
 def firpo_influence_se(

@@ -70,7 +70,8 @@
     {
       "additional_tests": [
         "tests/reference_parity/test_aggte_mpdta_parity.py",
-        "tests/reference_parity/test_cs_base_period_parity.py"
+        "tests/reference_parity/test_cs_base_period_parity.py",
+        "tests/reference_parity/test_cs_rcs_parity.py"
       ],
       "also_verified_by": [
         "reference_parity"
@@ -311,6 +312,23 @@
       ],
       "tier": "iterative",
       "tolerance": "rel_est<=2e-05, rel_se<=1e-06"
+    },
+    {
+      "function": "auto_cate",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ml_causal_recovery_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "average_treatment_effect",
@@ -881,6 +899,7 @@
         "tests/reference_parity/test_callaway_santanna_parity.py",
         "tests/reference_parity/test_cs_base_period_parity.py",
         "tests/reference_parity/test_cs_inference_parity.py",
+        "tests/reference_parity/test_cs_rcs_parity.py",
         "tests/reference_parity/test_honest_did_backend_parity.py"
       ],
       "also_verified_by": [
@@ -929,6 +948,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=0.01"
+    },
+    {
+      "function": "cate_eval",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ml_causal_recovery_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [
@@ -1045,6 +1081,23 @@
         "tests/reference_parity/_fixtures/matching_R.json"
       ],
       "tolerance": "ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the balance block by n/n_1 and stops off-stationarity; StatsPAI is asserted to attain strictly better covariate balance instead."
+    },
+    {
+      "function": "cic",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_qdid_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "clogit",
@@ -1722,6 +1775,23 @@
       "tolerance": ""
     },
     {
+      "function": "describe_function",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_qdid_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "dfl_decompose",
       "headline": {
         "metric": "rel_est",
@@ -1946,6 +2016,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_distributional_te_inference.py",
         "tests/reference_parity/test_distributional_te_parity.py"
       ],
       "tolerance": ""
@@ -2012,6 +2083,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-10, rel_se<=1e-10"
+    },
+    {
+      "function": "dml_panel",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ml_causal_recovery_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "also_verified_by": [
@@ -2986,21 +3074,29 @@
       "tolerance": ""
     },
     {
-      "function": "genmatch",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_matching_recovery_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "genmatch",
+      "notes": [
+        "The genetic search is stochastic and is not reproducible across languages, so what is pinned is the generalised distance + assignment kernel it optimises over."
+      ],
+      "reference": "Matching::Match 4.10-15 (Weight = 3, Weight.matrix)",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_matching_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_R.json"
+      ],
+      "tolerance": "Deterministic kernel only: given the same diagonal W, the 1-NN assignment agrees with Matching::Match on all 163 uniquely matched treated units on MatchIt::lalonde."
     },
     {
       "function": "geolift",
@@ -3124,6 +3220,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_general_gmm_parity.py",
         "tests/reference_parity/test_gmm_dynamic_panel_parity.py"
       ],
       "tolerance": ""
@@ -4462,7 +4559,7 @@
       ],
       "function": "match",
       "notes": [
-        "Frozen-R fixture on MatchIt::lalonde. m_order='farthest' and with-replacement tie handling are documented parity boundaries (see the sp.match registry limitations), not pinned rows."
+        "Frozen-R fixture on MatchIt::lalonde. With replacement (ties='all', tie_tolerance=1e-5) the ATT and the Abadie-Imbens population SE (se_method='abadie_imbens_pop') also match Matching::Match 4.10-15 at M = 1 and M = 3. m_order='farthest' and the bias-correction regression convention remain documented parity boundaries (see the sp.match registry limitations), not pinned rows."
       ],
       "reference": "MatchIt::matchit 4.7.2 (nearest, glm/logit distance)",
       "reference_versions": {},
@@ -4776,7 +4873,8 @@
       "source": "external_parity",
       "status": "external-replication",
       "test": [
-        "tests/external_parity/test_causalml_book.py"
+        "tests/external_parity/test_causalml_book.py",
+        "tests/external_parity/test_metalearner_econml_parity.py"
       ],
       "tolerance": ""
     },
@@ -4914,6 +5012,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=5e-05"
+    },
+    {
+      "function": "model_averaging_dml",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ml_causal_recovery_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "moran",
@@ -6559,6 +6674,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_qdid_parity.py",
         "tests/reference_parity/test_qte_parity.py"
       ],
       "tolerance": ""
@@ -6629,7 +6745,25 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_firpo_qte_parity.py",
-        "tests/reference_parity/test_qte_parity.py"
+        "tests/reference_parity/test_qte_parity.py",
+        "tests/reference_parity/test_qte_uniform_inference.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "qte_hd_panel",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_hd_panel_qte.py"
       ],
       "tolerance": ""
     },
@@ -7199,21 +7333,29 @@
       "tolerance": ""
     },
     {
-      "function": "sbw",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_matching_recovery_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "sbw",
+      "notes": [
+        "Frozen-R fixture on MatchIt::lalonde. The balance tolerance is only reproducible together with the standard deviation it is quoted in; both sbw::sbw conventions are exposed."
+      ],
+      "reference": "sbw::sbw 1.2 (Zubizarreta 2015), quadprog solver",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_matching_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_R.json"
+      ],
+      "tolerance": "ATT rel <= 1e-8 (observed <= 4e-10) under both standardisation conventions: tolerance_scale='target' == bal_std='target' and 'group' == bal_std='group', at bal_tol 0.05 and 0.02."
     },
     {
       "additional_tests": [
@@ -7858,6 +8000,23 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.25"
     },
     {
+      "function": "super_learner",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ml_causal_recovery_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "sureg",
       "headline": {
         "metric": "rel_est",
@@ -8260,26 +8419,53 @@
       "tolerance": "coef 1e-9 abs (observed <= 1e-15); SE ~5e-3 rel"
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_tmle_parity.py",
+        "tests/reference_parity/_fixtures/tmle_R.json"
+      ],
       "also_verified_by": [
+        "reference_parity_frozen",
         "reference_parity"
       ],
       "function": "tmle",
-      "notes": [
-        "Frozen-R fixture: single-learner LogisticRegression(penalty=None) fits the identical unpenalised MLEs and solves the same 1-D fluctuation score. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "base R stats::glm TMLE (van der Laan & Rubin 2006)",
-      "reference_versions": {},
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.92364082958906e-09,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "psi_tmle_ate"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "TMLE (targeting step)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "72_tmle",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.92364082958906e-09,
+        "Stata": null
+      },
+      "python_call": "sp.tmle(fluctuation=\"per_arm\")",
+      "reference": "tmle::tmle",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": 1.4128869789684658e-11,
+        "Stata": null
+      },
       "sides": [
         "py",
         "R"
       ],
-      "source": "reference_parity_frozen",
+      "source": "track_a",
       "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_tmle_parity.py",
-        "tests/reference_parity/_fixtures/tmle_R.json"
+        "tests/r_parity/72_tmle.py",
+        "tests/r_parity/72_tmle.R"
       ],
-      "tolerance": "psi 1e-9 (observed 5.6e-12), EIF SE 1e-9, epsilon 1e-8"
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -8600,6 +8786,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_structural_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "xlearner",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_ml_causal_recovery_parity.py"
       ],
       "tolerance": ""
     },

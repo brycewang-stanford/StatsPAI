@@ -2113,6 +2113,52 @@ def _build_registry() -> None:
                     ),
                     ["raw", "sd"],
                 ),
+                ParamSpec(
+                    "ties",
+                    "str",
+                    False,
+                    "first",
+                    (
+                        "How equidistant controls are handled under matching "
+                        "with replacement. 'first' keeps the lowest-index "
+                        "one; 'all' pools them and splits the weight (the "
+                        "Matching::Match convention, which removes the "
+                        "row-order dependence)."
+                    ),
+                    ["first", "all"],
+                ),
+                ParamSpec(
+                    "tie_tolerance",
+                    "float",
+                    False,
+                    0.0,
+                    (
+                        "With ties='all', how close squared distances "
+                        "(scaled by the variance of the distance measure) "
+                        "must be to count as tied. 1e-5 reproduces "
+                        "Matching::Match's distance.tolerance default."
+                    ),
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "auto",
+                    (
+                        "Standard error. 'abadie_imbens' is the sample-ATT "
+                        "conditional variance (Stata psmatch2 ai()); "
+                        "'abadie_imbens_pop' is the population-ATT variance "
+                        "Matching::Match reports; 'psmatch2' the analytic "
+                        "Stata SE; 'ai' the simple matched-pair SE."
+                    ),
+                    [
+                        "auto",
+                        "ai",
+                        "psmatch2",
+                        "abadie_imbens",
+                        "abadie_imbens_pop",
+                    ],
+                ),
             ],
             returns="MatchEstimator result",
             example='sp.match(df, treatment="treat", outcome="y", covariates=["x1","x2"])',
@@ -2164,10 +2210,14 @@ def _build_registry() -> None:
                 "MatchIt::lalonde with Mahalanobis distance). m_order='data' "
                 "and 'closest' reproduce MatchIt exactly; m_order='farthest' "
                 "is StatsPAI's own dynamic rule and is not MatchIt-equivalent",
-                "matching with replacement resolves ties by taking the first "
-                "nearest control only, whereas Matching::Match(ties=TRUE) "
-                "averages over all tied controls, so with-replacement point "
-                "estimates can differ from that reference",
+                "bias_correction=True follows a different convention from "
+                "Matching::Match's BiasAdjust: StatsPAI regresses on the "
+                "full covariate vector with unweighted OLS over all "
+                "controls, the reference regresses on the matching "
+                "variables weighted by match counts, so bias-corrected "
+                "estimates can differ from it by about 0.1%. The "
+                "uncorrected estimate and its Abadie-Imbens standard error "
+                "are exact",
             ],
             typical_n_min=200,
         )
@@ -2461,10 +2511,44 @@ def _build_registry() -> None:
                     "str",
                     False,
                     "difference",
-                    "difference or system",
-                    ["difference", "system"],
+                    "difference (Arellano-Bond), system (Blundell-Bond) "
+                    "or ah (Anderson-Hsiao IV)",
+                    ["difference", "system", "ah"],
                 ),
                 ParamSpec("twostep", "bool", False, False),
+                ParamSpec(
+                    "collapse",
+                    "bool",
+                    False,
+                    False,
+                    "Collapse instruments (Roodman 2009) to curb proliferation",
+                ),
+                ParamSpec(
+                    "orthogonal",
+                    "bool",
+                    False,
+                    False,
+                    "Forward orthogonal deviations instead of first differences",
+                ),
+                ParamSpec(
+                    "predetermined",
+                    "list",
+                    False,
+                    description="Predetermined regressors (own lags 1+ as instruments)",
+                ),
+                ParamSpec(
+                    "endogenous",
+                    "list",
+                    False,
+                    description="Endogenous regressors (own lags 2+ as instruments)",
+                ),
+                ParamSpec(
+                    "time_dummies",
+                    "bool",
+                    False,
+                    False,
+                    "Add period dummies as regressors and instruments",
+                ),
             ],
             returns="CausalResult",
             example='sp.xtabond(df, y="output", x=["capital", "labor"], id="firm", time="year")',
@@ -12560,7 +12644,10 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "synth_survival": ["tests/test_synth_survival.py"],
     "tobit": ["tests/test_weakiv_tobit.py"],
     "wild_cluster_bootstrap": ["tests/test_inference.py"],
-    "xtabond": ["tests/test_gmm.py"],
+    "xtabond": [
+        "tests/test_gmm.py",
+        "tests/reference_parity/test_dynpanel_abdata_parity.py",
+    ],
     "xtdpdsys": [
         "tests/reference_parity/test_dynpanel_abdata_parity.py",
     ],

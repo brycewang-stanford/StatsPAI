@@ -37,6 +37,7 @@ Cook, R.D. (1977). *Technometrics*, 19(1), 15--18. [@breusch1979simple]
 
 from __future__ import annotations
 
+import textwrap
 from itertools import combinations
 from typing import Any, Dict, List, Union
 
@@ -117,8 +118,27 @@ def estat(
     # Alias
     if test == "ovtest":
         test = "reset"
+    if test in ("arellano_bond", "ar", "abond2"):
+        test = "abond"
+    if test in ("difference_in_hansen", "diffhansen", "dif"):
+        test = "difhansen"
+
+    # Dynamic-panel GMM fits have their own diagnostic vocabulary; Stata
+    # splits it across `estat abond` / `estat sargan` and xtabond2's
+    # difference-in-Hansen block. These read what sp.xtabond already
+    # computed rather than re-deriving it, so the postestimation output can
+    # never disagree with the fit it describes.
+    from ._estat_dynpanel import (
+        estat_abond,
+        estat_difference_in_hansen,
+        estat_sargan,
+        is_dynamic_panel_result,
+    )
 
     _dispatch = {
+        "abond": lambda: estat_abond(result, alpha=alpha),
+        "sargan": lambda: estat_sargan(result, alpha=alpha),
+        "difhansen": lambda: estat_difference_in_hansen(result, alpha=alpha),
         "hettest": lambda: _estat_hettest(result, alpha=alpha),
         "white": lambda: _estat_white(result, alpha=alpha),
         "reset": lambda: _estat_reset(result, powers=powers, alpha=alpha),
@@ -133,6 +153,20 @@ def estat(
         "overid": lambda: _estat_overid(result, alpha=alpha),
         "firststage": lambda: _estat_firststage(result, alpha=alpha),
     }
+
+    if test == "all" and is_dynamic_panel_result(result):
+        # 'all' on an OLS/IV fit means the regression diagnostics; on a
+        # dynamic-panel fit those are undefined (there are no fitted values
+        # in levels), so it means the three dynamic-panel tests instead.
+        outputs = [
+            estat_abond(result, alpha=alpha),
+            estat_sargan(result, alpha=alpha),
+            estat_difference_in_hansen(result, alpha=alpha),
+        ]
+        if print_results:
+            for item in outputs:
+                _print_result(item)
+        return outputs
 
     if test == "all":
         return _estat_all(
@@ -1002,14 +1036,55 @@ def _fmt_line(width: int = _LINE_WIDTH) -> str:
     return _HEAVY * width
 
 
+def _print_dynpanel_rows(out: Dict[str, Any]) -> None:
+    """Render the row tables produced by the dynamic-panel estat handlers."""
+    test = out["test"]
+    rows = out["rows"]
+    if test == "abond":
+        print(f"  {'order':>6}  {'z':>10}  {'Pr > z':>10}")
+        for row in rows:
+            print(f"  {row['order']:>6}  {row['z']:>10.4f}  {row['pvalue']:>10.4f}")
+    elif test == "sargan":
+        print(f"  {'test':<10} {'chi2':>12} {'df':>5} {'Prob > chi2':>12}")
+        for row in rows:
+            print(
+                f"  {row['name']:<10} {row['statistic']:>12.4f} "
+                f"{row['df']:>5} {row['pvalue']:>12.4f}"
+            )
+        print(f"\n  instruments: {out['n_instruments']}   units: {out['n_units']}")
+    else:
+        print(
+            f"  {'instrument subset':<34} {'excl. J':>10} {'df':>4} "
+            f"{'C':>10} {'df':>4} {'Prob > chi2':>12}"
+        )
+        for row in rows:
+            print(
+                f"  {row['subset'][:34]:<34} {row['hansen_excluding']:>10.4f} "
+                f"{row['df_excluding']:>4} {row['statistic']:>10.4f} "
+                f"{row['df']:>4} {row['pvalue']:>12.4f}"
+            )
+    if out.get("interpretation"):
+        print()
+        for chunk in textwrap.wrap(out["interpretation"], _LINE_WIDTH - 6):
+            print(f"  {chunk}")
+
+
 def _print_result(out: Dict[str, Any]) -> None:
     """Print a single test result in Stata-style formatted output."""
     w = _LINE_WIDTH
     line = _fmt_line(w)
 
     print(line)
-    print(f"  {out.get('test', 'Test')}")
+    print(f"  {out.get('label') or out.get('test', 'Test')}")
     print(line)
+
+    # Dynamic-panel GMM tables carry a list of rows rather than a single
+    # statistic; render them before the generic scalar path so they are
+    # readable instead of an empty banner.
+    if out.get("test") in ("abond", "sargan", "difhansen") and "rows" in out:
+        _print_dynpanel_rows(out)
+        print(line)
+        return
 
     # Hypotheses
     if "H0" in out:

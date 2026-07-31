@@ -159,9 +159,51 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "tests/reference_parity/_fixtures/matching_R.json",
         ],
         "note": (
-            "Frozen-R fixture on MatchIt::lalonde. m_order='farthest' and "
-            "with-replacement tie handling are documented parity boundaries "
-            "(see the sp.match registry limitations), not pinned rows."
+            "Frozen-R fixture on MatchIt::lalonde. With replacement "
+            "(ties='all', tie_tolerance=1e-5) the ATT and the Abadie-Imbens "
+            "population SE (se_method='abadie_imbens_pop') also match "
+            "Matching::Match 4.10-15 at M = 1 and M = 3. m_order='farthest' "
+            "and the bias-correction regression convention remain "
+            "documented parity boundaries (see the sp.match registry "
+            "limitations), not pinned rows."
+        ),
+    },
+    "sbw": {
+        "status": "bit-exact",
+        "reference": "sbw::sbw 1.2 (Zubizarreta 2015), quadprog solver",
+        "tolerance": (
+            "ATT rel <= 1e-8 (observed <= 4e-10) under both standardisation "
+            "conventions: tolerance_scale='target' == bal_std='target' and "
+            "'group' == bal_std='group', at bal_tol 0.05 and 0.02."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_matching_r_parity.py",
+            "tests/reference_parity/_fixtures/matching_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on MatchIt::lalonde. The balance tolerance is "
+            "only reproducible together with the standard deviation it is "
+            "quoted in; both sbw::sbw conventions are exposed."
+        ),
+    },
+    "genmatch": {
+        "status": "aligned",
+        "reference": "Matching::Match 4.10-15 (Weight = 3, Weight.matrix)",
+        "tolerance": (
+            "Deterministic kernel only: given the same diagonal W, the 1-NN "
+            "assignment agrees with Matching::Match on all 163 uniquely "
+            "matched treated units on MatchIt::lalonde."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_matching_r_parity.py",
+            "tests/reference_parity/_fixtures/matching_R.json",
+        ],
+        "note": (
+            "The genetic search is stochastic and is not reproducible "
+            "across languages, so what is pinned is the generalised "
+            "distance + assignment kernel it optimises over."
         ),
     },
     "optimal_match": {

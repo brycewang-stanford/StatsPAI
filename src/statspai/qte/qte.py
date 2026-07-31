@@ -109,6 +109,9 @@ class QTEResult(ResultProtocolMixin):
         n_obs: int,
         alpha: float = 0.05,
         model_info: Optional[dict] = None,
+        ci_lower_uniform: Optional[np.ndarray] = None,
+        ci_upper_uniform: Optional[np.ndarray] = None,
+        uniform_crit: float = float("nan"),
     ):
         self.quantiles = np.asarray(quantiles)
         self.effects = np.asarray(effects)
@@ -120,6 +123,17 @@ class QTEResult(ResultProtocolMixin):
         self.n_obs = int(n_obs)
         self.alpha = float(alpha)
         self.model_info = model_info or {}
+        # Simultaneous band over the whole quantile grid. A pointwise band
+        # covers each tau separately; claims like "the effect is zero at
+        # every quantile" need this one. None when the estimator cannot
+        # supply influence functions (bootstrap-only paths).
+        self.ci_lower_uniform = (
+            None if ci_lower_uniform is None else np.asarray(ci_lower_uniform)
+        )
+        self.ci_upper_uniform = (
+            None if ci_upper_uniform is None else np.asarray(ci_upper_uniform)
+        )
+        self.uniform_crit = float(uniform_crit)
 
     # ── pretty printing ──────────────────────────────────────────── #
 
@@ -196,6 +210,81 @@ class QTEResult(ResultProtocolMixin):
             f"quantiles={list(self.quantiles)}, ate={self.ate:.4f})"
         )
 
+    def to_frame(self) -> pd.DataFrame:
+        """Tidy per-quantile table, including the uniform band when present."""
+        out = pd.DataFrame(
+            {
+                "quantile": self.quantiles,
+                "qte": self.effects,
+                "se": self.se,
+                "ci_lower": self.ci_lower,
+                "ci_upper": self.ci_upper,
+            }
+        )
+        if self.ci_lower_uniform is not None:
+            out["ci_lower_uniform"] = self.ci_lower_uniform
+            out["ci_upper_uniform"] = self.ci_upper_uniform
+        return out
+
+    # ── functional (curve-level) inference ────────────────────────── #
+
+    def test_no_effect(self, kind: str = "ks", n_boot: int = 1000, seed: int = 0):
+        """Test ``QTE(tau) = 0 at EVERY tau`` against "somewhere non-zero".
+
+        Not what a row of pointwise p-values tests: with 19 quantiles at the
+        5% level, roughly one spurious rejection is expected under the null.
+        Requires ``se='analytic'``.
+        """
+        return self._functional_test(None, kind, n_boot, seed)
+
+    def test_constant_effect(self, kind: str = "ks", n_boot: int = 1000, seed: int = 0):
+        """Test ``QTE(tau)`` is the same at every tau against "it varies".
+
+        Rejecting means treatment does something an average effect cannot
+        express. Failing to reject means the ATE is an adequate summary.
+        """
+        # The estimand is the DEVIATION from the average effect, whose
+        # influence function is psi_ik - mean_j(psi_ij): the component common
+        # to every quantile cancels. Using the raw psi would overstate the
+        # variance and make the test useless (measured: 0.000 rejection under
+        # its own null).
+        influence = self._influence()
+        centered_est = self.effects - float(np.mean(self.effects))
+        centered_inf = influence - influence.mean(axis=1, keepdims=True)
+        from ._core import functional_test
+
+        return functional_test(
+            centered_est,
+            centered_inf,
+            null=None,
+            kind=kind,
+            n_boot=n_boot,
+            seed=seed,
+        )
+
+    def _influence(self) -> np.ndarray:
+        influence = self.model_info.get("influence")
+        if influence is None:
+            raise ValueError(
+                "Curve-level tests need influence functions, which only the "
+                "analytic standard-error path produces. Re-run with "
+                "se='analytic' (available for method='firpo_qte' / "
+                "'firpo_qtt')."
+            )
+        return np.asarray(influence, dtype=float)
+
+    def _functional_test(self, null, kind: str, n_boot: int, seed: int):
+        from ._core import functional_test
+
+        return functional_test(
+            self.effects,
+            self._influence(),
+            null=null,
+            kind=kind,
+            n_boot=n_boot,
+            seed=seed,
+        )
+
     # ── plot ──────────────────────────────────────────────────────── #
 
     def plot(self, ax: Any = None) -> Any:
@@ -267,8 +356,23 @@ def qdid(
     n_boot: int = 500,
     alpha: float = 0.05,
     seed: int = 42,
-) -> QTEResult:
-    """Quantile Difference-in-Differences (Athey & Imbens 2006).
+    method: str = "qdid",
+) -> Any:
+    """Quantile Difference-in-Differences (QDiD) and its alternatives.
+
+    .. warning::
+
+        **This is not Changes-in-Changes.** Versions <= 1.20.0 described and
+        labelled this function as Athey & Imbens (2006) CiC. It is not:
+        Athey & Imbens propose CiC *instead of* QDiD and criticise QDiD
+        directly, because differencing quantiles presumes the untreated
+        outcome distribution shifts by the same amount at every rank. R's
+        ``qte`` package keeps ``QDiD()`` and ``CiC()`` separate for the same
+        reason. The numbers never changed -- only the attribution. Use
+        ``method='cic'`` for changes-in-changes.
+
+    ``method='cic'`` delegates to :func:`statspai.cic` and returns its
+    ``CausalResult``; ``qte::MDiD`` and ``ddid2`` are not implemented.
 
     QTE_DID(τ) = F_{11}^{-1}(τ) - F_{10}^{-1}(τ)
                 - [F_{01}^{-1}(τ) - F_{00}^{-1}(τ)]
@@ -314,6 +418,27 @@ def qdid(
     >>> np.round(res.effects, 2)  # QTE at each quantile
     array([1.96, 1.94, 2.26])
     """
+    if method not in ("qdid", "cic"):
+        raise ValueError(
+            f"method must be 'qdid' or 'cic', got {method!r}. "
+            "qte::MDiD / ddid2 are not implemented yet."
+        )
+    if method == "cic":
+        # Delegate rather than keep a second changes-in-changes
+        # implementation (CLAUDE.md §12). sp.cic takes the same signature.
+        from ..did import cic as _cic
+
+        return _cic(
+            data,
+            y=y,
+            group=group,
+            time=time,
+            quantiles=quantiles,
+            n_boot=n_boot,
+            alpha=alpha,
+            seed=seed,
+        )
+
     if quantiles is None:
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
     taus = np.asarray(quantiles)
@@ -379,7 +504,7 @@ def qdid(
         ci_lower=ci_lo,
         ci_upper=ci_hi,
         ate=ate,
-        method="Quantile DID (Athey & Imbens, 2006)",
+        method="Quantile DiD (QDiD)",
         n_obs=len(df),
         alpha=alpha,
         model_info={"n_boot": n_boot},
@@ -584,10 +709,23 @@ def _qte_firpo(
     if se not in ("analytic", "bootstrap"):
         raise ValueError(f"se must be 'auto', 'analytic' or 'bootstrap', got {se!r}")
 
+    uni_lo = uni_hi = None
+    uni_crit = float("nan")
+    influence = None
     if se == "analytic":
+        from ._core import uniform_band
+        from ._firpo import firpo_influence_matrix
+
         se_arr = firpo_influence_se(yv, dv, pscore, taus, q1, q0, estimand)
         z = stats.norm.ppf(1 - alpha / 2)
         ci_lo, ci_hi = effects - z * se_arr, effects + z * se_arr
+        # Simultaneous band over the whole quantile grid (WP-7). Only the
+        # analytic path can supply it: it needs influence functions.
+        influence = firpo_influence_matrix(yv, dv, pscore, taus, q1, q0, estimand)
+        if np.isfinite(influence).all() and len(taus) > 1:
+            uni_lo, uni_hi, _, uni_crit = uniform_band(
+                effects, influence, alpha=alpha, seed=seed
+            )
     else:
         rng = np.random.RandomState(seed)
         n = len(yv)
@@ -639,7 +777,11 @@ def _qte_firpo(
             "n_boot": n_boot if se == "bootstrap" else None,
             "pscore_min": float(pscore.min()),
             "pscore_max": float(pscore.max()),
+            "influence": influence,
         },
+        ci_lower_uniform=uni_lo,
+        ci_upper_uniform=uni_hi,
+        uniform_crit=uni_crit,
     )
 
 

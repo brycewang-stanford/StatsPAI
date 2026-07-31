@@ -37,6 +37,9 @@ __all__ = [
     "complier_cdfs",
     "kernel_density_at",
     "rearrange",
+    "multiplier_bootstrap",
+    "uniform_band",
+    "functional_test",
 ]
 
 
@@ -377,3 +380,161 @@ def rearrange(curve: np.ndarray) -> np.ndarray:
     out = arr.copy()
     out[finite] = np.sort(arr[finite])
     return out
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Uniform (simultaneous) inference over a quantile grid
+# ══════════════════════════════════════════════════════════════════════
+
+
+def multiplier_bootstrap(
+    influence: np.ndarray,
+    n_boot: int = 1000,
+    seed: int = 0,
+    weights: str = "rademacher",
+) -> np.ndarray:
+    """Multiplier bootstrap of a standardised sup-statistic over a grid.
+
+    Parameters
+    ----------
+    influence : ndarray, shape (n, K)
+        Influence-function values: row ``i`` is observation ``i``'s
+        contribution at each of the ``K`` grid points, so that
+        ``theta_hat_k - theta_k = mean_i(influence[i, k]) + o_p(n^-1/2)``.
+    n_boot : int
+    seed : int
+    weights : {'rademacher', 'gaussian', 'mammen'}
+        Multiplier distribution; all have mean 0 and variance 1. Rademacher
+        is the default as the most robust to heavy tails.
+
+    Returns
+    -------
+    ndarray, shape (n_boot,)
+        Draws of ``max_k |n^-1/2 sum_i xi_i psi_ik| / sd_k``, whose quantiles
+        give uniform critical values.
+
+    Notes
+    -----
+    Multiplying the influence function rather than resampling the data avoids
+    refitting the estimator per replication.
+    """
+    psi = np.asarray(influence, dtype=float)
+    if psi.ndim != 2:
+        raise ValueError(f"influence must be 2-D (n, K), got shape {psi.shape}")
+    n, _ = psi.shape
+    if n < 2:
+        return np.full(n_boot, np.nan)
+
+    psi = psi - psi.mean(axis=0, keepdims=True)
+    sd = psi.std(axis=0, ddof=1)
+    sd = np.where(sd > 0, sd, np.nan)
+
+    rng = np.random.default_rng(seed)
+    if weights == "rademacher":
+        xi = rng.integers(0, 2, size=(n_boot, n)).astype(float) * 2.0 - 1.0
+    elif weights == "gaussian":
+        xi = rng.standard_normal((n_boot, n))
+    elif weights == "mammen":
+        p = (np.sqrt(5.0) + 1.0) / (2.0 * np.sqrt(5.0))
+        a, b = -(np.sqrt(5.0) - 1.0) / 2.0, (np.sqrt(5.0) + 1.0) / 2.0
+        xi = np.where(rng.random((n_boot, n)) < p, a, b)
+    else:
+        raise ValueError(
+            f"weights must be 'rademacher', 'gaussian' or 'mammen', got {weights!r}"
+        )
+
+    dev = (xi @ psi) / np.sqrt(n)
+    return np.asarray(np.nanmax(np.abs(dev / sd[None, :]), axis=1))
+
+
+def uniform_band(
+    estimate: np.ndarray,
+    influence: np.ndarray,
+    alpha: float = 0.05,
+    n_boot: int = 1000,
+    seed: int = 0,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+    """Simultaneous confidence band for a curve estimated on a grid.
+
+    A pointwise band covers each ``theta_k`` separately; the probability it
+    covers the whole curve at once is much lower. Curve-level claims -- "the
+    effect is zero at every quantile", "the effect is constant" -- need this.
+
+    Returns
+    -------
+    (lower, upper, se, crit) : tuple
+        ``crit`` exceeds ``z_{1-alpha/2}``; the ratio is how much wider the
+        honest band is.
+    """
+    est = np.asarray(estimate, dtype=float)
+    psi = np.asarray(influence, dtype=float)
+    n = psi.shape[0]
+    se = psi.std(axis=0, ddof=1) / np.sqrt(n)
+
+    draws = multiplier_bootstrap(psi, n_boot=n_boot, seed=seed)
+    good = np.isfinite(draws)
+    crit = (
+        float("nan")
+        if good.sum() < 10
+        else float(np.quantile(draws[good], 1.0 - alpha))
+    )
+    return est - crit * se, est + crit * se, se, crit
+
+
+def functional_test(
+    estimate: np.ndarray,
+    influence: np.ndarray,
+    null: Optional[np.ndarray] = None,
+    kind: str = "ks",
+    n_boot: int = 1000,
+    seed: int = 0,
+) -> Tuple[float, float]:
+    """Test a hypothesis about the whole curve, not one grid point.
+
+    Parameters
+    ----------
+    estimate, influence
+        As in :func:`uniform_band`.
+    null : ndarray, optional
+        The curve under H0. ``None`` means the zero curve.
+    kind : {'ks', 'cvm'}
+        Sup-statistic (sharper against a localised departure) or integrated
+        squared deviation (sharper against a broad shallow one).
+
+    Returns
+    -------
+    (statistic, pvalue)
+    """
+    est = np.asarray(estimate, dtype=float)
+    psi = np.asarray(influence, dtype=float)
+    n, K = psi.shape
+    if null is None:
+        null = np.zeros(K)
+    dev = est - np.asarray(null, dtype=float)
+
+    psi_c = psi - psi.mean(axis=0, keepdims=True)
+    sd = psi_c.std(axis=0, ddof=1)
+    sd = np.where(sd > 0, sd, np.nan)
+    se = sd / np.sqrt(n)
+
+    rng = np.random.default_rng(seed)
+    xi = rng.integers(0, 2, size=(n_boot, n)).astype(float) * 2.0 - 1.0
+    boot_dev = (xi @ psi_c) / n
+
+    if kind == "ks":
+        stat = float(np.nanmax(np.abs(dev / se)))
+        draws = np.nanmax(np.abs(boot_dev / se[None, :]), axis=1)
+    elif kind == "cvm":
+        stat = float(np.nansum((dev / se) ** 2))
+        draws = np.nansum((boot_dev / se[None, :]) ** 2, axis=1)
+    else:
+        raise ValueError(f"kind must be 'ks' or 'cvm', got {kind!r}")
+
+    good = np.isfinite(draws)
+    if good.sum() < 10:
+        return stat, float("nan")
+    return stat, float(np.mean(draws[good] >= stat))
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  Uniform (simultaneous) inference over a quantile grid

@@ -55,10 +55,13 @@ def W_matrix():
 
 @pytest.fixture
 def iv_df():
+    # sp.dist_iv requires a BINARY instrument: it identifies the complier
+    # QTE by Abadie kappa weighting, which is defined for binary Z. Before
+    # 1.21 a continuous z was silently median-split.
     rng = np.random.default_rng(1)
-    n = 200
-    z = rng.normal(size=n)
-    d = (z + rng.normal(size=n) > 0).astype(int)
+    n = 400
+    z = rng.integers(0, 2, n)
+    d = (0.3 + 0.6 * z + rng.normal(scale=0.3, size=n) > 0.6).astype(int)
     return pd.DataFrame(
         {
             "y": 0.5 * d + rng.normal(size=n),

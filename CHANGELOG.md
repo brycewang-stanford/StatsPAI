@@ -213,6 +213,19 @@ All notable changes to StatsPAI will be documented in this file.
   convergence warning is now on the standardised gap. ATT estimates move
   in the 3rd significant figure.
   See [MIGRATION](MIGRATION.md#ebalance-exact-balance).
+- **Genetic matching's distance did not match its own documented
+  formula.** `sp.genmatch`'s module docstring specified the generalised
+  Mahalanobis distance `D' S^(-1/2) W S^(-1/2) D`, but the kernel
+  standardised by the **control group's** variances only, with an inline
+  comment noting the whitening was "omitted for speed". The metric
+  `Matching::Match(Weight = 3, Weight.matrix = W)` implements — verified
+  pair-for-pair — is the diagonal of the **full-sample** variances. The
+  kernel now uses those, and given the same diagonal `W` it reproduces
+  `Matching::Match`'s assignment on all 163 uniquely matched treated units
+  of `MatchIt::lalonde`. Genetic-matching results change; the docstring's
+  claim about the full covariance has been corrected to describe what is
+  actually computed (and what the reference computes).
+  See [MIGRATION](MIGRATION.md#genmatch-variance-basis).
 - **Mahalanobis matching used the total covariance, not the pooled
   within-group covariance.** `sp.match(distance='mahalanobis')` and
   `sp.optimal_match(metric='mahalanobis')` both built the metric from
@@ -428,6 +441,30 @@ All notable changes to StatsPAI will be documented in this file.
   `tests/test_policy_tree_exact_search.py` checks the exact search
   against an independent brute-force enumeration over randomised
   problems with ties.
+- **`sp.match` now reproduces `Matching::Match` exactly under matching
+  with replacement.** Two conventions were missing. (i) `ties='all'` pools
+  every equidistant control and splits the weight instead of taking the
+  lowest-index one, removing a row-order dependence; combined with
+  `tie_tolerance=1e-5` it reproduces `Matching::Match`'s
+  `distance.tolerance` rule — a control counts as tied when its squared
+  inverse-variance-weighted distance is within the tolerance *of the
+  minimum*. (ii) `se_method='abadie_imbens_pop'` adds the Abadie-Imbens
+  (2006) **population** ATT variance that `Matching::Match` reports by
+  default, which carries a control-reuse penalty and a treatment-effect
+  heterogeneity term. The existing `se_method='abadie_imbens'` is
+  unchanged: it is the *sample* ATT conditional variance of Stata's
+  `psmatch2 , ai()`, a different estimand (the two differ by ~9% on
+  `MatchIt::lalonde`). Together these give ATT and SE agreement with
+  `Matching::Match` at rel <= 1e-9 / 1e-8 for both M = 1 and M = 3.
+- **`sp.sbw(tolerance_scale=...)` — the balance tolerance now names its own
+  units.** `delta` was always applied against the full-sample standard
+  deviation, so a tolerance could not be reproduced against `sbw::sbw`,
+  which quotes it against either the target group (`bal_std="target"`) or
+  the reweighted group (`bal_std="group"`). Both are now selectable and
+  reproduce `sbw::sbw` to rel <= 4e-10 at `bal_tol` 0.05 and 0.02; the
+  previous behaviour remains the default under `tolerance_scale='sd'`. On
+  `MatchIt::lalonde` the conventions move the ATT by ~1% at the same
+  nominal tolerance.
 - **Matching / weighting cross-package parity.** The module's headline
   estimator (`sp.psm` vs `MatchIt`) was pinned, but `cbps`, `ebalance`,
   `optimal_match`, `genmatch` and `sbw` had unit tests only and no

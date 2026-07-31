@@ -10,5 +10,6 @@ Provides:
 
 from .arellano_bond import xtabond, xtdpdsys
 from .general_gmm import gmm
+from .lsdvc import xtlsdvc
 
-__all__ = ["xtabond", "xtdpdsys", "gmm"]
+__all__ = ["xtabond", "xtdpdsys", "xtlsdvc", "gmm"]

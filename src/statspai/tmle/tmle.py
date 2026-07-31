@@ -563,9 +563,7 @@ class TMLE:
         if not converged:
             import warnings
 
-            resid = float(
-                np.max(np.abs(H.T @ (Y - expit(logit_Q + H @ eps))))
-            )
+            resid = float(np.max(np.abs(H.T @ (Y - expit(logit_Q + H @ eps)))))
             warnings.warn(
                 "TMLE: Newton iteration on the per-arm fluctuation "
                 f"parameters did not converge in {max_iter} steps "

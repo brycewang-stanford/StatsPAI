@@ -656,7 +656,7 @@ from .frontier import (
 )
 
 # General GMM
-from .gmm import gmm, xtabond, xtdpdsys
+from .gmm import gmm, xtabond, xtdpdsys, xtlsdvc
 
 # Unified help entry point (aggregates registry + docstring + category + search)
 from .help import HelpResult, help
@@ -1364,6 +1364,7 @@ __all__ = [
     # Dynamic Panel GMM
     "xtabond",
     "xtdpdsys",
+    "xtlsdvc",
     "heckman",
     "qreg",
     "sqreg",

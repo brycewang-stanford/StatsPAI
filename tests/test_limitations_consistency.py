@@ -51,7 +51,7 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # rule differs from Matching::Match. Pinned in
         # tests/reference_parity/test_matching_r_parity.py.
         "greedy nearest-neighbour matching without replacement is",
-        "matching with replacement resolves ties",
+        "bias_correction=True follows a different convention",
     ],
     "did_multiplegt_dyn": [
         "switch-on only",

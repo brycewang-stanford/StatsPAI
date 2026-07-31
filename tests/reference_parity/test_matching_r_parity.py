@@ -442,3 +442,168 @@ class TestOptimalMatching:
             lalonde, treatment="treat", outcome="re78", covariates=COV
         )
         assert res.att == res.ate == res.estimate
+
+
+# ===================================================================== #
+#  Matching::Match — ties, Abadie-Imbens variance
+# ===================================================================== #
+
+
+class TestMatchingPackageParity:
+    """``sp.match`` vs ``Matching::Match`` (Sekhon 2011) with replacement.
+
+    ``Match`` pools every control whose squared inverse-variance-weighted
+    distance is within ``distance.tolerance`` (1e-5) of the minimum, rather
+    than breaking ties by row order, and reports the Abadie-Imbens
+    *population* ATT variance. Both conventions are reproduced exactly by
+    ``ties='all', tie_tolerance=1e-5`` and ``se_method='abadie_imbens_pop'``.
+    """
+
+    @staticmethod
+    def _fit(lalonde, **kw):
+        kw.setdefault("tie_tolerance", 1e-5)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return sp.match(
+                lalonde,
+                y="re78",
+                treat="treat",
+                covariates=COV,
+                distance="propensity",
+                method="nearest",
+                estimand="ATT",
+                replace=True,
+                ties="all",
+                **kw,
+            )
+
+    @pytest.mark.parametrize("m", [1, 3])
+    def test_att_matches_matching_package(self, lalonde, R, m):
+        res = self._fit(lalonde, n_matches=m)
+        want = R[f"aimatch_M{m}_biasF"]["est"]
+        assert (
+            _rel(float(res.estimate), want) < 1e-9
+        ), f"M={m}: {float(res.estimate):.6f} vs Match {want:.6f}"
+
+    @pytest.mark.parametrize("m", [1, 3])
+    def test_abadie_imbens_population_se_matches(self, lalonde, R, m):
+        res = self._fit(lalonde, n_matches=m, se_method="abadie_imbens_pop")
+        want = R[f"aimatch_M{m}_biasF"]["se"]
+        assert (
+            _rel(float(res.se), want) < 1e-8
+        ), f"M={m}: SE {float(res.se):.6f} vs Match {want:.6f}"
+
+    def test_tie_tolerance_is_load_bearing(self, lalonde, R):
+        """Not a cosmetic option: dropping the tolerance changes the tie set
+        and must move the estimate away from R."""
+        want = R["aimatch_M1_biasF"]["est"]
+        with_tol = float(self._fit(lalonde, n_matches=1).estimate)
+        no_tol = float(self._fit(lalonde, n_matches=1, tie_tolerance=0.0).estimate)
+        assert _rel(with_tol, want) < 1e-9
+        assert _rel(no_tol, want) > 1e-3
+
+    def test_ai_population_se_differs_from_stata_ai(self, lalonde):
+        """`abadie_imbens` (Stata psmatch2 sample-ATT) and
+        `abadie_imbens_pop` (Matching::Match population-ATT) are different
+        estimands and must not silently coincide."""
+        pop = float(self._fit(lalonde, se_method="abadie_imbens_pop").se)
+        sample = float(self._fit(lalonde, se_method="abadie_imbens").se)
+        assert pop > 0 and sample > 0
+        assert _rel(pop, sample) > 0.02
+
+
+# ===================================================================== #
+#  Stable balancing weights vs sbw::sbw
+# ===================================================================== #
+
+
+class TestStableBalancingWeights:
+    @pytest.mark.parametrize(
+        "scale,tol,key",
+        [
+            ("target", 0.05, "sbw_target_005"),
+            ("target", 0.02, "sbw_target_002"),
+            ("group", 0.05, "sbw_group_005"),
+            ("group", 0.02, "sbw_group_002"),
+        ],
+    )
+    def test_sbw_matches_r(self, lalonde, R, scale, tol, key):
+        """`tolerance_scale` names the standard deviation `delta` is quoted
+        in: 'target' is sbw::sbw's bal_std="target" (treated sd) and 'group'
+        is bal_std="group" (control sd). A tolerance quoted without its scale
+        is not reproducible."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            res = sp.sbw(
+                lalonde,
+                treat="treat",
+                covariates=COV,
+                y="re78",
+                estimand="att",
+                delta=tol,
+                tolerance_scale=scale,
+            )
+        want = R[key]["att"]
+        assert (
+            _rel(float(res.estimate), want) < 1e-8
+        ), f"sbw {scale}/{tol}: {float(res.estimate):.6f} vs {want:.6f}"
+
+    def test_scale_choice_moves_the_estimate(self, lalonde):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            a = sp.sbw(
+                lalonde,
+                treat="treat",
+                covariates=COV,
+                y="re78",
+                delta=0.05,
+                tolerance_scale="target",
+            )
+            b = sp.sbw(
+                lalonde,
+                treat="treat",
+                covariates=COV,
+                y="re78",
+                delta=0.05,
+                tolerance_scale="group",
+            )
+        assert _rel(float(a.estimate), float(b.estimate)) > 1e-3
+
+
+# ===================================================================== #
+#  Genetic matching kernel
+# ===================================================================== #
+
+
+class TestGenMatchKernel:
+    def test_weighted_distance_kernel_matches_matching_package(self, lalonde, R):
+        """The genetic search is stochastic and cannot be reproduced across
+        languages; the deterministic kernel it searches over can be. Given the
+        same diagonal W, our 1-NN assignment must agree with
+        ``Matching::Match(Weight = 3, Weight.matrix = W)`` on every treated
+        unit R matched uniquely (ties are pooled by R and so are not a
+        statement about the metric)."""
+        from statspai.matching.genmatch import _match_with_weights
+
+        ref = R["genmatch_weight_matrix"]
+        X = lalonde[COV].to_numpy(float)
+        T = lalonde["treat"].to_numpy(int)
+        it = np.flatnonzero(T == 1)
+        ic = np.flatnonzero(T == 0)
+        w = np.asarray(ref["w_diag"], dtype=float)
+
+        m = _match_with_weights(X[it], X[ic], w, 1)
+        ours = {int(it[r]): int(ic[m[r, 0]]) for r in range(len(it))}
+
+        want_t = np.atleast_1d(np.asarray(ref["unique_treated"], dtype=int))
+        want_c = np.atleast_1d(np.asarray(ref["unique_control"], dtype=int))
+        assert len(want_t) == ref["n_unique_treated"]
+        mismatches = [
+            (int(a), ours[int(a)], int(b))
+            for a, b in zip(want_t, want_c)
+            if ours[int(a)] != int(b)
+        ]
+        assert not mismatches, (
+            f"{len(mismatches)}/{len(want_t)} uniquely-matched treated units "
+            f"disagree with Matching::Match; first: {mismatches[:3]}"
+        )

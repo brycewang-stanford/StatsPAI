@@ -168,6 +168,8 @@ def match(
     caliper: Optional[float] = None,
     caliper_scale: str = "raw",
     replace: bool = True,
+    ties: str = "first",
+    tie_tolerance: float = 0.0,
     m_order: str = "smallest_min_dist",
     mahalanobis_cov: str = "pooled",
     bias_correction: bool = False,
@@ -326,6 +328,8 @@ def match(
         caliper=caliper,
         caliper_scale=caliper_scale,
         replace=replace,
+        ties=ties,
+        tie_tolerance=tie_tolerance,
         m_order=m_order,
         mahalanobis_cov=mahalanobis_cov,
         bias_correction=bias_correction,
@@ -357,6 +361,8 @@ def match(
                 "caliper": caliper,
                 "caliper_scale": caliper_scale,
                 "replace": replace,
+                "ties": ties,
+                "tie_tolerance": tie_tolerance,
                 "m_order": m_order,
                 "mahalanobis_cov": mahalanobis_cov,
                 "bias_correction": bias_correction,
@@ -443,6 +449,8 @@ class MatchEstimator:
         caliper: Optional[float] = None,
         caliper_scale: str = "raw",
         replace: bool = True,
+        ties: str = "first",
+        tie_tolerance: float = 0.0,
         m_order: str = "smallest_min_dist",
         mahalanobis_cov: str = "pooled",
         bias_correction: bool = False,
@@ -491,6 +499,13 @@ class MatchEstimator:
                 f"match: caliper_scale must be 'raw' or 'sd', got " f"{caliper_scale!r}"
             )
         self.replace = replace
+        self.ties = str(ties).lower()
+        if self.ties not in ("first", "all"):
+            raise ValueError(f"match: ties must be 'first' or 'all', got {ties!r}")
+        self.tie_tolerance = float(tie_tolerance)
+        if self.tie_tolerance < 0:
+            raise ValueError("match: tie_tolerance must be >= 0")
+        self._pscore_cache: Optional[np.ndarray] = None
         self.m_order = str(m_order).lower()
         _VALID_M_ORDER = (
             "smallest_min_dist",
@@ -632,10 +647,17 @@ class MatchEstimator:
                 "match: radius matching requires caliper > 0 " "(the radius bandwidth)"
             )
 
-        if self.se_method not in ("auto", "ai", "psmatch2", "abadie_imbens"):
+        if self.se_method not in (
+            "auto",
+            "ai",
+            "psmatch2",
+            "abadie_imbens",
+            "abadie_imbens_pop",
+        ):
             raise MethodIncompatibility(
-                "match: se_method must be 'auto', 'ai', 'psmatch2', or "
-                f"'abadie_imbens', got '{self.se_method}'"
+                "match: se_method must be 'auto', 'ai', 'psmatch2', "
+                "'abadie_imbens', or 'abadie_imbens_pop', got "
+                f"'{self.se_method}'"
             )
         if self.estimand != "ATT" and self.se_method == "psmatch2":
             raise MethodIncompatibility(
@@ -779,6 +801,12 @@ class MatchEstimator:
                 )
                 if np.isfinite(se_ai):
                     se = se_ai
+            elif se_method == "abadie_imbens_pop":
+                se_pop = self._ai_population_se(
+                    a["outcome"], a["matches"], a["weights"]
+                )
+                if np.isfinite(se_pop):
+                    se = se_pop
         elif self._assignment is not None:
             model_info["matched_data_note"] = (
                 "psmatch2-style matched_data is omitted for estimand='ATE' "
@@ -880,6 +908,7 @@ class MatchEstimator:
         # convention); 'raw' leaves it on the distance scale (Stata
         # psmatch2). Resolve it once, against the full-sample distance
         # measure, so both matching directions use the same width.
+        self._pscore_cache = pscore
         caliper = self._resolve_caliper(pscore)
 
         if self.estimand == "ATT":
@@ -1435,6 +1464,94 @@ class MatchEstimator:
     # NN matching helpers
     # ==================================================================
 
+    def _ai_population_se(
+        self,
+        Y: np.ndarray,
+        matches: List[np.ndarray],
+        weights: List[np.ndarray],
+    ) -> float:
+        """Abadie-Imbens (2006) *population* ATT variance.
+
+        This is the estimand ``Matching::Match`` reports by default
+        (``Var.calc = 0``, ``sample = FALSE``). Writing ``tau_i`` for the
+        matched effect of treated unit *i*, ``K_j`` for the total matching
+        weight control *j* receives and ``KK_j`` for the sum of its squared
+        weights::
+
+            sigma2 = 0.5 * sum_ik w_ik (Y_i - Y_c_ik - tau)^2 / sum_ik w_ik
+            V      = [ sigma2 * sum_j (K_j^2 - KK_j)
+                       + sum_i (tau_i - tau)^2 ] / N_1^2
+
+        The first term is the penalty for re-using controls (it vanishes when
+        every control is used at most once); the second is the contribution of
+        treatment-effect heterogeneity, which is what makes this a
+        *population* rather than a *sample* variance.
+
+        This is a different estimand from ``se_method='abadie_imbens'``, which
+        reproduces Stata's ``psmatch2 , ai()``: that one targets the *sample*
+        ATT and lets sigma^2(X) vary with the covariates. Neither is more
+        correct; they answer different questions, and on ``MatchIt::lalonde``
+        they differ by ~9%.
+
+        References
+        ----------
+        Abadie, A. and Imbens, G.W. (2006). Large Sample Properties of
+            Matching Estimators for Average Treatment Effects.
+            *Econometrica*, 74(1), 235-267.
+        """
+        if self._assignment is None:  # pragma: no cover - defensive
+            return float("nan")
+        idx_target = np.asarray(self._assignment["idx_t"], dtype=int)
+        idx_pool = np.asarray(self._assignment["idx_c"], dtype=int)
+        Y = np.asarray(Y, dtype=float)
+
+        K = np.zeros(len(idx_pool))
+        KK = np.zeros(len(idx_pool))
+        tau_i: List[float] = []
+        pair_resid: List[np.ndarray] = []
+        pair_w: List[np.ndarray] = []
+
+        for i, (m, w) in enumerate(zip(matches, weights)):
+            if len(m) == 0:
+                continue
+            w = np.asarray(w, dtype=float)
+            y_t = Y[idx_target[i]]
+            y_c = Y[idx_pool[m]]
+            tau_i.append(float(y_t - np.sum(w * y_c)))
+            np.add.at(K, m, w)
+            np.add.at(KK, m, w**2)
+            pair_resid.append(y_t - y_c)
+            pair_w.append(w)
+
+        n1 = len(tau_i)
+        if n1 < 2:
+            return float("nan")
+        tau = np.asarray(tau_i, dtype=float)
+        tau_hat = float(tau.mean())
+
+        resid = np.concatenate(pair_resid) - tau_hat
+        wcat = np.concatenate(pair_w)
+        sigma2 = 0.5 * float(np.sum(wcat * resid**2) / np.sum(wcat))
+
+        reuse = float(np.sum(K**2 - KK))
+        hetero = float(np.sum((tau - tau_hat) ** 2))
+        var = (sigma2 * reuse + hetero) / (n1**2)
+        return float(np.sqrt(var)) if var >= 0 else float("nan")
+
+    def _tie_scale(self) -> float:
+        """Variance the squared distances are divided by in the tie test.
+
+        For a propensity-score distance this is ``var(pscore)``, which makes
+        ``tie_tolerance`` directly comparable to ``Matching::Match``'s
+        ``distance.tolerance`` (that package weights the squared distance by
+        the inverse covariance of the matching variables). Other distances are
+        already standardised, so the scale is 1.
+        """
+        if self.distance == "propensity" and self._pscore_cache is not None:
+            v = float(np.var(np.asarray(self._pscore_cache, dtype=float), ddof=1))
+            return v if v > 0 else 1.0
+        return 1.0
+
     def _resolve_caliper(self, pscore: Optional[np.ndarray]) -> Optional[float]:
         """Caliper width on the distance scale.
 
@@ -1634,10 +1751,35 @@ class MatchEstimator:
                 continue
 
             idx = _nearest_indices(d, k)
+            if self.ties == "all":
+                idx = self._extend_with_ties(d, idx)
             matches[i] = idx
-            weights[i] = np.ones(k, dtype=float) / k
+            weights[i] = np.ones(len(idx), dtype=float) / len(idx)
 
         return matches, weights
+
+    def _extend_with_ties(self, d: np.ndarray, idx: np.ndarray) -> np.ndarray:
+        """Add every control tied with the k-th nearest already selected.
+
+        Dropping a control equidistant with one that was kept makes the
+        estimate depend on row order, which is why ``Matching::Match`` pools
+        them by default. The comparison is on *squared* distances scaled by
+        ``_tie_scale`` (the variance of the distance measure), and the pooled
+        units share the target's weight equally.
+        """
+        if idx.size == 0:
+            return idx
+        cutoff = float(d[idx[-1]])
+        if not np.isfinite(cutoff):  # pragma: no cover - defensive
+            return idx
+        scale = self._tie_scale()
+        d2 = (d**2) / scale
+        tied = np.flatnonzero(
+            np.isfinite(d) & (d2 <= (cutoff**2) / scale + self.tie_tolerance)
+        )
+        if tied.size <= idx.size:
+            return idx
+        return np.asarray(np.union1d(idx, tied), dtype=int)
 
     # ==================================================================
     # Effect computation (with optional bias correction)

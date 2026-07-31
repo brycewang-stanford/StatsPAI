@@ -142,6 +142,69 @@ KAN. Call `sp.dist_iv` directly.
 
 ---
 
+<a id="genmatch-variance-basis"></a>
+
+## Unreleased — ⚠️ `sp.genmatch` distance uses full-sample variances
+
+**What changed.** The genetic-matching kernel computed its generalised
+distance after standardising covariates by the **control group's**
+variances. Its own module docstring specified `D' S^(-1/2) W S^(-1/2) D`,
+and the metric `Matching::Match(Weight = 3, Weight.matrix = W)` implements
+is the diagonal of the **full-sample** variances. The kernel now uses
+those.
+
+**Effect.** Genetic-matching weights, matched pairs and ATT all change.
+Given a fixed diagonal `W`, the kernel now reproduces `Matching::Match`'s
+assignment on every uniquely matched treated unit of `MatchIt::lalonde`
+(163/163).
+
+**What to do.** Re-run any `sp.genmatch` analysis. Note the genetic
+*search* is stochastic and was never reproducible across languages or
+seeds; only the deterministic distance-and-assignment kernel is pinned, in
+`tests/reference_parity/test_matching_r_parity.py`.
+
+---
+
+<a id="sbw-tolerance-scale"></a>
+
+## Unreleased — `sp.sbw` balance tolerance now names its units
+
+**What changed.** `delta` was always interpreted against the full-sample
+standard deviation. `sbw::sbw` quotes the same tolerance against either
+the target group (`bal_std="target"`, treated units under ATT) or the
+group being reweighted (`bal_std="group"`, controls), so a tolerance alone
+did not determine the estimator. `tolerance_scale` now selects among
+`'sd'` (the previous behaviour, still the default), `'target'`, `'group'`
+and `'raw'`.
+
+**Effect.** None by default. But the conventions are not interchangeable:
+on `MatchIt::lalonde` at `delta = 0.05` the ATT is 1330.30 under
+`'target'`, 1335.87 under `'sd'` and 1342.89 under `'group'`.
+
+**What to do.** When reconciling with `sbw::sbw`, set `tolerance_scale` to
+match its `bal_std`. When reporting a tolerance, report the scale too.
+
+---
+
+<a id="match-with-replacement-ties"></a>
+
+## Unreleased — `sp.match` can now pool tied controls
+
+**What changed.** Under matching *with replacement*, `sp.match` kept only
+the lowest-index control among equidistant candidates. `ties='all'` pools
+them and splits the weight, and `tie_tolerance` sets how close squared
+distances must be to count as tied.
+
+**Effect.** None by default (`ties='first'`). With
+`ties='all', tie_tolerance=1e-5` the ATT and the Abadie-Imbens population
+standard error match `Matching::Match` exactly.
+
+**What to do.** Nothing is required. Use `ties='all'` if you would rather
+not have row order decide which of several equally good controls is used,
+and add `tie_tolerance=1e-5` when reconciling with `Matching::Match`.
+
+---
+
 <a id="cbps-solver-rewrite"></a>
 
 ## Unreleased — ⚠️ `sp.cbps` now solves the Imai-Ratkovic problem

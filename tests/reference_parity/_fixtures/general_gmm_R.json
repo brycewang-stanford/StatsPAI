@@ -1,0 +1,81 @@
+{
+  "_meta": {
+    "R_version": "R version 4.5.2 (2025-10-31)",
+    "gmm_version": "1.9.1",
+    "moment": "E[z (y - x'b)] = 0, z = (1, z1, z2, z3), x = (1, x1)",
+    "n": 400,
+    "note": "gmm::gmm centres the moment covariance by default (centeredVcov=TRUE); the identity-weight rows fix the first-step weight so the point estimate is the closed-form 2SLS-with-identity-weight solution."
+  },
+  "twostep_iid": {
+    "coef": {
+      "_cons": 1.56411260164674,
+      "x1": 2.081398296429
+    },
+    "se": {
+      "_cons": 0.0692699948113472,
+      "x1": 0.068937179587826
+    },
+    "J": 1.54929816934845,
+    "J_df": 2,
+    "J_p": 0.460865477385572
+  },
+  "twostep_mds": {
+    "coef": {
+      "_cons": 1.56411260164674,
+      "x1": 2.081398296429
+    },
+    "se": {
+      "_cons": 0.0692699948113472,
+      "x1": 0.068937179587826
+    },
+    "J": 1.54929816934845,
+    "J_df": 2,
+    "J_p": 0.460865477385572
+  },
+  "iterated_mds": {
+    "coef": {
+      "_cons": 1.56411703539056,
+      "x1": 2.08142542666344
+    },
+    "se": {
+      "_cons": 0.0692693082074037,
+      "x1": 0.0689364249187446
+    },
+    "J": 1.55066383836293,
+    "J_df": 2,
+    "J_p": 0.460550889952218
+  },
+  "cue_mds": {
+    "coef": {
+      "_cons": 1.56432833255975,
+      "x1": 2.07920486525045
+    },
+    "se": {
+      "_cons": 0.0693256881162315,
+      "x1": 0.0689945629395968
+    },
+    "J": 1.54967448711865,
+    "J_df": 2,
+    "J_p": 0.46077876960884
+  },
+  "twostep_hac_bartlett2": {
+    "coef": {
+      "_cons": 1.56531987192186,
+      "x1": 2.07992916281447
+    },
+    "se": {
+      "_cons": 0.0690779259627815,
+      "x1": 0.0667523922111703
+    },
+    "J": 1.59726883766037,
+    "J_df": 2,
+    "J_p": 0.449942978437452
+  },
+  "closed_form_twostep_centered": {
+    "coef": {
+      "_cons": 1.56411249167414,
+      "x1": 2.08139828936541
+    },
+    "note": "plain matrix algebra, no gmm::gmm involved"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "module": "72_tmle",
+  "side": "R",
+  "rows": [
+    {
+      "module": "72_tmle",
+      "side": "R",
+      "statistic": "psi_tmle_ate",
+      "estimate": 0.260426123356244,
+      "se": 0.0290167680836595,
+      "ci_lo": 0.20355430296452,
+      "ci_hi": 0.317297943747968,
+      "n": 1200,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "family": ["binomial"],
+    "gbound": [1e-08],
+    "epsilon": [-0.0143537489336574, -0.00823312999972712],
+    "estimator": ["tmle::tmle (per-arm fluctuation)"],
+    "nuisance": ["Q and g1W supplied; package SuperLearner bypassed"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5.2",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "tmle": "2.1.1",
+      "SuperLearner": "2.0-40",
+      "gam": "1.22-7",
+      "foreach": "1.5.2",
+      "nnls": "1.6",
+      "glmnet": "4.1-10",
+      "Matrix": "1.7-4",
+      "codetools": "0.2-20",
+      "shape": "1.4.6.1",
+      "lattice": "0.22-7",
+      "iterators": "1.0.14",
+      "grid": "4.5.2",
+      "compiler": "4.5.2",
+      "tools": "4.5.2",
+      "Rcpp": "1.1.1-1.1",
+      "survival": "3.8-3",
+      "jsonlite": "2.0.0"
+    }
+  }
+}
