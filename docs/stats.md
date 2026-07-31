@@ -104,7 +104,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `surrogate` | 995 | 2 | 3 |
 | `ope` | 965 | 3 | 3 |
 | `survey` | 963 | 4 | 7 |
-| `gmm` | 2,717 | 11 | 3 |
+| `gmm` | 3,235 | 12 | 4 |
 | `dose_response` | 932 | 3 | 5 |
 | `selection` | 904 | 2 | 3 |
 | `dtr` | 894 | 5 | 2 |

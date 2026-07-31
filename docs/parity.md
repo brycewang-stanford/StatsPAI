@@ -25,15 +25,15 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 136 |
+| bit-exact | 137 |
 | aligned | 10 |
 | analytical-only | 204 |
-| external-replication | 7 |
+| external-replication | 6 |
 | **verified (subtotal)** | **357** |
-| unverified | 791 |
-| **total registered** | **1148** |
+| unverified | 792 |
+| **total registered** | **1149** |
 
-## bit-exact — 136 functions
+## bit-exact — 137 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -116,6 +116,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `mediation` | mediation::mediate | R 4.5.2; mediation 4.5.1 | rel_est<=1e-06, rel_se<=0.1 | 6.7e-15 / 3.6e-15 | [`36_mediation.py`](../tests/r_parity/36_mediation.py) (+2) |
 | `mediation_decompose` | natural-effects mediation (Pearl 2001; VanderWeele 2015) | R 4.5.2 | total = NDE + NIE 1e-12 abs (observed 0) | — / — | [`test_mediation_decompose_parity.py`](../tests/reference_parity/test_mediation_decompose_parity.py) |
 | `melogit` | lme4::glmer(nAGQ=8) | R 4.5.2; lme4 2.0.1 | rel_est<=1e-06, rel_se<=0.05 | 2.4e-07 / 8.4e-07 | [`27_glmm_aghq.py`](../tests/r_parity/27_glmm_aghq.py) (+2) |
+| `metalearner` | econml.metalearners SLearner / TLearner / XLearner | — | S / T / X conditional-average-treatment-effect vectors match econml elementwise to 1e-12 absolute (observed <= 1.1e-15) when both fitting stages use the same base learner | — / — | [`test_metalearner_econml_parity.py`](../tests/external_parity/test_metalearner_econml_parity.py) |
 | `mixed` | lme4::lmer | R 4.5.2; lme4 2.0.1 | rel_est<=1e-06, rel_se<=1e-06 | 1.3e-10 / 4.9e-11 | [`25_lmm.py`](../tests/r_parity/25_lmm.py) (+2) |
 | `mlogit` | nnet::multinom | R 4.5.2; nnet 7.3.20 | rel_est<=1e-06, rel_se<=5e-05 | 2.6e-07 / 7.4e-09 | [`44_mlogit.py`](../tests/r_parity/44_mlogit.py) (+2) |
 | `mr` | inverse-variance-weighted MR closed form (Burgess et al. 2013) | R 4.5.2 | estimate / se / Cochran Q 1e-10 abs (observed 0) | — / — | [`test_mr_ivw_parity.py`](../tests/reference_parity/test_mr_ivw_parity.py) |
@@ -193,7 +194,7 @@ Agreement within a documented, pre-registered looser tolerance.
 | `xtfrontier` | frontier::sfa | R 4.5.2; frontier 1.1.8 | rel_est<=0.001, rel_se<=0.001 | 2.8e-06 / 8.6e-04 | [`29_panel_sfa.py`](../tests/r_parity/29_panel_sfa.py) (+2) |
 | `zinb` | pscl::zeroinfl(dist="negbin") | R 4.5.2; pscl 1.5.9 | rel_est<=1e-05, rel_se<=0.001 | 1.1e-06 / 2.1e-07 | [`64_zinb.py`](../tests/r_parity/64_zinb.py) (+2) |
 
-## external-replication — 7 functions
+## external-replication — 6 functions
 
 Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_REFERENCE_VALUES.md`.
 
@@ -204,7 +205,6 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `breakdown_m` | [`test_honest_did_paper_parity.py`](../tests/external_parity/test_honest_did_paper_parity.py) |
 | `event_study` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
-| `metalearner` | [`test_causalml_book.py`](../tests/external_parity/test_causalml_book.py) (+1) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
 ## analytical-only — 204 functions
@@ -418,6 +418,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `xtdpdsys` | [`test_dynpanel_abdata_parity.py`](../tests/reference_parity/test_dynpanel_abdata_parity.py) |
 
-## unverified — 791 functions
+## unverified — 792 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

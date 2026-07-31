@@ -492,7 +492,6 @@ class TMLE:
         # Model info
         model_info = {
             "estimand": self.estimand,
-            "epsilon": float(epsilon),
             "se_method": "efficient_influence_function",
             "propensity_mean": float(np.mean(g_hat)),
             "propensity_std": float(np.std(g_hat)),
@@ -504,13 +503,33 @@ class TMLE:
             "Q_star_0_mean": float(np.mean(Q_star_0_orig)),
             "n_treated": int(np.sum(A == 1)),
             "n_control": int(np.sum(A == 0)),
-            "sl_outcome_weights": sl_Q.weights_.tolist(),
-            "sl_propensity_weights": sl_g.weights_.tolist(),
+            # Absent when the caller supplied the corresponding nuisance
+            # directly: there is no Super Learner to report weights for,
+            # and ``sl_Q`` / ``sl_g`` are never bound on that path.
+            "sl_outcome_weights": (
+                None if self.Q_init is not None else sl_Q.weights_.tolist()
+            ),
+            "sl_propensity_weights": (
+                None if self.g1W_init is not None else sl_g.weights_.tolist()
+            ),
+            "nuisance_source": {
+                "Q": "supplied" if self.Q_init is not None else "super_learner",
+                "g1W": "supplied" if self.g1W_init is not None else "super_learner",
+            },
+            "fluctuation": self.fluctuation,
+            # ``epsilon`` stays the scalar it has always been under the
+            # default single-covariate fluctuation. Under 'per_arm' there
+            # is no scalar fluctuation parameter, so it is None rather
+            # than an arbitrary element of the pair; ``epsilon_vec``
+            # carries the full vector in both modes.
+            "epsilon": (float(epsilon) if self.fluctuation == "single" else None),
+            "epsilon_vec": [float(v) for v in np.atleast_1d(epsilon_vec)],
         }
 
-        self._sl_Q = sl_Q
-        self._sl_g = sl_g
+        self._sl_Q = None if self.Q_init is not None else sl_Q
+        self._sl_g = None if self.g1W_init is not None else sl_g
         self._epsilon = epsilon
+        self._epsilon_vec = np.atleast_1d(epsilon_vec)
 
         return CausalResult(
             method="TMLE (van der Laan & Rose 2011)",

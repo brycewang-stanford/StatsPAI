@@ -225,6 +225,28 @@ _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
             "distances for its network-flow solver."
         ),
     },
+    "metalearner": {
+        "status": "bit-exact",
+        "reference": "econml.metalearners SLearner / TLearner / XLearner",
+        "tolerance": (
+            "S / T / X conditional-average-treatment-effect vectors match "
+            "econml elementwise to 1e-12 absolute (observed <= 1.1e-15) when "
+            "both fitting stages use the same base learner"
+        ),
+        "sides": ["py"],
+        "test": ["tests/external_parity/test_metalearner_econml_parity.py"],
+        "note": (
+            "Scope: the grade covers the CATE functions, which is what "
+            "learner= selects. It does NOT cover result.estimate, which "
+            "sp.metalearner reports as a doubly-robust AIPW ATE "
+            "(model_info['ate_method'] == 'aipw_dr_pseudo_outcome') and "
+            "which is deliberately invariant to learner=; that quantity's "
+            "evidence is the CausalML-book replication in "
+            "tests/external_parity/test_causalml_book.py. The R-learner and "
+            "DR-learner variants are not pinned: both cross-fit, and "
+            "neither engine exposes a shared fold partition for them."
+        ),
+    },
     "dml_sensitivity": {
         "status": "bit-exact",
         "reference": "doubleml (Python) DoubleML.sensitivity_analysis",

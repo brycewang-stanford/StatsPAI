@@ -66,8 +66,8 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 from .._result_serialize import ResultProtocolMixin
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 __all__ = ["DMLPanelResult", "dml_panel"]
 
@@ -624,10 +624,24 @@ def dml_panel(
         X_tilde = X
 
     # ---- Cross-fit at the unit level -----------------------------------
+    # Accept the same short learner aliases sp.dml() takes ('linear',
+    # 'lasso', ...). Without this, sp.dml(ml_g='linear') worked while
+    # sp.dml_panel(ml_g='linear') failed inside sklearn's clone() with a
+    # message that named neither the parameter nor the accepted values.
+    from ._learners import resolve_learner
+
     if ml_g is None:
         ml_g = _default_outcome_learner()
+    elif isinstance(ml_g, str):
+        ml_g = resolve_learner(ml_g, kind="regressor", role="ml_g")
     if ml_m is None:
         ml_m = _default_treatment_learner()
+    elif isinstance(ml_m, str):
+        ml_m = resolve_learner(
+            ml_m,
+            kind="classifier" if binary_treatment else "regressor",
+            role="ml_m",
+        )
 
     rng = np.random.default_rng(seed)
     unit_perm = rng.permutation(unique_units)
