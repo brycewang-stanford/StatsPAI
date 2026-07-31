@@ -1,11 +1,19 @@
-"""
-Beyond the Average: Distributional Effects under Imperfect Compliance
-(Byambadalai, Hirata, Oka & Yasui 2025, arXiv 2509.15594).
+"""Distributional treatment effects on compliers under imperfect compliance.
 
-Estimates the distributional treatment effect on compliers when
-treatment is partially observed (imperfect compliance, à la LATE).
-Combines Imbens-Rubin (1997) Wald-style decomposition with quantile
-indicators.
+Estimates ``F_{Y(1)|complier}`` and ``F_{Y(0)|complier}`` by Abadie kappa
+weighting and returns their quantile difference, i.e. the complier QTE.
+
+Motivated by Byambadalai, Hirata, Oka & Yasui (2025), *Beyond the Average:
+Distributional Causal Inference under Imperfect Compliance*; the estimator
+implemented here is the Abadie (2002, 2003) kappa-weighted one, which the
+paper takes as its baseline.
+
+The kappa machinery lives in :mod:`statspai.qte._core` and is shared with
+:func:`statspai.qte.dist_iv.dist_iv`.
+
+References
+----------
+abadie2002bootstrap, abadie2003semiparametric, byambadalai2025beyond
 """
 
 from __future__ import annotations

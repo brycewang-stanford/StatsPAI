@@ -78,6 +78,21 @@ class OptimalMatchResult(ResultProtocolMixin):
     n_treated: int
     n_matched: int
 
+    @property
+    def att(self) -> float:
+        """Matched-pair effect, named for the estimand it actually targets.
+
+        1:1 matching on the treated retains every treated unit and reweights
+        controls to them, so the estimand is the ATT. ``ate`` is retained as
+        an alias for backward compatibility.
+        """
+        return self.ate
+
+    @property
+    def estimate(self) -> float:
+        """Alias used by the shared result protocol."""
+        return self.ate
+
     def summary(self) -> str:
         lines = [
             "Optimal 1:1 Matching (Hungarian algorithm)",
@@ -93,12 +108,48 @@ class OptimalMatchResult(ResultProtocolMixin):
         return self.summary()
 
 
+def _logit_propensity(X: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """Unpenalised logistic propensity score, matching R's ``glm`` fit."""
+    import warnings as _warnings
+
+    Xd = np.column_stack([np.ones(len(X)), X])
+    try:
+        import statsmodels.api as sm  # type: ignore
+
+        with _warnings.catch_warnings():
+            _warnings.simplefilter("ignore")
+            fit = sm.Logit(t.astype(float), Xd).fit(disp=False, maxiter=200)
+        return np.asarray(fit.predict(Xd), dtype=float)
+    except ImportError:
+        from sklearn.linear_model import LogisticRegression
+
+        m = LogisticRegression(
+            max_iter=5000, solver="lbfgs", C=1e10, fit_intercept=False
+        )
+        m.fit(Xd, t)
+        return np.asarray(m.predict_proba(Xd)[:, 1], dtype=float)
+
+
 def _distance_matrix(
-    X_treat: np.ndarray, X_ctrl: np.ndarray, metric: str
+    X_treat: np.ndarray,
+    X_ctrl: np.ndarray,
+    metric: str,
+    ps_treat: Optional[np.ndarray] = None,
+    ps_ctrl: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     if metric == "mahalanobis":
-        X_all = np.vstack([X_treat, X_ctrl])
-        cov = np.cov(X_all, rowvar=False) + 1e-8 * np.eye(X_all.shape[1])
+        # Pooled *within-group* covariance (Rubin 1980): the full-sample
+        # covariance is inflated along the direction the group means differ
+        # in, which is precisely the direction matching must resolve. This
+        # is also the metric MatchIt uses.
+        n1, n0 = len(X_treat), len(X_ctrl)
+        if n1 >= 2 and n0 >= 2:
+            s1 = np.atleast_2d(np.cov(X_treat, rowvar=False))
+            s0 = np.atleast_2d(np.cov(X_ctrl, rowvar=False))
+            cov = ((n1 - 1) * s1 + (n0 - 1) * s0) / (n1 + n0 - 2)
+        else:  # pragma: no cover - degenerate arm, guarded upstream
+            cov = np.atleast_2d(np.cov(np.vstack([X_treat, X_ctrl]), rowvar=False))
+        cov = cov + 1e-8 * np.eye(cov.shape[0])
         cov_inv = np.linalg.inv(cov)
         # cdist computes the identical sqrt((x-y)' VI (x-y)) in C, ~3-5x faster
         # than the per-treated-unit Python loop and without materialising the
@@ -107,7 +158,14 @@ def _distance_matrix(
     if metric == "euclidean":
         diff = X_treat[:, None, :] - X_ctrl[None, :, :]
         return np.asarray(np.linalg.norm(diff, axis=2))
-    raise ValueError(f"unknown metric {metric!r}")
+    if metric == "propensity":
+        if ps_treat is None or ps_ctrl is None:  # pragma: no cover - internal
+            raise ValueError("metric='propensity' requires fitted scores")
+        return np.abs(ps_treat[:, None] - ps_ctrl[None, :])
+    raise ValueError(
+        f"unknown metric {metric!r}; expected 'mahalanobis', 'euclidean' "
+        "or 'propensity'"
+    )
 
 
 def optimal_match(
@@ -179,7 +237,16 @@ def optimal_match(
             "Optimal 1:1 matching requires n_control ≥ n_treated. "
             f"Got n_treated={len(treated_idx)}, n_control={len(ctrl_idx)}."
         )
-    D = _distance_matrix(X[treated_idx], X[ctrl_idx], metric=metric)
+    ps_t = ps_c = None
+    if metric == "propensity":
+        # Logistic propensity score on the same covariates, matching the
+        # `MatchIt(distance = "glm", link = "logit")` / `optmatch` idiom of
+        # doing optimal matching on a fitted score rather than on X.
+        ps_all = _logit_propensity(X, t)
+        ps_t, ps_c = ps_all[treated_idx], ps_all[ctrl_idx]
+    D = _distance_matrix(
+        X[treated_idx], X[ctrl_idx], metric=metric, ps_treat=ps_t, ps_ctrl=ps_c
+    )
     row_ind, col_ind = optimize.linear_sum_assignment(D)
     dists = D[row_ind, col_ind]
 

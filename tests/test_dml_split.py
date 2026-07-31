@@ -5,9 +5,9 @@ import pandas as pd
 import pytest
 
 import statspai as sp
-from statspai.dml import DoubleMLPLR, DoubleMLIRM, DoubleMLPLIV, DoubleMLIIVM
 from statspai.core.results import CausalResult
-from statspai.exceptions import MethodIncompatibility
+from statspai.dml import DoubleMLIIVM, DoubleMLIRM, DoubleMLPLIV, DoubleMLPLR
+from statspai.exceptions import DataInsufficient
 
 
 def test_plr_class_matches_dispatcher():
@@ -93,23 +93,81 @@ def test_plr_explicit_fold_indices_validate_shape():
         )
 
 
-def test_explicit_fold_indices_are_plr_only_for_now():
+def test_explicit_fold_indices_make_irm_independent_of_random_state():
+    """Supplied folds must fix the split for IRM, not just for PLR.
+
+    Sharing an explicit partition is what allows a bit-exact comparison
+    against DoubleML (Track A module 71). The observable consequence is
+    that ``random_state`` stops mattering: if it still moved the
+    estimate, the folds would be being ignored somewhere.
+    """
+    rng = np.random.default_rng(0)
+    n = 400
+    x = rng.normal(size=n)
+    e = 0.5 + 0.25 * np.tanh(x)
+    d = (rng.uniform(size=n) < e).astype(int)
+    y = 0.5 * d + x + rng.normal(size=n)
+    df = pd.DataFrame({"y": y, "d": d, "x": x})
+    folds = np.arange(n) % 5
+
+    first = sp.dml(
+        df,
+        y="y",
+        d="d",
+        X=["x"],
+        model="irm",
+        model_y="linear",
+        model_d="logistic",
+        fold_indices=folds,
+        n_folds=5,
+        random_state=1,
+    )
+    second = sp.dml(
+        df,
+        y="y",
+        d="d",
+        X=["x"],
+        model="irm",
+        model_y="linear",
+        model_d="logistic",
+        fold_indices=folds,
+        n_folds=5,
+        random_state=987654,
+    )
+    assert first.model_info["fold_source"] == "user"
+    assert float(first.estimate) == pytest.approx(float(second.estimate), rel=0, abs=0)
+
+
+def test_unstratified_user_folds_fail_loudly_for_binary_nuisances():
+    """A fold whose training set has one class must raise, not misfit.
+
+    Supplied folds bypass StratifiedKFold, so a degenerate partition is
+    now reachable. Failing here beats letting the classifier produce a
+    constant propensity and reporting a number.
+    """
+    n = 40
     df = pd.DataFrame(
         {
-            "y": [0, 1, 0, 1, 0, 1, 0, 1],
-            "d": [0, 1, 0, 1, 0, 1, 0, 1],
-            "x": np.arange(8.0),
+            "y": np.arange(float(n)),
+            # All treated units live in the first half of the frame...
+            "d": np.r_[np.ones(n // 2), np.zeros(n // 2)].astype(int),
+            "x": np.arange(float(n)),
         }
     )
-    with pytest.raises(MethodIncompatibility, match="model=.plr. only"):
+    # ...and this partition puts every treated unit in one test fold, so
+    # that fold's training set is all-control.
+    folds = np.r_[np.zeros(n // 2), np.ones(n // 2)].astype(int)
+    with pytest.raises(DataInsufficient, match="single class"):
         sp.dml(
             df,
             y="y",
             d="d",
             X=["x"],
             model="irm",
-            fold_indices=np.array([0, 0, 1, 1, 2, 2, 3, 3]),
-            n_folds=4,
+            model_y="linear",
+            model_d="logistic",
+            fold_indices=folds,
+            n_folds=2,
         )
 
 

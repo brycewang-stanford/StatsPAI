@@ -87,8 +87,6 @@ class DoubleMLPLIV(_DoubleMLBase):
         sample_weight: Optional[np.ndarray] = None,
         fold_indices: Optional[np.ndarray] = None,
     ) -> Tuple[float, float]:
-        from sklearn.model_selection import KFold
-
         if sample_weight is None:
             w_full: Optional[np.ndarray] = None
         else:
@@ -99,12 +97,12 @@ class DoubleMLPLIV(_DoubleMLBase):
             # the same fitting problem in practice.
             w_full = w_arr * (len(w_arr) / float(np.sum(w_arr)))
 
-        kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
+        splits = self._make_splits(X, rng_seed=rng_seed, fold_indices=fold_indices)
         y_resid: np.ndarray = np.zeros(n, dtype=float)
         d_resid: np.ndarray = np.zeros(n, dtype=float)
         z_resid: np.ndarray = np.zeros(n, dtype=float)
 
-        for train_idx, test_idx in kf.split(X):
+        for train_idx, test_idx in splits:
             w_train = w_full[train_idx] if w_full is not None else None
             ml_g = self._fit_weighted(
                 self.ml_g,

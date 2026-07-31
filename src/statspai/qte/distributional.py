@@ -13,11 +13,18 @@ Athey, S. & Imbens, G. W. (2006).
 """
 
 from __future__ import annotations
-from typing import Any, Callable, Dict, Optional, List
+
+from typing import Any, Callable, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
+
+# numpy 2.0 renamed ``trapz`` to ``trapezoid``; the project supports numpy 1.x
+# on older Pythons, so bind whichever exists.
+_trapz = getattr(np, "trapezoid", None) or np.trapz
 
 # ══════════════════════════════════════════════════════════════════════
 #  DTEResult
@@ -65,6 +72,9 @@ class DTEResult(ResultProtocolMixin):
         n_obs: Any,
         method: str = "ipw",
         alpha: float = 0.05,
+        cvm_stat: Any = np.nan,
+        cvm_pvalue: Any = np.nan,
+        n_boot_failed: int = 0,
     ) -> None:
         self.grid = np.asarray(grid)
         self.dte = np.asarray(dte)
@@ -79,6 +89,13 @@ class DTEResult(ResultProtocolMixin):
         self.n_obs = int(n_obs)
         self.method = method
         self.alpha = float(alpha)
+        # Cramer-von Mises companion to the KS test: integrated squared
+        # deviation rather than the sup, so it is sensitive to broad, shallow
+        # distributional shifts that a sup-statistic can miss.
+        self.cvm_stat = float(cvm_stat)
+        self.cvm_pvalue = float(cvm_pvalue)
+        self.n_boot_failed = int(n_boot_failed)
+        self.degradations: List[dict] = []
 
     @staticmethod
     def _stars(pv: float) -> str:
@@ -100,8 +117,10 @@ class DTEResult(ResultProtocolMixin):
             "=" * 64,
             f"  Distributional Treatment Effects ({self.method.upper()})",
             "=" * 64,
-            f"  KS statistic:  {self.ks_stat:.4f}{self._stars(self.ks_pvalue)}",
-            f"  KS p-value:    {self.ks_pvalue:.4f}",
+            f"  KS  statistic: {self.ks_stat:.4f}" f"{self._stars(self.ks_pvalue)}",
+            f"  KS  p-value:   {self.ks_pvalue:.4f}",
+            f"  CvM statistic: {self.cvm_stat:.4f}" f"{self._stars(self.cvm_pvalue)}",
+            f"  CvM p-value:   {self.cvm_pvalue:.4f}",
             "",
             f"  {'tau':>6s}  {'QTE':>10s}  {'SE':>9s}  "
             f"{'[' + str(pct) + '% CI]':>22s}",
@@ -221,12 +240,21 @@ def _quantile_from_cdf(
     cdf: np.ndarray,
     taus: np.ndarray,
 ) -> np.ndarray:
-    """Invert CDF on grid to get quantiles."""
-    out = np.empty(len(taus))
-    for i, tau in enumerate(taus):
-        idx = min(np.searchsorted(cdf, tau, side="left"), len(grid) - 1)
-        out[i] = grid[idx]
-    return out
+    """Invert a CDF tabulated on ``grid``, interpolating between grid points.
+
+    The previous implementation snapped every quantile to the nearest grid
+    node, so with the default ``n_grid=100`` each estimate carried a
+    discretisation error of up to one grid cell -- a bias that did not shrink
+    with the sample size, only with ``n_grid``.  Linear interpolation of the
+    CDF removes it.
+    """
+    grid = np.asarray(grid, dtype=float)
+    cdf = np.asarray(cdf, dtype=float)
+    taus = np.atleast_1d(np.asarray(taus, dtype=float))
+    # np.interp needs an increasing x; the CDF is non-decreasing, and ties on
+    # flat stretches resolve to the left-most grid point, which is the
+    # left-continuous inverse we want.
+    return np.asarray(np.interp(taus, cdf, grid, left=grid[0], right=grid[-1]))
 
 
 def _fit_cond_cdf_ctrl(
@@ -235,15 +263,39 @@ def _fit_cond_cdf_ctrl(
     X_all: np.ndarray,
     grid: np.ndarray,
 ) -> np.ndarray:
-    """Fit P(Y<=y|X,D=0) on controls, predict for all obs. Returns (n, n_grid)."""
-    from sklearn.linear_model import LinearRegression
+    """Distribution regression for ``P(Y <= y | X, D = 0)``. Returns (n, n_grid).
+
+    One logit per grid point, i.e. the Chernozhukov, Fernandez-Val & Melly
+    (2013) distribution-regression estimator this module's header cites.
+    The previous implementation used ``LinearRegression`` -- a linear
+    probability model for a CDF -- which is neither bounded in [0, 1] (it was
+    clipped after the fact) nor monotone in ``y``.  Monotonicity is restored
+    explicitly by rearrangement across the grid.
+
+    Falls back to the empirical control CDF (constant in ``X``) at grid points
+    where the outcome indicator is degenerate -- all zeros or all ones -- since
+    a logit is unidentified there.
+
+    References
+    ----------
+    chernozhukov2013inference, chernozhukov2010quantile
+    """
+    from sklearn.linear_model import LogisticRegression
 
     n, ng = X_all.shape[0], len(grid)
     out = np.empty((n, ng))
     for j, yv in enumerate(grid):
-        reg = LinearRegression().fit(X_ctrl, (Y_ctrl <= yv).astype(float))
-        out[:, j] = np.clip(reg.predict(X_all), 0, 1)
-    return out
+        ind = (Y_ctrl <= yv).astype(int)
+        if ind.min() == ind.max():
+            # Degenerate: every control is on one side of this grid point.
+            out[:, j] = float(ind[0])
+            continue
+        clf = LogisticRegression(max_iter=2000, solver="lbfgs", C=1e6)
+        clf.fit(X_ctrl, ind)
+        out[:, j] = clf.predict_proba(X_all)[:, 1]
+    # Enforce monotonicity in y for every observation (CFG 2010 rearrangement).
+    out = np.sort(out, axis=1)
+    return np.clip(out, 0.0, 1.0)
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -458,10 +510,27 @@ def distributional_te(
     res0 = _est[method](*args)
 
     # Bootstrap
-    boot_dte = np.empty((n_boot, n_grid))
-    boot_qte = np.empty((n_boot, len(taus)))
-    boot_ks = np.empty(n_boot)
+    boot_dte = np.full((n_boot, n_grid), np.nan)
+    boot_qte = np.full((n_boot, len(taus)), np.nan)
+    n_failed = 0
 
+    result_shell = DTEResult(
+        grid=grid,
+        dte=res0["dte"],
+        dte_se=np.zeros(n_grid),
+        qte_taus=taus,
+        qte_effects=res0["qte"],
+        qte_se=np.zeros(len(taus)),
+        cdf_treated=res0["cdf_treated"],
+        cdf_counterfactual=res0["cdf_cf"],
+        ks_stat=res0["ks_stat"],
+        ks_pvalue=np.nan,
+        n_obs=n,
+        method=method,
+        alpha=alpha,
+    )
+
+    last_exc: Optional[BaseException] = None
     for b in range(n_boot):
         idx = rng.choice(n, size=n, replace=True)
         ba = (
@@ -477,22 +546,55 @@ def distributional_te(
         )
         try:
             rb = _est[method](*ba)
-            boot_dte[b], boot_qte[b], boot_ks[b] = rb["dte"], rb["qte"], rb["ks_stat"]
-        except Exception:
-            boot_dte[b] = boot_qte[b] = boot_ks[b] = np.nan
+            boot_dte[b], boot_qte[b] = rb["dte"], rb["qte"]
+        except Exception as exc:  # noqa: BLE001 - recorded, never swallowed
+            n_failed += 1
+            last_exc = exc
 
-    return DTEResult(
-        grid=grid,
-        dte=res0["dte"],
-        dte_se=np.nanstd(boot_dte, axis=0),
-        qte_taus=taus,
-        qte_effects=res0["qte"],
-        qte_se=np.nanstd(boot_qte, axis=0),
-        cdf_treated=res0["cdf_treated"],
-        cdf_counterfactual=res0["cdf_cf"],
-        ks_stat=res0["ks_stat"],
-        ks_pvalue=float(np.nanmean(boot_ks >= res0["ks_stat"])),
-        n_obs=n,
-        method=method,
-        alpha=alpha,
-    )
+    if n_failed:
+        from ..workflow._degradation import record_degradation
+
+        record_degradation(
+            result_shell,
+            section="distributional_te.bootstrap",
+            exc=last_exc if last_exc is not None else RuntimeError("resample failed"),
+            detail=(
+                f"{n_failed}/{n_boot} bootstrap replications failed for "
+                f"method={method!r}; SEs and the KS/CvM p-values use the "
+                f"remaining {n_boot - n_failed}."
+            ),
+        )
+
+    # ── Functional tests of H0: no distributional effect ─────────────── #
+    #
+    # The bootstrap distribution of sup|DTE_b| is NOT a null distribution --
+    # it is centred on the estimate, so comparing it against sup|DTE_hat|
+    # gives a quantity that is bounded away from 0 whatever the truth.
+    # Measured on a no-effect DGP, the pre-1.21 p-value never fell below
+    # 0.565 across 40 seeds and rejected at the 5% level 0% of the time.
+    #
+    # Recentre: under H0 the sampling distribution of sup|DTE_hat| is
+    # approximated by that of sup|DTE_b - DTE_hat|, which is what a valid
+    # bootstrap p-value must compare against.
+    dte_hat = np.asarray(res0["dte"], dtype=float)
+    centered = boot_dte - dte_hat[None, :]
+    ok = np.isfinite(centered).all(axis=1)
+    if ok.sum() >= 2:
+        boot_ks_c = np.max(np.abs(centered[ok]), axis=1)
+        ks_p = float(np.mean(boot_ks_c >= res0["ks_stat"]))
+        # Cramer-von Mises: integrated squared deviation over the grid.
+        cvm_stat = float(_trapz(dte_hat**2, grid))
+        boot_cvm_c = _trapz(centered[ok] ** 2, grid, axis=1)
+        cvm_p = float(np.mean(boot_cvm_c >= cvm_stat))
+    else:
+        ks_p = np.nan
+        cvm_stat = float(_trapz(dte_hat**2, grid))
+        cvm_p = np.nan
+
+    result_shell.dte_se = np.nanstd(boot_dte, axis=0)
+    result_shell.qte_se = np.nanstd(boot_qte, axis=0)
+    result_shell.ks_pvalue = ks_p
+    result_shell.cvm_stat = cvm_stat
+    result_shell.cvm_pvalue = cvm_p
+    result_shell.n_boot_failed = n_failed
+    return result_shell

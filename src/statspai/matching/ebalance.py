@@ -20,7 +20,7 @@ from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import stats
 
 from ..core.results import CausalResult
 
@@ -136,16 +136,24 @@ def ebalance(
     # Solve for entropy-balanced weights
     weights, weights_fallback = _solve_ebalance(C_matrix, targets, n_c)
 
-    # Verify balance constraints are satisfied
+    # Verify balance constraints are satisfied. The check is on the
+    # *standardised* moment gap: an absolute threshold is meaningless when
+    # one constraint is a 0/1 indicator and the next is annual earnings in
+    # dollars, and would either never fire or always fire depending on
+    # the units the caller happened to use.
     achieved = C_matrix.T @ weights
-    max_imbalance = np.max(np.abs(achieved - targets))
-    if max_imbalance > 0.01:
+    moment_scale = C_matrix.std(axis=0)
+    moment_scale = np.where(moment_scale > 0, moment_scale, 1.0)
+    max_imbalance = float(np.max(np.abs(achieved - targets) / moment_scale))
+    if max_imbalance > 1e-6:
         import warnings
 
         warnings.warn(
-            f"Entropy balancing did not fully converge "
-            f"(max moment imbalance = {max_imbalance:.4f}). "
-            f"Consider reducing the number of covariates or moments.",
+            f"Entropy balancing did not fully converge (max standardised "
+            f"moment imbalance = {max_imbalance:.2e}). Entropy balancing "
+            f"is supposed to match the targeted moments exactly, so treat "
+            f"this result as unbalanced. Consider reducing the number of "
+            f"covariates or moments.",
             UserWarning,
         )
 
@@ -167,6 +175,13 @@ def ebalance(
     # Balance check
     balance = _balance_check(X_t, X_c, weights, covariates)
 
+    # ``weights`` holds the CONTROL weights only (length n_control), which
+    # is the ebal convention. ``weights_full`` is the same solution laid
+    # out over every retained row (treated units carry weight 1), which is
+    # what callers need to join weights back onto the input frame.
+    weights_full = np.ones(len(df), dtype=float)
+    weights_full[c_mask] = weights * n_t / weights.sum()
+
     model_info = {
         "method": "Entropy Balancing",
         "moments_balanced": moments,
@@ -176,6 +191,8 @@ def ebalance(
         "eff_sample_size": float(1 / np.sum(weights**2)),
         "balance": balance,
         "weights": weights,
+        "weights_full": weights_full,
+        "max_standardized_moment_gap": max_imbalance,
         "weights_fallback": weights_fallback,
     }
 
@@ -233,60 +250,113 @@ def _solve_ebalance(
     targets: np.ndarray,
     n_c: int,
     max_iter: int = 200,
+    tol: float = 1e-12,
+    base_weights: "np.ndarray | None" = None,
 ) -> Tuple[np.ndarray, bool]:
-    """Solve entropy balancing via Lagrange dual (Newton's method).
+    """Solve entropy balancing via its Lagrange dual (Newton + line search).
 
-    Returns ``(weights, fallback)`` where ``fallback=True`` means the
-    dual optimizer raised and uniform control weights were returned.
+    Entropy balancing's defining property is that the reweighted moments
+    match the targets *exactly*, so the solver must be driven to a true
+    stationary point rather than merely to a good objective value.
+
+    Writing ``A_i = C_i - targets``, the weights are
+    ``w_i ∝ q_i exp(-A_i'λ)`` and the dual objective
+
+        F(λ) = log Σ_i q_i exp(-A_i'λ)
+
+    is convex with ``∇F = -A'w`` and ``∇²F = A'diag(w)A - (A'w)(A'w)'``.
+    Exact balance is precisely ``∇F = 0``, so Newton's method with a
+    backtracking line search is run until ``‖A'w‖_∞`` is at tolerance.
+
+    The constraint columns are additionally divided by their standard
+    deviation before solving. Without that rescaling the dual Hessian is
+    badly conditioned whenever covariates live on different scales (a
+    dollar-denominated earnings variable next to a 0/1 indicator), and a
+    quasi-Newton method stops early — leaving moment gaps of order 1e-3
+    relative, which silently breaks the estimator's contract.
+
+    Returns ``(weights, fallback)`` where ``fallback=True`` means no
+    balancing solution was found and uniform control weights were
+    returned.
     """
     m = len(targets)
+    A_raw = np.asarray(C, dtype=float) - np.asarray(targets, dtype=float)
+    scale = A_raw.std(axis=0)
+    scale = np.where(scale > 0, scale, 1.0)
+    A = A_raw / scale
 
-    # Dual: maximize L(λ) = -log(Σ exp(C λ)) + λ' targets
-    def neg_dual(lam: np.ndarray) -> float:
-        Cl = C @ lam
-        Cl = np.clip(Cl, -500, 500)  # prevent overflow
-        log_sum_exp = np.log(np.sum(np.exp(Cl)))
-        return float(-(lam @ targets - log_sum_exp))
+    if base_weights is None:
+        q = np.full(n_c, 1.0 / n_c)
+    else:
+        q = np.asarray(base_weights, dtype=float)
+        q = q / q.sum()
 
-    def grad(lam: np.ndarray) -> np.ndarray:
-        Cl = C @ lam
-        Cl = np.clip(Cl, -500, 500)
-        exp_Cl = np.exp(Cl)
-        w = exp_Cl / np.sum(exp_Cl)
-        return np.asarray(-(targets - C.T @ w), dtype=float)
+    log_q = np.log(np.maximum(q, 1e-300))
 
-    lam0 = np.zeros(m)
+    def _weights(lam: np.ndarray) -> np.ndarray:
+        z = log_q - A @ lam
+        z -= z.max()  # log-sum-exp stabilisation
+        w = np.exp(z)
+        return w / w.sum()
 
-    try:
-        result = optimize.minimize(
-            neg_dual,
-            lam0,
-            jac=grad,
-            method="L-BFGS-B",
-            options={"maxiter": max_iter, "ftol": 1e-12},
-        )
-        lam = result.x
-    except Exception as exc:
-        from ..exceptions import ConvergenceWarning, warn as _sp_warn
+    def _objective(lam: np.ndarray) -> float:
+        z = log_q - A @ lam
+        zmax = z.max()
+        return float(zmax + np.log(np.sum(np.exp(z - zmax))))
+
+    lam = np.zeros(m)
+    w = _weights(lam)
+    fallback = False
+
+    for _ in range(max_iter):
+        grad = -(A.T @ w)
+        if np.max(np.abs(grad)) < tol:
+            break
+        # Hessian of the log-sum-exp dual (the weighted covariance of A).
+        Aw = A * w[:, None]
+        hess = A.T @ Aw - np.outer(A.T @ w, A.T @ w)
+        try:
+            step = np.linalg.solve(hess, -grad)
+        except np.linalg.LinAlgError:
+            step = -np.linalg.pinv(hess) @ grad
+        if not np.all(np.isfinite(step)):
+            fallback = True
+            break
+        # Backtracking: the dual is convex, so any descent direction with a
+        # short enough step decreases F.
+        f0 = _objective(lam)
+        t = 1.0
+        for _ls in range(60):
+            cand = lam + t * step
+            if _objective(cand) <= f0:
+                break
+            t *= 0.5
+        else:  # pragma: no cover - only on a numerically hopeless problem
+            fallback = True
+            break
+        lam = lam + t * step
+        w = _weights(lam)
+    else:
+        # Ran out of iterations without hitting the gradient tolerance.
+        fallback = np.max(np.abs(A.T @ w)) > 1e-6
+
+    if fallback:
+        from ..exceptions import ConvergenceWarning
+        from ..exceptions import warn as _sp_warn
 
         _sp_warn(
             ConvergenceWarning,
-            "ebalance: entropy balancing dual optimizer (L-BFGS-B) failed "
-            f"({type(exc).__name__}: {exc}); falling back to uniform "
-            "control weights.",
+            "ebalance: the entropy-balancing dual did not converge; the "
+            "treated moments are probably outside the convex hull of the "
+            "control moments. Falling back to uniform control weights.",
             recovery_hint=(
-                "Reduce the number of covariates or moments, or rescale "
-                "covariates to avoid extreme constraint values."
+                "Reduce the number of covariates or moments, drop control "
+                "units far outside the treated covariate range, or check "
+                "for a covariate with no overlap between the groups."
             ),
             stacklevel=4,
         )
         return np.ones(n_c, dtype=float) / n_c, True
-
-    # Recover weights
-    Cl = C @ lam
-    Cl = np.clip(Cl, -500, 500)
-    w = np.exp(Cl)
-    w = w / np.sum(w)
 
     return np.asarray(w, dtype=float), False
 

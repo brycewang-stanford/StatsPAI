@@ -33,8 +33,8 @@ Cunningham, S. (2021). *Causal Inference: The Mixtape*. Yale University Press.
 """
 
 import operator
-from typing import Any, List, Optional, Tuple
 import warnings
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -44,13 +44,13 @@ from scipy.spatial.distance import cdist
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._matched_frame import (
+    COL_WEIGHT,
+    abadie_imbens_se,
+    attach_matched_frame,
     build_matched_frame,
     common_support_mask,
     matched_columns,
-    attach_matched_frame,
     psmatch2_se,
-    abadie_imbens_se,
-    COL_WEIGHT,
 )
 
 # ======================================================================
@@ -166,7 +166,10 @@ def match(
     estimand: str = "ATT",
     n_matches: int = 1,
     caliper: Optional[float] = None,
+    caliper_scale: str = "raw",
     replace: bool = True,
+    m_order: str = "smallest_min_dist",
+    mahalanobis_cov: str = "pooled",
     bias_correction: bool = False,
     # --- propensity score specification ---
     ps_poly: int = 1,
@@ -321,7 +324,10 @@ def match(
         estimand=estimand,
         n_matches=n_matches,
         caliper=caliper,
+        caliper_scale=caliper_scale,
         replace=replace,
+        m_order=m_order,
+        mahalanobis_cov=mahalanobis_cov,
         bias_correction=bias_correction,
         ps_poly=ps_poly,
         common_support=common_support,
@@ -349,7 +355,10 @@ def match(
                 "estimand": estimand,
                 "n_matches": n_matches,
                 "caliper": caliper,
+                "caliper_scale": caliper_scale,
                 "replace": replace,
+                "m_order": m_order,
+                "mahalanobis_cov": mahalanobis_cov,
                 "bias_correction": bias_correction,
                 "ps_poly": ps_poly,
                 "common_support": common_support,
@@ -432,7 +441,10 @@ class MatchEstimator:
         estimand: str = "ATT",
         n_matches: int = 1,
         caliper: Optional[float] = None,
+        caliper_scale: str = "raw",
         replace: bool = True,
+        m_order: str = "smallest_min_dist",
+        mahalanobis_cov: str = "pooled",
         bias_correction: bool = False,
         ps_poly: int = 1,
         common_support: str = "none",
@@ -473,7 +485,31 @@ class MatchEstimator:
             if caliper is None
             else _positive_float(caliper, name="caliper", context=context)
         )
+        self.caliper_scale = str(caliper_scale).lower()
+        if self.caliper_scale not in ("raw", "sd"):
+            raise ValueError(
+                f"match: caliper_scale must be 'raw' or 'sd', got " f"{caliper_scale!r}"
+            )
         self.replace = replace
+        self.m_order = str(m_order).lower()
+        _VALID_M_ORDER = (
+            "smallest_min_dist",
+            "data",
+            "closest",
+            "farthest",
+            "smallest",
+            "largest",
+        )
+        if self.m_order not in _VALID_M_ORDER:
+            raise ValueError(
+                f"match: m_order must be one of {_VALID_M_ORDER}, got " f"{m_order!r}"
+            )
+        self.mahalanobis_cov = str(mahalanobis_cov).lower()
+        if self.mahalanobis_cov not in ("pooled", "total"):
+            raise ValueError(
+                f"match: mahalanobis_cov must be 'pooled' or 'total', got "
+                f"{mahalanobis_cov!r}"
+            )
         self.bias_correction = bias_correction
         self.ps_poly = _positive_int(ps_poly, name="ps_poly", context=context)
         self.common_support = str(common_support).lower()
@@ -839,12 +875,20 @@ class MatchEstimator:
         # Build distance matrix for the (used-treated × control) block
         dist_mat = self._compute_distance_matrix(X, t_use, idx_c, pscore)
 
+        # A caliper given in 'sd' units is expressed in standard deviations
+        # of the distance measure (the MatchIt `std.caliper = TRUE`
+        # convention); 'raw' leaves it on the distance scale (Stata
+        # psmatch2). Resolve it once, against the full-sample distance
+        # measure, so both matching directions use the same width.
+        caliper = self._resolve_caliper(pscore)
+
         if self.estimand == "ATT":
             matches, weights = self._nn_match_from_dist(
                 dist_mat,
-                self.caliper,
+                caliper,
                 target_order=row_order[t_use],
                 pool_order=row_order[idx_c],
+                pscore_target=None if pscore is None else pscore[t_use],
             )
             att = self._compute_effect(Y, t_use, idx_c, X, matches, weights)
             se = self._ai_se(Y, X, T, t_use, idx_c, matches, weights)
@@ -855,15 +899,17 @@ class MatchEstimator:
             dist_ct = self._compute_distance_matrix(X, idx_c, idx_t, pscore)
             m_tc, w_tc = self._nn_match_from_dist(
                 dist_mat,
-                self.caliper,
+                caliper,
                 target_order=row_order[t_use],
                 pool_order=row_order[idx_c],
+                pscore_target=None if pscore is None else pscore[t_use],
             )
             m_ct, w_ct = self._nn_match_from_dist(
                 dist_ct,
-                self.caliper,
+                caliper,
                 target_order=row_order[idx_c],
                 pool_order=row_order[idx_t],
+                pscore_target=None if pscore is None else pscore[idx_c],
             )
             att_part = self._compute_effect(Y, t_use, idx_c, X, m_tc, w_tc)
             atc_part = self._compute_effect(Y, idx_c, idx_t, X, m_ct, w_ct)
@@ -1064,7 +1110,7 @@ class MatchEstimator:
             return np.asarray(cdist(ps_from, ps_to, metric="euclidean"), dtype=float)
 
         elif self.distance == "mahalanobis":
-            cov = np.cov(X.T)
+            cov = self._mahalanobis_cov_matrix(X)
             if cov.ndim == 0:
                 cov = np.array([[cov]])
             try:
@@ -1389,12 +1435,98 @@ class MatchEstimator:
     # NN matching helpers
     # ==================================================================
 
+    def _resolve_caliper(self, pscore: Optional[np.ndarray]) -> Optional[float]:
+        """Caliper width on the distance scale.
+
+        ``caliper_scale='raw'`` (default, Stata ``psmatch2 , caliper()``)
+        uses the value as given. ``'sd'`` multiplies it by the standard
+        deviation of the distance measure, which is the ``MatchIt``
+        ``std.caliper = TRUE`` convention.
+        """
+        if self.caliper is None:
+            return None
+        if self.caliper_scale == "raw":
+            return float(self.caliper)
+        if pscore is None:
+            raise MethodIncompatibility(
+                "match: caliper_scale='sd' scales the caliper by the "
+                "standard deviation of the propensity score, which "
+                f"distance={self.distance!r} does not produce.",
+                recovery_hint=(
+                    "Use caliper_scale='raw' with a non-propensity "
+                    "distance, or set distance='propensity'."
+                ),
+                diagnostics={"distance": self.distance},
+            )
+        sd = float(np.std(np.asarray(pscore, dtype=float), ddof=1))
+        return float(self.caliper) * sd
+
+    def _mahalanobis_cov_matrix(self, X: np.ndarray) -> np.ndarray:
+        """Covariance matrix defining the Mahalanobis metric.
+
+        ``'pooled'`` (default) is the pooled *within-group* covariance
+        ``S_w = [(n1-1)S1 + (n0-1)S0] / (n1 + n0 - 2)``, i.e. the metric of
+        Rubin (1980) that ``MatchIt`` also uses. ``'total'`` is the
+        full-sample covariance.
+
+        The distinction matters: the full-sample covariance is inflated
+        along the direction in which the groups' means differ, which is
+        exactly the direction matching needs to resolve most finely, so
+        using it shrinks the distances that should discriminate most.
+        """
+        T = self.data[self.treat].to_numpy()
+        if self.mahalanobis_cov == "total":
+            return np.atleast_2d(np.cov(X.T))
+        x1 = X[T == 1]
+        x0 = X[T == 0]
+        n1, n0 = len(x1), len(x0)
+        if n1 < 2 or n0 < 2:  # pragma: no cover - guarded upstream
+            return np.atleast_2d(np.cov(X.T))
+        s1 = np.atleast_2d(np.cov(x1.T))
+        s0 = np.atleast_2d(np.cov(x0.T))
+        return ((n1 - 1) * s1 + (n0 - 1) * s0) / (n1 + n0 - 2)
+
+    def _target_processing_order(
+        self,
+        dist: np.ndarray,
+        target_order: np.ndarray,
+        pscore_target: Optional[np.ndarray],
+    ) -> np.ndarray:
+        """Static processing order for without-replacement greedy matching.
+
+        Returns ``None`` for the dynamic orders ('closest' / 'farthest'),
+        which cannot be precomputed because each assignment changes which
+        controls remain available.
+        """
+        mo = self.m_order
+        if mo in ("closest", "farthest"):
+            return None
+        if mo == "data":
+            return np.argsort(target_order, kind="stable")
+        if mo == "smallest_min_dist":
+            return np.lexsort((target_order, np.min(dist, axis=1)))
+        if mo in ("smallest", "largest"):
+            if pscore_target is None:
+                raise MethodIncompatibility(
+                    f"match: m_order={mo!r} orders treated units by the "
+                    "propensity score, which requires distance='propensity'.",
+                    recovery_hint=(
+                        "Use m_order='closest'/'farthest'/'data' with a "
+                        "non-propensity distance, or set distance='propensity'."
+                    ),
+                    diagnostics={"m_order": mo, "distance": self.distance},
+                )
+            key = pscore_target if mo == "smallest" else -pscore_target
+            return np.lexsort((target_order, key))
+        raise ValueError(f"match: unknown m_order {mo!r}")  # pragma: no cover
+
     def _nn_match_from_dist(
         self,
         dist: np.ndarray,
         caliper: Optional[float] = None,
         target_order: Optional[np.ndarray] = None,
         pool_order: Optional[np.ndarray] = None,
+        pscore_target: Optional[np.ndarray] = None,
     ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         """
         k-NN matching from a precomputed distance matrix.
@@ -1429,32 +1561,63 @@ class MatchEstimator:
             order = np.lexsort((pool_order[candidates], d[candidates]))
             return np.asarray(candidates[order[:k]], dtype=int)
 
-        # Without replacement: process treated units greedily by best
-        # minimum distance so each control is used at most once.
+        # Without replacement each control can be used once, so the result
+        # depends on the order treated units are processed in -- materially
+        # so (see the `m_order` documentation on `sp.match`). The order is
+        # a user choice, not an implementation detail.
         if not self.replace:
             used: set[int] = set()
-            # Sort treated units by their minimum distance to any control
-            min_dists = np.min(dist, axis=1)
-            order = np.lexsort((target_order, min_dists))
+            static_order = self._target_processing_order(
+                dist, target_order, pscore_target
+            )
 
-            for i in order:
+            def _assign(i: int) -> None:
                 d = dist[i].copy()
                 if caliper is not None:
                     d[d > caliper] = np.inf
-                # Mask out already-used controls
                 for u in used:
                     d[u] = np.inf
-
                 k = min(self.n_matches, int(np.sum(np.isfinite(d))))
                 if k == 0:
                     matches[i] = np.array([], dtype=int)
                     weights[i] = np.array([], dtype=float)
-                    continue
-
+                    return
                 idx = _nearest_indices(d, k)
                 matches[i] = idx
                 weights[i] = np.ones(k, dtype=float) / k
                 used.update(idx.tolist())
+
+            if static_order is not None:
+                for i in static_order:
+                    _assign(int(i))
+                return matches, weights
+
+            # Dynamic orders: at every step re-evaluate which *remaining*
+            # treated unit currently has the closest (or farthest) available
+            # control, and match that one next.
+            remaining = set(range(n_target))
+            take_min = self.m_order == "closest"
+            while remaining:
+                best_i = None
+                best_d = None
+                for i in sorted(remaining):
+                    d = dist[i].copy()
+                    if caliper is not None:
+                        d[d > caliper] = np.inf
+                    for u in used:
+                        d[u] = np.inf
+                    if not np.any(np.isfinite(d)):
+                        continue
+                    dv = float(np.min(d))
+                    if best_d is None or (dv < best_d if take_min else dv > best_d):
+                        best_d, best_i = dv, i
+                if best_i is None:
+                    break
+                _assign(best_i)
+                remaining.discard(best_i)
+            for i in remaining:
+                matches[i] = np.array([], dtype=int)
+                weights[i] = np.array([], dtype=float)
 
             return matches, weights
 

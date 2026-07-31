@@ -6268,7 +6268,7 @@
     "name": "disparity_panel"
   },
   {
-    "description": "Distributional IV: LATE at each quantile of Y. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function); Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles; formula includes the (endog ~ instruments) parenthesised block. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse; First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is invalid; drop instruments or switch to just-identified LIML. Alternatives: sp.qte, sp.iv, sp.dml, sp.deepiv. Typical minimum N: 500.",
+    "description": "Distributional IV: the complier LATE at each quantile of ``y``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function); Relevance: instruments predict the endogenous regressor (first-stage F >= 10 rule of thumb). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles; formula includes the (endog ~ instruments) parenthesised block. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse; First-stage F < 10 (Stock-Yogo 5% bias) -> Use weak-IV-robust inference (Anderson-Rubin) or LIML; Over-identification test rejects (sp.estat 'overid') -> At least one instrument is invalid; drop instruments or switch to just-identified LIML. Alternatives: sp.qte, sp.iv, sp.dml, sp.deepiv. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -6277,23 +6277,33 @@
           "type": "number"
         },
         "covariates": {
-          "description": "Covariate matrix, DataFrame, or column names.",
+          "description": "Conditioning set for ``P(Z=1|X)``. Unlike versions <= 1.20.0 (which accepted and silently ignored this argument) it now changes the estimate.",
           "items": {
             "type": "string"
           },
           "type": "array"
         },
         "instrument": {
-          "description": "instrument parameter (str).",
+          "description": "Outcome, binary treatment, binary instrument.",
           "type": "string"
         },
         "n_boot": {
           "default": 200,
-          "description": "Number of bootstrap replications.",
+          "description": "Bootstrap replications when ``se='bootstrap'``.",
           "type": "integer"
         },
         "quantiles": {
-          "description": "Defaults to (0.1, 0.25, 0.5, 0.75, 0.9).",
+          "description": "Defaults to ``(0.1, 0.25, 0.5, 0.75, 0.9)``.",
+          "type": "string"
+        },
+        "se": {
+          "default": "auto",
+          "description": "``'auto'`` picks ``'analytic'`` without covariates and ``'bootstrap'`` with them (the analytic influence function treats ``pi(X)`` as known).",
+          "enum": [
+            "auto",
+            "analytic",
+            "bootstrap"
+          ],
           "type": "string"
         },
         "seed": {
@@ -6302,11 +6312,11 @@
           "type": "integer"
         },
         "treat": {
-          "description": "Treatment indicator or first-treatment-period column.",
+          "description": "Outcome, binary treatment, binary instrument.",
           "type": "string"
         },
         "y": {
-          "description": "Outcome variable column name or outcome array.",
+          "description": "Outcome, binary treatment, binary instrument.",
           "type": "string"
         }
       },
@@ -6643,7 +6653,7 @@
     "name": "dml_panel"
   },
   {
-    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Assumptions: Unconfoundedness (IRM/PLR) or instrument validity (IIVM/PLIV) given the covariates; Overlap / positivity; Neyman-orthogonal score plus cross-fitting; nuisance estimators converge fast enough (o(n^-1/4)). Pre-conditions: Covariates, treatment, and outcome with enough data for cross-fitted machine-learning nuisances; For instrumented variants (PLIV / IIVM): an instrument as well. Failure modes: Propensity scores near 0/1 -- overlap failure inflates variance and bias -> Trim extreme scores, restrict the estimand to the overlap region, or report sensitivity (dml_sensitivity). Alternatives: sp.tmle, sp.auto_cate, sp.causal_forest. Typical minimum N: 500.",
+    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Unconfoundedness (IRM/PLR) or instrument validity (IIVM/PLIV) given the covariates; Overlap / positivity; Neyman-orthogonal score plus cross-fitting; nuisance estimators converge fast enough (o(n^-1/4)). Pre-conditions: Covariates, treatment, and outcome with enough data for cross-fitted machine-learning nuisances; For instrumented variants (PLIV / IIVM): an instrument as well. Failure modes: Propensity scores near 0/1 -- overlap failure inflates variance and bias -> Trim extreme scores, restrict the estimand to the overlap region, or report sensitivity (dml_sensitivity). Alternatives: sp.tmle, sp.auto_cate, sp.causal_forest. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "benchmark_covariates": {
@@ -10673,7 +10683,7 @@
     "name": "johansen"
   },
   {
-    "description": "KAN-Powered D-IV-LATE (Shaw 2025, arXiv 2506.12765). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
+    "description": "Deprecated alias for :func:`dist_iv`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Selection-on-observables (unconfoundedness + overlap) or, for IV variants, instrument validity; For IV-QTE: rank invariance / rank similarity (monotonicity of the structural quantile function). Pre-conditions: Covariates, treatment, and outcome; for IV-quantile methods, a valid instrument; Enough data to estimate the outcome distribution across quantiles. Failure modes: Estimated conditional quantiles cross (non-monotone), or tail quantiles are unstable -> Use rearrangement / monotonization and avoid extreme quantiles where data are sparse. Alternatives: sp.qte, sp.iv, sp.dml. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -12137,15 +12147,46 @@
     "name": "marginsplot"
   },
   {
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support: treated X-values are in the control X-support; SUTVA: no interference between matched units. Pre-conditions: binary treatment 0/1; covariates are pre-treatment (temporally prior to D); enough control units for each treated unit under the chosen method (k:1 matching). Failure modes: Covariate imbalance after matching (max |SMD| > 0.1) -> Re-match with stricter caliper, add interactions, or switch to sp.ebalance (entropy balancing); Poor propensity score overlap (density plots, treated mass where controls are sparse) -> Apply sp.trimming (Crump 2009) or redefine the estimand to the overlap region; Too few matched controls per treated unit -> Relax caliper, allow with-replacement, or use entropy balancing /...",
+    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; matching with replacement resolves ties by taking the first nearest control only, whereas Matching::Match(ties=TRUE) averages over all tied controls, so with-replacement point estimates can differ from that reference. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that. Assumptions: Unconfoundedness / CIA: Y(d) perp D | X; Overlap / common support: treated X-values are in the control X-support; SUTVA: no interference between matched units. Pre-conditions: binary treat...",
     "input_schema": {
       "properties": {
+        "caliper_scale": {
+          "default": "raw",
+          "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
+          "enum": [
+            "raw",
+            "sd"
+          ],
+          "type": "string"
+        },
         "covariates": {
           "description": "Covariate matrix, DataFrame, or column names.",
           "items": {
             "type": "string"
           },
           "type": "array"
+        },
+        "m_order": {
+          "default": "smallest_min_dist",
+          "description": "Order treated units are processed in for greedy matching without replacement. The result depends on it materially (>5x spread on lalonde with Mahalanobis distance). 'data' and 'closest' reproduce the MatchIt rules of the same name.",
+          "enum": [
+            "smallest_min_dist",
+            "data",
+            "closest",
+            "farthest",
+            "smallest",
+            "largest"
+          ],
+          "type": "string"
+        },
+        "mahalanobis_cov": {
+          "default": "pooled",
+          "description": "Covariance defining the Mahalanobis metric: 'pooled' within-group (Rubin 1980, MatchIt) or 'total' full-sample (pre-1.21 behaviour).",
+          "enum": [
+            "pooled",
+            "total"
+          ],
+          "type": "string"
         },
         "method": {
           "default": "nearest",
@@ -14265,7 +14306,7 @@
     "name": "oprobit"
   },
   {
-    "description": "Optimal 1:1 matching via the Hungarian algorithm. Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing model (CBPS, entropy balancing) and re-check standardized mean differences. Alternatives: sp.propensity_s...",
+    "description": "Optimal 1:1 matching via the Hungarian algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm. Assumptions: Unconfoundedness: treatment is as-good-as-random given the measured covariates; Overlap / common support: every unit has a non-degenerate probability of each treatment; The covariate set blocks all back-door paths. Pre-conditions: Pre-treatment covariates measured for treated and control units; A binary (or low-cardinality) treatment indicator; Sufficient covariate overlap between treatment arms. Failure modes: Poor overlap -- extreme propensity scores or few acceptable matches -> Trim or restrict to the common-support region and report the discarded units; Covariate imbalance remains after matching/weighting -> Re-specify the balancing m...",
     "input_schema": {
       "properties": {
         "caliper": {
@@ -15498,7 +15539,7 @@
     "name": "poisson"
   },
   {
-    "description": "Doubly-robust policy-tree -- article-facing alias. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Doubly-robust policy-tree -- article-facing alias. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
         "X": {
@@ -16438,7 +16479,7 @@
     "name": "pwcompare"
   },
   {
-    "description": "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). Estimates QTE at multiple quantiles via changes-in-changes on a 2x2 design with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: CIC rank invariance: the quantile rank in the untreated distribution is stable across groups; Continuous outcome support covering both groups in both periods; SUTVA (no cross-group spillovers). Pre-conditions: panel or repeated cross-section; group is binary 0/1; time is binary 0/1 (pre / post). Failure modes: Outcome heavily discrete / zero-inflated -> CIC rank-matching is unstable on discrete supports -- use QTE regression (sp.qte) or Firpo-RIF; Bootstrap CI across quantiles varies wildly -> Thin tails at extreme quantiles -- restrict to [0.2, 0.8] or raise n_boot to 2000. Alternatives: sp.qte, sp.did, sp.rifreg. Typical minimum N: 500.",
+    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: CIC rank invariance: the quantile rank in the untreated distribution is stable across groups; Continuous outcome support covering both groups in both periods; SUTVA (no cross-group spillovers). Pre-conditions: panel or repeated cross-section; group is binary 0/1; time is binary 0/1 (pre / post). Failure modes: Outcome heavily discrete / zero-inflated -> CIC rank-matching is unstable on discrete supports -- use QTE regression (sp.qte) or Firpo-RIF; Bootstrap CI across quantiles varies wildly -> Thin tails at extreme quantiles -- restrict to [0.2, 0.8] or raise n_boot to 2000. Alternatives: sp.qte, sp.did, sp.rifreg. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -16566,7 +16607,7 @@
     "name": "qreg"
   },
   {
-    "description": "Quantile Treatment Effect via quantile regression or IPW weighting. Returns QTE at supplied quantiles with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: For 'quantile_regression': unconfoundedness conditional on controls; For 'ipw': unconfoundedness + overlap 0 < e(x) < 1; Correct parametric quantile model (sensitivity tested via multiple quantiles). Pre-conditions: binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary); continuous outcome; controls cover the confounding set (for 'quantile_regression'). Failure modes: Large IPW weights (method='ipw') -> Extreme propensities -- trim (sp.trimming) or switch to doubly-robust DR-QTE; Quantile crossing -> Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints. Alternatives: sp.qdid, sp.rifreg, sp.cic, sp.metalearner. Typical minimum N: 500.",
+    "description": "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity reweighting (analytic influence-function SE); 'conditional_qr' gives the CONDITIONAL QTE (coefficient on D in a quantile regression, Koenker & Bassett 1978); 'distribution' gives the QTT via an IPW counterfactual distribution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: For 'firpo_qte' / 'firpo_qtt' / 'distribution': unconfoundedness + overlap; For 'conditional_qr': unconfoundedness conditional on controls; note this is a CONDITIONAL estimand with no causal reading absent rank invariance; Correct parametric quantile model (sensitivity tested via multiple quantiles). Pre-conditions: binary treatment (all methods); continuous outcome; controls cover the confounding set. Failure modes: Large IPW weights (method='ipw') -> Extreme propensities -- trim (sp.trimming) or switch to doubly-robust DR-QTE; Quantile crossing -> Use rearrangement (Chernozhukov-Fernandez-Val-Galichon) or monotone constraints. Alternatives: sp.qdid, sp.rifreg, sp.cic, sp.metalearner. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -16582,11 +16623,13 @@
           "type": "array"
         },
         "method": {
-          "default": "quantile_regression",
-          "description": "Estimation method",
+          "default": "firpo_qte",
+          "description": "Estimand / estimator",
           "enum": [
-            "quantile_regression",
-            "ipw"
+            "firpo_qte",
+            "firpo_qtt",
+            "conditional_qr",
+            "distribution"
           ],
           "type": "string"
         },
@@ -24308,6 +24351,54 @@
       "type": "object"
     },
     "name": "xtabond"
+  },
+  {
+    "description": "Blundell-Bond system GMM for dynamic panels (alias for xtabond with method='system'). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "input_schema": {
+      "properties": {
+        "collapse": {
+          "default": false,
+          "description": "Collapse instruments (Roodman 2009) to curb proliferation",
+          "type": "boolean"
+        },
+        "id": {
+          "default": "id",
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "lags": {
+          "default": 1,
+          "description": "lags parameter (int).",
+          "type": "integer"
+        },
+        "time": {
+          "default": "time",
+          "description": "Time column",
+          "type": "string"
+        },
+        "twostep": {
+          "default": false,
+          "description": "twostep parameter (bool).",
+          "type": "boolean"
+        },
+        "x": {
+          "description": "Exogenous regressors",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Dependent variable",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "xtdpdsys"
   },
   {
     "description": "Fit panel negative-binomial regression. Use model='fe' for explicit entity fixed effects via nbreg, or model='re' for a random-intercept NB-2 GLMM via menbreg. Do not use feols for negative-binomial outcomes.",

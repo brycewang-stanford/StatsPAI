@@ -2068,6 +2068,51 @@ def _build_registry() -> None:
                     "Matching method",
                     ["nearest", "caliper", "mahalanobis"],
                 ),
+                ParamSpec(
+                    "m_order",
+                    "str",
+                    False,
+                    "smallest_min_dist",
+                    (
+                        "Order treated units are processed in for greedy "
+                        "matching without replacement. The result depends "
+                        "on it materially (>5x spread on lalonde with "
+                        "Mahalanobis distance). 'data' and 'closest' "
+                        "reproduce the MatchIt rules of the same name."
+                    ),
+                    [
+                        "smallest_min_dist",
+                        "data",
+                        "closest",
+                        "farthest",
+                        "smallest",
+                        "largest",
+                    ],
+                ),
+                ParamSpec(
+                    "mahalanobis_cov",
+                    "str",
+                    False,
+                    "pooled",
+                    (
+                        "Covariance defining the Mahalanobis metric: "
+                        "'pooled' within-group (Rubin 1980, MatchIt) or "
+                        "'total' full-sample (pre-1.21 behaviour)."
+                    ),
+                    ["pooled", "total"],
+                ),
+                ParamSpec(
+                    "caliper_scale",
+                    "str",
+                    False,
+                    "raw",
+                    (
+                        "Units of `caliper`: 'raw' on the distance scale "
+                        "(Stata psmatch2) or 'sd' in standard deviations of "
+                        "the propensity score (MatchIt std.caliper=TRUE)."
+                    ),
+                    ["raw", "sd"],
+                ),
             ],
             returns="MatchEstimator result",
             example='sp.match(df, treatment="treat", outcome="y", covariates=["x1","x2"])',
@@ -2112,6 +2157,18 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["ebalance", "cbps", "optimal_match", "sbw", "ipw"],
+            limitations=[
+                "greedy nearest-neighbour matching without replacement is "
+                "order-dependent: the m_order convention can differ across "
+                "packages and materially moves the estimate (>5x spread on "
+                "MatchIt::lalonde with Mahalanobis distance). m_order='data' "
+                "and 'closest' reproduce MatchIt exactly; m_order='farthest' "
+                "is StatsPAI's own dynamic rule and is not MatchIt-equivalent",
+                "matching with replacement resolves ties by taking the first "
+                "nearest control only, whereas Matching::Match(ties=TRUE) "
+                "averages over all tied controls, so with-replacement point "
+                "estimates can differ from that reference",
+            ],
             typical_n_min=200,
         )
     )
@@ -2413,6 +2470,40 @@ def _build_registry() -> None:
             example='sp.xtabond(df, y="output", x=["capital", "labor"], id="firm", time="year")',
             tags=["gmm", "dynamic", "panel", "arellano-bond"],
             reference="Arellano & Bond (1991); Blundell & Bond (1998)",
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="xtdpdsys",
+            category="panel",
+            description=(
+                "Blundell-Bond system GMM for dynamic panels "
+                "(alias for xtabond with method='system')."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True, description="Dependent variable"),
+                ParamSpec("x", "list", False, description="Exogenous regressors"),
+                ParamSpec("id", "str", False, "id", "Unit identifier"),
+                ParamSpec("time", "str", False, "time", "Time column"),
+                ParamSpec("lags", "int", False, 1),
+                ParamSpec("twostep", "bool", False, False),
+                ParamSpec(
+                    "collapse",
+                    "bool",
+                    False,
+                    False,
+                    "Collapse instruments (Roodman 2009) to curb proliferation",
+                ),
+            ],
+            returns="CausalResult",
+            example=(
+                'sp.xtdpdsys(df, y="n", x=["w", "k"], id="id", time="year", '
+                "twostep=True, collapse=True)"
+            ),
+            tags=["gmm", "dynamic", "panel", "blundell-bond", "system-gmm"],
+            reference="Blundell & Bond (1998); Roodman (2009)",
         )
     )
 
@@ -8349,9 +8440,11 @@ def _build_registry() -> None:
             name="qdid",
             category="causal",
             description=(
-                "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). "
-                "Estimates QTE at multiple quantiles via changes-in-changes on "
-                "a 2×2 design with bootstrap SE."
+                "Quantile Difference-in-Differences (QDiD): applies the DiD "
+                "contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on "
+                "a 2x2 design with bootstrap SE. This is NOT changes-in-changes "
+                "— Athey & Imbens (2006) propose CiC and explicitly criticise "
+                "QDiD; use sp.cic for CiC."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -8374,7 +8467,10 @@ def _build_registry() -> None:
             returns="QTEResult",
             example='sp.qdid(df, y="wage", group="treat", time="post")',
             tags=["qte", "qdid", "cic", "distributional", "did", "causal"],
-            reference="Athey & Imbens (2006) Econometrica — Changes-in-Changes",
+            reference=(
+                "Koenker & Bassett (1978) for the quantiles; Athey & Imbens "
+                "(2006) Econometrica §5 for why CiC is preferred to QDiD"
+            ),
             pre_conditions=[
                 "panel or repeated cross-section",
                 "group is binary 0/1",
@@ -8410,9 +8506,13 @@ def _build_registry() -> None:
             name="qte",
             category="causal",
             description=(
-                "Quantile Treatment Effect via quantile regression or IPW "
-                "weighting. Returns QTE at supplied quantiles with bootstrap "
-                "SE."
+                "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give "
+                "Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity "
+                "reweighting (analytic influence-function SE); "
+                "'conditional_qr' gives the CONDITIONAL QTE (coefficient on D "
+                "in a quantile regression, Koenker & Bassett 1978); "
+                "'distribution' gives the QTT via an IPW counterfactual "
+                "distribution."
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
@@ -8423,9 +8523,14 @@ def _build_registry() -> None:
                     "method",
                     "str",
                     False,
-                    "quantile_regression",
-                    "Estimation method",
-                    ["quantile_regression", "ipw"],
+                    "firpo_qte",
+                    "Estimand / estimator",
+                    [
+                        "firpo_qte",
+                        "firpo_qtt",
+                        "conditional_qr",
+                        "distribution",
+                    ],
                 ),
                 ParamSpec("controls", "list", False),
                 ParamSpec("n_boot", "int", False, 500),
@@ -8436,14 +8541,16 @@ def _build_registry() -> None:
             tags=["qte", "quantile", "distributional", "causal"],
             reference="Koenker & Bassett (1978); Firpo (2007); Chernozhukov & Hansen (2005)",
             pre_conditions=[
-                "binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary)",
+                "binary treatment (all methods)",
                 "continuous outcome",
-                "controls cover the confounding set (for 'quantile_regression')",
-                "overlap when method='ipw'",
+                "controls cover the confounding set",
+                "overlap 0 < e(x) < 1 for the Firpo and distribution methods",
             ],
             assumptions=[
-                "For 'quantile_regression': unconfoundedness conditional on controls",
-                "For 'ipw': unconfoundedness + overlap 0 < e(x) < 1",
+                "For 'firpo_qte' / 'firpo_qtt' / 'distribution': unconfoundedness + overlap",
+                "For 'conditional_qr': unconfoundedness conditional on "
+                "controls; note this is a CONDITIONAL estimand with no "
+                "causal reading absent rank invariance",
                 "Correct parametric quantile model (sensitivity tested via multiple quantiles)",
             ],
             failure_modes=[
@@ -12454,6 +12561,9 @@ _VALIDATED_TEST_SEED_FUNCTIONS: Dict[str, List[str]] = {
     "tobit": ["tests/test_weakiv_tobit.py"],
     "wild_cluster_bootstrap": ["tests/test_inference.py"],
     "xtabond": ["tests/test_gmm.py"],
+    "xtdpdsys": [
+        "tests/reference_parity/test_dynpanel_abdata_parity.py",
+    ],
     "xtnbreg": ["tests/test_count_panel_nbreg.py"],
     # Longitudinal / target-trial / survey / mediation contracts.
     "clone_censor_weight": ["tests/test_target_trial.py"],

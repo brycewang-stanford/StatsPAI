@@ -182,12 +182,39 @@ def test_match_method_records_balance_and_flags_imbalance(method):
 
 def test_cbps_reports_residual_imbalance():
     """CBPS stores balance under std_mean_diff_after (not `balance`) and is not
-    tagged 'matching' — residual imbalance must still surface."""
+    tagged 'matching' — residual imbalance must still surface.
+
+    Selection strength 2.5 (not 1.5): the over-identified CBPS objective
+    trades covariate balance off against the logit score equation, and since
+    the solver was aligned with ``CBPS::CBPS`` it balances well enough at
+    strength 1.5 (max |SMD| 0.17) to sit below the 0.25 warning threshold.
+    Stronger selection is what leaves genuine residual imbalance to detect."""
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        r = sp.cbps(_confounded(1.5), y="y", treat="d", covariates=["x1", "x2"])
+        r = sp.cbps(_confounded(2.5), y="y", treat="d", covariates=["x1", "x2"])
     assert isinstance(r.model_info.get("std_mean_diff_after"), dict)
     assert "balance" in {v["test"] for v in r.violations()}
+
+
+def test_cbps_exact_variant_balances_exactly():
+    """Just-identified CBPS solves K balance equations in K unknowns, so the
+    post-weighting standardized mean differences must vanish to solver
+    precision. This is the sharpest available correctness signature for the
+    solver — it does not depend on any reference implementation."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.cbps(
+            _confounded(1.5),
+            y="y",
+            treat="d",
+            covariates=["x1", "x2"],
+            variant="exact",
+            n_bootstrap=5,
+            seed=0,
+        )
+    smd = r.model_info["std_mean_diff_after"]
+    worst = max(abs(v) for k, v in smd.items() if k != "_intercept")
+    assert worst < 1e-8, f"just-identified CBPS left |SMD| = {worst:.3e}"
 
 
 # --------------------------------------------------------------------------- #

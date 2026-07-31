@@ -12,14 +12,13 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
-
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
 import statspai as sp  # noqa: E402
 from statspai.exceptions import DataInsufficient, MethodIncompatibility  # noqa: E402
-from statspai.panel import PanelResults, PanelRegression  # noqa: E402
+from statspai.panel import PanelRegression, PanelResults  # noqa: E402
 from statspai.panel.panel_reg import PanelCompareResults, panel_compare  # noqa: E402
 
 
@@ -156,11 +155,20 @@ def test_arellano_bond_gmm(panel_df):
     assert "AR(1) z" in r.diagnostics or "Hansen J" in r.diagnostics
 
 
-def test_system_gmm_not_implemented(panel_df):
-    # System GMM (Blundell-Bond) is intentionally not implemented yet;
-    # the GMM route raises rather than returning unvalidated numbers.
-    with pytest.raises(NotImplementedError, match="system GMM"):
-        sp.panel(
+def test_system_gmm_routes_through_the_dispatcher(panel_df):
+    """``method='system'`` used to raise ``NotImplementedError``.
+
+    The gate existed because Blundell-Bond system GMM had no Stata parity
+    reference; it now has one
+    (``tests/reference_parity/test_dynpanel_abdata_parity.py``, against
+    ``xtabond2``), so the dispatcher route must work end to end. The level
+    equation identifies an intercept the differenced equation cannot, which
+    is the cheapest structural check that the *system* path — not the
+    difference path — actually ran.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = sp.panel(
             panel_df,
             "y ~ x1 + x2",
             entity="id",
@@ -169,6 +177,10 @@ def test_system_gmm_not_implemented(panel_df):
             lags=1,
             twostep=True,
         )
+    assert isinstance(r, PanelResults)
+    assert r.model_info["method"] == "system"
+    assert "_cons" in r.params.index
+    assert r.model_info["n_obs_level"] > 0
 
 
 # ── panel_compare table ─────────────────────────────────────────────────

@@ -982,10 +982,13 @@ def policy_tree(
     >>> res["n_obs"]
     400
     >>> round(float(res["fraction_treated"]), 2)
-    0.66
+    0.61
+    >>> res["search_mode"]
+    'exact'
 
-    ``res["rules"]`` holds the human-readable tree; the leaf splitting on
-    ``x1`` near 0 recovers the true heterogeneity boundary.
+    ``res["rules"]`` holds the human-readable tree. Both depth-2 branches
+    split on ``x1`` near 0, recovering the true heterogeneity boundary
+    ``tau(x) = 2 * 1{x1 > 0}``.
     """
     # Resolve treat / d — refuse silent loss when both given with
     # different values (reviewer flagged the old "treat wins, d ignored"

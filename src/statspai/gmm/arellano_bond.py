@@ -21,7 +21,11 @@ All standard errors, the Sargan/Hansen over-identification tests, and the
 Arellano-Bond AR(1)/AR(2) serial-correlation tests are validated to
 machine precision against Stata 18 ``xtabond ..., noconstant`` (one-step
 robust and non-robust, two-step conventional, and two-step
-Windmeijer-corrected).
+Windmeijer-corrected) on the canonical ``abdata`` employment panel — see
+``tests/reference_parity/test_dynpanel_abdata_parity.py``.
+
+The numerics live in :mod:`statspai.gmm._dynpanel`; this module is the
+documented user-facing surface.
 
 References
 ----------
@@ -46,38 +50,23 @@ Two-Step GMM Estimators."
 *Journal of Econometrics*, 126(1), 25-51. [@windmeijer2005finite]
 """
 
-import warnings
-from typing import Optional, List, Tuple
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..exceptions import IdentificationFailure
+from ._dynpanel import fit_dynamic_panel
+from ._dynpanel._moments import first_difference_H as _ab_H  # noqa: F401  (re-export)
 
-
-def _ab_H(eq_positions: np.ndarray) -> np.ndarray:
-    """First-difference MA(1) covariance structure for one unit.
-
-    ``2`` on the diagonal and ``-1`` on the first off-diagonals, but only
-    between *consecutive* differenced periods (so internal gaps in an
-    unbalanced panel correctly break the off-diagonal link).
-    """
-    r = eq_positions.size
-    H = np.zeros((r, r))
-    for a in range(r):
-        H[a, a] = 2.0
-        for b in range(a + 1, r):
-            if abs(eq_positions[a] - eq_positions[b]) == 1:
-                H[a, b] = H[b, a] = -1.0
-    return H
+__all__ = ["xtabond", "xtdpdsys"]
 
 
 def xtabond(
     data: pd.DataFrame,
     y: str,
-    x: Optional[List[str]] = None,
+    x: Optional[Sequence[str]] = None,
     id: str = "id",
     time: str = "time",
     lags: int = 1,
@@ -86,6 +75,14 @@ def xtabond(
     twostep: bool = False,
     robust: bool = True,
     alpha: float = 0.05,
+    predetermined: Optional[Sequence[str]] = None,
+    endogenous: Optional[Sequence[str]] = None,
+    predetermined_lags: Optional[Tuple[Optional[int], Optional[int]]] = None,
+    endogenous_lags: Optional[Tuple[Optional[int], Optional[int]]] = None,
+    collapse: bool = False,
+    time_dummies: bool = False,
+    orthogonal: bool = False,
+    constant: Optional[bool] = None,
 ) -> CausalResult:
     """
     Arellano-Bond / Blundell-Bond dynamic panel GMM estimator.
@@ -100,7 +97,11 @@ def xtabond(
         Dependent variable.
     x : list of str, optional
         Strictly exogenous regressors. Entered in first differences both
-        as regressors and as their own (standard) instruments.
+        as regressors and as their own (standard) instruments. Accepts
+        Stata lag-operator syntax — ``"w"``, ``"L.w"``, ``"L2.k"``,
+        ``"L(0/2).k"`` — so the canonical Arellano-Bond (1991) employment
+        equation is a single call:
+        ``x=["l(0/1).w", "l(0/2).k"], lags=2``.
     id : str, default 'id'
         Unit identifier.
     time : str, default 'time'
@@ -115,14 +116,25 @@ def xtabond(
         must be ≥ 2 (deeper lags are orthogonal to the differenced error).
         ``max=None`` uses **all** available deeper lags, matching Stata's
         ``xtabond`` default. Setting ``max`` caps the instrument count
-        (Stata's ``maxldep()`` / collapse-style trimming).
+        (Stata's ``maxldep()``).
     method : str, default 'difference'
-        ``'difference'`` — Arellano-Bond (first-differenced GMM). This is
-        the validated path (machine-precision parity with Stata's
-        ``xtabond``). ``'system'`` (Blundell-Bond) currently raises
-        ``NotImplementedError``: proper system GMM requires a stacked level
-        equation and its own Stata parity reference, which is planned for a
-        future release.
+        ``'difference'`` — Arellano-Bond first-differenced GMM; parity with
+        Stata's ``xtabond ..., noconstant``.
+
+        ``'system'`` — Blundell-Bond (1998) system GMM: the level equation
+        is stacked alongside the transformed one and instrumented with
+        lagged *differences* (E[Δy_{i,t-1}(α_i + ε_{it})] = 0), and an
+        intercept becomes identified. Prefer it when the series is
+        persistent: as ρ approaches 1 the lagged levels become weak
+        instruments for the differences and difference GMM is badly biased
+        (on ``abdata`` it returns ρ̂ = 1.02; system GMM returns 0.69).
+        Parity with ``xtabond2 ... robust`` — one-step, two-step
+        Windmeijer, and collapsed — to machine precision.
+
+        The extra level moments are an *additional* assumption (the
+        deviations of the initial conditions from the long-run mean must be
+        uncorrelated with α_i). Report the difference-in-Hansen test for
+        the level instruments before relying on them.
     twostep : bool, default False
         Use two-step GMM with the efficient weight matrix. When
         ``robust=True`` the Windmeijer (2005) finite-sample correction is
@@ -134,17 +146,82 @@ def xtabond(
         for two-step). When ``False``, the classical one/two-step VCE.
     alpha : float, default 0.05
         Significance level.
+    predetermined : list of str, optional
+        Regressors that are *predetermined* (weakly exogenous):
+        E[x_{is} ε_{it}] = 0 for s ≤ t but not for s > t. Their own lags
+        from ``predetermined_lags`` (default 1 and deeper) enter as
+        block-diagonal GMM instruments rather than as a single Δx column.
+        Accepts the same lag-operator syntax as ``x``. Equivalent to
+        Stata's ``xtabond ..., pre()`` / ``xtabond2 ... gmm(x, lag(1 .))``.
+    endogenous : list of str, optional
+        Regressors correlated with the *contemporaneous* error. Their lags
+        from ``endogenous_lags`` (default 2 and deeper) are used as GMM
+        instruments. Equivalent to ``xtabond ..., endogenous()`` /
+        ``xtabond2 ... gmm(x, lag(2 .))``.
+    predetermined_lags, endogenous_lags : tuple (min, max), optional
+        Instrument lag windows for the two classes above. ``None`` on
+        either element means "class default" for the minimum and "all
+        available deeper lags" for the maximum.
+
+        Lags are **absolute**, i.e. counted from the equation period, which
+        is ``xtabond2``'s ``gmm(x, lag(a b))`` convention and the one the
+        modern literature states. Stata's older ``xtabond`` counts *further*
+        lags beyond the deepest lag of the variable that appears as a
+        regressor, so ``xtabond ..., pre(w, lagstruct(p, .))`` maps to
+        ``predetermined=['l(0/p).w'], predetermined_lags=(p + 1, None)`` and
+        ``endogenous(w, lagstruct(p, .))`` to
+        ``endogenous_lags=(p + 2, None)``. Both mappings are pinned by
+        reference-parity tests.
+    collapse : bool, default False
+        Collapse the block-diagonal instrument sets — one column per lag
+        *distance* instead of one per (period, distance) pair. This is
+        Roodman's (2009) remedy for instrument proliferation: the
+        uncollapsed count grows as O(T²), which overfits the endogenous
+        regressor, biases the estimate toward the within estimator, and
+        pushes the Hansen p-value toward an uninformative 1.0. Matches
+        ``xtabond2, collapse``.
+    orthogonal : bool, default False
+        Use Arellano-Bover (1995) forward orthogonal deviations instead of first
+        differences for the transformed equation: subtract from each
+        observation the mean of its *available future* ones, scaled so the
+        transformed errors stay serially uncorrelated. Prefer it on gappy
+        panels — first differencing destroys the equations on both sides of
+        a hole, forward deviations only the one at the hole. Matches
+        ``xtabond2, orthogonal`` (difference and system, one- and two-step).
+    time_dummies : bool, default False
+        Add period dummies (first period dropped) as regressors *and* as
+        their own standard instruments. Roodman (2009) recommends these as
+        a default: they absorb common shocks, which is what makes the
+        no-cross-sectional-dependence assumption behind the moment
+        conditions plausible.
+    constant : bool, optional
+        Include an intercept. Defaults to ``True`` for ``method='system'``
+        (where the level equation identifies it, as in ``xtabond2``) and
+        ``False`` for ``method='difference'`` (where it differences away);
+        requesting it for difference GMM raises ``NotImplementedError``.
 
     Returns
     -------
     CausalResult
         ``estimate`` / ``se`` are the lagged-Y (ρ₁) coefficient. ``detail``
         carries the per-coefficient table (lagged Y first, then exogenous
-        regressors). ``model_info`` holds ``n_obs`` (number of
-        *first-differenced* observations entering the GMM, not the raw
-        panel rows), the AR(1)/AR(2) Arellano-Bond test statistics, the
-        Sargan test (one-step, valid under homoskedasticity), and — for
-        two-step — the heteroskedasticity-robust Hansen J statistic.
+        regressors, then predetermined, endogenous, time dummies and — for
+        system GMM — ``_cons``).
+
+        ``model_info`` holds the diagnostics: ``n_obs`` (transformed-equation
+        rows for difference GMM, level-equation rows for system GMM — the
+        counts ``xtabond`` and ``xtabond2`` respectively print, with
+        ``n_obs_diff`` / ``n_obs_level`` / ``n_obs_total`` always available),
+        ``n_instruments``, the AR(1)/AR(2) Arellano-Bond statistics, the
+        Sargan test (valid under homoskedasticity) and the Hansen J
+        (heteroskedasticity-robust, reported for one-step fits too).
+
+        The Sargan statistic uses ``xtabond``'s scale
+        ``σ̂² = ê*'ê* / (2 (N* − k))`` over the *transformed* rows only
+        (level residuals still contain α_i and carry no information about
+        σ²). ``xtabond2`` divides by ``2 N*`` instead, so its Sargan sits a
+        factor ``N*/(N* − k)`` higher; the Hansen J, which has no such free
+        scale, matches ``xtabond2`` exactly.
 
     Examples
     --------
@@ -174,6 +251,16 @@ def xtabond(
     >>> result = sp.xtabond(df, y='output', x=['capital', 'labor'],
     ...                     id='firm', time='year', twostep=True)
 
+    >>> # Blundell-Bond system GMM (use when the series is persistent)
+    >>> result = sp.xtabond(df, y='output', x=['capital', 'labor'],
+    ...                     id='firm', time='year', method='system',
+    ...                     twostep=True, collapse=True)
+
+    >>> # Lag operators, a predetermined regressor, and collapsed instruments
+    >>> result = sp.xtabond(df, y='output', x=['l(0/1).capital'],
+    ...                     predetermined=['labor'], id='firm', time='year',
+    ...                     collapse=True)
+
     Notes
     -----
     **Arellano-Bond (1991)**: First-differences the equation to remove
@@ -184,6 +271,13 @@ def xtabond(
     ``xtabond``, which adds a ``_cons`` via a level moment). This matches
     Stata's ``xtabond ..., noconstant``; the reported ρ / β coefficients
     are identical to Stata's ``_cons`` run when the series has no drift.
+
+    **Missing values are handled per variable, not per row.** A covariate
+    that is unobserved at period *t* costs only the equations that need it;
+    ``y_{i,t}`` remains available as a GMM instrument and as a lag source.
+    (Before v1.21 a listwise ``dropna`` deleted the whole row, which
+    amputated the instrument set whenever a lagged regressor was used — on
+    ``abdata`` that moved ρ̂ from 0.849 to 0.660. See ``MIGRATION.md``.)
 
     **Balanced vs gapped panels.** All standard errors, the Sargan/Hansen
     tests, and the one-step AR(1)/AR(2) tests are validated to machine
@@ -200,6 +294,8 @@ def xtabond(
     - **Sargan / Hansen test**: Should NOT reject (overidentification).
       Sargan (one-step) is not robust to heteroskedasticity; prefer the
       two-step Hansen J when that is a concern.
+    - **Instrument count**: reported in ``model_info['n_instruments']``;
+      a warning fires when it reaches the number of units.
 
     See Roodman (2009, *Stata Journal*) for practical guidance.
 
@@ -211,274 +307,35 @@ def xtabond(
     Roodman, D. (2009). How to do xtabond2: An introduction to difference and
     system GMM in Stata. *Stata Journal*. [@roodman2009xtabond]
     """
-    if x is None:
-        x = []
-    x = list(x)
+    if method not in ("difference", "system"):
+        raise ValueError(f"method must be 'difference' or 'system', got {method!r}.")
 
-    # --- Prepare panel -------------------------------------------------------
-    df = data[[id, time, y] + x].dropna().sort_values([id, time])
-    times = sorted(df[time].unique())
-    time_pos = {t: p for p, t in enumerate(times)}
-    T = len(times)
-    units = df[id].unique()
-    n_units = len(units)
-
-    min_lag, max_lag = gmm_lags
-    if min_lag < 2:
-        raise ValueError(
-            "gmm_lags min must be >= 2 (Arellano-Bond moment "
-            "conditions require lags of at least 2)."
-        )
-    if max_lag is None:
-        max_lag = T  # all available deeper lags (Stata's default)
-
-    if method == "system":
-        raise NotImplementedError(
-            "Blundell-Bond system GMM is not yet implemented. Proper system "
-            "GMM stacks an additional level equation (instrumented by lagged "
-            "first differences) and requires its own Stata `xtdpdsys` / "
-            "`xtabond2` parity reference before it can be trusted. Use "
-            "method='difference' (Arellano-Bond), which is validated to "
-            "machine precision against Stata's `xtabond`."
-        )
-    if method != "difference":
-        raise ValueError(
-            "method must be 'difference' (or 'system', which is "
-            "not yet implemented)."
-        )
-
-    n_ylags = lags  # number of lagged-Y regressors
-    n_x = len(x)
-    k = n_ylags + n_x  # number of structural parameters
-
-    # First differenced equation at global period position `p` requires
-    # y at positions p, p-1, ..., p-n_ylags-1 (so that Δy_p and every
-    # regressor Δy_{p-l} for l=1..n_ylags are defined). Earliest is
-    # p = n_ylags + 1.
-    eq_positions = list(range(n_ylags + 1, T))
-    if not eq_positions:
-        raise ValueError("Not enough time periods for the requested lags.")
-
-    # --- Enumerate the block-diagonal GMM instrument columns -----------------
-    # Column keyed by (equation period p, source level position s) with
-    # s <= p-2 and lag = p - s within [min_lag, max_lag].
-    ycols: List[Tuple[int, int]] = []
-    for p in eq_positions:
-        for s in range(0, p - 1):  # s <= p-2  ->  lag = p-s >= 2
-            lag = p - s
-            if min_lag <= lag <= max_lag:
-                ycols.append((p, s))
-    ycol_pos = {key: j for j, key in enumerate(ycols)}
-    n_ycols = len(ycols)
-
-    # exogenous instruments: Δx (one standard-instrument column per x var),
-    # appended after the GMM columns.
-    x_iv_offset = n_ycols
-    m = n_ycols + n_x  # total instruments
-
-    if m < k:
-        raise IdentificationFailure(
-            "Under-identified: fewer instruments than "
-            "parameters. Loosen gmm_lags or add periods."
-        )
-
-    # --- Build per-unit differenced equations and instrument blocks ----------
-    W_rows: List[np.ndarray] = []  # regressors  ΔW
-    Z_rows: List[np.ndarray] = []  # instruments Z
-    dY_rows: List[float] = []  # Δy
-    row_unit: List[int] = []  # unit index per row
-    row_eqpos: List[int] = []  # equation period per row
-
-    for ui, uid in enumerate(units):
-        g = df[df[id] == uid]
-        ypos = {time_pos[t]: yv for t, yv in zip(g[time], g[y])}
-        xpos = {xv: {time_pos[t]: val for t, val in zip(g[time], g[xv])} for xv in x}
-
-        for p in eq_positions:
-            # need y at p, p-1, and the deepest regressor lag p-n_ylags-1
-            needed_y = [p - off for off in range(0, n_ylags + 2)]
-            if any(q not in ypos for q in needed_y):
-                continue
-            if any((p not in xpos[xv] or (p - 1) not in xpos[xv]) for xv in x):
-                continue
-
-            dy = ypos[p] - ypos[p - 1]
-            wrow = np.empty(k)
-            for lg in range(1, n_ylags + 1):
-                wrow[lg - 1] = ypos[p - lg] - ypos[p - lg - 1]
-            for j, xv in enumerate(x):
-                wrow[n_ylags + j] = xpos[xv][p] - xpos[xv][p - 1]
-
-            zrow = np.zeros(m)
-            for s in range(0, p - 1):
-                lag = p - s
-                if min_lag <= lag <= max_lag and s in ypos:
-                    zrow[ycol_pos[(p, s)]] = ypos[s]
-            for j, xv in enumerate(x):
-                zrow[x_iv_offset + j] = xpos[xv][p] - xpos[xv][p - 1]
-
-            W_rows.append(wrow)
-            Z_rows.append(zrow)
-            dY_rows.append(dy)
-            row_unit.append(ui)
-            row_eqpos.append(p)
-
-    if len(dY_rows) < k + 1:
-        raise ValueError("Not enough observations after differencing.")
-
-    W = np.asarray(W_rows)  # (n, k)
-    Z = np.asarray(Z_rows)  # (n, m)
-    dY = np.asarray(dY_rows)  # (n,)
-    row_unit_arr = np.asarray(row_unit)
-    row_eqpos_arr = np.asarray(row_eqpos)
-    n = W.shape[0]
-
-    # per-unit row slices
-    unit_rows = [np.where(row_unit_arr == ui)[0] for ui in range(n_units)]
-    unit_rows = [r for r in unit_rows if r.size > 0]
-
-    # Internal gaps (a unit missing an interior period) change the
-    # first-difference / instrument structure, and Stata's xtabond, xtabond2,
-    # and R's plm use slightly different finite-sample gap conventions. Parity
-    # is validated to machine precision for balanced / gap-free panels; warn so
-    # gapped-panel results are not mistaken for exact Stata reproductions.
-    has_internal_gap = False
-    for uid in units:
-        pos = sorted(time_pos[t] for t in df.loc[df[id] == uid, time].unique())
-        if pos and (pos[-1] - pos[0] + 1) != len(pos):
-            has_internal_gap = True
-            break
-    if has_internal_gap:
-        warnings.warn(
-            "Panel has internal time gaps. Estimates remain consistent, but "
-            "for gapped panels the one-/two-step results differ modestly from "
-            "Stata's xtabond (~1%) because of differing gap-weighting "
-            "conventions; machine-precision Stata parity holds only for "
-            "balanced / gap-free panels.",
-            stacklevel=2,
-        )
-
-    # --- One-step weight matrix  A = (Σ_i Z_i' H Z_i)^{-1} -------------------
-    WZ = W.T @ Z  # (k, m)
-    ZW = WZ.T
-    ZdY = Z.T @ dY  # (m,)
-
-    ZHZ = np.zeros((m, m))
-    for r in unit_rows:
-        Zi = Z[r]
-        ZHZ += Zi.T @ _ab_H(row_eqpos_arr[r]) @ Zi
-    A = _safe_inv(ZHZ, "GMM weight matrix Z'HZ")
-
-    def _gmm(weight: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        Mmat = WZ @ weight @ ZW  # (k, k)
-        Minv = _safe_inv(Mmat, "moment matrix W'ZWZ'W")
-        beta_ = Minv @ (WZ @ weight @ ZdY)
-        return beta_, Minv
-
-    # --- One-step estimate + robust "meat" -----------------------------------
-    beta1, Minv1 = _gmm(A)
-    resid1 = dY - W @ beta1
-
-    Omega1 = np.zeros((m, m))  # Σ_i Z_i' ê1 ê1' Z_i
-    for r in unit_rows:
-        ge = Z[r].T @ resid1[r]
-        Omega1 += np.outer(ge, ge)
-    bread1 = Minv1 @ WZ @ A
-    V1_robust = bread1 @ Omega1 @ bread1.T
-
-    # Level-error variance for the classical one-step VCE and the Sargan
-    # test. The first-differenced errors have variance 2σ², so Stata's
-    # σ̂²₁ = (Δê'Δê) / (2 (N − k)).
-    sigma2 = float(resid1 @ resid1) / (2.0 * max(n - k, 1))
-
-    # --- Optional efficient two-step -----------------------------------------
-    if twostep:
-        if not robust:
-            warnings.warn(
-                "Two-step GMM standard errors are downward biased in finite "
-                "samples; robust=True (Windmeijer correction) is recommended.",
-                stacklevel=2,
-            )
-        W2 = _safe_inv(Omega1, "two-step weight matrix Σ Z' êê'Z")
-        beta, Minv2 = _gmm(W2)
-        resid = dY - W @ beta
-        weight_final, Minv_final = W2, Minv2
-    else:
-        beta, Minv2, W2 = beta1, None, None
-        resid = resid1
-        weight_final, Minv_final = A, Minv1
-
-    # --- Variance ------------------------------------------------------------
-    if not twostep:
-        # one-step: robust sandwich, or classical σ̂²·(W'ZAZ'W)⁻¹
-        vcov = V1_robust if robust else sigma2 * Minv1
-    elif robust:
-        # two-step robust: Windmeijer (2005) finite-sample correction
-        assert W2 is not None and Minv2 is not None
-        vcov = _windmeijer(W, Z, WZ, resid1, resid, W2, Minv2, V1_robust, unit_rows)
-    else:
-        # two-step conventional: efficient-GMM VCE = (W'Z W2 Z'W)⁻¹
-        assert Minv2 is not None
-        vcov = Minv2
-
-    var_diag = np.diag(vcov)
-    if np.any(var_diag <= 0):
-        warnings.warn(
-            "Non-positive coefficient variance encountered — the model may be "
-            "under-identified or the instrument set rank-deficient; the "
-            "affected standard errors are unreliable.",
-            stacklevel=2,
-        )
-    se = np.sqrt(np.maximum(var_diag, 0.0))
-
-    # --- Diagnostics ---------------------------------------------------------
-    # AR test variance is robust for robust / two-step estimators, classical
-    # otherwise (matching Stata's vce-dependent Arellano-Bond test).
-    robust_ar = robust or twostep
-    ar1 = _ab_ar_test(
-        resid,
-        unit_rows,
-        row_eqpos_arr,
-        1,
-        Z,
-        W,
-        weight_final,
-        Minv_final,
-        robust_ar,
-        sigma2,
-    )
-    ar2 = _ab_ar_test(
-        resid,
-        unit_rows,
-        row_eqpos_arr,
-        2,
-        Z,
-        W,
-        weight_final,
-        Minv_final,
-        robust_ar,
-        sigma2,
+    fit = fit_dynamic_panel(
+        data,
+        y=y,
+        x=x,
+        id=id,
+        time=time,
+        lags=lags,
+        gmm_lags=gmm_lags,
+        twostep=twostep,
+        robust=robust,
+        predetermined=predetermined,
+        endogenous=endogenous,
+        predetermined_lags=predetermined_lags,
+        endogenous_lags=endogenous_lags,
+        collapse=collapse,
+        time_dummies=time_dummies,
+        method=method,
+        transform="fod" if orthogonal else "fd",
+        constant=constant,
+        stacklevel=3,
     )
 
-    # Over-identification: Sargan (one-step, homoskedastic) and — for
-    # two-step — the heteroskedasticity-robust Hansen J.
-    sargan_df = m - k
-    if sargan_df > 0:
-        g1 = Z.T @ resid1
-        sargan = float(g1 @ A @ g1 / sigma2)
-        sargan_p = float(stats.chi2.sf(sargan, sargan_df))
-        if twostep:
-            g2 = Z.T @ resid
-            hansen = float(g2 @ W2 @ g2)
-            hansen_p = float(stats.chi2.sf(hansen, sargan_df))
-        else:
-            hansen, hansen_p = np.nan, np.nan
-    else:
-        sargan = sargan_p = hansen = hansen_p = np.nan
+    beta = np.asarray(fit["beta"], dtype=float)
+    se = np.asarray(fit["se"], dtype=float)
+    names = list(fit["names"])
 
-    # --- Results -------------------------------------------------------------
-    # Stata-style coefficient labels: lagged-Y terms as "L<k>.<y>".
-    var_names = [f"L{lg}.{y}" for lg in range(1, n_ylags + 1)] + x
     z_crit = stats.norm.ppf(1 - alpha / 2)
     rho = float(beta[0])
     rho_se = float(se[0])
@@ -491,7 +348,7 @@ def xtabond(
     pvals = 2 * stats.norm.sf(np.abs(z_stats))
     detail = pd.DataFrame(
         {
-            "variable": var_names,
+            "variable": names,
             "coefficient": beta,
             "se": se,
             "z": z_stats,
@@ -499,161 +356,143 @@ def xtabond(
         }
     )
 
+    ar1, ar2 = fit["ar1"], fit["ar2"]
+    sargan, hansen = fit["sargan"], fit["hansen"]
     model_info = {
-        "method": method.upper() + " GMM",
+        "method": ("SYSTEM GMM" if method == "system" else "DIFFERENCE GMM"),
+        "n_obs_diff": fit["n_obs_diff"],
+        "n_obs_level": fit["n_obs_level"],
+        "n_obs_total": fit["n_obs_total"],
+        "constant": fit["constant"],
         "twostep": twostep,
         "robust": robust,
         "windmeijer": bool(twostep and robust),
-        "n_units": n_units,
-        "n_obs": n,
-        "n_instruments": m,
-        "n_regressors": k,
-        "gmm_lags": (min_lag, None if max_lag >= T else max_lag),
+        "collapse": bool(collapse),
+        "transform": "orthogonal deviations" if orthogonal else "first differences",
+        "time_dummies": list(fit["time_dummies"]),
+        "n_units": fit["n_units"],
+        "n_obs": fit["n_obs"],
+        "n_instruments": fit["n_instruments"],
+        "n_regressors": fit["n_params"],
+        "gmm_lags": fit["gmm_lags"],
         "ar1_z": ar1["z"],
         "ar1_p": ar1["pvalue"],
         "ar2_z": ar2["z"],
         "ar2_p": ar2["pvalue"],
-        "sargan_stat": sargan,
-        "sargan_df": sargan_df,
-        "sargan_p": sargan_p,
-        "hansen_stat": hansen,
-        "hansen_df": sargan_df if twostep else 0,
-        "hansen_p": hansen_p,
+        "sargan_stat": sargan["stat"],
+        "sargan_df": sargan["df"],
+        "sargan_p": sargan["pvalue"],
+        "hansen_stat": hansen["stat"],
+        "hansen_df": hansen["df"],
+        "difference_in_hansen": fit["difference_in_hansen"],
+        "hansen_p": hansen["pvalue"],
     }
+    for key, note in (
+        ("gap_warning", fit["gap_warning"]),
+        ("instrument_warning", fit["instrument_warning"]),
+        ("hansen_warning", fit["hansen_warning"]),
+    ):
+        if note:
+            model_info[key] = note
 
     return CausalResult(
-        method=f"Arellano-Bond ({'Two-step' if twostep else 'One-step'} GMM)",
+        method=(
+            f"{'Blundell-Bond system' if method == 'system' else 'Arellano-Bond'} "
+            f"({'Two-step' if twostep else 'One-step'} GMM)"
+        ),
         estimand="rho (AR coefficient)",
         estimate=rho,
         se=rho_se,
         pvalue=pvalue,
         ci=ci,
         alpha=alpha,
-        n_obs=n,
+        n_obs=fit["n_obs"],
         detail=detail,
         model_info=model_info,
         _citation_key="arellano_bond",
     )
 
 
-def _safe_inv(M: np.ndarray, what: str) -> np.ndarray:
-    """Inverse that warns loudly when the matrix is rank-deficient.
-
-    Falls back to the Moore-Penrose pseudo-inverse so the computation can
-    proceed, but — per the project's "fail loudly, never silently degrade"
-    rule — emits a warning instead of quietly returning garbage when ``M``
-    is singular (e.g. collinear regressors or too many instruments).
+def xtdpdsys(
+    data: pd.DataFrame,
+    y: str,
+    x: Optional[Sequence[str]] = None,
+    id: str = "id",
+    time: str = "time",
+    lags: int = 1,
+    gmm_lags: Tuple[int, Optional[int]] = (2, None),
+    twostep: bool = False,
+    robust: bool = True,
+    alpha: float = 0.05,
+    **kwargs,
+) -> CausalResult:
     """
-    try:
-        return np.linalg.inv(M)
-    except np.linalg.LinAlgError:
-        warnings.warn(
-            f"{what} is singular (rank-deficient); falling back to the "
-            f"pseudo-inverse. Results may be unreliable — check for collinear "
-            f"regressors or an over-saturated instrument set.",
-            stacklevel=3,
-        )
-        return np.linalg.pinv(M)
+    Blundell-Bond (1998) system GMM for dynamic panels.
 
+    Thin alias for ``sp.xtabond(..., method='system')``, named after Stata's
+    ``xtdpdsys`` so the estimator is discoverable under the name applied
+    researchers already use. Every keyword of :func:`xtabond` is accepted.
 
-def _windmeijer(
-    W: np.ndarray,
-    Z: np.ndarray,
-    WZ: np.ndarray,
-    resid1: np.ndarray,
-    resid2: np.ndarray,
-    W2: np.ndarray,
-    Minv2: np.ndarray,
-    V1_robust: np.ndarray,
-    unit_rows: List[np.ndarray],
-) -> np.ndarray:
-    """Windmeijer (2005) finite-sample correction for two-step robust SEs.
+    Parameters
+    ----------
+    data, y, x, id, time, lags, gmm_lags, twostep, robust, alpha
+        As in :func:`xtabond`.
+    **kwargs
+        Forwarded to :func:`xtabond` — ``predetermined``, ``endogenous``,
+        ``collapse``, ``time_dummies``, ``constant``, and the instrument
+        lag windows.
 
-    ``V_corr = V₂ + D V₂ + V₂ D' + D V₁ᵣ D'`` where ``V₂ = Minv2`` is the
-    conventional two-step VCE and ``V₁ᵣ`` the one-step robust VCE. The
-    score derivative ``∂Ω/∂β`` uses the **step-1** residuals because the
-    efficient weight ``W₂ = Ω(ê₁)⁻¹`` depends on them.
+    Returns
+    -------
+    CausalResult
+        As :func:`xtabond`, including the ``_cons`` row the level equation
+        identifies.
 
-    Validated to machine precision against Stata's ``xtabond, twostep
-    vce(robust)`` (WC-robust) standard errors.
+    Notes
+    -----
+    System GMM stacks the level equation alongside the first-differenced
+    one and instruments it with lagged differences. It is the right default
+    when the dependent variable is persistent — the case in which the
+    lagged levels that difference GMM relies on are weak instruments and
+    the estimate collapses toward (or past) unity.
+
+    The extra moments buy that power at the price of an extra assumption:
+    the deviation of each unit's initial condition from its long-run mean
+    must be uncorrelated with the fixed effect. Test it — the level
+    instruments have their own difference-in-Hansen statistic.
+
+    Validated to machine precision against ``xtabond2 ..., robust``
+    (one-step, two-step Windmeijer, and collapsed) on the ``abdata`` panel;
+    see ``tests/reference_parity/test_dynpanel_abdata_parity.py``.
+
+    Examples
+    --------
+    >>> import statspai as sp
+    >>> res = sp.xtdpdsys(df, y='n', x=['w', 'k'], id='id',      # doctest: +SKIP
+    ...                   time='year', twostep=True, collapse=True)
+
+    References
+    ----------
+    Blundell, R. and Bond, S. (1998). Initial conditions and moment
+    restrictions in dynamic panel data models. *Journal of Econometrics*.
+    [@blundell1998initial]
+    Roodman, D. (2009). How to do xtabond2. *Stata Journal*.
+    [@roodman2009xtabond]
     """
-    k = W.shape[1]
-    m = Z.shape[1]
-    g2 = Z.T @ resid2
-    bread2 = Minv2 @ WZ @ W2  # (k, m)
-    D = np.zeros((k, k))
-    for j in range(k):
-        Wj = W[:, j]
-        dOmega = np.zeros((m, m))
-        for r in unit_rows:
-            ge = Z[r].T @ resid1[r]  # step-1 residuals
-            gw = Z[r].T @ Wj[r]
-            dOmega -= np.outer(ge, gw) + np.outer(gw, ge)
-        D[:, j] = -(bread2 @ dOmega @ W2 @ g2)
-    return np.asarray(Minv2 + D @ Minv2 + Minv2 @ D.T + D @ V1_robust @ D.T)
-
-
-def _ab_ar_test(
-    resid: np.ndarray,
-    unit_rows: List[np.ndarray],
-    eq_positions: np.ndarray,
-    order: int,
-    Z: np.ndarray,
-    W: np.ndarray,
-    weight: np.ndarray,
-    Minv: np.ndarray,
-    robust: bool,
-    sigma2: float,
-) -> dict:
-    """Arellano-Bond (1991) test for AR(``order``) in the differenced errors.
-
-    ``m = (q'ê) / sqrt(Var)`` where ``q`` holds, for each row at period
-    ``p``, the residual of the same unit at period ``p-order`` (0 where
-    unavailable). The variance carries the influence-function adjustment
-    for the estimated coefficients,
-
-        c = q − Z·W·(Z'W)·Minv·(W'q),
-
-    with a robust outer-product variance ``Σ_i (c_i'ê_i)²`` or, for the
-    classical case, ``σ̂² Σ_i c_i' H_i c_i``.
-
-    Validated to machine precision against Stata's ``estat abond`` for the
-    one-step robust and non-robust estimators. For two-step estimation the
-    test uses the conventional two-step influence function: it matches
-    Stata's two-step ``estat abond`` to within ~0.1%, but does not apply the
-    Windmeijer correction to the *test* variance, so the two-step-robust z
-    differs modestly from Stata's (the AR(1)/AR(2) inferential conclusion is
-    unchanged).
-    """
-    resid = np.asarray(resid, dtype=float)
-    nrow = resid.shape[0]
-    q = np.zeros(nrow)
-    for r in unit_rows:
-        pos = {p: i for p, i in zip(eq_positions[r], r)}
-        for p, i in zip(eq_positions[r], r):
-            if (p - order) in pos:
-                q[i] = resid[pos[p - order]]
-
-    if not np.any(q):
-        return {"z": np.nan, "pvalue": np.nan}
-
-    num = float(q @ resid)
-    # influence-function adjustment: c = q - Z weight (Z'W) Minv (W'q)
-    u = Minv @ (W.T @ q)
-    adj = Z @ (weight @ ((Z.T @ W) @ u))
-    c = q - adj
-
-    if robust:
-        var = float(sum((c[r] @ resid[r]) ** 2 for r in unit_rows))
-    else:
-        var = float(
-            sigma2 * sum(c[r] @ _ab_H(eq_positions[r]) @ c[r] for r in unit_rows)
-        )
-
-    if not np.isfinite(var) or var <= 0:
-        return {"z": np.nan, "pvalue": np.nan}
-    z = num / np.sqrt(var)
-    return {"z": float(z), "pvalue": float(2 * stats.norm.sf(abs(z)))}
+    return xtabond(
+        data=data,
+        y=y,
+        x=x,
+        id=id,
+        time=time,
+        lags=lags,
+        gmm_lags=gmm_lags,
+        method="system",
+        twostep=twostep,
+        robust=robust,
+        alpha=alpha,
+        **kwargs,
+    )
 
 
 # Citations

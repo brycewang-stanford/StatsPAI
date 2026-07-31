@@ -5,6 +5,420 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="xtabond-listwise-deletion"></a>
+
+## Unreleased — `sp.xtabond` no longer deletes instruments on covariate `NaN`s
+
+**What changed.** `sp.xtabond` used to start with
+
+```python
+df = data[[id, time, y] + x].dropna()
+```
+
+Listwise deletion across *all* columns means a missing value in any covariate
+at period *t* removes that row entirely — and with it `y_{i,t}` as a GMM
+instrument and as a lag source, not merely as an estimation observation.
+Availability is now evaluated **per variable**: a covariate that is
+unobserved early costs only the equations that need it.
+
+**Who is affected.** Only fits where some covariate had missing values in the
+estimation window — most commonly because the user built lagged regressors by
+hand, which necessarily leaves leading `NaN`s. If every covariate was complete
+over the periods used, nothing changes; `tests/test_xtabond_golden.py` locks
+that.
+
+**How large was the error.** On Stata's `abdata` panel with the Arellano-Bond
+(1991) Table 4 specification (`n` on two lags of `n`, `l(0/1).w`, `l(0/2).k`):
+
+| | old `sp.xtabond` | new | Stata `xtabond` |
+| --- | --- | --- | --- |
+| observations | 331 | 611 | 611 |
+| instruments | 19 | 32 | 32 |
+| ρ̂₁ | 0.660 | 0.849 | 0.849 |
+
+**What to do.** Nothing, unless you have published numbers from an affected
+fit; re-run those. Hand-built lag columns are no longer necessary either —
+`x=["l(0/1).w", "l(0/2).k"]` is now accepted directly.
+
+---
+
+<a id="qte-firpo-mislabel"></a>
+
+## Unreleased — `sp.qte` method names and default
+
+**What changed.** `sp.qte(method='quantile_regression')` was documented,
+labelled and registered as Firpo (2007). It is not. It returns the
+coefficient on `D` in a quantile regression of `Y` on `D + controls` — a
+**conditional** QTE, which absent rank invariance is not a treatment effect
+on any quantile of the outcome distribution. Firpo (2007) is the
+**unconditional** estimator, which reweights by the propensity score and
+compares the marginal quantiles of `Y(1)` and `Y(0)`.
+
+| Old | New | Numbers |
+| --- | --- | --- |
+| `method='quantile_regression'` | `method='conditional_qr'` | **unchanged** |
+| — (did not exist) | `method='firpo_qte'` | new — the actual Firpo QTE |
+| — (did not exist) | `method='firpo_qtt'` | new — Firpo QTT |
+| `method='distribution'` | `method='distribution'` | **unchanged**, but now labelled QTT rather than QTE, which is what it always computed |
+
+**The default changed** from `'quantile_regression'` to `'firpo_qte'`. A
+call that relied on the default now returns a different estimand. Pass
+`method='conditional_qr'` explicitly to keep the old numbers.
+
+`method='quantile_regression'` still works and emits a
+`DeprecationWarning`; it is removed in 1.23.0.
+
+**Which should you use?** If you want "the effect on the median worker",
+that is the unconditional `'firpo_qte'` (or `'firpo_qtt'` for the effect on
+treated units). `'conditional_qr'` answers "holding covariates fixed, how
+does the τ-th conditional quantile shift" — a within-cell statement that
+does not aggregate to a distributional effect.
+
+**`sp.qdid` reference correction.** `sp.qdid` was described as Athey &
+Imbens (2006) changes-in-changes in its docstring, its method label and the
+registry. It implements **QDiD** — the DiD contrast applied to quantiles —
+which is the estimator Athey & Imbens propose CiC *in place of*, and
+criticise directly. **No numbers change**; only the attribution. For
+changes-in-changes use `sp.cic`.
+
+---
+
+<a id="dist-iv-quantile-wald-ratio"></a>
+
+## Unreleased — ⚠️ `sp.dist_iv` estimated the wrong object
+
+**What changed.** `sp.dist_iv` (and its alias `sp.kan_dlate`) computed a
+*Wald ratio of quantiles*:
+
+```text
+LATE_q(τ) = [Q(τ | Z=1) − Q(τ | Z=0)] / [E(D | Z=1) − E(D | Z=0)]
+```
+
+The quantile operator is not linear, so the mean-Wald rescaling that makes
+the ordinary LATE work does not carry over. That expression is inconsistent
+for any quantile estimand — it is not a noisier version of the complier QTE,
+it converges to something else. It now uses Abadie (2002, 2003) κ-weighted
+complier CDFs and returns
+
+```text
+QTE_c(τ) = F⁻¹_{Y(1)|complier}(τ) − F⁻¹_{Y(0)|complier}(τ)
+```
+
+**Effect.** Every `sp.dist_iv` / `sp.kan_dlate` number changes. The old bias
+was multiplicative in the first stage: on a design with a true complier
+`QTE(τ) ≡ 2.0` and `Δp = 0.5`, the old code returned ≈ 4.0 at n = 200,000.
+
+**Approximate back-conversion.** The old estimator was roughly
+
+```text
+old(τ)  ≈  [Q(τ|Z=1) − Q(τ|Z=0)] / Δp
+```
+
+so when the treated and control quantile curves are near-parallel you can
+sanity-check an archived figure with `new(τ) · Δp ≈ Q(τ|Z=1) − Q(τ|Z=0)`,
+i.e. **`old(τ) ≈ new(τ) / Δp`** only in the special case of a homogeneous
+shift among compliers with no always-takers. With always-takers present
+there is no exact conversion — the old quantiles mixed compliers,
+always-takers and never-takers in proportions that depend on τ. **Re-run
+the estimation.** There is no flag restoring the old behaviour; it was not
+an alternative convention.
+
+**Other behaviour changes in the same release.**
+
+| Before | After |
+| --- | --- |
+| `covariates=` accepted, then silently discarded | Selects Frölich & Melly (2013) unconditional IV-QTE weighting; changes the estimate |
+| Constant instrument → all-`NaN` result object + warning | Raises `ValueError` |
+| Near-zero first stage → silent estimate | `UserWarning` naming the complier share and first-stage *t* |
+| Bootstrap SE only | Analytic influence-function SE by default (`se='auto'`); bootstrap when covariates are supplied |
+
+**`sp.kan_dlate` is deprecated** (removal in 1.23.0). It was always a pure
+alias for `sp.dist_iv` and never implemented a Kolmogorov-Arnold bridge
+function. Its docstrings also attributed arXiv:2506.12765 to two different
+authors; verification against arXiv and the DataCite DOI registry shows the
+paper is *Model Risk in Machine-Learning Distributional IV Estimation* by
+**Charles Shaw** alone, and neither its title nor its v1 abstract mentions a
+KAN. Call `sp.dist_iv` directly.
+
+---
+
+<a id="cbps-solver-rewrite"></a>
+
+## Unreleased — ⚠️ `sp.cbps` now solves the Imai-Ratkovic problem
+
+**What changed.** The CBPS GMM was posed in the raw covariate basis with an
+empirical outer-product weighting matrix. CBPS is defined in a standardised,
+orthonormalised basis with the *model-implied* moment covariance frozen at the
+starting value. Neither the just-identified quadratic form nor the GMM
+weighting is invariant to that change of basis, so the old code minimised a
+different objective and returned a different estimator — not a less precise
+version of the same one.
+
+**Effect.** Every `sp.cbps` estimate changes. On `MatchIt::lalonde` the
+old `estimand='ATE', variant='over'` result was **8.6x** off `CBPS::CBPS`
+(1585.99 vs 165.88); `ATT`/`over` was 25% off; coefficients differed by up
+to 170%. After the rewrite, ATE (both variants) and ATT/`exact` agree with
+R to ≤5e-3 relative.
+
+**What to do.** Re-run any analysis whose numbers came from `sp.cbps`. If
+you need to reproduce an old figure, there is no flag for the previous
+behaviour — it was not an alternative convention, it was the wrong problem.
+For a sanity check on the new results, `variant='exact'` must now balance
+covariates to |SMD| < 1e-6; that identity holds only for the corrected
+solver.
+
+**Note on `estimand='ATT', variant='over'`.** StatsPAI deliberately does
+*not* reproduce `CBPS::CBPS` here. CBPS's analytic ATT gradient divides the
+balance block by `n_1` where the moment's Jacobian carries `1/n`,
+overstating it by `n/n_1`, and its `optim` call stops at a non-stationary
+point as a result. StatsPAI uses the correct Jacobian and attains both a
+lower GMM objective and better covariate balance (max |SMD| 0.037 vs 0.106
+on lalonde). This is asserted in
+`tests/reference_parity/test_matching_r_parity.py`.
+
+---
+
+<a id="ebalance-exact-balance"></a>
+
+## Unreleased — ⚠️ `sp.ebalance` now achieves exact moment balance
+
+**What changed.** The entropy-balancing dual was minimised with L-BFGS-B on
+unscaled constraints. When covariates live on different scales the dual
+Hessian is badly conditioned and the optimiser stops early, so the weights
+did not match the targeted moments — which is the one property entropy
+balancing is defined by. The convergence check could not catch it either:
+it compared an *absolute* moment gap against 0.01, which is meaningless
+when one constraint is a 0/1 indicator and the next is annual earnings in
+dollars.
+
+**Effect.** On `MatchIt::lalonde` the reweighted control mean of `re74` was
+2.66 away from the treated mean (1.3e-3 relative); it is now 1e-15
+relative. ATT estimates move in the 3rd significant figure (1269.45 →
+1273.26, against `ebal::ebalance`'s 1273.26).
+
+**What to do.** Re-run affected analyses. The convergence warning now fires
+on a standardised gap above 1e-6, so a result that previously passed
+silently may now warn — that warning is correct and means the treated
+moments are likely outside the convex hull of the control moments.
+`model_info['max_standardized_moment_gap']` records the achieved gap.
+
+---
+
+<a id="dml-sensitivity-structural-residual"></a>
+
+## Unreleased — ⚠️ `sp.dml_sensitivity` uses the structural outcome residual
+
+**What changed.** The DML omitted-variable-bias bound scales by
+`S = sqrt(σ²ν²)`, where for the PLR coefficient
+`σ² = E[(Y − ℓ(X) − θ(D − m(X)))²]` and `ν² = 1/E[(D − m(X))²]`. StatsPAI
+computed the numerator as `sd(Y − ℓ(X))`, i.e. without removing the treatment's
+own contribution. Because `sd(Y − ℓ)² = σ² + θ²·sd(D − m)²`, the scaling factor
+was systematically too large.
+
+**Effect.** `rv_q`, `rv_qa`, `bias_bound`, `adjusted_estimate_low/high`, `s`,
+and every row of `benchmarks` change. The direction is consistent: the old
+code **overstated the bias bound and understated the robustness value**, so it
+portrayed estimates as *more* fragile to unobserved confounding than the bound
+warrants. On a linear-nuisance PLR fit (n = 1500) the bias bound was 0.0671
+instead of 0.0529 (27% too large) and `RV_1` was 0.454 instead of 0.533.
+
+After the fix, `bias_bound` and the adjusted `theta` bounds match
+`doubleml`'s `sensitivity_analysis` to 2.5e-15 and `RV` to 9.2e-8 on a shared
+fold partition (`tests/external_parity/test_dml_sensitivity_parity.py`).
+
+`model='irm'` is **unaffected**: it stores `y_resid` as the score residual
+`ψ − θ̂`, which is already centred, so subtracting `θ·d_resid` again would
+double-count.
+
+**What to do.** Re-run any reported robustness values. If you previously
+concluded that a DML estimate was *not* robust on the basis of a low `RV_q`,
+recheck — the corrected value is higher. `rv_qa` remains a StatsPAI
+convention: it exhausts `|θ| − z·se` using the unadjusted standard error,
+whereas `doubleml` lets the standard error move with the confounding scenario;
+the two differ by about 0.14% on the pinned fixture and that gap is asserted
+rather than hidden.
+
+---
+
+<a id="dml-irm-iivm-se-normalisation"></a>
+
+## Unreleased — ⚠️ `sp.dml` IRM / IIVM standard errors normalise by `n`
+
+**What changed.** The unweighted IRM and IIVM branches divided the
+influence-function variance by `n − 1` (`ddof=1`). Nothing else in the module
+did: PLR and PLIV use `n`, the weighted IRM/IIVM branches use `n`, and even
+the `normalize_ipw`/ATTE branch *inside `irm.py`* uses `mean(psi**2)`, i.e.
+`n`. So `sp.dml(model='plr')` and `sp.dml(model='irm')` on the same data
+reported standard errors under two different conventions, and which one you
+got for IRM depended on whether you passed `normalize_ipw`. `DoubleML`
+normalises by `n`; all paths now agree.
+
+**Effect.** IRM and IIVM standard errors shrink by exactly `sqrt((n−1)/n)`.
+That is 0.025% at n = 2000 and about 1% at n = 50 — immaterial for most
+reported results, but it is the difference between matching `DoubleML` and
+not. On the Track A module-71 fixture the IRM/IIVM standard errors now agree
+with `DoubleML` 1.0.2 to 1.1e-10 on a shared fold partition (they were off by
+the `sqrt(n/(n−1))` factor, observed ratio 1.00025009389849 against
+`sqrt(2000/1999) = 1.00025009378908`). **Point estimates are unchanged**, as
+are PLR and PLIV in full.
+
+**What to do.** Nothing. Confidence intervals narrow very slightly; if you
+need the old figures, multiply the reported SE by `sqrt(n/(n−1))`.
+
+---
+
+<a id="dml-fold-indices-all-models"></a>
+
+## Unreleased — `sp.dml(fold_indices=...)` now works for IRM / PLIV / IIVM
+
+**What changed.** `fold_indices=` was accepted only for `model='plr'`; the
+other three model classes raised `MethodIncompatibility` rather than silently
+ignore the argument. All four now route caller-supplied folds through a
+shared `_make_splits` helper, so cross-fitting can be pinned to an explicit
+partition for every model.
+
+**Effect.** No change to any existing result — the parameter previously
+raised, so nothing depended on it. With folds supplied, the estimate becomes
+independent of `random_state`, which is what makes a bit-exact comparison
+against `DoubleML` possible (Track A module 71).
+
+**What to do.** Nothing is required. If you supply folds for `irm` or
+`iivm`, note that you are bypassing the built-in `StratifiedKFold`: each
+training set must contain both classes of the binary nuisance target, and a
+partition that violates this now raises `DataInsufficient` naming the
+offending fold rather than fitting a degenerate classifier.
+
+---
+
+<a id="causal-forest-grf-att-convention"></a>
+
+## Unreleased — ⚠️ Causal-forest ATT/ATC now use grf's estimator
+
+**What changed.** `sp.causal_forest(...).average_treatment_effect(
+target_sample='treated')` (and `'control'`) computed the mean of a single
+Robins doubly-robust score divided by `p̂₁`. `grf::average_treatment_effect`
+does something structurally different: it reports the **plug-in CATE average
+over the target arm plus a Hájek-normalised doubly-robust correction**, and
+reports the standard error as the square root of the *sum* of the two
+components' variances — the plug-in dispersion
+`Σ_{i:Tᵢ=1}(τ̂ᵢ - τ̄)² / n₁²` plus `n/(n-1) · Σᵢ Δᵢ² / n²` — rather than the
+dispersion of one score vector. StatsPAI's docstring claimed GRF-style
+ATT/ATC aggregation, so this was a documentation/implementation mismatch,
+not a deliberate alternative convention.
+
+**Effect.** ATT and ATC point estimates change slightly and their standard
+errors change materially. Given `grf`'s own forest outputs — so that the
+forest is held fixed and the comparison isolates the formula — the old
+route matched `grf`'s ATT point estimate to 9.3e-5 but produced a standard
+error **12% larger**. The new code reproduces `grf` 2.6.1's ATT estimate and
+`std.err` to 1e-15 on those same inputs. **ATE and ATO are unchanged**, and
+the ATE score vector was already elementwise identical to `grf::get_scores`.
+
+On the Track A module-13 clean-overlap fixture, where the two sides grow
+independent forests, the ATT standard-error gap against `grf` fell from
+14.6% to 0.087%.
+
+**What to do.** Nothing is required; the new numbers are the ones the
+documentation always described. If you reported causal-forest ATT/ATC
+standard errors from an earlier version, re-run — the previous figures were
+conservative (too wide) rather than anti-conservative, so significance
+claims do not flip in the dangerous direction, but they were not `grf`'s.
+The two operators are now exposed directly as
+`statspai.forest.forest_inference.aipw_scores` (the ATE influence function,
+elementwise equal to `grf::get_scores`) and `grf_att_atc` (the ATT/ATC
+decomposition), so the formula can be inspected and reused without going
+through a fitted forest.
+
+---
+
+<a id="policy-tree-exact-depth2-search"></a>
+
+## Unreleased — ⚠️ `sp.policy_tree` now solves the depth-2 problem exactly
+
+**What changed.** The module documented an exhaustive depth-1/depth-2 search
+but implemented a greedy one: each candidate root split was scored as though
+both of its children were terminal leaves, and only then did the routine
+recurse. That one-step lookahead is exact for a depth-1 stump, but for
+`max_depth=2` — the default — the root split that scores best with terminal
+children is routinely *not* the root split that admits the best pair of
+depth-1 subtrees. Candidate thresholds were also subsampled to at most 50
+quantiles per covariate, so the returned tree was not even the greedy optimum
+over the full split grid.
+
+Depth ≤ 2 now maximises the Athey–Wager objective
+`sum_i Gamma_i * pi(X_i)` exactly, by exhaustive search over the complete
+grid of distinct covariate values, matching `policytree::policy_tree`'s
+`x <= t` split convention and its "smallest permitted terminal node" reading
+of `min_leaf_size`.
+
+**Effect.** For `max_depth=2`, the learned policy and every quantity derived
+from it — `policy`, `value_policy`, `value_gain`, `fraction_treated`,
+`rules` — can change. On the Track A module-70 fixture the old search fell
+0.70% short of the welfare optimum and assigned 78 of 1200 units to the
+wrong arm. `max_depth=1` is unaffected (greedy is exact for a stump), except
+where the 50-quantile threshold subsample previously missed the best split.
+Depth ≥ 3 is unchanged in kind — still greedy, because exhaustive search is
+combinatorially infeasible — but now searches the full threshold grid.
+
+**What to do.** Nothing is required; the new numbers are the ones the
+documentation always promised, and they now agree with `policytree` 1.2.4 to
+9.6e-16 with all per-row policy decisions identical. If you need to
+reproduce an earlier figure, pass `search='greedy'` — but note that this
+still searches the full grid, so it does not reproduce the old
+50-quantile behaviour exactly. Check `result['search_mode']` to see which
+search actually ran; `search='auto'` (the default) falls back to greedy with
+a `UserWarning` when the exact sweep would exceed its cost budget, and
+`split_step=k` thins the candidate grid the way `policytree`'s `split.step`
+does.
+
+---
+
+<a id="mahalanobis-pooled-covariance"></a>
+
+## Unreleased — ⚠️ Mahalanobis matching uses the pooled within-group covariance
+
+**What changed.** `sp.match(distance='mahalanobis')` and
+`sp.optimal_match(metric='mahalanobis')` built the metric from `cov(X)` over
+the pooled sample. The Mahalanobis matching metric of Rubin (1980) — the
+reference the module already cited, and the one `MatchIt` uses — is the
+pooled *within-group* covariance `[(n₁−1)S₁ + (n₀−1)S₀] / (n₁+n₀−2)`. The
+total covariance is inflated along the direction in which the group means
+differ, which is exactly the direction matching needs to resolve most
+finely, so it systematically under-weights the covariates that separate the
+groups.
+
+**Effect.** All Mahalanobis matching estimates change. The new default
+reproduces `MatchIt:::mahalanobis_dist` to 1e-15.
+
+**What to do.** Pass `mahalanobis_cov='total'` to restore the previous
+metric if you need to reproduce an earlier figure. New work should keep the
+default.
+
+---
+
+<a id="match-m-order"></a>
+
+## Unreleased — `sp.match` greedy matching order is now explicit
+
+**What changed.** Nearest-neighbour matching *without replacement* is
+order-dependent: each treated unit consumes a control, so who is matched
+first changes who is left. StatsPAI processed treated units
+closest-pair-first without documenting it. That is now the `m_order`
+parameter.
+
+**Effect.** None by default — `m_order='smallest_min_dist'` is the previous
+behaviour. But the choice is material: on `MatchIt::lalonde` with
+Mahalanobis distance the ATT ranges over more than 5x across orders, so if
+you are comparing against another package you should set it explicitly.
+`m_order='data'` and `'closest'` reproduce the MatchIt rules of the same
+name exactly.
+
+**What to do.** Nothing is required. When reconciling with R, set
+`m_order='data'` (MatchIt's default for non-propensity distances) or
+`'closest'`.
+
+---
+
 <a id="cs-varying-base-period-e-minus-1"></a>
 
 ## Unreleased — ⚠️ `base_period='varying'` now reports the `e = −1` placebo

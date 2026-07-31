@@ -107,8 +107,6 @@ class DoubleMLIIVM(_DoubleMLBase):
         sample_weight: Optional[np.ndarray] = None,
         fold_indices: Optional[np.ndarray] = None,
     ) -> Tuple[float, float]:
-        from sklearn.model_selection import StratifiedKFold
-
         if not set(np.unique(Z)).issubset({0, 1}):
             raise ValueError(
                 "model='iivm' requires a binary (0/1) instrument Z. "
@@ -146,10 +144,8 @@ class DoubleMLIIVM(_DoubleMLBase):
                 f"instrument balance."
             )
 
-        skf = StratifiedKFold(
-            n_splits=self.n_folds,
-            shuffle=True,
-            random_state=rng_seed,
+        splits = self._make_splits(
+            X, rng_seed=rng_seed, fold_indices=fold_indices, stratify=Z
         )
         if sample_weight is None:
             w_full: Optional[np.ndarray] = None
@@ -169,7 +165,7 @@ class DoubleMLIIVM(_DoubleMLBase):
         n_fallback_r1 = 0
         n_fallback_r0 = 0
 
-        for train_idx, test_idx in skf.split(X, Z):
+        for train_idx, test_idx in splits:
             X_tr, X_te = X[train_idx], X[test_idx]
             Y_tr, Z_tr, D_tr = Y[train_idx], Z[train_idx], D[train_idx]
             w_tr = w_full[train_idx] if w_full is not None else None
@@ -260,7 +256,10 @@ class DoubleMLIIVM(_DoubleMLBase):
         phi = psi_a - theta * psi_b
         if w_full is None:
             influence = phi / den
-            sigma2 = float(np.var(influence, ddof=1))
+            # Normalised by n, matching DoubleML, the weighted branch
+            # below, and PLR / PLIV. This used ddof=1 until v1.21, which
+            # inflated the LATE SE by sqrt(n/(n-1)) relative to all three.
+            sigma2 = float(np.var(influence, ddof=0))
             se = float(np.sqrt(sigma2 / n))
         else:
             score = w * phi

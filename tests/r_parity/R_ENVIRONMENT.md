@@ -94,6 +94,7 @@ an intentional fixture change with
 | `nnet` | 7.3.20 | 44 (multinomial logit) |
 | `oaxaca` | 0.1.5 | 30 (Blinder–Oaxaca) |
 | `plm` | 2.6.7 | 35 (panel FE/RE), 50 (`pgmm` secondary ref) |
+| `policytree` | 1.2.4 | 70 (exact policy tree) |
 | `pscl` | 1.5.9 | 63/64 (`zeroinfl` ZIP/ZINB) |
 | `quantreg` | 6.1 | 40 (quantile regression) |
 | `rddensity` | 2.6 | 09 (CJM density) |

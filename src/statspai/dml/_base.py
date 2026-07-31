@@ -9,7 +9,8 @@ validation, default learners, repeat-split aggregation, and
 """
 
 import operator
-from typing import Optional, List, Any, Union, Dict, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -59,6 +60,14 @@ def _coerce_column_list(value: Any, *, name: str, context: str) -> List[str]:
             f"{context}: {name} must contain only column-name strings"
         )
     return cols
+
+
+# Model tags whose ``_fit_one_rep`` routes ``fold_indices`` through
+# ``_DoubleMLBase._make_splits``. Sharing an explicit fold partition is what
+# lets a StatsPAI fit be compared bit-for-bit against DoubleML: with the
+# split fixed by the data, the cross-fitting Monte Carlo term drops out and
+# any residual gap is attributable to the estimator itself.
+_FOLD_AWARE_MODELS = frozenset({"PLR", "IRM", "PLIV", "IIVM"})
 
 
 class _DoubleMLBase:
@@ -203,10 +212,14 @@ class _DoubleMLBase:
             )
         self.trimming_threshold = tt
 
-        if fold_indices is not None and self._MODEL_TAG != "PLR":
+        # Guard against a future model class silently ignoring caller-supplied
+        # folds: every tag listed here must actually route fold_indices into
+        # _make_splits(). All four current models do.
+        if fold_indices is not None and self._MODEL_TAG not in _FOLD_AWARE_MODELS:
             raise MethodIncompatibility(
-                f"{context}: explicit fold_indices are currently supported for "
-                "model='plr' only."
+                f"{context}: explicit fold_indices are supported for model in "
+                f"{{{', '.join(sorted(m.lower() for m in _FOLD_AWARE_MODELS))}}}; "
+                f"model='{self._MODEL_TAG.lower()}' would ignore them."
             )
         if fold_indices is not None and self.n_rep != 1:
             raise MethodIncompatibility(
@@ -385,6 +398,68 @@ class _DoubleMLBase:
         fold_indices: Optional[np.ndarray] = None,
     ) -> Tuple[float, float]:
         raise NotImplementedError  # pragma: no cover
+
+    def _make_splits(
+        self,
+        X: np.ndarray,
+        *,
+        rng_seed: int,
+        fold_indices: Optional[np.ndarray] = None,
+        stratify: Optional[np.ndarray] = None,
+    ) -> List[Tuple[np.ndarray, np.ndarray]]:
+        """Cross-fitting splits, honouring caller-supplied folds.
+
+        With ``fold_indices`` the split is fully determined by the data,
+        which is what makes a bit-exact comparison against another
+        implementation possible: both engines then cross-fit on the same
+        partition and the only remaining difference is the estimator.
+        Without it, fall back to ``KFold`` — or ``StratifiedKFold`` when
+        ``stratify`` is given, as the binary-nuisance models need.
+
+        Supplied folds are used verbatim: stratification then becomes the
+        caller's responsibility, so this checks that every training set
+        still contains both classes rather than letting the classifier
+        fail somewhere deeper with a less legible message.
+        """
+        if fold_indices is not None:
+            splits = [
+                (
+                    np.flatnonzero(fold_indices != fold),
+                    np.flatnonzero(fold_indices == fold),
+                )
+                for fold in range(self.n_folds)
+            ]
+            if stratify is not None:
+                for fold, (train_idx, _) in enumerate(splits):
+                    classes = np.unique(stratify[train_idx])
+                    if len(classes) < 2:
+                        raise DataInsufficient(
+                            f"{self._MODEL_TAG}: the supplied fold_indices leave "
+                            f"training fold {fold} with a single class in the "
+                            f"binary nuisance target, so its classifier is not "
+                            f"identified.",
+                            recovery_hint=(
+                                "Supply stratified folds (each training set must "
+                                "contain both 0 and 1), or drop fold_indices to "
+                                "use the built-in StratifiedKFold."
+                            ),
+                            diagnostics={
+                                "fold": fold,
+                                "classes_in_train": [float(c) for c in classes],
+                            },
+                        )
+            return splits
+        if stratify is None:
+            from sklearn.model_selection import KFold
+
+            kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
+            return list(kf.split(X))
+        from sklearn.model_selection import StratifiedKFold
+
+        skf = StratifiedKFold(
+            n_splits=self.n_folds, shuffle=True, random_state=rng_seed
+        )
+        return list(skf.split(X, stratify))
 
     @staticmethod
     def _validate_fold_indices(

@@ -619,7 +619,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_beyond_average_late_parity.py"
+        "tests/reference_parity/test_beyond_average_late_parity.py",
+        "tests/reference_parity/test_dist_iv_parity.py"
       ],
       "tolerance": ""
     },
@@ -950,12 +951,14 @@
         "statistic": [
           "ate_causal_forest"
         ],
-        "tolerance": 0.005
+        "tolerance": 0.01
       },
       "label": "Causal forest (AIPW)",
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "13_causal_forest",
-      "notes": [],
+      "notes": [
+        "Factored evidence: the AIPW operator -- the closed-form map from (Y, W, tau.hat, Y.hat, W.hat) to the score vector, point estimate and standard error -- is pinned exactly. Fed grf's own forest outputs, StatsPAI reproduces grf::get_scores elementwise to 2.3e-14 and grf's reported ATE and ATT (estimate and std.err) to 1e-15 (tests/reference_parity/test_grf_aipw_operator_parity.py). The module tolerance below covers the forest itself, which is not pinnable across implementations; its calibration is evidenced by the Track B coverage sweep."
+      ],
       "point_estimate_rel": {
         "R": 0.0019065437058892935,
         "Stata": null
@@ -981,7 +984,7 @@
         "tests/r_parity/13_causal_forest.R"
       ],
       "tier": "moderate",
-      "tolerance": "rel_est<=0.005, rel_se<=0.5"
+      "tolerance": "rel_est<=0.01, rel_se<=0.25"
     },
     {
       "function": "causal_kalman",
@@ -1018,22 +1021,30 @@
       "tolerance": ""
     },
     {
-      "function": "cbps",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_paper_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "cbps",
+      "notes": [
+        "Frozen-R fixture on MatchIt::lalonde. Just-identified CBPS additionally balances to <1e-6 |SMD| where CBPS::CBPS leaves ~1e-3. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "CBPS::CBPS 0.24 (Imai & Ratkovic 2014)",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_matching_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_R.json"
+      ],
+      "tolerance": "ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the balance block by n/n_1 and stops off-stationarity; StatsPAI is asserted to attain strictly better covariate balance instead."
     },
     {
       "function": "clogit",
@@ -1592,7 +1603,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "30_oaxaca",
       "notes": [
-        "Grade is variant-specific: certified for the tested call (sp.decompose(\"oaxaca\")); other decompose() methods/variants may differ."
+        "Grade is variant-specific: certified for the tested calls (sp.decompose(\"dfl\"), sp.decompose(\"oaxaca\")); other decompose() methods/variants may differ."
       ],
       "point_estimate_rel": {
         "R": 6.272984425624262e-16,
@@ -1941,11 +1952,17 @@
     },
     {
       "additional_tests": [
+        "tests/r_parity/71_dml_family.py",
+        "tests/r_parity/71_dml_family.R",
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_dml_python_parity.py",
+        "tests/external_parity/test_dml_sensitivity_parity.py",
         "tests/reference_parity/test_cross_estimator_parity.py",
         "tests/reference_parity/test_dml_parity.py",
         "tests/reference_parity/test_rlasso_parity.py"
+      ],
+      "also_in_modules": [
+        "71_dml_family"
       ],
       "also_verified_by": [
         "external_parity",
@@ -1965,7 +1982,7 @@
       "last_verified": "R version 4.5.2 (2025-10-31)",
       "module_id": "08_dml",
       "notes": [
-        "Grade is variant-specific: certified for the tested call (sp.dml(\"plr\")); other dml() methods/variants may differ."
+        "Grade is variant-specific: certified for the tested calls (sp.dml(\"plr\"), sp.dml(model=\"irm\") / sp.dml(model=\"pliv\") / sp.dml(model=\"iivm\")); other dml() methods/variants may differ."
       ],
       "point_estimate_rel": {
         "R": 0.0,
@@ -1997,6 +2014,26 @@
       "tolerance": "rel_est<=1e-10, rel_se<=1e-10"
     },
     {
+      "also_verified_by": [
+        "external_parity"
+      ],
+      "function": "dml_sensitivity",
+      "notes": [
+        "Cross-package pin against doubleml-for-py, not R: DoubleML 1.0.2 exposes no sensitivity method on DoubleMLPLR or its base class, so the DML omitted-variable-bias analysis has no R counterpart. Both engines share an explicit fold partition and the test asserts the underlying PLR fits are identical before comparing any sensitivity quantity."
+      ],
+      "reference": "doubleml (Python) DoubleML.sensitivity_analysis",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/external_parity/test_dml_sensitivity_parity.py"
+      ],
+      "tolerance": "bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap (<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se with the unadjusted SE while doubleml lets the SE move with the confounding scenario"
+    },
+    {
       "function": "dose_response",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -2014,6 +2051,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_drdid_rc_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "drdid",
       "headline": {
         "metric": "rel_est",
@@ -2058,22 +2101,30 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
-      "function": "ebalance",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_paper_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ebalance",
+      "notes": [
+        "Frozen-R fixture on MatchIt::lalonde. StatsPAI solves the entropy-balancing dual to a true stationary point (relative moment gap ~1e-15) where ebal stops around 1e-7."
+      ],
+      "reference": "ebal::ebalance 0.2.1 (Hainmueller 2012)",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_matching_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_R.json"
+      ],
+      "tolerance": "ATT rel <= 1e-5 (observed 3.2e-7); moment gap <= 1e-10"
     },
     {
       "function": "effective_f_test",
@@ -4402,22 +4453,30 @@
       "tolerance": ""
     },
     {
-      "function": "match",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_matching_parity.py",
         "tests/reference_parity/test_psmatch2_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "match",
+      "notes": [
+        "Frozen-R fixture on MatchIt::lalonde. m_order='farthest' and with-replacement tie handling are documented parity boundaries (see the sp.match registry limitations), not pinned rows."
+      ],
+      "reference": "MatchIt::matchit 4.7.2 (nearest, glm/logit distance)",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
+      "test": [
+        "tests/reference_parity/test_matching_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_R.json"
+      ],
+      "tolerance": "1:1 and 2:1 PS matching without replacement: rel <= 1e-9. Mahalanobis metric pinned against MatchIt:::mahalanobis_dist (rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9."
     },
     {
       "function": "matrix_completion",
@@ -5588,6 +5647,28 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "optimal_match",
+      "notes": [
+        "Frozen-R fixture on MatchIt::lalonde. StatsPAI solves the assignment problem exactly (Hungarian); optmatch discretises distances for its network-flow solver."
+      ],
+      "reference": "optmatch::pairmatch 0.10.8 on a logit propensity score",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_matching_r_parity.py",
+        "tests/reference_parity/_fixtures/matching_R.json"
+      ],
+      "tolerance": "Total matched distance <= optmatch's (1 + 1e-6). The matched pairs are not pinned: the assignment problem is degenerate on this data, so equally optimal solutions report different ATTs."
+    },
+    {
       "function": "orthogonal_to_bias",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -5909,21 +5990,53 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
-      "function": "policy_tree",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_policy_tree_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "policy_tree",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 9.610011207370503e-16,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "value_policy_d1",
+          "value_policy_d2"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Policy tree (exact, depth 1--2)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "70_policy_tree",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 9.610011207370503e-16,
+        "Stata": null
+      },
+      "python_call": "sp.policy_tree",
+      "reference": "policytree::policy_tree",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "policytree": "1.2.4"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/70_policy_tree.py",
+        "tests/r_parity/70_policy_tree.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [
@@ -6515,6 +6628,7 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
+        "tests/reference_parity/test_firpo_qte_parity.py",
         "tests/reference_parity/test_qte_parity.py"
       ],
       "tolerance": ""
@@ -8491,6 +8605,7 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_dynpanel_abdata_parity.py",
         "tests/reference_parity/test_gmm_dynamic_panel_parity.py"
       ],
       "also_verified_by": [
@@ -8539,6 +8654,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
+    },
+    {
+      "function": "xtdpdsys",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_dynpanel_abdata_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "xtfrontier",

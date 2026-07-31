@@ -98,6 +98,25 @@ STATA_SKIP_REASON: dict[str, str] = {
         "counts == n_periods row selection, an exact identity rather than "
         "an external estimator. No Stata artifact is materialized."
     ),
+    "71_dml_family": (
+        "bridge artifact not materialized: the IRM / PLIV / IIVM model "
+        "classes are pinned to DoubleML (R, 1.0.2). Stata's ddml is the "
+        "canonical analog and does implement the interactive and IV "
+        "families, but this module's design turns on both engines "
+        "consuming one explicit fold partition, and ddml exposes no "
+        "like-for-like sample-splitting hook to accept it; without that "
+        "the row would grade cross-fitting noise rather than the "
+        "estimator. No like-for-like Stata artifact is materialized yet. "
+        "Module 08 already carries the materialized Stata PLR bridge."
+    ),
+    "70_policy_tree": (
+        "R-referenced module: the exact depth<=2 welfare-maximising tree "
+        "is pinned to policytree::policy_tree (policytree 1.2.4). Stata "
+        "ships no policy-learning tree estimator, official or user-written, "
+        "that solves the Athey-Wager objective over a supplied "
+        "doubly-robust score matrix; no like-for-like Stata artifact is "
+        "materialized."
+    ),
 }
 
 TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
@@ -161,8 +180,8 @@ TRACK_A_SNAPSHOT_ROWS: list[dict[str, Any]] = [
         "estimator": r"\code{sp.causal\_forest}",
         "label": "AIPW ATE",
         "data": "clean-overlap DGP",
-        "tol": "0.005",
-        "verdict": "T3 combined-MC-error pass",
+        "tol": "0.01",
+        "verdict": "T3 combined-MC-error pass; operator exact",
     },
     {
         "module": "11_psm",
@@ -281,11 +300,18 @@ TOLERANCES: dict[str, dict[str, float]] = {
         # placebo SEs are backend-native diagnostics under distinct names.
     },  # point-only native FW/zeta ATT parity
     "13_causal_forest": {
-        "rel_est": 0.005,  # B/T3: observed 0.28% (1.8x margin), graded
-        # against combined Monte Carlo error of two independent forests.
-        "rel_se": 0.50,  # B: AIPW SEs depend on implementation-specific
-        # forest RNG; observed worst 14.6% (3.4x margin, <5x: not yet
-        # tightenable under the audit rule) -- see doc.
+        "rel_est": 0.01,  # B/T3: graded against combined Monte Carlo error
+        # of two independent forests. Observed worst 0.47% (ATT, 2.1x
+        # margin); the ATE headline sits at 0.19%. Widened from 0.005
+        # when the ATT row moved onto grf's own plug-in + correction
+        # estimator: the two sides now run the *same* estimator, so the
+        # residual is pure forest MC rather than a convention gap, and
+        # 0.005 left only 1.07x margin against machine-to-machine drift.
+        "rel_se": 0.25,  # B: the AIPW *operator* is pinned exactly (see
+        # tests/reference_parity/test_grf_aipw_operator_parity.py), so
+        # this band covers forest RNG only. Observed worst 7.7% (ATE,
+        # 3.2x margin); tightened from 0.50 after the ATT convention fix
+        # removed the historical 14.6% ATT row (now 0.087%).
     },  # clean-overlap AIPW vs grf (post-nuisance-regularisation MC gap)
     "14_ols_cluster": {"rel_est": 1e-6, "rel_se": 1e-6},  # obs worst 6.1e-9 (machine); 2026-06 tighten
     # Tightened 2026-06-10 from 5e-2 ("ssc convention" was stale): with
@@ -447,6 +473,20 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # in every period, matching base R's counts == n_periods filter. The
     # estimator is a row-filter + sort, so all rows agree to 0.0.
     "69_balance_panel": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Policy tree: shared AIPW score vector, so both engines maximise the
+    # identical finite objective over the identical grid of distinct
+    # covariate values. Exact optimisers on the same problem agree to the
+    # floating-point floor (observed worst 9.6e-16 across value, treated
+    # fraction, and root split at depths 1 and 2). Point-only: policytree
+    # reports no SE for the tree itself.
+    "70_policy_tree": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # DML family (IRM / PLIV / IIVM) against their DoubleML model classes
+    # on a shared explicit fold partition, so cross-fitting contributes no
+    # Monte Carlo term. PLIV is all closed-form least squares and lands at
+    # the floating-point floor (6.5e-16); IRM and IIVM carry an unpenalised
+    # logistic nuisance solved by lbfgs on one side and IRLS on the other,
+    # which sets the observed worst at 1.1e-10.
+    "71_dml_family": {"rel_est": 1e-6, "rel_se": 1e-6},
 }
 
 
@@ -477,13 +517,23 @@ TIER_LABEL_MD = {
 
 METHODOLOGICAL_DISCLOSURE_NOTES = {
     "13_causal_forest": (
-        "T3 combined-Monte-Carlo-error pass: sp.causal_forest and grf both "
-        "report the doubly-robust AIPW ATE, so the row is like-for-like and "
-        "graded against combined sampling error rather than a fixed relative "
-        "band. On the clean-overlap DGP the two agree within ~0.05 combined "
-        "SE (worst rel gap below 0.3%), the AIPW recovery tests certify truth-recovery "
-        "within 4 SE and across multiple clean-overlap seeds, and the B=1000 Track B row confirms calibration -- the "
-        "two criteria formerly held open are now both satisfied."
+        "T3 combined-Monte-Carlo-error pass, with the estimator's two "
+        "factors graded separately. (1) The AIPW *operator* -- the "
+        "closed-form map from (Y, W, tau.hat, Y.hat, W.hat) to the score "
+        "vector, point estimate and influence-function SE -- is pinned "
+        "exactly: fed grf's own forest outputs, sp.causal_forest "
+        "reproduces grf::get_scores elementwise to 2.3e-14 and grf's "
+        "reported ATE and ATT (estimate and std.err) to 1e-15 "
+        "(tests/reference_parity/test_grf_aipw_operator_parity.py). "
+        "(2) The *forest* is not pinnable across implementations, so the "
+        "rows below are graded against combined sampling error: both "
+        "sides report the same doubly-robust AIPW estimands, agree within "
+        "~0.05 combined SE on the clean-overlap DGP, and the AIPW "
+        "recovery tests certify truth recovery within 4 SE across "
+        "multiple seeds. Because the operator is exact, the residual SE "
+        "gap is attributable to forest RNG alone rather than to an "
+        "unresolved formula difference -- which is what the previous 50% "
+        "rel_se band could not distinguish."
     ),
 }
 
@@ -1267,6 +1317,27 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "sp.balance_panel vs base R counts == n_periods",
+    },
+    "71_dml_family": {
+        "name": "DML family (IRM / PLIV / IIVM)",
+        "headline_filter": lambda d: d.statistic.startswith("theta_DML_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "shared explicit fold_id across all three DoubleML model "
+            "classes; PLIV at the floating-point floor, IRM/IIVM limited "
+            "by the logistic-MLE optimiser"
+        ),
+    },
+    "70_policy_tree": {
+        "name": "Policy tree (exact, depth 1--2)",
+        "headline_filter": lambda d: d.statistic.startswith("value_policy_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "shared AIPW scores; exact welfare optimum vs policytree, "
+            "all 1200 per-row policy decisions identical at both depths"
+        ),
     },
 }
 

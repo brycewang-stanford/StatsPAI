@@ -8,7 +8,7 @@ Provides:
 - Hansen/Sargan test for overidentifying restrictions
 """
 
-from .arellano_bond import xtabond
+from .arellano_bond import xtabond, xtdpdsys
 from .general_gmm import gmm
 
-__all__ = ["xtabond", "gmm"]
+__all__ = ["xtabond", "xtdpdsys", "gmm"]

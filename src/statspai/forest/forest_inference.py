@@ -651,6 +651,199 @@ def honest_variance(
     }
 
 
+def aipw_scores(
+    *,
+    tau: np.ndarray,
+    T: np.ndarray,
+    e_hat: np.ndarray,
+    m_hat: np.ndarray,
+    Y: np.ndarray,
+    target: str = "all",
+) -> np.ndarray:
+    r"""Per-unit doubly-robust (AIPW) scores :math:`\Gamma_i`.
+
+    This is the estimator's *operator*: the deterministic map from the
+    forest's outputs -- CATE predictions :math:`\hat\tau`, cross-fitted
+    nuisances :math:`\hat m(X) = \hat E[Y \mid X]` and
+    :math:`\hat e(X) = \hat E[T \mid X]` -- to the influence-function
+    scores whose sample mean is the point estimate and whose
+    :math:`\mathrm{sd}/\sqrt n` is the standard error.
+
+    Separating it out matters for verification. Two independently grown
+    forests never share :math:`\hat\tau`, so an end-to-end comparison
+    against ``grf`` can only be graded against combined Monte Carlo
+    error. The operator, by contrast, is a closed form and is pinned
+    *exactly* to ``grf::get_scores`` given the same forest outputs -- see
+    ``tests/reference_parity/test_grf_aipw_operator_parity.py``.
+
+    For ``target="all"`` this is the identity ``grf`` uses,
+
+    .. math::
+        \Gamma_i = \hat\tau(X_i)
+            + \frac{T_i-\hat e(X_i)}{\hat e(X_i)(1-\hat e(X_i))}
+              \bigl(Y_i-\hat m(X_i)-(T_i-\hat e(X_i))\hat\tau(X_i)\bigr),
+
+    which expands arm-by-arm to ``grf``'s published form
+    :math:`\hat\tau + \frac{T}{\hat e}(Y-\hat m-(1-\hat e)\hat\tau)
+    - \frac{1-T}{1-\hat e}(Y-\hat m+\hat e\hat\tau)`.
+
+    Parameters
+    ----------
+    tau, T, e_hat, m_hat, Y : ndarray (n,)
+        CATE predictions, treatment indicator, propensity, outcome
+        regression, and outcome. ``e_hat`` is used as supplied; clip it
+        before calling if overlap is a concern.
+    target : {'all'}
+        Only the ATE score is a single influence function. ``grf``
+        estimates ATT/ATC as a plug-in CATE average over the target arm
+        *plus* a Hajek-normalised doubly-robust correction, and adds the
+        two variance components rather than taking the dispersion of one
+        score vector — see :func:`grf_att_atc`.
+
+    Returns
+    -------
+    ndarray (n,)
+        Scores with ``mean(scores)`` the point estimate.
+
+    References
+    ----------
+    [@athey2019generalized], [@robins1994estimation]
+    """
+    tau = np.asarray(tau, dtype=np.float64).ravel()
+    T_ = np.asarray(T, dtype=np.float64).ravel()
+    e_hat = np.asarray(e_hat, dtype=np.float64).ravel()
+    m_hat = np.asarray(m_hat, dtype=np.float64).ravel()
+    Y_ = np.asarray(Y, dtype=np.float64).ravel()
+    if not (len(tau) == len(T_) == len(e_hat) == len(m_hat) == len(Y_)):
+        raise MethodIncompatibility(
+            "aipw_scores(): tau, T, e_hat, m_hat and Y must be the same length.",
+            recovery_hint="Pass aligned per-observation vectors.",
+            diagnostics={
+                "n_tau": int(len(tau)),
+                "n_T": int(len(T_)),
+                "n_e": int(len(e_hat)),
+                "n_m": int(len(m_hat)),
+                "n_Y": int(len(Y_)),
+            },
+        )
+
+    # Per-arm outcome regressions implied by (m̂, ê, τ̂):
+    #   m = e·μ1 + (1-e)·μ0,  μ1 - μ0 = τ  ⇒  μ0 = m - e·τ,  μ1 = m + (1-e)·τ.
+    if target == "all":
+        m_full = m_hat + (T_ - e_hat) * tau  # = E[Y|X,T] under the model
+        return tau + (T_ - e_hat) / (e_hat * (1.0 - e_hat)) * (Y_ - m_full)
+    raise MethodIncompatibility(
+        f"aipw_scores(): unsupported target={target!r}.",
+        recovery_hint=(
+            "Only target='all' is a single influence function. Use "
+            "grf_att_atc() for the ATT/ATC decomposition."
+        ),
+    )
+
+
+def grf_att_atc(
+    *,
+    tau: np.ndarray,
+    T: np.ndarray,
+    e_hat: np.ndarray,
+    m_hat: np.ndarray,
+    Y: np.ndarray,
+    target: str,
+) -> Tuple[float, float, np.ndarray]:
+    r"""ATT / ATC exactly as ``grf::average_treatment_effect`` computes them.
+
+    ``grf`` does **not** estimate ATT as the mean of one doubly-robust
+    score. It reports
+
+    .. math::
+        \widehat{\mathrm{ATT}}
+          = \underbrace{\frac{1}{n_1}\sum_{i:T_i=1}\hat\tau(X_i)}_{\text{plug-in}}
+          + \underbrace{\frac1n\sum_i \Delta_i}_{\text{DR correction}},
+
+    where the correction uses **Hajek-normalised** arm weights
+    :math:`\gamma` — control units enter with
+    :math:`\hat e/(1-\hat e)` renormalised to sum to :math:`n`, treated
+    units with a flat weight renormalised the same way — giving
+
+    .. math::
+        \Delta_i = T_i\gamma_i(Y_i-\hat\mu_1(X_i))
+                 - (1-T_i)\gamma_i(Y_i-\hat\mu_0(X_i)).
+
+    The reported variance is the **sum of the two components'
+    variances**, the plug-in dispersion
+    :math:`\sum_{i:T_i=1}(\hat\tau_i-\bar\tau)^2/n_1^2` plus
+    :math:`\frac{n}{n-1}\sum_i\Delta_i^2/n^2`; the cross-covariance is
+    not subtracted.
+
+    This differs materially from dividing a single Robins score by
+    :math:`\hat p_1`, which is what StatsPAI reported before v1.21: on
+    the committed ``grf`` fixture that route agreed on the point
+    estimate to 9.3e-5 but produced a standard error **12% larger**
+    than ``grf``'s, given *identical* forest outputs.
+
+    Returns
+    -------
+    (estimate, se, dr_correction)
+        ``dr_correction`` is the per-unit :math:`\Delta_i` vector, kept
+        so callers can inspect or re-aggregate the correction term.
+
+    References
+    ----------
+    [@athey2019generalized], [@robins1994estimation]
+    """
+    tau = np.asarray(tau, dtype=np.float64).ravel()
+    T_ = np.asarray(T, dtype=np.float64).ravel()
+    e_hat = np.asarray(e_hat, dtype=np.float64).ravel()
+    m_hat = np.asarray(m_hat, dtype=np.float64).ravel()
+    Y_ = np.asarray(Y, dtype=np.float64).ravel()
+    n = int(len(tau))
+    if n < 2:
+        raise DataInsufficient(
+            "grf_att_atc(): at least two observations are required.",
+            recovery_hint="Pass a sample with n >= 2.",
+        )
+
+    mu0 = m_hat - e_hat * tau
+    mu1 = m_hat + (1.0 - e_hat) * tau
+    treated = T_ == 1
+    control = ~treated
+    n1, n0 = int(treated.sum()), int(control.sum())
+    if n1 == 0 or n0 == 0:
+        raise DataInsufficient(
+            "grf_att_atc(): both arms must be non-empty.",
+            recovery_hint="Pass a sample containing treated and control units.",
+            diagnostics={"n_treated": n1, "n_control": n0},
+        )
+
+    if target == "treated":
+        idx = treated
+        g_control = e_hat[control] / (1.0 - e_hat[control])
+        g_treated = np.ones(n1)
+    elif target == "control":
+        idx = control
+        g_control = np.ones(n0)
+        g_treated = (1.0 - e_hat[treated]) / e_hat[treated]
+    else:
+        raise MethodIncompatibility(
+            f"grf_att_atc(): target must be 'treated' or 'control', got {target!r}.",
+            recovery_hint="Use average_treatment_effect(target_sample='all') for ATE.",
+        )
+
+    gamma = np.zeros(n)
+    gamma[control] = g_control / g_control.sum() * n
+    gamma[treated] = g_treated / g_treated.sum() * n
+
+    n_target = int(idx.sum())
+    tau_raw = float(tau[idx].mean())
+    tau_var = float(((tau[idx] - tau_raw) ** 2).sum() / n_target**2)
+
+    dr_correction = T_ * gamma * (Y_ - mu1) - (1.0 - T_) * gamma * (Y_ - mu0)
+    dr_mean = float(dr_correction.mean())
+    dr_var = float((dr_correction**2).sum() / n**2 * n / (n - 1))
+
+    return tau_raw + dr_mean, float(np.sqrt(tau_var + dr_var)), dr_correction
+
+
 def average_treatment_effect(
     forest: "CausalForest",
     X: Optional[np.ndarray] = None,
@@ -862,34 +1055,22 @@ def average_treatment_effect(
 
     n = int(len(tau))
     z = float(stats.norm.ppf(1 - alpha_value / 2))
-    # Reconstruct the per-arm outcome regressions from (m̂, ê, τ̂):
-    #   m = e·μ1 + (1-e)·μ0,  μ1 - μ0 = τ  ⇒  μ0 = m - e·τ,  μ1 = m + (1-e)·τ.
-    mu0 = m_hat - e_hat * tau
-    mu1 = m_hat + (1.0 - e_hat) * tau
-    m_full = m_hat + (T_ - e_hat) * tau  # = E[Y|X,T] under the model
 
     if target == "all":
         estimand = "ATE"
-        psi = tau + (T_ - e_hat) / (e_hat * (1.0 - e_hat)) * (Y_ - m_full)
+        psi = aipw_scores(tau=tau, T=T_, e_hat=e_hat, m_hat=m_hat, Y=Y_, target="all")
         estimate = float(psi.mean())
         se = float(psi.std(ddof=1) / np.sqrt(n))
         ess = float(n)
-    elif target == "treated":
-        estimand = "ATT"
-        p1 = float(max(T_.mean(), 1e-8))
-        psi = (T_ * (Y_ - mu0) - (1.0 - T_) * (e_hat / (1.0 - e_hat)) * (Y_ - mu0)) / p1
-        estimate = float(psi.mean())
-        se = float(psi.std(ddof=1) / np.sqrt(n))
-        ess = float(T_.sum())
-    elif target == "control":
-        estimand = "ATC"
-        p0 = float(max((1.0 - T_).mean(), 1e-8))
-        psi = ((1.0 - T_) * (mu1 - Y_) - T_ * ((1.0 - e_hat) / e_hat) * (mu1 - Y_)) / p0
-        estimate = float(psi.mean())
-        se = float(psi.std(ddof=1) / np.sqrt(n))
-        ess = float((1.0 - T_).sum())
+    elif target in ("treated", "control"):
+        estimand = "ATT" if target == "treated" else "ATC"
+        estimate, se, _ = grf_att_atc(
+            tau=tau, T=T_, e_hat=e_hat, m_hat=m_hat, Y=Y_, target=target
+        )
+        ess = float(T_.sum()) if target == "treated" else float((1.0 - T_).sum())
     else:  # overlap (ATO): overlap-weighted average of the AIPW pointwise scores
         estimand = "ATO"
+        m_full = m_hat + (T_ - e_hat) * tau
         w = e_hat * (1.0 - e_hat)
         if float(w.sum()) <= 0:
             raise DataInsufficient(

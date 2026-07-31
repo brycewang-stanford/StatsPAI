@@ -11,8 +11,20 @@ The bias from a hypothetical unobserved confounder ``Z`` is bounded by
 
 where :math:`C_Y = \\text{Partial-}R^2(Z; Y \\mid D, X)`,
 :math:`C_D = \\text{Partial-}R^2(Z; D \\mid X)`, and ``S`` is a
-target-specific scaling factor (for the PLR coefficient
-``S = \\sigma_{Y\\text{ resid}} / \\sigma_{D\\text{ resid}}``).
+target-specific scaling factor. For the PLR coefficient
+
+.. math::
+    S = \\sqrt{\\sigma^2 \\nu^2},\\quad
+    \\sigma^2 = E[(Y - \\ell(X) - \\theta(D - m(X)))^2],\\quad
+    \\nu^2 = \\frac{1}{E[(D - m(X))^2]},
+
+i.e. the *structural* outcome residual over the treatment residual. The
+numerator subtracts the treatment's own contribution; leaving it in
+overstates the bias bound and understates the robustness value.
+
+This matches ``DoubleML``'s ``sensitivity_analysis`` exactly — see
+``tests/external_parity/test_dml_sensitivity_parity.py``, which pins
+``bias_bound`` and ``RV`` to ``doubleml`` on a shared fold partition.
 
 The **robustness value** ``RV_q`` is the value of confounding strength
 (assuming :math:`C_Y = C_D = \\text{RV}`) at which the bias just equals
@@ -27,9 +39,10 @@ would shrink the estimate exactly to zero. ``RV_{q,\\alpha}`` adjusts for
 significance: it returns the strength required to push the lower CI
 across zero.
 
-Implementation parallels the R ``sensemakr`` interface of Cinelli &
-Hazlett (2020) but uses the DML residuals :math:`\\tilde Y, \\tilde D`
-in place of OLS residuals.
+The reporting interface (robustness values, benchmark covariates,
+contour plot) parallels the R ``sensemakr`` package of Cinelli & Hazlett
+(2020), but the bound itself is the DML one above, computed from the
+cross-fitted residuals :math:`\\tilde Y, \\tilde D`.
 
 References
 ----------
@@ -44,10 +57,11 @@ References
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Sequence, Dict, Any, List
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
+
 from .._result_serialize import ResultProtocolMixin
 
 
@@ -79,8 +93,10 @@ class DMLSensitivityResult(ResultProtocolMixin):
         ``X_k`` in the residualised regression. Empty if ``benchmark``
         not provided.
     s : float
-        Scaling factor :math:`S = \\sigma_{Y\\text{resid}} /
-        \\sigma_{D\\text{resid}}` used in the bias formula.
+        Scaling factor :math:`S = \\sqrt{\\sigma^2\\nu^2}` used in the bias
+        formula: the root-mean-square *structural* outcome residual
+        :math:`Y-\\ell(X)-\\theta(D-m(X))` over the root-mean-square
+        treatment residual :math:`D-m(X)`.
     q : float
     alpha : float
     method : str
@@ -104,7 +120,7 @@ class DMLSensitivityResult(ResultProtocolMixin):
     >>> isinstance(sens, sp.DMLSensitivityResult)
     True
     >>> round(sens.rv_q, 2)  # confounder strength needed to zero out theta
-    0.49
+    0.59
     """
 
     estimate: float
@@ -293,9 +309,9 @@ def dml_sensitivity(
     >>> round(sens.estimate, 2)
     0.98
     >>> round(sens.rv_q, 2)  # confounder strength to zero out theta
-    0.49
+    0.59
     >>> round(sens.bias_bound, 2)  # |bias| under cf_y = cf_d = 0.05
-    0.07
+    0.05
     """
     info = result.model_info or {}
     y_resid = info.get("_y_resid")
@@ -312,15 +328,44 @@ def dml_sensitivity(
     theta = float(result.estimate)
     se = float(result.se)
 
-    # Bias scaling factor S = σ(Y_resid) / σ(D_resid) for PLR.
-    # Equivalent forms appear in §3 of the paper.
-    sigma_y = float(np.std(y_resid, ddof=1))
-    sigma_d = float(np.std(d_resid, ddof=1))
+    # Bias scaling factor S = sqrt(sigma^2 * nu^2).
+    #
+    # For the PLR coefficient the paper's sigma^2 is the second moment of
+    # the *structural* residual Y - l(X) - theta*(D - m(X)) -- the part of
+    # the outcome left unexplained once the treatment effect is taken out
+    # -- and nu^2 = 1 / E[(D - m(X))^2] is the Riesz-representer second
+    # moment, giving S = sd(Y - l - theta*(D - m)) / sd(D - m).
+    #
+    # Until v1.21 this used sd(Y - l(X)) directly, i.e. it left theta*(D-m)
+    # *inside* the numerator. That inflates S by sqrt(1 + theta^2/S^2) and
+    # therefore overstates the bias bound and understates the robustness
+    # value: on a linear-nuisance PLR fit the bias bound came out 27% too
+    # large and RV_1 0.454 instead of 0.533. With the structural residual
+    # the bound reproduces DoubleML's ``sensitivity_analysis`` to 1e-10
+    # (tests/external_parity/test_dml_sensitivity_parity.py).
+    model_tag = str((info or {}).get("dml_model", "")).upper()
+    if model_tag == "IRM":
+        # IRM already stores y_resid as the score residual psi - theta,
+        # which is centred by construction; subtracting theta*d_resid
+        # again would double-count. See irm.py.
+        eps = y_resid
+    else:
+        eps = y_resid - theta * d_resid
+    sigma_eps = float(np.sqrt(np.mean(eps**2)))
+    # nu^2 is the *second moment* of the treatment residual, not its
+    # variance. On genuine cross-fitted DML residuals the two coincide
+    # (the residual is mean-zero by construction), but a degenerate,
+    # constant residual has to be rejected on identification grounds:
+    # theta = cov(y_r, d_r) / var(d_r) does not exist without treatment
+    # variation, so a sensitivity analysis of it is meaningless.
+    if float(np.var(d_resid)) <= 0:
+        raise ValueError("D residual variance is 0; sensitivity undefined.")
+    sigma_d = float(np.sqrt(np.mean(d_resid**2)))
     if sigma_d <= 0:
         raise ValueError(
-            "D residual variance is 0; sensitivity undefined."
+            "D residual second moment is 0; sensitivity undefined."
         )  # pragma: no cover
-    s = sigma_y / sigma_d
+    s = sigma_eps / sigma_d
 
     rv_q = _robustness_value(q * abs(theta), s)
 

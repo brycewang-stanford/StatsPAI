@@ -1,33 +1,49 @@
-"""
-Quantile Treatment Effects (QTE) estimation.
+"""Quantile treatment effect estimation.
 
-Methods
--------
-- **Quantile DID** (Athey & Imbens 2006):
-    QTE_DID(τ) = F_{11}^{-1}(τ) - F_{10}^{-1}(τ)
-                - [F_{01}^{-1}(τ) - F_{00}^{-1}(τ)]
+Methods exposed by :func:`qte`
+------------------------------
+``'firpo_qte'``
+    Firpo (2007) efficient **unconditional QTE**,
+    ``F^-1_{Y(1)}(τ) − F^-1_{Y(0)}(τ)``, by propensity-score reweighting
+    with ``D/p(X)`` and ``(1−D)/(1−p(X))``.
+``'firpo_qtt'``
+    Firpo (2007) **QTT**: same contrast among the treated, reweighting
+    controls by ``p/(1−p)``.
+``'conditional_qr'``
+    Coefficient on ``D`` in a quantile regression of ``Y`` on ``D + X``
+    (Koenker & Bassett 1978). A **conditional** QTE — a different estimand
+    from Firpo's, with no causal reading absent rank invariance.
+``'distribution'``
+    IPW counterfactual-distribution estimator. Computes the **QTT**.
 
-- **QTE via Quantile Regression** (Firpo 2007):
-    For each τ, run quantile regression of Y on D + X; coefficient on D = QTE(τ).
+Also here
+---------
+:func:`qdid`
+    **Quantile DiD (QDiD)**: the DiD contrast applied to quantiles,
+    ``[Q₁₁(τ) − Q₁₀(τ)] − [Q₀₁(τ) − Q₀₀(τ)]``. Note this is *not*
+    Changes-in-Changes: Athey & Imbens (2006) propose CiC and explicitly
+    criticise QDiD. For CiC use :func:`statspai.cic`.
 
-- **QTE via Distribution** (propensity-score reweighting):
-    Estimate counterfactual distribution with IPW, compute quantile differences.
+.. versionchanged:: 1.21.0
+    ``method='quantile_regression'`` was labelled Firpo (2007) but computed
+    the conditional estimand; it is renamed ``'conditional_qr'`` and the
+    genuine Firpo estimators were added. :func:`qdid` no longer claims to
+    implement Athey & Imbens (2006). See MIGRATION.md.
 
 References
 ----------
-Athey, S. & Imbens, G. W. (2006). Identification and Inference in Nonlinear
-    Difference-in-Differences Models. *Econometrica*, 74(2), 431-497.
-Firpo, S. (2007). Efficient Semiparametric Estimation of Quantile Treatment
-    Effects. *Econometrica*, 75(1), 259-276. [@athey2006identification]
+firpo2007efficient, koenker1978regression, athey2006identification
 """
 
 from __future__ import annotations
 
-from typing import Any, Optional, List
+import warnings
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
 from scipy import stats
+
 from .._result_serialize import ResultProtocolMixin
 
 # ══════════════════════════════════════════════════════════════════════
@@ -403,18 +419,22 @@ def _qreg_coef(
     return np.asarray(beta)
 
 
+_QTE_METHODS = ("firpo_qte", "firpo_qtt", "conditional_qr", "distribution")
+
+
 def qte(
     data: pd.DataFrame,
     y: str,
     treatment: str,
     quantiles: Optional[List[float]] = None,
-    method: str = "quantile_regression",
+    method: str = "firpo_qte",
     controls: Optional[List[str]] = None,
     n_boot: int = 500,
     alpha: float = 0.05,
     seed: int = 42,
+    se: str = "auto",
 ) -> QTEResult:
-    """Quantile Treatment Effect estimation.
+    """Quantile treatment effect estimation.
 
     Parameters
     ----------
@@ -425,21 +445,56 @@ def qte(
         Binary treatment indicator.
     quantiles : list of float, optional
         Defaults to ``[0.1, 0.25, 0.5, 0.75, 0.9]``.
-    method : str
-        ``'quantile_regression'`` (Firpo 2007) or ``'distribution'``
-        (propensity-score reweighting).
+    method : {'firpo_qte', 'firpo_qtt', 'conditional_qr', 'distribution'}
+        Which estimand to compute. **The default changed in 1.21.0** from
+        the conditional quantile regression to ``'firpo_qte'``; see Notes.
+
+        ``'firpo_qte'``
+            Firpo (2007) efficient **unconditional QTE**:
+            ``F^-1_{Y(1)}(tau) - F^-1_{Y(0)}(tau)``, propensity-score
+            reweighted with ``D/p`` and ``(1-D)/(1-p)``.
+        ``'firpo_qtt'``
+            Firpo (2007) **QTT**, i.e. the same contrast among the treated,
+            reweighting controls by ``p/(1-p)``.
+        ``'conditional_qr'``
+            Coefficient on ``D`` in a quantile regression of ``Y`` on
+            ``D + controls`` (Koenker & Bassett 1978). This is a
+            **conditional** QTE and is not Firpo's estimator.
+        ``'distribution'``
+            IPW counterfactual-distribution estimator. This computes the
+            **QTT**, not the QTE.
     controls : list of str, optional
-        Covariates.
+        Covariates. Enter the propensity model for the Firpo/distribution
+        methods and the design matrix for ``'conditional_qr'``.
     n_boot : int
         Bootstrap replications.
     alpha : float
         Significance level.
     seed : int
         Random seed.
+    se : {'auto', 'analytic', 'bootstrap'}
+        Standard-error method for the Firpo estimators. ``'auto'`` uses the
+        analytic influence function without covariates and the bootstrap with
+        them (the analytic form treats ``p(X)`` as known, which is
+        conservative when it is estimated). Ignored by the other methods,
+        which are bootstrap-only.
 
     Returns
     -------
     QTEResult
+
+    Notes
+    -----
+    .. versionchanged:: 1.21.0
+        ``method='quantile_regression'`` was documented and labelled as
+        Firpo (2007) but computed the coefficient on ``D`` in a
+        *conditional* quantile regression — a different estimand with no
+        causal interpretation absent rank invariance. It is renamed
+        ``'conditional_qr'`` (the old name still works and emits a
+        ``DeprecationWarning``), the Firpo attribution is removed from it,
+        and the genuine Firpo estimators are available as ``'firpo_qte'`` /
+        ``'firpo_qtt'``. ``method='distribution'`` is unchanged numerically
+        but is now correctly labelled QTT rather than QTE.
 
     Examples
     --------
@@ -447,36 +502,145 @@ def qte(
     >>> import pandas as pd
     >>> import statspai as sp
     >>> rng = np.random.default_rng(42)
-    >>> n = 500
+    >>> n = 2000
     >>> d = rng.integers(0, 2, n)
     >>> y = 1.0 + 1.5 * d + rng.normal(0, 1, n)
     >>> df = pd.DataFrame({"y": y, "d": d})
-    >>> res = sp.qte(df, y="y", treatment="d",
-    ...              quantiles=[0.25, 0.5, 0.75], n_boot=50)
-    >>> round(res.ate, 2)  # true effect = 1.5
-    1.57
-    >>> res.effects.round(2).tolist()  # QTE at each quantile
-    [1.59, 1.57, 1.58]
+    >>> res = sp.qte(df, y="y", treatment="d", quantiles=[0.25, 0.5, 0.75])
+    >>> bool(np.all(np.abs(res.effects - 1.5) < 0.25))  # true effect = 1.5
+    True
+
+    References
+    ----------
+    firpo2007efficient, koenker1978regression
     """
     if quantiles is None:
         quantiles = [0.1, 0.25, 0.5, 0.75, 0.9]
-    taus = np.asarray(quantiles)
+    taus = np.asarray(quantiles, dtype=float)
+    if np.any((taus <= 0) | (taus >= 1)):
+        raise ValueError("quantiles must lie strictly inside (0, 1).")
+
+    if method == "quantile_regression":
+        warnings.warn(
+            "sp.qte(method='quantile_regression') is deprecated and will be "
+            "removed in 1.23.0. It was labelled Firpo (2007) but computes a "
+            "CONDITIONAL quantile treatment effect. Use "
+            "method='conditional_qr' for the same numbers under the correct "
+            "name, or method='firpo_qte' for the actual Firpo estimator. "
+            "See MIGRATION.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        method = "conditional_qr"
 
     cols = [y, treatment] + (controls or [])
     df = data[cols].dropna()
     yv = df[y].values.astype(float)
     dv = df[treatment].astype(int).values
+    if not np.all(np.isin(dv, (0, 1))):
+        raise ValueError("treatment must be binary (0/1).")
 
-    if method == "quantile_regression":
+    if method in ("firpo_qte", "firpo_qtt"):
+        return _qte_firpo(
+            df, yv, dv, taus, y, controls, method, n_boot, alpha, seed, se
+        )
+    if method == "conditional_qr":
         return _qte_qreg(df, yv, dv, taus, y, treatment, controls, n_boot, alpha, seed)
-    elif method == "distribution":
+    if method == "distribution":
         return _qte_distribution(
             df, yv, dv, taus, y, treatment, controls, n_boot, alpha, seed
         )
+    raise ValueError(f"Unknown QTE method {method!r}. Use one of {_QTE_METHODS}.")
+
+
+def _qte_firpo(
+    df: pd.DataFrame,
+    yv: np.ndarray,
+    dv: np.ndarray,
+    taus: np.ndarray,
+    y_col: str,
+    controls: Optional[List[str]],
+    method: str,
+    n_boot: int,
+    alpha: float,
+    seed: int,
+    se: str,
+) -> QTEResult:
+    """Firpo (2007) efficient unconditional QTE / QTT."""
+    from ._firpo import firpo_influence_se, firpo_quantiles, firpo_weights, logit_pscore
+
+    estimand = "qte" if method == "firpo_qte" else "qtt"
+    X = df[controls].values.astype(float) if controls else None
+    pscore = logit_pscore(X, dv)
+
+    q1, q0 = firpo_quantiles(yv, dv, pscore, taus, estimand)
+    effects = q1 - q0
+
+    w1, w0 = firpo_weights(dv, pscore, estimand)
+    ate = float(np.sum(w1 * yv) / np.sum(w1) - np.sum(w0 * yv) / np.sum(w0))
+
+    if se == "auto":
+        se = "bootstrap" if controls else "analytic"
+    if se not in ("analytic", "bootstrap"):
+        raise ValueError(f"se must be 'auto', 'analytic' or 'bootstrap', got {se!r}")
+
+    if se == "analytic":
+        se_arr = firpo_influence_se(yv, dv, pscore, taus, q1, q0, estimand)
+        z = stats.norm.ppf(1 - alpha / 2)
+        ci_lo, ci_hi = effects - z * se_arr, effects + z * se_arr
     else:
-        raise ValueError(
-            f"Unknown QTE method '{method}'. Use 'quantile_regression' or 'distribution'."
-        )
+        rng = np.random.RandomState(seed)
+        n = len(yv)
+        boot = np.full((n_boot, len(taus)), np.nan)
+        for b in range(n_boot):
+            idx = rng.choice(n, n, replace=True)
+            db = dv[idx]
+            if db.min() == db.max():
+                continue
+            Xb = X[idx] if X is not None else None
+            try:
+                pb = logit_pscore(Xb, db)
+                qb1, qb0 = firpo_quantiles(yv[idx], db, pb, taus, estimand)
+                boot[b] = qb1 - qb0
+            except ValueError:
+                continue
+        n_ok = np.isfinite(boot).sum(axis=0)
+        if (n_ok < 2).any():
+            warnings.warn(
+                f"sp.qte({method}): bootstrap collapsed for "
+                f"{int((n_ok < 2).sum())}/{len(taus)} quantile(s); those SEs "
+                "are NaN.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        se_arr = np.where(n_ok >= 2, np.nanstd(boot, axis=0, ddof=1), np.nan)
+        ci_lo = np.nanpercentile(boot, 100 * alpha / 2, axis=0)
+        ci_hi = np.nanpercentile(boot, 100 * (1 - alpha / 2), axis=0)
+
+    label = (
+        "Unconditional QTE (Firpo, 2007)"
+        if estimand == "qte"
+        else "QTT on the treated (Firpo, 2007)"
+    )
+    return QTEResult(
+        quantiles=taus,
+        effects=effects,
+        se=se_arr,
+        ci_lower=ci_lo,
+        ci_upper=ci_hi,
+        ate=ate,
+        method=label,
+        n_obs=len(df),
+        alpha=alpha,
+        model_info={
+            "controls": controls,
+            "estimand": estimand,
+            "se_method": se,
+            "n_boot": n_boot if se == "bootstrap" else None,
+            "pscore_min": float(pscore.min()),
+            "pscore_max": float(pscore.max()),
+        },
+    )
 
 
 def _qte_qreg(
@@ -528,7 +692,7 @@ def _qte_qreg(
         ci_lower=ci_lo,
         ci_upper=ci_hi,
         ate=ate,
-        method="QTE via Quantile Regression (Firpo, 2007)",
+        method="Conditional QTE via Quantile Regression (Koenker & Bassett, 1978)",
         n_obs=len(df),
         alpha=alpha,
         model_info={"n_boot": n_boot, "controls": controls},
@@ -637,7 +801,7 @@ def _qte_distribution(
         ci_lower=ci_lo,
         ci_upper=ci_hi,
         ate=ate,
-        method="QTE via Distribution (IPW Reweighting)",
+        method="QTT via IPW counterfactual distribution",
         n_obs=len(df),
         alpha=alpha,
         model_info={"n_boot": n_boot, "controls": controls},

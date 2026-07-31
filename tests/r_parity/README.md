@@ -34,7 +34,7 @@ tests/r_parity/
 Historical verification worklog (not the current source-snapshot audit):
 [`PARITY_TEST_WORKLOG_2026-05-29.md`](PARITY_TEST_WORKLOG_2026-05-29.md).
 
-## Modules (69 materialized StatsPAI--R rows)
+## Modules (71 materialized StatsPAI--R rows)
 
 Module `50_xtabond` is now materialized on the R side through
 `plm::pgmm`, so all modules 01--64 have committed StatsPAI--R rows.
@@ -51,7 +51,13 @@ fixest::feols, Track A module 03) to absorbed-FE GLMs — `sp.feglm` and
 `sp.fepois` against their fixest siblings. Module 68 pins `sp.demean` to
 the textbook mean-within projection (algorithmic, machine-tier). Module
 69 aligns `sp.balance_panel` to the base R `counts == n_periods` row
-filter.
+filter. Module 70 opens the policy-learning family: `sp.policy_tree`
+against `policytree::policy_tree`, sharing the doubly-robust score
+vector through the CSV so the two exact tree searches optimise the
+identical objective. Module 71 closes the DML variant gap left by
+module 08: `sp.dml`'s parity grade was certified for `model='plr'` only,
+so IRM / PLIV / IIVM are now pinned to their `DoubleML` model classes on
+a shared explicit fold partition.
 
 | # | Module | StatsPAI | R / reference side |
 | --- | --- | --- | --- |
@@ -124,6 +130,8 @@ filter.
 | 67 | Panel GLM (feglm / fepois) | `sp.feglm` / `sp.fepois` | `fixest::feglm` (family="logit") / `fixest::fepois` |
 | 68 | Within transformation | `sp.demean` | textbook mean-within (algorithmic) |
 | 69 | Panel balance filter | `sp.balance_panel` | base R counts == n_periods |
+| 70 | Policy tree (exact, depth 1--2) | `sp.policy_tree` | `policytree::policy_tree` |
+| 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running
 
@@ -202,7 +210,10 @@ CRAN: `AER`, `fixest`, `did`, `HonestDiD`, `Synth`, `rdrobust`,
 `lme4`, `oaxaca`, `sfaR`, `frontier`, `etwfe`, `gsynth`,
 `ddecompose`, `dineq`, `vars`, `lpirfs`, `mediation`,
 `survival`, `plm`, `Matching`, `DRDID`, `forecast`, `quantreg`,
-`censReg`, `MASS`, `sampleSelection`, `nnet`, `lmtest`.
+`censReg`, `MASS`, `sampleSelection`, `nnet`, `lmtest`, `policytree`.
+
+Module 71 additionally uses `mlr3` / `mlr3learners` (already required by
+module 08) for the `regr.lm` and `classif.log_reg` nuisance learners.
 
 GitHub:
 

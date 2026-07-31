@@ -84,12 +84,126 @@ _NON_ESTIMATOR_LEAVES = {
     "german_reunification",
 }
 
+# Curated factor-level notes. Some estimators factor into a closed-form
+# operator (exactly pinnable) and a stochastic component (not pinnable
+# across implementations). The module's headline tolerance necessarily
+# covers the looser factor, so the record would otherwise understate the
+# evidence. Every string below is copied verbatim from the asserting test
+# — no model-memory facts (CLAUDE.md §10).
+_FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
+    "causal_forest": (
+        "Factored evidence: the AIPW operator -- the closed-form map from "
+        "(Y, W, tau.hat, Y.hat, W.hat) to the score vector, point estimate "
+        "and standard error -- is pinned exactly. Fed grf's own forest "
+        "outputs, StatsPAI reproduces grf::get_scores elementwise to "
+        "2.3e-14 and grf's reported ATE and ATT (estimate and std.err) to "
+        "1e-15 (tests/reference_parity/test_grf_aipw_operator_parity.py). "
+        "The module tolerance below covers the forest itself, which is not "
+        "pinnable across implementations; its calibration is evidenced by "
+        "the Track B coverage sweep.",
+    ),
+}
+
 # Curated frozen-reference promotions: functions pinned to *exact* base-R or
 # closed-form numbers in tests/reference_parity but NOT covered by the Track A
 # harness. Every field is copied verbatim from
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    "cbps": {
+        "status": "aligned",
+        "reference": "CBPS::CBPS 0.24 (Imai & Ratkovic 2014)",
+        "tolerance": (
+            "ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). "
+            "ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the "
+            "balance block by n/n_1 and stops off-stationarity; StatsPAI is "
+            "asserted to attain strictly better covariate balance instead."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_matching_r_parity.py",
+            "tests/reference_parity/_fixtures/matching_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on MatchIt::lalonde. Just-identified CBPS "
+            "additionally balances to <1e-6 |SMD| where CBPS::CBPS leaves "
+            "~1e-3. See tests/reference_parity/REFERENCES.md."
+        ),
+    },
+    "ebalance": {
+        "status": "bit-exact",
+        "reference": "ebal::ebalance 0.2.1 (Hainmueller 2012)",
+        "tolerance": "ATT rel <= 1e-5 (observed 3.2e-7); moment gap <= 1e-10",
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_matching_r_parity.py",
+            "tests/reference_parity/_fixtures/matching_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on MatchIt::lalonde. StatsPAI solves the "
+            "entropy-balancing dual to a true stationary point (relative "
+            "moment gap ~1e-15) where ebal stops around 1e-7."
+        ),
+    },
+    "match": {
+        "status": "bit-exact",
+        "reference": "MatchIt::matchit 4.7.2 (nearest, glm/logit distance)",
+        "tolerance": (
+            "1:1 and 2:1 PS matching without replacement: rel <= 1e-9. "
+            "Mahalanobis metric pinned against MatchIt:::mahalanobis_dist "
+            "(rel <= 1e-10); greedy m_order='data'/'closest' rel <= 1e-9."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_matching_r_parity.py",
+            "tests/reference_parity/_fixtures/matching_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on MatchIt::lalonde. m_order='farthest' and "
+            "with-replacement tie handling are documented parity boundaries "
+            "(see the sp.match registry limitations), not pinned rows."
+        ),
+    },
+    "optimal_match": {
+        "status": "aligned",
+        "reference": "optmatch::pairmatch 0.10.8 on a logit propensity score",
+        "tolerance": (
+            "Total matched distance <= optmatch's (1 + 1e-6). The matched "
+            "pairs are not pinned: the assignment problem is degenerate on "
+            "this data, so equally optimal solutions report different ATTs."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_matching_r_parity.py",
+            "tests/reference_parity/_fixtures/matching_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on MatchIt::lalonde. StatsPAI solves the "
+            "assignment problem exactly (Hungarian); optmatch discretises "
+            "distances for its network-flow solver."
+        ),
+    },
+    "dml_sensitivity": {
+        "status": "bit-exact",
+        "reference": "doubleml (Python) DoubleML.sensitivity_analysis",
+        "tolerance": (
+            "bias_bound and adjusted theta bounds 1e-12 (observed 2.5e-15); "
+            "RV 1e-6 (observed 9.2e-8); RVa is a documented convention gap "
+            "(<5e-3, observed 1.4e-3) because StatsPAI exhausts |theta|-z*se "
+            "with the unadjusted SE while doubleml lets the SE move with the "
+            "confounding scenario"
+        ),
+        "sides": ["py"],
+        "test": ["tests/external_parity/test_dml_sensitivity_parity.py"],
+        "note": (
+            "Cross-package pin against doubleml-for-py, not R: DoubleML 1.0.2 "
+            "exposes no sensitivity method on DoubleMLPLR or its base class, "
+            "so the DML omitted-variable-bias analysis has no R counterpart. "
+            "Both engines share an explicit fold partition and the test "
+            "asserts the underlying PLR fits are identical before comparing "
+            "any sensitivity quantity."
+        ),
+    },
     "ipw": {
         "status": "bit-exact",
         "reference": "base R stats::glm(binomial) + hand-rolled Hajek weighted means",
@@ -1615,6 +1729,10 @@ def build_index() -> Tuple[Dict[str, Any], List[str]]:
 
     by_fn: Dict[str, Dict[str, Any]] = {}
     extra_modules: Dict[str, List[str]] = {}
+    # Every distinct ``sp.*`` call string a dispatcher was certified under,
+    # so the variant-specificity note can enumerate them instead of naming
+    # only whichever module happened to win the grade tie-break.
+    extra_calls: Dict[str, List[str]] = {}
     sources: Dict[str, List[str]] = {}
     all_tests: Dict[str, List[str]] = {}
     for rec in all_records:
@@ -1628,6 +1746,11 @@ def build_index() -> Tuple[Dict[str, Any], List[str]]:
                 all_tests[fn].append(t)
         if rec.get("module_id"):
             extra_modules.setdefault(fn, []).append(rec["module_id"])
+            call = rec.get("python_call")
+            if call:
+                extra_calls.setdefault(fn, [])
+                if call not in extra_calls[fn]:
+                    extra_calls[fn].append(call)
         cur = by_fn.get(fn)
         if cur is None or grade_rank[rec["status"]] < grade_rank[cur["status"]]:
             by_fn[fn] = rec
@@ -1646,11 +1769,20 @@ def build_index() -> Tuple[Dict[str, Any], List[str]]:
             rec["additional_tests"] = extra_tests
         # Variant-specificity honesty note for family dispatchers.
         if fn in _DISPATCHERS and rec["status"] in {"bit-exact", "aligned"}:
-            call = rec.get("python_call", "")
+            calls = extra_calls.get(fn) or [rec.get("python_call", "") or fn]
+            certified = ", ".join(sorted(calls))
             note = (
-                f"Grade is variant-specific: certified for the tested call "
-                f"({call or fn}); other {fn}() methods/variants may differ."
+                f"Grade is variant-specific: certified for the tested "
+                f"{'calls' if len(calls) > 1 else 'call'} "
+                f"({certified}); other {fn}() methods/variants may differ."
             )
+            if note not in rec.get("notes", []):
+                rec.setdefault("notes", []).append(note)
+        # Curated factor-level notes: where an estimator splits into a
+        # pinnable closed-form operator and an unpinnable stochastic
+        # component, the headline grade alone under-describes the
+        # evidence. Copied verbatim from the asserting test.
+        for note in _FACTOR_NOTES.get(fn, ()):
             if note not in rec.get("notes", []):
                 rec.setdefault("notes", []).append(note)
 

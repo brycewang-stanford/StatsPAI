@@ -29,11 +29,12 @@ Targeted Maximum Likelihood Learning.
 International Journal of Biostatistics, 2(1). [@vanderlaan2006targeted]
 """
 
-from typing import Optional, List, Any, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
-from scipy.special import logit, expit
+from scipy.special import expit, logit
 
 # sklearn is imported lazily inside the functions that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -62,6 +63,9 @@ def tmle(
     alpha: float = 0.05,
     propensity_bounds: Tuple[float, float] = (0.025, 0.975),
     random_state: int = 42,
+    Q: "Optional[np.ndarray]" = None,
+    g1W: "Optional[np.ndarray]" = None,
+    fluctuation: str = "single",
 ) -> CausalResult:
     """
     Estimate causal effects using TMLE with Super Learner.
@@ -128,6 +132,9 @@ def tmle(
         alpha=alpha,
         propensity_bounds=propensity_bounds,
         random_state=random_state,
+        Q=Q,
+        g1W=g1W,
+        fluctuation=fluctuation,
     )
     _result = est.fit()
     try:
@@ -222,7 +229,18 @@ class TMLE:
         alpha: float = 0.05,
         propensity_bounds: Tuple[float, float] = (0.025, 0.975),
         random_state: int = 42,
+        Q: "Optional[np.ndarray]" = None,
+        g1W: "Optional[np.ndarray]" = None,
+        fluctuation: str = "single",
     ):
+        if fluctuation not in ("single", "per_arm"):
+            raise ValueError(
+                f"tmle: unknown fluctuation={fluctuation!r}; use "
+                "'single' or 'per_arm'."
+            )
+        self.fluctuation = fluctuation
+        self.Q_init = None if Q is None else np.asarray(Q, dtype=np.float64)
+        self.g1W_init = None if g1W is None else np.asarray(g1W, dtype=np.float64)
         self.data = data
         self.y = y
         self.treat = treat
@@ -269,23 +287,40 @@ class TMLE:
         # Step 1: Initial estimates via Super Learner
         # ---------------------------------------------------------------
 
-        # Outcome model: Q(Y | A, W)
+        # Outcome model: Q(Y | A, W). A caller-supplied Q short-circuits
+        # the Super Learner entirely, which is what makes the targeting
+        # step comparable across implementations: with the initial fit
+        # held fixed, only the fluctuation and the plug-in remain. Column
+        # order matches ``tmle::tmle``'s Q argument, [Q(0,W), Q(1,W)].
         AW = np.column_stack([A, W])
-        sl_Q = SuperLearner(
-            library=self.outcome_library,
-            n_folds=self.n_folds,
-            task="classification" if is_binary_outcome else "regression",
-            random_state=self.random_state,
-        )
-        sl_Q.fit(AW, Y_scaled)
-
-        # Initial predictions Q_bar(a, W) for a=0 and a=1
         W1 = np.column_stack([np.ones(n), W])
         W0 = np.column_stack([np.zeros(n), W])
 
-        Q_bar_A = sl_Q.predict(AW)  # Q(A_i, W_i) for observed A
-        Q_bar_1 = sl_Q.predict(W1)  # Q(1, W_i)
-        Q_bar_0 = sl_Q.predict(W0)  # Q(0, W_i)
+        if self.Q_init is not None:
+            Q_in = self.Q_init
+            if Q_in.ndim != 2 or Q_in.shape != (n, 2):
+                raise ValueError(
+                    f"tmle: Q must have shape (n, 2) = ({n}, 2) with columns "
+                    f"[Q(0,W), Q(1,W)]; got {Q_in.shape}."
+                )
+            if not is_binary_outcome:
+                Q_bar_0 = (Q_in[:, 0] - y_min) / (y_range + 1e-10)
+                Q_bar_1 = (Q_in[:, 1] - y_min) / (y_range + 1e-10)
+            else:
+                Q_bar_0 = Q_in[:, 0].copy()
+                Q_bar_1 = Q_in[:, 1].copy()
+            Q_bar_A = np.where(A == 1, Q_bar_1, Q_bar_0)
+        else:
+            sl_Q = SuperLearner(
+                library=self.outcome_library,
+                n_folds=self.n_folds,
+                task="classification" if is_binary_outcome else "regression",
+                random_state=self.random_state,
+            )
+            sl_Q.fit(AW, Y_scaled)
+            Q_bar_A = sl_Q.predict(AW)  # Q(A_i, W_i) for observed A
+            Q_bar_1 = sl_Q.predict(W1)  # Q(1, W_i)
+            Q_bar_0 = sl_Q.predict(W0)  # Q(0, W_i)
 
         # Bound predictions
         eps_bound = 1e-5
@@ -294,14 +329,21 @@ class TMLE:
         Q_bar_0 = np.clip(Q_bar_0, eps_bound, 1 - eps_bound)
 
         # Propensity model: g(A | W)
-        sl_g = SuperLearner(
-            library=self.propensity_library,
-            n_folds=self.n_folds,
-            task="classification",
-            random_state=self.random_state,
-        )
-        sl_g.fit(W, A)
-        g_hat_raw = sl_g.predict(W)
+        if self.g1W_init is not None:
+            g_hat_raw = np.asarray(self.g1W_init, dtype=np.float64).ravel()
+            if g_hat_raw.shape[0] != n:
+                raise ValueError(
+                    f"tmle: g1W must have length n = {n}; " f"got {g_hat_raw.shape[0]}."
+                )
+        else:
+            sl_g = SuperLearner(
+                library=self.propensity_library,
+                n_folds=self.n_folds,
+                task="classification",
+                random_state=self.random_state,
+            )
+            sl_g.fit(W, A)
+            g_hat_raw = sl_g.predict(W)
         g_hat = np.clip(g_hat_raw, self.propensity_bounds[0], self.propensity_bounds[1])
 
         # Overlap diagnostics + loud warning when many propensities hit
@@ -351,18 +393,50 @@ class TMLE:
             H_1 = np.ones(n)
             H_0 = -g_hat / (1 - g_hat)
 
-        # Logistic fluctuation model:
-        # logit(Q*(A,W)) = logit(Q_bar(A,W)) + epsilon * H(A,W)
-        # Fit epsilon by MLE (logistic regression with offset)
+        # Logistic fluctuation model. Two parameterisations are in use in
+        # the literature and they are NOT the same in finite samples:
+        #
+        #   'single'  (default, van der Laan & Rubin 2006): one clever
+        #             covariate H(A,W) = A/g - (1-A)/(1-g) and a scalar
+        #             epsilon. Solves the full EIF equation in one
+        #             dimension.
+        #   'per_arm' (the R ``tmle`` package's convention): two clever
+        #             covariates, A/g and -(1-A)/(1-g), fitted jointly,
+        #             giving a 2-vector epsilon and solving the treated
+        #             and control score equations separately.
+        #
+        # Both are valid TMLEs and are asymptotically equivalent; they
+        # differ at finite n. 'single' is the documented StatsPAI default
+        # and its numbers are unchanged. 'per_arm' exists so results can
+        # be reconciled with ``tmle::tmle`` (Track A module 72).
         logit_Q_A = logit(Q_bar_A)
 
-        # Simple Newton-Raphson for epsilon (1D optimisation)
-        epsilon = self._fit_epsilon(Y_scaled, logit_Q_A, H_A)
-
-        # Update Q predictions
-        Q_star_A = expit(logit_Q_A + epsilon * H_A)
-        Q_star_1 = expit(logit(Q_bar_1) + epsilon * H_1)
-        Q_star_0 = expit(logit(Q_bar_0) + epsilon * H_0)
+        if self.fluctuation == "single":
+            epsilon = self._fit_epsilon(Y_scaled, logit_Q_A, H_A)
+            epsilon_vec = np.array([float(epsilon)])
+            Q_star_A = expit(logit_Q_A + epsilon * H_A)
+            Q_star_1 = expit(logit(Q_bar_1) + epsilon * H_1)
+            Q_star_0 = expit(logit(Q_bar_0) + epsilon * H_0)
+        else:
+            # Per-arm covariates, evaluated at the observed A for fitting
+            # and at each arm for the counterfactual updates.
+            if self.estimand == "ATE":
+                H1_A = A / g_hat
+                H0_A = -(1 - A) / (1 - g_hat)
+                H1_at1, H0_at1 = 1.0 / g_hat, np.zeros(n)
+                H1_at0, H0_at0 = np.zeros(n), -1.0 / (1 - g_hat)
+            else:  # ATT
+                H1_A = A.astype(np.float64)
+                H0_A = -(1 - A) * g_hat / (1 - g_hat)
+                H1_at1, H0_at1 = np.ones(n), np.zeros(n)
+                H1_at0, H0_at0 = np.zeros(n), -g_hat / (1 - g_hat)
+            H_mat = np.column_stack([H1_A, H0_A])
+            epsilon_vec = self._fit_epsilon_multi(Y_scaled, logit_Q_A, H_mat)
+            e1, e0 = float(epsilon_vec[0]), float(epsilon_vec[1])
+            Q_star_A = expit(logit_Q_A + e1 * H1_A + e0 * H0_A)
+            Q_star_1 = expit(logit(Q_bar_1) + e1 * H1_at1 + e0 * H0_at1)
+            Q_star_0 = expit(logit(Q_bar_0) + e1 * H1_at0 + e0 * H0_at0)
+            epsilon = e1  # scalar slot keeps the legacy field populated
 
         # ---------------------------------------------------------------
         # Step 3: Plug-in estimate

@@ -238,3 +238,67 @@ def test_causal_forest_overlap_loss():
     _assert_documented_band(
         covered, B, "Causal Forest AIPW (overlap loss)", lo=0.85, hi=0.99
     )
+
+
+# ---------------------------------------------------------------------------
+# Robustness 4: causal forest under *clean* overlap -- the SE calibration
+#      counterpart to Track A module 13.  Module 13 grades the causal-forest
+#      point estimate against grf on this DGP but cannot grade its standard
+#      error the same way: two independently grown forests differ in
+#      ``tau.hat``, so a relative band on the SE mixes forest Monte Carlo
+#      with any genuine formula difference.  The formula half is settled
+#      exactly by tests/reference_parity/test_grf_aipw_operator_parity.py;
+#      this row supplies the other half -- that the SE the operator emits is
+#      *calibrated* on the same DGP.
+#
+#      ATT is checked explicitly because its estimator changed in v1.21 to
+#      grf's plug-in + Hajek-correction decomposition, which moves the
+#      standard error materially.  Calibration is the check that matters for
+#      that change.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.slow
+def test_causal_forest_clean_overlap_ate_and_att():
+    """AIPW ATE *and* ATT coverage on the Track A module-13 DGP.
+
+    ``tau(X) = 1 + 0.5*X2`` while the propensity depends only on ``X1``,
+    so selection is orthogonal to the effect modifier and both estimands
+    have population value 1.0.
+
+    Documented band: 0.90 <= rate <= 0.98.  Wider than the 99% Wilson
+    band at this B because the forest is deliberately under-grown
+    (30 trees) to keep the test inside its wall-clock budget.
+    """
+    B = min(B_DEFAULT, 200)
+    truth = 1.0
+    n = 500
+    covered_ate = 0
+    covered_att = 0
+    for seed in range(B):
+        rng = np.random.default_rng(seed)
+        X = rng.normal(size=(n, 3))
+        e = 0.5 + 0.2 * np.tanh(X[:, 0])
+        d = (rng.uniform(size=n) < e).astype(int)
+        tau = 1.0 + 0.5 * X[:, 1]
+        y = X[:, 0] + 0.5 * X[:, 2] + tau * d + rng.normal(size=n)
+        cf = sp.causal_forest(
+            Y=y,
+            T=d,
+            X=X,
+            n_estimators=30,
+            random_state=seed,
+            discrete_treatment=True,
+        )
+        ate = cf.average_treatment_effect(target_sample="all")
+        att = cf.average_treatment_effect(target_sample="treated")
+        if ate["ci_low"] <= truth <= ate["ci_high"]:
+            covered_ate += 1
+        if att["ci_low"] <= truth <= att["ci_high"]:
+            covered_att += 1
+    _assert_documented_band(
+        covered_ate, B, "Causal Forest AIPW ATE (clean overlap)", lo=0.90, hi=0.98
+    )
+    _assert_documented_band(
+        covered_att, B, "Causal Forest AIPW ATT (clean overlap)", lo=0.90, hi=0.98
+    )

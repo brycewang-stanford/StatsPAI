@@ -18,7 +18,7 @@ where psi_score_i = (y_tilde_i - theta * d_tilde_i) * d_tilde_i.
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
@@ -77,19 +77,7 @@ class DoubleMLPLR(_DoubleMLBase):
         sample_weight: Optional[np.ndarray] = None,
         fold_indices: Optional[np.ndarray] = None,
     ) -> Tuple[float, float]:
-        from sklearn.model_selection import KFold
-
-        if fold_indices is None:
-            kf = KFold(n_splits=self.n_folds, shuffle=True, random_state=rng_seed)
-            splits: Iterable[Tuple[np.ndarray, np.ndarray]] = kf.split(X)
-        else:
-            splits = (
-                (
-                    np.flatnonzero(fold_indices != fold),
-                    np.flatnonzero(fold_indices == fold),
-                )
-                for fold in range(self.n_folds)
-            )
+        splits = self._make_splits(X, rng_seed=rng_seed, fold_indices=fold_indices)
         y_resid: np.ndarray = np.zeros(n, dtype=float)
         d_resid: np.ndarray = np.zeros(n, dtype=float)
 

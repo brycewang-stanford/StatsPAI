@@ -14,6 +14,8 @@ the dynamic-panel coefficient is finite.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -139,10 +141,17 @@ def test_dynamic_panel_arellano_bond(dynamic_df):
     assert np.isfinite(float(res.params["x"]))
 
 
-def test_system_gmm_not_implemented(dynamic_df):
-    # documented limitation: system GMM raises until it has a Stata parity ref
-    with pytest.raises(NotImplementedError, match="system GMM"):
-        sp.panel(
+def test_system_gmm_runs_and_reports_an_intercept(dynamic_df):
+    """Formerly a documented limitation; system GMM is now implemented.
+
+    Verified against ``xtabond2`` in
+    ``tests/reference_parity/test_dynpanel_abdata_parity.py``. Here we only
+    check the dispatcher wiring: the fit succeeds and carries the ``_cons``
+    row that only the stacked level equation can identify.
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        res = sp.panel(
             dynamic_df,
             formula="y ~ y_lag + x",
             entity="id",
@@ -150,3 +159,6 @@ def test_system_gmm_not_implemented(dynamic_df):
             method="system",
             lags=1,
         )
+    assert res is not None
+    assert np.isfinite(float(res.params["x"]))
+    assert "_cons" in res.params.index

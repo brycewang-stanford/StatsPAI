@@ -8,15 +8,16 @@ Learns a depth-limited decision tree that maximises expected welfare:
 where pi(X) in {0, 1} is the treatment policy and Gamma_i are doubly
 robust scores (AIPW pseudo-outcomes).
 
-For depth-1 (stump) and depth-2 trees, an exact solution is found
-via exhaustive search over all possible splits. For deeper trees,
-a greedy recursive splitting approach is used.
+For depth-1 and depth-2 trees the welfare optimum is found by exhaustive
+search over the complete grid of distinct covariate values
+(:mod:`statspai.policy_learning._exact_tree`), matching
+``policytree::policy_tree``. For depth >= 3 exact search is
+combinatorially infeasible and a greedy recursive split is used; the
+mode actually used is reported as ``result["search_mode"]``.
 
 References
 ----------
-Athey, S. & Wager, S. (2021).
-"Policy Learning with Observational Data."
-Econometrica, 89(1), 133-161. [@athey2021matrix]
+[@athey2021policy], [@zhou2023offline]
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -24,9 +25,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
-from .._result_serialize import ResultProtocolMixin
 
 # sklearn is imported lazily inside the methods that need it so that
 # ``import statspai`` doesn't pull ~245 sklearn submodules through this
@@ -108,6 +109,7 @@ class PolicyTreeResult(dict, ResultProtocolMixin):
         value_gain_se: float = float("nan"),
         policy_covariates: Tuple[str, ...] = (),
         max_depth: int = 0,
+        search_mode: str = "exact",
     ) -> None:
         super().__init__(
             tree=tree,
@@ -125,6 +127,7 @@ class PolicyTreeResult(dict, ResultProtocolMixin):
             value_gain_se=value_gain_se,
             policy_covariates=policy_covariates,
             max_depth=max_depth,
+            search_mode=search_mode,
         )
 
     # Attribute access mirrors dict keys for ergonomic .field syntax.
@@ -384,6 +387,9 @@ def policy_tree(
     n_folds: int = 5,
     alpha: float = 0.05,
     random_state: int = 42,
+    scores: Optional[np.ndarray] = None,
+    search: str = "auto",
+    split_step: int = 1,
 ) -> Dict[str, Any]:
     """
     Learn an optimal treatment assignment policy.
@@ -409,6 +415,25 @@ def policy_tree(
     alpha : float, default 0.05
         Significance level.
     random_state : int, default 42
+    scores : np.ndarray (n,), optional
+        Pre-computed doubly-robust scores ``Gamma_i`` for treating unit
+        ``i``, one per row of ``data``.  When supplied the internal
+        cross-fitted AIPW step is skipped entirely, so the tree search is
+        decoupled from nuisance estimation -- this is the injection point
+        that makes the search directly comparable with
+        ``policytree::policy_tree(X, cbind(0, Gamma))``, and it lets
+        callers reuse scores from ``sp.causal_forest`` or ``sp.dml``.
+    search : {'auto', 'exact', 'greedy'}, default 'auto'
+        ``'exact'`` solves the depth ``<= 2`` welfare optimum by
+        exhaustive search over the complete split grid.  ``'greedy'``
+        uses the recursive one-step-lookahead split.  ``'auto'`` picks
+        ``'exact'`` for depth ``<= 2`` unless the problem exceeds the
+        cost budget, in which case it warns and falls back to greedy.
+        Depth ``>= 3`` is always greedy.
+    split_step : int, default 1
+        Consider only every ``split_step``-th distinct value of each
+        policy covariate, mirroring ``policytree``'s ``split.step``.
+        ``1`` searches the complete grid.
 
     Returns
     -------
@@ -430,6 +455,8 @@ def policy_tree(
         'rules' : str
             Human-readable policy rules.
         'n_obs' : int
+        'search_mode' : str
+            ``'exact'`` or ``'greedy'`` -- which search actually ran.
 
     Examples
     --------
@@ -463,6 +490,9 @@ def policy_tree(
         n_folds=n_folds,
         alpha=alpha,
         random_state=random_state,
+        scores=scores,
+        search=search,
+        split_step=split_step,
     )
     return est.fit()
 
@@ -574,6 +604,9 @@ class PolicyTree:
         n_folds: int = 5,
         alpha: float = 0.05,
         random_state: int = 42,
+        scores: Optional[np.ndarray] = None,
+        search: str = "auto",
+        split_step: int = 1,
     ):
         self.data = data
         self.y = y
@@ -585,6 +618,19 @@ class PolicyTree:
         self.n_folds = n_folds
         self.alpha = alpha
         self.random_state = random_state
+        if search not in ("auto", "exact", "greedy"):
+            raise MethodIncompatibility(
+                f"policy_tree: unknown search={search!r}.",
+                recovery_hint="Use search='auto', 'exact', or 'greedy'.",
+            )
+        self.search = search
+        if int(split_step) < 1:
+            raise MethodIncompatibility(
+                f"policy_tree: split_step must be >= 1, got {split_step!r}.",
+                recovery_hint="Use split_step=1 to search the complete grid.",
+            )
+        self.split_step = int(split_step)
+        self.scores = None if scores is None else np.asarray(scores, dtype=np.float64)
 
     def fit(self) -> Dict[str, Any]:
         """Learn the optimal policy tree."""
@@ -607,11 +653,25 @@ class PolicyTree:
         if not (len(unique_d) == 2 and set(unique_d.astype(int)) == {0, 1}):
             raise ValueError("Treatment must be binary (0/1)")
 
-        # Step 1: Compute doubly robust scores via cross-fitting
-        scores = self._compute_dr_scores(Y, D, W, n)
+        # Step 1: doubly robust scores -- caller-supplied, or cross-fitted.
+        if self.scores is not None:
+            if self.scores.shape[0] != len(self.data):
+                raise MethodIncompatibility(
+                    "policy_tree: len(scores) must match len(data) "
+                    f"({self.scores.shape[0]} vs {len(self.data)}).",
+                    recovery_hint=(
+                        "Pass one doubly-robust score per input row; rows with "
+                        "missing model columns are dropped afterwards."
+                    ),
+                )
+            keep = self.data[all_cols].notna().all(axis=1).to_numpy()
+            scores = np.asarray(self.scores[keep], dtype=np.float64)
+        else:
+            scores = self._compute_dr_scores(Y, D, W, n)
 
-        # Step 2: Grow policy tree on scores
-        tree = self._grow_tree(X_pol, scores, depth=0)
+        # Step 2: Grow policy tree on scores. Depth <= 2 admits an exact
+        # welfare optimum; deeper trees fall back to the greedy split.
+        tree, search_mode = self._build_tree(X_pol, scores)
 
         # Step 3: Generate policy
         policy_decisions = self._predict_tree(tree, X_pol)
@@ -667,6 +727,7 @@ class PolicyTree:
             value_gain_se=gain_se,
             policy_covariates=tuple(self.policy_covariates),
             max_depth=self.max_depth,
+            search_mode=search_mode,
         )
 
     def predict(self, X_new: np.ndarray) -> np.ndarray:
@@ -795,6 +856,42 @@ class PolicyTree:
 
         return np.asarray(scores, dtype=float)
 
+    def _build_tree(
+        self,
+        X: np.ndarray,
+        scores: np.ndarray,
+    ) -> Tuple[TreeNode, str]:
+        """Dispatch to the exact or the greedy search.
+
+        Depth <= 2 has a tractable welfare optimum, so it is solved
+        exactly by default (matching ``policytree::policy_tree``).  Depth
+        >= 3 is combinatorially infeasible and uses the greedy recursive
+        split.  ``search="auto"`` also declines the exact route when the
+        problem exceeds the cost budget -- with a warning, never silently.
+        """
+        from ._exact_tree import (
+            exact_policy_tree,
+            exact_search_is_affordable,
+            warn_greedy_fallback,
+        )
+
+        n, p = X.shape
+        if self.search == "greedy" or self.max_depth > 2:
+            return self._grow_tree(X, scores, depth=0), "greedy"
+        if self.search == "auto" and not exact_search_is_affordable(
+            n, p, self.max_depth
+        ):
+            warn_greedy_fallback(n, p, self.max_depth)
+            return self._grow_tree(X, scores, depth=0), "greedy"
+        tree = exact_policy_tree(
+            X,
+            scores,
+            max_depth=self.max_depth,
+            min_leaf_size=self.min_leaf_size,
+            split_step=self.split_step,
+        )
+        return tree, "exact"
+
     def _grow_tree(
         self,
         X: np.ndarray,
@@ -823,16 +920,15 @@ class PolicyTree:
         n_features = X.shape[1]
 
         for j in range(n_features):
-            # Get sorted unique thresholds
-            vals = np.sort(np.unique(X[:, j]))
+            # Complete candidate grid: every distinct value that leaves a
+            # strictly larger value on the right, thinned only by the
+            # explicit ``split_step`` knob. (Before v1.21 this path
+            # silently subsampled to <= 50 quantiles per feature, so it
+            # did not return the greedy optimum over the full grid.)
+            vals = np.unique(X[:, j])
             if len(vals) < 2:
                 continue
-
-            # Use quantile-based candidate splits for efficiency
-            n_candidates = min(50, len(vals) - 1)
-            quantiles = np.linspace(0, 1, n_candidates + 2)[1:-1]
-            thresholds = np.quantile(X[:, j], quantiles)
-            thresholds = np.unique(thresholds)
+            thresholds = vals[: len(vals) - 1 : self.split_step]
 
             for threshold in thresholds:
                 left_mask = X[:, j] <= threshold

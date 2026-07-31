@@ -1737,6 +1737,7 @@
     "validation_notes": [
       "Track A parity seed",
       "R parity module 08_dml",
+      "R parity module 71_dml_family",
       "Stata parity module 08_dml"
     ],
     "validation_status": "certified"
@@ -2401,7 +2402,7 @@
     ],
     "category": "causal",
     "cost_profile": "Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
-    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
+    "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; matching with replacement resolves ties by taking the first nearest control only, whereas Matching::Match(ties=TRUE) averages over all tied controls, so with-replacement point estimates can differ from that reference. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
     "example": "sp.match(df, treatment=\"treat\", outcome=\"y\", covariates=[\"x1\",\"x2\"])",
     "failure_modes": [
       {
@@ -2430,7 +2431,10 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent",
+      "matching with replacement resolves ties by taking the first nearest control only, whereas Matching::Match(ties=TRUE) averages over all tied controls, so with-replacement point estimates can differ from that reference"
+    ],
     "name": "match",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -2441,10 +2445,19 @@
     ],
     "reference": "Rosenbaum & Rubin (1983); Ho et al. (2007) Political Analysis; Stuart (2010) Statistical Science",
     "signature": {
-      "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
+      "description": "Propensity score and covariate matching for treatment effect estimation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: greedy nearest-neighbour matching without replacement is order-dependent: the m_order convention can differ across packages and materially moves the estimate (>5x spread on MatchIt::lalonde with Mahalanobis distance). m_order='data' and 'closest' reproduce MatchIt exactly; m_order='farthest' is StatsPAI's own dynamic rule and is not MatchIt-equivalent; matching with replacement resolves ties by taking the first nearest control only, whereas Matching::Match(ties=TRUE) averages over all tied controls, so with-replacement point estimates can differ from that reference. Cost: Builds the dense n_treated x n_control distance matrix via scipy cdist before selecting neighbours: memory is O(n_treated x n_control). Comfortable into the thousands per arm; use a caliper or coarser blocking beyond that.",
       "name": "match",
       "parameters": {
         "properties": {
+          "caliper_scale": {
+            "default": "raw",
+            "description": "Units of `caliper`: 'raw' on the distance scale (Stata psmatch2) or 'sd' in standard deviations of the propensity score (MatchIt std.caliper=TRUE).",
+            "enum": [
+              "raw",
+              "sd"
+            ],
+            "type": "string"
+          },
           "covariates": {
             "description": "Covariate matrix, DataFrame, or column names.",
             "items": {
@@ -2454,6 +2467,28 @@
           },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "m_order": {
+            "default": "smallest_min_dist",
+            "description": "Order treated units are processed in for greedy matching without replacement. The result depends on it materially (>5x spread on lalonde with Mahalanobis distance). 'data' and 'closest' reproduce the MatchIt rules of the same name.",
+            "enum": [
+              "smallest_min_dist",
+              "data",
+              "closest",
+              "farthest",
+              "smallest",
+              "largest"
+            ],
+            "type": "string"
+          },
+          "mahalanobis_cov": {
+            "default": "pooled",
+            "description": "Covariance defining the Mahalanobis metric: 'pooled' within-group (Rubin 1980, MatchIt) or 'total' full-sample (pre-1.21 behaviour).",
+            "enum": [
+              "pooled",
+              "total"
+            ],
             "type": "string"
           },
           "method": {
@@ -2488,6 +2523,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_matching_parity.py",
+      "tests/reference_parity/test_matching_r_parity.py",
       "tests/reference_parity/test_psmatch2_parity.py"
     ],
     "validation_status": "validated"
@@ -14805,6 +14841,7 @@
     "typical_n_min": 500,
     "validation_notes": [
       "tests/reference_parity/test_beyond_average_late_parity.py",
+      "tests/reference_parity/test_dist_iv_parity.py",
       "API/unit contract evidence: tests/test_v101_verified_fixes.py"
     ],
     "validation_status": "validated"
@@ -16685,7 +16722,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). Estimates QTE at multiple quantiles via changes-in-changes on a 2x2 design with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.qdid(df, y=\"wage\", group=\"treat\", time=\"post\")",
     "failure_modes": [
       {
@@ -16711,9 +16748,9 @@
       "time is binary 0/1 (pre / post)",
       "outcome is continuous"
     ],
-    "reference": "Athey & Imbens (2006) Econometrica -- Changes-in-Changes",
+    "reference": "Koenker & Bassett (1978) for the quantiles; Athey & Imbens (2006) Econometrica Section 5 for why CiC is preferred to QDiD",
     "signature": {
-      "description": "Quantile Difference-in-Differences (Athey & Imbens 2006 CIC). Estimates QTE at multiple quantiles via changes-in-changes on a 2x2 design with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Quantile Difference-in-Differences (QDiD): applies the DiD contrast to quantiles, [Q11(t)-Q10(t)] - [Q01(t)-Q00(t)], on a 2x2 design with bootstrap SE. This is NOT changes-in-changes -- Athey & Imbens (2006) propose CiC and explicitly criticise QDiD; use sp.cic for CiC. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "qdid",
       "parameters": {
         "properties": {
@@ -16776,13 +16813,13 @@
       "metalearner"
     ],
     "assumptions": [
-      "For 'quantile_regression': unconfoundedness conditional on controls",
-      "For 'ipw': unconfoundedness + overlap 0 < e(x) < 1",
+      "For 'firpo_qte' / 'firpo_qtt' / 'distribution': unconfoundedness + overlap",
+      "For 'conditional_qr': unconfoundedness conditional on controls; note this is a CONDITIONAL estimand with no causal reading absent rank invariance",
       "Correct parametric quantile model (sensitivity tested via multiple quantiles)"
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Quantile Treatment Effect via quantile regression or IPW weighting. Returns QTE at supplied quantiles with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity reweighting (analytic influence-function SE); 'conditional_qr' gives the CONDITIONAL QTE (coefficient on D in a quantile regression, Koenker & Bassett 1978); 'distribution' gives the QTT via an IPW counterfactual distribution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.qte(df, y=\"earnings\", treatment=\"training\", quantiles=[0.25, 0.5, 0.75])",
     "failure_modes": [
       {
@@ -16803,14 +16840,14 @@
     "name": "qte",
     "not_recommended_when": [],
     "pre_conditions": [
-      "binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary)",
+      "binary treatment (all methods)",
       "continuous outcome",
-      "controls cover the confounding set (for 'quantile_regression')",
-      "overlap when method='ipw'"
+      "controls cover the confounding set",
+      "overlap 0 < e(x) < 1 for the Firpo and distribution methods"
     ],
     "reference": "Koenker & Bassett (1978); Firpo (2007); Chernozhukov & Hansen (2005)",
     "signature": {
-      "description": "Quantile Treatment Effect via quantile regression or IPW weighting. Returns QTE at supplied quantiles with bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Quantile treatment effects. 'firpo_qte' / 'firpo_qtt' give Firpo (2007) efficient UNCONDITIONAL QTE / QTT by propensity reweighting (analytic influence-function SE); 'conditional_qr' gives the CONDITIONAL QTE (coefficient on D in a quantile regression, Koenker & Bassett 1978); 'distribution' gives the QTT via an IPW counterfactual distribution. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "qte",
       "parameters": {
         "properties": {
@@ -16831,11 +16868,13 @@
             "type": "string"
           },
           "method": {
-            "default": "quantile_regression",
-            "description": "Estimation method",
+            "default": "firpo_qte",
+            "description": "Estimand / estimator",
             "enum": [
-              "quantile_regression",
-              "ipw"
+              "firpo_qte",
+              "firpo_qtt",
+              "conditional_qr",
+              "distribution"
             ],
             "type": "string"
           },
@@ -16871,6 +16910,7 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_firpo_qte_parity.py",
       "tests/reference_parity/test_qte_parity.py",
       "API/unit contract evidence: tests/test_qte.py"
     ],
@@ -25424,6 +25464,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_matching_parity.py",
+      "tests/reference_parity/test_matching_r_parity.py",
       "tests/reference_parity/test_paper_parity.py"
     ],
     "validation_status": "validated"
@@ -26286,7 +26327,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult.",
+    "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -26306,7 +26347,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult.",
+      "description": "Compute DML-OVB sensitivity for a fitted DML CausalResult. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "dml_sensitivity",
       "parameters": {
         "properties": {
@@ -26353,8 +26394,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/external_parity/test_dml_sensitivity_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -27495,6 +27538,7 @@
     "typical_n_min": 200,
     "validation_notes": [
       "tests/reference_parity/test_matching_parity.py",
+      "tests/reference_parity/test_matching_r_parity.py",
       "tests/reference_parity/test_paper_parity.py"
     ],
     "validation_status": "validated"
@@ -35292,7 +35336,7 @@
     ],
     "category": "causal",
     "cost_profile": "Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
-    "description": "Optimal 1:1 matching via the Hungarian algorithm. Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
+    "description": "Optimal 1:1 matching via the Hungarian algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
     "example": "",
     "failure_modes": [
       {
@@ -35321,7 +35365,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Optimal 1:1 matching via the Hungarian algorithm. Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
+      "description": "Optimal 1:1 matching via the Hungarian algorithm. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Do NOT use when: either arm has more than ~10,000 units -- the assignment problem is superquadratic (see cost); use sp.psm or sp.match (greedy nearest-neighbour) at that scale. Cost: Materialises the dense n_treated x n_control distance matrix, then solves a linear sum assignment (Hungarian, ~O(n^3) worst case). Both memory and time degrade sharply past a few thousand units per arm.",
       "name": "optimal_match",
       "parameters": {
         "properties": {
@@ -35365,8 +35409,10 @@
     },
     "stability": "stable",
     "typical_n_min": 200,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_matching_r_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -36543,7 +36589,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Distributional IV: LATE at each quantile of Y. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Distributional IV: the complier LATE at each quantile of ``y``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -36590,7 +36636,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Distributional IV: LATE at each quantile of Y. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Distributional IV: the complier LATE at each quantile of ``y``. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "dist_iv",
       "parameters": {
         "properties": {
@@ -36600,7 +36646,7 @@
             "type": "number"
           },
           "covariates": {
-            "description": "Covariate matrix, DataFrame, or column names.",
+            "description": "Conditioning set for ``P(Z=1|X)``. Unlike versions <= 1.20.0 (which accepted and silently ignored this argument) it now changes the estimate.",
             "items": {
               "type": "string"
             },
@@ -36611,16 +36657,26 @@
             "type": "string"
           },
           "instrument": {
-            "description": "instrument parameter (str).",
+            "description": "Outcome, binary treatment, binary instrument.",
             "type": "string"
           },
           "n_boot": {
             "default": 200,
-            "description": "Number of bootstrap replications.",
+            "description": "Bootstrap replications when ``se='bootstrap'``.",
             "type": "integer"
           },
           "quantiles": {
-            "description": "Defaults to (0.1, 0.25, 0.5, 0.75, 0.9).",
+            "description": "Defaults to ``(0.1, 0.25, 0.5, 0.75, 0.9)``.",
+            "type": "string"
+          },
+          "se": {
+            "default": "auto",
+            "description": "``'auto'`` picks ``'analytic'`` without covariates and ``'bootstrap'`` with them (the analytic influence function treats ``pi(X)`` as known).",
+            "enum": [
+              "auto",
+              "analytic",
+              "bootstrap"
+            ],
             "type": "string"
           },
           "seed": {
@@ -36629,11 +36685,11 @@
             "type": "integer"
           },
           "treat": {
-            "description": "Treatment indicator or first-treatment-period column.",
+            "description": "Outcome, binary treatment, binary instrument.",
             "type": "string"
           },
           "y": {
-            "description": "Outcome variable column name or outcome array.",
+            "description": "Outcome, binary treatment, binary instrument.",
             "type": "string"
           }
         },
@@ -36665,7 +36721,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "KAN-Powered D-IV-LATE (Shaw 2025, arXiv 2506.12765). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Deprecated alias for :func:`dist_iv`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -36685,7 +36741,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "KAN-Powered D-IV-LATE (Shaw 2025, arXiv 2506.12765). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Deprecated alias for :func:`dist_iv`. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "kan_dlate",
       "parameters": {
         "properties": {

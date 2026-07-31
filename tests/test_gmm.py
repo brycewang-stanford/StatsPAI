@@ -4,12 +4,12 @@ Tests for Arellano-Bond / Blundell-Bond dynamic panel GMM.
 
 import warnings
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
-from statspai.gmm import xtabond
 from statspai.core.results import CausalResult
+from statspai.gmm import xtabond
 
 
 @pytest.fixture
@@ -125,17 +125,21 @@ class TestArellanoBond:
         )
         assert abs(result.estimate - onestep.estimate) < 0.1
 
-    def test_system_gmm_not_implemented(self, dynamic_panel):
-        """System (Blundell-Bond) GMM is gated until it has a parity ref.
+    def test_system_gmm_available(self, dynamic_panel):
+        """System (Blundell-Bond) GMM now runs and reports an intercept.
 
-        Proper system GMM needs a stacked level equation; rather than
-        return an unvalidated (and previously distorted) estimate, the
-        method raises loudly and points at the difference estimator.
+        It was gated behind ``NotImplementedError`` until it had a Stata
+        parity reference; that reference now exists
+        (``tests/reference_parity/test_dynpanel_abdata_parity.py``, against
+        ``xtabond2``), so the gate is gone.
         """
-        with pytest.raises(NotImplementedError, match="system GMM"):
-            xtabond(
-                dynamic_panel, y="y", x=["x"], id="id", time="time", method="system"
-            )
+        result = xtabond(
+            dynamic_panel, y="y", x=["x"], id="id", time="time", method="system"
+        )
+        assert "system" in result.method.lower()
+        assert result.model_info["n_obs_level"] > 0
+        assert "_cons" in list(result.detail["variable"])
+        assert np.isfinite(result.estimate) and 0.0 < result.estimate < 1.0
 
     @staticmethod
     def _parity_panel():
@@ -310,3 +314,169 @@ class TestIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestSystemGMMProperties:
+    """Blundell-Bond system GMM: the property that motivates it.
+
+    These are simulation checks rather than reference-parity ones — the
+    Stata/xtabond2 numerical parity lives in
+    ``tests/reference_parity/test_dynpanel_abdata_parity.py``.  What is
+    tested here is the *econometric* claim the estimator is chosen for:
+    when the series is persistent, lagged levels are weak instruments for
+    lagged differences, difference GMM is severely biased downward
+    (Blundell & Bond 1998), and the extra level moments fix it.
+    """
+
+    @staticmethod
+    def _persistent_panel(seed, N=200, T=6, rho=0.9, burn=30):
+        """AR(1) panel with a unit fixed effect and no covariates.
+
+        ``rho=0.9`` with ``T=6`` is the regime Blundell & Bond (1998) study:
+        persistent enough that ``y_{i,t-2}`` barely predicts ``Δy_{i,t-1}``.
+        A long burn-in puts each unit near its stationary distribution so
+        the bias measured is the weak-instrument bias, not an initial
+        conditions transient.
+        """
+        rng = np.random.default_rng(seed)
+        rows = []
+        for i in range(N):
+            a = rng.normal()
+            y = a / (1 - rho) + rng.normal()
+            for _ in range(burn):
+                y = rho * y + a + rng.normal()
+            for t in range(T):
+                y = rho * y + a + rng.normal()
+                rows.append({"id": i, "time": t, "y": y})
+        return pd.DataFrame(rows)
+
+    def test_system_gmm_beats_difference_gmm_when_persistent(self):
+        """Mean |bias| over 12 independent panels, difference vs system.
+
+        Probed values: difference GMM averages 0.607 against a truth of
+        0.90 (bias -0.29, SD 0.27 across draws); system GMM averages 0.968
+        (bias +0.07, SD 0.03).  The assertion is that system GMM's mean bias
+        is at least three times smaller — a wide margin against the probed
+        4x, so it will not flake, while an implementation that silently fell
+        back to the differenced moments would fail outright.
+        """
+        rho_true = 0.9
+        diff_hats, sys_hats = [], []
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for seed in range(12):
+                df = self._persistent_panel(seed)
+                diff_hats.append(
+                    float(
+                        xtabond(df, y="y", id="id", time="time")
+                        .detail["coefficient"]
+                        .iloc[0]
+                    )
+                )
+                sys_hats.append(
+                    float(
+                        xtabond(df, y="y", id="id", time="time", method="system")
+                        .detail["coefficient"]
+                        .iloc[0]
+                    )
+                )
+        diff_bias = abs(np.mean(diff_hats) - rho_true)
+        sys_bias = abs(np.mean(sys_hats) - rho_true)
+        assert diff_bias > 0.15, (
+            f"difference GMM bias {diff_bias:.3f} is too small for this "
+            "contrast to mean anything — the DGP is no longer persistent."
+        )
+        assert sys_bias * 3 < diff_bias, (
+            f"system GMM bias {sys_bias:.3f} is not materially smaller than "
+            f"difference GMM's {diff_bias:.3f}; the level moments are not "
+            "doing their job."
+        )
+
+    def test_system_reports_an_intercept(self):
+        """The level equation identifies _cons; the differenced one cannot."""
+        df = self._persistent_panel(0)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            sys_fit = xtabond(df, y="y", id="id", time="time", method="system")
+            diff_fit = xtabond(df, y="y", id="id", time="time")
+        assert list(sys_fit.detail["variable"])[-1] == "_cons"
+        assert "_cons" not in list(diff_fit.detail["variable"])
+
+    def test_constant_rejected_for_difference_gmm(self):
+        """Fail loudly rather than silently ignoring constant=True."""
+        df = self._persistent_panel(0)
+        with pytest.raises(NotImplementedError, match="method='system'"):
+            xtabond(df, y="y", id="id", time="time", constant=True)
+
+    def test_unknown_method_rejected(self):
+        df = self._persistent_panel(0)
+        with pytest.raises(ValueError, match="difference"):
+            xtabond(df, y="y", id="id", time="time", method="nonsense")
+
+
+class TestInstrumentProliferationGuardrail:
+    """The instrument count must be surfaced, not buried.
+
+    Instrument proliferation is the dominant practical failure mode of
+    dynamic panel GMM: the uncollapsed moment count grows as O(T^2), and
+    once it rivals the number of units the two-step weight matrix becomes
+    near-singular, the estimate is biased toward the (Nickell-biased)
+    within estimator, and the Hansen test loses power — its p-value is
+    pushed toward 1.0, which *reads as reassurance*.  Roodman (2009, Stata
+    Journal 9(1), Sec. 5) therefore treats reporting the count as
+    mandatory.
+    """
+
+    @staticmethod
+    def _wide_panel(n_units=20, T=14, seed=3):
+        """Few units, many periods — the proliferation regime by construction."""
+        rng = np.random.default_rng(seed)
+        rows = []
+        for i in range(n_units):
+            a = rng.normal()
+            y = a / 0.5 + rng.normal()
+            for _ in range(10):
+                y = 0.5 * y + a + rng.normal()
+            for t in range(T):
+                y = 0.5 * y + a + rng.normal()
+                rows.append({"id": i, "time": t, "y": y})
+        return pd.DataFrame(rows)
+
+    def test_warns_when_instruments_reach_units(self):
+        df = self._wide_panel()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            res = xtabond(df, y="y", id="id", time="time", lags=1)
+        assert res.model_info["n_instruments"] >= res.model_info["n_units"], (
+            "the fixture stopped over-saturating the instrument set; the "
+            "guardrail is no longer being exercised."
+        )
+        assert any(
+            "instruments for" in str(w.message) for w in caught
+        ), f"no proliferation warning; got {[str(w.message)[:60] for w in caught]}"
+        assert "instrument_warning" in res.model_info, (
+            "the caveat must also reach model_info so an agent reading the "
+            "result sees what a human reads on the console."
+        )
+
+    def test_collapse_silences_it_by_actually_reducing_the_count(self):
+        """Not a muted warning — a genuinely smaller moment set."""
+        df = self._wide_panel()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            full = xtabond(df, y="y", id="id", time="time", lags=1)
+            collapsed = xtabond(df, y="y", id="id", time="time", lags=1, collapse=True)
+        assert collapsed.model_info["n_instruments"] < full.model_info["n_instruments"]
+        assert collapsed.model_info["n_instruments"] < collapsed.model_info["n_units"]
+        assert "instrument_warning" not in collapsed.model_info
+        # The warning that did fire belongs to the uncollapsed fit only.
+        assert sum("instruments for" in str(w.message) for w in caught) == 1
+
+    def test_no_warning_on_a_well_conditioned_panel(self):
+        df = self._wide_panel(n_units=200, T=6)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            res = xtabond(df, y="y", id="id", time="time", lags=1)
+        assert res.model_info["n_instruments"] < res.model_info["n_units"]
+        assert not any("instruments for" in str(w.message) for w in caught)
+        assert "instrument_warning" not in res.model_info

@@ -1,0 +1,63 @@
+{
+  "module": "71_dml_family",
+  "side": "py",
+  "rows": [
+    {
+      "module": "71_dml_family",
+      "side": "py",
+      "statistic": "theta_DML_IRM",
+      "estimate": 0.7080400388077683,
+      "se": 0.04914735175657973,
+      "ci_lo": 0.6117129994293506,
+      "ci_hi": 0.804367078186186,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "71_dml_family",
+      "side": "py",
+      "statistic": "theta_DML_PLIV",
+      "estimate": 0.5104676715209516,
+      "se": 0.030898608851173674,
+      "ci_lo": 0.4499075110002607,
+      "ci_hi": 0.5710278320416425,
+      "n": 2000,
+      "extra": {}
+    },
+    {
+      "module": "71_dml_family",
+      "side": "py",
+      "statistic": "theta_DML_IIVM",
+      "estimate": 0.8951222179361524,
+      "se": 0.14670611866034497,
+      "ci_lo": 0.6075835090502167,
+      "ci_hi": 1.1826609268220882,
+      "n": 2000,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "n_folds": 5,
+    "seed": 42,
+    "fold_column": "fold_id",
+    "fold_source": "user",
+    "trimming_threshold": 1e-12,
+    "normalize_ipw": false,
+    "ml_regression": "LinearRegression",
+    "ml_classification": "LogisticRegression(penalty=None)",
+    "covariates": [
+      "x1",
+      "x2",
+      "x3",
+      "x4",
+      "x5"
+    ],
+    "propensity_support": "e(X) = 0.5 + 0.3*tanh(.) in (0.2, 0.8)",
+    "models": {
+      "theta_DML_IRM": "y_irm ~ d_bin | X (ATE)",
+      "theta_DML_PLIV": "y_pliv ~ d_cont | X, instrument z_c",
+      "theta_DML_IIVM": "y_iivm ~ d_iv | X, instrument z_b (LATE)"
+    },
+    "note": "Shared-fold parity across the three DoubleML model classes module 08 does not cover. Both engines consume the same fold_id column through their explicit sample-splitting APIs, so cross-fitting contributes no Monte Carlo term and the residual gap is the estimator. Trimming is set to DoubleML's 1e-12 on both sides and is inert on this DGP (propensities stay inside (0.2, 0.8)); normalize_ipw is False because DoubleML 1.0.2 does not expose Hajek normalisation on IRM/IIVM."
+  }
+}

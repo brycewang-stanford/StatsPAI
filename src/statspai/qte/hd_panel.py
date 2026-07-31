@@ -1,10 +1,15 @@
-"""
-High-Dimensional Panel QTE (Xu & Zheng 2025, arXiv 2504.00785).
+"""High-dimensional panel quantile treatment effects.
 
 Quantile treatment effects in a panel setting with high-dimensional
-covariates, using a LASSO-penalised quantile regression to first
-select controls, then do double/debiased quantile regression on the
-selected subset.
+covariates: LASSO first selects controls, then quantile regression runs on
+the selected subset.
+
+Motivated by Xu & Zheng (2025), *Quantile Treatment Effects in High
+Dimensional Panel Data*.
+
+References
+----------
+xu2025quantile, koenker2005quantile, belloni2016post
 """
 
 from __future__ import annotations

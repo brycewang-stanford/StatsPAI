@@ -4,7 +4,128 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic panel GMM, substantially rebuilt** (`sp.xtabond`, new
+  `sp.xtdpdsys`). The 2026-07 classic-design audit rated this the weakest
+  classic design in the package: two exported functions, one materialised
+  `plm::pgmm` row, and no way to express most applied specifications. It now
+  matches Stata 18 `xtabond` / `xtabond2` / `xtdpdsys` to machine precision
+  across 20 specifications on the canonical Arellano-Bond (1991) `abdata`
+  employment panel. New capabilities, each reference-verified:
+  - **Blundell-Bond system GMM** — `method='system'`, or the `sp.xtdpdsys`
+    alias. Stacks the level equation, instruments it with lagged
+    differences, and reports the intercept the differenced equation cannot
+    identify. `sp.panel(method='system')` was documented but routed to
+    `NotImplementedError`; it now works. Matches `xtabond2 ... robust`
+    (one-step, two-step Windmeijer, collapsed) to ~1e-12.
+  - **Lag operators in the regressor list** — `x=["l(0/1).w", "l(0/2).k"]`,
+    so the Arellano-Bond (1991) Table 4 specification is a single call.
+  - **Instrument classes** — `predetermined=` / `endogenous=` with their own
+    lag windows, replacing "everything is strictly exogenous". Lags follow
+    `xtabond2`'s absolute convention; the mapping to Stata `xtabond`'s
+    `lagstruct()` is documented and pinned by tests.
+  - **`collapse=True`** (Roodman 2009) for instrument proliferation, matching
+    `xtabond2, collapse`.
+  - **`orthogonal=True`** — Arellano-Bover forward orthogonal deviations,
+    which lose one observation per gap instead of two. Matches
+    `xtabond2, orthogonal` for difference and system GMM, one- and two-step.
+  - **`time_dummies=True`** and, for system GMM, `constant=`.
+  - **Difference-in-Hansen (C) tests** of each instrument subset, in
+    `model_info['difference_in_hansen']` — the only way to test system GMM's
+    extra level moments rather than assume them. Matches `xtabond2`'s
+    "Difference-in-Hansen tests of exogeneity of instrument subsets" block.
+  - **Instrument-count guardrail**: a warning (and a `model_info` note) when
+    the moment count reaches the number of units.
+  - The **Hansen J** is now reported for one-step fits too (it is defined at
+    the two-step optimum regardless of which step is reported, and it is the
+    only over-identification test robust to heteroskedasticity).
+  - Numerics moved to `statspai/gmm/_dynpanel/` (spec / data / moments /
+    estimate / inference / diagnostics); `sp.xtabond` is the presentation
+    layer. New suites: `tests/reference_parity/test_dynpanel_abdata_parity.py`
+    (45 tests against Stata 18 + `xtabond2` + R `plm::pgmm` + `pdynmc`) and
+    `tests/test_xtabond_golden.py` (regression lock on the pre-existing
+    numbers).
+
 ### ⚠️ Correctness
+
+- **`sp.xtabond` deleted instruments when a covariate had missing values.**
+  The estimator began with a listwise `data[[id, time, y] + x].dropna()`,
+  so a `NaN` in *any* covariate at period *t* removed `y_{i,t}` from the
+  **instrument** pool and from the lag pool, not just from the estimation
+  sample. Any specification with lagged regressors — which necessarily have
+  leading `NaN`s — was therefore silently amputated. On `abdata` with the
+  Arellano-Bond (1991) Table 4 specification this used 19 of 32 instruments
+  and 331 of 611 observations, returning ρ̂ = 0.660 where Stata returns
+  0.849 (a 22% error). Availability is now evaluated per variable. Fits with
+  no missing covariate values are unaffected — the golden-value lock
+  confirms every previously-reported number on complete data is unchanged.
+  See [MIGRATION](MIGRATION.md#xtabond-listwise-deletion).
+
+### Added
+
+- **Firpo (2007) efficient unconditional QTE and QTT**:
+  `sp.qte(method='firpo_qte')` and `sp.qte(method='firpo_qtt')`, with
+  analytic influence-function standard errors (Monte-Carlo coverage
+  0.93–0.97 at nominal 95%) and a shared `qte/_core.py` of weighted-quantile,
+  Abadie-κ, kernel-density and rearrangement primitives. Verified against R
+  `qte` 1.3.1 `ci.qte` / `ci.qtet` on `lalonde.exp` and `lalonde.psid`:
+  our exact check-function minimiser attains an objective **no worse than
+  R's at every quantile, in both arms, across all eight
+  dataset × estimand × covariate combinations**, and agrees numerically with
+  R at 19/19 (QTE) and 16/19 (QTT) quantiles on the dense PSID sample. The
+  remaining gaps are plateau ambiguity: R minimises via `stats::optimize`
+  (golden section, tol `.Machine$double.eps^0.25`) on a piecewise-linear
+  objective, so its point value is not a well-defined functional of the data
+  — it returns `-5.93e-06` where the exact answer is `0`. New parity suite:
+  `tests/reference_parity/test_firpo_qte_parity.py`.
+
+### ⚠️ Correctness
+
+- **`sp.qte(method='quantile_regression')` was labelled Firpo (2007) but
+  computed a different estimand.** It returns the coefficient on `D` in a
+  quantile regression of `Y` on `D + controls` — a *conditional* QTE, which
+  has no causal interpretation without rank invariance — while Firpo (2007)
+  is the *unconditional* propensity-reweighted estimator. The numbers were
+  never wrong for what they were; the name and the reference were. Renamed
+  to `method='conditional_qr'` with the Koenker & Bassett (1978)
+  attribution; the old name still works and raises a `DeprecationWarning`
+  (removal in 1.23.0). The default `method=` changed from
+  `'quantile_regression'` to `'firpo_qte'`.
+  Relatedly, `method='distribution'` computes the **QTT**, not the QTE
+  (treated quantiles are unweighted; only controls are reweighted by
+  `p/(1−p)`); its numbers are unchanged but its label now says QTT.
+  See [MIGRATION](MIGRATION.md#qte-firpo-mislabel).
+- **`sp.qdid` was attributed to Athey & Imbens (2006) changes-in-changes.**
+  It implements QDiD, `[Q₁₁(τ) − Q₁₀(τ)] − [Q₀₁(τ) − Q₀₀(τ)]`, which is the
+  estimator Athey & Imbens propose CiC *instead of* and explicitly
+  criticise; R's `qte` package keeps `QDiD()` and `CiC()` separate for the
+  same reason. Numbers unchanged; the method label, docstring and registry
+  entry no longer claim CiC, and point to `sp.cic` for the real thing.
+
+- **`sp.dist_iv` / `sp.kan_dlate` did not estimate a quantile treatment
+  effect.** Both computed a *Wald ratio of quantiles*,
+  `[Q(τ|Z=1) − Q(τ|Z=0)] / [E(D|Z=1) − E(D|Z=0)]`. The quantile operator is
+  not linear, so the mean-Wald rescaling does not carry over and this
+  expression is inconsistent for any quantile estimand. On a
+  30%/50%/20% always-taker/complier/never-taker design whose true complier
+  `QTE(τ) ≡ 2.0`, the old code returned **≈ 4.0** at every τ at
+  n = 200,000 — an asymptotic bias of exactly `1 / Δp` — and `0.0` at
+  τ = 0.75 where the quantile grid crossed an always-taker mass point.
+  Both functions now use Abadie (2002, 2003) κ-weighted complier CDFs, the
+  estimator `sp.beyond_average_late` in the same module already
+  implemented correctly; the two now agree to 1e-10. Recovery on the design
+  above is 2.003 / 2.014 / 2.023, and a *scale-shift* design whose true QTE
+  is the fan `Φ⁻¹(τ)` is recovered to <0.06 at five quantiles.
+  Also fixed alongside: `covariates=` was accepted and then silently
+  discarded (it now selects the Frölich & Melly (2013) unconditional
+  IV-QTE weighting and changes the estimate); a constant instrument
+  returned an all-`NaN` result object and now raises; a first stage that is
+  positive only by sampling noise now emits a weak-instrument warning; and
+  standard errors are now analytic influence-function based by default
+  (Monte-Carlo coverage 0.950 / 0.957 / 0.963 against nominal 95%).
+  New guards: `tests/reference_parity/test_dist_iv_parity.py`.
+  See [MIGRATION](MIGRATION.md#dist-iv-quantile-wald-ratio).
 
 - **`sp.callaway_santanna(base_period='varying')` omitted the `e = −1`
   event-study placebo.** The (g, t) grid builder skipped
@@ -64,6 +185,121 @@ All notable changes to StatsPAI will be documented in this file.
   the old independence formula gave ~0.64x. New guard:
   `tests/reference_parity/test_aggte_mpdta_parity.py` (12 ATT(g,t) cells
   plus all four aggregations).
+- **`sp.cbps` was not solving the Imai-Ratkovic problem.** The GMM was
+  posed in the raw covariate basis with an empirical outer-product
+  weighting matrix. CBPS is defined in a standardised, orthonormalised
+  basis with the *model-implied* moment covariance frozen at the starting
+  value, and neither the just-identified quadratic form nor the GMM
+  weighting is basis-invariant — so the old code minimised a different
+  objective and returned a different estimator. On `MatchIt::lalonde` the
+  ATE/over estimate was **8.6x** off `CBPS::CBPS` (1585.99 vs 165.88) and
+  ATT/over was 25% off; coefficients differed by up to 170%. The solver is
+  now a faithful port (standardise → SVD → logit MLE → scalar rescaling on
+  [0.8, 1.1] → BFGS on the balance loss → multi-start BFGS on the GMM
+  loss). ATE (both variants) and ATT/exact now agree with R to ≤5e-3, and
+  the just-identified variant balances covariates to <1e-6 |SMD| where
+  `CBPS::CBPS` leaves ~1e-3. Every `sp.cbps` number changes.
+  See [MIGRATION](MIGRATION.md#cbps-solver-rewrite).
+- **`sp.ebalance` did not achieve the exact moment balance entropy
+  balancing is defined by.** The dual was minimised with L-BFGS-B on
+  unscaled constraints, so on covariates with mixed scales the optimiser
+  stopped early: on `MatchIt::lalonde` the reweighted control mean of
+  `re74` sat 2.66 away from the treated mean (1.3e-3 relative), and the
+  convergence check could not catch it because it compared an *absolute*
+  gap of 0.01 against moments measured in dollars. Replaced with Newton +
+  backtracking line search on scale-normalised constraints, converged on
+  the gradient. The relative moment gap is now ~1e-15 (`ebal::ebalance`
+  itself stops around 1e-7) and the ATT matches `ebal` to 3.2e-7. The
+  convergence warning is now on the standardised gap. ATT estimates move
+  in the 3rd significant figure.
+  See [MIGRATION](MIGRATION.md#ebalance-exact-balance).
+- **Mahalanobis matching used the total covariance, not the pooled
+  within-group covariance.** `sp.match(distance='mahalanobis')` and
+  `sp.optimal_match(metric='mahalanobis')` both built the metric from
+  `cov(X)` over the pooled sample. The Mahalanobis matching metric of
+  Rubin (1980) [@rubin1980bias] — the reference the module already cited,
+  and the one `MatchIt` uses — is the pooled *within-group* covariance
+  `[(n₁−1)S₁ + (n₀−1)S₀] / (n₁+n₀−2)`. The total covariance is inflated
+  along the direction in which the group means differ, which is exactly
+  the direction matching must resolve most finely. The new default
+  (`mahalanobis_cov='pooled'`) reproduces `MatchIt:::mahalanobis_dist` to
+  1e-15; `mahalanobis_cov='total'` restores the old metric. Mahalanobis
+  matching estimates change.
+  See [MIGRATION](MIGRATION.md#mahalanobis-pooled-covariance).
+- **`sp.policy_tree` returned a greedy tree while documenting an exact
+  one.** The module docstring promised that *"for depth-1 and depth-2
+  trees, an exact solution is found via exhaustive search over all
+  possible splits"*. The implementation instead scored each candidate
+  root split as though both children were terminal leaves, then recursed
+  — a one-step lookahead, which is exact for a depth-1 stump but not for
+  depth 2, the default. It also subsampled candidate thresholds to at
+  most 50 quantiles per covariate, so it did not return the greedy
+  optimum over the full split grid either. Depth ≤ 2 now solves the
+  Athey–Wager welfare objective exactly, by exhaustive search over the
+  complete grid of distinct covariate values
+  (`statspai.policy_learning._exact_tree`), matching
+  `policytree::policy_tree`'s `x <= t` split convention and its
+  "smallest permitted terminal node" reading of `min_leaf_size`. On the
+  new Track A module-70 fixture the old search fell **0.70% short of the
+  welfare optimum and assigned 78 of 1200 units to the wrong arm**;
+  the exact search now reproduces `policytree` 1.2.4 to 9.6e-16 with all
+  1200 per-row policy decisions identical at both depths. Learned
+  policies, `value_policy`, `value_gain`, `fraction_treated` and
+  `rules` all change for `max_depth=2`. Depth ≥ 3 remains greedy
+  (exhaustive search is combinatorially infeasible) and now says so via
+  the new `result["search_mode"]` field.
+  See [MIGRATION](MIGRATION.md#policy-tree-exact-depth2-search).
+- **`sp.causal_forest.average_treatment_effect(target_sample='treated'
+  /'control')` did not use grf's ATT/ATC estimator.** The docstring
+  advertised *"GRF-style ATE/ATT/ATC/ATO aggregation"* and said the
+  ATT/ATC scores use "the analogous Robins doubly-robust weighting". The
+  ATE path did match `grf` exactly, but ATT/ATC divided a single Robins
+  score by `p̂₁`, whereas `grf::average_treatment_effect` reports a
+  plug-in CATE average over the target arm **plus** a Hájek-normalised
+  doubly-robust correction, and adds the two variance components rather
+  than taking the dispersion of one score vector. Given *identical*
+  forest outputs — `grf`'s own `tau.hat`, `Y.hat`, `W.hat` — the old
+  route agreed with `grf` on the ATT point estimate to 9.3e-5 but
+  returned a standard error **12% larger**. That gap was invisible
+  end-to-end, where it hid inside the module-13 `rel_se ≤ 0.50` band.
+  ATT/ATC now follow `grf`'s decomposition exactly (`grf_att_atc`) and
+  reproduce `grf` 2.6.1's estimate and `std.err` to 1e-15 on shared
+  forest outputs. ATT/ATC point estimates move slightly and their
+  standard errors move materially; ATE and ATO are unchanged.
+  See [MIGRATION](MIGRATION.md#causal-forest-grf-att-convention).
+- **`sp.dml(model='irm'|'iivm')` standard errors used `n − 1` where every
+  neighbouring code path used `n`.** The unweighted IRM and IIVM branches
+  normalised the influence-function variance with `ddof=1`. Four other
+  paths did not: `sp.dml`'s own PLR and PLIV models, the weighted IRM /
+  IIVM branches, *and the `normalize_ipw`/ATTE branch inside `irm.py`
+  itself* (which uses `mean(psi**2)`). So the same dispatcher reported
+  two different variance conventions depending on which score it took.
+  `DoubleML` normalises by `n`. Both paths now do too, which makes the
+  IRM/IIVM standard errors match `DoubleML` 1.0.2 to 1.1e-10 on a shared
+  fold partition — previously they were larger by exactly
+  `sqrt(n/(n−1))` (verified: observed ratio 1.00025009389849 against
+  `sqrt(2000/1999) = 1.00025009378908`). The effect is 0.025% at
+  n = 2000 and grows as n shrinks (≈1% at n = 50); point estimates are
+  unchanged. See [MIGRATION](MIGRATION.md#dml-irm-iivm-se-normalisation).
+- **`sp.dml_sensitivity`'s bias scaling factor omitted the treatment
+  term.** The module header states it implements the Chernozhukov–
+  Cinelli–Newey–Sharma–Syrgkanis (2022) DML omitted-variable-bias
+  bound, whose PLR scaling factor is
+  `S = sqrt(σ²ν²)` with `σ² = E[(Y − ℓ(X) − θ(D − m(X)))²]` — the
+  *structural* residual — and `ν² = 1/E[(D − m(X))²]`. The code used
+  `sd(Y − ℓ(X))` for the numerator, leaving `θ(D − m)` inside it. Since
+  `sd(Y − ℓ)² = σ² + θ²·sd(D − m)²`, this inflates `S`, which
+  **overstates the bias bound and understates the robustness value** —
+  the analysis reported estimates as less robust to unobserved
+  confounding than the bound actually implies. On a linear-nuisance PLR
+  fit the bias bound came out 27% too large (0.0671 vs 0.0529) and
+  `RV_1` was 0.454 instead of 0.533. With the structural residual,
+  `bias_bound` and the adjusted `theta` bounds reproduce
+  `doubleml`'s `sensitivity_analysis` to **2.5e-15** and `RV` to 9.2e-8.
+  `rv_q`, `rv_qa`, `bias_bound`, the adjusted range, and every benchmark
+  row change. IRM is untouched: it stores `y_resid` as the score
+  residual `ψ − θ̂`, which is already centred.
+  See [MIGRATION](MIGRATION.md#dml-sensitivity-structural-residual).
 
 ### Changed
 
@@ -98,6 +334,128 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.dml_sensitivity` pinned to `doubleml`'s `sensitivity_analysis`.**
+  The DML omitted-variable-bias analysis had no cross-package reference
+  and was absent from the parity index. It is now pinned in
+  `tests/external_parity/test_dml_sensitivity_parity.py`, which caught
+  the scaling-factor defect above. The reference is *doubleml-for-py*
+  rather than R: `DoubleML` 1.0.2's R6 classes expose no sensitivity
+  method on `DoubleMLPLR` or on the base class, so the feature has no R
+  counterpart to align against. Both engines share an explicit fold
+  partition, and the test asserts the two PLR fits are identical before
+  comparing any sensitivity quantity, so a failure can only be the
+  sensitivity code. `RVa` is asserted as a **documented convention gap**
+  (~1.4e-3) rather than claimed exact: StatsPAI exhausts `|θ| − z·se`
+  with the unadjusted standard error, `doubleml` lets the standard error
+  move with the confounding scenario.
+- **DML family cross-language parity (Track A module 71).** `sp.dml`'s
+  parity grade was certified for `model='plr'` only — the index record
+  said so — while IRM / PLIV / IIVM were pinned solely against
+  *doubleml-for-py*, an optional import that skips silently when absent.
+  All three are now pinned to `DoubleML` (R) 1.0.2 at the machine tier:
+  **PLIV agrees to 6.5e-16** (all nuisances closed-form least squares),
+  and IRM / IIVM to **1.1e-10**, the floor set by solving the same
+  unpenalised logistic MLE with lbfgs on one side and IRLS on the other.
+  Both engines consume the same explicit fold partition, so cross-fitting
+  contributes no Monte Carlo term and the residual is the estimator
+  alone. `sp.parity_status('dml')` now enumerates all four certified
+  variants instead of naming only PLR. (The same index fix makes
+  `sp.parity_status('decompose')` report both its certified calls.)
+- **`sp.dml` accepts `fold_indices=` for every model class.** Previously
+  PLR only; IRM / PLIV / IIVM raised rather than silently ignore the
+  argument. All four now share a `_make_splits` helper, so a supplied
+  partition fixes the split and the estimate stops depending on
+  `random_state`. Supplying folds bypasses `StratifiedKFold`, so a
+  partition that leaves a training fold single-classed now raises
+  `DataInsufficient` naming the fold instead of fitting a degenerate
+  propensity. See [MIGRATION](MIGRATION.md#dml-fold-indices-all-models).
+- **Clean-overlap coverage guard for the causal forest (Track B).** The
+  existing Track B forest row stresses overlap *loss*; nothing evidenced
+  SE calibration on the clean-overlap DGP where module 13 grades the
+  point estimate. `tests/coverage_monte_carlo/test_coverage_robustness.py
+  ::test_causal_forest_clean_overlap_ate_and_att` closes that gap,
+  asserting ATE *and* ATT coverage inside [0.90, 0.98] on the module-13
+  DGP; a B=300 pilot measured **94.3% for both** against a nominal 95%.
+  That is what certifies the rewritten ATT standard error, rather than
+  merely comparing it to grf's.
+- **Causal-forest AIPW operator pinned exactly to `grf` (module 13
+  strengthened).** A causal forest factors into a stochastic part (the
+  forest) and a closed-form part (the AIPW operator mapping
+  `(Y, W, tau.hat, Y.hat, W.hat)` to scores, estimate and SE). Only the
+  first resists cross-implementation pinning, but the previous evidence
+  graded them together, leaving a `rel_se ≤ 0.50` band that could not
+  distinguish forest noise from a formula error — and, as it turned out,
+  was hiding one (see the ATT fix above). The operator is now exposed as
+  `aipw_scores` / `grf_att_atc` and pinned against a frozen `grf` 2.6.1
+  fixture carrying grf's own forest outputs and `grf::get_scores()`
+  vector: StatsPAI reproduces the score vector **elementwise to 2.3e-14**
+  and grf's reported ATE *and* ATT (estimate and `std.err`) to 1e-15
+  (`tests/reference_parity/test_grf_aipw_operator_parity.py`,
+  `_fixtures/_generate_grf_scores.R`). With the operator exact, the
+  module-13 band now covers forest RNG alone; `rel_se` tightens from
+  **0.50 to 0.25** and the record carries a factor-level note so
+  `sp.parity_status('causal_forest')` reports what is exact and what is
+  Monte Carlo.
+- **`sp.policy_tree` gains `scores=`, `search=` and `split_step=`.**
+  `scores=` accepts a pre-computed doubly-robust score vector and skips
+  the internal cross-fitted AIPW step entirely, so the tree search can be
+  driven by scores from `sp.causal_forest`, `sp.dml`, or any external
+  estimator — and, in the parity harness, by the *same* score vector R
+  sees. `search=` selects `'exact'` / `'greedy'` / `'auto'` and the
+  result records which one ran under `result['search_mode']`.
+  `split_step=` thins the candidate split grid the way
+  `policytree::policy_tree`'s `split.step` does.
+- **Policy-learning cross-package parity (Track A module 70).**
+  `sp.policy_tree` is now pinned to `policytree::policy_tree` 1.2.4
+  (`tests/r_parity/70_policy_tree.{py,R}`) at the machine tier, moving it
+  from `analytical-only` to **`bit-exact`** in `sp.parity_status`. The
+  module shares the AIPW score vector through the input CSV, so both
+  engines maximise the identical objective and the residual gap is a
+  pure tree-search difference — 9.6e-16 across policy value, treated
+  fraction and root split at depths 1 and 2. A companion test
+  (`tests/reference_parity/test_policy_tree_r_parity.py`) asserts the two
+  engines' full per-row policy vectors are elementwise identical, which a
+  scalar comparison cannot establish, and
+  `tests/test_policy_tree_exact_search.py` checks the exact search
+  against an independent brute-force enumeration over randomised
+  problems with ties.
+- **Matching / weighting cross-package parity.** The module's headline
+  estimator (`sp.psm` vs `MatchIt`) was pinned, but `cbps`, `ebalance`,
+  `optimal_match`, `genmatch` and `sbw` had unit tests only and no
+  reference alignment — which is how the `sp.cbps` and `sp.ebalance`
+  defects above survived. New `tests/reference_parity/
+  test_matching_r_parity.py` (21 tests) pins `sp.cbps`, `sp.ebalance`,
+  `sp.match` and `sp.optimal_match` against CBPS 0.24, ebal 0.2.1,
+  MatchIt 4.7.2 and optmatch 0.10.8 on `MatchIt::lalonde`, with the
+  fixture and generator committed
+  (`_fixtures/matching_lalonde.csv`, `_fixtures/matching_R.json`,
+  `_fixtures/_generate_matching_r.R`). Where the reference stops short of
+  its own optimum the test asserts *dominance* on the estimator's defining
+  objective rather than pinning R's slack; both remaining parity
+  boundaries are registered as `sp.match` limitations. `sp.cbps`,
+  `sp.ebalance`, `sp.match` and `sp.optimal_match` are now carried in the
+  parity index (`sp.parity_status`).
+- **`sp.match(m_order=...)` — greedy matching order is now a documented
+  choice.** Nearest-neighbour matching without replacement is
+  order-dependent, and StatsPAI silently processed treated units
+  closest-pair-first. On `MatchIt::lalonde` with Mahalanobis distance the
+  convention moves the ATT across a >5x range, so it belongs in the API,
+  not in the implementation. `'data'` and `'closest'` reproduce the
+  MatchIt rules of the same name exactly; the previous behaviour is
+  `'smallest_min_dist'` and remains the default.
+- **`sp.match(caliper_scale='raw'|'sd')`.** `'raw'` (default) keeps the
+  Stata `psmatch2 , caliper()` convention of a width on the distance
+  scale; `'sd'` expresses it in standard deviations of the propensity
+  score, matching `MatchIt(std.caliper = TRUE)`.
+- **`sp.optimal_match(metric='propensity')`** for optimal matching on a
+  fitted logistic propensity score, the `optmatch::pairmatch` /
+  `MatchIt(method='optimal')` idiom. `OptimalMatchResult` also gains
+  `.att` / `.estimate` accessors — 1:1 matching on the treated targets the
+  ATT, and the sole existing accessor was named `.ate`.
+- **`sp.ebalance` now reports `weights_full`**, the entropy-balancing
+  weights laid out over every retained row (treated = 1) so they can be
+  joined back onto the input frame. `weights` remains control-only, the
+  `ebal` convention. `max_standardized_moment_gap` is also recorded.
 - **Nonlinear ETWFE — `sp.etwfe(family='poisson'|'logit')`.** Wooldridge
   (2023) staggered DiD for count and binary outcomes, closing the largest
   capability gap in the DiD family: until now every DiD estimator in

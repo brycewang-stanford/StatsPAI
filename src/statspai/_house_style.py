@@ -190,6 +190,7 @@ ROBUST_BOOL_HINTS: Tuple[str, ...] = (
     "interactive_fe",
     "mixlogit",
     "xtabond",
+    "xtdpdsys",
 )
 
 

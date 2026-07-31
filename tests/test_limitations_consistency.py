@@ -44,6 +44,15 @@ ALLOWED_PHRASES: Tuple[str, ...] = (
 
 
 LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
+    "match": [
+        # Both are documented parity boundaries, not code paths that raise:
+        # greedy matching without replacement is genuinely order-dependent
+        # (every package picks a convention), and the with-replacement tie
+        # rule differs from Matching::Match. Pinned in
+        # tests/reference_parity/test_matching_r_parity.py.
+        "greedy nearest-neighbour matching without replacement is",
+        "matching with replacement resolves ties",
+    ],
     "did_multiplegt_dyn": [
         "switch-on only",
         "SE is cluster bootstrap",

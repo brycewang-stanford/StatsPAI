@@ -65,6 +65,35 @@ The test asserts coefficient/SE equality to a tight tolerance.
 | `sdid_*` | `sp.sdid` | `synthdid` R package (Arkhangelsky et al. 2021, *AER* 111(12):4088-4118, doi:10.1257/aer.20190159) on `sp.california_prop99()` | estimate 1e-6 (SE not pinned — placebo randomisation) |
 | `ipw_*` | `sp.ipw` | base R `stats::glm(t ~ x1 + x2, binomial)` + hand-rolled Hajek weighted means (no CRAN packages; valid because `sp.ipw`'s propensity is the unpenalized logit MLE with intercept) | Hajek ATE/ATT estimate 1e-9 (observed ≤ 2e-15; SE not pinned — bootstrap) |
 | `gformula_*` | `sp.g_computation` | base R `stats::lm(y ~ d + x1 + x2 + x3)` standardization: `psi = mean(predict(fit, d=1)) − mean(predict(fit, d=0))` (Robins 1986 g-formula; no CRAN packages — model form mirrors the implementation's single additive OLS Q) | psi 1e-8 (observed ≤ 7e-16); bootstrap SE pinned only loosely, ±25% vs R classical OLS SE of `coef d` — bootstrap RNG streams differ across languages, and on this homoskedastic DGP the bootstrap SE targets the same sandwich≈classical quantity |
+| `matching_lalonde.csv` / `matching_R.json` | `sp.cbps` / `sp.ebalance` / `sp.match` / `sp.optimal_match` | `CBPS::CBPS` 0.24 (Imai & Ratkovic 2014, *JRSS-B* 76(1):243-263, doi:10.1111/rssb.12027), `ebal::ebalance` 0.2.1 (Hainmueller 2012, *Political Analysis* 20(1):25-46, doi:10.1093/pan/mpr025), `MatchIt::matchit` 4.7.2, `optmatch::pairmatch` 0.10.8, on `MatchIt::lalonde` (614 obs / 185 treated) | `sp.ebalance` ATT rel 1e-5 (observed 3.2e-7); `sp.match` 1:1 and 2:1 PS NN without replacement rel 1e-9; Mahalanobis metric vs `MatchIt:::mahalanobis_dist` rel 1e-10; greedy `m_order='data'`/`'closest'` rel 1e-9; `sp.cbps` ATE (both variants) and ATT/exact rel 5e-3 |
+
+> Three rows in the matching fixture are **dominance** rather than parity
+> assertions — the reference implementation stops short of its own optimum,
+> so pinning to its value would pin its slack. In each case StatsPAI is
+> required to be at least as good on the objective the estimator is defined
+> by, and the margin is asserted:
+>
+> - **`sp.cbps` ATT / `variant='over'`.** `CBPS::CBPS`'s analytic ATT
+>   gradient divides the balance block by `n_1` where the moment's Jacobian
+>   carries `1/n`, overstating it by `n/n_1`, and `optim` stops at a
+>   non-stationary point. StatsPAI attains a lower GMM objective and better
+>   covariate balance (max |SMD| 0.037 vs 0.106 on lalonde).
+> - **`sp.ebalance`.** Entropy balancing is defined by exact moment
+>   matching; StatsPAI drives the dual to a stationary point (relative
+>   moment gap ~1e-15) where `ebal` stops around 1e-7.
+> - **`sp.optimal_match`.** `optmatch` discretises distances for its
+>   network-flow solver; StatsPAI solves the assignment problem exactly, so
+>   the pinned quantity is total matched distance, not the pairs. The
+>   problem is degenerate on this data — equally optimal assignments give
+>   different ATTs (894.37 vs 846.70), which is why the ATT is not pinned.
+>
+> Two documented **parity boundaries** are deliberately not asserted:
+> `m_order='farthest'` (MatchIt's rule of that name does not agree with the
+> natural dynamic reading, and was not reverse-engineered) and
+> with-replacement tie handling (`Matching::Match(ties=TRUE)` averages over
+> tied controls; StatsPAI takes the first). Both are registered as
+> `sp.match` limitations.
+
 | `tmle_*` | `sp.tmle` | base R `stats::glm` TMLE (van der Laan & Rubin 2006, *Int. J. Biostat.* 2(1), doi:10.2202/1557-4679.1043): unpenalised logistic Q(A,W) and g(W), g truncated to (0.025, 0.975), fluctuation epsilon via `glm(y ~ -1 + H, offset=qlogis(QA), binomial)`, psi = mean(Q*₁−Q*₀), SE = sd(EIF)/√n — no CRAN packages; valid because `sp.tmle` with single-learner `LogisticRegression(penalty=None)` libraries fits the identical unpenalised MLEs (SuperLearner predicts from full-data refits, weight trivially 1.0) and solves the same 1-D fluctuation score by Newton | psi 1e-9 (observed 5.6e-12), EIF SE 1e-9 (observed 1.3e-12), epsilon 1e-8 (observed 5.8e-11) |
 
 For `panel_*`, the cluster-robust convention is `plm::vcovHC(type="HC1",

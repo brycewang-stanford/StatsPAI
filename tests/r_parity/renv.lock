@@ -173,6 +173,12 @@
       "Version": "7.3.23",
       "Source": "R"
     },
+    "classInt": {
+      "Package": "classInt",
+      "Version": "0.4.11",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "cli": {
       "Package": "cli",
       "Version": "3.6.5",
@@ -199,6 +205,12 @@
     "clusterGeneration": {
       "Package": "clusterGeneration",
       "Version": "1.3.8",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "coda": {
+      "Package": "coda",
+      "Version": "0.19.4.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -271,9 +283,21 @@
       "Version": "4.5.2",
       "Source": "R"
     },
+    "DBI": {
+      "Package": "DBI",
+      "Version": "1.3.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "ddecompose": {
       "Package": "ddecompose",
       "Version": "1.0.0",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "deldir": {
+      "Package": "deldir",
+      "Version": "2.0.4",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -751,6 +775,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "LearnBayes": {
+      "Package": "LearnBayes",
+      "Version": "2.15.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "lgr": {
       "Package": "lgr",
       "Version": "0.5.2",
@@ -1017,6 +1047,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "multcomp": {
+      "Package": "multcomp",
+      "Version": "1.4.30",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "mvtnorm": {
       "Package": "mvtnorm",
       "Version": "1.3.7",
@@ -1149,6 +1185,12 @@
     "plyr": {
       "Package": "plyr",
       "Version": "1.8.9",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "policytree": {
+      "Package": "policytree",
+      "Version": "1.2.4",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1385,6 +1427,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "s2": {
+      "Package": "s2",
+      "Version": "1.1.11",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "S7": {
       "Package": "S7",
       "Version": "0.2.2",
@@ -1427,6 +1475,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "sf": {
+      "Package": "sf",
+      "Version": "1.1.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "sfaR": {
       "Package": "sfaR",
       "Version": "1.0.1",
@@ -1442,6 +1496,12 @@
     "slam": {
       "Package": "slam",
       "Version": "0.1.55",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "sp": {
+      "Package": "sp",
+      "Version": "2.2.1",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1466,6 +1526,12 @@
     "spatialreg": {
       "Package": "spatialreg",
       "Version": "1.4.3",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "spData": {
+      "Package": "spData",
+      "Version": "2.3.5",
       "Source": "Repository",
       "Repository": "CRAN"
     },
@@ -1559,6 +1625,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "TH.data": {
+      "Package": "TH.data",
+      "Version": "1.1.5",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "tibble": {
       "Package": "tibble",
       "Version": "3.3.1",
@@ -1642,6 +1714,12 @@
       "Source": "Repository",
       "Repository": "CRAN"
     },
+    "units": {
+      "Package": "units",
+      "Version": "1.0.1",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
     "urca": {
       "Package": "urca",
       "Version": "1.3.4",
@@ -1692,6 +1770,12 @@
     "withr": {
       "Package": "withr",
       "Version": "3.0.2",
+      "Source": "Repository",
+      "Repository": "CRAN"
+    },
+    "wk": {
+      "Package": "wk",
+      "Version": "0.9.5",
       "Source": "Repository",
       "Repository": "CRAN"
     },

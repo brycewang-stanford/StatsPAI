@@ -11,13 +11,23 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from statspai.matching.optimal import _distance_matrix
 import statspai as sp
+from statspai.matching.optimal import _distance_matrix
 
 
 def _reference_mahalanobis(X_treat, X_ctrl):
-    X_all = np.vstack([X_treat, X_ctrl])
-    cov = np.cov(X_all, rowvar=False) + 1e-8 * np.eye(X_all.shape[1])
+    """Loop reference for the cdist path.
+
+    Uses the pooled *within-group* covariance (Rubin 1980), which is the
+    metric ``optimal_match`` builds. Before v1.21 both this helper and the
+    implementation used the total sample covariance; that was a different
+    metric, inflated along the direction the group means differ in.
+    """
+    n1, n0 = len(X_treat), len(X_ctrl)
+    s1 = np.atleast_2d(np.cov(X_treat, rowvar=False))
+    s0 = np.atleast_2d(np.cov(X_ctrl, rowvar=False))
+    cov = ((n1 - 1) * s1 + (n0 - 1) * s0) / (n1 + n0 - 2)
+    cov = cov + 1e-8 * np.eye(cov.shape[0])
     cov_inv = np.linalg.inv(cov)
     D = np.empty((X_treat.shape[0], X_ctrl.shape[0]))
     for i in range(X_treat.shape[0]):

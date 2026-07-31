@@ -418,10 +418,19 @@ The hand-made lag in the FE line exists only to exhibit the bias. For
 adds `L1.y` automatically; supplying your own lag as a regressor would
 treat it as exogenous and double-count it. For instrument-count and
 specification guidance (too many instruments overfit the endogenous
-lag), see [@roodman2009xtabond]. Blundell-Bond system GMM
-[@blundell1998initial] is recognised by the dispatcher but deliberately
-raises `NotImplementedError` until it has a Stata-parity reference —
-StatsPAI fails loudly rather than shipping an unvalidated estimator.
+lag), see [@roodman2009xtabond] — and pass `collapse=True`, which
+StatsPAI implements to `xtabond2` parity.
+
+Blundell-Bond system GMM [@blundell1998initial] is available as
+`method='system'` (or the standalone `sp.xtdpdsys`), verified against
+Stata's `xtdpdsys` and `xtabond2`. Prefer it when the series is
+persistent: as ρ approaches 1 the lagged levels difference GMM relies on
+become weak instruments. See
+[Choosing a dynamic panel estimator](choosing_dynamic_panel_estimator.md)
+for the full decision tree, the instrument classes
+(`predetermined=` / `endogenous=`), forward orthogonal deviations
+(`orthogonal=True`) and the difference-in-Hansen tests that make the
+level moments testable rather than assumed.
 
 If your outcome may be nonstationary (long macro panels), test before
 running levels regressions:

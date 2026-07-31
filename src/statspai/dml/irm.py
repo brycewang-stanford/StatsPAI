@@ -90,8 +90,6 @@ class DoubleMLIRM(_DoubleMLBase):
         sample_weight: Optional[np.ndarray] = None,
         fold_indices: Optional[np.ndarray] = None,
     ) -> Tuple[float, float]:
-        from sklearn.model_selection import StratifiedKFold
-
         if not set(np.unique(D)).issubset({0, 1}):
             from statspai.exceptions import MethodIncompatibility
 
@@ -134,10 +132,8 @@ class DoubleMLIRM(_DoubleMLBase):
                 alternative_functions=[],
             )
 
-        skf = StratifiedKFold(
-            n_splits=self.n_folds,
-            shuffle=True,
-            random_state=rng_seed,
+        splits = self._make_splits(
+            X, rng_seed=rng_seed, fold_indices=fold_indices, stratify=D
         )
         # Accumulate the cross-fitted nuisance predictions over folds;
         # trimming / IPW-normalization / the (ATE or ATTE) score are then
@@ -151,7 +147,7 @@ class DoubleMLIRM(_DoubleMLBase):
         n_fallback_g1 = 0
         n_fallback_g0 = 0
 
-        for train_idx, test_idx in skf.split(X, D):
+        for train_idx, test_idx in splits:
             # Test-fold Y/D are no longer needed inside the loop: the
             # score is assembled once on the full out-of-fold vectors
             # after cross-fitting (see below). Only training-fold rows
@@ -256,7 +252,12 @@ class DoubleMLIRM(_DoubleMLBase):
             )
             if sample_weight is None:
                 theta = float(np.mean(psi_scores))
-                se = float(np.std(psi_scores, ddof=1) / np.sqrt(n))
+                # Influence-function variance normalised by n, matching
+                # DoubleML, the ``normalize_ipw`` / ATTE branch below
+                # (which uses mean(psi**2)), the weighted branch, and
+                # PLR / PLIV. This path used ddof=1 until v1.21, which
+                # inflated the SE by sqrt(n/(n-1)) relative to all four.
+                se = float(np.std(psi_scores, ddof=0) / np.sqrt(n))
             else:
                 # Weighted Z-estimator: θ̂ = Σ w ψ / Σ w; sandwich SE
                 # Var(θ̂) = Σ w_i² (ψ_i − θ̂)² / (Σ w_i)².

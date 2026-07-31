@@ -83,4 +83,6 @@ Module & Method & Worst headline diff & Verdict \\
 \code{67\_panel\_glm} & Panel GLM (feglm / fepois) & rel $\le 9.7e-09$ {\footnotesize (vs fixest::feglm/fepois, absorbed id FE; IWLS SE 1e-5)} & \textbf{PASS} \\
 \code{68\_demean\_within} & Within transformation & rel $\le 3.5e-15$ {\footnotesize (sp.demean(solver='map') vs textbook mean-within)} & \textbf{PASS} \\
 \code{69\_balance\_panel} & Panel balance filter & rel $\le 0$ {\footnotesize (sp.balance_panel vs base R counts == n_periods)} & \textbf{PASS} \\
+\code{70\_policy\_tree} & Policy tree (exact, depth 1--2) & rel $\le 9.6e-16$ {\footnotesize (shared AIPW scores; exact welfare optimum vs policytree, all 1200 per-row policy decisions identical at both depths)} & \textbf{PASS} \\
+\code{71\_dml\_family} & DML family (IRM / PLIV / IIVM) & rel $\le 9.1e-11$ {\footnotesize (shared explicit fold_id across all three DoubleML model classes; PLIV at the floating-point floor, IRM/IIVM limited by the logistic-MLE optimiser)} & \textbf{PASS} \\
 \end{longtable}

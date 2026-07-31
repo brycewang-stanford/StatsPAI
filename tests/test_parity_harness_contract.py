@@ -130,7 +130,7 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     ]
 
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 62,
+        "machine": 64,
         "iterative": 5,
         "moderate": 1,
         "methodological": 1,

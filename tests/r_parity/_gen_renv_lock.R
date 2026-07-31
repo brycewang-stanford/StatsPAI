@@ -33,7 +33,13 @@ REFERENCE_PKGS <- c(
   "EValue", "sfaR", "ddecompose", "dineq", "censReg", "MASS",
   "sampleSelection", "nnet", "clubSandwich", "DRDID", "sensemakr",
   # Modules 57-64: GLM / IV / system / limited-dependent extensions.
-  "ivmodel", "systemfit", "betareg", "truncreg", "pscl"
+  "ivmodel", "systemfit", "betareg", "truncreg", "pscl",
+  # Modules 65-66: spatial econometrics references. (These were present in
+  # the committed lock but missing from this list, so a regeneration used
+  # to silently drop them.)
+  "spatialreg",
+  # Module 70+: policy learning / targeted learning references.
+  "policytree"
 )
 
 ip <- installed.packages()
