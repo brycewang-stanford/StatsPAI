@@ -832,3 +832,118 @@ class TestDifferenceInHansen:
             assert (
                 c["df_excluding"] + c["df"] == full_df
             ), f"[{name}] {c['df_excluding']} + {c['df']} != {full_df}"
+
+
+# ---------------------------------------------------------------------------
+# K. Arellano-Bond serial-correlation tests across the full VCE menu.
+#
+#    The AR variance carries a (W'q)' Avar(beta) (W'q) term.  Evaluating it
+#    at the uncorrected robust sandwich — while the coefficient table reports
+#    a Windmeijer-corrected or conventional two-step VCE — makes the test
+#    disagree with the estimate it is testing.  On the AB(1991) spec that was
+#    a 39% error in the AR(1) z (-4.32 against Stata's -3.10).
+# ---------------------------------------------------------------------------
+
+
+class TestArellanoBondSerialCorrelation:
+    # e(arm1)/e(arm2) are Stata scalars; xtabond2 stores them as e(ar1)/e(ar2).
+    CASES = [
+        ("A1_ar1_1step_robust", dict(lags=1), "arm"),
+        ("A2_ar1_1step_classic", dict(lags=1, robust=False), "arm"),
+        ("A3_ar2_1step_robust", dict(lags=2), "arm"),
+        ("A4_ar1_2step_wc", dict(lags=1, twostep=True), "arm"),
+        ("A5_ar1_2step_conv", dict(lags=1, twostep=True, robust=False), "arm"),
+        ("B1_ab1991_1step_robust", dict(x=["l(0/1).w", "l(0/2).k"], lags=2), "arm"),
+        (
+            "B2_ab1991_2step_wc",
+            dict(x=["l(0/1).w", "l(0/2).k"], lags=2, twostep=True),
+            "arm",
+        ),
+        ("D4_x2_sys_1step", dict(x=["w", "k"], lags=1, method="system"), "ar"),
+        (
+            "D5_x2_sys_2step_wc",
+            dict(x=["w", "k"], lags=1, method="system", twostep=True),
+            "ar",
+        ),
+    ]
+
+    @pytest.mark.parametrize("spec,kwargs,prefix", CASES, ids=[c[0] for c in CASES])
+    def test_ar_statistics_match_stata(self, abdata, stata, spec, kwargs, prefix):
+        r = _fit(abdata, **kwargs)
+        e = stata[spec]["e"]
+        for order, key in ((1, f"{prefix}1"), (2, f"{prefix}2")):
+            if key not in e:
+                continue
+            np.testing.assert_allclose(
+                r.model_info[f"ar{order}_z"],
+                e[key],
+                rtol=1e-9,
+                err_msg=(
+                    f"[{spec}] AR({order}) z differs from Stata — the "
+                    "coefficient-variance term in the AR variance no longer "
+                    "matches the reported VCE."
+                ),
+            )
+
+    def test_correction_is_a_no_op_for_onestep_robust(self, abdata):
+        """Where the reported and naive VCEs coincide, nothing may change.
+
+        One-step robust reports exactly the sandwich the AR variance
+        expansion already uses, so the swap must be identically zero — a
+        guard that the correction is targeted rather than a global fudge.
+        """
+        from statspai.gmm._dynpanel import fit_dynamic_panel
+        from statspai.gmm._dynpanel._diagnostics import arellano_bond_ar_test
+        from statspai.gmm._dynpanel._estimate import (
+            gmm_solve,
+            moment_covariance,
+            onestep_weight,
+        )
+        from statspai.gmm._dynpanel._inference import robust_sandwich
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fit = fit_dynamic_panel(abdata, y="n", id="id", time="year", lags=1)
+        design = fit["design"]
+        W, Z, dy = design.W, design.Z, design.dy
+        A1 = onestep_weight(design)
+        beta, Minv, WZ = gmm_solve(W, Z, dy, A1)
+        resid = dy - W @ beta
+        vcov = robust_sandwich(
+            Minv, WZ, A1, moment_covariance(Z, resid, design.unit_rows)
+        )
+        common = dict(
+            unit_rows=design.unit_rows,
+            periods=design.row_period,
+            order=1,
+            Z=Z,
+            W=W,
+            weight=A1,
+            Minv=Minv,
+            robust=True,
+            sigma2=fit["sigma2"],
+            eq_mask=design.row_eq == 0,
+        )
+        without = arellano_bond_ar_test(resid, **common)
+        with_swap = arellano_bond_ar_test(
+            resid, coef_vcov=vcov, naive_vcov=vcov, **common
+        )
+        assert with_swap["z"] == pytest.approx(without["z"], rel=1e-14)
+
+    def test_correction_actually_moves_the_twostep_statistic(self, abdata, stata):
+        """Guard against the swap silently becoming a no-op everywhere.
+
+        Two-step Windmeijer on the AB(1991) spec is where it matters most:
+        the uncorrected statistic is -4.32, Stata's is -3.10. Assert both
+        that we hit Stata and that the two differ by a wide margin, so a
+        regression to the old behaviour cannot pass.
+        """
+        r = _fit(abdata, x=["l(0/1).w", "l(0/2).k"], lags=2, twostep=True)
+        got = r.model_info["ar1_z"]
+        np.testing.assert_allclose(
+            got, stata["B2_ab1991_2step_wc"]["e"]["arm1"], rtol=1e-9
+        )
+        assert abs(got - (-4.322919)) > 1.0, (
+            "the two-step AR statistic fell back to the uncorrected value "
+            f"(-4.32); got {got:.4f}."
+        )

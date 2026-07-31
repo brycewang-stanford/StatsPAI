@@ -526,6 +526,57 @@ class TMLE:
             _citation_key="tmle",
         )
 
+    def _fit_epsilon_multi(
+        self,
+        Y: np.ndarray,
+        logit_Q: np.ndarray,
+        H: np.ndarray,
+        max_iter: int = 100,
+        tol: float = 1e-10,
+    ) -> np.ndarray:
+        """Fit a vector fluctuation parameter by Newton-Raphson.
+
+        The multivariate counterpart of :meth:`_fit_epsilon`: a logistic
+        regression of ``Y`` on the clever-covariate columns of ``H`` with
+        ``logit_Q`` as a fixed offset and no intercept. Used by
+        ``fluctuation='per_arm'``, which is the parameterisation the R
+        ``tmle`` package uses.
+
+        Failing to converge means the plug-in is not fully de-biased, so
+        it warns rather than returning a silently untargeted fit.
+        """
+        eps = np.zeros(H.shape[1], dtype=np.float64)
+        converged = False
+        for _ in range(max_iter):
+            p = expit(logit_Q + H @ eps)
+            score = H.T @ (Y - p)
+            w = p * (1.0 - p)
+            hessian = -(H * w[:, None]).T @ H
+            try:
+                delta = np.linalg.solve(hessian, -score)
+            except np.linalg.LinAlgError:  # pragma: no cover
+                break
+            eps = eps + delta
+            if np.max(np.abs(delta)) < tol:
+                converged = True
+                break
+        if not converged:
+            import warnings
+
+            resid = float(
+                np.max(np.abs(H.T @ (Y - expit(logit_Q + H @ eps))))
+            )
+            warnings.warn(
+                "TMLE: Newton iteration on the per-arm fluctuation "
+                f"parameters did not converge in {max_iter} steps "
+                f"(max |score| = {resid:.3g}). The plug-in estimate is "
+                "not fully target-de-biased; inspect overlap and the "
+                "initial Q fit.",
+                UserWarning,
+                stacklevel=3,
+            )
+        return eps
+
     def _fit_epsilon(
         self,
         Y: np.ndarray,

@@ -1339,6 +1339,64 @@ def _pretrend_test(
 # ======================================================================
 
 
+def _estimate_single_att_rcs_sz(
+    y_arr: np.ndarray,
+    g_arr: np.ndarray,
+    t_arr: np.ndarray,
+    x_mat: Optional[np.ndarray],
+    *,
+    g_val: int,
+    t_val: int,
+    base_val: int,
+    estimator: str,
+    control_group: str,
+    n_obs: int,
+) -> Tuple[float, float, np.ndarray]:
+    """Sant'Anna-Zhao ATT(g, t) for one (g, t) cell of a repeated cross-section.
+
+    Builds the two-period sub-sample — observations in period ``base_val`` or
+    ``t_val`` belonging to cohort ``g_val`` or the control group — and hands it
+    to the matching :mod:`statspai.did._rcs` estimator.  The cell-level
+    influence function is then embedded in the full ``n_obs`` universe with the
+    ``n_obs / n_rel`` rescaling the panel path uses, so cross-(g, t)
+    aggregation in :func:`sp.aggte` sees influence functions on a common scale.
+    """
+    from ._rcs import drdid_rc, reg_did_rc, std_ipw_did_rc
+
+    is_treated = g_arr == g_val
+    if control_group == "nevertreated":
+        is_control = g_arr == 0
+    else:  # notyettreated
+        is_control = (g_arr == 0) | (g_arr > t_val)
+
+    in_period = (t_arr == t_val) | (t_arr == base_val)
+    relevant = (is_treated | is_control) & in_period
+    n_rel = int(relevant.sum())
+    if n_rel < 5:
+        return 0.0, np.inf, np.zeros(n_obs)
+
+    idx = np.where(relevant)[0]
+    d_sub = is_treated[relevant].astype(float)
+    post_sub = (t_arr[relevant] == t_val).astype(float)
+    y_sub = y_arr[relevant]
+    x_sub = None if x_mat is None else x_mat[relevant]
+
+    # All four treatment x period cells must be populated; the RCS estimators
+    # raise otherwise, which for a single (g, t) cell should degrade to "no
+    # estimate" rather than kill the whole fit.
+    fn = {"dr": drdid_rc, "ipw": std_ipw_did_rc, "reg": reg_did_rc}[estimator]
+    try:
+        res = fn(y_sub, post_sub, d_sub, x_sub)
+    except (DataInsufficient, MethodIncompatibility, np.linalg.LinAlgError):
+        return 0.0, np.inf, np.zeros(n_obs)
+    if not np.isfinite(res.att) or not np.isfinite(res.se):
+        return 0.0, np.inf, np.zeros(n_obs)
+
+    inf_full = np.zeros(n_obs)
+    inf_full[idx] = res.influence * (n_obs / n_rel)
+    return float(res.att), float(res.se), inf_full
+
+
 def _callaway_santanna_rcs(
     data: pd.DataFrame,
     y: str,
@@ -1348,6 +1406,8 @@ def _callaway_santanna_rcs(
     anticipation: int,
     alpha: float,
     x: Optional[List[str]] = None,
+    estimator: str = "reg",
+    control_group: str = "nevertreated",
 ) -> CausalResult:
     """Unconditional (or regression-adjusted) 2×2 cell-mean DID for RCS.
 
@@ -1425,7 +1485,8 @@ def _callaway_santanna_rcs(
             },
         )
 
-    y_arr = y_series  # possibly residualised
+    y_arr = y_series  # possibly residualised (legacy cell-mean path)
+    y_raw_arr = df[y].astype(float).to_numpy()  # Sant'Anna-Zhao path
     g_arr = df[g].values
     t_arr = df[t].values
 
@@ -1433,16 +1494,40 @@ def _callaway_santanna_rcs(
     inf_funcs_list: List[np.ndarray] = []
     z_crit = stats.norm.ppf(1 - alpha / 2)
 
+    # The Sant'Anna-Zhao RCS estimators (matching R did's panel=FALSE path)
+    # consume raw covariates directly; the legacy cell-mean path residualises
+    # first and then differences means, so the two must not be mixed.
+    x_mat = (
+        df[list(x)].to_numpy(dtype=float)
+        if (x and estimator in {"dr", "ipw"})
+        else None
+    )
+    use_sz = estimator in {"dr", "ipw"} or (estimator == "reg" and bool(x))
+
     for g_val, t_val, base_val in gt_pairs:
-        att, se, inf_func = _estimate_single_att_rcs(
-            y_arr,
-            g_arr,
-            t_arr,
-            g_val=g_val,
-            t_val=t_val,
-            base_val=base_val,
-            n_obs=n_obs,
-        )
+        if use_sz:
+            att, se, inf_func = _estimate_single_att_rcs_sz(
+                y_raw_arr,
+                g_arr,
+                t_arr,
+                df[list(x)].to_numpy(dtype=float) if x else None,
+                g_val=g_val,
+                t_val=t_val,
+                base_val=base_val,
+                estimator=estimator,
+                control_group=control_group,
+                n_obs=n_obs,
+            )
+        else:
+            att, se, inf_func = _estimate_single_att_rcs(
+                y_arr,
+                g_arr,
+                t_arr,
+                g_val=g_val,
+                t_val=t_val,
+                base_val=base_val,
+                n_obs=n_obs,
+            )
         pval = float(2 * (1 - stats.norm.cdf(abs(att / se)))) if se > 0 else 1.0
         gt_results.append(
             {

@@ -19,7 +19,18 @@ If a change here is intentional it must be accompanied by a CHANGELOG
 ``⚠️ correctness`` entry and a ``MIGRATION.md`` note — update the expected
 values only together with those.
 
-**2026-07-31 revision.** The one-step rows originally pinned
+**2026-07-31 revision 2 (⚠️ correctness).** The three two-step rows had
+their ``ar1_z`` / ``ar2_z`` values updated. The Arellano-Bond variance
+carries a ``(W'q)' Avar(beta) (W'q)`` term that the old code always
+evaluated at the *uncorrected* robust sandwich, even when the reported VCE
+was the Windmeijer-corrected or the conventional two-step one — so the test
+used a variance the coefficient table did not. Swapping in the reported VCE
+makes every AR statistic match Stata exactly (previously the two-step AR z
+on ``abdata`` was -4.32 against Stata's -3.10, a 39% error). One-step
+statistics are unchanged: there the two VCEs coincide and the swap is
+identically zero.
+
+**2026-07-31 revision 1.** The one-step rows originally pinned
 ``hansen = None``: the pre-v1.21 estimator only computed the
 heteroskedasticity-robust Hansen J when ``twostep=True``. It is now always
 reported, because the J is defined at the two-step optimum regardless of
@@ -120,8 +131,8 @@ GOLDEN = {
         "se": [0.06624292449276986, 0.07552771638919005],
         "n_obs": 360,
         "n_instruments": 22,
-        "ar1_z": -5.22464775757775,
-        "ar2_z": -0.04234896890317841,
+        "ar1_z": -4.926332657240046,
+        "ar2_z": -0.04205098946432582,
         "sargan": 8.601477807449212,
         "sargan_df": 20,
         "hansen": 13.876661606394375,
@@ -133,8 +144,8 @@ GOLDEN = {
         "se": [0.04930054984995701, 0.05205747802499575],
         "n_obs": 360,
         "n_instruments": 22,
-        "ar1_z": -5.22464775757775,
-        "ar2_z": -0.04234896890317841,
+        "ar1_z": -5.210673013456583,
+        "ar2_z": -0.04235436865518781,
         "sargan": 8.601477807449212,
         "sargan_df": 20,
         "hansen": 13.876661606394375,
@@ -185,8 +196,8 @@ GOLDEN = {
         "se": [0.08514239006731264, 0.10147058785235939],
         "n_obs": 300,
         "n_instruments": 22,
-        "ar1_z": -4.625330432941938,
-        "ar2_z": 0.7594177940512935,
+        "ar1_z": -4.263898919170362,
+        "ar2_z": 0.7528846432197569,
         "sargan": 11.159381117779452,
         "sargan_df": 20,
         "hansen": 15.492082302587594,
