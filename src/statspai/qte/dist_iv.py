@@ -465,6 +465,26 @@ def kan_dlate(
     -------
     DistIVResult
         Exactly what :func:`dist_iv` returns.
+
+    Examples
+    --------
+    >>> import warnings
+    >>> import numpy as np
+    >>> import pandas as pd
+    >>> import statspai as sp
+    >>> rng = np.random.default_rng(42)
+    >>> n = 4000
+    >>> z = rng.integers(0, 2, n)
+    >>> d = ((0.3 + 0.5 * z + rng.normal(0, 0.3, n)) > 0.5).astype(int)
+    >>> y = 1.0 + 1.0 * d + rng.normal(0, 1, n)
+    >>> df = pd.DataFrame({"y": y, "d": d, "z": z})
+    >>> qs = np.array([0.25, 0.5, 0.75])
+    >>> with warnings.catch_warnings():  # deprecated: forwards to dist_iv
+    ...     warnings.simplefilter("ignore", DeprecationWarning)
+    ...     old = sp.kan_dlate(df, y="y", treat="d", instrument="z", quantiles=qs)
+    >>> new = sp.dist_iv(df, y="y", treat="d", instrument="z", quantiles=qs)
+    >>> bool(np.allclose(old.late_q, new.late_q))  # identical to dist_iv
+    True
     """
     warnings.warn(
         "sp.kan_dlate is deprecated and will be removed in 1.23.0: it is a "
