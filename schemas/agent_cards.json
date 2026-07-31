@@ -13243,7 +13243,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Gardner (2021) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Numerically close to Borusyak-Jaravel-Spiess imputation with unit-clustered SEs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Gardner (2021) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Numerically close to Borusyak-Jaravel-Spiess imputation with unit-clustered SEs. Validation: certified parity evidence.",
     "example": "sp.gardner_did(df, y=\"wage\", group=\"county\", time=\"year\", first_treat=\"first_treat\", event_study=True)",
     "failure_modes": [
       {
@@ -13270,7 +13270,7 @@
     ],
     "reference": "Gardner (2021), arXiv:2207.05943. Butts & Gardner (2022), R Journal 14(3).",
     "signature": {
-      "description": "Gardner (2021) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Numerically close to Borusyak-Jaravel-Spiess imputation with unit-clustered SEs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Gardner (2021) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Numerically close to Borusyak-Jaravel-Spiess imputation with unit-clustered SEs. Validation: certified parity evidence.",
       "name": "gardner_did",
       "parameters": {
         "properties": {
@@ -13336,10 +13336,9 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
-      "tests/reference_parity/test_did_variants_parity.py",
-      "tests/reference_parity/test_sunab_did2s_mpdta_parity.py"
+      "R parity module 73_did2s"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

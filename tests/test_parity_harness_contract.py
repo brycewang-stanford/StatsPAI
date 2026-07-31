@@ -129,8 +129,9 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
         if compare.collect(module)
     ]
 
+    # 66 machine-level: 73_did2s joined at rel_est 4.8e-08 against did2s.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 65,
+        "machine": 66,
         "iterative": 5,
         "moderate": 1,
         "methodological": 1,

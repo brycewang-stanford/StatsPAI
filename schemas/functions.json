@@ -6887,7 +6887,7 @@
     }
   },
   {
-    "description": "Gardner (2021) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Numerically close to Borusyak-Jaravel-Spiess imputation with unit-clustered SEs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Gardner (2021) two-stage DID. Stage-1 fits two-way FEs on untreated observations; Stage-2 regresses the residualised outcome on treatment dummies (ATT or event study). Numerically close to Borusyak-Jaravel-Spiess imputation with unit-clustered SEs. Validation: certified parity evidence.",
     "name": "gardner_did",
     "parameters": {
       "properties": {

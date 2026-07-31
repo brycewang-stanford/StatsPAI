@@ -45,6 +45,11 @@ PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
+    "73_did2s": (
+        "no Stata implementation: Gardner's two-stage estimator ships as "
+        "the R package did2s and has no ssc counterpart, so the R side is "
+        "the only cross-language reference for sp.gardner_did."
+    ),
     "13_causal_forest": (
         "bridge artifact not materialized: Stata 19's official cate command "
         "is the candidate causal-forest/AIPW reference, but the verified local "
@@ -259,6 +264,13 @@ STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 #     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Gardner two-stage: point estimate matches did2s at 4.8e-08. The SE
+    # is deliberately NOT given a rel_se tolerance -- did2s propagates
+    # stage-1 estimation error into the stage-2 variance and
+    # sp.gardner_did's vce='analytic' does not, so the ~26% gap is a
+    # documented convention (vce='bootstrap' closes it to ~6%), not a
+    # numerical failure to be papered over with a loose bound.
+    "73_did2s": {"rel_est": 1e-6},
     "02_iv": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Tightened 2026-06-10 from 1e-2 ("1-df conv. gap" was stale): with
     # ssc='fixest' the IID SEs match fixest/reghdfe at machine level
@@ -322,7 +334,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
         # 3.2x margin); tightened from 0.50 after the ATT convention fix
         # removed the historical 14.6% ATT row (now 0.087%).
     },  # clean-overlap AIPW vs grf (post-nuisance-regularisation MC gap)
-    "14_ols_cluster": {"rel_est": 1e-6, "rel_se": 1e-6},  # obs worst 6.1e-9 (machine); 2026-06 tighten
+    "14_ols_cluster": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-6,
+    },  # obs worst 6.1e-9 (machine); 2026-06 tighten
     # Tightened 2026-06-10 from 5e-2 ("ssc convention" was stale): with
     # ssc='fixest' the CR1 nested-FE cluster SEs match fixest/reghdfe
     # (observed worst rel_se 1.25e-11 incl. Stata side).
@@ -347,14 +362,26 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "21_honest_relmags": {"abs_est": 1e-6, "abs_se": 1e-6},
     "22_sensemakr": {"rel_est": 1e-6, "rel_se": 1e-6},
     "23_evalue": {"rel_est": 1e-6, "rel_se": 1e-6},
-    "24_coxph": {"rel_est": 1e-6, "rel_se": 1e-6},  # obs worst 2.6e-15 (machine); 2026-06 tighten
-    "25_lmm": {"rel_est": 1e-6, "rel_se": 1e-6},  # REML criterion + tight optimiser parity
+    "24_coxph": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-6,
+    },  # obs worst 2.6e-15 (machine); 2026-06 tighten
+    "25_lmm": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-6,
+    },  # REML criterion + tight optimiser parity
     # B: SE information-matrix convention at the (tight) Laplace/AGHQ
     # optimum differs across implementations; observed worst 1.9% incl.
     # Stata (2.7x margin). Value frozen by the contract test.
     "26_glmm_logit": {"rel_est": 2e-4, "rel_se": 5e-2},  # tightened GLMM optimiser tol
-    "27_glmm_aghq": {"rel_est": 1e-6, "rel_se": 5e-2},  # AGHQ tight optimiser, SE convention gap
-    "28_frontier": {"rel_est": 1e-6, "rel_se": 5e-5},  # obs worst 1.3e-5, ~4x margin; 2026-06 tighten
+    "27_glmm_aghq": {
+        "rel_est": 1e-6,
+        "rel_se": 5e-2,
+    },  # AGHQ tight optimiser, SE convention gap
+    "28_frontier": {
+        "rel_est": 1e-6,
+        "rel_se": 5e-5,
+    },  # obs worst 1.3e-5, ~4x margin; 2026-06 tighten
     # C (known weak spot, see doc): non-headline SE rows exceed this
     # budget (slope SE up to 0.98% vs frontier::sfa; intercept/sigma are
     # documented Stata-scale diagnostics). Headline = slope rel_est.
@@ -365,7 +392,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     "30_oaxaca": {"rel_est": 1e-6, "rel_se": 0.05},  # gap-only headline
     # rel_se sentinel (was 1.0): point-only decomposition rows.
     "31_dfl": {"rel_est": 1e-6, "rel_se": 1e-6},  # ddecompose reference_0 mapping
-    "32_rif": {"rel_est": 1e-6, "rel_se": 1e-6},  # dineq/Hmisc + stats::density convention
+    "32_rif": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-6,
+    },  # dineq/Hmisc + stats::density convention
     # A on the Stata side (machine match, conditional-MLE divisor T);
     # NOTE: every R-side SE row differs by exactly sqrt(T/(T-k))-1 =
     # 1.29% because vars::VAR uses the per-equation lm() divisor T-k --
@@ -376,7 +406,10 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # A: sp bootstrap B=1000 vs mediate's quasi-Bayesian MC (sims=200,
     # ~5% MC noise by itself); observed 7.0% (1.4x margin). Frozen by
     # the contract test.
-    "36_mediation": {"rel_est": 1e-6, "rel_se": 0.10},  # point exact; bootstrap/delta SE convention
+    "36_mediation": {
+        "rel_est": 1e-6,
+        "rel_se": 0.10,
+    },  # point exact; bootstrap/delta SE convention
     # Modules added in the 2026-05-28 parity expansion session.
     "37_ppmlhdfe": {"rel_est": 1e-6, "rel_se": 1e-2},  # post FE-score fix
     "38_drdid": {"rel_est": 1e-6, "rel_se": 1e-6},  # panel DRDID calibrated PS
@@ -388,18 +421,39 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # Stata qreg); different sparsity estimators by construction.
     # Observed 7.3% (R) / 3.0% (Stata), 1.4x margin.
     "40_qreg": {"rel_est": 1e-6, "rel_se": 1e-1},  # Powell SE method choice
-    "41_tobit": {"rel_est": 1e-6, "rel_se": 1e-5},  # observed-info Hessian; obs worst 2.0e-6 (2026-06 tighten)
-    "42_nbreg": {"rel_est": 1e-6, "rel_se": 5e-3},  # obs worst 1.4e-3, 3x margin (2026-06 tighten)
-    "43_heckman": {"rel_est": 1e-6, "rel_se": 5e-4},  # obs worst 8.6e-5, ~6x margin (2026-06 tighten)
-    "44_mlogit": {"rel_est": 1e-6, "rel_se": 5e-5},  # multinom tight optimiser + observed-info Hessian; obs 1.2e-5 (2026-06 tighten)
-    "45_ologit": {"rel_est": 1e-6, "rel_se": 1e-5},  # polr tight optimiser + observed-info Hessian; obs 2.0e-6, 5.1x (at rule boundary)
-    "46_clogit": {"rel_est": 1e-6, "rel_se": 1e-6},  # obs worst 2.7e-9 (machine); 2026-06 tighten
+    "41_tobit": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-5,
+    },  # observed-info Hessian; obs worst 2.0e-6 (2026-06 tighten)
+    "42_nbreg": {
+        "rel_est": 1e-6,
+        "rel_se": 5e-3,
+    },  # obs worst 1.4e-3, 3x margin (2026-06 tighten)
+    "43_heckman": {
+        "rel_est": 1e-6,
+        "rel_se": 5e-4,
+    },  # obs worst 8.6e-5, ~6x margin (2026-06 tighten)
+    "44_mlogit": {
+        "rel_est": 1e-6,
+        "rel_se": 5e-5,
+    },  # multinom tight optimiser + observed-info Hessian; obs 1.2e-5 (2026-06 tighten)
+    "45_ologit": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-5,
+    },  # polr tight optimiser + observed-info Hessian; obs 2.0e-6, 5.1x (at rule boundary)
+    "46_clogit": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-6,
+    },  # obs worst 2.7e-9 (machine); 2026-06 tighten
     # Modules added in the second 2026-05-28 fix-and-extend pass.
     # B: HC1 sandwich after the Gauss-Seidel multi-FE fix; observed
     # 1.8% (R) / 0.10% (Stata), 2.7x margin.
     "47_ppmlhdfe_3fe": {"rel_est": 1e-6, "rel_se": 5e-2},  # post Gauss-Seidel
     "48_probit": {"rel_est": 1e-6, "rel_se": 1e-2},
-    "49_oprobit": {"rel_est": 1e-6, "rel_se": 1e-6},  # obs worst 3.0e-7 (machine floor); 2026-06 tighten
+    "49_oprobit": {
+        "rel_est": 1e-6,
+        "rel_se": 1e-6,
+    },  # obs worst 3.0e-7 (machine floor); 2026-06 tighten
     "50_xtabond": {"rel_est": 1e-6, "rel_se": 1e-6},  # R/Stata dynamic-panel fixture
     "51_newey": {"rel_est": 1e-6, "rel_se": 1e-2},  # post HAC fix
     # Unique-solution SCM: strict-parity counterpart to module 07.
@@ -854,6 +908,17 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "verdict": "\\textbf{PASS}",
         "gap_note": "SE within 1\\% analytic tolerance",
     },
+    "73_did2s": {
+        "name": "Gardner two-stage DiD",
+        "headline_filter": lambda d: d.statistic == "static_ATT",
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "point estimate rel < 1e-6; SE is a documented convention gap "
+            "(did2s propagates stage-1 estimation error, sp.gardner_did's "
+            "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
+        ),
+    },
     "05_sunab": {
         "name": "Sun--Abraham event study",
         "headline_filter": lambda d: (
@@ -1271,14 +1336,16 @@ HEADLINE: dict[str, dict[str, Any]] = {
     },
     "61_betareg": {
         "name": "Beta regression ML",
-        "headline_filter": lambda d: d.statistic.startswith("beta_") or d.statistic == "ln_phi",
+        "headline_filter": lambda d: d.statistic.startswith("beta_")
+        or d.statistic == "ln_phi",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "betareg SEs are expected-information (documented)",
     },
     "62_truncreg": {
         "name": "Truncated regression ML",
-        "headline_filter": lambda d: d.statistic.startswith("beta_") or d.statistic == "sigma",
+        "headline_filter": lambda d: d.statistic.startswith("beta_")
+        or d.statistic == "sigma",
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
         "gap_note": "",

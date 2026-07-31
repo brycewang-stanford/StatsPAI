@@ -132,6 +132,7 @@ a shared explicit fold partition.
 | 69 | Panel balance filter | `sp.balance_panel` | base R counts == n_periods |
 | 70 | Policy tree (exact, depth 1--2) | `sp.policy_tree` | `policytree::policy_tree` |
 | 72 | TMLE (targeting step) | `sp.tmle(fluctuation="per_arm")` | `tmle::tmle` |
+| 73 | Gardner two-stage DiD | `sp.gardner_did` | `did2s::did2s` |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running
