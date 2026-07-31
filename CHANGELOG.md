@@ -49,6 +49,32 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.gmm(se='unadjusted')` silently understated the variance under any
+  inefficient weight.** `(D'WD)⁻¹/n` is the variance of the GMM estimator
+  *only* when `W` is the efficient weight `S⁻¹`; under any other weight —
+  including the identity used by `method='onestep'`, and any `W=` the
+  caller supplies — the estimator's variance is the sandwich, and the
+  efficient formula is smaller. The old code returned it unconditionally
+  and said nothing. It now warns and names the alternatives. `se='robust'`
+  (the default) was and remains correct, so callers on the default path
+  were unaffected. Two further conventions in the same function were wrong
+  against their references: **linear moment conditions were sent to BFGS**
+  although GMM has a closed form whenever the moments are affine in θ
+  (the Jacobian is now probed at two parameter values, and the closed form
+  reproduces R's analytic two-step to 1e-12 instead of to optimiser
+  slack — `diagnostics['n_iter'] == 0` reports when it fired); and the
+  **Bartlett HAC kernel** must be evaluated at `lag/bandwidth`, vanishing
+  at `lag == bandwidth`, to match R `sandwich` — stating it as
+  Newey–West's `1 − lag/(q+1)` instead moves HAC standard errors by ~3%.
+  `sp.gmm` also gains `jacobian=`, `vcov=` (`'mds'`/`'iid'`/`'hac'`/
+  `'cluster'`), `cluster=`, `hac_bandwidth=` and `center=` (moment
+  centring: R `gmm` centres by default, Stata does not), plus convergence
+  reporting and loud rejection of under-identified models. Verified 17/17
+  against R `gmm` 1.9.1 in
+  `tests/reference_parity/test_general_gmm_parity.py`, which was already
+  on `main` asserting this API against an implementation that did not have
+  it. See [MIGRATION](MIGRATION.md#gmm-unadjusted-variance-and-conventions).
+
 - **`sp.xtabond` deleted instruments when a covariate had missing values.**
   The estimator began with a listwise `data[[id, time, y] + x].dropna()`,
   so a `NaN` in *any* covariate at period *t* removed `y_{i,t}` from the

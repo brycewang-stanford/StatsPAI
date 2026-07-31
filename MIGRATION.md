@@ -5,6 +5,40 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="gmm-unadjusted-variance-and-conventions"></a>
+
+## Unreleased — ⚠️ `sp.gmm` variance, closed form, and HAC conventions
+
+**What changed.** Three things in `sp.gmm`.
+
+1. `se='unadjusted'` returned `(D'WD)⁻¹/n` for every weighting matrix. That
+   formula is the estimator's variance only at the efficient weight `W = S⁻¹`;
+   under any other weight it is smaller than the truth. It now warns.
+   `se='robust'` — the default — was already the sandwich and is unchanged.
+2. Moment conditions affine in θ were minimised with BFGS. They have a closed
+   form, which is now used; `diagnostics['n_iter'] == 0` reports it.
+3. The Bartlett HAC kernel is now evaluated at `lag/bandwidth` (vanishing at
+   `lag == bandwidth`), matching R `sandwich`.
+
+**Effect.** `se='unadjusted'` results are unchanged numerically but now carry
+a warning wherever they were wrong. Point estimates for linear moment
+conditions change in the last digits — they are now the exact minimiser
+rather than BFGS's approximation, agreeing with R's analytic two-step to
+1e-12. HAC standard errors change by percent-level amounts if you were
+relying on the previous bandwidth convention.
+
+**What to do.** If you reported `se='unadjusted'` standard errors from a
+one-step fit or with an explicit `W=`, re-run: those numbers were too small.
+Switch to `se='robust'`, or use a weight-updating method (`'twostep'`,
+`'iterative'`, `'cue'`) so the efficient formula actually applies.
+
+**New parameters.** `jacobian=` (analytic `D(theta)`), `vcov=` (`'mds'`,
+`'iid'`, `'hac'`, `'cluster'`), `cluster=`, `hac_bandwidth=`, and `center=` —
+moment centring, which R `gmm` does by default and Stata does not. `center`
+defaults to Stata's convention, so existing results are unchanged.
+
+---
+
 <a id="xtabond-listwise-deletion"></a>
 
 ## Unreleased — `sp.xtabond` no longer deletes instruments on covariate `NaN`s
