@@ -26,15 +26,16 @@ Keele, L. & Titiunik, R. (2015).
 [@keele2015geographic]
 """
 
+import warnings
 from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
-import warnings
 
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import CausalResult
 from ._core import _kernel_fn
-from .._result_serialize import ResultProtocolMixin
 
 
 class RDMultiResult(ResultProtocolMixin):
@@ -204,18 +205,38 @@ def rdmc(
     data: pd.DataFrame,
     y: str,
     x: str,
-    cutoffs: List[float],
+    cutoffs: Optional[List[float]] = None,
     bandwidth: Optional[float] = None,
     kernel: str = "triangular",
     pooling: str = "ivw",
     alpha: float = 0.05,
+    cutoff_var: Optional[str] = None,
+    **rdrobust_kwargs: object,
 ) -> RDMultiResult:
     """
     Multi-cutoff RD design.
 
     Estimates treatment effects at multiple cutoffs and pools them.
 
-    Equivalent to ``rdmulti::rdmc()`` in R/Stata.
+    Two designs, and they are not the same estimator:
+
+    * **Unit-specific cutoffs** (``cutoff_var=``): each unit faces its own
+      cutoff, given by a column. This is the design of Cattaneo, Titiunik,
+      Vazquez-Bare & Keele (2016) and what ``rdmulti::rdmc()`` implements --
+      its ``C`` argument. Each cutoff is estimated on **only the units
+      assigned to it**, by delegating to :func:`statspai.rdrobust`, so it
+      inherits the CCT bandwidth cascade and robust bias correction.
+    * **Shared running variable** (``cutoffs=`` alone, the default): one
+      running variable crossed by several thresholds, every unit entering
+      every threshold's local regression under a common rule-of-thumb
+      bandwidth.
+
+    Before 1.21 only the second was available, while the docstring claimed
+    equivalence to ``rdmulti::rdmc()``. On a design with unit-specific
+    cutoffs and effects of 2.0 / 5.0 / -3.0, the shared-running-variable
+    path returned 0.22 / 0.51 / 0.66 -- because units belonging to one
+    cutoff were pooled into every other cutoff's window, averaging the
+    effects away. Pass ``cutoff_var=`` for the R-equivalent estimator.
 
     Parameters
     ----------
@@ -257,6 +278,24 @@ def rdmc(
     >>> summary_text = result.summary()
     >>> ax = result.plot()  # doctest: +SKIP
     """
+    if cutoff_var is not None:
+        return _rdmc_unit_cutoffs(
+            data,
+            y=y,
+            x=x,
+            cutoff_var=cutoff_var,
+            cutoffs=cutoffs,
+            alpha=alpha,
+            kernel=kernel,
+            bandwidth=bandwidth,
+            **rdrobust_kwargs,
+        )
+    if cutoffs is None:
+        raise ValueError(
+            "rdmc needs either cutoffs= (shared running variable) or "
+            "cutoff_var= (unit-specific cutoffs, the rdmulti::rdmc design)"
+        )
+
     y_data = data[y].values.astype(float)
     x_data = data[x].values.astype(float)
 
@@ -309,6 +348,85 @@ def rdmc(
         n_cutoffs=len(cutoffs),
         n_total=len(y_data),
         method="Multi-Cutoff RD (rdmc)",
+    )
+
+
+def _rdmc_unit_cutoffs(
+    data: pd.DataFrame,
+    y: str,
+    x: str,
+    cutoff_var: str,
+    cutoffs: Optional[List[float]],
+    alpha: float,
+    kernel: str,
+    bandwidth: Optional[float],
+    **rdrobust_kwargs: object,
+) -> RDMultiResult:
+    """``rdmulti::rdmc``'s estimator: one rdrobust fit per assigned cutoff.
+
+    Each unit belongs to exactly one cutoff, so cutoff ``c``'s effect is
+    estimated on ``data[cutoff_var] == c`` alone. Pooling follows rdmulti:
+    the weights are the effective sample sizes ``Nh_c / sum(Nh)``, and the
+    pooled variance is ``sum(w_c^2 * V_c)``.
+    """
+    from .rdrobust import rdrobust as _rdrobust
+
+    cvals = data[cutoff_var].to_numpy()
+    if cutoffs is None:
+        cutoffs = sorted(pd.unique(cvals).tolist())
+    z_crit = stats.norm.ppf(1 - alpha / 2)
+
+    cutoff_results = []
+    for c in cutoffs:
+        sub = data.loc[cvals == c]
+        if len(sub) < 10:
+            raise ValueError(
+                f"cutoff {c} has only {len(sub)} units assigned by "
+                f"{cutoff_var!r}; too few to estimate an RD effect"
+            )
+        kw = dict(rdrobust_kwargs)
+        if bandwidth is not None:
+            kw.setdefault("h", float(bandwidth))
+        fit = _rdrobust(sub, y=y, x=x, c=float(c), kernel=kernel, **kw)
+        tau = float(fit.detail["estimate"][0])
+        se = float(fit.detail["se"][0])
+        mi = fit.model_info
+        h = float(np.ravel(mi["bandwidth_h"])[0])
+        xs = sub[x].to_numpy(dtype=float) - float(c)
+        n_h = int(np.sum(np.abs(xs) <= h))
+        cutoff_results.append(
+            {
+                "cutoff": float(c),
+                "estimate": tau,
+                "se": se,
+                "ci_lower": tau - z_crit * se,
+                "ci_upper": tau + z_crit * se,
+                "p_value": float(fit.detail["pvalue"][0]),
+                "n": n_h,
+                "bandwidth": h,
+                "estimate_robust": float(fit.detail["estimate"][1]),
+                "se_robust": float(fit.detail["se"][1]),
+            }
+        )
+
+    # rdmulti weights by effective sample size, not inverse variance.
+    nh = np.array([cr["n"] for cr in cutoff_results], dtype=float)
+    w = nh / nh.sum()
+    pooled = float(np.sum(w * np.array([cr["estimate"] for cr in cutoff_results])))
+    pooled_se = float(
+        np.sqrt(np.sum(w**2 * np.array([cr["se"] ** 2 for cr in cutoff_results])))
+    )
+    for cr, wi in zip(cutoff_results, w):
+        cr["weight"] = float(wi)
+
+    return RDMultiResult(
+        cutoff_results=cutoff_results,
+        pooled_estimate=pooled,
+        pooled_se=pooled_se,
+        pooled_ci=(pooled - z_crit * pooled_se, pooled + z_crit * pooled_se),
+        n_cutoffs=len(cutoffs),
+        n_total=len(data),
+        method="Multi-Cutoff RD (rdmc, unit-specific cutoffs)",
     )
 
 

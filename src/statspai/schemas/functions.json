@@ -36179,7 +36179,7 @@
     }
   },
   {
-    "description": "Multi-cutoff RD design.",
+    "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rdmc",
     "parameters": {
       "properties": {
@@ -36191,6 +36191,10 @@
         "bandwidth": {
           "description": "Bandwidth for local polynomial. If None, uses Silverman rule.",
           "type": "number"
+        },
+        "cutoff_var": {
+          "description": "cutoff_var parameter (Optional[str]).",
+          "type": "string"
         },
         "cutoffs": {
           "description": "Cutoff values.",
@@ -36225,8 +36229,7 @@
       "required": [
         "data",
         "y",
-        "x",
-        "cutoffs"
+        "x"
       ],
       "type": "object"
     }
@@ -36352,8 +36355,12 @@
           "description": "Bandwidth used for local smoothing or kernel weighting.",
           "type": "number"
         },
+        "cutoff_var": {
+          "description": "cutoff_var parameter (Optional[str]).",
+          "type": "string"
+        },
         "cutoffs": {
-          "description": "cutoffs parameter (List[float]).",
+          "description": "cutoffs parameter (Optional[List[float]]).",
           "items": {
             "type": "string"
           },
@@ -36385,8 +36392,7 @@
       "required": [
         "data",
         "y",
-        "x",
-        "cutoffs"
+        "x"
       ],
       "type": "object"
     }

@@ -33377,7 +33377,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Multi-cutoff RD design.",
+    "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.rdmc(df, y='score', x='running_var', cutoffs=[50, 70, 90])",
     "failure_modes": [
       {
@@ -33403,7 +33403,7 @@
     ],
     "reference": "",
     "signature": {
-      "description": "Multi-cutoff RD design.",
+      "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rdmc",
       "parameters": {
         "properties": {
@@ -33415,6 +33415,10 @@
           "bandwidth": {
             "description": "Bandwidth for local polynomial. If None, uses Silverman rule.",
             "type": "number"
+          },
+          "cutoff_var": {
+            "description": "cutoff_var parameter (Optional[str]).",
+            "type": "string"
           },
           "cutoffs": {
             "description": "Cutoff values.",
@@ -33449,16 +33453,17 @@
         "required": [
           "data",
           "y",
-          "x",
-          "cutoffs"
+          "x"
         ],
         "type": "object"
       }
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_rdmulti_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [
@@ -33610,8 +33615,12 @@
             "description": "Bandwidth used for local smoothing or kernel weighting.",
             "type": "number"
           },
+          "cutoff_var": {
+            "description": "cutoff_var parameter (Optional[str]).",
+            "type": "string"
+          },
           "cutoffs": {
-            "description": "cutoffs parameter (List[float]).",
+            "description": "cutoffs parameter (Optional[List[float]]).",
             "items": {
               "type": "string"
             },
@@ -33643,8 +33652,7 @@
         "required": [
           "data",
           "y",
-          "x",
-          "cutoffs"
+          "x"
         ],
         "type": "object"
       }

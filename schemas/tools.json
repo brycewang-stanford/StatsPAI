@@ -13894,8 +13894,12 @@
           "description": "Bandwidth used for local smoothing or kernel weighting.",
           "type": "number"
         },
+        "cutoff_var": {
+          "description": "cutoff_var parameter (Optional[str]).",
+          "type": "string"
+        },
         "cutoffs": {
-          "description": "cutoffs parameter (List[float]).",
+          "description": "cutoffs parameter (Optional[List[float]]).",
           "items": {
             "type": "string"
           },
@@ -13921,7 +13925,6 @@
         }
       },
       "required": [
-        "cutoffs",
         "x",
         "y"
       ],
@@ -18989,7 +18992,7 @@
     "name": "rdit"
   },
   {
-    "description": "Multi-cutoff RD design. Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
+    "description": "Multi-cutoff RD design. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Conditional expectations of potential outcomes are continuous at the cutoff; Units cannot precisely manipulate the running variable around the cutoff (no sorting); For fuzzy designs: monotonicity of treatment take-up at the cutoff. Pre-conditions: A continuous running/forcing variable with a known cutoff that (sharply or fuzzily) assigns treatment; Enough observations in a neighbourhood of the cutoff to fit a local polynomial. Failure modes: Density of the running variable jumps at the cutoff (manipulation / sorting) -> Run a McCrary / density test (rdplotdensity); if manipulation is present the design is invalid near the cutoff; Estimate swings with the bandwidth -- results are not robust -> Report a bandwidth-sensitivity curve and use a data-driven MSE-optimal bandwidth. Alternatives: sp.rdrobust, sp.rdrandinf, sp.rdbwselect. Typical minimum N: 500.",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -19000,6 +19003,10 @@
         "bandwidth": {
           "description": "Bandwidth for local polynomial. If None, uses Silverman rule.",
           "type": "number"
+        },
+        "cutoff_var": {
+          "description": "cutoff_var parameter (Optional[str]).",
+          "type": "string"
         },
         "cutoffs": {
           "description": "Cutoff values.",
@@ -19028,7 +19035,6 @@
         }
       },
       "required": [
-        "cutoffs",
         "x",
         "y"
       ],

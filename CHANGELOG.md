@@ -276,6 +276,28 @@ All notable changes to StatsPAI will be documented in this file.
   equality would be pinning noise. It is checked by its sampling behaviour
   instead.
 
+- **`sp.rdmc` gains `cutoff_var=`, the design `rdmulti::rdmc()` actually
+  implements (WP-5).** The docstring claimed equivalence to `rdmulti::rdmc()`
+  while the function could not express that estimator's central argument.
+  R's `rdmc` takes `C`, a **per-unit cutoff**: in the multi-cutoff design
+  each unit faces its own threshold, and cutoff `c`'s effect is identified
+  only from the units assigned to `c`. StatsPAI offered only a
+  shared-running-variable estimator where every unit enters every cutoff's
+  local regression, under one Silverman rule-of-thumb bandwidth.
+
+  These are different estimators and the gap is large. On a design with
+  effects of **2.0 / 5.0 / −3.0**, the shared path returned
+  **0.22 / 0.51 / 0.66** — units belonging to one cutoff were pooled into
+  the others' windows, averaging the effects away and losing even the sign
+  of the third.
+
+  `cutoff_var=` delegates each cutoff to `sp.rdrobust`, so it inherits the
+  CCT cascade: coefficients, robust SEs, per-cutoff bandwidths, effective
+  sample sizes and pooling weights all match R to ~1e-13 (bandwidths to
+  2.4e-08). Pooling follows rdmulti — weights are `Nh_c / ΣNh`, not inverse
+  variance. The shared-running-variable path is unchanged and still
+  reachable via `cutoffs=`; the docstring now states plainly which is which.
+
 ### Known issues
 
 - Fuzzy RD does not go through the CCT path. `sp.rdrobust(fuzzy=...)` falls
