@@ -489,12 +489,32 @@ for forward orthogonal deviations.
 Nothing from the original plan. Open items are new observations, not
 backlog:
 
-- The gapped-panel weight convention. Timeboxed: settling it needs
-  `xtabond2`'s full row-indexing scheme (how `touse` zeroes interact with a
-  ``T x T`` `H` on the level grid), which is a materially larger read than
-  `_ARTests` was, for a case where both estimators stay consistent and
-  `orthogonal=True` is the recommended answer regardless. The divergence is
-  bounded, tested, and warned about.
+- **The gapped-panel divergence — earlier diagnosis corrected.** This was
+  recorded as "confined to the one-step weight matrix", on the strength of a
+  just-identified fit at `gmm_lags=(2, 2)` reproducing `xtabond2` to 2e-15.
+  That inference was wrong: it tested one lag depth. Sweeping depths 2-6,
+  each as a single collapsed instrument (still just-identified, so the
+  weight matrix provably cancels):
+
+  | lag depth | gap-free | with interior gaps |
+  | --- | --- | --- |
+  | 2 | exact | exact |
+  | 3 | exact | exact |
+  | 4 | exact | **differs 1.4e-1** |
+  | 5 | exact | **differs 4.0e-2** |
+  | 6 | exact | exact |
+
+  So the divergence is in **which levels enter the instrument set at some
+  lag depths on gapped panels** — a design difference, not a weighting one.
+  `xtabond2`'s `_H` was also read directly out of its Mata library
+  (`mata: _H(3, 0, 0, 0, 5)`) and is the same 2/-1 band on the full period
+  grid that StatsPAI builds, which rules the weight matrix out
+  independently.
+
+  Still unresolved, and still timeboxed — but the next person starts from a
+  correct diagnosis and a test
+  (`TestGappedPanelConvention::test_single_lag_instrument_against_stata`)
+  that fails the moment the construction is fixed.
 - `xtdpdgmm`-style nonlinear (Ahn-Schmidt) moment conditions were never in
   scope and remain unimplemented.
 

@@ -701,21 +701,88 @@ class TestGappedPanelConvention:
             ~((abdata["id"] % 3 == 0) & (abdata["year"] == self.HOLE_YEAR))
         ].reset_index(drop=True)
 
-    def test_design_matches_stata_exactly(self, gapped):
-        """Just-identified fit: no weight matrix, so only the design matters."""
-        r = _fit(gapped, lags=1, gmm_lags=(2, 2), collapse=True)
+    # One collapsed instrument at a single lag distance: the model is
+    # just-identified, so beta = (Z'W)^-1 Z'dy and the weight matrix cancels
+    # out completely. Any disagreement is therefore in the *design* — which
+    # levels enter the instrument, and which equations exist — never in H.
+    #
+    # Reference: xtabond2 on the hole-punched CSV,
+    #   xtabond2 n L.n, gmm(L.n, lag(k k) collapse) noleveleq noconstant robust
+    # (xtabond2's lag(k k) on `L.n` is StatsPAI's gmm_lags=(k+1, k+1)).
+    GAPPED_SINGLE_LAG = {
+        2: (1.35725540013219, True),
+        3: (1.47381432304801, True),
+        4: (1.41416719744685, False),  # known divergence
+        5: (0.973519990125318, False),  # known divergence
+        6: (0.683186371666846, True),
+    }
+
+    @pytest.mark.parametrize("depth", sorted(GAPPED_SINGLE_LAG))
+    def test_single_lag_instrument_against_stata(self, gapped, depth):
+        """Where the gapped divergence actually lives, depth by depth.
+
+        This replaces an earlier test that checked only ``gmm_lags=(2, 2)``
+        and concluded from it that "the design matches Stata exactly, so the
+        divergence is purely the weight matrix". That conclusion was wrong:
+        lag depth 2 happens to agree, and depths 4 and 5 do not — in a
+        configuration where the weight matrix provably cannot matter.
+
+        Recording the whole pattern (including the two that disagree) is what
+        makes this informative. If someone fixes the instrument construction,
+        the two ``xfail`` entries start passing and this test tells them so.
+        """
+        expected, agrees = self.GAPPED_SINGLE_LAG[depth]
+        r = _fit(gapped, lags=1, gmm_lags=(depth, depth), collapse=True)
         assert r.model_info["n_instruments"] == 1
         assert r.model_info["n_obs"] == 613
-        np.testing.assert_allclose(
-            float(r.detail["coefficient"].iloc[0]),
-            1.35725540013219,
-            rtol=1e-12,
-            err_msg=(
-                "the just-identified gapped estimate no longer matches Stata — "
-                "this one does not involve H at all, so the equation set, the "
-                "sample or the instrument itself has drifted."
-            ),
-        )
+        got = float(r.detail["coefficient"].iloc[0])
+        if agrees:
+            np.testing.assert_allclose(
+                got,
+                expected,
+                rtol=1e-12,
+                err_msg=(
+                    f"gmm_lags=({depth},{depth}) used to reproduce xtabond2 on a "
+                    "gapped panel and no longer does. The weight matrix cannot "
+                    "cause this — the equation set or the instrument level has "
+                    "drifted."
+                ),
+            )
+        else:
+            assert abs(got - expected) / abs(expected) > 1e-6, (
+                f"gmm_lags=({depth},{depth}) now MATCHES xtabond2 on a gapped "
+                f"panel (got {got:.12g}, Stata {expected:.12g}). That is good "
+                "news: the gapped instrument construction has been fixed. "
+                "Move this depth to agrees=True and update the guide's "
+                "'Panels with interior gaps' section."
+            )
+
+    def test_gap_free_panel_agrees_at_every_lag_depth(self, abdata):
+        """The same sweep with no holes — proof the divergence is gap-specific.
+
+        Without this, the depth-4/5 mismatch above could equally well be a
+        plain lag-depth bug affecting ordinary panels, which would be far
+        more serious.
+        """
+        expected = {
+            2: 1.51419525178252,
+            3: 1.40418459671767,
+            4: 1.43817625761836,
+            5: 1.10345734056039,
+            6: 0.763384128133381,
+        }
+        for depth, want in expected.items():
+            r = _fit(abdata, lags=1, gmm_lags=(depth, depth), collapse=True)
+            np.testing.assert_allclose(
+                float(r.detail["coefficient"].iloc[0]),
+                want,
+                rtol=1e-12,
+                err_msg=(
+                    f"gap-free panel disagrees with xtabond2 at lag depth "
+                    f"{depth} — this would be a general instrument bug, not a "
+                    "gap convention."
+                ),
+            )
 
     def test_sample_and_instrument_count_still_match_when_overidentified(self, gapped):
         r = _fit(gapped, lags=1)

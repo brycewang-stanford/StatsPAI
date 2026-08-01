@@ -271,15 +271,30 @@ sp.estat(res, "all")        # all three
 
 ## 7. Known limits
 
-- **Gapped panels.** The design (sample, equations, instruments) matches
-  Stata exactly — a just-identified fit reproduces `xtabond2` to 2e-15, and
-  the observation and instrument counts agree with both `xtabond` and
-  `xtabond2` — but the one-step weight matrix uses a different gap
-  convention, so coefficients differ by roughly 3-10% once the model is
-  over-identified. Both estimators remain consistent; only finite-sample
-  efficiency differs. A warning fires. `orthogonal=True` is the better
-  answer on such panels anyway, since forward deviations lose one
-  observation per gap instead of two.
+- **Panels with interior gaps.** Coefficients differ from `xtabond2` by
+  roughly 3-10%. What is known, precisely:
+
+  - the observation count, per-unit row counts and instrument count all
+    agree with both `xtabond` and `xtabond2`;
+  - the weight matrix is **not** the culprit. `xtabond2`'s own `_H` was
+    read out of its Mata library and is the same 2/-1 band on the full
+    period grid that StatsPAI builds;
+  - the divergence is in the **instrument values at deeper lags**, and it
+    is gap-specific. Fitting one collapsed instrument at a time — which is
+    just-identified, so the weight matrix cancels out entirely — gives
+    exact agreement at every lag depth on a gap-free panel, and on a
+    hole-punched one agrees at lag distances 2, 3 and 6 while differing at
+    4 and 5.
+
+  So a gapped panel changes *which levels enter the instrument set* at some
+  lag depths, not how they are weighted. Both estimators remain consistent
+  — a valid instrument set is being used either way — but they are not the
+  same finite-sample estimator, and this is a sharper statement than
+  "different gap convention". A warning fires on any fit with interior
+  gaps.
+
+  `orthogonal=True` remains the better answer on such panels regardless,
+  since forward deviations lose one observation per gap instead of two.
 - **Sargan scale.** StatsPAI follows `xtabond`
   ($\hat\sigma^2 = \hat e^{*\prime}\hat e^{*}/(2(N^{*}-k))$ over transformed
   rows); `xtabond2` divides by $2N^{*}$, so its Sargan sits a factor
