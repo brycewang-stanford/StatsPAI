@@ -421,6 +421,24 @@ All notable changes to StatsPAI will be documented in this file.
   caller's `treat` and dropped it, returning the intercept's sensitivity to
   agents; it now forwards it.
 
+- **`pipeline_did` reported its two hardest stages as the word
+  "computed".** `honest_did` and `bacon_decomposition` ran, returned full
+  payloads, and then summarised themselves as `"computed"` and
+  `"computed weight decomposition"`. That text is what reaches the
+  markdown narrative the pipeline exists to hand an agent verbatim, so the
+  report said nothing about the only questions those two stages answer:
+  how far parallel trends can bend before the effect stops being
+  distinguishable from zero, and whether TWFE puts negative weight on any
+  2x2 comparison. The numbers were in the payload the whole time.
+
+  Now: `breakdown M=0.556 (rejects zero up to there)` and
+  `negative weight share=0; 4 2x2 comparisons; TWFE beta=1.286`.
+
+  Neither stage had any test coverage — the suite only exercised the 2x2
+  branch, where both are correctly skipped for want of an event-study
+  table. A staggered-adoption case now covers the branch that reaches
+  them.
+
 - **`pipeline_iv` failed three of its four stages on every run.** The
   Anderson-Rubin and effective-F stages were handed the *fitted result*
   where `sp.effective_f_test` / `sp.anderson_rubin_test` want

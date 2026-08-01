@@ -29,6 +29,31 @@ def _toy_panel():
     return pd.DataFrame(rows)
 
 
+def _staggered_panel(seed: int = 3):
+    """Staggered adoption — the branch that reaches honest_did and bacon."""
+    rng = np.random.default_rng(seed)
+    rows = []
+    for unit in range(80):
+        cohort = int(rng.choice([0, 2005, 2008]))
+        for year in range(2000, 2011):
+            treated = 1 if cohort > 0 and year >= cohort else 0
+            rows.append(
+                (
+                    unit,
+                    year,
+                    cohort,
+                    1.0
+                    + 0.2 * (year - 2000)
+                    + 0.03 * unit
+                    + (1.2 if treated else 0.0)
+                    + rng.normal(),
+                )
+            )
+    df = pd.DataFrame(rows, columns=["unit", "year", "cohort", "y"])
+    df["treat"] = ((df.cohort > 0) & (df.year >= df.cohort)).astype(int)
+    return df
+
+
 def _toy_iv():
     rng = np.random.default_rng(0)
     n = 200
@@ -101,6 +126,56 @@ class TestPipelineDID:
     def test_no_data_returns_error(self):
         out = execute_tool("pipeline_did", {"y": "y", "treat": "treat", "time": "time"})
         assert "error" in out
+
+    def test_staggered_branch_runs_honest_did_and_bacon(self):
+        """The cohort branch is what reaches the two conditional stages.
+
+        Only the 2x2 path was covered, so honest_did and
+        bacon_decomposition — the stages that make this a *reviewer-grade*
+        DID pipeline rather than a wrapper around sp.did — were never
+        exercised at all.
+        """
+        df = _staggered_panel()
+        out = execute_tool(
+            "pipeline_did",
+            {
+                "y": "y",
+                "treat": "treat",
+                "time": "year",
+                "id": "unit",
+                "cohort": "cohort",
+            },
+            data=df,
+        )
+        by_name = {s["name"]: s for s in out["stages"]}
+        assert not [s for s in out["stages"] if s["status"] == "failed"], [
+            s for s in out["stages"] if s["status"] == "failed"
+        ]
+        # A cohort column must dispatch Callaway-Sant'Anna, not 2x2 did.
+        assert by_name["estimate"]["status"] == "ok"
+        assert "callaway_santanna" in by_name["estimate"]["summary"]
+
+        # Both conditional stages must actually run on this branch.
+        assert by_name["honest_did"]["status"] == "ok", by_name["honest_did"]
+        assert by_name["bacon_decomposition"]["status"] == "ok"
+
+        # And report their headline numbers rather than the word
+        # "computed", which told a reader nothing.
+        assert "computed" not in by_name["honest_did"]["summary"]
+        assert "M=" in by_name["honest_did"]["summary"]
+
+        bacon_summary = by_name["bacon_decomposition"]["summary"]
+        direct = sp.bacon_decomposition(
+            df, y="y", treat="treat", time="year", id="unit"
+        )
+        assert f"{float(direct['negative_weight_share']):.3g}" in bacon_summary
+        assert f"{int(direct['n_comparisons'])} 2x2" in bacon_summary
+        assert f"{float(direct['beta_twfe']):.4g}" in bacon_summary
+
+        # The narrative is what an agent pastes verbatim, so the numbers
+        # have to reach it too.
+        assert by_name["honest_did"]["summary"] in out["narrative"]
+        assert bacon_summary in out["narrative"]
 
     def test_next_calls_carry_result_id(self):
         df = _toy_panel()

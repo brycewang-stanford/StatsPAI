@@ -182,6 +182,48 @@ def _iv_endog_summary(result: Any, formula: str) -> str:
     return " ".join(bits)
 
 
+def _honest_did_summary(honest: Any) -> str:
+    """Breakdown M for a Rambachan-Roth sensitivity curve.
+
+    The stage used to report the string "computed", which tells a reader
+    nothing about the only question honest_did exists to answer: how far
+    parallel trends can be violated before the effect stops being
+    distinguishable from zero.
+    """
+    payload = _light_serialize(honest)
+    if not isinstance(payload, dict):
+        return "computed"
+    grid, rejects = payload.get("M"), payload.get("rejects_zero")
+    if not isinstance(grid, dict) or not isinstance(rejects, dict):
+        return "computed"
+    keys = sorted(grid, key=lambda k: int(k))
+    surviving = [float(grid[k]) for k in keys if rejects.get(k)]
+    if not surviving:
+        return "zero is inside the interval even at M=0"
+    breakdown = max(surviving)
+    if len(surviving) == len(keys):
+        return f"rejects zero across the whole grid (M<={breakdown:.3g})"
+    return f"breakdown M={breakdown:.3g} (rejects zero up to there)"
+
+
+def _bacon_summary(bacon: Any) -> str:
+    """Negative-weight share — the reason to run Goodman-Bacon at all."""
+    payload = _light_serialize(bacon)
+    if not isinstance(payload, dict):
+        return "computed weight decomposition"
+    bits = []
+    share = payload.get("negative_weight_share")
+    if isinstance(share, (int, float)):
+        bits.append(f"negative weight share={float(share):.3g}")
+    n_comp = payload.get("n_comparisons")
+    if isinstance(n_comp, (int, float)):
+        bits.append(f"{int(n_comp)} 2x2 comparisons")
+    beta = payload.get("beta_twfe")
+    if isinstance(beta, (int, float)):
+        bits.append(f"TWFE beta={float(beta):.4g}")
+    return "; ".join(bits) or "computed weight decomposition"
+
+
 def _short_estimate(obj: Any) -> str:
     """Return a one-line ``estimate (SE) [CI]`` summary for ``obj``."""
     try:
@@ -364,7 +406,7 @@ def _pipeline_did(
                     _stage(
                         "honest_did",
                         "ok",
-                        _short_estimate(honest) or "computed",
+                        _short_estimate(honest) or _honest_did_summary(honest),
                     )
                 )
 
@@ -387,7 +429,7 @@ def _pipeline_did(
                     _stage(
                         "bacon_decomposition",
                         "ok",
-                        "computed weight decomposition",
+                        _bacon_summary(bacon),
                     )
                 )
         else:
