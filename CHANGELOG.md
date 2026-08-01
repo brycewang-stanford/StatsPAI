@@ -501,6 +501,24 @@ All notable changes to StatsPAI will be documented in this file.
   caller's `treat` and dropped it, returning the intercept's sensitivity to
   agents; it now forwards it.
 
+- **A `sp.paper()` whose robustness section failed reported
+  `degradations == []`.** The pipeline drives
+  `diagnose → recommend → estimate → robustness` and swallows per-stage
+  failures so a draft always renders. It recorded those failures only as a
+  prose line in the paper's "Pipeline notes" section: no
+  `WorkflowDegradedWarning`, and nothing in `draft.degradations`. A
+  programmatic consumer — the agent-native path this package exists for —
+  read `[]` and concluded the draft was complete while its entire
+  robustness section was missing. Only a human reading the prose would
+  have noticed.
+
+  Stage failures now go through `record_degradation` as CLAUDE.md §7
+  requires, so they warn *and* land in `draft.degradations` with
+  `{section, error_type, message}`. The human-readable note is unchanged;
+  this adds the structured channel rather than replacing the prose one.
+  The "no fitted result" case is recorded too, instead of being narrated
+  only.
+
 - **`pipeline_did` reported its two hardest stages as the word
   "computed".** `honest_did` and `bacon_decomposition` ran, returned full
   payloads, and then summarised themselves as `"computed"` and

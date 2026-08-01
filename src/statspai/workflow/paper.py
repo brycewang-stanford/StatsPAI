@@ -1486,11 +1486,23 @@ def paper(
     # failures into per-section fallback notes (the draft must always
     # produce something — agents shouldn't see a hard crash for one
     # bad estimator choice).
+    # A stage failure has to reach `draft.degradations` and raise a
+    # WorkflowDegradedWarning, not only a prose line in "Pipeline notes".
+    # Until now it did only the latter, so a paper whose entire robustness
+    # section had failed still reported `degradations == []` — and a
+    # programmatic consumer checking that field concluded the draft was
+    # complete. Per CLAUDE.md §7 these paths must record the degradation.
     pipeline_errors: List[str] = []
     for stage in ("diagnose", "recommend", "estimate"):
         try:
             getattr(workflow, stage)()
         except Exception as exc:  # pragma: no cover (defensive)
+            record_degradation(
+                degradations,
+                section=f"pipeline stage {stage}()",
+                exc=exc,
+                detail="later stages were skipped",
+            )
             pipeline_errors.append(f"`{stage}()` failed: {type(exc).__name__}: {exc}")
             break
     if include_robustness:
@@ -1498,10 +1510,21 @@ def paper(
             try:
                 workflow.robustness()
             except Exception as exc:  # pragma: no cover (defensive)
+                record_degradation(
+                    degradations,
+                    section="pipeline stage robustness()",
+                    exc=exc,
+                )
                 pipeline_errors.append(
                     f"`robustness()` failed: {type(exc).__name__}: {exc}"
                 )
         else:
+            record_degradation(
+                degradations,
+                section="pipeline stage robustness()",
+                exc=RuntimeError("no fitted result was available"),
+                detail="the estimate stage did not produce a result",
+            )
             pipeline_errors.append(
                 "`robustness()` skipped because no fitted result was available."
             )

@@ -17,13 +17,14 @@ sections match what was pre-registered. These tests cover:
 
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
 import pandas as pd
 import pytest
-import importlib
 
 import statspai as sp
-from statspai.workflow.paper import paper_from_question, PaperDraft
+from statspai.workflow.paper import PaperDraft, paper_from_question
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -260,8 +261,8 @@ class TestProvenanceFromQuestion:
         )
         # The pack must include lineage.json (auto-collected from the
         # underlying estimator's _provenance via workflow.result).
-        import zipfile
         import json
+        import zipfile
 
         with zipfile.ZipFile(rp.output_path) as zf:
             assert "lineage.json" in zf.namelist()
@@ -315,3 +316,72 @@ class TestDegradations:
         assert draft.degradations
         assert "Pipeline notes" in draft.sections
         assert "forced dag failure" in draft.sections["Pipeline notes"]
+
+
+class TestPipelineStageDegradations:
+    """A failed pipeline stage must be visible to a *programmatic* reader.
+
+    sp.paper drives diagnose -> recommend -> estimate -> robustness and
+    swallows per-stage failures so the draft always renders. Until 1.21.0
+    it recorded those failures only as a prose line in the "Pipeline
+    notes" section: no WorkflowDegradedWarning, and `draft.degradations`
+    stayed empty. An agent checking that field saw `[]` and concluded the
+    paper was complete while its entire robustness section was missing.
+    """
+
+    @staticmethod
+    def _panel():
+        rng = np.random.default_rng(0)
+        n = 600
+        df = pd.DataFrame(
+            {"id": np.repeat(np.arange(n // 2), 2), "time": np.tile([0, 1], n // 2)}
+        )
+        df["treat"] = (df["id"] % 2 == 0).astype(int)
+        df["post"] = df["time"]
+        df["y"] = 1.0 + 0.5 * df["treat"] * df["post"] + rng.normal(0, 1, len(df))
+        return df
+
+    @staticmethod
+    def _draft(df, **kwargs):
+        return sp.paper(
+            df,
+            "does training raise earnings?",
+            y="y",
+            treatment="treat",
+            time="post",
+            id="id",
+            design="did",
+            **kwargs,
+        )
+
+    def test_robustness_failure_is_recorded_not_just_narrated(self, monkeypatch):
+        from statspai.workflow import causal_workflow as cw
+        from statspai.workflow._degradation import WorkflowDegradedWarning
+
+        def boom(self, *args, **kwargs):
+            raise RuntimeError("forced robustness failure")
+
+        monkeypatch.setattr(cw.CausalWorkflow, "robustness", boom)
+        df = self._panel()
+
+        with pytest.warns(WorkflowDegradedWarning, match="robustness"):
+            draft = self._draft(df)
+
+        # The structured field is what a non-human reader consults.
+        assert draft.degradations, "a failed stage must reach draft.degradations"
+        entry = next(d for d in draft.degradations if "robustness" in d["section"])
+        assert entry["error_type"] == "RuntimeError"
+        assert "forced robustness failure" in entry["message"]
+
+        # The human-readable note stays as well — this replaces nothing.
+        assert "Pipeline notes" in draft.sections
+        assert "robustness()` failed" in draft.sections["Pipeline notes"]
+
+    def test_healthy_run_records_no_pipeline_degradation(self):
+        draft = self._draft(self._panel())
+        stages = [
+            d
+            for d in (draft.degradations or [])
+            if d["section"].startswith("pipeline stage")
+        ]
+        assert not stages, stages
