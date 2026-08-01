@@ -681,7 +681,10 @@ def rdrobust(
                 # better until the projection is right.
                 # See docs/rfc/rd_three_month_plan.md B.6.
             )
-        except Exception:  # noqa: BLE001 - fall back, never fail the estimate
+        except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
+            # Degenerate data (empty side, singular design, kernel/bwselect
+            # rejected): fall back to the legacy selector rather than failing
+            # the whole estimate.
             _cct = None
 
     if h is None:
@@ -762,7 +765,7 @@ def rdrobust(
             )
             # (tau_conv, tau_bc, se_conv, se_robust)
             _tau_bc_cct = _cctvals
-        except Exception:  # noqa: BLE001 - fall back to the legacy refit
+        except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
             _tau_bc_cct = None
 
     tau_bc, se_robust, _, _ = _rd_estimate(

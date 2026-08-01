@@ -48,6 +48,7 @@ calonico2014robust, calonico2019regression
 
 from __future__ import annotations
 
+import math
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -528,7 +529,7 @@ def cct_bias_corrected(
             (beta_p[deriv], beta_bc[deriv], V_cl[deriv, deriv], V_rb[deriv, deriv])
         )
 
-    fac = float(np.math.factorial(deriv)) if deriv else 1.0
+    fac = float(math.factorial(deriv)) if deriv else 1.0
     tau_cl = fac * (out[1][0] - out[0][0])
     tau_bc = fac * (out[1][1] - out[0][1])
     se_cl = fac * np.sqrt(out[0][2] + out[1][2])

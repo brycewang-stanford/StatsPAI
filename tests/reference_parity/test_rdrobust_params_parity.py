@@ -171,7 +171,6 @@ def test_fuzzy_robust_coefficient_matches_r(rjson, senate, p):
         ("fuzzy_p1", dict(p=1, fuzzy="treat")),
         ("covs_p1", dict(p=1, covs=["cov1", "cov2"])),
         ("cluster_p1", dict(p=1, cluster="clust")),
-        ("deriv1", dict(p=2, deriv=1)),
     ],
 )
 def test_conventional_se_matches_r(rjson, senate, spec, kw):
@@ -193,6 +192,19 @@ def test_robust_se_matches_r(rjson, senate, spec, kw):
     ref = rjson[spec]
     res = sp.rdrobust(senate, y="vote", x="margin", c=0, **kw)
     assert float(res.detail["se"][1]) == pytest.approx(ref["se_robust"], rel=RTOL)
+
+
+def test_deriv_conventional_se_matches_r(rjson, senate):
+    """deriv=1 now gets the CCT variance too.
+
+    It was masked by a `np.math.factorial` call -- removed in numpy 2.0 --
+    swallowed by a broad `except Exception` around the CCT path, which
+    silently sent deriv back to the legacy refit. Narrowing that handler for
+    the repo's broad-exception gate is what exposed it.
+    """
+    ref = rjson["deriv1"]
+    res = sp.rdrobust(senate, y="vote", x="margin", c=0, p=2, deriv=1)
+    assert float(res.detail["se"][0]) == pytest.approx(ref["se_conventional"], rel=RTOL)
 
 
 # ── API gap: vce ───────────────────────────────────────────────────────────
