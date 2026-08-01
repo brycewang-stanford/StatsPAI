@@ -198,6 +198,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.unified_sensitivity` analysed the intercept, not your treatment
+  effect.** `_extract_estimate` took `params.iloc[0]` and
+  `std_errors.iloc[0]`; for any formula regression that is the *intercept*.
+  So `sp.unified_sensitivity(ols_fit)` answered "how sensitive is the
+  intercept to unmeasured confounding?" — paired with the intercept's
+  standard error — while the caller read it as a statement about their
+  treatment effect. On the LaLonde baseline it pulled `66.51` (Intercept)
+  instead of `1548.24` (`treat`).
+
+  It only surfaced by luck: the intercept's CI spanned zero, which sent the
+  risk-ratio conversion down a branch producing an interval that excluded
+  its own point estimate and tripped an assertion inside `evalue`. Whenever
+  the intercept CI stayed positive, the function returned a confident wrong
+  number instead.
+
+  `_extract_estimate` now takes estimate, SE **and** CI from the same term
+  (CI from `conf_int()` rather than rebuilt as `±1.96·se`), and
+  `unified_sensitivity` gained a `term=` argument. With more than one
+  non-intercept coefficient it raises `MethodIncompatibility` listing the
+  candidates rather than guessing. Results exposing a scalar `estimate` are
+  unaffected. Pinned by `tests/test_unified_sensitivity_term.py`.
+
 - **`sp.aipw` was not reproducible: its default `seed` is now `42`, was
   `None`.** The cross-fitting fold split came from
   `np.random.default_rng(seed)`, and `default_rng(None)` seeds from OS
@@ -218,6 +240,15 @@ All notable changes to StatsPAI will be documented in this file.
   into a fresh split per call; the seed actually used is now recorded in
   `result.model_info['seed']`. Pinned by
   `tests/test_estimator_determinism.py`.
+
+- **`sp.sensitivity_dashboard` now warns when it tested nothing.** Most
+  dimensions re-estimate the model on perturbed samples, so without `data=`
+  every dimension drops out and the result was an empty dashboard graded
+  `overall_stability='?'` — which reads far too much like a pass. It now
+  raises a `RuntimeWarning` naming the fix. Populated dashboards are
+  unchanged and stay quiet. (The dashboard picks the treatment coefficient
+  correctly; it does not share the `unified_sensitivity` intercept defect
+  above — `tests/test_unified_sensitivity_term.py` asserts that.)
 
 - **`sp.xtabond`'s AR(1)/AR(2) tests were wrong under `orthogonal=True`.**
   The statistic was computed on the forward-orthogonal-deviation residuals.

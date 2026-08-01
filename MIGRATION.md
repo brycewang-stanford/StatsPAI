@@ -5,6 +5,60 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="unified-sensitivity-term"></a>
+
+## Unreleased — ⚠️ `sp.unified_sensitivity` analysed the intercept
+
+**What changed.** `sp.unified_sensitivity(result)` pulled the coefficient to
+analyse with `params.iloc[0]` and its standard error with
+`std_errors.iloc[0]`. For a formula regression those are the **intercept**,
+not the treatment. On the LaLonde baseline:
+
+```text
+what it analysed:  66.51    (Intercept)
+what you meant:  1548.24    (treat)
+```
+
+The standard error came from the intercept too, so the entire dashboard —
+E-value, breakdown point, Rosenbaum bounds — described a parameter nobody
+asked about.
+
+**Why you may not have noticed.** It usually raised instead of answering,
+but for an unrelated reason: the intercept's CI spanned zero, the
+risk-ratio conversion mapped `(-4892, 5025)` to `(4893, 5026)` via
+`1 + |limit|`, that interval excludes the converted point estimate `67.5`,
+and an assertion inside `evalue` fired with "Point estimate should lie
+inside the CI." Designs whose intercept CI stays positive skipped that
+tripwire and got a confident wrong number.
+
+**Migration.** Name the coefficient:
+
+```python
+# before — silently analysed the Intercept
+sp.unified_sensitivity(ols_fit)
+
+# after — explicit, and the only form that still works for a multi-term fit
+sp.unified_sensitivity(ols_fit, term="treat")
+```
+
+With more than one non-intercept coefficient the function now raises
+`MethodIncompatibility` listing the candidates rather than guessing. A fit
+with exactly one non-intercept coefficient still needs no `term=`, and
+results exposing a scalar `.estimate` / `.ate` (`CausalResult` and friends)
+are unaffected — they never went through the coefficient path.
+
+If you published a robustness claim produced by the old code path on a
+multi-term regression, re-run it with `term=` — the previous output did not
+describe your treatment effect.
+
+**Related.** `sp.sensitivity_dashboard` does *not* share this defect: it
+already skipped intercept-like names. It did, however, return an empty
+dashboard graded `overall_stability='?'` when called without `data=`,
+because most of its dimensions re-estimate on perturbed samples. That case
+now emits a `RuntimeWarning` instead of looking like a pass.
+
+---
+
 <a id="aipw-default-seed"></a>
 
 ## Unreleased — ⚠️ `sp.aipw` was not reproducible; default `seed` is now 42

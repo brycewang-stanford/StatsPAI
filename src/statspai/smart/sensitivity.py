@@ -14,7 +14,9 @@ Usage
 >>> print(dash.summary())
 """
 
-from typing import Optional, List, Dict, Any
+import warnings
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -530,6 +532,19 @@ def sensitivity_dashboard(
             grade = "F"
     else:
         grade = "?"
+        # An empty dashboard is not a robust result — it is no result. Most
+        # dimensions re-fit the model on perturbed samples, which needs the
+        # estimation data; without it every dimension drops out and the
+        # grade degrades to "?", which reads far too much like a pass.
+        warnings.warn(
+            "sensitivity_dashboard ran no dimensions, so overall_stability "
+            "is '?' rather than a grade. Nothing was actually tested. Most "
+            "dimensions re-estimate on perturbed samples and therefore need "
+            "the estimation data: pass data=<your DataFrame> (plus y=, "
+            "treat=, controls= if the result does not carry them).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
     dash = SensitivityDashboard(
         baseline=baseline,

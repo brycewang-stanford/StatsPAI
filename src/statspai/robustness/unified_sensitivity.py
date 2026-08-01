@@ -25,6 +25,8 @@ from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
+from ..exceptions import MethodIncompatibility
+
 __all__ = ["SensitivityDashboard", "unified_sensitivity"]
 
 
@@ -109,37 +111,99 @@ def _finite_optional_float(value: Any) -> Optional[float]:
     return None if np.isnan(out) else out
 
 
+_INTERCEPT_NAMES = frozenset({"intercept", "const", "(intercept)", "_cons"})
+
+
+def _coefficient_terms(params: Any) -> list[str]:
+    """Names in a params Series that are not the intercept."""
+    index = getattr(params, "index", None)
+    if index is None:
+        return []
+    return [n for n in index if str(n).strip().lower() not in _INTERCEPT_NAMES]
+
+
 def _extract_estimate(
     result: Any,
+    term: Optional[str] = None,
 ) -> tuple[Optional[float], Optional[float], Optional[tuple[float, float]]]:
-    """Pull (estimate, se, ci) from a heterogeneous result object."""
+    """Pull (estimate, se, ci) for one coefficient off a result object.
+
+    All three come from the *same* term. Before 1.21.0 this took
+    ``params.iloc[0]`` and ``std_errors.iloc[0]`` — for any formula
+    regression that is the **intercept**, so the whole dashboard silently
+    reported the sensitivity of the intercept rather than of the treatment
+    effect, and paired it with an intercept SE.
+
+    Scalar-estimate results (``CausalResult`` and friends) are unambiguous
+    and are used directly. For a coefficient vector we use ``term`` when
+    given, fall back to the single non-intercept coefficient when there is
+    exactly one, and otherwise refuse to guess.
+    """
     estimate = None
     se = None
     ci = None
+
     for attr in ("estimate", "coef", "coefficient", "ate"):
         if hasattr(result, attr):
             v = getattr(result, attr)
             if isinstance(v, (int, float, np.floating)):
                 estimate = float(v)
                 break
-    if estimate is None and hasattr(result, "params"):
-        try:
-            p = result.params
-            # pandas Series or array — take first entry
-            estimate = float(p.iloc[0] if hasattr(p, "iloc") else p[0])
-        except Exception:
-            pass
-    if hasattr(result, "se"):
+
+    params = getattr(result, "params", None)
+    if estimate is None and params is not None:
+        terms = _coefficient_terms(params)
+        if term is not None:
+            if term not in getattr(params, "index", []):
+                raise MethodIncompatibility(
+                    f"term={term!r} is not a coefficient of this result.",
+                    diagnostics={
+                        "context": "unified_sensitivity",
+                        "requested_term": term,
+                        "available_terms": [str(t) for t in terms],
+                    },
+                    recovery_hint=(
+                        "Pass one of the available terms, or supply "
+                        "estimate=/se=/ci= directly."
+                    ),
+                )
+            chosen = term
+        elif len(terms) == 1:
+            chosen = terms[0]
+        else:
+            raise MethodIncompatibility(
+                "unified_sensitivity cannot tell which coefficient you mean: "
+                f"this result has {len(terms)} non-intercept coefficients.",
+                diagnostics={
+                    "context": "unified_sensitivity",
+                    "available_terms": [str(t) for t in terms],
+                },
+                recovery_hint=(
+                    "Pass term='<treatment column>' to pick the coefficient "
+                    "to analyse. Guessing would silently report the "
+                    "sensitivity of the wrong parameter."
+                ),
+            )
+        estimate = float(params[chosen])
+        std_errors = getattr(result, "std_errors", None)
+        if std_errors is not None:
+            try:
+                se = float(std_errors[chosen])
+            except Exception:
+                se = None
+        conf_int = getattr(result, "conf_int", None)
+        if callable(conf_int):
+            try:
+                row = conf_int().loc[chosen]
+                ci = (float(row.iloc[0]), float(row.iloc[1]))
+            except Exception:
+                ci = None
+
+    if se is None and hasattr(result, "se"):
         v = getattr(result, "se")
         if isinstance(v, (int, float, np.floating)):
             se = float(v)
-    if se is None and hasattr(result, "std_errors"):
-        try:
-            s = result.std_errors
-            se = float(s.iloc[0] if hasattr(s, "iloc") else s[0])
-        except Exception:
-            pass
-    if hasattr(result, "ci"):
+    if ci is None and hasattr(result, "ci"):
         v = getattr(result, "ci")
         try:
             ci = (float(v[0]), float(v[1]))
@@ -212,6 +276,7 @@ def _coerce_matched_pairs(mp: Any) -> tuple[np.ndarray, np.ndarray]:
 def unified_sensitivity(
     result: Any,
     *,
+    term: Optional[str] = None,
     r2_treated: Optional[float] = None,
     r2_controlled: Optional[float] = None,
     beta_uncontrolled: Optional[float] = None,
@@ -240,6 +305,13 @@ def unified_sensitivity(
         Oster's ``R_max`` — the R^2 of the hypothetical long regression
         that additionally includes all unobservables. The default 1.0 is
         the most conservative bound.
+    term : str, optional
+        Which coefficient to analyse, when ``result`` carries a vector of
+        them (e.g. an OLS fit). Required whenever there is more than one
+        non-intercept coefficient — the dashboard raises rather than guess,
+        because guessing silently answers the sensitivity question about
+        the wrong parameter. Ignored for results that expose a single
+        scalar ``estimate`` / ``ate``.
     data : pd.DataFrame, optional
         Raw estimation data. Required for the **Sensemakr** component:
         the Cinelli-Hazlett robustness value is computed from the
@@ -272,7 +344,7 @@ def unified_sensitivity(
     """
     from ..diagnostics.evalue import evalue as _evalue_fn
 
-    estimate, se, ci = _extract_estimate(result)
+    estimate, se, ci = _extract_estimate(result, term=term)
     if estimate is None or se is None or ci is None:
         raise ValueError(
             "Could not extract (estimate, se, ci) from result object. "
