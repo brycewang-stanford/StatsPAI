@@ -39,15 +39,32 @@ References
    nothing was added to ``paper.bib``. Per CLAUDE.md section 10 a missing
    citation is preferable to an unverified one.
 
+Cross-language reference
+------------------------
+The per-(g, t) cells are pinned against ``triplediff::ddd`` (Ortiz-Villavicencio
+& Sant'Anna 2025, `ortiz2025better`) with ``xformla = ~1``, ``est_method="dr"``,
+``control_group="nevertreated"``: with no covariates the doubly-robust DDD
+reduces to the unconditional cell means computed here, and the two agree to
+machine precision. See ``tests/reference_parity/test_ddd_triplediff_parity.py``
+and Track A module ``77_ddd``.
+
+The **aggregation weights differ by convention** and are exposed as
+``weight_by``; see that parameter's documentation. The cell estimates --
+the substantive object -- are identical either way.
+
 Scope & caveats
 ---------------
 - First cut supports **never-treated controls only**. Not-yet-treated
   controls per-(g, t) is a straightforward extension left for a
   follow-up once parity tests exist.
+- Covariate adjustment is not implemented. ``triplediff::ddd`` supports
+  regression adjustment, IPW and doubly-robust estimation with an
+  ``xformla``; the parity above only covers the no-covariate case, which
+  is the only one this function can express.
 - Inference is cluster bootstrap at the unit level (n_boot draws),
   matching the pattern used in `sp.did_multiplegt`. An analytical
-  influence-function variance is not implemented — deriving one requires
-  a locked source for the decomposition (see the citation note above).
+  influence-function variance is not implemented, so standard errors are
+  NOT pinned against ``triplediff`` (which reports analytical ones).
 """
 
 from __future__ import annotations
@@ -75,6 +92,7 @@ def ddd_heterogeneous(
     n_boot: int = 500,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    weight_by: str = "eligible",
 ) -> CausalResult:
     """Heterogeneity-robust DDD estimator for staggered adoption panels.
 
@@ -101,6 +119,24 @@ def ddd_heterogeneous(
         Cluster-bootstrap replications for SE.
     alpha : float, default 0.05
     seed : int, optional
+    weight_by : {"eligible", "cohort"}, default "eligible"
+        How the per-``(g, t)`` cells are weighted into the overall ATT.
+
+        ``"eligible"`` weights cell ``(g, t)`` by the number of treated
+        units in cohort ``g`` that are in the affected subgroup -- the
+        units the reported effect is actually about.
+
+        ``"cohort"`` weights by the size of cohort ``g`` counting *both*
+        subgroups, which is what ``triplediff::ddd`` + ``agg_ddd(type=
+        "simple")`` does (its ``pg`` is ``mean(first_treat == g)`` over
+        all units). Pass this to reproduce that package's overall number.
+
+        The two coincide when the affected share is the same in every
+        cohort, and drift apart as it varies. Which one is wanted depends
+        on the estimand: neither is a bug, and the per-cell estimates are
+        identical either way. The default is left on ``"eligible"``
+        because changing it would move the number existing callers get
+        back; ``model_info["weight_by"]`` records which was used.
 
     Returns
     -------
@@ -148,6 +184,9 @@ def ddd_heterogeneous(
         if col not in df.columns:
             raise ValueError(f"Column {col!r} not in data")
 
+    if weight_by not in {"eligible", "cohort"}:
+        raise ValueError(f"weight_by must be 'eligible' or 'cohort', got {weight_by!r}")
+
     if not set(df[subgroup].dropna().unique()) <= {0, 1}:
         raise ValueError(f"subgroup column {subgroup!r} must be binary 0/1")
 
@@ -175,6 +214,7 @@ def ddd_heterogeneous(
             subgroup=subgroup,
             treated_cohorts=treated_cohorts,
             never_value=never_value,
+            weight_by=weight_by,
         )
 
     main = _estimate(df)
@@ -243,6 +283,7 @@ def ddd_heterogeneous(
             "placebo_joint_test": placebo_joint,
             "n_boot": n_boot,
             "cluster_var": unit,
+            "weight_by": weight_by,
         },
     )
 
@@ -257,6 +298,7 @@ def _compute_ddd_gt(
     subgroup: str,
     treated_cohorts: List[Any],
     never_value: Any,
+    weight_by: str = "eligible",
 ) -> Dict[str, Any]:
     """Compute the DDD decomposition per (g, t) cell + aggregated.
 
@@ -308,6 +350,7 @@ def _compute_ddd_gt(
             )
             if n_treated_affected == 0:
                 continue
+            n_cohort_units = int(cohort_df[unit].nunique())
 
             cells.append(
                 {
@@ -317,6 +360,7 @@ def _compute_ddd_gt(
                     "did_placebo": float(did_b0),
                     "ddd": float(did_b1 - did_b0),
                     "n_treated_affected": int(n_treated_affected),
+                    "n_cohort_units": n_cohort_units,
                 }
             )
 
@@ -326,9 +370,11 @@ def _compute_ddd_gt(
             "cell_estimates": [],
         }
 
-    # Simple CS-style aggregation: weight each DDD(g, t) by the share of
-    # treated-affected units contributing to it.
-    weights = np.array([c["n_treated_affected"] for c in cells], dtype=float)
+    # Simple CS-style aggregation. "eligible" weights each DDD(g, t) by the
+    # treated-affected units contributing to it; "cohort" weights by the whole
+    # cohort, which is triplediff::ddd's pg. See the `weight_by` docs.
+    weight_key = "n_cohort_units" if weight_by == "cohort" else "n_treated_affected"
+    weights = np.array([c[weight_key] for c in cells], dtype=float)
     if weights.sum() > 0:
         weights = weights / weights.sum()
     else:
