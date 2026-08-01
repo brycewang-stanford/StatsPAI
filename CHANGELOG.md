@@ -198,6 +198,27 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.aipw` was not reproducible: its default `seed` is now `42`, was
+  `None`.** The cross-fitting fold split came from
+  `np.random.default_rng(seed)`, and `default_rng(None)` seeds from OS
+  entropy. Three identical calls on the same 614-row LaLonde frame returned
+  **+$308.87 / +$149.84 / +$905.21** — a spread wider than the effect being
+  estimated. Worse, the drift could not be pinned from the outside:
+  `np.random.default_rng` ignores the legacy global RNG, so even
+  `np.random.seed(...)` before every call did not help.
+
+  This propagated. `sp.causal_question(...).estimate()` resolves a
+  selection-on-observables plan to cross-fitted AIPW, so the headline number
+  of an entire estimand-first pipeline changed on every run.
+
+  The new default matches `sp.tmle`, `sp.bcf` and `sp.super_learner`, which
+  already defaulted to `42`. An audit of the rest of the stochastic surface
+  found `sp.dml`, `sp.tmle` and `sp.metalearner` already deterministic —
+  `sp.aipw` was the only offender. Pass `seed=None` explicitly to opt back
+  into a fresh split per call; the seed actually used is now recorded in
+  `result.model_info['seed']`. Pinned by
+  `tests/test_estimator_determinism.py`.
+
 - **`sp.xtabond`'s AR(1)/AR(2) tests were wrong under `orthogonal=True`.**
   The statistic was computed on the forward-orthogonal-deviation residuals.
   `xtabond2` prints "Arellano-Bond test for AR(1) in first differences"

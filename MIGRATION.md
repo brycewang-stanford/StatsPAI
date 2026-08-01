@@ -5,6 +5,53 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="aipw-default-seed"></a>
+
+## Unreleased — ⚠️ `sp.aipw` was not reproducible; default `seed` is now 42
+
+**What changed.** `sp.aipw(..., seed=...)` defaulted to `None`, which reached
+`np.random.default_rng(None)` and therefore seeded the cross-fitting fold
+split from OS entropy. The default is now `42`.
+
+**Why it mattered.** Three identical calls on the same 614-row LaLonde frame:
+
+```text
++308.87    +149.84    +905.21
+```
+
+That spread is wider than the treatment effect being estimated, so which
+number reached your paper depended on when you happened to run the script.
+It could not be pinned from the outside either — `np.random.default_rng`
+does not consult the legacy global RNG, so `np.random.seed(7)` before every
+call changed nothing.
+
+It propagated one level up: `sp.causal_question(...).estimate()` resolves a
+selection-on-observables plan to cross-fitted AIPW, so the headline estimate
+of a whole estimand-first pipeline moved between runs.
+
+**Migration.**
+
+```python
+# Reproducible (the new default) — nothing to do:
+sp.aipw(df, y="re78", treat="treat", covariates=X)
+
+# Old behaviour: a fresh random fold split on every call.
+sp.aipw(df, y="re78", treat="treat", covariates=X, seed=None)
+```
+
+If you published a number produced by the old default, you cannot reproduce
+it by re-running — the fold split that generated it is gone. Re-estimate
+with the new default and report that number instead.
+
+**Scope.** An audit of the stochastic surface found `sp.dml`, `sp.tmle` and
+`sp.metalearner` already deterministic by default; `sp.tmle`, `sp.bcf` and
+`sp.super_learner` already defaulted to `42`. `sp.aipw` was the only
+offender. The seed actually used is now recorded in
+`result.model_info['seed']`, and `tests/test_estimator_determinism.py` pins
+the convention for the whole family.
+
+---
+
 <a id="nsw-lalonde-default-simulated-false"></a>
 
 ## Unreleased — `sp.datasets.nsw_lalonde()` now defaults to the real data
