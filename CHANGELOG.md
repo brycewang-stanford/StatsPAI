@@ -4,6 +4,30 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **The JSS census pins now reconcile instead of freezing a literal.**
+  `tests/test_jss_release_manifest.py` asserted exact tier counts and had to
+  be re-pinned three times in one day — every symbol *promoted* from
+  `api_stable` to `validated`, which is unambiguously good news for the
+  paper, arrived as a red test. The literals were also redundant: what
+  actually guards the manuscript's claims is `validate_claims.py`, which
+  diffs the prose against the same live computation.
+
+  The test now asserts the census **closes** — the four tiers partition
+  `sp.list_functions()` exactly, and `certified_validated` equals
+  `certified + validated` — plus the assertions that were always the point:
+  `status == PASS`, and zero symbols carrying a grade their evidence does
+  not support. `symbols_with_limitations` is asserted non-zero rather than
+  exact, so the manuscript's candour about scope cannot quietly evaporate
+  without a failure.
+
+  Census re-synced to the live registry: **1,154** functions, **73**
+  `certified` / **298** `validated` / **780** `api_stable` / **3**
+  `experimental`, scoped-validation surface **371**, harsh denominator
+  **670**, **306** registry-evidence source files. Verified independently
+  via `sp.describe_function` (73+298+780+3 = 1,154).
+
 ### ⚠️ Correctness
 
 - **All eight bool-typed `robust=` sites now reject the string form; seven
