@@ -6,6 +6,36 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **All eight bool-typed `robust=` sites now reject the string form; seven
+  of them used to accept it silently.** `sp.interactive_fe` and
+  `sp.mixlogit` were the last two, and they close the list named in
+  `statspai._house_style.ROBUST_BOOL_HINTS`.
+
+  The hazard, once more because it is worth stating plainly:
+  `robust="cluster"` was read as truthy and the request disappeared.
+  Clustering lives on a separate `cluster=` argument on every one of these
+  estimators, so the caller received **unclustered** standard errors from a
+  call that looked like it asked for clustered ones. Correct numbers for
+  what was computed; not the numbers that were asked for; nothing printed.
+
+  Only `sp.did` had the guard. `sp.ddd`, `sp.did_2x2`, `sp.did_analysis`,
+  `sp.xtabond`, `sp.xtdpdsys`, `sp.interactive_fe` and `sp.mixlogit` did not.
+
+  New `tests/test_robust_flag_contract.py` (98 tests) drives the contract
+  off `ROBUST_BOOL_HINTS` itself and asserts the two lists agree, so a ninth
+  bool-typed `robust=` site either implements the guard or fails the suite.
+
+### Changed
+
+- **One implementation of the flag validator, in `statspai/core/_vcov.py`.**
+  It had reached five copies across `did/__init__.py`,
+  `did/callaway_santanna.py`, `did/_core.py`, `gmm/arellano_bond.py` and
+  `bartik/political.py`. `core/_vcov.py` is the cross-package home its own
+  header claims for correctness-sensitive basics (§4); the DiD and
+  dynamic-panel families now alias it, and a test pins that they do.
+
+### ⚠️ Correctness
+
 - **`sp.xtabond` / `sp.xtdpdsys` silently ignored a string `robust=`.**
   `robust` is a *boolean* on the dynamic-panel family and a string HC-type
   selector on the regression family (`robust="HC1"`). Passing the string

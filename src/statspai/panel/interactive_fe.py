@@ -23,9 +23,11 @@ Interactive Fixed Effects." *Econometrica*, 83(4), 1543-1579. [@moon2015linear]
 """
 
 from typing import List
+
 import numpy as np
 import pandas as pd
 
+from ..core._vcov import require_bool_flag
 from ..core.results import EconometricResults
 
 
@@ -100,6 +102,7 @@ def interactive_fe(
     Bai, J. (2009). Panel data models with interactive fixed effects.
     *Econometrica*. [@bai2009panel]
     """
+    robust = require_bool_flag(robust, argument="robust")
     df = data.copy()
     units = df[id].unique()
     times = df[time].unique()

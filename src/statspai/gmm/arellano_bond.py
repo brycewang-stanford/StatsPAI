@@ -56,38 +56,12 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..core._vcov import require_bool_flag as _require_bool
 from ..core.results import CausalResult
 from ._dynpanel import fit_dynamic_panel
 from ._dynpanel._moments import first_difference_H as _ab_H  # noqa: F401  (re-export)
 
 __all__ = ["xtabond", "xtdpdsys"]
-
-
-def _require_bool(value, *, argument: str) -> bool:
-    """Reject a non-boolean where the signature promises a boolean.
-
-    ``robust`` is boolean here and a *string* HC-type selector elsewhere in
-    StatsPAI (``robust="HC1"`` on the regression family). The house-style
-    audit calls that split the highest-impact hazard in the signature
-    surface, and it is a silent one: without this guard
-    ``xtabond(..., robust="HC1")`` was accepted, read as truthy, and
-    returned the default sandwich — the caller asked for HC1 and got
-    something else with no warning. ``robust="cluster"`` was worse, since
-    clustering is a separate ``cluster=`` argument, so the user silently
-    received *unclustered* standard errors.
-
-    See ``statspai._house_style.ROBUST_BOOL_HINTS``; ``sp.did`` has carried
-    the same guard for longer.
-    """
-    if not isinstance(value, (bool, np.bool_)):
-        raise ValueError(
-            f"`{argument}` must be boolean, got {type(value).__name__} "
-            f"({value!r}). Standard-error *type* strings such as 'HC1' are "
-            f"not accepted here: on the dynamic-panel family `{argument}` is "
-            "an on/off switch for the Windmeijer-corrected robust sandwich. "
-            "For clustered standard errors pass `cluster=<column>` instead."
-        )
-    return bool(value)
 
 
 def xtabond(

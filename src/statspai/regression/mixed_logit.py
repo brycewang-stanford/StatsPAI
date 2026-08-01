@@ -46,13 +46,14 @@ Simulated Likelihood." *Stata Journal*, 7(3), 388-401. [@hole2007fitting]
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import optimize, stats
 
-from ..core.results import EconometricResults, CausalResult
+from ..core._vcov import require_bool_flag
+from ..core.results import CausalResult, EconometricResults
 
 
 def _as_float_array(value: Any) -> np.ndarray:
@@ -241,6 +242,7 @@ def mixlogit(
     ... )
     >>> summary_text = result.summary()
     """
+    robust = require_bool_flag(robust, argument="robust")
     fit = _MixedLogitFitter(
         data=data,
         y=y,
@@ -268,7 +270,6 @@ def mixlogit(
 
 
 class _MixedLogitFitter:
-
     def __init__(
         self,
         *,
