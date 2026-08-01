@@ -35,9 +35,40 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
+from ..exceptions import MethodIncompatibility
+
 # ----------------------------------------------------------------------
 # Cluster-bootstrap draw
 # ----------------------------------------------------------------------
+
+
+def require_bool(value: Any, *, argument: str) -> bool:
+    """Reject a non-boolean where the signature promises a boolean.
+
+    ``robust`` is boolean across the DiD family and a *string* HC-type
+    selector on the regression family (``robust="HC1"``).
+    ``statspai._house_style.ROBUST_BOOL_HINTS`` calls that split the
+    highest-impact hazard in the signature surface, and it was silent here:
+    ``sp.ddd(..., robust="cluster")`` was accepted, read as truthy, and
+    returned **unclustered** standard errors, because clustering lives on a
+    separate ``cluster=`` argument. The caller got numbers that were correct
+    for what was computed and not what they asked for.
+
+    Consolidated from byte-identical private copies in ``did/__init__.py``
+    and ``did/callaway_santanna.py`` — the "separate, test-guarded pass"
+    this module's header asks for.
+    """
+    if not isinstance(value, (bool, np.bool_)):
+        raise MethodIncompatibility(
+            f"`{argument}` must be boolean.",
+            recovery_hint=(
+                f"Pass `{argument}=True` or `{argument}=False`. A standard-error "
+                f"*type* string such as 'HC1' is not accepted here; for clustered "
+                f"standard errors pass `cluster=<column>` instead."
+            ),
+            diagnostics={"argument": argument, "type": type(value).__name__},
+        )
+    return bool(value)
 
 
 def cluster_bootstrap_draw(

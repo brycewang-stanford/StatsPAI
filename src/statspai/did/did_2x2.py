@@ -20,6 +20,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import require_bool
 
 
 def _did2x2_bayes_engine(
@@ -164,6 +165,7 @@ def did_2x2(
     >>> bool(abs(result.estimate - 5.0) < 1.0)
     True
     """
+    robust = require_bool(robust, argument="robust")
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")
     if engine == "bayes":

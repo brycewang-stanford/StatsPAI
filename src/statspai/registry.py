@@ -11976,7 +11976,7 @@ def _build_registry() -> None:
                 ParamSpec("unit", "str", True, description="Unit id column"),
                 ParamSpec("time", "str", True, description="Time column"),
                 ParamSpec(
-                    "treatment",
+                    "treat",
                     "str",
                     True,
                     description=(

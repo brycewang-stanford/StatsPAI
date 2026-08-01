@@ -29,6 +29,7 @@ import pandas as pd
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, MethodIncompatibility
 from ._absorbing import AbsorbingCheck, check_absorbing
+from ._core import require_bool as _require_bool
 from ._equivalence import EquivalenceResult, pretrend_equivalence, pretrends_equivalence
 from ._staggered_rollout import StaggeredRolloutResult, staggered_rollout
 from .aggte import aggte
@@ -168,16 +169,6 @@ def _require_alpha(alpha: Any) -> float:
             diagnostics={"argument": "alpha", "value": alpha},
         )
     return out
-
-
-def _require_bool(value: Any, *, argument: str) -> bool:
-    if not isinstance(value, (bool, np.bool_)):
-        raise MethodIncompatibility(
-            f"`{argument}` must be boolean.",
-            recovery_hint=f"Pass `{argument}=True` or `{argument}=False`.",
-            diagnostics={"argument": argument, "type": type(value).__name__},
-        )
-    return bool(value)
 
 
 def _require_int_at_least(value: Any, *, argument: str, minimum: int) -> int:

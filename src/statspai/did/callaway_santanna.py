@@ -34,6 +34,7 @@ from scipy import stats
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
+from ._core import require_bool as _require_bool
 
 
 class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
@@ -145,16 +146,6 @@ def _require_int_at_least(value: Any, *, argument: str, minimum: int) -> int:
             diagnostics={"argument": argument, "value": value},
         )
     return out
-
-
-def _require_bool(value: Any, *, argument: str) -> bool:
-    if not isinstance(value, (bool, np.bool_)):
-        raise MethodIncompatibility(
-            f"`{argument}` must be boolean.",
-            recovery_hint=f"Pass `{argument}=True` or `{argument}=False`.",
-            diagnostics={"argument": argument, "type": type(value).__name__},
-        )
-    return bool(value)
 
 
 def _require_columns(

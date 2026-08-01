@@ -11951,7 +11951,7 @@
           "description": "Time column",
           "type": "string"
         },
-        "treatment": {
+        "treat": {
           "description": "Time-varying 0/1 treatment indicator. A cohort / first-treatment column cannot express reversal, so passing one makes the check meaningless.",
           "type": "string"
         },
@@ -11964,7 +11964,7 @@
         "data",
         "unit",
         "time",
-        "treatment"
+        "treat"
       ],
       "type": "object"
     }

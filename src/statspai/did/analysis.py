@@ -28,6 +28,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.results import CausalResult
+from ._core import require_bool
 
 
 @dataclass
@@ -263,13 +264,14 @@ def did_analysis(
     ...                          time='year', id='worker',
     ...                          run_bacon=False, run_sensitivity=False)
     """
-    from .did_2x2 import did_2x2
-    from .callaway_santanna import callaway_santanna
-    from .sun_abraham import sun_abraham
-    from .did_imputation import did_imputation
+    robust = require_bool(robust, argument="robust")
     from .bacon import bacon_decomposition
-    from .honest_did import honest_did
+    from .callaway_santanna import callaway_santanna
+    from .did_2x2 import did_2x2
+    from .did_imputation import did_imputation
     from .event_study import event_study
+    from .honest_did import honest_did
+    from .sun_abraham import sun_abraham
 
     steps: List[str] = []
     bacon_result = None

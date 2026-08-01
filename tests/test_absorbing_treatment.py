@@ -176,3 +176,76 @@ def test_recommended_reversal_estimator_is_stable_not_experimental():
     spec = _REGISTRY.get("did_multiplegt")
     assert spec is not None
     assert getattr(spec, "stability", None) == "stable"
+
+
+# ---------------------------------------------------------------------------
+# `robust=` is boolean across the DiD family, a string HC-type elsewhere.
+# ---------------------------------------------------------------------------
+
+
+def _two_period_panel(n: int = 400, seed: int = 0):
+    rng = np.random.default_rng(seed)
+    df = pd.DataFrame(
+        {
+            "i": np.repeat(np.arange(n // 2), 2),
+            "t": np.tile([0, 1], n // 2),
+            "treat": np.repeat(rng.integers(0, 2, n // 2), 2),
+            "sub": np.repeat(rng.integers(0, 2, n // 2), 2),
+            "x": rng.normal(size=n),
+        }
+    )
+    df["y"] = 1.0 + 2.0 * df["treat"] * df["t"] + df["x"] + rng.normal(size=n)
+    return df
+
+
+_ROBUST_CALLS = {
+    "ddd": lambda f, df, v: f(
+        df, y="y", treat="treat", time="t", subgroup="sub", robust=v
+    ),
+    "did_2x2": lambda f, df, v: f(df, y="y", treat="treat", time="t", robust=v),
+    "did_analysis": lambda f, df, v: f(df, y="y", treat="treat", time="t", robust=v),
+}
+
+
+@pytest.mark.parametrize("fn", sorted(_ROBUST_CALLS))
+@pytest.mark.parametrize("bad", ["HC1", "HC3", "cluster", 1, 0, None])
+def test_did_family_robust_rejects_non_boolean(fn, bad):
+    """``robust="cluster"`` used to return unclustered SEs, silently.
+
+    Clustering lives on a separate ``cluster=`` argument across this family,
+    so the string was read as truthy and the request simply vanished. The
+    numbers returned were correct for what was computed and were not what
+    the caller asked for — the worst shape a defect can take, because
+    nothing about the output looks wrong.
+
+    ``sp.did`` has rejected non-booleans for a while; these three did not,
+    which made the guarantee inconsistent *within one module*.
+    """
+    with pytest.raises(Exception, match="(?i)boolean"):
+        _ROBUST_CALLS[fn](getattr(sp, fn), _two_period_panel(), bad)
+
+
+@pytest.mark.parametrize("fn", sorted(_ROBUST_CALLS))
+@pytest.mark.parametrize("good", [True, False, np.True_, np.False_])
+def test_did_family_robust_accepts_booleans(fn, good):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _ROBUST_CALLS[fn](getattr(sp, fn), _two_period_panel(), good)
+
+
+def test_require_bool_has_exactly_one_implementation():
+    """§4: shared primitives live in ``_core``, not copied per file.
+
+    Two byte-identical private copies existed in ``did/__init__.py`` and
+    ``did/callaway_santanna.py``; both now alias the ``_core`` helper.
+    """
+    import importlib
+
+    # ``statspai.did`` the attribute is the *function*; the subpackage has to
+    # be fetched through importlib or this silently asserts nothing.
+    did_pkg = importlib.import_module("statspai.did")
+    core = importlib.import_module("statspai.did._core")
+    cs = importlib.import_module("statspai.did.callaway_santanna")
+
+    assert did_pkg._require_bool is core.require_bool
+    assert cs._require_bool is core.require_bool

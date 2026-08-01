@@ -33,6 +33,36 @@ All notable changes to StatsPAI will be documented in this file.
   `did_2x2`, `did_analysis`, `interactive_fe`, `mixlogit`). A first probe
   did not reach their `robust` validation because their signatures differ,
   so their status is **unknown**, not clean.
+- **`sp.ddd`, `sp.did_2x2` and `sp.did_analysis` silently ignored a string
+  `robust=`, and `sp.check_absorbing`'s registry entry still named the old
+  parameter.** Both found by probing rather than by a failing test.
+
+  `robust` is boolean across the DiD family and a string HC-type selector on
+  the regression family. Passing `robust="cluster"` to these three was
+  accepted, read as truthy, and returned **unclustered** standard errors —
+  clustering lives on a separate `cluster=` argument, so the request simply
+  vanished. The output looked entirely normal. `sp.did` had rejected
+  non-booleans for some time, so the guarantee was inconsistent *within one
+  module*.
+
+  All three now raise, and the message names `cluster=<column>` as the real
+  alternative. `robust=1` / `robust=0` raise too, matching `sp.did`.
+
+  Separately, the `check_absorbing(treatment=)` → `treat=` rename shipped
+  without updating the function's `ParamSpec` in the registry, so
+  `sp.function_schema("check_absorbing")` advertised a parameter that no
+  longer existed and omitted the one that did —
+  `test_registry_signature_contract` caught it on the next broad run. Fixed,
+  with the schemas bundle regenerated.
+
+### Changed
+
+- **`_require_bool` consolidated into `statspai/did/_core.py`.** Two
+  byte-identical private copies existed in `did/__init__.py` and
+  `did/callaway_santanna.py`, which is what §4 forbids; both now alias the
+  shared helper, and a test asserts there is exactly one implementation.
+  This is the "separate, test-guarded pass" `_core.py`'s own header asks
+  for.
 
 ### Changed
 

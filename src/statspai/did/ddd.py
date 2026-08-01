@@ -34,6 +34,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import require_bool
 
 
 def ddd(
@@ -120,6 +121,7 @@ def ddd(
     >>> bool(np.isfinite(result.se))
     True
     """
+    robust = require_bool(robust, argument="robust")
     df = data.copy()
 
     # Validate binary variables
