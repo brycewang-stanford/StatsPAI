@@ -7416,6 +7416,57 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
+      "function": "rdmc",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_rdmulti_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "rdpower",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_rdlocrand_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "rdrandinf",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_rdlocrand_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_published_replications.py",
@@ -7472,6 +7523,23 @@
       ],
       "tier": "machine",
       "tolerance": "rel_est<=1e-06, rel_se<=0.1"
+    },
+    {
+      "function": "rdwinselect",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_rdlocrand_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "function": "regime",
