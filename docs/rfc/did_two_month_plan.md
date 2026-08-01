@@ -205,6 +205,45 @@ Liu-Wang-Xu (2024, AJPS) 之后，TSCS 平行趋势检验的标准做法是 F �
 
 ---
 
+## 工作环境（并发隔离）
+
+两个 Claude 窗口曾同时在主工作树的 `main` 上作业，导致 8 个文件反复冲突：
+`registry.py` / `__init__.py` / `CHANGELOG.md` / `MIGRATION.md` 是手工追加点，
+`schemas/*` / `_parity_index.json` / `docs/parity.md` / `docs/stats.md` 是**生成产物**
+——后者纯粹因为两边都重新生成才冲突。每次提交都要手工做「备份共享文件 → 还原到
+HEAD → 重生成派生产物 → 提交 → 还原」五步，做了四轮，且推送闸门按*已提交*状态检查
+而工作区混着两边改动，两个视角每次都打架。
+
+现在 DiD 线在独立 worktree 作业：
+
+```bash
+cd .claude/worktrees/did-wp-continued        # 分支 worktree-did-wp-continued
+```
+
+工作树只含本线改动，生成产物按构造就正确，不再需要手工拆分。
+
+### ⚠️ 必须带 PYTHONPATH
+
+仓库是 editable 安装（`pip install -e .`），`statspai` 被钉死在**主工作树**：
+
+```
+Editable project location: /Users/brycewang/Documents/GitHub/StatsPAI
+```
+
+所以在 worktree 里裸跑 `import statspai` 仍会加载主树代码——测试会跑在别人的改动上，
+隔离形同虚设。每条命令显式指定：
+
+```bash
+PYTHONPATH="$(pwd)/src" python3 -m pytest ...
+PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
+```
+
+自检：worktree 内 `len(sp.list_functions())` 应等于 `scripts/registry_stats.py --check`
+报的数字；不等就说明 `PYTHONPATH` 没生效。
+
+**不要**为此改 `pyproject.toml` 加 pytest `pythonpath`——主树的 editable 安装对另一条
+线是正确的，改了会污染共享配置。
+
 ## 全局约束
 
 - **JOSS**：以上全部**不需要发 GitHub Release**，不触发 Zenodo，审稿安全。
