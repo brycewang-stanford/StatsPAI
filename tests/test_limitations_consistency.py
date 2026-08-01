@@ -73,8 +73,8 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # Same shape: the (g, t) cells match triplediff::ddd exactly and
         # only the aggregation weights and the SE method differ, both
         # documented and both pinned in Track A module 77.
-        "covariate adjustment is not implemented",
-        "standard errors are a cluster bootstrap only",
+        "the placebo joint test is only produced on the bootstrap path",
+        "control_group='notyettreated' is only partially comparable",
         "the aggregation convention differs",
     ],
     "continuous_did": [

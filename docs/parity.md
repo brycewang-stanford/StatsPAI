@@ -62,7 +62,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `cr2_se` | clubSandwich::vcovCR(type="CR2"/"CR3") | R 4.5.2; clubSandwich 0.6.2 | rel_est<=1e-06, rel_se<=1e-06 | 1.8e-08 / 2.2e-08 | [`53_cr2.py`](../tests/r_parity/53_cr2.py) (+2) |
 | `das_gupta` | Das Gupta (1993) exact standardization decomposition identity | R 4.5.2 | factor-effect sum + pct 1e-12 abs (observed 0) | — / — | [`test_dasgupta_parity.py`](../tests/reference_parity/test_dasgupta_parity.py) |
 | `ddd` | Stata 18 MP regress [aw=w], robust (aweight HC1) | Stata 18 MP | b / se 1e-12 abs (observed <= 3e-15) | — / — | [`test_did2x2_ddd_weighted_robust_parity.py`](../tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py) |
-| `ddd_heterogeneous` | triplediff::ddd + agg_ddd | R 4.5.2 | rel_est<=1e-06 | 3.5e-15 / — | [`77_ddd.py`](../tests/r_parity/77_ddd.py) (+1) |
+| `ddd_heterogeneous` | triplediff::ddd + agg_ddd | R 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 5.7e-15 / — | [`77_ddd.py`](../tests/r_parity/77_ddd.py) (+1) |
 | `decompose` | oaxaca::oaxaca | R 4.5.2; oaxaca 0.1.5 | rel_est<=1e-06, rel_se<=0.05 | 6.3e-16 / 1.3e-16 | [`30_oaxaca.py`](../tests/r_parity/30_oaxaca.py) (+2) |
 | `degree_centrality` | Freeman normalized degree centrality (deg_i / (n-1)) | R 4.5.2 | centrality 1e-12 abs (observed 0) | — / — | [`test_network_centrality_parity.py`](../tests/reference_parity/test_network_centrality_parity.py) |
 | `demean` | textbook mean-within (algorithmic) | R 4.5.2 | rel_est<=1e-06, rel_se<=1e-06 | 3.5e-15 / — | [`68_demean_within.py`](../tests/r_parity/68_demean_within.py) (+1) |

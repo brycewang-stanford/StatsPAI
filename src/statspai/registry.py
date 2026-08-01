@@ -10969,6 +10969,55 @@ def _build_registry() -> None:
                     ),
                     enum=["eligible", "cohort"],
                 ),
+                ParamSpec(
+                    "x",
+                    "list",
+                    False,
+                    None,
+                    description=(
+                        "Base-period covariates; identification becomes "
+                        "CONDITIONAL DDD parallel trends"
+                    ),
+                ),
+                ParamSpec(
+                    "est_method",
+                    "str",
+                    False,
+                    "dr",
+                    description=(
+                        "Nuisance combination: doubly robust, inverse "
+                        "probability weighting, or outcome regression"
+                    ),
+                    enum=["dr", "ipw", "reg"],
+                ),
+                ParamSpec(
+                    "control_group",
+                    "str",
+                    False,
+                    "nevertreated",
+                    description=(
+                        "Control units: never-treated, or not-yet-treated "
+                        "cohorts combined by minimum distance (see the "
+                        "docstring warning -- that path deliberately diverges "
+                        "from triplediff 0.2.4, which misindexes its "
+                        "influence functions there)"
+                    ),
+                    enum=["nevertreated", "notyettreated"],
+                ),
+                ParamSpec(
+                    "se",
+                    "str",
+                    False,
+                    None,
+                    description=(
+                        "'analytic' influence-function variance (exact, and "
+                        "what triplediff reports) or 'bootstrap' clustered on "
+                        "unit (the only path that fills in "
+                        "placebo_joint_test). Defaults to bootstrap without "
+                        "covariates, analytic with them"
+                    ),
+                    enum=["analytic", "bootstrap"],
+                ),
             ],
             returns=(
                 "CausalResult with per-(g, t) decomposition in detail + "
@@ -11025,11 +11074,16 @@ def _build_registry() -> None:
             ],
             alternatives=["ddd", "callaway_santanna", "wooldridge_did"],
             limitations=[
-                "covariate adjustment is not implemented; triplediff::ddd's "
-                "xformla / regression-adjustment / IPW / DR variants have no "
-                "counterpart here",
-                "standard errors are a cluster bootstrap only; the analytical "
-                "influence-function variance is not implemented",
+                "the placebo joint test is only produced on the bootstrap "
+                "path; se='analytic' reports None for it, because that test "
+                "needs the joint covariance of the placebo arms rather than "
+                "of the DDD",
+                "control_group='notyettreated' is only partially comparable "
+                "to triplediff 0.2.4: its per-control-cohort estimates agree "
+                "exactly, but the reference misindexes the influence "
+                "functions it combines, so the combined numbers differ by "
+                "convention on cells where the comparison does not span the "
+                "whole panel",
                 "the aggregation convention differs from "
                 "triplediff::agg_ddd(type='simple'): the default weights "
                 "cohorts by treated-eligible units; pass weight_by='cohort' "

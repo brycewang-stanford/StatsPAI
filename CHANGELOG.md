@@ -295,6 +295,51 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.ddd_heterogeneous` grows covariates, analytic standard errors and a
+  not-yet-treated control group (WP-8).** It shipped as an MVP: unconditional
+  cell means, a cluster bootstrap, never-treated controls only. All three
+  limits are gone.
+
+  The estimand is a signed sum of three two-by-two comparisons against the
+  treated-and-eligible cell, so each piece is an ordinary doubly-robust DiD
+  with a known influence function, and the DDD's influence function is the
+  same signed combination reweighted by the comparisons' subsample shares.
+  That gives `x=` covariates under conditional DDD parallel trends,
+  `est_method=` in `{"dr", "ipw", "reg"}`, and `se="analytic"` — exact, fast,
+  and no RNG. Ported formula-by-formula from `triplediff` 0.2.4 and pinned
+  against it: **cells and standard errors agree at 1e-12 across all three
+  nuisance combinations**, as does the aggregate once the Callaway-Sant'Anna
+  estimated-weight correction is included.
+
+  Defaults are unchanged. Without covariates `se` still resolves to
+  `"bootstrap"`, because that is what earlier releases reported and it is
+  the only path that fills in `model_info["placebo_joint_test"]`. With
+  covariates it resolves to `"analytic"`, where there is no prior behaviour
+  to preserve.
+
+  `control_group="notyettreated"` runs the DDD against each later-treated
+  cohort separately and combines them by minimum distance, the structure the
+  reference uses. **It does not reproduce `triplediff` 0.2.4's numbers on
+  that path, deliberately** — see below.
+
+- **⚠️ Divergence recorded, not inherited: `triplediff` 0.2.4 misindexes its
+  not-yet-treated influence functions.** It writes each control cohort's
+  influence function into the panel-length vector with a boolean index of
+  the wrong length; R prints *"number of items to replace is not a multiple
+  of replacement length"* on every such call. The combined influence
+  function then carries nonzero entries for units in no comparison at all —
+  on the parity fixture, all 150 units of a cohort that is neither treated
+  nor a control for that cell — and that feeds the minimum-distance weights,
+  the estimate and the standard error.
+
+  The evidence is pinned rather than asserted. Per-control-cohort estimates
+  agree with the reference **exactly**, so the combination is the only place
+  the two can differ. Cells where the comparison happens to span the whole
+  panel have a full-length boolean, nothing goes wrong, and those agree
+  exactly too — including their minimum-distance standard errors. Only the
+  cells where it does not span the panel diverge. Reproducing that would
+  mean encoding an upstream indexing defect, so StatsPAI does not.
+
 - **`sp.functional_form_test` — is your parallel-trends assumption a claim
   about the outcome, or about the scale you happened to write it on?**
   Roth & Sant'Anna (2023) show that parallel trends in levels and parallel

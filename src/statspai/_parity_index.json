@@ -1737,7 +1737,7 @@
       "function": "ddd_heterogeneous",
       "headline": {
         "metric": "rel_est",
-        "rel_vs_R": 3.480683848164389e-15,
+        "rel_vs_R": 5.6833693356263635e-15,
         "rel_vs_Stata": null,
         "statistic": [
           "ddd_g2_t2",
@@ -1754,7 +1754,7 @@
       "module_id": "77_ddd",
       "notes": [],
       "point_estimate_rel": {
-        "R": 3.480683848164389e-15,
+        "R": 5.6833693356263635e-15,
         "Stata": null
       },
       "python_call": "sp.ddd_heterogeneous",
@@ -1777,7 +1777,7 @@
         "tests/r_parity/77_ddd.R"
       ],
       "tier": "machine",
-      "tolerance": "rel_est<=1e-06"
+      "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
       "additional_tests": [

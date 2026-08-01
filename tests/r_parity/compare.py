@@ -306,12 +306,14 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # analytical influence-function SEs and sp.did_multiplegt_dyn has
     # only a cluster bootstrap.
     "78_multiplegt_dyn": {"rel_est": 1e-6},
-    # Triple differences: the six post-treatment ATT(g,t) cells and the
-    # cohort-weighted aggregate match triplediff::ddd at 1e-14. No rel_se
-    # -- triplediff reports analytical influence-function SEs and
-    # sp.ddd_heterogeneous only has a cluster bootstrap, so an SE budget
-    # would be comparing two different variance estimators.
-    "77_ddd": {"rel_est": 1e-6},
+    # Triple differences: the post-treatment ATT(g,t) cells and the
+    # cohort-weighted aggregate match triplediff::ddd at 1e-12, across the
+    # unconditional design and all three conditional nuisance combinations
+    # (dr / ipw / reg). rel_se applies to the conditional rows, where
+    # sp.ddd_heterogeneous(se='analytic') uses the same influence-function
+    # variance the reference does; the unconditional rows emit no SE
+    # because that path reports a cluster bootstrap instead.
+    "77_ddd": {"rel_est": 1e-6, "rel_se": 1e-6},
     # Pre-trends power: iterative tier on purpose. pretrends gets its
     # rejection probability from mvtnorm::pmvnorm, whose Genz-Bretz
     # integrator is randomised -- twenty repeated R calls on this fixture
@@ -1007,7 +1009,10 @@ HEADLINE: dict[str, dict[str, Any]] = {
         "headline_filter": lambda d: d.statistic.startswith("ddd_g"),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "machine precision vs triplediff::ddd (worst 1e-14)",
+        "gap_note": (
+            "machine precision vs triplediff::ddd (worst 1e-12), estimates "
+            "and analytic SEs, across dr / ipw / reg"
+        ),
     },
     "76_pretrends": {
         "name": "Pre-trends power (Roth 2022)",

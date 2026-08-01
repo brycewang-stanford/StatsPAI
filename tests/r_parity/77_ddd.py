@@ -37,6 +37,7 @@ from _common import ParityRecord, dump_csv, write_results
 MODULE = "77_ddd"
 COHORTS = [0, 2, 3, 4]  # 0 = never treated
 PERIODS = [1, 2, 3, 4]
+COVARS = ["cov1", "cov2"]
 
 
 def _panel() -> pd.DataFrame:
@@ -55,12 +56,27 @@ def _panel() -> pd.DataFrame:
             uid += 1
             b = int(rng.random() < share[g])
             fe = rng.normal(0.0, 1.0)
+            # Covariates that shift both selection and the outcome path, so
+            # the conditional and unconditional estimands genuinely differ.
+            c1 = rng.normal(0.4 * b, 1.0)
+            c2 = rng.normal(-0.2 * (g != 0), 1.0)
             for t in PERIODS:
                 on = g != 0 and t >= g
                 effect = (2.0 + 0.5 * (t - g)) if (on and b == 1) else 0.0
                 # A subgroup-specific trend the DDD is supposed to net out.
                 y = fe + 0.30 * t + 0.45 * b * t + effect + rng.normal(0, 0.8)
-                rows.append({"id": uid, "time": t, "state": g, "partition": b, "y": y})
+                y += (0.5 * c1 - 0.3 * c2) * t
+                rows.append(
+                    {
+                        "id": uid,
+                        "time": t,
+                        "state": g,
+                        "partition": b,
+                        "y": y,
+                        "cov1": c1,
+                        "cov2": c2,
+                    }
+                )
     return pd.DataFrame(rows)
 
 
@@ -116,6 +132,50 @@ def main() -> None:
             n=int(len(df)),
         )
     )
+
+    # Conditional DDD: all three nuisance combinations, cells and analytic
+    # standard errors. The SEs are compared here (unlike the unconditional
+    # block above) because the analytic path IS the reference's variance
+    # estimator, not a bootstrap standing in for it.
+    for method in ("dr", "ipw", "reg"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            cond = sp.ddd_heterogeneous(
+                df,
+                y="y",
+                unit="id",
+                time="time",
+                cohort="state",
+                subgroup="partition",
+                n_boot=0,
+                seed=0,
+                weight_by="cohort",
+                x=COVARS,
+                est_method=method,
+                se="analytic",
+            )
+        for _, row in cond.detail.iterrows():
+            tag = f"{method}_g{int(row['cohort'])}_t{int(row['time'])}"
+            rows.append(
+                ParityRecord(
+                    module=MODULE,
+                    side="py",
+                    statistic=f"ddd_{tag}",
+                    estimate=float(row["ddd"]),
+                    se=float(row["se"]),
+                    n=int(len(df)),
+                )
+            )
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"simple_ATT_{method}",
+                estimate=float(cond.estimate),
+                se=float(cond.se),
+                n=int(len(df)),
+            )
+        )
 
     write_results(MODULE, "py", rows, extra={"estimator": "ddd_heterogeneous"})
 

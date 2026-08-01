@@ -4656,7 +4656,7 @@
     "name": "ddd"
   },
   {
-    "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue). Validation: certified evidence with scoped limitations. Known limitations: covariate adjustment is not implemented; triplediff::ddd's xformla / regression-adjustment / IPW / DR variants have no counterpart here; standard errors are a cluster bootstrap only; the analytical influence-function variance is not implemented; the aggregation convention differs from triplediff::agg_ddd(type='simple'): the default weights cohorts by treated-eligible units; pass weight_by='cohort' to match the R package. Assumptions: Parallel trends relaxed to: same differential trend across treated vs never-treated, within both affected and unaffected subgroups; No anticipation; SUTVA. Pre-conditions: staggered adoption panel with >= 1 never-treated unit; binary within-group subgroup (affected vs unaffected); >= 1 pre-treatment period per cohort. Failure modes: No never-treated units -> First-c...",
+    "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue). Validation: certified evidence with scoped limitations. Known limitations: the placebo joint test is only produced on the bootstrap path; se='analytic' reports None for it, because that test needs the joint covariance of the placebo arms rather than of the DDD; control_group='notyettreated' is only partially comparable to triplediff 0.2.4: its per-control-cohort estimates agree exactly, but the reference misindexes the influence functions it combines, so the combined numbers differ by convention on cells where the comparison does not span the whole panel; the aggregation convention differs from triplediff::agg_ddd(type='simple'): the default weights cohorts by treated-eligible units; pass weight_by='cohort' to match the R package. Assumptions: Parallel trends relaxed to: same differential trend across treated vs never-treated, within both affected and unaffected subgro...",
     "input_schema": {
       "properties": {
         "alpha": {
@@ -4668,6 +4668,25 @@
           "description": "First-treatment period (never_value = never-treated)",
           "type": "string"
         },
+        "control_group": {
+          "default": "nevertreated",
+          "description": "Control units: never-treated, or not-yet-treated cohorts combined by minimum distance (see the docstring warning -- that path deliberately diverges from triplediff 0.2.4, which misindexes its influence functions there)",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
+          "type": "string"
+        },
+        "est_method": {
+          "default": "dr",
+          "description": "Nuisance combination: doubly robust, inverse probability weighting, or outcome regression",
+          "enum": [
+            "dr",
+            "ipw",
+            "reg"
+          ],
+          "type": "string"
+        },
         "n_boot": {
           "default": 500,
           "description": "Number of bootstrap replications.",
@@ -4676,6 +4695,14 @@
         "never_value": {
           "default": 0,
           "description": "Value in cohort for never-treated units",
+          "type": "string"
+        },
+        "se": {
+          "description": "'analytic' influence-function variance (exact, and what triplediff reports) or 'bootstrap' clustered on unit (the only path that fills in placebo_joint_test). Defaults to bootstrap without covariates, analytic with them",
+          "enum": [
+            "analytic",
+            "bootstrap"
+          ],
           "type": "string"
         },
         "seed": {
@@ -4702,6 +4729,13 @@
             "cohort"
           ],
           "type": "string"
+        },
+        "x": {
+          "description": "Base-period covariates; identification becomes CONDITIONAL DDD parallel trends",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "y": {
           "description": "Outcome variable column name or outcome array.",

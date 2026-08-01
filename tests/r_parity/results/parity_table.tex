@@ -90,7 +90,7 @@ Module & Method & Worst headline diff & Verdict \\
 \code{74\_cic} & Changes-in-Changes (ATT + QTE) & rel $\le 2.4e-15$ {\footnotesize (machine precision vs qte::CiC (worst 4.4e-15))} & \textbf{PASS} \\
 \code{75\_stacked} & Stacked DiD (never-treated controls) & rel $\le 3.9e-13$ {\footnotesize (rel < 1e-6 vs a hand-written fixest stack)} & \textbf{PASS} \\
 \code{76\_pretrends} & Pre-trends power (Roth 2022) & rel $\le 3.2e-05$ {\footnotesize (rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers mvtnorm::pmvnorm's randomised integrator)} & \textbf{PASS} \\
-\code{77\_ddd} & Triple differences ATT(g,t) & rel $\le 3.5e-15$ {\footnotesize (machine precision vs triplediff::ddd (worst 1e-14))} & \textbf{PASS} \\
+\code{77\_ddd} & Triple differences ATT(g,t) & rel $\le 5.7e-15$ {\footnotesize (machine precision vs triplediff::ddd (worst 1e-12), estimates and analytic SEs, across dr / ipw / reg)} & \textbf{PASS} \\
 \code{78\_multiplegt\_dyn} & dCDH intertemporal event study & rel $\le 3.3e-15$ {\footnotesize (machine precision vs DIDmultiplegtDYN (worst 5e-15))} & \textbf{PASS} \\
 \code{79\_didff} & Functional-form test (Roth--Sant'Anna) & rel $\le 1.3e-14$ {\footnotesize (machine precision vs didFF (worst 1.2e-15); the module's 1e-3 budget covers only the simulated p-value)} & \textbf{PASS} \\
 \end{longtable}

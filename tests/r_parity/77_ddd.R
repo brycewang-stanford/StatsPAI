@@ -60,6 +60,37 @@ rows[[length(rows) + 1]] <- parity_row(
   n         = nrow(df)
 )
 
+# Conditional DDD across the three nuisance combinations. Standard errors
+# ARE compared here: sp.ddd_heterogeneous(se="analytic") uses the same
+# influence-function variance, so a gap would be a real disagreement rather
+# than two different estimators of the same quantity.
+for (method in c("dr", "ipw", "reg")) {
+  cond <- ddd(
+    yname = "y", tname = "time", idname = "id", gname = "state",
+    pname = "partition", xformla = ~ cov1 + cov2, data = df,
+    control_group = "nevertreated", base_period = "varying",
+    est_method = method, panel = TRUE, boot = FALSE
+  )
+  post_c <- cond$periods >= cond$groups
+  for (k in which(post_c)) {
+    rows[[length(rows) + 1]] <- parity_row(
+      module    = MODULE,
+      statistic = sprintf("ddd_%s_g%d_t%d", method, cond$groups[k], cond$periods[k]),
+      estimate  = cond$ATT[k],
+      se        = cond$se[k],
+      n         = nrow(df)
+    )
+  }
+  agg_c <- agg_ddd(cond, type = "simple")$aggte_ddd
+  rows[[length(rows) + 1]] <- parity_row(
+    module    = MODULE,
+    statistic = sprintf("simple_ATT_%s", method),
+    estimate  = agg_c$overall.att,
+    se        = agg_c$overall.se,
+    n         = nrow(df)
+  )
+}
+
 write_results(MODULE, rows, extra = list(
   reference = "triplediff::ddd + agg_ddd(type='simple')",
   triplediff = as.character(utils::packageVersion("triplediff"))

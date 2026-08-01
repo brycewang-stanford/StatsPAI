@@ -69,6 +69,7 @@ Scope & caveats
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -77,7 +78,9 @@ from scipy import stats
 
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, NumericalInstability
 from . import _core as _dc
+from ._ddd_dr import DDDCellFit, ddd_dr_cell
 
 
 def ddd_heterogeneous(
@@ -93,6 +96,10 @@ def ddd_heterogeneous(
     alpha: float = 0.05,
     seed: Optional[int] = None,
     weight_by: str = "eligible",
+    x: Optional[List[str]] = None,
+    est_method: str = "dr",
+    se: Optional[str] = None,
+    control_group: str = "nevertreated",
 ) -> CausalResult:
     """Heterogeneity-robust DDD estimator for staggered adoption panels.
 
@@ -137,6 +144,47 @@ def ddd_heterogeneous(
         identical either way. The default is left on ``"eligible"``
         because changing it would move the number existing callers get
         back; ``model_info["weight_by"]`` records which was used.
+    x : list of str, optional
+        Base-period covariates. Identification then rests on *conditional*
+        DDD parallel trends: the three two-by-two comparisons behind the
+        estimand each get a propensity score and an outcome regression,
+        combined doubly robustly.
+    est_method : {"dr", "ipw", "reg"}, default "dr"
+        Doubly robust (consistent if either nuisance is right), inverse
+        probability weighting (needs the propensity score), or outcome
+        regression (needs the regression). With no covariates all three
+        collapse to the same unconditional difference of means.
+    control_group : {"nevertreated", "notyettreated"}, default "nevertreated"
+        Which units serve as controls. ``"notyettreated"`` adds cohorts
+        treated after the comparison period, run against the treated cohort
+        one control cohort at a time and combined by minimum distance
+        (inverse-covariance weights), which is the structure the reference
+        implementation uses.
+
+        .. warning::
+           The not-yet-treated path does NOT reproduce ``triplediff`` 0.2.4's
+           numbers, on purpose. Its per-control-cohort estimates agree with
+           ours exactly, but it writes each cohort's influence function into
+           the panel-length vector using a boolean index of the wrong length
+           -- R prints "number of items to replace is not a multiple of
+           replacement length" on every such call -- so the combined
+           influence function picks up units that appear in no comparison,
+           and that feeds the weights, the estimate and the standard error.
+           Cells where the comparison happens to span the whole panel are
+           unaffected and do agree. See
+           ``tests/reference_parity/test_ddd_triplediff_parity.py``.
+    se : {"analytic", "bootstrap"}, optional
+        ``"analytic"`` uses the influence functions -- exact, fast, and what
+        ``triplediff`` reports. ``"bootstrap"`` clusters on ``unit`` and is
+        the only path that fills in ``model_info['placebo_joint_test']``,
+        because that test needs the joint covariance of the placebo arms
+        rather than of the DDD.
+
+        Defaults to ``"bootstrap"`` without covariates (unchanged from
+        earlier releases, and it keeps the placebo test) and to
+        ``"analytic"`` with them, where there is no prior behaviour to
+        preserve and the bootstrap would refit both nuisances inside every
+        draw. ``model_info['se_method']`` records the resolved choice.
 
     Returns
     -------
@@ -186,6 +234,37 @@ def ddd_heterogeneous(
 
     if weight_by not in {"eligible", "cohort"}:
         raise ValueError(f"weight_by must be 'eligible' or 'cohort', got {weight_by!r}")
+    if control_group not in {"nevertreated", "notyettreated"}:
+        raise ValueError(
+            "control_group must be 'nevertreated' or 'notyettreated', got "
+            f"{control_group!r}"
+        )
+    if est_method not in {"dr", "ipw", "reg"}:
+        raise ValueError(f"est_method must be 'dr', 'ipw' or 'reg', got {est_method!r}")
+    covars = list(x or [])
+    if se is None:
+        # Without covariates the cluster bootstrap is what this function has
+        # always reported, and it is what carries the placebo joint test, so
+        # it stays the default. With covariates there is no prior behaviour
+        # to preserve and the bootstrap would refit the propensity score and
+        # outcome regression inside every draw, so the analytic
+        # influence-function variance -- which is also the reference's --
+        # is the sensible default.
+        se = "analytic" if covars else "bootstrap"
+    if se not in {"analytic", "bootstrap"}:
+        raise ValueError(f"se must be 'analytic' or 'bootstrap', got {se!r}")
+    for _c in covars:
+        if _c not in df.columns:
+            raise ValueError(f"Covariate {_c!r} not in data")
+    if covars and se == "bootstrap":
+        warnings.warn(
+            "ddd_heterogeneous: covariates are supplied with se='bootstrap'. "
+            "The cluster bootstrap refits the propensity score and outcome "
+            "regression inside every draw -- valid, but far slower than the "
+            "analytic influence-function variance and no more accurate.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     if not set(df[subgroup].dropna().unique()) <= {0, 1}:
         raise ValueError(f"subgroup column {subgroup!r} must be binary 0/1")
@@ -197,15 +276,19 @@ def ddd_heterogeneous(
     treated_cohorts = [g for g in cohort_vals if g != never_value]
     if not treated_cohorts:
         raise ValueError("No treated cohorts found (all units are never-treated).")
-    if never_value not in df[cohort].values:
+    if control_group == "nevertreated" and never_value not in df[cohort].values:
         raise ValueError(
             f"No never-treated units (cohort == {never_value!r}) found. "
-            "The not-yet-treated control variant is on the roadmap."
+            "Pass control_group='notyettreated' to use later-treated cohorts "
+            "as controls instead."
         )
 
     # Compute per-(g, t) DDD decomposition
     def _estimate(work_df: pd.DataFrame) -> Dict[str, Any]:
+        units = pd.Index(sorted(work_df[unit].unique()))
+        positions = pd.Series(np.arange(len(units)), index=units)
         return _compute_ddd_gt(
+            unit_positions=positions,
             df=work_df,
             y=y,
             unit=unit,
@@ -215,9 +298,28 @@ def ddd_heterogeneous(
             treated_cohorts=treated_cohorts,
             never_value=never_value,
             weight_by=weight_by,
+            covars=covars,
+            est_method=est_method,
+            control_group=control_group,
         )
 
     main = _estimate(df)
+
+    if se == "analytic":
+        return _finish_analytic(
+            main=main,
+            df=df,
+            unit=unit,
+            cohort=cohort,
+            subgroup=subgroup,
+            never_value=never_value,
+            alpha=alpha,
+            weight_by=weight_by,
+            est_method=est_method,
+            control_group=control_group,
+            covars=covars,
+            treated_cohorts=treated_cohorts,
+        )
 
     # Cluster bootstrap for SE
     boot_overall = np.full(n_boot, np.nan)
@@ -284,8 +386,344 @@ def ddd_heterogeneous(
             "n_boot": n_boot,
             "cluster_var": unit,
             "weight_by": weight_by,
+            "est_method": est_method,
+            "control_group": control_group,
+            "se_method": "bootstrap",
+            "covariates": list(covars),
         },
     )
+
+
+def _finish_analytic(
+    *,
+    main: Dict[str, Any],
+    df: pd.DataFrame,
+    unit: str,
+    cohort: str,
+    subgroup: str,
+    never_value: Any,
+    alpha: float,
+    weight_by: str,
+    est_method: str,
+    control_group: str,
+    covars: List[str],
+    treated_cohorts: List[Any],
+) -> CausalResult:
+    """Aggregate the cells through their influence functions.
+
+    Three things this has to get right, each of which would silently
+    understate the standard error if skipped:
+
+    1. **Rescaling.** Each cell's influence function is normalised by the
+       units in its own two-period subsample. Before the cells can be
+       combined they are put on the full-panel scale, ``psi * n / n_cell``.
+    2. **Covariance.** The cells share control units, so they are combined
+       as functions and squared once at the end, not squared individually
+       and summed.
+    3. **Estimated weights.** The aggregation weights are cohort shares
+       estimated from the same data, and that estimation has its own
+       influence. The correction is the Callaway-Sant'Anna ``wif`` term.
+    """
+    cells = main["cell_estimates"]
+    z_crit = float(stats.norm.ppf(1 - alpha / 2))
+    all_units = pd.Index(sorted(df[unit].unique()))
+    n_units = len(all_units)
+    pos = pd.Series(np.arange(n_units), index=all_units)
+
+    # Unit-level cohort and eligibility, taken once per unit.
+    first = df.drop_duplicates(subset=[unit]).set_index(unit).reindex(all_units)
+    unit_cohort = first[cohort].to_numpy()
+    unit_eligible = first[subgroup].to_numpy().astype(float)
+
+    def _pg_indicator(g: Any) -> np.ndarray:
+        in_cohort = (unit_cohort == g).astype(float)
+        if weight_by == "cohort":
+            return in_cohort
+        return in_cohort * unit_eligible
+
+    ind = np.column_stack([_pg_indicator(c["cohort"]) for c in cells])
+    pg = ind.mean(axis=0)
+    total = float(pg.sum())
+    if total <= 0:
+        w = np.full(len(cells), 1.0 / len(cells))
+        wif = None
+    else:
+        w = pg / total
+        # Callaway-Sant'Anna weight influence: d/d(pg) of the normalised
+        # weights, applied to the cell estimates.
+        if1 = (ind - pg[None, :]) / total
+        if2 = np.outer((ind - pg[None, :]).sum(axis=1), pg / total**2)
+        wif = if1 - if2
+
+    psi = np.zeros(n_units, dtype=float)
+    for weight, cell in zip(w, cells):
+        psi += weight * cell["_influence"]
+    if wif is not None:
+        psi = psi + wif @ np.array([float(c["ddd"]) for c in cells])
+
+    est = float(main["ddd_overall"])
+    se_overall = float(np.sqrt(np.mean(psi**2) / n_units))
+    if se_overall > 0 and np.isfinite(se_overall):
+        z = est / se_overall
+        p = float(2 * (1 - stats.norm.cdf(abs(z))))
+        ci = (est - z_crit * se_overall, est + z_crit * se_overall)
+    else:
+        p = np.nan
+        ci = (np.nan, np.nan)
+
+    detail_df = pd.DataFrame(
+        [{k: v for k, v in c.items() if not k.startswith("_")} for c in cells]
+    )
+    return CausalResult(
+        method="DDD — heterogeneity-robust group-time decomposition",
+        estimand="ATT_DDD aggregated across cohort × time",
+        estimate=est,
+        se=se_overall,
+        pvalue=p,
+        ci=ci,
+        alpha=alpha,
+        n_obs=int(len(df)),
+        detail=detail_df,
+        model_info={
+            "n_cohorts": len(treated_cohorts),
+            "n_cells": len(cells),
+            # The placebo joint test needs the joint covariance of the
+            # unaffected-subgroup arms, which the analytic path does not
+            # build: its influence functions are for the DDD, not for that
+            # component. se='bootstrap' still reports it.
+            "placebo_joint_test": None,
+            "n_boot": 0,
+            "cluster_var": unit,
+            "weight_by": weight_by,
+            "est_method": est_method,
+            "control_group": control_group,
+            "se_method": "analytic",
+            "covariates": list(covars),
+            "n_units": n_units,
+            "influence_function": psi,
+        },
+    )
+
+
+def _cell_arrays(
+    frame: pd.DataFrame,
+    *,
+    y: str,
+    unit: str,
+    time: str,
+    cohort: str,
+    subgroup: str,
+    g: Any,
+    t_pre: Any,
+    t_post: Any,
+    covars: List[str],
+):
+    """Reduce a two-period frame to one row per unit.
+
+    Returns ``(ids, cell_codes, dy, X)`` or ``None`` when the cell cannot
+    support a triple difference. Only units observed in BOTH periods count:
+    a unit missing either end has no outcome change.
+    """
+    pre = frame[frame[time] == t_pre].set_index(unit)
+    post = frame[frame[time] == t_post].set_index(unit)
+    ids = pre.index.intersection(post.index)
+    if len(ids) == 0:
+        return None
+    pre = pre.loc[ids]
+    post = post.loc[ids]
+
+    dy = post[y].to_numpy(dtype=float) - pre[y].to_numpy(dtype=float)
+    treated = (pre[cohort].to_numpy() == g).astype(int)
+    eligible = pre[subgroup].to_numpy().astype(int)
+    # 4 treated+eligible, 3 treated+ineligible, 2 untreated+eligible,
+    # 1 untreated+ineligible -- the reference implementation's coding.
+    cell = np.where(
+        (treated == 1) & (eligible == 1),
+        4,
+        np.where(
+            (treated == 1) & (eligible == 0),
+            3,
+            np.where(eligible == 1, 2, 1),
+        ),
+    )
+    if len(np.unique(cell)) < 4:
+        # A missing corner makes the triple difference unidentified.
+        return None
+
+    if covars:
+        X = np.column_stack(
+            [np.ones(len(ids))] + [pre[c].to_numpy(dtype=float) for c in covars]
+        )
+        if not np.all(np.isfinite(X)):
+            raise DataInsufficient(
+                "ddd_heterogeneous: covariates contain non-finite values in "
+                f"the base period of cohort {g!r}.",
+                diagnostics={"cohort": g, "t_pre": t_pre},
+            )
+    else:
+        X = None
+    return np.asarray(ids), cell, dy, X
+
+
+def _ddd_cell_fit(
+    *,
+    df: pd.DataFrame,
+    y: str,
+    unit: str,
+    time: str,
+    cohort: str,
+    subgroup: str,
+    g: Any,
+    t_pre: Any,
+    t_post: Any,
+    never_value: Any,
+    covars: List[str],
+    est_method: str,
+    control_group: str = "nevertreated",
+    unit_positions: Optional[pd.Series] = None,
+) -> Optional[Dict[str, Any]]:
+    """One ``ATT_DDD(g, t)`` cell, with its influence function on the panel.
+
+    The influence function comes back on the FULL unit vector already scaled
+    to the panel (``psi * n / n_cell``), so callers can weight and add the
+    cells without knowing how each was assembled. That matters most for the
+    not-yet-treated control group, where a cell is not one comparison but a
+    minimum-distance combination over several.
+    """
+    keep = df[df[time].isin([t_pre, t_post])]
+    n_panel = (
+        len(unit_positions) if unit_positions is not None else keep[unit].nunique()
+    )
+
+    if control_group != "notyettreated":
+        frame = keep[(keep[cohort] == g) | (keep[cohort] == never_value)]
+        arrays = _cell_arrays(
+            frame,
+            y=y,
+            unit=unit,
+            time=time,
+            cohort=cohort,
+            subgroup=subgroup,
+            g=g,
+            t_pre=t_pre,
+            t_post=t_post,
+            covars=covars,
+        )
+        if arrays is None:
+            return None
+        ids, cell, dy, X = arrays
+        fit = ddd_dr_cell(cell=cell, dy=dy, X=X, est_method=est_method)
+        psi = np.zeros(n_panel, dtype=float)
+        if unit_positions is not None:
+            psi[unit_positions.reindex(ids).to_numpy()] = (
+                n_panel / len(ids)
+            ) * fit.influence
+        return {
+            "att": float(fit.att),
+            "influence": psi,
+            "n_cell": int(len(ids)),
+            "n_controls": 1,
+        }
+
+    # Not-yet-treated: the later-treated cohorts are NOT pooled into one
+    # control group. The DDD is run against each control cohort separately
+    # and the results combined by minimum distance, weighting by the inverse
+    # covariance of their influence functions -- the structure the reference
+    # implementation uses. Pooling instead would be a different estimator.
+    #
+    # ⚠️ The NUMBERS here do not match triplediff 0.2.4 on this path, and
+    # deliberately so. Its per-control-cohort estimates agree with ours
+    # exactly, but it writes each cohort's influence function into the
+    # panel-length vector with a boolean index of the wrong length -- R
+    # warns "number of items to replace is not a multiple of replacement
+    # length" on every not-yet-treated call. The combined influence function
+    # then carries nonzero entries for units in no comparison at all (on the
+    # parity fixture, all 150 units of a cohort that is neither treated nor
+    # a control for that cell), and that feeds the minimum-distance weights,
+    # the combined estimate and the standard error. Reproducing it would
+    # mean encoding an upstream indexing defect. The never-treated path is
+    # unaffected and is what carries the parity claim.
+    max_period = max(t_pre, t_post)
+    is_control = (keep[cohort] == never_value) | (
+        (keep[cohort] > max_period) & (keep[cohort] != g)
+    )
+    scope = keep[(keep[cohort] == g) | is_control]
+    if scope.empty:
+        return None
+    size_gt = scope[unit].nunique()
+    controls = sorted(
+        c
+        for c in scope.loc[
+            is_control.reindex(scope.index, fill_value=False), cohort
+        ].unique()
+        if c != g
+    )
+    if not controls:
+        return None
+
+    atts: List[float] = []
+    cols: List[np.ndarray] = []
+    for ctrl in controls:
+        frame = keep[(keep[cohort] == g) | (keep[cohort] == ctrl)]
+        arrays = _cell_arrays(
+            frame,
+            y=y,
+            unit=unit,
+            time=time,
+            cohort=cohort,
+            subgroup=subgroup,
+            g=g,
+            t_pre=t_pre,
+            t_post=t_post,
+            covars=covars,
+        )
+        if arrays is None:
+            continue
+        ids, cell, dy, X = arrays
+        fit = ddd_dr_cell(cell=cell, dy=dy, X=X, est_method=est_method)
+        col = np.zeros(n_panel, dtype=float)
+        if unit_positions is not None:
+            col[unit_positions.reindex(ids).to_numpy()] = (
+                n_panel / len(ids)
+            ) * fit.influence
+        atts.append(float(fit.att))
+        cols.append(col)
+
+    if not atts:
+        return None
+    if len(atts) == 1:
+        return {
+            "att": atts[0],
+            "influence": cols[0],
+            "n_cell": int(size_gt),
+            "n_controls": 1,
+        }
+
+    inf_mat = np.column_stack(cols)
+    omega = np.cov(inf_mat, rowvar=False)
+    try:
+        inv_omega = np.linalg.inv(omega)
+    except np.linalg.LinAlgError as exc:
+        raise NumericalInstability(
+            "ddd_heterogeneous(control_group='notyettreated'): the control "
+            f"cohorts for (g={g!r}, t={t_post!r}) have a singular influence "
+            "covariance, so the minimum-distance weights are not identified. "
+            "Use control_group='nevertreated', or drop a control cohort.",
+            diagnostics={"cohort": g, "time": t_post, "n_controls": len(atts)},
+        ) from exc
+    total = float(inv_omega.sum())
+    w = inv_omega.sum(axis=0) / total
+    return {
+        "att": float(np.sum(w * np.asarray(atts)) / float(w.sum())),
+        "influence": inf_mat @ w,
+        "n_cell": int(size_gt),
+        "n_controls": len(atts),
+        # Minimum-distance variance -- the reference's formula, and the right
+        # one for a GLS-weighted combination. It is NOT the same number as
+        # sqrt(mean(psi^2)/n) off the combined influence function, because
+        # the covariance is mean-centred and uses n-1.
+        "cell_se": float(np.sqrt(1.0 / (n_panel * total))),
+    }
 
 
 def _compute_ddd_gt(
@@ -299,6 +737,10 @@ def _compute_ddd_gt(
     treated_cohorts: List[Any],
     never_value: Any,
     weight_by: str = "eligible",
+    covars: Optional[List[str]] = None,
+    est_method: str = "dr",
+    control_group: str = "nevertreated",
+    unit_positions: Optional[pd.Series] = None,
 ) -> Dict[str, Any]:
     """Compute the DDD decomposition per (g, t) cell + aggregated.
 
@@ -352,15 +794,55 @@ def _compute_ddd_gt(
                 continue
             n_cohort_units = int(cohort_df[unit].nunique())
 
+            # The doubly-robust cell. With no covariates this reproduces the
+            # 2x2x2 difference of means above exactly (the propensity score
+            # and the outcome regression are both constants, so they cancel),
+            # which is why the two paths agree bit for bit when x is None.
+            fit = _ddd_cell_fit(
+                unit_positions=unit_positions,
+                df=df,
+                y=y,
+                unit=unit,
+                time=time,
+                cohort=cohort,
+                subgroup=subgroup,
+                g=g,
+                t_pre=pre_period,
+                t_post=t,
+                never_value=never_value,
+                covars=covars or [],
+                est_method=est_method,
+                control_group=control_group,
+            )
+            if fit is None:
+                continue
+
             cells.append(
                 {
                     "cohort": g,
                     "time": t,
                     "did_affected": float(did_b1),
                     "did_placebo": float(did_b0),
-                    "ddd": float(did_b1 - did_b0),
+                    "ddd": float(fit["att"]),
+                    # NOT fit.se. The reference reports two different
+                    # standard errors for the same influence function: the
+                    # standalone two-period call uses sd(psi)/sqrt(n) (the
+                    # n-1 denominator), while the multi-period path
+                    # recomputes it from the rescaled full-panel vector as
+                    # sqrt(mean(psi^2)/n). They differ in the fourth digit.
+                    # This is the multi-period path, so use its convention.
+                    "se": float(
+                        fit.get(
+                            "cell_se",
+                            np.sqrt(
+                                np.mean(fit["influence"] ** 2) / len(fit["influence"])
+                            ),
+                        )
+                    ),
                     "n_treated_affected": int(n_treated_affected),
                     "n_cohort_units": n_cohort_units,
+                    "_influence": fit["influence"],
+                    "_n_controls": fit["n_controls"],
                 }
             )
 
