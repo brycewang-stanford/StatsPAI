@@ -38,6 +38,45 @@ All notable changes to StatsPAI will be documented in this file.
   and documented in `docs/rfc/rd_three_month_plan.md` appendix C.
   `cluster=` may be affected the same way — unverified.
 - `sp.rdrobust` has no `vce=` parameter; R exposes `hc0`–`hc3` and `cr*`.
+### Fixed
+
+- **⚠️ §10: the citation auditor could not see the shape this repo writes
+  citations in.** A full run over `src/` and `docs/` now reports **596 OK /
+  0 mismatch** across all 238 unique arXiv, NBER and DOI identifiers, every
+  one resolved against its primary source. Getting there required fixing the
+  auditor, not the citations — and the most important fix explains how three
+  fabricated attributions survived it for two months.
+
+  `diff_citation` correctly identified the phantom surname, then discarded it
+  for not being "in author position". The position test accepted
+  `Surname, J.`, `Surname & Other`, `Surname and Other`, `Surname et al.` and
+  `Surname (` — but not `Surname YEAR`, which is exactly StatsPAI's house
+  style: `(Kiciman-Sharma 2025, arXiv 2402.11068)`, `(Sharma-Xue 2025)`,
+  `(Wüthrich-Zhu 2025, arXiv 2505.09706)`. All three June 2026 fabrications
+  had that shape. A regression test pins it.
+
+  Precision fixes, each paired with a test proving the fabrication it must
+  *not* suppress is still caught:
+
+  - transliteration folding (`ß`→`ss`, `ø`→`o`, `ı`→`i`, …) — arXiv writes
+    "Hess" where OpenAlex and `paper.bib` write "Heß", so a correctly cited
+    name was reported as both missing and phantom;
+  - markdown emphasis spans stripped like quoted ones, so an italicised
+    *title* in a `docs/guides` reference list stops donating words like
+    "Landscape" to the author position;
+  - CJK clause separators (`、`/`。`/`；`) narrow the claim block, so a
+    Chinese planning doc listing eight unrelated authors above an arXiv id
+    no longer attributes them to it;
+  - non-adjacent parenthesised citations dropped — `(Lei-Candes 2021)` two
+    clauses away belongs to a different paper — while the parenthetical
+    *next to* the id is kept and checked;
+  - an unclosed quote/emphasis marker means the span runs past the id, so a
+    retraction note quoting the error it retracts is no longer flagged as
+    committing it;
+  - all-caps tokens treated as acronyms (`IEEE DSAA 2016`, `CGS 2024`) and
+    possessives folded to the bare surname (`StatsPAI's`).
+
+  11 new tests (56→59 in `tests/test_audit_citations.py`).
 
 ### Added
 

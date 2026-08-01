@@ -184,6 +184,8 @@ SURNAME_RE = re.compile(r"\b[A-ZÄÖÜÀ-ÞŠŽČŚŃŁ][a-zA-ZäöüßÀ-ÿšž
 
 # Tokens that LOOK like a surname but are decidedly not.
 SURNAME_STOPWORDS = {
+    # The project's own name, which appears beside years all over the docs.
+    "statspai",
     # months
     "jan",
     "feb",
@@ -589,6 +591,29 @@ _APOSTROPHE_FOLD = str.maketrans(
     }
 )
 
+# Letters that are NOT diacritics and therefore survive NFD decomposition, but
+# which bibliographic sources transliterate freely. arXiv renders Konstantin
+# Heß's surname as "Hess" while OpenAlex and this repo's own paper.bib entry
+# (``schroder2024conformal``) write "Heß"; without a fold the auditor reports
+# the correctly-cited name as both a missing author and a phantom coauthor.
+# The same applies to Nordic and Turkish letters we already have in
+# SURNAME_RE's character class.
+_TRANSLITERATE = {
+    "ß": "ss",
+    "ø": "o",
+    "Ø": "o",
+    "æ": "ae",
+    "Æ": "ae",
+    "œ": "oe",
+    "Œ": "oe",
+    "ı": "i",  # Turkish dotless i — Kıcıman
+    "İ": "i",
+    "đ": "d",
+    "Đ": "d",
+    "ð": "d",
+    "þ": "th",
+}
+
 
 def _strip_diacritics(s: str) -> str:
     """NFD + drop combining marks, preserve case and punctuation."""
@@ -607,6 +632,9 @@ def _normalise(s: str) -> str:
     """
     s = s.translate(_APOSTROPHE_FOLD)
     s = _strip_diacritics(s).lower()
+    for src, dst in _TRANSLITERATE.items():
+        if src in s or src.lower() in s:
+            s = s.replace(src, dst).replace(src.lower(), dst)
     s = _PUNCT_TO_SPACE.sub(" ", s)
     return " ".join(s.split())  # collapse whitespace
 
@@ -1096,6 +1124,17 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         "mis-attributed",
         "misattributed",
         "typo",
+        # Retraction and audit narratives. A CHANGELOG entry that says
+        # 'X was cited as "Wrong-Name YEAR"; the verified authors are ...'
+        # necessarily *contains* the wrong attribution — that is the point
+        # of writing it down. Flagging it forever would mean the only way
+        # to keep the audit clean is to never document a citation fix.
+        "fabricated",
+        "hallucinated",
+        "retraction",
+        "the verified authors are",
+        "verified authors",
+        "refs verified",
     )
     _claim_block_lower = c.claim_block.lower()
     is_fix_meta = any(m in _claim_block_lower for m in _fix_meta_markers)
@@ -1169,12 +1208,83 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     # leaked title word to be hand-added to SURNAME_STOPWORDS.
     before_id = re.sub(r'"[^"]*"', " ", before_id)
     before_id = re.sub(r"“[^”]*”", " ", before_id)
+    # Markdown emphasis is the same problem in a different costume. The
+    # reference lists in ``docs/guides/*.md`` italicise titles rather than
+    # quoting them:
+    #
+    #     - Wan, G., Lu, Y., Wu, Y., Hu, M. & Li, S. (2024).
+    #       *Large Language Models for Causal Discovery: Current Landscape
+    #       and Future Directions.*  arXiv:2402.11068.
+    #
+    # which leaks "Landscape" into the author position and flags it as a
+    # phantom coauthor. Strip emphasised spans for exactly the reason the
+    # quoted-span strip above gives: an invented author still appears
+    # OUTSIDE the title markup, so fabricated-author detection is untouched.
+    # Non-greedy and newline-aware, since these titles wrap across lines.
+    before_id = re.sub(r"\*\*(.+?)\*\*", " ", before_id, flags=re.S)
+    before_id = re.sub(r"(?<!\w)\*(.+?)\*(?!\w)", " ", before_id, flags=re.S)
+    before_id = re.sub(r"(?<!\w)_(.+?)_(?!\w)", " ", before_id, flags=re.S)
     # Narrow the phantom-detection scope to discriminate multi-citation
     # text. We start from ``before_id`` (everything before this
     # citation's id) and chop off any earlier arXiv / NBER id matches —
     # their preceding author blocks belong to those other citations,
     # not this one. Then we further narrow on semicolon (the common
     # stacked-ref separator).
+    # A parenthesised author-year citation that carries no id of its own
+    # still belongs to a *different* paper. In
+    #
+    #     Extends conformal_cate (Lei-Candes 2021) along two axes
+    #     highlighted by the 2025 systematic review ... (arXiv:2509.21660)
+    #
+    # "Lei-Candes 2021" is a correct citation — for conformal_cate, not for
+    # 2509.21660, whose authors are Memmesheimer, Heuveline & Hesser. The
+    # id-based chopping below cannot help because that citation has no id to
+    # chop at. Same principle, different marker: drop complete "(Name YEAR)"
+    # spans, which by construction cannot contain the id we are verifying.
+
+    def _drop_other_paren_citations(text: str) -> str:
+        # Keep the parenthetical that sits *immediately* before the id — that
+        # one is this citation's own author block ("(Morgan & Winship 2020)
+        # arXiv:2510.21110"). Everything earlier belongs to some other work.
+        out, last_end = [], 0
+        for m in re.finditer(r"\([^()]*\b(?:19|20|21)\d{2}[a-z]?\)", text):
+            # ``before_id`` stops at the id *digits*, so the kind prefix
+            # ("arXiv:", "NBER WP", "doi:") still sits between the
+            # parenthetical and the id. Ignore it when testing adjacency —
+            # otherwise "(Morgan & Winship 2020) arXiv:2510.21110" reads as
+            # non-adjacent and this strips the citation's own author block.
+            tail = re.sub(
+                r"(?:ar\s*xiv|nber|working\s+paper|wp|doi)\s*[:.]?\s*$",
+                "",
+                text[m.end() :].strip(),
+                flags=re.IGNORECASE,
+            )
+            adjacent = tail.strip(" \t\r\n.,;:—-") == ""
+            out.append(
+                text[last_end : m.end()]
+                if adjacent
+                else text[last_end : m.start()] + " "
+            )
+            last_end = m.end()
+        out.append(text[last_end:])
+        return "".join(out)
+
+    # A quoted or emphasised span that *contains* the id leaves only an
+    # unclosed opening marker in ``before_id``, so the paired strips above
+    # cannot see it. This is the shape a retraction note takes:
+    #
+    #     cited *"Kiciman-Sharma 2025, arXiv 2402.11068"*. arXiv 2402.11068
+    #     is **Wan, Lu, Wu, Hu & Li (2024)**
+    #
+    # Documenting a fixed misattribution necessarily reproduces it; without
+    # this the only way to keep the audit clean would be to never write the
+    # correction down. An odd marker count means the span runs past the id,
+    # so everything from it onward is quoted material, not a claim.
+    for marker in ('"', "*", "_"):
+        if before_id.count(marker) % 2 == 1:
+            before_id = before_id[: before_id.rfind(marker)]
+
+    before_id = _drop_other_paren_citations(before_id)
     for other_re in (ARXIV_RE, NBER_RE, DOI_RE, _PANDOC_CITE_RE):
         other_matches = list(other_re.finditer(before_id))
         if other_matches:
@@ -1221,8 +1331,18 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         before_id,
         flags=re.IGNORECASE,
     )
-    semi_m = re.search(r";\s*[^;]*$", before_id)
-    head = semi_m.group(0) if semi_m else before_id
+    # Narrow to the last clause. Semicolon is the usual stacked-reference
+    # separator in English prose; this repo's planning docs are written in
+    # Chinese, where the enumeration comma 、 and full stop 。 play the same
+    # role. Without them, a "authors still to verify" list like
+    #
+    #     Abadie (2002 JASA)、Callaway & Li (2019 QE)、Frölich & Melly …
+    #     `kan_dlate` 的 arXiv 2506.12765 作者归属必须核验后才能保留
+    #
+    # puts eight unrelated surnames in the claim block for an id whose sole
+    # author is Charles Shaw, and every one of them reports as a phantom.
+    clause_m = re.search(r"[;；。、]\s*[^;；。、]*$", before_id)
+    head = clause_m.group(0) if clause_m else before_id
     head_tokens = set(_normalise(head).split())
     candidates: set[str] = set()
     # Detect Python-style PascalCase class names (e.g. ``FunctionSpec``,
@@ -1240,7 +1360,22 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
         # Skip obvious Python class identifiers before normalising
         if _class_suffix_re.search(tok) or _camel_internal_re.match(tok):
             continue
+        # An all-caps token is an acronym, not a surname: venue names
+        # ("IEEE DSAA 2016"), author initialisms ("CGS 2024" for
+        # Callaway-Goodman-Bacon-Sant'Anna), method shorthands. Surnames in
+        # this repo's prose are always Titlecase. This matters specifically
+        # because acronyms are usually written next to a year, which is
+        # author position under the bare-year rule below.
+        if len(tok) >= 2 and tok.isupper():
+            continue
         norm = _normalise(tok)
+        # Possessive form: "StatsPAI's", "Imbens's". _normalise keeps the
+        # apostrophe on purpose (O'Neill, Sant'Anna), so strip a trailing
+        # "'s" here instead — a possessive surname is the same surname, and
+        # without this the stopword list would need a second entry for every
+        # word that ever appears possessively.
+        if norm.endswith("'s") and len(norm) > 3:
+            norm = norm[:-2]
         if norm in SURNAME_STOPWORDS:
             continue
         # Hyphen-compound titles (e.g. "Difference-in-Differences",
@@ -1262,7 +1397,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
     phantoms = candidates - truth_lasts
     # Also drop common non-author words that slip through:
     phantoms = {p for p in phantoms if p not in SURNAME_STOPWORDS}
-    if phantoms and truth_lasts:
+    if phantoms and truth_lasts and not is_fix_meta:
         # A phantom counts as "used as an author" only when the surname
         # is directly followed by an author-list punctuation (comma-
         # initial, ampersand, "and", "et al.", opening paren). Covers
@@ -1284,6 +1419,21 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
             # was anti-conservative". Real author lists always have an
             # uppercase next token (initial, ampersand-then-name,
             # "and Surname", etc.).
+            #
+            # The bare-year alternative closes the hole that let all three
+            # of the June 2026 fabrications through this gate. StatsPAI's
+            # house citation style is ``(Lastname-Lastname YEAR, arXiv ID)``
+            # — "(Kiciman-Sharma 2025, arXiv 2402.11068)",
+            # "(Sharma-Xue 2025)", "(Wüthrich-Zhu 2025, arXiv 2505.09706)".
+            # A surname followed by a bare year matched none of the markers
+            # above: "(" only fires for "Smith (2020)", and the comma form
+            # needs an initial after it, not a digit. So the auditor
+            # correctly identified the phantom, then discarded it for not
+            # being "in author position" — in the one position this repo
+            # actually writes authors in. Surname + 4-digit year is
+            # unambiguous in citation prose, and the token has already
+            # survived stopword, length, class-name and title-word filters
+            # before it reaches here.
             patt = re.compile(
                 rf"\b{re.escape(p)}\b"  # surname
                 rf"\s*"
@@ -1293,6 +1443,7 @@ def diff_citation(c: Citation, truth: PaperMeta) -> list[str]:
                 rf"  | \s+and\s+(?-i:[A-Z][a-z])"  # " and Smith"
                 rf"  | \s+et\s+al"  # " et al"
                 rf"  | \s*\("  # " ("
+                rf"  | \s+(?:19|20|21)\d{{2}}\b"  # " 2025" — see below
                 rf")",
                 re.IGNORECASE | re.VERBOSE,
             )

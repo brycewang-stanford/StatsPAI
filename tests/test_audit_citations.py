@@ -726,3 +726,203 @@ def test_main_nonstrict_unresolved_returns_0(tmp_repo, monkeypatch):
         ["--roots", "src", "docs", "--kinds", "arxiv", "--out", str(tmp_repo / "r.md")]
     )
     assert rc == 0  # non-strict: unresolved alone never fails
+
+
+# ---------------------------------------------------------------------------
+# Precision fixes (2026-08): transliteration folding, markdown emphasis,
+# CJK clause narrowing. Each removed a false positive from the live audit.
+#
+# The risk in every one of these is the same: a filter that suppresses noise
+# can also suppress signal. So each is paired with a test proving the
+# fabricated-author case it must NOT suppress is still caught. A citation
+# auditor that cries wolf gets ignored, and one that has been quietly blunted
+# is worse than none — it certifies.
+# ---------------------------------------------------------------------------
+
+
+def test_normalise_folds_eszett_and_nordic_letters():
+    """ß and friends survive NFD, so they need an explicit fold.
+
+    arXiv renders Konstantin Heß as "Hess"; OpenAlex and this repo's own
+    ``schroder2024conformal`` entry write "Heß". Without the fold the audit
+    reported the *correctly* cited name as both a missing author and a
+    phantom coauthor at ``src/statspai/ope/__init__.py:8``.
+    """
+    assert ac._normalise("Heß") == ac._normalise("Hess") == "hess"
+    assert ac._normalise("Kıcıman") == ac._normalise("Kiciman") == "kiciman"
+    assert ac._normalise("Nørgaard") == "norgaard"
+    assert ac._normalise("Æsop") == "aesop"
+
+
+def test_emphasised_title_words_are_not_phantom_authors():
+    """Markdown italics are the docs/guides reference-list convention."""
+    truth = ac.PaperMeta(
+        authors=["Guangya Wan", "Yunsheng Lu", "Yuqi Wu", "Mengxuan Hu", "Sheng Li"],
+        title="Large Language Models for Causal Discovery",
+        year=2024,
+        source="arxiv",
+    )
+    c = _make_citation(
+        "- Wan, G., Lu, Y., Wu, Y., Hu, M. & Li, S. (2024).\n"
+        "  *Large Language Models for Causal Discovery: Current Landscape\n"
+        "  and Future Directions.*  arXiv:2402.11068.",
+        id="2402.11068",
+    )
+    assert ac.diff_citation(c, truth) == []
+
+
+def test_fabricated_author_outside_emphasis_is_still_caught():
+    """The regression that started all of this must still fail.
+
+    ``causal_llm`` shipped "(Kiciman-Sharma 2025, arXiv 2402.11068)" for two
+    months. 2402.11068 is Wan et al. (2024). If the emphasis strip had been
+    written greedily it would swallow the author position too and this would
+    now pass silently.
+    """
+    truth = ac.PaperMeta(
+        authors=["Guangya Wan", "Yunsheng Lu", "Yuqi Wu", "Mengxuan Hu", "Sheng Li"],
+        title="Large Language Models for Causal Discovery",
+        year=2024,
+        source="arxiv",
+    )
+    c = _make_citation(
+        "LLM-assisted DAG proposal (Kiciman-Sharma 2025, arXiv 2402.11068).",
+        id="2402.11068",
+    )
+    issues = ac.diff_citation(c, truth)
+    assert issues, "a fabricated author list must still be flagged"
+    assert any("kiciman" in i.lower() or "sharma" in i.lower() for i in issues)
+
+
+def test_cjk_enumeration_narrows_the_claim_block():
+    """Chinese planning docs use 、 and 。 where English uses ';'."""
+    truth = ac.PaperMeta(authors=["Charles Shaw"], title="T", year=2025, source="arxiv")
+    c = _make_citation(
+        "Abadie (2002 JASA)、Callaway & Li (2019 QE)、Frölich & Melly (2013 JBES)。\n"
+        "`kan_dlate` 的 arXiv 2506.12765 作者归属必须核验后才能保留该函数。",
+        id="2506.12765",
+    )
+    assert ac.diff_citation(c, truth) == []
+
+
+def test_fabricated_author_after_the_cjk_separator_is_still_caught():
+    """Narrowing must not become a way to hide an invented author."""
+    truth = ac.PaperMeta(authors=["Charles Shaw"], title="T", year=2025, source="arxiv")
+    c = _make_citation(
+        "前面的方法家族待核验。\n" "分布式 IV (Kennedy & Pearl 2025, arXiv 2506.12765) 归属存疑。",
+        id="2506.12765",
+    )
+    issues = ac.diff_citation(c, truth)
+    assert issues, "an invented author in the *final* clause must still flag"
+
+
+def test_quoted_retraction_note_is_not_itself_a_violation():
+    """Writing down a fixed misattribution must not re-trigger the audit.
+
+    The CHANGELOG entry retracting the ``causal_llm`` error necessarily
+    reproduces the wrong string. The quote runs *past* the id, so only an
+    unclosed opening marker survives into the claim block.
+    """
+    truth = ac.PaperMeta(
+        authors=["Guangya Wan", "Yunsheng Lu", "Yuqi Wu", "Mengxuan Hu", "Sheng Li"],
+        title="T",
+        year=2024,
+        source="arxiv",
+    )
+    c = _make_citation(
+        'cited *"Kiciman-Sharma 2025, arXiv 2402.11068"*. '
+        "arXiv 2402.11068 is Wan, Lu, Wu, Hu & Li (2024)",
+        id="2402.11068",
+    )
+    assert ac.diff_citation(c, truth) == []
+
+
+def test_unquoted_fabrication_on_the_same_line_still_fires():
+    """The quote strip must not become a blanket amnesty."""
+    truth = ac.PaperMeta(
+        authors=["Guangya Wan", "Yunsheng Lu"], title="T", year=2024, source="arxiv"
+    )
+    c = _make_citation(
+        'A "properly quoted title" and then (Kiciman-Sharma 2025, arXiv 2402.11068)',
+        id="2402.11068",
+    )
+    assert ac.diff_citation(c, truth), "balanced quotes must not suppress the claim"
+
+
+def test_adjacent_paren_citation_is_kept_but_earlier_ones_are_dropped():
+    """Only the parenthetical *next to* the id belongs to it."""
+    truth = ac.PaperMeta(
+        authors=["Pascal Memmesheimer", "Vincent Heuveline", "Jürgen Hesser"],
+        title="T",
+        year=2025,
+        source="arxiv",
+    )
+    # "Lei-Candes 2021" correctly cites a *different* paper two clauses away.
+    ok = _make_citation(
+        "Extends conformal_cate (Lei-Candes 2021) along two axes highlighted "
+        "by the 2025 systematic review (arXiv:2509.21660)",
+        id="2509.21660",
+    )
+    assert ac.diff_citation(ok, truth) == []
+    # But an author block sitting directly on the id is this citation's own.
+    bad = _make_citation(
+        "the review (Lei-Candes 2021, arXiv:2509.21660)", id="2509.21660"
+    )
+    assert ac.diff_citation(bad, truth), "the adjacent author block must be checked"
+
+
+def test_allcaps_acronym_beside_a_year_is_not_a_surname():
+    """Venue and initialism acronyms sit next to years constantly.
+
+    "IEEE DSAA 2016", "CGS 2024" (Callaway-Goodman-Bacon-Sant'Anna). The
+    bare-year rule puts anything before a year in author position, so
+    without the acronym rule every conference name became a phantom author.
+    """
+    truth = ac.PaperMeta(
+        authors=["David Benkeser", "Mark Van Der Laan"],
+        title="T",
+        year=2016,
+        source="doi",
+    )
+    c = _make_citation(
+        "`@benkeser2016highly` — IEEE DSAA 2016, pp. 689-696, "
+        "doi 10.1109/DSAA.2016.93",
+        kind="doi",
+        id="10.1109/DSAA.2016.93",
+    )
+    assert ac.diff_citation(c, truth) == []
+
+
+def test_titlecase_fabrication_beside_a_year_still_fires():
+    """The acronym rule keys on all-caps, so ordinary names are untouched."""
+    truth = ac.PaperMeta(
+        authors=["David Benkeser", "Mark Van Der Laan"],
+        title="T",
+        year=2016,
+        source="doi",
+    )
+    c = _make_citation(
+        "the highly-adaptive lasso (Pearl-Rubin 2016, doi 10.1109/DSAA.2016.93)",
+        kind="doi",
+        id="10.1109/DSAA.2016.93",
+    )
+    assert ac.diff_citation(c, truth), "a Titlecase phantom must still be caught"
+
+
+def test_possessive_form_resolves_to_the_bare_surname():
+    assert ac._normalise("StatsPAI's") == "statspai's"  # _normalise keeps it
+    # ...and the candidate loop strips it, so the stopword list needs
+    # only the bare form.
+    truth = ac.PaperMeta(
+        authors=["Victor Chernozhukov", "Chris Hansen", "Martin Spindler"],
+        title="T",
+        year=2016,
+        source="doi",
+    )
+    c = _make_citation(
+        "StatsPAI's port of hdm (Chernozhukov, Hansen & Spindler, 2016, "
+        "doi 10.32614/RJ-2016-040)",
+        kind="doi",
+        id="10.32614/RJ-2016-040",
+    )
+    assert ac.diff_citation(c, truth) == []
