@@ -509,9 +509,9 @@ def test_validation_claim_lint_covers_release_notes() -> None:
     assert "CHANGELOG.md" in payload["required_snippet_files"]
     assert "docs/agent_cards_spec.md" in payload["required_snippet_files"]
     assert "docs/guides/agent_native_workflow.md" in payload["required_snippet_files"]
-    assert payload["claim_counts"]["certified"] == 66
-    assert payload["claim_counts"]["validated"] == 276
-    assert payload["claim_counts"]["api_stable"] == 800
+    assert payload["claim_counts"]["certified"] == 70
+    assert payload["claim_counts"]["validated"] == 297
+    assert payload["claim_counts"]["api_stable"] == 783
     assert payload["claim_counts"]["experimental"] == 3
 
 
@@ -525,13 +525,13 @@ def test_validation_evidence_audit_separates_grade_from_supplemental_notes() -> 
     summary = payload["summary"]
 
     assert payload["status"] == "PASS"
-    assert summary["certified_validated_symbols"] == 342
-    assert summary["certified_symbols"] == 66
-    assert summary["validated_symbols"] == 276
+    assert summary["certified_validated_symbols"] == 367
+    assert summary["certified_symbols"] == 70
+    assert summary["validated_symbols"] == 297
     assert summary["certified_without_certified_grade_evidence"] == 0
     assert summary["validated_without_validated_grade_evidence"] == 0
     assert summary["supplemental_only_symbols"] == 0
-    assert summary["symbols_with_limitations"] == 9
+    assert summary["symbols_with_limitations"] == 13
     for key in (
         "certified_validated_symbols",
         "certified_symbols",

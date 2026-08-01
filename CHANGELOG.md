@@ -6,6 +6,14 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **The JSS release-manifest tests pinned a census three drifts behind.**
+  `tests/test_jss_release_manifest.py` asserted 66 `certified` / 276
+  `validated` / 800 `api_stable` and a 342-symbol scoped-validation surface.
+  Live: **70 / 297 / 783** and **367**, plus `symbols_with_limitations`
+  9 → **13**. The pin is deliberate — it is a ratchet on what the paper
+  claims — so it is re-pinned to the verified live values rather than
+  loosened.
+
 - **Registry-census numbers in the stability guide and JSS source dossier
   re-synced to the live registry.** The published census had drifted a full
   tier cycle behind: 1,145 → **1,153** registered public functions, and the
