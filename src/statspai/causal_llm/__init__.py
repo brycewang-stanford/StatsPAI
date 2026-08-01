@@ -5,7 +5,7 @@ Three integration points where large language models help causal
 analysis without replacing the formal estimator:
 
 * :func:`llm_dag_propose` — propose candidate DAGs from variable
-  names + domain description (Kiciman-Sharma 2025, arXiv 2402.11068).
+  names + domain description (kiciman2023causal, arXiv 2305.00050).
 * :func:`llm_unobserved_confounders` — generate plausible unobserved
   confounder candidates for E-value sensitivity analysis
   (arXiv 2603.14273).
@@ -22,39 +22,26 @@ return reproducible candidates derived from variable-name pattern
 matching and domain heuristics, not silent fabrications.
 """
 
-from .llm_dag import llm_dag_propose, LLMDAGProposal
-from .llm_evalue import (
-    llm_unobserved_confounders,
-    UnobservedConfounderProposal,
-)
-from .llm_sensitivity import (
-    llm_sensitivity_priors,
-    SensitivityPriorProposal,
-)
-from .causal_mas import causal_mas, CausalMASResult
-from .llm_clients import (
-    LLMClient,
-    openai_client,
-    anthropic_client,
-    echo_client,
-)
-from .llm_dag_loop import (
-    llm_dag_constrained,
-    llm_dag_validate,
-    LLMConstrainedDAGResult,
-    DAGValidationResult,
-)
+from ._config import DEFAULT_MODELS as DEFAULT_LLM_MODELS
+from ._config import config_path as llm_config_path
+from ._config import load_config as load_llm_config
 from ._resolver import (
+    LLMConfigurationError,
+    configure_llm,
     get_llm_client,
     list_available_providers,
-    configure_llm,
-    LLMConfigurationError,
 )
-from ._config import (
-    config_path as llm_config_path,
-    load_config as load_llm_config,
-    DEFAULT_MODELS as DEFAULT_LLM_MODELS,
+from .causal_mas import CausalMASResult, causal_mas
+from .llm_clients import LLMClient, anthropic_client, echo_client, openai_client
+from .llm_dag import LLMDAGProposal, llm_dag_propose
+from .llm_dag_loop import (
+    DAGValidationResult,
+    LLMConstrainedDAGResult,
+    llm_dag_constrained,
+    llm_dag_validate,
 )
+from .llm_evalue import UnobservedConfounderProposal, llm_unobserved_confounders
+from .llm_sensitivity import SensitivityPriorProposal, llm_sensitivity_priors
 
 __all__ = [
     "llm_dag_propose",

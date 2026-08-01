@@ -110,7 +110,7 @@ inequality summaries.
 
 ---
 
-## Distributional IV — `sp.dist_iv` (Sharma-Xue 2025)
+## Distributional IV — `sp.dist_iv` (Holovchak et al. 2025)
 
 IV at every quantile, with a uniform band over τ:
 

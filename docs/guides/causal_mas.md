@@ -5,7 +5,7 @@
 
 ## 1. Why multi-agent?
 
-Single-prompt LLM causal-discovery pipelines (Kiciman-Sharma 2025) are
+Single-prompt LLM causal-discovery pipelines (Kıcıman et al. 2023) are
 brittle: one model run produces one DAG, and you have no audit trail
 to tell a confident but wrong edge from a cautious correct one.
 
@@ -194,6 +194,10 @@ Explicit kwargs always win over the name heuristic.
   *Causal MAS: A Survey of Large Language Model Architectures for
   Discovery and Effect Estimation.*
 - Wan, G., Lu, Y., Wu, Y., Hu, M. & Li, S. (2024).
-  *Enhancing Causal Discovery with Large Language Models.*  arXiv:2402.11068.
+  *Large Language Models for Causal Discovery: Current Landscape and
+  Future Directions.*  arXiv:2402.11068.
+- Kıcıman, E., Ness, R., Sharma, A. & Tan, C. (2023).
+  *Causal Reasoning and Large Language Models: Opening a New Frontier
+  for Causality.*  arXiv:2305.00050.  [`kiciman2023causal`]
 - Anthropic (2025).
   *Extended Thinking in Claude 4.5 / Opus 4.7.*  Technical report.

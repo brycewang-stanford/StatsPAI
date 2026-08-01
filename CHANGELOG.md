@@ -6,6 +6,47 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **⚠️ §10: three fabricated author attributions on real arXiv IDs, plus two
+  `author={Anonymous}` placeholders in `paper.bib`.** An audit in June 2026
+  had already found the first group. Its fix was committed to a branch that
+  never reached `main`, so the wrong attributions shipped for two months
+  while the auditor that caught them sat unused. Corrected now, each
+  re-verified against two independent sources (the canonical arXiv abstract
+  page and OpenAlex) rather than trusted from the earlier commit message:
+
+  - `sp.llm_dag_propose` (`causal_llm/llm_dag.py`, `causal_llm/__init__.py`)
+    and `docs/guides/causal_mas.md` cited *"Kiciman-Sharma 2025, arXiv
+    2402.11068"*. arXiv 2402.11068 is **Wan, Lu, Wu, Hu & Li (2024)**,
+    *Large Language Models for Causal Discovery: Current Landscape and
+    Future Directions*. The intended reference is **Kıcıman, Ness, Sharma &
+    Tan (2023)**, arXiv **2305.00050** — already in `paper.bib`, correctly,
+    as `kiciman2023causal`. Note the June fix itself said "Kıcıman, Ness &
+    Sharma", dropping the fourth author.
+  - `docs/guides/causal_mas.md` also gave the Wan et al. entry the wrong
+    *title* (*"Enhancing Causal Discovery with Large Language Models"*),
+    which survived the June pass.
+  - `docs/guides/qte_family.md` headed `sp.dist_iv` with *"Sharma-Xue
+    2025"*; arXiv 2502.07641 is **Holovchak, Saengkyongam, Meinshausen &
+    Shen (2025)**, *Distributional Instrumental Variable Method*.
+  - `paper.bib` carried `author={Anonymous}` for `cohort_anchored2025` and
+    `design_robust_es2026` while the corresponding docstrings named specific
+    people. Here the docstrings were right: arXiv 2509.01829 is **Ziyi Liu
+    (2025)** and arXiv 2601.18801 is **Craig S. Wright (2026)**. Both
+    entries now carry the verified authors and a DOI.
+  - Added `hess2025efficient` for arXiv 2502.13022 (**Heß, Frauen,
+    Melnychuk & Feuerriegel, 2025**), cited by `sp.ope` but absent from the
+    bibliography.
+
+  New offline guard `tests/test_citation_attribution_drift.py` (10 tests)
+  cross-checks every parenthesised author attribution sitting next to an
+  arXiv ID in `src/` and `docs/` against `paper.bib`. The existing
+  `tools/audit_citations.py` needs a network and someone to run it; this
+  runs in CI. It is proven to discriminate rather than merely pass: the
+  three real regressions are asserted to fire and their corrected forms to
+  stay silent.
+
+### Fixed
+
 - **⚠️ Retraction: `sp.xtabond` never had a gapped-panel divergence.**
   StatsPAI shipped a warning telling users that on panels with interior time
   gaps its coefficients differ from Stata's `xtabond2` by 2-6% because of an

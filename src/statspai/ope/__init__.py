@@ -4,20 +4,21 @@ policy from data collected under a different behaviour policy. Covers
 contextual bandits and off-policy reinforcement learning evaluation.
 
 Implemented: DM, IPS, SNIPS, DR, Switch-DR, sharp OPE under
-unobserved confounding (Hess, Frauen, Melnychuk & Feuerriegel 2025,
-arXiv:2502.13022), causal-policy forest (Kato 2025, arXiv:2512.22846).
+unobserved confounding (Heß, Frauen, Melnychuk & Feuerriegel 2025,
+arXiv:2502.13022) [@hess2025efficient], causal-policy forest
+(Kato 2025, arXiv:2512.22846).
 """
 
 from typing import Any
 
 from .estimators import (
+    OPEResult,
     direct_method,
+    doubly_robust,
+    evaluate,
     ips,
     snips,
-    doubly_robust,
     switch_dr,
-    evaluate,
-    OPEResult,
 )
 
 __all__ = [
