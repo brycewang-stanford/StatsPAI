@@ -87,4 +87,5 @@ Module & Method & Worst headline diff & Verdict \\
 \code{71\_dml\_family} & DML family (IRM / PLIV / IIVM) & rel $\le 9.1e-11$ {\footnotesize (shared explicit fold_id across all three DoubleML model classes; PLIV at the floating-point floor, IRM/IIVM limited by the logistic-MLE optimiser)} & \textbf{PASS} \\
 \code{72\_tmle} & TMLE (targeting step) & rel $\le 1.9e-09$ {\footnotesize (shared initial Q / g1W; per-arm fluctuation matching tmle::tmle's submodel)} & \textbf{PASS} \\
 \code{73\_did2s} & Gardner two-stage DiD & rel $\le 4.8e-08$ {\footnotesize (point estimate rel < 1e-6; SE is a documented convention gap (did2s propagates stage-1 estimation error, sp.gardner_did's vce='analytic' does not -- vce='bootstrap' recovers it to ~6\%))} & \textbf{PASS} \\
+\code{74\_cic} & Changes-in-Changes (ATT + QTE) & rel $\le 2.4e-15$ {\footnotesize (machine precision vs qte::CiC (worst 4.4e-15))} & \textbf{PASS} \\
 \end{longtable}

@@ -1,0 +1,119 @@
+{
+  "module": "74_cic",
+  "side": "py",
+  "rows": [
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "cic_ATT",
+      "estimate": 1.9093840083473141,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_10",
+      "estimate": 2.0151496760089884,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_20",
+      "estimate": 1.9456534143320656,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_30",
+      "estimate": 1.8739660376778127,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_40",
+      "estimate": 1.8443935881427735,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_50",
+      "estimate": 1.6790715633169067,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_60",
+      "estimate": 1.769226898321368,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_70",
+      "estimate": 1.8119778338518215,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_80",
+      "estimate": 1.8889555871352144,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    },
+    {
+      "module": "74_cic",
+      "side": "py",
+      "statistic": "qte_90",
+      "estimate": 2.0279427843601425,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1200,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "estimator": "cic"
+  }
+}

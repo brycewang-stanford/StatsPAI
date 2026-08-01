@@ -25,15 +25,15 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 138 |
+| bit-exact | 139 |
 | aligned | 10 |
-| analytical-only | 215 |
+| analytical-only | 214 |
 | external-replication | 6 |
 | **verified (subtotal)** | **369** |
 | unverified | 784 |
 | **total registered** | **1153** |
 
-## bit-exact — 138 functions
+## bit-exact — 139 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -53,6 +53,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `bootstrap` | nonparametric bootstrap contract (Efron 1979) | R 4.5.2 | estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10% | — / — | [`test_bootstrap_parity.py`](../tests/reference_parity/test_bootstrap_parity.py) |
 | `breakdown_frontier` | additive-violation breakdown identities (Masten & Poirier 2021) | R 4.5.2 | breakdown point / CI / bounds 1e-12 abs (observed 0) | — / — | [`test_breakdown_frontier_parity.py`](../tests/reference_parity/test_breakdown_frontier_parity.py) |
 | `callaway_santanna` | did::att_gt + aggte | R 4.5.2; did 2.3.0 | rel_est<=1e-06, rel_se<=0.01 | 1.3e-15 / 1.3e-15 | [`04_csdid.py`](../tests/r_parity/04_csdid.py) (+2) |
+| `cic` | qte::CiC | R 4.5.2 | rel_est<=1e-06 | 2.4e-15 / — | [`74_cic.py`](../tests/r_parity/74_cic.py) (+1) |
 | `clogit` | survival::clogit | R 4.5.2; survival 3.8.3 | rel_est<=1e-06, rel_se<=1e-06 | 1.3e-08 / 1.3e-08 | [`46_clogit.py`](../tests/r_parity/46_clogit.py) (+2) |
 | `clustering` | local clustering coefficient (Watts-Strogatz 1998) | R 4.5.2 | coefficient 1e-12 abs (observed 0) | — / — | [`test_network_centrality_parity.py`](../tests/reference_parity/test_network_centrality_parity.py) |
 | `cohen_kappa` | base-R closed form (Cohen's kappa point estimate) | R 4.5.2 | kappa + agreements 1e-12 abs (observed ~1e-16); SE not pinned | — / — | [`test_epi_extra_parity.py`](../tests/reference_parity/test_epi_extra_parity.py) (+1) |
@@ -208,7 +209,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 215 functions
+## analytical-only — 214 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -240,7 +241,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `causal_kalman` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `causal_policy_forest` | [`test_ope_parity.py`](../tests/reference_parity/test_ope_parity.py) |
 | `check_absorbing` | [`test_absorbing_reference.py`](../tests/reference_parity/test_absorbing_reference.py) |
-| `cic` | [`test_qdid_parity.py`](../tests/reference_parity/test_qdid_parity.py) |
 | `clone_censor_weight` | [`test_target_trial_parity.py`](../tests/reference_parity/test_target_trial_parity.py) |
 | `cluster_cate` | [`test_ml_causal_recovery_parity_round2.py`](../tests/reference_parity/test_ml_causal_recovery_parity_round2.py) |
 | `cluster_cross_interference` | [`test_cluster_cross_interference_parity.py`](../tests/reference_parity/test_cluster_cross_interference_parity.py) |

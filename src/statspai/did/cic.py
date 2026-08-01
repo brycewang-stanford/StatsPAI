@@ -49,6 +49,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ..exceptions import MethodIncompatibility
 
 _SUPPORTED_FIRST_STAGE = ("feols",)
 
@@ -636,6 +637,19 @@ def cic(
         qte_point = obs_q11 - cf_q_at_tau
 
     # ── Bootstrap ─────────────────────────────────────────────────── #
+    # CIC has no analytic variance here, so the bootstrap is the only source
+    # of standard errors. n_boot=0 used to fall through and surface as a raw
+    # numpy IndexError from taking a quantile of an empty array; say what is
+    # actually wrong instead (CLAUDE.md section 7).
+    if n_boot < 1:
+        raise MethodIncompatibility(
+            f"n_boot={n_boot} but CIC standard errors come only from the "
+            "bootstrap; there is no analytic variance to fall back on.",
+            recovery_hint="Pass n_boot >= 1 (500 is the default; a few "
+            "hundred is usually enough for the ATT).",
+            diagnostics={"n_boot": int(n_boot)},
+        )
+
     rng = np.random.RandomState(seed)
     boot_att = np.empty(n_boot)
     boot_qte = np.empty((n_boot, len(qte_taus))) if qte_taus is not None else None

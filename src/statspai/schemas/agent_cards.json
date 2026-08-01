@@ -18790,7 +18790,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: certified parity evidence.",
     "example": "sp.cic(df, y=\"y\", group=\"d\", time=\"t\")",
     "failure_modes": [
       {
@@ -18810,7 +18810,7 @@
     ],
     "reference": "Athey & Imbens (2006) Econometrica 74(2) [@athey2006identification]",
     "signature": {
-      "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: certified parity evidence.",
       "name": "cic",
       "parameters": {
         "properties": {
@@ -18881,10 +18881,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
-      "tests/reference_parity/test_qdid_parity.py",
+      "R parity module 74_cic",
       "API/unit contract evidence: tests/test_did_frontiers.py"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

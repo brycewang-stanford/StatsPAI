@@ -10369,7 +10369,7 @@
     }
   },
   {
-    "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "Changes-in-Changes (Athey & Imbens 2006). Nonparametric quantile DiD that identifies the full counterfactual outcome distribution for treated units, not just the mean. Reports quantile treatment effects (QTE) via empirical-CDF transformation; bootstrap SE. Validation: certified parity evidence.",
     "name": "cic",
     "parameters": {
       "properties": {

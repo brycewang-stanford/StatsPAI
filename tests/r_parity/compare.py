@@ -45,6 +45,11 @@ PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
+    "74_cic": (
+        "Kranker's ssc cic is a port of the Athey-Imbens Matlab and is the "
+        "Stata counterpart, but it is not installed in the verified local "
+        "runtime; R qte::CiC is the reference used here."
+    ),
     "73_did2s": (
         "no Stata implementation: Gardner's two-stage estimator ships as "
         "the R package did2s and has no ssc counterpart, so the R side is "
@@ -264,6 +269,9 @@ STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 #     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # CIC: ATT and all nine QTEs match qte::CiC at machine precision
+    # (worst 4.4e-15). No rel_se -- the R call runs se=FALSE.
+    "74_cic": {"rel_est": 1e-6},
     # Gardner two-stage: point estimate matches did2s at 4.8e-08. The SE
     # is deliberately NOT given a rel_se tolerance -- did2s propagates
     # stage-1 estimation error into the stage-2 variance and
@@ -918,6 +926,15 @@ HEADLINE: dict[str, dict[str, Any]] = {
             "(did2s propagates stage-1 estimation error, sp.gardner_did's "
             "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
         ),
+    },
+    "74_cic": {
+        "name": "Changes-in-Changes (ATT + QTE)",
+        "headline_filter": lambda d: (
+            d.statistic == "cic_ATT" or d.statistic.startswith("qte_")
+        ),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "machine precision vs qte::CiC (worst 4.4e-15)",
     },
     "05_sunab": {
         "name": "Sun--Abraham event study",

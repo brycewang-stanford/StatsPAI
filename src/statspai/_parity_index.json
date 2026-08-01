@@ -1120,21 +1120,61 @@
       "tolerance": ""
     },
     {
-      "function": "cic",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
+        "tests/reference_parity/test_cic_qte_parity.py",
         "tests/reference_parity/test_qdid_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "cic",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.3509775077537334e-15,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "cic_ATT",
+          "qte_10",
+          "qte_20",
+          "qte_30",
+          "qte_40",
+          "qte_50",
+          "qte_60",
+          "qte_70",
+          "qte_80",
+          "qte_90"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Changes-in-Changes (ATT + QTE)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "74_cic",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.3509775077537334e-15,
+        "Stata": null
+      },
+      "python_call": "sp.cic",
+      "reference": "qte::CiC",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/74_cic.py",
+        "tests/r_parity/74_cic.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
     },
     {
       "function": "clogit",
