@@ -95,13 +95,40 @@ def _make_check_min_n(
     return _fn
 
 
+#: Spellings that name the same column. The house style is migrating from
+#: the left-hand names to ``treatment`` / ``outcome`` (see
+#: ``scripts/signature_house_style.py``), so a check that recognised only
+#: one of each pair rejected the *canonical* spelling: preflight returned
+#: FAIL for ``treatment=`` while ``treat=`` passed, which meant every MCP
+#: DiD preflight failed, since the tool schema advertises ``treatment``.
+_ARG_ALIASES: Dict[str, Tuple[str, ...]] = {
+    "treat": ("treat", "treatment"),
+    "treatment": ("treatment", "treat"),
+    "y": ("y", "outcome", "depvar"),
+    "outcome": ("outcome", "y", "depvar"),
+    "time": ("time", "period", "t"),
+}
+
+
+def _resolve_arg(kwargs: Dict[str, Any], arg_name: str) -> Any:
+    """First non-None value among ``arg_name`` and its accepted aliases."""
+    for name in _ARG_ALIASES.get(arg_name, (arg_name,)):
+        value = kwargs.get(name)
+        if value is not None:
+            return value
+    return None
+
+
 def _column_exists(
     data: pd.DataFrame, kwargs: Dict[str, Any], arg_name: str
 ) -> CheckResult:
-    col = kwargs.get(arg_name)
+    col = _resolve_arg(kwargs, arg_name)
     if col is None:
+        accepted = _ARG_ALIASES.get(arg_name, (arg_name,))
+        spellings = " / ".join(repr(a) for a in accepted)
         return _failed(
-            f"required argument {arg_name!r} not provided.",
+            f"required argument {arg_name!r} not provided "
+            f"(accepted spellings: {spellings}).",
             arg_name=arg_name,
         )
     if col not in data.columns:

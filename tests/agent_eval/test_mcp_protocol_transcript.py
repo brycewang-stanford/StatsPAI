@@ -9,6 +9,7 @@ ready-to-run follow-up calls, and provenance from the loaded CSV.
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -72,8 +73,14 @@ def test_mcp_agent_empirical_analysis_transcript(tmp_path: Path) -> None:
         request_id=10,
     )
     assert design["isError"] is False
-    assert "design" in design["structuredContent"]
-    assert "candidates" in design["structuredContent"]
+    # Not just "a design key exists" — this CSV is an id x time panel, so
+    # name it, and check the detector read the panel's real shape.
+    dpayload = design["structuredContent"]
+    assert dpayload["design"] == "panel"
+    top = dpayload["candidates"][0]
+    assert top["unit"] == "id" and top["time"] == "time"
+    assert top["n_units"] == 300 and top["n_periods"] == 2
+    assert dpayload["n_obs"] == 600
 
     preflight = _call_tool(
         "preflight",
@@ -87,8 +94,14 @@ def test_mcp_agent_empirical_analysis_transcript(tmp_path: Path) -> None:
         request_id=11,
     )
     assert preflight["isError"] is False
-    assert "verdict" in preflight["structuredContent"]
-    assert "checks" in preflight["structuredContent"]
+    # "verdict" merely existing is satisfied by FAIL. This panel is
+    # well-formed, so demand PASS: preflight used to reject the canonical
+    # `treatment=` spelling its own schema advertises and fail every time.
+    ppayload = preflight["structuredContent"]
+    assert ppayload["verdict"] == "PASS", [
+        c for c in ppayload["checks"] if c.get("status") != "passed"
+    ]
+    assert all(c["status"] == "passed" for c in ppayload["checks"])
 
     fit = _call_tool(
         "did",
@@ -104,7 +117,14 @@ def test_mcp_agent_empirical_analysis_transcript(tmp_path: Path) -> None:
     )
     payload = fit["structuredContent"]
     assert fit["isError"] is False
-    assert isinstance(payload.get("estimate"), (int, float))
+    # isinstance(..., float) passes for any number at all. Pin the value
+    # against the 2x2 difference-in-means computed straight from the CSV.
+    frame = pd.read_csv(csv)
+    cells = frame.groupby(["treat", "post"])["y"].mean()
+    hand_did = (cells[(1, 1)] - cells[(1, 0)]) - (cells[(0, 1)] - cells[(0, 0)])
+    assert payload["estimate"] == pytest.approx(float(hand_did), rel=1e-9)
+    assert payload["n_obs"] == len(frame)
+    assert payload["estimand"] == "ATT"
     rid = payload.get("result_id")
     assert isinstance(rid, str) and rid.startswith("r_"), payload
     assert payload["data_provenance"]["source"] == str(csv)
@@ -118,7 +138,13 @@ def test_mcp_agent_empirical_analysis_transcript(tmp_path: Path) -> None:
         request_id=13,
     )
     assert audit["isError"] is False
-    assert "checks" in audit["structuredContent"]
+    # An empty checks list would satisfy `"checks" in payload`.
+    checks = audit["structuredContent"]["checks"]
+    assert checks, "audit_result returned no checks"
+    assert {"name", "status"} <= set(checks[0])
+    assert any(
+        c["name"] == "parallel_trends" for c in checks
+    ), "a DiD audit that never mentions parallel trends is not an audit"
 
     sensitivity = _call_tool(
         "sensitivity_from_result",
@@ -126,7 +152,20 @@ def test_mcp_agent_empirical_analysis_transcript(tmp_path: Path) -> None:
         request_id=14,
     )
     assert sensitivity["isError"] is False
-    assert sensitivity["structuredContent"]["source_result_id"] == rid
+    spayload = sensitivity["structuredContent"]
+    assert spayload["source_result_id"] == rid
+    # This tool returned nothing but source_result_id — a plain-dict result
+    # serialised to an empty payload — and the handle assertion above stayed
+    # green through it. Check the number, against sp.evalue_from_result.
+    expected_ev = sp.evalue_from_result(
+        sp.did(frame, y="y", treat="treat", time="post")
+    )
+    assert spayload["evalue_estimate"] == pytest.approx(
+        expected_ev["evalue_estimate"], rel=1e-9
+    )
+    assert spayload["rr_estimate"] == pytest.approx(
+        expected_ev["rr_estimate"], rel=1e-9
+    )
 
     stale = _call_tool(
         "audit_result",
@@ -189,7 +228,11 @@ def test_detect_design_honors_column_hints(tmp_path: Path) -> None:
         request_id=20,
     )
     assert out["isError"] is False
-    assert "design" in out["structuredContent"]
+    # Hints must steer the detector, not merely be tolerated.
+    hinted = out["structuredContent"]
+    assert hinted["design"] == "panel"
+    assert hinted["candidates"][0]["unit"] == "id"
+    assert hinted["candidates"][0]["time"] == "post"
 
 
 def test_curated_result_handle_injection(tmp_path: Path) -> None:
@@ -219,7 +262,36 @@ def test_curated_result_handle_injection(tmp_path: Path) -> None:
         request_id=22,
     )
     assert honest["isError"] is False, honest["structuredContent"]
-    assert "_unsupported_args" not in honest["structuredContent"]
+    hpayload = honest["structuredContent"]
+    assert "_unsupported_args" not in hpayload
+
+    # honest_did returns a sensitivity curve over M, so assert the property
+    # that makes it a sensitivity curve: relaxing the smoothness bound can
+    # only widen the interval, and once the breakdown point is crossed the
+    # null stays inside. A degenerate or constant payload fails this;
+    # "no unsupported args" would not notice.
+    order = sorted(hpayload["M"], key=lambda k: int(k))
+    m_grid = [hpayload["M"][k] for k in order]
+    lows = [hpayload["ci_lower"][k] for k in order]
+    highs = [hpayload["ci_upper"][k] for k in order]
+    rejects = [hpayload["rejects_zero"][k] for k in order]
+
+    assert len(m_grid) >= 3
+    assert m_grid == sorted(m_grid), "M grid must be increasing"
+    assert m_grid[0] == pytest.approx(0.0), "the grid should start at M=0"
+    assert all(math.isfinite(v) for v in lows + highs)
+    assert all(lo < hi for lo, hi in zip(lows, highs))
+
+    widths = [hi - lo for lo, hi in zip(lows, highs)]
+    assert all(
+        b >= a - 1e-9 for a, b in zip(widths, widths[1:])
+    ), f"widening M must not tighten the interval: {widths}"
+    assert widths[-1] > widths[0], "the curve never responds to M"
+
+    # Rejection can only be lost as M grows, never regained.
+    if False in rejects:
+        first_false = rejects.index(False)
+        assert not any(rejects[first_false:])
 
     cs_csv = _cross_section_csv(tmp_path)
     reg = _call_tool(
@@ -244,8 +316,6 @@ def test_curated_result_handle_injection(tmp_path: Path) -> None:
     # independently: standardise by the outcome SD, map to a risk ratio
     # (VanderWeele & Ding 2017, RR = exp(0.91 * d)), then
     # E = RR + sqrt(RR * (RR - 1)).
-    import math
-
     frame = pd.read_csv(cs_csv)
     fit = sp.regress("y ~ treat + x1 + x2", frame, robust="HC1")
     d = float(fit.params["treat"]) / float(frame["y"].std(ddof=1))
@@ -278,4 +348,17 @@ def test_spec_curve_multiverse_schema(tmp_path: Path) -> None:
     assert out["isError"] is False, out["structuredContent"]
     payload = out["structuredContent"]
     assert "_unsupported_args" not in payload
-    assert payload.get("n_specs", 0) >= 1
+    # 2 control sets x 2 SE types is 4 specifications, not "at least 1".
+    assert payload["n_specs"] == 4
+    frame = pd.read_csv(csv)
+    # The SE type does not move the point estimate, so each control set
+    # contributes its beta twice across the four specifications.
+    betas = [
+        float(sp.regress(f"y ~ treat + {' + '.join(ctrl)}", frame).params["treat"])
+        for ctrl in (["x1"], ["x1", "x2"])
+    ]
+    assert payload["median_estimate"] == pytest.approx(
+        float(np.median(betas * 2)), rel=1e-6
+    )
+    assert 0.0 <= payload["share_significant"] <= 1.0
+    assert 0.0 <= payload["share_positive"] <= 1.0

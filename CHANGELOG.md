@@ -347,6 +347,22 @@ All notable changes to StatsPAI will be documented in this file.
   caller's `treat` and dropped it, returning the intercept's sensitivity to
   agents; it now forwards it.
 
+- **`sp.preflight` rejected the canonical `treatment=` spelling.** Its
+  column checks read `kwargs["treat"]` only, so `sp.preflight(df, "did",
+  treatment="treat", ...)` reported `required argument 'treat' not
+  provided` and returned **FAIL** — while the legacy `treat=` passed. The
+  house style is migrating *towards* `treatment`, and the MCP tool schema
+  advertises it, so every MCP DiD preflight failed. Checks now accept the
+  documented aliases (`treat`/`treatment`, `y`/`outcome`, `time`/`period`)
+  and the failure message lists the spellings it will take.
+
+- **`sensitivity_from_result(method="evalue")` returned no E-value.**
+  `sp.evalue_from_result` hands back a plain dict, which has no `to_dict`
+  and no `estimate` attribute, so `_default_serializer` fell through to the
+  field-by-field branch and produced an empty payload: an agent got
+  `source_result_id` and citations, and nothing else. The serialiser now
+  passes a dict through unchanged — it is already JSON-serialisable.
+
 - **The MCP `sensitivity` tool returned no numbers at all.**
   `SensitivityDashboard` had no `to_dict`, so the generic serialiser fell
   back to hunting for `estimate` / `se` fields, found none on a dashboard,

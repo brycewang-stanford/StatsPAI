@@ -69,6 +69,15 @@ def _default_serializer(r: Any, *, detail: str = "agent") -> Dict[str, Any]:
     for older result types that don't accept the ``detail`` kwarg, and
     finally to the field-by-field extraction below.
     """
+    # Some estimators already return a plain dict (``sp.evalue_from_result``
+    # and friends). A dict has no ``to_dict`` and no ``estimate`` attribute,
+    # so it used to fall all the way through to the field-by-field branch
+    # and come back empty — which is why the MCP ``sensitivity_from_result``
+    # tool returned nothing but a ``source_result_id``. It is already
+    # JSON-serialisable; pass it through.
+    if isinstance(r, dict):
+        return dict(r)
+
     to_dict = getattr(r, "to_dict", None)
     if callable(to_dict):
         # Preferred: caller-chosen detail level. Use ``inspect.signature``
