@@ -244,6 +244,79 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Fixed
 
+- **⚠️ Correctness: `sp.pretrends_power` answered a different question than
+  the paper it cites.** The docstring said "implements the power calculation
+  from Roth (2022)", and the number returned was the power of the *joint
+  Wald* test that every pre-period coefficient is zero. That is not what
+  Roth (2022) analyses, and it is not what his `pretrends` package computes.
+  The pre-test in the paper is the one analysts actually run: look at the
+  event-study plot, object if *any* pre-period coefficient is individually
+  significant. Its power is a multivariate-normal rectangle probability, not
+  a non-central chi-squared tail.
+
+  The two are not close. On the reference fixture, at a linear violation of
+  slope 0.02, the coefficient-by-coefficient test has power 0.332 and the
+  joint Wald test 0.157 — a factor of more than two, in the direction that
+  makes a passed pre-test look *less* informative than it is. Nor are they
+  comparable at face value: the joint test has size exactly `alpha`, while
+  the eyeball test rejects with probability above `alpha` under the null,
+  because each of the K coefficients gets its own `alpha`-level look.
+
+  `test="individual"` is now the default and matches `pretrends` to within
+  that package's own Monte-Carlo noise (worst gap 4.3e-4; `mvtnorm::pmvnorm`
+  is randomised and spreads over ~5e-4 across repeated calls). Pass
+  `test="joint"` for the previous quantity, which is also always returned as
+  `power_joint`, so no caller has to choose blind. See MIGRATION.md.
+
+  The return dict gains `power_under_null`, `bayes_factor`,
+  `likelihood_ratio`, `test`, `threshold_tstat` and `power_joint`; no
+  existing key was removed.
+
+- **⚠️ Correctness: `sp.did_multiplegt_dyn`'s placebos were not the
+  estimator's placebos.** The de Chaisemartin-D'Haultfœuille placebo at lag
+  ℓ is the effect window reflected about `F-1` — `Y_{F-1-ℓ}` against
+  `Y_{F-1}`, a long difference matching the effect it mirrors. StatsPAI
+  computed `Y_{F-1-ℓ}` against `Y_{F-1-ℓ-1}`: a *one-period* difference
+  sliding backwards, which is a different quantity and needed one more
+  pre-period than the real placebo does. Lag 1 therefore silently dropped
+  the earliest cohort — on the parity fixture it ran on 96 switchers where
+  the reference uses 146.
+
+  That matters because the placebos *are* the module's parallel-trends
+  diagnostic: `joint_placebo_test` was testing the wrong thing on the wrong
+  subsample. Every placebo value changes; the effects do not. Now matches
+  `DIDmultiplegtDYN` 2.3.4 to 5e-15, switcher counts included. See
+  MIGRATION.md.
+
+  The module docstring carried `[待核验]` markers on the control-group
+  window, the per-horizon weights and the placebo definition. The parity
+  settles the first two as already correct and the third as wrong; the
+  markers on switch-off handling and the analytical IF variance stand,
+  and those are what still keep this estimator off a paper-faithful claim.
+
+- **`aggregation` on `sp.did_multiplegt_dyn`.** The headline estimate
+  averages the dynamic horizons with equal weight; `DIDmultiplegtDYN`'s
+  `Av_tot_eff` weights each horizon by the switchers behind it, which
+  differs whenever later horizons rest on fewer cohorts — the normal case
+  in staggered designs. Both are now reachable, the default is unchanged,
+  and `model_info["aggregation"]` records which was used.
+
+- **The parity index under-reported three QTE estimators.**
+  `sp.panel_qtet`, `sp.qdid` and `sp.qte` are each pinned against `qte` 1.3.1
+  with committed frozen R fixtures — `panel_qtet` at 6.8e-12 across all 19
+  quantiles — but the index listed all three as `analytical-only`, sides
+  `['py']`, because the promotion table did not carry them. That is what
+  `sp.describe_function`, `docs/parity.md` and the JSS parity tables read, so
+  the evidence existed and nobody could see it. Now recorded as sides
+  `['py', 'R']`: `panel_qtet` bit-exact, `qdid` and `qte` aligned with their
+  optimiser-plateau convention gaps stated.
+
+- **Roth (2022) was cited under the wrong title.** Four call sites wrote
+  "Pre-test with Caution"; the published title is "Pretest with Caution"
+  (*AER: Insights* 4(3), 305-322). Corrected, and `paper.bib` gained the
+  verified volume/issue/pages. Same for `cengiz2019effect` (*QJE* 134(3),
+  1405-1454). Both verified via Crossref and OpenAlex.
+
 - **⚠️ Retraction: `sp.xtabond` never had a gapped-panel divergence.**
   StatsPAI shipped a warning telling users that on panels with interior time
   gaps its coefficients differ from Stata's `xtabond2` by 2-6% because of an
@@ -275,6 +348,34 @@ All notable changes to StatsPAI will be documented in this file.
   Reference fixture goes from 39 to 49 specs.
 
 ### Added
+
+- **`sp.pretrends_slope_for_power` — how big a pre-trend a passed pre-test
+  actually rules out.** Inverts `sp.pretrends_power`: returns the slope of a
+  linear pre-trend the pre-test would catch a given fraction of the time
+  (0.5 by default). Mirrors `pretrends::slope_for_power` and is pinned
+  against it.
+
+- **Cross-language references for three DiD estimators that had none
+  (WP-7).** All three were carried as analytical-only in the parity index:
+
+  - `sp.ddd_heterogeneous` vs `triplediff::ddd` (Ortiz-Villavicencio &
+    Sant'Anna 2025, CRAN 0.2.4). With no covariates the doubly-robust DDD
+    reduces to the unconditional cell means, and the six post-treatment
+    ATT(g,t) cells agree at 1e-14. Track A module `77_ddd`.
+  - `sp.stacked_did` vs a hand-written `fixest` stack. No CRAN package
+    implements Cengiz-Dube-Lindner-Zipperer stacking, so the reference is
+    an independent R construction rather than a library call; all fourteen
+    statistics agree at 1.3e-13. Track A module `75_stacked`.
+  - `sp.pretrends_power` vs `pretrends` 0.1.0 — see the correctness entry
+    above. Track A module `76_pretrends`, iterative tier.
+
+- **`weight_by` on `sp.ddd_heterogeneous`.** The overall ATT weights each
+  (g, t) cell by treated units in the affected subgroup; `triplediff`'s
+  `agg_ddd(type="simple")` weights by whole-cohort share instead. On a panel
+  where the affected share varies across cohorts the two differ visibly
+  (2.369 vs 2.455 on the parity fixture). Both are now reachable, the
+  default is unchanged, and `model_info["weight_by"]` records which was
+  used.
 
 - **`sp.check_absorbing` — detect reverting treatment before it silently
   biases a cohort estimator (WP-6).** Callaway-Sant'Anna, Sun-Abraham,

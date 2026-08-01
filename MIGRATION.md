@@ -94,6 +94,101 @@ the data so the two paths agree by construction.
 
 ---
 
+<a id="multiplegt-dyn-placebo"></a>
+
+## Unreleased — ⚠️ `sp.did_multiplegt_dyn` placebos are now the estimator's placebos
+
+**What changed.** The placebo at lag ℓ was computed as
+`Y_{F-1-ℓ} − Y_{F-1-ℓ-1}` — a one-period difference sliding backwards
+through the pre-period. de Chaisemartin & D'Haultfœuille's placebo is the
+effect window reflected about `F-1`: `Y_{F-1-ℓ} − Y_{F-1}`, a long difference
+the same length as the effect it mirrors, reported with the reverse sign so
+it sits on the same event-study scale. Every placebo value changes. Effects
+are unaffected.
+
+**Why.** Two reasons, and the second is the one that bites:
+
+1. It is a different quantity. A one-period difference at lag ℓ does not
+   mirror the ℓ-period effect and does not test what the paper's placebo
+   tests.
+2. It needed one more pre-period, so it silently used fewer cohorts. On the
+   parity fixture, lag 1 ran on 96 switchers where `DIDmultiplegtDYN` uses
+   146 — the earliest cohort was dropped without a word.
+
+Since the placebos feed `model_info["joint_placebo_test"]`, the module's
+parallel-trends diagnostic was testing the wrong contrast on the wrong
+subsample. If you reported a passed placebo test from this function, re-run
+it.
+
+**What to do.** Nothing at the call site; re-run and re-read the placebos.
+They now match `DIDmultiplegtDYN` 2.3.4 to 5e-15, switcher counts included
+(`tests/reference_parity/test_multiplegt_dyn_parity.py`, Track A module
+`78_multiplegt_dyn`).
+
+**Related, not a break.** `aggregation="switchers"` is new and reproduces
+the R package's `Av_tot_eff`; the default stays on the equal-weight average
+over horizons, so the headline number is unchanged.
+
+```python
+sp.did_multiplegt_dyn(df, y="y", group="i", time="t", treatment="d",
+                      dynamic=3, aggregation="switchers")
+```
+
+---
+
+<a id="pretrends-power-test"></a>
+
+## Unreleased — ⚠️ `sp.pretrends_power` defaults to the pre-test Roth (2022) analyses
+
+**What changed.** `sp.pretrends_power(result)` returned the power of the
+*joint Wald* test that all pre-period coefficients are zero. It now returns
+the power of the coefficient-by-coefficient pre-test: reject if any
+pre-period coefficient is individually significant at `alpha`. That is the
+practice Roth (2022) analyses, and the quantity his `pretrends` R package
+reports — the paper the docstring has always cited.
+
+**Why.** The two answer different questions and are not close. On the
+reference fixture at a linear violation of slope 0.02:
+
+| | power |
+| --- | --- |
+| coefficient-by-coefficient (new default) | 0.332 |
+| joint Wald (old default) | 0.157 |
+
+They are not even on the same footing: the joint test has size exactly
+`alpha`, while the eyeball test rejects above `alpha` under the null because
+each of the K coefficients gets its own `alpha`-level look. Reporting the
+Wald number under Roth's name understated how often a real trend would have
+been spotted, which is the opposite of the paper's message.
+
+**What to do.**
+
+```python
+# Previous behaviour, explicitly:
+sp.pretrends_power(res, test="joint")["power"]
+
+# Or read it off the new default call — both are always returned:
+out = sp.pretrends_power(res)
+out["power"]        # coefficient-by-coefficient
+out["power_joint"]  # joint Wald, unchanged from before
+```
+
+No key was removed: `noncentrality` and `critical_value` are still reported
+under both settings. New keys: `power_under_null`, `bayes_factor`,
+`likelihood_ratio`, `test`, `threshold_tstat`, `power_joint`.
+
+**New in the same release.** `sp.pretrends_slope_for_power(result,
+target_power=0.5)` inverts the calculation — the slope of a linear pre-trend
+the pre-test would catch half the time. It is the number to quote when a
+reader asks what a passed pre-test actually rules out, and mirrors
+`pretrends::slope_for_power`.
+
+Both are pinned against `pretrends` 0.1.0 in
+`tests/reference_parity/test_pretrends_power_parity.py` and Track A module
+`76_pretrends`.
+
+---
+
 <a id="unified-sensitivity-term"></a>
 
 ## Unreleased — ⚠️ `sp.unified_sensitivity` analysed the intercept

@@ -134,6 +134,10 @@ a shared explicit fold partition.
 | 72 | TMLE (targeting step) | `sp.tmle(fluctuation="per_arm")` | `tmle::tmle` |
 | 73 | Gardner two-stage DiD | `sp.gardner_did` | `did2s::did2s` |
 | 74 | Changes-in-Changes (ATT + QTE) | `sp.cic` | `qte::CiC` |
+| 75 | Stacked DiD (CDLZ) | `sp.stacked_did` | hand-written stack + `fixest::feols` |
+| 76 | Pre-trends power (Roth 2022) | `sp.pretrends_power` / `sp.pretrends_slope_for_power` | `pretrends::pretrends` / `pretrends::slope_for_power` (GitHub, not CRAN) |
+| 77 | Triple differences (staggered DDD) | `sp.ddd_heterogeneous` | `triplediff::ddd` + `agg_ddd` |
+| 78 | dCDH intertemporal event study | `sp.did_multiplegt_dyn` | `DIDmultiplegtDYN::did_multiplegt_dyn` |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running

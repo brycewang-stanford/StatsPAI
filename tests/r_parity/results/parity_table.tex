@@ -88,4 +88,8 @@ Module & Method & Worst headline diff & Verdict \\
 \code{72\_tmle} & TMLE (targeting step) & rel $\le 1.9e-09$ {\footnotesize (shared initial Q / g1W; per-arm fluctuation matching tmle::tmle's submodel)} & \textbf{PASS} \\
 \code{73\_did2s} & Gardner two-stage DiD & rel $\le 4.8e-08$ {\footnotesize (point estimate rel < 1e-6; SE is a documented convention gap (did2s propagates stage-1 estimation error, sp.gardner_did's vce='analytic' does not -- vce='bootstrap' recovers it to ~6\%))} & \textbf{PASS} \\
 \code{74\_cic} & Changes-in-Changes (ATT + QTE) & rel $\le 2.4e-15$ {\footnotesize (machine precision vs qte::CiC (worst 4.4e-15))} & \textbf{PASS} \\
+\code{75\_stacked} & Stacked DiD (never-treated controls) & rel $\le 3.9e-13$ {\footnotesize (rel < 1e-6 vs a hand-written fixest stack)} & \textbf{PASS} \\
+\code{76\_pretrends} & Pre-trends power (Roth 2022) & rel $\le 3.2e-05$ {\footnotesize (rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers mvtnorm::pmvnorm's randomised integrator)} & \textbf{PASS} \\
+\code{77\_ddd} & Triple differences ATT(g,t) & rel $\le 3.5e-15$ {\footnotesize (machine precision vs triplediff::ddd (worst 1e-14))} & \textbf{PASS} \\
+\code{78\_multiplegt\_dyn} & dCDH intertemporal event study & rel $\le 3.3e-15$ {\footnotesize (machine precision vs DIDmultiplegtDYN (worst 5e-15))} & \textbf{PASS} \\
 \end{longtable}

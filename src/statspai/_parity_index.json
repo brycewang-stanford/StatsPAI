@@ -1729,6 +1729,58 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_ddd_triplediff_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "ddd_heterogeneous",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.480683848164389e-15,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "ddd_g2_t2",
+          "ddd_g2_t3",
+          "ddd_g2_t4",
+          "ddd_g3_t3",
+          "ddd_g3_t4",
+          "ddd_g4_t4"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Triple differences (staggered DDD)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "77_ddd",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.480683848164389e-15,
+        "Stata": null
+      },
+      "python_call": "sp.ddd_heterogeneous",
+      "reference": "triplediff::ddd + agg_ddd",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/77_ddd.py",
+        "tests/r_parity/77_ddd.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
+    },
+    {
+      "additional_tests": [
         "tests/r_parity/31_dfl.py",
         "tests/r_parity/31_dfl.R",
         "tests/stata_parity/31_dfl.do"
@@ -2040,6 +2092,57 @@
         "tests/reference_parity/test_did_multiplegt_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_multiplegt_dyn_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "did_multiplegt_dyn",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.3147483470453593e-15,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "Effect_1",
+          "Effect_2",
+          "Effect_3",
+          "Effect_4",
+          "Av_tot_eff"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "dCDH intertemporal event study",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "78_multiplegt_dyn",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.3147483470453593e-15,
+        "Stata": null
+      },
+      "python_call": "sp.did_multiplegt_dyn",
+      "reference": "DIDmultiplegtDYN::did_multiplegt_dyn",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/78_multiplegt_dyn.py",
+        "tests/r_parity/78_multiplegt_dyn.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
     },
     {
       "also_verified_by": [
@@ -6166,21 +6269,26 @@
       "tolerance": ""
     },
     {
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "panel_qtet",
       "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+        "Frozen-R fixture on qte::lalonde.psid.panel. Was reported as analytical-only because the promotion table did not list it, not because the evidence was missing."
       ],
-      "reference": "",
+      "reference": "qte::panel.qtet 1.3.1 (Callaway & Li 2019)",
       "reference_versions": {},
       "sides": [
-        "py"
+        "py",
+        "R"
       ],
-      "source": "reference_parity",
-      "status": "analytical-only",
+      "source": "reference_parity_frozen",
+      "status": "bit-exact",
       "test": [
-        "tests/reference_parity/test_panel_qtet_parity.py"
+        "tests/reference_parity/test_panel_qtet_parity.py",
+        "tests/reference_parity/_fixtures/qte_panel_qtet_nocov_R.json"
       ],
-      "tolerance": ""
+      "tolerance": "all 19 quantiles: abs < 1e-8 (observed 6.8e-12); ATT abs < 1e-6. panel.qtet composes ordinary ecdf evaluations and type-7 quantiles, both of which have exact numpy equivalents, so this is machine-precision agreement rather than a tolerance band."
     },
     {
       "function": "panel_unitroot",
@@ -6690,6 +6798,102 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_pretrends_power_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "pretrends_power",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.215151159289103e-05,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "power_slope_0p02",
+          "power_slope_0p05"
+        ],
+        "tolerance": 0.001
+      },
+      "label": "Pre-trends power (Roth 2022)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "76_pretrends",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.215151159289103e-05,
+        "Stata": null
+      },
+      "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
+      "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "aligned",
+      "test": [
+        "tests/r_parity/76_pretrends.py",
+        "tests/r_parity/76_pretrends.R"
+      ],
+      "tier": "iterative",
+      "tolerance": "rel_est<=0.001"
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_pretrends_power_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "pretrends_slope_for_power",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.215151159289103e-05,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "power_slope_0p02",
+          "power_slope_0p05"
+        ],
+        "tolerance": 0.001
+      },
+      "label": "Pre-trends power (Roth 2022)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "76_pretrends",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.215151159289103e-05,
+        "Stata": null
+      },
+      "python_call": "sp.pretrends_power / sp.pretrends_slope_for_power",
+      "reference": "pretrends::pretrends / pretrends::slope_for_power (GitHub, not CRAN)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "aligned",
+      "test": [
+        "tests/r_parity/76_pretrends.py",
+        "tests/r_parity/76_pretrends.R"
+      ],
+      "tier": "iterative",
+      "tolerance": "rel_est<=0.001"
+    },
+    {
       "also_verified_by": [
         "reference_parity"
       ],
@@ -6911,22 +7115,29 @@
       "tolerance": "pairwise diff == coef difference 1e-12 abs (observed <= 1e-15)"
     },
     {
-      "function": "qdid",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
-        "tests/reference_parity/test_qdid_parity.py",
+      "additional_tests": [
         "tests/reference_parity/test_qte_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "qdid",
+      "notes": [
+        "Frozen-R fixture on qte::lalonde.psid.panel, post 1978 / pre 1975. Documented optimiser-plateau convention gap, not a numerical failure."
+      ],
+      "reference": "qte::QDiD 1.3.1",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_qdid_parity.py",
+        "tests/reference_parity/_fixtures/qte_lalonde_panel.csv"
+      ],
+      "tolerance": "max deviation / scale < 0.08, sign agreement on the large effects and correlation > 0.999. R's quantiles come from BMisc::weighted_quantile (stats::optimize on a piecewise-linear check function, which has plateaus where every point is a minimiser) while sp.qdid interpolates the empirical inverse CDF; on this fixture the gap is at most ~152 currency units against effects running to ~8900."
     },
     {
       "additional_tests": [
@@ -6981,23 +7192,30 @@
       "tolerance": "rel_est<=1e-06, rel_se<=0.1"
     },
     {
-      "function": "qte",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
-        "tests/reference_parity/test_firpo_qte_parity.py",
+      "additional_tests": [
         "tests/reference_parity/test_qte_parity.py",
         "tests/reference_parity/test_qte_uniform_inference.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "qte",
+      "notes": [
+        "Frozen-R fixture on the qte package's own lalonde.exp and lalonde.psid samples."
+      ],
+      "reference": "qte::ci.qte / qte::ci.qtet 1.3.1 (Firpo 2007)",
+      "reference_versions": {},
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "reference_parity_frozen",
+      "status": "aligned",
+      "test": [
+        "tests/reference_parity/test_firpo_qte_parity.py",
+        "tests/reference_parity/_fixtures/qte_firpo_R.json"
+      ],
+      "tolerance": "max relative deviation < 0.01 on lalonde.exp / lalonde.psid. Both sides minimise the same weighted check function; R's BMisc::weighted_quantile uses a golden-section search whose answer on a plateau is an optimiser artifact, so point-value equality is not asserted."
     },
     {
       "function": "qte_hd_panel",
@@ -8100,6 +8318,60 @@
         "tests/reference_parity/test_stabilized_weights_parity.py"
       ],
       "tolerance": ""
+    },
+    {
+      "additional_tests": [
+        "tests/reference_parity/test_stacked_did_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "stacked_did",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.937439976034717e-13,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "never_att_rel_-3",
+          "never_att_rel_-2",
+          "never_att_rel_0",
+          "never_att_rel_1",
+          "never_att_rel_2",
+          "never_att_rel_3",
+          "never_ATT_post"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Stacked DiD (CDLZ)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "75_stacked",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.937439976034717e-13,
+        "Stata": null
+      },
+      "python_call": "sp.stacked_did",
+      "reference": "hand-written stack + fixest::feols",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)",
+        "fixest": "0.14.0"
+      },
+      "se_rel": {
+        "R": 0.004208857239655125,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/75_stacked.py",
+        "tests/r_parity/75_stacked.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
     },
     {
       "function": "staggered_rollout",

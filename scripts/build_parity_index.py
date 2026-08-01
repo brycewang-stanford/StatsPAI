@@ -110,6 +110,69 @@ _FACTOR_NOTES: Dict[str, Tuple[str, ...]] = {
 # tests/reference_parity/REFERENCES.md (the "Frozen R-value fixtures" table)
 # and the asserting test — no model-memory facts (CLAUDE.md §10).
 _FROZEN_PROMOTIONS: Dict[str, Dict[str, Any]] = {
+    "panel_qtet": {
+        "status": "bit-exact",
+        "reference": "qte::panel.qtet 1.3.1 (Callaway & Li 2019)",
+        "tolerance": (
+            "all 19 quantiles: abs < 1e-8 (observed 6.8e-12); ATT abs < 1e-6. "
+            "panel.qtet composes ordinary ecdf evaluations and type-7 "
+            "quantiles, both of which have exact numpy equivalents, so this "
+            "is machine-precision agreement rather than a tolerance band."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_panel_qtet_parity.py",
+            "tests/reference_parity/_fixtures/qte_panel_qtet_nocov_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on qte::lalonde.psid.panel. Was reported as "
+            "analytical-only because the promotion table did not list it, "
+            "not because the evidence was missing."
+        ),
+    },
+    "qdid": {
+        "status": "aligned",
+        "reference": "qte::QDiD 1.3.1",
+        "tolerance": (
+            "max deviation / scale < 0.08, sign agreement on the large "
+            "effects and correlation > 0.999. R's quantiles come from "
+            "BMisc::weighted_quantile (stats::optimize on a piecewise-linear "
+            "check function, which has plateaus where every point is a "
+            "minimiser) while sp.qdid interpolates the empirical inverse "
+            "CDF; on this fixture the gap is at most ~152 currency units "
+            "against effects running to ~8900."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_qdid_parity.py",
+            "tests/reference_parity/_fixtures/qte_lalonde_panel.csv",
+        ],
+        "note": (
+            "Frozen-R fixture on qte::lalonde.psid.panel, post 1978 / pre "
+            "1975. Documented optimiser-plateau convention gap, not a "
+            "numerical failure."
+        ),
+    },
+    "qte": {
+        "status": "aligned",
+        "reference": "qte::ci.qte / qte::ci.qtet 1.3.1 (Firpo 2007)",
+        "tolerance": (
+            "max relative deviation < 0.01 on lalonde.exp / lalonde.psid. "
+            "Both sides minimise the same weighted check function; R's "
+            "BMisc::weighted_quantile uses a golden-section search whose "
+            "answer on a plateau is an optimiser artifact, so point-value "
+            "equality is not asserted."
+        ),
+        "sides": ["py", "R"],
+        "test": [
+            "tests/reference_parity/test_firpo_qte_parity.py",
+            "tests/reference_parity/_fixtures/qte_firpo_R.json",
+        ],
+        "note": (
+            "Frozen-R fixture on the qte package's own lalonde.exp and "
+            "lalonde.psid samples."
+        ),
+    },
     "cbps": {
         "status": "aligned",
         "reference": "CBPS::CBPS 0.24 (Imai & Ratkovic 2014)",

@@ -129,11 +129,18 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
         if compare.collect(module)
     ]
 
-    # 67 machine-level: 73_did2s (rel_est 4.8e-08 vs did2s) and 74_cic
-    # (worst 4.4e-15 vs qte::CiC) both joined at machine tier.
+    # 68 machine-level: 73_did2s (rel_est 4.8e-08 vs did2s), 74_cic
+    # (worst 4.4e-15 vs qte::CiC) and 75_stacked (worst 1.3e-13 vs a
+    # hand-written fixest stack) all joined at machine tier.
+    # 76_pretrends joined the iterative tier: pretrends integrates its
+    # rejection probability with mvtnorm's randomised Genz-Bretz
+    # algorithm, so the R side is itself only reproducible to ~5e-4.
+    # 77_ddd joined the machine tier: the six post-treatment ATT(g,t) cells
+    # and the cohort-weighted aggregate match triplediff::ddd at 1e-14.
+    # 78_multiplegt_dyn likewise, against DIDmultiplegtDYN at 5e-15.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 67,
-        "iterative": 5,
+        "machine": 70,
+        "iterative": 6,
         "moderate": 1,
         "methodological": 1,
     }

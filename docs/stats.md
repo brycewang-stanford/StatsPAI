@@ -40,20 +40,20 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `synth` | 22,372 | 31 | 54 |
-| `did` | 25,756 | 40 | 67 |
+| `did` | 26,053 | 40 | 68 |
 | `rd` | 16,207 | 25 | 53 |
 | `regression` | 15,904 | 20 | 37 |
-| `smart` | 14,801 | 20 | 31 |
+| `smart` | 14,830 | 20 | 31 |
 | `output` | 11,961 | 21 | 40 |
-| `agent` | 12,018 | 31 | 3 |
+| `agent` | 12,025 | 31 | 3 |
 | `decomposition` | 8,805 | 18 | 31 |
-| `core` | 8,320 | 12 | 4 |
+| `core` | 8,310 | 12 | 4 |
 | `fast` | 7,679 | 16 | 0 |
 | `iv` | 7,409 | 16 | 8 |
 | `diagnostics` | 7,388 | 13 | 25 |
 | `matching` | 7,697 | 11 | 25 |
 | `panel` | 7,671 | 12 | 18 |
-| `inference` | 7,452 | 17 | 24 |
+| `inference` | 7,470 | 17 | 24 |
 | `spatial` | 6,841 | 30 | 38 |
 | `plots` | 6,002 | 7 | 8 |
 | `bayes` | 5,168 | 12 | 19 |
@@ -73,7 +73,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `structural` | 3,149 | 9 | 12 |
 | `forest` | 3,205 | 5 | 8 |
 | `causal_llm` | 2,972 | 10 | 14 |
-| `robustness` | 2,664 | 6 | 11 |
+| `robustness` | 2,746 | 6 | 11 |
 | `crossval` | 2,647 | 7 | 2 |
 | `bounds` | 2,577 | 5 | 9 |
 | `conformal_causal` | 2,499 | 9 | 19 |
@@ -87,7 +87,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `qte` | 4,178 | 9 | 13 |
 | `postestimation` | 1,775 | 4 | 12 |
 | `bcf` | 1,644 | 5 | 8 |
-| `datasets` | 1,549 | 3 | 3 |
+| `datasets` | 1,570 | 3 | 3 |
 | `fixest` | 1,580 | 3 | 4 |
 | `causal_text` | 1,457 | 4 | 4 |
 | `target_trial` | 1,457 | 7 | 9 |
@@ -104,7 +104,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `surrogate` | 995 | 2 | 3 |
 | `ope` | 965 | 3 | 3 |
 | `survey` | 963 | 4 | 7 |
-| `gmm` | 4,054 | 12 | 4 |
+| `gmm` | 4,067 | 12 | 4 |
 | `dose_response` | 932 | 3 | 5 |
 | `selection` | 904 | 2 | 3 |
 | `dtr` | 894 | 5 | 2 |

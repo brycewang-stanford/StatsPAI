@@ -7,11 +7,13 @@
 
 - **已 R 对齐（certified）**：`callaway_santanna`、`sun_abraham`、`did_imputation`、`honest_did`
 - **有证据（validated）**：`gardner_did`、`etwfe`、`aggte`、`continuous_did`
-- **无数值证据（api_stable）**：`harvest_did`、`design_robust_event_study`、`cohort_anchored_event_study`、`did_misclassified`、`lp_did`、`ddd_heterogeneous`、`did_timevarying_covariates`、`stacked_did`、`cic`、`overlap_weighted_did`
+- **无数值证据（api_stable）**：`harvest_did`、`design_robust_event_study`、`cohort_anchored_event_study`、`did_misclassified`、`lp_did`、~~`ddd_heterogeneous`~~、`did_timevarying_covariates`、~~`stacked_did`~~、~~`cic`~~、`overlap_weighted_did`
+  （划掉的三个已通过 Track A 74/75/77 拿到跨语言证据，registry 里升为 `certified`）
 
 参考环境（已就绪）：R 4.5.2 + `did` 2.3.0 / `etwfe` 0.6.2 / `fixest` 0.14.0 / `did2s` 1.2.1 /
 `didimputation` 0.5.1 / `HonestDiD` 0.2.8 / `staggered` 1.2.2 / `fect` 2.4.1 / `DRDID` 1.2.3。
-`pretrends` **未安装**（WP-7 需先补）。
+`pretrends` 0.1.0（GitHub，非 CRAN）、`triplediff` 0.2.4、`DIDmultiplegtDYN` 2.3.4
+（需 `options(rgl.useNULL=TRUE)` + r-universe `polars` + `rlang >= 1.2.0`）现均已装好。
 
 ### 参考值生成的两个坑（已踩过，务必记住）
 
@@ -168,12 +170,26 @@ Liu-Wang-Xu (2024, AJPS) 之后，TSCS 平行趋势检验的标准做法是 F �
 
 ## WP-7 · 验证债清理 — 贯穿，第 7 周收口
 
-1. 补 parity：`stacked_did`、`lp_did`、`cic`、`ddd_heterogeneous`（`cic` 对 Stata `cic`，其余对手写 R）。
-2. 装 R `pretrends`，补 `pretrends_power` parity。
+1. ~~补 parity：`stacked_did`、`lp_did`、`cic`、`ddd_heterogeneous`~~ 除 `lp_did` 外已完成：
+   `cic` → Track A 74（`qte::CiC`，4.4e-15）；`stacked_did` → 75（手写 `fixest` stack，1.3e-13，
+   两种控制组约定都钉住）；`ddd_heterogeneous` → 77（**`triplediff::ddd` 0.2.4 已上 CRAN**，
+   六个 ATT(g,t) cell 1e-14，聚合权重差异开成 `weight_by=`）。
+   `lp_did` 仍无参考实现（需付费论文原文），保持 `validation_status='api_stable'`。
+   额外拿下 78：`did_multiplegt_dyn` → `DIDmultiplegtDYN` 2.3.4，5e-15，并**修出一个真 bug**
+   （placebo 定义错、静默少用一个 cohort）。
+2. ~~装 R `pretrends`，补 `pretrends_power` parity。~~ 已完成：Track A 76_pretrends（iterative tier，R 自身 MC 噪声 ~5e-4），并修正 `pretrends_power` 默认检验（joint Wald → Roth 包的逐系数检验）。
 3. 修 `gardner_did` 的 parity index 记录（现在还写着"无跨包参考、`sides:['py']`"，
    实际已对齐 `did2s` 到 1e-8）——要往 `tests/r_parity/compare.py` 加 runner。
 4. 清理 `待核验` 标记：`lp_did`、`did_timevarying_covariates`、`ddd_heterogeneous`、`did_multiplegt_dyn`。
    核验不了的就按 §10 降级为"（citation needed）"或只留 bib key。
+   进度：`lp_did` / `did_timevarying_covariates` / `ddd_heterogeneous` 已处理（`ddd_heterogeneous`
+   registry 里的 Strezhnev 占位换成核验过的 `ortiz2025better`）；`did_multiplegt_dyn` 的
+   控制组窗口、逐 horizon 权重、placebo 定义三项已被 parity 结掉，剩下 switch-off 处理和
+   解析 IF 方差两项——这两项是它还留在 `experimental` 的原因。
+
+5. **新发现**：parity index 漏报了三个 QTE 估计器。`panel_qtet` / `qdid` / `qte` 都有冻结的
+   `qte` 1.3.1 参考值（`panel_qtet` 19 个分位数 6.8e-12），但 index 里写着
+   `analytical-only` / `sides:['py']`，因为 promotion 表没登记。已补。
 
 ---
 

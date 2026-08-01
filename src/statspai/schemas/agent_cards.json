@@ -18899,7 +18899,7 @@
     ],
     "category": "causal",
     "cost_profile": "Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
-    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
+    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Validation: certified parity evidence. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
     "example": "sp.stacked_did(df, y=\"y\", group=\"i\", time=\"t\", first_treat=\"g\", window=(-4, 4))",
     "failure_modes": [
       {
@@ -18921,7 +18921,7 @@
     ],
     "reference": "Cengiz, Dube, Lindner & Zipperer (2019) QJE [@cengiz2019effect]",
     "signature": {
-      "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
+      "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Validation: certified parity evidence. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
       "name": "stacked_did",
       "parameters": {
         "properties": {
@@ -18991,9 +18991,10 @@
     "stability": "stable",
     "typical_n_min": 100,
     "validation_notes": [
+      "R parity module 75_stacked",
       "API/unit contract evidence: tests/test_did.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -19347,7 +19348,7 @@
     ],
     "category": "causal",
     "cost_profile": "Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "example": "sp.did_multiplegt_dyn(df, y=\"y\", group=\"i\", time=\"t\", treatment=\"d\", placebo=2, dynamic=4)",
     "failure_modes": [
       {
@@ -19397,7 +19398,8 @@
     "limitations": [
       "switch-on only -- switch-off events are silently dropped",
       "SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented",
-      "heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented"
+      "heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented",
+      "the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package"
     ],
     "name": "did_multiplegt_dyn",
     "not_recommended_when": [
@@ -19414,12 +19416,21 @@
       "at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study)",
       "for staggered designs: id column identifying units across time"
     ],
-    "reference": "de Chaisemartin & D'Haultfuille (2024) [@dechaisemartin2024difference]; DOI 10.1162/rest_a_01414; paper-parity pending (see docs/rfc/multiplegt_dyn.md).",
+    "reference": "de Chaisemartin & D'Haultfuille (2024) [@dechaisemartin2024difference]; DOI 10.1162/rest_a_01414. Effects, placebos and the switcher-weighted aggregate are pinned against the authors' DIDmultiplegtDYN on absorbing binary treatment (Track A module 78); switch-off handling and the analytical IF variance are still missing.",
     "signature": {
-      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
       "name": "did_multiplegt_dyn",
       "parameters": {
         "properties": {
+          "aggregation": {
+            "default": "simple",
+            "description": "Headline weighting over dynamic horizons: 'simple' (equal weight) or 'switchers' (weight by switchers per horizon -- reproduces DIDmultiplegtDYN's Av_tot_eff)",
+            "enum": [
+              "simple",
+              "switchers"
+            ],
+            "type": "string"
+          },
           "alpha": {
             "default": 0.05,
             "description": "Significance level for confidence intervals and tests.",
@@ -19660,7 +19671,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue).",
+    "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue). Validation: certified evidence with scoped limitations. Known limitations: covariate adjustment is not implemented; triplediff::ddd's xformla / regression-adjustment / IPW / DR variants have no counterpart here; standard errors are a cluster bootstrap only; the analytical influence-function variance is not implemented; the aggregation convention differs from triplediff::agg_ddd(type='simple'): the default weights cohorts by treated-eligible units; pass weight_by='cohort' to match the R package.",
     "example": "sp.ddd_heterogeneous(df, y=\"y\", unit=\"i\", time=\"t\", cohort=\"g_first\", subgroup=\"eligible\")",
     "failure_modes": [
       {
@@ -19677,7 +19688,11 @@
       }
     ],
     "inherits_from": null,
-    "limitations": [],
+    "limitations": [
+      "covariate adjustment is not implemented; triplediff::ddd's xformla / regression-adjustment / IPW / DR variants have no counterpart here",
+      "standard errors are a cluster bootstrap only; the analytical influence-function variance is not implemented",
+      "the aggregation convention differs from triplediff::agg_ddd(type='simple'): the default weights cohorts by treated-eligible units; pass weight_by='cohort' to match the R package"
+    ],
     "name": "ddd_heterogeneous",
     "not_recommended_when": [],
     "pre_conditions": [
@@ -19685,9 +19700,9 @@
       "binary within-group subgroup (affected vs unaffected)",
       ">= 1 pre-treatment period per cohort"
     ],
-    "reference": "Olden & Men (2022) *The Econometrics Journal* [@olden2022triple]; Strezhnev (2023) working paper [pending verification -- bib key not yet added to paper.bib]; Callaway & Sant'Anna (2021) [@callaway2021difference] for the group-time aggregation template.",
+    "reference": "Olden & Men (2022) *The Econometrics Journal* [@olden2022triple]; Ortiz-Villavicencio & Sant'Anna (2025) [@ortiz2025better], the reference the per-(g, t) cells are pinned against via triplediff::ddd; Callaway & Sant'Anna (2021) [@callaway2021difference] for the group-time aggregation template.",
     "signature": {
-      "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue).",
+      "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue). Validation: certified evidence with scoped limitations. Known limitations: covariate adjustment is not implemented; triplediff::ddd's xformla / regression-adjustment / IPW / DR variants have no counterpart here; standard errors are a cluster bootstrap only; the analytical influence-function variance is not implemented; the aggregation convention differs from triplediff::agg_ddd(type='simple'): the default weights cohorts by treated-eligible units; pass weight_by='cohort' to match the R package.",
       "name": "ddd_heterogeneous",
       "parameters": {
         "properties": {
@@ -19730,6 +19745,15 @@
             "description": "Unit identifier column.",
             "type": "string"
           },
+          "weight_by": {
+            "default": "eligible",
+            "description": "Aggregation weights: 'eligible' (treated units in the affected subgroup) or 'cohort' (whole cohort, both subgroups -- reproduces triplediff::agg_ddd)",
+            "enum": [
+              "eligible",
+              "cohort"
+            ],
+            "type": "string"
+          },
           "y": {
             "description": "Outcome variable column name or outcome array.",
             "type": "string"
@@ -19749,9 +19773,10 @@
     "stability": "stable",
     "typical_n_min": 200,
     "validation_notes": [
+      "R parity module 77_ddd",
       "API/unit contract evidence: tests/test_ddd_heterogeneous.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "certified"
   },
   {
     "alternatives": [

@@ -10438,7 +10438,7 @@
     }
   },
   {
-    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
+    "description": "Stacked DiD (Cengiz, Dube, Lindner, Zipperer 2019). For each treatment cohort, constructs a sub-experiment with only that cohort + clean (never-treated or not-yet-treated) controls, then TWFE on the stacked panel. Robust to staggered-adoption contamination at the cost of dropping late-treated units in early sub-experiments. Validation: certified parity evidence. Do NOT use when: there is a single adoption cohort -- stacking produces one sub-experiment and is equivalent to sp.did(method='2x2'). Cost: Duplicates rows into one sub-experiment per treated cohort: the stacked dataset is roughly O(n x number of cohorts) before the event window trims it. Narrow window= to bound memory.",
     "name": "stacked_did",
     "parameters": {
       "properties": {
@@ -10671,10 +10671,19 @@
     }
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "name": "did_multiplegt_dyn",
     "parameters": {
       "properties": {
+        "aggregation": {
+          "default": "simple",
+          "description": "Headline weighting over dynamic horizons: 'simple' (equal weight) or 'switchers' (weight by switchers per horizon -- reproduces DIDmultiplegtDYN's Av_tot_eff)",
+          "enum": [
+            "simple",
+            "switchers"
+          ],
+          "type": "string"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -10812,7 +10821,7 @@
     }
   },
   {
-    "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue).",
+    "description": "Heterogeneity-robust triple differences (DDD) for staggered adoption. Decomposes DDD into per-(cohort, time) cells via a Callaway-Sant'Anna-style aggregation, with the unaffected subgroup's DID as a placebo. Avoids the negative-weight issue that textbook TWFE DDD inherits from TWFE DID (Goodman-Bacon 2021 analogue). Validation: certified evidence with scoped limitations. Known limitations: covariate adjustment is not implemented; triplediff::ddd's xformla / regression-adjustment / IPW / DR variants have no counterpart here; standard errors are a cluster bootstrap only; the analytical influence-function variance is not implemented; the aggregation convention differs from triplediff::agg_ddd(type='simple'): the default weights cohorts by treated-eligible units; pass weight_by='cohort' to match the R package.",
     "name": "ddd_heterogeneous",
     "parameters": {
       "properties": {
@@ -10853,6 +10862,15 @@
         },
         "unit": {
           "description": "Unit identifier column.",
+          "type": "string"
+        },
+        "weight_by": {
+          "default": "eligible",
+          "description": "Aggregation weights: 'eligible' (treated units in the affected subgroup) or 'cohort' (whole cohort, both subgroups -- reproduces triplediff::agg_ddd)",
+          "enum": [
+            "eligible",
+            "cohort"
+          ],
           "type": "string"
         },
         "y": {
@@ -13441,7 +13459,7 @@
     }
   },
   {
-    "description": "Power of the pre-trend test against a hypothesised violation.",
+    "description": "Power of the pre-trend test against a hypothesised violation. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "pretrends_power",
     "parameters": {
       "properties": {
@@ -13456,6 +13474,50 @@
         },
         "result": {
           "description": "Event-study result with pre-treatment estimates and SEs.",
+          "type": "string"
+        },
+        "test": {
+          "default": "individual",
+          "description": "Which pre-test the power refers to. ``\"individual\"`` is the practice Roth (2022) analyses and the one his ``pretrends`` R package implements: the analyst eyeballs the event-study plot and calls the pre-trends into question if *any* pre-period coefficient is individually significant. Power is then one minus the probability that every pre-period coefficient falls inside its own ``+/- z_{1-alpha/2} * SE`` band, integrated over the joint normal with mean ``delta`` -- a multivariate-normal rectangle probability. ``\"joint\"`` is the power of the joint Wald test that all pre-period coefficients are zero, ``chi2(K)`` with non-centrality ``delta' Sigma^-1 delta``. Reported by :func:`pretrends_test`, and a strictly different quantity -- not a tighter or looser version of the same one. The two are not even comparable at face value: the joint test has size exactly ``alpha``, while the coefficient-by-coefficient test rejects with probability above ``alpha`` under the null because each of the K coefficients gets its own ``alpha``-level look. Which comes out more powerful against a given trend depends on the design. ``power_joint`` is always reported alongside, so both are available from one call. .. versionchanged:: 1.21.0 The default moved from ``\"joint\"`` to ``\"individual\"`` so the number matches Roth's ``pretrends`` package. This changes the returned ``power`` for existing calls -- see MIGRATION.md. Pass ``test=\"joint\"`` to recover the previous behaviour.",
+          "enum": [
+            "individual",
+            "joint"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "result"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Slope of a linear pre-trend the pre-test would detect ``target_power`` Validation: certified parity evidence.",
+    "name": "pretrends_slope_for_power",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level of the pre-test.",
+          "type": "number"
+        },
+        "result": {
+          "description": "Event-study result with pre-treatment estimates and SEs. As with :func:`pretrends_power`, supply the full pre-period covariance via ``model_info['vcv_pre']`` -- the diagonal fallback overstates the detectable slope.",
+          "type": "string"
+        },
+        "target_power": {
+          "default": 0.5,
+          "description": "Power the returned slope achieves. 0.5 is the ``pretrends``",
+          "type": "number"
+        },
+        "test": {
+          "default": "individual",
+          "description": "Which pre-test to solve against; see :func:`pretrends_power`.",
+          "enum": [
+            "individual",
+            "joint"
+          ],
           "type": "string"
         }
       },

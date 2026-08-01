@@ -45,6 +45,25 @@ PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
+    "78_multiplegt_dyn": (
+        "Stata's did_multiplegt_dyn is the authors' own port and would be "
+        "the natural third side, but it is not installed in the verified "
+        "local runtime; the R package is the reference used here."
+    ),
+    "77_ddd": (
+        "no Stata implementation: the Ortiz-Villavicencio/Sant'Anna DDD "
+        "estimator ships as the R package triplediff and has no ssc "
+        "counterpart."
+    ),
+    "76_pretrends": (
+        "no Stata implementation: Roth's pretrends ships as an R package "
+        "(GitHub only, not CRAN) and has no ssc counterpart."
+    ),
+    "75_stacked": (
+        "no Stata implementation: Cengiz-Dube-Lindner-Zipperer stacking is a "
+        "construction rather than a packaged command, and neither side has a "
+        "canonical ssc reference -- the R side is itself hand-written."
+    ),
     "74_cic": (
         "Kranker's ssc cic is a port of the Athey-Imbens Matlab and is the "
         "Stata counterpart, but it is not installed in the verified local "
@@ -269,6 +288,31 @@ STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 #     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # dCDH intertemporal event study: four effects, two placebos and the
+    # switcher-weighted aggregate all match DIDmultiplegtDYN at 5e-15,
+    # switcher counts included. No rel_se -- the R package reports
+    # analytical influence-function SEs and sp.did_multiplegt_dyn has
+    # only a cluster bootstrap.
+    "78_multiplegt_dyn": {"rel_est": 1e-6},
+    # Triple differences: the six post-treatment ATT(g,t) cells and the
+    # cohort-weighted aggregate match triplediff::ddd at 1e-14. No rel_se
+    # -- triplediff reports analytical influence-function SEs and
+    # sp.ddd_heterogeneous only has a cluster bootstrap, so an SE budget
+    # would be comparing two different variance estimators.
+    "77_ddd": {"rel_est": 1e-6},
+    # Pre-trends power: iterative tier on purpose. pretrends gets its
+    # rejection probability from mvtnorm::pmvnorm, whose Genz-Bretz
+    # integrator is randomised -- twenty repeated R calls on this fixture
+    # spread over ~5e-4 (sd 1.3e-4). Worst observed gap 4.3e-4, on
+    # slope_for_power, which root-finds through that same noise. The
+    # likelihood ratio is closed-form and agrees at 1e-15.
+    "76_pretrends": {"rel_est": 1e-3},
+    # Stacked DiD: event-study coefficients and the post mean match a
+    # hand-written fixest stack at 1.3e-13 under both control-group
+    # conventions. No rel_se -- the R side clusters on the raw unit id
+    # while sp.stacked_did clusters on the stacked unit-cohort id, so the
+    # SEs answer slightly different questions by design.
+    "75_stacked": {"rel_est": 1e-6},
     # CIC: ATT and all nine QTEs match qte::CiC at machine precision
     # (worst 4.4e-15). No rel_se -- the R call runs se=FALSE.
     "74_cic": {"rel_est": 1e-6},
@@ -926,6 +970,41 @@ HEADLINE: dict[str, dict[str, Any]] = {
             "(did2s propagates stage-1 estimation error, sp.gardner_did's "
             "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
         ),
+    },
+    "78_multiplegt_dyn": {
+        "name": "dCDH intertemporal event study",
+        "headline_filter": lambda d: (
+            d.statistic.startswith("Effect_") or d.statistic == "Av_tot_eff"
+        ),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "machine precision vs DIDmultiplegtDYN (worst 5e-15)",
+    },
+    "77_ddd": {
+        "name": "Triple differences ATT(g,t)",
+        "headline_filter": lambda d: d.statistic.startswith("ddd_g"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "machine precision vs triplediff::ddd (worst 1e-14)",
+    },
+    "76_pretrends": {
+        "name": "Pre-trends power (Roth 2022)",
+        "headline_filter": lambda d: d.statistic.startswith("power_slope_"),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "rel < 1e-4 vs pretrends::pretrends; the 1e-3 budget covers "
+            "mvtnorm::pmvnorm's randomised integrator"
+        ),
+    },
+    "75_stacked": {
+        "name": "Stacked DiD (never-treated controls)",
+        "headline_filter": lambda d: (
+            d.statistic == "never_ATT_post" or d.statistic.startswith("never_att_rel_")
+        ),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "rel < 1e-6 vs a hand-written fixest stack",
     },
     "74_cic": {
         "name": "Changes-in-Changes (ATT + QTE)",
