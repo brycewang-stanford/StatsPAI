@@ -165,6 +165,23 @@ def _safe_call(
         return None, f"{type(e).__name__}: {e}"
 
 
+def _iv_endog_summary(result: Any, formula: str) -> str:
+    """``beta (SE se)`` for the endogenous regressor of an IV fit."""
+    from ..core.utils import parse_formula
+
+    try:
+        endog = list(parse_formula(formula)["endogenous"])[0]
+        beta = float(result.params[endog])
+    except (KeyError, IndexError, TypeError, ValueError):
+        return ""
+    bits = [f"{endog}={beta:.4g}"]
+    try:
+        bits.append(f"(SE {float(result.std_errors[endog]):.3g})")
+    except (KeyError, IndexError, TypeError, ValueError):
+        pass
+    return " ".join(bits)
+
+
 def _short_estimate(obj: Any) -> str:
     """Return a one-line ``estimate (SE) [CI]`` summary for ``obj``."""
     try:
@@ -586,31 +603,76 @@ def _pipeline_iv(
             "stages": stages,
             "error": err or "estimator failed",
         }
+    # An ivreg fit exposes a params vector, not a scalar `.estimate`, so
+    # the generic one-liner came back empty and the stage read
+    # "ivreg: " — an ok status with no number in it. Report the
+    # endogenous regressor's coefficient, which is the estimate the whole
+    # pipeline exists to produce.
     summary = _short_estimate(primary)
-    stages.append(_stage("estimate", "ok", f"ivreg: {summary}"))
+    if not summary:
+        summary = _iv_endog_summary(primary, formula)
+    stages.append(_stage("estimate", "ok", f"ivreg: {summary}".rstrip()))
 
     rid = RESULT_CACHE.put(primary, tool="ivreg", arguments={"formula": formula})
 
+    # Both diagnostics below take (data, column names), not a fitted
+    # result. Passing `primary` positionally made every call raise
+    # "missing N required positional arguments", so the pipeline reported
+    # three failed stages on every IV run while still returning
+    # pipeline="pipeline_iv" — which was all its test checked.
+    from ..core.utils import parse_formula as _parse_formula
+
+    try:
+        spec = _parse_formula(formula)
+        iv_y = spec["dependent"]
+        iv_endog = list(spec["endogenous"])
+        iv_instr = list(spec["instruments"])
+        iv_exog = list(spec["exogenous"]) or None
+    except (KeyError, TypeError, ValueError) as exc:
+        spec = None
+        stages.append(
+            _stage("effective_f_test", "skipped", f"cannot parse formula: {exc}")
+        )
+        stages.append(
+            _stage("anderson_rubin_test", "skipped", f"cannot parse formula: {exc}")
+        )
+
     # Effective F
-    f_fn = getattr(sp, "effective_f_test", None)
+    f_fn = getattr(sp, "effective_f_test", None) if spec is not None else None
     fF: Optional[float] = None
     if f_fn is not None:
-        ftest, err = _safe_call(f_fn, primary)
+        ftest, err = _safe_call(
+            f_fn, data, endog=iv_endog[0], instruments=iv_instr, exog=iv_exog
+        )
         if err:
             stages.append(_stage("effective_f_test", "failed", err))
         else:
-            fF = float(
-                getattr(
-                    ftest,
-                    "F",
+            # sp.effective_f_test returns a dict keyed F_eff (the
+            # Olea-Pflueger effective F). The attribute lookups below it
+            # never matched, so this stage reported "F=nan" as an ok
+            # status on every run.
+            if isinstance(ftest, dict):
+                fF = float(ftest.get("F_eff", ftest.get("first_stage_F", float("nan"))))
+                strength = str(ftest.get("strength") or "").split("(")[0].strip()
+            else:
+                fF = float(
                     getattr(
                         ftest,
-                        "statistic",
-                        getattr(ftest, "value", float("nan")),
-                    ),
+                        "F_eff",
+                        getattr(
+                            ftest,
+                            "F",
+                            getattr(
+                                ftest,
+                                "statistic",
+                                getattr(ftest, "value", float("nan")),
+                            ),
+                        ),
+                    )
                 )
-            )
-            stages.append(_stage("effective_f_test", "ok", f"F={fF:.2f}"))
+                strength = ""
+            label = f"F={fF:.2f}" + (f" ({strength})" if strength else "")
+            stages.append(_stage("effective_f_test", "ok", label))
     else:
         stages.append(
             _stage(
@@ -621,10 +683,17 @@ def _pipeline_iv(
         )
 
     # Anderson-Rubin
-    ar_fn = getattr(sp, "anderson_rubin_test", None)
+    ar_fn = getattr(sp, "anderson_rubin_test", None) if spec is not None else None
     ar_payload: Optional[Dict[str, Any]] = None
     if ar_fn is not None:
-        ar, err = _safe_call(ar_fn, primary)
+        ar, err = _safe_call(
+            ar_fn,
+            data,
+            y=iv_y,
+            endog=iv_endog[0],
+            instruments=iv_instr,
+            exog=iv_exog,
+        )
         if err:
             stages.append(_stage("anderson_rubin_test", "failed", err))
         else:
@@ -645,7 +714,12 @@ def _pipeline_iv(
     if ev_fn is not None:
         ev, err = _safe_call(ev_fn, primary)
         if err:
-            stages.append(_stage("evalue", "failed", err))
+            # An IV fit carries a coefficient vector, not the single
+            # estimate evalue_from_result needs, so this is a design
+            # boundary rather than a failure. Reporting it as "failed"
+            # made every IV pipeline look broken.
+            status = "skipped" if "expects a CausalResult" in str(err) else "failed"
+            stages.append(_stage("evalue", status, err))
         else:
             ev_payload = _light_serialize(ev)
             stages.append(

@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import statspai as sp
 from statspai.agent import execute_tool, mcp_handle_request
 
 
@@ -76,7 +77,16 @@ class TestPipelineDID:
         )
         assert out.get("pipeline") == "pipeline_did"
         assert "result_id" in out
-        assert "stages" in out
+        # "stages" existing says nothing about whether they ran. A stage
+        # that failed still appears in the list.
+        assert not [s for s in out["stages"] if s["status"] == "failed"], [
+            s for s in out["stages"] if s["status"] == "failed"
+        ]
+        est_stage = next(s for s in out["stages"] if s["name"] == "estimate")
+        assert est_stage["status"] == "ok"
+        # The reported estimate must be the one sp.did computes.
+        direct = sp.did(df, y="y", treat="treat", time="time")
+        assert f"{float(direct.estimate):.4g}" in est_stage["summary"]
         # estimate stage should succeed
         names = [s["name"] for s in out["stages"]]
         assert "estimate" in names
@@ -123,7 +133,30 @@ class TestPipelineIV:
             pytest.skip("ivreg unavailable in this build")
         assert out["pipeline"] == "pipeline_iv"
         assert "result_id" in out
-        assert "stages" in out
+        # Three of these four stages used to fail on every run — the
+        # diagnostics were handed the fitted result where they wanted
+        # (data, column names) — while the assertions above stayed green.
+        by_name = {s["name"]: s for s in out["stages"]}
+        assert by_name["estimate"]["status"] == "ok"
+        assert by_name["effective_f_test"]["status"] == "ok", by_name[
+            "effective_f_test"
+        ]
+        assert by_name["anderson_rubin_test"]["status"] == "ok", by_name[
+            "anderson_rubin_test"
+        ]
+        assert not [s for s in out["stages"] if s["status"] == "failed"], [
+            s for s in out["stages"] if s["status"] == "failed"
+        ]
+
+        # The estimate stage must name the endogenous coefficient, not be
+        # the empty "ivreg: " it used to print.
+        beta = float(sp.ivreg("y ~ (d ~ z)", data=df).params["d"])
+        assert f"{beta:.4g}" in by_name["estimate"]["summary"]
+
+        # And the first-stage F must be the Olea-Pflueger effective F,
+        # not the "F=nan" produced by reading attributes off a dict.
+        f_eff = sp.effective_f_test(df, endog="d", instruments=["z"])["F_eff"]
+        assert f"{f_eff:.2f}" in by_name["effective_f_test"]["summary"]
 
 
 # ----------------------------------------------------------------------
@@ -143,3 +176,12 @@ class TestPipelineRD:
             pytest.skip("rdrobust unavailable in this build")
         assert out["pipeline"] == "pipeline_rd"
         assert "result_id" in out
+        by_name = {s["name"]: s for s in out["stages"]}
+        assert not [s for s in out["stages"] if s["status"] == "failed"], [
+            s for s in out["stages"] if s["status"] == "failed"
+        ]
+        for expected in ("estimate", "rddensity", "rdbwsensitivity", "rdplot"):
+            assert expected in by_name, sorted(by_name)
+            assert by_name[expected]["status"] == "ok"
+        # rdplot advertises a PNG; make sure bytes actually came back.
+        assert "PNG" in by_name["rdplot"]["summary"]

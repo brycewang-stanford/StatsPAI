@@ -347,6 +347,26 @@ All notable changes to StatsPAI will be documented in this file.
   caller's `treat` and dropped it, returning the intercept's sensitivity to
   agents; it now forwards it.
 
+- **`pipeline_iv` failed three of its four stages on every run.** The
+  Anderson-Rubin and effective-F stages were handed the *fitted result*
+  where `sp.effective_f_test` / `sp.anderson_rubin_test` want
+  `(data, endog, instruments, ...)`, so both raised
+  `TypeError: missing N required positional arguments` every time. The
+  effective-F reader then looked for `.F` / `.statistic` attributes on
+  what is actually a dict keyed `F_eff`, printing `F=nan` under an `ok`
+  status. The estimate stage read `"ivreg: "` with no number, because an
+  IV fit exposes a coefficient vector rather than a scalar `.estimate`.
+  And the e-value stage was marked `failed` for a design boundary — an IV
+  fit legitimately cannot feed `evalue_from_result`.
+
+  The formula is now parsed with `statspai.core.utils.parse_formula` to
+  supply the columns the diagnostics need, the effective F reads `F_eff`
+  and reports the Olea-Pflueger strength verdict, the estimate stage
+  reports the endogenous coefficient and its SE, and the e-value boundary
+  is reported as `skipped` rather than `failed`. The tool's test asserted
+  `out["pipeline"] == "pipeline_iv"` and `"stages" in out`, both of which
+  a three-quarters-broken pipeline satisfies.
+
 - **`sp.preflight` rejected the canonical `treatment=` spelling.** Its
   column checks read `kwargs["treat"]` only, so `sp.preflight(df, "did",
   treatment="treat", ...)` reported `required argument 'treat' not
