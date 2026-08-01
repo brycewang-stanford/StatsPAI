@@ -672,14 +672,14 @@ def rdrobust(
                 deriv=deriv,
                 kernel=kernel,
                 bwselect=bwselect,
-                # covs deliberately NOT passed: the Z projection in
-                # _cct_bandwidth is not yet correct. It improves the senate
-                # fixture (7.3e-3 -> 2.0e-3) only because covariates barely
-                # bind there; on a DGP where they do bind it makes h 3x too
-                # narrow (0.0915 vs R's 0.2700) and inflates the SE from
-                # 0.044 to 0.520. Leaving covs on the legacy path is strictly
-                # better until the projection is right.
-                # See docs/rfc/rd_three_month_plan.md B.6.
+                # covs is NOT passed, and that is deliberate. The Z
+                # projection in _cct_bandwidth is now correct (h matches R at
+                # 1.7e-07 on a design where covariates bind), but landing it
+                # alone makes the package WORSE: the old bandwidth error was
+                # cancelling an error in the legacy covariate variance, so
+                # fixing h alone moves the robust SE from 0.68% off to 67%
+                # off. h and the covariate variance have to land together.
+                # See docs/rfc/rd_three_month_plan.md appendix D.
             )
         except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
             # Degenerate data (empty side, singular design, kernel/bwselect

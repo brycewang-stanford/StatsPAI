@@ -241,7 +241,24 @@ def _vbr(
 
     BWreg = 0.0
     if scale > 0:
-        res_B = _nn_residuals(eX_b, eY_b, dups[ind_b], dupsid[ind_b], nnmatch)
+        if Z is not None and Z.shape[1] > 0:
+            # The bias window needs the same covariate residual maker as the
+            # variance window; using the raw Y residuals here leaves h ~39%
+            # too narrow on a design where covariates bind.
+            D_Bz = np.column_stack([eY_b, Z[ind_b]])
+            res_B = (
+                np.column_stack(
+                    [
+                        _nn_residuals(
+                            eX_b, D_Bz[:, j], dups[ind_b], dupsid[ind_b], nnmatch
+                        )
+                        for j in range(D_Bz.shape[1])
+                    ]
+                )
+                @ s_vec
+            )
+        else:
+            res_B = _nn_residuals(eX_b, eY_b, dups[ind_b], dupsid[ind_b], nnmatch)
         RX_B = R_B * eW_b[:, None]
         aux_B = (res_B[:, None] * RX_B).T @ (res_B[:, None] * RX_B)
         V_B = (invG_B @ aux_B @ invG_B)[o + 1, o + 1]
@@ -288,6 +305,28 @@ def cct_bandwidth(
         ``h_left``, ``h_right``, ``b_left``, ``b_right``.  The ``*rd`` and
         ``*sum`` variants return a common bandwidth on both sides; ``*two``
         returns side-specific ones.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from statspai.rd._cct_bandwidth import cct_bandwidth
+    >>> rng = np.random.default_rng(0)
+    >>> n = 2000
+    >>> x = rng.uniform(-1, 1, n)
+    >>> y = 0.5 * x + 1.0 * (x >= 0) + rng.normal(0, 0.5, n)
+    >>> bw = cct_bandwidth(y, x, c=0.0, p=1)
+    >>> sorted(bw)
+    ['b_left', 'b_right', 'h_left', 'h_right']
+    >>> bool(bw["b_left"] > bw["h_left"] > 0)  # bias window is the wider one
+    True
+
+    The bandwidth responds to the polynomial order, which is the property the
+    superseded rule of thumb lacked:
+
+    >>> h1 = cct_bandwidth(y, x, c=0.0, p=1)["h_left"]
+    >>> h2 = cct_bandwidth(y, x, c=0.0, p=2)["h_left"]
+    >>> bool(abs(h1 - h2) > 1e-6)
+    True
     """
     kernel = {"tri": "triangular", "uni": "uniform", "epa": "epanechnikov"}.get(
         kernel, kernel
@@ -464,6 +503,25 @@ def cct_bias_corrected(
 
     Returns ``(tau_conventional, tau_bias_corrected, se_conventional,
     se_robust)``. Sharp RD, no covariates, no clusters, ``vce='nn'``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from statspai.rd._cct_bandwidth import (
+    ...     cct_bandwidth, cct_bias_corrected)
+    >>> rng = np.random.default_rng(0)
+    >>> n = 2000
+    >>> x = rng.uniform(-1, 1, n)
+    >>> y = 0.5 * x + 1.0 * (x >= 0) + rng.normal(0, 0.5, n)
+    >>> bw = cct_bandwidth(y, x, c=0.0, p=1)
+    >>> tau, tau_bc, se, se_rb = cct_bias_corrected(
+    ...     y, x, 0.0, bw["h_left"], bw["h_right"],
+    ...     bw["b_left"], bw["b_right"], p=1, q=2, deriv=0,
+    ...     kernel="triangular")
+    >>> bool(abs(tau - 1.0) < 3 * se)  # true jump is 1.0, within 3 SE
+    True
+    >>> bool(se > 0 and se_rb > 0)
+    True
 
     The bias-corrected estimator is **not** a ``q``-order refit on bandwidth
     ``b``.  It is the ``p``-order fit on ``h`` with the design weights replaced
