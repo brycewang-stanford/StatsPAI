@@ -80,10 +80,13 @@ All notable changes to StatsPAI will be documented in this file.
 ### Known issues
 
 - `sp.rdrobust` has no `vce=` parameter; R exposes `hc0`–`hc3` and `cr*`.
-- `covs` / `cluster` do not yet enter the CCT **bandwidth** cascade, so `h`
-  differs from R by ~7e-3 (covs) and ~4e-2 (cluster). The estimates
-  themselves are covariate-adjusted; only the bandwidth selection is not.
-  Locked in CI as `xfail(strict)` in `test_rdrobust_params_parity.py`.
+- `covs` / `cluster` do not yet enter the CCT **bandwidth** cascade. On a
+  design where both bind, `h` is off by **2.2** for covs (the senate fixture
+  had suggested 7e-3 — 300x smaller) and the cluster SE by 56%. The
+  estimates and variances themselves *are* adjusted; only bandwidth
+  selection is not. Locked in CI as `xfail(strict)` in
+  `test_rd_covs_cluster_parity.py`, which also asserts the fixture stays
+  discriminating.
 
 ### Fixed
 
