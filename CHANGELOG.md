@@ -326,6 +326,20 @@ All notable changes to StatsPAI will be documented in this file.
   caller's `treat` and dropped it, returning the intercept's sensitivity to
   agents; it now forwards it.
 
+- **The MCP `sensitivity` tool returned no numbers at all.**
+  `SensitivityDashboard` had no `to_dict`, so the generic serialiser fell
+  back to hunting for `estimate` / `se` fields, found none on a dashboard,
+  and produced an empty payload — an agent calling `sensitivity` over MCP
+  received `{"narrative": "**sensitivity**"}`: a bold title and nothing
+  else. No E-value, no Oster delta, no robustness value.
+
+  The transcript test covering it asserted only `isError is False`, which
+  an empty payload satisfies, so the gap stayed green. `to_dict` now emits
+  the numbers, `_outcome_sd` reads the outcome vector the result already
+  carries (so the tool needs no extra arguments to scale the E-value), and
+  the test asserts the returned E-value equals the treatment coefficient's,
+  computed independently.
+
 - **The E-value was computed from un-standardised coefficients.**
   `unified_sensitivity` forced `measure='RR'` and passed a raw regression
   coefficient straight through whenever it was positive. A $1,548 treatment

@@ -13,7 +13,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
+import statspai as sp
 from statspai.agent.mcp_server import handle_request
 
 
@@ -232,7 +234,31 @@ def test_curated_result_handle_injection(tmp_path: Path) -> None:
         request_id=24,
     )
     assert sens["isError"] is False, sens["structuredContent"]
-    assert "_unsupported_args" not in sens["structuredContent"]
+    payload = sens["structuredContent"]
+    assert "_unsupported_args" not in payload
+
+    # `isError is False` alone is worthless here. Analysing the *intercept*
+    # also does not error — it returns a number that answers a question
+    # nobody asked, and this assertion stayed green through exactly that
+    # bug. Check the value, against the treatment coefficient computed
+    # independently: standardise by the outcome SD, map to a risk ratio
+    # (VanderWeele & Ding 2017, RR = exp(0.91 * d)), then
+    # E = RR + sqrt(RR * (RR - 1)).
+    import math
+
+    frame = pd.read_csv(cs_csv)
+    fit = sp.regress("y ~ treat + x1 + x2", frame, robust="HC1")
+    d = float(fit.params["treat"]) / float(frame["y"].std(ddof=1))
+    rr = math.exp(0.91 * d)
+    if rr < 1.0:
+        rr = 1.0 / rr
+    expected = rr + math.sqrt(rr * (rr - 1.0))
+
+    assert payload["e_value_point"] == pytest.approx(expected, rel=1e-9), (
+        "the MCP sensitivity tool must describe `treat`, not whatever "
+        "coefficient happens to come first"
+    )
+    assert payload["rr_observed"] == pytest.approx(rr, rel=1e-9)
 
 
 def test_spec_curve_multiverse_schema(tmp_path: Path) -> None:

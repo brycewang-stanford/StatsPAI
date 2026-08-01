@@ -49,6 +49,38 @@ class SensitivityDashboard:
     breakdown: Optional[Dict[str, float]] = None
     notes: list[str] = field(default_factory=list)
 
+    def to_dict(self, detail: str = "agent") -> Dict[str, Any]:
+        """JSON-serialisable view, for MCP / agent callers.
+
+        Without this the generic serialiser fell back to hunting for
+        ``estimate`` / ``se`` fields, found none on a dashboard, and
+        emitted an empty payload — so the MCP ``sensitivity`` tool
+        returned nothing but its own title and an agent calling it got no
+        E-value, no Oster delta, no robustness value at all.
+        """
+        out: Dict[str, Any] = {
+            "method": "unified_sensitivity",
+            "e_value_point": self.e_value_point,
+            "e_value_ci": self.e_value_ci,
+            "rr_observed": self.rr_observed,
+            "ci_observed": list(self.ci_observed),
+        }
+        for name, block in (
+            ("oster", self.oster),
+            ("rosenbaum", self.rosenbaum),
+            ("sensemakr", self.sensemakr),
+            ("breakdown", self.breakdown),
+        ):
+            if block is not None:
+                out[name] = dict(block)
+        if detail == "minimal":
+            return {k: out[k] for k in ("method", "e_value_point") if k in out}
+        if self.notes:
+            out["notes"] = list(self.notes)
+        if detail == "agent":
+            out["summary_text"] = self.summary()
+        return out
+
     def summary(self) -> str:
         bar = "=" * 60
         lines = [
@@ -243,6 +275,18 @@ def _outcome_sd(
         value = getattr(result, attr, None)
         if isinstance(value, (int, float, np.floating)) and float(value) > 0:
             return float(value)
+    # Regression results keep the outcome vector they were fitted on, so
+    # the scale is available without the caller re-supplying the frame.
+    # This is what lets the MCP `sensitivity` tool, which only receives a
+    # cached result handle, return a real E-value.
+    stored_y = (getattr(result, "data_info", None) or {}).get("y")
+    if stored_y is not None:
+        try:
+            sd = float(np.asarray(stored_y, dtype=float).ravel().std(ddof=1))
+        except (TypeError, ValueError):
+            return None
+        if np.isfinite(sd) and sd > 0:
+            return sd
     return None
 
 

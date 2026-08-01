@@ -162,11 +162,31 @@ def test_raw_coefficient_is_standardised_not_read_as_a_risk_ratio(ols_fit, lalon
     assert dash.e_value_point < 10.0
 
 
-def test_missing_scale_skips_the_evalue_with_a_reason(ols_fit):
-    """No outcome SD means no defensible E-value — say so, don't invent."""
+def test_regression_result_supplies_its_own_scale(ols_fit, lalonde):
+    """A fitted regression already knows its outcome SD.
+
+    EconometricResults keeps the outcome vector it was fitted on, so the
+    E-value is available without the caller re-passing the frame. This is
+    what lets the MCP `sensitivity` tool — which only receives a cached
+    result handle — return a real number instead of nothing.
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         dash = sp.unified_sensitivity(ols_fit, term="treat")
+    assert dash.e_value_point == pytest.approx(
+        _expected_evalue(ols_fit, "treat", lalonde), rel=1e-9
+    )
+
+
+def test_missing_scale_skips_the_evalue_with_a_reason():
+    """A result carrying neither data nor an outcome vector has no scale.
+
+    No outcome SD means no defensible E-value — say so, don't invent one.
+    """
+    bare = SimpleNamespace(estimate=0.35, se=0.10, ci=(0.15, 0.55))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.unified_sensitivity(bare)
     assert math.isnan(dash.e_value_point)
     notes = " ".join(str(n) for n in (dash.notes or []))
     assert "E-value skipped" in notes
