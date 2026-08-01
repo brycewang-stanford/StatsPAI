@@ -6,6 +6,27 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **75 quarantined Tier-D analytic tests reclaimed, and one of them anchors a
+  bug `main` has since fixed.** Five files sat untracked in a
+  `_wave1_tierD_anchors_optional/` directory inside a stale worktree — known-truth
+  anchors for `sp.engle_granger`, `sp.johansen`, `sp.cusum_test`, `sp.irf`,
+  plus spatial / structural / inference / LDV-regression cases (69 passing,
+  6 skipped). They ran green against today's `main` apart from one stale
+  assertion, now fixed
+  (`cusum_test`'s `critical_value` became the BDE boundary *array* rather than
+  a scalar threshold, so `max_cusum > critical_value` raised rather than
+  compared).
+
+  The valuable one was marked `xfail`: `sp.cusum_test` used to compare
+  max|CUSUM| against a flat constant (1.358) instead of the
+  Brown-Durbin-Evans boundary `a*(sqrt(T) + 2t/sqrt(T))`, giving an empirical
+  size of 0.31–0.35 against a nominal 0.05 that did **not** shrink with n — a
+  stable series rejected roughly one time in three. `main` adopted the BDE
+  boundary in the meantime, so the test now XPASSes. Converted to a plain
+  assertion and kept, rather than deleted: a false-positive rate that high is
+  exactly the defect that returns when someone "simplifies" the boundary back
+  to a constant.
+
 - **Parametric AFT reference parity across all four distributions.** `sp.survreg`
   was pinned against R `survival::survreg` for Weibull only. Extended to
   exponential, lognormal and loglogistic as well (11 tests,
