@@ -65,6 +65,19 @@ R_POISSON_EVENT = {
 R_GAUSSIAN_SIMPLE = 1.2834720619
 
 # --- R etwfe 0.6.2, family="binomial" --------------------------------------
+# emfx(type="calendar") and (type="group"), poisson panel.
+R_POISSON_CALENDAR = {
+    3: (0.8339744576, 0.2987025396),
+    4: (1.5255556727, 0.2730312157),
+    5: (1.0692443395, 0.3219207762),
+    6: (1.4513375238, 0.3061388921),
+}
+R_POISSON_GROUP = {
+    3: (1.0828530299, 0.2630855212),
+    4: (1.5313752234, 0.2611706662),
+    5: (1.2538989212, 0.3087072651),
+}
+
 R_LOGIT_SIMPLE = (0.2438009516, 0.0381933373)
 R_LOGIT_EVENT = {
     0: (0.19780252, 0.03923641),
@@ -227,16 +240,48 @@ def test_emfx_event_and_group_expose_the_cell_tables(poisson_panel, agg_type, la
     assert out.se > 0
 
 
-def test_emfx_calendar_raises_for_nonlinear_fits(poisson_panel):
-    """The GLM branch does not retain the period index calendar needs."""
-    from statspai.exceptions import MethodIncompatibility
-
+def test_emfx_calendar_is_now_supported(poisson_panel):
+    """calendar used to raise for GLM fits; it is now the same response-scale
+    AME grouped by period, and matches R emfx(type='calendar')."""
     res = _fit(poisson_panel, family="poisson")
-    with pytest.raises(MethodIncompatibility, match="calendar"):
-        sp.etwfe_emfx(res, type="calendar")
+    out = sp.etwfe_emfx(res, type="calendar")
+    assert "period" in out.detail.columns
+    assert set(out.detail["period"]) == set(R_POISSON_CALENDAR)
 
 
 def test_emfx_still_works_for_the_linear_path(poisson_panel):
     res = _fit(poisson_panel)
     out = sp.etwfe_emfx(res, type="event")
     assert out.detail is not None and len(out.detail) > 0
+
+
+# ===========================================================================
+# emfx group / calendar aggregations
+# ===========================================================================
+
+
+@pytest.mark.parametrize("period", sorted(R_POISSON_CALENDAR))
+def test_calendar_ame_matches_r(poisson_panel, period):
+    """emfx(type='calendar') used to raise for GLM fits; now it must match R."""
+    res = _fit(poisson_panel, family="poisson")
+    cal = sp.etwfe_emfx(res, type="calendar").detail.set_index("period")
+    att_r, se_r = R_POISSON_CALENDAR[period]
+    assert cal.loc[period, "att"] == pytest.approx(att_r, abs=1e-6)
+    assert cal.loc[period, "se"] == pytest.approx(se_r, rel=1e-3)
+
+
+@pytest.mark.parametrize("cohort", sorted(R_POISSON_GROUP))
+def test_group_ame_matches_r(poisson_panel, cohort):
+    res = _fit(poisson_panel, family="poisson")
+    grp = res.detail.set_index("cohort")
+    att_r, se_r = R_POISSON_GROUP[cohort]
+    assert grp.loc[cohort, "att"] == pytest.approx(att_r, abs=1e-6)
+    assert grp.loc[cohort, "se"] == pytest.approx(se_r, rel=1e-3)
+
+
+def test_all_four_emfx_types_available_for_glm(poisson_panel):
+    """simple / event / group / calendar — the full R emfx menu."""
+    res = _fit(poisson_panel, family="poisson")
+    for agg in ("simple", "event", "group", "calendar"):
+        out = sp.etwfe_emfx(res, type=agg)
+        assert out.detail is not None and len(out.detail) > 0

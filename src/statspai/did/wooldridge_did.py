@@ -664,6 +664,24 @@ def _etwfe_glm(
             }
         )
 
+    # Calendar-time AMEs: the same response-scale contrast, grouped by the
+    # period rather than by cohort or event time.
+    calendar_rows = []
+    period_arr = df_keep[time].to_numpy(dtype=float)
+    for t_val in sorted({float(v) for v in period_arr[treated]}):
+        mask = treated & (period_arr == t_val)
+        if not mask.any():
+            continue
+        est_t, se_t = _ame(mask)
+        calendar_rows.append(
+            {
+                "period": int(t_val),
+                "att": est_t,
+                "se": se_t,
+                "n_treated": int(mask.sum()),
+            }
+        )
+
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     z_stat = att / se_att if se_att > 0 else 0.0
 
@@ -683,6 +701,7 @@ def _etwfe_glm(
             "link": type(link).__name__,
             "cgroup": "notyet",
             "event_study": event_study,
+            "calendar": pd.DataFrame(calendar_rows),
             "coef_names": names,
             "coefficients": beta,
             "vcov": vcov,
@@ -2496,13 +2515,8 @@ def _etwfe_glm_emfx(
         frame = result.detail
         label = "cohort"
     else:  # calendar
-        raise MethodIncompatibility(
-            "etwfe_emfx(type='calendar') is not yet available for "
-            f"family={mi.get('family')!r} fits.",
-            recovery_hint="Use type='simple', 'event', or 'group', or refit "
-            "with family=None for the linear ETWFE.",
-            diagnostics={"type": type, "family": mi.get("family")},
-        )
+        frame = mi.get("calendar")
+        label = "period"
 
     if not isinstance(frame, pd.DataFrame) or frame.empty:
         raise DataInsufficient(
