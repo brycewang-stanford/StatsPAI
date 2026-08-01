@@ -34,6 +34,13 @@ from typing import Dict, List, Optional
 # getattr), so the intentionally submodule-scoped functions (e.g.
 # sp.causal_llm.echo_client) are measured against their actual docstring.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# ...and make ``import statspai`` resolve from THIS checkout's source, the
+# way dump_schemas / registry_stats already do. Without it the audit runs
+# against whatever editable install is on the path -- in a git worktree that
+# is the main checkout, so the gate silently measures someone else's tree.
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src")
+)
 from _resolve import resolve_registered  # noqa: E402
 
 _EXAMPLES_HEADER = re.compile(r"^\s*Examples?\s*\n\s*-{3,}", re.MULTILINE)
@@ -95,9 +102,7 @@ def summarise(rows: List[Dict]) -> str:
         doc_ok += d
         reg_ok += g
         unresolved += u
-        lines.append(
-            f"{cat:<22} {n:>5} {d:>7} {100 * d / n:>8.1f}% {g:>7} {u:>11}"
-        )
+        lines.append(f"{cat:<22} {n:>5} {d:>7} {100 * d / n:>8.1f}% {g:>7} {u:>11}")
     lines.append("-" * len(lines[0]))
     lines.append(
         f"{'TOTAL':<22} {total:>5} {doc_ok:>7} "
@@ -130,8 +135,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.markdown is not None:
         with open(args.markdown, "w", encoding="utf-8") as fh:
             fh.write(
-                "| function | category | docstring Examples "
-                "| registry example |\n"
+                "| function | category | docstring Examples " "| registry example |\n"
             )
             fh.write("| --- | --- | --- | --- |\n")
             for r in rows:

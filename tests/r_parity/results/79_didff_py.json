@@ -1,0 +1,207 @@
+{
+  "module": "79_didff",
+  "side": "py",
+  "rows": [
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_1",
+      "estimate": -0.0027365619743415837,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_2",
+      "estimate": 0.009916898897843404,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_3",
+      "estimate": 0.20451407195400567,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_4",
+      "estimate": 0.22604252968793143,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_5",
+      "estimate": 0.30336923501795077,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_6",
+      "estimate": 0.17320679872461148,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_7",
+      "estimate": 0.0592126735457307,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_density_8",
+      "estimate": 0.026474354146267982,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "pt_pvalue",
+      "estimate": 0.99999,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_1",
+      "estimate": -0.35074626865671643,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_2",
+      "estimate": 0.3072701817545439,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_3",
+      "estimate": 0.39563489087227177,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_4",
+      "estimate": 0.33643341083527084,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_5",
+      "estimate": 0.17577939448486213,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_6",
+      "estimate": 0.0853771344283607,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_7",
+      "estimate": 0.03015075376884422,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_density_8",
+      "estimate": 0.02010050251256281,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    },
+    {
+      "module": "79_didff",
+      "side": "py",
+      "statistic": "rej_pvalue",
+      "estimate": 0.0,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 400,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "estimator": "functional_form_test"
+  }
+}

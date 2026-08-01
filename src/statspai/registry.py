@@ -12094,6 +12094,121 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="functional_form_test",
+            category="causal",
+            description=(
+                "Roth & Sant'Anna (2023) test of whether parallel trends can "
+                "hold for EVERY strictly monotonic transformation of the "
+                "outcome. Bins the outcome, recovers the counterfactual "
+                "probability mass the design implies for the treated group in "
+                "each bin via Callaway-Sant'Anna, and tests the moment "
+                "inequalities that mass must satisfy to be a density. "
+                "Rejection means levels and logs are answering different "
+                "questions, so the functional form is doing identifying work."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec(
+                    "g",
+                    "str",
+                    True,
+                    description="First-treatment period (0 = never treated)",
+                ),
+                ParamSpec("t", "str", True),
+                ParamSpec("i", "str", True, description="Unit identifier"),
+                ParamSpec(
+                    "n_bins",
+                    "int",
+                    False,
+                    10,
+                    "Equal-width outcome bins; too coarse a grid buys a large "
+                    "p-value for nothing",
+                ),
+                ParamSpec("binpoints", "list", False, None, "Explicit bin edges"),
+                ParamSpec(
+                    "aggregation",
+                    "str",
+                    False,
+                    "group",
+                    "Which aggte aggregation defines the implied density",
+                    enum=["group", "simple", "dynamic", "calendar"],
+                ),
+                ParamSpec("estimator", "str", False, "dr"),
+                ParamSpec("control_group", "str", False, "nevertreated"),
+                ParamSpec("x", "list", False, None),
+                ParamSpec("anticipation", "int", False, 0),
+                ParamSpec(
+                    "n_sims",
+                    "int",
+                    False,
+                    100000,
+                    "Draws behind the least-favourable critical value",
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec("random_state", "int", False, 0),
+            ],
+            returns=(
+                "FunctionalFormResult with pvalue, the per-bin implied "
+                "density table, and the max-t statistic"
+            ),
+            example=(
+                'sp.functional_form_test(df, y="lemp", g="first_treat", '
+                't="year", i="countyreal", n_bins=10)'
+            ),
+            tags=[
+                "did",
+                "parallel_trends",
+                "functional_form",
+                "levels_vs_logs",
+                "specification",
+                "causal",
+            ],
+            reference=(
+                "Roth & Sant'Anna (2023) *Econometrica* 91(2), 737-747 "
+                "[@roth2023when]; pinned against the authors' didFF 0.1.0 "
+                "(Track A module 79)."
+            ),
+            pre_conditions=[
+                "staggered or single-cohort panel with never-treated or "
+                "not-yet-treated controls",
+                "outcome with enough support to bin",
+            ],
+            assumptions=[
+                "Callaway-Sant'Anna identification for each binned indicator",
+                "No anticipation before g - anticipation",
+            ],
+            limitations=[
+                "a large p-value is only a failure to reject, not evidence "
+                "FOR functional-form insensitivity: the test has little "
+                "power with few units or coarse bins",
+                "standard errors and the critical value are asymptotic; a "
+                "bootstrap variant is not implemented",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Every bin has a degenerate influence function",
+                    exception="DataInsufficient",
+                    remedy="The binning is finer than the data support. "
+                    "Lower n_bins or supply binpoints.",
+                    alternative="pretrends_test",
+                ),
+                FailureMode(
+                    symptom="Test rejects",
+                    exception="",
+                    remedy="Parallel trends cannot hold on every scale. "
+                    "Argue for the scale you use, or report both and "
+                    "bound the disagreement with sp.honest_did.",
+                    alternative="honest_did",
+                ),
+            ],
+            alternatives=["pretrends_test", "honest_did", "callaway_santanna"],
+            typical_n_min=200,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="pretrends_test",
             category="causal",
             description=(

@@ -3154,6 +3154,68 @@
     },
     {
       "additional_tests": [
+        "tests/reference_parity/test_functional_form_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "functional_form_test",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 1.2769598142605262e-14,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "pt_density_1",
+          "pt_density_2",
+          "pt_density_3",
+          "pt_density_4",
+          "pt_density_5",
+          "pt_density_6",
+          "pt_density_7",
+          "pt_density_8",
+          "rej_density_1",
+          "rej_density_2",
+          "rej_density_3",
+          "rej_density_4",
+          "rej_density_5",
+          "rej_density_6",
+          "rej_density_7",
+          "rej_density_8"
+        ],
+        "tolerance": 0.001
+      },
+      "label": "Functional-form test for parallel trends",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "79_didff",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 1.2769598142605262e-14,
+        "Stata": null
+      },
+      "python_call": "sp.functional_form_test",
+      "reference": "didFF::didFF",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "aligned",
+      "test": [
+        "tests/r_parity/79_didff.py",
+        "tests/r_parity/79_didff.R"
+      ],
+      "tier": "iterative",
+      "tolerance": "rel_est<=0.001"
+    },
+    {
+      "additional_tests": [
         "tests/external_parity/test_whatif_nhefs.py",
         "tests/reference_parity/test_tmle_parity.py"
       ],

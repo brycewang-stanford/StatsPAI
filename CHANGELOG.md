@@ -220,6 +220,39 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.functional_form_test` — is your parallel-trends assumption a claim
+  about the outcome, or about the scale you happened to write it on?**
+  Roth & Sant'Anna (2023) show that parallel trends in levels and parallel
+  trends in logs are different assumptions, and give a testable condition for
+  when the distinction stops mattering: the counterfactual untreated
+  distribution the design implies for the treated group has to be a real
+  distribution, so its density cannot go negative anywhere.
+
+  The implementation bins the outcome, recovers each bin's implied
+  counterfactual mass through `sp.callaway_santanna` on a sign-flipped
+  indicator, and tests the resulting moment inequalities with a
+  least-favourable max-t statistic. Rejection means the levels-vs-logs choice
+  is doing identifying work and has to be argued for rather than assumed; a
+  large p-value is a failure to reject, not a licence, and the result object
+  says so.
+
+  Pinned against `didFF` 0.1.0 — Sant'Anna's own package — on `did::mpdta`
+  and on a multiplicative DGP built to reject: all sixteen implied-density
+  bins agree at 1.2e-15, and both p-values match. Track A module `79_didff`
+  plus `tests/reference_parity/test_functional_form_parity.py`.
+
+  Two binning details had to match R exactly, each worth ~3e-4 per bin: the
+  bins come from the **untreated** observations only, and R's
+  `cut(x, breaks = n)` pushes only the two outer edges out by `dx/1000`,
+  leaving the interior grid unpadded.
+
+- **`aggte` now exposes the aggregate influence function.**
+  `model_info["overall_influence_function"]` carries the unit-level influence
+  function of the reported overall ATT, so downstream tests that need the
+  whole function rather than its second moment — the functional-form test
+  stacks one per outcome bin to get their joint covariance — no longer have
+  to re-derive it.
+
 - **75 quarantined Tier-D analytic tests reclaimed, and one of them anchors a
   bug `main` has since fixed.** Five files sat untracked in a
   `_wave1_tierD_anchors_optional/` directory inside a stale worktree — known-truth

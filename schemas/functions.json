@@ -12000,6 +12000,102 @@
     }
   },
   {
+    "description": "Roth & Sant'Anna (2023) test of whether parallel trends can hold for EVERY strictly monotonic transformation of the outcome. Bins the outcome, recovers the counterfactual probability mass the design implies for the treated group in each bin via Callaway-Sant'Anna, and tests the moment inequalities that mass must satisfy to be a density. Rejection means levels and logs are answering different questions, so the functional form is doing identifying work. Validation: certified evidence with scoped limitations. Known limitations: a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins; standard errors and the critical value are asymptotic; a bootstrap variant is not implemented.",
+    "name": "functional_form_test",
+    "parameters": {
+      "properties": {
+        "aggregation": {
+          "default": "group",
+          "description": "Which aggte aggregation defines the implied density",
+          "enum": [
+            "group",
+            "simple",
+            "dynamic",
+            "calendar"
+          ],
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "anticipation": {
+          "default": 0,
+          "description": "anticipation parameter (int).",
+          "type": "integer"
+        },
+        "binpoints": {
+          "description": "Explicit bin edges",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "control_group": {
+          "default": "nevertreated",
+          "description": "control_group parameter (str).",
+          "type": "string"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "estimator": {
+          "default": "dr",
+          "description": "estimator parameter (str).",
+          "type": "string"
+        },
+        "g": {
+          "description": "First-treatment period (0 = never treated)",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "n_bins": {
+          "default": 10,
+          "description": "Equal-width outcome bins; too coarse a grid buys a large p-value for nothing",
+          "type": "integer"
+        },
+        "n_sims": {
+          "default": 100000,
+          "description": "Draws behind the least-favourable critical value",
+          "type": "integer"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "t": {
+          "description": "t parameter (str).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "g",
+        "t",
+        "i"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Joint Wald test of pre-treatment ATTs (or event-study leads) against zero -- the canonical sanity check for the parallel-trends assumption in DiD designs. Failing to reject is necessary but not sufficient evidence for parallel trends; always pair with sp.honest_did / sp.sensitivity_rr for design-robust inference.",
     "name": "pretrends_test",
     "parameters": {

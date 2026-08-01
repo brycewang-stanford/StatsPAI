@@ -264,9 +264,12 @@ def aggte(
     #              treated units, not equally — ⚠️ corrected)
     #   calendar : simple average across calendar times (all post-treatment
     #              by construction)
+    overall_inf = None
     if type == "simple":
         overall_est = float(est_cells[0])
         overall_se = float(se_cells[0])
+        if inf_matrix is not None:
+            overall_inf = np.asarray(W[0] @ inf_matrix.T, dtype=float)
     else:
         if type == "dynamic":
             post_mask_agg = np.asarray(labels, dtype=float) >= 0
@@ -296,6 +299,19 @@ def aggte(
         else:
             w_overall = np.full(W.shape[0], 1.0 / W.shape[0])
         overall_est = float(w_overall @ est_cells)
+        # The unit-level influence function of the overall aggregate. Kept
+        # regardless of the SE path so downstream tests that need the whole
+        # function -- not just its second moment -- can reach it; the
+        # Roth-Sant'Anna functional-form test stacks one of these per
+        # outcome bin to get their joint covariance.
+        #
+        # sqrt(mean(psi**2) / n_units) off this vector reproduces the
+        # reported SE exactly for 'group' / 'dynamic' / 'calendar' (the
+        # unclustered overall SE is that formula even under bstrap=True).
+        # For type='simple' the reported SE is a genuine multiplier
+        # bootstrap, so the two agree only up to bootstrap noise.
+        if inf_matrix is not None:
+            overall_inf = np.asarray((w_overall @ W) @ inf_matrix.T, dtype=float)
         if bstrap and inf_matrix is not None:
             if cluster_ids is not None:
                 # Cluster-aware: bootstrap the single overall combination
@@ -342,6 +358,7 @@ def aggte(
         "cband": cband and type != "simple",
         "crit_val_uniform": float(crit_unif),
         "n_units": n_units,
+        "overall_influence_function": overall_inf,
         "source_method": result.method,
     }
 

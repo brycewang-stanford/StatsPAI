@@ -8436,6 +8436,97 @@
     "name": "frontdoor"
   },
   {
+    "description": "Roth & Sant'Anna (2023) test of whether parallel trends can hold for EVERY strictly monotonic transformation of the outcome. Bins the outcome, recovers the counterfactual probability mass the design implies for the treated group in each bin via Callaway-Sant'Anna, and tests the moment inequalities that mass must satisfy to be a density. Rejection means levels and logs are answering different questions, so the functional form is doing identifying work. Validation: certified evidence with scoped limitations. Known limitations: a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins; standard errors and the critical value are asymptotic; a bootstrap variant is not implemented. Assumptions: Callaway-Sant'Anna identification for each binned indicator; No anticipation before g - anticipation. Pre-conditions: staggered or single-cohort panel with never-treated or not-yet-treated controls; outcome with enough support to bin. Failure modes: Every bin has a degenerate influence function -> The binning is finer than the data support. Lower n_bins or supply binpoints; Test rejects -> Parallel trends c...",
+    "input_schema": {
+      "properties": {
+        "aggregation": {
+          "default": "group",
+          "description": "Which aggte aggregation defines the implied density",
+          "enum": [
+            "group",
+            "simple",
+            "dynamic",
+            "calendar"
+          ],
+          "type": "string"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "anticipation": {
+          "default": 0,
+          "description": "anticipation parameter (int).",
+          "type": "integer"
+        },
+        "binpoints": {
+          "description": "Explicit bin edges",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "control_group": {
+          "default": "nevertreated",
+          "description": "control_group parameter (str).",
+          "type": "string"
+        },
+        "estimator": {
+          "default": "dr",
+          "description": "estimator parameter (str).",
+          "type": "string"
+        },
+        "g": {
+          "description": "First-treatment period (0 = never treated)",
+          "type": "string"
+        },
+        "i": {
+          "description": "Unit identifier",
+          "type": "string"
+        },
+        "n_bins": {
+          "default": 10,
+          "description": "Equal-width outcome bins; too coarse a grid buys a large p-value for nothing",
+          "type": "integer"
+        },
+        "n_sims": {
+          "default": 100000,
+          "description": "Draws behind the least-favourable critical value",
+          "type": "integer"
+        },
+        "random_state": {
+          "default": 0,
+          "description": "Random seed or RandomState for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "t": {
+          "description": "t parameter (str).",
+          "type": "string"
+        },
+        "x": {
+          "description": "Primary running variable, regressor, or feature input for this estimator.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "g",
+        "i",
+        "t",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "functional_form_test"
+  },
+  {
     "description": "Parametric g-formula (standardization) estimator. ATE/ATT for binary D, or dose-response curve for continuous D. Consistent under correctly-specified outcome model; not doubly robust. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Sequential exchangeability / no unmeasured confounding at each time point; Positivity: every treatment level is possible given the past; Correct specification of the treatment and/or outcome models. Pre-conditions: Sequentially measured covariates, (time-varying) treatment, and outcome; Models for the treatment process and the outcome (or weights). Failure modes: Stabilized weights have extreme values (positivity near-violation) -> Truncate weights, simplify the treatment model, or use a doubly-robust estimator (TMLE). Alternatives: sp.tmle, sp.g_computation, sp.ipw. Typical minimum N: 300.",
     "input_schema": {
       "properties": {

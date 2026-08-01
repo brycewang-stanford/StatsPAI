@@ -21700,6 +21700,149 @@
   },
   {
     "alternatives": [
+      "pretrends_test",
+      "honest_did",
+      "callaway_santanna"
+    ],
+    "assumptions": [
+      "Callaway-Sant'Anna identification for each binned indicator",
+      "No anticipation before g - anticipation"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Roth & Sant'Anna (2023) test of whether parallel trends can hold for EVERY strictly monotonic transformation of the outcome. Bins the outcome, recovers the counterfactual probability mass the design implies for the treated group in each bin via Callaway-Sant'Anna, and tests the moment inequalities that mass must satisfy to be a density. Rejection means levels and logs are answering different questions, so the functional form is doing identifying work. Validation: certified evidence with scoped limitations. Known limitations: a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins; standard errors and the critical value are asymptotic; a bootstrap variant is not implemented.",
+    "example": "sp.functional_form_test(df, y=\"lemp\", g=\"first_treat\", t=\"year\", i=\"countyreal\", n_bins=10)",
+    "failure_modes": [
+      {
+        "alternative": "pretrends_test",
+        "exception": "DataInsufficient",
+        "remedy": "The binning is finer than the data support. Lower n_bins or supply binpoints.",
+        "symptom": "Every bin has a degenerate influence function"
+      },
+      {
+        "alternative": "honest_did",
+        "exception": "",
+        "remedy": "Parallel trends cannot hold on every scale. Argue for the scale you use, or report both and bound the disagreement with sp.honest_did.",
+        "symptom": "Test rejects"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [
+      "a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins",
+      "standard errors and the critical value are asymptotic; a bootstrap variant is not implemented"
+    ],
+    "name": "functional_form_test",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "staggered or single-cohort panel with never-treated or not-yet-treated controls",
+      "outcome with enough support to bin"
+    ],
+    "reference": "Roth & Sant'Anna (2023) *Econometrica* 91(2), 737-747 [@roth2023when]; pinned against the authors' didFF 0.1.0 (Track A module 79).",
+    "signature": {
+      "description": "Roth & Sant'Anna (2023) test of whether parallel trends can hold for EVERY strictly monotonic transformation of the outcome. Bins the outcome, recovers the counterfactual probability mass the design implies for the treated group in each bin via Callaway-Sant'Anna, and tests the moment inequalities that mass must satisfy to be a density. Rejection means levels and logs are answering different questions, so the functional form is doing identifying work. Validation: certified evidence with scoped limitations. Known limitations: a large p-value is only a failure to reject, not evidence FOR functional-form insensitivity: the test has little power with few units or coarse bins; standard errors and the critical value are asymptotic; a bootstrap variant is not implemented.",
+      "name": "functional_form_test",
+      "parameters": {
+        "properties": {
+          "aggregation": {
+            "default": "group",
+            "description": "Which aggte aggregation defines the implied density",
+            "enum": [
+              "group",
+              "simple",
+              "dynamic",
+              "calendar"
+            ],
+            "type": "string"
+          },
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "anticipation": {
+            "default": 0,
+            "description": "anticipation parameter (int).",
+            "type": "integer"
+          },
+          "binpoints": {
+            "description": "Explicit bin edges",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "control_group": {
+            "default": "nevertreated",
+            "description": "control_group parameter (str).",
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "estimator": {
+            "default": "dr",
+            "description": "estimator parameter (str).",
+            "type": "string"
+          },
+          "g": {
+            "description": "First-treatment period (0 = never treated)",
+            "type": "string"
+          },
+          "i": {
+            "description": "Unit identifier",
+            "type": "string"
+          },
+          "n_bins": {
+            "default": 10,
+            "description": "Equal-width outcome bins; too coarse a grid buys a large p-value for nothing",
+            "type": "integer"
+          },
+          "n_sims": {
+            "default": 100000,
+            "description": "Draws behind the least-favourable critical value",
+            "type": "integer"
+          },
+          "random_state": {
+            "default": 0,
+            "description": "Random seed or RandomState for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "t": {
+            "description": "t parameter (str).",
+            "type": "string"
+          },
+          "x": {
+            "description": "Primary running variable, regressor, or feature input for this estimator.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "g",
+          "t",
+          "i"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "R parity module 79_didff"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alternatives": [
       "sensitivity_rr",
       "honest_did",
       "event_study"

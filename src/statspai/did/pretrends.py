@@ -775,21 +775,6 @@ def pretrends_slope_for_power(
     ----------
     Roth, J. (2022). Pretest with Caution: Event-Study Estimates after
     Testing for Parallel Trends. *AER: Insights*, 4(3), 305--322. [@roth2022pretest]
-
-    Examples
-    --------
-    >>> import statspai as sp, numpy as np, pandas as pd
-    >>> rng = np.random.default_rng(0)
-    >>> rows = []
-    >>> for i in range(80):
-    ...     cohort = 4 if i < 40 else 0          # 0 = never treated
-    ...     for t in range(8):
-    ...         post = cohort > 0 and t >= cohort
-    ...         y = 0.3 * t + (2.0 if post else 0.0) + (i % 5) + rng.normal()
-    ...         rows.append((i, t, cohort, y))
-    >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
-    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
-    >>> sp.pretrends_slope_for_power(es)["slope"]        # doctest: +SKIP
     """
     context = "pretrends_slope_for_power"
     target_power = _require_open_unit_float(target_power, "target_power", context)

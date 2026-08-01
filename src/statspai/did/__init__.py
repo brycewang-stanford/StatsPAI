@@ -47,6 +47,7 @@ from .did_bcf import did_bcf
 from .did_imputation import did_imputation
 from .did_multiplegt import did_multiplegt
 from .event_study import event_study
+from .functional_form import FunctionalFormResult, functional_form_test
 from .gardner_2s import did_2stage, gardner_did
 from .harvest import HarvestDIDResult, harvest_did
 from .honest_did import breakdown_m, honest_did
@@ -765,6 +766,7 @@ __all__ = [
     "did_misclassified",
     # Pre-trends
     "pretrends_test",
+    "functional_form_test",
     "pretrends_power",
     "pretrends_slope_for_power",
     "sensitivity_rr",

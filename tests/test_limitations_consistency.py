@@ -62,6 +62,13 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # both are reachable. Pinned in Track A module 78.
         "the headline aggregation convention differs",
     ],
+    "functional_form_test": [
+        # Both are properties of the test, not code paths that raise: it is
+        # a moment-inequality test, so failing to reject is not evidence of
+        # the null, and its critical value is asymptotic by construction.
+        "a large p-value is only a failure to reject",
+        "standard errors and the critical value are asymptotic",
+    ],
     "ddd_heterogeneous": [
         # Same shape: the (g, t) cells match triplediff::ddd exactly and
         # only the aggregation weights and the SE method differ, both

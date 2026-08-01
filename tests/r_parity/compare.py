@@ -45,6 +45,11 @@ PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
+    "79_didff": (
+        "no Stata implementation: the Roth-Sant'Anna functional-form test "
+        "ships as the R package didFF (GitHub only, not CRAN) and has no "
+        "ssc counterpart."
+    ),
     "78_multiplegt_dyn": (
         "Stata's did_multiplegt_dyn is the authors' own port and would be "
         "the natural third side, but it is not installed in the verified "
@@ -288,6 +293,13 @@ STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 #     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # Functional-form test: the sixteen implied-density bins across both
+    # designs agree at 1.2e-15. The 1e-3 budget exists for ONE row per
+    # design -- the p-value, which is a 100k-draw simulation of the
+    # least-favourable critical value on each side with different RNGs
+    # (observed gap 1e-5, i.e. one draw). Iterative tier for that reason
+    # alone; the substantive quantities are machine-exact.
+    "79_didff": {"rel_est": 1e-3},
     # dCDH intertemporal event study: four effects, two placebos and the
     # switcher-weighted aggregate all match DIDmultiplegtDYN at 5e-15,
     # switcher counts included. No rel_se -- the R package reports
@@ -969,6 +981,16 @@ HEADLINE: dict[str, dict[str, Any]] = {
             "point estimate rel < 1e-6; SE is a documented convention gap "
             "(did2s propagates stage-1 estimation error, sp.gardner_did's "
             "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
+        ),
+    },
+    "79_didff": {
+        "name": "Functional-form test (Roth--Sant'Anna)",
+        "headline_filter": lambda d: "_density_" in d.statistic,
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": (
+            "machine precision vs didFF (worst 1.2e-15); the module's 1e-3 "
+            "budget covers only the simulated p-value"
         ),
     },
     "78_multiplegt_dyn": {

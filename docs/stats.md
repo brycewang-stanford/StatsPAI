@@ -40,12 +40,12 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `synth` | 22,372 | 31 | 54 |
-| `did` | 26,053 | 40 | 68 |
-| `rd` | 16,207 | 25 | 53 |
+| `did` | 26,640 | 41 | 69 |
+| `rd` | 16,843 | 26 | 53 |
 | `regression` | 15,904 | 20 | 37 |
-| `smart` | 14,830 | 20 | 31 |
+| `smart` | 14,865 | 20 | 31 |
 | `output` | 11,961 | 21 | 40 |
-| `agent` | 12,025 | 31 | 3 |
+| `agent` | 12,150 | 31 | 3 |
 | `decomposition` | 8,805 | 18 | 31 |
 | `core` | 8,310 | 12 | 4 |
 | `fast` | 7,679 | 16 | 0 |
@@ -60,7 +60,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `dml` | 5,090 | 12 | 14 |
 | `frontier` | 4,801 | 8 | 12 |
 | `multilevel` | 4,421 | 8 | 11 |
-| `workflow` | 4,455 | 5 | 3 |
+| `workflow` | 4,478 | 5 | 3 |
 | `mendelian` | 4,351 | 13 | 38 |
 | `causal_discovery` | 4,056 | 11 | 20 |
 | `metalearners` | 3,915 | 8 | 23 |
@@ -72,8 +72,8 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `neural_causal` | 3,225 | 6 | 16 |
 | `structural` | 3,149 | 9 | 12 |
 | `forest` | 3,205 | 5 | 8 |
-| `causal_llm` | 2,972 | 10 | 14 |
-| `robustness` | 2,746 | 6 | 11 |
+| `causal_llm` | 2,959 | 10 | 14 |
+| `robustness` | 2,961 | 6 | 11 |
 | `crossval` | 2,647 | 7 | 2 |
 | `bounds` | 2,577 | 5 | 9 |
 | `conformal_causal` | 2,499 | 9 | 19 |
@@ -102,9 +102,9 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `longitudinal` | 1,044 | 3 | 7 |
 | `causal_rl` | 1,041 | 5 | 9 |
 | `surrogate` | 995 | 2 | 3 |
-| `ope` | 965 | 3 | 3 |
+| `ope` | 966 | 3 | 3 |
 | `survey` | 963 | 4 | 7 |
-| `gmm` | 4,067 | 12 | 4 |
+| `gmm` | 4,096 | 12 | 4 |
 | `dose_response` | 932 | 3 | 5 |
 | `selection` | 904 | 2 | 3 |
 | `dtr` | 894 | 5 | 2 |

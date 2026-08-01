@@ -138,6 +138,7 @@ a shared explicit fold partition.
 | 76 | Pre-trends power (Roth 2022) | `sp.pretrends_power` / `sp.pretrends_slope_for_power` | `pretrends::pretrends` / `pretrends::slope_for_power` (GitHub, not CRAN) |
 | 77 | Triple differences (staggered DDD) | `sp.ddd_heterogeneous` | `triplediff::ddd` + `agg_ddd` |
 | 78 | dCDH intertemporal event study | `sp.did_multiplegt_dyn` | `DIDmultiplegtDYN::did_multiplegt_dyn` |
+| 79 | Functional-form test for parallel trends | `sp.functional_form_test` | `didFF::didFF` |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running
