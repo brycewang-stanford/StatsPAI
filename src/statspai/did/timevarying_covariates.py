@@ -1,14 +1,20 @@
-"""Time-varying covariate DiD (Caetano-Callaway-Payne-Rodrigues 2022).
+"""Time-varying covariate DiD with baseline-frozen covariates.
 
 Motivation
 ----------
 The canonical "controlled DiD" regression with contemporaneous
 time-varying covariates X_{i,t} suffers a bad-controls problem when
-treatment affects the covariates. Caetano, Callaway, Payne & Rodrigues
-(2022) [待核验 — paper exact title + DOI to be confirmed and added to
-paper.bib before citing in docstring / guide] argue the right fix is
-to freeze covariates at their pre-treatment value X_{i, g-1} and fit a
-DR-DiD-style ATT(g, t) estimator with the frozen covariate.
+treatment affects the covariates. The fix implemented here is to freeze
+covariates at their pre-treatment value X_{i, g-1} and fit a DR-DiD-style
+ATT(g, t) estimator with the frozen covariate.
+
+.. note::
+   **(citation needed.)** This approach is associated with work by Caetano,
+   Callaway, Payne and Rodrigues, but the exact title / venue / DOI could not
+   be confirmed against Crossref or arXiv, so no citation string is asserted
+   here and nothing was added to ``paper.bib``. Per CLAUDE.md section 10 a
+   missing citation is preferable to an unverified one. Supply the verified
+   reference before quoting this estimator in a paper or guide.
 
 This implementation provides the cohort-by-period ATT computation with
 baseline-frozen covariates, aggregated via a Callaway-Sant'Anna-style
@@ -21,8 +27,9 @@ Scope & caveats
   easy extension and on the roadmap.
 - Never-treated units are required as controls in this MVP; the
   not-yet-treated variant is a follow-up.
-- Paper-faithful identification statements carry [待核验] until we lock
-  the exact paper version.
+- Identification statements here describe *this implementation*, not a
+  paper-faithful restatement, since the source could not be verified
+  (see the citation note above).
 """
 
 from __future__ import annotations
@@ -186,7 +193,7 @@ def did_timevarying_covariates(
     detail_df = pd.DataFrame(main["cell_estimates"])
 
     return CausalResult(
-        method="DiD with time-varying covariates (Caetano et al. 2022 [待核验])",
+        method="DiD with time-varying covariates (baseline-frozen X)",
         estimand="ATT aggregated across cohort × time",
         estimate=est,
         se=se,

@@ -1,11 +1,21 @@
-"""Local-Projections DiD (LP-DiD) à la Dube, Girardi, Jordà & Taylor (2023).
+"""Local-Projections DiD (LP-DiD) à la Dube, Girardi, Jordà & Taylor.
 
-Reference (to verify before adding to paper.bib)
------------------------------------------------
-Dube, A., Girardi, D., Jordà, Ò., & Taylor, A. M. (2023).
-"A Local Projections Approach to Difference-in-Differences Event Studies."
-NBER Working Paper (number [待核验 — confirm NBER WP ID and arXiv ID
-before citing this in a paper or guide]).
+References
+----------
+Dube, A., Girardi, D., Jordà, Ò. and Taylor, A. M. (2025). "A Local
+Projections Approach to Difference-in-Differences." *Journal of Applied
+Econometrics*, 40(7), 741-758. [@dube2025local]
+
+.. warning::
+   The citation above is verified (Crossref: DOI 10.1002/jae.70000, authors,
+   volume, issue and pages all confirmed). The **implementation** is not: it
+   follows the LP-DiD construction as described in secondary summaries, and
+   several specification details -- the clean-control definition, the handling
+   of switch-off events, and the exact leading specification -- have not been
+   checked against the published text. There is no parity test against a
+   reference implementation, which is why ``sp.lp_did`` carries
+   ``validation_status='api_stable'`` rather than a validated tier. Treat the
+   numbers as indicative until that gap is closed.
 
 Scope
 -----
@@ -15,8 +25,8 @@ fit
     Y_{i, t+h} − Y_{i, t−1} = α_t + β_h · Δd_{i, t} + X_{i, t} γ + ε
 
 on the "clean control" sample — units whose treatment stayed unchanged
-from t−1 through t+h. Estimator interpretation [待核验]: under standard
-LP-DiD assumptions (parallel trends + no anticipation), β_h is the ATT
+from t−1 through t+h. Estimator interpretation (see the warning above):
+under standard LP-DiD assumptions (parallel trends + no anticipation), β_h is the ATT
 at horizon h for units who newly switched treatment at time t. Pre-
 treatment horizons (h < 0) function as placebo checks.
 
@@ -29,7 +39,7 @@ base period fixed within each horizon regression.
 - The paper's "clean control" construction has two variants (never-
   treated only, vs. not-yet-treated through t+h). This implementation
   offers both via the ``clean_controls=`` argument; default matches
-  the paper's leading spec [待核验].
+  the paper's leading spec; not verified against the published text.
 - Joint tests across horizons (e.g., H0: all placebos = 0) are NOT
   implemented in this first cut. Use ``sp.honest_did`` on the
   event-study output for parallel-trends sensitivity.
@@ -80,7 +90,8 @@ def lp_did(
     treatment : str
         Binary time-varying treatment indicator (0/1). Units may switch
         from 0 to 1; switch-off events are treated as separate events
-        per the LP-DiD identification [待核验 — paper §X].
+        per the LP-DiD identification as implemented here (not verified against
+        the published paper).
     horizons : (int, int), default ``(-3, 5)``
         Inclusive (min, max) event-time horizons. Negative values are
         placebo pre-treatment leads.
@@ -133,7 +144,7 @@ def lp_did(
     -----
     The ``clean_controls='not_yet_treated'`` option mirrors what
     Dube-Girardi-Jordà-Taylor (2023) call the main LP-DiD specification
-    [待核验 — confirm against paper §3]; switching to
+    (not verified against the published paper); switching to
     ``clean_controls='never_treated'`` removes the cleanest subset of
     controls at the cost of ignoring late-treated units.
     """
@@ -161,7 +172,8 @@ def lp_did(
     # Identify "newly treated" events: delta_d == 1 (switch on).
     # LP-DiD canonical spec uses these as the treated arm at event time t.
     # Switch-off events (delta_d == -1) are outside this MVP.
-    # [待核验 — confirm treatment of switch-off events in paper §X]
+    # Switch-off events: handled as described below; the published paper's
+    # treatment of them has not been verified against this implementation.
 
     cluster_var = cluster if cluster is not None else unit
 
@@ -281,7 +293,7 @@ def lp_did(
             "time_fe": time_fe,
             "cluster_var": cluster_var,
             "controls": controls,
-            # [待核验] — joint placebo test + overall Wald across horizons
+            # Not implemented: joint placebo test + overall Wald across horizons
             # will follow a subsequent PR; left out here to keep MVP honest.
             "joint_placebo_test": None,
             "joint_overall_test": None,

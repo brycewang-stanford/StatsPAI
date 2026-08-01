@@ -25,15 +25,19 @@ ATT estimate. Under the Olden-Møen (2022) interpretation, the placebo
 arm DID_placebo(g, t) is the tested quantity — it should be zero under
 the DDD parallel-trends relaxation.
 
-References (verified anchors and [待核验] markers)
--------------------------------------------------
+References
+----------
 - Olden & Møen (2022). *The Econometrics Journal*, DOI 10.1093/ectj/utac010.
   Verified via paper.bib `olden2022triple`.
-- Strezhnev (2023) proposes a CS-style decomposition for DDD; bib key
-  [待核验 — not yet added to paper.bib, confirm exact citation before
-  moving this reference out of RFC/guide to a published docstring].
 - Callaway & Sant'Anna (2021) `callaway2021difference` for the
   group-time aggregation template.
+
+.. note::
+   **(citation needed.)** A CS-style decomposition for DDD is also associated
+   with work by Strezhnev, but the exact title / venue / DOI could not be
+   confirmed against Crossref, so no citation string is asserted here and
+   nothing was added to ``paper.bib``. Per CLAUDE.md section 10 a missing
+   citation is preferable to an unverified one.
 
 Scope & caveats
 ---------------
@@ -41,9 +45,9 @@ Scope & caveats
   controls per-(g, t) is a straightforward extension left for a
   follow-up once parity tests exist.
 - Inference is cluster bootstrap at the unit level (n_boot draws),
-  matching the pattern used in `sp.did_multiplegt`. Analytical
-  influence-function variance is [待核验 — depends on locking the
-  Strezhnev (2023) formulas].
+  matching the pattern used in `sp.did_multiplegt`. An analytical
+  influence-function variance is not implemented — deriving one requires
+  a locked source for the decomposition (see the citation note above).
 """
 
 from __future__ import annotations
@@ -224,7 +228,7 @@ def ddd_heterogeneous(
     detail_df = pd.DataFrame(main["cell_estimates"])
 
     return CausalResult(
-        method="DDD — heterogeneity-robust (Olden-Møen 2022 / Strezhnev 2023 [待核验])",
+        method="DDD — heterogeneity-robust group-time decomposition",
         estimand="ATT_DDD aggregated across cohort × time",
         estimate=est,
         se=se_overall,
