@@ -56,7 +56,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..core._vcov import require_bool_flag as _require_bool
+from ..core._validate import require_bool_flag as _require_bool
 from ..core.results import CausalResult
 from ._dynpanel import fit_dynamic_panel
 from ._dynpanel._moments import first_difference_H as _ab_H  # noqa: F401  (re-export)

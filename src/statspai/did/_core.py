@@ -35,7 +35,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from ..core._vcov import (  # noqa: F401  (re-exported for the DiD family)
+from ..core._validate import (  # noqa: F401  (re-exported for the DiD family)
     require_bool_flag as require_bool,
 )
 

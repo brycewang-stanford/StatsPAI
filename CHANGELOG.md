@@ -27,7 +27,7 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
-- **One implementation of the flag validator, in `statspai/core/_vcov.py`.**
+- **One implementation of the flag validator, in `statspai/core/_validate.py`.**
   It had reached five copies across `did/__init__.py`,
   `did/callaway_santanna.py`, `did/_core.py`, `gmm/arellano_bond.py` and
   `bartik/political.py`. `core/_vcov.py` is the cross-package home its own

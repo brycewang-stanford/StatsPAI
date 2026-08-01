@@ -143,10 +143,16 @@ def test_booleans_still_accepted(fn, good):
 
 
 def test_single_implementation():
-    """§4: one implementation, aliased — not five copies."""
+    """§4: one implementation, aliased — not five copies.
+
+    It lives in ``core/_validate`` rather than the more obvious
+    ``core/_vcov``: ``_vcov`` imports ``._numba_kernels`` at module level, so
+    routing estimator modules through it dragged numba into a plain
+    ``import statspai`` and broke the cold-import budget.
+    """
     import importlib
 
-    core = importlib.import_module("statspai.core._vcov")
+    core = importlib.import_module("statspai.core._validate")
     did_core = importlib.import_module("statspai.did._core")
     ab = importlib.import_module("statspai.gmm.arellano_bond")
 

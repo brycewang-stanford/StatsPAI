@@ -52,7 +52,7 @@ import numpy as np
 import pandas as pd
 from scipy import optimize, stats
 
-from ..core._vcov import require_bool_flag
+from ..core._validate import require_bool_flag
 from ..core.results import CausalResult, EconometricResults
 
 
