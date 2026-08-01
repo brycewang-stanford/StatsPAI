@@ -344,7 +344,17 @@ def unified_sensitivity(
     """
     from ..diagnostics.evalue import evalue as _evalue_fn
 
-    estimate, se, ci = _extract_estimate(result, term=term)
+    # `treat` already names the treatment column for the Sensemakr
+    # component. If the caller supplied it and it is a coefficient of this
+    # result, it is also the answer to "which term did you mean?" — asking
+    # for the same name twice would be pointless ceremony.
+    resolved_term = term
+    if resolved_term is None and treat is not None:
+        params = getattr(result, "params", None)
+        if params is not None and treat in getattr(params, "index", []):
+            resolved_term = treat
+
+    estimate, se, ci = _extract_estimate(result, term=resolved_term)
     if estimate is None or se is None or ci is None:
         raise ValueError(
             "Could not extract (estimate, se, ci) from result object. "

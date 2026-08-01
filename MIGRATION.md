@@ -41,8 +41,17 @@ sp.unified_sensitivity(ols_fit)
 sp.unified_sensitivity(ols_fit, term="treat")
 ```
 
-With more than one non-intercept coefficient the function now raises
-`MethodIncompatibility` listing the candidates rather than guessing. A fit
+If you already pass `treat=` (it names the treatment for the Sensemakr
+component), that doubles as the term — no need to name the same column
+twice:
+
+```python
+sp.unified_sensitivity(fit, data=df, y="re78", treat="treat", controls=X)
+```
+
+With more than one non-intercept coefficient and neither `term=` nor
+`treat=`, the function now raises `MethodIncompatibility` listing the
+candidates rather than guessing. A fit
 with exactly one non-intercept coefficient still needs no `term=`, and
 results exposing a scalar `.estimate` / `.ate` (`CausalResult` and friends)
 are unaffected — they never went through the coefficient path.

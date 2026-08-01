@@ -249,8 +249,19 @@ All notable changes to StatsPAI will be documented in this file.
   (CI from `conf_int()` rather than rebuilt as `±1.96·se`), and
   `unified_sensitivity` gained a `term=` argument. With more than one
   non-intercept coefficient it raises `MethodIncompatibility` listing the
-  candidates rather than guessing. Results exposing a scalar `estimate` are
-  unaffected. Pinned by `tests/test_unified_sensitivity_term.py`.
+  candidates rather than guessing. When `treat=` is supplied (it already
+  names the treatment for the Sensemakr component) it doubles as the term,
+  so no caller has to name the same column twice. Results exposing a scalar
+  `estimate` are unaffected. Pinned by
+  `tests/test_unified_sensitivity_term.py`.
+
+  Two callers carried the same defect and are fixed with it:
+  `EconometricResults.sensitivity()` built a "1-entry view" whose
+  estimate/SE/CI were all `iloc[0]` and handed it over as a scalar, which
+  looked unambiguous and so bypassed coefficient selection entirely; it now
+  passes the result through. The MCP `sensitivity` tool received the
+  caller's `treat` and dropped it, returning the intercept's sensitivity to
+  agents; it now forwards it.
 
 - **`sp.aipw` was not reproducible: its default `seed` is now `42`, was
   `None`.** The cross-fitting fold split came from

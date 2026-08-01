@@ -1296,24 +1296,14 @@ class EconometricResults:
         """
         from ..robustness.unified_sensitivity import unified_sensitivity
 
-        # Expose a 1-entry "estimate" view for compatibility
-        class _View:
-            estimate: float
-            se: float
-            ci: tuple[float, float]
-            params: pd.Series
-            std_errors: pd.Series
-
-        view = _View()
-        view.estimate = float(self.params.iloc[0])
-        view.se = float(self.std_errors.iloc[0])
-        view.ci = (
-            float(self.conf_int_lower.iloc[0]),
-            float(self.conf_int_upper.iloc[0]),
-        )
-        view.params = self.params
-        view.std_errors = self.std_errors
-        return unified_sensitivity(view, **kwargs)
+        # Pass the result straight through. This used to build a "1-entry
+        # view" whose estimate/se/ci were all params.iloc[0] — the intercept
+        # for any formula fit — and presenting that as a scalar `estimate`
+        # made it look unambiguous, so the dashboard analysed the intercept
+        # without ever reaching the coefficient-selection logic. Handing over
+        # the real result lets unified_sensitivity honour `term=` and refuse
+        # to guess when the fit has several candidate coefficients.
+        return unified_sensitivity(self, **kwargs)
 
 
 class CausalResult:

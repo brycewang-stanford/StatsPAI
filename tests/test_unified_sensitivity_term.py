@@ -162,3 +162,46 @@ def test_dashboard_baseline_is_the_treatment_not_the_intercept(ols_fit):
     assert float(dash.baseline["estimate"]) == pytest.approx(
         float(ols_fit.params["treat"])
     )
+
+
+def test_treat_kwarg_doubles_as_the_term(ols_fit):
+    """`treat=` already names the treatment; don't demand it twice.
+
+    The MCP `sensitivity` tool passes y/treat/controls. Before this, treat=
+    fed only the Sensemakr component while the coefficient under analysis
+    was still resolved by position — so agents received the intercept's
+    sensitivity labelled as the treatment's.
+    """
+    df = sp.datasets.nsw_lalonde(simulated=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.unified_sensitivity(
+            ols_fit, data=df, y="re78", treat="treat", controls=COVARIATES
+        )
+    rr = float(ols_fit.params["treat"])
+    assert dash.e_value_point == pytest.approx(rr + (rr * (rr - 1.0)) ** 0.5, rel=1e-9)
+
+
+def test_explicit_term_wins_over_treat(ols_fit):
+    df = sp.datasets.nsw_lalonde(simulated=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.unified_sensitivity(
+            ols_fit,
+            term="educ",
+            data=df,
+            y="re78",
+            treat="treat",
+            controls=COVARIATES,
+        )
+    rr = float(ols_fit.params["educ"])
+    assert dash.e_value_point == pytest.approx(rr + (rr * (rr - 1.0)) ** 0.5, rel=1e-9)
+
+
+def test_result_sensitivity_method_no_longer_views_the_intercept(ols_fit):
+    """EconometricResults.sensitivity() built a fake scalar view of iloc[0]."""
+    with pytest.raises(MethodIncompatibility):
+        ols_fit.sensitivity()
+    dash = ols_fit.sensitivity(term="treat")
+    rr = float(ols_fit.params["treat"])
+    assert dash.e_value_point == pytest.approx(rr + (rr * (rr - 1.0)) ** 0.5, rel=1e-9)

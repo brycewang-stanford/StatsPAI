@@ -919,7 +919,14 @@ def _tool_sensitivity_from_result(
             result = fn(obj, **kwargs) if fn else None
         else:
             fn = getattr(sp, "sensitivity", None)
-            result = fn(obj) if fn else None
+            # The caller already told us which column is the treatment;
+            # forward it as term= so the dashboard analyses that coefficient.
+            # Without it a multi-regressor fit used to be resolved by taking
+            # params.iloc[0] — the intercept — and the agent received the
+            # intercept's sensitivity presented as the treatment's.
+            treat_name = arguments.get("treat") or arguments.get("treatment")
+            sens_kwargs = {"term": treat_name} if treat_name else {}
+            result = fn(obj, **sens_kwargs) if fn else None
     except Exception as e:
         from .remediation import remediate
 
