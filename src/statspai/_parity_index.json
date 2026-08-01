@@ -7300,6 +7300,8 @@
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_paper_parity.py",
+        "tests/reference_parity/test_rd_covs_cluster_parity.py",
+        "tests/reference_parity/test_rdrobust_params_parity.py",
         "tests/reference_parity/test_rdrobust_parity.py"
       ],
       "also_verified_by": [
@@ -8639,6 +8641,9 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_survreg_aft_parity.py"
+      ],
       "also_verified_by": [
         "reference_parity"
       ],
