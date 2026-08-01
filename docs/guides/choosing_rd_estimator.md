@@ -91,20 +91,51 @@ r.next_steps()  # prints the priority-ordered checklist
 
 ## 5. Bandwidth selection
 
-`bwselect='mserd'` (default) is MSE-optimal and RD-specific. Other
-options:
+`bwselect='mserd'` (default) is MSE-optimal and RD-specific. StatsPAI
+implements the full Calonico–Cattaneo–Titiunik three-stage cascade
+natively, and all ten of R's selector names are accepted:
 
-| `bwselect`   | When to use                                          |
-|--------------|------------------------------------------------------|
-| `'mserd'`    | Default — MSE-optimal, common bandwidth              |
-| `'msetwo'`   | Different bandwidths on each side of cutoff          |
-| `'cerrd'`    | Coverage-error-rate optimal (better for CI coverage) |
-| `'certwo'`   | CER-optimal, two bandwidths                          |
-| `'cct'`      | Exact R `rdrobust` parity; requires `statspai[rd-cct]` |
-| Fixed `h=`   | Specified by you (for robustness checks)             |
+| `bwselect`                | When to use                                     |
+|---------------------------|-------------------------------------------------|
+| `'mserd'`                 | Default — MSE-optimal, common bandwidth         |
+| `'msetwo'`                | MSE-optimal, separate left/right                |
+| `'msesum'`                | MSE-optimal for the sum of the two one-sided estimands |
+| `'msecomb1'`/`'msecomb2'` | min / median of the MSE variants                |
+| `'cerrd'`                 | Coverage-error-rate optimal (better CI coverage)|
+| `'certwo'`, `'cersum'`    | CER-optimal, separate / sum                     |
+| `'cercomb1'`/`'cercomb2'` | min / median of the CER variants                |
+| Fixed `h=`                | Specified by you (for robustness checks)        |
 
 Rule of thumb: use `mserd` for point estimates, run `cerrd` as a
 robustness check for CI coverage.
+
+The default path matches R `rdrobust` 4.0.0 to ~1e-12 on `h`, `b`, both
+coefficients and both standard errors, so `bwselect='cct'` (which delegates
+to the official Python port and needs the `statspai[rd-cct]` extra) is no
+longer needed for parity. It remains available as an independent check.
+
+**`cluster=` changes the bandwidth, not just the standard error.** The
+cascade's variance term is a sandwich, so clustering propagates into `h`
+and `b`. This surprises people who expect clustering to be an
+inference-only switch, but it matches R — and R makes one further
+substitution silently, which StatsPAI reproduces: passing `cluster=` with
+the default `vce='nn'` promotes the variance to `cr1`, whose residuals are
+`hc1`'s rather than nearest-neighbour ones. Nearest-neighbour differencing
+removes exactly the within-cluster correlation a clustered variance exists
+to capture, so the two must not be combined; pairing them understates the
+SE by roughly 10x.
+
+## 5b. Variance estimator
+
+`vce=` mirrors R's argument of the same name:
+
+| `vce`            | Meaning                                             |
+|------------------|-----------------------------------------------------|
+| `'nn'` (default) | Nearest-neighbour residuals, `nnmatch=3`            |
+| `'hc0'`–`'hc3'`  | Regression residuals with the usual HC corrections  |
+
+R's `cr1`/`cr2`/`cr3` are requested by passing `cluster=` rather than by
+name.
 
 ## 6. Polynomial order
 
