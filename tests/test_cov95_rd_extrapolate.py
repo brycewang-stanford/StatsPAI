@@ -6,17 +6,17 @@ fuzzy variant, explicit eval_points, multi-cutoff extrapolation
 covariate overlap, and the extrapolation plot helper. Properties asserted.
 """
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
-import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 import statspai as sp
-from statspai.rd.extrapolate import _extrapolation_plot
 from statspai.core.results import CausalResult
+from statspai.rd.extrapolate import _extrapolation_plot
 
 
 def _make_ar_data(n=2000, tau=3.0, seed=42):
@@ -112,13 +112,17 @@ def test_rd_multi_extrapolate_methods(method):
     # (and hence the CI half-width) depends on a data-driven bandwidth that can
     # flip under different BLAS backends, so it is checked for validity and
     # ordering rather than pinned. Parity is guarded by tests/reference_parity/.
-    np.testing.assert_allclose(res.estimate, 1.276579926129427, rtol=1e-4, atol=1e-6)
+    # Re-pinned after the WP-1 CCT bandwidth fix. REGRESSION GUARD, not
+    # correctness evidence: this diagnostic has no R counterpart. Its
+    # input is verified -- sp.rdrobust's h/b/conventional now match
+    # rdrobust 4.0.0 across a 36-cell grid (reference_parity).
+    np.testing.assert_allclose(res.estimate, 1.276925, rtol=1e-4, atol=1e-6)
     assert np.isfinite(res.se) and res.se > 0
     assert res.ci[0] < res.estimate < res.ci[1]
     assert np.isfinite([res.ci[0], res.ci[1]]).all()
     np.testing.assert_allclose(
         res.detail["cate_extrapolated"].head(3).to_numpy(),
-        [3.481527, 2.599548, 1.717569],
+        [3.643377, 2.696796, 1.750216],
         atol=5e-7,
     )
 

@@ -479,6 +479,11 @@ def rdrobust(
     _VALID_BW = {
         "mserd",
         "msetwo",
+        # R's rdrobust exposes six MSE/CER variants; 'msesum' / 'cersum'
+        # were missing here, so an R script using them raised instead of
+        # porting across (defect D of the RD audit).
+        "msesum",
+        "cersum",
         "cerrd",
         "certwo",
         "msecomb1",
@@ -646,9 +651,45 @@ def rdrobust(
         )
 
     # --- Bandwidth selection ---
+    #
+    # h AND b both come from the CCT three-stage cascade (rd/_cct_bandwidth.py).
+    # Before 1.21 this called a single-step rule of thumb whose 1/5 exponent is
+    # CCT's 1/(2p+3) only at p=1, and then set ``b = h``. Both were wrong: on
+    # rdrobust_RDsenate that produced h = 4.633 for every p (R: 17.75 at p=1,
+    # 22.26 at p=2) and drove the headline effect to 12.39 against R's 7.41.
     h_auto = h is None
+    _cct: Optional[dict] = None
+    if h_auto:
+        try:
+            from ._cct_bandwidth import cct_bandwidth
+
+            _cct = cct_bandwidth(
+                Y,
+                X_c,
+                c=0.0,
+                p=p,
+                q=q,
+                deriv=deriv,
+                kernel=kernel,
+                bwselect=bwselect,
+                # covs deliberately NOT passed: the Z projection in
+                # _cct_bandwidth is not yet correct. It improves the senate
+                # fixture (7.3e-3 -> 2.0e-3) only because covariates barely
+                # bind there; on a DGP where they do bind it makes h 3x too
+                # narrow (0.0915 vs R's 0.2700) and inflates the SE from
+                # 0.044 to 0.520. Leaving covs on the legacy path is strictly
+                # better until the projection is right.
+                # See docs/rfc/rd_three_month_plan.md B.6.
+            )
+        except Exception:  # noqa: BLE001 - fall back, never fail the estimate
+            _cct = None
+
     if h is None:
-        h = _select_bandwidth(Y, X_c, left, right, p, kernel, bwselect, n)
+        if _cct is not None:
+            hl, hr = _cct["h_left"], _cct["h_right"]
+            h = float(hl) if abs(hl - hr) < 1e-12 else (float(hl), float(hr))
+        else:
+            h = _select_bandwidth(Y, X_c, left, right, p, kernel, bwselect, n)
     if b is None:
         if rho is not None:
             # CCT 2018 JASA: b = h / rho.  rho=1 reproduces default.
@@ -656,8 +697,17 @@ def rdrobust(
                 b = (float(h[0]) / float(rho), float(h[1]) / float(rho))
             else:
                 b = float(h) / float(rho)
+        elif _cct is not None:
+            # Only when h was ALSO auto-selected. R's rdrobust sets b = h when
+            # the user supplies h and leaves b unset -- verified against
+            # rdrobust 4.0.0: rdrobust(h=0.10) reports b=0.10, h=0.20 -> b=0.20.
+            # Taking b from the selector regardless would make the reported
+            # effect insensitive to a user-supplied h, which is what
+            # sp.rdbwsensitivity revealed when its grid returned a constant.
+            bl, br = _cct["b_left"], _cct["b_right"]
+            b = float(bl) if abs(bl - br) < 1e-12 else (float(bl), float(br))
         else:
-            b = h  # bias-correction bandwidth mirrors estimation bandwidth
+            b = h
 
     # --- Cluster values (handle donut filtering) ---
     if cluster:
@@ -683,7 +733,38 @@ def rdrobust(
         covs=Z,
     )
 
-    # --- Bias-corrected estimate: order q, bandwidth b ---
+    # --- Bias-corrected estimate ---
+    #
+    # CCT's tau_bc is the p-order fit on h with the design weights replaced by
+    # an operator that subtracts a (p+1)-order curvature term measured on the
+    # b window -- NOT a q-order refit on b, which is what this used to do and
+    # which is a different estimand (defect E of the RD audit). The refit path
+    # below still supplies the robust SE; only the point estimate is replaced.
+    _tau_bc_cct = None
+    if _cct is not None or (h is not None and b is not None):
+        try:
+            from ._cct_bandwidth import cct_bias_corrected
+
+            _hl, _hr = h if isinstance(h, tuple) else (h, h)
+            _bl, _br = b if isinstance(b, tuple) else (b, b)
+            _cctvals = cct_bias_corrected(
+                Y,
+                X_c,
+                0.0,
+                float(_hl),
+                float(_hr),
+                float(_bl),
+                float(_br),
+                p,
+                q,
+                deriv,
+                kernel,
+            )
+            # (tau_conv, tau_bc, se_conv, se_robust)
+            _tau_bc_cct = _cctvals
+        except Exception:  # noqa: BLE001 - fall back to the legacy refit
+            _tau_bc_cct = None
+
     tau_bc, se_robust, _, _ = _rd_estimate(
         Y,
         X_c,
@@ -745,6 +826,15 @@ def rdrobust(
         if abs(fs_bc) > 1e-10:
             tau_bc /= fs_bc
             se_robust /= abs(fs_bc)
+
+    # Substitute CCT's tau_bc for the sharp case. Fuzzy rescaling above has
+    # already been applied to the legacy value, so only take the CCT one when
+    # there is no first-stage division to mirror.
+    if _tau_bc_cct is not None and fuzzy is None:
+        # Both rows come from the CCT operator: the conventional SE also uses
+        # nn residuals whose tie runs are measured on the whole side, which
+        # the legacy path did not do.
+        tau_conv, tau_bc, se_conv, se_robust = _tau_bc_cct
 
     # --- Inference ---
     z_crit = stats.norm.ppf(1 - alpha / 2)

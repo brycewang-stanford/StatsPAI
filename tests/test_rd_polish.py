@@ -250,7 +250,9 @@ class TestRDRobustPolish:
         b = r.model_info["bandwidth_b"]
         h0 = h[0] if isinstance(h, tuple) else h
         b0 = b[0] if isinstance(b, tuple) else b
-        assert abs(b0 * 0.8 - h0) < 1e-9
+        # model_info rounds both bandwidths to 6 dp, so the exact identity
+        # b * rho == h only survives to the rounding scale.
+        assert abs(b0 * 0.8 - h0) < 1e-5
         assert r.model_info["rho"] == 0.8
 
     def test_rho_b_mutually_exclusive(self, sharp_data):

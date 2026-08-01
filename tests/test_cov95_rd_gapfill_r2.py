@@ -176,9 +176,14 @@ def test_rbc_bootstrap_two_sided_bandwidths():
 
 
 def test_rbc_bootstrap_tiny_bandwidth_raises():
+    # b must be pinned too. Before the WP-1 bandwidth fix ``b`` defaulted to
+    # ``h``, so passing a tiny h starved the bias window as well. b now comes
+    # from the CCT cascade and is correctly much wider, which leaves the rbc
+    # bootstrap enough data to succeed -- so the intended condition has to be
+    # created explicitly rather than as a side effect of the b == h bug.
     df = _sharp(n=500)
     with pytest.raises(DataInsufficient, match="rbc bootstrap"):
-        sp.rdrobust(df, y="y", x="x", h=0.004, bootstrap="rbc", n_boot=99)
+        sp.rdrobust(df, y="y", x="x", h=0.004, b=0.004, bootstrap="rbc", n_boot=99)
 
 
 # ── rdplot / rdplotdensity small-sample branches ──────────────────────────

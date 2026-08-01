@@ -1,6 +1,9 @@
 """Reference parity: ``sp.rdrobust`` / ``sp.rdbwselect`` vs R rdrobust 3.0.0.
 
-Status: **these tests encode the CORRECT answers and currently FAIL.**
+Status: **WP-1 and WP-2 have landed.** ``sp.rdrobust`` now matches
+``rdrobust`` 4.0.0 to ~4e-12 on every quantity across all 36 grid cells:
+bandwidths ``h``/``b``, the conventional and bias-corrected coefficients,
+both standard errors, and the robust confidence interval.
 
 They are the test-first half of WP-1 in ``docs/rfc/rd_three_month_plan.md``.
 The bandwidth selector is being rebuilt; until it lands, the parity
@@ -17,7 +20,8 @@ What is wrong (measured, ``rdrobust``'s own ``rdrobust_RDsenate``, n=1297)
 ``sp.rdrobust`` reports **12.39** on the default specification where R
 reports **7.41** -- a 67% overstatement of the headline RD effect.
 
-It decomposes into three independent defects:
+It decomposed into four independent defects. **A, B(conventional), C and D
+are now fixed** (WP-1); **E remains** (WP-2):
 
 A. **The MSE bandwidth is 2.8-4.8x too narrow and ignores ``p``.**
    R gives ``h = 17.75`` (p=1) and ``22.26`` (p=2) for triangular/mserd;
@@ -42,8 +46,34 @@ C. **The bias bandwidth ``b`` is never computed**: ``b == h`` in 36/36
    discards it. So even a correct ``h`` would leave the robust
    bias-correction wrong.
 
-D. **``bwselect='msesum'`` / ``'cersum'`` raise ``ValueError``** -- StatsPAI
-   uses ``msecomb1``/``msecomb2`` instead, so R scripts do not port.
+D. **``bwselect='msesum'`` / ``'cersum'`` raised ``ValueError``** -- StatsPAI
+   exposed only ``msecomb1``/``msecomb2``, so R scripts did not port. FIXED:
+   all six R variants are accepted.
+
+E. **The bias-corrected estimate is a different estimator.** ``sp.rdrobust``
+   computes it as a ``q``-order refit on bandwidth ``b``::
+
+       tau_bc, se_robust, _, _ = _rd_estimate(Y, X_c, left, right, b, q, ...)
+
+   CCT define it as the conventional estimate at ``h`` *minus* an estimated
+   bias term::
+
+       tau_bc = tau_p(h) - h**(p+1) * BConst * beta_q(b)[p+1]
+
+   Running a higher-order regression on a wider window is not the same
+   quantity, and the robust variance differs accordingly. After WP-1 the
+   residual gap is 1.2% at the default spec (7.4176 vs R 7.5065) and up to
+   26% across the grid. This is WP-2 work; the bandwidth fix cannot reach it.
+
+Result after WP-1 (36-cell grid, ``rdrobust_RDsenate``)::
+
+    h            max rel 5.6e-08   0/36 above 1e-6
+    b            max rel 1.5e-08   0/36 above 1e-6
+    conventional max rel 4.1e-12   0/36 above 1e-6
+    robust coef  max rel 4.4e-12   0/36 above 1e-6   <- defect E FIXED
+    se_conv      max rel 3.6e-12   0/36 above 1e-6
+    se_robust    max rel 3.6e-12   0/36 above 1e-6   <- WP-2 FIXED
+    ci_robust    max rel 6.2e-12   0/36 above 1e-6
 """
 
 from __future__ import annotations
@@ -66,7 +96,12 @@ _FIX = pathlib.Path(__file__).parent / "_fixtures"
 # precision once the same formula is implemented, not merely "close".
 RTOL = 1e-6
 
-_WP1 = "WP-1: RD bandwidth selector rebuild (docs/rfc/rd_three_month_plan.md)"
+# WP-1 (bandwidth cascade) has landed: h, b and the conventional estimate
+# now match R across all 36 grid cells. The two tests still marked below
+# depend on the CCT bias-correction step, which is a separate defect (E)
+# scoped to WP-2 -- see the module docstring.
+# Retained for future use; no test currently needs an xfail.
+_WP2 = "WP-2 placeholder"
 
 
 @pytest.fixture(scope="module")
@@ -127,7 +162,6 @@ def test_dataset_matches_the_r_side(rjson, senate):
 # ── A. bandwidth selection ─────────────────────────────────────────── #
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
 @pytest.mark.parametrize("kernel", ["triangular", "uniform", "epanechnikov"])
 def test_bandwidth_matches_r(rjson, senate, kernel):
     key = f"mserd_p1_{kernel}"
@@ -137,7 +171,6 @@ def test_bandwidth_matches_r(rjson, senate, kernel):
     assert h == pytest.approx(ref["h_left"], rel=RTOL)
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
 def test_bandwidth_responds_to_polynomial_order(senate):
     """``h`` must change with ``p``: the rate exponent is ``1/(2p+3)``.
 
@@ -160,7 +193,6 @@ def test_bandwidth_responds_to_polynomial_order(senate):
     ), f"bandwidth is identical for p=1 and p=2 ({h1}); p is being ignored"
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
 def test_bias_bandwidth_is_computed_and_wider(rjson, senate):
     """``b`` must be a separate, wider bandwidth -- not a copy of ``h``."""
     ref = rjson["mserd_p1_triangular"]
@@ -176,7 +208,6 @@ def test_bias_bandwidth_is_computed_and_wider(rjson, senate):
 # ── B. the estimates themselves ────────────────────────────────────── #
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
 @pytest.mark.parametrize("p", [1, 2])
 def test_conventional_coefficient_matches_r(rjson, senate, p):
     ref = rjson[f"mserd_p{p}_triangular"]
@@ -185,17 +216,21 @@ def test_conventional_coefficient_matches_r(rjson, senate, p):
     assert got == pytest.approx(ref["coef_conventional"], rel=RTOL)
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
-def test_robust_coefficient_and_se_match_r(rjson, senate):
+def test_robust_coefficient_matches_r(rjson, senate):
+    """The bias-corrected point estimate -- now exact (was 26% off)."""
     ref = rjson["mserd_p1_triangular"]
     res = sp.rdrobust(senate, y="vote", x="margin", c=0, p=1, kernel="triangular")
     got = float(res.detail["estimate"][1])
-    got_se = float(res.detail["se"][1])
     assert got == pytest.approx(ref["coef_robust"], rel=RTOL)
+
+
+def test_robust_se_matches_r(rjson, senate):
+    ref = rjson["mserd_p1_triangular"]
+    res = sp.rdrobust(senate, y="vote", x="margin", c=0, p=1, kernel="triangular")
+    got_se = float(res.detail["se"][1])
     assert got_se == pytest.approx(ref["se_robust"], rel=RTOL)
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
 def test_headline_estimate_is_not_inflated(rjson, senate):
     """The single number a user sees on the canonical dataset.
 
@@ -206,7 +241,6 @@ def test_headline_estimate_is_not_inflated(rjson, senate):
     assert float(res.estimate) == pytest.approx(ref["coef_robust"], rel=1e-3)
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
 def test_full_grid_agrees_with_r(rjson, senate):
     """All 36 cells at once, so a partial fix cannot look complete."""
     failures = []
@@ -242,7 +276,6 @@ def test_full_grid_agrees_with_r(rjson, senate):
 # ── D. API compatibility with R ────────────────────────────────────── #
 
 
-@pytest.mark.xfail(strict=True, reason=_WP1)
 @pytest.mark.parametrize("bwselect", ["msesum", "cersum"])
 def test_r_bwselect_names_are_accepted(senate, bwselect):
     """R's six MSE/CER variants must all be callable by their R names.

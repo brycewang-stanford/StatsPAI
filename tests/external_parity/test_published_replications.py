@@ -42,8 +42,18 @@ PINNED_LALONDE_NAIVE_ATT = 1556.0
 PINNED_NSW_DW_NAIVE_ATT = -8387.0
 PINNED_NSW_DW_ADJ_ATT = 2313.0
 
-# Lee 2008 — RD jump in Democratic voteshare
-PINNED_LEE_RD_JUMP = 0.0616
+# Lee 2008 — RD jump in Democratic voteshare.
+#
+# Was 0.0616, which contradicted the very document this file cites:
+# PUBLISHED_REFERENCE_VALUES.md records Lee (2008) Table 2 col 1 as 0.080 and
+# states "replica target: 0.08". 0.0616 is 23% below that -- it was pinned
+# from StatsPAI's own output while the CCT bandwidth selector was broken
+# (h came out 2.8-4.8x too narrow; see docs/rfc/rd_three_month_plan.md).
+#
+# After the WP-1 bandwidth fix StatsPAI returns 0.0768, against R rdrobust
+# 4.0.0 on the same replica: conventional 0.077547, robust 0.076339. That is
+# within 4% of the published 0.080, where the old pin was 23% off.
+PINNED_LEE_RD_JUMP = 0.0768
 
 # Tolerance for pinned matches: 1e-3 catches true drift while
 # allowing for BLAS-level floating-point variation (~1e-6).
@@ -291,9 +301,16 @@ class TestQuickstartNotebookParity:
     def test_rd_lee_conventional_quickstart(self):
         df = sp.datasets.lee_2008_senate()
         rd = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0)
-        # Quickstart card shows Conventional 0.073 (paper 0.077, Lee Table 4)
+        # Was pinned at 0.073 with the comment "paper 0.077" -- i.e. the
+        # discrepancy against Lee Table 4 was recorded and then pinned anyway.
+        # It came from the broken CCT bandwidth selector (WP-1). StatsPAI now
+        # returns 0.077545 against R rdrobust 4.0.0's 0.077547 (rel 2e-5) and
+        # the paper's 0.077.
+        #
+        # NOTE: the quickstart card in the docs still displays 0.073 and needs
+        # regenerating -- tracked in docs/rfc/rd_three_month_plan.md.
         conv = rd.diagnostics["conventional"]
-        assert float(conv["estimate"]) == pytest.approx(0.073, abs=2e-3)
+        assert float(conv["estimate"]) == pytest.approx(0.0775, abs=2e-3)
 
     def test_scm_classic_adh_quickstart(self):
         df = sp.datasets.california_prop99()

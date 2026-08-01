@@ -5,10 +5,10 @@ verbose print/plot paths) and the rdsummary battery with verbose printing,
 full extended diagnostics, and the multi-panel plot. Real synthetic RD data.
 """
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
-import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -38,7 +38,12 @@ def test_rdbwsensitivity_grid():
     head = out[["bandwidth", "estimate", "se"]].head(3).to_numpy()
     np.testing.assert_allclose(
         head[:, :2],
-        np.array([[0.169524, 2.803506], [0.271238, 2.877359], [0.372953, 2.919283]]),
+        # Re-pinned after the WP-1 CCT bandwidth fix. These are REGRESSION
+        # GUARDS, not correctness evidence: rdbwsensitivity has no R
+        # counterpart. What is verified is the input -- sp.rdrobust's h, b and
+        # conventional estimate now match rdrobust 4.0.0 across a 36-cell grid
+        # (tests/reference_parity/test_rdrobust_parity.py).
+        np.array([[0.177517, 2.80895], [0.284027, 2.886383], [0.390537, 2.925874]]),
         rtol=1e-4,
         atol=1e-6,
     )
@@ -63,7 +68,14 @@ def test_rdbalance_default_and_explicit_covs():
     # tests/reference_parity/.
     vals = out[["estimate", "se", "pvalue"]].to_numpy()
     np.testing.assert_allclose(
-        vals[:, 0], np.array([-0.156353, 0.033809]), rtol=1e-4, atol=1e-6
+        # Re-pinned after the WP-1 CCT bandwidth fix. REGRESSION GUARD, not
+        # correctness evidence: this diagnostic has no R counterpart. Its
+        # input is verified -- sp.rdrobust's h/b/conventional now match
+        # rdrobust 4.0.0 across a 36-cell grid (reference_parity).
+        vals[:, 0],
+        np.array([-0.041551, -0.096642]),
+        rtol=1e-4,
+        atol=1e-6,
     )
     assert np.isfinite(vals[:, 1]).all() and (vals[:, 1] > 0).all()
     assert ((vals[:, 2] >= 0) & (vals[:, 2] <= 1)).all()
@@ -83,7 +95,14 @@ def test_rdplacebo_auto_cutoffs():
     # is checked for validity rather than pinned. Parity is guarded by
     # tests/reference_parity/.
     np.testing.assert_allclose(
-        [true["cutoff"], true["estimate"]], [0.0, 2.903995], rtol=1e-4, atol=1e-6
+        # Re-pinned after the WP-1 CCT bandwidth fix. REGRESSION GUARD, not
+        # correctness evidence: this diagnostic has no R counterpart. Its
+        # input is verified -- sp.rdrobust's h/b/conventional now match
+        # rdrobust 4.0.0 across a 36-cell grid (reference_parity).
+        [true["cutoff"], true["estimate"]],
+        [0.0, 2.924306],
+        rtol=1e-4,
+        atol=1e-6,
     )
     assert np.isfinite(true["se"]) and true["se"] > 0
     assert 0.0 <= true["pvalue"] <= 1.0
