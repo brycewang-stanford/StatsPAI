@@ -55,16 +55,17 @@ with warnings.catch_warnings():
 _FIX = pathlib.Path(__file__).parent / "_fixtures"
 RTOL = 1e-6
 
-_TODO_VAR = (
-    "WP-2 remainder: the CCT variance path is gated to sharp RD with "
-    "vce='nn'. fuzzy/covs/cluster/deriv still take their SEs from the "
-    "legacy refit. See docs/rfc/rd_three_month_plan.md B.5."
+# covs, cluster, deriv and all five vce kinds now go through the CCT path
+# end to end. fuzzy is the one remaining gap: the CCT operator has no
+# first-stage, so sp.rdrobust rescales the LEGACY bias-corrected estimate
+# by the first stage instead, which is a different quantity from R's.
+_TODO_FUZZY = (
+    "fuzzy RD is not implemented in the CCT path. sp.rdrobust falls back to "
+    "the legacy q-order refit and rescales it by the first stage; R applies "
+    "the bias-correction operator to Y and T jointly with a shared s_Y. "
+    "See docs/rfc/rd_three_month_plan.md B.5."
 )
-_TODO_BW = (
-    "WP-2 remainder: the CCT bandwidth cascade has no covariate-projection "
-    "or cluster machinery, so h itself is off for covs/cluster. See "
-    "docs/rfc/rd_three_month_plan.md B.5."
-)
+_XF_FUZZY = pytest.mark.xfail(strict=True, reason=_TODO_FUZZY)
 
 
 @pytest.fixture(scope="module")
@@ -127,7 +128,6 @@ def test_covs_bandwidth_matches_r(rjson, senate, p):
     )
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO_BW)
 @pytest.mark.parametrize("p", [1, 2])
 def test_cluster_bandwidth_matches_r(rjson, senate, p):
     ref = rjson[f"cluster_p{p}"]
@@ -140,7 +140,6 @@ def test_cluster_bandwidth_matches_r(rjson, senate, p):
 # ── point estimates ────────────────────────────────────────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO_BW)
 @pytest.mark.parametrize("p", [1, 2])
 def test_covs_conventional_matches_r(rjson, senate, p):
     ref = rjson[f"covs_p{p}"]
@@ -150,7 +149,7 @@ def test_covs_conventional_matches_r(rjson, senate, p):
     )
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO_VAR)
+@_XF_FUZZY
 @pytest.mark.parametrize("p", [1, 2])
 def test_fuzzy_robust_coefficient_matches_r(rjson, senate, p):
     ref = rjson[f"fuzzy_p{p}"]
@@ -163,11 +162,10 @@ def test_fuzzy_robust_coefficient_matches_r(rjson, senate, p):
 # ── standard errors ────────────────────────────────────────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO_VAR)
 @pytest.mark.parametrize(
     "spec,kw",
     [
-        ("fuzzy_p1", dict(p=1, fuzzy="treat")),
+        pytest.param("fuzzy_p1", dict(p=1, fuzzy="treat"), marks=_XF_FUZZY),
         ("covs_p1", dict(p=1, covs=["cov1", "cov2"])),
         ("cluster_p1", dict(p=1, cluster="clust")),
     ],
@@ -178,11 +176,10 @@ def test_conventional_se_matches_r(rjson, senate, spec, kw):
     assert float(res.detail["se"][0]) == pytest.approx(ref["se_conventional"], rel=RTOL)
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO_VAR)
 @pytest.mark.parametrize(
     "spec,kw",
     [
-        ("fuzzy_p1", dict(p=1, fuzzy="treat")),
+        pytest.param("fuzzy_p1", dict(p=1, fuzzy="treat"), marks=_XF_FUZZY),
         ("covs_p1", dict(p=1, covs=["cov1", "cov2"])),
         ("cluster_p1", dict(p=1, cluster="clust")),
     ],
@@ -209,13 +206,13 @@ def test_deriv_conventional_se_matches_r(rjson, senate):
 # ── API gap: vce ───────────────────────────────────────────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason="WP-2 remainder: sp.rdrobust has no vce=")
 @pytest.mark.parametrize("vce", ["hc0", "hc1", "hc2", "hc3"])
 def test_vce_variants_are_accepted(senate, vce):
-    """R exposes hc0-hc3 and cr*; sp.rdrobust exposes none of them.
+    """All of R's hc0-hc3 must be callable by their R names.
 
-    An R script that sets vce= does not port across, and there is no way to
-    request anything other than the nearest-neighbour variance.
+    Numeric parity for each lives in test_rd_vce_parity.py, on a fixture
+    built so vce actually moves the answer; this is the API-portability
+    half -- an R script that sets vce= must run unchanged.
     """
     sp.rdrobust(senate, y="vote", x="margin", c=0, vce=vce)
 

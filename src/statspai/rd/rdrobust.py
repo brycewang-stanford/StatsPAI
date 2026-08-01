@@ -291,6 +291,7 @@ def rdrobust(
     rho: Optional[float] = None,
     covs: Optional[List[str]] = None,
     cluster: Optional[str] = None,
+    vce: str = "nn",
     donut: float = 0,
     weights: Optional[str] = None,
     alpha: float = 0.05,
@@ -370,7 +371,21 @@ def rdrobust(
         Covariates are included in the local polynomial regression
         (not just partialled out), following Calonico et al. (2019).
     cluster : str, optional
-        Cluster variable for standard errors.
+        Cluster variable for standard errors.  Note that clustering is not
+        confined to inference: it enters the ``V`` term of the bandwidth
+        cascade, so ``h`` and ``b`` move as well.
+    vce : {'nn', 'hc0', 'hc1', 'hc2', 'hc3'}, default 'nn'
+        Variance estimator, matching R ``rdrobust``'s argument of the same
+        name.  ``'nn'`` uses nearest-neighbour residuals (``nnmatch=3``);
+        the ``hc*`` family uses regression residuals with the usual
+        heteroskedasticity corrections.
+
+        Supplying ``cluster`` promotes ``'nn'``/``'hc0'``/``'hc1'`` to R's
+        ``'cr1'``, whose residuals are ``hc1``'s -- nearest-neighbour
+        differencing removes exactly the within-cluster correlation a
+        clustered variance exists to capture, and pairing the two
+        understates the SE by roughly 10x.  This mirrors R, which makes the
+        same substitution silently.
     donut : float, default 0
         Donut-hole radius: observations with |x - c| <= donut are
         excluded. Useful when manipulation near the cutoff is suspected.
@@ -657,6 +672,28 @@ def rdrobust(
     # CCT's 1/(2p+3) only at p=1, and then set ``b = h``. Both were wrong: on
     # rdrobust_RDsenate that produced h = 4.633 for every p (R: 17.75 at p=1,
     # 22.26 at p=2) and drove the headline effect to 12.39 against R's 7.41.
+    # Validate vce HERE, not inside the CCT helpers: the calls below wrap
+    # them in `except ValueError` to fall back to the legacy selector on
+    # degenerate data, which would turn a typo'd vce into a silent switch
+    # to a different variance estimator.
+    from ._cct_bandwidth import _VCE_KINDS
+
+    if str(vce).lower() not in _VCE_KINDS:
+        raise ValueError(
+            f"vce must be one of {sorted(_VCE_KINDS)}, got {vce!r}. "
+            "R's cr1/cr2/cr3 are requested by passing cluster= instead."
+        )
+    vce = str(vce).lower()
+
+    # --- Cluster values (handle donut filtering) ---
+    if cluster:
+        cl_vals_all = data[cluster].values
+        if donut > 0:
+            X_raw = data[x].values.astype(float) - c
+            cl_vals_all = cl_vals_all[np.abs(X_raw) > donut]
+    else:
+        cl_vals_all = None
+
     h_auto = h is None
     _cct: Optional[dict] = None
     if h_auto:
@@ -672,12 +709,9 @@ def rdrobust(
                 deriv=deriv,
                 kernel=kernel,
                 bwselect=bwselect,
-                # Only when the CCT path will actually be used downstream.
-                # With cluster= the substitution is blocked, so a
-                # covariate-adjusted bandwidth would be paired with a legacy
-                # estimate computed on different weights -- measured worse
-                # than leaving both on the legacy path (h 3.8e-02 -> 6.8e-01).
-                covs=(None if cluster else Z),
+                covs=Z,
+                vce=vce,
+                cluster=cl_vals_all,
             )
         except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
             # Degenerate data (empty side, singular design, kernel/bwselect
@@ -709,15 +743,6 @@ def rdrobust(
             b = float(bl) if abs(bl - br) < 1e-12 else (float(bl), float(br))
         else:
             b = h
-
-    # --- Cluster values (handle donut filtering) ---
-    if cluster:
-        cl_vals_all = data[cluster].values
-        if donut > 0:
-            X_raw = data[x].values.astype(float) - c
-            cl_vals_all = cl_vals_all[np.abs(X_raw) > donut]
-    else:
-        cl_vals_all = None
 
     # --- Conventional estimate: order p, bandwidth h ---
     tau_conv, se_conv, n_eff_l, n_eff_r = _rd_estimate(
@@ -761,6 +786,8 @@ def rdrobust(
                 deriv,
                 kernel,
                 covs=Z,
+                vce=vce,
+                cluster=cl_vals_all,
             )
             # (tau_conv, tau_bc, se_conv, se_robust)
             _tau_bc_cct = _cctvals
@@ -832,16 +859,16 @@ def rdrobust(
     # Substitute CCT's tau_bc for the sharp case. Fuzzy rescaling above has
     # already been applied to the legacy value, so only take the CCT one when
     # there is no first-stage division to mirror.
-    # The CCT path implements sharp RD with vce='nn' and nothing else, so it
-    # may only replace _rd_estimate's output when NONE of fuzzy / covs /
-    # cluster is in play. Missing any one of them silently discards the
-    # corresponding adjustment: gating on fuzzy alone dropped the covariate
-    # adjustment, and gating on fuzzy+covs still dropped the cluster-robust
-    # variance (both measured at exactly 1.000x against R's 6.4x and 2.29x).
-    # covs is handled end to end now (bandwidth, point estimate and both
-    # variances all carry the covariate residual maker s). fuzzy and cluster
-    # are not, and substituting there would discard their adjustment.
-    if _tau_bc_cct is not None and fuzzy is None and not cluster:
+    # The CCT path now covers sharp RD with covs, cluster and all five vce
+    # kinds end to end -- bandwidth, point estimate and both variances.
+    # fuzzy is the one thing it does not implement, so the gate stays: a
+    # substitution there would discard the first-stage rescaling above.
+    #
+    # This gate has been wrong twice, in the same way both times, and each
+    # time the symptom was a quantity that matched R to exactly 1.000x --
+    # the adjustment had been computed and then thrown away. Anything added
+    # to the CCT path in future must be added here in the same commit.
+    if _tau_bc_cct is not None and fuzzy is None:
         # Both rows come from the CCT operator: the conventional SE also uses
         # nn residuals whose tie runs are measured on the whole side, which
         # the legacy path did not do.

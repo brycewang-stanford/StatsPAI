@@ -52,6 +52,7 @@ import math
 from typing import Dict, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 
 __all__ = ["cct_bandwidth", "BW_SELECTORS"]
 
@@ -149,6 +150,73 @@ def _nn_residuals(
     return res
 
 
+_VCE_KINDS = frozenset({"nn", "hc0", "hc1", "hc2", "hc3"})
+
+
+def _hc_scale(
+    vce: str,
+    R: np.ndarray,
+    invG: np.ndarray,
+    W: np.ndarray,
+    d: int,
+    cluster: Optional[np.ndarray],
+) -> np.ndarray:
+    """The per-observation residual weight for ``hc0``--``hc3``.
+
+    Mirrors ``rdrobust_res``: ``hc1`` is the degrees-of-freedom correction
+    and is switched OFF when clusters are present (R defers to the cluster
+    factor instead of applying both), ``hc2``/``hc3`` divide by the leverage
+    of the weighted design.
+    """
+    n = R.shape[0]
+    if vce == "hc0":
+        return np.ones(n)
+    if vce == "hc1":
+        if cluster is not None or n <= d:
+            return np.ones(n)
+        return np.full(n, np.sqrt(n / (n - d)))
+    hii = np.einsum("ij,ij->i", R @ invG, R * W[:, None])
+    denom = np.maximum(1.0 - hii, 1e-08)
+    return np.sqrt(1.0 / denom) if vce == "hc2" else 1.0 / denom
+
+
+def _vce_meat(
+    RX: np.ndarray,
+    res: np.ndarray,
+    cluster: Optional[np.ndarray],
+    k_df: Optional[int] = None,
+) -> np.ndarray:
+    """``rdrobust_vce``'s meat matrix, heteroskedastic or clustered.
+
+    Without clusters this is ``crossprod(res * RX)``. With them the scores
+    are summed within cluster *before* the outer product, and R's
+    finite-sample factor ``((n-1)/(n-k)) * (g/(g-1))`` is applied.
+
+    ``k_df`` overrides the ``k`` in that factor. The bias-corrected variance
+    is the one place it differs: the operator ``Q_q`` has ``p+1`` columns but
+    R charges it ``q+1`` degrees of freedom (its ``k_override``), because the
+    correction was estimated from a ``q``-order fit. Worth ~6e-4 on the SE.
+    """
+    if cluster is None:
+        S = res[:, None] * RX
+        return S.T @ S
+    n, k = RX.shape
+    if k_df is None:
+        k_df = k
+    codes = pd.factorize(cluster, sort=True)[0]
+    g = int(codes.max()) + 1 if n else 0
+    if g < 2:
+        raise ValueError(
+            f"cluster-robust variance needs at least 2 clusters on each "
+            f"side of the cutoff, found {g} within the bandwidth"
+        )
+    # scores[j] = sum over cluster j of res_i * RX_i  -> (g x k)
+    scores = np.zeros((g, k))
+    np.add.at(scores, codes, res[:, None] * RX)
+    factor = ((n - 1) / (n - k_df)) * (g / (g - 1.0)) if n > k_df else g / (g - 1.0)
+    return factor * (scores.T @ scores)
+
+
 def _runs(x_sorted: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
     """R's ``rle``-derived ``dups`` / ``dupsid`` for a sorted vector."""
     n = len(x_sorted)
@@ -179,14 +247,19 @@ def _vbr(
     dupsid: np.ndarray,
     nnmatch: int,
     Z: Optional[np.ndarray] = None,
+    vce: str = "nn",
+    C: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """``rdrobust_bw``: variance ``V``, bias ``B``, regularisation ``R``.
 
-    Sharp RD, no clusters, ``vce='nn'``. ``Z`` supplies covariates, which are
-    partialled out of the local polynomial Frisch-Waugh style: the residual
-    maker is the vector ``s = [1, -gamma]`` where ``gamma`` solves the
-    covariate block of the weighted normal equations after projecting out the
-    polynomial basis.
+    Sharp RD. ``Z`` supplies covariates, which are partialled out of the
+    local polynomial Frisch-Waugh style: the residual maker is the vector
+    ``s = [1, -gamma]`` where ``gamma`` solves the covariate block of the
+    weighted normal equations after projecting out the polynomial basis.
+
+    Only ``V`` depends on ``vce``/``C`` -- the bias and regularisation
+    windows are pure least squares. That is why clustering shifts the
+    bandwidth at all: it enters the numerator of ``V / (B^2 + scale*R)``.
     """
     # ---- variance window ------------------------------------------------
     w = _kweight(x, c, h_V, kernel)
@@ -198,6 +271,7 @@ def _vbr(
 
     # Covariate partialling-out (R's dZ branch).
     s_vec = np.array([1.0])
+    D_V = eY[:, None]
     if Z is not None and Z.shape[1] > 0:
         eZ = Z[ind]
         D_V = np.column_stack([eY, eZ])
@@ -209,18 +283,25 @@ def _vbr(
         ZWY = ZWD[:, 0] - UiGU[:, 0]
         gamma = np.linalg.solve(ZWZ, ZWY)
         s_vec = np.concatenate([[1.0], -gamma])
-        res_all = np.column_stack(
-            [
-                _nn_residuals(eX, D_V[:, j], dups[ind], dupsid[ind], nnmatch)
-                for j in range(D_V.shape[1])
-            ]
-        )
-        res_V = res_all @ s_vec
-    else:
-        res_V = _nn_residuals(eX, eY, dups[ind], dupsid[ind], nnmatch)
 
-    aux = (res_V[:, None] * RX).T @ (res_V[:, None] * RX)
-    V_V = (invG_V @ aux @ invG_V)[nu, nu]
+    eC = None if C is None else C[ind]
+    if vce == "nn":
+        res_V = (
+            np.column_stack(
+                [
+                    _nn_residuals(eX, D_V[:, j], dups[ind], dupsid[ind], nnmatch)
+                    for j in range(D_V.shape[1])
+                ]
+            )
+            @ s_vec
+        )
+    else:
+        beta_V = invG_V @ (RX.T @ D_V)
+        res_V = (
+            _hc_scale(vce, R_V, invG_V, eW, o + 1, eC)[:, None] * (D_V - R_V @ beta_V)
+        ) @ s_vec
+
+    V_V = (invG_V @ _vce_meat(RX, res_V, eC) @ invG_V)[nu, nu]
 
     v = RX.T @ (((eX - c) / h_V) ** (o + 1))
     Hp = h_V ** np.arange(o + 1)
@@ -241,11 +322,19 @@ def _vbr(
 
     BWreg = 0.0
     if scale > 0:
-        if Z is not None and Z.shape[1] > 0:
-            # The bias window needs the same covariate residual maker as the
-            # variance window; using the raw Y residuals here leaves h ~39%
-            # too narrow on a design where covariates bind.
-            D_Bz = np.column_stack([eY_b, Z[ind_b]])
+        # The bias window needs the same covariate residual maker as the
+        # variance window; using the raw Y residuals here leaves h ~39%
+        # too narrow on a design where covariates bind. It also carries the
+        # same vce/cluster treatment -- the regularisation term is a
+        # sandwich variance too, and leaving it at nn while V used hc left
+        # h 8e-3 off with V and B both already exact.
+        D_Bz = (
+            eY_b[:, None]
+            if Z is None or Z.shape[1] == 0
+            else np.column_stack([eY_b, Z[ind_b]])
+        )
+        eC_b = None if C is None else C[ind_b]
+        if vce == "nn":
             res_B = (
                 np.column_stack(
                     [
@@ -258,10 +347,13 @@ def _vbr(
                 @ s_vec
             )
         else:
-            res_B = _nn_residuals(eX_b, eY_b, dups[ind_b], dupsid[ind_b], nnmatch)
+            beta_B_all = invG_B @ ((R_B * eW_b[:, None]).T @ D_Bz)
+            res_B = (
+                _hc_scale(vce, R_B, invG_B, eW_b, o_B + 1, eC_b)[:, None]
+                * (D_Bz - R_B @ beta_B_all)
+            ) @ s_vec
         RX_B = R_B * eW_b[:, None]
-        aux_B = (res_B[:, None] * RX_B).T @ (res_B[:, None] * RX_B)
-        V_B = (invG_B @ aux_B @ invG_B)[o + 1, o + 1]
+        V_B = (invG_B @ _vce_meat(RX_B, res_B, eC_b) @ invG_B)[o + 1, o + 1]
         BWreg = 3.0 * BConst**2 * V_B
 
     B = np.sqrt(2 * (o + 1 - nu)) * BConst * beta_B[o + 1]
@@ -296,8 +388,17 @@ def cct_bandwidth(
     masspoints: str = "adjust",
     bwrestrict: bool = True,
     covs: Optional[np.ndarray] = None,
+    vce: str = "nn",
+    cluster: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
     """MSE/CER-optimal bandwidths, matching ``rdrobust::rdbwselect``.
+
+    ``vce`` and ``cluster`` are not cosmetic here. The cascade's ``V`` term
+    is a sandwich variance, so clustering widens or narrows every stage --
+    the bandwidth is not separable from the variance estimator. R makes an
+    additional substitution that is easy to miss: supplying ``cluster`` with
+    ``vce='nn'`` (the default) silently promotes it to ``'cr1'``, whose
+    residuals are ``hc1``, **not** nearest-neighbour. Reproduced below.
 
     Returns
     -------
@@ -346,12 +447,21 @@ def cct_bandwidth(
     Z = None if covs is None else np.asarray(covs, dtype=float)
     if Z is not None and Z.ndim == 1:
         Z = Z[:, None]
+    Cc = None if cluster is None else np.asarray(cluster)
+    vce_eff = str(vce).lower()
+    if vce_eff not in _VCE_KINDS:
+        raise ValueError(f"vce must be one of {sorted(_VCE_KINDS)}, got {vce_eff!r}")
+    if Cc is not None and vce_eff in ("nn", "hc0", "hc1"):
+        # R promotes cluster + nn/hc0/hc1 to cr1, whose residuals are hc1's.
+        vce_eff = "hc1"
     ok = np.isfinite(y) & np.isfinite(x)
     if Z is not None:
         ok &= np.isfinite(Z).all(axis=1)
     y, x = y[ok], x[ok]
     if Z is not None:
         Z = Z[ok]
+    if Cc is not None:
+        Cc = Cc[ok]
     n = len(x)
 
     # Reference bandwidth. stdvars=FALSE => raw scale; masspoints='adjust'
@@ -389,11 +499,13 @@ def cct_bandwidth(
     Xr, Yr = x[right][orr], y[right][orr]
     Zl = None if Z is None else Z[left][ol]
     Zr = None if Z is None else Z[right][orr]
+    Cl = None if Cc is None else Cc[left][ol]
+    Cr = None if Cc is None else Cc[right][orr]
     dl, dil = _runs(Xl)
     dr, dir_ = _runs(Xr)
     range_l, range_r = abs(c - x_min), abs(c - x_max)
 
-    def bw(Y, X, o, nu, o_B, h_B, scale, dups, dupsid, Zs=None):
+    def bw(Y, X, o, nu, o_B, h_B, scale, dups, dupsid, Zs=None, Cs=None):
         return _vbr(
             Y,
             X,
@@ -409,6 +521,8 @@ def cct_bandwidth(
             dupsid,
             nnmatch,
             Zs,
+            vce_eff,
+            Cs,
         )
 
     two = bwselect in ("msetwo", "certwo")
@@ -446,8 +560,8 @@ def cct_bandwidth(
         return v
 
     # stage 1 -- note scale = 0 here, not scaleregul.
-    D_l = bw(Yl, Xl, q + 1, q + 1, q + 2, range_l, 0.0, dl, dil, Zl)
-    D_r = bw(Yr, Xr, q + 1, q + 1, q + 2, range_r, 0.0, dr, dir_, Zr)
+    D_l = bw(Yl, Xl, q + 1, q + 1, q + 2, range_l, 0.0, dl, dil, Zl, Cl)
+    D_r = bw(Yr, Xr, q + 1, q + 1, q + 2, range_r, 0.0, dr, dir_, Zr, Cr)
     if two:
         d_l = clamp(_combine(D_l, D_r, "two_left", scaleregul), "l")
         d_r = clamp(_combine(D_l, D_r, "two_right", scaleregul), "r")
@@ -455,8 +569,8 @@ def cct_bandwidth(
         d_l = d_r = clamp(_combine(D_l, D_r, form, scaleregul))
 
     # stage 2 -- bias bandwidth b.
-    B_l = bw(Yl, Xl, q, p + 1, q + 1, d_l, scaleregul, dl, dil, Zl)
-    B_r = bw(Yr, Xr, q, p + 1, q + 1, d_r, scaleregul, dr, dir_, Zr)
+    B_l = bw(Yl, Xl, q, p + 1, q + 1, d_l, scaleregul, dl, dil, Zl, Cl)
+    B_r = bw(Yr, Xr, q, p + 1, q + 1, d_r, scaleregul, dr, dir_, Zr, Cr)
     if two:
         b_l = clamp(_combine(B_l, B_r, "two_left", scaleregul), "l")
         b_r = clamp(_combine(B_l, B_r, "two_right", scaleregul), "r")
@@ -464,8 +578,8 @@ def cct_bandwidth(
         b_l = b_r = clamp(_combine(B_l, B_r, form, scaleregul))
 
     # stage 3 -- main bandwidth h.
-    H_l = bw(Yl, Xl, p, deriv, q, b_l, scaleregul, dl, dil, Zl)
-    H_r = bw(Yr, Xr, p, deriv, q, b_r, scaleregul, dr, dir_, Zr)
+    H_l = bw(Yl, Xl, p, deriv, q, b_l, scaleregul, dl, dil, Zl, Cl)
+    H_r = bw(Yr, Xr, p, deriv, q, b_r, scaleregul, dr, dir_, Zr, Cr)
     if two:
         h_l = clamp(_combine(H_l, H_r, "two_left", scaleregul), "l")
         h_r = clamp(_combine(H_l, H_r, "two_right", scaleregul), "r")
@@ -499,11 +613,26 @@ def cct_bias_corrected(
     kernel: str,
     nnmatch: int = 3,
     covs: Optional[np.ndarray] = None,
+    vce: str = "nn",
+    cluster: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, float]:
     """CCT bias-corrected estimate and its SEs, matching ``rdrobust``.
 
     Returns ``(tau_conventional, tau_bias_corrected, se_conventional,
-    se_robust)``. Sharp RD, no covariates, no clusters, ``vce='nn'``.
+    se_robust)``. Sharp RD; ``covs``, ``vce`` and ``cluster`` are supported,
+    ``fuzzy`` is not.
+
+    ``vce`` selects the residual construction, following ``rdrobust_res``:
+    ``'nn'`` uses nearest-neighbour residuals (no fitted values, so it needs
+    no bandwidth-specific refit), while ``'hc0'``–``'hc3'`` use ordinary
+    regression residuals with the usual leverage corrections. The two are not
+    interchangeable — under ``hc*`` the robust variance uses residuals from
+    the ``q``-order fit on ``b``, not the ``p``-order fit on ``h``, which is
+    why ``res_b`` is computed separately below.
+
+    ``cluster`` switches the meat matrix from ``sum_i r_i^2 X_i X_i'`` to
+    ``sum_g (X_g' r_g)(X_g' r_g)'`` with R's finite-sample factor
+    ``((n-1)/(n-k)) * (g/(g-1))``.
 
     Examples
     --------
@@ -537,12 +666,23 @@ def cct_bias_corrected(
     StatsPAI did through 1.20.x -- estimates a different quantity, and its
     variance is not the robust variance either.
     """
+    vce = str(vce).lower()
+    if vce not in _VCE_KINDS:
+        raise ValueError(f"vce must be one of {sorted(_VCE_KINDS)}, got {vce!r}")
+    if cluster is not None and vce in ("nn", "hc0", "hc1"):
+        # Same promotion rdrobust applies: cluster + nn/hc0/hc1 -> cr1, whose
+        # residuals are hc1's. Keeping nn residuals under a clustered meat
+        # matrix understates the SE by ~10x, because nearest-neighbour
+        # differencing removes exactly the within-cluster correlation the
+        # cluster sum is there to capture.
+        vce = "hc1"
     y = np.asarray(y, float)
     x = np.asarray(x, float)
     Zall = None if covs is None else np.asarray(covs, float)
     if Zall is not None and Zall.ndim == 1:
         Zall = Zall[:, None]
-    out = []
+    Call = None if cluster is None else np.asarray(cluster)
+    sides = []
     for side, h, b in (("l", h_l, b_l), ("r", h_r, b_r)):
         m = (x < c) if side == "l" else (x >= c)
         # Sort the SIDE first: nn residuals need ascending x, and the tie runs
@@ -553,12 +693,14 @@ def cct_bias_corrected(
         o = np.argsort(xs, kind="mergesort")
         xs, ys = xs[o], ys[o]
         Zs = None if Zall is None else Zall[m][o]
+        Cs = None if Call is None else Call[m][o]
         dups_side, dupsid_side = _runs(xs)
         W_h = _kweight(xs, c, h, kernel)
         W_b = _kweight(xs, c, b, kernel)
         keep = (W_h > 0) | (W_b > 0)
         eX, eY = xs[keep], ys[keep]
         eZ = None if Zs is None else Zs[keep]
+        eC = None if Cs is None else Cs[keep]
         W_h, W_b = W_h[keep], W_b[keep]
         e_dups, e_dupsid = dups_side[keep], dupsid_side[keep]
 
@@ -575,51 +717,104 @@ def cct_bias_corrected(
         M = (invG_q @ R_q.T) * W_b[None, :]
         Q_q = (R_p * W_h[:, None]).T - h ** (p + 1) * np.outer(L, e_p1) @ M
 
-        # Covariate partialling-out, same construction as _vbr: gamma solves
-        # the covariate block of the weighted normal equations after the
-        # polynomial basis is projected out, and s = [1, -gamma] is the
-        # residual maker applied to every subsequent quantity.
-        s_vec = np.array([1.0])
         RXp0 = R_p * W_h[:, None]
+        Dz = (
+            eY[:, None] if eZ is None or eZ.shape[1] == 0 else np.column_stack([eY, eZ])
+        )
+        # Covariate partialling-out. Unlike the bandwidth cascade, which
+        # solves for gamma one side at a time, rdrobust POOLS the two sides
+        # here: ZWZ_p = ZWZ_p_l + ZWZ_p_r, giving a single s_Y shared by both.
+        # Solving per side instead leaves the estimate ~1e-3 off with the
+        # bandwidth already exact -- a small enough gap to look like noise.
+        ZWZ = ZWY = None
         if eZ is not None and eZ.shape[1] > 0:
-            D = np.column_stack([eY, eZ])
-            U = RXp0.T @ D
-            ZWD = (eZ * W_h[:, None]).T @ D
+            U = RXp0.T @ Dz
+            ZWD = (eZ * W_h[:, None]).T @ Dz
             colsZ = slice(1, 1 + eZ.shape[1])
             UiGU = U[:, colsZ].T @ (invG_p @ U)
-            gamma = np.linalg.solve(
-                ZWD[:, colsZ] - UiGU[:, colsZ], ZWD[:, 0] - UiGU[:, 0]
+            ZWZ = ZWD[:, colsZ] - UiGU[:, colsZ]
+            ZWY = ZWD[:, 0] - UiGU[:, 0]
+        sides.append(
+            dict(
+                h=h,
+                b=b,
+                eX=eX,
+                eZ=eZ,
+                eC=eC,
+                W_h=W_h,
+                W_b=W_b,
+                Dz=Dz,
+                R_p=R_p,
+                R_q=R_q,
+                invG_p=invG_p,
+                invG_q=invG_q,
+                Q_q=Q_q,
+                RXp0=RXp0,
+                ZWZ=ZWZ,
+                ZWY=ZWY,
+                e_dups=e_dups,
+                e_dupsid=e_dupsid,
             )
-            s_vec = np.concatenate([[1.0], -gamma])
-            beta_p = (invG_p @ (RXp0.T @ D)) @ s_vec
-            beta_bc = (invG_p @ (Q_q @ D)) @ s_vec
-        else:
-            beta_p = invG_p @ (RXp0.T @ eY)
-            beta_bc = invG_p @ (Q_q @ eY)
+        )
 
-        # Variances. rdrobust_vce with d=0, C=NULL is crossprod(res * RX);
+    if sides[0]["ZWZ"] is not None:
+        gamma = np.linalg.solve(
+            sides[0]["ZWZ"] + sides[1]["ZWZ"], sides[0]["ZWY"] + sides[1]["ZWY"]
+        )
+        s_vec = np.concatenate([[1.0], -gamma])
+    else:
+        s_vec = np.array([1.0])
+
+    out = []
+    for sd in sides:
+        h, b = sd["h"], sd["b"]
+        eX, eZ, eC, Dz = sd["eX"], sd["eZ"], sd["eC"], sd["Dz"]
+        W_h, W_b = sd["W_h"], sd["W_b"]
+        R_p, R_q = sd["R_p"], sd["R_q"]
+        invG_p, invG_q, Q_q = sd["invG_p"], sd["invG_q"], sd["Q_q"]
+        RXp0 = sd["RXp0"]
+        e_dups, e_dupsid = sd["e_dups"], sd["e_dupsid"]
+
+        beta_p = (invG_p @ (RXp0.T @ Dz)) @ s_vec
+        beta_bc = (invG_p @ (Q_q @ Dz)) @ s_vec
+
+        # Variances. rdrobust_vce with C=NULL is crossprod((res %*% s) * RX);
         # the CONVENTIONAL one uses RX = R_p * W_h, the ROBUST one swaps in
         # the bias-correction operator Q_q. Reusing the conventional RX (or a
         # plain q-order refit) is what left the robust SE ~13% off.
-        if eZ is not None and eZ.shape[1] > 0:
-            Dz = np.column_stack([eY, eZ])
-            res = (
-                np.column_stack(
-                    [
-                        _nn_residuals(eX, Dz[:, j], e_dups, e_dupsid, nnmatch)
-                        for j in range(Dz.shape[1])
-                    ]
-                )
-                @ s_vec
+        if vce == "nn":
+            res_mat = np.column_stack(
+                [
+                    _nn_residuals(eX, Dz[:, j], e_dups, e_dupsid, nnmatch)
+                    for j in range(Dz.shape[1])
+                ]
             )
+            # rdrobust sets res_b = res_h under nn: nearest-neighbour
+            # residuals do not depend on a fitted value, so there is no
+            # b-window refit to do.
+            res_h = res_b = res_mat @ s_vec
         else:
-            res = _nn_residuals(eX, eY, e_dups, e_dupsid, nnmatch)
+            beta_p_full = invG_p @ (RXp0.T @ Dz)
+            beta_q_full = invG_q @ ((R_q * W_b[:, None]).T @ Dz)
+            res_h = (
+                _hc_scale(vce, R_p, invG_p, W_h, p + 1, eC)[:, None]
+                * (Dz - R_p @ beta_p_full)
+            ) @ s_vec
+            res_b = (
+                _hc_scale(vce, R_q, invG_q, W_b, q + 1, eC)[:, None]
+                * (Dz - R_q @ beta_q_full)
+            ) @ s_vec
         RXp = R_p * W_h[:, None]
-        M_cl = (res[:, None] * RXp).T @ (res[:, None] * RXp)
-        V_cl = invG_p @ M_cl @ invG_p
-        QT = Q_q.T
-        M_rb = (res[:, None] * QT).T @ (res[:, None] * QT)
-        V_rb = invG_p @ M_rb @ invG_p
+        V_cl = invG_p @ _vce_meat(RXp, res_h, eC) @ invG_p
+        if eC is not None and h == b:
+            # R takes a different route when h == b under clustering: the
+            # robust variance is the q-order sandwich on the h window rather
+            # than the Q_q operator.
+            invG_q_h = _qr_xx_inv(R_q * np.sqrt(W_h)[:, None])
+            RXq = R_q * W_h[:, None]
+            V_rb = invG_q_h @ _vce_meat(RXq, res_b, eC) @ invG_q_h
+        else:
+            V_rb = invG_p @ _vce_meat(Q_q.T, res_b, eC, q + 1) @ invG_p
         out.append(
             (beta_p[deriv], beta_bc[deriv], V_cl[deriv, deriv], V_rb[deriv, deriv])
         )

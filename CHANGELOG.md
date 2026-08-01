@@ -191,25 +191,49 @@ All notable changes to StatsPAI will be documented in this file.
   `test_rdrobust_params_parity.py`.
   See [MIGRATION](MIGRATION.md#rdrobust-bandwidth-rebuild).
 
+- **`sp.rdrobust` gains `vce=`, and `cluster=` now enters the bandwidth.**
+  R exposes `vce` in {`nn`, `hc0`--`hc3`, `cr1`--`cr3`}; StatsPAI exposed
+  none of it, so an R script setting `vce=` did not port and there was no
+  way to ask for anything but the nearest-neighbour variance. All five
+  non-cluster kinds are now accepted, and `cluster=` is threaded through
+  the CCT cascade rather than being applied to inference alone.
+
+  All 17 cells of the new `tests/reference_parity/test_rd_vce_parity.py`
+  agree with R `rdrobust` 4.0.0 to <= 5.5e-11 on `h`, `b`, both
+  coefficients and both SEs. Three defects had to land together, and each
+  was invisible until the one before it was gone:
+
+  1. The **regularisation term `R`** in the cascade is a sandwich variance
+     too. Leaving it on `nn` residuals while `V` used `hc*` left `h` 8e-3
+     off *with `V` and `B` both already exact to 1e-10* -- small enough to
+     read as accumulated float error rather than a bug.
+  2. **`cluster` + `nn` residuals understate the SE ~10x** (0.077 against
+     R's 0.702). R silently promotes `nn`/`hc0`/`hc1` + `cluster` to `cr1`,
+     whose residuals are `hc1`'s; nearest-neighbour differencing removes
+     exactly the within-cluster correlation a clustered variance exists to
+     capture. StatsPAI now makes the same substitution, and documents it.
+  3. **`gamma` is pooled across sides** in the estimator
+     (`ZWZ_p = ZWZ_p_l + ZWZ_p_r`) while the bandwidth cascade solves it
+     per side. Solving per side in both left the covariate-adjusted
+     estimate 1.2e-3 off *with the bandwidth already exact at 4e-14*.
+
+  Also fixed: `k_override = q + 1` on the clustered robust variance (worth
+  6e-4 on the SE), and `vce` is validated in `sp.rdrobust` itself rather
+  than in the CCT helper, whose `except ValueError` fallback would have
+  turned a typo into a silent switch to a different variance estimator.
+
+  ⚠️ **correctness fix**: `sp.rdrobust(..., cluster=...)` previously
+  reported both bandwidths and both standard errors incorrectly. Users who
+  pinned clustered RD numbers from 1.20.x or earlier should re-run.
+
 ### Known issues
 
-- `sp.rdrobust` has no `vce=` parameter; R exposes `hc0`–`hc3` and `cr*`.
-- `cluster=` does not enter the CCT **bandwidth** cascade; its SE is still
-  ~6e-2 off R. `covs=` now does, end to end — bandwidth, point estimate and
-  both variances all carry the covariate residual maker. Measured on a
-  design built so both bind (the senate fixture had understated the covs
-  gap by 300x): `h` went from **2.2** relative error to **1.7e-07**, the
-  conventional SE from 1.1e-01 to 2.4e-03.
-
-  The two could not be fixed separately. Landing the correct covariate
-  bandwidth *alone* moved the robust SE from 0.68% to 67% off, because the
-  old bandwidth error had been cancelling a variance error of the opposite
-  sign — a coupling recorded as a constraint in
-  `docs/rfc/rd_three_month_plan.md` appendix D. Both had to land together.
-
-  Locked in CI by `test_rd_covs_cluster_parity.py`, which also asserts via
-  `test_design_is_discriminating` that the fixture keeps distinguishing a
-  right implementation from a wrong one.
+- Fuzzy RD does not go through the CCT path. `sp.rdrobust(fuzzy=...)` falls
+  back to the legacy `q`-order refit and rescales it by the first stage; R
+  applies the bias-correction operator to the outcome and the treatment
+  jointly under a shared `s_Y`. Pinned as `xfail(strict)` in
+  `test_rdrobust_params_parity.py` so it turns into a failure the moment it
+  starts working.
 
 ### Fixed
 

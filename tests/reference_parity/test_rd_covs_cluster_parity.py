@@ -167,7 +167,6 @@ def test_covs_bandwidth_matches_r(rjson, data, p):
     assert _s(r.model_info["bandwidth_h"]) == pytest.approx(ref["h_left"], rel=1e-5)
 
 
-@pytest.mark.xfail(strict=True, reason=_COVS_RESIDUAL)
 @pytest.mark.parametrize("p", [1, 2])
 def test_covs_conventional_matches_r(rjson, data, p):
     ref = rjson[f"covs1_p{p}"]
@@ -180,7 +179,6 @@ def test_covs_conventional_matches_r(rjson, data, p):
 # ── cluster: barely reaches the variance ───────────────────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO)
 @pytest.mark.parametrize("p", [1, 2])
 def test_cluster_se_matches_r(rjson, data, p):
     ref = rjson[f"cluster_p{p}"]
