@@ -525,9 +525,10 @@ def test_validation_claim_lint_covers_release_notes() -> None:
 
     counts = payload["claim_counts"]
     tiers = ("certified", "validated", "api_stable", "experimental")
-    assert sum(counts[t] for t in tiers) == counts["registry"], (
-        f"registry tiers do not partition the surface: "
-        f"{ {t: counts[t] for t in tiers} } vs registry={counts['registry']}"
+    observed_tiers = {t: counts[t] for t in tiers}
+    assert sum(observed_tiers.values()) == counts["registry"], (
+        f"registry tiers do not partition the surface: {observed_tiers} "
+        f"vs registry={counts['registry']}"
     )
     assert counts["registry"] == len(sp.list_functions())
     assert counts["certified_validated"] == counts["certified"] + counts["validated"]
