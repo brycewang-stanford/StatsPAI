@@ -752,6 +752,25 @@ def pretrends_slope_for_power(
         Keys: ``slope``, ``target_power``, ``achieved_power``, ``delta``,
         ``times``, ``test``, ``alpha``.
 
+    Examples
+    --------
+    >>> import statspai as sp, numpy as np, pandas as pd
+    >>> rng = np.random.default_rng(0)
+    >>> rows = []
+    >>> for i in range(80):
+    ...     cohort = 4 if i < 40 else 0          # 0 = never treated
+    ...     for t in range(8):
+    ...         post = cohort > 0 and t >= cohort
+    ...         y = 0.3 * t + (2.0 if post else 0.0) + (i % 5) + rng.normal()
+    ...         rows.append((i, t, cohort, y))
+    >>> df = pd.DataFrame(rows, columns=["id", "t", "cohort", "y"])
+    >>> es = sp.event_study(df, y="y", treat_time="cohort", time="t", unit="id")
+    >>> out = sp.pretrends_slope_for_power(es)
+    >>> round(out["slope"], 3)
+    0.245
+    >>> out["target_power"]
+    0.5
+
     References
     ----------
     Roth, J. (2022). Pretest with Caution: Event-Study Estimates after
