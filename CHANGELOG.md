@@ -4,6 +4,41 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- **`sp.rdrobust` reported 12.39 where R `rdrobust` reports 7.41** on
+  rdrobust's own `rdrobust_RDsenate` with default settings — a 67%
+  overstatement of the headline RD effect. Five independent defects:
+  the MSE bandwidth formula hard-coded a `1/5` exponent, which equals CCT's
+  `1/(2p+3)` only at `p=1` (so `h` was **identical for p=1 and p=2**, and
+  2.8–4.8× too narrow); the bias bandwidth `b` was never computed (`b == h`
+  in 36/36 cells); `bwselect='msesum'`/`'cersum'` raised `ValueError`; and
+  the bias-corrected estimate was a `q`-order refit on `b` rather than CCT's
+  `tau_p(h)` minus an estimated bias term — a different estimand.
+  All now match **rdrobust 4.0.0** across a `bwselect × p × kernel` grid
+  (36 cells): `h` 5.6e-08, `b` 1.5e-08, conventional coefficient 4.0e-12 and
+  SE 3.6e-12, bias-corrected coefficient 4.4e-12, robust SE 3.6e-12, robust
+  CI 6.2e-12.
+  Two `external_parity` tests had pinned the defect as a *published* value
+  while contradicting the document they cite: `PUBLISHED_REFERENCE_VALUES.md`
+  records Lee (2008) Table 2 as **0.080**, and the test pinned **0.0616**
+  (−23%); a second pinned 0.073 with the comment "paper 0.077". They now read
+  0.0768 and 0.077545 against R's 0.076339 and 0.077547.
+  New parity suites: `tests/reference_parity/test_rdrobust_parity.py`,
+  `test_rdrobust_params_parity.py`.
+  See [MIGRATION](MIGRATION.md#rdrobust-bandwidth-rebuild).
+
+### Known issues
+
+- **`sp.rdrobust(covs=...)` silently ignores covariates.** The result is
+  identical to the unadjusted call to 1e-12 on two datasets and `covs` never
+  reaches `model_info`. On a DGP where the covariate binds, R's SE falls 6.4×
+  (0.2856 → 0.0444) while StatsPAI's does not move. Not fixed in this
+  release; locked in CI as `xfail(strict)` in `test_rdrobust_params_parity.py`
+  and documented in `docs/rfc/rd_three_month_plan.md` appendix C.
+  `cluster=` may be affected the same way — unverified.
+- `sp.rdrobust` has no `vce=` parameter; R exposes `hc0`–`hc3` and `cr*`.
+
 ### Added
 
 - **75 quarantined Tier-D analytic tests reclaimed, and one of them anchors a

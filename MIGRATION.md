@@ -5,6 +5,50 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="rdrobust-bandwidth-rebuild"></a>
+
+## Unreleased — ⚠️ `sp.rdrobust` numbers change
+
+**What changed.** The CCT bandwidth selector and the bias-correction step
+were both wrong. On `rdrobust`'s own `rdrobust_RDsenate` with default
+settings `sp.rdrobust` reported **12.39**; R reports **7.41**.
+
+| | old | new | R |
+| --- | ---: | ---: | ---: |
+| headline effect | 12.39 | **7.5065** | 7.5065 |
+| bandwidth `h` (p=1, tri) | 4.633 | **17.7544** | 17.7544 |
+| bandwidth `h` (p=2, tri) | 4.633 | **22.2563** | 22.2563 |
+| bias bandwidth `b` | = `h` | **28.0281** | 28.0281 |
+
+The old `h` was **identical for p=1 and p=2** because the rate exponent was
+hard-coded to `1/5`, which is CCT's `1/(2p+3)` only at `p=1`.
+
+**Effect.** Every `sp.rdrobust` / `sp.rdbwselect` number changes, and so do
+the downstream diagnostics built on them (`rdbwsensitivity`, `rdbalance`,
+`rdplacebo`, `rd_multi_extrapolate`). **Re-run anything whose numbers came
+from these.** There is no flag restoring the old behaviour; it was not an
+alternative bandwidth convention, it was the wrong formula.
+
+**How to check an archived figure.** If you recorded the bandwidth, the old
+`h` was roughly `n^{-1/5}`-scaled off the correct one and insensitive to `p`
+— an `h` that does not move when you change `p` is the signature. The
+conventional estimate at a *user-supplied* `h` was always correct, so
+`sp.rdrobust(..., h=<your old h>)` reproduces the old point estimate.
+
+**Behaviour changes beyond the numbers.**
+
+| Before | After |
+| --- | --- |
+| `bwselect='msesum'` / `'cersum'` raised `ValueError` | Accepted; all six R variants work |
+| `b` defaulted to `h` | `b` comes from the cascade when `h` is auto-selected; still `b = h` when you supply `h` yourself, matching R |
+
+**Not fixed.** `covs=` is a silent no-op — see the Known issues section of
+the CHANGELOG. If you have been passing covariates to `sp.rdrobust`, you
+have been getting unadjusted estimates, and that is still true after this
+release.
+
+---
+
 <a id="unified-sensitivity-scale"></a>
 
 ## Unreleased — ⚠️ `unified_sensitivity`: E-value scale and Oster inputs
