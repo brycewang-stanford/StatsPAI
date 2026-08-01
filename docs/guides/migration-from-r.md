@@ -47,7 +47,8 @@ as every other result — `.to_latex()` / `.to_html()` / `.to_markdown()` /
 | —                                                       | `sp.etwfe(...)` — Wooldridge (2021) explicit API         |
 | `HonestDiD::createSensitivityResults(...)`              | `sp.honest_did(cs_result, Mbar=...)` / `sp.breakdown_m(...)` |
 | `HonestDiD::createSensitivityResults_relativeMagnitudes` | `sp.sensitivity_rr(cs_result, Mbar=...)`                 |
-| `pretrends::pretrends_power(...)`                       | `sp.pretrends_power(...)` / `sp.pretrends_test(...)`     |
+| `pretrends::pretrends(...)`                             | `sp.pretrends_power(...)` — same pre-test by default; `test="joint"` for the joint Wald version, which `sp.pretrends_test(...)` also reports |
+| `pretrends::slope_for_power(...)`                       | `sp.pretrends_slope_for_power(result, target_power=0.5)` |
 | —                                                       | `sp.stacked_did(...)`, `sp.ddd(...)`, `sp.continuous_did(...)`, `sp.cic(...)` |
 
 One-call integrated report:

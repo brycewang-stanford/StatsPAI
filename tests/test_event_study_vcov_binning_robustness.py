@@ -162,14 +162,25 @@ class TestCovarianceExport:
             p_diag = sp.pretrends_power(without)
             t_diag = sp.pretrends_test(without)
 
-        assert p_true["power"] == pytest.approx(0.105784, abs=1e-4)
-        assert p_diag["power"] == pytest.approx(0.134911, abs=1e-4)
+        # The numbers in the docstring are the joint-Wald pre-test. Since
+        # 1.21.0 that is no longer what `power` defaults to (the default
+        # switched to the coefficient-by-coefficient pre-test Roth's
+        # `pretrends` package implements), but it is still reported as
+        # `power_joint`, so the ITEM 1 comparison is unchanged.
+        assert p_true["power_joint"] == pytest.approx(0.105784, abs=1e-4)
+        assert p_diag["power_joint"] == pytest.approx(0.134911, abs=1e-4)
         assert p_true["noncentrality"] == pytest.approx(0.861402, abs=1e-4)
         assert p_diag["noncentrality"] == pytest.approx(1.262342, abs=1e-4)
         assert t_true["statistic"] == pytest.approx(1.138589, abs=1e-4)
         assert t_diag["statistic"] == pytest.approx(1.252683, abs=1e-4)
         # The direction of the power bias is the point, not just that it moves.
+        assert p_true["power_joint"] < p_diag["power_joint"]
         assert p_true["power"] < p_diag["power"]
+
+        # test='joint' reproduces power_joint exactly; the default does not.
+        joint = sp.pretrends_power(with_cov, test="joint")
+        assert joint["power"] == pytest.approx(p_true["power_joint"], abs=1e-12)
+        assert p_true["power"] != pytest.approx(p_true["power_joint"], abs=1e-3)
 
     def test_breakdown_mbar_changes_with_true_covariance(self):
         """sensitivity_rr's GLS pre-trend slope now uses the covariance.

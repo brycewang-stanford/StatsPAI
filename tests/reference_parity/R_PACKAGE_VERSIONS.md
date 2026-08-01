@@ -33,6 +33,7 @@ the new R output still matches the old before overwriting the fixture.
 | `mlr3` | 1.6.0 |
 | `mlr3learners` | 0.14.0 |
 | `plm` | 2.6.7 |
+| `pretrends` | 0.1.0 (GitHub: jonathandroth/pretrends -- not on CRAN) |
 | `pscl` | 1.5.9 |
 | `quantreg` | 6.1 |
 | `sandwich` | 3.1.1 |

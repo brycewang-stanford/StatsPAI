@@ -64,6 +64,7 @@ from .plots import (
 from .pretrends import (
     SensitivityResult,
     pretrends_power,
+    pretrends_slope_for_power,
     pretrends_summary,
     pretrends_test,
     sensitivity_rr,
@@ -774,6 +775,7 @@ __all__ = [
     # Pre-trends
     "pretrends_test",
     "pretrends_power",
+    "pretrends_slope_for_power",
     "sensitivity_rr",
     "SensitivityResult",
     "pretrends_summary",

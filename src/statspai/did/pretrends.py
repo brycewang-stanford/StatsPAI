@@ -13,7 +13,7 @@ Implements three current-methodology routines:
 
 References
 ----------
-- Roth, J. (2022). Pre-test with Caution: Event-Study Estimates after
+- Roth, J. (2022). Pretest with Caution: Event-Study Estimates after
   Testing for Parallel Trends. *AER: Insights*, 4(3), 305--322.
 - Rambachan, A. & Roth, J. (2023). A More Credible Approach to Parallel
   Trends. *Review of Economic Studies*, 90(5), 2555--2591. [@roth2022pretest]
@@ -261,6 +261,47 @@ def _pre_arrays(
     return beta_pre_all, se_pre_all, estimated
 
 
+def _normal_rectangle_probability(
+    mean: np.ndarray,
+    cov: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+) -> float:
+    """``P(lower < X < upper)`` for ``X ~ N(mean, cov)``.
+
+    This is the multivariate-normal rectangle probability that R's
+    ``mvtnorm::pmvnorm`` computes, and it is what Roth's ``pretrends``
+    package integrates to get the rejection probability of the
+    coefficient-by-coefficient pre-test.
+
+    SciPy grew a ``lower_limit`` argument for exactly this in 1.10; on
+    older SciPy the same quantity is assembled from orthant probabilities
+    by inclusion-exclusion over the 2^K corners of the rectangle. K is the
+    number of pre-periods, so the fallback is cheap in practice.
+    """
+    mean = np.asarray(mean, dtype=float)
+    cov = np.asarray(cov, dtype=float)
+    lower = np.asarray(lower, dtype=float)
+    upper = np.asarray(upper, dtype=float)
+    mvn = sp_stats.multivariate_normal
+    try:
+        prob = float(
+            mvn.cdf(upper, mean=mean, cov=cov, lower_limit=lower, allow_singular=True)
+        )
+    except TypeError:  # pragma: no cover - SciPy < 1.10
+        import itertools
+
+        k = len(mean)
+        prob = 0.0
+        for mask in itertools.product((0, 1), repeat=k):
+            corner = np.where(np.asarray(mask, dtype=bool), lower, upper)
+            sign = (-1.0) ** sum(mask)
+            prob += sign * float(
+                mvn.cdf(corner, mean=mean, cov=cov, allow_singular=True)
+            )
+    return float(min(max(prob, 0.0), 1.0))
+
+
 def _pre_vcv(
     result: Any,
     se_pre: np.ndarray,
@@ -466,6 +507,7 @@ def pretrends_power(
     result: Any,
     delta: Optional[np.ndarray] = None,
     alpha: float = 0.05,
+    test: str = "individual",
 ) -> Dict[str, Any]:
     """Power of the pre-trend test against a hypothesised violation.
 
@@ -485,16 +527,58 @@ def pretrends_power(
         at the furthest lag, declining linearly to near-zero.
     alpha : float, default 0.05
         Significance level of the pre-trend test.
+    test : {"individual", "joint"}, default "individual"
+        Which pre-test the power refers to.
+
+        ``"individual"`` is the practice Roth (2022) analyses and the one
+        his ``pretrends`` R package implements: the analyst eyeballs the
+        event-study plot and calls the pre-trends into question if *any*
+        pre-period coefficient is individually significant. Power is then
+        one minus the probability that every pre-period coefficient falls
+        inside its own ``+/- z_{1-alpha/2} * SE`` band, integrated over
+        the joint normal with mean ``delta`` -- a multivariate-normal
+        rectangle probability.
+
+        ``"joint"`` is the power of the joint Wald test that all
+        pre-period coefficients are zero, ``chi2(K)`` with
+        non-centrality ``delta' Sigma^-1 delta``. Reported by
+        :func:`pretrends_test`, and a strictly different quantity --
+        not a tighter or looser version of the same one. The two are not
+        even comparable at face value: the joint test has size exactly
+        ``alpha``, while the coefficient-by-coefficient test rejects with
+        probability above ``alpha`` under the null because each of the K
+        coefficients gets its own ``alpha``-level look. Which comes out
+        more powerful against a given trend depends on the design.
+        ``power_joint`` is always reported alongside, so both are
+        available from one call.
+
+        .. versionchanged:: 1.21.0
+           The default moved from ``"joint"`` to ``"individual"`` so the
+           number matches Roth's ``pretrends`` package. This changes the
+           returned ``power`` for existing calls -- see MIGRATION.md.
+           Pass ``test="joint"`` to recover the previous behaviour.
 
     Returns
     -------
     dict
-        Keys: ``power``, ``noncentrality``, ``df``, ``delta``,
-        ``critical_value``, ``warning``.
+        Always: ``power``, ``power_under_null``, ``bayes_factor``,
+        ``df``, ``delta``, ``alpha``, ``test``, ``warning``.
+        ``likelihood_ratio`` is present when the pre-period point
+        estimates are available. ``test="joint"`` additionally reports
+        ``noncentrality`` and ``critical_value``; ``test="individual"``
+        reports ``threshold_tstat``.
+
+    Notes
+    -----
+    ``bayes_factor`` and ``likelihood_ratio`` follow the ``pretrends``
+    package: the Bayes factor is ``(1 - power) / (1 - power_under_null)``,
+    the odds that a passed pre-test moves in favour of the hypothesised
+    trend, and the likelihood ratio compares the observed pre-period
+    coefficients under ``delta`` versus under no violation.
 
     References
     ----------
-    Roth, J. (2022). Pre-test with Caution: Event-Study Estimates after
+    Roth, J. (2022). Pretest with Caution: Event-Study Estimates after
     Testing for Parallel Trends. *AER: Insights*, 4(3), 305--322. [@roth2022pretest]
 
     Examples
@@ -514,14 +598,21 @@ def pretrends_power(
     """
     context = "pretrends_power"
     alpha = _require_open_unit_float(alpha, "alpha", context)
+    test = _require_string_option(test, "test", context).lower()
+    if test not in {"individual", "joint"}:
+        raise MethodIncompatibility(
+            f"{context}: `test` must be 'individual' or 'joint'.",
+            diagnostics={"context": context, "test": test},
+        )
     es = _extract_event_study(result)
     time_col, est_col, se_col = _resolve_columns(es)
     pre, _ = _split_pre_post(es, time_col, est_col, se_col)
 
-    _, se_pre_all, estimated = _pre_arrays(pre, est_col, se_col, context)
+    beta_pre_all, se_pre_all, estimated = _pre_arrays(pre, est_col, se_col, context)
     K_all = len(se_pre_all)
     pre = pre.loc[estimated]
     se_pre = se_pre_all[estimated]
+    beta_pre = beta_pre_all[estimated]
     K = len(se_pre)
 
     # Build VCV (diagonal if full VCV unavailable)
@@ -550,14 +641,45 @@ def pretrends_power(
                 },
             )
 
-    # Non-centrality parameter
+    # Joint Wald quantities are always reported: they are cheap, several
+    # callers already read `noncentrality` / `critical_value`, and
+    # pretrends_test() reports the realised statistic on the same scale.
     ncp = float(delta @ vcv_inv @ delta)
-
-    # Critical value under H0
     crit = float(sp_stats.chi2.ppf(1.0 - alpha, df=K))
+    joint_power = float(1.0 - sp_stats.ncx2.cdf(crit, df=K, nc=ncp))
+    thresh = float(sp_stats.norm.ppf(1.0 - alpha / 2.0))
 
-    # Power = P(chi2(K, ncp) > crit)
-    power = float(1.0 - sp_stats.ncx2.cdf(crit, df=K, nc=ncp))
+    if test == "joint":
+        power = joint_power
+        power_null = alpha
+    else:
+        # Coefficient-by-coefficient pre-test, as in Roth's `pretrends`
+        # package: reject if ANY pre-period t-stat exceeds the threshold.
+        ub = np.sqrt(np.diag(vcv)) * thresh
+        power = 1.0 - _normal_rectangle_probability(delta, vcv, -ub, ub)
+        power_null = 1.0 - _normal_rectangle_probability(np.zeros(K), vcv, -ub, ub)
+    extra = {
+        "noncentrality": ncp,
+        "critical_value": crit,
+        "threshold_tstat": thresh,
+        "power_joint": joint_power,
+    }
+
+    # Bayes factor: how a passed pre-test shifts the odds toward `delta`.
+    denom = 1.0 - power_null
+    bayes_factor = float((1.0 - power) / denom) if denom > 0 else float("nan")
+
+    # Likelihood ratio of the observed pre-period coefficients under the
+    # hypothesised trend versus under no violation.
+    try:
+        mvn = sp_stats.multivariate_normal
+        lik_delta = float(mvn.pdf(beta_pre, mean=delta, cov=vcv, allow_singular=True))
+        lik_zero = float(
+            mvn.pdf(beta_pre, mean=np.zeros(K), cov=vcv, allow_singular=True)
+        )
+        likelihood_ratio = lik_delta / lik_zero if lik_zero > 0 else float("nan")
+    except (ValueError, np.linalg.LinAlgError):
+        likelihood_ratio = float("nan")
 
     warning = None
     if power < 0.50:
@@ -574,14 +696,136 @@ def pretrends_power(
             "with caution."
         )
 
-    return {
+    out = {
         "power": power,
-        "noncentrality": ncp,
+        "power_under_null": float(power_null),
+        "bayes_factor": bayes_factor,
+        "likelihood_ratio": likelihood_ratio,
+        "test": test,
         "df": K,
         "delta": delta,
-        "critical_value": crit,
         "alpha": alpha,
         "warning": warning,
+    }
+    out.update(extra)
+    return out
+
+
+def pretrends_slope_for_power(
+    result: Any,
+    target_power: float = 0.5,
+    alpha: float = 0.05,
+    test: str = "individual",
+) -> Dict[str, Any]:
+    """Slope of a linear pre-trend the pre-test would detect ``target_power``
+    of the time.
+
+    The mirror image of :func:`pretrends_power`: instead of asking how
+    much power the pre-test has against a chosen violation, it asks how
+    large a violation has to be before the pre-test is even a coin flip.
+    Roth's ``pretrends`` package exposes the same quantity as
+    ``slope_for_power``, and it is the number to quote when a reader asks
+    what a passed pre-test actually rules out.
+
+    The hypothesised violation is linear in event time,
+    ``delta_t = slope * (t - t_ref)``, with the reference period taken to
+    be ``t = -1``.
+
+    Parameters
+    ----------
+    result : CausalResult
+        Event-study result with pre-treatment estimates and SEs. As with
+        :func:`pretrends_power`, supply the full pre-period covariance via
+        ``model_info['vcv_pre']`` -- the diagonal fallback overstates the
+        detectable slope.
+    target_power : float, default 0.5
+        Power the returned slope achieves. 0.5 is the ``pretrends``
+        default: the trend a pre-test catches half the time.
+    alpha : float, default 0.05
+        Significance level of the pre-test.
+    test : {"individual", "joint"}, default "individual"
+        Which pre-test to solve against; see :func:`pretrends_power`.
+
+    Returns
+    -------
+    dict
+        Keys: ``slope``, ``target_power``, ``achieved_power``, ``delta``,
+        ``times``, ``test``, ``alpha``.
+
+    References
+    ----------
+    Roth, J. (2022). Pretest with Caution: Event-Study Estimates after
+    Testing for Parallel Trends. *AER: Insights*, 4(3), 305--322. [@roth2022pretest]
+    """
+    context = "pretrends_slope_for_power"
+    target_power = _require_open_unit_float(target_power, "target_power", context)
+    alpha = _require_open_unit_float(alpha, "alpha", context)
+
+    es = _extract_event_study(result)
+    time_col, est_col, se_col = _resolve_columns(es)
+    pre, _ = _split_pre_post(es, time_col, est_col, se_col)
+    _, se_pre_all, estimated = _pre_arrays(pre, est_col, se_col, context)
+    times = np.asarray(pre.loc[estimated, time_col], dtype=float)
+
+    if target_power <= alpha:
+        raise MethodIncompatibility(
+            f"{context}: `target_power` must exceed `alpha` -- the pre-test "
+            "already rejects with probability alpha when there is no "
+            "violation at all, so no slope achieves less than that.",
+            diagnostics={
+                "context": context,
+                "target_power": target_power,
+                "alpha": alpha,
+            },
+        )
+
+    # delta(slope) is linear in slope and power is monotone in |slope|,
+    # so bracket upwards from a unit-SE trend and bisect.
+    unit = float(np.min(np.abs(se_pre_all[estimated])))
+    span = np.abs(times - (-1.0))
+    span[span == 0] = 1.0
+
+    def _power_at(slope: float) -> float:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            return float(
+                pretrends_power(
+                    result,
+                    delta=slope * (times - (-1.0)),
+                    alpha=alpha,
+                    test=test,
+                )["power"]
+            )
+
+    lo, hi = 0.0, unit / float(np.max(span))
+    for _ in range(60):
+        if _power_at(hi) >= target_power:
+            break
+        lo, hi = hi, hi * 2.0
+    else:  # pragma: no cover - power is monotone and unbounded in slope
+        raise NumericalInstability(
+            f"{context}: could not bracket a slope reaching the target power.",
+            diagnostics={"context": context, "target_power": target_power},
+        )
+
+    for _ in range(100):
+        mid = 0.5 * (lo + hi)
+        if _power_at(mid) < target_power:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < 1e-10 * max(1.0, hi):
+            break
+    slope = 0.5 * (lo + hi)
+
+    return {
+        "slope": slope,
+        "target_power": target_power,
+        "achieved_power": _power_at(slope),
+        "delta": slope * (times - (-1.0)),
+        "times": times,
+        "test": test,
+        "alpha": alpha,
     }
 
 
