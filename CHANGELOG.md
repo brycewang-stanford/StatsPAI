@@ -4,6 +4,38 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **⚠️ Retraction: `sp.xtabond` never had a gapped-panel divergence.**
+  StatsPAI shipped a warning telling users that on panels with interior time
+  gaps its coefficients differ from Stata's `xtabond2` by 2-6% because of an
+  "undocumented gap-weighting convention", and the guide carried a matching
+  *Known limits* entry. Both were wrong. The divergence was in the reference
+  fixture, not the estimator.
+
+  The Stata side had been written as `gmm(L.n, lag(k k))`. On a gap-free
+  panel that is the same moment set as `gmm(n, lag(k+1 k+1))` — which is
+  what `gmm_lags=(k+1, k+1)` means — so all 39 other reference specs agreed
+  and the mapping looked safe. On a *holed* panel they differ: Stata
+  materialises the expression `L.n` row by row, leaving it missing wherever
+  the preceding row is absent, and `xtabond2` then lags that already-holed
+  series. The instrument ends up requiring both period `t-k-1` and period
+  `t-k` to exist, where the level form requires only `t-k-1`. Both moment
+  sets are valid; only one is the one `gmm_lags` names.
+
+  Re-run against the level form, `sp.xtabond` matches `xtabond2` on gapped
+  data to **1.06e-12 worst case** across ten new reference specs (five
+  single-lag depths, one-step, two-step Windmeijer, forward orthogonal
+  deviations, system GMM, multi-regressor). No numerical output changed —
+  the estimator was always right — but the warning text did, and anyone who
+  read the old one and discounted their gapped-panel results should not
+  have had to.
+
+  The warning now says what is actually true: first differencing loses two
+  equations per hole, `orthogonal=True` loses one, so prefer FOD on gappy
+  panels. A test asserts the retracted claims cannot reappear in it.
+  Reference fixture goes from 39 to 49 specs.
+
 ### Added
 
 - **`sp.check_absorbing` — detect reverting treatment before it silently

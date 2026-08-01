@@ -669,28 +669,36 @@ class TestForwardOrthogonalDeviations:
 
 
 # ---------------------------------------------------------------------------
-# I. Gapped panels: exactly where StatsPAI and Stata part company.
+# I. Gapped panels: full parity, and the reference bug that hid it.
 # ---------------------------------------------------------------------------
 
 
-class TestGappedPanelConvention:
-    """Localise the known gapped-panel divergence instead of hand-waving it.
+class TestGappedPanels:
+    """Panels with interior holes, held to the same 1e-12 bar as every other
+    spec in this file.
 
-    Reference values come from Stata 18 run on the same hole-punched CSV
-    (every third firm loses 1980):
+    This class used to say the opposite. It recorded a 2-6% divergence from
+    ``xtabond2`` on holed panels, attributed it to an undocumented Stata
+    weight-matrix convention, and shipped a user-facing warning saying so.
+    All of that was wrong, and the way it was wrong is worth keeping:
 
-        xtabond2 n L.n, gmm(L.n, lag(1 1) collapse) noleveleq noconstant robust
-            -> 1.35725540013219      (just identified, N=613, j=1)
-        xtabond  n, lags(1) noconstant vce(robust)
-            -> 0.908863550951649     (over-identified, N=613, zrank=28)
+    The fixture wrote the instrument set as ``gmm(L.n, lag(k k))``. On a
+    gap-free panel that is the same moment set as ``gmm(n, lag(k+1 k+1))``,
+    which is what StatsPAI's ``gmm_lags=(k+1, k+1)`` means — so every other
+    spec in this file agreed and the mapping looked safe. On a *holed* panel
+    the two part company: Stata materialises the expression ``L.n`` row by
+    row, leaving it missing wherever the preceding row is absent, and
+    ``xtabond2`` then lags that already-holed series. The instrument ends up
+    requiring both period ``t-k-1`` and period ``t-k`` to exist, where the
+    level form requires only ``t-k-1``.
 
-    The first is reproduced to 2e-15 and the second is not, which is the
-    whole point: with one instrument the weight matrix cancels out of the
-    estimator, so agreement there proves the *design* — equations, sample,
-    instruments — is identical, and pins the disagreement squarely on the
-    a-priori covariance ``H``. StatsPAI uses ``H = M M'`` for the actual
-    differencing operator; Stata's gapped convention is different and
-    undocumented. Both stay consistent; only efficiency differs.
+    So the estimator was right and the reference was mis-specified. Written
+    on the level, StatsPAI reproduces ``xtabond2`` on gapped data to 1e-12
+    across one-step, two-step Windmeijer, FOD, system GMM and a
+    multi-regressor design.
+
+    Reference: the ``I*`` specs in ``_generate_dynpanel_stata.do``, run on
+    ``webuse abdata`` with 1980 dropped for every third firm.
     """
 
     HOLE_YEAR = 1980
@@ -701,68 +709,64 @@ class TestGappedPanelConvention:
             ~((abdata["id"] % 3 == 0) & (abdata["year"] == self.HOLE_YEAR))
         ].reset_index(drop=True)
 
-    # One collapsed instrument at a single lag distance: the model is
-    # just-identified, so beta = (Z'W)^-1 Z'dy and the weight matrix cancels
-    # out completely. Any disagreement is therefore in the *design* — which
-    # levels enter the instrument, and which equations exist — never in H.
-    #
-    # Reference: xtabond2 on the hole-punched CSV,
-    #   xtabond2 n L.n, gmm(L.n, lag(k k) collapse) noleveleq noconstant robust
-    # (xtabond2's lag(k k) on `L.n` is StatsPAI's gmm_lags=(k+1, k+1)).
-    GAPPED_SINGLE_LAG = {
-        2: (1.35725540013219, True),
-        3: (1.47381432304801, True),
-        4: (1.41416719744685, False),  # known divergence
-        5: (0.973519990125318, False),  # known divergence
-        6: (0.683186371666846, True),
+    # spec -> xtabond kwargs. Depths 2-6 are single collapsed instruments:
+    # just-identified, so beta = (Z'X)^-1 Z'y and the weight matrix cancels
+    # out of the estimator entirely. Agreement there is a statement about the
+    # *design* — which levels enter, which equations exist — with efficiency
+    # taken out of the picture. The rest exercise the full instrument set.
+    GAPPED_SPECS = {
+        **{
+            f"I1_gap_collapse_lag{d}": dict(lags=1, gmm_lags=(d, d), collapse=True)
+            for d in range(2, 7)
+        },
+        "I6_gap_diff_1step": dict(lags=1),
+        "I7_gap_diff_2step_wc": dict(lags=1, twostep=True),
+        "I8_gap_fod_1step": dict(lags=1, orthogonal=True),
+        "I9_gap_sys_1step": dict(lags=1, method="system", constant=True),
+        "I10_gap_wk_1step": dict(lags=1, x=["w", "k"]),
     }
 
-    @pytest.mark.parametrize("depth", sorted(GAPPED_SINGLE_LAG))
-    def test_single_lag_instrument_against_stata(self, gapped, depth):
-        """Where the gapped divergence actually lives, depth by depth.
+    @pytest.mark.parametrize("spec", sorted(GAPPED_SPECS))
+    def test_matches_xtabond2_on_a_holed_panel(self, gapped, stata, spec):
+        _assert_matches(_fit(gapped, **self.GAPPED_SPECS[spec]), stata[spec], spec)
 
-        This replaces an earlier test that checked only ``gmm_lags=(2, 2)``
-        and concluded from it that "the design matches Stata exactly, so the
-        divergence is purely the weight matrix". That conclusion was wrong:
-        lag depth 2 happens to agree, and depths 4 and 5 do not — in a
-        configuration where the weight matrix provably cannot matter.
+    @pytest.mark.parametrize("spec", sorted(GAPPED_SPECS))
+    def test_sample_and_instrument_count_match(self, gapped, stata, spec):
+        r = _fit(gapped, **self.GAPPED_SPECS[spec])
+        ref = stata[spec]["e"]
+        assert r.model_info["n_obs"] == int(ref["N"]), (
+            f"[{spec}] sample size differs from Stata — the equation set, not "
+            "the estimator, has drifted."
+        )
+        assert r.model_info["n_instruments"] == int(
+            ref["j"]
+        ), f"[{spec}] instrument count differs from Stata."
 
-        Recording the whole pattern (including the two that disagree) is what
-        makes this informative. If someone fixes the instrument construction,
-        the two ``xfail`` entries start passing and this test tells them so.
+    @pytest.mark.parametrize("depth", range(2, 7))
+    def test_just_identified_design_is_exact_at_every_lag_depth(
+        self, gapped, stata, depth
+    ):
+        """One instrument, so ``H`` provably cannot matter — this is design.
+
+        The old version of this test checked ``gmm_lags=(2, 2)`` only, and a
+        single agreeing depth was read as proof that the whole design was
+        right and the weight matrix was to blame. Sweeping the depths is what
+        exposed the reference bug: depths 4 and 5 disagreed under the
+        lagged-expression form while 2, 3 and 6 agreed.
         """
-        expected, agrees = self.GAPPED_SINGLE_LAG[depth]
         r = _fit(gapped, lags=1, gmm_lags=(depth, depth), collapse=True)
         assert r.model_info["n_instruments"] == 1
-        assert r.model_info["n_obs"] == 613
-        got = float(r.detail["coefficient"].iloc[0])
-        if agrees:
-            np.testing.assert_allclose(
-                got,
-                expected,
-                rtol=1e-12,
-                err_msg=(
-                    f"gmm_lags=({depth},{depth}) used to reproduce xtabond2 on a "
-                    "gapped panel and no longer does. The weight matrix cannot "
-                    "cause this — the equation set or the instrument level has "
-                    "drifted."
-                ),
-            )
-        else:
-            assert abs(got - expected) / abs(expected) > 1e-6, (
-                f"gmm_lags=({depth},{depth}) now MATCHES xtabond2 on a gapped "
-                f"panel (got {got:.12g}, Stata {expected:.12g}). That is good "
-                "news: the gapped instrument construction has been fixed. "
-                "Move this depth to agrees=True and update the guide's "
-                "'Panels with interior gaps' section."
-            )
+        np.testing.assert_allclose(
+            float(r.detail["coefficient"].iloc[0]),
+            stata[f"I1_gap_collapse_lag{depth}"]["coef"]["L.n"],
+            rtol=1e-12,
+        )
 
     def test_gap_free_panel_agrees_at_every_lag_depth(self, abdata):
-        """The same sweep with no holes — proof the divergence is gap-specific.
+        """The same sweep with no holes, so a regression can be attributed.
 
-        Without this, the depth-4/5 mismatch above could equally well be a
-        plain lag-depth bug affecting ordinary panels, which would be far
-        more serious.
+        If both sweeps break together it is a general lag-depth bug; if only
+        the holed one breaks it is gap handling.
         """
         expected = {
             2: 1.51419525178252,
@@ -774,46 +778,31 @@ class TestGappedPanelConvention:
         for depth, want in expected.items():
             r = _fit(abdata, lags=1, gmm_lags=(depth, depth), collapse=True)
             np.testing.assert_allclose(
-                float(r.detail["coefficient"].iloc[0]),
-                want,
-                rtol=1e-12,
-                err_msg=(
-                    f"gap-free panel disagrees with xtabond2 at lag depth "
-                    f"{depth} — this would be a general instrument bug, not a "
-                    "gap convention."
-                ),
+                float(r.detail["coefficient"].iloc[0]), want, rtol=1e-12
             )
 
-    def test_sample_and_instrument_count_still_match_when_overidentified(self, gapped):
-        r = _fit(gapped, lags=1)
-        assert r.model_info["n_obs"] == 613, "gapped sample size drifted from Stata"
-        assert r.model_info["n_instruments"] == 28, "gapped instrument count drifted"
-
-    def test_overidentified_gap_divergence_stays_bounded(self, gapped):
-        """The H-convention gap is a known ~4%, not an open-ended drift."""
-        r = _fit(gapped, lags=1)
-        got = float(r.detail["coefficient"].iloc[0])
-        rel = abs(got - 0.908863550951649) / 0.908863550951649
-        assert rel < 0.06, (
-            f"divergence from Stata on a gapped panel grew to {rel:.1%}; it was "
-            "characterised at ~4% and is supposed to come only from the "
-            "one-step weight matrix."
-        )
-
-    def test_gap_warning_fires_and_is_recorded(self, gapped):
+    def test_gap_advisory_fires_and_is_recorded(self, gapped):
+        """The advisory stays, but it is now about efficiency, not parity."""
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             r = sp.xtabond(gapped, y="n", id="id", time="year", lags=1)
         messages = [str(w.message) for w in caught]
-        assert any(
-            "internal time gaps" in m for m in messages
-        ), f"no gap warning was emitted; got {messages}"
+        gap_msgs = [m for m in messages if "internal time gaps" in m]
+        assert gap_msgs, f"no gap advisory was emitted; got {messages}"
         assert "gap_warning" in r.model_info, (
-            "the caveat must also reach model_info — an agent reading the "
+            "the advisory must also reach model_info — an agent reading the "
             "result object should see what a human reads on the console."
         )
+        text = gap_msgs[0]
+        assert "orthogonal=True" in text, "the advisory must name the remedy"
+        for claim in ("differ from Stata", "weight matrix", "2-6%"):
+            assert claim not in text, (
+                f"the advisory still claims {claim!r}. StatsPAI matches "
+                "xtabond2 on gapped panels to 1e-12; telling users otherwise "
+                "would send them chasing a divergence that does not exist."
+            )
 
-    def test_no_gap_warning_on_the_intact_panel(self, abdata):
+    def test_no_gap_advisory_on_the_intact_panel(self, abdata):
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
             r = sp.xtabond(abdata, y="n", id="id", time="year", lags=1)

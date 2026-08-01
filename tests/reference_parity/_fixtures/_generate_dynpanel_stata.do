@@ -281,5 +281,60 @@ dp_dump, spec(E2_xtdpdsys_ar1_2step_wc)
 xtdpdsys n w k, lags(1) vce(robust)
 dp_dump, spec(E3_xtdpdsys_wk_1step)
 
+* ---------------------------------------------------------------------------
+* I. Panels with interior gaps.
+*
+*    Punch a deterministic hole -- year 1980 removed for every third firm --
+*    and re-run the difference-GMM line on it.  This section exists because
+*    an earlier fixture wrote the instrument set as `gmm(L.n, lag(k k))` and
+*    the resulting mismatch was misread as a StatsPAI gap bug.  It is not.
+*
+*    `gmm(L.n, lag(k k))` and `gmm(n, lag(k+1 k+1))` are the same instrument
+*    on a gap-free panel and DIFFERENT instruments on a gapped one: Stata
+*    materialises the expression `L.n` row by row, so it is missing wherever
+*    the preceding row is absent, and xtabond2 then lags that already-holed
+*    series.  The instrument therefore needs BOTH period t-k-1 and period
+*    t-k to exist.  Writing the lag on the level -- `gmm(n, lag(d d))` --
+*    asks for exactly what StatsPAI's gmm_lags=(d, d) asks for, and the two
+*    then agree to machine precision.
+*
+*    Use the level form here.  The lagged-expression form is a different
+*    (also valid) moment set; it is simply not the one StatsPAI names.
+* ---------------------------------------------------------------------------
+webuse abdata, clear
+drop if mod(id, 3) == 0 & year == 1980
+xtset id year
+
+* I1-I5 one collapsed instrument at a single lag distance.  Just-identified,
+* so beta = (Z'X)^-1 Z'y and the weight matrix cancels out entirely: these
+* pin the *design* -- which levels enter, which equations exist -- with the
+* efficiency question removed.
+forvalues d = 2/6 {
+    xtabond2 n L.n, gmm(n, lag(`d' `d') collapse) noleveleq noconstant robust
+    dp_dump, spec(I1_gap_collapse_lag`d')
+}
+
+* I6 the full one-step difference-GMM instrument set on the gapped panel.
+xtabond2 n L.n, gmm(n, lag(2 .)) noleveleq noconstant robust
+dp_dump, spec(I6_gap_diff_1step)
+
+* I7 two-step with the Windmeijer correction, gapped.
+xtabond2 n L.n, gmm(n, lag(2 .)) noleveleq noconstant twostep robust
+dp_dump, spec(I7_gap_diff_2step_wc)
+
+* I8 forward orthogonal deviations, gapped -- FOD loses one observation per
+* gap where first differences lose two, so this is the recommended transform
+* on holed panels and needs its own anchor.
+xtabond2 n L.n, gmm(n, lag(2 .)) noleveleq noconstant robust orthogonal
+dp_dump, spec(I8_gap_fod_1step)
+
+* I9 system GMM on the gapped panel.
+xtabond2 n L.n, gmm(n, lag(2 .)) robust
+dp_dump, spec(I9_gap_sys_1step)
+
+* I10 covariates, gapped, to exercise a multi-regressor design with holes.
+xtabond2 n L.n w k, gmm(n, lag(2 .)) iv(w k) noleveleq noconstant robust
+dp_dump, spec(I10_gap_wk_1step)
+
 file close DP
 di "dynpanel fixture written."

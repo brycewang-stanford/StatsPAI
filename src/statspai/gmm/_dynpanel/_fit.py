@@ -547,22 +547,29 @@ def fit_dynamic_panel(
 def _warn_on_internal_gaps(panel, y: str, stacklevel: int) -> Optional[str]:
     """Flag units missing an *interior* period of the dependent variable.
 
-    What is known, precisely (measured on a hole-punched ``abdata``):
+    This is an efficiency advisory, not a parity caveat. First differencing
+    destroys two equations per hole (the difference *at* the missing period
+    and the one *after* it); forward orthogonal deviations destroy one, so
+    ``orthogonal=True`` is usually the better transform on a holed panel.
 
-    * the **design** agrees with Stata exactly — same equations, same
-      sample size, same per-unit row counts, same instrument count, and a
-      *just-identified* fit (one instrument, so the weight matrix cancels)
-      reproduces ``xtabond2`` to 2e-15;
-    * the **one-step weight matrix** does not. StatsPAI uses ``H = M M'``
-      for the actual differencing operator — 2 on the diagonal, -1 between
-      calendar-adjacent equations, nothing across a hole — which is the
-      textbook a-priori covariance of the differenced errors. Stata's
-      gapped-panel convention is different and undocumented; the resulting
-      coefficients differ by roughly 2-6%.
+    Parity with Stata is exact here. An earlier version of this warning
+    claimed the one-step weight matrix used a different gap convention and
+    that coefficients differed from ``xtabond2`` by 2-6%. That was wrong,
+    and the mistake is worth recording because it was a *reference* bug that
+    read as an estimator bug: the fixture wrote the instrument set as
+    ``gmm(L.n, lag(k k))``, and on a gapped panel that is not the same
+    moment set as ``gmm(n, lag(k+1 k+1))``. Stata materialises the
+    expression ``L.n`` row by row, so it is missing wherever the preceding
+    row is absent, and ``xtabond2`` then lags that already-holed series —
+    the instrument ends up needing both period ``t-k-1`` and period ``t-k``
+    to exist. The two forms coincide on gap-free panels, which is why every
+    other spec agreed.
 
-    Since the disagreement is confined to the weight matrix, both estimators
-    remain consistent and only their finite-sample efficiency differs. But a
-    user reporting "identical to Stata" would be wrong, so say so.
+    Against the level form, which is what ``gmm_lags`` actually names,
+    StatsPAI matches ``xtabond2`` on holed panels to 1e-12 across
+    one-step, two-step Windmeijer, FOD, system GMM and multi-regressor
+    designs — see the ``I*`` specs in
+    ``tests/reference_parity/_fixtures/_generate_dynpanel_stata.do``.
     """
     obs = panel.observed(y)
     idx = np.arange(panel.n_periods)
@@ -575,14 +582,14 @@ def _warn_on_internal_gaps(panel, y: str, stacklevel: int) -> Optional[str]:
     if not has_gap:
         return None
     msg = (
-        "Panel has internal time gaps in the dependent variable. The design "
-        "(sample, equations, instruments) matches Stata exactly, but the "
-        "one-step weight matrix uses a different gap convention, so "
-        "coefficients differ from Stata's xtabond / xtabond2 by roughly "
-        "2-6%. Both remain consistent — only finite-sample efficiency "
-        "differs — but machine-precision cross-software parity holds only "
-        "for gap-free panels. Consider orthogonal=True: forward orthogonal "
-        "deviations lose one observation per gap instead of two."
+        "Panel has internal time gaps in the dependent variable. First "
+        "differencing loses two equations per gap; consider orthogonal=True, "
+        "since forward orthogonal deviations lose one. This is an efficiency "
+        "note only — the estimator is unaffected otherwise, and matches "
+        "Stata's xtabond2 to machine precision on gapped panels. (When "
+        "cross-checking in Stata, write the instrument set on the level, "
+        "gmm(y, lag(a b)); the lagged-expression form gmm(L.y, lag(a-1 b-1)) "
+        "is a different moment set once the panel has holes.)"
     )
     warnings.warn(msg, stacklevel=stacklevel)
     return msg

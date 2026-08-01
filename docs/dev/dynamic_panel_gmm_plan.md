@@ -489,33 +489,51 @@ for forward orthogonal deviations.
 Nothing from the original plan. Open items are new observations, not
 backlog:
 
-- **The gapped-panel divergence — earlier diagnosis corrected.** This was
-  recorded as "confined to the one-step weight matrix", on the strength of a
+- **The gapped-panel divergence — resolved. It was a reference bug, not an
+  estimator bug.**
+
+  This entry has now been rewritten twice, which is the point of keeping it.
+
+  *First telling:* "confined to the one-step weight matrix", inferred from a
   just-identified fit at `gmm_lags=(2, 2)` reproducing `xtabond2` to 2e-15.
-  That inference was wrong: it tested one lag depth. Sweeping depths 2-6,
-  each as a single collapsed instrument (still just-identified, so the
-  weight matrix provably cancels):
+  That tested one lag depth.
 
-  | lag depth | gap-free | with interior gaps |
-  | --- | --- | --- |
-  | 2 | exact | exact |
-  | 3 | exact | exact |
-  | 4 | exact | **differs 1.4e-1** |
-  | 5 | exact | **differs 4.0e-2** |
-  | 6 | exact | exact |
+  *Second telling:* falsified the first. Sweeping depths 2-6, each a single
+  collapsed instrument (still just-identified, so the weight matrix provably
+  cancels), gave exact agreement on a gap-free panel at every depth but on a
+  holed panel agreed at 2, 3, 6 and differed at 4 and 5. `xtabond2`'s `_H`
+  was also read straight out of its Mata library (`mata: _H(3, 0, 0, 0, 5)`)
+  and is the same 2/-1 band StatsPAI builds. So: a design difference, not a
+  weighting one. Correct, but still pointed at the wrong side.
 
-  So the divergence is in **which levels enter the instrument set at some
-  lag depths on gapped panels** — a design difference, not a weighting one.
-  `xtabond2`'s `_H` was also read directly out of its Mata library
-  (`mata: _H(3, 0, 0, 0, 5)`) and is the same 2/-1 band on the full period
-  grid that StatsPAI builds, which rules the weight matrix out
-  independently.
+  *Resolution:* the design difference was in the **fixture**. The Stata side
+  was written as `gmm(L.n, lag(k k))`. On a gap-free panel that is the same
+  moment set as `gmm(n, lag(k+1 k+1))` — which is what `gmm_lags=(k+1, k+1)`
+  means — so every other spec in the file agreed and the mapping looked
+  safe. On a holed panel they diverge: Stata materialises the expression
+  `L.n` row by row, leaving it missing wherever the preceding row is absent,
+  and `xtabond2` then lags that already-holed series. The instrument ends up
+  requiring both `t-k-1` and `t-k` to exist; the level form requires only
+  `t-k-1`.
 
-  Still unresolved, and still timeboxed — but the next person starts from a
-  correct diagnosis and a test
-  (`TestGappedPanelConvention::test_single_lag_instrument_against_stata`)
-  that fails the moment the construction is fixed.
-- `xtdpdgmm`-style nonlinear (Ahn-Schmidt) moment conditions were never in
-  scope and remain unimplemented.
+  Re-run on the level form, StatsPAI matches `xtabond2` on gapped data to
+  **1.06e-12 worst case** across all ten new `I*` specs: five single-lag
+  depths, one-step, two-step Windmeijer, FOD, system GMM, and a
+  multi-regressor design. The `I*` block was added to
+  `_generate_dynpanel_stata.do` and folded into the fixture JSON, taking it
+  from 39 specs to 49.
 
-<!-- LOG END -->
+  Three things follow, and the third is the one worth internalising:
+
+  1. The user-facing warning claiming a 2-6% divergence was **false** and is
+     now an efficiency advisory (FD loses two equations per hole, FOD one).
+     A test asserts the retracted claims cannot come back.
+  2. The `TestGappedPanels` class now holds gapped panels to the same 1e-12
+     bar as everything else, instead of certifying a divergence.
+  3. **A mis-specified reference reads exactly like a broken estimator**, and
+     it is the more dangerous of the two because it survives review: the
+     numbers really do disagree, so every check "confirms" the bug. What
+     broke the deadlock was refusing to accept a characterisation that
+     explained only the depths it had been fitted to — the sweep that
+     falsified telling #1 is what eventually located the fixture. Sweep the
+     parameter before writing the diagnosis into a doc.

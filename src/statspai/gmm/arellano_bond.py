@@ -332,14 +332,20 @@ def xtabond(
     amputated the instrument set whenever a lagged regressor was used — on
     ``abdata`` that moved ρ̂ from 0.849 to 0.660. See ``MIGRATION.md``.)
 
-    **Balanced vs gapped panels.** All standard errors, the Sargan/Hansen
-    tests, and the one-step AR(1)/AR(2) tests are validated to machine
-    precision against Stata for balanced (and ragged-but-gap-free) panels.
-    When a unit is missing an *interior* period, the estimator stays
-    consistent but its finite-sample numbers can differ from Stata's
-    ``xtabond`` by ~1% (Stata, ``xtabond2``, and R's ``plm`` each use a
-    slightly different gap-weighting convention); a warning is emitted in
-    that case.
+    **Balanced vs gapped panels.** Coefficients, standard errors, the
+    Sargan/Hansen tests and the AR(1)/AR(2) tests are validated to machine
+    precision against Stata for balanced panels, ragged-but-gap-free panels,
+    and panels with *interior* gaps alike. A warning is emitted on gapped
+    panels, but it is an efficiency advisory only: first differencing loses
+    two equations per hole where forward orthogonal deviations lose one, so
+    ``orthogonal=True`` is usually preferable there.
+
+    When cross-checking a gapped panel against ``xtabond2``, write the
+    instrument set on the level — ``gmm(y, lag(a b))``, matching
+    ``gmm_lags=(a, b)`` — rather than on a lagged expression such as
+    ``gmm(L.y, lag(a-1 b-1))``. The two are the same moment set on a
+    gap-free panel and different once the panel has holes, because Stata
+    materialises ``L.y`` row by row before ``xtabond2`` lags it again.
 
     Key diagnostics:
     - **AR(1) test**: Should reject (expected in first differences).

@@ -271,41 +271,49 @@ sp.estat(res, "all")        # all three
 
 ## 7. Known limits
 
-- **Panels with interior gaps.** Coefficients differ from `xtabond2` by
-  roughly 3-10%. What is known, precisely:
-
-  - the observation count, per-unit row counts and instrument count all
-    agree with both `xtabond` and `xtabond2`;
-  - the weight matrix is **not** the culprit. `xtabond2`'s own `_H` was
-    read out of its Mata library and is the same 2/-1 band on the full
-    period grid that StatsPAI builds;
-  - the divergence is in the **instrument values at deeper lags**, and it
-    is gap-specific. Fitting one collapsed instrument at a time — which is
-    just-identified, so the weight matrix cancels out entirely — gives
-    exact agreement at every lag depth on a gap-free panel, and on a
-    hole-punched one agrees at lag distances 2, 3 and 6 while differing at
-    4 and 5.
-
-  So a gapped panel changes *which levels enter the instrument set* at some
-  lag depths, not how they are weighted. Both estimators remain consistent
-  — a valid instrument set is being used either way — but they are not the
-  same finite-sample estimator, and this is a sharper statement than
-  "different gap convention". A warning fires on any fit with interior
-  gaps.
-
-  `orthogonal=True` remains the better answer on such panels regardless,
-  since forward deviations lose one observation per gap instead of two.
 - **Sargan scale.** StatsPAI follows `xtabond`
   ($\hat\sigma^2 = \hat e^{*\prime}\hat e^{*}/(2(N^{*}-k))$ over transformed
   rows); `xtabond2` divides by $2N^{*}$, so its Sargan sits a factor
   $N^{*}/(N^{*}-k)$ higher. The Hansen J has no such free scale and matches
   both.
 
-Everything else — coefficients, standard errors, the Arellano-Bond AR(1)
-and AR(2) statistics, Sargan/Hansen and the difference-in-Hansen block —
-matches Stata 18 and `xtabond2` to ~1e-11 across all 29 reference
-specifications, on gap-free panels, for every transform, instrument class,
-step count and variance grouping.
+Coefficients, standard errors, the Arellano-Bond AR(1) and AR(2)
+statistics, Sargan/Hansen and the difference-in-Hansen block match Stata 18
+and `xtabond2` to ~1e-11 across all 39 reference specifications, for every
+transform, instrument class, step count and variance grouping — **including
+panels with interior gaps**.
+
+### A note if you are cross-checking gapped panels in Stata
+
+Write the instrument set on the **level**:
+
+```stata
+xtabond2 n L.n, gmm(n, lag(2 .)) noleveleq noconstant robust
+```
+
+not on the lagged expression:
+
+```stata
+xtabond2 n L.n, gmm(L.n, lag(1 .)) noleveleq noconstant robust
+```
+
+On a gap-free panel these are the same moment set. On a panel with holes
+they are not, and the second one will *look* like a StatsPAI bug. Stata
+materialises `L.n` row by row, so it is missing wherever the preceding row
+is absent, and `xtabond2` then lags that already-holed series — the
+instrument ends up requiring both period $t-k-1$ **and** period $t-k$ to
+exist, where the level form requires only $t-k-1$. `gmm_lags=(a, b)` names
+the level form.
+
+This cost StatsPAI a documented "known limitation" that never existed: the
+gap was written into the reference fixture, and a mis-specified reference
+reads exactly like a broken estimator. Both moment sets are valid; they are
+simply different, and only one of them is the one `gmm_lags` asks for.
+
+A warning still fires on any fit with interior gaps, but it is now an
+efficiency advisory: first differencing loses two equations per hole and
+`orthogonal=True` loses one, so forward orthogonal deviations remain the
+better transform on gappy panels.
 
 ## References
 
