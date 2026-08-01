@@ -4,6 +4,27 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Registry-census numbers in the stability guide and JSS source dossier
+  re-synced to the live registry.** The published census had drifted a full
+  tier cycle behind: 1,145 → **1,153** registered public functions, and the
+  tier split moved from 66/276/800/3 to **70 `certified` / 297 `validated` /
+  783 `api_stable` / 3 `experimental`**. The scoped-validation surface is
+  therefore **367** symbols, not 342, and the harsh denominator **671**, not
+  685. Verified independently against `sp.describe_function` before editing:
+  70+297+783+3 = 1,153 reconciles exactly.
+
+  Note the direction — 17 symbols moved *out* of `api_stable` into
+  certified/validated while the surface grew by 8. The stale numbers were
+  understating the package's own evidence coverage.
+
+  One correction is not a re-sync: `docs/jss_source_audit_dossier.md` gave
+  **282** registry-evidence source files for both the submitted archive and
+  the live inventory. Those are different quantities — the archive carries
+  **152**, the live validation-note inventory **305**. The single stale
+  number was overstating the archive's evidence footprint by roughly 2×.
+
 ### ⚠️ Correctness
 
 - **`sp.rdrobust` reported 12.39 where R `rdrobust` reports 7.41** on
