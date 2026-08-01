@@ -7366,6 +7366,12 @@
       "tolerance": ""
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_rddensity_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
       "function": "rddensity",
       "headline": {
         "metric": "rel_est",
@@ -7415,6 +7421,7 @@
         "tests/external_parity/test_published_replications.py",
         "tests/reference_parity/test_paper_parity.py",
         "tests/reference_parity/test_rd_covs_cluster_parity.py",
+        "tests/reference_parity/test_rd_vce_parity.py",
         "tests/reference_parity/test_rdrobust_params_parity.py",
         "tests/reference_parity/test_rdrobust_parity.py"
       ],
