@@ -94,6 +94,43 @@ the data so the two paths agree by construction.
 
 ---
 
+<a id="continuous-did-cgs"></a>
+
+## Unreleased — `sp.continuous_did(method="cgs")` is superseded
+
+**What changed.** `method="cgs"` now emits a `DeprecationWarning` and will be
+removed after one minor release. Use `sp.cgs_continuous_did` instead.
+
+**Why.** That mode was an MVP standing in for an estimator StatsPAI did not
+have: outcome regression only, a bootstrap standard error, and formula
+details left as `[待核验]` in `docs/rfc/continuous_did_cgs.md`. The
+replacement is the actual Callaway-Goodman-Bacon-Sant'Anna estimator, with
+`ATT(d)` and `ACRT(d)` from a B-spline in the dose and an
+influence-function variance — and it is pinned against the authors' own
+`contdid` package: both curves at four grid points and both overall
+quantities, across three spline specifications, agree to 1e-12.
+
+**What to do.**
+
+```python
+# Before
+sp.continuous_did(df, y="y", dose="d", time="t", id="i", method="cgs")
+
+# After
+sp.cgs_continuous_did(df, y="y", dose="d", time="t", unit="i", cohort="g",
+                      degree=3, num_knots=0)
+```
+
+The new function needs a `cohort` column (the first-treatment period, 0 for
+never-treated) rather than inferring a single pre/post split, which is what
+lets it handle staggered adoption at all.
+
+The other `continuous_did` modes — `twfe`, `att_gt`, `dose_response` — are
+unchanged. They are dose-bin and local-linear heuristics, useful for a quick
+look, and the docstring says so.
+
+---
+
 <a id="multiplegt-dyn-placebo"></a>
 
 ## Unreleased — ⚠️ `sp.did_multiplegt_dyn` placebos are now the estimator's placebos

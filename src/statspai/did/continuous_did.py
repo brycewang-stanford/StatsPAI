@@ -12,12 +12,17 @@ intensity varies continuously across units:
   derivative.
 
 **Not** the Callaway, Goodman-Bacon & Sant'Anna (2024) ATT(d|g,t) /
-ACRT(d|g,t) estimator with strong parallel trends and influence-function
-variance.  ``method='cgs'`` is available as an MVP but remains
-non-parity: OR only, bootstrap SE, and paper-formula details tracked in
-``docs/rfc/continuous_did_cgs.md`` with ``[待核验]`` markers. The current
-default ``method='att_gt'`` is a dose-bin heuristic, not the CGS 2024
-group-time estimand.
+ACRT(d|g,t) estimator. That one is :func:`statspai.cgs_continuous_did`,
+which is pinned against the authors' own ``contdid`` package. The default
+``method='att_gt'`` here is a dose-bin heuristic, not the CGS group-time
+estimand.
+
+.. deprecated:: 1.21.0
+   ``method='cgs'`` is superseded by :func:`statspai.cgs_continuous_did`.
+   It was an outcome-regression MVP with a bootstrap standard error and
+   unresolved ``[待核验]`` formula details; the replacement is the real
+   estimator with parity evidence. It warns and will be removed after one
+   minor release.
 
 References
 ----------
@@ -29,6 +34,7 @@ de Chaisemartin, C. & D'Haultfœuille, X. (2018).
 "Fuzzy Differences-in-Differences." [@dechaisemartin2018fuzzy].
 """
 
+import warnings
 from typing import List, Optional
 
 import numpy as np
@@ -166,6 +172,17 @@ def continuous_did(
             alpha,
         )
     elif method == "cgs":
+        warnings.warn(
+            "continuous_did(method='cgs') is deprecated in favour of "
+            "sp.cgs_continuous_did, which implements the same Callaway, "
+            "Goodman-Bacon & Sant'Anna estimator and IS pinned against the "
+            "authors' contdid package (curves and both overall quantities at "
+            "1e-12). This mode is an outcome-regression MVP with a bootstrap "
+            "SE and unresolved [待核验] formula details; it will be removed "
+            "after one minor release. See MIGRATION.md.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return _continuous_did_cgs(
             df,
             y=y,

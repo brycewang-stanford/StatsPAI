@@ -17595,6 +17595,7 @@
   },
   {
     "alternatives": [
+      "cgs_continuous_did",
       "callaway_santanna",
       "did_multiplegt",
       "dose_response"
@@ -21738,6 +21739,123 @@
     "typical_n_min": null,
     "validation_notes": [
       "tests/reference_parity/test_fect_equivalence_parity.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alternatives": [
+      "spatial_did",
+      "spillover",
+      "interference"
+    ],
+    "assumptions": [
+      "Parallel trends between each group and the clean controls",
+      "Spillovers vanish beyond the outermost ring",
+      "No anticipation"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
+    "example": "sp.spillover_did(df, y=\"y\", unit=\"i\", time=\"t\", cohort=\"g\", coords=[\"lon\", \"lat\"], ring_edges=(0, 5, 10))",
+    "failure_modes": [
+      {
+        "alternative": "spatial_did",
+        "exception": "DataInsufficient",
+        "remedy": "Every untreated unit is inside a ring. Narrow ring_edges or widen the study area.",
+        "symptom": "No clean controls"
+      },
+      {
+        "alternative": "spatial_did",
+        "exception": "",
+        "remedy": "The outermost ring is probably not clean either. Extend ring_edges and re-check.",
+        "symptom": "Ring effects do not decay with distance"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [
+      "there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity",
+      "ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls",
+      "covariate adjustment is not implemented"
+    ],
+    "name": "spillover_did",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "unit positions or a distance matrix",
+      "some untreated units beyond the outermost ring"
+    ],
+    "reference": "Butts (2021) arXiv:2105.03737 [@butts2021difference]. No reference implementation exists to pin against; correctness is established by design recovery in tests/reference_parity/test_spillover_rings.py.",
+    "signature": {
+      "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
+      "name": "spillover_did",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "cohort": {
+            "description": "First-treatment period (never_value = never)",
+            "type": "string"
+          },
+          "coords": {
+            "description": "Two columns giving each unit's position (Euclidean)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "distances": {
+            "description": "Pre-computed distance matrix, for great-circle or network distances",
+            "type": "string"
+          },
+          "never_value": {
+            "default": 0,
+            "description": "never_value parameter.",
+            "type": "string"
+          },
+          "ring_edges": {
+            "default": [
+              0.0,
+              1.0
+            ],
+            "description": "Ring boundaries; untreated units beyond the last edge are the clean controls",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "time": {
+            "description": "Time period column.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Unit identifier column.",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "unit",
+          "time",
+          "cohort"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "tests/reference_parity/test_spillover_rings.py"
     ],
     "validation_status": "validated"
   },

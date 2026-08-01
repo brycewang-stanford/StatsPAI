@@ -62,6 +62,13 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # both are reachable. Pinned in Track A module 78.
         "the headline aggregation convention differs",
     ],
+    "spillover_did": [
+        # Scope statements, not code paths that raise. The first is the
+        # honest headline: this estimator has no reference implementation.
+        "there is no reference implementation",
+        "ring boundaries are the analyst's choice",
+        "covariate adjustment is not implemented",
+    ],
     "cgs_continuous_did": [
         # All three are scope statements about this implementation, not
         # code paths that raise. The per-cell estimator is pinned; what is

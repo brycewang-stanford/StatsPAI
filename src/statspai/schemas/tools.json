@@ -21880,6 +21880,69 @@
     "name": "spillover"
   },
   {
+    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented. Assumptions: Parallel trends between each group and the clean controls; Spillovers vanish beyond the outermost ring; No anticipation. Pre-conditions: unit positions or a distance matrix; some untreated units beyond the outermost ring. Failure modes: No clean controls -> Every untreated unit is inside a ring. Narrow ring_edges or widen the study area; Ring effects do not decay with distance -> The outer...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cohort": {
+          "description": "First-treatment period (never_value = never)",
+          "type": "string"
+        },
+        "coords": {
+          "description": "Two columns giving each unit's position (Euclidean)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "distances": {
+          "description": "Pre-computed distance matrix, for great-circle or network distances",
+          "type": "string"
+        },
+        "never_value": {
+          "default": 0,
+          "description": "never_value parameter.",
+          "type": "string"
+        },
+        "ring_edges": {
+          "default": [
+            0.0,
+            1.0
+          ],
+          "description": "Ring boundaries; untreated units beyond the last edge are the clean controls",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Time period column.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit identifier column.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cohort",
+        "time",
+        "unit",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "spillover_did"
+  },
+  {
     "description": "Simultaneous quantile regression at multiple quantiles. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
@@ -25262,61 +25325,5 @@
       "type": "object"
     },
     "name": "yun_nonlinear"
-  },
-  {
-    "description": "Zero-Inflated Negative Binomial (ZINB) regression via MLE. Validation: certified parity evidence.",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for confidence intervals and tests.",
-          "type": "number"
-        },
-        "cluster": {
-          "description": "Cluster variable name.",
-          "type": "string"
-        },
-        "formula": {
-          "description": "Patsy-style formula for the count equation.",
-          "type": "string"
-        },
-        "inflate": {
-          "description": "Inflation-equation regressors. Default: same as count regressors.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "maxiter": {
-          "default": 200,
-          "description": "maxiter parameter (int).",
-          "type": "integer"
-        },
-        "robust": {
-          "default": "nonrobust",
-          "description": "Standard error type.",
-          "type": "string"
-        },
-        "tol": {
-          "default": 1e-08,
-          "description": "Numerical convergence tolerance.",
-          "type": "number"
-        },
-        "x": {
-          "description": "Count-equation regressors.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Dependent variable name.",
-          "type": "string"
-        }
-      },
-      "required": [],
-      "type": "object"
-    },
-    "name": "zinb"
   }
 ]

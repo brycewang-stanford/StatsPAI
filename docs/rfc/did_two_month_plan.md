@@ -268,3 +268,34 @@ PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
   提交时**只 stage 自己的文件**，绝不 `git add -A`。
 - **既有失败**：`test_jss_manuscript_artifacts`、`test_jss_release_manifest`（2）、
   `test_jss_formal_compliance` 在 `HEAD~1` 即失败，与 DiD 无关，不在本计划范围。
+
+
+---
+
+## 完成状态（2026-08 收口）
+
+WP-5 / WP-7 / WP-8 已落地，均带跨语言证据或明确写明的证据边界。
+
+| 项 | 结果 | 证据 |
+| --- | --- | --- |
+| WP-5 CGS 连续处理 | `sp.cgs_continuous_did`（ATT(d) / ACRT(d)，B-spline + 影响函数） | Track A 80，对 `contdid` 0.1.1，曲线与两个整体量 1e-12 |
+| WP-7 `stacked_did` | Track A 75 | 手写 `fixest` stack，1.3e-13，两种控制组约定 |
+| WP-7 `pretrends_power` | Track A 76 + ⚠️ 默认检验修正 | 对 `pretrends` 0.1.0，在其自身 MC 噪声内 |
+| WP-7 `ddd_heterogeneous` | Track A 77 + 协变量 / 解析 SE / not-yet-treated | 对 `triplediff` 0.2.4，cells 与解析 SE 1e-12（dr/ipw/reg） |
+| WP-7 `did_multiplegt_dyn` | Track A 78 + ⚠️ placebo 定义修正 + 解析 SE | 对 `DIDmultiplegtDYN` 2.3.4，5e-15（含 switcher 计数） |
+| WP-8 函数形式检验 | `sp.functional_form_test`，Track A 79 | 对 `didFF` 0.1.0，1.2e-15，接受与拒绝两种设计都钉住 |
+| WP-8 溢出 DiD | `sp.spillover_did` | **无参考实现**，仅设计恢复证据 + 对 `spatial_did` 有偏的对照 |
+
+### 上游缺陷（已记录，未继承）
+
+两处刻意与参考实现不一致，都有可复现的证据而非断言：
+
+1. `triplediff` 0.2.4 的 not-yet-treated 路径把各控制组队列的影响函数写进面板长度向量时用了长度不符的布尔索引（R 每次调用都会警告）。逐控制组估计与我们完全一致；只有组合环节不同。比较范围覆盖全面板的 cell 仍然逐位相符。
+2. `contdid` 0.1.1 在拟合用的 dose 范围上估计样条，却把上报曲线放在以 dose 网格端点为边界的另一组基上求值，因此上报曲线是拟合响应的一个缩放版本，与它自己返回的 overall ACRT 对不上。`curve_basis="reference"` 可复现其输出。
+
+### 仍未闭合
+
+- `lp_did`：论文需付费获取，无参考实现，保持 `api_stable`。
+- `did_multiplegt`（dCDH 2020）：R 包 2.1.0 的 `mode="old"` 连自带示例都返回 NaN，属上游问题。
+- `did_multiplegt_dyn`：switch-off 事件、论文自有方差公式两项 `[待核验]` 仍在，也是它仍标 `experimental` 的原因。
+- `did_timevarying_covariates`：归属文献无法核验，按 §10 保持「（citation needed）」。

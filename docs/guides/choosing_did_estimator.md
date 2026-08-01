@@ -125,29 +125,42 @@ DID is the **wrong** tool if:
 4. **Anticipation effects exist:** use `anticipation=h` parameter in
    CS2021 to backdate the reference period.
 
-## 4.5 Frontier estimators (tracked, partial, or not-yet-landed)
+## 4.5 Frontier estimators
 
-Several post-2020 DiD advances are either **partially** shipped or on
-the roadmap. Using them today means knowing what you're getting:
+Most of the post-2020 DiD advances are now shipped **with cross-language
+parity evidence**. The table says what backs each one, because "implemented"
+and "checked against the reference" are different claims.
 
-| What you want | Current state | Tracked in |
+| What you want | Use | Evidence |
 | --- | --- | --- |
-| Continuous-dose DiD — heuristic | `sp.continuous_did(method='att_gt')` dose-quantile 2×2 rollup; **not** CGS (2024) ATT(d\|g,t) | `docs/rfc/continuous_did_cgs.md` |
-| Continuous-dose DiD — CGS (2024) ATT(d\|g,t) / ACRT | `sp.continuous_did(method='cgs')` MVP exists; **not yet reference-parity** with R `contdid`, OR-only, bootstrap SE | `docs/rfc/continuous_did_cgs.md` |
-| On/off switching — dCDH (2020) DID_M | `sp.did_multiplegt` — pair rollup + joint placebo + avg cumulative (2024 overlay) | shipped |
-| On/off switching — dCDH (2024) `_dyn` event-study | `sp.did_multiplegt_dyn(...)` experimental MVP exists; **not yet paper-parity**, cluster-bootstrap SE, switch-on only | `docs/rfc/multiplegt_dyn.md` |
-| LP-DiD (Dube, Girardi, Jordà, Taylor 2023) | **Not yet implemented** | `docs/rfc/did_roadmap_gap_audit.md` §4 |
-| Triple-difference, heterogeneity-robust | `sp.ddd` textbook only; Olden-Møen / Strezhnev variants pending | `docs/rfc/did_roadmap_gap_audit.md` §4 |
-| Time-varying covariates DiD (Caetano et al. 2022) | **Not yet implemented** | `docs/rfc/did_roadmap_gap_audit.md` §4 |
+| Continuous-dose DiD — CGS ATT(d) / ACRT(d) | `sp.cgs_continuous_did` | curves and both overall quantities match R `contdid` 0.1.1 at 1e-12 (Track A 80) |
+| Continuous-dose DiD — quick heuristic | `sp.continuous_did(method='att_gt')` | dose-quantile 2×2 rollup; a look, not the CGS estimand |
+| On/off switching — dCDH 2020 DID_M | `sp.did_multiplegt` | pair rollup + joint placebo; the 2.x R package's `mode="old"` is broken upstream, so no parity |
+| On/off switching — dCDH 2024 event study | `sp.did_multiplegt_dyn` | effects, placebos and the switcher-weighted aggregate match `DIDmultiplegtDYN` 2.3.4 at 5e-15, switcher counts included (Track A 78) |
+| Triple differences, heterogeneity-robust | `sp.ddd_heterogeneous` | cells and analytic SEs match `triplediff` 0.2.4 at 1e-12 across dr / ipw / reg (Track A 77) |
+| Stacked DiD (CDLZ) | `sp.stacked_did` | matches a hand-written `fixest` stack at 1.3e-13 under both control-group conventions (Track A 75) |
+| Is parallel trends scale-dependent? | `sp.functional_form_test` | matches `didFF` 0.1.0 at 1.2e-15 on both an accepting and a rejecting design (Track A 79) |
+| Pre-test power / detectable trend | `sp.pretrends_power`, `sp.pretrends_slope_for_power` | match Roth's `pretrends` 0.1.0 within its own Monte-Carlo noise (Track A 76) |
+| Spatial spillovers, heterogeneity-robust | `sp.spillover_did` | **no reference implementation exists**; design-recovery evidence only |
+| LP-DiD | `sp.lp_did` | implemented, but not verified against the published paper and carries no parity test |
+| Time-varying covariates DiD | `sp.did_timevarying_covariates` | implemented; the attribution could not be verified, see the module docstring |
 
-> **Why dCDH (2020) and dCDH (2024) are not the same estimator**: the 2024 ``_dyn`` version does a direct long-difference event-study with "not-yet-treated at horizon `l`" as the per-horizon control group, with its own influence-function variance. `sp.did_multiplegt(dynamic=H)` is the 2020 pair rollup extended to H horizons — numerically close in simple DGPs, but different in identification, control construction, and inference. Use `sp.did_multiplegt_dyn` only when you explicitly accept its current experimental/MVP limitations.
+**Read the third column.** Everything above the spillover row is pinned
+against an independent implementation; below it, correctness rests on
+recovering a known design or on nothing external at all. That is a real
+difference in how much weight a result can carry, and `sp.describe_function`
+reports the same distinction as `validation_status`.
 
-Until frontier items land with reference-parity tests, do not cite their
-MVP outputs as fully paper-faithful CGS (2024) / dCDH (2024) estimates.
-The current stable heuristics remain dose-bin / pair-rollup estimators;
-the MVPs are useful for API and workflow development, but their
-identification details and variance formulas are still tracked in the
-RFCs with `[待核验]` markers.
+> **Why dCDH 2020 and dCDH 2024 are not the same estimator**: the 2024
+> `_dyn` version is a long-difference event study with "not-yet-treated at
+> horizon `l`" as the per-horizon control group. `sp.did_multiplegt(dynamic=H)`
+> is the 2020 pair rollup extended to H horizons — numerically close on simple
+> DGPs, different in identification, control construction and inference.
+
+> **`sp.did_multiplegt_dyn` is still `experimental`** despite the parity.
+> Switch-off events are dropped and the paper's own variance formula is not
+> implemented; `se_method='analytic'` is available and agrees with the
+> bootstrap, but runs about 1% below the R package's standard errors.
 
 ## 5. Reading the output
 

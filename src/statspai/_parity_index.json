@@ -8336,7 +8336,8 @@
       "source": "reference_parity",
       "status": "analytical-only",
       "test": [
-        "tests/reference_parity/test_spatial_models_parity.py"
+        "tests/reference_parity/test_spatial_models_parity.py",
+        "tests/reference_parity/test_spillover_rings.py"
       ],
       "tolerance": ""
     },
@@ -8388,6 +8389,23 @@
       "status": "analytical-only",
       "test": [
         "tests/reference_parity/test_interference_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
+      "function": "spillover_did",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_spillover_rings.py"
       ],
       "tolerance": ""
     },

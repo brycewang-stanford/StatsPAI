@@ -28,6 +28,15 @@ All notable changes to StatsPAI will be documented in this file.
   **670**, **306** registry-evidence source files. Verified independently
   via `sp.describe_function` (73+298+780+3 = 1,154).
 
+### Changed
+
+- **`sp.continuous_did(method="cgs")` is deprecated.** It was an MVP
+  standing in for an estimator StatsPAI did not have: outcome regression
+  only, a bootstrap standard error, and formula details left as `[待核验]`.
+  `sp.cgs_continuous_did` is the real thing and is pinned against the
+  authors' package. The mode warns and will be removed after one minor
+  release; see MIGRATION.md.
+
 ### ⚠️ Correctness
 
 - **All eight bool-typed `robust=` sites now reject the string form; seven
@@ -348,6 +357,23 @@ All notable changes to StatsPAI will be documented in this file.
   11 new tests (56→59 in `tests/test_audit_citations.py`).
 
 ### Added
+
+- **`sp.spillover_did` — stop measuring the direct effect against units the
+  treatment already reached (WP-8).** The standard fix for spatial
+  spillovers is a spatial lag of treatment in a TWFE regression, which
+  inherits every problem TWFE has under staggered adoption and adds one of
+  its own: the controls nearest the treated are exactly the ones the
+  spillover reaches. Butts's answer is to sort untreated units by distance
+  into spillover rings plus *clean* controls beyond every ring, and estimate
+  the direct effect and each ring's effect against the clean controls only.
+
+  There is no reference implementation anywhere — nothing on CRAN or
+  GitHub — so this ships with design-recovery evidence rather than parity,
+  and says so in the registry limitations, the docstring and the guide. The
+  test file plants a direct effect and two ring effects across ten seeds and
+  recovers all three, checks the confidence interval's coverage, and
+  **asserts that `sp.spatial_did` is biased on the same data where this is
+  not** — which is the whole reason the estimator exists.
 
 - **`se_method="analytic"` on `sp.did_multiplegt_dyn`.** Every horizon is a
   switcher-weighted sum of two-sample mean differences, so its influence

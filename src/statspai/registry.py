@@ -9402,6 +9402,7 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=[
+                "cgs_continuous_did",
                 "callaway_santanna",
                 "did_multiplegt",
                 "dose_response",
@@ -12156,6 +12157,116 @@ def _build_registry() -> None:
                 "there is no universal outcome-scale default, so it is not "
                 "invented",
             ],
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="spillover_did",
+            category="causal",
+            description=(
+                "Butts spillover-ring DiD. The usual fix -- a spatial lag of "
+                "treatment in a TWFE regression -- measures the direct effect "
+                "against controls the spillover already reached. This sorts "
+                "untreated units by distance to the nearest treated unit into "
+                "spillover rings plus CLEAN controls beyond every ring, and "
+                "estimates the direct effect and each ring's effect against "
+                "the clean controls only."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec("unit", "str", True),
+                ParamSpec("time", "str", True),
+                ParamSpec(
+                    "cohort",
+                    "str",
+                    True,
+                    description="First-treatment period (never_value = never)",
+                ),
+                ParamSpec(
+                    "coords",
+                    "list",
+                    False,
+                    None,
+                    "Two columns giving each unit's position (Euclidean)",
+                ),
+                ParamSpec(
+                    "distances",
+                    "ndarray",
+                    False,
+                    None,
+                    "Pre-computed distance matrix, for great-circle or "
+                    "network distances",
+                ),
+                ParamSpec(
+                    "ring_edges",
+                    "tuple",
+                    False,
+                    (0.0, 1.0),
+                    "Ring boundaries; untreated units beyond the last edge "
+                    "are the clean controls",
+                ),
+                ParamSpec("never_value", "Any", False, 0),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns=(
+                "SpilloverRingResult with the direct effect and a per-ring "
+                "spillover table"
+            ),
+            example=(
+                'sp.spillover_did(df, y="y", unit="i", time="t", cohort="g", '
+                'coords=["lon", "lat"], ring_edges=(0, 5, 10))'
+            ),
+            tags=[
+                "did",
+                "spillover",
+                "interference",
+                "spatial",
+                "sutva",
+                "causal",
+            ],
+            reference=(
+                "Butts (2021) arXiv:2105.03737 [@butts2021difference]. No "
+                "reference implementation exists to pin against; correctness "
+                "is established by design recovery in "
+                "tests/reference_parity/test_spillover_rings.py."
+            ),
+            pre_conditions=[
+                "unit positions or a distance matrix",
+                "some untreated units beyond the outermost ring",
+            ],
+            assumptions=[
+                "Parallel trends between each group and the clean controls",
+                "Spillovers vanish beyond the outermost ring",
+                "No anticipation",
+            ],
+            limitations=[
+                "there is no reference implementation, so this carries "
+                "design-recovery evidence only and no cross-language parity",
+                "ring boundaries are the analyst's choice; there is no "
+                "selector, and a too-wide outer ring silently contaminates "
+                "the clean controls",
+                "covariate adjustment is not implemented",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="No clean controls",
+                    exception="DataInsufficient",
+                    remedy="Every untreated unit is inside a ring. Narrow "
+                    "ring_edges or widen the study area.",
+                    alternative="spatial_did",
+                ),
+                FailureMode(
+                    symptom="Ring effects do not decay with distance",
+                    exception="",
+                    remedy="The outermost ring is probably not clean either. "
+                    "Extend ring_edges and re-check.",
+                    alternative="spatial_did",
+                ),
+            ],
+            alternatives=["spatial_did", "spillover", "interference"],
+            typical_n_min=200,
         )
     )
 

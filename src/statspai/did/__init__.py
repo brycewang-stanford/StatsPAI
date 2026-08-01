@@ -77,6 +77,7 @@ from .robustness_pipeline import (
     ParallelTrendsRobustnessResult,
     parallel_trends_robustness,
 )
+from .spillover_rings import SpilloverRingResult, spillover_did
 from .stacked_did import stacked_did
 from .summary import (
     did_report,
@@ -768,6 +769,7 @@ __all__ = [
     # Pre-trends
     "pretrends_test",
     "cgs_continuous_did",
+    "spillover_did",
     "functional_form_test",
     "pretrends_power",
     "pretrends_slope_for_power",

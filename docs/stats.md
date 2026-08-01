@@ -40,8 +40,8 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | Module              | LOC    | Files | Registered functions (`sp.*`) |
 | ------------------- | -----: | ----: | ----------------------------: |
 | `synth` | 22,372 | 31 | 54 |
-| `did` | 28,158 | 44 | 70 |
-| `rd` | 16,901 | 26 | 53 |
+| `did` | 28,687 | 45 | 71 |
+| `rd` | 17,162 | 26 | 53 |
 | `regression` | 15,905 | 20 | 37 |
 | `smart` | 14,887 | 20 | 31 |
 | `output` | 11,961 | 21 | 40 |
@@ -50,7 +50,7 @@ Sorted by LOC. This table is generated from the live source tree by `python scri
 | `core` | 8,358 | 13 | 4 |
 | `fast` | 7,679 | 16 | 0 |
 | `iv` | 7,409 | 16 | 8 |
-| `diagnostics` | 7,388 | 13 | 25 |
+| `diagnostics` | 7,392 | 13 | 25 |
 | `matching` | 7,697 | 11 | 25 |
 | `panel` | 7,674 | 12 | 18 |
 | `inference` | 7,470 | 17 | 24 |

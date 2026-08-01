@@ -12043,6 +12043,74 @@
     }
   },
   {
+    "description": "Butts spillover-ring DiD. The usual fix -- a spatial lag of treatment in a TWFE regression -- measures the direct effect against controls the spillover already reached. This sorts untreated units by distance to the nearest treated unit into spillover rings plus CLEAN controls beyond every ring, and estimates the direct effect and each ring's effect against the clean controls only. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Known limitations: there is no reference implementation, so this carries design-recovery evidence only and no cross-language parity; ring boundaries are the analyst's choice; there is no selector, and a too-wide outer ring silently contaminates the clean controls; covariate adjustment is not implemented.",
+    "name": "spillover_did",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cohort": {
+          "description": "First-treatment period (never_value = never)",
+          "type": "string"
+        },
+        "coords": {
+          "description": "Two columns giving each unit's position (Euclidean)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "data": {
+          "description": "pandas DataFrame containing the variables used by the estimator.",
+          "type": "string"
+        },
+        "distances": {
+          "description": "Pre-computed distance matrix, for great-circle or network distances",
+          "type": "string"
+        },
+        "never_value": {
+          "default": 0,
+          "description": "never_value parameter.",
+          "type": "string"
+        },
+        "ring_edges": {
+          "default": [
+            0.0,
+            1.0
+          ],
+          "description": "Ring boundaries; untreated units beyond the last edge are the clean controls",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "time": {
+          "description": "Time period column.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit identifier column.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "unit",
+        "time",
+        "cohort"
+      ],
+      "type": "object"
+    }
+  },
+  {
     "description": "Callaway, Goodman-Bacon & Sant'Anna (2024) DiD with a CONTINUOUS treatment. A dose has no single ATT: the TWFE coefficient averages the 0.2-dose and 0.8-dose comparisons with weights that can be negative. Reports ATT(d) and its derivative ACRT(d) -- the causal response at dose d, which is what a marginal-dose question asks -- from a B-spline regression of the outcome change on the dose. Validation: certified evidence with scoped limitations. Known limitations: standard errors come from the per-cell influence function; contdid routes its own through the pte aggregation layer, which is not implemented here; staggered designs aggregate cells with StatsPAI's own treated-count weights; only the per-cell estimator is pinned against the reference; the cck (nonparametric) dose estimator is not implemented.",
     "name": "cgs_continuous_did",
     "parameters": {

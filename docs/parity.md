@@ -27,11 +27,11 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 144 |
 | aligned | 15 |
-| analytical-only | 211 |
+| analytical-only | 212 |
 | external-replication | 6 |
-| **verified (subtotal)** | **376** |
+| **verified (subtotal)** | **377** |
 | unverified | 780 |
-| **total registered** | **1156** |
+| **total registered** | **1157** |
 
 ## bit-exact — 144 functions
 
@@ -219,7 +219,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 211 functions
+## analytical-only — 212 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -403,10 +403,11 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `shapley_inequality` | [`test_decomposition_family_parity.py`](../tests/reference_parity/test_decomposition_family_parity.py) |
 | `sharp_ope_unobserved` | [`test_ope_parity.py`](../tests/reference_parity/test_ope_parity.py) |
 | `slx` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
-| `spatial_did` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
+| `spatial_did` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) (+1) |
 | `spatial_iv` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
 | `spatial_panel` | [`test_spatial_models_parity.py`](../tests/reference_parity/test_spatial_models_parity.py) |
 | `spillover` | [`test_interference_parity.py`](../tests/reference_parity/test_interference_parity.py) |
+| `spillover_did` | [`test_spillover_rings.py`](../tests/reference_parity/test_spillover_rings.py) |
 | `sqreg` | [`test_sqreg_parity.py`](../tests/reference_parity/test_sqreg_parity.py) |
 | `ssaggregate` | [`test_bartik_ssagg_parity.py`](../tests/reference_parity/test_bartik_ssagg_parity.py) |
 | `stabilized_weights` | [`test_stabilized_weights_parity.py`](../tests/reference_parity/test_stabilized_weights_parity.py) |
