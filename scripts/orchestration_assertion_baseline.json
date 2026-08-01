@@ -1,0 +1,26 @@
+{
+  "allowed": [
+    "tests/agent_eval/test_did_workflow_transcript.py::test_method_mismatch_returns_recoverable_envelope",
+    "tests/agent_eval/test_mcp_protocol_transcript.py::test_detect_design_honors_column_hints",
+    "tests/test_mcp_pipelines.py::test_missing_required_args",
+    "tests/test_mcp_pipelines.py::test_no_data_returns_error",
+    "tests/test_mcp_error_envelope.py::test_non_statspai_error_omits_structured_fields",
+    "tests/test_mcp_image_content.py::test_unknown_handle_friendly_error",
+    "tests/test_mcp_protocol.py::test_tools_call_missing_name_returns_invalid_params",
+    "tests/test_mcp_protocol.py::test_error_envelope_also_structured",
+    "tests/test_mcp_protocol.py::test_happy_path_runs_estimator_and_returns_text_block",
+    "tests/test_mcp_protocol.py::test_invalid_detail_returns_invalid_params",
+    "tests/test_mcp_protocol.py::test_structured_error_routes_through_isError",
+    "tests/test_mcp_protocol.py::test_read_function_uri_with_embedded_slash_is_invalid_params",
+    "tests/test_mcp_protocol.py::test_read_function_uri_empty_name_is_invalid_params",
+    "tests/test_mcp_protocol.py::test_read_unknown_uri_scheme_errors",
+    "tests/test_mcp_protocol.py::test_unknown_tool_returns_structured_error_dict",
+    "tests/test_mcp_protocol.py::test_get_missing_required_argument_returns_invalid_params",
+    "tests/test_mcp_protocol.py::test_get_unknown_prompt_returns_resource_not_found",
+    "tests/test_mcp_result_handle.py::test_keys_required",
+    "tests/test_mcp_result_handle.py::test_resource_read_unknown_handle_is_32002",
+    "tests/test_mcp_result_handle.py::test_default_no_traceback",
+    "tests/test_mcp_tool_contract.py::test_id_and_time_hints_are_honored",
+    "tests/test_mcp_tool_contract.py::test_unresolvable_statspai_fn_returns_envelope"
+  ]
+}

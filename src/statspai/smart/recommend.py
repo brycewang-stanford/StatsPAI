@@ -63,6 +63,11 @@ class RecommendationResult(ResultProtocolMixin):
         self.data_profile = data_profile
         self.design = design
         self.warnings = warnings
+        #: Structured record of estimators that failed during
+        #: :meth:`run_all`, as ``{section, error_type, message, detail}``.
+        #: Machine-readable counterpart to the ``"Error: ..."`` strings in
+        #: the comparison dict.
+        self.degradations: List[Dict[str, Any]] = []
         self._data = data
         self._y = y
         self._treatment = treatment
@@ -341,12 +346,29 @@ class RecommendationResult(ResultProtocolMixin):
         return func(**params)
 
     def run_all(self, **kwargs: Any) -> Dict[str, Any]:
-        """Run all recommended estimators and return a comparison."""
-        results = {}
+        """Run all recommended estimators and return a comparison.
+
+        A failed estimator maps to an ``"Error: ..."`` string rather than
+        aborting the comparison, so one bad recommendation does not cost
+        you the others. That string used to be the *only* trace: no
+        warning, nothing machine-readable, so a run in which **every**
+        estimator failed looked indistinguishable from a successful one
+        until you tried to call a method on the result. Failures now also
+        warn and land in :attr:`degradations`.
+        """
+        from ..workflow._degradation import record_degradation
+
+        results: Dict[str, Any] = {}
         for i, rec in enumerate(self.recommendations):
             try:
                 results[rec["method"]] = self.run(which=i, **kwargs)
             except Exception as e:
+                record_degradation(
+                    self,
+                    section=f"run_all: {rec['method']}",
+                    exc=e,
+                    detail=f"recommendation #{i} of {len(self.recommendations)}",
+                )
                 results[rec["method"]] = f"Error: {e}"
         return results
 

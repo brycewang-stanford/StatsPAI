@@ -662,6 +662,28 @@ All notable changes to StatsPAI will be documented in this file.
   caller's `treat` and dropped it, returning the intercept's sensitivity to
   agents; it now forwards it.
 
+- **`recommend(...).run_all()` swallowed estimator failures into strings.**
+  A recommendation that raised was recorded as `"Error: ..."` in the
+  comparison dict and nowhere else — no warning, nothing machine-readable.
+  On a design where *every* recommendation failed, `run_all()` returned
+  two innocuous-looking strings and zero warnings; the caller only found
+  out on the `AttributeError` from calling a method on a `str`. Failures
+  now go through `record_degradation` (warn + structured entry) and land
+  in the new `RecommendationResult.degradations`. The returned dict is
+  unchanged — this adds a channel rather than replacing one.
+
+### Added
+
+- **`scripts/orchestration_assertion_audit.py`** — a pre-push ratchet
+  against smoke-only assertions in orchestration tests. Five shipped
+  defects this cycle hid behind assertions that only proved a call did not
+  raise (`assert isError is False`, `"verdict" in payload`,
+  `out["pipeline"] == "pipeline_iv"`). The audit flags test functions that
+  assert a status/shape signal without ever pinning a value, and the
+  baseline may only shrink. Error-path tests that assert *which*
+  explanation came back are exempt; comparing a status field to a literal
+  is not.
+
 - **A `sp.paper()` whose robustness section failed reported
   `degradations == []`.** The pipeline drives
   `diagnose → recommend → estimate → robustness` and swallows per-stage

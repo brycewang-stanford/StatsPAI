@@ -157,6 +157,14 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: orchestration-assertions
+        name: orchestration_assertion_audit --check (smoke-only test ratchet)
+        entry: python3 scripts/orchestration_assertion_audit.py --check
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: examples-coverage
         name: examples_coverage --check (docstring Examples presence, budget 0)
         entry: python3 scripts/examples_coverage.py --check --max-missing 0
