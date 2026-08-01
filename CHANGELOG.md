@@ -4,6 +4,36 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- **`sp.xtabond` / `sp.xtdpdsys` silently ignored a string `robust=`.**
+  `robust` is a *boolean* on the dynamic-panel family and a string HC-type
+  selector on the regression family (`robust="HC1"`). Passing the string
+  form here was accepted, evaluated as truthy, and returned the default
+  Windmeijer-corrected sandwich — the caller asked for HC1 and got
+  something else, with no warning.
+
+  The damaging case is `robust="cluster"`. Clustering is a separate
+  `cluster=` argument, so a user who wrote `robust="cluster"` received
+  **unclustered** standard errors and no indication the request had been
+  dropped. Reported SEs were simply not the ones asked for.
+
+  Both entry points now raise `ValueError` naming the actual alternative
+  (`cluster=<column>`). `sp.did` has carried the equivalent guard for
+  longer; `statspai._house_style.ROBUST_BOOL_HINTS` documents this
+  bool-vs-string split as the highest-impact hazard in the signature
+  surface, and these two were listed in it while being unguarded.
+
+  **Behaviour change:** `robust=1` / `robust=0` now raise as well, matching
+  `sp.did`'s `_require_bool`. Numerical output for `robust=True` /
+  `robust=False` is unchanged — this converts a silent wrong answer into a
+  loud one.
+
+  Not audited here: the other five entries in `ROBUST_BOOL_HINTS` (`ddd`,
+  `did_2x2`, `did_analysis`, `interactive_fe`, `mixlogit`). A first probe
+  did not reach their `robust` validation because their signatures differ,
+  so their status is **unknown**, not clean.
+
 ### Changed
 
 - **⚠️ `sp.check_absorbing(treatment=)` renamed to `treat=`.** The

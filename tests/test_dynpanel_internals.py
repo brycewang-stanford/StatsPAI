@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import statspai as sp
 from statspai.gmm._dynpanel._data import (
     add_time_dummies,
     build_panel_arrays,
@@ -441,3 +442,59 @@ class TestFitGuards:
                 twostep=True,
                 robust=False,
             )
+
+
+# ---------------------------------------------------------------------------
+# `robust=` is a boolean here and an HC-type *string* elsewhere in StatsPAI.
+# ---------------------------------------------------------------------------
+
+
+def _ar1_panel(n_units: int = 60, n_periods: int = 8, seed: int = 0):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for i in range(n_units):
+        y = rng.normal()
+        for t in range(n_periods):
+            y = 0.5 * y + rng.normal()
+            rows.append({"id": i, "year": 1976 + t, "n": y})
+    return pd.DataFrame(rows)
+
+
+@pytest.mark.parametrize("fn", ["xtabond", "xtdpdsys"])
+@pytest.mark.parametrize("bad", ["HC1", "HC3", "cluster", "robust", 1, 0, None])
+def test_robust_rejects_non_boolean(fn, bad):
+    """A string HC-type must fail loudly, not be read as truthy.
+
+    ``robust`` is boolean on the dynamic-panel family and a string selector
+    on the regression family (``robust="HC1"``). ``_house_style`` calls that
+    split the highest-impact hazard in the signature surface, and here it
+    was silent: ``xtabond(..., robust="HC1")`` was accepted, evaluated as
+    truthy, and returned the default Windmeijer sandwich — the caller asked
+    for HC1 and got something else with no warning.
+
+    ``robust="cluster"`` is the damaging case. Clustering is a separate
+    ``cluster=`` argument, so a user who wrote it got *unclustered*
+    standard errors and no indication that the request had been ignored.
+    """
+    df = _ar1_panel()
+    with pytest.raises(ValueError, match="must be boolean"):
+        getattr(sp, fn)(df, y="n", id="id", time="year", lags=1, robust=bad)
+
+
+@pytest.mark.parametrize("fn", ["xtabond", "xtdpdsys"])
+@pytest.mark.parametrize("good", [True, False, np.True_, np.False_])
+def test_robust_accepts_booleans(fn, good):
+    """The guard must not reject the values the signature promises."""
+    df = _ar1_panel()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        r = getattr(sp, fn)(df, y="n", id="id", time="year", lags=1, robust=good)
+    assert np.isfinite(float(r.detail["se"].iloc[0]))
+
+
+def test_robust_error_names_the_cluster_alternative():
+    """The message has to say where clustered SEs actually live."""
+    df = _ar1_panel()
+    with pytest.raises(ValueError) as exc:
+        sp.xtabond(df, y="n", id="id", time="year", lags=1, robust="cluster")
+    assert "cluster=" in str(exc.value)
