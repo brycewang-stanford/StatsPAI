@@ -157,6 +157,32 @@ PyPI 凭据在 `~/.pypirc`——**不要**提交仓库、不要写进 memory。�
 - Commit 风格：`feat:` / `fix(<area>):` / `docs(<area>):` / `chore:`，摘要 ≤ 72 字符。
 - **禁止**：`--no-verify` / `--no-gpg-sign` / `--force`（除非明确授权）；对已推送 commit `--amend`。出错用 `git revert`。
 
+### 9.2 并发：多窗口同时开工必须各自占一个 worktree
+
+**开工前先看这条。** 如果另一个 Claude 窗口（或同事）正在本仓库作业，**不要**两边都在主工作树的 `main` 上改。
+
+实测代价（2026-08-01，两条线并行一晚）：八个文件进入永久争用——`registry.py`、`__init__.py`、`CHANGELOG.md`、`MIGRATION.md` 是手工追加点，`schemas/*`、`_parity_index.json`、`docs/parity.md`、`docs/stats.md` 是**生成产物**（后者纯粹因为两边都重新生成才冲突）。每次提交要手工做「备份共享文件 → 还原到 HEAD → 重生成派生产物 → 提交 → 还原」五步，做了四轮；推送闸门按*已提交*状态检查而工作区混着两边改动，两个视角每次都打架。更糟的是有一次 `-A` 式全量提交把另一条线未提交的工作整个扫了进去，代码上了 main 却挂在毫不相关的 commit message 下。
+
+**做法**：
+
+```bash
+git worktree add .claude/worktrees/<线名> -b wt/<线名>
+cd .claude/worktrees/<线名>
+```
+
+完成后**不必切回主树**即可并入 main（主树可能压着别人未提交的工作，绝不要在那里 merge/checkout）——推送时用 `HEAD:main` 引用即可快进；非快进先 `git rebase origin/main`。
+
+**必须带 PYTHONPATH。** 仓库是 editable 安装，`statspai` 被钉死在**主**工作树，裸跑 `import statspai` 仍会加载主树代码——测试跑在别人的改动上，隔离形同虚设：
+
+```bash
+PYTHONPATH="$(pwd)/src" python3 -m pytest ...
+PYTHONPATH="$(pwd)/src" python3 scripts/dump_schemas.py
+```
+
+自检：worktree 内 `len(sp.list_functions())` 必须等于 `python scripts/registry_stats.py --check` 报的数字，不等就是没生效。**不要**为此往 `pyproject.toml` 加 pytest `pythonpath`——主树的 editable 安装对另一条线是正确的，改共享配置等于把刚消除的争用造回去。
+
+**如果只能留在主树**：提交前务必 `git status` 确认哪些改动不是自己的，**逐文件 / 逐 hunk** 暂存（`git add <file>` 或 `git apply --cached`），绝不用 `-A` / `-a` 全量提交；派生产物要先把共享源文件还原到 HEAD 再重新生成，否则会把别人未提交的内容一起固化进去。
+
 ### 9.1 例外：远程 runtime（Colab / Lambda / RunPod / CI）回传结果走 PR
 
 直推 main 的前提是"操作在本地，作者审过"。从远程 runtime（**最典型的是 [`Paper-JSS/colab_gpu_bench.ipynb`](Paper-JSS/colab_gpu_bench.ipynb)**）自动回传 benchmark 结果时，本地审视环节缺失，**必须改走 PR**：
