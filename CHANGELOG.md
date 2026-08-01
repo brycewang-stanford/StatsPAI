@@ -244,6 +244,38 @@ All notable changes to StatsPAI will be documented in this file.
   sample was overstating it. Added `n_eff_left`/`n_eff_right`, which match R
   exactly; the existing keys keep their meaning.
 
+- **Local randomization and power anchored to rdlocrand 2.0 / rdpower 3.0
+  (WP-4).** Writing the parity suite surfaced three defects in quantities no
+  test had looked at:
+
+  1. ⚠️ **correctness fix**: `sp.rdrandinf`'s asymptotic p-value used the
+     wrong reference distribution. The standard error is Welch's, but the
+     p-value referred it to a `t` with `n1 + n0 - 2` degrees of freedom --
+     pooled df for an unpooled SE, which is not any single test. rdlocrand
+     uses the normal, which is also what *asymptotic* means. On `rdsenate`
+     at w = ±5 the old form reported **1.68e-10** where rdlocrand reports
+     **2.49e-11**, a factor of 6.7. Now exact.
+  2. ⚠️ **correctness fix**: `statistic='ranksum'` was a *different
+     statistic*. StatsPAI returned `|U − μ| / σ` from scipy's Mann-Whitney U
+     with the no-ties variance; rdlocrand uses the standardised rank sum of
+     the control group with the empirical rank variance `s²`, which is
+     tie-robust. The senate running variable is heavily tied, so the two
+     differed by 2–3x, and the sign was discarded as well.
+  3. **`sp.rdpower` gained a data mode.** R's `rdpower(data = ...)` runs
+     `rdrobust` internally and uses its robust bias-corrected SE; StatsPAI
+     offered only a design-stage calculator with a different
+     parameterisation, so R's numbers were simply unreachable. Data mode
+     agrees to **4.2e-14** -- possible only because the WP-1/WP-2 cascade
+     work made `se_robust` itself exact. Design mode is untouched.
+
+  Also: `statistic='ttest'` is now accepted as an alias for `'diffmeans'`,
+  as in rdlocrand where both names select the same branch.
+
+  The suite deliberately does **not** pin the randomization p-value: it is
+  an RNG draw and R's stream is not reproducible from Python, so asserting
+  equality would be pinning noise. It is checked by its sampling behaviour
+  instead.
+
 ### Known issues
 
 - Fuzzy RD does not go through the CCT path. `sp.rdrobust(fuzzy=...)` falls

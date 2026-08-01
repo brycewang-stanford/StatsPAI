@@ -104,18 +104,33 @@ def _ks_stat(y: np.ndarray, d: np.ndarray) -> float:
 
 
 def _ranksum_stat(y: np.ndarray, d: np.ndarray) -> float:
-    """Wilcoxon rank-sum (Mann-Whitney U) test statistic (standardised)."""
+    """Standardised Wilcoxon rank-sum statistic, as in ``rdrandinf``.
+
+    ``T`` is the rank sum of the CONTROL group, standardised by
+
+        E[T] = n0 (n + 1) / 2,   Var[T] = n0 n1 s^2 / n
+
+    where ``s^2`` is the sample variance of the midranks. Using ``s^2``
+    rather than the closed form ``(n + 1) / 12`` is what makes this
+    tie-robust, and the senate running variable is heavily tied.
+
+    The previous implementation returned ``|U - mu| / sigma`` from scipy's
+    Mann-Whitney U with the no-ties variance, which is a different statistic
+    -- roughly 2-3x off rdlocrand's on ties-heavy data -- and discarded the
+    sign.
+    """
     n1 = int((d == 1).sum())
     n0 = int((d == 0).sum())
-    if n1 == 0 or n0 == 0:
+    n = n1 + n0
+    if n1 == 0 or n0 == 0 or n < 2:
         return 0.0
-    stat, _ = sp_stats.mannwhitneyu(y[d == 1], y[d == 0], alternative="two-sided")
-    # Standardise to make comparable across permutations
-    mu = n1 * n0 / 2
-    sigma = np.sqrt(n1 * n0 * (n1 + n0 + 1) / 12)
-    if sigma == 0:
+    ri = sp_stats.rankdata(y)  # midranks for ties, matching R's rank()
+    t_stat = ri[d == 0].sum()
+    s2 = float(np.var(ri, ddof=1))
+    var_t = n0 * n1 * s2 / n
+    if var_t <= 0:
         return 0.0
-    return float(abs((stat - mu) / sigma))
+    return float((t_stat - n0 * (n + 1) / 2.0) / np.sqrt(var_t))
 
 
 _STAT_FUNCS: Dict[str, Callable[[np.ndarray, np.ndarray], float]] = {
@@ -176,16 +191,29 @@ def _asymptotic_pvalue(
         if se < 1e-14:
             return diff, 0.0 if abs(diff) > 1e-14 else 1.0
         t = diff / se
-        pval = 2 * (1 - sp_stats.t.cdf(abs(t), df=n1 + n0 - 2))
+        # Normal, not t. Two reasons, and they agree:
+        #
+        # * ``se`` above is the Welch (unequal-variance) standard error, so
+        #   referring it to a t with ``n1 + n0 - 2`` degrees of freedom mixes
+        #   two different tests -- Welch's needs Satterthwaite's df, not the
+        #   pooled one.
+        # * rdlocrand calls this quantity the *asymptotic* p-value and uses
+        #   ``2 * pnorm(-|t|)``, which is what the name means.
+        #
+        # The old form was conservative but wrong by a factor that grows with
+        # the statistic: on rdsenate at w=+/-5 it reported 1.68e-10 where
+        # rdlocrand reports 2.49e-11, a factor of 6.7.
+        pval = 2 * sp_stats.norm.cdf(-abs(t))
         return float(diff), float(pval)
     elif stat_name == "ksmirnov":
         stat, pval = sp_stats.ks_2samp(y[d == 1], y[d == 0])
         return float(stat), float(pval)
     elif stat_name == "ranksum":
-        stat, pval = sp_stats.mannwhitneyu(
-            y[d == 1], y[d == 0], alternative="two-sided"
-        )
-        return float(stat), float(pval)
+        # The statistic is already standardised, so the asymptotic p-value
+        # is the normal tail -- same as rdlocrand. scipy's mannwhitneyu
+        # p-value does not correspond to this statistic.
+        stat = _ranksum_stat(y, d)
+        return float(stat), float(2 * sp_stats.norm.cdf(-abs(stat)))
     else:
         raise ValueError(f"Unknown statistic: {stat_name}")  # pragma: no cover
 
@@ -269,6 +297,8 @@ def rdrandinf(
         The right edge of the window is ``c + wr``.
     statistic : str, default 'diffmeans'
         Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'.
+        ``'ttest'`` is accepted as an alias for ``'diffmeans'``, matching
+        rdlocrand, where both names select the same statistic.
     p : int, default 0
         Polynomial order for adjustment (0 = unadjusted).
     covs : list of str, optional
@@ -407,11 +437,17 @@ def rdrandinf(
         )
 
     # --- sharp RD ---
+    # rdlocrand accepts 'ttest' and 'diffmeans' as names for the same
+    # statistic (they share one branch in rdrandinf.model), so an R script
+    # written with either must run unchanged.
+    if statistic == "ttest":
+        statistic = "diffmeans"
     stat_names = list(_STAT_FUNCS.keys()) if statistic == "all" else [statistic]
     if statistic != "all" and statistic not in _STAT_FUNCS:
         raise ValueError(  # pragma: no cover
             f"Unknown statistic '{statistic}'. "
-            f"Choose from: 'diffmeans', 'ksmirnov', 'ranksum', 'all'."
+            f"Choose from: 'diffmeans' (alias 'ttest'), 'ksmirnov', "
+            f"'ranksum', 'all'."
         )
 
     results = {}

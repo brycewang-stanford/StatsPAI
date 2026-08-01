@@ -20,11 +20,15 @@ Cattaneo, M.D., Titiunik, R. & Vazquez-Bare, G. (2019).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import numpy as np
 from scipy import stats as sp_stats
+
 from .._result_serialize import ResultProtocolMixin
+
+if TYPE_CHECKING:  # pragma: no cover
+    import pandas as pd
 
 
 @dataclass
@@ -112,23 +116,48 @@ def rdpower(
     h_right: float = 0.5,
     alpha: float = 0.05,
     target_power: Optional[float] = None,
+    data: Optional["pd.DataFrame"] = None,
+    y: Optional[str] = None,
+    x: Optional[str] = None,
+    c: float = 0.0,
+    **rdrobust_kwargs: object,
 ) -> RDPowerResult:
     """Power of an RD design given sample size and effect size.
+
+    Two modes, matching R ``rdpower``:
+
+    * **Design mode** (the default): supply ``var_*``, ``n_*`` and ``h_*``
+      and the standard error is built from them. Useful before data exist.
+    * **Data mode**: supply ``data``, ``y`` and ``x``. The standard error is
+      then the robust bias-corrected SE from :func:`statspai.rdrobust` on
+      that data, which is what R's ``rdpower(data = ...)`` does and the only
+      mode that reproduces its numbers. Extra keyword arguments (``p``,
+      ``kernel``, ``vce``, ``cluster``, ``covs``, ...) are forwarded to
+      ``rdrobust``.
 
     Parameters
     ----------
     tau : float
         Hypothesised treatment effect at the cutoff.
     var_left, var_right : float
-        Outcome variance on each side of the cutoff.
+        Outcome variance on each side of the cutoff. Design mode only.
     n_left, n_right : int
-        Available sample size on each side.
+        Available sample size on each side. Design mode only.
     h_left, h_right : float
         Bandwidth fractions (proportion of running-variable support used).
+        Design mode only.
     alpha : float
         Significance level.
     target_power : float, optional
         If set, compute MDE for this target power instead.
+    data : pandas.DataFrame, optional
+        Enables data mode. Requires ``y`` and ``x``.
+    y, x : str, optional
+        Outcome and running-variable column names, for data mode.
+    c : float, default 0.0
+        Cutoff, for data mode.
+    **rdrobust_kwargs
+        Forwarded to :func:`statspai.rdrobust` in data mode.
 
     Examples
     --------
@@ -143,7 +172,27 @@ def rdpower(
     >>> round(res90.mde, 3)
     0.172
     """
-    se = _rd_se(n_left, n_right, var_left, var_right, h_left, h_right)
+    if data is not None:
+        if y is None or x is None:
+            raise ValueError(
+                "data mode needs both y= and x= (the outcome and running "
+                "variable column names)"
+            )
+        from .rdrobust import rdrobust as _rdrobust
+
+        _fit = _rdrobust(data, y=y, x=x, c=c, **rdrobust_kwargs)
+        # The robust bias-corrected SE, which is the one R's rdpower uses.
+        se = float(_fit.detail["se"][1])
+        _mi = _fit.model_info
+        n_left = int(_mi.get("n_left", n_left))
+        n_right = int(_mi.get("n_right", n_right))
+    elif y is not None or x is not None:
+        raise ValueError(
+            "y=/x= only mean something with data=; pass data= as well, or "
+            "use design mode (var_left/var_right/n_left/n_right/h_left/h_right)"
+        )
+    else:
+        se = _rd_se(n_left, n_right, var_left, var_right, h_left, h_right)
     z_alpha = sp_stats.norm.ppf(1 - alpha / 2)
 
     # Power = P(reject | tau)
@@ -210,7 +259,9 @@ def rdsampsi(
     # SE² = Ck * (var_L/(n_L h_L) + var_R/(ratio n_L h_R))
     # n_L = Ck * (var_L/h_L + var_R/(ratio h_R)) / SE²_target
     n_left = int(
-        np.ceil(Ck * (var_left / h_left + var_right / (ratio * h_right)) / se_target**2)
+        np.ceil(
+            Ck * (var_left / h_left + var_right / (ratio * h_right)) / se_target**2
+        )
     )
     n_right = int(np.ceil(ratio * n_left))
 
