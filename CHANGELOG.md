@@ -6,6 +6,26 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
+- **⚠️ `sp.check_absorbing(treatment=)` renamed to `treat=`.** The
+  signature house-style ratchet flagged it as a new legacy-spelling site;
+  `treat` is the canonical spelling (`statspai._house_style.CANONICAL_TREATMENT`).
+  Renamed outright rather than aliased because the function has not shipped
+  in a release yet — it is new in this Unreleased cycle, so no deprecation
+  window is owed. `sp.recommend`'s own `treatment=` is unchanged.
+
+- **Signature house-style baseline: `se` 58 → 60, with the reason recorded
+  in the baseline file.** Two new sites, both introduced by this line of
+  work: `sp.gmm(vcov=)` and `sp.xtdpdsys(robust=)`. Neither was renamed,
+  and the reasoning matters more than the number: each matches the spelling
+  its *own family* already uses — `sp.feols(vcov=)` and `sp.xtabond(robust=)`
+  — so renaming them in isolation would trade a house-style violation for a
+  sibling inconsistency, which is the worse defect from a user's point of
+  view. `xtdpdsys` is already registered in `_house_style.ROBUST_BOOL_HINTS`
+  as awaiting the coordinated `vce=` convergence; the floor should come back
+  down when that lands, not before.
+
+### Changed
+
 - **The JSS release-manifest tests pinned a census three drifts behind.**
   `tests/test_jss_release_manifest.py` asserted 66 `certified` / 276
   `validated` / 800 `api_stable` and a 342-symbol scoped-validation surface.

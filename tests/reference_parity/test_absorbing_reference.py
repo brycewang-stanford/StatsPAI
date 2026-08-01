@@ -65,7 +65,7 @@ def panel() -> pd.DataFrame:
 
 def test_check_absorbing_flags_the_panel(panel):
     """Known truth: 50 of 150 units revert, first at t=7."""
-    chk = sp.check_absorbing(panel, unit="i", time="t", treatment="d")
+    chk = sp.check_absorbing(panel, unit="i", time="t", treat="d")
     assert chk.is_absorbing is False
     assert chk.n_reverting_units == 50
     assert chk.n_units == 150

@@ -57,7 +57,7 @@ def _panel(reverting: bool, seed: int = 3) -> pd.DataFrame:
 
 
 def test_detects_reversal():
-    chk = sp.check_absorbing(_panel(True), unit="i", time="t", treatment="d")
+    chk = sp.check_absorbing(_panel(True), unit="i", time="t", treat="d")
     assert chk.is_absorbing is False
     assert chk.n_reverting_units == 50
     assert chk.n_units == 150
@@ -67,7 +67,7 @@ def test_detects_reversal():
 
 
 def test_absorbing_panel_is_clean():
-    chk = sp.check_absorbing(_panel(False), unit="i", time="t", treatment="d")
+    chk = sp.check_absorbing(_panel(False), unit="i", time="t", treat="d")
     assert chk.is_absorbing is True
     assert chk.n_reverting_units == 0
     assert chk.n_reversals == 0
@@ -85,13 +85,11 @@ def test_strict_mode_raises():
     from statspai.exceptions import MethodIncompatibility
 
     with pytest.raises(MethodIncompatibility, match="NOT absorbing"):
-        sp.check_absorbing(_panel(True), unit="i", time="t", treatment="d", strict=True)
+        sp.check_absorbing(_panel(True), unit="i", time="t", treat="d", strict=True)
 
 
 def test_strict_mode_passes_on_absorbing():
-    chk = sp.check_absorbing(
-        _panel(False), unit="i", time="t", treatment="d", strict=True
-    )
+    chk = sp.check_absorbing(_panel(False), unit="i", time="t", treat="d", strict=True)
     assert chk.is_absorbing is True
 
 

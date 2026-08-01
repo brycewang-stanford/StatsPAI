@@ -1,10 +1,10 @@
 {
-  "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.",
+  "_comment": "Frozen ceiling of legacy-spelling sites per theme for the signature house-style ratchet. Lower these as convergence lands; regenerate with `python scripts/signature_house_style.py --update-baseline`.  se raised 58->60 on 2026-08-02 for gmm(vcov=) and xtdpdsys(robust=): both match their own family's existing spelling \u2014 feols(vcov=) and xtabond(robust=) \u2014 so renaming them in isolation would trade a house-style violation for a sibling inconsistency, which is worse for users. xtdpdsys is already registered in _house_style.ROBUST_BOOL_HINTS as awaiting the coordinated vce= convergence. Lower this again when that convergence lands, not before.",
   "by_theme": {
     "cluster": 2,
     "data": 5,
     "outcome": 55,
-    "se": 58,
+    "se": 60,
     "treatment": 63,
     "weights": 5
   },

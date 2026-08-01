@@ -21558,7 +21558,7 @@
     "category": "causal",
     "cost_profile": "",
     "description": "Detect non-absorbing (reverting) treatment in a panel. Cohort-based DiD estimators (callaway_santanna, sun_abraham, did_imputation, etwfe, stacked_did) represent treatment by the first-treated period, which is lossless only when treatment never turns off. Under reversal they treat post-reversal periods as still-treated and are biased toward zero -- on a 150-unit panel with a third of units reverting, callaway_santanna returns 0.71 against a true ATT of 1.5, silently, because it never sees the time-varying indicator. Run this on the raw panel before picking an estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
-    "example": "sp.check_absorbing(df, unit=\"i\", time=\"t\", treatment=\"d\")",
+    "example": "sp.check_absorbing(df, unit=\"i\", time=\"t\", treat=\"d\")",
     "failure_modes": [],
     "inherits_from": null,
     "limitations": [],

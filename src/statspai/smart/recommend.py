@@ -693,7 +693,7 @@ def recommend(
             try:
                 from ..did._absorbing import check_absorbing as _chk
 
-                _absorbing = _chk(data, unit=id, time=time, treatment=treatment)
+                _absorbing = _chk(data, unit=id, time=time, treat=treatment)
             except Exception as _exc:  # pragma: no cover - defensive
                 # The check must not break routing, but it must not fail
                 # silently either: when it does not run, the reversal branch

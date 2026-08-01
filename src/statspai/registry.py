@@ -11956,7 +11956,7 @@ def _build_registry() -> None:
                 "AbsorbingCheck with is_absorbing / n_reverting_units / "
                 "n_reversals / first_reversal_period and .summary()"
             ),
-            example='sp.check_absorbing(df, unit="i", time="t", treatment="d")',
+            example='sp.check_absorbing(df, unit="i", time="t", treat="d")',
             tags=["did", "diagnostic", "panel", "absorbing", "causal"],
             reference=(
                 "de Chaisemartin & D'Haultfoeuille (2024) "

@@ -79,7 +79,7 @@ def check_absorbing(
     data: pd.DataFrame,
     unit: str,
     time: str,
-    treatment: str,
+    treat: str,
     strict: bool = False,
 ) -> AbsorbingCheck:
     """Check whether a time-varying treatment indicator is absorbing.
@@ -88,8 +88,8 @@ def check_absorbing(
     ----------
     data : pd.DataFrame
         Long panel.
-    unit, time, treatment : str
-        Column names. ``treatment`` must be the **time-varying** 0/1
+    unit, time, treat : str
+        Column names. ``treat`` must be the **time-varying** 0/1
         indicator, not a cohort / first-treatment column — a cohort column
         cannot express reversal, so checking one is meaningless.
     strict : bool, default False
@@ -120,7 +120,7 @@ def check_absorbing(
     ----------
     dechaisemartin2024difference
     """
-    for col in (unit, time, treatment):
+    for col in (unit, time, treat):
         if col not in data.columns:
             raise MethodIncompatibility(
                 f"column {col!r} not found in data.",
@@ -129,7 +129,7 @@ def check_absorbing(
                 diagnostics={"missing": col, "columns": list(data.columns)[:20]},
             )
 
-    df = data[[unit, time, treatment]].dropna()
+    df = data[[unit, time, treat]].dropna()
     if df.empty:
         raise DataInsufficient(
             "no complete unit / time / treatment rows to check.",
@@ -137,10 +137,10 @@ def check_absorbing(
             diagnostics={"n_rows": int(len(data))},
         )
 
-    d = pd.to_numeric(df[treatment], errors="coerce")
+    d = pd.to_numeric(df[treat], errors="coerce")
     if d.isna().any():
         raise MethodIncompatibility(
-            f"treatment column {treatment!r} is not numeric.",
+            f"treatment column {treat!r} is not numeric.",
             recovery_hint="Pass a 0/1 time-varying treatment indicator.",
             diagnostics={"n_non_numeric": int(d.isna().sum())},
         )
