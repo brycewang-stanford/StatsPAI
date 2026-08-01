@@ -20,8 +20,16 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
+import statspai as sp
+
+#: Tool names the MCP manifest actually exposes — a follow-up naming
+#: anything else would send an agent to a tool that does not exist.
+from statspai.agent.mcp_server import tool_manifest
 from statspai.agent.tools import execute_tool
+
+_MANIFEST_TOOLS = frozenset(t["name"] for t in tool_manifest())
 
 
 def _did_panel(seed: int = 0, n: int = 600) -> pd.DataFrame:
@@ -53,7 +61,11 @@ def test_full_did_agent_transcript():
     # 1. Identify the study shape from raw columns.
     design = execute_tool("detect_design", {}, data=df)
     assert _ok(design), design
-    assert "design" in design and "candidates" in design
+    # Naming a key proves nothing about what was detected.
+    assert design["design"] == "panel"
+    top = design["candidates"][0]
+    assert top["unit"] == "id" and top["time"] == "time"
+    assert top["n_units"] == len(df) // 2 and top["n_periods"] == 2
 
     # 2. Pre-fit identification checks — must return a verdict, not crash.
     pre = execute_tool(
@@ -62,7 +74,10 @@ def test_full_did_agent_transcript():
         data=df,
     )
     assert _ok(pre), pre
-    assert "verdict" in pre and "checks" in pre
+    # "verdict" existing is satisfied by FAIL; this panel is well-formed.
+    assert pre["verdict"] == "PASS", [
+        c for c in pre["checks"] if c.get("status") != "passed"
+    ]
 
     # 3. Fit, caching the result so downstream tools chain by handle.
     fit = execute_tool(
@@ -73,14 +88,26 @@ def test_full_did_agent_transcript():
         as_handle=True,
     )
     assert _ok(fit), fit
-    assert isinstance(fit.get("estimate"), (int, float))
+    # Pin the number against the 2x2 difference-in-means, not its type.
+    cells = df.groupby(["treat", "post"])["y"].mean()
+    hand_did = (cells[(1, 1)] - cells[(1, 0)]) - (cells[(0, 1)] - cells[(0, 0)])
+    assert fit["estimate"] == pytest.approx(float(hand_did), rel=1e-9)
+    assert fit["n_obs"] == len(df)
     rid = fit.get("result_id")
     assert isinstance(rid, str) and rid.startswith("r_"), fit
 
     # 4. Reviewer-grade audit, by handle only (no data re-sent).
     audit = execute_tool("audit_result", {"result_id": rid}, data=None)
     assert _ok(audit), audit
-    assert "checks" in audit and "coverage" in audit
+    # A fresh fit has done no robustness work, so coverage is 0 and every
+    # check is outstanding — assert that, rather than that the keys exist.
+    assert audit["checks"], "audit_result returned no checks"
+    assert audit["coverage"] == pytest.approx(0.0)
+    assert all(c["status"] == "missing" for c in audit["checks"])
+    assert any(c["name"] == "parallel_trends" for c in audit["checks"])
+    assert all(
+        c.get("suggest_function") for c in audit["checks"]
+    ), "a missing check must name the function that would satisfy it"
 
     # 5. Design-agnostic sensitivity off the same handle.
     sens = execute_tool(
@@ -90,6 +117,12 @@ def test_full_did_agent_transcript():
     )
     assert _ok(sens), sens
     assert sens.get("source_result_id") == rid
+    # The handle assertion alone passed while this tool returned an empty
+    # payload. Check the E-value against sp.evalue_from_result.
+    expected = sp.evalue_from_result(sp.did(df, y="y", treat="treat", time="post"))
+    assert sens["evalue_estimate"] == pytest.approx(
+        expected["evalue_estimate"], rel=1e-9
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -166,6 +199,26 @@ def test_fit_payload_carries_enrichment_for_the_agent():
     assert "citation_key" in fit
     assert isinstance(fit.get("next_calls"), list) and fit["next_calls"]
     assert isinstance(fit.get("narrative"), str) and fit["narrative"]
-    # Every advertised next-call names a real tool with a tool field.
+    assert fit["citation_key"] == "did_2x2"
+    assert "Difference-in-Differences" in fit["narrative"]
+
+    # Every advertised next-call names a real tool, and — the part that
+    # matters to an agent — the readiness flag must be honest: a call
+    # marked ready must dispatch without an argument error, and one marked
+    # not-ready must say which arguments it still needs.
+    from statspai.agent import execute_tool as _dispatch
+
+    assert fit["next_calls"], "no follow-ups advertised"
     for nc in fit["next_calls"]:
         assert nc.get("tool")
+        assert nc["tool"] in _MANIFEST_TOOLS, nc["tool"]
+        assert isinstance(nc.get("ready"), bool)
+        if nc["ready"]:
+            out = _dispatch(nc["tool"], dict(nc.get("arguments") or {}), data=df)
+            err = out.get("error", "") if isinstance(out, dict) else ""
+            assert "missing" not in str(err).lower(), (
+                f"{nc['tool']} is advertised ready but rejects its own "
+                f"pre-filled arguments: {err}"
+            )
+        else:
+            assert nc.get("missing_arguments"), nc
