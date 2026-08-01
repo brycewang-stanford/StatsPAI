@@ -10729,6 +10729,19 @@ def _build_registry() -> None:
                 ParamSpec("n_boot", "int", False, 500),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("seed", "int", False, None),
+                ParamSpec(
+                    "aggregation",
+                    "str",
+                    False,
+                    "simple",
+                    description=(
+                        "Headline weighting over dynamic horizons: 'simple' "
+                        "(equal weight) or 'switchers' (weight by switchers "
+                        "per horizon -- reproduces DIDmultiplegtDYN's "
+                        "Av_tot_eff)"
+                    ),
+                    enum=["simple", "switchers"],
+                ),
             ],
             returns=(
                 "CausalResult with event_study in model_info + joint placebo "
@@ -10750,8 +10763,11 @@ def _build_registry() -> None:
             reference=(
                 "de Chaisemartin & D'Haultfœuille (2024) "
                 "[@dechaisemartin2024difference]; DOI "
-                "10.1162/rest_a_01414; paper-parity pending "
-                "(see docs/rfc/multiplegt_dyn.md)."
+                "10.1162/rest_a_01414. Effects, placebos and the "
+                "switcher-weighted aggregate are pinned against the authors' "
+                "DIDmultiplegtDYN on absorbing binary treatment (Track A "
+                "module 78); switch-off handling and the analytical IF "
+                "variance are still missing."
             ),
             stability="experimental",
             limitations=[
@@ -10760,6 +10776,9 @@ def _build_registry() -> None:
                 "influence-function variance is not yet implemented",
                 "heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
                 "not implemented",
+                "the headline aggregation convention differs from "
+                "DIDmultiplegtDYN's Av_tot_eff: the default weights horizons "
+                "equally; pass aggregation='switchers' to match the R package",
             ],
             pre_conditions=[
                 "long-format panel with binary time-varying treatment",
@@ -10938,6 +10957,18 @@ def _build_registry() -> None:
                 ParamSpec("n_boot", "int", False, 500),
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("seed", "int", False, None),
+                ParamSpec(
+                    "weight_by",
+                    "str",
+                    False,
+                    "eligible",
+                    description=(
+                        "Aggregation weights: 'eligible' (treated units in the "
+                        "affected subgroup) or 'cohort' (whole cohort, both "
+                        "subgroups -- reproduces triplediff::agg_ddd)"
+                    ),
+                    enum=["eligible", "cohort"],
+                ),
             ],
             returns=(
                 "CausalResult with per-(g, t) decomposition in detail + "
@@ -10950,10 +10981,11 @@ def _build_registry() -> None:
             tags=["did", "ddd", "triple", "heterogeneity", "staggered", "causal"],
             reference=(
                 "Olden & Møen (2022) *The Econometrics Journal* "
-                "[@olden2022triple]; Strezhnev (2023) working paper "
-                "[待核验 — bib key not yet added to paper.bib]; "
-                "Callaway & Sant'Anna (2021) [@callaway2021difference] "
-                "for the group-time aggregation template."
+                "[@olden2022triple]; Ortiz-Villavicencio & Sant'Anna (2025) "
+                "[@ortiz2025better], the reference the per-(g, t) cells are "
+                "pinned against via triplediff::ddd; Callaway & Sant'Anna "
+                "(2021) [@callaway2021difference] for the group-time "
+                "aggregation template."
             ),
             pre_conditions=[
                 "staggered adoption panel with ≥ 1 never-treated unit",
@@ -10992,6 +11024,17 @@ def _build_registry() -> None:
                 ),
             ],
             alternatives=["ddd", "callaway_santanna", "wooldridge_did"],
+            limitations=[
+                "covariate adjustment is not implemented; triplediff::ddd's "
+                "xformla / regression-adjustment / IPW / DR variants have no "
+                "counterpart here",
+                "standard errors are a cluster bootstrap only; the analytical "
+                "influence-function variance is not implemented",
+                "the aggregation convention differs from "
+                "triplediff::agg_ddd(type='simple'): the default weights "
+                "cohorts by treated-eligible units; pass weight_by='cohort' "
+                "to match the R package",
+            ],
             typical_n_min=200,
         )
     )

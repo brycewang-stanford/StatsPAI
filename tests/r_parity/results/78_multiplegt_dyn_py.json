@@ -1,0 +1,97 @@
+{
+  "module": "78_multiplegt_dyn",
+  "side": "py",
+  "rows": [
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Effect_1",
+      "estimate": 1.46334517977941,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 149,
+      "extra": {}
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Effect_2",
+      "estimate": 1.3815647774361037,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 149,
+      "extra": {}
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Effect_3",
+      "estimate": 1.3308854161187929,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 109,
+      "extra": {}
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Effect_4",
+      "estimate": 1.4067241959957646,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 109,
+      "extra": {}
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Placebo_1",
+      "estimate": -0.04762497241697821,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 149,
+      "extra": {}
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Placebo_2",
+      "estimate": 0.06633159001361971,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 89,
+      "extra": {}
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Av_tot_eff",
+      "estimate": 1.399788820437206,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "py",
+      "statistic": "Av_tot_eff_simple_weights",
+      "estimate": 1.3956298923325177,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1600,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "estimator": "did_multiplegt_dyn"
+  }
+}

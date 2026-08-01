@@ -146,7 +146,18 @@ def test_stata_skip_reasons_are_not_reported_as_missing_harnesses():
     # unfinished harness. Anything *else* landing in this bucket is a real
     # gap and still fails, and each allowed module must carry a description
     # saying why, so the exemption cannot be claimed silently.
-    allowed_without_stata = {"73_did2s"}
+    # 75_stacked (stacking is a construction, not a packaged command),
+    # 76_pretrends (Roth's pretrends is R-only, GitHub not even CRAN) and
+    # 77_ddd (triplediff is R-only) are the same situation as 73_did2s.
+    # 74_cic and 78_multiplegt_dyn are NOT here on purpose: a Stata command
+    # exists for both, it is only absent from the verified runtime, so they
+    # classify as stata_bridge_not_materialized instead.
+    allowed_without_stata = {
+        "73_did2s",
+        "75_stacked",
+        "76_pretrends",
+        "77_ddd",
+    }
     assert set(no_canonical) <= allowed_without_stata, (
         "module(s) reported as having no canonical Stata reference without "
         f"being documented as such: {sorted(set(no_canonical) - allowed_without_stata)}"

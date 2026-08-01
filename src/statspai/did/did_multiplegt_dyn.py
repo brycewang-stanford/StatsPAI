@@ -12,24 +12,28 @@ Verified anchor
   Estimators of Intertemporal Treatment Effects", DOI
   ``10.1162/rest_a_01414`` (bib key ``dechaisemartin2024difference``).
 
-[待核验] identification details
--------------------------------
-The following are based on my best-effort reading of the paper and the
-companion R ``DIDmultiplegtDYN`` package logic; every item flagged here
-must be verified against the paper's published equations before moving
-this estimator from RFC/experimental status to production / paper-
-faithful claim:
+Identification details
+----------------------
+Items 2-4 below are now pinned against the authors' R package
+``DIDmultiplegtDYN`` 2.3.4 (Track A module ``78_multiplegt_dyn``,
+``tests/reference_parity/test_multiplegt_dyn_parity.py``): on a
+binary absorbing design the effect and placebo estimates agree to
+machine precision, which settles the window and weighting conventions
+that used to carry ``[待核验]`` markers. Items 1 and 5 remain open and
+are what keeps this estimator off a paper-faithful claim.
 
 1. **Switcher definition**: units first switching from d=0 to d=1 at
    period F. First-cut skips switch-off events; the paper handles both
-   directions via a sign convention that I have NOT implemented here.
-   [待核验 — paper §2.x]
+   directions via a sign convention that is NOT implemented here.
+   [待核验 — paper §2.x]. The parity above therefore only covers
+   absorbing treatment.
 
 2. **Control group per horizon l**: "not-yet-treated at F+l" = units
-   whose d stays at its pre-F value through F+l inclusive. MVP uses
-   this definition; the paper also supports never-treated-only controls
-   which I expose as ``control='never_treated'``. [待核验 — exact window
-   definition]
+   whose d stays at its pre-F value through F+l inclusive, which is
+   what reproduces the R package's per-horizon samples (matching
+   switcher and observation counts, not just point estimates). The
+   never-treated-only variant is exposed as ``control='never_treated'``
+   and is not separately pinned.
 
 3. **Per-horizon estimate**:
 
@@ -37,16 +41,26 @@ faithful claim:
                         − E[Y_{F+l} − Y_{F−1} | not-yet-treated at F+l]}
 
    with weights ``w_F`` proportional to the number of switchers at F.
-   [待核验 — paper may use a different weighting scheme; heteroskedastic
-   weights variant (dCDH 2023 EJ survey) is not implemented here.]
+   Confirmed by parity. The heteroskedastic-weights variant (dCDH 2023
+   EJ survey) is still not implemented.
 
-4. **Placebo lag l < 0**: same structure but the comparison period
-   moves to ``Y_{F-1-|l|} − Y_{F-1-|l|-1}``. [待核验]
+4. **Placebo lag l < 0**: the effect window reflected about F-1, i.e.
+   ``Y_{F-1-|l|} − Y_{F-1}``, reported with the reverse sign so it sits
+   on the same event-study scale as the effects. Confirmed by parity
+   against ``Placebo_|l|``.
+
+   .. versionchanged:: 1.21.0
+      ⚠️ This used to be ``Y_{F-1-|l|} − Y_{F-1-|l|-1}`` -- a
+      one-period difference sliding backwards rather than a mirrored
+      long difference. That is a different quantity, it silently used
+      fewer cohorts at each lag, and it did not match the reference.
+      Every placebo number changes. See MIGRATION.md.
 
 5. **Inference**: analytical influence-function variance per horizon is
    not implemented in this MVP — SE comes from cluster bootstrap on
    the panel unit. The paper's IF variance is [待核验] and is the clear
-   next step.
+   next step. Standard errors are consequently NOT pinned against the
+   R package, which reports analytical ones.
 
 Scope for this first cut
 ------------------------
@@ -91,6 +105,7 @@ def did_multiplegt_dyn(
     n_boot: int = 500,
     alpha: float = 0.05,
     seed: Optional[int] = None,
+    aggregation: str = "simple",
 ) -> CausalResult:
     """dCDH (2024) intertemporal event-study DiD estimator.
 
@@ -116,9 +131,20 @@ def did_multiplegt_dyn(
     cluster : str, optional
         Cluster column for bootstrap SE (defaults to group).
     n_boot : int, default 500
-        Bootstrap replications. Analytical IF variance [待核验] pending.
+        Bootstrap replications. Analytical IF variance [待核验] pending,
+        so standard errors are not comparable to DIDmultiplegtDYN's.
     alpha : float, default 0.05
     seed : int, optional
+    aggregation : {"simple", "switchers"}, default "simple"
+        How the dynamic horizons are combined into the headline
+        ``estimate``. ``"simple"`` gives each horizon equal weight;
+        ``"switchers"`` weights horizon ``l`` by the number of switchers
+        contributing to it, which reproduces ``DIDmultiplegtDYN``'s
+        ``Av_tot_eff``. The two differ whenever later horizons rest on
+        fewer cohorts, which is the normal case in staggered designs.
+        The default is left on ``"simple"`` because changing it would
+        move the number existing callers get back;
+        ``model_info["aggregation"]`` records which was used.
 
     Returns
     -------
@@ -154,6 +180,10 @@ def did_multiplegt_dyn(
         )
     if dynamic < 0 or placebo < 0:
         raise ValueError("dynamic and placebo must be non-negative")
+    if aggregation not in {"simple", "switchers"}:
+        raise ValueError(
+            f"aggregation must be 'simple' or 'switchers', got {aggregation!r}"
+        )
 
     df = data.copy()
     for col in (y, group, time, treatment):
@@ -182,11 +212,10 @@ def did_multiplegt_dyn(
 
     # Horizons list: placebo (negative) + dynamic (0..H).
     horizons = list(range(-placebo, dynamic + 1))
-    # Include l=-1 as a "reference" that is always 0 under the
-    # construction Y_{F-1} - Y_{F-1} = 0? No — for placebos, the long
-    # difference uses Y_{F-1-|l|} - Y_{F-1-|l|-1} so l=-1 is
-    # Y_{F-2} - Y_{F-3} ≠ 0 under non-trivial trends. [待核验]
-    # Keep l=-1 as a valid placebo horizon.
+    # l = -1 is a genuine placebo, not a mechanical zero: it is
+    # Y_{F-2} - Y_{F-1} differenced against the controls, which is only
+    # zero in expectation under parallel trends. It maps to the R
+    # package's Placebo_1.
 
     main = _estimate_all_horizons(
         df=df,
@@ -287,12 +316,26 @@ def did_multiplegt_dyn(
         main, horizons, boot_hist, placebo_idx + dyn_idx
     )
 
-    # Headline estimate: simple mean over dynamic horizons.
+    # Headline estimate over the dynamic horizons. "simple" gives each
+    # horizon equal weight; "switchers" weights by the switchers behind
+    # each one, which is DIDmultiplegtDYN's Av_tot_eff.
     dyn_est = np.array(
         [es_rows[j]["att"] for j in dyn_idx],
         dtype=float,
     )
-    headline = float(np.nanmean(dyn_est)) if dyn_est.size else np.nan
+    if not dyn_est.size:
+        headline = np.nan
+    elif aggregation == "switchers":
+        w = np.array(
+            [float(main["cell_estimates"][j]["n_switchers"]) for j in dyn_idx],
+            dtype=float,
+        )
+        ok = np.isfinite(dyn_est) & (w > 0)
+        headline = (
+            float(np.sum(w[ok] * dyn_est[ok]) / np.sum(w[ok])) if ok.any() else np.nan
+        )
+    else:
+        headline = float(np.nanmean(dyn_est))
     # SE: cross-horizon bootstrap of the average. A replicate contributes
     # only when at least one dynamic horizon was estimated; a fully-failed
     # draw stays NaN so bootstrap_se can surface the failure rate.
@@ -300,7 +343,20 @@ def did_multiplegt_dyn(
         with warnings.catch_warnings():
             # nanmean of an all-NaN replicate row is an intended NaN.
             warnings.simplefilter("ignore", RuntimeWarning)
-            boot_avg = np.nanmean(boot_hist[:, dyn_idx], axis=1)
+            if aggregation == "switchers":
+                wb = np.array(
+                    [float(main["cell_estimates"][j]["n_switchers"]) for j in dyn_idx],
+                    dtype=float,
+                )
+                sub = boot_hist[:, dyn_idx]
+                mask = np.isfinite(sub)
+                denom = (mask * wb).sum(axis=1)
+                num = np.nansum(np.where(mask, sub, 0.0) * wb, axis=1)
+                boot_avg = np.where(
+                    denom > 0, num / np.where(denom > 0, denom, 1.0), np.nan
+                )
+            else:
+                boot_avg = np.nanmean(boot_hist[:, dyn_idx], axis=1)
         se_avg = _bootstrap_se(boot_avg, label="did.multiplegt_dyn.headline")
     else:
         se_avg = np.nan
@@ -315,7 +371,10 @@ def did_multiplegt_dyn(
 
     return CausalResult(
         method="did_multiplegt_dyn (dCDH 2024 ReStat) [待核验 — MVP, not paper-parity]",
-        estimand="Average dynamic effect across horizons 0..dynamic",
+        estimand=(
+            "Average dynamic effect across horizons 0..dynamic "
+            f"({aggregation}-weighted)"
+        ),
         estimate=headline,
         se=se_avg,
         pvalue=p_h,
@@ -327,6 +386,7 @@ def did_multiplegt_dyn(
             "event_study": es_df,
             "horizons": horizons,
             "control": control,
+            "aggregation": aggregation,
             "n_boot": n_boot,
             "cluster_var": cluster_var,
             "joint_placebo_test": joint_placebo,
@@ -380,7 +440,9 @@ def _estimate_all_horizons(
       switchers at F = units with _F == F.
       For each horizon l:
         - If l >= 0: compare Y_{F+l} − Y_{F-1} between switchers and controls.
-        - If l < 0: compare Y_{F-1-|l|} − Y_{F-1-|l|-1} (placebo).
+        - If l < 0: compare Y_{F-1-|l|} − Y_{F-1} (placebo), i.e. the
+          mirror image of the l = |l| - 1 effect, run backwards over the
+          pre-period. Matches DIDmultiplegtDYN's Placebo_|l|.
       Control set depends on `control=`.
 
     Aggregate per horizon with n_switchers weights.
@@ -393,6 +455,10 @@ def _estimate_all_horizons(
 
     # Never-treated set (units with _F NaN)
     never_ids = set(df[df["_F"].isna()][group].unique())
+    # Earliest period actually observed -- a horizon whose base period
+    # falls before it has no data and is skipped, exactly as the R
+    # package drops the cohorts that cannot support a given placebo.
+    t_min = float(df[time].min())
 
     for h in horizons:
         horizon_acc = {"sum_delta": 0.0, "n_switchers": 0, "n_events": 0}
@@ -406,9 +472,12 @@ def _estimate_all_horizons(
             if h >= 0:
                 t_pre, t_post = F - 1, F + h
             else:
-                lag = abs(h)
-                t_pre, t_post = F - 1 - lag - 1, F - 1 - lag
-            if t_pre < 0:
+                # dCDH placebo l: the effect window reflected about F-1,
+                # Y_{F-1-l} -> Y_{F-1}. Reported with the reverse sign so
+                # it sits on the same event-study scale as the effects
+                # (this is DIDmultiplegtDYN's convention).
+                t_pre, t_post = F - 1 - abs(h), F - 1
+            if t_pre < t_min:
                 continue
 
             # Controls per horizon depending on `control`
@@ -435,6 +504,8 @@ def _estimate_all_horizons(
             delta_F_l = (sw_post.mean() - sw_pre.mean()) - (
                 c_post.mean() - c_pre.mean()
             )
+            if h < 0:
+                delta_F_l = -delta_F_l
             n_sw = len(switcher_ids)
             horizon_acc["sum_delta"] += float(delta_F_l) * n_sw
             horizon_acc["n_switchers"] += n_sw

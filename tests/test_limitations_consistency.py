@@ -57,6 +57,18 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         "switch-on only",
         "SE is cluster bootstrap",
         "heteroskedastic-weights variant",
+        # Documented parity boundary, not a code path that raises: the
+        # headline weights differ from DIDmultiplegtDYN's Av_tot_eff and
+        # both are reachable. Pinned in Track A module 78.
+        "the headline aggregation convention differs",
+    ],
+    "ddd_heterogeneous": [
+        # Same shape: the (g, t) cells match triplediff::ddd exactly and
+        # only the aggregation weights and the SE method differ, both
+        # documented and both pinned in Track A module 77.
+        "covariate adjustment is not implemented",
+        "standard errors are a cluster bootstrap only",
+        "the aggregation convention differs",
     ],
     "continuous_did": [
         "method='cgs' is an MVP",

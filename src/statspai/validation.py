@@ -573,12 +573,19 @@ def _stata_gap_status(skip_reason: str) -> str:
       semantics as the first clause — canonical analog is documented but
       the like-for-like bridge has not been built — but spelled differently
       because there's no upstream Stata command name to prefix with.
+    * "not installed in the verified local runtime" — used by 74_cic
+      (Kranker's ``ssc cic``) and 78_multiplegt_dyn (the authors' own Stata
+      port). A canonical Stata command exists and is named; it is simply not
+      present in the environment the reference values were generated in.
+      That is a missing bridge, not a missing counterpart, and misfiling it
+      as "no canonical reference" would overstate the gap.
     """
     reason = skip_reason.lower()
     if (
         "bridge artifact not materialized" in reason
         or "licensed stata rerun" in reason
         or "artifact is materialized" in reason
+        or "not installed in the verified local runtime" in reason
     ):
         return "stata_bridge_not_materialized"
     return "no_canonical_stata_reference"
