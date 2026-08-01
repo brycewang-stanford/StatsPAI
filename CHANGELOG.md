@@ -226,6 +226,24 @@ All notable changes to StatsPAI will be documented in this file.
   reported both bandwidths and both standard errors incorrectly. Users who
   pinned clustered RD numbers from 1.20.x or earlier should re-run.
 
+- **`sp.rddensity` is anchored to R `rddensity` 2.6 (WP-3).** Unlike the
+  `rdrobust` cascade, this module was already correct -- it was simply
+  unanchored, so a refactor could have shifted its numbers with nothing to
+  notice. Six cells (three designs x `p` in {2, 3}) now pin the manipulation
+  statistic, its p-value, both bandwidths, both one-sided densities and both
+  effective sample sizes: max relative deviation **2.2e-08**.
+
+  The three designs are chosen so the suite can fail in both directions --
+  a smooth N(0,1) that a trigger-happy test would reject, and one with 45%
+  of the mass just left of the cutoff deleted that a dead test would miss --
+  and `test_design_is_discriminating` asserts R itself separates them.
+
+  One gap surfaced: `model_info` reported `n_left`/`n_right` as **full-side**
+  counts while R reports the counts inside the bandwidth. On the senate data
+  those differ by a factor of five, so anyone reading them as the effective
+  sample was overstating it. Added `n_eff_left`/`n_eff_right`, which match R
+  exactly; the existing keys keep their meaning.
+
 ### Known issues
 
 - Fuzzy RD does not go through the CCT path. `sp.rdrobust(fuzzy=...)` falls

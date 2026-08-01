@@ -24,18 +24,14 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Dict, Any, Sequence, Tuple, Union, cast
+from typing import Any, Dict, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
-from ..exceptions import (
-    ConvergenceFailure,
-    DataInsufficient,
-    MethodIncompatibility,
-)
+from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
 
 
 def _validate_inputs(
@@ -245,6 +241,12 @@ def rddensity(
         "polynomial_order": p,
         "n_left": n_l,
         "n_right": n_r,
+        # Full-side counts above; the counts that actually entered the
+        # estimate are these. rddensity reports the latter as N$eff_*, and
+        # it is the number a paper's table should carry -- on the senate
+        # data the two differ by a factor of 5.
+        "n_eff_left": int(np.sum((X < c) & (X >= c - h_l))),
+        "n_eff_right": int(np.sum((X >= c) & (X <= c + h_r))),
         "cutoff": c,
     }
 
@@ -577,7 +579,9 @@ def _rddensity_h(x: float, p: int) -> float:
     if p == 9:
         return x**9 - 36 * x**7 + 378 * x**5 - 1260 * x**3 + 945 * x
     if p == 10:
-        return x**10 - 45 * x**8 + 630 * x**6 - 3150 * x**4 + 4725 * x**2 - 945
+        return (
+            x**10 - 45 * x**8 + 630 * x**6 - 3150 * x**4 + 4725 * x**2 - 945
+        )
     raise MethodIncompatibility(
         "p must be between 1 and 7 for rddensity defaults.",
         recovery_hint="Use p in the supported range 1..7.",
