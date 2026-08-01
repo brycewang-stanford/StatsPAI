@@ -102,6 +102,8 @@ _PANEL_METHOD_ALIASES: Dict[str, str] = {
     "system": "system",
     "system_gmm": "system",
     "blundell_bond": "system",
+    "ah": "ah",
+    "anderson_hsiao": "ah",
     "bb": "system",
     # --- HDFE absorption (new in v1.10) ---
     "hdfe": "hdfe",
@@ -122,6 +124,7 @@ _CLASSICAL_PANEL_METHODS = frozenset(
         "chamberlain",
         "ab",
         "system",
+        "ah",
     }
 )
 

@@ -27,11 +27,11 @@ sp.parity_summary()           # honest coverage counts
 | --- | ---: |
 | bit-exact | 138 |
 | aligned | 10 |
-| analytical-only | 213 |
+| analytical-only | 215 |
 | external-replication | 6 |
-| **verified (subtotal)** | **367** |
-| unverified | 785 |
-| **total registered** | **1152** |
+| **verified (subtotal)** | **369** |
+| unverified | 784 |
+| **total registered** | **1153** |
 
 ## bit-exact — 138 functions
 
@@ -208,7 +208,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 213 functions
+## analytical-only — 215 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -364,6 +364,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `panel_fgls` | [`test_panel_estimators_parity.py`](../tests/reference_parity/test_panel_estimators_parity.py) |
 | `panel_logit` | [`test_panel_estimators_parity.py`](../tests/reference_parity/test_panel_estimators_parity.py) |
 | `panel_probit` | [`test_panel_estimators_parity.py`](../tests/reference_parity/test_panel_estimators_parity.py) |
+| `panel_qtet` | [`test_panel_qtet_parity.py`](../tests/reference_parity/test_panel_qtet_parity.py) |
 | `panel_unitroot` | [`test_timeseries_parity.py`](../tests/reference_parity/test_timeseries_parity.py) |
 | `particle_filter` | [`test_assimilation_parity.py`](../tests/reference_parity/test_assimilation_parity.py) |
 | `pate` | [`test_pate_parity.py`](../tests/reference_parity/test_pate_parity.py) |
@@ -427,7 +428,8 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `wooldridge_prod` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `xlearner` | [`test_ml_causal_recovery_parity.py`](../tests/reference_parity/test_ml_causal_recovery_parity.py) |
 | `xtdpdsys` | [`test_dynpanel_abdata_parity.py`](../tests/reference_parity/test_dynpanel_abdata_parity.py) |
+| `xtlsdvc` | [`test_lsdvc_parity.py`](../tests/reference_parity/test_lsdvc_parity.py) |
 
-## unverified — 785 functions
+## unverified — 784 functions
 
 These are registered public functions with no cross-language or published-reference parity evidence attached **yet**. This is the honest coverage gap, not a claim of incorrectness — many are frontier methods with no Stata/R sibling to align against. Query any of them with `sp.parity_status(name)`; the closing roadmap lives in [`docs/dev/parity_status_roadmap.md`](dev/parity_status_roadmap.md).

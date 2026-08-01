@@ -6126,6 +6126,23 @@
       "tolerance": ""
     },
     {
+      "function": "panel_qtet",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_panel_qtet_parity.py"
+      ],
+      "tolerance": ""
+    },
+    {
       "function": "panel_unitroot",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
@@ -7024,7 +7041,8 @@
       "additional_tests": [
         "tests/external_parity/test_causalml_book.py",
         "tests/external_parity/test_published_replications.py",
-        "tests/reference_parity/test_paper_parity.py"
+        "tests/reference_parity/test_paper_parity.py",
+        "tests/reference_parity/test_rdrobust_parity.py"
       ],
       "also_verified_by": [
         "external_parity",
@@ -9129,6 +9147,23 @@
       ],
       "tier": "iterative",
       "tolerance": "rel_est<=0.001, rel_se<=0.001"
+    },
+    {
+      "function": "xtlsdvc",
+      "notes": [
+        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
+      ],
+      "reference": "",
+      "reference_versions": {},
+      "sides": [
+        "py"
+      ],
+      "source": "reference_parity",
+      "status": "analytical-only",
+      "test": [
+        "tests/reference_parity/test_lsdvc_parity.py"
+      ],
+      "tolerance": ""
     },
     {
       "additional_tests": [

@@ -43,7 +43,7 @@ def aipw(
     estimand: str = "ATE",
     n_folds: int = 5,
     alpha: float = 0.05,
-    seed: Optional[int] = None,
+    seed: Optional[int] = 42,
 ) -> CausalResult:
     """
     Augmented Inverse Probability Weighting (AIPW) estimator.
@@ -70,8 +70,22 @@ def aipw(
         Number of cross-fitting folds.
     alpha : float, default 0.05
         Significance level.
-    seed : int, optional
-        Random seed.
+    seed : int or None, default 42
+        Seed for the cross-fitting fold assignment.  The default is a
+        fixed integer so repeated calls on the same data return the same
+        estimate — matching ``sp.tmle``, ``sp.bcf`` and
+        ``sp.super_learner``, which already default to 42.
+
+        Before 1.21.0 this defaulted to ``None``, which seeds
+        ``np.random.default_rng`` from OS entropy: the point estimate
+        moved by hundreds of dollars between identical calls and could
+        not be pinned even with ``np.random.seed(...)``, because
+        ``default_rng(None)`` ignores the legacy global RNG.
+
+        Pass ``seed=None`` explicitly to opt back into a fresh random
+        fold split per call (useful for Monte-Carlo studies of
+        fold-assignment sensitivity); the seed actually used is always
+        recorded in ``result.model_info['seed']``.
 
     Returns
     -------
@@ -194,6 +208,10 @@ def aipw(
         "n_treated": int(D.sum()),
         "n_control": int((1 - D).sum()),
         "mean_propensity": round(float(e_hat.mean()), 4),
+        # Provenance for the cross-fitting split: None means the caller
+        # explicitly opted into a fresh entropy-seeded split, so this
+        # estimate is not reproducible by re-running.
+        "seed": seed,
     }
 
     _result = CausalResult(

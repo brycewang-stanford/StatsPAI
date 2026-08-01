@@ -694,7 +694,21 @@ def recommend(
                 from ..did._absorbing import check_absorbing as _chk
 
                 _absorbing = _chk(data, unit=id, time=time, treatment=treatment)
-            except Exception:  # pragma: no cover - diagnostic must not break routing
+            except Exception as _exc:  # pragma: no cover - defensive
+                # The check must not break routing, but it must not fail
+                # silently either: when it does not run, the reversal branch
+                # below is skipped and a reverting treatment is routed to
+                # cohort-based estimators that are biased toward zero — the
+                # exact failure the comment above describes. Warn loudly so
+                # the caller knows the guard did not fire.
+                from ..workflow._degradation import record_degradation
+
+                record_degradation(
+                    None,
+                    section="recommend: absorbing-treatment check",
+                    exc=_exc,
+                    detail=f"unit={id!r} time={time!r} treatment={treatment!r}",
+                )
                 _absorbing = None
 
             if _absorbing is not None and not _absorbing.is_absorbing:

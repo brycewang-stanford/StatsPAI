@@ -8,13 +8,16 @@ into numbers.  ``sp.xtabond`` is a thin presentation layer over
 from __future__ import annotations
 
 import warnings
+from dataclasses import replace
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
 
 from ...exceptions import IdentificationFailure
-from ._data import add_time_dummies, build_panel_arrays
+from ._data import add_time_dummies, build_panel_arrays, unit_cluster_codes
 from ._diagnostics import (
+    _lagged_residual_vector,
+    ar_test_cross_basis,
     arellano_bond_ar_test,
     check_instrument_count,
     difference_in_hansen,
@@ -22,6 +25,7 @@ from ._diagnostics import (
 )
 from ._estimate import (
     gmm_solve,
+    group_index,
     level_sigma2,
     moment_covariance,
     onestep_weight,
@@ -29,7 +33,14 @@ from ._estimate import (
 )
 from ._inference import robust_sandwich, windmeijer_correction
 from ._moments import build_design
-from ._spec import DynPanelSpec, GMMBlock, IVBlock, normalize_lag_range, parse_terms
+from ._spec import (
+    DynPanelSpec,
+    GMMBlock,
+    IVBlock,
+    Term,
+    normalize_lag_range,
+    parse_terms,
+)
 
 __all__ = ["fit_dynamic_panel", "DynPanelFit"]
 
@@ -58,6 +69,11 @@ def fit_dynamic_panel(
     time_dummies: bool = False,
     method: str = "difference",
     transform: str = "fd",
+    cluster: Optional[str] = None,
+    steps: Optional[object] = None,
+    iter_tol: float = 1e-10,
+    iter_maxiter: int = 100,
+    ah_instrument: str = "levels",
     constant: Optional[bool] = None,
     stacklevel: int = 3,
 ) -> DynPanelFit:
@@ -70,9 +86,18 @@ def fit_dynamic_panel(
     """
     if lags < 1:
         raise ValueError("lags must be >= 1 (a dynamic panel needs a lagged Y).")
-    if method not in ("difference", "system"):
-        raise ValueError(f"method must be 'difference' or 'system', got {method!r}.")
+    if method not in ("difference", "system", "ah"):
+        raise ValueError(
+            f"method must be 'difference', 'system' or 'ah', got {method!r}."
+        )
+    if ah_instrument not in ("levels", "differences"):
+        raise ValueError(
+            "ah_instrument must be 'levels' (instrument L2.y) or 'differences' "
+            f"(instrument D.L2.y), got {ah_instrument!r}."
+        )
     system = method == "system"
+    anderson_hsiao = method == "ah"
+    steps = _resolve_steps(steps, twostep)
     if constant is None:
         # The constant differences away, so it is only identified once the
         # level equation is stacked in; xtabond2 includes it by default there.
@@ -108,6 +133,11 @@ def fit_dynamic_panel(
         )
 
     needed = [y] + exog_vars + pre_vars + endo_vars
+    # ``cluster=id`` IS the default unit grouping, so it must not be pivoted
+    # as a variable (the frame would carry the index column twice).
+    cluster_is_unit = cluster is not None and cluster == id
+    if cluster is not None and not cluster_is_unit and cluster not in needed:
+        needed = needed + [cluster]
     panel = build_panel_arrays(data, id, time, needed)
 
     dummy_names: List[str] = []
@@ -143,7 +173,24 @@ def fit_dynamic_panel(
         + [(v, pre_min, pre_max) for v in pre_vars]
         + [(v, endo_min, endo_max) for v in endo_vars]
     )
-    gmm_blocks = [
+    ah_extra_iv: List[Term] = []
+    ah_blocks: List[GMMBlock] = []
+    if anderson_hsiao:
+        # Anderson-Hsiao uses ONE pooled instrument for the differenced lagged
+        # dependent variable instead of Arellano-Bond's block-diagonal set:
+        # y_{t-2} in levels, or its first difference. Both are expressible in
+        # the same moment vocabulary -- the levels variant is a collapsed GMM
+        # block with a single lag, the differences variant a standard IV
+        # column -- so this is a different moment set, not a new estimator.
+        if ah_instrument == "levels":
+            ah_blocks = [
+                GMMBlock(y, y_lag_min, y_lag_min, collapse=True, equation="diff")
+            ]
+        else:
+            ah_extra_iv.append(Term(y, y_lag_min))
+        windows = windows[1:]  # the dependent variable is handled above
+
+    gmm_blocks = ah_blocks + [
         GMMBlock(v, lo, hi, collapse=collapse, equation="diff") for v, lo, hi in windows
     ]
     if system:
@@ -155,7 +202,11 @@ def fit_dynamic_panel(
     # xtabond2's iv() default is equation(both): one column carrying the
     # difference on transformed rows and the level on level rows.
     iv_eq = "both" if system else "diff"
-    iv_terms = list(x_terms) + [t for name in dummy_names for t in parse_terms([name])]
+    iv_terms = (
+        list(ah_extra_iv)
+        + list(x_terms)
+        + [t for name in dummy_names for t in parse_terms([name])]
+    )
     iv_blocks = [IVBlock(t, equation=iv_eq) for t in iv_terms]
 
     spec = DynPanelSpec(
@@ -169,6 +220,8 @@ def fit_dynamic_panel(
         constant=constant,
     )
     design = build_design(panel, spec)
+    if cluster is not None and not cluster_is_unit:
+        design.set_clusters(unit_cluster_codes(panel, cluster))
 
     k = design.n_params
     m = design.n_instruments
@@ -183,18 +236,34 @@ def fit_dynamic_panel(
             f"for {k} parameters)."
         )
 
+    if steps != 1 and design.n_clusters <= m:
+        raise IdentificationFailure(
+            f"Multi-step GMM with cluster={cluster!r} has {design.n_clusters} "
+            f"clusters for {m} moment conditions. The efficient weight matrix "
+            "is the inverse of a clustered moment covariance whose rank cannot "
+            "exceed the number of clusters, so it is singular here and the "
+            "estimate would be an artefact of whichever generalized inverse is "
+            "used. Either keep the one-step estimator (its cluster-robust "
+            "standard errors are valid at any cluster count), or reduce the "
+            "moment count with collapse=True / a tighter gmm_lags window until "
+            "it is below the cluster count."
+        )
+
     gap_note = _warn_on_internal_gaps(panel, y, stacklevel=stacklevel + 1)
     instrument_note = check_instrument_count(
         m, design.n_units_used, stacklevel=stacklevel + 1
     )
 
     W, Z, dy = design.W, design.Z, design.dy
-    unit_rows = design.unit_rows
+    # The sandwich meat and the AR-test variance are summed over clusters;
+    # with no cluster= these are the units, which is the default convention.
+    meat_rows = design.meat_rows
+    meat_index = design.group_index()
 
     A1 = onestep_weight(design)
     beta1, Minv1, WZ = gmm_solve(W, Z, dy, A1)
     resid1 = dy - W @ beta1
-    Omega1 = moment_covariance(Z, resid1, unit_rows)
+    Omega1 = moment_covariance(Z, resid1, meat_rows, index=meat_index)
     V1_robust = robust_sandwich(Minv1, WZ, A1, Omega1)
     sigma2 = level_sigma2(resid1, design, k)
 
@@ -214,7 +283,7 @@ def fit_dynamic_panel(
         beta2, Minv2, _ = gmm_solve(W, Z, dy, A2)
     resid2 = dy - W @ beta2
     if aux:
-        if twostep:
+        if steps != 1:
             for record in aux:
                 warnings.warn(record.message, stacklevel=stacklevel)
         else:
@@ -227,25 +296,91 @@ def fit_dynamic_panel(
             )
             warnings.warn(hansen_note, stacklevel=stacklevel)
 
-    if twostep:
-        if not robust:
-            warnings.warn(
-                "Two-step GMM standard errors are downward biased in finite "
-                "samples; robust=True (Windmeijer correction) is recommended.",
-                stacklevel=stacklevel,
+    n_steps_run = 1 if steps == 1 else 2
+    converged: Optional[bool] = None
+    if steps == "cue":
+        beta, weight_final, Minv_final, converged, n_steps_run = _cue(
+            W,
+            Z,
+            dy,
+            meat_rows,
+            beta2,
+            iter_tol,
+            iter_maxiter,
+            stacklevel,
+            index=meat_index,
+        )
+        resid = dy - W @ beta
+        vcov = (
+            robust_sandwich(
+                Minv_final,
+                WZ,
+                weight_final,
+                moment_covariance(Z, resid, meat_rows, index=meat_index),
             )
-        beta, resid = beta2, resid2
-        weight_final, Minv_final = A2, Minv2
-        if robust:
-            vcov = windmeijer_correction(
-                W, Z, WZ, resid1, resid2, A2, Minv2, V1_robust, unit_rows
-            )
-        else:
-            vcov = Minv2
-    else:
+            if robust
+            else Minv_final
+        )
+    elif steps == 1:
         beta, resid = beta1, resid1
         weight_final, Minv_final = A1, Minv1
         vcov = V1_robust if robust else sigma2 * Minv1
+    else:
+        if not robust:
+            warnings.warn(
+                "Multi-step GMM standard errors are downward biased in finite "
+                "samples; robust=True (Windmeijer correction) is recommended.",
+                stacklevel=stacklevel,
+            )
+        # Steps 3+ repeat the two-step recursion: re-estimate the moment
+        # covariance at the current residuals, re-solve, repeat. `steps=2` is
+        # the classic efficient two-step; 'iterated' runs it to a fixed point,
+        # where beta and the weight it implies are mutually consistent.
+        prev_resid, beta, resid = resid1, beta2, resid2
+        weight_final, Minv_final = A2, Minv2
+        shift = 0.0
+        if steps != 2:
+            limit = iter_maxiter if steps == "iterated" else int(steps)
+            while n_steps_run < limit:
+                Omega = moment_covariance(Z, resid, meat_rows, index=meat_index)
+                A = safe_inv(Omega, f"step-{n_steps_run + 1} weight matrix")
+                new_beta, Minv_new, _ = gmm_solve(W, Z, dy, A)
+                shift = float(np.max(np.abs(new_beta - beta)))
+                prev_resid = resid
+                beta, Minv_final, weight_final = new_beta, Minv_new, A
+                resid = dy - W @ beta
+                n_steps_run += 1
+                if steps == "iterated" and shift < iter_tol:
+                    converged = True
+                    break
+            if steps == "iterated" and converged is None:
+                converged = False
+                warnings.warn(
+                    f"Iterated GMM did not converge in {iter_maxiter} steps "
+                    f"(last coefficient change {shift:.3g} > tol {iter_tol:g}). "
+                    "The reported estimate is the last iterate, not a fixed "
+                    "point; raise iter_maxiter or loosen iter_tol.",
+                    stacklevel=stacklevel,
+                )
+        if robust:
+            # Windmeijer (2005) is derived for the two-step estimator. For a
+            # deeper recursion the same correction is applied with the
+            # penultimate iterate playing the role of step 1 — exactly right
+            # at steps=2 and its natural extension beyond.
+            vcov = windmeijer_correction(
+                W,
+                Z,
+                WZ,
+                prev_resid,
+                resid,
+                weight_final,
+                Minv_final,
+                V1_robust,
+                meat_rows,
+                index=meat_index,
+            )
+        else:
+            vcov = Minv_final
 
     var_diag = np.diag(vcov)
     if np.any(var_diag <= 0):
@@ -257,35 +392,113 @@ def fit_dynamic_panel(
         )
     se = np.sqrt(np.maximum(var_diag, 0.0))
 
+    # The Arellano-Bond test is a statement about serial correlation in the
+    # *first-differenced* errors -- that is what Stata and xtabond2 print,
+    # whatever transform produced the estimate. Under forward orthogonal
+    # deviations the estimation rows hold FOD residuals, so the test is run
+    # on an auxiliary first-differenced design evaluated at the fitted
+    # coefficients. Running it on the FOD residuals instead flips the sign
+    # of the statistic.
+    ar_design = design
+    ar_resid = resid
+    if transform == "fod":
+        ar_spec = replace(spec, transform="fd")
+        ar_design = build_design(panel, ar_spec)
+        if cluster is not None and not cluster_is_unit:
+            ar_design.set_clusters(unit_cluster_codes(panel, cluster))
+        ar_resid = ar_design.dy - ar_design.W @ beta
+
     robust_ar = robust or twostep
     # The Arellano-Bond variance carries a (W'q)' Avar(beta) (W'q) term whose
     # natural expansion uses the *uncorrected* robust sandwich; swap in the VCE
     # actually reported so the test and the coefficients agree on Avar(beta).
+    if ar_design is design:
+        ar_W, ar_Z = W, Z
+        ar_weight, ar_Minv = weight_final, Minv_final
+        # The Arellano-Bond variance sums (q_i' e_i)^2 and Z_i' e_i (q_i' e_i)
+        # over *units*, never over clusters -- xtabond2's `_ARTests` loops
+        # `for (i = N; i; i--)` for both. Only the coefficient-variance term
+        # picks up the clustering, through `coef_vcov` below.
+        ar_meat = design.unit_rows
+        ar_index = group_index(ar_meat, design.n_rows)
+    else:
+        # The auxiliary design has its own row space, so its influence
+        # adjustment uses its own one-step weight. The coefficient-variance
+        # term still comes from the reported VCE.
+        ar_meat = ar_design.unit_rows
+        ar_index = group_index(ar_meat, ar_design.n_rows)
+        ar_W, ar_Z = ar_design.W, ar_design.Z
+        ar_weight = onestep_weight(ar_design)
+        _, ar_Minv, _ = gmm_solve(ar_W, ar_Z, ar_design.dy, ar_weight)
+
     naive_vcov = (
         robust_sandwich(
-            Minv_final, WZ, weight_final, moment_covariance(Z, resid, unit_rows)
+            ar_Minv,
+            ar_W.T @ ar_Z,
+            ar_weight,
+            moment_covariance(ar_Z, ar_resid, ar_meat, index=ar_index),
         )
         if robust_ar
         else None
     )
     ar_kwargs = dict(
-        unit_rows=unit_rows,
-        periods=design.row_period,
-        Z=Z,
-        W=W,
-        weight=weight_final,
-        Minv=Minv_final,
+        unit_rows=ar_meat,
+        periods=ar_design.row_period,
+        Z=ar_Z,
+        W=ar_W,
+        weight=ar_weight,
+        Minv=ar_Minv,
         robust=robust_ar,
         sigma2=sigma2,
         # The Arellano-Bond test is always about serial correlation in the
         # *first-differenced* errors, so under system GMM only the
         # transformed rows contribute residual pairs.
-        eq_mask=design.row_eq == 0,
+        eq_mask=ar_design.row_eq == 0,
+        units=ar_design.row_unit,
         coef_vcov=vcov if robust_ar else None,
         naive_vcov=naive_vcov,
     )
-    ar1 = arellano_bond_ar_test(resid, order=1, **ar_kwargs)
-    ar2 = arellano_bond_ar_test(resid, order=2, **ar_kwargs)
+    # Every AR configuration is now exact against Stata / xtabond2, so no
+    # provenance caveat is attached. The field is kept so downstream readers
+    # have a stable key to check.
+    ar_note: Optional[str] = None
+
+    if ar_design is not design:
+        # Forward orthogonal deviations: the test lives on first differences
+        # while the estimator ran on the deviations, so the two bases are
+        # combined unit by unit exactly as xtabond2's `_ARTests` does.
+        ar_mask = ar_design.row_eq == 0
+        n_units_total = (
+            int(max(int(ar_design.row_unit.max()), int(design.row_unit.max()))) + 1
+        )
+        XZ_est = W.T @ Z
+        ar1, ar2 = (
+            ar_test_cross_basis(
+                q=_lagged_residual_vector(
+                    ar_resid,
+                    ar_design.unit_rows,
+                    ar_design.row_period,
+                    order,
+                    ar_mask,
+                    ar_design.row_unit,
+                )[ar_mask],
+                resid_ar=ar_resid[ar_mask],
+                X_ar=ar_design.W[ar_mask],
+                units_ar=ar_design.row_unit[ar_mask],
+                Z_est=Z,
+                resid_est=resid,
+                units_est=design.row_unit,
+                XZ_est=XZ_est,
+                weight=weight_final,
+                Minv=Minv_final,
+                coef_vcov=vcov,
+                n_units=n_units_total,
+            )
+            for order in (1, 2)
+        )
+    else:
+        ar1 = arellano_bond_ar_test(ar_resid, order=1, **ar_kwargs)
+        ar2 = arellano_bond_ar_test(ar_resid, order=2, **ar_kwargs)
 
     overid_df = m - k
     sargan = overid_test(Z, resid1, A1, overid_df, scale=sigma2)
@@ -302,6 +515,12 @@ def fit_dynamic_panel(
         n_obs_level=design.n_rows_level,
         n_obs_total=design.n_rows,
         n_units=design.n_units_used,
+        n_clusters=design.n_clusters,
+        cluster=cluster,
+        steps=n_steps_run,
+        steps_requested=steps,
+        converged=converged,
+        ah_instrument=ah_instrument if anderson_hsiao else None,
         method=method,
         constant=bool(constant),
         n_instruments=m,
@@ -319,6 +538,7 @@ def fit_dynamic_panel(
         hansen=hansen,
         difference_in_hansen=diff_hansen,
         gap_warning=gap_note,
+        ar_note=ar_note,
         instrument_warning=instrument_note,
         hansen_warning=hansen_note,
     )
@@ -366,3 +586,88 @@ def _warn_on_internal_gaps(panel, y: str, stacklevel: int) -> Optional[str]:
     )
     warnings.warn(msg, stacklevel=stacklevel)
     return msg
+
+
+def _resolve_steps(steps, twostep: bool):
+    """Normalise ``steps`` / ``twostep`` to ``1``, an int, ``'iterated'`` or ``'cue'``.
+
+    ``twostep`` predates ``steps`` and stays the documented switch for the
+    common case; ``steps`` generalises it.  Passing both raises rather than
+    resolving by a silent precedence rule — a caller writing
+    ``twostep=True, steps=1`` has contradicted themselves.
+    """
+    if steps is None:
+        return 2 if twostep else 1
+    if twostep:
+        raise ValueError(
+            "pass either twostep= or steps=, not both: twostep=True is steps=2."
+        )
+    if isinstance(steps, str):
+        if steps not in ("iterated", "cue"):
+            raise ValueError(
+                "steps must be a positive integer, 'iterated' or 'cue', got "
+                f"{steps!r}."
+            )
+        return steps
+    steps = int(steps)
+    if steps < 1:
+        raise ValueError(f"steps must be >= 1, got {steps}.")
+    return steps
+
+
+def _cue(W, Z, dy, meat_rows, start, tol, maxiter, stacklevel, index=None):
+    """Continuously-updated GMM (Hansen, Heaton & Yaron 1996).
+
+    Minimises ``g(β)' Ω(β)^{-1} g(β)`` with the weight re-evaluated at every
+    trial ``β`` rather than held at a first-step estimate.  That removes the
+    two-step estimator's dependence on preliminary residuals — the very
+    dependence the Windmeijer correction exists to patch — at the cost of a
+    non-quadratic, generally non-convex objective, so this is a numerical
+    optimisation rather than a solve.
+
+    The two-step estimate is used only as a starting point; the objective
+    itself is invariant to the starting weight, which is the property worth
+    testing against.
+
+    References
+    ----------
+    Hansen, L.P., Heaton, J. and Yaron, A. (1996). Finite-sample properties
+    of some alternative GMM estimators. *Journal of Business & Economic
+    Statistics* 14(3), 262-280. [@hansen1996finite]
+    """
+    from scipy.optimize import minimize
+
+    def objective(beta: np.ndarray) -> float:
+        resid = dy - W @ beta
+        Omega = moment_covariance(Z, resid, meat_rows, index=index)
+        g = Z.T @ resid
+        try:
+            weight = np.linalg.inv(Omega)
+        except np.linalg.LinAlgError:
+            weight = np.linalg.pinv(Omega)
+        return float(g @ weight @ g)
+
+    result = minimize(
+        objective,
+        np.asarray(start, dtype=float),
+        method="Nelder-Mead",
+        options={"xatol": tol, "fatol": tol, "maxiter": maxiter * 200},
+    )
+    beta = np.asarray(result.x, dtype=float)
+    if not result.success:
+        warnings.warn(
+            "Continuously-updated GMM did not converge "
+            f"({result.message}). The reported estimate is the last iterate; "
+            "the CUE objective is non-convex, so a different starting point "
+            "or a larger iter_maxiter may help.",
+            stacklevel=stacklevel,
+        )
+    resid = dy - W @ beta
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        weight = safe_inv(
+            moment_covariance(Z, resid, meat_rows, index=index), "CUE weight"
+        )
+    WZ = W.T @ Z
+    Minv = safe_inv(WZ @ weight @ WZ.T, "CUE moment matrix")
+    return beta, weight, Minv, bool(result.success), int(result.nit)

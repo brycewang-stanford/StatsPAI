@@ -2950,6 +2950,19 @@
       "name": "xtabond",
       "parameters": {
         "properties": {
+          "ah_instrument": {
+            "default": "levels",
+            "description": "Anderson-Hsiao instrument for method='ah'",
+            "enum": [
+              "levels",
+              "differences"
+            ],
+            "type": "string"
+          },
+          "cluster": {
+            "description": "Cluster SEs on a coarser unit than the panel id (must be constant within unit)",
+            "type": "string"
+          },
           "collapse": {
             "default": false,
             "description": "Collapse instruments (Roodman 2009) to curb proliferation",
@@ -2997,6 +3010,10 @@
               "type": "string"
             },
             "type": "array"
+          },
+          "steps": {
+            "description": "Number of GMM steps, or 'iterated' / 'cue'",
+            "type": "string"
           },
           "time": {
             "default": "time",
@@ -16862,6 +16879,135 @@
       "tests/reference_parity/test_qdid_parity.py",
       "tests/reference_parity/test_qte_parity.py",
       "API/unit contract evidence: tests/test_qte.py"
+    ],
+    "validation_status": "validated"
+  },
+  {
+    "alternatives": [
+      "cic",
+      "qdid",
+      "qte",
+      "ddd"
+    ],
+    "assumptions": [
+      "Distributional DiD",
+      "Copula stability: the dependence between the period-t change and the period-(t-1) level equals that between the period-(t-1) change and the period-(t-2) level, for the treated. Untestable at t, but checked on the untreated group and reported in model_info['copula_check'].",
+      "Continuous outcome: with mass points the rank map is not measure-preserving; model_info['coherence_check'] flags it."
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "example": "sp.panel_qtet(df, y=\"re\", treat=\"treat\", unit=\"id\", time=\"year\", t=1978, tmin1=1975, tmin2=1974)",
+    "failure_modes": [
+      {
+        "alternative": "sp.cic",
+        "exception": "statspai.AssumptionWarning",
+        "remedy": "The rank map collapses tied units onto one value and the QTT curve is distorted; the reported ATT (a mean DiD) is unaffected. Use sp.cic bounds for discrete outcomes.",
+        "symptom": "Outcome has mass points (e.g. many zero earnings)"
+      },
+      {
+        "alternative": "sp.cic",
+        "exception": "statspai.DataInsufficient",
+        "remedy": "Callaway-Li needs a third period to identify the copula. Use sp.qdid(method='cic') on two periods.",
+        "symptom": "Only two periods available"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [],
+    "name": "panel_qtet",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "balanced panel over three periods",
+      "binary treatment, read at period t",
+      "continuous outcome (mass points distort the rank map)"
+    ],
+    "reference": "Callaway & Li (2019) Quantitative Economics 10(4), 1579-1618",
+    "signature": {
+      "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "name": "panel_qtet",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "data": {
+            "description": "Long panel",
+            "type": "string"
+          },
+          "n_boot": {
+            "default": 200,
+            "description": "Number of bootstrap replications.",
+            "type": "integer"
+          },
+          "quantiles": {
+            "description": "quantiles parameter (list).",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "se": {
+            "default": "bootstrap",
+            "description": "SE method",
+            "enum": [
+              "bootstrap",
+              "none"
+            ],
+            "type": "string"
+          },
+          "seed": {
+            "default": 0,
+            "description": "Random seed for reproducible stochastic steps.",
+            "type": "integer"
+          },
+          "t": {
+            "description": "Post-period VALUE of time",
+            "type": "string"
+          },
+          "time": {
+            "description": "Period",
+            "type": "string"
+          },
+          "tmin1": {
+            "description": "Pre-period VALUE of time",
+            "type": "string"
+          },
+          "tmin2": {
+            "description": "Pre-pre-period VALUE; identifies the copula",
+            "type": "string"
+          },
+          "treat": {
+            "description": "Binary treatment",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Unit id",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "treat",
+          "unit",
+          "time",
+          "t",
+          "tmin1",
+          "tmin2"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 200,
+    "validation_notes": [
+      "tests/reference_parity/test_panel_qtet_parity.py"
     ],
     "validation_status": "validated"
   },

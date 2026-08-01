@@ -214,6 +214,14 @@ def test_hal_tmle_recovers_the_known_ate(cate_panel):
 
 
 def test_auto_cate_tuned_ranks_every_learner_it_was_offered(cate_panel):
+    # `sp.auto_cate_tuned` needs the `tune` extra. A missing optional
+    # dependency is a skip, not a failure — otherwise the suite reports a
+    # red test on any install that simply did not opt into the extra, which
+    # is exactly the noise that hides real regressions.
+    pytest.importorskip(
+        "optuna",
+        reason="Optuna is an optional dependency (statspai[tune]).",
+    )
     df, tau = cate_panel
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

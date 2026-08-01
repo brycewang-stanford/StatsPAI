@@ -24,6 +24,8 @@ from ._moments import Design, first_difference_H, system_H
 
 __all__ = [
     "safe_inv",
+    "group_index",
+    "group_moments",
     "unit_H_blocks",
     "onestep_weight",
     "moment_covariance",
@@ -85,11 +87,61 @@ def onestep_weight(design: Design) -> np.ndarray:
     an error term.
     """
     m = design.n_instruments
+    fast = _banded_ZHZ(design)
+    if fast is not None:
+        return safe_inv(fast, "GMM weight matrix Z'HZ")
     ZHZ = np.zeros((m, m))
     for rows, H in zip(design.unit_rows, unit_H_blocks(design)):
         Zi = design.Z[rows]
         ZHZ += Zi.T @ H @ Zi
     return safe_inv(ZHZ, "GMM weight matrix Z'HZ")
+
+
+def _banded_ZHZ(design: Design):
+    """``Σ_i Z_i' H_i Z_i`` without a per-unit loop, when ``H`` is banded.
+
+    Under the first-difference transform every non-zero of ``H`` is either a
+    diagonal entry or a pair of rows in the same unit at a fixed period
+    offset, so the whole sum is a handful of dense products over row
+    *pairs* — no unit loop, no per-unit temporary. Forward orthogonal
+    deviations have a dense cross-quadrant instead and fall back to the
+    explicit blocks; that path is the rarer one and stays exact either way.
+    """
+    if design.transform_operator is not None:
+        return None
+    Z = design.Z
+    unit = design.row_unit
+    period = design.row_period
+    is_diff = design.row_eq == 0
+
+    diag = np.where(is_diff, 2.0, 1.0)
+    ZHZ = Z.T @ (Z * diag[:, None])
+    span = int(period.max()) + 2
+
+    def _pair_term(mask_a, mask_b, offset, weight):
+        """Rows (a, b) in the same unit with ``period_b == period_a + offset``."""
+        idx_a = np.flatnonzero(mask_a)
+        idx_b = np.flatnonzero(mask_b)
+        if idx_a.size == 0 or idx_b.size == 0:
+            return
+        # Row keys are unique per (unit, period, equation), so a sorted
+        # lookup finds each partner in one pass.
+        keys_b = unit[idx_b] * span + period[idx_b]
+        order = np.argsort(keys_b, kind="stable")
+        keys_sorted = keys_b[order]
+        want = unit[idx_a] * span + period[idx_a] + offset
+        pos = np.clip(np.searchsorted(keys_sorted, want), 0, keys_sorted.size - 1)
+        hit = keys_sorted[pos] == want
+        if not hit.any():
+            return
+        block = Z[idx_a[hit]].T @ Z[idx_b[order][pos[hit]]]
+        ZHZ[...] += weight * (block + block.T)
+
+    _pair_term(is_diff, is_diff, 1, -1.0)
+    if design.has_level_equation:
+        _pair_term(is_diff, ~is_diff, 0, 1.0)
+        _pair_term(is_diff, ~is_diff, -1, -1.0)
+    return ZHZ
 
 
 def _transform_H(M: np.ndarray, periods: np.ndarray, eqs: np.ndarray) -> np.ndarray:
@@ -120,16 +172,45 @@ def _transform_H(M: np.ndarray, periods: np.ndarray, eqs: np.ndarray) -> np.ndar
     return H
 
 
-def moment_covariance(
-    Z: np.ndarray, resid: np.ndarray, unit_rows: Sequence[np.ndarray]
+def group_index(groups: Sequence[np.ndarray], n_rows: int):
+    """``(order, starts)`` for a segment sum over ``groups``."""
+    groups = list(groups)
+    codes = np.empty(n_rows, dtype=np.int64)
+    for j, rows in enumerate(groups):
+        codes[rows] = j
+    order = np.argsort(codes, kind="stable")
+    starts = np.searchsorted(codes[order], np.arange(len(groups)))
+    return order, starts
+
+
+def group_moments(
+    Z: np.ndarray,
+    resid: np.ndarray,
+    groups: Sequence[np.ndarray],
+    index=None,
 ) -> np.ndarray:
-    """``Ω = Σ_i Z_i' ê_i ê_i' Z_i`` — the clustered-by-unit moment meat."""
-    m = Z.shape[1]
-    Omega = np.zeros((m, m))
-    for rows in unit_rows:
-        g = Z[rows].T @ resid[rows]
-        Omega += np.outer(g, g)
-    return Omega
+    """``(n_groups, m)`` matrix of ``Z_g' ê_g``.
+
+    One segment sum rather than a Python loop over groups; every clustered
+    accumulation in this package is a product of two of these.
+    """
+    order, starts = group_index(groups, Z.shape[0]) if index is None else index
+    return np.add.reduceat((Z * resid[:, None])[order], starts, axis=0)
+
+
+def moment_covariance(
+    Z: np.ndarray,
+    resid: np.ndarray,
+    unit_rows: Sequence[np.ndarray],
+    index=None,
+) -> np.ndarray:
+    """``Ω = Σ_g Z_g' ê_g ê_g' Z_g`` — the clustered moment "meat".
+
+    Written as ``G'G`` over the per-group moment vectors: the same
+    arithmetic as an outer-product loop, handed to BLAS instead.
+    """
+    G = group_moments(Z, resid, unit_rows, index=index)
+    return G.T @ G
 
 
 def gmm_solve(

@@ -89,6 +89,9 @@ class Design:
     # forward orthogonal deviations; the first difference has the closed-form
     # 2/-1 band and needs no operator.
     transform_operator: Optional[np.ndarray] = None
+    # Row groups for the variance "meat"; None means group by unit.
+    cluster_rows: Optional[List[np.ndarray]] = None
+    _group_index_cache: Optional[Tuple[np.ndarray, np.ndarray]] = None
 
     @property
     def n_rows(self) -> int:
@@ -105,6 +108,48 @@ class Design:
     @property
     def n_units_used(self) -> int:
         return len(self.unit_rows)
+
+    @property
+    def meat_rows(self) -> List[np.ndarray]:
+        """Row groups the sandwich "meat" is summed over.
+
+        The units by default; a coarser grouping is installed by
+        ``set_clusters``. Only the meat re-groups — the one-step weight
+        ``(Z'HZ)^{-1}`` stays a within-unit object because ``H`` encodes the
+        serial structure the *transform* induces, which is a property of the
+        unit's own time path, not of the cluster it belongs to.
+        """
+        return self.unit_rows if self.cluster_rows is None else self.cluster_rows
+
+    @property
+    def n_clusters(self) -> int:
+        return len(self.meat_rows)
+
+    def set_clusters(self, unit_codes: np.ndarray) -> None:
+        """Group rows by a unit-level cluster code (see ``_data``)."""
+        present = np.array([self.row_unit[rows[0]] for rows in self.unit_rows])
+        codes = np.asarray(unit_codes)[present]
+        self.cluster_rows = [
+            np.concatenate([self.unit_rows[j] for j in np.flatnonzero(codes == c)])
+            for c in np.unique(codes)
+        ]
+        self._group_index_cache = None
+
+    def group_index(self):
+        """``(order, starts)`` for a segment sum over :attr:`meat_rows`.
+
+        Built once and cached. Rebuilding it per call made ``reduceat`` the
+        single largest cost on a 20k-unit panel.
+        """
+        if self._group_index_cache is None:
+            groups = self.meat_rows
+            codes = np.empty(self.n_rows, dtype=np.int64)
+            for j, rows in enumerate(groups):
+                codes[rows] = j
+            order = np.argsort(codes, kind="stable")
+            starts = np.searchsorted(codes[order], np.arange(len(groups)))
+            self._group_index_cache = (order, starts)
+        return self._group_index_cache
 
     @property
     def has_level_equation(self) -> bool:
@@ -297,7 +342,19 @@ def build_design(panel: PanelArrays, spec: DynPanelSpec) -> Design:
     if not terms:
         raise ValueError("the model has no regressors (lags=0 and no covariates).")
 
-    deepest = max(t.lag for t in terms)
+    # Standard ("IV-style") instruments are *not* subject to the missing=0
+    # convention that GMM-style blocks use: Stata prints "GMM-type
+    # (missing=0 ...)" only for the latter. A row whose IV column is
+    # unobserved is therefore dropped, not zeroed. Invisible in the usual
+    # case where every IV term is also a regressor, and decisive when it is
+    # not -- e.g. Anderson-Hsiao's D.L2.y instrument, which reaches one
+    # period deeper than the equation itself does.
+    iv_diff_terms = [b.term for b in spec.iv_blocks if b.equation in ("diff", "both")]
+    iv_level_terms = [b.term for b in spec.iv_blocks if b.equation in ("level", "both")]
+
+    deepest = max(
+        [t.lag for t in terms] + [t.lag for t in iv_diff_terms + iv_level_terms]
+    )
     diff_periods = np.arange(max(deepest + 1, 1), T)
     if diff_periods.size == 0:
         raise ValueError(
@@ -313,7 +370,7 @@ def build_design(panel: PanelArrays, spec: DynPanelSpec) -> Design:
 
     # ---- transformed rows --------------------------------------------------
     if fod:
-        di, d_p, d_y, d_W = _fod_rows(panel, spec, terms, deepest, T)
+        di, d_p, d_y, d_W = _fod_rows(panel, spec, terms, deepest, T, iv_diff_terms)
         # A FOD row is *labelled* with the period of the first difference it
         # replaces (its own period + 1) so that the instrument grid, the
         # level-equation cross block and the serial-correlation test all use
@@ -327,6 +384,8 @@ def build_design(panel: PanelArrays, spec: DynPanelSpec) -> Design:
         d_grids = [_delta(panel, t)[:, diff_periods] for t in terms]
         for grid in d_grids:
             ok &= np.isfinite(grid)
+        for term in iv_diff_terms:
+            ok &= np.isfinite(_delta(panel, term)[:, diff_periods])
         di, dj = np.nonzero(ok)
         d_p = diff_periods[dj]
         d_y = dy_grid[di, dj]
@@ -343,6 +402,8 @@ def build_design(panel: PanelArrays, spec: DynPanelSpec) -> Design:
         l_grids = [_level(panel, t)[:, level_periods] for t in terms]
         for grid in l_grids:
             okl &= np.isfinite(grid)
+        for term in iv_level_terms:
+            okl &= np.isfinite(_level(panel, term)[:, level_periods])
         li, lj = np.nonzero(okl)
         l_p = level_periods[lj]
         l_y = ylev_grid[li, lj]
@@ -597,7 +658,7 @@ def _iv_column(
     return col
 
 
-def _fod_rows(panel, spec, terms, deepest, T):
+def _fod_rows(panel, spec, terms, deepest, T, iv_diff_terms=()):
     """Transformed rows under forward orthogonal deviations.
 
     The eligible period set is the one where the equation holds *in
@@ -611,6 +672,8 @@ def _fod_rows(panel, spec, terms, deepest, T):
     eligible = np.isfinite(Y)
     for g in level_grids:
         eligible = eligible & np.isfinite(g)
+    for term in iv_diff_terms:
+        eligible = eligible & np.isfinite(_level(panel, term))
     eligible[:, :deepest] = False
 
     idx = np.arange(T)

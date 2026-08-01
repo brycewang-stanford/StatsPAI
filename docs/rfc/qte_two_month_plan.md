@@ -1,5 +1,37 @@
 # QTE / 分布处理效应 两个月工作计划（2026-07-31 起）
 
+## 执行状态（全部 WP 收口）
+
+| WP | 状态 | 交付 |
+| --- | --- | --- |
+| WP-0 R 参考夹具 | ✅ | 3 个生成器 + 3 个 JSON + 4 个 CSV，全部含自检 |
+| WP-1 `dist_iv` 正确性 | ✅ | Abadie κ 重写，2× 偏误消除，协变量生效，解析 SE |
+| WP-2 Firpo QTE/QTT | ✅ | `_firpo.py`，目标函数支配性对齐 R，解析 IF SE |
+| WP-3 QDiD 正名 + CiC 合流 | ⚠️ 部分 | QDiD 对齐 R；`method='cic'` 委托 `sp.cic`；**MDiD / ddid2 未实现** |
+| WP-4 `distributional_te` 推断 | ✅ | KS 重新中心化（size 0.000→0.042），CvM，分布回归 |
+| WP-5 `qte_hd_panel` 重建 | ✅ | Canay (2011)，扇形恢复，伪造 SE 移除，双重选择 |
+| WP-6 Callaway-Li 面板 QTT | ✅ | `sp.panel_qtet`：**对 R 精确对齐 6.8e-12**，含两个 R 没有的诊断 |
+| WP-7 一致推断 | ✅ | 乘子 bootstrap，一致带（联合覆盖 0.948 vs 逐点 0.760），曲线级检验 |
+| WP-8 结果契约 | ✅ | 五个 result 类补齐 `to_frame` / `plot` / `summary` |
+| WP-9 文档 | ✅ | `docs/guides/choosing_qte_estimator.md` + CHANGELOG + MIGRATION |
+
+**WP-6 的做法值得记一笔**：先在 R 里**手工重写五步算法**并断言与 `qte::panel.qtet`
+差 0，确认算法理解无误后再移植 Python——所以对齐是**算法级精确匹配**，不是容差带。
+夹具生成器保留了这个自检，R 侧行为一旦漂移会直接报错，而不是悄悄产出错夹具。
+
+移植中发现一个 R 不报告的问题：`lalonde.psid.panel` 的 185 个处理组单位有 131 个
+`re74 == 0`，秩映射把它们压到同一个值，反事实均值 8,786 与分布 DiD 的 4,023 严重背离
+——**QTT 曲线因此失真，而 R 完全静默**（我们的曲线与 R 一致到 1e-12，说明 R 有同样的
+失真）。新增 `coherence_check` 专门捕获此情形并告警；`copula_check` 则在**控制组**上
+检验 copula 稳定性（处理组在 t 期不可检验，控制组两个 copula 都可观测）。
+
+**仍未实现**：`panel.qtet` 的协变量分支（`method="qr"` / 带 `xformla` 的 `pscore`）、
+`qte::MDiD`、`qte::ddid2`。
+
+以下为原始计划正文。
+
+---
+
 > 目标：把 `sp.qte` 家族从"6 文件 / 2k LOC、零参考对齐、薄且无锚"推进到
 > **与 R `qte` 1.3.1 / `quantreg` 6.1 数值对齐、估计量标签正确、带解析 SE 与一致置信带**的完整实现。
 > 每个工作包（WP）的验收标准是**对齐参考实现的数值证据**或**已知真值的解析恢复**，不是"代码写完了"。

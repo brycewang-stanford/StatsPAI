@@ -821,6 +821,7 @@ from .qte import (
     dist_iv,
     distributional_te,
     kan_dlate,
+    panel_qtet,
     qdid,
     qte,
     qte_hd_panel,
@@ -2160,6 +2161,7 @@ __all__ = [
     "ProxyScoreResult",
     # v1.0 — QTE / RD frontiers
     "beyond_average_late",
+    "panel_qtet",
     "BeyondAverageResult",
     "qte_hd_panel",
     "HDPanelQTEResult",

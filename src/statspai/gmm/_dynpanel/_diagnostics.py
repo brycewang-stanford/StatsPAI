@@ -36,6 +36,7 @@ from ._moments import first_difference_H
 
 __all__ = [
     "arellano_bond_ar_test",
+    "ar_test_cross_basis",
     "overid_test",
     "check_instrument_count",
     "difference_in_hansen",
@@ -54,6 +55,7 @@ def arellano_bond_ar_test(
     robust: bool,
     sigma2: float,
     eq_mask: Optional[np.ndarray] = None,
+    units: Optional[np.ndarray] = None,
     coef_vcov: Optional[np.ndarray] = None,
     naive_vcov: Optional[np.ndarray] = None,
 ) -> Dict[str, float]:
@@ -95,14 +97,7 @@ def arellano_bond_ar_test(
     Windmeijer-corrected estimation.
     """
     resid = np.asarray(resid, dtype=float)
-    q = np.zeros(resid.shape[0])
-    for rows in unit_rows:
-        use = rows if eq_mask is None else rows[eq_mask[rows]]
-        pos = {int(p): int(i) for p, i in zip(periods[use], use)}
-        for p, i in pos.items():
-            src = pos.get(p - order)
-            if src is not None:
-                q[i] = resid[src]
+    q = _lagged_residual_vector(resid, unit_rows, periods, order, eq_mask, units)
 
     if not np.any(q):
         return {"z": float("nan"), "pvalue": float("nan")}
@@ -128,6 +123,35 @@ def arellano_bond_ar_test(
         return {"z": float("nan"), "pvalue": float("nan")}
     z = num / np.sqrt(var)
     return {"z": float(z), "pvalue": float(2 * stats.norm.sf(abs(z)))}
+
+
+def _lagged_residual_vector(resid, unit_rows, periods, order, eq_mask, units):
+    """``q[i]`` = the same unit's residual ``order`` periods earlier, else 0.
+
+    Vectorised through a ``(unit, period) -> row`` lookup built once,
+    instead of a per-unit Python dict. ``units`` is the row's unit index;
+    it is reconstructed from ``unit_rows`` when not supplied.
+    """
+    n = resid.shape[0]
+    if units is None:
+        units = np.empty(n, dtype=np.int64)
+        for j, rows in enumerate(unit_rows):
+            units[rows] = j
+    use = np.ones(n, dtype=bool) if eq_mask is None else np.asarray(eq_mask, dtype=bool)
+    idx = np.flatnonzero(use)
+    q = np.zeros(n)
+    if idx.size == 0:
+        return q
+    span = int(periods.max()) + int(order) + 2
+    keys = units[idx] * span + periods[idx]
+    sorter = np.argsort(keys, kind="stable")
+    keys_sorted = keys[sorter]
+    want = units[idx] * span + periods[idx] - int(order)
+    pos = np.clip(np.searchsorted(keys_sorted, want), 0, keys_sorted.size - 1)
+    hit = keys_sorted[pos] == want
+    if hit.any():
+        q[idx[hit]] = resid[idx[sorter][pos[hit]]]
+    return q
 
 
 def overid_test(
@@ -219,9 +243,15 @@ def difference_in_hansen(
     than clipped — silently flooring at zero would hide the conditioning
     problem that produced them.
     """
-    from ._estimate import gmm_solve, safe_inv
+    from ._estimate import safe_inv
 
     Z, W, dy = design.Z, design.W, design.dy
+
+    # Everything the restricted fit needs is a *submatrix* of three
+    # cross-products, so the big design matrices are touched once rather
+    # than sliced and re-solved per subset.
+    ZW = Z.T @ W
+    Zy = Z.T @ dy
     m = Z.shape[1]
     out: Dict[str, Dict[str, float]] = {}
 
@@ -243,15 +273,16 @@ def difference_in_hansen(
             }
             continue
 
-        Zr = Z[:, keep]
+        ZWk, Zyk = ZW[keep], Zy[keep]
         with warnings.catch_warnings():
             # A rank-deficient reduced weight matrix is expected for some
             # subsets and is reported through the statistic itself.
             warnings.simplefilter("ignore")
             A = safe_inv(omega[np.ix_(keep, keep)], "reduced moment covariance")
-            b, _, _ = gmm_solve(W, Zr, dy, A)
-        r = dy - W @ b
-        g = Zr.T @ r
+            b = safe_inv(ZWk.T @ (A @ ZWk), "reduced moment matrix") @ (
+                ZWk.T @ (A @ Zyk)
+            )
+        g = Zyk - ZWk @ b
         j_excl = float(g @ A @ g)
         stat = float(hansen_full - j_excl)
         df = int(cols.size)
@@ -263,3 +294,51 @@ def difference_in_hansen(
             "pvalue": float(stats.chi2.sf(stat, df)) if stat > 0 else float("nan"),
         }
     return out
+
+
+def ar_test_cross_basis(
+    q: np.ndarray,
+    resid_ar: np.ndarray,
+    X_ar: np.ndarray,
+    units_ar: np.ndarray,
+    Z_est: np.ndarray,
+    resid_est: np.ndarray,
+    units_est: np.ndarray,
+    XZ_est: np.ndarray,
+    weight: np.ndarray,
+    Minv: np.ndarray,
+    coef_vcov: np.ndarray,
+    n_units: int,
+) -> Dict[str, float]:
+    """Arellano-Bond AR statistic when the test and estimation bases differ.
+
+    Used for forward orthogonal deviations, where the estimator runs on
+    orthogonal deviations but the test is a statement about first
+    differences.  The per-unit scalars ``s_i = q_i' e_i`` come from the
+    differenced basis; the instrument/residual cross-products that carry the
+    coefficient-estimation error come from the basis the estimator actually
+    used.  The two are aligned by unit index, which is why both bases pass
+    their own ``units`` array.
+
+    Implements ``xtabond2``'s ``_ARTests`` term by term:
+
+        Var = Σ_i s_i²  −  2 (X_ar'q)' Minv (X_est'Z) A Σ_i (Z_i'e_i) s_i
+              +  (X_ar'q)' V_reported (X_ar'q)
+    """
+    s = np.zeros(n_units)
+    np.add.at(s, units_ar, q * resid_ar)
+    if not np.any(s):
+        return {"z": float("nan"), "pvalue": float("nan")}
+
+    Ze = np.zeros((n_units, Z_est.shape[1]))
+    np.add.at(Ze, units_est, Z_est * resid_est[:, None])
+    ZHw = Ze.T @ s
+
+    tmp = X_ar.T @ q
+    m2VZXA = (-2.0 * Minv) @ (XZ_est @ weight)
+    var = float(s.sum() ** 2 * 0.0)  # keep dtype float
+    var = float(np.sum(s**2) + tmp @ (m2VZXA @ ZHw) + tmp @ coef_vcov @ tmp)
+    if not np.isfinite(var) or var <= 0:
+        return {"z": float("nan"), "pvalue": float("nan")}
+    z = float(s.sum() / np.sqrt(var))
+    return {"z": z, "pvalue": float(2 * stats.norm.sf(abs(z)))}

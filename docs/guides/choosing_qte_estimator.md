@@ -69,6 +69,10 @@ Is treatment randomised or unconfounded given covariates?
         │         sp.qdid(method="qdid")  ← only under a          │
         │                                    location shift       │
         │                                                         │
+        ├── Three periods, want the whole counterfactual         │
+        │   distribution for the treated?                         │
+        │   └── sp.panel_qtet   (Callaway & Li 2019)              │
+        │                                                         │
         └── Panel with many candidate controls?                   │
             └── sp.qte_hd_panel(method="canay")                   │
 ```
@@ -133,6 +137,47 @@ does not hinge on the choice).
     changes-in-changes. The numbers were always QDiD; only the attribution
     was wrong. `qte::MDiD` and `qte::ddid2` are not yet available.
 
+### `sp.panel_qtet` — three-period panel, Callaway & Li (2019)
+
+The QTT, `F⁻¹_{Y_t(1)|D=1}(τ) − F⁻¹_{Y_t(0)|D=1}(τ)`. A mean DiD pins only
+the *location* of that counterfactual distribution; this recovers its
+**shape**, which is the whole point of a quantile analysis.
+
+That costs an extra period. Copula stability — the dependence between a
+unit's period-`t` change and its period-`t−1` level equals the dependence
+between its period-`t−1` change and its period-`t−2` level — is what buys
+the shape, and it needs `t−2` to be estimated.
+
+```python
+res = sp.panel_qtet(df, y="re", treat="treat", unit="id", time="year",
+                    t=1978, tmin1=1975, tmin2=1974)
+```
+
+`t`, `tmin1` and `tmin2` are **values of the time column**, not indices, and
+are required positionally — passing them out of order does not error, it
+silently estimates a different contrast.
+
+Two diagnostics land in `model_info`:
+
+- **`copula_check`** — copula stability is untestable for the treated at `t`
+  (the relevant change is counterfactual), but on the *untreated* group both
+  copulas are observed. A large `difference` there is evidence against the
+  assumption.
+- **`coherence_check`** — the rank map is measure-preserving only for a
+  **continuous** outcome. With mass points it is not, and the QTT curve is
+  distorted while the reported ATT (a plain mean DiD) is not.
+
+!!! warning "Mass points break the copula construction"
+    On `qte::lalonde.psid.panel`, 131 of 185 treated units have `re74 == 0`.
+    They all get the same rank and map to the same `t−1` value, so the
+    counterfactual mean comes out at 8,786 against a distributional-DiD value
+    of 4,023. R's `panel.qtet` produces the identical curve (StatsPAI matches
+    it to 6.8e-12) but never surfaces the problem. `sp.panel_qtet` warns.
+    For discrete or zero-inflated outcomes prefer `sp.cic` bounds.
+
+The reported `ate` is the **plain mean DiD**, matching R — the mean does not
+need copula stability, distributional DiD alone pins it.
+
 ### `sp.qte_hd_panel` — panel with many controls
 
 Double-selection LASSO for the controls, then:
@@ -169,6 +214,7 @@ propensity score; `method="cic"` takes a four-cell group encoding.
 | `dist_iv` / `beyond_average_late` | Random assignment, exclusion, monotonicity, first stage | Weak instrument; defiers |
 | `qdid` | Untreated distribution shifts by a constant at every rank | Any rank-varying trend |
 | `cic` | Monotone, rank-invariant production function | Discrete outcomes (only bounds are identified) |
+| `panel_qtet` | Distributional DiD + copula stability; three balanced periods | Mass points in the outcome; copula shifts over time |
 | `qte_hd_panel(canay)` | Unit effect is a pure location shift; large `T` | Unit effects that vary by quantile; short panels |
 
 ---
@@ -198,9 +244,9 @@ separately reports where the two coincide numerically.
 ## 5. Known gaps
 
 - `qte::MDiD` and `qte::ddid2` are not implemented.
-- Callaway & Li (2019) copula-based panel QTT (`qte::panel.qtet`) is not
-  implemented; R reference values are already staged in
-  `tests/reference_parity/_fixtures/qte_panel_R.json`.
+- `sp.panel_qtet` implements the no-covariate (`pscore`) branch of
+  `qte::panel.qtet`. The covariate-adjusted `method="qr"` / `method="pscore"`
+  paths are not ported.
 - Uniform bands and curve-level tests are currently available on the Firpo
   estimators only, since they require influence functions.
 - Analytic standard errors treat `p(X)` as known; use the bootstrap when the

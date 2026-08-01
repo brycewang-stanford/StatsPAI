@@ -401,20 +401,101 @@ reformatted eleven files outside this workstream; those were identified
 `HEAD` version) and reverted. `registry.py` and `paper.bib` contain
 interleaved edits from several sessions.
 
+### 2026-07-31 (session 2) — Weeks 5–8 complete
+
+Everything the plan listed is now implemented. Since the first session:
+
+**[5.2] Two-step AR variance — ⚠️ correctness.** The Arellano-Bond variance
+carries a `(W'q)' Avar(β̂) (W'q)` term that was always evaluated at the
+*uncorrected* robust sandwich, even when the reported VCE was the
+Windmeijer-corrected or conventional two-step one. On the AB(1991) spec the
+two-step AR(1) z was −4.32 against Stata's −3.10 (39% error). Swapping in
+the reported VCE makes **every** AR statistic across the whole VCE menu
+exact. One-step results are untouched (the two VCEs coincide there, so the
+swap is identically zero).
+
+**[5.4] `cluster=`.** Cluster-robust SEs on a coarser unit than the panel
+id. Only the sandwich meat re-groups. Finer-than-unit clusters raise;
+multi-step GMM with fewer clusters than moments refuses rather than
+inverting a rank-deficient weight (Stata proceeds with a warning).
+
+**[6.1] Anderson-Hsiao.** `method='ah'`, levels and differences variants,
+all four exact against `xtabond2`. Implementing it exposed a real bug:
+IV-style instruments are **not** subject to Stata's `missing=0` convention
+— only GMM-style ones are — so an IV term reaching deeper than the equation
+must *shrink the sample*, not be zero-filled. Zero-filling moved the
+`G4` coefficients by up to 60%.
+
+**[6.3] `steps=`.** Any number of steps, `'iterated'` (to a fixed point) or
+`'cue'`. Tested analytically rather than against a fixture: the iterated
+estimate is verified to be an actual fixed point by re-running one step by
+hand, and CUE is verified to attain a strictly lower value of the criterion
+it is defined to minimise.
+
+**[7] `sp.gmm` rebuilt.** Closed-form path for affine moments, analytic
+`jacobian=`, `vcov=` over iid/robust/HAC/cluster, `center=`, honest
+convergence reporting. Two conventions were pinned by experiment: R's
+`sandwich` evaluates the Bartlett kernel at `lag/bw` (3% SE difference if
+mis-stated), and `gmm::gmm`'s stock `optim` tolerances stop ~1e-4 from the
+optimum — tightening R's control list moved *R* onto StatsPAI's answer, and
+an independent closed-form solve agrees to 2e-15.
+
+**[8] Performance.** Per-unit Python loops in the weight matrix, moment
+covariance, Windmeijer derivative and AR lag vector replaced by segment sums
+and banded row-pair products. 20k units × 15 periods, two-step: 2.56 s →
+1.12 s; system GMM 6.24 s → 2.94 s. `benchmarks/bench_dynpanel.py`.
+
+**AR provenance.** A consolidated sweep over all 29 Stata specs (checking
+AR statistics, not just coefficients) found two configurations where the AR
+test is a reconstruction rather than a match — and one outright bug: under
+`orthogonal=True` the statistic was computed on the FOD residuals, giving
+**+4.11 where Stata reports −3.25**, an inverted conclusion. It now runs on
+first-differenced residuals at the fitted coefficients (what "AR in first
+differences" means) and lands within 0.5–6%. Clustered AR differs ~10–14%
+on a grouping convention. Both are bounded by tests and announced in
+`model_info['ar_note']`.
+
+**Final parity.** Coefficients and standard errors: worst relative error
+**1.7e-11** across all 29 specs. AR statistics: exact except the two
+documented reconstructions.
+
+### 2026-07-31 (session 3) — conventions settled from xtabond2's source
+
+`xtabond2` ships its Mata source (`xtabond2.mata`, 58 KB). Reading
+`_ARTests` settled both outstanding AR reconstructions *exactly*, replacing
+inference-from-outputs with the implementation itself:
+
+- **AR variance is grouped by unit, never by cluster.** Both accumulations
+  (`wHw = Σ_i s_i²` and `ZHw = Σ_i Z_i'e_i · s_i`) loop `for (i = N; i; i--)`.
+  Only the third term, `(W'q)' V (W'q)`, picks up the clustering through the
+  reported VCE. StatsPAI had been grouping all three by cluster — worth
+  10-14% on the statistic. Now exact (3.6e-14).
+- **Under `orthogonal`, the AR test mixes two row spaces.** `_ARTests` takes
+  `wl`/`w` and `pX` from `_Difference(...)` — the *differenced* residuals and
+  regressors — while `ZHw` uses the estimation (FOD) instruments and
+  residuals, aligned by unit, and `m2VZXA` uses the estimator's own weight.
+  Implemented as `ar_test_cross_basis`; now exact (1e-13) for one- and
+  two-step, difference and system.
+
+The full sweep across all 29 Stata/`xtabond2` specifications — coefficients,
+standard errors **and** AR statistics — is now **1.7e-11 worst case**.
+
+`_H` confirmed the balanced-grid construction (`H = M'M` on the full T
+grid, one matrix shared by all units) that had been established empirically
+for forward orthogonal deviations.
+
 ### Remaining
 
-- **[5.2]** Windmeijer correction for the *AR-test* variance under
-  `twostep=True, robust=True`. Currently the two-step AR z differs from
-  Stata by ~0.1% (difference GMM) / ~4% (system); the inferential conclusion
-  is unchanged but the number is not Stata-exact. One-step AR statistics
-  are exact.
-- **[5.3]** `sp.estat`-style postestimation surface.
-- **[5.4]** User-supplied cluster variable for the VCE.
-- **[6]** Anderson–Hsiao, bias-corrected LSDV (Kiviet/Bruno), iterated
-  GMM/CUE.
-- **[7]** `sp.gmm` overhaul (analytic linear path, HAC/cluster weights,
-  honest CUE, convergence reporting, parity vs R `gmm::gmm` and Stata `gmm`).
-- **[8]** Vectorised/sparse instrument construction and a benchmark;
-  `docs/guides/choosing_dynamic_panel_estimator.md`; coverage sweep.
+Nothing from the original plan. Open items are new observations, not
+backlog:
+
+- The gapped-panel weight convention. Timeboxed: settling it needs
+  `xtabond2`'s full row-indexing scheme (how `touse` zeroes interact with a
+  ``T x T`` `H` on the level grid), which is a materially larger read than
+  `_ARTests` was, for a case where both estimators stay consistent and
+  `orthogonal=True` is the recommended answer regardless. The divergence is
+  bounded, tested, and warned about.
+- `xtdpdgmm`-style nonlinear (Ahn-Schmidt) moment conditions were never in
+  scope and remain unimplemented.
 
 <!-- LOG END -->

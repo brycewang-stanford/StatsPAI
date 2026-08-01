@@ -20,8 +20,10 @@ to ``'real'`` and ``df.attrs['simulated']`` to ``False``.
 
 from __future__ import annotations
 
+import warnings
 from importlib import resources
 from pathlib import Path
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -280,22 +282,28 @@ def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def nsw_lalonde(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
-    """LaLonde NSW data — simulated replica or real MatchIt extract.
+def nsw_lalonde(seed: int = 42, simulated: Optional[bool] = None) -> pd.DataFrame:
+    """LaLonde NSW data — real MatchIt extract (default) or simulated replica.
 
     Parameters
     ----------
     seed : int, default 42
         RNG seed for the simulated replica (ignored when ``simulated=False``).
-    simulated : bool, default True
-        If True, return a deterministic simulated NSW experimental
-        subset (185 + 260 = 445 rows) calibrated so naive OLS
-        recovers the Dehejia-Wahba experimental ATT of about $1,794.
-        If False, load the real ``MatchIt::lalonde`` extract bundled
-        in ``statspai/datasets/data/lalonde_matchit.csv`` — the DW NSW
+    simulated : bool, default False
+        If False (the default since 1.21.0), load the real
+        ``MatchIt::lalonde`` extract bundled in
+        ``statspai/datasets/data/lalonde_matchit.csv`` — the DW NSW
         treated cohort (185) plus a 429-unit PSID-1 subset for
         observational comparisons (n=614 total, with race factor
         already split into ``black`` and ``hispanic`` indicators).
+        If True, return a deterministic simulated NSW experimental
+        subset (185 + 260 = 445 rows) calibrated so naive OLS
+        recovers the Dehejia-Wahba experimental ATT of about $1,794.
+
+        Omitting the argument entirely resolves to False and emits a
+        ``FutureWarning`` for one minor version, because the default
+        flipped in 1.21.0 — see MIGRATION.md.  Pass the argument
+        explicitly to silence it.
 
     Notes
     -----
@@ -309,6 +317,18 @@ def nsw_lalonde(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     Simulated replica calibration
     -----------------------------
     """
+    if simulated is None:
+        warnings.warn(
+            "sp.datasets.nsw_lalonde() now returns the REAL MatchIt::lalonde "
+            "extract (n=614, naive OLS ATT approx -$635). Before 1.21.0 the "
+            "default was the simulated experimental replica (n=445, ATT "
+            "approx +$1,794), so any number you computed with the old default "
+            "will change. Pass simulated=False to accept the new default "
+            "silently, or simulated=True to keep the replica.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        simulated = False
     if not simulated:
         df = _load_bundled_csv("lalonde_matchit.csv")
         df.attrs["paper"] = (
@@ -412,9 +432,9 @@ def _nsw_lalonde_simulated(seed: int = 42) -> pd.DataFrame:
             "re78": re78,
         }
     )
-    df.attrs["paper"] = (
-        "LaLonde (1986); Dehejia & Wahba (1999). NSW experimental subset."
-    )
+    df.attrs[
+        "paper"
+    ] = "LaLonde (1986); Dehejia & Wahba (1999). NSW experimental subset."
     df.attrs["expected_experimental_att"] = 1794
     df.attrs["published_dehejia_wahba_att"] = 1794
     df.attrs["notes"] = (
@@ -623,9 +643,9 @@ def lee_2008_senate(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
     )
     df.attrs["paper"] = "Lee (2008). Journal of Econometrics 142, 675-697."
     df.attrs["expected_jump_at_cutoff"] = 0.08
-    df.attrs["published_jump_original"] = (
-        0.077  # Lee (2008) Table 4 incumbency advantage
-    )
+    df.attrs[
+        "published_jump_original"
+    ] = 0.077  # Lee (2008) Table 4 incumbency advantage
     df.attrs["notes"] = (
         "Simulated replica.  DGP coded a 0.08 jump at margin=0; the "
         "Calonico-Cattaneo-Titiunik (2014) bias-corrected ROBUST estimator "

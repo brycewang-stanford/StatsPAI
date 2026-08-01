@@ -57,6 +57,7 @@ import pandas as pd
 import pytest
 
 import statspai as sp
+from statspai.exceptions import IdentificationFailure
 
 FIXTURES = Path(__file__).parent / "_fixtures"
 DATA_CSV = FIXTURES / "dynpanel_abdata.csv"
@@ -947,3 +948,283 @@ class TestArellanoBondSerialCorrelation:
             "the two-step AR statistic fell back to the uncorrected value "
             f"(-4.32); got {got:.4f}."
         )
+
+
+# ---------------------------------------------------------------------------
+# L. Cluster-robust standard errors on a coarser unit than the panel id.
+#
+#    ``abdata`` carries an industry code (9 industries, 140 firms), so firms
+#    nest inside industries and the moment conditions are independent across
+#    industries rather than across firms.
+# ---------------------------------------------------------------------------
+
+
+class TestClusteredStandardErrors:
+    def test_difference_gmm_cluster_industry(self, abdata, stata):
+        spec = "F1_x2_diff_cluster_ind"
+        r = _fit(abdata, x=["w", "k"], lags=1, cluster="ind")
+        _assert_matches(r, stata[spec], spec)
+        assert r.model_info["n_clusters"] == 9
+        assert r.model_info["cluster"] == "ind"
+
+    def test_system_gmm_cluster_industry(self, abdata, stata):
+        spec = "F2_x2_sys_cluster_ind"
+        r = _fit(abdata, x=["w", "k"], lags=1, method="system", cluster="ind")
+        _assert_matches(r, stata[spec], spec)
+        assert r.model_info["n_clusters"] == 9
+
+    def test_clustering_moves_only_the_standard_errors(self, abdata):
+        """One-step point estimates cannot depend on the cluster grouping.
+
+        The weight matrix is ``(Z'HZ)^{-1}``, which knows nothing about
+        clusters; only the sandwich meat does. Stata agrees — ``F1``'s
+        coefficients are identical to the unclustered ``D3``'s — so this
+        pins a structural fact rather than a coincidence.
+        """
+        plain = _fit(abdata, x=["w", "k"], lags=1)
+        clustered = _fit(abdata, x=["w", "k"], lags=1, cluster="ind")
+        np.testing.assert_allclose(
+            clustered.detail["coefficient"].to_numpy(float),
+            plain.detail["coefficient"].to_numpy(float),
+            rtol=1e-14,
+            err_msg="clustering changed the one-step point estimates.",
+        )
+        assert not np.allclose(
+            clustered.detail["se"].to_numpy(float),
+            plain.detail["se"].to_numpy(float),
+        ), "clustering on 9 industries left the standard errors unchanged."
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            dict(lags=1),
+            dict(lags=1, twostep=True),
+            dict(lags=1, method="system", twostep=True),
+        ],
+        ids=["onestep", "twostep", "system-twostep"],
+    )
+    def test_cluster_on_the_panel_id_is_an_exact_no_op(self, abdata, kwargs):
+        """``cluster='id'`` *is* the default grouping — bit-identical.
+
+        The cheapest guard that the cluster plumbing re-groups the meat and
+        touches nothing else.
+        """
+        plain = _fit(abdata, x=["w", "k"], **kwargs)
+        same = _fit(abdata, x=["w", "k"], cluster="id", **kwargs)
+        for column in ("coefficient", "se"):
+            np.testing.assert_array_equal(
+                same.detail[column].to_numpy(float),
+                plain.detail[column].to_numpy(float),
+                err_msg=f"cluster='id' perturbed {column}.",
+            )
+        assert same.model_info["ar1_z"] == plain.model_info["ar1_z"]
+        assert same.model_info["n_clusters"] == plain.model_info["n_units"]
+
+    def test_twostep_with_too_few_clusters_refuses(self, abdata):
+        """A rank-deficient efficient weight must fail, not be pinv'd.
+
+        With 9 clusters and 30 moment conditions the clustered moment
+        covariance has rank at most 9, so its inverse — the two-step weight
+        — is whatever the generalized inverse happens to return. Stata
+        proceeds with a warning; StatsPAI refuses and says how to fix it,
+        because the resulting estimate is not a well-defined functional of
+        the data.
+        """
+        with pytest.raises(IdentificationFailure, match="clusters for"):
+            _fit(abdata, x=["w", "k"], lags=1, cluster="ind", twostep=True)
+
+    def test_twostep_clustering_allowed_once_moments_fit_under_cluster_count(
+        self, abdata
+    ):
+        """``collapse=True`` is the escape hatch the error message names."""
+        r = _fit(
+            abdata,
+            x=["w", "k"],
+            lags=1,
+            cluster="ind",
+            twostep=True,
+            collapse=True,
+            gmm_lags=(2, 4),
+        )
+        assert r.model_info["n_instruments"] < r.model_info["n_clusters"]
+        assert np.isfinite(r.detail["se"]).all()
+
+    def test_cluster_finer_than_the_unit_is_rejected(self, abdata):
+        """Clustering below the unit is incoherent for this estimator."""
+        with pytest.raises(ValueError, match="varies within unit"):
+            _fit(abdata, x=["w", "k"], lags=1, cluster="year")
+
+    def test_missing_cluster_values_are_rejected(self, abdata):
+        holed = abdata.copy()
+        holed.loc[holed["id"] == holed["id"].iloc[0], "ind"] = np.nan
+        with pytest.raises(ValueError, match="missing for"):
+            _fit(holed, x=["w", "k"], lags=1, cluster="ind")
+
+
+# ---------------------------------------------------------------------------
+# M. Anderson-Hsiao (1981) simple IV.
+#
+#    Reference: xtabond2 with a single pooled instrument —
+#      levels       gmm(L.n, lag(1 1) collapse) noleveleq
+#      differences  iv(L2.n, equation(diff))    noleveleq
+# ---------------------------------------------------------------------------
+
+
+class TestAndersonHsiao:
+    def test_levels_instrument(self, abdata, stata):
+        spec = "G1_ah_levels"
+        r = _fit(abdata, lags=1, method="ah")
+        _assert_matches(r, stata[spec], spec)
+        _assert_sample(r, stata[spec], spec, instrument_key="j")
+        assert r.model_info["n_instruments"] == 1, "AH must be just identified"
+
+    def test_differences_instrument(self, abdata, stata):
+        spec = "G2_ah_differences"
+        r = _fit(abdata, lags=1, method="ah", ah_instrument="differences")
+        _assert_matches(r, stata[spec], spec)
+        _assert_sample(r, stata[spec], spec, instrument_key="j")
+
+    def test_levels_instrument_with_covariates(self, abdata, stata):
+        spec = "G3_ah_levels_wk"
+        r = _fit(abdata, x=["w", "k"], lags=1, method="ah")
+        _assert_matches(r, stata[spec], spec)
+        _assert_sample(r, stata[spec], spec, instrument_key="j")
+
+    def test_differences_instrument_with_covariates(self, abdata, stata):
+        """The case that exposed the IV-sample rule.
+
+        ``D.L2.n`` reaches back to ``n_{t-3}``, one period deeper than the
+        equation itself, so it must *shrink the sample* (751 -> 611) rather
+        than be zero-filled: only GMM-style instruments carry Stata's
+        ``missing=0`` convention. With the covariate instruments present the
+        difference is not cosmetic — zero-filling moved the coefficients by
+        up to 60%.
+        """
+        spec = "G4_ah_differences_wk"
+        r = _fit(abdata, x=["w", "k"], lags=1, method="ah", ah_instrument="differences")
+        _assert_matches(r, stata[spec], spec)
+        _assert_sample(r, stata[spec], spec, instrument_key="j")
+        assert r.model_info["n_obs"] == 611
+        assert (
+            _fit(abdata, x=["w", "k"], lags=1, method="ah").model_info["n_obs"] == 751
+        )
+
+    def test_anderson_hsiao_is_a_moment_subset_of_arellano_bond(self, abdata):
+        """AH uses strictly fewer moments; both stay consistent.
+
+        This is why AH is worth reporting next to an AB fit: it cannot be
+        driven by instrument proliferation, so a large gap between the two
+        points at the instrument set rather than at the data.
+        """
+        ah = _fit(abdata, x=["w", "k"], lags=1, method="ah")
+        ab = _fit(abdata, x=["w", "k"], lags=1)
+        assert ah.model_info["n_instruments"] < ab.model_info["n_instruments"]
+        assert ah.model_info["n_instruments"] == ah.model_info["n_regressors"]
+
+    def test_rejects_an_unknown_instrument_choice(self, abdata):
+        with pytest.raises(ValueError, match="ah_instrument"):
+            _fit(abdata, lags=1, method="ah", ah_instrument="nonsense")
+
+
+# ---------------------------------------------------------------------------
+# N. Arellano-Bond statistics where StatsPAI reconstructs rather than matches.
+#
+#    Coefficients and standard errors are exact everywhere. The AR statistic
+#    is not, in two configurations, and both are bounded and announced in
+#    ``model_info['ar_note']`` rather than left to look Stata-identical.
+# ---------------------------------------------------------------------------
+
+
+class TestARStatisticsAcrossTransforms:
+    """AR statistics are exact for every transform and variance grouping.
+
+    Two configurations used to be reconstructions rather than matches, and
+    ``xtabond2``'s own source settled both:
+
+    * under ``orthogonal=True`` the test is on *first differences* while the
+      estimator ran on orthogonal deviations, so ``_ARTests`` mixes the two
+      row spaces unit by unit. Computing it entirely on the FOD residuals
+      gave +4.11 where Stata reports -3.25 — an inverted conclusion.
+    * ``wHw`` and ``ZHw`` are accumulated ``for (i = N; i; i--)`` — over
+      *units*, never over clusters. Only the coefficient-variance term picks
+      up ``cluster=``. Grouping all three by cluster moved the statistic
+      10-14%.
+    """
+
+    ORTHOGONAL_CASES = [
+        ("D7_x2_fod_diff", dict(x=["w", "k"], lags=1, orthogonal=True)),
+        (
+            "D10_x2_fod_diff_2step",
+            dict(x=["w", "k"], lags=1, orthogonal=True, twostep=True),
+        ),
+        (
+            "D9_x2_fod_sys_1step",
+            dict(x=["w", "k"], lags=1, method="system", orthogonal=True),
+        ),
+        (
+            "D8_x2_fod_sys_2step",
+            dict(x=["w", "k"], lags=1, method="system", orthogonal=True, twostep=True),
+        ),
+    ]
+
+    CLUSTER_CASES = [
+        ("F1_x2_diff_cluster_ind", dict(x=["w", "k"], lags=1, cluster="ind")),
+        (
+            "F2_x2_sys_cluster_ind",
+            dict(x=["w", "k"], lags=1, method="system", cluster="ind"),
+        ),
+        ("F4_x2_diff_cluster_id", dict(x=["w", "k"], lags=1, cluster="id")),
+    ]
+
+    @pytest.mark.parametrize(
+        "spec,kwargs", ORTHOGONAL_CASES, ids=[c[0] for c in ORTHOGONAL_CASES]
+    )
+    def test_orthogonal_ar_matches_xtabond2(self, abdata, stata, spec, kwargs):
+        r = _fit(abdata, **kwargs)
+        e = stata[spec]["e"]
+        for order in (1, 2):
+            np.testing.assert_allclose(
+                r.model_info[f"ar{order}_z"],
+                e[f"ar{order}"],
+                rtol=1e-9,
+                err_msg=(
+                    f"[{spec}] AR({order}) z under orthogonal deviations "
+                    "differs from xtabond2."
+                ),
+            )
+        assert r.model_info["ar1_z"] < 0, (
+            "AR(1) came out positive — the test is being computed on the "
+            "orthogonal deviations instead of on first differences."
+        )
+
+    @pytest.mark.parametrize(
+        "spec,kwargs", CLUSTER_CASES, ids=[c[0] for c in CLUSTER_CASES]
+    )
+    def test_clustered_ar_matches_xtabond2(self, abdata, stata, spec, kwargs):
+        r = _fit(abdata, **kwargs)
+        e = stata[spec]["e"]
+        for order in (1, 2):
+            np.testing.assert_allclose(
+                r.model_info[f"ar{order}_z"],
+                e[f"ar{order}"],
+                rtol=1e-8,
+                err_msg=f"[{spec}] clustered AR({order}) z differs from xtabond2.",
+            )
+
+    def test_clustering_leaves_the_ar_grouping_alone(self, abdata):
+        """Only the coefficient-variance term may notice the clustering.
+
+        A pure regrouping check: clustering on the panel id is the default
+        grouping, so it cannot move the AR statistic at all, while
+        clustering on industry moves it only through the reported VCE.
+        """
+        plain = _fit(abdata, x=["w", "k"], lags=1)
+        same = _fit(abdata, x=["w", "k"], lags=1, cluster="id")
+        coarser = _fit(abdata, x=["w", "k"], lags=1, cluster="ind")
+        assert same.model_info["ar1_z"] == plain.model_info["ar1_z"]
+        assert coarser.model_info["ar1_z"] != plain.model_info["ar1_z"]
+
+    def test_orthogonal_coefficients_remain_exact(self, abdata, stata):
+        """The AR rework must not have disturbed the estimator itself."""
+        for spec, kwargs in self.ORTHOGONAL_CASES:
+            _assert_matches(_fit(abdata, **kwargs), stata[spec], spec)

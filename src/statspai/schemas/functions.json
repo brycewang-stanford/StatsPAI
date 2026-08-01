@@ -1647,6 +1647,19 @@
     "name": "xtabond",
     "parameters": {
       "properties": {
+        "ah_instrument": {
+          "default": "levels",
+          "description": "Anderson-Hsiao instrument for method='ah'",
+          "enum": [
+            "levels",
+            "differences"
+          ],
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster SEs on a coarser unit than the panel id (must be constant within unit)",
+          "type": "string"
+        },
         "collapse": {
           "default": false,
           "description": "Collapse instruments (Roodman 2009) to curb proliferation",
@@ -1694,6 +1707,10 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "steps": {
+          "description": "Number of GMM steps, or 'iterated' / 'cue'",
+          "type": "string"
         },
         "time": {
           "default": "time",
@@ -9095,6 +9112,88 @@
         "y",
         "group",
         "time"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "name": "panel_qtet",
+    "parameters": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "data": {
+          "description": "Long panel",
+          "type": "string"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer"
+        },
+        "quantiles": {
+          "description": "quantiles parameter (list).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "se": {
+          "default": "bootstrap",
+          "description": "SE method",
+          "enum": [
+            "bootstrap",
+            "none"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "t": {
+          "description": "Post-period VALUE of time",
+          "type": "string"
+        },
+        "time": {
+          "description": "Period",
+          "type": "string"
+        },
+        "tmin1": {
+          "description": "Pre-period VALUE of time",
+          "type": "string"
+        },
+        "tmin2": {
+          "description": "Pre-pre-period VALUE; identifies the copula",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Binary treatment",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit id",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "data",
+        "y",
+        "treat",
+        "unit",
+        "time",
+        "t",
+        "tmin1",
+        "tmin2"
       ],
       "type": "object"
     }
@@ -22422,7 +22521,7 @@
     }
   },
   {
-    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels.",
+    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "xtlsdvc",
     "parameters": {
       "properties": {

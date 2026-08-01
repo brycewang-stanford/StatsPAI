@@ -244,14 +244,14 @@ with `sp.describe_function("beyond_average_late")`, etc.*
 ## For Agents
 
 **Pre-conditions**
-- binary or continuous treatment (method='quantile_regression' supports both; 'ipw' needs binary)
+- binary treatment (all methods)
 - continuous outcome
-- controls cover the confounding set (for 'quantile_regression')
-- overlap when method='ipw'
+- controls cover the confounding set
+- overlap 0 < e(x) < 1 for the Firpo and distribution methods
 
 **Identifying assumptions**
-- For 'quantile_regression': unconfoundedness conditional on controls
-- For 'ipw': unconfoundedness + overlap 0 < e(x) < 1
+- For 'firpo_qte' / 'firpo_qtt' / 'distribution': unconfoundedness + overlap
+- For 'conditional_qr': unconfoundedness conditional on controls; note this is a CONDITIONAL estimand with no causal reading absent rank invariance
 - Correct parametric quantile model (sensitivity tested via multiple quantiles)
 
 **Failure modes → recovery**

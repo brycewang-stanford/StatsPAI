@@ -29,6 +29,9 @@ version 18
 clear all
 set more off
 
+* xtabond2's cluster() option is only available in speed-favouring mode.
+mata: mata set matafavor speed, perm
+
 * ---------------------------------------------------------------------------
 * dp_dump: append every coefficient, SE and e()-scalar of the last estimation
 * to the long CSV under a spec label.  Generic over commands (xtabond,
@@ -71,7 +74,7 @@ xtset id year
 
 * Full-precision export of the columns the parity tests use.
 preserve
-keep id year n w k ys yr1976-yr1984
+keep id year ind n w k ys yr1976-yr1984
 format n w k ys %21.16e
 export delimited using "dynpanel_abdata.csv", replace datafmt
 restore
@@ -199,6 +202,72 @@ dp_dump, spec(D9_x2_fod_sys_1step)
 xtabond2 n L.n w k, gmm(L.n, lag(1 .)) iv(w k, equation(diff)) ///
     noleveleq noconstant orthogonal twostep robust
 dp_dump, spec(D10_x2_fod_diff_2step)
+
+* ---------------------------------------------------------------------------
+* F. Clustering on a coarser unit than the panel id (industry).  The moment
+*    conditions are then independent across industries, not across firms, so
+*    only the meat of the sandwich re-groups -- the one-step weight Z'HZ is a
+*    within-firm object either way.
+* ---------------------------------------------------------------------------
+xtabond2 n L.n w k, gmm(L.n, lag(1 .)) iv(w k, equation(diff)) ///
+    noleveleq noconstant cluster(ind)
+dp_dump, spec(F1_x2_diff_cluster_ind)
+
+xtabond2 n L.n w k, gmm(L.n, lag(1 .)) iv(w k) cluster(ind)
+dp_dump, spec(F2_x2_sys_cluster_ind)
+
+* F4 sanity anchor: cluster(id) IS the default unit clustering, so this must
+* reproduce the plain robust fit exactly.
+xtabond2 n L.n w k, gmm(L.n, lag(1 .)) iv(w k, equation(diff)) ///
+    noleveleq noconstant cluster(id)
+dp_dump, spec(F4_x2_diff_cluster_id)
+
+* ---------------------------------------------------------------------------
+* G. Anderson-Hsiao (1981) simple IV: ONE pooled instrument for the
+*    differenced lagged dependent variable rather than Arellano-Bond's
+*    block-diagonal set.  Two classical variants:
+*      levels       instrument L2.y    -> gmm(L.y, lag(1 1) collapse)
+*      differences  instrument D.L2.y  -> iv(L2.y, equation(diff))
+* ---------------------------------------------------------------------------
+xtabond2 n L.n, gmm(L.n, lag(1 1) collapse) noleveleq noconstant robust
+dp_dump, spec(G1_ah_levels)
+
+xtabond2 n L.n, iv(L2.n, equation(diff)) noleveleq noconstant robust
+dp_dump, spec(G2_ah_differences)
+
+xtabond2 n L.n w k, gmm(L.n, lag(1 1) collapse) iv(w k, equation(diff)) ///
+    noleveleq noconstant robust
+dp_dump, spec(G3_ah_levels_wk)
+
+xtabond2 n L.n w k, iv(L2.n w k, equation(diff)) noleveleq noconstant robust
+dp_dump, spec(G4_ah_differences_wk)
+
+* ---------------------------------------------------------------------------
+* H. Bias-corrected LSDV (Bruno 2005, `xtlsdvc`).  The within estimator's
+*    Nickell bias is estimated from a consistent initial estimator and
+*    subtracted; the three initialisers and the three expansion orders are
+*    the whole option surface.
+*    NOTE: xtlsdvc's reported SEs are the LSDV ones (it says so); only the
+*    coefficients are meaningful without bootstrap(), so only those are
+*    compared.
+* ---------------------------------------------------------------------------
+xtlsdvc n w k, initial(ab) bias(2)
+dp_dump, spec(H1_lsdvc_ab_b2)
+
+xtlsdvc n w k, initial(ah) bias(2)
+dp_dump, spec(H2_lsdvc_ah_b2)
+
+xtlsdvc n w k, initial(bb) bias(2)
+dp_dump, spec(H3_lsdvc_bb_b2)
+
+xtlsdvc n w k, initial(ab) bias(1)
+dp_dump, spec(H4_lsdvc_ab_b1)
+
+xtlsdvc n w k, initial(ab) bias(3)
+dp_dump, spec(H5_lsdvc_ab_b3)
+
+xtlsdvc n, initial(ab) bias(2)
+dp_dump, spec(H6_lsdvc_ar1_only)
 
 * ---------------------------------------------------------------------------
 * E. xtdpdsys -- Stata's built-in Blundell-Bond, a second system anchor.

@@ -5,6 +5,50 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="nsw-lalonde-default-simulated-false"></a>
+
+## Unreleased — `sp.datasets.nsw_lalonde()` now defaults to the real data
+
+**What changed.** The `simulated` parameter's default flipped from `True` to
+`False`. A bare `sp.datasets.nsw_lalonde()` now returns the real
+`MatchIt::lalonde` extract instead of the simulated experimental replica:
+
+| | old default (`simulated=True`) | new default (`simulated=False`) |
+| --- | --- | --- |
+| shape | `(445, 10)` | `(614, 11)` |
+| columns | no `hispanic` | adds `black`, `hispanic` |
+| naive OLS ATT | ≈ **+$1,794** | ≈ **−$635** |
+| `df.attrs['data_source']` | `'simulated'` | `'real'` |
+
+**Why.** The old default was a quiet correctness trap. `sp.datasets`'s own
+first example is a bare `nsw_lalonde()`, so a reader following the docs got
+simulated numbers that match no published table while believing they were
+looking at LaLonde's data. Defaulting to the real extract makes the honest
+path the default one; the replica stays available and is still the right
+choice when you want the *experimental* subset.
+
+**Migration.**
+
+```python
+# Want the real MatchIt::lalonde extract (the new default) — be explicit:
+df = sp.datasets.nsw_lalonde(simulated=False)
+
+# Want the simulated experimental replica (the old default):
+df = sp.datasets.nsw_lalonde(simulated=True)
+```
+
+Omitting the argument still works and resolves to `simulated=False`, but
+emits a `FutureWarning` for one minor version, because any number you
+computed with the old default changes. Passing the argument explicitly —
+either value — silences it. The warning is scheduled for removal in 1.22.0,
+after which the signature becomes a plain `simulated: bool = False`.
+
+**Offline note.** The real extract is a CSV bundled in the wheel under
+`statspai/datasets/data/`, so this default needs no network. Verified by
+loading it in a clean venv built from the wheel with `socket` hard-blocked.
+
+---
+
 <a id="ltmle-influence-curve-martingale-term"></a>
 
 ## Unreleased — ⚠️ `sp.ltmle` standard errors were 250–400× too small
@@ -74,6 +118,63 @@ Switch to `se='robust'`, or use a weight-updating method (`'twostep'`,
 `'iid'`, `'hac'`, `'cluster'`), `cluster=`, `hac_bandwidth=`, and `center=` —
 moment centring, which R `gmm` does by default and Stata does not. `center`
 defaults to Stata's convention, so existing results are unchanged.
+
+---
+
+<a id="xtabond-twostep-ar-test"></a>
+
+## Unreleased - `sp.xtabond` two-step AR(1)/AR(2) statistics changed
+
+**What changed.** The Arellano-Bond serial-correlation test variance
+decomposes into three terms, the last of which is
+`(W'q)' Avar(beta) (W'q)`. StatsPAI always evaluated it at the uncorrected
+robust sandwich. When `twostep=True` the *reported* VCE is either the
+Windmeijer-corrected one (`robust=True`) or the conventional
+`(W'ZA2Z'W)^-1` (`robust=False`), so the test was using a variance the
+coefficient table did not.
+
+**Who is affected.** Only `twostep=True` fits, and only the `ar1_z` /
+`ar1_p` / `ar2_z` / `ar2_p` fields - coefficients and standard errors are
+untouched. One-step fits are bit-identical: there the reported and naive
+VCEs are the same matrix and the correction is exactly zero.
+
+**How large was the error.** On Stata's `abdata`:
+
+| spec | old AR(1) z | new | Stata |
+| --- | --- | --- | --- |
+| `lags=1, twostep=True` | -2.2438 | -2.1000 | -2.1000 |
+| AB(1991) Table 4, `twostep=True` | -4.3229 | -3.1030 | -3.1030 |
+
+**What to do.** Re-read any AR(2) conclusion drawn from a two-step fit. The
+direction of the change is not uniform - it can move the statistic either
+way - so a previously "passing" AR(2) test is not automatically safe.
+
+---
+
+<a id="gmm-unadjusted-se"></a>
+
+## Unreleased - `sp.gmm(se='unadjusted')` now reports the efficient-GMM variance
+
+**What changed.** `se='unadjusted'` used to return `(D'WD)^-1/n` for
+whatever weight matrix `W` was in force. That expression is the variance of
+the GMM estimator **only when `W` is efficient** (`W = S^-1`); with any
+other weight the estimator's variance is the sandwich
+`(D'WD)^-1 D'W S W D (D'WD)^-1 / n`, which is generally larger. The
+reported standard errors were therefore too small in exactly the case a
+user reaches for a custom `W`.
+
+It now returns `(D' S^-1 D)^-1/n` - the efficiency bound - and warns when
+the weight actually used is not efficient, pointing at `se='robust'`.
+
+**Who is affected.** Only calls that combined `se='unadjusted'` with a
+non-efficient weight: `method='onestep'` with an explicit `W=`, or the
+identity default. Two-step, iterated and CUE fits are **unchanged**,
+because at the efficient weight `(D'WD)^-1` and `(D'S^-1 D)^-1` are the
+same matrix.
+
+**What to do.** Nothing if you used the default `se='robust'`. If you
+relied on `se='unadjusted'` with a custom weight, switch to `se='robust'`:
+that is the variance of the estimator you actually computed.
 
 ---
 

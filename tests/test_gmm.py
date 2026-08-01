@@ -480,3 +480,175 @@ class TestInstrumentProliferationGuardrail:
         assert res.model_info["n_instruments"] < res.model_info["n_units"]
         assert not any("instruments for" in str(w.message) for w in caught)
         assert "instrument_warning" not in res.model_info
+
+
+class TestMultiStepGMM:
+    """Iterated GMM and the continuously-updated estimator.
+
+    Neither has a Stata reference here (``xtabond`` and ``xtabond2`` stop at
+    two steps), so these are *analytic* tests of the properties that define
+    each estimator rather than tolerance comparisons against a fixture. That
+    is the stronger check: a fixed point and an argmin are exact
+    mathematical statements about the returned vector, verifiable from the
+    design matrices alone.
+    """
+
+    @staticmethod
+    def _panel(seed=5, N=120, T=7, rho=0.6):
+        rng = np.random.default_rng(seed)
+        rows = []
+        for i in range(N):
+            a = rng.normal()
+            y = a / (1 - rho) + rng.normal()
+            for _ in range(20):
+                x = rng.normal()
+                y = rho * y + x + a + rng.normal()
+            for t in range(T):
+                x = rng.normal()
+                y = rho * y + x + a + rng.normal()
+                rows.append({"id": i, "time": t, "y": y, "x": x})
+        return pd.DataFrame(rows)
+
+    @staticmethod
+    def _objective(design, beta):
+        """``g(beta)' Omega(beta)^{-1} g(beta)`` — the CUE criterion."""
+        from statspai.gmm._dynpanel._estimate import moment_covariance
+
+        resid = design.dy - design.W @ beta
+        omega = moment_covariance(design.Z, resid, design.meat_rows)
+        g = design.Z.T @ resid
+        return float(g @ np.linalg.pinv(omega) @ g)
+
+    def _fit(self, df, **kwargs):
+        from statspai.gmm._dynpanel import fit_dynamic_panel
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            return fit_dynamic_panel(
+                df, y="y", x=["x"], id="id", time="time", lags=1, **kwargs
+            )
+
+    def test_steps_2_is_exactly_twostep(self):
+        """The new parameter must not perturb the old path."""
+        df = self._panel()
+        old = self._fit(df, twostep=True)
+        new = self._fit(df, steps=2)
+        np.testing.assert_array_equal(old["beta"], new["beta"])
+        np.testing.assert_array_equal(old["se"], new["se"])
+
+    def test_iterated_reaches_a_genuine_fixed_point(self):
+        """One more step from the converged iterate must not move it.
+
+        This is what "iterated" *means*: beta and the weight matrix its own
+        residuals imply are mutually consistent. Re-running the recursion by
+        hand from the reported estimate is an independent check — it does
+        not reuse the loop under test.
+        """
+        from statspai.gmm._dynpanel._estimate import (
+            gmm_solve,
+            moment_covariance,
+            safe_inv,
+        )
+
+        df = self._panel()
+        fit = self._fit(df, steps="iterated")
+        assert fit["converged"] is True
+        design = fit["design"]
+        beta = np.asarray(fit["beta"], dtype=float)
+        resid = design.dy - design.W @ beta
+        weight = safe_inv(moment_covariance(design.Z, resid, design.meat_rows), "check")
+        beta_next, _, _ = gmm_solve(design.W, design.Z, design.dy, weight)
+        np.testing.assert_allclose(
+            beta_next,
+            beta,
+            atol=1e-8,
+            err_msg=(
+                "one further GMM step moved the 'converged' iterated estimate "
+                "— it is not a fixed point."
+            ),
+        )
+
+    def test_iterated_differs_from_twostep(self):
+        """Guard against 'iterated' silently degenerating into two-step."""
+        df = self._panel()
+        two = self._fit(df, steps=2)
+        it = self._fit(df, steps="iterated")
+        assert it["steps"] > 2
+        assert not np.allclose(it["beta"], two["beta"], atol=1e-6)
+
+    def test_cue_attains_a_lower_criterion_than_two_step(self):
+        """CUE minimises the criterion the others only evaluate.
+
+        The continuously-updated estimator is *defined* as the argmin of
+        ``g(b)' Omega(b)^{-1} g(b)``, so its value there must be no larger
+        than at the two-step or iterated estimates. Catches an optimiser
+        that silently returned its starting point.
+        """
+        df = self._panel()
+        design = self._fit(df, steps=2)["design"]
+        q_two = self._objective(design, self._fit(df, steps=2)["beta"])
+        q_iter = self._objective(design, self._fit(df, steps="iterated")["beta"])
+        q_cue = self._objective(design, self._fit(df, steps="cue")["beta"])
+        assert q_cue <= q_two + 1e-8, f"CUE {q_cue:.6f} worse than two-step {q_two:.6f}"
+        assert (
+            q_cue <= q_iter + 1e-8
+        ), f"CUE {q_cue:.6f} worse than iterated {q_iter:.6f}"
+        assert q_cue < q_two - 1e-6, (
+            "CUE returned the two-step criterion value exactly — the optimiser "
+            "almost certainly did not move."
+        )
+
+    @pytest.mark.parametrize(
+        "spec",
+        [dict(steps=1), dict(steps=2), dict(steps="iterated"), dict(steps="cue")],
+        ids=["onestep", "twostep", "iterated", "cue"],
+    )
+    def test_every_variant_is_consistent_for_rho(self, spec):
+        """Consistency is shared; only efficiency differs.
+
+        Averaging over 8 independent panels cancels per-draw sampling noise
+        (single draws range 0.47-0.76 at N=120, T=7), so the Monte-Carlo
+        mean is a sharp probe of *systematic* bias. Probed means: one-step
+        0.627, two-step 0.620, iterated 0.617, CUE 0.634 against a truth of
+        0.600, with a 4*SD/sqrt(8) band of ~0.11 — a broken recursion that
+        drifted toward the Nickell-biased within estimator (~0.45 here)
+        fails, honest sampling noise cannot.
+        """
+        rhos = np.array(
+            [
+                float(
+                    self._fit(self._panel(seed=seed), collapse=True, **spec)["beta"][0]
+                )
+                for seed in range(8)
+            ]
+        )
+        band = 4.0 * rhos.std(ddof=1) / np.sqrt(rhos.size)
+        assert abs(rhos.mean() - 0.6) <= band, (
+            f"{spec}: Monte-Carlo mean rho {rhos.mean():.4f} drifted from 0.6 "
+            f"(band {band:.4f}, SD {rhos.std(ddof=1):.4f})."
+        )
+
+    def test_rejects_contradictory_step_arguments(self):
+        df = self._panel()
+        with pytest.raises(ValueError, match="either twostep= or steps="):
+            self._fit(df, twostep=True, steps=2)
+        with pytest.raises(ValueError, match="steps must be"):
+            self._fit(df, steps=0)
+        with pytest.raises(ValueError, match="steps must be"):
+            self._fit(df, steps="nonsense")
+
+    def test_non_convergence_warns_rather_than_returning_quietly(self):
+        df = self._panel()
+        from statspai.gmm._dynpanel import fit_dynamic_panel
+
+        with pytest.warns(UserWarning, match="did not converge"):
+            fit_dynamic_panel(
+                df,
+                y="y",
+                x=["x"],
+                id="id",
+                time="time",
+                lags=1,
+                steps="iterated",
+                iter_maxiter=3,
+            )

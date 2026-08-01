@@ -2549,6 +2549,30 @@ def _build_registry() -> None:
                     False,
                     "Add period dummies as regressors and instruments",
                 ),
+                ParamSpec(
+                    "steps",
+                    "object",
+                    False,
+                    None,
+                    "Number of GMM steps, or 'iterated' / 'cue'",
+                ),
+                ParamSpec(
+                    "cluster",
+                    "str",
+                    False,
+                    description=(
+                        "Cluster SEs on a coarser unit than the panel id "
+                        "(must be constant within unit)"
+                    ),
+                ),
+                ParamSpec(
+                    "ah_instrument",
+                    "str",
+                    False,
+                    "levels",
+                    "Anderson-Hsiao instrument for method='ah'",
+                    ["levels", "differences"],
+                ),
             ],
             returns="CausalResult",
             example='sp.xtabond(df, y="output", x=["capital", "labor"], id="firm", time="year")',
@@ -8582,6 +8606,94 @@ def _build_registry() -> None:
             ],
             alternatives=["qte", "did", "rifreg"],
             typical_n_min=500,
+        )
+    )
+
+    register(
+        FunctionSpec(
+            name="panel_qtet",
+            category="causal",
+            description=(
+                "Callaway & Li (2019) quantile treatment effect on the treated "
+                "for panel data. Recovers the counterfactual DISTRIBUTION of "
+                "untreated outcomes for the treated group via distributional "
+                "DiD plus a copula-stability assumption. Needs a balanced "
+                "THREE-period panel (the third period identifies the copula). "
+                "Exact parity with R qte::panel.qtet (6.8e-12)."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True, description="Long panel"),
+                ParamSpec("y", "str", True, description="Outcome"),
+                ParamSpec("treat", "str", True, description="Binary treatment"),
+                ParamSpec("unit", "str", True, description="Unit id"),
+                ParamSpec("time", "str", True, description="Period"),
+                ParamSpec("t", "Any", True, description="Post-period VALUE of time"),
+                ParamSpec("tmin1", "Any", True, description="Pre-period VALUE of time"),
+                ParamSpec(
+                    "tmin2",
+                    "Any",
+                    True,
+                    description="Pre-pre-period VALUE; identifies the copula",
+                ),
+                ParamSpec("quantiles", "list", False),
+                ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "se",
+                    "str",
+                    False,
+                    "bootstrap",
+                    "SE method",
+                    ["bootstrap", "none"],
+                ),
+                ParamSpec("n_boot", "int", False, 200),
+                ParamSpec("seed", "int", False, 0),
+            ],
+            returns="QTEResult",
+            example=(
+                'sp.panel_qtet(df, y="re", treat="treat", unit="id", '
+                'time="year", t=1978, tmin1=1975, tmin2=1974)'
+            ),
+            tags=["qte", "qtt", "did", "panel", "distributional", "causal"],
+            reference=("Callaway & Li (2019) Quantitative Economics 10(4), 1579-1618"),
+            pre_conditions=[
+                "balanced panel over three periods",
+                "binary treatment, read at period t",
+                "continuous outcome (mass points distort the rank map)",
+            ],
+            assumptions=[
+                "Distributional DiD",
+                "Copula stability: the dependence between the period-t change "
+                "and the period-(t-1) level equals that between the "
+                "period-(t-1) change and the period-(t-2) level, for the "
+                "treated. Untestable at t, but checked on the untreated group "
+                "and reported in model_info['copula_check'].",
+                "Continuous outcome: with mass points the rank map is not "
+                "measure-preserving; model_info['coherence_check'] flags it.",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="Outcome has mass points (e.g. many zero earnings)",
+                    exception="statspai.AssumptionWarning",
+                    remedy=(
+                        "The rank map collapses tied units onto one value and "
+                        "the QTT curve is distorted; the reported ATT (a mean "
+                        "DiD) is unaffected. Use sp.cic bounds for discrete "
+                        "outcomes."
+                    ),
+                    alternative="sp.cic",
+                ),
+                FailureMode(
+                    symptom="Only two periods available",
+                    exception="statspai.DataInsufficient",
+                    remedy=(
+                        "Callaway-Li needs a third period to identify the "
+                        "copula. Use sp.qdid(method='cic') on two periods."
+                    ),
+                    alternative="sp.cic",
+                ),
+            ],
+            alternatives=["cic", "qdid", "qte", "ddd"],
+            typical_n_min=200,
         )
     )
 

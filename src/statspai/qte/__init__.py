@@ -17,13 +17,14 @@ Firpo, S. (2007).
     *Econometrica*, 75(1), 259-276. [@firpo2007efficient]
 """
 
-from .qte import qdid, qte, QTEResult
-from .distributional import distributional_te, DTEResult
+from .beyond_average import BeyondAverageResult, beyond_average_late
 
 # v0.10 distributional / panel QTE frontier
-from .dist_iv import dist_iv, kan_dlate, DistIVResult
-from .hd_panel import qte_hd_panel, HDPanelQTEResult
-from .beyond_average import beyond_average_late, BeyondAverageResult
+from .dist_iv import DistIVResult, dist_iv, kan_dlate
+from .distributional import DTEResult, distributional_te
+from .hd_panel import HDPanelQTEResult, qte_hd_panel
+from .panel_qtet import panel_qtet
+from .qte import QTEResult, qdid, qte
 
 __all__ = [
     "qdid",
@@ -38,4 +39,5 @@ __all__ = [
     "HDPanelQTEResult",
     "beyond_average_late",
     "BeyondAverageResult",
+    "panel_qtet",
 ]

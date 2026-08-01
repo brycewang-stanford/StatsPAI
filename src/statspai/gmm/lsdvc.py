@@ -170,7 +170,7 @@ def xtlsdvc(
     x_terms = parse_terms(x)
     base_vars = list(dict.fromkeys([t.var for t in x_terms]))
     panel = build_panel_arrays(data, id, time, [y] + base_vars)
-    n_units, n_periods = panel.n_units, panel.n_periods
+    n_periods = panel.n_periods
     if n_periods < 3:
         raise ValueError(
             f"LSDVC needs at least 3 periods to form a lag and a within "
@@ -278,11 +278,11 @@ def xtlsdvc(
         WMW += Wi.T @ M @ Wi
         WPMW += Wi.T @ (P @ M) @ Wi
         WPPW += Wi.T @ (P @ P.T) @ Wi
-        uMu += float(ei.T @ M @ ei)
+        uMu += float((ei.T @ M @ ei).item())
 
     sigma2 = uMu / max(dof_sum - k, 1.0)
     Q = np.linalg.inv(WMW + sigma2 * tr["PtP"] * (e1 @ e1.T))
-    q11 = float(e1.T @ Q @ e1)
+    q11 = float((e1.T @ Q @ e1).item())
     Qe1 = Q @ e1
 
     bias = sigma2 * tr["P"] * Qe1

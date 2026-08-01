@@ -34,9 +34,9 @@ import pandas as pd
 from scipy import stats
 
 from .._aliases import accepts_aliases
+from .._result_serialize import ResultProtocolMixin
 from ..core.results import EconometricResults
 from ..exceptions import AssumptionWarning, DataInsufficient, MethodIncompatibility
-from .._result_serialize import ResultProtocolMixin
 
 _PANEL_ALTERNATIVES = ["sp.panel", "sp.panel_compare", "sp.feols"]
 
@@ -521,12 +521,14 @@ _METHOD_ALIASES = {
     "arellano_bond": "ab",
     "diff_gmm": "ab",
     "system": "system",
+    "ah": "ah",
+    "anderson_hsiao": "ah",
     "blundell_bond": "system",
     "sys_gmm": "system",
 }
 
 _LINEARMODELS_METHODS = {"fe", "re", "be", "fd", "pooled", "twoway"}
-_GMM_METHODS = {"ab", "system"}
+_GMM_METHODS = {"ab", "system", "ah"}
 _CRE_METHODS = {"mundlak", "chamberlain"}
 
 
@@ -910,7 +912,7 @@ def _dispatch_panel_impl(
             entity=entity,
             time=time,
             formula=formula,
-            gmm_method="difference" if canonical == "ab" else "system",
+            gmm_method={"ab": "difference", "system": "system", "ah": "ah"}[canonical],
             lags=lags,
             gmm_lags=gmm_lags,
             twostep=twostep,
@@ -1046,6 +1048,7 @@ _METHOD_NAMES = {
     "chamberlain": "Chamberlain CRE",
     "ab": "Arellano-Bond GMM",
     "system": "Blundell-Bond System GMM",
+    "ah": "Anderson-Hsiao IV",
 }
 
 
@@ -1617,7 +1620,7 @@ def _fit_gmm(
         params = causal_result.params
         std_errors = causal_result.std_errors
 
-    method_key = "ab" if gmm_method == "difference" else "system"
+    method_key = {"difference": "ab", "system": "system", "ah": "ah"}[gmm_method]
 
     model_info = {
         "model_type": _METHOD_NAMES.get(method_key, gmm_method),

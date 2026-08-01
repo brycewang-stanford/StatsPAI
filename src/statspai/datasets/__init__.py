@@ -5,8 +5,10 @@ throughout the causal-inference literature, consolidated under a
 single import path ``sp.datasets``:
 
 >>> import statspai as sp
->>> df = sp.datasets.nsw_lalonde()
->>> df.attrs['expected_experimental_att']
+>>> df = sp.datasets.nsw_lalonde(simulated=False)   # real extract, n=614
+>>> df.shape
+(614, 11)
+>>> sp.datasets.nsw_lalonde(simulated=True).attrs['expected_experimental_att']
 1794
 
 Each function returns a ``pd.DataFrame`` with:
@@ -39,7 +41,9 @@ IV
     ``angrist_krueger_1991()``  — quarter-of-birth IV
 
 Matching / SOO
-    ``nsw_lalonde()``           — LaLonde NSW job training (experimental subset)
+    ``nsw_lalonde()``           — LaLonde NSW job training (real MatchIt
+                                  extract n=614; ``simulated=True`` gives the
+                                  445-row experimental replica)
     ``nsw_dw()``                — Dehejia-Wahba NSW + PSID comparison
 
 Synthetic control
@@ -57,30 +61,27 @@ from __future__ import annotations
 
 import pandas as pd
 
-from ._canonical import (
-    mpdta,
-    card_1995,
-    nsw_lalonde,
-    nsw_dw,
-    lee_2008_senate,
-    angrist_krueger_1991,
-    nhefs,
-    load_nhefs,
-)
-
 # Re-export synth-shipped datasets (unchanged DGPs; this is the
 # consolidated namespace)
-from ..synth.datasets import (
-    california_tobacco as _california_tobacco_simulated,
-    basque_terrorism,
-    german_reunification,
+from ..synth.datasets import basque_terrorism
+from ..synth.datasets import california_tobacco as _california_tobacco_simulated
+from ..synth.datasets import german_reunification
+from ._canonical import (
+    _load_bundled_csv,
+    angrist_krueger_1991,
+    card_1995,
+    lee_2008_senate,
+    load_nhefs,
+    mpdta,
+    nhefs,
+    nsw_dw,
+    nsw_lalonde,
 )
-from ._canonical import _load_bundled_csv
 
 # Data-source ingestion normalisers (World Bank / FRED / OECD-Eurostat SDMX).
 # These reshape payloads a data MCP already fetched into tidy StatsPAI frames;
 # they do not hit the network.
-from .ingest import from_worldbank, from_fred, from_sdmx
+from .ingest import from_fred, from_sdmx, from_worldbank
 
 
 def california_prop99(simulated: bool = True) -> pd.DataFrame:

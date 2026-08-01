@@ -82,6 +82,11 @@ def xtabond(
     collapse: bool = False,
     time_dummies: bool = False,
     orthogonal: bool = False,
+    cluster: Optional[str] = None,
+    steps: Optional[object] = None,
+    iter_tol: float = 1e-10,
+    iter_maxiter: int = 100,
+    ah_instrument: str = "levels",
     constant: Optional[bool] = None,
 ) -> CausalResult:
     """
@@ -135,6 +140,14 @@ def xtabond(
         deviations of the initial conditions from the long-run mean must be
         uncorrelated with α_i). Report the difference-in-Hansen test for
         the level instruments before relying on them.
+
+        ``'ah'`` — Anderson-Hsiao (1981) simple IV: **one** pooled
+        instrument for the differenced lagged dependent variable instead of
+        the block-diagonal set, chosen by ``ah_instrument``. Consistent but
+        inefficient, and the natural robustness check on an Arellano-Bond
+        fit: it uses so few moments that instrument proliferation cannot be
+        driving the answer, so a large gap between the two is informative
+        about the instrument set rather than about the data.
     twostep : bool, default False
         Use two-step GMM with the efficient weight matrix. When
         ``robust=True`` the Windmeijer (2005) finite-sample correction is
@@ -194,6 +207,46 @@ def xtabond(
         a default: they absorb common shocks, which is what makes the
         no-cross-sectional-dependence assumption behind the moment
         conditions plausible.
+    cluster : str, optional
+        Column to cluster the standard errors on, instead of the panel unit.
+        The moment conditions are summed within a unit by construction, so
+        the cluster must be at least as **coarse** as the unit (industry,
+        region, cohort) and constant within it; a finer variable raises.
+        Only the meat of the sandwich re-groups — the one-step weight
+        ``(Z'HZ)^{-1}`` stays a within-unit object because ``H`` encodes the
+        serial structure the transform induces. Matches
+        ``xtabond2, cluster()``.
+    steps : int or {'iterated', 'cue'}, optional
+        Generalises ``twostep``. ``1`` and ``2`` are the one- and two-step
+        estimators (``steps=2`` is exactly ``twostep=True``); an integer
+        above 2 repeats the same recursion — re-estimate the moment
+        covariance at the current residuals, re-solve — that many times.
+
+        ``'iterated'`` runs the recursion to a fixed point, at which the
+        coefficient vector and the weight matrix it implies are mutually
+        consistent, removing the arbitrariness of stopping at two.
+        ``'cue'`` is the continuously-updated estimator (Hansen, Heaton &
+        Yaron 1996), which re-evaluates the weight *inside* the objective
+        and so never depends on preliminary residuals at all — the
+        dependence the Windmeijer correction exists to patch. CUE optimises
+        a non-convex objective numerically; ``converged`` is reported in
+        ``model_info``.
+
+        Passing both ``twostep`` and ``steps`` raises. On a heavily
+        over-identified fit the iterated and CUE estimates can sit well away
+        from the two-step one; that is information about the instrument set,
+        not noise.
+    iter_tol, iter_maxiter : float, int
+        Convergence tolerance on the maximum coefficient change, and the
+        iteration cap, for ``steps='iterated'`` / ``'cue'``. Failure to
+        converge warns rather than silently returning the last iterate.
+    ah_instrument : {'levels', 'differences'}, default 'levels'
+        Which Anderson-Hsiao instrument to use for ``method='ah'``:
+        ``y_{t-2}`` in levels, or its first difference ``Δy_{t-2}``. The
+        differences variant costs one further period of data (it reaches
+        back to ``y_{t-3}``) and is usually the weaker instrument, but it is
+        valid under slightly weaker assumptions about the initial
+        conditions. Ignored for the other methods.
     constant : bool, optional
         Include an intercept. Defaults to ``True`` for ``method='system'``
         (where the level equation identifies it, as in ``xtabond2``) and
@@ -307,8 +360,10 @@ def xtabond(
     Roodman, D. (2009). How to do xtabond2: An introduction to difference and
     system GMM in Stata. *Stata Journal*. [@roodman2009xtabond]
     """
-    if method not in ("difference", "system"):
-        raise ValueError(f"method must be 'difference' or 'system', got {method!r}.")
+    if method not in ("difference", "system", "ah"):
+        raise ValueError(
+            f"method must be 'difference', 'system' or 'ah', got {method!r}."
+        )
 
     fit = fit_dynamic_panel(
         data,
@@ -328,6 +383,11 @@ def xtabond(
         time_dummies=time_dummies,
         method=method,
         transform="fod" if orthogonal else "fd",
+        cluster=cluster,
+        steps=steps,
+        iter_tol=iter_tol,
+        iter_maxiter=iter_maxiter,
+        ah_instrument=ah_instrument,
         constant=constant,
         stacklevel=3,
     )
@@ -359,7 +419,10 @@ def xtabond(
     ar1, ar2 = fit["ar1"], fit["ar2"]
     sargan, hansen = fit["sargan"], fit["hansen"]
     model_info = {
-        "method": ("SYSTEM GMM" if method == "system" else "DIFFERENCE GMM"),
+        "method": {
+            "system": "SYSTEM GMM",
+            "ah": "ANDERSON-HSIAO IV",
+        }.get(method, "DIFFERENCE GMM"),
         "n_obs_diff": fit["n_obs_diff"],
         "n_obs_level": fit["n_obs_level"],
         "n_obs_total": fit["n_obs_total"],
@@ -371,6 +434,12 @@ def xtabond(
         "transform": "orthogonal deviations" if orthogonal else "first differences",
         "time_dummies": list(fit["time_dummies"]),
         "n_units": fit["n_units"],
+        "n_clusters": fit["n_clusters"],
+        "cluster": fit["cluster"],
+        "steps": fit["steps"],
+        "steps_requested": fit["steps_requested"],
+        "converged": fit["converged"],
+        "ah_instrument": fit["ah_instrument"],
         "n_obs": fit["n_obs"],
         "n_instruments": fit["n_instruments"],
         "n_regressors": fit["n_params"],
@@ -391,6 +460,7 @@ def xtabond(
         ("gap_warning", fit["gap_warning"]),
         ("instrument_warning", fit["instrument_warning"]),
         ("hansen_warning", fit["hansen_warning"]),
+        ("ar_note", fit["ar_note"]),
     ):
         if note:
             model_info[key] = note

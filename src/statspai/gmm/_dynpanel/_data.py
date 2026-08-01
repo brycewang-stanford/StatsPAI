@@ -30,7 +30,7 @@ from typing import Dict, List, Sequence
 import numpy as np
 import pandas as pd
 
-__all__ = ["PanelArrays", "build_panel_arrays"]
+__all__ = ["PanelArrays", "build_panel_arrays", "unit_cluster_codes"]
 
 
 @dataclass
@@ -122,7 +122,10 @@ def build_panel_arrays(
         if col not in data.columns:
             raise ValueError(f"{what} column {col!r} not found in the data.")
 
-    cols = [id_col, time_col] + list(dict.fromkeys(variables))
+    # A variable may coincide with the id or time column (e.g. clustering on
+    # the time index, which should fail later with a *meaningful* message
+    # rather than here with a duplicate-label reindex error).
+    cols = list(dict.fromkeys([id_col, time_col] + list(variables)))
     df = data.loc[:, cols].copy()
     df = df[df[id_col].notna() & df[time_col].notna()]
     if df.empty:
@@ -180,3 +183,44 @@ def add_time_dummies(
         panel.values[name] = arr
         names.append(name)
     return names
+
+
+def unit_cluster_codes(panel: PanelArrays, cluster: str) -> np.ndarray:
+    """Integer cluster code per unit, from a unit-invariant column.
+
+    Clustering *finer* than the panel unit would be incoherent for this
+    estimator: the moment conditions are summed within a unit by
+    construction, so the within-unit correlation the unit sum absorbs
+    cannot then be treated as independent.  Anything coarser (industry,
+    region, cohort) is the useful case and is what ``xtabond2, cluster()``
+    is normally used for.
+
+    Raises
+    ------
+    ValueError
+        If the variable varies within a unit, or if a unit has no
+        non-missing value.  Silently picking one of several values would
+        make the standard errors depend on row order.
+    """
+    arr = panel.get(cluster)
+    codes = np.full(panel.n_units, np.nan)
+    for u in range(panel.n_units):
+        vals = arr[u][np.isfinite(arr[u])]
+        if vals.size == 0:
+            continue
+        if not np.all(vals == vals[0]):
+            raise ValueError(
+                f"cluster variable {cluster!r} varies within unit "
+                f"{panel.units[u]!r}. Dynamic-panel GMM sums the moment "
+                "conditions within a unit, so the cluster must be at least as "
+                "coarse as the unit (e.g. industry, region), never finer."
+            )
+        codes[u] = vals[0]
+    missing = np.flatnonzero(~np.isfinite(codes))
+    if missing.size:
+        raise ValueError(
+            f"cluster variable {cluster!r} is missing for {missing.size} "
+            f"unit(s), e.g. {panel.units[missing[0]]!r}."
+        )
+    _, inverse = np.unique(codes, return_inverse=True)
+    return inverse.astype(int)

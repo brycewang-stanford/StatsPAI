@@ -109,11 +109,66 @@ All notable changes to StatsPAI will be documented in this file.
     `model_info['difference_in_hansen']` — the only way to test system GMM's
     extra level moments rather than assume them. Matches `xtabond2`'s
     "Difference-in-Hansen tests of exogeneity of instrument subsets" block.
+  - **Anderson-Hsiao (1981) simple IV** - `method='ah'` (also
+    `sp.panel(method='ah')`), with `ah_instrument='levels'` (`y_{t-2}`) or
+    `'differences'` (`Δy_{t-2}`). One pooled instrument instead of the
+    block-diagonal set, so it cannot be driven by instrument proliferation
+    - the natural robustness check on an Arellano-Bond fit. Matches
+    `xtabond2` to ~1e-14 in all four variants.
+  - **`cluster=`** - cluster-robust standard errors on a coarser unit than
+    the panel id (industry, region). Only the sandwich meat re-groups; the
+    one-step weight stays a within-unit object. Matches
+    `xtabond2, cluster()`. A finer-than-unit cluster variable raises, and
+    multi-step GMM with fewer clusters than moment conditions refuses
+    rather than inverting a rank-deficient weight.
+  - **`steps=`** - generalises `twostep`: any number of steps, `'iterated'`
+    (run the recursion to a fixed point) or `'cue'` (the
+    continuously-updated estimator, which never depends on preliminary
+    residuals). Convergence is reported in `model_info`.
   - **Instrument-count guardrail**: a warning (and a `model_info` note) when
     the moment count reaches the number of units.
   - The **Hansen J** is now reported for one-step fits too (it is defined at
     the two-step optimum regardless of which step is reported, and it is the
     only over-identification test robust to heteroskedasticity).
+  - The **Arellano-Bond AR(1)/AR(2) tests** now match Stata across the whole
+    VCE menu - one-step robust, one-step classical, two-step conventional
+    and two-step Windmeijer - for difference *and* system GMM, and also
+    under `orthogonal=True` and `cluster=`. Both of the latter were settled
+    by reading `xtabond2`'s own Mata source rather than inferring from
+    outputs: the AR variance is accumulated over *units* even when the
+    coefficients are clustered, and under orthogonal deviations the test
+    mixes two row spaces (differenced residuals for the statistic, the
+    estimation basis for the influence adjustment). Coefficients, standard
+    errors **and** AR statistics now agree with Stata / `xtabond2` to
+    **1.7e-11** across all 29 reference specifications.
+  - **`sp.xtlsdvc` gained a reference-parity suite.** It shipped as a
+    registered public function with 10% test coverage. It turns out to be
+    correct - it matches Stata's `xtlsdvc` (Bruno 2005) to 1e-9 across all
+    three initialisers and all three bias orders - but nothing was holding
+    it there. `tests/reference_parity/test_lsdvc_parity.py` now does, and
+    coverage of `statspai/gmm/` as a whole went from 81% to **97%**
+    (new `tests/test_dynpanel_internals.py` covers the lag-operator
+    grammar, panel-layout validation and the fail-loudly guards).
+  - The per-unit Python loops in the weight matrix, the moment covariance,
+    the Windmeijer derivative and the AR-test lag vector were replaced by
+    segment sums and banded row-pair products: a 20,000-unit, 15-period
+    two-step fit went from 2.56 s to 1.12 s, system GMM from 6.24 s to
+    2.94 s. New benchmark: `benchmarks/bench_dynpanel.py`.
+
+- **`sp.gmm` (general moment-condition GMM) rebuilt.** It was a thin BFGS
+  wrapper with a numerical Jacobian and no way to state the dependence
+  structure of the moments. It now carries an **analytic closed-form path**
+  when the moment conditions are affine in theta (every linear IV / 2SLS
+  moment - detected by probing the Jacobian, and exact rather than
+  iterated); an optional analytic `jacobian=`; `vcov=` covering i.i.d.,
+  heteroskedasticity-robust, **HAC** (Bartlett) and **one-way clustered**
+  moment covariances; a `center=` switch for the centring convention (R
+  centres, Stata does not, and the J statistic is not invariant to it);
+  and honest convergence reporting. Verified against R `gmm::gmm` for
+  two-step, iterated, CUE and HAC, and against an independent closed-form
+  solution to 2e-15. New suite:
+  `tests/reference_parity/test_general_gmm_parity.py`.
+
   - Numerics moved to `statspai/gmm/_dynpanel/` (spec / data / moments /
     estimate / inference / diagnostics); `sp.xtabond` is the presentation
     layer. New suites: `tests/reference_parity/test_dynpanel_abdata_parity.py`
@@ -121,7 +176,67 @@ All notable changes to StatsPAI will be documented in this file.
     `tests/test_xtabond_golden.py` (regression lock on the pre-existing
     numbers).
 
+### Changed
+
+- **`sp.datasets.nsw_lalonde()` now returns the real data by default.** The
+  `simulated` default flipped from `True` to `False`, so the bare call now
+  yields the real `MatchIt::lalonde` extract (n=614, 11 columns, naive OLS
+  ATT ≈ **−$635**) instead of the simulated experimental replica (n=445, 10
+  columns, ATT ≈ **+$1,794**). The old default was a trap for offline users:
+  the docs' first example is a bare `nsw_lalonde()`, so anyone following it
+  got simulated numbers that match no published table while believing they
+  had LaLonde's data.
+
+  Omitting the argument still works and resolves to `simulated=False`, but
+  emits a `FutureWarning` for one minor version because the numbers it
+  returns changed. Pass `simulated=False` to accept the new default silently,
+  or `simulated=True` to keep the replica. See MIGRATION.md.
+
+  The bundled CSV ships in the wheel (`statspai/datasets/data/`), so this
+  path needs no network — verified by loading it in a clean venv with
+  `socket` hard-blocked.
+
 ### ⚠️ Correctness
+
+- **`sp.xtabond`'s AR(1)/AR(2) tests were wrong under `orthogonal=True`.**
+  The statistic was computed on the forward-orthogonal-deviation residuals.
+  `xtabond2` prints "Arellano-Bond test for AR(1) in first differences"
+  whatever the transform, and means it: the test is a statement about first
+  differences. On `abdata` the AR(1) z came out **+4.11 where Stata reports
+  -3.25** - an inverted conclusion, not a tolerance question. It is now
+  computed on first-differenced residuals at the fitted coefficients, with
+  the influence adjustment taken from the estimation basis, and matches to
+  1e-13. Only `orthogonal=True` fits are affected.
+
+- **`sp.xtabond`'s AR(1)/AR(2) tests double-counted `cluster=`.** The
+  variance has three terms; only the last, `(W'q)' Avar(beta) (W'q)`, should
+  see the clustering. All three were being grouped by cluster, moving the
+  statistic by 10-14%. Only `cluster=` fits are affected; coefficients and
+  standard errors were always correct.
+
+- **`sp.xtabond`'s two-step AR(1)/AR(2) tests used the wrong coefficient
+  variance.** The Arellano-Bond test variance contains a
+  `(W'q)' Avar(beta) (W'q)` term. It was always evaluated at the
+  *uncorrected* robust sandwich, even when the reported VCE was the
+  Windmeijer-corrected or the conventional two-step one - so the
+  specification test and the coefficient table disagreed about
+  `Avar(beta)`. On `abdata` with the Arellano-Bond (1991) Table 4
+  specification the two-step AR(1) z was -4.32 where Stata reports -3.10 (a
+  39% error); on the plain AR(1) spec -2.24 against -2.10. The term now
+  uses the reported VCE and every AR statistic matches Stata to ~1e-12.
+  **One-step results are unchanged** - there the two variance estimators
+  coincide and the swap is identically zero. Only `twostep=True` fits move.
+  See [MIGRATION](MIGRATION.md#xtabond-twostep-ar-test).
+
+- **`sp.gmm(se='unadjusted')` returned a variance that did not describe the
+  estimator.** It computed `(D'WD)^-1/n` for whatever weight `W` was
+  supplied. That is the variance of the GMM estimator *only* when `W` is
+  efficient; with any other weight the correct variance is the sandwich,
+  and the reported one understated it. `se='unadjusted'` now returns the
+  efficient-GMM form `(D' S^-1 D)^-1/n` - identical when `W` is efficient,
+  so **two-step and CUE numbers are unchanged** - and warns when the weight
+  in force is not efficient.
+  See [MIGRATION](MIGRATION.md#gmm-unadjusted-se).
 
 - **`sp.ltmle` standard errors were 250–400× too small: the efficient
   influence curve was missing its martingale term.** The LTMLE influence
@@ -191,6 +306,32 @@ All notable changes to StatsPAI will be documented in this file.
   See [MIGRATION](MIGRATION.md#xtabond-listwise-deletion).
 
 ### Added
+
+- **`sp.panel_qtet` — Callaway & Li (2019) panel QTT.** Recovers the
+  counterfactual *distribution* of untreated outcomes for the treated group
+  via distributional DiD plus a copula-stability assumption, so it reports
+  the shape of the effect and not just its location. Needs a balanced
+  three-period panel — the third period is what identifies the copula.
+  **Exact parity with R `qte::panel.qtet`: max |difference| = 6.8e-12**
+  across 19 quantiles on `lalonde.psid.panel`, the tightest alignment in the
+  QTE family (the estimator composes `ecdf` evaluations and type-7 quantiles,
+  both of which have exact numpy equivalents, so there is no
+  optimiser-convention gap to absorb). The fixture generator
+  re-implements the five algorithm steps by hand and *fails* if they drift
+  from the package, so the claim is an algorithmic match rather than a
+  tolerance. Recovers a known constant shift to 0.06 and a known quantile
+  *fan* to 0.08 on a DGP whose ATT is zero — the case a mean estimator
+  cannot see.
+  Two diagnostics R does not provide: `model_info['copula_check']` tests
+  copula stability on the untreated group (where, unlike the treated at `t`,
+  both copulas are observed), and `model_info['coherence_check']` detects
+  when mass points in the outcome break the rank map. On
+  `lalonde.psid.panel` the latter fires: 131 of 185 treated units have
+  `re74 == 0`, so the counterfactual mean lands at 8,786 against a
+  distributional-DiD value of 4,023 and the QTT curve is distorted — R
+  produces the identical curve silently. The reported `ate` is the plain
+  mean DiD, matching R, because the mean needs only distributional DiD.
+  New parity suite: `tests/reference_parity/test_panel_qtet_parity.py`.
 
 - **Firpo (2007) efficient unconditional QTE and QTT**:
   `sp.qte(method='firpo_qte')` and `sp.qte(method='firpo_qtt')`, with

@@ -272,18 +272,25 @@ sp.estat(res, "all")        # all three
 ## 7. Known limits
 
 - **Gapped panels.** The design (sample, equations, instruments) matches
-  Stata exactly, and a just-identified fit reproduces Stata to 2e-15, but
-  the one-step weight matrix uses a different gap convention, so
-  coefficients differ from Stata by roughly 2–6%. Both estimators remain
-  consistent; only finite-sample efficiency differs. A warning fires, and
-  `orthogonal=True` is the better answer on such panels anyway.
+  Stata exactly — a just-identified fit reproduces `xtabond2` to 2e-15, and
+  the observation and instrument counts agree with both `xtabond` and
+  `xtabond2` — but the one-step weight matrix uses a different gap
+  convention, so coefficients differ by roughly 3-10% once the model is
+  over-identified. Both estimators remain consistent; only finite-sample
+  efficiency differs. A warning fires. `orthogonal=True` is the better
+  answer on such panels anyway, since forward deviations lose one
+  observation per gap instead of two.
 - **Sargan scale.** StatsPAI follows `xtabond`
   ($\hat\sigma^2 = \hat e^{*\prime}\hat e^{*}/(2(N^{*}-k))$ over transformed
   rows); `xtabond2` divides by $2N^{*}$, so its Sargan sits a factor
   $N^{*}/(N^{*}-k)$ higher. The Hansen J has no such free scale and matches
   both.
 
----
+Everything else — coefficients, standard errors, the Arellano-Bond AR(1)
+and AR(2) statistics, Sargan/Hansen and the difference-in-Hansen block —
+matches Stata 18 and `xtabond2` to ~1e-11 across all 29 reference
+specifications, on gap-free panels, for every transform, instrument class,
+step count and variance grouping.
 
 ## References
 

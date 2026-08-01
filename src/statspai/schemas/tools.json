@@ -15022,6 +15022,83 @@
     "name": "panel_probit"
   },
   {
+    "description": "Callaway & Li (2019) quantile treatment effect on the treated for panel data. Recovers the counterfactual DISTRIBUTION of untreated outcomes for the treated group via distributional DiD plus a copula-stability assumption. Needs a balanced THREE-period panel (the third period identifies the copula). Exact parity with R qte::panel.qtet (6.8e-12). Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Assumptions: Distributional DiD; Copula stability: the dependence between the period-t change and the period-(t-1) level equals that between the period-(t-1) change and the period-(t-2) level, for the treated. Untestable at t, but checked on the untreated group and reported in model_info['copula_check']; Continuous outcome: with mass points the rank map is not measure-preserving; model_info['coherence_check'] flags it. Pre-conditions: balanced panel over three periods; binary treatment, read at period t; continuous outcome (mass points distort the rank map). Failure modes: Outcome has mass points (e.g. many zero earnings) -> The rank map collapses tied units onto one value and the QTT curve is distorted; the reported ATT (a mean DiD) is u...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "n_boot": {
+          "default": 200,
+          "description": "Number of bootstrap replications.",
+          "type": "integer"
+        },
+        "quantiles": {
+          "description": "quantiles parameter (list).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "se": {
+          "default": "bootstrap",
+          "description": "SE method",
+          "enum": [
+            "bootstrap",
+            "none"
+          ],
+          "type": "string"
+        },
+        "seed": {
+          "default": 0,
+          "description": "Random seed for reproducible stochastic steps.",
+          "type": "integer"
+        },
+        "t": {
+          "description": "Post-period VALUE of time",
+          "type": "string"
+        },
+        "time": {
+          "description": "Period",
+          "type": "string"
+        },
+        "tmin1": {
+          "description": "Pre-period VALUE of time",
+          "type": "string"
+        },
+        "tmin2": {
+          "description": "Pre-pre-period VALUE; identifies the copula",
+          "type": "string"
+        },
+        "treat": {
+          "description": "Binary treatment",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit id",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "t",
+        "time",
+        "tmin1",
+        "tmin2",
+        "treat",
+        "unit",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "panel_qtet"
+  },
+  {
     "description": "Panel unit root test. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
@@ -24501,6 +24578,19 @@
     "description": "Arellano-Bond / Blundell-Bond GMM for dynamic panels (standalone). Validation: certified parity evidence. Assumptions: No second-order serial correlation in differenced errors; Internal instruments are valid and not too numerous. Pre-conditions: Panel data include unit, time, outcome, and lagged dependent variable structure; Number of time periods is moderate relative to units. Failure modes: Instrument proliferation or AR(2) test rejects -> Collapse instruments, reduce lag depth, or compare with fixed-effects estimates. Alternatives: sp.panel, sp.feols. Typical minimum N: 100.",
     "input_schema": {
       "properties": {
+        "ah_instrument": {
+          "default": "levels",
+          "description": "Anderson-Hsiao instrument for method='ah'",
+          "enum": [
+            "levels",
+            "differences"
+          ],
+          "type": "string"
+        },
+        "cluster": {
+          "description": "Cluster SEs on a coarser unit than the panel id (must be constant within unit)",
+          "type": "string"
+        },
         "collapse": {
           "default": false,
           "description": "Collapse instruments (Roodman 2009) to curb proliferation",
@@ -24544,6 +24634,10 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "steps": {
+          "description": "Number of GMM steps, or 'iterated' / 'cue'",
+          "type": "string"
         },
         "time": {
           "default": "time",
@@ -24628,7 +24722,7 @@
     "name": "xtdpdsys"
   },
   {
-    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels.",
+    "description": "Bias-corrected LSDV (LSDVC) estimator for dynamic panels. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "input_schema": {
       "properties": {
         "alpha": {
