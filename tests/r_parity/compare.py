@@ -45,6 +45,11 @@ PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
+    "80_contdid": (
+        "no Stata implementation: the CGS continuous-treatment estimator "
+        "ships as the R package contdid (GitHub only, not CRAN) and has no "
+        "ssc counterpart."
+    ),
     "79_didff": (
         "no Stata implementation: the Roth-Sant'Anna functional-form test "
         "ships as the R package didFF (GitHub only, not CRAN) and has no "
@@ -293,6 +298,17 @@ STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 #     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # CGS continuous treatment: the dose curves at four grid points and
+    # both overall quantities, across three spline specifications, match
+    # contdid at 1e-12. The curves are compared under
+    # curve_basis="reference" -- contdid fits on the treated dose range but
+    # reports on a basis re-anchored to the dose grid, so its reported
+    # curves are a rescaled version of the fitted dose response and do not
+    # line up with the overall ACRT it returns alongside them. StatsPAI
+    # defaults to one consistent basis.
+    # No rel_se: contdid's standard errors come from the pte aggregation
+    # layer, which is not replicated.
+    "80_contdid": {"rel_est": 1e-6},
     # Functional-form test: the sixteen implied-density bins across both
     # designs agree at 1.2e-15. The 1e-3 budget exists for ONE row per
     # design -- the p-value, which is a 100k-draw simulation of the
@@ -984,6 +1000,15 @@ HEADLINE: dict[str, dict[str, Any]] = {
             "(did2s propagates stage-1 estimation error, sp.gardner_did's "
             "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
         ),
+    },
+    "80_contdid": {
+        "name": "Continuous-treatment DiD (CGS)",
+        "headline_filter": lambda d: d.statistic.endswith(
+            ("_overall_att", "_overall_acrt")
+        ),
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "machine precision vs contdid::cont_did (worst 1e-12)",
     },
     "79_didff": {
         "name": "Functional-form test (Roth--Sant'Anna)",

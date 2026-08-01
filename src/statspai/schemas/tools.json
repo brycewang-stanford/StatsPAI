@@ -3049,6 +3049,89 @@
     "name": "cfm_decompose"
   },
   {
+    "description": "Callaway, Goodman-Bacon & Sant'Anna (2024) DiD with a CONTINUOUS treatment. A dose has no single ATT: the TWFE coefficient averages the 0.2-dose and 0.8-dose comparisons with weights that can be negative. Reports ATT(d) and its derivative ACRT(d) -- the causal response at dose d, which is what a marginal-dose question asks -- from a B-spline regression of the outcome change on the dose. Validation: certified evidence with scoped limitations. Known limitations: standard errors come from the per-cell influence function; contdid routes its own through the pte aggregation layer, which is not implemented here; staggered designs aggregate cells with StatsPAI's own treated-count weights; only the per-cell estimator is pinned against the reference; the cck (nonparametric) dose estimator is not implemented. Assumptions: Parallel trends in the untreated potential outcome; Strong parallel trends for ATT(d) to be the effect of dose d; No anticipation. Pre-conditions: panel with a continuous dose and some zero-dose units; at least one period before each treated cohort. Failure modes: No zero-dose units in a cell -> ATT(d) is levelled against the zero-dose group. Use control_group='notyettreate...",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "Significance level for confidence intervals and tests.",
+          "type": "number"
+        },
+        "cohort": {
+          "description": "First-treatment period (0 = never treated)",
+          "type": "string"
+        },
+        "control_group": {
+          "default": "nevertreated",
+          "description": "control_group parameter (str).",
+          "enum": [
+            "nevertreated",
+            "notyettreated"
+          ],
+          "type": "string"
+        },
+        "curve_basis": {
+          "default": "fitted",
+          "description": "'fitted' evaluates the curves on the basis they were fitted on; 'reference' re-anchors to the dose grid to reproduce contdid 0.1.1's reported curves, which are a rescaled version of the fitted response",
+          "enum": [
+            "fitted",
+            "reference"
+          ],
+          "type": "string"
+        },
+        "degree": {
+          "default": 3,
+          "description": "B-spline degree; degree=1 with no knots gives a constant ACRT, the 'effect per unit of dose' reading",
+          "type": "integer"
+        },
+        "dose": {
+          "description": "Treatment intensity (0 = untreated)",
+          "type": "string"
+        },
+        "dose_grid": {
+          "description": "Doses to report the curves at (default: 10th-99th pct)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "knots": {
+          "description": "Explicit interior knots",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "num_knots": {
+          "default": 0,
+          "description": "Interior knots at dose quantiles; more buys flexibility at the cost of variance and there is no auto-selector",
+          "type": "integer"
+        },
+        "time": {
+          "description": "Time period column.",
+          "type": "string"
+        },
+        "unit": {
+          "description": "Unit identifier column.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome variable column name or outcome array.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cohort",
+        "dose",
+        "time",
+        "unit",
+        "y"
+      ],
+      "type": "object"
+    },
+    "name": "cgs_continuous_did"
+  },
+  {
     "description": "Detect non-absorbing (reverting) treatment in a panel. Cohort-based DiD estimators (callaway_santanna, sun_abraham, did_imputation, etwfe, stacked_did) represent treatment by the first-treated period, which is lossless only when treatment never turns off. Under reversal they treat post-reversal periods as still-treated and are biased toward zero -- on a 150-unit panel with a third of units reverting, callaway_santanna returns 0.71 against a true ATT of 1.5, silently, because it never sees the time-varying indicator. Run this on the raw panel before picking an estimator. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact). Pre-conditions: long panel with unit x time x time-varying treatment; treatment column is numeric (0/1). Alternatives: sp.did_multiplegt, sp.lp_did, sp.did_multiplegt_dyn.",
     "input_schema": {
       "properties": {
@@ -25207,61 +25290,5 @@
       "type": "object"
     },
     "name": "zinb"
-  },
-  {
-    "description": "Zero-Inflated Poisson (ZIP) regression via MLE. Validation: certified parity evidence.",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Significance level for confidence intervals.",
-          "type": "number"
-        },
-        "cluster": {
-          "description": "Cluster variable name for clustered standard errors.",
-          "type": "string"
-        },
-        "formula": {
-          "description": "Patsy-style formula for the count equation, e.g. \"y ~ x1 + x2\".",
-          "type": "string"
-        },
-        "inflate": {
-          "description": "Inflation-equation regressors. Default: same as count regressors.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "maxiter": {
-          "default": 200,
-          "description": "Maximum iterations for optimizer.",
-          "type": "integer"
-        },
-        "robust": {
-          "default": "nonrobust",
-          "description": "\"nonrobust\", \"HC0\", \"HC1\", etc.",
-          "type": "string"
-        },
-        "tol": {
-          "default": 1e-08,
-          "description": "Convergence tolerance.",
-          "type": "number"
-        },
-        "x": {
-          "description": "Count-equation regressors (alternative to formula).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Dependent variable name (alternative to formula).",
-          "type": "string"
-        }
-      },
-      "required": [],
-      "type": "object"
-    },
-    "name": "zip_model"
   }
 ]

@@ -21734,6 +21734,143 @@
   },
   {
     "alternatives": [
+      "continuous_did",
+      "callaway_santanna",
+      "dose_response"
+    ],
+    "assumptions": [
+      "Parallel trends in the untreated potential outcome",
+      "Strong parallel trends for ATT(d) to be the effect of dose d",
+      "No anticipation"
+    ],
+    "category": "causal",
+    "cost_profile": "",
+    "description": "Callaway, Goodman-Bacon & Sant'Anna (2024) DiD with a CONTINUOUS treatment. A dose has no single ATT: the TWFE coefficient averages the 0.2-dose and 0.8-dose comparisons with weights that can be negative. Reports ATT(d) and its derivative ACRT(d) -- the causal response at dose d, which is what a marginal-dose question asks -- from a B-spline regression of the outcome change on the dose. Validation: certified evidence with scoped limitations. Known limitations: standard errors come from the per-cell influence function; contdid routes its own through the pte aggregation layer, which is not implemented here; staggered designs aggregate cells with StatsPAI's own treated-count weights; only the per-cell estimator is pinned against the reference; the cck (nonparametric) dose estimator is not implemented.",
+    "example": "sp.cgs_continuous_did(df, y=\"y\", dose=\"d\", time=\"t\", unit=\"i\", cohort=\"g\", degree=1)",
+    "failure_modes": [
+      {
+        "alternative": "continuous_did",
+        "exception": "DataInsufficient",
+        "remedy": "ATT(d) is levelled against the zero-dose group. Use control_group='notyettreated' to widen it.",
+        "symptom": "No zero-dose units in a cell"
+      },
+      {
+        "alternative": "continuous_did",
+        "exception": "DataInsufficient",
+        "remedy": "Too many knots for the doses observed; lower num_knots or pass explicit knots.",
+        "symptom": "Spline basis is collinear"
+      }
+    ],
+    "inherits_from": null,
+    "limitations": [
+      "standard errors come from the per-cell influence function; contdid routes its own through the pte aggregation layer, which is not implemented here",
+      "staggered designs aggregate cells with StatsPAI's own treated-count weights; only the per-cell estimator is pinned against the reference",
+      "the cck (nonparametric) dose estimator is not implemented"
+    ],
+    "name": "cgs_continuous_did",
+    "not_recommended_when": [],
+    "pre_conditions": [
+      "panel with a continuous dose and some zero-dose units",
+      "at least one period before each treated cohort"
+    ],
+    "reference": "Callaway, Goodman-Bacon & Sant'Anna (2024) NBER WP 32117 [@callaway2024difference]; pinned against the authors' contdid 0.1.1 on two-period designs (Track A module 80).",
+    "signature": {
+      "description": "Callaway, Goodman-Bacon & Sant'Anna (2024) DiD with a CONTINUOUS treatment. A dose has no single ATT: the TWFE coefficient averages the 0.2-dose and 0.8-dose comparisons with weights that can be negative. Reports ATT(d) and its derivative ACRT(d) -- the causal response at dose d, which is what a marginal-dose question asks -- from a B-spline regression of the outcome change on the dose. Validation: certified evidence with scoped limitations. Known limitations: standard errors come from the per-cell influence function; contdid routes its own through the pte aggregation layer, which is not implemented here; staggered designs aggregate cells with StatsPAI's own treated-count weights; only the per-cell estimator is pinned against the reference; the cck (nonparametric) dose estimator is not implemented.",
+      "name": "cgs_continuous_did",
+      "parameters": {
+        "properties": {
+          "alpha": {
+            "default": 0.05,
+            "description": "Significance level for confidence intervals and tests.",
+            "type": "number"
+          },
+          "cohort": {
+            "description": "First-treatment period (0 = never treated)",
+            "type": "string"
+          },
+          "control_group": {
+            "default": "nevertreated",
+            "description": "control_group parameter (str).",
+            "enum": [
+              "nevertreated",
+              "notyettreated"
+            ],
+            "type": "string"
+          },
+          "curve_basis": {
+            "default": "fitted",
+            "description": "'fitted' evaluates the curves on the basis they were fitted on; 'reference' re-anchors to the dose grid to reproduce contdid 0.1.1's reported curves, which are a rescaled version of the fitted response",
+            "enum": [
+              "fitted",
+              "reference"
+            ],
+            "type": "string"
+          },
+          "data": {
+            "description": "pandas DataFrame containing the variables used by the estimator.",
+            "type": "string"
+          },
+          "degree": {
+            "default": 3,
+            "description": "B-spline degree; degree=1 with no knots gives a constant ACRT, the 'effect per unit of dose' reading",
+            "type": "integer"
+          },
+          "dose": {
+            "description": "Treatment intensity (0 = untreated)",
+            "type": "string"
+          },
+          "dose_grid": {
+            "description": "Doses to report the curves at (default: 10th-99th pct)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "knots": {
+            "description": "Explicit interior knots",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "num_knots": {
+            "default": 0,
+            "description": "Interior knots at dose quantiles; more buys flexibility at the cost of variance and there is no auto-selector",
+            "type": "integer"
+          },
+          "time": {
+            "description": "Time period column.",
+            "type": "string"
+          },
+          "unit": {
+            "description": "Unit identifier column.",
+            "type": "string"
+          },
+          "y": {
+            "description": "Outcome variable column name or outcome array.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "y",
+          "dose",
+          "time",
+          "unit",
+          "cohort"
+        ],
+        "type": "object"
+      }
+    },
+    "stability": "stable",
+    "typical_n_min": 500,
+    "validation_notes": [
+      "R parity module 80_contdid"
+    ],
+    "validation_status": "certified"
+  },
+  {
+    "alternatives": [
       "pretrends_test",
       "honest_did",
       "callaway_santanna"

@@ -1103,6 +1103,58 @@
       "tolerance": "ATE over/exact and ATT exact: rel <= 5e-3 (R's optimiser slack). ATT over is NOT pinned to R -- CBPS's ATT gradient mis-scales the balance block by n/n_1 and stops off-stationarity; StatsPAI is asserted to attain strictly better covariate balance instead."
     },
     {
+      "additional_tests": [
+        "tests/reference_parity/test_cgs_continuous_parity.py"
+      ],
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "cgs_continuous_did",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 2.4376410634791557e-14,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "d1k0_overall_att",
+          "d1k0_overall_acrt",
+          "d3k0_overall_att",
+          "d3k0_overall_acrt",
+          "d3k2_overall_att",
+          "d3k2_overall_acrt"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "Continuous-treatment DiD (CGS)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "80_contdid",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 2.4376410634791557e-14,
+        "Stata": null
+      },
+      "python_call": "sp.cgs_continuous_did",
+      "reference": "contdid::cont_did",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/80_contdid.py",
+        "tests/r_parity/80_contdid.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
+    },
+    {
       "function": "check_absorbing",
       "notes": [
         "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."

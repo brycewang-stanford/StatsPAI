@@ -158,6 +158,7 @@ def test_stata_skip_reasons_are_not_reported_as_missing_harnesses():
         "76_pretrends",
         "77_ddd",
         "79_didff",
+        "80_contdid",
     }
     assert set(no_canonical) <= allowed_without_stata, (
         "module(s) reported as having no canonical Stata reference without "

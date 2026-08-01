@@ -295,6 +295,44 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`sp.cgs_continuous_did` — a dose has no single ATT, so stop reporting one
+  (WP-5).** With a continuous treatment the two-way fixed-effects coefficient
+  averages the 0.2-dose and the 0.8-dose comparison with weights nobody chose
+  and that can be negative. Callaway, Goodman-Bacon & Sant'Anna (2024)
+  replace it with two curves: `ATT(d)`, the effect of dose `d` among units
+  that got it, and `ACRT(d)`, its derivative — the causal response at `d`,
+  which is what a question about a *marginal* change in the dose is actually
+  asking.
+
+  Estimation is a B-spline regression of the within-unit outcome change on
+  the dose among the treated, levelled against the zero-dose group's mean
+  change. Degree and knots are the only smoothing choices and both are
+  explicit; there is no hidden bandwidth.
+
+  Pinned against `contdid` 0.1.1, the authors' own package: both curves at
+  four grid points and both overall quantities, across three spline
+  specifications, agree to **1e-12**. Track A module `80_contdid` plus
+  `tests/reference_parity/test_cgs_continuous_parity.py`.
+
+  Two scope notes, stated rather than implied. Standard errors come from the
+  per-cell influence function; `contdid` routes its own through the `pte`
+  aggregation layer, which is not replicated. And staggered designs
+  aggregate cells with StatsPAI's own treated-count weights — the per-cell
+  estimator is what the parity covers, and a test restricts a staggered
+  panel to a single cell to show that is where the agreement lives.
+
+- **`curve_basis` on `sp.cgs_continuous_did`.** `contdid` fits the spline on
+  the range of the observed treated doses but evaluates the curves it
+  *reports* on a basis re-anchored to the ends of the dose grid. The fitted
+  coefficients then multiply a differently scaled basis, so the reported
+  curves are a rescaled version of the fitted dose response: on the parity
+  fixture the reported ACRT sits 10% above the overall ACRT the same call
+  returns, and at degree 1 the gap is exactly the ratio of the two ranges.
+  StatsPAI uses one consistent basis by default — so `acrt_d` and
+  `overall_acrt` agree, as they must — and keeps the reference's behaviour
+  under `curve_basis="reference"` for reproducing that package's output.
+  Both are pinned.
+
 - **`sp.ddd_heterogeneous` grows covariates, analytic standard errors and a
   not-yet-treated control group (WP-8).** It shipped as an MVP: unconditional
   cell means, a cluster bootstrap, never-treated controls only. All three

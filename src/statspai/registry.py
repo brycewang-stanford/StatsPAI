@@ -12148,6 +12148,142 @@ def _build_registry() -> None:
 
     register(
         FunctionSpec(
+            name="cgs_continuous_did",
+            category="causal",
+            description=(
+                "Callaway, Goodman-Bacon & Sant'Anna (2024) DiD with a "
+                "CONTINUOUS treatment. A dose has no single ATT: the TWFE "
+                "coefficient averages the 0.2-dose and 0.8-dose comparisons "
+                "with weights that can be negative. Reports ATT(d) and its "
+                "derivative ACRT(d) -- the causal response at dose d, which "
+                "is what a marginal-dose question asks -- from a B-spline "
+                "regression of the outcome change on the dose."
+            ),
+            params=[
+                ParamSpec("data", "DataFrame", True),
+                ParamSpec("y", "str", True),
+                ParamSpec(
+                    "dose",
+                    "str",
+                    True,
+                    description="Treatment intensity (0 = untreated)",
+                ),
+                ParamSpec("time", "str", True),
+                ParamSpec("unit", "str", True),
+                ParamSpec(
+                    "cohort",
+                    "str",
+                    True,
+                    description="First-treatment period (0 = never treated)",
+                ),
+                ParamSpec(
+                    "degree",
+                    "int",
+                    False,
+                    3,
+                    "B-spline degree; degree=1 with no knots gives a constant "
+                    "ACRT, the 'effect per unit of dose' reading",
+                ),
+                ParamSpec(
+                    "num_knots",
+                    "int",
+                    False,
+                    0,
+                    "Interior knots at dose quantiles; more buys flexibility "
+                    "at the cost of variance and there is no auto-selector",
+                ),
+                ParamSpec("knots", "list", False, None, "Explicit interior knots"),
+                ParamSpec(
+                    "dose_grid",
+                    "list",
+                    False,
+                    None,
+                    "Doses to report the curves at (default: 10th-99th pct)",
+                ),
+                ParamSpec(
+                    "control_group",
+                    "str",
+                    False,
+                    "nevertreated",
+                    enum=["nevertreated", "notyettreated"],
+                ),
+                ParamSpec(
+                    "curve_basis",
+                    "str",
+                    False,
+                    "fitted",
+                    description=(
+                        "'fitted' evaluates the curves on the basis they were "
+                        "fitted on; 'reference' re-anchors to the dose grid to "
+                        "reproduce contdid 0.1.1's reported curves, which are "
+                        "a rescaled version of the fitted response"
+                    ),
+                    enum=["fitted", "reference"],
+                ),
+                ParamSpec("alpha", "float", False, 0.05),
+            ],
+            returns=(
+                "ContinuousDoseResult with the ATT(d) and ACRT(d) curves, "
+                "the overall ATT and ACRT, and an influence-function SE"
+            ),
+            example=(
+                'sp.cgs_continuous_did(df, y="y", dose="d", time="t", '
+                'unit="i", cohort="g", degree=1)'
+            ),
+            tags=[
+                "did",
+                "continuous_treatment",
+                "dose_response",
+                "acrt",
+                "staggered",
+                "causal",
+            ],
+            reference=(
+                "Callaway, Goodman-Bacon & Sant'Anna (2024) NBER WP 32117 "
+                "[@callaway2024difference]; pinned against the authors' "
+                "contdid 0.1.1 on two-period designs (Track A module 80)."
+            ),
+            pre_conditions=[
+                "panel with a continuous dose and some zero-dose units",
+                "at least one period before each treated cohort",
+            ],
+            assumptions=[
+                "Parallel trends in the untreated potential outcome",
+                "Strong parallel trends for ATT(d) to be the effect of dose d",
+                "No anticipation",
+            ],
+            limitations=[
+                "standard errors come from the per-cell influence function; "
+                "contdid routes its own through the pte aggregation layer, "
+                "which is not implemented here",
+                "staggered designs aggregate cells with StatsPAI's own "
+                "treated-count weights; only the per-cell estimator is "
+                "pinned against the reference",
+                "the cck (nonparametric) dose estimator is not implemented",
+            ],
+            failure_modes=[
+                FailureMode(
+                    symptom="No zero-dose units in a cell",
+                    exception="DataInsufficient",
+                    remedy="ATT(d) is levelled against the zero-dose group. "
+                    "Use control_group='notyettreated' to widen it.",
+                    alternative="continuous_did",
+                ),
+                FailureMode(
+                    symptom="Spline basis is collinear",
+                    exception="DataInsufficient",
+                    remedy="Too many knots for the doses observed; lower "
+                    "num_knots or pass explicit knots.",
+                    alternative="continuous_did",
+                ),
+            ],
+            alternatives=["continuous_did", "callaway_santanna", "dose_response"],
+            typical_n_min=500,
+        )
+    )
+
+    register(
+        FunctionSpec(
             name="functional_form_test",
             category="causal",
             description=(

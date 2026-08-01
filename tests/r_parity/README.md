@@ -139,6 +139,7 @@ a shared explicit fold partition.
 | 77 | Triple differences (staggered DDD) | `sp.ddd_heterogeneous` | `triplediff::ddd` + `agg_ddd` |
 | 78 | dCDH intertemporal event study | `sp.did_multiplegt_dyn` | `DIDmultiplegtDYN::did_multiplegt_dyn` |
 | 79 | Functional-form test for parallel trends | `sp.functional_form_test` | `didFF::didFF` |
+| 80 | Continuous-treatment DiD (CGS) | `sp.cgs_continuous_did` | `contdid::cont_did` |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running

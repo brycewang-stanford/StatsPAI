@@ -37,6 +37,7 @@ from .analysis import DIDAnalysis, did_analysis
 from .bacon import bacon_decomposition
 from .bjs_inference import bjs_pretrend_joint
 from .callaway_santanna import callaway_santanna
+from .cgs_continuous import ContinuousDoseResult, cgs_continuous_did
 from .cic import cic
 from .cohort_anchored import cohort_anchored_event_study
 from .continuous_did import continuous_did
@@ -766,6 +767,7 @@ __all__ = [
     "did_misclassified",
     # Pre-trends
     "pretrends_test",
+    "cgs_continuous_did",
     "functional_form_test",
     "pretrends_power",
     "pretrends_slope_for_power",

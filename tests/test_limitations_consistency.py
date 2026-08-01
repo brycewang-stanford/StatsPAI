@@ -62,6 +62,14 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         # both are reachable. Pinned in Track A module 78.
         "the headline aggregation convention differs",
     ],
+    "cgs_continuous_did": [
+        # All three are scope statements about this implementation, not
+        # code paths that raise. The per-cell estimator is pinned; what is
+        # not implemented is named.
+        "standard errors come from the per-cell influence function",
+        "staggered designs aggregate cells with StatsPAI's own",
+        "the cck (nonparametric) dose estimator is not implemented",
+    ],
     "functional_form_test": [
         # Both are properties of the test, not code paths that raise: it is
         # a moment-inequality test, so failing to reject is not evidence of

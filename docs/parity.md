@@ -25,15 +25,15 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 143 |
+| bit-exact | 144 |
 | aligned | 15 |
 | analytical-only | 211 |
 | external-replication | 6 |
-| **verified (subtotal)** | **375** |
+| **verified (subtotal)** | **376** |
 | unverified | 780 |
-| **total registered** | **1155** |
+| **total registered** | **1156** |
 
-## bit-exact — 143 functions
+## bit-exact — 144 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -53,6 +53,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `bootstrap` | nonparametric bootstrap contract (Efron 1979) | R 4.5.2 | estimate/se contract 1e-12 abs (observed 0); SE ~ analytic 10% | — / — | [`test_bootstrap_parity.py`](../tests/reference_parity/test_bootstrap_parity.py) |
 | `breakdown_frontier` | additive-violation breakdown identities (Masten & Poirier 2021) | R 4.5.2 | breakdown point / CI / bounds 1e-12 abs (observed 0) | — / — | [`test_breakdown_frontier_parity.py`](../tests/reference_parity/test_breakdown_frontier_parity.py) |
 | `callaway_santanna` | did::att_gt + aggte | R 4.5.2; did 2.3.0 | rel_est<=1e-06, rel_se<=0.01 | 1.3e-15 / 1.3e-15 | [`04_csdid.py`](../tests/r_parity/04_csdid.py) (+2) |
+| `cgs_continuous_did` | contdid::cont_did | R 4.5.2 | rel_est<=1e-06 | 2.4e-14 / — | [`80_contdid.py`](../tests/r_parity/80_contdid.py) (+1) |
 | `cic` | qte::CiC | R 4.5.2 | rel_est<=1e-06 | 2.4e-15 / — | [`74_cic.py`](../tests/r_parity/74_cic.py) (+1) |
 | `clogit` | survival::clogit | R 4.5.2; survival 3.8.3 | rel_est<=1e-06, rel_se<=1e-06 | 1.3e-08 / 1.3e-08 | [`46_clogit.py`](../tests/r_parity/46_clogit.py) (+2) |
 | `clustering` | local clustering coefficient (Watts-Strogatz 1998) | R 4.5.2 | coefficient 1e-12 abs (observed 0) | — / — | [`test_network_centrality_parity.py`](../tests/reference_parity/test_network_centrality_parity.py) |
