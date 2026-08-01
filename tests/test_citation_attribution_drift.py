@@ -147,6 +147,13 @@ def _findings() -> list[str]:
             text = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:  # pragma: no cover - defensive
             continue
+        # Inline code spans hold literals being *discussed*, not citations
+        # being made. The CHANGELOG entry documenting this class of bug lists
+        # the offending forms as `(Kiciman-Sharma 2025, arXiv 2402.11068)` —
+        # in backticks, which is how Markdown quotes a literal string. Same
+        # principle as the quoted-span strip in tools/audit_citations.py:
+        # writing a correction down must not read as committing the error.
+        text = re.sub(r"``[^`]+``|`[^`\n]+`", " ", text)
         for m in ATTRIB_RE.finditer(text):
             aid = m.group("id")
             written = m.group("names")
@@ -249,3 +256,28 @@ def test_paper_bib_kiciman_entry_lists_all_four_authors():
     _, surnames, year = _bib_index()["2305.00050"]
     assert year == "2023"
     assert {_fold(s) for s in ("Kıcıman", "Ness", "Sharma", "Tan")} <= surnames
+
+
+def test_backticked_literal_is_not_a_live_citation(tmp_path, monkeypatch):
+    """Documenting the bug must not read as committing it."""
+    scratch = tmp_path / "docs"
+    scratch.mkdir()
+    (scratch / "note.md").write_text(
+        "house style: `(Kiciman-Sharma 2025, arXiv 2402.11068)` — all three "
+        "June fabrications had that shape.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("tests.test_citation_attribution_drift.SCAN_ROOTS", (scratch,))
+    assert _findings() == []
+
+
+def test_same_text_outside_backticks_still_fires(tmp_path, monkeypatch):
+    """…and the strip must not become a blanket amnesty."""
+    scratch = tmp_path / "docs"
+    scratch.mkdir()
+    (scratch / "note.md").write_text(
+        "LLM-assisted DAG proposal (Kiciman-Sharma 2025, arXiv 2402.11068).\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("tests.test_citation_attribution_drift.SCAN_ROOTS", (scratch,))
+    assert _findings(), "an unquoted fabrication must still be reported"
