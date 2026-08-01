@@ -498,6 +498,7 @@ def cct_bias_corrected(
     deriv: int,
     kernel: str,
     nnmatch: int = 3,
+    covs: Optional[np.ndarray] = None,
 ) -> Tuple[float, float, float, float]:
     """CCT bias-corrected estimate and its SEs, matching ``rdrobust``.
 
@@ -538,6 +539,9 @@ def cct_bias_corrected(
     """
     y = np.asarray(y, float)
     x = np.asarray(x, float)
+    Zall = None if covs is None else np.asarray(covs, float)
+    if Zall is not None and Zall.ndim == 1:
+        Zall = Zall[:, None]
     out = []
     for side, h, b in (("l", h_l, b_l), ("r", h_r, b_r)):
         m = (x < c) if side == "l" else (x >= c)
@@ -548,11 +552,13 @@ def cct_bias_corrected(
         xs, ys = x[m], y[m]
         o = np.argsort(xs, kind="mergesort")
         xs, ys = xs[o], ys[o]
+        Zs = None if Zall is None else Zall[m][o]
         dups_side, dupsid_side = _runs(xs)
         W_h = _kweight(xs, c, h, kernel)
         W_b = _kweight(xs, c, b, kernel)
         keep = (W_h > 0) | (W_b > 0)
         eX, eY = xs[keep], ys[keep]
+        eZ = None if Zs is None else Zs[keep]
         W_h, W_b = W_h[keep], W_b[keep]
         e_dups, e_dupsid = dups_side[keep], dupsid_side[keep]
 
@@ -569,14 +575,45 @@ def cct_bias_corrected(
         M = (invG_q @ R_q.T) * W_b[None, :]
         Q_q = (R_p * W_h[:, None]).T - h ** (p + 1) * np.outer(L, e_p1) @ M
 
-        beta_p = invG_p @ ((R_p * W_h[:, None]).T @ eY)
-        beta_bc = invG_p @ (Q_q @ eY)
+        # Covariate partialling-out, same construction as _vbr: gamma solves
+        # the covariate block of the weighted normal equations after the
+        # polynomial basis is projected out, and s = [1, -gamma] is the
+        # residual maker applied to every subsequent quantity.
+        s_vec = np.array([1.0])
+        RXp0 = R_p * W_h[:, None]
+        if eZ is not None and eZ.shape[1] > 0:
+            D = np.column_stack([eY, eZ])
+            U = RXp0.T @ D
+            ZWD = (eZ * W_h[:, None]).T @ D
+            colsZ = slice(1, 1 + eZ.shape[1])
+            UiGU = U[:, colsZ].T @ (invG_p @ U)
+            gamma = np.linalg.solve(
+                ZWD[:, colsZ] - UiGU[:, colsZ], ZWD[:, 0] - UiGU[:, 0]
+            )
+            s_vec = np.concatenate([[1.0], -gamma])
+            beta_p = (invG_p @ (RXp0.T @ D)) @ s_vec
+            beta_bc = (invG_p @ (Q_q @ D)) @ s_vec
+        else:
+            beta_p = invG_p @ (RXp0.T @ eY)
+            beta_bc = invG_p @ (Q_q @ eY)
 
         # Variances. rdrobust_vce with d=0, C=NULL is crossprod(res * RX);
         # the CONVENTIONAL one uses RX = R_p * W_h, the ROBUST one swaps in
         # the bias-correction operator Q_q. Reusing the conventional RX (or a
         # plain q-order refit) is what left the robust SE ~13% off.
-        res = _nn_residuals(eX, eY, e_dups, e_dupsid, nnmatch)
+        if eZ is not None and eZ.shape[1] > 0:
+            Dz = np.column_stack([eY, eZ])
+            res = (
+                np.column_stack(
+                    [
+                        _nn_residuals(eX, Dz[:, j], e_dups, e_dupsid, nnmatch)
+                        for j in range(Dz.shape[1])
+                    ]
+                )
+                @ s_vec
+            )
+        else:
+            res = _nn_residuals(eX, eY, e_dups, e_dupsid, nnmatch)
         RXp = R_p * W_h[:, None]
         M_cl = (res[:, None] * RXp).T @ (res[:, None] * RXp)
         V_cl = invG_p @ M_cl @ invG_p

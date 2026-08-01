@@ -672,14 +672,12 @@ def rdrobust(
                 deriv=deriv,
                 kernel=kernel,
                 bwselect=bwselect,
-                # covs is NOT passed, and that is deliberate. The Z
-                # projection in _cct_bandwidth is now correct (h matches R at
-                # 1.7e-07 on a design where covariates bind), but landing it
-                # alone makes the package WORSE: the old bandwidth error was
-                # cancelling an error in the legacy covariate variance, so
-                # fixing h alone moves the robust SE from 0.68% off to 67%
-                # off. h and the covariate variance have to land together.
-                # See docs/rfc/rd_three_month_plan.md appendix D.
+                # Only when the CCT path will actually be used downstream.
+                # With cluster= the substitution is blocked, so a
+                # covariate-adjusted bandwidth would be paired with a legacy
+                # estimate computed on different weights -- measured worse
+                # than leaving both on the legacy path (h 3.8e-02 -> 6.8e-01).
+                covs=(None if cluster else Z),
             )
         except (ValueError, IndexError, ZeroDivisionError, np.linalg.LinAlgError):
             # Degenerate data (empty side, singular design, kernel/bwselect
@@ -762,6 +760,7 @@ def rdrobust(
                 q,
                 deriv,
                 kernel,
+                covs=Z,
             )
             # (tau_conv, tau_bc, se_conv, se_robust)
             _tau_bc_cct = _cctvals
@@ -839,7 +838,10 @@ def rdrobust(
     # corresponding adjustment: gating on fuzzy alone dropped the covariate
     # adjustment, and gating on fuzzy+covs still dropped the cluster-robust
     # variance (both measured at exactly 1.000x against R's 6.4x and 2.29x).
-    if _tau_bc_cct is not None and fuzzy is None and Z is None and not cluster:
+    # covs is handled end to end now (bandwidth, point estimate and both
+    # variances all carry the covariate residual maker s). fuzzy and cluster
+    # are not, and substituting there would discard their adjustment.
+    if _tau_bc_cct is not None and fuzzy is None and not cluster:
         # Both rows come from the CCT operator: the conventional SE also uses
         # nn residuals whose tie runs are measured on the whole side, which
         # the legacy path did not do.

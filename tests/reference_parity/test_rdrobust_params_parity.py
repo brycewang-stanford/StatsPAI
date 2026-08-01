@@ -118,7 +118,6 @@ def test_deriv_bandwidth_and_point_estimate_match_r(rjson, senate):
 # ── bandwidth: covs / cluster are not yet in the cascade ────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO_BW)
 @pytest.mark.parametrize("p", [1, 2])
 def test_covs_bandwidth_matches_r(rjson, senate, p):
     ref = rjson[f"covs_p{p}"]

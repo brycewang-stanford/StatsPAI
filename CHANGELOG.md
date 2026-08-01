@@ -194,13 +194,22 @@ All notable changes to StatsPAI will be documented in this file.
 ### Known issues
 
 - `sp.rdrobust` has no `vce=` parameter; R exposes `hc0`–`hc3` and `cr*`.
-- `covs` / `cluster` do not yet enter the CCT **bandwidth** cascade. On a
-  design where both bind, `h` is off by **2.2** for covs (the senate fixture
-  had suggested 7e-3 — 300x smaller) and the cluster SE by 56%. The
-  estimates and variances themselves *are* adjusted; only bandwidth
-  selection is not. Locked in CI as `xfail(strict)` in
-  `test_rd_covs_cluster_parity.py`, which also asserts the fixture stays
-  discriminating.
+- `cluster=` does not enter the CCT **bandwidth** cascade; its SE is still
+  ~6e-2 off R. `covs=` now does, end to end — bandwidth, point estimate and
+  both variances all carry the covariate residual maker. Measured on a
+  design built so both bind (the senate fixture had understated the covs
+  gap by 300x): `h` went from **2.2** relative error to **1.7e-07**, the
+  conventional SE from 1.1e-01 to 2.4e-03.
+
+  The two could not be fixed separately. Landing the correct covariate
+  bandwidth *alone* moved the robust SE from 0.68% to 67% off, because the
+  old bandwidth error had been cancelling a variance error of the opposite
+  sign — a coupling recorded as a constraint in
+  `docs/rfc/rd_three_month_plan.md` appendix D. Both had to land together.
+
+  Locked in CI by `test_rd_covs_cluster_parity.py`, which also asserts via
+  `test_design_is_discriminating` that the fixture keeps distinguishing a
+  right implementation from a wrong one.
 
 ### Fixed
 

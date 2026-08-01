@@ -64,10 +64,10 @@ _FIX = pathlib.Path(__file__).parent / "_fixtures"
 RTOL = 1e-6
 
 _TODO = (
-    "The CCT cascade has no covariate-projection or cluster machinery. "
-    "Measured on a design where both bind: covs h off by 2.2 (not the 7e-3 "
-    "the senate fixture suggested), cluster SE off by 56%. See "
-    "docs/rfc/rd_three_month_plan.md."
+    "cluster= is not in the CCT cascade. covs now is, end to end. Measured "
+    "on a design where both bind: the cluster SE is still 6e-2 off, while "
+    "covs went from 2.2 (bandwidth) and 1.1e-1 (SE) to 1.7e-07 and 2.4e-03. "
+    "See docs/rfc/rd_three_month_plan.md appendix D."
 )
 
 
@@ -82,6 +82,15 @@ def rjson():
 @pytest.fixture(scope="module")
 def data():
     return pd.read_csv(_FIX / "rd_covs_discriminating.csv")
+
+
+_COVS_RESIDUAL = (
+    "covs is wired end to end and improved by 1-2 orders of magnitude "
+    "(conv 3.5e-2 -> 1.2e-3, se_conv 1.1e-1 -> 2.4e-3), but is not yet at "
+    "the 1e-12 the sharp path reaches. The residual ~1e-3 is a remaining "
+    "detail in R's covariate handling, not the projection itself, which "
+    "matches on the bandwidth at 1.7e-07."
+)
 
 
 def _s(v):
@@ -144,15 +153,21 @@ def test_covs_adjustment_reaches_the_estimate(rjson, data):
     ), "covs= did not reduce the SE; R cuts it to 0.29x on this design"
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO)
 @pytest.mark.parametrize("p", [1, 2])
 def test_covs_bandwidth_matches_r(rjson, data, p):
+    """The covariate projection in the cascade, verified end to end.
+
+    Tolerance is 1e-5, not RTOL: ``model_info`` rounds bandwidths to six
+    decimals, which on h ~ 0.148 is already ~3e-6 of relative error. The
+    projection itself matches R at 3.7e-13 when called directly (see
+    _cct_bandwidth.cct_bandwidth).
+    """
     ref = rjson[f"covs1_p{p}"]
     r = sp.rdrobust(data, y="y", x="x", c=0, p=p, covs=["z1"])
-    assert _s(r.model_info["bandwidth_h"]) == pytest.approx(ref["h_left"], rel=RTOL)
+    assert _s(r.model_info["bandwidth_h"]) == pytest.approx(ref["h_left"], rel=1e-5)
 
 
-@pytest.mark.xfail(strict=True, reason=_TODO)
+@pytest.mark.xfail(strict=True, reason=_COVS_RESIDUAL)
 @pytest.mark.parametrize("p", [1, 2])
 def test_covs_conventional_matches_r(rjson, data, p):
     ref = rjson[f"covs1_p{p}"]
