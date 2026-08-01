@@ -26,7 +26,7 @@ from typing import Any, Dict, Optional, Sequence
 
 import numpy as np
 
-from ..exceptions import MethodIncompatibility
+from ..exceptions import MethodIncompatibility, StatsPAIError
 
 __all__ = ["SensitivityDashboard", "unified_sensitivity"]
 
@@ -235,7 +235,8 @@ def _outcome_sd(
     if data is not None and y is not None:
         try:
             sd = float(np.asarray(data[y], dtype=float).std(ddof=1))
-        except Exception:
+        except (KeyError, IndexError, TypeError, ValueError):
+            # y absent from data, or a column that will not cast to float.
             return None
         return sd if np.isfinite(sd) and sd > 0 else None
     for attr in ("outcome_sd", "y_sd", "dv_sd"):
@@ -553,7 +554,18 @@ def unified_sensitivity(
                 "delta": _float_or_nan(_info.get("delta_star", float("nan"))),
                 "beta_star": _float_or_nan(_info.get("beta_star_delta1", float("nan"))),
             }
-        except Exception as exc:
+        except (
+            StatsPAIError,
+            KeyError,
+            IndexError,
+            TypeError,
+            ValueError,
+            np.linalg.LinAlgError,
+        ) as exc:
+            # Oster is one panel of the dashboard, so a specification it
+            # cannot handle degrades to a note rather than killing the
+            # other components. Anything outside this list is a real bug
+            # and should propagate.
             notes.append(f"Oster delta from data skipped: {exc}")
 
     if (
