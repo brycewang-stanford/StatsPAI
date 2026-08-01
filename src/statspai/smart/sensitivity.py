@@ -8,10 +8,18 @@ turning them into a blanket validation claim.
 
 Usage
 -----
->>> import statspai as sp
+>>> import numpy as np, pandas as pd, statspai as sp
+>>> rng = np.random.default_rng(0)
+>>> df = pd.DataFrame({"educ": rng.normal(size=200),
+...                    "exper": rng.normal(size=200)})
+>>> df["wage"] = 1.0 + 0.5 * df["educ"] + rng.normal(size=200)
 >>> result = sp.regress("wage ~ educ + exper", data=df)
->>> dash = sp.sensitivity_dashboard(result, data=df)
->>> print(dash.summary())
+>>> dash = sp.sensitivity_dashboard(result, data=df, verbose=False)
+>>> dash.overall_stability in {"A", "B", "C", "D", "F"}
+True
+
+Pass ``data=``: most dimensions re-estimate the model on perturbed
+samples, so without it every dimension drops out and the grade is ``"?"``.
 """
 
 import warnings

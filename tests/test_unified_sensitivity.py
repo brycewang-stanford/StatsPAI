@@ -19,7 +19,10 @@ class _FakeResult:
 
 def test_unified_sensitivity_from_plain_result():
     res = _FakeResult(estimate=0.3, se=0.1, ci=(0.1, 0.5))
-    dash = sp.unified_sensitivity(res)
+    # A bare estimate/se/ci carries no scale. The E-value is defined on the
+    # risk-ratio scale, so say which one this is (here: a mean difference,
+    # standardised by the outcome SD) instead of letting it be assumed.
+    dash = sp.unified_sensitivity(res, outcome_sd=1.0)
     assert np.isfinite(dash.e_value_point)
     assert dash.breakdown is not None
     assert "bias_to_flip" in dash.breakdown
@@ -52,7 +55,7 @@ def test_sensitivity_method_on_causal_result_smoke():
     res = sp.did_2x2(df, y="y", treat="treat", time="post")
     # Should have a sensitivity method
     assert hasattr(res, "sensitivity")
-    dash = res.sensitivity()
+    dash = res.sensitivity(outcome_sd=float(df["y"].std(ddof=1)))
     assert np.isfinite(dash.e_value_point)
     assert dash.rr_observed > 0
 
@@ -67,10 +70,14 @@ def test_unified_sensitivity_summary_runs():
 
 def test_unified_sensitivity_oster_with_r2():
     res = _FakeResult(estimate=0.3, se=0.1, ci=(0.1, 0.5))
+    with pytest.warns(DeprecationWarning, match="r2_short"):
+        sp.unified_sensitivity(res, outcome_sd=1.0, r2_treated=0.25, r2_controlled=0.40)
     dash = sp.unified_sensitivity(
         res,
-        r2_treated=0.25,
-        r2_controlled=0.40,
+        outcome_sd=1.0,
+        r2_short=0.25,
+        r2_long=0.40,
+        beta_uncontrolled=0.2,
     )
     # Oster may fail if the underlying function has a different signature;
     # in that case we expect a note but no exception.

@@ -20,6 +20,7 @@ Attached as the ``sensitivity`` method of :class:`CausalResult` and
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence
 
@@ -53,7 +54,7 @@ class SensitivityDashboard:
         lines = [
             "Unified Sensitivity Dashboard",
             bar,
-            f"  Observed RR (or effect-as-RR proxy): {self.rr_observed:.4f}",
+            f"  Risk ratio the E-value is based on: {self.rr_observed:.4f}",
             f"  Observed 95% CI: [{self.ci_observed[0]:.4f}, "
             f"{self.ci_observed[1]:.4f}]",
             "",
@@ -214,24 +215,43 @@ def _extract_estimate(
     return estimate, se, ci
 
 
-def _as_risk_ratio(
-    estimate: float,
-    se: float,
-    ci: tuple[float, float],
-) -> tuple[float, tuple[float, float]]:
-    """Interpret estimate as an RR for E-value.
+class _SkipEValue(Exception):
+    """Internal sentinel: the E-value is not defined for these inputs."""
 
-    If estimate > 1 already, treat as RR directly.  Otherwise use the
-    conservative VanderWeele-Ding conversion
-    RR = (1 + d) / 1, where ``d`` is a standardized effect size.
-    """
-    # Assume estimate already on RR scale if strictly positive and CI > 0.
-    if estimate > 0 and ci[0] > 0:
-        return float(estimate), (float(ci[0]), float(ci[1]))
-    # Otherwise convert mean difference to RR via ABS + 1
-    rr = 1 + abs(estimate)
-    ci_conv = (1 + abs(ci[0]), 1 + abs(ci[1]))
-    return float(rr), (float(min(ci_conv)), float(max(ci_conv)))
+
+_RATIO_ESTIMANDS = ("rr", "risk ratio", "odds ratio", "or", "hazard ratio", "hr")
+
+
+def _outcome_sd(
+    result: Any,
+    data: Any,
+    y: Optional[str],
+    outcome_sd: Optional[float],
+) -> Optional[float]:
+    """Outcome standard deviation, needed to standardise a raw coefficient."""
+    if outcome_sd is not None:
+        sd = float(outcome_sd)
+        return sd if sd > 0 else None
+    if data is not None and y is not None:
+        try:
+            sd = float(np.asarray(data[y], dtype=float).std(ddof=1))
+        except Exception:
+            return None
+        return sd if np.isfinite(sd) and sd > 0 else None
+    for attr in ("outcome_sd", "y_sd", "dv_sd"):
+        value = getattr(result, attr, None)
+        if isinstance(value, (int, float, np.floating)) and float(value) > 0:
+            return float(value)
+    return None
+
+
+def _looks_like_a_ratio(result: Any) -> bool:
+    """Whether the result's own metadata says the estimate is a ratio."""
+    for attr in ("estimand", "measure", "scale"):
+        value = getattr(result, attr, None)
+        if isinstance(value, str) and value.strip().lower() in _RATIO_ESTIMANDS:
+            return True
+    return False
 
 
 def _coerce_matched_pairs(mp: Any) -> tuple[np.ndarray, np.ndarray]:
@@ -277,6 +297,10 @@ def unified_sensitivity(
     result: Any,
     *,
     term: Optional[str] = None,
+    measure: str = "auto",
+    outcome_sd: Optional[float] = None,
+    r2_short: Optional[float] = None,
+    r2_long: Optional[float] = None,
     r2_treated: Optional[float] = None,
     r2_controlled: Optional[float] = None,
     beta_uncontrolled: Optional[float] = None,
@@ -295,9 +319,18 @@ def unified_sensitivity(
     ----------
     result : CausalResult / EconometricResults / dataclass with
         ``estimate``, ``se``, ``ci`` attributes.
+    r2_short, r2_long : float, optional
+        R^2 of the short (treatment-only) and long (with controls)
+        regression, for Oster's delta. Usually unnecessary: when ``data``,
+        ``y``, ``treat`` and ``controls`` are supplied these are derived
+        from the data, which is what keeps this delta equal to the one
+        ``sp.oster_delta`` reports on the same specification.
     r2_treated, r2_controlled : float, optional
-        Required for Oster's delta; R^2 from the short (treatment-only)
-        and long (with controls) regression respectively.
+        Deprecated aliases for ``r2_short`` / ``r2_long``. The old names
+        read like sensemakr's partial R^2 (outcome/treatment variance
+        explained by an unobservable) but were consumed as the short/long
+        regression R^2, so supplying sensemakr-style values silently
+        produced a wrong delta*. Use the new names.
     beta_uncontrolled : float, optional
         Short-regression (no controls) treatment estimate; required for
         Oster's delta together with the two R^2 values.
@@ -312,6 +345,23 @@ def unified_sensitivity(
         because guessing silently answers the sensitivity question about
         the wrong parameter. Ignored for results that expose a single
         scalar ``estimate`` / ``ate``.
+    measure : {'auto', 'RR', 'OR', 'HR', 'OLS', 'SMD'}, default 'auto'
+        Scale the estimate lives on, for the **E-value** component. The
+        E-value is defined for risk ratios, so a raw regression coefficient
+        must be standardised before it means anything:
+        ``RR ~ exp(0.91 * d)`` for a standardised mean difference ``d``
+        (``vanderweele2017sensitivity``).
+
+        ``'auto'`` reads the result's own ``estimand`` / ``measure`` and
+        uses ``'RR'`` when it names a ratio, otherwise treats the estimate
+        as a difference on the outcome's scale and standardises it. Pass
+        ``'RR'`` explicitly if the estimate really is a ratio the result
+        does not advertise.
+    outcome_sd : float, optional
+        Standard deviation of the outcome, used to standardise the
+        coefficient. Taken from ``data[y]`` when both are supplied. Without
+        it the E-value is skipped with a note instead of being computed on
+        an unknown scale.
     data : pd.DataFrame, optional
         Raw estimation data. Required for the **Sensemakr** component:
         the Cinelli-Hazlett robustness value is computed from the
@@ -332,14 +382,24 @@ def unified_sensitivity(
     --------
     >>> import statspai as sp
     >>> from types import SimpleNamespace
-    >>> # Any result exposing estimate / se / ci works.
-    >>> result = SimpleNamespace(estimate=0.35, se=0.10, ci=(0.15, 0.55))
-    >>> dash = sp.unified_sensitivity(result)
+    >>> # Any result exposing estimate / se / ci works. Say what scale the
+    >>> # estimate is on — a risk ratio here — so the E-value is meaningful.
+    >>> result = SimpleNamespace(estimate=1.35, se=0.10, ci=(1.15, 1.55))
+    >>> dash = sp.unified_sensitivity(result, measure="RR")
     >>> type(dash).__name__
     'SensitivityDashboard'
     >>> bool(dash.e_value_point >= 1.0)  # E-values are >= 1 by construction
     True
     >>> dash.breakdown is not None
+    True
+    >>> # A mean difference needs the outcome SD to be standardised first.
+    >>> diff = SimpleNamespace(estimate=0.35, se=0.10, ci=(0.15, 0.55))
+    >>> dash2 = sp.unified_sensitivity(diff, outcome_sd=2.0)
+    >>> bool(dash2.e_value_point >= 1.0)
+    True
+    >>> # Without a scale the E-value is skipped rather than invented.
+    >>> import math
+    >>> math.isnan(sp.unified_sensitivity(diff).e_value_point)
     True
     """
     from ..diagnostics.evalue import evalue as _evalue_fn
@@ -362,13 +422,73 @@ def unified_sensitivity(
             ".sensitivity(estimate=..., se=..., ci=...)."
         )
 
-    rr, rr_ci = _as_risk_ratio(estimate, se, ci)
-
     notes: list[str] = []
-    # 1. E-value (always).  ``evalue`` returns a dict with keys
-    # ``evalue_estimate`` (point) and ``evalue_ci``.
+
+    if r2_treated is not None or r2_controlled is not None:
+        warnings.warn(
+            "r2_treated / r2_controlled are deprecated aliases for "
+            "r2_short / r2_long (the short- and long-regression R^2 for "
+            "Oster's delta). The old names read like sensemakr's partial "
+            "R^2, and passing sensemakr-style values here silently "
+            "produced a delta* that disagreed with sp.oster_delta on the "
+            "same specification. Prefer supplying data=, y=, treat= and "
+            "controls= and letting the R^2 be derived.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if r2_short is None:
+            r2_short = r2_treated
+        if r2_long is None:
+            r2_long = r2_controlled
+
+    # 1. E-value.  The E-value is defined on the risk-ratio scale, so a raw
+    # linear-regression coefficient has to be standardised first —
+    # VanderWeele & Ding (2017) approximate RR ~ exp(0.91 * d) for a
+    # standardised mean difference d, which sp.evalue implements as
+    # measure='OLS' given the outcome SD.
+    #
+    # This used to force measure='RR' and pass the coefficient through
+    # unchanged whenever it was positive, so a treatment effect of $1,548
+    # was read as a risk ratio of 1548 and produced an E-value of 3096 —
+    # arithmetically fine, meaningless as a quantity. Without a scale we now
+    # skip the E-value and say why rather than emit that number.
+    resolved_measure = measure
+    ev_kwargs: Optional[Dict[str, Any]] = None
+    if resolved_measure == "auto":
+        resolved_measure = "RR" if _looks_like_a_ratio(result) else "OLS"
+    if resolved_measure in {"RR", "OR", "HR"}:
+        rr, rr_ci = float(estimate), (float(ci[0]), float(ci[1]))
+        ev_kwargs = {"estimate": rr, "ci": rr_ci, "measure": resolved_measure}
+    else:
+        sd = _outcome_sd(result, data, y, outcome_sd)
+        if sd is None:
+            rr, rr_ci = float("nan"), (float("nan"), float("nan"))
+            notes.append(
+                "E-value skipped: the estimate is a difference on the "
+                "outcome's own scale, and the E-value is defined for risk "
+                "ratios. Standardising it needs the outcome SD — pass "
+                "outcome_sd=, or data= together with y=. (Pass "
+                "measure='RR' if the estimate really is a ratio.)"
+            )
+        else:
+            # Report the RR the E-value was actually computed from, not the
+            # raw coefficient — otherwise the summary line and the E-value
+            # below it describe different quantities.
+            _d = float(estimate) / sd
+            _d_lo, _d_hi = float(ci[0]) / sd, float(ci[1]) / sd
+            rr = float(np.exp(0.91 * _d))
+            rr_ci = (float(np.exp(0.91 * _d_lo)), float(np.exp(0.91 * _d_hi)))
+            ev_kwargs = {
+                "estimate": float(estimate),
+                "se": float(se),
+                "sd": sd,
+                "measure": "OLS",
+            }
+
     try:
-        ev = _evalue_fn(estimate=rr, ci=rr_ci, measure="RR")
+        if ev_kwargs is None:
+            raise _SkipEValue
+        ev = _evalue_fn(**ev_kwargs)
         if isinstance(ev, dict):
             e_point = _float_or_nan(
                 ev.get(
@@ -391,6 +511,8 @@ def unified_sensitivity(
             )
             e_ci_val = getattr(ev, "evalue_ci", getattr(ev, "e_ci", None))
         e_ci = _finite_optional_float(e_ci_val)
+    except _SkipEValue:
+        e_point, e_ci = float("nan"), None
     except Exception as exc:
         notes.append(f"E-value computation failed: {exc}")
         e_point, e_ci = float("nan"), None
@@ -399,10 +521,46 @@ def unified_sensitivity(
     # estimate (``beta_uncontrolled``).  Fabricating beta_uncontrolled
     # would produce a meaningless delta, so we skip unless it is supplied.
     oster = None
+    # Preferred path: derive Oster's inputs from the data, exactly as
+    # sp.oster_delta does. Hand-supplied R^2 values are easy to get wrong —
+    # `r2_treated` / `r2_controlled` read like sensemakr's partial R^2 but
+    # are consumed as the short/long regression R^2, and feeding sensemakr
+    # numbers here silently produced a different delta* than sp.oster_delta
+    # reported on the same data (-12.765 vs -2.339). Deriving them means a
+    # report cannot disagree with itself.
     if (
         include_oster
-        and r2_treated is not None
-        and r2_controlled is not None
+        and oster is None
+        and r2_short is None
+        and data is not None
+        and y is not None
+        and treat is not None
+        and controls is not None
+    ):
+        try:
+            from ..bounds.partial_id import oster_delta as _oster_delta
+
+            _od = _oster_delta(
+                data,
+                y=y,
+                x_base=[treat],
+                x_controls=list(controls),
+                r_max=0,
+                n_boot=0,
+            )
+            _info = getattr(_od, "model_info", {}) or {}
+            oster = {
+                "delta": _float_or_nan(_info.get("delta_star", float("nan"))),
+                "beta_star": _float_or_nan(_info.get("beta_star_delta1", float("nan"))),
+            }
+        except Exception as exc:
+            notes.append(f"Oster delta from data skipped: {exc}")
+
+    if (
+        include_oster
+        and oster is None
+        and r2_short is not None
+        and r2_long is not None
         and beta_uncontrolled is not None
     ):
         try:
@@ -413,8 +571,8 @@ def unified_sensitivity(
             od = _oster_bounds(
                 beta_short=float(beta_uncontrolled),
                 beta_long=float(estimate),
-                r2_short=float(r2_treated),
-                r2_long=float(r2_controlled),
+                r2_short=float(r2_short),
+                r2_long=float(r2_long),
                 r_max=float(rho_max),
                 delta=1.0,
             )
@@ -446,10 +604,11 @@ def unified_sensitivity(
 
             _warnings.warn(f"Oster delta skipped: {exc}", stacklevel=2)
             notes.append(f"Oster delta skipped: {exc}")
-    elif include_oster and (r2_treated is not None or r2_controlled is not None):
+    elif include_oster and oster is None:
         notes.append(
-            "Oster delta skipped: need r2_treated, r2_controlled, and "
-            "beta_uncontrolled (the short-regression estimate)."
+            "Oster delta skipped: supply data=, y=, treat= and controls= to "
+            "derive it, or pass r2_short, r2_long and beta_uncontrolled "
+            "(the short-regression estimate) explicitly."
         )
 
     # 3. Rosenbaum bounds — requires matched-pair outcomes. Runs when the

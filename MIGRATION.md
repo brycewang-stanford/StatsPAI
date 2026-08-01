@@ -5,6 +5,51 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="unified-sensitivity-scale"></a>
+
+## Unreleased — ⚠️ `unified_sensitivity`: E-value scale and Oster inputs
+
+Two quantities in the dashboard were computed from the wrong inputs.
+
+**E-value from an un-standardised coefficient.** The E-value is defined on
+the risk-ratio scale. `unified_sensitivity` forced `measure="RR"` and
+passed a raw regression coefficient through unchanged whenever it was
+positive, so a $1,548 treatment effect was read as a risk ratio of 1548:
+
+```text
+before:  RR "1548.24"  ->  E-value 3095.99      (meaningless)
+after:   d = 0.2072, RR = exp(0.91*d) = 1.2075  ->  E-value 1.7082
+```
+
+A mean difference must be standardised by the outcome SD first
+(`vanderweele2017sensitivity`). Migration:
+
+```python
+# supply the scale — data=/y= is usually already there for Sensemakr
+sp.unified_sensitivity(fit, term="treat", data=df, y="re78", controls=X)
+
+# or give the SD directly
+sp.unified_sensitivity(fit, term="treat", outcome_sd=df["re78"].std(ddof=1))
+
+# or declare that the estimate really is a ratio
+sp.unified_sensitivity(hazard_fit, term="treat", measure="RR")
+```
+
+Without a scale the E-value is now `nan` with an explanatory note instead
+of a fabricated number. If you published an E-value from a linear model,
+recompute it — the old one described a risk ratio you never estimated.
+
+**Oster inputs.** `r2_treated` / `r2_controlled` read like sensemakr's
+partial R^2 but were consumed as the short- and long-regression R^2. Given
+sensemakr-style values they produced `delta* = -12.765` where
+`sp.oster_delta` reported `-2.339` for the same specification — two
+contradictory deltas in one report. They are renamed `r2_short` /
+`r2_long` (old names still work, with a `DeprecationWarning`), and when
+`data`, `y`, `treat` and `controls` are available the R^2 are derived from
+the data so the two paths agree by construction.
+
+---
+
 <a id="unified-sensitivity-term"></a>
 
 ## Unreleased — ⚠️ `sp.unified_sensitivity` analysed the intercept

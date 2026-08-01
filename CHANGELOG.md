@@ -263,6 +263,34 @@ All notable changes to StatsPAI will be documented in this file.
   caller's `treat` and dropped it, returning the intercept's sensitivity to
   agents; it now forwards it.
 
+- **The E-value was computed from un-standardised coefficients.**
+  `unified_sensitivity` forced `measure='RR'` and passed a raw regression
+  coefficient straight through whenever it was positive. A $1,548 treatment
+  effect was therefore read as a *risk ratio of 1548*, yielding an E-value
+  of 3096 — arithmetically valid, meaningless as a quantity. The E-value is
+  defined on the risk-ratio scale, so a mean difference has to be
+  standardised first: `RR ~ exp(0.91 * d)` (`vanderweele2017sensitivity`),
+  which `sp.evalue(measure='OLS', sd=...)` already implemented and this
+  function was bypassing. On the LaLonde baseline the E-value is **1.71**,
+  not 3096 — a confounder association one can actually argue about.
+
+  New `measure=` (default `'auto'`) and `outcome_sd=`. `'auto'` reads the
+  result's own estimand and treats a difference as a difference; the
+  outcome SD comes from `data`/`y` when supplied. **Without a scale the
+  E-value is now skipped with an explanatory note rather than invented.**
+  Pass `measure='RR'` when the estimate really is a ratio.
+
+- **Oster's delta disagreed with `sp.oster_delta` on the same
+  specification.** `r2_treated` / `r2_controlled` read like sensemakr's
+  partial R^2 but were consumed as the short- and long-regression R^2 for
+  Oster. Passing sensemakr-style values — the natural reading of those
+  names — silently produced delta* = **−12.765** where `sp.oster_delta`
+  reported **−2.339** on the same data, so one pipeline could print two
+  contradictory deltas. When `data`, `y`, `treat` and `controls` are
+  available the R^2 are now derived from the data, so the two agree by
+  construction. Renamed to `r2_short` / `r2_long`; the old names still work
+  and emit a `DeprecationWarning`.
+
 - **`sp.aipw` was not reproducible: its default `seed` is now `42`, was
   `None`.** The cross-fitting fold split came from
   `np.random.default_rng(seed)`, and `default_rng(None)` seeds from OS

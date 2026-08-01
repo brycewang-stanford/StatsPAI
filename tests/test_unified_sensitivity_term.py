@@ -1,21 +1,25 @@
-"""``unified_sensitivity`` must analyse the coefficient the user meant.
+"""``unified_sensitivity`` must answer about the right coefficient, on the
+right scale.
 
-Until 1.21.0 ``_extract_estimate`` took ``params.iloc[0]`` and
-``std_errors.iloc[0]``. For any formula regression that is the
-**intercept**, so ``sp.unified_sensitivity(ols_fit)`` silently answered
-"how sensitive is the intercept to unmeasured confounding?" — paired with
-the intercept's standard error — while the caller read it as a statement
-about their treatment effect.
+Two defects lived here, and the second hid behind the first.
 
-The bug was only visible at all because the intercept's CI happened to
-span zero, which sent the risk-ratio conversion down a branch that
-produced an interval excluding its own point estimate and tripped an
-assertion inside ``evalue``. On any design where the intercept CI stayed
-positive it would have returned a confident, wrong number.
+1. ``_extract_estimate`` took ``params.iloc[0]`` and ``std_errors.iloc[0]``.
+   For any formula regression that is the **intercept**, so
+   ``sp.unified_sensitivity(ols_fit)`` silently answered "how sensitive is
+   the intercept to unmeasured confounding?" while the caller read it as a
+   statement about their treatment effect.
+
+2. The E-value is defined on the risk-ratio scale, but a raw regression
+   coefficient was passed through as though it already were one. A $1,548
+   treatment effect became "RR = 1548" and an E-value of 3096 — arithmetic
+   without meaning. Standardising first (VanderWeele & Ding 2017,
+   ``RR ~ exp(0.91 * d)``) gives 1.71, a number one can actually argue
+   about.
 """
 
 from __future__ import annotations
 
+import math
 import warnings
 from types import SimpleNamespace
 
@@ -38,17 +42,44 @@ COVARIATES = [
 
 
 @pytest.fixture(scope="module")
-def ols_fit():
-    df = sp.datasets.nsw_lalonde(simulated=False)
+def lalonde():
+    return sp.datasets.nsw_lalonde(simulated=False)
+
+
+@pytest.fixture(scope="module")
+def ols_fit(lalonde):
     formula = "re78 ~ treat + " + " + ".join(COVARIATES)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        return sp.regress(formula, df, robust="HC1")
+        return sp.regress(formula, lalonde, robust="HC1")
+
+
+def _expected_evalue(fit, term, lalonde):
+    """E-value recomputed here from first principles, not from the code
+    under test: standardise by the outcome SD, map to a risk ratio with
+    RR = exp(0.91 * d), then E = RR + sqrt(RR * (RR - 1))."""
+    d = float(fit.params[term]) / float(lalonde["re78"].std(ddof=1))
+    rr = math.exp(0.91 * d)
+    if rr < 1.0:
+        rr = 1.0 / rr
+    return rr + math.sqrt(rr * (rr - 1.0))
+
+
+def _dash(fit, lalonde, **kwargs):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return sp.unified_sensitivity(
+            fit, data=lalonde, y="re78", controls=COVARIATES, **kwargs
+        )
+
+
+# --------------------------------------------------------------------- #
+# Which coefficient
+# --------------------------------------------------------------------- #
 
 
 def test_extractor_never_returns_the_intercept(ols_fit):
-    """The regression test for the actual defect."""
-    estimate, se, ci = _extract_estimate(ols_fit, term="treat")
+    estimate, se, _ = _extract_estimate(ols_fit, term="treat")
     assert estimate == pytest.approx(float(ols_fit.params["treat"]))
     assert estimate != pytest.approx(float(ols_fit.params["Intercept"]))
     assert se == pytest.approx(float(ols_fit.std_errors["treat"]))
@@ -56,7 +87,7 @@ def test_extractor_never_returns_the_intercept(ols_fit):
 
 def test_estimate_se_and_ci_all_describe_the_same_term(ols_fit):
     """Mixing terms across the triple is what made the CI check fire."""
-    estimate, se, ci = _extract_estimate(ols_fit, term="treat")
+    estimate, _, ci = _extract_estimate(ols_fit, term="treat")
     expected = ols_fit.conf_int().loc["treat"]
     assert ci[0] == pytest.approx(float(expected.iloc[0]))
     assert ci[1] == pytest.approx(float(expected.iloc[1]))
@@ -64,12 +95,9 @@ def test_estimate_se_and_ci_all_describe_the_same_term(ols_fit):
 
 
 def test_ambiguous_result_raises_instead_of_guessing(ols_fit):
-    """Nine candidate coefficients is not a guess worth making."""
     with pytest.raises(MethodIncompatibility) as excinfo:
         sp.unified_sensitivity(ols_fit)
-    message = str(excinfo.value)
-    assert "which coefficient" in message
-    assert "term=" in message or "term" in message
+    assert "which coefficient" in str(excinfo.value)
 
 
 def test_unknown_term_lists_the_available_ones(ols_fit):
@@ -78,27 +106,7 @@ def test_unknown_term_lists_the_available_ones(ols_fit):
     assert "not a coefficient" in str(excinfo.value)
 
 
-def test_dashboard_runs_clean_once_the_term_is_named(ols_fit):
-    """The E-value degradation was a symptom; naming the term clears it."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        dash = sp.unified_sensitivity(
-            ols_fit, term="treat", r2_treated=0.05, r2_controlled=0.10
-        )
-    # VanderWeele-Ding: E = RR + sqrt(RR * (RR - 1)) on the RR scale.
-    rr = float(ols_fit.params["treat"])
-    expected = rr + (rr * (rr - 1.0)) ** 0.5
-    assert dash.e_value_point == pytest.approx(expected, rel=1e-9)
-    failures = [
-        note
-        for note in (getattr(dash, "degradations", None) or [])
-        if "E-value" in str(note)
-    ]
-    assert not failures, f"E-value still degraded: {failures}"
-
-
 def test_single_coefficient_result_needs_no_term():
-    """One non-intercept coefficient is unambiguous."""
     import numpy as np
     import pandas as pd
 
@@ -112,11 +120,89 @@ def test_single_coefficient_result_needs_no_term():
     assert estimate == pytest.approx(float(fit.params["d"]))
 
 
-def test_scalar_estimate_results_are_untouched():
-    """CausalResult-shaped objects never went through the params path."""
+def test_treat_kwarg_doubles_as_the_term(ols_fit, lalonde):
+    """`treat=` already names the treatment; don't demand it twice."""
+    dash = _dash(ols_fit, lalonde, treat="treat")
+    assert dash.e_value_point == pytest.approx(
+        _expected_evalue(ols_fit, "treat", lalonde), rel=1e-9
+    )
+
+
+def test_explicit_term_wins_over_treat(ols_fit, lalonde):
+    dash = _dash(ols_fit, lalonde, term="educ", treat="treat")
+    assert dash.e_value_point == pytest.approx(
+        _expected_evalue(ols_fit, "educ", lalonde), rel=1e-9
+    )
+
+
+def test_result_sensitivity_method_no_longer_views_the_intercept(ols_fit, lalonde):
+    """EconometricResults.sensitivity() built a fake scalar view of iloc[0]."""
+    with pytest.raises(MethodIncompatibility):
+        ols_fit.sensitivity()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = ols_fit.sensitivity(term="treat", data=lalonde, y="re78")
+    assert dash.e_value_point == pytest.approx(
+        _expected_evalue(ols_fit, "treat", lalonde), rel=1e-9
+    )
+
+
+# --------------------------------------------------------------------- #
+# Which scale
+# --------------------------------------------------------------------- #
+
+
+def test_raw_coefficient_is_standardised_not_read_as_a_risk_ratio(ols_fit, lalonde):
+    """The headline of the second defect: 3096 -> 1.71."""
+    dash = _dash(ols_fit, lalonde, term="treat")
+    assert dash.e_value_point == pytest.approx(
+        _expected_evalue(ols_fit, "treat", lalonde), rel=1e-9
+    )
+    # The old behaviour read $1,548 as RR=1548; nothing near that survives.
+    assert dash.e_value_point < 10.0
+
+
+def test_missing_scale_skips_the_evalue_with_a_reason(ols_fit):
+    """No outcome SD means no defensible E-value — say so, don't invent."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.unified_sensitivity(ols_fit, term="treat")
+    assert math.isnan(dash.e_value_point)
+    notes = " ".join(str(n) for n in (dash.notes or []))
+    assert "E-value skipped" in notes
+    assert "outcome SD" in notes
+
+
+def test_outcome_sd_can_be_supplied_directly(ols_fit, lalonde):
+    sd = float(lalonde["re78"].std(ddof=1))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.unified_sensitivity(ols_fit, term="treat", outcome_sd=sd)
+    assert dash.e_value_point == pytest.approx(
+        _expected_evalue(ols_fit, "treat", lalonde), rel=1e-9
+    )
+
+
+def test_explicit_measure_rr_is_honoured(ols_fit):
+    """If the caller says it really is a ratio, believe them."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.unified_sensitivity(ols_fit, term="treat", measure="RR")
+    rr = float(ols_fit.params["treat"])
+    assert dash.e_value_point == pytest.approx(
+        rr + math.sqrt(rr * (rr - 1.0)), rel=1e-9
+    )
+
+
+def test_scalar_result_needs_its_scale_declared():
+    """A bare estimate/se/ci carries no scale, so neither guess is safe."""
     result = SimpleNamespace(estimate=0.35, se=0.10, ci=(0.15, 0.55))
-    dash = sp.unified_sensitivity(result)
-    assert dash.e_value_point >= 1.0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert math.isnan(sp.unified_sensitivity(result).e_value_point)
+        assert sp.unified_sensitivity(result, outcome_sd=2.0).e_value_point >= 1.0
+        ratio = SimpleNamespace(estimate=1.35, se=0.10, ci=(1.15, 1.55))
+        assert sp.unified_sensitivity(ratio, measure="RR").e_value_point >= 1.0
 
 
 # --------------------------------------------------------------------- #
@@ -125,12 +211,6 @@ def test_scalar_estimate_results_are_untouched():
 
 
 def test_empty_dashboard_warns_instead_of_grading_silently(ols_fit):
-    """Most dimensions need the estimation data; without it none run.
-
-    Returning ``overall_stability='?'`` and zero dimensions looked like a
-    result, so a pipeline calling it without ``data=`` printed a
-    robustness section that had tested nothing.
-    """
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         dash = sp.sensitivity_dashboard(ols_fit, verbose=False)
@@ -141,11 +221,10 @@ def test_empty_dashboard_warns_instead_of_grading_silently(ols_fit):
     assert "no dimensions" in str(runtime[0].message)
 
 
-def test_dashboard_with_data_runs_dimensions_and_stays_quiet(ols_fit):
-    df = sp.datasets.nsw_lalonde(simulated=False)
+def test_dashboard_with_data_runs_dimensions_and_stays_quiet(ols_fit, lalonde):
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
-        dash = sp.sensitivity_dashboard(ols_fit, data=df, verbose=False)
+        dash = sp.sensitivity_dashboard(ols_fit, data=lalonde, verbose=False)
     assert dash.dimensions
     assert dash.overall_stability in set("ABCDF")
     empties = [
@@ -157,51 +236,67 @@ def test_dashboard_with_data_runs_dimensions_and_stays_quiet(ols_fit):
 
 
 def test_dashboard_baseline_is_the_treatment_not_the_intercept(ols_fit):
-    """Sibling of the unified_sensitivity defect — verify it is absent here."""
-    dash = sp.sensitivity_dashboard(ols_fit, verbose=False)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.sensitivity_dashboard(ols_fit, verbose=False)
     assert float(dash.baseline["estimate"]) == pytest.approx(
         float(ols_fit.params["treat"])
     )
 
 
-def test_treat_kwarg_doubles_as_the_term(ols_fit):
-    """`treat=` already names the treatment; don't demand it twice.
+# --------------------------------------------------------------------- #
+# Oster: one specification must not yield two different delta*
+# --------------------------------------------------------------------- #
 
-    The MCP `sensitivity` tool passes y/treat/controls. Before this, treat=
-    fed only the Sensemakr component while the coefficient under analysis
-    was still resolved by position — so agents received the intercept's
-    sensitivity labelled as the treatment's.
+
+def test_oster_delta_matches_sp_oster_delta_on_the_same_spec(ols_fit, lalonde):
+    """A report must not disagree with itself.
+
+    unified_sensitivity consumed `r2_treated`/`r2_controlled` as the
+    short/long regression R^2, but those names read like sensemakr's
+    partial R^2. Feeding sensemakr-style values gave delta* = -12.765
+    while sp.oster_delta reported -2.339 for the same specification, in
+    the same pipeline. The R^2 are now derived from the data instead.
     """
-    df = sp.datasets.nsw_lalonde(simulated=False)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        dash = sp.unified_sensitivity(
-            ols_fit, data=df, y="re78", treat="treat", controls=COVARIATES
-        )
-    rr = float(ols_fit.params["treat"])
-    assert dash.e_value_point == pytest.approx(rr + (rr * (rr - 1.0)) ** 0.5, rel=1e-9)
-
-
-def test_explicit_term_wins_over_treat(ols_fit):
-    df = sp.datasets.nsw_lalonde(simulated=False)
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        dash = sp.unified_sensitivity(
-            ols_fit,
-            term="educ",
-            data=df,
+        reference = sp.oster_delta(
+            lalonde,
             y="re78",
-            treat="treat",
-            controls=COVARIATES,
+            x_base=["treat"],
+            x_controls=COVARIATES,
+            r_max=0,
+            n_boot=0,
         )
-    rr = float(ols_fit.params["educ"])
-    assert dash.e_value_point == pytest.approx(rr + (rr * (rr - 1.0)) ** 0.5, rel=1e-9)
+        dash = _dash(ols_fit, lalonde, treat="treat")
+    assert dash.oster is not None, "Oster should be derived from the data"
+    assert dash.oster["delta"] == pytest.approx(
+        float(reference.model_info["delta_star"]), rel=1e-9
+    )
 
 
-def test_result_sensitivity_method_no_longer_views_the_intercept(ols_fit):
-    """EconometricResults.sensitivity() built a fake scalar view of iloc[0]."""
-    with pytest.raises(MethodIncompatibility):
-        ols_fit.sensitivity()
-    dash = ols_fit.sensitivity(term="treat")
-    rr = float(ols_fit.params["treat"])
-    assert dash.e_value_point == pytest.approx(rr + (rr * (rr - 1.0)) ** 0.5, rel=1e-9)
+def test_legacy_r2_aliases_still_work_but_warn(ols_fit, lalonde):
+    sd = float(lalonde["re78"].std(ddof=1))
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        sp.unified_sensitivity(
+            ols_fit,
+            term="treat",
+            outcome_sd=sd,
+            r2_treated=0.00152,
+            r2_controlled=0.14776,
+            beta_uncontrolled=-635.026212,
+        )
+    deprecations = [w for w in caught if issubclass(w.category, DeprecationWarning)]
+    assert deprecations, "the misleading aliases must announce themselves"
+    assert "r2_short" in str(deprecations[0].message)
+
+
+def test_oster_skipped_message_names_what_is_missing(ols_fit):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dash = sp.unified_sensitivity(ols_fit, term="treat")
+    assert dash.oster is None
+    notes = " ".join(str(n) for n in (dash.notes or []))
+    assert "Oster delta skipped" in notes
+    assert "r2_short" in notes
