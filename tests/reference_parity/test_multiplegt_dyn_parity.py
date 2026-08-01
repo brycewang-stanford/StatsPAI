@@ -151,3 +151,118 @@ def test_placebos_are_near_zero_and_effects_are_not(fit):
         assert abs(float(detail.loc[h, "delta_l"])) < 0.2
     for h in R_EFFECTS:
         assert float(detail.loc[h, "delta_l"]) > 1.0
+
+
+# --------------------------------------------------------------------------
+# Analytic standard errors: available, bounded, and NOT claimed as parity.
+# --------------------------------------------------------------------------
+
+# DIDmultiplegtDYN's reported standard errors, by StatsPAI horizon.
+R_SE = {
+    0: 0.09740853,
+    1: 0.09518580,
+    2: 0.12724023,
+    3: 0.12652024,
+    -1: 0.1016065,
+    -2: 0.1284979,
+}
+# The analytic variance is the standard two-sample influence function, not
+# dCDH's own derivation, so it is held to a bounded gap rather than parity.
+SE_GAP = 0.015
+
+
+@pytest.fixture(scope="module")
+def analytic_fit(panel):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return sp.did_multiplegt_dyn(
+            panel,
+            y="y",
+            group="id",
+            time="t",
+            treatment="d",
+            dynamic=3,
+            placebo=2,
+            n_boot=0,
+            se_method="analytic",
+        )
+
+
+@pytest.mark.parametrize("h", sorted(R_SE))
+def test_analytic_se_is_close_to_the_reference(analytic_fit, h):
+    """Bounded, measured, and explicitly not parity.
+
+    The analytic form agrees with this module's own cluster bootstrap; the
+    ~1% gap against DIDmultiplegtDYN is dCDH's variance derivation, which
+    is not reproduced. Pinned as a bound so a regression that widens it
+    still fails.
+    """
+    es = analytic_fit.model_info["event_study"].set_index("relative_time")
+    got = float(es.loc[h, "se"])
+    ref = R_SE[h]
+    assert 0 < got < ref, (got, ref)
+    assert abs(got / ref - 1.0) < SE_GAP, (h, got, ref)
+
+
+def test_analytic_se_agrees_with_the_bootstrap(panel):
+    """What makes the analytic form trustworthy despite the reference gap."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # 400 draws is enough to bound the comparison without making the
+        # test slow; the bootstrap's own noise is the loose end here.
+        boot = sp.did_multiplegt_dyn(
+            panel,
+            y="y",
+            group="id",
+            time="t",
+            treatment="d",
+            dynamic=3,
+            placebo=2,
+            cluster="id",
+            n_boot=400,
+            seed=0,
+        )
+        ana = sp.did_multiplegt_dyn(
+            panel,
+            y="y",
+            group="id",
+            time="t",
+            treatment="d",
+            dynamic=3,
+            placebo=2,
+            n_boot=0,
+            se_method="analytic",
+        )
+    b = boot.model_info["event_study"].set_index("relative_time")["se"]
+    a = ana.model_info["event_study"].set_index("relative_time")["se"]
+    for h in sorted(R_SE):
+        assert abs(float(a.loc[h]) / float(b.loc[h]) - 1.0) < 0.10, h
+
+
+def test_analytic_path_estimates_are_unchanged(analytic_fit, fit):
+    """Only the variance changes; every point estimate must be identical."""
+    a = analytic_fit.model_info["event_study"].set_index("relative_time")["att"]
+    b = fit.model_info["event_study"].set_index("relative_time")["att"]
+    for h in sorted(R_SE):
+        assert float(a.loc[h]) == pytest.approx(float(b.loc[h]), abs=1e-12)
+
+
+def test_analytic_path_reports_itself(analytic_fit):
+    assert analytic_fit.model_info["se_method"] == "analytic"
+    # The joint tests come from the bootstrap, so with n_boot=0 they are
+    # absent rather than silently fabricated from the analytic variance.
+    assert analytic_fit.model_info["joint_placebo_test"] is None
+
+
+def test_unknown_se_method_fails_loudly(panel):
+    with pytest.raises(ValueError, match="se_method"):
+        sp.did_multiplegt_dyn(
+            panel,
+            y="y",
+            group="id",
+            time="t",
+            treatment="d",
+            dynamic=1,
+            n_boot=0,
+            se_method="jackknife",
+        )

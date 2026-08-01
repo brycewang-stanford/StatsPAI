@@ -5716,7 +5716,7 @@
     "name": "did_multiplegt"
   },
   {
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; SE is cluster bootstrap; the paper's analytical influence-function variance is not yet implemented; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating. Assumptions: Parallel trends between switche...",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; se_method='analytic' is available but the paper's own variance formula is not implemented: it is not pinned to DIDmultiplegtDYN and runs about 1% below its reported SEs; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop --...",
     "input_schema": {
       "properties": {
         "aggregation": {
@@ -5764,6 +5764,15 @@
           "default": 0,
           "description": "Number of pre-treatment placebo horizons",
           "type": "integer"
+        },
+        "se_method": {
+          "default": "bootstrap",
+          "description": "'bootstrap' resamples clusters; 'analytic' uses the influence functions (~100x faster, but NOT pinned to DIDmultiplegtDYN -- about 1% below its reported SEs)",
+          "enum": [
+            "bootstrap",
+            "analytic"
+          ],
+          "type": "string"
         },
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",

@@ -56,11 +56,19 @@ are what keeps this estimator off a paper-faithful claim.
       fewer cohorts at each lag, and it did not match the reference.
       Every placebo number changes. See MIGRATION.md.
 
-5. **Inference**: analytical influence-function variance per horizon is
-   not implemented in this MVP — SE comes from cluster bootstrap on
-   the panel unit. The paper's IF variance is [待核验] and is the clear
-   next step. Standard errors are consequently NOT pinned against the
-   R package, which reports analytical ones.
+5. **Inference**: ``se_method='analytic'`` builds each horizon's influence
+   function directly -- every horizon is a switcher-weighted sum of
+   two-sample mean differences, so its influence function is the matching
+   sum of within-group deviations, and the horizons are combined as
+   functions rather than by adding variances (they share control units).
+
+   That is a legitimate variance estimator and it agrees with this
+   module's own cluster bootstrap, but it is **not the paper's formula**
+   and is **not pinned** against ``DIDmultiplegtDYN``: on the parity
+   fixture it runs about 1% below the package's reported standard errors
+   at every horizon (worst 1.0%), and 1.7% below on the aggregate. The
+   remaining gap is [待核验] -- dCDH's own variance derivation, which
+   this does not reproduce. The default stays ``'bootstrap'``.
 
 Scope for this first cut
 ------------------------
@@ -106,6 +114,7 @@ def did_multiplegt_dyn(
     alpha: float = 0.05,
     seed: Optional[int] = None,
     aggregation: str = "simple",
+    se_method: str = "bootstrap",
 ) -> CausalResult:
     """dCDH (2024) intertemporal event-study DiD estimator.
 
@@ -135,6 +144,20 @@ def did_multiplegt_dyn(
         so standard errors are not comparable to DIDmultiplegtDYN's.
     alpha : float, default 0.05
     seed : int, optional
+    se_method : {"bootstrap", "analytic"}, default "bootstrap"
+        ``"bootstrap"`` resamples clusters; ``"analytic"`` uses the
+        influence functions and needs no draws, which makes it roughly a
+        hundred times faster.
+
+        The analytic variance is NOT pinned against ``DIDmultiplegtDYN``.
+        It agrees with this module's own bootstrap and sits about 1% below
+        the package's reported standard errors on the parity fixture; the
+        residual is dCDH's own variance derivation, which is not
+        reproduced here. The default stays on the bootstrap for that
+        reason, and ``model_info["se_method"]`` records the choice.
+
+        ``joint_placebo_test`` and ``joint_overall_test`` still come from
+        the bootstrap, so they are ``None`` when ``n_boot=0``.
     aggregation : {"simple", "switchers"}, default "simple"
         How the dynamic horizons are combined into the headline
         ``estimate``. ``"simple"`` gives each horizon equal weight;
@@ -183,6 +206,10 @@ def did_multiplegt_dyn(
     if aggregation not in {"simple", "switchers"}:
         raise ValueError(
             f"aggregation must be 'simple' or 'switchers', got {aggregation!r}"
+        )
+    if se_method not in {"bootstrap", "analytic"}:
+        raise ValueError(
+            f"se_method must be 'bootstrap' or 'analytic', got {se_method!r}"
         )
 
     df = data.copy()
@@ -284,7 +311,10 @@ def did_multiplegt_dyn(
             )
             continue
         est = row["delta_l"]
-        se = _bootstrap_se(boot_hist[:, j], label=f"did.multiplegt_dyn[h={h}]")
+        if se_method == "analytic":
+            se = row["_se_analytic"]
+        else:
+            se = _bootstrap_se(boot_hist[:, j], label=f"did.multiplegt_dyn[h={h}]")
         p = (
             float(2 * (1 - stats.norm.cdf(abs(est / se))))
             if (se > 0 and np.isfinite(se))
@@ -360,6 +390,23 @@ def did_multiplegt_dyn(
         se_avg = _bootstrap_se(boot_avg, label="did.multiplegt_dyn.headline")
     else:
         se_avg = np.nan
+    if se_method == "analytic" and dyn_idx:
+        # Combine the horizons' influence functions with the same weights the
+        # headline uses, then square once -- the horizons share control units,
+        # so adding their variances would understate the spread.
+        rows_by_h = {r["horizon"]: r for r in main["cell_estimates"]}
+        psis, wts = [], []
+        for k, j in enumerate(dyn_idx):
+            r_h = rows_by_h.get(horizons[j])
+            if r_h is None or not np.isfinite(dyn_est[k]):
+                continue
+            psis.append(r_h["_influence"])
+            wts.append(float(r_h["n_switchers"]) if aggregation == "switchers" else 1.0)
+        if psis:
+            wv = np.asarray(wts, dtype=float)
+            wv = wv / wv.sum()
+            psi_head = np.sum([w * p for w, p in zip(wv, psis)], axis=0)
+            se_avg = float(np.sqrt(np.mean(psi_head**2) / len(psi_head)))
 
     if se_avg and se_avg > 0:
         z = headline / se_avg
@@ -387,6 +434,7 @@ def did_multiplegt_dyn(
             "horizons": horizons,
             "control": control,
             "aggregation": aggregation,
+            "se_method": se_method,
             "n_boot": n_boot,
             "cluster_var": cluster_var,
             "joint_placebo_test": joint_placebo,
@@ -449,6 +497,15 @@ def _estimate_all_horizons(
     """
     cells: List[Dict[str, Any]] = []
 
+    # Unit-level index for the influence functions. Each horizon's estimate
+    # is a weighted sum of two-sample mean differences, so its influence
+    # function is the corresponding sum of within-group deviations -- and
+    # summing rather than adding variances is what carries the fact that a
+    # control unit can serve several events.
+    all_units = pd.Index(sorted(df[group].unique()))
+    n_panel = len(all_units)
+    unit_pos = pd.Series(np.arange(n_panel), index=all_units)
+
     F_values = sorted(df["_F"].dropna().unique())
     if not F_values:
         return {"cell_estimates": []}
@@ -462,6 +519,7 @@ def _estimate_all_horizons(
 
     for h in horizons:
         horizon_acc = {"sum_delta": 0.0, "n_switchers": 0, "n_events": 0}
+        psi = np.zeros(n_panel, dtype=float)
 
         for F in F_values:
             switcher_ids = set(df[df["_F"] == F][group].unique())
@@ -511,10 +569,29 @@ def _estimate_all_horizons(
             horizon_acc["n_switchers"] += n_sw
             horizon_acc["n_events"] += 1
 
+            # Influence function of this event's two-sample difference.
+            sw_dy = _unit_change(df, group, time, y, switcher_ids, t_pre, t_post)
+            c_dy = _unit_change(df, group, time, y, ctrl_ids, t_pre, t_post)
+            sign = -1.0 if h < 0 else 1.0
+            if sw_dy is not None and c_dy is not None:
+                contrib = np.zeros(n_panel, dtype=float)
+                sw_idx = unit_pos.reindex(sw_dy.index).to_numpy()
+                c_idx = unit_pos.reindex(c_dy.index).to_numpy()
+                contrib[sw_idx] = (sw_dy.to_numpy() - sw_dy.mean()) * (
+                    n_panel / len(sw_dy)
+                )
+                contrib[c_idx] -= (c_dy.to_numpy() - c_dy.mean()) * (
+                    n_panel / len(c_dy)
+                )
+                psi += sign * contrib * n_sw
+
         if horizon_acc["n_switchers"] > 0:
             delta_l = horizon_acc["sum_delta"] / horizon_acc["n_switchers"]
+            psi = psi / horizon_acc["n_switchers"]
+            se_analytic = float(np.sqrt(np.mean(psi**2) / n_panel))
         else:
             delta_l = np.nan
+            se_analytic = np.nan
 
         cells.append(
             {
@@ -522,10 +599,27 @@ def _estimate_all_horizons(
                 "delta_l": float(delta_l) if np.isfinite(delta_l) else np.nan,
                 "n_switchers": horizon_acc["n_switchers"],
                 "n_events": horizon_acc["n_events"],
+                "_influence": psi,
+                "_se_analytic": se_analytic,
             }
         )
 
     return {"cell_estimates": cells}
+
+
+def _unit_change(df, group, time, y, ids, t_pre, t_post):
+    """Per-unit outcome change between two periods, indexed by unit.
+
+    Only units observed at BOTH ends contribute -- a unit missing either
+    period has no change and cannot enter the difference.
+    """
+    sub = df[df[group].isin(ids) & df[time].isin([t_pre, t_post])]
+    pre = sub[sub[time] == t_pre].set_index(group)[y]
+    post = sub[sub[time] == t_post].set_index(group)[y]
+    idx = pre.index.intersection(post.index)
+    if len(idx) == 0:
+        return None
+    return post.loc[idx] - pre.loc[idx]
 
 
 def _joint_test_from_boot(

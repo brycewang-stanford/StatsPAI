@@ -10730,6 +10730,18 @@ def _build_registry() -> None:
                 ParamSpec("alpha", "float", False, 0.05),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    "bootstrap",
+                    description=(
+                        "'bootstrap' resamples clusters; 'analytic' uses the "
+                        "influence functions (~100x faster, but NOT pinned to "
+                        "DIDmultiplegtDYN -- about 1% below its reported SEs)"
+                    ),
+                    enum=["bootstrap", "analytic"],
+                ),
+                ParamSpec(
                     "aggregation",
                     "str",
                     False,
@@ -10772,8 +10784,9 @@ def _build_registry() -> None:
             stability="experimental",
             limitations=[
                 "switch-on only — switch-off events are silently dropped",
-                "SE is cluster bootstrap; the paper's analytical "
-                "influence-function variance is not yet implemented",
+                "se_method='analytic' is available but the paper's own "
+                "variance formula is not implemented: it is not pinned to "
+                "DIDmultiplegtDYN and runs about 1% below its reported SEs",
                 "heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
                 "not implemented",
                 "the headline aggregation convention differs from "

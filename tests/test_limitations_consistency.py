@@ -55,7 +55,7 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
     ],
     "did_multiplegt_dyn": [
         "switch-on only",
-        "SE is cluster bootstrap",
+        "se_method='analytic' is available but the paper's own",
         "heteroskedastic-weights variant",
         # Documented parity boundary, not a code path that raises: the
         # headline weights differ from DIDmultiplegtDYN's Av_tot_eff and

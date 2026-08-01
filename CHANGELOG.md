@@ -295,6 +295,21 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Added
 
+- **`se_method="analytic"` on `sp.did_multiplegt_dyn`.** Every horizon is a
+  switcher-weighted sum of two-sample mean differences, so its influence
+  function is the matching sum of within-group deviations; combining the
+  horizons as functions rather than adding their variances is what carries
+  the fact that they share control units. That removes the need for 500
+  bootstrap draws to get a standard error — roughly a hundredfold speedup.
+
+  It is offered, not claimed. The variance is **not** dCDH's own derivation
+  and is **not** pinned against `DIDmultiplegtDYN`: on the parity fixture it
+  runs about 1% below the package's reported standard errors at every
+  horizon, and 1.7% below on the aggregate. It does agree with this module's
+  own cluster bootstrap, which is what makes it usable. The default stays on
+  the bootstrap, the gap is pinned as a bound rather than papered over, and
+  the remaining `[待核验]` on the paper's variance formula stands.
+
 - **`sp.cgs_continuous_did` — a dose has no single ATT, so stop reporting one
   (WP-5).** With a continuous treatment the two-way fixed-effects coefficient
   averages the 0.2-dose and the 0.8-dose comparison with weights nobody chose
