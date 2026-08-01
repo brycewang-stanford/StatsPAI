@@ -1,0 +1,201 @@
+{
+  "module": "75_stacked",
+  "side": "R",
+  "rows": [
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "never_att_rel_-3",
+      "estimate": -0.0629023302947909,
+      "se": 0.0865391244862554,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "never_att_rel_-2",
+      "estimate": -0.0502427634210241,
+      "se": 0.0875267551122292,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "never_att_rel_0",
+      "estimate": 1.20208066852179,
+      "se": 0.0864248257897061,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "never_att_rel_1",
+      "estimate": 1.27947437473099,
+      "se": 0.0904745461216565,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "never_att_rel_2",
+      "estimate": 1.26884177859718,
+      "se": 0.0770812680040699,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "never_att_rel_3",
+      "estimate": 1.2018764576569,
+      "se": 0.0885281410303563,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "never_ATT_post",
+      "estimate": 1.23806831987671,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2506,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "nyt_att_rel_-3",
+      "estimate": -0.0474968141786946,
+      "se": 0.0871302589950961,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "nyt_att_rel_-2",
+      "estimate": -0.0469750442853963,
+      "se": 0.0833228020713264,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "nyt_att_rel_0",
+      "estimate": 1.2293690099499,
+      "se": 0.0834681707152898,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "nyt_att_rel_1",
+      "estimate": 1.31455930624504,
+      "se": 0.0880305554358222,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "nyt_att_rel_2",
+      "estimate": 1.2523736478696,
+      "se": 0.0777645256023466,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "nyt_att_rel_3",
+      "estimate": 1.22690786240207,
+      "se": 0.088698621841714,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": []
+    },
+    {
+      "module": "75_stacked",
+      "side": "R",
+      "statistic": "nyt_ATT_post",
+      "estimate": 1.25580245661665,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 2863,
+      "extra": []
+    }
+  ],
+  "extra": {
+    "reference": ["hand-written stacked DiD via fixest::feols"],
+    "fixest": ["0.14.0"]
+  },
+  "provenance": {
+    "r_version": "R version 4.5.2 (2025-10-31)",
+    "platform": "aarch64-apple-darwin20",
+    "running": "macOS Tahoe 26.5.2",
+    "captured_via": "tests/r_parity/_common.R::write_results",
+    "packages": {
+      "data.table": "1.18.2.1",
+      "fixest": "0.14.0",
+      "Formula": "1.2-5",
+      "codetools": "0.2-20",
+      "numDeriv": "2016.8-1.1",
+      "multcomp": "1.4-30",
+      "Matrix": "1.7-4",
+      "lattice": "0.22-7",
+      "TH.data": "1.1-5",
+      "coda": "0.19-4.1",
+      "splines": "4.5.2",
+      "stringmagic": "1.2.0",
+      "estimability": "1.5.1",
+      "emmeans": "2.0.3",
+      "zoo": "1.8-15",
+      "mvtnorm": "1.3-7",
+      "cli": "3.6.5",
+      "dreamerr": "1.5.0",
+      "xtable": "1.8-8",
+      "grid": "4.5.2",
+      "sandwich": "3.1-1",
+      "compiler": "4.5.2",
+      "tools": "4.5.2",
+      "nlme": "3.1-168",
+      "survival": "3.8-3",
+      "Rcpp": "1.1.1-1.1",
+      "jsonlite": "2.0.0",
+      "rlang": "1.1.7",
+      "MASS": "7.3-65"
+    }
+  }
+}
