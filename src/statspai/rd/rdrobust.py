@@ -833,7 +833,10 @@ def rdrobust(
     # Substitute CCT's tau_bc for the sharp case. Fuzzy rescaling above has
     # already been applied to the legacy value, so only take the CCT one when
     # there is no first-stage division to mirror.
-    if _tau_bc_cct is not None and fuzzy is None:
+    # Gate on Z as well as fuzzy: cct_bias_corrected has no covariate
+    # machinery, so substituting its output when covs were supplied would
+    # silently discard the covariate adjustment that _rd_estimate performed.
+    if _tau_bc_cct is not None and fuzzy is None and Z is None:
         # Both rows come from the CCT operator: the conventional SE also uses
         # nn residuals whose tie runs are measured on the whole side, which
         # the legacy path did not do.

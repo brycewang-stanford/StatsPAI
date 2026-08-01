@@ -262,23 +262,19 @@ def test_parameter_surface_gap_does_not_regress(rjson, senate):
 # ── defect F: covs is a silent no-op ───────────────────────────────────────
 
 
-@pytest.mark.xfail(strict=True, reason="defect F: covs= is a silent no-op")
 def test_covs_actually_changes_the_estimate(senate):
     """``covs=`` must not be silently ignored.
 
-    Measured: ``sp.rdrobust(covs=[...])`` returns a result identical to the
-    unadjusted call **to 1e-12** on two different datasets, and ``covs`` never
-    appears in ``model_info``. The covariates are accepted and dropped.
+    Regression guard for a defect introduced by the WP-2 bias-correction
+    work and fixed in the same series: the CCT substitution was gated on
+    ``fuzzy is None`` but not on ``covs``, so ``cct_bias_corrected`` -- which
+    has no covariate machinery -- overwrote the covariate-adjusted estimate
+    that ``_rd_estimate`` had already produced. The result was identical to
+    the unadjusted call at 1e-12.
 
-    This is why the covs rows of the gap table above sit at ~1e-2 against R:
-    it was never a bandwidth problem. It is a silent no-op, which is worse
-    than a wrong number -- the user gets an unadjusted estimate with no
-    warning and no way to notice.
-
-    The DGP below makes the omission unmissable: ``z`` carries a coefficient
-    of 2.0 against residual noise of 0.3, so adjusting for it must move both
-    the estimate and the SE. R gives se 0.0444 adjusted vs 0.2856 unadjusted
-    (6.4x); StatsPAI gives 0.2856 for both.
+    The DGP makes the omission unmissable: ``z`` carries a coefficient of 2.0
+    against residual noise of 0.3, so adjusting must move both the estimate
+    and the SE. R: 0.2856 unadjusted -> 0.0444 adjusted (6.4x).
     """
     rng = np.random.default_rng(42)
     n = 3000
@@ -299,7 +295,6 @@ def test_covs_actually_changes_the_estimate(senate):
     )
 
 
-@pytest.mark.xfail(strict=True, reason="defect F: covs= is a silent no-op")
 def test_covs_reduces_se_when_covariate_is_predictive(senate):
     """With z explaining most of the residual variance, the SE must fall.
 

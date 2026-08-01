@@ -30,14 +30,12 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Known issues
 
-- **`sp.rdrobust(covs=...)` silently ignores covariates.** The result is
-  identical to the unadjusted call to 1e-12 on two datasets and `covs` never
-  reaches `model_info`. On a DGP where the covariate binds, R's SE falls 6.4×
-  (0.2856 → 0.0444) while StatsPAI's does not move. Not fixed in this
-  release; locked in CI as `xfail(strict)` in `test_rdrobust_params_parity.py`
-  and documented in `docs/rfc/rd_three_month_plan.md` appendix C.
-  `cluster=` may be affected the same way — unverified.
 - `sp.rdrobust` has no `vce=` parameter; R exposes `hc0`–`hc3` and `cr*`.
+- `covs` / `cluster` do not yet enter the CCT **bandwidth** cascade, so `h`
+  differs from R by ~7e-3 (covs) and ~4e-2 (cluster). The estimates
+  themselves are covariate-adjusted; only the bandwidth selection is not.
+  Locked in CI as `xfail(strict)` in `test_rdrobust_params_parity.py`.
+
 ### Fixed
 
 - **⚠️ §10: the citation auditor could not see the shape this repo writes
