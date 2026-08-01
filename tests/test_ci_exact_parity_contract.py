@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +35,14 @@ def test_optional_dependency_names_match_pyproject_extras_and_skips():
     assert 'pytest.importorskip("doubleml")' in dml_test
     assert "all four DoubleML model classes" in dml_test
 
-    assert "pytest.importorskip(\n            'rdrobust'," in published_test
+    # Match on the call, not on its formatting. The earlier version of this
+    # assertion pinned the exact source bytes including the line break and
+    # the quote character around 'rdrobust', so `black` normalising the
+    # quotes to double turned a pure formatting pass into a red test with a
+    # diff that pointed at nothing. What this guard is for is that the skip
+    # exists and names the extra — neither of which cares how it is wrapped.
+    assert re.search(
+        r"pytest\.importorskip\(\s*[\"']rdrobust[\"']\s*,", published_test
+    ), "the rdrobust importorskip guarding bwselect='cct' is gone or renamed"
     assert "extras [rd-cct] are not installed" in published_test
     assert r"pip install statspai\[rd-cct\]" in published_test
