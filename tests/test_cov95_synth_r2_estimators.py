@@ -7,8 +7,8 @@ dedicated entry points.
 
 All estimators here are pure-numpy (BSTS / Bayesian use a hand-rolled
 Kalman filter / Metropolis-Hastings MCMC — *no* pymc / tfp), so they run
-in this environment without heavy optional deps. Optional-dep-gated code
-elsewhere is skipped in the bayesian-dep test below.
+in this environment without heavy optional deps — asserted directly by
+``test_bayesian_synth_needs_neither_pymc_nor_tfp`` below.
 
 Assertions check real properties — effect sign / magnitude, weights on
 the simplex, finite RMSPE, populated placebo distributions, and the
@@ -16,8 +16,6 @@ correct loud failures — never fabricated numbers.
 """
 
 from __future__ import annotations
-
-import importlib.util as _ilu
 
 import numpy as np
 import pandas as pd
@@ -219,21 +217,27 @@ def test_bayesian_synth_validation_guards(kw, exc):
         )
 
 
-def test_bayesian_optional_dep_note():
-    # The bayesian synth estimator is hand-rolled MCMC, not pymc/tfp-backed.
-    # This documents that the heavy probabilistic backends are absent; when
-    # they happen to be installed in the environment the note does not apply,
-    # so skip rather than assert on environment state (the assertion is not a
-    # behavioural contract of the estimator).
-    if (
-        _ilu.find_spec("pymc") is not None
-        or _ilu.find_spec("tensorflow_probability") is not None
-    ):
-        pytest.skip(
-            "pymc/tfp installed; optional-dependency-absent note does not apply"
-        )
-    assert _ilu.find_spec("pymc") is None
-    assert _ilu.find_spec("tensorflow_probability") is None
+def test_bayesian_synth_needs_neither_pymc_nor_tfp():
+    """``synth(method='bayesian')`` is hand-rolled MCMC — assert that by source.
+
+    This used to assert ``find_spec("pymc") is None``, i.e. on the *environment*
+    rather than on the estimator, and then skip itself whenever pymc happened to
+    be installed. Since the optional ``bayes`` extra installs pymc for the
+    separate ``sp.bayes_*`` estimators, that meant it skipped in exactly the
+    environment most people develop in — a test that never runs is not a test.
+
+    The invariant worth holding is that the *synth* bayesian path pulls in
+    neither heavy backend, so that ``sp.synth(method='bayesian')`` keeps working
+    with no optional extras installed. Reading the module source states that
+    directly and holds whether or not pymc is present.
+    """
+    import inspect
+
+    from statspai.synth import bayesian as _bayes_mod
+
+    src = inspect.getsource(_bayes_mod)
+    assert "import pymc" not in src
+    assert "tensorflow_probability" not in src
 
 
 # ===========================================================================

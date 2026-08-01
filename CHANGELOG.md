@@ -4,6 +4,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Parametric AFT reference parity across all four distributions.** `sp.survreg`
+  was pinned against R `survival::survreg` for Weibull only. Extended to
+  exponential, lognormal and loglogistic as well (11 tests,
+  `tests/reference_parity/test_survreg_aft_parity.py`), with committed R
+  reference JSON so the suite runs without R. The existing Weibull +
+  formula-interface tests in `test_aft_parity.py` stay — they cover the
+  formula API this one does not.
+
+### Changed
+
+- **A synth test that skipped in every environment anyone develops in now
+  actually runs.** `test_bayesian_optional_dep_note` asserted
+  `find_spec("pymc") is None` — a claim about the *environment*, not the
+  estimator — and skipped itself whenever pymc was installed. Since the
+  optional `bayes` extra installs pymc for the separate `sp.bayes_*`
+  estimators, it skipped essentially always. Replaced by
+  `test_bayesian_synth_needs_neither_pymc_nor_tfp`, which asserts the real
+  invariant (the synth Bayesian path imports neither backend) by inspecting
+  the module source, and therefore holds whether or not pymc is present.
+
 ### Fixed
 
 - **⚠️ §10: three fabricated author attributions on real arXiv IDs, plus two
