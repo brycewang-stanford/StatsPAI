@@ -24087,7 +24087,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Randomization inference for regression discontinuity designs.",
+    "description": "Randomization inference for regression discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "",
     "failure_modes": [
       {
@@ -24113,7 +24113,7 @@
     ],
     "reference": "cattaneo2016inference",
     "signature": {
-      "description": "Randomization inference for regression discontinuity designs.",
+      "description": "Randomization inference for regression discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rdrandinf",
       "parameters": {
         "properties": {
@@ -24164,7 +24164,7 @@
           },
           "statistic": {
             "default": "diffmeans",
-            "description": "Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'.",
+            "description": "Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'. ``'ttest'`` is accepted as an alias for ``'diffmeans'``, matching rdlocrand, where both names select the same statistic.",
             "type": "string"
           },
           "wl": {
@@ -24194,8 +24194,10 @@
     },
     "stability": "stable",
     "typical_n_min": 500,
-    "validation_notes": [],
-    "validation_status": "api_stable"
+    "validation_notes": [
+      "tests/reference_parity/test_rdlocrand_parity.py"
+    ],
+    "validation_status": "validated"
   },
   {
     "alternatives": [

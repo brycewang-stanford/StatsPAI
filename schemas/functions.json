@@ -15537,7 +15537,7 @@
     }
   },
   {
-    "description": "Randomization inference for regression discontinuity designs.",
+    "description": "Randomization inference for regression discontinuity designs. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rdrandinf",
     "parameters": {
       "properties": {
@@ -15588,7 +15588,7 @@
         },
         "statistic": {
           "default": "diffmeans",
-          "description": "Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'.",
+          "description": "Test statistic: 'diffmeans', 'ksmirnov', 'ranksum', or 'all'. ``'ttest'`` is accepted as an alias for ``'diffmeans'``, matching rdlocrand, where both names select the same statistic.",
           "type": "string"
         },
         "wl": {
@@ -15617,7 +15617,7 @@
     }
   },
   {
-    "description": "Data-driven window selection for local randomization RD.",
+    "description": "Data-driven window selection for local randomization RD. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rdwinselect",
     "parameters": {
       "properties": {
@@ -43467,7 +43467,7 @@
     }
   },
   {
-    "description": "Power of an RD design given sample size and effect size.",
+    "description": "Power of an RD design given sample size and effect size. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "name": "rdpower",
     "parameters": {
       "properties": {
@@ -43476,24 +43476,33 @@
           "description": "Significance level.",
           "type": "number"
         },
+        "c": {
+          "default": 0.0,
+          "description": "Cutoff, for data mode.",
+          "type": "number"
+        },
+        "data": {
+          "description": "Enables data mode. Requires ``y`` and ``x``.",
+          "type": "string"
+        },
         "h_left": {
           "default": 0.5,
-          "description": "Bandwidth fractions (proportion of running-variable support used).",
+          "description": "Bandwidth fractions (proportion of running-variable support used). Design mode only.",
           "type": "number"
         },
         "h_right": {
           "default": 0.5,
-          "description": "Bandwidth fractions (proportion of running-variable support used).",
+          "description": "Bandwidth fractions (proportion of running-variable support used). Design mode only.",
           "type": "number"
         },
         "n_left": {
           "default": 500,
-          "description": "Available sample size on each side.",
+          "description": "Available sample size on each side. Design mode only.",
           "type": "integer"
         },
         "n_right": {
           "default": 500,
-          "description": "Available sample size on each side.",
+          "description": "Available sample size on each side. Design mode only.",
           "type": "integer"
         },
         "target_power": {
@@ -43506,13 +43515,21 @@
         },
         "var_left": {
           "default": 1.0,
-          "description": "Outcome variance on each side of the cutoff.",
+          "description": "Outcome variance on each side of the cutoff. Design mode only.",
           "type": "number"
         },
         "var_right": {
           "default": 1.0,
-          "description": "Outcome variance on each side of the cutoff.",
+          "description": "Outcome variance on each side of the cutoff. Design mode only.",
           "type": "number"
+        },
+        "x": {
+          "description": "Outcome and running-variable column names, for data mode.",
+          "type": "string"
+        },
+        "y": {
+          "description": "Outcome and running-variable column names, for data mode.",
+          "type": "string"
         }
       },
       "required": [
