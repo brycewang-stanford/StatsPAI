@@ -7,7 +7,7 @@ Internal version-to-version migrations are at the top; the long-form
 
 <a id="rdrobust-bandwidth-rebuild"></a>
 
-## Unreleased — ⚠️ `sp.rdrobust` numbers change
+## 1.21.0 — ⚠️ `sp.rdrobust` numbers change
 
 **What changed.** The CCT bandwidth selector and the bias-correction step
 were both wrong. On `rdrobust`'s own `rdrobust_RDsenate` with default
@@ -51,7 +51,7 @@ release.
 
 <a id="unified-sensitivity-scale"></a>
 
-## Unreleased — ⚠️ `unified_sensitivity`: E-value scale and Oster inputs
+## 1.21.0 — ⚠️ `unified_sensitivity`: E-value scale and Oster inputs
 
 Two quantities in the dashboard were computed from the wrong inputs.
 
@@ -96,7 +96,7 @@ the data so the two paths agree by construction.
 
 <a id="continuous-did-cgs"></a>
 
-## Unreleased — `sp.continuous_did(method="cgs")` is superseded
+## 1.21.0 — `sp.continuous_did(method="cgs")` is superseded
 
 **What changed.** `method="cgs"` now emits a `DeprecationWarning` and will be
 removed after one minor release. Use `sp.cgs_continuous_did` instead.
@@ -133,7 +133,7 @@ look, and the docstring says so.
 
 <a id="multiplegt-switch-directions"></a>
 
-## Unreleased — ⚠️ `sp.did_multiplegt` dynamics/placebos, and switch-off in `_dyn`
+## 1.21.0 — ⚠️ `sp.did_multiplegt` dynamics/placebos, and switch-off in `_dyn`
 
 **What changed.** Four numbers move, all on non-trivial designs:
 
@@ -184,7 +184,7 @@ res.model_info["event_study"]      # placebo, effect, dynamic on one scale
 
 <a id="multiplegt-dyn-placebo"></a>
 
-## Unreleased — ⚠️ `sp.did_multiplegt_dyn` placebos are now the estimator's placebos
+## 1.21.0 — ⚠️ `sp.did_multiplegt_dyn` placebos are now the estimator's placebos
 
 **What changed.** The placebo at lag ℓ was computed as
 `Y_{F-1-ℓ} − Y_{F-1-ℓ-1}` — a one-period difference sliding backwards
@@ -226,7 +226,7 @@ sp.did_multiplegt_dyn(df, y="y", group="i", time="t", treatment="d",
 
 <a id="pretrends-power-test"></a>
 
-## Unreleased — ⚠️ `sp.pretrends_power` defaults to the pre-test Roth (2022) analyses
+## 1.21.0 — ⚠️ `sp.pretrends_power` defaults to the pre-test Roth (2022) analyses
 
 **What changed.** `sp.pretrends_power(result)` returned the power of the
 *joint Wald* test that all pre-period coefficients are zero. It now returns
@@ -279,7 +279,7 @@ Both are pinned against `pretrends` 0.1.0 in
 
 <a id="unified-sensitivity-term"></a>
 
-## Unreleased — ⚠️ `sp.unified_sensitivity` analysed the intercept
+## 1.21.0 — ⚠️ `sp.unified_sensitivity` analysed the intercept
 
 **What changed.** `sp.unified_sensitivity(result)` pulled the coefficient to
 analyse with `params.iloc[0]` and its standard error with
@@ -342,7 +342,7 @@ now emits a `RuntimeWarning` instead of looking like a pass.
 
 <a id="aipw-default-seed"></a>
 
-## Unreleased — ⚠️ `sp.aipw` was not reproducible; default `seed` is now 42
+## 1.21.0 — ⚠️ `sp.aipw` was not reproducible; default `seed` is now 42
 
 **What changed.** `sp.aipw(..., seed=...)` defaulted to `None`, which reached
 `np.random.default_rng(None)` and therefore seeded the cross-fitting fold
@@ -389,7 +389,7 @@ the convention for the whole family.
 
 <a id="nsw-lalonde-default-simulated-false"></a>
 
-## Unreleased — bundled datasets now default to the real published data
+## 1.21.0 — bundled datasets now default to the real published data
 
 **What changed.** Five loaders ship a real extract in
 `statspai/datasets/data/`. Four of them also offer a calibrated replica
@@ -460,7 +460,7 @@ loading it in a clean venv built from the wheel with `socket` hard-blocked.
 
 <a id="ltmle-influence-curve-martingale-term"></a>
 
-## Unreleased — ⚠️ `sp.ltmle` standard errors were 250–400× too small
+## 1.21.0 — ⚠️ `sp.ltmle` standard errors were 250–400× too small
 
 **What changed.** The efficient influence curve for LTMLE is
 
@@ -498,7 +498,7 @@ follow-up.
 
 <a id="gmm-unadjusted-variance-and-conventions"></a>
 
-## Unreleased — ⚠️ `sp.gmm` variance, closed form, and HAC conventions
+## 1.21.0 — ⚠️ `sp.gmm` variance, closed form, and HAC conventions
 
 **What changed.** Three things in `sp.gmm`.
 
@@ -532,7 +532,7 @@ defaults to Stata's convention, so existing results are unchanged.
 
 <a id="xtabond-twostep-ar-test"></a>
 
-## Unreleased - `sp.xtabond` two-step AR(1)/AR(2) statistics changed
+## 1.21.0 - `sp.xtabond` two-step AR(1)/AR(2) statistics changed
 
 **What changed.** The Arellano-Bond serial-correlation test variance
 decomposes into three terms, the last of which is
@@ -562,7 +562,7 @@ way - so a previously "passing" AR(2) test is not automatically safe.
 
 <a id="gmm-unadjusted-se"></a>
 
-## Unreleased - `sp.gmm(se='unadjusted')` now reports the efficient-GMM variance
+## 1.21.0 - `sp.gmm(se='unadjusted')` now reports the efficient-GMM variance
 
 **What changed.** `se='unadjusted'` used to return `(D'WD)^-1/n` for
 whatever weight matrix `W` was in force. That expression is the variance of
@@ -589,7 +589,7 @@ that is the variance of the estimator you actually computed.
 
 <a id="xtabond-listwise-deletion"></a>
 
-## Unreleased — `sp.xtabond` no longer deletes instruments on covariate `NaN`s
+## 1.21.0 — `sp.xtabond` no longer deletes instruments on covariate `NaN`s
 
 **What changed.** `sp.xtabond` used to start with
 
@@ -626,7 +626,7 @@ fit; re-run those. Hand-built lag columns are no longer necessary either —
 
 <a id="qte-firpo-mislabel"></a>
 
-## Unreleased — `sp.qte` method names and default
+## 1.21.0 — `sp.qte` method names and default
 
 **What changed.** `sp.qte(method='quantile_regression')` was documented,
 labelled and registered as Firpo (2007). It is not. It returns the
@@ -667,7 +667,7 @@ changes-in-changes use `sp.cic`.
 
 <a id="dist-iv-quantile-wald-ratio"></a>
 
-## Unreleased — ⚠️ `sp.dist_iv` estimated the wrong object
+## 1.21.0 — ⚠️ `sp.dist_iv` estimated the wrong object
 
 **What changed.** `sp.dist_iv` (and its alias `sp.kan_dlate`) computed a
 *Wald ratio of quantiles*:
@@ -726,7 +726,7 @@ KAN. Call `sp.dist_iv` directly.
 
 <a id="genmatch-variance-basis"></a>
 
-## Unreleased — ⚠️ `sp.genmatch` distance uses full-sample variances
+## 1.21.0 — ⚠️ `sp.genmatch` distance uses full-sample variances
 
 **What changed.** The genetic-matching kernel computed its generalised
 distance after standardising covariates by the **control group's**
@@ -749,7 +749,7 @@ seeds; only the deterministic distance-and-assignment kernel is pinned, in
 
 <a id="sbw-tolerance-scale"></a>
 
-## Unreleased — `sp.sbw` balance tolerance now names its units
+## 1.21.0 — `sp.sbw` balance tolerance now names its units
 
 **What changed.** `delta` was always interpreted against the full-sample
 standard deviation. `sbw::sbw` quotes the same tolerance against either
@@ -770,7 +770,7 @@ match its `bal_std`. When reporting a tolerance, report the scale too.
 
 <a id="match-with-replacement-ties"></a>
 
-## Unreleased — `sp.match` can now pool tied controls
+## 1.21.0 — `sp.match` can now pool tied controls
 
 **What changed.** Under matching *with replacement*, `sp.match` kept only
 the lowest-index control among equidistant candidates. `ties='all'` pools
@@ -789,7 +789,7 @@ and add `tie_tolerance=1e-5` when reconciling with `Matching::Match`.
 
 <a id="cbps-solver-rewrite"></a>
 
-## Unreleased — ⚠️ `sp.cbps` now solves the Imai-Ratkovic problem
+## 1.21.0 — ⚠️ `sp.cbps` now solves the Imai-Ratkovic problem
 
 **What changed.** The CBPS GMM was posed in the raw covariate basis with an
 empirical outer-product weighting matrix. CBPS is defined in a standardised,
@@ -825,7 +825,7 @@ on lalonde). This is asserted in
 
 <a id="ebalance-exact-balance"></a>
 
-## Unreleased — ⚠️ `sp.ebalance` now achieves exact moment balance
+## 1.21.0 — ⚠️ `sp.ebalance` now achieves exact moment balance
 
 **What changed.** The entropy-balancing dual was minimised with L-BFGS-B on
 unscaled constraints. When covariates live on different scales the dual
@@ -851,7 +851,7 @@ moments are likely outside the convex hull of the control moments.
 
 <a id="tmle-shared-nuisance-and-fluctuation"></a>
 
-## Unreleased — `sp.tmle` gains `Q` / `g1W` / `fluctuation`
+## 1.21.0 — `sp.tmle` gains `Q` / `g1W` / `fluctuation`
 
 **What changed.** Three new parameters. `Q` takes an `(n, 2)` matrix of
 `[Q(0,W), Q(1,W)]` and `g1W` a propensity vector; supplying either bypasses
@@ -886,7 +886,7 @@ supplied — there is no ensemble to report weights for.
 
 <a id="dml-panel-learner-aliases"></a>
 
-## Unreleased — `sp.dml_panel` accepts `sp.dml`'s learner aliases
+## 1.21.0 — `sp.dml_panel` accepts `sp.dml`'s learner aliases
 
 **What changed.** `sp.dml(ml_g='linear')` resolved short learner names;
 `sp.dml_panel(ml_g='linear')` did not, and failed inside scikit-learn's
@@ -903,7 +903,7 @@ unaffected, and calls that passed strings previously raised.
 
 <a id="dml-sensitivity-structural-residual"></a>
 
-## Unreleased — ⚠️ `sp.dml_sensitivity` uses the structural outcome residual
+## 1.21.0 — ⚠️ `sp.dml_sensitivity` uses the structural outcome residual
 
 **What changed.** The DML omitted-variable-bias bound scales by
 `S = sqrt(σ²ν²)`, where for the PLR coefficient
@@ -939,7 +939,7 @@ rather than hidden.
 
 <a id="dml-irm-iivm-se-normalisation"></a>
 
-## Unreleased — ⚠️ `sp.dml` IRM / IIVM standard errors normalise by `n`
+## 1.21.0 — ⚠️ `sp.dml` IRM / IIVM standard errors normalise by `n`
 
 **What changed.** The unweighted IRM and IIVM branches divided the
 influence-function variance by `n − 1` (`ddof=1`). Nothing else in the module
@@ -966,7 +966,7 @@ need the old figures, multiply the reported SE by `sqrt(n/(n−1))`.
 
 <a id="dml-fold-indices-all-models"></a>
 
-## Unreleased — `sp.dml(fold_indices=...)` now works for IRM / PLIV / IIVM
+## 1.21.0 — `sp.dml(fold_indices=...)` now works for IRM / PLIV / IIVM
 
 **What changed.** `fold_indices=` was accepted only for `model='plr'`; the
 other three model classes raised `MethodIncompatibility` rather than silently
@@ -989,7 +989,7 @@ offending fold rather than fitting a degenerate classifier.
 
 <a id="causal-forest-grf-att-convention"></a>
 
-## Unreleased — ⚠️ Causal-forest ATT/ATC now use grf's estimator
+## 1.21.0 — ⚠️ Causal-forest ATT/ATC now use grf's estimator
 
 **What changed.** `sp.causal_forest(...).average_treatment_effect(
 target_sample='treated')` (and `'control'`) computed the mean of a single
@@ -1030,7 +1030,7 @@ through a fitted forest.
 
 <a id="policy-tree-exact-depth2-search"></a>
 
-## Unreleased — ⚠️ `sp.policy_tree` now solves the depth-2 problem exactly
+## 1.21.0 — ⚠️ `sp.policy_tree` now solves the depth-2 problem exactly
 
 **What changed.** The module documented an exhaustive depth-1/depth-2 search
 but implemented a greedy one: each candidate root split was scored as though
@@ -1072,7 +1072,7 @@ does.
 
 <a id="mahalanobis-pooled-covariance"></a>
 
-## Unreleased — ⚠️ Mahalanobis matching uses the pooled within-group covariance
+## 1.21.0 — ⚠️ Mahalanobis matching uses the pooled within-group covariance
 
 **What changed.** `sp.match(distance='mahalanobis')` and
 `sp.optimal_match(metric='mahalanobis')` built the metric from `cov(X)` over
@@ -1095,7 +1095,7 @@ default.
 
 <a id="match-m-order"></a>
 
-## Unreleased — `sp.match` greedy matching order is now explicit
+## 1.21.0 — `sp.match` greedy matching order is now explicit
 
 **What changed.** Nearest-neighbour matching *without replacement* is
 order-dependent: each treated unit consumes a control, so who is matched
@@ -1118,7 +1118,7 @@ name exactly.
 
 <a id="honest-did-flci"></a>
 
-## Unreleased — ⚠️ `sp.honest_did(method='smoothness')` now returns the real FLCI
+## 1.21.0 — ⚠️ `sp.honest_did(method='smoothness')` now returns the real FLCI
 
 **What changed.** The native smoothness path returned
 `θ̂ ± M·(e+1) ± z·SE`: the worst-case bias added to an ordinary Wald interval.
@@ -1148,7 +1148,7 @@ functions), the old approximation is still used and now warns.
 
 <a id="cs-rcs-reg-covariates"></a>
 
-## Unreleased — ⚠️ `callaway_santanna(panel=False, estimator='reg', x=[...])` changed estimator
+## 1.21.0 — ⚠️ `callaway_santanna(panel=False, estimator='reg', x=[...])` changed estimator
 
 **What changed.** Repeated cross-sections with covariates previously used a
 StatsPAI-specific approximation: the outcome was residualised on the covariates
@@ -1170,7 +1170,7 @@ with no reference implementation behind it.
 
 <a id="cs-varying-base-period-e-minus-1"></a>
 
-## Unreleased — ⚠️ `base_period='varying'` now reports the `e = −1` placebo
+## 1.21.0 — ⚠️ `base_period='varying'` now reports the `e = −1` placebo
 
 **What changed.** `sp.callaway_santanna`'s (g, t) grid builder skipped
 `t == g − 1 − anticipation` under *every* base-period scheme. Under
@@ -1204,7 +1204,7 @@ one. There is no flag to restore the omission — it was a bug.
 
 <a id="aggte-group-overall-weighting"></a>
 
-## Unreleased — ⚠️ `sp.aggte(type='group')` overall ATT is now cohort-size weighted
+## 1.21.0 — ⚠️ `sp.aggte(type='group')` overall ATT is now cohort-size weighted
 
 **What changed.** The per-cohort effects θ(g) were correct, but collapsing them
 into the single reported `.estimate` used equal `1/K` weights. R
@@ -1229,7 +1229,7 @@ use the new value; there is no flag to restore the old behavior.
 
 <a id="aggte-analytic-se-covariance"></a>
 
-## Unreleased — ⚠️ `sp.aggte(bstrap=False)` standard errors were ~0.64× too small
+## 1.21.0 — ⚠️ `sp.aggte(bstrap=False)` standard errors were ~0.64× too small
 
 **What changed.** With `bstrap=False`, `sp.aggte` combined the per-cell
 standard errors as `sqrt(Σ wₖ² seₖ²)` — the formula for *independent* cells.
@@ -1261,7 +1261,7 @@ sup-t bands, which the analytic path cannot produce.
 
 <a id="cic-athey-imbens-step2"></a>
 
-## Unreleased — ⚠️ `sp.cic` now reproduces the Athey-Imbens estimator
+## 1.21.0 — ⚠️ `sp.cic` now reproduces the Athey-Imbens estimator
 
 **What changed.** The step-2 counterfactual in `sp.cic` had two defects: it
 composed the empirical CDFs with the control-post (`y01`) and treated-pre
@@ -1283,7 +1283,7 @@ estimates. There is no flag to restore the old behavior — it was a bug.
 
 <a id="panel-hdfe-multiway-cluster-nul"></a>
 
-## Unreleased — ⚠️ Panel HDFE multiway cluster SEs no longer collapse
+## 1.21.0 — ⚠️ Panel HDFE multiway cluster SEs no longer collapse
 
 **What changed.** `sp.hdfe_ols` / `sp.feols`' native N-way cluster sandwich
 formed its intersection clusters by joining the dimension labels with a `"\0"`
@@ -1303,7 +1303,7 @@ clustering through `sp.hdfe_ols` / native `sp.feols`. Re-run affected models.
 
 <a id="conley-non-psd-nan"></a>
 
-## Unreleased — ⚠️ Conley non-PSD variances report `nan`, not `0`
+## 1.21.0 — ⚠️ Conley non-PSD variances report `nan`, not `0`
 
 **What changed.** Kernel-weighted spatial HAC is not positive semi-definite in
 finite samples; with a uniform kernel `S'WS` routinely has negative diagonal
@@ -1325,7 +1325,7 @@ fixed effects.
 
 <a id="event-study-pre-vcov-optin"></a>
 
-## Unreleased — `sp.event_study` pre-period covariance (opt-in this release)
+## 1.21.0 — `sp.event_study` pre-period covariance (opt-in this release)
 
 **What changed.** `sp.event_study` now computes the full cluster-robust
 covariance of the event-time coefficients (always available in
@@ -1348,7 +1348,7 @@ earlier release, do nothing — the default is unchanged.
 
 <a id="event-study-headline-att-se"></a>
 
-## Unreleased — ⚠️ Event-study headline ATT SE uses the full covariance
+## 1.21.0 — ⚠️ Event-study headline ATT SE uses the full covariance
 
 **What changed.** Three event-study estimators reported a headline ("overall
 ATT") standard error that treated the post-period event-time coefficients as
@@ -1391,7 +1391,7 @@ aggregation, whose correct covariance was already computed unconditionally.)
 
 <a id="did2x2-ddd-weighted-robust"></a>
 
-## Unreleased — ⚠️ Weighted robust SEs in `sp.did_2x2` / `sp.ddd`
+## 1.21.0 — ⚠️ Weighted robust SEs in `sp.did_2x2` / `sp.ddd`
 
 **What changed.** With analytic weights, the `robust=True` (HC1) branch
 built the sandwich meat as `X'diag(w·e²)X`; the WLS score is `w·x·e`, so the
@@ -1408,7 +1408,7 @@ Point estimates, unweighted SEs, and clustered SEs are unchanged.
 
 <a id="parallel-trends-robustness-inf-verdict"></a>
 
-## Unreleased — ⚠️ `sp.parallel_trends_robustness` verdict at `Mbar* = ∞`
+## 1.21.0 — ⚠️ `sp.parallel_trends_robustness` verdict at `Mbar* = ∞`
 
 **What changed.** When the honest CI still excludes zero at the top of the
 search range (`Mbar = 1e4`), the breakdown is `inf` — maximal robustness.
@@ -1427,7 +1427,7 @@ a large effect measured in raw units. Re-read those verdicts.
 
 <a id="conley-duplicate-unit-time"></a>
 
-## Unreleased — ⚠️ `sp.conley` rejects duplicated `(unit, time)` rows
+## 1.21.0 — ⚠️ `sp.conley` rejects duplicated `(unit, time)` rows
 
 **What changed.** The spatio-temporal path (`time=` + `unit=`) resolves the
 cross-unit block through a single-valued `(unit, time) → row` lookup. With
@@ -1444,7 +1444,7 @@ the true row-level identifier as `unit=` if each row is its own location.
 
 <a id="proximal-surrogate-index-bridge-2sls"></a>
 
-## Unreleased — ⚠️ `sp.proximal_surrogate_index` bridge is now proper 2SLS
+## 1.21.0 — ⚠️ `sp.proximal_surrogate_index` bridge is now proper 2SLS
 
 **What changed.** The linear bridge `h(s, x)` used to be read off a
 second-stage regression of `Y` on `[1, W, S_hat, X]`. Because `S_hat` — the
@@ -1478,7 +1478,7 @@ minimum-norm artifacts silently.
 
 <a id="callaway-santanna-nevertreated-no-control"></a>
 
-## Unreleased — ⚠️ `sp.callaway_santanna` fails loudly with an empty never-treated control
+## 1.21.0 — ⚠️ `sp.callaway_santanna` fails loudly with an empty never-treated control
 
 **What changed.** `sp.callaway_santanna(control_group="nevertreated")` on a
 panel where every unit is eventually treated (no `g=0` units) used to return a
@@ -1503,7 +1503,7 @@ estimate changes.
 
 <a id="eigenvector-centrality-bipartite"></a>
 
-## Unreleased — ⚠️ `sp.eigenvector_centrality` fixed on bipartite graphs
+## 1.21.0 — ⚠️ `sp.eigenvector_centrality` fixed on bipartite graphs
 
 **What changed.** Eigenvector centrality was computed by naive power iteration
 `x <- A x`. On a bipartite graph the adjacency spectrum is symmetric
@@ -1528,7 +1528,7 @@ converge) are numerically unchanged up to normalization.
 
 <a id="ges-collider-acyclicity"></a>
 
-## Unreleased — ⚠️ `sp.ges` no longer adds a spurious collider-parent edge
+## 1.21.0 — ⚠️ `sp.ges` no longer adds a spurious collider-parent edge
 
 **What changed.** Greedy Equivalence Search searched over edge additions with no
 acyclicity constraint. On a v-structure `X -> Z <- Y` it could add an edge into
@@ -1552,7 +1552,7 @@ change (`.edges()`, `.adjacency`, `.to_frame()` unchanged in shape).
 
 <a id="dist-iv-binary-instrument-nan"></a>
 
-## Unreleased — ⚠️ `sp.dist_iv` / `sp.kan_dlate` no longer NaN on binary instruments
+## 1.21.0 — ⚠️ `sp.dist_iv` / `sp.kan_dlate` no longer NaN on binary instruments
 
 **What changed.** The distributional-IV Wald estimator split the instrument at
 `Z > median(Z)`. For a binary `Z` with more 1s than 0s the median is 1, so the
@@ -1575,7 +1575,7 @@ correct Wald LATE. No API change.
 
 <a id="contrast-pwcompare-categorical"></a>
 
-## Unreleased — ⚠️ `sp.contrast` / `sp.pwcompare` now fire `C(var)` factor dummies
+## 1.21.0 — ⚠️ `sp.contrast` / `sp.pwcompare` now fire `C(var)` factor dummies
 
 **What changed.** `sp.contrast` and `sp.pwcompare` previously returned all-zero
 contrasts (and zero SEs / p-values) when the model was fit with a
@@ -1601,7 +1601,7 @@ column were already correct and are unchanged.
 
 <a id="did-multiplegt-baseline-conditioning"></a>
 
-## Unreleased — ⚠️ `sp.did_multiplegt` now baseline-conditions switcher/stayer cells
+## 1.21.0 — ⚠️ `sp.did_multiplegt` now baseline-conditions switcher/stayer cells
 
 **What changed.** `sp.did_multiplegt` now computes DID_M, dynamic effects, and
 placebo effects within each baseline-treatment cell `d_{t-1}`. Switchers are
@@ -1631,7 +1631,7 @@ that can change point estimates.
 
 <a id="spatial-ml-fullinfo-se"></a>
 
-## Unreleased — ⚠️ `sp.sar` / `sp.sdm` report full-information coefficient SEs
+## 1.21.0 — ⚠️ `sp.sar` / `sp.sdm` report full-information coefficient SEs
 
 **What changed.** The coefficient standard errors from `sp.sar` (spatial lag)
 and `sp.sdm` (spatial Durbin) now come from the inverse of the full
@@ -1661,7 +1661,7 @@ No call-site change is required — this is a numerical correction.
 
 <a id="etwfe-cgroup-simple-att"></a>
 
-## Unreleased — ⚠️ `sp.etwfe` now honors `cgroup` and reports the R/Stata simple ATT
+## 1.21.0 — ⚠️ `sp.etwfe` now honors `cgroup` and reports the R/Stata simple ATT
 
 **What changed.** The public `sp.etwfe` headline now matches R
 `etwfe::emfx(type="simple")` and Stata `jwdid, estat simple`: a
@@ -1698,7 +1698,7 @@ default point estimate changes on staggered panels.
 
 <a id="bch-post-lasso-iv-deprecation"></a>
 
-## Unreleased — Deprecation: `iv.bch_post_lasso_iv` → `sp.rlasso_iv`
+## 1.21.0 — Deprecation: `iv.bch_post_lasso_iv` → `sp.rlasso_iv`
 
 **What changed.** `statspai.iv.bch_post_lasso_iv` now emits a
 `DeprecationWarning`. It was StatsPAI's original, from-memory reconstruction

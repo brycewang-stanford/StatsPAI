@@ -428,7 +428,7 @@ StatsPAI 正在 JOSS 审稿中。审稿人可从这里开始：
   title   = {StatsPAI: Validation-Tiered Causal Inference and
              Econometrics Workflows for Python},
   year    = {2026},
-  version = {1.20.0},
+  version = {1.21.0},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```

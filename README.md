@@ -481,7 +481,7 @@ many result objects expose estimator-level citation helpers.
   title   = {StatsPAI: Validation-Tiered Causal Inference and
              Econometrics Workflows for Python},
   year    = {2026},
-  version = {1.20.0},
+  version = {1.21.0},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```
