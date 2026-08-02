@@ -368,11 +368,13 @@ df = sp.datasets.nsw_lalonde(simulated=False)
 df = sp.datasets.nsw_lalonde(simulated=True)
 ```
 
-Omitting the argument still works and resolves to `simulated=False`, but
-emits a `FutureWarning` for one minor version, because any number you
-computed with the old default changes. Passing the argument explicitly —
-either value — silences it. The warning is scheduled for removal in 1.22.0,
-after which the signature becomes a plain `simulated: bool = False`.
+The signature is a plain `simulated: bool = False` — no sentinel, no
+warning to silence. If you relied on the old default, pass
+`simulated=True`.
+
+`sp.datasets.list_datasets()` now carries a `source` column saying which
+variant each bare `name()` call returns, so you can see at a glance
+whether you are getting a real extract or a calibrated replica.
 
 **Offline note.** The real extract is a CSV bundled in the wheel under
 `statspai/datasets/data/`, so this default needs no network. Verified by

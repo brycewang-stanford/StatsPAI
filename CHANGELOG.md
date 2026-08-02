@@ -896,22 +896,24 @@ All notable changes to StatsPAI will be documented in this file.
 ### Changed
 
 - **`sp.datasets.nsw_lalonde()` now returns the real data by default.** The
-  `simulated` default flipped from `True` to `False`, so the bare call now
-  yields the real `MatchIt::lalonde` extract (n=614, 11 columns, naive OLS
-  ATT ≈ **−$635**) instead of the simulated experimental replica (n=445, 10
-  columns, ATT ≈ **+$1,794**). The old default was a trap for offline users:
-  the docs' first example is a bare `nsw_lalonde()`, so anyone following it
-  got simulated numbers that match no published table while believing they
-  had LaLonde's data.
+  `simulated` default flipped from `True` to `False`, so the bare call
+  yields the real `MatchIt::lalonde` extract (n=614, naive OLS ATT ≈
+  **−$635**) instead of the simulated replica (n=445, ≈ **+$1,794**). The
+  old default was a trap: the docs' first example is a bare
+  `nsw_lalonde()`, so anyone following it got simulated numbers matching no
+  published table while believing they had LaLonde's data. Pass
+  `simulated=True` for the replica. See MIGRATION.md.
 
-  Omitting the argument still works and resolves to `simulated=False`, but
-  emits a `FutureWarning` for one minor version because the numbers it
-  returns changed. Pass `simulated=False` to accept the new default silently,
-  or `simulated=True` to keep the replica. See MIGRATION.md.
-
-  The bundled CSV ships in the wheel (`statspai/datasets/data/`), so this
-  path needs no network — verified by loading it in a clean venv with
-  `socket` hard-blocked.
+- **`list_datasets()` gained a `source` column and stopped misreporting row
+  counts.** `source` says which variant a bare `name()` call returns —
+  `"bundled CSV"` for a real extract shipped in `datasets/data/`,
+  `"simulated"` for a calibrated replica — so the choice is visible in the
+  catalogue instead of buried in each docstring. Three `n_obs` entries were
+  wrong: `nsw_lalonde` (445 → 614, after the default flip above),
+  `california_prop99` (1200 → 1209) and `basque_terrorism` (774 → 731), the
+  last two long-standing. `tests/test_datasets_catalog.py` now pins every
+  row against its loader, so the table cannot drift again, and asserts the
+  whole catalogue loads with sockets blocked.
 
 ### ⚠️ Correctness
 

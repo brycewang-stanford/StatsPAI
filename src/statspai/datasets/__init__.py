@@ -150,10 +150,25 @@ def california_prop99(simulated: bool = True) -> pd.DataFrame:
 teen_employment = mpdta
 
 
+#: Which variant a bare ``name()`` call returns. Loaders absent from this
+#: map return a simulated replica.
+_DEFAULT_SOURCE = {
+    "nsw_lalonde": "bundled CSV",
+    "nhefs": "bundled CSV",
+}
+
+
 def list_datasets() -> pd.DataFrame:
     """Return a DataFrame describing all available datasets.
 
-    Columns: name, design, n_obs, paper, paper_original, expected_main.
+    Columns: name, design, n_obs, paper, paper_original, expected_main,
+    source.
+
+    Every dataset here loads from disk — none of them touches the
+    network, so the whole catalogue works offline. ``source`` says which
+    variant a bare ``name()`` call returns: ``"bundled CSV"`` is the real
+    extract shipped in ``datasets/data/``, ``"simulated"`` a
+    deterministic replica calibrated near the published estimate.
 
     - ``paper_original`` is the headline number from the published paper on the
       ORIGINAL data (what readers expect to see).
@@ -186,11 +201,11 @@ def list_datasets() -> pd.DataFrame:
         ),
         (
             "nsw_lalonde",
-            "RCT / matching",
-            445,
+            "SOO / matching",
+            614,
             "LaLonde (1986) / Dehejia-Wahba (1999)",
-            "Experimental ATT ≈ $1,794 (DW 1999, re78)",
-            "Naive OLS ≈ $1,556 on this replica (calibrated to $1,794)",
+            "Naive OLS ≈ -$8,498; PSM ≈ $1,794 (DW 1999, full PSID-1)",
+            "Naive OLS ≈ -$635; PSM ≈ $1,963 (real MatchIt extract, n=614)",
         ),
         (
             "nsw_dw",
@@ -219,7 +234,7 @@ def list_datasets() -> pd.DataFrame:
         (
             "california_prop99",
             "SCM",
-            1200,
+            1209,
             "Abadie-Diamond-Hainmueller (2010)",
             "Mean 1989-2000 ATT ≈ -19 packs/capita (JASA Fig. 2)",
             "Classic ADH ≈ -13.1, ASCM ≈ -13.3 packs/capita on this replica",
@@ -227,7 +242,7 @@ def list_datasets() -> pd.DataFrame:
         (
             "basque_terrorism",
             "SCM",
-            774,
+            731,
             "Abadie-Gardeazabal (2003)",
             "GDP gap ≈ -0.855 (mean 1975-1997)",
             "GDP gap ≈ -0.855 on this replica (calibrated)",
@@ -249,10 +264,18 @@ def list_datasets() -> pd.DataFrame:
             "REAL data: StatsPAI reproduces 3.4-3.5 kg across Ch12-14 g-methods",
         ),
     ]
-    return pd.DataFrame(
+    table = pd.DataFrame(
         registry,
         columns=["name", "design", "n_obs", "paper", "paper_original", "expected_main"],
     )
+    # What a bare ``name()`` call hands back. Every loader reads from disk
+    # — nothing here touches the network — but "bundled CSV" is the real
+    # extract shipped in ``datasets/data/``, while "simulated" is a
+    # deterministic replica calibrated near the published estimate. Four
+    # loaders (card_1995, lee_2008_senate, california_prop99,
+    # nsw_lalonde) also accept ``simulated=`` to pick the other one.
+    table["source"] = table["name"].map(_DEFAULT_SOURCE).fillna("simulated")
+    return table
 
 
 __all__ = [

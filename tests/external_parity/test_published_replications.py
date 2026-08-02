@@ -521,6 +521,9 @@ def test_list_datasets_returns_dataframe():
         "paper",
         "paper_original",
         "expected_main",
+        # Which variant a bare name() call returns — "bundled CSV" for the
+        # real extract, "simulated" for the calibrated replica.
+        "source",
     }
 
 
