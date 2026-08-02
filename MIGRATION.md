@@ -389,11 +389,22 @@ the convention for the whole family.
 
 <a id="nsw-lalonde-default-simulated-false"></a>
 
-## Unreleased — `sp.datasets.nsw_lalonde()` now defaults to the real data
+## Unreleased — bundled datasets now default to the real published data
 
-**What changed.** The `simulated` parameter's default flipped from `True` to
-`False`. A bare `sp.datasets.nsw_lalonde()` now returns the real
-`MatchIt::lalonde` extract instead of the simulated experimental replica:
+**What changed.** Five loaders ship a real extract in
+`statspai/datasets/data/`. Four of them also offer a calibrated replica
+behind `simulated=`, and their defaults now all point at the real data:
+`card_1995`, `lee_2008_senate`, `california_prop99` and `nsw_lalonde`.
+
+The rule is now uniform: **if StatsPAI ships the real published data, a
+bare call returns it.** Previously only `nsw_lalonde` behaved that way, so
+what you got depended on which dataset you reached for.
+
+Why the real extract is the better default: it is what reproduces the
+papers. `card_1995` returns OLS 0.074 / IV 0.132 against Table 2's
+0.075 / 0.132 — the replica gives 0.110 / 0.142.
+
+`nsw_lalonde` in detail:
 
 | | old default (`simulated=True`) | new default (`simulated=False`) |
 | --- | --- | --- |
@@ -412,12 +423,26 @@ choice when you want the *experimental* subset.
 **Migration.**
 
 ```python
-# Want the real MatchIt::lalonde extract (the new default) — be explicit:
-df = sp.datasets.nsw_lalonde(simulated=False)
+# The real extract is now the default for all five bundled datasets:
+df = sp.datasets.card_1995()          # (3010, 9) real NLSYM
+df = sp.datasets.lee_2008_senate()    # (1390, 2) rdrobust RDsenate
+df = sp.datasets.california_prop99()  # (1209, 8) ADH smoking panel
+df = sp.datasets.nsw_lalonde()        # (614, 11) MatchIt::lalonde
 
-# Want the simulated experimental replica (the old default):
+# The calibrated replicas remain available:
 df = sp.datasets.nsw_lalonde(simulated=True)
 ```
+
+**Shapes change where the two variants differ.** `california_prop99` keeps
+its columns (order only) and `card_1995` gains `nearc2`, so those are
+near-transparent. `lee_2008_senate` differs materially — the real
+`rdrobust::rdrobust_RDsenate` extract is 1,390 rows with columns `x`
+(lagged Democratic margin, percent points) and `y` (current vote share),
+against the replica's 6,558 rows of `margin` / `voteshare_next` on a 0-1
+scale. The two are genuinely different frames on different scales; they
+are deliberately *not* forced into a shared vocabulary, because giving
+them the same column names on different units would be a worse trap than
+the shape change. Pass `simulated=True` to keep the replica.
 
 The signature is a plain `simulated: bool = False` — no sentinel, no
 warning to silence. If you relied on the old default, pass

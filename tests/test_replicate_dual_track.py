@@ -112,11 +112,21 @@ class TestCardRealLoader:
         assert ols.params["educ"] == pytest.approx(0.075, abs=2e-3)
         assert iv.params["educ"] == pytest.approx(0.132, abs=2e-3)
 
-    def test_simulated_default_unchanged(self):
-        """Backward compat: card_1995() with no args returns simulated."""
+    def test_default_is_the_real_extract(self):
+        """Since 1.21.0 a bare call returns the real data we ship.
+
+        The rule is uniform across every bundled dataset: if StatsPAI
+        ships the real published extract, ``name()`` hands it back. The
+        replica stays one keyword away.
+        """
         df = sp.datasets.card_1995()
-        assert df.shape == (3010, 8)  # simulated lacks nearc2
-        assert "nearc2" not in df.columns
+        assert df.shape == (3010, 9)
+        assert "nearc2" in df.columns
+        assert df.attrs.get("data_source") == "real"
+
+        replica = sp.datasets.card_1995(simulated=True)
+        assert replica.shape == (3010, 8)
+        assert "nearc2" not in replica.columns
 
 
 class TestProp99RealLoader:

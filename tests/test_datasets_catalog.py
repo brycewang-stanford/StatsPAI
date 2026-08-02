@@ -72,3 +72,56 @@ def test_whole_catalogue_loads_offline(no_network):
             warnings.simplefilter("ignore")
             df = getattr(sp.datasets, name)()
         assert len(df) > 0, f"{name} came back empty offline"
+
+
+# ---------------------------------------------------------------------- #
+# The rule: ship the real data, hand back the real data
+# ---------------------------------------------------------------------- #
+
+
+def test_a_bundled_csv_means_a_real_default():
+    """One rule, no per-dataset exceptions.
+
+    Four loaders (card_1995, lee_2008_senate, california_prop99,
+    nsw_lalonde) carry both a real extract and a calibrated replica. Only
+    nsw_lalonde used to default to the real one, so what a bare call
+    returned depended on which dataset you happened to reach for — and
+    the replicas sit noticeably further from the published numbers
+    (card_1995: OLS 0.110 on the replica against 0.075 in Table 2, versus
+    0.074 on the real extract).
+
+    If StatsPAI ships the real data, a bare call returns it.
+    """
+    from importlib import resources
+
+    data_dir = resources.files("statspai.datasets") / "data"
+    stems = {p.name.replace(".csv", "") for p in data_dir.iterdir()}
+
+    # Map the CSV stems onto the loaders that read them.
+    bundled_loaders = {
+        "card_1995": "card_1995",
+        "lee_2008_senate": "lee_2008_senate",
+        "california_prop99": "california_prop99",
+        "lalonde_matchit": "nsw_lalonde",
+        "nhefs": "nhefs",
+    }
+    assert set(bundled_loaders) <= stems, sorted(stems)
+
+    for stem, loader_name in bundled_loaders.items():
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            df = getattr(sp.datasets, loader_name)()
+        assert df.attrs.get("data_source") == "real", (
+            f"{loader_name}() ships {stem}.csv but a bare call returns a "
+            "replica — the default must be the real extract"
+        )
+
+
+def test_the_replica_is_still_reachable():
+    """Flipping the default must not remove the teaching DGP."""
+    for name in ("card_1995", "lee_2008_senate", "california_prop99", "nsw_lalonde"):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            replica = getattr(sp.datasets, name)(simulated=True)
+        assert len(replica) > 0
+        assert replica.attrs.get("data_source") != "real"

@@ -114,7 +114,10 @@ class TestCard1995Parity:
 
     @pytest.fixture(scope="class")
     def df(self):
-        return sp.datasets.card_1995()
+        # Explicitly the calibrated replica: this class pins the replica's
+        # own numbers, not the real NLSYM extract that card_1995()
+        # defaults to since 1.21.0.
+        return sp.datasets.card_1995(simulated=True)
 
     def test_ols_educ_coef_pinned(self, df):
         r = sp.regress(
@@ -239,7 +242,10 @@ class TestLeeSenateParity:
 
     @pytest.fixture(scope="class")
     def df(self):
-        return sp.datasets.lee_2008_senate()
+        # Explicitly the replica: this class pins its 0-1 scale columns
+        # (voteshare_next / margin), not the real rdrobust RDsenate
+        # extract that lee_2008_senate() defaults to since 1.21.0.
+        return sp.datasets.lee_2008_senate(simulated=True)
 
     def test_rd_jump_pinned(self, df):
         r = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0)
@@ -290,7 +296,12 @@ class TestQuickstartNotebookParity:
         assert float(att_dyn.estimate) == pytest.approx(-0.034, abs=2e-3)
 
     def test_iv_card_educ_quickstart(self):
-        df = sp.datasets.card_1995()
+        # The quickstart cards were generated from the calibrated replicas,
+        # so this class pins the replica numbers. Since 1.21.0 a bare
+        # loader call returns the real extract instead, which produces
+        # different figures — regenerating the cards is a separate
+        # decision, tracked with the RD card note below.
+        df = sp.datasets.card_1995(simulated=True)
         iv = sp.ivreg(
             "lwage ~ (educ ~ nearc4) + exper + expersq + black + south + smsa",
             data=df,
@@ -299,7 +310,7 @@ class TestQuickstartNotebookParity:
         assert float(iv.params["educ"]) == pytest.approx(0.142, abs=2e-3)
 
     def test_rd_lee_conventional_quickstart(self):
-        df = sp.datasets.lee_2008_senate()
+        df = sp.datasets.lee_2008_senate(simulated=True)
         rd = sp.rdrobust(df, y="voteshare_next", x="margin", c=0.0)
         # Was pinned at 0.073 with the comment "paper 0.077" -- i.e. the
         # discrepancy against Lee Table 4 was recorded and then pinned anyway.
@@ -313,7 +324,7 @@ class TestQuickstartNotebookParity:
         assert float(conv["estimate"]) == pytest.approx(0.0775, abs=2e-3)
 
     def test_scm_classic_adh_quickstart(self):
-        df = sp.datasets.california_prop99()
+        df = sp.datasets.california_prop99(simulated=True)
         sc = sp.synth(
             data=df,
             outcome="cigsale",

@@ -981,14 +981,28 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### Changed
 
-- **`sp.datasets.nsw_lalonde()` now returns the real data by default.** The
-  `simulated` default flipped from `True` to `False`, so the bare call
-  yields the real `MatchIt::lalonde` extract (n=614, naive OLS ATT ≈
-  **−$635**) instead of the simulated replica (n=445, ≈ **+$1,794**). The
-  old default was a trap: the docs' first example is a bare
-  `nsw_lalonde()`, so anyone following it got simulated numbers matching no
-  published table while believing they had LaLonde's data. Pass
-  `simulated=True` for the replica. See MIGRATION.md.
+- **Bundled datasets now default to the real published data.** Five
+  loaders ship a real extract in `datasets/data/`; four of them also offer
+  a calibrated replica behind `simulated=`. Their defaults were split —
+  only `nsw_lalonde` handed back the real one — so what a bare call
+  returned depended on which dataset you reached for. `card_1995`,
+  `lee_2008_senate` and `california_prop99` now match it.
+
+  The rule is one sentence: **if StatsPAI ships the real published data, a
+  bare call returns it.** That is also the variant that reproduces the
+  papers — `card_1995` gives OLS 0.074 / IV 0.132 against Table 2's
+  0.075 / 0.132, where the replica gives 0.110 / 0.142. The default was
+  handing users the compromise.
+
+  Shapes change where the variants genuinely differ: `california_prop99`
+  keeps its columns, `card_1995` gains `nearc2`, and `lee_2008_senate`
+  moves from a 6,558-row replica to the 1,390-row
+  `rdrobust::rdrobust_RDsenate` extract with different column names and
+  scale. The two lee frames are deliberately *not* given a shared
+  vocabulary — same names on different units would be a worse trap than
+  the shape change. `simulated=True` keeps the replica in every case.
+  `tests/test_datasets_catalog.py` enforces the rule from the shipped CSV
+  list, so a new bundled dataset cannot quietly default to its replica.
 
 - **`list_datasets()` gained a `source` column and stopped misreporting row
   counts.** `source` says which variant a bare `name()` call returns —

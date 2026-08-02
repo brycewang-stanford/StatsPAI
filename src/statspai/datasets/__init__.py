@@ -5,11 +5,16 @@ throughout the causal-inference literature, consolidated under a
 single import path ``sp.datasets``:
 
 >>> import statspai as sp
->>> df = sp.datasets.nsw_lalonde(simulated=False)   # real extract, n=614
+>>> df = sp.datasets.nsw_lalonde()          # real extract, no network
 >>> df.shape
 (614, 11)
 >>> sp.datasets.nsw_lalonde(simulated=True).attrs['expected_experimental_att']
 1794
+
+**One rule:** if StatsPAI ships the real published data for a dataset,
+a bare call returns it. ``simulated=True`` asks for the calibrated
+replica instead. ``list_datasets()['source']`` says which you get.
+Nothing here touches the network — the whole catalogue works offline.
 
 Each function returns a ``pd.DataFrame`` with:
 
@@ -42,8 +47,7 @@ IV
 
 Matching / SOO
     ``nsw_lalonde()``           — LaLonde NSW job training (real MatchIt
-                                  extract n=614; ``simulated=True`` gives the
-                                  445-row experimental replica)
+                                  extract n=614)
     ``nsw_dw()``                — Dehejia-Wahba NSW + PSID comparison
 
 Synthetic control
@@ -84,7 +88,7 @@ from ._canonical import (
 from .ingest import from_fred, from_sdmx, from_worldbank
 
 
-def california_prop99(simulated: bool = True) -> pd.DataFrame:
+def california_prop99(simulated: bool = False) -> pd.DataFrame:
     """California Proposition 99 panel (Abadie-Diamond-Hainmueller 2010).
 
     Parameters
@@ -153,6 +157,9 @@ teen_employment = mpdta
 #: Which variant a bare ``name()`` call returns. Loaders absent from this
 #: map return a simulated replica.
 _DEFAULT_SOURCE = {
+    "card_1995": "bundled CSV",
+    "lee_2008_senate": "bundled CSV",
+    "california_prop99": "bundled CSV",
     "nsw_lalonde": "bundled CSV",
     "nhefs": "bundled CSV",
 }
@@ -197,7 +204,7 @@ def list_datasets() -> pd.DataFrame:
             3010,
             "Card (1995)",
             "IV β_educ ≈ 0.132, OLS ≈ 0.075 (Table 3, NLSYM)",
-            "IV β_educ ≈ 0.142, OLS ≈ 0.110 on this replica",
+            "IV β_educ ≈ 0.132, OLS ≈ 0.074 on the real NLSYM extract",
         ),
         (
             "nsw_lalonde",
@@ -218,7 +225,7 @@ def list_datasets() -> pd.DataFrame:
         (
             "lee_2008_senate",
             "RD",
-            6558,
+            1390,
             "Lee (2008)",
             "Incumbent advantage ≈ 0.077 voteshare pts (Table 4)",
             "Conventional ≈ 0.073, CCT robust ≈ 0.062 on this replica",

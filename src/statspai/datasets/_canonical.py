@@ -139,7 +139,7 @@ def mpdta(seed: int = 42) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def card_1995(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
+def card_1995(seed: int = 42, simulated: bool = False) -> pd.DataFrame:
     """Card (1995) NLS Young Men data — simulated replica or real extract.
 
     Card uses proximity to a 4-year college (``nearc4``) as an
@@ -551,7 +551,7 @@ def nsw_dw(seed: int = 42) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def lee_2008_senate(seed: int = 42, simulated: bool = True) -> pd.DataFrame:
+def lee_2008_senate(seed: int = 42, simulated: bool = False) -> pd.DataFrame:
     """Lee (2008) US Senate RD — simulated replica or real extract.
 
     Parameters

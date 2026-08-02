@@ -42,7 +42,7 @@ def _exact_synthetic_panel(tau: float = 2.5):
 
 def test_native_sdid_matches_synthdid_reference_fixture():
     result = sp.sdid(
-        sp.datasets.california_prop99(),
+        sp.datasets.california_prop99(simulated=True),
         outcome="cigsale",
         unit="state",
         time="year",
@@ -105,7 +105,7 @@ def _skip_unless_synthdid_available():
 def test_synthdid_backend_matches_reference_fixture():
     _skip_unless_synthdid_available()
     result = sp.sdid(
-        sp.datasets.california_prop99(),
+        sp.datasets.california_prop99(simulated=True),
         outcome="cigsale",
         unit="state",
         time="year",
@@ -129,7 +129,7 @@ def test_synthdid_backend_matches_reference_fixture():
 def test_sdid_rejects_unknown_backend():
     with pytest.raises(ValueError, match="backend"):
         sp.sdid(
-            sp.datasets.california_prop99(),
+            sp.datasets.california_prop99(simulated=True),
             outcome="cigsale",
             unit="state",
             time="year",
