@@ -78,6 +78,39 @@
       "ci_hi": null,
       "n": 1600,
       "extra": []
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "R",
+      "statistic": "off_Effect_1",
+      "estimate": 1.26911443798778,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 126,
+      "extra": []
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "R",
+      "statistic": "off_Effect_2",
+      "estimate": 0.758562600053441,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 119,
+      "extra": []
+    },
+    {
+      "module": "78_multiplegt_dyn",
+      "side": "R",
+      "statistic": "off_Placebo_1",
+      "estimate": -0.0883148724921957,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 84,
+      "extra": []
     }
   ],
   "extra": {

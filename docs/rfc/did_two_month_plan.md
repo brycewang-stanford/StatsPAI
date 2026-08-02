@@ -293,9 +293,32 @@ WP-5 / WP-7 / WP-8 已落地，均带跨语言证据或明确写明的证据边�
 1. `triplediff` 0.2.4 的 not-yet-treated 路径把各控制组队列的影响函数写进面板长度向量时用了长度不符的布尔索引（R 每次调用都会警告）。逐控制组估计与我们完全一致；只有组合环节不同。比较范围覆盖全面板的 cell 仍然逐位相符。
 2. `contdid` 0.1.1 在拟合用的 dose 范围上估计样条，却把上报曲线放在以 dose 网格端点为边界的另一组基上求值，因此上报曲线是拟合响应的一个缩放版本，与它自己返回的 overall ACRT 对不上。`curve_basis="reference"` 可复现其输出。
 
+### 收尾（四项复查）
+
+上一轮列为「未闭合」的四项，复查后三项已闭合，一项理由更正。
+
+- ~~`did_multiplegt`~~ **已闭合**。「R 包坏了」只对了一半：2.x 的 `mode="old"` 确实返回 NaN，
+  但 CRAN 归档里的 **0.1.4**（该估计量最初发布的版本）能跑。对齐后修了两个缺陷：
+  dynamic horizon ≥ 1 未剔除窗口内二次切换者（吸收型面板上看不出来）、
+  placebo 缺前窗稳定性条件。Track A 81。
+
+  第三项看着像缺陷，其实不是：**placebo 的符号在 dCDH 自己的两个实现之间就不一致**。
+  在 `did::mpdta` 上两边三个效应六位小数一致、`|placebo_1|` 都是 0.024269，但 Stata 报
+  `+0.024269`、R 报 `-0.024269`。中途我一度把默认改成 R 的符号——那会静默改掉
+  StatsPAI 历来报的每一个 placebo。改为 `placebo_sign=` 参数，默认保持 Stata 约定，
+  并加测试钉住两者互为相反数。
+- ~~`did_multiplegt_dyn` 的 switch-off~~ **已闭合**。切断也是切换，丢掉它改变的是估计量本身。
+  按参考实现处理：控制组须与切换者共享**基线处理水平**，差值除以处理变化量。
+  模块 78 现含吸收型与切换型两套设计，效应/placebo/聚合/switcher 计数全部 5e-15。
+- ~~`did_timevarying_covariates`~~ **已闭合**。原归属是对的：Caetano, Callaway, Payne &
+  Rodrigues (2022), arXiv:2202.02903。上一轮查不到是因为走了 Crossref，它对 arXiv 预印本
+  索引很差。经 arXiv 记录 + DataCite 双源核验后恢复引用（`caetano2022difference`）。
+- `lp_did`：**理由更正**。不是论文付费墙的问题——作者自己的参考实现（Girardi 的 `lpdid`）
+  是 **Stata** 包，而 Stata 不在已验证的本地 runtime 里。GitHub 上的 R 版本是第三方非作者
+  移植，按 §10 不作为参考。保持 `api_stable`。
+
 ### 仍未闭合
 
-- `lp_did`：论文需付费获取，无参考实现，保持 `api_stable`。
-- `did_multiplegt`（dCDH 2020）：R 包 2.1.0 的 `mode="old"` 连自带示例都返回 NaN，属上游问题。
-- `did_multiplegt_dyn`：switch-off 事件、论文自有方差公式两项 `[待核验]` 仍在，也是它仍标 `experimental` 的原因。
-- `did_timevarying_covariates`：归属文献无法核验，按 §10 保持「（citation needed）」。
+- `did_multiplegt_dyn`：论文自有方差公式（`se_method='analytic'` 比 R 包低约 1%）、
+  异方差权重变体。这两项是它仍标 `experimental` 的原因。
+- `spillover_did`：无任何参考实现，仅设计恢复证据。

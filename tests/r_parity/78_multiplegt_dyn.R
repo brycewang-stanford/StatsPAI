@@ -76,6 +76,27 @@ rows[[length(rows) + 1]] <- parity_row(
   n         = nrow(df)
 )
 
+# --- switch-off design --------------------------------------------------
+off <- as.data.frame(read_csv_strict(sprintf("%s_off", MODULE)))
+res_off <- did_multiplegt_dyn(
+  df = off, outcome = "y", group = "id", time = "t", treatment = "d",
+  effects = 2, placebo = 1, cluster = "id", graph_off = TRUE
+)
+emit_off <- function(tbl, prefix, k) {
+  nm <- sprintf("%s_%d", prefix, k)
+  i <- match(nm, trimws(rownames(tbl)))
+  if (is.na(i)) stop(sprintf("%s not found in the switch-off design", nm))
+  rows[[length(rows) + 1]] <<- parity_row(
+    module    = MODULE,
+    statistic = sprintf("off_%s", nm),
+    estimate  = unname(tbl[i, "Estimate"]),
+    se        = NA_real_,
+    n         = as.integer(tbl[i, "Switchers"])
+  )
+}
+for (k in 1:2) emit_off(res_off$results$Effects, "Effect", k)
+emit_off(res_off$results$Placebos, "Placebo", 1)
+
 write_results(MODULE, rows, extra = list(
   reference = "DIDmultiplegtDYN::did_multiplegt_dyn",
   DIDmultiplegtDYN = as.character(utils::packageVersion("DIDmultiplegtDYN"))

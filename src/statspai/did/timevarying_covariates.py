@@ -9,12 +9,17 @@ covariates at their pre-treatment value X_{i, g-1} and fit a DR-DiD-style
 ATT(g, t) estimator with the frozen covariate.
 
 .. note::
-   **(citation needed.)** This approach is associated with work by Caetano,
-   Callaway, Payne and Rodrigues, but the exact title / venue / DOI could not
-   be confirmed against Crossref or arXiv, so no citation string is asserted
-   here and nothing was added to ``paper.bib``. Per CLAUDE.md section 10 a
-   missing citation is preferable to an unverified one. Supply the verified
-   reference before quoting this estimator in a paper or guide.
+   The attribution is now confirmed: Caetano, Callaway, Payne &
+   Rodrigues (2022), "Difference in Differences with Time-Varying
+   Covariates", arXiv:2202.02903 (bib key ``caetano2022difference``). An
+   earlier pass could not find it and downgraded this to
+   "(citation needed)" -- the search had gone through Crossref, which
+   indexes arXiv preprints poorly. Verified against the arXiv record and
+   DataCite: all four authors, title, year and DOI.
+
+   The paper is a preprint; there is no published version as of this
+   writing, and no reference implementation to pin against, so this
+   estimator still carries no cross-language parity evidence.
 
 This implementation provides the cohort-by-period ATT computation with
 baseline-frozen covariates, aggregated via a Callaway-Sant'Anna-style

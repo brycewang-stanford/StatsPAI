@@ -9468,6 +9468,19 @@ def _build_registry() -> None:
                 ),
                 ParamSpec("seed", "int", False, None),
                 ParamSpec("alpha", "float", False, 0.05),
+                ParamSpec(
+                    "placebo_sign",
+                    "str",
+                    False,
+                    "stata",
+                    description=(
+                        "Placebo sign convention. dCDH's own Stata and R "
+                        "packages disagree: on did::mpdta both give "
+                        "|placebo_1| = 0.024269 with identical effects, but "
+                        "opposite signs. Default keeps Stata's"
+                    ),
+                    enum=["stata", "r"],
+                ),
             ],
             returns=(
                 "CausalResult with placebo / dynamic event-study in "
@@ -10784,12 +10797,12 @@ def _build_registry() -> None:
             ),
             stability="experimental",
             limitations=[
-                "switch-on only — switch-off events are silently dropped",
+                "switch-off events are handled, but the "
+                "heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
+                "not implemented",
                 "se_method='analytic' is available but the paper's own "
                 "variance formula is not implemented: it is not pinned to "
                 "DIDmultiplegtDYN and runs about 1% below its reported SEs",
-                "heteroskedastic-weights variant (dCDH 2023 EJ survey) is "
-                "not implemented",
                 "the headline aggregation convention differs from "
                 "DIDmultiplegtDYN's Av_tot_eff: the default weights horizons "
                 "equally; pass aggregation='switchers' to match the R package",
@@ -10898,8 +10911,9 @@ def _build_registry() -> None:
                 "causal",
             ],
             reference=(
-                "Caetano, Callaway, Payne & Rodrigues (2022) — exact "
-                "paper version + DOI [待核验 — not yet in paper.bib]."
+                "Caetano, Callaway, Payne & Rodrigues (2022) "
+                "arXiv:2202.02903 [@caetano2022difference]; a preprint, with "
+                "no reference implementation to pin against."
             ),
             pre_conditions=[
                 "staggered adoption with ≥ 1 never-treated unit",

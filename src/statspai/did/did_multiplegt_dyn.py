@@ -22,11 +22,18 @@ machine precision, which settles the window and weighting conventions
 that used to carry ``[待核验]`` markers. Items 1 and 5 remain open and
 are what keeps this estimator off a paper-faithful claim.
 
-1. **Switcher definition**: units first switching from d=0 to d=1 at
-   period F. First-cut skips switch-off events; the paper handles both
-   directions via a sign convention that is NOT implemented here.
-   [待核验 — paper §2.x]. The parity above therefore only covers
-   absorbing treatment.
+1. **Switcher definition**: each unit's FIRST treatment change, in either
+   direction, at period F. Switch-off events are switchers too -- that is
+   the design's whole point -- and they are handled the way the reference
+   does: their controls must share the switcher's BASELINE treatment level
+   (a unit going 1 -> 0 belongs against units that were at 1 and stayed),
+   and the difference is divided by the change in treatment so both
+   directions measure the same effect per unit of treatment.
+
+   Pinned on a panel where treatment switches both ways: effects, placebo
+   and every switcher count match the reference exactly. Earlier releases
+   dropped switch-off events silently, which changed the estimand on any
+   non-absorbing panel.
 
 2. **Control group per horizon l**: "not-yet-treated at F+l" = units
    whose d stays at its pre-F value through F+l inclusive, which is
@@ -222,20 +229,16 @@ def did_multiplegt_dyn(
     df = df.sort_values([group, time]).reset_index(drop=True)
     cluster_var = cluster if cluster is not None else group
 
-    # Identify each unit's first switch-on period F (d goes from 0 to 1).
-    # Units that never reach d=1 have F=None; they are candidates for
-    # controls depending on `control`.
-    first_treat = df[df[treatment] == 1].groupby(group)[time].min().rename("_F")
-    df = df.merge(first_treat, on=group, how="left")
-
-    # Check switch-off is not required for identification and flag if present.
-    # [待核验 — paper's handling of switch-off]
-    if _has_switch_off(df, group=group, time=time, treatment=treatment):
-        # Don't raise — silently drop switch-off events' switcher status by
-        # keeping F = first ON period; unit's later periods are still in
-        # the panel but those "on → off → on" traces aren't specially
-        # treated in this MVP.
-        pass
+    # Identify each unit's FIRST switch, in either direction, and which way
+    # it went. A unit that turns treatment off is as much a switcher as one
+    # that turns it on -- that is the whole point of the dCDH design, and
+    # dropping those events (as this used to) silently changes the estimand.
+    first_switch, switch_dir, baseline = _first_switch(
+        df, group=group, time=time, treatment=treatment
+    )
+    df = df.merge(first_switch, on=group, how="left")
+    df = df.merge(switch_dir, on=group, how="left")
+    df = df.merge(baseline, on=group, how="left")
 
     # Horizons list: placebo (negative) + dynamic (0..H).
     horizons = list(range(-placebo, dynamic + 1))
@@ -454,22 +457,46 @@ def did_multiplegt_dyn(
 # ----------------------------------------------------------------------
 
 
-def _has_switch_off(
+def _first_switch(
     df: pd.DataFrame,
     *,
     group: str,
     time: str,
     treatment: str,
-) -> bool:
-    """Detect any unit that switches from 1 to 0."""
-    for _, u_df in df.groupby(group):
-        vals = u_df.sort_values(time)[treatment].values
+):
+    """Each unit's first treatment change: when, which way, and from what.
+
+    Returns three frames keyed on ``group``: ``_F`` (the period of the first
+    change), ``_dir`` (+1 for a switch on, -1 for a switch off) and ``_base``
+    (the treatment level held just before it). Units that never change get
+    no row and are therefore eligible as controls.
+
+    The baseline matters as much as the direction. A unit turning treatment
+    OFF has to be compared with units that were also ON and stayed ON; using
+    the never-treated as its control group compares two different
+    counterfactuals and does not give the reference's answer.
+    """
+    F: Dict[Any, Any] = {}
+    direction: Dict[Any, int] = {}
+    base: Dict[Any, float] = {}
+    for uid, u_df in df.sort_values([group, time]).groupby(group, sort=False):
+        vals = u_df[treatment].to_numpy()
+        times = u_df[time].to_numpy()
         if len(vals) < 2:
             continue
-        diffs = np.diff(vals)
-        if (diffs == -1).any():
-            return True
-    return False
+        changed = np.nonzero(np.diff(vals) != 0)[0]
+        if changed.size == 0:
+            continue
+        k = int(changed[0]) + 1
+        F[uid] = times[k]
+        direction[uid] = 1 if vals[k] > vals[k - 1] else -1
+        base[uid] = float(vals[k - 1])
+    idx = pd.Index(list(F), name=group)
+    return (
+        pd.Series(list(F.values()), index=idx, name="_F").reset_index(),
+        pd.Series(list(direction.values()), index=idx, name="_dir").reset_index(),
+        pd.Series(list(base.values()), index=idx, name="_base").reset_index(),
+    )
 
 
 def _estimate_all_horizons(
@@ -522,68 +549,28 @@ def _estimate_all_horizons(
         psi = np.zeros(n_panel, dtype=float)
 
         for F in F_values:
-            switcher_ids = set(df[df["_F"] == F][group].unique())
-            if not switcher_ids:
-                continue
-
-            # Determine periods for the comparison
-            if h >= 0:
-                t_pre, t_post = F - 1, F + h
-            else:
-                # dCDH placebo l: the effect window reflected about F-1,
-                # Y_{F-1-l} -> Y_{F-1}. Reported with the reverse sign so
-                # it sits on the same event-study scale as the effects
-                # (this is DIDmultiplegtDYN's convention).
-                t_pre, t_post = F - 1 - abs(h), F - 1
-            if t_pre < t_min:
-                continue
-
-            # Controls per horizon depending on `control`
-            if control == "never_treated":
-                ctrl_ids = never_ids
-            else:
-                # not-yet-treated at F + max(h, 0): units with _F > F + max(h, 0)
-                threshold = F + max(h, 0)
-                ctrl_ids = set(
-                    df[(df["_F"] > threshold) | (df["_F"].isna())][group].unique()
+            for direction in (1, -1):
+                _cell = _one_event(
+                    df=df,
+                    y=y,
+                    group=group,
+                    time=time,
+                    treatment=treatment,
+                    F=F,
+                    h=h,
+                    direction=direction,
+                    control=control,
+                    never_ids=never_ids,
+                    t_min=t_min,
+                    n_panel=n_panel,
+                    unit_pos=unit_pos,
                 )
-
-            if not ctrl_ids:
-                continue
-
-            sw_pre = df[(df[group].isin(switcher_ids)) & (df[time] == t_pre)][y]
-            sw_post = df[(df[group].isin(switcher_ids)) & (df[time] == t_post)][y]
-            c_pre = df[(df[group].isin(ctrl_ids)) & (df[time] == t_pre)][y]
-            c_post = df[(df[group].isin(ctrl_ids)) & (df[time] == t_post)][y]
-
-            if any(len(s) == 0 for s in (sw_pre, sw_post, c_pre, c_post)):
-                continue
-
-            delta_F_l = (sw_post.mean() - sw_pre.mean()) - (
-                c_post.mean() - c_pre.mean()
-            )
-            if h < 0:
-                delta_F_l = -delta_F_l
-            n_sw = len(switcher_ids)
-            horizon_acc["sum_delta"] += float(delta_F_l) * n_sw
-            horizon_acc["n_switchers"] += n_sw
-            horizon_acc["n_events"] += 1
-
-            # Influence function of this event's two-sample difference.
-            sw_dy = _unit_change(df, group, time, y, switcher_ids, t_pre, t_post)
-            c_dy = _unit_change(df, group, time, y, ctrl_ids, t_pre, t_post)
-            sign = -1.0 if h < 0 else 1.0
-            if sw_dy is not None and c_dy is not None:
-                contrib = np.zeros(n_panel, dtype=float)
-                sw_idx = unit_pos.reindex(sw_dy.index).to_numpy()
-                c_idx = unit_pos.reindex(c_dy.index).to_numpy()
-                contrib[sw_idx] = (sw_dy.to_numpy() - sw_dy.mean()) * (
-                    n_panel / len(sw_dy)
-                )
-                contrib[c_idx] -= (c_dy.to_numpy() - c_dy.mean()) * (
-                    n_panel / len(c_dy)
-                )
-                psi += sign * contrib * n_sw
+                if _cell is None:
+                    continue
+                horizon_acc["sum_delta"] += _cell["delta"] * _cell["n_sw"]
+                horizon_acc["n_switchers"] += _cell["n_sw"]
+                horizon_acc["n_events"] += 1
+                psi += _cell["psi"] * _cell["n_sw"]
 
         if horizon_acc["n_switchers"] > 0:
             delta_l = horizon_acc["sum_delta"] / horizon_acc["n_switchers"]
@@ -605,6 +592,83 @@ def _estimate_all_horizons(
         )
 
     return {"cell_estimates": cells}
+
+
+def _one_event(
+    *,
+    df: pd.DataFrame,
+    y: str,
+    group: str,
+    time: str,
+    treatment: str,
+    F: Any,
+    h: int,
+    direction: int,
+    control: str,
+    never_ids: set,
+    t_min: float,
+    n_panel: int,
+    unit_pos: pd.Series,
+) -> Optional[Dict[str, Any]]:
+    """One (switch period, direction) event at horizon ``h``.
+
+    Three things distinguish a switch-off event from a switch-on one, and
+    all three matter:
+
+    * Its controls must share its BASELINE treatment level, not merely be
+      untreated. A unit going 1 -> 0 belongs against units that were at 1
+      and stayed there; comparing it with the never-treated is a different
+      counterfactual and gives a different number.
+    * The difference is divided by the change in treatment, so a switch-off
+      contributes with the opposite sign and both directions measure the
+      same "effect per unit of treatment".
+    * It is otherwise an ordinary two-sample comparison, so the influence
+      function has the same shape.
+    """
+    switchers = df[(df["_F"] == F) & (df["_dir"] == direction)]
+    if switchers.empty:
+        return None
+    switcher_ids = set(switchers[group].unique())
+    base_level = float(switchers["_base"].iloc[0])
+
+    if h >= 0:
+        t_pre, t_post = F - 1, F + h
+    else:
+        t_pre, t_post = F - 1 - abs(h), F - 1
+    if t_pre < t_min:
+        return None
+
+    # Controls: never-switchers plus units that have not switched by the
+    # comparison period, restricted to the switcher's baseline level.
+    if control == "never_treated":
+        candidates = never_ids
+    else:
+        threshold = F + max(h, 0)
+        candidates = set(df[(df["_F"] > threshold) | (df["_F"].isna())][group].unique())
+    pre_rows = df[df[time] == t_pre]
+    same_base = set(pre_rows[pre_rows[treatment] == base_level][group].unique())
+    ctrl_ids = (candidates & same_base) - switcher_ids
+    if not ctrl_ids:
+        return None
+
+    sw_dy = _unit_change(df, group, time, y, switcher_ids, t_pre, t_post)
+    c_dy = _unit_change(df, group, time, y, ctrl_ids, t_pre, t_post)
+    if sw_dy is None or c_dy is None or len(sw_dy) == 0 or len(c_dy) == 0:
+        return None
+
+    sign = -1.0 if h < 0 else 1.0
+    delta = sign * (sw_dy.mean() - c_dy.mean()) / direction
+
+    psi = np.zeros(n_panel, dtype=float)
+    psi[unit_pos.reindex(sw_dy.index).to_numpy()] = (
+        sw_dy.to_numpy() - sw_dy.mean()
+    ) * (n_panel / len(sw_dy))
+    psi[unit_pos.reindex(c_dy.index).to_numpy()] -= (c_dy.to_numpy() - c_dy.mean()) * (
+        n_panel / len(c_dy)
+    )
+    psi = psi * sign / direction
+
+    return {"delta": float(delta), "n_sw": len(sw_dy), "psi": psi}
 
 
 def _unit_change(df, group, time, y, ids, t_pre, t_post):

@@ -64,6 +64,7 @@ def did_multiplegt(
     n_boot: int = 100,
     seed: Optional[int] = None,
     alpha: float = 0.05,
+    placebo_sign: str = "stata",
 ) -> CausalResult:
     """
     de Chaisemartin & D'Haultfœuille (2020) DID_M estimator.
@@ -109,6 +110,13 @@ def did_multiplegt(
     seed : int, optional
         Random seed for reproducibility.
     alpha : float, default 0.05
+    placebo_sign : {"stata", "r"}, default "stata"
+        Which implementation's placebo sign convention to report. dCDH's
+        Stata and R packages disagree: on ``did::mpdta`` both give
+        ``|placebo_1| = 0.024269`` with identical effects, but Stata reports
+        it positive and R negative. Neither is "the" answer, so this is a
+        parameter rather than a decision made for you, and the default is
+        what this function has always returned.
         Significance level for confidence intervals.
 
     Returns
@@ -160,6 +168,8 @@ def did_multiplegt(
     clusters with replacement).
     """
     # ── Validate inputs ──────────────────────────────────────────── #
+    if placebo_sign not in {"stata", "r"}:
+        raise ValueError(f"placebo_sign must be 'stata' or 'r', got {placebo_sign!r}")
     df = data.copy()
     _required = [y, group, time, treatment]
     for col in _required:
@@ -188,6 +198,7 @@ def did_multiplegt(
             treatment,
             controls,
             lag=lag_idx,
+            placebo_sign=placebo_sign,
         )
         placebo_results.append(plac)
 
@@ -239,6 +250,7 @@ def did_multiplegt(
                     treatment,
                     controls,
                     lag=lag_idx,
+                    placebo_sign=placebo_sign,
                 )
                 boot_placebo[b, lag_idx - 1] = plac["estimate"]
 
@@ -553,6 +565,7 @@ def _estimate_placebo(
     treatment: str,
     controls: Optional[List[str]],
     lag: int,
+    placebo_sign: str = "stata",
 ) -> Dict[str, Any]:
     """
     Placebo test at lag *l* (de Chaisemartin--D'Haultfoeuille 2020).
@@ -560,8 +573,21 @@ def _estimate_placebo(
     For switchers at time t, the first-difference placebo compares the
     pre-treatment outcome change over (t-l-1, t-l) for switchers vs stayers,
     CONDITIONING on the baseline treatment d_{t-1} (switchers are compared only
-    to same-baseline stayers; switch-off cells enter with a flipped sign). The
-    sign convention mirrors Stata ``did_multiplegt_old``.
+    to same-baseline stayers; switch-off cells enter with a flipped sign).
+
+    ⚠️ **Fixed**: every unit in the cell must have held its treatment fixed
+    over the ``l`` periods BEFORE the switch (``placebo_cond`` in the
+    reference). A unit that was already moving is not a clean pre-trend
+    observation. This is invisible on absorbing panels — which is why it
+    survived — and matters as soon as treatment can switch back.
+
+    ⚠️ **Not fixed, because there is nothing to fix**: the SIGN is a genuine
+    disagreement between dCDH's own two implementations. On ``did::mpdta``
+    both report ``|placebo_1| = 0.024269`` and their three effects agree to
+    six decimals, but Stata's ``did_multiplegt_old`` reports ``+0.024269``
+    and R's ``DIDmultiplegt`` 0.1.4 reports ``-0.024269``. ``placebo_sign``
+    selects between them; the default preserves the Stata convention this
+    function has always used. See MIGRATION.md.
     """
     periods = sorted(df[time].unique())
     dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
@@ -583,6 +609,19 @@ def _estimate_placebo(
             in_base = common[dpiv.loc[common, t_prev] == base]
             sw = in_base[dpiv.loc[in_base, t_curr] != base]  # switchers from baseline
             st = in_base[dpiv.loc[in_base, t_curr] == base]  # stayers at baseline
+            pre_window = periods[b_idx:i]  # t_base .. t_prev
+            if lag > 0 and len(pre_window) > 1:
+                # Treatment must be flat over the pre-window for both arms.
+                sw = sw[
+                    (dpiv.loc[sw, pre_window].eq(dpiv.loc[sw, t_prev], axis=0)).all(
+                        axis=1
+                    )
+                ]
+                st = st[
+                    (dpiv.loc[st, pre_window].eq(dpiv.loc[st, t_prev], axis=0)).all(
+                        axis=1
+                    )
+                ]
             sw = sw[ypiv.loc[sw, t_end].notna() & ypiv.loc[sw, t_base].notna()]
             st = st[ypiv.loc[st, t_end].notna() & ypiv.loc[st, t_base].notna()]
             if len(sw) == 0 or len(st) == 0:
@@ -590,9 +629,14 @@ def _estimate_placebo(
             ps = float((ypiv.loc[sw, t_end] - ypiv.loc[sw, t_base]).mean())
             pt = float((ypiv.loc[st, t_end] - ypiv.loc[st, t_base]).mean())
             sign = 1.0 if base == 0 else -1.0
-            estimates.append(
-                -sign * (ps - pt)
-            )  # -sign matches Stata placebo convention
+            # ⚠️ dCDH's own Stata and R implementations disagree here. On
+            # did::mpdta both return |placebo_1| = 0.024269, and the three
+            # effects agree to six decimals, but Stata reports +0.024269 and
+            # DIDmultiplegt 0.1.4 reports -0.024269. Neither is "the" answer,
+            # so the convention is a parameter and the default preserves what
+            # this function has always reported.
+            flip = -1.0 if placebo_sign == "stata" else 1.0
+            estimates.append(flip * sign * (ps - pt))
             weights.append(len(sw))
 
     if not estimates:
@@ -622,6 +666,12 @@ def _estimate_dynamic(
     baseline treatment AND keep it unchanged over the whole window [t, t+l] (so
     the control trend is not contaminated by units treated during the horizon).
     Switch-off cells enter with a flipped sign.
+
+    ⚠️ Switchers must also hold their NEW treatment through the window. A unit
+    that switches at t and switches again at t+1 has no well-defined "effect of
+    having switched l periods ago", and the reference implementation excludes
+    it (``dynamic_cond``). Including such units is what this used to do; see
+    MIGRATION.md.
     """
     periods = sorted(df[time].unique())
     dpiv = df.pivot_table(index=group, columns=time, values=treatment, aggfunc="first")
@@ -642,6 +692,14 @@ def _estimate_dynamic(
         for base in sorted(set(dpiv.loc[common, t_prev].dropna().unique())):
             in_base = common[dpiv.loc[common, t_prev] == base]
             sw = in_base[dpiv.loc[in_base, t_curr] != base]
+            if horizon > 0 and len(sw) > 0:
+                # Switchers must stay at the level they switched TO for the
+                # whole horizon; a second switch inside the window makes the
+                # horizon-l effect undefined.
+                held = (dpiv.loc[sw, window].eq(dpiv.loc[sw, t_curr], axis=0)).all(
+                    axis=1
+                )
+                sw = sw[held]
             # robust stayers: keep the baseline treatment over the whole window
             stable = (dpiv.loc[in_base, window] == base).all(axis=1)
             st = in_base[stable]

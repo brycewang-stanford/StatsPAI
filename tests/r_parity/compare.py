@@ -45,6 +45,11 @@ PAPER_TABLES_DIR = ROOT / "Paper-JSS" / "manuscript" / "tables"
 # reasons in the 3-way table.
 STATA_RESULTS_DIR = HERE.parent / "stata_parity" / "results"
 STATA_SKIP_REASON: dict[str, str] = {
+    "81_didm": (
+        "Stata's did_multiplegt is dCDH's own port and would be the natural "
+        "third side, but it is not installed in the verified local runtime; "
+        "the archived R 0.1.4 is the reference used here."
+    ),
     "80_contdid": (
         "no Stata implementation: the CGS continuous-treatment estimator "
         "ships as the R package contdid (GitHub only, not CRAN) and has no "
@@ -298,6 +303,12 @@ STATA_HEADLINE_GAP_EXCEPTIONS: dict[str, str] = {}
 #     joined SE row fails loudly and must be consciously re-budgeted.
 TOLERANCES: dict[str, dict[str, float]] = {
     "01_ols": {"rel_est": 1e-6, "rel_se": 1e-6},
+    # dCDH 2020 DID_M: the static effect, the horizon-1 dynamic effect and
+    # the lag-1 placebo all match at 5e-15 on a panel where treatment
+    # switches both on and off. Pinned against the ARCHIVED 0.1.4 -- the
+    # 2.x rewrite's mode="old" returns NaN even on its own example. No
+    # rel_se: the R side runs brep=0.
+    "81_didm": {"rel_est": 1e-6},
     # CGS continuous treatment: the dose curves at four grid points and
     # both overall quantities, across three spline specifications, match
     # contdid at 1e-12. The curves are compared under
@@ -316,11 +327,13 @@ TOLERANCES: dict[str, dict[str, float]] = {
     # (observed gap 1e-5, i.e. one draw). Iterative tier for that reason
     # alone; the substantive quantities are machine-exact.
     "79_didff": {"rel_est": 1e-3},
-    # dCDH intertemporal event study: four effects, two placebos and the
-    # switcher-weighted aggregate all match DIDmultiplegtDYN at 5e-15,
-    # switcher counts included. No rel_se -- the R package reports
-    # analytical influence-function SEs and sp.did_multiplegt_dyn has
-    # only a cluster bootstrap.
+    # dCDH intertemporal event study: across TWO designs -- absorbing, and
+    # one where treatment switches off as well as on -- every effect,
+    # placebo, aggregate and switcher count matches DIDmultiplegtDYN at
+    # 5e-15. The switch-off design is what exercises the baseline-matched
+    # control group and the divide-by-delta-D sign convention. No rel_se:
+    # sp.did_multiplegt_dyn's analytic variance is not the paper's formula
+    # (see its limitations) and its bootstrap is a different estimator.
     "78_multiplegt_dyn": {"rel_est": 1e-6},
     # Triple differences: the post-treatment ATT(g,t) cells and the
     # cohort-weighted aggregate match triplediff::ddd at 1e-12, across the
@@ -1001,6 +1014,15 @@ HEADLINE: dict[str, dict[str, Any]] = {
             "vce='analytic' does not -- vce='bootstrap' recovers it to ~6\\%)"
         ),
     },
+    "81_didm": {
+        "name": "dCDH 2020 DID_M (on/off switching)",
+        "headline_filter": lambda d: d.statistic in {
+            "effect", "dynamic_1", "placebo_1"
+        },
+        "metric": "rel_est",
+        "verdict": "\\textbf{PASS}",
+        "gap_note": "machine precision vs archived DIDmultiplegt 0.1.4",
+    },
     "80_contdid": {
         "name": "Continuous-treatment DiD (CGS)",
         "headline_filter": lambda d: d.statistic.endswith(
@@ -1027,7 +1049,10 @@ HEADLINE: dict[str, dict[str, Any]] = {
         ),
         "metric": "rel_est",
         "verdict": "\\textbf{PASS}",
-        "gap_note": "machine precision vs DIDmultiplegtDYN (worst 5e-15)",
+        "gap_note": (
+            "machine precision vs DIDmultiplegtDYN (worst 5e-15), across "
+            "absorbing and switch-off designs"
+        ),
     },
     "77_ddd": {
         "name": "Triple differences ATT(g,t)",

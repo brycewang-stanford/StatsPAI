@@ -1,0 +1,42 @@
+{
+  "module": "81_didm",
+  "side": "py",
+  "rows": [
+    {
+      "module": "81_didm",
+      "side": "py",
+      "statistic": "effect",
+      "estimate": 1.1878425363152547,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1080,
+      "extra": {}
+    },
+    {
+      "module": "81_didm",
+      "side": "py",
+      "statistic": "dynamic_1",
+      "estimate": 0.9954551235642428,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1080,
+      "extra": {}
+    },
+    {
+      "module": "81_didm",
+      "side": "py",
+      "statistic": "placebo_1",
+      "estimate": 0.0324316477592129,
+      "se": null,
+      "ci_lo": null,
+      "ci_hi": null,
+      "n": 1080,
+      "extra": {}
+    }
+  ],
+  "extra": {
+    "estimator": "did_multiplegt"
+  }
+}

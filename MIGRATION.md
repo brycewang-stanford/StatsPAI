@@ -131,6 +131,57 @@ look, and the docstring says so.
 
 ---
 
+<a id="multiplegt-switch-directions"></a>
+
+## Unreleased — ⚠️ `sp.did_multiplegt` dynamics/placebos, and switch-off in `_dyn`
+
+**What changed.** Four numbers move, all on non-trivial designs:
+
+| Function | What | Why |
+| --- | --- | --- |
+| `sp.did_multiplegt` | dynamic effect at horizon ≥ 1 | switchers who switch again inside the window are now excluded |
+| `sp.did_multiplegt` | placebo value | the pre-window stability condition is applied |
+| `sp.did_multiplegt_dyn` | everything, on non-absorbing panels | switch-off events are no longer dropped |
+
+Nothing else moves. In particular the placebo's **sign is unchanged** — see
+below.
+
+**Why it went unnoticed.** All four were invisible without a working
+reference, and the reference looked broken: `DIDmultiplegt` 2.x returns `NaN`
+from `mode="old"` on its own bundled example. The archived **0.1.4** works,
+and against it the static DID_M effect was already bit-exact while the
+dynamic and placebo paths were not.
+
+**On the placebo's sign: dCDH's own implementations disagree, and StatsPAI
+now says so instead of choosing.** On `did::mpdta` the Stata and R packages
+return the same three effects to six decimals and the same
+`|placebo_1| = 0.024269` — with opposite signs. The new `placebo_sign`
+parameter selects between them and **defaults to the Stata convention this
+function has always used**, so nothing you have reported changes.
+
+```python
+sp.did_multiplegt(df, ..., placebo=1)                      # Stata sign (default)
+sp.did_multiplegt(df, ..., placebo=1, placebo_sign="r")    # DIDmultiplegt sign
+```
+
+If you compare StatsPAI output against an R script, pass `placebo_sign="r"`
+or the placebos will look like they disagree when only the convention does.
+
+**What to do.** For the two rows above: nothing at the call site; re-run and
+re-read. Absorbing
+panels are unaffected by the `_dyn` change — with a binary treatment every
+control already shares the baseline of zero, and that is verified rather than
+assumed.
+
+```python
+# Both now match the reference; the counts are worth looking at too.
+res = sp.did_multiplegt(df, y="y", group="i", time="t", treatment="d",
+                        placebo=1, dynamic=1)
+res.model_info["event_study"]      # placebo, effect, dynamic on one scale
+```
+
+---
+
 <a id="multiplegt-dyn-placebo"></a>
 
 ## Unreleased — ⚠️ `sp.did_multiplegt_dyn` placebos are now the estimator's placebos

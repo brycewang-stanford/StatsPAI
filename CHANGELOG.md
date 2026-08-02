@@ -39,6 +39,53 @@ All notable changes to StatsPAI will be documented in this file.
 
 ### ⚠️ Correctness
 
+- **`sp.did_multiplegt` had three defects, all found by finally getting a
+  working reference.** The estimator was carried as unpinnable because the
+  CRAN package's 2.x rewrite returns `NaN` from `mode="old"` even on its own
+  bundled example. That is true — and it is not the whole story: the
+  **archived 0.1.4**, the release the estimator originally shipped in, works
+  fine. Pinned against it (Track A module `81_didm`), the static DID_M effect
+  was already bit-exact. The other two paths were not.
+
+  * **Dynamic effects at horizon ≥ 1 counted switchers who switched again
+    inside the window.** "The effect of having switched ℓ periods ago" is not
+    defined for a unit that switched again at ℓ−1, and the reference excludes
+    them. On the fixture this moved the horizon-1 effect from 0.9974 to
+    1.2146 and the switcher count from 175 to 140.
+  * **Placebos ignored the pre-window stability condition** — units already
+    moving before the switch were counted as clean pre-trend observations.
+    Invisible on absorbing panels, which is why it survived.
+
+  Both now match the reference to 5e-15.
+
+  A third thing looked like a defect and is not. The placebo's **sign**
+  differs between dCDH's own two implementations: on `did::mpdta` both give
+  `|placebo_1| = 0.024269` and their three effects agree to six decimals,
+  but Stata's `did_multiplegt_old` reports `+0.024269` and `DIDmultiplegt`
+  0.1.4 reports `-0.024269`. An intermediate pass here treated R as
+  authoritative and flipped the default, which would have silently moved
+  every placebo StatsPAI had reported. The new `placebo_sign` parameter
+  selects the convention, the default keeps Stata's, and a test pins that
+  the two are exact negatives so neither side can drift.
+
+- **`sp.did_multiplegt_dyn` silently dropped switch-off events.** Treatment
+  turning *off* is a switch, and handling both directions is the whole reason
+  the dCDH design exists — so dropping those events did not merely lose
+  precision, it changed the estimand on any non-absorbing panel. Now handled
+  the way the reference does: a switch-off unit's controls must share its
+  **baseline** treatment level (units that were on and stayed on, not the
+  never-treated), and the difference is divided by the change in treatment so
+  both directions measure the same effect per unit of treatment.
+
+  Track A module `78_multiplegt_dyn` now carries two designs, absorbing and
+  switching, and every effect, placebo, aggregate **and switcher count**
+  matches at 5e-15 in both. Absorbing panels are unaffected — verified, since
+  with a binary treatment every control already shares the baseline of zero.
+  This closes the `[待核验]` marker on switch-off; the paper's own variance
+  formula is what remains.
+
+
+
 - **All eight bool-typed `robust=` sites now reject the string form; seven
   of them used to accept it silently.** `sp.interactive_fe` and
   `sp.mixlogit` were the last two, and they close the list named in

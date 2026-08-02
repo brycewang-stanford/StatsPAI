@@ -140,6 +140,7 @@ a shared explicit fold partition.
 | 78 | dCDH intertemporal event study | `sp.did_multiplegt_dyn` | `DIDmultiplegtDYN::did_multiplegt_dyn` |
 | 79 | Functional-form test for parallel trends | `sp.functional_form_test` | `didFF::didFF` |
 | 80 | Continuous-treatment DiD (CGS) | `sp.cgs_continuous_did` | `contdid::cont_did` |
+| 81 | dCDH 2020 DID_M (on/off switching) | `sp.did_multiplegt` | `DIDmultiplegt::did_multiplegt` (archived 0.1.4) |
 | 71 | DML family (IRM / PLIV / IIVM) | `sp.dml(model="irm")` / `sp.dml(model="pliv")` / `sp.dml(model="iivm")` | `DoubleML::DoubleMLIRM` / `DoubleMLPLIV` / `DoubleMLIIVM` |
 
 ## Running

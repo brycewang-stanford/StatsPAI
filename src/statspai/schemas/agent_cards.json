@@ -17762,7 +17762,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+    "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence.",
     "example": "sp.did_multiplegt(df, y=\"wage\", group=\"county\", time=\"year\", treatment=\"treated\", placebo=2, dynamic=3, cluster=\"state\", n_boot=200, seed=42)",
     "failure_modes": [
       {
@@ -17827,7 +17827,7 @@
     ],
     "reference": "de Chaisemartin & D'Haultfuille (2020) [@dechaisemartin2020two]; 2022 survey [@dechaisemartin2022fixed]; 2024 joint placebo + avg cumulative [@dechaisemartin2024difference].",
     "signature": {
-      "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
+      "description": "de Chaisemartin & D'Haultfuille (2020) DID_M estimator. Weighted average of consecutive-period DID cells where treatment 'switchers' are compared to 'stayers'. Handles treatments that switch on AND off (unlike Callaway-Sant'Anna which assumes staggered adoption). Supports placebo lags, dynamic horizons, cluster bootstrap SE, joint placebo test and average-cumulative-effect summary from dCDH (2024). The heteroskedastic-weights variant and full dCDH (2024) intertemporal event-study (did_multiplegt_dyn Stata) are on the roadmap -- see docs/rfc/multiplegt_dyn.md. Validation: certified parity evidence.",
       "name": "did_multiplegt",
       "parameters": {
         "properties": {
@@ -17870,6 +17870,15 @@
             "description": "Number of pre-treatment placebo lags",
             "type": "integer"
           },
+          "placebo_sign": {
+            "default": "stata",
+            "description": "Placebo sign convention. dCDH's own Stata and R packages disagree: on did::mpdta both give |placebo_1| = 0.024269 with identical effects, but opposite signs. Default keeps Stata's",
+            "enum": [
+              "stata",
+              "r"
+            ],
+            "type": "string"
+          },
           "seed": {
             "description": "Random seed for reproducible stochastic steps.",
             "type": "integer"
@@ -17900,10 +17909,9 @@
     "stability": "stable",
     "typical_n_min": 50,
     "validation_notes": [
-      "tests/reference_parity/test_absorbing_reference.py",
-      "tests/reference_parity/test_did_multiplegt_parity.py"
+      "R parity module 81_didm"
     ],
-    "validation_status": "validated"
+    "validation_status": "certified"
   },
   {
     "alternatives": [
@@ -19349,7 +19357,7 @@
     ],
     "category": "causal",
     "cost_profile": "Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
-    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; se_method='analytic' is available but the paper's own variance formula is not implemented: it is not pinned to DIDmultiplegtDYN and runs about 1% below its reported SEs; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+    "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' is available but the paper's own variance formula is not implemented: it is not pinned to DIDmultiplegtDYN and runs about 1% below its reported SEs; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
     "example": "sp.did_multiplegt_dyn(df, y=\"y\", group=\"i\", time=\"t\", treatment=\"d\", placebo=2, dynamic=4)",
     "failure_modes": [
       {
@@ -19397,9 +19405,8 @@
     ],
     "inherits_from": "did",
     "limitations": [
-      "switch-on only -- switch-off events are silently dropped",
+      "switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented",
       "se_method='analytic' is available but the paper's own variance formula is not implemented: it is not pinned to DIDmultiplegtDYN and runs about 1% below its reported SEs",
-      "heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented",
       "the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package"
     ],
     "name": "did_multiplegt_dyn",
@@ -19419,7 +19426,7 @@
     ],
     "reference": "de Chaisemartin & D'Haultfuille (2024) [@dechaisemartin2024difference]; DOI 10.1162/rest_a_01414. Effects, placebos and the switcher-weighted aggregate are pinned against the authors' DIDmultiplegtDYN on absorbing binary treatment (Track A module 78); switch-off handling and the analytical IF variance are still missing.",
     "signature": {
-      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-on only -- switch-off events are silently dropped; se_method='analytic' is available but the paper's own variance formula is not implemented: it is not pinned to DIDmultiplegtDYN and runs about 1% below its reported SEs; heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
+      "description": "[experimental] dCDH (2024) intertemporal event-study DiD (MVP -- see docs/rfc/multiplegt_dyn.md). At each horizon l in {-placebo, ..., dynamic}, compares Y_{F+l} - Y_{F-1} between units first switching at F and a not-yet-treated or never-treated control set held stable across the horizon. **MVP caveats**: analytical influence-function variance [pending verification] is not yet implemented (SE via cluster bootstrap); switch-off events are ignored; heteroskedastic-weights variant pending. Validation status: experimental. Known limitations: switch-off events are handled, but the heteroskedastic-weights variant (dCDH 2023 EJ survey) is not implemented; se_method='analytic' is available but the paper's own variance formula is not implemented: it is not pinned to DIDmultiplegtDYN and runs about 1% below its reported SEs; the headline aggregation convention differs from DIDmultiplegtDYN's Av_tot_eff: the default weights horizons equally; pass aggregation='switchers' to match the R package. Cost: Bootstrap inference dominates: total runtime is roughly n_boot x (one full estimation pass). The default n_boot is fine for a final table but expensive inside a search loop -- lower it while iterating.",
       "name": "did_multiplegt_dyn",
       "parameters": {
         "properties": {
@@ -19592,7 +19599,7 @@
       "at least one pre-treatment period (>= 2 periods for 2x2; >= 3 recommended for event study)",
       "for staggered designs: id column identifying units across time"
     ],
-    "reference": "Caetano, Callaway, Payne & Rodrigues (2022) -- exact paper version + DOI [pending verification -- not yet in paper.bib].",
+    "reference": "Caetano, Callaway, Payne & Rodrigues (2022) arXiv:2202.02903 [@caetano2022difference]; a preprint, with no reference implementation to pin against.",
     "signature": {
       "description": "DiD with time-varying covariates frozen at baseline (Caetano, Callaway, Payne & Rodrigues 2022 [pending verification]). Avoids the bad-controls bias that arises when treatment affects the covariates: freezes X at period g + baseline_offset (default g-1) per cohort and uses the frozen values as controls in a per-(g, t) outcome-regression DiD. Aggregates via cohort-size weights.",
       "name": "did_timevarying_covariates",

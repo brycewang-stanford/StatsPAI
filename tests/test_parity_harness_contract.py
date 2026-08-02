@@ -138,12 +138,14 @@ def test_strictness_tier_breakdown_matches_current_artifacts():
     # 77_ddd joined the machine tier: the six post-treatment ATT(g,t) cells
     # and the cohort-weighted aggregate match triplediff::ddd at 1e-14.
     # 78_multiplegt_dyn likewise, against DIDmultiplegtDYN at 5e-15.
+    # 81_didm joins the machine tier against the ARCHIVED DIDmultiplegt
+    # 0.1.4; the 2.x rewrite's mode="old" returns NaN on its own example.
     # 80_contdid joins the machine tier against contdid::cont_did at 1e-12.
     # 79_didff sits in the iterative tier for one row per design -- its
     # p-value is a 100k-draw simulation on each side; the sixteen
     # implied-density bins themselves agree at 1.2e-15.
     assert compare.tier_breakdown(rendered_modules) == {
-        "machine": 71,
+        "machine": 72,
         "iterative": 7,
         "moderate": 1,
         "methodological": 1,

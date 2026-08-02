@@ -54,9 +54,8 @@ LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
         "bias_correction=True follows a different convention",
     ],
     "did_multiplegt_dyn": [
-        "switch-on only",
+        "switch-off events are handled, but the",
         "se_method='analytic' is available but the paper's own",
-        "heteroskedastic-weights variant",
         # Documented parity boundary, not a code path that raises: the
         # headline weights differ from DIDmultiplegtDYN's Av_tot_eff and
         # both are reachable. Pinned in Track A module 78.

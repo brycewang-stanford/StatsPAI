@@ -25,15 +25,15 @@ sp.parity_summary()           # honest coverage counts
 
 | status | functions |
 | --- | ---: |
-| bit-exact | 144 |
+| bit-exact | 145 |
 | aligned | 15 |
-| analytical-only | 216 |
+| analytical-only | 215 |
 | external-replication | 6 |
 | **verified (subtotal)** | **381** |
 | unverified | 776 |
 | **total registered** | **1157** |
 
-## bit-exact — 144 functions
+## bit-exact — 145 functions
 
 Machine-tolerance agreement with a named R/Stata reference.
 
@@ -70,6 +70,7 @@ Machine-tolerance agreement with a named R/Stata reference.
 | `dfl_decompose` | ddecompose::dfl_decompose | R 4.5.2; ddecompose 1.0.0 | rel_est<=1e-06, rel_se<=1e-06 | 1.2e-09 / 1.8e-13 | [`31_dfl.py`](../tests/r_parity/31_dfl.py) (+2) |
 | `did_2x2` | Stata 18 MP regress [aw=w], robust (aweight HC1) | Stata 18 MP | b / se 1e-12 abs (observed <= 3e-16) | — / — | [`test_did2x2_ddd_weighted_robust_parity.py`](../tests/reference_parity/test_did2x2_ddd_weighted_robust_parity.py) |
 | `did_imputation` | didimputation::did_imputation | R 4.5.2; didimputation 0.5.1 | rel_est<=1e-06, rel_se<=1e-06 | 4.8e-08 / 3.5e-07 | [`16_bjs.py`](../tests/r_parity/16_bjs.py) (+2) |
+| `did_multiplegt` | DIDmultiplegt::did_multiplegt (archived 0.1.4) | R 4.5.2 | rel_est<=1e-06 | 3.9e-15 / — | [`81_didm.py`](../tests/r_parity/81_didm.py) (+1) |
 | `did_multiplegt_dyn` | DIDmultiplegtDYN::did_multiplegt_dyn | R 4.5.2 | rel_est<=1e-06 | 3.3e-15 / — | [`78_multiplegt_dyn.py`](../tests/r_parity/78_multiplegt_dyn.py) (+1) |
 | `direct_standardize` | base closed form (directly standardized rate; = Stata dstdize) | R 4.5.2 | DSR 1e-12 abs (observed 0) | — / — | [`test_standardize_parity.py`](../tests/reference_parity/test_standardize_parity.py) |
 | `dml` | DoubleML::DoubleMLPLR | R 4.5.2; DoubleML 1.0.2 | rel_est<=1e-10, rel_se<=1e-10 | 0 / 3.7e-15 | [`08_dml.py`](../tests/r_parity/08_dml.py) (+2) |
@@ -219,7 +220,7 @@ Reproduces published-paper numbers; sources in `tests/external_parity/PUBLISHED_
 | `g_estimation` | [`test_whatif_nhefs.py`](../tests/external_parity/test_whatif_nhefs.py) |
 | `parallel_trends_robustness` | [`test_rebel_canal_published.py`](../tests/external_parity/test_rebel_canal_published.py) |
 
-## analytical-only — 216 functions
+## analytical-only — 215 functions
 
 Recovers a known DGP truth / closed-form identity within tolerance; no cross-package reference. See `tests/reference_parity/REFERENCES.md`.
 
@@ -270,7 +271,6 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `demographic_parity` | [`test_fairness_parity.py`](../tests/reference_parity/test_fairness_parity.py) |
 | `describe_function` | [`test_qdid_parity.py`](../tests/reference_parity/test_qdid_parity.py) |
 | `did` | [`test_did2x2_wild_parity.py`](../tests/reference_parity/test_did2x2_wild_parity.py) |
-| `did_multiplegt` | [`test_absorbing_reference.py`](../tests/reference_parity/test_absorbing_reference.py) (+1) |
 | `discos` | [`test_distributional_te_parity.py`](../tests/reference_parity/test_distributional_te_parity.py) |
 | `dist_iv` | [`test_dist_iv_parity.py`](../tests/reference_parity/test_dist_iv_parity.py) |
 | `distributional_te` | [`test_distributional_te_inference.py`](../tests/reference_parity/test_distributional_te_inference.py) (+1) |

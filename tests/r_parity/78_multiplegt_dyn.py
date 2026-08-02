@@ -33,6 +33,12 @@ from _common import ParityRecord, dump_csv, write_results
 MODULE = "78_multiplegt_dyn"
 N_EFFECTS = 4
 N_PLACEBOS = 2
+# Second design: treatment switches OFF as well as on. Without it the
+# switch-off branch -- the baseline-matched control group and the
+# divide-by-delta-D sign convention -- goes untested, and that branch is
+# exactly what separates this estimator from every cohort-based one.
+OFF_EFFECTS = 2
+OFF_PLACEBOS = 1
 
 
 def _panel() -> pd.DataFrame:
@@ -51,6 +57,32 @@ def _panel() -> pd.DataFrame:
             d = int(g > 0 and t >= g)
             y = fe + 0.2 * t + 1.5 * d + rng.normal(0, 0.7)
             rows.append({"id": i, "t": t, "d": d, "y": y})
+    return pd.DataFrame(rows)
+
+
+def _switching_panel() -> pd.DataFrame:
+    """Treatment turns on and off. Same DGP as module 81's fixture."""
+    rng = np.random.default_rng(9)
+    rows = []
+    for uid in range(1, 181):
+        fe = rng.normal()
+        d_prev = 0
+        for t in range(1, 7):
+            if t == 1:
+                d = int(rng.random() < 0.3)
+            elif rng.random() < 0.25:
+                d = 1 - d_prev
+            else:
+                d = d_prev
+            d_prev = d
+            rows.append(
+                {
+                    "id": uid,
+                    "t": t,
+                    "d": d,
+                    "y": fe + 0.25 * t + 1.2 * d + rng.normal(0, 0.6),
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -120,6 +152,46 @@ def main() -> None:
             n=int(len(df)),
         )
     )
+
+    # --- switch-off design -------------------------------------------
+    off = _switching_panel()
+    dump_csv(off, f"{MODULE}_off")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        off_fit = sp.did_multiplegt_dyn(
+            off,
+            y="y",
+            group="id",
+            time="t",
+            treatment="d",
+            dynamic=OFF_EFFECTS - 1,
+            placebo=OFF_PLACEBOS,
+            cluster="id",
+            n_boot=0,
+        )
+    off_es = off_fit.model_info["event_study"].set_index("relative_time")
+    for k in range(1, OFF_EFFECTS + 1):
+        row = off_es.loc[k - 1]
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"off_Effect_{k}",
+                estimate=float(row["att"]),
+                n=int(row["n_switchers"]),
+            )
+        )
+    for k in range(1, OFF_PLACEBOS + 1):
+        row = off_es.loc[-k]
+        rows.append(
+            ParityRecord(
+                module=MODULE,
+                side="py",
+                statistic=f"off_Placebo_{k}",
+                estimate=float(row["att"]),
+                n=int(row["n_switchers"]),
+            )
+        )
 
     write_results(MODULE, "py", rows, extra={"estimator": "did_multiplegt_dyn"})
 

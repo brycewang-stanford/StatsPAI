@@ -266,3 +266,79 @@ def test_unknown_se_method_fails_loudly(panel):
             n_boot=0,
             se_method="jackknife",
         )
+
+
+# --------------------------------------------------------------------------
+# Switch-off: the design this estimator exists for.
+# --------------------------------------------------------------------------
+
+_SWITCHING = (
+    _FIX / "multiplegt_dyn_switching_panel.csv"
+    if (_FIX := pathlib.Path(__file__).parent / "_fixtures")
+    else None
+)
+
+# DIDmultiplegtDYN on the switching panel, effects = 2, placebo = 1.
+R_OFF = {
+    0: (1.2691144380, 126),
+    1: (0.7585626001, 119),
+    -1: (-0.0883148725, 84),
+}
+
+
+@pytest.fixture(scope="module")
+def switching_panel():
+    if not _SWITCHING.exists():  # pragma: no cover - ships with the repo
+        pytest.skip(f"missing fixture: {_SWITCHING}")
+    return pd.read_csv(_SWITCHING)
+
+
+@pytest.fixture(scope="module")
+def switching_fit(switching_panel):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return sp.did_multiplegt_dyn(
+            switching_panel,
+            y="y",
+            group="id",
+            time="t",
+            treatment="d",
+            dynamic=1,
+            placebo=1,
+            cluster="id",
+            n_boot=0,
+        )
+
+
+@pytest.mark.parametrize("h", sorted(R_OFF))
+def test_switch_off_estimates_match_reference(switching_fit, h):
+    """⚠️ New in 1.21.0. Switch-off events used to be dropped silently,
+    which changed the estimand on any non-absorbing panel."""
+    es = switching_fit.model_info["event_study"].set_index("relative_time")
+    want, _ = R_OFF[h]
+    got = float(es.loc[h, "att"])
+    assert got == pytest.approx(
+        want, abs=1e-9
+    ), f"h={h}: StatsPAI {got:.10f} vs DIDmultiplegtDYN {want:.10f}"
+
+
+@pytest.mark.parametrize("h", sorted(R_OFF))
+def test_switch_off_switcher_counts_match_reference(switching_fit, h):
+    """The counts are the tell. A run that dropped the switch-off events
+    would report roughly three quarters of these and still look plausible."""
+    es = switching_fit.model_info["event_study"].set_index("relative_time")
+    assert int(es.loc[h, "n_switchers"]) == R_OFF[h][1]
+
+
+def test_switch_off_units_actually_contribute(switching_panel, switching_fit):
+    """Guards against the fixture quietly becoming absorbing."""
+    d = switching_panel.sort_values(["id", "t"])
+    fell = d.groupby("id")["d"].apply(lambda s: (s.diff() == -1).any())
+    assert fell.sum() > 20, int(fell.sum())
+    # And the estimate uses more switchers than the switch-on events alone.
+    rose_first = d.groupby("id")["d"].apply(
+        lambda s: bool(len(s.diff().dropna().to_numpy().nonzero()[0]))
+        and s.diff().dropna().to_numpy()[s.diff().dropna().to_numpy() != 0][0] > 0
+    )
+    es = switching_fit.model_info["event_study"].set_index("relative_time")
+    assert int(es.loc[0, "n_switchers"]) > int(rose_first.sum())

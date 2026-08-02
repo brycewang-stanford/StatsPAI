@@ -2128,22 +2128,54 @@
       "tolerance": "rel_est<=1e-06, rel_se<=1e-06"
     },
     {
-      "function": "did_multiplegt",
-      "notes": [
-        "Recovers a known population parameter / closed-form identity on a deterministic DGP within tolerance; no cross-package reference. See tests/reference_parity/REFERENCES.md."
-      ],
-      "reference": "",
-      "reference_versions": {},
-      "sides": [
-        "py"
-      ],
-      "source": "reference_parity",
-      "status": "analytical-only",
-      "test": [
+      "additional_tests": [
         "tests/reference_parity/test_absorbing_reference.py",
         "tests/reference_parity/test_did_multiplegt_parity.py"
       ],
-      "tolerance": ""
+      "also_verified_by": [
+        "reference_parity"
+      ],
+      "function": "did_multiplegt",
+      "headline": {
+        "metric": "rel_est",
+        "rel_vs_R": 3.925551208066965e-15,
+        "rel_vs_Stata": null,
+        "statistic": [
+          "effect",
+          "dynamic_1",
+          "placebo_1"
+        ],
+        "tolerance": 1e-06
+      },
+      "label": "dCDH 2020 DID_M (on/off switching)",
+      "last_verified": "R version 4.5.2 (2025-10-31)",
+      "module_id": "81_didm",
+      "notes": [],
+      "point_estimate_rel": {
+        "R": 3.925551208066965e-15,
+        "Stata": null
+      },
+      "python_call": "sp.did_multiplegt",
+      "reference": "DIDmultiplegt::did_multiplegt (archived 0.1.4)",
+      "reference_versions": {
+        "R": "R version 4.5.2 (2025-10-31)"
+      },
+      "se_rel": {
+        "R": null,
+        "Stata": null
+      },
+      "sides": [
+        "py",
+        "R"
+      ],
+      "source": "track_a",
+      "status": "bit-exact",
+      "test": [
+        "tests/r_parity/81_didm.py",
+        "tests/r_parity/81_didm.R"
+      ],
+      "tier": "machine",
+      "tolerance": "rel_est<=1e-06"
     },
     {
       "additional_tests": [
