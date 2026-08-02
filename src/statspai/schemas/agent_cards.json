@@ -22619,7 +22619,7 @@
     ],
     "category": "causal",
     "cost_profile": "",
-    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger.",
+    "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
     "example": "sp.rd_honest(df, y=\"score\", x=\"income\", c=10000, M=0.05)",
     "failure_modes": [
       {
@@ -22673,7 +22673,7 @@
     ],
     "reference": "Armstrong & Kolesar (2018) Econometrica [@armstrong2018optimal]",
     "signature": {
-      "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger.",
+      "description": "Armstrong-Kolesar (2018) honest confidence intervals for sharp regression discontinuity -- the only RD inference procedure with provable finite-sample coverage without bandwidth-selection bias. M is the upper bound on the second derivative of E[Y|X] near the cutoff; smaller M means tighter CIs but riskier coverage if the true curvature is larger. Validation: validated evidence tier (known-truth, reference, external-parity, or Monte Carlo artifact).",
       "name": "rd_honest",
       "parameters": {
         "properties": {
@@ -22738,9 +22738,10 @@
     "stability": "stable",
     "typical_n_min": 500,
     "validation_notes": [
+      "tests/reference_parity/test_rdhonest_parity.py",
       "API/unit contract evidence: tests/test_rd_validation.py"
     ],
-    "validation_status": "api_stable"
+    "validation_status": "validated"
   },
   {
     "alternatives": [

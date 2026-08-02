@@ -19,7 +19,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
-from scipy import stats, optimize
+from scipy import optimize, stats
 
 from ..core.results import CausalResult
 from ._core import _kernel_fn
@@ -325,6 +325,30 @@ def _flci_bandwidth(
 # --------------------------------------------------------------------------- #
 
 
+def _honest_pvalue(tau: float, se: float, bias: float) -> float:
+    """Smallest ``alpha`` at which the honest CI excludes zero.
+
+    Solved by bisection on ``|tau| = cv_{1-alpha}(bias/se) * se``. Reporting
+    the naive ``2*(1 - Phi(|tau|/se))`` here would ignore the very bias the
+    rest of this function exists to bound, so a result could show an honest
+    CI containing zero next to a p-value below 0.05.
+    """
+    from ._rdhonest import cv_bias
+
+    t = abs(tau) / se
+    b = bias / se
+    if cv_bias(b, 1 - 1e-12) >= t:
+        return 1.0
+    lo, hi = 1e-12, 1.0 - 1e-12
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if cv_bias(b, mid) > t:
+            lo = mid
+        else:
+            hi = mid
+    return float(0.5 * (lo + hi))
+
+
 def rd_honest(
     data: pd.DataFrame,
     y: str,
@@ -335,6 +359,7 @@ def rd_honest(
     h: Optional[float] = None,
     alpha: float = 0.05,
     opt_criterion: str = "mse",
+    sclass: str = "H",
 ) -> CausalResult:
     """
     Honest confidence intervals for regression discontinuity designs.
@@ -411,60 +436,66 @@ def rd_honest(
         raise ValueError(  # pragma: no cover
             f"Unknown kernel '{kernel}'. Choose from {list(_KERNEL_BIAS_CONSTANTS)}"
         )
-    if opt_criterion not in ("mse", "flci"):
-        raise ValueError("opt_criterion must be 'mse' or 'flci'")  # pragma: no cover
+    opt_criterion = opt_criterion.lower()
+    if opt_criterion not in ("mse", "flci", "oci"):
+        raise ValueError(
+            "opt_criterion must be 'mse', 'flci' or 'oci', got " f"{opt_criterion!r}"
+        )
+    if str(sclass).upper() not in ("H", "T", "HOLDER", "TAYLOR"):
+        raise ValueError(f"sclass must be 'H' (Holder) or 'T' (Taylor), got {sclass!r}")
 
     df = data.dropna(subset=[y, x])
     y_arr = df[y].values.astype(float)
     x_arr = df[x].values.astype(float)
     n_obs = len(y_arr)
 
-    # ---- Pilot bandwidth (always needed for M estimation) ---- #
-    h_pilot = _ik_bandwidth(y_arr, x_arr, c, kernel)
+    # Everything below delegates to rd/_rdhonest.py, a port of R RDHonest.
+    # The previous implementation got the point estimate right but built the
+    # interval from two approximations that are not Armstrong-Kolesar's:
+    #
+    #   * a closed-form bias ``M h^2 C_k`` instead of the worst-case bias of
+    #     the estimator actually computed, which depends on the realised
+    #     kernel weights and so cannot be a function of ``h`` alone; and
+    #   * ``tau +/- (cv * se + bias)``, which DOUBLE-COUNTS the bias --
+    #     ``cv = cv_{1-alpha}(bias/se)`` already accounts for it.
+    #
+    # Together those made intervals up to ~2x wider than RDHonest's. Wider is
+    # not "safer" here: it is a different, less informative procedure being
+    # reported under Armstrong-Kolesar's name.
+    from ._rdhonest import honest_rd
 
-    # ---- Estimate M if not provided ---- #
-    M_estimated = M is None
-    if M is None:
-        M_value = _estimate_M(y_arr, x_arr, c, h_pilot, kernel)
-    else:
-        M_value = float(M)
+    sclass_code = "H" if str(sclass).upper().startswith("H") else "T"
+    fit, M_estimated = honest_rd(
+        x_arr,
+        y_arr,
+        c=c,
+        M=M,
+        h=h,
+        kernel=kernel,
+        alpha=alpha,
+        opt_criterion=opt_criterion.upper(),
+        sclass=sclass_code,
+    )
+    tau_hat = fit["estimate"]
+    se = fit["se"]
+    M_value = fit["M"]
+    h_value = fit["bandwidth"]
+    bias_bound = fit["bias"]
+    cv = fit["cv"]
+    b = bias_bound / se if se > 0 else 0.0
+    honest_ci = (fit["ci_lower"], fit["ci_upper"])
 
-    # ---- Choose bandwidth ---- #
-    if h is None:
-        if opt_criterion == "mse":
-            h_value = h_pilot
-        else:
-            h_value = _flci_bandwidth(y_arr, x_arr, c, M_value, kernel, alpha)
-    else:
-        h_value = float(h)
-
-    # ---- Local-linear RD estimate ---- #
-    mu_l, _, _, n_l = _local_linear(y_arr, x_arr, c, h_value, kernel, "left")
-    mu_r, _, _, n_r = _local_linear(y_arr, x_arr, c, h_value, kernel, "right")
-    tau_hat = mu_r - mu_l
-
-    # ---- Standard error ---- #
-    se = _rd_se(y_arr, x_arr, c, h_value, kernel)
-
-    # ---- Bias bound ---- #
-    C_k = _KERNEL_BIAS_CONSTANTS[kernel]
-    bias_bound = h_value**2 * M_value * C_k
-
-    # ---- Naive CI (ignores bias) ---- #
     z_naive = stats.norm.ppf(1.0 - alpha / 2.0)
     naive_ci = (tau_hat - z_naive * se, tau_hat + z_naive * se)
 
-    # ---- Honest CI (Armstrong-Kolesár) ---- #
-    b = bias_bound / se if se > 0 else 0.0
-    cv = _ak_critical_value(b, alpha)
-    honest_ci = (tau_hat - cv * se - bias_bound, tau_hat + cv * se + bias_bound)
+    n_l = int(np.sum((x_arr < c) & (np.abs(x_arr - c) <= h_value)))
+    n_r = int(np.sum((x_arr >= c) & (np.abs(x_arr - c) <= h_value)))
 
-    # ---- P-value (conservative, using honest framework) ---- #
-    # Two-sided test: reject H0 if 0 not in honest CI
+    # Honest p-value: invert the honest CI rather than reporting the naive
+    # z-test, which ignores the bias the rest of this function exists to
+    # bound. Reject at level alpha iff 0 lies outside the honest interval.
     if se > 0:
-        # Use |tau_hat| / (se + bias_bound / z_naive) as conservative test stat
-        test_stat = abs(tau_hat) / se
-        pvalue = 2.0 * (1.0 - stats.norm.cdf(test_stat))
+        pvalue = _honest_pvalue(tau_hat, se, bias_bound)
     else:
         pvalue = np.nan  # pragma: no cover
 
@@ -511,6 +542,10 @@ def rd_honest(
             "n_right": int(n_r),
             "ak_critical_value": cv,
             "bias_noise_ratio": b,
+            "sclass": sclass_code,
+            "eff_obs": fit["eff_obs"],
+            "reference_backend": "RDHonest",
+            "validation_tier": "T2_native_reference_parity",
             "summary_str": summary_str,
         },
     )

@@ -307,6 +307,45 @@ All notable changes to StatsPAI will be documented in this file.
   variance. The shared-running-variable path is unchanged and still
   reachable via `cutoffs=`; the docstring now states plainly which is which.
 
+- **⚠️ correctness fix: `sp.rd_honest` reported intervals ~1.7x too wide
+  (WP-6).** Now anchored to R `RDHonest` 1.0.1.9000 across 18 cells, max
+  relative deviation **7.6e-08**. The point estimate was always right; the
+  interval was built from two approximations that are not the
+  Armstrong-Kolesár construction:
+
+  1. **The worst-case bias was a closed form**, `M · h² · C_kernel`. The
+     honest bias depends on the *realised* kernel weights, so no function of
+     `h` alone can be it. It ran **1.58–1.60x** too large, and the ratio
+     moved with `h` — the signature of a quantity that is design-dependent
+     on one side of the comparison and not the other. The correct Hölder
+     bound is `M/2 · |Σ_{x<0} wᵢxᵢ² − Σ_{x≥0} wᵢxᵢ²|`.
+  2. **The interval double-counted the bias**: it used
+     `τ ± (cv·se + bias)` where `cv = cv_{1−α}(bias/se)` already accounts
+     for it. At `bias/se = 1.3` the correct half-length is `2.95·se`; the
+     old form gave `6.24·se`.
+
+  Net effect on the two reference designs: half-lengths of 0.199 and 5.511
+  where RDHonest gives 0.120 and 3.155. Being too wide is not a safe
+  failure — it is a different, less informative procedure reported under
+  Armstrong-Kolesár's name.
+
+  The **p-value** was also the naive `2(1 − Φ(|τ|/se))`, which ignores the
+  very bias the rest of the function exists to bound, so a result could
+  show an honest CI containing zero next to `p < 0.05`. It is now obtained
+  by inverting the honest interval, and a test asserts the two agree at
+  α ∈ {0.01, 0.05, 0.10}.
+
+  New: `sclass=` selects the Hölder (default, matching RDHonest) or Taylor
+  smoothness class; `opt_criterion` accepts `'oci'` alongside `'mse'` and
+  `'flci'`; `model_info` carries `eff_obs` and `sclass`. The bandwidth
+  selector now reproduces RDHonest's full pilot chain
+  (`OptBW → PrelimVar(EHW) → IKBW → PrelimVar(Silverman)`), and `M` its
+  rule of thumb, both exactly.
+
+  Two pinned values in `tests/test_cov95_rd_misc.py` recorded the old
+  output; they were re-derived by running RDHonest on that same design
+  rather than by accepting whatever the new code produced.
+
 ### Known issues
 
 - Fuzzy RD does not go through the CCT path. `sp.rdrobust(fuzzy=...)` falls
