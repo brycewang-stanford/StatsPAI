@@ -2,15 +2,16 @@
 Tests for CJM rddensity and read_data I/O.
 """
 
-import pytest
-import numpy as np
-import pandas as pd
 import subprocess
 
-from statspai.diagnostics.rddensity import rddensity, _find_rscript
-from statspai.utils.io import read_data
+import numpy as np
+import pandas as pd
+import pytest
+
 from statspai.core.results import CausalResult
+from statspai.diagnostics.rddensity import _find_rscript, rddensity
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
+from statspai.utils.io import read_data
 
 
 @pytest.fixture
@@ -54,7 +55,9 @@ class TestRDDensity:
         """Native path ports the rddensity default selector/test."""
         import statspai as sp
 
-        lee = sp.datasets.lee_2008_senate()
+        # Replica columns (margin / voteshare_next); the bare loader
+        # returns the real x / y extract since 1.21.0.
+        lee = sp.datasets.lee_2008_senate(simulated=True)
         lee_result = rddensity(lee, x="margin", c=0)
         assert lee_result.model_info["backend"] == "native"
         assert lee_result.model_info["bandwidth_source"] == "rddensity_comb"
