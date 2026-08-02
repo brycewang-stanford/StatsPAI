@@ -16,7 +16,7 @@
 
 | | |
 | --- | --- |
-| 版本 | `1.20.0`（见 [`pyproject.toml`](pyproject.toml)） |
+| 版本 | `1.21.0`（见 [`pyproject.toml`](pyproject.toml)） |
 | Python | 3.9 – 3.13 |
 | License | MIT |
 | 作者 | Biaoyue (Bryce) Wang · <brycew6m@stanford.edu> · CoPaper.AI / Stanford REAP |

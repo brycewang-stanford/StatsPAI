@@ -4,6 +4,8 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+## [1.21.0] — 2026-08-03
+
 ### Changed
 
 - **The JSS census pins now reconcile instead of freezing a literal.**

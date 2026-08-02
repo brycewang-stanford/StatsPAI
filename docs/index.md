@@ -11,14 +11,21 @@ mixed-effects, modern ML causal inference, the full three-school
 modules (bridging theorems, fairness, surrogates, PCMCI, TMLE survival,
 etc.), and manuscript/reporting output in Word / Excel / LaTeX / HTML.
 
-> **Current release: v1.20.0 (2026-06-22)** — a batch of ⚠️ inference
-> correctness fixes (CUSUM linear boundary, genuine Imbens–Manski CIs for
-> `sp.lee_bounds`, CCT kernel-squared robust RD variance, Hotelling-T²
-> pre-trend test for `sp.callaway_santanna`, nested-FE cluster DOF in the
-> native HDFE backend), building on v1.19.0's cross-engine validation
-> (`sp.cross_validate`), data-MCP ingestion normalisers
-> (`sp.from_worldbank` / `sp.from_fred` / `sp.from_sdmx`), and the
-> `sp.network` module. See the [changelog](changelog.md) for detail.
+> **Current release: v1.21.0 (2026-08-03)** — a batch of ⚠️ inference
+> correctness fixes (`sp.did_multiplegt` dynamics + placebos matched to
+> the archived 0.1.4 reference; `sp.did_multiplegt_dyn` now handles
+> switch-off events; `sp.rdrobust` rebuilt CCT bandwidth + bias
+> correction so it reports 7.51 where R reports 7.51; `sp.rd_honest`
+> intervals were ~1.7× too wide; `sp.pretrends_power` was running a
+> different test than the paper it cites; `sp.rdrandinf` asymptotic
+> p-value and ranksum), plus new features
+> (`sp.spillover_did`, `sp.cgs_continuous_did`, `sp.functional_form_test`,
+> `sp.did_misclassified`, `sp.did_bcf`, `sp.cohort_anchored_event_study`,
+> `sp.design_robust_event_study`, `sp.rdmc(cutoff_var=)`,
+> `sp.rdrobust(vce=)`), one deprecation
+> (`sp.continuous_did(method="cgs")` → `sp.cgs_continuous_did`), and 11
+> new Track A parity modules. See the [changelog](changelog.md) for
+> detail.
 
 ```python
 import statspai as sp
@@ -174,7 +181,7 @@ reference — together with this package:
   title   = {StatsPAI: Validation-Tiered Causal Inference and
              Econometrics Workflows for Python},
   year    = {2026},
-  version = {1.20.0},
+  version = {1.21.0},
   url     = {https://github.com/brycewang-stanford/StatsPAI}
 }
 ```
