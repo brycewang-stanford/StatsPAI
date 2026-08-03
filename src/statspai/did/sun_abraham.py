@@ -26,13 +26,14 @@ Sun, L. and Abraham, S. (2021).
 
 from __future__ import annotations
 
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import drop_unusable_rows as _drop_unusable_rows
 
 # ======================================================================
 # Public API
@@ -120,6 +121,13 @@ def sun_abraham(
         for c in covariates:
             if c not in df.columns:
                 raise ValueError(f"Covariate '{c}' not found")
+    # Drop rows the estimator cannot use before the cohort checks below, so a
+    # wiped outcome surfaces as an error instead of a headline ATT of 0.0.
+    df = _drop_unusable_rows(
+        df,
+        columns=[y, t, i, *(covariates or [])],
+        function="sun_abraham",
+    )
     if control_group not in ("nevertreated", "lastcohort"):
         raise ValueError(
             f"control_group must be 'nevertreated' or 'lastcohort', "

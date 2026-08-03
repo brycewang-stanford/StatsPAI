@@ -46,6 +46,33 @@ All notable changes to StatsPAI will be documented in this file.
   guide also still named `1.20.0` as the snapshot's package metadata; the
   manifest reports `1.21.0`.
 
+- **⚠️ Correctness fix — a NaN outcome returned ATT = 0.0000 with SE = 0.0000
+  and p = 1.0000 instead of raising.** `sp.callaway_santanna`,
+  `sp.sun_abraham`, `sp.did_2x2`, `sp.did_imputation`, and `sp.etwfe` reshape
+  the long panel with `pivot_table`, which drops entirely-NaN rows and columns
+  outright. A cohort or period whose outcome had been wiped — the usual cause
+  being a failed upstream merge — therefore left a panel that *looked*
+  perfectly balanced: no NaN cell survived for the unbalanced-panel warning to
+  count, so it never fired. Every ATT(g, t) then lost its cell and contributed
+  0.0, and the headline came back as a precisely-estimated null with `n_obs`
+  still reporting the full row count. The realistic case is the dangerous one:
+  wiping only the treated cohort's outcome produced `ATT = 0.0000, SE =
+  0.0000, p = 1.0000, n = 320` with no warning of any kind. All five
+  estimators now drop unusable rows up front through a shared
+  `did/_core.drop_unusable_rows` guard and raise `DataInsufficient` when none
+  survive; partial missingness warns with the per-column NaN counts and
+  estimates on the remainder. `sp.etwfe` additionally raises when cohorts
+  exist but no treated post-treatment cell does, which previously produced the
+  same silent 0.0 through a degenerate all-zero interaction dummy. A fully-NaN
+  *covariate* was the quieter twin of the same defect — it dropped out of the
+  regression and returned the **unadjusted** estimate while the caller
+  believed they had adjusted for it — and now raises as well; a partially-NaN
+  covariate previously returned a bare `NaN` and now warns and estimates on
+  the complete rows. Estimates and standard errors on healthy data are
+  bit-identical across every estimator, control group, and inference option;
+  the only reporting change is that `n_obs` now counts the actual estimation
+  sample rather than rows that never entered it. (CLAUDE.md §7: fail loudly.)
+
 ## [1.21.0] — 2026-08-03
 
 ### Changed

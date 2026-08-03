@@ -24,6 +24,7 @@ from scipy.sparse.linalg import lsqr
 
 from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
+from ._core import drop_unusable_rows as _drop_unusable_rows
 
 
 def _didimp_cluster_bootstrap(
@@ -239,6 +240,16 @@ def did_imputation(
     for col in control_names:
         if col not in df.columns:
             raise ValueError(f"Control column '{col}' not found in data.")
+
+    # Drop rows the estimator cannot use before the cohort/horizon logic runs,
+    # so a wiped outcome surfaces as an error instead of a bare NaN ATT. Keep
+    # the caller's index: save_weights / save_residuals key their output on it.
+    df = _drop_unusable_rows(
+        df,
+        columns=[y, time, group, *control_names],
+        function="did_imputation",
+        reset_index=False,
+    )
 
     if vce not in ("analytic", "bootstrap", "none"):
         raise ValueError(f"vce must be 'analytic', 'bootstrap', or 'none'; got {vce!r}")

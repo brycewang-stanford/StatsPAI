@@ -44,6 +44,7 @@ from scipy import optimize, stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceFailure, DataInsufficient, MethodIncompatibility
+from ._core import drop_unusable_rows as _drop_unusable_rows
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Helper: cluster-robust OLS
@@ -759,6 +760,47 @@ def etwfe(
     >>> res.detail is not None  # cohort-specific ATTs
     True
     """
+    # Drop rows no branch can use before dispatch, so a wiped outcome surfaces
+    # as an error rather than an ATT of exactly 0.0 (or a raw ValueError out of
+    # an empty-array reduction further down).
+    data = _drop_unusable_rows(
+        data,
+        # `first_treat` is deliberately absent: NaN there encodes
+        # never-treated, so requiring it would silently delete the control
+        # group — the exact failure this guard exists to prevent.
+        columns=[y, time, group, *(controls or [])],
+        function="etwfe",
+    )
+
+    # Every branch identifies the ATT off cohort × post cells. With no treated
+    # post-treatment observation left — cohorts that adopt after the last
+    # observed period, or a post-period outcome wiped by a bad merge — those
+    # dummies are identically zero, the regression is degenerate, and the
+    # aggregate comes back as exactly 0.0 rather than as an error. Check once
+    # here so all four dispatch branches inherit the guard. (§7: fail loudly.)
+    # A panel with no cohorts at all already raises "No treated cohorts found"
+    # in each branch; leave that contract alone and guard only the case that
+    # previously slipped through — cohorts present, but no post cell.
+    _ft = data[first_treat].replace(0, np.nan)
+    _cohorts = sorted(_ft.dropna().unique().tolist())
+    _n_treated_post = int((_ft.notna() & (data[time] >= _ft)).sum())
+    if _cohorts and _n_treated_post == 0:
+        raise DataInsufficient(
+            "No treated post-treatment observations: every unit is either "
+            "never-treated or first treated after the last observed period, "
+            "so there is no cohort × post cell to identify the ATT from.",
+            recovery_hint=(
+                "Check that `first_treat` is on the same scale as `time` and "
+                "that post-treatment outcomes survived any upstream merge."
+            ),
+            diagnostics={
+                "function": "etwfe",
+                "n_treated_post": 0,
+                "max_time": None if data.empty else data[time].max(),
+                "cohorts": _cohorts,
+            },
+        )
+
     fam_key = None if family is None else str(family).strip().lower()
     if fam_key in _ETWFE_GLM_FAMILIES:
         # Fail loudly rather than silently ignoring an option the nonlinear

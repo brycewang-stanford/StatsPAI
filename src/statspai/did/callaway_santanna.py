@@ -33,6 +33,7 @@ from scipy import stats
 
 from ..core.results import CausalResult
 from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibility
+from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
 from ._core import require_bool as _require_bool
 
@@ -334,6 +335,14 @@ def callaway_santanna(
     _require_columns(
         data,
         (y, g, t, i, *(x or []), *(clustervars or [])),
+        function="callaway_santanna",
+    )
+    # Drop unusable rows before any other validation so the never-treated,
+    # cohort, and (g, t)-pair checks below all see the real estimation sample
+    # rather than rows the estimator would silently discard.
+    data = _drop_unusable_rows(
+        data,
+        columns=[y, t, i, *(x or [])],
         function="callaway_santanna",
     )
 
@@ -691,8 +700,15 @@ def _prepare_panel(
     """
     _require_columns(data, (y, g, t, i, *(x or [])), function="_prepare_panel")
 
-    # Pivot outcome to wide: rows = units, columns = time periods
-    y_wide = data.pivot_table(index=i, columns=t, values=y, aggfunc="first")
+    # Pivot outcome to wide: rows = units, columns = time periods.
+    # dropna=False keeps the missingness count below honest: the default would
+    # silently delete any entirely-NaN unit or period, so the panel would look
+    # balanced precisely in the cases where it is most broken. Callers reach
+    # here past `_drop_unusable_rows`, so this is a no-op on the happy path —
+    # it is here to keep the invariant from regressing.
+    y_wide = data.pivot_table(
+        index=i, columns=t, values=y, aggfunc="first", dropna=False
+    )
 
     # An unbalanced panel silently changes the estimand here: ATT(g, t) is
     # built from within-unit differences Y_t - Y_base, so any unit missing

@@ -274,3 +274,179 @@ def test_agent_serializer_surfaces_coefficient_failure():
     out = _default_serializer(_Misaligned())
     assert "coefficients_error" in out
     assert "coefficients" not in out
+
+
+# ---------------------------------------------------------------------------
+# WS-A9: NaN in an estimation column silently producing ATT = 0.0.
+#
+# `pivot_table` drops entirely-NaN rows and columns, so a cohort or period
+# whose outcome was wiped (a failed merge) left a panel that *looked* balanced:
+# the unbalanced-panel warning had no NaN cell to count, every ATT(g, t) lost
+# its cell and contributed 0.0, and the headline came back as ATT = 0.0000 with
+# SE = 0.0000 and p = 1.0000 — a precisely-estimated null rather than an error.
+# A fully-NaN covariate was the quieter twin: it dropped out of the regression
+# and returned the *unadjusted* estimate while the caller believed otherwise.
+# ---------------------------------------------------------------------------
+
+
+def _staggered_panel(n_units=40, n_periods=8, effect=2.0, seed=2):
+    rng = np.random.default_rng(seed)
+    rows = []
+    for unit in range(n_units):
+        first = 4 if unit < n_units // 2 else 0
+        alpha = rng.normal()
+        for period in range(1, n_periods + 1):
+            treated = 1 if (first > 0 and period >= first) else 0
+            rows.append(
+                (
+                    unit,
+                    period,
+                    first,
+                    treated,
+                    alpha + 0.3 * period + effect * treated + rng.normal(0, 0.5),
+                    rng.normal(),
+                )
+            )
+    return pd.DataFrame(rows, columns=["unit", "time", "gvar", "treat", "y", "x1"])
+
+
+def _wiped(df, mask):
+    """Return ``df`` with the outcome set to NaN wherever ``mask`` is True."""
+    out = df.copy()
+    out.loc[mask, "y"] = np.nan
+    return out
+
+
+@pytest.mark.parametrize(
+    "wipe",
+    [
+        pytest.param(lambda d: d["y"].notna(), id="all_outcomes"),
+        pytest.param(lambda d: d["gvar"] == 4, id="treated_cohort"),
+        pytest.param(lambda d: d["time"] >= 4, id="post_periods"),
+    ],
+)
+def test_callaway_santanna_nan_outcome_raises_not_zero(wipe):
+    """A wiped outcome must raise, never return a confident ATT of 0.0."""
+    df = _staggered_panel()
+    broken = _wiped(df, wipe(df))
+
+    with pytest.raises(ValueError) as excinfo:
+        sp.callaway_santanna(broken, y="y", g="gvar", t="time", i="unit")
+
+    # The old failure mode was a *successful* call returning exactly 0.0.
+    assert "0.0000" not in str(excinfo.value)
+
+
+@pytest.mark.parametrize(
+    "estimator",
+    [
+        pytest.param(
+            lambda d: sp.sun_abraham(d, y="y", g="gvar", t="time", i="unit"),
+            id="sun_abraham",
+        ),
+        pytest.param(
+            lambda d: sp.did_imputation(
+                d, y="y", group="unit", time="time", first_treat="gvar"
+            ),
+            id="did_imputation",
+        ),
+        pytest.param(
+            lambda d: sp.etwfe(d, y="y", group="unit", time="time", first_treat="gvar"),
+            id="etwfe",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "wipe",
+    [
+        pytest.param(lambda d: d["y"].notna(), id="all_outcomes"),
+        pytest.param(lambda d: d["gvar"] == 4, id="treated_cohort"),
+        pytest.param(lambda d: d["time"] >= 4, id="post_periods"),
+    ],
+)
+def test_staggered_estimators_nan_outcome_raise_not_zero(estimator, wipe):
+    """Same guarantee across the staggered DiD family."""
+    df = _staggered_panel()
+    broken = _wiped(df, wipe(df))
+    with pytest.raises(ValueError):
+        estimator(broken)
+
+
+@pytest.mark.parametrize(
+    "wipe",
+    [
+        pytest.param(lambda d: d["y"].notna(), id="all_outcomes"),
+        pytest.param(lambda d: d["gvar"] == 4, id="treated_cohort"),
+        pytest.param(lambda d: d["time"] >= 4, id="post_periods"),
+    ],
+)
+def test_did_2x2_nan_outcome_raises_not_zero(wipe):
+    df = _staggered_panel()
+    broken = _wiped(df, wipe(df))
+    broken = broken.assign(
+        post=(broken["time"] >= 4).astype(int),
+        trt=(broken["gvar"] > 0).astype(int),
+    )
+    with pytest.raises(ValueError):
+        sp.did_2x2(broken, y="y", treat="trt", time="post")
+
+
+def test_all_nan_covariate_raises_rather_than_dropping_adjustment():
+    """An all-NaN covariate must not silently return the unadjusted estimate."""
+    df = _staggered_panel()
+    unadjusted = sp.callaway_santanna(df, y="y", g="gvar", t="time", i="unit").estimate
+
+    with pytest.raises(ValueError):
+        sp.callaway_santanna(
+            df.assign(x1=np.nan), y="y", g="gvar", t="time", i="unit", x=["x1"]
+        )
+
+    # Guard the specific regression: the old behaviour returned exactly the
+    # unadjusted number while the caller believed x1 had been adjusted for.
+    assert np.isfinite(unadjusted)
+
+
+def test_partial_nan_covariate_warns_and_estimates_instead_of_nan():
+    """Partial covariate missingness drops rows loudly; it must not return NaN."""
+    df = _staggered_panel()
+    partial = df.assign(x1=df["x1"].mask(df["unit"] < 10))
+
+    with pytest.warns(UserWarning, match="dropped .* rows with NaN"):
+        res = sp.callaway_santanna(
+            partial, y="y", g="gvar", t="time", i="unit", x=["x1"]
+        )
+
+    assert np.isfinite(res.estimate), "partial NaN covariate returned NaN"
+    assert np.isfinite(res.se)
+
+
+def test_nan_rows_excluded_from_reported_n_obs():
+    """n_obs must report the estimation sample, not the raw row count."""
+    df = _staggered_panel()
+    holed = df.copy()
+    holed.loc[(holed["unit"] == 0) & (holed["time"] == 5), "y"] = np.nan
+
+    with pytest.warns(UserWarning, match="dropped 1 of"):
+        res = sp.callaway_santanna(holed, y="y", g="gvar", t="time", i="unit")
+
+    assert res.n_obs == len(df) - 1
+
+
+def test_healthy_panel_is_unaffected_by_the_guard():
+    """The guard must not perturb a clean panel: no warning, same estimate."""
+    df = _staggered_panel()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")  # any warning here is a regression
+        res = sp.callaway_santanna(df, y="y", g="gvar", t="time", i="unit")
+    assert res.n_obs == len(df)
+    assert res.estimate == pytest.approx(1.5513507107, rel=1e-9)
+
+
+def test_never_treated_units_survive_the_guard():
+    """NaN in the cohort column encodes never-treated and must not be dropped."""
+    df = _staggered_panel()
+    # Encode never-treated as NaN rather than 0 — the etwfe convention.
+    nan_coded = df.assign(gvar=df["gvar"].replace(0, np.nan))
+    res = sp.etwfe(nan_coded, y="y", group="unit", time="time", first_treat="gvar")
+    assert res.n_obs == len(df), "never-treated controls were dropped"
+    assert np.isfinite(res.estimate)

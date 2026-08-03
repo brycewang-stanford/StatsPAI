@@ -29,6 +29,7 @@ Public helpers
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -38,6 +39,7 @@ from scipy import stats
 from ..core._validate import (  # noqa: F401  (re-exported for the DiD family)
     require_bool_flag as require_bool,
 )
+from ..exceptions import DataInsufficient
 
 # ----------------------------------------------------------------------
 # Cluster-bootstrap draw
@@ -419,3 +421,102 @@ def long_difference(
     merged = fut.merge(base, on=id_col, how="inner")
     merged["ldy"] = merged["_y_future"] - merged["_y_base"]
     return merged[[id_col, "ldy"]]
+
+
+# ----------------------------------------------------------------------
+# Missing-data guard
+# ----------------------------------------------------------------------
+
+
+def drop_unusable_rows(
+    data: pd.DataFrame,
+    *,
+    columns: Sequence[str],
+    function: str,
+    stacklevel: int = 3,
+    reset_index: bool = True,
+) -> pd.DataFrame:
+    """Drop rows with NaN in any estimation column, failing loudly if none survive.
+
+    Missingness must not be left for the estimator to trip over downstream.
+    Reshaping a long panel to wide (``pivot_table``) drops entirely-NaN rows
+    and columns outright, so a cohort or a period whose outcome was wiped — a
+    failed merge, say — leaves a panel that *looks* perfectly balanced: there
+    is no NaN cell left for an unbalanced-panel check to count. Every
+    ATT(g, t) then loses its cell and contributes 0.0, aggregating to a
+    headline ATT of exactly 0.0 with SE 0.0 and p = 1.0. That reads as a
+    precisely-estimated null rather than as an error, which is the most
+    expensive way to be wrong. A fully-NaN covariate is the quieter twin: it
+    drops out of the regression, returning the *unadjusted* estimate while the
+    caller believes they adjusted for it.
+
+    Call this before any other validation so that the estimator's existing
+    checks (empty never-treated group, no treatment cohorts, no valid
+    ``(g, t)`` pairs) all see the real estimation sample. (§7: fail loudly.)
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Long-format input.
+    columns : Sequence[str]
+        Estimation columns that must be non-NaN for a row to be usable —
+        typically outcome, time, unit id, and covariates. Group/cohort columns
+        are normally excluded, since NaN there encodes "never treated".
+    function : str
+        Caller name, used in the error and warning text.
+    stacklevel : int, default 3
+        ``warnings.warn`` stacklevel, so the warning points at user code.
+    reset_index : bool, default True
+        Reset the index of the returned frame. Pass ``False`` when the caller
+        hands back per-row artefacts (imputation weights, residuals) keyed by
+        the caller's original index — resetting would silently break that
+        alignment.
+
+    Returns
+    -------
+    pd.DataFrame
+        The usable rows.
+
+    Raises
+    ------
+    DataInsufficient
+        If no row has complete data across ``columns``.
+    """
+    required = list(dict.fromkeys(columns))
+    clean = data.dropna(subset=required)
+    n_dropped = len(data) - len(clean)
+
+    if n_dropped:
+        na_counts = {
+            col: int(data[col].isna().sum())
+            for col in required
+            if data[col].isna().any()
+        }
+        if clean.empty:
+            raise DataInsufficient(
+                f"No observations remain after dropping NaNs: all {len(data)} "
+                f"rows have NaN in at least one estimation column. NaN counts "
+                f"by column: {na_counts}.",
+                recovery_hint=(
+                    "Check that the outcome, time, unit id, and covariate "
+                    "columns survived any upstream merge — an all-NaN column "
+                    "here is usually a failed join or a misspelled key."
+                ),
+                diagnostics={
+                    "function": function,
+                    "n_rows": len(data),
+                    "na_counts": na_counts,
+                    "required_columns": required,
+                },
+            )
+        warnings.warn(
+            f"{function}: dropped {n_dropped} of {len(data)} rows with NaN in "
+            f"an estimation column (NaN counts by column: {na_counts}). The "
+            "estimate is computed on the remaining rows, so the effective "
+            "sample — and the estimand, if missingness is related to "
+            "treatment — differs from the full panel.",
+            UserWarning,
+            stacklevel=stacklevel,
+        )
+
+    return clean.reset_index(drop=True) if reset_index else clean

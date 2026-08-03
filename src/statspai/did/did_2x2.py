@@ -20,6 +20,7 @@ import pandas as pd
 from scipy import stats
 
 from ..core.results import CausalResult
+from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import require_bool
 
 
@@ -188,6 +189,14 @@ def did_2x2(
         )
 
     df = data.copy()
+
+    # Drop rows the estimator cannot use before the binary-value checks below,
+    # so a wiped outcome surfaces as an error instead of an ATT of exactly 0.0.
+    df = _drop_unusable_rows(
+        df,
+        columns=[y, treat, time, *(covariates or [])],
+        function="did_2x2",
+    )
 
     # Validate binary variables
     from statspai.exceptions import MethodIncompatibility
