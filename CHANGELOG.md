@@ -4,6 +4,48 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`sp.rd_honest`'s schema advertised an option the function rejects.**
+  The registry listed `opt_criterion` choices as `["mse", "fwer"]`, but the
+  callable only accepts `"mse"` / `"flci"` / `"oci"` — an agent that read
+  `sp.function_schema("rd_honest")` and passed `"fwer"` got a `ValueError`.
+  Corrected to the accepted set. The `sclass` parameter (Holder vs. Taylor
+  smoothness class, added with the WP-6 interval fix) was also missing from
+  the spec and the docstring entirely; both now document it. A new test
+  (`tests/test_rd_validation.py`) runs every enumerated choice the schema
+  advertises through the estimator, so an agent-facing enum can no longer
+  drift away from what the function accepts.
+
+- **`sp.lsdvc(bias_order=3)` crashed on NumPy ≥ 2.5.** The third-order
+  Bun-Kiviet term converted a `(1, 1)` array with bare `float(...)`, which
+  NumPy 2.5 turned from a `DeprecationWarning` into
+  `TypeError: only 0-dimensional arrays can be converted to Python scalars`.
+  Now uses `.item()`, matching the adjacent first- and second-order terms.
+  Caught by the pandas-3 CI lane, which tracks the newest NumPy.
+
+- **The recommendation hit-rate ratchet had been red since 2026-08-01.**
+  The corpus entry for `lalonde_1986_nsw_experimental` listed `education`
+  among its covariates, but `sp.datasets.nsw_lalonde()` ships the
+  `MatchIt::lalonde` extract whose schooling column is `educ` (only
+  `sp.datasets.nsw_dw()` spells it `education`), so every audit-dynamic fit
+  raised `MethodIncompatibility`. The `--check` gate also failed *silently*
+  on that condition — only the hit-rate floor printed a reason — so the CI
+  log named neither the gate nor the offending entry. Every gate now reports
+  what tripped it and which corpus entries are responsible.
+
+- **The JSS validation-boundary census had drifted out of the docs.**
+  `docs/jss_source_audit_dossier.md` and `docs/guides/stability.md` still
+  quoted the pre-1.21.0 registry (1,154 functions across 86 submodules;
+  73 `certified` / 298 `validated` / 780 `api_stable` / 3 `experimental`;
+  371 certified/validated; 670 unbacked), while the live registry reports
+  **1,157 across 87** and **76 / 303 / 775 / 3**, giving **379**
+  certified/validated against **666** stable auto-registered symbols. Every
+  count is re-derived from `scripts/stability_audit.py` and
+  `validation_evidence_audit.py` rather than hand-carried. The stability
+  guide also still named `1.20.0` as the snapshot's package metadata; the
+  manifest reports `1.21.0`.
+
 ## [1.21.0] — 2026-08-03
 
 ### Changed

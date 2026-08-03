@@ -6,9 +6,9 @@ verifies coverage of confidence intervals via Monte Carlo,
 and validates integration between modules.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 
 import statspai as sp
 from statspai.core.results import CausalResult
@@ -222,6 +222,27 @@ class TestIntegration:
         assert (
             honest_width >= std_width * 0.9
         ), f"Honest CI ({honest_width:.3f}) should be >= standard ({std_width:.3f})"
+
+    @pytest.mark.parametrize("param", ["opt_criterion", "sclass", "kernel"])
+    def test_registry_choices_are_actually_accepted(self, param):
+        """Every choice ``sp.describe_function`` advertises must run.
+
+        The registry once advertised ``opt_criterion=['mse', 'fwer']`` while
+        the callable only accepts ``mse`` / ``flci`` / ``oci`` — an agent
+        reading the schema and passing ``'fwer'`` got a ``ValueError``. The
+        schema is the agent-facing contract, so its enumerations are tested
+        the same way a signature is.
+        """
+        spec = next(
+            p for p in sp.describe_function("rd_honest")["params"] if p["name"] == param
+        )
+        choices = spec.get("enum")
+        assert choices, f"rd_honest.{param} should advertise an enum"
+
+        df = sp.dgp_rd(n=1500, effect=2.0, seed=7)
+        for choice in choices:
+            result = sp.rd_honest(df, y="y", x="x", c=0, **{param: choice})
+            assert np.isfinite(result.estimate)
 
 
 # ======================================================================

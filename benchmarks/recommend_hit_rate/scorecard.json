@@ -1,6 +1,6 @@
 {
   "corpus_version": "1.0.0-fifty",
-  "statspai_version": "1.20.0",
+  "statspai_version": "1.21.0",
   "n_entries": 50,
   "n_core": 43,
   "n_tier_a": 10,

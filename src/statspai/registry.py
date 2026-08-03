@@ -12903,7 +12903,16 @@ def _build_registry() -> None:
                     False,
                     "mse",
                     "Bandwidth optimization criterion",
-                    ["mse", "fwer"],
+                    ["mse", "flci", "oci"],
+                ),
+                ParamSpec(
+                    "sclass",
+                    "str",
+                    False,
+                    "H",
+                    "Smoothness class for the bound M: 'H' (Holder, RDHonest's "
+                    "default — f' is M-Lipschitz) or 'T' (Taylor)",
+                    ["H", "T"],
                 ),
             ],
             returns="CausalResult with honest CI",

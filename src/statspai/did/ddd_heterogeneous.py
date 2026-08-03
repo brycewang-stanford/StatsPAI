@@ -80,7 +80,7 @@ from ..core._bootstrap import bootstrap_se as _bootstrap_se
 from ..core.results import CausalResult
 from ..exceptions import DataInsufficient, NumericalInstability
 from . import _core as _dc
-from ._ddd_dr import DDDCellFit, ddd_dr_cell
+from ._ddd_dr import ddd_dr_cell
 
 
 def ddd_heterogeneous(
@@ -428,7 +428,6 @@ def _finish_analytic(
     z_crit = float(stats.norm.ppf(1 - alpha / 2))
     all_units = pd.Index(sorted(df[unit].unique()))
     n_units = len(all_units)
-    pos = pd.Series(np.arange(n_units), index=all_units)
 
     # Unit-level cohort and eligibility, taken once per unit.
     first = df.drop_duplicates(subset=[unit]).set_index(unit).reindex(all_units)

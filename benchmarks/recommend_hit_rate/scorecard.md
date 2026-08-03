@@ -1,6 +1,6 @@
 # Recommendation Hit-Rate Scorecard
 
-- corpus: `1.0.0-fifty`  |  statspai: `1.20.0`  |  entries: **50** (43 core + 7 frontier; 10 Tier-A + 40 Tier-B)
+- corpus: `1.0.0-fifty`  |  statspai: `1.21.0`  |  entries: **50** (43 core + 7 frontier; 10 Tier-A + 40 Tier-B)
 - **core top-1 hit-rate: 1.0**  |  top-k: 1.0  |  hard-miss rate: 0.0  |  errors: 0
 - audit catalog mean recall (static): 1.0  |  audit dynamic mean recall (fit+audit): 1.0  |  audit errors: 0
 - frontier coverage (gap-probe designs recommend is being taught): **1.0** (7/7)

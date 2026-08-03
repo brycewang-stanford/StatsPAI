@@ -392,8 +392,16 @@ def rd_honest(
         Significance level for the confidence interval.
     opt_criterion : str, default "mse"
         Bandwidth selection criterion when *h* is ``None``:
-        ``"mse"`` (MSE-optimal, Imbens-Kalyanaraman style) or
-        ``"flci"`` (minimises honest CI length).
+        ``"mse"`` (MSE-optimal, Imbens-Kalyanaraman style),
+        ``"flci"`` (minimises honest CI length), or
+        ``"oci"`` (one-sided CI length).
+    sclass : str, default "H"
+        Smoothness class the bound *M* constrains, matching ``RDHonest``.
+        ``"H"`` (Holder — ``f'`` is ``M``-Lipschitz) is the default and lets
+        the two sides' curvature contributions cancel. ``"T"`` (Taylor) only
+        requires ``|f(x) - f(0) - f'(0)x| <= M x^2 / 2`` on each side, which
+        permits no cancellation, so its worst-case bias — and hence the
+        interval — is always at least as wide for the same *M*.
 
     Returns
     -------

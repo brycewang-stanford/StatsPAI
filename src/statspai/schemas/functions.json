@@ -12578,7 +12578,17 @@
           "description": "Bandwidth optimization criterion",
           "enum": [
             "mse",
-            "fwer"
+            "flci",
+            "oci"
+          ],
+          "type": "string"
+        },
+        "sclass": {
+          "default": "H",
+          "description": "Smoothness class for the bound M: 'H' (Holder, RDHonest's default -- f' is M-Lipschitz) or 'T' (Taylor)",
+          "enum": [
+            "H",
+            "T"
           ],
           "type": "string"
         },

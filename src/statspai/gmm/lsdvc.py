@@ -301,7 +301,7 @@ def xtlsdvc(
         bias = bias + (sigma2**2) * tr["P"] * (
             2 * q11 * (QWPPW @ Qe1)
             + (
-                float(e1.T @ Q.T @ WPPW @ Qe1)
+                float((e1.T @ Q.T @ WPPW @ Qe1).item())
                 + q11 * np.trace(QWPPW)
                 + 2 * tr["PtPPtP"] * q11**2
             )
