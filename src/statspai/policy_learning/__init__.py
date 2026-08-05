@@ -23,14 +23,16 @@ Offline Multi-Action Policy Learning: Generalization and Optimization.
 Operations Research, 71(1), 148-183. [@zhou2023offline]
 """
 
-from .policy_tree import policy_tree, PolicyTree, PolicyTreeResult, policy_value
-from .ope import direct_method, ips, snips, doubly_robust, OPEResult
+from .ope import OPEResult, direct_method, doubly_robust, ips, snips
+from .policy_tree import PolicyTree, PolicyTreeResult, policy_tree, policy_value
+from .targeting import policy_targeting
 
 __all__ = [
     "policy_tree",
     "PolicyTree",
     "PolicyTreeResult",
     "policy_value",
+    "policy_targeting",
     "direct_method",
     "ips",
     "snips",

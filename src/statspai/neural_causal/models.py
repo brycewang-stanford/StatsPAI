@@ -59,8 +59,8 @@ from ..utils._rng import preserve_global_rng
 def tarnet(
     data: pd.DataFrame,
     y: str,
-    treat: str,
-    covariates: List[str],
+    treat: Optional[str] = None,
+    covariates: Optional[List[str]] = None,
     repr_layers: Tuple[int, ...] = (200, 200),
     head_layers: Tuple[int, ...] = (100,),
     epochs: int = 300,
@@ -76,6 +76,8 @@ def tarnet(
     patience: int = 20,
     min_delta: float = 1e-4,
     verbose: bool = False,
+    d: Optional[str] = None,
+    x: Optional[List[str]] = None,
 ) -> CausalResult:
     """
     Estimate treatment effects using TARNet (Shalit et al. 2017).
@@ -151,6 +153,14 @@ def tarnet(
     >>> bool(len(cate) == n)  # doctest: +SKIP
     True
     """
+    from ..core._param_aliases import resolve_alias
+
+    treat = resolve_alias("treat", treat, "d", d)
+    covariates = resolve_alias("covariates", covariates, "x", x)
+    if treat is None:
+        raise TypeError("tarnet() missing required argument: 'treat' (alias 'd')")
+    if covariates is None:
+        raise TypeError("tarnet() missing required argument: 'covariates' (alias 'x')")
     est = TARNet(
         data=data,
         y=y,
@@ -172,14 +182,18 @@ def tarnet(
         min_delta=min_delta,
         verbose=verbose,
     )
-    return est.fit()
+    _result = est.fit()
+    # Attach the fitted network so result.effect(X_new) can predict
+    # out-of-sample (uniform CATE access across estimators).
+    _result._effect_fn = est.effect
+    return _result
 
 
 def cfrnet(
     data: pd.DataFrame,
     y: str,
-    treat: str,
-    covariates: List[str],
+    treat: Optional[str] = None,
+    covariates: Optional[List[str]] = None,
     repr_layers: Tuple[int, ...] = (200, 200),
     head_layers: Tuple[int, ...] = (100,),
     ipm_weight: float = 1.0,
@@ -196,6 +210,8 @@ def cfrnet(
     patience: int = 20,
     min_delta: float = 1e-4,
     verbose: bool = False,
+    d: Optional[str] = None,
+    x: Optional[List[str]] = None,
 ) -> CausalResult:
     """
     Estimate treatment effects using CFRNet (Shalit et al. 2017).
@@ -273,6 +289,14 @@ def cfrnet(
     >>> bool(result.estimate is not None)  # doctest: +SKIP
     True
     """
+    from ..core._param_aliases import resolve_alias
+
+    treat = resolve_alias("treat", treat, "d", d)
+    covariates = resolve_alias("covariates", covariates, "x", x)
+    if treat is None:
+        raise TypeError("cfrnet() missing required argument: 'treat' (alias 'd')")
+    if covariates is None:
+        raise TypeError("cfrnet() missing required argument: 'covariates' (alias 'x')")
     est = CFRNet(
         data=data,
         y=y,
@@ -295,14 +319,18 @@ def cfrnet(
         min_delta=min_delta,
         verbose=verbose,
     )
-    return est.fit()
+    _result = est.fit()
+    # Attach the fitted network so result.effect(X_new) can predict
+    # out-of-sample (uniform CATE access across estimators).
+    _result._effect_fn = est.effect
+    return _result
 
 
 def dragonnet(
     data: pd.DataFrame,
     y: str,
-    treat: str,
-    covariates: List[str],
+    treat: Optional[str] = None,
+    covariates: Optional[List[str]] = None,
     repr_layers: Tuple[int, ...] = (200, 200),
     head_layers: Tuple[int, ...] = (100,),
     propensity_weight: float = 1.0,
@@ -320,6 +348,8 @@ def dragonnet(
     patience: int = 20,
     min_delta: float = 1e-4,
     verbose: bool = False,
+    d: Optional[str] = None,
+    x: Optional[List[str]] = None,
 ) -> CausalResult:
     """
     Estimate treatment effects using DragonNet (Shi et al. 2019).
@@ -408,6 +438,16 @@ def dragonnet(
     ...                       epochs=30, n_bootstrap=20,
     ...                       random_state=0)  # doctest: +SKIP
     """
+    from ..core._param_aliases import resolve_alias
+
+    treat = resolve_alias("treat", treat, "d", d)
+    covariates = resolve_alias("covariates", covariates, "x", x)
+    if treat is None:
+        raise TypeError("dragonnet() missing required argument: 'treat' (alias 'd')")
+    if covariates is None:
+        raise TypeError(
+            "dragonnet() missing required argument: 'covariates' (alias 'x')"
+        )
     est = DragonNet(
         data=data,
         y=y,
@@ -431,7 +471,11 @@ def dragonnet(
         min_delta=min_delta,
         verbose=verbose,
     )
-    return est.fit()
+    _result = est.fit()
+    # Attach the fitted network so result.effect(X_new) can predict
+    # out-of-sample (uniform CATE access across estimators).
+    _result._effect_fn = est.effect
+    return _result
 
 
 # ======================================================================

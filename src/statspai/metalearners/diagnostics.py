@@ -10,6 +10,7 @@ effect estimates:
 """
 
 from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -70,7 +71,7 @@ def cate_summary(result: CausalResult) -> pd.DataFrame:
 
 
 def cate_by_group(
-    result: CausalResult,
+    result: Any,
     data: pd.DataFrame,
     by: str,
     n_groups: int = 4,
@@ -84,8 +85,10 @@ def cate_by_group(
 
     Parameters
     ----------
-    result : CausalResult
-        Result from ``metalearner()``.
+    result : CausalResult, CausalForest, or array-like
+        Result from ``metalearner()`` / ``tarnet()``, a fitted
+        ``causal_forest()`` model, or a raw array of per-unit CATE
+        estimates.
     data : pd.DataFrame
         Original data (same rows as the estimation sample).
     by : str
@@ -727,11 +730,35 @@ def predict_cate(
 # ======================================================================
 
 
-def _extract_cate(result: CausalResult) -> np.ndarray:
-    """Extract CATE array from CausalResult."""
-    if not hasattr(result, "model_info") or "cate" not in result.model_info:
-        raise ValueError(
-            "Result does not contain CATE estimates. "
-            "Use metalearner() to produce a result with individual effects."
-        )
-    return np.asarray(result.model_info["cate"])
+def _extract_cate(result: Any) -> np.ndarray:
+    """Extract a CATE array from any CATE-bearing input.
+
+    Accepts a :class:`CausalResult` with ``model_info['cate']`` (the
+    metalearner / tarnet convention), a fitted model exposing
+    ``.effect()`` (e.g. :class:`~statspai.forest.CausalForest`), or a
+    raw array of per-unit effects.
+    """
+    if isinstance(result, (np.ndarray, list, tuple, pd.Series)):
+        return np.asarray(result, dtype=float).ravel()
+    if hasattr(result, "model_info") and "cate" in getattr(result, "model_info", {}):
+        return np.asarray(result.model_info["cate"])
+    # Fitted CATE model (CausalForest & friends): predict on the
+    # training sample.  A CausalResult without stored effects also has
+    # an .effect() method, but it raises — fall through to the shared
+    # error below rather than leaking its internal exception.
+    if hasattr(result, "effect") and callable(result.effect):
+        from ..exceptions import MethodIncompatibility
+
+        try:
+            return np.asarray(result.effect(), dtype=float).ravel()
+        except TypeError:
+            stored_x = getattr(result, "_X_original", None)
+            if stored_x is not None:
+                return np.asarray(result.effect(stored_x), dtype=float).ravel()
+        except MethodIncompatibility:
+            pass
+    raise ValueError(
+        "Input does not contain CATE estimates. Pass a metalearner()/"
+        "tarnet() result, a fitted causal_forest() model, or a raw "
+        "array of per-unit effects."
+    )

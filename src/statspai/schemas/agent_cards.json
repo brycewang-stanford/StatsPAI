@@ -15936,7 +15936,7 @@
     ],
     "category": "causal_text",
     "cost_profile": "",
-    "description": "[experimental] Egami et al. (2024) measurement-error correction for downstream OLS coefficients when the treatment indicator was produced by an LLM (or any imperfect classifier). Binary T uses Hausman (1998) 1/(1 - p_01 - p_10) inflation; multi-class T (K>=3) uses the inverse-confusion-matrix transform built from the validation-set Bayes posterior. Optional bias-corrected bootstrap jointly resamples the validation set and the unlabeled corpus for honest CIs. SE inflation factor (delta-method) always reported in diagnostics. Validation status: experimental. Known limitations: method='hausman' is the only supported correction; the logistic and Bayesian variants from Egami et al. (2024) are not yet implemented.",
+    "description": "[experimental] Measurement-error correction for downstream OLS coefficients when a regressor was produced by an LLM (or any imperfect annotator). Binary T uses Hausman (1998) 1/(1 - p_01 - p_10) inflation; multi-class T (K>=3) uses the inverse-confusion-matrix transform built from the validation-set Bayes posterior (Egami et al. 2024); continuous scores (e.g. LLM sentiment) use regression calibration on the human-audited subsample (Fuller 1987; Carroll et al. 2006) -- the classical reliability-ratio correction when no covariates are present. Optional bias-corrected bootstrap jointly resamples the validation set and the unlabeled corpus for honest CIs. SE inflation factor (delta-method) always reported in diagnostics. Validation status: experimental. Known limitations: discrete corrections cover Hausman (binary) and the inverse-confusion-matrix transform (K>=3); the logistic and Bayesian variants from Egami et al. (2024) are not yet implemented; continuous correction assumes non-differential (classical) measurement error; differential measurement error is not supported.",
     "example": "sp.llm_annotator_correct(annotations_llm=df.llm_label, annotations_human=df.human_label, outcome=df.y, bootstrap=True, n_bootstrap=500)",
     "failure_modes": [
       {
@@ -15960,7 +15960,8 @@
     ],
     "inherits_from": null,
     "limitations": [
-      "method='hausman' is the only supported correction; the logistic and Bayesian variants from Egami et al. (2024) are not yet implemented"
+      "discrete corrections cover Hausman (binary) and the inverse-confusion-matrix transform (K>=3); the logistic and Bayesian variants from Egami et al. (2024) are not yet implemented",
+      "continuous correction assumes non-differential (classical) measurement error; differential measurement error is not supported"
     ],
     "name": "llm_annotator_correct",
     "not_recommended_when": [],
@@ -15969,9 +15970,9 @@
       ">=30 rows with both LLM and human labels",
       "Every T_human class present in validation set"
     ],
-    "reference": "Egami, Hinck, Stewart & Wei (NeurIPS 2024); arXiv:2306.04746. Hausman et al. (1998).",
+    "reference": "Egami, Hinck, Stewart & Wei (NeurIPS 2024); arXiv:2306.04746. Hausman et al. (1998). Fuller (1987) doi:10.1002/9780470316665; Carroll et al. (2006) doi:10.1201/9781420010138.",
     "signature": {
-      "description": "[experimental] Egami et al. (2024) measurement-error correction for downstream OLS coefficients when the treatment indicator was produced by an LLM (or any imperfect classifier). Binary T uses Hausman (1998) 1/(1 - p_01 - p_10) inflation; multi-class T (K>=3) uses the inverse-confusion-matrix transform built from the validation-set Bayes posterior. Optional bias-corrected bootstrap jointly resamples the validation set and the unlabeled corpus for honest CIs. SE inflation factor (delta-method) always reported in diagnostics. Validation status: experimental. Known limitations: method='hausman' is the only supported correction; the logistic and Bayesian variants from Egami et al. (2024) are not yet implemented.",
+      "description": "[experimental] Measurement-error correction for downstream OLS coefficients when a regressor was produced by an LLM (or any imperfect annotator). Binary T uses Hausman (1998) 1/(1 - p_01 - p_10) inflation; multi-class T (K>=3) uses the inverse-confusion-matrix transform built from the validation-set Bayes posterior (Egami et al. 2024); continuous scores (e.g. LLM sentiment) use regression calibration on the human-audited subsample (Fuller 1987; Carroll et al. 2006) -- the classical reliability-ratio correction when no covariates are present. Optional bias-corrected bootstrap jointly resamples the validation set and the unlabeled corpus for honest CIs. SE inflation factor (delta-method) always reported in diagnostics. Validation status: experimental. Known limitations: discrete corrections cover Hausman (binary) and the inverse-confusion-matrix transform (K>=3); the logistic and Bayesian variants from Egami et al. (2024) are not yet implemented; continuous correction assumes non-differential (classical) measurement error; differential measurement error is not supported.",
       "name": "llm_annotator_correct",
       "parameters": {
         "properties": {
@@ -15985,7 +15986,7 @@
             "type": "string"
           },
           "annotations_llm": {
-            "description": "Binary or K-class numeric labels",
+            "description": "Binary / K-class numeric labels, or a continuous score",
             "type": "string"
           },
           "bootstrap": {
@@ -16002,10 +16003,12 @@
             "type": "string"
           },
           "method": {
-            "default": "hausman",
-            "description": "Estimator or algorithm variant to use.",
+            "default": "auto",
+            "description": "'auto' routes discrete labels to Hausman / confusion-matrix and continuous scores to regression calibration",
             "enum": [
-              "hausman"
+              "auto",
+              "hausman",
+              "reliability"
             ],
             "type": "string"
           },
@@ -29668,7 +29671,7 @@
             "type": "integer"
           },
           "result": {
-            "description": "Result from ``metalearner()``.",
+            "description": "Result from ``metalearner()`` / ``tarnet()``, a fitted ``causal_forest()`` model, or a raw array of per-unit CATE estimates.",
             "type": "string"
           }
         },
@@ -32751,6 +32754,10 @@
             "description": "Cluster identifier column for clustered standard errors.",
             "type": "string"
           },
+          "d": {
+            "description": "d parameter (Optional[Any]).",
+            "type": "string"
+          },
           "data": {
             "description": "pandas DataFrame containing the variables used by the estimator.",
             "type": "string"
@@ -32766,7 +32773,7 @@
             "type": "string"
           },
           "x_endog": {
-            "description": "x_endog parameter (List[str]).",
+            "description": "x_endog parameter (Optional[List[str]]).",
             "items": {
               "type": "string"
             },
@@ -32793,8 +32800,7 @@
         },
         "required": [
           "data",
-          "y",
-          "x_endog"
+          "y"
         ],
         "type": "object"
       }

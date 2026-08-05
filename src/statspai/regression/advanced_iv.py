@@ -30,7 +30,7 @@ High-Dimensional Metrics." *The R Journal*, 8(2), 185-199.
 """
 
 import warnings
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -516,13 +516,14 @@ def jive(
 def lasso_iv(
     data: pd.DataFrame,
     y: str,
-    x_endog: List[str],
+    x_endog: Optional[List[str]] = None,
     x_exog: Optional[List[str]] = None,
     z: Optional[List[str]] = None,
     robust: str = "robust",
     cluster: Optional[str] = None,
     penalty: str = "bic",
     alpha: float = 0.05,
+    d: Optional[Any] = None,
 ) -> EconometricResults:
     """
     LASSO-selected instrumental variables.
@@ -568,6 +569,15 @@ def lasso_iv(
     >>> bool(abs(result.params['educ'] - 0.7) < 0.2)
     True
     """
+    from ..core._param_aliases import resolve_alias
+
+    if isinstance(d, str):
+        d = [d]
+    x_endog = resolve_alias("x_endog", x_endog, "d", d)
+    if x_endog is None:
+        raise TypeError("lasso_iv() missing required argument: 'x_endog' (alias 'd')")
+    if isinstance(x_endog, str):
+        x_endog = [x_endog]
     if x_exog is None:
         x_exog = []
     if z is None:

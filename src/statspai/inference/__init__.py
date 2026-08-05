@@ -20,6 +20,7 @@ from .multiway_cluster import (
     multiway_cluster_vcov,
 )
 from .pate import PATEEstimator, pate
+from .ppi import ppi_mean, ppi_ols
 from .randomization import FisherResult, fisher_exact, ri_test
 from .twoway_cluster import twoway_cluster
 from .wild_bootstrap import wild_cluster_bootstrap
@@ -50,4 +51,6 @@ __all__ = [
     "cr3_jackknife_vcov",
     "meta_analysis",
     "MetaAnalysisResult",
+    "ppi_mean",
+    "ppi_ols",
 ]

@@ -44,6 +44,13 @@ ALLOWED_PHRASES: Tuple[str, ...] = (
 
 
 LIMITATIONS_DESCRIPTIVE_ONLY: Dict[str, List[str]] = {
+    "llm_annotator_correct": [
+        # Scope statement about the identification assumption of the
+        # continuous regression-calibration path, not a code path that
+        # raises: differential measurement error is unobservable from
+        # the data alone.
+        "continuous correction assumes non-differential",
+    ],
     "match": [
         # Both are documented parity boundaries, not code paths that raise:
         # greedy matching without replacement is genuinely order-dependent
@@ -244,7 +251,7 @@ def _runtime_map() -> (
             ),
             NotImplementedError,
         ),
-        ("llm_annotator_correct", "method='hausman' is the only supported"): (
+        ("llm_annotator_correct", "logistic and Bayesian variants"): (
             lambda: sp.llm_annotator_correct(
                 annotations_llm=df_cs["d"],
                 outcome=df_cs["y"],

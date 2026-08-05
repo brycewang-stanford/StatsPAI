@@ -19,18 +19,29 @@ Key features:
 - Both formula and direct array interfaces
 """
 
+import warnings
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import Optional, Tuple, Dict, Any, List
 from sklearn.base import BaseEstimator
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import cross_val_predict
 from sklearn.tree import DecisionTreeRegressor
-import warnings
 
 # Import our core classes
 from ..core.base import BaseModel
 from ..exceptions import DataInsufficient, MethodIncompatibility
+
+if TYPE_CHECKING:
+    from ..core.results import ScalarEffect
+
+
+def _sp_stats() -> Any:
+    """Lazily import ``scipy.stats`` (result-time inference only)."""
+    from scipy import stats as _stats
+
+    return _stats
 
 
 class CausalForest(BaseModel):
@@ -1257,19 +1268,84 @@ class CausalForest(BaseModel):
             index=names,
         )
 
-    def ate(self, X: Optional[np.ndarray] = None) -> float:
-        """Average Treatment Effect (mean CATE)."""
+    def _scalar_effect(
+        self,
+        value: float,
+        estimand: str,
+        target_sample: str,
+        X: Optional[np.ndarray],
+        T: Optional[np.ndarray] = None,
+    ) -> "ScalarEffect":
+        """Wrap a plug-in scalar effect with AIPW inference.
+
+        The float value is the historical plug-in aggregation of CATE
+        predictions (unchanged); SE / CI / p come from the GRF-style
+        doubly-robust score in :func:`average_treatment_effect`.  When
+        the score cannot be formed the value is returned with the
+        failure reason attached instead of silently dropping inference.
+        """
+        from ..core.results import ScalarEffect
+
+        try:
+            detail = self.average_treatment_effect(
+                X=X, T=T, target_sample=target_sample
+            )
+            return ScalarEffect(
+                value,
+                estimand=estimand,
+                se=detail.get("se"),
+                ci=(detail["ci_low"], detail["ci_high"]),
+                pvalue=(
+                    float(
+                        2
+                        * (
+                            1
+                            - _sp_stats().norm.cdf(
+                                abs(detail["estimate"] / detail["se"])
+                            )
+                        )
+                    )
+                    if detail.get("se")
+                    else None
+                ),
+                detail=detail,
+            )
+        except Exception as exc:  # loud in repr, not fatal for the value
+            return ScalarEffect(
+                value,
+                estimand=estimand,
+                inference_error=f"{type(exc).__name__}: {exc}",
+            )
+
+    def ate(self, X: Optional[np.ndarray] = None) -> "ScalarEffect":
+        """Average Treatment Effect.
+
+        Returns a :class:`~statspai.core.results.ScalarEffect` — a
+        ``float`` whose value is the plug-in mean CATE (identical to
+        the historical return) and which additionally carries the
+        GRF-style doubly-robust (AIPW) inference: ``.se``, ``.ci``,
+        ``.pvalue``, and the full aggregation payload in ``.detail``.
+        Printing the result shows the inference; arithmetic and
+        formatting behave exactly like the bare float did.
+        """
         if not self.fitted_:
             raise MethodIncompatibility(
                 "CausalForest.ate() requires a fitted model.",
                 recovery_hint="Call fit() before computing ATE.",
             )
-        return float(self.effect(X if X is not None else self._X_original).mean())
+        value = float(self.effect(X if X is not None else self._X_original).mean())
+        return self._scalar_effect(value, "ATE", "all", X)
 
     def att(
         self, X: Optional[np.ndarray] = None, T: Optional[np.ndarray] = None
-    ) -> float:
-        """Average Treatment Effect on the Treated."""
+    ) -> "ScalarEffect":
+        """Average Treatment Effect on the Treated.
+
+        Returns a :class:`~statspai.core.results.ScalarEffect` — the
+        historical plug-in mean CATE over treated rows as the float
+        value, with GRF-style doubly-robust (ATT-score) inference
+        attached as ``.se`` / ``.ci`` / ``.pvalue`` / ``.detail``.
+        """
         if not self.fitted_:
             raise MethodIncompatibility(
                 "CausalForest.att() requires a fitted model.",
@@ -1312,7 +1388,8 @@ class CausalForest(BaseModel):
                 "CausalForest.att() received no treated observations.",
                 recovery_hint="Pass a treatment vector with at least one T == 1 row.",
             )
-        return float(cate[mask].mean())
+        value = float(cate[mask].mean())
+        return self._scalar_effect(value, "ATT", "treated", X, T=T_arr)
 
 
 def causal_forest(
@@ -1330,6 +1407,10 @@ def causal_forest(
     model_t: Optional[BaseEstimator] = None,
     discrete_treatment: bool = True,
     random_state: Optional[int] = None,
+    y: Optional[str] = None,
+    d: Optional[str] = None,
+    x: Optional[Any] = None,
+    w: Optional[Any] = None,
     **kwargs: Any,
 ) -> CausalForest:
     """
@@ -1368,6 +1449,12 @@ def causal_forest(
         Whether treatment is discrete
     random_state : int, optional
         Random seed
+    y, d, x, w : str / list of str, optional
+        Column-name interface (canonical vocabulary shared with
+        ``sp.dml`` / ``sp.tarnet``): ``causal_forest(data=df,
+        y="outcome", d="treatment", x=["x1", "x2"])``.  ``x`` and ``w``
+        accept a single name or a list.  Mutually exclusive with the
+        formula and array interfaces.
     **kwargs
         Additional arguments passed to CausalForest
 
@@ -1401,6 +1488,41 @@ def causal_forest(
     >>> effects = cf.effect(data[['X1', 'X2']])
     >>> print(f"Mean effect: {effects.mean():.3f}")
     """
+    # Column-name interface: causal_forest(data=df, y="wage", d="grad",
+    # x=["ability", ...]) — the same canonical y/d/x vocabulary used by
+    # sp.dml / sp.tarnet, as an alternative to formula= or Y/T/X arrays.
+    if y is not None or d is not None or x is not None or w is not None:
+        if data is None:
+            raise MethodIncompatibility(
+                "causal_forest(): column names y=/d=/x= require data=.",
+                recovery_hint="Pass the DataFrame via data=.",
+            )
+        if formula is not None or Y is not None or T is not None or X is not None:
+            raise MethodIncompatibility(
+                "causal_forest(): pass either column names (y/d/x), a "
+                "formula, or arrays (Y/T/X) — not a mixture.",
+                recovery_hint="Drop the redundant specification.",
+            )
+        if y is None or d is None or x is None:
+            raise MethodIncompatibility(
+                "causal_forest(): the column-name interface needs all of "
+                "y=, d=, and x=.",
+                recovery_hint="Pass y='outcome', d='treatment', x=[...cols].",
+            )
+        x_cols = [x] if isinstance(x, str) else list(x)
+        w_cols = [] if w is None else ([w] if isinstance(w, str) else list(w))
+        missing = [c for c in [y, d, *x_cols, *w_cols] if c not in data.columns]
+        if missing:
+            raise MethodIncompatibility(
+                f"causal_forest(): column(s) not in data: {missing}.",
+                recovery_hint="Check the column names against data.columns.",
+            )
+        Y = data[y].to_numpy()
+        T = data[d].to_numpy()
+        X = data[x_cols].to_numpy()
+        W = data[w_cols].to_numpy() if w_cols else None
+        data = None  # arrays fully specify the fit below
+
     cf = CausalForest(
         n_estimators=n_estimators,
         min_samples_leaf=min_samples_leaf,

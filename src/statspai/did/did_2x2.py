@@ -75,8 +75,8 @@ def _did2x2_bayes_engine(
 def did_2x2(
     data: pd.DataFrame,
     y: str,
-    treat: str,
-    time: str,
+    treat: Optional[str] = None,
+    time: Optional[str] = None,
     covariates: Optional[List[str]] = None,
     cluster: Optional[str] = None,
     robust: bool = True,
@@ -87,6 +87,7 @@ def did_2x2(
     wild_reps: int = 999,
     wild_weight_type: str = "rademacher",
     seed: Optional[int] = None,
+    d: Optional[str] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """
@@ -166,6 +167,13 @@ def did_2x2(
     >>> bool(abs(result.estimate - 5.0) < 1.0)
     True
     """
+    from ..core._param_aliases import resolve_alias
+
+    treat = resolve_alias("treat", treat, "d", d)
+    if treat is None:
+        raise TypeError("did_2x2() missing required argument: 'treat' (alias 'd')")
+    if time is None:
+        raise TypeError("did_2x2() missing required argument: 'time'")
     robust = require_bool(robust, argument="robust")
     if engine not in ("ols", "bayes"):
         raise ValueError(f"engine must be 'ols' or 'bayes'; got {engine!r}.")

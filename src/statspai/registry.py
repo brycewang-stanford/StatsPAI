@@ -7753,23 +7753,30 @@ def _build_registry() -> None:
             name="llm_annotator_correct",
             category="causal_text",
             description=(
-                "[experimental] Egami et al. (2024) measurement-error "
-                "correction for downstream OLS coefficients when the "
-                "treatment indicator was produced by an LLM (or any "
-                "imperfect classifier). Binary T uses Hausman (1998) "
-                "1/(1 - p_01 - p_10) inflation; multi-class T (K>=3) uses "
-                "the inverse-confusion-matrix transform built from the "
-                "validation-set Bayes posterior. Optional bias-corrected "
-                "bootstrap jointly resamples the validation set and the "
-                "unlabeled corpus for honest CIs. SE inflation factor "
-                "(delta-method) always reported in diagnostics."
+                "[experimental] Measurement-error correction for "
+                "downstream OLS coefficients when a regressor was "
+                "produced by an LLM (or any imperfect annotator). "
+                "Binary T uses Hausman (1998) 1/(1 - p_01 - p_10) "
+                "inflation; multi-class T (K>=3) uses the "
+                "inverse-confusion-matrix transform built from the "
+                "validation-set Bayes posterior (Egami et al. 2024); "
+                "continuous scores (e.g. LLM sentiment) use regression "
+                "calibration on the human-audited subsample (Fuller "
+                "1987; Carroll et al. 2006) — the classical "
+                "reliability-ratio correction when no covariates are "
+                "present. Optional bias-corrected bootstrap jointly "
+                "resamples the validation set and the unlabeled corpus "
+                "for honest CIs. SE inflation factor (delta-method) "
+                "always reported in diagnostics."
             ),
             params=[
                 ParamSpec(
                     "annotations_llm",
                     "Series",
                     True,
-                    description="Binary or K-class numeric labels",
+                    description=(
+                        "Binary / K-class numeric labels, or a " "continuous score"
+                    ),
                 ),
                 ParamSpec("outcome", "Series", True),
                 ParamSpec(
@@ -7779,7 +7786,18 @@ def _build_registry() -> None:
                     description="NaN where unavailable; >=30 valid rows",
                 ),
                 ParamSpec("covariates", "DataFrame", False),
-                ParamSpec("method", "str", False, "hausman", enum=["hausman"]),
+                ParamSpec(
+                    "method",
+                    "str",
+                    False,
+                    "auto",
+                    enum=["auto", "hausman", "reliability"],
+                    description=(
+                        "'auto' routes discrete labels to Hausman / "
+                        "confusion-matrix and continuous scores to "
+                        "regression calibration"
+                    ),
+                ),
                 ParamSpec(
                     "bootstrap",
                     "bool",
@@ -7822,13 +7840,19 @@ def _build_registry() -> None:
             ],
             reference=(
                 "Egami, Hinck, Stewart & Wei (NeurIPS 2024); "
-                "arXiv:2306.04746. Hausman et al. (1998)."
+                "arXiv:2306.04746. Hausman et al. (1998). Fuller "
+                "(1987) doi:10.1002/9780470316665; Carroll et al. "
+                "(2006) doi:10.1201/9781420010138."
             ),
             stability="experimental",
             limitations=[
-                "method='hausman' is the only supported correction; the "
+                "discrete corrections cover Hausman (binary) and the "
+                "inverse-confusion-matrix transform (K>=3); the "
                 "logistic and Bayesian variants from Egami et al. (2024) "
                 "are not yet implemented",
+                "continuous correction assumes non-differential "
+                "(classical) measurement error; differential "
+                "measurement error is not supported",
             ],
             assumptions=[
                 "Misclassification is non-differential: T_obs ⫫ y | T_true",

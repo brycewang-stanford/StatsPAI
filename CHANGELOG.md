@@ -4,6 +4,84 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **Continuous AI-label measurement-error correction.**
+  `sp.llm_annotator_correct` now handles *continuous* LLM scores (e.g.
+  sentiment in `[-1, 1]`) alongside the existing binary / multi-class
+  paths: regression calibration on the human-audited subsample (Fuller
+  1987; Carroll et al. 2006), which reduces to the classical
+  reliability-ratio correction `β/λ` when no covariates are present.
+  `method` gains `'auto'` (new default — routes discrete labels to
+  Hausman / confusion-matrix, continuous scores to calibration) and
+  `'reliability'`; discrete inputs behave exactly as before. The
+  bias-corrected bootstrap covers the new path too. (refs verified via
+  Crossref + publisher pages)
+
+- **Prediction-powered inference: `sp.ppi_mean` / `sp.ppi_ols`.**
+  Valid CIs that combine a small human-labeled sample with a large
+  ML/LLM-predicted sample (Angelopoulos et al. 2023, *Science*,
+  doi:10.1126/science.adi6000), with PPI++ power tuning
+  (arXiv:2311.01453) on by default — junk predictions collapse to
+  classical labeled-only inference instead of corrupting it. (refs
+  verified via Crossref + arXiv)
+
+- **`CausalForest.ate()` / `.att()` now carry inference.** They return
+  `sp.ScalarEffect` — a `float` subclass whose value is bit-identical
+  to the historical plug-in mean CATE (arithmetic, `float()`, and
+  format specs unchanged) but which prints with the GRF-style
+  doubly-robust SE / 95% CI / p-value and exposes them as `.se` /
+  `.ci` / `.pvalue` / `.detail`. Previously `print(cf.ate(X))` showed
+  a bare number with no inference at all.
+
+- **Labeled matrix-completion output.** `sp.matrix_completion` /
+  `sp.mc_panel` results now ship `model_info['completed_df']` (a
+  units × periods DataFrame), `units` / `periods` / `treated_units`,
+  and `counterfactual` (completed rows for the treated units) — no
+  more guessing which raw matrix row is the treated unit (row order
+  follows the pivot's lexicographic unit sort, which silently differs
+  from insertion order for labels like `省1` / `省10` / `省2`).
+
+- **Canonical `y` / `d` / `x` parameter aliases.** One agent-friendly
+  vocabulary across estimators, additive only: `tarnet` / `cfrnet` /
+  `dragonnet` / `metalearner` accept `d=` (treat) and `x=`
+  (covariates); `did_2x2` accepts `d=`; `lasso_iv` accepts `d=`
+  (x_endog, str or list); `synth` accepts `y=` (outcome); and
+  `causal_forest` gains a column-name interface
+  (`data=df, y=..., d=..., x=[...]`) beside its formula and array
+  interfaces. Supplying both spellings with conflicting values raises.
+
+- **Uniform CATE access.** `CausalResult.cate` and
+  `CausalResult.effect(X=None)` mirror `CausalForest.effect()`;
+  `tarnet` / `cfrnet` / `dragonnet` results can now predict effects
+  for *new* covariates via the attached fitted network. `cate_summary`
+  / `cate_by_group` / `cate_plot` accept a fitted `causal_forest`
+  model or a raw effect array, not just `CausalResult`.
+
+- **Panel-counterfactual conveniences on results.** `result.weights`
+  (donor weights as a DataFrame), `result.counterfactual()` (synthetic
+  / completed outcome path with a time index), and `result.gaps`
+  (treated − counterfactual) work uniformly on `sp.synth` and
+  `sp.matrix_completion` results. `EconometricResults.coef(term)`
+  returns one coefficient's full inference row without the
+  `tidy().set_index().loc[...]` dance; `CausalResult.coef` is a
+  float-compatible `ScalarEffect` carrying the headline effect's
+  SE / CI / p-value (duck-typing probes like
+  `float(getattr(res, "coef", res.estimate))` keep working).
+
+- **`sp.policy_targeting`** — budget-constrained treatment targeting
+  from CATE estimates (rank by predicted effect, treat until the
+  budget or the `min_effect` guard binds), with treat-all and
+  random-assignment baselines. Accepts raw arrays, CATE-bearing
+  results, or fitted forests.
+
+### Changed
+
+- **DML summary footer labels are readable.** `Ml G:` →
+  `ML model for g(X) — outcome`, `Ml M:` → `ML model for m(X) —
+  treatment`, `Dml Model` → `DML model`; private (underscore-prefixed)
+  `model_info` keys such as `_pscore` no longer leak into the footer.
+
 ### Fixed
 
 - **`sp.rd_honest`'s schema advertised an option the function rejects.**

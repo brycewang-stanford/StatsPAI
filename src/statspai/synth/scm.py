@@ -38,7 +38,8 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Tuple, Literal, cast
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
+
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -181,9 +182,9 @@ def _coerce_optional_column_list(columns: Any, name: str) -> Optional[List[str]]
 
 def synth(
     data: pd.DataFrame,
-    outcome: str,
-    unit: str,
-    time: str,
+    outcome: Optional[str] = None,
+    unit: Optional[str] = None,
+    time: Optional[str] = None,
     treated_unit: Any = None,
     treatment_time: Any = None,
     method: str = "classic",
@@ -193,6 +194,7 @@ def synth(
     alpha: float = 0.05,
     inference: Optional[str] = None,
     treatment: Optional[str] = None,
+    y: Optional[str] = None,
     **kwargs: Any,
 ) -> CausalResult:
     """Public ``sp.synth`` entry point — see ``_dispatch_synth_impl`` for
@@ -233,6 +235,13 @@ def synth(
     To fit several SCM variants at once and get a recommendation, use
     :func:`sp.synth_compare` with the same arguments.
     """
+    from ..core._param_aliases import resolve_alias
+
+    outcome = resolve_alias("outcome", outcome, "y", y)
+    if outcome is None:
+        raise TypeError("synth() missing required argument: 'outcome' (alias 'y')")
+    if unit is None or time is None:
+        raise TypeError("synth() missing required arguments: 'unit' and 'time'")
     _result = _dispatch_synth_impl(
         data=data,
         outcome=outcome,
@@ -1383,8 +1392,8 @@ class SyntheticControl:
         ``scale``, ``n_starts``, ``converged``.
         """
         from ._core import (
-            solve_synth_weights_adh,
             _inner_w_given_v,
+            solve_synth_weights_adh,
             standardize_predictors,
         )
 

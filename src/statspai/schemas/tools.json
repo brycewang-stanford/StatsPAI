@@ -2539,7 +2539,7 @@
           "type": "integer"
         },
         "result": {
-          "description": "Result from ``metalearner()``.",
+          "description": "Result from ``metalearner()`` / ``tarnet()``, a fitted ``causal_forest()`` model, or a raw array of per-unit CATE estimates.",
           "type": "string"
         }
       },
@@ -11271,6 +11271,10 @@
           "description": "Cluster identifier column for clustered standard errors.",
           "type": "string"
         },
+        "d": {
+          "description": "d parameter (Optional[Any]).",
+          "type": "string"
+        },
         "penalty": {
           "default": "bic",
           "description": "Instrument selection criterion: 'bic', 'aic', 'cv'.",
@@ -11282,7 +11286,7 @@
           "type": "string"
         },
         "x_endog": {
-          "description": "x_endog parameter (List[str]).",
+          "description": "x_endog parameter (Optional[List[str]]).",
           "items": {
             "type": "string"
           },
@@ -11308,7 +11312,6 @@
         }
       },
       "required": [
-        "x_endog",
         "y"
       ],
       "type": "object"
@@ -15958,6 +15961,35 @@
     "name": "poisson"
   },
   {
+    "description": "Rank-and-treat policy under a budget constraint.",
+    "input_schema": {
+      "properties": {
+        "budget": {
+          "description": "Maximum number of units that can be treated. Mutually exclusive with ``frac``.",
+          "type": "integer"
+        },
+        "cate": {
+          "description": "Per-unit effect estimates -- a raw array, a ``metalearner()`` / ``tarnet()`` result, or a fitted ``causal_forest()`` model (training-sample effects are used).",
+          "type": "string"
+        },
+        "frac": {
+          "description": "Maximum *fraction* of units that can be treated (in ``(0, 1]``).",
+          "type": "number"
+        },
+        "min_effect": {
+          "default": 0.0,
+          "description": "Never treat a unit whose predicted effect is at or below this threshold, even with budget left over -- treating predicted non-responders wastes budget and can do harm.",
+          "type": "number"
+        }
+      },
+      "required": [
+        "cate"
+      ],
+      "type": "object"
+    },
+    "name": "policy_targeting"
+  },
+  {
     "description": "Doubly-robust policy-tree -- article-facing alias. Validation: certified parity evidence.",
     "input_schema": {
       "properties": {
@@ -16065,6 +16097,97 @@
       "type": "object"
     },
     "name": "postestimation_report"
+  },
+  {
+    "description": "Prediction-powered estimate of a population mean.",
+    "input_schema": {
+      "properties": {
+        "alpha": {
+          "default": 0.05,
+          "description": "CI level (1 - alpha confidence).",
+          "type": "number"
+        },
+        "tune": {
+          "default": true,
+          "description": "Use the PPI++ power-tuning weight ``lambda in [0, 1]``. ``False`` fixes ``lambda = 1`` (the original PPI estimator).",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Gold-standard (human) outcomes on the labeled sample.",
+          "type": "string"
+        },
+        "yhat": {
+          "description": "Model predictions on the *same* labeled rows.",
+          "type": "string"
+        },
+        "yhat_unlabeled": {
+          "description": "Model predictions on the unlabeled rows.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "y",
+        "yhat",
+        "yhat_unlabeled"
+      ],
+      "type": "object"
+    },
+    "name": "ppi_mean"
+  },
+  {
+    "description": "Prediction-powered OLS with a labeled audit sample.",
+    "input_schema": {
+      "properties": {
+        "X": {
+          "description": "Covariates for the labeled rows.",
+          "type": "string"
+        },
+        "X_unlabeled": {
+          "description": "Covariates for the unlabeled rows (same columns as ``X``).",
+          "type": "string"
+        },
+        "add_intercept": {
+          "default": true,
+          "description": "Prepend a constant column to both design matrices.",
+          "type": "boolean"
+        },
+        "alpha": {
+          "default": 0.05,
+          "description": "CI level (1 - alpha confidence).",
+          "type": "number"
+        },
+        "target": {
+          "description": "Which coefficient is the headline ``estimate``. Defaults to the first non-intercept term.",
+          "type": "integer"
+        },
+        "tune": {
+          "default": true,
+          "description": "Per-coefficient PPI++ power tuning. ``False`` fixes ``lambda = 1``.",
+          "type": "boolean"
+        },
+        "y": {
+          "description": "Gold-standard outcomes for the labeled rows.",
+          "type": "string"
+        },
+        "yhat": {
+          "description": "Model-predicted outcomes for the same labeled rows.",
+          "type": "string"
+        },
+        "yhat_unlabeled": {
+          "description": "Model-predicted outcomes for the unlabeled rows.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "X",
+        "X_unlabeled",
+        "y",
+        "yhat",
+        "yhat_unlabeled"
+      ],
+      "type": "object"
+    },
+    "name": "ppi_ols"
   },
   {
     "description": "Pseudo-Poisson Maximum Likelihood with high-dimensional fixed effects. Validation: certified parity evidence. Do NOT use when: vce='conley' on more than ~20,000 rows -- dense O(n^2) memory (see cost); vce='conley' with high-dimensional fixed effects -- the conleyreg-matching construction is dummy-based and raises MethodIncompatibility past 1,000 dummy columns; use cluster= (CRV1) there. Cost: IRLS is linear in n. vce='conley' builds the FE-as-dummies design plus dense n x n great-circle distance and kernel matrices (glm_conley_vcov) -- ~0.8 GB at n=10,000 and ~80 GB at n=100,000 -- and it refuses designs with >= n or > 1,000 dummy columns. Use cluster= (CRV1) instead at that scale.",
@@ -25220,129 +25343,5 @@
       "type": "object"
     },
     "name": "xtnbreg"
-  },
-  {
-    "description": "Nonparametric causal decomposition of a group disparity.",
-    "input_schema": {
-      "properties": {
-        "alpha": {
-          "default": 0.05,
-          "description": "Two-sided coverage level.",
-          "type": "number"
-        },
-        "cluster": {
-          "description": "Column name to use for cluster bootstrap.",
-          "type": "string"
-        },
-        "group": {
-          "description": "Binary group indicator (0/1) -- ``1`` = advantaged / index group.",
-          "type": "string"
-        },
-        "inference": {
-          "default": "bootstrap",
-          "description": "``\"bootstrap\"`` returns SEs and percentile CIs from the non-parametric (cluster-aware) bootstrap. ``\"none\"`` skips inference.",
-          "type": "string"
-        },
-        "method": {
-          "default": "plugin",
-          "description": "``\"plugin\"`` uses within-cell OLS for outcomes and within-group logit for the propensity and computes plug-in expectations (Yu-Elwert 2025, Section 4.1). ``\"efficient\"`` augments each moment with the doubly-robust correction term -- recommended when nuisance functions might be misspecified.",
-          "enum": [
-            "plugin",
-            "efficient"
-          ],
-          "type": "string"
-        },
-        "n_boot": {
-          "default": 499,
-          "description": "Number of bootstrap replications.",
-          "type": "integer"
-        },
-        "seed": {
-          "default": 12345,
-          "description": "Random seed for reproducible stochastic steps.",
-          "type": "integer"
-        },
-        "treatment": {
-          "description": "Binary treatment indicator (0/1).",
-          "type": "string"
-        },
-        "trim": {
-          "default": 0.005,
-          "description": "Lower/upper clip for fitted propensities (only used in ``method=\"efficient\"``).",
-          "type": "number"
-        },
-        "x": {
-          "description": "Adjustment covariates (used to identify within-group CATEs).",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Name of the (continuous) outcome column.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "group",
-        "treatment",
-        "x",
-        "y"
-      ],
-      "type": "object"
-    },
-    "name": "yu_elwert_decompose"
-  },
-  {
-    "description": "Bauer-Sinning (2008) nonlinear Oaxaca-Blinder decomposition with",
-    "input_schema": {
-      "properties": {
-        "group": {
-          "description": "Group or cohort identifier.",
-          "type": "string"
-        },
-        "model": {
-          "default": "logit",
-          "description": "Model variant or parameterisation to fit.",
-          "enum": [
-            "logit",
-            "probit"
-          ],
-          "type": "string"
-        },
-        "reference": {
-          "default": 0,
-          "description": "reference parameter (int).",
-          "enum": [
-            "0",
-            "1"
-          ],
-          "type": "integer"
-        },
-        "variant": {
-          "default": "yun",
-          "description": "variant parameter (str).",
-          "type": "string"
-        },
-        "x": {
-          "description": "Primary running variable, regressor, or feature input for this estimator.",
-          "items": {
-            "type": "string"
-          },
-          "type": "array"
-        },
-        "y": {
-          "description": "Outcome variable column name or outcome array.",
-          "type": "string"
-        }
-      },
-      "required": [
-        "group",
-        "x",
-        "y"
-      ],
-      "type": "object"
-    },
-    "name": "yun_nonlinear"
   }
 ]

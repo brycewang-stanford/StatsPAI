@@ -23,6 +23,7 @@ JASA, 116(536), 1716-1730. [@athey2021matrix]
 """
 
 from typing import Optional
+
 import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
@@ -325,6 +326,12 @@ class MCPanel:
         U, s, Vt = np.linalg.svd(L, full_matrices=False)
         effective_rank = int(np.sum(s > 1e-6))
 
+        periods = Y_mat.columns.tolist()
+        treated_units = [u for i, u in enumerate(units) if treated_mask[i].any()]
+        completed_df = pd.DataFrame(L, index=units, columns=periods)
+        completed_df.index.name = self.unit
+        completed_df.columns.name = self.time
+
         model_info = {
             "lambda_reg": self.lambda_reg,
             "effective_rank": effective_rank,
@@ -334,6 +341,16 @@ class MCPanel:
             "n_control_cells": int(Omega.sum()),
             "completed_matrix": L,
             "treatment_effects_matrix": tau_matrix,
+            # Labeled views — completed_matrix rows follow this exact
+            # unit order; use these instead of guessing row positions.
+            "units": list(units),
+            "periods": list(periods),
+            "treated_units": treated_units,
+            "completed_df": completed_df,
+            "observed_df": Y_mat,
+            # Counterfactual (untreated potential outcome) series for
+            # each treated unit: rows = treated units, columns = periods.
+            "counterfactual": completed_df.loc[treated_units],
         }
 
         self._L = L

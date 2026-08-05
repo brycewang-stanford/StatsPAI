@@ -53,7 +53,7 @@ from .bartik import (
 # Eager: ``causal_impact`` collides (function + subpackage of same name).
 from .causal_impact import CausalImpactEstimator, causal_impact, impactplot
 from .core.effect_summary import EffectSummary, effect_summary  # noqa: E402
-from .core.results import CausalResult, EconometricResults
+from .core.results import CausalResult, EconometricResults, ScalarEffect
 
 # Eager: ``deepiv`` is both a function (sp.deepiv(...)) and a subpackage.
 # Lazy-loading collides with the subpackage attachment — see the
@@ -209,6 +209,8 @@ from .inference import (
     meta_analysis,
     multiway_cluster_vcov,
     pate,
+    ppi_mean,
+    ppi_ols,
     ri_test,
     subcluster_wild_bootstrap,
     twoway_cluster,
@@ -795,6 +797,7 @@ from .policy_learning import (
     direct_method,
     doubly_robust,
     ips,
+    policy_targeting,
     policy_tree,
     policy_value,
     snips,
@@ -1100,6 +1103,7 @@ __all__ = [
     # Core
     "EconometricResults",
     "CausalResult",
+    "ScalarEffect",
     "EffectSummary",
     "effect_summary",
     # Agent-native exception taxonomy
@@ -1461,6 +1465,9 @@ __all__ = [
     # Meta-analysis (evidence synthesis)
     "meta_analysis",
     "MetaAnalysisResult",
+    # Prediction-powered inference (AI/ML-labeled data)
+    "ppi_mean",
+    "ppi_ols",
     # Marginal Structural Models (time-varying treatment)
     "msm",
     "MarginalStructuralModel",
@@ -1551,6 +1558,7 @@ __all__ = [
     "PolicyTree",
     "PolicyTreeResult",
     "policy_value",
+    "policy_targeting",
     # Conformal Causal Inference
     "conformal_cate",
     "ConformalCATE",

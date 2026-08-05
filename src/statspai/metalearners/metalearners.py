@@ -23,16 +23,18 @@ Supported learners
 """
 
 from typing import Any, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 from scipy import stats
+
+from ..core.results import CausalResult
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # sklearn is imported lazily inside the functions/methods that need it so
 # that ``import statspai`` doesn't pull ~245 sklearn submodules through
 # this file when the user never touches metalearners.
 
-from ..core.results import CausalResult
-from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # ======================================================================
 # Helpers
@@ -778,8 +780,8 @@ class DRLearner:
 def metalearner(
     data: pd.DataFrame,
     y: str,
-    treat: str,
-    covariates: List[str],
+    treat: Optional[str] = None,
+    covariates: Optional[List[str]] = None,
     learner: str = "dr",
     outcome_model: Optional[Any] = None,
     propensity_model: Optional[Any] = None,
@@ -787,6 +789,8 @@ def metalearner(
     n_folds: int = 5,
     n_bootstrap: int = 200,
     alpha: float = 0.05,
+    d: Optional[str] = None,
+    x: Optional[List[str]] = None,
 ) -> CausalResult:
     """
     Estimate heterogeneous treatment effects using meta-learners.
@@ -889,6 +893,17 @@ def metalearner(
     True
     """
     from sklearn.base import clone
+
+    from ..core._param_aliases import resolve_alias
+
+    treat = resolve_alias("treat", treat, "d", d)
+    covariates = resolve_alias("covariates", covariates, "x", x)
+    if treat is None:
+        raise TypeError("metalearner() missing required argument: 'treat' (alias 'd')")
+    if covariates is None:
+        raise TypeError(
+            "metalearner() missing required argument: 'covariates' (alias 'x')"
+        )
 
     Y, D, X, n = _prepare_data(data, y, treat, covariates)
 

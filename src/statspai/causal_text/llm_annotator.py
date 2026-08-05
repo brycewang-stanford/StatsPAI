@@ -62,6 +62,18 @@ arXiv:2306.04746. [@egami2023imperfect]
 Hausman, J., Abrevaya, J., & Scott-Morton, F. (1998). "Misclassification
 of the dependent variable in a discrete-response setting."  *Journal of
 Econometrics*, 87, 239–269. [@hausman1998misclassification]
+
+Fuller, W. A. (1987). *Measurement Error Models*.  New York: John Wiley
+& Sons. doi:10.1002/9780470316665. [@fuller1987measurement]
+
+Carroll, R. J., Ruppert, D., Stefanski, L. A., & Crainiceanu, C. M.
+(2006). *Measurement Error in Nonlinear Models: A Modern Perspective*
+(2nd ed.). Chapman and Hall/CRC. doi:10.1201/9781420010138.
+[@carroll2006measurement]
+
+Spearman, C. (1904). "The Proof and Measurement of Association between
+Two Things."  *The American Journal of Psychology*, 15(1), 72–101.
+doi:10.2307/1412159. [@spearman1904proof]
 """
 
 from __future__ import annotations
@@ -160,12 +172,17 @@ class LLMAnnotatorResult(CausalResult):
     ) -> str:  # pragma: no cover (cosmetic)
         d = self.annotator_diagnostics
         n_classes = d.get("n_classes", 2)
+        continuous = d.get("annotation_type") == "continuous"
         lines = [
             "LLMAnnotatorResult",
             "=" * 60,
             f"  Method            : {self.method}",
             f"  Estimand          : {self.estimand}",
-            f"  N classes         : {n_classes}",
+            (
+                "  Annotation type   : continuous score"
+                if continuous
+                else f"  N classes         : {n_classes}"
+            ),
             f"  Naive estimate    : {self.naive_estimate:.4f} "
             f"(SE = {self.naive_se:.4f})",
             f"  Correction factor : {self.correction_factor:.4f}",
@@ -175,9 +192,21 @@ class LLMAnnotatorResult(CausalResult):
             f"  p-value           : {self.pvalue:.4f}",
             f"  N obs             : {self.n_obs}",
             f"  Validation N      : {d.get('n_validation', 'NA')}",
-            f"  Agreement rate    : {d.get('agreement', float('nan')):.4f}",
         ]
-        if n_classes == 2:
+        if continuous:
+            lines.append(
+                f"  Reliability λ     : {d.get('reliability', float('nan')):.4f}"
+            )
+            lines.append(
+                f"  Calibration slope : "
+                f"{d.get('calibration_slope', float('nan')):.4f} "
+                f"(R² = {d.get('calibration_r2', float('nan')):.3f})"
+            )
+        else:
+            lines.append(
+                f"  Agreement rate    : {d.get('agreement', float('nan')):.4f}"
+            )
+        if n_classes == 2 and not continuous:
             lines.append(f"  P(T_obs=1|T=0)    : " f"{d.get('p_01', float('nan')):.4f}")
             lines.append(f"  P(T_obs=0|T=1)    : " f"{d.get('p_10', float('nan')):.4f}")
         infl = d.get("se_inflation_factor")
@@ -660,6 +689,144 @@ def _correct_multiclass(
 
 
 # ----------------------------------------------------------------------
+# Continuous correction (regression calibration / reliability ratio)
+# ----------------------------------------------------------------------
+
+
+def _correct_continuous(
+    use_full: pd.DataFrame,
+    val: pd.DataFrame,
+    cov_cols: List[str],
+    alpha: float,
+) -> Dict[str, Any]:
+    """Continuous-score regression-calibration correction.
+
+    Fits the calibration model ``S_true ~ [1, S_llm, X]`` on the
+    validation rows, imputes the calibrated score for every row, and
+    re-runs the outcome OLS on the imputed score.  With no covariates
+    this reduces exactly to dividing the naive slope by the reliability
+    ratio ``λ = Cov(S_llm, S_true) / Var(S_llm)`` (Spearman 1904
+    attenuation; Fuller 1987 §1.1; Carroll et al. 2006 ch. 4).
+    Returns the same payload dict shape as the discrete paths.
+    """
+    n = len(use_full)
+    s_llm_val = val["T_llm"].astype(np.float64).values
+    s_true_val = val["T_human"].astype(np.float64).values
+
+    var_llm = float(np.var(s_llm_val, ddof=1)) if len(val) > 1 else 0.0
+    if not np.isfinite(var_llm) or var_llm <= 1e-12:
+        raise NumericalInstability(
+            "Validation-set LLM scores are (numerically) constant; the "
+            "reliability ratio Var-denominator is zero, so the "
+            "calibration slope is not estimable."
+        )
+
+    # Calibration model on the validation rows: S_true ~ [1, S_llm, X].
+    n_val = len(val)
+    cov_val = (
+        val[cov_cols].astype(np.float64).values if cov_cols else np.zeros((n_val, 0))
+    )
+    X_cal = np.hstack([np.ones((n_val, 1)), s_llm_val[:, None], cov_val])
+    if n_val <= X_cal.shape[1]:
+        from ..exceptions import DataInsufficient
+
+        raise DataInsufficient(
+            f"Continuous calibration needs more validation rows "
+            f"({n_val}) than calibration parameters ({X_cal.shape[1]})."
+        )
+    gamma, cov_gamma = _ols_hc1(X_cal, s_true_val)
+    gamma1 = float(gamma[1])
+    var_gamma1 = float(max(cov_gamma[1, 1], 0.0))
+
+    # Simple (unconditional) reliability ratio — reported for
+    # interpretability; equals gamma1 when there are no covariates.
+    reliability = float(np.cov(s_llm_val, s_true_val, ddof=1)[0, 1] / var_llm)
+    if gamma1 <= 0:
+        from ..exceptions import IdentificationFailure
+
+        raise IdentificationFailure(
+            f"Calibration slope on the validation set is "
+            f"{gamma1:.4f} <= 0: the LLM score carries no (positive) "
+            "information about the true score, so the attenuation "
+            "correction is not identified. Re-prompt the annotator or "
+            "enlarge the human-audited sample."
+        )
+
+    cal_fitted = X_cal @ gamma
+    ss_res = float(np.sum((s_true_val - cal_fitted) ** 2))
+    ss_tot = float(np.sum((s_true_val - s_true_val.mean()) ** 2))
+    calibration_r2 = 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+
+    # Naive OLS: y ~ [1, S_llm, X] on the full sample.
+    cov_full = (
+        use_full[cov_cols].astype(np.float64).values if cov_cols else np.zeros((n, 0))
+    )
+    s_llm_full = use_full["T_llm"].astype(np.float64).values
+    y_full = use_full["y"].astype(np.float64).values
+    X_naive = np.hstack([np.ones((n, 1)), s_llm_full[:, None], cov_full])
+    beta_naive, cov_naive = _ols_hc1(X_naive, y_full)
+    naive_estimate = float(beta_naive[1])
+    se_naive = float(np.sqrt(max(cov_naive[1, 1], 0.0)))
+
+    # Regression calibration: outcome OLS on the imputed score.
+    s_hat_full = np.hstack([np.ones((n, 1)), s_llm_full[:, None], cov_full]) @ gamma
+    X_rc = np.hstack([np.ones((n, 1)), s_hat_full[:, None], cov_full])
+    beta_rc, cov_rc = _ols_hc1(X_rc, y_full)
+    corrected_estimate = float(beta_rc[1])
+    corrected_se = float(np.sqrt(max(cov_rc[1, 1], 0.0)))
+
+    correction_factor = (
+        naive_estimate / corrected_estimate
+        if abs(corrected_estimate) > 1e-12
+        else float("nan")
+    )
+
+    # Validation-set inflation (delta method on gamma1):
+    # Var(β̂) ≈ Var_first_order + β̂² · Var(γ̂1) / γ1².
+    extra_var = (corrected_estimate**2) * var_gamma1 / (gamma1**2)
+    base_var = corrected_se**2
+    if base_var > 0:
+        infl = float(np.sqrt(1.0 + extra_var / base_var))
+    else:
+        infl = float("nan")
+
+    diag: Dict[str, Any] = {
+        "annotation_type": "continuous",
+        "reliability": reliability,
+        "calibration_slope": gamma1,
+        "calibration_slope_se": float(np.sqrt(var_gamma1)),
+        "calibration_r2": calibration_r2,
+        "correction_factor": float(correction_factor),
+        "n_validation": int(n_val),
+        "n_full": int(n),
+        "n_classes": None,
+        "se_inflation_factor": infl,
+        "se_correction": "first_order",
+    }
+    return {
+        "estimate": corrected_estimate,
+        "se": corrected_se,
+        "naive_estimate": naive_estimate,
+        "naive_se": se_naive,
+        "correction_factor": float(correction_factor),
+        "diag": diag,
+        "detail": None,
+    }
+
+
+def _looks_continuous(values: np.ndarray) -> bool:
+    """Heuristic: annotation values are continuous scores rather than
+    class labels — any non-integer value, or more than 10 distinct
+    values."""
+    finite = values[np.isfinite(values)]
+    if len(finite) == 0:
+        return False
+    if np.any(np.abs(finite - np.round(finite)) > 1e-9):
+        return True
+    return len(np.unique(finite)) > 10
+
+
+# ----------------------------------------------------------------------
 # Bootstrap (joint resampling of validation + unlabeled rows)
 # ----------------------------------------------------------------------
 
@@ -670,6 +837,7 @@ def _run_pipeline(
     classes: np.ndarray,
     n_classes: int,
     alpha: float,
+    mode: str = "discrete",
 ) -> Optional[float]:
     """Re-execute the entire correction pipeline on a (resampled)
     full-sample DataFrame.  Returns the headline estimate, or ``None``
@@ -680,7 +848,14 @@ def _run_pipeline(
     if len(val) < 2:
         return None
     try:
-        if n_classes == 2:
+        if mode == "continuous":
+            payload = _correct_continuous(
+                use_full,
+                val,
+                cov_cols,
+                alpha,
+            )
+        elif n_classes == 2:
             payload = _correct_binary(
                 use_full,
                 val,
@@ -709,6 +884,7 @@ def _bootstrap_ci(
     point: float,
     n_bootstrap: int,
     seed: Optional[int],
+    mode: str = "discrete",
 ) -> Tuple[float, float, float, np.ndarray, int]:
     """Joint resample the full sample and re-run the pipeline; report
     bias-corrected percentile bootstrap CIs.
@@ -729,6 +905,7 @@ def _bootstrap_ci(
             classes,
             n_classes,
             alpha,
+            mode=mode,
         )
         if est is None or not np.isfinite(est):
             draws[b] = np.nan
@@ -768,7 +945,7 @@ def llm_annotator_correct(
     outcome: pd.Series,
     annotations_human: Optional[pd.Series] = None,
     covariates: Optional[pd.DataFrame] = None,
-    method: str = "hausman",
+    method: str = "auto",
     bootstrap: bool = False,
     n_bootstrap: int = 500,
     bootstrap_seed: Optional[int] = None,
@@ -776,7 +953,7 @@ def llm_annotator_correct(
 ) -> LLMAnnotatorResult:
     """Correct a downstream causal coefficient for LLM annotation noise.
 
-    Implements two correction paths sharing the same API:
+    Implements three correction paths sharing the same API:
 
     * **Binary T** — Hausman (1998) ``β_corrected = β_obs / (1 - p_01
       - p_10)``.
@@ -785,23 +962,34 @@ def llm_annotator_correct(
       label as reference; per-class contrasts are recovered via a
       linear transformation built from the validation-set Bayes
       posterior ``Q[i, j] = P(T_true=i | T_obs=j)``.
+    * **Continuous score** — regression calibration.  The calibration
+      model ``S_true ~ S_llm + X`` is fitted on the human-audited
+      rows, the calibrated score is imputed for every row, and the
+      outcome OLS is re-run on the imputed score.  With no covariates
+      this is exactly the classical reliability-ratio correction
+      ``β_corrected = β_obs / λ`` with
+      ``λ = Cov(S_llm, S_true) / Var(S_llm)``.
 
     Parameters
     ----------
     annotations_llm : pd.Series
-        LLM-derived annotation for every row.  Binary or multi-class
-        (numeric class labels).
+        LLM-derived annotation for every row.  Binary / multi-class
+        (numeric class labels) or a continuous score (e.g. sentiment
+        in ``[-1, 1]``).
     outcome : pd.Series
         Outcome variable.
     annotations_human : pd.Series, optional
         Human annotation; ``NaN`` where unavailable.  At least 30 rows
-        with both LLM and human labels are required, and every true
-        class must appear at least once.
+        with both LLM and human labels are required; for discrete
+        paths every true class must appear at least once.
     covariates : pd.DataFrame, optional
         Additional control variables for the OLS regression.
-    method : {'hausman'}, default 'hausman'
-        Correction method.  Future versions will add full SAR with
-        super learners (Egami et al. 2024 §3).
+    method : {'auto', 'hausman', 'reliability'}, default 'auto'
+        Correction method.  ``'auto'`` routes integer-like labels with
+        few distinct values to the discrete Hausman / confusion-matrix
+        path and anything else to the continuous regression-calibration
+        path.  ``'hausman'`` forces the discrete path; ``'reliability'``
+        forces the continuous path.
     bootstrap : bool, default False
         If True, run a bias-corrected percentile bootstrap that
         resamples the full sample (validation rows + unlabeled rows
@@ -841,13 +1029,39 @@ def llm_annotator_correct(
     >>> bool(0.7 < r.estimate < 1.3)    # corrected toward the true ATE 1.0
     True
 
+    Continuous AI scores (e.g. LLM sentiment) with a human-audited
+    subsample use the regression-calibration path automatically:
+
+    >>> s_true = rng.uniform(-1, 1, n)
+    >>> s_ai = np.clip(s_true + rng.normal(0, 0.5, n), -1, 1)
+    >>> sales = 100 + 30 * s_true + rng.normal(0, 6, n)
+    >>> human_s = pd.Series([s_true[i] if i < n_val else np.nan
+    ...                      for i in range(n)])
+    >>> rc = sp.llm_annotator_correct(
+    ...     annotations_llm=pd.Series(s_ai),
+    ...     annotations_human=human_s,
+    ...     outcome=pd.Series(sales),
+    ... )
+    >>> rc.estimand
+    'slope'
+    >>> bool(abs(rc.estimate - 30) < abs(rc.naive_estimate - 30))
+    True
+
     References
     ----------
     Egami, Hinck, Stewart & Wei (NeurIPS 2024) — arXiv:2306.04746.
     Hausman, Abrevaya & Scott-Morton (J. Econometrics 1998).
+    Fuller (1987), *Measurement Error Models*, Wiley —
+    doi:10.1002/9780470316665.
+    Carroll, Ruppert, Stefanski & Crainiceanu (2006), *Measurement
+    Error in Nonlinear Models* (2nd ed.), Chapman & Hall/CRC —
+    doi:10.1201/9781420010138.
     """
-    if method not in {"hausman"}:
-        raise ValueError(f"Unknown method={method!r}. Currently supported: 'hausman'.")
+    if method not in {"auto", "hausman", "reliability"}:
+        raise ValueError(
+            f"Unknown method={method!r}. Supported: 'auto', 'hausman', "
+            "'reliability'."
+        )
     _validate_inputs(
         annotations_llm,
         annotations_human,
@@ -861,30 +1075,55 @@ def llm_annotator_correct(
         covariates,
     )
 
-    # Determine class set from the union of LLM and human labels.
-    classes_llm = pd.Series(use_full["T_llm"]).dropna().unique()
-    classes_h = pd.Series(val["T_human"]).dropna().unique()
-    classes_all = np.unique(np.concatenate([classes_llm, classes_h]))
-    classes_all = np.sort(classes_all)
-    n_classes = len(classes_all)
-    if n_classes < 2:
-        from ..exceptions import DataInsufficient
-
-        raise DataInsufficient(
-            f"Need at least 2 distinct classes in (T_llm ∪ T_human); "
-            f"got {n_classes}."
-        )
-
-    if n_classes == 2:
-        payload = _correct_binary(use_full, val, cov_cols, alpha)
+    all_labels = np.concatenate(
+        [
+            use_full["T_llm"].astype(np.float64).values,
+            val["T_human"].astype(np.float64).values,
+        ]
+    )
+    if method == "reliability":
+        continuous = True
+    elif method == "hausman":
+        if _looks_continuous(all_labels):
+            raise ValueError(
+                "method='hausman' requires discrete class labels, but the "
+                "annotations look continuous (non-integer values or more "
+                "than 10 distinct levels). Use method='reliability' (or "
+                "the default method='auto') for continuous scores."
+            )
+        continuous = False
     else:
-        payload = _correct_multiclass(
-            use_full,
-            val,
-            cov_cols,
-            classes_all,
-            alpha,
-        )
+        continuous = _looks_continuous(all_labels)
+
+    if continuous:
+        classes_all = np.array([])
+        n_classes = 0
+        payload = _correct_continuous(use_full, val, cov_cols, alpha)
+    else:
+        # Determine class set from the union of LLM and human labels.
+        classes_llm = pd.Series(use_full["T_llm"]).dropna().unique()
+        classes_h = pd.Series(val["T_human"]).dropna().unique()
+        classes_all = np.unique(np.concatenate([classes_llm, classes_h]))
+        classes_all = np.sort(classes_all)
+        n_classes = len(classes_all)
+        if n_classes < 2:
+            from ..exceptions import DataInsufficient
+
+            raise DataInsufficient(
+                f"Need at least 2 distinct classes in (T_llm ∪ T_human); "
+                f"got {n_classes}."
+            )
+
+        if n_classes == 2:
+            payload = _correct_binary(use_full, val, cov_cols, alpha)
+        else:
+            payload = _correct_multiclass(
+                use_full,
+                val,
+                cov_cols,
+                classes_all,
+                alpha,
+            )
 
     point = float(payload["estimate"])
     first_order_se = float(payload["se"])
@@ -892,9 +1131,14 @@ def llm_annotator_correct(
     fo_ci_lo = point - z * first_order_se
     fo_ci_hi = point + z * first_order_se
 
+    resolved_method = "reliability" if continuous else "hausman"
     diag = dict(payload["diag"])
-    diag["method"] = method
-    diag["method_family"] = "llm-annotator-mec (Egami et al. 2024)"
+    diag["method"] = resolved_method
+    diag["method_family"] = (
+        "regression-calibration (Fuller 1987; Carroll et al. 2006)"
+        if continuous
+        else "llm-annotator-mec (Egami et al. 2024)"
+    )
     diag["first_order_se"] = first_order_se
     diag["first_order_ci"] = (float(fo_ci_lo), float(fo_ci_hi))
 
@@ -913,6 +1157,7 @@ def llm_annotator_correct(
             point=point,
             n_bootstrap=n_bootstrap,
             seed=bootstrap_seed,
+            mode="continuous" if continuous else "discrete",
         )
         report_se = se_b
         ci_lo, ci_hi = lo_b, hi_b
@@ -939,9 +1184,15 @@ def llm_annotator_correct(
 
     diag["status"] = "experimental"
 
+    if continuous:
+        estimand = "slope"
+    elif n_classes == 2:
+        estimand = "ATE"
+    else:
+        estimand = "ATE_first_contrast"
     return LLMAnnotatorResult(
         method="llm_annotator_correct",
-        estimand="ATE" if n_classes == 2 else "ATE_first_contrast",
+        estimand=estimand,
         estimate=point,
         se=float(report_se),
         pvalue=pval,

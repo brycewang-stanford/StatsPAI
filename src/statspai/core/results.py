@@ -48,6 +48,104 @@ class SummaryText(str):
         )
 
 
+class ScalarEffect(float):
+    """``float`` subclass carrying inference alongside a point effect.
+
+    Returned by scalar-effect accessors such as
+    :meth:`CausalForest.ate` / :meth:`CausalForest.att`.  The float
+    value is unchanged from the historical return (so arithmetic,
+    ``float(x)``, and ``f"{x:.3f}"`` all behave identically), but the
+    object additionally exposes ``se`` / ``ci`` / ``pvalue`` /
+    ``estimand`` and prints with its inference instead of as a bare
+    number.
+
+    When the attached inference uses a different aggregation than the
+    float value (e.g. the value is the plug-in mean CATE while the SE
+    comes from the doubly-robust AIPW score), ``detail['estimate']``
+    holds the inference-native point estimate and the repr shows both.
+
+    Examples
+    --------
+    >>> e = ScalarEffect(1.25, estimand="ATE", se=0.5,
+    ...                  ci=(0.27, 2.23), pvalue=0.012)
+    >>> float(e)
+    1.25
+    >>> e + 1
+    2.25
+    >>> f"{e:.2f}"
+    '1.25'
+    >>> print(e)
+    ATE = 1.2500 (SE = 0.5000, 95% CI [0.2700, 2.2300], p = 0.0120)
+    """
+
+    estimand: str
+    se: Optional[float]
+    ci: Optional[tuple]
+    pvalue: Optional[float]
+    detail: Dict[str, Any]
+    inference_error: Optional[str]
+
+    def __new__(
+        cls,
+        value: float,
+        *,
+        estimand: str = "effect",
+        se: Optional[float] = None,
+        ci: Optional[tuple] = None,
+        pvalue: Optional[float] = None,
+        detail: Optional[Dict[str, Any]] = None,
+        inference_error: Optional[str] = None,
+    ) -> "ScalarEffect":
+        obj = super().__new__(cls, float(value))
+        obj.estimand = str(estimand)
+        obj.se = None if se is None else float(se)
+        obj.ci = None if ci is None else (float(ci[0]), float(ci[1]))
+        obj.pvalue = None if pvalue is None else float(pvalue)
+        obj.detail = dict(detail or {})
+        obj.inference_error = inference_error
+        return obj
+
+    def __str__(self) -> str:
+        base = f"{self.estimand} = {float(self):.4f}"
+        if self.se is None:
+            if self.inference_error:
+                return f"{base} (inference unavailable: {self.inference_error})"
+            return base
+        level = 100 * (1 - float(self.detail.get("alpha", 0.05)))
+        inf_point = self.detail.get("estimate")
+        parts = []
+        if inf_point is not None and abs(float(inf_point) - float(self)) > 1e-10:
+            method = str(self.detail.get("method", "inference"))
+            method = {"aipw": "AIPW", "plug_in": "plug-in"}.get(method, method)
+            parts.append(f"{method} estimate = {float(inf_point):.4f}")
+        parts.append(f"SE = {self.se:.4f}")
+        if self.ci is not None:
+            parts.append(f"{level:.0f}% CI [{self.ci[0]:.4f}, {self.ci[1]:.4f}]")
+        if self.pvalue is not None:
+            parts.append(f"p = {self.pvalue:.4f}")
+        return f"{base} ({', '.join(parts)})"
+
+    def __repr__(self) -> str:
+        return self.__str__()
+
+    def __format__(self, spec: str) -> str:
+        if spec:
+            return float.__format__(self, spec)
+        return self.__str__()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """JSON-safe payload (agent-native accessor)."""
+        return {
+            "estimand": self.estimand,
+            "estimate": float(self),
+            "se": self.se,
+            "ci": list(self.ci) if self.ci is not None else None,
+            "pvalue": self.pvalue,
+            "detail": _to_jsonable(self.detail),
+            "inference_error": self.inference_error,
+        }
+
+
 # ----------------------------------------------------------------------
 # JSON-safe coercion used by to_dict() / for_agent() on the result
 # classes below.  Agents consume these methods; the output MUST round-trip
@@ -348,6 +446,49 @@ class EconometricResults:
                 "conf_high": _arr(hi),
             }
         )
+
+    def coef(self, term: str, conf_level: float = 0.95) -> pd.Series:
+        """One coefficient's full inference row as a named Series.
+
+        Shorthand for ``result.tidy().set_index("term").loc[term]`` —
+        the estimate, standard error, t-statistic, p-value, and CI for
+        a single term without the indexing dance.
+
+        Parameters
+        ----------
+        term : str
+            Coefficient name as it appears in ``params`` / ``tidy()``.
+        conf_level : float, default 0.95
+            CI level for ``conf_low`` / ``conf_high``.
+
+        Returns
+        -------
+        pd.Series
+            Index: ``estimate``, ``std_error``, ``statistic``,
+            ``p_value``, ``conf_low``, ``conf_high``; name = ``term``.
+
+        Examples
+        --------
+        >>> import numpy as np, pandas as pd
+        >>> import statspai as sp
+        >>> rng = np.random.default_rng(0)
+        >>> x = rng.normal(size=200)
+        >>> df = pd.DataFrame({"y": 2.0 * x + rng.normal(size=200), "x": x})
+        >>> row = sp.regress("y ~ x", data=df).coef("x")
+        >>> bool(abs(row["estimate"] - 2.0) < 0.2)
+        True
+        >>> bool(row["p_value"] < 0.01)
+        True
+        """
+        table = self.tidy(conf_level=conf_level).set_index("term")
+        if term not in table.index:
+            raise MethodIncompatibility(
+                f"Unknown coefficient {term!r}.",
+                recovery_hint=(f"Available terms: {list(table.index)}."),
+            )
+        row = table.loc[term]
+        row.name = term
+        return row
 
     def glance(self) -> pd.DataFrame:
         """Return a 1-row DataFrame of model-level statistics, broom-style.
@@ -1360,6 +1501,20 @@ class CausalResult:
     """
 
     _CITATIONS: Dict[str, str] = {
+        "ppi": (
+            "@article{angelopoulos2023prediction,\n"
+            "  title={Prediction-powered inference},\n"
+            "  author={Angelopoulos, Anastasios N. and Bates, Stephen "
+            "and Fannjiang, Clara and Jordan, Michael I. and Zrnic, "
+            "Tijana},\n"
+            "  journal={Science},\n"
+            "  volume={382},\n"
+            "  number={6671},\n"
+            "  pages={669--674},\n"
+            "  year={2023},\n"
+            "  doi={10.1126/science.adi6000}\n"
+            "}"
+        ),
         "did_2x2": (
             "@book{angrist2009mostly,\n"
             "  title={Mostly Harmless Econometrics: An Empiricist's Companion},\n"
@@ -2518,6 +2673,186 @@ class CausalResult:
         return {"nobs": self.n_obs}
 
     # ------------------------------------------------------------------
+    # Uniform CATE access (shared vocabulary with CausalForest.effect)
+    # ------------------------------------------------------------------
+
+    @property
+    def cate(self) -> np.ndarray:
+        """Per-unit conditional treatment effects, when the estimator
+        produced them (``metalearner`` / ``tarnet`` / ``dml`` IRM …).
+
+        Uniform accessor mirroring ``CausalForest.effect()`` so CATE
+        estimators share one vocabulary: ``result.cate`` instead of
+        digging through ``result.model_info['cate']``.
+        """
+        if "_cate_attr" in self.__dict__:
+            return self.__dict__["_cate_attr"]
+        for key in ("cate", "ite"):
+            if key in self.model_info:
+                return np.asarray(self.model_info[key], dtype=float).ravel()
+        raise MethodIncompatibility(
+            f"{self.method!r} result does not carry per-unit effects.",
+            recovery_hint=(
+                "Use a CATE estimator (sp.metalearner, sp.tarnet, "
+                "sp.causal_forest) to get individual-level effects."
+            ),
+        )
+
+    @cate.setter
+    def cate(self, value: Any) -> None:
+        # Subclasses may assign per-unit effects directly; stored
+        # verbatim and preferred by the getter.
+        self.__dict__["_cate_attr"] = value
+
+    def effect(self, X: Optional[Any] = None) -> np.ndarray:
+        """Conditional treatment effects — estimation-sample by default.
+
+        With ``X=None`` returns the stored per-unit effects (same as
+        :attr:`cate`).  With new covariates ``X``, delegates to the
+        fitted model when the producing estimator attached one
+        (``tarnet`` / ``cfrnet`` / ``dragonnet`` do); otherwise raises
+        with a pointer to an estimator that supports out-of-sample
+        prediction.
+        """
+        if X is None:
+            return self.cate
+        effect_fn = getattr(self, "_effect_fn", None)
+        if effect_fn is not None:
+            return np.asarray(effect_fn(np.asarray(X)), dtype=float).ravel()
+        raise MethodIncompatibility(
+            f"{self.method!r} result cannot predict effects for new X: "
+            "no fitted model is attached.",
+            recovery_hint=(
+                "Refit with sp.causal_forest / sp.tarnet, which support "
+                "out-of-sample effect prediction."
+            ),
+        )
+
+    @property
+    def coef(self) -> "ScalarEffect":
+        """The headline effect with its inference, as a float-compatible
+        :class:`ScalarEffect`.
+
+        ``float(result.coef)`` (and duck-typing probes like
+        ``float(getattr(res, "coef", res.estimate))``) equal
+        ``result.estimate``; printing shows the SE / CI / p-value, and
+        ``.se`` / ``.ci`` / ``.pvalue`` are attributes.  The
+        multi-coefficient counterpart is
+        :meth:`EconometricResults.coef`, which takes a term name.
+        """
+        return ScalarEffect(
+            self.estimate,
+            estimand=self.estimand,
+            se=self.se,
+            ci=self.ci,
+            pvalue=self.pvalue,
+            detail={"alpha": self.alpha},
+        )
+
+    # ------------------------------------------------------------------
+    # Panel-counterfactual conveniences (synth / matrix completion / …)
+    # ------------------------------------------------------------------
+
+    @property
+    def weights(self) -> Any:
+        """Unit weights, when the estimator solves for them.
+
+        Estimator subclasses that assign ``self.weights`` directly
+        (e.g. ``sp.sbw``) get their stored value back verbatim.
+        Otherwise, synthetic-control-family results return their donor
+        weights from ``model_info`` coerced to a tidy DataFrame.
+        """
+        if "_weights_attr" in self.__dict__:
+            return self.__dict__["_weights_attr"]
+        w = self.model_info.get("weights")
+        if w is None:
+            raise MethodIncompatibility(
+                f"{self.method!r} result has no donor weights.",
+                recovery_hint=(
+                    "Weights are produced by the synthetic-control "
+                    "family (sp.synth and friends)."
+                ),
+            )
+        if isinstance(w, pd.DataFrame):
+            return w
+        if isinstance(w, pd.Series):
+            return w.rename("weight").rename_axis("unit").reset_index()
+        if isinstance(w, dict):
+            return pd.DataFrame({"unit": list(w.keys()), "weight": list(w.values())})
+        return pd.DataFrame({"weight": np.asarray(w).ravel()})
+
+    @weights.setter
+    def weights(self, value: Any) -> None:
+        # Estimators like sp.sbw assign per-unit weight vectors on the
+        # result instance; stored verbatim and preferred by the getter.
+        self.__dict__["_weights_attr"] = value
+
+    def counterfactual(self) -> Any:
+        """Counterfactual (untreated) outcome path for the treated
+        unit(s).
+
+        Uniform accessor across the "fill in the table" estimators:
+        synthetic control results return the synthetic series (a
+        ``pd.Series`` indexed by time when the time index is stored);
+        matrix-completion results return the completed row(s) for the
+        treated unit(s) — a Series for a single treated unit, a
+        DataFrame for several.
+        """
+        mi = self.model_info
+        if "Y_synth" in mi:
+            y_synth = np.asarray(mi["Y_synth"], dtype=float).ravel()
+            times = mi.get("times")
+            if times is not None and len(times) == len(y_synth):
+                return pd.Series(y_synth, index=list(times), name="counterfactual")
+            return pd.Series(y_synth, name="counterfactual")
+        cf = mi.get("counterfactual")
+        if cf is not None:
+            if isinstance(cf, pd.DataFrame) and len(cf) == 1:
+                series = cf.iloc[0].copy()
+                series.name = cf.index[0]
+                return series
+            return cf
+        raise MethodIncompatibility(
+            f"{self.method!r} result has no stored counterfactual path.",
+            recovery_hint=(
+                "Counterfactual series are produced by sp.synth and "
+                "sp.matrix_completion / sp.mc_panel."
+            ),
+        )
+
+    @property
+    def gaps(self) -> Any:
+        """Treated-minus-counterfactual gap path (same shape/index as
+        :meth:`counterfactual`)."""
+        if "_gaps_attr" in self.__dict__:
+            return self.__dict__["_gaps_attr"]
+        mi = self.model_info
+        if "Y_synth" in mi and "Y_treated" in mi:
+            cf = self.counterfactual()
+            observed = np.asarray(mi["Y_treated"], dtype=float).ravel()
+            return pd.Series(observed - cf.to_numpy(), index=cf.index, name="gap")
+        if "counterfactual" in mi and "observed_df" in mi:
+            cf_frame = mi["counterfactual"]
+            observed = mi["observed_df"].loc[cf_frame.index]
+            gap = observed - cf_frame
+            if len(gap) == 1:
+                series = gap.iloc[0].copy()
+                series.name = gap.index[0]
+                return series
+            return gap
+        raise MethodIncompatibility(
+            f"{self.method!r} result has no stored counterfactual path.",
+            recovery_hint=(
+                "Gap paths are produced by sp.synth and "
+                "sp.matrix_completion / sp.mc_panel."
+            ),
+        )
+
+    @gaps.setter
+    def gaps(self, value: Any) -> None:
+        self.__dict__["_gaps_attr"] = value
+
+    # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
@@ -2671,10 +3006,23 @@ class CausalResult:
             "conventional",
             "robust",
         }
+        # Friendly labels for keys whose title-cased form is cryptic
+        # ("Ml G", "Dml Model", …); private "_"-prefixed keys are
+        # internal state and stay out of the summary.
+        _labels = {
+            "dml_model": "DML model",
+            "ml_g": "ML model for g(X) — outcome",
+            "ml_m": "ML model for m(X) — treatment",
+            "ml_l": "ML model for l(X) — reduced form",
+            "ml_r": "ML model for r(X) — instrument",
+            "pscore": "Propensity score",
+        }
         for key, val in self.model_info.items():
             if key in _skip or isinstance(val, (pd.DataFrame, np.ndarray, dict, list)):
                 continue
-            label = key.replace("_", " ").title()
+            if key.startswith("_"):
+                continue
+            label = _labels.get(key, key.replace("_", " ").title())
             lines.append(f"  {label}:    {val}")
         lines.append("=" * 78)
         lines.append("  * p<0.1, ** p<0.05, *** p<0.01")
