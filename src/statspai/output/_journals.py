@@ -57,6 +57,11 @@ from typing import Any, Dict, Tuple
 #:     Default summary statistics shown beneath coefficients.
 #: ``notes_default`` (tuple of str)
 #:     Default footer-note lines, in display order.
+#: ``fmt`` (str)
+#:     Default numeric precision. Every preset uses ``"auto"``: published
+#:     economics tables scale precision to the estimate rather than fixing a
+#:     decimal count, so a dollar-magnitude coefficient prints as ``1,556``
+#:     while an elasticity on the next row keeps ``0.288``.
 #: ``font_name`` (str)
 #:     Suggested font for DOCX/XLSX export.
 JOURNALS: Dict[str, Dict[str, Any]] = {
@@ -69,6 +74,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
     "qje": {
@@ -80,6 +86,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Robust standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
     "econometrica": {
@@ -94,6 +101,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
     "restat": {
@@ -105,6 +113,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
     "jf": {
@@ -116,6 +125,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
     "aeja": {
@@ -127,6 +137,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
     "jpe": {
@@ -138,6 +149,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
     "restud": {
@@ -149,6 +161,7 @@ JOURNALS: Dict[str, Dict[str, Any]] = {
             "Standard errors in parentheses.",
             "*** p<0.01, ** p<0.05, * p<0.10.",
         ),
+        "fmt": "auto",
         "font_name": "Times New Roman",
     },
 }

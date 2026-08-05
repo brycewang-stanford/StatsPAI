@@ -5,6 +5,67 @@ Internal version-to-version migrations are at the top; the long-form
 
 ---
 
+<a id="table-precision-pairing"></a>
+
+## Unreleased — ⚠️ regression-table decimal places change
+
+**What changed.** Two things, both in the table renderer only. No estimator,
+no standard error, no p-value is affected — this is presentation.
+
+**1. `sp.regtable` now defaults to `fmt="auto"`** (previously `"%.3f"`).
+`sp.esttab` and `sp.modelsummary` follow it (both were `"%.4f"`).
+
+**2. `fmt="auto"` picks precision per coefficient/SE *pair*, not per cell.**
+The old implementation read each value's magnitude independently, so the two
+halves of one estimate could disagree:
+
+| | old `fmt="auto"` | new |
+| --- | --- | --- |
+| age coefficient | `-5.22` | `-5.22` |
+| its standard error | `(45.3)` | `(45.34)` |
+| earnings coefficient | `24.8` | `24.8` |
+| its standard error | `(140)` | `(140.2)` |
+
+A coefficient printed to two decimals above a standard error printed to one
+is not a convention any economics journal follows. Each coefficient row now
+resolves to a single decimal count — the finer of what the estimate and the
+standard error each need, so neither loses a significant digit — and every
+model column in the panel shares it.
+
+**Who is affected.**
+
+- **Called `sp.regtable(...)` with no `fmt=`** — output changes only where
+  fixed `"%.3f"` was wrong for the scale. For sub-unit coefficients the
+  rendering is byte-identical to before (the committed snapshot fixtures did
+  not move). A dollar-magnitude row changes from `2108.412*** (471.938)` to
+  `2,108*** (472)`.
+- **Called with `fmt="auto"`** — rows are now internally consistent, per the
+  table above.
+- **Called with an explicit template** (`fmt="%.3f"`, `"%.4f"`, `"%.0f"`) —
+  **nothing changes.** Explicit precision is honoured verbatim, as before.
+
+**How to keep the old output.** Pass the old default explicitly:
+
+```python
+sp.regtable(m1, m2, fmt="%.3f")       # pre-Unreleased regtable default
+sp.esttab(m1, m2, fmt="%.4f")         # pre-Unreleased esttab / modelsummary
+```
+
+**Related behaviour worth knowing.**
+
+- `fmt="auto"` no longer floors at three decimals, so a coefficient of
+  `0.00042` prints as `0.00042` rather than `0.000`. Values at or above
+  `0.001` are unaffected.
+- Summary-statistic rows (R², adj. R², F) and `tests=` footer statistics
+  never followed `fmt` — they were hard-pinned to `"%.3f"`. They now have
+  their own `stats_fmt=`, still defaulting to `"%.3f"`, so existing output
+  is unchanged.
+- `fmt=3` now works as shorthand for `fmt="%.3f"`; previously it raised
+  `TypeError: unsupported operand type(s) for +=: 'float' and 'str'` from
+  inside the renderer. `digits=3` is the same knob under the R/Stata name.
+
+---
+
 <a id="rdrobust-bandwidth-rebuild"></a>
 
 ## 1.21.0 — ⚠️ `sp.rdrobust` numbers change

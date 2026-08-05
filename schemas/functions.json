@@ -1940,6 +1940,10 @@
           "description": "Auto-extract FE/Cluster/IV/DiD/RD rows",
           "type": "boolean"
         },
+        "digits": {
+          "description": "Int alias for fmt: digits=3 is fmt='%.3f'. Passing both fmt and digits raises",
+          "type": "integer"
+        },
         "eform": {
           "default": false,
           "description": "Report exp(b) (OR/IRR/HR) with delta-method SE; pass per-model list to mix transformed/untransformed columns",
@@ -1962,6 +1966,10 @@
           "default": false,
           "description": "Auto-emit '# Firm: N' rows from model_info['n_fe_levels']",
           "type": "boolean"
+        },
+        "fmt": {
+          "description": "Coefficient/SE precision. Unset resolves to the journal template's precision, else 'auto', which picks decimals per row so an estimate and its own SE always agree (journal style); an int N or printf '%.Nf' fixes it",
+          "type": "integer"
         },
         "multi_se": {
           "description": "Stack alternative SE specs under primary SE",
@@ -2003,6 +2011,10 @@
           },
           "type": "array"
         },
+        "se_fmt": {
+          "description": "Override precision of the SE row alone; defaults to fmt so a coefficient and its SE stay paired",
+          "type": "integer"
+        },
         "se_type": {
           "default": "se",
           "description": "Bottom-row content",
@@ -2017,6 +2029,11 @@
         "statistic": {
           "description": "Bottom-line cell template (same placeholders as estimate)",
           "type": "string"
+        },
+        "stats_fmt": {
+          "default": "%.3f",
+          "description": "Precision for summary-statistic rows (R2, adj. R2, F); independent of fmt because they are on their own scale",
+          "type": "integer"
         },
         "template": {
           "description": "Journal preset",
@@ -21305,6 +21322,10 @@
           "description": "quarto_label parameter (Optional[str]).",
           "type": "string"
         },
+        "se_fmt": {
+          "description": "se_fmt parameter (Optional[str]).",
+          "type": "string"
+        },
         "se_label": {
           "description": "se_label parameter (Optional[str]).",
           "type": "string"
@@ -21334,6 +21355,11 @@
             "type": "string"
           },
           "type": "array"
+        },
+        "stats_fmt": {
+          "default": "%.3f",
+          "description": "stats_fmt parameter (str).",
+          "type": "string"
         },
         "template": {
           "description": "template parameter (Optional[str]).",

@@ -2773,6 +2773,40 @@ def _build_registry() -> None:
                     ["se", "t", "p", "ci"],
                 ),
                 ParamSpec(
+                    "fmt",
+                    "str|int",
+                    False,
+                    None,
+                    "Coefficient/SE precision. Unset resolves to the journal "
+                    "template's precision, else 'auto', which picks decimals "
+                    "per row so an estimate and its own SE always agree "
+                    "(journal style); an int N or printf '%.Nf' fixes it",
+                ),
+                ParamSpec(
+                    "se_fmt",
+                    "str|int",
+                    False,
+                    None,
+                    "Override precision of the SE row alone; defaults to fmt "
+                    "so a coefficient and its SE stay paired",
+                ),
+                ParamSpec(
+                    "stats_fmt",
+                    "str|int",
+                    False,
+                    "%.3f",
+                    "Precision for summary-statistic rows (R2, adj. R2, F); "
+                    "independent of fmt because they are on their own scale",
+                ),
+                ParamSpec(
+                    "digits",
+                    "int",
+                    False,
+                    None,
+                    "Int alias for fmt: digits=3 is fmt='%.3f'. "
+                    "Passing both fmt and digits raises",
+                ),
+                ParamSpec(
                     "eform",
                     "bool|list",
                     False,

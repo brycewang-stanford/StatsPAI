@@ -35,7 +35,10 @@ from statspai.output.estimates import _fmt_auto, _fmt_val
         # The expected values below reflect Python's actual behavior.
         (0.2876, "0.288"),
         (-0.0106, "-0.011"),
-        (0.0, "0.000"),  # zero
+        # Three decimals is the sub-unit convention, but the floor lifts
+        # rather than rounding a value away: pre-1.22 this printed "0.000".
+        (0.00042, "0.00042"),
+        (0.0, "0.000"),  # zero: no scale to read off
     ],
 )
 def test_fmt_auto_buckets(value, expected):
@@ -45,6 +48,18 @@ def test_fmt_auto_buckets(value, expected):
 def test_fmt_auto_handles_nan_and_none():
     assert _fmt_auto(float("nan")) == ""
     assert _fmt_auto(None) == ""
+
+
+def test_fmt_auto_never_renders_a_nonzero_value_as_zero():
+    """A value under the decimal ceiling escapes to scientific notation.
+
+    Printing ``0.000000`` for a nonzero estimate is the exact failure mode
+    adaptive precision exists to prevent, so the renderer must not do it at
+    the bottom of its own range either.
+    """
+    out = _fmt_auto(1e-9)
+    assert "e-" in out
+    assert float(out) == pytest.approx(1e-9)
 
 
 # ---------------------------------------------------------------------------
@@ -119,15 +134,125 @@ def test_regtable_fmt_pct0_kills_small_coefs(mixed_magnitude_data):
     )
 
 
-def test_regtable_default_fmt_unchanged(mixed_magnitude_data):
-    """Default fmt='%.3f' behavior is untouched by fmt='auto' addition."""
+def test_regtable_default_is_auto(mixed_magnitude_data):
+    """The default is adaptive precision — identical to fmt='auto'."""
     m = sp.regress("y ~ x_small + x_large", data=mixed_magnitude_data)
-    md = sp.regtable(m).to_markdown()  # no fmt arg -> default %.3f
-    x_small_lines = [ln for ln in md.split("\n") if "x_small" in ln]
-    assert x_small_lines
-    cell = x_small_lines[0].split("|")[2].strip()
-    # %.3f keeps 3 decimals on a ~0.3 coef
-    assert "." in cell
+    assert sp.regtable(m).to_markdown() == sp.regtable(m, fmt="auto").to_markdown()
+
+
+def test_regtable_explicit_fmt_still_wins(mixed_magnitude_data):
+    """An explicit printf template overrides the adaptive default verbatim."""
+    m = sp.regress("y ~ x_small + x_large", data=mixed_magnitude_data)
+    md = sp.regtable(m, fmt="%.4f").to_markdown()
+    cell = [ln for ln in md.split("\n") if "x_small" in ln][0].split("|")[2].strip()
+    assert len(cell.split(".")[1].rstrip("*")) == 4
+
+
+def test_regtable_digits_alias(mixed_magnitude_data):
+    """digits=N is shorthand for fmt='%.Nf'."""
+    m = sp.regress("y ~ x_small + x_large", data=mixed_magnitude_data)
+    assert sp.regtable(m, digits=2).to_text() == sp.regtable(m, fmt="%.2f").to_text()
+
+
+def test_regtable_rejects_fmt_and_digits_together(mixed_magnitude_data):
+    m = sp.regress("y ~ x_small + x_large", data=mixed_magnitude_data)
+    with pytest.raises(sp.MethodIncompatibility, match="not both"):
+        sp.regtable(m, fmt="%.2f", digits=2)
+
+
+def test_regtable_rejects_unusable_fmt(mixed_magnitude_data):
+    """A bad fmt fails at the call site, not mid-render."""
+    m = sp.regress("y ~ x_small + x_large", data=mixed_magnitude_data)
+    with pytest.raises(sp.MethodIncompatibility, match="fmt"):
+        sp.regtable(m, fmt=2.5)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# 3b. Pairing: a coefficient and its SE share one decimal place
+# ---------------------------------------------------------------------------
+
+
+def _decimals_of(text: str) -> int:
+    text = text.replace(",", "").strip()
+    return len(text.split(".")[1]) if "." in text else 0
+
+
+@pytest.fixture
+def lalonde_like_data():
+    """Dollar-scale outcome with regressors of three different magnitudes.
+
+    Reproduces the shape of the LaLonde NSW earnings table: a treatment
+    dummy with a ~$1,500 effect, an age coefficient in the single digits
+    with a two-digit SE, and a lagged-earnings coefficient near zero.
+    """
+    rng = np.random.default_rng(11)
+    n = 445
+    df = pd.DataFrame(
+        {
+            "treat": rng.integers(0, 2, n),
+            "age": rng.integers(17, 55, n),
+            "re75": rng.normal(3000, 5000, n),
+        }
+    )
+    df["re78"] = (
+        1500 * df["treat"] - 5 * df["age"] + 0.3 * df["re75"] + rng.normal(0, 5000, n)
+    )
+    return df
+
+
+def test_auto_pairs_coef_and_se_decimals(lalonde_like_data):
+    """Every rendered row shows coef and SE at the same decimal place.
+
+    The pre-1.22 ``fmt='auto'`` chose precision per *cell*, producing rows
+    like ``-5.22 (45.3)`` where the estimate and its own standard error
+    disagreed — not a convention any economics journal follows.
+    """
+    m = sp.regress("re78 ~ treat + age + re75", data=lalonde_like_data)
+    lines = sp.regtable(m).to_markdown().split("\n")
+    checked = 0
+    for i, line in enumerate(lines):
+        cell = line.split("|")[2].strip() if line.count("|") > 2 else ""
+        if not cell or not any(c.isdigit() for c in cell):
+            continue
+        nxt = lines[i + 1] if i + 1 < len(lines) else ""
+        se_cell = nxt.split("|")[2].strip() if nxt.count("|") > 2 else ""
+        if not (se_cell.startswith("(") and se_cell.endswith(")")):
+            continue
+        checked += 1
+        coef_dec = _decimals_of(cell.rstrip("*"))
+        se_dec = _decimals_of(se_cell.strip("()"))
+        assert coef_dec == se_dec, (
+            f"coefficient {cell!r} and its SE {se_cell!r} disagree on "
+            f"precision ({coef_dec} vs {se_dec} decimals)"
+        )
+    assert checked >= 3, f"expected several coef/SE pairs, checked {checked}"
+
+
+def test_auto_keeps_row_aligned_across_models(lalonde_like_data):
+    """One decimal count per row, shared by every model column."""
+    m1 = sp.regress("re78 ~ treat", data=lalonde_like_data)
+    m2 = sp.regress("re78 ~ treat + age + re75", data=lalonde_like_data)
+    md = sp.regtable(m1, m2).to_markdown()
+    row = next(ln for ln in md.split("\n") if ln.strip().startswith("| treat"))
+    cells = [c.strip().rstrip("*") for c in row.split("|")[2:4]]
+    decs = {_decimals_of(c) for c in cells if any(ch.isdigit() for ch in c)}
+    assert len(decs) == 1, f"treat row has ragged precision across models: {cells}"
+
+
+def test_se_fmt_can_break_the_pairing(lalonde_like_data):
+    """se_fmt= is the deliberate escape hatch from paired precision."""
+    m = sp.regress("re78 ~ treat + age", data=lalonde_like_data)
+    lines = sp.regtable(m, fmt="%.0f", se_fmt="%.2f").to_markdown().split("\n")
+    idx = [i for i, ln in enumerate(lines) if "treat" in ln][0]
+    assert _decimals_of(lines[idx + 1].split("|")[2].strip().strip("()")) == 2
+
+
+def test_stats_fmt_is_independent_of_fmt(lalonde_like_data):
+    """R² / F follow stats_fmt, not fmt (they are on their own scale)."""
+    m = sp.regress("re78 ~ treat + age", data=lalonde_like_data)
+    txt = sp.regtable(m, fmt="%.1f", stats_fmt="%.4f").to_text()
+    r2_line = next(ln for ln in txt.split("\n") if ln.strip().startswith("R²"))
+    assert _decimals_of(r2_line.split()[-1]) == 4
 
 
 # ---------------------------------------------------------------------------

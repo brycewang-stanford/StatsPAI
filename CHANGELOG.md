@@ -4,7 +4,56 @@ All notable changes to StatsPAI will be documented in this file.
 
 ## [Unreleased]
 
+### ⚠️ Correctness
+
+- **Table precision is now chosen per coefficient/SE *pair*, not per cell.**
+  `fmt="auto"` used to pick decimals from each value's own magnitude
+  independently, so a row could render as `-5.22 (45.3)` — an estimate and
+  its own standard error disagreeing about precision, which is not a
+  convention any economics journal follows. Each coefficient row now
+  resolves to a single decimal count, chosen so neither half loses a
+  significant digit, shared by every model column in the panel. Tables
+  built with `fmt="auto"` will show different (correctly paired) digits;
+  explicit `fmt="%.3f"`-style templates are untouched. See
+  [`MIGRATION.md`](MIGRATION.md#table-precision-pairing).
+
+- **`fmt="auto"` no longer rounds small estimates to zero.** The old ladder
+  bottomed out at three decimals, so a coefficient of `0.00042` printed as
+  `0.000`. Precision now extends below that floor, and a value under the
+  decimal ceiling escapes to scientific notation rather than displaying a
+  nonzero estimate as an exact zero. Values at or above `0.001` are
+  unaffected.
+
 ### Added
+
+- **Decimal-place control across the table family.** `sp.regtable` gains
+  `se_fmt=` (precision of the standard-error row alone, for deliberately
+  breaking the coef/SE pairing), `stats_fmt=` (R² / adj. R² / F rows and
+  `tests=` footer statistics, which previously ignored `fmt` and were
+  hard-pinned to `"%.3f"`), and `digits=` (int alias: `digits=3` ≡
+  `fmt="%.3f"`; passing both raises). `fmt=` now accepts a plain int, so
+  `fmt=3` works instead of raising `TypeError: unsupported operand type(s)
+  for +=: 'float' and 'str'` from inside the renderer. Invalid values are
+  rejected at the call site with a message naming the parameter.
+  `sp.esttab` and `sp.modelsummary` accept `digits=` too.
+
+- **Journal templates now carry precision.** All eight presets (`aer`,
+  `qje`, `econometrica`, `restat`, `jf`, `aeja`, `jpe`, `restud`) supply
+  `fmt="auto"`, so `template=` sets decimals along with star levels, the
+  SE-row label, stats selection and notes. An explicit `fmt=` still wins.
+
+- **`fmt` / `se_fmt` / `stats_fmt` / `digits` are registered.**
+  `sp.function_schema("regtable")` previously exposed 22 parameters and
+  omitted precision entirely, so agents had no way to discover the knob.
+
+### Changed
+
+- **`sp.regtable` defaults to `fmt="auto"`** (was `"%.3f"`), and
+  `sp.esttab` / `sp.modelsummary` follow it (both were `"%.4f"`). For
+  sub-unit coefficients the rendered output is byte-identical to the old
+  `"%.3f"` default — the committed table snapshots did not move. It differs
+  where fixed precision was actually wrong: a dollar-magnitude coefficient
+  now reads `2,108*** (472)` instead of `2108.412*** (471.938)`.
 
 - **Continuous AI-label measurement-error correction.**
   `sp.llm_annotator_correct` now handles *continuous* LLM scores (e.g.

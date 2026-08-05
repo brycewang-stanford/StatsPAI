@@ -127,6 +127,60 @@ Highlights (see `sp.describe_function("regtable")` for the full list):
 - **eform** — `eform=True` reports `exp(b)` (odds ratio / IRR / HR) with
   delta-method SE; pass a per-model list to mix columns.
 
+### Decimal places
+
+Economics journals do not mandate a decimal count. What they do in practice is
+scale precision to the estimate, and print a coefficient and its standard error
+at the **same** decimal place. That is what `fmt="auto"` — the default — does:
+
+```python
+sp.regtable(m)                 # adaptive precision (default)
+sp.regtable(m, fmt="auto")     # the same thing, spelled out
+```
+
+Each coefficient row gets one decimal count, chosen so that neither the
+estimate nor its standard error loses a significant digit, and both halves
+print at that count. A single table can then carry rows on completely
+different scales without either being rounded into meaninglessness:
+
+```text
+treat                   2,108***
+                           (472)
+
+age                        -26.7
+                          (21.6)
+
+re75                    0.392***
+                         (0.049)
+```
+
+A fixed `fmt="%.3f"` would have written the treatment effect as
+`2108.412 (471.938)` — seven digits of false precision on a dollar
+amount — and `fmt="%.0f"` would have flattened `re75` to `0***`.
+
+To pin precision yourself:
+
+| call                | effect                                                |
+| ------------------- | ----------------------------------------------------- |
+| `fmt=3`             | `"%.3f"` everywhere — the int is shorthand            |
+| `digits=3`          | identical to `fmt=3`; the R/Stata-flavoured spelling  |
+| `fmt="%.4f"`        | any printf template                                   |
+| `se_fmt="%.2f"`     | standard-error row only, deliberately unpaired        |
+| `stats_fmt="%.4f"`  | R² / adj. R² / F rows and `tests=` footer statistics  |
+
+`fmt` and `digits` are the same knob — passing both raises. Summary statistics
+never follow `fmt`, because they sit on their own scale; `N` is always a
+thousands-separated integer.
+
+Two edges worth knowing:
+
+- **`siunitx`** decimal-aligns a whole LaTeX column, so it cannot use per-row
+  precision. `to_latex(siunitx=True)` collapses adaptive precision to the
+  finest count any row asked for and drops thousands separators.
+- **Values below the decimal ceiling** escape to scientific notation rather
+  than printing `0.000000`, so a nonzero estimate is never displayed as an
+  exact zero.
+
 ### Saving and the format matrix
 
 ```python

@@ -30,7 +30,6 @@ def table():
 
 
 class TestDefaultUnchanged:
-
     def test_default_has_no_siunitx_columns(self, table):
         tex = table.to_latex()
         assert "S[table-format" not in tex
@@ -44,7 +43,6 @@ class TestDefaultUnchanged:
 
 
 class TestSiunitx:
-
     def test_s_columns_in_spec(self, table):
         tex = table.to_latex(siunitx=True)
         assert "S[table-format=" in tex
@@ -53,9 +51,39 @@ class TestSiunitx:
     def test_table_format_has_sign_and_decimals(self, table):
         tex = table.to_latex(siunitx=True)
         tf = re.search(r"table-format=(-\d+\.\d+)", tex).group(1)
-        # default fmt is %.3f -> 3 decimals; intercept ~1 -> 1 integer digit
-        assert tf.endswith(".3")
+        # siunitx needs one fixed decimal count for the whole column, so the
+        # adaptive default collapses to the finest precision any row asked
+        # for. Assert the shape, not a specific count.
         assert tf.startswith("-")
+        assert int(tf.split(".")[1]) >= 1
+
+    def test_table_format_under_fixed_fmt(self):
+        """An explicit printf fmt still drives table-format verbatim."""
+        rng = np.random.default_rng(0)
+        n = 200
+        df = pd.DataFrame({"x": rng.normal(size=n)})
+        df["y"] = 1.0 + 2.0 * df["x"] + rng.normal(size=n)
+        m = sp.regress("y ~ x", data=df)
+        tex = sp.regtable(m, fmt="%.3f").to_latex(siunitx=True)
+        tf = re.search(r"table-format=(-\d+\.\d+)", tex).group(1)
+        assert tf.endswith(".3")
+
+    def test_siunitx_cells_have_no_thousands_separator(self):
+        """Adaptive precision must not leak "1,234" into an S column.
+
+        siunitx parses the cell as a number; a comma group separator would
+        break alignment, so the siunitx path renders plainly.
+        """
+        rng = np.random.default_rng(7)
+        n = 200
+        df = pd.DataFrame({"x": rng.normal(size=n)})
+        df["y"] = 5000.0 + 2500.0 * df["x"] + rng.normal(0, 500, n)
+        m = sp.regress("y ~ x", data=df)
+        tex = sp.regtable(m).to_latex(siunitx=True)
+        body = [ln for ln in tex.splitlines() if "&" in ln and "textsuperscript" in ln]
+        assert body, "no coefficient rows found"
+        for line in body:
+            assert "," not in line, f"separator leaked into S column: {line}"
 
     def test_decimals_track_fmt(self):
         rng = np.random.default_rng(1)
@@ -88,7 +116,6 @@ class TestSiunitx:
 
 
 class TestThreeparttable:
-
     def test_wrapper_and_tablenotes(self, table):
         tex = table.to_latex(threeparttable=True)
         assert "\\begin{threeparttable}" in tex
@@ -115,7 +142,6 @@ class TestThreeparttable:
 
 
 class TestUnsupportedFeaturesRejected:
-
     @pytest.fixture
     def models(self):
         rng = np.random.default_rng(2)
@@ -144,7 +170,6 @@ class TestUnsupportedFeaturesRejected:
 
 
 class TestEconometricResultsPassthrough:
-
     @pytest.fixture
     def ols(self):
         rng = np.random.default_rng(3)

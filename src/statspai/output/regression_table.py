@@ -26,25 +26,34 @@ import numpy as np
 import pandas as pd
 from scipy import stats as sp_stats
 
+from ..exceptions import DataInsufficient, MethodIncompatibility
+from ._diagnostics import extract_diagnostic_rows
+from ._format import (
+    AUTO,
+    AUTO_PREFIX,
+    MAX_AUTO_DECIMALS,
+    auto_decimals,
+    normalize_fmt,
+    sig_decimals,
+)
+from ._journals import get_template, star_note_for
+from ._repro import build_repro_note
+from .estimates import (
+    _STAT_ALIASES,
+    _STAT_DISPLAY,
+    _ci_bounds,
+    _extract_model_data,
+    _fmt_int,
+    _fmt_val,
+    _html_escape,
+    _latex_escape,
+    _ModelData,
+)
+
 # ---------------------------------------------------------------------------
 # Re-use extraction helpers from estimates module
 # ---------------------------------------------------------------------------
 
-from .estimates import (
-    _ci_bounds,
-    _extract_model_data,
-    _ModelData,
-    _fmt_val,
-    _fmt_int,
-    _latex_escape,
-    _html_escape,
-    _STAT_ALIASES,
-    _STAT_DISPLAY,
-)
-from ._diagnostics import extract_diagnostic_rows
-from ._journals import get_template, star_note_for
-from ._repro import build_repro_note
-from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # Bracket styles cycled through when rendering ``multi_se`` extra SE rows.
 # The four bracket pairs are deliberately Markdown-safe: a fourth ``||`` pair
@@ -440,6 +449,8 @@ class RegtableResult:
         star_levels: Tuple[float, ...],
         fmt: str,
         title: Optional[str],
+        se_fmt: Optional[str] = None,
+        stats_fmt: str = "%.3f",
         notes: Optional[List[str]],
         add_rows: Optional[Dict[str, List[str]]],
         stats: Optional[List[str]],
@@ -478,7 +489,15 @@ class RegtableResult:
         self.se_type = se_type
         self.show_stars = stars
         self.star_levels = star_levels
-        self.fmt = fmt
+        self.fmt = normalize_fmt(fmt, "fmt")
+        # ``se_fmt`` defaults to ``fmt`` - the published convention is one
+        # precision per coefficient/SE pair. Set it only to deliberately
+        # break that pairing (e.g. ``1,521 (591.3)``).
+        self.se_fmt = normalize_fmt(se_fmt, "se_fmt") if se_fmt is not None else None
+        # Summary-statistic rows (R2, F, ...) live on their own scale and
+        # were historically pinned to "%.3f" regardless of ``fmt``. They now
+        # have their own knob, still defaulting to that historical value.
+        self.stats_fmt = normalize_fmt(stats_fmt, "stats_fmt")
         self.title = title
         self.notes = notes or []
         self.add_rows = add_rows or {}
@@ -601,7 +620,127 @@ class RegtableResult:
         # Resolve stat keys once
         self._stat_keys = self._resolve_stat_keys()
 
+        # -- adaptive-precision bookkeeping --------------------------------
+        # ``fmt="auto"`` resolves to a concrete decimal count per
+        # (panel, variable) row rather than per cell, so a row never reads
+        # "-5.22 (45.3)" with the estimate and its standard error disagreeing
+        # about precision. Panels resolve independently because they
+        # typically hold different dependent variables, hence different
+        # scales.
+        self._flat_to_panel: List[int] = []
+        for pi, panel in enumerate(panels):
+            self._flat_to_panel.extend([pi] * len(panel.models))
+        self._auto_fmt_cache: Dict[Tuple[int, str], str] = {}
+
     # --- helpers -----------------------------------------------------------
+
+    def _display_pair(
+        self, model: _ModelData, var: str, flat_idx: int
+    ) -> Tuple[Optional[float], Optional[float]]:
+        """The (coefficient, SE) values **as rendered**, for precision choice.
+
+        Precision has to be read off what the reader sees, so eform /
+        ``apply_coef`` transforms are applied first: under ``eform`` a
+        log-odds coefficient of ``0.7`` displays as ``2.0`` and its SE is
+        delta-method rescaled, which is a different decimal regime.
+        """
+        if var not in model.params.index:
+            return None, None
+        try:
+            b = float(model.params[var])
+        except (TypeError, ValueError):
+            return None, None
+        se = model.std_errors.get(var, np.nan)
+        b_new, se_new = self._apply_coef_transform(b, se, flat_idx)
+        return b_new, (se_new if se_new is not None else se)
+
+    def _pair_fmt(self, var: str, flat_idx: int) -> str:
+        """Format string for the coefficient/SE pair of *var* in this column.
+
+        Returns ``self.fmt`` unchanged unless adaptive precision is active,
+        in which case it resolves to ``"auto:<decimals>"`` - one decimal
+        count shared by every model in the panel so the row stays aligned.
+        """
+        if self.fmt != AUTO:
+            return self.fmt
+        panel_idx = (
+            self._flat_to_panel[flat_idx] if flat_idx < len(self._flat_to_panel) else 0
+        )
+        key = (panel_idx, var)
+        cached = self._auto_fmt_cache.get(key)
+        if cached is not None:
+            return cached
+
+        decimals = 0
+        largest = 0.0
+        seen = False
+        models = self.panels[panel_idx].models if panel_idx < len(self.panels) else []
+        for m in models:
+            b, se = self._display_pair(m, var, flat_idx)
+            if b is None:
+                continue
+            seen = True
+            # Finest precision wins so no model's SE loses a significant
+            # digit; the cap below keeps a wide spread from exploding.
+            decimals = max(decimals, auto_decimals(b, se))
+            for v in (b, se):
+                try:
+                    av = abs(float(v))
+                except (TypeError, ValueError):
+                    continue
+                if np.isfinite(av):
+                    largest = max(largest, av)
+        if not seen:
+            return AUTO
+        if largest != 0.0 and round(largest, MAX_AUTO_DECIMALS) == 0.0:
+            # The whole row sits below the decimal ceiling. A fixed count
+            # would print every cell as 0.000000; hand back to the per-value
+            # path, which escapes to scientific notation instead.
+            return AUTO
+        # Cap so the widest cell in the row stays under ~7 significant
+        # digits: without this, one tightly-estimated model could force
+        # "500.00000" onto a neighbour with a large standard error.
+        headroom = sig_decimals(largest, sig=7)
+        if headroom is not None:
+            decimals = min(decimals, headroom)
+        resolved = f"{AUTO_PREFIX}{max(0, int(decimals))}"
+        self._auto_fmt_cache[key] = resolved
+        return resolved
+
+    def _table_wide_auto_decimals(self) -> int:
+        """One decimal count covering every row - for fixed-width backends.
+
+        ``siunitx`` decimal-aligns a whole column, so it cannot use the
+        per-row precision the other renderers get. Take the finest count any
+        row resolved to, so no row loses a digit.
+        """
+        best = 0
+        flat = 0
+        for panel in self.panels:
+            for m in panel.models:
+                for var in m.params.index:
+                    resolved = self._pair_fmt(str(var), flat)
+                    if resolved.startswith(AUTO_PREFIX):
+                        try:
+                            best = max(best, int(resolved[len(AUTO_PREFIX) :]))
+                        except ValueError:  # pragma: no cover - malformed cache
+                            continue
+                flat += 1
+        return best
+
+    def _se_cell_fmt(self, var: str, flat_idx: int) -> str:
+        """Format for the bracketed statistic row.
+
+        Defaults to the paired coefficient format; an explicit ``se_fmt``
+        overrides it. Under adaptive precision the t-statistic and p-value
+        variants get their own fixed precision instead of the coefficient's,
+        because neither is denominated in the coefficient's units.
+        """
+        if self.se_fmt is not None:
+            return self.se_fmt
+        if self.fmt == AUTO and self.se_type in ("t", "p"):
+            return "%.3f" if self.se_type == "p" else "%.2f"
+        return self._pair_fmt(var, flat_idx)
 
     def _resolve_stat_keys(self) -> List[str]:
         keys: List[str] = []
@@ -798,13 +937,18 @@ class RegtableResult:
                 pass
 
         marker = self._format_marker(p_val) if self.show_stars else ""
+        pair_fmt = self._pair_fmt(var, flat_idx)
+        se_fmt = self.se_fmt or pair_fmt
+        # t and p are unitless; under adaptive precision they get their own
+        # fixed format rather than inheriting the coefficient's scale.
+        stat_fmt = "%.3f" if self.fmt == AUTO else pair_fmt
         ctx = {
-            "estimate": _fmt_val(b_new, self.fmt),
-            "std_error": _fmt_val(se_new if se_new is not None else np.nan, self.fmt),
-            "t_value": _fmt_val(t_val, self.fmt),
-            "p_value": _fmt_val(p_val, self.fmt),
-            "conf_low": _fmt_val(ci_lo, self.fmt),
-            "conf_high": _fmt_val(ci_hi, self.fmt),
+            "estimate": _fmt_val(b_new, pair_fmt),
+            "std_error": _fmt_val(se_new if se_new is not None else np.nan, se_fmt),
+            "t_value": _fmt_val(t_val, stat_fmt),
+            "p_value": _fmt_val(p_val, stat_fmt),
+            "conf_low": _fmt_val(ci_lo, pair_fmt),
+            "conf_high": _fmt_val(ci_hi, pair_fmt),
             "stars": marker,
         }
         return ctx
@@ -819,12 +963,24 @@ class RegtableResult:
         # Legacy path
         b = float(model.params[var])
         b_new, _ = self._apply_coef_transform(b, None, flat_idx)
-        txt = _fmt_val(b_new, self.fmt)
+        txt = _fmt_val(b_new, self._pair_fmt(var, flat_idx))
         if self.show_stars and var in model.pvalues.index:
             txt += self._format_marker(model.pvalues[var])
         return txt
 
-    def _se_cell(self, model: _ModelData, var: str, flat_idx: int = 0) -> str:
+    def _se_cell(
+        self,
+        model: _ModelData,
+        var: str,
+        flat_idx: int = 0,
+        fmt_override: Optional[str] = None,
+    ) -> str:
+        """Render the bracketed statistic cell.
+
+        ``fmt_override`` exists for the siunitx LaTeX path, which needs one
+        fixed precision for the whole table and cannot take the row-adaptive
+        format.
+        """
         if var not in model.params.index:
             return ""
         if self.statistic_template is not None:
@@ -847,18 +1003,20 @@ class RegtableResult:
                         hi_v = float(apply_coef(hi_v))
                 except Exception:
                     pass
-            lo = _fmt_val(lo_v, self.fmt)
-            hi = _fmt_val(hi_v, self.fmt)
+            cell_fmt = fmt_override or self._se_cell_fmt(var, flat_idx)
+            lo = _fmt_val(lo_v, cell_fmt)
+            hi = _fmt_val(hi_v, cell_fmt)
             return f"[{lo}, {hi}]"
+        cell_fmt = fmt_override or self._se_cell_fmt(var, flat_idx)
         if self.se_type == "t":
-            return f"({_fmt_val(model.tvalues.get(var, np.nan), self.fmt)})"
+            return f"({_fmt_val(model.tvalues.get(var, np.nan), cell_fmt)})"
         if self.se_type == "p":
-            return f"({_fmt_val(model.pvalues.get(var, np.nan), self.fmt)})"
+            return f"({_fmt_val(model.pvalues.get(var, np.nan), cell_fmt)})"
         # default: standard error (delta method under eform / apply_coef_deriv)
         b = float(model.params[var])
         se_v = model.std_errors.get(var, np.nan)
         _, se_new = self._apply_coef_transform(b, se_v, flat_idx)
-        return f"({_fmt_val(se_new if se_new is not None else se_v, self.fmt)})"
+        return f"({_fmt_val(se_new if se_new is not None else se_v, cell_fmt)})"
 
     def _has_any_eform(self) -> bool:
         return any(self.eform_flags)
@@ -942,7 +1100,10 @@ class RegtableResult:
             if np.isfinite(b):
                 val = float(np.exp(b)) * val
         lo, hi = _MULTI_SE_BRACKETS[bracket_idx % len(_MULTI_SE_BRACKETS)]
-        return f"{lo}{_fmt_val(val, self.fmt)}{hi}"
+        # Extra SEs measure the same coefficient, so they share the row's
+        # resolved precision - otherwise a bootstrap SE could print with a
+        # different number of decimals than the analytic one directly above.
+        return f"{lo}{_fmt_val(val, self._pair_fmt(var, flat_idx))}{hi}"
 
     def _stat_cell(self, model: _ModelData, key: str) -> str:
         val = model.stats.get(key)
@@ -950,7 +1111,7 @@ class RegtableResult:
             return ""
         if key == "N":
             return _fmt_int(val)
-        return _fmt_val(float(val), "%.3f")
+        return _fmt_val(float(val), self.stats_fmt)
 
     def _star_note(self) -> str:
         # Delegate to ``_star_note_text``, which understands both the legacy
@@ -1653,8 +1814,17 @@ class RegtableResult:
                 )
             import re as _re
 
-            _m = _re.search(r"\.(\d+)f", self.fmt or "")
-            _dec = int(_m.group(1)) if _m else 3
+            # siunitx aligns on a *fixed* decimal count and parses raw digit
+            # strings, so per-row adaptive precision and thousands separators
+            # cannot survive here. Collapse ``fmt="auto"`` to the finest
+            # precision any row asked for and render plainly.
+            if self.fmt == AUTO:
+                _dec = self._table_wide_auto_decimals()
+                _si_fmt = f"%.{_dec}f"
+            else:
+                _m = _re.search(r"\.(\d+)f", self.fmt or "")
+                _dec = int(_m.group(1)) if _m else 3
+                _si_fmt = self.fmt
             _max_int = 1
             for _p in self.panels:
                 for _mod in _p.models:
@@ -1680,7 +1850,7 @@ class RegtableResult:
             b = float(m.params[var])
             if not np.isfinite(b):
                 return "{}"
-            num = _fmt_val(b, self.fmt)
+            num = _fmt_val(b, _si_fmt)
             stars = ""
             if self.show_stars and var in m.pvalues.index:
                 stars = self._format_marker(m.pvalues[var])
@@ -1778,7 +1948,14 @@ class RegtableResult:
                 for gi, p2 in enumerate(self.panels):
                     for m in p2.models:
                         if gi == pi:
-                            se_txt = _latex_escape(self._se_cell(m, var, flat_idx))
+                            se_txt = _latex_escape(
+                                self._se_cell(
+                                    m,
+                                    var,
+                                    flat_idx,
+                                    fmt_override=_si_fmt if siunitx else None,
+                                )
+                            )
                             cells2.append("{%s}" % se_txt if siunitx else se_txt)
                         else:
                             cells2.append("{}" if siunitx else "")
@@ -2626,10 +2803,10 @@ class RegtableResult:
             return
 
         from ._aer_style import (
-            apply_word_document_defaults,
-            apply_word_booktab_rules,
-            style_word_table_typography,
             add_word_notes_paragraph,
+            apply_word_booktab_rules,
+            apply_word_document_defaults,
+            style_word_table_typography,
         )
 
         doc = Document()
@@ -2779,7 +2956,10 @@ def regtable(
     se_type: str = "se",
     stars: bool = True,
     star_levels: Optional[Tuple[float, ...]] = None,
-    fmt: str = "%.3f",
+    fmt: Union[str, int, None] = None,
+    se_fmt: Union[str, int, None] = None,
+    stats_fmt: Union[str, int] = "%.3f",
+    digits: Optional[int] = None,
     output: str = "text",
     filename: Optional[str] = None,
     title: Optional[str] = None,
@@ -2842,13 +3022,36 @@ def regtable(
         Append significance stars.
     star_levels : tuple, default ``(0.10, 0.05, 0.01)``
         Thresholds for ``*``, ``**``, ``***``.
-    fmt : str, default ``"%.3f"``
-        Format string for numeric values. Pass any C-style format
-        (``"%.0f"``, ``"%.4f"``, ...) for fixed precision, or
-        ``"auto"`` for magnitude-adaptive precision (recommended when
-        a single table mixes dollar-magnitude coefficients like
-        ``1521`` with elasticity-magnitude coefficients like ``0.288``
-        — fixed ``"%.0f"`` would round the latter to ``0``).
+    fmt : str or int, default ``"auto"``
+        Numeric precision for coefficients and their standard errors.
+
+        - ``"auto"`` (default) — journal-style adaptive precision. Each
+          coefficient row gets one decimal count, chosen so neither the
+          estimate nor its standard error loses a significant digit, and
+          both print at that same decimal place. A table can then mix a
+          dollar-magnitude row (``1,556 (589)``) with an elasticity row
+          (``0.288 (0.146)``) without either being rounded into
+          meaninglessness.
+        - an ``int`` — ``3`` is shorthand for ``"%.3f"``.
+        - a printf template — ``"%.4f"``, ``"%.0f"``, ... for fixed
+          precision everywhere. Note that a fixed template can annihilate
+          small coefficients: ``"%.0f"`` renders ``0.288***`` as ``0***``.
+
+        Journal templates supply ``"auto"``; passing ``fmt=`` explicitly
+        always wins over the template.
+    se_fmt : str or int, optional
+        Override the precision of the bracketed standard-error row alone.
+        Defaults to ``fmt``, which is what published tables do — the two
+        halves of a coefficient/SE pair share a decimal place. Set this
+        only to deliberately break the pairing (e.g. ``1,521 (591.3)``).
+    stats_fmt : str or int, default ``"%.3f"``
+        Precision for the summary-statistic rows (R², adj. R², F, ...) and
+        for ``tests=`` footer statistics. These live on their own scale, so
+        they do not follow ``fmt``. ``N`` is always a thousands-separated
+        integer.
+    digits : int, optional
+        Int-flavoured alias for ``fmt``: ``digits=3`` ≡ ``fmt="%.3f"``.
+        Passing both ``fmt=`` and ``digits=`` raises.
     output : str, default ``"text"``
         Controls what ``str(result)`` / ``repr(result)`` / ``print(result)``
         returns — one of ``"text"``, ``"latex"``, ``"html"``, ``"markdown"``,
@@ -3108,6 +3311,17 @@ def regtable(
             diagnostics={"output": output},
         )
 
+    # --- Resolve numeric precision (digits= is the int-flavoured alias) ---
+    if digits is not None:
+        if fmt is not None:
+            raise MethodIncompatibility(
+                f"Pass either fmt= or digits=, not both (got fmt={fmt!r}, "
+                f"digits={digits!r}).",
+                recovery_hint="Drop one; digits=3 is shorthand for fmt='%.3f'.",
+                diagnostics={"fmt": repr(fmt), "digits": digits},
+            )
+        fmt = digits
+
     # --- Resolve journal template (sets defaults; explicit kwargs win) ---
     se_label_override: Optional[str] = None
     template_notes: List[str] = []
@@ -3117,6 +3331,8 @@ def regtable(
             star_levels = tuple(preset["star_levels"])
         if stats is None:
             stats = list(preset["stats"])
+        if fmt is None and preset.get("fmt") is not None:
+            fmt = preset["fmt"]
         if se_type == "se":
             se_label_override = preset.get("se_label")
         # Footer notes from the template are appended *after* user notes,
@@ -3130,6 +3346,8 @@ def regtable(
 
     if star_levels is None:
         star_levels = (0.10, 0.05, 0.01)
+    if fmt is None:
+        fmt = AUTO
 
     # --- coef_map shortcut (mirrors R modelsummary's three-in-one) ----
     # When set, it simultaneously renames + reorders + drops via a single
@@ -3346,7 +3564,10 @@ def regtable(
         tests_rows_norm = _resolve_tests(
             tests,
             total_models,
-            fmt=fmt,
+            # Hypothesis-test statistics (F, chi2, J) are summary statistics
+            # on their own scale, not coefficients - they follow
+            # ``stats_fmt`` rather than the coefficient precision.
+            fmt=stats_fmt,
             stars=stars,
             star_levels=star_levels,
             notation=notation,
@@ -3377,6 +3598,8 @@ def regtable(
         stars=stars,
         star_levels=tuple(star_levels),
         fmt=fmt,
+        se_fmt=se_fmt,
+        stats_fmt=stats_fmt,
         title=title,
         notes=final_notes,
         add_rows=merged_add_rows,

@@ -118,7 +118,8 @@ def modelsummary(
     output: str = "text",
     title: str = "",
     notes: Optional[List[str]] = None,
-    fmt: str = "%.4f",
+    fmt: Union[str, int, None] = None,
+    digits: Optional[int] = None,
     coef_map: Optional[Dict[str, str]] = None,
     add_rows: Optional[Dict[str, List[str]]] = None,
 ) -> Union[str, pd.DataFrame]:
@@ -218,6 +219,7 @@ def modelsummary(
         stars=show_stars,
         se_type=rt_se_type,
         fmt=fmt,
+        digits=digits,
         coef_map=coef_map,
         add_rows=add_rows,
     )

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import warnings
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -495,7 +495,8 @@ def esttab(
     order: Optional[Sequence[str]] = None,
     labels: Optional[Dict[str, str]] = None,
     stats: Optional[Sequence[str]] = None,
-    fmt: str = "%.4f",
+    fmt: Union[str, int, None] = None,
+    digits: Optional[int] = None,
     output: str = "text",
     filename: Optional[str] = None,
     title: Optional[str] = None,
@@ -590,6 +591,7 @@ def esttab(
         star_levels=star_levels,
         se_type=se_type,
         fmt=fmt,
+        digits=digits,
         coef_labels=labels,
         keep=list(keep) if keep else None,
         drop=list(drop) if drop else None,

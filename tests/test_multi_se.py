@@ -26,6 +26,7 @@ def test_multi_se_basic(two_models):
     txt = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [_bootstrap_se_dict(), _bootstrap_se_dict()]},
     ).to_text()
     # Bracket-wrapped values should appear under each coef
@@ -38,6 +39,7 @@ def test_multi_se_two_extra_specs_use_distinct_brackets(two_models):
     txt = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={
             "Bootstrap": [_bootstrap_se_dict(0.07), _bootstrap_se_dict(0.07)],
             "Wild-cluster": [_bootstrap_se_dict(0.08), _bootstrap_se_dict(0.08)],
@@ -57,6 +59,7 @@ def test_multi_se_accepts_pandas_series(two_models):
     txt = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Cluster SE (firm)": [s1, s2]},
     ).to_text()
     assert "[0.044]" in txt
@@ -69,6 +72,7 @@ def test_multi_se_wrong_length_raises(two_models):
         sp.regtable(
             m1,
             m2,
+            fmt="%.3f",
             multi_se={"Cluster SE": [_bootstrap_se_dict()]},  # only 1 entry, need 2
         )
 
@@ -81,6 +85,7 @@ def test_multi_se_invalid_entry_type_raises(two_models):
         sp.regtable(
             m1,
             m2,
+            fmt="%.3f",
             multi_se={"Wild": [42, "junk"]},  # type: ignore[list-item]
         )
 
@@ -90,6 +95,7 @@ def test_multi_se_missing_var_yields_empty_cell(two_models):
     txt = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [{"Intercept": 0.061}, {"Intercept": 0.061}]},
     ).to_text()
     # x row's bootstrap line should be blank rather than crashing or emitting NaN
@@ -101,6 +107,7 @@ def test_multi_se_appears_in_latex(two_models):
     tex = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [_bootstrap_se_dict(), _bootstrap_se_dict()]},
     ).to_latex()
     assert "[0.077]" in tex
@@ -112,6 +119,7 @@ def test_multi_se_appears_in_html(two_models):
     html = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [_bootstrap_se_dict(), _bootstrap_se_dict()]},
     ).to_html()
     assert "[0.077]" in html
@@ -123,6 +131,7 @@ def test_multi_se_appears_in_dataframe(two_models):
     df = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [_bootstrap_se_dict(), _bootstrap_se_dict()]},
     ).to_dataframe()
     flat = df.to_string()
@@ -140,6 +149,7 @@ def test_multi_se_appears_in_markdown(two_models):
     md = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [_bootstrap_se_dict(), _bootstrap_se_dict()]},
     ).to_markdown()
     assert "[0.077]" in md
@@ -153,6 +163,7 @@ def test_multi_se_four_specs_brackets_are_markdown_safe(two_models):
     md = sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={
             "S1": [extra, extra],
             "S2": [extra, extra],
@@ -181,6 +192,7 @@ def test_multi_se_appears_in_excel(two_models, tmp_path):
     sp.regtable(
         m1,
         m2,
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [_bootstrap_se_dict(), _bootstrap_se_dict()]},
     ).to_excel(str(out_file))
 
@@ -206,6 +218,7 @@ def test_multi_se_combined_with_template_and_repro(two_models):
         m1,
         m2,
         template="qje",
+        fmt="%.3f",
         multi_se={"Bootstrap SE": [_bootstrap_se_dict(), _bootstrap_se_dict()]},
         repro=True,
     )
