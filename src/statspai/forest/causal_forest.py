@@ -31,7 +31,7 @@ from sklearn.tree import DecisionTreeRegressor
 
 # Import our core classes
 from ..core.base import BaseModel
-from ..exceptions import DataInsufficient, MethodIncompatibility
+from ..exceptions import DataInsufficient, MethodIncompatibility, NumericalInstability
 
 if TYPE_CHECKING:
     from ..core.results import ScalarEffect
@@ -1310,7 +1310,15 @@ class CausalForest(BaseModel):
                 ),
                 detail=detail,
             )
-        except Exception as exc:  # loud in repr, not fatal for the value
+        except (
+            MethodIncompatibility,
+            DataInsufficient,
+            NumericalInstability,
+            np.linalg.LinAlgError,
+        ) as exc:
+            # The plug-in value is still valid, so return it — but the
+            # failure is recorded on the object and printed in its repr
+            # rather than silently dropping the inference.
             return ScalarEffect(
                 value,
                 estimand=estimand,
