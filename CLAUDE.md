@@ -156,6 +156,15 @@ PyPI 凭据在 `~/.pypirc`——**不要**提交仓库、不要写进 memory。�
 - **获得授权之后**才适用以下条款：默认分支 `main`，**直推 main**、默认不开 PR，除非明确要求（见 `memory/feedback_no_pr.md`）。
 - Commit 风格：`feat:` / `fix(<area>):` / `docs(<area>):` / `chore:`，摘要 ≤ 72 字符。
 - **禁止**：`--no-verify` / `--no-gpg-sign` / `--force`（除非明确授权）；对已推送 commit `--amend`。出错用 `git revert`。
+- **push 前必须让 `python3` 指向本仓库 venv**，否则 pre-push 必然红。`.pre-commit-config.yaml` 里那批闸门（`registry-drift` / `schema-drift` / `error-taxonomy` / `orchestration-assertions` / `examples-coverage` / `cold-import budget`）都是 `language: system` + 裸 `python3`，会按 PATH 解析；在没激活 venv 的 shell 里解析到系统 Python（如 Homebrew 3.14），直接 `ModuleNotFoundError: No module named numpy`，看起来像代码坏了，其实是解释器不对。
+
+  ```bash
+  source .venv/bin/activate && git push origin HEAD:main
+  # 或（worktree 里不想污染环境时）
+  PATH="/path/to/StatsPAI/.venv/bin:$PATH" git push origin HEAD:main
+  ```
+
+  **不要**因此改 hook 的 `entry`：CI 里 `python3` 本来就是对的，把它钉死到 `.venv/` 反而会让 CI 红。这是本地环境问题，不是配置问题。**更不要**用 `--no-verify` 绕过——这六道闸门是真在挡东西。
 
 ### 9.2 并发：多窗口同时开工必须各自占一个 worktree
 
