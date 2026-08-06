@@ -72,3 +72,15 @@ quietly psmatch2 d x1 x2, outcome(y) llr kerneltype(tricube) bwidth(0.5) logit
 format x1 x2 y _pscore _weight _y %21.16e
 export delimited id x1 x2 d y _pscore _treated _support _weight _y ///
     using "psmatch2_llr_data.csv", replace datafmt
+
+* --- llr + epan: export the rerouted frame for the compat parity test ------
+* _s_y is the lpoly-smoothed outcome; _y is the matched control's _s_y (NOT
+* its raw y).  Verified in-session: max|_y - _s_y[match]| = 0 exactly while
+* max|_y - y[match]| = 1.99.
+preserve
+quietly psmatch2 d x1 x2, outcome(y) llr kerneltype(epan) bwidth(0.5) logit
+di "LLR_EPAN att = " %21.16e r(att) "  seatt = " %21.16e r(seatt)
+format x1 x2 y _pscore _s_y _weight _y %21.16e
+export delimited id x1 x2 d y _pscore _treated _support _s_y _weight _y ///
+    using "psmatch2_llr_epan_data.csv", replace datafmt
+restore

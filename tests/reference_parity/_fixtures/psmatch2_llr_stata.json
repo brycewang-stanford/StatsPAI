@@ -7,26 +7,28 @@
     "bwidth": 0.5,
     "seatt": null,
     "att_by_kernel": {
-      "tricube": -2.74725477361204e-02,
-      "biweight": -2.74674342048444e-02,
-      "normal": -2.09864682858121e-02,
-      "uniform": -7.70075554243355e-03
+      "tricube": -0.0274725477361204,
+      "biweight": -0.0274674342048444,
+      "normal": -0.0209864682858121,
+      "uniform": -0.00770075554243355
     }
   },
   "llr_epan_reroute": {
     "_stata_command": "psmatch2 d x1 x2, outcome(y) llr kerneltype(epan) bwidth(0.5) logit",
     "_behaviour": "psmatch2.ado rewrites method to 'neighbor' and smooths the outcome with lpoly, deg(1); it is NOT local linear regression matching",
-    "att": 3.22449109864638e-02,
-    "seatt": 0.36195584
+    "att": 0.0322449109864638,
+    "seatt": 0.36195584,
+    "_data": "psmatch2_llr_epan_data.csv (carries Stata's _s_y and _y)",
+    "_algorithm": "_s_y = lpoly(y ~ _pscore | on-support controls, deg 1, bw, Stata's unit-variance Epanechnikov) evaluated at every unit's _pscore; then nearest-neighbour matching on _pscore; _y = matched control's _s_y; ATT = mean(y - _y) over treated on support -- the treated unit's RAW outcome against its match's SMOOTHED outcome. Verified: max|_y - _s_y[match]| = 0 exactly, max|_y - y[match]| = 1.99."
   },
   "kernel_tricube": {
     "_stata_command": "psmatch2 d x1 x2, outcome(y) kernel kerneltype(tricube) bwidth(0.5) logit",
-    "att": 3.45720023183637e-01,
-    "seatt": 2.06033663075506e-01
+    "att": 0.345720023183637,
+    "seatt": 0.206033663075506
   },
   "mahalanobis": {
     "_stata_command": "psmatch2 d, outcome(y) mahalanobis(x1 x2) neighbor(1)",
-    "att": -3.44930689230005e-03,
-    "seatt": 2.96198962004167e-01
+    "att": -0.00344930689230005,
+    "seatt": 0.296198962004167
   }
 }
