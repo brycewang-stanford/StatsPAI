@@ -99,6 +99,26 @@ All notable changes to StatsPAI will be documented in this file.
   float path is bit-identical to before. The same buffer pattern was
   hardened in the JIVE estimators, whose public wrappers already cast
   upstream (no numeric change there).
+- **`sp.match` default standard errors change for nearest-neighbour
+  matching.** `se_method='auto'` resolved to `'ai'`, the simple
+  matched-pair SE; it now resolves to `'abadie_imbens'`. **Point estimates
+  are unchanged**; standard errors get larger, by roughly 10% to 79%.
+
+  `'ai'` treats matched pairs as independent and ignores the extra
+  variance from reusing controls under matching with replacement. Measured
+  over 36 designs × 1000 replications
+  (`benchmarks/matching_se_coverage.py`), it **never reached nominal
+  coverage in any cell** — 0.71 to 0.92 against a nominal 0.95, running
+  0.56–0.91× the true sampling SD. `'abadie_imbens'` is the only option
+  measured to be correctly sized (0.95–1.04×, coverage 0.905–0.956); Stata
+  psmatch2's own default errs the other way (1.50–1.69×, coverage
+  0.994–1.000).
+
+  Pass `se_method='ai'` to recover the previous numbers; it now warns
+  rather than passing silently. Unaffected: `method='kernel'`/`'radius'`
+  (already `'psmatch2'`), `method='llr'` (`'bootstrap'`), and any explicit
+  `se_method=`. See [`MIGRATION.md`](MIGRATION.md).
+
 - **`sp.match` reported an ATT that silently covered only part of the
   treated sample.** Treated units are dropped when the control pool is
   exhausted (`replace=False`), when a caliper admits no donor, or by

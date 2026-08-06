@@ -28,8 +28,8 @@ import pytest
 from scipy import stats
 
 import statspai as sp
-from statspai.timeseries.structural_break import cusum_test
 from statspai.bounds.lee_manski import _imbens_manski_cn
+from statspai.timeseries.structural_break import cusum_test
 
 
 # ----------------------------------------------------------------------
@@ -172,9 +172,15 @@ class TestLeeBoundsCI:
 
 
 # ----------------------------------------------------------------------
-# Matching default-SE guidance (JOSS-safe: number unchanged, warning added)
+# Matching default SE (v1.22: 'auto' moved from 'ai' to 'abadie_imbens')
+#
+# Before 1.22 the default deliberately reproduced 'ai' and merely warned,
+# to keep published numbers stable. The coverage study in
+# benchmarks/matching_se_coverage.py showed 'ai' never reaches nominal
+# coverage in any of 36 designs (0.71-0.92 vs a nominal 0.95), so the
+# default now resolves to the estimator that is correctly sized.
 # ----------------------------------------------------------------------
-class TestMatchingDefaultSEWarning:
+class TestMatchingDefaultSE:
     def _psm_data(self, seed=0, n=400):
         rng = np.random.default_rng(seed)
         x1 = rng.normal(size=n)
@@ -183,36 +189,52 @@ class TestMatchingDefaultSEWarning:
         y = 1.0 + 2.0 * d + x1 + 0.5 * x2 + rng.normal(size=n)
         return pd.DataFrame({"y": y, "d": d, "x1": x1, "x2": x2})
 
-    def test_default_warns_but_number_unchanged(self):
+    def _fit(self, se_method=None):
         df = self._psm_data()
-        with pytest.warns(UserWarning, match="anti-conservative"):
-            default = sp.match(
-                df, y="y", treat="d", covariates=["x1", "x2"], method="psm"
+        kw = {} if se_method is None else {"se_method": se_method}
+        with warnings.catch_warnings(record=True) as rec:
+            warnings.simplefilter("always")
+            res = sp.match(
+                df, y="y", treat="d", covariates=["x1", "x2"], method="psm", **kw
             )
-        ai = sp.match(
-            df, y="y", treat="d", covariates=["x1", "x2"], method="psm", se_method="ai"
-        )
-        # JOSS-safe guarantee: the default SE number is identical to 'ai'.
-        assert default.se == pytest.approx(ai.se)
+        return res, [str(w.message) for w in rec]
+
+    def test_default_resolves_to_abadie_imbens(self):
+        default, _ = self._fit()
+        explicit, _ = self._fit("abadie_imbens")
+        assert default.model_info["se_method"] == "abadie_imbens"
+        assert default.se == pytest.approx(explicit.se)
+
+    def test_default_no_longer_equals_ai(self):
+        """The v1.22 change: this equality held before, and must not now."""
+        default, _ = self._fit()
+        ai, _ = self._fit("ai")
+        assert default.se != pytest.approx(ai.se)
+        assert default.se > ai.se  # the old default was too narrow
+
+    def test_only_the_standard_error_moved(self):
+        """⚠️ contract: point estimates are untouched by the default change."""
+        default, _ = self._fit()
+        ai, _ = self._fit("ai")
+        assert default.estimate == pytest.approx(ai.estimate, rel=0, abs=0)
+        assert default.n_obs == ai.n_obs
+
+    def test_default_does_not_warn(self):
+        """The default is now the recommended estimator, so it is quiet."""
+        _, msgs = self._fit()
+        assert not [m for m in msgs if "matched-pair SE" in m]
+
+    def test_explicit_ai_warns_with_the_measured_shortfall(self):
+        """'ai' remains available but must not pass silently."""
+        _, msgs = self._fit("ai")
+        hits = [m for m in msgs if "matched-pair SE" in m]
+        assert hits
+        assert "never reaches nominal coverage" in hits[0]
+        assert "abadie_imbens" in hits[0]
 
     @staticmethod
     def _anti_conservative_warned(rec):
-        return any("anti-conservative" in str(w.message) for w in rec)
-
-    def test_explicit_ai_does_not_warn(self):
-        df = self._psm_data()
-        with warnings.catch_warnings(record=True) as rec:
-            warnings.simplefilter("always")
-            sp.match(
-                df,
-                y="y",
-                treat="d",
-                covariates=["x1", "x2"],
-                method="psm",
-                se_method="ai",
-            )
-        # explicit user choice -> no nagging guidance warning
-        assert not self._anti_conservative_warned(rec)
+        return any("matched-pair SE" in str(w.message) for w in rec)
 
     def test_abadie_imbens_does_not_warn_and_is_larger(self):
         df = self._psm_data()

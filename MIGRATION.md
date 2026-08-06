@@ -243,6 +243,52 @@ the DWH endogeneity diagnostic.
 float-typed regressors are bit-identical to before; casting your
 treatment with `.astype(float)` reproduced the correct value under the
 old code.
+<a id="matching-default-se"></a>
+
+## 1.22.0 — ⚠️ `sp.match` default standard errors change
+
+**What changed.** `se_method='auto'` resolved to `'ai'` — the simple
+matched-pair standard error — for nearest-neighbour matching. It now
+resolves to `'abadie_imbens'`.
+
+**Point estimates are unchanged.** Only the standard error, and everything
+derived from it (t, p, confidence interval), moves. Standard errors get
+**larger**, by roughly 1/0.91 to 1/0.56 — i.e. between 10% and 79% wider.
+
+**Why.** `'ai'` treats matched pairs as independent and ignores the extra
+variance from reusing controls under matching with replacement. Measured
+over 36 designs × 1000 replications (`benchmarks/matching_se_coverage.py`)
+on a design whose ATT is known:
+
+| `se_method` | SE / true sampling SD | coverage (nominal 0.95) |
+| --- | :-: | :-: |
+| `'ai'` (old default) | 0.56 – 0.91 | **0.71 – 0.92** |
+| `'psmatch2'` | 1.50 – 1.69 | 0.994 – 1.000 |
+| `'abadie_imbens'` (new default) | **0.95 – 1.04** | **0.905 – 0.956** |
+| `'bootstrap'` | 0.95 – 1.23 | 0.933 – 1.000 |
+
+The old default did not reach nominal coverage in **any** of the 36 cells;
+at worst a nominal 95% interval covered 71% of the time. `'abadie_imbens'`
+is the only option measured to be correctly sized.
+
+**To reproduce a pre-1.22 number**, pass the old estimator explicitly:
+
+```python
+res = sp.match(df, y='y', treat='d', covariates=X, se_method='ai')
+```
+
+That now emits a `UserWarning` naming the coverage shortfall — the option
+still works, it just no longer passes silently.
+
+**If you have published a `sp.match` standard error** computed with the
+default before 1.22, it was the `'ai'` estimator. The point estimate stands;
+the interval was too narrow. Re-running with the new default gives the
+correctly-sized interval.
+
+Unaffected: `method='kernel'` / `'radius'` (already resolved to
+`'psmatch2'`), `method='llr'` (resolves to `'bootstrap'`), and any call that
+passed `se_method=` explicitly.
+
 <a id="psm-did-weight-regimes"></a>
 
 ## 1.22.0 — ⚠️ `psm_did(weight=...)` regimes
