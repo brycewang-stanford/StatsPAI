@@ -154,6 +154,55 @@ Both statistics converge to E₁/E₂ with iid Exponential(1), giving
 CDF P(T ≤ t) = t/(1+t) and hence the p-value above. This is cheap and can
 ship independently of the `lprobust` engine.
 
+### `lprobust`'s `e(Result)` layout — the build target for WP-8a
+
+`nprobust` is now installed locally (`net install nprobust, from(
+https://raw.githubusercontent.com/nppackages/nprobust/master/stata)`),
+which `did_had` requires and which was missing — so `did_had` could not
+have run on this machine either.
+
+`e(Result)` is a 1x10 row, and this is what `did_had.ado`'s hard-coded
+indices mean:
+
+| col | name | used by did_had as |
+| ---: | --- | --- |
+| 1 | `eval` | the evaluation point, always 0 |
+| 2 | `h` | `h_star` |
+| 3 | `b` | bias bandwidth |
+| 4 | `N` | effective sample inside the bandwidth |
+| 5 | `tau_us` | `mu_hat_XX_alt` — conventional fit |
+| 6 | `tau_bc` | `mu_hat_XX_alt_ub` — bias-corrected |
+| 7 | `se_us` | (unused) |
+| 8 | `se_rb` | `se_mu_XX` — robust bias-corrected SE |
+| 9,10 | `CI_l_rb`, `CI_r_rb` | coverage check |
+
+So `M_hat = tau_us - tau_bc` is the estimated bias, and `did_had` builds
+its CI from that rather than from `se_us`.
+
+**Fixed-bandwidth reference to build against first.** Bandwidth
+selection is a separate, larger piece; pinning the estimator at a
+*supplied* `h` isolates it. On
+`tests/stata_parity/option_parity/data_86_lprobust.csv` (n=400, dose from
+a Gamma(1.4, 0.6), `y = 0.8 + 1.3d - 0.4d^2 + N(0, 0.5)`):
+
+```stata
+lprobust y d, eval(g0) h(0.8) b(0.8) kernel(epanechnikov)
+```
+
+| quantity | value |
+| --- | ---: |
+| `N` | 241 |
+| `tau_us` | 0.748178965690396 |
+| `tau_bc` | 0.796816090541766 |
+| `se_us` | 0.073878309309036 |
+| `se_rb` | 0.107051396374158 |
+
+Build `_lprobust_at_point(x, y, x0, h, b, kernel, p)` against these four
+numbers before touching bandwidth selection. The open question to settle
+first is `lprobust`'s default variance estimator (`vce(nn)` vs the `hc`
+family) — read it off the help rather than assuming, since it decides
+whether `se_rb` is reproducible at all.
+
 ### Remaining WP-8/9 surface
 
 `bw_method` ∈ {mse-dpi (default), mse-rot, imse-dpi, imse-rot, ce-dpi,
