@@ -36,12 +36,26 @@ from ..exceptions import ConvergenceWarning, DataInsufficient, MethodIncompatibi
 from ._core import cohort_share_context as _cohort_share_context
 from ._core import drop_unusable_rows as _drop_unusable_rows
 from ._core import multiplier_bootstrap as _core_multiplier_bootstrap
+from ._core import normalize_se_method as _normalize_se_method
 from ._core import require_bool as _require_bool
 from ._core import weight_influence as _weight_influence
 
 
 class CallawayNotImplemented(MethodIncompatibility, NotImplementedError):
     """Unsupported CS branch that preserves historical NotImplementedError."""
+
+
+#: Propensity-score trimming cutoff for *control* units, matching
+#: ``DRDID``'s ``trim.level`` — the value R ``did`` and Stata ``csdid``
+#: both inherit without overriding it.
+_DEFAULT_PSCORE_TRIM = 0.995
+
+#: ATT(g,t) estimators, mapped to the names the reference packages use.
+#: ``'ipw'``/``'stdipw'`` are the SAME estimator: R ``did``'s
+#: ``est_method='ipw'`` dispatches to ``DRDID::std_ipw_did_panel``, which is
+#: Stata's ``method(stdipw)``. Stata's ``method(ipw)`` is Abadie (2005) and
+#: is reached here as ``'ipw_abadie'``.
+_ESTIMATORS = ("dr", "ipw", "stdipw", "ipw_abadie", "reg")
 
 
 def _require_dataframe(data: Any, *, function: str) -> pd.DataFrame:
@@ -184,6 +198,8 @@ def callaway_santanna(
     x: Optional[List[str]] = None,
     estimator: str = "dr",
     control_group: str = "nevertreated",
+    notyet_cutoff: str = "period",
+    pscore_trim: float = _DEFAULT_PSCORE_TRIM,
     base_period: str = "universal",
     anticipation: int = 0,
     alpha: float = 0.05,
@@ -194,6 +210,9 @@ def callaway_santanna(
     cband: bool = False,
     boot_weight_type: str = "rademacher",
     random_state: Optional[int] = None,
+    pretest: str = "joint",
+    pretest_periods: Optional[int] = None,
+    se_method: Optional[str] = None,
 ) -> CausalResult:
     """
     Callaway & Sant'Anna (2021) estimator for staggered DID.
@@ -213,11 +232,56 @@ def callaway_santanna(
     x : list of str, optional
         Covariate names for conditional parallel trends.
     estimator : str, default 'dr'
-        Estimation method: 'dr' (doubly robust), 'ipw', or 'reg'.
+        Estimation method, one of:
+
+        - ``'dr'`` — doubly robust (Sant'Anna & Zhao 2020).
+        - ``'ipw'`` / ``'stdipw'`` — **the same estimator**: stabilized
+          (Hájek-normalized) IPW, where the control weights are divided by
+          their own mean. This is what R ``did``'s ``est_method='ipw'``
+          dispatches to (``DRDID::std_ipw_did_panel``) and what Stata
+          ``csdid`` calls ``method(stdipw)``.
+        - ``'ipw_abadie'`` — Abadie (2005) IPW, where both arms share the
+          single denominator E[D] and the control weights need not average
+          to one. This is Stata ``csdid``'s ``method(ipw)``.
+        - ``'reg'`` — outcome regression.
+
+        .. warning::
+           ``estimator='ipw'`` here is **not** Stata ``csdid``'s
+           ``method(ipw)``. StatsPAI follows R ``did``'s naming, in which
+           ``'ipw'`` means the stabilized estimator. Migrating a
+           ``method(ipw)`` script means writing ``estimator='ipw_abadie'``;
+           the two differ by O(1e-4) on ``mpdta``.
     control_group : str, default 'nevertreated'
         Comparison group: 'nevertreated' or 'notyettreated'.
+    notyet_cutoff : str, default 'period'
+        Only consulted when ``control_group='notyettreated'``. Which date
+        must a unit still be untreated at to serve as a control for
+        ATT(g, t)?
+
+        - ``'period'`` — untreated as of ``t``. R ``did``, and Stata
+          ``csdid, asinr``.
+        - ``'cohort'`` — untreated as of ``g``, a strictly smaller control
+          set that also excludes cohorts switching on between ``t`` and
+          ``g``. Stata ``csdid``'s own default.
+
+        The two coincide for post-treatment cells and differ only on
+        pre-treatment placebos.
+    pscore_trim : float, default 0.995
+        Drop *control* units whose estimated propensity score is at or
+        above this cutoff, matching ``DRDID``'s ``trim.level`` (inherited
+        unchanged by both R ``did`` and Stata ``csdid``). A control with
+        p(X) → 1 carries an exploding odds weight p/(1−p) and can dominate
+        the control arm on its own. Pass ``1.0`` to disable. When trimming
+        actually binds it is recorded in ``diagnostics['n_pscore_trimmed']``
+        rather than applied silently.
     base_period : str, default 'universal'
         Base period: 'universal' (always g-1) or 'varying'.
+
+        Maps onto Stata ``csdid``'s pre-treatment gap options:
+        ``'universal'`` is ``long2``, ``'varying'`` is the csdid default
+        (short gaps). ``csdid``'s ``long`` is ``long2`` with the sign of
+        the pre-treatment cells flipped, which StatsPAI does not mirror —
+        its pre-treatment cells always carry the ``long2`` sign.
     anticipation : int, default 0
         Number of pre-treatment periods over which units may anticipate
         the treatment.  Shifts the base period back by ``anticipation``
@@ -306,13 +370,30 @@ def callaway_santanna(
     estimator = _require_string_option(
         estimator,
         argument="estimator",
-        valid=("dr", "ipw", "reg"),
+        valid=_ESTIMATORS,
     )
     control_group = _require_string_option(
         control_group,
         argument="control_group",
         valid=("nevertreated", "notyettreated"),
     )
+    notyet_cutoff = _require_string_option(
+        notyet_cutoff,
+        argument="notyet_cutoff",
+        valid=("period", "cohort"),
+    )
+    pscore_trim = _require_pscore_trim(pscore_trim)
+    # A non-default cutoff with never-treated controls is silently inert —
+    # say so rather than let the caller believe it took effect (§7).
+    if notyet_cutoff != "period" and control_group == "nevertreated":
+        warnings.warn(
+            "callaway_santanna: notyet_cutoff='cohort' only affects the "
+            "'notyettreated' control group, but control_group="
+            "'nevertreated' was requested, so it has no effect. Pass "
+            "control_group='notyettreated' to use it.",
+            UserWarning,
+            stacklevel=2,
+        )
     base_period = _require_string_option(
         base_period,
         argument="base_period",
@@ -327,6 +408,27 @@ def callaway_santanna(
     panel = _require_bool(panel, argument="panel")
     bstrap = _require_bool(bstrap, argument="bstrap")
     cband = _require_bool(cband, argument="cband")
+
+    # se_method= is the shared DiD vocabulary; bstrap= is this estimator's
+    # historical spelling and stays the source of truth when se_method is
+    # not passed, so no existing call changes behaviour.
+    if se_method is not None:
+        if bstrap:
+            raise MethodIncompatibility(
+                "callaway_santanna: pass either se_method= or bstrap=, not "
+                "both — they set the same thing and disagreeing values "
+                "would silently resolve one way.",
+                recovery_hint="Drop bstrap= and use se_method='multiplier'.",
+                diagnostics={"se_method": se_method, "bstrap": bstrap},
+            )
+        _n_clusters = int(data[i].nunique()) if i in data.columns else None
+        _resolved = _normalize_se_method(
+            se_method,
+            supported=("analytic", "multiplier"),
+            function="callaway_santanna",
+            n_clusters=_n_clusters,
+        )
+        bstrap = _resolved == "multiplier"
     biters = _require_int_at_least(biters, argument="biters", minimum=1)
     boot_weight_type = _require_string_option(
         boot_weight_type,
@@ -444,6 +546,8 @@ def callaway_santanna(
             alpha=alpha,
             estimator=estimator,
             control_group=control_group,
+            pretest=pretest,
+            pretest_periods=pretest_periods,
         )
 
     # 1. Prepare panel data
@@ -483,6 +587,7 @@ def callaway_santanna(
     gt_results: List[Dict[str, Any]] = []
     inf_funcs_list: List[np.ndarray] = []
     z_crit = stats.norm.ppf(1 - alpha / 2)
+    _TRIM_TALLY.reset()
 
     for g_val, t_val, base_val in gt_pairs:
         att, se, inf_func = _estimate_single_att(
@@ -496,6 +601,8 @@ def callaway_santanna(
             estimator,
             control_group,
             n_units,
+            notyet_cutoff,
+            pscore_trim,
         )
 
         pval = 2 * (1 - stats.norm.cdf(abs(att / se))) if se > 0 else 1.0
@@ -598,12 +705,33 @@ def callaway_santanna(
     )
 
     # 7. Pre-trend test
-    pretrend = _pretrend_test(detail, inf_matrix, n_units)
+    pretrend = _pretrend_test(
+        detail, inf_matrix, n_units, pretest=pretest, pretest_periods=pretest_periods
+    )
+
+    # Trimming that binds changes the estimand — it silently redefines the
+    # control arm. Never let that pass unannounced (§7).
+    if _TRIM_TALLY.n_trimmed:
+        warnings.warn(
+            f"callaway_santanna: propensity trimming removed "
+            f"{_TRIM_TALLY.n_trimmed} of {_TRIM_TALLY.n_controls} control "
+            f"unit-cells (summed over the ATT(g,t) cells) whose estimated "
+            f"p(X) reached pscore_trim={pscore_trim}. Those controls are "
+            "too treated-looking to reweight stably, so the effective "
+            "control group is smaller than the nominal one. Inspect "
+            "overlap before reading the estimate; pass pscore_trim=1.0 to "
+            "disable trimming.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # 8. Build result
     model_info: Dict[str, Any] = {
         "estimator": estimator.upper(),
         "control_group": control_group,
+        "notyet_cutoff": notyet_cutoff,
+        "pscore_trim": pscore_trim,
+        "n_pscore_trimmed": _TRIM_TALLY.n_trimmed,
         "base_period": base_period,
         "anticipation": anticipation,
         "n_units": n_units,
@@ -615,6 +743,7 @@ def callaway_santanna(
         "cohort_sizes": cohort_sizes,
         "clustervars": clustervars,
         "bstrap": bstrap,
+        "se_method": "multiplier" if bstrap else "analytic",
         "biters": biters if bstrap else 0,
         "cband": cband,
         "boot_weight_type": boot_weight_type if bstrap else None,
@@ -819,6 +948,8 @@ def _estimate_single_att(
     estimator: str,
     control_group: str,
     n_total: int,
+    notyet_cutoff: str = "period",
+    pscore_trim: float = _DEFAULT_PSCORE_TRIM,
 ) -> Tuple[float, float, np.ndarray]:
     """Estimate a single ATT(g,t) and return (att, se, influence_func)."""
 
@@ -827,10 +958,30 @@ def _estimate_single_att(
     # Treatment indicator: units first treated at g_val
     is_treated = g_series == g_val
 
-    # Control indicator
+    # Control indicator.
+    #
+    # For 'notyettreated' there are two defensible cutoffs, and the two
+    # reference implementations disagree on which is the default:
+    #
+    #   notyet_cutoff='period' — untreated as of t. R ``did`` and Stata
+    #       ``csdid, asinr``. This is StatsPAI's default and matches R.
+    #   notyet_cutoff='cohort' — untreated as of g, i.e. a stricter set that
+    #       excludes anyone treated between t and g. Stata ``csdid``'s
+    #       own default.
+    #
+    # They coincide for post-treatment cells (t >= g) and differ only on
+    # pre-treatment placebos, where 'cohort' drops cohorts that switch on
+    # between t and g. Verified against csdid on mpdta: 'period' reproduces
+    # ``asinr`` and 'cohort' reproduces the csdid default, both to 1e-9.
     if control_group == "nevertreated":
         is_control = g_series == 0
-    else:  # notyettreated
+    elif notyet_cutoff == "cohort":
+        # max(t, g), not g: csdid's rule is scoped to PRE-treatment cells
+        # ("pre-treatment ATTGT's ... are estimated using ..."). For t >= g
+        # the cutoff is already t, so max() reproduces the shared
+        # post-treatment behaviour instead of shrinking those cells too.
+        is_control = (g_series == 0) | (g_series > max(t_val, g_val))
+    else:  # notyettreated, cutoff at the comparison period t
         is_control = (g_series == 0) | (g_series > t_val)
 
     # Outcome change ΔY = Y_t - Y_base
@@ -866,11 +1017,14 @@ def _estimate_single_att(
             else:
                 x_sub = x_sub[:, keep]
 
-    # Dispatch
+    # Dispatch. 'ipw' and 'stdipw' are deliberately the same estimator —
+    # see _ESTIMATORS.
     if estimator == "dr":
-        att, se, inf_local = _dr_att(dy_sub, d_sub, x_sub)
-    elif estimator == "ipw":
-        att, se, inf_local = _ipw_att(dy_sub, d_sub, x_sub)
+        att, se, inf_local = _dr_att(dy_sub, d_sub, x_sub, pscore_trim)
+    elif estimator in ("ipw", "stdipw"):
+        att, se, inf_local = _ipw_att(dy_sub, d_sub, x_sub, pscore_trim)
+    elif estimator == "ipw_abadie":
+        att, se, inf_local = _ipw_abadie_att(dy_sub, d_sub, x_sub, pscore_trim)
     else:  # reg
         att, se, inf_local = _reg_att(dy_sub, d_sub, x_sub)
 
@@ -896,6 +1050,7 @@ def _dr_att(
     dy: np.ndarray,
     d: np.ndarray,
     x: Optional[np.ndarray],
+    pscore_trim: float = _DEFAULT_PSCORE_TRIM,
 ) -> Tuple[float, float, np.ndarray]:
     """Doubly robust ATT(g,t) estimator (Sant'Anna & Zhao 2020)."""
     n = len(dy)
@@ -903,15 +1058,17 @@ def _dr_att(
 
     # --- Propensity score ---
     pscore = _estimate_pscore(d, x, n)
+    keep = _pscore_trim_mask(pscore, d, pscore_trim)
+    _TRIM_TALLY.record(keep, d)
 
     # --- Outcome regression ---
     m_hat = _estimate_outcome_reg(dy, c, x, n)
 
     # --- DR weights ---
     p_d = np.mean(d)
-    w1 = d / p_d if p_d > 0 else np.zeros(n)
+    w1 = keep * d / p_d if p_d > 0 else np.zeros(n)
 
-    ipw_raw = pscore * c / (1 - pscore)
+    ipw_raw = keep * pscore * c / (1 - pscore)
     ipw_denom = np.mean(ipw_raw)
     w0 = ipw_raw / ipw_denom if ipw_denom > 1e-12 else np.zeros(n)
 
@@ -934,19 +1091,65 @@ def _ipw_att(
     dy: np.ndarray,
     d: np.ndarray,
     x: Optional[np.ndarray],
+    pscore_trim: float = _DEFAULT_PSCORE_TRIM,
 ) -> Tuple[float, float, np.ndarray]:
-    """IPW ATT(g,t) estimator."""
+    """Stabilized (Hájek-normalized) IPW ATT(g,t) estimator.
+
+    This is what R ``did``/``DRDID`` call ``std_ipw_did_panel`` and what
+    Stata ``csdid`` calls ``method(stdipw)`` — *not* Abadie (2005), which
+    normalizes both arms by the same E[D]. See :func:`_ipw_abadie_att`.
+    """
     n = len(dy)
     c = 1 - d
 
     pscore = _estimate_pscore(d, x, n)
+    keep = _pscore_trim_mask(pscore, d, pscore_trim)
+    _TRIM_TALLY.record(keep, d)
 
     p_d = np.mean(d)
-    w1 = d / p_d if p_d > 0 else np.zeros(n)
+    w1 = keep * d / p_d if p_d > 0 else np.zeros(n)
 
-    ipw_raw = pscore * c / (1 - pscore)
+    ipw_raw = keep * pscore * c / (1 - pscore)
     ipw_denom = np.mean(ipw_raw)
     w0 = ipw_raw / ipw_denom if ipw_denom > 1e-12 else np.zeros(n)
+
+    att = float(np.mean((w1 - w0) * dy))
+
+    inf_func = (w1 - w0) * dy - att * w1
+    se = float(np.sqrt(np.mean(inf_func**2) / n))
+
+    return att, se, inf_func
+
+
+def _ipw_abadie_att(
+    dy: np.ndarray,
+    d: np.ndarray,
+    x: Optional[np.ndarray],
+    pscore_trim: float = _DEFAULT_PSCORE_TRIM,
+) -> Tuple[float, float, np.ndarray]:
+    """Abadie (2005) IPW ATT(g,t) — Horvitz-Thompson, *not* normalized.
+
+    Reference: ``abadie2005semiparametric``.
+
+    Both arms are scaled by the same E[D], so the control weights need not
+    average to one in finite samples. This is Stata ``csdid``'s
+    ``method(ipw)``; it is a genuinely different estimator from
+    :func:`_ipw_att`, differing at O(1e-4) on ``mpdta``.
+    """
+    n = len(dy)
+    c = 1 - d
+
+    pscore = _estimate_pscore(d, x, n)
+    keep = _pscore_trim_mask(pscore, d, pscore_trim)
+    _TRIM_TALLY.record(keep, d)
+
+    p_d = np.mean(d)
+    if p_d <= 0:
+        return 0.0, np.inf, np.zeros(n)
+
+    # Abadie's single common denominator E[D] for both arms.
+    w1 = keep * d / p_d
+    w0 = keep * pscore * c / ((1 - pscore) * p_d)
 
     att = float(np.mean((w1 - w0) * dy))
 
@@ -1048,6 +1251,83 @@ def _reg_att(
 # ======================================================================
 # Nuisance estimators
 # ======================================================================
+
+
+class _PscoreTrimTally:
+    """Count control units zeroed by propensity trimming, across all (g,t).
+
+    Trimming that silently removes a third of the control arm is a very
+    different object from trimming that removes nobody, and the caller
+    cannot tell the two apart from the point estimate. The tally is
+    surfaced in ``diagnostics['n_pscore_trimmed']`` (§7: no silent
+    degradation).
+
+    Not thread-safe by construction, and does not need to be: it is reset
+    at the top of each ``callaway_santanna`` call and read at the bottom,
+    both on the calling thread.
+    """
+
+    def __init__(self) -> None:
+        self.n_trimmed = 0
+        self.n_controls = 0
+
+    def reset(self) -> None:
+        self.n_trimmed = 0
+        self.n_controls = 0
+
+    def record(self, keep: np.ndarray, d: np.ndarray) -> None:
+        is_control = d == 0
+        self.n_controls += int(is_control.sum())
+        self.n_trimmed += int((is_control & (keep == 0.0)).sum())
+
+
+_TRIM_TALLY = _PscoreTrimTally()
+
+
+def _require_pscore_trim(value: Any) -> float:
+    """Validate ``pscore_trim`` — a probability cutoff in (0, 1]."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, np.floating)):
+        raise MethodIncompatibility(
+            f"`pscore_trim` must be a float in (0, 1], got " f"{type(value).__name__}.",
+            recovery_hint="Pass pscore_trim=0.995 (the default) or 1.0 to "
+            "disable control trimming.",
+            diagnostics={"pscore_trim": repr(value)},
+        )
+    value = float(value)
+    if not np.isfinite(value) or value <= 0.0 or value > 1.0:
+        raise MethodIncompatibility(
+            f"`pscore_trim` must lie in (0, 1], got {value}.",
+            recovery_hint="0.995 matches R `did`/Stata `csdid`; 1.0 disables "
+            "control trimming.",
+            diagnostics={"pscore_trim": value},
+        )
+    return value
+
+
+def _pscore_trim_mask(
+    pscore: np.ndarray,
+    d: np.ndarray,
+    trim: float,
+) -> np.ndarray:
+    """Zero-weight control units whose propensity score is at/above ``trim``.
+
+    Follows ``DRDID``'s convention exactly (and hence R ``did`` and Stata
+    ``csdid``, both of which inherit it)::
+
+        trim.ps       <- (ps < 1.01)                 # treated: never trimmed
+        trim.ps[D==0] <- (ps[D==0] < trim.level)     # controls: ps >= level out
+
+    A control with p(X) → 1 looks almost exactly like a treated unit, so its
+    odds weight p/(1−p) explodes and a single observation can dominate the
+    control arm. Trimming bounds that leverage.
+
+    ``trim=1.0`` disables control trimming (nothing is ``>= 1.0`` after the
+    ``1 − 1e-6`` clip in :func:`_estimate_pscore`).
+    """
+    keep = np.ones_like(pscore, dtype=float)
+    is_control = d == 0
+    keep[is_control] = (pscore[is_control] < trim).astype(float)
+    return keep
 
 
 def _estimate_pscore(
@@ -1288,9 +1568,27 @@ def _pretrend_test(
     detail: pd.DataFrame,
     inf_matrix: Optional[np.ndarray],
     n_total: int,
-) -> Dict[str, Any]:
-    """Joint Wald test for H0: all pre-treatment ATT(g,t) = 0."""
-    pre_mask = detail["relative_time"] < 0
+    pretest: str = "joint",
+    pretest_periods: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    """Joint Wald test for H0: all pre-treatment ATT(g,t) = 0.
+
+    ``pretest_periods=k`` restricts the test to the ``k`` event times
+    closest to treatment. Deep leads typically rest on few cohorts, so
+    including them adds degrees of freedom faster than signal and pushes
+    the test toward non-rejection — the direction that flatters the
+    design.
+    """
+    if pretest == "none":
+        return None
+
+    pre_mask = (detail["relative_time"] < 0).values
+    if pretest_periods is not None:
+        rel = detail["relative_time"].values
+        pre_times = sorted({int(e) for e in rel[pre_mask]})
+        keep = set(pre_times[-pretest_periods:])
+        pre_mask = pre_mask & np.array([int(e) in keep for e in rel])
+    pre_mask = pd.Series(pre_mask, index=detail.index)
     pre = detail[pre_mask]
 
     if len(pre) == 0:
@@ -1411,6 +1709,8 @@ def _callaway_santanna_rcs(
     x: Optional[List[str]] = None,
     estimator: str = "reg",
     control_group: str = "nevertreated",
+    pretest: str = "joint",
+    pretest_periods: Optional[int] = None,
 ) -> CausalResult:
     """Unconditional (or regression-adjusted) 2×2 cell-mean DID for RCS.
 
@@ -1564,7 +1864,9 @@ def _callaway_santanna_rcs(
         n_obs,
         alpha,
     )
-    pretrend = _pretrend_test(detail, inf_matrix, n_obs)
+    pretrend = _pretrend_test(
+        detail, inf_matrix, n_obs, pretest=pretest, pretest_periods=pretest_periods
+    )
 
     model_info: Dict[str, Any] = {
         "estimator": (
