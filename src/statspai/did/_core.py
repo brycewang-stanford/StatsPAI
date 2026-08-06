@@ -39,7 +39,7 @@ from scipy import stats
 from ..core._validate import (  # noqa: F401  (re-exported for the DiD family)
     require_bool_flag as require_bool,
 )
-from ..exceptions import DataInsufficient
+from ..exceptions import DataInsufficient, MethodIncompatibility
 
 # ----------------------------------------------------------------------
 # Cluster-bootstrap draw
@@ -577,3 +577,116 @@ def weight_influence(pg: "np.ndarray", ind: "np.ndarray") -> "np.ndarray":
     if1 = centered / total
     if2 = np.outer(centered.sum(axis=1), pg / (total**2))
     return np.asarray(if1 - if2, dtype=float)
+
+
+# ======================================================================
+# Standard-error method vocabulary
+# ======================================================================
+
+#: Cameron, Gelbach & Miller (2008) report that standard cluster-robust
+#: asymptotics over-reject with "few (five to thirty) clusters", and that
+#: bootstrap procedures with asymptotic refinement restore the nominal
+#: size there. That is the empirical basis for the ``'auto'`` switchover
+#: below. [@cameron2008bootstrap]
+FEW_CLUSTERS = 30
+
+#: Canonical DiD inference *procedures*, with the spellings users arrive
+#: with. This is a different axis from ``core/_vcov_spec.py``, which
+#: normalizes *which sandwich* (HC0/HC1/CR1/CR2/CR3) a regression uses.
+#: Here the question is which procedure produces the variance at all.
+_SE_METHOD_ALIASES = {
+    # closed-form / influence-function
+    "analytic": "analytic",
+    "asymptotic": "analytic",
+    "influence": "analytic",
+    "if": "analytic",
+    # pairs / cluster bootstrap
+    "bootstrap": "bootstrap",
+    "cluster": "bootstrap",
+    "cluster_bootstrap": "bootstrap",
+    "pairs": "bootstrap",
+    # multiplier / wild bootstrap
+    "multiplier": "multiplier",
+    "wild": "multiplier",
+    "wild-bootstrap": "multiplier",
+    "wild_bootstrap": "multiplier",
+    "wboot": "multiplier",
+    # design-based variants used by sdid
+    "jackknife": "jackknife",
+    "placebo": "placebo",
+    "auto": "auto",
+}
+
+
+def normalize_se_method(
+    value: Any,
+    *,
+    supported: Sequence[str],
+    function: str,
+    n_clusters: Optional[int] = None,
+) -> str:
+    """Resolve a user ``se_method=`` to one this estimator implements.
+
+    StatsPAI grew four spellings for the same question — ``vce=``,
+    ``se_method=``, ``bstrap=``, ``robust=`` — because each estimator
+    copied the reference package it was aligned against. This maps them
+    onto one vocabulary without moving any default: callers who never
+    pass ``se_method`` keep the behaviour they had.
+
+    ``'auto'`` picks the bootstrap when the design has few clusters and
+    the estimator offers one, otherwise the analytic variance. "Few" is
+    ``FEW_CLUSTERS`` = 30, the top of the range over which Cameron,
+    Gelbach & Miller (2008) document over-rejection by cluster-robust
+    asymptotics.
+
+    ``'auto'`` with an unknown cluster count resolves to the analytic
+    variance rather than guessing, and the resolved choice is always
+    recorded by the caller in ``model_info['se_method']`` so the decision
+    is auditable rather than implicit.
+
+    Raises on a spelling this estimator cannot honour, listing what it
+    can — silently downgrading a requested wild bootstrap to analytic
+    standard errors would be exactly the kind of quiet degradation that
+    understates uncertainty.
+    """
+    if not isinstance(value, str):
+        raise MethodIncompatibility(
+            f"{function}: se_method must be a string, got " f"{type(value).__name__}.",
+            recovery_hint=f"Use one of {sorted(set(supported))}.",
+            diagnostics={"se_method": repr(value)},
+        )
+
+    key = value.strip().lower().replace(" ", "_")
+    canonical = _SE_METHOD_ALIASES.get(key)
+    if canonical is None:
+        raise MethodIncompatibility(
+            f"{function}: unknown se_method {value!r}.",
+            recovery_hint=(
+                f"Supported here: {sorted(set(supported))}. Accepted "
+                f"spellings: {sorted(_SE_METHOD_ALIASES)}."
+            ),
+            diagnostics={"se_method": value, "supported": list(supported)},
+        )
+
+    if canonical == "auto":
+        few = n_clusters is not None and n_clusters <= FEW_CLUSTERS
+        for candidate in ("multiplier", "bootstrap"):
+            if few and candidate in supported:
+                return candidate
+        if "analytic" in supported:
+            return "analytic"
+        return supported[0]
+
+    if canonical not in supported:
+        raise MethodIncompatibility(
+            f"{function}: se_method={value!r} resolves to {canonical!r}, "
+            f"which this estimator does not implement.",
+            recovery_hint=(
+                f"{function} supports {sorted(set(supported))}. Requesting "
+                "an unavailable procedure is rejected rather than silently "
+                "downgraded, because the fallback would usually be the "
+                "narrower interval."
+            ),
+            diagnostics={"requested": canonical, "supported": list(supported)},
+        )
+    return canonical
