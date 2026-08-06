@@ -240,13 +240,10 @@ def weight_regime_info(
     w = np.asarray(w, dtype=float)
     finite = w[np.isfinite(w)]
     if mode == "aweight":
-        info[
-            "weight_semantics"
-        ] = "Stata [aweight=_weight]: WLS with df_resid = n_rows - k"
+        semantics = "Stata [aweight=_weight]: WLS with df_resid = n_rows - k"
     else:
-        info[
-            "weight_semantics"
-        ] = "Stata [fweight=_weight]: rows replicated, df_resid = sum(w) - k"
+        semantics = "Stata [fweight=_weight]: rows replicated, df_resid = sum(w) - k"
+    info["weight_semantics"] = semantics
     info["weight_sum"] = float(finite.sum())
     info["weight_is_integer"] = integerize_weights(finite) is not None
     return info

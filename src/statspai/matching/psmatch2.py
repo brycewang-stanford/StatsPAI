@@ -135,6 +135,88 @@ def _normalize_columns(columns: Any, role: str) -> List[str]:
 
 
 # ======================================================================
+# pstest result
+# ======================================================================
+
+
+class PSTestResult(ResultProtocolMixin):
+    """Stata ``pstest``-shaped balance table (see :meth:`PSMatch2Result.pstest`).
+
+    Attributes
+    ----------
+    table : DataFrame
+        One row per covariate: unmatched / matched arm means, ``%bias``
+        before and after, ``%reduct |bias|``, t and p, and V(T)/V(C).
+    summary_stats : dict
+        ``{'unmatched': {...}, 'matched': {...}}`` with ``ps_r2``,
+        ``lr_chi2``, ``p_chi2``, ``mean_bias``, ``median_bias``, ``rubin_b``,
+        ``rubin_r`` and ``rubin_balanced``.
+    """
+
+    def __init__(
+        self,
+        *,
+        table: pd.DataFrame,
+        summary_stats: dict,
+        covariates: List[str],
+    ) -> None:
+        self.table = table
+        self.summary_stats = summary_stats
+        self.covariates = list(covariates)
+
+    def summary(self) -> SummaryText:
+        """Render the two blocks Stata's ``pstest ..., both`` prints."""
+        lines = [
+            "pstest — covariate balance before / after matching",
+            "=" * 78,
+            f"{'Variable':<14}{'Sample':<9}{'Treated':>10}{'Control':>10}"
+            f"{'%bias':>9}{'%reduct':>9}{'t':>8}{'p>|t|':>8}",
+            "-" * 78,
+        ]
+        for name, row in self.table.iterrows():
+            lines.append(
+                f"{str(name)[:13]:<14}{'Unmatched':<9}"
+                f"{row['mean_treated_unmatched']:>10.4f}"
+                f"{row['mean_control_unmatched']:>10.4f}"
+                f"{row['pct_bias_unmatched']:>9.1f}{'':>9}"
+                f"{row['t_unmatched']:>8.2f}{row['p_unmatched']:>8.3f}"
+            )
+            lines.append(
+                f"{'':<14}{'Matched':<9}"
+                f"{row['mean_treated_matched']:>10.4f}"
+                f"{row['mean_control_matched']:>10.4f}"
+                f"{row['pct_bias_matched']:>9.1f}"
+                f"{row['pct_reduction_abs_bias']:>9.1f}"
+                f"{row['t_matched']:>8.2f}{row['p_matched']:>8.3f}"
+            )
+        lines += [
+            "-" * 78,
+            "",
+            f"{'Sample':<12}{'Ps R2':>8}{'LR chi2':>10}{'p>chi2':>9}"
+            f"{'MeanBias':>10}{'MedBias':>9}{'B':>8}{'R':>7}",
+            "-" * 78,
+        ]
+        for key, label in (("unmatched", "Unmatched"), ("matched", "Matched")):
+            s = self.summary_stats[key]
+            star_b = "*" if abs(s["rubin_b"]) >= 25 else ""
+            star_r = "*" if not (0.5 <= s["rubin_r"] <= 2.0) else ""
+            lines.append(
+                f"{label:<12}{s['ps_r2']:>8.3f}{s['lr_chi2']:>10.2f}"
+                f"{s['p_chi2']:>9.3f}{s['mean_bias']:>10.1f}"
+                f"{s['median_bias']:>9.1f}"
+                f"{s['rubin_b']:>7.1f}{star_b:<1}{s['rubin_r']:>6.2f}{star_r}"
+            )
+        lines += [
+            "-" * 78,
+            "* if B > 25%, or R outside [0.5; 2] (Rubin 2001).",
+        ]
+        return SummaryText("\n".join(lines))
+
+    def __repr__(self) -> str:  # pragma: no cover - display only
+        return str(self.summary())
+
+
+# ======================================================================
 # Result object
 # ======================================================================
 
@@ -300,6 +382,58 @@ class PSMatch2Result(ResultProtocolMixin):
             ps=df[_mf.COL_PSCORE].to_numpy(dtype=float),
             threshold=threshold,
         )
+
+    def pstest(
+        self,
+        covariates: Optional[Sequence[str]] = None,
+    ) -> "PSTestResult":
+        """Stata ``pstest <covariates>, both`` — the printed balance table.
+
+        :meth:`balance` reports StatsPAI's own diagnostics.  This reports
+        *Stata's*, digit for digit, so a ported result can be checked against
+        a ``pstest`` table without translating conventions.  The two differ
+        deliberately: ``pstest`` keeps the **unmatched** pooled standard
+        deviation in the denominator of the post-matching bias (so the two
+        rows are comparable), computes matched moments with Stata importance
+        weights (variance divides by ``Σw - 1``), and forms Rubin's B and R
+        on the *linear index* rather than the propensity score.
+
+        Parameters
+        ----------
+        covariates : sequence of str, optional
+            Variables to test.  Defaults to the matching covariates.
+
+        Returns
+        -------
+        PSTestResult
+            ``.table`` — per-covariate means, ``%bias`` before/after,
+            ``%reduct |bias|``, t / p, and V(T)/V(C) before/after.
+            ``.summary_stats`` — the ``Ps R2 / LR chi2 / p>chi2 / MeanBias /
+            MedBias / B / R`` block for the unmatched and matched samples.
+
+        Examples
+        --------
+        >>> import statspai as sp
+        >>> df = sp.cps_wage()
+        >>> m = sp.psmatch2(df, outcome='log_wage', treat='union',
+        ...                 covariates=['education', 'experience'])
+        >>> t = m.pstest()
+        >>> bool(t.summary_stats['matched']['rubin_b']
+        ...      < t.summary_stats['unmatched']['rubin_b'])
+        True
+        """
+        from ._pstest import pstest_table
+
+        covs = list(covariates) if covariates is not None else self.covariates
+        table, summary = pstest_table(
+            self.matched_data,
+            treat=self.treat,
+            covariates=covs,
+            weight_col=_mf.COL_WEIGHT,
+            support_col=_mf.COL_SUPPORT,
+            pscore_col=_mf.COL_PSCORE,
+        )
+        return PSTestResult(table=table, summary_stats=summary, covariates=covs)
 
     # ------------------------------------------------------------------
     # Common-support / propensity-score plot
