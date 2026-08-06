@@ -392,7 +392,7 @@ Recovers a known DGP truth / closed-form identity within tolerance; no cross-pac
 | `prod_fn` | [`test_structural_parity.py`](../tests/reference_parity/test_structural_parity.py) |
 | `proximal` | [`test_proximal_parity.py`](../tests/reference_parity/test_proximal_parity.py) |
 | `proximal_surrogate_index` | [`test_surrogate_parity.py`](../tests/reference_parity/test_surrogate_parity.py) |
-| `psmatch2` | [`test_psmatch2_parity.py`](../tests/reference_parity/test_psmatch2_parity.py) |
+| `psmatch2` | [`test_psmatch2_llr_parity.py`](../tests/reference_parity/test_psmatch2_llr_parity.py) (+3) |
 | `qte_hd_panel` | [`test_hd_panel_qte.py`](../tests/reference_parity/test_hd_panel_qte.py) |
 | `rate` | [`test_forest_rate_honest_parity.py`](../tests/reference_parity/test_forest_rate_honest_parity.py) |
 | `rd_honest` | [`test_rdhonest_parity.py`](../tests/reference_parity/test_rdhonest_parity.py) |
