@@ -47,7 +47,9 @@ from ._matched_frame import (
     COL_WEIGHT,
     abadie_imbens_se,
     attach_matched_frame,
+    build_ate_matched_frame,
     build_matched_frame,
+    build_stratum_matched_frame,
     common_support_mask,
     matched_columns,
     psmatch2_se,
@@ -549,6 +551,12 @@ class MatchEstimator:
         self.alpha = _open_unit_float(alpha, name="alpha", context=context)
         # Filled by _fit_nearest so fit() can build the matched-sample frame.
         self._assignment: Optional[dict[str, Any]] = None
+        # ATE only: the control->treated matching leg, needed for the
+        # Abadie-Imbens ATE weight 1 + K_M(i).
+        self._ate_reverse: Optional[Tuple[List[Any], List[Any]]] = None
+        # Filled by _fit_stratify / _fit_cem so fit() can build the cell-based
+        # matched frame (pscore, cell label, and which cells were retained).
+        self._stratum_assignment: Optional[dict[str, Any]] = None
 
         # Resolve legacy method names
         method_lower = str(method).lower()
@@ -768,6 +776,8 @@ class MatchEstimator:
             model_info["matched_columns"] = matched_columns(
                 self.n_matches, with_outcome=True, neighbors=emit_neighbors
             )
+            model_info["matched_frame_estimand"] = "ATT"
+            model_info["matched_frame_weight_kind"] = "att_frequency"
             # n_on_support = all on-support obs; n_treated_on_support = the
             # treated subset (what the psmatch2 summary reports).
             model_info["n_on_support"] = int(np.sum(a["support"]))
@@ -807,11 +817,74 @@ class MatchEstimator:
                 )
                 if np.isfinite(se_pop):
                     se = se_pop
-        elif self._assignment is not None:
+        elif self._assignment is not None and self._ate_reverse is not None:
+            # ATE: both arms are matched, so the frame carries the
+            # Abadie-Imbens weight 1 + K_M(i) rather than a control frequency.
+            a = self._assignment
+            m_ct, w_ct = self._ate_reverse
+            frame = build_ate_matched_frame(
+                index=clean.index,
+                treated=a["treated"],
+                pscore=a["pscore"],
+                idx_t=a["idx_t"],
+                idx_c=a["idx_c"],
+                matches_tc=a["matches"],
+                weights_tc=a["weights"],
+                matches_ct=m_ct,
+                weights_ct=w_ct,
+                n_matches=self.n_matches,
+                support=a["support"],
+                outcome=a["outcome"],
+            )
+            matched_data = attach_matched_frame(self.data, frame)
+            model_info["matched_columns"] = matched_columns(
+                self.n_matches, with_outcome=True, neighbors=True
+            )
+            model_info["matched_frame_estimand"] = "ATE"
+            model_info["matched_frame_weight_kind"] = "ate_signed"
             model_info["matched_data_note"] = (
-                "psmatch2-style matched_data is omitted for estimand='ATE' "
-                "because Stata psmatch2 variables encode a treated-to-control "
-                "ATT assignment."
+                "estimand='ATE' matches both arms, so _weight is the "
+                "Abadie-Imbens (2006) weight 1 + K_M(i) and enters the "
+                "estimator with the sign (2*treated - 1): "
+                "ATE = mean((2*_treated - 1) * _weight * y). It is NOT a "
+                "frequency weight -- do not pass it to a [fweight=] "
+                "regression. Use estimand='ATT' for the psmatch2 frequency "
+                "semantics."
+            )
+        elif self._stratum_assignment is not None:
+            # Stratification / CEM: cell comparisons, not ordered neighbours.
+            s = self._stratum_assignment
+            frame = build_stratum_matched_frame(
+                index=clean.index,
+                treated=s["treated"],
+                pscore=s["pscore"],
+                stratum=s["stratum"],
+                keep=s["keep"],
+                outcome=s["outcome"],
+            )
+            matched_data = attach_matched_frame(self.data, frame)
+            model_info["matched_columns"] = matched_columns(
+                self.n_matches, with_outcome=True, stratum=True
+            )
+            model_info["matched_frame_estimand"] = self.estimand
+            model_info["matched_frame_weight_kind"] = "att_frequency"
+            model_info["n_on_support"] = int(np.sum(s["keep"]))
+            model_info["n_treated_on_support"] = int(
+                np.sum(s["keep"] & (s["treated"] == 1))
+            )
+            if self.estimand != "ATT":
+                model_info["matched_data_note"] = (
+                    "_weight encodes the ATT cell weighting (treated = 1, "
+                    "control = n_treated_in_cell / n_control_in_cell); the "
+                    "reported estimate uses the ATE cell weighting, so the "
+                    "two will not agree. Use estimand='ATT' to have them "
+                    "match."
+                )
+        else:  # pragma: no cover - every fitted path is covered above
+            model_info["matched_data_note"] = (
+                f"No matched-sample frame is available for method="
+                f"{self.method!r} with estimand={self.estimand!r}. This "
+                "combination does not produce a unit-level matching weight."
             )
 
         # The default nearest-neighbour SE ('ai') is the simple matched-pair
@@ -946,6 +1019,9 @@ class MatchEstimator:
             att = (n_t * att_part + n_c * (-atc_part)) / (n_t + n_c)
             se = self._ai_se(Y, X, T, t_use, idx_c, m_tc, w_tc)
             assign_matches, assign_weights = m_tc, w_tc
+            # Keep the control->treated leg too: the ATE matched frame needs
+            # both directions to form the Abadie-Imbens weight 1 + K_M(i).
+            self._ate_reverse = (m_ct, w_ct)
 
         balance = self._balance_table(X, T, pscore)
 
@@ -1297,6 +1373,23 @@ class MatchEstimator:
         se = float(np.sqrt(within_var))
 
         balance = self._balance_table(X, T, pscore)
+
+        # Record the cell structure so fit() can build the matched frame.
+        # A unit is "kept" iff its stratum contained both arms, i.e. iff it
+        # entered one of the within-stratum comparisons above.
+        keep = np.zeros(len(T), dtype=bool)
+        for s in range(self.n_strata):
+            in_s = strata == s
+            if (in_s & (T == 1)).any() and (in_s & (T == 0)).any():
+                keep |= in_s
+        self._stratum_assignment = {
+            "pscore": pscore,
+            "treated": T,
+            "stratum": strata,
+            "keep": keep,
+            "outcome": Y,
+        }
+
         extra = {
             "n_strata": self.n_strata,
             "n_effective_strata": len(strata_results),
@@ -1372,6 +1465,20 @@ class MatchEstimator:
 
         pscore = self._logit_propensity(X, T, poly=self.ps_poly)
         balance = self._balance_table(X, T, pscore)
+
+        # Record the coarsened cells so fit() can build the matched frame.
+        # `keep` marks the units in cells that held both arms — exactly the
+        # units that entered the comparison above.
+        keep = np.zeros(n, dtype=bool)
+        keep[np.asarray(matched_t, dtype=int)] = True
+        keep[np.asarray(matched_c, dtype=int)] = True
+        self._stratum_assignment = {
+            "pscore": pscore,
+            "treated": T,
+            "stratum": strata,
+            "keep": keep,
+            "outcome": Y,
+        }
 
         n_matched_t = len(set(matched_t))
         extra = {
