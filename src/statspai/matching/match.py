@@ -65,7 +65,12 @@ _LEGACY_MAP = {
 }
 
 _VALID_DISTANCES = ("propensity", "mahalanobis", "euclidean", "exact")
-_VALID_METHODS = ("nearest", "stratify", "cem", "kernel", "radius")
+_VALID_METHODS = ("nearest", "stratify", "cem", "kernel", "radius", "llr")
+
+#: Below this weighted variance of the propensity gaps the local linear
+#: design is collinear and no slope is identified; the treated unit is
+#: dropped off support, mirroring psmatch2's `cap reg` failure branch.
+_LLR_MIN_VARIANCE = 1e-24
 
 # Kernel functions K(u) used by kernel / radius matching, matching the
 # definitions in Stata psmatch2.ado (Leuven & Sianesi 2003).  Each returns
@@ -184,6 +189,8 @@ def match(
     bwidth: float = 0.06,
     se_method: str = "auto",
     ai_matches: int = 1,
+    bootstrap_reps: int = 200,
+    bootstrap_seed: Optional[int] = None,
     # --- stratification parameters ---
     n_strata: int = 5,
     # --- CEM parameters ---
@@ -208,8 +215,18 @@ def match(
         Distance metric: 'propensity', 'mahalanobis', 'euclidean', 'exact'.
         Default is 'propensity' for method='nearest'/'stratify'.
     method : str, default 'nearest'
-        Matching algorithm: 'nearest', 'stratify', 'cem'.
-        Legacy values 'psm', 'mahalanobis' also accepted.
+        Matching algorithm: 'nearest', 'stratify', 'cem', 'kernel',
+        'radius', 'llr'.  Legacy values 'psm', 'mahalanobis' also accepted.
+
+        ``'llr'`` is local linear regression matching (Heckman, Ichimura &
+        Todd 1997): each treated unit's counterfactual is the intercept of a
+        kernel-weighted degree-1 regression of the control outcome on the
+        propensity gap.  Note that Stata ``psmatch2 ..., llr`` with its
+        *default* Epanechnikov kernel does not run this estimator — it
+        substitutes nearest-neighbour matching on an ``lpoly``-smoothed
+        outcome.  Pass ``kernel='tricube'`` to reproduce psmatch2's own LLR
+        routine; ``kernel='epan'`` runs genuine LLR here and warns about the
+        divergence.
     estimand : str, default 'ATT'
         Target estimand: 'ATT' or 'ATE'.
     n_matches : int, default 1
@@ -258,6 +275,14 @@ def match(
         is the Abadie-Imbens (2006) heteroskedasticity-robust SE (Stata
         ``psmatch2 , ai(J)``), with ``J = ai_matches`` within-arm matches, and
         is the recommended choice for nearest-neighbour inference.
+        ``'bootstrap'`` is an arm-stratified nonparametric bootstrap that
+        re-estimates the propensity score in every replication, so unlike the
+        analytic options it accounts for the sampling variability of the
+        fitted score.  It is the default (and the only valid choice) for
+        ``method='llr'``, where local linear weights can be negative and
+        Stata psmatch2 itself reports no standard error.  Abadie & Imbens
+        (2008) show the bootstrap is *not* valid for nearest-neighbour
+        matching with a fixed number of matches; requesting it there warns.
         ``'auto'`` keeps ``'ai'`` for nearest-neighbour matching -- a
         deliberate JOSS-review-stability default that emits a ``UserWarning``
         steering you to ``'abadie_imbens'`` -- and uses ``'psmatch2'`` for
@@ -266,6 +291,11 @@ def match(
         Number of within-arm matches ``J`` used by the
         ``se_method='abadie_imbens'`` conditional-variance estimate
         (Stata's ``ai(J)``).
+    bootstrap_reps : int, default 200
+        Number of bootstrap replications for ``se_method='bootstrap'``.
+    bootstrap_seed : int, optional
+        Seed for the bootstrap resampler.  Pass one for reproducible
+        standard errors.
     n_strata : int, default 5
         Number of strata for method='stratify'.
     n_bins : int, optional
@@ -340,6 +370,8 @@ def match(
         kernel=kernel,
         bwidth=bwidth,
         se_method=se_method,
+        bootstrap_reps=bootstrap_reps,
+        bootstrap_seed=bootstrap_seed,
         ai_matches=ai_matches,
         n_strata=n_strata,
         n_bins=n_bins,
@@ -373,6 +405,7 @@ def match(
                 "kernel": kernel,
                 "bwidth": bwidth,
                 "se_method": se_method,
+                "bootstrap_reps": bootstrap_reps,
                 "ai_matches": ai_matches,
                 "n_strata": n_strata,
                 "n_bins": n_bins,
@@ -462,6 +495,8 @@ class MatchEstimator:
         bwidth: float = 0.06,
         se_method: str = "auto",
         ai_matches: int = 1,
+        bootstrap_reps: int = 200,
+        bootstrap_seed: Optional[int] = None,
         n_strata: int = 5,
         n_bins: Optional[int] = None,
         alpha: float = 0.05,
@@ -538,6 +573,14 @@ class MatchEstimator:
             name="ai_matches",
             context=context,
         )
+        self.bootstrap_reps = _positive_int(
+            bootstrap_reps,
+            name="bootstrap_reps",
+            context=context,
+        )
+        self.bootstrap_seed = bootstrap_seed
+        # Set by fit() before the SE stage so _bootstrap_se can report bias.
+        self._point_estimate: float = float("nan")
         self.n_strata = _positive_int(
             n_strata,
             name="n_strata",
@@ -570,7 +613,7 @@ class MatchEstimator:
 
         # Set default distance for methods that need one
         if self.distance is None:
-            if self.method in ("nearest", "stratify", "kernel", "radius"):
+            if self.method in ("nearest", "stratify", "kernel", "radius", "llr"):
                 self.distance = "propensity"
             elif self.method == "cem":
                 self.distance = None  # CEM doesn't use distance
@@ -636,11 +679,11 @@ class MatchEstimator:
             )
 
         # Kernel / radius matching are propensity-score based.
-        if self.method in ("kernel", "radius") and self.distance != "propensity":
+        if self.method in ("kernel", "radius", "llr") and self.distance != "propensity":
             raise MethodIncompatibility(
                 f"match: method='{self.method}' requires distance='propensity'"
             )
-        if self.method in ("kernel", "radius") and self.estimand != "ATT":
+        if self.method in ("kernel", "radius", "llr") and self.estimand != "ATT":
             raise MethodIncompatibility(
                 f"match: method='{self.method}' currently supports "
                 "estimand='ATT' only"
@@ -661,11 +704,21 @@ class MatchEstimator:
             "psmatch2",
             "abadie_imbens",
             "abadie_imbens_pop",
+            "bootstrap",
         ):
             raise MethodIncompatibility(
                 "match: se_method must be 'auto', 'ai', 'psmatch2', "
-                "'abadie_imbens', or 'abadie_imbens_pop', got "
+                "'abadie_imbens', 'abadie_imbens_pop', or 'bootstrap', got "
                 f"'{self.se_method}'"
+            )
+        if self.method == "llr" and self.se_method == "psmatch2":
+            raise MethodIncompatibility(
+                "match: se_method='psmatch2' is not defined for "
+                "method='llr'. Local linear weights can be negative, which "
+                "the analytic formula sqrt(var1/N1 + var0*sum(w^2)/N1^2) "
+                "assumes away; Stata psmatch2 itself reports seatt = . for "
+                "llr. Use se_method='bootstrap' (the default for llr).",
+                recovery_hint="Use se_method='bootstrap' for method='llr'.",
             )
         if self.estimand != "ATT" and self.se_method == "psmatch2":
             raise MethodIncompatibility(
@@ -712,7 +765,7 @@ class MatchEstimator:
         elif self.method == "stratify":
             att, se, balance, extra_info = self._fit_stratify(Y, X, T, idx_t, idx_c)
             method_label = "Matching (PS Stratification)"
-        elif self.method in ("kernel", "radius"):
+        elif self.method in ("kernel", "radius", "llr"):
             att, se, balance, extra_info = self._fit_kernel(Y, X, T, idx_t, idx_c)
             kt = "Radius" if self.method == "radius" else f"Kernel:{self.kernel}"
             method_label = f"Matching ({kt})"
@@ -755,6 +808,7 @@ class MatchEstimator:
         # pure bookkeeping over the assignment already used for the point
         # estimate.  When ``se_method`` resolves to ``'psmatch2'`` the
         # analytic Lechner SE is read back off this frame.
+        self._point_estimate = float(att)
         matched_data = None
         if self._assignment is not None and self.estimand == "ATT":
             a = self._assignment
@@ -817,6 +871,11 @@ class MatchEstimator:
                 )
                 if np.isfinite(se_pop):
                     se = se_pop
+            elif se_method == "bootstrap":
+                se_bs, bs_info = self._bootstrap_se(clean)
+                model_info.update(bs_info)
+                if np.isfinite(se_bs):
+                    se = se_bs
         elif self._assignment is not None and self._ate_reverse is not None:
             # ATE: both arms are matched, so the frame carries the
             # Abadie-Imbens weight 1 + K_M(i) rather than a control frequency.
@@ -894,7 +953,7 @@ class MatchEstimator:
         # parity / JOSS-review stability); we only emit a one-line guidance
         # warning steering users to the rigorous SE. An explicit
         # ``se_method='ai'`` is the user's own choice and is not warned.
-        if self.se_method == "auto" and self.method not in ("kernel", "radius"):
+        if self.se_method == "auto" and self.method not in ("kernel", "radius", "llr"):
             warnings.warn(
                 "sp.match: the default standard error for nearest-neighbour "
                 "matching is the simple matched-pair SE ('ai'), which ignores "
@@ -1050,6 +1109,141 @@ class MatchEstimator:
 
         return att, se, balance
 
+    def _bootstrap_se(self, clean: pd.DataFrame) -> Tuple[float, dict[str, Any]]:
+        """Arm-stratified nonparametric bootstrap standard error.
+
+        Each replication resamples units **with replacement within treatment
+        arm** (so both arms stay non-empty and the arm sizes are fixed at
+        their observed values), then re-runs the *whole* pipeline on the
+        draw — including re-estimating the propensity score.  Re-estimating
+        the score is the point: the analytic matching standard errors all
+        condition on the fitted propensity score and so ignore the sampling
+        variability it contributes.
+
+        This is the estimator Stata users reach for via ``psmatch2``'s
+        bootstrap prefix, and the only inference psmatch2 itself offers for
+        local linear regression matching (it reports ``seatt = .`` there).
+
+        .. warning::
+
+           Abadie & Imbens (2008) show the nonparametric bootstrap is *not*
+           generally valid for nearest-neighbour matching with a fixed
+           number of matches, because the estimator is not smooth in the
+           sampling distribution.  It is used here for the smooth
+           kernel-class estimators (``kernel``, ``radius``, ``llr``), where
+           that objection does not bite.  Requesting it for
+           ``method='nearest'`` emits a warning.
+
+        Returns
+        -------
+        (float, dict)
+            The bootstrap SE and a ``model_info`` fragment recording the
+            number of successful replications.
+
+        References
+        ----------
+        Abadie, A. and Imbens, G.W. (2008). On the Failure of the Bootstrap
+            for Matching Estimators. *Econometrica*, 76(6), 1537-1557.
+        """
+        if self.method == "nearest":
+            warnings.warn(
+                "sp.match: the nonparametric bootstrap is not generally "
+                "valid for nearest-neighbour matching with a fixed number "
+                "of matches (Abadie & Imbens 2008) -- the estimator is not "
+                "smooth enough in the sampling distribution. Prefer "
+                "se_method='abadie_imbens'.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        rng = np.random.default_rng(self.bootstrap_seed)
+        t_rows = np.where(clean[self.treat].to_numpy() == 1)[0]
+        c_rows = np.where(clean[self.treat].to_numpy() == 0)[0]
+
+        estimates: List[float] = []
+        n_failed = 0
+        for _ in range(int(self.bootstrap_reps)):
+            take = np.concatenate(
+                [
+                    rng.choice(t_rows, size=len(t_rows), replace=True),
+                    rng.choice(c_rows, size=len(c_rows), replace=True),
+                ]
+            )
+            draw = clean.iloc[take].reset_index(drop=True)
+            try:
+                with warnings.catch_warnings():
+                    # A replication that trips a data warning is not itself
+                    # noteworthy; a replication that *fails* is counted below.
+                    warnings.simplefilter("ignore")
+                    rep = MatchEstimator(
+                        data=draw,
+                        y=self.y,
+                        treat=self.treat,
+                        covariates=self.covariates,
+                        distance=self.distance,
+                        method=self.method,
+                        estimand=self.estimand,
+                        n_matches=self.n_matches,
+                        caliper=self.caliper,
+                        caliper_scale=self.caliper_scale,
+                        replace=self.replace,
+                        ties=self.ties,
+                        tie_tolerance=self.tie_tolerance,
+                        m_order=self.m_order,
+                        mahalanobis_cov=self.mahalanobis_cov,
+                        bias_correction=self.bias_correction,
+                        ps_poly=self.ps_poly,
+                        common_support=self.common_support,
+                        kernel=self.kernel,
+                        bwidth=self.bwidth,
+                        se_method="ai",  # never recurse into the bootstrap
+                        ai_matches=self.ai_matches,
+                        n_strata=self.n_strata,
+                        n_bins=self.n_bins,
+                        alpha=self.alpha,
+                    ).fit()
+                est = float(rep.estimate)
+            except Exception:
+                # A resample can legitimately be degenerate (e.g. no control
+                # inside the bandwidth). Count it and carry on; a systematic
+                # failure surfaces in the diagnostics below.
+                n_failed += 1
+                continue
+            if np.isfinite(est):
+                estimates.append(est)
+            else:
+                n_failed += 1
+
+        info: dict[str, Any] = {
+            "bootstrap_reps": int(self.bootstrap_reps),
+            "bootstrap_reps_successful": len(estimates),
+            "bootstrap_reps_failed": n_failed,
+            "bootstrap_seed": self.bootstrap_seed,
+        }
+        if len(estimates) < 2:
+            warnings.warn(
+                f"sp.match: the bootstrap produced only {len(estimates)} "
+                f"usable replication(s) out of {self.bootstrap_reps}; the "
+                "standard error is left at its analytic fallback. Check "
+                "common support and the bandwidth.",
+                UserWarning,
+                stacklevel=3,
+            )
+            return float("nan"), info
+
+        if n_failed > 0.1 * self.bootstrap_reps:
+            warnings.warn(
+                f"sp.match: {n_failed} of {self.bootstrap_reps} bootstrap "
+                "replications failed to produce an estimate. The standard "
+                "error is computed from the survivors and may be optimistic.",
+                UserWarning,
+                stacklevel=3,
+            )
+
+        arr = np.asarray(estimates, dtype=float)
+        info["bootstrap_bias"] = float(np.mean(arr)) - float(self._point_estimate)
+        return float(np.std(arr, ddof=1)), info
+
     def _resolve_se_method(self) -> str:
         """Resolve ``se_method='auto'`` to a concrete estimator.
 
@@ -1059,6 +1253,11 @@ class MatchEstimator:
         """
         if self.se_method != "auto":
             return self.se_method
+        if self.method == "llr":
+            # Stata psmatch2 reports seatt = . for genuine LLR: the analytic
+            # formula assumes non-negative matching weights, which local
+            # linear weights violate. Bootstrap is the honest default.
+            return "bootstrap"
         if self.method in ("kernel", "radius"):
             return "psmatch2"
         return "ai"
@@ -1104,6 +1303,27 @@ class MatchEstimator:
         else:
             bw = float(self.bwidth)
 
+        is_llr = self.method == "llr"
+        if is_llr and kerneltype == "epan":
+            # Stata psmatch2 does NOT run local linear regression here: with
+            # the (default) Epanechnikov kernel and a propensity metric it
+            # rewrites the request as nearest-neighbour matching on an
+            # lpoly-smoothed outcome (psmatch2.ado, "do nearest neighbor if
+            # llr with tricube").  The two produce materially different
+            # numbers.  We run the estimator the option names, and say so.
+            warnings.warn(
+                "sp.match(method='llr', kernel='epan'): Stata psmatch2 does "
+                "not perform local linear regression matching for this "
+                "combination -- it silently substitutes nearest-neighbour "
+                "matching on an lpoly-smoothed outcome, so its ATT will "
+                "differ. StatsPAI runs genuine LLR. To reproduce a Stata "
+                "`psmatch2 ..., llr` number exactly, use kernel='tricube' "
+                "(or another non-Epanechnikov kernel), which is the only way "
+                "psmatch2 reaches its own LLR routine.",
+                UserWarning,
+                stacklevel=3,
+            )
+
         ps_c = pscore[idx_c]
         Y_c = Y[idx_c]
         # On-support controls form the donor pool (controls are always on
@@ -1128,6 +1348,33 @@ class MatchEstimator:
             nz = k > 0
             w = k[nz] / ksum
             cpos = pool[nz]  # positions into idx_c
+
+            if is_llr:
+                # Local linear regression matching (Heckman, Ichimura & Todd
+                # 1997), reproducing psmatch2's `_Match_llr`.  With kernel
+                # weights K normalised to sum 1 and signed propensity gaps
+                # d_j = p_j - p_i,
+                #
+                #     w_ij = K_j (V + dbar^2 - dbar * d_j) / V,
+                #     dbar = sum_j K_j d_j,  V = sum_j K_j d_j^2 - dbar^2
+                #
+                # which satisfies sum_j w_ij = 1 and sum_j w_ij d_j = 0 — the
+                # local-linear property that makes the estimate exact for a
+                # linear conditional mean.  Note w_ij may be NEGATIVE; that is
+                # inherent to local linear weighting, and it is why the
+                # psmatch2 analytic SE does not apply.
+                d_signed = ps_c[cpos] - pscore[t_pos]
+                dbar = float(np.sum(w * d_signed))
+                v = float(np.sum(w * d_signed**2) - dbar**2)
+                # V == 0 means the local design is collinear (every donor at
+                # the same propensity score), so no linear term is
+                # identified.  Stata's `cap reg` fails and it drops the unit
+                # off support; do the same rather than dividing by ~0.
+                if not np.isfinite(v) or v <= _LLR_MIN_VARIANCE:
+                    support[t_pos] = False
+                    continue
+                w = w * (v + dbar**2 - dbar * d_signed) / v
+
             full_matches[i] = cpos
             full_weights[i] = w
             yhat = float(np.sum(w * Y_c[cpos]))
