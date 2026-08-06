@@ -103,6 +103,35 @@ m = sp.psmatch2(df, treat='d', outcome='y', covariates=X, ai=2)      # ai(2): 2 
 - `se='bootstrap'` — see below. Not a Stata psmatch2 option, and the only
   inference available for `method='llr'`.
 
+#### Which standard error actually covers?
+
+Parity says StatsPAI reproduces Stata. It does not say either package's
+interval contains the truth. `benchmarks/matching_se_coverage.py` measures
+that directly — 36 designs (3 control-pool regimes × `replace` × `k`) ×
+1000 replications, on a design whose ATT is known:
+
+| `se_method` | SE / true sampling SD | coverage (nominal 0.95) | verdict |
+| --- | :-: | :-: | --- |
+| `'ai'` (current default) | 0.56 – 0.91 | **0.71 – 0.92** | never reaches nominal |
+| `'psmatch2'` (Stata's default) | 1.50 – 1.69 | 0.994 – 1.000 | far too wide |
+| `'abadie_imbens'` | **0.95 – 1.04** | **0.905 – 0.956** | correctly sized |
+| `'bootstrap'` | 0.95 – 1.23 | 0.933 – 1.000 | correct to mildly wide |
+
+Read over `replace=True`, where the point estimate is nearly unbiased
+(|bias| ≤ 0.029 on a true effect of 2.0) so the numbers isolate SE sizing
+rather than confounding it with the pool-exhaustion bias described above.
+
+**Use `se='abadie_imbens'` (or `ai=J`).** It is the only option measured to
+be correctly sized. `'ai'` remains the default for backward compatibility
+and emits a warning; Stata's own `'psmatch2'` default is conservative
+enough that a null will rarely be rejected.
+
+Regenerate the table with:
+
+```bash
+PYTHONPATH=src python benchmarks/matching_se_coverage.py
+```
+
 The nearest-neighbour SE, the AI-robust SE, and the radius ATT/SE match
 Stata 18 to machine precision; the smooth Epanechnikov kernel ATT matches to
 ~1e-8 (bounded by the independent logit propensity-score estimate, not the
@@ -166,6 +195,47 @@ the bootstrap bias.
 > for nearest-neighbour matching with a fixed number of matches. StatsPAI
 > warns if you ask for it there. It is sound for the smooth kernel-class
 > estimators (`kernel`, `radius`, `llr`), which is where it is the default.
+
+### With or without replacement? Check your control pool first
+
+Matching **without replacement** can only form the matches you asked for
+when
+
+```text
+n_matches × n_treated  ≤  n_control        (on support)
+```
+
+Past that point the pool is exhausted: the treated units matched last take
+whatever is left, and then get nothing. What comes back is still labelled an
+ATT, but it is an average over the treated units that *happened* to be
+matched first — a non-random subset.
+
+On a 400-row design with 209 treated and 191 controls, `n_matches=4,
+replace=False` leaves **161 of the 209 treated units (77%) with no match at
+all**. StatsPAI warns and reports the counts:
+
+```python
+res = sp.match(df, y='y', treat='d', covariates=X,
+               n_matches=4, replace=False)
+res.model_info['n_treated_unmatched']            # 161
+res.model_info['n_treated_partially_matched']    # 1
+```
+
+Your options, in order of preference:
+
+1. **`replace=True`** (the default) — one control may serve several treated
+   units, so the constraint disappears entirely. The cost is that reused
+   controls induce dependence, which the analytic standard errors do not
+   fully price (see §5a).
+2. **Reduce `n_matches`** until the inequality holds.
+3. **Accept the restricted estimand** — but then say in the paper that the
+   effect is an ATT over the matched subset, and report how many treated
+   units were dropped.
+
+The same warning fires when a caliper leaves treated units with no
+admissible donor; the message names which cause applies.
+
+---
 
 ## 3. Post-matching balance
 
