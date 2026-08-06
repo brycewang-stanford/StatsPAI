@@ -1717,7 +1717,14 @@
           "type": "string"
         },
         "controls": {
-          "description": "Additional control covariates.",
+          "description": "Continuous time-varying controls, entering the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fe": {
+          "description": "Which fixed effects the Y(0) model carries, replacing the default two-way ``unit + time``. Mirrors Stata ``did_imputation``'s ``fe()``. Each entry is one fixed effect, written either as a bare column or Stata-style with ``#`` for the interacted cell:: fe=['time'] # period FE only fe=['unit', 'state#year'] # unit FE + state-by-year FE fe=[] # no fixed effects at all Levels are factorized over the whole panel, so a cell seen only among treated rows still gets a column and is imputed rather than silently absorbing the reference level.",
           "items": {
             "type": "string"
           },
@@ -1755,6 +1762,13 @@
           "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
           "type": "integer"
         },
+        "project": {
+          "description": "project parameter (Optional[List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "save_residuals": {
           "default": false,
           "description": "Stata ``did_imputation, saveresid()``: store the untreated-fit residuals ``y - y0`` in ``model_info['residuals']`` (aligned with the rows of ``data``; ``NaN`` on treated rows, whose ``y - y0`` is the treatment effect, not a residual).",
@@ -1765,9 +1779,27 @@
           "description": "Stata ``did_imputation, saveweights()``: store the exact estimation weights ``w`` such that ``ATT = w'y`` in ``model_info['estimation_weights']`` (aligned with the rows of ``data``). Treated rows get ``1/N1``; untreated rows get the (negative) imputation weights implied by the FE projection -- useful for diagnosing which comparisons drive the estimate.",
           "type": "boolean"
         },
+        "se_method": {
+          "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic influence-function SE otherwise -- which for this estimator is the anti-conservative one, so ``'auto'`` errs toward the bootstrap exactly where it matters most.",
+          "type": "string"
+        },
         "time": {
           "description": "Time period column.",
           "type": "string"
+        },
+        "time_covariates": {
+          "description": "Controls interacted with the **period** fixed effects, i.e. one coefficient per period. Stata's ``timecontrols()``. Typically a time-invariant unit characteristic whose effect is allowed to move over calendar time.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unit_covariates": {
+          "description": "Controls interacted with the **unit** fixed effects, i.e. one slope per unit. Stata's ``unitcontrols()``. The canonical use is ``unit_covariates=[time_col]``, which makes Y(0) carry unit-specific linear trends. Identification bites hard here: a unit-specific slope needs at least two untreated periods for that unit, so early-treated cohorts can lose their imputation entirely.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "vce": {
           "default": "analytic",
@@ -1975,7 +2007,14 @@
           "type": "string"
         },
         "controls": {
-          "description": "Additional control covariates.",
+          "description": "Continuous time-varying controls, entering the Y(0) model additively. Stata ``did_imputation``'s ``controls()``.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fe": {
+          "description": "Which fixed effects the Y(0) model carries, replacing the default two-way ``unit + time``. Mirrors Stata ``did_imputation``'s ``fe()``. Each entry is one fixed effect, written either as a bare column or Stata-style with ``#`` for the interacted cell:: fe=['time'] # period FE only fe=['unit', 'state#year'] # unit FE + state-by-year FE fe=[] # no fixed effects at all Levels are factorized over the whole panel, so a cell seen only among treated rows still gets a column and is imputed rather than silently absorbing the reference level.",
           "items": {
             "type": "string"
           },
@@ -2013,6 +2052,13 @@
           "description": "Stata ``did_imputation, pretrends(k)``: estimate the ``k`` pre-treatment placebo coefficients (horizons ``-k .. -1``, added to ``horizon`` if not already requested) and report their joint Wald test in ``model_info['pretrend_test']``. The in-fit test assumes the pre-period estimates are uncorrelated (valid but conservative); for the covariance-aware cluster-bootstrap version use :func:`statspai.bjs_pretrend_joint`.",
           "type": "integer"
         },
+        "project": {
+          "description": "project parameter (Optional[List[str]]).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "save_residuals": {
           "default": false,
           "description": "Stata ``did_imputation, saveresid()``: store the untreated-fit residuals ``y - y0`` in ``model_info['residuals']`` (aligned with the rows of ``data``; ``NaN`` on treated rows, whose ``y - y0`` is the treatment effect, not a residual).",
@@ -2023,9 +2069,27 @@
           "description": "Stata ``did_imputation, saveweights()``: store the exact estimation weights ``w`` such that ``ATT = w'y`` in ``model_info['estimation_weights']`` (aligned with the rows of ``data``). Treated rows get ``1/N1``; untreated rows get the (negative) imputation weights implied by the FE projection -- useful for diagnosing which comparisons drive the estimate.",
           "type": "boolean"
         },
+        "se_method": {
+          "description": "Shared DiD spelling for ``vce=`` -- ``'analytic'``, ``'bootstrap'`` (also ``'cluster'``, ``'pairs'``) or ``'auto'``. Passing both raises. ``'auto'`` picks the cluster bootstrap when the design has at most 30 clusters (Cameron, Gelbach & Miller 2008) and the analytic influence-function SE otherwise -- which for this estimator is the anti-conservative one, so ``'auto'`` errs toward the bootstrap exactly where it matters most.",
+          "type": "string"
+        },
         "time": {
           "description": "Time period column.",
           "type": "string"
+        },
+        "time_covariates": {
+          "description": "Controls interacted with the **period** fixed effects, i.e. one coefficient per period. Stata's ``timecontrols()``. Typically a time-invariant unit characteristic whose effect is allowed to move over calendar time.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unit_covariates": {
+          "description": "Controls interacted with the **unit** fixed effects, i.e. one slope per unit. Stata's ``unitcontrols()``. The canonical use is ``unit_covariates=[time_col]``, which makes Y(0) carry unit-specific linear trends. Identification bites hard here: a unit-specific slope needs at least two untreated periods for that unit, so early-treated cohorts can lose their imputation entirely.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "vce": {
           "default": "analytic",
@@ -5532,12 +5596,24 @@
           "description": "Keep only eventually-treated units observed at every non-negative requested horizon (Stata: hbalance)",
           "type": "boolean"
         },
+        "boot_seed": {
+          "default": 0,
+          "description": "Seed for the cluster bootstrap (deterministic results).",
+          "type": "integer"
+        },
         "cluster": {
           "description": "Cluster identifier column for clustered standard errors.",
           "type": "string"
         },
         "controls": {
           "description": "Control-variable column names.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "fe": {
+          "description": "Fixed effects in the Y(0) model, replacing the default unit+time. Stata's fe(): entries are column names or 'a#b' interacted cells; [] means no fixed effects.",
           "items": {
             "type": "string"
           },
@@ -5566,9 +5642,21 @@
           "description": "Drop event-study horizons with fewer treated observations (Stata: minn())",
           "type": "integer"
         },
+        "n_boot": {
+          "default": 199,
+          "description": "Cluster-bootstrap replications when vce='bootstrap'.",
+          "type": "integer"
+        },
         "pretrends": {
           "description": "Estimate k placebo pre-trend coefficients (-k..-1) and report their joint Wald test (Stata: pretrends(k))",
           "type": "integer"
+        },
+        "project": {
+          "description": "Regress the imputed treatment effects on these covariates and report constant plus slopes. Stata's project(); mutually exclusive with hetby.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "save_residuals": {
           "default": false,
@@ -5580,8 +5668,40 @@
           "description": "Store exact estimation weights w with ATT = w'y in model_info (Stata: saveweights())",
           "type": "boolean"
         },
+        "se_method": {
+          "description": "Shared DiD spelling for vce=: 'analytic', 'bootstrap' or 'auto'. Passing both raises.",
+          "enum": [
+            "analytic",
+            "bootstrap",
+            "auto"
+          ],
+          "type": "string"
+        },
         "time": {
           "description": "Time period column",
+          "type": "string"
+        },
+        "time_covariates": {
+          "description": "Controls interacted with the period fixed effects (one coefficient per period). Stata's timecontrols().",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "unit_covariates": {
+          "description": "Controls interacted with the unit fixed effects (one slope per unit). Stata did_imputation's unitcontrols(); unit_covariates=[time] gives unit-specific trends.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "vce": {
+          "default": "analytic",
+          "description": "Standard-error mode for the overall ATT. 'analytic' is fast but anti-conservative (~0.87 coverage); 'bootstrap' resamples clusters.",
+          "enum": [
+            "analytic",
+            "bootstrap"
+          ],
           "type": "string"
         },
         "y": {
@@ -5760,6 +5880,11 @@
           "description": "Number of post-treatment dynamic horizons",
           "type": "integer"
         },
+        "effects_equal": {
+          "default": false,
+          "description": "Test H0 that the dynamic effects are all equal. True tests every effect; a (lower, upper) pair tests that horizon range. Stata's effects_equal().",
+          "type": "boolean"
+        },
         "group": {
           "description": "Unit identifier",
           "type": "string"
@@ -5774,6 +5899,11 @@
           "description": "Number of pre-treatment placebo horizons",
           "type": "integer"
         },
+        "same_switchers": {
+          "default": false,
+          "description": "Restrict the treated arm to switchers observed at every requested horizon, holding the composition fixed across relative time. Stata's same_switchers.",
+          "type": "boolean"
+        },
         "se_method": {
           "default": "bootstrap",
           "description": "'bootstrap' resamples clusters; 'analytic' uses the influence functions (~100x faster, but NOT pinned to DIDmultiplegtDYN -- about 1% below its reported SEs)",
@@ -5786,6 +5916,14 @@
         "seed": {
           "description": "Random seed for reproducible stochastic steps.",
           "type": "integer"
+        },
+        "switchers": {
+          "description": "Estimate on switch-in ('in') or switch-out ('out') events only. Stata's switchers(); default pools both.",
+          "enum": [
+            "in",
+            "out"
+          ],
+          "type": "string"
         },
         "time": {
           "description": "Time period column.",
@@ -22608,6 +22746,15 @@
     "description": "Sun-Abraham (2021) interaction-weighted event-study. Fixes the contamination in dynamic event-study TWFE coefficients from other relative-time bins by using cohort-specific interaction weights. Canonical companion to Callaway-Sant'Anna for event studies. Validation: certified parity evidence. Do NOT use when: all units adopt treatment simultaneously -- the cohort x relative-time interactions collapse; use sp.did(method='2x2'); cohorts are very small (a handful of units each) -- interaction-weighted estimates become noisy and the cohort-share weights unstable. Cost: Builds a saturated cohort x relative-time interaction design: columns grow as (cohorts x event-time window), so a wide window on a many-cohort panel produces a large dense design matrix. Trim via event_window=. Assumptions: Parallel trends across cohorts; No anticipation within event_window lead horizon; SUTVA. Pre-conditions: panel with unit x time x outcome; g is the first-treatment period (int), 0 / NaN for never-treated; >= 2 pre-periods per cohort for event-study leads. Failure modes: No never-treated cohort when control_group='nevertreated' -> Pass control_group='notyettreated' or add never-treated units; Pre-tren...",
     "input_schema": {
       "properties": {
+        "aggregation": {
+          "default": "event_time",
+          "description": "Headline summary convention: 'event_time' (equal weight per relative time) or 'fixest_att' (cohort-size weighted, matching fixest agg='att').",
+          "enum": [
+            "event_time",
+            "fixest_att"
+          ],
+          "type": "string"
+        },
         "alpha": {
           "default": 0.05,
           "description": "Significance level for confidence intervals and tests.",
@@ -22615,6 +22762,10 @@
         },
         "cluster": {
           "description": "Cluster variable (defaults to i)",
+          "type": "string"
+        },
+        "control_cohort": {
+          "description": "Nominate the reference cohort explicitly: a 0/1 indicator column (Stata eventstudyinteract's control_cohort()) or a cohort value from g.",
           "type": "string"
         },
         "control_group": {
@@ -22647,6 +22798,19 @@
         "i": {
           "description": "Unit identifier",
           "type": "string"
+        },
+        "pretest": {
+          "default": "joint",
+          "description": "Report the joint pre-trend Wald test ('joint') or skip it ('none').",
+          "enum": [
+            "joint",
+            "none"
+          ],
+          "type": "string"
+        },
+        "pretest_periods": {
+          "description": "Restrict the pre-trend test to the k estimated leads closest to treatment.",
+          "type": "integer"
         },
         "t": {
           "description": "Time period column",

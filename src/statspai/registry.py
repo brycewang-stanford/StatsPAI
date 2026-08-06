@@ -1181,6 +1181,52 @@ def _build_registry() -> None:
             description="Callaway-Sant'Anna (2021) staggered DID with group-time ATTs. Robust to heterogeneous treatment effects and staggered adoption.",
             params=[
                 ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "notyet_cutoff",
+                    "str",
+                    False,
+                    "period",
+                    "Which date a control must still be untreated at when "
+                    "control_group='notyettreated': 'period' (as of t; R did "
+                    "and csdid's asinr) or 'cohort' (as of g; csdid default).",
+                    ["period", "cohort"],
+                ),
+                ParamSpec(
+                    "pscore_trim",
+                    "float",
+                    False,
+                    0.995,
+                    "Drop control units whose estimated propensity score "
+                    "reaches this cutoff, matching DRDID's trim.level. Pass "
+                    "1.0 to disable.",
+                ),
+                ParamSpec(
+                    "pretest",
+                    "str",
+                    False,
+                    "joint",
+                    "Report the joint pre-trend Wald test ('joint') or skip "
+                    "it ('none').",
+                    ["joint", "none"],
+                ),
+                ParamSpec(
+                    "pretest_periods",
+                    "int",
+                    False,
+                    None,
+                    "Restrict the pre-trend test to the k event times "
+                    "closest to treatment.",
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    None,
+                    "Shared DiD spelling for the inference procedure: "
+                    "'analytic', 'multiplier' (aka 'wboot'), or 'auto'. "
+                    "Synonym layer over bstrap=; passing both raises.",
+                    ["analytic", "multiplier", "auto"],
+                ),
                 ParamSpec("y", "str", True, description="Outcome variable"),
                 ParamSpec(
                     "g",
@@ -9829,6 +9875,42 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "control_cohort",
+                    "str",
+                    False,
+                    None,
+                    "Nominate the reference cohort explicitly: a 0/1 "
+                    "indicator column (Stata eventstudyinteract's "
+                    "control_cohort()) or a cohort value from g.",
+                ),
+                ParamSpec(
+                    "aggregation",
+                    "str",
+                    False,
+                    "event_time",
+                    "Headline summary convention: 'event_time' (equal weight "
+                    "per relative time) or 'fixest_att' (cohort-size "
+                    "weighted, matching fixest agg='att').",
+                    ["event_time", "fixest_att"],
+                ),
+                ParamSpec(
+                    "pretest",
+                    "str",
+                    False,
+                    "joint",
+                    "Report the joint pre-trend Wald test ('joint') or skip "
+                    "it ('none').",
+                    ["joint", "none"],
+                ),
+                ParamSpec(
+                    "pretest_periods",
+                    "int",
+                    False,
+                    None,
+                    "Restrict the pre-trend test to the k estimated leads "
+                    "closest to treatment.",
+                ),
                 ParamSpec("y", "str", True),
                 ParamSpec(
                     "g",
@@ -9905,6 +9987,74 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "unit_covariates",
+                    "list",
+                    False,
+                    None,
+                    "Controls interacted with the unit fixed effects (one "
+                    "slope per unit). Stata did_imputation's unitcontrols(); "
+                    "unit_covariates=[time] gives unit-specific trends.",
+                ),
+                ParamSpec(
+                    "time_covariates",
+                    "list",
+                    False,
+                    None,
+                    "Controls interacted with the period fixed effects (one "
+                    "coefficient per period). Stata's timecontrols().",
+                ),
+                ParamSpec(
+                    "fe",
+                    "list",
+                    False,
+                    None,
+                    "Fixed effects in the Y(0) model, replacing the default "
+                    "unit+time. Stata's fe(): entries are column names or "
+                    "'a#b' interacted cells; [] means no fixed effects.",
+                ),
+                ParamSpec(
+                    "project",
+                    "list",
+                    False,
+                    None,
+                    "Regress the imputed treatment effects on these "
+                    "covariates and report constant plus slopes. Stata's "
+                    "project(); mutually exclusive with hetby.",
+                ),
+                ParamSpec(
+                    "vce",
+                    "str",
+                    False,
+                    "analytic",
+                    "Standard-error mode for the overall ATT. 'analytic' is "
+                    "fast but anti-conservative (~0.87 coverage); "
+                    "'bootstrap' resamples clusters.",
+                    ["analytic", "bootstrap"],
+                ),
+                ParamSpec(
+                    "se_method",
+                    "str",
+                    False,
+                    None,
+                    "Shared DiD spelling for vce=: 'analytic', 'bootstrap' "
+                    "or 'auto'. Passing both raises.",
+                    ["analytic", "bootstrap", "auto"],
+                ),
+                ParamSpec(
+                    "n_boot",
+                    "int",
+                    False,
+                    199,
+                    "Cluster-bootstrap replications when vce='bootstrap'.",
+                ),
+                ParamSpec(
+                    "boot_seed",
+                    "int",
+                    False,
+                    0,
+                    "Seed for the cluster bootstrap (deterministic results).",
+                ),
                 ParamSpec("y", "str", True),
                 ParamSpec("group", "str", True, description="Unit identifier"),
                 ParamSpec("time", "str", True, description="Time period column"),
@@ -10791,6 +10941,33 @@ def _build_registry() -> None:
             ),
             params=[
                 ParamSpec("data", "DataFrame", True),
+                ParamSpec(
+                    "switchers",
+                    "str",
+                    False,
+                    None,
+                    "Estimate on switch-in ('in') or switch-out ('out') "
+                    "events only. Stata's switchers(); default pools both.",
+                    ["in", "out"],
+                ),
+                ParamSpec(
+                    "same_switchers",
+                    "bool",
+                    False,
+                    False,
+                    "Restrict the treated arm to switchers observed at every "
+                    "requested horizon, holding the composition fixed across "
+                    "relative time. Stata's same_switchers.",
+                ),
+                ParamSpec(
+                    "effects_equal",
+                    "bool",
+                    False,
+                    False,
+                    "Test H0 that the dynamic effects are all equal. True "
+                    "tests every effect; a (lower, upper) pair tests that "
+                    "horizon range. Stata's effects_equal().",
+                ),
                 ParamSpec("y", "str", True),
                 ParamSpec("group", "str", True, description="Unit identifier"),
                 ParamSpec("time", "str", True),

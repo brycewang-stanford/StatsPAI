@@ -1,0 +1,755 @@
+{
+  "_comment": "Registry entries whose hand-written params= omits a live signature parameter, so sp.function_schema() hides it from agents. Frozen as a ratchet: entries may shrink or vanish, never grow, and no new name may appear. See tests/test_registry_param_drift.py.",
+  "_generated_by": "tests/test_registry_param_drift.py --update",
+  "entries": {
+    "anthropic_client": [
+      "system_prompt",
+      "thinking_budget"
+    ],
+    "augsynth": [
+      "alpha",
+      "covariates",
+      "placebo",
+      "ridge_lambda"
+    ],
+    "bartik": [
+      "alpha",
+      "leave_one_out",
+      "regional_shocks",
+      "robust"
+    ],
+    "bayes_did": [
+      "advi_iterations",
+      "covariates",
+      "hdi_prob",
+      "inference",
+      "prior_ate",
+      "prior_covariate_sigma",
+      "prior_noise",
+      "prior_time_sigma",
+      "prior_unit_sigma",
+      "progressbar",
+      "random_state",
+      "rope"
+    ],
+    "bayes_dml": [
+      "alpha",
+      "ml_g",
+      "ml_m",
+      "n_folds",
+      "n_samples",
+      "random_state"
+    ],
+    "bayes_fuzzy_rd": [
+      "advi_iterations",
+      "bandwidth",
+      "hdi_prob",
+      "inference",
+      "prior_late",
+      "prior_noise",
+      "prior_slope_sigma",
+      "progressbar",
+      "random_state",
+      "regularize_late",
+      "rope",
+      "target_accept"
+    ],
+    "bayes_iv": [
+      "advi_iterations",
+      "hdi_prob",
+      "inference",
+      "per_instrument",
+      "prior_coef_sigma",
+      "prior_first_stage_sigma",
+      "prior_late",
+      "prior_noise",
+      "progressbar",
+      "random_state",
+      "rope",
+      "target_accept"
+    ],
+    "bayes_mte": [
+      "advi_iterations",
+      "first_stage",
+      "hdi_prob",
+      "inference",
+      "mte_method",
+      "poly_u",
+      "prior_coef_sigma",
+      "prior_mte_sigma",
+      "prior_noise",
+      "progressbar",
+      "random_state",
+      "rope",
+      "selection",
+      "target_accept",
+      "u_grid"
+    ],
+    "bayes_rd": [
+      "advi_iterations",
+      "bandwidth",
+      "hdi_prob",
+      "inference",
+      "prior_noise",
+      "prior_slope_sigma",
+      "prior_tau",
+      "progressbar",
+      "random_state",
+      "rope",
+      "target_accept"
+    ],
+    "bcf_factor_exposure": [
+      "n_folds",
+      "n_trees_mu",
+      "n_trees_tau",
+      "random_state"
+    ],
+    "bcf_longitudinal": [
+      "alpha",
+      "random_state"
+    ],
+    "beyond_average_late": [
+      "alpha",
+      "n_boot",
+      "seed"
+    ],
+    "bidirectional_pci": [
+      "alpha",
+      "n_boot",
+      "seed"
+    ],
+    "bootstrap": [
+      "alpha",
+      "block",
+      "null_value",
+      "seed"
+    ],
+    "causal_bandit": [
+      "rng_seed"
+    ],
+    "causal_dqn": [
+      "gamma_bound",
+      "lr",
+      "seed"
+    ],
+    "causal_forest": [
+      "T",
+      "W",
+      "X",
+      "Y",
+      "d",
+      "discrete_treatment",
+      "max_depth",
+      "max_samples",
+      "min_samples_leaf",
+      "model_t",
+      "model_y",
+      "n_estimators",
+      "random_state",
+      "w",
+      "x",
+      "y"
+    ],
+    "causal_impact": [
+      "alpha",
+      "covariates",
+      "n_seasons"
+    ],
+    "causal_policy_forest": [
+      "n_actions",
+      "random_state",
+      "subsample_frac"
+    ],
+    "causal_question": [
+      "cohort",
+      "engine",
+      "notes"
+    ],
+    "cfrnet": [
+      "alpha",
+      "d",
+      "min_delta",
+      "n_bootstrap",
+      "patience",
+      "verbose",
+      "weight_decay",
+      "x"
+    ],
+    "cite": [
+      "bold_estimate",
+      "star_levels"
+    ],
+    "cluster_cross_interference": [
+      "alpha"
+    ],
+    "conformal_continuous": [
+      "calibration_frac",
+      "dose_grid",
+      "estimator",
+      "random_state"
+    ],
+    "conformal_fair_ite": [
+      "seed",
+      "test_data"
+    ],
+    "conformal_interference": [
+      "calibration_frac",
+      "estimator",
+      "random_state"
+    ],
+    "counterfactual_fairness": [
+      "alternative_values"
+    ],
+    "counterfactual_policy_optimization": [
+      "noise_sd"
+    ],
+    "cross_validate": [
+      "alpha",
+      "cluster",
+      "reference",
+      "term",
+      "weights"
+    ],
+    "diagnose_result": [
+      "alpha",
+      "print_results"
+    ],
+    "did": [
+      "aggregation",
+      "alpha",
+      "anticipation",
+      "base_period",
+      "cluster",
+      "control_group",
+      "covariates",
+      "estimator",
+      "n_boot",
+      "panel",
+      "random_state",
+      "robust",
+      "se_method",
+      "seed",
+      "treat_time",
+      "treat_unit",
+      "vce",
+      "weights",
+      "wild_reps",
+      "wild_weight_type"
+    ],
+    "did_2x2": [
+      "d",
+      "engine",
+      "seed",
+      "vce",
+      "wild_reps",
+      "wild_weight_type"
+    ],
+    "did_analysis": [
+      "alpha",
+      "cluster",
+      "control_group",
+      "covariates",
+      "estimator",
+      "event_window",
+      "robust"
+    ],
+    "dl_propensity_score": [
+      "max_iter",
+      "random_state"
+    ],
+    "dml": [
+      "X",
+      "d",
+      "model_d",
+      "model_y"
+    ],
+    "dml_model_averaging": [
+      "sample_weight"
+    ],
+    "dml_panel": [
+      "sample_weight"
+    ],
+    "dose_response": [
+      "alpha",
+      "outcome_model",
+      "random_state",
+      "treatment_model"
+    ],
+    "dragonnet": [
+      "alpha",
+      "d",
+      "min_delta",
+      "n_bootstrap",
+      "patience",
+      "verbose",
+      "weight_decay",
+      "x"
+    ],
+    "drdid": [
+      "random_state"
+    ],
+    "dyadic_regression": [
+      "intercept"
+    ],
+    "dynotears": [
+      "h_tol",
+      "max_iter",
+      "rho_max",
+      "verbose"
+    ],
+    "esttab": [
+      "drop",
+      "filename",
+      "fmt",
+      "keep",
+      "labels",
+      "names",
+      "notes",
+      "order",
+      "output",
+      "p",
+      "star_levels",
+      "stars",
+      "stats",
+      "t",
+      "title"
+    ],
+    "event_study": [
+      "bin_width",
+      "expose_pre_vcov",
+      "weights"
+    ],
+    "evidence_without_injustice": [
+      "random_state"
+    ],
+    "fairness_audit": [
+      "alternative_values",
+      "threshold"
+    ],
+    "fortified_pci": [
+      "alpha",
+      "n_boot",
+      "seed"
+    ],
+    "from_fred": [
+      "series_id"
+    ],
+    "from_sdmx": [
+      "value_name"
+    ],
+    "from_worldbank": [
+      "value_name",
+      "wide"
+    ],
+    "front_door": [
+      "alpha",
+      "n_boot",
+      "n_mc",
+      "seed"
+    ],
+    "g_computation": [
+      "alpha",
+      "ml_Q",
+      "seed"
+    ],
+    "gardner_did": [
+      "boot_seed",
+      "n_boot",
+      "vce"
+    ],
+    "gformula_ice_fn": [
+      "seed"
+    ],
+    "hal_tmle": [
+      "propensity_bounds"
+    ],
+    "harvest_did": [
+      "weighting"
+    ],
+    "inward_outward_spillover": [
+      "alpha",
+      "covariates"
+    ],
+    "ipw": [
+      "alpha",
+      "n_bootstrap",
+      "normalize",
+      "seed"
+    ],
+    "iv_diag": [
+      "grid_size"
+    ],
+    "ivreg": [
+      "cluster",
+      "conley_cutoff",
+      "conley_lat",
+      "conley_lon",
+      "seed",
+      "vce",
+      "wild_reps",
+      "wild_weight_type"
+    ],
+    "llm_dag_constrained": [
+      "verbose"
+    ],
+    "long_term_from_short": [
+      "alpha",
+      "model",
+      "random_state"
+    ],
+    "lpcmci": [
+      "ci_test",
+      "max_cond_dim"
+    ],
+    "match": [
+      "treat",
+      "y"
+    ],
+    "mean_comparison": [
+      "filename",
+      "fmt",
+      "group_labels",
+      "output",
+      "title",
+      "weights"
+    ],
+    "mediate": [
+      "inference",
+      "pvalue_method",
+      "seed"
+    ],
+    "mediate_interventional": [
+      "alpha",
+      "n_boot",
+      "n_mc",
+      "pvalue_method",
+      "seed"
+    ],
+    "metalearner": [
+      "alpha",
+      "cate_model",
+      "d",
+      "n_bootstrap",
+      "n_folds",
+      "outcome_model",
+      "propensity_model",
+      "x"
+    ],
+    "modelsummary": [
+      "add_rows",
+      "coef_map",
+      "fmt",
+      "model_names",
+      "notes",
+      "output",
+      "se_type",
+      "show_ci",
+      "stars",
+      "stats",
+      "title"
+    ],
+    "mr_bma": [
+      "prior_inclusion"
+    ],
+    "mr_clust": [
+      "max_iter",
+      "tol"
+    ],
+    "mr_cml": [
+      "max_iter",
+      "tol"
+    ],
+    "mr_heterogeneity": [
+      "se_exposure"
+    ],
+    "mr_mediation": [
+      "exposure_name",
+      "mediator_name",
+      "outcome_name",
+      "se_exposure",
+      "se_mediator",
+      "se_outcome"
+    ],
+    "mr_multivariable": [
+      "alpha"
+    ],
+    "msm": [
+      "alpha",
+      "treat_type",
+      "trim_per_period"
+    ],
+    "multi_treatment": [
+      "random_state"
+    ],
+    "nbreg": [
+      "alpha",
+      "maxiter",
+      "tol",
+      "weights",
+      "x",
+      "y"
+    ],
+    "netlm": [
+      "intercept"
+    ],
+    "netlogit": [
+      "intercept",
+      "max_iter"
+    ],
+    "network_exposure": [
+      "seed"
+    ],
+    "network_graph": [
+      "weighted"
+    ],
+    "network_hte": [
+      "alpha",
+      "random_state"
+    ],
+    "openai_client": [
+      "system_prompt"
+    ],
+    "orthogonal_to_bias": [
+      "method"
+    ],
+    "outreg2": [
+      "decimal_places",
+      "format",
+      "model_names",
+      "notes",
+      "show_se",
+      "show_stars",
+      "show_tstat",
+      "title",
+      "variable_labels"
+    ],
+    "pairwise_causal_benchmark": [
+      "llm_identifier",
+      "pair_a_col",
+      "pair_b_col",
+      "prompt_template",
+      "truth_col"
+    ],
+    "panel_compare": [
+      "cluster",
+      "robust"
+    ],
+    "paper": [
+      "allow_experimental",
+      "include_methods",
+      "llm",
+      "llm_client",
+      "llm_domain",
+      "reviewer_mode"
+    ],
+    "paper_tables": [
+      "coef_labels",
+      "docx_filename",
+      "filename",
+      "keep",
+      "latex_filename",
+      "model_labels_heterogeneity",
+      "model_labels_main",
+      "model_labels_placebo",
+      "model_labels_robustness",
+      "xlsx_filename"
+    ],
+    "particle_filter": [
+      "observation_log_pdf",
+      "prior_sampler",
+      "random_state",
+      "transition_sampler"
+    ],
+    "pci_mtp": [
+      "alpha",
+      "covariates",
+      "n_boot",
+      "seed"
+    ],
+    "proximal": [
+      "alpha",
+      "seed"
+    ],
+    "proximal_surrogate_index": [
+      "alpha",
+      "random_state"
+    ],
+    "psmatch2": [
+      "alpha",
+      "distance",
+      "n_matches",
+      "ps_poly",
+      "replace",
+      "y"
+    ],
+    "qdid": [
+      "method",
+      "seed"
+    ],
+    "qreg": [
+      "alpha"
+    ],
+    "qte": [
+      "se",
+      "seed"
+    ],
+    "rd_bias_aware_fuzzy": [
+      "cluster",
+      "n_grid"
+    ],
+    "rd_flex": [
+      "bwselect",
+      "cluster",
+      "p",
+      "random_state",
+      "sklearn_estimator"
+    ],
+    "rdrobust": [
+      "engine",
+      "vce"
+    ],
+    "regress": [
+      "conley_cutoff",
+      "conley_lat",
+      "conley_lon",
+      "vce",
+      "weights"
+    ],
+    "regtable": [
+      "add_rows",
+      "alpha",
+      "coef_labels",
+      "dep_var_labels",
+      "drop",
+      "fmt",
+      "keep",
+      "model_labels",
+      "notes",
+      "order",
+      "panel_labels",
+      "quarto_caption",
+      "quarto_label",
+      "star_levels",
+      "stars",
+      "stats",
+      "title"
+    ],
+    "rwd_rct_concordance": [
+      "alpha"
+    ],
+    "sar": [
+      "alpha",
+      "row_normalize"
+    ],
+    "sdm": [
+      "alpha",
+      "row_normalize"
+    ],
+    "sem": [
+      "alpha",
+      "row_normalize"
+    ],
+    "sequential_sdid": [
+      "alpha",
+      "seed"
+    ],
+    "spec_curve": [
+      "alpha",
+      "cluster_var",
+      "se_types",
+      "subsets",
+      "y_transforms"
+    ],
+    "spillover": [
+      "random_state"
+    ],
+    "surrogate_index": [
+      "random_state"
+    ],
+    "svydesign": [
+      "nest"
+    ],
+    "synth": [
+      "alpha",
+      "covariates",
+      "penalization",
+      "placebo",
+      "y"
+    ],
+    "synth_experimental_design": [
+      "pre_period",
+      "random_state"
+    ],
+    "synthesise_evidence": [
+      "alpha"
+    ],
+    "target_trial_protocol": [
+      "notes"
+    ],
+    "target_trial_report": [
+      "authors",
+      "background",
+      "data_availability",
+      "funding",
+      "journal",
+      "limitations",
+      "registration"
+    ],
+    "tarnet": [
+      "alpha",
+      "d",
+      "min_delta",
+      "n_bootstrap",
+      "patience",
+      "verbose",
+      "weight_decay",
+      "x"
+    ],
+    "tmle": [
+      "Q",
+      "alpha",
+      "fluctuation",
+      "g1W",
+      "n_folds",
+      "outcome_library",
+      "propensity_bounds",
+      "propensity_library",
+      "random_state"
+    ],
+    "unified_sensitivity": [
+      "measure",
+      "outcome_sd",
+      "r2_long",
+      "r2_short",
+      "term"
+    ],
+    "wooldridge_prod": [
+      "functional_form"
+    ],
+    "xtabond": [
+      "alpha",
+      "constant",
+      "endogenous_lags",
+      "gmm_lags",
+      "iter_maxiter",
+      "iter_tol",
+      "predetermined_lags",
+      "robust"
+    ],
+    "xtdpdsys": [
+      "alpha",
+      "gmm_lags",
+      "robust"
+    ],
+    "xtnbreg": [
+      "alpha",
+      "dispersion",
+      "maxiter",
+      "robust",
+      "tol",
+      "weights",
+      "x",
+      "y"
+    ]
+  }
+}
