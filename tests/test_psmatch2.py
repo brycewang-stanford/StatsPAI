@@ -20,10 +20,7 @@ import pytest
 import statspai as sp
 from statspai.core.results import CausalResult
 from statspai.exceptions import DataInsufficient, MethodIncompatibility
-from statspai.matching._matched_frame import (
-    build_matched_frame,
-    common_support_mask,
-)
+from statspai.matching._matched_frame import build_matched_frame, common_support_mask
 
 # ======================================================================
 # Fixtures
@@ -103,7 +100,6 @@ def _manual_psmatch2(matched_data, *, model_info=None, covariates=None):
 
 
 class TestMatchedFrameAttached:
-
     def test_sp_match_attaches_matched_data(self, psm_data):
         r = sp.match(
             psm_data,
@@ -176,7 +172,6 @@ class TestMatchedFrameAttached:
 
 
 class TestStataSemantics:
-
     def test_treated_weight_is_one(self, psm_data):
         r = sp.match(
             psm_data,
@@ -279,7 +274,6 @@ class TestStataSemantics:
 
 
 class TestCommonSupport:
-
     def test_minmax_flags_and_trims(self, psm_data):
         r_none = sp.match(
             psm_data,
@@ -333,7 +327,6 @@ class TestCommonSupport:
 
 
 class TestPSMatch2Surface:
-
     def test_basic_run(self, psm_data):
         m = sp.psmatch2(psm_data, treat="d", outcome="y", covariates=["x1", "x2"])
         assert isinstance(m, sp.PSMatch2Result)
@@ -477,7 +470,6 @@ class TestPSMatch2Surface:
 
 
 class TestPSMDID:
-
     def test_pooled_recovers_effect(self, psm_panel):
         base, panel = psm_panel
         m = sp.psmatch2(base, treat="d", covariates=["x1", "x2"])
@@ -517,7 +509,7 @@ class TestPSMDID:
         )
         assert did.model_info["weight"] == "none"
 
-    def test_fweight_affects_no_fe_did_and_ignores_panel_weight_columns(self):
+    def test_weighting_affects_no_fe_did_and_ignores_panel_weight_columns(self):
         md = pd.DataFrame(
             {
                 "id": [0, 1, 2, 3, 4],
@@ -569,10 +561,43 @@ class TestPSMDID:
         assert unweighted.estimate == pytest.approx(-5.0, abs=1e-10)
         assert weighted.model_info["weight_column"] not in {"_weight", "_support"}
 
+        # The default is 'aweight'; 'fweight' must reach the same point
+        # estimate off the same weights (only the df differ).
+        fw = m.psm_did(
+            panel,
+            id="id",
+            y="y",
+            time="time",
+            treat_time=1,
+            treat="d",
+            weight="fweight",
+        )
+        assert fw.estimate == pytest.approx(weighted.estimate, abs=1e-10)
+        assert weighted.model_info["weight"] == "aweight"
+        assert fw.model_info["weight"] == "fweight"
+
+    def test_psm_did_default_weight_is_aweight(self, psm_panel):
+        """The default must stay 'aweight' — it pins the historical numbers."""
+        base, panel = psm_panel
+        m = sp.psmatch2(base, treat="d", covariates=["x1", "x2"])
+        did = m.psm_did(panel, id="id", y="y", time="time", treat_time=1, treat="d")
+        assert did.model_info["weight"] == "aweight"
+        explicit = m.psm_did(
+            panel,
+            id="id",
+            y="y",
+            time="time",
+            treat_time=1,
+            treat="d",
+            weight="aweight",
+        )
+        assert did.estimate == pytest.approx(explicit.estimate, rel=0, abs=0)
+        assert did.se == pytest.approx(explicit.se, rel=0, abs=0)
+
     def test_invalid_psm_did_weight_raises(self, psm_panel):
         base, panel = psm_panel
         m = sp.psmatch2(base, treat="d", covariates=["x1", "x2"])
-        with pytest.raises(MethodIncompatibility, match="weight"):
+        with pytest.raises(MethodIncompatibility, match="weight must be one of"):
             m.psm_did(
                 panel,
                 id="id",
@@ -581,6 +606,20 @@ class TestPSMDID:
                 treat_time=1,
                 treat="d",
                 weight="fw",
+            )
+
+    def test_non_string_psm_did_weight_raises(self, psm_panel):
+        base, panel = psm_panel
+        m = sp.psmatch2(base, treat="d", covariates=["x1", "x2"])
+        with pytest.raises(MethodIncompatibility, match="weight must be a string"):
+            m.psm_did(
+                panel,
+                id="id",
+                y="y",
+                time="time",
+                treat_time=1,
+                treat="d",
+                weight=True,
             )
 
     def test_missing_post_and_time_raises(self, psm_panel):
@@ -617,7 +656,6 @@ class TestPSMDID:
 
 
 class TestFrameBuilder:
-
     def test_builder_basic(self):
         # 2 treated (pos 0,1), 2 control (pos 2,3); 1:1 matching
         idx_t = np.array([0, 1])
@@ -675,7 +713,6 @@ class TestFrameBuilder:
 
 
 class TestPSMatch2SE:
-
     def test_se_method_option_changes_se(self, psm_data):
         ai = sp.match(
             psm_data,
@@ -797,7 +834,6 @@ class TestPSMatch2SE:
 
 
 class TestKernelRadius:
-
     def test_kernel_runs_and_recovers(self, psm_data):
         # a small bandwidth keeps the kernel local enough to recover ATT=2.0;
         # a wide bandwidth would average in far controls and bias upward.
